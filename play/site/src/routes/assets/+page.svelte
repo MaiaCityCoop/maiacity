@@ -7,7 +7,8 @@
 	`#<asset id>` (its UUID), a version or variant of it `#<asset id>/<hash>`.
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
+	import { playCall, stopCall, unlock } from '$lib/call';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import { api, may } from '$lib/api';
@@ -18,7 +19,7 @@
 	type Listed = { id: string; grp: string; slug: string; label: string; head: number; versions: number };
 	type Variant = { name: string; recipe: string; label: string | null };
 	type Version = { id: string; number: number; parents: string[]; recipe: string | null; defaultVariant: string | null; note: string; created: string; author: string | null; approvedBy: string | null; imported: boolean; variants: Variant[]; cardLabel: string | null; triangles: number | null; size: number[] | null; skinned: boolean | null };
-	type Chain = { id: string; grp: string; slug: string; label: string; versions: Version[] };
+	type Chain = { id: string; grp: string; slug: string; label: string; versions: Version[]; sound: string | null; sound_gain: number };
 
 	const viewer = import('$lib/content/assets/VaultAsset.svelte');
 	const partsList = import('$lib/content/assets/Parts.svelte');
@@ -36,6 +37,21 @@
 	let tab = $state<'versions' | 'parts'>('versions');
 	// where the viewer puts what it says of the asset (its readout and panel): the aside, under the name
 	let details = $state<HTMLElement | null>(null);
+
+	// an animal's call (the asset's sound, play's files by hash): played as it is picked, and again from the aside
+	let calling = $state(false);
+	/** an asset picked by a tap or a key (not the page opened on one): its call plays as it comes */
+	let pickedNow = false;
+	const call = (c: Chain) => {
+		if (!c.sound) return;
+		calling = true;
+		playCall(c.sound, c.sound_gain, () => (calling = false)).catch(() => (calling = false));
+	};
+	const hush = () => {
+		stopCall();
+		calling = false;
+	};
+	onDestroy(stopCall);
 
 	onMount(async () => {
 		try {
@@ -55,7 +71,14 @@
 		if (!id || !ready) return;
 		let gone = false;
 		api<Chain>(`/assets/${id}`).then(
-			(c) => !gone && (chain = c),
+			(c) => {
+				if (gone) return;
+				const fresh = chain?.id !== c.id;
+				chain = c;
+				if (fresh) hush();
+				if (fresh && pickedNow) call(c);
+				pickedNow = false;
+			},
 			(e) => !gone && (failed = e.message)
 		);
 		return () => (gone = true);
@@ -76,6 +99,7 @@
 		return [...groups];
 	});
 	const go = (h: string) => {
+		pickedNow = h.split('/')[0] !== chain?.id;
 		location.hash = h;
 		hash = h;
 		picked = null;
@@ -98,7 +122,7 @@
 	});
 </script>
 
-<svelte:window onhashchange={() => (hash = decodeURIComponent(location.hash.slice(1)))} />
+<svelte:window onhashchange={() => (hash = decodeURIComponent(location.hash.slice(1)))} onpointerdown={unlock} onkeydown={unlock} />
 <svelte:head><title>{chain?.label ?? 'Assets'} · maiaCITY play</title></svelte:head>
 
 {#snippet shelf()}
@@ -121,6 +145,9 @@
 			<small>{GROUPS[chain.grp] ?? chain.grp} · owned by Maia City</small>
 			<h3>{chain.label}</h3>
 			<p class="soft">v{shownVersion.number}{info?.variant ? ` · ${info.label.split(': ').at(-1)}` : ''} · {chain.versions.length} version{chain.versions.length === 1 ? '' : 's'}</p>
+			{#if chain.sound}
+				<button class="chip call" class:on={calling} onclick={() => (calling ? hush() : chain && call(chain))} aria-pressed={calling}>{calling ? '■ Stop its call' : '▶ Hear its call'}</button>
+			{/if}
 		</header>
 		<div bind:this={details}></div>
 		<div class="tabs" role="tablist">
@@ -216,6 +243,8 @@
 	.assets :global(.middle > p) { margin: 1rem clamp(1rem, 3vw, 2.4rem); }
 	.none { padding: 0.4rem 0.6rem; font-size: 0.84rem; }
 	.about-head { margin: 0 0 0.9rem 0.35rem; }
+	.call { margin-top: 0.5rem; border: 0; cursor: pointer; font: inherit; font-size: 0.78rem; }
+	.call.on { background: var(--ink); color: var(--paper); }
 	.about-head small { color: var(--accent); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
 	.about-head h3 { margin: 0.15rem 0 0; font-size: 1.15rem; font-family: var(--font-body); font-weight: 600; }
 	.about-head p { margin: 0.1rem 0 0; font-size: 0.8rem; }
