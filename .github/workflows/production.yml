@@ -193,3 +193,12 @@ jobs:
       - name: Check
         run: |
           ssh prod 'for i in 1 2 3 4 5 6; do docker exec maia-city-play bun -e "fetch(\"http://localhost:3000/api/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" && { echo "play-api answers"; docker exec maia-city-play cat /data/import-report.md | head -20; exit 0; }; sleep 5; done; docker logs --tail 80 maia-city-play; exit 1'
+      - name: play.maia.city answers over HTTPS
+        run: |
+          # Caddy fetches the certificate on its own after the reload; wait for it, and on failure show what Caddy says
+          for i in $(seq 1 24); do
+            curl -fsS -m 10 -o /dev/null https://play.maia.city/api/health && { echo "https://play.maia.city answers"; exit 0; }
+            sleep 10
+          done
+          ssh prod 'echo "play blocks Caddy reads: $(docker exec maia-city-caddy grep -c ">>> play.maia.city" /etc/caddy/Caddyfile)"; docker exec maia-city-caddy caddy adapt --config /etc/caddy/Caddyfile --adapter caddyfile 2>/dev/null | grep -o "play.maia.city" | head -1; docker logs --since 30m maia-city-caddy 2>&1 | grep -iE "play.maia.city|error" | tail -40'
+          exit 1
