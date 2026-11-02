@@ -174,3 +174,17 @@ www.{$SITE_ADDRESS:maia.city} {
 	}
 }
 # <<< aven.maia.city
+
+# >>> play.maia.city (play/SPEC.md): the three sandboxes and the asset library on Postgres, one container that
+# serves its site and its /api (play/docker-compose.play.yml, play-api). Added beside legacy, which it doesn't change.
+{$PLAY_ADDRESS:play.maia.city} {
+	import walls
+	header {
+		Content-Security-Policy "frame-ancestors 'self'; object-src 'none'; base-uri 'self'"
+		X-Frame-Options SAMEORIGIN
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), hid=(), bluetooth=()"
+	}
+	encode zstd gzip
+	reverse_proxy play-api:3000
+}
+# <<< play.maia.city
