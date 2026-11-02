@@ -1,6 +1,6 @@
 <!--
 	The page of a world you walk, the same for every one: the world full screen, its bar along the top (./WorldBar.svelte),
-	how to walk at the foot (./WalkHint.svelte), the phone's joystick ($lib/touch/TouchStick), and, while it comes up,
+	the phone's joystick ($lib/touch/TouchStick), and, while it comes up,
 	either a cover (a photo, the world's name and a bar filling step by step, fading out once it is in) or, without one,
 	a small pill saying what it is doing. The page hands it `mount`, which raises the world in the stage and answers it
 	with `move`, `look` and `dispose`; the page keeps that handle itself for anything else it asks of the world.
@@ -14,7 +14,6 @@
 
 	import { onDestroy, onMount } from 'svelte';
 	import TouchStick from '$lib/site/touch/TouchStick.svelte';
-	import WalkHint from './WalkHint.svelte';
 	import WorldBar from './WorldBar.svelte';
 
 	/**
@@ -30,7 +29,6 @@
 	 *   mount: (stage: HTMLDivElement, onProgress: (label: string) => void) => Promise<Walked>,
 	 *   title: string,
 	 *   subtitle?: string,
-	 *   keys?: string,
 	 *   cover?: Cover | null,
 	 *   waiting?: string,
 	 *   ground?: string,
@@ -46,7 +44,6 @@
 		mount,
 		title,
 		subtitle = '',
-		keys,
 		cover = null,
 		waiting = 'Loading the world…',
 		ground = '#1f2a23',
@@ -107,7 +104,6 @@
 	<div class="stage" bind:this={stage} role={label ? 'application' : undefined} aria-label={label} {onpointerdown} {onpointerup}></div>
 	<WorldBar {title} {subtitle} />
 	{#if !cover && status !== ''}<p class="status">{status ?? waiting}</p>{/if}
-	<WalkHint {keys} />
 	<!-- on a phone: the joystick walks, any other finger on the world looks round -->
 	<TouchStick move={(x, y, hurry) => world?.move(x, y, hurry)} look={(dx, dy) => world?.look(dx, dy)} {stage} {taps} />
 	{@render children?.()}

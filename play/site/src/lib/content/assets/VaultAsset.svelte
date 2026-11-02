@@ -26,7 +26,8 @@
 	import Turntable from '$lib/site/app/Turntable.svelte';
 	import { AssetBox } from './box/host.js';
 	import { growth, stageAt } from './grow.js';
-	import { forStage, heroOf, runner } from './hero.js';
+	import { forStage, heroOf, runner, walkOf } from './hero.js';
+	import TouchStick from '$lib/site/touch/TouchStick.svelte';
 	import { valuesOf } from './params.js';
 	import { soilOf } from './soil.js';
 	import { buildName, vaultBuild } from './sources/viewer.js';
@@ -36,15 +37,23 @@
 	/**
 	 * @type {{ source: typeof import('./catalog.js').source, hash: string, title?: string,
 	 *   note?: string, about?: import('svelte').Snippet, catalog?: any, picked?: string | null, solo?: boolean,
-	 *   compact?: boolean, onStir?: (read: () => void) => (() => void) }}
+	 *   compact?: boolean, fill?: boolean, details?: HTMLElement | null, onStir?: (read: () => void) => (() => void) }}
 	 *   `source` the vault's recipes ($avendb/assets.js `vaultSource`), `hash` the recipe shown, `title` and `note`
 	 *   what its entry calls it and says of it, `about` what the page says of its entry, at the foot of the panel;
 	 *   `catalog` its parts as built (null where it lists none), `picked` the part picked, `solo` whether it is shown on
 	 *   its own; `compact`, its name, its moves and views and a short canvas alone, in a card with its own answers
 	 *   ($avendb/Hitl.svelte, an AIP's); `onStir` the page's watch of the device's sync ($avendb/stirs.svelte.js),
-	 *   so a file still arriving is read again as it moves
+	 *   so a file still arriving is read again as it moves; `fill`, the canvas as tall as the page's column; `details`,
+	 *   an element of the page (its aside) that what is said of the asset (the readout, then the panel) goes into
+	 *   instead of round the canvas
 	 */
-	let { source, hash, title = '', note = '', about, catalog = $bindable(null), picked = $bindable(null), solo = true, compact = false, onStir } = $props();
+	let { source, hash, title = '', note = '', about, catalog = $bindable(null), picked = $bindable(null), solo = true, compact = false, fill = false, details = null, onStir } = $props();
+
+	/** a node moved into `target`, an element elsewhere in the page, and taken out with it @param {HTMLElement} node @param {HTMLElement} target */
+	const into = (node, target) => {
+		target.appendChild(node);
+		return { update: (/** @type {HTMLElement} */ t) => t.appendChild(node), destroy: () => node.remove() };
+	};
 
 	const at = $derived(Object.hasOwn(source.index.recipes, hash) ? source.index.recipes[hash] : null);
 	/** what its recipe is built with, as its card declares it; detail is the renderer's */
@@ -114,6 +123,15 @@
 	let boxes = null;
 	const boxesOf = () => (boxes ??= { build: new AssetBox({ engine: source.index.engine }), live: new AssetBox({ engine: source.index.engine }) });
 
+	/** walked in (a building that says where its door is, `view.walk`): the sandboxes' first-person walker */
+	let walking = $state(false);
+	/** @type {null | (() => void)} */
+	let walkIn = null;
+	/** @type {null | (() => void)} */
+	let walkOut = null;
+	/** @type {null | { move: (x: number, y: number, h: boolean) => void, look: (dx: number, dy: number) => void }} */
+	let stick = $state(null);
+
 	onMount(async () => {
 		const box = canvasBox;
 		if (!box) return;
@@ -128,7 +146,8 @@
 			console.error(e);
 			return;
 		}
-		const { THREE, view, renderer, camera, controls, adapt } = up;
+		const { THREE, view, renderer, camera, controls, adapt, resize } = up;
+		const { createWalker, PACE } = await import('$lib/content/sandbox-kit/walker.js');
 		stage = up.stage;
 		if (gone) {
 			stage.dispose();
@@ -150,6 +169,7 @@
 		/** the part the camera was last brought to, if one */
 		let focused = null;
 		show = async (h0, given) => {
+			walkOut?.();
 			const ask = asks.ask();
 			building = true;
 			error = '';
@@ -224,15 +244,79 @@
 		};
 		// a tap, not a drag round it, picks the part under it (or, on nothing, lets go and shows all of it)
 		onTap(renderer.domElement, (x, y) => {
-			if (catalog) picked = stage.pick(x, y);
+			if (catalog && !walking) picked = stage.pick(x, y);
 		});
+
+		// walked in: on the floors and between the walls its own shape has (./hero.js walkOf), from where its door is, its
+		// lamps lit; Escape, or Step outside, and the turntable is back where it was
+		/** @type {any} */
+		let walker = null;
+		const lamps = [];
+		/** the turntable's camera, kept while walking */
+		let was = null;
+		walkIn = () => {
+			const w = hero?.view?.walk;
+			if (!w || walker) return;
+			const floors = walkOf(hero.root);
+			was = { fov: camera.fov, near: camera.near, far: camera.far, turn: camera.userData.fov };
+			controls.enabled = false;
+			walker = createWalker(camera, renderer.domElement, {
+				x: w.x,
+				z: w.z,
+				yaw: w.yaw,
+				pitch: -0.05,
+				walk: PACE.walk,
+				hurry: PACE.hurry,
+				canStand: floors.canStand,
+				floorAt: floors.floorAt,
+				onKey: (k, down) => {
+					if (k !== 'escape' || !down) return false;
+					walkOut?.();
+					return true;
+				}
+			});
+			for (const [x, y, z] of w.lamps ?? []) {
+				const lamp = new THREE.PointLight('#fff1dc', 2.2, 6, 2);
+				lamp.position.set(x, y, z);
+				stage.scene.add(lamp);
+				lamps.push(lamp);
+			}
+			camera.userData.fov = 0; // a walk sees as a walker does, upright or not
+			camera.fov = 70;
+			camera.near = 0.05;
+			camera.far = 400;
+			camera.updateProjectionMatrix();
+			stick = { move: (x, y, h) => walker?.move(x, y, h), look: (dx, dy) => walker?.look(dx, dy) };
+			walking = true;
+		};
+		walkOut = () => {
+			if (!walker) return;
+			walker.dispose();
+			walker = null;
+			stick = null;
+			for (const lamp of lamps.splice(0)) lamp.removeFromParent();
+			if (was) {
+				camera.userData.fov = was.turn;
+				camera.fov = was.fov;
+				camera.near = was.near;
+				camera.far = was.far;
+				camera.updateProjectionMatrix();
+			}
+			controls.enabled = true;
+			resize();
+			walking = false;
+			cam.frame(true);
+		};
 
 		let slow = 0;
 		const stop = loop((wall, dt, now) => {
 			adapt(now);
 			stage.update(dt);
-			cam.step(wall, growing);
-			controls.update();
+			if (walker) walker.update(dt);
+			else {
+				cam.step(wall, growing);
+				controls.update();
+			}
 			// growing on: built where it has grown to, each time its last build is shown
 			if (growing && grower && hero) {
 				grower.on(wall);
@@ -254,6 +338,7 @@
 			}
 		});
 		dispose = () => {
+			walkOut?.();
 			stop();
 			asks.drop();
 			letGo(hero);
@@ -353,7 +438,7 @@
 	};
 	/** a stage on or back (← →), grown (space): the keys a plant's page has always had */
 	const key = (e) => {
-		if (!staged || !hero || e.target?.closest?.('input, textarea, select, [contenteditable]')) return;
+		if (walking || !staged || !hero || e.target?.closest?.('input, textarea, select, [contenteditable]')) return;
 		const at = Math.round(values.stage);
 		if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
 			growing = false;
@@ -367,19 +452,7 @@
 
 <svelte:window onkeydown={key} />
 
-<Turntable name="vault-asset" inline {compact} bind:canvas={canvasBox}>
-	{#snippet head()}
-		<h2 class="name">{title || source.nameOf?.(hash) || 'An asset'}{#if stageName}<small>{` · ${stageName}`}</small>{/if}</h2>
-		{#if hero && !error}
-			<div class="chips">
-				{@render paramTabs(params, values, (id, v) => ((growing = false), setParam(id, v)))}
-				{@render moveChips(moves, (k) => (k === 'grow' ? growing : moving === k), lab, playMove)}
-				{#if hero.view.ticks || hero.buildBy}<button class="chip" class:on={!modes.run} onclick={() => setMode('run')}>{modes.run ? 'Pause' : 'Play'}</button>{/if}
-				{@render viewChips(views, (k) => (k === 'explode' && rigApart ? drawnApart : modes[k]), setMode)}
-			</div>
-		{/if}
-	{/snippet}
-	{#snippet panel()}
+{#snippet panelBody()}
 		{#if params.some((p) => !tabbed(p))}
 			<div class="built">
 				<span class="label">Built with</span>
@@ -395,8 +468,8 @@
 				{#if from}<small>{from === 'cache' ? 'Its file checked in the vault, its build from this device’s cache' : 'Built in the box from its entry’s file'}</small>{/if}
 			</div>
 		{/if}
-	{/snippet}
-	{#snippet readout()}
+{/snippet}
+{#snippet readoutBody()}
 		{#if lab && hero && !error}{@render heroReading(lab, reading)}{/if}
 		{@render longNote(said, more, () => (more = !more))}
 		{#if error}
@@ -405,8 +478,33 @@
 			<span>{#if rise}{measure(rise[0])} above the soil · {measure(rise[1])} below · {measure(Math.max(size[0], size[2]))} across{:else}{measure(Math.max(size[0], size[2]))} long · {measure(size[1])} high{/if}</span>
 		{/if}
 		{#if scale[0] > 0 && hero && !error}{@render scaleBar(scale)}{/if}
-		<small>Drag to turn round it · pinch or scroll to come closer{catalog ? ' · tap a part to see it on its own' : ''}</small>
+		{#if walking}<small>Drag to look · WASD or the joystick to walk · Shift to hurry · Esc to step outside</small>
+		{:else}<small>Drag to turn round it · pinch or scroll to come closer{catalog ? ' · tap a part to see it on its own' : ''}{hero?.view?.walk ? ' · Step inside to walk in' : ''}</small>{/if}
+{/snippet}
+
+{#if details}
+	<div class="details" use:into={details}>
+		<div class="said">{@render readoutBody()}</div>
+		{#if params.some((p) => !tabbed(p)) || lab || about}<div class="said">{@render panelBody()}</div>{/if}
+	</div>
+{/if}
+
+<Turntable name="vault-asset" inline {compact} {fill} panel={details ? undefined : panelBody} readout={details ? undefined : readoutBody} bind:canvas={canvasBox}>
+	{#snippet head()}
+		<h2 class="name">{title || source.nameOf?.(hash) || 'An asset'}{#if stageName}<small>{` · ${stageName}`}</small>{/if}</h2>
+		{#if hero && !error}
+			<div class="chips">
+				{@render paramTabs(params, values, (id, v) => ((growing = false), setParam(id, v)))}
+				{@render moveChips(moves, (k) => (k === 'grow' ? growing : moving === k), lab, playMove)}
+				{#if hero.view.ticks || hero.buildBy}<button class="chip" class:on={!modes.run} onclick={() => setMode('run')}>{modes.run ? 'Pause' : 'Play'}</button>{/if}
+				{@render viewChips(views, (k) => (k === 'explode' && rigApart ? drawnApart : modes[k]), setMode)}
+				{#if hero.view?.walk}<button class="chip walk" class:on={walking} onclick={() => (walking ? walkOut?.() : walkIn?.())}>{walking ? 'Step outside' : 'Step inside'}</button>{/if}
+			</div>
+		{/if}
 	{/snippet}
+	{#if walking && stick}
+		<TouchStick move={stick.move} look={stick.look} stage={canvasBox} />
+	{/if}
 	{#if part && !error}
 		<div class="picked" role="status">
 			<span><b>{part.label}</b>{solo ? ' on its own' : ''}</span>
@@ -432,6 +530,28 @@
 </Turntable>
 
 <style>
+	/* what is said of it, in the page's aside: two cards */
+	.details {
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
+		margin: 0 0 1rem;
+	}
+
+	.said {
+		display: flex;
+		flex-direction: column;
+		gap: 0.45rem;
+		padding: 0.7rem 0.85rem;
+		border-radius: 12px;
+		background: #fff;
+		font-size: 0.84rem;
+	}
+
+	.said:not(:has(*)) {
+		display: none;
+	}
+
 	.built,
 	.lab,
 	.about {

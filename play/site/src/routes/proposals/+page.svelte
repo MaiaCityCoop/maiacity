@@ -2,6 +2,13 @@
 	import { onMount } from 'svelte';
 	import { api, may } from '$lib/api';
 	import { session } from '$lib/session.svelte';
+	import { goto } from '$app/navigation';
+
+	// admins only for now (Samuel 2026-11-02): anyone else is taken back to the dashboard
+	const admin = $derived(session.me?.level === 'admin');
+	onMount(() => {
+		if (!admin) goto('/', { replaceState: true });
+	});
 
 	type P = { id: string; asset_id: string; label: string; grp: string; slug: string; version_label: string | null; number: number; status: string; note: string; author: string | null; decided_by: string | null; created: string };
 	let list = $state<P[]>([]);
@@ -10,7 +17,9 @@
 	const load = async () => {
 		try { list = await api<P[]>(`/proposals${status === 'all' ? '' : `?status=${status}`}`); error = ''; } catch (e) { error = (e as Error).message; }
 	};
-	onMount(load);
+	onMount(() => {
+		if (admin) load();
+	});
 	async function act(id: string, verdict: string) {
 		try { await api(`/proposals/${id}/${verdict}`, { method: 'POST' }); await load(); } catch (e) { error = (e as Error).message; }
 	}
@@ -24,7 +33,7 @@
 	let note = $state('');
 	let sent = $state('');
 	onMount(async () => {
-		if (may(session.me, 'propose', 'asset_version')) assets = await api<Listed[]>('/assets');
+		if (admin && may(session.me, 'propose', 'asset_version')) assets = await api<Listed[]>('/assets');
 	});
 	const chosen = $derived(assets.find((a) => a.id === target));
 	async function propose() {
@@ -42,6 +51,7 @@
 
 <svelte:head><title>Proposals · maiaCITY play</title></svelte:head>
 
+{#if admin}
 <main class="page">
 	<h1>Proposals</h1>
 	<p class="muted">New versions of Maia City's assets: citizens propose them, admins accept or reject them. Of two proposals on the same version, the first accepted goes in and the other is stale: rebuilt and proposed again.</p>
@@ -77,6 +87,7 @@
 		</article>
 	{/each}
 </main>
+{/if}
 
 <style>
 	.tabs { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 1.5rem 0; }

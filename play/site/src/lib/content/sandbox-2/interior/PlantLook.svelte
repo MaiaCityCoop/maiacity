@@ -14,6 +14,7 @@
 	/** @type {HTMLDivElement} */
 	let box;
 	let growing = $state(true);
+	let failed = $state(false);
 	/** @type {((kind: import('./sandbox5.js').Kind) => void) | null} */
 	let show = null;
 	/** @type {(() => void) | null} */
@@ -74,12 +75,14 @@
 			const asks = asker();
 			show = async (k) => {
 				growing = true;
+				failed = false;
 				const mine = asks.ask();
 				let got;
 				try {
 					got = await loadAsset(buildAt(`${refOf(k)}&detail=${TIERS.look.level}`));
 				} catch (err) {
 					console.warn('plant look: not built', err);
+					if (asks.is(mine)) failed = true;
 					return;
 				}
 				if (!asks.is(mine) || gone) return letGo(got.obj);
@@ -128,13 +131,14 @@
 
 	// another plant picked while the card is open: grow that one
 	$effect(() => {
-		const k = { id: kind.id, v: kind.v, ...(kind.pin ? { pin: kind.pin } : {}), stage: kind.stage, seed: kind.seed };
+		// its asset too: the build it is grown from (./flora.js refOf); without it nothing can be built
+		const k = { id: kind.id, v: kind.v, ...(kind.asset ? { asset: kind.asset } : {}), stage: kind.stage, seed: kind.seed };
 		show?.(k);
 	});
 </script>
 
 <div class="look" bind:this={box}>
-	{#if growing}<p>Growing it…</p>{/if}
+	{#if failed}<p>Couldn't grow it</p>{:else if growing}<p>Growing it…</p>{/if}
 </div>
 
 <style>
