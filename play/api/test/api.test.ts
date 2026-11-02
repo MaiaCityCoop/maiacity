@@ -179,19 +179,30 @@ suite("play API", () => {
     expect((await call("ada", "POST", `/api/proposals/${b.data.id}/reject`)).data.status).toBe("rejected");
   });
 
-  test("an invite makes a traveler a citizen, once", async () => {
+  test("sign-up is by invite only: an invite makes a traveler, once", async () => {
     expect((await call("trav", "POST", "/api/invites")).status).toBe(403);
     const inv = await call("ada", "POST", "/api/invites");
     expect(inv.status).toBe(201);
+    expect(inv.data.level).toBe("traveler");
     expect((await call(null, "GET", `/api/invites/${inv.data.code}`)).data.open).toBe(true);
-    expect((await call("trav", "POST", `/api/invites/${inv.data.code}/claim`)).data.level).toBe("citizen");
-    expect((await call("trav", "GET", "/api/me")).data.level).toBe("citizen");
-    expect((await call("cit", "POST", `/api/invites/${inv.data.code}/claim`)).status).toBe(410);
+    const none = await call(null, "POST", "/api/passkey/register/options", { name: "Newcomer" });
+    expect(none.status).toBe(400);
+    expect(none.data.error).toContain("invite-only");
+    expect((await call(null, "POST", "/api/passkey/register/options", { name: "Newcomer", invite: "nope" })).status).toBe(400);
+    expect((await call(null, "POST", "/api/passkey/register/options", { name: "Newcomer", invite: inv.data.code })).data.challenge).toBeTruthy();
+    // the passkey made (no browser here): the human, a traveler let in by the admin who made the invite, the invite used
+    const h = await createHuman(db, "Newcomer", undefined, inv.data.code);
+    const { rows } = await db.query(`SELECT level, granted_by, via_invite FROM play.memberships WHERE human_id = $1`, [h.id]);
+    expect(rows[0]).toMatchObject({ level: "traveler", granted_by: who.ada.id, via_invite: inv.data.code });
+    expect((await call(null, "GET", `/api/invites/${inv.data.code}`)).data.open).toBe(false);
+    await expect(createHuman(db, "Second", undefined, inv.data.code)).rejects.toThrow("used up");
+    expect((await db.query(`SELECT 1 FROM play.humans WHERE name = 'Second'`)).rows.length).toBe(0);
+    expect((await call("trav", "POST", `/api/invites/${inv.data.code}/claim`)).status).toBe(404);
   });
 
   test("admins run the members, and one admin always stays", async () => {
     expect((await call("cit", "GET", "/api/members")).status).toBe(403);
-    expect((await call("ada", "GET", "/api/members")).data.length).toBe(4);
+    expect((await call("ada", "GET", "/api/members")).data.length).toBe(5);
     expect((await call("ada", "POST", `/api/members/${who.ada.id}/level`, { level: "traveler" })).status).toBe(409);
     expect((await call("ada", "POST", `/api/members/${who.cit2.id}/level`, { level: "traveler" })).data.level).toBe("traveler");
   });

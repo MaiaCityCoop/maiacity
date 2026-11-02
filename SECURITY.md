@@ -1,6 +1,6 @@
 # Security
 
-Found a weakness in maiaCITY (the site at maia.city, its API, avenDB and its server, or The OS)? Please tell us
+Found a weakness in maiaCITY (the site at maia.city, play at play.maia.city, its API or its server)? Please tell us
 privately, never in a public issue, pull request or discussion: this repository is public.
 
 ## How to report
@@ -14,8 +14,7 @@ can, keep you posted while we fix it, and credit you when the fix is out, if you
 
 ## Please
 
-- Test only against your own accounts and vaults, or a local build; never with load against maia.city, api.maia.city
-  or avendb.maia.city.
+- Test only against your own accounts, or a local build; never with load against maia.city or play.maia.city.
 - Don't read, change or keep anyone else's data.
 - Give us time to fix it before you speak about it.
 

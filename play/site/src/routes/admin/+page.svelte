@@ -31,17 +31,19 @@
 	async function makeInvite() {
 		try { invite = await api('/invites', { method: 'POST' }); } catch (e) { error = (e as Error).message; }
 	}
-	const link = $derived(invite ? `${location.origin}/game/?invite=${invite.code}` : '');
+	// sign-up is by invite only: the link opens play's sign-in page with the sign-up, and makes a traveler
+	const link = $derived(invite ? `${location.origin}/?invite=${invite.code}` : '');
 </script>
 
 <svelte:head><title>Admin · maiaCITY play</title></svelte:head>
 
 <main class="page">
 	<h1>Maia City</h1>
-	<p class="muted">The coop that owns every asset. Its admins are its owners; everyone who signs up is a traveler; an invite makes a citizen.</p>
+	<p class="muted">The coop that owns every asset. Its admins are its owners; sign-up is by invite, and makes a traveler; an admin makes a citizen.</p>
 	{#if error}<p class="error">{error}</p>{/if}
 	<section class="card box">
-		<h2>Invite a citizen</h2>
+		<h2>Invite a traveler</h2>
+		<p class="muted">Maia City is invite-only: the link lets one person sign up, as a traveler. Make a citizen with their level below.</p>
 		<button class="btn mustard" onclick={makeInvite}>Make an invite link</button>
 		{#if invite}<p><code>{link}</code><br /><span class="muted">Works once, until {new Date(invite.expires).toLocaleDateString()}.</span></p>{/if}
 	</section>

@@ -1,8 +1,0 @@
-# avenSANDBOX's runs (screenshots, reports), the page's builds and deliverables, installs made outside the box, and
-# Rust's and Lean's build folders
-runs/
-dist/
-deliverables/
-node_modules/
-target/
-.lake/
