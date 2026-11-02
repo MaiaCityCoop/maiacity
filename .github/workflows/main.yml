@@ -1,0 +1,23 @@
+# main: play's checks (play/SPEC.md), on a pull request to main and on what lands there. The API's tests against a real
+# Postgres, its types, and the site's build. A draft runs nothing (the repository's rule); marking it ready runs them.
+name: main
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: main-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  play:
+    name: play
+    if: github.event_name == 'push' || !github.event.pull_request.draft
+    uses: ./.github/workflows/play-checks.yml

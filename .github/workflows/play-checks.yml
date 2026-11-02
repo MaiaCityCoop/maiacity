@@ -1,0 +1,41 @@
+# play's checks, called by main.yml and production.yml: the API's tests against a real Postgres (play/api/test), its
+# types, and the site's build (play/site), which also holds the copied modules to resolving.
+name: play checks
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: API and site
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: play
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - name: The API
+        working-directory: play/api
+        env:
+          TEST_DATABASE_URL: postgres://postgres:play@localhost:5432/postgres
+        run: |
+          bun install --frozen-lockfile
+          bunx tsc --noEmit -p .
+          bun test
+      - name: The site
+        working-directory: play/site
+        run: |
+          bun install --frozen-lockfile
+          bun run build
