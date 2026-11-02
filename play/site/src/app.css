@@ -86,3 +86,4 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible { outline: 2px sol
 }
 .foot-stack { display: flex; flex-direction: column-reverse; align-items: center; gap: 6px; width: min(36rem, 100%); pointer-events: auto; }
 .foot-stack:empty { display: none; }
+.foot-stack > * { max-width: 100%; flex-shrink: 0; pointer-events: auto; }
