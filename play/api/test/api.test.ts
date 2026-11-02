@@ -196,6 +196,23 @@ suite("play API", () => {
     expect((await call("ada", "POST", `/api/members/${who.cit2.id}/level`, { level: "traveler" })).data.level).toBe("traveler");
   });
 
+  test("an admin renames and removes a member, never themselves or the history's names", async () => {
+    expect((await call("cit", "POST", `/api/members/${who.trav.id}/name`, { name: "Wanda" })).status).toBe(403);
+    expect((await call("ada", "POST", `/api/members/${who.trav.id}/name`, { name: " x " })).status).toBe(400);
+    expect((await call("ada", "POST", `/api/members/${who.trav.id}/name`, { name: "  Wanda   Walker " })).data.name).toBe("Wanda Walker");
+    expect((await call("ada", "DELETE", `/api/members/${who.ada.id}`)).status).toBe(409);
+    expect((await call("cit", "DELETE", `/api/members/${who.trav.id}`)).status).toBe(403);
+    // the citizen made a version above: kept, with their name on it
+    const kept = await call("ada", "DELETE", `/api/members/${who.cit.id}`);
+    expect(kept.status).toBe(409);
+    expect(kept.data.error).toContain("asset version");
+    const before = (await call("ada", "GET", "/api/members")).data.length;
+    expect((await call("ada", "DELETE", `/api/members/${who.trav.id}`)).data.removed).toBe(true);
+    expect((await call("ada", "GET", "/api/members")).data.length).toBe(before - 1);
+    expect((await call("ada", "DELETE", `/api/members/${who.trav.id}`)).status).toBe(404);
+    expect((await call("trav", "GET", "/api/me")).status).toBe(401);
+  });
+
   test("only an admin looks into the database, read only, its secrets never sent", async () => {
     expect((await call(null, "GET", "/api/tables")).status).toBe(401);
     expect((await call("cit", "GET", "/api/tables")).status).toBe(403);
@@ -207,7 +224,7 @@ suite("play API", () => {
     for (const r of secrets.rows) expect(r.value).toEqual({ hidden: true });
     const humans = (await call("ada", "GET", "/api/tables/humans?limit=2&offset=1")).data;
     expect(humans.rows.length).toBe(2);
-    expect(humans.total).toBeGreaterThanOrEqual(4);
+    expect(humans.total).toBeGreaterThanOrEqual(3);
     expect((await call("ada", "GET", "/api/tables/pg_user")).status).toBe(404);
     expect((await call("ada", "GET", `/api/tables/${encodeURIComponent('humans"; DROP TABLE play.humans; --')}`)).status).toBe(404);
   });
