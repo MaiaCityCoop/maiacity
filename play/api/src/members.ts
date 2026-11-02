@@ -1,5 +1,5 @@
-// Maia City's members (play/SPEC.md §1, §3): everyone who signs up is a traveler; an admin's invite makes a citizen
-// (for the coming game); admins are the coop's owners. An admin changes levels, and Maia City always keeps one admin.
+// Maia City's members (play/SPEC.md §1, §3): sign-up is by invite only, and an invite makes a traveler; becoming a
+// citizen is an admin's doing; admins are the coop's owners. An admin changes levels, and Maia City always keeps one admin.
 import { randomBytes } from "node:crypto";
 import type { Db, Queryable } from "./pg";
 import { COOP, Denied, must, type Level, type Me } from "./access";
@@ -97,31 +97,13 @@ export async function makeInvite(db: Queryable, me: Me | null) {
   const admin = must(me, "manage", "invites");
   const code = randomBytes(18).toString("base64url");
   const { rows } = await db.query<{ expires_at: Date }>(
-    `INSERT INTO play.invites (code, coop_id, level, made_by, expires_at) VALUES ($1, $2, 'citizen', $3, now() + make_interval(days => $4)) RETURNING expires_at`,
+    `INSERT INTO play.invites (code, coop_id, level, made_by, expires_at) VALUES ($1, $2, 'traveler', $3, now() + make_interval(days => $4)) RETURNING expires_at`,
     [code, COOP, admin.id, INVITE_DAYS],
   );
-  return { code, level: "citizen", expires: rows[0].expires_at };
+  return { code, level: "traveler", expires: rows[0].expires_at };
 }
 
 export async function inviteOpen(db: Queryable, code: string) {
   const { rows } = await db.query(`SELECT 1 FROM play.invites WHERE code = $1 AND used_by IS NULL AND expires_at > now()`, [code]);
   return !!rows[0];
-}
-
-/** a signed-in human claims an invite: a traveler becomes a citizen (an admin stays an admin); an invite works once */
-export async function claimInvite(db: Db, me: Me | null, code: string) {
-  if (!me) throw new Denied("Please sign in first.", 401);
-  return db.transaction(async (tx) => {
-    const { rows } = await tx.query(
-      `UPDATE play.invites SET used_by = $2, used_at = now() WHERE code = $1 AND used_by IS NULL AND expires_at > now() RETURNING made_by`,
-      [code, me.id],
-    );
-    if (!rows[0]) throw new MemberError("This invite is used up or has expired.", 410);
-    await tx.query(
-      `UPDATE play.memberships SET level = 'citizen', granted_by = $3, granted_at = now(), via_invite = $4
-        WHERE coop_id = $1 AND human_id = $2 AND level = 'traveler'`,
-      [COOP, me.id, (rows[0] as any).made_by, code],
-    );
-    return { level: me.level === "admin" ? "admin" : "citizen" };
-  });
 }

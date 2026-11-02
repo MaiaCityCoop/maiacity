@@ -15,8 +15,9 @@ export async function loadMe() {
 	return session.me;
 }
 
-export async function signUp(name: string) {
-	const options = await api('/passkey/register/options', { json: { name } });
+/** sign-up is by invite only: `invite` the code of an admin's invite link, used up as the passkey is made */
+export async function signUp(name: string, invite: string) {
+	const options = await api('/passkey/register/options', { json: { name, invite } });
 	const response = await startRegistration({ optionsJSON: options });
 	await api('/passkey/register/finish', { json: response });
 	return loadMe();
