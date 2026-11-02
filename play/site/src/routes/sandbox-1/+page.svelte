@@ -65,7 +65,6 @@
 	}}
 	title="Sandbox 1"
 	subtitle="A dome cell · grown from our plants"
-	keys="Drag to look · WASD to walk · Shift to hurry · walk through any door to step inside"
 	cover={{
 		image: asset('9e442ce81d3237243f561780fa6d3aeeeb7f1d83ea8e68f3a166650739c398b2.jpg') /* Day 03: a dome from inside */,
 		eyebrow: 'Sandbox 1',
