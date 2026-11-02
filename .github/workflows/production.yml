@@ -1,6 +1,6 @@
-# production: what is released. A pull request to production takes main of this repository only ('Only from main')
-# and runs play's checks; a push to production (main merged in) runs them again on the commit that landed and then
-# deploys play to play.maia.city (play/SPEC.md §9): the image to GHCR, the DNS record, the server — play's role and
+# production: what is released. A pull request to production takes main of this repository only ('Only from main'),
+# and play's checks run once, on main (main.yml): here 'Main is green' only reads their result for main's commit, on
+# the pull request and again on the push. A push to production (main merged in) then deploys play to play.maia.city (play/SPEC.md §9): the image to GHCR, the DNS record, the server — play's role and
 # schema in the same Postgres, play-api beside the running containers (--no-deps), the import, Caddy answering
 # play.maia.city. As legacy's release ran: GitHub Actions with the DEPLOY_SSH_KEY secret. The release pipelines are this
 # repository's again (Samuel 2026-11-02; theOS's are parked in .github/workflows-theos/).
@@ -42,14 +42,44 @@ jobs:
           echo "::error::production takes changes from main of $REPO only; this pull request comes from ${HEAD_REPO:-?}:${HEAD_REF:-?}"
           exit 1
 
-  checks:
-    name: play
+  # play's checks ran on main's commit (main.yml); read their result instead of running them again. On the pull
+  # request that commit is its head; on the push, main's side of the merge (the merge's second parent).
+  main-green:
+    name: Main is green
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    uses: ./.github/workflows/play-checks.yml
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: play's checks passed on main's commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_SHA: ${{ github.event.pull_request.head.sha }}
+          CHECK: play / API and site
+        run: |
+          sha=$PR_SHA
+          [ -n "$sha" ] || sha=$(git rev-parse -q --verify HEAD^2 || git rev-parse HEAD)
+          echo "main's commit: $sha"
+          for i in $(seq 1 80); do
+            runs=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$REPO/commits/$sha/check-runs?check_name=$(jq -rn --arg c "$CHECK" '$c|@uri')&per_page=100")
+            jq -e '[.check_runs[] | select(.conclusion == "success")] | length > 0' <<< "$runs" > /dev/null && { echo "'$CHECK' passed on $sha"; exit 0; }
+            if jq -e '.check_runs | length > 0 and all(.status == "completed")' <<< "$runs" > /dev/null; then
+              echo "::error::'$CHECK' did not pass on $sha: $(jq -r '[.check_runs[].conclusion] | join(", ")' <<< "$runs")"; exit 1
+            fi
+            sleep 10
+          done
+          echo "::error::no finished '$CHECK' on $sha after 13 minutes"; exit 1
 
   image:
     name: The image
-    needs: checks
+    needs: main-green
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30

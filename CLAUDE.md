@@ -4,8 +4,9 @@
 
 theOS's workflows (`theos.yml`, `theos-undo.yml`, `avensandbox-image.yml`) are parked in `.github/workflows-theos/` and
 don't run. What runs: `.github/workflows/main.yml` (play's checks on a pull request to main and on main) and
-`.github/workflows/production.yml` (a pull request to production takes main only and runs play's checks; a push to
-production deploys play to play.maia.city: image, DNS record, server). Changes go to main by pull request, then main is
+`.github/workflows/production.yml` (a pull request to production takes main only; play's checks run once, on main,
+and production only reads that they passed for main's commit; a push to production deploys play to play.maia.city:
+image, DNS record, server). Changes go to main by pull request, then main is
 merged into production, which deploys. play lives in `play/` (`play/SPEC.md`). The sections below describe earlier
 flows, kept for their history.
 
