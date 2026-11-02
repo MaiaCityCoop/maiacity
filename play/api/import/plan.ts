@@ -288,7 +288,7 @@ export const SANDBOX_3: Record<string, string> = {
   van: "things/travel-van@1",
   "stand-in": "actors/stand-in@11",
   "elder-woman": "actors/elder-woman",
-  // the village's buildings by the old shed (Samuel 2026-11-02): the four shipping containers and the glamping dome,
+  // our buildings round the tent (Samuel 2026-11-02): the four shipping containers and the glamping dome,
   // each at its newest version
   containerKitchen: "buildings/container-kitchen",
   containerSanitary: "buildings/container-sanitary",
