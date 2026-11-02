@@ -28,6 +28,7 @@ import { flow, pond, shore, stream } from './water'
 import { createWorldRenderer } from '$lib/content/render/world.js'
 import { createSky } from '$lib/content/sandbox-kit/sky.js'
 import { createWalker } from '$lib/content/sandbox-kit/walker.js'
+import { createAvatar } from '$lib/avatar'
 import { createObstacles } from '$lib/content/sandbox-kit/obstacles.js'
 import { connectFilm, filmDraws, filmHoldsSize, filmPlays, worldTime } from '$lib/content/sandbox-kit/film.js'
 import { createStream, type View } from '$lib/content/sandbox-kit/stream.js'
@@ -1149,6 +1150,9 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		floorAt: (x, z, ground) => floorHere(x, z, ground)
 	})
 	const pos = walker.position
+	// play: you walk the cell as someone new each visit, seen from behind ($lib/avatar.ts)
+	const avatar = createAvatar({ renderer, camera, scene })
+	const avatarPose = () => ({ x: pos.x, feet: walker.feet(), z: pos.z, yaw: walker.yaw(), pitch: walker.pitch() })
 	// for a look round from the console (and the checks that photograph the cell): __walker.place(x, z, yaw, pitch)
 	;(window as unknown as { __walker?: typeof walker }).__walker = walker
 
@@ -1351,7 +1355,9 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		if (!running) return
 		const now = performance.now()
 		// walk (or, while the film camera holds it, fly); the sun's shadows follow the camera round the cell
-		walker.update(Math.min(0.1, (now - last) / 1000))
+		const dt = Math.min(0.1, (now - last) / 1000)
+		walker.update(dt)
+		if (!walker.flying()) avatar.update(dt, avatarPose(), camera)
 		sky.follow(camera.position.x, camera.position.z)
 		last = now
 		const t = worldTime() ?? (now - clock0) / 1000
@@ -1382,9 +1388,11 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		frame = requestAnimationFrame(tick)
 	}
 	walker.update(0)
+	avatar.update(0, avatarPose(), camera)
 	sky.follow(camera.position.x, camera.position.z)
 	// what the library's assets are built from, there before the first frame
 	await library.ready()
+	await avatar.ready()
 	// for a look from the console at what the renderers draw and hold: __assets.stats()
 	;(window as unknown as { __assets?: unknown }).__assets = { stats: () => ({ out: plantsOut?.assets.stats(), in: plantsIn?.assets.stats(), library: library.assets.stats() }) }
 	// Sandbox 5: the plants near where you stand at their finer shapes before the first frame, as they always were
@@ -1599,6 +1607,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			sound.dispose()
 			world.disconnect()
 			walker.dispose()
+			avatar.dispose()
 			sky.dispose()
 			stage.dispose()
 		}
