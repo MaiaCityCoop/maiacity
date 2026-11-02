@@ -1,9 +1,10 @@
-// The game's world map, grown from a seed: a river, five biomes, and the plots (Grundstücke) people will build on.
+// The game's world map, grown from a seed: a river, a few lakes, five biomes, and the plots (Grundstücke) people will
+// build on.
 //
 // The plots are the cells of a jittered hex grid cut by Voronoi (each one a soft, slightly irregular hexagon), drawn
 // inset so that pale roads run between them and with rounded corners. A cell's biome comes from two noise fields
-// (height and wetness) and its distance to the river; the outer ring of cells and the river's own cells stay wild
-// land. The same seed always gives the same map. Nothing here touches the DOM: the map is data plus one SVG string,
+// (height and wetness) and its distance to water; the outer ring of cells and the cells under the river and the lakes
+// stay wild land, and a plot by the water ends at its shore. The same seed always gives the same map. Nothing here touches the DOM: the map is data plus one SVG string,
 // so the page draws it and a script can render it too.
 //
 // Scale: 1 unit = 1 m, so a plot is about 1.5 ha.
@@ -13,7 +14,7 @@ export type Biome = 'grass' | 'forest' | 'sand' | 'mountain' | 'river';
 
 /** what each biome is and what it gives (the ten base resources of maia/content/aven-city/GAME-MECHANICS.md) */
 export const BIOMES: Record<Biome, { label: string; gives: [string, string]; colour: string }> = {
-	river: { label: 'River', gives: ['Water', 'Clay'], colour: '#4f8a8b' },
+	river: { label: 'Water', gives: ['Water', 'Clay'], colour: '#4f8a8b' },
 	forest: { label: 'Forest', gives: ['Wood', 'Herbs'], colour: '#3f5e4a' },
 	grass: { label: 'Grassland', gives: ['Grain', 'Fibre'], colour: '#a8b88a' },
 	sand: { label: 'Sand', gives: ['Sand', 'Sun'], colour: '#e0c27f' },
@@ -45,6 +46,7 @@ const DX = 150; // cell spacing across
 const DY = 116; // and down: the ground is seen at a slant, so cells are wider than deep
 const GAP = 7; // half a road
 const BANK = 42; // half the river with its banks
+const SHORE = 24; // a lake's shore, beyond its water
 const LAND = '#f5eedf';
 
 const FILL: Record<Biome, string> = {
@@ -193,6 +195,17 @@ function smoothPath(pts: P[]): string {
 		d += `C${f(p1[0] + (p2[0] - p0[0]) / 6)} ${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)} ${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])} ${f(p2[1])}`;
 	}
 	return d;
+}
+
+/** a smooth closed path through points */
+function smoothLoop(pts: P[]): string {
+	const n = pts.length, at = (i: number) => pts[(i + n) % n];
+	let d = `M${f(pts[0][0])} ${f(pts[0][1])}`;
+	for (let i = 0; i < n; i++) {
+		const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
+		d += `C${f(p1[0] + (p2[0] - p0[0]) / 6)} ${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)} ${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])} ${f(p2[1])}`;
+	}
+	return d + 'Z';
 }
 
 function mix(a: string, b: string, t: number): string {
@@ -356,6 +369,42 @@ export function generateMap(seed: string): WorldMap {
 		}
 	}
 
+	// the lakes: two to four soft blobs, in low land and away from the river and from each other
+	const lakes: { c: P; r: number; ring: P[] }[] = [];
+	const lakeCount = 2 + Math.floor(rand() * 3);
+	for (let n = 0; n < lakeCount; n++) {
+		let best: { c: P; r: number } | null = null, low = Infinity;
+		for (let t = 0; t < 40; t++) {
+			const r = 80 + rand() * 90;
+			const c: P = [WIDTH * (0.12 + rand() * 0.76), HEIGHT * (0.14 + rand() * 0.72)];
+			if (nearest(river, c).d < r + DX * 1.6) continue;
+			if (lakes.some((l) => Math.hypot(l.c[0] - c[0], l.c[1] - c[1]) < l.r + r + DX * 2.2)) continue;
+			const h = height(c[0] / 700, c[1] / 700);
+			if (h < low) {
+				low = h;
+				best = { c, r };
+			}
+		}
+		if (!best) continue;
+		const p1 = rand() * 6.3, p2 = rand() * 6.3, p3 = rand() * 6.3;
+		const ring: P[] = [];
+		for (let i = 0; i < 40; i++) {
+			const a = (i / 40) * Math.PI * 2;
+			const rr = best.r * (1 + 0.2 * Math.sin(2 * a + p1) + 0.12 * Math.sin(3 * a + p2) + 0.06 * Math.sin(5 * a + p3));
+			ring.push([best.c[0] + rr * Math.cos(a), best.c[1] + rr * Math.sin(a) * 0.72]);
+		}
+		lakes.push({ ...best, ring });
+	}
+
+	/** every shore a cell might meet: the river's, and each lake's (inside a lake counts as on it) */
+	const shores = (c: P) => [
+		{ ...nearest(river, c), margin: BANK, inside: false },
+		...lakes.map((l) => {
+			const n = nearest([...l.ring, l.ring[0]], c);
+			return { ...n, margin: SHORE, inside: inside(l.ring, c[0], c[1]) };
+		})
+	];
+
 	// the cells: a jittered hex grid
 	const pts: P[] = [];
 	for (let r = -1; r * DY < HEIGHT + DY; r++) {
@@ -383,17 +432,21 @@ export function generateMap(seed: string): WorldMap {
 	};
 
 	const cells: Cell[] = pts.map((c, i) => {
-		const { q, d: dr } = nearest(river, c);
+		const near = shores(c);
+		const dr = Math.min(...near.map((s) => (s.inside ? 0 : s.d)));
 		const edge = c[0] < DX * 0.55 || c[0] > WIDTH - DX * 0.55 || c[1] < DY * 0.5 || c[1] > HEIGHT - DY * 0.5;
-		const riverbed = dr < DX * 0.45;
+		const riverbed = near.some((s) => s.inside || s.d < s.margin + DX * 0.3);
 		let plot = edge || riverbed ? [] : voronoi(i, GAP);
 		let inner = edge || riverbed ? [] : voronoi(i, GAP + 12);
-		// a plot by the river ends at its bank
-		if (!riverbed && dr < DX * 1.4) {
-			const nx = (q[0] - c[0]) / dr, ny = (q[1] - c[1]) / dr;
-			const at = nx * q[0] + ny * q[1];
-			plot = plot.length ? clip(plot, nx, ny, at - BANK - GAP) : plot;
-			inner = inner.length ? clip(inner, nx, ny, at - BANK - GAP - 12) : inner;
+		// a plot by the water ends at its shore
+		if (!riverbed) {
+			for (const { q, d, margin } of near) {
+				if (d > DX * 1.4) continue;
+				const nx = (q[0] - c[0]) / d, ny = (q[1] - c[1]) / d;
+				const at = nx * q[0] + ny * q[1];
+				plot = plot.length ? clip(plot, nx, ny, at - margin - GAP) : plot;
+				inner = inner.length ? clip(inner, nx, ny, at - margin - GAP - 12) : inner;
+			}
 		}
 		const wild = edge || riverbed || plot.length < 3 || area(plot) < DX * DY * 0.3;
 		return {
@@ -415,12 +468,12 @@ export function generateMap(seed: string): WorldMap {
 		const s = [...xs].sort((a, b) => a - b);
 		return s[Math.min(s.length - 1, Math.floor(q * s.length))];
 	};
-	const dry = cells.filter((k) => !k.riverbed && k.dr >= DX * 1.15);
+	const dry = cells.filter((k) => !k.riverbed && k.dr >= DX * 0.8);
 	const eHigh = quant(dry.map((k) => k.e), 0.85);
 	const rest = dry.filter((k) => k.e < eHigh);
 	const mLow = quant(rest.map((k) => k.m), 0.2), mHigh = quant(rest.map((k) => k.m), 0.7);
 	for (const k of cells) {
-		if (k.riverbed || k.dr < DX * 1.15) k.biome = 'river';
+		if (k.riverbed || k.dr < DX * 0.8) k.biome = 'river';
 		else if (k.e >= eHigh) k.biome = 'mountain';
 		else if (k.m <= mLow) k.biome = 'sand';
 		else if (k.m >= mHigh) k.biome = 'forest';
@@ -498,18 +551,25 @@ export function generateMap(seed: string): WorldMap {
 		}
 	}
 
-	// cypresses and reeds along the banks, where no plot is
+	// cypresses and reeds along the banks and shores, where no plot is and not in the water
 	const plotPolys = cells.filter((k) => !k.wild).map((k) => k.plot);
-	for (let i = 1; i < river.length - 1; i++) {
-		if (rand() > 0.35) continue;
-		const [ax, ay] = river[i - 1], [bx, by] = river[i + 1];
-		const l = Math.hypot(bx - ax, by - ay);
-		const side = rand() < 0.5 ? -1 : 1, off = BANK + 8 + rand() * 24;
-		const x = river[i][0] + (-(by - ay) / l) * off * side, y = river[i][1] + ((bx - ax) / l) * off * side;
-		if (x < 0 || x > WIDTH || y < 0 || y > HEIGHT || plotPolys.some((p) => inside(p, x, y))) continue;
-		const n = 1 + Math.floor(rand() * 3);
-		for (let j = 0; j < n; j++) sprites.push(rand() < 0.75 ? cypress(x + j * 7, y + j * 2, 0.8 + rand() * 0.4) : tuft(x + j * 6, y, '#5e7a55'));
-	}
+	const inWater = (x: number, y: number) =>
+		nearest(river, [x, y]).d < BANK || lakes.some((l) => inside(l.ring, x, y) || nearest([...l.ring, l.ring[0]], [x, y]).d < SHORE * 0.6);
+	const shoreTrees = (line: P[], loop: boolean, base: number, chance: number) => {
+		for (let i = 0; i < line.length; i++) {
+			if (rand() > chance || (!loop && (i === 0 || i === line.length - 1))) continue;
+			const [ax, ay] = line[(i - 1 + line.length) % line.length], [bx, by] = line[(i + 1) % line.length];
+			const l = Math.hypot(bx - ax, by - ay);
+			const side = loop ? 1 : rand() < 0.5 ? -1 : 1, off = base + 8 + rand() * 22;
+			// a lake's ring runs clockwise on screen (y points down), so its outside is to the left of the way it runs
+			const x = line[i][0] + ((by - ay) / l) * off * side * (loop ? 1 : -1), y = line[i][1] - ((bx - ax) / l) * off * side * (loop ? 1 : -1);
+			if (x < 0 || x > WIDTH || y < 0 || y > HEIGHT || inWater(x, y) || plotPolys.some((p) => inside(p, x, y))) continue;
+			const n = 1 + Math.floor(rand() * 3);
+			for (let j = 0; j < n; j++) sprites.push(rand() < 0.7 ? cypress(x + j * 7, y + j * 2, 0.8 + rand() * 0.4) : tuft(x + j * 6, y, '#5e7a55'));
+		}
+	};
+	shoreTrees(river, false, BANK, 0.35);
+	for (const l of lakes) shoreTrees(l.ring, true, SHORE, 0.3);
 
 	const rp = smoothPath(river);
 	const water =
@@ -519,12 +579,29 @@ export function generateMap(seed: string): WorldMap {
 		`<path d="${rp}" fill="none" stroke="#4f8a8b" stroke-width="41" stroke-linecap="round" transform="translate(2.5 1.5)"/>` +
 		`<path d="${rp}" fill="none" stroke="#8cbcb6" stroke-width="2.5" stroke-dasharray="30 46" stroke-linecap="round" opacity=".6" transform="translate(-6 -2)"/>`;
 
+	const lakeSvg = lakes
+		.map((l) => {
+			const d = smoothLoop(l.ring);
+			let waves = '';
+			for (let i = 0; i < 3; i++) {
+				const x = l.c[0] + (rand() - 0.5) * l.r * 0.9, y = l.c[1] + (rand() - 0.5) * l.r * 0.5;
+				waves += `<path d="M${f(x - 14)} ${f(y)}q7 -4 14 0t14 0" stroke="#8cbcb6" stroke-width="2.2" fill="none" stroke-linecap="round" opacity=".6"/>`;
+			}
+			return (
+				`<path d="${d}" fill="${LAND}" stroke="${LAND}" stroke-width="${2 * SHORE + 6}" stroke-linejoin="round"/>` +
+				`<path d="${d}" fill="#e8dcbf" stroke="#e8dcbf" stroke-width="${SHORE + 4}" stroke-linejoin="round"/>` +
+				`<path d="${d}" fill="#4f8a8b" stroke="#2f5254" stroke-width="5"/>` +
+				waves
+			);
+		})
+		.join('');
+
 	sprites.sort((a, b) => a.y - b.y);
 	const svg =
 		`<rect x="${-M}" y="${-M}" width="${WIDTH + 2 * M}" height="${HEIGHT + 2 * M}" fill="${LAND}"/>` +
 		`<g pointer-events="none">${ground.join('')}</g>` +
 		`<g>${plots.join('')}</g>` +
-		`<g pointer-events="none">${water}</g>` +
+		`<g pointer-events="none">${water}${lakeSvg}</g>` +
 		`<g pointer-events="none">${sprites.map((s) => s.svg).join('')}</g>`;
 
 	return { seed, width: WIDTH, height: HEIGHT, plots: plotList, svg };
