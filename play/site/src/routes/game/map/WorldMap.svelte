@@ -1,19 +1,21 @@
 <!--
-	The game's world map on the whole screen: the map ./map.ts grows from a seed, dragged to pan, wheeled or pinched to
-	zoom. Pointing at a plot outlines it; tapping it shows its biome, size and what it gives. The seed is in the
-	address (?seed=), so a map can be shared; the dice grows a new one. Nothing is built on it yet.
+	The game's world map on the whole screen, in 3D: the map ./map.ts grows from a seed, drawn by ./scene.ts. Drag to
+	pan, right-drag or two fingers to turn and tilt, wheel or pinch to zoom. Pointing at a plot lights it; tapping it
+	shows its biome, size and what it gives. The seed is in the address (?seed=), so a map can be shared; the dice
+	grows a new one. Nothing is built on it yet.
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { replaceState } from '$app/navigation';
 	import { BIOMES, generateMap, randomSeed, type Biome, type Plot, type WorldMap } from './map';
+	import { createWorld, type World } from './scene';
 
-	let seed = $state('');
+	let canvas: HTMLCanvasElement;
 	let draft = $state('');
 	let map = $state<WorldMap | null>(null);
-	let hovered = $state<Plot | null>(null);
 	let picked = $state<Plot | null>(null);
-	let view = $state({ x: 0, y: 0, k: 1 });
-	let box = $state({ w: 1, h: 1 });
+	let hovered = $state<Plot | null>(null);
+	let world: World | null = null;
 
 	const counts = $derived.by(() => {
 		const c: Record<Biome, number> = { river: 0, forest: 0, grass: 0, sand: 0, mountain: 0 };
@@ -21,123 +23,38 @@
 		return c;
 	});
 
-	function grow(s: string) {
-		seed = draft = s;
-		map = generateMap(s);
-		hovered = picked = null;
+	function grow(seed: string) {
+		draft = seed;
+		picked = hovered = null;
+		world?.dispose();
+		map = generateMap(seed);
+		world = createWorld(canvas, map, {
+			hover: (p) => (hovered = p),
+			pick: (p) => {
+				picked = p && picked?.id !== p.id ? p : null;
+				world?.select(picked?.id ?? null);
+			}
+		});
 		const url = new URL(location.href);
-		url.searchParams.set('seed', s);
-		history.replaceState(history.state, '', url);
-		fit();
+		url.searchParams.set('seed', seed);
+		replaceState(url, {});
 	}
 
-	// the smallest zoom still fills the screen, and the map never slides off it
-	const minK = () => (map ? Math.max(box.w / map.width, box.h / map.height) : 1);
-	function clamp(v: { x: number; y: number; k: number }) {
-		if (!map) return v;
-		const k = Math.min(4, Math.max(minK(), v.k));
-		return { k, x: Math.min(0, Math.max(box.w - map.width * k, v.x)), y: Math.min(0, Math.max(box.h - map.height * k, v.y)) };
-	}
-	function fit() {
-		if (!map) return;
-		const k = minK() * 1.6;
-		view = clamp({ k, x: (box.w - map.width * k) / 2, y: (box.h - map.height * k) / 2 });
-	}
-	function zoomAt(cx: number, cy: number, k: number) {
-		const r = clamp({ ...view, k }).k / view.k;
-		view = clamp({ k: view.k * r, x: cx - (cx - view.x) * r, y: cy - (cy - view.y) * r });
-	}
-
-	const plotAt = (t: EventTarget | null) => {
-		const id = (t as Element | null)?.getAttribute?.('data-plot');
-		return id && map ? (map.plots[Number(id) - 1] ?? null) : null;
-	};
-
-	// pan with one pointer, pinch with two; a press that does not move is a tap
-	const pointers = new Map<number, { x: number; y: number }>();
-	let moved = 0;
-	function down(e: PointerEvent) {
-		(e.currentTarget as Element).setPointerCapture(e.pointerId);
-		pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-		moved = 0;
-	}
-	function move(e: PointerEvent) {
-		const last = pointers.get(e.pointerId);
-		if (!last) {
-			if (e.pointerType === 'mouse') hovered = plotAt(e.target);
-			return;
-		}
-		if (pointers.size === 1) {
-			const dx = e.clientX - last.x, dy = e.clientY - last.y;
-			moved += Math.abs(dx) + Math.abs(dy);
-			view = clamp({ ...view, x: view.x + dx, y: view.y + dy });
-		} else if (pointers.size === 2) {
-			const [a, b] = [...pointers.entries()].map(([id, p]) => (id === e.pointerId ? { x: e.clientX, y: e.clientY } : p));
-			const [a0, b0] = [...pointers.values()];
-			const d0 = Math.hypot(a0.x - b0.x, a0.y - b0.y), d1 = Math.hypot(a.x - b.x, a.y - b.y);
-			moved += 10;
-			if (d0 > 0) zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, (view.k * d1) / d0);
-		}
-		pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-	}
-	function up(e: PointerEvent) {
-		if (pointers.size === 1 && moved < 6) {
-			const el = document.elementFromPoint(e.clientX, e.clientY);
-			const p = plotAt(el);
-			picked = p && picked?.id !== p.id ? p : null;
-		}
-		pointers.delete(e.pointerId);
-	}
-	function wheel(e: WheelEvent) {
-		e.preventDefault();
-		zoomAt(e.clientX, e.clientY, view.k * Math.exp(-e.deltaY * 0.0015));
-	}
-
-	/** puts the map's SVG markup into a <g> (parsed as SVG) */
-	function drawing(node: SVGGElement, svg: string) {
-		node.innerHTML = svg;
-		return { update: (s: string) => (node.innerHTML = s) };
+	function close() {
+		picked = null;
+		world?.select(null);
 	}
 
 	const ha = (m2: number) => (m2 / 10000).toLocaleString('en', { maximumFractionDigits: 1 });
 
 	onMount(() => {
-		const resize = () => {
-			box = { w: innerWidth, h: innerHeight };
-			view = clamp(view);
-		};
-		resize();
-		addEventListener('resize', resize);
 		grow(new URLSearchParams(location.search).get('seed') || randomSeed());
-		return () => removeEventListener('resize', resize);
+		return () => world?.dispose();
 	});
 </script>
 
-<div class="world">
-	<svg
-		width={box.w}
-		height={box.h}
-		role="application"
-		aria-label="World map"
-		onpointerdown={down}
-		onpointermove={move}
-		onpointerup={up}
-		onpointercancel={(e) => pointers.delete(e.pointerId)}
-		onpointerleave={() => (hovered = null)}
-		onwheel={wheel}
-	>
-		{#if map}
-			<g transform="translate({view.x} {view.y}) scale({view.k})">
-				<g use:drawing={map.svg}></g>
-				{#if hovered && hovered.id !== picked?.id}
-					<path d={hovered.d} fill="none" stroke="#e0a63c" stroke-width={2 / Math.sqrt(view.k)} opacity=".75" pointer-events="none" />
-				{/if}
-				{#if picked}
-					<path d={picked.d} fill="rgb(239 181 77 / .14)" stroke="#d99a2b" stroke-width={3 / Math.sqrt(view.k)} pointer-events="none" />
-				{/if}
-			</g>
-		{/if}
-	</svg>
+<div class="world" class:pointing={!!hovered}>
+	<canvas bind:this={canvas} oncontextmenu={(e) => e.preventDefault()}></canvas>
 
 	<header class="bar">
 		<form
@@ -160,7 +77,7 @@
 
 	{#if picked}
 		<aside class="card plot">
-			<button class="close" aria-label="Close" onclick={() => (picked = null)}>×</button>
+			<button class="close" aria-label="Close" onclick={close}>×</button>
 			<p class="kicker"><i style:background={BIOMES[picked.biome].colour}></i>{BIOMES[picked.biome].label}</p>
 			<h2>Plot {picked.id}</h2>
 			<p>{ha(picked.area)} ha · gives {BIOMES[picked.biome].gives.join(' and ')}</p>
@@ -170,9 +87,10 @@
 </div>
 
 <style>
-	.world { position: fixed; inset: 0; background: #f5eedf; overflow: hidden; touch-action: none; user-select: none; }
-	svg { display: block; cursor: grab; }
-	svg:active { cursor: grabbing; }
+	.world { position: fixed; inset: 0; background: #efe7d6; overflow: hidden; touch-action: none; user-select: none; }
+	canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+	canvas:active { cursor: grabbing; }
+	.pointing canvas { cursor: pointer; }
 	.bar { position: absolute; top: 14px; left: 16px; right: 16px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; pointer-events: none; }
 	.chip { pointer-events: auto; background: #fbf6ea; border: 1px solid #e3d3ad; border-radius: 14px; box-shadow: 0 2px 0 #e7d9b8, 0 8px 20px rgb(110 85 40 / 0.1); }
 	.seed { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.35rem 0.3rem 0.8rem; }
