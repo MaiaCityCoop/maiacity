@@ -183,7 +183,8 @@ jobs:
           \$C exec -T db psql -v ON_ERROR_STOP=1 -U maiacity -d maiacity -v pw="'\$PW'" < play/deploy/setup.sql
           \$C up -d --no-deps play-api
           # the import, from avenDB's feed inside the compose network; it writes only what is missing
-          \$C run --rm --no-deps -e AVENDB_PUBLIC_FEED=http://avendb:3351/feed play-api bun import/run.ts --cache /data/import-cache --founders --admin 1 --report /data/import-report.md
+          # -T and </dev/null: this script reaches the server on stdin (bash -s), and a run that reads stdin eats the rest
+          \$C run --rm -T --no-deps -e AVENDB_PUBLIC_FEED=http://avendb:3351/feed play-api bun import/run.ts --cache /data/import-cache --founders --admin 1 --report /data/import-report.md </dev/null
           \$C exec -T db psql -v ON_ERROR_STOP=1 -U maiacity -d maiacity < play/deploy/after-import.sql
           # Caddy answers play.maia.city: its block added once, the file's inode kept (it is bind-mounted)
           grep -q '>>> play.maia.city' deploy/Caddyfile || cat play/deploy/Caddyfile.play >> deploy/Caddyfile
@@ -191,12 +192,12 @@ jobs:
           # still sees the old one. Then load the current file from the site folder it also mounts (not served: the
           # site is site/current), with no restart; the next start of Caddy reads deploy/Caddyfile itself.
           CONFIG=/etc/caddy/Caddyfile
-          if [ "\$(\$C exec -T caddy grep -c '>>> play.maia.city' /etc/caddy/Caddyfile || true)" = "0" ]; then
+          if [ "\$(\$C exec -T caddy grep -c '>>> play.maia.city' /etc/caddy/Caddyfile </dev/null || true)" = "0" ]; then
             cp deploy/Caddyfile site/.Caddyfile-current
             CONFIG=/srv/site/.Caddyfile-current
           fi
-          \$C exec -T caddy caddy validate --config \$CONFIG --adapter caddyfile
-          \$C exec -T caddy caddy reload --config \$CONFIG --adapter caddyfile
+          \$C exec -T caddy caddy validate --config \$CONFIG --adapter caddyfile </dev/null
+          \$C exec -T caddy caddy reload --config \$CONFIG --adapter caddyfile </dev/null
           docker logout ghcr.io >/dev/null
           EOS
       - name: Check
