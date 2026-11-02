@@ -235,10 +235,14 @@ function scatter(poly: P[], count: number, gap: number, rand: () => number): P[]
 
 type Sprite = { y: number; svg: string };
 
+/** how big what stands on the land is drawn against the land: small, so the plots read large */
+const K = 0.5;
+
 const shadow = (x: number, y: number, rx: number) =>
 	`<ellipse cx="${f(x + rx * 0.45)}" cy="${f(y + 0.5)}" rx="${f(rx)}" ry="${f(rx * 0.36)}" fill="#6b5530" opacity=".16"/>`;
 
 function conifer(x: number, y: number, s: number): Sprite {
+	s *= K;
 	const h = 34 * s, w = 11 * s, b = 4 * s;
 	return {
 		y,
@@ -251,6 +255,7 @@ function conifer(x: number, y: number, s: number): Sprite {
 }
 
 function broadleaf(x: number, y: number, s: number, green = '#6f8b5c'): Sprite {
+	s *= K;
 	const r = 9 * s, cy = y - 11 * s;
 	return {
 		y,
@@ -263,6 +268,7 @@ function broadleaf(x: number, y: number, s: number, green = '#6f8b5c'): Sprite {
 }
 
 function cypress(x: number, y: number, s: number): Sprite {
+	s *= K;
 	return {
 		y,
 		svg:
@@ -275,11 +281,12 @@ function cypress(x: number, y: number, s: number): Sprite {
 function tuft(x: number, y: number, colour = '#6e6a4c'): Sprite {
 	return {
 		y,
-		svg: `<path d="M${f(x - 3)} ${f(y)}l-1.5 -5M${f(x)} ${f(y)}v-6.5M${f(x + 3)} ${f(y)}l1.5 -5" stroke="${colour}" stroke-width="1.1" stroke-linecap="round" fill="none"/>`
+		svg: `<path d="M${f(x - 1.6)} ${f(y)}l-.8 -2.6M${f(x)} ${f(y)}v-3.4M${f(x + 1.6)} ${f(y)}l.8 -2.6" stroke="${colour}" stroke-width=".7" stroke-linecap="round" fill="none"/>`
 	};
 }
 
 function stone(x: number, y: number, s: number): Sprite {
+	s *= K;
 	return {
 		y,
 		svg:
@@ -290,6 +297,7 @@ function stone(x: number, y: number, s: number): Sprite {
 
 /** a red rock spire, lit from the upper left */
 function spire(x: number, y: number, s: number, rand: () => number): Sprite {
+	s *= K;
 	const h = (38 + rand() * 46) * s, w = (18 + rand() * 14) * s;
 	const tl = x - w / 2 + rand() * 4 * s, tr = x + w / 2 - rand() * 5 * s, top = y - h, peak = x + (rand() - 0.3) * w * 0.4;
 	return {
@@ -304,6 +312,7 @@ function spire(x: number, y: number, s: number, rand: () => number): Sprite {
 
 /** a grey low-poly peak */
 function peak(x: number, y: number, s: number, rand: () => number): Sprite {
+	s *= K;
 	const w = (60 + rand() * 50) * s, h = (40 + rand() * 40) * s, px = x + (rand() - 0.5) * w * 0.3;
 	const mid: P = [x + w * 0.1, y - h * 0.35];
 	return {
@@ -510,7 +519,7 @@ export function generateMap(seed: string): WorldMap {
 		const poly = k.inner;
 		switch (k.biome) {
 			case 'forest': {
-				for (const [x, y] of scatter(poly, Math.round(a / 420), 13, rand)) {
+				for (const [x, y] of scatter(poly, Math.round(a / 115), 6.5, rand)) {
 					const s = 0.8 + rand() * 0.45;
 					sprites.push(rand() < 0.82 ? conifer(x, y, s) : broadleaf(x, y, s * 0.9));
 				}
@@ -519,33 +528,33 @@ export function generateMap(seed: string): WorldMap {
 			case 'mountain': {
 				const rocks = wobble(k.c[0] / 500, k.c[1] / 500) > 0.52;
 				if (rocks) {
-					const n = 1 + Math.floor(rand() * 3);
-					const at = scatter(poly, n, 26, rand);
+					const n = 3 + Math.floor(rand() * 5);
+					const at = scatter(poly, n, 13, rand);
 					for (const [x, y] of at) sprites.push(spire(x, y, 0.8 + rand() * 0.4, rand));
-					for (const [x, y] of scatter(poly, 4, 10, rand)) sprites.push(rand() < 0.5 ? stone(x, y, 0.8) : conifer(x, y, 0.55));
+					for (const [x, y] of scatter(poly, 12, 6, rand)) sprites.push(rand() < 0.5 ? stone(x, y, 0.8) : conifer(x, y, 0.55));
 				} else {
-					for (const [x, y] of scatter(poly, 1 + Math.floor(rand() * 2), 50, rand)) sprites.push(peak(x, y, 0.75 + rand() * 0.4, rand));
-					for (const [x, y] of scatter(poly, 3, 12, rand)) sprites.push(stone(x, y, 0.7 + rand() * 0.4));
+					for (const [x, y] of scatter(poly, 3 + Math.floor(rand() * 3), 26, rand)) sprites.push(peak(x, y, 0.75 + rand() * 0.4, rand));
+					for (const [x, y] of scatter(poly, 9, 7, rand)) sprites.push(stone(x, y, 0.7 + rand() * 0.4));
 				}
 				break;
 			}
 			case 'sand': {
-				for (const [x, y] of scatter(poly, 3 + Math.floor(rand() * 4), 22, rand)) {
-					sprites.push({ y: y - 50, svg: `<path d="M${f(x - 16)} ${f(y)}q16 -7 32 0M${f(x - 10)} ${f(y + 6)}q10 -4 20 0" stroke="#dcc79c" stroke-width="1.4" fill="none" stroke-linecap="round"/>` });
+				for (const [x, y] of scatter(poly, 8 + Math.floor(rand() * 6), 12, rand)) {
+					sprites.push({ y: y - 50, svg: `<path d="M${f(x - 8)} ${f(y)}q8 -3.5 16 0M${f(x - 5)} ${f(y + 3)}q5 -2 10 0" stroke="#dcc79c" stroke-width=".9" fill="none" stroke-linecap="round"/>` });
 				}
-				for (const [x, y] of scatter(poly, 2, 20, rand)) sprites.push(tuft(x, y, '#8c7f55'));
+				for (const [x, y] of scatter(poly, 6, 10, rand)) sprites.push(tuft(x, y, '#8c7f55'));
 				break;
 			}
 			case 'grass': {
-				for (const [x, y] of scatter(poly, 4 + Math.floor(rand() * 5), 18, rand)) sprites.push(tuft(x, y));
-				const trees = rand() < 0.45 ? 1 + Math.floor(rand() * 2) : 0;
-				for (const [x, y] of scatter(poly, trees, 20, rand)) sprites.push(broadleaf(x, y, 0.8 + rand() * 0.3));
-				if (rand() < 0.3) for (const [x, y] of scatter(poly, 1, 10, rand)) sprites.push(stone(x, y, 0.8));
+				for (const [x, y] of scatter(poly, 12 + Math.floor(rand() * 10), 9, rand)) sprites.push(tuft(x, y));
+				const trees = rand() < 0.55 ? 1 + Math.floor(rand() * 4) : 0;
+				for (const [x, y] of scatter(poly, trees, 10, rand)) sprites.push(broadleaf(x, y, 0.8 + rand() * 0.3));
+				if (rand() < 0.4) for (const [x, y] of scatter(poly, 1 + Math.floor(rand() * 3), 6, rand)) sprites.push(stone(x, y, 0.8));
 				break;
 			}
 			case 'river': {
-				for (const [x, y] of scatter(poly, 3 + Math.floor(rand() * 4), 14, rand)) sprites.push(tuft(x, y, '#5e7a55'));
-				for (const [x, y] of scatter(poly, rand() < 0.6 ? 1 + Math.floor(rand() * 2) : 0, 20, rand)) sprites.push(broadleaf(x, y, 0.85 + rand() * 0.3, '#7f9b65'));
+				for (const [x, y] of scatter(poly, 10 + Math.floor(rand() * 8), 7, rand)) sprites.push(tuft(x, y, '#5e7a55'));
+				for (const [x, y] of scatter(poly, rand() < 0.7 ? 1 + Math.floor(rand() * 4) : 0, 10, rand)) sprites.push(broadleaf(x, y, 0.85 + rand() * 0.3, '#7f9b65'));
 				break;
 			}
 		}
@@ -564,12 +573,12 @@ export function generateMap(seed: string): WorldMap {
 			// a lake's ring runs clockwise on screen (y points down), so its outside is to the left of the way it runs
 			const x = line[i][0] + ((by - ay) / l) * off * side * (loop ? 1 : -1), y = line[i][1] - ((bx - ax) / l) * off * side * (loop ? 1 : -1);
 			if (x < 0 || x > WIDTH || y < 0 || y > HEIGHT || inWater(x, y) || plotPolys.some((p) => inside(p, x, y))) continue;
-			const n = 1 + Math.floor(rand() * 3);
-			for (let j = 0; j < n; j++) sprites.push(rand() < 0.7 ? cypress(x + j * 7, y + j * 2, 0.8 + rand() * 0.4) : tuft(x + j * 6, y, '#5e7a55'));
+			const n = 2 + Math.floor(rand() * 4);
+			for (let j = 0; j < n; j++) sprites.push(rand() < 0.7 ? cypress(x + j * 4, y + j, 0.8 + rand() * 0.4) : tuft(x + j * 3, y, '#5e7a55'));
 		}
 	};
-	shoreTrees(river, false, BANK, 0.35);
-	for (const l of lakes) shoreTrees(l.ring, true, SHORE, 0.3);
+	shoreTrees(river, false, BANK, 0.5);
+	for (const l of lakes) shoreTrees(l.ring, true, SHORE, 0.45);
 
 	const rp = smoothPath(river);
 	const water =
