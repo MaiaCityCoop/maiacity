@@ -35,6 +35,8 @@ in, as a traveler. An admin makes a citizen by hand. Admins are Maia City's owne
 
 play is an MCP server at `https://play.maia.city/api/mcp` (Streamable HTTP; `play/api/src/mcp.ts`). An admin makes an
 access token on play's profile page (`play_…`, shown once, kept hashed, revocable) and gives it to the agent as
-`Authorization: Bearer`. The agent reads assets, versions and recipe files and proposes new versions or assets; they come
-to the Proposals page under the admin's name, marked MCP. No tool accepts or rejects: people decide. Admins only for now:
+`Authorization: Bearer`. The agent reads assets, versions, sources and recipe files and proposes new versions or assets as **readable
+source** (play refuses minified code and wraps the source into the recipe file itself); they come to the Proposals page
+under the admin's name, marked MCP, where people read the source and see it built in the asset box (the sandboxed
+frame; proposed code never runs on the server or on play's origin) before they decide. No tool accepts or rejects. Admins only for now:
 a token opens nothing once its owner is no admin.

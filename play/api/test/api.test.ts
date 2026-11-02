@@ -16,8 +16,8 @@ import { Rate } from "../src/limits";
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;
 
-const recipe = (id: string, v: number, variant: string | null = null, lib = "module.exports.recipe = () => ({});") =>
-  `${RECIPE_HEAD}${lib}\nreturn module.exports.recipe(${JSON.stringify(id)}, ${v}, ${JSON.stringify(variant)});\n});\n`;
+const recipe = (id: string, v: number, variant: string | null = null, note = "") =>
+  `${RECIPE_HEAD}module.exports.recipe = () => ({});${note}\nreturn module.exports.recipe(${JSON.stringify(id)}, ${v}, ${JSON.stringify(variant)});\n});\n`;
 
 suite("play API", () => {
   let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
@@ -220,22 +220,25 @@ suite("play API", () => {
     const init = await rpc(made.data.token, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });
     expect(init.data.result.protocolVersion).toBe("2025-06-18");
     const names = (await rpc(made.data.token, "tools/list")).data.result.tools.map((t: any) => t.name);
-    expect(names).toEqual(expect.arrayContaining(["list_assets", "get_asset", "get_recipe", "propose_version", "propose_asset", "list_proposals"]));
+    expect(names).toEqual(expect.arrayContaining(["list_assets", "get_asset", "get_file", "propose_version", "propose_asset", "list_proposals"]));
     expect(names.some((x: string) => /accept|reject|decide/.test(x))).toBe(false);
     const listed = await rpc(made.data.token, "tools/call", { name: "list_assets", arguments: { group: "plants" } });
     expect(listed.data.result.isError).toBeUndefined();
     const proposed = await rpc(made.data.token, "tools/call", {
       name: "propose_asset",
-      arguments: { group: "plants", slug: "mcp-fern", label: "MCP fern", recipe: recipe("mcp-fern", 1), note: "proposed by an agent" },
+      arguments: { group: "plants", slug: "mcp-fern", label: "MCP fern", source: "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n", note: "proposed by an agent" },
     });
     expect(proposed.data.result.isError).toBeUndefined();
     const open = (await call("ada", "GET", "/api/proposals?status=open")).data.find((p: any) => p.slug === "mcp-fern");
     expect(open).toMatchObject({ via: "mcp", author: "ada", status: "open" });
     const wrong = await rpc(made.data.token, "tools/call", {
       name: "propose_asset",
-      arguments: { group: "plants", slug: "mcp-moss", label: "Moss", recipe: recipe("mcp-fern", 1), note: "wrong file" },
+      arguments: { group: "plants", slug: "mcp-moss", label: "Moss", source: `module.exports.recipe=function(){return{a:${"1+".repeat(800)}1}};`, note: "minified" },
     });
     expect(wrong.data.result.isError).toBe(true);
+    expect(wrong.data.result.content[0].text).toContain("not readable");
+    const bundled = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { group: "plants", slug: "mcp-moss", label: "Moss", recipe: recipe("mcp-moss", 1), note: "no source" } });
+    expect(bundled.data.result.isError).toBe(true);
     expect((await call("ada", "DELETE", `/api/tokens/${made.data.id}`)).data.revoked).toBe(true);
     expect((await rpc(made.data.token, "tools/list")).status).toBe(401);
     // a token opens nothing once its owner is no admin
@@ -244,6 +247,35 @@ suite("play API", () => {
     expect((await rpc(theirs.data.token, "ping")).status).toBe(200);
     await call("ada", "POST", `/api/members/${who.cit.id}/level`, { level: "citizen" });
     expect((await rpc(theirs.data.token, "ping")).status).toBe(401);
+  });
+
+  test("a proposal brings its readable source: play wraps it into the recipe, keeps both, and serves them as text", async () => {
+    const source = "// a fern, version 3\nconst THREE = require('three');\nmodule.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
+    const p = await call("cit", "POST", "/api/proposals", { asset: ids.fern, source, note: "readable" });
+    expect(p.status).toBe(201);
+    const r = (await call("ada", "GET", `/api/proposals/${p.data.id}`)).data;
+    expect(r.source).toBe(hashText(source));
+    expect(r.builds).toHaveLength(1);
+    expect(r.builds[0]).toMatchObject({ hash: r.recipe, proposed: true, v: p.data.number });
+    expect(r.builds[0].record.manifest.libs).toEqual(["three"]);
+    expect(r.builds[0].record.engine.host).toBe("box");
+    expect(r.builds[0].record.source).toBe(r.source);
+    const file = await call("ada", "GET", `/api/files/${r.recipe}`);
+    expect(file.data).toBe(`${RECIPE_HEAD}${source}\nreturn module.exports.recipe("fern", ${p.data.number}, null);\n});\n`);
+    expect(file.headers.get("content-type")).toStartWith("text/plain");
+    expect(file.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(file.headers.get("content-security-policy")).toContain("sandbox");
+    expect((await call("ada", "GET", `/api/files/${r.source}`)).data).toBe(source);
+    await call("cit", "POST", `/api/proposals/${p.data.id}/withdraw`);
+  });
+
+  test("minified code, a source that sets no recipe, and an engine that is not frozen are refused", async () => {
+    const min = await call("cit", "POST", "/api/proposals", { asset: ids.fern, source: `module.exports.recipe=function(){return ${"[1,2,3],".repeat(200)}0};` });
+    expect(min.status).toBe(400);
+    expect(min.data.error).toContain("not readable");
+    expect((await call("cit", "POST", "/api/proposals", { asset: ids.fern, source: "// nothing here\n" })).data.error).toContain("module.exports.recipe");
+    const engine = await call("cit", "POST", "/api/proposals", { asset: ids.fern, source: "module.exports.recipe = () => ({});\n", record: { engine: { version: 99 } } });
+    expect(engine.data.error).toContain("not one of the frozen engines");
   });
 
   test("admins run the members, and one admin always stays", async () => {
