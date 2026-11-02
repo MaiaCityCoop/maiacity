@@ -10,6 +10,17 @@ const TAIL = /\nreturn module\.exports\.recipe\(("(?:[^"\\]|\\.)*"), ([1-9][0-9]
 
 export type Label = { id: string; v: number; variant: string | null };
 
+/** the line that ends an asset's recipe file (engines.js recipeTail) */
+export const recipeTail = (id: string, v: number, variant: string | null) =>
+  `\nreturn module.exports.recipe(${JSON.stringify(id)}, ${v}, ${JSON.stringify(variant ?? null)});\n});\n`;
+
+/** a recipe file's library: what it wraps between its head and its last line, or null if it isn't one */
+export function libraryOf(text: string): string | null {
+  if (!text.startsWith(RECIPE_HEAD)) return null;
+  const m = TAIL.exec(text);
+  return m ? text.slice(RECIPE_HEAD.length, m.index) : null;
+}
+
 /** what a recipe file names itself, or null if it isn't one */
 export function labelOf(text: string): Label | null {
   if (!text.startsWith(RECIPE_HEAD)) return null;

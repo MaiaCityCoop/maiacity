@@ -54,7 +54,18 @@ sessions     -- as today's API (signed cookie)
 
 ### 4.1 What is versioned
 
-An asset version is atomic: a **recipe file** (bundled JS, made from source by the box; named by its BLAKE3 hash), its
+**Readable source, the box, the host (Samuel 2026-11-02).** Every proposed version brings its **readable source**: a
+CommonJS module that sets `module.exports.recipe`, as written (play refuses minified code), kept as a file of its own
+(`source_hash`). play makes the recipe file from it (`RECIPE_HEAD + source + recipeTail(slug, v, variant)`), so the
+file the box runs is exactly the source people read. Proposed code never runs on play's server (it only measures,
+labels and hashes text), and in the page only in the **asset box**: a frame with `sandbox="allow-scripts"` and no
+origin, its own CSP with no connection, the frozen engine (held to its hash) in a worker. A proposal's record may name
+only a frozen box engine, and its manifest is the libraries its source requires. On the Proposals page people read the
+source (beside its base's, as changes) and see the version built in the box before they accept it. `/api/files` serves
+code as plain text (`nosniff`, `sandbox`), never as script on play's origin. Imported versions have no source (legacy
+bundled and minified them).
+
+An asset version is atomic: a **recipe file** (named by its BLAKE3 hash, made by play from the readable source), its
 **card** (JSON: label, size, triangles, engine, params it takes), and the engine version it runs on. A recipe file is
 a build output: it is never edited in place and two of them are never merged line by line. Variants (param presets,
 e.g. `actors/stand-in:stand-in?face=…`) belong to a version.
