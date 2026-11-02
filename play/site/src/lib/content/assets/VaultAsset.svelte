@@ -36,15 +36,23 @@
 	/**
 	 * @type {{ source: typeof import('./catalog.js').source, hash: string, title?: string,
 	 *   note?: string, about?: import('svelte').Snippet, catalog?: any, picked?: string | null, solo?: boolean,
-	 *   compact?: boolean, onStir?: (read: () => void) => (() => void) }}
+	 *   compact?: boolean, fill?: boolean, details?: HTMLElement | null, onStir?: (read: () => void) => (() => void) }}
 	 *   `source` the vault's recipes ($avendb/assets.js `vaultSource`), `hash` the recipe shown, `title` and `note`
 	 *   what its entry calls it and says of it, `about` what the page says of its entry, at the foot of the panel;
 	 *   `catalog` its parts as built (null where it lists none), `picked` the part picked, `solo` whether it is shown on
 	 *   its own; `compact`, its name, its moves and views and a short canvas alone, in a card with its own answers
 	 *   ($avendb/Hitl.svelte, an AIP's); `onStir` the page's watch of the device's sync ($avendb/stirs.svelte.js),
-	 *   so a file still arriving is read again as it moves
+	 *   so a file still arriving is read again as it moves; `fill`, the canvas as tall as the page's column; `details`,
+	 *   an element of the page (its aside) that what is said of the asset (the readout, then the panel) goes into
+	 *   instead of round the canvas
 	 */
-	let { source, hash, title = '', note = '', about, catalog = $bindable(null), picked = $bindable(null), solo = true, compact = false, onStir } = $props();
+	let { source, hash, title = '', note = '', about, catalog = $bindable(null), picked = $bindable(null), solo = true, compact = false, fill = false, details = null, onStir } = $props();
+
+	/** a node moved into `target`, an element elsewhere in the page, and taken out with it @param {HTMLElement} node @param {HTMLElement} target */
+	const into = (node, target) => {
+		target.appendChild(node);
+		return { update: (/** @type {HTMLElement} */ t) => t.appendChild(node), destroy: () => node.remove() };
+	};
 
 	const at = $derived(Object.hasOwn(source.index.recipes, hash) ? source.index.recipes[hash] : null);
 	/** what its recipe is built with, as its card declares it; detail is the renderer's */
@@ -367,19 +375,7 @@
 
 <svelte:window onkeydown={key} />
 
-<Turntable name="vault-asset" inline {compact} bind:canvas={canvasBox}>
-	{#snippet head()}
-		<h2 class="name">{title || source.nameOf?.(hash) || 'An asset'}{#if stageName}<small>{` · ${stageName}`}</small>{/if}</h2>
-		{#if hero && !error}
-			<div class="chips">
-				{@render paramTabs(params, values, (id, v) => ((growing = false), setParam(id, v)))}
-				{@render moveChips(moves, (k) => (k === 'grow' ? growing : moving === k), lab, playMove)}
-				{#if hero.view.ticks || hero.buildBy}<button class="chip" class:on={!modes.run} onclick={() => setMode('run')}>{modes.run ? 'Pause' : 'Play'}</button>{/if}
-				{@render viewChips(views, (k) => (k === 'explode' && rigApart ? drawnApart : modes[k]), setMode)}
-			</div>
-		{/if}
-	{/snippet}
-	{#snippet panel()}
+{#snippet panelBody()}
 		{#if params.some((p) => !tabbed(p))}
 			<div class="built">
 				<span class="label">Built with</span>
@@ -395,8 +391,8 @@
 				{#if from}<small>{from === 'cache' ? 'Its file checked in the vault, its build from this device’s cache' : 'Built in the box from its entry’s file'}</small>{/if}
 			</div>
 		{/if}
-	{/snippet}
-	{#snippet readout()}
+{/snippet}
+{#snippet readoutBody()}
 		{#if lab && hero && !error}{@render heroReading(lab, reading)}{/if}
 		{@render longNote(said, more, () => (more = !more))}
 		{#if error}
@@ -406,6 +402,26 @@
 		{/if}
 		{#if scale[0] > 0 && hero && !error}{@render scaleBar(scale)}{/if}
 		<small>Drag to turn round it · pinch or scroll to come closer{catalog ? ' · tap a part to see it on its own' : ''}</small>
+{/snippet}
+
+{#if details}
+	<div class="details" use:into={details}>
+		<div class="said">{@render readoutBody()}</div>
+		{#if params.some((p) => !tabbed(p)) || lab || about}<div class="said">{@render panelBody()}</div>{/if}
+	</div>
+{/if}
+
+<Turntable name="vault-asset" inline {compact} {fill} panel={details ? undefined : panelBody} readout={details ? undefined : readoutBody} bind:canvas={canvasBox}>
+	{#snippet head()}
+		<h2 class="name">{title || source.nameOf?.(hash) || 'An asset'}{#if stageName}<small>{` · ${stageName}`}</small>{/if}</h2>
+		{#if hero && !error}
+			<div class="chips">
+				{@render paramTabs(params, values, (id, v) => ((growing = false), setParam(id, v)))}
+				{@render moveChips(moves, (k) => (k === 'grow' ? growing : moving === k), lab, playMove)}
+				{#if hero.view.ticks || hero.buildBy}<button class="chip" class:on={!modes.run} onclick={() => setMode('run')}>{modes.run ? 'Pause' : 'Play'}</button>{/if}
+				{@render viewChips(views, (k) => (k === 'explode' && rigApart ? drawnApart : modes[k]), setMode)}
+			</div>
+		{/if}
 	{/snippet}
 	{#if part && !error}
 		<div class="picked" role="status">
@@ -432,6 +448,28 @@
 </Turntable>
 
 <style>
+	/* what is said of it, in the page's aside: two cards */
+	.details {
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
+		margin: 0 0 1rem;
+	}
+
+	.said {
+		display: flex;
+		flex-direction: column;
+		gap: 0.45rem;
+		padding: 0.7rem 0.85rem;
+		border-radius: 12px;
+		background: #fff;
+		font-size: 0.84rem;
+	}
+
+	.said:not(:has(*)) {
+		display: none;
+	}
+
 	.built,
 	.lab,
 	.about {
