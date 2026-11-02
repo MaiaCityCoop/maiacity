@@ -56,9 +56,14 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, body: Pro
   const m = ASSET.exec(`${body?.asset ?? ""}`);
   if (!m) throw new ProposalError("Name the asset as group/id, e.g. plants/apple.");
   const [, grp, slug] = m;
-  const { rows: a } = await db.query<{ head: string | null; number: number | null; label: string }>(
-    `SELECT a.head, v.number, a.label FROM play.assets a LEFT JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1`, [body.asset],
+  const { rows: a } = await db.query<{ head: string | null; number: number | null; label: string; card: any; variants: Record<string, any> | null }>(
+    `SELECT a.head, v.number, a.label, v.card,
+            (SELECT json_object_agg(x.name, x.card) FROM play.asset_variants x WHERE x.version_id = v.id) AS variants
+       FROM play.assets a LEFT JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1`, [body.asset],
   );
+  // a proposal that brings no record of its own takes its head's (the engine it runs on, its label, its parameters),
+  // with its own recipe and version written in: an upload of the recipe file alone makes a version the site can build
+  const inherited = (own: any, from: any) => own ?? (from ? { ...from, card: { ...(from.card ?? {}) } } : undefined);
   const head = a[0]?.head ?? null;
   if (body.base !== undefined && (body.base ?? null) !== head)
     throw new ProposalError("Someone changed this asset since you started: build it again on its newest version.", 409);
@@ -81,12 +86,13 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, body: Pro
       if (!VARIANT.test(name)) throw new ProposalError(`${name} is not a variant's name.`);
       const f = checkedFile(body.variants![name].recipe, slug, n, name);
       files.push(f);
-      variants[name] = { recipe: f.hash, card: recordOf(body.variants![name].record, grp, slug, n, name, f.hash) };
+      const from = a[0]?.variants?.[name] ?? a[0]?.card;
+      variants[name] = { recipe: f.hash, card: recordOf(inherited(body.variants![name].record, from), grp, slug, n, name, f.hash) };
     }
     defaultVariant = body.defaultVariant ?? variantNames[0];
     if (!variants[defaultVariant]) throw new ProposalError(`${defaultVariant} is not one of its variants.`);
   }
-  const card = recipe ? recordOf(body.record, grp, slug, n, null, recipe) : variants[defaultVariant!].card;
+  const card = recipe ? recordOf(inherited(body.record, a[0]?.card), grp, slug, n, null, recipe) : variants[defaultVariant!].card;
   const engine = Number(card?.engine?.version ?? card?.card?.engine) || null;
   const content = { asset: body.asset, parents: head ? [head] : [], recipe, defaultVariant, variants, card, engine };
   const id = versionId(content);

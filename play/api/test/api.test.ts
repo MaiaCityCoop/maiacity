@@ -94,6 +94,16 @@ suite("play API", () => {
     expect(r.data[0]).toMatchObject({ asset: "plants/fern", number: 1, hash: a.data.versions[0].recipe, params: { seed: "x" } });
   });
 
+  test("a version proposed without a record takes its head's, with its own recipe and number", async () => {
+    const head = (await call("trav", "GET", "/api/assets/plants/fern/1")).data;
+    expect(head.card.card.label).toBe("Fern");
+    const p = await call("cit", "POST", "/api/proposals", { asset: "plants/fern", recipe: recipe("fern", 2, null, "/* bare */") });
+    const v = (await db.query<any>(`SELECT card FROM play.asset_versions WHERE id = $1`, [p.data.version])).rows[0].card;
+    expect(v.card).toMatchObject({ label: "Fern", version: 2, id: "fern", group: "plants" });
+    expect(v.card.recipe).not.toBe(head.card.card.recipe);
+    await call("cit", "POST", `/api/proposals/${p.data.id}/withdraw`);
+  });
+
   test("a recipe file must name the version it is proposed for", async () => {
     const r = await call("cit", "POST", "/api/proposals", { asset: "plants/fern", recipe: recipe("fern", 1, null, "/* again */") });
     expect(r.status).toBe(400);
