@@ -7,8 +7,11 @@ What the server needs beside the compose files: Caddy's config (`Caddyfile`), th
 
 - **When:** before every deploy, and only then. The production workflow's step *Back up play* runs `backup.sh`
   before play-api changes; the deploy stops if the backup fails. Nothing runs on a schedule.
-- **What:** play's schema in Postgres (`pg_dump -n play`), a full copy of its files (the blob store, small enough
-  to copy whole each time), and `manifest.json` naming the commit and the play image that ran with them.
+- **What, always together:** play's schema in Postgres (`pg_dump -n play`) **and** a full copy of its files (the
+  blob store, from its folder or from its bucket when `PLAY_BUCKET` is set; small enough to copy whole each time), and
+  `manifest.json` naming the commit and the play image that ran with them. The backup fails unless the copy holds
+  every file the dump names and all three objects are in the bucket at their size; a restore refuses a backup that
+  lacks either half.
 - **Where:** Hetzner Object Storage, bucket `maiacity`, `BACKUPS/play/<when>-<label>/` (`play.dump`,
   `blobs.tar`, `manifest.json`). The deploy's log names each one.
 - **By hand on the server:** `bash /opt/maia-city/deploy/backup.sh <label>`.

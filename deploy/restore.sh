@@ -39,7 +39,10 @@ if [ "$NAME" = latest ]; then
 fi
 echo "restore: $MODE from s3://$BACKUP_BUCKET/BACKUPS/play/$NAME/ …"
 s3 s3 cp "s3://$BACKUP_BUCKET/BACKUPS/play/$NAME/" /work/ --recursive --only-show-errors
-[ -f "$WORK/play.dump" ] && [ -f "$WORK/manifest.json" ] || { echo "restore: $NAME has no play.dump and manifest.json"; exit 1; }
+# a backup is both halves, the dump and the files, or it is none
+for f in play.dump blobs.tar manifest.json; do
+  [ -s "$WORK/$f" ] || { echo "restore: $NAME has no $f: not a whole backup"; exit 1; }
+done
 echo "restore: manifest $(tr -d '\n ' < "$WORK/manifest.json")"
 IMAGE=$(json image)
 IMAGE="${IMAGE:-$PLAY_IMAGE}"
@@ -47,7 +50,7 @@ if [ -n "${GHCR_TOKEN:-}" ]; then echo "$GHCR_TOKEN" | docker login ghcr.io -u "
 docker image inspect "$IMAGE" >/dev/null 2>&1 || docker pull "$IMAGE" >/dev/null
 docker image inspect "$PLAY_IMAGE" >/dev/null 2>&1 || docker pull "$PLAY_IMAGE" >/dev/null
 mkdir -p "$WORK/data"
-[ -f "$WORK/blobs.tar" ] && tar -xf "$WORK/blobs.tar" -C "$WORK/data"
+tar -xf "$WORK/blobs.tar" -C "$WORK/data"
 chmod -R a+rX "$WORK/data"
 
 if [ "$MODE" = check ]; then
@@ -81,7 +84,16 @@ C="docker compose -f docker-compose.yml -f docker-compose.prod.yml -f play/docke
 echo "restore: stopping play-api, putting back the schema play …"
 $C stop play-api </dev/null || true
 docker exec -i maia-city-db pg_restore -U maiacity -d maiacity --clean --if-exists -n play < "$WORK/play.dump"
-if [ -d "$WORK/data/blobs" ]; then
+if [ -n "${PLAY_BUCKET:-}" ]; then
+  # files are named by their hash and never change: putting back the backup's is adding the ones the bucket lacks
+  echo "restore: putting back the files into s3://$PLAY_BUCKET/blobs/ …"
+  timeout 1800 docker run --rm -v "$WORK/data:/data:ro" \
+    -e AWS_ACCESS_KEY_ID="$PLAY_BUCKET_ACCESS_KEY" -e AWS_SECRET_ACCESS_KEY="$PLAY_BUCKET_SECRET_KEY" \
+    -e AWS_DEFAULT_REGION="${PLAY_BUCKET_REGION:-$BACKUP_REGION}" \
+    -e AWS_REQUEST_CHECKSUM_CALCULATION=when_required -e AWS_RESPONSE_CHECKSUM_VALIDATION=when_required \
+    amazon/aws-cli --endpoint-url "$PLAY_BUCKET_ENDPOINT" --cli-connect-timeout 20 --cli-read-timeout 120 \
+    s3 sync /data/blobs/ "s3://$PLAY_BUCKET/blobs/" --only-show-errors </dev/null
+else
   KEPT="$PLAY_DATA_PATH/blobs.before-rollback-$(date -u +%Y%m%dT%H%M%SZ)"
   echo "restore: putting back the files (the ones before kept in $KEPT) …"
   sudo mv "$PLAY_DATA_PATH/blobs" "$KEPT" 2>/dev/null || true
@@ -94,7 +106,9 @@ set -a; . ./play.env; set +a
 $C up -d --no-deps play-api </dev/null
 for i in $(seq 1 30); do
   if docker exec maia-city-play bun -e "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" 2>/dev/null; then
-    echo "restore: rolled back to $NAME ($IMAGE); play answers"; exit 0
+    echo "restore: rolled back to $NAME ($IMAGE); play answers. Checking its files against its database …"
+    docker exec maia-city-play bun src/verify.ts </dev/null || echo "restore: (the image $IMAGE has no src/verify.ts, or it found problems: see above)"
+    exit 0
   fi
   sleep 2
 done
