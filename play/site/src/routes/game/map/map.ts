@@ -7,7 +7,7 @@
 // land, and a plot by the water ends at its shore. What stands on the land (trees, rocks, peaks) is a list of
 // features. The same seed always gives the same map. Nothing here touches the DOM or three.js: ./scene.ts draws it.
 //
-// Units are metres: x runs east, y runs south across the map; a plot is about 1.5 ha.
+// Units are metres: x runs east, y runs south across the map (4.2 × 2.8 km, about 400 plots); a plot is about 1.5 ha.
 
 export type P = [number, number];
 export type Biome = 'grass' | 'forest' | 'sand' | 'mountain' | 'river';
@@ -68,8 +68,8 @@ export interface WorldMap {
 	features: Feature[];
 }
 
-export const WIDTH = 2400;
-export const HEIGHT = 1600;
+export const WIDTH = 4160;
+export const HEIGHT = 2770;
 const DX = 150; // cell spacing across
 const DY = 116; // and down: the ground is seen at a slant, so cells are wider than deep
 const GAP = 7; // half a road
@@ -260,9 +260,9 @@ export function generateMap(seed: string): WorldMap {
 		}
 	}
 
-	// the lakes: two to four soft blobs, in low land and away from the river and from each other
+	// the lakes: four to seven soft blobs, in low land and away from the river and from each other
 	const lakes: { c: P; r: number; ring: P[] }[] = [];
-	const lakeCount = 2 + Math.floor(rand() * 3);
+	const lakeCount = 4 + Math.floor(rand() * 4);
 	for (let n = 0; n < lakeCount; n++) {
 		let best: { c: P; r: number } | null = null, low = Infinity;
 		for (let t = 0; t < 40; t++) {
@@ -440,7 +440,7 @@ export function generateMap(seed: string): WorldMap {
 	// forests on the hills round the valley, up to the tree line
 	const ground = terrain(seed, river);
 	const woods = fbmNoise(rand);
-	for (let t = 0; t < 9000; t++) {
+	for (let t = 0; t < 16000; t++) {
 		const x = -RIM + rand() * (WIDTH + 2 * RIM), y = -RIM + rand() * (HEIGHT + 2 * RIM);
 		if (x > -20 && x < WIDTH + 20 && y > -20 && y < HEIGHT + 20) continue;
 		const h = ground(x, y);

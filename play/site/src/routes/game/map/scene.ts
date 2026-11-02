@@ -30,18 +30,30 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 
 	const scene = new THREE.Scene();
 	scene.background = new THREE.Color(SKY);
-	scene.fog = new THREE.Fog(SKY, 1900, 4600);
+	scene.fog = new THREE.Fog(SKY, 2600, 7600);
 
-	const camera = new THREE.PerspectiveCamera(38, 1, 10, 9000);
-	camera.position.set(0, 1050, 1250);
+	const camera = new THREE.PerspectiveCamera(38, 1, 10, 13000);
+	camera.position.set(0, 1150, 1380);
 
 	// light: a warm low sun from the north-west and a soft sky
 	scene.add(new THREE.HemisphereLight('#fbf8f1', '#bdb6a2', 1.55));
 	const sun = new THREE.DirectionalLight('#fff4e2', 2.2);
-	sun.position.set(-900, 1150, -650);
+	const SUN = new THREE.Vector3(-900, 1150, -650);
+	sun.position.copy(SUN);
 	sun.castShadow = true;
-	sun.shadow.mapSize.set(4096, 4096);
-	Object.assign(sun.shadow.camera, { left: -1700, right: 1700, top: 1500, bottom: -1500, near: 100, far: 4200 });
+	sun.shadow.mapSize.set(2048, 2048);
+	// the shadows cover what the camera looks at, more of it the farther it is, so they stay sharp up close
+	Object.assign(sun.shadow.camera, { near: 100, far: 5200 });
+	let shadowAt = new THREE.Vector4(NaN);
+	const followSun = () => {
+		const t = controls.target, reach = THREE.MathUtils.clamp(camera.position.distanceTo(t) * 1.15, 450, 3600);
+		if (Math.abs(shadowAt.x - t.x) < 4 && Math.abs(shadowAt.z - t.z) < 4 && Math.abs(shadowAt.w - reach) / reach < 0.05) return;
+		shadowAt = new THREE.Vector4(t.x, 0, t.z, reach);
+		sun.target.position.set(t.x, 0, t.z);
+		sun.position.copy(sun.target.position).add(SUN);
+		Object.assign(sun.shadow.camera, { left: -reach, right: reach, top: reach, bottom: -reach });
+		sun.shadow.camera.updateProjectionMatrix();
+	};
 	sun.shadow.bias = -0.0004;
 	sun.shadow.normalBias = 0.8;
 	sun.shadow.radius = 3;
@@ -52,7 +64,7 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 
 	// ── the ground: flat in the valley, hills and mountains beyond, coloured by height ──
 	{
-		const g = new THREE.PlaneGeometry(W + 2 * RIM, H + 2 * RIM, Math.round((W + 2 * RIM) / 16), Math.round((H + 2 * RIM) / 16));
+		const g = new THREE.PlaneGeometry(W + 2 * RIM, H + 2 * RIM, Math.round((W + 2 * RIM) / 20), Math.round((H + 2 * RIM) / 20));
 		g.rotateX(-Math.PI / 2);
 		const pos = g.attributes.position;
 		for (let i = 0; i < pos.count; i++) pos.setY(i, ground(pos.getX(i) + W / 2, pos.getZ(i) + H / 2));
@@ -138,7 +150,7 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 	controls.minPolarAngle = 0.3;
 	controls.maxPolarAngle = 1.22;
 	controls.minDistance = 110;
-	controls.maxDistance = 2300;
+	controls.maxDistance = 3800;
 	controls.zoomToCursor = true;
 	controls.screenSpacePanning = false;
 	const held = new THREE.Vector3();
@@ -210,6 +222,7 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 			}
 		}
 		controls.update();
+		followSun();
 		renderer.render(scene, camera);
 	});
 
