@@ -10,6 +10,7 @@
 	let said = $state('');
 	let failed = $state(false);
 	let saving = $state(false);
+	const article = $derived(/^[aeiou]/.test(session.me?.level ?? '') ? 'An' : 'A');
 	const changed = $derived(name.trim().replace(/\s+/g, ' ') !== (session.me?.name ?? ''));
 
 	async function save(e: SubmitEvent) {
@@ -33,7 +34,7 @@
 	<p class="eyebrow">Your profile</p>
 	<h1>{session.me?.name}</h1>
 	<p class="muted">
-		{/^[aeiou]/.test(session.me?.level ?? '') ? 'An' : 'A'} {session.me?.level} of Maia City{session.me?.founder ? ` · Founder ${String(session.me.founder).padStart(3, '0')}` : ''}.
+		{article} {session.me?.level} of Maia City{session.me?.founder ? ` · Founder ${String(session.me.founder).padStart(3, '0')}` : ''}.
 	</p>
 
 	<form class="card box" onsubmit={save}>
