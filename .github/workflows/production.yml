@@ -27,6 +27,10 @@ concurrency:
 env:
   APP_DIR: /opt/maia-city
   HOST: api.maia.city
+  # Hetzner Object Storage: BACKUPS/play/ play's backups (deploy/backup.sh)
+  S3_BUCKET: maiacity
+  S3_ENDPOINT: https://hel1.your-objectstorage.com
+  S3_REGION: hel1
 
 jobs:
   from-main:
@@ -192,6 +196,24 @@ jobs:
           ssh prod "mkdir -p $APP_DIR/play/deploy"
           scp play/docker-compose.play.yml "prod:$APP_DIR/play/docker-compose.play.yml"
           scp play/deploy/setup.sql play/deploy/after-import.sql play/deploy/Caddyfile.play "prod:$APP_DIR/play/deploy/"
+          ssh prod "mkdir -p $APP_DIR/deploy"
+          scp deploy/backup.sh deploy/restore.sh "prod:$APP_DIR/deploy/"
+      # Before anything changes: play's schema and a full copy of its files go to the bucket, with the image that ran
+      # with them (deploy/backup.sh); the deploy stops if that fails. Only here, on a deploy: nothing runs on a
+      # schedule, and the old daily dump's cron is taken away (Samuel 2026-11-02). Restore by hand: restore.yml.
+      - name: Back up play
+        env:
+          S3_ACCESS_KEY: ${{ secrets.HETZNER_S3_ACCESS_KEY }}
+          S3_SECRET_KEY: ${{ secrets.HETZNER_S3_SECRET_KEY }}
+        run: |
+          if [ -z "$S3_ACCESS_KEY" ] || [ -z "$S3_SECRET_KEY" ]; then
+            echo "::error::No backup without the bucket's keys: set HETZNER_S3_ACCESS_KEY and HETZNER_S3_SECRET_KEY."; exit 1
+          fi
+          # the keys travel over stdin into a file only deploy can read, never as arguments
+          printf 'BACKUP_BUCKET=%s\nBACKUP_ENDPOINT=%s\nBACKUP_REGION=%s\nAWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s\n' \
+            "$S3_BUCKET" "$S3_ENDPOINT" "$S3_REGION" "$S3_ACCESS_KEY" "$S3_SECRET_KEY" \
+            | ssh prod "umask 077; cat > $APP_DIR/backup.env"
+          ssh prod "sudo rm -f /etc/cron.d/maia-city-backup; timeout 1200 bash $APP_DIR/deploy/backup.sh before-deploy-${GITHUB_SHA::7} $GITHUB_SHA </dev/null"
       - name: Start play-api, import, and answer play.maia.city
         env:
           DATA_MOUNT: ${{ steps.infra.outputs.data_mount }}

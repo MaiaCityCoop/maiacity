@@ -12,7 +12,7 @@ import { listTokens, makeToken, revokeToken } from "./tokens";
 import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, registerOptions, sessionCookie, tokenFor } from "./auth";
 import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameMember, renameSelf, setLevel } from "./members";
 import { listTables, readTable, TableError } from "./tables";
-import { decide, listProposals, propose, ProposalError, type Verdict } from "./proposals";
+import { decide, listProposals, proposalOf, propose, ProposalError, type Verdict } from "./proposals";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 
 type Handler = (req: Request, params: Record<string, string>) => Promise<Response> | Response;
@@ -97,7 +97,16 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     if (/^https?:/.test(url)) return new Response(null, { status: 302, headers: { Location: url, "Cache-Control": "private, max-age=3000" } });
     const bytes = await store.get(p.hash);
     if (!bytes) throw new NotFound("The file's bytes are missing.");
-    return new Response(Buffer.from(bytes), { headers: { "Content-Type": f.media_type, "Cache-Control": "private, max-age=31536000, immutable", ETag: `"${p.hash}"` } });
+    // code (recipes and their sources, accepted or only proposed) is served as plain text, never as script the page's
+    // origin could run: it runs only in the asset box, which gets its text by fetch, held to its hash. Media keep their
+    // type (covers, sounds), and nothing served here is sniffed or may run as a document.
+    const media = /^(image|audio|video)\//.test(f.media_type) ? f.media_type : "text/plain; charset=utf-8";
+    return new Response(Buffer.from(bytes), {
+      headers: {
+        "Content-Type": media, "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; sandbox",
+        "Cache-Control": "private, max-age=31536000, immutable", ETag: `"${p.hash}"`,
+      },
+    });
   });
 
   // ---- sandboxes
@@ -108,6 +117,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
 
   // ---- proposals
   on("GET", "/api/proposals", async (req) => json(await listProposals(db, await me(req), new URL(req.url).searchParams.get("status") ?? undefined)));
+  on("GET", "/api/proposals/:id", async (req, p) => json(await proposalOf(db, await me(req), p.id)));
   on("POST", "/api/proposals", async (req) => json(await propose(db, store, await me(req), await body(req)), { status: 201 }));
   on("POST", "/api/proposals/:id/:verdict", async (req, p) => {
     if (!["accept", "reject", "withdraw"].includes(p.verdict)) throw new NotFound("No such verdict.");

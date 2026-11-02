@@ -44,18 +44,33 @@ async function load() {
 		const rows = await res.json();
 		for (const k of Object.keys(INDEX.recipes)) delete INDEX.recipes[k];
 		records.clear();
-		for (const r of rows) {
-			const params = r.record?.card?.params;
-			INDEX.recipes[r.hash] = { group: r.group, id: r.id, v: r.v, variant: r.variant, first: r.first, asset: r.asset, label: r.label, ...(params?.length ? { params } : {}) };
-			records.set(r.hash, r.record);
-			sizes.set(r.hash, r.size);
-		}
+		for (const r of rows) keep(r);
 		INDEX.engine = LATEST.v;
 		Object.assign(catalog, { phase: 'ready', count: rows.length });
 	} catch (e) {
 		Object.assign(catalog, { phase: 'failed', error: String(e?.message ?? e) });
 	}
 	return catalog;
+}
+
+/** one catalog row into the index, its record and its size */
+const keep = (r) => {
+	const params = r.record?.card?.params;
+	INDEX.recipes[r.hash] = { group: r.group, id: r.id ?? r.slug, v: r.v, variant: r.variant, first: r.first, asset: r.asset, label: r.label, ...(r.proposed ? { proposed: true } : {}), ...(params?.length ? { params } : {}) };
+	records.set(r.hash, r.record);
+	sizes.set(r.hash, r.size);
+};
+
+/**
+ * A proposed version's builds (play's /api/proposals/:id `builds`), held beside the accepted ones so the Proposals page
+ * can build it to be seen before anyone decides. It builds the way every recipe does: its file read from play by its
+ * hash and held to it, then run in the asset box (./box/host.js), the sandboxed frame with no origin, on the frozen
+ * engine its record names. Nothing else names a proposed hash, so no sandbox ever draws one.
+ * @param {any[]} rows
+ */
+export async function admitProposed(rows) {
+	await loadRecipes();
+	for (const r of rows) keep({ ...r, proposed: true });
 }
 
 let loading = null;

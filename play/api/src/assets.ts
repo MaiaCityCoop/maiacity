@@ -29,9 +29,9 @@ export async function assetOf(db: Queryable, id: string) {
   const { rows: a } = await db.query<any>(`SELECT id, grp, slug, label, head, coop_id, created, sound, sound_gain FROM play.assets WHERE id = $1`, [id]);
   if (!a[0]) throw new NotFound(`There is no asset ${id}.`);
   const { rows: versions } = await db.query<any>(
-    `SELECT v.id, v.number, v.parents, v.recipe_hash, v.default_variant, v.card, v.engine, v.note, v.created, v.imported,
+    `SELECT v.id, v.number, v.parents, v.recipe_hash, v.source_hash, v.default_variant, v.card, v.engine, v.note, v.created, v.imported,
             au.name AS author, ap.name AS approved_by,
-            COALESCE((SELECT json_agg(json_build_object('name', x.name, 'recipe', x.recipe_hash, 'label', x.card->'card'->>'label') ORDER BY x.name)
+            COALESCE((SELECT json_agg(json_build_object('name', x.name, 'recipe', x.recipe_hash, 'source', x.source_hash, 'label', x.card->'card'->>'label') ORDER BY x.name)
                         FROM play.asset_variants x WHERE x.version_id = v.id), '[]') AS variants
        FROM play.asset_versions v
        LEFT JOIN play.humans au ON au.id = v.author
@@ -43,7 +43,7 @@ export async function assetOf(db: Queryable, id: string) {
   return {
     ...a[0],
     versions: versions.map((v) => ({
-      id: v.id, number: v.number, parents: v.parents, recipe: v.recipe_hash, defaultVariant: v.default_variant,
+      id: v.id, number: v.number, parents: v.parents, recipe: v.recipe_hash, source: v.source_hash, defaultVariant: v.default_variant,
       engine: v.engine, note: v.note, created: v.created, author: v.author ?? (v.imported ? v.imported.authors?.join(", ") : null),
       approvedBy: v.approved_by, imported: !!v.imported, variants: v.variants, ...summary(v.card),
     })),
@@ -53,14 +53,14 @@ export async function assetOf(db: Queryable, id: string) {
 /** one version of an asset with its whole record and its variants' records */
 export async function versionOf(db: Queryable, id: string, number: number) {
   const { rows } = await db.query<any>(
-    `SELECT v.*, COALESCE((SELECT json_agg(json_build_object('name', x.name, 'recipe', x.recipe_hash, 'card', x.card) ORDER BY x.name)
+    `SELECT v.*, COALESCE((SELECT json_agg(json_build_object('name', x.name, 'recipe', x.recipe_hash, 'source', x.source_hash, 'card', x.card) ORDER BY x.name)
                             FROM play.asset_variants x WHERE x.version_id = v.id), '[]') AS variants
        FROM play.asset_versions v WHERE v.asset_id = $1 AND v.number = $2`,
     [id, number],
   );
   if (!rows[0]) throw new NotFound(`There is no ${id}@${number}.`);
   const v = rows[0];
-  return { id: v.id, asset: id, number: v.number, parents: v.parents, recipe: v.recipe_hash, defaultVariant: v.default_variant, card: v.card, engine: v.engine, note: v.note, variants: v.variants, imported: v.imported };
+  return { id: v.id, asset: id, number: v.number, parents: v.parents, recipe: v.recipe_hash, source: v.source_hash, defaultVariant: v.default_variant, card: v.card, engine: v.engine, note: v.note, variants: v.variants, imported: v.imported };
 }
 
 /** what a sandbox draws: each slot, the build it pins (`<hash>?values`), and what that is, for showing */

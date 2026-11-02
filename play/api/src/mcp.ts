@@ -21,9 +21,12 @@ type Tool = {
 };
 
 const RECIPE_RULE =
-  "The recipe file is the asset box's build of the version after the asset's head: its text starts with the asset box's " +
-  "recipe header and names this asset's slug and the new version number (head + 1) at its end. Every other asset it uses, it names by its BLAKE3 hash. " +
-  "Fetch the head's recipe with get_recipe to start from it.";
+  "Send the version's readable source, as people write it (not bundled or minified: lines under 1000 characters), because " +
+  "the admins read it before they decide. It is a CommonJS module that sets `module.exports.recipe = function (id, v, variant) { … return { meta, build } }`, " +
+  "requires only 'three' and three's addons ('three/addons/…'), and names every other asset by its BLAKE3 hash. play wraps it into the " +
+  "recipe file itself (the asset box's header, then the source, then the line naming this asset and its new version). The code runs only " +
+  "in the asset box, the sandboxed frame in the page, never on play's server. Start from the head's source where it has one (get_asset " +
+  "gives its hash, get_file its text); imported versions have only their minified recipe file, to read for how they are built.";
 
 export function mcp({ db, store }: { db: Db; store: BlobStore }) {
   const tools: Tool[] = [
@@ -45,13 +48,13 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     },
     {
       name: "get_asset",
-      description: "One asset by its id, with all its versions, newest first: each version's number, note, author, who accepted it, and its recipe file's hash (and its variants').",
+      description: "One asset by its id, with all its versions, newest first: each version's number, note, author, who accepted it, its recipe file's hash and its readable source's hash where it has one (and its variants').",
       inputSchema: { type: "object", properties: { asset: { type: "string", description: "the asset's id (UUID)" } }, required: ["asset"], additionalProperties: false },
       run: async ({ asset }) => assetOf(db, `${asset}`),
     },
     {
-      name: "get_recipe",
-      description: "A recipe file's text, by its BLAKE3 hash (a version's recipe hash from get_asset).",
+      name: "get_file",
+      description: "A file's text by its BLAKE3 hash: a version's readable source or its recipe file (their hashes from get_asset).",
       inputSchema: { type: "object", properties: { hash: { type: "string", description: "64 hex characters" } }, required: ["hash"], additionalProperties: false },
       run: async ({ hash }) => {
         if (!HASH.test(`${hash}`)) throw new NotFound("That is not a file's hash.");
@@ -67,31 +70,31 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         type: "object",
         properties: {
           asset: { type: "string", description: "the asset's id (UUID)" },
-          recipe: { type: "string", description: "the new version's recipe file, as text" },
+          source: { type: "string", description: "the new version's readable source (see above)" },
           note: { type: "string", description: "what changed and why, for the admins deciding" },
           base: { type: "string", description: "the head version's id it was made from (from get_asset); refused if the asset moved on since" },
         },
-        required: ["asset", "recipe", "note"],
+        required: ["asset", "source", "note"],
         additionalProperties: false,
       },
-      run: async ({ asset, recipe, note, base }, me) => propose(db, store, me, { asset, recipe, note, ...(base ? { base } : {}) }, "mcp"),
+      run: async ({ asset, source, note, base }, me) => propose(db, store, me, { asset, source: `${source ?? ""}`, note, ...(base ? { base } : {}) }, "mcp"),
     },
     {
       name: "propose_asset",
-      description: `Propose a new asset, its first version. It goes to Maia City's admins as a proposal (via MCP). ${RECIPE_RULE} For a new asset that number is 1.`,
+      description: `Propose a new asset, its first version. It goes to Maia City's admins as a proposal (via MCP). ${RECIPE_RULE}`,
       inputSchema: {
         type: "object",
         properties: {
           group: { type: "string", enum: GROUPS },
           slug: { type: "string", description: "lowercase words joined by '-', unique in its group" },
           label: { type: "string", description: "its name as shown" },
-          recipe: { type: "string", description: "version 1's recipe file, as text" },
+          source: { type: "string", description: "version 1's readable source (see above)" },
           note: { type: "string", description: "what it is and why, for the admins deciding" },
         },
-        required: ["group", "slug", "label", "recipe", "note"],
+        required: ["group", "slug", "label", "source", "note"],
         additionalProperties: false,
       },
-      run: async ({ group, slug, label, recipe, note }, me) => propose(db, store, me, { new: { group, slug, label }, recipe, note }, "mcp"),
+      run: async ({ group, slug, label, source, note }, me) => propose(db, store, me, { new: { group, slug, label }, source: `${source ?? ""}`, note }, "mcp"),
     },
     {
       name: "list_proposals",
@@ -132,7 +135,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           capabilities: { tools: {} },
           serverInfo: { name: "play.maia.city", version: "1" },
           instructions:
-            "Maia City's asset library. Read assets, versions and recipe files; propose new versions or assets. Proposals go to Maia City's admins, who accept or reject them on play's Proposals page; nothing here decides.",
+            "Maia City's asset library. Read assets, versions, their readable sources and recipe files; propose new versions or assets as readable source. Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box on play's Proposals page, then accept or reject it; nothing here decides, and no proposed code runs on play's server.",
         });
       case "ping":
         return reply(msg.id, {});
