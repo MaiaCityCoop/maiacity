@@ -1,7 +1,6 @@
 // The asset library, read (play/SPEC.md §4, §7): every asset Maia City owns, each with its versions as a chain, each
 // version's variants, and a ref resolved to the recipe file a sandbox builds.
 import type { Queryable } from "./pg";
-import { parseRef, RefError } from "./recipes";
 
 export class NotFound extends Error {
   status = 404;
@@ -64,33 +63,7 @@ export async function versionOf(db: Queryable, id: string, number: number) {
   return { id: v.id, asset: id, number: v.number, parents: v.parents, recipe: v.recipe_hash, defaultVariant: v.default_variant, card: v.card, engine: v.engine, note: v.note, variants: v.variants, imported: v.imported };
 }
 
-export type Resolved = { ref: string; asset: string; number: number; variant: string | null; hash: string; card: any; params: Record<string, string> | null };
-
-/**
- * A ref as a sandbox names it, resolved to the recipe file it builds: `group/id@v` its version's own recipe, or for a
- * kind of variants its default variant's; `group/id@v:variant` that variant's. No version, no variant: refused.
- */
-export async function resolve(db: Queryable, ref: string): Promise<Resolved> {
-  let r;
-  try {
-    r = parseRef(ref);
-  } catch (e) {
-    throw new NotFound((e as RefError).message);
-  }
-  const { rows } = await db.query<any>(
-    `SELECT v.id, v.recipe_hash, v.default_variant, v.card FROM play.asset_versions v WHERE v.asset_id = $1 AND v.number = $2`,
-    [r.asset, r.number],
-  );
-  const v = rows[0];
-  if (!v) throw new NotFound(`There is no ${r.asset}@${r.number}.`);
-  const variant = r.variant ?? v.default_variant;
-  if (!variant) return { ref, asset: r.asset, number: r.number, variant: null, hash: v.recipe_hash, card: v.card, params: r.params };
-  const { rows: x } = await db.query<any>(`SELECT recipe_hash, card FROM play.asset_variants WHERE version_id = $1 AND name = $2`, [v.id, variant]);
-  if (!x[0]) throw new NotFound(`${r.asset}@${r.number} has no variant ${variant}.`);
-  return { ref, asset: r.asset, number: r.number, variant, hash: x[0].recipe_hash, card: x[0].card, params: r.params };
-}
-
-/** what a sandbox draws: each slot's ref and the recipe file it builds */
+/** what a sandbox draws: each slot, the build it pins (`<hash>?values`), and what that is, for showing */
 export async function pinsOf(db: Queryable, sandbox: string) {
   const { rows: s } = await db.query(`SELECT 1 FROM play.sandboxes WHERE id = $1`, [sandbox]);
   if (!s[0]) throw new NotFound(`There is no ${sandbox}.`);
@@ -105,8 +78,9 @@ export async function pinsOf(db: Queryable, sandbox: string) {
     [sandbox],
   );
   return rows.map((p) => {
-    const q = p.params ? `?${new URLSearchParams(p.params)}` : "";
-    return { slot: p.slot, ref: `${p.asset_id}@${p.number}${p.variant ? `:${p.variant}` : ""}${q}`, asset: p.asset_id, number: p.number, variant: p.used_variant, hash: p.hash, params: p.params };
+    const values = p.params ? Object.entries(p.params as Record<string, string>).sort(([a], [b]) => (a < b ? -1 : 1)) : [];
+    const build = values.length ? `${p.hash}?${new URLSearchParams(values)}` : p.hash;
+    return { slot: p.slot, build, hash: p.hash, asset: p.asset_id, number: p.number, variant: p.used_variant };
   });
 }
 
@@ -117,30 +91,47 @@ export async function fileOf(db: Queryable, hash: string) {
 }
 
 /**
- * Every accepted version and variant as one row, the shape the site's recipe index reads (play/site's
- * content/assets/sources/avendb.js `vaultRecipes`, cloned from legacy): its record (the card, its engine, manifest and
- * contract), its one file by hash, its asset as its `entry`, its version as `main`, the line it is on (null for the
- * version's own recipe or its default variant, the variant's name otherwise), and its version id as `at`.
+ * The catalog (play/SPEC.md §4): every accepted version and variant by the BLAKE3 hash of its recipe file — the one
+ * name a sandbox or another asset knows it by — with what it is (its asset, version, variant and label, for showing)
+ * and its record (its card, manifest, contract and engine), which the site builds it by.
  */
 export async function catalogOf(db: Queryable) {
   const { rows } = await db.query<any>(
-    `SELECT v.asset_id, v.id, v.number, v.recipe_hash, v.default_variant, v.card, f.size,
-            COALESCE((SELECT json_agg(json_build_object('name', x.name, 'recipe', x.recipe_hash, 'card', x.card, 'size', xf.size) ORDER BY x.name)
-                        FROM play.asset_variants x JOIN play.files xf ON xf.hash = x.recipe_hash WHERE x.version_id = v.id), '[]') AS variants
-       FROM play.asset_versions v
-       JOIN play.assets a ON a.id = v.asset_id
-       LEFT JOIN play.files f ON f.hash = v.recipe_hash
+    `SELECT v.asset_id, a.grp, a.slug, v.number, NULL::text AS variant, v.recipe_hash AS hash, v.card AS record, f.size, false AS is_default
+       FROM play.asset_versions v JOIN play.assets a ON a.id = v.asset_id JOIN play.files f ON f.hash = v.recipe_hash
       WHERE v.number IS NOT NULL
-      ORDER BY v.asset_id, v.number`,
+     UNION ALL
+     SELECT v.asset_id, a.grp, a.slug, v.number, x.name, x.recipe_hash, x.card, f.size, x.name = v.default_variant
+       FROM play.asset_variants x JOIN play.asset_versions v ON v.id = x.version_id JOIN play.assets a ON a.id = v.asset_id
+       JOIN play.files f ON f.hash = x.recipe_hash
+      WHERE v.number IS NOT NULL
+      ORDER BY 1, 4, 5 NULLS FIRST`,
   );
-  const out: any[] = [];
-  const row = (v: any, record: any, hash: string, size: number, line: string | null) => ({
-    vault: "play", entry: v.asset_id, type: "recipe", tags: [], heads: [v.id], at: [v.id], main: v.number, line,
-    record, files: [{ root: hash, hash, len: Number(size), size: Number(size) }],
-  });
-  for (const v of rows) {
-    if (v.recipe_hash) out.push(row(v, v.card, v.recipe_hash, v.size, null));
-    for (const x of v.variants) out.push(row(v, x.card, x.recipe, x.size, x.name === v.default_variant ? null : x.name));
-  }
-  return out;
+  return rows.map((r) => ({
+    hash: r.hash, size: Number(r.size), asset: r.asset_id, group: r.grp, id: r.slug, v: r.number, variant: r.variant,
+    first: !!r.is_default, label: r.record?.card?.label ?? r.record?.title ?? r.asset_id, record: r.record,
+  }));
+}
+
+/**
+ * A sandbox's config: its pins as `assets`, each slot the build it pins (`<hash>?values`), and every other config it
+ * keeps by name (Sandbox 1's `garden`), each planting's slot handed out as its build (`asset`).
+ */
+export async function configOf(db: Queryable, sandbox: string) {
+  const pins = await pinsOf(db, sandbox);
+  const assets = Object.fromEntries(pins.map((p) => [p.slot, p.build]));
+  const { rows } = await db.query<{ name: string; data: any }>(`SELECT name, data FROM play.sandbox_configs WHERE sandbox_id = $1`, [sandbox]);
+  const withBuilds = (o: any): any => {
+    if (Array.isArray(o)) return o.map(withBuilds);
+    if (o && typeof o === "object") {
+      const out = Object.fromEntries(Object.entries(o).map(([k, v]) => [k, withBuilds(v)]));
+      if (typeof o.slot === "string") {
+        if (!assets[o.slot]) throw new NotFound(`${sandbox}'s config names slot ${o.slot}, which it doesn't pin`);
+        out.asset = assets[o.slot];
+      }
+      return out;
+    }
+    return o;
+  };
+  return { sandbox, assets, ...Object.fromEntries(rows.map((r) => [r.name, withBuilds(r.data)])) };
 }

@@ -36,7 +36,8 @@ export function plantOf(id, v) {
 }
 
 /** a plant at a stage (0 … 9, between two on the way) grown from a seed, as the asset box builds it @param {{ id: string, version: number }} p @param {number} stage @param {string} seed */
-export const plantRef = (p, stage, seed) => `plants/${p.id}@${p.version}?stage=${stage}&seed=${encodeURIComponent(seed)}`;
+/** a tree's plant by its slot of Sandbox 3's pins (`plant-<id>`), at its stage and seed: play's Sandbox 3 plants none for now */
+export const plantRef = (p, stage, seed) => `pin:sandbox-3/plant-${p.id}?stage=${stage}&seed=${encodeURIComponent(seed)}`;
 
 /** every plant here, by id */
 export const PLANT_IDS = Object.keys(PLANTS);

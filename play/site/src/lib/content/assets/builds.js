@@ -2,23 +2,19 @@
 /*
  * A BUILD BY ITS NAME — what a build is named by wherever its recipe is kept: the recipe's hash, the BLAKE3 hash of its
  * bytes (./recipe.js, ./engines.js), and the values it is built with, `<hash>?seed=maia&stage=9`. Nothing here reads an
- * index: the Maia City vault's recipes, which every page reads (./vault.js), and the repo's, which only the seed and the
- * tests read (./recipes.js), name their builds the same way, so the same bytes are the same build either way.
+ * index: play's catalog (./catalog.js) names its builds the same way, so the same bytes are the same build anywhere.
  */
 import { hashText } from '../game/hash.js';
 import { paramsIn, queryOf } from './params.js';
-import { VAULT, parseVaultRef, refusal } from './sources/avendb.js';
 
 /** the BLAKE3 hash of a text, in hex (maia/content/game/hash.js, the one hash) */
 export { hashText };
 
 /**
- * A build's name as its parts: the recipe's hash and the values, as text. Throws for anything else; a vault's ref with
- * the one error every loader gives it while avenDB storage is not switched on (./sources/avendb.js).
+ * A build's name as its parts: the recipe's hash and the values, as text. Throws for anything else: an asset is named by its hash.
  * @param {string} ref @returns {{ hash: string, params?: Record<string, string> }}
  */
 export function parseBuild(ref) {
-	if (typeof ref === 'string' && ref.startsWith(VAULT)) throw refusal(parseVaultRef(ref));
 	const m = /^([0-9a-f]{64})(?:\?(.*))?$/.exec(ref);
 	if (!m) throw new Error(`not a build: ${String(ref).slice(0, 80)} (a recipe's hash, then ?its=values)`);
 	const params = paramsIn(m[2]);

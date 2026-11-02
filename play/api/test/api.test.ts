@@ -90,8 +90,8 @@ suite("play API", () => {
     const f = await call("trav", "GET", `/api/files/${a.data.versions[0].recipe}`);
     expect(f.status).toBe(200);
     expect(hashText(f.data)).toBe(a.data.versions[0].recipe);
-    const r = await call("trav", "GET", `/api/resolve?ref=${encodeURIComponent("plants/fern@1?seed=x")}`);
-    expect(r.data[0]).toMatchObject({ asset: "plants/fern", number: 1, hash: a.data.versions[0].recipe, params: { seed: "x" } });
+    const cat = (await call("trav", "GET", "/api/catalog")).data;
+    expect(cat.find((r: any) => r.hash === a.data.versions[0].recipe)).toMatchObject({ asset: "plants/fern", v: 1, variant: null });
   });
 
   test("a version proposed without a record takes its head's, with its own recipe and number", async () => {
@@ -130,7 +130,7 @@ suite("play API", () => {
     await expect(db.query(`DELETE FROM play.asset_versions WHERE asset_id = 'plants/fern'`)).rejects.toThrow(/never deleted/);
   });
 
-  test("a kind of variants resolves to its default variant, or the one named", async () => {
+  test("a kind of variants: each variant its own hash in the catalog, its default marked", async () => {
     const p = await call("cit", "POST", "/api/proposals", {
       asset: "actors/goat", label: "Goat",
       variants: { "goat-saanen": { recipe: recipe("goat", 1, "goat-saanen"), record: { card: { label: "Goat: Saanen" } } }, "goat-pied": { recipe: recipe("goat", 1, "goat-pied") } },
@@ -138,11 +138,25 @@ suite("play API", () => {
     });
     expect(p.status).toBe(201);
     await call("ada", "POST", `/api/proposals/${p.data.id}/accept`);
-    const [plain, pied, none] = (await call("trav", "GET", "/api/resolve?ref=actors/goat@1&ref=actors/goat@1:goat-pied&ref=actors/goat@1:goat-nope")).data;
-    expect(plain.variant).toBe("goat-saanen");
-    expect(pied.variant).toBe("goat-pied");
-    expect(plain.hash).not.toBe(pied.hash);
-    expect(none.error).toContain("no variant goat-nope");
+    const goats = (await call("trav", "GET", "/api/catalog")).data.filter((r: any) => r.asset === "actors/goat");
+    expect(goats.map((g: any) => [g.variant, g.first])).toEqual([["goat-pied", false], ["goat-saanen", true]]);
+    expect(goats[0].hash).not.toBe(goats[1].hash);
+  });
+
+  test("a proposal naming another asset by a readable ref is refused", async () => {
+    const r = await call("cit", "POST", "/api/proposals", { asset: "plants/fern", recipe: recipe("fern", 3, null, "/* r */"), record: { card: { label: "Fern", parts: [{ ref: "actors/goat@1" }] } } });
+    expect(r.status).toBe(400);
+    expect(r.data.error).toContain("by their hash");
+  });
+
+  test("a sandbox's config hands every slot out as the build it pins", async () => {
+    const v = (await db.query<any>(`SELECT id, recipe_hash FROM play.asset_versions WHERE asset_id = 'plants/fern' AND number = 1`)).rows[0];
+    await db.query(`INSERT INTO play.sandbox_pins (sandbox_id, slot, version_id, params) VALUES ('sandbox-1', 'fern', $1, '{"stage":"9","seed":"a"}')`, [v.id]);
+    await db.query(`INSERT INTO play.sandbox_configs (sandbox_id, name, data) VALUES ('sandbox-1', 'garden', '{"outside":{"trees":[{"id":"fern","v":1,"slot":"fern"}]}}')`);
+    const c = (await call("trav", "GET", "/api/sandboxes/sandbox-1/config")).data;
+    expect(c.assets.fern).toBe(`${v.recipe_hash}?seed=a&stage=9`);
+    expect(c.garden.outside.trees[0].asset).toBe(c.assets.fern);
+    expect((await call(null, "GET", "/api/sandboxes/sandbox-1/config")).status).toBe(401);
   });
 
   test("the author withdraws, an admin rejects", async () => {

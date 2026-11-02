@@ -34,7 +34,7 @@ export const SEEN = 300;
 let loader = null;
 let turn = 0;
 const loaderOf = () =>
-	(loader ??= Promise.all([import('../box/host.js'), import('../load.js'), import('../vault.js')]).then(async ([{ AssetBox }, { loadAsset }, { INDEX, buildAt, loadRecipes }]) => {
+	(loader ??= Promise.all([import('../box/host.js'), import('../load.js'), import('../catalog.js')]).then(async ([{ AssetBox }, { loadAsset }, { INDEX, buildAt, loadRecipes }]) => {
 		await loadRecipes();
 		const n = Math.max(1, Math.min(3, ((typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4) - 1));
 		const boxes = Array.from({ length: n }, () => new AssetBox({ engine: INDEX.engine }));

@@ -28,7 +28,6 @@ import { flow, pond, shore, stream } from './water'
 import { createWorldRenderer } from '$lib/content/render/world.js'
 import { createSky } from '$lib/content/sandbox-kit/sky.js'
 import { createWalker } from '$lib/content/sandbox-kit/walker.js'
-import { createAvatar } from '$lib/avatar'
 import { createObstacles } from '$lib/content/sandbox-kit/obstacles.js'
 import { connectFilm, filmDraws, filmHoldsSize, filmPlays, worldTime } from '$lib/content/sandbox-kit/film.js'
 import { createStream, type View } from '$lib/content/sandbox-kit/stream.js'
@@ -38,7 +37,7 @@ import { createDrawn, createFlora } from './drawn.js'
 import { createCover } from './cover.js'
 import { FLOORS, THINGS, coopsOf, putThings } from './things.js'
 import { swapLegacy } from './legacy.js'
-import { DRIFT, FIELDS, OUTDOOR_SPACING, pick, pinOf, planting, stageOf, type Flora } from './sandbox5.js'
+import { assetOf, pick, planting, stageOf, type Flora } from './sandbox5.js'
 
 export type VillageDome = { kind: DomeKind; x: number; z: number; R: number; ext: number }
 export type VillageHandle = {
@@ -734,7 +733,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			list.push({ x, z, r: keep })
 			trunks.set(k, list)
 		}
-		const S = flora!.spacing ?? OUTDOOR_SPACING, D = flora!.drift ?? DRIFT
+		const S = flora!.spacing, D = flora!.drift
 		/** the fields' tilled soil: one mesh for all of them, ridged along their rows, the furrows darker */
 		const soil = { pos: [] as number[], col: [] as number[], idx: [] as number[] }
 		const ridge = new THREE.Color('#7a5a3c'), furrow = new THREE.Color('#4e3826')
@@ -758,7 +757,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		}
 		// first the mini fields, in open ground between where the trees will stand: oats, lentils, chickpeas, edamame,
 		// hemp in rows, bamboo in clumps, each field sown at once and so mostly at one stage
-		for (const crop of (flora!.fields ?? FIELDS) as typeof FIELDS) {
+		for (const crop of flora!.fields as Flora['fields']) {
 			for (let f = 0, tries = 0; f < crop.fields && tries < 400; tries++) {
 				const [w, l] = crop.size
 				const a = r() * Math.PI * 2, d = 40 + r() * (WORLD - 60)
@@ -782,7 +781,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 						const ju = u + (r() - 0.5) * crop.row * 0.25, jv = v + (r() - 0.5) * crop.gap * 0.5
 						const px = x + ju * c - jv * sn, pz = z + ju * sn + jv * c
 						const at = r() < 0.85 ? stage : crop.stages[Math.floor(r() * crop.stages.length)]!
-						forest!.add({ id: crop.id, v: crop.v, ...pinOf(crop), stage: at, seed }, crop.reach, px, 0, pz, r() * 6.28, 0.88 + r() * 0.24)
+						forest!.add({ id: crop.id, v: crop.v, ...assetOf(crop), stage: at, seed }, crop.reach, px, 0, pz, r() * 6.28, 0.88 + r() * 0.24)
 					}
 			}
 		}
@@ -1150,9 +1149,6 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		floorAt: (x, z, ground) => floorHere(x, z, ground)
 	})
 	const pos = walker.position
-	// play: you walk the cell as someone new each visit, seen from behind ($lib/avatar.ts)
-	const avatar = createAvatar({ renderer, camera, scene })
-	const avatarPose = () => ({ x: pos.x, feet: walker.feet(), z: pos.z, yaw: walker.yaw(), pitch: walker.pitch() })
 	// for a look round from the console (and the checks that photograph the cell): __walker.place(x, z, yaw, pitch)
 	;(window as unknown as { __walker?: typeof walker }).__walker = walker
 
@@ -1355,9 +1351,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		if (!running) return
 		const now = performance.now()
 		// walk (or, while the film camera holds it, fly); the sun's shadows follow the camera round the cell
-		const dt = Math.min(0.1, (now - last) / 1000)
-		walker.update(dt)
-		if (!walker.flying()) avatar.update(dt, avatarPose(), camera)
+		walker.update(Math.min(0.1, (now - last) / 1000))
 		sky.follow(camera.position.x, camera.position.z)
 		last = now
 		const t = worldTime() ?? (now - clock0) / 1000
@@ -1388,11 +1382,9 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		frame = requestAnimationFrame(tick)
 	}
 	walker.update(0)
-	avatar.update(0, avatarPose(), camera)
 	sky.follow(camera.position.x, camera.position.z)
 	// what the library's assets are built from, there before the first frame
 	await library.ready()
-	await avatar.ready()
 	// for a look from the console at what the renderers draw and hold: __assets.stats()
 	;(window as unknown as { __assets?: unknown }).__assets = { stats: () => ({ out: plantsOut?.assets.stats(), in: plantsIn?.assets.stats(), library: library.assets.stats() }) }
 	// Sandbox 5: the plants near where you stand at their finer shapes before the first frame, as they always were
@@ -1580,11 +1572,11 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			const o = ray.ray.origin, d = ray.ray.direction
 			let got: PickedPlant | null = null
 			const hit = forest.pick(o, d)
-			if (hit) got = { id: hit.kind.id, v: hit.kind.v, ...pinOf(hit.kind), stage: hit.kind.stage, seed: hit.kind.seed, x: hit.x, z: hit.z, height: hit.height, distance: hit.t, inside: false }
+			if (hit) got = { id: hit.kind.id, v: hit.kind.v, ...assetOf(hit.kind), stage: hit.kind.stage, seed: hit.kind.seed, x: hit.x, z: hit.z, height: hit.height, distance: hit.t, inside: false }
 			// and the forests inside the domes built near you, in their own ground
 			for (const i of shown) {
 				const dm = domes[i]!, inner = built.get(i)?.pickPlant?.(new THREE.Vector3(o.x - dm.x, o.y, o.z - dm.z), d)
-				if (inner && (!got || inner.t < got.distance)) got = { id: inner.kind.id, v: inner.kind.v, ...pinOf(inner.kind), stage: inner.kind.stage, seed: inner.kind.seed, x: inner.x + dm.x, z: inner.z + dm.z, height: inner.height, distance: inner.t, inside: true }
+				if (inner && (!got || inner.t < got.distance)) got = { id: inner.kind.id, v: inner.kind.v, ...assetOf(inner.kind), stage: inner.kind.stage, seed: inner.kind.seed, x: inner.x + dm.x, z: inner.z + dm.z, height: inner.height, distance: inner.t, inside: true }
 			}
 			marker.visible = !!got
 			if (got) {
@@ -1607,7 +1599,6 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			sound.dispose()
 			world.disconnect()
 			walker.dispose()
-			avatar.dispose()
 			sky.dispose()
 			stage.dispose()
 		}

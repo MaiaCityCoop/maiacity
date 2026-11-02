@@ -52,7 +52,7 @@
 
 <WorldPage
 	mount={async (stage, onProgress) => {
-		await (await import('$lib/recipes')).catalogReady();
+		await (await import('$lib/recipes')).catalogReady('sandbox-1');
 		const { mountVillage } = await import('$lib/content/sandbox-2/interior/village');
 		const SANDBOX_5 = await (await import('$lib/content/sandbox-2/interior/sandbox5.js')).sandbox5();
 		return (village = await mountVillage(stage, onProgress, SANDBOX_5));

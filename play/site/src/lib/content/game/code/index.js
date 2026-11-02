@@ -1,16 +1,33 @@
 // @ts-nocheck
-// play's game configs (cloned from legacy's maia/content/game/code/index.js, which read them from the Maia City vault):
-// play's own, bundled with the site (./configs.json, made by play/site/scripts/configs.mjs), each asset named by its
-// ref. `loadCode` is kept for the worlds that wait on it.
-import CONFIGS from './configs.json';
+// A sandbox's config, from play's database (/api/sandboxes/<id>/config): its pins as `configs/<id>/assets`, each slot
+// the build it pins (`<hash>?values`), and each other config it keeps (Sandbox 1's garden as `configs/<id>/garden`,
+// every planting with the build of its slot as `asset`). Loaded once before the sandbox's world starts (`loadConfig`).
 
 export class CodeError extends Error {}
 
-/** the config at `ref` (`configs/<game>/<name>`), or CodeError */
-export function configAt(ref) {
-	if (!Object.hasOwn(CONFIGS, ref)) throw new CodeError(`play keeps no config ${ref}`);
-	return CONFIGS[ref];
+const CONFIGS = new Map();
+const loading = new Map();
+
+/** the config of sandbox `id`, read once a page */
+export function loadConfig(id) {
+	if (!loading.has(id))
+		loading.set(
+			id,
+			fetch(`/api/sandboxes/${encodeURIComponent(id)}/config`, { credentials: 'same-origin' }).then(async (res) => {
+				if (!res.ok) {
+					loading.delete(id);
+					throw new CodeError(`${id}'s config could not be read (HTTP ${res.status})`);
+				}
+				const { sandbox: _, ...configs } = await res.json();
+				for (const [name, data] of Object.entries(configs)) CONFIGS.set(`configs/${id}/${name}`, data);
+				return configs;
+			})
+		);
+	return loading.get(id);
 }
 
-/** every config is bundled: nothing to load */
-export const loadCode = async () => ({ ok: true });
+/** the config at `configs/<id>/<name>`, once its sandbox's config is in; else CodeError */
+export function configAt(ref) {
+	if (!CONFIGS.has(ref)) throw new CodeError(`${ref} is not loaded (its sandbox's config: loadConfig)`);
+	return CONFIGS.get(ref);
+}

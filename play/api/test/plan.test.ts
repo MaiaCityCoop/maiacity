@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { utf8ToBytes } from "@noble/hashes/utils.js";
 import { hashBytes, canonical } from "../src/hash";
 import { versionId } from "../src/versions";
-import { RECIPE_HEAD, labelOf, parseRef, planAsset, planPins, PlanError } from "../import/plan";
+import { RECIPE_HEAD, gardenWithSlots, hashRefs, labelOf, parseRef, planAsset, planPins, PlanError, readableRefs } from "../import/plan";
 import type { EntryView } from "../import/feed";
 
 const tail = (id: string, v: number, variant: string | null) =>
@@ -110,5 +110,30 @@ describe("pins", () => {
       { slot: "garden/outside/trees/apple", asset: "plants/apple", number: 2, variant: null, params: null },
     ]);
     expect(() => planPins({ hens: { entry: "E9", at: ["h1"] } }, {}, { "E9@h1": "things/coop@2" }, entryOf)).toThrow(/is not entry/);
+  });
+});
+
+describe("every asset by hash", () => {
+  test("a card naming another asset by a readable ref names its build instead; ids are made over that", () => {
+    const cover = entry("biomes", "cover", [[1, "fern", null, "c"], [1, "moss", "l1", "c"]]);
+    const meadow = entry("biomes", "meadow", [[1, null, null, "m"]]);
+    (meadow.view.brought[0].record.card as any).cover = [{ kind: "fern", ref: "biomes/cover@1:fern?seed=7" }];
+    (meadow.view.brought[0].record.card as any).ref = "biomes/meadow@1";
+    const a = [planAsset(cover.view, cover.files).asset, planAsset(meadow.view, meadow.files).asset];
+    const before = a[1].versions[0].id;
+    expect(hashRefs(a)).toBe(1);
+    const card = (a[1].versions[0].card as any).card;
+    expect(card.cover[0].ref).toBe(`${a[0].versions[0].variants.fern.recipe}?seed=7`);
+    expect(card.ref).toBe("biomes/meadow@1");
+    expect(a[1].versions[0].id).not.toBe(before);
+    expect(readableRefs(a[1].versions[0].card, "biomes/meadow")).toEqual([]);
+  });
+  test("a ref with no version, or to what isn't imported, is refused", () => {
+    const meadow = entry("biomes", "meadow", [[1, null, null, "m"]]);
+    (meadow.view.brought[0].record.card as any).cover = [{ ref: "biomes/cover:fern" }];
+    expect(() => hashRefs([planAsset(meadow.view, meadow.files).asset])).toThrow(/no version/);
+  });
+  test("a garden's plantings by their slots", () => {
+    expect(gardenWithSlots({ outside: { trees: [{ id: "apple", v: 2, pin: { entry: "E", at: ["h"] } }] } })).toEqual({ outside: { trees: [{ id: "apple", v: 2, slot: "garden/outside/trees/apple" }] } });
   });
 });

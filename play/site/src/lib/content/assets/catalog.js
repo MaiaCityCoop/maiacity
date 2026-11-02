@@ -1,0 +1,158 @@
+// @ts-nocheck — plain JS, runs in the page
+/*
+ * THE CATALOG — play's one source of assets (play/SPEC.md §4). Every accepted version and variant of Maia City's
+ * assets, by the BLAKE3 hash of its recipe file, from play's API (/api/catalog); each file read from /api/files/<hash>,
+ * held to that hash and kept on this device by it (./cache.js).
+ *
+ * An asset is named only by a hash: a build, `<hash>?values` (./builds.js), or a slot of its sandbox's pins,
+ * `pin:<sandbox>/<slot>?values`, which the sandbox's config (play's database, ../game/code/index.js) maps to a build.
+ * Nothing is looked up by a readable name: a version's number, an asset's id and a label are only shown.
+ */
+import { holds } from '../game/hash.js';
+import { configAt } from '../game/code/index.js';
+import { buildOf, parseBuild } from './builds.js';
+import * as cache from './cache.js';
+import { LATEST } from './engines.js';
+import { queryOf } from './params.js';
+
+export { buildOf, checked, hashText, parseBuild } from './builds.js';
+
+/** a build the catalog can't give: a hash it doesn't hold, a slot its sandbox doesn't pin, or a name that is no hash */
+export class NotInCatalog extends Error {}
+
+/** the largest recipe file a page reads */
+export const MOST = 16_000_000;
+
+/**
+ * What the page knows of each recipe by its hash: its asset's group and id, its version, its variant, its label and
+ * the values it takes (for showing and for the box's details), and the engine every build runs on by default.
+ */
+export const INDEX = { engine: LATEST.v, recipes: {} };
+/** each recipe's record (its card, manifest, contract and engine), by its hash */
+const records = new Map();
+/** each recipe's file's size, by its hash */
+const sizes = new Map();
+
+/** where the catalog is: `phase` (idle, loading, ready, failed), how many recipes, why none */
+export const catalog = { phase: 'idle', count: 0, error: '' };
+
+async function load() {
+	Object.assign(catalog, { phase: 'loading', count: 0, error: '' });
+	try {
+		const res = await fetch('/api/catalog', { credentials: 'same-origin' });
+		if (!res.ok) throw new Error(res.status === 401 ? 'Please sign in first.' : `The asset catalog could not be read (HTTP ${res.status}).`);
+		const rows = await res.json();
+		for (const k of Object.keys(INDEX.recipes)) delete INDEX.recipes[k];
+		records.clear();
+		for (const r of rows) {
+			const params = r.record?.card?.params;
+			INDEX.recipes[r.hash] = { group: r.group, id: r.id, v: r.v, variant: r.variant, first: r.first, asset: r.asset, label: r.label, ...(params?.length ? { params } : {}) };
+			records.set(r.hash, r.record);
+			sizes.set(r.hash, r.size);
+		}
+		INDEX.engine = LATEST.v;
+		Object.assign(catalog, { phase: 'ready', count: rows.length });
+	} catch (e) {
+		Object.assign(catalog, { phase: 'failed', error: String(e?.message ?? e) });
+	}
+	return catalog;
+}
+
+let loading = null;
+/** the catalog, read once a page (again after a failure) */
+export function loadRecipes() {
+	if (catalog.phase === 'failed') loading = null;
+	return (loading ??= load());
+}
+
+/** a slot of a sandbox's pins, `pin:<sandbox>/<slot>[?values]` */
+export const SLOT = /^pin:([a-z0-9][a-z0-9-]*)\/([a-zA-Z0-9][a-zA-Z0-9/-]*)(?:\?([^#\s]*))?$/;
+
+/** a sandbox's slot, with the values it is built with @param {string} sandbox @param {string} slot @param {Record<string, unknown>} [values] */
+export const assetIn = (sandbox, slot, values = {}) => {
+	const q = queryOf(values);
+	return `pin:${sandbox}/${slot}${q ? `?${q}` : ''}`;
+};
+
+/**
+ * A name as the build it is: a build as it is; a slot as the build its sandbox pins there, the slot's own values
+ * after the pin's. Anything else is refused: an asset is named by its hash.
+ * @param {string} name @returns {{ hash: string, params?: Record<string, string> }}
+ */
+export function resolve(name) {
+	if (typeof name !== 'string') throw new NotInCatalog(`not a build: ${JSON.stringify(name)}`);
+	const slot = SLOT.exec(name);
+	if (!slot) {
+		if (!/^[0-9a-f]{64}(\?|$)/.test(name)) throw new NotInCatalog(`${name}: an asset is named by its hash (a build, <hash>?values) or a sandbox's slot`);
+		return parseBuild(name);
+	}
+	const [, sandbox, key, query = ''] = slot;
+	const pins = configAt(`configs/${sandbox}/assets`);
+	const pinned = pins && Object.hasOwn(pins, key) ? pins[key] : undefined;
+	if (typeof pinned !== 'string') throw new NotInCatalog(`${name}: ${sandbox} pins no asset in slot ${key}`);
+	return parseBuild(query ? `${pinned}${pinned.includes('?') ? '&' : '?'}${query}` : pinned);
+}
+
+/** the hash a build or a slot names, held by the catalog @param {string} name */
+export function hashOf(name) {
+	const { hash } = resolve(name);
+	heldAt(hash);
+	return hash;
+}
+
+/** the values a build or a slot names its build with @param {string} name */
+export const paramsOf = (name) => resolve(name).params;
+
+/** a build or a slot as a build's name, `<hash>?values` @param {string} name */
+export const buildAt = (name) => {
+	const { hash, params } = resolve(name);
+	return buildOf(hash, params);
+};
+
+/** what the catalog knows of a hash, or undefined */
+export const recipeInfo = (hash) => (typeof hash === 'string' && Object.hasOwn(INDEX.recipes, hash) ? INDEX.recipes[hash] : undefined);
+
+/** what the catalog knows of a hash, or NotInCatalog naming it */
+export function heldAt(hash) {
+	const at = recipeInfo(hash);
+	if (at) return at;
+	throw new NotInCatalog(
+		catalog.phase === 'ready'
+			? `no recipe ${String(hash).slice(0, 12)}… is in play's catalog`
+			: `recipe ${String(hash).slice(0, 12)}… can't be built yet: ${catalog.error || "play's catalog is not loaded (loadRecipes)"}`
+	);
+}
+
+/** a recipe's name as it is shown: its label and its version ("Goat: Saanen v2") */
+export const nameOf = (hash) => {
+	const at = recipeInfo(hash);
+	return at ? `${at.label} v${at.v}` : `recipe ${String(hash).slice(0, 12)}…`;
+};
+
+/** the card the catalog keeps beside a recipe; undefined if none */
+export const cardOf = (hash) => (recipeInfo(hash) ? records.get(hash)?.card : undefined);
+
+/** what a recipe's record declares (its manifest and contract), which ./load.js holds its builds to */
+export const declaredOf = (hash) => {
+	const r = recipeInfo(hash) ? records.get(hash) : undefined;
+	return r ? { manifest: r.manifest, contract: r.contract } : undefined;
+};
+
+/**
+ * A recipe by its hash: `{ hash, code }`, its file from this device's cache or play's API, held to the hash.
+ * @param {string} hash @returns {Promise<{ hash: string, code: string }>}
+ */
+export async function recipeAt(hash) {
+	await loadRecipes();
+	heldAt(hash);
+	if ((sizes.get(hash) ?? 0) > MOST) throw new NotInCatalog(`${nameOf(hash)}: its file is larger than a page reads`);
+	let bytes = await Promise.resolve(cache.fileAt(hash)).catch(() => undefined);
+	if (!bytes || !holds(bytes, hash)) {
+		const res = await fetch(`/api/files/${hash}`, { credentials: 'same-origin' });
+		if (!res.ok) throw new NotInCatalog(`${nameOf(hash)}: its file could not be read (HTTP ${res.status})`);
+		bytes = new Uint8Array(await res.arrayBuffer());
+		if (!holds(bytes, hash)) throw new NotInCatalog(`${nameOf(hash)}: its file does not hash to its name`);
+		Promise.resolve(cache.keepFile(hash, bytes)).catch(() => {});
+	}
+	return { hash, code: new TextDecoder().decode(bytes) };
+}

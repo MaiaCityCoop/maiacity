@@ -154,3 +154,106 @@ export function planPins(
   walk(garden, []);
   return pins;
 }
+
+/** an asset named by a readable ref, `group/id[@v][:variant][?values]`, as legacy's cards name other assets */
+const READABLE = /^((?:plants|things|machines|buildings|actors|biomes)\/[a-z0-9][a-z0-9-]{0,79})(?:@([1-9][0-9]{0,5}))?(?::([a-z0-9][a-z0-9-]{0,79}))?(?:\?(.*))?$/;
+
+/** every string in a JSON value, rewritten by `f` (a new value; the old one left alone) */
+function mapStrings(v: unknown, f: (s: string) => string): unknown {
+  if (typeof v === "string") return f(v);
+  if (Array.isArray(v)) return v.map((x) => mapStrings(x, f));
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, mapStrings(x, f)]));
+  return v;
+}
+
+/**
+ * Every asset named by hash (play/SPEC.md §4): where a card names another asset by a readable ref (a biome its cover's
+ * kinds, `biomes/cover@1:fern?seed=7`; a pickup the Power Cube it carries, `machines/powercube@3`), the ref becomes the
+ * build of the recipe it names, `<hash>?values`. A card's own `ref`, its label, names itself and stays. A ref to another
+ * asset that names no version, or one not imported, is refused: nothing is left to be resolved by name. The versions'
+ * ids are made again over the rewritten cards, each chained to the one before. Returns how many refs were rewritten.
+ */
+export function hashRefs(assets: PlannedAsset[]): number {
+  const hashOf = new Map<string, string>();
+  for (const a of assets)
+    for (const v of a.versions) {
+      for (const [name, x] of Object.entries(v.variants)) hashOf.set(`${a.id}@${v.number}:${name}`, x.recipe);
+      const own = v.recipe ?? (v.defaultVariant ? v.variants[v.defaultVariant]?.recipe : null);
+      if (own) hashOf.set(`${a.id}@${v.number}`, own);
+    }
+  let n = 0;
+  for (const a of assets) {
+    const rewrite = (s: string) => {
+      const m = READABLE.exec(s);
+      if (!m || m[1] === a.id) return s;
+      if (!m[2]) throw new PlanError(`${a.id}: its card names ${s}, with no version`);
+      const hash = hashOf.get(`${m[1]}@${m[2]}${m[3] ? `:${m[3]}` : ""}`);
+      if (!hash) throw new PlanError(`${a.id}: its card names ${s}, which is not imported`);
+      n++;
+      return m[4] ? `${hash}?${m[4]}` : hash;
+    };
+    let parent: string | null = null;
+    for (const v of a.versions) {
+      v.card = mapStrings(v.card, rewrite);
+      for (const x of Object.values(v.variants)) x.card = mapStrings(x.card, rewrite);
+      v.parents = parent ? [parent] : [];
+      v.id = versionId({ asset: a.id, parents: v.parents, recipe: v.recipe, defaultVariant: v.defaultVariant, variants: v.variants, card: v.card, engine: v.engine });
+      parent = v.id;
+    }
+  }
+  return n;
+}
+
+/** whether a JSON value names another asset than `self` by a readable ref (what a proposal may not bring) */
+export function readableRefs(v: unknown, self: string): string[] {
+  const found: string[] = [];
+  mapStrings(v, (s) => {
+    const m = READABLE.exec(s);
+    if (m && m[1] !== self) found.push(s);
+    return s;
+  });
+  return found;
+}
+
+/** a garden config with each planting's avenDB pin replaced by the slot of the sandbox's pins it is (`garden/<path>`,
+ * the same path `planPins` names it by) */
+export function gardenWithSlots(garden: unknown): unknown {
+  const walk = (o: unknown, path: string[]): unknown => {
+    if (Array.isArray(o)) return o.map((x, i) => walk(x, [...path, `${(x as any)?.id ?? i}`]));
+    if (o && typeof o === "object") {
+      const x = o as any;
+      if (x.pin) {
+        const { pin: _, ...rest } = x;
+        return { ...rest, slot: `garden/${path.join("/")}` };
+      }
+      return Object.fromEntries(Object.entries(x).map(([k, v]) => [k, walk(v, [...path, k])]));
+    }
+    return o;
+  };
+  return walk(garden, []);
+}
+
+/**
+ * Sandbox 3's pins: every asset legacy MaiaCity V2's world draws (maia/content/maiacity-v2/things.js THINGS, its people's
+ * stand-in, the elder woman of seat C), by the slot play's clone names it by. `null`: the asset's newest version.
+ */
+export const SANDBOX_3: Record<string, string> = {
+  water: "things/water-canister@1",
+  busStop: "buildings/bus-stop@1",
+  gasStation: "buildings/gas-station@1",
+  shed: "buildings/old-shed@1",
+  solar: "things/solar-panel@1",
+  ramp: "things/loading-ramp@1",
+  battery: "machines/batterycube@10",
+  cube: "machines/electrocube@2",
+  pickup: "things/pickup@3",
+  tent: "things/bell-tent@1",
+  fire: "things/fire-place@1",
+  bag: "things/bell-tent-bag@1",
+  pack: "things/backpack@2",
+  stake: "things/plant-stake@2",
+  earth: "things/dug-earth@1",
+  van: "things/travel-van@1",
+  "stand-in": "actors/stand-in@11",
+  "elder-woman": "actors/elder-woman",
+};

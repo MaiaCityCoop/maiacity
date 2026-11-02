@@ -8,6 +8,7 @@ import { hashText } from "./hash";
 import type { Db, Queryable } from "./pg";
 import { COOP, Denied, must, type Me } from "./access";
 import { labelOf } from "./recipes";
+import { readableRefs } from "../import/plan";
 import { versionId } from "./versions";
 
 export class ProposalError extends Error {
@@ -93,6 +94,9 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, body: Pro
     if (!variants[defaultVariant]) throw new ProposalError(`${defaultVariant} is not one of its variants.`);
   }
   const card = recipe ? recordOf(inherited(body.record, a[0]?.card), grp, slug, n, null, recipe) : variants[defaultVariant!].card;
+  // every other asset a version names, it names by hash (play/SPEC.md §4)
+  const readable = [card, ...Object.values(variants).map((x) => x.card)].flatMap((c) => readableRefs(c, body.asset));
+  if (readable.length) throw new ProposalError(`Name other assets by their hash, not ${readable.slice(0, 3).join(", ")}.`);
   const engine = Number(card?.engine?.version ?? card?.card?.engine) || null;
   const content = { asset: body.asset, parents: head ? [head] : [], recipe, defaultVariant, variants, card, engine };
   const id = versionId(content);

@@ -8,13 +8,14 @@
 //                becomes a traveler of Maia City
 //   --admin      the founders (by number) who are Maia City's admins, its owners
 //   --dry        plan and verify the files, write nothing
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { blobStore, type BlobStore } from "../src/blobs";
+import { blobStore, keyOf, type BlobStore } from "../src/blobs";
+import { hashBytes } from "../src/hash";
 import { connect, type Db, type Queryable } from "../src/pg";
 import { migrate } from "../src/migrations";
-import { fileOf, rowsOf, viewOf, type EntryView, type FeedRow } from "./feed";
-import { broughtOf, planAsset, planPins, PlanError, type PlannedAsset, type PlannedFile } from "./plan";
+import { FEED, fileOf, rowsOf, viewOf, type EntryView, type FeedRow } from "./feed";
+import { broughtOf, gardenWithSlots, hashRefs, parseRef, planAsset, planPins, SANDBOX_3, PlanError, type PlannedAsset, type PlannedFile } from "./plan";
 
 // the repo root: three up from play/api/import in a checkout; PLAY_REPO in the image (/app)
 const ROOT = process.env.PLAY_REPO ?? join(import.meta.dir, "../../..");
@@ -39,9 +40,9 @@ async function inParallel<T, R>(items: T[], n: number, fn: (t: T) => Promise<R>)
 export type Report = {
   at: string;
   feed: { recipes: number; files: number; bytes: number };
-  assets: { planned: number; byGroup: Record<string, number>; versions: number; variants: number; failed: string[] };
-  written: { files: number; assets: number; versions: number; variants: number; pins: number; humans: number; passkeys: number };
-  verified: { filesReadBack: number; fileErrors: string[]; groupsMatch: boolean; dbByGroup: Record<string, number>; pinsResolved: number; pinErrors: string[] };
+  assets: { planned: number; byGroup: Record<string, number>; versions: number; variants: number; hashedRefs: number; failed: string[] };
+  written: { files: number; assets: number; versions: number; variants: number; pins: number; humans: number; passkeys: number; media: number };
+  verified: { filesReadBack: number; fileErrors: string[]; groupsMatch: boolean; dbByGroup: Record<string, number>; pinsResolved: number; pinErrors: string[]; mediaErrors: string[] };
   ok: boolean;
 };
 
@@ -137,9 +138,9 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
   const report: Report = {
     at: new Date().toISOString(),
     feed: { recipes: 0, files: 0, bytes: 0 },
-    assets: { planned: 0, byGroup: {}, versions: 0, variants: 0, failed: [] },
-    written: { files: 0, assets: 0, versions: 0, variants: 0, pins: 0, humans: 0, passkeys: 0 },
-    verified: { filesReadBack: 0, fileErrors: [], groupsMatch: false, dbByGroup: {}, pinsResolved: 0, pinErrors: [] },
+    assets: { planned: 0, byGroup: {}, versions: 0, variants: 0, hashedRefs: 0, failed: [] },
+    written: { files: 0, assets: 0, versions: 0, variants: 0, pins: 0, humans: 0, passkeys: 0, media: 0 },
+    verified: { filesReadBack: 0, fileErrors: [], groupsMatch: false, dbByGroup: {}, pinsResolved: 0, pinErrors: [], mediaErrors: [] },
     ok: false,
   };
 
@@ -170,6 +171,11 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
       report.assets.failed.push((e as Error).message);
     }
   }
+  try {
+    report.assets.hashedRefs = hashRefs(assets);
+  } catch (e) {
+    report.assets.failed.push((e as Error).message);
+  }
   report.assets.planned = assets.length;
   for (const a of assets) {
     report.assets.byGroup[a.grp] = (report.assets.byGroup[a.grp] ?? 0) + 1;
@@ -192,21 +198,45 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
     report.verified.pinErrors.push((e as Error).message);
   }
 
+  // Sandbox 3's pins: V2's world's assets by their slots, each at the version V2 drew (the newest where it named none)
+  const pins3: ReturnType<typeof planPins> = [];
+  for (const [slot, ref] of Object.entries(SANDBOX_3)) {
+    if (/@[0-9]/.test(ref)) {
+      const r = parseRef(ref);
+      pins3.push({ slot, asset: r.asset, number: r.number, variant: r.variant, params: r.params });
+    } else {
+      const a = assets.find((x) => x.id === ref);
+      if (a) pins3.push({ slot, asset: ref, number: a.versions.at(-1)!.number, variant: null, params: null });
+      else report.verified.pinErrors.push(`sandbox-3 ${slot}: ${ref} is not imported`);
+    }
+  }
+  const garden = gardenWithSlots(read("maia/content/code/configs/sandbox-4/garden/config.json"));
+  // the plants Sandbox 1's interior puts by species (its beds, pots, vines and shrubs: play/site's
+  // content/sandbox-2/interior/legacy.js), each at the version the stand-ins were traded for, v1, as `plant/<id>`
+  for (const a of assets.filter((x) => x.grp === "plants"))
+    if (a.versions.some((v) => v.number === 1)) pins.push({ slot: `plant/${a.slug}`, asset: a.id, number: 1, variant: null, params: null });
+
   if (opts.dry) {
     report.ok = !report.assets.failed.length && !report.verified.pinErrors.length;
     return report;
   }
 
   log(`uploading ${files.size} files…`);
-  const keyOf = new Map<string, string>();
+  const keyFor = new Map<string, string>();
   await inParallel([...files.values()], 8, async (f) => {
-    keyOf.set(f.hash, (await store.has(f.hash)) ? (await import("../src/blobs")).keyOf(f.hash) : await store.put(f.hash, f.bytes, MEDIA));
+    keyFor.set(f.hash, (await store.has(f.hash)) ? keyOf(f.hash) : await store.put(f.hash, f.bytes, MEDIA));
   });
 
   await migrate(db);
   await db.transaction(async (tx) => {
-    await writeAssets(tx, assets, [...files.values()], keyOf, report.written);
+    await writeAssets(tx, assets, [...files.values()], keyFor, report.written);
     await writePins(tx, "sandbox-1", pins, report.written, report.verified.pinErrors);
+    await writePins(tx, "sandbox-3", pins3, report.written, report.verified.pinErrors);
+    // Sandbox 1's garden, each planting by its slot of the pins; written once, then play's own
+    await tx.query(
+      `INSERT INTO play.sandbox_configs (sandbox_id, name, data) VALUES ('sandbox-1', 'garden', ($1::text)::jsonb) ON CONFLICT DO NOTHING`,
+      [JSON.stringify(garden)],
+    );
     if (opts.founders) await writeFounders(tx, opts.admins, report.written);
     if (report.verified.pinErrors.length) throw new Error(`pins failed: ${report.verified.pinErrors.join("; ")}`);
   });
@@ -221,18 +251,68 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
       report.verified.fileErrors.push(`${hash}: ${(e as Error).message}`);
     }
   });
+  await importMedia(db, store, report);
   const { rows: groups } = await db.query<{ grp: string; n: string }>(`SELECT grp, count(*) AS n FROM play.assets GROUP BY grp`);
   report.verified.dbByGroup = Object.fromEntries(groups.map((g) => [g.grp, Number(g.n)]));
   const feedByGroup: Record<string, number> = {};
   for (const r of rows) feedByGroup[r.record?.card?.group] = (feedByGroup[r.record?.card?.group] ?? 0) + 1;
   report.verified.groupsMatch = JSON.stringify(Object.entries(feedByGroup).sort()) === JSON.stringify(Object.entries(report.verified.dbByGroup).sort());
   const { rows: pinned } = await db.query<{ n: string }>(
-    `SELECT count(*) AS n FROM play.sandbox_pins p JOIN play.asset_versions v ON v.id = p.version_id WHERE p.sandbox_id = 'sandbox-1'`,
+    `SELECT count(*) AS n FROM play.sandbox_pins p JOIN play.asset_versions v ON v.id = p.version_id`,
   );
   report.verified.pinsResolved = Number(pinned[0].n);
-  if (report.verified.pinsResolved !== pins.length) report.verified.pinErrors.push(`${report.verified.pinsResolved} of ${pins.length} pins resolve`);
-  report.ok = !report.assets.failed.length && !report.verified.fileErrors.length && report.verified.groupsMatch && !report.verified.pinErrors.length;
+  if (report.verified.pinsResolved !== pins.length + pins3.length)
+    report.verified.pinErrors.push(`${report.verified.pinsResolved} of ${pins.length + pins3.length} pins resolve`);
+  report.ok = !report.assets.failed.length && !report.verified.fileErrors.length && report.verified.groupsMatch && !report.verified.pinErrors.length && !report.verified.mediaErrors.length;
   return report;
+}
+
+const MEDIA_TYPES: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", mp4: "video/mp4", mp3: "audio/mpeg" };
+
+/** every media file play's site names by its hash (`<hash>.<ending>` in play/site/src: the sandboxes' covers, their sounds) */
+function mediaNamed(): { hash: string; ending: string }[] {
+  const dir = join(ROOT, "play/site/src");
+  const out = new Map<string, string>();
+  try {
+    statSync(dir);
+  } catch {
+    throw new Error(`play's site sources are not at ${dir}: the media they name can't be found`);
+  }
+  const walk = (d: string) => {
+    for (const f of readdirSync(d)) {
+      const p = join(d, f);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.(js|ts|svelte)$/.test(f)) for (const m of readFileSync(p, "utf8").matchAll(/\b([0-9a-f]{64})\.(jpg|jpeg|png|webp|mp4|mp3)\b/g)) out.set(m[1], m[2]);
+    }
+  };
+  walk(dir);
+  return [...out].map(([hash, ending]) => ({ hash, ending }));
+}
+
+/** the media play's site shows, from legacy's public media (avenDB's feed, /feed/media/<hash>), each held to its hash,
+ * into play's files: play serves them itself (/api/files/<hash>), nothing from legacy */
+async function importMedia(db: Db, store: BlobStore, report: Report) {
+  let named: { hash: string; ending: string }[] = [];
+  try {
+    named = mediaNamed();
+  } catch (e) {
+    report.verified.mediaErrors.push((e as Error).message);
+  }
+  for (const { hash, ending } of named) {
+    try {
+      const known = (await db.query(`SELECT 1 FROM play.files WHERE hash = $1`, [hash])).rows.length > 0;
+      if (known && (await store.has(hash))) continue;
+      const r = await fetch(`${FEED}/media/${hash}.${ending}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const bytes = new Uint8Array(await r.arrayBuffer());
+      if (hashBytes(bytes) !== hash) throw new Error("its bytes don't hash to its name");
+      await store.put(hash, bytes, MEDIA_TYPES[ending]);
+      await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, [hash, bytes.length, MEDIA_TYPES[ending], keyOf(hash)]);
+      report.written.media++;
+    } catch (e) {
+      report.verified.mediaErrors.push(`media ${hash}.${ending}: ${(e as Error).message}`);
+    }
+  }
 }
 
 export function reportText(r: Report): string {
@@ -245,12 +325,14 @@ export function reportText(r: Report): string {
     `|---|---|`,
     `| Feed | ${r.feed.recipes} recipes, ${r.feed.files} files, ${(r.feed.bytes / 1e6).toFixed(1)} MB |`,
     `| Planned | ${r.assets.planned} assets (${Object.entries(r.assets.byGroup).map(([g, n]) => `${g} ${n}`).join(", ")}), ${r.assets.versions} versions, ${r.assets.variants} variants |`,
+    `| Refs to other assets rewritten as hashes | ${r.assets.hashedRefs} |`,
     `| Written now | ${Object.entries(r.written).map(([k, n]) => `${k} ${n}`).join(", ")} |`,
     `| Files read back and hash-checked | ${r.verified.filesReadBack} |`,
     `| Assets per group match the feed | ${r.verified.groupsMatch ? "yes" : "no"} |`,
-    `| Sandbox 1 pins resolving | ${r.verified.pinsResolved} |`,
+    `| Sandbox pins resolving (Sandbox 1 and 3) | ${r.verified.pinsResolved} |`,
+    `| Media files (covers) | ${r.written.media} written, ${r.verified.mediaErrors.length} failed |`,
   ];
-  const errs = [...r.assets.failed, ...r.verified.fileErrors, ...r.verified.pinErrors];
+  const errs = [...r.assets.failed, ...r.verified.fileErrors, ...r.verified.pinErrors, ...r.verified.mediaErrors];
   if (errs.length) lines.push(``, `## Errors`, ``, ...errs.map((e) => `- ${e}`));
   return lines.join("\n") + "\n";
 }

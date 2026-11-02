@@ -10,24 +10,26 @@
  * each to what its builder hands back (and to the build's own nodes), as Sandbox 2's walk is held (#790).
  */
 
-/** the library's assets the world puts in, at the version each stands at */
+/** the library's assets the world puts in, each by its slot of Sandbox 3's pins: play's database pins each slot to
+ *  the build of the version V2 drew (its hash), ../assets/catalog.js `resolve` */
+const slot = (key) => `pin:sandbox-3/${key}`;
 export const THINGS = {
-	water: 'things/water-canister@1',
-	busStop: 'buildings/bus-stop@1',
-	gasStation: 'buildings/gas-station@1',
-	shed: 'buildings/old-shed@1',
-	solar: 'things/solar-panel@1',
-	ramp: 'things/loading-ramp@1',
-	battery: 'machines/batterycube@10',
-	cube: 'machines/electrocube@2',
-	pickup: 'things/pickup@3',
-	tent: 'things/bell-tent@1',
-	fire: 'things/fire-place@1',
-	bag: 'things/bell-tent-bag@1',
-	pack: 'things/backpack@2',
-	stake: 'things/plant-stake@2',
-	earth: 'things/dug-earth@1',
-	van: 'things/travel-van@1'
+	water: slot('water'),
+	busStop: slot('busStop'),
+	gasStation: slot('gasStation'),
+	shed: slot('shed'),
+	solar: slot('solar'),
+	ramp: slot('ramp'),
+	battery: slot('battery'),
+	cube: slot('cube'),
+	pickup: slot('pickup'),
+	tent: slot('tent'),
+	fire: slot('fire'),
+	bag: slot('bag'),
+	pack: slot('pack'),
+	stake: slot('stake'),
+	earth: slot('earth'),
+	van: slot('van')
 };
 
 /** the MaiaCity centre (the library's maia-centre without its van and its road): the bus stop and the gas station
@@ -143,7 +145,9 @@ export const BOTTLE_MOUTH = 0.268;
 
 /** the people: the rigged stand-in (actors/stand-in@11), built with how tall they are and their look (./van.js PEOPLE,
  *  the players in their seat's colours), its moves played from the tables the box wrote down ($content/assets/clips.js) */
-export const STAND_IN = 'actors/stand-in@11';
+export const STAND_IN = slot('stand-in');
+/** the elder woman of seat C */
+export const ELDER_WOMAN = slot('elder-woman');
 /** a person's ref: their height (m) and what of their look is not the stand-in's, by name, in a steady order */
 export const standInRef = (height, look = {}) =>
 	`${STAND_IN}?${new URLSearchParams(Object.entries({ height, ...look }).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([k, v]) => [k, String(v)]))}`;

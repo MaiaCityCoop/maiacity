@@ -19,8 +19,10 @@ import { rebuild } from './box/rebuild.js';
 import * as cache from './cache.js';
 import { engineAt } from './engines.js';
 import { valuesOf } from './params.js';
-import { INDEX, buildOf, cardOf, declaredOf, heldAt, loadRecipes, parseBuild, provenAt, recipeAt, wants } from './vault.js';
-import { libsOf } from './sources/avendb.js';
+import { INDEX, buildOf, cardOf, declaredOf, heldAt, loadRecipes, parseBuild, recipeAt } from './catalog.js';
+
+/** the libraries a recipe's code requires, by name */
+const libsOf = (code) => [...new Set([...code.matchAll(/\brequire\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1]))];
 import { checkCard } from './schemas/index.js';
 
 const boxes = new Map();
@@ -93,7 +95,6 @@ export function heldTo(code, declared, engine) {
 export function canonical(name) {
 	const { hash, params } = parseBuild(name);
 	const at = heldAt(hash);
-	wants(hash);
 	const values = at.params?.length ? valuesOf(at.params, params) : undefined;
 	if (params && !values) throw new Error(`${at.label} takes no parameters`);
 	return { hash, at, values, name: buildOf(hash, values), engine: engineOf(hash) };
@@ -141,12 +142,10 @@ function open({ data, card }, hash) {
  */
 export async function loadAsset(name, { box, cache: useCache = true, store = cache } = {}) {
 	const t0 = now();
-	// what is no build at all, or a vault's ref, is refused before the recipes are asked for
+	// what is no build at all is refused before the catalog is asked
 	parseBuild(name);
 	await loadRecipes();
 	const c = canonical(name);
-	// nothing of a recipe is shown, from the cache or the box, before Maia City's signed edits prove it (H2)
-	await provenAt(c.hash);
 	const key = cache.keyOf({ engine: c.engine.blake3, recipe: c.hash, params: c.values });
 	const said = { name: c.name, key, label: c.at.label };
 	if (useCache) {

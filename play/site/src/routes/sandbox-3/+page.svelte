@@ -27,7 +27,7 @@
 		let gone = false;
 		(async () => {
 			try {
-				await (await import('$lib/recipes')).catalogReady();
+				await (await import('$lib/recipes')).catalogReady('sandbox-3');
 				const { createWorld } = await import('$lib/content/maiacity-v2/world.js');
 				if (gone || !canvas) return;
 				world = createWorld(canvas, { onRoam: (r: { on: boolean }) => (roaming = r.on) });

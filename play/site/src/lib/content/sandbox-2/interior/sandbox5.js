@@ -13,11 +13,10 @@
  * one written here until it is planted again on purpose.
  */
 
-import { configAt, loadCode } from '../../game/code/index.js';
+import { configAt, loadConfig } from '../../game/code/index.js';
 
-/** @typedef {{ entry: string, at: string[] }} Pin a version of a plant by avenDB's ids: its entry, the heads of the version */
 /**
- * @typedef {{ id: string, v: number, pin?: Pin, stages: number[], weight?: number }} Planting a plant of the library at its
+ * @typedef {{ id: string, v: number, asset?: string, stages: number[], weight?: number }} Planting a plant of the library at its
  *   version (its `pin`, else `v`), at one of `stages` (the stage indices 0 … 9; 9 the ripe fruit), drawn `weight` times as
  *   often as a plant of weight 1
  */
@@ -27,10 +26,10 @@ import { configAt, loadCode } from '../../game/code/index.js';
  *   (herbs, vegetables, the ground layer and the fungi)
  */
 
-/** @typedef {{ id: string, v: number, pin?: Pin, stage: number, seed: string }} Kind a plant at its version, stage and seed */
+/** @typedef {{ id: string, v: number, asset?: string, stage: number, seed: string }} Kind a plant at its version, stage and seed */
 
-/** A planting's plant as a kind is anchored to it: its pin where it has one. @param {{ pin?: Pin }} p */
-export const pinOf = (p) => (p.pin ? { pin: p.pin } : {});
+/** A planting's plant as a kind is anchored to it: its pin where it has one. @param {{ asset?: string }} p */
+export const assetOf = (p) => (p.asset ? { asset: p.asset } : {});
 
 /**
  * How finely Sandbox 4 has always grown its plants (DETAIL in $content/plants/grow.js: `detailAt` of each level is these):
@@ -57,7 +56,7 @@ export const GARDEN = 'configs/sandbox-1/garden';
  * @param {any} c the config's JSON
  * @returns {{ seed: string, outside: Garden & { canopy: Planting[], herbs: Planting[], ground: Planting[], roots: Planting[], fungi: Planting[] },
  *   inside: Garden, spacing: Record<string, number>, drift: { least: number, most: number, gap: Record<string, number> },
- *   fields: { id: string, v: number, pin?: Pin, stages: number[], size: [number, number], row: number, gap: number, fields: number, reach: 'cover' | 'shrub' | 'tree', tilled: boolean }[] }}
+ *   fields: { id: string, v: number, asset?: string, stages: number[], size: [number, number], row: number, gap: number, fields: number, reach: 'cover' | 'shrub' | 'tree', tilled: boolean }[] }}
  */
 function floraOf(c) {
 	const outside = {
@@ -69,27 +68,13 @@ function floraOf(c) {
 	return { seed: c.seed, outside, inside: c.inside, spacing: c.spacing, drift: c.drift, fields: c.fields };
 }
 
-const SEED = configAt(GARDEN);
-
-/**
- * How close each layer of the outdoor forest garden stands: a plant every so many square metres (on a jittered grid),
- * and how far it keeps from a canopy tree's trunk. The seed's; a garden carries its own (`flora.spacing`).
- */
-export const OUTDOOR_SPACING = SEED.spacing;
-
-/** Sandbox 5: the village of ./village.ts, its forest the seed's garden (`flora`). */
-export const SANDBOX_5 = {
-	sandbox: /** @type {const} */ ('sandbox-5'),
-	flora: floraOf(SEED)
-};
-
-/** Sandbox 5 as it is kept now: its garden from the Maia City vault once the vault's code is loaded, else the seed's. */
+/** play's Sandbox 1: the village of ./village.ts, its forest the garden play's database keeps (`flora`) */
 export async function sandbox5() {
-	await loadCode();
+	await loadConfig('sandbox-1');
 	return { sandbox: /** @type {const} */ ('sandbox-5'), flora: floraOf(configAt(GARDEN)) };
 }
 
-/** @typedef {typeof SANDBOX_5.flora} Flora */
+/** @typedef {ReturnType<typeof floraOf>} Flora */
 
 /**
  * One planting of a layer, drawn by its weight, at one of its stages: the kind to grow.
@@ -119,14 +104,10 @@ export function planting(layer, r) {
 export function stageOf(p, r, seed) {
 	// the later stages a little more often: a food forest is mostly grown
 	const k = Math.min(p.stages.length - 1, Math.floor(Math.pow(r(), 0.8) * p.stages.length));
-	return { id: p.id, v: p.v, ...pinOf(p), stage: p.stages[k], seed };
+	return { id: p.id, v: p.v, ...assetOf(p), stage: p.stages[k], seed };
 }
 
-/** the drifts and the mini fields as the seed has them; a garden carries its own (`flora.drift`, `flora.fields`) */
-export const DRIFT = SEED.drift;
-/** @type {{ id: string, v: number, pin?: Pin, stages: number[], size: [number, number], row: number, gap: number, fields: number, reach: 'cover' | 'shrub' | 'tree', tilled: boolean }[]} */
-export const FIELDS = SEED.fields;
 
 /** every plant a garden can grow, as kinds (for growing them all ahead) @param {Garden} garden @param {string} seed */
 export const kindsOf = (garden, seed) =>
-	Object.values(garden).flatMap((layer) => layer.flatMap((/** @type {Planting} */ p) => p.stages.map((stage) => ({ id: p.id, v: p.v, ...pinOf(p), stage, seed }))));
+	Object.values(garden).flatMap((layer) => layer.flatMap((/** @type {Planting} */ p) => p.stages.map((stage) => ({ id: p.id, v: p.v, ...assetOf(p), stage, seed }))));

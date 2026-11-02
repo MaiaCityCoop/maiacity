@@ -24,8 +24,7 @@
  * Nothing here loads the renderer: a dome's inside (./interior.ts) is handed the flora it plants in by whoever builds it.
  */
 import * as THREE from 'three';
-import { MAIA_CITY } from '../../game/code/sources/anchor.js';
-import { NotInVault, pinRef } from '../../assets/sources/avendb.js';
+import { NotInCatalog } from '../../assets/catalog.js';
 import { TIERS } from './sandbox5.js';
 
 /** @typedef {import('./sandbox5.js').Kind} Kind */
@@ -65,9 +64,9 @@ export const keyOf = (k) => `${k.id}@${k.v}:${k.stage}:${k.seed}`;
  * the garden pins no version of. @param {Kind} k
  */
 export const refOf = (k) => {
-	// play: the garden names each plant at its version (configs/sandbox-1/garden), plants/<id>@<v>
-	if (!k.v) throw new NotInVault(`the garden names no version of ${k.id} (configs/sandbox-1/garden)`);
-	return `plants/${k.id}@${k.v}?stage=${k.stage}&seed=${encodeURIComponent(k.seed)}`;
+	// play: the garden names each plant by the build of its slot (configs/sandbox-1/garden), a hash
+	if (!k.asset) throw new NotInCatalog(`the garden names no asset for ${k.id} (configs/sandbox-1/garden)`);
+	return `${k.asset}${k.asset.includes('?') ? '&' : '?'}stage=${k.stage}&seed=${encodeURIComponent(k.seed)}`;
 };
 
 /** the side of a cell of the ground the small plants are filed in, metres */

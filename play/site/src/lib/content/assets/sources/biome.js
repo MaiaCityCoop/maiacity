@@ -6,7 +6,7 @@
  * for).
  */
 import { biomeOfCard } from '$lib/content/biomes/card.js';
-import { cardOf, hashOf } from '../vault.js';
+import { cardOf, hashOf } from '../catalog.js';
 
 /**
  * The biome a ref names in the vault (`biomes/food-forest`, its newest version; `biomes/food-forest@2`, that one; or a

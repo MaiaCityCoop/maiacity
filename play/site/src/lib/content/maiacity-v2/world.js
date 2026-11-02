@@ -33,7 +33,7 @@ import { lineDur } from './tour.js';
 import { ME_SEAT, packedVan, seeThrough, wearFace } from './van.js';
 import { PLOT, SEATS, WATER_REACH } from '../game/maiacity-v2/engine.js';
 import { look, pathOf } from '../game/film/camera.js';
-import { BAG_PARTS, BELL_TENT, BOTTLE_MOUTH, CENTRE_AT, FIRE_CATCHES, FIRE_WALK, PACK_PACKETS, PICKUP, RAMP, STAKE_FLAG, TENT_CLOTH, TENT_LAMP, TENT_WALK, THINGS, WALK_CYCLE, stakeRef, standInRef, tentWork } from './things.js';
+import { BAG_PARTS, BELL_TENT, BOTTLE_MOUTH, CENTRE_AT, FIRE_CATCHES, FIRE_WALK, PACK_PACKETS, PICKUP, RAMP, STAKE_FLAG, TENT_CLOTH, TENT_LAMP, TENT_WALK, THINGS, WALK_CYCLE, ELDER_WOMAN, stakeRef, standInRef, tentWork } from './things.js';
 import { createDrawn } from './drawn.js';
 import { growthFrame } from './tree-camera.js';
 import { aim, filmHoldsSize, poseIn } from '$lib/content/sandbox-kit/film.js';
@@ -599,7 +599,7 @@ function person(seat, drawn) {
 	drawn.load(THINGS.pack, pack, { pick: g.name, cast: false }).then((got) => got.poser.set('open', 0), () => {});
 	const { height, look } = CAST[seat];
 	// casting its shadow, none on it: the sun's shadow map is far too coarse for a face (it drew a dark band over the eyes)
-	const cast = drawn.actor(seat === 'C' ? 'actors/elder-woman' : standInRef(height, look), body, { pick: g.name, shadow: true, receive: false, cycles: { walk: WALK_CYCLE } }, (c) => {
+	const cast = drawn.actor(seat === 'C' ? ELDER_WOMAN : standInRef(height, look), body, { pick: g.name, shadow: true, receive: false, cycles: { walk: WALK_CYCLE } }, (c) => {
 		const chest = c.rig.bones.chest ?? c.rig.bones.spine;
 		if (chest) wearPack(chest, pack, c.mesh);
 		else (pack.position.copy(PACK_ON), pack.rotation.set(0, Math.PI, 0), body.add(pack));

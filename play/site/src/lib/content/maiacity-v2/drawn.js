@@ -40,7 +40,7 @@ const boxes = () => Math.max(2, Math.min(4, ((typeof navigator !== 'undefined' &
 
 let mods = null;
 const modules = () =>
-	(mods ??= Promise.all([import('$lib/content/assets/render/index.js'), import('$lib/content/assets/load.js'), import('$lib/content/assets/vault.js'), import('$lib/content/assets/hero.js'), import('$lib/content/assets/controls.js'), import('$lib/content/assets/clips.js')]).then(async ([r, l, x, h, c, k]) => ({
+	(mods ??= Promise.all([import('$lib/content/assets/render/index.js'), import('$lib/content/assets/load.js'), import('$lib/content/assets/catalog.js'), import('$lib/content/assets/hero.js'), import('$lib/content/assets/controls.js'), import('$lib/content/assets/clips.js')]).then(async ([r, l, x, h, c, k]) => ({
 		// the Maia City vault's recipes, in before the first build is asked for
 		recipes: await x.loadRecipes(),
 		createAssets: r.createAssets,

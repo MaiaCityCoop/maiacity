@@ -24,7 +24,7 @@
 		(async () => {
 			const THREE = await import('three');
 			const [{ createStageRenderer }, { disposeObject }, { asker, loop }] = await Promise.all([import('$lib/content/render/stage.js'), import('$lib/content/render/core.js'), import('$lib/content/assets/viewer.js')]);
-			const [{ loadAsset }, { buildAt, loadRecipes }, { refOf }, { TIERS }] = await Promise.all([import('$lib/content/assets/load.js'), import('$lib/content/assets/vault.js'), import('./flora.js'), import('./sandbox5.js')]);
+			const [{ loadAsset }, { buildAt, loadRecipes }, { refOf }, { TIERS }] = await Promise.all([import('$lib/content/assets/load.js'), import('$lib/content/assets/catalog.js'), import('./flora.js'), import('./sandbox5.js')]);
 			// the plant's recipe is the Maia City vault's ($content/assets/vault.js)
 			await loadRecipes();
 			if (gone) return;

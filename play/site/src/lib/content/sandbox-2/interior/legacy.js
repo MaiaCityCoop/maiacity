@@ -52,7 +52,8 @@ export function swapLegacy(root, space, forest, { warm, seed, r }) {
 	/** @param {string} id @param {number[]} stages @param {Reach} reach @param {THREE.Vector3} w @param {number} scale */
 	const add = (id, stages, reach, w, scale) => {
 		const stage = stages[Math.min(stages.length - 1, Math.floor(r() * stages.length))];
-		forest.add({ id, v: 1, stage, seed }, reach, w.x, w.y, w.z, r() * Math.PI * 2, scale * (0.9 + r() * 0.2));
+		// each plant by its slot of Sandbox 1's pins (`plant/<id>`: the version the stand-ins were traded for, v1)
+		forest.add({ id, v: 1, asset: `pin:sandbox-1/plant/${id}`, stage, seed }, reach, w.x, w.y, w.z, r() * Math.PI * 2, scale * (0.9 + r() * 0.2));
 	};
 	for (const o of found) {
 		const L = o.userData.legacy;

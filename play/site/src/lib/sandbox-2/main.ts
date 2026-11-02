@@ -14,9 +14,6 @@ import { germanHouseScenario } from './german-house';
 import {standScenario,STAND_HUBS,DEFAULT_STAND_SETTINGS,STAND_LAB_MIN_HEIGHT,STAND_LAB_MAX_HEIGHT,type StandSettings} from './stand-lab';
 import {PartsGallery} from './parts-gallery';
 import './style.css';
-import { createWalker } from '$lib/content/sandbox-kit/walker.js';
-import { createAvatar } from '$lib/avatar';
-import { catalogReady } from '$lib/recipes';
 
 function partGeometry(spec: Box) {
   if (spec.taper) return new ConvexGeometry(verticesOf(spec).map(p => new THREE.Vector3(p.x, p.y, p.z)));
@@ -71,7 +68,7 @@ export async function mountLab(root: HTMLElement): Promise<() => void> {
       <label for="wind-speed">Speed · m/s</label><input id="wind-speed" type="number" min="0" step="1" value="10">
       <label for="wind-direction">Blowing from</label><select id="wind-direction"><option value="front">Doorway → back (−Z)</option><option value="back">Back → doorway (+Z)</option><option value="left">Left → right (+X)</option><option value="right">Right → left (−X)</option></select>
       <p id="wind-status" aria-live="polite">Wind off</p><p class="note">Steady drag on exposed surfaces, with sampled sheltering. Blue-green arrows show airflow. No turbulence or roof suction. Pause stops wind acting too.</p></section><p class="note">Start with contact.<br>Observe the load path.<br>Change one condition.</p><p class="note">Every supplied part is a separate body. Roof grips, sheet fixings and dome connections can fail. Some lower-frame and masonry connections remain ideal rigid restraints. Only ground and the test incline are fixed.</p></aside>
-    <main><div class="scene-heading"><div><h2 id="scene-title"></h2><p id="question"></p></div><div class="view-buttons"><button id="orbit">Orbit</button><button id="side">Side</button><button id="top">Top</button><button id="walk" class="primary">Walk</button></div></div>
+    <main><div class="scene-heading"><div><h2 id="scene-title"></h2><p id="question"></p></div><div class="view-buttons"><button id="orbit">Orbit</button><button id="side">Side</button><button id="top">Top</button></div></div>
       <section id="construction" hidden aria-label="Step by step construction">
         <div class="build-heading"><div><small>STEP BY STEP CONSTRUCTION</small><h3 id="build-stage"></h3></div><strong id="build-count"></strong></div>
         <div id="build-stages"></div><progress id="build-progress" max="1" value="0" aria-label="Construction progress"></progress>
@@ -299,29 +296,7 @@ export async function mountLab(root: HTMLElement): Promise<() => void> {
     const button = document.createElement('button'); button.textContent = preset.title; button.dataset.id = preset.id;
     button.onclick = () => { void reset(preset.id === 'dome' ? domeScenario(domeDiameter) : preset, true).catch(error=>el('worker-status').textContent=error.message); }; el('scenario-list').append(button);
   }
-  // play: walk the lab as this visit's random character ($lib/avatar.ts), on the sandbox kit's walker; Orbit, Side or
-  // Top hands the camera back to the orbit controls
-  let walking: { walker: ReturnType<typeof createWalker>; avatar: ReturnType<typeof createAvatar> } | null = null;
-  const stopWalking = () => {
-    if (!walking) return;
-    walking.walker.dispose(); walking.avatar.dispose(); walking = null;
-    controls.enabled = true; el('walk').textContent = 'Walk';
-  };
-  el('walk').onclick = async () => {
-    if (walking) { stopWalking(); setView('orbit'); return; }
-    el('walk').textContent = 'Loading…';
-    try { await catalogReady(); } catch (e) { el('walk').textContent = 'Walk'; console.error(e); return; }
-    controls.enabled = false;
-    const walker = createWalker(camera, renderer.domElement, {
-      x: 0, z: 7, yaw: 0, pitch: 0.06, walk: 1.5, hurry: 3.6,
-      // the lab's floor is the 30 m grid; the parts stand on it, walked through rather than climbed
-      canStand: (x: number, z: number) => Math.abs(x) < 14.5 && Math.abs(z) < 14.5,
-      floorAt: () => 0
-    });
-    walking = { walker, avatar: createAvatar({ renderer, camera, scene, follow: { back: 5, up: 1.4 } }) };
-    el('walk').textContent = 'Stop walking';
-  };
-  for (const view of ['orbit', 'side', 'top']) el(view).onclick = () => { stopWalking(); setView(view); };
+  for (const view of ['orbit', 'side', 'top']) el(view).onclick = () => setView(view);
   el('run').onclick = () => { void send({type:'run',running:!playback.running}); };
   el('step').onclick = () => { if(!playback.running)void send({type:'step'}); };
   el('place-part').onclick = () => { void send({type:'place'}); };
@@ -443,12 +418,10 @@ export async function mountLab(root: HTMLElement): Promise<() => void> {
     // Render transforms every frame; expensive text measurements at 10 Hz.
     syncTransforms();
     if (now - lastDisplay > 100) { update(); lastDisplay = now; }
-    if(galleryActive)gallery.render(renderer);
-    else if (walking) { const w = walking.walker; w.update(Math.min(.1, elapsed)); walking.avatar.update(Math.min(.1, elapsed), { x: w.position.x, feet: w.feet(), z: w.position.z, yaw: w.yaw(), pitch: w.pitch() }, camera); renderer.render(scene, camera); }
-    else {controls.update(); renderer.render(scene, camera);}
+    if(galleryActive)gallery.render(renderer);else {controls.update(); renderer.render(scene, camera);}
   });
   return () => {
-    titleSlot.destroy(); controlSlot.destroy(); stopWalking();
+    titleSlot.destroy(); controlSlot.destroy();
     renderer.setAnimationLoop(null); resizing.disconnect(); document.removeEventListener('visibilitychange', resume);
     client.dispose(); controls.dispose(); gallery.controls.dispose();
     scene.traverse(object => { const mesh = object as THREE.Mesh; mesh.geometry?.dispose(); for (const m of [mesh.material].flat()) (m as THREE.Material | undefined)?.dispose(); });

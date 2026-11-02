@@ -5,7 +5,7 @@ import type { BlobStore } from "./blobs";
 import { HASH } from "./hash";
 import type { Db } from "./pg";
 import { Denied, meOf, must } from "./access";
-import { assetOf, catalogOf, fileOf, listAssets, NotFound, pinsOf, resolve, versionOf } from "./assets";
+import { assetOf, catalogOf, configOf, fileOf, listAssets, NotFound, pinsOf, versionOf } from "./assets";
 import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, registerOptions, sessionCookie, tokenFor } from "./auth";
 import { claimInvite, inviteOpen, listMembers, makeInvite, MemberError, setLevel } from "./members";
 import { decide, listProposals, propose, ProposalError, type Verdict } from "./proposals";
@@ -76,12 +76,6 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     must(await me(req), "read", "assets");
     return json(await catalogOf(db), { headers: { "Cache-Control": "private, max-age=60" } });
   });
-  on("GET", "/api/resolve", async (req) => {
-    must(await me(req), "read", "assets");
-    const refs = new URL(req.url).searchParams.getAll("ref").slice(0, 200);
-    const out = await Promise.all(refs.map((ref) => resolve(db, ref).catch((e) => ({ ref, error: (e as Error).message }))));
-    return json(out);
-  });
   on("GET", "/api/files/:hash", async (req, p) => {
     must(await me(req), "read", "assets");
     if (!HASH.test(p.hash)) throw new NotFound("That is not a file's hash.");
@@ -98,6 +92,10 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("GET", "/api/sandboxes", async (req) => {
     must(await me(req), "read", "sandboxes");
     return json((await db.query(`SELECT id, title, route, note FROM play.sandboxes ORDER BY id`)).rows);
+  });
+  on("GET", "/api/sandboxes/:id/config", async (req, p) => {
+    must(await me(req), "read", "sandboxes");
+    return json(await configOf(db, p.id));
   });
   on("GET", "/api/sandboxes/:id/pins", async (req, p) => {
     must(await me(req), "read", "sandboxes");
