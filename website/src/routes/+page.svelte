@@ -1,6 +1,5 @@
-<!-- maia.city's home: the manifesto, and the way in (Join: invite only, into play). -->
+<!-- maia.city's home: the manifesto, and the way in: play's landing page (invite only to sign up). -->
 <script lang="ts">
-	import { base } from '$app/paths';
 	import Manifesto from '$lib/Manifesto.svelte';
 
 	let { data } = $props();
@@ -16,7 +15,7 @@
 </main>
 
 <div class="signup-float">
-	<a class="pill-btn" href="{base}/join/">Join</a>
+	<a class="pill-btn" href="https://play.maia.city/">Join</a>
 </div>
 
 <style>

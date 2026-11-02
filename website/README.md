@@ -1,7 +1,7 @@
 # website
 
-maia.city: the public site. The manifesto, the legal pages and the way in, which is play (play.maia.city), by
-invite only. A plain SvelteKit app, prerendered, nothing from beside this folder.
+maia.city: the public site. The manifesto and the legal pages; Join and Sign in go to play's landing page
+(play.maia.city), where an invite link signs someone up. A plain SvelteKit app, prerendered, nothing from beside this folder.
 
     bun install && bun run dev      # http://localhost:5173
     bun run build                   # into build/

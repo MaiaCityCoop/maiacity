@@ -4,7 +4,6 @@
 	a crescendo whose lines grow as they build, and the creed as the close.
 -->
 <script lang="ts">
-	import { base } from '$app/paths';
 	import bannerImage from '$lib/images/manifesto-banner.jpg';
 	import samuelImage from '$lib/images/samuel.jpg';
 	import FounderCounter from '$lib/FounderCounter.svelte';
@@ -94,7 +93,7 @@
 		<p class="invitation">
 			Sign up to apply now for early game access and your “Maia Citizenship”.
 		</p>
-		<a class="pill-btn" href="{base}/join/">Sign up <span aria-hidden="true">→</span></a>
+		<a class="pill-btn" href="https://play.maia.city/">Join <span aria-hidden="true">→</span></a>
 	</section>
 
 	<section class="spread">

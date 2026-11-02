@@ -1,6 +1,6 @@
 <script lang="ts">
 	// maia.city's frame: the pill along the top (the logo, the pages, the channels, the way in) and the footer. The way
-	// in is play (play.maia.city), by invite only: Sign in there, or how to join here.
+	// in is play (play.maia.city): its landing page signs in, and signs up with an invite link.
 	import { base } from '$app/paths';
 	// self-hosted from npm, bundled into the build: no request ever goes to Google
 	import '$lib/fonts/dm-sans/opsz.css';
@@ -14,12 +14,9 @@
 
 	let { children } = $props();
 
-	/** play: the three sandboxes and the asset library, where every member signs in */
+	/** play: the three sandboxes and the asset library; its landing page signs in, and signs up with an invite link */
 	const PLAY = 'https://play.maia.city/';
-	const links = [
-		{ href: base || '/', label: 'Home' },
-		{ href: `${base}/join`, label: 'Join' }
-	];
+	const links = [{ href: base || '/', label: 'Home' }];
 
 	// the phone menu; it closes itself whenever the page changes
 	let menuOpen = $state(false);
@@ -63,7 +60,7 @@
 						<a href={link.href} aria-current={isActive(link.href) ? 'page' : undefined}>{link.label}</a>
 					</li>
 				{/each}
-				<li><a class="admin" href={PLAY}>Sign in</a></li>
+				<li><a class="admin" href={PLAY}>Join or sign in</a></li>
 			</ul>
 		</nav>
 	</header>
