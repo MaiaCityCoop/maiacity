@@ -200,5 +200,5 @@ jobs:
             curl -fsS -m 10 -o /dev/null https://play.maia.city/api/health && { echo "https://play.maia.city answers"; exit 0; }
             sleep 10
           done
-          ssh prod 'docker logs --since 30m maia-city-caddy 2>&1 | grep -i "play.maia.city" | tail -40'
+          ssh prod 'echo "play blocks Caddy reads: $(docker exec maia-city-caddy grep -c ">>> play.maia.city" /etc/caddy/Caddyfile)"; docker exec maia-city-caddy caddy adapt --config /etc/caddy/Caddyfile --adapter caddyfile 2>/dev/null | grep -o "play.maia.city" | head -1; docker logs --since 30m maia-city-caddy 2>&1 | grep -iE "play.maia.city|error" | tail -40'
           exit 1
