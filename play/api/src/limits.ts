@@ -33,11 +33,11 @@ export function perMinute(said: string | undefined) {
   return n;
 }
 
-/** Whether `req` asks a costly route: a passkey ceremony or a proposal's upload. @param {Request} req */
+/** Whether `req` asks a costly route: a passkey ceremony, a proposal's upload, or an agent's call over MCP. @param {Request} req */
 export function costly(req: Request) {
   if (req.method === "OPTIONS") return false;
   const path = new URL(req.url).pathname;
-  return path.startsWith("/api/passkey/") || (req.method === "POST" && path === "/api/proposals");
+  return path.startsWith("/api/passkey/") || (req.method === "POST" && (path === "/api/proposals" || path === "/api/mcp"));
 }
 
 /** Who asks: the last address the proxy names, else the socket's, else nobody known.

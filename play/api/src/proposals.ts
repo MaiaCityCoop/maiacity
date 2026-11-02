@@ -55,7 +55,7 @@ const recordOf = (record: any, grp: string, slug: string, n: number, variant: st
   card: { ...(record?.card ?? {}), group: grp, id: slug, version: n, v: n, ...(variant ? { variant } : {}), recipe: hash },
 });
 
-export async function propose(db: Db, store: BlobStore, me: Me | null, body: ProposalBody) {
+export async function propose(db: Db, store: BlobStore, me: Me | null, body: ProposalBody, via: "web" | "mcp" = "web") {
   const who = must(me, "propose", "asset_version");
   // the asset by its UUID; a new asset brings its group and slug (its label, shown) and gets a UUID of its own
   let asset: string;
@@ -135,8 +135,8 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, body: Pro
     for (const [name, x] of Object.entries(variants))
       await tx.query(`INSERT INTO play.asset_variants (version_id, name, recipe_hash, card) VALUES ($1, $2, $3, ($4::text)::jsonb) ON CONFLICT DO NOTHING`, [id, name, x.recipe, JSON.stringify(x.card)]);
     await tx.query(
-      `INSERT INTO play.proposals (id, coop_id, kind, asset_id, base, version, author, note) VALUES ($1, $2, 'asset_version', $3, $4, $5, $6, $7)`,
-      [proposal, COOP, asset, head, id, who.id, `${body.note ?? ""}`.slice(0, 2000)],
+      `INSERT INTO play.proposals (id, coop_id, kind, asset_id, base, version, author, note, via) VALUES ($1, $2, 'asset_version', $3, $4, $5, $6, $7, $8)`,
+      [proposal, COOP, asset, head, id, who.id, `${body.note ?? ""}`.slice(0, 2000), via],
     );
   });
   return { id: proposal, asset, version: id, number: n, base: head };
@@ -145,7 +145,7 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, body: Pro
 export async function listProposals(db: Queryable, me: Me | null, status?: string) {
   must(me, "read", "assets");
   const { rows } = await db.query<any>(
-    `SELECT p.id, p.asset_id, p.base, p.version, p.status, p.note, p.created, p.decided_at,
+    `SELECT p.id, p.asset_id, p.base, p.version, p.status, p.note, p.created, p.decided_at, p.via,
             au.name AS author, de.name AS decided_by, a.label, a.grp, a.slug, v.card->'card'->>'label' AS version_label,
             COALESCE(b.number, 0) + 1 AS number
        FROM play.proposals p
