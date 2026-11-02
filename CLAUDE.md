@@ -24,3 +24,11 @@ Before you push, run the checks of what you touched: in `play/api` `bunx tsc --n
 
 Sign-up is by invite only: an admin's invite link (`/?invite=<code>` on play, made on the members page) lets one person
 in, as a traveler. An admin makes a citizen by hand. Admins are Maia City's owners.
+
+## Agents (MCP)
+
+play is an MCP server at `https://play.maia.city/api/mcp` (Streamable HTTP; `play/api/src/mcp.ts`). An admin makes an
+access token on play's profile page (`play_…`, shown once, kept hashed, revocable) and gives it to the agent as
+`Authorization: Bearer`. The agent reads assets, versions and recipe files and proposes new versions or assets; they come
+to the Proposals page under the admin's name, marked MCP. No tool accepts or rejects: people decide. Admins only for now:
+a token opens nothing once its owner is no admin.

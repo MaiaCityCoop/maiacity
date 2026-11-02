@@ -67,13 +67,14 @@ suite("play API", () => {
   test("a visitor may do nothing but sign in", async () => {
     expect((await call(null, "GET", "/api/health")).status).toBe(200);
     expect((await call(null, "GET", "/api/assets")).status).toBe(401);
-    expect((await call(null, "GET", "/api/sandboxes")).status).toBe(401);
+    expect((await call(null, "GET", "/api/sandboxes/sandbox-1/config")).status).toBe(401);
     expect((await call(null, "POST", "/api/proposals", {})).status).toBe(401);
   });
 
   test("a traveler reads sandboxes and assets, but proposes nothing", async () => {
     expect((await call("trav", "GET", "/api/me")).data.level).toBe("traveler");
-    expect((await call("trav", "GET", "/api/sandboxes")).data.map((s: any) => s.id)).toEqual(["sandbox-1", "sandbox-2", "sandbox-3"]);
+    expect((await call("trav", "GET", "/api/sandboxes/sandbox-1/config")).status).toBe(200);
+    expect((await call("trav", "GET", "/api/sandboxes")).status).toBe(404);
     expect((await call("trav", "GET", "/api/assets")).status).toBe(200);
     const r = await call("trav", "POST", "/api/proposals", { new: { group: "plants", slug: "fern", label: "Fern" }, recipe: recipe("fern", 1) });
     expect(r.status).toBe(403);
@@ -198,6 +199,51 @@ suite("play API", () => {
     await expect(createHuman(db, "Second", undefined, inv.data.code)).rejects.toThrow("used up");
     expect((await db.query(`SELECT 1 FROM play.humans WHERE name = 'Second'`)).rows.length).toBe(0);
     expect((await call("trav", "POST", `/api/invites/${inv.data.code}/claim`)).status).toBe(404);
+  });
+
+  test("an admin's agent proposes over MCP by their token; it decides nothing, and stops with the token or the admin", async () => {
+    expect((await call("cit", "POST", "/api/tokens", { name: "laptop" })).status).toBe(403);
+    const made = await call("ada", "POST", "/api/tokens", { name: "Claude laptop" });
+    expect(made.status).toBe(201);
+    expect(made.data.token).toMatch(/^play_/);
+    expect((await call("ada", "GET", "/api/tokens")).data.map((t: any) => t.name)).toContain("Claude laptop");
+    expect(JSON.stringify((await call("ada", "GET", "/api/tokens")).data)).not.toContain(made.data.token);
+    let n = 0;
+    const rpc = async (token: string | null, method: string, params?: unknown) => {
+      const headers: Record<string, string> = { "content-type": "application/json" };
+      if (token) headers.authorization = `Bearer ${token}`;
+      const r = await api.fetch(new Request("http://play.test/api/mcp", { method: "POST", headers, body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method, params }) }));
+      return { status: r.status, data: await r.json().catch(() => null) };
+    };
+    expect((await rpc(null, "initialize")).status).toBe(401);
+    expect((await rpc("play_notarealtokenatallxxxxxxxx", "initialize")).status).toBe(401);
+    const init = await rpc(made.data.token, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });
+    expect(init.data.result.protocolVersion).toBe("2025-06-18");
+    const names = (await rpc(made.data.token, "tools/list")).data.result.tools.map((t: any) => t.name);
+    expect(names).toEqual(expect.arrayContaining(["list_assets", "get_asset", "get_recipe", "propose_version", "propose_asset", "list_proposals"]));
+    expect(names.some((x: string) => /accept|reject|decide/.test(x))).toBe(false);
+    const listed = await rpc(made.data.token, "tools/call", { name: "list_assets", arguments: { group: "plants" } });
+    expect(listed.data.result.isError).toBeUndefined();
+    const proposed = await rpc(made.data.token, "tools/call", {
+      name: "propose_asset",
+      arguments: { group: "plants", slug: "mcp-fern", label: "MCP fern", recipe: recipe("mcp-fern", 1), note: "proposed by an agent" },
+    });
+    expect(proposed.data.result.isError).toBeUndefined();
+    const open = (await call("ada", "GET", "/api/proposals?status=open")).data.find((p: any) => p.slug === "mcp-fern");
+    expect(open).toMatchObject({ via: "mcp", author: "ada", status: "open" });
+    const wrong = await rpc(made.data.token, "tools/call", {
+      name: "propose_asset",
+      arguments: { group: "plants", slug: "mcp-moss", label: "Moss", recipe: recipe("mcp-fern", 1), note: "wrong file" },
+    });
+    expect(wrong.data.result.isError).toBe(true);
+    expect((await call("ada", "DELETE", `/api/tokens/${made.data.id}`)).data.revoked).toBe(true);
+    expect((await rpc(made.data.token, "tools/list")).status).toBe(401);
+    // a token opens nothing once its owner is no admin
+    await call("ada", "POST", `/api/members/${who.cit.id}/level`, { level: "admin" });
+    const theirs = await call("cit", "POST", "/api/tokens", { name: "theirs" });
+    expect((await rpc(theirs.data.token, "ping")).status).toBe(200);
+    await call("ada", "POST", `/api/members/${who.cit.id}/level`, { level: "citizen" });
+    expect((await rpc(theirs.data.token, "ping")).status).toBe(401);
   });
 
   test("admins run the members, and one admin always stays", async () => {
