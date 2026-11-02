@@ -8,7 +8,8 @@ import type { Db } from "./pg";
 import { Denied, meOf, must } from "./access";
 import { assetOf, catalogOf, configOf, fileOf, listAssets, NotFound, pinsOf, versionOf } from "./assets";
 import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, registerOptions, sessionCookie, tokenFor } from "./auth";
-import { claimInvite, inviteOpen, listMembers, makeInvite, MemberError, setLevel } from "./members";
+import { claimInvite, inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameMember, renameSelf, setLevel } from "./members";
+import { listTables, readTable, TableError } from "./tables";
 import { decide, listProposals, propose, ProposalError, type Verdict } from "./proposals";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 
@@ -116,9 +117,26 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   // ---- the coop
   on("GET", "/api/members", async (req) => json(await listMembers(db, await me(req))));
   on("POST", "/api/members/:id/level", async (req, p) => json(await setLevel(db, await me(req), p.id, `${(await body(req))?.level ?? ""}`)));
+  on("POST", "/api/me/name", async (req) => json(await renameSelf(db, await me(req), (await body(req))?.name)));
+  on("POST", "/api/members/:id/name", async (req, p) => json(await renameMember(db, await me(req), p.id, (await body(req))?.name)));
+  on("DELETE", "/api/members/:id", async (req, p) => json(await removeMember(db, await me(req), p.id)));
   on("POST", "/api/invites", async (req) => json(await makeInvite(db, await me(req)), { status: 201 }));
   on("GET", "/api/invites/:code", async (req, p) => json({ open: await inviteOpen(db, p.code) }));
   on("POST", "/api/invites/:code/claim", async (req, p) => json(await claimInvite(db, await me(req), p.code)));
+
+  // the admins' window into play's Postgres, read only, secrets hidden (./tables.ts)
+  const admin = async (req: Request) => {
+    const m = await me(req);
+    if (!m) throw new Denied("Please sign in first.", 401);
+    if (m.level !== "admin") throw new Denied("Only Maia City's admins may look into the database.");
+    return m;
+  };
+  on("GET", "/api/tables", async (req) => (await admin(req), json(await listTables(db))));
+  on("GET", "/api/tables/:name", async (req, p) => {
+    await admin(req);
+    const q = new URL(req.url).searchParams;
+    return json(await readTable(db, p.name, Number(q.get("offset") ?? 0), Number(q.get("limit") ?? 50)));
+  });
 
   async function fetch(req: Request, server?: unknown): Promise<Response> {
     if (costly(req) && !rate.allows(clientOf(req, server as any)))
@@ -136,7 +154,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       try {
         return await r.handler(req, params);
       } catch (e) {
-        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof MemberError)
+        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof MemberError || e instanceof TableError)
           return json({ error: e.message }, { status: (e as any).status });
         console.error(e);
         return json({ error: "Something went wrong on our side." }, { status: 500 });

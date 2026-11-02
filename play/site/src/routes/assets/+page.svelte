@@ -165,7 +165,7 @@
 {/snippet}
 
 <div class="assets">
-	<Frame nav={ready ? shelf : undefined} aside={chain && shownVersion ? about : undefined} navLabel="Maia City's assets" asideLabel="The asset's versions and parts" navIcon="asset">
+	<Frame nav={ready ? shelf : undefined} aside={chain && shownVersion ? about : undefined} navLabel="Maia City's assets" asideLabel="The asset's versions and parts" navIcon="asset" flush>
 		{#if failed}
 			<p class="error">{failed}</p>
 		{:else if !ready}
@@ -177,7 +177,7 @@
 				{:then { default: VaultAsset }}
 					<div class="viewer">
 						{#key shownHash}
-							<VaultAsset {source} hash={shownHash} title="{info.label} v{info.v}" note={shownVersion?.note ?? ''} bind:catalog bind:picked {solo} fill {details} />
+							<VaultAsset {source} hash={shownHash} title="{info.label} v{info.v}" note={shownVersion?.note ?? ''} bind:catalog bind:picked {solo} fill named={false} {details} />
 						{/key}
 					</div>
 				{/await}
@@ -209,8 +209,11 @@
 	.assets :global(.chip) { display: inline-flex; align-items: center; padding: 0.08rem 0.55rem; border-radius: 999px; background: rgb(0 0 0 / 0.06); font-size: 0.74rem; font-weight: 500; text-decoration: none; color: inherit; }
 	.assets :global(.chip.accent) { background: var(--mustard-soft); }
 	.assets :global(.mono) { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.8em; }
-	/* the stage as tall as the middle column */
+	/* the stage as tall and as wide as the middle column, edge to edge */
 	.viewer { height: 100%; }
+	.viewer :global(.turntable.inline) { border-radius: 0; }
+	/* the middle's notes when nothing is shown, kept off its edges */
+	.assets :global(.middle > p) { margin: 1rem clamp(1rem, 3vw, 2.4rem); }
 	.none { padding: 0.4rem 0.6rem; font-size: 0.84rem; }
 	.about-head { margin: 0 0 0.9rem 0.35rem; }
 	.about-head small { color: var(--accent); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
