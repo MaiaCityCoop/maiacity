@@ -3,21 +3,9 @@
 import { hashBytes } from "../src/hash";
 import { versionId } from "../src/versions";
 import type { BroughtRow, EntryView } from "./feed";
+import { labelOf, parseRef, type Label } from "../src/recipes";
 
-/** the start every recipe file has (maia/content/assets/engines.js RECIPE_HEAD) */
-export const RECIPE_HEAD = 'defineRecipe(function (require) {\n"use strict";\nvar module = { exports: {} }, exports = module.exports;\n';
-/** …and the line that ends it, naming its asset, version and variant (engines.js recipeTail) */
-const TAIL = /\nreturn module\.exports\.recipe\(("(?:[^"\\]|\\.)*"), ([1-9][0-9]{0,5}), (null|"(?:[^"\\]|\\.)*")\);\n\}\);\n$/;
-
-export type Label = { id: string; v: number; variant: string | null };
-
-/** what a recipe file names itself, or null if it isn't one */
-export function labelOf(text: string): Label | null {
-  if (!text.startsWith(RECIPE_HEAD)) return null;
-  const m = TAIL.exec(text);
-  if (!m) return null;
-  return { id: JSON.parse(m[1]), v: Number(m[2]), variant: JSON.parse(m[3]) };
-}
+export { labelOf, parseRef, RECIPE_HEAD, type Label } from "../src/recipes";
 
 export type PlannedFile = { hash: string; size: number; bytes: Uint8Array; label: Label };
 export type PlannedVersion = {
@@ -130,14 +118,6 @@ export function planAsset(view: EntryView, files: Map<string, Uint8Array>): { as
 }
 
 export type PlannedPin = { slot: string; asset: string; number: number; variant: string | null; params: Record<string, unknown> | null };
-
-/** `group/id@v[:variant][?params]` */
-export function parseRef(ref: string): { asset: string; number: number; variant: string | null; params: Record<string, string> | null } {
-  const m = /^([a-z]+\/[a-z0-9][a-z0-9-]{0,79})@([1-9][0-9]{0,5})(?::([a-z0-9][a-z0-9-]{0,79}))?(?:\?(.*))?$/.exec(ref);
-  if (!m) throw new PlanError(`not an asset ref: ${ref}`);
-  const params = m[4] ? Object.fromEntries(new URLSearchParams(m[4])) : null;
-  return { asset: m[1], number: Number(m[2]), variant: m[3] ?? null, params };
-}
 
 /**
  * Legacy Sandbox 4's pins as play's Sandbox 1's: the village's assets config ({slot: {entry, at}}), translated through

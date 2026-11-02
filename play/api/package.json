@@ -6,10 +6,13 @@
     "migrate": "bun src/migrate.ts",
     "import": "bun import/run.ts",
     "test": "bun test",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "start": "bun src/index.ts",
+    "dev": "bun --watch src/index.ts"
   },
   "dependencies": {
-    "@noble/hashes": "2.4.0"
+    "@noble/hashes": "2.4.0",
+    "@simplewebauthn/server": "^14.0.1"
   },
   "devDependencies": {
     "@types/bun": "^1.4.2",

@@ -95,7 +95,7 @@ describe("version ids", () => {
 describe("pins", () => {
   test("refs parse", () => {
     expect(parseRef("actors/goat@2:goat-pied?detail=1")).toEqual({ asset: "actors/goat", number: 2, variant: "goat-pied", params: { detail: "1" } });
-    expect(() => parseRef("goat")).toThrow(PlanError);
+    expect(() => parseRef("goat")).toThrow(/not an asset ref/);
   });
   test("the village's and the garden's pins translate, each held to its entry", () => {
     const entryOf = new Map([["things/coop", "E1"], ["plants/apple", "E2"]]);
