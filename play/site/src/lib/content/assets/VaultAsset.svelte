@@ -37,17 +37,18 @@
 	/**
 	 * @type {{ source: typeof import('./catalog.js').source, hash: string, title?: string,
 	 *   note?: string, about?: import('svelte').Snippet, catalog?: any, picked?: string | null, solo?: boolean,
-	 *   compact?: boolean, fill?: boolean, details?: HTMLElement | null, onStir?: (read: () => void) => (() => void) }}
+	 *   compact?: boolean, fill?: boolean, named?: boolean, details?: HTMLElement | null, onStir?: (read: () => void) => (() => void) }}
 	 *   `source` the vault's recipes ($avendb/assets.js `vaultSource`), `hash` the recipe shown, `title` and `note`
 	 *   what its entry calls it and says of it, `about` what the page says of its entry, at the foot of the panel;
 	 *   `catalog` its parts as built (null where it lists none), `picked` the part picked, `solo` whether it is shown on
 	 *   its own; `compact`, its name, its moves and views and a short canvas alone, in a card with its own answers
 	 *   ($avendb/Hitl.svelte, an AIP's); `onStir` the page's watch of the device's sync ($avendb/stirs.svelte.js),
-	 *   so a file still arriving is read again as it moves; `fill`, the canvas as tall as the page's column; `details`,
-	 *   an element of the page (its aside) that what is said of the asset (the readout, then the panel) goes into
-	 *   instead of round the canvas
+	 *   so a file still arriving is read again as it moves; `fill`, the canvas as tall as the page's column; `named`,
+	 *   false where the page names it already (its aside), its name not repeated over the canvas; `details`, an element
+	 *   of the page (its aside) that what is said of the asset (the readout, then the panel) goes into instead of round
+	 *   the canvas
 	 */
-	let { source, hash, title = '', note = '', about, catalog = $bindable(null), picked = $bindable(null), solo = true, compact = false, fill = false, details = null, onStir } = $props();
+	let { source, hash, title = '', note = '', about, catalog = $bindable(null), picked = $bindable(null), solo = true, compact = false, fill = false, named = true, details = null, onStir } = $props();
 
 	/** a node moved into `target`, an element elsewhere in the page, and taken out with it @param {HTMLElement} node @param {HTMLElement} target */
 	const into = (node, target) => {
@@ -491,7 +492,7 @@
 
 <Turntable name="vault-asset" inline {compact} {fill} panel={details ? undefined : panelBody} readout={details ? undefined : readoutBody} bind:canvas={canvasBox}>
 	{#snippet head()}
-		<h2 class="name">{title || source.nameOf?.(hash) || 'An asset'}{#if stageName}<small>{` · ${stageName}`}</small>{/if}</h2>
+		{#if named}<h2 class="name">{title || source.nameOf?.(hash) || 'An asset'}{#if stageName}<small>{` · ${stageName}`}</small>{/if}</h2>{/if}
 		{#if hero && !error}
 			<div class="chips">
 				{@render paramTabs(params, values, (id, v) => ((growing = false), setParam(id, v)))}

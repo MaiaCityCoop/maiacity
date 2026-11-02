@@ -152,6 +152,7 @@
 				{/each}
 				<hr />
 			{/if}
+			<a role="menuitem" href="/profile/" onclick={() => close()}>Your profile</a>
 			<a role="menuitem" href="https://maia.city/">The public site</a>
 			{#if onsignout}<button role="menuitem" class="out" onclick={onsignout}>Sign out</button>{/if}
 		</div>
