@@ -40,6 +40,7 @@
 	 *   stage?: HTMLDivElement,
 	 *   full?: boolean,
 	 *   compact?: boolean,
+	 *   fill?: boolean,
 	 *   head?: import('svelte').Snippet,
 	 *   bar?: import('svelte').Snippet,
 	 *   panel?: import('svelte').Snippet,
@@ -47,7 +48,7 @@
 	 *   children?: import('svelte').Snippet
 	 * }}
 	 */
-	let { name, picks, inline = false, canvas = $bindable(), stage = $bindable(), full = false, compact = false, head, bar, panel, readout, children } = $props();
+	let { name, picks, inline = false, canvas = $bindable(), stage = $bindable(), full = false, compact = false, fill = false, head, bar, panel, readout, children } = $props();
 
 	/**
 	 * Which side the notch is on, a phone on its side: iOS keeps the same room on both sides then (its safe-area insets
@@ -78,7 +79,7 @@
 	});
 </script>
 
-<svelte:element this={inline ? 'div' : 'main'} class="turntable {name}" class:inline class:full class:compact class:notch-left={notch === 'left' && !inline} class:notch-right={notch === 'right' && !inline}>
+<svelte:element this={inline ? 'div' : 'main'} class="turntable {name}" class:inline class:full class:compact class:fill class:notch-left={notch === 'left' && !inline} class:notch-right={notch === 'right' && !inline}>
 	{#if !full && picks}<PickList {...picks} />{/if}
 	{#if head && inline}<header class="head">{@render head()}</header>{/if}
 	<section class="view">
@@ -86,7 +87,7 @@
 			<div class="canvas" bind:this={canvas}></div>
 			{@render children?.()}
 		</div>
-		{#if !compact || bar}
+		{#if bar || ((panel || readout) && !full && !compact)}
 			<div class="deck">
 				{#if bar}<div class="card bar">{@render bar()}</div>{/if}
 				{#if panel && !full && !compact}<div class="card panel">{@render panel()}</div>{/if}
@@ -306,6 +307,30 @@
 		position: relative;
 		inset: auto;
 		height: clamp(17rem, 52vh, 34rem);
+	}
+
+	/* fill: as tall as the page's column, its head on top and the canvas taking the rest (what is said of it is the
+	   page's to put elsewhere, its aside) */
+	.turntable.inline.fill {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+
+	.turntable.inline.fill > .head {
+		position: relative;
+		top: auto;
+	}
+
+	.turntable.inline.fill .view {
+		flex: 1;
+		min-height: 0;
+	}
+
+	.turntable.inline.fill .stage {
+		flex: 1;
+		height: auto;
+		min-height: 17rem;
 	}
 
 	/* compact: in a card that scrolls on its own, its head stays in its place */

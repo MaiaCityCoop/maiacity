@@ -135,7 +135,8 @@
 	}
 
 	.side {
-		padding: 0.4rem 0.8rem 1.5rem;
+		/* the nav pill floats over the page: a side's last row scrolls clear of it */
+		padding: 0.4rem 0.8rem calc(var(--nav-room, 5rem) + 0.5rem);
 		background: #efebe3;
 	}
 

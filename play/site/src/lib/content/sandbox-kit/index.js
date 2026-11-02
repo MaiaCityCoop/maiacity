@@ -16,10 +16,9 @@
  * On the page (Svelte):
  *   SkyControl    the time of the sky: Auto (the in-game clock) or Manual (a slider, from noon), one state for
  *                 every sandbox (./skyTime.svelte.js)
- *   WalkHint      how to walk, for keys and for fingers
  *   WorldBar      the bar along the top: the world's name, its SkyControl; slimmer on a phone (the way back is the
  *                 app's nav pill)
- *   WorldPage     the whole page of a world you walk: the stage, the bar, the hint, the joystick and the cover while
+ *   WorldPage     the whole page of a world you walk: the stage, the bar, the joystick and the cover while
  *                 it comes up; the page hands it `mount`
  *   …and $lib/touch/TouchStick, the phone's joystick, hands `move` and `look` to the walker.
  *
@@ -37,6 +36,5 @@ export { createOrbitRig } from './orbit.js';
 export { aim, connectFilm, createCameraHold, filmDraws, filmHoldsSize, poseIn, poseOf, worldTime } from './film.js';
 export { createTimeline } from './timeline.js';
 export { default as SkyControl } from './SkyControl.svelte';
-export { default as WalkHint } from './WalkHint.svelte';
 export { default as WorldBar } from './WorldBar.svelte';
 export { default as WorldPage } from './WorldPage.svelte';

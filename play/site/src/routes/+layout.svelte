@@ -11,6 +11,7 @@
 	import { onMount } from 'svelte';
 	import NavPill from '$lib/site/app/NavPill.svelte';
 	import { pillContext } from '$lib/site/app/pill.svelte.js';
+	import { footHost } from '$lib/site/app/foot.js';
 	import { loadMe, session, signOut } from '$lib/session.svelte';
 	import { acting, actAs } from '$lib/acting.svelte';
 	import SignIn from '$lib/SignIn.svelte';
@@ -48,7 +49,8 @@
 {:else}
 	{@render children()}
 	<div class="app-dock">
-		<div class="foot-stack"></div>
+		<!-- what floats over the pill (its account menu, a toast) is moved here, so the pill keeps its size -->
+		<div class="foot-stack" use:footHost></div>
 		<NavPill founder={session.me.founder == null ? null : { number: session.me.founder }} name={session.me.name} onsignout={signOut} />
 	</div>
 {/if}

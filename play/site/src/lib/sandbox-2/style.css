@@ -19,10 +19,11 @@ button:disabled{opacity:.45;cursor:default}
 a{color:var(--brand-green)}
 
 /* the frame: three columns, each scrolling on its own; the page never does */
-.lab-frame{display:grid;grid-template-columns:240px minmax(0,1fr) 320px;height:calc(100dvh - var(--nav-room))}
+/* the whole screen: the nav pill floats over it, the side columns' last rows scroll clear of it */
+.lab-frame{display:grid;grid-template-columns:240px minmax(0,1fr) 320px;height:100dvh}
 .lab-frame>aside,.lab-frame>main{min-height:0;overflow:auto}
-aside.left{padding:14px 10px;border-right:1px solid var(--line)}
-aside.right{padding:14px 14px 24px;border-left:1px solid var(--line);background:rgb(250 248 242 / .6);display:flex;flex-direction:column;gap:14px}
+aside.left{padding:14px 10px calc(var(--nav-room) + 8px);border-right:1px solid var(--line)}
+aside.right{padding:14px 14px calc(var(--nav-room) + 8px);border-left:1px solid var(--line);background:rgb(250 248 242 / .6);display:flex;flex-direction:column;gap:14px}
 .eyebrow{margin:2px 8px 14px;font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--terracotta)}
 .eyebrow span{color:var(--muted)}
 .nav-group{margin:10px 8px 6px;font-family:var(--font-body);font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
@@ -126,7 +127,7 @@ dialog::backdrop{background:rgb(38 56 44 / .45)}
 dialog textarea{width:100%;height:50vh;resize:vertical;background:var(--cream);border:1px solid var(--line);color:var(--ink);padding:12px;font:12px ui-monospace,monospace;border-radius:var(--radius-s)}
 
 /* narrower: the right side under the stage, then the experiments across the top */
-@media(max-width:1150px){.lab-frame{grid-template-columns:210px minmax(0,1fr);height:auto;min-height:calc(100dvh - var(--nav-room))}
+@media(max-width:1150px){.lab-frame{grid-template-columns:210px minmax(0,1fr);height:auto;min-height:100dvh}
   aside.right{grid-column:1/-1;border-left:0;border-top:1px solid var(--line)}
   #viewport{flex:none;height:62vh}}
 @media(max-width:700px){.lab-frame{display:flex;flex-direction:column}

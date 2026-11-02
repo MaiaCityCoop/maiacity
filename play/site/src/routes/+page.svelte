@@ -18,17 +18,19 @@
 		{ href: '/sandbox-2/', label: 'Sandbox 2', note: 'The physical world lab: buildings from their parts, with physics, fixings and wind', cover: 'bd34c342d7db41283ff4d243aa21bf08daf40fe1e9b47a0f63f92a00d65a9c6e.jpg' },
 		{ href: '/sandbox-3/', label: 'Sandbox 3', note: 'The tired land: walk it as someone new every visit', cover: '41a858860a82169d3d5586d30b648723c32874a94e014f30718a5a70f5b56e85.jpg' }
 	];
-	type Tile = { href: string; label: string; note: string; icon: 'leaf' | 'proposals' | 'play' | 'coops' | 'key' };
+	type Tile = { href: string; label: string; note: string; icon: 'leaf' | 'proposals' | 'play' | 'coops' | 'key'; admins?: boolean };
 	const APPS: Tile[] = [
 		{ href: '/assets/', label: 'Assets', note: 'Every asset and its versions', icon: 'leaf' },
-		{ href: '/proposals/', label: 'Proposals', note: 'New versions, proposed and decided', icon: 'proposals' },
-		{ href: '/game/', label: 'The game', note: 'Coming: for citizens', icon: 'play' }
+		// the proposals and the game: shown to admins only for now (Samuel 2026-11-02); an invite still opens the game
+		{ href: '/proposals/', label: 'Proposals', note: 'New versions, proposed and decided', icon: 'proposals', admins: true },
+		{ href: '/game/', label: 'The game', note: 'Coming: for citizens', icon: 'play', admins: true }
 	];
 	const CITY: Tile[] = [
 		{ href: '/admin/', label: 'Members', note: 'Who holds which level', icon: 'coops' },
 		{ href: '/admin/#invites', label: 'Invites', note: 'Make a citizen', icon: 'key' }
 	];
 	const city = $derived(asCity());
+	const apps = $derived(APPS.filter((t) => !t.admins || session.me?.level === 'admin'));
 </script>
 
 <svelte:head><title>Dashboard · maiaCITY play</title></svelte:head>
@@ -53,7 +55,7 @@
 
 	<p class="divider">Your apps</p>
 	<div class="tiles">
-		{#each APPS as t (t.href)}
+		{#each apps as t (t.href)}
 			<a class="tile" href={t.href}><Icon name={t.icon} size={34} /><b>{t.label}</b><span>{t.note}</span></a>
 		{/each}
 	</div>

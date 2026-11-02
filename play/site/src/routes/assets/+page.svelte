@@ -34,6 +34,8 @@
 	let picked = $state<string | null>(null);
 	let solo = $state(true);
 	let tab = $state<'versions' | 'parts'>('versions');
+	// where the viewer puts what it says of the asset (its readout and panel): the aside, under the name
+	let details = $state<HTMLElement | null>(null);
 
 	onMount(async () => {
 		try {
@@ -120,6 +122,7 @@
 			<h3>{chain.label}</h3>
 			<p class="soft">v{shownVersion.number}{info?.variant ? ` · ${info.label.split(': ').at(-1)}` : ''} · {chain.versions.length} version{chain.versions.length === 1 ? '' : 's'}</p>
 		</header>
+		<div bind:this={details}></div>
 		<div class="tabs" role="tablist">
 			<button role="tab" aria-selected={tab === 'versions'} class:on={tab === 'versions'} onclick={() => (tab = 'versions')}>Versions</button>
 			{#if catalog}<button role="tab" aria-selected={tab === 'parts'} class:on={tab === 'parts'} onclick={() => (tab = 'parts')}>Parts <small>{catalog.parts.length}</small></button>{/if}
@@ -150,7 +153,7 @@
 				{#if shownVersion.triangles}<dt>Triangles</dt><dd>{shownVersion.triangles.toLocaleString('en-GB')}{shownVersion.skinned ? ', skinned' : ''}</dd>{/if}
 				{#if shownVersion.size}<dt>Size</dt><dd>{shownVersion.size.map((n) => n.toFixed(2)).join(' × ')} m</dd>{/if}
 			</dl>
-			{#if may(session.me, 'propose', 'asset_version')}
+			{#if session.me?.level === 'admin'}
 				<p class="soft propose">Propose v{(chain.versions[0]?.number ?? 0) + 1} in <a href="/proposals/">Proposals</a>.</p>
 			{/if}
 		{:else if catalog}
@@ -174,7 +177,7 @@
 				{:then { default: VaultAsset }}
 					<div class="viewer">
 						{#key shownHash}
-							<VaultAsset {source} hash={shownHash} title="{info.label} v{info.v}" note={shownVersion?.note ?? ''} bind:catalog bind:picked {solo} />
+							<VaultAsset {source} hash={shownHash} title="{info.label} v{info.v}" note={shownVersion?.note ?? ''} bind:catalog bind:picked {solo} fill {details} />
 						{/key}
 					</div>
 				{/await}
@@ -192,7 +195,8 @@
 	/* legacy's view colours, in the brand's palette */
 	.assets {
 		position: fixed;
-		inset: 0 0 var(--nav-room);
+		/* the whole screen: the nav pill floats over it (its columns scroll clear of it, Frame's sides) */
+		inset: 0;
 		background: var(--cream);
 		--ok: #3f7a4f;
 		--bad: var(--terracotta);
@@ -205,7 +209,8 @@
 	.assets :global(.chip) { display: inline-flex; align-items: center; padding: 0.08rem 0.55rem; border-radius: 999px; background: rgb(0 0 0 / 0.06); font-size: 0.74rem; font-weight: 500; text-decoration: none; color: inherit; }
 	.assets :global(.chip.accent) { background: var(--mustard-soft); }
 	.assets :global(.mono) { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.8em; }
-	.viewer { --turntable-top: -1.4rem; }
+	/* the stage as tall as the middle column */
+	.viewer { height: 100%; }
 	.none { padding: 0.4rem 0.6rem; font-size: 0.84rem; }
 	.about-head { margin: 0 0 0.9rem 0.35rem; }
 	.about-head small { color: var(--accent); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
