@@ -97,7 +97,7 @@
 		<p class="note">{error || 'No tables yet.'}</p>
 		{#if error}<button class="btn" onclick={load}>Try again</button>{/if}
 	{:else}
-		<div class="cols">
+		<div class="cols" class:opened={!!data && open >= 0}>
 			<nav>
 				<label class="pick">
 					<span class="eyebrow">Table</span>
@@ -140,16 +140,7 @@
 								</tbody>
 							</table>
 						</div>
-						{#if open >= 0 && data.rows[open]}
-							<dl class="whole">
-								{#each data.columns as c (c.name)}
-									<dt>{c.name} <small>{c.type}</small></dt>
-									<dd><pre>{whole(data.rows[open][c.name])}</pre></dd>
-								{/each}
-							</dl>
-						{:else}
-							<p class="dim small">Tap a row to see it whole.</p>
-						{/if}
+						{#if open < 0}<p class="dim small">Tap a row to see it whole.</p>{/if}
 						{#if pages > 1}
 							<div class="pager">
 								<button class="btn" disabled={busy || at <= 1} onclick={() => data && show(data.name, data.offset - data.limit)}>Back</button>
@@ -164,6 +155,25 @@
 					<p class="bad small">{error}</p>
 				{/if}
 			</section>
+
+			<!-- the row opened whole, in its own aside: the table and the row's first value its title -->
+			{#if data && open >= 0 && data.rows[open]}
+				<aside class="row" aria-label="The row opened">
+					<header>
+						<div>
+							<p class="eyebrow mono">{data.name}</p>
+							<h2 class="mono" title={whole(data.rows[open][data.columns[0].name])}>{short(data.rows[open][data.columns[0].name])}</h2>
+						</div>
+						<button class="btn close" onclick={() => (open = -1)} aria-label="Close the row">✕</button>
+					</header>
+					<dl class="whole">
+						{#each data.columns as c (c.name)}
+							<dt>{c.name} <small>{c.type}</small></dt>
+							<dd><pre>{whole(data.rows[open][c.name])}</pre></dd>
+						{/each}
+					</dl>
+				</aside>
+			{/if}
 		</div>
 	{/if}
 </main>
@@ -172,7 +182,7 @@
 <style>
 	/* the page's column, wide for its tables; the nav pill floats over its foot */
 	.app-page {
-		max-width: 76rem;
+		max-width: 110rem;
 		margin: 0 auto;
 		padding: 2.5rem clamp(1rem, 3vw, 2rem) var(--nav-room);
 	}
@@ -215,6 +225,49 @@
 		grid-template-columns: 14rem minmax(0, 1fr);
 		gap: 1.5rem;
 		margin-top: 1.4rem;
+	}
+	.cols.opened {
+		grid-template-columns: 14rem minmax(0, 1fr) minmax(16rem, 24rem);
+	}
+	/* the row opened whole: down the right, staying in view as the page scrolls */
+	.row {
+		position: sticky;
+		top: 1rem;
+		align-self: start;
+		min-width: 0;
+		max-height: calc(100dvh - 2rem);
+		overflow: auto;
+		padding: 1rem 1.1rem var(--nav-room);
+		border: 1px solid var(--line);
+		border-radius: 20px;
+		background: var(--paper);
+	}
+	.row header {
+		display: flex;
+		align-items: start;
+		justify-content: space-between;
+		gap: 0.6rem;
+		margin-bottom: 0.9rem;
+	}
+	.row header div {
+		min-width: 0;
+	}
+	.row h2 {
+		margin-top: 0.2rem;
+		font-size: 1rem;
+		overflow-wrap: anywhere;
+	}
+	.row .close {
+		flex: none;
+		padding: 0.25rem 0.6rem;
+	}
+	.row .whole {
+		margin: 0;
+		grid-template-columns: minmax(0, 1fr);
+		gap: 0.15rem;
+	}
+	.row .whole dd {
+		margin-bottom: 0.6rem;
 	}
 	.pick {
 		display: none;
@@ -364,7 +417,19 @@
 		opacity: 0.45;
 		cursor: default;
 	}
+	@media (max-width: 1100px) {
+		.cols.opened {
+			grid-template-columns: 14rem minmax(0, 1fr);
+		}
+		.cols.opened .row {
+			grid-column: 1 / -1;
+			position: relative;
+			top: auto;
+			max-height: none;
+		}
+	}
 	@media (max-width: 720px) {
+		.cols.opened,
 		.cols {
 			grid-template-columns: minmax(0, 1fr);
 			gap: 1rem;
