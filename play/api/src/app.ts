@@ -8,7 +8,7 @@ import type { Db } from "./pg";
 import { Denied, meOf, must } from "./access";
 import { assetOf, catalogOf, configOf, fileOf, listAssets, NotFound, pinsOf, versionOf } from "./assets";
 import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, registerOptions, sessionCookie, tokenFor } from "./auth";
-import { claimInvite, inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameMember, renameSelf, setLevel } from "./members";
+import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameMember, renameSelf, setLevel } from "./members";
 import { listTables, readTable, TableError } from "./tables";
 import { decide, listProposals, propose, ProposalError, type Verdict } from "./proposals";
 import { clientOf, perMinute, Rate, costly } from "./limits";
@@ -45,7 +45,8 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
 
   // ---- who
   on("POST", "/api/passkey/register/options", async (req) => {
-    const r = await registerOptions((await body(req))?.name);
+    const b = await body(req);
+    const r = await registerOptions(db, b?.name, b?.invite);
     return r.ok ? json(r.value) : json({ error: r.error }, { status: 400 });
   });
   on("POST", "/api/passkey/register/finish", async (req) => {
@@ -127,7 +128,6 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("DELETE", "/api/members/:id", async (req, p) => json(await removeMember(db, await me(req), p.id)));
   on("POST", "/api/invites", async (req) => json(await makeInvite(db, await me(req)), { status: 201 }));
   on("GET", "/api/invites/:code", async (req, p) => json({ open: await inviteOpen(db, p.code) }));
-  on("POST", "/api/invites/:code/claim", async (req, p) => json(await claimInvite(db, await me(req), p.code)));
 
   // the admins' window into play's Postgres, read only, secrets hidden (./tables.ts)
   const admin = async (req: Request) => {

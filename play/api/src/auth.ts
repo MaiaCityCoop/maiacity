@@ -8,7 +8,7 @@ import {
   verifyRegistrationResponse,
 } from "@simplewebauthn/server";
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import type { Db } from "./pg";
+import type { Db, Queryable } from "./pg";
 import { COOP } from "./access";
 
 const env = (k: string, d: string) => (process.env[k] ?? d).trim();
@@ -20,7 +20,7 @@ export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 export type Human = { id: string; name: string };
 
 // open challenges, short-lived, in memory (one container serves play)
-type Challenge = { purpose: "register" | "login"; name?: string; expires: number };
+type Challenge = { purpose: "register" | "login"; name?: string; invite?: string; expires: number };
 const CHALLENGES = new Map<string, Challenge>();
 const MOST_CHALLENGES = 10_000;
 
@@ -48,9 +48,17 @@ function challengeOf(body: any): string {
 
 export const cleanName = (name: unknown) => `${name ?? ""}`.trim().replace(/\s+/g, " ").slice(0, 60);
 
-export async function registerOptions(name: string): Promise<Result<unknown>> {
+/**
+ * Sign-up is by invite only (Samuel 2026-11-02): an admin's invite, open (unused, not expired), makes a traveler, and
+ * is used up as the passkey is made. Becoming a citizen comes later, by an admin's hand.
+ */
+export async function registerOptions(db: Queryable, name: string, invite: unknown): Promise<Result<unknown>> {
   const clean = cleanName(name);
   if (clean.length < 2) return { ok: false, error: "Please give a name with at least two characters." };
+  const code = typeof invite === "string" ? invite.trim() : "";
+  if (!code) return { ok: false, error: "Maia City is invite-only: sign up with the invite link an admin gave you." };
+  const { rows } = await db.query(`SELECT 1 FROM play.invites WHERE code = $1 AND used_by IS NULL AND expires_at > now()`, [code]);
+  if (!rows[0]) return { ok: false, error: "This invite is used up or has expired: ask an admin for a new one." };
   const options = await generateRegistrationOptions({
     rpName: RP_NAME(),
     rpID: RP_ID(),
@@ -60,20 +68,34 @@ export async function registerOptions(name: string): Promise<Result<unknown>> {
     attestationType: "none",
     authenticatorSelection: { residentKey: "required", userVerification: "preferred" },
   });
-  remember(options.challenge, { purpose: "register", name: clean });
+  remember(options.challenge, { purpose: "register", name: clean, invite: code });
   return { ok: true, value: options };
 }
 
-/** a new human, their passkey and their membership as a traveler, in one transaction */
-export async function createHuman(db: Db, name: string, passkey?: { id: string; publicKey: string; counter: number; transports?: string | null }): Promise<Human> {
+export class InviteUsed extends Error {}
+
+/**
+ * A new human, their passkey and their membership as a traveler, in one transaction; with an invite, the invite used up
+ * by them (it works once; InviteUsed if it no longer can) and who made it named as who let them in.
+ */
+export async function createHuman(db: Db, name: string, passkey?: { id: string; publicKey: string; counter: number; transports?: string | null }, invite?: string): Promise<Human> {
   const id = randomUUID();
   await db.transaction(async (tx) => {
     await tx.query(`INSERT INTO play.humans (id, name) VALUES ($1, $2)`, [id, name]);
+    let madeBy: string | null = null;
+    if (invite) {
+      const { rows } = await tx.query<{ made_by: string | null }>(
+        `UPDATE play.invites SET used_by = $2, used_at = now() WHERE code = $1 AND used_by IS NULL AND expires_at > now() RETURNING made_by`,
+        [invite, id],
+      );
+      if (!rows[0]) throw new InviteUsed("This invite is used up or has expired: ask an admin for a new one.");
+      madeBy = rows[0].made_by;
+    }
     if (passkey)
       await tx.query(`INSERT INTO play.passkeys (id, human_id, public_key, counter, transports) VALUES ($1, $2, $3, $4, $5)`, [
         passkey.id, id, passkey.publicKey, passkey.counter, passkey.transports ?? null,
       ]);
-    await tx.query(`INSERT INTO play.memberships (coop_id, human_id, level) VALUES ($1, $2, 'traveler')`, [COOP, id]);
+    await tx.query(`INSERT INTO play.memberships (coop_id, human_id, level, granted_by, via_invite) VALUES ($1, $2, 'traveler', $3, $4)`, [COOP, id, madeBy, invite ?? null]);
   });
   return { id, name };
 }
@@ -90,13 +112,19 @@ export async function registerFinish(db: Db, body: any): Promise<Result<Human>> 
   }
   if (!v.verified || !v.registrationInfo) return { ok: false, error: "The passkey could not be verified." };
   const { credential } = v.registrationInfo;
-  const human = await createHuman(db, pending.name, {
-    id: credential.id,
-    publicKey: Buffer.from(credential.publicKey).toString("base64url"),
-    counter: credential.counter,
-    transports: credential.transports?.join(",") ?? null,
-  });
-  return { ok: true, value: human };
+  if (!pending.invite) return { ok: false, error: "Maia City is invite-only: sign up with the invite link an admin gave you." };
+  try {
+    const human = await createHuman(db, pending.name, {
+      id: credential.id,
+      publicKey: Buffer.from(credential.publicKey).toString("base64url"),
+      counter: credential.counter,
+      transports: credential.transports?.join(",") ?? null,
+    }, pending.invite);
+    return { ok: true, value: human };
+  } catch (e) {
+    if (e instanceof InviteUsed) return { ok: false, error: e.message };
+    throw e;
+  }
 }
 
 export async function loginOptions() {
