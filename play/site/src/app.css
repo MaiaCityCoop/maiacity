@@ -1,0 +1,88 @@
+/* maiaCITY's light brand CI (from maia/site/app.css): cream and paper, ink green, mustard, sage and terracotta;
+   Fraunces for display, DM Sans for text. Every page and every sandbox of play draws from these tokens. */
+:root {
+	--cream: #f1ede3;
+	--paper: #faf8f2;
+	--ink: #26382c;
+	--ink-soft: #4d5d51;
+	--muted: #7b857a;
+	--line: #dcd5c4;
+	--mustard: #efb54d;
+	--mustard-soft: #f6dca4;
+	--sage: #a8b88a;
+	--sage-soft: #dfe6cf;
+	--terracotta: #c8744f;
+	--brand-green: #24452f;
+	--font-display: 'Fraunces Variable', 'Iowan Old Style', Georgia, serif;
+	--font-body: 'DM Sans Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+	--radius: 22px;
+	--radius-s: 12px;
+	--shadow: 0 1px 2px rgb(38 56 44 / 0.06), 0 8px 24px rgb(38 56 44 / 0.08);
+	color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+html { overflow-x: clip; }
+body {
+	background: var(--cream);
+	color: var(--ink);
+	font-family: var(--font-body);
+	font-size: 17px;
+	line-height: 1.55;
+	-webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { font-family: var(--font-display); font-weight: 600; line-height: 1.15; letter-spacing: -0.01em; margin: 0 0 0.5em; }
+h1 { font-size: clamp(2rem, 5vw, 3rem); }
+h2 { font-size: 1.5rem; }
+a { color: var(--brand-green); }
+code { font-size: 0.88em; background: var(--sage-soft); padding: 0.1em 0.35em; border-radius: 6px; }
+
+.btn {
+	display: inline-flex; align-items: center; gap: 0.5em;
+	font: 600 1rem/1 var(--font-body);
+	padding: 0.8em 1.3em; border-radius: 999px; border: 1px solid transparent;
+	background: var(--brand-green); color: var(--paper); cursor: pointer; text-decoration: none;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+.btn.mustard { background: var(--mustard); color: var(--ink); }
+.btn.small { padding: 0.5em 0.9em; font-size: 0.9rem; }
+
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.muted { color: var(--muted); }
+.page { max-width: 1100px; margin: 0 auto; padding: 2.5rem 1rem var(--nav-room); }
+input, select, textarea {
+	font: inherit; color: inherit; background: var(--paper);
+	border: 1px solid var(--line); border-radius: var(--radius-s); padding: 0.65em 0.9em;
+}
+input:focus, select:focus, textarea:focus, .btn:focus-visible { outline: 2px solid var(--mustard); outline-offset: 2px; }
+.pill { display: inline-block; font-size: 0.78rem; font-weight: 600; padding: 0.15em 0.6em; border-radius: 999px; background: var(--sage-soft); color: var(--ink); }
+.pill.admin { background: var(--mustard-soft); }
+.pill.citizen { background: #f3d6c8; }
+.error { color: var(--terracotta); }
+
+/* Where the nav pill floats (from legacy's maia/site/app.css): its foot above the screen's, its height, and the room it
+   takes, which every page keeps at its foot (--nav-room). The joystick's corner beside it. */
+:root {
+	--nav-foot: max(14px, min(env(safe-area-inset-bottom, 0px), 18px));
+	--nav-height: 64px;
+	--nav-room: calc(var(--nav-foot) + var(--nav-height) + 0.5rem);
+	--stick-edge: 1.5rem;
+	--stick-size: 8rem;
+	--stick-room: calc(var(--stick-edge) + var(--stick-size));
+}
+@media (max-width: 760px), (max-height: 500px) {
+	:root { --nav-foot: max(8px, min(env(safe-area-inset-bottom, 0px), 18px)); --nav-height: 52px; }
+}
+@media (max-width: 640px), (max-height: 500px) {
+	:root { --stick-edge: 1rem; --stick-size: 6.5rem; }
+}
+/* the foot stack: every toast and waiting note, centred just above the nav pill */
+.app-dock {
+	position: fixed; bottom: var(--nav-foot); left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px));
+	z-index: 50; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none;
+}
+.foot-stack { display: flex; flex-direction: column-reverse; align-items: center; gap: 6px; width: min(36rem, 100%); pointer-events: auto; }
+.foot-stack:empty { display: none; }
