@@ -1,0 +1,83 @@
+# restore: one of play's backups (deploy/backup.sh, made before every deploy) back from the bucket, by hand only —
+# Actions → restore → Run workflow. Nothing runs on a schedule (Samuel 2026-11-02).
+#   check     restores the backup beside production, into a throwaway Postgres, and checks it (deploy/restore.sh):
+#             every file there and hashing to its name, every head a version, the image it ran with answering on it.
+#             Production is not touched.
+#   rollback  puts it back in production: a backup of how things are now first, then play's schema from the dump, its
+#             files from the copy (the ones before kept beside them) and the image it ran with. Type ROLLBACK to confirm.
+# Which backups there are: BACKUPS/play/<when>-<label>/ in the bucket `maiacity`; the deploy's log names each one.
+name: restore
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup:
+        description: "The backup's name (e.g. 20261102T120000Z-before-deploy-abc1234), or latest"
+        required: true
+        default: latest
+      mode:
+        description: "check (production untouched) or rollback (production put back to it)"
+        required: true
+        type: choice
+        options: [check, rollback]
+        default: check
+      confirm:
+        description: "For a rollback: type ROLLBACK"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  packages: read
+
+# never beside a deploy
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
+env:
+  APP_DIR: /opt/maia-city
+  HOST: api.maia.city
+  S3_BUCKET: maiacity
+  S3_ENDPOINT: https://hel1.your-objectstorage.com
+  S3_REGION: hel1
+
+jobs:
+  restore:
+    name: ${{ inputs.mode }} ${{ inputs.backup }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: production
+    steps:
+      - name: Confirmed
+        if: inputs.mode == 'rollback' && inputs.confirm != 'ROLLBACK'
+        run: echo "::error::A rollback puts production back to the backup; type ROLLBACK in confirm to run it."; exit 1
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prod-ssh
+        with:
+          host: ${{ env.HOST }}
+          ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      - name: Copy the scripts and the bucket's access
+        env:
+          S3_ACCESS_KEY: ${{ secrets.HETZNER_S3_ACCESS_KEY }}
+          S3_SECRET_KEY: ${{ secrets.HETZNER_S3_SECRET_KEY }}
+        run: |
+          if [ -z "$S3_ACCESS_KEY" ] || [ -z "$S3_SECRET_KEY" ]; then
+            echo "::error::Set HETZNER_S3_ACCESS_KEY and HETZNER_S3_SECRET_KEY."; exit 1
+          fi
+          ssh prod "mkdir -p $APP_DIR/deploy"
+          scp deploy/backup.sh deploy/restore.sh "prod:$APP_DIR/deploy/"
+          printf 'BACKUP_BUCKET=%s\nBACKUP_ENDPOINT=%s\nBACKUP_REGION=%s\nAWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s\n' \
+            "$S3_BUCKET" "$S3_ENDPOINT" "$S3_REGION" "$S3_ACCESS_KEY" "$S3_SECRET_KEY" \
+            | ssh prod "umask 077; cat > $APP_DIR/backup.env"
+      - name: ${{ inputs.mode }}
+        env:
+          MODE: ${{ inputs.mode }}
+          BACKUP: ${{ inputs.backup }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          [[ "$BACKUP" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "::error::Not a backup's name: $BACKUP"; exit 1; }
+          # the token over stdin, never as an argument
+          printf '%s\n' "$GHCR_TOKEN" | ssh prod "cd $APP_DIR && read -r GHCR_TOKEN && export GHCR_TOKEN ACTOR='$ACTOR' && timeout 2400 bash deploy/restore.sh '$MODE' '$BACKUP'; s=\$?; docker logout ghcr.io >/dev/null 2>&1; exit \$s"

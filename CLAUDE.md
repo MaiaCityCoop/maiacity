@@ -20,6 +20,12 @@ server, import, Caddy) and the website (its build into the server's `site/releas
 Before you push, run the checks of what you touched: in `play/api` `bunx tsc --noEmit && bun test` (with
 `TEST_DATABASE_URL`), in `play/site` `bun run build`, in `website` `bun run check && bun run build`.
 
+## Backups
+
+Every deploy first backs up play to the bucket `maiacity` (`BACKUPS/play/…`: its schema dump, a full copy of its files,
+the image): `deploy/backup.sh`. Nothing on a schedule. Restoring, as a check or a rollback, is by hand only:
+`.github/workflows/restore.yml` (`deploy/README.md`).
+
 ## Members
 
 Sign-up is by invite only: an admin's invite link (`/?invite=<code>` on play, made on the members page) lets one person
