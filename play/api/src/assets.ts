@@ -26,7 +26,7 @@ export async function listAssets(db: Queryable, grp?: string) {
 
 /** one asset and its whole chain, newest first */
 export async function assetOf(db: Queryable, id: string) {
-  const { rows: a } = await db.query<any>(`SELECT id, grp, slug, label, head, coop_id, created FROM play.assets WHERE id = $1`, [id]);
+  const { rows: a } = await db.query<any>(`SELECT id, grp, slug, label, head, coop_id, created, sound, sound_gain FROM play.assets WHERE id = $1`, [id]);
   if (!a[0]) throw new NotFound(`There is no asset ${id}.`);
   const { rows: versions } = await db.query<any>(
     `SELECT v.id, v.number, v.parents, v.recipe_hash, v.default_variant, v.card, v.engine, v.note, v.created, v.imported,
