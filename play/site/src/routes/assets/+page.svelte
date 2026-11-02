@@ -195,7 +195,8 @@
 	/* legacy's view colours, in the brand's palette */
 	.assets {
 		position: fixed;
-		inset: 0 0 var(--nav-room);
+		/* the whole screen: the nav pill floats over it (its columns scroll clear of it, Frame's sides) */
+		inset: 0;
 		background: var(--cream);
 		--ok: #3f7a4f;
 		--bad: var(--terracotta);
