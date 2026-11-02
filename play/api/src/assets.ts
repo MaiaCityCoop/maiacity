@@ -115,3 +115,32 @@ export async function fileOf(db: Queryable, hash: string) {
   const { rows } = await db.query<{ hash: string; size: string; media_type: string }>(`SELECT hash, size, media_type FROM play.files WHERE hash = $1`, [hash]);
   return rows[0] ?? null;
 }
+
+/**
+ * Every accepted version and variant as one row, the shape the site's recipe index reads (play/site's
+ * content/assets/sources/avendb.js `vaultRecipes`, cloned from legacy): its record (the card, its engine, manifest and
+ * contract), its one file by hash, its asset as its `entry`, its version as `main`, the line it is on (null for the
+ * version's own recipe or its default variant, the variant's name otherwise), and its version id as `at`.
+ */
+export async function catalogOf(db: Queryable) {
+  const { rows } = await db.query<any>(
+    `SELECT v.asset_id, v.id, v.number, v.recipe_hash, v.default_variant, v.card, f.size,
+            COALESCE((SELECT json_agg(json_build_object('name', x.name, 'recipe', x.recipe_hash, 'card', x.card, 'size', xf.size) ORDER BY x.name)
+                        FROM play.asset_variants x JOIN play.files xf ON xf.hash = x.recipe_hash WHERE x.version_id = v.id), '[]') AS variants
+       FROM play.asset_versions v
+       JOIN play.assets a ON a.id = v.asset_id
+       LEFT JOIN play.files f ON f.hash = v.recipe_hash
+      WHERE v.number IS NOT NULL
+      ORDER BY v.asset_id, v.number`,
+  );
+  const out: any[] = [];
+  const row = (v: any, record: any, hash: string, size: number, line: string | null) => ({
+    vault: "play", entry: v.asset_id, type: "recipe", tags: [], heads: [v.id], at: [v.id], main: v.number, line,
+    record, files: [{ root: hash, hash, len: Number(size), size: Number(size) }],
+  });
+  for (const v of rows) {
+    if (v.recipe_hash) out.push(row(v, v.card, v.recipe_hash, v.size, null));
+    for (const x of v.variants) out.push(row(v, x.card, x.recipe, x.size, x.name === v.default_variant ? null : x.name));
+  }
+  return out;
+}

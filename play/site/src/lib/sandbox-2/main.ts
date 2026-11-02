@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { createControls, createRenderer } from '../render/core.js';
+import { createControls, createRenderer } from '$lib/content/render/core.js';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { scenarios, polyhedraOf, piecesOf, verticesOf, type Box, type Scenario } from './simulation';
 import { shedScenario } from './shed';

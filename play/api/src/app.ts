@@ -5,7 +5,7 @@ import type { BlobStore } from "./blobs";
 import { HASH } from "./hash";
 import type { Db } from "./pg";
 import { Denied, meOf, must } from "./access";
-import { assetOf, fileOf, listAssets, NotFound, pinsOf, resolve, versionOf } from "./assets";
+import { assetOf, catalogOf, fileOf, listAssets, NotFound, pinsOf, resolve, versionOf } from "./assets";
 import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, registerOptions, sessionCookie, tokenFor } from "./auth";
 import { claimInvite, inviteOpen, listMembers, makeInvite, MemberError, setLevel } from "./members";
 import { decide, listProposals, propose, ProposalError, type Verdict } from "./proposals";
@@ -71,6 +71,10 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     const n = Number(p.v);
     if (!Number.isInteger(n) || n < 1) throw new NotFound(`${p.v} is not a version.`);
     return json(await versionOf(db, `${p.grp}/${p.slug}`, n));
+  });
+  on("GET", "/api/catalog", async (req) => {
+    must(await me(req), "read", "assets");
+    return json(await catalogOf(db), { headers: { "Cache-Control": "private, max-age=60" } });
   });
   on("GET", "/api/resolve", async (req) => {
     must(await me(req), "read", "assets");
