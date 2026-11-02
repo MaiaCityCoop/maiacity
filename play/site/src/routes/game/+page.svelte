@@ -25,6 +25,7 @@
 	<p class="pill">Coming</p>
 	<h1>The game is being made.</h1>
 	<p class="lead">It will be played by the citizens of Maia City. Until then the three sandboxes are open to every traveler.</p>
+	<p><a class="btn mustard" href="/game/map/">See the world map</a></p>
 	{#if session.me?.level === 'traveler'}
 		<section class="card box">
 			<h2>Have an invite?</h2>
