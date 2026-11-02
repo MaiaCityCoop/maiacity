@@ -37,6 +37,11 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     json({ id: h.id, name: h.name, ...(extra as object) }, { headers: { "Set-Cookie": sessionCookie(tokenFor(h.id)) } });
 
   on("GET", "/api/health", () => json({ ok: true }));
+  // how many build Maia City: the number alone, public, for the website's manifesto (maia.city, website/src/lib/FounderCounter.svelte)
+  on("GET", "/api/founders", async () => {
+    const { rows } = await db.query<{ n: string }>(`SELECT count(*) AS n FROM play.memberships WHERE coop_id = 'maia-city'`);
+    return json({ count: Number(rows[0].n) }, { headers: { "Access-Control-Allow-Origin": "https://maia.city", "Cache-Control": "public, max-age=30" } });
+  });
 
   // ---- who
   on("POST", "/api/passkey/register/options", async (req) => {

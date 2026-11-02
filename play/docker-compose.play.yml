@@ -2,7 +2,7 @@
 #   set -a; . ./play.env; set +a
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml -f play/docker-compose.play.yml up -d play-api
 # play.env (on the server, never in git) holds PLAY_IMAGE, PLAY_DATABASE_URL and the bucket's PLAY_BUCKET_* values.
-# Caddy answers play.maia.city and proxies it here (aven/ops/deploy/Caddyfile).
+# Caddy answers play.maia.city and proxies it here (deploy/Caddyfile).
 services:
   play-api:
     image: ${PLAY_IMAGE:?set PLAY_IMAGE in play.env}

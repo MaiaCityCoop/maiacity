@@ -127,7 +127,7 @@ export type PlannedPin = { slot: string; asset: string; number: number; variant:
 
 /**
  * Legacy Sandbox 4's pins as play's Sandbox 1's: the village's assets config ({slot: {entry, at}}), translated through
- * the repo's table of avenDB pins to refs (maia/content/assets/pins.fixture.json), and the garden's plants ({id, v,
+ * the repo's table of avenDB pins to refs (play/api/import/legacy/pins.fixture.json), and the garden's plants ({id, v,
  * pin}), each a plants/<id>@<v> whose pin must name that plant's avenDB entry.
  */
 export function planPins(

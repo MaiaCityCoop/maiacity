@@ -16,9 +16,8 @@ COPY play/api/package.json play/api/bun.lock ./
 RUN --mount=type=secret,id=ca,required=false NODE_EXTRA_CA_CERTS=/run/secrets/ca bun install --frozen-lockfile --production
 COPY play/api/src ./src
 COPY play/api/import ./import
-# the import reads legacy Sandbox 4's configs and the repo's table of avenDB pins (import/run.ts), where the repo keeps them
-COPY maia/content/code/configs/sandbox-4 /app/maia/content/code/configs/sandbox-4
-COPY maia/content/assets/pins.fixture.json /app/maia/content/assets/pins.fixture.json
+# the import reads legacy Sandbox 4's configs and the table of avenDB pins it kept (import/run.ts), from the repo's place
+COPY play/api/import/legacy /app/play/api/import/legacy
 # …and the media play's site names by hash (its covers and sounds), found in its sources
 COPY play/site/src /app/play/site/src
 COPY play/media /app/play/media
