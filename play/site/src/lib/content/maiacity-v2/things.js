@@ -29,7 +29,12 @@ export const THINGS = {
 	pack: slot('pack'),
 	stake: slot('stake'),
 	earth: slot('earth'),
-	van: slot('van')
+	van: slot('van'),
+	containerKitchen: slot('containerKitchen'),
+	containerSanitary: slot('containerSanitary'),
+	containerTech: slot('containerTech'),
+	containerWorkshop: slot('containerWorkshop'),
+	domeGlamp: slot('domeGlamp')
 };
 
 /** the MaiaCity centre (the library's maia-centre without its van and its road): the bus stop and the gas station

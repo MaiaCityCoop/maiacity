@@ -107,6 +107,24 @@ const YARD = { x: 12, z: -4, r: 3 };
 const BATT_HOME = V(YARD.x + 1.4, 0, YARD.z + 1.1);
 const PANEL_HOME = V(YARD.x + 2.6, 0, YARD.z - 2.4);
 const STORE_YARD = { x: STORE.x + 1, z: STORE.z - 3, r: 14 };
+/** our buildings round the tent (Samuel 2026-11-02): the four shipping containers and the glamping dome on a ring just
+ *  outside the core where the homes go (PLOT.core), spread round it, leaving the way the track comes in to the pickup's
+ *  lot (west, toward +z) open. Each stands on a gravel pad of its own (`pad`), its long side to the tent: in its own frame
+ *  x runs along it, turned about the upright by `turn`; `half` how far each end is from its middle, `r` the circles the
+ *  pickup keeps clear of along it */
+const RING = 32;
+const onRing = (deg, b) => {
+	const a = (deg * Math.PI) / 180, x = Math.cos(a) * (RING + (b.out ?? 0)), z = Math.sin(a) * (RING + (b.out ?? 0));
+	return { ...b, x, z, turn: -(a + Math.PI / 2), pad: { x, z, r: b.padR } };
+};
+const BUILDINGS = [
+	onRing(-150, { slot: 'domeGlamp', pick: 'asset:dome-glamp', half: 0, r: 9.5, padR: 13, out: 6 }),
+	onRing(-80, { slot: 'containerKitchen', pick: 'asset:container-kitchen', half: 7, r: 2.5, padR: 8.5 }),
+	onRing(-15, { slot: 'containerSanitary', pick: 'asset:container-sanitary', half: 7, r: 2.5, padR: 8.5 }),
+	onRing(45, { slot: 'containerTech', pick: 'asset:container-tech', half: 7, r: 2.5, padR: 8.5 }),
+	onRing(100, { slot: 'containerWorkshop', pick: 'asset:container-workshop', half: 7, r: 2.5, padR: 8.5 })
+];
+const PADS = BUILDINGS.map((b) => b.pad);
 const PATH_W = 4.2; // a narrow offroad track, two ruts in it (Samuel 2026-10-13)
 /** the gravel track's centre line: off the highway beside the bus stop, a slow meander east through the steppe and
  *  the village's grass, past the old shed, and on into our tribe's lot (Samuel 2026-10-13) */
@@ -139,7 +157,7 @@ const U_NEAR = { shed: U_STORE - 70 / TRACK_L, home: uNear(-142, -2) };
 const CREEP = 24;
 const nearPath = (x, z, r) => PATH.some((p) => Math.abs(p.x - x) < r + 2 && Math.hypot(p.x - x, p.z - z) < r + 1);
 const onGravel = (x, z, pad = 0) =>
-	[LOT, YARD, STORE_YARD].some((c) => Math.hypot(x - c.x, z - c.z) < c.r + pad) || nearPath(x, z, PATH_W / 2 + pad) || (x < ROAD_END + 2 && Math.abs(z - ROAD_Z) < HIGHWAY_W / 2 + pad);
+	[LOT, YARD, STORE_YARD, ...PADS].some((c) => Math.hypot(x - c.x, z - c.z) < c.r + pad) || nearPath(x, z, PATH_W / 2 + pad) || (x < ROAD_END + 2 && Math.abs(z - ROAD_Z) < HIGHWAY_W / 2 + pad);
 
 /** a little seeded random, so everything stands in the same places for everyone */
 function rng(seed) {
@@ -312,7 +330,7 @@ function gravel() {
 	const g = new THREE.Group();
 	const stone = flat(0xbdb29c, 3);
 	stone.side = THREE.DoubleSide;
-	for (const c of [LOT, YARD, STORE_YARD]) {
+	for (const c of [LOT, YARD, STORE_YARD, ...PADS]) {
 		const disc = new THREE.Mesh(new THREE.CircleGeometry(c.r, 48), stone);
 		disc.rotation.x = -Math.PI / 2;
 		disc.position.set(c.x, 0.01, c.z);
@@ -848,6 +866,13 @@ export function createWorld(canvas, { onPick = () => {}, onLabels = () => {}, on
 	const solar = anchor(THINGS.solar, 'asset:solar');
 	const battery = anchor(THINGS.battery, 'asset:battery');
 	world.add(shed, solar, battery);
+	// our buildings round the tent: the four shipping containers and the glamping dome (BUILDINGS)
+	for (const b of BUILDINGS) {
+		const o = anchor(THINGS[b.slot], b.pick);
+		o.position.set(b.x, 0, b.z);
+		o.rotation.y = b.turn;
+		world.add(o);
+	}
 	// once both are home: one cable from the panel to the BatteryCube, and one on to the tent
 	const cables = new THREE.Group();
 	for (const pts of [[V(PANEL_HOME.x, 0.5, PANEL_HOME.z), V(PANEL_HOME.x - 0.4, 0.03, PANEL_HOME.z + 1.2), V(BATT_HOME.x, 0.03, BATT_HOME.z - 0.6), V(BATT_HOME.x, 0.3, BATT_HOME.z - 0.35)], [V(BATT_HOME.x - 0.3, 0.3, BATT_HOME.z), V(BATT_HOME.x - 1.5, 0.03, BATT_HOME.z + 0.4), V(3.4, 0.03, -0.9), V(2.05, 0.02, -0.45)]]) {
@@ -3234,10 +3259,14 @@ export function createWorld(canvas, { onPick = () => {}, onLabels = () => {}, on
 		[8.5, -4.5, 0.3], [8.5, 4.5, 0.3], [3.5, -4.5, 0.3], [3.5, 4.5, 0.3],
 		[3.5, 9.5, 0.3], [12, 5.9, 0.9]
 	];
+	/** our buildings as circles: a container one at each end and one in its middle, the dome one */
+	const BUILDING_CIRCLES = BUILDINGS.flatMap((b) =>
+		(b.half ? [-b.half + b.r, 0, b.half - b.r] : [0]).map((a) => [V(b.x + Math.cos(b.turn) * a, 0, b.z - Math.sin(b.turn) * a), b.r])
+	);
 	/** what the pickup stops short of, as circles on the ground (centre, radius): the tent and its fire place, the
 	 *  shed, the bus stop and the gas station, the machines and the people standing about, the first trees */
 	function obstacles() {
-		const list = [[V(STORE.x, 0, STORE.z), 3.3], ...STATION.map(([x, z, r]) => [V(CENTRE.x + x, 0, CENTRE.z + z), r])];
+		const list = [[V(STORE.x, 0, STORE.z), 3.3], ...BUILDING_CIRCLES, ...STATION.map(([x, z, r]) => [V(CENTRE.x + x, 0, CENTRE.z + z), r])];
 		if (home.visible) list.push([home.position, 3.7]);
 		if (fire.visible) list.push([fire.position, 1.9]);
 		for (const o of [cube, battery, solar]) if (o.parent === world && o.visible) list.push([o.position, 1]);
