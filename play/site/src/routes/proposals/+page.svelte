@@ -3,7 +3,7 @@
 	import { api, may } from '$lib/api';
 	import { session } from '$lib/session.svelte';
 
-	type P = { id: string; asset_id: string; label: string; version_label: string | null; number: number; status: string; note: string; author: string | null; decided_by: string | null; created: string };
+	type P = { id: string; asset_id: string; label: string; grp: string; slug: string; version_label: string | null; number: number; status: string; note: string; author: string | null; decided_by: string | null; created: string };
 	let list = $state<P[]>([]);
 	let status = $state('open');
 	let error = $state('');
@@ -17,7 +17,7 @@
 	const deciding = $derived(may(session.me, 'decide', 'asset_version'));
 
 	// a citizen proposes the next version of an asset: the recipe file the asset box made for it (version head + 1)
-	type Listed = { id: string; label: string; head: number };
+	type Listed = { id: string; grp: string; slug: string; label: string; head: number };
 	let assets = $state<Listed[]>([]);
 	let target = $state('');
 	let file = $state<FileList | null>(null);
@@ -49,7 +49,7 @@
 	{#if may(session.me, 'propose', 'asset_version')}
 		<section class="card propose">
 			<h2>Propose a new version</h2>
-			<select bind:value={target}><option value="">Which asset?</option>{#each assets as a (a.id)}<option value={a.id}>{a.label} · {a.id} · now v{a.head}</option>{/each}</select>
+			<select bind:value={target}><option value="">Which asset?</option>{#each assets as a (a.id)}<option value={a.id}>{a.label} · {a.grp}/{a.slug} · now v{a.head}</option>{/each}</select>
 			{#if chosen}<p class="muted">Upload the recipe file the asset box made for <code>v{chosen.head + 1}</code> of it. Every other asset it names, it names by hash.</p>{/if}
 			<input type="file" accept=".js,text/javascript" bind:files={file} />
 			<input placeholder="What changed" bind:value={note} />
@@ -63,7 +63,7 @@
 		<article class="card row">
 			<div>
 				<h3><a href="/assets/#{p.asset_id}">{p.label}</a> <span class="muted">v{p.number}</span></h3>
-				<p class="muted">{p.asset_id} · by {p.author ?? 'someone'} · {new Date(p.created).toLocaleString()}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}</p>
+				<p class="muted">{p.grp}/{p.slug} · by {p.author ?? 'someone'} · {new Date(p.created).toLocaleString()}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}</p>
 				{#if p.note}<p>{p.note}</p>{/if}
 			</div>
 			<div class="actions">

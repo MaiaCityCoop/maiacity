@@ -10,6 +10,7 @@ import { COOP, Denied, must, type Me } from "./access";
 import { labelOf } from "./recipes";
 import { readableRefs } from "../import/plan";
 import { versionId } from "./versions";
+import { newId, UUID } from "./uuid";
 
 export class ProposalError extends Error {
   constructor(message: string, public status = 400) {
@@ -17,14 +18,16 @@ export class ProposalError extends Error {
   }
 }
 
-const ASSET = /^([a-z]+)\/([a-z0-9][a-z0-9-]{0,79})$/;
+const GROUP = /^(plants|things|machines|buildings|actors|biomes)$/;
+const SLUG = /^[a-z0-9][a-z0-9-]{0,79}$/;
 const VARIANT = /^[a-z0-9][a-z0-9-]{0,79}$/;
 export const MOST_FILE = 16 * 1024 * 1024;
 const MEDIA = "text/javascript";
 
 type Upload = { recipe: string; record?: any };
 export type ProposalBody = {
-  asset: string;
+  asset?: string; // an existing asset, by its UUID
+  new?: { group: string; slug: string; label: string }; // or a new one: its group, slug and label
   label?: string;
   note?: string;
   base?: string | null; // the head it was made from, as the proposer saw it
@@ -54,13 +57,28 @@ const recordOf = (record: any, grp: string, slug: string, n: number, variant: st
 
 export async function propose(db: Db, store: BlobStore, me: Me | null, body: ProposalBody) {
   const who = must(me, "propose", "asset_version");
-  const m = ASSET.exec(`${body?.asset ?? ""}`);
-  if (!m) throw new ProposalError("Name the asset as group/id, e.g. plants/apple.");
-  const [, grp, slug] = m;
+  // the asset by its UUID; a new asset brings its group and slug (its label, shown) and gets a UUID of its own
+  let asset: string;
+  let grp: string;
+  let slug: string;
+  if (body?.asset !== undefined) {
+    if (!UUID.test(`${body.asset}`)) throw new ProposalError("Name the asset by its id (a UUID).");
+    const { rows } = await db.query<{ grp: string; slug: string }>(`SELECT grp, slug FROM play.assets WHERE id = $1`, [body.asset]);
+    if (!rows[0]) throw new ProposalError("There is no such asset.", 404);
+    ({ grp, slug } = rows[0]);
+    asset = body.asset;
+  } else {
+    grp = `${body?.new?.group ?? ""}`;
+    slug = `${body?.new?.slug ?? ""}`;
+    if (!GROUP.test(grp) || !SLUG.test(slug)) throw new ProposalError("A new asset needs its group (plants, things, machines, buildings, actors, biomes) and a slug.");
+    const { rows } = await db.query(`SELECT 1 FROM play.assets WHERE grp = $1 AND slug = $2`, [grp, slug]);
+    if (rows[0]) throw new ProposalError(`There is an asset ${grp}/${slug} already: propose a version of it.`, 409);
+    asset = newId();
+  }
   const { rows: a } = await db.query<{ head: string | null; number: number | null; label: string; card: any; variants: Record<string, any> | null }>(
     `SELECT a.head, v.number, a.label, v.card,
             (SELECT json_object_agg(x.name, x.card) FROM play.asset_variants x WHERE x.version_id = v.id) AS variants
-       FROM play.assets a LEFT JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1`, [body.asset],
+       FROM play.assets a LEFT JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1`, [asset],
   );
   // a proposal that brings no record of its own takes its head's (the engine it runs on, its label, its parameters),
   // with its own recipe and version written in: an upload of the recipe file alone makes a version the site can build
@@ -69,7 +87,7 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, body: Pro
   if (body.base !== undefined && (body.base ?? null) !== head)
     throw new ProposalError("Someone changed this asset since you started: build it again on its newest version.", 409);
   const n = (a[0]?.number ?? 0) + 1;
-  const label = `${body.label ?? a[0]?.label ?? ""}`.trim().slice(0, 120);
+  const label = `${body.new?.label ?? body.label ?? a[0]?.label ?? ""}`.trim().slice(0, 120);
   if (!label) throw new ProposalError("A new asset needs a label.");
 
   const variantNames = Object.keys(body.variants ?? {});
@@ -95,10 +113,10 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, body: Pro
   }
   const card = recipe ? recordOf(inherited(body.record, a[0]?.card), grp, slug, n, null, recipe) : variants[defaultVariant!].card;
   // every other asset a version names, it names by hash (play/SPEC.md §4)
-  const readable = [card, ...Object.values(variants).map((x) => x.card)].flatMap((c) => readableRefs(c, body.asset));
+  const readable = [card, ...Object.values(variants).map((x) => x.card)].flatMap((c) => readableRefs(c, `${grp}/${slug}`));
   if (readable.length) throw new ProposalError(`Name other assets by their hash, not ${readable.slice(0, 3).join(", ")}.`);
   const engine = Number(card?.engine?.version ?? card?.card?.engine) || null;
-  const content = { asset: body.asset, parents: head ? [head] : [], recipe, defaultVariant, variants, card, engine };
+  const content = { asset, parents: head ? [head] : [], recipe, defaultVariant, variants, card, engine };
   const id = versionId(content);
 
   for (const f of files) await store.put(f.hash, new TextEncoder().encode(f.text), MEDIA);
@@ -108,27 +126,27 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, body: Pro
       await tx.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, [
         f.hash, Buffer.byteLength(f.text), MEDIA, `blobs/${f.hash.slice(0, 2)}/${f.hash}`,
       ]);
-    await tx.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING`, [body.asset, COOP, grp, slug, label]);
+    await tx.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING`, [asset, COOP, grp, slug, label]);
     await tx.query(
       `INSERT INTO play.asset_versions (id, asset_id, parents, recipe_hash, default_variant, card, engine, author, note)
        VALUES ($1, $2, $3, $4, $5, ($6::text)::jsonb, $7, $8, $9) ON CONFLICT (id) DO NOTHING`,
-      [id, body.asset, content.parents, recipe, defaultVariant, JSON.stringify(card), engine, who.id, `${body.note ?? ""}`.slice(0, 2000)],
+      [id, asset, content.parents, recipe, defaultVariant, JSON.stringify(card), engine, who.id, `${body.note ?? ""}`.slice(0, 2000)],
     );
     for (const [name, x] of Object.entries(variants))
       await tx.query(`INSERT INTO play.asset_variants (version_id, name, recipe_hash, card) VALUES ($1, $2, $3, ($4::text)::jsonb) ON CONFLICT DO NOTHING`, [id, name, x.recipe, JSON.stringify(x.card)]);
     await tx.query(
       `INSERT INTO play.proposals (id, coop_id, kind, asset_id, base, version, author, note) VALUES ($1, $2, 'asset_version', $3, $4, $5, $6, $7)`,
-      [proposal, COOP, body.asset, head, id, who.id, `${body.note ?? ""}`.slice(0, 2000)],
+      [proposal, COOP, asset, head, id, who.id, `${body.note ?? ""}`.slice(0, 2000)],
     );
   });
-  return { id: proposal, asset: body.asset, version: id, number: n, base: head };
+  return { id: proposal, asset, version: id, number: n, base: head };
 }
 
 export async function listProposals(db: Queryable, me: Me | null, status?: string) {
   must(me, "read", "assets");
   const { rows } = await db.query<any>(
     `SELECT p.id, p.asset_id, p.base, p.version, p.status, p.note, p.created, p.decided_at,
-            au.name AS author, de.name AS decided_by, a.label, v.card->'card'->>'label' AS version_label,
+            au.name AS author, de.name AS decided_by, a.label, a.grp, a.slug, v.card->'card'->>'label' AS version_label,
             COALESCE(b.number, 0) + 1 AS number
        FROM play.proposals p
        JOIN play.assets a ON a.id = p.asset_id

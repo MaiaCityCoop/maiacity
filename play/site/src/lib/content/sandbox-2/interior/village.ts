@@ -63,7 +63,7 @@ export type VillageHandle = {
 	dispose: () => void
 }
 /** a plant picked in Sandbox 5's forest: which (its id, version, stage), where, and how far from the eye */
-export type PickedPlant = { id: string; v: number; pin?: { entry: string; at: string[] }; stage: number; seed: string; x: number; z: number; height: number; distance: number; inside: boolean }
+export type PickedPlant = { id: string; v: number; asset?: string; stage: number; seed: string; x: number; z: number; height: number; distance: number; inside: boolean }
 
 const WORLD = 380
 

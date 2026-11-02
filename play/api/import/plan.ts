@@ -3,6 +3,7 @@
 import { hashBytes } from "../src/hash";
 import { versionId } from "../src/versions";
 import type { BroughtRow, EntryView } from "./feed";
+import { assetIdOf } from "../src/uuid";
 import { labelOf, parseRef, type Label } from "../src/recipes";
 
 export { labelOf, parseRef, RECIPE_HEAD, type Label } from "../src/recipes";
@@ -21,7 +22,10 @@ export type PlannedVersion = {
   edits: string[];
 };
 export type PlannedAsset = {
+  /** its UUID (derived from its avenDB entry) */
   id: string;
+  /** its readable name, `<grp>/<slug>`: what legacy's refs named it by, resolved here once and never stored as a reference */
+  name: string;
   grp: string;
   slug: string;
   label: string;
@@ -51,6 +55,7 @@ export function planAsset(view: EntryView, files: Map<string, Uint8Array>): { as
   const grp: string = top.group;
   const slug: string = top.id;
   const name = `${grp}/${slug}`;
+  const id = assetIdOf(view.entry);
   const planned: PlannedFile[] = [];
   type Row = { n: number; variant: string | null; main: boolean; hash: string; record: any; edit: string };
   const rows: Row[] = [];
@@ -92,7 +97,7 @@ export function planAsset(view: EntryView, files: Map<string, Uint8Array>): { as
       defaultVariant = main.variant;
     }
     const content = {
-      asset: name,
+      asset: id,
       parents: versions.length ? [versions[versions.length - 1].id] : [],
       recipe: bases[0]?.hash ?? null,
       defaultVariant,
@@ -106,7 +111,8 @@ export function planAsset(view: EntryView, files: Map<string, Uint8Array>): { as
   if (versions.at(-1)!.number !== newest) throw new PlanError(`${name}: its newest version is ${newest}, its rows go to ${versions.at(-1)!.number}`);
   return {
     asset: {
-      id: name,
+      id,
+      name,
       grp,
       slug,
       label: `${top.label ?? view.record?.title ?? slug}`,
@@ -177,18 +183,18 @@ export function hashRefs(assets: PlannedAsset[]): number {
   const hashOf = new Map<string, string>();
   for (const a of assets)
     for (const v of a.versions) {
-      for (const [name, x] of Object.entries(v.variants)) hashOf.set(`${a.id}@${v.number}:${name}`, x.recipe);
+      for (const [name, x] of Object.entries(v.variants)) hashOf.set(`${a.name}@${v.number}:${name}`, x.recipe);
       const own = v.recipe ?? (v.defaultVariant ? v.variants[v.defaultVariant]?.recipe : null);
-      if (own) hashOf.set(`${a.id}@${v.number}`, own);
+      if (own) hashOf.set(`${a.name}@${v.number}`, own);
     }
   let n = 0;
   for (const a of assets) {
     const rewrite = (s: string) => {
       const m = READABLE.exec(s);
-      if (!m || m[1] === a.id) return s;
-      if (!m[2]) throw new PlanError(`${a.id}: its card names ${s}, with no version`);
+      if (!m || m[1] === a.name) return s;
+      if (!m[2]) throw new PlanError(`${a.name}: its card names ${s}, with no version`);
       const hash = hashOf.get(`${m[1]}@${m[2]}${m[3] ? `:${m[3]}` : ""}`);
-      if (!hash) throw new PlanError(`${a.id}: its card names ${s}, which is not imported`);
+      if (!hash) throw new PlanError(`${a.name}: its card names ${s}, which is not imported`);
       n++;
       return m[4] ? `${hash}?${m[4]}` : hash;
     };

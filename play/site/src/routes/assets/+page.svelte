@@ -4,7 +4,7 @@
 	its own file and shown on the asset stage ($lib/content/assets/VaultAsset.svelte), in its turntable with its moves
 	and views; on the right its versions as a chain (who wrote each and who accepted it), the version's details, and
 	its parts. Everything is play's: the catalog by hash, the chain from play's database. An asset's address is
-	`#<group>/<id>`, a version or variant of it `#<group>/<id>/<hash>`.
+	`#<asset id>` (its UUID), a version or variant of it `#<asset id>/<hash>`.
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
@@ -44,10 +44,10 @@
 		}
 	});
 
-	// the address: `group/id`, then the recipe's hash where a version or variant is picked
+	// the address: the asset's UUID, then the recipe's hash where a version or variant is picked
 	const parts = $derived(hash.split('/'));
-	const assetId = $derived(parts.length >= 2 ? `${parts[0]}/${parts[1]}` : (listed[0]?.id ?? ''));
-	const wanted = $derived(parts[2] ?? '');
+	const assetId = $derived(parts[0] || (listed[0]?.id ?? ''));
+	const wanted = $derived(parts[1] ?? '');
 	$effect(() => {
 		const id = assetId;
 		if (!id || !ready) return;

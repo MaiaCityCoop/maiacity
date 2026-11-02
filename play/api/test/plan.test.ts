@@ -25,7 +25,7 @@ function entry(grp: string, id: string, rows: [number, string | null, string | n
     };
   });
   const newest = brought.reduce((a, b) => (b.record.card.version > a.record.card.version ? b : a));
-  const view = { vault: "v", entry: "e", type: "recipe", tags: [], heads: ["h"], record: newest.record, brought } as unknown as EntryView;
+  const view = { vault: "v", entry: `e-${grp}-${id}`, type: "recipe", tags: [], heads: ["h"], record: newest.record, brought } as unknown as EntryView;
   return { view, files };
 }
 

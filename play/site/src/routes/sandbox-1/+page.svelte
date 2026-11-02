@@ -18,7 +18,7 @@
 	let village: VillageHandle | null = null;
 
 	/** the plant picked by a click or a tap, and what the library knows of it */
-	type Card = { picked: PickedPlant; label: string; latin: string; note: string; from: string; layer: string; stages: { name: string; day: number; note: string }[] };
+	type Card = { picked: PickedPlant; asset: string | null; label: string; latin: string; note: string; from: string; layer: string; stages: { name: string; day: number; note: string }[] };
 	let card = $state<Card | null>(null);
 	let plants: typeof import('$lib/content/plants') | null = null;
 	/** the card slides in from the right beside the world; on a phone, up from the foot of it */
@@ -37,7 +37,15 @@
 		if (!plant) return (card = null);
 		const layer = plants.LAYERS.find((l) => l.id === plant.layer);
 		narrow = matchMedia('(max-width: 640px)').matches;
-		card = { picked, label: plant.label, latin: plant.latin, note: plant.note, from: plant.from, layer: layer ? `${layer.label} — ${layer.note}` : '', stages: plant.stages };
+		// the plant's asset by its UUID, through the catalog: its build's hash names its recipe, the recipe its asset
+		const { hashOf, recipeInfo } = await import('$lib/content/assets/catalog.js');
+		let asset: string | null = null;
+		try {
+			asset = picked.asset ? (recipeInfo(hashOf(picked.asset))?.asset ?? null) : null;
+		} catch {
+			asset = null;
+		}
+		card = { picked, asset, label: plant.label, latin: plant.latin, note: plant.note, from: plant.from, layer: layer ? `${layer.label} — ${layer.note}` : '', stages: plant.stages };
 	};
 	const close = () => {
 		card = null;
@@ -104,7 +112,7 @@
 				</ol>
 				<p class="about">{st?.note}</p>
 				{#if card.picked.stage < card.stages.length - 1}<p class="next">Next: {card.stages[card.picked.stage + 1]!.name}</p>{/if}
-				<a class="open" href="{base}/assets/#plants/{card.picked.id}">See it in the asset library →</a>
+				{#if card.asset}<a class="open" href="{base}/assets/#{card.asset}">See it in the asset library →</a>{/if}
 			</div>
 		</aside>
 	{/if}

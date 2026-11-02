@@ -23,6 +23,8 @@ suite("play API", () => {
   let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
   let api: ReturnType<typeof app>;
   const who: Record<string, { id: string; cookie: string }> = {};
+  /** each asset made here, by its slug: its UUID */
+  const ids: Record<string, string> = {};
 
   beforeAll(async () => {
     name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
@@ -73,31 +75,33 @@ suite("play API", () => {
     expect((await call("trav", "GET", "/api/me")).data.level).toBe("traveler");
     expect((await call("trav", "GET", "/api/sandboxes")).data.map((s: any) => s.id)).toEqual(["sandbox-1", "sandbox-2", "sandbox-3"]);
     expect((await call("trav", "GET", "/api/assets")).status).toBe(200);
-    const r = await call("trav", "POST", "/api/proposals", { asset: "plants/fern", label: "Fern", recipe: recipe("fern", 1) });
+    const r = await call("trav", "POST", "/api/proposals", { new: { group: "plants", slug: "fern", label: "Fern" }, recipe: recipe("fern", 1) });
     expect(r.status).toBe(403);
   });
 
   test("a citizen proposes a new asset, an admin accepts it, everyone reads it", async () => {
-    const p = await call("cit", "POST", "/api/proposals", { asset: "plants/fern", label: "Fern", note: "first", recipe: recipe("fern", 1), record: { card: { label: "Fern" } } });
+    const p = await call("cit", "POST", "/api/proposals", { new: { group: "plants", slug: "fern", label: "Fern" }, note: "first", recipe: recipe("fern", 1), record: { card: { label: "Fern" } } });
     expect(p.status).toBe(201);
     expect(p.data.number).toBe(1);
-    expect((await call("trav", "GET", "/api/assets")).data.find((a: any) => a.id === "plants/fern")).toBeUndefined();
+    expect(p.data.asset).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    ids.fern = p.data.asset;
+    expect((await call("trav", "GET", "/api/assets")).data.find((a: any) => a.id === ids.fern)).toBeUndefined();
     expect((await call("cit", "POST", `/api/proposals/${p.data.id}/accept`)).status).toBe(403);
     const ok = await call("ada", "POST", `/api/proposals/${p.data.id}/accept`);
     expect(ok.data).toMatchObject({ status: "accepted", number: 1 });
-    const a = await call("trav", "GET", "/api/assets/plants/fern");
+    const a = await call("trav", "GET", `/api/assets/${ids.fern}`);
     expect(a.data.versions.map((v: any) => [v.number, v.author, v.approvedBy])).toEqual([[1, "cit", "ada"]]);
     const f = await call("trav", "GET", `/api/files/${a.data.versions[0].recipe}`);
     expect(f.status).toBe(200);
     expect(hashText(f.data)).toBe(a.data.versions[0].recipe);
     const cat = (await call("trav", "GET", "/api/catalog")).data;
-    expect(cat.find((r: any) => r.hash === a.data.versions[0].recipe)).toMatchObject({ asset: "plants/fern", v: 1, variant: null });
+    expect(cat.find((r: any) => r.hash === a.data.versions[0].recipe)).toMatchObject({ asset: ids.fern, v: 1, variant: null });
   });
 
   test("a version proposed without a record takes its head's, with its own recipe and number", async () => {
-    const head = (await call("trav", "GET", "/api/assets/plants/fern/1")).data;
+    const head = (await call("trav", "GET", `/api/assets/${ids.fern}/1`)).data;
     expect(head.card.card.label).toBe("Fern");
-    const p = await call("cit", "POST", "/api/proposals", { asset: "plants/fern", recipe: recipe("fern", 2, null, "/* bare */") });
+    const p = await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 2, null, "/* bare */") });
     const v = (await db.query<any>(`SELECT card FROM play.asset_versions WHERE id = $1`, [p.data.version])).rows[0].card;
     expect(v.card).toMatchObject({ label: "Fern", version: 2, id: "fern", group: "plants" });
     expect(v.card.recipe).not.toBe(head.card.card.recipe);
@@ -105,52 +109,53 @@ suite("play API", () => {
   });
 
   test("a recipe file must name the version it is proposed for", async () => {
-    const r = await call("cit", "POST", "/api/proposals", { asset: "plants/fern", recipe: recipe("fern", 1, null, "/* again */") });
+    const r = await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 1, null, "/* again */") });
     expect(r.status).toBe(400);
     expect(r.data.error).toContain("not fern@2");
   });
 
   test("of two proposals on one head, the second goes stale", async () => {
-    const a = await call("cit", "POST", "/api/proposals", { asset: "plants/fern", recipe: recipe("fern", 2, null, "/* a */") });
-    const b = await call("cit2", "POST", "/api/proposals", { asset: "plants/fern", recipe: recipe("fern", 2, null, "/* b */") });
+    const a = await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 2, null, "/* a */") });
+    const b = await call("cit2", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 2, null, "/* b */") });
     expect([a.status, b.status]).toEqual([201, 201]);
     expect((await call("ada", "POST", `/api/proposals/${b.data.id}/accept`)).data.status).toBe("accepted");
     expect((await call("ada", "POST", `/api/proposals/${a.data.id}/accept`)).status).toBe(409);
     const list = await call("trav", "GET", "/api/proposals");
     expect(list.data.find((p: any) => p.id === a.data.id).status).toBe("stale");
-    const chain = (await call("trav", "GET", "/api/assets/plants/fern")).data.versions;
+    const chain = (await call("trav", "GET", `/api/assets/${ids.fern}`)).data.versions;
     expect(chain.map((v: any) => v.number)).toEqual([2, 1]);
     expect(chain[0].parents).toEqual([chain[1].id]);
     // a base the proposer saw that is no longer the head is refused at once
-    expect((await call("cit", "POST", "/api/proposals", { asset: "plants/fern", base: chain[1].id, recipe: recipe("fern", 3) })).status).toBe(409);
+    expect((await call("cit", "POST", "/api/proposals", { asset: ids.fern, base: chain[1].id, recipe: recipe("fern", 3) })).status).toBe(409);
   });
 
   test("an accepted version can't be changed", async () => {
-    await expect(db.query(`UPDATE play.asset_versions SET note = 'x' WHERE asset_id = 'plants/fern' AND number = 1`)).rejects.toThrow(/frozen/);
-    await expect(db.query(`DELETE FROM play.asset_versions WHERE asset_id = 'plants/fern'`)).rejects.toThrow(/never deleted/);
+    await expect(db.query(`UPDATE play.asset_versions SET note = 'x' WHERE asset_id = $1 AND number = 1`, [ids.fern])).rejects.toThrow(/frozen/);
+    await expect(db.query(`DELETE FROM play.asset_versions WHERE asset_id = $1`, [ids.fern])).rejects.toThrow(/never deleted/);
   });
 
   test("a kind of variants: each variant its own hash in the catalog, its default marked", async () => {
     const p = await call("cit", "POST", "/api/proposals", {
-      asset: "actors/goat", label: "Goat",
+      new: { group: "actors", slug: "goat", label: "Goat" },
       variants: { "goat-saanen": { recipe: recipe("goat", 1, "goat-saanen"), record: { card: { label: "Goat: Saanen" } } }, "goat-pied": { recipe: recipe("goat", 1, "goat-pied") } },
       defaultVariant: "goat-saanen",
     });
     expect(p.status).toBe(201);
+    ids.goat = p.data.asset;
     await call("ada", "POST", `/api/proposals/${p.data.id}/accept`);
-    const goats = (await call("trav", "GET", "/api/catalog")).data.filter((r: any) => r.asset === "actors/goat");
+    const goats = (await call("trav", "GET", "/api/catalog")).data.filter((r: any) => r.asset === ids.goat);
     expect(goats.map((g: any) => [g.variant, g.first])).toEqual([["goat-pied", false], ["goat-saanen", true]]);
     expect(goats[0].hash).not.toBe(goats[1].hash);
   });
 
   test("a proposal naming another asset by a readable ref is refused", async () => {
-    const r = await call("cit", "POST", "/api/proposals", { asset: "plants/fern", recipe: recipe("fern", 3, null, "/* r */"), record: { card: { label: "Fern", parts: [{ ref: "actors/goat@1" }] } } });
+    const r = await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* r */"), record: { card: { label: "Fern", parts: [{ ref: "actors/goat@1" }] } } });
     expect(r.status).toBe(400);
     expect(r.data.error).toContain("by their hash");
   });
 
   test("a sandbox's config hands every slot out as the build it pins", async () => {
-    const v = (await db.query<any>(`SELECT id, recipe_hash FROM play.asset_versions WHERE asset_id = 'plants/fern' AND number = 1`)).rows[0];
+    const v = (await db.query<any>(`SELECT id, recipe_hash FROM play.asset_versions WHERE asset_id = $1 AND number = 1`, [ids.fern])).rows[0];
     await db.query(`INSERT INTO play.sandbox_pins (sandbox_id, slot, version_id, params) VALUES ('sandbox-1', 'fern', $1, '{"stage":"9","seed":"a"}')`, [v.id]);
     await db.query(`INSERT INTO play.sandbox_configs (sandbox_id, name, data) VALUES ('sandbox-1', 'garden', '{"outside":{"trees":[{"id":"fern","v":1,"slot":"fern"}]}}')`);
     const c = (await call("trav", "GET", "/api/sandboxes/sandbox-1/config")).data;
@@ -159,11 +164,18 @@ suite("play API", () => {
     expect((await call(null, "GET", "/api/sandboxes/sandbox-1/config")).status).toBe(401);
   });
 
+  test("an asset is named by its UUID, and a slug can't be taken twice", async () => {
+    expect((await call("trav", "GET", "/api/assets/plants/fern")).status).toBe(404);
+    const again = await call("cit", "POST", "/api/proposals", { new: { group: "plants", slug: "fern", label: "Fern again" }, recipe: recipe("fern", 1, null, "/* twin */") });
+    expect(again.status).toBe(409);
+    expect((await call("cit", "POST", "/api/proposals", { asset: "plants/fern", recipe: recipe("fern", 3) })).status).toBe(400);
+  });
+
   test("the author withdraws, an admin rejects", async () => {
-    const a = await call("cit", "POST", "/api/proposals", { asset: "plants/fern", recipe: recipe("fern", 3, null, "/* w */") });
+    const a = await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* w */") });
     expect((await call("cit2", "POST", `/api/proposals/${a.data.id}/withdraw`)).status).toBe(403);
     expect((await call("cit", "POST", `/api/proposals/${a.data.id}/withdraw`)).data.status).toBe("withdrawn");
-    const b = await call("cit", "POST", "/api/proposals", { asset: "plants/fern", recipe: recipe("fern", 3, null, "/* r */") });
+    const b = await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* r */") });
     expect((await call("ada", "POST", `/api/proposals/${b.data.id}/reject`)).data.status).toBe("rejected");
   });
 

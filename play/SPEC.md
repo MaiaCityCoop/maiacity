@@ -70,7 +70,9 @@ version.
 A **version DAG**, the part of avenDB worth keeping, without signatures and without a CRDT:
 
 ```sql
-assets          (id, coop_id /*owner: maia-city*/, grp, slug, label, head → asset_versions, created) -- unique (grp, slug)
+assets          (id UUID /*its identity: random for a new asset, derived from its avenDB entry (v5) for an imported one*/,
+                 coop_id /*owner: maia-city*/, grp, slug /*a label, shown and renameable*/, label, head → asset_versions, created)
+                 -- unique (grp, slug); nothing refers to an asset by its group and slug
 asset_versions  (id /*BLAKE3 of canonical {asset, parents, recipe, default_variant, variants, card, engine}*/,
                  asset_id, parents text[] /*version ids; one, or none for the first*/,
                  number int /*@v, given on accept, 1, 2, 3 …*/,
@@ -108,6 +110,8 @@ Loro can come back for that document type only: its snapshot and updates stored 
 - **One source of truth:** Postgres (the catalog: assets, versions, variants, cards, the owner; the sandboxes' pins and
   configs) and the bucket (every file under the BLAKE3 hash of its bytes). Nothing else is read: no avenDB, no repo
   fallback, no index of readable names in the site.
+- **An asset is its UUID; a recipe is its hash.** Versions, proposals, the catalog and the library's addresses
+  (`#<uuid>[/<hash>]`) name an asset by its UUID; a group and slug are only shown, and can't be taken twice.
 - **Every reference is a hash.** A build is `<hash>?values`. A sandbox names an asset by a slot of its pins,
   `pin:<sandbox>/<slot>`, which its config in the database maps to a build (`GET /api/sandboxes/<id>/config`). A card
   that names another asset names its build: the import rewrote every readable ref legacy's cards made (the biomes'

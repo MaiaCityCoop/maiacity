@@ -3,6 +3,7 @@
 // everywhere but the health check and the passkey ceremonies.
 import type { BlobStore } from "./blobs";
 import { HASH } from "./hash";
+import { UUID } from "./uuid";
 import type { Db } from "./pg";
 import { Denied, meOf, must } from "./access";
 import { assetOf, catalogOf, configOf, fileOf, listAssets, NotFound, pinsOf, versionOf } from "./assets";
@@ -62,15 +63,17 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     must(await me(req), "read", "assets");
     return json(await listAssets(db, new URL(req.url).searchParams.get("group") ?? undefined));
   });
-  on("GET", "/api/assets/:grp/:slug", async (req, p) => {
+  on("GET", "/api/assets/:id", async (req, p) => {
     must(await me(req), "read", "assets");
-    return json(await assetOf(db, `${p.grp}/${p.slug}`));
+    if (!UUID.test(p.id)) throw new NotFound("An asset is named by its id, a UUID.");
+    return json(await assetOf(db, p.id));
   });
-  on("GET", "/api/assets/:grp/:slug/:v", async (req, p) => {
+  on("GET", "/api/assets/:id/:v", async (req, p) => {
     must(await me(req), "read", "assets");
+    if (!UUID.test(p.id)) throw new NotFound("An asset is named by its id, a UUID.");
     const n = Number(p.v);
     if (!Number.isInteger(n) || n < 1) throw new NotFound(`${p.v} is not a version.`);
-    return json(await versionOf(db, `${p.grp}/${p.slug}`, n));
+    return json(await versionOf(db, p.id, n));
   });
   on("GET", "/api/catalog", async (req) => {
     must(await me(req), "read", "assets");

@@ -84,7 +84,11 @@ async function writeAssets(tx: Queryable, assets: PlannedAsset[], files: Planned
 
 async function writePins(tx: Queryable, sandbox: string, pins: ReturnType<typeof planPins>, w: Report["written"], errors: string[]) {
   for (const p of pins) {
-    const { rows } = await tx.query<{ id: string }>(`SELECT id FROM play.asset_versions WHERE asset_id = $1 AND number = $2`, [p.asset, p.number]);
+    // a pin names its asset by the name legacy gave it (`<grp>/<slug>`), resolved here to the asset's UUID, once
+    const { rows } = await tx.query<{ id: string }>(
+      `SELECT v.id FROM play.asset_versions v JOIN play.assets a ON a.id = v.asset_id WHERE a.grp || '/' || a.slug = $1 AND v.number = $2`,
+      [p.asset, p.number],
+    );
     if (!rows[0]) {
       errors.push(`${sandbox} ${p.slot}: ${p.asset}@${p.number} is not imported`);
       continue;
@@ -164,7 +168,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
   for (const view of views) {
     try {
       const p = planAsset(view, bytesOf);
-      if (assets.some((a) => a.id === p.asset.id)) throw new PlanError(`${p.asset.id}: two entries name it`);
+      if (assets.some((a) => a.name === p.asset.name)) throw new PlanError(`${p.asset.name}: two entries name it`);
       assets.push(p.asset);
       for (const f of p.files) files.set(f.hash, f);
     } catch (e) {
@@ -184,7 +188,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
   }
   log(`${assets.length} assets, ${report.assets.versions} versions, ${report.assets.variants} variants planned; ${report.assets.failed.length} failed`);
 
-  const entryOf = new Map(assets.map((a) => [a.id, a.imported.entry]));
+  const entryOf = new Map(assets.map((a) => [a.name, a.imported.entry]));
   const read = (p: string) => JSON.parse(readFileSync(join(ROOT, p), "utf8"));
   let pins: ReturnType<typeof planPins> = [];
   try {
@@ -205,7 +209,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
       const r = parseRef(ref);
       pins3.push({ slot, asset: r.asset, number: r.number, variant: r.variant, params: r.params });
     } else {
-      const a = assets.find((x) => x.id === ref);
+      const a = assets.find((x) => x.name === ref);
       if (a) pins3.push({ slot, asset: ref, number: a.versions.at(-1)!.number, variant: null, params: null });
       else report.verified.pinErrors.push(`sandbox-3 ${slot}: ${ref} is not imported`);
     }
@@ -214,7 +218,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
   // the plants Sandbox 1's interior puts by species (its beds, pots, vines and shrubs: play/site's
   // content/sandbox-2/interior/legacy.js), each at the version the stand-ins were traded for, v1, as `plant/<id>`
   for (const a of assets.filter((x) => x.grp === "plants"))
-    if (a.versions.some((v) => v.number === 1)) pins.push({ slot: `plant/${a.slug}`, asset: a.id, number: 1, variant: null, params: null });
+    if (a.versions.some((v) => v.number === 1)) pins.push({ slot: `plant/${a.slug}`, asset: a.name, number: 1, variant: null, params: null });
 
   if (opts.dry) {
     report.ok = !report.assets.failed.length && !report.verified.pinErrors.length;

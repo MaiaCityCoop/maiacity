@@ -108,8 +108,8 @@ export async function catalogOf(db: Queryable) {
       ORDER BY 1, 4, 5 NULLS FIRST`,
   );
   return rows.map((r) => ({
-    hash: r.hash, size: Number(r.size), asset: r.asset_id, group: r.grp, id: r.slug, v: r.number, variant: r.variant,
-    first: !!r.is_default, label: r.record?.card?.label ?? r.record?.title ?? r.asset_id, record: r.record,
+    hash: r.hash, size: Number(r.size), asset: r.asset_id, group: r.grp, slug: r.slug, v: r.number, variant: r.variant,
+    first: !!r.is_default, label: r.record?.card?.label ?? r.record?.title ?? `${r.grp}/${r.slug}`, record: r.record,
   }));
 }
 

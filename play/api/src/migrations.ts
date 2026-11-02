@@ -82,9 +82,9 @@ export const MIGRATIONS: Migration[] = [
       );
 
       CREATE TABLE play.assets (
-        id      TEXT PRIMARY KEY,                       -- '<grp>/<slug>'
-        coop_id TEXT NOT NULL REFERENCES play.coops(id), -- its owner and authority
-        grp     TEXT NOT NULL CHECK (grp ~ '^[a-z]+$'),
+        id      UUID PRIMARY KEY DEFAULT gen_random_uuid(), -- its identity; never a name that could repeat
+        coop_id TEXT NOT NULL REFERENCES play.coops(id),     -- its owner and authority
+        grp     TEXT NOT NULL CHECK (grp ~ '^[a-z]+$'),       -- its group and slug: a label, shown and renameable
         slug    TEXT NOT NULL CHECK (slug ~ '^[a-z0-9][a-z0-9-]{0,79}$'),
         label   TEXT NOT NULL,
         head    TEXT,                                   -- its newest accepted version (FK added below)
@@ -95,7 +95,7 @@ export const MIGRATIONS: Migration[] = [
       -- one version of an asset, never changed: id = BLAKE3 of its canonical content (src/versions.ts)
       CREATE TABLE play.asset_versions (
         id          TEXT PRIMARY KEY CHECK (id ~ '^[0-9a-f]{64}$'),
-        asset_id    TEXT NOT NULL REFERENCES play.assets(id),
+        asset_id    UUID NOT NULL REFERENCES play.assets(id),
         parents     TEXT[] NOT NULL DEFAULT '{}',
         number      INT CHECK (number BETWEEN 1 AND 100000), -- @v, given when it is accepted; NULL while proposed
         recipe_hash TEXT REFERENCES play.files(hash),        -- the version's own recipe; NULL for a kind of variants
@@ -147,7 +147,7 @@ export const MIGRATIONS: Migration[] = [
         id          TEXT PRIMARY KEY,
         coop_id     TEXT NOT NULL REFERENCES play.coops(id),
         kind        TEXT NOT NULL CHECK (kind IN ('asset_version')),
-        asset_id    TEXT NOT NULL REFERENCES play.assets(id),
+        asset_id    UUID NOT NULL REFERENCES play.assets(id),
         base        TEXT REFERENCES play.asset_versions(id),  -- the head it was made from
         version     TEXT NOT NULL REFERENCES play.asset_versions(id),
         author      TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
