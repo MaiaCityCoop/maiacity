@@ -194,9 +194,9 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
   let pins: ReturnType<typeof planPins> = [];
   try {
     pins = planPins(
-      read("maia/content/code/configs/sandbox-4/assets/config.json"),
-      read("maia/content/code/configs/sandbox-4/garden/config.json"),
-      read("maia/content/assets/pins.fixture.json"),
+      read("play/api/import/legacy/sandbox-4/assets/config.json"),
+      read("play/api/import/legacy/sandbox-4/garden/config.json"),
+      read("play/api/import/legacy/pins.fixture.json"),
       entryOf,
     );
   } catch (e) {
@@ -215,7 +215,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
       else report.verified.pinErrors.push(`sandbox-3 ${slot}: ${ref} is not imported`);
     }
   }
-  const garden = gardenWithSlots(read("maia/content/code/configs/sandbox-4/garden/config.json"));
+  const garden = gardenWithSlots(read("play/api/import/legacy/sandbox-4/garden/config.json"));
   // the plants Sandbox 1's interior puts by species (its beds, pots, vines and shrubs: play/site's
   // content/sandbox-2/interior/legacy.js), each at the version the stand-ins were traded for, v1, as `plant/<id>`
   for (const a of assets.filter((x) => x.grp === "plants"))

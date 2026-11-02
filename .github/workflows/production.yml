@@ -1,9 +1,12 @@
-# production: what is released. A pull request to production takes main of this repository only ('Only from main'),
-# and play's checks run once, on main (main.yml): here 'Main is green' only reads their result for main's commit, on
-# the pull request and again on the push. A push to production (main merged in) then deploys play to play.maia.city (play/SPEC.md §9): the image to GHCR, the DNS record, the server — play's role and
-# schema in the same Postgres, play-api beside the running containers (--no-deps), the import, Caddy answering
-# play.maia.city. As legacy's release ran: GitHub Actions with the DEPLOY_SSH_KEY secret. The release pipelines are this
-# repository's again (Samuel 2026-11-02; theOS's are parked in .github/workflows-theos/).
+# production: what is released, play and the website. A pull request to production takes main of this repository only
+# ('Only from main'), and the checks run once, on main (main.yml): here 'Main is green' only reads their result for main's
+# commit, on the pull request and again on the push. A push to production (main merged in) then deploys both:
+#   play to play.maia.city (play/SPEC.md §9): the image to GHCR, the DNS record, the server — play's role and schema in
+#     the same Postgres, play-api beside the running containers (--no-deps), the import, Caddy answering play.maia.city;
+#   the website to maia.city (website/README.md): its build into the server's site/releases/<commit>, site/current
+#     switched to it.
+# GitHub Actions with the DEPLOY_SSH_KEY secret, as legacy's release ran. The repository is play and the website alone
+# (Samuel 2026-11-02; everything before is on the branch SNAPSHOT_2611101).
 name: production
 
 on:
@@ -56,26 +59,31 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-      - name: play's checks passed on main's commit
+      - name: play's and the website's checks passed on main's commit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR_SHA: ${{ github.event.pull_request.head.sha }}
-          CHECK: play / API and site
+          CHECKS: play / API and site|website / build
         run: |
           sha=$PR_SHA
           [ -n "$sha" ] || sha=$(git rev-parse -q --verify HEAD^2 || git rev-parse HEAD)
           echo "main's commit: $sha"
-          for i in $(seq 1 80); do
-            runs=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/$REPO/commits/$sha/check-runs?check_name=$(jq -rn --arg c "$CHECK" '$c|@uri')&per_page=100")
-            jq -e '[.check_runs[] | select(.conclusion == "success")] | length > 0' <<< "$runs" > /dev/null && { echo "'$CHECK' passed on $sha"; exit 0; }
-            if jq -e '.check_runs | length > 0 and all(.status == "completed")' <<< "$runs" > /dev/null; then
-              echo "::error::'$CHECK' did not pass on $sha: $(jq -r '[.check_runs[].conclusion] | join(", ")' <<< "$runs")"; exit 1
-            fi
-            sleep 10
-          done
-          echo "::error::no finished '$CHECK' on $sha after 13 minutes"; exit 1
+          passed() {
+            local check=$1
+            for i in $(seq 1 80); do
+              runs=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/$REPO/commits/$sha/check-runs?check_name=$(jq -rn --arg c "$check" '$c|@uri')&per_page=100")
+              jq -e '[.check_runs[] | select(.conclusion == "success")] | length > 0' <<< "$runs" > /dev/null && { echo "'$check' passed on $sha"; return 0; }
+              if jq -e '.check_runs | length > 0 and all(.status == "completed")' <<< "$runs" > /dev/null; then
+                echo "::error::'$check' did not pass on $sha: $(jq -r '[.check_runs[].conclusion] | join(", ")' <<< "$runs")"; return 1
+              fi
+              sleep 10
+            done
+            echo "::error::no finished '$check' on $sha after 13 minutes"; return 1
+          }
+          IFS='|' read -ra all <<< "$CHECKS"
+          for check in "${all[@]}"; do passed "$check" || exit 1; done
 
   image:
     name: The image
@@ -241,4 +249,43 @@ jobs:
             sleep 10
           done
           ssh prod 'echo "play blocks Caddy reads: $(docker exec maia-city-caddy grep -c ">>> play.maia.city" /etc/caddy/Caddyfile)"; docker exec maia-city-caddy caddy adapt --config /etc/caddy/Caddyfile --adapter caddyfile 2>/dev/null | grep -o "play.maia.city" | head -1; docker logs --since 30m maia-city-caddy 2>&1 | grep -iE "play.maia.city|error" | tail -40'
+          exit 1
+
+  # the website (website/) to maia.city, as legacy's release put it there: its prerendered build into the server's
+  # site/releases/<commit>, then deploy/publish-site.py switches the relative site/current link to it atomically and keeps
+  # the last releases (their hashed chunks stay reachable for open pages). Caddy serves site/current; nothing restarts.
+  website:
+    name: The website
+    needs: main-green
+    if: github.event_name != 'pull_request'
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - name: Build
+        working-directory: website
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+          tar -czf "$RUNNER_TEMP/site.tgz" -C build .
+      - uses: ./.github/actions/prod-ssh
+        with:
+          host: ${{ env.HOST }}
+          ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      - name: Put the build on the server and switch to it
+        run: |
+          ssh prod "mkdir -p $APP_DIR/site/releases/$GITHUB_SHA"
+          ssh prod "tar -xzf - -C $APP_DIR/site/releases/$GITHUB_SHA" < "$RUNNER_TEMP/site.tgz"
+          ssh prod "python3 - '$APP_DIR/site' '$GITHUB_SHA'" < deploy/publish-site.py
+      - name: maia.city answers with it
+        run: |
+          for i in $(seq 1 12); do
+            curl -fsS -m 10 -o /dev/null https://maia.city/join/ && { echo "https://maia.city answers"; exit 0; }
+            sleep 5
+          done
           exit 1

@@ -1,0 +1,293 @@
+<script lang="ts">
+	// maia.city's frame: the pill along the top (the logo, the pages, the channels, the way in) and the footer. The way
+	// in is play (play.maia.city), by invite only: Sign in there, or how to join here.
+	import { base } from '$app/paths';
+	// self-hosted from npm, bundled into the build: no request ever goes to Google
+	import '$lib/fonts/dm-sans/opsz.css';
+	import '$lib/fonts/fraunces/opsz.css';
+	import '../app.css';
+	import { page } from '$app/state';
+	import { socials } from '$lib/social';
+	import SiteFooter from '$lib/SiteFooter.svelte';
+	import logo from '$lib/images/maiacity-logo.png';
+	import SocialIcon from '$lib/SocialIcon.svelte';
+
+	let { children } = $props();
+
+	/** play: the three sandboxes and the asset library, where every member signs in */
+	const PLAY = 'https://play.maia.city/';
+	const links = [
+		{ href: base || '/', label: 'Home' },
+		{ href: `${base}/join`, label: 'Join' }
+	];
+
+	// the phone menu; it closes itself whenever the page changes
+	let menuOpen = $state(false);
+	$effect(() => {
+		page.url.pathname;
+		menuOpen = false;
+	});
+
+	const isActive = (href: string) => (href === (base || '/') ? page.url.pathname === (base || '/') : page.url.pathname.startsWith(href));
+</script>
+
+<div class="status-strip" aria-hidden="true"></div>
+	<header class="wrap">
+		<nav>
+			<a class="logo" href="{base || '/'}"><img src={logo} alt="" />Maia City</a>
+
+			<ul class="social" aria-label="Follow avenSAMUEL">
+				{#each socials as s (s.id)}
+					<li>
+						<a href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label}>
+							<SocialIcon id={s.id} size={16} />
+						</a>
+					</li>
+				{/each}
+			</ul>
+
+			<button
+				class="burger"
+				type="button"
+				aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+				aria-expanded={menuOpen}
+				aria-controls="site-pages"
+				onclick={() => (menuOpen = !menuOpen)}
+			>
+				<span></span><span></span><span></span>
+			</button>
+
+			<ul class="pages" id="site-pages" class:open={menuOpen}>
+				{#each links as link (link.href)}
+					<li>
+						<a href={link.href} aria-current={isActive(link.href) ? 'page' : undefined}>{link.label}</a>
+					</li>
+				{/each}
+				<li><a class="admin" href={PLAY}>Sign in</a></li>
+			</ul>
+		</nav>
+	</header>
+
+{@render children()}
+
+<SiteFooter />
+
+<style>
+	/* The pill stays on top while the page scrolls under it. Pinned to the home screen, the status bar is see-through
+	   over the page: the header keeps below it. Only the pill takes clicks, not the clear band above it. */
+	header {
+		position: sticky;
+		top: 0;
+		z-index: 10;
+		padding-top: calc(1.25rem + env(safe-area-inset-top, 0px));
+		pointer-events: none;
+	}
+
+	nav {
+		pointer-events: auto;
+	}
+
+	/* Desktop: logo · page links · channels, one pill. The order is set in CSS
+	   so the phone layout can put the channels in the middle instead. */
+	nav {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.45rem 0.45rem 0.45rem 0;
+		border-radius: 999px;
+		background: #e7decd; /* the logo's own beige, so the round logo melts into the pill */
+		box-shadow: 0 6px 24px rgb(38 56 44 / 0.06);
+	}
+
+	/* the round logo fills the pill's height and sits flush in its round left end */
+	.logo {
+		display: flex;
+		align-items: center;
+		gap: 0.7rem;
+		align-self: stretch;
+		margin: -0.45rem auto -0.45rem 0;
+		font-family: var(--font-display);
+		font-size: 1.3rem;
+		font-weight: 400;
+		letter-spacing: -0.02em;
+		text-decoration: none;
+		white-space: nowrap;
+	}
+
+	/* its size sets the pill's height (the links plus the pill's padding are just under it) */
+	.logo img {
+		width: 3.4rem;
+		height: 3.4rem;
+		border-radius: 50%;
+	}
+
+	ul {
+		display: flex;
+		gap: 0.25rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.pages {
+		order: 1;
+	}
+
+	.social {
+		order: 2;
+		gap: 0.1rem;
+		padding-left: 0.5rem;
+		border-left: 1px solid var(--line);
+	}
+
+	.social a {
+		display: grid;
+		place-items: center;
+		width: 2.1rem;
+		height: 2.1rem;
+		border-radius: 50%;
+		color: var(--ink-soft);
+		transition: background-color 150ms ease, color 150ms ease;
+	}
+
+	.social a:hover {
+		background: var(--cream);
+		color: var(--ink);
+	}
+
+	.pages a {
+		display: block;
+		padding: 0.6rem 1.1rem;
+		border-radius: 999px;
+		font-size: 0.72rem;
+		font-weight: 500;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		text-decoration: none;
+		color: var(--ink-soft);
+	}
+
+	.pages a:hover {
+		color: var(--ink);
+	}
+
+	.pages a[aria-current='page'] {
+		background: var(--ink);
+		color: var(--cream);
+	}
+
+	/* the way into the app: a brand green button */
+	.pages a.admin {
+		background: var(--brand-green);
+		color: var(--cream);
+	}
+
+	.pages a.admin:hover {
+		background: var(--ink);
+		color: var(--cream);
+	}
+
+	.burger {
+		display: none;
+	}
+
+	/* a narrow desktop: the page links sit closer so the pill still holds them all */
+	@media (max-width: 900px) {
+		.pages a {
+			padding: 0.6rem 0.75rem;
+		}
+	}
+
+	/* Phone: logo · channels in the middle · menu button. The page links fold
+	   away behind the button and open as a list under the bar. */
+	@media (max-width: 760px) {
+		nav {
+			display: grid;
+			grid-template-columns: auto 1fr auto;
+			gap: 0;
+			padding: 0.4rem 0.4rem 0.4rem 0;
+			border-radius: 26px;
+		}
+
+		.logo {
+			margin: -0.4rem 0;
+			gap: 0.5rem;
+			font-size: 1.15rem;
+		}
+
+		.logo img {
+			width: 3.3rem;
+			height: 3.3rem;
+		}
+
+		.social {
+			order: 0;
+			justify-content: center;
+			padding: 0;
+			border: 0;
+		}
+
+		.social a {
+			width: 1.9rem;
+			height: 1.9rem;
+		}
+
+		.burger {
+			display: grid;
+			justify-self: end;
+			align-content: center;
+			gap: 4px;
+			width: 2.5rem;
+			height: 2.5rem;
+			padding: 0 0.7rem;
+			border: 0;
+			border-radius: 50%;
+			background: transparent;
+			color: var(--ink);
+			cursor: pointer;
+		}
+
+		.burger span {
+			display: block;
+			height: 2px;
+			border-radius: 2px;
+			background: currentColor;
+			transition: transform 180ms ease, opacity 180ms ease;
+		}
+
+		.burger[aria-expanded='true'] {
+			background: var(--cream);
+		}
+
+		.burger[aria-expanded='true'] span:nth-child(1) {
+			transform: translateY(6px) rotate(45deg);
+		}
+
+		.burger[aria-expanded='true'] span:nth-child(2) {
+			opacity: 0;
+		}
+
+		.burger[aria-expanded='true'] span:nth-child(3) {
+			transform: translateY(-6px) rotate(-45deg);
+		}
+
+		.pages {
+			display: none;
+			grid-column: 1 / -1;
+			flex-direction: column;
+			gap: 0.2rem;
+			margin: 0.4rem 0 0.2rem;
+			padding-top: 0.5rem;
+			border-top: 1px solid var(--line);
+		}
+
+		.pages.open {
+			display: flex;
+		}
+
+		.pages a {
+			padding: 0.8rem 1rem;
+			font-size: 0.78rem;
+		}
+	}
+</style>

@@ -1,41 +1,23 @@
-# maiaCITY
+# maiacity
 
-The public site, cooperative games, film studio and theOS desktop application. SvelteKit builds the static site; Caddy serves it. avenDB owns vault records and media, with an embedded native device in the Mac app and a browser device for the web. The API remains a separate service, not the studio's storage backend.
+Two apps, one server.
 
-## Develop and check
+| Folder | What | Where it runs |
+| --- | --- | --- |
+| `play/` | The three sandboxes and Maia City's asset library: a SvelteKit site and its Bun API on Postgres (`play/SPEC.md`) | play.maia.city |
+| `website/` | The public site: the manifesto, the legal pages, how to join (`website/README.md`) | maia.city |
 
-Use the Bun version in `.bun-version`. From the repository root:
+Everything else the server needs to serve them: `deploy/` (the Caddyfile, the website's publish script, the backup
+script), `docker-compose.yml` and `docker-compose.prod.yml` (the server's containers; play adds
+`play/docker-compose.play.yml`), `.github/` (the checks and the deploys).
 
-```sh
-bun install --frozen-lockfile
-bun run dev
-bun run check
-bun --bun run build
-bun run preview
-```
+## How a change ships
 
-The build uses Bun's Vite runtime to match the release witness. Production is served at the domain root; `BASE_PATH` is optional for other mounts. Native development additionally requires Rust and the macOS build tools; `theos/app/tauri.conf.json` defines the frontend/native handoff. A page hot reload does not upgrade the native device.
+A pull request to `main` runs play's and the website's checks (`.github/workflows/main.yml`). Merged, `main` goes to
+`production` by a pull request (`production` takes `main` only); the push to `production` deploys both
+(`.github/workflows/production.yml`): play's image and the server, the website's build. Nothing is deployed by hand.
 
-API dependencies and tests:
+Sign-up is by invite only: an admin's invite link (play's members page) lets one person in, as a traveler; an admin
+makes a citizen.
 
-```sh
-cd aven/api && bun install --frozen-lockfile && cd ../..
-bun test ./aven/api/test
-```
-
-`.github/workflows/ci.yml` runs every check: the application suites (`aven/ops/ci/suites.json`), the Chromium/WebKit probes, avenDB's Rust tests and Lean spec, and theOS on macOS; `release.yml` ships main, `ops.yml` holds the scheduled and by-hand tasks. Tests that exercise native devices, storage migrations or recovery must use isolated stores, never a live device directory.
-
-## Ownership map
-
-| Area | Owner / entry point |
-| --- | --- |
-| Site and app navigation | `maia/site/routes`, `maia/site/lib/app`; shared game/world descriptors in `maia/content/game/places.js` |
-| Game simulations and film contracts | `game`, `maia/content/sandbox-*`, `maia/content/maiacity-*`; frozen versions stay distinct |
-| Vault records, capabilities, synchronization | `avendb`; browser/session integration in `aven/db/page` |
-| Studio cuts and media | `maia/content/studio/cuts.js`, `aven.js`; media loading/decoding in `media-sources.js` |
-| Native device, rendering, MCP commands | `theos/app`; the embedded device is not a packaged avenDB sidecar |
-| Public media aliases | `maia/site/lib/media`, `aven/ops/deploy/Caddyfile`; stable public URLs are not private sealed references |
-| API and infrastructure | `api`, `infra`, `deploy`; API/site/avenDB have independent release workflows |
-| Dynamic code and assets | avenDB publication; `maia/content/code/` is reviewed bootstrap/recovery input, not a competing live writer |
-
-Read [architecture and retirement decisions](docs/ARCHITECTURE.md) before changing an ownership boundary, [deployment ownership](aven/ops/deploy/OWNERSHIP.md) before changing release mechanics. avenDB's design is the vault doc `doc:docs/avendb` in avenDB's Docs view. Merged code and green CI are not proof of installed-Mac acceptance or successful recovery.
+Everything that was here before (avenDB, theOS, the old app, the blog) is on the branch `SNAPSHOT_2611101`.
