@@ -183,7 +183,7 @@ jobs:
           \$C exec -T db psql -v ON_ERROR_STOP=1 -U maiacity -d maiacity -v pw="'\$PW'" < play/deploy/setup.sql
           \$C up -d --no-deps play-api
           # the import, from avenDB's feed inside the compose network; it writes only what is missing
-          \$C run --rm --no-deps -e AVENDB_PUBLIC_FEED=http://avendb:3351/feed play-api bun import/run.ts --founders --admin 1 --report /data/import-report.md
+          \$C run --rm --no-deps -e AVENDB_PUBLIC_FEED=http://avendb:3351/feed play-api bun import/run.ts --cache /data/import-cache --founders --admin 1 --report /data/import-report.md
           \$C exec -T db psql -v ON_ERROR_STOP=1 -U maiacity -d maiacity < play/deploy/after-import.sql
           # Caddy answers play.maia.city: its block added once, the file's inode kept (it is bind-mounted)
           grep -q '>>> play.maia.city' deploy/Caddyfile || cat play/deploy/Caddyfile.play >> deploy/Caddyfile
