@@ -43,9 +43,25 @@ jobs:
           exit 1
 
   checks:
-    name: play
+    name: checks
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     uses: ./.github/workflows/play-checks.yml
+
+  # the check production's and main's rules require, named exactly "play": green only when play's checks are (a job
+  # skipped because another failed would count as passed, so it always runs and says what they did)
+  play:
+    name: play
+    needs: checks
+    if: always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: play's checks
+        env:
+          RESULT: ${{ needs.checks.result }}
+        run: |
+          echo "play's checks: $RESULT"
+          [ "$RESULT" = success ]
 
   image:
     name: The image
