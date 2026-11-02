@@ -47,7 +47,6 @@ builds in one container share 4 cores and wait on each other's build-folder lock
 - `aven/db/.cargo/config.toml`: `AVENDB_TEST_PAIRS` defaults to the root's `target/avendb-test-pairs`, so the test
   programs share the McEliece pairs instead of each making them again (without it `live` ran past its 60 s deadline).
   Cargo reads it, and the page WebAssembly's flags, only when run from `aven/db/`: run cargo there.
-- `.claude/hooks/session-start.sh`: a cloud session starts with avenDB's compiled dependencies from the release
-  "avendb-dev-cache" (`.github/workflows/ops.yml`, task avendb-dev-cache) in `target/`, and with the Rust version they
-  were built with as its default; only our own crates are built then.
+- The cloud warm start (`.claude/hooks/session-start.sh`, the release "avendb-dev-cache") was removed 2026-11-02: avenDB is
+  parked, and cloud sessions no longer install its toolchain or unpack its build cache. A test build starts cold.
 - The linker is already rust-lld (Rust's default on x86_64 Linux since 1.90); mold would gain little more.
