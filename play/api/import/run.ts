@@ -40,7 +40,7 @@ async function inParallel<T, R>(items: T[], n: number, fn: (t: T) => Promise<R>)
 export type Report = {
   at: string;
   feed: { recipes: number; files: number; bytes: number };
-  assets: { planned: number; byGroup: Record<string, number>; versions: number; variants: number; hashedRefs: number; plantWords: number; failed: string[] };
+  assets: { planned: number; byGroup: Record<string, number>; versions: number; variants: number; hashedRefs: number; plantWords: number; sounds: number; failed: string[] };
   written: { files: number; assets: number; versions: number; variants: number; pins: number; humans: number; passkeys: number; media: number };
   verified: { filesReadBack: number; fileErrors: string[]; groupsMatch: boolean; dbByGroup: Record<string, number>; pinsResolved: number; pinErrors: string[]; mediaErrors: string[] };
   ok: boolean;
@@ -142,7 +142,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
   const report: Report = {
     at: new Date().toISOString(),
     feed: { recipes: 0, files: 0, bytes: 0 },
-    assets: { planned: 0, byGroup: {}, versions: 0, variants: 0, hashedRefs: 0, plantWords: 0, failed: [] },
+    assets: { planned: 0, byGroup: {}, versions: 0, variants: 0, hashedRefs: 0, plantWords: 0, sounds: 0, failed: [] },
     written: { files: 0, assets: 0, versions: 0, variants: 0, pins: 0, humans: 0, passkeys: 0, media: 0 },
     verified: { filesReadBack: 0, fileErrors: [], groupsMatch: false, dbByGroup: {}, pinsResolved: 0, pinErrors: [], mediaErrors: [] },
     ok: false,
@@ -257,6 +257,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
     }
   });
   await importMedia(db, store, report);
+  await importSounds(db, report);
   const { rows: groups } = await db.query<{ grp: string; n: string }>(`SELECT grp, count(*) AS n FROM play.assets GROUP BY grp`);
   report.verified.dbByGroup = Object.fromEntries(groups.map((g) => [g.grp, Number(g.n)]));
   const feedByGroup: Record<string, number> = {};
@@ -291,7 +292,30 @@ function mediaNamed(): { hash: string; ending: string }[] {
     }
   };
   walk(dir);
+  // the animals' sounds (./sounds.json) too
+  for (const s of Object.values(SOUNDS)) {
+    const m = /^([0-9a-f]{64})\.(mp3)$/.exec(s.file);
+    if (m) out.set(m[1], m[2]);
+  }
   return [...out].map(([hash, ending]) => ({ hash, ending }));
+}
+
+/** each animal's sound, by its asset's slug (./sounds.json): the recording, imported as media, and its gain */
+const SOUNDS: Record<string, { file: string; gain: number }> = Object.fromEntries(
+  Object.entries(JSON.parse(readFileSync(join(import.meta.dir, "sounds.json"), "utf8"))).filter(([k]) => k !== "_"),
+) as Record<string, { file: string; gain: number }>;
+
+/** the animals' sounds onto their assets, once their recordings are among play's files */
+async function importSounds(db: Db, report: Report) {
+  for (const [slug, s] of Object.entries(SOUNDS)) {
+    const hash = s.file.slice(0, 64);
+    const { rows } = await db.query(
+      `UPDATE play.assets SET sound = $2, sound_gain = $3 WHERE grp = 'actors' AND slug = $1 AND EXISTS (SELECT 1 FROM play.files WHERE hash = $2) RETURNING id`,
+      [slug, hash, s.gain],
+    );
+    if (rows.length) report.assets.sounds++;
+    else report.verified.mediaErrors.push(`sound of ${slug}: no such animal, or its recording ${hash.slice(0, 12)}… is not among play's files`);
+  }
 }
 
 /** the media play's site shows — its own (play/media/<hash>.<ending>: the covers it made) or legacy's public media
@@ -343,7 +367,8 @@ export function reportText(r: Report): string {
     `| Files read back and hash-checked | ${r.verified.filesReadBack} |`,
     `| Assets per group match the feed | ${r.verified.groupsMatch ? "yes" : "no"} |`,
     `| Sandbox pins resolving (Sandbox 1 and 3) | ${r.verified.pinsResolved} |`,
-    `| Media files (covers) | ${r.written.media} written, ${r.verified.mediaErrors.length} failed |`,
+    `| Media files (covers, sounds) | ${r.written.media} written, ${r.verified.mediaErrors.length} failed |`,
+    `| Animals with their sound | ${r.assets.sounds} |`,
   ];
   const errs = [...r.assets.failed, ...r.verified.fileErrors, ...r.verified.pinErrors, ...r.verified.mediaErrors];
   if (errs.length) lines.push(``, `## Errors`, ``, ...errs.map((e) => `- ${e}`));

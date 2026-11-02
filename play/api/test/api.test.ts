@@ -196,6 +196,13 @@ suite("play API", () => {
     expect((await call("ada", "POST", `/api/members/${who.cit2.id}/level`, { level: "traveler" })).data.level).toBe("traveler");
   });
 
+  test("an asset hands out its sound and the sound's gain", async () => {
+    const list = (await call("trav", "GET", "/api/assets")).data as { id: string }[];
+    const a = (await call("trav", "GET", `/api/assets/${list[0].id}`)).data;
+    expect(a).toHaveProperty("sound", null);
+    expect(a.sound_gain).toBe(1);
+  });
+
   test("anyone signed in renames themselves", async () => {
     expect((await call(null, "POST", "/api/me/name", { name: "Nobody" })).status).toBe(401);
     expect((await call("cit", "POST", "/api/me/name", { name: "a" })).status).toBe(400);
