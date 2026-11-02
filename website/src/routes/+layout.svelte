@@ -14,8 +14,7 @@
 
 	let { children } = $props();
 
-	/** play: the three sandboxes and the asset library; its landing page signs in, and signs up with an invite link */
-	const PLAY = 'https://play.maia.city/';
+	import { PLAY } from '$lib/play';
 	const links = [{ href: base || '/', label: 'Home' }];
 
 	// the phone menu; it closes itself whenever the page changes
@@ -60,7 +59,7 @@
 						<a href={link.href} aria-current={isActive(link.href) ? 'page' : undefined}>{link.label}</a>
 					</li>
 				{/each}
-				<li><a class="admin" href={PLAY}>Join or sign in</a></li>
+				<li><a class="admin" href={PLAY}>Play</a></li>
 			</ul>
 		</nav>
 	</header>

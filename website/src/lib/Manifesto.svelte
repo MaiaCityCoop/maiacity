@@ -7,6 +7,7 @@
 	import bannerImage from '$lib/images/manifesto-banner.jpg';
 	import samuelImage from '$lib/images/samuel.jpg';
 	import FounderCounter from '$lib/FounderCounter.svelte';
+	import { PLAY } from '$lib/play';
 	// Public page artwork ships with the site, independent of a local avenDB session.
 
 	// the banner is optional: without the illustration the headline simply
@@ -93,7 +94,7 @@
 		<p class="invitation">
 			Sign up to apply now for early game access and your “Maia Citizenship”.
 		</p>
-		<a class="pill-btn" href="https://play.maia.city/">Join <span aria-hidden="true">→</span></a>
+		<a class="pill-btn" href={PLAY}>Play <span aria-hidden="true">→</span></a>
 	</section>
 
 	<section class="spread">
