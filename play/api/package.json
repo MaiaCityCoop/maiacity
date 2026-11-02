@@ -1,0 +1,18 @@
+{
+  "name": "maiacity-play-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "migrate": "bun src/migrate.ts",
+    "import": "bun import/run.ts",
+    "test": "bun test",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noble/hashes": "2.4.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,205 @@
+// play's database, in its own schema `play` (play/SPEC.md §3, §4). Each migration runs once, in order, in one
+// transaction; a migration is never edited after it has shipped, only followed by another.
+import type { Db } from "./pg";
+
+export type Migration = { id: string; sql: string };
+
+export const MIGRATIONS: Migration[] = [
+  {
+    id: "0001-ownership",
+    sql: `
+      -- who: a human signs in by passkey alone (copied once from the legacy founders, or signed up here)
+      CREATE TABLE play.humans (
+        id             TEXT PRIMARY KEY,
+        name           TEXT NOT NULL,
+        founder_number BIGINT UNIQUE,          -- their number in the legacy founders' line, if they came from there
+        created        TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE TABLE play.passkeys (
+        id         TEXT PRIMARY KEY,
+        human_id   TEXT NOT NULL REFERENCES play.humans(id) ON DELETE CASCADE,
+        public_key TEXT NOT NULL,
+        counter    BIGINT NOT NULL DEFAULT 0,
+        transports TEXT,
+        created    TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX ix_passkeys_human ON play.passkeys(human_id);
+
+      -- the coop that owns every asset; its admins are its owners
+      CREATE TABLE play.coops (
+        id      TEXT PRIMARY KEY,
+        name    TEXT NOT NULL,
+        created TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE TABLE play.memberships (
+        coop_id    TEXT NOT NULL REFERENCES play.coops(id),
+        human_id   TEXT NOT NULL REFERENCES play.humans(id) ON DELETE CASCADE,
+        level      TEXT NOT NULL CHECK (level IN ('admin', 'citizen', 'traveler')),
+        granted_by TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
+        granted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        via_invite TEXT,
+        PRIMARY KEY (coop_id, human_id)
+      );
+      -- what each level may do, as data: { "read": [...], "propose": [...], "decide": [...], "manage": [...] }
+      CREATE TABLE play.level_rules (
+        coop_id TEXT NOT NULL REFERENCES play.coops(id),
+        level   TEXT NOT NULL CHECK (level IN ('admin', 'citizen', 'traveler')),
+        rule    JSONB NOT NULL,
+        PRIMARY KEY (coop_id, level)
+      );
+      CREATE TABLE play.invites (
+        code       TEXT PRIMARY KEY,
+        coop_id    TEXT NOT NULL REFERENCES play.coops(id),
+        level      TEXT NOT NULL DEFAULT 'citizen' CHECK (level IN ('citizen')),
+        made_by    TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
+        created    TIMESTAMPTZ NOT NULL DEFAULT now(),
+        expires_at TIMESTAMPTZ NOT NULL,
+        used_by    TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
+        used_at    TIMESTAMPTZ
+      );
+      CREATE TABLE play.secrets (
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+
+      INSERT INTO play.coops (id, name) VALUES ('maia-city', 'Maia City');
+      INSERT INTO play.level_rules (coop_id, level, rule) VALUES
+        ('maia-city', 'traveler', '{"read": ["sandboxes", "assets"]}'),
+        ('maia-city', 'citizen',  '{"read": ["sandboxes", "assets", "game"], "propose": ["asset_version"]}'),
+        ('maia-city', 'admin',    '{"read": ["*"], "propose": ["*"], "decide": ["*"], "manage": ["members", "invites"]}');
+    `,
+  },
+  {
+    id: "0002-assets",
+    sql: `
+      -- a blob in the bucket, named by the BLAKE3 hash of its bytes
+      CREATE TABLE play.files (
+        hash       TEXT PRIMARY KEY CHECK (hash ~ '^[0-9a-f]{64}$'),
+        size       BIGINT NOT NULL CHECK (size >= 0),
+        media_type TEXT NOT NULL,
+        bucket_key TEXT NOT NULL,
+        created    TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE play.assets (
+        id      TEXT PRIMARY KEY,                       -- '<grp>/<slug>'
+        coop_id TEXT NOT NULL REFERENCES play.coops(id), -- its owner and authority
+        grp     TEXT NOT NULL CHECK (grp ~ '^[a-z]+$'),
+        slug    TEXT NOT NULL CHECK (slug ~ '^[a-z0-9][a-z0-9-]{0,79}$'),
+        label   TEXT NOT NULL,
+        head    TEXT,                                   -- its newest accepted version (FK added below)
+        created TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (grp, slug)
+      );
+
+      -- one version of an asset, never changed: id = BLAKE3 of its canonical content (src/versions.ts)
+      CREATE TABLE play.asset_versions (
+        id          TEXT PRIMARY KEY CHECK (id ~ '^[0-9a-f]{64}$'),
+        asset_id    TEXT NOT NULL REFERENCES play.assets(id),
+        parents     TEXT[] NOT NULL DEFAULT '{}',
+        number      INT CHECK (number BETWEEN 1 AND 100000), -- @v, given when it is accepted; NULL while proposed
+        recipe_hash TEXT REFERENCES play.files(hash),        -- the version's own recipe; NULL for a kind of variants
+        default_variant TEXT,                                 -- for a kind of variants: the one a ref without a variant names
+        card        JSONB,                                    -- the version's record (card, contract, engine, params …)
+        engine      INT,
+        author      TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
+        approved_by TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
+        note        TEXT NOT NULL DEFAULT '',
+        imported    JSONB,                                    -- where an imported version came from (avenDB entry …)
+        created     TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (asset_id, number),
+        CHECK ((recipe_hash IS NULL) <> (default_variant IS NULL))
+      );
+      CREATE INDEX ix_versions_asset ON play.asset_versions(asset_id);
+      ALTER TABLE play.assets ADD CONSTRAINT fk_assets_head FOREIGN KEY (head) REFERENCES play.asset_versions(id);
+
+      -- a named variant of a version, with its own recipe file
+      CREATE TABLE play.asset_variants (
+        version_id  TEXT NOT NULL REFERENCES play.asset_versions(id),
+        name        TEXT NOT NULL CHECK (name ~ '^[a-z0-9][a-z0-9-]{0,79}$'),
+        recipe_hash TEXT NOT NULL REFERENCES play.files(hash),
+        card        JSONB NOT NULL,                           -- the variant's own record
+        PRIMARY KEY (version_id, name)
+      );
+
+      -- a version is written once: only its number and approver may be set, once, when it is accepted
+      CREATE FUNCTION play.version_is_frozen() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        IF TG_OP = 'DELETE' THEN RAISE EXCEPTION 'asset versions are never deleted'; END IF;
+        IF OLD.number IS NOT NULL
+           OR NEW.id <> OLD.id OR NEW.asset_id <> OLD.asset_id OR NEW.parents <> OLD.parents
+           OR NEW.recipe_hash IS DISTINCT FROM OLD.recipe_hash OR NEW.default_variant IS DISTINCT FROM OLD.default_variant
+           OR NEW.card IS DISTINCT FROM OLD.card
+           OR NEW.engine IS DISTINCT FROM OLD.engine OR NEW.author IS DISTINCT FROM OLD.author
+           OR NEW.note <> OLD.note OR NEW.imported IS DISTINCT FROM OLD.imported OR NEW.created <> OLD.created
+        THEN RAISE EXCEPTION 'asset version % is frozen', OLD.id; END IF;
+        RETURN NEW;
+      END $$;
+      CREATE TRIGGER version_is_frozen BEFORE UPDATE OR DELETE ON play.asset_versions
+        FOR EACH ROW EXECUTE FUNCTION play.version_is_frozen();
+      CREATE FUNCTION play.variant_is_frozen() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN RAISE EXCEPTION 'asset variants are never changed'; END $$;
+      CREATE TRIGGER variant_is_frozen BEFORE UPDATE OR DELETE ON play.asset_variants
+        FOR EACH ROW EXECUTE FUNCTION play.variant_is_frozen();
+
+      -- a proposed new version of an asset: citizens propose, admins decide
+      CREATE TABLE play.proposals (
+        id          TEXT PRIMARY KEY,
+        coop_id     TEXT NOT NULL REFERENCES play.coops(id),
+        kind        TEXT NOT NULL CHECK (kind IN ('asset_version')),
+        asset_id    TEXT NOT NULL REFERENCES play.assets(id),
+        base        TEXT REFERENCES play.asset_versions(id),  -- the head it was made from
+        version     TEXT NOT NULL REFERENCES play.asset_versions(id),
+        author      TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
+        status      TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'accepted', 'rejected', 'withdrawn', 'stale')),
+        decided_by  TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
+        decided_at  TIMESTAMPTZ,
+        note        TEXT NOT NULL DEFAULT '',
+        created     TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX ix_proposals_open ON play.proposals(status, created);
+    `,
+  },
+  {
+    id: "0003-sandboxes",
+    sql: `
+      CREATE TABLE play.sandboxes (
+        id    TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        route TEXT NOT NULL,
+        note  TEXT NOT NULL DEFAULT ''
+      );
+      -- what a sandbox draws, at which version (a pin_change proposal later; SPEC §4.5)
+      CREATE TABLE play.sandbox_pins (
+        sandbox_id TEXT NOT NULL REFERENCES play.sandboxes(id),
+        slot       TEXT NOT NULL,
+        version_id TEXT NOT NULL REFERENCES play.asset_versions(id),
+        variant    TEXT,
+        params     JSONB,
+        PRIMARY KEY (sandbox_id, slot)
+      );
+      INSERT INTO play.sandboxes (id, title, route, note) VALUES
+        ('sandbox-1', 'Sandbox 1', '/sandbox-1/', 'The dome cell, its food forest grown from our plants (from legacy Sandbox 4)'),
+        ('sandbox-2', 'Sandbox 2', '/sandbox-2/', 'The physical world lab: buildings from their parts, physics, wind (from legacy Sandbox 7)'),
+        ('sandbox-3', 'Sandbox 3', '/sandbox-3/', 'The tired land, its van and its things (from legacy MaiaCity V2, without the economy)');
+    `,
+  },
+];
+
+/** Runs every migration not yet run, each in its own transaction. */
+export async function migrate(db: Db): Promise<string[]> {
+  await db.exec(`CREATE SCHEMA IF NOT EXISTS play;
+    CREATE TABLE IF NOT EXISTS play.migrations (id TEXT PRIMARY KEY, ran TIMESTAMPTZ NOT NULL DEFAULT now());`);
+  const { rows } = await db.query<{ id: string }>("SELECT id FROM play.migrations");
+  const done = new Set(rows.map((r) => r.id));
+  const ran: string[] = [];
+  for (const m of MIGRATIONS) {
+    if (done.has(m.id)) continue;
+    await db.transaction(async (tx) => {
+      await tx.query(m.sql);
+      await tx.query("INSERT INTO play.migrations (id) VALUES ($1)", [m.id]);
+    });
+    ran.push(m.id);
+  }
+  return ran;
+}

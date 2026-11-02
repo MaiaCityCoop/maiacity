@@ -70,15 +70,16 @@ version.
 A **version DAG**, the part of avenDB worth keeping, without signatures and without a CRDT:
 
 ```sql
-assets          (id, coop_id /*owner: maia-city*/, grp, slug, label, head → asset_versions, created)   -- unique (grp, slug)
-asset_versions  (id /*BLAKE3 of canonical {asset, parents, recipe_hash, card}*/, asset_id,
-                 parents text[] /*version ids; one, or none for the first*/,
+assets          (id, coop_id /*owner: maia-city*/, grp, slug, label, head → asset_versions, created) -- unique (grp, slug)
+asset_versions  (id /*BLAKE3 of canonical {asset, parents, recipe, default_variant, variants, card, engine}*/,
+                 asset_id, parents text[] /*version ids; one, or none for the first*/,
                  number int /*@v, given on accept, 1, 2, 3 …*/,
-                 recipe_hash → files, card jsonb, engine int,
-                 author → humans, approved_by → humans, note, created,
-                 avendb_entry, avendb_heads)                       -- provenance of imported ones
-                 -- immutable: a trigger refuses UPDATE and DELETE
-asset_variants  (version_id, name, params jsonb)
+                 recipe_hash → files      /*its own recipe; NULL for a kind of variants (actors, machines)*/,
+                 default_variant          /*for a kind of variants: the one a ref without a variant names*/,
+                 card jsonb, engine int, author → humans, approved_by → humans, note, created,
+                 imported jsonb           /*provenance: avenDB vault, entry, heads, edits, authors*/)
+                 -- immutable: a trigger refuses UPDATE and DELETE (only number/approver are set once, on accept)
+asset_variants  (version_id, name, recipe_hash → files, card jsonb)              -- immutable
 files           (hash PK /*BLAKE3 of the bytes*/, size, media_type, bucket_key, created)
 proposals       (id, coop_id, kind /*asset_version*/, asset_id, base → asset_versions, version → asset_versions,
                  author, status /*open|accepted|rejected|withdrawn|stale*/, decided_by, decided_at, note, created)
@@ -125,9 +126,9 @@ ranges its card allows. In all three sandboxes; in Sandbox 2 the character walks
 | Data | Source | Key needed? |
 |---|---|---|
 | 203 asset recipes (plants 105, things 55, machines 12, buildings 12, actors 12, biomes 7) and their cards | avenDB public feed `GET /feed/entries?seed=1&type=recipe` | No |
-| 264 recipe files (13 MB), every version and variant | `GET /feed/entry/<vault>/<entry>/file/<root>`, BLAKE3 checked against the card's `recipe` hash | No |
-| Labels and order of older versions | The repo's recipe index (`virtual:asset-recipes`): every hash's group/id@version. The imported history is a linear chain by version number | No |
-| Sandbox 1's pins | `maia/content/code/configs/sandbox-4/assets` (+ feed `type=config`), `entry@heads` translated to version ids | No |
+| Every version and variant with its own card (264 versions, 145 variants) | `GET /feed/entry/<vault>/<entry>`: its `brought` rows, one per version and variant | No |
+| 340 recipe files (18 MB) | `GET /feed/entry/<vault>/<entry>/file/<root>`; each BLAKE3-checked against its own card's `recipe` and its last line against its card's version and variant. History: a linear chain by version number | No |
+| Sandbox 1's pins (165: 56 village + 109 garden) | `maia/content/code/configs/sandbox-4/{assets,garden}`; `entry@heads` translated through `maia/content/assets/pins.fixture.json` | No |
 | Level rules | feed `type=capgroup` (Admin, Citizen, Traveler), then set to §1's rights | No |
 | Humans + passkeys | `public.founders`, `public.passkeys` (read once) | No |
 | Owners/admins | Samuel names them; everyone else starts as a traveler | No |
@@ -136,7 +137,7 @@ No V2 game state is imported (Sandbox 3 is stateless). The master recovery key i
 only post-quantum TLS: the import runs on Bun (OpenSSL 3.5).
 
 The import is idempotent and verifies before it reports success: every file's BLAKE3 after a read back from the bucket,
-every recipe hash against the repo's index, every pin resolving, the counts per group against the feed.
+every pin resolving, the counts per group against the feed.
 
 ## 7. API (`play/api`, Bun)
 
