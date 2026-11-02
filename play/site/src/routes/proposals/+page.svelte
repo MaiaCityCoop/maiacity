@@ -10,7 +10,7 @@
 		if (!admin) goto('/', { replaceState: true });
 	});
 
-	type P = { id: string; asset_id: string; label: string; grp: string; slug: string; version_label: string | null; number: number; status: string; note: string; author: string | null; decided_by: string | null; created: string };
+	type P = { id: string; asset_id: string; label: string; grp: string; slug: string; version_label: string | null; number: number; status: string; note: string; author: string | null; decided_by: string | null; created: string; via?: 'web' | 'mcp' };
 	let list = $state<P[]>([]);
 	let status = $state('open');
 	let error = $state('');
@@ -73,7 +73,7 @@
 		<article class="card row">
 			<div>
 				<h3><a href="/assets/#{p.asset_id}">{p.label}</a> <span class="muted">v{p.number}</span></h3>
-				<p class="muted">{p.grp}/{p.slug} · by {p.author ?? 'someone'} · {new Date(p.created).toLocaleString()}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}</p>
+				<p class="muted">{p.grp}/{p.slug} · by {p.author ?? 'someone'}{#if p.via === 'mcp'} <span class="via" title="Proposed by an agent working for them over MCP">via MCP</span>{/if} · {new Date(p.created).toLocaleString()}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}</p>
 				{#if p.note}<p>{p.note}</p>{/if}
 			</div>
 			<div class="actions">
@@ -97,4 +97,5 @@
 	.propose { display: grid; gap: 0.6rem; padding: 1.2rem; margin-bottom: 1.5rem; }
 	.propose h2 { margin: 0; font-size: 1.2rem; }
 	.actions { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+	.via { display: inline-block; padding: 0 0.45em; border-radius: 999px; background: var(--mustard-soft); color: var(--ink); font-size: 0.75em; font-weight: 600; }
 </style>

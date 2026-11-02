@@ -6,7 +6,9 @@ import { HASH } from "./hash";
 import { UUID } from "./uuid";
 import type { Db } from "./pg";
 import { Denied, meOf, must } from "./access";
-import { assetOf, catalogOf, configOf, fileOf, listAssets, NotFound, pinsOf, versionOf } from "./assets";
+import { assetOf, catalogOf, configOf, fileOf, listAssets, NotFound, versionOf } from "./assets";
+import { mcp } from "./mcp";
+import { listTokens, makeToken, revokeToken } from "./tokens";
 import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, registerOptions, sessionCookie, tokenFor } from "./auth";
 import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameMember, renameSelf, setLevel } from "./members";
 import { listTables, readTable, TableError } from "./tables";
@@ -99,17 +101,9 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   });
 
   // ---- sandboxes
-  on("GET", "/api/sandboxes", async (req) => {
-    must(await me(req), "read", "sandboxes");
-    return json((await db.query(`SELECT id, title, route, note FROM play.sandboxes ORDER BY id`)).rows);
-  });
   on("GET", "/api/sandboxes/:id/config", async (req, p) => {
     must(await me(req), "read", "sandboxes");
     return json(await configOf(db, p.id));
-  });
-  on("GET", "/api/sandboxes/:id/pins", async (req, p) => {
-    must(await me(req), "read", "sandboxes");
-    return json(await pinsOf(db, p.id));
   });
 
   // ---- proposals
@@ -128,6 +122,15 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("DELETE", "/api/members/:id", async (req, p) => json(await removeMember(db, await me(req), p.id)));
   on("POST", "/api/invites", async (req) => json(await makeInvite(db, await me(req)), { status: 201 }));
   on("GET", "/api/invites/:code", async (req, p) => json({ open: await inviteOpen(db, p.code) }));
+
+  // an admin's access tokens, for an agent over MCP (./tokens.ts), and play's MCP server itself (./mcp.ts): it reads the
+  // assets and proposes, as the token's admin; no tool decides a proposal
+  on("GET", "/api/tokens", async (req) => json(await listTokens(db, await me(req))));
+  on("POST", "/api/tokens", async (req) => json(await makeToken(db, await me(req), (await body(req))?.name), { status: 201 }));
+  on("DELETE", "/api/tokens/:id", async (req, p) => json(await revokeToken(db, await me(req), p.id)));
+  const mcpServer = mcp({ db, store });
+  on("POST", "/api/mcp", (req) => mcpServer(req));
+  on("GET", "/api/mcp", (req) => mcpServer(req));
 
   // the admins' window into play's Postgres, read only, secrets hidden (./tables.ts)
   const admin = async (req: Request) => {
