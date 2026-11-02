@@ -1,5 +1,14 @@
 # Working rules for agents in this repository
 
+## The release pipelines are this repository's again, with play (Samuel 2026-11-02)
+
+theOS's workflows (`theos.yml`, `theos-undo.yml`, `avensandbox-image.yml`) are parked in `.github/workflows-theos/` and
+don't run. What runs: `.github/workflows/main.yml` (play's checks on a pull request to main and on main) and
+`.github/workflows/production.yml` (a pull request to production takes main only and runs play's checks; a push to
+production deploys play to play.maia.city: image, DNS record, server). Changes go to main by pull request, then main is
+merged into production, which deploys. play lives in `play/` (`play/SPEC.md`). The sections below describe earlier
+flows, kept for their history.
+
 ## avenDB's workflows are parked too; theOS owns the release pipeline (Samuel 2026-11-01)
 
 `avensandbox.yml`, `avensandbox-image.yml`, `avenpeer-image.yml` and `avendeploy.yml` live in
