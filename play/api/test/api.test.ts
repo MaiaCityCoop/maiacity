@@ -195,4 +195,20 @@ suite("play API", () => {
     expect((await call("ada", "POST", `/api/members/${who.ada.id}/level`, { level: "traveler" })).status).toBe(409);
     expect((await call("ada", "POST", `/api/members/${who.cit2.id}/level`, { level: "traveler" })).data.level).toBe("traveler");
   });
+
+  test("only an admin looks into the database, read only, its secrets never sent", async () => {
+    expect((await call(null, "GET", "/api/tables")).status).toBe(401);
+    expect((await call("cit", "GET", "/api/tables")).status).toBe(403);
+    const tables = (await call("ada", "GET", "/api/tables")).data as { name: string; rows: number; columns: { name: string; hidden: boolean }[] }[];
+    expect(tables.map((t) => t.name)).toContain("asset_versions");
+    expect(tables.find((t) => t.name === "secrets")!.columns.find((c) => c.name === "value")!.hidden).toBe(true);
+    const secrets = (await call("ada", "GET", "/api/tables/secrets")).data;
+    expect(secrets.rows.length).toBeGreaterThan(0);
+    for (const r of secrets.rows) expect(r.value).toEqual({ hidden: true });
+    const humans = (await call("ada", "GET", "/api/tables/humans?limit=2&offset=1")).data;
+    expect(humans.rows.length).toBe(2);
+    expect(humans.total).toBeGreaterThanOrEqual(4);
+    expect((await call("ada", "GET", "/api/tables/pg_user")).status).toBe(404);
+    expect((await call("ada", "GET", `/api/tables/${encodeURIComponent('humans"; DROP TABLE play.humans; --')}`)).status).toBe(404);
+  });
 });

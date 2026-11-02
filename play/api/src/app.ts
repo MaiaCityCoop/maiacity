@@ -9,6 +9,7 @@ import { Denied, meOf, must } from "./access";
 import { assetOf, catalogOf, configOf, fileOf, listAssets, NotFound, pinsOf, versionOf } from "./assets";
 import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, registerOptions, sessionCookie, tokenFor } from "./auth";
 import { claimInvite, inviteOpen, listMembers, makeInvite, MemberError, setLevel } from "./members";
+import { listTables, readTable, TableError } from "./tables";
 import { decide, listProposals, propose, ProposalError, type Verdict } from "./proposals";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 
@@ -120,6 +121,20 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("GET", "/api/invites/:code", async (req, p) => json({ open: await inviteOpen(db, p.code) }));
   on("POST", "/api/invites/:code/claim", async (req, p) => json(await claimInvite(db, await me(req), p.code)));
 
+  // the admins' window into play's Postgres, read only, secrets hidden (./tables.ts)
+  const admin = async (req: Request) => {
+    const m = await me(req);
+    if (!m) throw new Denied("Please sign in first.", 401);
+    if (m.level !== "admin") throw new Denied("Only Maia City's admins may look into the database.");
+    return m;
+  };
+  on("GET", "/api/tables", async (req) => (await admin(req), json(await listTables(db))));
+  on("GET", "/api/tables/:name", async (req, p) => {
+    await admin(req);
+    const q = new URL(req.url).searchParams;
+    return json(await readTable(db, p.name, Number(q.get("offset") ?? 0), Number(q.get("limit") ?? 50)));
+  });
+
   async function fetch(req: Request, server?: unknown): Promise<Response> {
     if (costly(req) && !rate.allows(clientOf(req, server as any)))
       return json({ error: "Too many requests: try again in a minute." }, { status: 429, headers: { "Retry-After": "60" } });
@@ -136,7 +151,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       try {
         return await r.handler(req, params);
       } catch (e) {
-        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof MemberError)
+        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof MemberError || e instanceof TableError)
           return json({ error: e.message }, { status: (e as any).status });
         console.error(e);
         return json({ error: "Something went wrong on our side." }, { status: 500 });
