@@ -203,7 +203,11 @@ export const MIGRATIONS: Migration[] = [
 
 /** Runs every migration not yet run, each in its own transaction. */
 export async function migrate(db: Db): Promise<string[]> {
-  await db.exec(`CREATE SCHEMA IF NOT EXISTS play;
+  // In production the role play owns the schema but may not create one in the database (play/deploy/setup.sql makes
+  // it), and CREATE SCHEMA IF NOT EXISTS checks that right even when the schema is there: so only create it if missing.
+  await db.exec(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'play') THEN CREATE SCHEMA play; END IF;
+    END $$;
     CREATE TABLE IF NOT EXISTS play.migrations (id TEXT PRIMARY KEY, ran TIMESTAMPTZ NOT NULL DEFAULT now());`);
   const { rows } = await db.query<{ id: string }>("SELECT id FROM play.migrations");
   const done = new Set(rows.map((r) => r.id));
