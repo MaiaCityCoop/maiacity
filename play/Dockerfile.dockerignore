@@ -1,0 +1,12 @@
+# play's image takes play's site and API, and the two legacy files its import reads (play/Dockerfile); nothing else,
+# never anyone's node_modules or a build
+*
+!play/site
+!play/api
+!maia/content/code/configs/sandbox-4
+!maia/content/assets/pins.fixture.json
+**/node_modules
+**/.svelte-kit
+**/build
+**/blobs
+**/.import-cache

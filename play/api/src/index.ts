@@ -4,11 +4,18 @@ import { initSessions } from "./auth";
 import { blobStore } from "./blobs";
 import { migrate } from "./migrations";
 import { connect } from "./pg";
+import { siteHandler } from "./site";
 
 const db = connect();
 const ran = await migrate(db);
 if (ran.length) console.log(`migrations: ${ran.join(", ")}`);
 await initSessions(db);
 const { fetch } = app({ db, store: blobStore() });
-const server = Bun.serve({ port: Number(process.env.PORT ?? 3000), maxRequestBodySize: 64 * 1024 * 1024, fetch });
+// the site too, where PLAY_SITE names its build (the image's /app/site): everything outside /api
+const site = process.env.PLAY_SITE ? siteHandler(process.env.PLAY_SITE) : null;
+const server = Bun.serve({
+  port: Number(process.env.PORT ?? 3000),
+  maxRequestBodySize: 64 * 1024 * 1024,
+  fetch: (req, srv) => (site && !new URL(req.url).pathname.startsWith("/api/") ? site(req) : fetch(req, srv)),
+});
 console.log(`play-api on :${server.port}`);

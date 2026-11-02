@@ -16,7 +16,8 @@ import { migrate } from "../src/migrations";
 import { fileOf, rowsOf, viewOf, type EntryView, type FeedRow } from "./feed";
 import { broughtOf, planAsset, planPins, PlanError, type PlannedAsset, type PlannedFile } from "./plan";
 
-const ROOT = join(import.meta.dir, "../../..");
+// the repo root: three up from play/api/import in a checkout; PLAY_REPO in the image (/app)
+const ROOT = process.env.PLAY_REPO ?? join(import.meta.dir, "../../..");
 const args = process.argv.slice(2);
 const flag = (f: string) => args.includes(f);
 const option = (f: string) => (args.includes(f) ? args[args.indexOf(f) + 1] : undefined);
