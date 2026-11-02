@@ -164,13 +164,20 @@ export function planPins(
 /** an asset named by a readable ref, `group/id[@v][:variant][?values]`, as legacy's cards name other assets */
 const READABLE = /^((?:plants|things|machines|buildings|actors|biomes)\/[a-z0-9][a-z0-9-]{0,79})(?:@([1-9][0-9]{0,5}))?(?::([a-z0-9][a-z0-9-]{0,79}))?(?:\?(.*))?$/;
 
-/** every string in a JSON value, rewritten by `f` (a new value; the old one left alone) */
-function mapStrings(v: unknown, f: (s: string) => string): unknown {
+/** what a string rewritten to it leaves: nothing, the field or element it was gone */
+const DROP = Symbol("drop");
+
+/** every string in a JSON value, rewritten by `f` (a new value; the old one left alone); one rewritten to DROP is left out */
+function mapStrings(v: unknown, f: (s: string) => string | typeof DROP): unknown {
   if (typeof v === "string") return f(v);
-  if (Array.isArray(v)) return v.map((x) => mapStrings(x, f));
-  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, mapStrings(x, f)]));
+  if (Array.isArray(v)) return v.map((x) => mapStrings(x, f)).filter((x) => x !== DROP);
+  if (v && typeof v === "object")
+    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, mapStrings(x, f)] as const).filter(([, x]) => x !== DROP));
   return v;
 }
+
+/** refs between assets play doesn't keep: the pickup's to the Power Cube it carried (Samuel 2026-11-02: not needed) */
+export const DROPPED: Record<string, string[]> = { "machines/pickup": ["machines/powercube"] };
 
 /**
  * Every asset named by hash (play/SPEC.md §4): where a card names another asset by a readable ref (a biome its cover's
@@ -180,6 +187,7 @@ function mapStrings(v: unknown, f: (s: string) => string): unknown {
  * ids are made again over the rewritten cards, each chained to the one before. Returns how many refs were rewritten.
  */
 export function hashRefs(assets: PlannedAsset[]): number {
+  // (a ref dropped, DROPPED, is no ref rewritten: it is gone)
   const hashOf = new Map<string, string>();
   for (const a of assets)
     for (const v of a.versions) {
@@ -192,6 +200,7 @@ export function hashRefs(assets: PlannedAsset[]): number {
     const rewrite = (s: string) => {
       const m = READABLE.exec(s);
       if (!m || m[1] === a.name) return s;
+      if (DROPPED[a.name]?.includes(m[1])) return DROP;
       if (!m[2]) throw new PlanError(`${a.name}: its card names ${s}, with no version`);
       const hash = hashOf.get(`${m[1]}@${m[2]}${m[3] ? `:${m[3]}` : ""}`);
       if (!hash) throw new PlanError(`${a.name}: its card names ${s}, which is not imported`);
@@ -207,6 +216,23 @@ export function hashRefs(assets: PlannedAsset[]): number {
       parent = v.id;
     }
   }
+  return n;
+}
+
+/**
+ * Each plant version's words — its Latin name, layer, where it comes from, its note and its stages, read out of
+ * legacy's plant library (./plants.json, made by ./plants-text.ts) — written into its record as `plant`, so play keeps
+ * them in its database, beside the version they describe. Before the versions' ids are made. Returns how many.
+ */
+export function plantWords(assets: PlannedAsset[], words: Record<string, unknown>): number {
+  let n = 0;
+  for (const a of assets.filter((x) => x.grp === "plants"))
+    for (const v of a.versions) {
+      const w = words[`${a.slug}@${v.number}`];
+      if (!w || !v.card || typeof v.card !== "object") continue;
+      v.card = { ...(v.card as object), plant: w };
+      n++;
+    }
   return n;
 }
 

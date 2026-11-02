@@ -15,7 +15,7 @@ import { hashBytes } from "../src/hash";
 import { connect, type Db, type Queryable } from "../src/pg";
 import { migrate } from "../src/migrations";
 import { FEED, fileOf, rowsOf, viewOf, type EntryView, type FeedRow } from "./feed";
-import { broughtOf, gardenWithSlots, hashRefs, parseRef, planAsset, planPins, SANDBOX_3, PlanError, type PlannedAsset, type PlannedFile } from "./plan";
+import { broughtOf, gardenWithSlots, hashRefs, parseRef, planAsset, planPins, plantWords, SANDBOX_3, PlanError, type PlannedAsset, type PlannedFile } from "./plan";
 
 // the repo root: three up from play/api/import in a checkout; PLAY_REPO in the image (/app)
 const ROOT = process.env.PLAY_REPO ?? join(import.meta.dir, "../../..");
@@ -40,7 +40,7 @@ async function inParallel<T, R>(items: T[], n: number, fn: (t: T) => Promise<R>)
 export type Report = {
   at: string;
   feed: { recipes: number; files: number; bytes: number };
-  assets: { planned: number; byGroup: Record<string, number>; versions: number; variants: number; hashedRefs: number; failed: string[] };
+  assets: { planned: number; byGroup: Record<string, number>; versions: number; variants: number; hashedRefs: number; plantWords: number; failed: string[] };
   written: { files: number; assets: number; versions: number; variants: number; pins: number; humans: number; passkeys: number; media: number };
   verified: { filesReadBack: number; fileErrors: string[]; groupsMatch: boolean; dbByGroup: Record<string, number>; pinsResolved: number; pinErrors: string[]; mediaErrors: string[] };
   ok: boolean;
@@ -142,7 +142,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
   const report: Report = {
     at: new Date().toISOString(),
     feed: { recipes: 0, files: 0, bytes: 0 },
-    assets: { planned: 0, byGroup: {}, versions: 0, variants: 0, hashedRefs: 0, failed: [] },
+    assets: { planned: 0, byGroup: {}, versions: 0, variants: 0, hashedRefs: 0, plantWords: 0, failed: [] },
     written: { files: 0, assets: 0, versions: 0, variants: 0, pins: 0, humans: 0, passkeys: 0, media: 0 },
     verified: { filesReadBack: 0, fileErrors: [], groupsMatch: false, dbByGroup: {}, pinsResolved: 0, pinErrors: [], mediaErrors: [] },
     ok: false,
@@ -176,6 +176,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
     }
   }
   try {
+    report.assets.plantWords = plantWords(assets, JSON.parse(readFileSync(join(import.meta.dir, "plants.json"), "utf8")));
     report.assets.hashedRefs = hashRefs(assets);
   } catch (e) {
     report.assets.failed.push((e as Error).message);
@@ -336,7 +337,8 @@ export function reportText(r: Report): string {
     `|---|---|`,
     `| Feed | ${r.feed.recipes} recipes, ${r.feed.files} files, ${(r.feed.bytes / 1e6).toFixed(1)} MB |`,
     `| Planned | ${r.assets.planned} assets (${Object.entries(r.assets.byGroup).map(([g, n]) => `${g} ${n}`).join(", ")}), ${r.assets.versions} versions, ${r.assets.variants} variants |`,
-    `| Refs to other assets rewritten as hashes | ${r.assets.hashedRefs} |`,
+    `| Refs to other assets rewritten as hashes | ${r.assets.hashedRefs} (the pickup's to the Power Cube dropped) |`,
+    `| Plant versions with their words (Latin, layer, origin, stages) | ${r.assets.plantWords} |`,
     `| Written now | ${Object.entries(r.written).map(([k, n]) => `${k} ${n}`).join(", ")} |`,
     `| Files read back and hash-checked | ${r.verified.filesReadBack} |`,
     `| Assets per group match the feed | ${r.verified.groupsMatch ? "yes" : "no"} |`,

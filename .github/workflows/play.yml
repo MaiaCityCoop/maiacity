@@ -1,5 +1,5 @@
-# play.maia.city's own release (play/SPEC.md §9): the image, then the server. It runs when a tag play-deploy-* is
-# pushed, and touches nothing of legacy's but one block added to Caddy's file: it starts play-api beside the running
+# play.maia.city's own release (play/SPEC.md §9), as legacy's release ran (GitHub Actions, the DEPLOY_SSH_KEY secret):
+# the image, then the server. It runs on every push to play's branch that changes play, or by hand; it touches nothing of legacy's but one block added to Caddy's file: it starts play-api beside the running
 # containers (--no-deps), sets up play's role and schema in the same Postgres, runs the import (idempotent), and
 # answers play.maia.city through Caddy. play.maia.city needs a DNS A record to the server before Caddy can get its
 # certificate.
@@ -7,7 +7,9 @@ name: play
 
 on:
   push:
-    tags: ['play-deploy-*']
+    branches: [claude/play-spec]
+    paths: ['play/**', '.github/workflows/play.yml']
+  workflow_dispatch:
 
 permissions:
   contents: read

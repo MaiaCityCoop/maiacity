@@ -160,3 +160,7 @@ export async function recipeAt(hash) {
 /** the catalog as the asset viewer reads it (./VaultAsset.svelte, ./sources/viewer.js `vaultBuild`): its index, a
  *  recipe by its hash, its name */
 export const source = { index: INDEX, recipeAt, nameOf, hashOf, cardOf };
+
+/** what play's database says of a plant version (its record's `plant`): its Latin name, layer, origin, note and
+ *  stages; undefined for anything else */
+export const plantOf = (hash) => (recipeInfo(hash) ? records.get(hash)?.plant : undefined);

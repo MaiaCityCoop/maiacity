@@ -20,7 +20,6 @@
 	/** the plant picked by a click or a tap, and what the library knows of it */
 	type Card = { picked: PickedPlant; asset: string | null; label: string; latin: string; note: string; from: string; layer: string; stages: { name: string; day: number; note: string }[] };
 	let card = $state<Card | null>(null);
-	let plants: typeof import('$lib/content/plants') | null = null;
 	/** the card slides in from the right beside the world; on a phone, up from the foot of it */
 	let narrow = $state(false);
 	/** a press that comes up where it went down, soon (by the events' own times: a busy frame between them is no matter), is a click on the world, not a look round */
@@ -32,20 +31,19 @@
 		if (!p || !village || Math.hypot(e.clientX - p.x, e.clientY - p.y) > 6 || e.timeStamp - p.t > 450) return;
 		const picked = village.pickPlant(e.clientX, e.clientY);
 		if (!picked) return close();
-		plants ??= await import('$lib/content/plants');
-		const plant = plants.plantAt(picked.id, picked.v);
-		if (!plant) return (card = null);
-		const layer = plants.LAYERS.find((l) => l.id === plant.layer);
-		narrow = matchMedia('(max-width: 640px)').matches;
-		// the plant's asset by its UUID, through the catalog: its build's hash names its recipe, the recipe its asset
-		const { hashOf, recipeInfo } = await import('$lib/content/assets/catalog.js');
-		let asset: string | null = null;
+		// the plant's words and its asset, from the catalog (play's database): its build's hash names its record
+		const { hashOf, plantOf, recipeInfo } = await import('$lib/content/assets/catalog.js');
+		let hash: string | null = null;
 		try {
-			asset = picked.asset ? (recipeInfo(hashOf(picked.asset))?.asset ?? null) : null;
+			hash = picked.asset ? hashOf(picked.asset) : null;
 		} catch {
-			asset = null;
+			hash = null;
 		}
-		card = { picked, asset, label: plant.label, latin: plant.latin, note: plant.note, from: plant.from, layer: layer ? `${layer.label} — ${layer.note}` : '', stages: plant.stages };
+		const plant = hash ? plantOf(hash) : undefined;
+		if (!plant) return (card = null);
+		narrow = matchMedia('(max-width: 640px)').matches;
+		const layer = plant.layer;
+		card = { picked, asset: recipeInfo(hash!)?.asset ?? null, label: plant.label, latin: plant.latin, note: plant.note, from: plant.from, layer: layer?.label ? `${layer.label}${layer.note ? ` — ${layer.note}` : ''}` : '', stages: plant.stages };
 	};
 	const close = () => {
 		card = null;
