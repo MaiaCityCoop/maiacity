@@ -40,6 +40,15 @@ export async function setLevel(db: Db, me: Me | null, humanId: string, level: st
   });
 }
 
+/** Anyone signed in renames themselves (their profile): the sign-up rule for a name. */
+export async function renameSelf(db: Queryable, me: Me | null, name: unknown) {
+  if (!me) throw new Denied("Please sign in first.", 401);
+  const clean = cleanName(name);
+  if (clean.length < 2) throw new MemberError("Please give a name with at least two characters.");
+  await db.query(`UPDATE play.humans SET name = $2 WHERE id = $1`, [me.id, clean]);
+  return { human: me.id, name: clean };
+}
+
 /** An admin renames a member: the same rule for a name as at sign-up (./auth.ts cleanName, two characters at least). */
 export async function renameMember(db: Queryable, me: Me | null, humanId: string, name: unknown) {
   must(me, "manage", "members");

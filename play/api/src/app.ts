@@ -8,7 +8,7 @@ import type { Db } from "./pg";
 import { Denied, meOf, must } from "./access";
 import { assetOf, catalogOf, configOf, fileOf, listAssets, NotFound, pinsOf, versionOf } from "./assets";
 import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, registerOptions, sessionCookie, tokenFor } from "./auth";
-import { claimInvite, inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameMember, setLevel } from "./members";
+import { claimInvite, inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameMember, renameSelf, setLevel } from "./members";
 import { listTables, readTable, TableError } from "./tables";
 import { decide, listProposals, propose, ProposalError, type Verdict } from "./proposals";
 import { clientOf, perMinute, Rate, costly } from "./limits";
@@ -117,6 +117,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   // ---- the coop
   on("GET", "/api/members", async (req) => json(await listMembers(db, await me(req))));
   on("POST", "/api/members/:id/level", async (req, p) => json(await setLevel(db, await me(req), p.id, `${(await body(req))?.level ?? ""}`)));
+  on("POST", "/api/me/name", async (req) => json(await renameSelf(db, await me(req), (await body(req))?.name)));
   on("POST", "/api/members/:id/name", async (req, p) => json(await renameMember(db, await me(req), p.id, (await body(req))?.name)));
   on("DELETE", "/api/members/:id", async (req, p) => json(await removeMember(db, await me(req), p.id)));
   on("POST", "/api/invites", async (req) => json(await makeInvite(db, await me(req)), { status: 201 }));

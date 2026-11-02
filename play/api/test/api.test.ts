@@ -196,6 +196,13 @@ suite("play API", () => {
     expect((await call("ada", "POST", `/api/members/${who.cit2.id}/level`, { level: "traveler" })).data.level).toBe("traveler");
   });
 
+  test("anyone signed in renames themselves", async () => {
+    expect((await call(null, "POST", "/api/me/name", { name: "Nobody" })).status).toBe(401);
+    expect((await call("cit", "POST", "/api/me/name", { name: "a" })).status).toBe(400);
+    expect((await call("cit", "POST", "/api/me/name", { name: " Cita  Zen " })).data.name).toBe("Cita Zen");
+    expect((await call("cit", "GET", "/api/me")).data.name).toBe("Cita Zen");
+  });
+
   test("an admin renames and removes a member, never themselves or the history's names", async () => {
     expect((await call("cit", "POST", `/api/members/${who.trav.id}/name`, { name: "Wanda" })).status).toBe(403);
     expect((await call("ada", "POST", `/api/members/${who.trav.id}/name`, { name: " x " })).status).toBe(400);
