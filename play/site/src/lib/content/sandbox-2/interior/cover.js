@@ -14,8 +14,6 @@
  * where the eye is (in the floor's own ground) every frame.
  */
 import * as THREE from 'three';
-import { coverRef } from '$lib/content/biomes/built.js';
-import { coverSeed } from '$lib/content/biomes/index.js';
 import { coverTile } from '$lib/content/biomes/stream.js';
 
 /** how far the eye goes before the cover is worked out again (m) */
@@ -45,8 +43,11 @@ export function createCover(o) {
 		return t * t * (3 - 2 * t);
 	};
 	/** each kind of the cover, in its order: drawn finely however small, so never as a picture */
-	// each the asset its biome's card names (the vault's), else the cover's kind at its seed
-	const kinds = recipe.cover.map((c, i) => drawn.use(c.ref ?? coverRef(c.kind, coverSeed(i, c.kind)), false, false));
+	const kinds = recipe.cover.map((c) => {
+		// each kind by the build its biome's card names (a hash): nothing is named by a readable ref
+		if (!c.ref) throw new Error(`the biome names no asset for its cover kind ${c.kind}`);
+		return drawn.use(c.ref, false, false);
+	});
 	/** @type {Map<string, { ix: number, iz: number, kinds: import('$lib/content/biomes/stream.js').TileKinds }>} */
 	const tiles = new Map();
 	/** the copies of each kind standing now */

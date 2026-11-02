@@ -289,8 +289,9 @@ function mediaNamed(): { hash: string; ending: string }[] {
   return [...out].map(([hash, ending]) => ({ hash, ending }));
 }
 
-/** the media play's site shows, from legacy's public media (avenDB's feed, /feed/media/<hash>), each held to its hash,
- * into play's files: play serves them itself (/api/files/<hash>), nothing from legacy */
+/** the media play's site shows — its own (play/media/<hash>.<ending>: the covers it made) or legacy's public media
+ * (avenDB's feed, /feed/media/<hash>) — each held to its hash, into play's files: play serves them itself
+ * (/api/files/<hash>), nothing from legacy */
 async function importMedia(db: Db, store: BlobStore, report: Report) {
   let named: { hash: string; ending: string }[] = [];
   try {
@@ -302,9 +303,15 @@ async function importMedia(db: Db, store: BlobStore, report: Report) {
     try {
       const known = (await db.query(`SELECT 1 FROM play.files WHERE hash = $1`, [hash])).rows.length > 0;
       if (known && (await store.has(hash))) continue;
-      const r = await fetch(`${FEED}/media/${hash}.${ending}`);
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const bytes = new Uint8Array(await r.arrayBuffer());
+      // play's own media (the covers it made: play/media/<hash>.<ending>), else legacy's public media
+      const own = Bun.file(join(ROOT, "play/media", `${hash}.${ending}`));
+      let bytes: Uint8Array;
+      if (await own.exists()) bytes = new Uint8Array(await own.arrayBuffer());
+      else {
+        const r = await fetch(`${FEED}/media/${hash}.${ending}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        bytes = new Uint8Array(await r.arrayBuffer());
+      }
       if (hashBytes(bytes) !== hash) throw new Error("its bytes don't hash to its name");
       await store.put(hash, bytes, MEDIA_TYPES[ending]);
       await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, [hash, bytes.length, MEDIA_TYPES[ending], keyOf(hash)]);

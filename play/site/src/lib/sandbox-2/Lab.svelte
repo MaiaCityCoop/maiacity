@@ -38,7 +38,7 @@
 	.lab {
 		position: fixed;
 		inset: 0;
-		overflow: auto;
+		overflow: hidden;
 		background: var(--cream);
 	}
 	.failed {

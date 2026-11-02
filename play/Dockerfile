@@ -21,6 +21,7 @@ COPY maia/content/code/configs/sandbox-4 /app/maia/content/code/configs/sandbox-
 COPY maia/content/assets/pins.fixture.json /app/maia/content/assets/pins.fixture.json
 # …and the media play's site names by hash (its covers and sounds), found in its sources
 COPY play/site/src /app/play/site/src
+COPY play/media /app/play/media
 COPY --from=site /src/play/site/build /app/site
 ENV PORT=3000 PLAY_SITE=/app/site PLAY_REPO=/app
 EXPOSE 3000

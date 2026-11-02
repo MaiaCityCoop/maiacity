@@ -48,44 +48,62 @@ export async function mountLab(root: HTMLElement): Promise<() => void> {
   const presets = [...scenarios(), shedScenario(), brickHouseScenario(), metalShedScenario(), domeScenario(), standScenario(), industrialHallScenario(), germanHouseScenario()];
   root.classList.add('physical-lab');
   root.innerHTML = `
-    <header><div><small>Sandbox 2</small><h1 id="lab-title">The physical world lab</h1></div><span class="tag">Rapier physics · fixings · wind</span></header>
-    <div class="layout"><aside class="left"><h2>Choose an experiment</h2><nav id="scenario-list" aria-label="Experiments"></nav><section id="dome-controls" hidden aria-label="Dome dimensions"><h2>Dome size</h2>
+    <div class="lab-frame">
+    <aside class="left" aria-label="Experiments">
+      <p class="eyebrow">Sandbox 2 · <span id="lab-title">The physical world lab</span></p>
+      <h3 class="nav-group">Experiments</h3>
+      <nav id="scenario-list" aria-label="Experiments"></nav>
+    </aside>
+    <main>
+      <div class="stage-head">
+        <h2 id="scene-title"></h2>
+        <div class="chips">
+          <span class="chip-label">View</span><span class="view-buttons"><button id="orbit">Orbit</button><button id="side">Side</button><button id="top">Top</button></span>
+          <span class="chip-label">Show</span><span class="scene-tabs" role="tablist" aria-label="Scene view"><button id="assembly-tab" role="tab" aria-selected="true" aria-controls="viewport">Assembly</button><button id="parts-tab" role="tab" aria-selected="false" aria-controls="viewport">Parts</button></span>
+          <span class="toolbar"><span class="chip-label">Physics</span><button class="primary" id="run">Run</button><button id="step">Step</button><button id="reset">Reset</button><select id="speed" aria-label="Speed"><option value="0.25">¼×</option><option value="1" selected>1×</option><option value="2">2×</option></select><span id="clock">0.000 s</span></span>
+        </div>
+      </div>
+      <section id="gallery-header" hidden><p id="gallery-summary"></p><input id="gallery-search" type="search" placeholder="Find a part: brick, board, hub, material or ID" aria-label="Find a part"><button id="gallery-fit">Show all parts</button></section>
+      <div id="viewport" role="tabpanel" aria-labelledby="assembly-tab"><div class="legend"><span>●</span> Centres of mass &nbsp; <span>▪</span> Contact points · grid 1 m</div><p id="worker-status" role="status">Starting physics worker…</p></div>
+      <section id="gallery-list" aria-label="Parts catalogue" hidden></section>
+    </main>
+    <aside class="right" aria-label="The experiment: its build, readings, parts and conditions">
+      <details class="about"><summary>About this experiment</summary><p id="question"></p><p class="note">Start with contact. Observe the load path. Change one condition.</p><p class="note">Every supplied part is a separate body. Roof grips, sheet fixings and dome connections can fail. Some lower-frame and masonry connections remain ideal rigid restraints. Only ground and the test incline are fixed.</p><p class="note">Rigid materials: no bending, cracking, fracture or moisture. Contact force estimates are solver measurements, not structural safety ratings.</p></details>
+      <section id="construction" hidden aria-label="Step by step construction">
+        <div class="build-heading"><div><small>Construction</small><h3 id="build-stage"></h3></div><strong id="build-count"></strong></div>
+        <div id="build-stages"></div><progress id="build-progress" max="1" value="0" aria-label="Construction progress"></progress>
+        <p id="next-part"></p><div class="build-actions"><button id="place-part" class="primary">Place next part</button><button id="build-stage-button">Next stage</button><button id="build-all">Build whole shed</button></div>
+        <div class="build-options"><label><input id="show-plan" type="checkbox"> Remaining plan</label><label><input id="frame-view" type="checkbox"> Structure only</label></div>
+        <details class="notes"><summary>Notes on this build</summary><p id="support-status" class="note"></p><p id="build-note" class="note">Roof: 5° fall to the back on tapered timber supports, then boards and roofing felt. Felt is a continuous barrier by assumption; rain and leakage are not simulated. Doorway posts sit in steel shoes anchored to the bottom frame. Roof grips can lose their hold in the wood; red dots mark failed points. Lower framing remains ideal rigid. Capacities are experimental, not rated fastener strengths.</p></details>
+      </section>
+      <div class="metrics"><div class="metric"><small>Movable mass</small><strong id="mass"></strong></div><div class="metric"><small>Contact pairs</small><strong id="pair-count">0</strong></div><div class="metric"><small>Step</small><strong>1/120 s</strong></div></div>
+      <section id="gallery-detail" hidden></section>
+      <section id="assembly-inspector"><h4 class="side-head">Inspect a part</h4><select id="part" aria-label="Selected part"></select><dl id="inspector"></dl><h4 class="side-head" id="contact-heading">Contact network</h4><div id="contacts"></div><section id="joint-panel" hidden><h4 class="side-head">Installed connections</h4><div id="joints"></div><button id="release-joints">Release selected part</button><details class="notes"><summary>About releasing</summary><p class="note">Removes its connections. Contact may still support it. Reset before continuing construction.</p></details></section><button id="export">Export setup + current state</button></section>
+      <section id="wind-controls" aria-label="Wind controls"><h4 class="side-head">Wind</h4>
+        <label class="wind-toggle"><input id="wind-enabled" type="checkbox"> Enable wind</label>
+        <div class="pair"><label for="wind-speed">Speed · m/s</label><input id="wind-speed" type="number" min="0" step="1" value="10"></div>
+        <div class="pair"><label for="wind-direction">From</label><select id="wind-direction"><option value="front">Doorway → back (−Z)</option><option value="back">Back → doorway (+Z)</option><option value="left">Left → right (+X)</option><option value="right">Right → left (−X)</option></select></div>
+        <p id="wind-status" aria-live="polite">Wind off</p><details class="notes"><summary>About the wind</summary><p class="note">Steady drag on exposed surfaces, with sampled sheltering. Blue-green arrows show airflow. No turbulence or roof suction. Pause stops wind acting too.</p></details></section>
+      <section id="dome-controls" hidden aria-label="Dome dimensions"><h4 class="side-head">Dome size</h4>
       <form id="dome-size-form"><label for="dome-diameter">Frame diameter · m</label><input id="dome-diameter" type="number" min="${MIN_DOME_DIAMETER}" step="any" value="${DEFAULT_DOME_DIAMETER}" required>
       <label for="dome-cell-size">Target cell size · m</label><input id="dome-cell-size" type="number" min="0.1" step="any" value="2.5" required>
       <label for="dome-timber-lower">Lower timber · mm</label><input id="dome-timber-lower" type="number" min="1" step="any" value="120" required>
       <label for="dome-timber-middle">Middle timber · mm</label><input id="dome-timber-middle" type="number" min="1" step="any" value="100" required>
       <label for="dome-timber-upper">Upper timber · mm</label><input id="dome-timber-upper" type="number" min="1" step="any" value="80" required>
-      <p id="dome-size-status" aria-live="polite"></p><button type="submit">Apply size & reset</button><p class="note">No upper diameter limit. Mesh density is calculated from target cell size; projection makes actual spans vary. Timber uses your lower / middle / upper sizes. Resets construction. Doorway stays 1 × 2.1 m. Strength is not scaled up automatically; large designs may fail or run slowly.</p><p id="dome-size-error" class="error" role="alert"></p></form></section><section id="stand-controls" hidden aria-label="Stand test controls"><h2>Stand test</h2>
+      <p id="dome-size-status" aria-live="polite"></p><button type="submit">Apply size & reset</button><p id="dome-size-error" class="error" role="alert"></p></form><details class="notes"><summary>About the dome's size</summary><p class="note">No upper diameter limit. Mesh density is calculated from target cell size; projection makes actual spans vary. Timber uses your lower / middle / upper sizes. Resets construction. Doorway stays 1 × 2.1 m. Strength is not scaled up automatically; large designs may fail or run slowly.</p></details></section>
+      <section id="stand-controls" hidden aria-label="Stand test controls"><h4 class="side-head">Stand test</h4>
       <form id="stand-form"><label for="stand-hub">Mounted hub</label><select id="stand-hub">${Object.entries(STAND_HUBS).map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select><label for="stand-height">Height · m</label><input id="stand-height" type="number" min="${STAND_LAB_MIN_HEIGHT}" max="${STAND_LAB_MAX_HEIGHT}" step="any" value="2" required>
       <input id="stand-extension" aria-label="Stand extension" type="range" min="${STAND_LAB_MIN_HEIGHT}" max="${STAND_LAB_MAX_HEIGHT}" step="0.01" value="2">
       <label for="stand-load">Loose top load · kg</label><input id="stand-load" type="number" min="0" step="any" value="0" required>
       <label for="stand-friction">Foot friction</label><input id="stand-friction" type="number" min="0" max="2" step="any" value="0.65" required>
       <button type="submit">Set extension & reset trial</button><p id="stand-error" class="error" role="alert"></p></form>
-      <label for="stand-push">Sideways impulse · N·s</label><input id="stand-push" type="number" min="0" step="any" value="20">
-      <button id="stand-push-x">Push across head (+X)</button><button id="stand-push-z">Push toward head (+Z)</button>
-      <p id="stand-readout" aria-live="polite"></p><p class="note">Same 11 sleeves and mass at every extension. Foot contact and head-bolt failure are simulated. Mast bending, buckling and lock failure are not. No load rating is established.</p></section><section id="wind-controls" aria-label="Wind controls"><h2>Wind</h2>
-      <label class="wind-toggle"><input id="wind-enabled" type="checkbox"> Enable wind</label>
-      <label for="wind-speed">Speed · m/s</label><input id="wind-speed" type="number" min="0" step="1" value="10">
-      <label for="wind-direction">Blowing from</label><select id="wind-direction"><option value="front">Doorway → back (−Z)</option><option value="back">Back → doorway (+Z)</option><option value="left">Left → right (+X)</option><option value="right">Right → left (−X)</option></select>
-      <p id="wind-status" aria-live="polite">Wind off</p><p class="note">Steady drag on exposed surfaces, with sampled sheltering. Blue-green arrows show airflow. No turbulence or roof suction. Pause stops wind acting too.</p></section><p class="note">Start with contact.<br>Observe the load path.<br>Change one condition.</p><p class="note">Every supplied part is a separate body. Roof grips, sheet fixings and dome connections can fail. Some lower-frame and masonry connections remain ideal rigid restraints. Only ground and the test incline are fixed.</p></aside>
-    <main><div class="scene-heading"><div><h2 id="scene-title"></h2><p id="question"></p></div><div class="view-buttons"><button id="orbit">Orbit</button><button id="side">Side</button><button id="top">Top</button></div></div>
-      <section id="construction" hidden aria-label="Step by step construction">
-        <div class="build-heading"><div><small>STEP BY STEP CONSTRUCTION</small><h3 id="build-stage"></h3></div><strong id="build-count"></strong></div>
-        <div id="build-stages"></div><progress id="build-progress" max="1" value="0" aria-label="Construction progress"></progress>
-        <p id="next-part"></p><p id="support-status" class="note"></p><div class="build-actions"><button id="place-part" class="primary">Place next part</button><button id="build-stage-button">Build next stage</button><button id="build-all">Build whole shed</button></div>
-        <div class="build-options"><label><input id="show-plan" type="checkbox"> Show remaining plan</label><label><input id="frame-view" type="checkbox"> Show structure only</label></div>
-        <p id="build-note" class="note">Roof: 5° fall to the back on tapered timber supports, then boards and roofing felt. Felt is a continuous barrier by assumption; rain and leakage are not simulated. Doorway posts sit in steel shoes anchored to the bottom frame. Roof grips can lose their hold in the wood; red dots mark failed points. Lower framing remains ideal rigid. Capacities are experimental, not rated fastener strengths.</p>
-      </section>
-      <div class="scene-tabs" role="tablist" aria-label="Scene view"><button id="assembly-tab" role="tab" aria-selected="true" aria-controls="viewport">Assembly</button><button id="parts-tab" role="tab" aria-selected="false" aria-controls="viewport">Parts gallery</button></div>
-      <section id="gallery-header" hidden><p id="gallery-summary"></p><label>Find a part <input id="gallery-search" type="search" placeholder="Brick, board, hub, material or ID"></label><button id="gallery-fit">Show all parts</button><p class="note">One preview per part type, individually fitted for visibility. Counts cover the full recipe. Select a part for dimensions; orbit and zoom to inspect. Assembly time is held while browsing.</p></section>
-      <div id="viewport" role="tabpanel" aria-labelledby="assembly-tab"><div class="legend"><span>●</span> Centers of mass &nbsp; <span>▪</span> Contact points · grid 1 m</div></div>
-      <section id="gallery-list" aria-label="Parts catalogue" hidden></section>
-      <div class="toolbar"><button class="primary" id="run">Run</button><button id="step">Step</button><button id="reset">Reset</button><label>Speed <select id="speed"><option value="0.25">¼×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label><span id="clock">0.000 s</span></div>
-      <p id="worker-status" role="status">Starting physics worker…</p><div class="metrics"><div class="metric"><small>MOVABLE MASS</small><strong id="mass"></strong></div><div class="metric"><small>CONTACT PAIRS</small><strong id="pair-count">0</strong></div><div class="metric"><small>PHYSICS STEP</small><strong>1 / 120 s</strong></div></div>
-      <p class="footer-note">Rigid materials: no bending, cracking, fracture or moisture. Contact force estimates are solver measurements, not structural safety ratings.</p>
-    </main><aside class="right"><section id="gallery-detail" hidden></section><section id="assembly-inspector"><h2>Inspect a part</h2><select id="part" aria-label="Selected part"></select><dl id="inspector"></dl><h2 id="contact-heading">Contact network</h2><div id="contacts"></div><section id="joint-panel" hidden><h2>Installed connections</h2><div id="joints"></div><button id="release-joints">Release selected part</button><p class="note">Removes its connections. Contact may still support it. Reset before continuing construction.</p></section><button id="export">Export setup + current state</button></section>
-    <details id="setup-details"><summary>Setup / start a new run</summary><p class="note">Edits apply to the selected part. Dimensions and density determine mass. Applying resets all bodies and time.</p><form id="setup-form">
-      <label>Dimensions X Y Z (m)<input id="dimensions" required></label><label>Position X Y Z (m)<input id="position" required></label><label>Rotation about Z (degrees)<input id="angle" type="number" step="any" required></label><label>Density (kg/m³)<input id="density" type="number" min="1" max="30000" step="any" required></label><label>Friction coefficient<input id="friction" type="number" min="0" max="2" step="any" required></label><button type="submit">Apply and reset</button><p id="setup-error" class="error" role="alert"></p></form><p class="note">Setup is a laboratory fixture. Overlapping starting boxes are rejected. These controls do not represent a person's ability to move a part.</p></details></aside></div>`;
+      <div class="pair"><label for="stand-push">Impulse · N·s</label><input id="stand-push" type="number" min="0" step="any" value="20"></div>
+      <div class="build-actions"><button id="stand-push-x">Push across (+X)</button><button id="stand-push-z">Push toward (+Z)</button></div>
+      <p id="stand-readout" aria-live="polite"></p><details class="notes"><summary>About this test</summary><p class="note">Same 11 sleeves and mass at every extension. Foot contact and head-bolt failure are simulated. Mast bending, buckling and lock failure are not. No load rating is established.</p></details></section>
+      <details id="setup-details"><summary>Setup a new run</summary><p class="note">Edits apply to the selected part. Dimensions and density determine mass. Applying resets all bodies and time.</p><form id="setup-form">
+      <label>Dimensions X Y Z (m)<input id="dimensions" required></label><label>Position X Y Z (m)<input id="position" required></label><label>Rotation about Z (degrees)<input id="angle" type="number" step="any" required></label><label>Density (kg/m³)<input id="density" type="number" min="1" max="30000" step="any" required></label><label>Friction coefficient<input id="friction" type="number" min="0" max="2" step="any" required></label><button type="submit">Apply and reset</button><p id="setup-error" class="error" role="alert"></p></form><p class="note">Setup is a laboratory fixture. Overlapping starting boxes are rejected. These controls do not represent a person's ability to move a part.</p></details>
+    </aside>
+    </div>`;
   const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
   const titleSlot = screenSlot(el('lab-title'), 'title');
   const toolbar = root.querySelector<HTMLElement>('.toolbar')!;

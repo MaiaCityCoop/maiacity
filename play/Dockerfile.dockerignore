@@ -3,6 +3,7 @@
 *
 !play/site
 !play/api
+!play/media
 !maia/content/code/configs/sandbox-4
 !maia/content/assets/pins.fixture.json
 **/node_modules
