@@ -153,7 +153,7 @@
 				{#if shownVersion.triangles}<dt>Triangles</dt><dd>{shownVersion.triangles.toLocaleString('en-GB')}{shownVersion.skinned ? ', skinned' : ''}</dd>{/if}
 				{#if shownVersion.size}<dt>Size</dt><dd>{shownVersion.size.map((n) => n.toFixed(2)).join(' × ')} m</dd>{/if}
 			</dl>
-			{#if may(session.me, 'propose', 'asset_version')}
+			{#if session.me?.level === 'admin'}
 				<p class="soft propose">Propose v{(chain.versions[0]?.number ?? 0) + 1} in <a href="/proposals/">Proposals</a>.</p>
 			{/if}
 		{:else if catalog}
