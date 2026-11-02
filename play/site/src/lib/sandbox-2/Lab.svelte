@@ -37,7 +37,7 @@
 <style>
 	.lab {
 		position: fixed;
-		inset: var(--head) 0 0;
+		inset: 0;
 		overflow: auto;
 		background: var(--cream);
 	}

@@ -156,3 +156,7 @@ export async function recipeAt(hash) {
 	}
 	return { hash, code: new TextDecoder().decode(bytes) };
 }
+
+/** the catalog as the asset viewer reads it (./VaultAsset.svelte, ./sources/viewer.js `vaultBuild`): its index, a
+ *  recipe by its hash, its name */
+export const source = { index: INDEX, recipeAt, nameOf, hashOf, cardOf };

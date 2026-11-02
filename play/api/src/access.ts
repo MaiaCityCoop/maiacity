@@ -6,7 +6,7 @@ export const COOP = "maia-city";
 export type Level = "admin" | "citizen" | "traveler";
 export type Rule = { read?: string[]; propose?: string[]; decide?: string[]; manage?: string[] };
 export type Action = keyof Rule;
-export type Me = { id: string; name: string; level: Level; rule: Rule };
+export type Me = { id: string; name: string; level: Level; rule: Rule; founder_number: number | null };
 
 export class Denied extends Error {
   constructor(message: string, public status = 403) {
@@ -17,8 +17,8 @@ export class Denied extends Error {
 /** the human `id` with their level and its rule, or null */
 export async function meOf(db: Queryable, id: string | null): Promise<Me | null> {
   if (!id) return null;
-  const { rows } = await db.query<{ id: string; name: string; level: Level; rule: Rule }>(
-    `SELECT h.id, h.name, m.level, r.rule FROM play.humans h
+  const { rows } = await db.query<Me>(
+    `SELECT h.id, h.name, h.founder_number, m.level, r.rule FROM play.humans h
        JOIN play.memberships m ON m.human_id = h.id AND m.coop_id = $2
        JOIN play.level_rules r ON r.coop_id = m.coop_id AND r.level = m.level
       WHERE h.id = $1`,

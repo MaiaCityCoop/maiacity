@@ -15,6 +15,29 @@
 		try { await api(`/proposals/${id}/${verdict}`, { method: 'POST' }); await load(); } catch (e) { error = (e as Error).message; }
 	}
 	const deciding = $derived(may(session.me, 'decide', 'asset_version'));
+
+	// a citizen proposes the next version of an asset: the recipe file the asset box made for it (version head + 1)
+	type Listed = { id: string; label: string; head: number };
+	let assets = $state<Listed[]>([]);
+	let target = $state('');
+	let file = $state<FileList | null>(null);
+	let note = $state('');
+	let sent = $state('');
+	onMount(async () => {
+		if (may(session.me, 'propose', 'asset_version')) assets = await api<Listed[]>('/assets');
+	});
+	const chosen = $derived(assets.find((a) => a.id === target));
+	async function propose() {
+		sent = '';
+		try {
+			const r = await api('/proposals', { json: { asset: target, recipe: await file![0].text(), note } });
+			sent = `Proposed as v${r.number}: an admin will look at it.`;
+			note = '';
+			await load();
+		} catch (e) {
+			sent = (e as Error).message;
+		}
+	}
 </script>
 
 <svelte:head><title>Proposals · maiaCITY play</title></svelte:head>
@@ -23,12 +46,23 @@
 	<h1>Proposals</h1>
 	<p class="muted">New versions of Maia City's assets: citizens propose them, admins accept or reject them. Of two proposals on the same version, the first accepted goes in and the other is stale: rebuilt and proposed again.</p>
 	<div class="tabs">{#each ['open', 'accepted', 'rejected', 'stale', 'withdrawn', 'all'] as s}<button class="btn small" class:ghost={status !== s} onclick={() => ((status = s), load())}>{s}</button>{/each}</div>
+	{#if may(session.me, 'propose', 'asset_version')}
+		<section class="card propose">
+			<h2>Propose a new version</h2>
+			<select bind:value={target}><option value="">Which asset?</option>{#each assets as a (a.id)}<option value={a.id}>{a.label} · {a.id} · now v{a.head}</option>{/each}</select>
+			{#if chosen}<p class="muted">Upload the recipe file the asset box made for <code>v{chosen.head + 1}</code> of it. Every other asset it names, it names by hash.</p>{/if}
+			<input type="file" accept=".js,text/javascript" bind:files={file} />
+			<input placeholder="What changed" bind:value={note} />
+			<button class="btn" disabled={!target || !file?.length} onclick={propose}>Propose</button>
+			{#if sent}<p>{sent}</p>{/if}
+		</section>
+	{/if}
 	{#if error}<p class="error">{error}</p>{/if}
 	{#if !list.length}<p class="muted">Nothing {status === 'all' ? 'yet' : status}.</p>{/if}
 	{#each list as p (p.id)}
 		<article class="card row">
 			<div>
-				<h3><a href="/assets/{p.asset_id}/">{p.label}</a> <span class="muted">v{p.number}</span></h3>
+				<h3><a href="/assets/#{p.asset_id}">{p.label}</a> <span class="muted">v{p.number}</span></h3>
 				<p class="muted">{p.asset_id} · by {p.author ?? 'someone'} · {new Date(p.created).toLocaleString()}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}</p>
 				{#if p.note}<p>{p.note}</p>{/if}
 			</div>
@@ -49,5 +83,7 @@
 	.row { display: flex; justify-content: space-between; gap: 1rem; padding: 1rem 1.2rem; margin-bottom: 0.7rem; }
 	.row h3 { margin: 0; font-size: 1.15rem; }
 	.row p { margin: 0.2rem 0; font-size: 0.9rem; }
+	.propose { display: grid; gap: 0.6rem; padding: 1.2rem; margin-bottom: 1.5rem; }
+	.propose h2 { margin: 0; font-size: 1.2rem; }
 	.actions { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 </style>

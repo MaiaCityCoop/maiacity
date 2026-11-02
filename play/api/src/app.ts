@@ -54,7 +54,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("GET", "/api/me", async (req) => {
     const m = await me(req);
     if (!m) return json({ error: "Please sign in first." }, { status: 401 });
-    return json({ id: m.id, name: m.name, level: m.level, may: m.rule });
+    return json({ id: m.id, name: m.name, level: m.level, may: m.rule, founder: m.founder_number == null ? null : Number(m.founder_number) });
   });
 
   // ---- assets

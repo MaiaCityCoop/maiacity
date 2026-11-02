@@ -8,6 +8,7 @@
 	import { onMount } from 'svelte';
 	import TouchStick from '$lib/site/touch/TouchStick.svelte';
 	import { CAST } from '$lib/content/maiacity-v2/cast.js';
+	import WorldBar from '$lib/content/sandbox-kit/WorldBar.svelte';
 
 	let canvas = $state<HTMLCanvasElement>();
 	let world: any = null;
@@ -58,6 +59,7 @@
 
 <div class="world">
 	<canvas class="stage" bind:this={canvas}></canvas>
+	<WorldBar title="Sandbox 3" subtitle="The tired land · walk it as someone new" sky={false} />
 	{#if phase === 'ready'}
 		<TouchStick move={(x, y, hurry) => world?.move(x, y, hurry)} look={(dx, dy) => world?.look(dx, dy)} stage={canvas} taps="button, a, [role='button']" />
 	{/if}
@@ -75,9 +77,9 @@
 </div>
 
 <style>
-	.world { position: fixed; inset: var(--head) 0 0; background: #d8e2e2; }
+	.world { position: fixed; inset: 0; background: #d8e2e2; }
 	.stage { display: block; width: 100%; height: 100%; touch-action: none; }
-	.you { position: absolute; top: 1rem; left: 1rem; padding: 1rem 1.2rem; max-width: 17rem; background: rgb(250 248 242 / 0.88); backdrop-filter: blur(10px); }
+	.you { position: absolute; top: 4.5rem; left: 1rem; padding: 1rem 1.2rem; max-width: 17rem; background: rgb(250 248 242 / 0.88); backdrop-filter: blur(10px); }
 	.you h2 { font-size: 1.2rem; margin: 0.1rem 0 0.3rem; }
 	.you p { margin: 0; font-size: 0.92rem; }
 	.eyebrow { font-size: 0.72rem !important; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--terracotta); }

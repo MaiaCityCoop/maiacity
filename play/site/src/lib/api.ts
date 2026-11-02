@@ -20,5 +20,5 @@ export async function api<T = any>(path: string, init: RequestInit & { json?: un
 }
 
 export type Level = 'admin' | 'citizen' | 'traveler';
-export type Me = { id: string; name: string; level: Level; may: Record<string, string[]> };
+export type Me = { id: string; name: string; level: Level; may: Record<string, string[]>; founder: number | null };
 export const may = (me: Me | null, action: string, what: string) => !!me?.may?.[action]?.some((x) => x === '*' || x === what);

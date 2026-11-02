@@ -1,4 +1,4 @@
-# play.maia.city — spec v0.3 (2026-11-02)
+# play.maia.city — spec v0.4 (2026-11-02)
 
 A new, separate app with **three sandboxes and the asset library with its versions**, on Postgres and object storage
 instead of avenDB. Legacy (today's maia.city, avenDB, the current API, MaiaCity V1/V2) is not touched: nothing in it
@@ -103,7 +103,20 @@ We keep its useful ideas instead: immutable history, parents and heads, proposal
 versions anchored by pins. If a document that people edit live together comes later (a world layout, shared params),
 Loro can come back for that document type only: its snapshot and updates stored as `bytea` next to the row.
 
-### 4.5 Pins (later proposal kind)
+### 4.5 One source, every asset by its hash
+
+- **One source of truth:** Postgres (the catalog: assets, versions, variants, cards, the owner; the sandboxes' pins and
+  configs) and the bucket (every file under the BLAKE3 hash of its bytes). Nothing else is read: no avenDB, no repo
+  fallback, no index of readable names in the site.
+- **Every reference is a hash.** A build is `<hash>?values`. A sandbox names an asset by a slot of its pins,
+  `pin:<sandbox>/<slot>`, which its config in the database maps to a build (`GET /api/sandboxes/<id>/config`). A card
+  that names another asset names its build: the import rewrote every readable ref legacy's cards made (the biomes'
+  cover kinds, the pickup's Power Cube) and a proposal that names one is refused. A version's number, an asset's id
+  and a label are only shown.
+- **One loader** (play/site's `content/assets/catalog.js`): hash → its record from `/api/catalog` → its file from
+  `/api/files/<hash>`, held to the hash → the frozen box engine builds it. Media (covers, sounds) are play's files too.
+
+### 4.6 Pins (later proposal kind)
 
 `sandbox_pins (sandbox_id, slot, asset_id, version_id, variant, params)`: which version a sandbox draws.
 Imported as they are today. Changing one later is a `pin_change` proposal ("update Sandbox 1's hens to version x"),

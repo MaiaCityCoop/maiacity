@@ -17,7 +17,7 @@ header{height:82px;display:flex;justify-content:space-between;align-items:center
 header small{display:block;letter-spacing:.16em;color:var(--terracotta);font-size:10px;font-weight:700;margin-bottom:5px;text-transform:uppercase}
 h1{font-family:var(--font-display);font-size:24px;font-weight:600;margin:0}
 header .tag{font-size:12px;color:var(--ink-soft);background:var(--sage-soft);border-radius:20px;padding:7px 12px}
-.layout{display:grid;grid-template-columns:250px minmax(320px,1fr) 290px;min-height:calc(100vh - 82px - var(--head))}
+.layout{display:grid;grid-template-columns:250px minmax(320px,1fr) 290px;min-height:calc(100vh - 82px)}
 aside{padding:23px 20px;background:var(--paper)}
 aside.left{border-right:1px solid var(--line)}
 aside.right{border-left:1px solid var(--line)}
@@ -59,6 +59,7 @@ summary{font-size:12.5px;cursor:pointer;color:var(--brand-green);font-weight:600
 .error{color:var(--terracotta);font-size:12.5px;line-height:1.5}
 #export{margin-top:18px;width:100%;font-size:12.5px}
 .loading{padding:40px;color:var(--muted)}
+main,aside{padding-bottom:var(--nav-room)}
 a{color:var(--brand-green)}
 @media(max-width:1150px){.layout{grid-template-columns:210px minmax(300px,1fr)}
 aside.right{grid-column:1/-1;border-top:1px solid var(--line);border-left:0;display:grid;grid-template-columns:1fr 1fr;gap:25px}
@@ -105,7 +106,7 @@ progress{width:100%;height:5px;accent-color:var(--mustard);margin-top:14px}
 #release-joints{margin-top:12px;color:var(--terracotta);font-size:12.5px}
 #viewport{flex:none;height:56vh;min-height:400px}
 #contacts,#joints{max-height:250px;overflow:auto}
-@media(min-width:1151px){.layout{align-items:start}aside{min-height:calc(100vh - 82px - var(--head))}}
+@media(min-width:1151px){.layout{align-items:start}aside{min-height:calc(100vh - 82px)}}
 @media(max-width:650px){#construction{margin:0 8px 12px;padding:12px}#viewport{height:420px}}
 #wind-controls{border-top:1px solid var(--line);margin-top:20px;padding-top:18px}
 #wind-controls label{display:block;font-size:11.5px;color:var(--ink-soft);margin:12px 0 5px}
@@ -150,6 +151,5 @@ progress{width:100%;height:5px;accent-color:var(--mustard);margin-top:14px}
 @media(max-width:1150px){aside.right:has(#gallery-detail:not([hidden])){display:block}}
 @media(max-width:650px){#gallery-search{display:block;margin:8px 0}.scene-tabs{padding:0 12px}#gallery-list{padding:12px;grid-template-columns:repeat(2,minmax(0,1fr))}}
 .gallery-detail-actions{display:flex;flex-wrap:wrap;gap:8px}
-#lab-title{display:none}
 #worker-status{padding:0 24px;font-size:12px;color:var(--muted)}
 }

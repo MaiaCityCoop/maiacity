@@ -131,8 +131,7 @@
 <style>
 	.world {
 		position: fixed;
-		/* play: below its header bar */
-		inset: var(--head, 0px) 0 0;
+		inset: 0;
 	}
 	.stage {
 		position: absolute;

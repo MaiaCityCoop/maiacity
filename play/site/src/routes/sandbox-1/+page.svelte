@@ -104,7 +104,7 @@
 				</ol>
 				<p class="about">{st?.note}</p>
 				{#if card.picked.stage < card.stages.length - 1}<p class="next">Next: {card.stages[card.picked.stage + 1]!.name}</p>{/if}
-				<a class="open" href="{base}/assets/plants/{card.picked.id}/">See it in the asset library →</a>
+				<a class="open" href="{base}/assets/#plants/{card.picked.id}">See it in the asset library →</a>
 			</div>
 		</aside>
 	{/if}

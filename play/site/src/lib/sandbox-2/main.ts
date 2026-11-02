@@ -48,7 +48,7 @@ export async function mountLab(root: HTMLElement): Promise<() => void> {
   const presets = [...scenarios(), shedScenario(), brickHouseScenario(), metalShedScenario(), domeScenario(), standScenario(), industrialHallScenario(), germanHouseScenario()];
   root.classList.add('physical-lab');
   root.innerHTML = `
-    <span id="lab-title">Sandbox 2</span>
+    <header><div><small>Sandbox 2</small><h1 id="lab-title">The physical world lab</h1></div><span class="tag">Rapier physics · fixings · wind</span></header>
     <div class="layout"><aside class="left"><h2>Choose an experiment</h2><nav id="scenario-list" aria-label="Experiments"></nav><section id="dome-controls" hidden aria-label="Dome dimensions"><h2>Dome size</h2>
       <form id="dome-size-form"><label for="dome-diameter">Frame diameter · m</label><input id="dome-diameter" type="number" min="${MIN_DOME_DIAMETER}" step="any" value="${DEFAULT_DOME_DIAMETER}" required>
       <label for="dome-cell-size">Target cell size · m</label><input id="dome-cell-size" type="number" min="0.1" step="any" value="2.5" required>

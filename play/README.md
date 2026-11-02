@@ -22,5 +22,6 @@ its last line names. It writes only what is missing, so it can run again; a vers
 number.
 
 Last run against the live feed (2026-11-02): 203 assets (plants 105, things 55, machines 12, buildings 12, actors 12,
-biomes 7), 264 versions, 145 variants, 340 files (18.1 MB), every file read back and hash-checked, Sandbox 1's 165
-pins (56 village + 109 garden) resolving.
+biomes 7), 264 versions, 145 variants, 340 files (18.1 MB), every file read back and hash-checked; 108 readable refs
+between assets rewritten as hashes; 288 sandbox pins (Sandbox 1: 56 village, 109 garden, 105 plants; Sandbox 3: 18)
+and Sandbox 1's garden config; 11 media files (covers, sounds). Every asset is named by its hash (SPEC.md §4.5).

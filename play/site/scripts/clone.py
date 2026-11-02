@@ -4,14 +4,14 @@
   python3 play/site/scripts/clone.py <list of repo paths>
 
 Each file lands under play/site/src/lib/ by its root: maia/content/X -> content/X, aven/kernel/X -> kernel/X,
-maia/site/lib/X -> site/X. Aliases are rewritten to play's ($content/ -> $lib/content/, $kernel/ -> $lib/kernel/,
+maia/site/lib/X -> site/X, aven/db/page/X (legacy's app shell pieces: its frame, its icons) -> app/X. Aliases are rewritten to play's ($content/ -> $lib/content/, $kernel/ -> $lib/kernel/,
 $lib/ -> $lib/site/); a relative import that leaves its root is rewritten to the alias of where it lands. A file that
 exists already is left alone (play's own changes win), unless --force.
 """
 import os, re, sys
 R = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 DST = os.path.join(R, 'play/site/src/lib')
-ROOTS = [('maia/content/', 'content/'), ('aven/kernel/', 'kernel/'), ('maia/site/lib/', 'site/')]
+ROOTS = [('maia/content/', 'content/'), ('aven/kernel/', 'kernel/'), ('maia/site/lib/', 'site/'), ('aven/db/page/', 'app/')]
 
 def land(p):
     for a, b in ROOTS:
