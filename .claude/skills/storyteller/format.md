@@ -9,18 +9,19 @@ who is already building it), never the lonely genius, never the guru.
 
 Two sources set the two halves. Their transcripts are in `blog/day-00-test-story/sources/`.
 
-## The meta story: day one of a new civilization (Samuel, 2026-11-03)
+## The meta story: the beginning of a new civilization (Samuel, 2026-11-03)
 
 Every maiaCITY story is one step of one big story, and it is told inside it:
 
 - **We are exploring a new way of living:** how humans will feed themselves healthily in the future, and with it a
   completely new way of civilization (self-sufficient, local, healthy, built and owned by the people who live in it).
 - **First the game, then for real.** We build it all in a game first; then we build everything in the real world.
-- **Day 1 is the starting point.** Every episode is a numbered day of that journey ("Day 1", "Day 2", …): the viewer
-  joins at the start and watches it grow. Say it as a beginning ("Day 1", "this is where it starts"), never as a list
-  of what doesn't exist yet.
+- **We are at the beginning.** These are the first days of the journey, and the viewer joins at the start and
+  watches it grow. Say it as a beginning ("this is where it starts", "bare ground beside the first dome"), never as a
+  list of what doesn't exist yet. **Never name a day** (Samuel, 2026-11-03): no "Day 1", no day number in a line, a
+  title or on a card; it is the beginning, not one particular day.
 - **Every subject is placed in the big picture.** A papaya is not a papaya: it is the first food of a food forest that
-  will feed a city we are only starting to build. Name where the piece sits (the day, the game, the real world to come) and
+  will feed a city we are only starting to build. Name where the piece sits (the beginning, the game, the real world to come) and
   what it is for (how people will eat, live and thrive), in a line or two, early.
 - **Epic and intimate, always** (`emotion.md`, "The series' signature journey"): a fresh start for how humans live,
   told through moments a person relates to closely: a morning, a meal, a child, a home.
@@ -94,7 +95,7 @@ show is said, never faked (`movie-producer`, "Never promise what the world can't
    (`hook-writer`).
 2. **The fixed trailer (about 10 s):** Samuel's line, the same every time, over the world (the sandbox, the domes,
    the city in its garden).
-3. **The story begins:** the day ("Day 1") and the one goal that keeps the hook's promise.
+3. **The story begins:** where we stand (the beginning, bare ground) and the one goal that keeps the hook's promise.
 3. **The work, in pieces:** plan → build → show, each piece seen working; the clock and the deadline as the spine;
    each piece a step, linked by *but* and *therefore* (`scenes.md`).
 4. **Life between:** a breath beat of his day every few pieces — never filler, each one turns something (a doubt, a

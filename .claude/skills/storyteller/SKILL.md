@@ -10,9 +10,9 @@ viewer stays to the last line. The hook itself is the `hook-writer`'s; the pictu
 
 ## The writer's laws
 
-0. **Inside the meta story.** Every piece is a day of one journey: day one of a new civilization, built first in
-   a game, then for real, from its starting point (Day 1), exploring how humans will feed themselves healthily and
-   live anew. Place the subject in that big picture early (`format.md`, "The meta story").
+0. **Inside the meta story.** Every piece is a step of one journey, at its beginning: a new civilization, built
+   first in a game, then for real, exploring how humans will feed themselves healthily and live anew. Never name a
+   day ("Day 1"): it is the beginning, not a particular day. Place the subject in that big picture early (`format.md`, "The meta story").
 1. **One transformation, as large as the truth allows.** *From* what the viewer believes arriving, *to* what they
    leave with — decided before a word is written (`arc.md`).
 2. **One arching question,** opened in the first line, held open by progress, conflict and doubt, answered at the end
