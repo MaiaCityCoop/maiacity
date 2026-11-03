@@ -81,9 +81,9 @@ const FS = { fmt, rng, Kit: K }
       else { const c = Math.ceil(Pmax / 2); W = c * (proto.w + 0.7) + 1.8; D = 2 * proto.d + 2.6 }
       info[s.id] = { s, P, Pmax, pm, inline, mw: proto.w, md: proto.d, W, D, oneSided: !inline && Pmax <= 2 && !s.twoSided }
     }
-    // maiaCITY (2026-11-03): a bloom, the main line one flower-shaped belt with its cells inside its lobes (`bloom` below)
-    if (spec.layout && spec.layout.mode === 'bloom') {
-      bloom(plan, info, spec.layout)
+    // maiaCITY (2026-11-03): a star of legs, every station alongside one star-shaped belt (`legs` below)
+    if (spec.layout && spec.layout.mode === 'legs') {
+      legs(plan, info, spec.layout)
       return info
     }
     // manual grid if the spec gives `at: [col, row]`
@@ -126,74 +126,51 @@ const FS = { fmt, rng, Kit: K }
   }
 
   /**
-   * maiaCITY (2026-11-03): the bloom (Samuel's second sketch: one belt drawn as a flower, its lobes pointing out from
-   * an empty middle, the work stations sitting on the belt along both edges of every lobe). The main line (`layout.ring`,
-   * in flow order) is that one belt. It is cut into lobes: a lobe begins at every station a cell feeds (`after[1..]`
-   * not on the ring) and holds the stations after it up to the next. The belt runs out along a lobe's left edge, round
-   * its tip, back along its right edge and round a short inner turn into the next lobe; the lobe's stations stand on
-   * it, the first half going out and the rest coming back, each with its machines on the lobe's outer side. The cells
-   * stand inside the lobe, side by side across it, each flowing in to hand its output to the lobe's first station at
-   * the lobe's base: a straight row, or, when longer than `layout.maxLeg`, two rows (out on one, back in on the
-   * other); a side branch beside the station before the one it joins. Lobes are as long as their stations and cells
-   * need, as wide as their cells need, and stand round the least circle that holds their bases; the finished machines
-   * drive off the end of the belt into the middle. Each station gets its centre and the angle its flow faces
-   * (`I.angle`); a station on the belt its place along it (`I.sIn`, `I.sOut`); the belt is `outline`, every lobe's
-   * floor `petals`.
+   * maiaCITY (2026-11-03): the star of legs (Samuel's third sketch: one belt drawn as a star, every work station
+   * alongside it, four to a leg). Every station of the line stands on one belt, in an order where everything a
+   * station takes comes before it on the belt: the main line (`layout.ring`) in its order, each cell's stations just
+   * before the station it feeds, a side branch before the station it joins. The belt runs out along a leg's left edge,
+   * round its tip, back along its right edge and round a short inner turn into the next leg; `layout.per` stations
+   * to a leg, the first half going out and the rest coming back, each with its machines outside the leg. A unit that
+   * is not for a station rides past it to the one it is for. Raw stock comes in from outside the leg, through the gap
+   * before the station that takes it. The legs stand round the least circle that holds their bases, the finished
+   * machines drive off the end of the belt into the middle. Each station gets its centre, the angle its flow faces
+   * (`I.angle`) and its place along the belt (`I.sIn`, `I.sOut`); the belt is `outline`, every leg's floor `petals`.
    */
-  function bloom(plan, info, L) {
+  function legs(plan, info, L) {
     const byId = plan.byId, ring = L.ring
-    const gap = L.gap != null ? L.gap : 4, step = L.step != null ? L.step : 3, maxLeg = L.maxLeg != null ? L.maxLeg : 24
+    const gap = L.gap != null ? L.gap : 4, per = L.per || 4, h = L.half != null ? L.half : 4.5
     const openAt = L.openAt != null ? L.openAt : -Math.PI / 2, hubMin = L.hub || 0
-    const onRing = new Set(ring)
     const put = (I, x, z, dx, dz) => { I.x = x; I.z = z; I.angle = Math.atan2(-dz, dx); I.dir = 1; I.fx = dx; I.fz = dz }
-    const chainOf = (id) => { const c = []; for (let q = byId[id]; q; q = q.after.length ? byId[q.after[0]] : null) c.unshift(q.id); return c }
-    const len = (ids) => ids.reduce((t, c) => t + info[c].W, 0) + step * (ids.length - 1)
     const run = (ids) => ids.reduce((t, c) => t + info[c].W, 0) + gap * Math.max(0, ids.length - 1)
-    const dOf = (ids) => Math.max(...ids.map((c) => info[c].D))
-    const legsOf = (chain) => {
-      let k = 1
-      for (let j = 1; j < chain.length; j++) if (Math.max(len(chain.slice(0, j)), len(chain.slice(j))) < Math.max(len(chain.slice(0, k)), len(chain.slice(k)))) k = j
-      return [chain.slice(0, k), chain.slice(k)]
-    }
-    const sideW = (chain) => chain.reduce((t, c) => t + byId[c].after.slice(1).reduce((u, q) => u + dOf(chainOf(q)) + 3, 0), 0)
-    const feedsOf = (id) => byId[id].after.filter((q) => !onRing.has(q))
-    /** how far a station's belt (its spine) stands in from its middle, towards the lobe's inside */
+    /** how far a station's belt (its spine) stands in from its middle, towards the leg's inside */
     const spineOf = (I) => (I.inline || !I.oneSided ? 0 : I.md / 2 + 0.15)
-    // the lobes, in the belt's order
+    // the order along the belt: everything a station takes before it
+    const seq = [], seen = new Set()
+    const visit = (id) => { if (seen.has(id)) return; seen.add(id); for (const q of byId[id].after) visit(q); seq.push(id) }
+    for (const id of ring) visit(id)
+    for (const st of plan.stations) visit(st.id)
     const lobes = []
-    for (const id of ring) {
-      if (!lobes.length || feedsOf(id).length) lobes.push({ stations: [], cells: [] })
-      const lb = lobes[lobes.length - 1]
-      lb.stations.push(id)
-      for (const q of feedsOf(id)) {
-        const chain = chainOf(q), D = dOf(chain), hair = chain.length > 1 && len(chain) > maxLeg
-        lb.cells.push({ chain, D, hair, legs: hair ? legsOf(chain) : [chain], depth: hair ? Math.max(...legsOf(chain).map(len)) + 3 : len(chain), width: (hair ? 2 * D + 3 : D) + sideW(chain) })
-      }
-    }
-    for (const lb of lobes) {
-      const n = Math.ceil(lb.stations.length / 2)
-      lb.left = lb.stations.slice(0, n)
-      lb.right = lb.stations.slice(n)
-      const inner = lb.cells.reduce((t, c) => t + c.width + 3, 0) - (lb.cells.length ? 3 : 0)
-      lb.h = Math.max(6, inner / 2 + 3)
-      lb.len = Math.max(run(lb.left), run(lb.right), ...lb.cells.map((c) => c.depth + 3)) + 6
-      // how far a lobe's machines stand out beyond its edge, on each side
-      const out = (ids) => (ids.length ? Math.max(...ids.map((c) => info[c].D / 2 + spineOf(info[c]))) : 1)
+    for (let i = 0; i < seq.length; i += per) {
+      const ids = seq.slice(i, i + per), n = Math.ceil(ids.length / 2)
+      const lb = { left: ids.slice(0, n), right: ids.slice(n) }
+      lb.len = Math.max(run(lb.left), run(lb.right)) + 6
+      const out = (xs) => (xs.length ? Math.max(...xs.map((c) => info[c].D / 2 + spineOf(info[c]))) : 1)
       lb.outL = out(lb.left)
       lb.outR = out(lb.right)
+      lobes.push(lb)
     }
     // round the least circle their bases fit on, a gap of `L.open` m left where the belt ends
-    const pitch = lobes.map((lb, k) => { const nx = lobes[(k + 1) % lobes.length]; return lb.h + lb.outR + 3 + nx.outL + nx.h })
+    const pitch = lobes.map((lb, k) => { const nx = lobes[(k + 1) % lobes.length]; return h + lb.outR + 4 + nx.outL + h })
     pitch[pitch.length - 1] += L.open != null ? L.open : 8
     const rb = Math.max(hubMin, pitch.reduce((t, q) => t + q, 0) / (2 * Math.PI))
     let phi = openAt + pitch[pitch.length - 1] / 2 / rb
-    const outline = []
-    const petals = []
+    const outline = [], petals = []
     const pushPt = (x, z) => { const last = outline[outline.length - 1]; const s = last ? last.s + Math.hypot(x - last.x, z - last.z) : 0; outline.push({ x, z, s }) }
     lobes.forEach((lb, k) => {
       const ux = Math.cos(phi), uz = Math.sin(phi), nx = -Math.sin(phi), nz = Math.cos(phi)
       const P = (t, lat) => [ux * (rb + t) + nx * lat, uz * (rb + t) + nz * lat]
-      const h = lb.h, Lb = lb.len
+      const Lb = lb.len
       // the belt: in from the last turn, out along the left edge, round the tip, back along the right edge
       pushPt(...P(0, -h))
       const sBase = outline[outline.length - 1].s
@@ -202,80 +179,39 @@ const FS = { fmt, rng, Kit: K }
       pushPt(...P(Lb, h))
       const sTipR = outline[outline.length - 1].s
       pushPt(...P(0, h))
-      // the stations on it, their belts on the edge, their machines outside the lobe
+      // its stations alongside it, their machines outside the leg
       let t = 3
       for (const id of lb.left) {
-        const I = info[id], c = t + I.W / 2, sp = spineOf(I)
-        const [ex, ez] = P(c, -h)
+        const I = info[id], c = t + I.W / 2, sp = spineOf(I), [ex, ez] = P(c, -h)
         put(I, ex - nx * sp, ez - nz * sp, ux, uz)
-        I.lobe = k; I.edge = 'L'; I.t = c
+        I.sIn = sBase + c - I.W / 2; I.sOut = sBase + c + I.W / 2; I.lobe = k
         t += I.W + gap
       }
       t = Lb - 3
       for (const id of lb.right) {
-        const I = info[id], c = t - I.W / 2, sp = spineOf(I)
-        const [ex, ez] = P(c, h)
+        const I = info[id], c = t - I.W / 2, sp = spineOf(I), [ex, ez] = P(c, h)
         put(I, ex + nx * sp, ez + nz * sp, -ux, -uz)
-        I.lobe = k; I.edge = 'R'; I.t = c
+        I.sIn = sTipR + (Lb - (c + I.W / 2)); I.sOut = sTipR + (Lb - (c - I.W / 2)); I.lobe = k
         t -= I.W + gap
       }
-      // where each sits along the belt
-      for (const id of lb.left) { const I = info[id]; I.sIn = sBase + I.t - I.W / 2; I.sOut = sBase + I.t + I.W / 2 }
-      for (const id of lb.right) { const I = info[id]; I.sIn = sTipR + (Lb - (I.t + I.W / 2)); I.sOut = sTipR + (Lb - (I.t - I.W / 2)) }
-      // the lobe's floor, inside its belt
+      // the leg's floor, inside its belt
       const petal = [P(1, -h + 1.2)]
       for (let j = 0; j <= 12; j++) { const q = Math.PI * (j / 12); petal.push(P(Lb + Math.sin(q) * (h - 1.2), -Math.cos(q) * (h - 1.2))) }
       petal.push(P(1, h - 1.2))
       petals.push(petal)
-      // the cells inside it, side by side from its left edge, each handing its output to the first station at the base
-      let lat = -h + 3
-      const along = (ids, ax, az, dx, dz, from) => { let tt = from; for (const c of ids) { const J = info[c]; tt += J.W / 2; put(J, ax + dx * tt, az + dz * tt, dx, dz); tt += J.W / 2 + step } }
-      const sides = (chain, sgn) => {
-        const D = dOf(chain)
-        for (const c of chain) {
-          let o = D / 2 + 3
-          for (const q of byId[c].after.slice(1)) {
-            const sub = chainOf(q), J = info[c], Dq = dOf(sub)
-            o += Dq / 2
-            const ex = J.x - J.fx * (J.W / 2 + 1.5) + sgn * nx * o, ez = J.z - J.fz * (J.W / 2 + 1.5) + sgn * nz * o
-            along(sub, ex - J.fx * len(sub), ez - J.fz * len(sub), J.fx, J.fz, 0)
-            o += Dq / 2 + 3
-          }
-        }
-      }
-      for (const c of lb.cells) {
-        const sw = sideW(c.chain)
-        // side branches go in the strip reserved between the cell and the lobe's left edge
-        if (!c.hair) {
-          const l = lat + sw + c.D / 2
-          const [fx, fz] = P(5 + len(c.chain), l)
-          along(c.chain, fx, fz, -ux, -uz, 0)
-          sides(c.chain, -1)
-        } else {
-          const [A, B] = c.legs, Lg = c.depth
-          const lB = lat + sw + c.D / 2, lA = lB + c.D + 3
-          const [ax, az] = P(5, lA)
-          along(A, ax, az, ux, uz, 0.5)
-          const [bx, bz] = P(5 + Lg, lB)
-          along(B, bx, bz, -ux, -uz, Lg - len(B) - 0.5)
-          sides(A, 1)
-          sides(B, -1)
-        }
-        lat += c.width + 3
-      }
-      // round the inner turn into the next lobe
+      // round the inner turn into the next leg
       if (k < lobes.length - 1) {
         const nphi = phi + pitch[k] / rb
-        const [qx, qz] = [Math.cos(nphi) * rb + Math.sin(nphi) * lobes[k + 1].h, Math.sin(nphi) * rb - Math.cos(nphi) * lobes[k + 1].h]
+        const qx = Math.cos(nphi) * rb + Math.sin(nphi) * h, qz = Math.sin(nphi) * rb - Math.cos(nphi) * h
         const [px, pz] = P(0, h)
         const a0 = Math.atan2(pz, px), a1 = Math.atan2(qz, qx), r0 = Math.hypot(px, pz) - 3, r1 = Math.hypot(qx, qz) - 3
         let d = a1 - a0
         while (d < 0) d += 2 * Math.PI
-        for (let j = 0; j <= 8; j++) { const f = j / 8, q = a0 + d * f, r = (r0 + (r1 - r0) * f) - Math.sin(Math.PI * f) * 2; pushPt(Math.cos(q) * r, Math.sin(q) * r) }
+        for (let j = 0; j <= 8; j++) { const f = j / 8, q = a0 + d * f, r = r0 + (r1 - r0) * f - Math.sin(Math.PI * f) * 2; pushPt(Math.cos(q) * r, Math.sin(q) * r) }
         phi = nphi
       }
     })
-    info.__star = { R: rb, rTip: rb - 2, outline, petals, bloom: true, hub: true }
+    info.__star = { R: rb, rTip: rb - 2, outline, petals, belt: true, hub: true }
   }
 
   function mopts(s, k) {
@@ -350,6 +286,14 @@ const FS = { fmt, rng, Kit: K }
       for (const s of plan.stations) for (const p of s.after) this._edge(p, s.id)
       // raw material feeders for branch heads
       for (const s of plan.stations) if (!s.after.length) this._feeder(s.id)
+      // maiaCITY (2026-11-03): the star's one belt, drawn once, in the gaps between the stations standing on it
+      if (this.star && this.star.belt) {
+        const o = this.star.outline, spans = Object.values(this.info).filter((I) => I.sIn != null).map((I) => [I.sIn, I.sOut]).sort((p, q) => p[0] - q[0])
+        const at = (q) => { let i = 1; while (i < o.length - 1 && o[i].s < q) i++; const a = o[i - 1], b = o[i], f = Math.max(0, Math.min(1, (q - a.s) / Math.max(1e-6, b.s - a.s))); return V(a.x + (b.x - a.x) * f, 0, a.z + (b.z - a.z) * f) }
+        let from = 0
+        const piece = (s0, s1) => { if (s1 - s0 < 0.3) return; const pts = [at(s0), ...o.filter((p) => p.s > s0 && p.s < s1).map((p) => V(p.x, 0, p.z)), at(s1)]; K.freeze(K.conveyor(this.root, pts, { y: BELT_Y, color: '#4f5d66', w: 1.8 })) }
+        for (const [a, b] of spans) { piece(from, a); from = Math.max(from, b) }
+      }
       // maiaCITY (2026-11-03): a star stands in a round hall, robots only
       if (this.star) this._hallRound()
       else { this._hall(); this._props() }
@@ -562,7 +506,7 @@ const FS = { fmt, rng, Kit: K }
       const route = new Route(pts)
       // maiaCITY (2026-11-03): a station that takes big units says how wide its belt is and how far apart they queue
       const into = this.plan.byId[b]
-      const g = K.conveyor(this.root, pts.map((p) => V(p.x, 0, p.z)), { y: BELT_Y, color: '#4f5d66', w: into.beltW })
+      const g = this.star && this.star.belt ? K.group(this.root) : K.conveyor(this.root, pts.map((p) => V(p.x, 0, p.z)), { y: BELT_Y, color: '#4f5d66', w: into.beltW })
       K.freeze(g)
       const cap = into.buffer
       this.edges[a + '>' + b] = { route, g, cap, from: a, to: b, sp: Math.max(into.pitch || 0, Math.min(0.95, Math.max(0.45, route.len / Math.max(1, Math.min(cap, 14))))) }
@@ -570,11 +514,12 @@ const FS = { fmt, rng, Kit: K }
     _feeder(id) {
       const S = this.st[id]
       const p4 = this._w(S, S.ports.$src)
-      const p0 = this.star ? p4.clone().addScaledVector(S.fwd, -3.2) : p4.clone().add(V(-3.2 * S.dir, 0, 0))
-      const route = new Route([p0, p4])
+      const outw = V(-Math.sin(S.g.rotation.y), 0, -Math.cos(S.g.rotation.y)) // the side its machines stand on
+      const p0 = this.star && this.star.belt ? p4.clone().addScaledVector(S.fwd, -1.8).addScaledVector(outw, 5) : this.star ? p4.clone().addScaledVector(S.fwd, -3.2) : p4.clone().add(V(-3.2 * S.dir, 0, 0))
+      const route = new Route(this.star && this.star.belt ? [p0, p4.clone().addScaledVector(S.fwd, -1.8), p4] : [p0, p4])
       const g = K.group(this.root)
       // a pallet of raw material at the start of the feeder (maiaCITY: our Euro pallet, the product stacked at its real size)
-      const pal = this.star ? K.group(g, p0.x - 0.8 * S.fwd.x, 0, p0.z - 0.8 * S.fwd.z) : K.group(g, p0.x - 0.8 * S.dir, 0, p0.z)
+      const pal = this.star && this.star.belt ? K.group(g, p0.x + 0.9 * outw.x, 0, p0.z + 0.9 * outw.z) : this.star ? K.group(g, p0.x - 0.8 * S.fwd.x, 0, p0.z - 0.8 * S.fwd.z) : K.group(g, p0.x - 0.8 * S.dir, 0, p0.z)
       if (this.star) pal.rotation.y = S.g.rotation.y
       K.europallet(pal, 0, 0, 0, this._pallet())
       const st = this.plan.byId[id]
@@ -583,7 +528,7 @@ const FS = { fmt, rng, Kit: K }
       const m = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.1 })
       const stack = K.stackOf(def)
       for (let i = 0; i < stack.nx * stack.nz; i++) for (let k = 0; k < stack.ny; k++) { const pm = new T.Mesh(geo, m); pm.position.set(-stack.dx * (stack.nx - 1) / 2 + (i % stack.nx) * stack.dx, K.PALLET_H + k * stack.dy, -stack.dz * (stack.nz - 1) / 2 + Math.floor(i / stack.nx) * stack.dz); pm.scale.setScalar(stack.s); pm.castShadow = true; pal.add(pm) }
-      K.conveyor(g, [V(p0.x, 0, p0.z), V(p4.x, 0, p4.z)], { y: BELT_Y })
+      K.conveyor(g, (this.star && this.star.belt ? [p0, p4.clone().addScaledVector(S.fwd, -1.8)] : [p0, p4]).map((q) => V(q.x, 0, q.z)), { y: BELT_Y })
       K.freeze(g)
       this.edges['$src>' + id] = { route, g, cap: 99, from: '$src', to: id, sp: 0.8, feeder: true }
       S.rawAt = V(pal.position.x, 0, pal.position.z)

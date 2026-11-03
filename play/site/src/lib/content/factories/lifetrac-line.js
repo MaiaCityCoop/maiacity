@@ -28,8 +28,8 @@
  *     leaves the line: 1 % of cubes fail run-in (to the engine bay), 2 % of LifeTracs fail the end-of-line test (to the
  *     rework bay).
  *
- * The floor: a round hall, the main line one belt drawn as a flower, its stations on the belt along both edges of
- * every lobe and the cells inside the lobes (`layout`, world.js `bloom`); the finished machines park in the middle.
+ * The floor: a round hall, one belt drawn as a star, every station alongside it, four to a leg (`layout`, world.js
+ * `legs`); the finished machines park in the middle.
  *
  * Route (the asset's own build steps, its STEPS):
  *   plates  laser → deburr ─┐
@@ -76,7 +76,7 @@ function noteOf(id, what, rate) {
 function station(id, name, machine, o = {}) {
 	const { kind, what = '', rate, ...rest } = o;
 	// the tractor's own stations: a wide skillet belt, units queued a machine's length apart (maiaCITY's world.js)
-	const big = machine === 'asmcell' && rest.variant !== 'cube' || machine === 'testcage' ? { beltW: 1.8, pitch: 3.0 } : { beltW: 1.0, pitch: 1.4 };
+	const big = machine === 'asmcell' && rest.variant !== 'cube' || machine === 'testcage' ? { beltW: 1.8, pitch: 3.0 } : { beltW: 1.8, pitch: 1.4 };
 	// spare floor for one more machine only where the line's constraint sits or moves to (the weld cell, then the
 	// laser, the cylinder lathes); everywhere else the cell is built to its size
 	return { id, name, machine, ct: contentOf(id), cv: 0.05, buffer: 2, operators: 0, reserve: 0, ...big, ...(kind ? BREAKS[kind] : {}), note: noteOf(id, what, rate), ...rest };
@@ -101,13 +101,13 @@ export const SPEC = {
 	seed: 25,
 	stations: [
 		// the plates: one laser cuts every plate part of a LifeTrac in one nest
-		station('laser', 'Plate fibre laser', 'fiberlaser', { reserve: 1, twoSided: true, input: 'sheets', stage: 'cutkit', kind: 'laser', cv: 0.03, buffer: 3, what: 'Every plate part: side panels, floor, walls, motor plates, arm plates, hub plates and gussets, bucket, deck, brackets.', rate: RATE.laser.note + '. ' + RATE.sheet.note + '.' }),
+		station('laser', 'Plate fibre laser', 'fiberlaser', { reserve: 1, input: 'sheets', stage: 'cutkit', kind: 'laser', cv: 0.03, buffer: 3, what: 'Every plate part: side panels, floor, walls, motor plates, arm plates, hub plates and gussets, bucket, deck, brackets.', rate: RATE.laser.note + '. ' + RATE.sheet.note + '.' }),
 		station('deburr', 'Deburr and sort', 'rollers', { stage: 'cutkit', kind: 'press', cv: 0.04, buffer: 3, what: 'Every cut plate:', rate: RATE.deburr.note + '.' }),
 		// the tubes and the angles
 		station('tube', 'Tube laser', 'tubelaser', { input: 'tubes', stage: 'tubekit', kind: 'laser', cv: 0.03, buffer: 3, what: 'Every tube part: cross tubes, cradle, arm tubes, cross beam, lugs, DOM pivot and hub tubes, the mast.', rate: RATE.tube.note + '.' }),
 		station('angle', 'Angle line', 'angleline', { input: 'angles', stage: 'clips', kind: 'press', cv: 0.04, buffer: 3, what: 'Every angle: the floor runs, back-wall angles, clips, cross-beam and deck angles.', rate: RATE.angle.note + '.' }),
 		// welded, then painted on one overhead line
-		station('weld', 'Robot welding', 'weldcell', { reserve: 1, twoSided: true, after: ['deburr', 'tube', 'angle'], stage: 'weldkit', kind: 'robot', cv: 0.06, buffer: 2, what: 'The weldments: the four hubs, the arm pivots, lift brackets, cross-beam lugs, the bucket, the deck frame and the mast.', rate: RATE.weld.note + '.' }),
+		station('weld', 'Robot welding', 'weldcell', { reserve: 1, after: ['deburr', 'tube', 'angle'], stage: 'weldkit', kind: 'robot', cv: 0.06, buffer: 2, what: 'The weldments: the four hubs, the arm pivots, lift brackets, cross-beam lugs, the bucket, the deck frame and the mast.', rate: RATE.weld.note + '.' }),
 		station('pretreat', 'Pretreatment washer', 'tunnel', { variant: 'washer', length: 8, stage: 'weldkit', kind: 'line', cv: 0.02, buffer: 2, what: 'Everything that is painted:', rate: LINE_NOTE() }),
 		station('powder', 'Powder booth', 'booth', { stage: 'painted', kind: 'line', cv: 0.02, buffer: 1, what: 'Everything that is painted:', rate: LINE_NOTE() }),
 		station('cure', 'Cure oven', 'tunnel', { length: 10, stage: 'painted', kind: 'oven', cv: 0.02, buffer: 2, what: 'Everything that is painted:', rate: LINE_NOTE() }),
@@ -136,7 +136,7 @@ export const SPEC = {
 		station('arms', 'Loader arms hung', 'asmcell', { variant: 'gantry', after: ['plumb', 'harden'], stage: 'armed', kind: 'robot', cv: 0.05, buffer: 2, what: 'Both arms built and hung, the cross beam:', rate: RATE.bolt.note + '.' }),
 		// the cylinders, their own cell
 		station('cylcut', 'Cylinder saw', 'saw', { input: 'cylstock', stage: 'cylblanks', kind: 'press', cv: 0.04, buffer: 3, what: 'Barrels, rods and blanks:', rate: 'CNC cold saw with infeed and outfeed: 15 to 35 s a cut (typical).' }),
-		station('cylturn', 'Cylinder turning', 'cnc', { reserve: 1, stage: 'cylparts', kind: 'cnc', cv: 0.03, buffer: 3, what: 'Caps, glands, pistons, rod ends and eyes:', rate: 'Turn-mill with a loading robot (typical cycles).' }),
+		station('cylturn', 'Cylinder turning', 'cnc', { stage: 'cylparts', kind: 'cnc', cv: 0.03, buffer: 3, what: 'Caps, glands, pistons, rod ends and eyes:', rate: 'Turn-mill with a loading robot (typical cycles).' }),
 		station('cylweld', 'Cylinder welding', 'robot', { variant: 'weld', stage: 'cylparts', kind: 'robot', cv: 0.05, buffer: 2, what: 'Caps, ports, clevises and rod eyes:', rate: RATE.weld.note.replace('both torches share a weldment, so arc time is halved', 'one torch here') + '.' }),
 		station('cylasm', 'Cylinder assembly', 'robot', { stage: 'cylinders', kind: 'robot', cv: 0.05, buffer: 2, what: 'Seals, pistons, glands, rods into barrels:', rate: 'Seal-installation robot with expansion cones and a torque head (typical).' }),
 		station('cylpaint', 'Cylinder paint', 'booth', { variant: 'small', stage: 'cylinders', kind: 'line', cv: 0.03, buffer: 2, what: 'The four barrels:', rate: 'Robot spray booth with IR flash cure.' }),
@@ -195,11 +195,10 @@ export const SPEC = {
 		wired: { shape: 'lifetrac', upto: 'electronics' },
 		lifetrac: { shape: 'asset', ref: LIFETRAC_REF, face: 'z', fallback: { shape: 'lifetrac', upto: 'electronics' }, parked: true }
 	},
-	/** the floor (maiaCITY's bloom, world.js; Samuel 2026-11-03, his second sketch: one belt drawn as a flower, the
-	 *  work stations on it along both edges of every lobe): the main line is that belt, cut into seven lobes, one for
-	 *  each station a cell feeds, the stations after it in the same lobe; every cell stands inside its lobe and hands
-	 *  its output to the lobe's first station; the finished machines drive off into the middle */
-	layout: { mode: 'bloom', ring: ['pretreat', 'powder', 'cure', 'frame', 'wheels', 'cube', 'plumb', 'arms', 'cyls', 'bucket', 'wire', 'fill', 'eol', 'ship'], gap: 4, step: 3, maxLeg: 24, open: 8 },
+	/** the floor (maiaCITY's star of legs, world.js; Samuel 2026-11-03, his third sketch: one belt drawn as a star, every
+	 *  work station alongside it, four to a leg): all 42 stations on one belt, each cell's just before the station it
+	 *  feeds, in eleven legs; the finished machines drive off into the middle */
+	layout: { mode: 'legs', ring: ['pretreat', 'powder', 'cure', 'frame', 'wheels', 'cube', 'plumb', 'arms', 'cyls', 'bucket', 'wire', 'fill', 'eol', 'ship'], per: 4, gap: 4, half: 4.5, open: 8 },
 	look: { tilt: { focusY: 0.5, band: 0.14, amount: 7 } }
 };
 
