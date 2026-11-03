@@ -500,7 +500,14 @@ async function named(db: Queryable, steps: docs.Step[], versions: docs.Version[]
   const names = new Map((await db.query<{ id: string; name: string }>(`SELECT id, name FROM play.humans WHERE id = ANY($1)`, [ids])).rows.map((r) => [r.id, r.name]));
   const key = (f: docs.Frontiers) => canonical([...f].sort((a, b) => (a.peer < b.peer ? -1 : 1)));
   const at = new Map(versions.map((v) => [key(v.frontiers), v.number]));
-  return steps.map((s) => ({ seq: s.seq, branch: s.branch, kind: s.kind, author: s.author ? names.get(s.author) ?? null : null, via: s.via, message: s.message, at: iso(s.created), bytes: s.bytes, version: at.get(key(s.frontiers)) ?? null }));
+  // a version marks the latest step at its point (a merge that only caught the main line up stands where the draft's
+  // last step stood: the merge is the step that made it the version)
+  const marked = new Map<number, number>();
+  for (let i = steps.length - 1; i >= 0; i--) {
+    const n = at.get(key(steps[i].frontiers));
+    if (n !== undefined && ![...marked.values()].includes(n)) marked.set(i, n);
+  }
+  return steps.map((s, i) => ({ seq: s.seq, branch: s.branch, kind: s.kind, author: s.author ? names.get(s.author) ?? null : null, via: s.via, message: s.message, at: iso(s.created), bytes: s.bytes, version: marked.get(i) ?? null }));
 }
 
 /** a story proposal as people review it: the proposed timeline, the head's it was made from, what changed, and its steps */

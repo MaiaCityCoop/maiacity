@@ -296,9 +296,11 @@ proposals       (… kind 'story_version', story_id, story_base → story_versio
   of them, or to the history it stands on, gives another, so history can't be rewritten without the ids changing.
 - Each version names its parent; a proposal names the **base** it was made on.
 - **Accept** is the asset versions' transaction: it checks `stories.head = proposal.story_base`, gives the version
-  the next number, moves the head (and the story's title), and turns the other open proposals on that base stale. A
-  proposal whose base is no longer the head is **stale**, never accepted: it is proposed again on the new head.
-  Rejected and stale proposals stay as side lines in the history; their versions keep no number.
+  the next number and moves the head (and the story's title). A proposal whose base is no longer the head still goes
+  in where the two changes touch **different fields**: both stand, in a new version whose parents are the head and
+  the proposal (its note says it was merged). Where they touch **the same field** it is **stale**, never accepted: it
+  is proposed again on the new head. Rejected and stale proposals stay as side lines in the history; their versions
+  keep no number.
 - The repo's stories (`play/api/import/stories/<id>/`, `story.json` and its `frames/`) are written once, as their
   accepted v1, by the import every deploy runs, only where play holds no story of that id (`import/stories.ts`).
 
@@ -316,5 +318,20 @@ MCP server (§7, `play/api/src/mcp.ts`):
 - `add_story_frame`: an image (JPEG, PNG or WebP, up to 4 MB) as base64, kept as a file; its hash for a shot's frame.
 
 The Proposals page shows a story's proposal played in the Stories player, beside what changed against its base (the
-title and settings, and track by track the clips added, removed, moved and changed). Admins accept or reject it
-there; no tool decides.
+title and settings, and track by track the clips added, removed, moved and changed) and the steps it was made in.
+Admins accept or reject it there; no tool decides.
+
+**Every step kept: each story is a Loro document (§4.4).** Under its versions, story `x` is the document `story:x`
+(its title and its timeline; a clip's line, transition, camera and retention Loro texts), every change a step with
+its author, its means, its message and its time (`play/api/src/storydocs.ts`):
+
+- every proposal is a **branch** of the document; accepting merges it, and the document's version of the same number
+  is named with the BLAKE3 of its content. Versions and documents stay in step, number for number;
+- an agent can make a change **step by step**: `story_edit` (`message`, and edits, a whole timeline or a title; plus
+  `edit_text`, a range of one of a clip's texts) adds a step to a draft (a new one from the head if none is named),
+  each checked whole; `propose_story_version` with the draft's `branch` proposes it, its steps going with it;
+- `story_history` lists every step (the main line with every accepted proposal's steps; or one draft's) and
+  `get_story`'s `step` reads the story at any of them; the site reads them at `GET /api/stories/:id/history` and
+  `GET /api/stories/:id/steps/:seq`, and the Stories page's history bar plays the story as it was at any step;
+- a story from before the documents gets one from its history the first time it is touched, and at every deploy's
+  import: each accepted version a step at its date, named its number, and each open proposal a branch at its base.

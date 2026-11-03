@@ -57,6 +57,54 @@
 		const h = fromHash();
 		if (h.id && (h.id !== picked || h.v !== version)) open(h.id, h.v);
 	};
+
+	// ---- its history, step by step (the story's Loro document, play/SPEC.md §4.4): every step kept, any of them played
+	type Step = { seq: number; branch: number | null; kind: string; author: string | null; via: string; message: string; at: string; version: number | null };
+	let steps = $state<Step[]>([]);
+	let atStep = $state<Step | null>(null);
+	let wanted = 0;
+	const when = (iso: string) => new Date(iso).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+	async function loadHistory(id: string) {
+		steps = [];
+		atStep = null;
+		try {
+			const h = await api<{ steps: Step[] }>(`/stories/${encodeURIComponent(id)}/history`);
+			if (picked === id) steps = h.steps;
+		} catch {
+			/* no history to show: the player still plays */
+		}
+	}
+	$effect(() => {
+		if (picked) loadHistory(picked);
+	});
+	/** the story as it was at step `s` (the newest step, unpicked: its head) */
+	async function pickStep(s: Step) {
+		if (atStep?.seq === s.seq) return;
+		const last = steps[steps.length - 1];
+		if (s.seq === last?.seq && version === null) return backToHead();
+		const ask = ++wanted;
+		try {
+			const r = await api<Story>(`/stories/${encodeURIComponent(picked)}/steps/${s.seq}`);
+			if (ask !== wanted) return;
+			story = r;
+			atStep = s;
+		} catch (e) {
+			error = (e as Error).message;
+		}
+	}
+	function backToHead() {
+		wanted++;
+		atStep = null;
+		open(picked, null);
+	}
+	/** dragging along the bar scrubs through the steps */
+	let scrubbing = false;
+	function scrubAt(e: PointerEvent) {
+		const el = e.currentTarget as HTMLElement, r = el.getBoundingClientRect();
+		const i = Math.max(0, Math.min(steps.length - 1, Math.floor(((e.clientX - r.left) / r.width) * steps.length)));
+		if (steps[i]) pickStep(steps[i]);
+	}
+	const stepIndex = $derived(atStep ? steps.findIndex((s) => s.seq === atStep!.seq) : -1);
 </script>
 
 <svelte:head><title>Stories · maiaCITY play</title></svelte:head>
@@ -86,7 +134,9 @@
 						<h2>{story.title}</h2>
 						<p class="muted small meta" title={story.note}>{story.format} · {story.fps} fps · {clock(story.duration)} · {story.tracks.length} tracks{story.note ? ` · ${story.note.split('\n')[0]}` : ''}</p>
 					</div>
-					{#if (story.versions?.length ?? 0) > 0}
+					{#if atStep}
+						<button class="chip-back" onclick={backToHead}>Step {stepIndex + 1} · back to the head</button>
+					{:else if (story.versions?.length ?? 0) > 0}
 						<label class="versions">
 							<span class="muted small">Version</span>
 							<select value={String(story.number ?? '')} onchange={(e) => open(story!.id, Number((e.currentTarget as HTMLSelectElement).value) === story!.versions![0].number ? null : Number((e.currentTarget as HTMLSelectElement).value))}>
@@ -97,7 +147,46 @@
 						</label>
 					{/if}
 				</header>
-				{#key story.version}
+				{#if steps.length > 1}
+					<div class="history">
+						<div
+							class="ticks"
+							role="slider"
+							tabindex="0"
+							aria-label="The story's history, step by step"
+							aria-valuemin={1}
+							aria-valuemax={steps.length}
+							aria-valuenow={atStep ? stepIndex + 1 : steps.length}
+							onpointerdown={(e) => { scrubbing = true; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); scrubAt(e); }}
+							onpointermove={(e) => scrubbing && scrubAt(e)}
+							onpointerup={() => (scrubbing = false)}
+							onkeydown={(e) => {
+								const i = atStep ? stepIndex : steps.length - 1;
+								if (e.key === 'ArrowLeft' && i > 0) pickStep(steps[i - 1]);
+								if (e.key === 'ArrowRight' && i < steps.length - 1) pickStep(steps[i + 1]);
+							}}
+						>
+							{#each steps as s, i (s.seq)}
+								<span
+									class="tick"
+									class:v={s.version}
+									class:mcp={s.via === 'mcp'}
+									class:merge={s.kind === 'merge'}
+									class:on={atStep ? atStep.seq === s.seq : version === null && i === steps.length - 1}
+									title="{s.message} · {s.author ?? 'play'}{s.via === 'mcp' ? ' (MCP)' : ''} · {when(s.at)}"
+								>{#if s.version}<span class="vlabel">v{s.version}</span>{/if}</span>
+							{/each}
+						</div>
+						<p class="muted small caption">
+							{#if atStep}
+								Step {stepIndex + 1} of {steps.length}: “{atStep.message}” · {atStep.author ?? 'play'}{atStep.via === 'mcp' ? ' via MCP' : ''} · {when(atStep.at)}
+							{:else}
+								{steps.length} steps in its history, every one kept: drag along the bar to play the story as it was at any of them
+							{/if}
+						</p>
+					</div>
+				{/if}
+				{#key story.version ?? `step-${atStep?.seq ?? 0}`}
 					<StoryPlayer {story} />
 				{/key}
 			{:else if loading}
@@ -127,6 +216,20 @@
 	.head .meta { margin: 0.15rem 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.versions { display: flex; align-items: center; gap: 0.4rem; flex: 0 0 auto; }
 	.versions select { font: inherit; padding: 0.35rem 0.5rem; border-radius: 8px; border: 1px solid var(--line); background: var(--paper); }
+	.chip-back { font: inherit; font-size: 0.8rem; padding: 0.35rem 0.7rem; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); cursor: pointer; flex: 0 0 auto; }
+	/* the history: a thin bar of every step, versions marked, dragged to play the story as it was */
+	.history { display: grid; gap: 0.25rem; }
+	.ticks { position: relative; display: flex; align-items: flex-end; height: 1.6rem; padding-top: 0.7rem; cursor: ew-resize; touch-action: none; border-bottom: 1px solid var(--line); outline: none; }
+	.ticks:focus-visible { box-shadow: 0 2px 0 var(--ink); }
+	.tick { position: relative; flex: 1 1 0; height: 0.5rem; display: flex; justify-content: center; }
+	.tick::before { content: ''; width: 2px; height: 100%; border-radius: 1px; background: color-mix(in srgb, var(--ink, #1f2a23) 35%, transparent); }
+	.tick.mcp::before { background: var(--sage, #8fae8b); }
+	.tick.merge::before { background: var(--ink, #1f2a23); }
+	.tick.v { height: 0.85rem; }
+	.tick.v::before { width: 3px; background: var(--ink, #1f2a23); }
+	.tick.on::before { width: 4px; background: #c8744f; }
+	.vlabel { position: absolute; bottom: 100%; font-size: 0.62rem; font-weight: 700; line-height: 1; color: var(--ink, #1f2a23); pointer-events: none; }
+	.caption { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	@media (max-width: 760px) {
 		.stories { grid-template-columns: 1fr; }
 		.list { position: static; max-height: none; grid-auto-flow: column; grid-auto-columns: 10rem; overflow-x: auto; }
