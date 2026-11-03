@@ -9,6 +9,8 @@
 	import '../lib/fonts/dm-sans/opsz.css';
 	import '../app.css';
 	import { onMount } from 'svelte';
+	import { beforeNavigate } from '$app/navigation';
+	import { page, updated } from '$app/state';
 	import NavPill from '$lib/site/app/NavPill.svelte';
 	import { pillContext } from '$lib/site/app/pill.svelte.js';
 	import { footHost } from '$lib/site/app/foot.js';
@@ -18,6 +20,23 @@
 
 	let { children } = $props();
 	onMount(loadMe);
+
+	// a new build deployed while this page was open (svelte.config's pollInterval sets updated.current): the next
+	// navigation loads it whole instead of going on with the old code; a tab coming back into view (an iPad's Safari
+	// keeps one for days) checks and reloads where nothing is lost by it, the sandboxes and the game going on until
+	// their next navigation
+	beforeNavigate(({ willUnload, to }) => {
+		if (updated.current && !willUnload && to?.url) location.href = to.url.href;
+	});
+	const keepsPlay = () => /^\/(sandbox-|game)/.test(page.url.pathname);
+	onMount(() => {
+		const back = async () => {
+			if (document.visibilityState !== 'visible' || keepsPlay()) return;
+			if (await updated.check().catch(() => false)) location.reload();
+		};
+		document.addEventListener('visibilitychange', back);
+		return () => document.removeEventListener('visibilitychange', back);
+	});
 
 	const initials = (s: string) => s.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 	// whom you act as, in the You menu: yourself, and for an admin Maia City, the coop that owns every asset

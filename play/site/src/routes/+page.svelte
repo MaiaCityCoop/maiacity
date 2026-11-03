@@ -21,8 +21,9 @@
 	type Tile = { href: string; label: string; note: string; icon: 'leaf' | 'proposals' | 'play' | 'coops' | 'key' | 'database' | 'factory'; admins?: boolean };
 	const APPS: Tile[] = [
 		{ href: '/assets/', label: 'Assets', note: 'Every asset and its versions', icon: 'leaf' },
-		// the factories that build our assets, each a live simulation (routes/factories): first the LifeTrac line
-		{ href: '/factories/', label: 'Factories', note: 'The LifeTrac line, every part from raw stock', icon: 'factory' },
+		// the factories that build our assets, each a live simulation (routes/factories): first the LifeTrac line; admins
+		// only for now (Samuel 2026-11-03)
+		{ href: '/factories/', label: 'Factories', note: 'The LifeTrac line, every part from raw stock', icon: 'factory', admins: true },
 		// the proposals and the game: shown to admins only for now (Samuel 2026-11-02); an invite still opens the game
 		{ href: '/proposals/', label: 'Proposals', note: 'New versions, proposed and decided', icon: 'proposals', admins: true },
 		{ href: '/game/', label: 'The game', note: 'Coming: for citizens', icon: 'play', admins: true },
