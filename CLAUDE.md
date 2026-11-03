@@ -47,12 +47,13 @@ frame; proposed code never runs on the server or on play's origin) before they d
 **stories** (`list_stories`, `get_story`, `propose_story`, `propose_story_version`, `add_story_frame`, `add_story_audio`, `story_edit`,
 `story_history`; play/SPEC.md §12): a film as one timeline of tracks and clips (storyboard shots, voice, notes, and
 the sound: voice takes, music, sfx and beds, each a recording on its clip, played in the Stories player),
-versioned like the assets, every field of every clip editable only this way, shown on the Proposals page played in the
+versioned like the assets (one film, one story: its rewrites are its next versions, never stories of their own), every field of every clip editable only this way, shown on the Proposals page played in the
 Stories player beside what changed. Every story is also a Loro document (play/SPEC.md §4.4): every step kept with its
 author, message and time, a proposal a branch of it; an agent drafts a change step by step with `story_edit` and
 proposes the draft with `propose_story_version`'s `branch`. So is every **asset** (play/SPEC.md §4.4): its source,
 card and variants, its history made from its versions (and the work kept between them, `play/api/import/history`);
 an agent drafts an asset step by step with `asset_edit` (a replace by its text, a range, a card field, each step with
 its message), reads it with `asset_history` and `get_asset`'s `step`, and proposes the draft with `propose_version`'s
-`branch`, its steps shown on the Proposals page; admins play an asset's making in the asset viewer's history bar. No
-tool accepts or rejects. Admins only for now: a token opens nothing once its owner is no admin.
+`branch`, its steps shown on the Proposals page; admins play an asset's making in the asset viewer's history bar. A
+version can be a kind of **variants** (`propose_version`'s `variants`: a plant's kinds, an animal's breeds), each its own
+recipe and a chip in the asset viewer. No tool accepts or rejects. Admins only for now: a token opens nothing once its owner is no admin.

@@ -11,6 +11,7 @@ import { importSources } from "../import/sources";
 import { legacyRan, runImport } from "../import/run";
 import { seedStories, STORIES } from "../import/stories";
 import { storyVersionId } from "../src/versions";
+import { foldStories } from "../src/stories";
 import { hashText } from "../src/hash";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
@@ -178,6 +179,28 @@ suite("play API", () => {
     const goats = (await call("trav", "GET", "/api/catalog")).data.filter((r: any) => r.asset === ids.goat);
     expect(goats.map((g: any) => [g.variant, g.first])).toEqual([["goat-pied", false], ["goat-saanen", true]]);
     expect(goats[0].hash).not.toBe(goats[1].hash);
+  });
+
+  test("an agent proposes a plant as a kind of variants over MCP: each its own recipe and label, the params its recipe declares", async () => {
+    const t = (await call("ada", "POST", "/api/tokens", { name: "kinds" })).data.token;
+    const src = "// a fern of three kinds\nmodule.exports.recipe = function (id, v, variant) {\n  return { meta: { id, v, variant }, build: () => null };\n};\n";
+    const params = [
+      { id: "stage", label: "Stage", type: "number", min: 0, max: 9, value: 9 },
+      { id: "pollen", label: "Pollen", type: "integer", min: 0, max: 1, value: 1, names: ["None", "A male near"] },
+    ];
+    const head = (await call("trav", "GET", `/api/assets/${ids.fern}`)).data.head;
+    const kinds = [{ name: "both", label: "Fern: Both" }, { name: "female", label: "Fern: Female" }, { name: "male", label: "Fern: Male" }];
+    const r = await tool("propose_version", { asset: ids.fern, base: head, source: src, note: "its kinds", variants: kinds, default_variant: "both", params }, t);
+    expect(r.error).toBeNull();
+    const rows = (await db.query<any>(`SELECT name, card FROM play.asset_variants WHERE version_id = $1 ORDER BY name`, [r.out.version])).rows;
+    expect(rows.map((x) => [x.name, x.card.card.label, x.card.card.variant])).toEqual([["both", "Fern: Both", "both"], ["female", "Fern: Female", "female"], ["male", "Fern: Male", "male"]]);
+    for (const x of rows) expect(x.card.card.params).toEqual(params);
+    expect(new Set(rows.map((x) => x.card.card.recipe)).size).toBe(3);
+    const v = (await db.query<any>(`SELECT default_variant, recipe_hash FROM play.asset_versions WHERE id = $1`, [r.out.version])).rows[0];
+    expect(v).toMatchObject({ default_variant: "both", recipe_hash: null });
+    expect((await tool("propose_version", { asset: ids.fern, source: src, note: "bad", params: [{ id: "1x", type: "number", value: 1 }] }, t)).error).toContain("own id");
+    expect((await tool("propose_version", { asset: ids.fern, source: src, note: "twice", variants: [{ name: "a" }, { name: "a" }] }, t)).error).toContain("name of its own");
+    await call("ada", "POST", `/api/proposals/${r.out.id}/withdraw`);
   });
 
   test("a proposal naming another asset by a readable ref is refused", async () => {
@@ -733,5 +756,48 @@ suite("play API", () => {
     expect((await call("ada", "POST", `/api/proposals/${pid}/accept`)).data).toMatchObject({ status: "accepted", number: 3 });
     expect((await call("ada", "GET", "/api/stories/old-story")).data.tracks[0].clips[0].line).toBe("third");
     expect((await call("ada", "GET", "/api/stories/old-story/history")).data.versions.map((v: any) => v.number)).toEqual([1, 2, 3]);
+  });
+
+  test("stories folded into one: each its versions in turn as the timeline's next, its open proposal moved, then listed no more", async () => {
+    const frame = (await tool("add_story_frame", { data: frameOf("02.jpg").toString("base64"), media_type: "image/jpeg" })).out.hash;
+    const make = async (story: string, title: string, line: string) => {
+      const p = await tool("propose_story", { story, title, note: `${story} v1`, body: { format: "9:16", fps: 30, tracks: tracks(frame, line) } });
+      expect(p.error).toBeNull();
+      await call("ada", "POST", `/api/proposals/${p.out.id}/accept`);
+    };
+    await make("fold-a", "Devlog", "one");
+    await make("fold-b", "Day 1", "two");
+    const b2 = await tool("propose_story_version", { story: "fold-b", note: "fold-b v2", edits: [{ op: "set_clip", track: "voice", clip: "v2", fields: { line: "three" } }] });
+    expect(b2.error).toBeNull();
+    await call("ada", "POST", `/api/proposals/${b2.out.id}/accept`);
+    await make("fold-c", "Three seeds", "four");
+    const c2 = await tool("propose_story_version", { story: "fold-c", note: "its voice", edits: [{ op: "set_clip", track: "voice", clip: "v2", fields: { line: "five" } }] });
+    expect(c2.error).toBeNull();
+
+    const r = await foldStories(db, [{ into: "fold-a", from: ["fold-b", "fold-c"] }]);
+    expect(r).toEqual({ folded: ["fold-b", "fold-c"], present: [], errors: [] });
+    const a = (await call("ada", "GET", "/api/stories/fold-a")).data;
+    expect(a.versions.map((v: any) => v.number)).toEqual([4, 3, 2, 1]);
+    expect(a).toMatchObject({ title: "Three seeds", number: 4 });
+    expect(a.tracks.find((t: any) => t.id === "voice").clips[1].line).toBe("four");
+    expect(a.versions[2].note).toContain("Brought from story fold-b, its v1");
+    const lines = [];
+    for (const n of [2, 3]) lines.push((await call("ada", "GET", `/api/stories/fold-a?v=${n}`)).data.tracks.find((t: any) => t.id === "voice").clips[1].line);
+    expect(lines).toEqual(["two", "three"]);
+    // the open proposal is on the one timeline now, its own withdrawn
+    const open = (await call("ada", "GET", "/api/proposals?status=open")).data.filter((p: any) => p.slug === "fold-a");
+    expect(open.length).toBe(1);
+    expect(open[0].note).toContain("Moved from story fold-c");
+    expect((await call("ada", "GET", `/api/proposals/${c2.out.id}`)).data.status).toBe("withdrawn");
+    expect((await call("ada", "POST", `/api/proposals/${open[0].id}/accept`)).data).toMatchObject({ status: "accepted", number: 5 });
+    // the folded stories are kept but listed no more, and take no proposal
+    const listed = (await tool("list_stories", {})).out.items.map((x: any) => x.id);
+    expect(listed).toContain("fold-a");
+    expect(listed).not.toContain("fold-b");
+    expect((await call("ada", "GET", "/api/stories/fold-b")).data.number).toBe(2);
+    expect((await tool("propose_story_version", { story: "fold-b", note: "x", edits: [{ op: "set_clip", track: "voice", clip: "v2", fields: { line: "x" } }] })).error).toContain("part of story fold-a");
+    // run again: nothing brought twice
+    expect(await foldStories(db, [{ into: "fold-a", from: ["fold-b", "fold-c"] }])).toEqual({ folded: [], present: ["fold-b", "fold-c"], errors: [] });
+    expect((await call("ada", "GET", "/api/stories/fold-a")).data.number).toBe(5);
   });
 });

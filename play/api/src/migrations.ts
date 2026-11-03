@@ -445,6 +445,12 @@ export const MIGRATIONS: Migration[] = [
       ALTER TABLE play.proposals ADD COLUMN doc_branch BIGINT REFERENCES play.doc_branches(id);
     `,
   },
+  {
+    // one film, one timeline (Samuel 2026-11-03): a story whose versions were brought into another as that one's next
+    // versions (import/stories/folds.json) is kept, its history whole, but listed no more and takes no proposal
+    id: "0014-story-folds",
+    sql: `ALTER TABLE play.stories ADD COLUMN folded_into TEXT REFERENCES play.stories(id);`,
+  },
 ];
 
 /** Runs every migration not yet run, each in its own transaction. */
