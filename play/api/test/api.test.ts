@@ -191,6 +191,13 @@ suite("play API", () => {
     expect((await call(null, "GET", "/api/sandboxes/sandbox-1/config")).status).toBe(401);
   });
 
+  test("the Factories are the admins' alone", async () => {
+    expect((await call(null, "GET", "/api/sandboxes/factories/config")).status).toBe(401);
+    expect((await call("trav", "GET", "/api/sandboxes/factories/config")).status).toBe(403);
+    expect((await call("cit", "GET", "/api/sandboxes/factories/config")).status).toBe(403);
+    expect((await call("ada", "GET", "/api/sandboxes/factories/config")).status).toBe(200);
+  });
+
   test("an asset is named by its UUID, and a slug can't be taken twice", async () => {
     expect((await call("trav", "GET", "/api/assets/plants/fern")).status).toBe(404);
     const again = await call("cit", "POST", "/api/proposals", { new: { group: "plants", slug: "fern", label: "Fern again" }, recipe: recipe("fern", 1, null, "/* twin */") });
