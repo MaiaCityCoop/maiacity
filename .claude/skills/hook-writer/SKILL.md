@@ -98,9 +98,10 @@ way of living").
 ## The meta story in every hook (Samuel, 2026-11-03)
 
 Every story is a day of one journey: we are building a new civilization — how humans will feed themselves healthily
-and live anew — first in a game, then for real, and we start at day one with nothing (no game, no city, no papaya
-yet). A hook may use that frame for its contrast (*nothing yet* ↔ *a city that feeds itself*; *one seed* ↔ *a
-civilization*) and the intro always places the subject in it in a line: the day, what exists, what it is for. The
+and live anew — first in a game, then for real, and Day 1 is its starting point. A hook may use that frame for its
+contrast (*Day 1* ↔ *a city that feeds itself*; *one seed* ↔ *a civilization*) and the intro always places the
+subject in it in a line: the day, where it sits in the journey, what it is for. Say the start as a beginning, never as
+a list of what doesn't exist yet. The
 title card carries "DAY NN". Never talk about AI (below, "Compact").
 
 ## Anchor and promise — the two jobs of every hook
@@ -192,6 +193,10 @@ The hook is also set into the day's title cards (`maia/content/scripts/film/thum
   Not the underpaid."*) — the reader's first guess is the biggest threat to the second paragraph.
 - Can a word come out? Take it out. Hooks die of length.
 - Banned: colon subtitles, listicles ("7 ways to…"), clickbait the body does not pay, a question the subtitle answers.
+- **Assume zero background knowledge** (Samuel, 2026-11-03): the viewer has never heard of maiaCITY, the game, the
+  city or any of our words. The hook makes sense to a stranger scrolling past; the intro says, in plain words, who we
+  are and what we are doing (a new kind of city, designed first as a game, then built for real); any term the viewer
+  may not know is said as what it does ("a forest you can eat from", not "a food forest" alone).
 - **Never talk about AI** (Samuel, 2026-11-03): no "AI", "our AI", "an AI" in a hook, a title, a card or a line. The
   work is ours — *we* built, *we* grew, *I* decided.
 
