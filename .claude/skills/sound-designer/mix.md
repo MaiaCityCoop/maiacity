@@ -1,25 +1,25 @@
 # The mix: levels, tone, J and L cuts
 
-**Levels:** measure, don't guess. Measure each clip's file (BS.1770: ffmpeg's `ebur128` on the take read back with
-`avendb_read_file`, or the render's own report) and set its gain so it plays at its track's aim before the render
+**Levels:** measure, don't guess. Measure each clip's file (BS.1770: ffmpeg's `ebur128` or `loudnorm` on the take, read back from
+`/api/files/<hash>` or kept from where it was made) and set its gain so it plays at its track's aim before the render
 levels the whole mix to −14 LUFS / −1 dBTP:
 - voice (A1) −18 LUFS
 - music (A2) −26 LUFS, and the render ducks it 6 dB more under the voice; keep voice over music 12–18 LU
 - sounds and beds (A3) −30 LUFS
 
-A clip's gain is its `vol` in the cut's `timeline`, a linear gain (1 = as it came; +6 dB ≈ 2, +12 dB ≈ 4), its tone its `eq` (below), both written on a
-proposal of the cut entry (`story-producer` `pipeline.md`, "Studio 2 through avenDB"). Clips carry their own fades (`fin`, `fout`): a voice at
-least 0.05 s so it never clicks, the music 1 s in and 2.5 s out at the film's ends. The Audio tab shows it all on the
-clips themselves.
+A clip's gain is its `gain` in dB on the story's timeline (0 = as it came; a track's `gain` adds to it), its tone its
+`eq` (below), its automation its `keys` ([seconds into the clip, dB]), all written on a proposed version of the story
+(`play.md`). Clips carry their own fades (`fade_in`, `fade_out`, seconds): a voice at least 0.03 s so it never clicks,
+the music 1 s in and 2.5 s out at the film's ends. The Stories player plays it all, music ducked under the voice.
+(The old studio's clips had `vol` linear, `fin`, `fout`; story/1 keeps the same model in dB.)
 
 ## Tone: EQ, measured and matched
 
 Every sound clip can carry an EQ: bands in order, each a biquad from the Audio EQ Cookbook (`highpass`, `lowshelf`,
-`peaking`, `notch`, `highshelf`, `lowpass`; `f` Hz, `gain` dB, `q`). The render's mix (Rust) and the studio's playback
-(Web Audio) make the same filters from the same data, so what you hear in the studio is what renders. It is data on the
-clip (`eq`, the bands in order), written on a proposal of the cut; the Audio tab shows it on the clip (`EQ HP 90,
-+3 dB 4k`). The legacy studio's `audio_measure`, `audio_eq` and `audio_match` have no Studio 2 tool for agents yet:
-measure the files read back, and write the EQ by hand.
+`peaking`, `notch`, `highshelf`, `lowpass`; `f` Hz, `gain` dB, `q`). The Stories player (Web Audio's
+BiquadFilterNode, `play/site/src/lib/stories/sound.ts`) makes the filters from the data on the clip (`eq`, the bands in
+order), and an export's mix later makes the same ones. There is no tool to measure or match yet: measure the files
+yourself (ffmpeg), and write the EQ by hand.
 
 - **The spectrum:** each clip's octave bands 63 Hz–16 kHz, each one's share of the energy where it speaks (dB),
   through its EQ (ffmpeg's band filters or a spectrum of the take). Compare two voices band by band, the way two
