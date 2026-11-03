@@ -98,9 +98,10 @@ way of living").
 ## The meta story in every hook (Samuel, 2026-11-03)
 
 Every story is a day of one journey: we are building a new civilization — how humans will feed themselves healthily
-and live anew — first in a game, then for real, and we start at day one with nothing (no game, no city, no papaya
-yet). A hook may use that frame for its contrast (*nothing yet* ↔ *a city that feeds itself*; *one seed* ↔ *a
-civilization*) and the intro always places the subject in it in a line: the day, what exists, what it is for. The
+and live anew — first in a game, then for real, and Day 1 is its starting point. A hook may use that frame for its
+contrast (*Day 1* ↔ *a city that feeds itself*; *one seed* ↔ *a civilization*) and the intro always places the
+subject in it in a line: the day, where it sits in the journey, what it is for. Say the start as a beginning, never as
+a list of what doesn't exist yet. The
 title card carries "DAY NN". Never talk about AI (below, "Compact").
 
 ## Anchor and promise — the two jobs of every hook
