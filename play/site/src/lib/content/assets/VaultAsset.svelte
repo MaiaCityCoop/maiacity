@@ -243,7 +243,7 @@
 				readModes();
 				// a new recipe is framed as built; the same one built with other values keeps the camera where it is,
 				// unless it grew or shrank by much; a plant growing, the camera follows it
-				cam.reframe(centre, s, { fresh: shownHash !== h0, growing });
+				cam.reframe(centre, s, { fresh: shownHash !== h0, growing, ground: soiled ? 0 : undefined });
 				shownHash = h0;
 				arriving = false;
 			} catch (e) {

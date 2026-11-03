@@ -102,6 +102,9 @@ export async function openStage(box, { onLost, hold } = {}) {
 export function camerawork(THREE, camera, controls) {
 	/** where the camera stands from what it aims at, for each metre of an asset's reach */
 	const BACK = new THREE.Vector3(1.5, 0.7, 1.9);
+	/** how much nearer the camera stands while it follows a plant growing than for a still framing (Samuel 2026-11-03:
+	 *  growing, it stayed too far off) */
+	const GROWING = 0.8;
 	const look = new THREE.Vector3();
 	const spread = new THREE.Box3(), spreadSize = new THREE.Vector3(), bonePoint = new THREE.Vector3();
 	/** how far it spreads now: its meshes, and a rig's bones where they stand (a skin's own bounds stay as bound) */
@@ -148,14 +151,24 @@ export function camerawork(THREE, camera, controls) {
 		/**
 		 * A build shown, `centre` and `size` as built: framed on it when it is a new asset (`fresh`); the same one built
 		 * anew keeps the camera where it is, unless it grew or shrank by much (a plant a stage on, its fruit alone): then
-		 * the camera glides there; a plant `growing`, the camera follows it as it grows, looking from where it looks.
+		 * the camera glides there; a plant `growing`, the camera follows it as it grows, looking from where it looks,
+		 * nearer than a still framing and on what stands above its `ground` (its roots, spreading under the soil, would
+		 * otherwise push the camera far back from a seedling).
 		 */
-		reframe(centre, size, { fresh = false, growing = false } = {}) {
+		reframe(centre, size, { fresh = false, growing = false, ground = undefined } = {}) {
 			const before = cam.framed?.size, big = (v) => Math.max(v.x, v.y, v.z, 1e-6);
 			const grew = before ? big(size) / big(before) : 1;
 			cam.framed = { centre, size };
 			if (fresh) cam.frame();
-			else if (growing) cam.follow = aimOf(cam.framed);
+			else if (growing) {
+				const top = centre.y + size.y / 2, bottom = ground !== undefined && ground < top ? Math.max(ground, centre.y - size.y / 2) : centre.y - size.y / 2;
+				const up = top - bottom;
+				// what stands up: as tall as it is above the ground; as wide as it spreads, but counted no wider than
+				// it is tall, or half its spread where that is more (the roots' reach under the soil is in its spread)
+				const shown = new THREE.Vector3(Math.min(size.x, Math.max(up, size.x * 0.5)), Math.max(up, 1e-3), Math.min(size.z, Math.max(up, size.z * 0.5)));
+				const aim = aimOf({ centre: new THREE.Vector3(centre.x, bottom + up / 2, centre.z), size: shown });
+				cam.follow = { ...aim, back: aim.back * GROWING };
+			}
 			else if (grew > 1.25 || grew < 0.8) cam.frame(true);
 		},
 		/** the camera turned to point `p` (a part's middle), from where it stands */
