@@ -99,7 +99,12 @@
 <!-- `always`: an empty note keeps its line -->
 {#snippet longNote(text, more, toggle, always = false)}
 	{#if text.length > 160}
-		<button class="note" class:more title={more ? 'Show less' : 'Show all of it'} onclick={toggle}>{text}</button>
+		<!-- a long note (a version's description) folded to two lines, opened and closed by its own button: a clamp on a
+		     paragraph, which Safari draws (on a button it showed all of it) -->
+		<div class="long">
+			<p class="note" class:more>{text}</p>
+			<button class="fold" aria-expanded={more} onclick={toggle}>{more ? 'Show less' : 'Show more'}</button>
+		</div>
 	{:else if text || always}
 		<small>{text}</small>
 	{/if}
@@ -236,21 +241,43 @@
 		opacity: 0.7;
 	}
 
-	button.note {
-		all: unset;
+	.long {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.15rem;
+	}
+
+	.long .note {
+		margin: 0;
 		display: -webkit-box;
 		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 3;
-		line-clamp: 3;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
 		overflow: hidden;
 		font-size: 0.78rem;
 		line-height: 1.45;
+		white-space: pre-line;
 		opacity: 0.7;
+	}
+
+	.long .note.more {
+		display: block;
+		-webkit-line-clamp: unset;
+		line-clamp: unset;
+	}
+
+	button.fold {
+		all: unset;
+		font-size: 0.74rem;
+		font-weight: 600;
+		opacity: 0.75;
 		cursor: pointer;
 	}
 
-	button.note.more {
-		display: block;
+	button.fold:hover {
+		opacity: 1;
+		text-decoration: underline;
 	}
 
 	.scale {

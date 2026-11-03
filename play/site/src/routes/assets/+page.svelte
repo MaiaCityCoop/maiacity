@@ -35,6 +35,8 @@
 	let picked = $state<string | null>(null);
 	let solo = $state(true);
 	let tab = $state<'versions' | 'parts'>('versions');
+	/** the versions whose description is opened in the chain (folded to two lines otherwise) */
+	let opened = $state<string[]>([]);
 	// where the viewer puts what it says of the asset (its readout and panel): the aside, under the name
 	let details = $state<HTMLElement | null>(null);
 
@@ -161,7 +163,11 @@
 					<li class:on={v.id === shownVersion.id}>
 						<a href="#{chain.id}/{own}" onclick={(e) => (e.preventDefault(), go(`${chain!.id}/${own}`))}><b>v{v.number}</b> <span>{v.cardLabel ?? chain.label}</span></a>
 						<p class="soft">{v.imported ? 'From legacy avenDB' : `By ${v.author ?? 'someone'}`}{v.approvedBy ? ` · accepted by ${v.approvedBy}` : ''} · {new Date(v.created).toLocaleDateString('en-GB')}</p>
-						{#if v.note}<p class="note">{v.note}</p>{/if}
+						{#if v.note}
+							<!-- a version's description folded to two lines; opened by its own button -->
+							<p class="note" class:more={opened.includes(v.id)}>{v.note}</p>
+							{#if v.note.length > 110}<button class="fold" aria-expanded={opened.includes(v.id)} onclick={() => (opened = opened.includes(v.id) ? opened.filter((x) => x !== v.id) : [...opened, v.id])}>{opened.includes(v.id) ? 'Show less' : 'Show more'}</button>{/if}
+						{/if}
 						{#if v.variants.length > 1 || (v.variants.length && v.recipe)}
 							<div class="variants">
 								{#each v.variants as x (x.name)}
@@ -257,6 +263,10 @@
 	.chain li.on::before { background: var(--mustard); border-color: var(--mustard); }
 	.chain a { color: inherit; text-decoration: none; font-size: 0.9rem; }
 	.chain p { margin: 0.1rem 0 0; font-size: 0.76rem; }
+	.chain p.note { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; white-space: pre-line; }
+	.chain p.note.more { display: block; -webkit-line-clamp: unset; line-clamp: unset; }
+	.chain .fold { all: unset; margin-top: 0.1rem; font-size: 0.72rem; font-weight: 600; color: var(--soft); cursor: pointer; }
+	.chain .fold:hover { color: inherit; text-decoration: underline; }
 	.note { color: var(--ink-soft); }
 	.variants { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 0.35rem; }
 	.side-head { margin: 0 0 0.5rem 0.35rem; color: var(--soft); font-family: var(--font-body); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
