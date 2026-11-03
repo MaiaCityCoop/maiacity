@@ -1,0 +1,45 @@
+// The stories kept in the repo (import/stories/<id>/story.json in format story/1, its frames beside it in frames/): each
+// is written into play's Postgres as its accepted v1 only when play holds no story of its id yet, its shots' frames kept
+// among play's files by their hash. From then on play's Postgres is the source of truth: a story changes only by
+// proposal (over MCP), and nothing here writes over it. Run with every deploy, by ./run.ts.
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+import type { BlobStore } from "../src/blobs";
+import type { Db } from "../src/pg";
+import { putFrame, seedStory, SLUG } from "../src/stories";
+
+export const STORIES = join(import.meta.dir, "stories");
+
+export type StoriesReport = { seeded: string[]; present: string[]; errors: string[] };
+
+export async function seedStories(db: Db, store: BlobStore, dir = STORIES): Promise<StoriesReport> {
+  const out: StoriesReport = { seeded: [], present: [], errors: [] };
+  let ids: string[] = [];
+  try {
+    ids = readdirSync(dir).filter((d) => statSync(join(dir, d)).isDirectory()).sort();
+  } catch {
+    return out;
+  }
+  for (const id of ids) {
+    try {
+      if (!SLUG.test(id)) throw new Error("its folder's name is no story's slug");
+      const { rows } = await db.query(`SELECT 1 FROM play.stories WHERE id = $1`, [id]);
+      if (rows.length) {
+        out.present.push(id);
+        continue;
+      }
+      const story = JSON.parse(readFileSync(join(dir, id, "story.json"), "utf8"));
+      if (story.id && story.id !== id) throw new Error(`its story.json names ${story.id}`);
+      // each shot's frame, named by its file beside the story, kept among play's files and named by its hash from then on
+      for (const t of story.tracks ?? [])
+        if (t?.kind === "shots")
+          for (const c of t.clips ?? []) if (c?.frame) c.frame = (await putFrame(db, store, new Uint8Array(readFileSync(join(dir, id, "frames", c.frame))))).hash;
+      const { title, note, id: _id, ...body } = story;
+      if (await seedStory(db, id, title, note ?? "", body)) out.seeded.push(id);
+      else out.present.push(id);
+    } catch (e) {
+      out.errors.push(`story ${id}: ${(e as Error).message}`);
+    }
+  }
+  return out;
+}

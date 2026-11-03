@@ -12,6 +12,9 @@
 	import { goto } from '$app/navigation';
 	import { admitProposed, source as catalogSource } from '$lib/content/assets/catalog.js';
 	import { changesOnly, lineDiff } from '$lib/diff';
+	import StoryPlayer from '$lib/stories/StoryPlayer.svelte';
+	import StoryChanges, { type StoryDiff } from '$lib/stories/StoryChanges.svelte';
+	import type { Story } from '$lib/stories/timeline';
 
 	const viewer = import('$lib/content/assets/VaultAsset.svelte');
 
@@ -21,7 +24,7 @@
 		if (!admin) goto('/', { replaceState: true });
 	});
 
-	type P = { id: string; asset_id: string; label: string; grp: string; slug: string; version_label: string | null; number: number; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
+	type P = { id: string; kind?: 'asset_version' | 'story_version'; asset_id: string | null; label: string; grp: string; slug: string; version_label: string | null; number: number; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
 	const COLUMNS = [
 		['open', 'Open'],
 		['accepted', 'Accepted'],
@@ -76,15 +79,28 @@
 		if (!r.ok) throw new Error(`The file could not be read (HTTP ${r.status}).`);
 		return r.text();
 	};
+	// a story's proposal (play/api/src/stories.ts): its timeline played in the Stories player, beside what changed
+	type StoryReview = { story: Story; baseStory: (Story & { number: number }) | null; diff: StoryDiff };
+	let storyReview = $state<StoryReview | null>(null);
 	async function openCard(p: P) {
 		open = p;
 		review = null;
+		storyReview = null;
 		code = '';
 		baseCode = null;
 		shown = '';
 		showSource = false;
 		noteOpen = false;
 		reviewError = '';
+		if (p.kind === 'story_version') {
+			try {
+				const r = await api<StoryReview>(`/proposals/${p.id}`);
+				if (open?.id === p.id) storyReview = r;
+			} catch (e) {
+				reviewError = (e as Error).message;
+			}
+			return;
+		}
 		try {
 			const r = await api<Review & { builds: any[] }>(`/proposals/${p.id}`);
 			if (open?.id !== p.id) return;
@@ -169,6 +185,19 @@
 				</div>
 				<button class="more" onclick={() => (noteOpen = !noteOpen)}>{noteOpen ? 'Less' : 'More'}</button>
 			{/if}
+			{#if p.kind === 'story_version'}
+				<div class="story-review">
+					{#if reviewError}<p class="error">{reviewError}</p>
+					{:else if !storyReview}<p class="muted">Reading it…</p>
+					{:else}
+						<div class="story-play"><StoryPlayer story={storyReview.story} compact /></div>
+						<div class="story-diff">
+							<h3>{storyReview.baseStory ? `Changes from v${storyReview.baseStory.number}` : 'A new story'}</h3>
+							<StoryChanges diff={storyReview.diff} fresh={!storyReview.baseStory} />
+						</div>
+					{/if}
+				</div>
+			{:else}
 			<div class="review-body" class:split={showSource}>
 				<div class="built">
 					{#if reviewError}<p class="error">{reviewError}</p>
@@ -204,6 +233,7 @@
 					</div>
 				{/if}
 			</div>
+			{/if}
 		</div>
 	{/if}
 {/if}
@@ -254,4 +284,9 @@
 	.src .same { display: block; opacity: 0.7; }
 	.src .skip { display: block; opacity: 0.5; font-style: italic; padding: 0.2rem 0; }
 	.small { font-size: 0.8rem; }
+	/* a story's proposal: its timeline played, beside what changed against the head */
+	.story-review { flex: 1 1 auto; min-height: 0; overflow: auto; display: grid; grid-template-columns: minmax(0, 3fr) minmax(16rem, 2fr); gap: 1rem; align-items: start; }
+	.story-diff { min-width: 0; }
+	.story-diff h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+	@media (max-width: 1000px) { .story-review { grid-template-columns: minmax(0, 1fr); } }
 </style>

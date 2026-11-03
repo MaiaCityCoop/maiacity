@@ -18,7 +18,7 @@ is changed, moved or deleted, and the new sandboxes drift apart from it from day
 | Rights | Visitors (not signed in): no rights, they see the sign-in page. Travelers: enter and play every sandbox, read every asset and every version. Citizens (by invite): + propose new asset versions, + the coming game. Admins: accept or reject proposals, run members and invites |
 | Proposals | v0: **asset update proposals** only (a new version of an asset): **citizens propose, admins accept**. Pinning a sandbox to an asset version is a separate proposal kind, later (§4.4) |
 | Encryption | None for now; it can come back as a layer on top |
-| Versioning | A content-addressed version DAG in Postgres (§4.3), and under it every step kept in Loro: one Loro document per story (assets next), proposals as branches, versions named by the hash of their content (§4.4, Samuel 2026-11-03) |
+| Versioning | A content-addressed version DAG in Postgres (§4.3), and under it every step kept in Loro: one Loro document per story (assets next), proposals as branches, versions named by the hash of their content (§4.4, §12; Samuel 2026-11-03) |
 | Out of scope | Studio, blog, stories, posts, chat, the agent MCP, theOS, DB2, the V2 trailer/intro |
 
 ## 2. Shape
@@ -136,7 +136,7 @@ to read, to time-travel through and to tell (a making-of is that history played 
   with the hash of the merged result as it was built and previewed in the box.
 - **Built recipe files and pins are unchanged**: a recipe file is still made from a version's source and named by its
   hash; sandboxes still pin builds. Loro adds the history under a version; it replaces nothing of §4.5.
-- **Tables** (migration `0012-docs`): `docs` (its type, schema, head frontiers and a snapshot of its main line, written
+- **Tables** (migration `0013-docs`): `docs` (its type, schema, head frontiers and a snapshot of its main line, written
   again every 32 steps and always holding the whole history), `doc_updates` (every step, append only), `doc_versions`
   (named versions, never changed), `doc_branches` (proposals), `doc_peers` (who writes as which Loro peer: one per
   author on the main line, a fresh one on every branch, so two branches never write the same operation ids).
@@ -248,3 +248,73 @@ a chain, its variants, a viewer) · `/proposals/` · `/game/` (placeholder; clai
 
 None for v0. Settled 2026-11-02: citizens propose and admins accept; the Maia City coop owns every asset and its
 admins are its owners; Sandbox 3 has no tree planting for now; every sandbox gets the random walking character.
+
+## 12. Stories (Samuel 2026-11-03)
+
+A **story** is one of our films as **one timeline**: admins play it through on `/stories/` (its storyboard frames
+beside the subtitles of its script, the notes for the edit, its sections and its mood rising and falling) to feel
+whether it works before anything is filmed or rendered. Admins only, reading and proposing. Later the same timeline
+becomes the film itself (motion design, three.js scenes per shot) and is **rendered into a video frame by frame**.
+The format and the player are made for that now.
+
+**The format, `story/1`: tracks of clips.**
+
+```
+{ schema: 'story/1', format: '9:16' | '16:9' | '1:1' | '4:5', fps: 24|25|30|48|50|60, duration,
+  tracks: [ { id, kind, clips: [ { id, at, duration, …its kind's fields } ] } ] }
+```
+
+| kind | a clip's fields | later |
+|---|---|---|
+| `shots` | `frame` (an image's file hash, a still of the storyboard), `transition` (how it goes into the next shot) | `scene`: an asset ref by hash, its values (a plant's stage…), camera keyframes `[{ t, pos, look, fov }]`, replacing the still shot by shot |
+| `voice` | `who`, `line` (the narration; its subtitle) | `audio`: a recording's file hash |
+| `notes` | `section`, `camera`, `retention`, `mood` (↑ ↑↑ ↑↑↑ ↓ ↓↓ ↕) | |
+
+Times are seconds; `duration` is worked out from the clips. Clips of `shots`, `voice` and `notes` follow one another
+and never overlap; other kinds may. **A clip may carry fields no kind names, and a track may be of a kind not named
+here** (`music`, `sfx`, `callout`, `scene`): both are kept as given, so a new kind needs no migration. Frames are
+`files` like any other (§4.3), served by `GET /api/files/:hash`.
+
+**One function shows it.** The player's picture is `renderAt(story, t)` (`play/site/src/lib/stories/timeline.ts`):
+from the timeline alone, the shot at second t, the one fading out under it and how far (a cut cuts, other
+transitions cross-fade over up to half a second), the subtitle and how much of it is spoken, the notes. Play and
+scrub only move t; nothing runs on a clock of its own. The same t gives the same picture every time, which is what a
+frame-by-frame export needs (WebCodecs in the browser, or a page a renderer seeks through): it comes later.
+
+**Versioned like assets: the content-addressed DAG of §4.**
+
+```sql
+stories         (id /*slug*/, coop_id, title /*its head's*/, head → story_versions, created, updated)
+story_versions  (id /*BLAKE3 of canonical {story, parents, title, body}, as asset versions' ids (versions.ts)*/,
+                 story_id, parents text[], number /*v1, v2 …, given on accept, shown only*/, title, body jsonb /*story/1*/,
+                 note, author → humans, approved_by → humans, created)
+                 -- immutable: a trigger refuses UPDATE and DELETE (only number/approver are set once, on accept)
+proposals       (… kind 'story_version', story_id, story_base → story_versions, story_version → story_versions)
+```
+
+- A version's id is its content's: the same story, parents, title and timeline give the same id; any change to any
+  of them, or to the history it stands on, gives another, so history can't be rewritten without the ids changing.
+- Each version names its parent; a proposal names the **base** it was made on.
+- **Accept** is the asset versions' transaction: it checks `stories.head = proposal.story_base`, gives the version
+  the next number, moves the head (and the story's title), and turns the other open proposals on that base stale. A
+  proposal whose base is no longer the head is **stale**, never accepted: it is proposed again on the new head.
+  Rejected and stale proposals stay as side lines in the history; their versions keep no number.
+- The repo's stories (`play/api/import/stories/<id>/`, `story.json` and its `frames/`) are written once, as their
+  accepted v1, by the import every deploy runs, only where play holds no story of that id (`import/stories.ts`).
+
+**Changed only by proposal, over MCP.** No page and no route edits a story: `GET /api/stories` and
+`GET /api/stories/:id[?v=n]` read them (admins), and a story changes only by an admin's agent proposing over play's
+MCP server (§7, `play/api/src/mcp.ts`):
+
+- `list_stories`, `get_story` (its head, or an accepted version, with its versions);
+- `propose_story`: a new story, as its whole timeline;
+- `propose_story_version`: a new version, as its whole timeline or as **edits applied to the head**: `set_clip`
+  (any field of any clip; null removes one), `add_clip`, `remove_clip`, `add_track`, `remove_track`, `set_track`,
+  `shift` (every clip from a time on moved by some seconds, to make room or close a gap) and `set` (format, fps).
+  What is stored is the whole timeline, checked as a whole: its format, unique ids, times, no overlaps, every frame
+  an image play holds;
+- `add_story_frame`: an image (JPEG, PNG or WebP, up to 4 MB) as base64, kept as a file; its hash for a shot's frame.
+
+The Proposals page shows a story's proposal played in the Stories player, beside what changed against its base (the
+title and settings, and track by track the clips added, removed, moved and changed). Admins accept or reject it
+there; no tool decides.
