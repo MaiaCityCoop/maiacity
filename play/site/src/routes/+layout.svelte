@@ -15,9 +15,14 @@
 	import { loadMe, session, signOut } from '$lib/session.svelte';
 	import { acting, actAs } from '$lib/acting.svelte';
 	import SignIn from '$lib/SignIn.svelte';
+	import { dev } from '$app/environment';
+	import { page } from '$app/state';
 
 	let { children } = $props();
 	onMount(loadMe);
+
+	// the render bench (/render, ./render/+page.svelte) is a developer's tool: in development it needs no account
+	const bench = $derived(dev && page.url.pathname.startsWith('/render'));
 
 	const initials = (s: string) => s.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 	// whom you act as, in the You menu: yourself, and for an admin Maia City, the coop that owns every asset
@@ -42,7 +47,9 @@
 	});
 </script>
 
-{#if !session.ready}
+{#if bench}
+	{@render children()}
+{:else if !session.ready}
 	<main class="page"><p class="muted">Loading…</p></main>
 {:else if !session.me}
 	<SignIn />

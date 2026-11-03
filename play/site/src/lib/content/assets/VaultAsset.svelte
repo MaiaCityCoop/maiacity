@@ -164,7 +164,7 @@
 			return;
 		}
 		// for a test in a browser to read what is shown, as AssetViewer's `__viewer`
-		window.__vaultAsset = { stage, camera, controls, get hero() { return hero; }, get picked() { return picked; }, get building() { return building; }, get phase() { return buildPhase; }, get error() { return error; } };
+		window.__vaultAsset = { stage, camera, controls, get hero() { return hero; }, get picked() { return picked; }, get building() { return building; }, get phase() { return buildPhase; }, get error() { return error; }, get values() { return values; }, get wanted() { return wanted; }, set: (id, v) => setParam(id, v) };
 		// a plant's earth, as the plants page shows it: under a plant, never under its fruit on its own
 		const earth = soilOf();
 		earth.group.visible = false;
