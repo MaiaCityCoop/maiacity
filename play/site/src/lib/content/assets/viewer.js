@@ -102,6 +102,21 @@ export async function openStage(box, { onLost, hold } = {}) {
 export function camerawork(THREE, camera, controls) {
 	/** where the camera stands from what it aims at, for each metre of an asset's reach */
 	const BACK = new THREE.Vector3(1.5, 0.7, 1.9);
+	/** how much nearer the camera stands while it follows a plant growing than for a still framing (Samuel 2026-11-03:
+	 *  growing, it stayed too far off) */
+	const GROWING = 0.8;
+	/**
+	 * What of a plant stands above its ground (y = `ground`): as tall as it rises; as wide as it spreads, but counted no
+	 * wider than it is tall, or half its spread where that is more (the roots' reach under the soil is in its spread).
+	 * A plant all under the ground (a stone germinating) is framed whole.
+	 */
+	const aboveGround = (centre, size, ground) => {
+		const top = centre.y + size.y / 2, low = centre.y - size.y / 2;
+		if (top <= ground + 1e-3) return { centre, size };
+		const bottom = Math.max(ground, low), up = top - bottom;
+		const wide = (w) => Math.min(w, Math.max(up, w * 0.5));
+		return { centre: new THREE.Vector3(centre.x, bottom + up / 2, centre.z), size: new THREE.Vector3(wide(size.x), up, wide(size.z)) };
+	};
 	const look = new THREE.Vector3();
 	const spread = new THREE.Box3(), spreadSize = new THREE.Vector3(), bonePoint = new THREE.Vector3();
 	/** how far it spreads now: its meshes, and a rig's bones where they stand (a skin's own bounds stay as bound) */
@@ -148,15 +163,21 @@ export function camerawork(THREE, camera, controls) {
 		/**
 		 * A build shown, `centre` and `size` as built: framed on it when it is a new asset (`fresh`); the same one built
 		 * anew keeps the camera where it is, unless it grew or shrank by much (a plant a stage on, its fruit alone): then
-		 * the camera glides there; a plant `growing`, the camera follows it as it grows, looking from where it looks.
+		 * the camera glides there; a plant `growing`, the camera follows it as it grows, looking from where it looks,
+		 * nearer than a still framing. A plant on its `ground` is framed on what stands above it: its roots lie hidden in
+		 * the earth (seen by tilting below the ground line, ./ground.js), and counted they would push the camera far back
+		 * and aim it low.
 		 */
-		reframe(centre, size, { fresh = false, growing = false } = {}) {
+		reframe(centre, size, { fresh = false, growing = false, ground = undefined } = {}) {
+			if (ground !== undefined) ({ centre, size } = aboveGround(centre, size, ground));
 			const before = cam.framed?.size, big = (v) => Math.max(v.x, v.y, v.z, 1e-6);
 			const grew = before ? big(size) / big(before) : 1;
 			cam.framed = { centre, size };
 			if (fresh) cam.frame();
-			else if (growing) cam.follow = aimOf(cam.framed);
-			else if (grew > 1.25 || grew < 0.8) cam.frame(true);
+			else if (growing) {
+				const aim = aimOf(cam.framed);
+				cam.follow = { ...aim, back: aim.back * GROWING };
+			} else if (grew > 1.25 || grew < 0.8) cam.frame(true);
 		},
 		/** the camera turned to point `p` (a part's middle), from where it stands */
 		aimAt(p) {
