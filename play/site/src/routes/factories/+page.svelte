@@ -12,6 +12,8 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
+	import { session } from '$lib/session.svelte';
 	import { FACTORIES } from '$lib/content/factories/index.js';
 	import { ASSEMBLIES, STOCK, opsAt, totals } from '$lib/content/factories/lifetrac-bom.js';
 	import '$lib/content/factories/hud.css';
@@ -20,7 +22,7 @@
 	type Part = { id: string; label: string; assembly: string; qty: number; raw: { stock?: string; size?: string; kg?: number; bought?: string; also?: string[] }; ops: Op[] };
 	type App = { dispose: () => void; select: (id: string | null) => void; showRoute: (ids: string[] | null) => void; camTo: (v: object, s?: number) => void; stationCenter: (id: string) => unknown };
 
-	let host: HTMLDivElement;
+	let host = $state<HTMLDivElement>();
 	let error = $state('');
 	let phase = $state('Building the line…');
 	let missing = $state<{ ref: string; why: string }[]>([]);
@@ -72,7 +74,12 @@
 		return `<div class="fs-ops"><div class="fs-lab">For one LifeTrac, here · ${ops.length} operations</div><ol>${rows}</ol></div>`;
 	}
 
+	// admins only for now (Samuel 2026-11-03): anyone else is taken back to the dashboard, and the API hands the
+	// Factories' pins to admins alone
+	const admin = $derived(session.me?.level === 'admin');
+
 	onMount(() => {
+		if (!admin) return void goto('/', { replaceState: true });
 		let gone = false;
 		(async () => {
 			try {
@@ -99,60 +106,62 @@
 	<title>{factory.label} · Factories · maiaCITY play</title>
 </svelte:head>
 
-<div class="factory" bind:this={host}></div>
+{#if admin}
+	<div class="factory" bind:this={host}></div>
 
-{#if phase && !error}<p class="phase">{phase}</p>{/if}
-{#if error}<p class="bad">The factory could not be built: {error}</p>{/if}
+	{#if phase && !error}<p class="phase">{phase}</p>{/if}
+	{#if error}<p class="bad">The factory could not be built: {error}</p>{/if}
 
-{#if !phase && !error}
-	<button class="parts-btn" class:on={open} onclick={() => (open = !open)} aria-expanded={open}>
-		{open ? 'Close' : 'Every part'} · {T.parts}
-	</button>
-	{#if missing.length}
-		<p class="missing">Drawn with the line’s own model of the LifeTrac and pallet: {[...new Set(missing.map((m) => m.why))].join('; ')}</p>
+	{#if !phase && !error}
+		<button class="parts-btn" class:on={open} onclick={() => (open = !open)} aria-expanded={open}>
+			{open ? 'Close' : 'Every part'} · {T.parts}
+		</button>
+		{#if missing.length}
+			<p class="missing">Drawn with the line’s own model of the LifeTrac and pallet: {[...new Set(missing.map((m) => m.why))].join('; ')}</p>
+		{/if}
 	{/if}
-{/if}
 
-{#if open}
-	<aside class="parts" aria-label="Every part of the LifeTrac and how it is made">
-		<header>
-			<p class="eyebrow">Bill of process</p>
-			<h2>Every part of the LifeTrac</h2>
-			<p class="sum">{T.parts} parts, {T.pieces} pieces, {T.kg.toLocaleString('en-US')} kg: {T.made} made here from raw stock, {T.bought} bought. Pick one to light up its route through the factory.</p>
-			<input type="search" placeholder="Filter: panel, hose, 4140, Parker…" bind:value={q} />
-		</header>
-		<div class="list">
-			{#each groups as g (g.id)}
-				<h3>{g.label}</h3>
-				{#each g.parts as p (p.id)}
-					<div class="part" class:sel={shown === p.id} id="part-{p.id}">
-						<button class="head" onclick={() => show(p)}>
-							<span class="name">{p.label}{p.qty > 1 ? ` ×${p.qty}` : ''}</span>
-							<span class="tag" class:made={!!p.raw.stock}>{p.raw.stock ? 'made' : 'bought'}</span>
-						</button>
-						{#if shown === p.id}
-							<div class="route">
-								<p class="raw">
-									{#if p.raw.stock}<b>From</b> {stock[p.raw.stock].label}{#each p.raw.also ?? [] as a}; {stock[a].label}{/each}{p.raw.size ? ` · ${p.raw.size}` : ''}{:else}{p.raw.bought}{/if}{p.raw.kg ? ` · ${p.raw.kg} kg` : ''}
-								</p>
-								{#if p.raw.stock && p.raw.bought}<p class="raw">{p.raw.bought}</p>{/if}
-								<ol>
-									{#each routeOf(p) as o, i (i)}
-										<li class:zero={!o.s}>
-											<button class="st" class:here={picked === o.at} onclick={() => goTo(o.at)}>{stationOf.get(o.at)?.name ?? o.at}</button>
-											<span class="s">{o.s ? secs(o.s) : '—'}</span>
-											<span class="what">{o.what}</span>
-										</li>
-									{/each}
-								</ol>
-								<p class="total">{secs(timeOf(p))} of work for one LifeTrac, at {stationsOf(p).length} stations</p>
-							</div>
-						{/if}
-					</div>
+	{#if open}
+		<aside class="parts" aria-label="Every part of the LifeTrac and how it is made">
+			<header>
+				<p class="eyebrow">Bill of process</p>
+				<h2>Every part of the LifeTrac</h2>
+				<p class="sum">{T.parts} parts, {T.pieces} pieces, {T.kg.toLocaleString('en-US')} kg: {T.made} made here from raw stock, {T.bought} bought. Pick one to light up its route through the factory.</p>
+				<input type="search" placeholder="Filter: panel, hose, 4140, Parker…" bind:value={q} />
+			</header>
+			<div class="list">
+				{#each groups as g (g.id)}
+					<h3>{g.label}</h3>
+					{#each g.parts as p (p.id)}
+						<div class="part" class:sel={shown === p.id} id="part-{p.id}">
+							<button class="head" onclick={() => show(p)}>
+								<span class="name">{p.label}{p.qty > 1 ? ` ×${p.qty}` : ''}</span>
+								<span class="tag" class:made={!!p.raw.stock}>{p.raw.stock ? 'made' : 'bought'}</span>
+							</button>
+							{#if shown === p.id}
+								<div class="route">
+									<p class="raw">
+										{#if p.raw.stock}<b>From</b> {stock[p.raw.stock].label}{#each p.raw.also ?? [] as a}; {stock[a].label}{/each}{p.raw.size ? ` · ${p.raw.size}` : ''}{:else}{p.raw.bought}{/if}{p.raw.kg ? ` · ${p.raw.kg} kg` : ''}
+									</p>
+									{#if p.raw.stock && p.raw.bought}<p class="raw">{p.raw.bought}</p>{/if}
+									<ol>
+										{#each routeOf(p) as o, i (i)}
+											<li class:zero={!o.s}>
+												<button class="st" class:here={picked === o.at} onclick={() => goTo(o.at)}>{stationOf.get(o.at)?.name ?? o.at}</button>
+												<span class="s">{o.s ? secs(o.s) : '—'}</span>
+												<span class="what">{o.what}</span>
+											</li>
+										{/each}
+									</ol>
+									<p class="total">{secs(timeOf(p))} of work for one LifeTrac, at {stationsOf(p).length} stations</p>
+								</div>
+							{/if}
+						</div>
+					{/each}
 				{/each}
-			{/each}
-		</div>
-	</aside>
+			</div>
+		</aside>
+	{/if}
 {/if}
 
 <style>

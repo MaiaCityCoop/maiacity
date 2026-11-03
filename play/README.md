@@ -31,5 +31,7 @@ and Sandbox 1's garden config; 11 media files (covers, sounds). Every asset is n
 Production lines as live 3D simulations (AirSup's factory skill, its runtime cloned from `SNAPSHOT_2611101`). The first
 is the LifeTrac line: every one of the 135 parts of `machines/lifetrac@1` with its raw stock and every operation it goes
 through (`lifetrac-bom.js`), each station's cycle time the sum of those operations (`lifetrac-line.js`). The line draws
-the real LifeTrac and our Euro pallet by the Factories' pins (`import/plan.ts` `FACTORIES`). Its checks:
+the real LifeTrac and our Euro pallet by the Factories' pins (`import/plan.ts` `FACTORIES`). Admins only for now
+(Samuel 2026-11-03): the dashboard shows the tile to admins, the page sends anyone else back, and the API hands the
+Factories' config to admins alone. Its checks:
 `cd play/site && bunx vitest run src/lib/content/factories`.
