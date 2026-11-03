@@ -101,3 +101,83 @@ export const clock = (s: number) => {
 	const m = Math.floor(s / 60), r = s - m * 60;
 	return `${m}:${r < 10 ? '0' : ''}${r.toFixed(1)}`;
 };
+
+// ---- sound: what the timeline plays, from the timeline alone (the player's Web Audio engine, ./sound.ts, and later
+// an export's mix lay exactly these on their clocks)
+
+export type EqBand = { type: BiquadFilterType; f: number; gain: number; q: number };
+/** one recording laid on the timeline: from `at` for `duration` seconds, starting `from` seconds into the file */
+export type Sound = {
+	track: string;
+	kind: string;
+	clip: string;
+	hash: string;
+	at: number;
+	duration: number;
+	from: number;
+	/** linear gain: the clip's and its track's dB together */
+	vol: number;
+	fadeIn: number;
+	fadeOut: number;
+	eq: EqBand[];
+	keys: [number, number][];
+	/** ducked under the voice (music tracks, as the old studio did) */
+	duck: boolean;
+};
+
+/** the kinds whose sound ducks under the voice */
+export const DUCKED = new Set(['music', 'score']);
+/** how far music dips under the voice (about -6 dB), and how fast it goes down and comes back up */
+export const DUCK = { level: 0.5, down: 0.15, up: 0.9 };
+export const dbToGain = (db: number) => Math.pow(10, db / 20);
+
+/** every sounding clip of the story, in time order (muted tracks left out) */
+export function soundsOf(story: StoryBody | null | undefined): Sound[] {
+	const out: Sound[] = [];
+	for (const t of story?.tracks ?? []) {
+		if ((t as any).mute) continue;
+		const trackDb = Number((t as any).gain ?? 0) || 0;
+		for (const c of t.clips) {
+			if (typeof c.audio !== 'string' || !c.audio) continue;
+			const voice = t.kind === 'voice';
+			out.push({
+				track: t.id,
+				kind: t.kind,
+				clip: c.id,
+				hash: c.audio,
+				at: c.at,
+				duration: c.duration,
+				from: Number(c.audio_in ?? 0) || 0,
+				vol: dbToGain(trackDb + (Number(c.gain ?? 0) || 0)),
+				fadeIn: Number(c.fade_in ?? (voice ? 0.03 : 0.06)),
+				fadeOut: Math.min(Number(c.fade_out ?? (voice ? 0.08 : 0.3)), c.duration / 2),
+				eq: Array.isArray(c.eq) ? (c.eq as EqBand[]) : [],
+				keys: Array.isArray(c.keys) ? (c.keys as [number, number][]) : [],
+				duck: DUCKED.has(t.kind),
+			});
+		}
+	}
+	return out.sort((a, b) => a.at - b.at);
+}
+
+/** the spans the voice speaks over (where music ducks), merged */
+export function voiceSpans(sounds: Sound[]): [number, number][] {
+	const spans: [number, number][] = [];
+	for (const s of sounds.filter((x) => x.kind === 'voice')) {
+		const last = spans[spans.length - 1];
+		if (last && s.at <= last[1] + 0.5) last[1] = Math.max(last[1], s.at + s.duration);
+		else spans.push([s.at, s.at + s.duration]);
+	}
+	return spans;
+}
+
+/** the gain automation's dB at `t` seconds into the clip: straight lines between keys, the ends held */
+export function keyDb(keys: [number, number][], t: number): number {
+	if (!keys.length) return 0;
+	if (t <= keys[0][0]) return keys[0][1];
+	for (let i = 1; i < keys.length; i++) {
+		const [t0, d0] = keys[i - 1], [t1, d1] = keys[i];
+		if (t <= t1) return t1 > t0 ? d0 + ((d1 - d0) * (t - t0)) / (t1 - t0) : d1;
+	}
+	return keys[keys.length - 1][1];
+}

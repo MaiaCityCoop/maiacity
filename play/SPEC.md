@@ -297,8 +297,18 @@ The format and the player are made for that now.
 | kind | a clip's fields | later |
 |---|---|---|
 | `shots` | `frame` (an image's file hash, a still of the storyboard), `transition` (how it goes into the next shot) | `scene`: an asset ref by hash, its values (a plant's stage…), camera keyframes `[{ t, pos, look, fov }]`, replacing the still shot by shot |
-| `voice` | `who`, `line` (the narration; its subtitle) | `audio`: a recording's file hash |
+| `voice` | `who`, `line` (the narration; its subtitle); its take as the clip's sound (below) | |
 | `notes` | `section`, `camera`, `retention`, `mood` (↑ ↑↑ ↑↑↑ ↓ ↓↓ ↕) | |
+| `music`, `sfx`, `ambience` | the score and cues (ducked about 6 dB under the voice), spot sounds and hits, beds; clips may overlap | |
+
+**Every clip may sound** (Samuel 2026-11-03, the old studio's model of a clip's sound, `SNAPSHOT_2611101`
+`maia/content/studio`): `audio` a recording's file hash (MCP `add_story_audio`: MP3, WAV, Ogg, FLAC, M4A or WebM, its
+type read from its bytes, ≤ 25 MB, kept among `files` and served as audio), `audio_in` the trim into it (s), `gain`
+(dB, −60…+24), `fade_in`/`fade_out` (s), `eq` (≤ 8 biquad bands `{ type, f, gain, q }`) and `keys` (gain automation,
+`[s, dB]`). A track may carry `gain` (dB) and `mute`. Every hash must be a recording play holds, as every frame must be
+an image. The player lays every sounding clip on one Web Audio clock (`play/site/src/lib/stories/sound.ts`, from the
+pure `soundsOf(story)` in `timeline.ts`, which an export's mix will lay the same way); while it plays, t follows that
+clock, and a seek lays the sound again from the new t.
 
 Times are seconds; `duration` is worked out from the clips. Clips of `shots`, `voice` and `notes` follow one another
 and never overlap; other kinds may. **A clip may carry fields no kind names, and a track may be of a kind not named

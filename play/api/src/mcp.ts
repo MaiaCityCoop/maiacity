@@ -10,7 +10,7 @@ import type { Me } from "./access";
 import { assetOf, listAssets, NotFound } from "./assets";
 import { listProposals, propose, ProposalError } from "./proposals";
 import { adminByToken } from "./tokens";
-import { admin, editStory, listStories, MOST_FRAME, proposeStory, putFrameBase64, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
+import { admin, AUDIO_TYPES, editStory, listStories, MOST_AUDIO, MOST_FRAME, proposeStory, putAudioBase64, putFrameBase64, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
 import { AssetDocError, assetAtStep, assetHistory, editAsset } from "./assetdocs";
 
 const PROTOCOL = "2025-06-18";
@@ -39,7 +39,9 @@ const STORY_FORMAT =
   "kind 'shots' { frame: an image's hash from add_story_frame, transition: how it goes into the next shot }; " +
   "kind 'voice' { who, line } (the narration, shown as the subtitle); " +
   "kind 'notes' { section, camera, retention, mood } (mood as arrows: ↑ ↑↑ ↑↑↑ ↓ ↓↓ ↕). " +
-  "A clip may carry more fields, and a track may be of another kind (music, sfx, callout, scene): they are kept as given. " +
+  "Any clip of any track may sound: { audio: a recording's hash from add_story_audio, audio_in: where in the recording it starts (s), gain (dB), fade_in, fade_out (s) }, played from the clip's at for its duration; " +
+  "a voice clip's audio is its take, and tracks of kind music, sfx or ambience hold the score, the spot sounds and the beds, their clips overlapping as they like; a track may carry gain (dB) and mute. " +
+  "A clip may carry more fields, and a track may be of another kind (callout, scene): they are kept as given. " +
   "duration is worked out from the clips. Clip ids are unique within their track; track ids within the story.";
 
 export function mcp({ db, store }: { db: Db; store: BlobStore }) {
@@ -306,6 +308,17 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         additionalProperties: false,
       },
       run: async ({ data, media_type }, me) => (admin(me), putFrameBase64(db, store, data, media_type)),
+    },
+    {
+      name: "add_story_audio",
+      description: `Add a recording (MP3, WAV, Ogg, FLAC, M4A or WebM audio, at most ${MOST_AUDIO / 1e6} MB) as base64: a voice take, a music cue, a sound effect, an ambience bed or a whole mix. play keeps it among its files and gives back its BLAKE3 hash, to use as a clip's \`audio\` in propose_story, propose_story_version or story_edit. The same recording always gives the same hash.`,
+      inputSchema: {
+        type: "object",
+        properties: { data: { type: "string", description: "the recording's bytes as base64 (a data: URL's prefix is allowed)" }, media_type: { type: "string", enum: AUDIO_TYPES } },
+        required: ["data", "media_type"],
+        additionalProperties: false,
+      },
+      run: async ({ data, media_type }, me) => (admin(me), putAudioBase64(db, store, data, media_type)),
     },
     {
       name: "list_proposals",

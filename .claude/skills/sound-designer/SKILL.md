@@ -1,6 +1,6 @@
 ---
 name: sound-designer
-description: The sound designer and re-recording mixer of maiaCITY's films — the voice (narrator takes on ElevenLabs, Samuel's own voice), the original score per film and its cues, sound design in three layers (beds, spot sounds, hits), silence and contrast, J and L cuts across scenes, EQ matching and the mix to −14 LUFS / −1 dBTP, in Studio 2 (avenDB in The OS app: the mix as data on the cut — each clip's vol, eq and fades — proposed through the avendb MCP as avenMAIA, measured on the takes and renders read back). Use it whenever a film's voice, music or sound is recorded, composed, spotted, designed, cut or mixed.
+description: The sound designer and re-recording mixer of maiaCITY's films — the voice (narrator takes on ElevenLabs, Samuel's own voice), the original score per film and its cues, sound design in three layers (beds, spot sounds, hits), silence and contrast, J and L cuts across scenes, EQ matching and the mix to −14 LUFS / −1 dBTP, on play's story timeline (play.maia.city's Stories: every take, cue, effect and bed a recording kept by its hash with add_story_audio, laid on a clip with its trim, gain, fades, EQ and automation, proposed through the maia-play MCP and heard in the Stories player; `play.md`). Use it whenever a film's voice, music or sound is recorded, composed, spotted, designed, cut or mixed.
 ---
 
 # Sound designer
@@ -32,6 +32,7 @@ sound design makes the world real, and the mix lets all three be heard.
 | `score.md` | the score | an original score per film in chunks that follow the arc, cues, spotting where music starts and stops |
 | `design.md` | sound design | beds, spot sounds and hits, silence and contrast, the sound transitions, the masters' philosophy |
 | `mix.md` | the mix | levels, EQ measured and matched, how the pros finish a film, J and L cuts across scenes |
+| `play.md` | sound on play's timeline | the story/1 sound fields, add_story_audio, making takes on fal, a story voiced end to end |
 
 ## The order of work
 
@@ -42,6 +43,7 @@ sound design makes the world real, and the mix lets all three be heard.
 5. The mix: voices matched and levelled, beds unbroken, music edited then levelled, transitions, measured again,
    every cut listened through (`mix.md`).
 
-An agent mixes by proposal: it reads the cut entry (its `timeline` holds every clip's `vol`, `eq`, `fin` and `fout`),
-writes the mix on a proposal of it, and puts that to Samuel in an AIP; the render it wants is named in the note
-(`story-producer` `pipeline.md`, "Studio 2 through avenDB").
+An agent mixes by proposal: it reads the story (`get_story`), adds its recordings (`add_story_audio`), writes every
+clip's `audio`, `gain`, `fade_in`, `fade_out`, `eq` and `keys` on a proposed version of it, and Samuel hears it in the
+Stories player before he decides (`play.md`). The old Studio 2 (avenDB, the avendb MCP, the Audio tab) is gone with
+the refactor (branch `SNAPSHOT_2611101`); its model of a clip's sound lives on in story/1.

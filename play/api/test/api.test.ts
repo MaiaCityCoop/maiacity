@@ -577,6 +577,60 @@ suite("play API", () => {
     expect((await tool("propose_story_version", { story: "seed-to-fruit", base: head.version, note: "late", edits: [{ op: "set_clip", track: "voice", clip: "v1", fields: { line: "C" } }] })).error).toContain("newest version");
   });
 
+  test("a story sounds: an agent adds recordings, and any clip of any track plays one, with its trim, gain, fades, EQ and keys", async () => {
+    // a tenth of a second of silence as a WAV, and an MP3's first bytes
+    const wav = (n = 4800) => {
+      const b = Buffer.alloc(44 + n * 2);
+      b.write("RIFF", 0); b.writeUInt32LE(36 + n * 2, 4); b.write("WAVE", 8); b.write("fmt ", 12);
+      b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(48000, 24); b.writeUInt32LE(96000, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34);
+      b.write("data", 36); b.writeUInt32LE(n * 2, 40);
+      return b;
+    };
+    const take = await tool("add_story_audio", { data: wav().toString("base64"), media_type: "audio/wav" });
+    expect(take.error).toBeNull();
+    expect(take.out).toMatchObject({ media_type: "audio/wav", size: 44 + 9600 });
+    expect((await tool("add_story_audio", { data: wav().toString("base64"), media_type: "audio/wav" })).out.hash).toBe(take.out.hash);
+    const mp3 = Buffer.concat([Buffer.from("ID3"), Buffer.alloc(200, 1)]);
+    const cue = await tool("add_story_audio", { data: mp3.toString("base64"), media_type: "audio/mpeg" });
+    expect(cue.out.media_type).toBe("audio/mpeg");
+    expect((await tool("add_story_audio", { data: frameOf("02.jpg").toString("base64"), media_type: "audio/mpeg" })).error).toContain("MP3, WAV");
+    expect((await tool("add_story_audio", { data: wav().toString("base64"), media_type: "audio/mpeg" })).error).toContain("not audio/mpeg");
+    // served as audio, never sniffed
+    const served = await api.fetch(new Request(`http://play.test/api/files/${take.out.hash}`, { headers: { cookie: who.ada.cookie } }));
+    expect(served.headers.get("content-type")).toBe("audio/wav");
+
+    const head = (await tool("get_story", { story: "seed-to-fruit" })).out;
+    const frame = head.tracks.find((t: any) => t.id === "shots").clips[0].frame;
+    const sounding = await tool("propose_story", {
+      story: "seed-to-fruit-heard", title: "Seed to fruit, heard", note: "with its sound",
+      body: {
+        tracks: [
+          ...tracks(frame),
+          { id: "music", kind: "music", gain: -12, clips: [{ id: "m1", at: 0, duration: 7, audio: cue.out.hash, audio_in: 2.5, fade_in: 1.5, fade_out: 4, eq: [{ type: "highpass", f: 80 }, { type: "peaking", f: 3000, gain: -3, q: 1.2 }], keys: [[5, -6], [0, 0]] }] },
+          { id: "sfx", kind: "sfx", mute: true, clips: [{ id: "x1", at: 1, duration: 1, audio: take.out.hash, gain: 3 }, { id: "x2", at: 1.5, duration: 1, audio: take.out.hash }] },
+        ].map((t: any) => (t.id === "voice" ? { ...t, clips: t.clips.map((c: any) => ({ ...c, audio: take.out.hash })) } : t)),
+      },
+    });
+    expect(sounding.error).toBeNull();
+    const body = (await call("ada", "GET", `/api/proposals/${sounding.out.id}`)).data.story;
+    const music = body.tracks.find((t: any) => t.id === "music");
+    expect(music.gain).toBe(-12);
+    expect(music.clips[0]).toMatchObject({ audio: cue.out.hash, audio_in: 2.5, fade_in: 1.5, fade_out: 4, keys: [[0, 0], [5, -6]] });
+    expect(music.clips[0].eq).toEqual([{ type: "highpass", f: 80, gain: 0, q: 0.707 }, { type: "peaking", f: 3000, gain: -3, q: 1.2 }]);
+    expect(body.tracks.find((t: any) => t.id === "sfx")).toMatchObject({ mute: true }); // sound clips may overlap
+    expect(body.tracks.find((t: any) => t.id === "voice").clips.every((c: any) => c.audio === take.out.hash)).toBe(true);
+
+    const bad = async (clip: Record<string, unknown>) =>
+      (await tool("propose_story", { story: "seed-to-fruit-bad", title: "x", note: "x", body: { tracks: [{ id: "music", kind: "music", clips: [{ id: "m", at: 0, duration: 2, ...clip }] }] } })).error;
+    expect(await bad({ audio: "f".repeat(64) })).toContain("add_story_audio first");
+    expect(await bad({ audio: frame })).toContain("add_story_audio first"); // an image is no recording
+    expect(await bad({ audio: "not-a-hash" })).toContain("recording's file hash");
+    expect(await bad({ audio: take.out.hash, gain: 40 })).toContain("gain");
+    expect(await bad({ audio: take.out.hash, eq: [{ type: "fuzz", f: 100 }] })).toContain("type is one of");
+    expect(await bad({ audio: take.out.hash, eq: [{ type: "lowpass", f: 5 }] })).toContain("frequency");
+    expect(await bad({ audio: take.out.hash, keys: [[1, 30]] })).toContain("gain (dB)");
+  });
+
   test("a story proposal is checked whole: its format, its clips, its frames and its times", async () => {
     const head = (await tool("get_story", { story: "seed-to-fruit" })).out;
     const frame = head.tracks.find((t: any) => t.id === "shots").clips[0].frame;

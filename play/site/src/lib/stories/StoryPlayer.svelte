@@ -4,10 +4,14 @@
 	a lane per track) with a playhead to drag. Everything shown comes from `renderAt(story, t)`: play and scrub only
 	move t, and the crossfade between two shots is worked out from t, never left to a CSS transition, so a moment is
 	the same picture every time (a frame-by-frame export later renders exactly this). A viewer: nothing is edited here.
+	Its sound (./sound.ts): every clip with a recording (the voice's takes, music, sfx, ambience) laid on one Web Audio
+	clock; while it plays, t follows that clock, so picture and sound stay together. Lines with no take yet can be read
+	by the browser's voice.
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { clipsOf, clock, moodLevel, renderAt, sectionsOf, shotEdge, type Notes, type Shot, type StoryBody, type Voice } from './timeline';
+	import { onMount, untrack } from 'svelte';
+	import { clipsOf, clock, moodLevel, renderAt, sectionsOf, shotEdge, soundsOf, type Notes, type Shot, type StoryBody, type Voice } from './timeline';
+	import { StorySound } from './sound';
 
 	let { story, compact = false, keys = true }: { story: StoryBody & { title?: string }; compact?: boolean; keys?: boolean } = $props();
 
@@ -15,12 +19,20 @@
 	let playing = $state(false);
 	let speed = $state(1);
 	let voiceOn = $state(false);
+	let soundOn = $state(true);
+	let soundState = $state<'none' | 'loading' | 'ready' | 'failed'>('none');
+	const audio = new StorySound();
 	const SPEEDS = [1, 1.25, 1.5];
 
 	const moment = $derived(renderAt(story, t));
 	const shots = $derived(clipsOf<Shot>(story, 'shots'));
 	const voices = $derived(clipsOf<Voice>(story, 'voice'));
 	const notes = $derived(clipsOf<Notes>(story, 'notes'));
+	const sounds = $derived(soundsOf(story));
+	/** the tracks that sound besides the voice (music, sfx, ambience, a mix), each its own lane */
+	const soundTracks = $derived((story?.tracks ?? []).filter((x) => x.kind !== 'voice' && x.kind !== 'shots' && x.kind !== 'notes' && x.clips.some((c) => typeof c.audio === 'string')));
+	/** voice clips with no take yet: only these may be read by the browser's voice */
+	const unrecorded = $derived(voices.filter((v) => typeof (v as any).audio !== 'string').length);
 	const sections = $derived(sectionsOf(story));
 	const D = $derived(Math.max(0.001, story?.duration ?? 0));
 	const pct = (s: number) => `${(s / D) * 100}%`;
@@ -39,7 +51,28 @@
 		shown = key;
 		t = 0;
 		playing = false;
+		audio.stop();
 		for (const s of clipsOf<Shot>(story, 'shots')) if (s.frame) new Image().src = frameUrl(s.frame);
+		// its recordings fetched and decoded ahead, so the first Play sounds at once
+		if (!soundsOf(story).length) soundState = 'none';
+		else {
+			soundState = 'loading';
+			const asked = key;
+			audio.load(story, frameUrl).then(() => {
+				if (shown === asked) soundState = audio.failed.length && audio.failed.length >= new Set(soundsOf(story).map((x) => x.hash)).size ? 'failed' : 'ready';
+			});
+		}
+	});
+
+	/** the sound laid again from t (Play, a seek or a new speed while playing) */
+	function resound() {
+		if (playing && soundOn && sounds.length) audio.start(t, speed);
+		else audio.stop();
+	}
+	$effect(() => {
+		// on Play and Pause, on a new speed, and when sound is turned on or off
+		void playing, void speed, void soundOn;
+		untrack(() => !dragging && resound()); // t and the rest read inside are not what this follows
 	});
 
 	// the clock: only while playing, t moves on by the wall clock times the speed; everything else follows from t
@@ -47,7 +80,9 @@
 		if (!playing) return;
 		let last = performance.now(), raf = 0;
 		const tick = (now: number) => {
-			t = Math.min(D, t + ((now - last) / 1000) * speed);
+			// while the sound runs its clock is the story's; otherwise the wall clock times the speed
+			const heard = dragging ? null : audio.now();
+			t = Math.min(D, heard ?? t + ((now - last) / 1000) * speed);
 			last = now;
 			if (t >= D) playing = false;
 			else raf = requestAnimationFrame(tick);
@@ -66,7 +101,7 @@
 			said = '';
 			return;
 		}
-		if (v && v.id !== said) {
+		if (v && v.id !== said && typeof (v as any).audio !== 'string') {
 			said = v.id;
 			speechSynthesis.cancel();
 			const u = new SpeechSynthesisUtterance(v.line);
@@ -74,13 +109,19 @@
 			speechSynthesis.speak(u);
 		}
 	});
-	onMount(() => () => typeof speechSynthesis !== 'undefined' && speechSynthesis.cancel());
+	onMount(() => () => {
+		if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
+		audio.stop();
+	});
 
 	const toggle = () => {
 		if (t >= D - 0.01) t = 0;
 		playing = !playing;
 	};
-	const seek = (to: number) => (t = Math.max(0, Math.min(D, to)));
+	const seek = (to: number) => {
+		t = Math.max(0, Math.min(D, to));
+		if (playing && !dragging) resound();
+	};
 	const step = (dir: 1 | -1) => seek(shotEdge(story, t, dir));
 
 	function onKey(e: KeyboardEvent) {
@@ -101,7 +142,7 @@
 
 	// scrubbing: a press on the timeline puts the playhead there, and dragging moves it
 	let lanes: HTMLElement | undefined = $state();
-	let dragging = false;
+	let dragging = $state(false);
 	const timeAt = (x: number) => {
 		const r = lanes!.getBoundingClientRect();
 		return ((x - r.left) / r.width) * D;
@@ -109,11 +150,16 @@
 	function down(e: PointerEvent) {
 		if (!lanes) return;
 		dragging = true;
+		audio.stop();
 		lanes.setPointerCapture(e.pointerId);
 		seek(timeAt(e.clientX));
 	}
 	const move = (e: PointerEvent) => dragging && seek(timeAt(e.clientX));
-	const up = () => (dragging = false);
+	const up = () => {
+		if (!dragging) return;
+		dragging = false;
+		resound();
+	};
 
 	// a calm colour for each section, the same every time
 	const PALETTE = ['#8fae8b', '#d9a441', '#c96f53', '#7c9cb8', '#a98bb5', '#6f9e95', '#c4a27a', '#9aa35c'];
@@ -166,7 +212,14 @@
 		<span class="time">{clock(t)} <span class="muted">/ {clock(D)}</span></span>
 		<span class="spacer"></span>
 		<button class="btn small ghost" onclick={() => (speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length])} title="Speed">{speed}×</button>
-		<button class="btn small ghost" class:on={voiceOn} onclick={() => (voiceOn = !voiceOn)} title="Read each line aloud with the browser's voice">Voice {voiceOn ? 'on' : 'off'}</button>
+		{#if sounds.length}
+			<button class="btn small ghost" class:on={soundOn} onclick={() => (soundOn = !soundOn)} title="The story's own sound: its voice takes, music and effects">
+				Sound {soundState === 'loading' ? '…' : soundState === 'failed' ? '(failed)' : soundOn ? 'on' : 'off'}
+			</button>
+		{/if}
+		{#if unrecorded}
+			<button class="btn small ghost" class:on={voiceOn} onclick={() => (voiceOn = !voiceOn)} title="Read each line that has no take yet aloud with the browser's voice">Voice {voiceOn ? 'on' : 'off'}</button>
+		{/if}
 	</div>
 
 	<div class="timeline">
@@ -188,12 +241,19 @@
 			</div>
 			<div class="lane voice-lane">
 				{#each voices as v (v.id)}
-					<span class="bar" class:on={v.id === moment.voice?.id} class:samuel={/samuel/i.test(v.who)} style:left={pct(v.at)} style:width={pct(v.duration)} title="{v.who}: {v.line}">{v.who.split(/\s/)[0]}</span>
+					<span class="bar" class:on={v.id === moment.voice?.id} class:samuel={/samuel/i.test(v.who)} class:recorded={typeof (v as any).audio === 'string'} style:left={pct(v.at)} style:width={pct(v.duration)} title="{v.who}: {v.line}">{v.who.split(/\s/)[0]}</span>
 				{/each}
 			</div>
+			{#each soundTracks as tr (tr.id)}
+				<div class="lane sound-lane" title={tr.id}>
+					{#each tr.clips.filter((c) => typeof c.audio === 'string') as c (c.id)}
+						<span class="bar sound {tr.kind}" class:muted-track={(tr as any).mute} style:left={pct(c.at)} style:width={pct(c.duration)} title="{tr.id}: {(c as any).name ?? (c as any).note ?? c.id}">{tr.id}</span>
+					{/each}
+				</div>
+			{/each}
 			<div class="playhead" style:left={pct(t)}></div>
 		</div>
-		<div class="legend muted"><span>Shots</span><span>Voice</span><span>Mood ↑↓</span></div>
+		<div class="legend muted"><span>Shots</span><span>Voice{voices.length && !unrecorded ? ' (recorded)' : ''}</span>{#each soundTracks as tr (tr.id)}<span>{tr.id}</span>{/each}<span>Mood ↑↓</span></div>
 	</div>
 </div>
 
@@ -240,6 +300,13 @@
 	.seg { position: absolute; top: 0; bottom: 0; background-size: cover; background-position: center 35%; border-top: 3px solid; border-left: 1px solid rgb(255 255 255 / 0.7); box-sizing: border-box; filter: saturate(0.85) brightness(0.92); }
 	.seg.on { filter: none; box-shadow: inset 0 0 0 2px var(--ink); }
 	.bar { position: absolute; top: 2px; bottom: 2px; border-radius: 4px; background: var(--sage-soft, #dfe8dc); border: 1px solid color-mix(in srgb, var(--sage, #8fae8b) 60%, transparent); font-size: 0.6rem; font-weight: 700; padding: 0 0.25rem; overflow: hidden; white-space: nowrap; box-sizing: border-box; line-height: 1rem; }
+	.bar.recorded { border-style: solid; box-shadow: inset 3px 0 0 color-mix(in srgb, var(--sage, #8fae8b) 90%, black); }
+	.sound-lane { height: 1rem; }
+	.bar.sound { background: color-mix(in srgb, var(--sky, #7c9cb8) 30%, white); border-color: color-mix(in srgb, var(--sky, #7c9cb8) 70%, transparent); line-height: 0.8rem; font-size: 0.55rem; }
+	.bar.sound.music, .bar.sound.score { background: color-mix(in srgb, #a98bb5 30%, white); border-color: #a98bb5; }
+	.bar.sound.sfx { background: color-mix(in srgb, #c96f53 25%, white); border-color: #c96f53; }
+	.bar.sound.ambience { background: color-mix(in srgb, #6f9e95 25%, white); border-color: #6f9e95; }
+	.bar.muted-track { opacity: 0.4; }
 	.bar.samuel { background: var(--mustard-soft, #f3e3b5); border-color: color-mix(in srgb, var(--mustard, #d9a441) 60%, transparent); }
 	.bar.on { background: var(--ink); color: var(--paper); }
 	.playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--terracotta, #c96f53); pointer-events: none; }
