@@ -30,10 +30,10 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 
 	const scene = new THREE.Scene();
 	scene.background = new THREE.Color(SKY);
-	scene.fog = new THREE.Fog(SKY, 2600, 7600);
+	scene.fog = new THREE.Fog(SKY, 3400, 10500);
 
-	const camera = new THREE.PerspectiveCamera(38, 1, 10, 13000);
-	camera.position.set(0, 1150, 1380);
+	const camera = new THREE.PerspectiveCamera(38, 1, 10, 17000);
+	camera.position.set(0, 1250, 1500);
 
 	// light: a warm low sun from the north-west and a soft sky
 	scene.add(new THREE.HemisphereLight('#fbf8f1', '#bdb6a2', 1.55));
@@ -46,7 +46,7 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 	Object.assign(sun.shadow.camera, { near: 100, far: 5200 });
 	let shadowAt = new THREE.Vector4(NaN);
 	const followSun = () => {
-		const t = controls.target, reach = THREE.MathUtils.clamp(camera.position.distanceTo(t) * 1.15, 450, 3600);
+		const t = controls.target, reach = THREE.MathUtils.clamp(camera.position.distanceTo(t) * 1.15, 450, 4600);
 		if (Math.abs(shadowAt.x - t.x) < 4 && Math.abs(shadowAt.z - t.z) < 4 && Math.abs(shadowAt.w - reach) / reach < 0.05) return;
 		shadowAt = new THREE.Vector4(t.x, 0, t.z, reach);
 		sun.target.position.set(t.x, 0, t.z);
@@ -64,7 +64,7 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 
 	// ── the ground: flat in the valley, hills and mountains beyond, coloured by height ──
 	{
-		const g = new THREE.PlaneGeometry(W + 2 * RIM, H + 2 * RIM, Math.round((W + 2 * RIM) / 20), Math.round((H + 2 * RIM) / 20));
+		const g = new THREE.PlaneGeometry(W + 2 * RIM, H + 2 * RIM, Math.round((W + 2 * RIM) / 24), Math.round((H + 2 * RIM) / 24));
 		g.rotateX(-Math.PI / 2);
 		const pos = g.attributes.position;
 		for (let i = 0; i < pos.count; i++) pos.setY(i, ground(pos.getX(i) + W / 2, pos.getZ(i) + H / 2));
@@ -150,7 +150,7 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 	controls.minPolarAngle = 0.3;
 	controls.maxPolarAngle = 1.22;
 	controls.minDistance = 110;
-	controls.maxDistance = 3800;
+	controls.maxDistance = 5200;
 	controls.zoomToCursor = true;
 	controls.screenSpacePanning = false;
 	const held = new THREE.Vector3();
