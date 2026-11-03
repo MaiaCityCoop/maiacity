@@ -104,7 +104,7 @@ story never talks about (`SKILL.md`, law 7). We take the craft, never the subjec
 
 ## Twelve rules for maiaCITY
 
-1. **Promise the viewer's own future, on a clock.** Say *you*, and give a horizon: Day 1, Year 1, the first fruit.
+1. **Promise the viewer's own future, on a clock.** Say *you*, and give a horizon: the first year, the first fruit (never a day number).
 2. **Wonder is the frame; the hard part is a chapter.** Tired land, drowning roots and failures are beats inside, never
    the title.
 3. **The title makes a claim; the thumbnail shows the end state in two or three huge words** that are not the title.
