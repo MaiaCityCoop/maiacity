@@ -389,7 +389,7 @@ export const MIGRATIONS: Migration[] = [
         doc_id      TEXT NOT NULL REFERENCES play.docs(id),
         base        JSONB NOT NULL,                    -- the frontiers it was forked at
         head        JSONB NOT NULL,                    -- its latest frontiers
-        status      TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'proposed', 'accepted', 'rejected', 'withdrawn')),
+        status      TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'proposed', 'accepted', 'rejected', 'withdrawn', 'stale')),
         note        TEXT NOT NULL DEFAULT '',
         created_by  TEXT REFERENCES play.humans(id),
         created     TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -441,6 +441,8 @@ export const MIGRATIONS: Migration[] = [
       BEGIN RAISE EXCEPTION '% is append only: its rows are never changed', TG_TABLE_NAME; END $$;
       CREATE TRIGGER doc_updates_kept BEFORE UPDATE OR DELETE ON play.doc_updates FOR EACH ROW EXECUTE FUNCTION play.doc_history_is_kept();
       CREATE TRIGGER doc_versions_kept BEFORE UPDATE OR DELETE ON play.doc_versions FOR EACH ROW EXECUTE FUNCTION play.doc_history_is_kept();
+      -- a story's proposal is a branch of its document, its steps there
+      ALTER TABLE play.proposals ADD COLUMN doc_branch BIGINT REFERENCES play.doc_branches(id);
     `,
   },
 ];

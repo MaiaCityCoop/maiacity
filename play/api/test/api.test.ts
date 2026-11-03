@@ -579,11 +579,105 @@ suite("play API", () => {
     mkdirSync(join(dir, "seed-test", "frames"), { recursive: true });
     writeFileSync(join(dir, "seed-test", "frames", "a.jpg"), frameOf("03.jpg"));
     writeFileSync(join(dir, "seed-test", "story.json"), JSON.stringify({ id: "seed-test", title: "Seeded", note: "from the repo", schema: "story/1", tracks: [{ id: "shots", kind: "shots", clips: [{ id: "s1", duration: 2, frame: "a.jpg" }, { id: "s2", duration: 3 }] }] }));
-    expect(await seedStories(db, store, dir)).toEqual({ seeded: ["seed-test"], present: [], errors: [] });
+    expect(await seedStories(db, store, dir)).toEqual({ seeded: ["seed-test"], present: [], errors: [], documents: [] });
     const seeded = (await call("ada", "GET", "/api/stories/seed-test")).data;
     expect(seeded).toMatchObject({ number: 1, duration: 5, title: "Seeded", note: "from the repo" });
-    expect(await seedStories(db, store, dir)).toEqual({ seeded: [], present: ["seed-test"], errors: [] });
+    expect(await seedStories(db, store, dir)).toEqual({ seeded: [], present: ["seed-test"], errors: [], documents: [] });
     mkdirSync(join(dir, "Bad_Name"));
     expect((await seedStories(db, store, dir)).errors[0]).toMatch(/Bad_Name/);
+  });
+
+  // ---- every story is a Loro document too (play/SPEC.md §4.4): every step kept, drafts as branches, versions in step
+  test("an agent drafts a change step by step over MCP; proposed and accepted, every step stays in the story's history", async () => {
+    const tools = (await (await api.fetch(new Request("http://play.test/api/mcp", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${storyToken}` }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) }))).json()).result.tools.map((t: any) => t.name);
+    expect(tools).toEqual(expect.arrayContaining(["story_edit", "story_history"]));
+    const head = (await tool("get_story", { story: "seed-to-fruit" })).out;
+    const line = head.tracks.find((t: any) => t.id === "voice").clips[0].line as string;
+    const first = await tool("story_edit", { story: "seed-to-fruit", message: "a word in the hook", edits: [{ op: "edit_text", track: "voice", clip: "v1", field: "line", index: 0, insert: "Look: " }] });
+    expect(first.error).toBeNull();
+    const draft = first.out.branch;
+    expect(first.out).toMatchObject({ story: "seed-to-fruit", changed: true, steps: 1 });
+    await tool("story_edit", { story: "seed-to-fruit", branch: draft, message: "a longer last shot", edits: [{ op: "set_clip", track: "notes", clip: "n1", fields: { retention: "Payoff first, then the question" } }] });
+    const third = await tool("story_edit", { story: "seed-to-fruit", branch: draft, message: "a callout", edits: [{ op: "add_track", track: { id: "titles", kind: "callout", clips: [{ id: "t1", at: 0, duration: 2, text: "SEED" }] } }] });
+    expect(third.out.steps).toBe(3);
+    // a step that breaks the story is refused and leaves the draft as it was
+    expect((await tool("story_edit", { story: "seed-to-fruit", branch: draft, message: "overlap", edits: [{ op: "set_clip", track: "voice", clip: "v1", fields: { duration: 30 } }] })).error).toContain("before clip");
+    expect((await tool("story_edit", { story: "seed-to-fruit", branch: draft, message: "range", edits: [{ op: "edit_text", track: "voice", clip: "v1", field: "line", index: 999, insert: "x" }] })).error).toContain("outside");
+    // nobody sees a draft as the story
+    expect((await call("ada", "GET", "/api/stories/seed-to-fruit")).data.version).toBe(head.version);
+    const own = (await tool("story_history", { story: "seed-to-fruit", draft })).out;
+    expect(own.steps.map((s: any) => s.message)).toEqual(["a word in the hook", "a longer last shot", "a callout"]);
+    expect(own.steps.every((s: any) => s.via === "mcp" && s.author === "ada")).toBe(true);
+    // any step reads back as the story was then
+    const atFirst = (await tool("get_story", { story: "seed-to-fruit", step: own.steps[0].seq })).out;
+    expect(atFirst.tracks.find((t: any) => t.id === "voice").clips[0].line).toBe(`Look: ${line}`);
+    expect(atFirst.tracks.some((t: any) => t.id === "titles")).toBe(false);
+    // proposed: its steps go with it, to the admins deciding
+    const proposed = await tool("propose_story_version", { story: "seed-to-fruit", branch: draft, note: "a sharper hook, drafted in three steps" });
+    expect(proposed.error).toBeNull();
+    expect(proposed.out).toMatchObject({ branch: draft, steps: 3, base: head.version });
+    const review = (await call("ada", "GET", `/api/proposals/${proposed.out.id}`)).data;
+    expect(review.steps.map((s: any) => s.message)).toEqual(["a word in the hook", "a longer last shot", "a callout"]);
+    expect(review.diff.tracks.find((t: any) => t.id === "titles").state).toBe("added");
+    // a proposed draft takes no more steps
+    expect((await tool("story_edit", { story: "seed-to-fruit", branch: draft, message: "late", title: "x" })).error).toContain("proposed already");
+    const accepted = (await call("ada", "POST", `/api/proposals/${proposed.out.id}/accept`)).data;
+    expect(accepted).toMatchObject({ status: "accepted", number: head.number + 1 });
+    const hist = (await call("ada", "GET", "/api/stories/seed-to-fruit/history")).data;
+    const messages = hist.steps.map((s: any) => s.message);
+    for (const m of ["a word in the hook", "a longer last shot", "a callout"]) expect(messages).toContain(m);
+    expect(hist.steps.at(-1).kind).toBe("merge");
+    expect(hist.steps.at(-1).version).toBe(head.number + 1);
+    // the document's versions are the story's, number for number
+    expect(hist.versions.map((v: any) => v.number)).toEqual((await call("ada", "GET", "/api/stories/seed-to-fruit")).data.versions.map((v: any) => v.number).reverse());
+    expect(hist.drafts.find((d: any) => d.id === draft)).toMatchObject({ status: "accepted", proposal: proposed.out.id, steps: 3 });
+    const step = (await call("ada", "GET", `/api/stories/seed-to-fruit/steps/${own.steps[1].seq}`)).data;
+    expect(step.tracks.find((t: any) => t.id === "notes").clips[0].retention).toBe("Payoff first, then the question");
+    expect((await call("cit", "GET", "/api/stories/seed-to-fruit/history")).status).toBe(403);
+  });
+
+  test("two story proposals on one head that touch different fields both go in: the second merged, its parents both", async () => {
+    const head = (await tool("get_story", { story: "seed-to-fruit" })).out;
+    const a = await tool("propose_story_version", { story: "seed-to-fruit", base: head.version, note: "A: the speaker", edits: [{ op: "set_clip", track: "voice", clip: "v1", fields: { who: "SAMUEL (VO)" } }] });
+    const b = await tool("propose_story_version", { story: "seed-to-fruit", base: head.version, note: "B: the camera", edits: [{ op: "set_clip", track: "notes", clip: "n1", fields: { camera: "Low angle, 35 mm" } }] });
+    expect((await call("ada", "POST", `/api/proposals/${a.out.id}/accept`)).data).toMatchObject({ status: "accepted", number: head.number + 1 });
+    const late = (await call("ada", "POST", `/api/proposals/${b.out.id}/accept`)).data;
+    expect(late).toMatchObject({ status: "accepted", number: head.number + 2, merged: true });
+    const now = (await call("ada", "GET", "/api/stories/seed-to-fruit")).data;
+    expect(now.tracks.find((t: any) => t.id === "voice").clips[0].who).toBe("SAMUEL (VO)");
+    expect(now.tracks.find((t: any) => t.id === "notes").clips[0].camera).toBe("Low angle, 35 mm");
+    const { rows } = await db.query<{ parents: string[] }>(`SELECT parents FROM play.story_versions WHERE id = $1`, [now.version]);
+    expect(rows[0].parents).toEqual([a.out.version, b.out.version]);
+    // its content and the document's agree
+    const d = (await call("ada", "GET", "/api/stories/seed-to-fruit/history")).data;
+    expect(d.versions.at(-1).number).toBe(now.number);
+    // withdrawn, a proposal's branch is closed and its step kept on its side line
+    const c = await tool("propose_story_version", { story: "seed-to-fruit", note: "C", edits: [{ op: "set", fields: { fps: 25 } }] });
+    expect((await call("ada", "POST", `/api/proposals/${c.out.id}/withdraw`)).data.status).toBe("withdrawn");
+    expect((await call("ada", "GET", "/api/stories/seed-to-fruit/history")).data.drafts.find((x: any) => x.id === c.out.branch).status).toBe("withdrawn");
+  });
+
+  test("a story from before the documents gets one made from its history: each version a step at its date, an open proposal a branch", async () => {
+    const body = (line: string) => ({ schema: "story/1", format: "9:16", fps: 30, duration: 4, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line }] }] });
+    const v1 = storyVersionId({ story: "old-story", parents: [], title: "Old", body: body("first") });
+    const v2 = storyVersionId({ story: "old-story", parents: [v1], title: "Old", body: body("second") });
+    const p3 = storyVersionId({ story: "old-story", parents: [v2], title: "Old", body: body("third") });
+    await db.query(`INSERT INTO play.stories (id, coop_id, title) VALUES ('old-story', 'maia-city', 'Old')`);
+    await db.query(`INSERT INTO play.story_versions (id, story_id, number, parents, title, body, note, created) VALUES ($1, 'old-story', 1, '{}', 'Old', ($2::text)::jsonb, 'one', '2026-10-01T10:00:00Z')`, [v1, JSON.stringify(body("first"))]);
+    await db.query(`INSERT INTO play.story_versions (id, story_id, number, parents, title, body, note, created) VALUES ($1, 'old-story', 2, $2, 'Old', ($3::text)::jsonb, 'two', '2026-10-02T10:00:00Z')`, [v2, [v1], JSON.stringify(body("second"))]);
+    await db.query(`INSERT INTO play.story_versions (id, story_id, parents, title, body, note, author) VALUES ($1, 'old-story', $2, 'Old', ($3::text)::jsonb, 'three', $4)`, [p3, [v2], JSON.stringify(body("third")), who.ada.id]);
+    await db.query(`UPDATE play.stories SET head = $1 WHERE id = 'old-story'`, [v2]);
+    const pid = crypto.randomUUID();
+    await db.query(`INSERT INTO play.proposals (id, coop_id, kind, story_id, story_base, story_version, author, note, via) VALUES ($1, 'maia-city', 'story_version', 'old-story', $2, $3, $4, 'three', 'mcp')`, [pid, v2, p3, who.ada.id]);
+    const h = (await call("ada", "GET", "/api/stories/old-story/history")).data;
+    expect(h.steps.map((s: any) => s.message)).toEqual(["v1: one", "v2: two"]);
+    expect(h.steps.map((s: any) => s.at.slice(0, 10))).toEqual(["2026-10-01", "2026-10-02"]);
+    expect(h.versions.map((v: any) => v.number)).toEqual([1, 2]);
+    expect(h.drafts).toHaveLength(1);
+    expect((await call("ada", "GET", `/api/stories/old-story/steps/${h.steps[0].seq}`)).data.tracks[0].clips[0].line).toBe("first");
+    // the old proposal is a branch now, and accepting it goes through the document like any other
+    expect((await call("ada", "POST", `/api/proposals/${pid}/accept`)).data).toMatchObject({ status: "accepted", number: 3 });
+    expect((await call("ada", "GET", "/api/stories/old-story")).data.tracks[0].clips[0].line).toBe("third");
+    expect((await call("ada", "GET", "/api/stories/old-story/history")).data.versions.map((v: any) => v.number)).toEqual([1, 2, 3]);
   });
 });

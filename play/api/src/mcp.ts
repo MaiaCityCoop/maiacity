@@ -9,7 +9,7 @@ import type { Me } from "./access";
 import { assetOf, listAssets, NotFound } from "./assets";
 import { listProposals, propose, ProposalError } from "./proposals";
 import { adminByToken } from "./tokens";
-import { admin, listStories, MOST_FRAME, proposeStory, putFrameBase64, storyOf, StoryError } from "./stories";
+import { admin, editStory, listStories, MOST_FRAME, proposeStory, putFrameBase64, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
 
 const PROTOCOL = "2025-06-18";
 const HASH = /^[0-9a-f]{64}$/;
@@ -117,14 +117,50 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     },
     {
       name: "get_story",
-      description: `One story's whole timeline, at its head or at an accepted version: ${STORY_FORMAT} It also lists the story's versions (number, id, note, author, who accepted it). Use its \`version\` as \`base\` when you propose a change.`,
+      description: `One story's whole timeline, at its head, at an accepted version, or at any step of its history (story_history lists them): ${STORY_FORMAT} At its head or a version it also lists the story's versions (number, id, note, author, who accepted it). Use its \`version\` as \`base\` when you propose a change.`,
       inputSchema: {
         type: "object",
-        properties: { story: { type: "string", description: "the story's id (a slug, from list_stories)" }, version: { type: "integer", minimum: 1, description: "an accepted version's number; the head if left out" } },
+        properties: {
+          story: { type: "string", description: "the story's id (a slug, from list_stories)" },
+          version: { type: "integer", minimum: 1, description: "an accepted version's number; the head if left out" },
+          step: { type: "integer", minimum: 1, description: "a step of its history (story_history's `seq`), instead of a version" },
+        },
         required: ["story"],
         additionalProperties: false,
       },
-      run: async ({ story, version }, me) => storyOf(db, me, `${story ?? ""}`, version == null ? undefined : Number(version)),
+      run: async ({ story, version, step }, me) => (step != null ? storyAtStep(db, me, `${story ?? ""}`, Number(step)) : storyOf(db, me, `${story ?? ""}`, version == null ? undefined : Number(version))),
+    },
+    {
+      name: "story_history",
+      description:
+        "Every step of a story's history, oldest first: each with its seq, who made it (and whether over MCP), its message, its time, and the version it was named, if one. A story is kept step by step (a Loro document, play/SPEC.md §4.4): every story_edit, every proposal and every accepted version is a step. Also its versions and its drafts (each draft's status, steps and proposal). With `draft`, one draft's own steps. Read any step's timeline with get_story's `step`.",
+      inputSchema: {
+        type: "object",
+        properties: { story: { type: "string", description: "the story's id" }, draft: { type: "integer", minimum: 1, description: "a draft's number, for its own steps" } },
+        required: ["story"],
+        additionalProperties: false,
+      },
+      run: async ({ story, draft }, me) => storyHistory(db, me, `${story ?? ""}`, draft == null ? {} : { branch: Number(draft) }),
+    },
+    {
+      name: "story_edit",
+      description:
+        "One step of a draft change to a story, kept with its message: work on a story step by step (retime a clip, re-word a line, add, move or remove clips and tracks), then propose the draft as a version with propose_story_version and its `branch`. Without `branch` it starts a new draft from the story's head and gives back its number; pass that number to the next steps. Every step is checked whole, as a proposal is, and nobody sees a draft as the story until it is proposed and accepted. " +
+        "Edits are propose_story_version's, plus { op: 'edit_text', track, clip, field, index, delete?, insert? } to change a range of one of a clip's texts (its line, transition, camera …). Or give a whole timeline (body), or only a new title.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          story: { type: "string", description: "the story's id" },
+          message: { type: "string", description: "what this step does, as its history will say it" },
+          branch: { type: "integer", minimum: 1, description: "the draft to add the step to (story_edit gives it); a new draft from the head if left out" },
+          edits: { type: "array", items: { type: "object" }, description: "edits applied in order to the draft's timeline" },
+          body: { type: "object", description: "the draft's whole new timeline (instead of edits)" },
+          title: { type: "string", description: "a new title" },
+        },
+        required: ["story", "message"],
+        additionalProperties: false,
+      },
+      run: async ({ story, message, branch, edits, body, title }, me) => editStory(db, me, { story, message, title, body, edits, ...(branch != null ? { branch: Number(branch) } : {}) }),
     },
     {
       name: "propose_story",
@@ -150,7 +186,8 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         `{ op: 'add_clip', track, clip: { id, at, duration, … } }; { op: 'remove_clip', track, clip }; ` +
         `{ op: 'add_track', track: { id, kind, clips }, index? }; { op: 'remove_track', track }; { op: 'set_track', track, fields: { id?, kind? } }; ` +
         `{ op: 'shift', from, by, tracks? } moves every clip starting at or after \`from\` seconds by \`by\` seconds (negative to pull in), on all tracks or the ones named, to make room or close a gap; ` +
-        `{ op: 'set', fields: { format?, fps? } }. On shots, voice and notes tracks clips must not overlap, so retime with shift. ${STORY_FORMAT} It goes to the admins as a proposal (via MCP), shown against the head clip by clip.`,
+        `{ op: 'set', fields: { format?, fps? } }; { op: 'edit_text', track, clip, field, index, delete?, insert? } changes a range of one of a clip's texts. On shots, voice and notes tracks clips must not overlap, so retime with shift. ${STORY_FORMAT} ` +
+        `Or propose a draft made step by step with story_edit (its \`branch\`): its steps go with it, and the admins see them. It goes to the admins as a proposal (via MCP), shown against the head clip by clip. If the story gets a newer version before it is accepted, it still goes in where the two changes touch different fields, and goes stale where they touch the same.`,
       inputSchema: {
         type: "object",
         properties: {
@@ -160,11 +197,12 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           title: { type: "string", description: "a new title, if it changes" },
           body: { type: "object", description: "the whole new timeline (instead of edits)" },
           edits: { type: "array", items: { type: "object" }, description: "edits applied in order to the head's timeline (instead of body)" },
+          branch: { type: "integer", minimum: 1, description: "a draft made with story_edit, proposed as it stands (edits, body or title given with it are its last step)" },
         },
         required: ["story", "note"],
         additionalProperties: false,
       },
-      run: async ({ story, note, base, title, body, edits }, me) => proposeStory(db, me, { story, note, title, body, edits, ...(base ? { base } : {}) }, false),
+      run: async ({ story, note, base, title, body, edits, branch }, me) => proposeStory(db, me, { story, note, title, body, edits, ...(base ? { base } : {}), ...(branch != null ? { branch: Number(branch) } : {}) }, false),
     },
     {
       name: "add_story_frame",

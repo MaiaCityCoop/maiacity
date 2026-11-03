@@ -27,6 +27,8 @@ export const COMPACT_AFTER = 32;
 const ID = /^[a-z]+:[a-z0-9][a-z0-9:-]{0,120}$/;
 const toBytes = (b: unknown): Uint8Array => (b instanceof Uint8Array ? b : new Uint8Array(b as ArrayBuffer));
 const seconds = (d?: Date) => Math.floor((d ?? new Date()).getTime() / 1000);
+/** runs `fn` in its own transaction, or in the caller's when given one (a story decided with its proposal: one transaction) */
+const inTx = <R>(db: Db | Queryable, fn: (q: Queryable) => Promise<R>): Promise<R> => ("transaction" in db ? (db as Db).transaction(fn) : fn(db));
 
 async function lock(q: Queryable, id: string): Promise<DocRow> {
   const { rows } = await q.query<DocRow>(`SELECT id, type, schema, head, snapshot, snapshot_seq FROM play.docs WHERE id = $1 FOR UPDATE`, [id]);
@@ -103,11 +105,11 @@ async function compact(q: Queryable, row: DocRow, d: LoroDoc): Promise<void> {
 // ---- writing
 
 /** a new document from its first state, as one step of its main line (and, if `version`, named v1) */
-export async function createDoc(db: Db, o: { id: string; schema: string; json: unknown; author: Author; message?: string; at?: Date; version?: string }): Promise<{ id: string; step: Step; version: Version | null }> {
+export async function createDoc(db: Db | Queryable, o: { id: string; schema: string; json: unknown; author: Author; message?: string; at?: Date; version?: string }): Promise<{ id: string; step: Step; version: Version | null }> {
   if (!ID.test(o.id)) throw new DocError(`a document's id is its type and a name, like story:papaya-v2: not ${JSON.stringify(o.id)}`);
   const t = typeOf(o.schema);
   if (!o.id.startsWith(t.type + ":")) throw new DocError(`a ${t.type} document's id starts with ${t.type}:`);
-  return db.transaction(async (q) => {
+  return inTx(db, async (q) => {
     const made = await q.query(`INSERT INTO play.docs (id, type, schema, created_by, created) VALUES ($1, $2, $3, $4, COALESCE($5, now())) ON CONFLICT DO NOTHING`, [o.id, t.type, t.name, o.author.human, o.at ?? null]);
     if (!made.affectedRows) throw new DocError(`${o.id} is there already`, 409);
     const row = await lock(q, o.id);
@@ -138,9 +140,9 @@ export type Write = { edits: Edit[] } | { target: unknown };
  * One step: `edits` (or the few operations that turn the document into `target`) on the main line or, with `branch`,
  * on that branch, committed with `message`. Nothing changed: null. A branch already decided takes no more steps.
  */
-export async function commit(db: Db, id: string, w: Write & { message: string; author: Author; branch?: number; kind?: "edit" | "import"; at?: Date }): Promise<Step | null> {
+export async function commit(db: Db | Queryable, id: string, w: Write & { message: string; author: Author; branch?: number; kind?: "edit" | "import"; at?: Date }): Promise<Step | null> {
   if (!w.message?.trim()) throw new DocError("every step says what it does: its message is empty");
-  return db.transaction(async (q) => {
+  return inTx(db, async (q) => {
     const row = await lock(q, id);
     const t = typeOf(row.schema);
     const main = await loadMain(q, row);
@@ -162,25 +164,26 @@ export async function commit(db: Db, id: string, w: Write & { message: string; a
 }
 
 /** names the main line as it is now a version (an import's history, or an admin's own step) */
-export async function nameVersion(db: Db, id: string, o: { note: string; author: Author; at?: Date }): Promise<Version> {
-  return db.transaction(async (q) => {
+export async function nameVersion(db: Db | Queryable, id: string, o: { note: string; author: Author; at?: Date }): Promise<Version> {
+  return inTx(db, async (q) => {
     const row = await lock(q, id);
     return name(q, id, await loadMain(q, row), o.note, o.author, null, o.at);
   });
 }
 
 /** a new branch, forked at the main line's head: where a proposal is made, step by step */
-export async function branch(db: Db, id: string, o: { author: Author; note?: string }): Promise<{ id: number; base: Frontiers }> {
-  return db.transaction(async (q) => {
+export async function branch(db: Db | Queryable, id: string, o: { author: Author; note?: string; at?: Frontiers }): Promise<{ id: number; base: Frontiers }> {
+  return inTx(db, async (q) => {
     const row = await lock(q, id);
-    const { rows } = await q.query<{ id: string }>(`INSERT INTO play.doc_branches (doc_id, base, head, note, created_by) VALUES ($1, ($2::text)::jsonb, ($2::text)::jsonb, $3, $4) RETURNING id`, [id, JSON.stringify(row.head), o.note ?? "", o.author.human]);
-    return { id: Number(rows[0].id), base: row.head };
+    const base = o.at ?? row.head;
+    const { rows } = await q.query<{ id: string }>(`INSERT INTO play.doc_branches (doc_id, base, head, note, created_by) VALUES ($1, ($2::text)::jsonb, ($2::text)::jsonb, $3, $4) RETURNING id`, [id, JSON.stringify(base), o.note ?? "", o.author.human]);
+    return { id: Number(rows[0].id), base };
   });
 }
 
 /** names a branch a proposal (with what it is for); it may still take steps until it is decided */
-export async function propose(db: Db, id: string, b: number, o: { note: string; author: Author }): Promise<void> {
-  await db.transaction(async (q) => {
+export async function propose(db: Db | Queryable, id: string, b: number, o: { note: string; author: Author }): Promise<void> {
+  await inTx(db, async (q) => {
     await lock(q, id);
     const r = await branchOf(q, id, b, true);
     if (r.status !== "open" && r.status !== "proposed") throw new DocError(`branch ${b} was ${r.status}`, 409);
@@ -207,8 +210,8 @@ export async function previewMerge(db: Queryable, id: string, b: number): Promis
  * whose content is code (`build`) whose merge met other edits is accepted only with `mergedHash`, the hash of the
  * merged result as it was built and previewed in the box (previewMerge): never code nobody has seen run.
  */
-export async function accept(db: Db, id: string, b: number, o: { author: Author; note?: string; mergedHash?: string }): Promise<Version> {
-  return db.transaction(async (q) => {
+export async function accept(db: Db | Queryable, id: string, b: number, o: { author: Author; note?: string; mergedHash?: string }): Promise<Version> {
+  return inTx(db, async (q) => {
     const row = await lock(q, id);
     const t = typeOf(row.schema);
     const r = await branchOf(q, id, b, true);
@@ -239,8 +242,8 @@ export async function accept(db: Db, id: string, b: number, o: { author: Author;
 }
 
 /** rejects (an admin) or withdraws (its author) a branch: its steps stay in the history, on their side line */
-export async function close(db: Db, id: string, b: number, o: { author: Author; status: "rejected" | "withdrawn" }): Promise<void> {
-  await db.transaction(async (q) => {
+export async function close(db: Db | Queryable, id: string, b: number, o: { author: Author; status: "rejected" | "withdrawn" | "stale" }): Promise<void> {
+  await inTx(db, async (q) => {
     await lock(q, id);
     const r = await branchOf(q, id, b, true);
     if (r.status !== "open" && r.status !== "proposed") throw new DocError(`branch ${b} was ${r.status}`, 409);

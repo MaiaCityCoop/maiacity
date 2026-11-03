@@ -96,23 +96,23 @@ export function nodeAt(n: Node, path: (string | number)[]): Node {
 // ---- the types
 
 const ID = "^[a-z0-9][a-z0-9-]{0,63}$";
-const HASH = "^[0-9a-f]{64}$";
-/** clip fields every story knows; a clip may carry others (a later kind's), kept as they are */
+const WORD = "^[a-z0-9][a-z0-9-]{0,31}$";
+/**
+ * A story as a document: its title and its timeline, in the format ../stories.ts checks in full before every step
+ * (play/SPEC.md §12); here what the document itself must hold. A clip's texts (its line, transition, camera, retention)
+ * are Loro texts, kept character by character; a clip may carry fields no kind names, kept as they are.
+ */
 const clip: Node = {
   type: "object",
   required: ["id", "at", "duration"],
   properties: {
-    id: { type: "string", pattern: ID },
+    id: { type: "string", pattern: "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$" },
     at: { type: "number", minimum: 0 },
     duration: { type: "number", minimum: 0 },
-    frame: { type: "string", pattern: HASH },
     transition: { type: "string", maxLength: 2000, "x-loro": "text" },
-    who: { type: "string", maxLength: 120 },
     line: { type: "string", maxLength: 4000, "x-loro": "text" },
-    section: { type: "string", maxLength: 120 },
     camera: { type: "string", maxLength: 2000, "x-loro": "text" },
     retention: { type: "string", maxLength: 2000, "x-loro": "text" },
-    mood: { type: "string", maxLength: 16 },
   },
   additionalProperties: true,
 };
@@ -122,11 +122,10 @@ export const STORY: DocType = {
   type: "story",
   schema: {
     type: "object",
-    required: ["schema", "title", "duration", "tracks"],
+    required: ["schema", "title", "format", "fps", "duration", "tracks"],
     properties: {
       schema: { const: "story/1" },
-      title: { type: "string", minLength: 1, maxLength: 200 },
-      note: { type: "string", maxLength: 20000, "x-loro": "text" },
+      title: { type: "string", minLength: 1, maxLength: 120 },
       format: { type: "string", enum: ["9:16", "16:9", "1:1", "4:5"] },
       fps: { type: "number", minimum: 1, maximum: 120 },
       duration: { type: "number", minimum: 0, maximum: 36000 },
@@ -136,7 +135,7 @@ export const STORY: DocType = {
         items: {
           type: "object",
           required: ["id", "kind", "clips"],
-          properties: { id: { type: "string", pattern: ID }, kind: { type: "string", pattern: ID }, clips: { type: "array", maxItems: 4000, items: clip } },
+          properties: { id: { type: "string", pattern: WORD }, kind: { type: "string", pattern: WORD }, clips: { type: "array", maxItems: 4000, items: clip } },
           additionalProperties: true,
         },
       },
