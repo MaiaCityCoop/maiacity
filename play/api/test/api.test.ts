@@ -310,6 +310,21 @@ suite("play API", () => {
     expect((await rpc(theirs.data.token, "ping")).status).toBe(401);
   });
 
+  test("an admin's token opens the world's read-only routes, so an agent can film a sandbox; nothing else, and nothing that writes", async () => {
+    const t = (await call("ada", "POST", "/api/tokens", { name: "camera" })).data;
+    const get = async (path: string, method = "GET", token = t.token) =>
+      (await api.fetch(new Request(`http://play.test${path}`, { method, headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, ...(method === "GET" ? {} : { body: "{}" }) }))).status;
+    expect(await get("/api/me")).toBe(200);
+    expect(await get("/api/catalog")).toBe(200);
+    expect(await get(`/api/assets/${ids.fern}`)).toBe(200);
+    expect(await get("/api/sandboxes/sandbox-1/config")).toBe(200);
+    for (const path of ["/api/members", "/api/tokens", "/api/proposals", "/api/stories", "/api/postgres/tables"]) expect(await get(path)).toBeGreaterThanOrEqual(401);
+    expect(await get("/api/proposals", "POST")).toBe(401);
+    expect(await get("/api/catalog", "GET", "play_notarealtokenatallxxxxxxxx")).toBe(401);
+    await call("ada", "DELETE", `/api/tokens/${t.id}`);
+    expect(await get("/api/catalog")).toBe(401);
+  });
+
   test("a proposal brings its readable source: play wraps it into the recipe, keeps both, and serves them as text", async () => {
     const source = "// a fern, version 3\nconst THREE = require('three');\nmodule.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
     const p = await call("cit", "POST", "/api/proposals", { asset: ids.fern, source, note: "readable" });

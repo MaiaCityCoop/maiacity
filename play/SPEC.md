@@ -162,6 +162,10 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   proposed its last step; an agent can draft it first step by step (`asset_edit`: a replace by its text, a range of the
   source, a field of the card, each step with its message) and propose the draft (`propose_version` with its `branch`),
   its steps going with it. Accepting merges the branch and names the document's version the asset's new number.
+- **An agent's camera** (Samuel 2026-11-03): an admin's MCP token also opens the world's read-only routes (`GET
+  /api/me`, `/api/catalog`, `/api/files/<hash>`, `/api/sandboxes/<id>/config`, `/api/assets…`; `READ_BY_TOKEN` in
+  `play/api/src/app.ts`), so an agent loads a sandbox in its own browser as its admin and films it (`window.__world`'s
+  `fly` and `sun`) for a story's storyboard. Every other route still wants a session.
 - **Variants over MCP** (Samuel 2026-11-03): `propose_version`'s `variants` (each a `name`, a `label`, its own `source`
   where it differs) make a version a kind of variants, as the animals are: each variant its own recipe file, the source
   called with its name (`module.exports.recipe(id, v, variant)`), its label shown as a chip in the asset viewer
