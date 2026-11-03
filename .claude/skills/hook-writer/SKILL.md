@@ -117,7 +117,8 @@ Every film runs in the same order:
    - **the title:** at most 7–8 words, fewer is better — on the card, the thumbnail, the YouTube title, the first
      frame;
    - **the hook intro:** one or two spoken sentences about this episode's actual topic, opening its question and
-     making its promise (about 3–8 s).
+     making its promise (about 3–8 s). The promise is often the insight the viewer will learn (how a food forest
+     starts, why this plant goes first): every story teaches (`storyteller`, law 6b).
 2. **The trailer, fixed, the same in every film, spoken by Samuel:** *"This is the story of how one million humans build a ten times better way of living: their own solarpunk city, from the ground up. First in a game, then for real."* It replaces any per-episode intro about
    who we are; never rewrite it.
 3. **The story,** which keeps the hook's promise: it opens on the day ("Day 1") and walks to the payoff the hook

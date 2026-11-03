@@ -77,6 +77,10 @@ three rules in `scenes.md`:
 **The fixed order** (Samuel, 2026-11-03; `hook-writer`, "The fixed trailer"): the topic hook, then the fixed trailer
 spoken by Samuel, *"This is the story of how one million humans build a ten times better way of living: their own solarpunk city, from the ground up. First in a game, then for real."*, then the story, which keeps the hook's promise.
 
+**Every story teaches** (Samuel, 2026-11-03; `SKILL.md`, law 6b): one clear insight from permaculture or food forest
+design (how the plant lives, how the forest is planted and works), plus surprising true facts, each one a step of the
+story and checked against sources.
+
 **Only our own assets on screen** (Samuel, 2026-11-03): storyboards and films show only what we really have: the
 domes and other buildings, the sandbox and asset-viewer UI, the plants, the biomes, the things, machines and actors in
 play's library, and Samuel himself where he speaks. No props, places or people we haven't built; what the world can't
