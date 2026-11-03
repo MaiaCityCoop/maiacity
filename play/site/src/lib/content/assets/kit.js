@@ -34,6 +34,15 @@ import * as BGU from 'three/addons/utils/BufferGeometryUtils.js'
 export { THREE }
 export const LAYER_FX = 1 // transparent effects: kept out of the AO and contact shadow passes
 
+/**
+ * Whether a mesh is cut out by a picture: drawn on a sheet bigger than it (a leaf on its polar sheet), its outline in
+ * an alpha map or its colour map's alpha, `alphaTest` dropping the rest. A pass that draws the scene through one
+ * material of its own (the ambient occlusion's normals, the contact shadow's depth) would draw the sheet whole, a
+ * pale ghost round every leaf: those passes leave it out or draw it through a material that cuts it too.
+ * @param {THREE.Object3D} o
+ */
+export const cutOut = (o) => !!(/** @type {any} */ (o).isMesh) && (Array.isArray(o.material) ? o.material : [o.material]).some((m) => m && m.alphaTest > 0 && !!(m.alphaMap || m.map))
+
 // ---------------------------------------------------------------- math
 
 export const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x))
@@ -567,6 +576,19 @@ export class ContactShadow {
     this.plane.geometry.dispose(); this.plane.material.dispose()
     this.quad.geometry.dispose()
     this.depthMat.dispose(); this.hb.dispose(); this.vb.dispose()
+    for (const d of this.cuts?.values() ?? []) d.dispose()
+  }
+  /** the depth material for a cut-out mesh's material: the contact shadow's own, cutting what its picture cuts */
+  cutDepth(m) {
+    this.cuts ??= new Map()
+    let d = this.cuts.get(m)
+    if (!d) {
+      d = this.depthMat.clone()
+      d.onBeforeCompile = this.depthMat.onBeforeCompile
+      d.map = m.map; d.alphaMap = m.alphaMap; d.alphaTest = m.alphaTest; d.side = m.side
+      this.cuts.set(m, d)
+    }
+    return d
   }
   blur(amount) {
     const r = this.lab.renderer
@@ -578,11 +600,26 @@ export class ContactShadow {
   update() {
     const lab = this.lab, r = lab.renderer, sc = lab.scene
     const bg = sc.background, ov = sc.overrideMaterial
-    const hide = []; sc.traverse((o) => { if ((o.userData.studio || o === this.plane) && o.visible) { o.visible = false; hide.push(o) } })
+    const hide = [], cut = []
+    sc.traverse((o) => { if ((o.userData.studio || o === this.plane) && o.visible) { o.visible = false; hide.push(o) } else if (o.visible && cutOut(o)) cut.push(o) })
+    // the solid parts through the depth material, the cut-out ones aside
+    for (const o of cut) o.visible = false
     sc.background = null; sc.overrideMaterial = this.depthMat
     const cc = r.getClearAlpha(); r.setClearAlpha(0)
     r.setRenderTarget(this.rt); r.clear(); r.render(sc, this.cam)
     sc.overrideMaterial = ov
+    // then the cut-out ones alone, each through a depth material that drops what its picture cuts away
+    if (cut.length) {
+      const solid = []
+      sc.traverse((o) => { if (o.visible && (o.isMesh || o.isLine || o.isPoints || o.isSprite)) { o.visible = false; solid.push(o) } })
+      const was = cut.map((o) => o.material)
+      for (const o of cut) { o.visible = true; o.material = Array.isArray(o.material) ? o.material.map((m) => this.cutDepth(m)) : this.cutDepth(o.material) }
+      const ac = r.autoClear; r.autoClear = false
+      r.render(sc, this.cam)
+      r.autoClear = ac
+      cut.forEach((o, i) => { o.material = was[i] })
+      for (const o of solid) o.visible = true
+    }
     this.blur(1.2); this.blur(0.5)
     r.setRenderTarget(null); r.setClearAlpha(cc)
     sc.background = bg

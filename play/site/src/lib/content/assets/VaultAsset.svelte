@@ -75,6 +75,12 @@
 	const wanted = $derived(hash ? buildName(hash, asked) : '');
 	/** the parameter it grows by (a plant's stage), and the stage it stands at, named */
 	const staged = $derived(params.find((p) => p.id === 'stage' && tabbed(p)) ?? null);
+	/**
+	 * a plant's view of itself or of its fruit (its `fruit` parameter: Plant | Fruit), a switch of its own at the top of
+	 * the bar, never lost along the row of stages; the bar's other tabs without it
+	 */
+	const fruitView = $derived(params.find((p) => p.id === 'fruit' && tabbed(p)) ?? null);
+	const barParams = $derived(fruitView ? params.filter((p) => p !== fruitView) : params);
 	const stageName = $derived(staged && Number.isFinite(values.stage) ? staged.names[Math.min(staged.names.length - 1, Math.round(values.stage - staged.min))] : '');
 
 	let canvasBox = $state();
@@ -112,6 +118,8 @@
 	const moves = $derived(movesOf(hero, { staged, growing, rigApart }));
 	const views = $derived(viewsOf(hero, rigApart));
 	const said = $derived(hero?.view.note ?? note);
+	/** a build that shows nothing and says why (a plant's fruit that has not set yet): its word over the canvas, no measure */
+	const blank = $derived(!!hero?.view.note && !!size && Math.max(size[0], size[1], size[2]) < 1e-6);
 
 	let stage = null;
 	let show = null;
@@ -475,10 +483,11 @@
 		{@render longNote(said, more, () => (more = !more))}
 		{#if error}
 			<span class="missing">Not shown.</span>
+		{:else if blank}
 		{:else if size}
 			<span>{#if rise}{measure(rise[0])} above the soil · {measure(rise[1])} below · {measure(Math.max(size[0], size[2]))} across{:else}{measure(Math.max(size[0], size[2]))} long · {measure(size[1])} high{/if}</span>
 		{/if}
-		{#if scale[0] > 0 && hero && !error}{@render scaleBar(scale)}{/if}
+		{#if scale[0] > 0 && hero && !error && !blank}{@render scaleBar(scale)}{/if}
 		{#if walking}<small>Drag to look · WASD or the joystick to walk · Shift to hurry · Esc to step outside</small>
 		{:else}<small>Drag to turn round it · pinch or scroll to come closer{catalog ? ' · tap a part to see it on its own' : ''}{hero?.view?.walk ? ' · Step inside to walk in' : ''}</small>{/if}
 {/snippet}
@@ -493,9 +502,17 @@
 <Turntable name="vault-asset" inline {compact} {fill} panel={details ? undefined : panelBody} readout={details ? undefined : readoutBody} bind:canvas={canvasBox}>
 	{#snippet head()}
 		{#if named}<h2 class="name">{title || source.nameOf?.(hash) || 'An asset'}{#if stageName}<small>{` · ${stageName}`}</small>{/if}</h2>{/if}
+		{#if fruitView}
+			<!-- shown while it builds and where a fruit has not set yet too, so the plant is always one tap away -->
+			<div class="views-of" role="group" aria-label={fruitView.label}>
+				{#each fruitView.names as n, k (k)}
+					<button class:on={Math.round(values[fruitView.id]) === fruitView.min + k} aria-pressed={Math.round(values[fruitView.id]) === fruitView.min + k} onclick={() => ((growing = false), setParam(fruitView.id, fruitView.min + k))}>{n}</button>
+				{/each}
+			</div>
+		{/if}
 		{#if hero && !error}
 			<div class="chips">
-				{@render paramTabs(params, values, (id, v) => ((growing = false), setParam(id, v)))}
+				{@render paramTabs(barParams, values, (id, v) => ((growing = false), setParam(id, v)))}
 				{@render moveChips(moves, (k) => (k === 'grow' ? growing : moving === k), lab, playMove)}
 				{#if hero.view.ticks || hero.buildBy}<button class="chip" class:on={!modes.run} onclick={() => setMode('run')}>{modes.run ? 'Pause' : 'Play'}</button>{/if}
 				{@render viewChips(views, (k) => (k === 'explode' && rigApart ? drawnApart : modes[k]), setMode)}
@@ -519,6 +536,8 @@
 		<div class="canvas-note error" role="alert"><b>Not shown.</b> {error}
 			{#if ready}<button class="chip" onclick={() => show?.(hash, asked)}>Try again</button>{/if}
 		</div>
+	{:else if blank && !building}
+		<div class="canvas-note" role="status">{said}</div>
 	{:else if building && !growing}
 		<div class="canvas-note" role="status">
 			{#if arriving}Catching up · the file of {title || at?.label || 'it'} is still arriving on this device…
@@ -531,6 +550,29 @@
 </Turntable>
 
 <style>
+	/* a plant's Plant | Fruit: one pill of two halves, the one shown pressed dark, like the bar's chips */
+	.views-of {
+		display: inline-flex;
+		align-self: flex-start;
+		gap: 2px;
+		padding: 3px;
+		border: 1px solid rgb(0 0 0 / 0.12);
+		border-radius: 999px;
+		background: rgb(255 255 255 / 0.7);
+	}
+	.views-of button {
+		padding: 0.3rem 0.95rem;
+		border: 0;
+		border-radius: 999px;
+		background: none;
+		font: inherit;
+		color: inherit;
+		cursor: pointer;
+	}
+	.views-of button.on {
+		background: #1f2a23;
+		color: #fff;
+	}
 	/* what is said of it, in the page's aside: two cards */
 	.details {
 		display: flex;

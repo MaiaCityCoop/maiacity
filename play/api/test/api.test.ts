@@ -1,12 +1,13 @@
 // The API against a real Postgres: set TEST_DATABASE_URL (a server where this may create and drop a database), e.g.
 // postgres://postgres@127.0.0.1:5544/postgres. Without it these tests are skipped.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
+import { folderStore, type BlobStore } from "../src/blobs";
+import { importSources } from "../import/sources";
 import { hashText } from "../src/hash";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
@@ -22,6 +23,7 @@ const recipe = (id: string, v: number, variant: string | null = null, note = "")
 suite("play API", () => {
   let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
   let api: ReturnType<typeof app>;
+  let store: BlobStore;
   const who: Record<string, { id: string; cookie: string }> = {};
   /** each asset made here, by its slug: its UUID */
   const ids: Record<string, string> = {};
@@ -36,7 +38,8 @@ suite("play API", () => {
     db = fromBunSql(sql);
     await migrate(db);
     await initSessions(db);
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
+    store = folderStore(mkdtempSync(join(tmpdir(), "play-blobs-")));
+    api = app({ db, store, rate: new Rate(0) });
     for (const n of ["ada", "cit", "cit2", "trav"]) {
       const h = await createHuman(db, n);
       who[n] = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
@@ -267,6 +270,54 @@ suite("play API", () => {
     expect(file.headers.get("content-security-policy")).toContain("sandbox");
     expect((await call("ada", "GET", `/api/files/${r.source}`)).data).toBe(source);
     await call("cit", "POST", `/api/proposals/${p.data.id}/withdraw`);
+  });
+
+  test("an imported version and its variants are given their readable source once, and nothing else of them changes", async () => {
+    // two imported versions as the import writes them: their recipe files among play's files, no source
+    const put = async (text: string) => {
+      const h = hashText(text);
+      const key = await store.put(h, new TextEncoder().encode(text), "text/javascript");
+      await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, 'text/javascript', $3) ON CONFLICT DO NOTHING`, [h, text.length, key]);
+      return h;
+    };
+    const legacy = "module.exports.recipe = function (id, v, variant) {\n  return { meta: { id, v, variant }, build: () => null };\n};\n";
+    const own = await put(recipe("thyme-old", 1)), hen = await put(recipe("hen-old", 1, "hen-red"));
+    const thyme = "8a1e2b44-0000-4000-8000-000000000001", hens = "8a1e2b44-0000-4000-8000-000000000002";
+    await db.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, 'maia-city', 'plants', 'thyme-old', 'Thyme'), ($2, 'maia-city', 'actors', 'hen-old', 'Hen')`, [thyme, hens]);
+    await db.query(
+      `INSERT INTO play.asset_versions (id, asset_id, number, recipe_hash, default_variant, card, engine, imported) VALUES
+        ($1, $2, 1, $3, NULL, '{"card":{}}', 5, '{"from":"avendb"}'), ($4, $5, 1, NULL, 'hen-red', '{"card":{}}', 5, '{"from":"avendb"}')`,
+      [hashText("thyme-old@1"), thyme, own, hashText("hen-old@1"), hens],
+    );
+    await db.query(`INSERT INTO play.asset_variants (version_id, name, recipe_hash, card) VALUES ($1, 'hen-red', $2, '{"card":{}}')`, [hashText("hen-old@1"), hen]);
+    // the sources and their index, as legacy/sources keeps them
+    const dir = mkdtempSync(join(tmpdir(), "play-sources-"));
+    const index = (recipes: Record<string, any>, text = legacy) => {
+      mkdirSync(join(dir, "plants"), { recursive: true });
+      writeFileSync(join(dir, "plants/old.js"), text);
+      writeFileSync(join(dir, "index.json"), JSON.stringify({ sources: { [hashText(legacy)]: "plants/old.js" }, recipes }));
+    };
+    const src = hashText(legacy);
+    index({ [own]: { asset: "plants/thyme-old", v: 1, variant: null, source: src, commit: "c" }, [hen]: { asset: "actors/hen-old", v: 1, variant: "hen-red", source: src, commit: "c" } });
+    const first = await importSources(db, store, dir);
+    expect(first).toEqual({ files: 1, attached: 2, recipesAbsent: 0, errors: [] });
+    const got = await call("trav", "GET", `/api/assets/${thyme}`);
+    expect(got.data.versions[0].source).toBe(src);
+    expect((await call("trav", "GET", `/api/assets/${hens}`)).data.versions[0].variants[0].source).toBe(src);
+    expect((await call("trav", "GET", `/api/files/${src}`)).data).toBe(legacy);
+    // run again, nothing more is written
+    expect(await importSources(db, store, dir)).toEqual({ files: 0, attached: 0, recipesAbsent: 0, errors: [] });
+    // a source is given once; the rest stays frozen
+    await expect(db.query(`UPDATE play.asset_versions SET source_hash = $1 WHERE asset_id = $2`, [own, thyme])).rejects.toThrow(/given once/);
+    await expect(db.query(`UPDATE play.asset_versions SET source_hash = NULL WHERE asset_id = $1`, [thyme])).rejects.toThrow(/given once/);
+    await expect(db.query(`UPDATE play.asset_versions SET note = 'x' WHERE asset_id = $1`, [thyme])).rejects.toThrow(/frozen/);
+    await expect(db.query(`UPDATE play.asset_variants SET source_hash = NULL WHERE recipe_hash = $1`, [hen])).rejects.toThrow(/never changed/);
+    await expect(db.query(`UPDATE play.asset_variants SET card = '{}' WHERE recipe_hash = $1`, [hen])).rejects.toThrow(/never changed/);
+    // an index that says the wrong version, or a source that is not its hash, is refused
+    index({ [own]: { asset: "plants/thyme-old", v: 2, variant: null, source: src, commit: "c" } });
+    expect((await importSources(db, store, dir)).errors[0]).toMatch(/builds thyme-old@1, not plants\/thyme-old@2/);
+    index({}, legacy + "// changed\n");
+    expect((await importSources(db, store, dir)).errors[0]).toMatch(/its text is not/);
   });
 
   test("minified code, a source that sets no recipe, and an engine that is not frozen are refused", async () => {

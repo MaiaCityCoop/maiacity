@@ -1,0 +1,2592 @@
+{
+ "recipes": {
+  "008704a39180ad7701ae19dd3e868f3baf8a69e20937cd670e5dc8a0cbc8986e": {
+   "asset": "machines/excavator-small",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "f2f40358fa900613085784fd6967ff368ef2b5e90e8f77320d13d0f28f63c4d9",
+   "v": 1,
+   "variant": "excavator-small"
+  },
+  "0112909a5fab60bdb4c709c77ec7a10bf43d85cf5542e6a9e0468c179e2d6d95": {
+   "asset": "biomes/beech-forest",
+   "commit": "78cfae5b2690b2930c95047d75c8ea408320f8bd",
+   "source": "c58a8c509c2654cc8ac98a8a30d88d53adf3ae43b33aa0597297c7343c573947",
+   "v": 1,
+   "variant": null
+  },
+  "0149d4acff8b61c03ff4b240e34135b1905521414bc8f67e05d1590f4dac4ca0": {
+   "asset": "things/rabbit-hutch",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "3c6d40b90e7ddc6c4a8b48e143b67fe82f199f723a0689ca8900e928631bb4fe",
+   "v": 1,
+   "variant": null
+  },
+  "024c53998e9351922dba7f9616fa746da79d185020b7604e625da4d09090f695": {
+   "asset": "machines/batterycube",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0c30e4db4e9f1ce797e1d446423738bf98e99bdf63776e29fe98acd943552df2",
+   "v": 1,
+   "variant": "batterycube"
+  },
+  "0414335abfdc7b8cc595e3c84c5f5bc80ef7698cf35d2db38da723d47a71b9fe": {
+   "asset": "actors/rabbit",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7ab21103e5a1f0819e966ca05e89c92370fec44354fff554130854ee1b4388e7",
+   "v": 1,
+   "variant": "rabbit-dutch"
+  },
+  "046f2ad3112296ea605f06e1847dfaf5b151b7a52012d886ecbca88b05c9e2d6": {
+   "asset": "biomes/spruce-forest",
+   "commit": "78cfae5b2690b2930c95047d75c8ea408320f8bd",
+   "source": "356230ef8567ef642c6df8cff013f2faecb2aa08167d7cf7586c5eb85c6dcf02",
+   "v": 1,
+   "variant": null
+  },
+  "05794d83dbe6711c0455740bbb7d0a37e273abd865d4b6f6b27ee47c6230a65b": {
+   "asset": "plants/strawberry",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "c3391ed50f8ccb6deb6054b1b082b18f1f98abc2c2a12c59318e26853a2cfbb9",
+   "v": 1,
+   "variant": null
+  },
+  "0793af3f2c2ba974dda8dc9406d0d48c10fdaaa2abaaf1700d45c12d18b0c82e": {
+   "asset": "machines/batterypack",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "05544a2718517d938f4113ec6dd8f1747476b71504510c16b1a281a0f918f85a",
+   "v": 8,
+   "variant": "batterypack"
+  },
+  "07dcefe59874eda41a1919a575fd5e8a3834eb0d9b8066fe16e67126074e093d": {
+   "asset": "things/travel-van",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7fc409c6020d80954905ccce4ce8013126c09b795703e507760afe9d8aaf7bb0",
+   "v": 1,
+   "variant": null
+  },
+  "0892e2bdfce7208c7f86fb5d9be369750e5aef66f6efc6503d8ac53f80dc575b": {
+   "asset": "plants/radish",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "051d15aad5459569a65bcf0f0db48fcafc018ae169fcfb8fe52edf6c30230022",
+   "v": 1,
+   "variant": null
+  },
+  "09c00d45647abc9f339a65aa914a78b91f92b23293580fdb799509ce196bb57d": {
+   "asset": "machines/batterypack",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "05544a2718517d938f4113ec6dd8f1747476b71504510c16b1a281a0f918f85a",
+   "v": 10,
+   "variant": "batterypack"
+  },
+  "0b36dfd28c77462241f9504bb6a1431b27c7b519e39ccbe49709b6d9fbbbb838": {
+   "asset": "things/backpack",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "97afd0294b5fd442b64bf108a1b7ea40aa342241106cde3c816743001b2e6736",
+   "v": 1,
+   "variant": null
+  },
+  "0b846d33ca60808b6ef052edf9a742729ef0bf4743ac8c51181f280b57847db8": {
+   "asset": "machines/electrocube",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "8c198e41afa0733e784a27a0922c2aa223f2a25ecf1f2db59dd952f0e5459118",
+   "v": 1,
+   "variant": "electrocube"
+  },
+  "0bb4c62defa52b04542ac4649d1d5cfcad7e1b26f3c57acf33ba2363f8bf6269": {
+   "asset": "plants/pecan",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0f12d858338066891ec1ee3cf6a315ef8d0da2da5dda38030191f7806df135e6",
+   "v": 1,
+   "variant": null
+  },
+  "0ceed0c2e81d2616187f9c958b8a911c6f47ff3bc8325a306109c0a8e513b656": {
+   "asset": "plants/avocado",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "ddfd02245ce235392cb39488d414efe453d050efc85509c672041ca6d27efa74",
+   "v": 1,
+   "variant": null
+  },
+  "0d94e7ff0fbc6d42fc3db04bd794fbf1ca36576a5216b2c63a821c679c80f2e7": {
+   "asset": "actors/bee",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "c16f73d0d956eb001d85c46f222c299595c9a4eca52dbf51fbd6c20cf03c361a",
+   "v": 1,
+   "variant": "bee"
+  },
+  "0e197db66dab6245bc0a556611ee610f97c6e8667a24ae056c09e4b700efc102": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "moss"
+  },
+  "0f0aa07d98c5608a273c9ba11abdad75fcf2b92ecfd0ec5ad1ba3389cf8e15cf": {
+   "asset": "plants/coriander",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b8ca5e1b35bdb23cd251f7e41deb70856d7903ffdf847d68509f6bc23561682e",
+   "v": 1,
+   "variant": null
+  },
+  "0fc3074d0084a7d10d104db30e983f7f09e5cfd64124eb7255c36f5b9fc0c9a9": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "grass"
+  },
+  "1037bbec086d4a471caa3483ed34b3ef45a3a825c75c45cba0af57ce8dc2dab1": {
+   "asset": "machines/powercube",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b0c8f7f9c3bf9a6147c000528af8e9e3dc094fc1d8d5dd3bf311d41683dfa57d",
+   "v": 2,
+   "variant": "powercube-7s"
+  },
+  "11058a94bccd793880b0a441a8f44d31dc4dcc11b5c3b052333e88fe96f2debc": {
+   "asset": "buildings/container-kitchen",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b35619451d0c66566bc69e204febd0f2bf9409e6f4cffda07573d5f0f0b9c50e",
+   "v": 1,
+   "variant": null
+  },
+  "11061be368e5629859bb051d3a9440515022a7832ca7d51269fcdff9f6aeaa6e": {
+   "asset": "biomes/meadow",
+   "commit": "78cfae5b2690b2930c95047d75c8ea408320f8bd",
+   "source": "15f0bf4569afc6b5506c74c532c0f3ff1fe1f73ea0f61a93f7dbd5946d1aa559",
+   "v": 1,
+   "variant": null
+  },
+  "11642d77e4d95d383be73ebd95732548ee5dcdf3790a2dfbc57b6d4d11d1e9a0": {
+   "asset": "things/art-studio",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "87d6f7277f97e1d6e0eb44288ad3dad36e963e6db1c97ec8312ccbdbe0c50e20",
+   "v": 1,
+   "variant": null
+  },
+  "116cb7bbb57e82ee05731e19bf79274af0dd3271502a38d8b1a5584ecaada610": {
+   "asset": "actors/rabbit",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7ab21103e5a1f0819e966ca05e89c92370fec44354fff554130854ee1b4388e7",
+   "v": 2,
+   "variant": "rabbit-wild"
+  },
+  "11794d1ff9be55038bffe988db8cb6f0b85cbc360ed08cb2cb2c0ae7e333b2ca": {
+   "asset": "plants/korean-pine",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "6786473f81608f906e6d24c5d221eed94bb9b8c59f2144f26e739f71bf3ff374",
+   "v": 1,
+   "variant": null
+  },
+  "12655e3cf75411f3455d6a3e17dcd10a2a25cba9469c0f33a3ab3c690be5b2ac": {
+   "asset": "plants/moss",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "cac08be3b303cf861c04b6a0850e999dce5b142e0366b2c15fcb083aa04387f2",
+   "v": 1,
+   "variant": null
+  },
+  "14a202f6cbfecfba98abeefee0f619aed190b3f2ba07f9e4aa4931afdbb6936d": {
+   "asset": "things/repair-cafe",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "48f6c55d2f0d3993561b9f91a374a237971439963d03292490d18821cd9686d5",
+   "v": 1,
+   "variant": null
+  },
+  "150af9398dcaee91cff7520311aebe4a0b9d7e8fb16f297a0a44c9ce74387adc": {
+   "asset": "actors/rabbit",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7ab21103e5a1f0819e966ca05e89c92370fec44354fff554130854ee1b4388e7",
+   "v": 2,
+   "variant": "rabbit-dutch"
+  },
+  "155253efcc89d8ccdd94313694b850cab2335d9f8e48c945c71029e5f795125e": {
+   "asset": "buildings/gas-station",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "be3dc369ced8726d9eabd6eb17595a59e6dacb5782a0a883d7da6788e75224d0",
+   "v": 1,
+   "variant": null
+  },
+  "15c6d2a9510a019d6c2423b2695bb9aaa9e7e8fd433d9d4f8bc1603dfd6cf4cc": {
+   "asset": "things/sofa",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "34d5da36c8a78fff5c482e1ab769e70ef7db5df367118f99e3fedffdf521e082",
+   "v": 1,
+   "variant": null
+  },
+  "16000c42b3c98dd5232ee46b7505fbe47c0f18f26457e641117115526d47aa8c": {
+   "asset": "machines/excavator-small",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "f2f40358fa900613085784fd6967ff368ef2b5e90e8f77320d13d0f28f63c4d9",
+   "v": 2,
+   "variant": "excavator-small"
+  },
+  "165c492bf221bbb62691e1d4c48d221befa2c25f2f36b502f7656f89955c3b01": {
+   "asset": "machines/pod",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "a980f85a5093f5062ecc8b05f358fa9a62ab0a34d9452e833b480e153dfaabc1",
+   "v": 2,
+   "variant": "pod-goods"
+  },
+  "16cc3705eed9646629aae088aa6ad6b0646720755305d724ff8c6f68422bcf57": {
+   "asset": "actors/songbird",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "f3b3bb7856168ff3c5ce0ad18ac9cdcef3322651fb922e8037cb67c4b9941c0e",
+   "v": 1,
+   "variant": "bird-blackbird"
+  },
+  "16eed6a7af3fdb233243d62680cc4761ef5c33f7b4628a0a7f00a02f9bdcac29": {
+   "asset": "plants/pineapple",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dbfb8ef06f70bc9c5d916321f3c03c6f1c573ee93463144c12403e2e5e05a88a",
+   "v": 1,
+   "variant": null
+  },
+  "178d764e382ea0a728daa19ed4e8c6413b26f6185146075303f712308d0ae9bc": {
+   "asset": "actors/sheep",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b1b6aff6afea2ff45982fd36c792f715a6a9da775c6ff5f693da121db838f177",
+   "v": 2,
+   "variant": "sheep-black"
+  },
+  "17bddecdc34e38a57678d98ad5310a5396b1559a5256a465de3d84f45bce536d": {
+   "asset": "plants/birch",
+   "commit": null,
+   "source": "f1b8e2f49e3c4f1710f1fbfca3d2d4fa5893512d8ac1005f57bf31e5596cff5e",
+   "v": 2,
+   "variant": null
+  },
+  "17ca930803777a1b7970b83828a47bcdb41ffe7d44dd178a8adbb9b3b0600c68": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "cranesbill"
+  },
+  "1879df2ae2779e5723d26e191151c0ab9395c84f8e51f49358b066aa1cee4102": {
+   "asset": "actors/goat",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7b7c0b9c1ce0b554910adb314bfe90941eea1e18bf7285449d0584724edbf9fc",
+   "v": 1,
+   "variant": "goat-alpine"
+  },
+  "197e6ff205bb911ef38fe59eabd370706140bbb613a11aa5337f695415522d9e": {
+   "asset": "plants/aronia",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "817cdfcde25f493712a0abedd101136e398906c7327b7ef3bf67eccf773a2eee",
+   "v": 1,
+   "variant": null
+  },
+  "1996b6ba419973bcc74ff9436d2982b3d8ae00161225a11b33a3d36efbe18f31": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "ramsons"
+  },
+  "1add64942f046f8f5ddc148f6ba97f25727a457bde31c5ed5ea2620b10d88f43": {
+   "asset": "things/pickup",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "21bf4c369da310f9c8223c5dcac43f3334e5b0c651da461d6d464c3e8e34c536",
+   "v": 3,
+   "variant": null
+  },
+  "1af43790e499037453408576acd8e095706d5b7a8d28b8ffaac17d55bd4a4f23": {
+   "asset": "actors/sheep",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b1b6aff6afea2ff45982fd36c792f715a6a9da775c6ff5f693da121db838f177",
+   "v": 1,
+   "variant": "sheep-suffolk"
+  },
+  "1b1a6de3645913c2fa313d60a3b66c04515ceba403b66d3fdeba83637256585e": {
+   "asset": "plants/hop",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "c350eec9528e149510f46c0f90cf34b4e04c4038c35b64d26c966e2486771ef3",
+   "v": 1,
+   "variant": null
+  },
+  "1b639b198d4264985952eeb3a54d888acbb5ef9b7239fe0f9e43249a2c25f549": {
+   "asset": "actors/elder-woman",
+   "commit": "6043e3600f4954f374214656e43ca8e20c339986",
+   "source": "7b263762491217d3dd26915b2a1d1dec75dcffa8dfd57c8148cc4b0486c85bf4",
+   "v": 1,
+   "variant": "elder-woman"
+  },
+  "1c4e183022786f237cfa2050c90f000e239c3597f63cbd83a6a6902fba4b845a": {
+   "asset": "actors/goose",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0ac62f43aba85010cc278428c47e5711d7b719da6d695bb4d94c156df3569e0d",
+   "v": 1,
+   "variant": "goose-chinese"
+  },
+  "1c84464dbd7df98a3b1a3d4daccb68677d85a49b57b1e2295d8a335e072cf2bc": {
+   "asset": "plants/safou",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "47589c75df3a6877cf196796bc1dc442fd5d8eeb21bcc7e8dd84b2764263240f",
+   "v": 1,
+   "variant": null
+  },
+  "1cb884c66848c18025c717adab83fb3ef2c1c33d48120f60af2a7010fc399001": {
+   "asset": "machines/pod",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "a980f85a5093f5062ecc8b05f358fa9a62ab0a34d9452e833b480e153dfaabc1",
+   "v": 3,
+   "variant": "pod-people"
+  },
+  "1dec86be814d0a2154550a5becded670b25ab753d4b62c0488bd5bd41d74977b": {
+   "asset": "buildings/container-sanitary",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "208562c1f3a8ccee8a83348a7909dc290d429f6642a16633c49d1b01cdf41932",
+   "v": 1,
+   "variant": null
+  },
+  "1f004c392dab41eef5eb197e24c218ef35d3eb505e92535e5301dbc0e503be8e": {
+   "asset": "plants/cornel",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "5406b91e569a19689dbfc887a6115dc3786bd5e2c45e2de960c74b2c8d74731a",
+   "v": 1,
+   "variant": null
+  },
+  "1f963b80173bbcadc3046d8cafd44cdc34fc5c8a0b4bc954eea7dee1eeb755b7": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "tallgrass"
+  },
+  "203f9c863c0ae313e5aa3a6a56b32e0243647d2ef59b7b30a0c61d84ce4588d6": {
+   "asset": "machines/batterycube",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0c30e4db4e9f1ce797e1d446423738bf98e99bdf63776e29fe98acd943552df2",
+   "v": 2,
+   "variant": "batterycube"
+  },
+  "20d02d9b0402811be81261c55ef0101c207bc8c923039e87d8fe269149951b48": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "mushrooms"
+  },
+  "21e87be9894e6167332c0e84be74dcb6cbf8c22c2a7c5f2424939d018cb0b578": {
+   "asset": "actors/rabbit",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7ab21103e5a1f0819e966ca05e89c92370fec44354fff554130854ee1b4388e7",
+   "v": 1,
+   "variant": "rabbit-fawn"
+  },
+  "21f4d46907f655024031276ba204e59043594e49a2b77afe3d9a7efaca66d124": {
+   "asset": "plants/hemp",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "c6ab8f5a540de77c27d2529b776173990d3267f56340b62c6c25f930e2de93ba",
+   "v": 1,
+   "variant": null
+  },
+  "2224005c4d2af99fd03d678c44ef3a717115c1ae5ebc30c06e83c2fc3b16c4c3": {
+   "asset": "things/backpack",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "97afd0294b5fd442b64bf108a1b7ea40aa342241106cde3c816743001b2e6736",
+   "v": 2,
+   "variant": null
+  },
+  "22410099bfc40243370f94f71325696d663c8c11db8330cf8efe22589224330a": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "clover"
+  },
+  "233303f8360c6252385499060504f21488fd52ef517f5ed863ff92ae51278645": {
+   "asset": "plants/oyster",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7bdd8b11cf13146f47c0003b8129dc20aac54f55316e17b0b843715ac6520fc4",
+   "v": 1,
+   "variant": null
+  },
+  "240837e0e234feb1be3418a80921feaa8f7c180e5bca3f0c87db17f03c463d54": {
+   "asset": "plants/cacao",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "fca71584726b74214f8f8f1d92f9477d26ad098aacfa90e82066c3f4d9bf0570",
+   "v": 2,
+   "variant": null
+  },
+  "255903c3c07574ce69aec804f2c8fdcdade20128c93f29782cd5264a31b9f3dc": {
+   "asset": "buildings/dome-glamp",
+   "commit": "34599b202506285f4629c574028cec091c524953",
+   "source": "77c3efbf8d52ef36aba2ed21c27eaeea2a42385dea8c2b1871dc397055e68f7e",
+   "v": 2,
+   "variant": null
+  },
+  "279a1549e62f9538fed73357cd40f470b9b95eef76fa60d474995718f03762cc": {
+   "asset": "actors/sheep",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b1b6aff6afea2ff45982fd36c792f715a6a9da775c6ff5f693da121db838f177",
+   "v": 1,
+   "variant": "sheep-black"
+  },
+  "28b3b503fc7814d01ef09a94d21403fe966c72420fa23e8cdb0059febe6410dc": {
+   "asset": "plants/peach",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "c04f925e1dcc636df98eb76232d75d972bab7feae5ddd2a9e098a8d52fcc6c21",
+   "v": 1,
+   "variant": null
+  },
+  "2a83c1725a614bb94c4394e5e63075444899992f388e85557a2a88393702e3a8": {
+   "asset": "actors/fish",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "30c3acb3f7d343c3437d1c339f0d1137caac967dc03298a4326dd0842460e778",
+   "v": 1,
+   "variant": "fish-carp"
+  },
+  "2b33b077ef0c0a63716e5396845d75a701f795dfc520dd9b1d0351e86b9c465b": {
+   "asset": "plants/coffee",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7e2c4e5a5bba1b448eaa52b1c1efd297194b6c6efa033b08a775dc813de7c3f0",
+   "v": 1,
+   "variant": null
+  },
+  "2bd0b24f6fd99e15228dc1f17ddb77e4cb40ad8a0f62601b51331a4f955ff503": {
+   "asset": "actors/goat",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7b7c0b9c1ce0b554910adb314bfe90941eea1e18bf7285449d0584724edbf9fc",
+   "v": 1,
+   "variant": "goat-saanen"
+  },
+  "2c00a588a92d6f7fb7626b1a451b2876862e11262e7626e2ae640c6b1d44eddd": {
+   "asset": "plants/jerusalem-artichoke",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "38ed9252f246d5ccc59db9dc3e79b44528a385fca47f4fe1181d634f13a56662",
+   "v": 1,
+   "variant": null
+  },
+  "2c059e2da706d65bb65b6a71e6a0595c1fe9c0399077d3797e5a41de1af4d3dc": {
+   "asset": "things/tent-bag",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "e1990ff1e90b477f81df366fbd287a2692966bf812c8d229c4cacfca81115012",
+   "v": 2,
+   "variant": null
+  },
+  "2e82dc77dc0e6dd7e38a21d236413c2d84ed8e921edae5e3133e065b58c1cd98": {
+   "asset": "things/marker-sticks",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "f09b6904d8986fd7dd995a8dfef6f882095d8f12891b9a12e8cc9c3280cc3e43",
+   "v": 1,
+   "variant": null
+  },
+  "2f90b24e2b28cdf684f8b29e670f9baaf620eb722bc973333ae3803aca7e5538": {
+   "asset": "actors/sheep",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b1b6aff6afea2ff45982fd36c792f715a6a9da775c6ff5f693da121db838f177",
+   "v": 2,
+   "variant": "sheep-suffolk"
+  },
+  "30f1059bf3f3be9b08a5b80f32f5cd850ae52f2b1b62304fb4f1bdd4f66f0a2a": {
+   "asset": "machines/batterypack",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "05544a2718517d938f4113ec6dd8f1747476b71504510c16b1a281a0f918f85a",
+   "v": 11,
+   "variant": "batterypack"
+  },
+  "314d640a69a945511168007051b5455ca44b23359fd743f8a498e1b2b9b1afb2": {
+   "asset": "actors/sheep",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b1b6aff6afea2ff45982fd36c792f715a6a9da775c6ff5f693da121db838f177",
+   "v": 1,
+   "variant": "sheep-shorn"
+  },
+  "3193562632fc95802f40ad9273ff9558c0e279c6eaaaa69a30abf0c47c7f0713": {
+   "asset": "machines/lifetrac",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "bc4243f62ce7be9d792b40f00fb5538d6c69b5edf0f5db1feb2fb309fdd286df",
+   "v": 1,
+   "variant": "lifetrac-v25"
+  },
+  "320043b07521f5beedf3c90af5650314473e2163d17004f9f8b1f256622ea649": {
+   "asset": "buildings/bus-stop",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "1edea43fa91987537322161ed43ed975209723188f60420409721df28c520f48",
+   "v": 1,
+   "variant": null
+  },
+  "3249b2076a1e38c394ee7f745ad311cf875a6a198d07e39753397207a2aa6f47": {
+   "asset": "actors/stand-in",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "e5d698ee0c64742d2ddfb889ec5dc56bbd705cf86de8c1232aada8e0b02d8f03",
+   "v": 11,
+   "variant": "stand-in"
+  },
+  "325d10ea0d867fba321a0cffee83c22e549249e4d42ae8b087c77f207c14f76b": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "fern"
+  },
+  "32d1e8009d4d0932f810a7c1ba860d4e0f0be10503a8b4f72f8587c6ddda214c": {
+   "asset": "plants/passion-fruit",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "4c85799a56be04cf8cbf20004b5f98ecfb2067c128d5a32041244f78e5b14191",
+   "v": 1,
+   "variant": null
+  },
+  "340ea1fcb8dd4ee9a0ee5fa9a4c26ece2df3580e1b894d4182c41f922816f413": {
+   "asset": "actors/songbird",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "f3b3bb7856168ff3c5ce0ad18ac9cdcef3322651fb922e8037cb67c4b9941c0e",
+   "v": 1,
+   "variant": "bird-robin"
+  },
+  "35412ef482b0b8d3f49b34bf295fa9bcf2c572df86e488e9eab6e5c790448bf7": {
+   "asset": "plants/edamame",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "074501df738882629f3a6a6df1bed31231e020878660b7866899b632b8afc56f",
+   "v": 1,
+   "variant": null
+  },
+  "359f80f05287c59e1bfcd4094fd0e0585b3bf6a784fb85f1444d3f988b85e9da": {
+   "asset": "plants/birch",
+   "commit": "06fe0685dd4a4160ec0ef32100c503583717be1c",
+   "source": "5be41af8fba3f2d3ba73f6f221eb79a19a7c2c03150f53015a19156639ac9f6b",
+   "v": 1,
+   "variant": null
+  },
+  "36c753b13daf0bcde55996355c7096117cf3a0c862683726e9491db18dd22cee": {
+   "asset": "plants/king-coconut",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "db79804677996f69dc05e9bb4434765a0588613e5169588d0bbc5f48a47e7b2a",
+   "v": 1,
+   "variant": null
+  },
+  "390347a997398c8e25980c7f24d36a8fe247df6e6b5e4955eaadbd01b224fab3": {
+   "asset": "machines/batterypack",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "05544a2718517d938f4113ec6dd8f1747476b71504510c16b1a281a0f918f85a",
+   "v": 9,
+   "variant": "batterypack"
+  },
+  "39613a951062577dfe3a625944f931e1018ad557a9afadc80041f45062e0257f": {
+   "asset": "things/private-room-2",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "4dd79bea17447351880772247d2d24a3aa3a9f7ab85eb713a76ddf9caa31d6f9",
+   "v": 1,
+   "variant": null
+  },
+  "3ac4336b38364df78c0c48d2b06a63ea0d2ee829b2dd5b706d416c1bf992572c": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "woodsorrel"
+  },
+  "3bac3565a1e005381a80e89df02903d2f9647862cf0af3144488e8b573d45ef2": {
+   "asset": "actors/sheep",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b1b6aff6afea2ff45982fd36c792f715a6a9da775c6ff5f693da121db838f177",
+   "v": 2,
+   "variant": "sheep-whiteface"
+  },
+  "3f0d14f5c4b20f0d1b1b460df9a06cf3096627fde6efb3119d004900ce9b1a12": {
+   "asset": "plants/thyme",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "2ec5f14fe9c282a4bfc7055e092dd79c660cb3111e31fb7dea046b8ca502aa2d",
+   "v": 1,
+   "variant": null
+  },
+  "3f5963510a40dff1bd8fa23a13891749f0464db3497273d17bdfc090960337a8": {
+   "asset": "machines/pod",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "a980f85a5093f5062ecc8b05f358fa9a62ab0a34d9452e833b480e153dfaabc1",
+   "v": 1,
+   "variant": "pod-goods"
+  },
+  "3f825bc504f9b15d46a07e8ae62f7ec49ce18378cf834b214b7f23d81f479793": {
+   "asset": "actors/chicken",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "4885dc9f370983e106d5e52b3b1fedcd25bac86f3ddc856e295a06c35f155d1f",
+   "v": 1,
+   "variant": "chicken-rooster"
+  },
+  "40879a7a9f95526e10ad29b24d59c6ce6e61e339a5037c5347b96bd5f39e9a59": {
+   "asset": "plants/medlar",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "13f256a3756327adfc73d85b20aa6fb3ce96e152197b9f5815360d96cd8029d8",
+   "v": 1,
+   "variant": null
+  },
+  "4099ff85790cad21144e672dd4e179073b0b485f47bae0051f64e1251449222e": {
+   "asset": "buildings/dome-factory",
+   "commit": "16e4bc5b6f2b957ffba0fc8212e09743842add70",
+   "source": "1483a7f0b5facfac81fa1baede64e7cdeece0f4fcf15a3f3d918e2c649ba8b46",
+   "v": 2,
+   "variant": null
+  },
+  "40c8089af600a0ed3c2bce1a0ae743a15c8904c9ca78bb2337e43c11feb4c372": {
+   "asset": "actors/frog",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "d3881f7aecfeee0b177a9bcde234ba60d464503781ba1147de79972d987bcfc9",
+   "v": 1,
+   "variant": "frog-common"
+  },
+  "40fdf4409607b4c2daaa95fbe36dc3669163c7abf820b45e2140157599e9512e": {
+   "asset": "machines/batterypack",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "05544a2718517d938f4113ec6dd8f1747476b71504510c16b1a281a0f918f85a",
+   "v": 7,
+   "variant": "batterypack"
+  },
+  "433b13f896da0efe025cd62d50fbec865d3897c2cf16ec745ad0ecae919a85da": {
+   "asset": "actors/goose",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0ac62f43aba85010cc278428c47e5711d7b719da6d695bb4d94c156df3569e0d",
+   "v": 2,
+   "variant": "goose-chinese"
+  },
+  "43bceb98189e6d44279e5463d7031fe51865fd7470646361e3224e83b4abc43c": {
+   "asset": "actors/stand-in",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "e5d698ee0c64742d2ddfb889ec5dc56bbd705cf86de8c1232aada8e0b02d8f03",
+   "v": 10,
+   "variant": "stand-in"
+  },
+  "4413ba1e7eddec87a2bda85335d6b88768c16a697f6fbb007939b3ed3f23fadf": {
+   "asset": "plants/red-banana",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "ce3393901ac514f2c8331d0648ba6b949eab70b9a15e39c4cbd18f255ce994e9",
+   "v": 1,
+   "variant": null
+  },
+  "4418bb746fff84559e52f79a849ebac6a37f78c5d185d79b664607e5acc37f9e": {
+   "asset": "plants/tomato",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "f4059fa760f5a79461cc4cbd829cee8acb14c82c4d708dc37f06d368a5d41604",
+   "v": 1,
+   "variant": null
+  },
+  "4532bc0f4b602d2c7121b057a58b30aae278b4f593643d88f8a86467739bf0f7": {
+   "asset": "biomes/clover-lawn",
+   "commit": "78cfae5b2690b2930c95047d75c8ea408320f8bd",
+   "source": "0d3076eb3770f7641978b7c1f46fb2f69edc2e31c7aabde48ed39629b41de290",
+   "v": 1,
+   "variant": null
+  },
+  "45c277b9024eb73ed26abf5503835c82163461ff4ac770cb9445a4fce335a2a1": {
+   "asset": "plants/shiitake",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "99dea5894508e0b43d892e2b09567a34471585013ba6750c17b9ba4a1300d078",
+   "v": 1,
+   "variant": null
+  },
+  "469f2fa39bbf9a88f160a69629ae5d2b735151ce05228e7848464624d0f1b170": {
+   "asset": "plants/dill",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "99917b67db3dbc1ef36ba3d9ea5cca717c14f094ec8ddeb0dd67f8dc506de3c6",
+   "v": 1,
+   "variant": null
+  },
+  "478352fa68bac7affb64ee1c27f0d6df94291e7f5f58b14de67c5ee1201ca1d2": {
+   "asset": "machines/excavator-small",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "f2f40358fa900613085784fd6967ff368ef2b5e90e8f77320d13d0f28f63c4d9",
+   "v": 3,
+   "variant": "excavator-small"
+  },
+  "47e8b0f59d0064299ffcbc2640865d4e8c493300619f09cf195b7ab565f90316": {
+   "asset": "actors/rabbit",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7ab21103e5a1f0819e966ca05e89c92370fec44354fff554130854ee1b4388e7",
+   "v": 2,
+   "variant": "rabbit-white"
+  },
+  "4809c5463dace34abee8d93578c8c2d297a615beb6ad1d2a74244464f3516ffa": {
+   "asset": "plants/carrot",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "2dda952c9b06f4abb90f9e20db9a38ef62117aeda67fb38e77b146c205a5016a",
+   "v": 1,
+   "variant": null
+  },
+  "48f72acbaa7505a41e51bfbb2345db39aa2e264c50d87b83857d11379ad02e4a": {
+   "asset": "plants/wild-garlic",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "3986e86ea9cb8ae72c6c9c97b31c3ac9661bba4c3eddec62e4710a14cf3c42b9",
+   "v": 1,
+   "variant": null
+  },
+  "4a0401939f1cfb408ad9e80187ddac3fbe816d56c123c9947bb561f14487d8a6": {
+   "asset": "things/potted-rosemary",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "14c3e1105dfedb9347da5cdcc8189807a65bec6bca452b601c8b28088309269e",
+   "v": 1,
+   "variant": null
+  },
+  "4ae3a91a385d69e6c6c3c2c967e62846780e54ff9c3b646ee515e28cbf8f2416": {
+   "asset": "things/pickup",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "21bf4c369da310f9c8223c5dcac43f3334e5b0c651da461d6d464c3e8e34c536",
+   "v": 2,
+   "variant": null
+  },
+  "4b36fadbc14a2a6de15048c2f10454bcabbf32ae583f81448f4cf059e5104732": {
+   "asset": "plants/kiwiberry",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "a566329e95e83a5073fe1953760a0f293fae11d71b5afb23b070b7161130f9df",
+   "v": 1,
+   "variant": null
+  },
+  "4c137bd5f42546c8d2ad9337ee7911a90283f0feed99ccf7ea492741597cb7e9": {
+   "asset": "actors/elder-woman",
+   "commit": null,
+   "source": "1365f9085e0bd7d428b62827065e1c775b28521b454a504ed18db15864590e15",
+   "v": 2,
+   "variant": "elder-woman"
+  },
+  "4c240829cbf746d9651ff85b447066ac0d05e3aad278f2b1782ef318b3c9a922": {
+   "asset": "plants/nettle",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "19ea3eb6240bfc98a0e3e25b231da3b8968a6be2456009fd1bee0e541783f8c8",
+   "v": 1,
+   "variant": null
+  },
+  "4c3617e341a51d23729d920f769b65d0a86be6b8bae13dc13f8a1b677512d224": {
+   "asset": "machines/forklift",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7d0996f078edfba4fd922548a5f5fb91aae1720d30a826d23b7d1c15256fa700",
+   "v": 1,
+   "variant": "forklift-pallet"
+  },
+  "4c4573f85ea052fac16ee540d71a7a3836aa67bfb8c5fb98a0f8f52f0643ef29": {
+   "asset": "actors/sheep",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b1b6aff6afea2ff45982fd36c792f715a6a9da775c6ff5f693da121db838f177",
+   "v": 1,
+   "variant": "sheep-merino"
+  },
+  "4c69d8709c38ce38d12d4d011363439872e350be750805b9b57ae052046d5373": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "daisy"
+  },
+  "4d12fcb5930dcbb86247a3f694937677af33da3ac0fb85bcbbe3f6f9fc243187": {
+   "asset": "actors/songbird",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "f3b3bb7856168ff3c5ce0ad18ac9cdcef3322651fb922e8037cb67c4b9941c0e",
+   "v": 1,
+   "variant": "bird-greattit"
+  },
+  "4dc99ccb7adfefd05d6ae79665586741aa81c73182c956c703b1f1de5860b02e": {
+   "asset": "actors/goat",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7b7c0b9c1ce0b554910adb314bfe90941eea1e18bf7285449d0584724edbf9fc",
+   "v": 1,
+   "variant": "goat-nubian"
+  },
+  "4eaeacc79ff3804890891417ee7ac86ad9398761881c78412ab7ac5c07fadd38": {
+   "asset": "plants/jackfruit",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "77c29a5ab2d40eb68aa26a649aabc319ae3ad32774ca1097bc1e3410d0c609c5",
+   "v": 3,
+   "variant": null
+  },
+  "4f0a227bd5a585dd44774f075beb2974e9369c80f191d5fc412571b91bdfb9e4": {
+   "asset": "plants/jackfruit",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "77c29a5ab2d40eb68aa26a649aabc319ae3ad32774ca1097bc1e3410d0c609c5",
+   "v": 1,
+   "variant": null
+  },
+  "4faa99d9241d93aacc38b2c2b2dd607006ffc37261a22fe817ba3c662294da22": {
+   "asset": "actors/ant",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "2e5bdd325e6816f8f8425e29c155e3b56a090bf6f2cad58a1c2acb73b7a8c62a",
+   "v": 1,
+   "variant": "ant"
+  },
+  "4fdd25409e9fa3f3a59437877c07463cbfa8207856107f202e1b5e439dab47b5": {
+   "asset": "plants/lettuce",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "3ce56e7452e66c1810bcb18084f14a794a4ed56d9072ce85195465a8ece0610b",
+   "v": 1,
+   "variant": null
+  },
+  "506878287b386494549d996d660a965a58ec5bce4db9a46e4282af61c7778dcf": {
+   "asset": "plants/apple",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "1f0b1045f45780fe8cb9d592dc14045046be99e8f5da16ae8f4e6972bdbb32bd",
+   "v": 2,
+   "variant": null
+  },
+  "5181827d44f0eec8260ae9da0da3bc0b5ce5544b2f63bbebcafd0201f3d341f3": {
+   "asset": "plants/tree-hazel",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "da673e99703e295eefab76a43d82a0ecb47cb2232b9fd035d5d5fb0ab724eb38",
+   "v": 1,
+   "variant": null
+  },
+  "519862cd8dd3b085d51a1b4a191f262ce0a698c9a17a4dab4ccdc36f04100588": {
+   "asset": "things/terrace-daybeds",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "9151cc5f34f2bacdbf507ad3f9489e8e4c75419c3db954fc16215d1e1aae06c2",
+   "v": 1,
+   "variant": null
+  },
+  "521651cdf3533bfb167dd209534de9e5b5ccf5cd2bd6de53d9f89bc4a107c0ba": {
+   "asset": "things/bakery",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b8903cc884dee98c59614fa4be6e2e176343aedbf4009a5d63560150a6ac4ca4",
+   "v": 1,
+   "variant": null
+  },
+  "53118b8eaa549843cc7c94f998b6d0fe4aa8e541f93df6f8280d838d2beb42b5": {
+   "asset": "things/loading-ramp",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "6503f0f6643e1877c4b2c8f4db92fe78ca1cc0ab8ff36279c07b51b38300f568",
+   "v": 1,
+   "variant": null
+  },
+  "53399c70277f0f7d9207e9357dbe3bfb264888d17475de9292241399867da858": {
+   "asset": "actors/fish",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "30c3acb3f7d343c3437d1c339f0d1137caac967dc03298a4326dd0842460e778",
+   "v": 1,
+   "variant": "fish-kohaku"
+  },
+  "5370a9e57d6930f0c95c23da2920505cd62636689f51e938d7495b34a62fa423": {
+   "asset": "actors/goose",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0ac62f43aba85010cc278428c47e5711d7b719da6d695bb4d94c156df3569e0d",
+   "v": 2,
+   "variant": "goose-embden"
+  },
+  "5408bfd3231e9a59afec53131fada13f5b01f4f4d63c67d2bfe9ece414a10ed0": {
+   "asset": "machines/pod",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "a980f85a5093f5062ecc8b05f358fa9a62ab0a34d9452e833b480e153dfaabc1",
+   "v": 1,
+   "variant": "pod-people"
+  },
+  "546b5f021cd21f3015ed6f4a81bdde809c3e625f5e7c63071acc9d136c49ca03": {
+   "asset": "things/library",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "5a31e9ce299a302b3737e10d1469e58a74c9e602554c86c1ba6705f791b8cdd7",
+   "v": 1,
+   "variant": null
+  },
+  "54fbe6e70ead6b5d68e20284b35f04da5ea16398aed13605e858219495c6c970": {
+   "asset": "plants/walnut",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "4b466756078ca7be468b0529917a7fb3d8bb0244fa7b298977d4e00f40e0674d",
+   "v": 1,
+   "variant": null
+  },
+  "552b76bfb604cee073b9c39ab761db525be093282a29333a565b5b2c15bbe959": {
+   "asset": "plants/woodruff",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "e5fa4db114cb3a78805522ffae1abd7c946302a86ff0bf147a7230ad72de750d",
+   "v": 1,
+   "variant": null
+  },
+  "5582c33d94965236af25dfa50eb190413f06b321482862571562f5e30ab0196b": {
+   "asset": "plants/lemon-balm",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "904eee59ba5b4ad242b6e625b55d2453a52d113918e934ffa7d3003661e8adc4",
+   "v": 1,
+   "variant": null
+  },
+  "587faa5f9f1701f106a1dbeaf731606c9ae7aadf9cdc35a4f2d9ad1475d83f27": {
+   "asset": "things/rabbit-hutch",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "3c6d40b90e7ddc6c4a8b48e143b67fe82f199f723a0689ca8900e928631bb4fe",
+   "v": 2,
+   "variant": null
+  },
+  "5a29cdd7cb74ebed9f432bdff2b0fbd564046e379d2fe87f25db7f7f3bdc537b": {
+   "asset": "actors/goose",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0ac62f43aba85010cc278428c47e5711d7b719da6d695bb4d94c156df3569e0d",
+   "v": 1,
+   "variant": "goose-embden"
+  },
+  "5b9c499c27f5c3af0668b05766b95b0b3081665a49d724e861482a346f307e06": {
+   "asset": "plants/cherry",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "d7f8e055adb120af5f00dfdd8f057d0da4278f92bbf3b5c0c4584f5f57cc521d",
+   "v": 1,
+   "variant": null
+  },
+  "5bfa0caaa5d21a155f9381d88724d0fcb1e307bdee229591b9eaa925f2701644": {
+   "asset": "plants/plum",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b59171e07102d79f375480b0152dad3f3b65da50aed6630db60e44739946ffe8",
+   "v": 1,
+   "variant": null
+  },
+  "5ea490ac2d833f5d934bcca64c3d827432d30f27e1040ace25fffae46d878e5e": {
+   "asset": "things/plant-stake",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "d15262a6dcc1438fd3284946c800b77095211f1de46a1f6ac3347916fbfc3417",
+   "v": 2,
+   "variant": null
+  },
+  "5ee32aa700323d137bfadfa96335a428141328eab0a81c919305d7f9e2e977f9": {
+   "asset": "plants/cucumber",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "ccfa0387fd6f7ce7c2882babf616a3437b93c9b45cf50abe487cf48259f197e3",
+   "v": 1,
+   "variant": null
+  },
+  "5fa56d13b9cfa5ee5891b07dd6473ea845205d67b8219b85a9e9f9f530f38180": {
+   "asset": "actors/goat",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7b7c0b9c1ce0b554910adb314bfe90941eea1e18bf7285449d0584724edbf9fc",
+   "v": 2,
+   "variant": "goat-nubian"
+  },
+  "604ead937f1958566649a9767011c8c714dee4ecbc27f8354413073e76c39cd4": {
+   "asset": "actors/stand-in",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "e5d698ee0c64742d2ddfb889ec5dc56bbd705cf86de8c1232aada8e0b02d8f03",
+   "v": 4,
+   "variant": "stand-in"
+  },
+  "60ad3a3a4335fae0e8456a6afc767c3787082296068465e8687ff9398166afae": {
+   "asset": "things/square-fruit-bar",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "ff9fa2b8919271a6a7f2376e8100fb0f2cd7d5b5e1e441a2df0a631f7b32cc77",
+   "v": 1,
+   "variant": null
+  },
+  "6164ba8c76ab9025fd2f6cfe2c05777f29d4c9a127dd3e4e743e6772f6917e5b": {
+   "asset": "machines/pickup",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "3e96bfcc71ac101c8b6bcbbc41591710799b56aa9ede8bf7cafc4ac244848569",
+   "v": 1,
+   "variant": "pickup-cube"
+  },
+  "617c76191b44d302a52b3aeff3a51cf7c62f69acf840795edca344aa72b2c189": {
+   "asset": "plants/bamboo",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "910dd384966f063593f3c1aebabaee0b37950b04186b0de1709398e70d8fcdf6",
+   "v": 1,
+   "variant": null
+  },
+  "6373ce5a9c308db6ab08b8a8ed01ad90874b66bfe63ae2da88f293e52c14e9ed": {
+   "asset": "machines/pod",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "a980f85a5093f5062ecc8b05f358fa9a62ab0a34d9452e833b480e153dfaabc1",
+   "v": 3,
+   "variant": "pod-goods"
+  },
+  "63dc0298be7c17eae4e5ee27a259074750a43644ced377faa6686bfdb6e21600": {
+   "asset": "plants/olive",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0366757db91ff07147d6f43785f761aa413e141c9682ce793740306925c1c7e9",
+   "v": 1,
+   "variant": null
+  },
+  "642215e07849353c636df3d5f2ff1a381ac9146ad4b53e9b4dde545efaf5bb5f": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "woodruff"
+  },
+  "6440a12c9cbd594270f7925f5f5fb4bbdd58e4abe90d062fbbfc1fcb0e85316f": {
+   "asset": "plants/persimmon",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "ce81a806fd6d81a5185af09eb773611a3a9e25582ca9b13bf2bff1d3c273a113",
+   "v": 1,
+   "variant": null
+  },
+  "64599fc93176de6a8d963b08c625a851391b90ce534c7b28dc963606ead6548f": {
+   "asset": "actors/stand-in",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "e5d698ee0c64742d2ddfb889ec5dc56bbd705cf86de8c1232aada8e0b02d8f03",
+   "v": 7,
+   "variant": "stand-in"
+  },
+  "64ae888ade4f35682fe5228c188305a62be07ef7d0e48ab496427ffc4c941654": {
+   "asset": "actors/rabbit",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7ab21103e5a1f0819e966ca05e89c92370fec44354fff554130854ee1b4388e7",
+   "v": 1,
+   "variant": "rabbit-white"
+  },
+  "65a76c4a630d760388271d460a19608d912482d134114f9e06756326a732396a": {
+   "asset": "machines/electrocube",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "8c198e41afa0733e784a27a0922c2aa223f2a25ecf1f2db59dd952f0e5459118",
+   "v": 2,
+   "variant": "electrocube"
+  },
+  "66981083085f52abe43062ab1ba06e859bdd3b7382553ea8ac29ab92982572ed": {
+   "asset": "plants/banana",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "3f809f3c1184d52c4dd16525cf6b14484d6954e0c51a9faa2f6977f90522a7aa",
+   "v": 1,
+   "variant": null
+  },
+  "67417737d7a42cda2a475096f4f98f6a500de8b1de1a13a7a88028be01594349": {
+   "asset": "things/euro-pallet",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "46d471c081bdedeb620d16e5621fe409582d8fc5ff873d0f258c01527e59eec5",
+   "v": 1,
+   "variant": null
+  },
+  "687897a289eb80a6666447c61e2bf966d49dcbc93b28a0ece31f0167e409b507": {
+   "asset": "machines/batterypack",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "05544a2718517d938f4113ec6dd8f1747476b71504510c16b1a281a0f918f85a",
+   "v": 4,
+   "variant": "batterypack"
+  },
+  "68a68f5b15e7505002eeca078ed2b47440f6a869151ae128d64ab70d04c0232d": {
+   "asset": "actors/goat",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7b7c0b9c1ce0b554910adb314bfe90941eea1e18bf7285449d0584724edbf9fc",
+   "v": 1,
+   "variant": "goat-pied"
+  },
+  "69a5c0daa577460b2cc19036cee19ddaa639160aa89c295c5fbc5b8d6e27e92d": {
+   "asset": "machines/batterycube",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0c30e4db4e9f1ce797e1d446423738bf98e99bdf63776e29fe98acd943552df2",
+   "v": 5,
+   "variant": "batterycube"
+  },
+  "69b5c11335d922f06e9f7a89b963edf666f406a9189d70a93d933d1a6116748a": {
+   "asset": "plants/rosemary",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "421a3fbbe8bf232387ef2d1125188e7b7b7dd544b91e0105e491c7e22dccb33a",
+   "v": 1,
+   "variant": null
+  },
+  "69bcc0afe35cd6e098fa8cb0484743ef5e00ce83994e700c30e207b62eb92abd": {
+   "asset": "actors/songbird",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "f3b3bb7856168ff3c5ce0ad18ac9cdcef3322651fb922e8037cb67c4b9941c0e",
+   "v": 1,
+   "variant": "bird-sparrow"
+  },
+  "6b2b102646129f6882ae79688407530af181bbcd272b523178abf361cf4b10d3": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "sedge"
+  },
+  "6c61de7ec11b318a9a102a617d864f4b05f80332211f5d526ca8928f1830f8cb": {
+   "asset": "machines/batterycube",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0c30e4db4e9f1ce797e1d446423738bf98e99bdf63776e29fe98acd943552df2",
+   "v": 4,
+   "variant": "batterycube"
+  },
+  "6e3cf8aeca21fef09ca2ea8423fb1d388f813abf789b6163f1210bb60ed59792": {
+   "asset": "machines/batterypack",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "05544a2718517d938f4113ec6dd8f1747476b71504510c16b1a281a0f918f85a",
+   "v": 5,
+   "variant": "batterypack"
+  },
+  "6e8cd5172207057692a2f89a8e24c77bda1b725c8ba1051f132ebd870c6d7935": {
+   "asset": "machines/batterycube",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0c30e4db4e9f1ce797e1d446423738bf98e99bdf63776e29fe98acd943552df2",
+   "v": 8,
+   "variant": "batterycube"
+  },
+  "6eedd49c05e79f47a21bddd1420ce7fc6beb5173fc4943b2249654d01920a4cd": {
+   "asset": "actors/frog",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "d3881f7aecfeee0b177a9bcde234ba60d464503781ba1147de79972d987bcfc9",
+   "v": 1,
+   "variant": "frog-bullfrog"
+  },
+  "71d7a75565663cdf00e4ff6d55acc0ebddb42cb98b90441f5ef8c1c3b72fb146": {
+   "asset": "machines/pod",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "a980f85a5093f5062ecc8b05f358fa9a62ab0a34d9452e833b480e153dfaabc1",
+   "v": 4,
+   "variant": "pod-people"
+  },
+  "7213c519cfb26629cc4f2cf8a8b1ae2648dbd6e1a188de018e2cba7128bc9340": {
+   "asset": "things/potted-lavender",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "e5b26cffb5e8035680c9dce5fb72fad5aa380d1d59d9cb5889d0e1f1fc01f879",
+   "v": 1,
+   "variant": null
+  },
+  "72558918a2ee7261c45f419ce42706ffdc6893742572221b68f4c225ced0bb7f": {
+   "asset": "plants/cacao",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "fca71584726b74214f8f8f1d92f9477d26ad098aacfa90e82066c3f4d9bf0570",
+   "v": 1,
+   "variant": null
+  },
+  "72cf19db4498b9ca805e1fa39968bc2659b6237887b2547faf49624c153ee7b8": {
+   "asset": "machines/batterypack",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "05544a2718517d938f4113ec6dd8f1747476b71504510c16b1a281a0f918f85a",
+   "v": 2,
+   "variant": "batterypack"
+  },
+  "73620a902219b86345fc5d6ab18a90f83a01e82c890ecf3af3c2b374227c5c8b": {
+   "asset": "plants/apple",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "1f0b1045f45780fe8cb9d592dc14045046be99e8f5da16ae8f4e6972bdbb32bd",
+   "v": 1,
+   "variant": null
+  },
+  "73cd749895fb1e52af2a8bd6851825f1250e12b75551bb756c570c6cb83f66be": {
+   "asset": "plants/quince",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "77df4224ee17da9be9f1abdcffcfd8d0e95fa4ac134a985563d9aa71e89ccdc1",
+   "v": 1,
+   "variant": null
+  },
+  "74e50a5c286c6e0ebc2ec05014a3b53658315f9af4c4ad4b5ca486f765e523e3": {
+   "asset": "things/coworking",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "32317ae3258ea1b7957bde81a17684a1802a9b0d4968f0087e91a971b3259582",
+   "v": 1,
+   "variant": null
+  },
+  "74f10967784acb628ad105da924d48f753dbd6feacc56392a195c43e29bf2dfb": {
+   "asset": "plants/lemon",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b3d906ebe97840b17e1be244480daab13573c6330fefd91b93a0ccdd784a473b",
+   "v": 1,
+   "variant": null
+  },
+  "7572135a2857031416f7ed27ba4c0f059f964f80cd59a9e347d1cbf0f7377881": {
+   "asset": "actors/goat",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7b7c0b9c1ce0b554910adb314bfe90941eea1e18bf7285449d0584724edbf9fc",
+   "v": 2,
+   "variant": "goat-alpine"
+  },
+  "75b99655073d960adf97a0761a54a2eac5e5e147158c897cce86467bec55edf4": {
+   "asset": "plants/soursop",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "1c2e42ad8414c086e785d4c2bd2e282b13039d3f376667262c5036c1203c728e",
+   "v": 2,
+   "variant": null
+  },
+  "75ff0f6ae2680dfb01a3d964bec19fcf47e48f7874bf662dbdddf92692c88a2c": {
+   "asset": "things/bar-stool-round",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "9fdb1de82d77a8e822f6b2a504663569b293686fc4828d4a1c3bf6cdd36015ee",
+   "v": 1,
+   "variant": null
+  },
+  "76947a593571ab762030bf3055654cd1d7390404083e460a65434c4e05d50785": {
+   "asset": "plants/basil",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "a2d39b1e5678686a16b4dc50cde5a3cb5c9732c1284219f86f201000876875fb",
+   "v": 1,
+   "variant": null
+  },
+  "76cee22b1ff20f4356f3e7ab5a047dc85fc3b195ddcf7e825a34bfa26affe855": {
+   "asset": "things/room-monstera",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "1031fc8f9b6e31bd32d6471c6beb2b24948013c89abf73b4d8847db3cb5aef23",
+   "v": 1,
+   "variant": null
+  },
+  "7709db0209de6ea6610680b73b624a0ac0d73783f291212ee842bd4459678209": {
+   "asset": "things/square-pizza",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "06f53b6797108126a134d776b879827c7e11bf6b2a54af4d69b1c0266607afef",
+   "v": 1,
+   "variant": null
+  },
+  "7716664cf883db9d70eaa7b0c58452b4c29437a2c7bb3d78fe7a1b6624a0d949": {
+   "asset": "machines/batterypack",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "05544a2718517d938f4113ec6dd8f1747476b71504510c16b1a281a0f918f85a",
+   "v": 6,
+   "variant": "batterypack"
+  },
+  "7784d276d5bce4f40938e19a48fdefd392806c689fe51139d36d9bd36c132cb0": {
+   "asset": "plants/clover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "5763572cc2d61a8943423e92821a85b90366e33618aaf4d304b30c5b22db005c",
+   "v": 1,
+   "variant": null
+  },
+  "789dac0fc27a91a02f46259a6b72a0569eafcad3f72a50e1aa21ebcc074c2877": {
+   "asset": "actors/rabbit",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7ab21103e5a1f0819e966ca05e89c92370fec44354fff554130854ee1b4388e7",
+   "v": 2,
+   "variant": "rabbit-lop"
+  },
+  "789ed0585120c61efef7b7bbd49e0edeb78b518103697a584064ec8b71a3c257": {
+   "asset": "actors/stand-in",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "e5d698ee0c64742d2ddfb889ec5dc56bbd705cf86de8c1232aada8e0b02d8f03",
+   "v": 8,
+   "variant": "stand-in"
+  },
+  "78d313509fe5050aa944e99e231fcfae6b1862bf58352fe6eccefc1f6908f835": {
+   "asset": "plants/beans",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "cc1d089160e3a2d346f64b927f6012ca32185eb1117fd1101c08746b554bd504",
+   "v": 1,
+   "variant": null
+  },
+  "79608d49e2f966e3c9a0eff532f7fcb24cb785cb25e16afa9f6b89f948ab3c6f": {
+   "asset": "plants/mango",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "220cf87d52ac6c69bfa0b5cb5030139e0becdada1caa3caffb5d4ba24dbeef5a",
+   "v": 1,
+   "variant": null
+  },
+  "79ddcab9c8ea8fa305f918fa00b390a4f2662961d4aa1eebde31ff927a75465e": {
+   "asset": "plants/chestnut",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "198992a9ee74deef416c348f1d086d3e100f03d9bbe80609b0c8b079d3fd4134",
+   "v": 1,
+   "variant": null
+  },
+  "7b4b01588c7b7742e3d76d27b43cd8b8f180b6e7af506e8a2776821416402fb9": {
+   "asset": "buildings/maia-centre",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7c88a91172fb355a2dba37f1ef6d9b44a385758103127b11a04b1779afe20cff",
+   "v": 1,
+   "variant": null
+  },
+  "7b7c5a9830d5698abfd4afa4858ec45aebfd7dc37847c356e3e3243645725531": {
+   "asset": "things/terrace-vine-table",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "9eeb8e62af58ad42498eef2d1cfb4b2755b4da58ffd3a88702277f4da85cce76",
+   "v": 1,
+   "variant": null
+  },
+  "7b976537fc8ab8a4f23ca3c56cc787598dd4177a07986c320569abc9ff7d8e5b": {
+   "asset": "machines/batterycube",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0c30e4db4e9f1ce797e1d446423738bf98e99bdf63776e29fe98acd943552df2",
+   "v": 10,
+   "variant": "batterycube"
+  },
+  "7be775be02b915dbda75d99cfec0b3edbb79c0a4950c0cd6258fd1406069b35f": {
+   "asset": "biomes/warm-food-forest",
+   "commit": "78cfae5b2690b2930c95047d75c8ea408320f8bd",
+   "source": "bb945869dcc06a44eb9b2798df1a971caa2d2e7970708354521e7c796d93d129",
+   "v": 1,
+   "variant": null
+  },
+  "7c48d80dd697801f49011598a7d52ed1694155c5dc036240e5ac57599732318c": {
+   "asset": "plants/pepper",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b6c80f8ecc0b8693ffdb9868c4a2fd85f1be80be1f2f05116231da6d6ed5a526",
+   "v": 1,
+   "variant": null
+  },
+  "7c7bf695af2d2b715d60276543b585ebc2e905d143efbbcde84a26cb4721f5e3": {
+   "asset": "things/bistro-set",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "eb3adb66f75e67bfe43d4aaa83bef89304b52ac332d3ef0494139125d9dac228",
+   "v": 1,
+   "variant": null
+  },
+  "7cb42751d03282f7c95febe243da3aff3fee0144ebceb860d8ee4776054327ae": {
+   "asset": "things/pergola",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "94722cceafe78260afe442e8548696377d6344cc61ad4da02dd7f1c7384b9b23",
+   "v": 1,
+   "variant": null
+  },
+  "7d991aa62afb825e097fcc9aed3dc751a7b7f78ea6aa1c2739f49677e2a77b06": {
+   "asset": "actors/goose",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0ac62f43aba85010cc278428c47e5711d7b719da6d695bb4d94c156df3569e0d",
+   "v": 2,
+   "variant": "goose-toulouse"
+  },
+  "7e0da6991afd429d296a8e8e68d61368b1ce5022ba105fd1b16bd81d28d8d0c4": {
+   "asset": "machines/batterypack",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "05544a2718517d938f4113ec6dd8f1747476b71504510c16b1a281a0f918f85a",
+   "v": 3,
+   "variant": "batterypack"
+  },
+  "7fa83696d20366f1c0f4249999f7b7f8559899fd4705249fdcdb0afdbb8b9ec4": {
+   "asset": "plants/asparagus",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "e22829b118b2301edaa0bd7164f98a67e86fcaee2b903e31534fc19e776a155f",
+   "v": 1,
+   "variant": null
+  },
+  "8106ce3e22857ec7e6b55f9802f9ebfcbcc852419e42f572e88d04437a1d7465": {
+   "asset": "things/chicken-coop",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "369940ce4bc1c4b245e3e07d6d7caded05ac89a1ad2e70dba0202e2b5d75b1c4",
+   "v": 1,
+   "variant": null
+  },
+  "817b4840791dfdebd1549d12c6fbb3d41c46e5aa96e3a993fc278f6ca72722b8": {
+   "asset": "things/bread-oven",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "ec79ae6b8b688f47b8b02a42f92cb0e63dd0f590fc5ffa565ed288dfa70468e9",
+   "v": 1,
+   "variant": null
+  },
+  "82d4183b44b8f11a64b9b8e29ec18d9ef258e82b698ac7803a623d3b4bb2c61e": {
+   "asset": "things/private-room",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "34e25e211b4485f482d10c269de308c293737286cdda4b2aaeaa3d112ddac991",
+   "v": 1,
+   "variant": null
+  },
+  "83ba99dbbf6ce144de572a09140244d1b9c984d8895009e50843a4e38d33d378": {
+   "asset": "plants/chard",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "5935bf70c52e7c4a0b65c484efa447bdad4012a812aff8da50914395bd8f34ea",
+   "v": 1,
+   "variant": null
+  },
+  "85a5714faf5abd248c5da2371bae9fdf6fcbb4047a10e0bcad998ef031cbca6f": {
+   "asset": "plants/alder",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0e9c335448e708b3c70d9e697f7d007e53c25cbe54a0ad55a30610885a09df4c",
+   "v": 1,
+   "variant": null
+  },
+  "8679e134f68f968bac9ab20cab52f560e6bf90e3d245bf851a98d12068a7a055": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "anemone"
+  },
+  "894a4a2b1459f51ffcc3819221f5675d585e56b728c91535c6781e63a4ef4564": {
+   "asset": "buildings/old-shed",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "65919d32231a3ad12838209f2f0c00f3fc8c4aada242b2c7b8815bd2bba3d93c",
+   "v": 1,
+   "variant": null
+  },
+  "895fe11e6f0607b0d59f395ce68eaf17d494ff294eefab1183ecb2f46c46c3e7": {
+   "asset": "machines/batterycube",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0c30e4db4e9f1ce797e1d446423738bf98e99bdf63776e29fe98acd943552df2",
+   "v": 9,
+   "variant": "batterycube"
+  },
+  "8a0457dc2c476b0e543d03c60cfccc2bf76f115ed1854e3b9c3a27d00750e602": {
+   "asset": "plants/raspberry",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b52c78ffe3df915d1d49159cadd84c7507f5ad473ff43f07f0fa98c1dbaef205",
+   "v": 1,
+   "variant": null
+  },
+  "8a12394c4d52da11560e37e78f0742c98ab19cea65c5348077a14f0f79e08f2e": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "buttercup"
+  },
+  "8bf41e3e93e2792d499d0d1992030712f99cfb758b9ee38d5472831b6cb35a85": {
+   "asset": "actors/fish",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "30c3acb3f7d343c3437d1c339f0d1137caac967dc03298a4326dd0842460e778",
+   "v": 1,
+   "variant": "fish-redtilapia"
+  },
+  "8c12537d446bfa4c710e833c7f68e0feafbda94f7eeb0d6d1fb181dd6248cd28": {
+   "asset": "machines/powercube",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b0c8f7f9c3bf9a6147c000528af8e9e3dc094fc1d8d5dd3bf311d41683dfa57d",
+   "v": 1,
+   "variant": "powercube-7s"
+  },
+  "8c3a827747d3c3a4346c3697c219da723b2eabdea699d7f659b9e66d0a1efe88": {
+   "asset": "plants/gooseberry",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dbdfad4a253e809867dad8b7804fd82a0925060ecb2c290485c8a64425968f4c",
+   "v": 1,
+   "variant": null
+  },
+  "8ff3babadf6750c3d5188b7b5e6296eb2ded028b1433f9c8e42804070c6df91a": {
+   "asset": "things/solar-panel",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "eee7716a8b7e2647743bff03942974c607fac5056cb766d02be4c8d9dd9921f6",
+   "v": 1,
+   "variant": null
+  },
+  "900d9d2515378ce0af1e4de317a5b6a1569be28d033f0d507a1c2b4fc775a97d": {
+   "asset": "machines/batterycube",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0c30e4db4e9f1ce797e1d446423738bf98e99bdf63776e29fe98acd943552df2",
+   "v": 6,
+   "variant": "batterycube"
+  },
+  "907e07b0566fea62b96ae1aeb47039bc684c00c9f02861c3c9a65347c23ef490": {
+   "asset": "plants/horseradish",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "e84d4ddbdb9afbc73c966582aeacb892a6e7547e4d4d759d93cc88f69409cb01",
+   "v": 1,
+   "variant": null
+  },
+  "919c60e8c50610cc81418cefc066dcfe0180d0fe0f491bfaff5ca3c35bb5f459": {
+   "asset": "machines/pod",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "a980f85a5093f5062ecc8b05f358fa9a62ab0a34d9452e833b480e153dfaabc1",
+   "v": 5,
+   "variant": "pod-people"
+  },
+  "91b0edb5bc9102ad689bfcfd1d877a716eb5d51d0d6429ae80bf86612b2487f3": {
+   "asset": "plants/elder",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "bd5bc964cc486ce517f573ff9a8e0ff7b2b29ce44574f7715d1b0bfc303f2bf3",
+   "v": 1,
+   "variant": null
+  },
+  "91e6c9da4f27a48a1e9c77b8a92a5ea24575c05ca1218a5c8ee725d7266d9fe9": {
+   "asset": "buildings/container-workshop",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "9caca07364ead45a4f5af084717e65610f788810ccc005919c03506e9282691c",
+   "v": 1,
+   "variant": null
+  },
+  "92cb73ada510a07718ee66049f7101820bf5d7a8e39b86d73bb2283c6b4847bf": {
+   "asset": "plants/redcurrant",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "3d6b0848f22a38112a375e40492c51c000f70148bfcc40cea4e370d8cad0faa2",
+   "v": 1,
+   "variant": null
+  },
+  "95748758616b9c66894aaf315aac81e73ec894cb4655d099e431858e693c57a5": {
+   "asset": "machines/truck",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "d0b88840e844fff1eb7dd0b125557a7e3e0f9c9ce469475985fd589ade297c67",
+   "v": 1,
+   "variant": "truck"
+  },
+  "95bf94cdaa7e42a8305a78f6eb0cd4f9e33b508bae9d24db96632e3082be14ed": {
+   "asset": "plants/jackfruit",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "77c29a5ab2d40eb68aa26a649aabc319ae3ad32774ca1097bc1e3410d0c609c5",
+   "v": 2,
+   "variant": null
+  },
+  "9924f49f6e92b6e448879a98ee5dcafc7c871624b1dbf14a6406bcdcc0fb13e2": {
+   "asset": "actors/frog",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "d3881f7aecfeee0b177a9bcde234ba60d464503781ba1147de79972d987bcfc9",
+   "v": 1,
+   "variant": "frog-green"
+  },
+  "996c478c4cfc86273bb2cef96bafd17a1dcc774e5e08e54281ede932d32cb333": {
+   "asset": "things/long-table",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "6cad3123eebfd101de5e7d0342ec3c1cebcbb44d1527fd8ded84e7dbae9dd79a",
+   "v": 1,
+   "variant": null
+  },
+  "9b0a505c9cc5770ce98345159bef475a742d8a6817b05a26dbdd2bfb3c3f9705": {
+   "asset": "plants/nasturtium",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "2bee4d0b7ec7bcd56132ff43d8a335e6b304e0a2c863fd0d5a9d3376e05d76ee",
+   "v": 1,
+   "variant": null
+  },
+  "9bd934069c4944bbe6f27e935a7ab3d02f9182542f52e16d24aabff0c34f95cf": {
+   "asset": "things/water-canister",
+   "commit": "6043e3600f4954f374214656e43ca8e20c339986",
+   "source": "b80fb3d4e72c52fcb78240dfb9708dca9ef1f2b87e4dcd28f0f03a2d9847cf2c",
+   "v": 1,
+   "variant": null
+  },
+  "9c0d976ae78aac9dee793aed7d308f64a931273cca4d112639fa035b45d1ef44": {
+   "asset": "plants/serviceberry",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0967c18e31e2dcbe9bb157d830eb60a103086b697ae4ec4f047d3d9735283560",
+   "v": 1,
+   "variant": null
+  },
+  "9c9c2929949dcf01039dd31bcd526f501b59f1794a0452aca7c5305ddd871654": {
+   "asset": "machines/batterycube",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0c30e4db4e9f1ce797e1d446423738bf98e99bdf63776e29fe98acd943552df2",
+   "v": 7,
+   "variant": "batterycube"
+  },
+  "9d993287de0954a9b7974a8731c7a3c53dc8f340aa382c6d8746845a19126e29": {
+   "asset": "machines/pod",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "a980f85a5093f5062ecc8b05f358fa9a62ab0a34d9452e833b480e153dfaabc1",
+   "v": 4,
+   "variant": "pod-goods"
+  },
+  "9e1d6d990751fe3cbff0d27c89d76daa57161c9e5ee83961b44449e6a1b3b077": {
+   "asset": "machines/van",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0bdc1bf092d6a3a24b59b2dd8b62aa4f0ae848a7aacb0caf311255429c162974",
+   "v": 1,
+   "variant": "van"
+  },
+  "9f6c0c6148cb4b64bf00ead46cf3a478d2a3a50931025abfd1ee60178bce652b": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "deadwood"
+  },
+  "9ff9f26a72094879068e5458b31f46ebb04c544bc3d9f04511c0599f92028886": {
+   "asset": "plants/pawpaw",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "59b68e89f966806d8e4aaa2fd36ae96f4f92ab44c8c4252682f9b3112ff992b5",
+   "v": 1,
+   "variant": null
+  },
+  "a0249eb63e0bf53f96d1591d18bd08c4db33250114020b5e445b3a68a09277fa": {
+   "asset": "plants/durian",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "84798475f9c077a71f576bda1d7f4d8163bb878d6086e2ec06d189cd7dee80b6",
+   "v": 2,
+   "variant": null
+  },
+  "a036372223b7c10941781045ecdadb2dabf05ed5a98928910d0c75d67e5ad014": {
+   "asset": "things/pothos",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "ea8c593d84e2e752481fedd02a0516034cf2762d99540f2832b8a7a57a725a14",
+   "v": 1,
+   "variant": null
+  },
+  "a14dbe5c2f4e2814edf080aca6a459161117b1a3c01f07d7b4bcb88e5e48dbba": {
+   "asset": "actors/fish",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "30c3acb3f7d343c3437d1c339f0d1137caac967dc03298a4326dd0842460e778",
+   "v": 1,
+   "variant": "fish-ogon"
+  },
+  "a16b69e981d74466143c8d2ced95b43f758a069bb45cf02a4e657422c94e096c": {
+   "asset": "plants/kale",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "f39b3ff42e6bf61c62521a5588a9a16125807c7b24dbcb0480ed6ff017223258",
+   "v": 1,
+   "variant": null
+  },
+  "a38909662f8e093b6e8f755af03ae6f608715cf3d3b08626f91da83fc0d8ba50": {
+   "asset": "plants/durian",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "84798475f9c077a71f576bda1d7f4d8163bb878d6086e2ec06d189cd7dee80b6",
+   "v": 1,
+   "variant": null
+  },
+  "a55ba4813cba772219ccaff60ba6d5cf1d236e23ceb8678eac2810b7af6bd550": {
+   "asset": "things/bell-tent-bag",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "35b0c2c74ace5c6a0a9e7d9e2065911e295024a1656cd867a9c51b7787af26e3",
+   "v": 1,
+   "variant": null
+  },
+  "a66d1557cf13939f3e9b37c0214690ff45f5faeca7602f001f0cf59d38f89fa4": {
+   "asset": "plants/rhubarb",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "1e654620a3806ad8cd55d43bcfbbc0698112f43a9c6a23219aad9f954120a6a9",
+   "v": 1,
+   "variant": null
+  },
+  "a727a1f0f15dd43f6b09be3805f4033985ab73d79706dcf4735c039346f917e0": {
+   "asset": "things/chicken-coop",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "369940ce4bc1c4b245e3e07d6d7caded05ac89a1ad2e70dba0202e2b5d75b1c4",
+   "v": 2,
+   "variant": null
+  },
+  "aa72abeb866131fa90fe8aa3fbfbd57077bab3ac22aed0e96d9a2b0c4de7c041": {
+   "asset": "actors/stand-in",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "e5d698ee0c64742d2ddfb889ec5dc56bbd705cf86de8c1232aada8e0b02d8f03",
+   "v": 2,
+   "variant": "stand-in"
+  },
+  "aaffa509dfb980b65889477a4d5247570455f1ab5b06119a831d1edcde6e80fa": {
+   "asset": "plants/fig",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "f37d314c78b41c9d586a10fb9731bf9441ca5321bb03acd63b465c742078be95",
+   "v": 1,
+   "variant": null
+  },
+  "abfaa60d606ecd05f870fab661e81d2f9569538f10b5233c3d9a659c9ee46b09": {
+   "asset": "machines/pod",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "a980f85a5093f5062ecc8b05f358fa9a62ab0a34d9452e833b480e153dfaabc1",
+   "v": 2,
+   "variant": "pod-people"
+  },
+  "af9b6995dfc7837420873009f182cb6b01a5058e4cebbccea5e29bb1f6b45482": {
+   "asset": "plants/oregano",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b2dd6981894de23da30fc8f53c6fd3edb63cae3272a1e4ed173a742a66efcc03",
+   "v": 1,
+   "variant": null
+  },
+  "b06a2b508301697134f54360513e77561d517e39b4178ec4194ba4e66a1b72f6": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "stones"
+  },
+  "b0a2544c897a4fbe9604cced53e903149ac3ec63227d75b1f109144cabe260ca": {
+   "asset": "things/square-cafe",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "d27d3a5ae7c2e6eedf9a9ed29943e69b4abce98b819a164394e4c4e70a521615",
+   "v": 1,
+   "variant": null
+  },
+  "b1271e7f5095baf61c1c20cb23335dcc78a46cb638d5338b6b3cf68aece93f6c": {
+   "asset": "things/playground",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "8e4649260ae24de2bd724fce95272a438161d2a27ab46691b581cfe966b50675",
+   "v": 1,
+   "variant": null
+  },
+  "b14c1fe94c87825e372b3a87a1469e6af4ee256d4eb476c0871040cf0bba460a": {
+   "asset": "actors/rabbit",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7ab21103e5a1f0819e966ca05e89c92370fec44354fff554130854ee1b4388e7",
+   "v": 1,
+   "variant": "rabbit-black"
+  },
+  "b203760471ccd5f7bc829623e70c8b3297c9809edb34eeedc1ecf66dbff127f0": {
+   "asset": "actors/ant",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "2e5bdd325e6816f8f8425e29c155e3b56a090bf6f2cad58a1c2acb73b7a8c62a",
+   "v": 1,
+   "variant": "ant-hill"
+  },
+  "b2e6c012cc87f35d54d444e85bff8b33890b437b95d48a991f2a080720495370": {
+   "asset": "things/balcony-door",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "efa7df23e3ded3429229199248b09e07dcdbb2432940edb47706c4c05e75e225",
+   "v": 1,
+   "variant": null
+  },
+  "b365ff8e9d3c2f1d8a8d0113102989d989bbd3c9481a996bec0a2005d04ee84b": {
+   "asset": "plants/garlic",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "54b29fbb64e1c657770021ce071804322a8ebac0249cb14bb8e6c1085dc95048",
+   "v": 1,
+   "variant": null
+  },
+  "b588db9ffc4f2d364682cc5416a0f1ea04cfe1ecc5d6fa0bca08591187443a79": {
+   "asset": "things/fiddle-leaf-fig",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "e553e6431d6dce275a7ddc1633651a177b1f15fb9b7a51d692565c8f00311763",
+   "v": 1,
+   "variant": null
+  },
+  "b727fd08d4eccd8ca41b05e6988b668e8c0c02f8f5cedacc9140cbcada6899c0": {
+   "asset": "things/fire-place",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "c7576a9e09ab75dfde393fee2b3616b48d1923ff56be4ea37d87b7fd7a8be098",
+   "v": 1,
+   "variant": null
+  },
+  "b732f60cdeaa9087a6831d726609b46beb9e04703041578b5241a8727d34212c": {
+   "asset": "plants/haskap",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "ee46a29f9560354cd2fecb133b9990826592bbfaa9966da028471bfba54af46f",
+   "v": 1,
+   "variant": null
+  },
+  "b76d1650b8b0044d2b0d861f2af9344bf40a3f9b33eb5e27d4bdf20e0e132696": {
+   "asset": "actors/fish",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "30c3acb3f7d343c3437d1c339f0d1137caac967dc03298a4326dd0842460e778",
+   "v": 1,
+   "variant": "fish-koi"
+  },
+  "b77aa7ad4eaa29954565ae7e31700039812f46f3c3099ded0afd5496c485aff7": {
+   "asset": "actors/chicken",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "4885dc9f370983e106d5e52b3b1fedcd25bac86f3ddc856e295a06c35f155d1f",
+   "v": 1,
+   "variant": "chicken-red"
+  },
+  "b7b8248f26617c42cfe4ffd418f20bdabb13d2c99548f56b1f62f2dad6cada15": {
+   "asset": "actors/rabbit",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7ab21103e5a1f0819e966ca05e89c92370fec44354fff554130854ee1b4388e7",
+   "v": 1,
+   "variant": "rabbit-lop"
+  },
+  "b7d6b83c732f71bdf7a8cafd0ed6f0e1c05df3f39005de6be57c09a8986cd176": {
+   "asset": "actors/goat",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7b7c0b9c1ce0b554910adb314bfe90941eea1e18bf7285449d0584724edbf9fc",
+   "v": 1,
+   "variant": "goat-boer"
+  },
+  "b8aa88e599b5446674bb54cbf71506eaf9bf831b53b5be7e0fbd378d3455bccf": {
+   "asset": "plants/orange",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "ade07ea25bf353f1b18700d1afe52854a5f3d63e8d016eeb2e0b115368dd743a",
+   "v": 1,
+   "variant": null
+  },
+  "b8ff3338c505c09ba17290e547ce7fc5da3a82b1a5c5ada8a32cf596dc582718": {
+   "asset": "plants/papaya",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "00da105492ee12e467e02784dc72f6c0d7221168874a768aaf76822d082c2858",
+   "v": 1,
+   "variant": null
+  },
+  "b9cb145abbef029b84897dbe8929d3ad8db1feabbbf4c38154f8137ac55906ca": {
+   "asset": "things/playground",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "8e4649260ae24de2bd724fce95272a438161d2a27ab46691b581cfe966b50675",
+   "v": 2,
+   "variant": null
+  },
+  "ba56d4683c19c326f676ce08b663ecb155065f932b835f1fe1c53a4b9883b790": {
+   "asset": "plants/artichoke",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "81936aee5dcb389885f4c155122c9af604f5f5122dfe6485142b5a1333c21f8d",
+   "v": 1,
+   "variant": null
+  },
+  "bca9193fc4f362661b70d9aca1afd5f69b037bc1b5edb99c5e3fc328771ae27d": {
+   "asset": "plants/oxheart",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "2c07766b226351339ebd1ac156ca8fc7eb1843853df7948f09dfb893a3ce3f46",
+   "v": 1,
+   "variant": null
+  },
+  "bcccb247a3ee34682dae8119beec0c992782107fab88dc9de4a03f22905a7eb1": {
+   "asset": "actors/stand-in",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "e5d698ee0c64742d2ddfb889ec5dc56bbd705cf86de8c1232aada8e0b02d8f03",
+   "v": 9,
+   "variant": "stand-in"
+  },
+  "bd385fa38de5d3b043854f67e9c3bb325ebbce21bee9e077f979b5a95e6474e1": {
+   "asset": "plants/sorrel",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "1318d855127c0978d1a7b9facec7b33df7d45cfcc79064c88a1b6f90810388b0",
+   "v": 1,
+   "variant": null
+  },
+  "be8978decc5dc24bf1bf0708bf6ce5ed0ab277a69b71fa274c48d1a125afdebc": {
+   "asset": "actors/goat",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7b7c0b9c1ce0b554910adb314bfe90941eea1e18bf7285449d0584724edbf9fc",
+   "v": 2,
+   "variant": "goat-saanen"
+  },
+  "be96c93946f3e8fe51192d3f9ad55e23a781da1ca59dc89ecf70f3005fbe5cfe": {
+   "asset": "actors/sheep",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b1b6aff6afea2ff45982fd36c792f715a6a9da775c6ff5f693da121db838f177",
+   "v": 2,
+   "variant": "sheep-merino"
+  },
+  "bf0f5c257308286832a42936e434fd02e39691097b357d9228530e093bc7bffd": {
+   "asset": "things/paper-lantern-big",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "3f8eb87b1846894dffd592a08d1374b4adec792cc4121a135aa12772a788ee80",
+   "v": 1,
+   "variant": null
+  },
+  "bffd6f832981b3cd9b9507e0ca4c4630ae6cb61a57be4078cc5527cef40a4f0c": {
+   "asset": "plants/blueberry",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "69642060fa68ddbe13768cedc7f054663fe66077dfbcf73408c8f5491440d9ba",
+   "v": 1,
+   "variant": null
+  },
+  "c07ef2942e6dd11a87a251f80d4bcedd4c2cef39e326eea0013d52afb1f6abba": {
+   "asset": "things/pickup",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "21bf4c369da310f9c8223c5dcac43f3334e5b0c651da461d6d464c3e8e34c536",
+   "v": 1,
+   "variant": null
+  },
+  "c09e6a9fd954f5cda069c636aad4d59d504ea3bb2a95975eda0accd98cbab420": {
+   "asset": "plants/linden",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "637577561701f3eeaf0dee5465a9c9fc0d214d5bcd55aecb0f19a7c398d51791",
+   "v": 1,
+   "variant": null
+  },
+  "c0b48ee39f3ef5bb989d4362868d194c7607ce8ab9e316e3cd523e20b88c84e0": {
+   "asset": "plants/avocado",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "ddfd02245ce235392cb39488d414efe453d050efc85509c672041ca6d27efa74",
+   "v": 2,
+   "variant": null
+  },
+  "c174762b4a9e6c7bbaf1dfde6a0156524348b2ada06749fb7bb98617632001c0": {
+   "asset": "actors/rabbit",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7ab21103e5a1f0819e966ca05e89c92370fec44354fff554130854ee1b4388e7",
+   "v": 2,
+   "variant": "rabbit-fawn"
+  },
+  "c3c19e96d453f788d9dbe0304745e018c9cbeb5f22a2af5ede69e740504aac82": {
+   "asset": "plants/comfrey",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "9f7da1a87d8a137b3fdec6b1ab6f388d5c8d2366a36f067f947261ffb3c8f6c0",
+   "v": 1,
+   "variant": null
+  },
+  "c5e7c0171f81d5d1b3c68d44814fe51bb3714f68a4ef2185cf91f230461c832a": {
+   "asset": "plants/lavender",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "6319769072595f2cf1427ea6eeb60eaef0195b0c8153742c7138da027d332cb3",
+   "v": 1,
+   "variant": null
+  },
+  "c876c9a8d3aefb149498814fdf77da66b5f8441d232990a43035b2280f76b002": {
+   "asset": "things/dome-tent",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "92fb9aea44cf28390e59105983ea6f7b0e81b4b10377ba0c180c2b835b81725f",
+   "v": 2,
+   "variant": null
+  },
+  "c8c32193ad68c7c538a9b8336eba439bad569266a546b8f95fe6880cbd51d1de": {
+   "asset": "actors/sheep",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b1b6aff6afea2ff45982fd36c792f715a6a9da775c6ff5f693da121db838f177",
+   "v": 2,
+   "variant": "sheep-shorn"
+  },
+  "c9b75679fb2e3a6c90371f9a710e327d8f63e0b3f83ebc6d6357fbb5e90e3bf3": {
+   "asset": "plants/pumpkin",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "14609b8fee5afe9a64eba949e2b49c23e88fe49e7e2a5020cf731c562a54d5a6",
+   "v": 1,
+   "variant": null
+  },
+  "ca9e4215f82b381b5832730034332bd60b29f4f9eb7ccec5f352ec8ad55c8583": {
+   "asset": "machines/powercube",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b0c8f7f9c3bf9a6147c000528af8e9e3dc094fc1d8d5dd3bf311d41683dfa57d",
+   "v": 1,
+   "variant": "powercube-electric"
+  },
+  "cab0c993ccdb6aefe18691fecd0dd7fd50fcd4bf80386b9e855699af2f87a856": {
+   "asset": "plants/chives",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "5a762b2c3e5962617b1947189f2c15d214f7abe638c78dd50d7400dfb2277236",
+   "v": 1,
+   "variant": null
+  },
+  "cb6dd6d2381da7f2bee1120bfa2e2065f5f4d4838df9b0048c4e4f4b0840e8ed": {
+   "asset": "plants/sapodilla",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "1512639223739dfec048dbe1e4d13092f56fac9ab2eb34d53101ca2a11c2d67d",
+   "v": 1,
+   "variant": null
+  },
+  "cb810b87220c0150ca3402d87e02606d6838d5998634f394b1bb4c0a7eb2b965": {
+   "asset": "plants/grape",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "13a1e9bf7d0d454bbf639fe3272f3e1645126463f830e739d7b0af66257ba49d",
+   "v": 1,
+   "variant": null
+  },
+  "cb9ce031d1d9ce5d1e155e84d9f81d589a49a39f1176d7097e31abc2fedc31bb": {
+   "asset": "actors/chicken",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "4885dc9f370983e106d5e52b3b1fedcd25bac86f3ddc856e295a06c35f155d1f",
+   "v": 1,
+   "variant": "chicken-chick"
+  },
+  "cbf997e6cc6d5e851b8194c61aca04656c855ecc7763e0fb7295aef2dc86834d": {
+   "asset": "actors/stand-in",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "e5d698ee0c64742d2ddfb889ec5dc56bbd705cf86de8c1232aada8e0b02d8f03",
+   "v": 6,
+   "variant": "stand-in"
+  },
+  "cc138d3fb21ced753f126b99900f45d5e7da7b56f8c7942b9b5443f6582b7478": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "forgetmenot"
+  },
+  "cded4e722d1fa0de6457d0ececfbac6d3f4c55e3a87941f8a4bc84500d06d3b5": {
+   "asset": "actors/fish",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "30c3acb3f7d343c3437d1c339f0d1137caac967dc03298a4326dd0842460e778",
+   "v": 1,
+   "variant": "fish-nile"
+  },
+  "cdee7682f942c56b53bd19dce459affcb3f0f4d5165bc0bb5136c4cd385507d8": {
+   "asset": "plants/lentil",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "c2586cb0cc92ccc092348f8063ee17b28888665a77886fb42f4b8de6b1605633",
+   "v": 1,
+   "variant": null
+  },
+  "ce7834bc79ed41664f6e38b4ba514f85199f1a2bf1fd5dc240715de51d540237": {
+   "asset": "things/pottery",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "a1d8a9797fac85c42d4f93a81fdbcec136fc9dc0daeaf566f161a677d8baa057",
+   "v": 1,
+   "variant": null
+  },
+  "cf3ba21bff3613508fc7b222eb25b4790a8f922865c176ef537cd5b233d08a44": {
+   "asset": "things/square-restaurant",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "fc71fcef33f35597d9d525742666bce0f405f67281579f981722f726632bfc75",
+   "v": 1,
+   "variant": null
+  },
+  "cf703513c834d03889e8b5cb1bc605f571f572651af61a7f3b7d7ae5378dafbc": {
+   "asset": "machines/forklift",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7d0996f078edfba4fd922548a5f5fb91aae1720d30a826d23b7d1c15256fa700",
+   "v": 1,
+   "variant": "forklift"
+  },
+  "d0374e9ceb3854e0c8c0d0532e109532c944064b4bb29bfdbb8f61eedeb66f73": {
+   "asset": "things/woodshop",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "4b098a5ad036577ce64cb5e18031735abd2f547dc097b0cfbc8f9cd0eb72bc52",
+   "v": 1,
+   "variant": null
+  },
+  "d11a162a739284507a703b50cac93fd2a07706dba34c268629b4491e44df6549": {
+   "asset": "plants/pear",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "cab2621f31f20c88d8b2fb94453c38ed127425a1262f925ec6a0bfbf725d2f37",
+   "v": 1,
+   "variant": null
+  },
+  "d130c7d6d4834ba630927b901bd489f735151e1a8dca14444ea7d1e7815f5964": {
+   "asset": "things/potted-olive",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "d1510d2da6262023a2285fbbce201f06bb63585a3c094f495fac63260a4b2303",
+   "v": 1,
+   "variant": null
+  },
+  "d263fb371f62595f0a2062bfdab1c70b3d5dc120a131d899cb7fbd0ef7befb67": {
+   "asset": "machines/powercube",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b0c8f7f9c3bf9a6147c000528af8e9e3dc094fc1d8d5dd3bf311d41683dfa57d",
+   "v": 3,
+   "variant": "powercube-7s"
+  },
+  "d39a358e46910f81b551471fcb894b843967254bae10caedf996f8fb411d4e3f": {
+   "asset": "actors/rabbit",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7ab21103e5a1f0819e966ca05e89c92370fec44354fff554130854ee1b4388e7",
+   "v": 1,
+   "variant": "rabbit-wild"
+  },
+  "d3cd28c52ef5dec3e8f989fdac84a234388d5c330653967734061afeedc550a7": {
+   "asset": "actors/stand-in",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "e5d698ee0c64742d2ddfb889ec5dc56bbd705cf86de8c1232aada8e0b02d8f03",
+   "v": 3,
+   "variant": "stand-in"
+  },
+  "d41891d833a84d1130c95029aee55490e1930ea1b8eba00ebc0857e9ebf2b8aa": {
+   "asset": "machines/pod",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "a980f85a5093f5062ecc8b05f358fa9a62ab0a34d9452e833b480e153dfaabc1",
+   "v": 5,
+   "variant": "pod-goods"
+  },
+  "d41ae49eeb93633e61e5590973306361a373aacb90802b65daa5009e40343ccd": {
+   "asset": "actors/stand-in",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "e5d698ee0c64742d2ddfb889ec5dc56bbd705cf86de8c1232aada8e0b02d8f03",
+   "v": 1,
+   "variant": "stand-in"
+  },
+  "d548339c408671708e38db2db43a46801b588a4db6a7ce22d1dbe40db4f33668": {
+   "asset": "things/tent-bag",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "e1990ff1e90b477f81df366fbd287a2692966bf812c8d229c4cacfca81115012",
+   "v": 1,
+   "variant": null
+  },
+  "d64f2867f23d477435689061dfa1cbf58481a56def28218c843bad4d542c1219": {
+   "asset": "machines/truck",
+   "commit": "86b44da17e4d85c37302f6aa5cef411d42f58a3b",
+   "source": "0973215f1b38ef29b7dbc6eede55ea53fe0154d60fb465678c539be22f024d74",
+   "v": 2,
+   "variant": "truck"
+  },
+  "d88e868aee1cc8e558381f7e702b7d572c74853e645536775f34c9a4f3338b18": {
+   "asset": "things/dug-earth",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "c7f42fd478d605567ab9e2688455b86ddc4222ce43fef8f559af21559d9b2aa9",
+   "v": 1,
+   "variant": null
+  },
+  "da9e8c16bd789c6172b12bcb966a307f0ece07e0c706892903a4a9061d746f34": {
+   "asset": "plants/rose",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "13dd136f0fc45db4e7fe2aa2b5189e78df35261adad9437039c70e6bba724835",
+   "v": 1,
+   "variant": null
+  },
+  "dc2e44d146079b8836b703c53173bb51e000c4399edf8fa9e982f60355b812c8": {
+   "asset": "actors/sheep",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b1b6aff6afea2ff45982fd36c792f715a6a9da775c6ff5f693da121db838f177",
+   "v": 1,
+   "variant": "sheep-whiteface"
+  },
+  "dc8bef9174dce599b1dd04b61e9c69386c4ea668e853fb19fb2eec185f96cde5": {
+   "asset": "plants/ginger",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0d9649a8fc439f83c01ef38869e8896b98a7c43301d6f9728db638ba74933fe9",
+   "v": 1,
+   "variant": null
+  },
+  "dd4e8f7c59db6a4f55890ed5dae868014765a4311312acd21bddc9ab4a662321": {
+   "asset": "plants/parsley",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "5cfa6bd0ca3c59a857c3e166487cbf7de9ba09c94f47e6586e19eca031483374",
+   "v": 1,
+   "variant": null
+  },
+  "dd930e7a0d10be590f01089ae10bf471ec988ab35b3f1c0a49b4da4de5abdf03": {
+   "asset": "biomes/food-forest",
+   "commit": "78cfae5b2690b2930c95047d75c8ea408320f8bd",
+   "source": "125f156424813699b1ea46e58e319b9e1640cd04b94431f55e894b942c587cf3",
+   "v": 1,
+   "variant": null
+  },
+  "de2804ef245103c8e4ba4d545d78fa30d33280a6b8cf26290748f4afca74dcb0": {
+   "asset": "actors/chicken",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "4885dc9f370983e106d5e52b3b1fedcd25bac86f3ddc856e295a06c35f155d1f",
+   "v": 1,
+   "variant": "chicken-leghorn"
+  },
+  "dee0219741cef09597e14723b2772689ccc1f6831c6e0a223833bc0570f7d4f9": {
+   "asset": "plants/mulberry",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "cfca8767c96fabfc7820714071d43915c52013eb9969d47b0773a5d2a3cbd162",
+   "v": 1,
+   "variant": null
+  },
+  "dff3674241d0fcd0b6da4e9fe423b75321bb548a6f742f48ffa0ad75c18f298e": {
+   "asset": "things/snake-plant",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "37936d19dc3222ee9088c65b2fd5f251a4aa007c4dc5ad88f569203c0801f56e",
+   "v": 1,
+   "variant": null
+  },
+  "e0c575c2f5d669cc821c3e24342a974a53006f3f6f02080f562f88c1763d0c94": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "strawberry"
+  },
+  "e17ffe30167ad6e7632a3639342b405d67da087d142e40e9251f80c53751bdba": {
+   "asset": "plants/oats",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "3e425f592a349ecc4ea97449fbd3dac210424ece1db396e57cefd3a9e9b79a83",
+   "v": 1,
+   "variant": null
+  },
+  "e1a3fffa81a9aaac9edf7b0b23d71fbd483e46c2c425623222ffb0863ba33b7e": {
+   "asset": "plants/apricot",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "b4c9546b89971f490235af4b7b06d71ba2ed9bcf7869177d6223b1e1930142cd",
+   "v": 1,
+   "variant": null
+  },
+  "e3848030ce8cef8072bbca4b49363a644d28ec6fa6b906a23aa1ea62ea822236": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "blueberry"
+  },
+  "e38bc9ecc87c33689e33b66304cefae2ad22ef28d9684635b14f46aae4023cb5": {
+   "asset": "things/water-bottle",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "8ae50c96fd0bc169d16c31c6c366657f302a26e290cc11c91909991df39d29e5",
+   "v": 1,
+   "variant": null
+  },
+  "e38e4dd6f4b122aae451f484edc9cba599adb67bc381fb51647a637cc0d078f4": {
+   "asset": "plants/pomegranate",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "8bc935d4316c3a3dffeef3fba890490c1d58a6c8070b15477be8f86b262b958a",
+   "v": 1,
+   "variant": null
+  },
+  "e6710cb4460360a768fae5ea34a4b810023032857a93d72d362de5b542e79fbd": {
+   "asset": "actors/chicken",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "4885dc9f370983e106d5e52b3b1fedcd25bac86f3ddc856e295a06c35f155d1f",
+   "v": 1,
+   "variant": "chicken-australorp"
+  },
+  "e69e7d0dafc1ce63d0078760fc775b4288f5ec517d233d204b7a48eb363946e6": {
+   "asset": "machines/excavator-large",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "242eb7c41a95e590a2f2b4292b8616c5fc90f44ac12b3c1ab5051522043b6ff0",
+   "v": 1,
+   "variant": "excavator-large"
+  },
+  "e8c0fbcfd14e0e31d28a41b5c8f14c6214174e5bf4db19b206d8a4b8db2aa9b6": {
+   "asset": "buildings/container-tech",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "4598a6589a6384523d37c9174a6cf86cad25a336d3b86e1e955237f51513bdbc",
+   "v": 1,
+   "variant": null
+  },
+  "e98c0f9e39b558cd3423ee6d87647b413ba45852e20fb7433073acc6c8e100e3": {
+   "asset": "actors/goose",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0ac62f43aba85010cc278428c47e5711d7b719da6d695bb4d94c156df3569e0d",
+   "v": 1,
+   "variant": "goose-toulouse"
+  },
+  "e98e20844be997b36a6aa2377530c2d751a2a6585121f33af7267d4682c7a95b": {
+   "asset": "things/dome-tent",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "92fb9aea44cf28390e59105983ea6f7b0e81b4b10377ba0c180c2b835b81725f",
+   "v": 1,
+   "variant": null
+  },
+  "eae0d6411bf54067c6bf37132c6177f9a735970da28424606ec578c4d9b9e410": {
+   "asset": "machines/batterypack",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "05544a2718517d938f4113ec6dd8f1747476b71504510c16b1a281a0f918f85a",
+   "v": 1,
+   "variant": "batterypack"
+  },
+  "eaeb9036dbd8453861d6433d8212da248a3f9f3efd69b5172185ee5e8fcaa64d": {
+   "asset": "plants/sage",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "1c96ad556450066f496b3fff67c32d305e094d25dc707a83af138d17cb51802f",
+   "v": 1,
+   "variant": null
+  },
+  "eb8648d2873a0631c23073c98fa62dec005cd06a66526ab81cbdc64eb11a3c44": {
+   "asset": "plants/sea-buckthorn",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "e3b8ee47e773e817b0b732bd68a50d61ebb23b8e525b746319929428cacae551",
+   "v": 1,
+   "variant": null
+  },
+  "ec330fd167e1dc0403655f600b92e1e205df7bb41a7a35334dd2fe5d00eaf768": {
+   "asset": "things/bell-tent",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "fcaed5426c0948d66d266e21828df932ca26e69d3ab1cc4fde7f2f44f12a35dd",
+   "v": 1,
+   "variant": null
+  },
+  "ec7b79ff18699d85c04aefdcea9cc532023667f9eafadf6f287d1eb91f1952a2": {
+   "asset": "machines/batterycube",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0c30e4db4e9f1ce797e1d446423738bf98e99bdf63776e29fe98acd943552df2",
+   "v": 3,
+   "variant": "batterycube"
+  },
+  "ed0a183ac515352faff413a3fc49a3a2a10444a40242c776791c2cb0ac8ae2a3": {
+   "asset": "things/kiosk",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "c0ce0fc409b1ade9ba8f989ff27abb3d196f57150aacdece3d994476b046302e",
+   "v": 1,
+   "variant": null
+  },
+  "eeadf62c9e38d098333997ef609f884fac4d8cd307c951f7b243d795053ecc15": {
+   "asset": "plants/eggplant",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "ecf63e9d5e3ce922120d9e759b3ad040f4ef0044b2371ea180cedd627e3513a2",
+   "v": 1,
+   "variant": null
+  },
+  "ef979508c9b75e4a0bfcd119a353bb46c3c625eef3b476651f6aca249af92bad": {
+   "asset": "things/terrace-egg-chairs",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "0b7b647ba9ecc5e447b3ebdc2f2b89c5c05efeb3ee9e80da0d2cd06264be7e89",
+   "v": 1,
+   "variant": null
+  },
+  "efbab6b9c12df15b834dd135acf3b79fc5271520ec7b5dc9b446c9d050315e29": {
+   "asset": "machines/pickup",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "3e96bfcc71ac101c8b6bcbbc41591710799b56aa9ede8bf7cafc4ac244848569",
+   "v": 1,
+   "variant": "pickup"
+  },
+  "f01c85a6a30c090d09b473cb0c5cc8f6f6034bd9909c29ec573f12ab31d0e1c5": {
+   "asset": "actors/stand-in",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "e5d698ee0c64742d2ddfb889ec5dc56bbd705cf86de8c1232aada8e0b02d8f03",
+   "v": 5,
+   "variant": "stand-in"
+  },
+  "f14bfebfdf42e90acdb4353430a3b1a6b4815fc807f88fc54df6083496e608e6": {
+   "asset": "actors/goat",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7b7c0b9c1ce0b554910adb314bfe90941eea1e18bf7285449d0584724edbf9fc",
+   "v": 2,
+   "variant": "goat-pied"
+  },
+  "f343901bf8e6c39f8e41010a7af042efd6a5da80f7763ede856e69d239c1c2d1": {
+   "asset": "actors/goat",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7b7c0b9c1ce0b554910adb314bfe90941eea1e18bf7285449d0584724edbf9fc",
+   "v": 2,
+   "variant": "goat-boer"
+  },
+  "f4c44a896191269e01ca7318a8ec6e15337c4c7406bc066691d0e0d85918a36c": {
+   "asset": "plants/soursop",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "1c2e42ad8414c086e785d4c2bd2e282b13039d3f376667262c5036c1203c728e",
+   "v": 1,
+   "variant": null
+  },
+  "f4c48955a809a379d379e130c1d308af3c5fb0c89f361fec029e4680f0c27299": {
+   "asset": "plants/blackcurrant",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "04e2df822b49036558accc453e0b9c8894b28fdde93bfae54e02fce0887d1baf",
+   "v": 1,
+   "variant": null
+  },
+  "f502a1d736905574f0d1e7e2f180c2ab27d556441f98e5a15fe0c0b3d8df1352": {
+   "asset": "plants/chickpea",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "64bfaa5cbc963ccba4146b6b30d0b23a68a149e8e8363833432f374c87db1d2c",
+   "v": 1,
+   "variant": null
+  },
+  "f59eb759b6606f69be38803d675d664a40834d10961c0c978fa84eed861bf134": {
+   "asset": "things/plant-stake",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "d15262a6dcc1438fd3284946c800b77095211f1de46a1f6ac3347916fbfc3417",
+   "v": 1,
+   "variant": null
+  },
+  "f5eaf5cb23b1ab05dc4d982d098beb6ccd95f679101ed9683c7c9a081031a51e": {
+   "asset": "actors/chicken",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "4885dc9f370983e106d5e52b3b1fedcd25bac86f3ddc856e295a06c35f155d1f",
+   "v": 1,
+   "variant": "chicken-speckled"
+  },
+  "f8a1e5e2a6e82c5793f13041f93b90c5ec7c8750e3463794b77321de91ec3fa3": {
+   "asset": "plants/wine-cap",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "194832b58bfe992b6376bc8e25db5e5e3581d3cd90db62940f797fe38edeabb7",
+   "v": 1,
+   "variant": null
+  },
+  "f8f49febf90eb18ad4463b4117f23f96bbfe3ebf2de344ca7add4120eaee14c2": {
+   "asset": "actors/rabbit",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "7ab21103e5a1f0819e966ca05e89c92370fec44354fff554130854ee1b4388e7",
+   "v": 2,
+   "variant": "rabbit-black"
+  },
+  "f91b44f762cddd527c93c095747aed17efda2834c86db0bf44456863667828ad": {
+   "asset": "actors/chicken",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "4885dc9f370983e106d5e52b3b1fedcd25bac86f3ddc856e295a06c35f155d1f",
+   "v": 1,
+   "variant": "chicken-buff"
+  },
+  "f92d3b8ef0d8aa1867351bf4260b02002bfc7f83f520b2922f9af55abc48ab27": {
+   "asset": "actors/chicken",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "4885dc9f370983e106d5e52b3b1fedcd25bac86f3ddc856e295a06c35f155d1f",
+   "v": 1,
+   "variant": "chicken-barred"
+  },
+  "f9a3da05ddf0f2328b51cf31b6b618d4b28dd8148a57e48e1356b4eed2c842bc": {
+   "asset": "plants/mint",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "ee3f527bd57d617e0b7318f13693e8003117de017cb6365f6d92914512ab3e08",
+   "v": 1,
+   "variant": null
+  },
+  "fa223e5714baccb29a854cdcbb36dcc940951f167f6a33540f8ffa56195054ea": {
+   "asset": "biomes/cover",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357",
+   "v": 1,
+   "variant": "litter"
+  },
+  "fa4f61b8716bb1609b59fd786b5b8fda860ee3ed663b8de04e79bddfaa4cdd17": {
+   "asset": "buildings/dome-tent",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "12950323baaa585b59a8f2b94505cd3e12b4a257c642f3bd32718e01dea3bbb3",
+   "v": 2,
+   "variant": null
+  },
+  "fa52c2d7f9b08a2c7b97847d837977fd6814246ad3100fa0882645c622a8ac3b": {
+   "asset": "things/parasol",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "d5f022be7510dd7b489156008417141dcb07d34a69061887da5bbf379218437b",
+   "v": 1,
+   "variant": null
+  },
+  "faa7b62a85021e48a93c974f1cf8fb99a113e57ed1e0b975e31f9febcd3473ea": {
+   "asset": "things/seed-packet",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "5ff094ec444a167df09efebbaed53682237bc06dca9ee3e6cbfc0dfd5f7a9bfd",
+   "v": 1,
+   "variant": null
+  },
+  "fad8af552a98bd9a12790d5a14136dab72970f0e4106de66f5ab83b0936f6fef": {
+   "asset": "things/terrace-bench",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "592045f435035565c3d42dd23e4f9251053c1c647dee6c6e7c7806e44bfd3ce9",
+   "v": 1,
+   "variant": null
+  },
+  "fadfbd6df1f20688b4b989a5bd6a8be12ea45fff47a2b0f1c2661bfc100e0e4c": {
+   "asset": "plants/hazel",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "212c71060c017175033c0e1b4bb2e4256f9fa914a6079f11c3fdedd48543d5d9",
+   "v": 1,
+   "variant": null
+  },
+  "fd4491a4ca6f0c3bc56a8994ad40e8b158de54c5f4e5c3b42f17ad13a5675430": {
+   "asset": "things/potted-lemon",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "49e0b946d6bb82bdf843d2203af603cd54ef4f1eca8896dab2d1d4daedeafdc9",
+   "v": 1,
+   "variant": null
+  },
+  "fd881bb27ff1a633461d26aaf85db629f18f33a1c83714005dfeaa5dda305da5": {
+   "asset": "actors/songbird",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "f3b3bb7856168ff3c5ce0ad18ac9cdcef3322651fb922e8037cb67c4b9941c0e",
+   "v": 1,
+   "variant": "bird-chaffinch"
+  },
+  "fed79a6e43be5350ed609c74c82c1bb74fe617979cc56ce81cb62752e6fde54a": {
+   "asset": "plants/blackberry",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "08bdfd17dd63f564d976b7be1236b1a667a98cf4c9eccfe0c7b614498f0fd610",
+   "v": 1,
+   "variant": null
+  },
+  "ffac24f7b4cfe64dd7949a1c35b7be6b9b68d1386e092e5bd4f9765ab7ff2151": {
+   "asset": "buildings/village-store",
+   "commit": "963cc9dfc684e32deaf268bc1d27f91938b2a7cf",
+   "source": "9cc3f4246ef01202bd0666dd0790353cd8ee5cb0e0288c1bfced1546b25d49ea",
+   "v": 1,
+   "variant": null
+  }
+ },
+ "sources": {
+  "00da105492ee12e467e02784dc72f6c0d7221168874a768aaf76822d082c2858": "plants/papaya@963cc9dfc684.js",
+  "0366757db91ff07147d6f43785f761aa413e141c9682ce793740306925c1c7e9": "plants/olive@963cc9dfc684.js",
+  "04e2df822b49036558accc453e0b9c8894b28fdde93bfae54e02fce0887d1baf": "plants/blackcurrant@963cc9dfc684.js",
+  "051d15aad5459569a65bcf0f0db48fcafc018ae169fcfb8fe52edf6c30230022": "plants/radish@963cc9dfc684.js",
+  "05544a2718517d938f4113ec6dd8f1747476b71504510c16b1a281a0f918f85a": "machines/batterypack@963cc9dfc684.js",
+  "06f53b6797108126a134d776b879827c7e11bf6b2a54af4d69b1c0266607afef": "things/square-pizza@963cc9dfc684.js",
+  "074501df738882629f3a6a6df1bed31231e020878660b7866899b632b8afc56f": "plants/edamame@963cc9dfc684.js",
+  "08bdfd17dd63f564d976b7be1236b1a667a98cf4c9eccfe0c7b614498f0fd610": "plants/blackberry@963cc9dfc684.js",
+  "0967c18e31e2dcbe9bb157d830eb60a103086b697ae4ec4f047d3d9735283560": "plants/serviceberry@963cc9dfc684.js",
+  "0973215f1b38ef29b7dbc6eede55ea53fe0154d60fb465678c539be22f024d74": "machines/truck@86b44da17e4d.js",
+  "0ac62f43aba85010cc278428c47e5711d7b719da6d695bb4d94c156df3569e0d": "actors/goose@963cc9dfc684.js",
+  "0b7b647ba9ecc5e447b3ebdc2f2b89c5c05efeb3ee9e80da0d2cd06264be7e89": "things/terrace-egg-chairs@963cc9dfc684.js",
+  "0bdc1bf092d6a3a24b59b2dd8b62aa4f0ae848a7aacb0caf311255429c162974": "machines/van@963cc9dfc684.js",
+  "0c30e4db4e9f1ce797e1d446423738bf98e99bdf63776e29fe98acd943552df2": "machines/batterycube@963cc9dfc684.js",
+  "0d3076eb3770f7641978b7c1f46fb2f69edc2e31c7aabde48ed39629b41de290": "biomes/clover-lawn@78cfae5b2690.js",
+  "0d9649a8fc439f83c01ef38869e8896b98a7c43301d6f9728db638ba74933fe9": "plants/ginger@963cc9dfc684.js",
+  "0e9c335448e708b3c70d9e697f7d007e53c25cbe54a0ad55a30610885a09df4c": "plants/alder@963cc9dfc684.js",
+  "0f12d858338066891ec1ee3cf6a315ef8d0da2da5dda38030191f7806df135e6": "plants/pecan@963cc9dfc684.js",
+  "1031fc8f9b6e31bd32d6471c6beb2b24948013c89abf73b4d8847db3cb5aef23": "things/room-monstera@963cc9dfc684.js",
+  "125f156424813699b1ea46e58e319b9e1640cd04b94431f55e894b942c587cf3": "biomes/food-forest@78cfae5b2690.js",
+  "12950323baaa585b59a8f2b94505cd3e12b4a257c642f3bd32718e01dea3bbb3": "buildings/dome-tent@963cc9dfc684.js",
+  "1318d855127c0978d1a7b9facec7b33df7d45cfcc79064c88a1b6f90810388b0": "plants/sorrel@963cc9dfc684.js",
+  "1365f9085e0bd7d428b62827065e1c775b28521b454a504ed18db15864590e15": "actors/elder-woman@v2-laid-out.js",
+  "13a1e9bf7d0d454bbf639fe3272f3e1645126463f830e739d7b0af66257ba49d": "plants/grape@963cc9dfc684.js",
+  "13dd136f0fc45db4e7fe2aa2b5189e78df35261adad9437039c70e6bba724835": "plants/rose@963cc9dfc684.js",
+  "13f256a3756327adfc73d85b20aa6fb3ce96e152197b9f5815360d96cd8029d8": "plants/medlar@963cc9dfc684.js",
+  "14609b8fee5afe9a64eba949e2b49c23e88fe49e7e2a5020cf731c562a54d5a6": "plants/pumpkin@963cc9dfc684.js",
+  "1483a7f0b5facfac81fa1baede64e7cdeece0f4fcf15a3f3d918e2c649ba8b46": "buildings/dome-factory@16e4bc5b6f2b.js",
+  "14c3e1105dfedb9347da5cdcc8189807a65bec6bca452b601c8b28088309269e": "things/potted-rosemary@963cc9dfc684.js",
+  "1512639223739dfec048dbe1e4d13092f56fac9ab2eb34d53101ca2a11c2d67d": "plants/sapodilla@963cc9dfc684.js",
+  "15f0bf4569afc6b5506c74c532c0f3ff1fe1f73ea0f61a93f7dbd5946d1aa559": "biomes/meadow@78cfae5b2690.js",
+  "194832b58bfe992b6376bc8e25db5e5e3581d3cd90db62940f797fe38edeabb7": "plants/wine-cap@963cc9dfc684.js",
+  "198992a9ee74deef416c348f1d086d3e100f03d9bbe80609b0c8b079d3fd4134": "plants/chestnut@963cc9dfc684.js",
+  "19ea3eb6240bfc98a0e3e25b231da3b8968a6be2456009fd1bee0e541783f8c8": "plants/nettle@963cc9dfc684.js",
+  "1c2e42ad8414c086e785d4c2bd2e282b13039d3f376667262c5036c1203c728e": "plants/soursop@963cc9dfc684.js",
+  "1c96ad556450066f496b3fff67c32d305e094d25dc707a83af138d17cb51802f": "plants/sage@963cc9dfc684.js",
+  "1e654620a3806ad8cd55d43bcfbbc0698112f43a9c6a23219aad9f954120a6a9": "plants/rhubarb@963cc9dfc684.js",
+  "1edea43fa91987537322161ed43ed975209723188f60420409721df28c520f48": "buildings/bus-stop@963cc9dfc684.js",
+  "1f0b1045f45780fe8cb9d592dc14045046be99e8f5da16ae8f4e6972bdbb32bd": "plants/apple@963cc9dfc684.js",
+  "208562c1f3a8ccee8a83348a7909dc290d429f6642a16633c49d1b01cdf41932": "buildings/container-sanitary@963cc9dfc684.js",
+  "212c71060c017175033c0e1b4bb2e4256f9fa914a6079f11c3fdedd48543d5d9": "plants/hazel@963cc9dfc684.js",
+  "21bf4c369da310f9c8223c5dcac43f3334e5b0c651da461d6d464c3e8e34c536": "things/pickup@963cc9dfc684.js",
+  "220cf87d52ac6c69bfa0b5cb5030139e0becdada1caa3caffb5d4ba24dbeef5a": "plants/mango@963cc9dfc684.js",
+  "242eb7c41a95e590a2f2b4292b8616c5fc90f44ac12b3c1ab5051522043b6ff0": "machines/excavator-large@963cc9dfc684.js",
+  "2bee4d0b7ec7bcd56132ff43d8a335e6b304e0a2c863fd0d5a9d3376e05d76ee": "plants/nasturtium@963cc9dfc684.js",
+  "2c07766b226351339ebd1ac156ca8fc7eb1843853df7948f09dfb893a3ce3f46": "plants/oxheart@963cc9dfc684.js",
+  "2dda952c9b06f4abb90f9e20db9a38ef62117aeda67fb38e77b146c205a5016a": "plants/carrot@963cc9dfc684.js",
+  "2e5bdd325e6816f8f8425e29c155e3b56a090bf6f2cad58a1c2acb73b7a8c62a": "actors/ant@963cc9dfc684.js",
+  "2ec5f14fe9c282a4bfc7055e092dd79c660cb3111e31fb7dea046b8ca502aa2d": "plants/thyme@963cc9dfc684.js",
+  "30c3acb3f7d343c3437d1c339f0d1137caac967dc03298a4326dd0842460e778": "actors/fish@963cc9dfc684.js",
+  "32317ae3258ea1b7957bde81a17684a1802a9b0d4968f0087e91a971b3259582": "things/coworking@963cc9dfc684.js",
+  "34d5da36c8a78fff5c482e1ab769e70ef7db5df367118f99e3fedffdf521e082": "things/sofa@963cc9dfc684.js",
+  "34e25e211b4485f482d10c269de308c293737286cdda4b2aaeaa3d112ddac991": "things/private-room@963cc9dfc684.js",
+  "356230ef8567ef642c6df8cff013f2faecb2aa08167d7cf7586c5eb85c6dcf02": "biomes/spruce-forest@78cfae5b2690.js",
+  "35b0c2c74ace5c6a0a9e7d9e2065911e295024a1656cd867a9c51b7787af26e3": "things/bell-tent-bag@963cc9dfc684.js",
+  "369940ce4bc1c4b245e3e07d6d7caded05ac89a1ad2e70dba0202e2b5d75b1c4": "things/chicken-coop@963cc9dfc684.js",
+  "37936d19dc3222ee9088c65b2fd5f251a4aa007c4dc5ad88f569203c0801f56e": "things/snake-plant@963cc9dfc684.js",
+  "38ed9252f246d5ccc59db9dc3e79b44528a385fca47f4fe1181d634f13a56662": "plants/jerusalem-artichoke@963cc9dfc684.js",
+  "3986e86ea9cb8ae72c6c9c97b31c3ac9661bba4c3eddec62e4710a14cf3c42b9": "plants/wild-garlic@963cc9dfc684.js",
+  "3c6d40b90e7ddc6c4a8b48e143b67fe82f199f723a0689ca8900e928631bb4fe": "things/rabbit-hutch@963cc9dfc684.js",
+  "3ce56e7452e66c1810bcb18084f14a794a4ed56d9072ce85195465a8ece0610b": "plants/lettuce@963cc9dfc684.js",
+  "3d6b0848f22a38112a375e40492c51c000f70148bfcc40cea4e370d8cad0faa2": "plants/redcurrant@963cc9dfc684.js",
+  "3e425f592a349ecc4ea97449fbd3dac210424ece1db396e57cefd3a9e9b79a83": "plants/oats@963cc9dfc684.js",
+  "3e96bfcc71ac101c8b6bcbbc41591710799b56aa9ede8bf7cafc4ac244848569": "machines/pickup@963cc9dfc684.js",
+  "3f809f3c1184d52c4dd16525cf6b14484d6954e0c51a9faa2f6977f90522a7aa": "plants/banana@963cc9dfc684.js",
+  "3f8eb87b1846894dffd592a08d1374b4adec792cc4121a135aa12772a788ee80": "things/paper-lantern-big@963cc9dfc684.js",
+  "421a3fbbe8bf232387ef2d1125188e7b7b7dd544b91e0105e491c7e22dccb33a": "plants/rosemary@963cc9dfc684.js",
+  "4598a6589a6384523d37c9174a6cf86cad25a336d3b86e1e955237f51513bdbc": "buildings/container-tech@963cc9dfc684.js",
+  "46d471c081bdedeb620d16e5621fe409582d8fc5ff873d0f258c01527e59eec5": "things/euro-pallet@963cc9dfc684.js",
+  "47589c75df3a6877cf196796bc1dc442fd5d8eeb21bcc7e8dd84b2764263240f": "plants/safou@963cc9dfc684.js",
+  "4885dc9f370983e106d5e52b3b1fedcd25bac86f3ddc856e295a06c35f155d1f": "actors/chicken@963cc9dfc684.js",
+  "48f6c55d2f0d3993561b9f91a374a237971439963d03292490d18821cd9686d5": "things/repair-cafe@963cc9dfc684.js",
+  "49e0b946d6bb82bdf843d2203af603cd54ef4f1eca8896dab2d1d4daedeafdc9": "things/potted-lemon@963cc9dfc684.js",
+  "4b098a5ad036577ce64cb5e18031735abd2f547dc097b0cfbc8f9cd0eb72bc52": "things/woodshop@963cc9dfc684.js",
+  "4b466756078ca7be468b0529917a7fb3d8bb0244fa7b298977d4e00f40e0674d": "plants/walnut@963cc9dfc684.js",
+  "4c85799a56be04cf8cbf20004b5f98ecfb2067c128d5a32041244f78e5b14191": "plants/passion-fruit@963cc9dfc684.js",
+  "4dd79bea17447351880772247d2d24a3aa3a9f7ab85eb713a76ddf9caa31d6f9": "things/private-room-2@963cc9dfc684.js",
+  "5406b91e569a19689dbfc887a6115dc3786bd5e2c45e2de960c74b2c8d74731a": "plants/cornel@963cc9dfc684.js",
+  "54b29fbb64e1c657770021ce071804322a8ebac0249cb14bb8e6c1085dc95048": "plants/garlic@963cc9dfc684.js",
+  "5763572cc2d61a8943423e92821a85b90366e33618aaf4d304b30c5b22db005c": "plants/clover@963cc9dfc684.js",
+  "592045f435035565c3d42dd23e4f9251053c1c647dee6c6e7c7806e44bfd3ce9": "things/terrace-bench@963cc9dfc684.js",
+  "5935bf70c52e7c4a0b65c484efa447bdad4012a812aff8da50914395bd8f34ea": "plants/chard@963cc9dfc684.js",
+  "59b68e89f966806d8e4aaa2fd36ae96f4f92ab44c8c4252682f9b3112ff992b5": "plants/pawpaw@963cc9dfc684.js",
+  "5a31e9ce299a302b3737e10d1469e58a74c9e602554c86c1ba6705f791b8cdd7": "things/library@963cc9dfc684.js",
+  "5a762b2c3e5962617b1947189f2c15d214f7abe638c78dd50d7400dfb2277236": "plants/chives@963cc9dfc684.js",
+  "5be41af8fba3f2d3ba73f6f221eb79a19a7c2c03150f53015a19156639ac9f6b": "plants/birch@06fe0685dd4a.js",
+  "5cfa6bd0ca3c59a857c3e166487cbf7de9ba09c94f47e6586e19eca031483374": "plants/parsley@963cc9dfc684.js",
+  "5ff094ec444a167df09efebbaed53682237bc06dca9ee3e6cbfc0dfd5f7a9bfd": "things/seed-packet@963cc9dfc684.js",
+  "6319769072595f2cf1427ea6eeb60eaef0195b0c8153742c7138da027d332cb3": "plants/lavender@963cc9dfc684.js",
+  "637577561701f3eeaf0dee5465a9c9fc0d214d5bcd55aecb0f19a7c398d51791": "plants/linden@963cc9dfc684.js",
+  "64bfaa5cbc963ccba4146b6b30d0b23a68a149e8e8363833432f374c87db1d2c": "plants/chickpea@963cc9dfc684.js",
+  "6503f0f6643e1877c4b2c8f4db92fe78ca1cc0ab8ff36279c07b51b38300f568": "things/loading-ramp@963cc9dfc684.js",
+  "65919d32231a3ad12838209f2f0c00f3fc8c4aada242b2c7b8815bd2bba3d93c": "buildings/old-shed@963cc9dfc684.js",
+  "6786473f81608f906e6d24c5d221eed94bb9b8c59f2144f26e739f71bf3ff374": "plants/korean-pine@963cc9dfc684.js",
+  "69642060fa68ddbe13768cedc7f054663fe66077dfbcf73408c8f5491440d9ba": "plants/blueberry@963cc9dfc684.js",
+  "6cad3123eebfd101de5e7d0342ec3c1cebcbb44d1527fd8ded84e7dbae9dd79a": "things/long-table@963cc9dfc684.js",
+  "77c29a5ab2d40eb68aa26a649aabc319ae3ad32774ca1097bc1e3410d0c609c5": "plants/jackfruit@963cc9dfc684.js",
+  "77c3efbf8d52ef36aba2ed21c27eaeea2a42385dea8c2b1871dc397055e68f7e": "buildings/dome-glamp@34599b202506.js",
+  "77df4224ee17da9be9f1abdcffcfd8d0e95fa4ac134a985563d9aa71e89ccdc1": "plants/quince@963cc9dfc684.js",
+  "7ab21103e5a1f0819e966ca05e89c92370fec44354fff554130854ee1b4388e7": "actors/rabbit@963cc9dfc684.js",
+  "7b263762491217d3dd26915b2a1d1dec75dcffa8dfd57c8148cc4b0486c85bf4": "actors/elder-woman@6043e3600f49.js",
+  "7b7c0b9c1ce0b554910adb314bfe90941eea1e18bf7285449d0584724edbf9fc": "actors/goat@963cc9dfc684.js",
+  "7bdd8b11cf13146f47c0003b8129dc20aac54f55316e17b0b843715ac6520fc4": "plants/oyster@963cc9dfc684.js",
+  "7c88a91172fb355a2dba37f1ef6d9b44a385758103127b11a04b1779afe20cff": "buildings/maia-centre@963cc9dfc684.js",
+  "7d0996f078edfba4fd922548a5f5fb91aae1720d30a826d23b7d1c15256fa700": "machines/forklift@963cc9dfc684.js",
+  "7e2c4e5a5bba1b448eaa52b1c1efd297194b6c6efa033b08a775dc813de7c3f0": "plants/coffee@963cc9dfc684.js",
+  "7fc409c6020d80954905ccce4ce8013126c09b795703e507760afe9d8aaf7bb0": "things/travel-van@963cc9dfc684.js",
+  "817cdfcde25f493712a0abedd101136e398906c7327b7ef3bf67eccf773a2eee": "plants/aronia@963cc9dfc684.js",
+  "81936aee5dcb389885f4c155122c9af604f5f5122dfe6485142b5a1333c21f8d": "plants/artichoke@963cc9dfc684.js",
+  "84798475f9c077a71f576bda1d7f4d8163bb878d6086e2ec06d189cd7dee80b6": "plants/durian@963cc9dfc684.js",
+  "87d6f7277f97e1d6e0eb44288ad3dad36e963e6db1c97ec8312ccbdbe0c50e20": "things/art-studio@963cc9dfc684.js",
+  "8ae50c96fd0bc169d16c31c6c366657f302a26e290cc11c91909991df39d29e5": "things/water-bottle@963cc9dfc684.js",
+  "8bc935d4316c3a3dffeef3fba890490c1d58a6c8070b15477be8f86b262b958a": "plants/pomegranate@963cc9dfc684.js",
+  "8c198e41afa0733e784a27a0922c2aa223f2a25ecf1f2db59dd952f0e5459118": "machines/electrocube@963cc9dfc684.js",
+  "8e4649260ae24de2bd724fce95272a438161d2a27ab46691b581cfe966b50675": "things/playground@963cc9dfc684.js",
+  "904eee59ba5b4ad242b6e625b55d2453a52d113918e934ffa7d3003661e8adc4": "plants/lemon-balm@963cc9dfc684.js",
+  "910dd384966f063593f3c1aebabaee0b37950b04186b0de1709398e70d8fcdf6": "plants/bamboo@963cc9dfc684.js",
+  "9151cc5f34f2bacdbf507ad3f9489e8e4c75419c3db954fc16215d1e1aae06c2": "things/terrace-daybeds@963cc9dfc684.js",
+  "92fb9aea44cf28390e59105983ea6f7b0e81b4b10377ba0c180c2b835b81725f": "things/dome-tent@963cc9dfc684.js",
+  "94722cceafe78260afe442e8548696377d6344cc61ad4da02dd7f1c7384b9b23": "things/pergola@963cc9dfc684.js",
+  "97afd0294b5fd442b64bf108a1b7ea40aa342241106cde3c816743001b2e6736": "things/backpack@963cc9dfc684.js",
+  "99917b67db3dbc1ef36ba3d9ea5cca717c14f094ec8ddeb0dd67f8dc506de3c6": "plants/dill@963cc9dfc684.js",
+  "99dea5894508e0b43d892e2b09567a34471585013ba6750c17b9ba4a1300d078": "plants/shiitake@963cc9dfc684.js",
+  "9caca07364ead45a4f5af084717e65610f788810ccc005919c03506e9282691c": "buildings/container-workshop@963cc9dfc684.js",
+  "9cc3f4246ef01202bd0666dd0790353cd8ee5cb0e0288c1bfced1546b25d49ea": "buildings/village-store@963cc9dfc684.js",
+  "9eeb8e62af58ad42498eef2d1cfb4b2755b4da58ffd3a88702277f4da85cce76": "things/terrace-vine-table@963cc9dfc684.js",
+  "9f7da1a87d8a137b3fdec6b1ab6f388d5c8d2366a36f067f947261ffb3c8f6c0": "plants/comfrey@963cc9dfc684.js",
+  "9fdb1de82d77a8e822f6b2a504663569b293686fc4828d4a1c3bf6cdd36015ee": "things/bar-stool-round@963cc9dfc684.js",
+  "a1d8a9797fac85c42d4f93a81fdbcec136fc9dc0daeaf566f161a677d8baa057": "things/pottery@963cc9dfc684.js",
+  "a2d39b1e5678686a16b4dc50cde5a3cb5c9732c1284219f86f201000876875fb": "plants/basil@963cc9dfc684.js",
+  "a566329e95e83a5073fe1953760a0f293fae11d71b5afb23b070b7161130f9df": "plants/kiwiberry@963cc9dfc684.js",
+  "a980f85a5093f5062ecc8b05f358fa9a62ab0a34d9452e833b480e153dfaabc1": "machines/pod@963cc9dfc684.js",
+  "ade07ea25bf353f1b18700d1afe52854a5f3d63e8d016eeb2e0b115368dd743a": "plants/orange@963cc9dfc684.js",
+  "b0c8f7f9c3bf9a6147c000528af8e9e3dc094fc1d8d5dd3bf311d41683dfa57d": "machines/powercube@963cc9dfc684.js",
+  "b1b6aff6afea2ff45982fd36c792f715a6a9da775c6ff5f693da121db838f177": "actors/sheep@963cc9dfc684.js",
+  "b2dd6981894de23da30fc8f53c6fd3edb63cae3272a1e4ed173a742a66efcc03": "plants/oregano@963cc9dfc684.js",
+  "b35619451d0c66566bc69e204febd0f2bf9409e6f4cffda07573d5f0f0b9c50e": "buildings/container-kitchen@963cc9dfc684.js",
+  "b3d906ebe97840b17e1be244480daab13573c6330fefd91b93a0ccdd784a473b": "plants/lemon@963cc9dfc684.js",
+  "b4c9546b89971f490235af4b7b06d71ba2ed9bcf7869177d6223b1e1930142cd": "plants/apricot@963cc9dfc684.js",
+  "b52c78ffe3df915d1d49159cadd84c7507f5ad473ff43f07f0fa98c1dbaef205": "plants/raspberry@963cc9dfc684.js",
+  "b59171e07102d79f375480b0152dad3f3b65da50aed6630db60e44739946ffe8": "plants/plum@963cc9dfc684.js",
+  "b6c80f8ecc0b8693ffdb9868c4a2fd85f1be80be1f2f05116231da6d6ed5a526": "plants/pepper@963cc9dfc684.js",
+  "b80fb3d4e72c52fcb78240dfb9708dca9ef1f2b87e4dcd28f0f03a2d9847cf2c": "things/water-canister@6043e3600f49.js",
+  "b8903cc884dee98c59614fa4be6e2e176343aedbf4009a5d63560150a6ac4ca4": "things/bakery@963cc9dfc684.js",
+  "b8ca5e1b35bdb23cd251f7e41deb70856d7903ffdf847d68509f6bc23561682e": "plants/coriander@963cc9dfc684.js",
+  "bb945869dcc06a44eb9b2798df1a971caa2d2e7970708354521e7c796d93d129": "biomes/warm-food-forest@78cfae5b2690.js",
+  "bc4243f62ce7be9d792b40f00fb5538d6c69b5edf0f5db1feb2fb309fdd286df": "machines/lifetrac@963cc9dfc684.js",
+  "bd5bc964cc486ce517f573ff9a8e0ff7b2b29ce44574f7715d1b0bfc303f2bf3": "plants/elder@963cc9dfc684.js",
+  "be3dc369ced8726d9eabd6eb17595a59e6dacb5782a0a883d7da6788e75224d0": "buildings/gas-station@963cc9dfc684.js",
+  "c04f925e1dcc636df98eb76232d75d972bab7feae5ddd2a9e098a8d52fcc6c21": "plants/peach@963cc9dfc684.js",
+  "c0ce0fc409b1ade9ba8f989ff27abb3d196f57150aacdece3d994476b046302e": "things/kiosk@963cc9dfc684.js",
+  "c16f73d0d956eb001d85c46f222c299595c9a4eca52dbf51fbd6c20cf03c361a": "actors/bee@963cc9dfc684.js",
+  "c2586cb0cc92ccc092348f8063ee17b28888665a77886fb42f4b8de6b1605633": "plants/lentil@963cc9dfc684.js",
+  "c3391ed50f8ccb6deb6054b1b082b18f1f98abc2c2a12c59318e26853a2cfbb9": "plants/strawberry@963cc9dfc684.js",
+  "c350eec9528e149510f46c0f90cf34b4e04c4038c35b64d26c966e2486771ef3": "plants/hop@963cc9dfc684.js",
+  "c58a8c509c2654cc8ac98a8a30d88d53adf3ae43b33aa0597297c7343c573947": "biomes/beech-forest@78cfae5b2690.js",
+  "c6ab8f5a540de77c27d2529b776173990d3267f56340b62c6c25f930e2de93ba": "plants/hemp@963cc9dfc684.js",
+  "c7576a9e09ab75dfde393fee2b3616b48d1923ff56be4ea37d87b7fd7a8be098": "things/fire-place@963cc9dfc684.js",
+  "c7f42fd478d605567ab9e2688455b86ddc4222ce43fef8f559af21559d9b2aa9": "things/dug-earth@963cc9dfc684.js",
+  "cab2621f31f20c88d8b2fb94453c38ed127425a1262f925ec6a0bfbf725d2f37": "plants/pear@963cc9dfc684.js",
+  "cac08be3b303cf861c04b6a0850e999dce5b142e0366b2c15fcb083aa04387f2": "plants/moss@963cc9dfc684.js",
+  "cc1d089160e3a2d346f64b927f6012ca32185eb1117fd1101c08746b554bd504": "plants/beans@963cc9dfc684.js",
+  "ccfa0387fd6f7ce7c2882babf616a3437b93c9b45cf50abe487cf48259f197e3": "plants/cucumber@963cc9dfc684.js",
+  "ce3393901ac514f2c8331d0648ba6b949eab70b9a15e39c4cbd18f255ce994e9": "plants/red-banana@963cc9dfc684.js",
+  "ce81a806fd6d81a5185af09eb773611a3a9e25582ca9b13bf2bff1d3c273a113": "plants/persimmon@963cc9dfc684.js",
+  "cfca8767c96fabfc7820714071d43915c52013eb9969d47b0773a5d2a3cbd162": "plants/mulberry@963cc9dfc684.js",
+  "d0b88840e844fff1eb7dd0b125557a7e3e0f9c9ce469475985fd589ade297c67": "machines/truck@963cc9dfc684.js",
+  "d1510d2da6262023a2285fbbce201f06bb63585a3c094f495fac63260a4b2303": "things/potted-olive@963cc9dfc684.js",
+  "d15262a6dcc1438fd3284946c800b77095211f1de46a1f6ac3347916fbfc3417": "things/plant-stake@963cc9dfc684.js",
+  "d27d3a5ae7c2e6eedf9a9ed29943e69b4abce98b819a164394e4c4e70a521615": "things/square-cafe@963cc9dfc684.js",
+  "d3881f7aecfeee0b177a9bcde234ba60d464503781ba1147de79972d987bcfc9": "actors/frog@963cc9dfc684.js",
+  "d5f022be7510dd7b489156008417141dcb07d34a69061887da5bbf379218437b": "things/parasol@963cc9dfc684.js",
+  "d7f8e055adb120af5f00dfdd8f057d0da4278f92bbf3b5c0c4584f5f57cc521d": "plants/cherry@963cc9dfc684.js",
+  "da673e99703e295eefab76a43d82a0ecb47cb2232b9fd035d5d5fb0ab724eb38": "plants/tree-hazel@963cc9dfc684.js",
+  "db79804677996f69dc05e9bb4434765a0588613e5169588d0bbc5f48a47e7b2a": "plants/king-coconut@963cc9dfc684.js",
+  "dbdfad4a253e809867dad8b7804fd82a0925060ecb2c290485c8a64425968f4c": "plants/gooseberry@963cc9dfc684.js",
+  "dbfb8ef06f70bc9c5d916321f3c03c6f1c573ee93463144c12403e2e5e05a88a": "plants/pineapple@963cc9dfc684.js",
+  "ddfd02245ce235392cb39488d414efe453d050efc85509c672041ca6d27efa74": "plants/avocado@963cc9dfc684.js",
+  "dea2995a94383011ce0a708be82bb10f8e741d355df790c4a48ff636836b6357": "biomes/cover@963cc9dfc684.js",
+  "e1990ff1e90b477f81df366fbd287a2692966bf812c8d229c4cacfca81115012": "things/tent-bag@963cc9dfc684.js",
+  "e22829b118b2301edaa0bd7164f98a67e86fcaee2b903e31534fc19e776a155f": "plants/asparagus@963cc9dfc684.js",
+  "e3b8ee47e773e817b0b732bd68a50d61ebb23b8e525b746319929428cacae551": "plants/sea-buckthorn@963cc9dfc684.js",
+  "e553e6431d6dce275a7ddc1633651a177b1f15fb9b7a51d692565c8f00311763": "things/fiddle-leaf-fig@963cc9dfc684.js",
+  "e5b26cffb5e8035680c9dce5fb72fad5aa380d1d59d9cb5889d0e1f1fc01f879": "things/potted-lavender@963cc9dfc684.js",
+  "e5d698ee0c64742d2ddfb889ec5dc56bbd705cf86de8c1232aada8e0b02d8f03": "actors/stand-in@963cc9dfc684.js",
+  "e5fa4db114cb3a78805522ffae1abd7c946302a86ff0bf147a7230ad72de750d": "plants/woodruff@963cc9dfc684.js",
+  "e84d4ddbdb9afbc73c966582aeacb892a6e7547e4d4d759d93cc88f69409cb01": "plants/horseradish@963cc9dfc684.js",
+  "ea8c593d84e2e752481fedd02a0516034cf2762d99540f2832b8a7a57a725a14": "things/pothos@963cc9dfc684.js",
+  "eb3adb66f75e67bfe43d4aaa83bef89304b52ac332d3ef0494139125d9dac228": "things/bistro-set@963cc9dfc684.js",
+  "ec79ae6b8b688f47b8b02a42f92cb0e63dd0f590fc5ffa565ed288dfa70468e9": "things/bread-oven@963cc9dfc684.js",
+  "ecf63e9d5e3ce922120d9e759b3ad040f4ef0044b2371ea180cedd627e3513a2": "plants/eggplant@963cc9dfc684.js",
+  "ee3f527bd57d617e0b7318f13693e8003117de017cb6365f6d92914512ab3e08": "plants/mint@963cc9dfc684.js",
+  "ee46a29f9560354cd2fecb133b9990826592bbfaa9966da028471bfba54af46f": "plants/haskap@963cc9dfc684.js",
+  "eee7716a8b7e2647743bff03942974c607fac5056cb766d02be4c8d9dd9921f6": "things/solar-panel@963cc9dfc684.js",
+  "efa7df23e3ded3429229199248b09e07dcdbb2432940edb47706c4c05e75e225": "things/balcony-door@963cc9dfc684.js",
+  "f09b6904d8986fd7dd995a8dfef6f882095d8f12891b9a12e8cc9c3280cc3e43": "things/marker-sticks@963cc9dfc684.js",
+  "f1b8e2f49e3c4f1710f1fbfca3d2d4fa5893512d8ac1005f57bf31e5596cff5e": "plants/birch@v2-laid-out.js",
+  "f2f40358fa900613085784fd6967ff368ef2b5e90e8f77320d13d0f28f63c4d9": "machines/excavator-small@963cc9dfc684.js",
+  "f37d314c78b41c9d586a10fb9731bf9441ca5321bb03acd63b465c742078be95": "plants/fig@963cc9dfc684.js",
+  "f39b3ff42e6bf61c62521a5588a9a16125807c7b24dbcb0480ed6ff017223258": "plants/kale@963cc9dfc684.js",
+  "f3b3bb7856168ff3c5ce0ad18ac9cdcef3322651fb922e8037cb67c4b9941c0e": "actors/songbird@963cc9dfc684.js",
+  "f4059fa760f5a79461cc4cbd829cee8acb14c82c4d708dc37f06d368a5d41604": "plants/tomato@963cc9dfc684.js",
+  "fc71fcef33f35597d9d525742666bce0f405f67281579f981722f726632bfc75": "things/square-restaurant@963cc9dfc684.js",
+  "fca71584726b74214f8f8f1d92f9477d26ad098aacfa90e82066c3f4d9bf0570": "plants/cacao@963cc9dfc684.js",
+  "fcaed5426c0948d66d266e21828df932ca26e69d3ab1cc4fde7f2f44f12a35dd": "things/bell-tent@963cc9dfc684.js",
+  "ff9fa2b8919271a6a7f2376e8100fb0f2cd7d5b5e1e441a2df0a631f7b32cc77": "things/square-fruit-bar@963cc9dfc684.js"
+ }
+}

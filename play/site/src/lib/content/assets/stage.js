@@ -32,12 +32,15 @@
  */
 import * as THREE from 'three';
 import { ShaderPass, createPost } from '$lib/content/render/post.js';
-import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, ease, ghostMaterial, lerp, studioEnvironment, untonemap } from './kit.js';
+import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment, untonemap } from './kit.js';
 
 export const MODES = /** @type {const} */ (['explode', 'cut', 'xray', 'labels', 'slow']);
 
 /** the layer a part shown on its own puts the rest of its asset on: one no camera of the stage draws */
 const SOLO_OFF = 30;
+
+/** a device whose main pointer is a finger (a phone, a tablet): it gets no ambient occlusion, a desktop's pass */
+const touchFirst = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 
 export class Stage {
 	/**
@@ -117,7 +120,8 @@ export class Stage {
 			target: [size.x, size.y],
 			samples: this.low ? 2 : 4,
 			size: { pixelRatio: r.getPixelRatio(), width: css.x, height: css.y },
-			ao: !this.low && ((ao) => this._ao(ao)),
+			// ambient occlusion on a desktop only: not on a phone (low) nor a big tablet, whose GPU draws it in streaks
+			ao: !this.low && !touchFirst() && ((ao) => this._ao(ao)),
 			bloom: { strength: paper ? 0.22 : 0.42, radius: 0.55, threshold: paper ? 1.6 : 1.0 },
 			after: [grade]
 		});
@@ -134,13 +138,14 @@ export class Stage {
 	_ao(ao) {
 		ao.blendIntensity = this.theme === 'paper' ? 0.85 : 1;
 		ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
-		// effects and see-through parts are not solid: keep them out of the normal and depth pass
+		// effects and see-through parts are not solid: keep them out of the normal and depth pass; so are parts cut out
+		// by a picture (a leaf on a bigger sheet), which that pass would draw whole (./kit.js cutOut)
 		const aoRender = ao.render.bind(ao);
 		ao.render = (...a) => {
 			this.camera.layers.disable(LAYER_FX);
 			const hidden = [];
 			this.scene.traverse((m) => {
-				if (m.isMesh && m.visible && m.userData.noAO) {
+				if (m.isMesh && m.visible && (m.userData.noAO || cutOut(m))) {
 					m.visible = false;
 					hidden.push(m);
 				}
