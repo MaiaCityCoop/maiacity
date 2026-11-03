@@ -21,7 +21,7 @@ export interface World {
 export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hover(p: Plot | null): void; pick(p: Plot | null): void }): World {
 	const W = map.width, H = map.height;
 	const X = (x: number) => x - W / 2, Z = (y: number) => y - H / 2;
-	const ground = terrain(map.seed, map.river);
+	const ground = terrain(map.seed, map.river, map.massif);
 
 	const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 	renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
