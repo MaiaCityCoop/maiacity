@@ -113,7 +113,11 @@ signature journey").
 
 Every film runs in the same order:
 
-1. **The topic hook** (this episode's own, about 3–5 s): the line that grabs, with its promise.
+1. **The topic hook, always two things** (Samuel, 2026-11-03):
+   - **the title:** at most 7–8 words, fewer is better — on the card, the thumbnail, the YouTube title, the first
+     frame;
+   - **the hook intro:** one or two spoken sentences about this episode's actual topic, opening its question and
+     making its promise (about 3–8 s).
 2. **The trailer, fixed, the same in every film, spoken by Samuel:** *"This is the story of how one million humans build a ten times better way of living: their own solarpunk city, from the ground up. First in a game, then for real."* It replaces any per-episode intro about
    who we are; never rewrite it.
 3. **The story,** which keeps the hook's promise: it opens on the day ("Day 1") and walks to the payoff the hook
@@ -204,7 +208,8 @@ The hook is also set into the day's title cards (`maia/content/scripts/film/thum
 
 ## Compact
 
-- **A hook: at most ~10 words** (it is the title). A title card: readable in one second at phone size. A spoken film
+- **The title: at most 7–8 words, fewer is better** (Samuel, 2026-11-03). The hook intro after it carries the rest
+  of the topic in one or two spoken sentences. A title card: readable in one second at phone size. A spoken film
   hook: within the first ~10 s, one breath; the intro that follows it: 3–30 s by the film's length.
 - One sentence is usually the whole hook. The line after it disqualifies the obvious answer (*"Not the overworked.
   Not the underpaid."*) — the reader's first guess is the biggest threat to the second paragraph.

@@ -84,7 +84,8 @@ show is said, never faked (`movie-producer`, "Never promise what the world can't
 
 **The shape of an episode** (scale by `structure.md`):
 
-1. **Cold open, the topic hook (0–5 s):** the strongest true picture and the spoken hook with its promise
+1. **Cold open, the topic hook (0–8 s), always two things:** the title (at most 7–8 words, on screen) and the hook
+   intro (one or two spoken sentences about the topic, its question and promise), over the strongest true picture
    (`hook-writer`).
 2. **The fixed trailer (about 10 s):** Samuel's line, the same every time, over the world (the sandbox, the domes,
    the city in its garden).
