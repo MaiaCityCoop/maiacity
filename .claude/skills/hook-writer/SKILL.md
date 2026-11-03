@@ -97,12 +97,12 @@ way of living").
 
 ## The meta story in every hook (Samuel, 2026-11-03)
 
-Every story is a day of one journey: we are building a new civilization — how humans will feed themselves healthily
-and live anew — first in a game, then for real, and Day 1 is its starting point. A hook may use that frame for its
-contrast (*Day 1* ↔ *a city that feeds itself*; *one seed* ↔ *a civilization*) and the intro always places the
-subject in it in a line: the day, where it sits in the journey, what it is for. Say the start as a beginning, never as
-a list of what doesn't exist yet. The
-title card carries "DAY NN". Never talk about AI (below, "Compact").
+Every story is a step of one journey, at its beginning: we are building a new civilization — how humans will feed
+themselves healthily and live anew — first in a game, then for real. A hook may use that frame for its contrast
+(*bare ground* ↔ *a city that feeds itself*; *one seed* ↔ *a civilization*) and the intro always places the subject in
+it in a line: where it sits in the journey, what it is for. Say the start as a beginning, never as a list of what
+doesn't exist yet. **Never name a day** (Samuel, 2026-11-03): no "Day 1" or day number in a hook, a line or on a card.
+Never talk about AI (below, "Compact").
 
 **Epic and intimate in one line.** The strongest hooks pair the vast with the close: *a new civilization ↔ your
 breakfast table*, *a city ↔ a child's hand on a fruit*, *a fresh start for how humans live ↔ one seed*. The epic
@@ -121,14 +121,14 @@ Every film runs in the same order:
      starts, why this plant goes first): every story teaches (`storyteller`, law 6b).
 2. **The trailer, fixed, the same in every film, spoken by Samuel:** *"This is the story of how one million humans build a ten times better way of living: their own solarpunk city, from the ground up. First in a game, then for real."* It replaces any per-episode intro about
    who we are; never rewrite it.
-3. **The story,** which keeps the hook's promise: it opens on the day ("Day 1") and walks to the payoff the hook
+3. **The story,** which keeps the hook's promise: it opens where we stand (the beginning) and walks to the payoff the hook
    promised, answered by the end.
 
 So the hook no longer needs its own intro line: write the hook and its promise, and let the trailer carry who we are.
 
 ## Visionary hooks: what StealNova teaches (`storyteller/stealnova.md`)
 
-- **The viewer's own future, on a clock:** *you*, and a horizon (Day 1, the first year, the first fruit).
+- **The viewer's own future, on a clock:** *you*, and a horizon (the first year, the first fruit; never a day number).
 - **Wonder in the title, never dread.** The hard part (drowning roots, failures, tired land) is a beat inside.
 - **The thumbnail words are not the title:** two or three huge words naming the end state (FRUIT IN A YEAR, NOT A
   TREE). A phrase that worked is reused.
@@ -203,8 +203,8 @@ The hook is also set into the day's title cards (`maia/content/scripts/film/thum
 5:2 is the blog's wide header and the X Article cover):
 - **Set like a YouTube thumbnail:** few words, heavy, readable at phone size; the words that carry the end state big
   (gold for the new world).
-- **Always "DAY NN" in a gold-edged badge in the bottom-right corner** of every card (read off the day's folder, or
-  `"day"` in `thumbnail.json`).
+- **No day badge any more** (Samuel, 2026-11-03): the old journal's cards carried "DAY NN" in a gold-edged badge;
+  the films don't name a day, so their cards carry none.
 - **The contrast as a picture — the split card.** When the hook is a before/after, show both: the old world on the
   left (or on top in a square or tall card), cold and grey; the new world on the right (below), warm; a gold seam
   between; each half carries its half of the title — the old in white, the new in gold. Day 02: *"Every city on earth
