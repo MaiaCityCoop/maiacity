@@ -25,3 +25,11 @@ Last run against the live feed (2026-11-02): 203 assets (plants 105, things 55, 
 biomes 7), 264 versions, 145 variants, 340 files (18.1 MB), every file read back and hash-checked; 108 readable refs
 between assets rewritten as hashes; 288 sandbox pins (Sandbox 1: 56 village, 109 garden, 105 plants; Sandbox 3: 18)
 and Sandbox 1's garden config; 11 media files (covers, sounds). Every asset is named by its hash (SPEC.md §4.5).
+
+## Factories (`site/src/lib/content/factories`, `/factories/`)
+
+Production lines as live 3D simulations (AirSup's factory skill, its runtime cloned from `SNAPSHOT_2611101`). The first
+is the LifeTrac line: every one of the 135 parts of `machines/lifetrac@1` with its raw stock and every operation it goes
+through (`lifetrac-bom.js`), each station's cycle time the sum of those operations (`lifetrac-line.js`). The line draws
+the real LifeTrac and our Euro pallet by the Factories' pins (`import/plan.ts` `FACTORIES`). Its checks:
+`cd play/site && bunx vitest run src/lib/content/factories`.

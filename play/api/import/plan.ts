@@ -296,3 +296,12 @@ export const SANDBOX_3: Record<string, string> = {
   containerWorkshop: "buildings/container-workshop",
   domeGlamp: "buildings/dome-glamp",
 };
+
+/**
+ * The Factories' pins (play/site's content/factories, 2026-11-03): what a line draws of ours, by the slot it names it
+ * by. The LifeTrac line builds the LifeTrac (its v25 variant), its raw stock stands on our Euro pallet.
+ */
+export const FACTORIES: Record<string, string> = {
+  lifetrac: "machines/lifetrac@1:lifetrac-v25",
+  pallet: "things/euro-pallet@1",
+};

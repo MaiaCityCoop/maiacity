@@ -1,7 +1,7 @@
 <!-- The app's icons: plain line drawings, drawn in the text colour. -->
 <script lang="ts">
 	/** every icon this set draws */
-	type IconName = 'back' | 'home' | 'play' | 'board' | 'calendar' | 'media' | 'studio' | 'journal' | 'spark' | 'user' | 'key' | 'ledger' | 'coops' | 'proposals' | 'leaf' | 'database' | 'universe' | 'gear' | 'chat';
+	type IconName = 'back' | 'home' | 'play' | 'board' | 'calendar' | 'media' | 'studio' | 'journal' | 'spark' | 'user' | 'key' | 'ledger' | 'coops' | 'proposals' | 'leaf' | 'database' | 'universe' | 'gear' | 'chat' | 'factory';
 
 	let { name, size = 24 }: { name: IconName; size?: number } = $props();
 </script>
@@ -41,6 +41,8 @@
 		<circle cx="8" cy="14" r="4" /><path d="m11 11 8.5-8.5M16 6l2.5 2.5M13.5 8.5 16 11" />
 	{:else if name === 'database'}
 		<ellipse cx="12" cy="6" rx="7" ry="2.5" /><path d="M5 6v12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6" /><path d="M5 12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5" />
+	{:else if name === 'factory'}
+		<path d="M3.5 20.5V11l5 3V11l5 3V11l5 3v-9.5h2v16Z" /><path d="M3.5 20.5h17" /><path d="M7 17.5h2M11.5 17.5h2" />
 	{:else if name === 'chat'}
 		<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /><path d="M8 10.5h8M8 14h5" />
 	{:else if name === 'universe'}
