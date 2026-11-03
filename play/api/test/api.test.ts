@@ -11,6 +11,7 @@ import { importSources } from "../import/sources";
 import { legacyRan, runImport } from "../import/run";
 import { seedStories, STORIES } from "../import/stories";
 import { storyVersionId } from "../src/versions";
+import { foldStories } from "../src/stories";
 import { hashText } from "../src/hash";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
@@ -755,5 +756,48 @@ suite("play API", () => {
     expect((await call("ada", "POST", `/api/proposals/${pid}/accept`)).data).toMatchObject({ status: "accepted", number: 3 });
     expect((await call("ada", "GET", "/api/stories/old-story")).data.tracks[0].clips[0].line).toBe("third");
     expect((await call("ada", "GET", "/api/stories/old-story/history")).data.versions.map((v: any) => v.number)).toEqual([1, 2, 3]);
+  });
+
+  test("stories folded into one: each its versions in turn as the timeline's next, its open proposal moved, then listed no more", async () => {
+    const frame = (await tool("add_story_frame", { data: frameOf("02.jpg").toString("base64"), media_type: "image/jpeg" })).out.hash;
+    const make = async (story: string, title: string, line: string) => {
+      const p = await tool("propose_story", { story, title, note: `${story} v1`, body: { format: "9:16", fps: 30, tracks: tracks(frame, line) } });
+      expect(p.error).toBeNull();
+      await call("ada", "POST", `/api/proposals/${p.out.id}/accept`);
+    };
+    await make("fold-a", "Devlog", "one");
+    await make("fold-b", "Day 1", "two");
+    const b2 = await tool("propose_story_version", { story: "fold-b", note: "fold-b v2", edits: [{ op: "set_clip", track: "voice", clip: "v2", fields: { line: "three" } }] });
+    expect(b2.error).toBeNull();
+    await call("ada", "POST", `/api/proposals/${b2.out.id}/accept`);
+    await make("fold-c", "Three seeds", "four");
+    const c2 = await tool("propose_story_version", { story: "fold-c", note: "its voice", edits: [{ op: "set_clip", track: "voice", clip: "v2", fields: { line: "five" } }] });
+    expect(c2.error).toBeNull();
+
+    const r = await foldStories(db, [{ into: "fold-a", from: ["fold-b", "fold-c"] }]);
+    expect(r).toEqual({ folded: ["fold-b", "fold-c"], present: [], errors: [] });
+    const a = (await call("ada", "GET", "/api/stories/fold-a")).data;
+    expect(a.versions.map((v: any) => v.number)).toEqual([4, 3, 2, 1]);
+    expect(a).toMatchObject({ title: "Three seeds", number: 4 });
+    expect(a.tracks.find((t: any) => t.id === "voice").clips[1].line).toBe("four");
+    expect(a.versions[2].note).toContain("Brought from story fold-b, its v1");
+    const lines = [];
+    for (const n of [2, 3]) lines.push((await call("ada", "GET", `/api/stories/fold-a?v=${n}`)).data.tracks.find((t: any) => t.id === "voice").clips[1].line);
+    expect(lines).toEqual(["two", "three"]);
+    // the open proposal is on the one timeline now, its own withdrawn
+    const open = (await call("ada", "GET", "/api/proposals?status=open")).data.filter((p: any) => p.slug === "fold-a");
+    expect(open.length).toBe(1);
+    expect(open[0].note).toContain("Moved from story fold-c");
+    expect((await call("ada", "GET", `/api/proposals/${c2.out.id}`)).data.status).toBe("withdrawn");
+    expect((await call("ada", "POST", `/api/proposals/${open[0].id}/accept`)).data).toMatchObject({ status: "accepted", number: 5 });
+    // the folded stories are kept but listed no more, and take no proposal
+    const listed = (await tool("list_stories", {})).out.items.map((x: any) => x.id);
+    expect(listed).toContain("fold-a");
+    expect(listed).not.toContain("fold-b");
+    expect((await call("ada", "GET", "/api/stories/fold-b")).data.number).toBe(2);
+    expect((await tool("propose_story_version", { story: "fold-b", note: "x", edits: [{ op: "set_clip", track: "voice", clip: "v2", fields: { line: "x" } }] })).error).toContain("part of story fold-a");
+    // run again: nothing brought twice
+    expect(await foldStories(db, [{ into: "fold-a", from: ["fold-b", "fold-c"] }])).toEqual({ folded: [], present: ["fold-b", "fold-c"], errors: [] });
+    expect((await call("ada", "GET", "/api/stories/fold-a")).data.number).toBe(5);
   });
 });

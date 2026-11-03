@@ -310,6 +310,15 @@ an image. The player lays every sounding clip on one Web Audio clock (`play/site
 pure `soundsOf(story)` in `timeline.ts`, which an export's mix will lay the same way); while it plays, t follows that
 clock, and a seek lays the sound again from the new t.
 
+**One film, one timeline** (Samuel 2026-11-03). A film's rewrites are versions of its one story, never stories of their
+own: `propose_story_version` on its head. Stories proposed apart are brought together by `import/stories/folds.json`
+(run with every deploy, `foldStories` in `play/api/src/stories.ts`): each story it names, in turn, has its accepted
+versions proposed and accepted on the one story as its next versions (each by its own author and approver, its note
+saying where it came from), its open proposals proposed again there and withdrawn where they were; then it is
+`folded_into` that story: kept with its whole history, listed no more, taking no proposal. The papaya devlog is the
+first: v1 the devlog short, v2 "The Tree That Remembers", v3–v5 the Day 1 rewrites ("Your papaya flew across an
+ocean", the same voiced, "Three seeds. One will never give fruit."), Three Seeds' voice its next proposal.
+
 Times are seconds; `duration` is worked out from the clips. Clips of `shots`, `voice` and `notes` follow one another
 and never overlap; other kinds may. **A clip may carry fields no kind names, and a track may be of a kind not named
 here** (`music`, `sfx`, `callout`, `scene`): both are kept as given, so a new kind needs no migration. Frames are
