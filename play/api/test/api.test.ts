@@ -8,7 +8,7 @@ import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore, type BlobStore } from "../src/blobs";
 import { importSources } from "../import/sources";
-import { keepHead } from "../import/run";
+import { legacyRan, runImport } from "../import/run";
 import { hashText } from "../src/hash";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
@@ -134,18 +134,26 @@ suite("play API", () => {
     expect((await call("cit", "POST", "/api/proposals", { asset: ids.fern, base: chain[1].id, recipe: recipe("fern", 3) })).status).toBe(409);
   });
 
-  test("the import keeps an asset's head on its newest accepted version, never on an older one", async () => {
-    const newest = async () => (await db.query<{ id: string }>(`SELECT id FROM play.asset_versions WHERE asset_id = $1 AND number IS NOT NULL ORDER BY number DESC LIMIT 1`, [ids.fern])).rows[0].id;
-    const head = async () => (await db.query<{ head: string }>(`SELECT head FROM play.assets WHERE id = $1`, [ids.fern])).rows[0].head;
+  test("the legacy import runs once: after it, Postgres is the source of truth and a run writes none of it again", async () => {
+    expect(await legacyRan(db)).toBeNull();
+    await db.query(`INSERT INTO play.imports (name) VALUES ('legacy')`);
+    expect(await legacyRan(db)).toBeString();
+    // what play changed since: a label, a head set where play set it
     const first = (await db.query<{ id: string }>(`SELECT id FROM play.asset_versions WHERE asset_id = $1 AND number = 1`, [ids.fern])).rows[0].id;
-    expect(await head()).toBe(await newest());
-    expect(await newest()).not.toBe(first);
-    await keepHead(db, ids.fern);
-    expect(await head()).toBe(await newest());
-    // set back, as the import once did: put on its newest again
-    await db.query(`UPDATE play.assets SET head = $2 WHERE id = $1`, [ids.fern, first]);
-    await keepHead(db, ids.fern);
-    expect(await head()).toBe(await newest());
+    await db.query(`UPDATE play.assets SET label = 'Fern, renamed in play', head = $2 WHERE id = $1`, [ids.fern, first]);
+    const before = (await db.query(`SELECT id, label, head, sound FROM play.assets ORDER BY id`)).rows;
+    const members = (await db.query(`SELECT human_id, level FROM play.memberships ORDER BY human_id`)).rows;
+    // a run (every deploy runs it) reads no feed, writes none of the legacy import, and changes none of it
+    const report = await runImport(db, store, { cache: mkdtempSync(join(tmpdir(), "play-cache-")), founders: true, admins: [1], dry: false, media: false, log: () => {} });
+    expect(report.legacy.skipped).toBe(true);
+    expect(report.ok).toBe(true);
+    expect(report.feed.recipes).toBe(0);
+    expect(Object.values(report.written).every((n) => n === 0)).toBe(true);
+    expect((await db.query(`SELECT id, label, head, sound FROM play.assets ORDER BY id`)).rows).toEqual(before);
+    expect((await db.query(`SELECT human_id, level FROM play.memberships ORDER BY human_id`)).rows).toEqual(members);
+    // play's own again, for the tests after this one
+    const newest = (await db.query<{ id: string }>(`SELECT id FROM play.asset_versions WHERE asset_id = $1 AND number IS NOT NULL ORDER BY number DESC LIMIT 1`, [ids.fern])).rows[0].id;
+    await db.query(`UPDATE play.assets SET label = 'Fern', head = $2 WHERE id = $1`, [ids.fern, newest]);
   });
 
   test("an accepted version can't be changed", async () => {

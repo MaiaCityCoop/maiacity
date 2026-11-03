@@ -1,5 +1,9 @@
-// The one-time import into play (play/SPEC.md §6), safe to run again: it writes only what is missing, never changes a
-// version, and stops with a report naming what failed. Legacy is only read.
+// The one-time import into play (play/SPEC.md §6). It runs once: Postgres keeps that it ran (play.imports), and from
+// then on play's Postgres is the one source of truth for its assets, members and sandboxes, so a later run (every
+// deploy runs it) writes none of the legacy import again. It only adds play's own site media missing from play's files
+// and gives the imported versions their readable sources where they have none (./sources.ts): nothing it adds can
+// override what play changed. Forced to run again (--again), it still only adds what is missing and changes nothing
+// that is there. It never changes a version, stops with a report naming what failed, and only reads legacy.
 //
 //   DATABASE_URL=… [PLAY_BUCKET=… | PLAY_BLOBS=./blobs] bun import/run.ts
 //       [--cache <dir>] [--report <file>] [--founders] [--admin <founder number>,…] [--dry]
@@ -8,6 +12,7 @@
 //                becomes a traveler of Maia City
 //   --admin      the founders (by number) who are Maia City's admins, its owners
 //   --dry        plan and verify the files, write nothing
+//   --again      run the legacy import although it ran (it adds only what is missing, overriding nothing)
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { blobStore, keyOf, type BlobStore } from "../src/blobs";
@@ -46,6 +51,8 @@ export type Report = {
   verified: { filesReadBack: number; fileErrors: string[]; groupsMatch: boolean; dbByGroup: Record<string, number>; pinsResolved: number; pinErrors: string[]; mediaErrors: string[] };
   /** the imported versions' readable sources (./sources.ts) */
   sources: SourcesReport;
+  /** when the legacy import ran (play.imports), and whether this run left it alone */
+  legacy: { ran: string | null; skipped: boolean };
   ok: boolean;
 };
 
@@ -60,7 +67,7 @@ async function writeAssets(tx: Queryable, assets: PlannedAsset[], files: Planned
   for (const a of assets) {
     const r = await tx.query(
       `INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (id) DO UPDATE SET label = EXCLUDED.label WHERE play.assets.label <> EXCLUDED.label`,
+       ON CONFLICT (id) DO NOTHING`,
       [a.id, COOP, a.grp, a.slug, a.label],
     );
     w.assets += r.affectedRows;
@@ -80,22 +87,9 @@ async function writeAssets(tx: Queryable, assets: PlannedAsset[], files: Planned
         w.variants += rn.affectedRows;
       }
     }
-    await keepHead(tx, a.id);
+    // its head, where it has none: an asset's head is play's to move (accepting a version), never the import's
+    await tx.query(`UPDATE play.assets SET head = $2 WHERE id = $1 AND head IS NULL`, [a.id, a.versions.at(-1)!.id]);
   }
-}
-
-/**
- * An asset's head is its newest accepted version: the last one imported, or one accepted in play since, which the
- * import run with every deploy must never take back (it once set every imported asset's head to its last imported
- * version, and so undid papaya v2's acceptance).
- */
-export async function keepHead(tx: Queryable, asset: string) {
-  await tx.query(
-    `UPDATE play.assets a SET head = n.id
-       FROM (SELECT id FROM play.asset_versions WHERE asset_id = $1 AND number IS NOT NULL ORDER BY number DESC LIMIT 1) n
-      WHERE a.id = $1 AND a.head IS DISTINCT FROM n.id`,
-    [asset],
-  );
 }
 
 async function writePins(tx: Queryable, sandbox: string, pins: ReturnType<typeof planPins>, w: Report["written"], errors: string[]) {
@@ -138,8 +132,7 @@ async function writeFounders(tx: Queryable, admins: number[], w: Report["written
     const level = admins.includes(Number(f.number)) ? "admin" : "traveler";
     await tx.query(
       `INSERT INTO play.memberships (coop_id, human_id, level) VALUES ($1, $2, $3)
-       ON CONFLICT (coop_id, human_id) DO UPDATE SET level = EXCLUDED.level
-       WHERE play.memberships.level = 'traveler' AND EXCLUDED.level = 'admin'`,
+       ON CONFLICT (coop_id, human_id) DO NOTHING`,
       [COOP, f.id, level],
     );
   }
@@ -153,7 +146,7 @@ async function writeFounders(tx: Queryable, admins: number[], w: Report["written
   if (missing.length) throw new Error(`no founder numbered ${missing.join(", ")}`);
 }
 
-export async function runImport(db: Db, store: BlobStore, opts: { cache: string; founders: boolean; admins: number[]; dry: boolean; log?: (s: string) => void }): Promise<Report> {
+export async function runImport(db: Db, store: BlobStore, opts: { cache: string; founders: boolean; admins: number[]; dry: boolean; again?: boolean; media?: boolean; log?: (s: string) => void }): Promise<Report> {
   const log = opts.log ?? ((s: string) => console.error(s));
   const report: Report = {
     at: new Date().toISOString(),
@@ -162,8 +155,25 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
     written: { files: 0, assets: 0, versions: 0, variants: 0, pins: 0, humans: 0, passkeys: 0, media: 0 },
     verified: { filesReadBack: 0, fileErrors: [], groupsMatch: false, dbByGroup: {}, pinsResolved: 0, pinErrors: [], mediaErrors: [] },
     sources: { files: 0, attached: 0, recipesAbsent: 0, errors: [] },
+    legacy: { ran: null, skipped: false },
     ok: false,
   };
+
+  // the legacy import runs once; after it, play's Postgres is the source of truth and none of it is written again
+  if (!opts.dry) {
+    await migrate(db);
+    report.legacy.ran = await legacyRan(db);
+    if (report.legacy.ran && !opts.again) {
+      report.legacy.skipped = true;
+      log(`the legacy import ran on ${report.legacy.ran}: Postgres is the source of truth, none of it is written again`);
+      if (opts.media !== false) await importMedia(db, store, report);
+      report.sources = await importSources(db, store);
+      await verifyFiles(db, store, report);
+      report.verified.groupsMatch = true; // the feed is not read
+      report.ok = !report.verified.fileErrors.length && !report.verified.mediaErrors.length && !report.sources.errors.length;
+      return report;
+    }
+  }
 
   log("reading the feed's recipes…");
   const rows: FeedRow[] = (await rowsOf("recipe")).filter((r) => !(r.tags ?? []).includes("avendb:deleted"));
@@ -255,7 +265,6 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
     keyFor.set(f.hash, (await store.has(f.hash)) ? keyOf(f.hash) : await store.put(f.hash, f.bytes, MEDIA));
   });
 
-  await migrate(db);
   await db.transaction(async (tx) => {
     await writeAssets(tx, assets, [...files.values()], keyFor, report.written);
     await writePins(tx, "sandbox-1", pins, report.written, report.verified.pinErrors);
@@ -271,15 +280,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
   });
 
   log("verifying…");
-  const { rows: kept } = await db.query<{ hash: string }>(`SELECT hash FROM play.files`);
-  await inParallel(kept, 8, async ({ hash }) => {
-    try {
-      if (!(await store.get(hash))) throw new Error("missing");
-      report.verified.filesReadBack++;
-    } catch (e) {
-      report.verified.fileErrors.push(`${hash}: ${(e as Error).message}`);
-    }
-  });
+  await verifyFiles(db, store, report);
   await importMedia(db, store, report);
   await importSounds(db, report);
   log("giving the imported versions their readable sources…");
@@ -296,7 +297,28 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
   if (report.verified.pinsResolved !== pins.length + pins3.length + pinsF.length)
     report.verified.pinErrors.push(`${report.verified.pinsResolved} of ${pins.length + pins3.length + pinsF.length} pins resolve`);
   report.ok = !report.assets.failed.length && !report.verified.fileErrors.length && report.verified.groupsMatch && !report.verified.pinErrors.length && !report.verified.mediaErrors.length && !report.sources.errors.length;
+  // kept: it ran, and play's Postgres is the source of truth from now on
+  if (report.ok) await db.query(`INSERT INTO play.imports (name, report) VALUES ('legacy', ($1::text)::jsonb) ON CONFLICT (name) DO NOTHING`, [JSON.stringify(report)]);
   return report;
+}
+
+/** when the legacy import ran, or null if it never did */
+export async function legacyRan(db: Queryable): Promise<string | null> {
+  const { rows } = await db.query<{ ran: Date | string }>(`SELECT ran FROM play.imports WHERE name = 'legacy'`);
+  return rows[0] ? new Date(rows[0].ran).toISOString() : null;
+}
+
+/** every file play keeps, read back from the bucket and checked against its hash */
+async function verifyFiles(db: Db, store: BlobStore, report: Report) {
+  const { rows: kept } = await db.query<{ hash: string }>(`SELECT hash FROM play.files`);
+  await inParallel(kept, 8, async ({ hash }) => {
+    try {
+      if (!(await store.get(hash))) throw new Error("missing");
+      report.verified.filesReadBack++;
+    } catch (e) {
+      report.verified.fileErrors.push(`${hash}: ${(e as Error).message}`);
+    }
+  });
 }
 
 const MEDIA_TYPES: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", mp4: "video/mp4", mp3: "audio/mpeg" };
@@ -336,10 +358,12 @@ async function importSounds(db: Db, report: Report) {
   for (const [slug, s] of Object.entries(SOUNDS)) {
     const hash = s.file.slice(0, 64);
     const { rows } = await db.query(
-      `UPDATE play.assets SET sound = $2, sound_gain = $3 WHERE grp = 'actors' AND slug = $1 AND EXISTS (SELECT 1 FROM play.files WHERE hash = $2) RETURNING id`,
+      `UPDATE play.assets SET sound = $2, sound_gain = $3 WHERE grp = 'actors' AND slug = $1 AND sound IS NULL AND EXISTS (SELECT 1 FROM play.files WHERE hash = $2) RETURNING id`,
       [slug, hash, s.gain],
     );
-    if (rows.length) report.assets.sounds++;
+    // a sound play holds already is play's: kept, never overridden
+    const held = rows.length ? rows : (await db.query(`SELECT id FROM play.assets WHERE grp = 'actors' AND slug = $1 AND sound IS NOT NULL`, [slug])).rows;
+    if (held.length) report.assets.sounds++;
     else report.verified.mediaErrors.push(`sound of ${slug}: no such animal, or its recording ${hash.slice(0, 12)}… is not among play's files`);
   }
 }
@@ -383,6 +407,7 @@ export function reportText(r: Report): string {
     ``,
     `**${r.ok ? "OK" : "FAILED"}**`,
     ``,
+    ...(r.legacy.skipped ? [`The legacy import ran on ${r.legacy.ran}: play's Postgres is the source of truth, and this run wrote none of it again (only play's own site media and readable sources missing from it).`, ``] : []),
     `| | |`,
     `|---|---|`,
     `| Feed | ${r.feed.recipes} recipes, ${r.feed.files} files, ${(r.feed.bytes / 1e6).toFixed(1)} MB |`,
@@ -409,6 +434,7 @@ if (import.meta.main) {
     founders: flag("--founders"),
     admins: (option("--admin") ?? "").split(",").filter(Boolean).map(Number),
     dry: flag("--dry"),
+    again: flag("--again"),
   });
   const text = reportText(report);
   const out = option("--report");
