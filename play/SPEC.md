@@ -146,8 +146,31 @@ to read, to time-travel through and to tell (a making-of is that history played 
   about 20 ms to write; its eleven real versions (v1, nine draft rounds, v2) in 142 kB against 734 kB stored whole,
   each restored exactly.
 
-Assets still live in the §4.3 tables until they move onto documents (their history migrated as steps with their
-dates, their numbers and ids kept).
+**Assets on documents** (Samuel 2026-11-03, `play/api/src/assetdocs.ts`). Every asset is an `asset/1` document,
+`asset:<uuid>`: its readable source as a text (diffed by lines when a whole source is sent), its label, note and engine,
+its card (the version's record), and for a kind of variants its default variant and each variant's card and, where it
+differs from the asset's own, its source. The §4.3 tables stay what the catalog, the pins and the box read: a version's
+id, number, recipe file and source hash are exactly what they were, and nothing downstream reads the document.
+
+- **Its history, made once from its versions** (in the deploy's import, and the first time an asset is touched): each
+  accepted version a step at its own date, by its author, named its own number (a number legacy skipped stays
+  skipped); the work kept between two versions (`play/api/import/history/<group>/<slug>`: each step's file, hash, date
+  and message) as the steps between them, only where the two versions are exactly the sources it ran between, its last
+  step then the next version byte for byte. The papaya's nine rounds between v1 and v2, by Maia over MCP, are the first.
+  Each proposal not yet on a branch gets one at its base, closed as it was decided.
+- **Proposals are branches**: a proposal over the web or MCP is a branch at the head it was made on, the version as
+  proposed its last step; an agent can draft it first step by step (`asset_edit`: a replace by its text, a range of the
+  source, a field of the card, each step with its message) and propose the draft (`propose_version` with its `branch`),
+  its steps going with it. Accepting merges the branch and names the document's version the asset's new number.
+- **Never merged unseen**: an asset's proposal is still accepted only on the head it was made on (a moved head makes it
+  stale, §4.3), so what is accepted is exactly the version the Proposals page built and showed in the asset box; the
+  document's own rule (a merge that met other edits needs its previewed hash) stands behind it.
+- **The making-of**: for admins the asset viewer has a history bar of every step (versions marked; who, how, message,
+  time) and plays them as a time-lapse. At a version's point it builds that version's own recipe file; at any other step
+  play makes a recipe file the same way (the box's header, the step's source, the line naming the asset and the
+  version the step leads to) and keeps it among its files by its hash (`GET /api/assets/:id/steps/:seq/recipe`).
+- **Measured** on the full legacy import: 203 asset documents from 264 versions, 15.1 MB of steps, made in one deploy
+  with the rest of the import in under 90 s, no errors.
 
 ### 4.5 One source, every asset by its hash
 
@@ -213,7 +236,8 @@ still only adds what is missing and changes nothing that is there.
   `POST /api/passkey/login/{options,finish}`, `GET /api/me`, sign-out. Ported from `aven/api/src/passkey.ts` and
   `session.ts`.
 - Assets (traveler+): `GET /api/assets`, `GET /api/assets/:grp/:slug` (its chain), `GET /api/assets/:grp/:slug/:v`,
-  `GET /api/files/:hash` (signed redirect to the bucket).
+  `GET /api/files/:hash` (signed redirect to the bucket). Admins: `GET /api/assets/:id/history` (every step of its
+  document, §4.4) and `GET /api/assets/:id/steps/:seq/recipe` (the recipe file it builds at a step, kept by its hash).
 - Sandboxes (traveler+): `GET /api/sandboxes/:id/pins`.
 - Proposals: `POST /api/proposals` (citizen+: a new asset version, card + recipe file upload), `GET /api/proposals`,
   `POST /api/proposals/:id/{accept,reject}` (admin+), `POST /api/proposals/:id/withdraw` (its author).

@@ -177,7 +177,9 @@ let SECRET = "";
 
 /** load (or make) the signing key, kept in play.secrets so sessions survive a restart */
 export async function initSessions(db: Db): Promise<void> {
-  if (SECRET) return;
+  // already read: the database is given the secret its tokens are signed with where it has none (a second database in
+  // one process, as the tests make one each)
+  if (SECRET) return void (await db.query(`INSERT INTO play.secrets (key, value) VALUES ('session_secret', $1) ON CONFLICT (key) DO NOTHING`, [SECRET]));
   await db.query(`INSERT INTO play.secrets (key, value) VALUES ('session_secret', $1) ON CONFLICT (key) DO NOTHING`, [randomUUID() + randomUUID()]);
   const { rows } = await db.query<{ value: string }>(`SELECT value FROM play.secrets WHERE key = 'session_secret'`);
   SECRET = rows[0].value;
