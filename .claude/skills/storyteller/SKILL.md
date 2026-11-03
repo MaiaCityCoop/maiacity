@@ -30,7 +30,9 @@ viewer stays to the last line. The hook itself is the `hook-writer`'s; the pictu
    mulch), surprising true facts. The viewer leaves knowing how something works, checked against sources, and every
    fact is a step of the story, never a caption stapled on.
 7. **Never talk about AI** (Samuel, 2026-11-03). No line, caption or title says "AI", "our AI" or "an AI": the work
-   is ours, told as *we* and *I*.
+   is ours, told as *we* and *I*. **Never talk about code either** (Samuel, 2026-11-03): no lines, bugs, fixes or
+   versions in a programmer's words. A mistake is told as what the viewer sees (*the first leaves came out like a
+   maple's*) and what the real plant taught us; the fix as the plant growing again, right.
 8. **Based on a true story.** Re-enact, compress, plan every shot — but invent nothing about Samuel's life, the
    viewers, attempts or results (`writing.md`, `scenes.md`).
 

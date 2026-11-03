@@ -232,6 +232,7 @@ The hook is also set into the day's title cards (`maia/content/scripts/film/thum
   may not know is said as what it does ("a forest you can eat from", not "a food forest" alone).
 - **Never talk about AI** (Samuel, 2026-11-03): no "AI", "our AI", "an AI" in a hook, a title, a card or a line. The
   work is ours — *we* built, *we* grew, *I* decided.
+- **Never talk about code** (Samuel, 2026-11-03): no lines, bugs or fixes in a hook or anywhere in the story.
 
 ## Rehooks
 
