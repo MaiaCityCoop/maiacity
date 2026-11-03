@@ -23,6 +23,7 @@ import { FEED, fileOf, rowsOf, viewOf, type EntryView, type FeedRow } from "./fe
 import { broughtOf, gardenWithSlots, hashRefs, parseRef, planAsset, planPins, plantWords, SANDBOX_3, FACTORIES, PlanError, type PlannedAsset, type PlannedFile } from "./plan";
 import { importSources, type SourcesReport } from "./sources";
 import { seedStories, type StoriesReport } from "./stories";
+import { ensureAssetDocs, type AssetDocsReport } from "../src/assetdocs";
 
 // the repo root: three up from play/api/import in a checkout; PLAY_REPO in the image (/app)
 const ROOT = process.env.PLAY_REPO ?? join(import.meta.dir, "../../..");
@@ -54,6 +55,8 @@ export type Report = {
   sources: SourcesReport;
   /** the stories kept in the repo, each written once into play's Postgres (./stories.ts) */
   stories: StoriesReport;
+  /** every asset's Loro document, made from its history where it has none (../src/assetdocs.ts) */
+  assetDocs: AssetDocsReport;
   /** when the legacy import ran (play.imports), and whether this run left it alone */
   legacy: { ran: string | null; skipped: boolean };
   ok: boolean;
@@ -159,6 +162,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
     verified: { filesReadBack: 0, fileErrors: [], groupsMatch: false, dbByGroup: {}, pinsResolved: 0, pinErrors: [], mediaErrors: [] },
     sources: { files: 0, attached: 0, recipesAbsent: 0, errors: [] },
     stories: { seeded: [], present: [], errors: [] },
+    assetDocs: { made: 0, branches: 0, kept: 0, steps: 0, versions: 0, bytes: 0, errors: [] },
     legacy: { ran: null, skipped: false },
     ok: false,
   };
@@ -173,9 +177,10 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
       if (opts.media !== false) await importMedia(db, store, report);
       report.sources = await importSources(db, store);
       report.stories = await seedStories(db, store);
+      report.assetDocs = await ensureAssetDocs(db, store);
       await verifyFiles(db, store, report);
       report.verified.groupsMatch = true; // the feed is not read
-      report.ok = !report.verified.fileErrors.length && !report.verified.mediaErrors.length && !report.sources.errors.length && !report.stories.errors.length;
+      report.ok = !report.verified.fileErrors.length && !report.verified.mediaErrors.length && !report.sources.errors.length && !report.stories.errors.length && !report.assetDocs.errors.length;
       return report;
     }
   }
@@ -291,6 +296,8 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
   log("giving the imported versions their readable sources…");
   report.sources = await importSources(db, store);
   report.stories = await seedStories(db, store);
+  log("making every asset's document from its history…");
+  report.assetDocs = await ensureAssetDocs(db, store);
   const { rows: groups } = await db.query<{ grp: string; n: string }>(`SELECT grp, count(*) AS n FROM play.assets GROUP BY grp`);
   report.verified.dbByGroup = Object.fromEntries(groups.map((g) => [g.grp, Number(g.n)]));
   const feedByGroup: Record<string, number> = {};
@@ -302,7 +309,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
   report.verified.pinsResolved = Number(pinned[0].n);
   if (report.verified.pinsResolved !== pins.length + pins3.length + pinsF.length)
     report.verified.pinErrors.push(`${report.verified.pinsResolved} of ${pins.length + pins3.length + pinsF.length} pins resolve`);
-  report.ok = !report.assets.failed.length && !report.verified.fileErrors.length && report.verified.groupsMatch && !report.verified.pinErrors.length && !report.verified.mediaErrors.length && !report.sources.errors.length && !report.stories.errors.length;
+  report.ok = !report.assets.failed.length && !report.verified.fileErrors.length && report.verified.groupsMatch && !report.verified.pinErrors.length && !report.verified.mediaErrors.length && !report.sources.errors.length && !report.stories.errors.length && !report.assetDocs.errors.length;
   // kept: it ran, and play's Postgres is the source of truth from now on
   if (report.ok) await db.query(`INSERT INTO play.imports (name, report) VALUES ('legacy', ($1::text)::jsonb) ON CONFLICT (name) DO NOTHING`, [JSON.stringify(report)]);
   return report;
@@ -428,8 +435,9 @@ export function reportText(r: Report): string {
     `| Animals with their sound | ${r.assets.sounds} |`,
     `| Readable sources (legacy's code, checked against the recipe files) | ${r.sources.files} written, ${r.sources.attached} versions and variants given theirs now, ${r.sources.errors.length} failed |`,
     `| Stories from the repo (written once, then play's own) | ${r.stories.seeded.length ? `${r.stories.seeded.join(", ")} written` : "none written"}; ${r.stories.present.length} already in play; ${r.stories.errors.length} failed; ${r.stories.documents?.length ?? 0} documents made from their history |`,
+    `| Assets as Loro documents (their history, step by step) | ${r.assetDocs.made} made now from their history (${r.assetDocs.kept} kept steps between versions put in), ${r.assetDocs.branches} proposals given their branch; in all ${r.assetDocs.docs ?? 0} documents, ${r.assetDocs.versions} versions, ${r.assetDocs.steps} steps, ${(r.assetDocs.bytes / 1e6).toFixed(2)} MB of steps; ${r.assetDocs.errors.length} failed |`,
   ];
-  const errs = [...r.assets.failed, ...r.verified.fileErrors, ...r.verified.pinErrors, ...r.verified.mediaErrors, ...r.sources.errors, ...r.stories.errors];
+  const errs = [...r.assets.failed, ...r.verified.fileErrors, ...r.verified.pinErrors, ...r.verified.mediaErrors, ...r.sources.errors, ...r.stories.errors, ...r.assetDocs.errors];
   if (errs.length) lines.push(``, `## Errors`, ``, ...errs.map((e) => `- ${e}`));
   return lines.join("\n") + "\n";
 }

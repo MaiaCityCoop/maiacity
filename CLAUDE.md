@@ -49,4 +49,9 @@ frame; proposed code never runs on the server or on play's origin) before they d
 versioned like the assets, every field of every clip editable only this way, shown on the Proposals page played in the
 Stories player beside what changed. Every story is also a Loro document (play/SPEC.md §4.4): every step kept with its
 author, message and time, a proposal a branch of it; an agent drafts a change step by step with `story_edit` and
-proposes the draft with `propose_story_version`'s `branch`. No tool accepts or rejects. Admins only for now: a token opens nothing once its owner is no admin.
+proposes the draft with `propose_story_version`'s `branch`. So is every **asset** (play/SPEC.md §4.4): its source,
+card and variants, its history made from its versions (and the work kept between them, `play/api/import/history`);
+an agent drafts an asset step by step with `asset_edit` (a replace by its text, a range, a card field, each step with
+its message), reads it with `asset_history` and `get_asset`'s `step`, and proposes the draft with `propose_version`'s
+`branch`, its steps shown on the Proposals page; admins play an asset's making in the asset viewer's history bar. No
+tool accepts or rejects. Admins only for now: a token opens nothing once its owner is no admin.

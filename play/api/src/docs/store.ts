@@ -105,7 +105,7 @@ async function compact(q: Queryable, row: DocRow, d: LoroDoc): Promise<void> {
 // ---- writing
 
 /** a new document from its first state, as one step of its main line (and, if `version`, named v1) */
-export async function createDoc(db: Db | Queryable, o: { id: string; schema: string; json: unknown; author: Author; message?: string; at?: Date; version?: string }): Promise<{ id: string; step: Step; version: Version | null }> {
+export async function createDoc(db: Db | Queryable, o: { id: string; schema: string; json: unknown; author: Author; message?: string; at?: Date; version?: string; number?: number }): Promise<{ id: string; step: Step; version: Version | null }> {
   if (!ID.test(o.id)) throw new DocError(`a document's id is its type and a name, like story:papaya-v2: not ${JSON.stringify(o.id)}`);
   const t = typeOf(o.schema);
   if (!o.id.startsWith(t.type + ":")) throw new DocError(`a ${t.type} document's id starts with ${t.type}:`);
@@ -118,18 +118,24 @@ export async function createDoc(db: Db | Queryable, o: { id: string; schema: str
     const before = d.version();
     seed(d, t, o.json);
     const s = (await step(q, t, d, before, { doc: row, branch: null }, o.author.via === "import" ? "import" : "seed", o.message ?? "created", o.author, o.at))!;
-    const v = o.version !== undefined ? await name(q, row.id, d, o.version, o.author, null, o.at) : null;
+    const v = o.version !== undefined ? await name(q, row.id, d, o.version, o.author, null, o.at, o.number) : null;
     return { id: o.id, step: s, version: v };
   });
 }
 
-async function name(q: Queryable, docId: string, d: LoroDoc, note: string, a: Author, branch: number | null, at?: Date): Promise<Version> {
+async function name(q: Queryable, docId: string, d: LoroDoc, note: string, a: Author, branch: number | null, at?: Date, number?: number): Promise<Version> {
   const frontiers = d.frontiers(), hash = contentHash(jsonOf(d));
+  // the next number, or the one given (an asset's history replayed keeps its versions' own numbers, a gap and all),
+  // which must come after every number the document has named
+  if (number !== undefined) {
+    const { rows: m } = await q.query<{ n: number | null }>(`SELECT max(number) AS n FROM play.doc_versions WHERE doc_id = $1`, [docId]);
+    if (!Number.isInteger(number) || number < 1 || number <= (m[0]?.n ?? 0)) throw new DocError(`${docId}: a version ${number} would not come after v${m[0]?.n ?? 0}`, 409);
+  }
   const { rows } = await q.query<{ number: number; created: Date }>(
     `INSERT INTO play.doc_versions (doc_id, number, frontiers, content_hash, note, author, branch, created)
-       SELECT $1, COALESCE(max(number), 0) + 1, ($2::text)::jsonb, $3, $4, $5, $6, COALESCE($7, now()) FROM play.doc_versions WHERE doc_id = $1
+       SELECT $1, COALESCE($8::int, COALESCE(max(number), 0) + 1), ($2::text)::jsonb, $3, $4, $5, $6, COALESCE($7, now()) FROM play.doc_versions WHERE doc_id = $1
      RETURNING number, created`,
-    [docId, JSON.stringify(frontiers), hash, note, a.human, branch, at ?? null],
+    [docId, JSON.stringify(frontiers), hash, note, a.human, branch, at ?? null, number ?? null],
   );
   return { number: rows[0].number, frontiers, contentHash: hash, note, author: a.human, branch, created: rows[0].created };
 }
@@ -164,10 +170,10 @@ export async function commit(db: Db | Queryable, id: string, w: Write & { messag
 }
 
 /** names the main line as it is now a version (an import's history, or an admin's own step) */
-export async function nameVersion(db: Db | Queryable, id: string, o: { note: string; author: Author; at?: Date }): Promise<Version> {
+export async function nameVersion(db: Db | Queryable, id: string, o: { note: string; author: Author; at?: Date; number?: number }): Promise<Version> {
   return inTx(db, async (q) => {
     const row = await lock(q, id);
-    return name(q, id, await loadMain(q, row), o.note, o.author, null, o.at);
+    return name(q, id, await loadMain(q, row), o.note, o.author, null, o.at, o.number);
   });
 }
 

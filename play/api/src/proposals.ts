@@ -12,7 +12,9 @@ import { boxEngine, LATEST_BOX } from "./engines";
 import { readableRefs } from "../import/plan";
 import { versionId } from "./versions";
 import { newId, UUID } from "./uuid";
-import { decideStory, storyReview, withdrawStory } from "./stories";
+import { decideStory, named, storyReview, withdrawStory } from "./stories";
+import * as docs from "./docs";
+import { acceptBranch, asAssetJson, AssetDocError, assetDocId, authorOf, closeBranch, draftOf, draftState, ensureAssetDoc, proposalBranch, type AssetJson } from "./assetdocs";
 
 export class ProposalError extends Error {
   constructor(message: string, public status = 400) {
@@ -38,6 +40,7 @@ export type ProposalBody = {
   recipe?: string; // or its recipe file, as text, whose library must be that readable source
   variants?: Record<string, Upload>;
   defaultVariant?: string;
+  branch?: number; // a draft made step by step (asset_edit, ./assetdocs.ts), proposed as it stands
 };
 
 /**
@@ -106,8 +109,9 @@ const recordOf = (record: any, grp: string, slug: string, n: number, variant: st
   card: { ...(record?.card ?? {}), group: grp, id: slug, version: n, v: n, ...(variant ? { variant } : {}), recipe: hash },
 });
 
-export async function propose(db: Db, store: BlobStore, me: Me | null, body: ProposalBody, via: "web" | "mcp" = "web") {
+export async function propose(db: Db, store: BlobStore, me: Me | null, given: ProposalBody, via: "web" | "mcp" = "web") {
   const who = must(me, "propose", "asset_version");
+  let body: ProposalBody = given ?? {};
   // the asset by its UUID; a new asset brings its group and slug (its label, shown) and gets a UUID of its own
   let asset: string;
   let grp: string;
@@ -141,6 +145,29 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, body: Pro
   const label = `${body.new?.label ?? body.label ?? a[0]?.label ?? ""}`.trim().slice(0, 120);
   if (!label) throw new ProposalError("A new asset needs a label.");
 
+  // a draft made step by step (asset_edit): proposed as it stands, made on the head; its source and card are the
+  // version's where the proposal brings none of its own
+  let draft: number | undefined;
+  if (body.branch != null) {
+    if (body.asset === undefined) throw new ProposalError("A draft is of an asset there already.");
+    const d = await db
+      .transaction(async (q) => {
+        await ensureAssetDoc(q, store, asset);
+        const dr = await draftOf(q, asset, body.branch);
+        return { ...dr, json: await draftState(q, asset, dr.id) };
+      })
+      .catch((e) => {
+        throw e instanceof AssetDocError ? new ProposalError(e.message, e.status) : e;
+      });
+    if ((d.base ?? null) !== (a[0]?.number ?? null)) throw new ProposalError(`This asset has a newer version than the one draft ${d.id} was made on: start the draft again on its head.`, 409);
+    draft = d.id;
+    if (!body.source && !body.recipe && !body.variants) {
+      if (d.json.variants?.length)
+        body = { ...body, variants: Object.fromEntries(d.json.variants.map((x) => [x.name, { source: x.source ?? d.json.source, record: x.card }])), defaultVariant: d.json.defaultVariant ?? d.json.variants[0].name };
+      else body = { ...body, source: d.json.source, ...(body.record === undefined && d.json.card ? { record: d.json.card } : {}) };
+    }
+  }
+
   const variantNames = Object.keys(body.variants ?? {});
   if (!!(body.recipe || body.source) === !!variantNames.length) throw new ProposalError("Give either the version's source (or recipe file) or its variants, not both.");
   const files: { text: string; hash: string }[] = [];
@@ -149,17 +176,22 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, body: Pro
   let own: { libs: string[]; source: string } | null = null;
   let defaultVariant: string | null = null;
   const variants: Record<string, { recipe: string; source: string; card: any }> = {};
+  // the readable sources as text, for the version's step of the asset's document (./assetdocs.ts)
+  let ownText = "";
+  const variantTexts: Record<string, string> = {};
   if (body.recipe || body.source) {
     const c = checkedCode(body, slug, n, null);
     files.push(c.source, c.recipe);
     recipe = c.recipe.hash;
     source = c.source.hash;
     own = { libs: c.libs, source: c.source.hash };
+    ownText = c.source.text;
   } else {
     for (const name of variantNames) {
       if (!VARIANT.test(name)) throw new ProposalError(`${name} is not a variant's name.`);
       const c = checkedCode(body.variants![name], slug, n, name);
       files.push(c.source, c.recipe);
+      variantTexts[name] = c.source.text;
       const from = a[0]?.variants?.[name] ?? a[0]?.card;
       const record = heldRecord(inherited(body.variants![name].record, from), c.libs, c.source.hash);
       variants[name] = { recipe: c.recipe.hash, source: c.source.hash, card: recordOf(record, grp, slug, n, name, c.recipe.hash) };
@@ -177,6 +209,7 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, body: Pro
 
   for (const f of files) await store.put(f.hash, new TextEncoder().encode(f.text), MEDIA);
   const proposal = randomUUID();
+  let branchId = 0, steps = 0;
   await db.transaction(async (tx) => {
     for (const f of files)
       await tx.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, [
@@ -190,12 +223,25 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, body: Pro
     );
     for (const [name, x] of Object.entries(variants))
       await tx.query(`INSERT INTO play.asset_variants (version_id, name, recipe_hash, source_hash, card) VALUES ($1, $2, $3, $4, ($5::text)::jsonb) ON CONFLICT DO NOTHING`, [id, name, x.recipe, x.source, JSON.stringify(x.card)]);
+    // its branch of the asset's Loro document (play/SPEC.md §4.4): the draft it was made on, or a new branch at its
+    // head, the version as proposed its last step
+    const note = `${body.note ?? ""}`.slice(0, 2000);
+    const json: AssetJson = asAssetJson(label, {
+      note, engine, card, defaultVariant,
+      source: recipe ? ownText : variantTexts[defaultVariant!],
+      variants: Object.entries(variants).map(([name, x]) => ({ name, source: variantTexts[name], card: x.card })),
+    });
+    const branch = await proposalBranch(tx, store, { asset, base: a[0]?.number ?? null, json, note, author: authorOf(who, via === "mcp" ? "mcp" : "site"), draft }).catch((e) => {
+      throw e instanceof AssetDocError ? new ProposalError(e.message, e.status) : e;
+    });
     await tx.query(
-      `INSERT INTO play.proposals (id, coop_id, kind, asset_id, base, version, author, note, via) VALUES ($1, $2, 'asset_version', $3, $4, $5, $6, $7, $8)`,
-      [proposal, COOP, asset, head, id, who.id, `${body.note ?? ""}`.slice(0, 2000), via],
+      `INSERT INTO play.proposals (id, coop_id, kind, asset_id, base, version, author, note, via, doc_branch) VALUES ($1, $2, 'asset_version', $3, $4, $5, $6, $7, $8, $9)`,
+      [proposal, COOP, asset, head, id, who.id, note, via, branch],
     );
+    steps = (await docs.history(tx, assetDocId(asset), { branch })).length;
+    branchId = branch;
   });
-  return { id: proposal, asset, version: id, number: n, base: head };
+  return { id: proposal, asset, version: id, number: n, base: head, branch: branchId, steps };
 }
 
 export async function listProposals(db: Queryable, me: Me | null, status?: string) {
@@ -261,6 +307,8 @@ export async function proposalOf(db: Queryable, me: Me | null, id: string) {
   const builds = v[0]?.recipe_hash
     ? [row(v[0].recipe_hash, v[0].size, v[0].card, null, false)]
     : x.map((r) => row(r.recipe_hash, r.size, r.card, r.name, r.name === v[0]?.default_variant));
+  // the steps it was made in: its branch of the asset's Loro document (play/SPEC.md §4.4)
+  const steps = p.doc_branch != null ? await named(db, await docs.history(db, assetDocId(p.asset_id), { branch: Number(p.doc_branch) })) : [];
   return {
     ...p,
     source: v[0]?.source_hash ?? null,
@@ -268,12 +316,18 @@ export async function proposalOf(db: Queryable, me: Me | null, id: string) {
     variants: x.map((r) => ({ name: r.name, recipe: r.recipe_hash, source: r.source_hash })),
     baseVersion: b[0] ? { number: b[0].number, source: b[0].source_hash ?? b[0].variant_source ?? null, recipe: b[0].recipe_hash } : null,
     builds,
+    steps,
   };
 }
 
 export type Verdict = "accept" | "reject" | "withdraw";
 
-export async function decide(db: Db, me: Me | null, id: string, verdict: Verdict) {
+/**
+ * Accept, reject or withdraw a proposal. An asset's is accepted only on the head it was made on (else it goes stale), so
+ * what is accepted is exactly the version the Proposals page built and showed in the asset box; its branch of the
+ * asset's document is merged and named the version's number. Decided otherwise, its branch is closed, its steps kept.
+ */
+export async function decide(db: Db, store: BlobStore, me: Me | null, id: string, verdict: Verdict) {
   if (!me) throw new Denied("Please sign in first.", 401);
   return db.transaction(async (tx) => {
     const { rows } = await tx.query<any>(`SELECT * FROM play.proposals WHERE id = $1 FOR UPDATE`, [id]);
@@ -284,12 +338,14 @@ export async function decide(db: Db, me: Me | null, id: string, verdict: Verdict
       if (p.author !== me.id) throw new Denied("Only its author withdraws a proposal.");
       await tx.query(`UPDATE play.proposals SET status = 'withdrawn', decided_at = now() WHERE id = $1`, [id]);
       if (p.kind === "story_version") await withdrawStory(tx, me, p);
+      else await closeBranch(tx, p.asset_id, p.doc_branch, me, "withdrawn");
       return { id, status: "withdrawn" };
     }
     if (p.kind === "story_version") return decideStory(tx, me, p, verdict);
     must(me, "decide", "asset_version");
     if (verdict === "reject") {
       await tx.query(`UPDATE play.proposals SET status = 'rejected', decided_by = $2, decided_at = now() WHERE id = $1`, [id, me.id]);
+      await closeBranch(tx, p.asset_id, p.doc_branch, me, "rejected");
       return { id, status: "rejected" };
     }
     const { rows: a } = await tx.query<{ head: string | null; number: number | null }>(
@@ -297,17 +353,24 @@ export async function decide(db: Db, me: Me | null, id: string, verdict: Verdict
     );
     if ((a[0]?.head ?? null) !== (p.base ?? null)) {
       await tx.query(`UPDATE play.proposals SET status = 'stale', decided_at = now() WHERE id = $1`, [id]);
+      await closeBranch(tx, p.asset_id, p.doc_branch, me, "stale");
       return { id, status: "stale" };
     }
+    // the asset's document, made from its history first where it has none (and this proposal's branch, if it lacks one)
+    await ensureAssetDoc(tx, store, p.asset_id).catch((e) => {
+      throw e instanceof AssetDocError ? new ProposalError(e.message, e.status) : e;
+    });
     const n = (a[0]?.number ?? 0) + 1;
     await tx.query(`UPDATE play.asset_versions SET number = $2, approved_by = $3 WHERE id = $1`, [p.version, n, me.id]);
     await tx.query(`UPDATE play.assets SET head = $2 WHERE id = $1`, [p.asset_id, p.version]);
     await tx.query(`UPDATE play.proposals SET status = 'accepted', decided_by = $2, decided_at = now() WHERE id = $1`, [id, me.id]);
-    await tx.query(
+    await acceptBranch(tx, store, p, me, n);
+    const { rows: stale } = await tx.query<{ doc_branch: string | null }>(
       `UPDATE play.proposals SET status = 'stale', decided_at = now()
-        WHERE asset_id = $1 AND status = 'open' AND id <> $2 AND base IS NOT DISTINCT FROM $3`,
+        WHERE asset_id = $1 AND status = 'open' AND id <> $2 AND base IS NOT DISTINCT FROM $3 RETURNING doc_branch`,
       [p.asset_id, id, p.base],
     );
+    for (const s of stale) await closeBranch(tx, p.asset_id, s.doc_branch, me, "stale");
     return { id, status: "accepted", number: n, version: p.version };
   });
 }

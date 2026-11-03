@@ -494,8 +494,8 @@ export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fres
   );
 }
 
-/** each step with its author's name */
-async function named(db: Queryable, steps: docs.Step[], versions: docs.Version[] = []) {
+/** each step with its author's name, and the version it was named where one was (an asset's history too, ./assetdocs.ts) */
+export async function named(db: Queryable, steps: docs.Step[], versions: docs.Version[] = []) {
   const ids = [...new Set(steps.map((s) => s.author).filter((x): x is string => !!x))];
   const names = new Map((await db.query<{ id: string; name: string }>(`SELECT id, name FROM play.humans WHERE id = ANY($1)`, [ids])).rows.map((r) => [r.id, r.name]));
   const key = (f: docs.Frontiers) => canonical([...f].sort((a, b) => (a.peer < b.peer ? -1 : 1)));
