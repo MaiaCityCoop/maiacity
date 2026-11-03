@@ -111,7 +111,9 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
 
   // ---- sandboxes
   on("GET", "/api/sandboxes/:id/config", async (req, p) => {
-    must(await me(req), "read", "sandboxes");
+    const m = must(await me(req), "read", "sandboxes");
+    // the Factories are Maia City's admins' alone for now (Samuel 2026-11-03)
+    if (p.id === "factories" && m.level !== "admin") throw new Denied("Only Maia City's admins may open the Factories, for now.");
     return json(await configOf(db, p.id));
   });
 

@@ -29,7 +29,7 @@
 	import { forStage, heroOf, runner, walkOf } from './hero.js';
 	import TouchStick from '$lib/site/touch/TouchStick.svelte';
 	import { valuesOf } from './params.js';
-	import { soilOf } from './soil.js';
+	import { groundOf, groundsIn } from './ground.js';
 	import { buildName, vaultBuild } from './sources/viewer.js';
 	import { VIEWS, asker, camerawork, letGoOf, loop, measure, movesOf, onTap, openStage, safeArea, tabbed, viewsOf } from './viewer.js';
 	import { builtRows, heroReading, labRows, longNote, moveChips, paramTabs, scaleBar, tagLines, viewChips } from './ViewerParts.svelte';
@@ -97,6 +97,19 @@
 	let size = $state.raw(null);
 	let rise = $state.raw(null);
 	let modes = $state({ run: true, explode: false, cut: false, xray: false, labels: false, slow: false });
+	/** the biomes a plant can be shown standing on (./ground.js), the one it stands on, and the soil under it */
+	let grounds = $state.raw([]);
+	let groundId = $state(savedGround());
+	let soilShown = $state.raw(null);
+	/** the ground last chosen on this device, if it can say */
+	function savedGround() {
+		try {
+			return localStorage.getItem('play.ground') ?? 'food-forest';
+		} catch {
+			return 'food-forest';
+		}
+	}
+	let pickGround = null;
 	let moving = $state('run');
 	/** its solver's sliders and its reading */
 	let sliders = $state({});
@@ -165,10 +178,22 @@
 		}
 		// for a test in a browser to read what is shown, as AssetViewer's `__viewer`
 		window.__vaultAsset = { stage, camera, controls, get hero() { return hero; }, get picked() { return picked; }, get building() { return building; }, get phase() { return buildPhase; }, get error() { return error; }, get values() { return values; }, get wanted() { return wanted; }, set: (id, v) => setParam(id, v) };
-		// a plant's earth, as the plants page shows it: under a plant, never under its fruit on its own
-		const earth = soilOf();
-		earth.group.visible = false;
-		stage.scene.add(earth.group);
+		// a plant's ground: its biome's floor to the horizon, the soil under it and a pit in front of it, its roots seen
+		// in it (./ground.js); never under its fruit on its own, which stands on the studio's floor
+		const earth = groundOf(stage);
+		grounds = groundsIn(source);
+		pickGround = (id) => {
+			const g = grounds.find((x) => x.id === id) ?? grounds[0];
+			groundId = g?.id ?? id;
+			earth.biome(g?.recipe ?? null, g?.id);
+			soilShown = earth.soil;
+			try {
+				localStorage.setItem('play.ground', groundId);
+			} catch {
+				/* kept for this visit only */
+			}
+		};
+		pickGround(groundId);
 
 		const letGo = letGoOf(stage);
 		const asks = asker();
@@ -193,11 +218,14 @@
 				const bounds = new THREE.Box3().setFromObject(got.obj);
 				// a plant stands in its soil; its fruit, shown on its own, on the floor
 				const soiled = got.card?.group === 'plants' && !(got.values?.fruit >= 1);
-				const { centre, size: s } = stage.show(got.obj, { asset: h, ground: soiled ? -earth.fit(bounds) : undefined, keep: shownHash === h0 });
+				const { centre, size: s } = stage.show(got.obj, { asset: h, ground: soiled ? 0 : undefined, keep: shownHash === h0, studio: !soiled });
+				if (soiled) earth.fit(got.obj);
+				earth.show(soiled);
 				buildPhase = 'prepare';
 				await stage.compile();
 				if (!asks.is(ask)) {
 					stage.clear();
+					earth.show(false);
 					return void letGo(h);
 				}
 				letGo(was);
@@ -208,7 +236,6 @@
 				focused = null;
 				from = got.from;
 				size = [s.x, s.y, s.z];
-				earth.group.visible = soiled;
 				rise = soiled ? [Math.max(0, bounds.max.y), Math.max(0, -bounds.min.y)] : null;
 				drawnApart = false;
 				if (shownHash !== h0) more = false;
@@ -226,7 +253,7 @@
 				hero = null;
 				catalog = picked = null;
 				stage.clear();
-				earth.group.visible = false;
+				earth.show(false);
 				size = rise = null;
 				from = '';
 				shownHash = '';
@@ -321,6 +348,7 @@
 		const stop = loop((wall, dt, now) => {
 			adapt(now);
 			stage.update(dt);
+			earth.update(camera, wall);
 			if (walker) walker.update(dt);
 			else {
 				cam.step(wall, growing);
@@ -486,6 +514,7 @@
 		{:else if blank}
 		{:else if size}
 			<span>{#if rise}{measure(rise[0])} above the soil · {measure(rise[1])} below · {measure(Math.max(size[0], size[2]))} across{:else}{measure(Math.max(size[0], size[2]))} long · {measure(size[1])} high{/if}</span>
+			{#if rise && soilShown}<small class="soil">In {soilShown.label.toLowerCase()} ({soilShown.kind}): {soilShown.horizons.filter((h) => h.to < 5).map((h) => h.name).join(' · ')} over {soilShown.horizons.at(-1).name}</small>{/if}
 		{/if}
 		{#if scale[0] > 0 && hero && !error && !blank}{@render scaleBar(scale)}{/if}
 		{#if walking}<small>Drag to look · WASD or the joystick to walk · Shift to hurry · Esc to step outside</small>
@@ -518,6 +547,15 @@
 				{@render viewChips(views, (k) => (k === 'explode' && rigApart ? drawnApart : modes[k]), setMode)}
 				{#if hero.view?.walk}<button class="chip walk" class:on={walking} onclick={() => (walking ? walkOut?.() : walkIn?.())}>{walking ? 'Step outside' : 'Step inside'}</button>{/if}
 			</div>
+			{#if rise && grounds.length > 1}
+				<!-- the ground a plant stands on: a biome's floor, and the soil that biome lies on in the pit -->
+				<div class="chips grounds" role="group" aria-label="Ground">
+					<span class="grounds-label">Ground</span>
+					{#each grounds as g (g.id)}
+						<button class="chip" class:on={groundId === g.id} aria-pressed={groundId === g.id} onclick={() => pickGround?.(g.id)}>{g.label}</button>
+					{/each}
+				</div>
+			{/if}
 		{/if}
 	{/snippet}
 	{#if walking && stick}
@@ -550,6 +588,17 @@
 </Turntable>
 
 <style>
+	/* the ground a plant stands on: a row of chips under the bar's, named */
+	.grounds {
+		align-items: center;
+	}
+	.grounds-label {
+		font-size: 0.72rem;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		opacity: 0.6;
+		margin-right: 2px;
+	}
 	/* a plant's Plant | Fruit: one pill of two halves, the one shown pressed dark, like the bar's chips */
 	.views-of {
 		display: inline-flex;

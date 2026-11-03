@@ -2,7 +2,7 @@
 	The dashboard, the one place everything starts from (legacy's $lib/app/Dashboard.svelte, its layout and design): a
 	greeting; the Game Worlds, the three sandboxes, open to every traveler; then the apps — the asset library, the
 	factories, the proposals, the game — and, for an admin acting as Maia City (the nav pill's You menu), the coop's
-	own: its members and invites.
+	own: its members, invites and its Postgres.
 -->
 <script lang="ts">
 	import Icon from '$lib/site/app/Icon.svelte';
@@ -21,17 +21,18 @@
 	type Tile = { href: string; label: string; note: string; icon: 'leaf' | 'proposals' | 'play' | 'coops' | 'key' | 'database' | 'factory'; admins?: boolean };
 	const APPS: Tile[] = [
 		{ href: '/assets/', label: 'Assets', note: 'Every asset and its versions', icon: 'leaf' },
-		// the factories that build our assets, each a live simulation (routes/factories): first the LifeTrac line
-		{ href: '/factories/', label: 'Factories', note: 'The LifeTrac line, every part from raw stock', icon: 'factory' },
+		// the factories that build our assets, each a live simulation (routes/factories): first the LifeTrac line; admins
+		// only for now (Samuel 2026-11-03)
+		{ href: '/factories/', label: 'Factories', note: 'The LifeTrac line, every part from raw stock', icon: 'factory', admins: true },
 		// the proposals and the game: shown to admins only for now (Samuel 2026-11-02); an invite still opens the game
 		{ href: '/proposals/', label: 'Proposals', note: 'New versions, proposed and decided', icon: 'proposals', admins: true },
-		{ href: '/game/', label: 'The game', note: 'Coming: for citizens', icon: 'play', admins: true },
-		// the admins' window into play's Postgres, read only (routes/postgres)
-		{ href: '/postgres/', label: 'Postgres', note: 'Every table and its rows, read only', icon: 'database', admins: true }
+		{ href: '/game/', label: 'The game', note: 'Coming: for citizens', icon: 'play', admins: true }
 	];
 	const CITY: Tile[] = [
 		{ href: '/admin/', label: 'Members', note: 'Who holds which level', icon: 'coops' },
-		{ href: '/admin/#invites', label: 'Invites', note: 'Make a citizen', icon: 'key' }
+		{ href: '/admin/#invites', label: 'Invites', note: 'Make a citizen', icon: 'key' },
+		// the admins' window into play's Postgres, read only (routes/postgres): the coop's own (Samuel 2026-11-03)
+		{ href: '/postgres/', label: 'Postgres', note: 'Every table and its rows, read only', icon: 'database' }
 	];
 	const city = $derived(asCity());
 	const apps = $derived(APPS.filter((t) => !t.admins || session.me?.level === 'admin'));
@@ -89,7 +90,8 @@
 	.game .label { position: absolute; inset: auto 0 0; display: flex; flex-direction: column; padding: 2rem 1rem 0.9rem; background: linear-gradient(transparent, rgb(20 28 22 / 0.75)); line-height: 1.25; }
 	.game b { font-family: var(--font-display); font-size: 1.1rem; font-weight: 500; }
 	.game .label span { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; font-size: 0.85rem; opacity: 0.85; }
-	.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: 14px; }
+	/* auto-fill, not auto-fit: a row of two keeps the tiles' size instead of stretching each to half the page */
+	.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: 14px; }
 	.tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35rem; aspect-ratio: 1.15 / 1; padding: 1rem; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); color: var(--ink); text-align: center; text-decoration: none; transition: transform 150ms ease, box-shadow 150ms ease; }
 	.tile:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgb(38 56 44 / 0.1); }
 	.tile :global(svg) { color: var(--mustard); }

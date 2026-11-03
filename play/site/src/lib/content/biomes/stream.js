@@ -27,13 +27,17 @@ import { rng } from './noise.js';
  *   recipe: import('./index.js').Recipe,
  *   open?: (x: number, z: number) => boolean,
  *   tile?: number, reach?: number, near?: number, thin?: number, perFrame?: number, seed?: number, shadows?: boolean,
- *   hidden?: Set<number>, density?: number, origin?: [number, number]
+ *   hidden?: Set<number>, density?: number, origin?: [number, number],
+ *   away?: { key: string, head: string, body: string, uniforms: Record<string, { value: unknown }> }
  * }} o
  *   recipe: the biome; open: whether cover may stand at x, z (not on a path, in the water, in a trunk…); tile: a tile's
  *   size (m); reach: how far from the eye it is drawn (m); near: how far every plant of it stands, beyond which it
  *   thins out; thin: how much of it is left at its reach (0…1); perFrame: how many tiles may be built a frame;
  *   density: the biome's, if it should be other (fewer on a slow device); origin: where this ground's 0, 0 lies in
- *   the world (for a dome's floor laid in its own ground), so its colonies stand on the surfaces its ground is painted with
+ *   the world (for a dome's floor laid in its own ground), so its colonies stand on the surfaces its ground is painted with;
+ *   away: where it is left out besides, worked out on the graphics card each frame (a pit that turns with the camera):
+ *   GLSL for the vertex shader, `head` declared before and `body` run after the fading (it may scale `transformed` to
+ *   nothing), its uniforms, and a `key` naming it for the shader's cache
  */
 export function coverStream(o) {
 	const tile = o.tile ?? 12, reach = o.reach ?? 30, perFrame = o.perFrame ?? 1, seed = o.seed ?? 1, shadows = o.shadows ?? false;
@@ -44,11 +48,12 @@ export function coverStream(o) {
 	let recipe = o.recipe, hidden = o.hidden ?? new Set();
 	/** where the eye is, for the fading on the graphics card (in this ground's own metres) */
 	const eye = { value: new THREE.Vector2(Infinity, Infinity) };
-	const uniforms = { bEye: eye, bNear: { value: near }, bReach: { value: reach }, bThin: { value: thin } };
+	const away = o.away ?? null;
+	const uniforms = { bEye: eye, bNear: { value: near }, bReach: { value: reach }, bThin: { value: thin }, ...(away?.uniforms ?? {}) };
 	/** how much of the cover stands at distance d: all of it near, `thin` of it at the reach (the same sum as the shader's) */
 	const keep = (/** @type {number} */ d) => (d <= near ? 1 : 1 - (1 - thin) * Math.min(1, (d - near) / Math.max(1e-3, reach - near)));
 	/** each kind's meshes (one InstancedMesh per part, sharing the kind's instances) */
-	let kinds = kindsOf(recipe, uniforms, shadows, object);
+	let kinds = kindsOf(recipe, uniforms, shadows, object, away);
 	/** @type {Map<string, { ix: number, iz: number, kinds: TileKinds }>} */
 	const tiles = new Map();
 	/** @param {number} ix @param {number} iz @returns {TileKinds} */
@@ -127,7 +132,7 @@ export function coverStream(o) {
 			for (const k of kinds) k.dispose();
 			recipe = next;
 			hidden = hide;
-			kinds = kindsOf(recipe, uniforms, shadows, object);
+			kinds = kindsOf(recipe, uniforms, shadows, object, away);
 			changed = true;
 		},
 		/** how many plants of it stand now, for a look at its weight */
@@ -245,7 +250,7 @@ const faded = new WeakMap();
  * A material drawn fading so (one for each material and stream), and its shadow's
  * @param {THREE.Material} base @param {Record<string, { value: unknown }>} uniforms
  */
-function fadedOf(base, uniforms) {
+function fadedOf(base, uniforms, away = null) {
 	let byStream = faded.get(base);
 	if (!byStream) faded.set(base, (byStream = new Map()));
 	let m = byStream.get(uniforms);
@@ -255,10 +260,10 @@ function fadedOf(base, uniforms) {
 			mat.onBeforeCompile = (shader) => {
 				Object.assign(shader.uniforms, uniforms);
 				shader.vertexShader = shader.vertexShader
-					.replace('#include <common>', `#include <common>\n${FADE.head}`)
-					.replace('#include <begin_vertex>', `#include <begin_vertex>\n${FADE.body}`);
+					.replace('#include <common>', `#include <common>\n${FADE.head}${away ? `\n${away.head}` : ''}`)
+					.replace('#include <begin_vertex>', `#include <begin_vertex>\n${FADE.body}${away ? `\n${away.body}` : ''}`);
 			};
-			mat.customProgramCacheKey = () => 'biome-cover-fade';
+			mat.customProgramCacheKey = () => (away ? `biome-cover-fade:${away.key}` : 'biome-cover-fade');
 		};
 		patch(m);
 		m.userData.depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
@@ -272,8 +277,10 @@ function fadedOf(base, uniforms) {
  * Each kind of a recipe's cover: its meshes, drawn as instances that share one list of places and ranks.
  * @param {import('./index.js').Recipe} recipe @param {Record<string, { value: unknown }>} uniforms @param {boolean} shadows
  * @param {THREE.Group} into
+ * @param {{ key: string, head: string, body: string, uniforms: Record<string, { value: unknown }> } | null} [away] where it is
+ *   left out besides (see `coverStream`)
  */
-function kindsOf(recipe, uniforms, shadows, into) {
+function kindsOf(recipe, uniforms, shadows, into, away = null) {
 	return coverOf(recipe).map((g) => {
 		/** @type {{ geometry: THREE.BufferGeometry, material: THREE.Material }[]} */
 		const parts = [];
@@ -287,7 +294,7 @@ function kindsOf(recipe, uniforms, shadows, into) {
 		/** @type {THREE.InstancedMesh[]} */
 		const meshes = parts.map(({ geometry, material }) => {
 			const geo = geometry.clone();
-			const mat = fadedOf(material, uniforms);
+			const mat = fadedOf(material, uniforms, away);
 			const mesh = new THREE.InstancedMesh(geo, mat, 0);
 			mesh.castShadow = shadows;
 			mesh.receiveShadow = true;
