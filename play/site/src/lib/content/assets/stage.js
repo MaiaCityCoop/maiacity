@@ -173,12 +173,13 @@ export class Stage {
 	 * Show an asset (a sealed root, ./parts.js, or a build of the box's as ./hero.js makes it): on its floor, lit, its
 	 * parts flying in.
 	 * @param {THREE.Object3D} root
-	 * @param {{ asset?: any, ground?: number, keep?: boolean }} [o] the asset, if it is not the root's own; the floor's
-	 *   height, if it is not under the asset's lowest point; `keep`: the same asset built anew with other values (a plant
-	 *   a little further grown), so its views stay as they were and its parts stand built, not flying in again
+	 * @param {{ asset?: any, ground?: number, keep?: boolean, studio?: boolean }} [o] the asset, if it is not the root's
+	 *   own; the floor's height, if it is not under the asset's lowest point; `keep`: the same asset built anew with other
+	 *   values (a plant a little further grown), so its views stay as they were and its parts stand built, not flying in
+	 *   again; `studio: false`: no studio floor and no contact shadow under it (a plant on its own ground, ./ground.js)
 	 * @returns {{ centre: THREE.Vector3, size: THREE.Vector3 }}
 	 */
-	show(root, { asset, ground, keep = false } = {}) {
+	show(root, { asset, ground, keep = false, studio = true } = {}) {
 		const views = keep && this.root ? { state: { ...this.state }, target: { ...this.target } } : null;
 		this.clear();
 		this.root = root;
@@ -202,6 +203,7 @@ export class Stage {
 				.replace('#include <dithering_fragment>', '#include <dithering_fragment>\nfloat fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(gl_FragColor.rgb, uBg, fr);');
 		};
 		const floor = new THREE.Mesh(new THREE.CircleGeometry(40 * s, 96), fm);
+		floor.visible = studio;
 		floor.rotation.x = -Math.PI / 2;
 		// a hair under the asset's lowest point when the floor is its own: an asset whose bottom is a ground facing up (a
 		// biome's patch, a meadow with nothing lying below it) would otherwise share the floor's plane and flicker with it
@@ -210,9 +212,11 @@ export class Stage {
 		floor.userData.studio = true;
 		this.scene.add(floor);
 		this.floor = floor;
-		this.contact = new ContactShadow(this, paper ? 0.7 : 0.85, s);
-		this.contact.plane.position.x = this.contact.quad.position.x = this.contact.cam.position.x = centre.x;
-		this.contact.plane.position.z = this.contact.quad.position.z = this.contact.cam.position.z = centre.z;
+		if (studio) {
+			this.contact = new ContactShadow(this, paper ? 0.7 : 0.85, s);
+			this.contact.plane.position.x = this.contact.quad.position.x = this.contact.cam.position.x = centre.x;
+			this.contact.plane.position.z = this.contact.quad.position.z = this.contact.cam.position.z = centre.z;
+		}
 		// the key from front left and above, its shadow framed to the asset
 		const key = this.key, reach = size.length() * 0.65;
 		key.target.position.copy(centre);
