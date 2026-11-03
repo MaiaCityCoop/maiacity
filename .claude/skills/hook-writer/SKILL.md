@@ -95,6 +95,14 @@ Extreme is never false: no invented numbers, no promise the body cannot pay off.
 superlative every time ("233 people, almost nothing from further than a few minutes' walk" — not "a revolutionary
 way of living").
 
+## The meta story in every hook (Samuel, 2026-11-03)
+
+Every story is a day of one journey: we are building a new civilization — how humans will feed themselves healthily
+and live anew — first in a game, then for real, and we start at day one with nothing (no game, no city, no papaya
+yet). A hook may use that frame for its contrast (*nothing yet* ↔ *a city that feeds itself*; *one seed* ↔ *a
+civilization*) and the intro always places the subject in it in a line: the day, what exists, what it is for. The
+title card carries "DAY NN". Never talk about AI (below, "Compact").
+
 ## Anchor and promise — the two jobs of every hook
 
 A hook does more than grab attention: it gives the reader an **irresistible reason to keep going**. That takes two
