@@ -8,7 +8,7 @@ import type { Db } from "./pg";
 import { Denied, meOf, must } from "./access";
 import { assetOf, catalogOf, configOf, fileOf, listAssets, NotFound, versionOf } from "./assets";
 import { mcp } from "./mcp";
-import { listTokens, makeToken, revokeToken } from "./tokens";
+import { adminByToken, listTokens, makeToken, revokeToken } from "./tokens";
 import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, registerOptions, sessionCookie, tokenFor } from "./auth";
 import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameMember, renameSelf, setLevel } from "./members";
 import { listTables, readTable, TableError } from "./tables";
@@ -21,6 +21,14 @@ type Handler = (req: Request, params: Record<string, string>) => Promise<Respons
 type Route = { method: string; pattern: RegExp; keys: string[]; handler: Handler };
 
 const json = (body: unknown, init: ResponseInit = {}) => Response.json(body, init);
+
+/**
+ * The read-only routes an admin's MCP token also opens (Samuel 2026-11-03), so an agent can load a sandbox in its own
+ * browser and film it: who it is, the catalog, the files, a sandbox's config and the assets — what a traveler may read,
+ * nothing more. Every other route (members, tokens, proposals, stories, the database, anything that writes) still wants
+ * a session; the MCP server takes the token as before.
+ */
+const READ_BY_TOKEN = [/^\/api\/me$/, /^\/api\/catalog$/, /^\/api\/files\/[0-9a-f]{64}$/, /^\/api\/sandboxes\/[a-z0-9-]{1,64}\/config$/, /^\/api\/assets(\/[^/]+){0,4}$/];
 async function body(req: Request): Promise<any> {
   try {
     return await req.json();
@@ -36,7 +44,13 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     const pattern = new RegExp(`^${path.replace(/:([a-z]+)/g, (_, k) => (keys.push(k), "([^/]+)"))}$`);
     routes.push({ method, pattern, keys, handler });
   };
-  const me = (req: Request) => meOf(db, humanIdFrom(req));
+  // who a request is: its session; or, on the world's read-only routes, an admin's MCP token (Samuel 2026-11-03: an
+  // agent walks and films a sandbox in its own browser, as its admin, reading only what a traveler may read)
+  const me = async (req: Request) => {
+    const human = humanIdFrom(req);
+    if (human || req.method !== "GET" || !READ_BY_TOKEN.some((r) => r.test(new URL(req.url).pathname))) return meOf(db, human);
+    return adminByToken(db, req);
+  };
   const signedIn = (h: { id: string; name: string }, extra: unknown = {}) =>
     json({ id: h.id, name: h.name, ...(extra as object) }, { headers: { "Set-Cookie": sessionCookie(tokenFor(h.id)) } });
 
