@@ -170,8 +170,15 @@ ranges its card allows. In all three sandboxes; in Sandbox 2 the character walks
 No V2 game state is imported (Sandbox 3 is stateless). The master recovery key is not needed. The avenDB feed takes
 only post-quantum TLS: the import runs on Bun (OpenSSL 3.5).
 
-The import is idempotent and verifies before it reports success: every file's BLAKE3 after a read back from the bucket,
-every pin resolving, the counts per group against the feed.
+The import verifies before it reports success: every file's BLAKE3 after a read back from the bucket, every pin
+resolving, the counts per group against the feed.
+
+**It runs once (Samuel 2026-11-03).** Postgres keeps that it ran (`play.imports`), and from then on **play's Postgres is
+the one source of truth** for its assets, members and sandboxes: a later run (every deploy runs it) writes none of the
+legacy import again, so nothing play changed (a label, a head moved by accepting a version, a sound, a member's level, a
+member or pin removed) is ever overridden or brought back. A later run only adds play's own site media missing from its
+files and the imported versions' readable sources where they have none (§4.1). Forced to run again (`--again`), it
+still only adds what is missing and changes nothing that is there.
 
 ## 7. API (`play/api`, Bun)
 
