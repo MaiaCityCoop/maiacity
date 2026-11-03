@@ -7,7 +7,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { replaceState } from '$app/navigation';
-	import { BIOMES, generateMap, randomSeed, type Biome, type Plot, type WorldMap } from './map';
+	import { BIOMES, generateMap, randomSeed, type Biome, type Plot, type WorldMap, UNBUILDABLE } from './map';
 	import { createWorld, type World } from './scene';
 
 	let canvas: HTMLCanvasElement;
@@ -69,7 +69,7 @@
 			<button type="button" title="A new map" aria-label="A new map" onclick={() => grow(randomSeed())}>⚄</button>
 		</form>
 		<ul class="legend chip">
-			{#each Object.entries(BIOMES).filter(([key]) => key !== 'mountain') as [key, b] (key)}
+			{#each Object.entries(BIOMES).filter(([key]) => !UNBUILDABLE.includes(key as Biome)) as [key, b] (key)}
 				<li><i style:background={b.colour}></i>{b.label}<small>{counts[key as Biome]}</small></li>
 			{/each}
 			<li class="wild"><i style:background={BIOMES.mountain.colour}></i>Mountains<small>not buildable</small></li>
