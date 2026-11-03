@@ -24,6 +24,8 @@ Every maiaCITY story is one step of one big story, and it is told inside it:
   what it is for (how people will eat, live and thrive), in a line or two, early.
 - **The register is vision, not dread** (`arc.md`): the old way of eating and living is the *from*, shown clearly; the
   new civilization is the *to*, being built, step by step, in the open.
+- **Assume zero background knowledge** (Samuel, 2026-11-03): every episode is someone's first. Say who we are and
+  what we are doing in plain words early, and every term as what it does.
 - **Never talk about AI** (`SKILL.md`, law 7): the work is told as *we* and *I*.
 
 ## Half one: the devlog (Homegrown, a farming game, Hamburg)

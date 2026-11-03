@@ -193,6 +193,10 @@ The hook is also set into the day's title cards (`maia/content/scripts/film/thum
   Not the underpaid."*) — the reader's first guess is the biggest threat to the second paragraph.
 - Can a word come out? Take it out. Hooks die of length.
 - Banned: colon subtitles, listicles ("7 ways to…"), clickbait the body does not pay, a question the subtitle answers.
+- **Assume zero background knowledge** (Samuel, 2026-11-03): the viewer has never heard of maiaCITY, the game, the
+  city or any of our words. The hook makes sense to a stranger scrolling past; the intro says, in plain words, who we
+  are and what we are doing (a new kind of city, designed first as a game, then built for real); any term the viewer
+  may not know is said as what it does ("a forest you can eat from", not "a food forest" alone).
 - **Never talk about AI** (Samuel, 2026-11-03): no "AI", "our AI", "an AI" in a hook, a title, a card or a line. The
   work is ours — *we* built, *we* grew, *I* decided.
 
