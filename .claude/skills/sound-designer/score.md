@@ -1,6 +1,6 @@
 # The score: an original one per film
 
-`bun maia/content/scripts/film/score.ts maia/content/scripts/film/<film>.mjs --local [--only music|cues] [--take b]`
+Called on fal directly (the old `score.ts` runner is gone with the refactor, `SNAPSHOT_2611101`); keep each take with add_story_audio on a `music` track's clip (`play.md`).
 
 - ElevenLabs Music v2.5 on fal (`elevenlabs/music/v2.5`) with a `composition_plan` of chunks (3–120 s each, at most
   30). `music.chunks` in the shot list gives each section's `until` on the film's clock and its `styles`; negative

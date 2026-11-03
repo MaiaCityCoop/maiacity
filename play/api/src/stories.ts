@@ -6,8 +6,12 @@
 //
 // Every clip has its place in time (`at`, `duration`, in seconds); what else it holds is its track's kind:
 //   shots  { frame: <an image's file hash>, transition }   — the storyboard; a `scene` will replace the still later
-//   voice  { who, line }                                   — the narration and its subtitle; an `audio` hash later
+//   voice  { who, line }                                   — the narration and its subtitle
 //   notes  { section, camera, retention, mood }            — what the editor reads beside the picture
+// Any clip of any track may sound (the voice's takes, a music or sfx or ambience track's clips): `audio` is a recording
+// kept among play's files by its hash (add_story_audio), `audio_in` where in the recording the clip starts, `gain` in
+// dB, `fade_in`/`fade_out` in seconds, `eq` (biquad bands) and `keys` (gain automation, [s, dB]), as the old studio's
+// clips had them; a track's own `gain` (dB) and `mute` apply to all its clips, and music is ducked under the voice.
 // A clip may hold more than its kind names, and a track may be of a kind not named here (music, sfx, callout, scene):
 // those are kept as given, so a later kind needs no migration. Frames are images kept among play's files by their
 // BLAKE3 hash and served by /api/files/<hash>.
@@ -34,7 +38,7 @@ export class StoryError extends Error {
 
 export const SCHEMA = "story/1";
 export type Clip = { id: string; at: number; duration: number; [field: string]: unknown };
-export type Track = { id: string; kind: string; clips: Clip[] };
+export type Track = { id: string; kind: string; gain?: number; mute?: boolean; clips: Clip[] };
 export type StoryBody = { schema: typeof SCHEMA; format: string; fps: number; duration: number; tracks: Track[] };
 export type VersionInfo = { number: number; id: string; note: string; created: string; author: string | null; approved_by: string | null };
 export type Story = { id: string; title: string; version: string; number: number | null; note: string; created: string; author: string | null; versions: VersionInfo[] } & StoryBody;
@@ -54,6 +58,19 @@ const MOST_BODY = 1_000_000;
 /** the largest frame an agent may add */
 export const MOST_FRAME = 4_000_000;
 /** the image types a frame may be, by the bytes they start with */
+/** the largest recording an agent may add */
+export const MOST_AUDIO = 25_000_000;
+const ascii = (b: Uint8Array, from: number, to: number) => String.fromCharCode(...b.slice(from, to));
+/** the audio types a recording may be, by the bytes they start with */
+const AUDIO: { type: string; is: (b: Uint8Array) => boolean }[] = [
+  { type: "audio/mpeg", is: (b) => ascii(b, 0, 3) === "ID3" || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0 && (b[1] & 0x06) !== 0) },
+  { type: "audio/wav", is: (b) => ascii(b, 0, 4) === "RIFF" && ascii(b, 8, 12) === "WAVE" },
+  { type: "audio/ogg", is: (b) => ascii(b, 0, 4) === "OggS" },
+  { type: "audio/flac", is: (b) => ascii(b, 0, 4) === "fLaC" },
+  { type: "audio/mp4", is: (b) => ascii(b, 4, 8) === "ftyp" && /^(M4A |M4B |mp42|isom|dash)/.test(ascii(b, 8, 12)) },
+  { type: "audio/webm", is: (b) => b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3 },
+];
+export const AUDIO_TYPES = AUDIO.map((a) => a.type);
 const IMAGES: { type: string; is: (b: Uint8Array) => boolean }[] = [
   { type: "image/jpeg", is: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
   { type: "image/png", is: (b) => b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 },
@@ -106,6 +123,50 @@ const KINDS: Record<string, (c: Record<string, unknown>, what: string) => Record
   }),
 };
 
+/** a clip's sound, where it has one: its recording (a hash), where in it the clip starts, its gain and fades */
+function sound(c: Record<string, unknown>, what: string): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (c.audio != null && c.audio !== "") {
+    const audio = text(c.audio, `${what}'s audio`, 64);
+    if (!HASH.test(audio)) throw new StoryError(`${what}'s audio must be a recording's file hash (add_story_audio gives one).`);
+    out.audio = audio;
+  } else if (c.audio === "") out.audio = null;
+  if (c.audio_in != null) out.audio_in = seconds(c.audio_in, `${what}'s audio_in`, 0, 36_000);
+  if (c.gain != null) out.gain = seconds(c.gain, `${what}'s gain (dB)`, -60, 24);
+  if (c.fade_in != null) out.fade_in = seconds(c.fade_in, `${what}'s fade_in`, 0, 600);
+  if (c.fade_out != null) out.fade_out = seconds(c.fade_out, `${what}'s fade_out`, 0, 600);
+  if (c.eq != null) out.eq = eqOf(c.eq, what);
+  if (c.keys != null) out.keys = keysOf(c.keys, what);
+  return out;
+}
+
+/** the biquad types an EQ band may be (the Audio EQ Cookbook's, as Web Audio's BiquadFilterNode plays them) */
+export const EQ_TYPES = ["highpass", "lowshelf", "peaking", "notch", "highshelf", "lowpass"];
+const MOST_BANDS = 8;
+const MOST_KEYS = 64;
+/** a clip's EQ: bands in order, each { type, f (Hz, 20–20000), gain (dB, ±24), q (0.1–18) } (the old studio's, checked the same) */
+function eqOf(v: unknown, what: string) {
+  if (!Array.isArray(v)) throw new StoryError(`${what}'s eq is a list of bands: { type, f, gain, q }.`);
+  if (v.length > MOST_BANDS) throw new StoryError(`${what}'s eq has at most ${MOST_BANDS} bands.`);
+  return v.map((b: any, i) => {
+    const band = `${what}'s eq band ${i + 1}`;
+    if (!b || typeof b !== "object" || !EQ_TYPES.includes(b.type)) throw new StoryError(`${band}'s type is one of ${EQ_TYPES.join(", ")}.`);
+    const q = b.q == null ? (b.type === "peaking" || b.type === "notch" ? 1 : 0.707) : seconds(b.q, `${band}'s q`, 0.1, 18);
+    return { type: b.type, f: seconds(b.f, `${band}'s frequency (Hz)`, 20, 20000), gain: b.gain == null ? 0 : seconds(b.gain, `${band}'s gain (dB)`, -24, 24), q };
+  });
+}
+/** a clip's gain automation: [seconds into the clip, dB (-60…12)] points, straight lines between them */
+function keysOf(v: unknown, what: string) {
+  if (!Array.isArray(v)) throw new StoryError(`${what}'s keys are a list of [seconds into the clip, dB].`);
+  if (v.length > MOST_KEYS) throw new StoryError(`${what} has at most ${MOST_KEYS} keys.`);
+  return v
+    .map((k: any, i) => {
+      if (!Array.isArray(k) || k.length !== 2) throw new StoryError(`${what}'s key ${i + 1} is [seconds, dB].`);
+      return [seconds(k[0], `${what}'s key ${i + 1} time`, 0, 3600), seconds(k[1], `${what}'s key ${i + 1} gain (dB)`, -60, 12)];
+    })
+    .sort((a, b) => a[0] - b[0]);
+}
+
 /** A story's timeline as given, checked and laid out (clips in time order, each track's clips never overlapping where its kind follows one after another); every shot's frame an image play holds. */
 export async function checkBody(db: Queryable, given: any): Promise<StoryBody> {
   if (!given || typeof given !== "object" || Array.isArray(given)) throw new StoryError("A story's timeline is a JSON object: { format, fps, tracks }.");
@@ -142,15 +203,24 @@ export async function checkBody(db: Queryable, given: any): Promise<StoryBody> {
       const duration = seconds(c.duration, `${what}'s duration`, 0.04, 3600);
       next = at + duration;
       const { id: _i, at: _a, duration: _d, ...rest } = c;
-      return { ...rest, ...(KINDS[kind]?.(c, what) ?? {}), id: cid, at, duration };
+      return { ...rest, ...(KINDS[kind]?.(c, what) ?? {}), ...sound(c, what), id: cid, at, duration };
     });
     clips.sort((a, b) => a.at - b.at);
     if (SEQUENTIAL.has(kind))
       for (let i = 1; i < clips.length; i++)
         if (clips[i].at < clips[i - 1].at + clips[i - 1].duration - 1e-6)
           throw new StoryError(`On track ${id}, clip ${clips[i].id} starts at ${clips[i].at} s, before clip ${clips[i - 1].id} ends (${round(clips[i - 1].at + clips[i - 1].duration)} s).`);
-    return { id, kind, clips };
+    const level = t.gain == null ? {} : { gain: seconds(t.gain, `Track ${id}'s gain (dB)`, -60, 24) };
+    const mute = t.mute == null ? {} : { mute: !!t.mute };
+    return { id, kind, ...level, ...mute, clips };
   });
+  const sounds = [...new Set(tracks.flatMap((t) => t.clips.map((c) => c.audio)).filter((a): a is string => typeof a === "string"))];
+  if (sounds.length) {
+    const { rows } = await db.query<{ hash: string }>(`SELECT hash FROM play.files WHERE hash = ANY($1) AND media_type LIKE 'audio/%'`, [sounds]);
+    const held = new Set(rows.map((r) => r.hash));
+    const missing = sounds.filter((f) => !held.has(f));
+    if (missing.length) throw new StoryError(`No recording is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_audio first.`);
+  }
   const frames = [...new Set(tracks.filter((t) => t.kind === "shots").flatMap((t) => t.clips.map((c) => c.frame)).filter((f): f is string => typeof f === "string"))];
   if (frames.length) {
     const { rows } = await db.query<{ hash: string }>(`SELECT hash FROM play.files WHERE hash = ANY($1) AND media_type LIKE 'image/%'`, [frames]);
@@ -658,6 +728,33 @@ export async function seedStory(db: Db, id: string, title: string, note: string,
     await ensureStoryDoc(tx, id);
     return true;
   });
+}
+
+// ---- recordings
+
+/** The audio type of `bytes`, by how they start, or null */
+export const audioType = (bytes: Uint8Array): string | null => AUDIO.find((a) => a.is(bytes))?.type ?? null;
+
+/** Keep one recording (MP3, WAV, Ogg, FLAC, M4A or WebM audio, at most MOST_AUDIO bytes) among play's files; its hash. */
+export async function putAudio(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string): Promise<{ hash: string; size: number; media_type: string }> {
+  if (!bytes.length) throw new StoryError("The recording is empty.");
+  if (bytes.length > MOST_AUDIO) throw new StoryError(`A recording is at most ${MOST_AUDIO / 1e6} MB.`, 413);
+  const type = audioType(bytes);
+  if (!type) throw new StoryError("A recording is MP3, WAV, Ogg, FLAC, M4A or WebM audio.", 415);
+  if (said && said !== type && !(said === "audio/mp3" && type === "audio/mpeg") && !(said === "audio/x-wav" && type === "audio/wav")) throw new StoryError(`Those bytes are ${type}, not ${said}.`, 415);
+  const hash = hashBytes(bytes);
+  const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, type);
+  await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, $3, $4) ON CONFLICT (hash) DO NOTHING`, [hash, bytes.length, type, key]);
+  return { hash, size: bytes.length, media_type: type };
+}
+
+/** A recording given as base64 (an agent's), checked and kept */
+export async function putAudioBase64(db: Queryable, store: BlobStore, data: unknown, mediaType: unknown) {
+  if (typeof data !== "string" || !data) throw new StoryError("Give the recording as base64 text (data).");
+  const clean = data.replace(/^data:[^,]*,/, "").replace(/\s+/g, "");
+  if (clean.length > Math.ceil((MOST_AUDIO * 4) / 3) + 8) throw new StoryError(`A recording is at most ${MOST_AUDIO / 1e6} MB.`, 413);
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean)) throw new StoryError("That is not base64.");
+  return putAudio(db, store, new Uint8Array(Buffer.from(clean, "base64")), typeof mediaType === "string" ? mediaType : undefined);
 }
 
 // ---- frames
