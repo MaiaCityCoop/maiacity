@@ -72,7 +72,7 @@
 			{#each Object.entries(BIOMES).filter(([key]) => !UNBUILDABLE.includes(key as Biome)) as [key, b] (key)}
 				<li><i style:background={b.colour}></i>{b.label}<small>{counts[key as Biome]}</small></li>
 			{/each}
-			<li class="wild"><i style:background={BIOMES.river.colour}></i><i style:background={BIOMES.mountain.colour}></i>Water, mountains<small>not buildable</small></li>
+			<li class="wild"><i style:background={BIOMES.mountain.colour}></i>Mountains<small>not buildable</small></li>
 		</ul>
 	</header>
 
