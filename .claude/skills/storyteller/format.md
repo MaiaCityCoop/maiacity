@@ -16,19 +16,21 @@ Every maiaCITY story is one step of one big story, and it is told inside it:
 - **We are exploring a new way of living:** how humans will feed themselves healthily in the future, and with it a
   completely new way of civilization (self-sufficient, local, healthy, built and owned by the people who live in it).
 - **First the game, then for real.** We build it all in a game first; then we build everything in the real world.
-- **We start at day one, with nothing.** No game yet, no papaya yet, no city yet. Every episode is a numbered day of
-  that journey ("Day 1", "Day 2", …), and the first ones are honest about how little exists: the viewer joins at the
-  very start and watches it grow.
+- **Day 1 is the starting point.** Every episode is a numbered day of that journey ("Day 1", "Day 2", …): the viewer
+  joins at the start and watches it grow. Say it as a beginning ("Day 1", "this is where it starts"), never as a list
+  of what doesn't exist yet.
 - **Every subject is placed in the big picture.** A papaya is not a papaya: it is the first food of a food forest that
-  will feed a city that does not exist yet. Name where the piece sits (day one, the game, the real world to come) and
+  will feed a city we are only starting to build. Name where the piece sits (the day, the game, the real world to come) and
   what it is for (how people will eat, live and thrive), in a line or two, early.
 - **The register is vision, not dread** (`arc.md`): the old way of eating and living is the *from*, shown clearly; the
   new civilization is the *to*, being built, step by step, in the open.
+- **Assume zero background knowledge** (Samuel, 2026-11-03): every episode is someone's first. Say who we are and
+  what we are doing in plain words early, and every term as what it does.
 - **Never talk about AI** (`SKILL.md`, law 7): the work is told as *we* and *I*.
 
 ## Half one: the devlog (Homegrown, a farming game, Hamburg)
 
-A solo developer's weekly devlog (https://www.youtube.com/watch?v=kza94XqkQQ8), built on a few devices that work
+A solo developer's weekly devlog (https://www.youtube.com/watch?v=Ld9qvxoaB6Y), built on a few devices that work
 every week:
 
 | Device | In the devlog | Why it holds |
@@ -45,7 +47,7 @@ every week:
 
 ## Half two: the cinematic vlog (LifeOfRiza, "how I make my videos")
 
-Kariza's own account of how a LifeOfRiza video is made (https://www.youtube.com/watch?v=Ld9qvxoaB6Y), adding to her
+Kariza's own account of how a LifeOfRiza video is made (https://www.youtube.com/watch?v=kza94XqkQQ8), adding to her
 three rules in `scenes.md`:
 
 | Principle | In her words | For us |

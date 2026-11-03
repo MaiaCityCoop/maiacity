@@ -16,8 +16,8 @@ description: How maiaCITY makes films from the sandbox worlds, learned on the fi
 > the same craft, researched further; start a story with `hook-writer`.
 >
 > **The meta story** (Samuel, 2026-11-03): every film is a day of one journey — day one of a new civilization,
-> exploring how humans will feed themselves healthily and live anew, built first in a game, then for real, starting
-> from nothing (no game, no city, no papaya yet). Each film places its subject in that big picture early
+> exploring how humans will feed themselves healthily and live anew, built first in a game, then for real, from its
+> starting point, Day 1. Each film places its subject in that big picture early
 > (`storyteller/format.md`, "The meta story"), and never talks about AI.
 
 # Movie producer

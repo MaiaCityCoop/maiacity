@@ -22,7 +22,7 @@ craft lives in its own skill, loaded when the work reaches it.
    never dread. → `storyteller` (`arc.md`)
 
 And always: **inside the meta story** (day one of a new civilization, built first in a game, then for real, from
-nothing — `storyteller/format.md`), **never talk about AI**, **every fact true** (nothing invented about Samuel's life, the viewers, attempts or results — a film may
+its starting point, Day 1 — `storyteller/format.md`), **never talk about AI**, **every fact true** (nothing invented about Samuel's life, the viewers, attempts or results — a film may
 be *based on* a true story, re-enacted, never made up), **full conviction** (a vision being built, not hoped for),
 **contrast on every axis** (a high only reads against a low), and **every scene a step forward** (`storyteller`,
 `scenes.md`).
