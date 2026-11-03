@@ -16,6 +16,7 @@ import { connect, type Db, type Queryable } from "../src/pg";
 import { migrate } from "../src/migrations";
 import { FEED, fileOf, rowsOf, viewOf, type EntryView, type FeedRow } from "./feed";
 import { broughtOf, gardenWithSlots, hashRefs, parseRef, planAsset, planPins, plantWords, SANDBOX_3, FACTORIES, PlanError, type PlannedAsset, type PlannedFile } from "./plan";
+import { importSources, type SourcesReport } from "./sources";
 
 // the repo root: three up from play/api/import in a checkout; PLAY_REPO in the image (/app)
 const ROOT = process.env.PLAY_REPO ?? join(import.meta.dir, "../../..");
@@ -43,6 +44,8 @@ export type Report = {
   assets: { planned: number; byGroup: Record<string, number>; versions: number; variants: number; hashedRefs: number; plantWords: number; sounds: number; failed: string[] };
   written: { files: number; assets: number; versions: number; variants: number; pins: number; humans: number; passkeys: number; media: number };
   verified: { filesReadBack: number; fileErrors: string[]; groupsMatch: boolean; dbByGroup: Record<string, number>; pinsResolved: number; pinErrors: string[]; mediaErrors: string[] };
+  /** the imported versions' readable sources (./sources.ts) */
+  sources: SourcesReport;
   ok: boolean;
 };
 
@@ -145,6 +148,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
     assets: { planned: 0, byGroup: {}, versions: 0, variants: 0, hashedRefs: 0, plantWords: 0, sounds: 0, failed: [] },
     written: { files: 0, assets: 0, versions: 0, variants: 0, pins: 0, humans: 0, passkeys: 0, media: 0 },
     verified: { filesReadBack: 0, fileErrors: [], groupsMatch: false, dbByGroup: {}, pinsResolved: 0, pinErrors: [], mediaErrors: [] },
+    sources: { files: 0, attached: 0, recipesAbsent: 0, errors: [] },
     ok: false,
   };
 
@@ -265,6 +269,8 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
   });
   await importMedia(db, store, report);
   await importSounds(db, report);
+  log("giving the imported versions their readable sources…");
+  report.sources = await importSources(db, store);
   const { rows: groups } = await db.query<{ grp: string; n: string }>(`SELECT grp, count(*) AS n FROM play.assets GROUP BY grp`);
   report.verified.dbByGroup = Object.fromEntries(groups.map((g) => [g.grp, Number(g.n)]));
   const feedByGroup: Record<string, number> = {};
@@ -276,7 +282,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
   report.verified.pinsResolved = Number(pinned[0].n);
   if (report.verified.pinsResolved !== pins.length + pins3.length + pinsF.length)
     report.verified.pinErrors.push(`${report.verified.pinsResolved} of ${pins.length + pins3.length + pinsF.length} pins resolve`);
-  report.ok = !report.assets.failed.length && !report.verified.fileErrors.length && report.verified.groupsMatch && !report.verified.pinErrors.length && !report.verified.mediaErrors.length;
+  report.ok = !report.assets.failed.length && !report.verified.fileErrors.length && report.verified.groupsMatch && !report.verified.pinErrors.length && !report.verified.mediaErrors.length && !report.sources.errors.length;
   return report;
 }
 
@@ -376,8 +382,9 @@ export function reportText(r: Report): string {
     `| Sandbox pins resolving (Sandbox 1 and 3, the Factories) | ${r.verified.pinsResolved} |`,
     `| Media files (covers, sounds) | ${r.written.media} written, ${r.verified.mediaErrors.length} failed |`,
     `| Animals with their sound | ${r.assets.sounds} |`,
+    `| Readable sources (legacy's code, checked against the recipe files) | ${r.sources.files} written, ${r.sources.attached} versions and variants given theirs now, ${r.sources.errors.length} failed |`,
   ];
-  const errs = [...r.assets.failed, ...r.verified.fileErrors, ...r.verified.pinErrors, ...r.verified.mediaErrors];
+  const errs = [...r.assets.failed, ...r.verified.fileErrors, ...r.verified.pinErrors, ...r.verified.mediaErrors, ...r.sources.errors];
   if (errs.length) lines.push(``, `## Errors`, ``, ...errs.map((e) => `- ${e}`));
   return lines.join("\n") + "\n";
 }
