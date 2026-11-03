@@ -1,8 +1,8 @@
 <!--
 	The dashboard, the one place everything starts from (legacy's $lib/app/Dashboard.svelte, its layout and design): a
 	greeting; the Game Worlds, the three sandboxes, open to every traveler; then the apps — the asset library, the
-	proposals, the game — and, for an admin acting as Maia City (the nav pill's You menu), the coop's own: its members
-	and invites.
+	factories, the proposals, the game — and, for an admin acting as Maia City (the nav pill's You menu), the coop's
+	own: its members and invites.
 -->
 <script lang="ts">
 	import Icon from '$lib/site/app/Icon.svelte';
@@ -18,9 +18,11 @@
 		{ href: '/sandbox-2/', label: 'Sandbox 2', note: 'The physical world lab: buildings from their parts, with physics, fixings and wind', cover: 'bd34c342d7db41283ff4d243aa21bf08daf40fe1e9b47a0f63f92a00d65a9c6e.jpg' },
 		{ href: '/sandbox-3/', label: 'Sandbox 3', note: 'The tired land: walk it as someone new every visit', cover: '41a858860a82169d3d5586d30b648723c32874a94e014f30718a5a70f5b56e85.jpg' }
 	];
-	type Tile = { href: string; label: string; note: string; icon: 'leaf' | 'proposals' | 'play' | 'coops' | 'key' | 'database'; admins?: boolean };
+	type Tile = { href: string; label: string; note: string; icon: 'leaf' | 'proposals' | 'play' | 'coops' | 'key' | 'database' | 'factory'; admins?: boolean };
 	const APPS: Tile[] = [
 		{ href: '/assets/', label: 'Assets', note: 'Every asset and its versions', icon: 'leaf' },
+		// the factories that build our assets, each a live simulation (routes/factories): first the LifeTrac line
+		{ href: '/factories/', label: 'Factories', note: 'The LifeTrac line, every part from raw stock', icon: 'factory' },
 		// the proposals and the game: shown to admins only for now (Samuel 2026-11-02); an invite still opens the game
 		{ href: '/proposals/', label: 'Proposals', note: 'New versions, proposed and decided', icon: 'proposals', admins: true },
 		{ href: '/game/', label: 'The game', note: 'Coming: for citizens', icon: 'play', admins: true },
