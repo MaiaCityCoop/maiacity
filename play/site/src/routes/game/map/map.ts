@@ -7,9 +7,11 @@
 // land, and a plot by the water ends at its shore. What stands on the land (trees, rocks, peaks) is a list of
 // features. The same seed always gives the same map. Nothing here touches the DOM or three.js: ./scene.ts draws it.
 //
-// Units are metres: x runs east, y runs south across the map (6.7 × 4.5 km); a plot is about 1.5 ha. The map holds
-// exactly PLOTS plots, all buildable (shore, forest, grassland, sand): mountains are no plots but wild land, raised
-// into real hills (terrain); the water itself is no land at all.
+// Geometry is in map units (x runs east, y runs south, 6720 × 4470 of them); the map's real size follows from its
+// people: PEOPLE inhabitants with M2_PER_PERSON each, so every map's buildable land is exactly PEOPLE × M2_PER_PERSON
+// m² and one map unit is `scale` metres (about 11). The map holds
+// exactly PLOTS plots (villages, about 1500 people and 2.25 km² each), all buildable (shore, forest, grassland,
+// sand): mountains are no plots but wild land, raised into real hills (terrain); the water itself is no land at all.
 
 export type P = [number, number];
 export type Biome = 'grass' | 'forest' | 'sand' | 'mountain' | 'river';
@@ -40,8 +42,10 @@ export interface Plot {
 	/** its outline, corners rounded */
 	outline: P[];
 	centre: P;
-	/** m² */
+	/** real m² */
 	area: number;
+	/** how many people live here, M2_PER_PERSON each (all plots' people add up to PEOPLE exactly) */
+	people: number;
 }
 
 export type FeatureKind = 'conifer' | 'broadleaf' | 'willow' | 'cypress' | 'stone' | 'spire' | 'peak';
@@ -72,6 +76,8 @@ export interface WorldMap {
 	features: Feature[];
 	/** where the mountains rise: the mountain cells' centres, and every other cell's (./terrain) */
 	massif: Massif;
+	/** real metres per map unit */
+	scale: number;
 }
 
 export interface Massif {
@@ -81,7 +87,10 @@ export interface Massif {
 
 /** how many plots the map holds: 1,346,269 (the Fibonacci number F31, a coop's whole supply of minds at its thirtieth
  * milestone) divided by 1500 */
-export const PLOTS = Math.round(1346269 / 1500); // 898
+export const PEOPLE = 1346269;
+/** the land each inhabitant has, m² */
+export const M2_PER_PERSON = 1500;
+export const PLOTS = Math.round(PEOPLE / 1500); // 898 villages, about 1500 people each
 export const WIDTH = 6720;
 export const HEIGHT = 4470;
 const DX = 150; // cell spacing across
@@ -414,7 +423,21 @@ export function generateMap(seed: string): WorldMap {
 	const plotList: Plot[] = [];
 	for (const k of cells) {
 		if (k.wild) continue;
-		plotList.push({ id: plotList.length + 1, biome: k.biome, outline: rounded(k.plot, 18), centre: centroid(k.plot), area: Math.round(area(k.plot)) });
+		plotList.push({ id: plotList.length + 1, biome: k.biome, outline: rounded(k.plot, 18), centre: centroid(k.plot), area: area(k.plot), people: 0 });
+	}
+	// the real scale: all buildable land is PEOPLE × M2_PER_PERSON; each plot's people by its share of it (largest
+	// remainders, so they add up to PEOPLE exactly)
+	const units = plotList.reduce((t, p) => t + p.area, 0);
+	const scale = Math.sqrt((PEOPLE * M2_PER_PERSON) / units);
+	const shares = plotList.map((p) => (p.area / units) * PEOPLE);
+	plotList.forEach((p, i) => {
+		p.people = Math.floor(shares[i]);
+		p.area = Math.round(p.area * scale * scale);
+	});
+	let left = PEOPLE - plotList.reduce((t, p) => t + p.people, 0);
+	for (const i of shares.map((s, i) => i).sort((a, b) => (shares[b] % 1) - (shares[a] % 1))) {
+		if (left-- <= 0) break;
+		plotList[i].people++;
 	}
 
 	for (const k of cells) {
@@ -484,7 +507,7 @@ export function generateMap(seed: string): WorldMap {
 		put('conifer', x, y, 0.8 + rand() * 0.6);
 	}
 
-	return { seed, width: WIDTH, height: HEIGHT, plots: plotList, river, bank: BANK, lakes: lakes.map((l) => l.ring), features, massif };
+	return { seed, width: WIDTH, height: HEIGHT, plots: plotList, river, bank: BANK, lakes: lakes.map((l) => l.ring), features, massif, scale };
 }
 
 /** how far the hills reach beyond the map */
