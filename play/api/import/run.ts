@@ -15,7 +15,7 @@ import { hashBytes } from "../src/hash";
 import { connect, type Db, type Queryable } from "../src/pg";
 import { migrate } from "../src/migrations";
 import { FEED, fileOf, rowsOf, viewOf, type EntryView, type FeedRow } from "./feed";
-import { broughtOf, gardenWithSlots, hashRefs, parseRef, planAsset, planPins, plantWords, SANDBOX_3, PlanError, type PlannedAsset, type PlannedFile } from "./plan";
+import { broughtOf, gardenWithSlots, hashRefs, parseRef, planAsset, planPins, plantWords, SANDBOX_3, FACTORIES, PlanError, type PlannedAsset, type PlannedFile } from "./plan";
 
 // the repo root: three up from play/api/import in a checkout; PLAY_REPO in the image (/app)
 const ROOT = process.env.PLAY_REPO ?? join(import.meta.dir, "../../..");
@@ -215,6 +215,12 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
       else report.verified.pinErrors.push(`sandbox-3 ${slot}: ${ref} is not imported`);
     }
   }
+  // the Factories' pins: what its lines draw of ours, each at the version its line was built on
+  const pinsF: ReturnType<typeof planPins> = [];
+  for (const [slot, ref] of Object.entries(FACTORIES)) {
+    const r = parseRef(ref);
+    pinsF.push({ slot, asset: r.asset, number: r.number, variant: r.variant, params: r.params });
+  }
   const garden = gardenWithSlots(read("play/api/import/legacy/sandbox-4/garden/config.json"));
   // the plants Sandbox 1's interior puts by species (its beds, pots, vines and shrubs: play/site's
   // content/sandbox-2/interior/legacy.js), each at the version the stand-ins were traded for, v1, as `plant/<id>`
@@ -237,6 +243,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
     await writeAssets(tx, assets, [...files.values()], keyFor, report.written);
     await writePins(tx, "sandbox-1", pins, report.written, report.verified.pinErrors);
     await writePins(tx, "sandbox-3", pins3, report.written, report.verified.pinErrors);
+    await writePins(tx, "factories", pinsF, report.written, report.verified.pinErrors);
     // Sandbox 1's garden, each planting by its slot of the pins; written once, then play's own
     await tx.query(
       `INSERT INTO play.sandbox_configs (sandbox_id, name, data) VALUES ('sandbox-1', 'garden', ($1::text)::jsonb) ON CONFLICT DO NOTHING`,
@@ -267,8 +274,8 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
     `SELECT count(*) AS n FROM play.sandbox_pins p JOIN play.asset_versions v ON v.id = p.version_id`,
   );
   report.verified.pinsResolved = Number(pinned[0].n);
-  if (report.verified.pinsResolved !== pins.length + pins3.length)
-    report.verified.pinErrors.push(`${report.verified.pinsResolved} of ${pins.length + pins3.length} pins resolve`);
+  if (report.verified.pinsResolved !== pins.length + pins3.length + pinsF.length)
+    report.verified.pinErrors.push(`${report.verified.pinsResolved} of ${pins.length + pins3.length + pinsF.length} pins resolve`);
   report.ok = !report.assets.failed.length && !report.verified.fileErrors.length && report.verified.groupsMatch && !report.verified.pinErrors.length && !report.verified.mediaErrors.length;
   return report;
 }
@@ -366,7 +373,7 @@ export function reportText(r: Report): string {
     `| Written now | ${Object.entries(r.written).map(([k, n]) => `${k} ${n}`).join(", ")} |`,
     `| Files read back and hash-checked | ${r.verified.filesReadBack} |`,
     `| Assets per group match the feed | ${r.verified.groupsMatch ? "yes" : "no"} |`,
-    `| Sandbox pins resolving (Sandbox 1 and 3) | ${r.verified.pinsResolved} |`,
+    `| Sandbox pins resolving (Sandbox 1 and 3, the Factories) | ${r.verified.pinsResolved} |`,
     `| Media files (covers, sounds) | ${r.written.media} written, ${r.verified.mediaErrors.length} failed |`,
     `| Animals with their sound | ${r.assets.sounds} |`,
   ];
