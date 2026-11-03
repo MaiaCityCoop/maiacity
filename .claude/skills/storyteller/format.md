@@ -28,7 +28,8 @@ Every maiaCITY story is one step of one big story, and it is told inside it:
   new civilization is the *to*, being built, step by step, in the open.
 - **Assume zero background knowledge** (Samuel, 2026-11-03): every episode is someone's first. Say who we are and
   what we are doing in plain words early, and every term as what it does.
-- **Never talk about AI** (`SKILL.md`, law 7): the work is told as *we* and *I*.
+- **Never talk about AI, nor about code** (`SKILL.md`, law 7): the work is told as *we* and *I*; a mistake is what
+  the viewer sees and what the real thing taught us, never a line that was wrong.
 
 ## Half one: the devlog (Homegrown, a farming game, Hamburg)
 
