@@ -64,7 +64,7 @@
 	// reviewing one: the version built in the asset box (the sandboxed frame every recipe runs in), large; its note
 	// folded; its readable source beside its base's, as the lines that changed, a button away. Code is only text here.
 	type Build = { hash: string; variant: string | null; label: string; first: boolean };
-	type Review = { id: string; source: string | null; recipe: string | null; baseVersion: { number: number; source: string | null } | null; builds: Build[] };
+	type Review = { id: string; source: string | null; recipe: string | null; baseVersion: { number: number; source: string | null } | null; builds: Build[]; steps?: Step[] };
 	let open = $state<P | null>(null);
 	let review = $state<Review | null>(null);
 	let code = $state('');
@@ -229,6 +229,18 @@
 							</div>
 						{/if}
 						<p class="muted small">Built in the asset box: a sandboxed frame with no origin, running the frozen engine in a worker, with no network, no storage and no access to this page.</p>
+						{#if (review.steps?.length ?? 0) > 1}
+							<!-- the steps it was made in: its branch of the asset's Loro document (play/SPEC.md §4.4) -->
+							<h3 class="steps-head">Made in {review.steps!.length} steps</h3>
+							<ol class="steps">
+								{#each review.steps! as s (s.seq)}
+									<li>
+										<span class="msg">{s.message}</span>
+										<span class="muted small">{s.author ?? 'play'}{s.via === 'mcp' ? ' · MCP' : ''} · {new Date(s.at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+									</li>
+								{/each}
+							</ol>
+						{/if}
 					{/if}
 				</div>
 				{#if showSource && review}

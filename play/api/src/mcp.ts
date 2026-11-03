@@ -1,8 +1,9 @@
 // play's MCP server (/api/mcp, Streamable HTTP, stateless): an agent works on Maia City's assets and stories for an
 // admin, by that admin's access token (./tokens.ts, `Authorization: Bearer play_…`). It reads the assets, their versions
-// and their recipe files, and proposes new versions and new assets; it reads the stories (./stories.ts) and proposes new
-// stories and new versions of them, with the storyboard images they show. All are filed as the admin's proposals with
-// `via` 'mcp'. Accepting or rejecting stays a person's, on the Proposals page (Samuel 2026-11-02): no tool here decides.
+// and their recipe files, and proposes new versions and new assets, drafted step by step if it likes (asset_edit, each
+// step kept in the asset's Loro document, ./assetdocs.ts); it reads the stories (./stories.ts) and proposes new stories
+// and new versions of them, with the storyboard images they show. All are filed as the admin's proposals with `via`
+// 'mcp'. Accepting or rejecting stays a person's, on the Proposals page (Samuel 2026-11-02): no tool here decides.
 import type { BlobStore } from "./blobs";
 import type { Db } from "./pg";
 import type { Me } from "./access";
@@ -10,6 +11,7 @@ import { assetOf, listAssets, NotFound } from "./assets";
 import { listProposals, propose, ProposalError } from "./proposals";
 import { adminByToken } from "./tokens";
 import { admin, editStory, listStories, MOST_FRAME, proposeStory, putFrameBase64, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
+import { AssetDocError, assetAtStep, assetHistory, editAsset } from "./assetdocs";
 
 const PROTOCOL = "2025-06-18";
 const HASH = /^[0-9a-f]{64}$/;
@@ -60,9 +62,49 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     },
     {
       name: "get_asset",
-      description: "One asset by its id, with all its versions, newest first: each version's number, note, author, who accepted it, its recipe file's hash and its readable source's hash where it has one (and its variants').",
-      inputSchema: { type: "object", properties: { asset: { type: "string", description: "the asset's id (UUID)" } }, required: ["asset"], additionalProperties: false },
-      run: async ({ asset }) => assetOf(db, `${asset}`),
+      description:
+        "One asset by its id, with all its versions, newest first: each version's number, note, author, who accepted it, its recipe file's hash and its readable source's hash where it has one (and its variants'). " +
+        "With `step` (asset_history's `seq`), the asset as it was at that step of its history instead: its whole source as text, its label, note, engine, card and variants.",
+      inputSchema: {
+        type: "object",
+        properties: { asset: { type: "string", description: "the asset's id (UUID)" }, step: { type: "integer", minimum: 1, description: "a step of its history (asset_history's `seq`)" } },
+        required: ["asset"],
+        additionalProperties: false,
+      },
+      run: async ({ asset, step }, me) => (step != null ? assetAtStep(db, store, me, `${asset}`, Number(step)) : assetOf(db, `${asset}`)),
+    },
+    {
+      name: "asset_history",
+      description:
+        "Every step of an asset's history, oldest first: each with its seq, who made it (and whether over MCP), its message, its time, and the version it was named, if one. An asset is kept step by step (a Loro document, play/SPEC.md §4.4): its accepted versions, the work kept between them, every asset_edit and every proposal are steps. Also its versions and its drafts (each draft's status, steps and proposal). With `draft`, one draft's own steps. Read any step's source with get_asset's `step`.",
+      inputSchema: {
+        type: "object",
+        properties: { asset: { type: "string", description: "the asset's id (UUID)" }, draft: { type: "integer", minimum: 1, description: "a draft's number, for its own steps" } },
+        required: ["asset"],
+        additionalProperties: false,
+      },
+      run: async ({ asset, draft }, me) => assetHistory(db, store, me, `${asset}`, draft == null ? {} : { branch: Number(draft) }),
+    },
+    {
+      name: "asset_edit",
+      description:
+        "One step of a draft change to an asset, kept with its message: work on an asset step by step (each fix, each tuning its own step, so the history shows how it was made), then propose the draft as a version with propose_version and its `branch`. Without `branch` it starts a new draft from the asset's head and gives back its number; pass that number to the next steps. Nobody sees a draft as the asset until it is proposed and accepted; the source is checked as readable code when it is proposed. " +
+        "Edits, applied in order: { op: 'replace', find, replace, field?: 'source' | 'note', variant? } replaces the one place `find` stands in the source (give enough of it to be unique); { op: 'text', path: ['source'], index, delete?, insert? } changes a range of a text by its position; { op: 'set', path: ['card', 'card', 'label'], value } sets a field of the card (or the label, note, engine); { op: 'delete', path }. Or give a whole new `source`, `label` or `note` instead of edits.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          asset: { type: "string", description: "the asset's id (UUID)" },
+          message: { type: "string", description: "what this step does, as its history will say it" },
+          branch: { type: "integer", minimum: 1, description: "the draft to add the step to (asset_edit gives it); a new draft from the head if left out" },
+          edits: { type: "array", items: { type: "object" }, description: "edits applied in order to the draft" },
+          source: { type: "string", description: "the draft's whole new readable source (instead of edits)" },
+          label: { type: "string", description: "a new label" },
+          note: { type: "string", description: "the note the version will carry" },
+        },
+        required: ["asset", "message"],
+        additionalProperties: false,
+      },
+      run: async ({ asset, message, branch, edits, source, label, note }, me) => editAsset(db, store, me, { asset: `${asset}`, message, edits, source, label, note, ...(branch != null ? { branch: Number(branch) } : {}) }),
     },
     {
       name: "get_file",
@@ -77,19 +119,24 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     },
     {
       name: "propose_version",
-      description: `Propose a new version of an asset. It goes to Maia City's admins as a proposal (via MCP), to accept or reject on the Proposals page. ${RECIPE_RULE}`,
+      description:
+        `Propose a new version of an asset. It goes to Maia City's admins as a proposal (via MCP), to accept or reject on the Proposals page, where they see it built in the asset box and the steps it was made in. Give its whole \`source\`, or propose a draft made step by step with asset_edit (its \`branch\`): its steps go with it. ${RECIPE_RULE}`,
       inputSchema: {
         type: "object",
         properties: {
           asset: { type: "string", description: "the asset's id (UUID)" },
-          source: { type: "string", description: "the new version's readable source (see above)" },
+          source: { type: "string", description: "the new version's readable source (see above); with `branch`, the draft's source if left out" },
           note: { type: "string", description: "what changed and why, for the admins deciding" },
           base: { type: "string", description: "the head version's id it was made from (from get_asset); refused if the asset moved on since" },
+          branch: { type: "integer", minimum: 1, description: "a draft made with asset_edit, proposed as it stands" },
         },
-        required: ["asset", "source", "note"],
+        required: ["asset", "note"],
         additionalProperties: false,
       },
-      run: async ({ asset, source, note, base }, me) => propose(db, store, me, { asset, source: `${source ?? ""}`, note, ...(base ? { base } : {}) }, "mcp"),
+      run: async ({ asset, source, note, base, branch }, me) => {
+        if (branch == null && !source) throw new ProposalError("Give the new version's source, or the draft (branch) it stands in.");
+        return propose(db, store, me, { asset, ...(source ? { source: `${source}` } : {}), note, ...(base ? { base } : {}), ...(branch != null ? { branch: Number(branch) } : {}) }, "mcp");
+      },
     },
     {
       name: "propose_asset",
@@ -254,7 +301,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           capabilities: { tools: {} },
           serverInfo: { name: "play.maia.city", version: "1" },
           instructions:
-            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files; propose new versions or assets as readable source. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame. Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's Proposals page, then accept or reject it; nothing here decides, and no proposed code runs on play's server.",
+            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files, and every step of an asset's history (asset_history, get_asset at a step); propose new versions or assets as readable source, or draft a version step by step with asset_edit and propose the draft. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame. Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's Proposals page, then accept or reject it; nothing here decides, and no proposed code runs on play's server.",
         });
       case "ping":
         return reply(msg.id, {});
@@ -268,7 +315,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           return reply(msg.id, { content: [{ type: "text", text: JSON.stringify(out, null, 2) }], structuredContent: Array.isArray(out) ? { items: out } : out });
         } catch (e) {
           // what went wrong, as the tool's own answer the agent reads (a refused recipe, a moved head, no such asset)
-          if (e instanceof ProposalError || e instanceof NotFound || e instanceof StoryError || (e as Error)?.name === "Denied" || (e as any)?.status)
+          if (e instanceof ProposalError || e instanceof NotFound || e instanceof StoryError || e instanceof AssetDocError || (e as Error)?.name === "Denied" || (e as any)?.status)
             return reply(msg.id, { content: [{ type: "text", text: (e as Error).message }], isError: true });
           console.error(e);
           return reply(msg.id, { content: [{ type: "text", text: "Something went wrong on play's side." }], isError: true });

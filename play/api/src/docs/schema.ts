@@ -160,10 +160,23 @@ export const STORY: DocType = {
 };
 
 /**
- * An asset as a document (play/SPEC.md §4.4, its move onto Loro comes later): its readable source as text, edited
- * and kept character by character; its card and its variants. A merged source is code: built and previewed in the box
- * before it is accepted.
+ * An asset as a document (play/SPEC.md §4.4, ../assetdocs.ts): its readable source as text, kept line by line and
+ * character by character; its label, note and engine; its card (the version's record, a map of plain fields); and,
+ * for a kind of variants, its default variant and each variant's card and, where it differs from the asset's own, its
+ * source. A merged source is code: built and previewed in the box before it is accepted.
  */
+const VARIANT = "^[a-z0-9][a-z0-9-]{0,79}$";
+const variant: Node = {
+  type: "object",
+  required: ["name"],
+  properties: {
+    name: { type: "string", pattern: VARIANT },
+    source: { type: "string", maxLength: 16_000_000, "x-loro": "text" },
+    card: { type: "object", additionalProperties: true },
+    values: { type: "object", additionalProperties: true },
+  },
+  additionalProperties: true,
+};
 export const ASSET: DocType = {
   name: "asset/1",
   type: "asset",
@@ -175,16 +188,23 @@ export const ASSET: DocType = {
       schema: { const: "asset/1" },
       label: { type: "string", minLength: 1, maxLength: 200 },
       note: { type: "string", maxLength: 20000, "x-loro": "text" },
-      source: { type: "string", maxLength: 4_000_000, "x-loro": "text" },
+      source: { type: "string", maxLength: 16_000_000, "x-loro": "text" },
       engine: { type: "integer", minimum: 1 },
       card: { type: "object", additionalProperties: true },
-      variants: {
-        type: "array",
-        maxItems: 256,
-        items: { type: "object", required: ["name"], properties: { name: { type: "string", pattern: ID }, values: { type: "object", additionalProperties: true } }, additionalProperties: true },
-      },
+      defaultVariant: { type: "string", pattern: VARIANT },
+      variants: { type: "array", maxItems: 256, items: variant },
     },
     additionalProperties: true,
+  },
+  check(doc) {
+    const out: string[] = [];
+    const names = new Set<string>();
+    for (const v of doc.variants ?? []) {
+      if (names.has(v.name)) out.push(`variant ${v.name}: its name is taken twice`);
+      names.add(v.name);
+    }
+    if (doc.defaultVariant !== undefined && !names.has(doc.defaultVariant)) out.push(`its default variant ${doc.defaultVariant} is none of its variants`);
+    return out;
   },
 };
 

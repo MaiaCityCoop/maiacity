@@ -7,14 +7,14 @@
 	`#<asset id>` (its UUID), a version or variant of it `#<asset id>/<hash>`.
 -->
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { playCall, stopCall, unlock } from '$lib/call';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import { api, may } from '$lib/api';
 	import { session } from '$lib/session.svelte';
 	import { catalogReady } from '$lib/recipes';
-	import { recipeInfo, source } from '$lib/content/assets/catalog.js';
+	import { admitProposed, recipeInfo, source } from '$lib/content/assets/catalog.js';
 
 	type Listed = { id: string; grp: string; slug: string; label: string; head: number; versions: number };
 	type Variant = { name: string; recipe: string; label: string | null };
@@ -122,6 +122,92 @@
 	$effect(() => {
 		if (picked) tab = 'parts';
 	});
+
+	// ---- its history, step by step (the asset's Loro document, play/SPEC.md §4.4): admins scrub every step and see the
+	// asset built in the box as it stood there; play runs through them as a time-lapse of how it was made
+	type Step = { seq: number; kind: string; author: string | null; via: string; message: string; at: string; version: number | null };
+	const admin = $derived(session.me?.level === 'admin');
+	let steps = $state<Step[]>([]);
+	let atStep = $state<Step | null>(null);
+	let stepHash = $state<string | null>(null);
+	let stepError = $state('');
+	let playing = $state(false);
+	let asked = 0;
+	const when = (iso: string) => new Date(iso).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+	$effect(() => {
+		const id = chain?.id;
+		steps = [];
+		atStep = null;
+		stepHash = null;
+		playing = false;
+		if (!id || !admin) return;
+		let gone = false;
+		api<{ steps: Step[] }>(`/assets/${id}/history`).then(
+			(h) => !gone && (steps = h.steps),
+			() => {}
+		);
+		return () => (gone = true);
+	});
+	// another version picked in the chain: back to it, the history let go
+	$effect(() => {
+		void shownHash;
+		atStep = null;
+		stepHash = null;
+		playing = false;
+	});
+	/** the asset as it stood at step `s`: its recipe file at that step (play keeps it by its hash), built in the box */
+	async function pickStep(s: Step) {
+		if (!chain || atStep?.seq === s.seq) return;
+		const ask = ++asked;
+		stepError = '';
+		try {
+			const b = await api<any>(`/assets/${chain.id}/steps/${s.seq}/recipe`);
+			if (ask !== asked) return;
+			await admitProposed([b]);
+			atStep = s;
+			stepHash = b.hash;
+		} catch (e) {
+			if (ask === asked) stepError = (e as Error).message;
+		}
+	}
+	function backToVersion() {
+		asked++;
+		playing = false;
+		atStep = null;
+		stepHash = null;
+	}
+	const stepIndex = $derived(atStep ? steps.findIndex((s) => s.seq === atStep!.seq) : -1);
+	let scrubbing = false;
+	function scrubAt(e: PointerEvent) {
+		const el = e.currentTarget as HTMLElement, r = el.getBoundingClientRect();
+		const i = Math.max(0, Math.min(steps.length - 1, Math.floor(((e.clientX - r.left) / r.width) * steps.length)));
+		if (steps[i]) pickStep(steps[i]);
+	}
+	// the time-lapse: a step at a time, each held long enough to be built and seen (longer on a touch screen, which
+	// builds only the step it shows)
+	$effect(() => {
+		if (!playing) return;
+		const slow = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+		let gone = false;
+		untrack(() => {
+			(async () => {
+				// from the step shown (from the first, at the end or at none)
+				let i = atStep && stepIndex < steps.length - 1 ? stepIndex : -1;
+				while (!gone && playing) {
+					i++;
+					if (i >= steps.length) {
+						playing = false;
+						break;
+					}
+					await pickStep(steps[i]);
+					await new Promise((r) => setTimeout(r, slow ? 4200 : 2600));
+				}
+			})();
+		});
+		return () => (gone = true);
+	});
+	const viewerHash = $derived(stepHash ?? shownHash);
+	const viewerInfo = $derived(viewerHash ? recipeInfo(viewerHash) : undefined);
 </script>
 
 <svelte:window onhashchange={() => (hash = decodeURIComponent(location.hash.slice(1)))} onpointerdown={unlock} onkeydown={unlock} />
@@ -151,6 +237,43 @@
 				<button class="chip call" class:on={calling} onclick={() => (calling ? hush() : chain && call(chain))} aria-pressed={calling}>{calling ? '■ Stop its call' : '▶ Hear its call'}</button>
 			{/if}
 		</header>
+		{#if admin && steps.length > 1}
+			<div class="history">
+				<div class="history-head">
+					<h4>History <small>{steps.length} steps</small></h4>
+					<button class="chip" onclick={() => (playing = !playing)} aria-pressed={playing}>{playing ? '❚❚ Pause' : '▶ Play its making'}</button>
+					{#if atStep}<button class="chip" onclick={backToVersion}>Back to v{shownVersion.number}</button>{/if}
+				</div>
+				<div
+					class="ticks"
+					role="slider"
+					tabindex="0"
+					aria-label="The asset's history, step by step"
+					aria-valuemin={1}
+					aria-valuemax={steps.length}
+					aria-valuenow={atStep ? stepIndex + 1 : steps.length}
+					onpointerdown={(e) => { playing = false; scrubbing = true; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); scrubAt(e); }}
+					onpointermove={(e) => scrubbing && scrubAt(e)}
+					onpointerup={() => (scrubbing = false)}
+					onkeydown={(e) => {
+						const i = atStep ? stepIndex : steps.length;
+						if (e.key === 'ArrowLeft' && i > 0) pickStep(steps[i - 1]);
+						if (e.key === 'ArrowRight' && i < steps.length - 1) pickStep(steps[i + 1]);
+					}}
+				>
+					{#each steps as s (s.seq)}
+						<span class="tick" class:v={s.version} class:mcp={s.via === 'mcp'} class:merge={s.kind === 'merge'} class:on={atStep?.seq === s.seq} title="{s.message} · {s.author ?? 'play'}{s.via === 'mcp' ? ' (MCP)' : ''} · {when(s.at)}"
+							>{#if s.version}<span class="vlabel">v{s.version}</span>{/if}</span
+						>
+					{/each}
+				</div>
+				<p class="soft caption">
+					{#if stepError}{stepError}
+					{:else if atStep}Step {stepIndex + 1} of {steps.length}: “{atStep.message}” · {atStep.author ?? 'play'}{atStep.via === 'mcp' ? ' via MCP' : atStep.via === 'import' ? ' (imported)' : ''} · {when(atStep.at)}
+					{:else}Every step it was made in, kept: drag along the bar to build it as it stood at any of them{/if}
+				</p>
+			</div>
+		{/if}
 		<div bind:this={details}></div>
 		<div class="tabs" role="tablist">
 			<button role="tab" aria-selected={tab === 'versions'} class:on={tab === 'versions'} onclick={() => (tab = 'versions')}>Versions</button>
@@ -210,7 +333,7 @@
 				{:then { default: VaultAsset }}
 					<div class="viewer">
 						{#key shownHash}
-							<VaultAsset {source} hash={shownHash} title="{info.label} v{info.v}" note={shownVersion?.note ?? ''} bind:catalog bind:picked {solo} fill named={false} {details} />
+							<VaultAsset {source} hash={viewerHash ?? shownHash} title="{(viewerInfo ?? info).label} v{(viewerInfo ?? info).v}{atStep ? ` · step ${stepIndex + 1}` : ''}" note={atStep ? atStep.message : (shownVersion?.note ?? '')} bind:catalog bind:picked {solo} fill named={false} {details} />
 						{/key}
 					</div>
 				{/await}
@@ -275,4 +398,20 @@
 	dd { margin: 0; overflow-wrap: anywhere; }
 	.propose { font-size: 0.8rem; margin: 1rem 0 0 0.35rem; }
 	.empty { padding: 1rem; border: 1px dashed var(--line); border-radius: 12px; color: var(--soft); }
+	/* its history: a thin bar of every step, versions marked, dragged (or played) to build it as it stood */
+	.history { display: grid; gap: 0.3rem; margin: 0 0 0.9rem 0.35rem; }
+	.history-head { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+	.history-head h4 { margin: 0 auto 0 0; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--soft); }
+	.history-head h4 small { text-transform: none; letter-spacing: 0; font-weight: 500; }
+	.ticks { position: relative; display: flex; align-items: flex-end; height: 1.7rem; padding-top: 0.75rem; cursor: ew-resize; touch-action: none; border-bottom: 1px solid var(--line); outline: none; }
+	.ticks:focus-visible { box-shadow: 0 2px 0 var(--brand-green); }
+	.tick { position: relative; flex: 1 1 0; height: 0.5rem; display: flex; justify-content: center; }
+	.tick::before { content: ''; width: 2px; height: 100%; border-radius: 1px; background: color-mix(in srgb, var(--brand-green) 35%, transparent); }
+	.tick.mcp::before { background: var(--sage, #8fae8b); }
+	.tick.merge::before { background: var(--brand-green); }
+	.tick.v { height: 0.85rem; }
+	.tick.v::before { width: 3px; background: var(--brand-green); }
+	.tick.on::before { width: 4px; background: var(--terracotta, #c8744f); }
+	.vlabel { position: absolute; bottom: 100%; font-size: 0.62rem; font-weight: 700; line-height: 1; color: var(--brand-green); pointer-events: none; }
+	.caption { margin: 0; font-size: 0.74rem; line-height: 1.35; }
 </style>

@@ -15,6 +15,7 @@ import { listTables, readTable, TableError } from "./tables";
 import { decide, listProposals, proposalOf, propose, ProposalError, type Verdict } from "./proposals";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 import { listStories, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
+import { AssetDocError, assetHistory, recipeAtStep } from "./assetdocs";
 
 type Handler = (req: Request, params: Record<string, string>) => Promise<Response> | Response;
 type Route = { method: string; pattern: RegExp; keys: string[]; handler: Handler };
@@ -78,6 +79,17 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     if (!UUID.test(p.id)) throw new NotFound("An asset is named by its id, a UUID.");
     return json(await assetOf(db, p.id));
   });
+  // an asset's history, step by step (its Loro document, play/SPEC.md §4.4), and the recipe file it builds at any step,
+  // kept among play's files by its hash for the asset viewer's history bar: admins only (before /:id/:v, which they'd match)
+  on("GET", "/api/assets/:id/history", async (req, p) => {
+    if (!UUID.test(p.id)) throw new NotFound("An asset is named by its id, a UUID.");
+    const b = new URL(req.url).searchParams.get("draft");
+    return json(await assetHistory(db, store, await me(req), p.id, b == null ? {} : { branch: Number(b) }));
+  });
+  on("GET", "/api/assets/:id/steps/:seq/recipe", async (req, p) => {
+    if (!UUID.test(p.id)) throw new NotFound("An asset is named by its id, a UUID.");
+    return json(await recipeAtStep(db, store, await me(req), p.id, Number(p.seq)));
+  });
   on("GET", "/api/assets/:id/:v", async (req, p) => {
     must(await me(req), "read", "assets");
     if (!UUID.test(p.id)) throw new NotFound("An asset is named by its id, a UUID.");
@@ -124,7 +136,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("POST", "/api/proposals", async (req) => json(await propose(db, store, await me(req), await body(req)), { status: 201 }));
   on("POST", "/api/proposals/:id/:verdict", async (req, p) => {
     if (!["accept", "reject", "withdraw"].includes(p.verdict)) throw new NotFound("No such verdict.");
-    return json(await decide(db, await me(req), p.id, p.verdict as Verdict));
+    return json(await decide(db, store, await me(req), p.id, p.verdict as Verdict));
   });
 
   // ---- the coop
@@ -189,7 +201,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       try {
         return await r.handler(req, params);
       } catch (e) {
-        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError)
+        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError)
           return json({ error: e.message }, { status: (e as any).status });
         console.error(e);
         return json({ error: "Something went wrong on our side." }, { status: 500 });
