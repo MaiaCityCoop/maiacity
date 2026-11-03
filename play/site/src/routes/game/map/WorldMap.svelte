@@ -45,7 +45,9 @@
 		world?.select(null);
 	}
 
-	const ha = (m2: number) => (m2 / 10000).toLocaleString('en', { maximumFractionDigits: 1 });
+	const km2 = (m2: number) => (m2 / 1e6).toLocaleString('en', { maximumFractionDigits: 2 });
+	const num = (n: number) => n.toLocaleString('en');
+	const totals = $derived.by(() => ({ people: (map?.plots ?? []).reduce((t, p) => t + p.people, 0), area: (map?.plots ?? []).reduce((t, p) => t + p.area, 0) }));
 
 	onMount(() => {
 		grow(new URLSearchParams(location.search).get('seed') || randomSeed());
@@ -74,6 +76,9 @@
 			{/each}
 			<li class="wild"><i style:background={BIOMES.mountain.colour}></i>Mountains<small>not buildable</small></li>
 		</ul>
+		{#if map}
+			<p class="totals chip">{num(map.plots.length)} villages · {num(totals.people)} people · {num(Math.round(totals.area / 1e6))} km²</p>
+		{/if}
 	</header>
 
 	{#if picked}
@@ -81,7 +86,8 @@
 			<button class="close" aria-label="Close" onclick={close}>×</button>
 			<p class="kicker"><i style:background={BIOMES[picked.biome].colour}></i>{BIOMES[picked.biome].label}</p>
 			<h2>Plot {picked.id}</h2>
-			<p>{ha(picked.area)} ha · gives {BIOMES[picked.biome].gives.join(' and ')}</p>
+			<p>{km2(picked.area)} km² · room for {num(picked.people)} people</p>
+			<p>Gives {BIOMES[picked.biome].gives.join(' and ')}</p>
 			<p class="muted">Free. Nothing is built here yet.</p>
 		</aside>
 	{/if}
@@ -101,6 +107,7 @@
 	.legend { display: flex; flex-wrap: wrap; gap: 0.2rem 0.9rem; list-style: none; margin: 0; padding: 0.55rem 0.9rem; font-size: 0.85rem; color: var(--ink-soft); }
 	.legend li { display: flex; align-items: center; gap: 0.35rem; }
 	.legend small { color: var(--muted); }
+	.totals { margin: 0; padding: 0.55rem 0.9rem; font-size: 0.85rem; color: var(--ink-soft); }
 	i { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 50%; }
 	.plot { position: absolute; left: 16px; bottom: var(--nav-room); width: min(300px, calc(100vw - 32px)); padding: 1rem 1.2rem; background: #fbf6ea; border: 1px solid #e3d3ad; border-radius: 16px; box-shadow: 0 2px 0 #e7d9b8, 0 8px 20px rgb(110 85 40 / 0.12); }
 	.plot h2 { margin: 0.1rem 0 0.3rem; font-family: var(--font-display); font-size: 1.4rem; }
