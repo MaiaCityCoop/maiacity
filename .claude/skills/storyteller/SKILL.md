@@ -40,6 +40,7 @@ viewer stays to the last line. The hook itself is the `hook-writer`'s; the pictu
 | `scenes.md` | scene by scene | how each scene moves the story: the next-button test, but/therefore, intention and obstacle, value turns, setups and payoffs, introducing people through action, the vlog that is based on a true story |
 | `emotion.md` | the emotional journey | the feelings the viewer goes through beat by beat, tension and release as pairs of feelings, marking them on the arc (`story_arc`'s `feel`), how sound, colour, pace and light follow them |
 | `retention.md` | tension and release | the intensity curve, contrast in every sense, curiosity and payoff, the retention playbook second by second, pace |
+| `devlogs.md` | how ThinMatrix and The Sapling tell devlogs | their hooks, structure, voice, editing and retention, studied from their videos, and 15 rules for maiaCITY (title the change, a claim not a greeting, the viewer's objection said aloud, a roadmap to the extreme, game beside real, failure as comedy → cause → fix) |
 | `writing.md` | the words | who speaks, the world's facts, rhythm, "Imagine…" scenes, the post file, writing for the ear, the checklist |
 
 ## The order of work

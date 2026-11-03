@@ -28,7 +28,7 @@ Every maiaCITY story is one step of one big story, and it is told inside it:
 
 ## Half one: the devlog (Homegrown, a farming game, Hamburg)
 
-A solo developer's weekly devlog (https://www.youtube.com/watch?v=kza94XqkQQ8), built on a few devices that work
+A solo developer's weekly devlog (https://www.youtube.com/watch?v=Ld9qvxoaB6Y), built on a few devices that work
 every week:
 
 | Device | In the devlog | Why it holds |
@@ -45,7 +45,7 @@ every week:
 
 ## Half two: the cinematic vlog (LifeOfRiza, "how I make my videos")
 
-Kariza's own account of how a LifeOfRiza video is made (https://www.youtube.com/watch?v=Ld9qvxoaB6Y), adding to her
+Kariza's own account of how a LifeOfRiza video is made (https://www.youtube.com/watch?v=kza94XqkQQ8), adding to her
 three rules in `scenes.md`:
 
 | Principle | In her words | For us |
