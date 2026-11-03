@@ -126,6 +126,16 @@ Every film runs in the same order:
 
 So the hook no longer needs its own intro line: write the hook and its promise, and let the trailer carry who we are.
 
+## Visionary hooks: what StealNova teaches (`storyteller/stealnova.md`)
+
+- **The viewer's own future, on a clock:** *you*, and a horizon (Day 1, the first year, the first fruit).
+- **Wonder in the title, never dread.** The hard part (drowning roots, failures, tired land) is a beat inside.
+- **The thumbnail words are not the title:** two or three huge words naming the end state (FRUIT IN A YEAR, NOT A
+  TREE). A phrase that worked is reused.
+- **Say the loop out loud** in the hook intro: "By the end you'll know why…", and the film pays it by name.
+- **Credible, not inflated:** a promise the film keeps, a fact a stranger can check. No borrowed authority, no
+  news-cycle words ("just arrived", "this week").
+
 ## Anchor and promise — the two jobs of every hook
 
 A hook does more than grab attention: it gives the reader an **irresistible reason to keep going**. That takes two
