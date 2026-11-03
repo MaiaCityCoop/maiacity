@@ -20,6 +20,11 @@ server, import, Caddy) and the website (its build into the server's `site/releas
 Before you push, run the checks of what you touched: in `play/api` `bunx tsc --noEmit && bun test` (with
 `TEST_DATABASE_URL`), in `play/site` `bun run build`, in `website` `bun run check && bun run build`.
 
+**Ship without asking** (Samuel 2026-11-03): once a change is done and its checks pass, mark its pull request ready,
+merge it into `main` (a merge commit), open the pull request `main` → `production` and merge it when its gates are
+green, so it deploys. Do not ask first; say what shipped, and report a failing check or deploy instead of merging past
+it.
+
 ## Backups
 
 Every deploy first backs up play to the bucket `maiacity` (`BACKUPS/play/…`: its schema dump, a full copy of its files,
