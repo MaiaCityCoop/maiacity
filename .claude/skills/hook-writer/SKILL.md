@@ -109,6 +109,23 @@ breakfast table*, *a city ↔ a child's hand on a fruit*, *a fresh start for how
 gives the stakes, the intimate makes a stranger feel it in their own life (`storyteller/emotion.md`, "The series'
 signature journey").
 
+## The fixed trailer and the order of a film (Samuel, 2026-11-03)
+
+Every film runs in the same order:
+
+1. **The topic hook, always two things** (Samuel, 2026-11-03):
+   - **the title:** at most 7–8 words, fewer is better — on the card, the thumbnail, the YouTube title, the first
+     frame;
+   - **the hook intro:** one or two spoken sentences about this episode's actual topic, opening its question and
+     making its promise (about 3–8 s). The promise is often the insight the viewer will learn (how a food forest
+     starts, why this plant goes first): every story teaches (`storyteller`, law 6b).
+2. **The trailer, fixed, the same in every film, spoken by Samuel:** *"This is the story of how one million humans build a ten times better way of living: their own solarpunk city, from the ground up. First in a game, then for real."* It replaces any per-episode intro about
+   who we are; never rewrite it.
+3. **The story,** which keeps the hook's promise: it opens on the day ("Day 1") and walks to the payoff the hook
+   promised, answered by the end.
+
+So the hook no longer needs its own intro line: write the hook and its promise, and let the trailer carry who we are.
+
 ## Anchor and promise — the two jobs of every hook
 
 A hook does more than grab attention: it gives the reader an **irresistible reason to keep going**. That takes two
@@ -192,7 +209,8 @@ The hook is also set into the day's title cards (`maia/content/scripts/film/thum
 
 ## Compact
 
-- **A hook: at most ~10 words** (it is the title). A title card: readable in one second at phone size. A spoken film
+- **The title: at most 7–8 words, fewer is better** (Samuel, 2026-11-03). The hook intro after it carries the rest
+  of the topic in one or two spoken sentences. A title card: readable in one second at phone size. A spoken film
   hook: within the first ~10 s, one breath; the intro that follows it: 3–30 s by the film's length.
 - One sentence is usually the whole hook. The line after it disqualifies the obvious answer (*"Not the overworked.
   Not the underpaid."*) — the reader's first guess is the biggest threat to the second paragraph.
