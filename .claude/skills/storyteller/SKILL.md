@@ -22,7 +22,9 @@ viewer stays to the last line. The hook itself is the `hook-writer`'s; the pictu
 6. **Tension, release, a bigger tension — as feelings.** Name what the viewer feels at every beat, each feeling set
    against the one before; close one loop and open the next in the same breath; the peak comes late (`emotion.md`,
    `retention.md`).
-7. **Based on a true story.** Re-enact, compress, plan every shot — but invent nothing about Samuel's life, the
+7. **Never talk about AI** (Samuel, 2026-11-03). No line, caption or title says "AI", "our AI" or "an AI": the work
+   is ours, told as *we* and *I*.
+8. **Based on a true story.** Re-enact, compress, plan every shot — but invent nothing about Samuel's life, the
    viewers, attempts or results (`writing.md`, `scenes.md`).
 
 ## The sub-skills
