@@ -17,10 +17,13 @@
 	import { loadMe, session, signOut } from '$lib/session.svelte';
 	import { acting, actAs } from '$lib/acting.svelte';
 	import SignIn from '$lib/SignIn.svelte';
+	import { dev } from '$app/environment';
 
 	let { children } = $props();
 	onMount(loadMe);
 
+	// the render bench (/render, ./render/+page.svelte) is a developer's tool: in development it needs no account
+	const bench = $derived(dev && page.url.pathname.startsWith('/render'));
 	// a new build deployed while this page was open (svelte.config's pollInterval sets updated.current): the next
 	// navigation loads it whole instead of going on with the old code; a tab coming back into view (an iPad's Safari
 	// keeps one for days) checks and reloads where nothing is lost by it, the sandboxes and the game going on until
@@ -61,7 +64,9 @@
 	});
 </script>
 
-{#if !session.ready}
+{#if bench}
+	{@render children()}
+{:else if !session.ready}
 	<main class="page"><p class="muted">Loading…</p></main>
 {:else if !session.me}
 	<SignIn />
