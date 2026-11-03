@@ -45,3 +45,7 @@ source** (play refuses minified code and wraps the source into the recipe file i
 under the admin's name, marked MCP, where people read the source and see it built in the asset box (the sandboxed
 frame; proposed code never runs on the server or on play's origin) before they decide. No tool accepts or rejects. Admins only for now:
 a token opens nothing once its owner is no admin.
+
+Claude Code sessions get it from the repository's `.mcp.json` (server `play`), which reads the token from the environment
+variable `PLAY_MCP_TOKEN`: in a cloud environment it is set in the environment's settings (never in git), and
+`play.maia.city` must be allowed by its network access. Without the variable the server only fails to connect.
