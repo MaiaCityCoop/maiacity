@@ -559,7 +559,7 @@ export function groundOf(stage, { cover = !stage.low } = {}) {
 			reach,
 			near: reach * 0.45,
 			thin: 0.2,
-			perFrame: 3,
+			perFrame: 4,
 			seed: 77,
 			away: {
 				key: 'viewer-pit',
@@ -684,7 +684,8 @@ export function groundOf(stage, { cover = !stage.low } = {}) {
 				g.visible = mesh.visible && mesh.layers.test(camera.layers);
 				if (mesh.isInstancedMesh) g.count = mesh.count;
 			}
-			stream?.update(pit.uEye.value.x, pit.uEye.value.z);
+			// on a turntable the plant is the middle of what is seen: the cover stands full round it and thins outwards
+			stream?.update(c.x, c.z);
 		},
 		dispose() {
 			group.removeFromParent();
