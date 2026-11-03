@@ -8,6 +8,7 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import { session } from '$lib/session.svelte';
+	import { goto } from '$app/navigation';
 	import StoryPlayer from '$lib/stories/StoryPlayer.svelte';
 	import { clock, type Story } from '$lib/stories/timeline';
 
@@ -43,7 +44,9 @@
 		loading = false;
 	}
 	onMount(async () => {
-		if (!admin) return;
+		// admins only (Samuel 2026-11-03): anyone else is taken back to the dashboard, as from the Factories and the
+		// Proposals; the API hands stories to admins alone
+		if (!admin) return void goto('/', { replaceState: true });
 		try {
 			list = await api<Item[]>('/stories');
 		} catch (e) {
@@ -110,9 +113,7 @@
 <svelte:head><title>Stories · maiaCITY play</title></svelte:head>
 <svelte:window onhashchange={onHash} />
 
-{#if !session.me || !admin}
-	<main class="page"><h1>Stories</h1><p class="muted">Admins only.</p></main>
-{:else}
+{#if admin}
 	<main class="stories">
 		<nav class="list" aria-label="Stories">
 			<h1>Stories</h1>

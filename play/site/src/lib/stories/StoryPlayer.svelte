@@ -24,7 +24,11 @@
 	const sections = $derived(sectionsOf(story));
 	const D = $derived(Math.max(0.001, story?.duration ?? 0));
 	const pct = (s: number) => `${(s / D) * 100}%`;
-	const aspect = $derived((story?.format ?? '9:16').replace(':', ' / '));
+	/** the film's width over its height (9:16 → 0.5625) */
+	const ratio = $derived.by(() => {
+		const [w, h] = (story?.format ?? '9:16').split(':').map(Number);
+		return w > 0 && h > 0 ? w / h : 9 / 16;
+	});
 	const frameUrl = (h: string | null | undefined) => (h ? `/api/files/${h}` : '');
 
 	// a new story starts at its beginning, its frames fetched ahead so no shot arrives late
@@ -129,7 +133,7 @@
 
 <div class="player" class:compact>
 	<div class="stage-row">
-		<div class="screen" style:aspect-ratio={aspect}>
+		<div class="screen" style:--ratio={ratio}>
 			{#if moment.prev?.frame}<img class="frame" src={frameUrl(moment.prev.frame)} alt="" draggable="false" />{/if}
 			{#if moment.shot?.frame}
 				<img class="frame" src={frameUrl(moment.shot.frame)} alt="Shot {moment.index + 1}" draggable="false" style:opacity={moment.mix} />
@@ -195,10 +199,15 @@
 
 <style>
 	.player { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.7rem; min-width: 0; }
-	.stage-row { display: grid; grid-template-columns: auto minmax(14rem, 1fr); gap: 1rem; align-items: start; min-height: 0; }
+	/* the frame in the middle of the row, what the editor reads beside it on the right (Samuel 2026-11-03) */
+	.stage-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 1rem; align-items: start; min-height: 0; }
+	.stage-row .screen { grid-column: 2; }
+	.stage-row .details { grid-column: 3; }
 	/* the frame as tall as leaves the controls and the timeline in view above the nav pill (a page may say otherwise) */
-	.screen { position: relative; height: var(--story-screen, clamp(15rem, calc(100vh - 24.5rem), 660px)); max-width: 100%; border-radius: 14px; overflow: hidden; background: #15130f; box-shadow: var(--shadow); user-select: none; container-type: size; }
-	.compact .screen { height: var(--story-screen, clamp(14rem, calc(100vh - 25rem), 520px)); }
+	/* its width worked out from its height: the subtitles are sized to the frame (container-type: size), and a box
+	   contained that way has no width of its own to give a grid column (it collapsed to nothing) */
+	.screen { position: relative; --h: var(--story-screen, clamp(15rem, calc(100vh - 24.5rem), 660px)); height: var(--h); width: calc(var(--h) * var(--ratio)); max-width: 100%; border-radius: 14px; overflow: hidden; background: #15130f; box-shadow: var(--shadow); user-select: none; container-type: size; }
+	.compact .screen { --h: var(--story-screen, clamp(14rem, calc(100vh - 25rem), 520px)); }
 	.frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 	.frame.empty { display: grid; place-items: center; color: #cfc8b8; background: #24211b; font-size: 0.9rem; }
 	.subtitle { position: absolute; left: 5%; right: 5%; bottom: 3.5%; display: grid; gap: 0.25rem; justify-items: center; text-align: center; pointer-events: none; }
@@ -238,8 +247,9 @@
 	.legend { display: flex; gap: 1rem; font-size: 0.7rem; }
 	@media (max-width: 820px) {
 		.stage-row { grid-template-columns: 1fr; justify-items: center; }
-		.screen { height: min(58vh, 560px); }
-		.compact .screen { height: min(50vh, 480px); }
+		.stage-row .screen, .stage-row .details { grid-column: 1; }
+		.screen { --h: min(58vh, 560px); }
+		.compact .screen { --h: min(50vh, 480px); }
 		.details { justify-self: stretch; }
 	}
 </style>
