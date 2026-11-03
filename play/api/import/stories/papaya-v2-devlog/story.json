@@ -1,0 +1,604 @@
+{
+ "id": "papaya-v2-devlog",
+ "title": "Papaya v2 · Devlog Short",
+ "note": "Maia rebuilds the papaya from seed to fruit: dev log, botany and the food forest in one story. Narration by Samuel (intro) and Maia; 9:16 storyboard frames rendered from the real models.",
+ "schema": "story/1",
+ "format": "9:16",
+ "fps": 30,
+ "duration": 179.11,
+ "tracks": [
+  {
+   "id": "shots",
+   "kind": "shots",
+   "clips": [
+    {
+     "id": "s01",
+     "at": 0.0,
+     "duration": 3.87,
+     "frame": "01.jpg",
+     "transition": "MATCH CUT: same lens, same framing; v2 swaps for v1."
+    },
+    {
+     "id": "s02",
+     "at": 3.87,
+     "duration": 3.87,
+     "frame": "02.jpg",
+     "transition": "Record scratch becomes room tone; whip pan to Samuel."
+    },
+    {
+     "id": "s03",
+     "at": 7.74,
+     "duration": 12.44,
+     "frame": "03.jpg",
+     "transition": "Samuel turns to the screen; push in through it, down into dark soil."
+    },
+    {
+     "id": "s04",
+     "at": 20.18,
+     "duration": 10.4,
+     "frame": "04.jpg",
+     "transition": "Rack focus from the bead to the jelly seed; it cracks open."
+    },
+    {
+     "id": "s05",
+     "at": 30.58,
+     "duration": 8.36,
+     "frame": "05.jpg",
+     "transition": "Speed ramp on the time-lapse; the sound drops out mid-word."
+    },
+    {
+     "id": "s06",
+     "at": 38.94,
+     "duration": 1.42,
+     "frame": "06.jpg",
+     "transition": "A band of light sweeps up the stem from the roots; colour returns."
+    },
+    {
+     "id": "s07",
+     "at": 40.36,
+     "duration": 5.5,
+     "frame": "07.jpg",
+     "transition": "Continuous tilt up as it grows (match on growth)."
+    },
+    {
+     "id": "s08",
+     "at": 45.86,
+     "duration": 9.58,
+     "frame": "08.jpg",
+     "transition": "Dissolve along the stem into v1's trunk, same framing."
+    },
+    {
+     "id": "s09",
+     "at": 55.44,
+     "duration": 3.46,
+     "frame": "09.jpg",
+     "transition": "Top-down wipe: the pipe gives way to the scarred trunk."
+    },
+    {
+     "id": "s10",
+     "at": 58.9,
+     "duration": 11.21,
+     "frame": "10.jpg",
+     "transition": "Crane up the trunk towards the crown."
+    },
+    {
+     "id": "s11",
+     "at": 70.11,
+     "duration": 7.95,
+     "frame": "11.jpg",
+     "transition": "Rise over the crown to top-down; a slow rotation begins."
+    },
+    {
+     "id": "s12",
+     "at": 78.06,
+     "duration": 6.72,
+     "frame": "12.jpg",
+     "transition": "The rotation carries on; each failed crown spins in on the same axis."
+    },
+    {
+     "id": "s13",
+     "at": 84.78,
+     "duration": 5.5,
+     "frame": "13.jpg",
+     "transition": "The last spin settles; tilt under the leaves into the sun."
+    },
+    {
+     "id": "s14",
+     "at": 90.28,
+     "duration": 4.27,
+     "frame": "14.jpg",
+     "transition": "Tilt down a leaf stalk to the flowers where it meets the stem."
+    },
+    {
+     "id": "s15",
+     "at": 94.55,
+     "duration": 8.76,
+     "frame": "15.jpg",
+     "transition": "Time-lapse: the flowers swell into fruit."
+    },
+    {
+     "id": "s16",
+     "at": 103.31,
+     "duration": 7.13,
+     "frame": "16.jpg",
+     "transition": "One flower lets go; the camera follows it down."
+    },
+    {
+     "id": "s17",
+     "at": 110.44,
+     "duration": 8.76,
+     "frame": "17.jpg",
+     "transition": "Follow the falling flower past the fruit column."
+    },
+    {
+     "id": "s18",
+     "at": 119.2,
+     "duration": 8.36,
+     "frame": "18.jpg",
+     "transition": "A knife sweeps across the frame onto a dark tabletop."
+    },
+    {
+     "id": "s19",
+     "at": 127.56,
+     "duration": 5.5,
+     "frame": "19.jpg",
+     "transition": "The half flips over (match on action)."
+    },
+    {
+     "id": "s20",
+     "at": 133.06,
+     "duration": 5.91,
+     "frame": "20.jpg",
+     "transition": "Pull out: the fruit is on Samuel's iPad screen."
+    },
+    {
+     "id": "s21",
+     "at": 138.97,
+     "duration": 7.54,
+     "frame": "21.jpg",
+     "transition": "The clean screen slides over to the Proposals page."
+    },
+    {
+     "id": "s22",
+     "at": 146.51,
+     "duration": 7.13,
+     "frame": "22.jpg",
+     "transition": "After the tap, push through the screen into the garden."
+    },
+    {
+     "id": "s23",
+     "at": 153.64,
+     "duration": 9.99,
+     "frame": "23.jpg",
+     "transition": "Crane down from the wide shot to the ground line."
+    },
+    {
+     "id": "s24",
+     "at": 163.63,
+     "duration": 6.72,
+     "frame": "24.jpg",
+     "transition": "The camera sinks below the ground line into the cut."
+    },
+    {
+     "id": "s25",
+     "at": 170.35,
+     "duration": 8.76,
+     "frame": "25.jpg",
+     "transition": "Hold on the roots, music out, end card."
+    }
+   ]
+  },
+  {
+   "id": "voice",
+   "kind": "voice",
+   "clips": [
+    {
+     "id": "v01",
+     "at": 0.0,
+     "duration": 3.87,
+     "who": "SAMUEL (VO)",
+     "line": "This is our papaya, grown entirely from code…"
+    },
+    {
+     "id": "v02",
+     "at": 3.87,
+     "duration": 3.87,
+     "who": "SAMUEL (VO)",
+     "line": "…and this is how it looked last week."
+    },
+    {
+     "id": "v03",
+     "at": 7.74,
+     "duration": 12.44,
+     "who": "SAMUEL (on camera)",
+     "line": "This is how (x) co-founders are building a solarpunk city: first in a game, then for real. Today, the first plant of our food forest. Maia… make it real."
+    },
+    {
+     "id": "v04",
+     "at": 20.18,
+     "duration": 10.4,
+     "who": "MAIA",
+     "line": "Every papaya begins as a black seed in a coat of jelly, waiting for warm soil. Last week, mine was just… a brown bead."
+    },
+    {
+     "id": "v05",
+     "at": 30.58,
+     "duration": 8.36,
+     "who": "MAIA",
+     "line": "So now it begins where a real one does. A root reaches down, a shoot pushes up… and then—"
+    },
+    {
+     "id": "v06",
+     "at": 38.94,
+     "duration": 1.42,
+     "who": "MAIA",
+     "line": "…almost black."
+    },
+    {
+     "id": "v07",
+     "at": 40.36,
+     "duration": 5.5,
+     "who": "MAIA",
+     "line": "Every colour, converted twice. One line of code, and the green returns."
+    },
+    {
+     "id": "v08",
+     "at": 45.86,
+     "duration": 9.58,
+     "who": "MAIA",
+     "line": "Now it grows fast. But it isn't a tree. A papaya is a giant herb: no true wood, just a hollow stem."
+    },
+    {
+     "id": "v09",
+     "at": 55.44,
+     "duration": 3.46,
+     "who": "MAIA",
+     "line": "Mine, I'll admit, was a green pipe."
+    },
+    {
+     "id": "v10",
+     "at": 58.9,
+     "duration": 11.21,
+     "who": "MAIA",
+     "line": "Real trunks keep a diary. Every fallen leaf leaves a scar, green near the crown, grey near the ground. Now mine grows from its own history."
+    },
+    {
+     "id": "v11",
+     "at": 70.11,
+     "duration": 7.95,
+     "who": "MAIA",
+     "line": "Branches would come next… except papayas grow none. One stem, one crown. The easiest feature I've ever shipped."
+    },
+    {
+     "id": "v12",
+     "at": 78.06,
+     "duration": 6.72,
+     "who": "MAIA",
+     "line": "Instead, it pours everything into its leaves: seven lobes, each lobed again, seventy centimetres across."
+    },
+    {
+     "id": "v13",
+     "at": 84.78,
+     "duration": 5.5,
+     "who": "MAIA",
+     "line": "Mine took a while to find. A maple… a fig… a blob."
+    },
+    {
+     "id": "v14",
+     "at": 90.28,
+     "duration": 4.27,
+     "who": "MAIA",
+     "line": "Three rounds later, the leaf finally looks like itself."
+    },
+    {
+     "id": "v15",
+     "at": 94.55,
+     "duration": 8.76,
+     "who": "MAIA",
+     "line": "Where leaf meets stem, flowers open. Papayas can be male, female, or both, and farmers choose both: they pollinate themselves."
+    },
+    {
+     "id": "v16",
+     "at": 103.31,
+     "duration": 7.13,
+     "who": "MAIA",
+     "line": "In my version, though, every flower became fruit… and the fruit grew right through each other."
+    },
+    {
+     "id": "v17",
+     "at": 110.44,
+     "duration": 8.76,
+     "who": "MAIA",
+     "line": "So I gave it the papaya's own rule: no room, and the flower lets go. Real papayas do exactly that."
+    },
+    {
+     "id": "v18",
+     "at": 119.2,
+     "duration": 8.36,
+     "who": "MAIA",
+     "line": "What remains grows straight from the trunk. Forty-six fruits, not one touching, where last week's hung in a clump."
+    },
+    {
+     "id": "v19",
+     "at": 127.56,
+     "duration": 5.5,
+     "who": "MAIA",
+     "line": "Then, the real test. I cut one open… and found only skin."
+    },
+    {
+     "id": "v20",
+     "at": 133.06,
+     "duration": 5.91,
+     "who": "MAIA",
+     "line": "One flip, and there it is: orange flesh, black seeds. Edible, and peppery."
+    },
+    {
+     "id": "v21",
+     "at": 138.97,
+     "duration": 7.54,
+     "who": "MAIA",
+     "line": "Ready to ship. But on Samuel's iPad, black streaks crept across the ground. One setting later, gone."
+    },
+    {
+     "id": "v22",
+     "at": 146.51,
+     "duration": 7.13,
+     "who": "MAIA",
+     "line": "I proposed it through play. Samuel read the code… and pressed accept. Version two is alive."
+    },
+    {
+     "id": "v23",
+     "at": 153.64,
+     "duration": 9.99,
+     "who": "MAIA",
+     "line": "Why start here? A papaya fruits within a year. In a young food forest it's the pioneer: food while the slow trees grow."
+    },
+    {
+     "id": "v24",
+     "at": 163.63,
+     "duration": 6.72,
+     "who": "MAIA",
+     "line": "But even a pioneer has a weakness. Wet feet. In waterlogged soil, its roots rot."
+    },
+    {
+     "id": "v25",
+     "at": 170.35,
+     "duration": 8.76,
+     "who": "MAIA",
+     "line": "So next, I dig. Layers, roots, worms, a different soil for every biome. Stay close… it's about to get dirty."
+    }
+   ]
+  },
+  {
+   "id": "notes",
+   "kind": "notes",
+   "clips": [
+    {
+     "id": "n01",
+     "at": 0.0,
+     "duration": 3.87,
+     "section": "HOOK",
+     "camera": "Low angle 35 mm, slow push-in.",
+     "retention": "Payoff first: the result in second 0, so the viewer wants to know how.",
+     "mood": "↑"
+    },
+    {
+     "id": "n02",
+     "at": 3.87,
+     "duration": 3.87,
+     "section": "HOOK",
+     "camera": "Same framing as 01, record scratch.",
+     "retention": "Contrast in 2 s: the gap between 01 and 02 is the question the video answers.",
+     "mood": "↓"
+    },
+    {
+     "id": "n03",
+     "at": 7.74,
+     "duration": 12.44,
+     "section": "TRAILER",
+     "camera": "MCU, eye level; whip pan into the screen.",
+     "retention": "Stakes + mission in under 7 s; hands over to Maia with a command.",
+     "mood": "↑"
+    },
+    {
+     "id": "n04",
+     "at": 20.18,
+     "duration": 10.4,
+     "section": "1 · SEED",
+     "camera": "Macro, 100 mm look, dark soil.",
+     "retention": "Fact ↑ and fail ↓ in one beat; the progress bar starts at SEED.",
+     "mood": "↑↓"
+    },
+    {
+     "id": "n05",
+     "at": 30.58,
+     "duration": 8.36,
+     "section": "1 · SEED",
+     "camera": "Ground-level macro, growth time-lapse.",
+     "retention": "Open loop: cut mid-sentence.",
+     "mood": "↑"
+    },
+    {
+     "id": "n06",
+     "at": 38.94,
+     "duration": 1.42,
+     "section": "1 · SEED",
+     "camera": "HARD CUT, music out, 1 s of silence.",
+     "retention": "Low point + silence = pattern interrupt.",
+     "mood": "↓↓"
+    },
+    {
+     "id": "n07",
+     "at": 40.36,
+     "duration": 5.5,
+     "section": "1 · SEED",
+     "camera": "Wipe top to bottom on the beat.",
+     "retention": "Fast payoff: the problem is solved in 2 s.",
+     "mood": "↑"
+    },
+    {
+     "id": "n08",
+     "at": 45.86,
+     "duration": 9.58,
+     "section": "2 · STEM",
+     "camera": "Worm's-eye 24 mm, tilt up.",
+     "retention": "Surprise fact: \"not a tree?!\"",
+     "mood": "↑"
+    },
+    {
+     "id": "n09",
+     "at": 55.44,
+     "duration": 3.46,
+     "section": "2 · STEM",
+     "camera": "Locked off, flat light.",
+     "retention": "Self-roast: a relatable low.",
+     "mood": "↓"
+    },
+    {
+     "id": "n10",
+     "at": 58.9,
+     "duration": 11.21,
+     "section": "2 · STEM",
+     "camera": "Slow tilt down, raking light.",
+     "retention": "Before/after wipe: the viewer sees the upgrade.",
+     "mood": "↑↑"
+    },
+    {
+     "id": "n11",
+     "at": 70.11,
+     "duration": 7.95,
+     "section": "3 · BRANCHES",
+     "camera": "Full shot, locked off, a beat of silence.",
+     "retention": "Comedy beat resets attention halfway.",
+     "mood": "↕"
+    },
+    {
+     "id": "n12",
+     "at": 78.06,
+     "duration": 6.72,
+     "section": "4 · LEAVES",
+     "camera": "Top-down drone, slow rotate.",
+     "retention": "Numbers on screen: concrete and quotable.",
+     "mood": "↑"
+    },
+    {
+     "id": "n13",
+     "at": 84.78,
+     "duration": 5.5,
+     "section": "4 · LEAVES",
+     "camera": "Three hard cuts, sad trombone.",
+     "retention": "Fail montage: fast cuts, comic low.",
+     "mood": "↓↓"
+    },
+    {
+     "id": "n14",
+     "at": 90.28,
+     "duration": 4.27,
+     "section": "4 · LEAVES",
+     "camera": "Slow hold after the fast cuts.",
+     "retention": "Tempo contrast: slow reveal after fast fails.",
+     "mood": "↑↑"
+    },
+    {
+     "id": "n15",
+     "at": 94.55,
+     "duration": 8.76,
+     "section": "5 · FLOWERS",
+     "camera": "Close-up, gentle orbit.",
+     "retention": "Surprise fact keeps curiosity up.",
+     "mood": "↑"
+    },
+    {
+     "id": "n16",
+     "at": 103.31,
+     "duration": 7.13,
+     "section": "5 · FLOWERS",
+     "camera": "Punch in on the clash, buzzer.",
+     "retention": "BUT: a new problem.",
+     "mood": "↓"
+    },
+    {
+     "id": "n17",
+     "at": 110.44,
+     "duration": 8.76,
+     "section": "5 · FLOWERS",
+     "camera": "Close-up, real photo flash.",
+     "retention": "THEREFORE: the fix copies nature.",
+     "mood": "↑"
+    },
+    {
+     "id": "n18",
+     "at": 119.2,
+     "duration": 8.36,
+     "section": "6 · FRUIT",
+     "camera": "Low angle up the column, slow orbit.",
+     "retention": "Before/after again, tempo up.",
+     "mood": "↑↑"
+    },
+    {
+     "id": "n19",
+     "at": 127.56,
+     "duration": 5.5,
+     "section": "6 · FRUIT",
+     "camera": "Product shot on dark, hollow knock.",
+     "retention": "Deepest low, right before the biggest payoff.",
+     "mood": "↓↓"
+    },
+    {
+     "id": "n20",
+     "at": 133.06,
+     "duration": 5.91,
+     "section": "6 · FRUIT",
+     "camera": "Snap zoom, food-commercial light.",
+     "retention": "Snap payoff + bonus fact.",
+     "mood": "↑↑"
+    },
+    {
+     "id": "n21",
+     "at": 138.97,
+     "duration": 7.54,
+     "section": "7 · SHIP IT",
+     "camera": "Screen capture, glitch transition.",
+     "retention": "A low right after the win: nothing stays easy.",
+     "mood": "↓↑"
+    },
+    {
+     "id": "n22",
+     "at": 146.51,
+     "duration": 7.13,
+     "section": "7 · SHIP IT",
+     "camera": "Screen recording, full music.",
+     "retention": "Peak: the human says yes.",
+     "mood": "↑↑↑"
+    },
+    {
+     "id": "n23",
+     "at": 153.64,
+     "duration": 9.99,
+     "section": "7 · SHIP IT",
+     "camera": "Wide shot, golden hour, slow crane up.",
+     "retention": "The why: ties the episode to the mission.",
+     "mood": "↑"
+    },
+    {
+     "id": "n24",
+     "at": 163.63,
+     "duration": 6.72,
+     "section": "CLIFFHANGER",
+     "camera": "Crane down into the cut, music drops.",
+     "retention": "BUT: a new problem opens.",
+     "mood": "↓"
+    },
+    {
+     "id": "n25",
+     "at": 170.35,
+     "duration": 8.76,
+     "section": "CLIFFHANGER",
+     "camera": "Freeze frame.",
+     "retention": "Cliffhanger: an open loop into the next episode.",
+     "mood": "END"
+    }
+   ]
+  }
+ ]
+}

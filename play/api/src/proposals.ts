@@ -12,6 +12,7 @@ import { boxEngine, LATEST_BOX } from "./engines";
 import { readableRefs } from "../import/plan";
 import { versionId } from "./versions";
 import { newId, UUID } from "./uuid";
+import { decideStory, storyReview } from "./stories";
 
 export class ProposalError extends Error {
   constructor(message: string, public status = 400) {
@@ -198,19 +199,26 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, body: Pro
 }
 
 export async function listProposals(db: Queryable, me: Me | null, status?: string) {
-  must(me, "read", "assets");
-  return listProposalsWhere(db, `($1::text IS NULL OR p.status = $1)`, [status ?? null]);
+  const m = must(me, "read", "assets");
+  // a story's proposals are the admins' alone, as the Stories are (./stories.ts)
+  return listProposalsWhere(db, `($1::text IS NULL OR p.status = $1) AND (p.kind <> 'story_version' OR $2)`, [status ?? null, m.level === "admin"]);
 }
 
+// a proposal of an asset version or of a story version (./stories.ts): a story's is listed as its title (label), the
+// group "stories" and its id (slug), with the version it would be
 async function listProposalsWhere(db: Queryable, where: string, args: unknown[]) {
   const { rows } = await db.query<any>(
-    `SELECT p.id, p.asset_id, p.base, p.version, p.status, p.note, p.created, p.decided_at, p.via,
-            au.name AS author, de.name AS decided_by, a.label, a.grp, a.slug, v.card->'card'->>'label' AS version_label,
-            COALESCE(b.number, 0) + 1 AS number
+    `SELECT p.id, p.kind, p.asset_id, p.base, p.version, p.story_id, p.story_base, p.story_version, p.status, p.note, p.created, p.decided_at, p.via,
+            au.name AS author, de.name AS decided_by,
+            COALESCE(a.label, sv.title) AS label, COALESCE(a.grp, CASE WHEN p.kind = 'story_version' THEN 'stories' END) AS grp,
+            COALESCE(a.slug, p.story_id) AS slug, v.card->'card'->>'label' AS version_label,
+            CASE WHEN p.kind = 'story_version' THEN COALESCE(sb.number, 0) + 1 ELSE COALESCE(b.number, 0) + 1 END AS number
        FROM play.proposals p
-       JOIN play.assets a ON a.id = p.asset_id
-       JOIN play.asset_versions v ON v.id = p.version
+       LEFT JOIN play.assets a ON a.id = p.asset_id
+       LEFT JOIN play.asset_versions v ON v.id = p.version
        LEFT JOIN play.asset_versions b ON b.id = p.base
+       LEFT JOIN play.story_versions sv ON sv.id = p.story_version
+       LEFT JOIN play.story_versions sb ON sb.id = p.story_base
        LEFT JOIN play.humans au ON au.id = p.author
        LEFT JOIN play.humans de ON de.id = p.decided_by
       WHERE ${where}
@@ -226,10 +234,12 @@ async function listProposalsWhere(db: Queryable, where: string, args: unknown[])
  * page can build it in the asset box, the sandboxed frame every recipe runs in, before anyone accepts it.
  */
 export async function proposalOf(db: Queryable, me: Me | null, id: string) {
-  must(me, "read", "assets");
+  const m = must(me, "read", "assets");
   if (!UUID.test(id)) throw new ProposalError("A proposal is named by its id, a UUID.", 404);
-  const [p] = (await listProposalsWhere(db, `p.id = $1`, [id]));
+  const [p] = (await listProposalsWhere(db, `p.id = $1 AND (p.kind <> 'story_version' OR $2)`, [id, m.level === "admin"]));
   if (!p) throw new ProposalError("There is no such proposal.", 404);
+  // a story's: its proposed timeline, the head's it was made from, and what changed, clip by clip
+  if (p.kind === "story_version") return { ...p, ...(await storyReview(db, p)) };
   const { rows: v } = await db.query<any>(
     `SELECT v.recipe_hash, v.source_hash, v.card, v.default_variant, f.size FROM play.asset_versions v
        LEFT JOIN play.files f ON f.hash = v.recipe_hash WHERE v.id = $1`, [p.version],
@@ -275,6 +285,7 @@ export async function decide(db: Db, me: Me | null, id: string, verdict: Verdict
       await tx.query(`UPDATE play.proposals SET status = 'withdrawn', decided_at = now() WHERE id = $1`, [id]);
       return { id, status: "withdrawn" };
     }
+    if (p.kind === "story_version") return decideStory(tx, me, p, verdict);
     must(me, "decide", "asset_version");
     if (verdict === "reject") {
       await tx.query(`UPDATE play.proposals SET status = 'rejected', decided_by = $2, decided_at = now() WHERE id = $1`, [id, me.id]);
