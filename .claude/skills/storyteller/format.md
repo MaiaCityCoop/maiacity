@@ -74,12 +74,21 @@ three rules in `scenes.md`:
 | What it gives | Proof: it is really being built | Care: we want this man to make it |
 | Its feeling | Momentum, competence, "look, it works" | Warmth, longing, the dream, the cost |
 
+**The fixed order** (Samuel, 2026-11-03; `hook-writer`, "The fixed trailer"): the topic hook, then the fixed trailer
+spoken by Samuel, *"This is the story of how one million humans build a ten times better way of living: their own solarpunk city, from the ground up. First in a game, then for real."*, then the story, which keeps the hook's promise.
+
+**Only our own assets on screen** (Samuel, 2026-11-03): storyboards and films show only what we really have: the
+domes and other buildings, the sandbox and asset-viewer UI, the plants, the biomes, the things, machines and actors in
+play's library, and Samuel himself where he speaks. No props, places or people we haven't built; what the world can't
+show is said, never faked (`movie-producer`, "Never promise what the world can't show").
+
 **The shape of an episode** (scale by `structure.md`):
 
-1. **Cold open (0–10 s):** a cinematic picture of his life or the city's world, and the spoken hook — where the
-   journey stands and the day's one goal (`hook-writer`).
-2. **The case (to ~45 s):** who he is, what maiaCITY is, why it matters to the viewer's own life (the pain), in new
-   words every time.
+1. **Cold open, the topic hook (0–5 s):** the strongest true picture and the spoken hook with its promise
+   (`hook-writer`).
+2. **The fixed trailer (about 10 s):** Samuel's line, the same every time, over the world (the sandbox, the domes,
+   the city in its garden).
+3. **The story begins:** the day ("Day 1") and the one goal that keeps the hook's promise.
 3. **The work, in pieces:** plan → build → show, each piece seen working; the clock and the deadline as the spine;
    each piece a step, linked by *but* and *therefore* (`scenes.md`).
 4. **Life between:** a breath beat of his day every few pieces — never filler, each one turns something (a doubt, a

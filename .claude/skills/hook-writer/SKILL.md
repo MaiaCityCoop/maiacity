@@ -109,6 +109,18 @@ breakfast table*, *a city ↔ a child's hand on a fruit*, *a fresh start for how
 gives the stakes, the intimate makes a stranger feel it in their own life (`storyteller/emotion.md`, "The series'
 signature journey").
 
+## The fixed trailer and the order of a film (Samuel, 2026-11-03)
+
+Every film runs in the same order:
+
+1. **The topic hook** (this episode's own, about 3–5 s): the line that grabs, with its promise.
+2. **The trailer, fixed, the same in every film, spoken by Samuel:** *"This is the story of how one million humans build a ten times better way of living: their own solarpunk city, from the ground up. First in a game, then for real."* It replaces any per-episode intro about
+   who we are; never rewrite it.
+3. **The story,** which keeps the hook's promise: it opens on the day ("Day 1") and walks to the payoff the hook
+   promised, answered by the end.
+
+So the hook no longer needs its own intro line: write the hook and its promise, and let the trailer carry who we are.
+
 ## Anchor and promise — the two jobs of every hook
 
 A hook does more than grab attention: it gives the reader an **irresistible reason to keep going**. That takes two
