@@ -62,8 +62,14 @@ labels and hashes text), and in the page only in the **asset box**: a frame with
 origin, its own CSP with no connection, the frozen engine (held to its hash) in a worker. A proposal's record may name
 only a frozen box engine, and its manifest is the libraries its source requires. On the Proposals page people read the
 source (beside its base's, as changes) and see the version built in the box before they accept it. `/api/files` serves
-code as plain text (`nosniff`, `sandbox`), never as script on play's origin. Imported versions have no source (legacy
-bundled and minified them).
+code as plain text (`nosniff`, `sandbox`), never as script on play's origin.
+
+**Imported versions' sources (Samuel 2026-11-03).** Legacy bundled each asset's library and minified it into the recipe
+files play imported. Each library was made again from `SNAPSHOT_2611101` by legacy's own bundler at the commit its file
+was seeded from, minified to prove it is that file byte for byte, and kept unminified as the version's source
+(`play/api/import/legacy/sources`, how: its README). The import gives each imported version and variant its source once
+(`source_hash`, the only field a frozen version may still take, and only where it had none). The box still runs the
+imported recipe file; its source is the code it was made from, for people and agents to read and start from.
 
 An asset version is atomic: a **recipe file** (named by its BLAKE3 hash, made by play from the readable source), its
 **card** (JSON: label, size, triangles, engine, params it takes), and the engine version it runs on. A recipe file is

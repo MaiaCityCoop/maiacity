@@ -25,8 +25,9 @@ const RECIPE_RULE =
   "the admins read it before they decide. It is a CommonJS module that sets `module.exports.recipe = function (id, v, variant) { … return { meta, build } }`, " +
   "requires only 'three' and three's addons ('three/addons/…'), and names every other asset by its BLAKE3 hash. play wraps it into the " +
   "recipe file itself (the asset box's header, then the source, then the line naming this asset and its new version). The code runs only " +
-  "in the asset box, the sandboxed frame in the page, never on play's server. Start from the head's source where it has one (get_asset " +
-  "gives its hash, get_file its text); imported versions have only their minified recipe file, to read for how they are built.";
+  "in the asset box, the sandboxed frame in the page, never on play's server. Start from the head's source (get_asset gives its hash, " +
+  "get_file its text). Every version has one: an imported version's is legacy's own code its recipe file was bundled from (the asset's " +
+  "library, each module marked by the file it came from), made again and checked against that file byte for byte.";
 
 export function mcp({ db, store }: { db: Db; store: BlobStore }) {
   const tools: Tool[] = [
