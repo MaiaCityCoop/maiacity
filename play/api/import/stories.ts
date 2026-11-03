@@ -7,10 +7,11 @@ import { join } from "node:path";
 import type { BlobStore } from "../src/blobs";
 import type { Db } from "../src/pg";
 import { putFrame, seedStory, SLUG } from "../src/stories";
+import { ensureStoryDocs } from "../src/storydocs";
 
 export const STORIES = join(import.meta.dir, "stories");
 
-export type StoriesReport = { seeded: string[]; present: string[]; errors: string[] };
+export type StoriesReport = { seeded: string[]; present: string[]; errors: string[]; documents?: string[] };
 
 export async function seedStories(db: Db, store: BlobStore, dir = STORIES): Promise<StoriesReport> {
   const out: StoriesReport = { seeded: [], present: [], errors: [] };
@@ -40,6 +41,12 @@ export async function seedStories(db: Db, store: BlobStore, dir = STORIES): Prom
     } catch (e) {
       out.errors.push(`story ${id}: ${(e as Error).message}`);
     }
+  }
+  // every story's Loro document (play/SPEC.md §4.4), made from its history where it has none yet
+  try {
+    out.documents = await ensureStoryDocs(db);
+  } catch (e) {
+    out.errors.push(`stories' documents: ${(e as Error).message}`);
   }
   return out;
 }
