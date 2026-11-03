@@ -104,6 +104,11 @@ subject in it in a line: the day, where it sits in the journey, what it is for. 
 a list of what doesn't exist yet. The
 title card carries "DAY NN". Never talk about AI (below, "Compact").
 
+**Epic and intimate in one line.** The strongest hooks pair the vast with the close: *a new civilization ↔ your
+breakfast table*, *a city ↔ a child's hand on a fruit*, *a fresh start for how humans live ↔ one seed*. The epic
+gives the stakes, the intimate makes a stranger feel it in their own life (`storyteller/emotion.md`, "The series'
+signature journey").
+
 ## Anchor and promise — the two jobs of every hook
 
 A hook does more than grab attention: it gives the reader an **irresistible reason to keep going**. That takes two
