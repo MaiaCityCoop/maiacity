@@ -28,8 +28,8 @@
  *     leaves the line: 1 % of cubes fail run-in (to the engine bay), 2 % of LifeTracs fail the end-of-line test (to the
  *     rework bay).
  *
- * The floor: a round hall whose outer band is the main line (paint, assembly, test, drive-off), every cell a point of a
- * star growing in from the station it feeds (`layout`, world.js `star`); the finished machines leave for the yard.
+ * The floor: a round hall laid out as a flower, every station of the main line a petal growing in from the outer band,
+ * its cells inside it (`layout`, world.js `flower`); the finished machines leave for the yard.
  *
  * Route (the asset's own build steps, its STEPS):
  *   plates  laser → deburr ─┐
@@ -195,12 +195,11 @@ export const SPEC = {
 		wired: { shape: 'lifetrac', upto: 'electronics' },
 		lifetrac: { shape: 'asset', ref: LIFETRAC_REF, face: 'z', fallback: { shape: 'lifetrac', upto: 'electronics' }, parked: true }
 	},
-	/** the floor (maiaCITY's star, world.js; Samuel 2026-11-03: "a rounded circle shaped ground floor and a star shape
-	 *  assembly line … make the ring the outer conveyor band, all work stations grow inwards"): the main line, from the
-	 *  paint line to the drive-off, is the outer band of a round hall, its stations' machines on the inner side; every
-	 *  cell is a point of the star growing in towards the middle from the station it feeds; the finished machines leave
-	 *  by a door in the wall for the yard */
-	layout: { mode: 'star', ring: ['pretreat', 'powder', 'cure', 'frame', 'wheels', 'cube', 'plumb', 'arms', 'cyls', 'bucket', 'wire', 'fill', 'eol', 'ship'], open: 10, gap: 4, aisle: 5, step: 3, maxLeg: 24, hub: 8 },
+	/** the floor (maiaCITY's flower, world.js; Samuel 2026-11-03: a round floor, the ring the outer conveyor band, every
+	 *  work station growing inwards, and his sketch: petals round an empty middle): each of the main line's fourteen
+	 *  stations is a petal, the station at its inner tip, its cells inside it; the main conveyor runs round the band by
+	 *  the wall and dips into every petal; the finished machines leave by a door in the wall for the yard */
+	layout: { mode: 'flower', ring: ['pretreat', 'powder', 'cure', 'frame', 'wheels', 'cube', 'plumb', 'arms', 'cyls', 'bucket', 'wire', 'fill', 'eol', 'ship'], step: 3, clear: 4, edge: 3, maxLeg: 24 },
 	look: { tilt: { focusY: 0.5, band: 0.14, amount: 7 } }
 };
 
