@@ -12,7 +12,7 @@ import { boxEngine, LATEST_BOX } from "./engines";
 import { readableRefs } from "../import/plan";
 import { versionId } from "./versions";
 import { newId, UUID } from "./uuid";
-import { decideStory, storyReview } from "./stories";
+import { decideStory, storyReview, withdrawStory } from "./stories";
 
 export class ProposalError extends Error {
   constructor(message: string, public status = 400) {
@@ -208,7 +208,7 @@ export async function listProposals(db: Queryable, me: Me | null, status?: strin
 // group "stories" and its id (slug), with the version it would be
 async function listProposalsWhere(db: Queryable, where: string, args: unknown[]) {
   const { rows } = await db.query<any>(
-    `SELECT p.id, p.kind, p.asset_id, p.base, p.version, p.story_id, p.story_base, p.story_version, p.status, p.note, p.created, p.decided_at, p.via,
+    `SELECT p.id, p.kind, p.asset_id, p.base, p.version, p.story_id, p.story_base, p.story_version, p.doc_branch, p.status, p.note, p.created, p.decided_at, p.via,
             au.name AS author, de.name AS decided_by,
             COALESCE(a.label, sv.title) AS label, COALESCE(a.grp, CASE WHEN p.kind = 'story_version' THEN 'stories' END) AS grp,
             COALESCE(a.slug, p.story_id) AS slug, v.card->'card'->>'label' AS version_label,
@@ -283,6 +283,7 @@ export async function decide(db: Db, me: Me | null, id: string, verdict: Verdict
     if (verdict === "withdraw") {
       if (p.author !== me.id) throw new Denied("Only its author withdraws a proposal.");
       await tx.query(`UPDATE play.proposals SET status = 'withdrawn', decided_at = now() WHERE id = $1`, [id]);
+      if (p.kind === "story_version") await withdrawStory(tx, me, p);
       return { id, status: "withdrawn" };
     }
     if (p.kind === "story_version") return decideStory(tx, me, p, verdict);

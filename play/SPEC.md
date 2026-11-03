@@ -18,7 +18,7 @@ is changed, moved or deleted, and the new sandboxes drift apart from it from day
 | Rights | Visitors (not signed in): no rights, they see the sign-in page. Travelers: enter and play every sandbox, read every asset and every version. Citizens (by invite): + propose new asset versions, + the coming game. Admins: accept or reject proposals, run members and invites |
 | Proposals | v0: **asset update proposals** only (a new version of an asset): **citizens propose, admins accept**. Pinning a sandbox to an asset version is a separate proposal kind, later (§4.4) |
 | Encryption | None for now; it can come back as a layer on top |
-| Versioning | No Loro, no CRDT. A content-addressed version DAG in Postgres, from first principles (§4); stories are versioned the same way (§12) |
+| Versioning | A content-addressed version DAG in Postgres (§4.3), and under it every step kept in Loro: one Loro document per story (assets next), proposals as branches, versions named by the hash of their content (§4.4, §12; Samuel 2026-11-03) |
 | Out of scope | Studio, blog, stories, posts, chat, the agent MCP, theOS, DB2, the V2 trailer/intro |
 
 ## 2. Shape
@@ -113,16 +113,41 @@ proposals       (id, coop_id, kind /*asset_version*/, asset_id, base → asset_v
 - Content addressing gives what avenDB gave: the same content has the same id, a file is checked by its hash wherever
   it is read, and history can't be rewritten without every id changing.
 
-### 4.4 Why no Loro (for now)
+### 4.4 Documents in Loro: every step kept (Samuel 2026-11-03)
 
-A CRDT such as Loro merges concurrent edits to the same document field by field, offline, without a server deciding.
-Asset versions have none of that: each is replaced whole, a central Postgres decides the order, and a head check in a
-transaction resolves the one conflict there is (two proposals on the same base). A CRDT here would add a dependency,
-a binary format and merge rules for content that is never merged.
+Asset versions began as the DAG of §4.3: each version whole, nothing in between. Samuel wants every step between two
+versions kept as well: how a story or an asset got from one version to the next, edit by edit, for people and agents
+to read, to time-travel through and to tell (a making-of is that history played back). So documents are kept in
+**Loro** (loro-crdt, a CRDT with its own history), one document per thing, while every guarantee of §4.3 stays.
 
-We keep its useful ideas instead: immutable history, parents and heads, proposals as lines next to the main one, and
-versions anchored by pins. If a document that people edit live together comes later (a world layout, shared params),
-Loro can come back for that document type only: its snapshot and updates stored as `bytea` next to the row.
+- **One Loro document per document**, typed by a schema (`play/api/src/docs/schema.ts`: a JSON Schema with Loro hints):
+  `story/1` now, `asset/1` next (its readable source a text, its card, its variants), later others (a world's layout,
+  shared params). An object is a Loro map, an array a movable list, a string marked `x-loro: text` a Loro text, edited
+  and kept character by character. A document is always read back as plain JSON; the browser never needs Loro.
+- **The server is the only writer.** Every write locks the document's row, loads it, applies the edit, checks the whole
+  result against its type (and the type's own rules, such as a clip inside its story), and appends a **step**: its Loro
+  update, its author (a member, or an agent under its admin's name), its means (site, mcp, import), its message and its
+  time. Every MCP call that edits is a step. A whole new body sent at once lands as the few operations it differs by.
+- **A proposal is a branch**: forked at the main line's head, with its own steps (an agent can take as many as it needs).
+  Proposing names it; accepting merges it into the main line (a CRDT merge: if the line moved on, both sets of edits
+  stand), checks the merged result, and names it the next **version**, whose canonical JSON's BLAKE3 is recorded with
+  its frontiers. Rejecting or withdrawing keeps its steps on their side line.
+- **Code is never merged unseen**: a type whose content is code (`asset/1`) whose merge met other edits is accepted only
+  with the hash of the merged result as it was built and previewed in the box.
+- **Built recipe files and pins are unchanged**: a recipe file is still made from a version's source and named by its
+  hash; sandboxes still pin builds. Loro adds the history under a version; it replaces nothing of §4.5.
+- **Tables** (migration `0013-docs`): `docs` (its type, schema, head frontiers and a snapshot of its main line, written
+  again every 32 steps and always holding the whole history), `doc_updates` (every step, append only), `doc_versions`
+  (named versions, never changed), `doc_branches` (proposals), `doc_peers` (who writes as which Loro peer: one per
+  author on the main line, a fresh one on every branch, so two branches never write the same operation ids).
+- **Reading**: a document now, any step or version as JSON, its history (the main line with every accepted branch's
+  steps where they were made), and what changed between two points, field by field (lists of clips followed by their ids).
+- **Measured** (the papaya, a 54 kB source): 39 steps of history in a 61 kB snapshot, the state alone 30 kB, a step
+  about 20 ms to write; its eleven real versions (v1, nine draft rounds, v2) in 142 kB against 734 kB stored whole,
+  each restored exactly.
+
+Assets still live in the §4.3 tables until they move onto documents (their history migrated as steps with their
+dates, their numbers and ids kept).
 
 ### 4.5 One source, every asset by its hash
 
@@ -271,9 +296,11 @@ proposals       (… kind 'story_version', story_id, story_base → story_versio
   of them, or to the history it stands on, gives another, so history can't be rewritten without the ids changing.
 - Each version names its parent; a proposal names the **base** it was made on.
 - **Accept** is the asset versions' transaction: it checks `stories.head = proposal.story_base`, gives the version
-  the next number, moves the head (and the story's title), and turns the other open proposals on that base stale. A
-  proposal whose base is no longer the head is **stale**, never accepted: it is proposed again on the new head.
-  Rejected and stale proposals stay as side lines in the history; their versions keep no number.
+  the next number and moves the head (and the story's title). A proposal whose base is no longer the head still goes
+  in where the two changes touch **different fields**: both stand, in a new version whose parents are the head and
+  the proposal (its note says it was merged). Where they touch **the same field** it is **stale**, never accepted: it
+  is proposed again on the new head. Rejected and stale proposals stay as side lines in the history; their versions
+  keep no number.
 - The repo's stories (`play/api/import/stories/<id>/`, `story.json` and its `frames/`) are written once, as their
   accepted v1, by the import every deploy runs, only where play holds no story of that id (`import/stories.ts`).
 
@@ -291,5 +318,20 @@ MCP server (§7, `play/api/src/mcp.ts`):
 - `add_story_frame`: an image (JPEG, PNG or WebP, up to 4 MB) as base64, kept as a file; its hash for a shot's frame.
 
 The Proposals page shows a story's proposal played in the Stories player, beside what changed against its base (the
-title and settings, and track by track the clips added, removed, moved and changed). Admins accept or reject it
-there; no tool decides.
+title and settings, and track by track the clips added, removed, moved and changed) and the steps it was made in.
+Admins accept or reject it there; no tool decides.
+
+**Every step kept: each story is a Loro document (§4.4).** Under its versions, story `x` is the document `story:x`
+(its title and its timeline; a clip's line, transition, camera and retention Loro texts), every change a step with
+its author, its means, its message and its time (`play/api/src/storydocs.ts`):
+
+- every proposal is a **branch** of the document; accepting merges it, and the document's version of the same number
+  is named with the BLAKE3 of its content. Versions and documents stay in step, number for number;
+- an agent can make a change **step by step**: `story_edit` (`message`, and edits, a whole timeline or a title; plus
+  `edit_text`, a range of one of a clip's texts) adds a step to a draft (a new one from the head if none is named),
+  each checked whole; `propose_story_version` with the draft's `branch` proposes it, its steps going with it;
+- `story_history` lists every step (the main line with every accepted proposal's steps; or one draft's) and
+  `get_story`'s `step` reads the story at any of them; the site reads them at `GET /api/stories/:id/history` and
+  `GET /api/stories/:id/steps/:seq`, and the Stories page's history bar plays the story as it was at any step;
+- a story from before the documents gets one from its history the first time it is touched, and at every deploy's
+  import: each accepted version a step at its date, named its number, and each open proposal a branch at its base.

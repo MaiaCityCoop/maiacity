@@ -80,7 +80,9 @@
 		return r.text();
 	};
 	// a story's proposal (play/api/src/stories.ts): its timeline played in the Stories player, beside what changed
-	type StoryReview = { story: Story; baseStory: (Story & { number: number }) | null; diff: StoryDiff };
+	/** each step the proposal was made in (its branch of the story's Loro document, play/SPEC.md §4.4) */
+	type Step = { seq: number; message: string; author: string | null; via: string; at: string };
+	type StoryReview = { story: Story; baseStory: (Story & { number: number }) | null; diff: StoryDiff; steps?: Step[] };
 	let storyReview = $state<StoryReview | null>(null);
 	async function openCard(p: P) {
 		open = p;
@@ -194,6 +196,17 @@
 						<div class="story-diff">
 							<h3>{storyReview.baseStory ? `Changes from v${storyReview.baseStory.number}` : 'A new story'}</h3>
 							<StoryChanges diff={storyReview.diff} fresh={!storyReview.baseStory} />
+							{#if (storyReview.steps?.length ?? 0) > 1}
+								<h3 class="steps-head">Made in {storyReview.steps!.length} steps</h3>
+								<ol class="steps">
+									{#each storyReview.steps! as s (s.seq)}
+										<li>
+											<span class="msg">{s.message}</span>
+											<span class="muted small">{s.author ?? 'play'}{s.via === 'mcp' ? ' · MCP' : ''} · {new Date(s.at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+										</li>
+									{/each}
+								</ol>
+							{/if}
 						</div>
 					{/if}
 				</div>
@@ -288,5 +301,9 @@
 	.story-review { flex: 1 1 auto; min-height: 0; overflow: auto; display: grid; grid-template-columns: minmax(0, 3fr) minmax(16rem, 2fr); gap: 1rem; align-items: start; }
 	.story-diff { min-width: 0; }
 	.story-diff h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+	.story-diff .steps-head { margin-top: 1rem; }
+	.steps { margin: 0; padding-left: 1.3rem; display: grid; gap: 0.35rem; font-size: 0.85rem; }
+	.steps li { display: grid; gap: 0.05rem; }
+	.steps .small { font-size: 0.74rem; }
 	@media (max-width: 1000px) { .story-review { grid-template-columns: minmax(0, 1fr); } }
 </style>

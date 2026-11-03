@@ -14,7 +14,7 @@ import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameM
 import { listTables, readTable, TableError } from "./tables";
 import { decide, listProposals, proposalOf, propose, ProposalError, type Verdict } from "./proposals";
 import { clientOf, perMinute, Rate, costly } from "./limits";
-import { listStories, storyOf, StoryError } from "./stories";
+import { listStories, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
 
 type Handler = (req: Request, params: Record<string, string>) => Promise<Response> | Response;
 type Route = { method: string; pattern: RegExp; keys: string[]; handler: Handler };
@@ -166,6 +166,12 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     const v = new URL(req.url).searchParams.get("v");
     return json(await storyOf(db, await me(req), p.id, v == null ? undefined : Number(v)));
   });
+  // every step of a story's history (its Loro document, play/SPEC.md §4.4), and the story as it was at one, as JSON
+  on("GET", "/api/stories/:id/history", async (req, p) => {
+    const b = new URL(req.url).searchParams.get("draft");
+    return json(await storyHistory(db, await me(req), p.id, b == null ? {} : { branch: Number(b) }));
+  });
+  on("GET", "/api/stories/:id/steps/:seq", async (req, p) => json(await storyAtStep(db, await me(req), p.id, Number(p.seq))));
 
   async function fetch(req: Request, server?: unknown): Promise<Response> {
     if (costly(req) && !rate.allows(clientOf(req, server as any)))

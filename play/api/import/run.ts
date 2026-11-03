@@ -427,7 +427,7 @@ export function reportText(r: Report): string {
     `| Media files (covers, sounds) | ${r.written.media} written, ${r.verified.mediaErrors.length} failed |`,
     `| Animals with their sound | ${r.assets.sounds} |`,
     `| Readable sources (legacy's code, checked against the recipe files) | ${r.sources.files} written, ${r.sources.attached} versions and variants given theirs now, ${r.sources.errors.length} failed |`,
-    `| Stories from the repo (written once, then play's own) | ${r.stories.seeded.length ? `${r.stories.seeded.join(", ")} written` : "none written"}; ${r.stories.present.length} already in play; ${r.stories.errors.length} failed |`,
+    `| Stories from the repo (written once, then play's own) | ${r.stories.seeded.length ? `${r.stories.seeded.join(", ")} written` : "none written"}; ${r.stories.present.length} already in play; ${r.stories.errors.length} failed; ${r.stories.documents?.length ?? 0} documents made from their history |`,
   ];
   const errs = [...r.assets.failed, ...r.verified.fileErrors, ...r.verified.pinErrors, ...r.verified.mediaErrors, ...r.sources.errors, ...r.stories.errors];
   if (errs.length) lines.push(``, `## Errors`, ``, ...errs.map((e) => `- ${e}`));
