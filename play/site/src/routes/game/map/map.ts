@@ -7,7 +7,8 @@
 // land, and a plot by the water ends at its shore. What stands on the land (trees, rocks, peaks) is a list of
 // features. The same seed always gives the same map. Nothing here touches the DOM or three.js: ./scene.ts draws it.
 //
-// Units are metres: x runs east, y runs south across the map (4.2 × 2.8 km, about 400 plots); a plot is about 1.5 ha.
+// Units are metres: x runs east, y runs south across the map (6.4 × 4.3 km); a plot is about 1.5 ha. The map holds
+// exactly PLOTS plots.
 
 export type P = [number, number];
 export type Biome = 'grass' | 'forest' | 'sand' | 'mountain' | 'river';
@@ -68,8 +69,11 @@ export interface WorldMap {
 	features: Feature[];
 }
 
-export const WIDTH = 4160;
-export const HEIGHT = 2770;
+/** how many plots the map holds: 1,346,269 (the Fibonacci number F31, a coop's whole supply of minds at its thirtieth
+ * milestone) divided by 1500 */
+export const PLOTS = Math.round(1346269 / 1500); // 898
+export const WIDTH = 6400;
+export const HEIGHT = 4260;
 const DX = 150; // cell spacing across
 const DY = 116; // and down: the ground is seen at a slant, so cells are wider than deep
 const GAP = 7; // half a road
@@ -260,9 +264,9 @@ export function generateMap(seed: string): WorldMap {
 		}
 	}
 
-	// the lakes: four to seven soft blobs, in low land and away from the river and from each other
+	// the lakes: six to ten soft blobs, in low land and away from the river and from each other
 	const lakes: { c: P; r: number; ring: P[] }[] = [];
-	const lakeCount = 4 + Math.floor(rand() * 4);
+	const lakeCount = 6 + Math.floor(rand() * 5);
 	for (let n = 0; n < lakeCount; n++) {
 		let best: { c: P; r: number } | null = null, low = Infinity;
 		for (let t = 0; t < 40; t++) {
@@ -371,6 +375,17 @@ export function generateMap(seed: string): WorldMap {
 		else k.biome = 'grass';
 	}
 
+	// exactly PLOTS plots: beyond that count the outermost (by their distance from the centre, as an oval) go back to
+	// the wild, so the settled land ends in a soft round edge
+	const settled = cells.filter((k) => !k.wild);
+	const outer = (k: Cell) => Math.hypot(k.c[0] / WIDTH - 0.5, k.c[1] / HEIGHT - 0.5);
+	settled.sort((a, b) => outer(b) - outer(a));
+	for (const k of settled.slice(0, Math.max(0, settled.length - PLOTS))) {
+		k.wild = true;
+		k.plot = [];
+		k.inner = voronoi(cells.indexOf(k), 10);
+	}
+
 	// ── what stands on the land, on each cell, wild or plot ──
 	const features: Feature[] = [];
 	let onPlot = false;
@@ -389,7 +404,7 @@ export function generateMap(seed: string): WorldMap {
 		onPlot = !k.wild;
 		switch (k.biome) {
 			case 'forest':
-				for (const [x, y] of scatter(poly, Math.round(a / 115), 6.5, rand)) put(rand() < 0.8 ? 'conifer' : 'broadleaf', x, y, 0.8 + rand() * 0.45);
+				for (const [x, y] of scatter(poly, Math.round(a / 150), 7.5, rand)) put(rand() < 0.8 ? 'conifer' : 'broadleaf', x, y, 0.8 + rand() * 0.45);
 				break;
 			case 'mountain':
 				if (wobble(k.c[0] / 500, k.c[1] / 500) > 0.52) {
@@ -440,7 +455,7 @@ export function generateMap(seed: string): WorldMap {
 	// forests on the hills round the valley, up to the tree line
 	const ground = terrain(seed, river);
 	const woods = fbmNoise(rand);
-	for (let t = 0; t < 16000; t++) {
+	for (let t = 0; t < 22000; t++) {
 		const x = -RIM + rand() * (WIDTH + 2 * RIM), y = -RIM + rand() * (HEIGHT + 2 * RIM);
 		if (x > -20 && x < WIDTH + 20 && y > -20 && y < HEIGHT + 20) continue;
 		const h = ground(x, y);
