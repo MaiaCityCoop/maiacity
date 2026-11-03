@@ -28,7 +28,7 @@ const VARIANT = /^[a-z0-9][a-z0-9-]{0,79}$/;
 export const MOST_FILE = 16 * 1024 * 1024;
 const MEDIA = "text/javascript";
 
-type Upload = { source?: string; recipe?: string; record?: any };
+type Upload = { source?: string; recipe?: string; record?: any; label?: string };
 export type ProposalBody = {
   asset?: string; // an existing asset, by its UUID
   new?: { group: string; slug: string; label: string }; // or a new one: its group, slug and label
@@ -40,6 +40,7 @@ export type ProposalBody = {
   recipe?: string; // or its recipe file, as text, whose library must be that readable source
   variants?: Record<string, Upload>;
   defaultVariant?: string;
+  card?: Record<string, unknown>; // card fields set over the record it takes (its params when the recipe declares new ones), on the version and on each variant
   branch?: number; // a draft made step by step (asset_edit, ./assetdocs.ts), proposed as it stands
 };
 
@@ -102,6 +103,30 @@ function heldRecord(record: any, libs: string[], source: string) {
   };
 }
 
+const PARAM_KEY = /^[A-Za-z][A-Za-z0-9_.-]{0,79}$/;
+/**
+ * The card fields a proposal may set over the record it takes: its `params`, the parameters its recipe declares (its
+ * meta.params), in the order its build takes them, checked for shape as the page will read them (site params.js).
+ */
+function cardFields(card: unknown): Record<string, unknown> {
+  if (card === undefined || card === null) return {};
+  if (typeof card !== "object" || Array.isArray(card)) throw new ProposalError("The card's fields come as an object.");
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(card)) {
+    if (k !== "params") throw new ProposalError(`A proposal sets only the card's params, not ${k}.`);
+    if (!Array.isArray(v) || v.length > 24) throw new ProposalError("params is a list of at most 24 parameters.");
+    const ids = new Set<string>();
+    for (const p of v as any[]) {
+      if (!p || typeof p !== "object" || !PARAM_KEY.test(`${p.id}`) || ids.has(p.id)) throw new ProposalError("Each parameter has its own id (a letter, then letters, digits, _ . -).");
+      if (!["number", "integer", "string"].includes(p.type)) throw new ProposalError(`${p.id}: its type is number, integer or string.`);
+      if (p.value === undefined || (p.type === "string" ? typeof p.value !== "string" : typeof p.value !== "number")) throw new ProposalError(`${p.id}: its value is a ${p.type === "string" ? "string" : "number"}.`);
+      ids.add(p.id);
+    }
+    out.params = v;
+  }
+  return out;
+}
+
 /** a record with its card naming what it is: the asset, the version, the variant and the file */
 const recordOf = (record: any, grp: string, slug: string, n: number, variant: string | null, hash: string) => ({
   ...(record ?? {}),
@@ -138,6 +163,9 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
   // a proposal that brings no record of its own takes its head's (the engine it runs on, its label, its parameters),
   // with its own recipe and version written in: an upload of the recipe file alone makes a version the site can build
   const inherited = (own: any, from: any) => own ?? (from ? { ...from, card: { ...(from.card ?? {}) } } : undefined);
+  // the card fields a proposal sets over the record it takes: its params, a variant's label
+  const over = (record: any, card: Record<string, unknown>) => (Object.keys(card).length ? { ...(record ?? {}), card: { ...(record?.card ?? {}), ...card } } : record);
+  const set = cardFields(body.card);
   const head = a[0]?.head ?? null;
   if (body.base !== undefined && (body.base ?? null) !== head)
     throw new ProposalError("Someone changed this asset since you started: build it again on its newest version.", 409);
@@ -193,13 +221,14 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
       files.push(c.source, c.recipe);
       variantTexts[name] = c.source.text;
       const from = a[0]?.variants?.[name] ?? a[0]?.card;
-      const record = heldRecord(inherited(body.variants![name].record, from), c.libs, c.source.hash);
+      const label = body.variants![name].label === undefined ? {} : { label: `${body.variants![name].label}`.trim().slice(0, 120) };
+      const record = heldRecord(over(inherited(body.variants![name].record, from), { ...set, ...label }), c.libs, c.source.hash);
       variants[name] = { recipe: c.recipe.hash, source: c.source.hash, card: recordOf(record, grp, slug, n, name, c.recipe.hash) };
     }
     defaultVariant = body.defaultVariant ?? variantNames[0];
     if (!variants[defaultVariant]) throw new ProposalError(`${defaultVariant} is not one of its variants.`);
   }
-  const card = recipe ? recordOf(heldRecord(inherited(body.record, a[0]?.card), own!.libs, own!.source), grp, slug, n, null, recipe) : variants[defaultVariant!].card;
+  const card = recipe ? recordOf(heldRecord(over(inherited(body.record, a[0]?.card), set), own!.libs, own!.source), grp, slug, n, null, recipe) : variants[defaultVariant!].card;
   // every other asset a version names, it names by hash (play/SPEC.md §4)
   const readable = [card, ...Object.values(variants).map((x) => x.card)].flatMap((c) => readableRefs(c, `${grp}/${slug}`));
   if (readable.length) throw new ProposalError(`Name other assets by their hash, not ${readable.slice(0, 3).join(", ")}.`);

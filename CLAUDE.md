@@ -53,5 +53,6 @@ proposes the draft with `propose_story_version`'s `branch`. So is every **asset*
 card and variants, its history made from its versions (and the work kept between them, `play/api/import/history`);
 an agent drafts an asset step by step with `asset_edit` (a replace by its text, a range, a card field, each step with
 its message), reads it with `asset_history` and `get_asset`'s `step`, and proposes the draft with `propose_version`'s
-`branch`, its steps shown on the Proposals page; admins play an asset's making in the asset viewer's history bar. No
-tool accepts or rejects. Admins only for now: a token opens nothing once its owner is no admin.
+`branch`, its steps shown on the Proposals page; admins play an asset's making in the asset viewer's history bar. A
+version can be a kind of **variants** (`propose_version`'s `variants`: a plant's kinds, an animal's breeds), each its own
+recipe and a chip in the asset viewer. No tool accepts or rejects. Admins only for now: a token opens nothing once its owner is no admin.

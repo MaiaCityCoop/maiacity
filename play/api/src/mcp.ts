@@ -129,13 +129,58 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           note: { type: "string", description: "what changed and why, for the admins deciding" },
           base: { type: "string", description: "the head version's id it was made from (from get_asset); refused if the asset moved on since" },
           branch: { type: "integer", minimum: 1, description: "a draft made with asset_edit, proposed as it stands" },
+          variants: {
+            type: "array",
+            minItems: 1,
+            maxItems: 16,
+            description:
+              "make the version a kind of variants (a plant's kinds, an animal's breeds), each selectable in the asset viewer: every variant is its own recipe file, built from its own `source` or else the version's, its recipe called with its name as `variant` (module.exports.recipe(id, v, variant)). A variant's `label` is how it is shown (\"Papaya: Male\" shows as Male).",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string", pattern: "^[a-z0-9][a-z0-9-]{0,79}$", description: "lowercase, as a ref names it (plants/papaya@3:male)" },
+                label: { type: "string" },
+                source: { type: "string", description: "this variant's own readable source, where it differs from the version's" },
+              },
+              required: ["name"],
+              additionalProperties: false,
+            },
+          },
+          default_variant: { type: "string", description: "the variant a ref without one names (the first if left out)" },
+          params: {
+            type: "array",
+            description:
+              "the parameters the recipe now declares (its meta.params: { id, label, type: 'number' | 'integer' | 'string', value, min?, max?, step?, names?, maxLength? }), in the order its build takes them, when they change; otherwise the head's are kept",
+            items: { type: "object" },
+          },
         },
         required: ["asset", "note"],
         additionalProperties: false,
       },
-      run: async ({ asset, source, note, base, branch }, me) => {
-        if (branch == null && !source) throw new ProposalError("Give the new version's source, or the draft (branch) it stands in.");
-        return propose(db, store, me, { asset, ...(source ? { source: `${source}` } : {}), note, ...(base ? { base } : {}), ...(branch != null ? { branch: Number(branch) } : {}) }, "mcp");
+      run: async ({ asset, source, note, base, branch, variants, default_variant, params }, me) => {
+        if (branch == null && !source && !variants?.length) throw new ProposalError("Give the new version's source, or the draft (branch) it stands in.");
+        const kinds = Array.isArray(variants) && variants.length ? variants : null;
+        if (kinds && kinds.some((x: any) => !x?.source) && !source) throw new ProposalError("Give the version's source, or each variant's own.");
+        const names = kinds?.map((x: any) => `${x?.name ?? ""}`) ?? [];
+        if (new Set(names).size !== names.length) throw new ProposalError("Each variant has a name of its own.");
+        return propose(
+          db,
+          store,
+          me,
+          {
+            asset,
+            ...(kinds
+              ? { variants: Object.fromEntries(kinds.map((x: any) => [`${x.name}`, { source: `${x.source ?? source}`, ...(x.label !== undefined ? { label: `${x.label}` } : {}) }])), ...(default_variant ? { defaultVariant: `${default_variant}` } : {}) }
+              : source
+                ? { source: `${source}` }
+                : {}),
+            ...(params !== undefined ? { card: { params } } : {}),
+            note,
+            ...(base ? { base } : {}),
+            ...(branch != null ? { branch: Number(branch) } : {}),
+          },
+          "mcp",
+        );
       },
     },
     {

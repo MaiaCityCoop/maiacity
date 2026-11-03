@@ -180,6 +180,28 @@ suite("play API", () => {
     expect(goats[0].hash).not.toBe(goats[1].hash);
   });
 
+  test("an agent proposes a plant as a kind of variants over MCP: each its own recipe and label, the params its recipe declares", async () => {
+    const t = (await call("ada", "POST", "/api/tokens", { name: "kinds" })).data.token;
+    const src = "// a fern of three kinds\nmodule.exports.recipe = function (id, v, variant) {\n  return { meta: { id, v, variant }, build: () => null };\n};\n";
+    const params = [
+      { id: "stage", label: "Stage", type: "number", min: 0, max: 9, value: 9 },
+      { id: "pollen", label: "Pollen", type: "integer", min: 0, max: 1, value: 1, names: ["None", "A male near"] },
+    ];
+    const head = (await call("trav", "GET", `/api/assets/${ids.fern}`)).data.head;
+    const kinds = [{ name: "both", label: "Fern: Both" }, { name: "female", label: "Fern: Female" }, { name: "male", label: "Fern: Male" }];
+    const r = await tool("propose_version", { asset: ids.fern, base: head, source: src, note: "its kinds", variants: kinds, default_variant: "both", params }, t);
+    expect(r.error).toBeNull();
+    const rows = (await db.query<any>(`SELECT name, card FROM play.asset_variants WHERE version_id = $1 ORDER BY name`, [r.out.version])).rows;
+    expect(rows.map((x) => [x.name, x.card.card.label, x.card.card.variant])).toEqual([["both", "Fern: Both", "both"], ["female", "Fern: Female", "female"], ["male", "Fern: Male", "male"]]);
+    for (const x of rows) expect(x.card.card.params).toEqual(params);
+    expect(new Set(rows.map((x) => x.card.card.recipe)).size).toBe(3);
+    const v = (await db.query<any>(`SELECT default_variant, recipe_hash FROM play.asset_versions WHERE id = $1`, [r.out.version])).rows[0];
+    expect(v).toMatchObject({ default_variant: "both", recipe_hash: null });
+    expect((await tool("propose_version", { asset: ids.fern, source: src, note: "bad", params: [{ id: "1x", type: "number", value: 1 }] }, t)).error).toContain("own id");
+    expect((await tool("propose_version", { asset: ids.fern, source: src, note: "twice", variants: [{ name: "a" }, { name: "a" }] }, t)).error).toContain("name of its own");
+    await call("ada", "POST", `/api/proposals/${r.out.id}/withdraw`);
+  });
+
   test("a proposal naming another asset by a readable ref is refused", async () => {
     const r = await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* r */"), record: { card: { label: "Fern", parts: [{ ref: "actors/goat@1" }] } } });
     expect(r.status).toBe(400);

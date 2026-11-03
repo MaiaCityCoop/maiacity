@@ -162,6 +162,12 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   proposed its last step; an agent can draft it first step by step (`asset_edit`: a replace by its text, a range of the
   source, a field of the card, each step with its message) and propose the draft (`propose_version` with its `branch`),
   its steps going with it. Accepting merges the branch and names the document's version the asset's new number.
+- **Variants over MCP** (Samuel 2026-11-03): `propose_version`'s `variants` (each a `name`, a `label`, its own `source`
+  where it differs) make a version a kind of variants, as the animals are: each variant its own recipe file, the source
+  called with its name (`module.exports.recipe(id, v, variant)`), its label shown as a chip in the asset viewer
+  ("Papaya: Male" as Male), `default_variant` the one a ref without a variant names. `params` sets the card's
+  parameters when the recipe declares new ones (its meta.params, in its build's order), on the version and every
+  variant. The papaya's three kinds (both, female, male) are the first.
 - **Never merged unseen**: an asset's proposal is still accepted only on the head it was made on (a moved head makes it
   stale, §4.3), so what is accepted is exactly the version the Proposals page built and showed in the asset box; the
   document's own rule (a merge that met other edits needs its previewed hash) stands behind it.
