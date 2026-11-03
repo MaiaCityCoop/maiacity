@@ -81,10 +81,10 @@ const FS = { fmt, rng, Kit: K }
       else { const c = Math.ceil(Pmax / 2); W = c * (proto.w + 0.7) + 1.8; D = 2 * proto.d + 2.6 }
       info[s.id] = { s, P, Pmax, pm, inline, mw: proto.w, md: proto.d, W, D, oneSided: !inline && Pmax <= 2 && !s.twoSided }
     }
-    // maiaCITY (2026-11-03): a long line with many cells laid out as a comb (`layout.trunk`, ./world.js `comb`)
-    if (spec.layout && spec.layout.trunk) {
-      comb(plan, info, spec.layout)
-      return centred(info)
+    // maiaCITY (2026-11-03): a star round a ring of assembly (`layout.mode: 'star'`, `star` below), already centred
+    if (spec.layout && spec.layout.mode === 'star') {
+      star(plan, info, spec.layout)
+      return info
     }
     // manual grid if the spec gives `at: [col, row]`
     const manual = st.some((s) => Array.isArray(s.at))
@@ -126,74 +126,104 @@ const FS = { fmt, rng, Kit: K }
   }
 
   /**
-   * maiaCITY (2026-11-03): the comb. The trunk (`layout.trunk`, the main line's stations in flow order) runs left to
-   * right, folding back right to left in front of itself after `layout.fold` stations (a U). Every cell that joins
-   * the trunk stands as a column of its own right behind the station it feeds (in front of it, for the second leg):
-   * its stations in flow order along `after[0]`, the farthest first, turning at each one like a serpentine, so its
-   * last station hands its unit over through the aisle beside the station it joins. A second cell into the same
-   * station stands behind the first. A trunk station named in `layout.over` takes its branch last: laid as a row
-   * across the back of the hall behind every column (the fabrication shop), coming round the left end of the line;
-   * that row's own side branches (`after[1..]`) stand behind it, each dropping into the aisle beside the station it
-   * joins.
+   * maiaCITY (2026-11-03): the star. The main line (`layout.ring`, in flow order) stands round a ring, flowing
+   * anticlockwise seen from above, with an opening (`layout.open` m of arc, at the angle `layout.openAt`) between its
+   * last station and its first: the way the finished machines leave for the hub in the middle. Every cell that joins
+   * the ring is a point of the star, out from the aisle before the station it joins: a straight ray of stations
+   * flowing in towards the ring, or, when it is longer than `layout.maxLeg`, a V that goes out on one leg and comes
+   * back on the other. A side branch (`after[1..]`) stands beside the station before the one it joins, on the point's
+   * outer side. Each station gets its centre and the angle its flow faces (`I.angle`).
    */
-  function comb(plan, info, L) {
-    const byId = plan.byId, gap = L.gap != null ? L.gap : 5, aisle = L.aisle != null ? L.aisle : 4, step = L.step != null ? L.step : 2.5
-    const trunk = L.trunk, fold = L.fold != null ? L.fold : trunk.length, over = new Set(L.over || [])
-    const onTrunk = new Set(trunk)
-    const A = trunk.slice(0, fold), B = trunk.slice(fold)
-    const DA = Math.max(...A.map((id) => info[id].D)), DB = B.length ? Math.max(...B.map((id) => info[id].D)) : 0
-    let x = 0
-    for (const id of A) { const I = info[id]; I.x = x + I.W / 2; I.z = 0; I.dir = 1; x += I.W + gap }
-    const zB = DA / 2 + aisle + DB / 2
-    x -= gap
-    for (const id of B) { const I = info[id]; I.x = x - I.W / 2; I.z = zB; I.dir = -1; x -= I.W + gap }
-    /** a branch's stations in flow order, back along after[0] from the station that feeds the join */
-    const chainOf = (id) => { const c = []; for (let s = byId[id]; s; s = s.after.length ? byId[s.after[0]] : null) c.unshift(s.id); return c }
-    let deepest = DA / 2 + aisle // how far behind the trunk the columns reach (m)
-    /** a cell as a column at the trunk station T: from `from` (m from the trunk's middle line) outward */
-    function column(id, T, back, from) {
-      const chain = chainOf(id)
-      const colW = Math.max(...chain.map((c) => info[c].W))
-      const cx = back ? T.x - T.W / 2 + colW / 2 : T.x + T.W / 2 - colW / 2
-      let d = from
-      chain.slice().reverse().forEach((c, i) => {
-        const I = info[c]
-        // the station nearest the trunk hands over towards the aisle beside T; the ones behind it turn in turn
-        I.dir = (i % 2 === 0) === back ? -1 : 1
-        I.x = cx
-        I.z = back ? -(d + I.D / 2) : zB + d + I.D / 2
-        d += I.D + step
-      })
-      return d - step
+  function star(plan, info, L) {
+    const byId = plan.byId
+    const ring = L.ring, gapMin = L.gap != null ? L.gap : 4, aisle = L.aisle != null ? L.aisle : 6, step = L.step != null ? L.step : 3
+    const open = L.open != null ? L.open : 18, maxLeg = L.maxLeg || 30, spread = L.spread || 0.16
+    const onRing = new Set(ring)
+    const Dring = Math.max(...ring.map((id) => info[id].D))
+    const openAt = L.openAt != null ? L.openAt : -Math.PI / 2
+    const put = (I, x, z, dx, dz) => { I.x = x; I.z = z; I.angle = Math.atan2(-dz, dx); I.dir = 1; I.fx = dx; I.fz = dz }
+    // the ring's stations at their least gaps, then the gaps opened so the points of the star come out as evenly round
+    // it as their stations allow (each feeder takes an equal share of the circle; where a stretch of stations with no
+    // feeder is longer than its share, the others close up)
+    const feedsOf = (id) => byId[id].after.filter((q) => !onRing.has(q))
+    const pts = ring.filter((id) => feedsOf(id).length)
+    const N = pts.reduce((t, id) => t + feedsOf(id).length, 0)
+    const start = {}
+    let s = 0
+    for (const id of ring) { if (id !== ring[0]) s += gapMin; start[id] = s; s += info[id].W }
+    const Cmin = s + open
+    const C = Math.max(2 * Math.PI * (L.radius || 0), Cmin * 1.15)
+    const R = C / (2 * Math.PI), D0 = C / N
+    const centre = (id) => start[id] - gapMin / 2 - ((feedsOf(id).length - 1) * D0) / 2
+    const m = pts.length
+    // the stretches between one point and the next at their least; the last wraps round through the opening
+    const Ls = pts.map((id, j) => (j < m - 1 ? centre(pts[j + 1]) - centre(id) : s - centre(id) + open + centre(pts[0])))
+    const Ts = pts.map((id, j) => (D0 * (feedsOf(id).length + feedsOf(pts[(j + 1) % m]).length)) / 2)
+    let lo = 0, hi = C
+    for (let it = 0; it < 60; it++) { const lam = (lo + hi) / 2; const sum = Ts.reduce((t, T, j) => t + Math.max(Ls[j], T - lam), 0); if (sum > C) lo = lam; else hi = lam }
+    const slack = Ts.map((T, j) => Math.max(Ls[j], T - hi) - Ls[j])
+    // each stretch's slack opens the gap before the next point's station; the wrap's goes to the opening
+    let shift = 0
+    for (const id of ring) { const j = pts.indexOf(id); if (j > 0) shift += slack[j - 1]; start[id] += shift }
+    const lastEnd = start[ring[ring.length - 1]] + info[ring[ring.length - 1]].W
+    const phiOf = (q) => openAt + (q + (C - lastEnd) / 2) / R
+    for (const id of ring) {
+      const I = info[id], phi = phiOf(start[id] + I.W / 2)
+      put(I, R * Math.cos(phi), R * Math.sin(phi), -Math.sin(phi), Math.cos(phi))
     }
-    const later = []
-    for (const id of trunk) {
-      const T = info[id], back = A.includes(id)
-      let from = back ? DA / 2 + aisle : DB / 2 + aisle
-      for (const p of byId[id].after) {
-        if (onTrunk.has(p)) continue
-        if (over.has(id)) { later.push([id, p]); continue }
-        from = column(p, T, back, from) + aisle
-        if (back) deepest = Math.max(deepest, from - aisle)
+    const chainOf = (id) => { const c = []; for (let q = byId[id]; q; q = q.after.length ? byId[q.after[0]] : null) c.unshift(q.id); return c }
+    const len = (ids) => ids.reduce((t, c) => t + info[c].W, 0) + step * (ids.length - 1)
+    const dOf = (ids) => Math.max(...ids.map((c) => info[c].D))
+    const r0 = R + Dring / 2 + aisle
+    /** stations along a line from point a in direction d, flowing along d, starting `from` m along it */
+    const along = (ids, ax, az, dx, dz, from) => { let t = from; for (const c of ids) { const I = info[c]; t += I.W / 2; put(I, ax + dx * t, az + dz * t, dx, dz); t += I.W / 2 + step } }
+    /** side branches of a chain's stations, beside the station before the one they join, on the side (nx, nz) */
+    function sides(chain, nx, nz) {
+      const D = dOf(chain)
+      chain.forEach((c, i) => {
+        let off = D / 2 + 3
+        for (const q of byId[c].after.slice(1)) {
+          const sub = chainOf(q), J = info[c], Dq = dOf(sub)
+          off += Dq / 2
+          // ending 1.5 m before the joining station's start, flowing as it flows
+          const ex = J.x - J.fx * (J.W / 2 + 1.5) + nx * off, ez = J.z - J.fz * (J.W / 2 + 1.5) + nz * off
+          along(sub, ex - J.fx * len(sub), ez - J.fz * len(sub), J.fx, J.fz, 0)
+          off += Dq / 2 + 3
+        }
+      })
+    }
+    function point(p, phi) {
+      const chain = chainOf(p)
+      const ux = Math.cos(phi), uz = Math.sin(phi), nx = -Math.sin(phi), nz = Math.cos(phi)
+      if (len(chain) <= maxLeg) {
+        // a ray: from its far end in towards the ring
+        const far = r0 + len(chain)
+        along(chain, ux * far, uz * far, -ux, -uz, 0)
+        sides(chain, -nx, -nz)
+        return
       }
+      // a V: out on the leg on the near side of the opening, back on the leg towards the station it joins
+      // split where the two legs come out most even
+      let half = 1
+      for (let k = 1; k < chain.length; k++) if (Math.max(len(chain.slice(0, k)), len(chain.slice(k))) < Math.max(len(chain.slice(0, half)), len(chain.slice(half)))) half = k
+      const A = chain.slice(0, half), B = chain.slice(half)
+      const D = dOf(chain), hb = D / 2 + 3, ht = D / 2 + 1.5
+      const Lg = Math.max(len(A), len(B)) + 3
+      const b1 = [ux * r0 - nx * hb, uz * r0 - nz * hb], t1 = [ux * (r0 + Lg) - nx * ht, uz * (r0 + Lg) - nz * ht]
+      const b2 = [ux * r0 + nx * hb, uz * r0 + nz * hb], t2 = [ux * (r0 + Lg) + nx * ht, uz * (r0 + Lg) + nz * ht]
+      const unit = (a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz); return [dx / l, dz / l, l] }
+      const [ax, az] = unit(b1, t1)
+      along(A, b1[0], b1[1], ax, az, 0.5)
+      const [bx, bz, lb] = unit(t2, b2)
+      along(B, t2[0], t2[1], bx, bz, lb - len(B) - 0.5)
+      sides(A, -nx, -nz)
+      sides(B, nx, nz)
     }
-    // the shop across the back, flowing right to left, its last station at the left end of the trunk
-    for (const [id, p] of later) {
-      const T = info[id], chain = chainOf(p)
-      const D = Math.max(...chain.map((c) => info[c].D))
-      const z = -(deepest + aisle + D / 2)
-      let cx = T.x - T.W / 2
-      for (const c of chain.slice().reverse()) { const I = info[c]; I.dir = -1; I.z = z; I.x = cx + I.W / 2; cx += I.W + gap }
-      // its side branches in rows behind it, each dropping into the aisle on the right of the station it joins
-      let back = deepest + aisle + D + aisle
-      for (const c of chain) byId[c].after.slice(1).forEach((q, i) => {
-        const J = info[c], sub = chainOf(q)
-        const Ds = Math.max(...sub.map((s) => info[s].D))
-        let sx = J.x + J.W / 2 + 1.5 + i * 2
-        for (const s of sub.slice().reverse()) { const I = info[s]; I.dir = -1; I.z = -(back + Ds / 2); I.x = sx + I.W / 2; sx += I.W + gap }
-        back += Ds + aisle
-      })
+    for (const id of pts) {
+      const feeds = feedsOf(id)
+      feeds.forEach((q, j) => point(q, phiOf(start[id] - gapMin / 2 - (feeds.length - 1 - j) * D0)))
     }
+    info.__star = { R, Dring, open, openAt }
   }
 
   function mopts(s, k) {
@@ -249,6 +279,8 @@ const FS = { fmt, rng, Kit: K }
     build() {
       const plan = this.plan
       const info = (this.info = layout(plan, this.sim))
+      this.star = info.__star || null
+      delete info.__star
       const accents = K.ACCENTS
       let ai = 0
       // stations
@@ -256,8 +288,9 @@ const FS = { fmt, rng, Kit: K }
         const I = info[s.id]
         if (!s.accent) s.accent = accents[ai++ % accents.length]
         const g = K.group(this.root, I.x, 0, I.z)
-        g.rotation.y = I.dir === -1 ? Math.PI : 0
+        g.rotation.y = I.angle != null ? I.angle : I.dir === -1 ? Math.PI : 0 // maiaCITY: a star's stations face any way
         const S = { id: s.id, def: s, I, g, machines: [], ports: {}, dir: I.dir, appear: 0 }
+        S.fwd = V(Math.cos(g.rotation.y), 0, -Math.sin(g.rotation.y)) // where its flow goes, in the world
         this.st[s.id] = S
         this._buildStation(S)
       }
@@ -265,10 +298,12 @@ const FS = { fmt, rng, Kit: K }
       for (const s of plan.stations) for (const p of s.after) this._edge(p, s.id)
       // raw material feeders for branch heads
       for (const s of plan.stations) if (!s.after.length) this._feeder(s.id)
-      this._hall()
-      this._props()
+      // maiaCITY (2026-11-03): a star stands in a round hall, robots only
+      if (this.star) this._hallRound()
+      else { this._hall(); this._props() }
       this._tokens()
-      this._people()
+      if (this.star) this._robotsRound()
+      else this._people()
     }
 
     /* ---- one station: machines, spine, ports, floor zone, hit box */
@@ -450,6 +485,9 @@ const FS = { fmt, rng, Kit: K }
       const dA = A.dir, dB = B.dir
       const p1 = p0.clone().add(V(1.2 * dA, 0, 0)), p3 = p4.clone().add(V(-1.2 * dB, 0, 0))
       let pts
+      // maiaCITY: in a star, straight out of one station and straight into the next, whichever way each faces
+      if (this.star) pts = [p0, p0.clone().addScaledVector(A.fwd, 1.2), p4.clone().addScaledVector(B.fwd, -1.2), p4]
+      else
       if (dA === dB) {
         const mx = (p1.x + p3.x) / 2
         pts = Math.abs(p1.z - p3.z) < 0.05 ? [p0, p4] : [p0, p1, V(mx, BELT_Y, p1.z), V(mx, BELT_Y, p3.z), p3, p4]
@@ -469,11 +507,12 @@ const FS = { fmt, rng, Kit: K }
     _feeder(id) {
       const S = this.st[id]
       const p4 = this._w(S, S.ports.$src)
-      const p0 = p4.clone().add(V(-3.2 * S.dir, 0, 0))
+      const p0 = this.star ? p4.clone().addScaledVector(S.fwd, -3.2) : p4.clone().add(V(-3.2 * S.dir, 0, 0))
       const route = new Route([p0, p4])
       const g = K.group(this.root)
       // a pallet of raw material at the start of the feeder (maiaCITY: our Euro pallet, the product stacked at its real size)
-      const pal = K.group(g, p0.x - 0.8 * S.dir, 0, p0.z)
+      const pal = this.star ? K.group(g, p0.x - 0.8 * S.fwd.x, 0, p0.z - 0.8 * S.fwd.z) : K.group(g, p0.x - 0.8 * S.dir, 0, p0.z)
+      if (this.star) pal.rotation.y = S.g.rotation.y
       K.europallet(pal, 0, 0, 0, this._pallet())
       const st = this.plan.byId[id]
       const def = this.plan.spec.stages && this.plan.spec.stages[st.input] || { shape: 'crate', color: '#c49a63' }
@@ -678,6 +717,161 @@ const FS = { fmt, rng, Kit: K }
       this.base = { x0: bx0, x1: bx1, z0: bz0, z1: bz1 }
     }
 
+    /**
+     * maiaCITY (2026-11-03): the round hall a star stands in. A round floor with its joints in rings, a round wall
+     * standing full height (windows, columns) on the far side and cut low on the near side so the line is seen, a round
+     * base of grass on the table with trees round it, racks along the inside of the far wall, and in the hub the bays
+     * where the finished machines stand, each facing out, reached by a painted lane from the last station.
+     */
+    _hallRound() {
+      const st = Object.values(this.st)
+      let reach = 0
+      for (const S of st) reach = Math.max(reach, Math.hypot(S.I.x, S.I.z) + Math.max(S.I.W, S.I.D) / 2)
+      for (const e of Object.values(this.edges)) for (const p of e.route.p) reach = Math.max(reach, Math.hypot(p.x, p.z) + 3)
+      const xs = [], zs = []
+      for (const S of st) { const r = Math.max(S.I.W, S.I.D) / 2; xs.push(S.I.x - r, S.I.x + r); zs.push(S.I.z - r, S.I.z + r) }
+      this.lineBounds = { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) }
+      const Rh = reach + 3, Rb = Rh + 16
+      this.hallR = Rh
+      this.bounds = { x0: -Rh, x1: Rh, z0: -Rh, z1: Rh }
+      const g = (this.hall = K.group(this.root))
+      const wallH = 7.5, t = 0.35
+      // the floor, its joints in rings every 12 m and on the radii every 30°
+      const floorTex = K.noiseTex('#959a96', 20, 256, 1)
+      floorTex.repeat.set(Rh / 9, Rh / 9)
+      const floor = new T.Mesh(new T.CylinderGeometry(Rh, Rh, 0.3, 128), new T.MeshStandardMaterial({ map: floorTex, roughness: 0.62, metalness: 0.02 }))
+      floor.position.y = -0.15
+      floor.receiveShadow = true
+      g.add(floor)
+      const joint = K.paint('#bdb6a6', 0.9)
+      for (let r = 12; r < Rh; r += 12) { const m = new T.Mesh(new T.RingGeometry(r - 0.02, r + 0.02, 128), joint); m.rotation.x = -Math.PI / 2; m.position.y = 0.004; g.add(m) }
+      for (let a = 0; a < 12; a++) { const m = K.box(g, Rh - 6, 0.004, 0.04, joint, 0, 0, 0, { r: 0 }); m.rotation.y = (a * Math.PI) / 6; m.position.set(Math.cos((a * Math.PI) / 6) * (Rh / 2 + 3), 0.002, -Math.sin((a * Math.PI) / 6) * (Rh / 2 + 3)) }
+      // the wall: segments round the floor, full height on the far side from the camera, cut low on the near side
+      const wallM = K.paint('#ece5d6', 0.75), cutM = K.paint('#b65f3c', 0.7), trim = K.paint('#3d4a52', 0.5)
+      const winM = new T.MeshStandardMaterial({ color: '#b9d3dd', roughness: 0.08, metalness: 0.2, emissive: '#cfe6ef', emissiveIntensity: 0.25 })
+      const view = this.plan.spec.look && this.plan.spec.look.camera && this.plan.spec.look.camera.az != null ? this.plan.spec.look.camera.az : 0.68
+      const cam = [Math.sin(view), Math.cos(view)]
+      const n = Math.max(48, Math.round((2 * Math.PI * Rh) / 4))
+      const seg = (2 * Math.PI * (Rh + t / 2)) / n + 0.05
+      for (let i = 0; i < n; i++) {
+        const a = ((i + 0.5) / n) * 2 * Math.PI, cx = Math.cos(a) * (Rh + t / 2), cz = Math.sin(a) * (Rh + t / 2)
+        const far = (Math.cos(a) * cam[0] + Math.sin(a) * cam[1]) < -0.12
+        const w = K.group(g, cx, 0, cz)
+        w.rotation.y = -a + Math.PI / 2
+        const h = far ? wallH : 1.1
+        K.box(w, seg, h, t, wallM, 0, 0, 0, { r: 0 })
+        K.box(w, seg, far ? 0.25 : 0.02, t + (far ? 0.06 : 0), far ? trim : cutM, 0, h, 0, { r: 0 })
+        if (far && i % 2 === 0) K.box(w, seg * 1.6, 1.3, 0.06, winM, 0, 4.6, -(t / 2 + 0.02), { r: 0 }).castShadow = false
+        if (i % 3 === 0) K.box(w, 0.45, far ? wallH : 1.35, 0.45, K.paint('#4a5862', 0.5), 0, 0, -0.25, { r: 0.02 })
+      }
+      // racks along the inside of the far wall, where no station stands
+      for (let i = 0; i < n; i += 2) {
+        const a = ((i + 0.5) / n) * 2 * Math.PI, r = Rh - 1.4
+        if ((Math.cos(a) * cam[0] + Math.sin(a) * cam[1]) > -0.3) continue
+        const x = Math.cos(a) * r, z = Math.sin(a) * r
+        if (st.some((S) => Math.hypot(S.I.x - x, S.I.z - z) < Math.max(S.I.W, S.I.D) / 2 + 4)) continue
+        if (Object.values(this.edges).some((e) => e.route.p.some((p) => Math.hypot(p.x - x, p.z - z) < 5))) continue
+        const rk = K.rack(g, x, z, 2.7, 1.1, 4, 1.35, 0.75, i)
+        rk.rotation.y = -a - Math.PI / 2
+      }
+      // the hub: the bays the finished machines stand in, each facing out, and the lane from the last station
+      const sink = this.st[this.plan.sink]
+      const so = this._w(sink, sink.outPort)
+      const ship = K.group(this.root, 0, 0, 0)
+      this.shipAt = V(0, 0.3, 0)
+      const lane = K.paint('#6f9c72', 0.8)
+      const lp = so.clone().addScaledVector(sink.fwd, 1.5)
+      const ll = Math.hypot(lp.x, lp.z)
+      const lm = K.box(g, ll, 0.008, 2.4, lane, lp.x / 2, 0.003, lp.z / 2, { r: 0 })
+      lm.rotation.y = Math.atan2(-lp.z, lp.x)
+      K.conveyor(this.root, [V(so.x, 0, so.z), V(lp.x, 0, lp.z)], { y: BELT_Y, w: sink.def.beltW })
+      this.shipPallets = []
+      const nb = 6
+      for (let i = 0; i < nb; i++) {
+        const a = (i / nb) * 2 * Math.PI, r = 5
+        const p = K.group(ship, Math.cos(a) * r, 0, Math.sin(a) * r)
+        p.userData.q = new T.Quaternion().setFromEuler(new T.Euler(0, -a, 0))
+        const bay = K.group(p)
+        bay.rotation.y = -a
+        for (const sz of [-1, 1]) K.box(bay, 2.9, 0.008, 0.08, K.paint('#f4efe4', 0.6), 0, 0.003, sz * 1.0, { r: 0 })
+        this.shipPallets.push(p)
+      }
+      K.cyl(g, 1.6, 0.12, K.paint('#e3b23c', 0.6), 0, 0, 0, { seg: 40 })
+      const sinkDef = this.plan.spec.stages && this.plan.spec.stages[this.plan.byId[this.plan.sink].stage] || { shape: 'box', color: '#c49a63' }
+      const sg = this._stageGeo(sinkDef)
+      this.shipBoxGeo = sg.geo
+      this.shipBoxMat = sg.mat === this.tokMat ? new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 }) : sg.mat
+      this.shipLayout = { per: 1, at: () => [0, 0, 0, 1] }
+      this.shipFill = new T.InstancedMesh(this.shipBoxGeo, this.shipBoxMat, nb)
+      this.shipFill.castShadow = true
+      this.shipFill.count = 0
+      ship.add(this.shipFill)
+      // the round base on the table: grass on top, earth round its side, trees on the grass ring
+      const grassTex = K.noiseTex('#93aa6e', 26, 128, 1)
+      grassTex.repeat.set(12, 12)
+      const base = new T.Mesh(new T.CylinderGeometry(Rb, Rb, 1.6, 160), [K.paint('#5f4b3a', 0.9), new T.MeshStandardMaterial({ map: grassTex, roughness: 0.95 }), K.paint('#5f4b3a', 0.9)])
+      base.position.y = -0.81
+      base.receiveShadow = true
+      g.add(base)
+      const r = FS.rng(41)
+      for (let i = 0; i < 70; i++) {
+        const a = r() * 2 * Math.PI, d = Rh + 3 + r() * (Rb - Rh - 5)
+        K.tree(g, Math.cos(a) * d, Math.sin(a) * d, 0.8 + r() * 0.7, Math.floor(r() * 3))
+      }
+      // the sign, on the grass in front
+      const sc = document.createElement('canvas')
+      sc.width = 1024; sc.height = 256
+      const sx = sc.getContext('2d')
+      sx.fillStyle = '#24452f'; sx.fillRect(0, 0, 1024, 256)
+      sx.fillStyle = '#f4efe4'; sx.font = '700 92px ui-sans-serif, -apple-system, Helvetica, Arial, sans-serif'; sx.textBaseline = 'middle'
+      sx.fillText((this.plan.spec.sign || this.plan.spec.title || 'Factory').toUpperCase().slice(0, 18), 40, 110)
+      sx.font = '500 44px ui-monospace, Menlo, monospace'; sx.fillStyle = '#e3b23c'
+      sx.fillText((this.plan.spec.signSub || FS.fmt(this.plan.perDay) + ' ' + (this.plan.spec.product.unit || 'units') + ' / day').toUpperCase(), 44, 200)
+      const stx = new T.CanvasTexture(sc)
+      stx.colorSpace = T.SRGBColorSpace
+      const sign = K.group(g, cam[0] * (Rh + 6), 0, cam[1] * (Rh + 6))
+      sign.rotation.y = view
+      K.box(sign, 0.15, 1.2, 0.15, trim, -2.2, 0, 0)
+      K.box(sign, 0.15, 1.2, 0.15, trim, 2.2, 0, 0)
+      const sm = new T.Mesh(new T.BoxGeometry(5.2, 1.3, 0.2), [trim, trim, trim, trim, new T.MeshStandardMaterial({ map: stx, roughness: 0.5 }), trim])
+      sm.position.set(0, 1.85, 0)
+      sm.castShadow = true
+      sign.add(sm)
+      K.freeze(g)
+      const table = new T.Mesh(new T.PlaneGeometry(3000, 3000), new T.MeshStandardMaterial({ color: this.look.tableColor || '#d9d1c2', roughness: 0.92 }))
+      table.rotation.x = -Math.PI / 2
+      table.position.y = -5.0
+      table.receiveShadow = true
+      this.scene.add(table)
+      this.look.fitSun({ x0: -Rb, x1: Rb, z0: -Rb, z1: Rb }, [-0.62, 0.78, -0.38])
+      this.base = { x0: -Rb, x1: Rb, z0: -Rb, z1: Rb }
+    }
+    /** maiaCITY (2026-11-03): nobody on the floor of a star: driverless forklifts bring the stock in from the wall,
+     *  AMRs circle the hub */
+    _robotsRound() {
+      this.walkers = []
+      this.lifts = []
+      const Rh = this.hallR
+      const srcs = Object.values(this.st).filter((S) => S.rawAt)
+      srcs.forEach((S, i) => {
+        if (i % 2) return
+        const f = K.forklift(this.root, i % 4 ? K.C.yellow : K.C.orange, { driver: false })
+        const d = Math.hypot(S.rawAt.x, S.rawAt.z) || 1
+        const out = Math.min(Rh - 4, d + 12)
+        this.lifts.push({ f, a: V((S.rawAt.x / d) * out, 0, (S.rawAt.z / d) * out), b: S.rawAt.clone().addScaledVector(S.fwd, -1.6), u: i * 0.23 })
+      })
+      this.amrs = []
+      const rr = Math.max(9, this.star.R - this.star.Dring / 2 - 4)
+      const pts = []
+      for (let i = 0; i <= 48; i++) pts.push(V(Math.cos((i / 48) * 2 * Math.PI) * rr, 0, -Math.sin((i / 48) * 2 * Math.PI) * rr))
+      this.amrLoop = new Route(pts)
+      for (let i = 0; i < 5; i++) {
+        const a = K.amr(this.root)
+        K.bin(a.top, 0, 0, 0, [K.C.blue, K.C.yellow, K.C.red, K.C.green, K.C.orange][i], 0.5)
+        this.amrs.push({ a, d: (this.amrLoop.len * i) / 5 })
+      }
+    }
+
     /* ---- clutter that makes a hall read as a working floor: pallets, racks, carts, drums */
     _props() {
       const b = this.bounds
@@ -825,6 +1019,8 @@ const FS = { fmt, rng, Kit: K }
           this.vis.set(job.id, v)
         }
         v.stage = job.stage ? this.plan.byId[job.stage].stage || null : null
+        // maiaCITY (2026-11-03): halfway through a station's cycle the unit shows what that station makes of it
+        if ((loc.type === 'w' && loc.p > 0.5) || loc.type === 'o') v.stage = this.plan.byId[loc.st].stage || v.stage
         v.last = loc
         this._target(v, loc, vspeed)
       }
@@ -958,15 +1154,15 @@ const FS = { fmt, rng, Kit: K }
       for (const id of dead) this.vis.delete(id)
       for (const im of Object.values(this.stageMesh)) im.instanceMatrix.needsUpdate = true
       // shipping pallets fill up and get taken away
-      const shipped = this._shipped || 0
+      const shipped = this.star ? this.sim.shipped : this._shipped || 0 // maiaCITY: a star's hub counts what the line has made
       const per = this.shipLayout.per
-      const n = shipped % (per * 3)
+      const n = shipped % (per * this.shipPallets.length) // maiaCITY: as many bays as the hall has
       this.shipFill.count = n
       for (let i = 0; i < n; i++) {
         const pi = Math.floor(i / per), k = i % per
         const p = this.shipPallets[pi]
         const [lx, ly, lz, ls] = this.shipLayout.at(k) // maiaCITY: where the k-th product sits on its pallet
-        this._m.compose(V(p.position.x + lx, ly, p.position.z + lz), this._q.identity(), this._s.setScalar(ls))
+        this._m.compose(V(p.position.x + lx, ly, p.position.z + lz), p.userData.q || this._q.identity(), this._s.setScalar(ls)) // maiaCITY: a bay may be turned
         this.shipFill.setMatrixAt(i, this._m)
       }
       this.shipFill.instanceMatrix.needsUpdate = true

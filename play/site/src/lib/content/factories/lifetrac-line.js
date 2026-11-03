@@ -11,7 +11,8 @@
  *     night (process.md: 3 shifts where the process runs round the clock). 86,400 production seconds a day, takt 3,600 s.
  *   - Fully automated: no operator at any station (`operators: 0`). Robots cut, weld, paint, bolt, plumb, wire, fill
  *     and test; autonomous forklifts feed the raw stock, AMRs carry kit carts, an AS/RS feeds the bought parts to the
- *     kitting robots. People maintain, supply and supervise from the office.
+ *     kitting robots. Nobody works on the floor (Samuel 2026-11-03: "no people, only robots and machines"); people
+ *     maintain and supply the line from outside it.
  *   - Made here, from raw stock: every plate part (a 12 kW fibre laser), every tube and angle (a tube laser, an angle
  *     line), every pin and shaft (turn-mill cells, induction hardening), every weldment (hubs, pivots, bucket, deck,
  *     mast, the cube's frame), all four hydraulic cylinders (from honed tube and chrome bar), the valve manifold (from
@@ -26,6 +27,9 @@
  *     8 h / 15 min, the powder line and ovens 100–200 h / 1–2 h, testers 50 h / 30 min. Yields only where a unit
  *     leaves the line: 1 % of cubes fail run-in (to the engine bay), 2 % of LifeTracs fail the end-of-line test (to the
  *     rework bay).
+ *
+ * The floor: a round hall, the LifeTrac assembled round a ring in its middle, every cell a point of a star out from the
+ * station it feeds (`layout`, world.js `star`); the finished machines drive into the hub.
  *
  * Route (the asset's own build steps, its STEPS):
  *   plates  laser → deburr ─┐
@@ -97,16 +101,16 @@ export const SPEC = {
 	seed: 25,
 	stations: [
 		// the plates: one laser cuts every plate part of a LifeTrac in one nest
-		station('laser', 'Plate fibre laser', 'fiberlaser', { reserve: 1, input: 'sheets', stage: 'cutkit', kind: 'laser', cv: 0.03, buffer: 3, what: 'Every plate part: side panels, floor, walls, motor plates, arm plates, hub plates and gussets, bucket, deck, brackets.', rate: RATE.laser.note + '. ' + RATE.sheet.note + '.' }),
+		station('laser', 'Plate fibre laser', 'fiberlaser', { reserve: 1, twoSided: true, input: 'sheets', stage: 'cutkit', kind: 'laser', cv: 0.03, buffer: 3, what: 'Every plate part: side panels, floor, walls, motor plates, arm plates, hub plates and gussets, bucket, deck, brackets.', rate: RATE.laser.note + '. ' + RATE.sheet.note + '.' }),
 		station('deburr', 'Deburr and sort', 'rollers', { stage: 'cutkit', kind: 'press', cv: 0.04, buffer: 3, what: 'Every cut plate:', rate: RATE.deburr.note + '.' }),
 		// the tubes and the angles
 		station('tube', 'Tube laser', 'tubelaser', { input: 'tubes', stage: 'tubekit', kind: 'laser', cv: 0.03, buffer: 3, what: 'Every tube part: cross tubes, cradle, arm tubes, cross beam, lugs, DOM pivot and hub tubes, the mast.', rate: RATE.tube.note + '.' }),
 		station('angle', 'Angle line', 'angleline', { input: 'angles', stage: 'clips', kind: 'press', cv: 0.04, buffer: 3, what: 'Every angle: the floor runs, back-wall angles, clips, cross-beam and deck angles.', rate: RATE.angle.note + '.' }),
 		// welded, then painted on one overhead line
-		station('weld', 'Robot welding', 'weldcell', { reserve: 1, after: ['deburr', 'tube', 'angle'], stage: 'weldkit', kind: 'robot', cv: 0.06, buffer: 2, what: 'The weldments: the four hubs, the arm pivots, lift brackets, cross-beam lugs, the bucket, the deck frame and the mast.', rate: RATE.weld.note + '.' }),
-		station('pretreat', 'Pretreatment washer', 'tunnel', { variant: 'washer', length: 10, stage: 'weldkit', kind: 'line', cv: 0.02, buffer: 2, what: 'Everything that is painted:', rate: LINE_NOTE() }),
+		station('weld', 'Robot welding', 'weldcell', { reserve: 1, twoSided: true, after: ['deburr', 'tube', 'angle'], stage: 'weldkit', kind: 'robot', cv: 0.06, buffer: 2, what: 'The weldments: the four hubs, the arm pivots, lift brackets, cross-beam lugs, the bucket, the deck frame and the mast.', rate: RATE.weld.note + '.' }),
+		station('pretreat', 'Pretreatment washer', 'tunnel', { variant: 'washer', length: 8, stage: 'weldkit', kind: 'line', cv: 0.02, buffer: 2, what: 'Everything that is painted:', rate: LINE_NOTE() }),
 		station('powder', 'Powder booth', 'booth', { stage: 'painted', kind: 'line', cv: 0.02, buffer: 1, what: 'Everything that is painted:', rate: LINE_NOTE() }),
-		station('cure', 'Cure oven', 'tunnel', { length: 12, stage: 'painted', kind: 'oven', cv: 0.02, buffer: 2, what: 'Everything that is painted:', rate: LINE_NOTE() }),
+		station('cure', 'Cure oven', 'tunnel', { length: 10, stage: 'painted', kind: 'oven', cv: 0.02, buffer: 2, what: 'Everything that is painted:', rate: LINE_NOTE() }),
 		// the machine comes together on its skillet
 		station('frame', 'Frame bolting', 'asmcell', { variant: 'bolt', stage: 'frame', kind: 'robot', cv: 0.05, buffer: 2, what: 'The frame’s plates, angles, tubes, cradle and its 324 bolts:', rate: RATE.bolt.note + '.' }),
 		station('shafts', 'Shaft turning', 'cnc', { input: 'shaftbar', stage: 'shafts', kind: 'cnc', cv: 0.03, buffer: 3, what: 'The wheel shafts and couplings, from bar:', rate: 'Turn-mill with bar feeder and live tooling, robot unloading (typical cycles).' }),
@@ -191,10 +195,12 @@ export const SPEC = {
 		wired: { shape: 'lifetrac', upto: 'electronics' },
 		lifetrac: { shape: 'asset', ref: LIFETRAC_REF, face: 'z', fallback: { shape: 'lifetrac', upto: 'electronics' }, parked: true }
 	},
-	/** the floor (maiaCITY's comb, world.js): the final line as a U across the hall, each cell behind or in front of the
-	 *  station it feeds, the fabrication shop at the back feeding the frame round the line's left end */
-	layout: { trunk: ['frame', 'wheels', 'cube', 'plumb', 'arms', 'cyls', 'bucket', 'wire', 'fill', 'eol', 'ship'], fold: 6, gap: 5, aisle: 5, band: 11, over: ['frame'] },
-	look: { tilt: { focusY: 0.5, band: 0.1, amount: 12 } }
+	/** the floor (maiaCITY's star, world.js; Samuel 2026-11-03: "a rounded circle shaped ground floor and a star shape
+	 *  assembly line"): the LifeTrac is assembled round a ring in the middle of a round hall; every cell is a point of
+	 *  the star, out from the station it feeds, the eight points spread evenly round; the finished machines drive into
+	 *  the hub */
+	layout: { mode: 'star', ring: ['frame', 'wheels', 'cube', 'plumb', 'arms', 'cyls', 'bucket', 'wire', 'fill', 'eol', 'ship'], radius: 44, open: 16, gap: 4, aisle: 5, step: 3, maxLeg: 24 },
+	look: { tilt: { focusY: 0.5, band: 0.14, amount: 7 } }
 };
 
 /** the powder line's rate, for the notes of its three stations */
