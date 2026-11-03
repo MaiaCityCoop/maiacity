@@ -1,0 +1,245 @@
+<!--
+	THE STORY PLAYER — a story's timeline played through (./timeline.ts): its storyboard frame large, the narration as a
+	subtitle over it, what the editor reads beside it, and the timeline below (the sections, the mood rising and falling,
+	a lane per track) with a playhead to drag. Everything shown comes from `renderAt(story, t)`: play and scrub only
+	move t, and the crossfade between two shots is worked out from t, never left to a CSS transition, so a moment is
+	the same picture every time (a frame-by-frame export later renders exactly this). A viewer: nothing is edited here.
+-->
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import { clipsOf, clock, moodLevel, renderAt, sectionsOf, shotEdge, type Notes, type Shot, type StoryBody, type Voice } from './timeline';
+
+	let { story, compact = false, keys = true }: { story: StoryBody & { title?: string }; compact?: boolean; keys?: boolean } = $props();
+
+	let t = $state(0);
+	let playing = $state(false);
+	let speed = $state(1);
+	let voiceOn = $state(false);
+	const SPEEDS = [1, 1.25, 1.5];
+
+	const moment = $derived(renderAt(story, t));
+	const shots = $derived(clipsOf<Shot>(story, 'shots'));
+	const voices = $derived(clipsOf<Voice>(story, 'voice'));
+	const notes = $derived(clipsOf<Notes>(story, 'notes'));
+	const sections = $derived(sectionsOf(story));
+	const D = $derived(Math.max(0.001, story?.duration ?? 0));
+	const pct = (s: number) => `${(s / D) * 100}%`;
+	const aspect = $derived((story?.format ?? '9:16').replace(':', ' / '));
+	const frameUrl = (h: string | null | undefined) => (h ? `/api/files/${h}` : '');
+
+	// a new story starts at its beginning, its frames fetched ahead so no shot arrives late
+	let shown = '';
+	$effect(() => {
+		const key = JSON.stringify(story?.tracks?.map((x) => x.id)) + (story?.duration ?? 0) + ((story as any)?.version ?? '');
+		if (key === shown) return;
+		shown = key;
+		t = 0;
+		playing = false;
+		for (const s of clipsOf<Shot>(story, 'shots')) if (s.frame) new Image().src = frameUrl(s.frame);
+	});
+
+	// the clock: only while playing, t moves on by the wall clock times the speed; everything else follows from t
+	$effect(() => {
+		if (!playing) return;
+		let last = performance.now(), raf = 0;
+		const tick = (now: number) => {
+			t = Math.min(D, t + ((now - last) / 1000) * speed);
+			last = now;
+			if (t >= D) playing = false;
+			else raf = requestAnimationFrame(tick);
+		};
+		raf = requestAnimationFrame(tick);
+		return () => cancelAnimationFrame(raf);
+	});
+
+	// the browser's voice, if asked for: each line read as its clip begins, while playing
+	let said = '';
+	$effect(() => {
+		const v = moment.voice;
+		if (typeof speechSynthesis === 'undefined') return;
+		if (!playing || !voiceOn) {
+			if (said) speechSynthesis.cancel();
+			said = '';
+			return;
+		}
+		if (v && v.id !== said) {
+			said = v.id;
+			speechSynthesis.cancel();
+			const u = new SpeechSynthesisUtterance(v.line);
+			u.rate = speed;
+			speechSynthesis.speak(u);
+		}
+	});
+	onMount(() => () => typeof speechSynthesis !== 'undefined' && speechSynthesis.cancel());
+
+	const toggle = () => {
+		if (t >= D - 0.01) t = 0;
+		playing = !playing;
+	};
+	const seek = (to: number) => (t = Math.max(0, Math.min(D, to)));
+	const step = (dir: 1 | -1) => seek(shotEdge(story, t, dir));
+
+	function onKey(e: KeyboardEvent) {
+		if (!keys) return;
+		const el = e.target as HTMLElement | null;
+		if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(el.tagName) && e.key !== ' ')) return;
+		if (e.key === ' ') {
+			e.preventDefault();
+			toggle();
+		} else if (e.key === 'ArrowRight') {
+			e.preventDefault();
+			step(1);
+		} else if (e.key === 'ArrowLeft') {
+			e.preventDefault();
+			step(-1);
+		}
+	}
+
+	// scrubbing: a press on the timeline puts the playhead there, and dragging moves it
+	let lanes: HTMLElement | undefined = $state();
+	let dragging = false;
+	const timeAt = (x: number) => {
+		const r = lanes!.getBoundingClientRect();
+		return ((x - r.left) / r.width) * D;
+	};
+	function down(e: PointerEvent) {
+		if (!lanes) return;
+		dragging = true;
+		lanes.setPointerCapture(e.pointerId);
+		seek(timeAt(e.clientX));
+	}
+	const move = (e: PointerEvent) => dragging && seek(timeAt(e.clientX));
+	const up = () => (dragging = false);
+
+	// a calm colour for each section, the same every time
+	const PALETTE = ['#8fae8b', '#d9a441', '#c96f53', '#7c9cb8', '#a98bb5', '#6f9e95', '#c4a27a', '#9aa35c'];
+	const colourOf = (s: string) => PALETTE[[...(s ?? '')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % PALETTE.length];
+	const sectionOf = (time: number) => notes.find((n) => time >= n.at - 1e-6 && time < n.at + n.duration)?.section ?? '';
+
+	// the mood: a line through each note's mood, rising and falling with the story
+	const moodPath = $derived.by(() => {
+		if (!notes.length) return '';
+		const pts = notes.map((n) => [((n.at + n.duration / 2) / D) * 1000, 30 - moodLevel(n.mood) * 8]);
+		return 'M' + [[0, pts[0][1]], ...pts, [1000, pts[pts.length - 1][1]]].map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' L');
+	});
+	const words = $derived((moment.voice?.line ?? '').split(/\s+/).filter(Boolean));
+</script>
+
+<svelte:window onkeydown={onKey} />
+
+<div class="player" class:compact>
+	<div class="stage-row">
+		<div class="screen" style:aspect-ratio={aspect}>
+			{#if moment.prev?.frame}<img class="frame" src={frameUrl(moment.prev.frame)} alt="" draggable="false" />{/if}
+			{#if moment.shot?.frame}
+				<img class="frame" src={frameUrl(moment.shot.frame)} alt="Shot {moment.index + 1}" draggable="false" style:opacity={moment.mix} />
+			{:else if moment.shot}
+				<div class="frame empty" style:opacity={moment.mix}><span>Shot {moment.index + 1}: no frame yet</span></div>
+			{/if}
+			{#if moment.voice}
+				<div class="subtitle">
+					<span class="who">{moment.voice.who}</span>
+					<span class="line">{#each words as w, i (i)}{#if i}{' '}{/if}<span class:said={i < moment.spoken}>{w}</span>{/each}</span>
+				</div>
+			{/if}
+		</div>
+		<aside class="details">
+			<p class="beat">
+				<span class="badge" style:background={colourOf(moment.notes?.section ?? '')}>{moment.notes?.section || '—'}</span>
+				<span class="muted">Shot {Math.max(1, moment.index + 1)} of {shots.length}</span>
+				{#if moment.notes?.mood}<span class="mood">{moment.notes.mood}</span>{/if}
+			</p>
+			{#if moment.notes?.camera}<div class="field"><b>Camera</b><p>{moment.notes.camera}</p></div>{/if}
+			{#if moment.shot?.transition}<div class="field"><b>Into the next shot</b><p>{moment.shot.transition}</p></div>{/if}
+			{#if moment.notes?.retention}<div class="field"><b>Retention</b><p>{moment.notes.retention}</p></div>{/if}
+		</aside>
+	</div>
+
+	<div class="controls">
+		<button class="btn small" onclick={toggle} aria-label={playing ? 'Pause' : 'Play'}>{playing ? 'Pause' : t >= D - 0.01 ? 'Replay' : 'Play'}</button>
+		<button class="btn small ghost" onclick={() => step(-1)} aria-label="Previous shot">‹</button>
+		<button class="btn small ghost" onclick={() => step(1)} aria-label="Next shot">›</button>
+		<span class="time">{clock(t)} <span class="muted">/ {clock(D)}</span></span>
+		<span class="spacer"></span>
+		<button class="btn small ghost" onclick={() => (speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length])} title="Speed">{speed}×</button>
+		<button class="btn small ghost" class:on={voiceOn} onclick={() => (voiceOn = !voiceOn)} title="Read each line aloud with the browser's voice">Voice {voiceOn ? 'on' : 'off'}</button>
+	</div>
+
+	<div class="timeline">
+		<div class="sections">
+			{#each sections as s, i (i)}
+				<span class="section" style:left={pct(s.at)} style:width={pct(s.end - s.at)} style:border-color={colourOf(s.section)} title={s.section}>{s.section}</span>
+			{/each}
+		</div>
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="lanes" bind:this={lanes} onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up}>
+			<svg class="mood-line" viewBox="0 0 1000 60" preserveAspectRatio="none" aria-hidden="true">
+				<line x1="0" x2="1000" y1="30" y2="30" />
+				{#if moodPath}<path d={moodPath} />{/if}
+			</svg>
+			<div class="lane shots-lane">
+				{#each shots as s, i (s.id)}
+					<span class="seg" class:on={i === moment.index} style:left={pct(s.at)} style:width={pct(s.duration)} style:background-image={s.frame ? `url(${frameUrl(s.frame)})` : 'none'} style:border-top-color={colourOf(sectionOf(s.at + 0.01))} title="Shot {i + 1}"></span>
+				{/each}
+			</div>
+			<div class="lane voice-lane">
+				{#each voices as v (v.id)}
+					<span class="bar" class:on={v.id === moment.voice?.id} class:samuel={/samuel/i.test(v.who)} style:left={pct(v.at)} style:width={pct(v.duration)} title="{v.who}: {v.line}">{v.who.split(/\s/)[0]}</span>
+				{/each}
+			</div>
+			<div class="playhead" style:left={pct(t)}></div>
+		</div>
+		<div class="legend muted"><span>Shots</span><span>Voice</span><span>Mood ↑↓</span></div>
+	</div>
+</div>
+
+<style>
+	.player { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.7rem; min-width: 0; }
+	.stage-row { display: grid; grid-template-columns: auto minmax(14rem, 1fr); gap: 1rem; align-items: start; min-height: 0; }
+	/* the frame as tall as leaves the controls and the timeline in view above the nav pill (a page may say otherwise) */
+	.screen { position: relative; height: var(--story-screen, clamp(15rem, calc(100vh - 24.5rem), 660px)); max-width: 100%; border-radius: 14px; overflow: hidden; background: #15130f; box-shadow: var(--shadow); user-select: none; container-type: size; }
+	.compact .screen { height: var(--story-screen, clamp(14rem, calc(100vh - 25rem), 520px)); }
+	.frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+	.frame.empty { display: grid; place-items: center; color: #cfc8b8; background: #24211b; font-size: 0.9rem; }
+	.subtitle { position: absolute; left: 5%; right: 5%; bottom: 3.5%; display: grid; gap: 0.25rem; justify-items: center; text-align: center; pointer-events: none; }
+	/* the subtitle sized to the frame, as it would be in the film */
+	.who { font-size: clamp(0.55rem, 2.6cqw, 0.75rem); font-weight: 700; letter-spacing: 0.06em; color: #ffe6a8; text-shadow: 0 1px 3px rgb(0 0 0 / 0.8); }
+	.line { font-size: clamp(0.62rem, 4cqw, 1.05rem); font-weight: 600; line-height: 1.35; color: rgb(255 255 255 / 0.55); background: rgb(10 10 8 / 0.55); padding: 0.35em 0.6em; border-radius: 8px; }
+	.line .said { color: #fff; }
+	.details { display: grid; gap: 0.6rem; align-content: start; min-width: 0; }
+	.details h2 { margin: 0; font-size: 1.25rem; }
+	.beat { margin: 0; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+	.badge { font-size: 0.75rem; font-weight: 700; padding: 0.15em 0.6em; border-radius: 999px; color: #1b1b17; }
+	.mood { font-weight: 700; color: var(--terracotta, #c96f53); }
+	.field b { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+	.field p { margin: 0.15rem 0 0; font-size: 0.92rem; line-height: 1.4; }
+	.controls { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+	.controls .time { font-variant-numeric: tabular-nums; font-weight: 600; margin-left: 0.3rem; }
+	.controls .spacer { flex: 1; }
+	.btn.on { background: var(--ink); color: var(--paper); }
+	.timeline { display: grid; gap: 0.25rem; }
+	.sections { position: relative; height: 1.3rem; }
+	.section { position: absolute; top: 0; bottom: 0; border-top: 3px solid; font-size: 0.66rem; font-weight: 700; padding-top: 0.15rem; padding-left: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-soft, #444); box-sizing: border-box; }
+	.lanes { position: relative; display: grid; gap: 3px; cursor: pointer; touch-action: none; user-select: none; padding-top: 2.6rem; }
+	.mood-line { position: absolute; left: 0; right: 0; top: 0; height: 2.4rem; width: 100%; pointer-events: none; }
+	.mood-line line { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+	.mood-line path { fill: none; stroke: var(--terracotta, #c96f53); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+	.lane { position: relative; border-radius: 6px; background: color-mix(in srgb, var(--line) 50%, transparent); }
+	.shots-lane { height: 3.4rem; }
+	.compact .shots-lane { height: 2.8rem; }
+	.voice-lane { height: 1.25rem; }
+	.seg { position: absolute; top: 0; bottom: 0; background-size: cover; background-position: center 35%; border-top: 3px solid; border-left: 1px solid rgb(255 255 255 / 0.7); box-sizing: border-box; filter: saturate(0.85) brightness(0.92); }
+	.seg.on { filter: none; box-shadow: inset 0 0 0 2px var(--ink); }
+	.bar { position: absolute; top: 2px; bottom: 2px; border-radius: 4px; background: var(--sage-soft, #dfe8dc); border: 1px solid color-mix(in srgb, var(--sage, #8fae8b) 60%, transparent); font-size: 0.6rem; font-weight: 700; padding: 0 0.25rem; overflow: hidden; white-space: nowrap; box-sizing: border-box; line-height: 1rem; }
+	.bar.samuel { background: var(--mustard-soft, #f3e3b5); border-color: color-mix(in srgb, var(--mustard, #d9a441) 60%, transparent); }
+	.bar.on { background: var(--ink); color: var(--paper); }
+	.playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--terracotta, #c96f53); pointer-events: none; }
+	.playhead::before { content: ''; position: absolute; top: 2.3rem; left: -5px; border: 6px solid transparent; border-top-color: var(--terracotta, #c96f53); }
+	.legend { display: flex; gap: 1rem; font-size: 0.7rem; }
+	@media (max-width: 820px) {
+		.stage-row { grid-template-columns: 1fr; justify-items: center; }
+		.screen { height: min(58vh, 560px); }
+		.compact .screen { height: min(50vh, 480px); }
+		.details { justify-self: stretch; }
+	}
+</style>

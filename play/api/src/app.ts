@@ -14,6 +14,7 @@ import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameM
 import { listTables, readTable, TableError } from "./tables";
 import { decide, listProposals, proposalOf, propose, ProposalError, type Verdict } from "./proposals";
 import { clientOf, perMinute, Rate, costly } from "./limits";
+import { listStories, storyOf, StoryError } from "./stories";
 
 type Handler = (req: Request, params: Record<string, string>) => Promise<Response> | Response;
 type Route = { method: string; pattern: RegExp; keys: string[]; handler: Handler };
@@ -158,6 +159,14 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await readTable(db, p.name, Number(q.get("offset") ?? 0), Number(q.get("limit") ?? 50)));
   });
 
+  // Stories, the admins' timeline player (./stories.ts): read here, at their head or an accepted version (?v=2); they
+  // change only by proposal, over MCP, decided on the Proposals page
+  on("GET", "/api/stories", async (req) => json(await listStories(db, await me(req))));
+  on("GET", "/api/stories/:id", async (req, p) => {
+    const v = new URL(req.url).searchParams.get("v");
+    return json(await storyOf(db, await me(req), p.id, v == null ? undefined : Number(v)));
+  });
+
   async function fetch(req: Request, server?: unknown): Promise<Response> {
     if (costly(req) && !rate.allows(clientOf(req, server as any)))
       return json({ error: "Too many requests: try again in a minute." }, { status: 429, headers: { "Retry-After": "60" } });
@@ -174,7 +183,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       try {
         return await r.handler(req, params);
       } catch (e) {
-        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof MemberError || e instanceof TableError)
+        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError)
           return json({ error: e.message }, { status: (e as any).status });
         console.error(e);
         return json({ error: "Something went wrong on our side." }, { status: 500 });
