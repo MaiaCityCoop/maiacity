@@ -81,9 +81,9 @@ const FS = { fmt, rng, Kit: K }
       else { const c = Math.ceil(Pmax / 2); W = c * (proto.w + 0.7) + 1.8; D = 2 * proto.d + 2.6 }
       info[s.id] = { s, P, Pmax, pm, inline, mw: proto.w, md: proto.d, W, D, oneSided: !inline && Pmax <= 2 && !s.twoSided }
     }
-    // maiaCITY (2026-11-03): a flower, every station of the main line a petal round an empty hub (`flower` below)
-    if (spec.layout && spec.layout.mode === 'flower') {
-      flower(plan, info, spec.layout)
+    // maiaCITY (2026-11-03): a star grown inwards from the outer band, its points petals (`star` below), already centred
+    if (spec.layout && spec.layout.mode === 'star') {
+      star(plan, info, spec.layout)
       return info
     }
     // manual grid if the spec gives `at: [col, row]`
@@ -126,117 +126,142 @@ const FS = { fmt, rng, Kit: K }
   }
 
   /**
-   * maiaCITY (2026-11-03): the flower (Samuel's sketch: petals round an empty middle, narrow inside, wide outside).
-   * Every station of the main line (`layout.ring`, in flow order) is a petal. The station stands at the petal's inner
-   * tip, facing round the hub. The main conveyor runs round the outer band, by the wall, and dips into every petal: in
-   * along its upstream edge to the station, out along its downstream edge back to the band, on to the next petal. The
-   * cells that feed a station stand inside its petal, in its wide outer part, side by side: a straight row flowing in
-   * towards the station, or, when longer than `layout.maxLeg`, two rows side by side (out on one, back in on the
-   * other); a side branch beside the station before the one it joins. Each petal takes the share of the circle its
-   * tip and its cells need; the hub is the least circle that holds every tip. Each station gets its centre and the
-   * angle its flow faces (`I.angle`); each main-line station its petal's two edges (`I.legIn`, `I.legOut`, from the
-   * band to the station and back) and the outline it is painted with (`I.petal`).
+   * maiaCITY (2026-11-03): the star, grown inwards (Samuel: the stations round the outer conveyor band, the lines
+   * growing inwards as petals, none at the inner ring). The main line (`layout.ring`, in flow order) is the outer band of
+   * the round hall: its conveyor runs round just inside the wall, clockwise seen from above, and every station on it
+   * stands with its machines on the inner side of the band. Between its last station and its first is a short
+   * opening (`layout.open` m of arc at the angle `layout.openAt`), where the finished machines leave through the wall.
+   * Every cell that joins the ring is a point of the star growing in towards the middle from the aisle before the
+   * station it joins: a petal, a V that runs in on one leg and back out on the other, so its raw stock comes in near
+   * the wall (a straight ray only for a point of one station, or one no longer than `layout.maxLeg`), painted on the
+   * floor by the hull of its stations (`petals`). The points are spread round the
+   * ring as evenly as its stations allow (the gaps between them opened to suit). A side branch (`after[1..]`) stands
+   * beside the station before the one it joins, on the point's outer side. The ring's radius is the least that holds
+   * the band and the longest point with `layout.hub` m to spare in the middle. Each station gets its centre and the
+   * angle its flow faces (`I.angle`).
    */
-  function flower(plan, info, L) {
-    const byId = plan.byId, ring = L.ring
-    const step = L.step != null ? L.step : 3, clear = L.clear != null ? L.clear : 4, edge = L.edge != null ? L.edge : 3, maxLeg = L.maxLeg || 24
-    const openAt = L.openAt != null ? L.openAt : -Math.PI / 2
+  function star(plan, info, L) {
+    const byId = plan.byId
+    const ring = L.ring, gapMin = L.gap != null ? L.gap : 4, aisle = L.aisle != null ? L.aisle : 5, step = L.step != null ? L.step : 3
+    const open = L.open != null ? L.open : 10, maxLeg = L.maxLeg != null ? L.maxLeg : 24, hub = L.hub != null ? L.hub : 8
     const onRing = new Set(ring)
+    const Dring = Math.max(...ring.map((id) => info[id].D))
+    const openAt = L.openAt != null ? L.openAt : -Math.PI / 2
     const put = (I, x, z, dx, dz) => { I.x = x; I.z = z; I.angle = Math.atan2(-dz, dx); I.dir = 1; I.fx = dx; I.fz = dz }
     const chainOf = (id) => { const c = []; for (let q = byId[id]; q; q = q.after.length ? byId[q.after[0]] : null) c.unshift(q.id); return c }
     const len = (ids) => ids.reduce((t, c) => t + info[c].W, 0) + step * (ids.length - 1)
     const dOf = (ids) => Math.max(...ids.map((c) => info[c].D))
+    const feedsOf = (id) => byId[id].after.filter((q) => !onRing.has(q))
+    /** a chain split into the two legs of a V where they come out most even */
     const legsOf = (chain) => {
       let k = 1
       for (let j = 1; j < chain.length; j++) if (Math.max(len(chain.slice(0, j)), len(chain.slice(j))) < Math.max(len(chain.slice(0, k)), len(chain.slice(k)))) k = j
       return [chain.slice(0, k), chain.slice(k)]
     }
-    /** how wide a chain's side branches stand beside it */
-    const sideW = (chain) => chain.reduce((t, c) => t + byId[c].after.slice(1).reduce((u, q) => u + dOf(chainOf(q)) + 3, 0), 0)
-    const petals = ring.map((id) => {
-      const T = info[id]
-      const cells = byId[id].after.filter((q) => !onRing.has(q)).map((q) => {
-        const chain = chainOf(q), D = dOf(chain), hair = len(chain) > maxLeg
-        const legs = hair ? legsOf(chain) : [chain]
-        return { chain, D, hair, legs, depth: hair ? Math.max(...legs.map(len)) + 3 : len(chain), width: (hair ? 2 * D + 3 : D) + sideW(chain) }
+    /** how far in from its base a point reaches */
+    /** a point is a straight ray only when it is one station, or no longer than `layout.maxLeg`; else a petal (a V) */
+    const straight = (chain) => chain.length < 2 || len(chain) <= maxLeg
+    const depthOf = (chain) => (straight(chain) ? len(chain) : Math.max(...legsOf(chain).map(len)) + 3)
+    const pts = ring.filter((id) => feedsOf(id).length)
+    const deepest = Math.max(0, ...pts.flatMap((id) => feedsOf(id).map((q) => depthOf(chainOf(q)))))
+    // the ring at its least gaps, its circle the least that holds it and the deepest point
+    const start = {}
+    let s = 0
+    for (const id of ring) { if (id !== ring[0]) s += gapMin; start[id] = s; s += info[id].W }
+    const Cmin = s + open
+    const R = Math.max(L.radius || 0, (Cmin * 1.1) / (2 * Math.PI), Dring / 2 + aisle + deepest + hub)
+    const C = 2 * Math.PI * R
+    // the gaps opened so the points come out as evenly round the ring as its stations allow
+    const N = pts.reduce((t, id) => t + feedsOf(id).length, 0), D0 = C / N, m = pts.length
+    const centre = (id) => start[id] - gapMin / 2 - ((feedsOf(id).length - 1) * D0) / 2
+    const Ls = pts.map((id, j) => (j < m - 1 ? centre(pts[j + 1]) - centre(id) : s - centre(id) + open + centre(pts[0])))
+    const Ts = pts.map((id, j) => (D0 * (feedsOf(id).length + feedsOf(pts[(j + 1) % m]).length)) / 2)
+    let lo = 0, hi = C
+    for (let it = 0; it < 60; it++) { const lam = (lo + hi) / 2; if (Ts.reduce((t, T, j) => t + Math.max(Ls[j], T - lam), 0) > C) lo = lam; else hi = lam }
+    const slack = Ts.map((T, j) => Math.max(Ls[j], T - hi) - Ls[j])
+    let shift = 0
+    for (const id of ring) { const j = pts.indexOf(id); if (j > 0) shift += slack[j - 1]; start[id] += shift }
+    const lastEnd = start[ring[ring.length - 1]] + info[ring[ring.length - 1]].W
+    // clockwise: arc length along the flow takes the angle down
+    const phiOf = (q) => openAt - (q + (C - lastEnd) / 2) / R
+    for (const id of ring) {
+      const I = info[id], phi = phiOf(start[id] + I.W / 2)
+      put(I, R * Math.cos(phi), R * Math.sin(phi), Math.sin(phi), -Math.cos(phi))
+      I.ring = true
+    }
+    const r0 = R - Dring / 2 - aisle
+    /** stations along a line from (ax, az) in direction (dx, dz), flowing along it, starting `from` m along */
+    const along = (ids, ax, az, dx, dz, from) => { let t = from; for (const c of ids) { const I = info[c]; t += I.W / 2; put(I, ax + dx * t, az + dz * t, dx, dz); t += I.W / 2 + step } }
+    /** side branches of a chain's stations, beside the station before the one they join, on the side (nx, nz) */
+    function sides(chain, nx, nz) {
+      const D = dOf(chain)
+      for (const c of chain) {
+        let off = D / 2 + 3
+        for (const q of byId[c].after.slice(1)) {
+          const sub = chainOf(q), J = info[c], Dq = dOf(sub)
+          off += Dq / 2
+          const ex = J.x - J.fx * (J.W / 2 + 1.5) + nx * off, ez = J.z - J.fz * (J.W / 2 + 1.5) + nz * off
+          along(sub, ex - J.fx * len(sub), ez - J.fz * len(sub), J.fx, J.fz, 0)
+          off += Dq / 2 + 3
+        }
+      }
+    }
+    function point(p, phi) {
+      const chain = chainOf(p)
+      // u: out to the wall; n: along the ring's flow, towards the station the point joins
+      const ux = Math.cos(phi), uz = Math.sin(phi), nx = Math.sin(phi), nz = -Math.cos(phi)
+      if (straight(chain)) {
+        // a ray from its inner end out to the band
+        const inner = r0 - len(chain)
+        along(chain, ux * inner, uz * inner, ux, uz, 0)
+        sides(chain, -nx, -nz)
+        return
+      }
+      // a V: in on the leg away from the station it joins, back out on the leg towards it
+      const [A, B] = legsOf(chain)
+      const D = dOf(chain), hb = D / 2 + 3, ht = D / 2 + 1.5, Lg = Math.max(len(A), len(B)) + 3
+      const b1 = [ux * r0 - nx * hb, uz * r0 - nz * hb], t1 = [ux * (r0 - Lg) - nx * ht, uz * (r0 - Lg) - nz * ht]
+      const b2 = [ux * r0 + nx * hb, uz * r0 + nz * hb], t2 = [ux * (r0 - Lg) + nx * ht, uz * (r0 - Lg) + nz * ht]
+      const unit = (a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz); return [dx / l, dz / l, l] }
+      const [ax, az] = unit(b1, t1)
+      along(A, b1[0], b1[1], ax, az, 0.5)
+      const [bx, bz, lb] = unit(t2, b2)
+      along(B, t2[0], t2[1], bx, bz, lb - len(B) - 0.5)
+      sides(A, -nx, -nz)
+      sides(B, nx, nz)
+    }
+    /** every station of a point: its chain and its side branches */
+    const members = (chain) => chain.flatMap((c) => [c, ...byId[c].after.slice(1).flatMap((q) => members(chainOf(q)))])
+    /** the outline a point is painted with: the hull of its stations' corners, 2 m out */
+    const outline = (ids) => {
+      const ps = []
+      for (const c of ids) {
+        const I = info[c], fx = I.fx, fz = I.fz, nx = -fz, nz = fx
+        for (const [a, b] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) ps.push([I.x + fx * a * (I.W / 2 + 2) + nx * b * (I.D / 2 + 2), I.z + fz * a * (I.W / 2 + 2) + nz * b * (I.D / 2 + 2)])
+      }
+      ps.sort((p, q) => p[0] - q[0] || p[1] - q[1])
+      const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+      const lower = [], upper = []
+      for (const p of ps) { while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop(); lower.push(p) }
+      for (const p of ps.slice().reverse()) { while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop(); upper.push(p) }
+      return lower.slice(0, -1).concat(upper.slice(0, -1))
+    }
+    const petals = []
+    /** how wide a point stands at its base, across the ring */
+    const baseW = (chain) => (straight(chain) ? dOf(chain) : 3 * dOf(chain) + 6)
+    for (const id of pts) {
+      const feeds = feedsOf(id)
+      // a station's points side by side just before it, the last nearest; each its own width apart at their base
+      let back = 0
+      feeds.slice().reverse().forEach((q, j) => {
+        const w = baseW(chainOf(q))
+        if (j) back += w / 2
+        point(q, phiOf(start[id] - gapMin / 2 - (back * R) / r0))
+        petals.push(outline(members(chainOf(q))))
+        back += w / 2 + 3
       })
-      return { id, T, cells, width: cells.reduce((t, c) => t + c.width + 3, 0), depth: Math.max(0, ...cells.map((c) => c.depth)), tip: T.W + 2 * edge }
-    })
-    // the hub: the least circle round which every tip, and every petal's cells further out, find room
-    let rTip = Math.max(L.hub || 0, (petals.reduce((t, p) => t + p.tip, 0) * 1.1) / (2 * Math.PI))
-    const needOf = (p) => Math.max(p.tip / rTip, p.cells.length ? (p.width + 2 * edge + 2) / (rTip + p.T.D + clear + p.depth / 2) : 0)
-    for (let it = 0; it < 200 && petals.reduce((t, p) => t + needOf(p), 0) > 2 * Math.PI; it++) rTip += 0.5
-    const total = petals.reduce((t, p) => t + needOf(p), 0)
-    const rBand = Math.max(...petals.map((p) => rTip + p.T.D + clear + p.depth)) + clear + 2
-    // round the circle: the share each petal takes, the door between the last and the first at `openAt`
-    let a = openAt + (2 * Math.PI - total) / 2 / ring.length
-    for (const p of petals) {
-      const share = (needOf(p) / total) * 2 * Math.PI
-      p.theta = a + share / 2
-      p.half = share / 2
-      a += share
     }
-    for (const p of petals) {
-      const T = p.T, th = p.theta, ux = Math.cos(th), uz = Math.sin(th), tx = -Math.sin(th), tz = Math.cos(th)
-      const rT = rTip + T.D / 2
-      // the station at the tip, flowing round the hub
-      put(T, ux * rT, uz * rT, tx, tz)
-      // the petal's two edges, from the band in to the station's ends and back out, wide outside, narrow at the tip
-      const hb = p.half * rBand - 1.5, hw = T.W / 2 + 1.2
-      const side = (sgn) => {
-        const pts = []
-        for (let k = 0; k <= 8; k++) {
-          const f = k / 8, r = rBand - f * (rBand - rT), w = hw + (hb - hw) * Math.sqrt(1 - f)
-          pts.push([ux * r + sgn * tx * w, uz * r + sgn * tz * w])
-        }
-        return pts
-      }
-      T.legIn = side(-1)
-      T.legOut = side(1).reverse()
-      T.band = { r: rBand, a0: th - hb / rBand, a1: th + hb / rBand }
-      // its outline on the floor: the two edges, round the tip and round the outer end
-      const outer = []
-      for (let k = 0; k <= 8; k++) { const q = T.band.a1 - (k / 8) * (T.band.a1 - T.band.a0); outer.push([Math.cos(q) * (rBand + 1.5), Math.sin(q) * (rBand + 1.5)]) }
-      const inner = [[ux * (rT - T.D / 2 - 1.5) - tx * hw, uz * (rT - T.D / 2 - 1.5) - tz * hw], [ux * (rT - T.D / 2 - 2.5), uz * (rT - T.D / 2 - 2.5)], [ux * (rT - T.D / 2 - 1.5) + tx * hw, uz * (rT - T.D / 2 - 1.5) + tz * hw]]
-      T.petal = [...side(-1), ...inner, ...side(1).reverse(), ...outer]
-      // the cells, side by side across the petal's wide part, from just outside the station outwards
-      const r0 = rTip + T.D + clear
-      let off = Math.min(-p.width / 2, -T.W / 2 - 1.5 - (p.cells[0] ? sideW(p.cells[0].chain) + p.cells[0].D / 2 : 0))
-      const along = (ids, ax, az, dx, dz, from) => { let t = from; for (const c of ids) { const I = info[c]; t += I.W / 2; put(I, ax + dx * t, az + dz * t, dx, dz); t += I.W / 2 + step } }
-      const sides = (chain, sgn) => {
-        const D = dOf(chain)
-        for (const c of chain) {
-          let o = D / 2 + 3
-          for (const q of byId[c].after.slice(1)) {
-            const sub = chainOf(q), J = info[c], Dq = dOf(sub)
-            o += Dq / 2
-            const ex = J.x - J.fx * (J.W / 2 + 1.5) + sgn * tx * o, ez = J.z - J.fz * (J.W / 2 + 1.5) + sgn * tz * o
-            along(sub, ex - J.fx * len(sub), ez - J.fz * len(sub), J.fx, J.fz, 0)
-            o += Dq / 2 + 3
-          }
-        }
-      }
-      // packed from the petal's upstream edge, each cell's last row on the upstream side, so its output comes in
-      // along the station's upstream end, where the station takes it, and never crosses the station
-      for (const c of p.cells) {
-        const sw = sideW(c.chain)
-        if (!c.hair) {
-          const lat = off + sw + c.D / 2
-          const far = r0 + len(c.chain)
-          along(c.chain, ux * far + tx * lat, uz * far + tz * lat, -ux, -uz, 0)
-          sides(c.chain, -1)
-        } else {
-          const [A, B] = c.legs, Lg = c.depth
-          const lb = off + sw + c.D / 2, la = lb + c.D + 3
-          along(A, ux * r0 + tx * la, uz * r0 + tz * la, ux, uz, 0.5)
-          along(B, ux * (r0 + Lg) + tx * lb, uz * (r0 + Lg) + tz * lb, -ux, -uz, Lg - len(B) - 0.5)
-          sides(A, 1)
-          sides(B, -1)
-        }
-        off += c.width + 3
-      }
-    }
-    info.__star = { R: rTip, Dring: 0, rTip, rBand, openAt, flower: true }
+    info.__star = { R, Dring, open, openAt, inward: true, petals, rTip: R - Dring / 2 - aisle / 2 + 3 }
   }
 
   function mopts(s, k) {
@@ -491,29 +516,36 @@ const FS = { fmt, rng, Kit: K }
     _w(S, v) { return v.clone().applyAxisAngle(V(0, 1, 0), S.g.rotation.y).add(S.g.position) }
     _mw(S, m, v) { return this._w(S, v.clone().applyAxisAngle(V(0, 1, 0), m.g.rotation.y).add(m.g.position)) }
 
-    /** maiaCITY (2026-11-03): from one petal's station out along its downstream edge, round the band, and in along the
-     *  next petal's upstream edge to its station */
-    _petalPath(A, B) {
-      const pts = A.I.legOut.slice(1).map(([x, z]) => V(x, BELT_Y, z))
-      const r = A.I.band.r
-      let a0 = A.I.band.a1, a1 = B.I.band.a0
-      while (a1 < a0) a1 += 2 * Math.PI
-      const n = Math.max(1, Math.ceil(((a1 - a0) * r) / 3))
-      for (let k = 1; k < n; k++) { const q = a0 + ((a1 - a0) * k) / n; pts.push(V(Math.cos(q) * r, BELT_Y, Math.sin(q) * r)) }
-      for (const [x, z] of B.I.legIn.slice(0, -1)) pts.push(V(x, BELT_Y, z))
+    /** maiaCITY (2026-11-03): the outer band from one station on it to the next, round the circle (clockwise), not across */
+    _bandArc(a, b) {
+      const ra = Math.hypot(a.x, a.z), rb = Math.hypot(b.x, b.z)
+      let a0 = Math.atan2(a.z, a.x), a1 = Math.atan2(b.z, b.x)
+      while (a1 > a0) a1 -= 2 * Math.PI
+      const n = Math.max(1, Math.ceil(((a0 - a1) * (ra + rb)) / 2 / 3))
+      const pts = [a]
+      for (let k = 1; k < n; k++) { const f = k / n, q = a0 + (a1 - a0) * f, r = ra + (rb - ra) * f; pts.push(V(Math.cos(q) * r, BELT_Y, Math.sin(q) * r)) }
+      pts.push(b)
       return pts
     }
 
-    /** maiaCITY (2026-11-03): a cell's output into its petal's station: in to just outside the station, along its outer
-     *  edge and round its upstream end, never across it */
-    _cellPath(A, B, p0) {
-      const I = B.I, r = Math.hypot(I.x, I.z), ux = I.x / r, uz = I.z / r
-      const ro = r + I.D / 2 + 1.0
-      const p1 = p0.clone().addScaledVector(A.fwd, 1.2)
-      const along = p1.x * ux + p1.z * uz
-      const drop = p1.clone().add(V(-ux * (along - ro), 0, -uz * (along - ro)))
-      const corner = V(I.x + ux * (I.D / 2 + 1.0), BELT_Y, I.z + uz * (I.D / 2 + 1.0)).addScaledVector(B.fwd, -(I.W / 2 + 1.2))
-      return [p1, drop, corner]
+    /** maiaCITY (2026-11-03): a petal's output to its station on the band: out to the aisle just inside the band's
+     *  machines, along it to the gap before the station, and in at its upstream end */
+    _feedArc(A, B, p0, p4) {
+      const I = B.I, rin = Math.hypot(I.x, I.z) - I.D / 2 - 1.5
+      const p1 = p0.clone().addScaledVector(A.fwd, 1.2), p3 = p4.clone().addScaledVector(B.fwd, -1.2)
+      const a0 = Math.atan2(p1.z, p1.x), r1 = Math.hypot(p1.x, p1.z)
+      const gapA = Math.atan2(p3.z, p3.x)
+      let d = gapA - a0
+      while (d > Math.PI) d -= 2 * Math.PI
+      while (d < -Math.PI) d += 2 * Math.PI
+      const pts = [p1]
+      if (Math.abs(d) * rin > 4) {
+        if (r1 < rin - 0.5) pts.push(V(Math.cos(a0) * rin, BELT_Y, Math.sin(a0) * rin))
+        const n = Math.ceil((Math.abs(d) * rin) / 3)
+        for (let k = 1; k <= n; k++) { const q = a0 + (d * k) / n; pts.push(V(Math.cos(q) * rin, BELT_Y, Math.sin(q) * rin)) }
+      }
+      pts.push(p3)
+      return pts
     }
 
     /* ---- buffer conveyor from station a to station b */
@@ -524,8 +556,8 @@ const FS = { fmt, rng, Kit: K }
       const p1 = p0.clone().add(V(1.2 * dA, 0, 0)), p3 = p4.clone().add(V(-1.2 * dB, 0, 0))
       let pts
       // maiaCITY: in a star, straight out of one station and straight into the next, whichever way each faces
-      if (this.star && A.I.legOut && B.I.legIn) pts = [p0, p0.clone().addScaledVector(A.fwd, 1.2), ...this._petalPath(A, B), p4.clone().addScaledVector(B.fwd, -1.2), p4]
-      else if (this.star && B.I.legIn) pts = [p0, ...this._cellPath(A, B, p0), p4.clone().addScaledVector(B.fwd, -1.2), p4]
+      if (this.star && A.I.ring && B.I.ring) pts = [p0, ...this._bandArc(p0.clone().addScaledVector(A.fwd, 1.2), p4.clone().addScaledVector(B.fwd, -1.2)), p4]
+      else if (this.star && B.I.ring) pts = [p0, ...this._feedArc(A, B, p0, p4), p4]
       else if (this.star) pts = [p0, p0.clone().addScaledVector(A.fwd, 1.2), p4.clone().addScaledVector(B.fwd, -1.2), p4]
       else
       if (dA === dB) {
@@ -796,7 +828,7 @@ const FS = { fmt, rng, Kit: K }
       // the door the finished machines leave by: in the wall behind the last station, where its lane runs out
       const sink = this.st[this.plan.sink]
       const so = this._w(sink, sink.outPort)
-      const out = sink.I.legOut ? V(sink.I.legOut[sink.I.legOut.length - 1][0], 0, sink.I.legOut[sink.I.legOut.length - 1][1]) : so.clone().addScaledVector(sink.fwd, 4)
+      const out = so.clone().addScaledVector(sink.fwd, 4)
       const exitA = Math.atan2(out.z, out.x)
       const door = 5 / Rh
       const near = (a) => Math.abs(Math.atan2(Math.sin(a - exitA), Math.cos(a - exitA)))
@@ -814,15 +846,14 @@ const FS = { fmt, rng, Kit: K }
       }
       // the flower on the floor: every petal painted, alternating sage and cream, with a darker rim (maiaCITY)
       const tints = ['#c9d2b4', '#e2dccb']
-      Object.values(this.st).forEach((S, i) => {
-        if (!S.I.petal) return
-        const shape = new T.Shape(S.I.petal.map(([x, z]) => new T.Vector2(x, -z)))
+      ;(this.star.petals || []).forEach((petal, i) => {
+        const shape = new T.Shape(petal.map(([x, z]) => new T.Vector2(x, -z)))
         const fill = new T.Mesh(new T.ShapeGeometry(shape), K.paint(tints[i % 2], 0.9))
         fill.rotation.x = -Math.PI / 2
         fill.position.y = 0.006
         fill.receiveShadow = true
         g.add(fill)
-        const rim = S.I.petal.concat([S.I.petal[0]])
+        const rim = petal.concat([petal[0]])
         for (let k = 0; k < rim.length - 1; k++) {
           const [x0, z0] = rim[k], [x1, z1] = rim[k + 1], l = Math.hypot(x1 - x0, z1 - z0)
           if (l < 0.01) continue
@@ -845,7 +876,7 @@ const FS = { fmt, rng, Kit: K }
       const lane = K.paint('#6f9c72', 0.8)
       const ry = Rh + 7, yard = V(Math.cos(exitA) * ry, 0, Math.sin(exitA) * ry)
       this.shipAt = yard.clone().setY(0.3)
-      K.conveyor(this.root, [V(so.x, 0, so.z), so.clone().addScaledVector(sink.fwd, 1.2).setY(0), ...(sink.I.legOut || []).slice(1).map(([x, z]) => V(x, 0, z))], { y: BELT_Y, w: sink.def.beltW })
+      K.conveyor(this.root, [V(so.x, 0, so.z), V(out.x, 0, out.z)], { y: BELT_Y, w: sink.def.beltW })
       const lpts = [out, V(Math.cos(exitA) * (Rh + 3), 0, Math.sin(exitA) * (Rh + 3))]
       for (let i = 0; i < lpts.length - 1; i++) {
         const a = lpts[i], b = lpts[i + 1], l = a.distanceTo(b)
@@ -933,7 +964,7 @@ const FS = { fmt, rng, Kit: K }
         this.lifts.push({ f, a: V((S.rawAt.x / d) * out, 0, (S.rawAt.z / d) * out), b: S.rawAt.clone().addScaledVector(S.fwd, -1.6), u: i * 0.23 })
       })
       this.amrs = []
-      const rr = Math.max(6, this.star.rTip - 3) // round the hub, inside the petals' tips
+      const rr = Math.max(6, this.star.rTip - 3) // on the aisle inside the band's machines
       const pts = []
       for (let i = 0; i <= 48; i++) pts.push(V(Math.cos((i / 48) * 2 * Math.PI) * rr, 0, -Math.sin((i / 48) * 2 * Math.PI) * rr))
       this.amrLoop = new Route(pts)
