@@ -184,6 +184,8 @@ The hook is also set into the day's title cards (`maia/content/scripts/film/thum
   Not the underpaid."*) — the reader's first guess is the biggest threat to the second paragraph.
 - Can a word come out? Take it out. Hooks die of length.
 - Banned: colon subtitles, listicles ("7 ways to…"), clickbait the body does not pay, a question the subtitle answers.
+- **Never talk about AI** (Samuel, 2026-11-03): no "AI", "our AI", "an AI" in a hook, a title, a card or a line. The
+  work is ours — *we* built, *we* grew, *I* decided.
 
 ## Rehooks
 
