@@ -5,6 +5,8 @@ description: The director of photography of maiaCITY's films, for the iPhone (Ap
 
 # Cinematographer
 
+> Which shots a maiaCITY film uses, in one page as the producer learned it on Day 19: `movie-producer/filming.md`.
+
 The cinematographer turns the director's shots into pictures: where the camera stands, what lens it wears, how it
 moves, how bright the image is — the same craft for Samuel's iPhone and for the virtual camera of the worlds, so both
 cut together as one film.

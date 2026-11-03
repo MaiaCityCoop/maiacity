@@ -82,6 +82,9 @@ const shotsOf = (b: StoryBody | undefined) => b?.tracks?.find((t) => t.kind === 
 const round = (n: number) => Math.round(n * 1000) / 1000;
 
 /** only Maia City's admins read and propose stories */
+/** a story brought into another (foldStories) takes no proposal: its versions are that story's now */
+const folded = (id: string, into: string) => new StoryError(`Story ${id} is part of story ${into} now, its versions that story's: propose there.`, 409);
+
 export function admin(me: Me | null): Me {
   if (!me) throw new Denied("Please sign in first.", 401);
   if (me.level !== "admin") throw new Denied("Only Maia City's admins may open the Stories.");
@@ -375,6 +378,7 @@ export async function listStories(db: Queryable, me: Me | null): Promise<StoryIt
     `SELECT s.id, s.title, v.body, v.number, s.updated,
             (SELECT count(*) FROM play.story_versions x WHERE x.story_id = s.id AND x.number IS NOT NULL) AS versions
        FROM play.stories s JOIN play.story_versions v ON v.id = s.head
+      WHERE s.folded_into IS NULL
       ORDER BY s.updated DESC, s.id`,
   );
   return rows.map((r) => {
@@ -477,8 +481,9 @@ export async function editStory(db: Db, me: Me | null, p: StoryDraft, via: "web"
   if (p.edits !== undefined && p.body !== undefined) throw new StoryError("Give edits or a whole timeline (body), not both.");
   return asStoryError(() =>
     db.transaction(async (tx) => {
-      const { rows } = await tx.query<{ head: string | null }>(`SELECT head FROM play.stories WHERE id = $1`, [id]);
+      const { rows } = await tx.query<{ head: string | null; folded_into: string | null }>(`SELECT head, folded_into FROM play.stories WHERE id = $1`, [id]);
       if (!rows[0]) throw new StoryError(`There is no story ${id}: propose it as a new story (propose_story).`, 404);
+      if (rows[0].folded_into) throw folded(id, rows[0].folded_into);
       if (!rows[0].head) throw new StoryError(`Story ${id} has no accepted version yet: a new story is proposed whole (propose_story).`, 409);
       const docId = await ensureStoryDoc(tx, id);
       const author = authorOf(who, via === "mcp" ? "mcp" : "site");
@@ -504,9 +509,10 @@ export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fres
   const author = authorOf(who, via === "mcp" ? "mcp" : "site");
   return asStoryError(() =>
     db.transaction(async (tx) => {
-      const { rows: s } = await tx.query<{ head: string | null; title: string; number: number | null; body: StoryBody | null }>(
-        `SELECT s.head, s.title, v.number, v.body FROM play.stories s LEFT JOIN play.story_versions v ON v.id = s.head WHERE s.id = $1 FOR UPDATE OF s`, [id],
+      const { rows: s } = await tx.query<{ head: string | null; title: string; number: number | null; body: StoryBody | null; folded_into: string | null }>(
+        `SELECT s.head, s.title, v.number, v.body, s.folded_into FROM play.stories s LEFT JOIN play.story_versions v ON v.id = s.head WHERE s.id = $1 FOR UPDATE OF s`, [id],
       );
+      if (s[0]?.folded_into) throw folded(id, s[0].folded_into);
       const head = s[0]?.head ?? null;
       if (fresh && head) throw new StoryError(`There is a story ${id} already: propose a version of it.`, 409);
       if (!fresh && !s[0]) throw new StoryError(`There is no story ${id}: propose it as a new story.`, 404);
@@ -562,6 +568,91 @@ export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fres
       return { id: proposal, story: id, version, number: (s[0]?.number ?? 0) + 1, base, duration: body.duration, branch: branchId, steps };
     }),
   );
+}
+
+// ---- one film, one timeline (Samuel 2026-11-03)
+
+export type Fold = { into: string; from: string[] };
+export type FoldReport = { folded: string[]; present: string[]; errors: string[] };
+
+/**
+ * Brings stories into one timeline: each story of `from`, in order, has its accepted versions proposed on `into` and
+ * accepted there, one after the other, as that story's next versions (each by its own author and approver, its note
+ * saying where it came from), and its open proposals proposed again on `into`'s new head, their own withdrawn. Then it
+ * is folded: kept with its whole history, listed no more, taking no proposal. Run with every deploy (import/stories.ts);
+ * a version already on `into` (the same title and timeline) is not brought twice, and a folded story is passed over.
+ */
+export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
+  const out: FoldReport = { folded: [], present: [], errors: [] };
+  const as = async (human: string | null): Promise<Me> => {
+    const { rows } = await db.query<{ id: string; name: string }>(`SELECT id, name FROM play.humans WHERE id = $1`, [human]);
+    if (!rows[0]) throw new Error(`no human ${human}`);
+    return { id: rows[0].id, name: rows[0].name, level: "admin", rule: {}, founder_number: null };
+  };
+  const onInto = async (into: string, title: string, body: unknown, accepted: boolean) =>
+    (
+      await db.query(
+        `SELECT 1 FROM play.story_versions v WHERE v.story_id = $1 AND v.title = $2 AND v.body = ($3::text)::jsonb
+            AND (${accepted ? "v.number IS NOT NULL" : "EXISTS (SELECT 1 FROM play.proposals p WHERE p.story_version = v.id AND p.status = 'open')"})`,
+        [into, title, JSON.stringify(body)],
+      )
+    ).rows.length > 0;
+  for (const f of folds) {
+    for (const from of f.from) {
+      try {
+        if (!SLUG.test(f.into) || !SLUG.test(from) || from === f.into) throw new Error("a fold names two stories by their slugs");
+        const { rows: st } = await db.query<{ id: string; folded_into: string | null }>(`SELECT id, folded_into FROM play.stories WHERE id = ANY($1)`, [[from, f.into]]);
+        const src = st.find((x) => x.id === from), dst = st.find((x) => x.id === f.into);
+        if (!src || src.folded_into) {
+          out.present.push(from);
+          continue;
+        }
+        if (!dst || dst.folded_into) throw new Error(`there is no story ${f.into} to bring it into`);
+        const { rows: versions } = await db.query<{ number: number; title: string; body: StoryBody; note: string; created: Date; author: string | null; approved_by: string | null; via: string | null }>(
+          `SELECT v.number, v.title, v.body, v.note, v.created, v.author, v.approved_by,
+                  (SELECT p.via FROM play.proposals p WHERE p.story_version = v.id ORDER BY p.created LIMIT 1) AS via
+             FROM play.story_versions v WHERE v.story_id = $1 AND v.number IS NOT NULL ORDER BY v.number`,
+          [from],
+        );
+        for (const v of versions) {
+          if (await onInto(f.into, v.title, v.body, true)) continue;
+          const said = `(Brought from story ${from}, its v${v.number} of ${iso(v.created).slice(0, 10)}, so the film is one timeline.)`;
+          const note = `${`${v.note ?? ""}`.slice(0, 2000 - said.length - 2)}\n\n${said}`.trim();
+          const author = await as(v.author ?? v.approved_by);
+          const made = await proposeStory(db, author, { story: f.into, title: v.title, body: v.body, note }, false, v.via === "web" ? "web" : "mcp");
+          const decider = await as(v.approved_by ?? v.author);
+          const res = await db.transaction(async (tx) => {
+            const { rows } = await tx.query<any>(`SELECT * FROM play.proposals WHERE id = $1`, [made.id]);
+            return decideStory(tx, decider, rows[0], "accept");
+          });
+          if (res.status !== "accepted") throw new Error(`${from} v${v.number} did not go in: ${(res as any).message ?? res.status}`);
+        }
+        // its open proposals, proposed again on the timeline's new head; their own withdrawn
+        const { rows: open } = await db.query<any>(
+          `SELECT p.*, v.title, v.body FROM play.proposals p JOIN play.story_versions v ON v.id = p.story_version
+            WHERE p.story_id = $1 AND p.kind = 'story_version' AND p.status = 'open' ORDER BY p.created`,
+          [from],
+        );
+        for (const p of open) {
+          const author = await as(p.author);
+          if (!(await onInto(f.into, p.title, p.body, false))) {
+            const said = `(Moved from story ${from}, where it was proposed on ${iso(p.created).slice(0, 10)}: the film is one timeline now.)`;
+            const note = `${`${p.note ?? ""}`.slice(0, 2000 - said.length - 2)}\n\n${said}`.trim();
+            await proposeStory(db, author, { story: f.into, title: p.title, body: p.body, note }, false, p.via === "web" ? "web" : "mcp");
+          }
+          await db.transaction(async (tx) => {
+            await tx.query(`UPDATE play.proposals SET status = 'withdrawn', decided_at = now() WHERE id = $1 AND status = 'open'`, [p.id]);
+            await withdrawStory(tx, author, p);
+          });
+        }
+        await db.query(`UPDATE play.stories SET folded_into = $2 WHERE id = $1`, [from, f.into]);
+        out.folded.push(from);
+      } catch (e) {
+        out.errors.push(`${from} → ${f.into}: ${String((e as Error)?.message ?? e).slice(0, 300)}`);
+      }
+    }
+  }
+  return out;
 }
 
 /** each step with its author's name, and the version it was named where one was (an asset's history too, ./assetdocs.ts) */

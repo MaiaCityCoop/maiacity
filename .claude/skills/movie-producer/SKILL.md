@@ -11,7 +11,9 @@ description: How maiaCITY makes films from the sandbox worlds, learned on the fi
 > `/app/studio`, `scripts/film/`, Sandbox 4) lived in the old app, now on the branch `SNAPSHOT_2611101`; nothing here may
 > import from it, but every story, shot, sound and light rule holds. Beside it: `day-19-post.md` (the journal post about
 > making the film, with its script lines) and `journal-master-prompt.md` (the reusable writing prompt the journal was
-> written with: who speaks, the world, one transformation, the hook built from its parts). The crew skills
+> written with: who speaks, the world, one transformation, the hook built from its parts), and `filming.md` (which
+> shots to use and how to cut them: 2–4 shots a line, heights, lenses and moves varied, cut on the word, hard cuts,
+> motion that never stops on screen; restored from the story producer's skill). The crew skills
 > (`hook-writer`, `storyteller`, `director`, `cinematographer`, `gaffer`, `editor`, `sound-designer`, `colorist`) hold
 > the same craft, researched further; start a story with `hook-writer`.
 >

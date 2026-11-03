@@ -6,12 +6,12 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { BlobStore } from "../src/blobs";
 import type { Db } from "../src/pg";
-import { putFrame, seedStory, SLUG } from "../src/stories";
+import { foldStories, putFrame, seedStory, SLUG, type Fold, type FoldReport } from "../src/stories";
 import { ensureStoryDocs } from "../src/storydocs";
 
 export const STORIES = join(import.meta.dir, "stories");
 
-export type StoriesReport = { seeded: string[]; present: string[]; errors: string[]; documents?: string[] };
+export type StoriesReport = { seeded: string[]; present: string[]; errors: string[]; documents?: string[]; folds?: FoldReport };
 
 export async function seedStories(db: Db, store: BlobStore, dir = STORIES): Promise<StoriesReport> {
   const out: StoriesReport = { seeded: [], present: [], errors: [] };
@@ -47,6 +47,14 @@ export async function seedStories(db: Db, store: BlobStore, dir = STORIES): Prom
     out.documents = await ensureStoryDocs(db);
   } catch (e) {
     out.errors.push(`stories' documents: ${(e as Error).message}`);
+  }
+  // one film, one timeline (Samuel 2026-11-03): the stories folds.json brings into another, each its versions in turn
+  try {
+    const folds: Fold[] = JSON.parse(readFileSync(join(dir, "folds.json"), "utf8"));
+    out.folds = await foldStories(db, folds);
+    out.errors.push(...out.folds.errors.map((e) => `fold ${e}`));
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException)?.code !== "ENOENT") out.errors.push(`folds: ${(e as Error).message}`);
   }
   return out;
 }

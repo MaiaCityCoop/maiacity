@@ -162,6 +162,12 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   proposed its last step; an agent can draft it first step by step (`asset_edit`: a replace by its text, a range of the
   source, a field of the card, each step with its message) and propose the draft (`propose_version` with its `branch`),
   its steps going with it. Accepting merges the branch and names the document's version the asset's new number.
+- **Variants over MCP** (Samuel 2026-11-03): `propose_version`'s `variants` (each a `name`, a `label`, its own `source`
+  where it differs) make a version a kind of variants, as the animals are: each variant its own recipe file, the source
+  called with its name (`module.exports.recipe(id, v, variant)`), its label shown as a chip in the asset viewer
+  ("Papaya: Male" as Male), `default_variant` the one a ref without a variant names. `params` sets the card's
+  parameters when the recipe declares new ones (its meta.params, in its build's order), on the version and every
+  variant. The papaya's three kinds (both, female, male) are the first.
 - **Never merged unseen**: an asset's proposal is still accepted only on the head it was made on (a moved head makes it
   stale, §4.3), so what is accepted is exactly the version the Proposals page built and showed in the asset box; the
   document's own rule (a merge that met other edits needs its previewed hash) stands behind it.
@@ -303,6 +309,15 @@ type read from its bytes, ≤ 25 MB, kept among `files` and served as audio), `a
 an image. The player lays every sounding clip on one Web Audio clock (`play/site/src/lib/stories/sound.ts`, from the
 pure `soundsOf(story)` in `timeline.ts`, which an export's mix will lay the same way); while it plays, t follows that
 clock, and a seek lays the sound again from the new t.
+
+**One film, one timeline** (Samuel 2026-11-03). A film's rewrites are versions of its one story, never stories of their
+own: `propose_story_version` on its head. Stories proposed apart are brought together by `import/stories/folds.json`
+(run with every deploy, `foldStories` in `play/api/src/stories.ts`): each story it names, in turn, has its accepted
+versions proposed and accepted on the one story as its next versions (each by its own author and approver, its note
+saying where it came from), its open proposals proposed again there and withdrawn where they were; then it is
+`folded_into` that story: kept with its whole history, listed no more, taking no proposal. The papaya devlog is the
+first: v1 the devlog short, v2 "The Tree That Remembers", v3–v5 the Day 1 rewrites ("Your papaya flew across an
+ocean", the same voiced, "Three seeds. One will never give fruit."), Three Seeds' voice its next proposal.
 
 Times are seconds; `duration` is worked out from the clips. Clips of `shots`, `voice` and `notes` follow one another
 and never overlap; other kinds may. **A clip may carry fields no kind names, and a track may be of a kind not named

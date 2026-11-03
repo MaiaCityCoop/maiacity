@@ -5,6 +5,8 @@ description: The director of maiaCITY's films — turns the story into shots. Wh
 
 # Director
 
+> Which shots a maiaCITY film uses, in one page as the producer learned it on Day 19: `movie-producer/filming.md`.
+
 The director decides what the audience must know, feel and look at, shot by shot — and makes every picture serve the
 one thing the film is about. The words are the `storyteller`'s; the frame's craft is the `cinematographer`'s; the
 director joins them.
