@@ -135,3 +135,8 @@ draft: true
 - [ ] Rhythm varies: short against long, uneven sections
 - [ ] Full conviction; every fact true — nothing invented about Samuel, readers, attempts or results
 - [ ] No concept before the post that introduces it; ends on something concrete, then links the next day
+
+## Story tables and scripts: no emoji (Samuel, 2026-11-03)
+
+No emoji or emoticons in a script, a story table, a shot list or a storyboard caption: words only ("close",
+"epic", "tension rises"), so the page reads like a film script.
