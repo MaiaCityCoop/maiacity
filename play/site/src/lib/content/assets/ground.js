@@ -1,28 +1,30 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * A PLANT'S GROUND ON THE STAGE — where a plant is shown standing: its biome's floor laid out to the horizon, the soil
- * that biome lies on beneath it, and a pit dug in front of the plant so its roots and the soil's horizons are seen
- * from wherever we look, as a soil scientist digs one beside a plant to read its roots on the face.
+ * A PLANT'S GROUND ON THE STAGE — where a plant is shown standing: its biome's floor laid out to the horizon, whole, as a
+ * garden's is, its roots out of sight in the earth; and that earth seen by going down into it: tilt the camera below
+ * the ground line and the frame splits there, as a documentary's split-level shot does, the plant and its garden above
+ * and below the soil it stands in, its horizons, and its roots in it.
  *
  *   the floor   the biome's surfaces as the worlds paint them ($content/biomes `groundMaterial`, from the vault's card),
  *               out to where it fades into the studio's backdrop; round the stem a ring of mulch, where a seedling
  *               stands in a garden; its cover (grasses, clover, leaves) streamed round the plant, thinning with
- *               distance and growing up or sinking back on the graphics card, never popping (`coverStream`)
- *   the pit     a profile pit: its back wall the section through the plant's axis, its side walls, its floor below the
- *               deepest root and a ramp up to the surface on our side; it turns about the plant to face the camera
- *               (eased, so it settles rather than follows every twitch), the floor and its cover left out over it
- *   the soil    painted on the pit's faces in the world's own metres (one 3D field, so every face cut through it and
- *               every turn of the pit shows the same earth): the biome's horizons from ./soils.js at their real depths,
- *               their boundaries waved and run into each other as wide as the profile says, the crumbs, blocks, plates
- *               or grains of each, its stones, roots, worm burrows, rust mottles, lime, charcoal and fungal threads;
- *               what is too small to see at the distance (smaller than two pixels) fades to its colour and is not
- *               worked out at all, so a far pit costs little
- *   the roots   those in front of the back wall stand washed out in the pit; those still in the earth behind its faces
- *               are seen through them, faintly, fainter the deeper they lie (a copy of the plant drawn only where it is
- *               behind a pit face: a depth test the other way round and the ray from the eye to it checked against
- *               the pit), kept out of the shadows, the occlusion pass and a part's pick
+ *               distance and growing up or sinking back on the graphics card, never popping (`coverStream`). It faces
+ *               up only, so from below the ground it is not drawn and the eye sees on into the garden
+ *   the earth   below the ground line: a face of it standing just beyond the farthest root behind the plant, square to
+ *               the eye (it turns as the eye goes round, eased), so wide and deep its edges are never seen, the ground
+ *               line its top; drawn only while the eye is below the ground (above it, the floor hides it and it costs
+ *               nothing); between the eye and the face the earth is left out (we look through it as through glass), the
+ *               cover too, so a band of turf stands only just beyond it, on the ground line; the face darkening and running to one
+ *               colour the further it lies beyond its nearest point, as if seen through the earth itself
+ *   the soil    painted on those faces in the world's own metres (one 3D field): the biome's horizons from ./soils.js at
+ *               their real depths, their boundaries waved and run into each other as wide as the profile says, the
+ *               crumbs, blocks, plates or grains of each, its stones, roots, worm burrows, rust mottles, lime, charcoal
+ *               and fungal threads; what is too small to see at the distance (smaller than two pixels) fades to its
+ *               colour and is not worked out at all, so far faces cost little
+ *   the roots   the plant's own, as it grows them, crisp in the earth's clear middle
  *
- * `groundOf(stage)` → { group, biome(recipe, id), fit(root), show(on), update(camera, dt), soil, dispose }.
+ * `groundOf(stage)` → { group, biome(recipe, id), fit(root), show(on), update(camera, dt), below, rootsView(camera),
+ * soil, dispose }.
  */
 import * as THREE from 'three';
 import { groundMaterial } from '$lib/content/biomes/surfaces.js';
@@ -86,30 +88,28 @@ vec3 gV(vec3 p, out vec3 toC) {
 float gSeen(float size, float px) { return clamp((size / max(px, 1e-6) - 2.0) / 4.0, 0.0, 1.0); }
 `;
 
-/** the pit's shape and where it stands, shared by every material that minds it */
-const pitUniforms = () => ({
-	uPitC: { value: new THREE.Vector3() },
-	uPitR: { value: new THREE.Vector3(1, 0, 0) },
-	uPitF: { value: new THREE.Vector3(0, 0, 1) },
-	/** half its width, its depth, its length to the top of the ramp, its floor's length */
-	uPitS: { value: new THREE.Vector4(0.3, 0.3, 1, 0.2) },
+/** where the plant stands and the eye is, shared by every material of the ground */
+const groundUniforms = () => ({
+	uC: { value: new THREE.Vector3() },
 	uEye: { value: new THREE.Vector3() },
-	uRing: { value: 0.3 }
+	uRing: { value: 0.3 },
+	/** while the eye is below the ground (1, else 0), the cover between it and the earth's face is left out */
+	uHide: { value: 0 },
+	/** the way from the plant towards the eye, level, and how far behind the plant the earth's face stands (m) */
+	uF: { value: new THREE.Vector3(0, 0, 1) },
+	uB: { value: 1 },
+	/** how deep a band of turf beyond the face is left standing on the ground line while the eye is below (m) */
+	uBand: { value: 1 }
 });
 
-const PIT_HEAD = /* glsl */ `
-uniform vec3 uPitC; uniform vec3 uPitR; uniform vec3 uPitF; uniform vec4 uPitS; uniform vec3 uEye; uniform float uRing;
-// a point in the pit's own frame: across it, up, out towards the camera
-vec3 gPit(vec3 w) { vec3 q = w - uPitC; return vec3(dot(q, uPitR), q.y, dot(q, uPitF)); }
-// over the pit's opening: the turf overhangs its rim a hair, so no seam shows between them
-bool gOverPit(vec3 l) { float e = uPitS.y * 0.012 + 0.0015; return abs(l.x) < uPitS.x - e && l.z > e && l.z < uPitS.z - e; }
-`;
+const GROUND_HEAD = /* glsl */ `uniform vec3 uC; uniform vec3 uEye; uniform float uRing; uniform float uHide; uniform vec3 uF; uniform float uB; uniform float uBand;`;
 
 /**
- * the soil's material for the pit's faces: a soil's horizons as uniforms, the field worked out per pixel
- * @param {ReturnType<typeof pitUniforms>} pit
+ * the soil's material for the earth's faces, seen from inside: a soil's horizons as uniforms, the field worked out per
+ * pixel, darkening with its distance from the eye
+ * @param {ReturnType<typeof groundUniforms>} g
  */
-function soilMaterial(pit) {
+function soilMaterial(g) {
 	const u = {
 		sN: { value: 1 },
 		sTo: { value: new Array(MOST).fill(9) },
@@ -125,12 +125,17 @@ function soilMaterial(pit) {
 		sThread: { value: lin('#efe9dc') },
 		sRust: { value: lin('#b0581e') },
 		sGrey: { value: lin('#8d918c') },
-		sLime: { value: lin('#ece6d8') }
+		sLime: { value: lin('#ece6d8') },
+		/** the earth seen far through itself: what it darkens to, over how many metres beyond its nearest point, and how deep the roots go */
+		uHazeC: { value: new THREE.Color() },
+		uHazeL: { value: 1 },
+		uHazeNear: { value: 0 },
+		uDeep: { value: 1 }
 	};
 	const m = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.95, metalness: 0 });
 	m.userData.soil = u;
 	m.onBeforeCompile = (sh) => {
-		Object.assign(sh.uniforms, u, pit);
+		Object.assign(sh.uniforms, u, g);
 		sh.vertexShader = sh.vertexShader
 			.replace('#include <common>', '#include <common>\nvarying vec3 vSW;')
 			.replace('#include <project_vertex>', '#include <project_vertex>\nvSW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
@@ -145,7 +150,8 @@ uniform vec3 sCol[${MOST}]; uniform vec3 sCol2[${MOST}];
 uniform vec4 sPed[${MOST}]; uniform vec4 sBits[${MOST}]; uniform vec4 sMarks[${MOST}]; uniform vec4 sMore[${MOST}];
 uniform vec3 sEdge[${MOST}];
 uniform vec3 sStone; uniform vec3 sRoot; uniform vec3 sThread; uniform vec3 sRust; uniform vec3 sGrey; uniform vec3 sLime;
-${PIT_HEAD}
+uniform vec3 uHazeC; uniform float uHazeL; uniform float uHazeNear; uniform float uDeep;
+${GROUND_HEAD}
 ${NOISE}
 bool kind0(vec4 ped) { return int(ped.y + 0.5) == ${PED.crumb}; }
 // a horizon's matrix colour at p: its two colours in blotches
@@ -351,23 +357,25 @@ vec3 gPerturb(vec3 surf_pos, vec3 surf_norm, vec2 dHdxy, float faceDir) {
 				`#include <map_fragment>
 	float sPx = length(fwidth(vSW));
 	float sHgt; float sRough;
-	vec3 sl = gPit(vSW);
-	diffuseColor.rgb *= gSoil(vSW, sPx, sHgt, sRough);
+	// the underside of the ground, seen from deep below: the topsoil over our heads, dim (no light comes from there)
+	bool sCeil = abs(normalize(cross(dFdx(vSW), dFdy(vSW))).y) > 0.7;
+	vec3 sP = vSW;
+	if (sCeil) sP.y -= uDeep * 0.12;
+	diffuseColor.rgb *= gSoil(sP, sPx, sHgt, sRough) * (sCeil ? 0.55 : 1.0);
 	// the relief as the light sees it, measured across the pixel (as a bump map is)
 	vec2 sDH = vec2(dFdx(sHgt), dFdy(sHgt)) * 1.6;
-	// less of the sky reaches down into the pit, and less still into its corners (a phone draws no occlusion pass): the
-	// nearness of each of the pit's other faces, not the one this is on
-	{
-		vec3 nF = normalize(cross(dFdx(vSW), dFdy(vSW)));
-		vec3 nl = abs(vec3(dot(nF, uPitR), nF.y, dot(nF, uPitF)));
-		float k = uPitS.y * 0.3;
-		float occ = max(max((1.0 - nl.z) * (1.0 - smoothstep(0.0, k, sl.z)), (1.0 - nl.x) * (1.0 - smoothstep(0.0, k, uPitS.x - abs(sl.x)))), (1.0 - nl.y) * (1.0 - smoothstep(0.0, k, sl.y + uPitS.y)));
-		float sDepth = clamp(-sl.y / max(uPitS.y, 1e-3), 0.0, 1.0);
-		diffuseColor.rgb *= (1.0 - 0.24 * sDepth) * (1.0 - 0.3 * occ);
-	}`
+	// less light the deeper it lies
+	diffuseColor.rgb *= 1.0 - 0.22 * clamp(-vSW.y / max(uDeep, 1e-3), 0.0, 1.0);`
 			)
 			.replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n\troughnessFactor = sRough;')
-			.replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n\tnormal = gPerturb(-vViewPosition, normal, sDH, faceDirection);');
+			// the underside of the ground (seen from deep below) lit as the face is, so the corner where they meet does not
+			// show as a seam: the same earth, lit the same
+			.replace(
+				'#include <normal_fragment_maps>',
+				'#include <normal_fragment_maps>\n\tnormal = gPerturb(-vViewPosition, normal, sDH, faceDirection);\n\tif (sCeil) normal = normalize((viewMatrix * vec4(uF, 0.0)).xyz);'
+			)
+			// seen through the earth: the further off, the darker and the more of one colour
+			.replace('#include <dithering_fragment>', '#include <dithering_fragment>\n\t{ float hz = 1.0 - exp(-max(distance(vSW, uEye) - uHazeNear, 0.0) / uHazeL); gl_FragColor.rgb = mix(gl_FragColor.rgb, uHazeC, hz * 0.6) * (1.0 - 0.45 * hz); }');
 	};
 	m.customProgramCacheKey = () => 'viewer-soil';
 	return m;
@@ -388,29 +396,30 @@ function setSoil(m, soil) {
 		u.sEdge.value[i].set(h.wave ?? 0.02, h.sharp ?? 0.03, h.tongue ?? 0);
 	});
 	u.sStone.value.set(soil.stone);
+	// far off, the earth darkens to its topsoil's colour (the first horizon that is no litter), dimmed as the light is down there
+	const top = hs.find((h) => h.ped.kind !== 'litter' && h.ped.kind !== 'peat' && h.to > 0.04) ?? hs[0];
+	u.uHazeC.value.set(top.col).multiplyScalar(0.5);
 }
 
 /**
- * the floor: a biome's surfaces (the worlds' shader), left out over the pit, a ring of mulch round the stem, fading into
- * the backdrop far off
- * @param {ReturnType<typeof pitUniforms>} pit @param {THREE.Color} bg @param {THREE.Vector2} fade
+ * the floor: a biome's surfaces (the worlds' shader), a ring of mulch round the stem, fading into the backdrop far off;
+ * facing up only, so the eye below the ground sees on past it
+ * @param {ReturnType<typeof groundUniforms>} g @param {THREE.Color} bg @param {THREE.Vector2} fade
  */
-function floorMaterial(pit, bg, fade) {
+function floorMaterial(g, bg, fade) {
 	const m = groundMaterial({ soil: 1 });
 	const inner = m.onBeforeCompile;
 	m.onBeforeCompile = (sh, r) => {
 		inner(sh, r);
-		Object.assign(sh.uniforms, pit, { uBg: { value: bg }, uFade: { value: fade } });
+		Object.assign(sh.uniforms, g, { uBg: { value: bg }, uFade: { value: fade } });
 		sh.fragmentShader = sh.fragmentShader
-			.replace('#include <common>', `#include <common>\nuniform vec3 uBg; uniform vec2 uFade;\n${PIT_HEAD}`)
+			.replace('#include <common>', `#include <common>\nuniform vec3 uBg; uniform vec2 uFade;\n${GROUND_HEAD}`)
 			.replace(
 				'#include <color_fragment>',
 				`#include <color_fragment>
 	vec3 gW = vec3(vBiomeXZ.x, 0.0, vBiomeXZ.y);
-	vec3 gL = gPit(gW);
-	if (gOverPit(gL)) discard;
 	// mulch round the stem: leaves and humus, its edge ragged
-	vec2 gQ = gW.xz - uPitC.xz;
+	vec2 gQ = gW.xz - uC.xz;
 	float gR = length(gQ) + (bvn(gQ / max(uRing * 0.4, 0.01)) - 0.5) * uRing * 0.25;
 	float gMulch = (1.0 - smoothstep(uRing * 0.55, uRing, gR)) * 0.92;
 	vec3 gLit = texture2D(bS0, bw / bTile[0] * 0.45).rgb, gHum = texture2D(bS1, bw / bTile[1] * 0.6).rgb;
@@ -421,85 +430,12 @@ function floorMaterial(pit, bg, fade) {
 		float gNear = clamp((0.004 / max(gPx, 1e-6) - 1.0) / 3.0, 0.0, 1.0);
 		float gMid = clamp((0.015 / max(gPx, 1e-6) - 1.0) / 3.0, 0.0, 1.0);
 		diffuseColor.rgb *= 1.0 + (bvn(bw * 260.0) - 0.5) * 0.35 * gNear + (bvn(bw * 70.0 + 3.0) - 0.5) * 0.22 * gMid;
-	}
-	// the lip of the cut: the turf overhangs it a little, darker along its edge
-	float gDx = max(abs(gL.x) - uPitS.x, 0.0), gDz = max(max(-gL.z, gL.z - uPitS.z), 0.0);
-	diffuseColor.rgb *= mix(0.62, 1.0, smoothstep(0.0, uPitS.y * 0.06 + 0.004, length(vec2(gDx, gDz))));`
+	}`
 			)
-			.replace('#include <dithering_fragment>', '#include <dithering_fragment>\n\tgl_FragColor.rgb = mix(gl_FragColor.rgb, uBg, smoothstep(uFade.x, uFade.y, length(vBiomeXZ - uPitC.xz)));');
+			.replace('#include <dithering_fragment>', '#include <dithering_fragment>\n\tgl_FragColor.rgb = mix(gl_FragColor.rgb, uBg, smoothstep(uFade.x, uFade.y, length(vBiomeXZ - uC.xz)));');
 	};
 	m.customProgramCacheKey = () => 'viewer-floor';
 	return m;
-}
-
-/** the roots behind a pit face, seen through it: drawn only where the earth is in front of them @param {ReturnType<typeof pitUniforms>} pit */
-function ghostMaterialOf(pit) {
-	const m = new THREE.MeshBasicMaterial({ color: '#efe3c8', transparent: true, opacity: 0.4, depthWrite: false, depthFunc: THREE.GreaterDepth, toneMapped: false, fog: false });
-	const fade = { value: 0.3 };
-	m.userData.fade = fade;
-	m.onBeforeCompile = (sh) => {
-		Object.assign(sh.uniforms, pit, { uGhostFade: fade });
-		sh.vertexShader = sh.vertexShader
-			.replace('#include <common>', '#include <common>\nvarying vec3 vGW;')
-			.replace(
-				'#include <project_vertex>',
-				`#include <project_vertex>
-	{
-		vec4 gw = vec4(transformed, 1.0);
-		#ifdef USE_INSTANCING
-		gw = instanceMatrix * gw;
-		#endif
-		vGW = (modelMatrix * gw).xyz;
-	}`
-			);
-		sh.fragmentShader = sh.fragmentShader
-			.replace('#include <common>', `#include <common>\nvarying vec3 vGW;\nuniform float uGhostFade;\n${PIT_HEAD}`)
-			.replace(
-				'#include <alphatest_fragment>',
-				`#include <alphatest_fragment>
-	{
-		if (vGW.y > -0.0005) discard;
-		// the ray from it back to the eye: seen only if it leaves the earth through the pit, not the surface
-		vec3 o = gPit(vGW);
-		vec3 dW = uEye - vGW;
-		vec3 dl = vec3(dot(dW, uPitR), dW.y, dot(dW, uPitF));
-		float tS = dW.y > 0.0 ? -vGW.y / dW.y : 1e9;
-		vec3 inv = 1.0 / (dl + sign(dl) * 1e-7 + step(abs(dl), vec3(1e-9)) * 1e-7);
-		vec3 t0 = (vec3(-uPitS.x, -uPitS.y, 0.0) - o) * inv, t1 = (vec3(uPitS.x, 0.0, uPitS.z) - o) * inv;
-		vec3 tn = min(t0, t1), tx = max(t0, t1);
-		float tIn = max(max(tn.x, tn.y), tn.z), tOut = min(min(tx.x, tx.y), tx.z);
-		if (!(tIn > 0.0 && tOut > tIn && tIn < tS)) discard;
-		diffuseColor.a *= exp(-tIn * length(dW) / uGhostFade);
-		// drawn as an x-ray draws a tube: its edges, where we look along its skin, stronger than its middle
-		vec3 gn = normalize(cross(dFdx(vGW), dFdy(vGW)));
-		diffuseColor.a *= mix(1.0, 0.3, abs(dot(gn, normalize(dW))));
-	}`
-			);
-	};
-	m.customProgramCacheKey = () => 'viewer-ghost-roots';
-	return m;
-}
-
-/**
- * The pit's faces, in its own frame (x across, y up, z out towards the camera): the back wall, its floor, the ramp up
- * on our side, its two side walls; each facing into the pit
- * @param {number} W half its width @param {number} D its depth @param {number} F its floor's length @param {number} L its length
- */
-function pitGeometry(W, D, F, L) {
-	const v = [];
-	const tri = (a, b, c) => v.push(...a, ...b, ...c);
-	const quad = (a, b, c, d) => (tri(a, b, c), tri(a, c, d));
-	quad([-W, -D, 0], [W, -D, 0], [W, 0, 0], [-W, 0, 0]); // the back wall: the section through the plant
-	quad([-W, -D, 0], [-W, -D, F], [W, -D, F], [W, -D, 0]); // its floor
-	quad([-W, -D, F], [-W, 0, L], [W, 0, L], [W, -D, F]); // the ramp up to the surface
-	tri([-W, 0, 0], [-W, -D, F], [-W, -D, 0]); // the side walls
-	tri([-W, 0, 0], [-W, 0, L], [-W, -D, F]);
-	tri([W, 0, 0], [W, -D, 0], [W, -D, F]);
-	tri([W, 0, 0], [W, -D, F], [W, 0, L]);
-	const g = new THREE.BufferGeometry();
-	g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
-	g.computeVertexNormals();
-	return g;
 }
 
 /**
@@ -508,40 +444,46 @@ function pitGeometry(W, D, F, L) {
  * @param {{ cover?: boolean }} [o] `cover`: its biome's cover streamed round the plant (not on a phone's budget)
  */
 export function groundOf(stage, { cover = !stage.low } = {}) {
-	const pit = pitUniforms();
+	const g = groundUniforms();
 	const fade = new THREE.Vector2(8, 30);
 	const group = new THREE.Group();
 	group.name = 'ground';
 	group.visible = false;
-	const floor = new THREE.Mesh(new THREE.CircleGeometry(1, 128).rotateX(-Math.PI / 2), floorMaterial(pit, stage.bg, fade));
+	const floor = new THREE.Mesh(new THREE.CircleGeometry(1, 128).rotateX(-Math.PI / 2), floorMaterial(g, stage.bg, fade));
 	floor.receiveShadow = true;
-	const soil = soilMaterial(pit);
-	const walls = new THREE.Mesh(pitGeometry(0.3, 0.3, 0.2, 1), soil);
-	// its walls take the plant's shadow but cast none: the key rakes across the back wall, as a soil scientist lights a
-	// face to read it, rather than leaving the pit in the shade of its own side
-	walls.receiveShadow = true;
-	const turn = new THREE.Group();
-	turn.add(walls);
-	const ghosts = new THREE.Group();
-	ghosts.name = 'ground ghosts';
-	const ghost = ghostMaterialOf(pit);
-	group.add(floor, turn, ghosts);
+	const soil = soilMaterial(g);
+	// the earth behind the roots, seen from below the ground line: one face of it standing just beyond the farthest root,
+	// square to the eye, wide and deep enough that its edges are never seen (they are lost in its haze), the ground line
+	// its top; lit by the studio's lights but in no shadow (the crown's would fall on it as if no earth lay above)
+	// and from deeper down, the underside of the ground from the plant back to the face, so a root near the surface is
+	// seen against earth and not the sky (the ground line then runs through the stem's foot, from any depth). Both in
+	// the earth's own frame: at the plant, turned to face the eye
+	const under = new THREE.Group();
+	under.name = 'underground';
+	under.visible = false;
+	const face = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).translate(0, -0.5, 0), soil);
+	const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(Math.PI / 2).translate(0, 0, -0.5), soil);
+	under.add(face, ceiling);
+	group.add(floor, under);
 	/** @type {null | ReturnType<typeof coverStream>} */
 	let stream = null;
 	let recipe = null, ringAt = 0, reachAt = 0, tall = false, soilNow = soilOf();
 	setSoil(soil, soilNow);
-	/** the plant's meshes and their ghosts, matrices copied each frame */
-	let pairs = [];
-	let az = null;
 	const at = new THREE.Vector3();
-	const mark = () => group.traverse((o) => {
-		o.userData.studio = true;
-		o.userData.noAO = o.parent === ghosts || o === ghosts ? true : o.userData.noAO;
-	});
+	/** the plant as fitted: how deep and how far out its roots reach, and how big it is */
+	const fitted = { deep: 0, spread: 0, reach: 1 };
+	/** how far behind the plant the earth's face stands, how big it is, the way it faces (eased), and whether the eye is below */
+	let behind = 1, faceW = 40, faceH = 20, az = null, below = false;
+	const mark = () =>
+		group.traverse((o) => {
+			o.userData.studio = true;
+			// out of the occlusion pass, which draws both sides of everything and would take the earth's face for a wall
+			if (o.parent === under) o.userData.noAO = true;
+		});
 	mark();
 	stage.scene.add(group);
 
-	/** the cover round the plant: everywhere but the mulch ring (the pit is left out on the graphics card) */
+	/** the cover round the plant: everywhere but the mulch ring, and while the eye is below the ground only beyond the earth's face (its turf on the ground line) */
 	const coverFor = () => {
 		stream?.object.removeFromParent();
 		stream?.rebuild({ ...recipe, cover: [] });
@@ -549,7 +491,7 @@ export function groundOf(stage, { cover = !stage.low } = {}) {
 		// the cover is drawn to be seen from standing height: round a seedling, seen from a few centimetres, its clover
 		// heads and twigs would stand like trees, so a small plant stands on its floor alone
 		if (!cover || !tall || !recipe?.cover?.length) return;
-		const ring = ringAt, cx = pit.uPitC.value.x, cz = pit.uPitC.value.z;
+		const ring = ringAt, cx = g.uC.value.x, cz = g.uC.value.z;
 		// out to where the floor starts fading into the backdrop, never beyond it (no plants standing in the haze)
 		const reach = reachAt;
 		stream = coverStream({
@@ -562,13 +504,18 @@ export function groundOf(stage, { cover = !stage.low } = {}) {
 			perFrame: 4,
 			seed: 77,
 			away: {
-				key: 'viewer-pit',
-				uniforms: pit,
-				head: PIT_HEAD,
-				body: `{ vec3 gl0 = gPit(vec3(instanceMatrix[3].x, 0.0, instanceMatrix[3].z)); if (abs(gl0.x) < uPitS.x + 0.04 && gl0.z > -0.04 && gl0.z < uPitS.z + 0.04) transformed *= 0.0; }`
+				key: 'viewer-under',
+				uniforms: g,
+				head: GROUND_HEAD,
+				body: `if (uHide > 0.5) { float gAlong = dot(vec2(instanceMatrix[3].x, instanceMatrix[3].z) - uC.xz, uF.xz); if (gAlong > -uB || gAlong < -uB - uBand) transformed *= 0.0; }`
 			}
 		});
-		stream.object.traverse((o) => (o.userData.studio = true));
+		// out of the occlusion pass too: it draws each blade whole, where the stream's own shader has thinned it out or
+		// left it out (over the earth, seen from below), and its ghost would show in the occlusion
+		stream.object.traverse((o) => {
+			o.userData.studio = true;
+			o.userData.noAO = true;
+		});
 		group.add(stream.object);
 	};
 
@@ -576,6 +523,10 @@ export function groundOf(stage, { cover = !stage.low } = {}) {
 		group,
 		get soil() {
 			return soilNow;
+		},
+		/** whether the eye is below the ground line (the earth drawn, the frame split there) */
+		get below() {
+			return below;
 		},
 		/** the biome it is the floor of (its recipe, as its card says it) and that biome's id, which names its soil */
 		biome(next, id) {
@@ -586,20 +537,18 @@ export function groundOf(stage, { cover = !stage.low } = {}) {
 			coverFor();
 		},
 		/**
-		 * sized to a plant: the pit as deep as its deepest root and a little more, as wide as its roots spread, long
-		 * enough on our side to see down its back wall; the roots' ghosts made from its meshes. The ground's surface at 0.
+		 * sized to a plant: the earth as deep as its deepest root and a little more, wide round its roots; the floor out
+		 * to the horizon, its mulch ring as wide as its crown is near the ground. The ground's surface at 0.
 		 * @param {THREE.Object3D} root
 		 */
 		fit(root) {
 			root.updateMatrixWorld(true);
 			root.getWorldPosition(at);
 			const box = new THREE.Box3().setFromObject(root);
-			const size = box.getSize(new THREE.Vector3());
+			const bs = box.getSize(new THREE.Vector3());
 			// how far its roots reach down and out: its vertices under the ground, a sample of them
 			let deep = Math.max(0, -box.min.y), spread = 0;
 			const p = new THREE.Vector3(), mi = new THREE.Matrix4(), wb = new THREE.Box3();
-			for (const pr of pairs) pr.ghost.removeFromParent();
-			pairs = [];
 			root.traverse((m) => {
 				if (!m.isMesh || !m.geometry?.attributes?.position || !m.visible) return;
 				if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
@@ -616,39 +565,30 @@ export function groundOf(stage, { cover = !stage.low } = {}) {
 						if (p.y < 0) spread = Math.max(spread, Math.hypot(p.x - at.x, p.z - at.z));
 					}
 				}
-				const g = m.isInstancedMesh ? new THREE.InstancedMesh(m.geometry, ghost, m.count) : new THREE.Mesh(m.geometry, ghost);
-				if (m.isInstancedMesh) {
-					g.instanceMatrix = m.instanceMatrix;
-					g.count = m.count;
-				}
-				g.matrixAutoUpdate = false;
-				g.matrix.copy(m.matrixWorld);
-				g.frustumCulled = false;
-				g.castShadow = g.receiveShadow = false;
-				g.renderOrder = 5;
-				g.userData.studio = g.userData.noAO = true;
-				ghosts.add(g);
-				pairs.push({ mesh: m, ghost: g });
 			});
-			const reach = Math.max(size.x, size.y, size.z, 0.01);
-			const D = Math.max(deep * 1.15 + reach * 0.015, reach * 0.06);
-			const W = Math.max(spread * 1.08 + reach * 0.02, D * 0.75);
-			// at the camera's height (16° over the ground) the back wall is seen to its foot over a rim 3.5 depths away
-			const L = Math.max(W * 1.1, D * 3.4), F = Math.min(L * 0.5, Math.max(D * 0.7, W * 0.35));
-			walls.geometry.dispose();
-			walls.geometry = pitGeometry(W, D, F, L);
-			pit.uPitS.value.set(W, D, L, F);
-			pit.uPitC.value.set(at.x, 0, at.z);
-			turn.position.set(at.x, 0, at.z);
+			const reach = Math.max(bs.x, bs.y, bs.z, 0.01);
+			Object.assign(fitted, { deep, spread, reach });
+			const D = Math.max(deep, reach * 0.03), S = Math.max(spread, D * 0.5);
+			// the face just beyond the farthest root behind the plant; as big as never to show its edges
+			behind = S * 1.12 + reach * 0.01;
+			faceW = Math.max(reach * 60, 30);
+			faceH = Math.max(reach * 30, 15);
+			face.scale.set(faceW, faceH, 1);
+			face.position.set(0, 0, -behind);
+			ceiling.scale.set(faceW, 1, behind);
+			g.uB.value = behind;
+			g.uBand.value = Math.max(S * 1.5, reach * 0.3, 0.6);
+			soil.userData.soil.uDeep.value = D * 1.4 + reach * 0.01;
+			soil.userData.soil.uHazeL.value = Math.max(D * 2.5, 0.04);
+			g.uC.value.set(at.x, 0, at.z);
 			floor.scale.setScalar(Math.max(60, reach * 40));
 			floor.position.set(at.x, 0, at.z);
 			fade.set(Math.max(reach * 2.2, 3), Math.max(reach * 9, 14));
-			ghost.userData.fade.value = Math.max(D * 0.55, 0.03);
 			// a ring of mulch round the stem, as wide as its crown is near the ground, so a seedling is not lost in grass
-			const ring = Math.min(1.6, Math.max(0.2, Math.max(size.x, size.z) * 0.55));
-			pit.uRing.value = ring;
+			const ring = Math.min(1.6, Math.max(0.2, Math.max(bs.x, bs.z) * 0.55));
+			g.uRing.value = ring;
 			const coverReach = Math.max(4, Math.min(14, fade.x * 1.15));
-			const big = Math.max(size.x, size.y, size.z) > 0.35;
+			const big = Math.max(bs.x, bs.y, bs.z) > 0.35;
 			if (Math.abs(ring - ringAt) > ringAt * 0.25 || Math.abs(coverReach - reachAt) > reachAt * 0.25 || big !== tall || (!stream && big)) {
 				ringAt = ring;
 				reachAt = coverReach;
@@ -656,45 +596,70 @@ export function groundOf(stage, { cover = !stage.low } = {}) {
 				coverFor();
 			}
 			mark();
-			return { deep, spread, W, D, L };
+			return { deep, spread };
 		},
 		/** shown, or not (a fruit on its own stands on the studio's floor) @param {boolean} on */
 		show(on) {
 			group.visible = on;
-			if (!on) {
-				for (const pr of pairs) pr.ghost.removeFromParent();
-				pairs = [];
-			}
+			if (!on) below = under.visible = false;
 		},
-		/** each frame: the pit turned to face the camera (eased), the eye for the ghosts and the cover, the ghosts on their meshes */
+		/**
+		 * Where the camera stands for the split-level view of the roots: on the ground line (a hair under it), so the line
+		 * lies level through the whole frame as a split-level shot's waterline does, tilted down until the line is two
+		 * fifths down the frame, the stem's foot on it and all of the roots under it; from the side it looks from now.
+		 * @param {THREE.PerspectiveCamera} camera
+		 */
+		rootsView(camera) {
+			const h = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)), aspect = camera.aspect || 1;
+			const D = Math.max(fitted.deep, fitted.reach * 0.03), S = Math.max(fitted.spread, D * 0.5);
+			// tilted down so the horizon (the ground line) is 0.2 of the half-height over the middle; the deepest root 0.85
+			// of it under the middle; the roots' spread in the width
+			const tilt = Math.atan(0.2 * h);
+			const d = Math.max((1.06 * D) / Math.tan(tilt + Math.atan(0.85 * h)), (1.15 * S) / (h * aspect));
+			const y = -fitted.reach * 0.004;
+			const e = camera.position, az = Math.atan2(e.x - at.x, e.z - at.z);
+			return {
+				pos: new THREE.Vector3(at.x + Math.sin(az) * d, y, at.z + Math.cos(az) * d),
+				target: new THREE.Vector3(at.x, y - d * Math.tan(tilt), at.z),
+				near: Math.min(d / 200, fitted.reach / 300)
+			};
+		},
+		/** each frame: the eye for the cover and the earth's haze; below the ground, the earth drawn round the eye */
 		update(camera, dt) {
 			if (!group.visible) return;
-			camera.getWorldPosition(pit.uEye.value);
-			const c = pit.uPitC.value;
-			const want = Math.atan2(pit.uEye.value.x - c.x, pit.uEye.value.z - c.z);
-			if (az === null) az = want;
-			let dA = want - az;
-			dA = Math.atan2(Math.sin(dA), Math.cos(dA));
-			az += dA * (1 - Math.exp(-Math.min(dt, 0.1) * 5));
-			turn.rotation.y = az;
-			pit.uPitF.value.set(Math.sin(az), 0, Math.cos(az));
-			pit.uPitR.value.set(Math.cos(az), 0, -Math.sin(az));
-			for (const { mesh, ghost: g } of pairs) {
-				g.matrix.copy(mesh.matrixWorld);
-				g.visible = mesh.visible && mesh.layers.test(camera.layers);
-				if (mesh.isInstancedMesh) g.count = mesh.count;
+			camera.getWorldPosition(g.uEye.value);
+			const e = g.uEye.value;
+			const was = below;
+			below = e.y < fitted.reach * 0.002;
+			under.visible = below;
+			// from below, the floor is not drawn, so it is no surface for the occlusion pass either
+			floor.userData.noAO = below;
+			g.uHide.value = below ? 1 : 0;
+			if (below) {
+				// the face turns to stay square to the eye, eased (it settles rather than following every twitch)
+				const want = Math.atan2(e.x - at.x, e.z - at.z);
+				if (az === null || !was) az = want;
+				let dA = want - az;
+				dA = Math.atan2(Math.sin(dA), Math.cos(dA));
+				az += dA * (1 - Math.exp(-Math.min(dt, 0.1) * 6));
+				const fx = Math.sin(az), fz = Math.cos(az);
+				under.position.set(at.x, 0, at.z);
+				under.rotation.set(0, az, 0);
+				g.uF.value.set(fx, 0, fz);
+				// the haze counts from the face's nearest point to the eye: right behind the roots it is clear
+				soil.userData.soil.uHazeNear.value = Math.max(0, (e.x - at.x) * fx + (e.z - at.z) * fz + behind);
 			}
 			// on a turntable the plant is the middle of what is seen: the cover stands full round it and thins outwards
-			stream?.update(c.x, c.z);
+			stream?.update(at.x, at.z);
 		},
 		dispose() {
 			group.removeFromParent();
 			stream?.rebuild({ ...(recipe ?? {}), cover: [] });
 			floor.geometry.dispose();
 			floor.material.dispose();
-			walls.geometry.dispose();
+			face.geometry.dispose();
+			ceiling.geometry.dispose();
 			soil.dispose();
-			ghost.dispose();
 		}
 	};
 }

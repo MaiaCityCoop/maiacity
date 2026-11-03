@@ -110,6 +110,9 @@
 		}
 	}
 	let pickGround = null;
+	/** the camera below the ground line (the frame split there, the roots in the earth), and the one tap down to them or back up */
+	let below = $state(false);
+	let toRoots = null;
 	let moving = $state('run');
 	/** its solver's sliders and its reading */
 	let sliders = $state({});
@@ -178,8 +181,9 @@
 		}
 		// for a test in a browser to read what is shown, as AssetViewer's `__viewer`
 		window.__vaultAsset = { stage, camera, controls, get hero() { return hero; }, get picked() { return picked; }, get building() { return building; }, get phase() { return buildPhase; }, get error() { return error; } };
-		// a plant's ground: its biome's floor to the horizon, the soil under it and a pit in front of it, its roots seen
-		// in it (./ground.js); never under its fruit on its own, which stands on the studio's floor
+		// a plant's ground: its biome's floor to the horizon, whole, the plant's roots in the earth under it, seen by
+		// tilting the camera below the ground line (./ground.js); never under its fruit on its own, which stands on the
+		// studio's floor
 		const earth = groundOf(stage);
 		grounds = groundsIn(source);
 		pickGround = (id) => {
@@ -202,6 +206,17 @@
 		const cam = camerawork(THREE, camera, controls);
 		/** the part the camera was last brought to, if one */
 		let focused = null;
+		// down to the roots: the camera glides to just below the ground line, the frame split there (./ground.js
+		// `rootsView`); and back up, to the plant framed as built
+		toRoots = () => {
+			if (!cam.framed) return;
+			if (earth.below) return void cam.frame(true);
+			const v = earth.rootsView(camera);
+			cam.aim = cam.follow = null;
+			cam.glide = { t: 0, from: [camera.position.clone(), controls.target.clone()], to: [v.pos, v.target] };
+			camera.near = Math.min(camera.near, v.near);
+			camera.updateProjectionMatrix();
+		};
 		show = async (h0, given) => {
 			walkOut?.();
 			const ask = asks.ask();
@@ -221,6 +236,8 @@
 				const { centre, size: s } = stage.show(got.obj, { asset: h, ground: soiled ? 0 : undefined, keep: shownHash === h0, studio: !soiled });
 				if (soiled) earth.fit(got.obj);
 				earth.show(soiled);
+				// round a plant on its ground the camera may go down below the ground line, to 60° under it, but no further
+				controls.maxPolarAngle = soiled ? Math.PI * (5 / 6) : Math.PI;
 				buildPhase = 'prepare';
 				await stage.compile();
 				if (!asks.is(ask)) {
@@ -349,6 +366,7 @@
 			adapt(now);
 			stage.update(dt);
 			earth.update(camera, wall);
+			if (earth.below !== below) below = earth.below;
 			if (walker) walker.update(dt);
 			else {
 				cam.step(wall, growing);
@@ -518,7 +536,7 @@
 		{/if}
 		{#if scale[0] > 0 && hero && !error && !blank}{@render scaleBar(scale)}{/if}
 		{#if walking}<small>Drag to look · WASD or the joystick to walk · Shift to hurry · Esc to step outside</small>
-		{:else}<small>Drag to turn round it · pinch or scroll to come closer{catalog ? ' · tap a part to see it on its own' : ''}{hero?.view?.walk ? ' · Step inside to walk in' : ''}</small>{/if}
+		{:else}<small>Drag to turn round it · pinch or scroll to come closer{rise ? ' · tilt below the ground to see the roots' : ''}{catalog ? ' · tap a part to see it on its own' : ''}{hero?.view?.walk ? ' · Step inside to walk in' : ''}</small>{/if}
 {/snippet}
 
 {#if details}
@@ -547,13 +565,16 @@
 				{@render viewChips(views, (k) => (k === 'explode' && rigApart ? drawnApart : modes[k]), setMode)}
 				{#if hero.view?.walk}<button class="chip walk" class:on={walking} onclick={() => (walking ? walkOut?.() : walkIn?.())}>{walking ? 'Step outside' : 'Step inside'}</button>{/if}
 			</div>
-			{#if rise && grounds.length > 1}
-				<!-- the ground a plant stands on: a biome's floor, and the soil that biome lies on in the pit -->
+			{#if rise}
+				<!-- the ground a plant stands on: down to its roots and back up, and a biome's floor and the soil it lies on -->
 				<div class="chips grounds" role="group" aria-label="Ground">
-					<span class="grounds-label">Ground</span>
-					{#each grounds as g (g.id)}
-						<button class="chip" class:on={groundId === g.id} aria-pressed={groundId === g.id} onclick={() => pickGround?.(g.id)}>{g.label}</button>
-					{/each}
+					<button class="chip roots" class:on={below} aria-pressed={below} onclick={() => toRoots?.()}>{below ? 'Above ground' : 'Roots'}</button>
+					{#if grounds.length > 1}
+						<span class="grounds-label">Ground</span>
+						{#each grounds as g (g.id)}
+							<button class="chip" class:on={groundId === g.id} aria-pressed={groundId === g.id} onclick={() => pickGround?.(g.id)}>{g.label}</button>
+						{/each}
+					{/if}
 				</div>
 			{/if}
 		{/if}
@@ -591,6 +612,16 @@
 	/* the ground a plant stands on: a row of chips under the bar's, named */
 	.grounds {
 		align-items: center;
+	}
+	/* down to the roots stays in reach while the row of grounds scrolls under it */
+	.grounds .roots {
+		position: sticky;
+		left: 0;
+		z-index: 1;
+		box-shadow: 6px 0 8px -6px rgb(0 0 0 / 0.25);
+	}
+	.grounds .roots:not(.on) {
+		background: #fff;
 	}
 	.grounds-label {
 		font-size: 0.72rem;

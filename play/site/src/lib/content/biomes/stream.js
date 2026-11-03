@@ -35,7 +35,8 @@ import { rng } from './noise.js';
  *   thins out; thin: how much of it is left at its reach (0…1); perFrame: how many tiles may be built a frame;
  *   density: the biome's, if it should be other (fewer on a slow device); origin: where this ground's 0, 0 lies in
  *   the world (for a dome's floor laid in its own ground), so its colonies stand on the surfaces its ground is painted with;
- *   away: where it is left out besides, worked out on the graphics card each frame (a pit that turns with the camera):
+ *   away: where it is left out besides, worked out on the graphics card each frame (over the earth a plant's ground
+ *   shows while the camera is below it):
  *   GLSL for the vertex shader, `head` declared before and `body` run after the fading (it may scale `transformed` to
  *   nothing), its uniforms, and a `key` naming it for the shader's cache
  */
