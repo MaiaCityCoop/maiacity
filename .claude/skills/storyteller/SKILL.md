@@ -10,6 +10,9 @@ viewer stays to the last line. The hook itself is the `hook-writer`'s; the pictu
 
 ## The writer's laws
 
+0. **Inside the meta story.** Every piece is a day of one journey: day one of a new civilization, built first in
+   a game, then for real, from its starting point (Day 1), exploring how humans will feed themselves healthily and
+   live anew. Place the subject in that big picture early (`format.md`, "The meta story").
 1. **One transformation, as large as the truth allows.** *From* what the viewer believes arriving, *to* what they
    leave with — decided before a word is written (`arc.md`).
 2. **One arching question,** opened in the first line, held open by progress, conflict and doubt, answered at the end
@@ -22,7 +25,9 @@ viewer stays to the last line. The hook itself is the `hook-writer`'s; the pictu
 6. **Tension, release, a bigger tension — as feelings.** Name what the viewer feels at every beat, each feeling set
    against the one before; close one loop and open the next in the same breath; the peak comes late (`emotion.md`,
    `retention.md`).
-7. **Based on a true story.** Re-enact, compress, plan every shot — but invent nothing about Samuel's life, the
+7. **Never talk about AI** (Samuel, 2026-11-03). No line, caption or title says "AI", "our AI" or "an AI": the work
+   is ours, told as *we* and *I*.
+8. **Based on a true story.** Re-enact, compress, plan every shot — but invent nothing about Samuel's life, the
    viewers, attempts or results (`writing.md`, `scenes.md`).
 
 ## The sub-skills
@@ -35,6 +40,7 @@ viewer stays to the last line. The hook itself is the `hook-writer`'s; the pictu
 | `scenes.md` | scene by scene | how each scene moves the story: the next-button test, but/therefore, intention and obstacle, value turns, setups and payoffs, introducing people through action, the vlog that is based on a true story |
 | `emotion.md` | the emotional journey | the feelings the viewer goes through beat by beat, tension and release as pairs of feelings, marking them on the arc (`story_arc`'s `feel`), how sound, colour, pace and light follow them |
 | `retention.md` | tension and release | the intensity curve, contrast in every sense, curiosity and payoff, the retention playbook second by second, pace |
+| `devlogs.md` | how ThinMatrix and The Sapling tell devlogs | their hooks, structure, voice, editing and retention, studied from their videos, and 15 rules for maiaCITY (title the change, a claim not a greeting, the viewer's objection said aloud, a roadmap to the extreme, game beside real, failure as comedy → cause → fix) |
 | `writing.md` | the words | who speaks, the world's facts, rhythm, "Imagine…" scenes, the post file, writing for the ear, the checklist |
 
 ## The order of work
