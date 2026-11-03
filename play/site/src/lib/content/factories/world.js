@@ -126,91 +126,97 @@ const FS = { fmt, rng, Kit: K }
   }
 
   /**
-   * maiaCITY (2026-11-03): the star. The main line (`layout.ring`, in flow order) stands round a ring, flowing
-   * anticlockwise seen from above, with an opening (`layout.open` m of arc, at the angle `layout.openAt`) between its
-   * last station and its first: the way the finished machines leave for the hub in the middle. Every cell that joins
-   * the ring is a point of the star, out from the aisle before the station it joins: a straight ray of stations
-   * flowing in towards the ring, or, when it is longer than `layout.maxLeg`, a V that goes out on one leg and comes
-   * back on the other. A side branch (`after[1..]`) stands beside the station before the one it joins, on the point's
-   * outer side. Each station gets its centre and the angle its flow faces (`I.angle`).
+   * maiaCITY (2026-11-03): the star, grown inwards. The main line (`layout.ring`, in flow order) is the outer band of
+   * the round hall: its conveyor runs round just inside the wall, clockwise seen from above, and every station on it
+   * stands with its machines on the inner side of the band. Between its last station and its first is a short
+   * opening (`layout.open` m of arc at the angle `layout.openAt`), where the finished machines leave through the wall.
+   * Every cell that joins the ring is a point of the star growing in towards the middle from the aisle before the
+   * station it joins: a straight ray flowing out to the band, or, when it is longer than `layout.maxLeg`, a V that runs
+   * in on one leg and back out on the other, so its raw stock comes in near the wall. The points are spread round the
+   * ring as evenly as its stations allow (the gaps between them opened to suit). A side branch (`after[1..]`) stands
+   * beside the station before the one it joins, on the point's outer side. The ring's radius is the least that holds
+   * the band and the longest point with `layout.hub` m to spare in the middle. Each station gets its centre and the
+   * angle its flow faces (`I.angle`).
    */
   function star(plan, info, L) {
     const byId = plan.byId
-    const ring = L.ring, gapMin = L.gap != null ? L.gap : 4, aisle = L.aisle != null ? L.aisle : 6, step = L.step != null ? L.step : 3
-    const open = L.open != null ? L.open : 18, maxLeg = L.maxLeg || 30, spread = L.spread || 0.16
+    const ring = L.ring, gapMin = L.gap != null ? L.gap : 4, aisle = L.aisle != null ? L.aisle : 5, step = L.step != null ? L.step : 3
+    const open = L.open != null ? L.open : 10, maxLeg = L.maxLeg || 24, hub = L.hub != null ? L.hub : 8
     const onRing = new Set(ring)
     const Dring = Math.max(...ring.map((id) => info[id].D))
     const openAt = L.openAt != null ? L.openAt : -Math.PI / 2
     const put = (I, x, z, dx, dz) => { I.x = x; I.z = z; I.angle = Math.atan2(-dz, dx); I.dir = 1; I.fx = dx; I.fz = dz }
-    // the ring's stations at their least gaps, then the gaps opened so the points of the star come out as evenly round
-    // it as their stations allow (each feeder takes an equal share of the circle; where a stretch of stations with no
-    // feeder is longer than its share, the others close up)
+    const chainOf = (id) => { const c = []; for (let q = byId[id]; q; q = q.after.length ? byId[q.after[0]] : null) c.unshift(q.id); return c }
+    const len = (ids) => ids.reduce((t, c) => t + info[c].W, 0) + step * (ids.length - 1)
+    const dOf = (ids) => Math.max(...ids.map((c) => info[c].D))
     const feedsOf = (id) => byId[id].after.filter((q) => !onRing.has(q))
+    /** a chain split into the two legs of a V where they come out most even */
+    const legsOf = (chain) => {
+      let k = 1
+      for (let j = 1; j < chain.length; j++) if (Math.max(len(chain.slice(0, j)), len(chain.slice(j))) < Math.max(len(chain.slice(0, k)), len(chain.slice(k)))) k = j
+      return [chain.slice(0, k), chain.slice(k)]
+    }
+    /** how far in from its base a point reaches */
+    const depthOf = (chain) => (len(chain) <= maxLeg ? len(chain) : Math.max(...legsOf(chain).map(len)) + 3)
     const pts = ring.filter((id) => feedsOf(id).length)
-    const N = pts.reduce((t, id) => t + feedsOf(id).length, 0)
+    const deepest = Math.max(0, ...pts.flatMap((id) => feedsOf(id).map((q) => depthOf(chainOf(q)))))
+    // the ring at its least gaps, its circle the least that holds it and the deepest point
     const start = {}
     let s = 0
     for (const id of ring) { if (id !== ring[0]) s += gapMin; start[id] = s; s += info[id].W }
     const Cmin = s + open
-    const C = Math.max(2 * Math.PI * (L.radius || 0), Cmin * 1.15)
-    const R = C / (2 * Math.PI), D0 = C / N
+    const R = Math.max(L.radius || 0, (Cmin * 1.1) / (2 * Math.PI), Dring / 2 + aisle + deepest + hub)
+    const C = 2 * Math.PI * R
+    // the gaps opened so the points come out as evenly round the ring as its stations allow
+    const N = pts.reduce((t, id) => t + feedsOf(id).length, 0), D0 = C / N, m = pts.length
     const centre = (id) => start[id] - gapMin / 2 - ((feedsOf(id).length - 1) * D0) / 2
-    const m = pts.length
-    // the stretches between one point and the next at their least; the last wraps round through the opening
     const Ls = pts.map((id, j) => (j < m - 1 ? centre(pts[j + 1]) - centre(id) : s - centre(id) + open + centre(pts[0])))
     const Ts = pts.map((id, j) => (D0 * (feedsOf(id).length + feedsOf(pts[(j + 1) % m]).length)) / 2)
     let lo = 0, hi = C
-    for (let it = 0; it < 60; it++) { const lam = (lo + hi) / 2; const sum = Ts.reduce((t, T, j) => t + Math.max(Ls[j], T - lam), 0); if (sum > C) lo = lam; else hi = lam }
+    for (let it = 0; it < 60; it++) { const lam = (lo + hi) / 2; if (Ts.reduce((t, T, j) => t + Math.max(Ls[j], T - lam), 0) > C) lo = lam; else hi = lam }
     const slack = Ts.map((T, j) => Math.max(Ls[j], T - hi) - Ls[j])
-    // each stretch's slack opens the gap before the next point's station; the wrap's goes to the opening
     let shift = 0
     for (const id of ring) { const j = pts.indexOf(id); if (j > 0) shift += slack[j - 1]; start[id] += shift }
     const lastEnd = start[ring[ring.length - 1]] + info[ring[ring.length - 1]].W
-    const phiOf = (q) => openAt + (q + (C - lastEnd) / 2) / R
+    // clockwise: arc length along the flow takes the angle down
+    const phiOf = (q) => openAt - (q + (C - lastEnd) / 2) / R
     for (const id of ring) {
       const I = info[id], phi = phiOf(start[id] + I.W / 2)
-      put(I, R * Math.cos(phi), R * Math.sin(phi), -Math.sin(phi), Math.cos(phi))
+      put(I, R * Math.cos(phi), R * Math.sin(phi), Math.sin(phi), -Math.cos(phi))
     }
-    const chainOf = (id) => { const c = []; for (let q = byId[id]; q; q = q.after.length ? byId[q.after[0]] : null) c.unshift(q.id); return c }
-    const len = (ids) => ids.reduce((t, c) => t + info[c].W, 0) + step * (ids.length - 1)
-    const dOf = (ids) => Math.max(...ids.map((c) => info[c].D))
-    const r0 = R + Dring / 2 + aisle
-    /** stations along a line from point a in direction d, flowing along d, starting `from` m along it */
+    const r0 = R - Dring / 2 - aisle
+    /** stations along a line from (ax, az) in direction (dx, dz), flowing along it, starting `from` m along */
     const along = (ids, ax, az, dx, dz, from) => { let t = from; for (const c of ids) { const I = info[c]; t += I.W / 2; put(I, ax + dx * t, az + dz * t, dx, dz); t += I.W / 2 + step } }
     /** side branches of a chain's stations, beside the station before the one they join, on the side (nx, nz) */
     function sides(chain, nx, nz) {
       const D = dOf(chain)
-      chain.forEach((c, i) => {
+      for (const c of chain) {
         let off = D / 2 + 3
         for (const q of byId[c].after.slice(1)) {
           const sub = chainOf(q), J = info[c], Dq = dOf(sub)
           off += Dq / 2
-          // ending 1.5 m before the joining station's start, flowing as it flows
           const ex = J.x - J.fx * (J.W / 2 + 1.5) + nx * off, ez = J.z - J.fz * (J.W / 2 + 1.5) + nz * off
           along(sub, ex - J.fx * len(sub), ez - J.fz * len(sub), J.fx, J.fz, 0)
           off += Dq / 2 + 3
         }
-      })
+      }
     }
     function point(p, phi) {
       const chain = chainOf(p)
-      const ux = Math.cos(phi), uz = Math.sin(phi), nx = -Math.sin(phi), nz = Math.cos(phi)
+      // u: out to the wall; n: along the ring's flow, towards the station the point joins
+      const ux = Math.cos(phi), uz = Math.sin(phi), nx = Math.sin(phi), nz = -Math.cos(phi)
       if (len(chain) <= maxLeg) {
-        // a ray: from its far end in towards the ring
-        const far = r0 + len(chain)
-        along(chain, ux * far, uz * far, -ux, -uz, 0)
+        // a ray from its inner end out to the band
+        const inner = r0 - len(chain)
+        along(chain, ux * inner, uz * inner, ux, uz, 0)
         sides(chain, -nx, -nz)
         return
       }
-      // a V: out on the leg on the near side of the opening, back on the leg towards the station it joins
-      // split where the two legs come out most even
-      let half = 1
-      for (let k = 1; k < chain.length; k++) if (Math.max(len(chain.slice(0, k)), len(chain.slice(k))) < Math.max(len(chain.slice(0, half)), len(chain.slice(half)))) half = k
-      const A = chain.slice(0, half), B = chain.slice(half)
-      const D = dOf(chain), hb = D / 2 + 3, ht = D / 2 + 1.5
-      const Lg = Math.max(len(A), len(B)) + 3
-      const b1 = [ux * r0 - nx * hb, uz * r0 - nz * hb], t1 = [ux * (r0 + Lg) - nx * ht, uz * (r0 + Lg) - nz * ht]
-      const b2 = [ux * r0 + nx * hb, uz * r0 + nz * hb], t2 = [ux * (r0 + Lg) + nx * ht, uz * (r0 + Lg) + nz * ht]
+      // a V: in on the leg away from the station it joins, back out on the leg towards it
+      const [A, B] = legsOf(chain)
+      const D = dOf(chain), hb = D / 2 + 3, ht = D / 2 + 1.5, Lg = Math.max(len(A), len(B)) + 3
+      const b1 = [ux * r0 - nx * hb, uz * r0 - nz * hb], t1 = [ux * (r0 - Lg) - nx * ht, uz * (r0 - Lg) - nz * ht]
+      const b2 = [ux * r0 + nx * hb, uz * r0 + nz * hb], t2 = [ux * (r0 - Lg) + nx * ht, uz * (r0 - Lg) + nz * ht]
       const unit = (a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz); return [dx / l, dz / l, l] }
       const [ax, az] = unit(b1, t1)
       along(A, b1[0], b1[1], ax, az, 0.5)
@@ -223,7 +229,7 @@ const FS = { fmt, rng, Kit: K }
       const feeds = feedsOf(id)
       feeds.forEach((q, j) => point(q, phiOf(start[id] - gapMin / 2 - (feeds.length - 1 - j) * D0)))
     }
-    info.__star = { R, Dring, open, openAt }
+    info.__star = { R, Dring, open, openAt, inward: true }
   }
 
   function mopts(s, k) {
@@ -731,7 +737,7 @@ const FS = { fmt, rng, Kit: K }
       const xs = [], zs = []
       for (const S of st) { const r = Math.max(S.I.W, S.I.D) / 2; xs.push(S.I.x - r, S.I.x + r); zs.push(S.I.z - r, S.I.z + r) }
       this.lineBounds = { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) }
-      const Rh = reach + 3, Rb = Rh + 16
+      const Rh = reach + 3, Rb = Rh + 20
       this.hallR = Rh
       this.bounds = { x0: -Rh, x1: Rh, z0: -Rh, z1: Rh }
       const g = (this.hall = K.group(this.root))
@@ -753,8 +759,16 @@ const FS = { fmt, rng, Kit: K }
       const cam = [Math.sin(view), Math.cos(view)]
       const n = Math.max(48, Math.round((2 * Math.PI * Rh) / 4))
       const seg = (2 * Math.PI * (Rh + t / 2)) / n + 0.05
+      // the door the finished machines leave by: in the wall behind the last station, where its lane runs out
+      const sink = this.st[this.plan.sink]
+      const so = this._w(sink, sink.outPort)
+      const out = so.clone().addScaledVector(sink.fwd, 4)
+      const exitA = Math.atan2(out.z, out.x)
+      const door = 5 / Rh
+      const near = (a) => Math.abs(Math.atan2(Math.sin(a - exitA), Math.cos(a - exitA)))
       for (let i = 0; i < n; i++) {
         const a = ((i + 0.5) / n) * 2 * Math.PI, cx = Math.cos(a) * (Rh + t / 2), cz = Math.sin(a) * (Rh + t / 2)
+        if (near(a) < door) continue
         const far = (Math.cos(a) * cam[0] + Math.sin(a) * cam[1]) < -0.12
         const w = K.group(g, cx, 0, cz)
         w.rotation.y = -a + Math.PI / 2
@@ -774,22 +788,28 @@ const FS = { fmt, rng, Kit: K }
         const rk = K.rack(g, x, z, 2.7, 1.1, 4, 1.35, 0.75, i)
         rk.rotation.y = -a - Math.PI / 2
       }
-      // the hub: the bays the finished machines stand in, each facing out, and the lane from the last station
-      const sink = this.st[this.plan.sink]
-      const so = this._w(sink, sink.outPort)
+      // the yard outside the door: the finished machines drive out along their lane and stand in bays, facing out
       const ship = K.group(this.root, 0, 0, 0)
-      this.shipAt = V(0, 0.3, 0)
       const lane = K.paint('#6f9c72', 0.8)
-      const lp = so.clone().addScaledVector(sink.fwd, 1.5)
-      const ll = Math.hypot(lp.x, lp.z)
-      const lm = K.box(g, ll, 0.008, 2.4, lane, lp.x / 2, 0.003, lp.z / 2, { r: 0 })
-      lm.rotation.y = Math.atan2(-lp.z, lp.x)
-      K.conveyor(this.root, [V(so.x, 0, so.z), V(lp.x, 0, lp.z)], { y: BELT_Y, w: sink.def.beltW })
+      const ry = Rh + 7, yard = V(Math.cos(exitA) * ry, 0, Math.sin(exitA) * ry)
+      this.shipAt = yard.clone().setY(0.3)
+      K.conveyor(this.root, [V(so.x, 0, so.z), V(out.x, 0, out.z)], { y: BELT_Y, w: sink.def.beltW })
+      const lpts = [out, V(Math.cos(exitA) * (Rh + 3), 0, Math.sin(exitA) * (Rh + 3))]
+      for (let i = 0; i < lpts.length - 1; i++) {
+        const a = lpts[i], b = lpts[i + 1], l = a.distanceTo(b)
+        const lm = K.box(g, l + 2.4, 0.008, 2.6, lane, (a.x + b.x) / 2, 0.003, (a.z + b.z) / 2, { r: 0 })
+        lm.rotation.y = Math.atan2(-(b.z - a.z), b.x - a.x)
+      }
+      const apron = new T.Mesh(new T.RingGeometry(Rh + 0.4, Rh + 13, 64, 1, -exitA - 0.2, 0.4), K.paint('#7b7d7f', 0.9))
+      apron.rotation.x = -Math.PI / 2
+      apron.position.y = 0.012
+      apron.receiveShadow = true
+      g.add(apron)
       this.shipPallets = []
       const nb = 6
       for (let i = 0; i < nb; i++) {
-        const a = (i / nb) * 2 * Math.PI, r = 5
-        const p = K.group(ship, Math.cos(a) * r, 0, Math.sin(a) * r)
+        const a = exitA + ((i - (nb - 1) / 2) * 3.0) / ry
+        const p = K.group(ship, Math.cos(a) * ry, 0, Math.sin(a) * ry)
         p.userData.q = new T.Quaternion().setFromEuler(new T.Euler(0, -a, 0))
         const bay = K.group(p)
         bay.rotation.y = -a
@@ -861,7 +881,7 @@ const FS = { fmt, rng, Kit: K }
         this.lifts.push({ f, a: V((S.rawAt.x / d) * out, 0, (S.rawAt.z / d) * out), b: S.rawAt.clone().addScaledVector(S.fwd, -1.6), u: i * 0.23 })
       })
       this.amrs = []
-      const rr = Math.max(9, this.star.R - this.star.Dring / 2 - 4)
+      const rr = Math.max(9, this.star.R - this.star.Dring / 2 - 2.5) // the aisle just inside the band's machines
       const pts = []
       for (let i = 0; i <= 48; i++) pts.push(V(Math.cos((i / 48) * 2 * Math.PI) * rr, 0, -Math.sin((i / 48) * 2 * Math.PI) * rr))
       this.amrLoop = new Route(pts)
