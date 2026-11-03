@@ -48,6 +48,16 @@ Curiosity keeps them going; a payoff lets them stop. Every piece is a tug-of-war
 - **The retention test:** mark the first place a reader could leave satisfied. If it is not in the last section, the
   payoff landed too early — move it, or open something they still want after it.
 
+## Loops said out loud (`stealnova.md`)
+
+- **Promise the payoff aloud, and when:** "In a few minutes I'll show you why…", "By the end you'll know…". A promised
+  answer holds a viewer through a long middle.
+- **Pay it by name:** "Now, back to that check." The viewer feels the promise kept.
+- **Open the next before you close one:** "…something nobody saw coming. We'll get there."
+- **Plant the next film inside this one** as a beat, before it gets its own film.
+- **Wonder in the frame, the hard part inside it.** A fearful topic told as a climb (worst to best) keeps viewers;
+  dread as the title loses them.
+
 ## Pace (film)
 
 - The visual hook within 3 s, the spoken hook within about 10 s.
