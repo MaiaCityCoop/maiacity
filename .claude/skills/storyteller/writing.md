@@ -80,6 +80,22 @@ A film's narration and a talking head are heard once, at the speaker's pace.
 - One idea per sentence, plain words, nothing the ear must hold; the narrator never repeats what Samuel says on camera
   (`sound-designer`, `voice.md`).
 
+## Making the future believable (`stealnova.md`)
+
+- **Precedent before prophecy, nature before adjectives.** Stand every claim about the new world on something that
+  already happened, or on something nature already does: forests rebuild themselves after a gap; the papaya is already
+  a pioneer of open ground. "Nature already does it" beats "revolutionary".
+- **Say the sceptic's best case early,** in their words, then test what it would take, then concede the true part
+  ("It drowns in two wet days. That part is real."). Doubt priced in makes the hope credible.
+- **Land the epic on one person, one object, one morning:** the dome village is the spectacle, the fruit picked on the
+  way out of the door is the change.
+- **One number per beat, human-sized:** "taller than you in a year", never a table of figures.
+- **Say the loop out loud and pay it by name:** "By the end you'll know why…" early, "So, back to that papaya." when it
+  is paid; the last lines echo the first.
+- **Label it:** IN THE GAME / FOR REAL on screen, wherever a shot could be read as either.
+- **For the ear:** sentences of about ten words, fragments at the turns ("Not one miracle. A thousand."), lists of
+  three, a question as the transition into a new beat. Slow down for the intimate moments.
+
 ## Facts
 
 - Real, checkable facts: named events, dates, places, people, numbers. Specific beats vague.
@@ -132,6 +148,8 @@ draft: true
 - [ ] The intensity curve alternates highs and lows; the peak comes late
 - [ ] Every heading is a rehook; the mechanism is never named before it is earned
 - [ ] Two to four "Imagine…" scenes; no paragraph explains an image
+- [ ] Every claim about the future stands on a precedent or on what nature already does; the sceptic's best case is said and the true part conceded
+- [ ] The loop is said out loud early and paid by name; the last lines echo the first
 - [ ] Rhythm varies: short against long, uneven sections
 - [ ] Full conviction; every fact true — nothing invented about Samuel, readers, attempts or results
 - [ ] No concept before the post that introduces it; ends on something concrete, then links the next day

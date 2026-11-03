@@ -45,6 +45,7 @@ viewer stays to the last line. The hook itself is the `hook-writer`'s; the pictu
 | `emotion.md` | the emotional journey | the feelings the viewer goes through beat by beat, tension and release as pairs of feelings, marking them on the arc (`story_arc`'s `feel`), how sound, colour, pace and light follow them |
 | `retention.md` | tension and release | the intensity curve, contrast in every sense, curiosity and payoff, the retention playbook second by second, pace |
 | `devlogs.md` | how ThinMatrix and The Sapling tell devlogs | their hooks, structure, voice, editing and retention, studied from their videos, and 15 rules for maiaCITY (title the change, a claim not a greeting, the viewer's objection said aloud, a roadmap to the extreme, game beside real, failure as comedy → cause → fix) |
+| `stealnova.md` | how StealNova makes a future feel inspiring and believable | precedent and nature as proof, the sceptic's best case conceded, the epic landed in the everyday, open loops said aloud and paid by name, "Imagine" as a mode switch, IN THE GAME / FOR REAL labels, and 12 rules for maiaCITY |
 | `writing.md` | the words | who speaks, the world's facts, rhythm, "Imagine…" scenes, the post file, writing for the ear, the checklist |
 
 ## The order of work
