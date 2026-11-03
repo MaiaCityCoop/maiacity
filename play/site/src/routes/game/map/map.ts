@@ -7,11 +7,14 @@
 // land, and a plot by the water ends at its shore. What stands on the land (trees, rocks, peaks) is a list of
 // features. The same seed always gives the same map. Nothing here touches the DOM or three.js: ./scene.ts draws it.
 //
-// Units are metres: x runs east, y runs south across the map (6.4 × 4.3 km); a plot is about 1.5 ha. The map holds
-// exactly PLOTS plots, all buildable: mountains are no plots but wild land, raised into real hills (terrain).
+// Units are metres: x runs east, y runs south across the map (6.7 × 4.5 km); a plot is about 1.5 ha. The map holds
+// exactly PLOTS plots, all buildable (forest, grassland, sand): mountains and the land at the water are no plots but
+// wild land, the mountains raised into real hills (terrain).
 
 export type P = [number, number];
 export type Biome = 'grass' | 'forest' | 'sand' | 'mountain' | 'river';
+/** the biomes nobody builds on: they stay wild land, never plots */
+export const UNBUILDABLE: Biome[] = ['mountain', 'river'];
 
 /** what each biome is and what it gives (the ten base resources of maia/content/aven-city/GAME-MECHANICS.md) */
 export const BIOMES: Record<Biome, { label: string; gives: [string, string]; colour: string }> = {
@@ -79,8 +82,8 @@ export interface Massif {
 /** how many plots the map holds: 1,346,269 (the Fibonacci number F31, a coop's whole supply of minds at its thirtieth
  * milestone) divided by 1500 */
 export const PLOTS = Math.round(1346269 / 1500); // 898
-export const WIDTH = 6400;
-export const HEIGHT = 4260;
+export const WIDTH = 6720;
+export const HEIGHT = 4470;
 const DX = 150; // cell spacing across
 const DY = 116; // and down: the ground is seen at a slant, so cells are wider than deep
 const GAP = 7; // half a road
@@ -373,7 +376,8 @@ export function generateMap(seed: string): WorldMap {
 	const dry = cells.filter((k) => !k.riverbed && k.dr >= DX * 0.8);
 	const eHigh = quant(dry.map((k) => k.e), 0.85);
 	const rest = dry.filter((k) => k.e < eHigh);
-	const mLow = quant(rest.map((k) => k.m), 0.2), mHigh = quant(rest.map((k) => k.m), 0.7);
+	// grassland is the most of it: sand the driest 14 %, forest the wettest 22 %
+	const mLow = quant(rest.map((k) => k.m), 0.14), mHigh = quant(rest.map((k) => k.m), 0.78);
 	for (const k of cells) {
 		if (k.riverbed || k.dr < DX * 0.8) k.biome = 'river';
 		else if (k.e >= eHigh) k.biome = 'mountain';
@@ -382,9 +386,10 @@ export function generateMap(seed: string): WorldMap {
 		else k.biome = 'grass';
 	}
 
-	// mountains are no plots: nobody builds on them, they rise as hills (terrain) and stay wild
+	// mountains and the land at the water are no plots: nobody builds on them, they stay wild (the mountains rise as
+	// hills, ./terrain)
 	for (const k of cells) {
-		if (k.biome !== 'mountain' || k.wild) continue;
+		if (!UNBUILDABLE.includes(k.biome) || k.wild) continue;
 		k.wild = true;
 		k.plot = [];
 		k.inner = voronoi(cells.indexOf(k), 10);
