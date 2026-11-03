@@ -28,8 +28,8 @@
  *     leaves the line: 1 % of cubes fail run-in (to the engine bay), 2 % of LifeTracs fail the end-of-line test (to the
  *     rework bay).
  *
- * The floor: a round hall, the main line's stations round its outer conveyor band, every cell a petal growing in
- * towards the empty middle (`layout`, world.js `star`); the finished machines leave for the yard.
+ * The floor: a round hall, the main line one belt drawn as a flower, its stations on the belt along both edges of
+ * every lobe and the cells inside the lobes (`layout`, world.js `bloom`); the finished machines park in the middle.
  *
  * Route (the asset's own build steps, its STEPS):
  *   plates  laser → deburr ─┐
@@ -195,12 +195,11 @@ export const SPEC = {
 		wired: { shape: 'lifetrac', upto: 'electronics' },
 		lifetrac: { shape: 'asset', ref: LIFETRAC_REF, face: 'z', fallback: { shape: 'lifetrac', upto: 'electronics' }, parked: true }
 	},
-	/** the floor (maiaCITY's star, world.js; Samuel 2026-11-03: a round floor, the ring the outer conveyor band, the
-	 *  stations round it, every line growing inwards as a petal of his sketch, none at the inner ring): the main line's
-	 *  fourteen stations stand round the band by the wall, their machines on its inner side; every cell is a petal, a V
-	 *  running in towards the empty middle and back out to the station it feeds; the finished machines leave by a door
-	 *  in the wall for the yard */
-	layout: { mode: 'star', ring: ['pretreat', 'powder', 'cure', 'frame', 'wheels', 'cube', 'plumb', 'arms', 'cyls', 'bucket', 'wire', 'fill', 'eol', 'ship'], open: 10, gap: 4, aisle: 5, step: 3, maxLeg: 0, hub: 10 },
+	/** the floor (maiaCITY's bloom, world.js; Samuel 2026-11-03, his second sketch: one belt drawn as a flower, the
+	 *  work stations on it along both edges of every lobe): the main line is that belt, cut into seven lobes, one for
+	 *  each station a cell feeds, the stations after it in the same lobe; every cell stands inside its lobe and hands
+	 *  its output to the lobe's first station; the finished machines drive off into the middle */
+	layout: { mode: 'bloom', ring: ['pretreat', 'powder', 'cure', 'frame', 'wheels', 'cube', 'plumb', 'arms', 'cyls', 'bucket', 'wire', 'fill', 'eol', 'ship'], gap: 4, step: 3, maxLeg: 24, open: 8 },
 	look: { tilt: { focusY: 0.5, band: 0.14, amount: 7 } }
 };
 
