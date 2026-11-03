@@ -13,7 +13,7 @@ describe('the world map', () => {
 			const { plots, lakes, features } = generateMap(seed);
 			expect(lakes.length).toBeGreaterThanOrEqual(1);
 			expect(features.filter((f) => f.kind === 'conifer').length).toBeGreaterThan(1000);
-			expect(plots.length).toBeGreaterThan(100);
+			expect(plots.length).toBeGreaterThan(330);
 			for (const b of Object.keys(BIOMES)) expect(plots.some((p) => p.biome === b)).toBe(true);
 			for (const p of plots) {
 				expect(p.area).toBeGreaterThan(4000);

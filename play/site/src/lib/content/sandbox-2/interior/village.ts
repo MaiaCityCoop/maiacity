@@ -1091,21 +1091,14 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		const goats = herd('goat', goatPatches, 71, eye), geese = herd('goose', goosePatches, 72, eye), frogs = herd('frog', frogPatches, 74, eye)
 		const sheep = herd('sheep', sheepPatches, 77, eye)
 		herds.frogs = frogs.where
-		// bee hives, seven together as a star (Samuel 2026-11-02): one in the middle and six round it, every hive's
-		// entrance turned outward, in clearings of the forest round the cell
+		// bee hives, three or four together, in clearings of the forest round the cell
 		const hiveSpots: { x: number; z: number; rot: number }[] = []
-		const HIVE_STAR = 1.6 // how far the six stand from the middle hive (m)
 		for (let k = 0; k < 16; k++) {
 			const aim = (k / 16) * Math.PI * 2 + 0.5
 			let [cx, cz] = polar(k % 2 ? 232 : 118, aim)
 			// never on a path, by the water, against a dome, or on a playground or café square
 			for (let tries = 0; tries < 40 && (nearPath(cx, cz, 5) || nearWater(cx, cz, 6) || domes.some((d) => Math.hypot(cx - d.x, cz - d.z) < d.ext + 8) || AROUND_MASTER.some((c) => Math.hypot(cx - c.x, cz - c.z) < c.r + 5)); tries++) [cx, cz] = polar((k % 2 ? 232 : 118) + tries * 2, aim + tries * 0.02)
-			hiveSpots.push({ x: cx, z: cz, rot: aim + Math.PI })
-			for (let j = 0; j < 6; j++) {
-				const a = aim + (j * Math.PI) / 3, dx = Math.cos(a), dz = Math.sin(a)
-				// a hive's entrance is its +z: turned to face away from the middle
-				hiveSpots.push({ x: cx + dx * HIVE_STAR, z: cz + dz * HIVE_STAR, rot: Math.atan2(dx, dz) })
-			}
+			for (let j = 0; j < 3 + (k % 2); j++) hiveSpots.push({ x: cx + j * 1.3, z: cz + (j % 2) * 0.6, rot: aim + Math.PI })
 		}
 		// fish in every pond
 		const pondFish = fishes(ponds.map((pd) => ({ x: pd.x, z: pd.z, r: 6, y: 0.04, n: 10 })), [], 76, eye)
