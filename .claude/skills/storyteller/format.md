@@ -22,6 +22,8 @@ Every maiaCITY story is one step of one big story, and it is told inside it:
 - **Every subject is placed in the big picture.** A papaya is not a papaya: it is the first food of a food forest that
   will feed a city we are only starting to build. Name where the piece sits (the day, the game, the real world to come) and
   what it is for (how people will eat, live and thrive), in a line or two, early.
+- **Epic and intimate, always** (`emotion.md`, "The series' signature journey"): a fresh start for how humans live,
+  told through moments a person relates to closely: a morning, a meal, a child, a home.
 - **The register is vision, not dread** (`arc.md`): the old way of eating and living is the *from*, shown clearly; the
   new civilization is the *to*, being built, step by step, in the open.
 - **Assume zero background knowledge** (Samuel, 2026-11-03): every episode is someone's first. Say who we are and

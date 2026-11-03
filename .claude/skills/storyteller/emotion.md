@@ -60,6 +60,26 @@ alone against together, still against moving (`retention.md`, "Contrast creates 
 - **Light and camera** (`gaffer`, `cinematographer`): confinement in tight frames and a hard ratio; freedom in wide,
   deep, open light; the camera moves the way the viewer should feel.
 
+## The series' signature journey: an epic and intimate Aufbruch (Samuel, 2026-11-03)
+
+Every maiaCITY film carries the same feeling underneath: **a fresh start**. A new way of living, a new civilization,
+rebuilt for real (first in the game, then in the world): something inspiring to look forward to, epic and amazing,
+and still warm, loving and close, something any person relates to in their own life.
+
+- **Two scales, swapped on every beat.** A close human moment (a child's hand picking fruit, a morning, a family at a
+  table, a seed in a palm) against the vast new world it adds up to (a forest you can eat from, a whole city in a
+  garden at sunrise). The close moments make the vision touchable; the vision makes the small moments matter.
+- **Open and close on the same close moment.** The first shot is intimate and warm; the last returns to it, now
+  meaning more, and flows into the first again (the loop).
+- **The peak is the vision, felt as awe and belonging at once:** the camera rises from the one close thing to the
+  whole new world, and the voice rises with it (the movement's cadence: short lines, repetition, concrete pictures).
+- **What a person relates to:** mornings, food, children, time, home, neighbours, health, being part of something.
+  Say the epic through them: *a new civilization doesn't start with a parliament; it starts at the breakfast table.*
+- **The world as it is today is a gentle recognition, never dread:** the same breakfast now (food from far away, eaten
+  in a rush), seen clearly, then the fresh start.
+- **The devlog stays human inside it:** we try, we fail, we laugh at ourselves, we fix it, so the viewer roots for us.
+- **End on an open door:** "Come build it with us." The viewer leaves as part of the *we*.
+
 ## The journey test
 
 - [ ] Every beat has a named feeling and a tension; every part lists its journey
@@ -67,3 +87,4 @@ alone against together, still against moving (`retention.md`, "Contrast creates 
 - [ ] Every tension is answered by a release, and every release opens the next tension
 - [ ] The deepest cold sits right before the warmest release; the peak is late
 - [ ] It opens on curiosity and ends on an open, warmer feeling
+- [ ] Epic and intimate swap on every beat; it opens and closes on the same close human moment; the peak is the vision (signature journey)
