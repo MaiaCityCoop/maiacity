@@ -70,6 +70,8 @@ Pace it like Dan Koe: short sentences, then a longer paragraph that develops the
 - Vary section length hard: a three-line section next to a six-paragraph one.
 - Vary headings: some four words, some a full sentence — always rehooks, never labels (`hook-writer`).
 - Most paragraphs 1–3 sentences; break that on purpose.
+- **No accidental refrain.** One word leaned on line after line (*ours… ours… now ours too*) reads as a tic, not a
+  rhythm (Samuel, 2026-11-03). Repeat a word only on purpose, as a callback the viewer should notice.
 
 ## Writing for the ear
 
