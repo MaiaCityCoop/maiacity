@@ -1,7 +1,7 @@
 // The API against a real Postgres: set TEST_DATABASE_URL (a server where this may create and drop a database), e.g.
 // postgres://postgres@127.0.0.1:5544/postgres. Without it these tests are skipped.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { app } from "../src/app";
@@ -9,6 +9,8 @@ import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore, type BlobStore } from "../src/blobs";
 import { importSources } from "../import/sources";
 import { legacyRan, runImport } from "../import/run";
+import { seedStories, STORIES } from "../import/stories";
+import { storyVersionId } from "../src/versions";
 import { hashText } from "../src/hash";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
@@ -149,6 +151,9 @@ suite("play API", () => {
     expect(report.ok).toBe(true);
     expect(report.feed.recipes).toBe(0);
     expect(Object.values(report.written).every((n) => n === 0)).toBe(true);
+    // …but it writes the repo's stories play doesn't hold yet (./stories), with every deploy
+    expect(report.stories.seeded).toContain("papaya-v2-devlog");
+    expect(report.stories.errors).toEqual([]);
     expect((await db.query(`SELECT id, label, head, sound FROM play.assets ORDER BY id`)).rows).toEqual(before);
     expect((await db.query(`SELECT human_id, level FROM play.memberships ORDER BY human_id`)).rows).toEqual(members);
     // play's own again, for the tests after this one
@@ -411,5 +416,174 @@ suite("play API", () => {
     expect(humans.total).toBeGreaterThanOrEqual(3);
     expect((await call("ada", "GET", "/api/tables/pg_user")).status).toBe(404);
     expect((await call("ada", "GET", `/api/tables/${encodeURIComponent('humans"; DROP TABLE play.humans; --')}`)).status).toBe(404);
+  });
+
+
+  // ---- Stories: films as timelines, versioned like the assets, changed only by proposal over MCP
+  const frameOf = (n: string) => readFileSync(join(STORIES, "papaya-v2-devlog", "frames", n));
+  let storyToken = "";
+  let m = 1000;
+  const tool = async (name: string, args: Record<string, unknown>, token = storyToken) => {
+    const r = await api.fetch(new Request("http://play.test/api/mcp", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify({ jsonrpc: "2.0", id: ++m, method: "tools/call", params: { name, arguments: args } }),
+    }));
+    const data: any = await r.json();
+    const res = data.result;
+    return { error: res?.isError ? res.content[0].text as string : null, out: res?.isError ? null : res?.structuredContent };
+  };
+  const tracks = (frame: string, line = "Every papaya begins as a seed.") => [
+    { id: "shots", kind: "shots", clips: [{ id: "s1", at: 0, duration: 3, frame, transition: "Match cut" }, { id: "s2", duration: 4, frame: null, transition: "" }] },
+    { id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 3, who: "SAMUEL", line: "This is our papaya…" }, { id: "v2", at: 3, duration: 4, who: "MAIA", line }] },
+    { id: "notes", kind: "notes", clips: [{ id: "n1", at: 0, duration: 7, section: "HOOK", camera: "Low angle", retention: "Payoff first", mood: "↑", custom: { kept: true } }] },
+  ];
+
+  test("only an admin reads the Stories, and no route writes one: a story changes only by proposal", async () => {
+    expect((await call(null, "GET", "/api/stories")).status).toBe(401);
+    expect((await call("cit", "GET", "/api/stories")).status).toBe(403);
+    expect((await call("cit2", "GET", "/api/stories/papaya-v2-devlog")).status).toBe(403);
+    expect((await call("ada", "PUT", "/api/stories/papaya-v2-devlog", { title: "x" })).status).toBe(405);
+    expect((await call("ada", "POST", "/api/stories/frames", {})).status).toBe(405);
+    // the papaya story, written by the deploy's import run above as its accepted v1, its frames kept as files
+    const list = (await call("ada", "GET", "/api/stories")).data;
+    expect(list.find((s: any) => s.id === "papaya-v2-devlog")).toMatchObject({ number: 1, versions: 1, shots: 25, tracks: 3 });
+    const story = (await call("ada", "GET", "/api/stories/papaya-v2-devlog")).data;
+    const given = JSON.parse(readFileSync(join(STORIES, "papaya-v2-devlog", "story.json"), "utf8"));
+    expect(story).toMatchObject({ schema: "story/1", format: "9:16", fps: 30, number: 1, title: given.title });
+    expect(story.tracks.map((t: any) => t.kind)).toEqual(["shots", "voice", "notes"]);
+    expect(story.tracks[1].clips.map((c: any) => c.line)).toEqual(given.tracks[1].clips.map((c: any) => c.line));
+    for (const c of story.tracks[0].clips) expect(c.frame).toMatch(/^[0-9a-f]{64}$/);
+    const frame = await api.fetch(new Request(`http://play.test/api/files/${story.tracks[0].clips[0].frame}`, { headers: { cookie: who.ada.cookie } }));
+    expect(frame.headers.get("content-type")).toBe("image/jpeg");
+    // its id is its content's: the same primitive as an asset version's
+    const { schema, format, fps, duration } = story;
+    expect(storyVersionId({ story: "papaya-v2-devlog", parents: [], title: story.title, body: { schema, format, fps, duration, tracks: story.tracks } })).toBe(story.version);
+  });
+
+  test("an admin's agent adds frames and proposes a new story over MCP; an admin accepts it, and only then is it a story", async () => {
+    storyToken = (await call("ada", "POST", "/api/tokens", { name: "stories" })).data.token;
+    const names = (await (await api.fetch(new Request("http://play.test/api/mcp", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${storyToken}` }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) }))).json()).result.tools.map((t: any) => t.name);
+    expect(names).toEqual(expect.arrayContaining(["list_stories", "get_story", "propose_story", "propose_story_version", "add_story_frame"]));
+    expect(names.some((x: string) => /accept|reject|decide/.test(x))).toBe(false);
+
+    const added = await tool("add_story_frame", { data: frameOf("02.jpg").toString("base64"), media_type: "image/jpeg" });
+    expect(added.error).toBeNull();
+    expect(added.out.hash).toMatch(/^[0-9a-f]{64}$/);
+    expect((await tool("add_story_frame", { data: frameOf("02.jpg").toString("base64"), media_type: "image/jpeg" })).out.hash).toBe(added.out.hash);
+    expect((await tool("add_story_frame", { data: Buffer.from("<svg onload=alert(1)>").toString("base64"), media_type: "image/png" })).error).toContain("JPEG, PNG or WebP");
+    expect((await tool("add_story_frame", { data: frameOf("02.jpg").toString("base64"), media_type: "image/png" })).error).toContain("not image/png");
+
+    const proposed = await tool("propose_story", { story: "seed-to-fruit", title: "Seed to fruit", note: "a first cut", body: { format: "9:16", fps: 30, tracks: tracks(added.out.hash) } });
+    expect(proposed.error).toBeNull();
+    expect(proposed.out).toMatchObject({ story: "seed-to-fruit", number: 1, base: null, duration: 7 });
+    expect((await call("ada", "GET", "/api/stories/seed-to-fruit")).status).toBe(404); // not a story until it is accepted
+    const open = (await call("ada", "GET", "/api/proposals?status=open")).data.find((p: any) => p.id === proposed.out.id);
+    expect(open).toMatchObject({ kind: "story_version", grp: "stories", slug: "seed-to-fruit", label: "Seed to fruit", number: 1, via: "mcp", author: "ada" });
+    // a story's proposals are the admins' alone
+    expect((await call("cit", "GET", "/api/proposals")).data.some((p: any) => p.kind === "story_version")).toBe(false);
+    expect((await call("cit", "GET", `/api/proposals/${proposed.out.id}`)).status).toBe(404);
+    const review = (await call("ada", "GET", `/api/proposals/${proposed.out.id}`)).data;
+    expect(review.story.tracks[2].clips[0].custom).toEqual({ kept: true }); // a field no kind names is kept
+    expect(review.baseStory).toBeNull();
+    expect(review.diff.tracks.map((t: any) => t.state)).toEqual(["added", "added", "added"]);
+    expect((await call("cit", "POST", `/api/proposals/${proposed.out.id}/accept`)).status).toBe(403);
+    expect((await call("ada", "POST", `/api/proposals/${proposed.out.id}/accept`)).data).toMatchObject({ status: "accepted", number: 1 });
+    const story = (await call("ada", "GET", "/api/stories/seed-to-fruit")).data;
+    expect(story).toMatchObject({ title: "Seed to fruit", number: 1, duration: 7, note: "a first cut" });
+    expect((await tool("propose_story", { story: "seed-to-fruit", title: "Again", note: "x", body: { tracks: tracks(added.out.hash) } })).error).toContain("propose a version");
+  });
+
+  test("every clip is editable by a proposed version, made as edits on the head; accepted, it is the new head and the old one stays", async () => {
+    const head = (await tool("get_story", { story: "seed-to-fruit" })).out;
+    const edited = await tool("propose_story_version", {
+      story: "seed-to-fruit", base: head.version, note: "a sharper line, a longer hook, a callout track", title: "From seed to fruit",
+      edits: [
+        { op: "set_clip", track: "voice", clip: "v2", fields: { line: "Every papaya begins as a black seed in a coat of jelly." } },
+        { op: "shift", from: 3, by: 1 },
+        { op: "set_clip", track: "shots", clip: "s1", fields: { duration: 4 } },
+        { op: "set_clip", track: "voice", clip: "v1", fields: { duration: 4 } },
+        { op: "set_clip", track: "notes", clip: "n1", fields: { duration: 8, mood: "↑↑", custom: null } },
+        { op: "add_track", track: { id: "callouts", kind: "callout", clips: [{ id: "c1", at: 1, duration: 2, text: "GIANT HERB", style: { y: 0.7 } }] } },
+      ],
+    });
+    expect(edited.error).toBeNull();
+    expect(edited.out).toMatchObject({ number: 2, base: head.version, duration: 8 });
+    const review = (await call("ada", "GET", `/api/proposals/${edited.out.id}`)).data;
+    expect(review.diff.title).toEqual({ from: "Seed to fruit", to: "From seed to fruit" });
+    const voice = review.diff.tracks.find((t: any) => t.id === "voice");
+    expect(voice.changed.find((c: any) => c.id === "v2").changes.map((x: any) => x.field).sort()).toEqual(["at", "line"]);
+    expect(review.diff.tracks.find((t: any) => t.id === "callouts").state).toBe("added");
+    expect(review.diff.tracks.find((t: any) => t.id === "notes").changed[0].changes.find((x: any) => x.field === "custom")).toEqual({ field: "custom", from: { kept: true }, to: null });
+    expect((await call("ada", "POST", `/api/proposals/${edited.out.id}/accept`)).data).toMatchObject({ status: "accepted", number: 2 });
+    const now = (await call("ada", "GET", "/api/stories/seed-to-fruit")).data;
+    expect(now).toMatchObject({ number: 2, title: "From seed to fruit", duration: 8 });
+    expect(now.versions.map((v: any) => v.number)).toEqual([2, 1]);
+    expect(now.tracks.find((t: any) => t.id === "callouts").clips[0]).toEqual({ id: "c1", at: 1, duration: 2, text: "GIANT HERB", style: { y: 0.7 } });
+    expect((await call("ada", "GET", "/api/stories/seed-to-fruit?v=1")).data).toMatchObject({ number: 1, title: "Seed to fruit", duration: 7 });
+    expect((await call("ada", "GET", "/api/stories/seed-to-fruit?v=9")).status).toBe(404);
+    // a version is written once, and history can't be changed under its id
+    await expect(db.query(`UPDATE play.story_versions SET title = 'x' WHERE id = $1`, [now.version])).rejects.toThrow(/frozen/);
+    await expect(db.query(`DELETE FROM play.story_versions WHERE id = $1`, [now.version])).rejects.toThrow(/never deleted/);
+    // the whole timeline given instead of edits: removing a track and a clip
+    const whole = await tool("propose_story_version", { story: "seed-to-fruit", base: now.version, note: "no notes", body: { format: "9:16", fps: 30, tracks: now.tracks.filter((t: any) => t.id !== "notes").map((t: any) => (t.id === "shots" ? { ...t, clips: t.clips.slice(0, 1) } : t)) } });
+    expect(whole.error).toBeNull();
+    const removed = (await call("ada", "GET", `/api/proposals/${whole.out.id}`)).data.diff.tracks;
+    expect(removed.find((t: any) => t.id === "notes").state).toBe("removed");
+    expect(removed.find((t: any) => t.id === "shots").removed.map((c: any) => c.id)).toEqual(["s2"]);
+    // rejected, it stays as a side line in the history, and the head is as it was
+    expect((await call("ada", "POST", `/api/proposals/${whole.out.id}/reject`)).data.status).toBe("rejected");
+    expect((await call("ada", "GET", "/api/stories/seed-to-fruit")).data.number).toBe(2);
+    expect((await db.query(`SELECT number FROM play.story_versions WHERE id = $1`, [whole.out.version])).rows[0].number).toBeNull();
+  });
+
+  test("of two story proposals made on the same head, the second to be accepted goes stale, as an asset's would", async () => {
+    const head = (await tool("get_story", { story: "seed-to-fruit" })).out;
+    const a = await tool("propose_story_version", { story: "seed-to-fruit", base: head.version, note: "A", edits: [{ op: "set_clip", track: "voice", clip: "v1", fields: { line: "A's line" } }] });
+    const b = await tool("propose_story_version", { story: "seed-to-fruit", base: head.version, note: "B", edits: [{ op: "set_clip", track: "voice", clip: "v1", fields: { line: "B's line" } }] });
+    expect(a.out.base).toBe(head.version);
+    expect(b.out.base).toBe(head.version);
+    expect((await call("ada", "POST", `/api/proposals/${a.out.id}/accept`)).data).toMatchObject({ status: "accepted", number: 3 });
+    // B was made on a head that is no longer the head: accepting it is refused, and it is kept as stale
+    const late = (await call("ada", "POST", `/api/proposals/${b.out.id}/accept`)).data;
+    expect(late.status === "stale" || late.error).toBeTruthy();
+    expect((await call("ada", "GET", `/api/proposals/${b.out.id}`)).data.status).toBe("stale");
+    const now = (await call("ada", "GET", "/api/stories/seed-to-fruit")).data;
+    expect(now.version).toBe(a.out.version);
+    expect(now.tracks.find((t: any) => t.id === "voice").clips[0].line).toBe("A's line");
+    // proposed on a head that moved on, it is refused at once
+    expect((await tool("propose_story_version", { story: "seed-to-fruit", base: head.version, note: "late", edits: [{ op: "set_clip", track: "voice", clip: "v1", fields: { line: "C" } }] })).error).toContain("newest version");
+  });
+
+  test("a story proposal is checked whole: its format, its clips, its frames and its times", async () => {
+    const head = (await tool("get_story", { story: "seed-to-fruit" })).out;
+    const frame = head.tracks.find((t: any) => t.id === "shots").clips[0].frame;
+    const edit = (edits: unknown[]) => tool("propose_story_version", { story: "seed-to-fruit", note: "bad", edits });
+    expect((await edit([{ op: "set_clip", track: "voice", clip: "v2", fields: { at: 1 } }])).error).toContain("before clip");
+    expect((await edit([{ op: "set_clip", track: "shots", clip: "s1", fields: { frame: "0".repeat(64) } }])).error).toContain("add_story_frame");
+    expect((await edit([{ op: "set_clip", track: "shots", clip: "s1", fields: { frame: "not a hash" } }])).error).toContain("hash");
+    expect((await edit([{ op: "set_clip", track: "voice", clip: "nope", fields: { line: "x" } }])).error).toContain("no clip nope");
+    expect((await edit([{ op: "set_clip", track: "voice", clip: "v1", fields: { duration: -2 } }])).error).toContain("duration");
+    expect((await edit([{ op: "add_clip", track: "voice", clip: { id: "v1", duration: 1 } }])).error).toContain("Two clips");
+    expect((await edit([{ op: "set", fields: { fps: 29.97 } }])).error).toContain("frame rate");
+    expect((await edit([{ op: "explode" }])).error).toContain("not an operation");
+    expect((await edit([{ op: "set_clip", track: "voice", clip: "v1", fields: { line: head.tracks.find((t: any) => t.id === "voice").clips[0].line } }])).error).toContain("nothing changed");
+    expect((await tool("propose_story_version", { story: "seed-to-fruit", note: "both", body: { tracks: [] }, edits: [] })).error).toContain("not both");
+    expect((await tool("propose_story_version", { story: "no-such-story", note: "x", edits: [{ op: "set", fields: { fps: 25 } }] })).error).toContain("no story");
+    expect((await tool("propose_story", { story: "Bad Name", title: "x", note: "x", body: { tracks: tracks(frame) } })).error).toContain("slug");
+    expect((await tool("propose_story", { story: "empty-one", title: "x", note: "x", body: { tracks: [{ id: "voice", kind: "voice", clips: [] }] } })).error).toContain("at least one clip");
+  });
+
+  test("the repo's stories are written into Postgres once, as their accepted v1, and never over play's", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "play-stories-"));
+    mkdirSync(join(dir, "seed-test", "frames"), { recursive: true });
+    writeFileSync(join(dir, "seed-test", "frames", "a.jpg"), frameOf("03.jpg"));
+    writeFileSync(join(dir, "seed-test", "story.json"), JSON.stringify({ id: "seed-test", title: "Seeded", note: "from the repo", schema: "story/1", tracks: [{ id: "shots", kind: "shots", clips: [{ id: "s1", duration: 2, frame: "a.jpg" }, { id: "s2", duration: 3 }] }] }));
+    expect(await seedStories(db, store, dir)).toEqual({ seeded: ["seed-test"], present: [], errors: [] });
+    const seeded = (await call("ada", "GET", "/api/stories/seed-test")).data;
+    expect(seeded).toMatchObject({ number: 1, duration: 5, title: "Seeded", note: "from the repo" });
+    expect(await seedStories(db, store, dir)).toEqual({ seeded: [], present: ["seed-test"], errors: [] });
+    mkdirSync(join(dir, "Bad_Name"));
+    expect((await seedStories(db, store, dir)).errors[0]).toMatch(/Bad_Name/);
   });
 });

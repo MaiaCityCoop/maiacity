@@ -1,13 +1,15 @@
-// play's MCP server (/api/mcp, Streamable HTTP, stateless): an agent works on Maia City's assets for an admin, by that
-// admin's access token (./tokens.ts, `Authorization: Bearer play_…`). It reads the assets, their versions and their
-// recipe files, and proposes new versions and new assets, filed as the admin's proposals with `via` 'mcp'. Accepting or
-// rejecting stays a person's, on the Proposals page (Samuel 2026-11-02): no tool here decides.
+// play's MCP server (/api/mcp, Streamable HTTP, stateless): an agent works on Maia City's assets and stories for an
+// admin, by that admin's access token (./tokens.ts, `Authorization: Bearer play_…`). It reads the assets, their versions
+// and their recipe files, and proposes new versions and new assets; it reads the stories (./stories.ts) and proposes new
+// stories and new versions of them, with the storyboard images they show. All are filed as the admin's proposals with
+// `via` 'mcp'. Accepting or rejecting stays a person's, on the Proposals page (Samuel 2026-11-02): no tool here decides.
 import type { BlobStore } from "./blobs";
 import type { Db } from "./pg";
 import type { Me } from "./access";
 import { assetOf, listAssets, NotFound } from "./assets";
 import { listProposals, propose, ProposalError } from "./proposals";
 import { adminByToken } from "./tokens";
+import { admin, listStories, MOST_FRAME, proposeStory, putFrameBase64, storyOf, StoryError } from "./stories";
 
 const PROTOCOL = "2025-06-18";
 const HASH = /^[0-9a-f]{64}$/;
@@ -28,6 +30,15 @@ const RECIPE_RULE =
   "in the asset box, the sandboxed frame in the page, never on play's server. Start from the head's source (get_asset gives its hash, " +
   "get_file its text). Every version has one: an imported version's is legacy's own code its recipe file was bundled from (the asset's " +
   "library, each module marked by the file it came from), made again and checked against that file byte for byte.";
+
+const STORY_FORMAT =
+  "A story is a film as one timeline (format story/1): { schema: 'story/1', format: '9:16' | '16:9' | '1:1' | '4:5', fps: 24 | 25 | 30 | 48 | 50 | 60, duration, tracks }. " +
+  "Each track is { id, kind, clips } and each clip { id, at, duration } in seconds (at may be left out to follow the clip before it), plus its kind's fields: " +
+  "kind 'shots' { frame: an image's hash from add_story_frame, transition: how it goes into the next shot }; " +
+  "kind 'voice' { who, line } (the narration, shown as the subtitle); " +
+  "kind 'notes' { section, camera, retention, mood } (mood as arrows: ↑ ↑↑ ↑↑↑ ↓ ↓↓ ↕). " +
+  "A clip may carry more fields, and a track may be of another kind (music, sfx, callout, scene): they are kept as given. " +
+  "duration is worked out from the clips. Clip ids are unique within their track; track ids within the story.";
 
 export function mcp({ db, store }: { db: Db; store: BlobStore }) {
   const tools: Tool[] = [
@@ -97,6 +108,75 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
       },
       run: async ({ group, slug, label, source, note }, me) => propose(db, store, me, { new: { group, slug, label }, source: `${source ?? ""}`, note }, "mcp"),
     },
+    // ---- stories: a film as one timeline of tracks and clips (./stories.ts, play/SPEC.md §12)
+    {
+      name: "list_stories",
+      description: "Maia City's stories (films as timelines, played on play's Stories page): id, title, head version number, how many accepted versions, duration in seconds, how many shots and tracks.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      run: async (_args, me) => listStories(db, me),
+    },
+    {
+      name: "get_story",
+      description: `One story's whole timeline, at its head or at an accepted version: ${STORY_FORMAT} It also lists the story's versions (number, id, note, author, who accepted it). Use its \`version\` as \`base\` when you propose a change.`,
+      inputSchema: {
+        type: "object",
+        properties: { story: { type: "string", description: "the story's id (a slug, from list_stories)" }, version: { type: "integer", minimum: 1, description: "an accepted version's number; the head if left out" } },
+        required: ["story"],
+        additionalProperties: false,
+      },
+      run: async ({ story, version }, me) => storyOf(db, me, `${story ?? ""}`, version == null ? undefined : Number(version)),
+    },
+    {
+      name: "propose_story",
+      description: `Propose a new story, its first version, as its whole timeline. It goes to Maia City's admins as a proposal (via MCP), who play it in the Stories player on the Proposals page and accept or reject it. ${STORY_FORMAT} Add each storyboard image first with add_story_frame and use the hashes it gives as the shots' frames.`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          story: { type: "string", description: "its id: lower-case words joined by '-', up to 64 characters, unique" },
+          title: { type: "string", description: "its title as shown" },
+          body: { type: "object", description: "the timeline: { format, fps, tracks: [{ id, kind, clips: [{ id, at, duration, … }] }] }" },
+          note: { type: "string", description: "what it is and why, for the admins deciding" },
+        },
+        required: ["story", "title", "body", "note"],
+        additionalProperties: false,
+      },
+      run: async ({ story, title, body, note }, me) => proposeStory(db, me, { story, title, body, note }, true),
+    },
+    {
+      name: "propose_story_version",
+      description:
+        `Propose a new version of a story: any change to any field of any clip on any track, adding or removing clips and tracks, retiming, the title, the format or the frame rate. Give either the whole new timeline (body) or edits applied in order to the head's; what is stored is the whole timeline either way, checked as a whole. Edits: ` +
+        `{ op: 'set_clip', track, clip, fields: {…} } sets fields of a clip (at, duration, line, who, frame, transition, section, camera, retention, mood, or any other; a field set to null is removed); ` +
+        `{ op: 'add_clip', track, clip: { id, at, duration, … } }; { op: 'remove_clip', track, clip }; ` +
+        `{ op: 'add_track', track: { id, kind, clips }, index? }; { op: 'remove_track', track }; { op: 'set_track', track, fields: { id?, kind? } }; ` +
+        `{ op: 'shift', from, by, tracks? } moves every clip starting at or after \`from\` seconds by \`by\` seconds (negative to pull in), on all tracks or the ones named, to make room or close a gap; ` +
+        `{ op: 'set', fields: { format?, fps? } }. On shots, voice and notes tracks clips must not overlap, so retime with shift. ${STORY_FORMAT} It goes to the admins as a proposal (via MCP), shown against the head clip by clip.`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          story: { type: "string", description: "the story's id" },
+          note: { type: "string", description: "what changed and why, for the admins deciding" },
+          base: { type: "string", description: "the head version's id it was made from (get_story's `version`); refused if the story moved on since" },
+          title: { type: "string", description: "a new title, if it changes" },
+          body: { type: "object", description: "the whole new timeline (instead of edits)" },
+          edits: { type: "array", items: { type: "object" }, description: "edits applied in order to the head's timeline (instead of body)" },
+        },
+        required: ["story", "note"],
+        additionalProperties: false,
+      },
+      run: async ({ story, note, base, title, body, edits }, me) => proposeStory(db, me, { story, note, title, body, edits, ...(base ? { base } : {}) }, false),
+    },
+    {
+      name: "add_story_frame",
+      description: `Add a storyboard image (a JPEG, PNG or WebP, at most ${MOST_FRAME / 1e6} MB) as base64. play keeps it among its files and gives back its BLAKE3 hash, to use as a shot's \`frame\` in propose_story or propose_story_version. The same image always gives the same hash.`,
+      inputSchema: {
+        type: "object",
+        properties: { data: { type: "string", description: "the image's bytes as base64 (a data: URL's prefix is allowed)" }, media_type: { type: "string", enum: ["image/jpeg", "image/png", "image/webp"] } },
+        required: ["data", "media_type"],
+        additionalProperties: false,
+      },
+      run: async ({ data, media_type }, me) => (admin(me), putFrameBase64(db, store, data, media_type)),
+    },
     {
       name: "list_proposals",
       description: "The proposals, newest first, with their status (open, accepted, rejected, withdrawn, stale), author and where they came from (web or mcp).",
@@ -136,7 +216,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           capabilities: { tools: {} },
           serverInfo: { name: "play.maia.city", version: "1" },
           instructions:
-            "Maia City's asset library. Read assets, versions, their readable sources and recipe files; propose new versions or assets as readable source. Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box on play's Proposals page, then accept or reject it; nothing here decides, and no proposed code runs on play's server.",
+            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files; propose new versions or assets as readable source. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame. Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's Proposals page, then accept or reject it; nothing here decides, and no proposed code runs on play's server.",
         });
       case "ping":
         return reply(msg.id, {});
@@ -150,7 +230,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           return reply(msg.id, { content: [{ type: "text", text: JSON.stringify(out, null, 2) }], structuredContent: Array.isArray(out) ? { items: out } : out });
         } catch (e) {
           // what went wrong, as the tool's own answer the agent reads (a refused recipe, a moved head, no such asset)
-          if (e instanceof ProposalError || e instanceof NotFound || (e as Error)?.name === "Denied" || (e as any)?.status)
+          if (e instanceof ProposalError || e instanceof NotFound || e instanceof StoryError || (e as Error)?.name === "Denied" || (e as any)?.status)
             return reply(msg.id, { content: [{ type: "text", text: (e as Error).message }], isError: true });
           console.error(e);
           return reply(msg.id, { content: [{ type: "text", text: "Something went wrong on play's side." }], isError: true });
