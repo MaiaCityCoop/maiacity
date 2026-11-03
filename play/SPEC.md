@@ -60,8 +60,10 @@ CommonJS module that sets `module.exports.recipe`, as written (play refuses mini
 file the box runs is exactly the source people read. Proposed code never runs on play's server (it only measures,
 labels and hashes text), and in the page only in the **asset box**: a frame with `sandbox="allow-scripts"` and no
 origin, its own CSP with no connection, the frozen engine (held to its hash) in a worker. A proposal's record may name
-only a frozen box engine, and its manifest is the libraries its source requires. On the Proposals page people read the
-source (beside its base's, as changes) and see the version built in the box before they accept it. `/api/files` serves
+only a frozen box engine, and its manifest is the libraries its source requires. The Proposals page is a board (Samuel 2026-11-03): a
+column per status (Open, Accepted, Rejected, Stale, Withdrawn); a card opened shows the version built in the box nearly
+full screen, its note folded, its source (beside its base's, as changes) a button away, before anyone decides. Nothing
+is proposed or edited on the page: versions come over MCP. `/api/files` serves
 code as plain text (`nosniff`, `sandbox`), never as script on play's origin.
 
 **Imported versions' sources (Samuel 2026-11-03).** Legacy bundled each asset's library and minified it into the recipe

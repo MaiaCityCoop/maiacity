@@ -177,7 +177,7 @@
 			return;
 		}
 		// for a test in a browser to read what is shown, as AssetViewer's `__viewer`
-		window.__vaultAsset = { stage, camera, controls, get hero() { return hero; }, get picked() { return picked; }, get building() { return building; }, get phase() { return buildPhase; }, get error() { return error; } };
+		window.__vaultAsset = { stage, camera, controls, get hero() { return hero; }, get picked() { return picked; }, get building() { return building; }, get phase() { return buildPhase; }, get error() { return error; }, get values() { return values; }, get wanted() { return wanted; }, set: (id, v) => setParam(id, v) };
 		// a plant's ground: its biome's floor to the horizon, the soil under it and a pit in front of it, its roots seen
 		// in it (./ground.js); never under its fruit on its own, which stands on the studio's floor
 		const earth = groundOf(stage);
