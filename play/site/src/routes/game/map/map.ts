@@ -8,7 +8,7 @@
 // features. The same seed always gives the same map. Nothing here touches the DOM or three.js: ./scene.ts draws it.
 //
 // Units are metres: x runs east, y runs south across the map (6.4 × 4.3 km); a plot is about 1.5 ha. The map holds
-// exactly PLOTS plots.
+// exactly PLOTS plots, all buildable: mountains are no plots but wild land, raised into real hills (terrain).
 
 export type P = [number, number];
 export type Biome = 'grass' | 'forest' | 'sand' | 'mountain' | 'river';
@@ -67,6 +67,13 @@ export interface WorldMap {
 	/** each lake's shoreline, a closed ring */
 	lakes: P[][];
 	features: Feature[];
+	/** where the mountains rise: the mountain cells' centres, and every other cell's (./terrain) */
+	massif: Massif;
+}
+
+export interface Massif {
+	peaks: P[];
+	land: P[];
 }
 
 /** how many plots the map holds: 1,346,269 (the Fibonacci number F31, a coop's whole supply of minds at its thirtieth
@@ -375,6 +382,15 @@ export function generateMap(seed: string): WorldMap {
 		else k.biome = 'grass';
 	}
 
+	// mountains are no plots: nobody builds on them, they rise as hills (terrain) and stay wild
+	for (const k of cells) {
+		if (k.biome !== 'mountain' || k.wild) continue;
+		k.wild = true;
+		k.plot = [];
+		k.inner = voronoi(cells.indexOf(k), 10);
+	}
+	const massif: Massif = { peaks: cells.filter((k) => k.biome === 'mountain').map((k) => k.c), land: cells.filter((k) => k.biome !== 'mountain').map((k) => k.c) };
+
 	// exactly PLOTS plots: beyond that count the outermost (by their distance from the centre, as an oval) go back to
 	// the wild, so the settled land ends in a soft round edge
 	const settled = cells.filter((k) => !k.wild);
@@ -411,8 +427,9 @@ export function generateMap(seed: string): WorldMap {
 					for (const [x, y] of scatter(poly, 3 + Math.floor(rand() * 5), 13, rand)) put('spire', x, y, 1, { h: 18 + rand() * 30, w: 7 + rand() * 6 });
 					for (const [x, y] of scatter(poly, 12, 6, rand)) put(rand() < 0.5 ? 'stone' : 'conifer', x, y, rand() < 0.5 ? 0.8 : 0.55);
 				} else {
-					for (const [x, y] of scatter(poly, 2 + Math.floor(rand() * 3), 30, rand)) put('peak', x, y, 1, { h: 22 + rand() * 30, w: 34 + rand() * 26 });
+					// the hill itself is the peak (terrain): stones and a few pines on its slopes
 					for (const [x, y] of scatter(poly, 9, 7, rand)) put('stone', x, y, 0.7 + rand() * 0.5);
+					for (const [x, y] of scatter(poly, 6, 12, rand)) put('conifer', x, y, 0.6 + rand() * 0.3);
 				}
 				break;
 			case 'sand':
@@ -453,7 +470,7 @@ export function generateMap(seed: string): WorldMap {
 	for (const l of lakes) shoreTrees(l.ring, true, SHORE, 0.45);
 
 	// forests on the hills round the valley, up to the tree line
-	const ground = terrain(seed, river);
+	const ground = terrain(seed, river, massif);
 	const woods = fbmNoise(rand);
 	for (let t = 0; t < 22000; t++) {
 		const x = -RIM + rand() * (WIDTH + 2 * RIM), y = -RIM + rand() * (HEIGHT + 2 * RIM);
@@ -463,27 +480,60 @@ export function generateMap(seed: string): WorldMap {
 		put('conifer', x, y, 0.8 + rand() * 0.6);
 	}
 
-	return { seed, width: WIDTH, height: HEIGHT, plots: plotList, river, bank: BANK, lakes: lakes.map((l) => l.ring), features };
+	return { seed, width: WIDTH, height: HEIGHT, plots: plotList, river, bank: BANK, lakes: lakes.map((l) => l.ring), features, massif };
 }
 
 /** how far the hills reach beyond the map */
 export const RIM = 700;
 
 /** the ground's height (m) at a point: flat in the valley, rising into hills and mountains beyond its edges */
-export function terrain(seed: string, river: P[]): (x: number, y: number) => number {
+export function terrain(seed: string, river: P[], massif: Massif): (x: number, y: number) => number {
 	const rand = mulberry32(hashSeed(`${seed}/terrain`));
 	const hills = fbmNoise(rand), ridges = fbmNoise(rand);
 	const smooth = (a: number, b: number, v: number) => {
 		const t = Math.max(0, Math.min(1, (v - a) / (b - a)));
 		return t * t * (3 - 2 * t);
 	};
+	const peaks = buckets(massif.peaks), land = buckets(massif.land);
 	return (x, y) => {
+		// the valley's mountains: zero where a mountain cell meets any other cell, higher the deeper inside a range
+		let inner = 0;
+		const dm = peaks(x, y);
+		if (dm < REACH) {
+			const depth = land(x, y) - dm;
+			if (depth > 0) inner = smooth(0, 380, depth) * 230 * (0.75 + 0.5 * hills(x / 250 + 7, y / 250));
+		}
+		// the hills and mountains round the valley
 		const dx = Math.max(20 - x, 0, x - (WIDTH - 20)), dy = Math.max(20 - y, 0, y - (HEIGHT - 20));
 		const d = Math.hypot(dx, dy);
-		if (d <= 0) return 0;
-		const ridge = 1 - Math.abs(2 * ridges(x / 520, y / 520) - 1);
-		const h = smooth(0, 420, d) * (18 + 60 * hills(x / 300, y / 300) + 190 * ridge * ridge * Math.min(1, d / 300));
+		let outer = 0;
+		if (d > 0) {
+			const ridge = 1 - Math.abs(2 * ridges(x / 520, y / 520) - 1);
+			outer = smooth(0, 420, d) * (18 + 60 * hills(x / 300, y / 300) + 190 * ridge * ridge * Math.min(1, d / 300));
+		}
+		const h = Math.max(inner, outer);
 		// the river runs out of the valley through a cut in the hills
-		return h * smooth(BANK + 6, BANK + 240, nearest(river, [x, y]).d);
+		return h > 0 ? h * smooth(BANK + 6, BANK + 240, nearest(river, [x, y]).d) : 0;
+	};
+}
+
+const REACH = 450;
+/** the distance from a point to the nearest of a set of points (up to REACH), through a grid of buckets */
+function buckets(points: P[]): (x: number, y: number) => number {
+	const S = 150, key = (gx: number, gy: number) => (gx + 1000) * 4096 + gy + 1000, grid = new Map<number, P[]>();
+	for (const p of points) {
+		const k = key(Math.floor(p[0] / S), Math.floor(p[1] / S));
+		(grid.get(k) ?? grid.set(k, []).get(k)!).push(p);
+	}
+	const span = Math.ceil(REACH / S);
+	return (x, y) => {
+		const gx = Math.floor(x / S), gy = Math.floor(y / S);
+		let best = REACH * REACH;
+		for (let i = -span; i <= span; i++)
+			for (let j = -span; j <= span; j++) {
+				const list = grid.get(key(gx + i, gy + j));
+				if (list) for (const p of list) best = Math.min(best, (p[0] - x) ** 2 + (p[1] - y) ** 2);
+			}
+		return Math.sqrt(best);
 	};
 }

@@ -8,13 +8,14 @@ describe('the world map', () => {
 		expect(json('rio-1234')).not.toBe(json('rio-1235'));
 	});
 
-	it('has plots of every biome, each one a sensible size, and lakes and forests', () => {
+	it('has buildable plots of every biome but mountain, each one a sensible size, and mountains, lakes and forests', () => {
 		for (const seed of ['rio-1234', 'serra-77', 'duna-4410']) {
 			const { plots, lakes, features } = generateMap(seed);
 			expect(lakes.length).toBeGreaterThanOrEqual(1);
 			expect(features.filter((f) => f.kind === 'conifer').length).toBeGreaterThan(1000);
 			expect(plots.length).toBe(PLOTS);
-			for (const b of Object.keys(BIOMES)) expect(plots.some((p) => p.biome === b)).toBe(true);
+			for (const b of Object.keys(BIOMES)) expect(plots.some((p) => p.biome === b)).toBe(b !== 'mountain');
+			expect(generateMap(seed).massif.peaks.length).toBeGreaterThan(10);
 			for (const p of plots) {
 				expect(p.area).toBeGreaterThan(4000);
 				expect(p.area).toBeLessThan(60000);

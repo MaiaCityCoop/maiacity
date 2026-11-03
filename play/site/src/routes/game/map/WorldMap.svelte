@@ -69,9 +69,10 @@
 			<button type="button" title="A new map" aria-label="A new map" onclick={() => grow(randomSeed())}>⚄</button>
 		</form>
 		<ul class="legend chip">
-			{#each Object.entries(BIOMES) as [key, b] (key)}
+			{#each Object.entries(BIOMES).filter(([key]) => key !== 'mountain') as [key, b] (key)}
 				<li><i style:background={b.colour}></i>{b.label}<small>{counts[key as Biome]}</small></li>
 			{/each}
+			<li class="wild"><i style:background={BIOMES.mountain.colour}></i>Mountains<small>not buildable</small></li>
 		</ul>
 	</header>
 
