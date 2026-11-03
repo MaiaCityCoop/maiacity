@@ -8,6 +8,7 @@ import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore, type BlobStore } from "../src/blobs";
 import { importSources } from "../import/sources";
+import { keepHead } from "../import/run";
 import { hashText } from "../src/hash";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
@@ -131,6 +132,20 @@ suite("play API", () => {
     expect(chain[0].parents).toEqual([chain[1].id]);
     // a base the proposer saw that is no longer the head is refused at once
     expect((await call("cit", "POST", "/api/proposals", { asset: ids.fern, base: chain[1].id, recipe: recipe("fern", 3) })).status).toBe(409);
+  });
+
+  test("the import keeps an asset's head on its newest accepted version, never on an older one", async () => {
+    const newest = async () => (await db.query<{ id: string }>(`SELECT id FROM play.asset_versions WHERE asset_id = $1 AND number IS NOT NULL ORDER BY number DESC LIMIT 1`, [ids.fern])).rows[0].id;
+    const head = async () => (await db.query<{ head: string }>(`SELECT head FROM play.assets WHERE id = $1`, [ids.fern])).rows[0].head;
+    const first = (await db.query<{ id: string }>(`SELECT id FROM play.asset_versions WHERE asset_id = $1 AND number = 1`, [ids.fern])).rows[0].id;
+    expect(await head()).toBe(await newest());
+    expect(await newest()).not.toBe(first);
+    await keepHead(db, ids.fern);
+    expect(await head()).toBe(await newest());
+    // set back, as the import once did: put on its newest again
+    await db.query(`UPDATE play.assets SET head = $2 WHERE id = $1`, [ids.fern, first]);
+    await keepHead(db, ids.fern);
+    expect(await head()).toBe(await newest());
   });
 
   test("an accepted version can't be changed", async () => {

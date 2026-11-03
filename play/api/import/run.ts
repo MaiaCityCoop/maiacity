@@ -80,9 +80,22 @@ async function writeAssets(tx: Queryable, assets: PlannedAsset[], files: Planned
         w.variants += rn.affectedRows;
       }
     }
-    const head = a.versions.at(-1)!.id;
-    await tx.query(`UPDATE play.assets SET head = $2 WHERE id = $1 AND head IS DISTINCT FROM $2`, [a.id, head]);
+    await keepHead(tx, a.id);
   }
+}
+
+/**
+ * An asset's head is its newest accepted version: the last one imported, or one accepted in play since, which the
+ * import run with every deploy must never take back (it once set every imported asset's head to its last imported
+ * version, and so undid papaya v2's acceptance).
+ */
+export async function keepHead(tx: Queryable, asset: string) {
+  await tx.query(
+    `UPDATE play.assets a SET head = n.id
+       FROM (SELECT id FROM play.asset_versions WHERE asset_id = $1 AND number IS NOT NULL ORDER BY number DESC LIMIT 1) n
+      WHERE a.id = $1 AND a.head IS DISTINCT FROM n.id`,
+    [asset],
+  );
 }
 
 async function writePins(tx: Queryable, sandbox: string, pins: ReturnType<typeof planPins>, w: Report["written"], errors: string[]) {
