@@ -14,6 +14,7 @@
 	import NavPill from '$lib/site/app/NavPill.svelte';
 	import { pillContext } from '$lib/site/app/pill.svelte.js';
 	import { footHost } from '$lib/site/app/foot.js';
+	import { pinned } from '$lib/site/app/pinned.js';
 	import { loadMe, session, signOut } from '$lib/session.svelte';
 	import { acting, actAs } from '$lib/acting.svelte';
 	import SignIn from '$lib/SignIn.svelte';
@@ -72,7 +73,8 @@
 	<SignIn />
 {:else}
 	{@render children()}
-	<div class="app-dock">
+	<!-- kept at the foot of what is seen, even where the iPad's browser leaves its viewport short ($lib/site/app/pinned.js) -->
+	<div class="app-dock" use:pinned>
 		<!-- what floats over the pill (its account menu, a toast) is moved here, so the pill keeps its size -->
 		<div class="foot-stack" use:footHost></div>
 		<NavPill founder={session.me.founder == null ? null : { number: session.me.founder }} name={session.me.name} onsignout={signOut} />

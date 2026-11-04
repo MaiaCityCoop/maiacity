@@ -79,7 +79,8 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible { outline: 2px sol
 @media (max-width: 640px), (max-height: 500px) {
 	:root { --stick-edge: 1rem; --stick-size: 6.5rem; }
 }
-/* the foot stack: every toast and waiting note, centred just above the nav pill */
+/* the foot stack: every toast and waiting note, centred just above the nav pill; the dock is moved back to the foot of
+   what is seen where an iPad leaves its viewport short ($lib/site/app/pinned.js) */
 .app-dock {
 	position: fixed; bottom: var(--nav-foot); left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px));
 	z-index: 50; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none;
