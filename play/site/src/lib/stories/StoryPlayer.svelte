@@ -184,7 +184,8 @@
 
 <div class="player" class:compact>
 	<div class="stage-row">
-		<div class="screen" style:--ratio={ratio}>
+		<!-- a tap on the picture plays and pauses it, as on any film player (Samuel 2026-11-04) -->
+		<div class="screen" style:--ratio={ratio} role="button" tabindex="0" aria-label={playing ? 'Pause' : 'Play'} onclick={toggle} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), e.stopPropagation(), toggle())}>
 			{#if moment.prev?.frame}<img class="frame" src={frameUrl(moment.prev.frame)} alt="" draggable="false" />{/if}
 			{#if moment.shot?.frame}
 				<img class="frame" src={frameUrl(moment.shot.frame)} alt="Shot {moment.index + 1}" draggable="false" style:opacity={moment.mix} />
@@ -198,6 +199,7 @@
 					<span class="line">{moment.cue.text}</span>
 				</div>
 			{/if}
+			{#if !playing}<span class="play-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg></span>{/if}
 		</div>
 		<aside class="details">
 			<p class="beat">
@@ -283,6 +285,11 @@
 	.screen { position: relative; --h: var(--story-screen, clamp(15rem, calc(100vh - 24.5rem), 660px)); height: var(--h); width: calc(var(--h) * var(--ratio)); max-width: 100%; border-radius: 14px; overflow: hidden; background: #15130f; box-shadow: var(--shadow); user-select: none; container-type: size; }
 	.compact .screen { --h: var(--story-screen, clamp(14rem, calc(100vh - 25rem), 520px)); }
 	.frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+	.screen { cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+	.screen:focus-visible { outline: 3px solid var(--terracotta, #c96f53); outline-offset: 3px; }
+	/* paused: a quiet play mark in the middle of the picture, gone the moment it plays */
+	.play-mark { position: absolute; left: 50%; top: 46%; width: clamp(2.6rem, 16cqw, 4.5rem); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; background: rgb(10 10 8 / 0.45); display: grid; place-items: center; pointer-events: none; }
+	.play-mark svg { width: 55%; height: 55%; fill: #fff; margin-left: 8%; }
 	.frame.empty { display: grid; place-items: center; color: #cfc8b8; background: #24211b; font-size: 0.9rem; }
 	.subtitle { position: absolute; left: 3%; right: 3%; bottom: 9%; display: grid; gap: 0.3rem; justify-items: center; text-align: center; pointer-events: none; }
 	/* the subtitle sized to the frame, as it would be in the film: one line of about 26 characters across it (CUE_CHARS) */
