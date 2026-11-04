@@ -208,7 +208,116 @@ export const ASSET: DocType = {
   },
 };
 
-export const TYPES: Record<string, DocType> = { [STORY.name]: STORY, [ASSET.name]: ASSET };
+/**
+ * A factory as a document (../factories.ts, Samuel 2026-11-04): a production line as AirSup's factory runtime reads it
+ * (`line`: the product, the demand, the calendar, every station with its machine, its buffers, its breakdowns and what
+ * it feeds, the stages' looks, the floor's layout), and its bill of process: every part of what it builds (`parts`, each
+ * with what it is made from and every operation it goes through, at which station and for how many seconds), the raw
+ * stock it buys (`stock`), the assemblies the parts are grouped in, and each station's own handling (`handling`). A
+ * station's cycle time is the sum of its operations and its handling, worked out where the line is drawn, unless the
+ * station gives its own `ct`. Data only: nothing of it is code.
+ */
+const ITEM_ID = "^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$";
+const op: Node = {
+  type: "object",
+  required: ["at", "s"],
+  properties: { at: { type: "string", pattern: ITEM_ID }, s: { type: "number", minimum: 0, maximum: 1e7 }, what: { type: "string", maxLength: 2000 } },
+  additionalProperties: true,
+};
+const station: Node = {
+  type: "object",
+  required: ["id", "name", "machine"],
+  properties: {
+    id: { type: "string", pattern: ITEM_ID },
+    name: { type: "string", minLength: 1, maxLength: 200 },
+    machine: { type: "string", pattern: ITEM_ID },
+    ct: { type: "number", minimum: 0 },
+    cv: { type: "number", minimum: 0, maximum: 2 },
+    buffer: { type: "integer", minimum: 0, maximum: 1000 },
+    reserve: { type: "integer", minimum: 0, maximum: 100 },
+    operators: { type: "integer", minimum: 0, maximum: 1000 },
+    yield: { type: "number", minimum: 0, maximum: 1 },
+    after: { type: "array", maxItems: 32, items: { type: "string", pattern: ITEM_ID } },
+    what: { type: "string", maxLength: 4000 },
+    rate: { type: "string", maxLength: 4000 },
+  },
+  additionalProperties: true,
+};
+export const FACTORY: DocType = {
+  name: "factory/1",
+  type: "factory",
+  schema: {
+    type: "object",
+    required: ["schema", "label", "line", "parts"],
+    properties: {
+      schema: { const: "factory/1" },
+      label: { type: "string", minLength: 1, maxLength: 200 },
+      note: { type: "string", maxLength: 20000, "x-loro": "text" },
+      from: { type: "string", maxLength: 2000 },
+      builds: { type: "string", maxLength: 200 },
+      line: {
+        type: "object",
+        required: ["product", "demand", "calendar", "stations"],
+        properties: {
+          product: { type: "object", required: ["name"], additionalProperties: true },
+          demand: { type: "object", required: ["perDay"], properties: { perDay: { type: "number", minimum: 0 } }, additionalProperties: true },
+          calendar: { type: "object", additionalProperties: true },
+          stations: { type: "array", minItems: 1, maxItems: 500, items: station },
+          stages: { type: "object", additionalProperties: true },
+          layout: { type: "object", additionalProperties: true },
+        },
+        additionalProperties: true,
+      },
+      stock: { type: "object", additionalProperties: { type: "object", required: ["label"], additionalProperties: true } },
+      assemblies: { type: "array", maxItems: 200, items: { type: "object", required: ["id", "label"], properties: { id: { type: "string", pattern: ITEM_ID }, label: { type: "string", maxLength: 200 } }, additionalProperties: true } },
+      parts: {
+        type: "array",
+        maxItems: 5000,
+        items: {
+          type: "object",
+          required: ["id", "label", "qty", "ops"],
+          properties: {
+            id: { type: "string", pattern: ITEM_ID },
+            label: { type: "string", minLength: 1, maxLength: 300 },
+            assembly: { type: "string", pattern: ITEM_ID },
+            qty: { type: "number", minimum: 0 },
+            raw: { type: "object", additionalProperties: true },
+            ops: { type: "array", maxItems: 200, items: op },
+          },
+          additionalProperties: true,
+        },
+      },
+      handling: { type: "object", additionalProperties: { type: "array", maxItems: 200, items: op } },
+    },
+    additionalProperties: true,
+  },
+  check(doc) {
+    const out: string[] = [];
+    const stations = new Set<string>();
+    for (const s of doc.line?.stations ?? []) {
+      if (stations.has(s.id)) out.push(`station ${s.id}: its id is taken twice`);
+      stations.add(s.id);
+    }
+    for (const s of doc.line?.stations ?? []) for (const a of s.after ?? []) if (!stations.has(a)) out.push(`station ${s.id}: it comes after ${a}, which is no station of the line`);
+    for (const r of doc.line?.layout?.ring ?? []) if (typeof r === "string" && !stations.has(r)) out.push(`the layout's ring names ${r}, which is no station of the line`);
+    const assemblies = new Set((doc.assemblies ?? []).map((a: any) => a.id));
+    const parts = new Set<string>();
+    for (const p of doc.parts ?? []) {
+      if (parts.has(p.id)) out.push(`part ${p.id}: its id is taken twice`);
+      parts.add(p.id);
+      if (p.assembly !== undefined && assemblies.size && !assemblies.has(p.assembly)) out.push(`part ${p.id}: its assembly ${p.assembly} is none of the factory's`);
+      for (const k of [p.raw?.stock, ...(p.raw?.also ?? [])]) if (k !== undefined && !doc.stock?.[k]) out.push(`part ${p.id}: it is made from ${k}, which is no stock the factory buys`);
+      for (const o of p.ops ?? []) if (!stations.has(o.at)) out.push(`part ${p.id}: an operation at ${o.at}, which is no station of the line`);
+    }
+    for (const [st, ops] of Object.entries<any[]>(doc.handling ?? {})) {
+      if (!stations.has(st)) out.push(`handling at ${st}, which is no station of the line`);
+      for (const o of ops) if (o.at !== st) out.push(`handling at ${st}: an operation names ${o.at}`);
+    }
+    return out;
+  },
+};
+
+export const TYPES: Record<string, DocType> = { [STORY.name]: STORY, [ASSET.name]: ASSET, [FACTORY.name]: FACTORY };
 
 /** the type a schema name names, or a SchemaError */
 export function typeOf(name: string): DocType {

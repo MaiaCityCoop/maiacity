@@ -213,7 +213,6 @@ sandbox as it would be (`/sandbox-1/?layout=<sandbox's uuid>/<proposal>`, its co
 admin accepts it there, which applies the edits to the sandbox as it is then, in one transaction (one that no longer
 holds is archived). Admins only for now (`play/api/src/sandboxes.ts`).
 
-
 ### 4.7 Every reference a UUID or a hash (Samuel 2026-11-04)
 
 A thing is named by its UUID (a coop, an asset, a story, a sandbox, a proposal, a human, a token) or, where it never
@@ -236,6 +235,32 @@ is only shown: nothing is looked up by it, no row refers to it, and two things m
 - **Hashes made before stay as they were**: a version id is the hash of its content as it was made, and that content
   named its asset or story by what it was then (`plants/papaya`, `papaya-v2-devlog`); new versions name their story by
   its UUID. Nothing recomputes an old one.
+
+### 4.8 The Factories on Loro (the `factory_version` proposal, Samuel 2026-11-04)
+
+Every production line play shows is a Loro document, `factory:<uuid>` (a factory is its UUID, §4.7; the first,
+the LifeTrac line, `uuidOf('factory:lifetrac-line')`, `play/api/src/ids.ts` `FACTORY`; type `factory/1`, `play/api/src/docs/schema.ts`;
+`play/api/src/factories.ts`): its **line** as AirSup's factory runtime reads it (the product, the demand, the calendar,
+every station with its machine, cycle variation, buffer, spare floor, breakdowns, yield and what it joins, the stages'
+looks, the floor's layout) and its **bill of process** (every part of what it builds with its raw stock and every
+operation it goes through, at which station and for how many seconds; the stock it buys; the assemblies; each station's
+own handling). Data only, nothing of it code: a station's cycle time is the sum of its operations and its handling,
+worked out where the line is drawn (`play/site`'s `content/factories/index.js` `lineOf`), unless the station gives its
+own `ct`, so changing a part's operation moves the line. `play.factories` holds each factory's id and
+label so a proposal can name it (migration `0018`). A factory's first version is made once from the repo by the deploy's import
+(`play/api/import/factories`: the LifeTrac line as it was first written, 2026-11-03); from then on play's Postgres is
+its source of truth.
+
+A factory changes **only by proposal**, as a story does: an agent reads it (`list_factories`, `get_factory` at its
+newest version, a version, a step or as an open proposal would make it; `factory_history`), drafts a change step by
+step (`factory_edit`: the document's own edits, set, insert, delete, move and text, a list's item named by its index or
+by its id, `{ id: 'weld' }`; each step checked whole: every operation at a station of the line, every id once) and
+proposes the draft (`propose_factory_version` with its `branch`), or proposes edits at once. The Proposals page shows
+what it changes field by field from the version it was made on, its steps, and opens the factory as it would be
+(`/factories/?factory=<id>&proposal=<id>`), its simulation running. Accepting merges the branch into the main line and
+names the next version; made on a version that is no longer the newest, it still goes in where the two changes touch
+different fields and is archived where they touch the same. The Factories page reads every version (`&v=<n>`). Admins
+only, as the Factories are.
 
 ## 5. The three sandboxes
 

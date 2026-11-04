@@ -5,7 +5,8 @@
 // and new versions of them, with the storyboard images they show. All are filed as the admin's proposals with `via`
 // 'mcp'. Accepting stays a person's, on the Proposals page (Samuel 2026-11-02): no tool here accepts. An agent may
 // archive only its own open proposals made here (archive_proposal, Samuel 2026-11-04), one it has replaced or no longer
-// stands by.
+// stands by. It reads the factories and proposes new versions of them, drafted step by step if it likes
+// (factory_edit, each step kept in the factory's Loro document, ./factories.ts).
 import type { BlobStore } from "./blobs";
 import type { Db } from "./pg";
 import type { Me } from "./access";
@@ -15,6 +16,7 @@ import { adminByToken } from "./tokens";
 import { admin, AUDIO_TYPES, editStory, listStories, MOST_AUDIO, MOST_FRAME, proposeStory, putAudioBase64, putFrameBase64, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
 import { AssetDocError, assetAtStep, assetHistory, editAsset } from "./assetdocs";
 import { listSandboxes, proposeSandbox, sandboxOf, SandboxError } from "./sandboxes";
+import { editFactory, factoryHistory, factoryOf, FactoryError, listFactories, proposeFactory } from "./factories";
 
 const PROTOCOL = "2025-06-18";
 const HASH = /^[0-9a-f]{64}$/;
@@ -46,6 +48,17 @@ const STORY_FORMAT =
   "a voice clip's audio is its take, and tracks of kind music, sfx or ambience hold the score, the spot sounds and the beds, their clips overlapping as they like; a track may carry gain (dB) and mute. " +
   "A clip may carry more fields, and a track may be of another kind (callout, scene): they are kept as given. " +
   "duration is worked out from the clips. Clip ids are unique within their track; track ids within the story.";
+
+const FACTORY_FORMAT =
+  "A factory is { schema: 'factory/1', label, note, from, builds: the pin of what it makes, line, stock, assemblies, parts, handling }. " +
+  "line is the spec AirSup's factory runtime reads: { product: { name, unit, perToken }, demand: { perDay }, calendar: { shifts, hoursPerShift, startHour }, sizing: { targetUtil }, release, seed, " +
+  "stations: [{ id, name, machine (the kit's machine it is drawn as), variant?, cv (cycle time's variation), buffer (in front of it), reserve (spare floor for more machines), operators, mtbf and mttr (s: breakdowns), kind (laser, cnc, robot, line, oven, press, tester), yield?, input? (a stage it is fed), after? (the stations it joins), stage (what leaves it), what and rate (its description and where its rate comes from), ct? }], stages: { stage: its look }, layout, look }. " +
+  "A station's cycle time is the sum of every operation at it (the parts' ops and its handling), worked out where the line is drawn, unless it gives its own ct; the line is sized from the demand and run as a discrete event simulation. " +
+  "parts: [{ id, label, assembly, qty, raw: { stock?, also?, size?, kg?, bought? }, ops: [{ at: a station's id, s: seconds for one unit's worth, what }] }]; stock: { id: { label, form, … } }; assemblies: [{ id, label }]; handling: { station: [{ at: that station, s, what }] }.";
+
+const FACTORY_EDITS =
+  "Edits, applied in order to the document: { op: 'set', path, value } (a field, or a list's item, replaced; a new field too), { op: 'insert', path, value } (into a list, before the index the path ends with; one past the end adds it last), { op: 'delete', path }, { op: 'move', path, to }, { op: 'text', path, index, delete?, insert? } (a range of the note). " +
+  "A path is a list of field names and indexes, and an item of a list may be named by its id instead: ['line', 'stations', { id: 'weld' }, 'reserve'], ['parts', { id: 'floor' }, 'ops', 0, 's'].";
 
 export function mcp({ db, store }: { db: Db; store: BlobStore }) {
   const tools: Tool[] = [
@@ -239,6 +252,76 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
       },
       run: async ({ sandbox, note, edits }, me) => proposeSandbox(db, me, { sandbox, note, edits }, "mcp"),
     },
+    // ---- factories: each production line a Loro document, changed only by proposal (./factories.ts, play/SPEC.md §4.7)
+    {
+      name: "list_factories",
+      description: "Maia City's factories (production lines, each a live simulation on play's Factories page): id, label, note, newest version's number, how many versions, stations and parts.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      run: async (_args, me) => listFactories(db, me),
+    },
+    {
+      name: "get_factory",
+      description: `One factory whole (its \`json\`), at its newest version, an accepted version, a step of its history (factory_history lists them) or as an open proposal would make it; with its versions. ${FACTORY_FORMAT}`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          factory: { type: "string", description: "its id (list_factories)" },
+          version: { type: "integer", minimum: 1, description: "an accepted version's number; its newest if left out" },
+          step: { type: "integer", minimum: 1, description: "a step of its history (factory_history's \`seq\`), instead of a version" },
+          proposal: { type: "string", description: "an open proposal's id: the factory as it would make it" },
+        },
+        required: ["factory"],
+        additionalProperties: false,
+      },
+      run: async ({ factory, version, step, proposal }, me) => factoryOf(db, me, `${factory ?? ""}`, { version, step, proposal }),
+    },
+    {
+      name: "factory_history",
+      description: "Every step of a factory's history, oldest first: each with its seq, who made it (and whether over MCP), its message, its time and the version it was named, if one; its versions and its drafts (each draft's status, steps and proposal). With \`draft\`, one draft's own steps. Read any step's factory with get_factory's \`step\`.",
+      inputSchema: {
+        type: "object",
+        properties: { factory: { type: "string", description: "its id" }, draft: { type: "integer", minimum: 1, description: "a draft's number, for its own steps" } },
+        required: ["factory"],
+        additionalProperties: false,
+      },
+      run: async ({ factory, draft }, me) => factoryHistory(db, me, `${factory ?? ""}`, draft != null ? { branch: Number(draft) } : {}),
+    },
+    {
+      name: "factory_edit",
+      description:
+        `One step of a draft change to a factory, kept with its message: work on a factory step by step (a station's machine count, buffer, cycle variation or breakdowns, a part's operation and its seconds, a new station, the demand or the calendar, the layout), then propose the draft with propose_factory_version and its \`branch\`. Without \`branch\` it starts a new draft from the newest version and gives back its number; pass that number to the next steps. Every step is checked whole (every operation at a station of the line, every station named once …), and nobody sees a draft as the factory until it is proposed and accepted. ${FACTORY_EDITS} Or give the whole factory (\`whole\`, get_factory's \`json\` changed).`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          factory: { type: "string", description: "its id" },
+          message: { type: "string", description: "what this step does, as its history will say it" },
+          branch: { type: "integer", minimum: 1, description: "the draft to add the step to (factory_edit gives it); a new draft from the newest version if left out" },
+          edits: { type: "array", items: { type: "object" }, description: "edits applied in order to the draft" },
+          whole: { type: "object", description: "the draft's whole new factory (instead of edits)" },
+        },
+        required: ["factory", "message"],
+        additionalProperties: false,
+      },
+      run: async ({ factory, message, branch, edits, whole }, me) => editFactory(db, me, { factory, message, edits, whole, ...(branch != null ? { branch: Number(branch) } : {}) }),
+    },
+    {
+      name: "propose_factory_version",
+      description:
+        `Propose a new version of a factory: a draft made step by step with factory_edit (its \`branch\`; its steps go with it), or edits applied at once to its newest version, or the whole factory. ${FACTORY_EDITS} It goes to Maia City's admins as a proposal (via MCP), who see what changed field by field on the Proposals page and open the factory as it would be, its simulation running, then accept or archive it. If the factory gets a newer version first, it still goes in where the two changes touch different fields, and is archived where they touch the same.`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          factory: { type: "string", description: "its id" },
+          note: { type: "string", description: "what changes and why (the numbers it should give: output a day, the bottleneck), for the admins deciding" },
+          branch: { type: "integer", minimum: 1, description: "a draft to propose (factory_edit gives it)" },
+          edits: { type: "array", items: { type: "object" }, description: "edits applied in order (to the draft, if one is named)" },
+          whole: { type: "object", description: "the whole new factory (instead of edits)" },
+        },
+        required: ["factory", "note"],
+        additionalProperties: false,
+      },
+      run: async ({ factory, note, branch, edits, whole }, me) => proposeFactory(db, me, { factory, note, edits, whole, ...(branch != null ? { branch: Number(branch) } : {}) }),
+    },
     // ---- stories: a film as one timeline of tracks and clips (./stories.ts, play/SPEC.md §12)
     {
       name: "list_stories",
@@ -407,7 +490,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           capabilities: { tools: {} },
           serverInfo: { name: "play.maia.city", version: "1" },
           instructions:
-            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files, and every step of an asset's history (asset_history, get_asset at a step); propose new versions or assets as readable source, or draft a version step by step with asset_edit and propose the draft. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame. Read the sandboxes (get_sandbox: what each draws, at which version, and how it lays it out) and propose changes of them (propose_sandbox_change). Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's Proposals page, then accept or archive it; nothing here accepts, an agent archives only its own open proposals (archive_proposal), and no proposed code runs on play's server.",
+            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files, and every step of an asset's history (asset_history, get_asset at a step); propose new versions or assets as readable source, or draft a version step by step with asset_edit and propose the draft. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame. Read the sandboxes (get_sandbox: what each draws, at which version, and how it lays it out) and propose changes of them (propose_sandbox_change). Read the factories (get_factory: a production line and its bill of process, its simulation sized from it) and propose new versions of them, drafted step by step with factory_edit (propose_factory_version). Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's Proposals page, then accept or archive it; nothing here accepts, an agent archives only its own open proposals (archive_proposal), and no proposed code runs on play's server.",
         });
       case "ping":
         return reply(msg.id, {});
@@ -421,7 +504,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           return reply(msg.id, { content: [{ type: "text", text: JSON.stringify(out, null, 2) }], structuredContent: Array.isArray(out) ? { items: out } : out });
         } catch (e) {
           // what went wrong, as the tool's own answer the agent reads (a refused recipe, a moved head, no such asset)
-          if (e instanceof ProposalError || e instanceof NotFound || e instanceof StoryError || e instanceof SandboxError || e instanceof AssetDocError || (e as Error)?.name === "Denied" || (e as any)?.status)
+          if (e instanceof ProposalError || e instanceof NotFound || e instanceof StoryError || e instanceof SandboxError || e instanceof FactoryError || e instanceof AssetDocError || (e as Error)?.name === "Denied" || (e as any)?.status)
             return reply(msg.id, { content: [{ type: "text", text: (e as Error).message }], isError: true });
           console.error(e);
           return reply(msg.id, { content: [{ type: "text", text: "Something went wrong on play's side." }], isError: true });

@@ -62,6 +62,11 @@ its message), reads it with `asset_history` and `get_asset`'s `step`, and propos
 where a thing stands) changes only by proposal too: `get_sandbox` reads it, `propose_sandbox_change` proposes edits
 (`pin`, `pin_latest`, `unpin`, `set`, `delete`; play/SPEC.md §4.6), shown on the Proposals page before and after and
 openable in the sandbox as it would be; never by a migration. A
+**factory** (a production line on the Factories page: its line and its bill of process) is a Loro document too
+(play/SPEC.md §4.7): `list_factories`, `get_factory`, `factory_history` read it, `factory_edit` drafts a change step by
+step (a station's machines, buffer or breakdowns, a part's operation and its seconds, the demand), and
+`propose_factory_version` proposes it, shown on the Proposals page field by field and openable as the factory would be,
+its simulation running; never by a migration. A
 version can be a kind of **variants** (`propose_version`'s `variants`: a plant's kinds, an animal's breeds), each its own
 recipe and a chip in the asset viewer. No tool accepts; an agent archives only its own open proposals made over MCP
 (`archive_proposal`: one it has replaced or no longer stands by; Samuel 2026-11-04). The same token also opens play's **read-only world routes** (`GET /api/me`, `/api/catalog`,

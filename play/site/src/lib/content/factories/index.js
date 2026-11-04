@@ -3,40 +3,58 @@
  * discrete event simulation (AirSup's factory skill, .claude/skills/factory-skill; its runtime as legacy ported it,
  * cloned into play from the branch SNAPSHOT_2611101's maia/content/factories on 2026-11-03: des.js the engine,
  * kit.js the machines, world.js the hall, look.js the lens, app.js the page, each with our additions marked
- * "maiaCITY"). A factory is its spec: the product, the demand, the calendar, the route with every cycle time and where
- * it comes from. The engine sizes the line from it and runs it. Each kind lists its versions (the versions helper of
- * every group), so a world can anchor to a line as it was.
+ * "maiaCITY").
  *
- * The first in play: the LifeTrac line, which builds our LifeTrac part by part from raw stock, fully automated
- * (./lifetrac-line.js, every part's operations in ./lifetrac-bom.js, its machines and shapes in ./lifetrac-kit.js).
+ * What a factory is lives in play's Postgres, not here (Samuel 2026-11-04, play/SPEC.md §4.7): each is a Loro document
+ * of type factory/1 (play/api/src/factories.ts), read from /api/factories/<id>, changed only by proposal. This file
+ * turns such a document into what the runtime reads: its line, every station's cycle time the sum of what it does for one
+ * unit (its parts' operations and its own handling) unless the station gives its own, and its note written from them;
+ * and the bill of process the page lists beside it. The engine, the kit and the shapes stay code here
+ * (./lifetrac-kit.js: the LifeTrac line's machines and shapes).
  */
-import { FIRST, versioned } from '$lib/site/app/versions.js';
-import { LIFETRAC_REF, SPEC as LIFETRAC_LINE } from './lifetrac-line.js';
-import { PARTS, totals } from './lifetrac-bom.js';
 
-/** @typedef {typeof LIFETRAC_LINE} Spec a factory as AirSup's runtime reads it (SKILL.md "Spec"), with our additions */
-/** @typedef {{ id: string, label: string, note: string, from: string, builds: string, build: () => Spec, parts?: typeof PARTS }} Kind a factory: what it builds (by its slot), its spec, and its bill of process */
-/** @typedef {Kind & { versions: import('$lib/site/app/versions.js').Version<() => Spec>[], version: number }} Factory */
+const r1 = (v) => Math.round(v * 10) / 10;
 
-/** the kinds' versions, by id */
-const HISTORY = {
-	'lifetrac-line': [{ ...FIRST, date: '2026-11-03', note: 'First version: 24 LifeTracs a day on 3 × 8 h, fully automated, 42 stations on a main line and nine cells (tubes, angles, pins, wheel units, the Power Cube, valves, hoses, cylinders, the controller); every one of the 135 parts of machines/lifetrac@1 made from its raw stock or bought, its every operation timed' }]
-};
+/**
+ * @typedef {{ at: string, s: number, what?: string }} Op one operation: at which station, for how many seconds for one unit's worth
+ * @typedef {{ id: string, label: string, assembly?: string, qty: number, raw?: Record<string, any>, ops: Op[] }} Part
+ * @typedef {{ schema: 'factory/1', label: string, note?: string, from?: string, builds?: string, line: any, stock?: Record<string, { label: string }>, assemblies?: { id: string, label: string }[], parts: Part[], handling?: Record<string, Op[]> }} FactoryDoc
+ */
 
-const T = totals();
-
-/** @type {Kind[]} */
-const LIST = [
-	{
-		id: 'lifetrac-line',
-		label: 'LifeTrac line',
-		note: `A fully automated factory that builds our LifeTrac, part by part: ${T.made} of its ${T.parts} parts made here from plate, tube, angle, bar, hose and wire (cut, turned, welded, painted), ${T.bought} bought; 42 robot stations, 24 LifeTracs a day around the clock`,
-		from: 'Our design, from OSE’s LifeTrac v25 bills of materials: 2026-11-03',
-		builds: LIFETRAC_REF,
-		build: () => LIFETRAC_LINE,
-		parts: PARTS
-	}
-];
-
-/** @type {Factory[]} */
-export const FACTORIES = versioned(LIST, 'build', HISTORY);
+/**
+ * A factory's document, as the page and the runtime use it.
+ * @param {FactoryDoc} doc
+ */
+export function lineOf(doc) {
+	const parts = doc.parts ?? [];
+	const handling = doc.handling ?? {};
+	const product = doc.line.product?.name ?? 'unit';
+	/** everything station `st` does for one unit: each part's operations there, then its own handling */
+	const opsAt = (st) => {
+		const out = [];
+		for (const p of parts) for (const o of p.ops) if (o.at === st) out.push({ ...o, part: p.id, label: p.label });
+		for (const o of handling[st] ?? []) out.push({ ...o, part: null, label: 'Station handling' });
+		return out;
+	};
+	/** a station's cycle time for one unit: the sum of what it does, s */
+	const contentOf = (st) => r1(opsAt(st).reduce((s, o) => s + o.s, 0));
+	/** the note a station's inspector shows: how much it does for one unit, the biggest of it, and its machine's rate */
+	const noteOf = (st) => {
+		const ops = opsAt(st.id).filter((o) => o.s > 0).sort((a, b) => b.s - a.s);
+		const n = new Set(ops.filter((o) => o.part).map((o) => o.part)).size;
+		const top = ops.slice(0, 3).map((o) => `${o.label} ${Math.round(o.s)} s`).join(', ');
+		return `${st.what ?? ''} ${n} part${n === 1 ? '' : 's'} of every ${product} pass here, ${ops.length} operations, ${Math.round(contentOf(st.id)).toLocaleString('en-US')} s in all${top ? ` (the most: ${top})` : ''}.${st.rate ? ` ${st.rate}` : ''}`.trim();
+	};
+	const spec = {
+		...doc.line,
+		stations: doc.line.stations.map((s) => ({ ...s, ct: typeof s.ct === 'number' ? s.ct : contentOf(s.id), note: typeof s.note === 'string' ? s.note : noteOf(s) }))
+	};
+	const totals = {
+		parts: parts.length,
+		pieces: parts.reduce((s, p) => s + (p.qty ?? 0), 0),
+		made: parts.filter((p) => p.raw?.stock).length,
+		bought: parts.filter((p) => !p.raw?.stock).length,
+		kg: r1(parts.reduce((s, p) => s + (p.raw?.kg ?? 0), 0))
+	};
+	return { spec, parts, stock: doc.stock ?? {}, assemblies: doc.assemblies ?? [], product, opsAt, contentOf, totals };
+}

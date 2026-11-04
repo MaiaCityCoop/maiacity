@@ -554,6 +554,33 @@ export const MIGRATIONS: Migration[] = [
       ALTER TABLE play.assets DROP CONSTRAINT IF EXISTS assets_grp_slug_key;
     `,
   },
+  {
+    // the Factories on Loro (Samuel 2026-11-04, ./factories.ts): each production line a document `factory:<uuid>`,
+    // changed only by proposal (`factory_version`, its draft a branch of the document), as a story is. A factory is its
+    // UUID (the first, the LifeTrac line, uuidOf('factory:lifetrac-line')); its label is only shown.
+    id: "0018-factories-on-loro",
+    sql: `
+      CREATE TABLE play.factories (
+        id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        coop_id UUID NOT NULL REFERENCES play.coops(id),
+        label   TEXT NOT NULL,
+        created TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      ALTER TABLE play.docs DROP CONSTRAINT docs_id_check,
+        ADD CONSTRAINT docs_id_check CHECK (id ~ '^(story|asset|factory):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+      ALTER TABLE play.proposals
+        ADD COLUMN factory_id UUID REFERENCES play.factories(id),
+        DROP CONSTRAINT proposals_kind_check,
+        ADD CONSTRAINT proposals_kind_check CHECK (kind IN ('asset_version', 'story_version', 'sandbox_change', 'factory_version')),
+        DROP CONSTRAINT proposals_names_what,
+        ADD CONSTRAINT proposals_names_what CHECK (
+          (kind = 'asset_version' AND asset_id IS NOT NULL AND version IS NOT NULL AND story_id IS NULL AND story_version IS NULL AND sandbox_id IS NULL AND factory_id IS NULL)
+          OR (kind = 'story_version' AND story_id IS NOT NULL AND story_version IS NOT NULL AND asset_id IS NULL AND version IS NULL AND sandbox_id IS NULL AND factory_id IS NULL)
+          OR (kind = 'sandbox_change' AND sandbox_id IS NOT NULL AND sandbox_change IS NOT NULL AND asset_id IS NULL AND version IS NULL AND story_id IS NULL AND factory_id IS NULL)
+          OR (kind = 'factory_version' AND factory_id IS NOT NULL AND doc_branch IS NOT NULL AND asset_id IS NULL AND version IS NULL AND story_id IS NULL AND sandbox_id IS NULL));
+    `,
+  },
 ];
 
 /** Runs every migration not yet run, each in its own transaction. */
