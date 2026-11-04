@@ -452,19 +452,20 @@ export const MIGRATIONS: Migration[] = [
     sql: `ALTER TABLE play.stories ADD COLUMN folded_into TEXT REFERENCES play.stories(id);`,
   },
   {
-    // one way to end a proposal: rejected, by an admin or by its author (Samuel 2026-11-04); what was withdrawn is rejected
-    id: "0015-withdrawn-is-rejected",
+    // a proposal ends accepted or archived, nothing else (Samuel 2026-11-04): what was rejected, withdrawn or stale is archived
+    id: "0015-accepted-or-archived",
     sql: `
-      UPDATE play.proposals SET status = 'rejected', decided_by = COALESCE(decided_by, author) WHERE status = 'withdrawn';
-      UPDATE play.doc_branches SET status = 'rejected' WHERE status = 'withdrawn';
+      UPDATE play.proposals SET status = 'archived', decided_by = COALESCE(decided_by, CASE WHEN status = 'withdrawn' THEN author END)
+        WHERE status IN ('rejected', 'withdrawn', 'stale');
       DO $$ DECLARE c record; BEGIN
         FOR c IN SELECT conrelid::regclass AS t, conname FROM pg_constraint
                   WHERE conrelid IN ('play.proposals'::regclass, 'play.doc_branches'::regclass) AND contype = 'c'
-                    AND pg_get_constraintdef(oid) LIKE '%withdrawn%'
+                    AND pg_get_constraintdef(oid) LIKE '%rejected%'
         LOOP EXECUTE format('ALTER TABLE %s DROP CONSTRAINT %I', c.t, c.conname); END LOOP;
       END $$;
-      ALTER TABLE play.proposals ADD CONSTRAINT proposals_status_check CHECK (status IN ('open', 'accepted', 'rejected', 'stale'));
-      ALTER TABLE play.doc_branches ADD CONSTRAINT doc_branches_status_check CHECK (status IN ('open', 'proposed', 'accepted', 'rejected', 'stale'));`,
+      UPDATE play.doc_branches SET status = 'archived' WHERE status IN ('rejected', 'withdrawn', 'stale');
+      ALTER TABLE play.proposals ADD CONSTRAINT proposals_status_check CHECK (status IN ('open', 'accepted', 'archived'));
+      ALTER TABLE play.doc_branches ADD CONSTRAINT doc_branches_status_check CHECK (status IN ('open', 'proposed', 'accepted', 'archived'));`,
   },
 ];
 

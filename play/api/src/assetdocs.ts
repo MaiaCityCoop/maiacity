@@ -8,7 +8,7 @@
 // between them); each proposal not accepted a branch at its base, closed as it was decided.
 //
 // A source is code: it is never merged unseen. An asset's proposal is accepted only on the head it was made on (a
-// moved head makes it stale, ./proposals.ts), so the merged result is the proposed version itself, the one the
+// moved head archives it, ./proposals.ts), so the merged result is the proposed version itself, the one the
 // Proposals page built and showed in the asset box; the document's own rule (a code merge that met other edits needs
 // the hash of its previewed result) stands behind it.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -195,7 +195,7 @@ export async function ensureAssetDoc(q: Queryable, store: BlobStore, asset: stri
     const b = await branchAt(q, id, p.base_number, { human: p.author, via: p.via === "mcp" ? "mcp" : "site" }, p.note);
     await docs.commit(q, id, { branch: b, target: json, message: firstLine(p.note) || "proposed", author: { human: p.author, via: p.via === "mcp" ? "mcp" : "site" }, at: p.created });
     await docs.propose(q, id, b, { note: p.note, author: { human: p.author, via: p.via === "mcp" ? "mcp" : "site" } });
-    if (p.status !== "open") await docs.close(q, id, b, { author: { human: null, via: "system" }, status: p.status as "rejected" | "stale" });
+    if (p.status !== "open") await docs.close(q, id, b, { author: { human: null, via: "system" }, status: p.status as "archived" });
     await q.query(`UPDATE play.proposals SET doc_branch = $2 WHERE id = $1`, [p.id, b]);
   }
   return { id, made, branches: ps.length, kept: keptSteps };
@@ -305,8 +305,8 @@ export async function acceptBranch(q: Queryable, store: BlobStore, p: { id: stri
   });
 }
 
-/** a decided proposal's branch closed (rejected or stale): its steps stay in the history, on their side line */
-export async function closeBranch(q: Queryable, asset: string, branch: string | number | null | undefined, me: Me | null, status: "rejected" | "stale"): Promise<void> {
+/** an archived proposal's branch closed: its steps stay in the history, on their side line */
+export async function closeBranch(q: Queryable, asset: string, branch: string | number | null | undefined, me: Me | null, status: "archived"): Promise<void> {
   if (branch == null) return;
   const { rows } = await q.query<{ status: string }>(`SELECT status FROM play.doc_branches WHERE id = $1`, [branch]);
   if (rows[0] && (rows[0].status === "open" || rows[0].status === "proposed")) await docs.close(q, assetDocId(asset), Number(branch), { author: authorOf(me, "site"), status });

@@ -61,7 +61,8 @@ file the box runs is exactly the source people read. Proposed code never runs on
 labels and hashes text), and in the page only in the **asset box**: a frame with `sandbox="allow-scripts"` and no
 origin, its own CSP with no connection, the frozen engine (held to its hash) in a worker. A proposal's record may name
 only a frozen box engine, and its manifest is the libraries its source requires. The Proposals page is a board (Samuel 2026-11-03): a
-column per status (Open, Accepted, Rejected, Stale, Withdrawn); a card opened shows the version built in the box nearly
+column per status (Open, Accepted, Archived: a proposal ends accepted or archived, nothing else, Samuel 2026-11-04;
+an admin archives any, its author their own); a card opened shows the version built in the box nearly
 full screen, its note folded, its source (beside its base's, as changes) a button away, before anyone decides. Nothing
 is proposed or edited on the page: versions come over MCP. `/api/files` serves
 code as plain text (`nosniff`, `sandbox`), never as script on play's origin.
@@ -103,13 +104,13 @@ asset_versions  (id /*BLAKE3 of canonical {asset, parents, recipe, default_varia
 asset_variants  (version_id, name, recipe_hash → files, card jsonb)              -- immutable
 files           (hash PK /*BLAKE3 of the bytes*/, size, media_type, bucket_key, created)
 proposals       (id, coop_id, kind /*asset_version*/, asset_id, base → asset_versions, version → asset_versions,
-                 author, status /*open|accepted|rejected|withdrawn|stale*/, decided_by, decided_at, note, created)
+                 author, status /*open|accepted|archived*/, decided_by, decided_at, note, created)
 ```
 
 - A proposal names its **base** (the head it was made from) and a not yet numbered version.
 - **Accept** is one transaction: it checks `assets.head = proposal.base` (optimistic concurrency), gives the version
   the next number, moves the head, writes `approved_by`. If someone accepted another version first, the proposal is
-  **stale**: re-propose it on the new head, or an admin accepts it as a replacement (its parents then name both).
+  **archived**: re-propose it on the new head, or an admin accepts it as a replacement (its parents then name both).
 - Content addressing gives what avenDB gave: the same content has the same id, a file is checked by its hash wherever
   it is read, and history can't be rewritten without every id changing.
 
@@ -172,8 +173,8 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   ("Papaya: Male" as Male), `default_variant` the one a ref without a variant names. `params` sets the card's
   parameters when the recipe declares new ones (its meta.params, in its build's order), on the version and every
   variant. The papaya's three kinds (both, female, male) are the first.
-- **Never merged unseen**: an asset's proposal is still accepted only on the head it was made on (a moved head makes it
-  stale, §4.3), so what is accepted is exactly the version the Proposals page built and showed in the asset box; the
+- **Never merged unseen**: an asset's proposal is still accepted only on the head it was made on (a moved head archives it,
+  §4.3), so what is accepted is exactly the version the Proposals page built and showed in the asset box; the
   document's own rule (a merge that met other edits needs its previewed hash) stands behind it.
 - **The making-of**: for admins the asset viewer has a history bar of every step (versions marked; who, how, message,
   time) and plays them as a time-lapse. At a version's point it builds that version's own recipe file; at any other step
@@ -318,7 +319,7 @@ clock, and a seek lays the sound again from the new t.
 own: `propose_story_version` on its head. Stories proposed apart are brought together by `import/stories/folds.json`
 (run with every deploy, `foldStories` in `play/api/src/stories.ts`): each story it names, in turn, has its accepted
 versions proposed and accepted on the one story as its next versions (each by its own author and approver, its note
-saying where it came from), its open proposals proposed again there and withdrawn where they were; then it is
+saying where it came from), its open proposals proposed again there and archived where they were; then it is
 `folded_into` that story: kept with its whole history, listed no more, taking no proposal. The papaya devlog is the
 first: v1 the devlog short, v2 "The Tree That Remembers", v3–v5 the Day 1 rewrites ("Your papaya flew across an
 ocean", the same voiced, "Three seeds. One will never give fruit."), Three Seeds' voice its next proposal.
@@ -351,9 +352,9 @@ proposals       (… kind 'story_version', story_id, story_base → story_versio
 - **Accept** is the asset versions' transaction: it checks `stories.head = proposal.story_base`, gives the version
   the next number and moves the head (and the story's title). A proposal whose base is no longer the head still goes
   in where the two changes touch **different fields**: both stand, in a new version whose parents are the head and
-  the proposal (its note says it was merged). Where they touch **the same field** it is **stale**, never accepted: it
-  is proposed again on the new head. Rejected and stale proposals stay as side lines in the history; their versions
-  keep no number.
+  the proposal (its note says it was merged). Where they touch **the same field** it is **archived**, never accepted: it
+  is proposed again on the new head. Archived proposals stay as side lines in the history; their versions keep no
+  number.
 - The repo's stories (`play/api/import/stories/<id>/`, `story.json` and its `frames/`) are written once, as their
   accepted v1, by the import every deploy runs, only where play holds no story of that id (`import/stories.ts`).
 

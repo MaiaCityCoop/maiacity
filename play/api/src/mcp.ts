@@ -281,7 +281,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         `{ op: 'add_track', track: { id, kind, clips }, index? }; { op: 'remove_track', track }; { op: 'set_track', track, fields: { id?, kind? } }; ` +
         `{ op: 'shift', from, by, tracks? } moves every clip starting at or after \`from\` seconds by \`by\` seconds (negative to pull in), on all tracks or the ones named, to make room or close a gap; ` +
         `{ op: 'set', fields: { format?, fps? } }; { op: 'edit_text', track, clip, field, index, delete?, insert? } changes a range of one of a clip's texts. On shots, voice and notes tracks clips must not overlap, so retime with shift. ${STORY_FORMAT} ` +
-        `Or propose a draft made step by step with story_edit (its \`branch\`): its steps go with it, and the admins see them. It goes to the admins as a proposal (via MCP), shown against the head clip by clip. If the story gets a newer version before it is accepted, it still goes in where the two changes touch different fields, and goes stale where they touch the same.`,
+        `Or propose a draft made step by step with story_edit (its \`branch\`): its steps go with it, and the admins see them. It goes to the admins as a proposal (via MCP), shown against the head clip by clip. If the story gets a newer version before it is accepted, it still goes in where the two changes touch different fields, and is archived where they touch the same (to be proposed again on the new head).`,
       inputSchema: {
         type: "object",
         properties: {
@@ -322,10 +322,10 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     },
     {
       name: "list_proposals",
-      description: "The proposals, newest first, with their status (open, accepted, rejected, stale), author and where they came from (web or mcp).",
+      description: "The proposals, newest first, with their status (open, accepted, archived), author and where they came from (web or mcp).",
       inputSchema: {
         type: "object",
-        properties: { status: { type: "string", enum: ["open", "accepted", "rejected", "stale"] } },
+        properties: { status: { type: "string", enum: ["open", "accepted", "archived"] } },
         additionalProperties: false,
       },
       run: async ({ status }, me) => listProposals(db, me, status),

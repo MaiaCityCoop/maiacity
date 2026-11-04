@@ -578,7 +578,7 @@ export type FoldReport = { folded: string[]; present: string[]; errors: string[]
 /**
  * Brings stories into one timeline: each story of `from`, in order, has its accepted versions proposed on `into` and
  * accepted there, one after the other, as that story's next versions (each by its own author and approver, its note
- * saying where it came from), and its open proposals proposed again on `into`'s new head, their own rejected. Then it
+ * saying where it came from), and its open proposals proposed again on `into`'s new head, their own archived. Then it
  * is folded: kept with its whole history, listed no more, taking no proposal. Run with every deploy (import/stories.ts);
  * a version already on `into` (the same title and timeline) is not brought twice, and a folded story is passed over.
  */
@@ -627,7 +627,7 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
           });
           if (res.status !== "accepted") throw new Error(`${from} v${v.number} did not go in: ${(res as any).message ?? res.status}`);
         }
-        // its open proposals, proposed again on the timeline's new head; their own rejected
+        // its open proposals, proposed again on the timeline's new head; their own archived
         const { rows: open } = await db.query<any>(
           `SELECT p.*, v.title, v.body FROM play.proposals p JOIN play.story_versions v ON v.id = p.story_version
             WHERE p.story_id = $1 AND p.kind = 'story_version' AND p.status = 'open' ORDER BY p.created`,
@@ -641,8 +641,8 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
             await proposeStory(db, author, { story: f.into, title: p.title, body: p.body, note }, false, p.via === "web" ? "web" : "mcp");
           }
           await db.transaction(async (tx) => {
-            await tx.query(`UPDATE play.proposals SET status = 'rejected', decided_at = now() WHERE id = $1 AND status = 'open'`, [p.id]);
-            await rejectOwnStory(tx, author, p);
+            await tx.query(`UPDATE play.proposals SET status = 'archived', decided_at = now() WHERE id = $1 AND status = 'open'`, [p.id]);
+            await archiveOwnStory(tx, author, p);
           });
         }
         await db.query(`UPDATE play.stories SET folded_into = $2 WHERE id = $1`, [from, f.into]);
@@ -691,22 +691,22 @@ export async function storyReview(db: Queryable, p: { story_id: string; story_ba
  * Accept or reject story proposal `p` (locked by the caller's transaction), as admin `me`. Accepted, its branch is
  * merged into the story's document and the version numbered, the document's version of the same number. Made on a head
  * that has moved on since, it still goes in where the two changes touch different fields (both stand, in a version
- * whose parents are both); where they touch the same field it goes stale, kept on its side line, to be proposed again.
+ * whose parents are both); where they touch the same field it is archived, kept on its side line, to be proposed again.
  */
-export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accept" | "reject") {
+export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accept" | "archive") {
   if (me.level !== "admin") throw new Denied("Only Maia City's admins decide on stories.");
   return asStoryError(async () => {
     const docId = await ensureStoryDoc(tx, p.story_id);
     const branch = Number((await tx.query<{ doc_branch: string | null }>(`SELECT doc_branch FROM play.proposals WHERE id = $1`, [p.id])).rows[0]?.doc_branch);
     const author = authorOf(me, "site");
-    const closeBranch = async (status: "rejected" | "stale") => {
+    const closeBranch = async (status: "archived") => {
       const { rows } = await tx.query<{ status: string }>(`SELECT status FROM play.doc_branches WHERE id = $1`, [branch]);
       if (rows[0] && (rows[0].status === "open" || rows[0].status === "proposed")) await docs.close(tx, docId, branch, { author, status });
     };
-    if (verdict === "reject") {
-      await tx.query(`UPDATE play.proposals SET status = 'rejected', decided_by = $2, decided_at = now() WHERE id = $1`, [p.id, me.id]);
-      await closeBranch("rejected");
-      return { id: p.id, status: "rejected" };
+    if (verdict === "archive") {
+      await tx.query(`UPDATE play.proposals SET status = 'archived', decided_by = $2, decided_at = now() WHERE id = $1`, [p.id, me.id]);
+      await closeBranch("archived");
+      return { id: p.id, status: "archived" };
     }
     const { rows } = await tx.query<{ head: string | null; number: number | null }>(
       `SELECT s.head, v.number FROM play.stories s LEFT JOIN play.story_versions v ON v.id = s.head WHERE s.id = $1 FOR UPDATE OF s`, [p.story_id],
@@ -723,7 +723,7 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
       await accepted(p.story_version);
       return { id: p.id, status: "accepted", number: n, version: p.story_version };
     }
-    // the head moved on since this was made: merged where the two changes touch different fields, stale where the same
+    // the head moved on since this was made: merged where the two changes touch different fields, archived where the same
     let merged: { title: string; body: StoryBody } | null = null, clash: string[] = [];
     if (head && p.story_base) {
       const baseNumber = (await tx.query<{ number: number }>(`SELECT number FROM play.story_versions WHERE id = $1`, [p.story_base])).rows[0]?.number;
@@ -741,10 +741,10 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
       }
     }
     if (!merged) {
-      await tx.query(`UPDATE play.proposals SET status = 'stale', decided_at = now() WHERE id = $1`, [p.id]);
-      await closeBranch("stale");
+      await tx.query(`UPDATE play.proposals SET status = 'archived', decided_at = now() WHERE id = $1`, [p.id]);
+      await closeBranch("archived");
       const where = clash.length ? ` It changes what v${n - 1} changed too (${clash.slice(0, 3).map((c) => c.replace(/^\$\./, "")).join(", ")}).` : "";
-      return { id: p.id, status: "stale", message: `This story has a newer version than the one this was made on.${where} Propose the change again on its head.` };
+      return { id: p.id, status: "archived", message: `This story has a newer version than the one this was made on.${where} Propose the change again on its head.` };
     }
     const version = versionIdOf(p.story_id, [head!, p.story_version], merged.title, merged.body);
     await tx.query(
@@ -756,11 +756,11 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
   });
 }
 
-/** a story proposal rejected by its author (or moved by a fold): its branch closed, its steps kept on their side line */
-export async function rejectOwnStory(tx: Queryable, me: Me, p: any) {
+/** a story proposal archived by its author (or moved by a fold): its branch closed, its steps kept on their side line */
+export async function archiveOwnStory(tx: Queryable, me: Me, p: any) {
   if (p.doc_branch == null) return;
   const { rows } = await tx.query<{ status: string }>(`SELECT status FROM play.doc_branches WHERE id = $1`, [p.doc_branch]);
-  if (rows[0] && (rows[0].status === "open" || rows[0].status === "proposed")) await docs.close(tx, docIdOf(p.story_id), Number(p.doc_branch), { author: authorOf(me, "site"), status: "rejected" });
+  if (rows[0] && (rows[0].status === "open" || rows[0].status === "proposed")) await docs.close(tx, docIdOf(p.story_id), Number(p.doc_branch), { author: authorOf(me, "site"), status: "archived" });
 }
 
 // ---- a story's history, step by step

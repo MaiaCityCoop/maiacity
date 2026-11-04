@@ -1,7 +1,7 @@
 // Asset update proposals (play/SPEC.md §4.3): a citizen proposes a new version of an asset (or a new asset), built for
 // the version after its head, as a recipe file names its own version; an admin accepts or rejects it. Accepting checks
 // the head is still the one it was made from, in one transaction, so of two proposals on one head only the first goes
-// in and the other is stale: rebuilt and proposed again on the new head.
+// in and the other is archived: rebuilt and proposed again on the new head.
 import { randomUUID } from "node:crypto";
 import type { BlobStore } from "./blobs";
 import { hashText } from "./hash";
@@ -12,7 +12,7 @@ import { boxEngine, LATEST_BOX } from "./engines";
 import { readableRefs } from "../import/plan";
 import { versionId } from "./versions";
 import { newId, UUID } from "./uuid";
-import { decideStory, named, rejectOwnStory, storyReview } from "./stories";
+import { archiveOwnStory, decideStory, named, storyReview } from "./stories";
 import * as docs from "./docs";
 import { acceptBranch, asAssetJson, AssetDocError, assetDocId, authorOf, closeBranch, draftOf, draftState, ensureAssetDoc, proposalBranch, type AssetJson } from "./assetdocs";
 
@@ -349,14 +349,14 @@ export async function proposalOf(db: Queryable, me: Me | null, id: string) {
   };
 }
 
-export type Verdict = "accept" | "reject";
+export type Verdict = "accept" | "archive";
 
 /**
- * Accept or reject a proposal. An admin decides any; its author may reject their own (there is no other way to end
- * one: Samuel 2026-11-04, "it's just rejected"). An asset's is accepted only on the head it was made on (else it goes
- * stale), so what is accepted is exactly the version the Proposals page built and showed in the asset box; its branch
- * of the asset's document is merged and named the version's number. Decided otherwise, its branch is closed, its steps
- * kept.
+ * Accept or archive a proposal: a proposal ends accepted or archived, nothing else (Samuel 2026-11-04). An admin decides
+ * any; its author may archive their own. An asset's is accepted only on the head it was made on (else it is archived,
+ * to be proposed again on the new head), so what is accepted is exactly the version the Proposals page built and showed
+ * in the asset box; its branch of the asset's document is merged and named the version's number. Archived, its branch
+ * is closed, its steps kept.
  */
 export async function decide(db: Db, store: BlobStore, me: Me | null, id: string, verdict: Verdict) {
   if (!me) throw new Denied("Please sign in first.", 401);
@@ -365,27 +365,27 @@ export async function decide(db: Db, store: BlobStore, me: Me | null, id: string
     const p = rows[0];
     if (!p) throw new ProposalError("There is no such proposal.", 404);
     if (p.status !== "open") throw new ProposalError(`This proposal is ${p.status} already.`, 409);
-    // its author rejects their own, whoever may decide the rest
-    if (verdict === "reject" && p.author === me.id && me.level !== "admin") {
-      await tx.query(`UPDATE play.proposals SET status = 'rejected', decided_by = $2, decided_at = now() WHERE id = $1`, [id, me.id]);
-      if (p.kind === "story_version") await rejectOwnStory(tx, me, p);
-      else await closeBranch(tx, p.asset_id, p.doc_branch, me, "rejected");
-      return { id, status: "rejected" };
+    // its author archives their own, whoever may decide the rest
+    if (verdict === "archive" && p.author === me.id && me.level !== "admin") {
+      await tx.query(`UPDATE play.proposals SET status = 'archived', decided_by = $2, decided_at = now() WHERE id = $1`, [id, me.id]);
+      if (p.kind === "story_version") await archiveOwnStory(tx, me, p);
+      else await closeBranch(tx, p.asset_id, p.doc_branch, me, "archived");
+      return { id, status: "archived" };
     }
     if (p.kind === "story_version") return decideStory(tx, me, p, verdict);
     must(me, "decide", "asset_version");
-    if (verdict === "reject") {
-      await tx.query(`UPDATE play.proposals SET status = 'rejected', decided_by = $2, decided_at = now() WHERE id = $1`, [id, me.id]);
-      await closeBranch(tx, p.asset_id, p.doc_branch, me, "rejected");
-      return { id, status: "rejected" };
+    if (verdict === "archive") {
+      await tx.query(`UPDATE play.proposals SET status = 'archived', decided_by = $2, decided_at = now() WHERE id = $1`, [id, me.id]);
+      await closeBranch(tx, p.asset_id, p.doc_branch, me, "archived");
+      return { id, status: "archived" };
     }
     const { rows: a } = await tx.query<{ head: string | null; number: number | null }>(
       `SELECT a.head, v.number FROM play.assets a LEFT JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1 FOR UPDATE OF a`, [p.asset_id],
     );
     if ((a[0]?.head ?? null) !== (p.base ?? null)) {
-      await tx.query(`UPDATE play.proposals SET status = 'stale', decided_at = now() WHERE id = $1`, [id]);
-      await closeBranch(tx, p.asset_id, p.doc_branch, me, "stale");
-      return { id, status: "stale" };
+      await tx.query(`UPDATE play.proposals SET status = 'archived', decided_at = now() WHERE id = $1`, [id]);
+      await closeBranch(tx, p.asset_id, p.doc_branch, me, "archived");
+      return { id, status: "archived" };
     }
     // the asset's document, made from its history first where it has none (and this proposal's branch, if it lacks one)
     await ensureAssetDoc(tx, store, p.asset_id).catch((e) => {
@@ -397,11 +397,11 @@ export async function decide(db: Db, store: BlobStore, me: Me | null, id: string
     await tx.query(`UPDATE play.proposals SET status = 'accepted', decided_by = $2, decided_at = now() WHERE id = $1`, [id, me.id]);
     await acceptBranch(tx, store, p, me, n);
     const { rows: stale } = await tx.query<{ doc_branch: string | null }>(
-      `UPDATE play.proposals SET status = 'stale', decided_at = now()
+      `UPDATE play.proposals SET status = 'archived', decided_at = now()
         WHERE asset_id = $1 AND status = 'open' AND id <> $2 AND base IS NOT DISTINCT FROM $3 RETURNING doc_branch`,
       [p.asset_id, id, p.base],
     );
-    for (const s of stale) await closeBranch(tx, p.asset_id, s.doc_branch, me, "stale");
+    for (const s of stale) await closeBranch(tx, p.asset_id, s.doc_branch, me, "archived");
     return { id, status: "accepted", number: n, version: p.version };
   });
 }
