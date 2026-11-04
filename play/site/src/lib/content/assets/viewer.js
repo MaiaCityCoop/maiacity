@@ -5,8 +5,8 @@
  * asset's own page (./AssetPage.svelte) and a plant's card in Sandbox 5 ($content/sandbox-2/interior/PlantLook.svelte),
  * which keep their own lights. Their bar, panel and readout are drawn by ./ViewerParts.svelte.
  *
- *   openStage   the stage renderer ($content/render/stage.js) in the viewer's box, and the paper studio on it (./stage.js),
- *               its resolution following the frame rate
+ *   openStage   the stage renderer ($content/render/stage.js) in the viewer's box, and the stage on it (./stage.js) under
+ *               the golden-hour sky (./sky.js), its resolution following the frame rate
  *   camerawork  the camera on what is shown: framed as built, gliding to a new framing, following a plant as it grows,
  *               turning to a part, backing off while it is drawn apart
  *   onTap       a tap on the canvas, not a drag round it
@@ -79,7 +79,7 @@ export async function openStage(box, { onLost, hold } = {}) {
 	let view, stage;
 	try {
 		view = createStageRenderer(box, { pixelRatio: topPixelRatio(low), shadows: 'soft', onLost, fov: 40, turntable: true, fit, onResize: (w, h) => stage?.resize(w, h) });
-		stage = new Stage(view.renderer, view.camera, { low });
+		stage = new Stage(view.renderer, view.camera, { low, sky: true });
 	} catch (e) {
 		view?.dispose?.();
 		throw e;
@@ -100,8 +100,9 @@ export async function openStage(box, { onLost, hold } = {}) {
  * @param {any} controls
  */
 export function camerawork(THREE, camera, controls) {
-	/** where the camera stands from what it aims at, for each metre of an asset's reach */
-	const BACK = new THREE.Vector3(1.5, 0.7, 1.9);
+	/** where the camera stands from what it aims at, for each metre of an asset's reach: low enough (about 10° up)
+	 *  that the sky and the sun low behind the asset are in the frame, the horizon a little over the middle */
+	const BACK = new THREE.Vector3(1.5, 0.45, 1.9);
 	/** how much nearer the camera stands while it follows a plant growing than for a still framing (Samuel 2026-11-03:
 	 *  growing, it stayed too far off) */
 	const GROWING = 0.8;

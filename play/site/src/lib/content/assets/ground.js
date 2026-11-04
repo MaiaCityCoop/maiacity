@@ -6,7 +6,7 @@
  * and below the soil it stands in, its horizons, and its roots in it.
  *
  *   the floor   the biome's surfaces as the worlds paint them ($content/biomes `groundMaterial`, from the vault's card),
- *               out to where it fades into the studio's backdrop; round the stem a ring of mulch, where a seedling
+ *               out to where it fades into the studio's backdrop (under the sky, ./sky.js, into the horizon behind it); round the stem a ring of mulch, where a seedling
  *               stands in a garden; its cover (grasses, clover, leaves) streamed round the plant, thinning with
  *               distance and growing up or sinking back on the graphics card, never popping (`coverStream`). It faces
  *               up only, so from below the ground it is not drawn and the eye sees on into the garden
@@ -406,14 +406,14 @@ function setSoil(m, soil) {
  * facing up only, so the eye below the ground sees on past it
  * @param {ReturnType<typeof groundUniforms>} g @param {THREE.Color} bg @param {THREE.Vector2} fade
  */
-function floorMaterial(g, bg, fade) {
+function floorMaterial(g, bg, fade, sky) {
 	const m = groundMaterial({ soil: 1 });
 	const inner = m.onBeforeCompile;
 	m.onBeforeCompile = (sh, r) => {
 		inner(sh, r);
-		Object.assign(sh.uniforms, g, { uBg: { value: bg }, uFade: { value: fade } });
+		Object.assign(sh.uniforms, g, { uBg: { value: bg }, uFade: { value: fade } }, sky?.uniforms ?? {});
 		sh.fragmentShader = sh.fragmentShader
-			.replace('#include <common>', `#include <common>\nuniform vec3 uBg; uniform vec2 uFade;\n${GROUND_HEAD}`)
+			.replace('#include <common>', `#include <common>\nuniform vec3 uBg; uniform vec2 uFade;\n${GROUND_HEAD}\n${sky?.glsl ?? ''}`)
 			.replace(
 				'#include <color_fragment>',
 				`#include <color_fragment>
@@ -432,9 +432,13 @@ function floorMaterial(g, bg, fade) {
 		diffuseColor.rgb *= 1.0 + (bvn(bw * 260.0) - 0.5) * 0.35 * gNear + (bvn(bw * 70.0 + 3.0) - 0.5) * 0.22 * gMid;
 	}`
 			)
-			.replace('#include <dithering_fragment>', '#include <dithering_fragment>\n\tgl_FragColor.rgb = mix(gl_FragColor.rgb, uBg, smoothstep(uFade.x, uFade.y, length(vBiomeXZ - uC.xz)));');
+			.replace(
+				'#include <dithering_fragment>',
+				// under the sky, the colour of the horizon right behind it as the eye sees it: the ground meets the sky
+				`#include <dithering_fragment>\n\tgl_FragColor.rgb = mix(gl_FragColor.rgb, ${sky ? 'skyHorizon(normalize(vec3(vBiomeXZ.x - uEye.x, 0.0, vBiomeXZ.y - uEye.z) + vec3(1e-5, 0.0, 0.0)))' : 'uBg'}, smoothstep(uFade.x, uFade.y, length(vBiomeXZ - uC.xz)));`
+			);
 	};
-	m.customProgramCacheKey = () => 'viewer-floor';
+	m.customProgramCacheKey = () => (sky ? 'viewer-floor-sky' : 'viewer-floor');
 	return m;
 }
 
@@ -449,7 +453,7 @@ export function groundOf(stage, { cover = !stage.low } = {}) {
 	const group = new THREE.Group();
 	group.name = 'ground';
 	group.visible = false;
-	const floor = new THREE.Mesh(new THREE.CircleGeometry(1, 128).rotateX(-Math.PI / 2), floorMaterial(g, stage.bg, fade));
+	const floor = new THREE.Mesh(new THREE.CircleGeometry(1, 128).rotateX(-Math.PI / 2), floorMaterial(g, stage.bg, fade, stage.sky));
 	floor.receiveShadow = true;
 	const soil = soilMaterial(g);
 	// the earth behind the roots, seen from below the ground line: one face of it standing just beyond the farthest root,
@@ -583,7 +587,9 @@ export function groundOf(stage, { cover = !stage.low } = {}) {
 			g.uC.value.set(at.x, 0, at.z);
 			floor.scale.setScalar(Math.max(60, reach * 40));
 			floor.position.set(at.x, 0, at.z);
-			fade.set(Math.max(reach * 2.2, 3), Math.max(reach * 9, 14));
+			// under the sky the floor runs on far, to a horizon; in the studio it fades into the backdrop near the plant
+			if (stage.sky) fade.set(Math.max(reach * 2.5, 5), Math.max(reach * 22, 30));
+			else fade.set(Math.max(reach * 2.2, 3), Math.max(reach * 9, 14));
 			// a ring of mulch round the stem, as wide as its crown is near the ground, so a seedling is not lost in grass
 			const ring = Math.min(1.6, Math.max(0.2, Math.max(bs.x, bs.z) * 0.55));
 			g.uRing.value = ring;
