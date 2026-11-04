@@ -21,7 +21,8 @@ sound design makes the world real, and the mix lets all three be heard.
    sound land (`design.md`).
 6. **Scenes change in sound before or after the picture:** J and L cuts at every scene change, never a hard cut of
    both at one frame (`mix.md`). **Every hand-over between two cues overlaps:** the outgoing rings on, the incoming has
-   begun under it, a cue enters on its own downbeat and is heard within a second; never a gap, never a jolt, and
+   begun under it, a cue enters on its own downbeat and is heard within a second, two cues of one tempo run on one beat
+   (the incoming's downbeat on the outgoing's bar line, in place of its final hit); never a gap, never a jolt, and
    **measured before proposing** with `check_mix.py` (`transitions.md`; Samuel 2026-11-04: he should never have to ask).
 7. **Measure, don't guess:** every clip to its track's loudness, voice over music 12–18 LU, the mix to −14 LUFS /
    −1 dBTP (`mix.md`).

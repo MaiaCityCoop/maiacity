@@ -20,7 +20,12 @@ It prints and flags:
             -50 dB for a second or more even over the beds (a break in the music: an L- and a J-cut belong there);
       JUMP  the music rising more than 12 dB within 0.25 s from under -45 to over -42 (a hard cut in from nothing; a
             J-cut or a swell rises over half a second or more);
-      LATE  a music clip still under -42 dB a second after it starts (an entrance too low or too slow).
+      LATE  a music clip still under -42 dB a second after it starts (an entrance too low or too slow);
+  - and where one cue hands over to another of the same tempo (within 3 %, each pulse measured from its recording):
+      OFFBEAT  the incoming cue's beat more than 30 ms off the outgoing's (the two pulses stumble over each other);
+      ENDING   the outgoing cue strikes its final hit (its last chord, its dead stop) and the incoming comes in more than
+               0.15 s after it: the music ends and starts again, a cut however smooth the levels (the incoming's downbeat
+               belongs where that final hit was, and only the outgoing's ring goes on under it).
   Not checked: the film's first half second and its ending after the last line, and a section boundary inside one
   music clip with no clip starting or ending within 2 s of it (the cue's own composed dynamics, a drop after its peak).
 Exit code 1 when anything is flagged, so a proposal can wait on it. A break Samuel has heard and wants (a breath he asked
@@ -62,6 +67,54 @@ def envelope(path, hp=None):
     return _env[key]
 
 
+SR, N, HOP = 22050, 512, 64
+FPS, T0 = SR / HOP, N / 2 / SR
+_on = {}
+def onsets(path):
+    """a recording's onset strength (spectral flux), frames of 2.9 ms timed at their centre"""
+    if path not in _on:
+        x = np.frombuffer(subprocess.run(['ffmpeg', '-v', 'error', '-i', path, '-ac', '1', '-ar', str(SR), '-f', 'f32le', '-'],
+                                         capture_output=True, check=True).stdout, np.float32)
+        fr = np.lib.stride_tricks.sliding_window_view(x, N)[::HOP] * np.hanning(N)
+        S = np.log1p(10 * np.abs(np.fft.rfft(fr, axis=1)))
+        _on[path] = np.r_[0, np.maximum(0, np.diff(S, axis=0)).sum(1)]
+    return _on[path]
+
+
+def strength(fl, t):
+    i = int(round((t - T0) * FPS))
+    return fl[max(0, i - 3):i + 4].max() if 0 <= i < len(fl) else 0.0
+
+
+def beat(path, s0, s1):
+    """the pulse of a recording between s0 and s1 s into it: (its period, one beat's time), or None without a clear pulse"""
+    fl = onsets(path)
+    s0 = max(0.0, s0); i0, i1 = int(s0 * FPS), min(len(fl), int(s1 * FPS))
+    if (i1 - i0) / FPS < 3:
+        return None
+    seg = fl[i0:i1] - fl[i0:i1].mean()
+    lags = np.arange(int(FPS * 60 / 180), int(FPS * 60 / 70) + 1)
+    ac = np.array([np.dot(seg[:-l], seg[l:]) / (len(seg) - l) for l in lags]) / (np.dot(seg, seg) / len(seg) + 1e-9)
+    k = int(np.argmax(ac * np.exp(-0.5 * (np.log2(lags / FPS / 0.5) / 0.6) ** 2)))   # the beat near 120 bpm, not its dotted or double pulse
+    if ac[k] < 0.12:
+        return None
+    best = (-1, 0, 0)
+    for p in np.arange(lags[k] / FPS * 0.97, lags[k] / FPS * 1.03, 0.0005):
+        for off in np.arange(0, p, 0.003):
+            sc = np.mean([strength(fl, t) for t in np.arange(s0 + off, s1, p)])
+            if sc > best[0]:
+                best = (sc, p, s0 + off)
+    return best[1], best[2]
+
+
+def last_hit(path):
+    """where a recording strikes its last strong hit (its final chord, its dead stop): its ending begins there"""
+    fl = onsets(path)
+    pk = [i for i in range(1, len(fl) - 1) if fl[i] >= fl[i - 1] and fl[i] >= fl[i + 1] and fl[i] > np.median(fl)]
+    thr = np.percentile(fl[pk], 90)
+    return max(i for i in pk if fl[i] >= thr) / FPS + T0
+
+
 def simulate(story, cache):
     end = max(c['at'] + c['duration'] for t in story['tracks'] for c in t['clips'])
     N = int(end / H) + 40
@@ -83,11 +136,11 @@ def simulate(story, cache):
             if c.get('keys'):
                 ks = np.array(c['keys'], float)
                 seg = seg + np.interp(tt, ks[:, 0], ks[:, 1])
-            f = np.ones(len(seg))
+            f, tm = np.ones(len(seg)), tt + H / 2
             if c.get('fade_in'):
-                f = np.minimum(f, tt / c['fade_in'])
+                f = np.minimum(f, tm / c['fade_in'])
             if c.get('fade_out'):
-                f = np.minimum(f, (c['duration'] - tt) / c['fade_out'])
+                f = np.minimum(f, (c['duration'] - tm) / c['fade_out'])
             seg = seg + 20 * np.log10(np.clip(f, 1e-3, 1))
             cur = lanes[lane][a:a + len(seg)]
             lanes[lane][a:a + len(seg)] = 10 * np.log10(10 ** (cur / 10) + 10 ** (seg[:len(cur)] / 10))
@@ -132,6 +185,29 @@ def main():
         if s + 4 <= len(L['music']) and L['music'][s:s + 4].max() < -42:
             late = f"LATE {c['id']}: the music under -42 dB a second after {c['at']:.2f}s"
             (passed if any(abs(c['at'] - a) <= 2.5 for a in o.allow) else flags).append(late)
+    # hand-overs between two cues of one tempo: one beat runs on through them (transitions.md, rule 3)
+    for b in music:
+        bi = b.get('audio_in', 0)
+        gb = beat(fetch(b['audio'], o.files), bi, bi + 4.5)
+        if not gb:
+            continue
+        for a in music:
+            if a is b or not (a['at'] < b['at'] - 0.5 and a['at'] + a['duration'] > b['at'] - 0.3):
+                continue
+            pa, ai = fetch(a['audio'], o.files), a.get('audio_in', 0)
+            end = ai + min(b['at'], a['at'] + a['duration']) - a['at']
+            ga = beat(pa, end - 4.5, end)
+            if not ga or abs(ga[0] / gb[0] - 1) > 0.03:
+                continue
+            allowed = any(abs(b['at'] - x) <= 2.5 for x in o.allow)
+            tb = b['at'] + (gb[1] - bi) % gb[0]
+            d = (tb - (a['at'] + ga[1] - ai)) % ga[0]
+            d = min(d, ga[0] - d)
+            if d > 0.03:
+                (passed if allowed else flags).append(f"OFFBEAT {a['id']} -> {b['id']} at {b['at']:.2f}s: one tempo, but {b['id']}'s beat lands {d * 1000:.0f} ms off {a['id']}'s")
+            hit = a['at'] + last_hit(pa) - ai
+            if a['at'] < hit < a['at'] + a['duration'] - 0.15 and b['at'] > hit + 0.15:
+                (passed if allowed else flags).append(f"ENDING {a['id']} -> {b['id']} at {b['at']:.2f}s: {a['id']} strikes its final hit at {hit:.2f}s and {b['id']} comes {b['at'] - hit:.2f} s after it (let {b['id']}'s downbeat take that hit's place)")
     last_line = max((c['at'] + c['duration'] for c in clips(('voice',))), default=film_end)
     marks = [(t0, w) for t0, w in marks if 0.5 < t0 < min(film_end - 2.5, last_line + 1.0)]
     print('\nAround every boundary (music / beds, dB, 0.5 s steps from -2 to +2 s):')

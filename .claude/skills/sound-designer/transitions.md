@@ -19,6 +19,13 @@ for it, and the proposal's note says so.
    a running phrase to make it fit: that is a jolt. Find its tempo and downbeats (onset autocorrelation); to make a cue
    longer, repeat a bar at a bar line; to make it shorter, move it or trim at a bar line; to land its climax on a word,
    move the lines or the cue, not its head.
+   **Two cues of one tempo run as one piece:** the incoming cue's downbeat lands on the outgoing cue's own bar line (within
+   a few ms, measured, not by the generation's nominal bpm), and in place of the outgoing's final hit. Never let the
+   outgoing strike its last chord and then bring the incoming in after it: the music ends and starts again, a cut
+   however smooth the levels (the vision trailer's v12, hook into trailer: the intro's final chord, then the trailer
+   0.41 s later and 32 ms off the beat, E major into G major; Samuel: "a really abrupt cut"). Let the outgoing swell
+   into that bar line, end it there, and carry on only its ring, its low end and chords taken out when the keys differ
+   (a highpass at about 1.2 kHz), under the incoming's first bar.
 4. **An entrance is heard within a second.** A new section's music is audible within about 1 s of its first beat (a
    swell of 1.5–2.5 s from about −20 dB is a J-cut; a cue that rises out of near-silence over many seconds reads as
    nothing, Samuel 2026-11-04). Start it soft under the outgoing sound and let it swell, rather than fading it in from zero.
@@ -51,8 +58,13 @@ section boundary and every music clip's first and last second. It fails (exit 1)
 | JUMP | the music rising more than 12 dB within 0.25 s out of near-silence: a hard cut in | a J-cut: start it earlier and softer, swell (rule 4) |
 | LATE | a music clip still under −42 dB a second after it starts | start it on its energy, leave a silent head out (rule 4) |
 | LOW | a line under `--min-voice` dB over the rest | the music's keys under that line, or its EQ pocket (`mix.md`) |
+| OFFBEAT | two cues of one tempo (within 3 %) whose beats are more than 30 ms apart where one takes over | move the incoming so its downbeat lands on the outgoing's bar line (rule 3) |
+| ENDING | the outgoing cue strikes its final hit and the incoming, of the same tempo, comes more than 0.15 s after it | end the outgoing before its final hit; the incoming's downbeat takes that hit's place (rule 3) |
 
 Run it on the body you are about to propose (local recordings or play's hashes, fetched with `$PLAY_MCP_TOKEN`) and
 propose only when it passes. A break Samuel heard and wants is passed with `--allow` and its second, and the note says
 why. The day it was written it flagged every break Samuel had complained of in the vision trailer's v6 and v8 (the intro
-into the trailer, the old way into the brick, the brick into the life, the life into the city) and passed v12.
+into the trailer, the old way into the brick, the brick into the life, the life into the city) and passed v12; Samuel
+then still heard v12's intro end and the trailer start again, which its levels could not show, so it learned OFFBEAT and
+ENDING (each cue's pulse measured from its recording by onset autocorrelation, its last hit as its ending's start): they
+flag v12 and pass v13.
