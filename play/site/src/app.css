@@ -79,10 +79,14 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible { outline: 2px sol
 @media (max-width: 640px), (max-height: 500px) {
 	:root { --stick-edge: 1rem; --stick-size: 6.5rem; }
 }
-/* the foot stack: every toast and waiting note, centred just above the nav pill; the dock is moved back to the foot of
-   what is seen where an iPad leaves its viewport short ($lib/site/app/pinned.js) */
+/* the app shell (../routes/+layout.svelte): the document never scrolls, the page scrolls inside .app-scroll, a box as tall
+   as the screen, and the pill sits at its foot; nothing hangs on the layout viewport an iPad can leave shifted */
+html:has(.app-shell), html:has(.app-shell) body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+.app-shell { position: relative; height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
+.app-scroll { flex: 1 1 auto; min-height: 0; overflow-x: clip; overflow-y: auto; overscroll-behavior-y: contain; }
+/* the foot stack: every toast and waiting note, centred just above the nav pill */
 .app-dock {
-	position: fixed; bottom: var(--nav-foot); left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px));
+	position: absolute; bottom: var(--nav-foot); left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px));
 	z-index: 50; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none;
 }
 .foot-stack { display: flex; flex-direction: column-reverse; align-items: center; gap: 6px; width: min(36rem, 100%); pointer-events: auto; }
