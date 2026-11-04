@@ -675,6 +675,33 @@ suite("play API", () => {
     expect((await tool("propose_story_version", { story: S.seed, base: head.version, note: "late", edits: [{ op: "set_clip", track: "voice", clip: "v1", fields: { line: "C" } }] })).error).toContain("newest version");
   });
 
+  test("a shot moves: an agent adds a video, and a shot plays it over its still from video_in; only a kept video will do", async () => {
+    // an MP4's first bytes (its ftyp box), and a WebM's (Matroska's EBML header)
+    const mp4 = Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from("ftypisom"), Buffer.alloc(300, 7)]);
+    const clip = await tool("add_story_video", { data: mp4.toString("base64"), media_type: "video/mp4" });
+    expect(clip.error).toBeNull();
+    expect(clip.out).toMatchObject({ media_type: "video/mp4", size: mp4.length });
+    expect((await tool("add_story_video", { data: mp4.toString("base64"), media_type: "video/mp4" })).out.hash).toBe(clip.out.hash);
+    const webm = Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.alloc(100, 3)]);
+    expect((await tool("add_story_video", { data: webm.toString("base64"), media_type: "video/webm" })).out.media_type).toBe("video/webm");
+    expect((await tool("add_story_video", { data: frameOf("02.jpg").toString("base64"), media_type: "video/mp4" })).error).toContain("MP4 or a WebM");
+    expect((await tool("add_story_video", { data: mp4.toString("base64"), media_type: "video/webm" })).error).toContain("not video/webm");
+    const served = await api.fetch(new Request(`http://play.test/api/files/${clip.out.hash}`, { headers: { cookie: who.ada.cookie, range: "bytes=0-11" } }));
+    expect(served.status).toBe(206);
+    expect(served.headers.get("content-type")).toBe("video/mp4");
+
+    const head = (await tool("get_story", { story: S.seed })).out;
+    const shot = head.tracks.find((t: any) => t.id === "shots").clips[0];
+    const moving = await tool("propose_story_version", { story: S.seed, base: head.version, note: "the first shot moves", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { video: clip.out.hash, video_in: 0.5 } }] });
+    expect(moving.error).toBeNull();
+    const body = (await call("ada", "GET", `/api/proposals/${moving.out.id}`)).data.story;
+    expect(body.tracks.find((t: any) => t.id === "shots").clips[0]).toMatchObject({ frame: shot.frame, video: clip.out.hash, video_in: 0.5 });
+    // a frame's hash is no video, and a hash play does not hold is refused
+    const still = await tool("propose_story_version", { story: S.seed, base: head.version, note: "no", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { video: shot.frame } }] });
+    expect(still.error).toContain("add_story_video");
+    expect((await tool("propose_story_version", { story: S.seed, base: head.version, note: "no", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { video: "nope" } }] })).error).toContain("video's file hash");
+  });
+
   test("a story sounds: an agent adds recordings, and any clip of any track plays one, with its trim, gain, fades, EQ and keys", async () => {
     // a tenth of a second of silence as a WAV, and an MP3's first bytes
     const wav = (n = 4800) => {

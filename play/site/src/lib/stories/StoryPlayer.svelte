@@ -70,6 +70,34 @@
 	});
 	const frameUrl = (h: string | null | undefined) => (h ? `/api/files/${h}` : '');
 
+	/** the shots that move: each its video, laid over its still, kept loaded and played muted in step with t (the story's
+	 *  own sound is the sound); the one on screen plays from its video_in, the rest wait at their first frame */
+	const videoShots = $derived(clipsOf<Shot>(flat, 'shots').filter((s) => typeof s.video === 'string' && s.video));
+	const videoEls: Record<string, HTMLVideoElement | undefined> = {};
+	$effect(() => {
+		const cur = moment.shot, now = t, on = playing, rate = speed;
+		for (const s of videoShots) {
+			const v = videoEls[s.id];
+			if (!v) continue;
+			v.muted = true;
+			const start = Number(s.video_in) || 0;
+			if (cur && s.id === cur.id) {
+				const into = Math.max(0, now - s.at) + start;
+				v.playbackRate = rate;
+				if (on) {
+					if (Math.abs(v.currentTime - into) > 0.25) v.currentTime = into;
+					if (v.paused) v.play().catch(() => {});
+				} else {
+					if (!v.paused) v.pause();
+					if (Math.abs(v.currentTime - into) > 0.04) v.currentTime = into;
+				}
+			} else {
+				if (!v.paused) v.pause();
+				if (now < s.at && Math.abs(v.currentTime - start) > 0.04) v.currentTime = start;
+			}
+		}
+	});
+
 	// a new story (or another version or step of it: the player stays, so a page's controls around it keep their place) starts
 	// at its beginning, its frames fetched ahead so no shot arrives late, its recordings laid anew
 	let shown = '';
@@ -221,6 +249,10 @@
 		{:else if moment.shot}
 			<div class="frame empty" style:opacity={moment.mix}><span>Shot {moment.index + 1}: no frame yet</span></div>
 		{/if}
+		<!-- the shots that move, each over its still: only the one on screen shows (and fades in as its still would) -->
+		{#each videoShots as s (s.id)}
+			<video class="frame" bind:this={videoEls[s.id]} src={frameUrl(s.video)} poster={frameUrl(s.frame) || undefined} muted playsinline preload="auto" aria-hidden="true" style:opacity={moment.shot?.id === s.id ? moment.mix : 0}></video>
+		{/each}
 		<!-- a shot's fade from black and to black: the picture under a black veil, the subtitles over it -->
 		{#if moment.light < 1}<div class="black" style:opacity={1 - moment.light}></div>{/if}
 		<!-- one line at a time, large, as the film shows it; words set on screen are in the frame once it has one -->
@@ -302,7 +334,7 @@
 			{#if shots.length}
 				<div class="lane shots-lane">
 					{#each shots as s, i (s.id)}
-						<span class="seg" class:on={i === moment.index} class:linked={!!s.link} style:left={pct(s.at)} style:width={pct(s.duration)} style:background-image={s.frame ? `url(${frameUrl(s.frame)})` : 'none'} style:border-top-color={colourOf(sectionOf(s.at + 0.01))} title="Shot {i + 1}{s.link ? ` · ${s.link.title}` : ''}"></span>
+						<span class="seg" class:on={i === moment.index} class:linked={!!s.link} style:left={pct(s.at)} style:width={pct(s.duration)} style:background-image={s.frame ? `url(${frameUrl(s.frame)})` : 'none'} style:border-top-color={colourOf(sectionOf(s.at + 0.01))} title="Shot {i + 1}{s.video ? ' · video' : ''}{s.link ? ` · ${s.link.title}` : ''}"></span>
 					{/each}
 				</div>
 			{/if}
