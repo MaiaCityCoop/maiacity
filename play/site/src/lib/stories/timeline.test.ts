@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CUE_CHARS, cuesOf, renderAt, soundsOf, type StoryBody } from './timeline';
+import { CUE_CHARS, cuesOf, renderAt, setCuesOf, soundsOf, type StoryBody } from './timeline';
 
 const LEAVES = 'Every few days, a new leaf unfolds at its crown, each turned a little further round than the last, so that every leaf finds the light. The old ones, it lets fall. Each leaves a scar, and in time its trunk becomes a diary of every leaf it ever wore.';
 const TRAILER = 'This is the story of how one million humans build a hundred times better way of living: their own solarpunk city, from the ground up. First in a game, then for real.';
@@ -34,6 +34,31 @@ describe('subtitle cues: one line at a time', () => {
 		expect(renderAt(story, 9.9).cue?.text).toBe(cues.at(-1)!.text);
 		const mid = renderAt(story, 5);
 		expect(cues.indexOf(mid.cue!)).toBeGreaterThan(0);
+	});
+});
+
+describe('subtitles a clip sets itself', () => {
+	const LINE = 'This is the story of how one million humans build a hundred times better way of living.';
+	const story = (cues?: unknown): StoryBody =>
+		({ schema: 'story/1', format: '1:1', fps: 30, duration: 8, tracks: [{ id: 'voice', kind: 'voice', clips: [{ id: 't1', at: 2, duration: 6, who: 'SAMUEL', line: LINE, ...(cues ? { cues } : {}) }] }] }) as any;
+	const CUES = [
+		{ at: 0, text: 'This is the story of how' },
+		{ at: 4.25, text: '100x', em: true },
+		{ at: 2.05, text: 'one million humans build' },
+		{ at: 5.15, text: 'better way of living.' },
+	];
+	it('shows each from its own second into the clip, in time order, until the next', () => {
+		const texts = [2, 4.1, 6.2, 6.3, 7.1, 7.9].map((t) => renderAt(story(CUES), t).cue?.text);
+		expect(texts).toEqual(['This is the story of how', 'one million humans build', 'one million humans build', '100x', '100x', 'better way of living.']);
+	});
+	it('sets the emphasized one apart, alone', () => {
+		expect(renderAt(story(CUES), 6.4).cue?.em).toBe(true);
+		expect(renderAt(story(CUES), 4.5).cue?.em).toBe(false);
+	});
+	it('falls back to the line cut evenly when the clip sets none, or none that holds text', () => {
+		expect(renderAt(story(), 2).cue?.text).toBe(cuesOf(LINE)[0].text);
+		expect(setCuesOf({ id: 'v', at: 0, duration: 1, who: 'S', line: 'x', cues: [{ at: 1, text: '  ' }] } as any)).toEqual([]);
+		expect(renderAt(story([{ at: 'soon', text: 'x' }]), 2).cue?.text).toBe(cuesOf(LINE)[0].text);
 	});
 });
 
