@@ -25,6 +25,9 @@
  * it at its real size and scale the studio to it instead (the floor, the contact shadow, the occlusion radius, the
  * section hatch). The page around it (the turntable's canvas, its camera and controls) is the caller's.
  *
+ * Under the sky (`sky: true`, every asset viewer's, ./viewer.js): no paper studio but a clear afternoon (./sky.js), the
+ * sun in the back behind the asset, the sky lighting its front, the floor running out to a horizon.
+ *
  * It shows any build of the box's as well, through ./hero.js, which is a sealed asset made of the build's checked data
  * (its solver running in the box): with what a rigged one adds, a part found by the group of its skinned mesh
  * (`partAt`), lit up by it (`highlight`), and found by its bone (`centreOf`); and where its floor is (`show`'s
@@ -32,6 +35,7 @@
  */
 import * as THREE from 'three';
 import { ShaderPass, createPost } from '$lib/content/render/post.js';
+import { daySky } from './sky.js';
 import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment, untonemap } from './kit.js';
 
 export const MODES = /** @type {const} */ (['explode', 'cut', 'xray', 'labels', 'slow']);
@@ -46,10 +50,11 @@ export class Stage {
 	/**
 	 * @param {THREE.WebGLRenderer} renderer the page's renderer (its tone mapping is set while the stage draws)
 	 * @param {THREE.PerspectiveCamera} camera
-	 * @param {{ theme?: 'paper' | 'night', low?: boolean }} [o] `low`: a phone's budget (no occlusion pass, 2× multisampling,
-	 *   a smaller, softer-sampled shadow), so it draws smoothly and fits in a phone's memory ($content/render/core.js)
+	 * @param {{ theme?: 'paper' | 'night', low?: boolean, sky?: boolean }} [o] `low`: a phone's budget (no occlusion pass, 2× multisampling,
+	 *   a smaller, softer-sampled shadow), so it draws smoothly and fits in a phone's memory ($content/render/core.js);
+	 *   `sky`: shown under the afternoon sky (./sky.js) instead of in the paper studio
 	 */
-	constructor(renderer, camera, { theme = 'paper', low = false } = {}) {
+	constructor(renderer, camera, { theme = 'paper', low = false, sky = false } = {}) {
 		this.renderer = renderer;
 		this.camera = camera;
 		this.theme = theme;
@@ -81,6 +86,15 @@ export class Stage {
 		this.scene.background = this.bg.clone();
 		this.scene.environment = studioEnvironment(renderer, theme);
 		this.scene.environmentIntensity = paper ? 0.82 : 0.9;
+		/** the afternoon sky, when shown under it: its dome drawn behind everything, its light the environment's */
+		this.sky = sky ? daySky(renderer) : null;
+		if (this.sky) {
+			this.scene.environment.dispose();
+			this.scene.environment = this.sky.environment;
+			this.scene.environmentIntensity = 1.35;
+			this.scene.background = null;
+			this.scene.add(this.sky.dome);
+		}
 		// lights: a soft key with its shadow, a cool rim, a gentle fill (the environment does most of the work)
 		const key = new THREE.DirectionalLight(0xfff3e6, paper ? 2.4 : 2.6);
 		key.castShadow = true;
@@ -89,6 +103,17 @@ export class Stage {
 		key.shadow.blurSamples = low ? 8 : 16;
 		const rim = new THREE.DirectionalLight(0xdbe8ff, paper ? 0.9 : 1.8);
 		const fill = new THREE.HemisphereLight(0xffffff, paper ? 0xd9d5cc : 0x202020, paper ? 0.2 : 0.15);
+		if (this.sky) {
+			// the sun behind the asset, a little warm; the 'rim' a soft fill from the eye's side, so its front reads; the
+			// hemisphere the blue sky over it and the ground under it
+			key.color.set('#fff0dc');
+			key.intensity = 3.0;
+			rim.color.set('#ffffff');
+			rim.intensity = 1.8;
+			fill.color.set('#cfe0f5');
+			fill.groundColor.set('#b3a892');
+			fill.intensity = 0.5;
+		}
 		this.scene.add(key, key.target, rim, fill);
 		this.key = key;
 		this.rim = rim;
@@ -192,16 +217,24 @@ export class Stage {
 		const s = this.s, paper = this.theme === 'paper';
 		this.groundY = ground ?? box.min.y;
 		// the seamless floor: the backdrop's colour far away; shadows and the contact shadow near the asset
-		const fm = new THREE.MeshStandardMaterial({ color: paper ? 0xf0efea : 0x121315, roughness: paper ? 0.92 : 0.55, metalness: 0, envMapIntensity: paper ? 0.25 : 0.6 });
-		const bg = this.bg, fade = new THREE.Vector2(4.5 * s, 16 * s);
+		// under the sky a light, warm-grey ground; in the studio its paper or its night
+		const fm = new THREE.MeshStandardMaterial({ color: this.sky ? new THREE.Color('#c8bfae') : paper ? 0xf0efea : 0x121315, roughness: paper ? 0.92 : 0.55, metalness: 0, envMapIntensity: paper ? 0.25 : 0.6 });
+		const bg = this.bg, fade = this.sky ? new THREE.Vector2(5 * s, 30 * s) : new THREE.Vector2(4.5 * s, 16 * s);
+		const sky = this.sky;
 		fm.onBeforeCompile = (sh) => {
 			sh.uniforms.uBg = { value: bg };
 			sh.uniforms.uFade = { value: fade };
+			if (sky) {
+				// under the sky the floor runs out into the horizon's own colour, the one behind it as seen from the eye
+				Object.assign(sh.uniforms, sky.uniforms);
+				sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\n${sky.glsl}`);
+			}
 			sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vFW;').replace('#include <project_vertex>', '#include <project_vertex>\nvFW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
 			sh.fragmentShader = sh.fragmentShader
 				.replace('#include <common>', '#include <common>\nuniform vec3 uBg; uniform vec2 uFade; varying vec3 vFW;')
-				.replace('#include <dithering_fragment>', '#include <dithering_fragment>\nfloat fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(gl_FragColor.rgb, uBg, fr);');
+				.replace('#include <dithering_fragment>', `#include <dithering_fragment>\nfloat fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(gl_FragColor.rgb, ${sky ? 'skyHorizon(normalize(vec3(vFW.x - cameraPosition.x, 0.0, vFW.z - cameraPosition.z) + vec3(1e-5, 0.0, 0.0)))' : 'uBg'}, fr);`);
 		};
+		fm.customProgramCacheKey = () => (sky ? 'stage-floor-sky' : 'stage-floor');
 		const floor = new THREE.Mesh(new THREE.CircleGeometry(40 * s, 96), fm);
 		floor.visible = studio;
 		floor.rotation.x = -Math.PI / 2;
@@ -221,15 +254,20 @@ export class Stage {
 		const key = this.key, reach = size.length() * 0.65;
 		key.target.position.copy(centre);
 		key.position.copy(centre).add(new THREE.Vector3(-3.2, 6.5, 4.2).multiplyScalar(s));
+		if (this.sky) {
+			// the sun's light from where it stands: the afternoon's shadows, toward the eye
+			key.position.copy(centre).addScaledVector(this.sky.sunDir, 9 * s);
+		}
 		const sc = key.shadow.camera;
-		sc.left = sc.bottom = -reach;
-		sc.right = sc.top = reach;
+		const wide = this.sky ? 1.4 : 1;
+		sc.left = sc.bottom = -reach * wide;
+		sc.right = sc.top = reach * wide;
 		sc.near = 0.5 * s;
 		sc.far = 20 * s;
 		sc.updateProjectionMatrix();
 		key.shadow.bias = -0.0004;
 		key.shadow.normalBias = 0.02 * s;
-		this.rim.position.copy(centre).add(new THREE.Vector3(4, 3, -5).multiplyScalar(s));
+		this.rim.position.copy(centre).add(this.sky ? new THREE.Vector3(3.5, 3, 4.5).multiplyScalar(s) : new THREE.Vector3(4, 3, -5).multiplyScalar(s));
 		CUT.hatch.value = 0.0015 * this.asset.size;
 		this._fitAO();
 		this.built = views ? 1 : 0;
@@ -637,6 +675,7 @@ export class Stage {
 		this.camera.updateMatrixWorld();
 		CUT.proj.value.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
 		if (this.contact) this.contact.update();
+		this.sky?.place(this.camera);
 		this.grade.uniforms.uTime.value = this.time;
 		this.composer.render();
 		r.toneMapping = was.tm;
@@ -655,6 +694,7 @@ export class Stage {
 	dispose() {
 		this.clear();
 		this.post?.dispose();
-		this.scene.environment?.dispose();
+		if (this.sky) this.sky.dispose();
+		else this.scene.environment?.dispose();
 	}
 }

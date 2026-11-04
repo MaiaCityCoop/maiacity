@@ -6,7 +6,7 @@
  * and below the soil it stands in, its horizons, and its roots in it.
  *
  *   the floor   the biome's surfaces as the worlds paint them ($content/biomes `groundMaterial`, from the vault's card),
- *               out to where it fades into the studio's backdrop; round the stem a ring of mulch, where a seedling
+ *               out to where it fades into the studio's backdrop (under the sky, ./sky.js, into the horizon behind it); round the stem a ring of mulch, where a seedling
  *               stands in a garden; its cover (grasses, clover, leaves) streamed round the plant, thinning with
  *               distance and growing up or sinking back on the graphics card, never popping (`coverStream`). It faces
  *               up only, so from below the ground it is not drawn and the eye sees on into the garden
@@ -32,33 +32,40 @@ import { coverStream } from '$lib/content/biomes/stream.js';
 import { biomeOfCard } from '$lib/content/biomes/card.js';
 import { MOST, PED, soilOf } from './soils.js';
 
-/** the biomes a plant is shown on first, in this order; the library's others after them, by name */
-const FIRST = ['food-forest', 'warm-food-forest', 'meadow', 'clover-lawn', 'beech-forest', 'spruce-forest'];
+/** how green a floor looks: the share of its ground that is living mat or moss, from its surfaces' weights */
+const greenness = (recipe) => {
+	const w = recipe?.surface ?? {};
+	const all = Object.values(w).reduce((a, b) => a + (b ?? 0), 0);
+	return all > 0 ? ((w.green ?? 0) + 0.8 * (w.moss ?? 0)) / all : 0;
+};
 
 /**
  * The library's biomes a plant can stand on: each one's newest accepted version, read off its card (one whose card is
- * no floor's is left out), food forest first.
+ * no floor's is left out), the greenest first (Samuel 2026-11-04: every plant is shown on one green floor, the
+ * first), then by name. Each is known by `key`, its asset's UUID (its id where the index gives none).
  * @param {{ index: { recipes: Record<string, any> }, cardOf: (hash: string) => any }} source
- * @returns {{ id: string, label: string, hash: string, recipe: any }[]}
+ * @returns {{ key: string, id: string, label: string, hash: string, recipe: any }[]}
  */
 export function groundsIn(source) {
 	const newest = new Map();
 	for (const [hash, r] of Object.entries(source.index.recipes)) {
 		if (r.group !== 'biomes' || r.id === 'cover' || r.proposed || r.variant) continue;
 		const key = r.asset ?? r.id, was = newest.get(key);
-		if (!was || r.v > was.v) newest.set(key, { ...r, hash });
+		if (!was || r.v > was.v) newest.set(key, { ...r, hash, key });
 	}
 	const out = [];
 	for (const r of newest.values()) {
 		try {
-			out.push({ id: r.id, label: String(r.label ?? r.id).replace(/ floor$/i, ''), hash: r.hash, recipe: biomeOfCard(source.cardOf(r.hash)) });
+			out.push({ key: r.key, id: r.id, label: String(r.label ?? r.id).replace(/ floor$/i, ''), hash: r.hash, recipe: biomeOfCard(source.cardOf(r.hash)) });
 		} catch {
 			/* a card that is no floor's: not offered */
 		}
 	}
-	const rank = (id) => (FIRST.includes(id) ? FIRST.indexOf(id) : FIRST.length);
-	return out.sort((a, b) => rank(a.id) - rank(b.id) || a.label.localeCompare(b.label));
+	return out.sort((a, b) => greenness(b.recipe) - greenness(a.recipe) || a.label.localeCompare(b.label));
 }
+
+/** the floor when the library offers no biome: a living mat of short green, a little bare soil */
+const BARE = { green: 10, soil: 0.3 };
 
 /** a colour as the shader takes it (linear) @param {string} hex */
 const lin = (hex) => new THREE.Color(hex);
@@ -406,14 +413,14 @@ function setSoil(m, soil) {
  * facing up only, so the eye below the ground sees on past it
  * @param {ReturnType<typeof groundUniforms>} g @param {THREE.Color} bg @param {THREE.Vector2} fade
  */
-function floorMaterial(g, bg, fade) {
-	const m = groundMaterial({ soil: 1 });
+function floorMaterial(g, bg, fade, sky) {
+	const m = groundMaterial(BARE);
 	const inner = m.onBeforeCompile;
 	m.onBeforeCompile = (sh, r) => {
 		inner(sh, r);
-		Object.assign(sh.uniforms, g, { uBg: { value: bg }, uFade: { value: fade } });
+		Object.assign(sh.uniforms, g, { uBg: { value: bg }, uFade: { value: fade } }, sky?.uniforms ?? {});
 		sh.fragmentShader = sh.fragmentShader
-			.replace('#include <common>', `#include <common>\nuniform vec3 uBg; uniform vec2 uFade;\n${GROUND_HEAD}`)
+			.replace('#include <common>', `#include <common>\nuniform vec3 uBg; uniform vec2 uFade;\n${GROUND_HEAD}\n${sky?.glsl ?? ''}`)
 			.replace(
 				'#include <color_fragment>',
 				`#include <color_fragment>
@@ -432,9 +439,13 @@ function floorMaterial(g, bg, fade) {
 		diffuseColor.rgb *= 1.0 + (bvn(bw * 260.0) - 0.5) * 0.35 * gNear + (bvn(bw * 70.0 + 3.0) - 0.5) * 0.22 * gMid;
 	}`
 			)
-			.replace('#include <dithering_fragment>', '#include <dithering_fragment>\n\tgl_FragColor.rgb = mix(gl_FragColor.rgb, uBg, smoothstep(uFade.x, uFade.y, length(vBiomeXZ - uC.xz)));');
+			.replace(
+				'#include <dithering_fragment>',
+				// under the sky, the colour of the horizon right behind it as the eye sees it: the ground meets the sky
+				`#include <dithering_fragment>\n\tgl_FragColor.rgb = mix(gl_FragColor.rgb, ${sky ? 'skyHorizon(normalize(vec3(vBiomeXZ.x - uEye.x, 0.0, vBiomeXZ.y - uEye.z) + vec3(1e-5, 0.0, 0.0)))' : 'uBg'}, smoothstep(uFade.x, uFade.y, length(vBiomeXZ - uC.xz)));`
+			);
 	};
-	m.customProgramCacheKey = () => 'viewer-floor';
+	m.customProgramCacheKey = () => (sky ? 'viewer-floor-sky' : 'viewer-floor');
 	return m;
 }
 
@@ -449,7 +460,7 @@ export function groundOf(stage, { cover = !stage.low } = {}) {
 	const group = new THREE.Group();
 	group.name = 'ground';
 	group.visible = false;
-	const floor = new THREE.Mesh(new THREE.CircleGeometry(1, 128).rotateX(-Math.PI / 2), floorMaterial(g, stage.bg, fade));
+	const floor = new THREE.Mesh(new THREE.CircleGeometry(1, 128).rotateX(-Math.PI / 2), floorMaterial(g, stage.bg, fade, stage.sky));
 	floor.receiveShadow = true;
 	const soil = soilMaterial(g);
 	// the earth behind the roots, seen from below the ground line: one face of it standing just beyond the farthest root,
@@ -531,7 +542,7 @@ export function groundOf(stage, { cover = !stage.low } = {}) {
 		/** the biome it is the floor of (its recipe, as its card says it) and that biome's id, which names its soil */
 		biome(next, id) {
 			recipe = next;
-			floor.material.userData.weigh(next?.surface ?? { soil: 1 });
+			floor.material.userData.weigh(next?.surface ?? BARE);
 			soilNow = soilOf(id);
 			setSoil(soil, soilNow);
 			coverFor();
@@ -583,7 +594,9 @@ export function groundOf(stage, { cover = !stage.low } = {}) {
 			g.uC.value.set(at.x, 0, at.z);
 			floor.scale.setScalar(Math.max(60, reach * 40));
 			floor.position.set(at.x, 0, at.z);
-			fade.set(Math.max(reach * 2.2, 3), Math.max(reach * 9, 14));
+			// under the sky the floor runs on far, to a horizon; in the studio it fades into the backdrop near the plant
+			if (stage.sky) fade.set(Math.max(reach * 2.5, 5), Math.max(reach * 22, 30));
+			else fade.set(Math.max(reach * 2.2, 3), Math.max(reach * 9, 14));
 			// a ring of mulch round the stem, as wide as its crown is near the ground, so a seedling is not lost in grass
 			const ring = Math.min(1.6, Math.max(0.2, Math.max(bs.x, bs.z) * 0.55));
 			g.uRing.value = ring;

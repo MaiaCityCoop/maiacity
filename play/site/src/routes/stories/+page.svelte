@@ -188,16 +188,16 @@
 					{@const g = groups.get(v.number) ?? []}
 					{@const on = !atStep && (story.number ?? null) === v.number}
 					{@const newest = v.number === versions[0]?.number}
-					<li class:on>
-						<button class="vrow" onclick={() => open(story!.id, newest ? null : v.number)}>
+					<li class:on class:stepped={g.length > 1}>
+						<button class="vrow" onclick={() => open(story!.id, newest ? null : v.number)} title={v.note || undefined}>
 							<span class="vnum">v{v.number}</span>
 							{#if newest}<span class="badge">newest</span>{/if}
 							<span class="vwhen">{when(v.created)}{v.author ? ` · ${v.author}` : ''}</span>
-							{#if v.note}<span class="vnote">{v.note}</span>{/if}
+							{#if v.note || g.length > 1}<span class="vnote">{v.note}</span>{/if}
 						</button>
 						{#if g.length > 1}
-							<button class="vsteps" aria-expanded={unfolded === v.number} onclick={() => (unfolded = unfolded === v.number ? null : v.number)}>
-								{unfolded === v.number ? 'Hide' : 'Show'} the {g.length} steps to it
+							<button class="vsteps" aria-expanded={unfolded === v.number} title="{unfolded === v.number ? 'Hide' : 'Show'} the {g.length} steps to it" onclick={() => (unfolded = unfolded === v.number ? null : v.number)}>
+								{g.length} steps
 							</button>
 							{#if unfolded === v.number}
 								<ol class="slist">
@@ -250,35 +250,45 @@
 	.head h2 { margin: 0; font-size: 1.2rem; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
 	.head .meta { margin: 0.15rem 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.head .error { margin: 0.3rem 0 0; }
-	/* in the rail: the versions top down, newest first, as a line of dots; a version's steps unfolded under it */
-	.vers { display: grid; gap: 0.5rem; }
+	/* in the rail: the versions top down, newest first, as a line of dots; a version's steps unfolded under it. Each one
+	   compact (Samuel 2026-11-04: "each version number should be a bit more compact"): its number, when and by whom on
+	   one line, what it changed in one small line under it, and its steps' fold as a count at that line's end */
+	.vers { display: grid; gap: 0.4rem; }
 	.vhead { margin: 0; display: flex; justify-content: space-between; align-items: baseline; font-family: var(--font-body); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 	.vhead span { letter-spacing: 0; text-transform: none; font-weight: 500; }
 	.playing { display: grid; gap: 0.15rem; padding: 0.55rem 0.7rem; border-radius: 12px; background: var(--mustard-soft); font-size: 0.78rem; line-height: 1.35; }
 	.playing span { font-size: 0.66rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
 	.playing small { color: var(--ink-soft); }
 	.playing button { justify-self: start; margin-top: 0.25rem; font: inherit; font-size: 0.74rem; font-weight: 600; padding: 0.25rem 0.65rem; border-radius: 999px; border: 0; background: var(--ink); color: var(--paper); cursor: pointer; }
-	.vlist { list-style: none; margin: 0; padding: 0 0 0 0.9rem; border-left: 2px solid var(--line); display: grid; gap: 0.15rem; }
-	.vlist > li { position: relative; }
-	.vlist > li::before { content: ''; position: absolute; left: calc(-0.9rem - 6px); top: 0.75rem; width: 10px; height: 10px; border-radius: 50%; background: var(--paper); border: 2px solid var(--sage); }
+	.vlist { list-style: none; margin: 0; padding: 0 0 0 0.7rem; border-left: 2px solid var(--line); display: grid; gap: 1px; }
+	/* the steps' fold sits over the row's second line, at its end (the row stays one button, the fold another) */
+	.vlist > li { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+	/* the dot on the line, level with the number */
+	.vlist > li::before { content: ''; position: absolute; left: calc(-0.7rem - 5px); top: calc(0.15rem + 0.55rem - 4px); width: 8px; height: 8px; border-radius: 50%; background: var(--paper); border: 1.5px solid var(--sage); }
 	.vlist > li.on::before { background: var(--mustard); border-color: var(--mustard); }
-	.vrow { all: unset; box-sizing: border-box; display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: 0.45rem; width: 100%; padding: 0.4rem 0.55rem; border-radius: 10px; cursor: pointer; }
+	.vrow { all: unset; box-sizing: border-box; grid-column: 1 / -1; grid-row: 1; display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; column-gap: 0.3rem; width: 100%; padding: 0.15rem 0.4rem; border-radius: 7px; cursor: pointer; }
 	.vrow:hover { background: color-mix(in srgb, var(--sage) 16%, transparent); }
 	.vrow:focus-visible { outline: 2px solid var(--ink); }
 	li.on > .vrow { background: var(--paper); box-shadow: inset 0 0 0 1px var(--line); }
-	.vnum { font-family: var(--font-display); font-size: 1.05rem; font-weight: 500; }
-	.badge { justify-self: start; padding: 0.05rem 0.45rem; border-radius: 999px; background: var(--sage-soft); font-size: 0.64rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-soft); }
-	.vwhen { grid-column: 1 / -1; font-size: 0.72rem; color: var(--muted); }
-	.vnote { grid-column: 1 / -1; margin-top: 0.1rem; font-size: 0.76rem; line-height: 1.35; color: var(--ink-soft); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
-	.vsteps, .more { all: unset; cursor: pointer; margin: 0.1rem 0 0.2rem 0.55rem; font-size: 0.72rem; font-weight: 600; color: var(--ink-soft); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+	.vnum { grid-row: 1; font-family: var(--font-display); font-size: 0.92rem; font-weight: 600; line-height: 1.2; }
+	.badge { grid-row: 1; grid-column: 2; align-self: center; padding: 0 0.3rem; border-radius: 999px; background: var(--sage-soft); font-size: 0.54rem; font-weight: 700; line-height: 1.55; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-soft); }
+	.vwhen { grid-row: 1; grid-column: 3; justify-self: end; max-width: 100%; font-size: 0.66rem; line-height: 1.2; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.vnote { grid-column: 1 / -1; min-height: 0.92rem; font-size: 0.68rem; line-height: 0.92rem; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	li.stepped .vnote { padding-right: 3.6rem; }
+	.vsteps, .more { all: unset; cursor: pointer; font-weight: 600; color: var(--ink-soft); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 2px; }
 	.vsteps:hover, .more:hover { color: var(--ink); }
-	.more { margin: 0 0 0 0.2rem; }
-	.slist { list-style: none; margin: 0.2rem 0 0.4rem 0.55rem; padding: 0; display: grid; gap: 0.1rem; max-height: 16rem; overflow-y: auto; }
-	.slist button { all: unset; box-sizing: border-box; display: grid; width: 100%; padding: 0.3rem 0.5rem; border-radius: 8px; cursor: pointer; font-size: 0.74rem; line-height: 1.3; }
+	.vsteps:focus-visible, .more:focus-visible { outline: 2px solid var(--ink); border-radius: 3px; }
+	/* its tap area reaches the row's end and foot (an iPad's finger), its text where the note's line ends */
+	.vsteps { grid-column: 2; grid-row: 1; align-self: end; position: relative; padding: 0 0.4rem 0.15rem 0.3rem; font-size: 0.64rem; line-height: 0.92rem; white-space: nowrap; }
+	.vsteps::after { content: ''; display: inline-block; margin-left: 0.25rem; vertical-align: 0.05rem; border-left: 4px solid currentColor; border-block: 3px solid transparent; transition: transform 0.15s; }
+	.vsteps[aria-expanded='true']::after { transform: rotate(90deg); }
+	.more { justify-self: start; margin: 0 0 0 0.2rem; font-size: 0.68rem; }
+	.slist { grid-column: 1 / -1; list-style: none; margin: 0.1rem 0 0.3rem 0.4rem; padding: 0; display: grid; gap: 1px; max-height: 16rem; overflow-y: auto; }
+	.slist button { all: unset; box-sizing: border-box; display: grid; width: 100%; padding: 0.2rem 0.4rem; border-radius: 6px; cursor: pointer; font-size: 0.7rem; line-height: 1.3; }
 	.slist button:hover { background: color-mix(in srgb, var(--sage) 14%, transparent); }
 	.slist button.on { background: var(--mustard-soft); }
 	.slist b { font-weight: 500; }
-	.slist small { color: var(--muted); font-size: 0.68rem; }
+	.slist small { color: var(--muted); font-size: 0.62rem; }
 	@media (max-width: 820px) {
 		.stories { grid-template-columns: 1fr; }
 		.list { grid-auto-flow: column; grid-auto-columns: 10rem; overflow-x: auto; }
