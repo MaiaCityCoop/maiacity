@@ -507,16 +507,19 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		}
 		terrace(H, 0, rWall - 0.4)
 		if (twoFloors) terrace(H2, H, Math.sqrt(R * R - H2 * H2) - 0.4)
-		// through the glass: soil, the plaza, the galleries and the rooms
+		// through the glass: soil, the plaza (none in the master dome), the galleries and the rooms
 		const soil = new THREE.Mesh(new THREE.CircleGeometry(R - 0.1, 48), warmFloor ?? m.soil(R / 2))
 		soil.rotation.x = -Math.PI / 2
 		soil.position.y = 0.02
 		g.add(soil)
 		const Rc = Math.max(4.5, R * 0.22)
-		const plaza = new THREE.Mesh(new THREE.CircleGeometry(Rc, 32), m.stone(Rc / 1.5))
-		plaza.rotation.x = -Math.PI / 2
-		plaza.position.y = 0.04
-		g.add(plaza)
+		// the master dome's middle is forest, with no plaza
+		if (d.kind !== 'master') {
+			const plaza = new THREE.Mesh(new THREE.CircleGeometry(Rc, 32), m.stone(Rc / 1.5))
+			plaza.rotation.x = -Math.PI / 2
+			plaza.position.y = 0.04
+			g.add(plaza)
+		}
 		// the kitchen garden along the ring path, and the four stairs up to the gallery
 		const Rp = (Rc + rIn) / 2
 		const beds = Math.min(28, Math.floor((2 * Math.PI * Rp) / 4))

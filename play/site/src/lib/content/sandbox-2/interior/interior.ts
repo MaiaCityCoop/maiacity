@@ -5,7 +5,7 @@
  *   home    40 m   the small domes of the first ring
  *   large   70 m   the medium domes of the second ring
  *   grand  100 m   the large dome: a green middle, and on its north a sunken pond with a waterfall, the wall behind closed stone
- *   master 136 m   the master dome in the centre: a stone plaza in its middle,
+ *   master 136 m   the master dome in the centre: forest to its middle,
  *                  and its ground ring given to the village's workshops (Things of the
  *                  library, built in the asset box: ./things.js)
  *
@@ -1358,8 +1358,10 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 			const x = rr * Math.sin(a), z = rr * Math.cos(a)
 			return Math.abs(Math.abs(x) - sideX) < 1 + reach + 0.15 && z > sideZ0 - 1 - reach && z < sideZ1 + 3 + reach
 		}
-		// in the green middle there is no plaza: the forest grows to the centre
-		const Rmid = green ? 0.5 : Rc
+		// the master dome's middle is forest too, nothing in its centre (its theatre and plaza taken out, Samuel 2026-11-04)
+		const wild = kind === 'master'
+		// in the green middle, and in the master dome's, there is no plaza: the forest grows to the centre
+		const Rmid = green || wild ? 0.5 : Rc
 		// the stair on a diagonal, so each spoke runs clear from the plaza to its door
 		const aStair = Math.PI * 0.25
 		// four stairs up to the gallery, one on each diagonal between the doors
@@ -1397,8 +1399,7 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 			scene.add(mesh)
 			return mesh
 		}
-		// the master dome's centre is a stone plaza like every dome's (its sunken theatre taken out, Samuel 2026-11-04)
-		if (!green) flat(new THREE.CircleGeometry(Rc, 64), m.stone((Rc * 2) / 3))
+		if (!green && !wild) flat(new THREE.CircleGeometry(Rc, 64), m.stone((Rc * 2) / 3))
 		if (!lush) flat(new THREE.RingGeometry(Rp - 1.1, Rp + 1.1, 128, 1, ringGap - Math.PI / 2, TAU - 2 * ringGap), m.stone((Rp * 2) / 3))
 		// under the gallery the floor is stone too: the covered commons round the edge
 		if (!lush) flat(galRing(rIn - 0.4, R, 128), m.stone((R * 2) / 3))
@@ -1407,8 +1408,8 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 			for (const [a, w] of PAVED) flat(new THREE.RingGeometry(rIn + commonsW - 0.01, R, 24, 1, a - w - Math.PI / 2, 2 * w), m.stone((R * 2) / 3))
 		}
 		for (const a of doors) {
-			// in the green middle the paths to the doors start at the ring path
-			const from = green ? Rp : Rc
+			// in a forest middle the paths to the doors start at the ring path
+			const from = green || wild ? Rp : Rc
 			const len = R - from
 			const strip = flat(new THREE.PlaneGeometry(2, len), m.stone(2 / 3, Math.round(len / 3)), 0.021)
 			const [x, z] = polar(from + len / 2, a)
@@ -1777,8 +1778,8 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 		await pause('Planting the forest inside')
 
 		await slice()
-		/* the plaza: a long table, sofas, and lanterns */
-		if (!green) {
+		/* the plaza: a long table, sofas, and lanterns (none in a forest middle) */
+		if (!green && !wild) {
 			const t = table(m, 4.2, 10)
 			t.position.set(0, 0, -Rc * 0.3)
 			scene.add(t)
@@ -2443,7 +2444,7 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 			return false
 		}
 		// (in the large dome, on the ring path by the south, looking north over the green middle to the pond)
-		start = green ? { x: 0, z: -Rp, look: Math.PI } : { x: 0, z: Rc + 2, look: 0 }
+		start = green || wild ? { x: 0, z: -Rp, look: Math.PI } : { x: 0, z: Rc + 2, look: 0 }
 	}
 
 	if (forest) {
