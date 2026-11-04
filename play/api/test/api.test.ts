@@ -919,6 +919,152 @@ suite("play API", () => {
     expect((await call("ada", "GET", `/api/stories/${A}`)).data.number).toBe(5);
   });
 
+  // ---- linked stories (Samuel 2026-11-04): the trailer its own timeline, a version of it linked into every film
+  const accept = async (r: { error: string | null; out: any }) => {
+    expect(r.error).toBeNull();
+    expect((await call("ada", "POST", `/api/proposals/${r.out.id}/accept`)).data.status).toBe("accepted");
+    return r.out;
+  };
+  const TRAILER_BODY = {
+    format: "9:16", fps: 30, tracks: [
+      { id: "voice", kind: "voice", clips: [{ id: "t1", at: 0, duration: 4, who: "SAMUEL", line: "This is the story of how one million humans build a hundred times better way of living." }] },
+      { id: "notes", kind: "notes", clips: [{ id: "n", at: 0, duration: 5, section: "TRAILER", camera: "Wide", retention: "The promise", mood: "↑↑" }] },
+      { id: "music", kind: "music", clips: [{ id: "m", at: 0, duration: 5, note: "the trailer's theme" }] },
+    ],
+  };
+  const filmBody = (trailer: string, version: string, extra: Record<string, unknown> = {}) => ({
+    format: "9:16", fps: 30, tracks: [
+      { id: "voice", kind: "voice", clips: [{ id: "intro", at: 0, duration: 3, who: "MAIA", line: "Three seeds." }, { id: "body", at: 8, duration: 4, who: "MAIA", line: "One will never give fruit." }] },
+      // the film's own notes run under the trailer, which a link may (its content is never checked against the film's own clips)
+      { id: "notes", kind: "notes", clips: [{ id: "all", at: 0, duration: 12, section: "DAY 1", camera: "", retention: "", mood: "↕" }] },
+      { id: "trailer", kind: "story", clips: [{ id: "trailer", at: 3, story: trailer, version, ...extra }] },
+    ],
+  });
+  const linkTrack = (story: string, version?: string, at = 12, extra: Record<string, unknown> = {}) => [{ op: "add_track", track: { id: "more", kind: "story", clips: [{ id: "l", at, story, ...(version ? { version } : {}), ...extra }] } }];
+  const L: Record<string, string> = {};
+
+  test("a film links a version of the trailer: checked when proposed, read with its links resolved, the link listed like any clip", async () => {
+    const t = await accept(await tool("propose_story", { title: "The trailer", note: "the trailer as its own story", body: TRAILER_BODY }));
+    L.trailer = t.story;
+    L.t1 = t.version;
+    const T = L.trailer;
+    // its duration left out: the version's own
+    const made = await tool("propose_story", { title: "Day 1", note: "the film, linking the trailer's v1", body: filmBody(T, L.t1) });
+    expect(made.error).toBeNull();
+    L.film = made.out.story;
+    expect(made.out.duration).toBe(12);
+    const review = (await call("ada", "GET", `/api/proposals/${made.out.id}`)).data;
+    expect(review.story.tracks.find((x: any) => x.kind === "story").clips).toEqual([{ id: "trailer", at: 3, duration: 5, story: T, version: L.t1 }]);
+    expect(review.story.links[L.t1]).toMatchObject({ id: T, title: "The trailer", number: 1, version: L.t1, duration: 5, newest: 1 });
+    expect(review.story.links[L.t1].body.tracks[0].clips[0].line).toContain("one million humans");
+    expect(review.diff.tracks.find((x: any) => x.id === "trailer")).toMatchObject({ kind: "story", state: "added", added: [{ id: "trailer", story: T, version: L.t1 }] });
+    await accept(made);
+
+    const read = (await call("ada", "GET", `/api/stories/${L.film}`)).data;
+    expect(read.links).toEqual({ [L.t1]: { id: T, title: "The trailer", number: 1, version: L.t1, duration: 5, newest: 1, body: expect.objectContaining({ schema: "story/1", duration: 5 }) } });
+    // over MCP the links come without their timelines unless asked for
+    expect((await tool("get_story", { story: L.film })).out.links).toEqual({ [L.t1]: { id: T, title: "The trailer", number: 1, version: L.t1, duration: 5, newest: 1 } });
+    expect((await tool("get_story", { story: L.film, links: true })).out.links[L.t1].body.tracks.map((x: any) => x.kind)).toEqual(["voice", "notes", "music"]);
+    // a step of its history reads its links too; the trailer knows who links it, and at which version
+    const hist = (await call("ada", "GET", `/api/stories/${L.film}/history`)).data;
+    expect((await call("ada", "GET", `/api/stories/${L.film}/steps/${hist.steps.at(-1).seq}`)).data.links[L.t1].number).toBe(1);
+    const trailer = (await call("ada", "GET", `/api/stories/${T}`)).data;
+    expect(trailer.links).toEqual({});
+    expect(trailer.linked_by).toEqual([{ id: L.film, title: "Day 1", number: 1, version: L.t1, plays: 1 }]);
+  });
+
+  test("a link is refused without a version, to an unknown story, to itself, by a title, around a loop, to a version not its story's or never accepted, at another length", async () => {
+    const { film: F, trailer: T, t1 } = L;
+    const refused = async (story: string, edits: unknown[]) => (await tool("propose_story_version", { story, note: "x", edits })).error;
+    expect(await refused(F, linkTrack(T))).toContain("names no version");
+    expect(await refused(F, linkTrack("00000000-0000-4000-8000-000000000000", t1))).toContain("no such story");
+    expect(await refused(F, linkTrack(F, (await tool("get_story", { story: F })).out.version))).toContain("itself");
+    expect(await refused(F, linkTrack("The trailer", t1))).toContain("UUID"); // never by its title (play/SPEC.md §4.7)
+    const film = (await tool("get_story", { story: F })).out;
+    expect(await refused(T, linkTrack(F, film.version))).toContain("loop"); // the trailer → the film → the trailer
+    expect(await refused(F, linkTrack(T, film.version))).toContain("not a version of story"); // the film's own version, named as the trailer's
+    expect(await refused(F, linkTrack(T, "abc"))).toContain("hash");
+    const unaccepted = await tool("propose_story", { title: "Not yet", note: "x", body: TRAILER_BODY });
+    expect(await refused(F, linkTrack(unaccepted.out.story, unaccepted.out.version))).toContain("never accepted");
+    expect(await refused(F, linkTrack(T, unaccepted.out.version))).toContain("not a version of story");
+    expect(await refused(F, linkTrack(T, t1, 12, { duration: 7 }))).toContain("holds its whole version");
+    // two links on one track never overlap
+    expect(await refused(F, [{ op: "add_clip", track: "trailer", clip: { id: "again", at: 6, story: T, version: t1 } }])).toContain("before clip trailer ends");
+    // a draft's step is checked the same
+    expect((await tool("story_edit", { story: F, message: "x", edits: linkTrack(T) })).error).toContain("names no version");
+  });
+
+  test("a film plays the version it links: a new trailer changes no film; two films play two versions; moving one is a proposal on it; links nest", async () => {
+    const { film: F, trailer: T, t1 } = L;
+    const t2 = await accept(await tool("propose_story_version", { story: T, note: "a sharper, longer trailer", edits: [{ op: "set_clip", track: "voice", clip: "t1", fields: { line: "This is the story of how one million humans build their own city." } }, { op: "set_clip", track: "notes", clip: "n", fields: { duration: 6 } }] }));
+    L.t2 = t2.version;
+    // the film plays the trailer's v1 still, and only says a v2 is there
+    const still = (await call("ada", "GET", `/api/stories/${F}`)).data;
+    expect(still.number).toBe(1);
+    expect(still.links[t1]).toMatchObject({ number: 1, newest: 2 });
+    expect(still.links[t1].body.tracks[0].clips[0].line).toContain("a hundred times better");
+    // a second film links the trailer's v2: each plays its own
+    const other = await accept(await tool("propose_story", { title: "Day 2", note: "the next film, on the new trailer", body: filmBody(T, t2.version) }));
+    const day2 = (await call("ada", "GET", `/api/stories/${other.story}`)).data;
+    expect(Object.keys(day2.links)).toEqual([t2.version]);
+    expect(day2.links[t2.version]).toMatchObject({ id: T, number: 2, duration: 6 });
+    expect(day2.links[t2.version].body.tracks[0].clips[0].line).toContain("their own city");
+    expect(day2.tracks.find((x: any) => x.kind === "story").clips[0].duration).toBe(6);
+    expect((await call("ada", "GET", `/api/stories/${T}`)).data.linked_by.map((x: any) => [x.title, x.plays])).toEqual([["Day 1", 1], ["Day 2", 2]]);
+    // moving Day 1 to the new trailer: its link's version set (its length the new version's), what follows shifted
+    const moved = await tool("propose_story_version", { story: F, note: "the new trailer", edits: [{ op: "shift", from: 8, by: 1 }, { op: "set_clip", track: "trailer", clip: "trailer", fields: { version: t2.version } }] });
+    expect(moved.error).toBeNull();
+    const diff = (await call("ada", "GET", `/api/proposals/${moved.out.id}`)).data.diff.tracks.find((x: any) => x.id === "trailer");
+    expect(diff.changed[0].changes.map((c: any) => [c.field, c.from, c.to])).toEqual(expect.arrayContaining([["duration", 5, 6], ["version", t1, t2.version]]));
+    await accept(moved);
+    const now = (await call("ada", "GET", `/api/stories/${F}`)).data;
+    expect(now).toMatchObject({ number: 2, duration: 13 });
+    expect(Object.keys(now.links)).toEqual([t2.version]);
+
+    // a story linking the film reads both, the film's version and the trailer's it links
+    const N = (await accept(await tool("propose_story", { title: "Season 1", note: "the films in a row", body: { tracks: [{ id: "films", kind: "story", clips: [{ id: "day-1", at: 0, story: F, version: now.version }] }] } }))).story;
+    const season = (await call("ada", "GET", `/api/stories/${N}`)).data;
+    expect(season.duration).toBe(13);
+    expect(Object.keys(season.links).sort()).toEqual([now.version, t2.version].sort());
+
+    // links nest at most four stories deep
+    const aside = await accept(await tool("propose_story", { title: "An aside", note: "x", body: { tracks: [{ id: "voice", kind: "voice", clips: [{ id: "a", at: 0, duration: 2, who: "MAIA", line: "An aside." }] }] } }));
+    const chain = [aside];
+    for (let i = 1; i <= 4; i++) {
+      const prev = chain[i - 1];
+      chain.push(await accept(await tool("propose_story", { title: `Level ${i}`, note: "x", body: { tracks: [{ id: "in", kind: "story", clips: [{ id: "l", at: 0, story: prev.story, version: prev.version }] }] } })));
+    }
+    expect(Object.keys((await call("ada", "GET", `/api/stories/${chain[4].story}`)).data.links).length).toBe(4);
+    expect((await tool("propose_story", { title: "Too deep", note: "x", body: { tracks: [{ id: "in", kind: "story", clips: [{ id: "l", at: 0, story: chain[4].story, version: chain[4].version }] }] } })).error).toContain("at most 4 stories deep");
+  });
+
+  test("a link clip goes through a draft step by step like any clip: kept in the story's history, proposed and accepted", async () => {
+    const { film: F, trailer: T, t1, t2 } = L;
+    const first = await tool("story_edit", { story: F, message: "back to the first trailer", edits: [{ op: "set_clip", track: "trailer", clip: "trailer", fields: { version: t1 } }] });
+    expect(first.error).toBeNull();
+    const draft = first.out.branch;
+    const second = await tool("story_edit", { story: F, branch: draft, message: "close the gap it leaves", edits: [{ op: "shift", from: 9, by: -1 }] });
+    expect(second.error).toBeNull();
+    const own = (await tool("story_history", { story: F, draft })).out;
+    expect(own.steps.map((s: any) => s.message)).toEqual(["back to the first trailer", "close the gap it leaves"]);
+    const atFirst = (await tool("get_story", { story: F, step: own.steps[0].seq })).out;
+    expect(atFirst.tracks.find((x: any) => x.kind === "story").clips[0]).toEqual({ id: "trailer", at: 3, duration: 5, story: T, version: t1 });
+    expect(Object.keys(atFirst.links)).toEqual([t1]);
+    const proposed = await tool("propose_story_version", { story: F, branch: draft, note: "the first trailer again, drafted in two steps" });
+    expect(proposed.error).toBeNull();
+    const review = (await call("ada", "GET", `/api/proposals/${proposed.out.id}`)).data;
+    expect(review.diff.tracks.find((x: any) => x.id === "trailer").changed[0].changes.map((c: any) => c.field).sort()).toEqual(["duration", "version"]);
+    expect(review.steps.length).toBe(2);
+    expect(review.baseStory.links[t2]).toMatchObject({ number: 2 });
+    expect(review.story.links[t1]).toMatchObject({ number: 1 });
+    await accept(proposed);
+    const now = (await call("ada", "GET", `/api/stories/${F}`)).data;
+    expect(now.tracks.find((x: any) => x.kind === "story").clips[0]).toEqual({ id: "trailer", at: 3, duration: 5, story: T, version: t1 });
+    expect(now.duration).toBe(12);
+    const hist = (await call("ada", "GET", `/api/stories/${F}/history`)).data;
+    expect(hist.steps.map((s: any) => s.message)).toEqual(expect.arrayContaining(["back to the first trailer", "close the gap it leaves"]));
+  });
+
   // ---- a sandbox's layout: what it draws and how it lays it out, changed only by proposal over MCP
   test("a sandbox's layout changes only by an MCP proposal an admin accepts: its pins and any field of its configs", async () => {
     const t = (await call("ada", "POST", "/api/tokens", { name: "sandboxes" })).data.token;

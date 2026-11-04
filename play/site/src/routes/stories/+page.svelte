@@ -160,6 +160,10 @@
 		<header class="head">
 			<h2 title={story.title}>{story.title}</h2>
 			<p class="muted small meta" title={story.note}>{story.format} · {story.fps} fps · {clock(story.duration)} · {story.tracks.length} tracks{story.note ? ` · ${story.note.split('\n')[0]}` : ''}</p>
+			<!-- the stories whose newest version links this one, and which version of it each plays (Samuel 2026-11-04) -->
+			{#if story.linked_by?.length}
+				<p class="muted small meta">Linked by {#each story.linked_by as b, i (b.id + b.version)}{i ? ', ' : ''}<a href="#{b.id}">{b.title}</a> at v{b.plays ?? '?'}{/each}</p>
+			{/if}
 			{#if error}<p class="error">{error}</p>{/if}
 		</header>
 	{/if}

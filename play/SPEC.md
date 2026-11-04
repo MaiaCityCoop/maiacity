@@ -380,6 +380,7 @@ The format and the player are made for that now.
 | `voice` | `who`, `line` (the narration; its subtitle, cut into lines of about 26 characters spoken evenly); `cues` its own subtitles where it sets them, `[{ at, text, em? }]` (`at` seconds into the clip, each until the next; `em` one set apart, alone and large: "100x" while "a hundred times" is said; Samuel 2026-11-04); its take as the clip's sound (below) | |
 | `notes` | `section`, `camera`, `retention`, `mood` (↑ ↑↑ ↑↑↑ ↓ ↓↓ ↕) | |
 | `music`, `sfx`, `ambience` | the score and cues, spot sounds and hits, beds; clips may overlap; nothing dips under the voice by itself (a track's `duck: true` asks for about 6 dB under it; Samuel 2026-11-04) | |
+| `story` | `story` (another story's UUID) and `version` (the id of the accepted version of it that plays; required); `duration` that version's own (left out, it is given it): that version linked in, below | |
 
 **Every clip may sound** (Samuel 2026-11-03, the old studio's model of a clip's sound, `SNAPSHOT_2611101`
 `maia/content/studio`): `audio` a recording's file hash (MCP `add_story_audio`: MP3, WAV, Ogg, FLAC, M4A or WebM, its
@@ -403,6 +404,40 @@ Times are seconds; `duration` is worked out from the clips. Clips of `shots`, `v
 and never overlap; other kinds may. **A clip may carry fields no kind names, and a track may be of a kind not named
 here** (`music`, `sfx`, `callout`, `scene`): both are kept as given, so a new kind needs no migration. Frames are
 `files` like any other (§4.3), served by `GET /api/files/:hash`.
+
+**Linked stories: one timeline composed of others** (Samuel 2026-11-04: "Can you introduce timeline composition … so
+we pull out the trailer as its own timeline, but we can reuse the trailer timeline in each other timeline, so this just
+links into the actual trailer timeline? So we can develop the trailer individually or independently of all other
+timelines." And then: "the linked trailer feature timeline should be like you need to link the actual version. So
+different timelines can link different trailer versions."). The trailer every film plays after its intro is a story of
+its own, and each film links a version of it:
+
+- **The format.** A track of kind `story` holds links, one clip each: `{ id, at, duration, story: <its UUID>, version:
+  <one of its accepted versions' ids> }`, by UUID and hash only (§4.7). A link always names its version: a film plays
+  that version until a proposal on the film moves it to another (`set_clip` on the link with the new `version`; the
+  clip then takes that version's length, and a `shift` closes or opens the difference), so two films can play two
+  versions of one trailer, and a new trailer version changes no film. `duration` is the version's own, held to it.
+- **Checked whole, with the rest** (`checkBody`, on every proposal and every `story_edit` step): refused are a link
+  without a version, to a story that does not exist, to the story itself, to a version not that story's, to a version
+  never accepted (a film links only what an admin accepted), with a duration other than its version's, and links that
+  loop at any depth (A links B links A: a story never plays inside itself) or nest more than 4 stories deep. A story
+  track's clips never overlap each other; a link's content may overlap the story's own clips (the trailer's music
+  ringing out under the film's next line) and is never checked against them. A story folded into another (below)
+  keeps its versions, so a link to one of them plays on as it was.
+- **Reading resolves them.** `GET /api/stories/:id[?v=n]`, a step's read, a proposal's review (the proposal and its
+  base) and MCP `get_story` give the story as stored and `links`: every version it links, to any depth, by the
+  version's id, each `{ id (its story), title, number, version, duration, newest, body }` (`newest`: its story's newest
+  accepted number, shown as "v5 available", never played). `get_story` leaves the bodies out unless asked
+  (`links: true`). `GET /api/stories/:id` also gives `linked_by`: the stories whose newest version links it, and which
+  version of it each plays.
+- **The player flattens them** (`flatten(story, links)` in `play/site/src/lib/stories/timeline.ts`): each link's
+  version laid in from its `at`, recursively, its clips tagged with the story they came from and their ids made unique
+  against the story's own; `renderAt` and `soundsOf` (so the Web Audio mix) run on that one timeline, so the linked
+  pictures, subtitles, notes and recordings play in their place. Where a linked clip and the story's own clip of a
+  kind shown one at a time (shots, voice, notes) both cover t, the one that started later shows; two that start
+  together, the story's own. The timeline draws a lane of links ("The trailer · v2", "v3 available" where its story has
+  a newer version), each opening that story at that version on the Stories page, and the clips they lay in hatched
+  and dashed in their own lanes, the link's span marked across them. Nothing of it is edited there.
 
 **One function shows it.** The player's picture is `renderAt(story, t)` (`play/site/src/lib/stories/timeline.ts`):
 from the timeline alone, the shot at second t, the one fading out under it and how far (a cut cuts, other

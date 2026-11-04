@@ -9,6 +9,11 @@
 //   voice  { who, line, cues? }                            — the narration and its subtitle; `cues` its own subtitles,
 //          [{ at (seconds into the clip), text, em? }], else its line is cut evenly (`em`: one set apart, alone, large)
 //   notes  { section, camera, retention, mood }            — what the editor reads beside the picture
+//   story  { story: <another story's UUID>, version }      — one accepted version of that story linked in, its whole
+//          timeline played in the clip's place, the clip as long as it (Samuel 2026-11-04: the trailer its own story,
+//          every film linking the trailer's version it plays; a film moves to a newer one only by a proposal on the film).
+//          Reading a story resolves its links (`links`, linksOf); checkBody refuses a link without a version, to an
+//          unknown story, to itself, around a loop, to a version not that story's or never accepted (Linker)
 // Any clip of any track may sound (the voice's takes, a music or sfx or ambience track's clips): `audio` is a recording
 // kept among play's files by its hash (add_story_audio), `audio_in` where in the recording the clip starts, `gain` in
 // dB, `fade_in`/`fade_out` in seconds, `eq` (biquad bands) and `keys` (gain automation, [s, dB]), as the old studio's
@@ -44,7 +49,14 @@ export type Clip = { id: string; at: number; duration: number; [field: string]: 
 export type Track = { id: string; kind: string; gain?: number; mute?: boolean; clips: Clip[] };
 export type StoryBody = { schema: typeof SCHEMA; format: string; fps: number; duration: number; tracks: Track[] };
 export type VersionInfo = { number: number; id: string; note: string; created: string; author: string | null; approved_by: string | null };
-export type Story = { id: string; title: string; version: string; number: number | null; note: string; created: string; author: string | null; versions: VersionInfo[] } & StoryBody;
+/** a linked version as it is read: its story (a UUID), title, number and id, its duration and timeline, and its story's
+ *  newest accepted number (shown as "v5 available" where it is newer; a link plays only its own version) */
+export type Linked = { id: string; title: string; number: number; version: string; duration: number; newest: number | null; body: StoryBody };
+/** every version a timeline links, to any depth, by the version's id */
+export type Links = Record<string, Linked>;
+/** a story linking this one, at its newest version, and the number of this one's version it plays */
+export type LinkedBy = { id: string; title: string; number: number; version: string; plays: number | null };
+export type Story = { id: string; title: string; version: string; number: number | null; note: string; created: string; author: string | null; versions: VersionInfo[]; links: Links; linked_by: LinkedBy[] } & StoryBody;
 export type StoryItem = { id: string; title: string; number: number; versions: number; duration: number; shots: number; tracks: number; updated: string; cover: string | null };
 
 /** a story is named by its UUID (Samuel 2026-11-04); its title is only shown */
@@ -53,8 +65,12 @@ const TRACK_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
 const CLIP_ID = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$/;
 export const FORMATS = ["9:16", "16:9", "1:1", "4:5"];
 export const FPS = [24, 25, 30, 48, 50, 60];
+/** a track of this kind links other stories in, a clip each (play/SPEC.md §12, linked stories) */
+export const LINK = "story";
+/** how deep links may nest: a story's links, their links, … at most this many stories down */
+export const MOST_LINK_DEPTH = 4;
 /** the kinds whose clips follow one another on their track, never overlapping */
-const SEQUENTIAL = new Set(["shots", "voice", "notes"]);
+const SEQUENTIAL = new Set(["shots", "voice", "notes", LINK]);
 const MOST_TRACKS = 32;
 const MOST_CLIPS = 2000;
 /** the largest story body kept, as JSON */
@@ -128,7 +144,20 @@ const KINDS: Record<string, (c: Record<string, unknown>, what: string) => Record
     retention: text(c.retention, `${what}'s retention`, 500),
     mood: text(c.mood, `${what}'s mood`, 12),
   }),
+  [LINK]: (c, what) => linkOf(c, what),
 };
+
+/** a link clip's own fields: the story it links (a UUID, never a title) and the version of it it plays (a hash), always
+ *  (Samuel 2026-11-04: "you need to link the actual version, so different timelines can link different trailer versions") */
+function linkOf(c: Record<string, unknown>, what: string): { story: string; version: string } {
+  const story = text(c.story, `${what}'s story (the id of the story it links, a UUID)`, 36, true);
+  if (!STORY_ID.test(story)) throw new StoryError(`${what} names the story it links by its id, a UUID (list_stories), never by its title.`);
+  if (c.version == null || c.version === "")
+    throw new StoryError(`${what} names no version: a link plays one accepted version of story ${story}, given as its id (version: a hash; get_story lists its versions). A story changes only by its own proposals, never because a story it links got a new version.`);
+  const version = text(c.version, `${what}'s version`, 64);
+  if (!HASH.test(version)) throw new StoryError(`${what}'s version is one of story ${story}'s accepted versions' ids, a hash (get_story lists them).`);
+  return { story, version };
+}
 
 const MOST_CUES = 64;
 /** a voice clip's own subtitles, where it sets them: [{ at (seconds into the clip), text, em? }] in time order, each
@@ -192,8 +221,13 @@ function keysOf(v: unknown, what: string) {
     .sort((a, b) => a[0] - b[0]);
 }
 
-/** A story's timeline as given, checked and laid out (clips in time order, each track's clips never overlapping where its kind follows one after another); every shot's frame an image play holds. */
-export async function checkBody(db: Queryable, given: any): Promise<StoryBody> {
+/**
+ * A story's timeline as given, checked and laid out (clips in time order, each track's clips never overlapping where its
+ * kind follows one after another); every shot's frame an image play holds; every link an accepted version it may play
+ * (Linker: `self` is the story the timeline is of, so it never plays inside itself), the link clip as long as that
+ * version (left out, it is given that length).
+ */
+export async function checkBody(db: Queryable, given: any, self?: string): Promise<StoryBody> {
   if (!given || typeof given !== "object" || Array.isArray(given)) throw new StoryError("A story's timeline is a JSON object: { format, fps, tracks }.");
   if (given.schema != null && given.schema !== SCHEMA) throw new StoryError(`A story's schema is ${SCHEMA}.`);
   const format = given.format == null ? "9:16" : text(given.format, "The format", 8);
@@ -202,6 +236,18 @@ export async function checkBody(db: Queryable, given: any): Promise<StoryBody> {
   if (!FPS.includes(fps)) throw new StoryError(`The frame rate is one of ${FPS.join(", ")}.`);
   if (!Array.isArray(given.tracks) || !given.tracks.length) throw new StoryError("A story has at least one track.");
   if (given.tracks.length > MOST_TRACKS) throw new StoryError(`A story has at most ${MOST_TRACKS} tracks.`);
+  // the versions it links, each checked and read first: a link clip is as long as the version it plays
+  const linker = new Linker(db);
+  const linked = new Map<Clip, Target>();
+  for (const t of given.tracks)
+    if (t && typeof t === "object" && typeof t.kind === "string" && t.kind.trim() === LINK && Array.isArray(t.clips))
+      for (const [ci, c] of t.clips.entries()) {
+        const what = `Clip ${c?.id ?? ci + 1} of track ${t.id ?? LINK}`;
+        if (!c || typeof c !== "object" || Array.isArray(c)) throw new StoryError(`${what} is not an object.`);
+        const ref = linkOf(c, what);
+        if (self && ref.story === self) throw new StoryError(`${what} links this story itself: a story can't play inside itself.`);
+        linked.set(c, await linker.must(ref, what));
+      }
   const trackIds = new Set<string>();
   let clipCount = 0;
   const tracks: Track[] = given.tracks.map((t: any, ti: number) => {
@@ -225,7 +271,10 @@ export async function checkBody(db: Queryable, given: any): Promise<StoryBody> {
       if (clipIds.has(cid)) throw new StoryError(`Two clips of track ${id} are called ${cid}.`);
       clipIds.add(cid);
       const at = c.at == null ? round(next) : seconds(c.at, `${what}'s start`, 0, 36_000);
-      const duration = seconds(c.duration, `${what}'s duration`, 0.04, 3600);
+      const link = kind === LINK ? linked.get(c) : undefined;
+      const duration = seconds(c.duration == null && link ? link.duration : c.duration, `${what}'s duration`, 0.04, 3600);
+      if (link && Math.abs(duration - link.duration) > 1e-3)
+        throw new StoryError(`${what} is ${duration} s long, but the version it plays (“${link.title}” v${link.number}) is ${link.duration} s: a link holds its whole version. Leave its duration out and it is given that length.`);
       next = at + duration;
       const { id: _i, at: _a, duration: _d, ...rest } = c;
       return { ...rest, ...(KINDS[kind]?.(c, what) ?? {}), ...sound(c, what), id: cid, at, duration };
@@ -257,7 +306,117 @@ export async function checkBody(db: Queryable, given: any): Promise<StoryBody> {
   if (!(duration > 0)) throw new StoryError("A story has at least one clip.");
   const body: StoryBody = { schema: SCHEMA, format, fps, duration, tracks };
   if (JSON.stringify(body).length > MOST_BODY) throw new StoryError(`A story is at most ${MOST_BODY / 1e6} MB as JSON.`, 413);
+  if (linked.size) await linker.nesting(body, self);
   return body;
+}
+
+// ---- links: a story played inside another (Samuel 2026-11-04: the trailer its own timeline, linked into every film)
+
+type Ref = { story: string; version: string };
+type Target = Linked;
+type Miss = { miss: "unknown" | "unaccepted" | "foreign" };
+const isLink = (t: Track) => t.kind === LINK;
+const refsOf = (b: { tracks?: Track[] } | null | undefined): (Clip & Ref)[] =>
+  (b?.tracks ?? []).filter(isLink).flatMap((t) => t.clips.filter((c): c is Clip & Ref => typeof c.story === "string" && STORY_ID.test(c.story) && typeof c.version === "string" && HASH.test(c.version)));
+
+/**
+ * Reads the versions links name, each once (a request's links are few). A link plays one accepted version of a story,
+ * which never changes: a film moves to a newer trailer only by a proposal on the film. A story folded into another
+ * (foldStories) keeps its versions, so a link to one of them plays on as it was.
+ */
+class Linker {
+  private seen = new Map<string, Promise<Target | Miss>>();
+  constructor(private q: Queryable) {}
+
+  get(r: Ref): Promise<Target | Miss> {
+    // by the story and the version together: a version named as another story's is that story's miss, not its hit
+    const k = `${r.story}@${r.version}`;
+    let p = this.seen.get(k);
+    if (!p) this.seen.set(k, (p = this.read(r)));
+    return p;
+  }
+
+  private async read(r: Ref): Promise<Target | Miss> {
+    const { rows } = await this.q.query<{ story_id: string; number: number | null; title: string; body: StoryBody; newest: number | null }>(
+      `SELECT v.story_id, v.number, v.title, v.body, h.number AS newest
+         FROM play.story_versions v JOIN play.stories s ON s.id = v.story_id LEFT JOIN play.story_versions h ON h.id = s.head
+        WHERE v.id = $1`,
+      [r.version],
+    );
+    const v = rows[0];
+    if (!v || v.story_id !== r.story) {
+      const known = (await this.q.query(`SELECT 1 FROM play.stories WHERE id = $1`, [r.story])).rows.length > 0;
+      return { miss: known ? "foreign" : "unknown" };
+    }
+    if (v.number == null) return { miss: "unaccepted" };
+    return { id: r.story, title: v.title, number: v.number, version: r.version, duration: Number(v.body?.duration ?? 0), newest: v.newest, body: v.body };
+  }
+
+  /** the version a link clip names, or why it can't be linked (`what` names the clip) */
+  async must(r: Ref, what: string): Promise<Target> {
+    const t = await this.get(r);
+    if (!("miss" in t)) return t;
+    if (t.miss === "unknown") throw new StoryError(`${what} links story ${r.story}, but there is no such story (list_stories gives every story's id).`);
+    if (t.miss === "unaccepted")
+      throw new StoryError(`${what} plays version ${r.version.slice(0, 12)}… of story ${r.story}, which was never accepted: a link plays only what an admin accepted (get_story lists the accepted versions).`);
+    throw new StoryError(`${what} plays version ${r.version.slice(0, 12)}…, which is not a version of story ${r.story} (get_story lists its versions and their ids).`);
+  }
+
+  /** no loop to any depth (a story never plays inside itself, however far down), and links nested at most MOST_LINK_DEPTH deep */
+  async nesting(body: StoryBody, self?: string) {
+    const names = new Map<string, string>();
+    const said = (path: string[]) => path.map((id, i) => (i === 0 ? "this story" : `“${names.get(id) ?? id}”`)).join(" → ");
+    const walk = async (b: StoryBody, path: string[]) => {
+      for (const r of refsOf(b)) {
+        const t = await this.get(r);
+        if ("miss" in t) continue; // a link inside a linked version was checked when that version was proposed
+        names.set(t.id, t.title);
+        if (t.id === self || path.includes(t.id)) throw new StoryError(`These links would loop: ${said([...path, t.id])}${t.id === self ? " (this story)" : ""}. A story can't play inside itself, however far down.`);
+        if (path.length > MOST_LINK_DEPTH) throw new StoryError(`Links nest at most ${MOST_LINK_DEPTH} stories deep: ${said([...path, t.id])}.`);
+        await walk(t.body, [...path, t.id]);
+      }
+    };
+    await walk(body, [self ?? "-"]);
+  }
+
+  /** every version `body` links, to any depth (each once), by its id */
+  async all(body: StoryBody, self?: string): Promise<Links> {
+    const out: Links = {};
+    const walk = async (b: StoryBody, path: string[]) => {
+      if (path.length > MOST_LINK_DEPTH) return;
+      for (const r of refsOf(b)) {
+        if (r.version in out) continue;
+        const t = await this.get(r);
+        if ("miss" in t || t.id === self || path.includes(t.id)) continue;
+        out[r.version] = t;
+        await walk(t.body, [...path, t.id]);
+      }
+    };
+    await walk(body, [self ?? "-"]);
+    return out;
+  }
+}
+
+/** every version a timeline links, to any depth, by its id: each with its story, title, number, duration, timeline and
+ *  its story's newest number (a newer version there is only shown, never played) */
+export const linksOf = (q: Queryable, body: StoryBody, self?: string): Promise<Links> => new Linker(q).all(body, self);
+
+/** the links as an agent reads them by default: each one's story, title, number, version, duration and its story's newest number, without its timeline */
+export const slimLinks = (links: Links) => Object.fromEntries(Object.entries(links).map(([k, { body: _b, ...l }]) => [k, l]));
+
+/** the stories whose newest version links story `id`, and the version of it each plays */
+export async function linkedBy(q: Queryable, id: string): Promise<{ id: string; title: string; number: number; version: string; plays: number | null }[]> {
+  const { rows } = await q.query<{ id: string; title: string; number: number; version: string; plays: number | null }>(
+    `SELECT DISTINCT s.id, s.title, v.number, c->>'version' AS version, lv.number AS plays
+       FROM play.stories s JOIN play.story_versions v ON v.id = s.head
+       CROSS JOIN LATERAL jsonb_array_elements(v.body->'tracks') t
+       CROSS JOIN LATERAL jsonb_array_elements(t->'clips') c
+       LEFT JOIN play.story_versions lv ON lv.id = c->>'version'
+      WHERE s.folded_into IS NULL AND t->>'kind' = $2 AND c->>'story' = $1
+      ORDER BY s.title, lv.number`,
+    [id, LINK],
+  );
+  return rows;
 }
 
 // ---- edits: a new version made from the head, clip by clip
@@ -294,8 +453,12 @@ export function applyEdits(head: StoryBody, edits: unknown): any {
   edits.forEach((e: any, i: number) => {
     switch (e?.op) {
       case "set_clip": {
-        const c = clipOf(trackOf(e.track, i), e.clip, i);
-        for (const [k, v] of Object.entries(object(e.fields, "its fields", i))) v === null && k !== "frame" ? delete c[k] : (c[k] = v);
+        const t = trackOf(e.track, i);
+        const c = clipOf(t, e.clip, i);
+        const fields = object(e.fields, "its fields", i);
+        for (const [k, v] of Object.entries(fields)) v === null && k !== "frame" ? delete c[k] : (c[k] = v);
+        // a link moved to another version takes that version's length (checkBody gives it), unless the edit sets one
+        if (t.kind === LINK && "version" in fields && !("duration" in fields)) delete c.duration;
         break;
       }
       case "add_clip":
@@ -421,7 +584,8 @@ export async function listStories(db: Queryable, me: Me | null): Promise<StoryIt
 
 type VersionRow = { id: string; story_id: string; number: number | null; title: string; body: StoryBody; note: string; created: Date; author: string | null; approved_by: string | null };
 
-/** story `id` at its head, or at accepted version `number` */
+/** story `id` at its head, or at accepted version `number`, with the versions it links (`links`) and the stories whose
+ *  newest version links it (`linked_by`) */
 export async function storyOf(db: Queryable, me: Me | null, id: string, number?: number): Promise<Story> {
   admin(me);
   if (!STORY_ID.test(id)) throw new StoryError("A story is named by its id, a UUID (list_stories).", 404);
@@ -438,7 +602,7 @@ export async function storyOf(db: Queryable, me: Me | null, id: string, number?:
   const v = number === undefined ? rows[0] : rows.find((r) => r.number === number);
   if (!v) throw new StoryError(`Story ${id} has no version ${number}.`, 404);
   const versions = rows.map((r) => ({ number: r.number!, id: r.id, note: r.note, created: iso(r.created), author: r.author, approved_by: r.approved_by }));
-  return { id, title: v.title, version: v.id, number: v.number, note: v.note, created: iso(v.created), author: v.author, versions, ...v.body };
+  return { id, title: v.title, version: v.id, number: v.number, note: v.note, created: iso(v.created), author: v.author, versions, ...v.body, links: await linksOf(db, v.body, id), linked_by: await linkedBy(db, id) };
 }
 
 // ---- proposing, step by step (play/SPEC.md §4.4): every story is also a Loro document (./storydocs.ts) whose branches
@@ -483,7 +647,7 @@ async function draftOf(tx: Queryable, docId: string, story: string, b: unknown):
 async function draftStep(tx: Queryable, story: string, docId: string, b: number, p: { edits?: unknown; body?: unknown; title?: unknown }, message: string, author: docs.Author) {
   const cur = await storyDocAt(tx, story, b);
   const title = p.title !== undefined ? text(p.title, "The title", 120, true) : cur.title;
-  const body = await checkBody(tx, p.body !== undefined ? p.body : p.edits !== undefined ? applyEdits(cur.body, p.edits) : cur.body);
+  const body = await checkBody(tx, p.body !== undefined ? p.body : p.edits !== undefined ? applyEdits(cur.body, p.edits) : cur.body, story);
   return docs.commit(tx, docId, { branch: b, target: asDoc(title, body), message, author });
 }
 
@@ -546,7 +710,7 @@ export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fres
       if (fresh) {
         title = text(p.title, "The title", 120, true);
         if (p.edits !== undefined) throw new StoryError("A new story is given as its whole timeline (body), not as edits.");
-        body = await checkBody(tx, p.body);
+        body = await checkBody(tx, p.body, id);
         await tx.query(`INSERT INTO play.stories (id, coop_id, title) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING`, [id, COOP, title]);
         const docId = await ensureStoryDoc(tx, id);
         branchId = (await docs.branch(tx, docId, { author, note })).id;
@@ -560,13 +724,13 @@ export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fres
           if (!(await docs.history(tx, docId, { branch: d.id })).length) throw new StoryError(`Draft ${d.id} has no steps yet: there is nothing to propose.`);
           const cur = await storyDocAt(tx, id, d.id);
           title = cur.title;
-          body = await checkBody(tx, cur.body);
+          body = await checkBody(tx, cur.body, id);
           branchId = d.id;
           const n = await versionAtFrontiers(tx, id, d.base);
           base = n === null ? head : ((await tx.query<{ id: string }>(`SELECT id FROM play.story_versions WHERE story_id = $1 AND number = $2`, [id, n])).rows[0]?.id ?? head);
         } else {
           title = text(p.title ?? s[0]?.title, "The title", 120, true);
-          body = await checkBody(tx, p.body !== undefined ? p.body : applyEdits(s[0]!.body!, p.edits));
+          body = await checkBody(tx, p.body !== undefined ? p.body : applyEdits(s[0]!.body!, p.edits), id);
           branchId = (await docs.branch(tx, docId, { author, note })).id;
           await docs.commit(tx, docId, { branch: branchId, target: asDoc(title, body), message: note, author });
           base = head;
@@ -695,7 +859,8 @@ export async function named(db: Queryable, steps: docs.Step[], versions: docs.Ve
   return steps.map((s, i) => ({ seq: s.seq, branch: s.branch, kind: s.kind, author: s.author ? names.get(s.author) ?? null : null, via: s.via, message: s.message, at: iso(s.created), bytes: s.bytes, version: marked.get(i) ?? null }));
 }
 
-/** a story proposal as people review it: the proposed timeline, the head's it was made from, what changed, and its steps */
+/** a story proposal as people review it: the proposed timeline, the head's it was made from (each with the versions it
+ *  links), what changed, and its steps */
 export async function storyReview(db: Queryable, p: { story_id: string; story_base: string | null; story_version: string; doc_branch?: string | number | null }) {
   const { rows } = await db.query<{ id: string; title: string; body: StoryBody; number: number | null }>(
     `SELECT id, title, body, number FROM play.story_versions WHERE id = ANY($1)`, [[p.story_version, p.story_base].filter(Boolean)],
@@ -704,8 +869,8 @@ export async function storyReview(db: Queryable, p: { story_id: string; story_ba
   const base = p.story_base ? rows.find((r) => r.id === p.story_base) ?? null : null;
   const steps = p.doc_branch != null ? await named(db, await docs.history(db, docIdOf(p.story_id), { branch: Number(p.doc_branch) })) : [];
   return {
-    story: { id: p.story_id, title: next.title, ...next.body },
-    baseStory: base ? { id: p.story_id, title: base.title, number: base.number, ...base.body } : null,
+    story: { id: p.story_id, title: next.title, ...next.body, links: await linksOf(db, next.body, p.story_id) },
+    baseStory: base ? { id: p.story_id, title: base.title, number: base.number, ...base.body, links: await linksOf(db, base.body, p.story_id) } : null,
     diff: diffStories(base ? { title: base.title, body: base.body } : null, { title: next.title, body: next.body }),
     steps,
   };
@@ -748,7 +913,7 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
       return { id: p.id, status: "accepted", number: n, version: p.story_version };
     }
     // the head moved on since this was made: merged where the two changes touch different fields, archived where the same
-    let merged: { title: string; body: StoryBody } | null = null, clash: string[] = [];
+    let merged: { title: string; body: StoryBody } | null = null, clash: string[] = [], why = "";
     if (head && p.story_base) {
       const baseNumber = (await tx.query<{ number: number }>(`SELECT number FROM play.story_versions WHERE id = $1`, [p.story_base])).rows[0]?.number;
       const was = await docs.stateAt(tx, docId, { version: baseNumber });
@@ -758,9 +923,10 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
       if (!clash.length && !preview.problems.length) {
         const m = asStory(preview.json);
         try {
-          merged = { title: text(m.title, "The title", 120, true), body: await checkBody(tx, m.body) };
-        } catch {
+          merged = { title: text(m.title, "The title", 120, true), body: await checkBody(tx, m.body, p.story_id) };
+        } catch (e) {
           merged = null;
+          if (e instanceof StoryError) why = ` Merged with it, it would not hold: ${e.message}`;
         }
       }
     }
@@ -768,7 +934,7 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
       await tx.query(`UPDATE play.proposals SET status = 'archived', decided_at = now() WHERE id = $1`, [p.id]);
       await closeBranch("archived");
       const where = clash.length ? ` It changes what v${n - 1} changed too (${clash.slice(0, 3).map((c) => c.replace(/^\$\./, "")).join(", ")}).` : "";
-      return { id: p.id, status: "archived", message: `This story has a newer version than the one this was made on.${where} Propose the change again on its head.` };
+      return { id: p.id, status: "archived", message: `This story has a newer version than the one this was made on.${where}${why} Propose the change again on its head.` };
     }
     const version = versionIdOf(p.story_id, [head!, p.story_version], merged.title, merged.body);
     await tx.query(
@@ -813,7 +979,7 @@ export async function storyHistory(db: Db, me: Me | null, id: string, o: { branc
   });
 }
 
-/** story `id` as it was at step `seq` of its history */
+/** story `id` as it was at step `seq` of its history, with the versions it links */
 export async function storyAtStep(db: Db, me: Me | null, id: string, seq: number) {
   admin(me);
   if (!STORY_ID.test(id)) throw new StoryError("A story is named by its id, a UUID.", 404);
@@ -821,14 +987,14 @@ export async function storyAtStep(db: Db, me: Me | null, id: string, seq: number
   return asStoryError(async () => {
     const docId = await db.transaction((q) => ensureStoryDoc(q, id));
     const { title, body } = asStory(await docs.stateAt(db, docId, { step: seq }));
-    return { id, title, step: seq, ...body };
+    return { id, title, step: seq, ...body, links: await linksOf(db, body, id) };
   });
 }
 
 /** A story kept in the repo, written as its accepted v1 where play holds no story of its id (import/stories.ts). */
 export async function seedStory(db: Db, id: string, title: string, note: string, given: unknown): Promise<boolean> {
   if (!STORY_ID.test(id)) throw new StoryError("its story.json names no id (a UUID)");
-  const body = await checkBody(db, given);
+  const body = await checkBody(db, given, id);
   const t = text(title, "The title", 120, true);
   const version = versionIdOf(id, [], t, body);
   return db.transaction(async (tx) => {
