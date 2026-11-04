@@ -247,8 +247,8 @@ export async function accept(db: Db | Queryable, id: string, b: number, o: { aut
   });
 }
 
-/** rejects (an admin) or withdraws (its author) a branch: its steps stay in the history, on their side line */
-export async function close(db: Db | Queryable, id: string, b: number, o: { author: Author; status: "rejected" | "withdrawn" | "stale" }): Promise<void> {
+/** archives a branch (an admin, its author, or a moved head): its steps stay in the history, on their side line */
+export async function close(db: Db | Queryable, id: string, b: number, o: { author: Author; status: "archived" }): Promise<void> {
   await inTx(db, async (q) => {
     await lock(q, id);
     const r = await branchOf(q, id, b, true);

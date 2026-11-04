@@ -149,7 +149,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("GET", "/api/proposals/:id", async (req, p) => json(await proposalOf(db, await me(req), p.id)));
   on("POST", "/api/proposals", async (req) => json(await propose(db, store, await me(req), await body(req)), { status: 201 }));
   on("POST", "/api/proposals/:id/:verdict", async (req, p) => {
-    if (!["accept", "reject", "withdraw"].includes(p.verdict)) throw new NotFound("No such verdict.");
+    if (!["accept", "archive"].includes(p.verdict)) throw new NotFound("No such verdict.");
     return json(await decide(db, store, await me(req), p.id, p.verdict as Verdict));
   });
 
