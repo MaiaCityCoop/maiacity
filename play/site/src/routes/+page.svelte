@@ -1,14 +1,17 @@
 <!--
 	The dashboard, the one place everything starts from (legacy's $lib/app/Dashboard.svelte, its layout and design): a
-	greeting; the Game Worlds, the three sandboxes, open to every traveler; then the apps — the asset library, the
-	factories, the proposals, the game — and, for an admin acting as Maia City (the nav pill's You menu), the coop's
-	own: its members, invites and its Postgres.
+	greeting; the game, one thin card across the page (straight into its world map for an admin, greyed out and invite
+	only for everyone else, Samuel 2026-11-04); the Game Worlds, the three sandboxes, open to every traveler; then the
+	apps — a tile for each group of the asset library (plants, animals, things, machines, buildings, biomes;
+	$lib/app/groups.ts) and the factories — and, for an admin acting as Maia City (the nav pill's You menu), the coop's
+	own: its proposals, its stories, its members, invites and its Postgres.
 -->
 <script lang="ts">
 	import Icon from '$lib/site/app/Icon.svelte';
 	import { asset } from '$lib/site/media/url';
 	import { session } from '$lib/session.svelte';
 	import { asCity } from '$lib/acting.svelte';
+	import { GROUP_APPS } from '$lib/app/groups';
 
 	const hour = new Date().getHours();
 	const hello = hour < 5 ? 'Good night' : hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -18,27 +21,27 @@
 		{ href: '/sandbox-2/', label: 'Sandbox 2', note: 'The physical world lab: buildings from their parts, with physics, fixings and wind', cover: 'bd34c342d7db41283ff4d243aa21bf08daf40fe1e9b47a0f63f92a00d65a9c6e.jpg' },
 		{ href: '/sandbox-3/', label: 'Sandbox 3', note: 'The tired land: walk it as someone new every visit', cover: '41a858860a82169d3d5586d30b648723c32874a94e014f30718a5a70f5b56e85.jpg' }
 	];
-	type Tile = { href: string; label: string; note: string; icon: 'leaf' | 'proposals' | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio'; admins?: boolean };
+	type Tile = { href: string; label: string; note: string; icon: (typeof GROUP_APPS)[number]['icon'] | 'proposals' | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio'; admins?: boolean };
 	const APPS: Tile[] = [
-		{ href: '/assets/', label: 'Assets', note: 'Every asset and its versions', icon: 'leaf' },
+		// the asset library, a tile per group, each the same viewer (Samuel 2026-11-04)
+		...GROUP_APPS.map(({ href, label, note, icon }) => ({ href, label, note, icon })),
 		// the factories that build our assets, each a live simulation (routes/factories): first the LifeTrac line; admins
 		// only for now (Samuel 2026-11-03)
 		{ href: '/factories/', label: 'Factories', note: 'The LifeTrac line, every part from raw stock', icon: 'factory', admins: true },
-		// the proposals and the game: shown to admins only for now (Samuel 2026-11-02); an invite still opens the game
-		{ href: '/proposals/', label: 'Proposals', note: 'New versions, proposed and decided', icon: 'proposals', admins: true },
-		// our films as timelines, storyboard beside the script, to feel whether they work (routes/stories); admins only
-		// (Samuel 2026-11-03)
-		{ href: '/stories/', label: 'Stories', note: 'Our films as timelines: storyboard, voice, notes', icon: 'studio', admins: true },
-		{ href: '/game/', label: 'The game', note: 'Coming: for citizens', icon: 'play', admins: true }
 	];
+	// the coop's own, for an admin acting as Maia City (Samuel 2026-11-04: the proposals and the stories moved here)
 	const CITY: Tile[] = [
+		{ href: '/proposals/', label: 'Proposals', note: 'New versions, proposed and decided', icon: 'proposals' },
+		// our films as timelines, storyboard beside the script, to feel whether they work (routes/stories)
+		{ href: '/stories/', label: 'Stories', note: 'Our films as timelines: storyboard, voice, notes', icon: 'studio' },
 		{ href: '/admin/', label: 'Members', note: 'Who holds which level', icon: 'coops' },
 		{ href: '/admin/#invites', label: 'Invites', note: 'Make a citizen', icon: 'key' },
 		// the admins' window into play's Postgres, read only (routes/postgres): the coop's own (Samuel 2026-11-03)
 		{ href: '/postgres/', label: 'Postgres', note: 'Every table and its rows, read only', icon: 'database' }
 	];
 	const city = $derived(asCity());
-	const apps = $derived(APPS.filter((t) => !t.admins || session.me?.level === 'admin'));
+	const admin = $derived(session.me?.level === 'admin');
+	const apps = $derived(APPS.filter((t) => !t.admins || admin));
 </script>
 
 <svelte:head><title>Dashboard · maiaCITY play</title></svelte:head>
@@ -48,6 +51,13 @@
 		<p class="eyebrow">{city ? 'Acting as Maia City' : session.me?.founder ? `Founder ${String(session.me.founder).padStart(3, '0')}` : `A ${session.me?.level} of Maia City`}</p>
 		<h1>{hello}{session.me?.name ? `, ${session.me.name}` : ''}.</h1>
 	</header>
+
+	<!-- the game: admins play it now, everyone else sees it coming (invite only) -->
+	{#if admin}
+		<a class="play" href="/game/map/"><Icon name="play" size={22} /><b>The game</b><span>The world map: biomes and plots, nothing built on it yet</span><em>Play →</em></a>
+	{:else}
+		<div class="play off" aria-disabled="true"><Icon name="play" size={22} /><b>The game</b><span>Coming soon</span><em>Invite only</em></div>
+	{/if}
 
 	<p class="divider">Game Worlds</p>
 	<div class="games">
@@ -84,6 +94,15 @@
 	h1 { margin: 0.4rem 0 0; font-size: clamp(2.2rem, 5vw, 3.4rem); }
 	.divider { display: flex; align-items: center; gap: 0.8rem; margin: 2.4rem 0 0.9rem; font-size: 0.72rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
 	.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+	.play { display: flex; align-items: center; gap: 0.8rem; margin-top: 2rem; padding: 0.75rem 1.1rem; border-radius: 14px; background: var(--ink); color: var(--paper); text-decoration: none; transition: transform 150ms ease, box-shadow 150ms ease; }
+	.play:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgb(38 56 44 / 0.16); }
+	.play :global(svg) { flex: none; color: var(--mustard); }
+	.play b { font-family: var(--font-display); font-size: 1.1rem; font-weight: 500; }
+	.play span { flex: 1; min-width: 0; overflow: hidden; font-size: 0.85rem; opacity: 0.8; text-overflow: ellipsis; white-space: nowrap; }
+	.play em { flex: none; font-style: normal; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mustard); }
+	.play.off { background: var(--paper); color: var(--muted); border: 1px solid var(--line); cursor: not-allowed; }
+	.play.off:hover { transform: none; box-shadow: none; }
+	.play.off :global(svg), .play.off em { color: var(--muted); }
 	.games { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 	.game { position: relative; overflow: hidden; aspect-ratio: 16 / 9; border-radius: 18px; background: var(--ink); }
 	.game a { display: block; height: 100%; color: #fff; text-decoration: none; }

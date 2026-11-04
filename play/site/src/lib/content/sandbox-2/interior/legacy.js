@@ -5,6 +5,7 @@
  * a vine along a balcony rail grapevines, a pergola's vines grapevines up its posts, a shrub or a fruit tree its kind.
  * The pots, the posts and the beds' soil stay; the stand-ins go.
  */
+import { SANDBOX } from '$lib/content/assets/sandboxes.js';
 import * as THREE from 'three';
 
 /** @typedef {import('./flora.js').Forest} Forest */
@@ -53,7 +54,7 @@ export function swapLegacy(root, space, forest, { warm, seed, r }) {
 	const add = (id, stages, reach, w, scale) => {
 		const stage = stages[Math.min(stages.length - 1, Math.floor(r() * stages.length))];
 		// each plant by its slot of Sandbox 1's pins (`plant/<id>`: the version the stand-ins were traded for, v1)
-		forest.add({ id, v: 1, asset: `pin:sandbox-1/plant/${id}`, stage, seed }, reach, w.x, w.y, w.z, r() * Math.PI * 2, scale * (0.9 + r() * 0.2));
+		forest.add({ id, v: 1, asset: `pin:${SANDBOX.one}/plant/${id}`, stage, seed }, reach, w.x, w.y, w.z, r() * Math.PI * 2, scale * (0.9 + r() * 0.2));
 	};
 	for (const o of found) {
 		const L = o.userData.legacy;

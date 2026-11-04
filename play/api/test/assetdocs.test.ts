@@ -23,7 +23,7 @@ import { makeToken } from "../src/tokens";
 
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;
-const COOP = "maia-city";
+const COOP = "12f8d4e7-701f-8727-a327-de9b240ea867";
 const src = (body: string) => `module.exports.recipe = function (id, v, variant) {\n  // ${body}\n  return { meta: {}, build() { return null; } };\n};\n`;
 
 suite("assets as documents", () => {
@@ -40,8 +40,9 @@ suite("assets as documents", () => {
     return hash;
   };
   /** an asset with versions written as the legacy import writes them (or as accepted proposals left them) */
-  async function writeAsset(grp: string, slug: string, versions: { n: number; source: string; variants?: Record<string, string>; author?: string; imported?: boolean; created?: string }[]) {
-    const id = crypto.randomUUID();
+  /** the papaya, whose kept rounds are in ../import/history/<its id> */
+  const PAPAYA = "e46e8e6f-cd69-5c1e-88c8-cea2032bf600";
+  async function writeAsset(grp: string, slug: string, versions: { n: number; source: string; variants?: Record<string, string>; author?: string; imported?: boolean; created?: string }[], id: string = crypto.randomUUID()) {
     ids[slug] = id;
     written[slug] = {};
     await db.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, $2, $3, $4, $5)`, [id, COOP, grp, slug, slug[0].toUpperCase() + slug.slice(1)]);
@@ -104,7 +105,7 @@ suite("assets as documents", () => {
   test("every asset's history is made from its versions: each version a step named its own number, its source byte for byte, nothing else changed", async () => {
     await writeAsset("plants", "fern", [{ n: 1, source: src("first") }, { n: 2, source: src("second, a frond more") }, { n: 4, source: src("fourth: legacy skipped a number") }]);
     await writeAsset("things", "lamp", [{ n: 1, source: src("lamp"), variants: { off: src("lamp"), on: src("lamp, lit") } }, { n: 2, source: src("one lamp") }]);
-    await db.query(`INSERT INTO play.sandbox_pins (sandbox_id, slot, version_id) VALUES ('sandbox-1', 'fern', $1)`, [written.fern[2].id]);
+    await db.query(`INSERT INTO play.sandbox_pins (sandbox_id, slot, version_id) VALUES ('ec08b07d-6ec0-8f65-92b2-3efe7d91df5d', 'fern', $1)`, [written.fern[2].id]);
     // a proposal decided before the documents: a branch of its own, closed as it was
     const rejected = hashText("fern|rejected");
     const rs = await put(src("a rejected fern"));
@@ -112,7 +113,7 @@ suite("assets as documents", () => {
     await db.query(`INSERT INTO play.asset_versions (id, asset_id, parents, recipe_hash, source_hash, card, engine, author, note) VALUES ($1, $2, $3, $4, $5, '{"card":{}}', 5, $6, 'not this')`, [rejected, ids.fern, [written.fern[4].id], rr, rs, who.cit.id]);
     await db.query(`INSERT INTO play.proposals (id, coop_id, kind, asset_id, base, version, author, note, via, status) VALUES ($1, $2, 'asset_version', $3, $4, $5, $6, 'not this', 'web', 'archived')`, [crypto.randomUUID(), COOP, ids.fern, written.fern[4].id, rejected, who.cit.id]);
 
-    const before = { catalog: await catalogOf(db), pins: await pinsOf(db, "sandbox-1"), versions: (await db.query(`SELECT id, number, recipe_hash, source_hash FROM play.asset_versions ORDER BY id`)).rows };
+    const before = { catalog: await catalogOf(db), pins: await pinsOf(db, "ec08b07d-6ec0-8f65-92b2-3efe7d91df5d"), versions: (await db.query(`SELECT id, number, recipe_hash, source_hash FROM play.asset_versions ORDER BY id`)).rows };
     const r = await ensureAssetDocs(db, store);
     expect(r.errors).toEqual([]);
     expect(r.made).toBe(2);
@@ -120,7 +121,7 @@ suite("assets as documents", () => {
     // the versions, the catalog and the pins are exactly as they were
     expect((await db.query(`SELECT id, number, recipe_hash, source_hash FROM play.asset_versions ORDER BY id`)).rows).toEqual(before.versions);
     expect(await catalogOf(db)).toEqual(before.catalog);
-    expect(await pinsOf(db, "sandbox-1")).toEqual(before.pins);
+    expect(await pinsOf(db, "ec08b07d-6ec0-8f65-92b2-3efe7d91df5d")).toEqual(before.pins);
     // each version's step holds its source byte for byte, under its own number (a gap kept)
     const fern = await docs.versionsOf(db, assetDocId(ids.fern));
     expect(fern.map((v) => v.number)).toEqual([1, 2, 4]);
@@ -139,8 +140,8 @@ suite("assets as documents", () => {
 
   test("the papaya's nine kept rounds stand between v1 and v2, by Maia over MCP, and lead to v2 byte for byte", async () => {
     const v1 = readFileSync(join(import.meta.dir, "../import/legacy/sources/plants/papaya@963cc9dfc684.js"), "utf8");
-    const v2 = readFileSync(join(HISTORY, "plants/papaya/v2.js"), "utf8");
-    await writeAsset("plants", "papaya", [{ n: 1, source: v1, created: "2026-11-02T11:03:54Z" }, { n: 2, source: v2, author: who.ada.id, imported: false, created: "2026-11-03T08:52:33Z" }]);
+    const v2 = readFileSync(join(HISTORY, PAPAYA, "v2.js"), "utf8");
+    await writeAsset("plants", "papaya", [{ n: 1, source: v1, created: "2026-11-02T11:03:54Z" }, { n: 2, source: v2, author: who.ada.id, imported: false, created: "2026-11-03T08:52:33Z" }], PAPAYA);
     const r = await ensureAssetDocs(db, store);
     expect(r.errors).toEqual([]);
     expect(r.kept).toBe(9);
@@ -148,7 +149,7 @@ suite("assets as documents", () => {
     expect(h.steps.map((s: any) => s.message.split(":")[0])).toEqual(["v1", ...Array.from({ length: 9 }, (_, i) => `round ${i + 1}`), "v2"]);
     expect(h.steps.filter((s: any) => s.message.startsWith("round")).every((s: any) => s.via === "mcp" && s.author === "ada")).toBe(true);
     expect(h.steps.map((s: any) => s.version)).toEqual([1, null, null, null, null, null, null, null, null, null, 2]);
-    const index = JSON.parse(readFileSync(join(HISTORY, "plants/papaya/index.json"), "utf8"));
+    const index = JSON.parse(readFileSync(join(HISTORY, PAPAYA, "index.json"), "utf8"));
     for (const [i, s] of h.steps.slice(1, 10).entries()) expect(hashText((await docs.stateAt(db, assetDocId(ids.papaya), { step: s.seq })).source)).toBe(index.steps[i].hash);
     expect((await docs.stateAt(db, assetDocId(ids.papaya), { version: 2 })).source).toBe(v2);
 
@@ -156,7 +157,7 @@ suite("assets as documents", () => {
     const atV2 = await recipeAtStep(db, store, await me("ada"), ids.papaya, h.steps[10].seq);
     expect(atV2.hash).toBe(written.papaya[2].recipe!);
     expect(atV2.version).toBe(2);
-    const r5 = readFileSync(join(HISTORY, "plants/papaya/round5.js"), "utf8");
+    const r5 = readFileSync(join(HISTORY, PAPAYA, "round5.js"), "utf8");
     const at5 = await recipeAtStep(db, store, await me("ada"), ids.papaya, h.steps[5].seq);
     expect(at5.hash).toBe(hashText(RECIPE_HEAD + r5 + recipeTail("papaya", 2, null)));
     expect(at5.v).toBe(2);

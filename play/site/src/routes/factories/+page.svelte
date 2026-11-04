@@ -1,19 +1,22 @@
 <!--
-	Factories: every production line play shows ($lib/content/factories), one at a time as a live 3D miniature on a
-	real discrete event simulation — AirSup's factory skill (.claude/skills/factory-skill), its runtime as legacy
-	ported it. Its HUD is theirs (hud.css, scoped to this page): the day's output against the target, every station's
-	busy, blocked, down and starved, the bottleneck, an inspector with the sizing rule and the what-ifs. Ours beside it:
-	the line's bill of process, every part of what it builds with what it is made from and every operation it goes
-	through, at which station and for how long; a part picked lights up its route through the factory, and a station
-	picked lists what it does for one machine. What the line builds is our own asset, by its slot of the Factories'
-	pins (the LifeTrac), built in the asset box. `?factory=<id>` picks a line once there are more than one; AirSup's
-	queries still work (`?select=weld`, `?assemble=0`, `?film=1`). Full screen, the nav pill over it.
+	Factories: every production line play shows ($lib/content/factories), in the asset viewer's layout ($lib/app/Frame,
+	as the asset library has it; Samuel 2026-11-04): on the left the factories to pick from, in the middle the one picked
+	as a live 3D miniature on a real discrete event simulation — AirSup's factory skill (.claude/skills/factory-skill),
+	its runtime as legacy ported it, its HUD theirs (hud.css, scoped to its host): the day's output against the target,
+	every station's busy, blocked, down and starved, the bottleneck, an inspector with the sizing rule and the what-ifs.
+	On the right, ours: what the line is, its versions, and its bill of process, every part of what it builds with what it
+	is made from and every operation it goes through, at which station and for how long; a part picked lights up its
+	route through the factory, and a station picked lists what it does for one machine. What the line builds is our own
+	asset, by its slot of the Factories' pins (the LifeTrac), built in the asset box. `?factory=<id>` picks a line;
+	AirSup's queries still work (`?select=weld`, `?assemble=0`, `?film=1`).
 -->
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { tick } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { session } from '$lib/session.svelte';
+	import Frame from '$lib/app/Frame.svelte';
+	import Icon from '$lib/app/Icon.svelte';
 	import { FACTORIES } from '$lib/content/factories/index.js';
 	import { ASSEMBLIES, STOCK, opsAt, totals } from '$lib/content/factories/lifetrac-bom.js';
 	import '$lib/content/factories/hud.css';
@@ -28,16 +31,16 @@
 	let missing = $state<{ ref: string; why: string }[]>([]);
 	let app: App | undefined;
 
-	const wanted = page.url.searchParams.get('factory');
-	const factory = FACTORIES.find((f) => f.id === wanted) ?? FACTORIES[0];
-	const spec = factory.build();
-	const parts = (factory.parts ?? []) as Part[];
+	// the factory picked in the left column, by its address
+	const factory = $derived(FACTORIES.find((f) => f.id === page.url.searchParams.get('factory')) ?? FACTORIES[0]);
+	const spec = $derived(factory.build());
+	const parts = $derived((factory.parts ?? []) as Part[]);
 	const T = totals();
-	const stationOf = new Map(spec.stations.map((s) => [s.id, s]));
+	const stationOf = $derived(new Map(spec.stations.map((s) => [s.id, s])));
+	const pick = (id: string) => goto(id === FACTORIES[0].id ? '?' : `?factory=${id}`, { keepFocus: true, noScroll: true });
 	const stock = STOCK as Record<string, { label: string }>;
 
-	/** the parts panel: open, the filter, the part whose route is shown, the station picked in the factory */
-	let open = $state(false);
+	/** the bill of process: the filter, the part whose route is shown, the station picked in the factory */
 	let q = $state('');
 	let shown = $state<string | null>(null);
 	let picked = $state<string | null>(null);
@@ -78,19 +81,27 @@
 	// Factories' pins to admins alone
 	const admin = $derived(session.me?.level === 'admin');
 
-	onMount(() => {
+	// the line picked, built and booted in its host; again whenever another is picked
+	$effect(() => {
 		if (!admin) return void goto('/', { replaceState: true });
+		const spec_ = spec, el = host;
+		if (!el) return;
 		let gone = false;
+		error = '';
+		missing = [];
+		shown = null;
+		picked = null;
+		phase = 'Building the line…';
 		(async () => {
 			try {
 				// our machines and shapes into the kit first, then the asset the line builds, in the asset box
 				const [{ boot }, { assetsOf }] = await Promise.all([import('$lib/content/factories/app.js'), import('$lib/content/factories/assets.js'), import('$lib/content/factories/lifetrac-kit.js')]);
 				phase = 'Building the LifeTrac in the asset box…';
-				const got = await assetsOf(spec);
+				const got = await assetsOf(spec_);
 				if (gone) return;
 				missing = got.missing;
 				phase = '';
-				app = boot(spec, host, { assets: got.assets, extra, onSelect: (id: string | null) => (picked = id) }) as App;
+				app = boot(spec_, el, { assets: got.assets, extra, onSelect: (id: string | null) => (picked = id) }) as App;
 			} catch (e) {
 				error = e instanceof Error ? e.message : String(e);
 			}
@@ -98,6 +109,7 @@
 		return () => {
 			gone = true;
 			app?.dispose();
+			app = undefined;
 		};
 	});
 </script>
@@ -106,32 +118,39 @@
 	<title>{factory.label} · Factories · maiaCITY play</title>
 </svelte:head>
 
-{#if admin}
-	<div class="factory" bind:this={host}></div>
+{#snippet shelf()}
+	<h3 class="nav-group">Factories</h3>
+	{#each FACTORIES as f (f.id)}
+		<a class="nav-item" class:on={factory.id === f.id} href={f.id === FACTORIES[0].id ? '?' : `?factory=${f.id}`} onclick={(e) => (e.preventDefault(), pick(f.id))} aria-current={factory.id === f.id ? 'page' : undefined}
+			><Icon name="flow" size={16} /><span>{f.label}</span><small>v{f.version}</small></a
+		>
+	{/each}
+{/snippet}
 
-	{#if phase && !error}<p class="phase">{phase}</p>{/if}
-	{#if error}<p class="bad">The factory could not be built: {error}</p>{/if}
-
-	{#if !phase && !error}
-		<button class="parts-btn" class:on={open} onclick={() => (open = !open)} aria-expanded={open}>
-			{open ? 'Close' : 'Every part'} · {T.parts}
-		</button>
+{#snippet about()}
+	<header class="about-head">
+		<small>Factory · owned by Maia City</small>
+		<h3>{factory.label}</h3>
+		<p class="note">{factory.note}</p>
+		<p class="from">{factory.from}</p>
 		{#if missing.length}
 			<p class="missing">Drawn with the line’s own model of the LifeTrac and pallet: {[...new Set(missing.map((m) => m.why))].join('; ')}</p>
 		{/if}
-	{/if}
-
-	{#if open}
-		<aside class="parts" aria-label="Every part of the LifeTrac and how it is made">
-			<header>
-				<p class="eyebrow">Bill of process</p>
-				<h2>Every part of the LifeTrac</h2>
-				<p class="sum">{T.parts} parts, {T.pieces} pieces, {T.kg.toLocaleString('en-US')} kg: {T.made} made here from raw stock, {T.bought} bought. Pick one to light up its route through the factory.</p>
-				<input type="search" placeholder="Filter: panel, hose, 4140, Parker…" bind:value={q} />
-			</header>
+	</header>
+	<h4 class="side-head">Versions</h4>
+	<ol class="chain">
+		{#each [...factory.versions].reverse() as v (v.v)}
+			<li class:on={v.v === factory.version}><b>v{v.v}</b> <span class="from">{v.date}</span><p class="note">{v.note}</p></li>
+		{/each}
+	</ol>
+	{#if parts.length}
+		<section class="parts" aria-label="Every part of what it builds and how it is made">
+			<h4 class="side-head">Bill of process</h4>
+			<p class="sum">{T.parts} parts, {T.pieces} pieces, {T.kg.toLocaleString('en-US')} kg: {T.made} made here from raw stock, {T.bought} bought. Pick one to light up its route through the factory.</p>
+			<input type="search" placeholder="Filter: panel, hose, 4140, Parker…" bind:value={q} />
 			<div class="list">
 				{#each groups as g (g.id)}
-					<h3>{g.label}</h3>
+					<h5 class="grp">{g.label}</h5>
 					{#each g.parts as p (p.id)}
 						<div class="part" class:sel={shown === p.id} id="part-{p.id}">
 							<button class="head" onclick={() => show(p)}>
@@ -160,43 +179,54 @@
 					{/each}
 				{/each}
 			</div>
-		</aside>
+		</section>
 	{/if}
+{/snippet}
+
+{#if admin}
+	<div class="factories">
+		<Frame nav={shelf} aside={about} navLabel="Maia City's factories" asideLabel="The factory, its versions and its bill of process" navIcon="board" flush>
+			<div class="stage">
+				{#key factory.id}<div class="factory" bind:this={host}></div>{/key}
+				{#if phase && !error}<p class="phase">{phase}</p>{/if}
+				{#if error}<p class="bad">The factory could not be built: {error}</p>{/if}
+			</div>
+		</Frame>
+	</div>
 {/if}
 
 <style>
-	/* the host: the page, under the nav pill; the runtime fills it with its canvas and HUD (.fs-root, hud.css) */
-	.factory { position: fixed; inset: 0; background: #ece6da; }
+	/* the whole screen, in the asset library's frame; the nav pill floats over it */
+	.factories { position: fixed; inset: 0; background: var(--cream); --soft: rgb(38 56 44 / 0.6); --accent: var(--brand-green); }
+	.factories :global(.soft) { color: var(--soft); }
+	/* the middle: the runtime's host, its canvas and HUD (.fs-root, hud.css) kept inside the column, not the screen */
+	.stage { position: relative; height: 100%; overflow: hidden; }
+	.factory { position: absolute; inset: 0; background: #ece6da; }
+	.stage :global(.fs-root) { position: absolute; }
 	.phase, .bad {
-		position: fixed; left: 50%; top: 42%; transform: translateX(-50%); z-index: 5; max-width: 36rem; margin: 0;
+		position: absolute; left: 50%; top: 42%; transform: translateX(-50%); z-index: 5; width: max-content; max-width: min(36rem, 90%); margin: 0;
 		padding: 0.8rem 1.1rem; border-radius: 12px; background: rgb(250 247 240 / 0.92); color: var(--ink);
 		font: 500 0.95rem/1.4 var(--font-body); box-shadow: var(--shadow);
 	}
 	.bad { color: #c23a22; }
-	.parts-btn {
-		position: fixed; left: 30px; top: 66px; z-index: 6; height: 34px; padding: 0 14px; cursor: pointer;
-		border: 1px solid rgb(36 38 42 / 0.16); border-radius: 10px; background: rgb(250 247 240 / 0.86); color: #24262a;
-		font: 600 11px/1 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 0.12em; text-transform: uppercase;
-		backdrop-filter: blur(14px); box-shadow: 0 8px 22px rgb(60 45 20 / 0.12);
-	}
-	.parts-btn.on { background: #24262a; color: #fff; }
-	.missing {
-		position: fixed; left: 30px; top: 108px; z-index: 5; max-width: 22rem; margin: 0; padding: 0.45rem 0.7rem;
-		border-radius: 10px; background: rgb(250 247 240 / 0.86); color: #77736a; font: 500 11px/1.4 ui-monospace, Menlo, monospace;
-	}
-	.parts {
-		position: fixed; left: 30px; top: 108px; bottom: calc(var(--nav-room, 48px) + 70px); z-index: 6; width: min(400px, calc(100vw - 60px));
-		display: flex; flex-direction: column; border-radius: 14px; border: 1px solid rgb(36 38 42 / 0.1);
-		background: rgb(250 247 240 / 0.94); backdrop-filter: blur(16px) saturate(1.25); box-shadow: 0 12px 34px rgb(60 45 20 / 0.16);
-		color: #24262a; font-family: var(--font-body);
-	}
-	header { padding: 14px 16px 10px; border-bottom: 1px solid rgb(36 38 42 / 0.1); }
-	.eyebrow { margin: 0; font: 500 10px/1 ui-monospace, Menlo, monospace; letter-spacing: 0.14em; text-transform: uppercase; color: #77736a; }
-	h2 { margin: 6px 0 4px; font: 600 1.15rem/1.2 var(--font-display); }
+	.missing { margin: 0.5rem 0 0; padding: 0.45rem 0.6rem; border-radius: 8px; background: rgb(0 0 0 / 0.04); color: #77736a; font: 500 11px/1.4 ui-monospace, Menlo, monospace; }
+	/* the right column, as the asset library's */
+	.about-head { margin: 0 0 0.9rem 0.35rem; }
+	.about-head small { color: var(--accent); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+	.about-head h3 { margin: 0.15rem 0 0.3rem; font-size: 1.15rem; font-family: var(--font-body); font-weight: 600; }
+	.note { margin: 0.1rem 0 0; font-size: 0.8rem; line-height: 1.4; color: var(--ink-soft); }
+	.from { margin: 0.3rem 0 0; font-size: 0.74rem; color: var(--soft); }
+	.side-head { margin: 0 0 0.5rem 0.35rem; color: var(--soft); font-family: var(--font-body); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+	.chain { list-style: none; padding: 0; margin: 0 0 1.2rem 0.4rem; border-left: 2px solid var(--line); }
+	.chain li { position: relative; display: block; padding: 0.35rem 0 0.6rem 0.9rem; border: 0; font-size: 0.9rem; }
+	.chain li::before { content: ''; position: absolute; left: -7px; top: 0.75rem; width: 10px; height: 10px; border-radius: 50%; background: var(--paper); border: 2px solid var(--sage); }
+	.chain li.on::before { background: var(--mustard); border-color: var(--mustard); }
+	.chain .note { font-size: 0.76rem; }
+	.parts { margin: 0 0 0 0.35rem; color: #24262a; }
 	.sum { margin: 0 0 8px; font-size: 0.78rem; line-height: 1.4; color: #5d5a52; }
 	input { width: 100%; height: 32px; padding: 0 10px; border: 1px solid rgb(36 38 42 / 0.16); border-radius: 8px; background: #fff; font: inherit; font-size: 0.82rem; }
-	.list { overflow: auto; padding: 4px 10px 14px; min-height: 0; flex: 1; }
-	h3 { margin: 12px 6px 4px; font: 500 10px/1 ui-monospace, Menlo, monospace; letter-spacing: 0.14em; text-transform: uppercase; color: #77736a; }
+	.list { padding: 4px 0 14px; }
+	.grp { margin: 12px 6px 4px; font: 500 10px/1 ui-monospace, Menlo, monospace; letter-spacing: 0.14em; text-transform: uppercase; color: #77736a; }
 	.part { border-radius: 9px; }
 	.part.sel { background: rgb(63 207 142 / 0.12); }
 	.head { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border: 0; border-radius: 9px; background: none; cursor: pointer; text-align: left; font: 500 0.8rem/1.25 var(--font-body); color: inherit; }
@@ -205,9 +235,9 @@
 	.tag.made { background: rgb(63 154 106 / 0.16); color: #2e7a52; }
 	.route { padding: 2px 8px 10px; }
 	.raw { margin: 2px 0 6px; font-size: 0.74rem; line-height: 1.4; color: #4d4a43; }
-	ol { margin: 0; padding: 0; list-style: none; }
-	li { display: grid; grid-template-columns: 1fr auto; gap: 1px 8px; padding: 5px 0; border-top: 1px solid rgb(36 38 42 / 0.07); }
-	li.zero { opacity: 0.6; }
+	.route ol { margin: 0; padding: 0; list-style: none; }
+	.route li { display: grid; grid-template-columns: 1fr auto; gap: 1px 8px; padding: 5px 0; border-top: 1px solid rgb(36 38 42 / 0.07); }
+	.route li.zero { opacity: 0.6; }
 	.st { justify-self: start; padding: 0; border: 0; background: none; cursor: pointer; font: 600 0.74rem/1.3 var(--font-body); color: #2e7a52; text-align: left; }
 	.st.here { color: #c23a22; }
 	.s { font: 600 10.5px/1.3 ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
@@ -220,9 +250,4 @@
 	:global(.fs-ops li) { display: grid; grid-template-columns: 1fr auto; gap: 1px 8px; padding: 5px 0; border-top: 1px solid rgb(36 38 42 / 0.08); font: 500 11.5px/1.3 var(--font-body); }
 	:global(.fs-ops li b) { font: 600 10.5px/1.3 ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
 	:global(.fs-ops li i) { grid-column: 1 / 3; font-style: normal; font-size: 10.5px; color: #77736a; }
-	@media (max-width: 860px) {
-		.parts-btn { top: 78px; left: 22px; }
-		.parts { left: 12px; right: 12px; width: auto; top: 120px; bottom: calc(var(--nav-room, 48px) + 12px); }
-		.missing { left: 22px; top: 120px; }
-	}
 </style>
