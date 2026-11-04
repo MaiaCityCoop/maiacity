@@ -5,7 +5,7 @@
  *   home    40 m   the small domes of the first ring
  *   large   70 m   the medium domes of the second ring
  *   grand  100 m   the large dome: a green middle, and on its north a sunken pond with a waterfall, the wall behind closed stone
- *   master 136 m   the master dome in the centre: a round theatre sunk into its floor,
+ *   master 136 m   the master dome in the centre: a stone plaza in its middle,
  *                  and its ground ring given to the village's workshops (Things of the
  *                  library, built in the asset box: ./things.js)
  *
@@ -1023,7 +1023,7 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 	}
 
 	/* the land outside, seen through the glass */
-	// a ring, not a disc, so nothing lies over the master dome's sunken theatre. Built into a host's world, the host's
+	// a ring, not a disc, so nothing lies over a dome's own floor. Built into a host's world, the host's
 	// ground is the land outside: a meadow laid a hair above it would cover its floor (Sandbox 4's food forest biome)
 	// as soon as the dome joined it
 	if (!host) {
@@ -1371,8 +1371,6 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 		const walkway = 2.4
 
 		/* ground: soil, a stone plaza, a ring path and spokes */
-		// the master dome's centre is a theatre sunk into the ground, so its floor is a ring round the bowl
-		const theatre = kind === 'master'
 		// Sandbox 5: the floor under the glass is the warm food forest biome's, as the Maia City vault keeps it
 		// ($content/assets/sources/biome.js, its newest version): big fallen leaves, humus, moss and a living mat, run into
 		// each other in patches; its cover streamed round you (below). Bare soil where the vault holds none, no cover
@@ -1387,7 +1385,7 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 			for (let i = 0; i < pos.count; i++) uv.setXY(i, (pos.getX(i) + R) / (2 * R), (pos.getY(i) + R) / (2 * R))
 			return geo
 		}
-		const ground = new THREE.Mesh(theatre ? new THREE.RingGeometry(Rc, R, 96, 1) : green ? groundWithPond() : new THREE.CircleGeometry(R, 96), warmFloor ?? m.soil(R / 2))
+		const ground = new THREE.Mesh(green ? groundWithPond() : new THREE.CircleGeometry(R, 96), warmFloor ?? m.soil(R / 2))
 		ground.rotation.x = -Math.PI / 2
 		ground.receiveShadow = true
 		scene.add(ground)
@@ -1399,63 +1397,8 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 			scene.add(mesh)
 			return mesh
 		}
-		if (theatre) flat(new THREE.RingGeometry(Rc, Rc + 2.4, 96), m.stone(((Rc + 2.4) * 2) / 3))
-		else if (!green) flat(new THREE.CircleGeometry(Rc, 64), m.stone((Rc * 2) / 3))
-		/* the theatre: a round stage at the bottom of a bowl of stone tiers, seated all the way round */
-		// six tiers of seats, and the rest of the bowl a wide stage
-		const aisle = 1.2
-		const tier = { w: 0.9, h: 0.42 }
-		const tiers = 6
-		const stageR = Rc - aisle - tiers * tier.w
-		const pit = tiers * tier.h
-		const tierIn = (i: number) => Rc - (tiers - i) * tier.w
-		/** The floor in the bowl at a radius: the stage, the aisle round it, or a tier. */
-		const bowlAt = (rr: number) => {
-			if (!theatre || rr >= Rc) return 0
-			if (rr <= stageR) return -pit + 0.55
-			if (rr < tierIn(0)) return -pit
-			return -pit + (Math.floor((rr - tierIn(0)) / tier.w) + 1) * tier.h
-		}
-		if (theatre) {
-			const bowl = new THREE.Group()
-			const seat = m.lime(Rc / 2, 0.2)
-			for (let i = 0; i < tiers; i++) {
-				const r0t = tierIn(i), top = -pit + (i + 1) * tier.h
-				const tread = new THREE.Mesh(new THREE.RingGeometry(r0t, r0t + tier.w, 128), m.stone((Rc * 2) / 3))
-				tread.rotation.x = -Math.PI / 2
-				tread.position.y = top
-				bowl.add(tread)
-				const riser = new THREE.Mesh(new THREE.CylinderGeometry(r0t, r0t, tier.h, 128, 1, true), seat)
-				riser.position.y = top - tier.h / 2
-				;(riser.material as THREE.Material).side = THREE.DoubleSide
-				bowl.add(riser)
-				// stairs down the four spokes: a half step cut into the tier below each riser
-				for (const a of DOORS) {
-					const [x, z] = polar(r0t - tier.w / 4, a)
-					bowl.add(box(1.6, tier.h / 2, tier.w / 2, m.lime(1, 0.3), x, top - tier.h, z, a))
-				}
-			}
-			const floor = new THREE.Mesh(new THREE.RingGeometry(stageR, tierIn(0), 96), m.stone(4))
-			floor.rotation.x = -Math.PI / 2
-			floor.position.y = -pit
-			bowl.add(floor)
-			const wall = new THREE.Mesh(new THREE.CylinderGeometry(tierIn(0), tierIn(0), 0.2, 96, 1, true), seat)
-			wall.position.y = -pit + 0.1
-			bowl.add(wall)
-			// the stage: an oak drum with a limestone edge
-			const stage = new THREE.Mesh(new THREE.CylinderGeometry(stageR, stageR, 0.55, 96), m.oak(stageR, stageR))
-			stage.position.y = -pit + 0.275
-			bowl.add(stage)
-			const lip = new THREE.Mesh(new THREE.TorusGeometry(stageR, 0.09, 8, 128), m.lime(20, 1))
-			lip.rotation.x = -Math.PI / 2
-			lip.position.y = -pit + 0.55
-			bowl.add(lip)
-			// the bowl's sides, down to its floor, so the ground never shows through
-			const sideWall = new THREE.Mesh(new THREE.CylinderGeometry(Rc, Rc, 0.3, 96, 1, true), seat)
-			sideWall.position.y = -0.15
-			bowl.add(sideWall)
-			scene.add(await bakeIn(bowl))
-		}
+		// the master dome's centre is a stone plaza like every dome's (its sunken theatre taken out, Samuel 2026-11-04)
+		if (!green) flat(new THREE.CircleGeometry(Rc, 64), m.stone((Rc * 2) / 3))
 		if (!lush) flat(new THREE.RingGeometry(Rp - 1.1, Rp + 1.1, 128, 1, ringGap - Math.PI / 2, TAU - 2 * ringGap), m.stone((Rp * 2) / 3))
 		// under the gallery the floor is stone too: the covered commons round the edge
 		if (!lush) flat(galRing(rIn - 0.4, R, 128), m.stone((R * 2) / 3))
@@ -1599,10 +1542,9 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 		const area = Math.PI * (rIn * rIn - Rmid * Rmid)
 		// Sandbox 5 plants its warm forest much closer: a tree every 9 m² (11 where it is a house too)
 		const trees = opts.flora ? Math.min(kind === 'master' ? 900 : 700, Math.round(area / (lush ? 9 : 11))) : Math.min(kind === 'master' ? 200 : 230, Math.round(area / (lush ? 17 : 26)))
-		/** Sandbox 5: whether a plant reaching `reach` round rr, a would stand on stone: the plaza (in the master dome the
-		 *  theatre's stone ring round its bowl), the ring path, the paths to the doors and the stairs, the paved corners */
+		/** Sandbox 5: whether a plant reaching `reach` round rr, a would stand on stone: the plaza, the ring path, the paths to the doors and the stairs, the paved corners */
 		const onStone = (rr: number, a: number, reach: number) =>
-			rr < Rmid + (theatre ? 2.4 : 0) + reach + 0.25 ||
+			rr < Rmid + reach + 0.25 ||
 			(!lush && ringOn(a) && Math.abs(rr - Rp) < 1.1 + reach + 0.15) ||
 			onSide(rr, a, reach) ||
 			[...doors, ...STAIRS].some((d) => Math.abs(adiff(a, d)) < Math.PI / 2 && Math.abs(Math.sin(adiff(a, d))) * rr < 1 + reach + 0.15)
@@ -1835,33 +1777,8 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 		await pause('Planting the forest inside')
 
 		await slice()
-		/* the plaza: a long table, sofas, and lanterns — and in the master dome, the theatre */
-		if (kind === 'master') {
-			// lanterns in a ring high over the stage, and a few instruments waiting on it
-			for (let k = 0; k < 12; k++) {
-				const l = lantern(m, 0.7, H + 12 + (k % 3) * 1.5)
-				const [x, z] = polar(Rc * 0.62, (k * Math.PI) / 6)
-				l.position.set(x, 0, z)
-				scene.add(l)
-				if (k % 3 === 0) addLamp(x, H + 11.4, z, 220, 46, -pit + 0.55)
-			}
-			const props = new THREE.Group()
-			const floorY = -pit + 0.55
-			const rug = new THREE.Mesh(new THREE.CircleGeometry(stageR * 0.45, 48), m.rug)
-			rug.rotation.x = -Math.PI / 2
-			rug.position.y = floorY + 0.01
-			props.add(rug)
-			for (let k = 0; k < 5; k++) {
-				const [x, z] = polar(stageR * 0.3, (k * Math.PI * 2) / 5)
-				const st = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.5, 14), m.oak(1))
-				st.position.set(x, floorY + 0.25, z)
-				props.add(st)
-			}
-			const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.3, 0.6, 20), m.cushion)
-			drum.position.set(0, floorY + 0.3, 0)
-			props.add(drum)
-			scene.add(await bakeIn(props))
-		} else if (!green) {
+		/* the plaza: a long table, sofas, and lanterns */
+		if (!green) {
 			const t = table(m, 4.2, 10)
 			t.position.set(0, 0, -Rc * 0.3)
 			scene.add(t)
@@ -2493,7 +2410,7 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 		}
 		floorAt = (x, z, feet) => {
 			const rr = Math.hypot(x, z)
-			const options = [bowlAt(rr)]
+			const options = [0]
 			const s = inStair(x, z)
 			if (s !== null) options.push(s)
 			const s2 = inStair2(x, z)

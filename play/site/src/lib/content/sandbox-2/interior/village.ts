@@ -9,7 +9,7 @@
  * path crosses; the seven-layer food forest fills the rest of the hexagon.
  *
  * From outside you see a simple inside through the glass: the forest, the
- * galleries, the rooms, the master's stage. Walk through a door and the full
+ * galleries, the rooms. Walk through a door and the full
  * interior of that dome loads (interior.ts), entered at that door; walk back
  * out of a door and you are in the village again, outside it.
  */
@@ -147,20 +147,19 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	await pause('Letting in the light')
 
 	/* ── the ground: the hexagon of the cell, meadow beyond ── */
-	// the meadow beyond the cell: a ring, so it never shows through the hole over the master's theatre
+	// the meadow beyond the cell: a ring round it
 	const meadow = new THREE.Mesh(new THREE.RingGeometry(WORLD * 0.8, 3000, 64, 1), m.grass)
 	meadow.rotation.x = -Math.PI / 2
 	meadow.position.y = -0.05
 	meadow.receiveShadow = true
 	scene.add(meadow)
-	// the hexagon of the cell, open under the master dome, whose theatre sinks into the ground
+	// the hexagon of the cell
 	const hexShape = new THREE.Shape()
 	for (let k = 0; k <= 6; k++) {
 		const a = (k / 6) * Math.PI * 2
 		if (k === 0) hexShape.moveTo(Math.cos(a) * WORLD, Math.sin(a) * WORLD)
 		else hexShape.lineTo(Math.cos(a) * WORLD, Math.sin(a) * WORLD)
 	}
-	hexShape.holes.push(new THREE.Path().absarc(0, 0, Math.max(4.5, domes[0]!.R * 0.22) + 0.3, 0, Math.PI * 2, true))
 	// Sandbox 5: the cell is a forest garden to its edges, its soil never bare — its floor is the food forest biome's,
 	// as the Maia City vault keeps it ($content/assets/sources/biome.js, its newest version): a living mat of clover and
 	// grasses in the light, leaf litter, humus and moss under the trees. Where the vault holds none, the ground lies bare
@@ -508,7 +507,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		}
 		terrace(H, 0, rWall - 0.4)
 		if (twoFloors) terrace(H2, H, Math.sqrt(R * R - H2 * H2) - 0.4)
-		// through the glass: soil, the plaza or the stage, the galleries and the rooms
+		// through the glass: soil, the plaza, the galleries and the rooms
 		const soil = new THREE.Mesh(new THREE.CircleGeometry(R - 0.1, 48), warmFloor ?? m.soil(R / 2))
 		soil.rotation.x = -Math.PI / 2
 		soil.position.y = 0.02
@@ -518,18 +517,6 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		plaza.rotation.x = -Math.PI / 2
 		plaza.position.y = 0.04
 		g.add(plaza)
-		if (d.kind === 'master') {
-			// the round theatre: tiers of stone round a wide oak stage
-			for (let k = 0; k < 6; k++) {
-				const tier = new THREE.Mesh(new THREE.RingGeometry(Rc * 0.55 + k * 0.9, Rc * 0.55 + (k + 1) * 0.9, 64), m.lime(Rc, 0.3))
-				tier.rotation.x = -Math.PI / 2
-				tier.position.y = 0.05 + k * 0.12
-				g.add(tier)
-			}
-			const stage = new THREE.Mesh(new THREE.CylinderGeometry(Rc * 0.55, Rc * 0.55, 0.3, 48), m.oak(Rc, Rc))
-			stage.position.y = 0.15
-			g.add(stage)
-		}
 		// the kitchen garden along the ring path, and the four stairs up to the gallery
 		const Rp = (Rc + rIn) / 2
 		const beds = Math.min(28, Math.floor((2 * Math.PI * Rp) / 4))
