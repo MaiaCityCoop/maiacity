@@ -66,7 +66,9 @@ openable in the sandbox as it would be; never by a migration. A
 (play/SPEC.md §4.7): `list_factories`, `get_factory`, `factory_history` read it, `factory_edit` drafts a change step by
 step (a station's machines, buffer or breakdowns, a part's operation and its seconds, the demand), and
 `propose_factory_version` proposes it, shown on the Proposals page field by field and openable as the factory would be,
-its simulation running; never by a migration. A
+its simulation running; never by a migration. The **game's configs** (the Game editor, first the levelling: how a
+village grows level by level) are Loro documents the same way (play/SPEC.md §4.9): `list_game_configs`,
+`get_game_config`, `game_config_history`, `game_config_edit`, `propose_game_config_version`. A
 version can be a kind of **variants** (`propose_version`'s `variants`: a plant's kinds, an animal's breeds), each its own
 recipe and a chip in the asset viewer. No tool accepts; an agent archives only its own open proposals made over MCP
 (`archive_proposal`: one it has replaced or no longer stands by; Samuel 2026-11-04). The same token also opens play's **read-only world routes** (`GET /api/me`, `/api/catalog`,
