@@ -203,6 +203,22 @@ export async function ensureAssetDoc(q: Queryable, store: BlobStore, asset: stri
 }
 
 /**
+ * The asset's document for reading (its history, a step, the recipe at a step): where it is there already and every
+ * proposal has its branch, its id straight away, with no transaction and no lock on the asset; only where something is
+ * missing, made under the lock as ensureAssetDoc does. A read never waits behind another's draft or proposal.
+ */
+export async function assetDocFor(db: Db, store: BlobStore, asset: string): Promise<{ id: string }> {
+  const id = assetDocId(asset);
+  const { rows } = await db.query<{ ready: boolean }>(
+    `SELECT EXISTS (SELECT 1 FROM play.docs WHERE id = $1)
+            AND NOT EXISTS (SELECT 1 FROM play.proposals p WHERE p.asset_id = $2 AND p.kind = 'asset_version' AND p.doc_branch IS NULL AND p.status <> 'accepted') AS ready`,
+    [id, asset],
+  );
+  if (rows[0]?.ready) return { id };
+  return db.transaction((q) => ensureAssetDoc(q, store, asset));
+}
+
+/**
  * A new branch of the asset's document at version `base` (the head a proposal was made on), or, for a new asset's
  * first version, at the document's empty start (a branch made on it merges into it field by field).
  */
@@ -413,7 +429,7 @@ function admin(me: Me | null): Me {
 export async function assetHistory(db: Db, store: BlobStore, me: Me | null, asset: string, o: { branch?: number } = {}) {
   admin(me);
   return asAssetError(async () => {
-    const { id: docId } = await db.transaction((q) => ensureAssetDoc(q, store, asset));
+    const { id: docId } = await assetDocFor(db, store, asset);
     const versions = await docs.versionsOf(db, docId);
     const steps = await named(db, await docs.history(db, docId, o.branch === undefined ? {} : { branch: o.branch }), versions);
     const { rows: drafts } = await db.query<any>(
@@ -437,7 +453,7 @@ export async function assetAtStep(db: Db, store: BlobStore, me: Me | null, asset
   admin(me);
   if (!Number.isInteger(seq) || seq < 1) throw new AssetDocError(`${seq} is not a step.`, 404);
   return asAssetError(async () => {
-    const { id: docId } = await db.transaction((q) => ensureAssetDoc(q, store, asset));
+    const { id: docId } = await assetDocFor(db, store, asset);
     const json = (await docs.stateAt(db, docId, { step: seq })) as AssetJson;
     return { asset, step: seq, ...json, sourceHash: hashText(json.source) };
   });
@@ -475,7 +491,7 @@ export async function recipeAtStep(db: Db, store: BlobStore, me: Me | null, asse
   admin(me);
   if (!Number.isInteger(seq) || seq < 1) throw new AssetDocError(`${seq} is not a step.`, 404);
   return asAssetError(async () => {
-    const { id: docId } = await db.transaction((q) => ensureAssetDoc(q, store, asset));
+    const { id: docId } = await assetDocFor(db, store, asset);
     const { rows: a } = await db.query<{ grp: string; slug: string; label: string }>(`SELECT grp, slug, label FROM play.assets WHERE id = $1`, [asset]);
     const json = (await docs.stateAt(db, docId, { step: seq })) as AssetJson;
     const { n, exact } = await numberAt(db, docId, seq);

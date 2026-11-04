@@ -13,7 +13,7 @@ export type Shot = Clip & { frame: string | null; transition: string };
 /** a subtitle the clip sets itself: `at` seconds into the clip it comes on, until the next; `em` sets it alone, large */
 export type SetCue = { at: number; text: string; em?: boolean };
 export type Voice = Clip & { who: string; line: string; cues?: SetCue[] };
-export type Notes = Clip & { section: string; camera: string; retention: string; mood: string; pace?: string; sound?: string };
+export type Notes = Clip & { section: string; camera: string; retention: string; mood: string; pace?: string; sound?: string; emotion?: string };
 
 /** what a clip of a sound track says it is, sounding or still to be made: its note (a planned cue, an effect, a bed) or its name */
 export const cueOf = (c: Clip) => String((c as { note?: unknown }).note ?? (c as { name?: unknown }).name ?? '');
@@ -195,13 +195,16 @@ export const moodLevel = (m: string | undefined) => {
 	return up && down ? 0 : up - down;
 };
 
-/** consecutive notes of one section, as spans of the timeline */
-export function sectionsOf(story: StoryBody | null): { section: string; at: number; end: number }[] {
-	const out: { section: string; at: number; end: number }[] = [];
+/** consecutive notes of one section, as spans of the timeline, each with the primary emotion it should leave (the first
+ * its notes name) */
+export function sectionsOf(story: StoryBody | null): { section: string; at: number; end: number; emotion: string }[] {
+	const out: { section: string; at: number; end: number; emotion: string }[] = [];
 	for (const n of clipsOf<Notes>(story, 'notes')) {
 		const last = out[out.length - 1];
-		if (last && last.section === n.section) last.end = n.at + n.duration;
-		else out.push({ section: n.section || '—', at: n.at, end: n.at + n.duration });
+		if (last && last.section === n.section) {
+			last.end = n.at + n.duration;
+			if (!last.emotion && n.emotion) last.emotion = n.emotion;
+		} else out.push({ section: n.section || '—', at: n.at, end: n.at + n.duration, emotion: n.emotion ?? '' });
 	}
 	return out;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CUE_CHARS, cuesOf, renderAt, setCuesOf, soundsOf, type StoryBody } from './timeline';
+import { CUE_CHARS, cuesOf, renderAt, sectionsOf, setCuesOf, soundsOf, type StoryBody } from './timeline';
 
 const LEAVES = 'Every few days, a new leaf unfolds at its crown, each turned a little further round than the last, so that every leaf finds the light. The old ones, it lets fall. Each leaves a scar, and in time its trunk becomes a diary of every leaf it ever wore.';
 const TRAILER = 'This is the story of how one million humans build a hundred times better way of living: their own solarpunk city, from the ground up. First in a game, then for real.';
@@ -76,5 +76,22 @@ describe('the sound under the voice', () => {
 	});
 	it('dips a track under the voice only when it asks for it', () => {
 		expect(soundsOf(story(true)).find((s) => s.kind === 'music')?.duck).toBe(true);
+	});
+});
+
+describe('sections and their emotions', () => {
+	it('spans consecutive notes of one section and carries the first emotion they name', () => {
+		const story = {
+			schema: 'story/1', format: '9:16', fps: 30, duration: 10,
+			tracks: [{ id: 'notes', kind: 'notes', clips: [
+				{ id: 'a', at: 0, duration: 2, section: 'HOOK', emotion: 'Astonishment', camera: '', retention: '', mood: '' },
+				{ id: 'b', at: 2, duration: 3, section: 'HOOK', camera: '', retention: '', mood: '' },
+				{ id: 'c', at: 5, duration: 5, section: 'THE CITY', camera: '', retention: '', mood: '' }
+			] }]
+		} as any;
+		expect(sectionsOf(story)).toEqual([
+			{ section: 'HOOK', at: 0, end: 5, emotion: 'Astonishment' },
+			{ section: 'THE CITY', at: 5, end: 10, emotion: '' }
+		]);
 	});
 });
