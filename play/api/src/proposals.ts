@@ -26,6 +26,9 @@ export class ProposalError extends Error {
 
 const GROUP = /^(plants|things|machines|buildings|actors|biomes)$/;
 const SLUG = /^[a-z0-9][a-z0-9-]{0,79}$/;
+/** a label as a slug: its letters and digits, lowercase, joined by '-' */
+const slugOf = (label: string) =>
+  label.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80).replace(/-+$/, "");
 const VARIANT = /^[a-z0-9][a-z0-9-]{0,79}$/;
 export const MOST_FILE = 16 * 1024 * 1024;
 const MEDIA = "text/javascript";
@@ -33,7 +36,7 @@ const MEDIA = "text/javascript";
 type Upload = { source?: string; recipe?: string; record?: any; label?: string };
 export type ProposalBody = {
   asset?: string; // an existing asset, by its UUID
-  new?: { group: string; slug: string; label: string }; // or a new one: its group, slug and label
+  new?: { group: string; slug?: string; label: string }; // or a new one: its group and label (its slug made from the label if none)
   label?: string;
   note?: string;
   base?: string | null; // the head it was made from, as the proposer saw it
@@ -150,11 +153,12 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
     ({ grp, slug } = rows[0]);
     asset = body.asset;
   } else {
+    // a new asset is its new UUID; its group, label and slug are only shown (the slug, the name its recipe is called
+    // with, made from the label where none is given), and another asset may share them
     grp = `${body?.new?.group ?? ""}`;
-    slug = `${body?.new?.slug ?? ""}`;
-    if (!GROUP.test(grp) || !SLUG.test(slug)) throw new ProposalError("A new asset needs its group (plants, things, machines, buildings, actors, biomes) and a slug.");
-    const { rows } = await db.query(`SELECT 1 FROM play.assets WHERE grp = $1 AND slug = $2`, [grp, slug]);
-    if (rows[0]) throw new ProposalError(`There is an asset ${grp}/${slug} already: propose a version of it.`, 409);
+    slug = body?.new?.slug == null || body.new.slug === "" ? slugOf(`${body?.new?.label ?? ""}`) : `${body.new.slug}`;
+    if (!GROUP.test(grp)) throw new ProposalError("A new asset needs its group (plants, things, machines, buildings, actors, biomes).");
+    if (!SLUG.test(slug)) throw new ProposalError("A new asset's slug is lowercase words joined by '-' (or give a label to make it from).");
     asset = newId();
   }
   const { rows: a } = await db.query<{ head: string | null; number: number | null; label: string; card: any; variants: Record<string, any> | null }>(
@@ -282,8 +286,9 @@ export async function listProposals(db: Queryable, me: Me | null, status?: strin
 }
 
 // a proposal of an asset version or of a story version (./stories.ts): a story's is listed as its title (label), the
-// group "stories" and its id (slug), with the version it would be; a sandbox's change (./sandboxes.ts) as its title,
-// the group "sandboxes" and its id, with how many changes it makes
+// group "stories" and its id (story_id, a UUID), with the version it would be; a sandbox's change (./sandboxes.ts) as
+// its title, the group "sandboxes" and its id (sandbox_id), with how many changes it makes. Only an asset has a slug,
+// and it is only shown
 async function listProposalsWhere(db: Queryable, where: string, args: unknown[]) {
   const { rows } = await db.query<any>(
     `SELECT p.id, p.kind, p.asset_id, p.base, p.version, p.story_id, p.story_base, p.story_version, p.doc_branch, p.status, p.note, p.created, p.decided_at, p.via,
@@ -291,7 +296,7 @@ async function listProposalsWhere(db: Queryable, where: string, args: unknown[])
             au.name AS author, de.name AS decided_by,
             COALESCE(a.label, sv.title, sx.title) AS label,
             COALESCE(a.grp, CASE WHEN p.kind = 'story_version' THEN 'stories' WHEN p.kind = 'sandbox_change' THEN 'sandboxes' END) AS grp,
-            COALESCE(a.slug, p.story_id, p.sandbox_id) AS slug, v.card->'card'->>'label' AS version_label,
+            a.slug, v.card->'card'->>'label' AS version_label,
             CASE WHEN p.kind = 'story_version' THEN COALESCE(sb.number, 0) + 1 WHEN p.kind = 'sandbox_change' THEN NULL ELSE COALESCE(b.number, 0) + 1 END AS number
        FROM play.proposals p
        LEFT JOIN play.assets a ON a.id = p.asset_id
