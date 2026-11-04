@@ -12,6 +12,7 @@ import { legacyRan, runImport } from "../import/run";
 import { seedStories, STORIES } from "../import/stories";
 import { storyVersionId } from "../src/versions";
 import { foldStories } from "../src/stories";
+import { NOTE_MOST } from "../src/notes";
 import { hashText } from "../src/hash";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
@@ -591,8 +592,14 @@ suite("play API", () => {
     await expect(db.query(`UPDATE play.story_versions SET title = 'x' WHERE id = $1`, [now.version])).rejects.toThrow(/frozen/);
     await expect(db.query(`DELETE FROM play.story_versions WHERE id = $1`, [now.version])).rejects.toThrow(/never deleted/);
     // the whole timeline given instead of edits: removing a track and a clip
-    const whole = await tool("propose_story_version", { story: "seed-to-fruit", base: now.version, note: "no notes", body: { format: "9:16", fps: 30, tracks: now.tracks.filter((t: any) => t.id !== "notes").map((t: any) => (t.id === "shots" ? { ...t, clips: t.clips.slice(0, 1) } : t)) } });
+    // a whole changelog as its note: kept whole up to NOTE_MOST characters, refused past it
+    const changelog = "- one line of what changed, and why.\n".repeat(200);
+    const tooLong = await tool("propose_story_version", { story: "seed-to-fruit", base: now.version, note: "x".repeat(NOTE_MOST + 1), edits: [{ op: "set_clip", track: "voice", clip: "v1", fields: { line: "x" } }] });
+    expect(tooLong.error).toContain(`longer than ${NOTE_MOST} characters`);
+    const whole = await tool("propose_story_version", { story: "seed-to-fruit", base: now.version, note: changelog, body: { format: "9:16", fps: 30, tracks: now.tracks.filter((t: any) => t.id !== "notes").map((t: any) => (t.id === "shots" ? { ...t, clips: t.clips.slice(0, 1) } : t)) } });
     expect(whole.error).toBeNull();
+    expect(changelog.length).toBeGreaterThan(2000);
+    expect((await call("ada", "GET", `/api/proposals/${whole.out.id}`)).data.note).toBe(changelog.trim());
     const removed = (await call("ada", "GET", `/api/proposals/${whole.out.id}`)).data.diff.tracks;
     expect(removed.find((t: any) => t.id === "notes").state).toBe("removed");
     expect(removed.find((t: any) => t.id === "shots").removed.map((c: any) => c.id)).toEqual(["s2"]);
