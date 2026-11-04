@@ -32,33 +32,40 @@ import { coverStream } from '$lib/content/biomes/stream.js';
 import { biomeOfCard } from '$lib/content/biomes/card.js';
 import { MOST, PED, soilOf } from './soils.js';
 
-/** the biomes a plant is shown on first, in this order; the library's others after them, by name */
-const FIRST = ['food-forest', 'warm-food-forest', 'meadow', 'clover-lawn', 'beech-forest', 'spruce-forest'];
+/** how green a floor looks: the share of its ground that is living mat or moss, from its surfaces' weights */
+const greenness = (recipe) => {
+	const w = recipe?.surface ?? {};
+	const all = Object.values(w).reduce((a, b) => a + (b ?? 0), 0);
+	return all > 0 ? ((w.green ?? 0) + 0.8 * (w.moss ?? 0)) / all : 0;
+};
 
 /**
  * The library's biomes a plant can stand on: each one's newest accepted version, read off its card (one whose card is
- * no floor's is left out), food forest first.
+ * no floor's is left out), the greenest first (Samuel 2026-11-04: a plant is shown on a green floor unless one is
+ * chosen), then by name. Each is known by `key`, its asset's UUID (its id where the index gives none).
  * @param {{ index: { recipes: Record<string, any> }, cardOf: (hash: string) => any }} source
- * @returns {{ id: string, label: string, hash: string, recipe: any }[]}
+ * @returns {{ key: string, id: string, label: string, hash: string, recipe: any }[]}
  */
 export function groundsIn(source) {
 	const newest = new Map();
 	for (const [hash, r] of Object.entries(source.index.recipes)) {
 		if (r.group !== 'biomes' || r.id === 'cover' || r.proposed || r.variant) continue;
 		const key = r.asset ?? r.id, was = newest.get(key);
-		if (!was || r.v > was.v) newest.set(key, { ...r, hash });
+		if (!was || r.v > was.v) newest.set(key, { ...r, hash, key });
 	}
 	const out = [];
 	for (const r of newest.values()) {
 		try {
-			out.push({ id: r.id, label: String(r.label ?? r.id).replace(/ floor$/i, ''), hash: r.hash, recipe: biomeOfCard(source.cardOf(r.hash)) });
+			out.push({ key: r.key, id: r.id, label: String(r.label ?? r.id).replace(/ floor$/i, ''), hash: r.hash, recipe: biomeOfCard(source.cardOf(r.hash)) });
 		} catch {
 			/* a card that is no floor's: not offered */
 		}
 	}
-	const rank = (id) => (FIRST.includes(id) ? FIRST.indexOf(id) : FIRST.length);
-	return out.sort((a, b) => rank(a.id) - rank(b.id) || a.label.localeCompare(b.label));
+	return out.sort((a, b) => greenness(b.recipe) - greenness(a.recipe) || a.label.localeCompare(b.label));
 }
+
+/** the floor when the library offers no biome: a living mat of short green, a little bare soil */
+const BARE = { green: 10, soil: 0.3 };
 
 /** a colour as the shader takes it (linear) @param {string} hex */
 const lin = (hex) => new THREE.Color(hex);
@@ -407,7 +414,7 @@ function setSoil(m, soil) {
  * @param {ReturnType<typeof groundUniforms>} g @param {THREE.Color} bg @param {THREE.Vector2} fade
  */
 function floorMaterial(g, bg, fade, sky) {
-	const m = groundMaterial({ soil: 1 });
+	const m = groundMaterial(BARE);
 	const inner = m.onBeforeCompile;
 	m.onBeforeCompile = (sh, r) => {
 		inner(sh, r);
@@ -535,7 +542,7 @@ export function groundOf(stage, { cover = !stage.low } = {}) {
 		/** the biome it is the floor of (its recipe, as its card says it) and that biome's id, which names its soil */
 		biome(next, id) {
 			recipe = next;
-			floor.material.userData.weigh(next?.surface ?? { soil: 1 });
+			floor.material.userData.weigh(next?.surface ?? BARE);
 			soilNow = soilOf(id);
 			setSoil(soil, soilNow);
 			coverFor();

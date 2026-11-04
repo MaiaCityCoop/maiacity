@@ -101,12 +101,12 @@
 	let grounds = $state.raw([]);
 	let groundId = $state(savedGround());
 	let soilShown = $state.raw(null);
-	/** the ground last chosen on this device, if it can say */
+	/** the ground chosen by hand on this device (its biome's key), if one was; else the greenest (./ground.js) */
 	function savedGround() {
 		try {
-			return localStorage.getItem('play.ground') ?? 'food-forest';
+			return localStorage.getItem('play.ground.chosen');
 		} catch {
-			return 'food-forest';
+			return null;
 		}
 	}
 	let pickGround = null;
@@ -186,16 +186,18 @@
 		// studio's floor
 		const earth = groundOf(stage);
 		grounds = groundsIn(source);
-		pickGround = (id) => {
-			const g = grounds.find((x) => x.id === id) ?? grounds[0];
-			groundId = g?.id ?? id;
+		pickGround = (key, byHand = false) => {
+			const g = grounds.find((x) => x.key === key) ?? grounds[0];
+			groundId = g?.key ?? key;
 			earth.biome(g?.recipe ?? null, g?.id);
 			soilShown = earth.soil;
-			try {
-				localStorage.setItem('play.ground', groundId);
-			} catch {
-				/* kept for this visit only */
-			}
+			// only a choice made by hand is kept: the default stays the greenest floor the library has
+			if (byHand)
+				try {
+					localStorage.setItem('play.ground.chosen', groundId);
+				} catch {
+					/* kept for this visit only */
+				}
 		};
 		pickGround(groundId);
 
@@ -571,8 +573,8 @@
 					<button class="chip roots" class:on={below} aria-pressed={below} onclick={() => toRoots?.()}>{below ? 'Above ground' : 'Roots'}</button>
 					{#if grounds.length > 1}
 						<span class="grounds-label">Ground</span>
-						{#each grounds as g (g.id)}
-							<button class="chip" class:on={groundId === g.id} aria-pressed={groundId === g.id} onclick={() => pickGround?.(g.id)}>{g.label}</button>
+						{#each grounds as g (g.key)}
+							<button class="chip" class:on={groundId === g.key} aria-pressed={groundId === g.key} onclick={() => pickGround?.(g.key, true)}>{g.label}</button>
 						{/each}
 					{/if}
 				</div>
