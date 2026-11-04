@@ -12,17 +12,26 @@ broke something next to them:
 The default is this method, used **before any music is made** and again before every proposal. A hard cut, a gap or a
 silence is only ever there because the plan says it is a break, and the proposal's note says why.
 
+**A method, not a table of numbers.** Each film, each section and each timeline has its own dynamic (Samuel
+2026-11-04: "those shouldn't be generic standard rules ... in this case you need a longer pause of thinking, where the
+voice is still"). The numbers below are floors and typical ranges; every boundary's pause is a decision made for its
+moment: what the listener must feel or think there, and how long that takes.
+
 ## The method
 
 1. **Map every boundary first.** Before generating a cue, write one line for each section change in the plan:
    - its **kind**: FLOW, TURN or BREAK (below);
-   - the **voice's pause** there;
+   - the **voice's pause** there: chosen for the moment, written as the section's notes clip's `breath` (seconds of a
+     still voice before its first line), which `check_mix.py` then holds the timeline to;
    - what the **outgoing** music does: runs on, ends its phrase and rings out, or stops;
    - what the **incoming** music does: is already under it, swells in, or lands on its downbeat inside the pause;
    - the **keys and tempi** on both sides.
 
    The map is the score's design. Each cue is generated to fit it, not fitted after.
-2. **Give the voice room at every change.** The music turns inside the voice's pause, never under a word:
+2. **Give the voice the room each change needs.** A quick turn into a nervous world can be 1.5 s. A thought that has
+   to land before a new world opens can be 4–5 s of a still voice: in the vision trailer, the night falling silent
+   after "the forest goes quiet.", the first dawn bird, and only then "Now imagine a million of us". The music turns
+   inside the voice's pause, never under a word:
    - the outgoing's last hit and the incoming's arrival at full both fall in the pause;
    - after a TURN, the first line comes once the new music has spoken, about a bar after its downbeat;
    - the lines are what moves (a breath longer, a gap shorter); the music's accents stay where they are;
@@ -41,11 +50,11 @@ silence is only ever there because the plan says it is a break, and the proposal
 
 ## The three kinds of boundary
 
-| kind | when | the voice's pause | the music |
+| kind | when | the voice's pause (a floor and a typical range; the plan sets it) | the music |
 |---|---|---|---|
 | **FLOW** | the energy runs on (an intro into a trailer, one section's two halves) | 0.6–1 s | one cue across it, or the incoming's downbeat on the outgoing's bar line in place of its final hit (rules 3, 9); no seam |
 | **TURN** | the mood, the energy or the world changes (the old way into the brick, the life into the city) | 1.5–2.5 s | the outgoing ends its phrase and rings out for 1–3 s (the L-cut); the incoming has begun softly under it, from about −20 dB, and is up by the pause's end (the J-cut); the two keys are related or staggered (rule 5) |
-| **BREAK** | the story stops to breathe (the night falling silent before the city; the old way's dead stop into "Here.") | 2–3.5 s | the outgoing's own ending (a cadence and its ring, or a planned dead stop); the beds sink but stay under; then one sound with intent (the voice, or the incoming's first beat). Planned, asked for, and in the note |
+| **BREAK** | the story stops to breathe or to think (the night falling silent before the city; the old way's dead stop into "Here.") | 2 s and up, as long as the thought needs (the city: 4.4 s) | the outgoing's own ending (a cadence and its ring, or a planned dead stop); the beds sink but stay under; then one sound with intent (the voice, or the incoming's first beat). Planned, asked for, and in the note |
 
 ## The rules
 
@@ -103,8 +112,9 @@ silence is only ever there because the plan says it is a break, and the proposal
      joins, accents where the words need them.
    - Land its accents on the words by its `audio_in` and the lines' gaps, never by cutting it.
 10. **The voice breathes at every section's change** (the method's step 2, the table above):
-    - FLOW at least 0.6 s, TURN 1.5–2.5 s, BREAK 2–3.5 s.
-    - After a trailer's crest, 1.2–1.5 s before the next line ("then for real." … "Maia, can you…").
+    - each change's pause planned for its moment and written as its notes' `breath`; the floors only keep a line from
+      running straight into a change (FLOW 0.6 s, TURN 1.5 s);
+    - After a trailer's crest, about 1.5 s before the next line ("then for real." … "Maia, can you…").
     - Before a bridge into a new world, the night falls silent first (Samuel 2026-11-04: "a short breathing break of
       voiceover between 3 and 4, so the night turns silent", then "Now imagine a million of us").
 
@@ -129,15 +139,15 @@ python3 .claude/skills/sound-designer/check_mix.py story.json [--min-voice 10] [
 It simulates the mix as the Stories player plays it: each clip's trim, its gain and its track's, keys, fades and EQ,
 weighted like hearing. It prints:
 - every voice line's margin over the rest;
-- a table of the section changes: each one's kind (TURN where a music clip starts or ends within 2 s, else FLOW) and
-  the voice's pause there;
+- a table of the section changes: each one's kind (TURN where a music clip starts or ends within 2 s, or a bed or an
+  effect starts within 1 s, else FLOW) and the voice's pause there;
 - the music and beds in 0.5 s steps around every section boundary and every music clip's first and last second.
 
 It fails (exit 1) on:
 
 | flag | what it means | the fix |
 |---|---|---|
-| BREATH | the voice pausing less than 1.5 s at a TURN, or less than 0.6 s at a FLOW | move the lines: a breath before the next section's first line (rule 10) |
+| BREATH | the voice pausing less than its section's planned `breath` (less 0.2 s), or, with no plan, less than the floor (1.5 s at a TURN, 0.6 s at a FLOW) | plan the pause for its moment and move the lines (rule 10) |
 | HOLE | the music under −52 dB with the beds under −45 for 0.4 s, or the music under −50 for a second even over the beds | overlap the cues (rules 1–2), or pass a planned BREAK with `--allow` |
 | JUMP | the music rising more than 12 dB within 0.25 s out of near-silence: a hard cut in | a J-cut: start it earlier and softer, swell (rule 4) |
 | CUT | the music falling more than 15 dB within 0.25 s with nothing taking over | let it ring out or fade, or hand it over (rules 1, 8); a wanted dead stop passes with `--allow` |
@@ -163,6 +173,8 @@ and passes the fix.
 | the intro at full on the first frame | v14 | BUILD, CUT, and the film's first moment checked |
 | the bridge into the city starting right on "the forest goes quiet." | v15 | BREATH |
 | (the trailer as its own story, its music starting 1.4 s in: BUILD measured a second from the film's start, not from the music's first sound) | v17 | BUILD measures from the first sound |
+| the handover into the old way (warmth into unease, the horn and the traffic arriving) passed as a FLOW with a 0.95 s pause | v17 | a section change where a bed or an effect arrives is a TURN |
+| the pause before the city met the table's number but was too short for its moment ("a longer pause of thinking") | v18 | each change's pause planned in its notes (`breath`), not taken from a table |
 
 A clean check is not a good transition: the plan is. Write the map first, so the next flag never needs Samuel's ear to
 find it.
