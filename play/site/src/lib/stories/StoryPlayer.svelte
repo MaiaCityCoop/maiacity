@@ -11,13 +11,18 @@
 	Its sound (./sound.ts): every clip with a recording (the voice's takes, music, sfx, ambience) laid on one Web Audio
 	clock; while it plays, t follows that clock, so picture and sound stay together. Lines with no take yet can be read
 	by the browser's voice.
+	Its links (Samuel 2026-11-04: the trailer its own story, linked into every film): the story is played as one timeline
+	with every version it links laid in (`flatten`, from the `links` play reads with it), a lane of the links, each one's
+	story named and opened on the Stories page by its UUID, and the clips it lays in shown in their lanes, dashed.
 -->
 <script lang="ts">
 	import { onMount, untrack, type Snippet } from 'svelte';
-	import { clipsOf, clock, cueOf, moodLevel, renderAt, sectionsOf, shotEdge, soundsOf, type Notes, type Shot, type StoryBody, type Voice } from './timeline';
+	import { clipAt, clipsOf, clock, cueOf, flatten, LINK, moodLevel, renderAt, sectionsOf, shotEdge, soundsOf, spansOf, type Links, type Notes, type Shot, type Slot, type StoryBody, type Track, type Voice } from './timeline';
 	import { StorySound } from './sound';
 
-	let { story, compact = false, keys = true, list, head, side }: { story: StoryBody & { title?: string }; compact?: boolean; keys?: boolean; list?: Snippet; head?: Snippet; side?: Snippet } = $props();
+	let { story, compact = false, keys = true, list, head, side }: { story: StoryBody & { title?: string; links?: Links | null }; compact?: boolean; keys?: boolean; list?: Snippet; head?: Snippet; side?: Snippet } = $props();
+	/** the story with every story it links laid in: one timeline, which everything below plays and shows */
+	const flat = $derived(flatten(story));
 
 	let t = $state(0);
 	let playing = $state(false);
@@ -28,22 +33,34 @@
 	const audio = new StorySound();
 	const SPEEDS = [1, 1.25, 1.5];
 
-	const moment = $derived(renderAt(story, t));
-	const shots = $derived(clipsOf<Shot>(story, 'shots'));
-	const voices = $derived(clipsOf<Voice>(story, 'voice'));
-	const notes = $derived(clipsOf<Notes>(story, 'notes'));
-	const sounds = $derived(soundsOf(story));
+	const moment = $derived(renderAt(flat, t));
+	const shots = $derived(clipsOf<Shot>(flat, 'shots'));
+	const voices = $derived(clipsOf<Voice>(flat, 'voice'));
+	const notes = $derived(clipsOf<Notes>(flat, 'notes'));
+	const sounds = $derived(soundsOf(flat));
+	/** the links, each in its place: the story's own link lane (those inside a linked story show as its clips do) */
+	const slots = $derived(flat.slots.filter((s) => s.depth === 0));
+	/** the link playing at t, if any */
+	const inLink = $derived(slots.find((s) => t >= s.at - 1e-6 && t < s.at + s.duration));
+	/** a link as people read it: the story's title and the version it plays, "Trailer · v3" */
+	const linkName = (s: Slot) => (s.title ? `${s.title} · v${s.number}` : 'A story that can no longer be read');
+	/** a newer accepted version of the linked story, if there is one: only shown (moving to it is a proposal on this story) */
+	const newer = (s: Slot) => (s.newest != null && s.number != null && s.newest > s.number ? s.newest : null);
+	/** the Stories page at the linked story (by its UUID), at the version this link plays */
+	const linkHref = (s: Slot) => `/stories/#${s.story}${s.number ? `@${s.number}` : ''}`;
+	/** a lane's name: a linked track's own, with the story it came from */
+	const laneName = (tr: Track) => (tr.link ? `${tr.name ?? tr.id} · ${tr.link.title}` : tr.id);
 	/** the tracks that sound besides the voice (music, sfx, ambience, a mix), each its own lane: their recordings, and the
 	 *  cues still to be made, written as notes (a preview's music, effects and beds, read before anything is recorded) */
-	const soundTracks = $derived((story?.tracks ?? []).filter((x) => x.kind !== 'voice' && x.kind !== 'shots' && x.kind !== 'notes' && x.clips.some((c) => typeof c.audio === 'string' || cueOf(c))));
+	const soundTracks = $derived(flat.tracks.filter((x) => x.kind !== 'voice' && x.kind !== 'shots' && x.kind !== 'notes' && x.kind !== LINK && x.clips.some((c) => typeof c.audio === 'string' || cueOf(c))));
 	const KIND_NAME: Record<string, string> = { music: 'Music', sfx: 'Effect', ambience: 'Ambience' };
 	/** what is heard (or planned to be) at the playhead, track by track */
 	const soundNow = $derived(
-		soundTracks.flatMap((tr) => tr.clips.filter((c) => t >= c.at - 1e-6 && t < c.at + c.duration && cueOf(c)).map((c) => ({ track: KIND_NAME[tr.kind] ?? tr.id, text: cueOf(c), planned: typeof c.audio !== 'string' })))
+		soundTracks.flatMap((tr) => tr.clips.filter((c) => t >= c.at - 1e-6 && t < c.at + c.duration && cueOf(c)).map((c) => ({ track: KIND_NAME[tr.kind] ?? tr.name ?? tr.id, text: cueOf(c), planned: typeof c.audio !== 'string' })))
 	);
 	/** voice clips with no take yet: only these may be read by the browser's voice */
 	const unrecorded = $derived(voices.filter((v) => typeof (v as any).audio !== 'string').length);
-	const sections = $derived(sectionsOf(story));
+	const sections = $derived(sectionsOf(flat));
 	const D = $derived(Math.max(0.001, story?.duration ?? 0));
 	const pct = (s: number) => `${(s / D) * 100}%`;
 	/** the film's width over its height (9:16 → 0.5625) */
@@ -57,20 +74,21 @@
 	// at its beginning, its frames fetched ahead so no shot arrives late, its recordings laid anew
 	let shown = '';
 	$effect(() => {
-		const key = JSON.stringify(story?.tracks ?? null) + (story?.duration ?? 0) + ((story as any)?.version ?? '');
+		const key = JSON.stringify(flat.tracks) + (story?.duration ?? 0) + ((story as any)?.version ?? '');
 		if (key === shown) return;
 		shown = key;
 		t = 0;
 		playing = false;
 		audio.stop();
-		for (const s of clipsOf<Shot>(story, 'shots')) if (s.frame) new Image().src = frameUrl(s.frame);
-		// its recordings fetched and decoded ahead, so the first Play sounds at once
-		if (!soundsOf(story).length) soundState = 'none';
+		const all = flat;
+		for (const s of clipsOf<Shot>(all, 'shots')) if (s.frame) new Image().src = frameUrl(s.frame);
+		// its recordings (its links' too) fetched and decoded ahead, so the first Play sounds at once
+		if (!soundsOf(all).length) soundState = 'none';
 		else {
 			soundState = 'loading';
 			const asked = key;
-			audio.load(story, frameUrl).then(() => {
-				if (shown === asked) soundState = audio.failed.length && audio.failed.length >= new Set(soundsOf(story).map((x) => x.hash)).size ? 'failed' : 'ready';
+			audio.load(all, frameUrl).then(() => {
+				if (shown === asked) soundState = audio.failed.length && audio.failed.length >= new Set(soundsOf(all).map((x) => x.hash)).size ? 'failed' : 'ready';
 			});
 		}
 	});
@@ -137,7 +155,7 @@
 		t = Math.max(0, Math.min(D, to));
 		if (playing && !dragging) resound();
 	};
-	const step = (dir: 1 | -1) => seek(shotEdge(story, t, dir));
+	const step = (dir: 1 | -1) => seek(shotEdge(flat, t, dir));
 
 	function onKey(e: KeyboardEvent) {
 		if (!keys) return;
@@ -179,19 +197,20 @@
 	// a calm colour for each section, the same every time
 	const PALETTE = ['#8fae8b', '#d9a441', '#c96f53', '#7c9cb8', '#a98bb5', '#6f9e95', '#c4a27a', '#9aa35c'];
 	const colourOf = (s: string) => PALETTE[[...(s ?? '')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % PALETTE.length];
-	const sectionOf = (time: number) => notes.find((n) => time >= n.at - 1e-6 && time < n.at + n.duration)?.section ?? '';
+	const sectionOf = (time: number) => clipAt<Notes>(flat, 'notes', time)?.section ?? '';
 
-	// the mood: a line through each note's mood, rising and falling with the story
+	// the mood: a line through each note's mood, rising and falling with the story (a linked story's inside its link)
 	const moodPath = $derived.by(() => {
-		if (!notes.length) return '';
-		const pts = notes.map((n) => [((n.at + n.duration / 2) / D) * 1000, 30 - moodLevel(n.mood) * 8]);
+		const spans = spansOf<Notes>(flat, 'notes');
+		if (!spans.length) return '';
+		const pts = spans.map((n) => [((n.at + n.end) / 2 / D) * 1000, 30 - moodLevel(n.clip.mood) * 8]);
 		return 'M' + [[0, pts[0][1]], ...pts, [1000, pts[pts.length - 1][1]]].map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' L');
 	});
 </script>
 
 <svelte:window onkeydown={onKey} />
 
-<div class="player" class:compact class:framed={!!(list || side)} style:--below="{21.2 + (shots.length ? 3.6 : 0) + soundTracks.length * 1.2}rem">
+<div class="player" class:compact class:framed={!!(list || side)} style:--below="{21.2 + (shots.length ? 3.6 : 0) + soundTracks.length * 1.2 + (slots.length ? 1.8 : 0)}rem">
 	{#if list}<div class="p-list">{@render list()}</div>{/if}
 	{#if head}<div class="p-head">{@render head()}</div>{/if}
 	<!-- a tap on the picture plays and pauses it, as on any film player (Samuel 2026-11-04) -->
@@ -218,6 +237,9 @@
 			{#if shots.length}<span class="muted">Shot {Math.max(1, moment.index + 1)} of {shots.length}</span>{/if}
 			{#if moment.notes?.mood}<span class="mood">{moment.notes.mood}</span>{/if}
 		</p>
+		{#if inLink}
+			<div class="field"><b>Linked story</b><p><a class="in-link" href={linkHref(inLink)}>{linkName(inLink)}</a>{#if newer(inLink)}<span class="muted">{` · v${newer(inLink)} available`}</span>{/if}</p></div>
+		{/if}
 		{#if moment.notes?.emotion}<div class="field"><b>Emotion</b><p class="emotion">{moment.notes.emotion}</p></div>{/if}
 		{#if moment.notes?.camera}<div class="field"><b>Camera</b><p>{moment.notes.camera}</p></div>{/if}
 		{#if moment.shot?.transition}<div class="field"><b>Into the next shot</b><p>{moment.shot.transition}</p></div>{/if}
@@ -261,28 +283,42 @@
 				<line x1="0" x2="1000" y1="30" y2="30" />
 				{#if moodPath}<path d={moodPath} />{/if}
 			</svg>
+			<!-- each link's span marked across the lanes under it: what lies in it there is the linked story's -->
+			{#each slots as s (s.clip)}<span class="link-band" style:left={pct(s.at)} style:width={pct(s.duration)} aria-hidden="true"></span>{/each}
+			{#if slots.length}
+				<!-- the stories it links, each a block in its place; a press opens that story (never a scrub) -->
+				<div class="lane link-lane">
+					{#each slots as s (s.clip)}
+						{@const later = newer(s)}
+						<a class="link" class:on={s === inLink} class:lost={!s.title} href={linkHref(s)} style:left={pct(s.at)} style:width={pct(s.duration)} onpointerdown={(e) => e.stopPropagation()}
+							title="{linkName(s)}{later ? ` (v${later} available: a proposal on this story moves it there)` : ''}. Open it on the Stories page.">
+							<b>{s.title ?? 'missing story'}</b>{#if s.number}<span>· v{s.number}</span>{/if}{#if later}<em>v{later} available</em>{/if}
+						</a>
+					{/each}
+				</div>
+			{/if}
 			{#if shots.length}
 				<div class="lane shots-lane">
 					{#each shots as s, i (s.id)}
-						<span class="seg" class:on={i === moment.index} style:left={pct(s.at)} style:width={pct(s.duration)} style:background-image={s.frame ? `url(${frameUrl(s.frame)})` : 'none'} style:border-top-color={colourOf(sectionOf(s.at + 0.01))} title="Shot {i + 1}"></span>
+						<span class="seg" class:on={i === moment.index} class:linked={!!s.link} style:left={pct(s.at)} style:width={pct(s.duration)} style:background-image={s.frame ? `url(${frameUrl(s.frame)})` : 'none'} style:border-top-color={colourOf(sectionOf(s.at + 0.01))} title="Shot {i + 1}{s.link ? ` · ${s.link.title}` : ''}"></span>
 					{/each}
 				</div>
 			{/if}
 			<div class="lane voice-lane">
 				{#each voices as v (v.id)}
-					<span class="bar" class:on={v.id === moment.voice?.id} class:samuel={/samuel/i.test(v.who)} class:recorded={typeof (v as any).audio === 'string'} style:left={pct(v.at)} style:width={pct(v.duration)} title="{v.who}: {v.line}">{v.who.split(/\s/)[0]}</span>
+					<span class="bar" class:on={v.id === moment.voice?.id} class:linked={!!v.link} class:samuel={/samuel/i.test(v.who)} class:recorded={typeof (v as any).audio === 'string'} style:left={pct(v.at)} style:width={pct(v.duration)} title="{v.link ? `${v.link.title}: ` : ''}{v.who}: {v.line}">{v.who.split(/\s/)[0]}</span>
 				{/each}
 			</div>
 			{#each soundTracks as tr (tr.id)}
-				<div class="lane sound-lane" title={tr.id}>
+				<div class="lane sound-lane" title={laneName(tr)}>
 					{#each tr.clips.filter((c) => typeof c.audio === 'string' || cueOf(c)) as c (c.id)}
-						<span class="bar sound {tr.kind}" class:muted-track={(tr as any).mute} class:planned={typeof c.audio !== 'string'} style:left={pct(c.at)} style:width={pct(c.duration)} title="{tr.id}: {cueOf(c) || c.id}">{typeof c.audio === 'string' ? tr.id : cueOf(c)}</span>
+						<span class="bar sound {tr.kind}" class:linked={!!tr.link} class:muted-track={(tr as any).mute} class:planned={typeof c.audio !== 'string'} style:left={pct(c.at)} style:width={pct(c.duration)} title="{laneName(tr)}: {cueOf(c) || c.id}">{typeof c.audio === 'string' ? tr.name ?? tr.id : cueOf(c)}</span>
 					{/each}
 				</div>
 			{/each}
 			<div class="playhead" style:left={pct(t)}></div>
 		</div>
-		<div class="legend muted">{#if shots.length}<span>Shots</span>{/if}<span>Voice{voices.length && !unrecorded ? ' (recorded)' : ''}</span>{#each soundTracks as tr (tr.id)}<span>{tr.id}</span>{/each}<span>Mood ↑↓</span></div>
+		<div class="legend muted">{#if slots.length}<span>Links</span>{/if}{#if shots.length}<span>Shots</span>{/if}<span>Voice{voices.length && !unrecorded ? ' (recorded)' : ''}</span>{#each soundTracks as tr (tr.id)}<span>{laneName(tr)}</span>{/each}<span>Mood ↑↓</span>{#if slots.some((s) => s.title)}<span class="linked-key">Linked</span>{/if}</div>
 	</div>
 </div>
 
@@ -367,7 +403,28 @@
 	.bar.on { background: var(--ink); color: var(--paper); }
 	.playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--terracotta, #c96f53); pointer-events: none; }
 	.playhead::before { content: ''; position: absolute; top: 2.3rem; left: -5px; border: 6px solid transparent; border-top-color: var(--terracotta, #c96f53); }
-	.legend { display: flex; gap: 1rem; font-size: 0.7rem; }
+	.legend { display: flex; gap: 1rem; font-size: 0.7rem; flex-wrap: wrap; }
+	/* the links (Samuel 2026-11-04): a lane of blocks, each the story it plays, mustard as a picked version is; what a link
+	   lays in shows in its own lanes, lighter and dashed, so the film's own clips and the linked story's read apart */
+	.link-lane { height: 1.5rem; background: transparent; }
+	.link { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; gap: 0.35rem; padding: 0 0.45rem; box-sizing: border-box; border-radius: 6px; overflow: hidden; white-space: nowrap; text-decoration: none; color: var(--ink, #2b2a26); background: var(--mustard-soft, #f3e3b5); border: 1.5px solid var(--mustard, #d9a441); font-size: 0.66rem; line-height: 1; cursor: pointer; }
+	.link b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+	.link span { color: var(--ink-soft, #555); font-weight: 500; flex: none; }
+	/* a newer version of the linked story: only said, in a quiet chip at the block's end */
+	.link em { margin-left: auto; flex: none; font-style: normal; font-weight: 600; font-size: 0.6rem; padding: 0.12rem 0.4rem; border-radius: 999px; background: var(--paper, #fffdf6); color: var(--ink-soft, #555); border: 1px solid color-mix(in srgb, var(--mustard, #d9a441) 60%, transparent); }
+	.link:hover { background: color-mix(in srgb, var(--mustard, #d9a441) 45%, white); }
+	.link:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+	.link.on { box-shadow: inset 0 0 0 1.5px var(--ink); }
+	.link.lost { background: transparent; border-style: dashed; border-color: var(--terracotta, #c96f53); color: var(--terracotta, #c96f53); }
+	/* the link's span, under every lane: a faint mustard wash between dashed edges */
+	.link-band { position: absolute; top: 2.6rem; bottom: -2px; border-left: 1.5px dashed var(--mustard, #d9a441); border-right: 1.5px dashed var(--mustard, #d9a441); background: color-mix(in srgb, var(--mustard, #d9a441) 13%, transparent); box-sizing: border-box; pointer-events: none; }
+	/* a linked clip keeps its kind's colour (who speaks, which sound), hatched and dashed: laid in, not the story's own */
+	.seg.linked { border-top-style: dashed; border-bottom: 2px dashed var(--mustard, #d9a441); filter: saturate(0.7) brightness(0.98); }
+	.seg.linked.on { filter: none; }
+	.bar.linked { border-style: dashed; border-color: color-mix(in srgb, var(--ink, #2b2a26) 40%, transparent); box-shadow: none; background-image: repeating-linear-gradient(135deg, rgb(255 255 255 / 0.62) 0 3px, transparent 3px 7px); }
+	.bar.linked.on { background-image: none; border-style: solid; }
+	.legend .linked-key::before { content: ''; display: inline-block; width: 1.1rem; height: 0.55rem; margin-right: 0.3rem; vertical-align: -1px; border: 1px dashed color-mix(in srgb, var(--ink, #2b2a26) 40%, transparent); border-radius: 3px; background: var(--sage-soft, #dfe8dc) repeating-linear-gradient(135deg, rgb(255 255 255 / 0.62) 0 3px, transparent 3px 7px); }
+	.in-link { font-weight: 700; color: var(--ink); }
 	/* on a phone: the frame, right under it the controls and the timeline, and only then what the editor reads (Samuel
 	   2026-11-04: play directly below the view, no prose between) */
 	@media (max-width: 820px) {

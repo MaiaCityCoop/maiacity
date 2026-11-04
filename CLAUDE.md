@@ -51,7 +51,9 @@ frame; proposed code never runs on the server or on play's origin) before they d
 `story_history`; play/SPEC.md §12): a film as one timeline of tracks and clips (storyboard shots, voice, notes, and
 the sound: voice takes, music, sfx and beds, each a recording on its clip, played in the Stories player),
 versioned like the assets (one film, one story: its rewrites are its next versions, never stories of their own), every field of every clip editable only this way, shown on the Proposals page played in the
-Stories player beside what changed. Every story is also a Loro document (play/SPEC.md §4.4): every step kept with its
+Stories player beside what changed. A story may link an accepted version of another (a track of kind `story`, its clip
+naming that story's UUID and the version's hash: the trailer its own story, played in every film), and a film moves to a
+newer trailer only by its own proposal (play/SPEC.md §12). Every story is also a Loro document (play/SPEC.md §4.4): every step kept with its
 author, message and time, a proposal a branch of it; an agent drafts a change step by step with `story_edit` and
 proposes the draft with `propose_story_version`'s `branch`. So is every **asset** (play/SPEC.md §4.4): its source,
 card and variants, its history made from its versions (and the work kept between them, `play/api/import/history`);

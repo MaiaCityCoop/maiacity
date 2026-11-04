@@ -14,17 +14,28 @@
 </script>
 
 <script lang="ts">
-	let { diff, fresh = false }: { diff: StoryDiff; fresh?: boolean } = $props();
+	import { linkedOf, type Links } from './timeline';
 
-	const short = (v: unknown, n = 600) => {
+	/** `links`: the versions both sides link (the proposal's and its base's), to name them by their story and number */
+	let { diff, fresh = false, links = {} }: { diff: StoryDiff; fresh?: boolean; links?: Links | null } = $props();
+
+	/** a hash said as what it names: a frame's image, a recording, a linked story's version (its number, where it is known) */
+	const HASHED: Record<string, string> = { frame: 'image', audio: 'recording', version: 'version' };
+	const short = (v: unknown, n = 600, field = 'frame') => {
 		if (v === null || v === undefined || v === '') return '—';
 		if (typeof v === 'number') return `${Math.round(v * 100) / 100}`;
-		const s = typeof v === 'string' ? (/^[0-9a-f]{64}$/.test(v) ? `image ${v.slice(0, 10)}…` : v) : JSON.stringify(v);
+		if (field === 'version' && typeof v === 'string' && links?.[v]) return `v${links[v].number}`;
+		const s = typeof v === 'string' ? (/^[0-9a-f]{64}$/.test(v) ? `${HASHED[field] ?? 'file'} ${v.slice(0, 10)}…` : v) : JSON.stringify(v);
 		return s.length > n ? s.slice(0, n - 1) + '…' : s;
+	};
+	/** the version a link clip plays, by its story's title and its number where it can be read ("The trailer · v3") */
+	const linked = (c: DiffClip) => {
+		const l = linkedOf(c, links);
+		return `links ${l ? `“${l.title}” · v${l.number}` : `story ${String(c.story).slice(0, 8)}…`}`;
 	};
 	/** a clip in a few words: its time and what it holds */
 	const gist = (c: DiffClip) => {
-		const what = c.line ?? c.text ?? c.section ?? c.transition ?? (c.frame ? 'a frame' : '');
+		const what = typeof c.story === 'string' ? linked(c) : c.line ?? c.text ?? c.section ?? c.transition ?? (c.frame ? 'a frame' : '');
 		return `${short(c.at)}–${short(c.at + c.duration)} s${c.who ? ` · ${c.who}` : ''}${what ? ` · ${short(what, 90)}` : ''}`;
 	};
 	const touched = $derived(diff.tracks.filter((t) => t.state !== 'same'));
@@ -67,7 +78,7 @@
 					<div class="clip chg">
 						<span>~ {c.id}</span>
 						{#each c.changes as x (x.field)}
-							<p class="row"><b>{x.field}</b> <span class="from">{short(x.from)}</span> → <span class="to">{short(x.to)}</span></p>
+							<p class="row"><b>{x.field}</b> <span class="from">{short(x.from, 600, x.field)}</span> → <span class="to">{short(x.to, 600, x.field)}</span></p>
 						{/each}
 					</div>
 				{/each}

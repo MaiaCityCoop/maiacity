@@ -3,11 +3,23 @@
 // much of it is spoken, the notes), from the timeline alone. The player only moves t; nothing runs on a clock of its
 // own (no CSS transition), so the same t is the same picture every time: what a frame-by-frame export into a video
 // (WebCodecs in the browser, or a page a renderer seeks through) needs.
+// A story may link others (a track of kind `story`, each clip naming a story by its UUID and the version of it it plays:
+// the trailer in every film);
+// `flatten(story, links)` lays each linked story's tracks into its place, and everything below runs on that one timeline.
 
-export type Clip = { id: string; at: number; duration: number; [field: string]: unknown };
-export type Track = { id: string; kind: string; clips: Clip[] };
+/** a clip laid in from a linked story: the story it came from (its UUID), its title and the version number it plays */
+export type LinkTag = { story: string; title: string; number: number | null; depth: number };
+export type Clip = { id: string; at: number; duration: number; link?: LinkTag; [field: string]: unknown };
+export type Track = { id: string; kind: string; clips: Clip[]; gain?: number; mute?: boolean; duck?: boolean; link?: LinkTag; name?: string };
 export type StoryBody = { schema: 'story/1'; format: string; fps: number; duration: number; tracks: Track[] };
-export type Story = StoryBody & { id: string; title: string; number?: number | null; version?: string; note?: string; versions?: { number: number; id: string; note: string; created: string; author: string | null }[] };
+/** a linked version as play reads it (play/api/src/stories.ts `linksOf`): its story's UUID, title, number and id, its
+ *  length and timeline, and its story's newest accepted number (only shown: a link plays its own version) */
+export type Linked = { id: string; title: string; number: number; version: string; duration: number; newest?: number | null; body: StoryBody };
+/** every version a timeline links, to any depth, by the version's id */
+export type Links = Record<string, Linked>;
+/** a story whose newest version links this one, and the number of this one's version it plays (GET /api/stories/:id) */
+export type LinkedBy = { id: string; title: string; number: number; version: string; plays: number | null };
+export type Story = StoryBody & { id: string; title: string; number?: number | null; version?: string; note?: string; links?: Links; linked_by?: LinkedBy[]; versions?: { number: number; id: string; note: string; created: string; author: string | null }[] };
 
 export type Shot = Clip & { frame: string | null; transition: string };
 /** a subtitle the clip sets itself: `at` seconds into the clip it comes on, until the next; `em` sets it alone, large */
@@ -136,21 +148,58 @@ export function cuesOf(line: string, max = CUE_CHARS): Cue[] {
 	return cues;
 }
 
-export const clipsOf = <C extends Clip = Clip>(s: StoryBody | null | undefined, kind: string): C[] => (s?.tracks?.find((t) => t.kind === kind)?.clips ?? []) as C[];
-
-/** the clip of a track on screen at t: the last that has started and not yet ended (the first, before it starts) */
-function at<C extends Clip>(clips: C[], t: number): { clip: C | null; index: number } {
-	let lo = 0, hi = clips.length - 1, found = -1;
-	while (lo <= hi) {
-		const mid = (lo + hi) >> 1;
-		if (clips[mid].at <= t + 1e-9) {
-			found = mid;
-			lo = mid + 1;
-		} else hi = mid - 1;
+const lanes = new WeakMap<StoryBody, Map<string, Clip[]>>();
+/** every clip of a kind, of every track of that kind (the story's own first, then those its links lay in), in time
+ *  order: one lane, as the picture shows it */
+export const clipsOf = <C extends Clip = Clip>(s: StoryBody | null | undefined, kind: string): C[] => {
+	if (!s?.tracks) return [];
+	let byKind = lanes.get(s);
+	if (!byKind) lanes.set(s, (byKind = new Map()));
+	let clips = byKind.get(kind);
+	if (!clips) {
+		const of = s.tracks.filter((t) => t.kind === kind);
+		clips = of.length === 1 ? of[0].clips : of.flatMap((t) => t.clips).sort((a, b) => a.at - b.at); // a stable sort: on a tie, the story's own first
+		byKind.set(kind, clips);
 	}
-	if (found < 0) return { clip: null, index: -1 };
-	const c = clips[found];
-	return t < c.at + c.duration + 1e-9 ? { clip: c, index: found } : { clip: null, index: found };
+	return clips as C[];
+};
+
+/**
+ * The clip of a lane on screen at t. Of the clips that cover t, the one that started last: a linked story's clip may
+ * overlap the story's own (Samuel 2026-11-04), and the later one is the one just begun (the trailer's notes inside the
+ * film's long one; the film's next line over the trailer's last words). Two that start together: the story's own. None
+ * covering t, the last that started holds the index (the first, before any starts).
+ */
+function at<C extends Clip>(clips: C[], t: number): { clip: C | null; index: number } {
+	let found = -1, last = -1;
+	for (let i = 0; i < clips.length; i++) {
+		const c = clips[i];
+		if (c.at > t + 1e-9) break;
+		last = i;
+		if (t < c.at + c.duration + 1e-9 && (found < 0 || c.at > clips[found].at + 1e-9)) found = i;
+	}
+	return found >= 0 ? { clip: clips[found], index: found } : { clip: null, index: last };
+}
+
+/** the clip of a kind on screen at t (renderAt's rule), or null */
+export const clipAt = <C extends Clip = Clip>(story: StoryBody | null | undefined, kind: string, t: number): C | null => at(clipsOf<C>(story, kind), t).clip;
+
+/** what a lane shows over time: spans of the timeline, each the clip on screen through it (a clip broken where a later
+ *  one lies over it, and whole again after) */
+export function spansOf<C extends Clip = Clip>(story: StoryBody | null | undefined, kind: string): { clip: C; at: number; end: number }[] {
+	const clips = clipsOf<C>(story, kind);
+	const edges = [...new Set(clips.flatMap((c) => [c.at, c.at + c.duration]))].sort((a, b) => a - b);
+	const out: { clip: C; at: number; end: number }[] = [];
+	for (let i = 0; i + 1 < edges.length; i++) {
+		const a = edges[i], b = edges[i + 1];
+		if (b - a < 1e-6) continue;
+		const c = at(clips, (a + b) / 2).clip;
+		if (!c) continue;
+		const prev = out[out.length - 1];
+		if (prev && prev.clip === c && Math.abs(prev.end - a) < 1e-6) prev.end = b;
+		else out.push({ clip: c, at: a, end: b });
+	}
+	return out;
 }
 
 /** how long a shot fades in over the one before it, from how that one said it goes into the next: a cut cuts */
@@ -196,15 +245,16 @@ export const moodLevel = (m: string | undefined) => {
 };
 
 /** consecutive notes of one section, as spans of the timeline, each with the primary emotion it should leave (the first
- * its notes name) */
+ * its notes name); where a linked story's notes lie over the story's own, its sections stand for as long as they do */
 export function sectionsOf(story: StoryBody | null): { section: string; at: number; end: number; emotion: string }[] {
 	const out: { section: string; at: number; end: number; emotion: string }[] = [];
-	for (const n of clipsOf<Notes>(story, 'notes')) {
+	for (const { clip: n, at, end } of spansOf<Notes>(story, 'notes')) {
 		const last = out[out.length - 1];
-		if (last && last.section === n.section) {
-			last.end = n.at + n.duration;
+		const section = n.section || '—';
+		if (last && last.section === section) {
+			last.end = end;
 			if (!last.emotion && n.emotion) last.emotion = n.emotion;
-		} else out.push({ section: n.section || '—', at: n.at, end: n.at + n.duration, emotion: n.emotion ?? '' });
+		} else out.push({ section, at, end, emotion: n.emotion ?? '' });
 	}
 	return out;
 }
@@ -216,6 +266,90 @@ export function shotEdge(story: StoryBody | null, t: number, dir: 1 | -1): numbe
 	if (dir > 0) return shots.find((c) => c.at > t + 0.01)?.at ?? story!.duration;
 	const back = [...shots].reverse().find((c) => c.at < t - 0.3);
 	return back?.at ?? 0;
+}
+
+// ---- linked stories: one timeline composed of others (Samuel 2026-11-04: the trailer its own story, in every film)
+
+/** the kind of track whose clips link other stories in */
+export const LINK = 'story';
+/** how deep links are laid in (play's API refuses deeper ones) */
+export const MOST_LINK_DEPTH = 4;
+/** the version a link clip plays, as `links` holds it (by the version's id), if it is there and is the story's it names */
+export const linkedOf = (c: { [field: string]: unknown }, links: Links | null | undefined): Linked | null => {
+	const l = typeof c.version === 'string' ? links?.[c.version] : undefined;
+	return l && l.id === c.story ? l : null;
+};
+
+/** a link clip as the player shows it: its place, the story it plays (null when it can't be read) and how long that is now */
+export type Slot = {
+	track: string;
+	clip: string;
+	at: number;
+	duration: number;
+	/** the story it plays (its UUID), its title and the number of the version it plays (null: it can't be read) */
+	story: string;
+	title: string | null;
+	number: number | null;
+	/** that story's newest accepted number: higher than `number`, a newer version is there (only shown, never played) */
+	newest: number | null;
+	depth: number;
+};
+export type Flat = StoryBody & { slots: Slot[] };
+
+/**
+ * The story with its links laid in, as one timeline: each link clip's version (from `links`, by its id) has its tracks
+ * laid in from the clip's `at`, recursively, each of its clips tagged `link` (the story it came from) and its id made
+ * unique against the story's own (`<link track>:<link clip>/<its id>`, ids of the story's own never holding a slash). A
+ * link plays inside its clip, which play holds to its version's length (whatever ran past it would be cut there). A link
+ * track's gain and mute, and its clip's gain, carry onto the tracks it lays in. The story's own tracks come first and stay
+ * as they are, so renderAt and soundsOf run on this exactly as on a story without links.
+ */
+export function flatten(story: (StoryBody & { links?: Links | null }) | null | undefined, links: Links | null | undefined = story?.links): Flat {
+	if (!story) return { schema: 'story/1', format: '9:16', fps: 30, duration: 0, tracks: [], slots: [] };
+	const tracks: Track[] = [];
+	const slots: Slot[] = [];
+	const lay = (body: StoryBody, o: { offset: number; end: number; prefix: string; depth: number; path: string[]; tag: LinkTag | null; gain: number; mute: boolean }) => {
+		for (const t of body.tracks ?? []) {
+			if (!o.tag) {
+				tracks.push(t);
+				continue;
+			}
+			if (t.kind === LINK) continue; // a linked story's own links are laid in below, its link lanes are its own
+			const clips: Clip[] = [];
+			for (const c of t.clips) {
+				const from = o.offset + c.at;
+				if (from >= o.end - 1e-6) continue;
+				const end = Math.min(from + c.duration, o.end);
+				clips.push({ ...c, id: o.prefix + c.id, at: from, duration: end - from, link: o.tag });
+			}
+			const gain = (Number(t.gain ?? 0) || 0) + o.gain;
+			tracks.push({ ...t, id: o.prefix + t.id, name: t.name ?? t.id, link: o.tag, clips, ...(gain ? { gain } : {}), ...(t.mute || o.mute ? { mute: true } : {}) });
+		}
+		for (const t of body.tracks ?? []) {
+			if (t.kind !== LINK) continue;
+			for (const c of t.clips) {
+				const l = linkedOf(c, links);
+				const from = o.offset + c.at;
+				if (from >= o.end - 1e-6) continue;
+				const end = Math.min(from + c.duration, o.end);
+				slots.push({ track: o.prefix + t.id, clip: o.prefix + c.id, at: from, duration: end - from, story: l?.id ?? String(c.story ?? ''), title: l?.title ?? null, number: l?.number ?? null, newest: l?.newest ?? null, depth: o.depth });
+				// a story that can't be read plays nothing; one already on the way down (a loop) or too deep is not laid in again
+				if (!l || o.depth >= MOST_LINK_DEPTH || o.path.includes(l.id)) continue;
+				lay(l.body, {
+					offset: from,
+					end,
+					prefix: `${o.prefix}${t.id}:${c.id}/`,
+					depth: o.depth + 1,
+					path: [...o.path, l.id],
+					tag: { story: l.id, title: l.title, number: l.number, depth: o.depth + 1 },
+					gain: o.gain + (Number(t.gain ?? 0) || 0) + (Number(c.gain ?? 0) || 0),
+					mute: o.mute || !!t.mute,
+				});
+			}
+		}
+	};
+	lay(story, { offset: 0, end: Infinity, prefix: '', depth: 0, path: [(story as { id?: string }).id ?? ''], tag: null, gain: 0, mute: false });
+	return { ...story, schema: 'story/1', tracks, slots };
 }
 
 export const clock = (s: number) => {

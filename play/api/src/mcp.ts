@@ -13,7 +13,7 @@ import type { Me } from "./access";
 import { assetOf, listAssets, NotFound } from "./assets";
 import { archiveOwn, listProposals, propose, ProposalError } from "./proposals";
 import { adminByToken } from "./tokens";
-import { admin, AUDIO_TYPES, editStory, listStories, MOST_AUDIO, MOST_FRAME, proposeStory, putAudioBase64, putFrameBase64, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
+import { admin, AUDIO_TYPES, editStory, listStories, MOST_AUDIO, MOST_FRAME, MOST_LINK_DEPTH, proposeStory, putAudioBase64, putFrameBase64, slimLinks, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
 import { AssetDocError, assetAtStep, assetHistory, editAsset } from "./assetdocs";
 import { listSandboxes, proposeSandbox, sandboxOf, SandboxError } from "./sandboxes";
 import { editFactory, factoryHistory, factoryOf, FactoryError, listFactories, proposeFactory } from "./factories";
@@ -48,6 +48,10 @@ const STORY_FORMAT =
   "Any clip of any track may sound: { audio: a recording's hash from add_story_audio, audio_in: where in the recording it starts (s), gain (dB), fade_in, fade_out (s) }, played from the clip's at for its duration; " +
   "a voice clip's audio is its take, and tracks of kind music, sfx or ambience hold the score, the spot sounds and the beds, their clips overlapping as they like; a track may carry gain (dB) and mute. " +
   "A clip may carry more fields, and a track may be of another kind (callout, scene): they are kept as given. " +
+  "kind 'story' links other stories in, one clip each: { id, at, story: the linked story's id (a UUID from list_stories, never its title), version: the id of the accepted version of it that plays (get_story's versions) }, that version's whole timeline played in the clip's place from at (its shots, voice, notes and sounds). " +
+  "A link always names its version, so two films may link two versions of one trailer, and a film never changes because the trailer got a new version: moving a film to a newer trailer is a proposal on the film, { op: 'set_clip', track, clip, fields: { version: <the newer version's id> } } (the clip then takes that version's length; shift what follows by the difference if it is longer or shorter). " +
+  "A link's duration is its version's: leave it out and it is given that. " +
+  `A story track's clips never overlap each other, but a linked story may overlap this story's own clips (its music ringing out under the next line). A link is refused without a version, to a story that does not exist, to the story itself, to a version not that story's or never accepted, with a duration other than its version's, and where links would loop (A links B links A) or nest more than ${MOST_LINK_DEPTH} stories deep. ` +
   "duration is worked out from the clips. Clip ids are unique within their track; track ids within the story.";
 
 const FACTORY_FORMAT =
@@ -407,18 +411,23 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     },
     {
       name: "get_story",
-      description: `One story's whole timeline, at its head, at an accepted version, or at any step of its history (story_history lists them): ${STORY_FORMAT} At its head or a version it also lists the story's versions (number, id, note, author, who accepted it). Use its \`version\` as \`base\` when you propose a change.`,
+      description: `One story's whole timeline, at its head, at an accepted version, or at any step of its history (story_history lists them): ${STORY_FORMAT} At its head or a version it also lists the story's versions (number, id, note, author, who accepted it). Use its \`version\` as \`base\` when you propose a change. ` +
+        "Its `links` are the versions it links, to any depth, each under the version's id: { id (the linked story's), title, number, version, duration, newest (that story's newest accepted number: where it is higher, a newer version is there to move to by set_clip) }; with `links: true` each also with its whole timeline (body). Its `linked_by` are the stories whose newest version links this one, each with the number of this one's version it plays.",
       inputSchema: {
         type: "object",
         properties: {
           story: { type: "string", description: "the story's id, a UUID (list_stories)" },
           version: { type: "integer", minimum: 1, description: "an accepted version's number; the head if left out" },
           step: { type: "integer", minimum: 1, description: "a step of its history (story_history's `seq`), instead of a version" },
+          links: { type: "boolean", description: "true: each linked story's whole timeline too (left out: only its title, number, version and duration)" },
         },
         required: ["story"],
         additionalProperties: false,
       },
-      run: async ({ story, version, step }, me) => (step != null ? storyAtStep(db, me, `${story ?? ""}`, Number(step)) : storyOf(db, me, `${story ?? ""}`, version == null ? undefined : Number(version))),
+      run: async ({ story, version, step, links }, me) => {
+        const s = await (step != null ? storyAtStep(db, me, `${story ?? ""}`, Number(step)) : storyOf(db, me, `${story ?? ""}`, version == null ? undefined : Number(version)));
+        return links === true ? s : { ...s, links: slimLinks(s.links) };
+      },
     },
     {
       name: "story_history",
@@ -475,7 +484,8 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         `{ op: 'add_clip', track, clip: { id, at, duration, … } }; { op: 'remove_clip', track, clip }; ` +
         `{ op: 'add_track', track: { id, kind, clips }, index? }; { op: 'remove_track', track }; { op: 'set_track', track, fields: { id?, kind? } }; ` +
         `{ op: 'shift', from, by, tracks? } moves every clip starting at or after \`from\` seconds by \`by\` seconds (negative to pull in), on all tracks or the ones named, to make room or close a gap; ` +
-        `{ op: 'set', fields: { format?, fps? } }; { op: 'edit_text', track, clip, field, index, delete?, insert? } changes a range of one of a clip's texts. On shots, voice and notes tracks clips must not overlap, so retime with shift. ${STORY_FORMAT} ` +
+        `{ op: 'set', fields: { format?, fps? } }; { op: 'edit_text', track, clip, field, index, delete?, insert? } changes a range of one of a clip's texts. On shots, voice, notes and story tracks clips must not overlap, so retime with shift. ` +
+        `To link another story in (the trailer into a film): remove the clips it replaces, shift what follows to make room, and { op: 'add_track', track: { id: 'trailer', kind: 'story', clips: [{ id: 'trailer', at, story: <the trailer's id>, version: <the trailer version's id> }] } }; to move it to a newer trailer, { op: 'set_clip', track: 'trailer', clip: 'trailer', fields: { version: <its id> } }. ${STORY_FORMAT} ` +
         `Or propose a draft made step by step with story_edit (its \`branch\`): its steps go with it, and the admins see them. It goes to the admins as a proposal (via MCP), shown against the head clip by clip. If the story gets a newer version before it is accepted, it still goes in where the two changes touch different fields, and is archived where they touch the same (to be proposed again on the new head).`,
       inputSchema: {
         type: "object",
@@ -566,7 +576,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           capabilities: { tools: {} },
           serverInfo: { name: "play.maia.city", version: "1" },
           instructions:
-            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files, and every step of an asset's history (asset_history, get_asset at a step); propose new versions or assets as readable source, or draft a version step by step with asset_edit and propose the draft. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame. Read the sandboxes (get_sandbox: what each draws, at which version, and how it lays it out) and propose changes of them (propose_sandbox_change). Read the factories (get_factory: a production line and its bill of process, its simulation sized from it) and propose new versions of them, drafted step by step with factory_edit (propose_factory_version). Read the game's configs (get_game_config: first the levelling, how a village grows level by level) and propose new versions of them (game_config_edit, propose_game_config_version). Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's Proposals page, then accept or archive it; nothing here accepts, an agent archives only its own open proposals (archive_proposal), and no proposed code runs on play's server.",
+            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files, and every step of an asset's history (asset_history, get_asset at a step); propose new versions or assets as readable source, or draft a version step by step with asset_edit and propose the draft. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame; a story may link a version of another into its timeline (a track of kind story, its clip naming that story's id and the version it plays: the trailer as its own story, linked into every film). Read the sandboxes (get_sandbox: what each draws, at which version, and how it lays it out) and propose changes of them (propose_sandbox_change). Read the factories (get_factory: a production line and its bill of process, its simulation sized from it) and propose new versions of them, drafted step by step with factory_edit (propose_factory_version). Read the game's configs (get_game_config: first the levelling, how a village grows level by level) and propose new versions of them (game_config_edit, propose_game_config_version). Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's Proposals page, then accept or archive it; nothing here accepts, an agent archives only its own open proposals (archive_proposal), and no proposed code runs on play's server.",
         });
       case "ping":
         return reply(msg.id, {});
