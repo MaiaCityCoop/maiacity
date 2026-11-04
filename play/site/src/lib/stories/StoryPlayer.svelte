@@ -120,11 +120,15 @@
 		audio.stop();
 	});
 
+	/** in the user's own tap: the sound's context made now, so Safari lets it sound when it starts a moment later */
+	const gesture = () => soundOn && sounds.length && audio.prime();
 	const toggle = () => {
 		if (t >= D - 0.01) t = 0;
+		if (!playing) gesture();
 		playing = !playing;
 	};
 	const seek = (to: number) => {
+		gesture();
 		t = Math.max(0, Math.min(D, to));
 		if (playing && !dragging) resound();
 	};
@@ -204,7 +208,7 @@
 		<aside class="details">
 			<p class="beat">
 				<span class="badge" style:background={colourOf(moment.notes?.section ?? '')}>{moment.notes?.section || '—'}</span>
-				<span class="muted">Shot {Math.max(1, moment.index + 1)} of {shots.length}</span>
+				{#if shots.length}<span class="muted">Shot {Math.max(1, moment.index + 1)} of {shots.length}</span>{/if}
 				{#if moment.notes?.mood}<span class="mood">{moment.notes.mood}</span>{/if}
 			</p>
 			{#if moment.notes?.camera}<div class="field"><b>Camera</b><p>{moment.notes.camera}</p></div>{/if}
@@ -227,9 +231,9 @@
 		<button class="btn small ghost" onclick={() => step(1)} aria-label="Next shot">›</button>
 		<span class="time">{clock(t)} <span class="muted">/ {clock(D)}</span></span>
 		<span class="spacer"></span>
-		<button class="btn small ghost" onclick={() => (speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length])} title="Speed">{speed}×</button>
+		<button class="btn small ghost" onclick={() => (gesture(), (speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]))} title="Speed">{speed}×</button>
 		{#if sounds.length}
-			<button class="btn small ghost" class:on={soundOn} onclick={() => (soundOn = !soundOn)} title="The story's own sound: its voice takes, music and effects">
+			<button class="btn small ghost" class:on={soundOn} onclick={() => (!soundOn && sounds.length && audio.prime(), (soundOn = !soundOn))} title="The story's own sound: its voice takes, music and effects">
 				Sound {soundState === 'loading' ? '…' : soundState === 'failed' ? '(failed)' : soundOn ? 'on' : 'off'}
 			</button>
 		{/if}
@@ -274,16 +278,16 @@
 </div>
 
 <style>
-	.player { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.7rem; min-width: 0; }
+	.player { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.7rem; min-width: 0; container-type: inline-size; }
 	/* the frame in the middle of the row, what the editor reads beside it on the right (Samuel 2026-11-03) */
-	.stage-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 1rem; align-items: start; min-height: 0; }
+	.stage-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(16rem, 1fr); gap: 1rem; align-items: start; min-height: 0; }
 	.stage-row .screen { grid-column: 2; }
 	.stage-row .details { grid-column: 3; }
 	/* the frame as tall as leaves the controls and the timeline in view above the nav pill (a page may say otherwise) */
 	/* its width worked out from its height: the subtitles are sized to the frame (container-type: size), and a box
 	   contained that way has no width of its own to give a grid column (it collapsed to nothing) */
-	.screen { position: relative; --h: var(--story-screen, clamp(15rem, calc(100vh - 24.5rem), 660px)); height: var(--h); width: calc(var(--h) * var(--ratio)); max-width: 100%; border-radius: 14px; overflow: hidden; background: #15130f; box-shadow: var(--shadow); user-select: none; container-type: size; }
-	.compact .screen { --h: var(--story-screen, clamp(14rem, calc(100vh - 25rem), 520px)); }
+	.screen { position: relative; --h: min(var(--story-screen, clamp(15rem, calc(100vh - 24.5rem), 660px)), calc((100cqw - 20rem) / var(--ratio))); height: var(--h); width: calc(var(--h) * var(--ratio)); max-width: 100%; border-radius: 14px; overflow: hidden; background: #15130f; box-shadow: var(--shadow); user-select: none; container-type: size; }
+	.compact .screen { --h: min(var(--story-screen, clamp(14rem, calc(100vh - 25rem), 520px)), calc((100cqw - 20rem) / var(--ratio))); }
 	.frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 	.screen { cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 	.screen:focus-visible { outline: 3px solid var(--terracotta, #c96f53); outline-offset: 3px; }
@@ -340,8 +344,8 @@
 	@media (max-width: 820px) {
 		.stage-row { display: contents; }
 		.stage-row .screen, .stage-row .details { grid-column: 1; }
-		.screen { --h: min(58vh, 560px); justify-self: center; order: 1; }
-		.compact .screen { --h: min(50vh, 480px); }
+		.screen { --h: min(58vh, 560px, calc(100cqw / var(--ratio))); justify-self: center; order: 1; }
+		.compact .screen { --h: min(50vh, 480px, calc(100cqw / var(--ratio))); }
 		.controls { order: 2; }
 		.timeline { order: 3; }
 		.details { order: 4; justify-self: stretch; }
