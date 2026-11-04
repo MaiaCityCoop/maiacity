@@ -1,7 +1,8 @@
 [
   {
-    "into": "papaya-v2-devlog",
-    "from": ["day-1-papaya", "day-1-papaya-voiced", "day-1-three-seeds"],
+    "into": "7adaf0b3-01a9-8bb9-b250-d2bee7016c4c",
+    "from": ["4d78916f-766e-8ba4-b020-f7cac5f98b79", "b33556f9-0475-8309-a3db-c99608ae0d56", "116ca68c-7229-8c11-962c-92856cd57876"],
+    "names": { "7adaf0b3-01a9-8bb9-b250-d2bee7016c4c": "papaya-v2-devlog", "4d78916f-766e-8ba4-b020-f7cac5f98b79": "day-1-papaya", "b33556f9-0475-8309-a3db-c99608ae0d56": "day-1-papaya-voiced", "116ca68c-7229-8c11-962c-92856cd57876": "day-1-three-seeds" },
     "why": "One film, one timeline (Samuel 2026-11-03): the papaya devlog's Day 1 rewrites were proposed as stories of their own; they are its versions 3, 4 and 5, and Three Seeds' voice its next proposal."
   }
 ]

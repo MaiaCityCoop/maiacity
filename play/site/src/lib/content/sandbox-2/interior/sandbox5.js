@@ -12,6 +12,7 @@
  * version its card numbers (`v`). A plant changed later is a new version of its entry, and Sandbox 5 keeps growing the
  * one written here until it is planted again on purpose.
  */
+import { SANDBOX } from '$lib/content/assets/sandboxes.js';
 
 import { configAt, loadConfig } from '../../game/code/index.js';
 
@@ -43,7 +44,7 @@ export const TIERS = {
 };
 
 /** where Sandbox 4's garden is kept: the Maia City COOP's vault (A3), else the repo's seed (maia/content/code/configs/sandbox-4/garden) */
-export const GARDEN = 'configs/sandbox-1/garden';
+export const GARDEN = `configs/${SANDBOX.one}/garden`;
 
 /**
  * The garden a config holds as Sandbox 4 grows it. Outside: a temperate forest garden planted for the most it can give,
@@ -70,7 +71,7 @@ function floraOf(c) {
 
 /** play's Sandbox 1: the village of ./village.ts, its forest the garden play's database keeps (`flora`) */
 export async function sandbox5() {
-	await loadConfig('sandbox-1');
+	await loadConfig(SANDBOX.one);
 	return { sandbox: /** @type {const} */ ('sandbox-5'), flora: floraOf(configAt(GARDEN)) };
 }
 

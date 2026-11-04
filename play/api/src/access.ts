@@ -2,7 +2,8 @@
 // (play.level_rules). Visitors (no session) may do nothing but sign in or up.
 import type { Queryable } from "./pg";
 
-export const COOP = "maia-city";
+export { COOP } from "./ids";
+import { COOP } from "./ids";
 export type Level = "admin" | "citizen" | "traveler";
 export type Rule = { read?: string[]; propose?: string[]; decide?: string[]; manage?: string[] };
 export type Action = keyof Rule;

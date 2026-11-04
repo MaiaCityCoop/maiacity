@@ -64,8 +64,8 @@ export const keyOf = (k) => `${k.id}@${k.v}:${k.stage}:${k.seed}`;
  * the garden pins no version of. @param {Kind} k
  */
 export const refOf = (k) => {
-	// play: the garden names each plant by the build of its slot (configs/sandbox-1/garden), a hash
-	if (!k.asset) throw new NotInCatalog(`the garden names no asset for ${k.id} (configs/sandbox-1/garden)`);
+	// play: the garden names each plant by the build of its slot (Sandbox 1's garden config), a hash
+	if (!k.asset) throw new NotInCatalog(`the garden names no asset for ${k.id} (Sandbox 1's garden config)`);
 	return `${k.asset}${k.asset.includes('?') ? '&' : '?'}stage=${k.stage}&seed=${encodeURIComponent(k.seed)}`;
 };
 
