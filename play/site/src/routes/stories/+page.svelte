@@ -2,9 +2,10 @@
 	STORIES (Samuel 2026-11-03) — Maia City's films, each one timeline (play/SPEC.md §12): pick one in the narrow list on
 	the left and play it through, its storyboard frames beside the subtitles of its script, to feel whether the film
 	works. Admins only. A viewer: a story changes only by proposal, over MCP (play/api/src/mcp.ts), decided on the
-	Proposals page; any accepted version can be played again from the version picker.
+	Proposals page; any accepted version can be played again from the versions down the rail.
 	Laid out with the player (Samuel 2026-11-04): the list on the left only as tall as the picture, the title above the
-	picture, the version picker and the history in the thin rail on the right with the notes, the timeline across the
+	picture, the versions top down (the older ones folded away, each one's steps unfolded under it) in the thin rail on
+	the right with the notes, the timeline across the
 	whole width below.
 -->
 <script lang="ts">
@@ -23,6 +24,8 @@
 	let picked = $state('');
 	let version = $state<number | null>(null);
 	let error = $state('');
+	/** the story's versions, kept while a step of its history plays (a step's story carries none) */
+	let versions = $state<NonNullable<Story['versions']>>([]);
 	let loading = $state(false);
 
 	/** the story and version in the address: #papaya-v2-devlog, or #papaya-v2-devlog@1 for an older version */
@@ -31,6 +34,7 @@
 		return { id: id || '', v: v ? Number(v) : null };
 	};
 	async function open(id: string, v: number | null = null) {
+		if (id !== picked) versions = [];
 		picked = id;
 		version = v;
 		loading = true;
@@ -39,7 +43,10 @@
 		if (location.hash !== want) history.replaceState(history.state, '', want);
 		try {
 			const s = await api<Story>(`/stories/${encodeURIComponent(id)}${v ? `?v=${v}` : ''}`);
-			if (picked === id) story = s;
+			if (picked === id) {
+				story = s;
+				if (s.versions) versions = s.versions;
+			}
 		} catch (e) {
 			error = (e as Error).message;
 			story = null;
@@ -103,14 +110,31 @@
 		atStep = null;
 		open(picked, null);
 	}
-	/** dragging along the bar scrubs through the steps */
-	let scrubbing = false;
-	function scrubAt(e: PointerEvent) {
-		const el = e.currentTarget as HTMLElement, r = el.getBoundingClientRect();
-		const i = Math.max(0, Math.min(steps.length - 1, Math.floor(((e.clientX - r.left) / r.width) * steps.length)));
-		if (steps[i]) pickStep(steps[i]);
-	}
 	const stepIndex = $derived(atStep ? steps.findIndex((s) => s.seq === atStep!.seq) : -1);
+	/** the versions down the rail: the newest FOLD, the older ones folded away until asked for (or one of them is shown) */
+	const FOLD = 3;
+	let showOld = $state(false);
+	let unfolded = $state<number | null>(null);
+	const shownVersions = $derived.by(() => {
+		const all = versions;
+		if (showOld || all.length <= FOLD) return all;
+		const head = all.slice(0, FOLD);
+		const cur = all.find((v) => v.number === story?.number);
+		return cur && !head.includes(cur) ? [...head, cur] : head;
+	});
+	/** each version's steps: those after the version before it, up to the step that named it */
+	const groups = $derived.by(() => {
+		const out = new Map<number, Step[]>();
+		let run: Step[] = [];
+		for (const st of steps) {
+			run.push(st);
+			if (st.version) {
+				out.set(st.version, run);
+				run = [];
+			}
+		}
+		return out;
+	});
 </script>
 
 <svelte:head><title>Stories · maiaCITY play</title></svelte:head>
@@ -141,60 +165,51 @@
 	{/if}
 {/snippet}
 
-<!-- the rail's top: which version is playing, and its history step by step -->
+<!-- the rail's top: the versions down the rail, newest first, the older ones folded away; each version's steps (how
+     it got there) unfolded under it, any of them played as the story was then -->
 {#snippet sideTop()}
 	{#if story}
-		{#if atStep}
-			<button class="chip-back" onclick={backToHead}>Step {stepIndex + 1} · back to the head</button>
-		{:else if (story.versions?.length ?? 0) > 0}
-			<label class="versions">
-				<span class="muted small">Version</span>
-				<select value={String(story.number ?? '')} onchange={(e) => open(story!.id, Number((e.currentTarget as HTMLSelectElement).value) === story!.versions![0].number ? null : Number((e.currentTarget as HTMLSelectElement).value))}>
-					{#each story.versions ?? [] as v, i (v.id)}
-						<option value={String(v.number)}>v{v.number}{i === 0 ? ' (head)' : ''}</option>
-					{/each}
-				</select>
-			</label>
-		{/if}
-		{#if steps.length > 1}
-			<div class="history">
-				<div
-					class="ticks"
-					role="slider"
-					tabindex="0"
-					aria-label="The story's history, step by step"
-					aria-valuemin={1}
-					aria-valuemax={steps.length}
-					aria-valuenow={atStep ? stepIndex + 1 : steps.length}
-					onpointerdown={(e) => { scrubbing = true; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); scrubAt(e); }}
-					onpointermove={(e) => scrubbing && scrubAt(e)}
-					onpointerup={() => (scrubbing = false)}
-					onkeydown={(e) => {
-						const i = atStep ? stepIndex : steps.length - 1;
-						if (e.key === 'ArrowLeft' && i > 0) pickStep(steps[i - 1]);
-						if (e.key === 'ArrowRight' && i < steps.length - 1) pickStep(steps[i + 1]);
-					}}
-				>
-					{#each steps as s, i (s.seq)}
-						<span
-							class="tick"
-							class:v={s.version}
-							class:mcp={s.via === 'mcp'}
-							class:merge={s.kind === 'merge'}
-							class:on={atStep ? atStep.seq === s.seq : version === null && i === steps.length - 1}
-							title="{s.message} · {s.author ?? 'play'}{s.via === 'mcp' ? ' (MCP)' : ''} · {when(s.at)}"
-						>{#if s.version}<span class="vlabel">v{s.version}</span>{/if}</span>
-					{/each}
+		<section class="vers" aria-label="The story's versions and history">
+			<h4 class="vhead">Versions <span>{versions.length} · {steps.length} steps</span></h4>
+			{#if atStep}
+				<div class="playing">
+					<span>Playing step {stepIndex + 1} of {steps.length}</span>
+					<b>{atStep.message}</b>
+					<small>{atStep.author ?? 'play'}{atStep.via === 'mcp' ? ' via MCP' : ''} · {when(atStep.at)}</small>
+					<button onclick={backToHead}>Back to the newest version</button>
 				</div>
-				<p class="muted caption">
-					{#if atStep}
-						Step {stepIndex + 1} of {steps.length}: “{atStep.message}” · {atStep.author ?? 'play'}{atStep.via === 'mcp' ? ' via MCP' : ''} · {when(atStep.at)}
-					{:else}
-						{steps.length} steps in its history, every one kept: drag along the bar to play it as it was at any of them
-					{/if}
-				</p>
-			</div>
-		{/if}
+			{/if}
+			<ol class="vlist">
+				{#each shownVersions as v (v.id)}
+					{@const g = groups.get(v.number) ?? []}
+					{@const on = !atStep && (story.number ?? null) === v.number}
+					{@const newest = v.number === versions[0]?.number}
+					<li class:on>
+						<button class="vrow" onclick={() => open(story!.id, newest ? null : v.number)}>
+							<span class="vnum">v{v.number}</span>
+							{#if newest}<span class="badge">newest</span>{/if}
+							<span class="vwhen">{when(v.created)}{v.author ? ` · ${v.author}` : ''}</span>
+							{#if v.note}<span class="vnote">{v.note}</span>{/if}
+						</button>
+						{#if g.length > 1}
+							<button class="vsteps" aria-expanded={unfolded === v.number} onclick={() => (unfolded = unfolded === v.number ? null : v.number)}>
+								{unfolded === v.number ? 'Hide' : 'Show'} the {g.length} steps to it
+							</button>
+							{#if unfolded === v.number}
+								<ol class="slist">
+									{#each g as st (st.seq)}
+										<li><button class:on={atStep?.seq === st.seq} onclick={() => pickStep(st)}><b>{st.message}</b><small>{st.author ?? 'play'}{st.via === 'mcp' ? ' · MCP' : ''} · {when(st.at)}</small></button></li>
+									{/each}
+								</ol>
+							{/if}
+						{/if}
+					</li>
+				{/each}
+			</ol>
+			{#if versions.length > FOLD}
+				<button class="more" onclick={() => (showOld = !showOld)}>{showOld ? 'Fold the older versions' : `Show ${versions.length - FOLD} older version${versions.length - FOLD === 1 ? '' : 's'}`}</button>
+			{/if}
+		</section>
 	{/if}
 {/snippet}
 
@@ -231,23 +246,35 @@
 	.head h2 { margin: 0; font-size: 1.2rem; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
 	.head .meta { margin: 0.15rem 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.head .error { margin: 0.3rem 0 0; }
-	/* in the rail: the version picker across it, the history bar under it */
-	.versions { display: flex; align-items: center; gap: 0.4rem; }
-	.versions select { font: inherit; flex: 1; min-width: 0; padding: 0.35rem 0.5rem; border-radius: 8px; border: 1px solid var(--line); background: var(--paper); }
-	.chip-back { font: inherit; font-size: 0.78rem; padding: 0.35rem 0.7rem; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); cursor: pointer; justify-self: start; }
-	/* the history: a thin bar of every step, versions marked, dragged to play the story as it was */
-	.history { display: grid; gap: 0.25rem; }
-	.ticks { position: relative; display: flex; align-items: flex-end; height: 1.6rem; padding-top: 0.7rem; cursor: ew-resize; touch-action: none; border-bottom: 1px solid var(--line); outline: none; }
-	.ticks:focus-visible { box-shadow: 0 2px 0 var(--ink); }
-	.tick { position: relative; flex: 1 1 0; height: 0.5rem; display: flex; justify-content: center; }
-	.tick::before { content: ''; width: 2px; height: 100%; border-radius: 1px; background: color-mix(in srgb, var(--ink, #1f2a23) 35%, transparent); }
-	.tick.mcp::before { background: var(--sage, #8fae8b); }
-	.tick.merge::before { background: var(--ink, #1f2a23); }
-	.tick.v { height: 0.85rem; }
-	.tick.v::before { width: 3px; background: var(--ink, #1f2a23); }
-	.tick.on::before { width: 4px; background: #c8744f; }
-	.vlabel { position: absolute; bottom: 100%; font-size: 0.62rem; font-weight: 700; line-height: 1; color: var(--ink, #1f2a23); pointer-events: none; }
-	.caption { margin: 0; font-size: 0.7rem; line-height: 1.3; }
+	/* in the rail: the versions top down, newest first, as a line of dots; a version's steps unfolded under it */
+	.vers { display: grid; gap: 0.5rem; }
+	.vhead { margin: 0; display: flex; justify-content: space-between; align-items: baseline; font-family: var(--font-body); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+	.vhead span { letter-spacing: 0; text-transform: none; font-weight: 500; }
+	.playing { display: grid; gap: 0.15rem; padding: 0.55rem 0.7rem; border-radius: 12px; background: var(--mustard-soft); font-size: 0.78rem; line-height: 1.35; }
+	.playing span { font-size: 0.66rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
+	.playing small { color: var(--ink-soft); }
+	.playing button { justify-self: start; margin-top: 0.25rem; font: inherit; font-size: 0.74rem; font-weight: 600; padding: 0.25rem 0.65rem; border-radius: 999px; border: 0; background: var(--ink); color: var(--paper); cursor: pointer; }
+	.vlist { list-style: none; margin: 0; padding: 0 0 0 0.9rem; border-left: 2px solid var(--line); display: grid; gap: 0.15rem; }
+	.vlist > li { position: relative; }
+	.vlist > li::before { content: ''; position: absolute; left: calc(-0.9rem - 6px); top: 0.75rem; width: 10px; height: 10px; border-radius: 50%; background: var(--paper); border: 2px solid var(--sage); }
+	.vlist > li.on::before { background: var(--mustard); border-color: var(--mustard); }
+	.vrow { all: unset; box-sizing: border-box; display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: 0.45rem; width: 100%; padding: 0.4rem 0.55rem; border-radius: 10px; cursor: pointer; }
+	.vrow:hover { background: color-mix(in srgb, var(--sage) 16%, transparent); }
+	.vrow:focus-visible { outline: 2px solid var(--ink); }
+	li.on > .vrow { background: var(--paper); box-shadow: inset 0 0 0 1px var(--line); }
+	.vnum { font-family: var(--font-display); font-size: 1.05rem; font-weight: 500; }
+	.badge { justify-self: start; padding: 0.05rem 0.45rem; border-radius: 999px; background: var(--sage-soft); font-size: 0.64rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-soft); }
+	.vwhen { grid-column: 1 / -1; font-size: 0.72rem; color: var(--muted); }
+	.vnote { grid-column: 1 / -1; margin-top: 0.1rem; font-size: 0.76rem; line-height: 1.35; color: var(--ink-soft); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
+	.vsteps, .more { all: unset; cursor: pointer; margin: 0.1rem 0 0.2rem 0.55rem; font-size: 0.72rem; font-weight: 600; color: var(--ink-soft); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+	.vsteps:hover, .more:hover { color: var(--ink); }
+	.more { margin: 0 0 0 0.2rem; }
+	.slist { list-style: none; margin: 0.2rem 0 0.4rem 0.55rem; padding: 0; display: grid; gap: 0.1rem; max-height: 16rem; overflow-y: auto; }
+	.slist button { all: unset; box-sizing: border-box; display: grid; width: 100%; padding: 0.3rem 0.5rem; border-radius: 8px; cursor: pointer; font-size: 0.74rem; line-height: 1.3; }
+	.slist button:hover { background: color-mix(in srgb, var(--sage) 14%, transparent); }
+	.slist button.on { background: var(--mustard-soft); }
+	.slist b { font-weight: 500; }
+	.slist small { color: var(--muted); font-size: 0.68rem; }
 	@media (max-width: 820px) {
 		.stories { grid-template-columns: 1fr; }
 		.list { grid-auto-flow: column; grid-auto-columns: 10rem; overflow-x: auto; }
