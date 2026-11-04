@@ -4,16 +4,20 @@
 	a lane per track) with a playhead to drag. Everything shown comes from `renderAt(story, t)`: play and scrub only
 	move t, and the crossfade between two shots is worked out from t, never left to a CSS transition, so a moment is
 	the same picture every time (a frame-by-frame export later renders exactly this). A viewer: nothing is edited here.
+	Its layout (Samuel 2026-11-04): the picture large in the middle, what the editor reads in a thin rail on its right, and
+	the controls and the timeline across the whole width below. A page may hand it `list` (a column on the left, as tall
+	as the picture), `head` (above the picture) and `side` (the top of the rail): the Stories page's list, title and
+	version picker.
 	Its sound (./sound.ts): every clip with a recording (the voice's takes, music, sfx, ambience) laid on one Web Audio
 	clock; while it plays, t follows that clock, so picture and sound stay together. Lines with no take yet can be read
 	by the browser's voice.
 -->
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
+	import { onMount, untrack, type Snippet } from 'svelte';
 	import { clipsOf, clock, cueOf, moodLevel, renderAt, sectionsOf, shotEdge, soundsOf, type Notes, type Shot, type StoryBody, type Voice } from './timeline';
 	import { StorySound } from './sound';
 
-	let { story, compact = false, keys = true }: { story: StoryBody & { title?: string }; compact?: boolean; keys?: boolean } = $props();
+	let { story, compact = false, keys = true, list, head, side }: { story: StoryBody & { title?: string }; compact?: boolean; keys?: boolean; list?: Snippet; head?: Snippet; side?: Snippet } = $props();
 
 	let t = $state(0);
 	let playing = $state(false);
@@ -49,10 +53,11 @@
 	});
 	const frameUrl = (h: string | null | undefined) => (h ? `/api/files/${h}` : '');
 
-	// a new story starts at its beginning, its frames fetched ahead so no shot arrives late
+	// a new story (or another version or step of it: the player stays, so a page's controls around it keep their place) starts
+	// at its beginning, its frames fetched ahead so no shot arrives late, its recordings laid anew
 	let shown = '';
 	$effect(() => {
-		const key = JSON.stringify(story?.tracks?.map((x) => x.id)) + (story?.duration ?? 0) + ((story as any)?.version ?? '');
+		const key = JSON.stringify(story?.tracks ?? null) + (story?.duration ?? 0) + ((story as any)?.version ?? '');
 		if (key === shown) return;
 		shown = key;
 		t = 0;
@@ -186,44 +191,45 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="player" class:compact>
-	<div class="stage-row">
-		<!-- a tap on the picture plays and pauses it, as on any film player (Samuel 2026-11-04) -->
-		<div class="screen" style:--ratio={ratio} role="button" tabindex="0" aria-label={playing ? 'Pause' : 'Play'} onclick={toggle} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), e.stopPropagation(), toggle())}>
-			{#if moment.prev?.frame}<img class="frame" src={frameUrl(moment.prev.frame)} alt="" draggable="false" />{/if}
-			{#if moment.shot?.frame}
-				<img class="frame" src={frameUrl(moment.shot.frame)} alt="Shot {moment.index + 1}" draggable="false" style:opacity={moment.mix} />
-			{:else if moment.shot}
-				<div class="frame empty" style:opacity={moment.mix}><span>Shot {moment.index + 1}: no frame yet</span></div>
-			{/if}
-			<!-- one line at a time, large, as the film shows it; words set on screen are in the frame once it has one -->
-			{#if moment.voice && moment.cue && !(moment.voice.who === 'ON SCREEN' && moment.shot?.frame)}
-				<div class="subtitle">
-					<span class="who">{moment.voice.who}</span>
-					<span class="line" class:em={moment.cue.em}>{moment.cue.text}</span>
-				</div>
-			{/if}
-			{#if !playing}<span class="play-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg></span>{/if}
-		</div>
-		<aside class="details">
-			<p class="beat">
-				<span class="badge" style:background={colourOf(moment.notes?.section ?? '')}>{moment.notes?.section || '—'}</span>
-				{#if shots.length}<span class="muted">Shot {Math.max(1, moment.index + 1)} of {shots.length}</span>{/if}
-				{#if moment.notes?.mood}<span class="mood">{moment.notes.mood}</span>{/if}
-			</p>
-			{#if moment.notes?.camera}<div class="field"><b>Camera</b><p>{moment.notes.camera}</p></div>{/if}
-			{#if moment.shot?.transition}<div class="field"><b>Into the next shot</b><p>{moment.shot.transition}</p></div>{/if}
-			{#if moment.notes?.retention}<div class="field"><b>Retention</b><p>{moment.notes.retention}</p></div>{/if}
-			{#if moment.notes?.pace}<div class="field"><b>Pace</b><p>{moment.notes.pace}</p></div>{/if}
-			{#if soundNow.length || moment.notes?.sound}
-				<div class="field">
-					<b>Sound</b>
-					{#if moment.notes?.sound}<p>{moment.notes.sound}</p>{/if}
-					{#each soundNow as s, i (i)}<p><span class="kind">{s.track}{s.planned ? ' (to make)' : ''}</span> {s.text}</p>{/each}
-				</div>
-			{/if}
-		</aside>
+<div class="player" class:compact class:framed={!!(list || side)} style:--below="{21.2 + (shots.length ? 3.6 : 0) + soundTracks.length * 1.2}rem">
+	{#if list}<div class="p-list">{@render list()}</div>{/if}
+	{#if head}<div class="p-head">{@render head()}</div>{/if}
+	<!-- a tap on the picture plays and pauses it, as on any film player (Samuel 2026-11-04) -->
+	<div class="screen" style:--ratio={ratio} role="button" tabindex="0" aria-label={playing ? 'Pause' : 'Play'} onclick={toggle} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), e.stopPropagation(), toggle())}>
+		{#if moment.prev?.frame}<img class="frame" src={frameUrl(moment.prev.frame)} alt="" draggable="false" />{/if}
+		{#if moment.shot?.frame}
+			<img class="frame" src={frameUrl(moment.shot.frame)} alt="Shot {moment.index + 1}" draggable="false" style:opacity={moment.mix} />
+		{:else if moment.shot}
+			<div class="frame empty" style:opacity={moment.mix}><span>Shot {moment.index + 1}: no frame yet</span></div>
+		{/if}
+		<!-- one line at a time, large, as the film shows it; words set on screen are in the frame once it has one -->
+		{#if moment.voice && moment.cue && !(moment.voice.who === 'ON SCREEN' && moment.shot?.frame)}
+			<div class="subtitle">
+				<span class="who">{moment.voice.who}</span>
+				<span class="line" class:em={moment.cue.em}>{moment.cue.text}</span>
+			</div>
+		{/if}
+		{#if !playing}<span class="play-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg></span>{/if}
 	</div>
+	<aside class="details">
+		{#if side}<div class="p-side">{@render side()}</div>{/if}
+		<p class="beat">
+			<span class="badge" style:background={colourOf(moment.notes?.section ?? '')}>{moment.notes?.section || '—'}</span>
+			{#if shots.length}<span class="muted">Shot {Math.max(1, moment.index + 1)} of {shots.length}</span>{/if}
+			{#if moment.notes?.mood}<span class="mood">{moment.notes.mood}</span>{/if}
+		</p>
+		{#if moment.notes?.camera}<div class="field"><b>Camera</b><p>{moment.notes.camera}</p></div>{/if}
+		{#if moment.shot?.transition}<div class="field"><b>Into the next shot</b><p>{moment.shot.transition}</p></div>{/if}
+		{#if moment.notes?.retention}<div class="field"><b>Retention</b><p>{moment.notes.retention}</p></div>{/if}
+		{#if moment.notes?.pace}<div class="field"><b>Pace</b><p>{moment.notes.pace}</p></div>{/if}
+		{#if soundNow.length || moment.notes?.sound}
+			<div class="field">
+				<b>Sound</b>
+				{#if moment.notes?.sound}<p>{moment.notes.sound}</p>{/if}
+				{#each soundNow as s, i (i)}<p><span class="kind">{s.track}{s.planned ? ' (to make)' : ''}</span> {s.text}</p>{/each}
+			</div>
+		{/if}
+	</aside>
 
 	<div class="controls">
 		<button class="btn small" onclick={toggle} aria-label={playing ? 'Pause' : 'Play'}>{playing ? 'Pause' : t >= D - 0.01 ? 'Replay' : 'Play'}</button>
@@ -254,11 +260,13 @@
 				<line x1="0" x2="1000" y1="30" y2="30" />
 				{#if moodPath}<path d={moodPath} />{/if}
 			</svg>
-			<div class="lane shots-lane">
-				{#each shots as s, i (s.id)}
-					<span class="seg" class:on={i === moment.index} style:left={pct(s.at)} style:width={pct(s.duration)} style:background-image={s.frame ? `url(${frameUrl(s.frame)})` : 'none'} style:border-top-color={colourOf(sectionOf(s.at + 0.01))} title="Shot {i + 1}"></span>
-				{/each}
-			</div>
+			{#if shots.length}
+				<div class="lane shots-lane">
+					{#each shots as s, i (s.id)}
+						<span class="seg" class:on={i === moment.index} style:left={pct(s.at)} style:width={pct(s.duration)} style:background-image={s.frame ? `url(${frameUrl(s.frame)})` : 'none'} style:border-top-color={colourOf(sectionOf(s.at + 0.01))} title="Shot {i + 1}"></span>
+					{/each}
+				</div>
+			{/if}
 			<div class="lane voice-lane">
 				{#each voices as v (v.id)}
 					<span class="bar" class:on={v.id === moment.voice?.id} class:samuel={/samuel/i.test(v.who)} class:recorded={typeof (v as any).audio === 'string'} style:left={pct(v.at)} style:width={pct(v.duration)} title="{v.who}: {v.line}">{v.who.split(/\s/)[0]}</span>
@@ -273,16 +281,30 @@
 			{/each}
 			<div class="playhead" style:left={pct(t)}></div>
 		</div>
-		<div class="legend muted"><span>Shots</span><span>Voice{voices.length && !unrecorded ? ' (recorded)' : ''}</span>{#each soundTracks as tr (tr.id)}<span>{tr.id}</span>{/each}<span>Mood ↑↓</span></div>
+		<div class="legend muted">{#if shots.length}<span>Shots</span>{/if}<span>Voice{voices.length && !unrecorded ? ' (recorded)' : ''}</span>{#each soundTracks as tr (tr.id)}<span>{tr.id}</span>{/each}<span>Mood ↑↓</span></div>
 	</div>
 </div>
 
 <style>
-	.player { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.7rem; min-width: 0; container-type: inline-size; }
-	/* the frame in the middle of the row, what the editor reads beside it on the right (Samuel 2026-11-03) */
-	.stage-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(16rem, 1fr); gap: 1rem; align-items: start; min-height: 0; }
-	.stage-row .screen { grid-column: 2; }
-	.stage-row .details { grid-column: 3; }
+	/* the frame in the middle, what the editor reads beside it on the right (Samuel 2026-11-03), the controls and the
+	   timeline across the whole width below */
+	.player { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(16rem, 1fr); grid-template-areas: '. screen side' 'ctl ctl ctl' 'tl tl tl'; column-gap: 1rem; row-gap: 0.7rem; align-items: start; min-width: 0; container-type: inline-size; }
+	.screen { grid-area: screen; }
+	.details { grid-area: side; }
+	.controls { grid-area: ctl; }
+	.timeline { grid-area: tl; min-width: 0; }
+	/* with a page's list and rail (Samuel 2026-11-04): the list on the left only as tall as the picture, the picture larger
+	   in the middle, a thin rail on the right with the version picker and the notes, the timeline across everything */
+	.framed { grid-template-columns: 10rem minmax(0, 1fr) 13.5rem; grid-template-areas: 'list head side' 'list screen side' 'ctl ctl ctl' 'tl tl tl'; column-gap: 0.9rem; }
+	.p-list { grid-area: list; }
+	.p-head { grid-area: head; min-width: 0; }
+	/* the list and the rail fill the rows the title and the picture make and scroll inside them, never stretching them */
+	.framed .p-list, .framed .details { align-self: stretch; contain: size; overflow: auto; overscroll-behavior: contain; }
+	.framed .screen { justify-self: center; --h: min(var(--story-screen, clamp(15rem, calc(100vh - var(--below)), 760px)), calc((100cqw - 25.5rem) / var(--ratio))); }
+	/* the rail's last lines fade out where it scrolls on, and scroll clear of the fade */
+	.framed .details { gap: 0.5rem; padding: 0 0.15rem 1.6rem 0; mask-image: linear-gradient(to bottom, #000 calc(100% - 1.6rem), transparent); }
+	.framed .field p { font-size: 0.84rem; line-height: 1.38; }
+	.p-side { display: grid; gap: 0.5rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--line); }
 	/* the frame as tall as leaves the controls and the timeline in view above the nav pill (a page may say otherwise) */
 	/* its width worked out from its height: the subtitles are sized to the frame (container-type: size), and a box
 	   contained that way has no width of its own to give a grid column (it collapsed to nothing) */
@@ -302,7 +324,6 @@
 	/* a subtitle the clip set apart (cues' `em`): alone, about two and a half times as large, warm gold, no box */
 	.line.em { font-size: clamp(2rem, 14cqw, 5rem); font-weight: 800; letter-spacing: 0.02em; line-height: 1; color: #ffd76a; background: none; padding: 0; text-shadow: 0 2px 10px rgb(0 0 0 / 0.75), 0 0 2px rgb(0 0 0 / 0.9); }
 	.details { display: grid; gap: 0.6rem; align-content: start; min-width: 0; }
-	.details h2 { margin: 0; font-size: 1.25rem; }
 	.beat { margin: 0; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 	.badge { font-size: 0.75rem; font-weight: 700; padding: 0.15em 0.6em; border-radius: 999px; color: #1b1b17; }
 	.mood { font-weight: 700; color: var(--terracotta, #c96f53); }
@@ -344,12 +365,11 @@
 	/* on a phone: the frame, right under it the controls and the timeline, and only then what the editor reads (Samuel
 	   2026-11-04: play directly below the view, no prose between) */
 	@media (max-width: 820px) {
-		.stage-row { display: contents; }
-		.stage-row .screen, .stage-row .details { grid-column: 1; }
-		.screen { --h: min(58vh, 560px, calc(100cqw / var(--ratio))); justify-self: center; order: 1; }
+		.player { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'screen' 'ctl' 'tl' 'side'; }
+		.framed { grid-template-areas: 'list' 'head' 'screen' 'ctl' 'tl' 'side'; }
+		.framed .p-list, .framed .details { contain: none; overflow: visible; mask-image: none; padding-bottom: 0; }
+		.screen, .framed .screen { --h: min(58vh, 560px, calc(100cqw / var(--ratio))); justify-self: center; }
 		.compact .screen { --h: min(50vh, 480px, calc(100cqw / var(--ratio))); }
-		.controls { order: 2; }
-		.timeline { order: 3; }
-		.details { order: 4; justify-self: stretch; }
+		.details { justify-self: stretch; }
 	}
 </style>
