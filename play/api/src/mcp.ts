@@ -13,7 +13,7 @@ import type { Me } from "./access";
 import { assetOf, listAssets, NotFound } from "./assets";
 import { archiveOwn, listProposals, propose, ProposalError } from "./proposals";
 import { adminByToken } from "./tokens";
-import { admin, AUDIO_TYPES, editStory, listStories, MOST_AUDIO, MOST_FRAME, MOST_LINK_DEPTH, proposeStory, putAudioBase64, putFrameBase64, slimLinks, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
+import { admin, AUDIO_TYPES, editStory, listStories, MOST_AUDIO, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, proposeStory, putAudioBase64, putFrameBase64, putVideoBase64, slimLinks, storyAtStep, storyHistory, storyOf, StoryError, VIDEO_TYPES } from "./stories";
 import { AssetDocError, assetAtStep, assetHistory, editAsset } from "./assetdocs";
 import { listSandboxes, proposeSandbox, sandboxOf, SandboxError } from "./sandboxes";
 import { editFactory, factoryHistory, factoryOf, FactoryError, listFactories, proposeFactory } from "./factories";
@@ -42,7 +42,7 @@ const RECIPE_RULE =
 const STORY_FORMAT =
   "A story is a film as one timeline (format story/1): { schema: 'story/1', format: '9:16' | '16:9' | '1:1' | '4:5', fps: 24 | 25 | 30 | 48 | 50 | 60, duration, tracks }. " +
   "Each track is { id, kind, clips } and each clip { id, at, duration } in seconds (at may be left out to follow the clip before it), plus its kind's fields: " +
-  "kind 'shots' { frame: an image's hash from add_story_frame, transition: how it goes into the next shot, as code where it starts with one: 'cut', 'dissolve 0.5', 'from black 0.7', 'to black 1', 'dip to black 0.4', several joined by commas ('from black 0.7, cut'), else prose }; " +
+  "kind 'shots' { frame: an image's hash from add_story_frame (the shot's still), video?: a video's hash from add_story_video (its moving picture, played muted, the story's own sound under it), video_in?: where in the video the shot starts (s), transition: how it goes into the next shot, as code where it starts with one: 'cut', 'dissolve 0.5', 'from black 0.7', 'to black 1', 'dip to black 0.4', several joined by commas ('from black 0.7, cut'), else prose }; " +
   "kind 'voice' { who, line, cues? } (the narration, shown as the subtitle, cut evenly; or its own subtitles cues: [{ at: seconds into the clip, text, em?: true }], each until the next, em setting one apart, alone and large, such as '100x' while 'a hundred times' is said); " +
   "kind 'notes' { section, emotion (the one primary emotion the section should leave the viewer with, shown under its name on the timeline), camera, retention, mood } (mood as arrows: ↑ ↑↑ ↑↑↑ ↓ ↓↓ ↕). " +
   "Any clip of any track may sound: { audio: a recording's hash from add_story_audio, audio_in: where in the recording it starts (s), gain (dB), fade_in, fade_out (s) }, played from the clip's at for its duration; " +
@@ -513,6 +513,17 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         additionalProperties: false,
       },
       run: async ({ data, media_type }, me) => (admin(me), putFrameBase64(db, store, data, media_type)),
+    },
+    {
+      name: "add_story_video",
+      description: `Add a video (an MP4 or WebM, at most ${MOST_VIDEO / 1e6} MB) as base64: a shot's moving picture, e.g. an image-to-video clip made from its frame. play keeps it among its files and gives back its BLAKE3 hash, to use as a shot's \`video\` (with \`video_in\`, where in it the shot starts) in propose_story, propose_story_version or story_edit. The Stories player plays it muted in the shot, the story's own sound under it, and shows the shot's frame until it can play. The same video always gives the same hash.`,
+      inputSchema: {
+        type: "object",
+        properties: { data: { type: "string", description: "the video's bytes as base64 (a data: URL's prefix is allowed)" }, media_type: { type: "string", enum: VIDEO_TYPES } },
+        required: ["data", "media_type"],
+        additionalProperties: false,
+      },
+      run: async ({ data, media_type }, me) => (admin(me), putVideoBase64(db, store, data, media_type)),
     },
     {
       name: "add_story_audio",

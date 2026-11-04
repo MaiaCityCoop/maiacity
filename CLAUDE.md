@@ -47,8 +47,8 @@ access token on play's profile page (`play_…`, shown once, kept hashed, revoca
 source** (play refuses minified code and wraps the source into the recipe file itself); they come to the Proposals page
 under the admin's name, marked MCP, where people read the source and see it built in the asset box (the sandboxed
 frame; proposed code never runs on the server or on play's origin) before they decide. The agent also reads and proposes
-**stories** (`list_stories`, `get_story`, `propose_story`, `propose_story_version`, `add_story_frame`, `add_story_audio`, `story_edit`,
-`story_history`; play/SPEC.md §12): a film as one timeline of tracks and clips (storyboard shots, voice, notes, and
+**stories** (`list_stories`, `get_story`, `propose_story`, `propose_story_version`, `add_story_frame`, `add_story_audio`, `add_story_video`, `story_edit`,
+`story_history`; play/SPEC.md §12): a film as one timeline of tracks and clips (storyboard shots, each a still and, once made, its video; voice, notes, and
 the sound: voice takes, music, sfx and beds, each a recording on its clip, played in the Stories player),
 versioned like the assets (one film, one story: its rewrites are its next versions, never stories of their own), every field of every clip editable only this way, shown on the Proposals page played in the
 Stories player beside what changed. A story may link an accepted version of another (a track of kind `story`, its clip

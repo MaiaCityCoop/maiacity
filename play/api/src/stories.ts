@@ -91,6 +91,15 @@ const AUDIO: { type: string; is: (b: Uint8Array) => boolean }[] = [
   { type: "audio/webm", is: (b) => b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3 },
 ];
 export const AUDIO_TYPES = AUDIO.map((a) => a.type);
+/** the largest video an agent may add (a shot's moving picture: an image-to-video or reference-to-video clip) */
+export const MOST_VIDEO = 40_000_000;
+/** the video types a shot's video may be, by the bytes they start with: MP4 (any ftyp brand but the audio-only ones) and
+ *  WebM (Matroska's EBML header, said to be video) */
+const VIDEOS: { type: string; is: (b: Uint8Array) => boolean }[] = [
+  { type: "video/mp4", is: (b) => ascii(b, 4, 8) === "ftyp" && !/^(M4A |M4B |M4P )/.test(ascii(b, 8, 12)) },
+  { type: "video/webm", is: (b) => b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3 },
+];
+export const VIDEO_TYPES = VIDEOS.map((v) => v.type);
 const IMAGES: { type: string; is: (b: Uint8Array) => boolean }[] = [
   { type: "image/jpeg", is: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
   { type: "image/png", is: (b) => b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 },
@@ -135,7 +144,16 @@ const KINDS: Record<string, (c: Record<string, unknown>, what: string) => Record
   shots: (c, what) => {
     const frame = c.frame == null || c.frame === "" ? null : text(c.frame, `${what}'s frame`, 64);
     if (frame !== null && !HASH.test(frame)) throw new StoryError(`${what}'s frame must be an image's file hash (add_story_frame gives one).`);
-    return { frame, transition: text(c.transition, `${what}'s transition`, 500) };
+    const out: Record<string, unknown> = { frame, transition: text(c.transition, `${what}'s transition`, 500) };
+    // its moving picture, if it has one: a video's hash, played muted from video_in (s) for the shot's length, the frame
+    // its still (shown until the video can play, and where no video is)
+    if (c.video != null && c.video !== "") {
+      const video = text(c.video, `${what}'s video`, 64);
+      if (!HASH.test(video)) throw new StoryError(`${what}'s video must be a video's file hash (add_story_video gives one).`);
+      out.video = video;
+      if (c.video_in != null) out.video_in = seconds(c.video_in, `${what}'s video_in`, 0, 36_000);
+    } else if (c.video === "") out.video = null;
+    return out;
   },
   voice: (c, what) => ({ who: text(c.who, `${what}'s speaker`, 60), line: text(c.line, `${what}'s line`, 1000), ...cuesOf(c.cues, what, c.duration) }),
   notes: (c, what) => ({
@@ -301,6 +319,13 @@ export async function checkBody(db: Queryable, given: any, self?: string): Promi
     const held = new Set(rows.map((r) => r.hash));
     const missing = frames.filter((f) => !held.has(f));
     if (missing.length) throw new StoryError(`No image is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_frame first.`);
+  }
+  const videos = [...new Set(tracks.filter((t) => t.kind === "shots").flatMap((t) => t.clips.map((c) => c.video)).filter((v): v is string => typeof v === "string"))];
+  if (videos.length) {
+    const { rows } = await db.query<{ hash: string }>(`SELECT hash FROM play.files WHERE hash = ANY($1) AND media_type LIKE 'video/%'`, [videos]);
+    const held = new Set(rows.map((r) => r.hash));
+    const missing = videos.filter((v) => !held.has(v));
+    if (missing.length) throw new StoryError(`No video is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_video first.`);
   }
   const duration = round(Math.max(0, ...tracks.flatMap((t) => t.clips.map((c) => c.at + c.duration))));
   if (!(duration > 0)) throw new StoryError("A story has at least one clip.");
@@ -1036,6 +1061,33 @@ export async function putAudioBase64(db: Queryable, store: BlobStore, data: unkn
   if (clean.length > Math.ceil((MOST_AUDIO * 4) / 3) + 8) throw new StoryError(`A recording is at most ${MOST_AUDIO / 1e6} MB.`, 413);
   if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean)) throw new StoryError("That is not base64.");
   return putAudio(db, store, new Uint8Array(Buffer.from(clean, "base64")), typeof mediaType === "string" ? mediaType : undefined);
+}
+
+// ---- videos
+
+/** The video type of `bytes`, by how they start, or null */
+export const videoType = (bytes: Uint8Array): string | null => VIDEOS.find((v) => v.is(bytes))?.type ?? null;
+
+/** Keep one video (MP4 or WebM, at most MOST_VIDEO bytes) among play's files; its hash. */
+export async function putVideo(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string): Promise<{ hash: string; size: number; media_type: string }> {
+  if (!bytes.length) throw new StoryError("The video is empty.");
+  if (bytes.length > MOST_VIDEO) throw new StoryError(`A video is at most ${MOST_VIDEO / 1e6} MB.`, 413);
+  const type = videoType(bytes);
+  if (!type) throw new StoryError("A video is an MP4 or a WebM.", 415);
+  if (said && said !== type) throw new StoryError(`Those bytes are ${type}, not ${said}.`, 415);
+  const hash = hashBytes(bytes);
+  const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, type);
+  await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, $3, $4) ON CONFLICT (hash) DO NOTHING`, [hash, bytes.length, type, key]);
+  return { hash, size: bytes.length, media_type: type };
+}
+
+/** A video given as base64 (an agent's), checked and kept */
+export async function putVideoBase64(db: Queryable, store: BlobStore, data: unknown, mediaType: unknown) {
+  if (typeof data !== "string" || !data) throw new StoryError("Give the video as base64 text (data).");
+  const clean = data.replace(/^data:[^,]*,/, "").replace(/\s+/g, "");
+  if (clean.length > Math.ceil((MOST_VIDEO * 4) / 3) + 8) throw new StoryError(`A video is at most ${MOST_VIDEO / 1e6} MB.`, 413);
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean)) throw new StoryError("That is not base64.");
+  return putVideo(db, store, new Uint8Array(Buffer.from(clean, "base64")), typeof mediaType === "string" ? mediaType : undefined);
 }
 
 // ---- frames

@@ -21,7 +21,9 @@ export type Links = Record<string, Linked>;
 export type LinkedBy = { id: string; title: string; number: number; version: string; plays: number | null };
 export type Story = StoryBody & { id: string; title: string; number?: number | null; version?: string; note?: string; links?: Links; linked_by?: LinkedBy[]; versions?: { number: number; id: string; note: string; created: string; author: string | null }[] };
 
-export type Shot = Clip & { frame: string | null; transition: string };
+/** a shot: its still (frame), how it goes into the next (transition), and its moving picture if it has one (video, played
+ *  muted from video_in seconds into it; the story's own sound plays under it) */
+export type Shot = Clip & { frame: string | null; transition: string; video?: string | null; video_in?: number };
 /** a subtitle the clip sets itself: `at` seconds into the clip it comes on, until the next; `em` sets it alone, large */
 export type SetCue = { at: number; text: string; em?: boolean };
 export type Voice = Clip & { who: string; line: string; cues?: SetCue[] };
