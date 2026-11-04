@@ -97,19 +97,8 @@
 	let size = $state.raw(null);
 	let rise = $state.raw(null);
 	let modes = $state({ run: true, explode: false, cut: false, xray: false, labels: false, slow: false });
-	/** the biomes a plant can be shown standing on (./ground.js), the one it stands on, and the soil under it */
-	let grounds = $state.raw([]);
-	let groundId = $state(savedGround());
+	/** the soil under the plant: of the one floor every plant stands on, the library's greenest biome (./ground.js) */
 	let soilShown = $state.raw(null);
-	/** the ground last chosen on this device, if it can say */
-	function savedGround() {
-		try {
-			return localStorage.getItem('play.ground') ?? 'food-forest';
-		} catch {
-			return 'food-forest';
-		}
-	}
-	let pickGround = null;
 	/** the camera below the ground line (the frame split there, the roots in the earth), and the one tap down to them or back up */
 	let below = $state(false);
 	let toRoots = null;
@@ -183,21 +172,11 @@
 		window.__vaultAsset = { stage, camera, controls, get hero() { return hero; }, get picked() { return picked; }, get building() { return building; }, get phase() { return buildPhase; }, get error() { return error; }, get values() { return values; }, get wanted() { return wanted; }, set: (id, v) => setParam(id, v) };
 		// a plant's ground: its biome's floor to the horizon, whole, the plant's roots in the earth under it, seen by
 		// tilting the camera below the ground line (./ground.js); never under its fruit on its own, which stands on the
-		// studio's floor
+		// studio's floor. One floor for every plant, not chosen (Samuel 2026-11-04): the library's greenest biome
 		const earth = groundOf(stage);
-		grounds = groundsIn(source);
-		pickGround = (id) => {
-			const g = grounds.find((x) => x.id === id) ?? grounds[0];
-			groundId = g?.id ?? id;
-			earth.biome(g?.recipe ?? null, g?.id);
-			soilShown = earth.soil;
-			try {
-				localStorage.setItem('play.ground', groundId);
-			} catch {
-				/* kept for this visit only */
-			}
-		};
-		pickGround(groundId);
+		const green = groundsIn(source)[0];
+		earth.biome(green?.recipe ?? null, green?.id);
+		soilShown = earth.soil;
 
 		const letGo = letGoOf(stage);
 		const asks = asker();
@@ -566,15 +545,9 @@
 				{#if hero.view?.walk}<button class="chip walk" class:on={walking} onclick={() => (walking ? walkOut?.() : walkIn?.())}>{walking ? 'Step outside' : 'Step inside'}</button>{/if}
 			</div>
 			{#if rise}
-				<!-- the ground a plant stands on: down to its roots and back up, and a biome's floor and the soil it lies on -->
+				<!-- the ground a plant stands on: down to its roots and back up -->
 				<div class="chips grounds" role="group" aria-label="Ground">
 					<button class="chip roots" class:on={below} aria-pressed={below} onclick={() => toRoots?.()}>{below ? 'Above ground' : 'Roots'}</button>
-					{#if grounds.length > 1}
-						<span class="grounds-label">Ground</span>
-						{#each grounds as g (g.id)}
-							<button class="chip" class:on={groundId === g.id} aria-pressed={groundId === g.id} onclick={() => pickGround?.(g.id)}>{g.label}</button>
-						{/each}
-					{/if}
 				</div>
 			{/if}
 		{/if}
@@ -609,26 +582,12 @@
 </Turntable>
 
 <style>
-	/* the ground a plant stands on: a row of chips under the bar's, named */
+	/* the ground a plant stands on: its one chip, down to the roots and back up, under the bar's */
 	.grounds {
 		align-items: center;
 	}
-	/* down to the roots stays in reach while the row of grounds scrolls under it */
-	.grounds .roots {
-		position: sticky;
-		left: 0;
-		z-index: 1;
-		box-shadow: 6px 0 8px -6px rgb(0 0 0 / 0.25);
-	}
 	.grounds .roots:not(.on) {
 		background: #fff;
-	}
-	.grounds-label {
-		font-size: 0.72rem;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		opacity: 0.6;
-		margin-right: 2px;
 	}
 	/* a plant's Plant | Fruit: one pill of two halves, the one shown pressed dark, like the bar's chips */
 	.views-of {
