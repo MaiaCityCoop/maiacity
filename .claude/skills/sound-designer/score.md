@@ -65,6 +65,21 @@ The spotting pass for a 3–5 minute film from a cold low to a warm high:
 
 Whether ElevenLabs Music holds one melody across its chunks is untested: keep the take that does.
 
+**What a generated cue does at its edges, and with its chunks** (measured on the vision trailer, 2026-11-04): it starts
+at full level on its first downbeat (good to enter on) unless asked for a pad, whose first second can be near-silent; it
+decays to nothing over its last 1–2 s; and a chunk's planned length is only roughly kept (a 4.8 s intro came out 9.6 s, a
+climax planned at 16.5 s landed at 15.0 s). Make three takes, measure each one's loudness curve, onsets, tempo and key,
+and place it by what it really does: its climax on the word, its handovers where its decay begins (`transitions.md`).
+Ask for the key of the cue it hands over to.
+
+**One cue across sections of one energy, styled by a reference** (the vision trailer's v15, 2026-11-04): the hook and the
+trailer were composed as one plan of five chunks (pulse, bloom, trailer, ascent, arrival) with the old intro cue as the
+first chunk's `audio_reference` (`{ audio_url, start_ms, end_ms, strength: 'medium' }`; a `data:audio/mpeg;base64,...`
+URL is accepted) and a seed per take. Of four takes, two began with the asked-for swell from silence (about 1.5 s; enter
+it with `audio_in` for a half-second build-up), two did not (one at full on its first frame, one 5 s of silence and a slow
+rise); all held one beat of 128 bpm across every chunk join; the one with a crash on every second bar line had accents to
+land the words on. Its chunks' planned lengths were again only roughly kept: choose the take, then fit the lines' gaps.
+
 Sources: Murch in Ondaatje's *The Conversations*; Heather Fenoughty (heather-fenoughty.com, spotting guide);
 modwheel.net/guides/scoring-to-picture-spotting; carterburwell.com/projects/NCFOM.html; aftersunsetmusic.com (sting vs
 link); storyblocks.com (cutting music without a sudden stop); sheridantongue.com (temp tracks).

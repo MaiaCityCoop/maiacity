@@ -20,7 +20,11 @@ sound design makes the world real, and the mix lets all three be heard.
 5. **Silence is a sound.** A drop-out before a line, a breath beat with no voice — contrast is what makes the next
    sound land (`design.md`).
 6. **Scenes change in sound before or after the picture:** J and L cuts at every scene change, never a hard cut of
-   both at one frame (`mix.md`).
+   both at one frame (`mix.md`). **Every hand-over between two cues overlaps:** the outgoing rings on, the incoming has
+   begun under it, a cue enters on its own downbeat and is heard within a second, two cues of one tempo run on one beat
+   (the incoming's downbeat on the outgoing's bar line, in place of its final hit), and sections of one energy are one
+   cue, not two joined; every cue builds up and builds down; never a gap, never a jolt, and
+   **measured before proposing** with `check_mix.py` (`transitions.md`; Samuel 2026-11-04: he should never have to ask).
 7. **Measure, don't guess:** every clip to its track's loudness, voice over music 12–18 LU, the mix to −14 LUFS /
    −1 dBTP (`mix.md`).
 
@@ -32,16 +36,22 @@ sound design makes the world real, and the mix lets all three be heard.
 | `score.md` | the score | an original score per film in chunks that follow the arc, cues, spotting where music starts and stops |
 | `design.md` | sound design | beds, spot sounds and hits, silence and contrast, the sound transitions, the masters' philosophy |
 | `mix.md` | the mix | levels, EQ measured and matched, how the pros finish a film, J and L cuts across scenes |
+| `transitions.md` | the hand-overs | the method: every section change mapped first (FLOW, TURN or BREAK, the voice's pause, what each cue does, keys and tempi), cues composed for their joins, then measured; the rules (L- and J-cuts, downbeats, one cue for one energy, build-ups and build-downs, the voice's breath); `check_mix.py`, the check that must pass before a proposal |
 | `play.md` | sound on play's timeline | the story/1 sound fields, add_story_audio, making takes on fal, a story voiced end to end |
 
 ## The order of work
 
 1. The voice takes, one per line, before the shot list is timed (`voice.md`).
-2. Spotting: where music plays and where it doesn't, against the arc (`score.md`).
-3. The score and its cues, composed to the film's clock (`score.md`).
+2. Spotting: where music plays and where it doesn't, against the arc (`score.md`), and **the transition map**: every
+   section change a FLOW, a TURN or a BREAK, the voice's pause at each, what each cue does there, the keys and tempi
+   (`transitions.md`). Before any cue is generated.
+3. The score and its cues, composed to the film's clock and to the map: one cue for sections of one energy, each other
+   cue asked for its entrance, its ending and its neighbour's key (`score.md`, `transitions.md`).
 4. Beds per scene, spot sounds, few hits, the silences (`design.md`).
 5. The mix: voices matched and levelled, beds unbroken, music edited then levelled, transitions, measured again,
    every cut listened through (`mix.md`).
+6. The hand-overs, measured: `check_mix.py` on the body about to be proposed passes (its section table, every flag),
+   every break in it one Samuel asked for; the map goes into the proposal's note (`transitions.md`).
 
 An agent mixes by proposal: it reads the story (`get_story`), adds its recordings (`add_story_audio`), writes every
 clip's `audio`, `gain`, `fade_in`, `fade_out`, `eq` and `keys` on a proposed version of it, and Samuel hears it in the
