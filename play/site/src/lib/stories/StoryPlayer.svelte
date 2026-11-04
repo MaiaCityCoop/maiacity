@@ -10,7 +10,7 @@
 -->
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import { clipsOf, clock, moodLevel, renderAt, sectionsOf, shotEdge, soundsOf, type Notes, type Shot, type StoryBody, type Voice } from './timeline';
+	import { clipsOf, clock, cueOf, moodLevel, renderAt, sectionsOf, shotEdge, soundsOf, type Notes, type Shot, type StoryBody, type Voice } from './timeline';
 	import { StorySound } from './sound';
 
 	let { story, compact = false, keys = true }: { story: StoryBody & { title?: string }; compact?: boolean; keys?: boolean } = $props();
@@ -29,8 +29,14 @@
 	const voices = $derived(clipsOf<Voice>(story, 'voice'));
 	const notes = $derived(clipsOf<Notes>(story, 'notes'));
 	const sounds = $derived(soundsOf(story));
-	/** the tracks that sound besides the voice (music, sfx, ambience, a mix), each its own lane */
-	const soundTracks = $derived((story?.tracks ?? []).filter((x) => x.kind !== 'voice' && x.kind !== 'shots' && x.kind !== 'notes' && x.clips.some((c) => typeof c.audio === 'string')));
+	/** the tracks that sound besides the voice (music, sfx, ambience, a mix), each its own lane: their recordings, and the
+	 *  cues still to be made, written as notes (a preview's music, effects and beds, read before anything is recorded) */
+	const soundTracks = $derived((story?.tracks ?? []).filter((x) => x.kind !== 'voice' && x.kind !== 'shots' && x.kind !== 'notes' && x.clips.some((c) => typeof c.audio === 'string' || cueOf(c))));
+	const KIND_NAME: Record<string, string> = { music: 'Music', sfx: 'Effect', ambience: 'Ambience' };
+	/** what is heard (or planned to be) at the playhead, track by track */
+	const soundNow = $derived(
+		soundTracks.flatMap((tr) => tr.clips.filter((c) => t >= c.at - 1e-6 && t < c.at + c.duration && cueOf(c)).map((c) => ({ track: KIND_NAME[tr.kind] ?? tr.id, text: cueOf(c), planned: typeof c.audio !== 'string' })))
+	);
 	/** voice clips with no take yet: only these may be read by the browser's voice */
 	const unrecorded = $derived(voices.filter((v) => typeof (v as any).audio !== 'string').length);
 	const sections = $derived(sectionsOf(story));
@@ -202,6 +208,14 @@
 			{#if moment.notes?.camera}<div class="field"><b>Camera</b><p>{moment.notes.camera}</p></div>{/if}
 			{#if moment.shot?.transition}<div class="field"><b>Into the next shot</b><p>{moment.shot.transition}</p></div>{/if}
 			{#if moment.notes?.retention}<div class="field"><b>Retention</b><p>{moment.notes.retention}</p></div>{/if}
+			{#if moment.notes?.pace}<div class="field"><b>Pace</b><p>{moment.notes.pace}</p></div>{/if}
+			{#if soundNow.length || moment.notes?.sound}
+				<div class="field">
+					<b>Sound</b>
+					{#if moment.notes?.sound}<p>{moment.notes.sound}</p>{/if}
+					{#each soundNow as s, i (i)}<p><span class="kind">{s.track}{s.planned ? ' (to make)' : ''}</span> {s.text}</p>{/each}
+				</div>
+			{/if}
 		</aside>
 	</div>
 
@@ -246,8 +260,8 @@
 			</div>
 			{#each soundTracks as tr (tr.id)}
 				<div class="lane sound-lane" title={tr.id}>
-					{#each tr.clips.filter((c) => typeof c.audio === 'string') as c (c.id)}
-						<span class="bar sound {tr.kind}" class:muted-track={(tr as any).mute} style:left={pct(c.at)} style:width={pct(c.duration)} title="{tr.id}: {(c as any).name ?? (c as any).note ?? c.id}">{tr.id}</span>
+					{#each tr.clips.filter((c) => typeof c.audio === 'string' || cueOf(c)) as c (c.id)}
+						<span class="bar sound {tr.kind}" class:muted-track={(tr as any).mute} class:planned={typeof c.audio !== 'string'} style:left={pct(c.at)} style:width={pct(c.duration)} title="{tr.id}: {cueOf(c) || c.id}">{typeof c.audio === 'string' ? tr.id : cueOf(c)}</span>
 					{/each}
 				</div>
 			{/each}
@@ -304,6 +318,9 @@
 	.bar.sound { background: color-mix(in srgb, var(--sky, #7c9cb8) 30%, white); border-color: color-mix(in srgb, var(--sky, #7c9cb8) 70%, transparent); line-height: 0.8rem; font-size: 0.55rem; }
 	.bar.sound.music, .bar.sound.score { background: color-mix(in srgb, #a98bb5 30%, white); border-color: #a98bb5; }
 	.bar.sound.sfx { background: color-mix(in srgb, #c96f53 25%, white); border-color: #c96f53; }
+	/* a cue still to be made: its note in a dashed outline, read before anything is recorded */
+	.bar.sound.planned { background: transparent; border-style: dashed; font-weight: 600; color: var(--ink, #2b2a26); }
+	.field .kind { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-right: 0.25rem; }
 	.bar.sound.ambience { background: color-mix(in srgb, #6f9e95 25%, white); border-color: #6f9e95; }
 	.bar.muted-track { opacity: 0.4; }
 	.bar.samuel { background: var(--mustard-soft, #f3e3b5); border-color: color-mix(in srgb, var(--mustard, #d9a441) 60%, transparent); }
