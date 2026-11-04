@@ -125,8 +125,15 @@ moment: what the listener must feel or think there, and how long that takes.
     - The intro builds down after its last line: an even fade of about 30 dB over 1.5–2 s (in `keys`, linear in dB, not a
       linear-amplitude fade, whose tail drops like a cut), or its own composed ending.
     - A breath of 1.5–2 s. The segment's voice may begin in it, over its own soft air bed, never in dead silence.
-    - The segment builds up on its own: its music swells in within a second of entering and rises through its first
-      line, held back under its last line, its big moment right after it.
+    - The segment builds up on its own: its music builds to full power in 1–2 s, and only then does its voice come in,
+      over it (Samuel 2026-11-04: "the music trailer power build-up need to be 1-2 seconds and then the voice-over";
+      a theme rising slowly under the voice was too timid). It drives under the voice, is held back under the last
+      line, and its big moment comes right after that line.
+    - What Samuel approved ("Now we are talking", the vision trailer's v18):
+      - the intro, the film's own piece, has its own final chord on its last word and decays on its own;
+      - the trailer's build crosses that decay, a breath with no gap, about 2 s from the last word to the trailer's
+        first;
+      - the trailer's key resolves the intro's (E into A: dominant into tonic).
     - It is its own story, linked into each film (play's linked stories). Rule 9 (one cue for one energy) is for a film's
       own sections; between a film and a reused segment the break is the design.
 

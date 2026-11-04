@@ -80,6 +80,14 @@ it with `audio_in` for a half-second build-up), two did not (one at full on its 
 rise); all held one beat of 128 bpm across every chunk join; the one with a crash on every second bar line had accents to
 land the words on. Its chunks' planned lengths were again only roughly kept: choose the take, then fit the lines' gaps.
 
+**A cue that must be heard from its start** (the vision trailer's intro and trailer, 2026-11-04): asked for "a half-second
+swell", four intro takes still began with slow crescendos of 3–5 s, the low pulse of one barely heard for two seconds
+even 12 dB up. What worked was saying it plainly in the first chunk ("it starts right away: half a second of swell into its
+first downbeat, then the pulse at a clear, moderate level from the first second") and ruling the rest out in its negative
+styles ("slow fade in", "long crescendo from silence", "ambient intro", "silence at the start"). Measure how a take is
+*heard* from its first second (`check_mix.py`'s `envelope`, weighted like hearing), not its raw level: a low synth reads
+far quieter than its meter says.
+
 Sources: Murch in Ondaatje's *The Conversations*; Heather Fenoughty (heather-fenoughty.com, spotting guide);
 modwheel.net/guides/scoring-to-picture-spotting; carterburwell.com/projects/NCFOM.html; aftersunsetmusic.com (sting vs
 link); storyblocks.com (cutting music without a sudden stop); sheridantongue.com (temp tracks).
