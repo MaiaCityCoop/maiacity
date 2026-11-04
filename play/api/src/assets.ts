@@ -63,25 +63,31 @@ export async function versionOf(db: Queryable, id: string, number: number) {
   return { id: v.id, asset: id, number: v.number, parents: v.parents, recipe: v.recipe_hash, source: v.source_hash, defaultVariant: v.default_variant, card: v.card, engine: v.engine, note: v.note, variants: v.variants, imported: v.imported };
 }
 
-/** what a sandbox draws: each slot, the build it pins (`<hash>?values`), and what that is, for showing */
-export async function pinsOf(db: Queryable, sandbox: string) {
+/** what a sandbox draws: each slot, the build it pins (`<hash>?values`), and what that is, for showing; `state`: its
+ * pins as a proposal would make them (./sandboxes.ts) instead of as they are */
+export async function pinsOf(db: Queryable, sandbox: string, state?: { pins: Record<string, { version: string; variant: string | null; params: Record<string, string> | null }> }) {
   const { rows: s } = await db.query(`SELECT 1 FROM play.sandboxes WHERE id = $1`, [sandbox]);
   if (!s[0]) throw new NotFound(`There is no ${sandbox}.`);
-  const { rows } = await db.query<any>(
-    `SELECT p.slot, p.variant, p.params, v.asset_id, v.number,
-            COALESCE(x.recipe_hash, v.recipe_hash, d.recipe_hash) AS hash, COALESCE(p.variant, v.default_variant) AS used_variant
-       FROM play.sandbox_pins p
-       JOIN play.asset_versions v ON v.id = p.version_id
-       LEFT JOIN play.asset_variants x ON x.version_id = v.id AND x.name = p.variant
-       LEFT JOIN play.asset_variants d ON d.version_id = v.id AND d.name = v.default_variant AND p.variant IS NULL
-      WHERE p.sandbox_id = $1 ORDER BY p.slot`,
-    [sandbox],
+  const pins = state
+    ? Object.entries(state.pins).map(([slot, p]) => ({ slot, version_id: p.version, variant: p.variant, params: p.params }))
+    : (await db.query<any>(`SELECT slot, version_id, variant, params FROM play.sandbox_pins WHERE sandbox_id = $1`, [sandbox])).rows;
+  const { rows: vs } = await db.query<any>(
+    `SELECT v.id, v.asset_id, v.number, v.recipe_hash, v.default_variant,
+            COALESCE((SELECT json_object_agg(x.name, x.recipe_hash) FROM play.asset_variants x WHERE x.version_id = v.id), '{}') AS variants
+       FROM play.asset_versions v WHERE v.id = ANY($1)`,
+    [[...new Set(pins.map((p: any) => p.version_id))]],
   );
-  return rows.map((p) => {
-    const values = p.params ? Object.entries(p.params as Record<string, string>).sort(([a], [b]) => (a < b ? -1 : 1)) : [];
-    const build = values.length ? `${p.hash}?${new URLSearchParams(values)}` : p.hash;
-    return { slot: p.slot, build, hash: p.hash, asset: p.asset_id, number: p.number, variant: p.used_variant };
-  });
+  const byId = new Map(vs.map((v) => [v.id, v]));
+  return pins
+    .sort((a: any, b: any) => (a.slot < b.slot ? -1 : a.slot > b.slot ? 1 : 0))
+    .map((p: any) => {
+      const v = byId.get(p.version_id);
+      const used = p.variant ?? v.default_variant;
+      const hash = p.variant ? v.variants[p.variant] : (v.recipe_hash ?? v.variants[v.default_variant]);
+      const values = p.params ? Object.entries(p.params as Record<string, string>).sort(([a], [b]) => (a < b ? -1 : 1)) : [];
+      const build = values.length ? `${hash}?${new URLSearchParams(values)}` : hash;
+      return { slot: p.slot, build, hash, asset: v.asset_id, number: v.number, variant: used };
+    });
 }
 
 /** whether `hash` is a file play keeps, and its type */
@@ -117,10 +123,13 @@ export async function catalogOf(db: Queryable) {
  * A sandbox's config: its pins as `assets`, each slot the build it pins (`<hash>?values`), and every other config it
  * keeps by name (Sandbox 1's `garden`), each planting's slot handed out as its build (`asset`).
  */
-export async function configOf(db: Queryable, sandbox: string) {
-  const pins = await pinsOf(db, sandbox);
+export async function configOf(db: Queryable, sandbox: string, state?: { pins: Record<string, any>; configs: Record<string, unknown> }) {
+  const pins = await pinsOf(db, sandbox, state);
   const assets = Object.fromEntries(pins.map((p) => [p.slot, p.build]));
-  const { rows } = await db.query<{ name: string; data: any }>(`SELECT name, data FROM play.sandbox_configs WHERE sandbox_id = $1`, [sandbox]);
+  const numbers = Object.fromEntries(pins.map((p) => [p.slot, p.number]));
+  const rows = state
+    ? Object.entries(state.configs).map(([name, data]) => ({ name, data }))
+    : (await db.query<{ name: string; data: any }>(`SELECT name, data FROM play.sandbox_configs WHERE sandbox_id = $1`, [sandbox])).rows;
   const withBuilds = (o: any): any => {
     if (Array.isArray(o)) return o.map(withBuilds);
     if (o && typeof o === "object") {
@@ -128,6 +137,8 @@ export async function configOf(db: Queryable, sandbox: string) {
       if (typeof o.slot === "string") {
         if (!assets[o.slot]) throw new NotFound(`${sandbox}'s config names slot ${o.slot}, which it doesn't pin`);
         out.asset = assets[o.slot];
+        // a planting's version, as its pin now names it
+        if ("v" in o) out.v = numbers[o.slot];
       }
       return out;
     }

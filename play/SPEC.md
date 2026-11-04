@@ -198,11 +198,20 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
 - **One loader** (play/site's `content/assets/catalog.js`): hash → its record from `/api/catalog` → its file from
   `/api/files/<hash>`, held to the hash → the frozen box engine builds it. Media (covers, sounds) are play's files too.
 
-### 4.6 Pins (later proposal kind)
+### 4.6 A sandbox's layout (the `sandbox_change` proposal, Samuel 2026-11-04)
 
-`sandbox_pins (sandbox_id, slot, asset_id, version_id, variant, params)`: which version a sandbox draws.
-Imported as they are today. Changing one later is a `pin_change` proposal ("update Sandbox 1's hens to version x"),
-accepted by an admin. It is not part of v0.
+`sandbox_pins (sandbox_id, slot, version_id, variant, params)`: which version a sandbox draws; `sandbox_configs
+(sandbox_id, name, data)`: how it lays them out (Sandbox 1's `garden`: its plantings, spacing, drifts and fields; where a
+thing stands), anything in one with a `slot` drawn as that slot's pin. Both change **only by proposal**, never by a
+migration or by hand: an agent reads a sandbox over MCP (`list_sandboxes`, `get_sandbox`: each pin's asset, version, the
+asset's newest, its variant and values, and where a config names it) and proposes edits (`propose_sandbox_change`):
+`pin` (a slot to an accepted version, variant and values; a new slot too), `pin_latest` (every slot of an asset to its
+newest version), `unpin`, and `set`/`delete` of any value at a path of a config ("update Sandbox 1's papayas to v4",
+"move the hens", "weight the apples 5"). Each is checked as a whole: only accepted versions, variants they have, no
+readable refs, every slot a config names pinned. The Proposals page shows each change before and after and opens the
+sandbox as it would be (`/sandbox-1/?layout=sandbox-1/<proposal>`, its config read with `?proposal=`, admins only); an
+admin accepts it there, which applies the edits to the sandbox as it is then, in one transaction (one that no longer
+holds is archived). Admins only for now (`play/api/src/sandboxes.ts`).
 
 ## 5. The three sandboxes
 
