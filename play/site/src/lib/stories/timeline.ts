@@ -11,7 +11,10 @@ export type Story = StoryBody & { id: string; title: string; number?: number | n
 
 export type Shot = Clip & { frame: string | null; transition: string };
 export type Voice = Clip & { who: string; line: string };
-export type Notes = Clip & { section: string; camera: string; retention: string; mood: string };
+export type Notes = Clip & { section: string; camera: string; retention: string; mood: string; pace?: string; sound?: string };
+
+/** what a clip of a sound track says it is, sounding or still to be made: its note (a planned cue, an effect, a bed) or its name */
+export const cueOf = (c: Clip) => String((c as { note?: unknown }).note ?? (c as { name?: unknown }).name ?? '');
 
 export type Moment = {
 	t: number;
