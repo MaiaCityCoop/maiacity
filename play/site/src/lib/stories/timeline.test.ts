@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CUE_CHARS, cuesOf, renderAt, type StoryBody } from './timeline';
+import { CUE_CHARS, cuesOf, renderAt, soundsOf, type StoryBody } from './timeline';
 
 const LEAVES = 'Every few days, a new leaf unfolds at its crown, each turned a little further round than the last, so that every leaf finds the light. The old ones, it lets fall. Each leaves a scar, and in time its trunk becomes a diary of every leaf it ever wore.';
 const TRAILER = 'This is the story of how one million humans build a hundred times better way of living: their own solarpunk city, from the ground up. First in a game, then for real.';
@@ -34,5 +34,22 @@ describe('subtitle cues: one line at a time', () => {
 		expect(renderAt(story, 9.9).cue?.text).toBe(cues.at(-1)!.text);
 		const mid = renderAt(story, 5);
 		expect(cues.indexOf(mid.cue!)).toBeGreaterThan(0);
+	});
+});
+
+describe('the sound under the voice', () => {
+	const story = (duck?: boolean): StoryBody =>
+		({
+			schema: 'story/1', format: '1:1', fps: 30, duration: 10,
+			tracks: [
+				{ id: 'voice', kind: 'voice', clips: [{ id: 'v1', at: 0, duration: 3, who: 'MAIA', line: 'Here.', audio: 'a'.repeat(64) }] },
+				{ id: 'music', kind: 'music', ...(duck === undefined ? {} : { duck }), clips: [{ id: 'm1', at: 0, duration: 10, audio: 'b'.repeat(64) }] },
+			],
+		}) as any;
+	it('keeps the music steady under the voice by default: a clean, continuous flow', () => {
+		expect(soundsOf(story()).find((s) => s.kind === 'music')?.duck).toBe(false);
+	});
+	it('dips a track under the voice only when it asks for it', () => {
+		expect(soundsOf(story(true)).find((s) => s.kind === 'music')?.duck).toBe(true);
 	});
 });
