@@ -16,7 +16,8 @@ It prints and flags:
   - every voice line's margin over everything else (dB), LOW under --min-voice;
   - every section boundary (a notes clip's start) with the voice's pause around it and how the music crosses it:
       BREATH  the voice pausing less than 1.5 s at a section's change (a TURN: the music changes there, a cue
-              starting or ending within 2 s), or less than 0.6 s inside one running cue (a FLOW): the music needs
+              starting or ending within 2 s, or the world's sound does, a bed or an effect starting within 1 s of it),
+              or less than 0.6 s inside one running cue with nothing new arriving (a FLOW): the music needs
               room to make the turn, and the listener a breath, before the next line (Samuel 2026-11-04: "a short
               breathing break of the voice between 3 and 4"); a story break (silence) wants 2-3.5 s;
   - around every section boundary (a notes clip's start) and every music clip's first and last second, the music and
@@ -198,7 +199,8 @@ def main():
         while a1 < len(speech) and not speech[a1]:
             a1 += 1
         pause = (a1 - a0) * H if not speech[i] else 0.0
-        kind = 'TURN' if any(abs(e - b) <= 2 for e in edges) else 'FLOW'
+        world = [c['at'] for c in clips(('ambience', 'sfx', 'effects')) if isinstance(c.get('audio'), str) and c['audio']]
+        kind = 'TURN' if any(abs(e - b) <= 2 for e in edges) or any(abs(a - b) <= 1 for a in world) else 'FLOW'
         need = 1.5 if kind == 'TURN' else 0.6
         short = pause < need
         print(f"  {b:7.2f}s {str(n.get('section', n['id']))[:22]:22} {kind}  voice pause {pause:4.2f} s (at least {need}){'   BREATH' if short else ''}")

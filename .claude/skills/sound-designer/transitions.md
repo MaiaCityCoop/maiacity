@@ -104,7 +104,7 @@ silence is only ever there because the plan says it is a break, and the proposal
    - Land its accents on the words by its `audio_in` and the lines' gaps, never by cutting it.
 10. **The voice breathes at every section's change** (the method's step 2, the table above):
     - FLOW at least 0.6 s, TURN 1.5–2.5 s, BREAK 2–3.5 s.
-    - After a trailer's crest, 1.2–1.5 s before the next line ("then for real." … "Maia, can you…").
+    - After a trailer's crest, about 1.5 s before the next line ("then for real." … "Maia, can you…").
     - Before a bridge into a new world, the night falls silent first (Samuel 2026-11-04: "a short breathing break of
       voiceover between 3 and 4, so the night turns silent", then "Now imagine a million of us").
 
@@ -129,8 +129,8 @@ python3 .claude/skills/sound-designer/check_mix.py story.json [--min-voice 10] [
 It simulates the mix as the Stories player plays it: each clip's trim, its gain and its track's, keys, fades and EQ,
 weighted like hearing. It prints:
 - every voice line's margin over the rest;
-- a table of the section changes: each one's kind (TURN where a music clip starts or ends within 2 s, else FLOW) and
-  the voice's pause there;
+- a table of the section changes: each one's kind (TURN where a music clip starts or ends within 2 s, or a bed or an
+  effect starts within 1 s, else FLOW) and the voice's pause there;
 - the music and beds in 0.5 s steps around every section boundary and every music clip's first and last second.
 
 It fails (exit 1) on:
@@ -163,6 +163,7 @@ and passes the fix.
 | the intro at full on the first frame | v14 | BUILD, CUT, and the film's first moment checked |
 | the bridge into the city starting right on "the forest goes quiet." | v15 | BREATH |
 | (the trailer as its own story, its music starting 1.4 s in: BUILD measured a second from the film's start, not from the music's first sound) | v17 | BUILD measures from the first sound |
+| the handover into the old way (warmth into unease, the horn and the traffic arriving) passed as a FLOW with a 0.95 s pause | v17 | a section change where a bed or an effect arrives is a TURN |
 
 A clean check is not a good transition: the plan is. Write the map first, so the next flag never needs Samuel's ear to
 find it.
