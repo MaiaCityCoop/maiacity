@@ -14,6 +14,11 @@ the voice, the music (kind music or score) and the rest (ambience, sfx).
 
 It prints and flags:
   - every voice line's margin over everything else (dB), LOW under --min-voice;
+  - every section boundary (a notes clip's start) with the voice's pause around it and how the music crosses it:
+      BREATH  the voice pausing less than 1.5 s at a section's change (a TURN: the music changes there, a cue
+              starting or ending within 2 s), or less than 0.6 s inside one running cue (a FLOW): the music needs
+              room to make the turn, and the listener a breath, before the next line (Samuel 2026-11-04: "a short
+              breathing break of the voice between 3 and 4"); a story break (silence) wants 2-3.5 s;
   - around every section boundary (a notes clip's start) and every music clip's first and last second, the music and
     the beds in 0.5 s steps, with:
       HOLE  the music under -52 dB for 0.4 s or more while the beds are under -45 (nothing carries across), or under
@@ -181,6 +186,25 @@ def main():
 
     music = clips(('music', 'score'))
     edges = sorted([c['at'] for c in music] + [c['at'] + c['duration'] for c in music])
+
+    # the sections' changes: the voice's pause at each, and whether the music turns there or runs on (transitions.md)
+    speech = L['voice'] > -38
+    print('\nSection changes (the voice\'s pause, the music\'s way across):')
+    for n in sorted(clips(('notes',)), key=lambda c: c['at'])[1:]:
+        b = n['at']; i = min(len(speech) - 1, int(b / H))
+        a0 = a1 = i
+        while a0 > 0 and not speech[a0 - 1]:
+            a0 -= 1
+        while a1 < len(speech) and not speech[a1]:
+            a1 += 1
+        pause = (a1 - a0) * H if not speech[i] else 0.0
+        kind = 'TURN' if any(abs(e - b) <= 2 for e in edges) else 'FLOW'
+        need = 1.5 if kind == 'TURN' else 0.6
+        short = pause < need
+        print(f"  {b:7.2f}s {str(n.get('section', n['id']))[:22]:22} {kind}  voice pause {pause:4.2f} s (at least {need}){'   BREATH' if short else ''}")
+        if short:
+            msg = f"BREATH at {b:.2f}s ({n.get('section', n['id'])}): the voice pauses {pause:.2f} s at a {kind}, at least {need} s"
+            (passed if any(abs(b - x) <= 2.5 for x in o.allow) else flags).append(msg)
     film_end = max(c['at'] + c['duration'] for t in story['tracks'] for c in t['clips'])
     near_edge = lambda t0: any(abs(e - t0) <= 2 for e in edges)
     marks = [(n['at'], f"section {n.get('section', n['id'])}") for n in clips(('notes',)) if near_edge(n['at'])]

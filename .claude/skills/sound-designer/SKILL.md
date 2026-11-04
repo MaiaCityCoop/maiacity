@@ -36,19 +36,22 @@ sound design makes the world real, and the mix lets all three be heard.
 | `score.md` | the score | an original score per film in chunks that follow the arc, cues, spotting where music starts and stops |
 | `design.md` | sound design | beds, spot sounds and hits, silence and contrast, the sound transitions, the masters' philosophy |
 | `mix.md` | the mix | levels, EQ measured and matched, how the pros finish a film, J and L cuts across scenes |
-| `transitions.md` | the hand-overs | every cue and section joined by an L- and a J-cut, cue edges measured, downbeats, keys, spot sounds by where they sound; `check_mix.py`, the check that must pass before a proposal |
+| `transitions.md` | the hand-overs | the method: every section change mapped first (FLOW, TURN or BREAK, the voice's pause, what each cue does, keys and tempi), cues composed for their joins, then measured; the rules (L- and J-cuts, downbeats, one cue for one energy, build-ups and build-downs, the voice's breath); `check_mix.py`, the check that must pass before a proposal |
 | `play.md` | sound on play's timeline | the story/1 sound fields, add_story_audio, making takes on fal, a story voiced end to end |
 
 ## The order of work
 
 1. The voice takes, one per line, before the shot list is timed (`voice.md`).
-2. Spotting: where music plays and where it doesn't, against the arc (`score.md`).
-3. The score and its cues, composed to the film's clock (`score.md`).
+2. Spotting: where music plays and where it doesn't, against the arc (`score.md`), and **the transition map**: every
+   section change a FLOW, a TURN or a BREAK, the voice's pause at each, what each cue does there, the keys and tempi
+   (`transitions.md`). Before any cue is generated.
+3. The score and its cues, composed to the film's clock and to the map: one cue for sections of one energy, each other
+   cue asked for its entrance, its ending and its neighbour's key (`score.md`, `transitions.md`).
 4. Beds per scene, spot sounds, few hits, the silences (`design.md`).
 5. The mix: voices matched and levelled, beds unbroken, music edited then levelled, transitions, measured again,
    every cut listened through (`mix.md`).
-6. The hand-overs, measured: `check_mix.py` on the body about to be proposed passes, every break in it one Samuel asked
-   for (`transitions.md`).
+6. The hand-overs, measured: `check_mix.py` on the body about to be proposed passes (its section table, every flag),
+   every break in it one Samuel asked for; the map goes into the proposal's note (`transitions.md`).
 
 An agent mixes by proposal: it reads the story (`get_story`), adds its recordings (`add_story_audio`), writes every
 clip's `audio`, `gain`, `fade_in`, `fade_out`, `eq` and `keys` on a proposed version of it, and Samuel hears it in the
