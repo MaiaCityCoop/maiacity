@@ -172,7 +172,6 @@
 		const pts = notes.map((n) => [((n.at + n.duration / 2) / D) * 1000, 30 - moodLevel(n.mood) * 8]);
 		return 'M' + [[0, pts[0][1]], ...pts, [1000, pts[pts.length - 1][1]]].map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' L');
 	});
-	const words = $derived((moment.voice?.line ?? '').split(/\s+/).filter(Boolean));
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -186,10 +185,11 @@
 			{:else if moment.shot}
 				<div class="frame empty" style:opacity={moment.mix}><span>Shot {moment.index + 1}: no frame yet</span></div>
 			{/if}
-			{#if moment.voice}
+			<!-- one line at a time, large, as the film shows it; words set on screen are in the frame once it has one -->
+			{#if moment.voice && moment.cue && !(moment.voice.who === 'ON SCREEN' && moment.shot?.frame)}
 				<div class="subtitle">
 					<span class="who">{moment.voice.who}</span>
-					<span class="line">{#each words as w, i (i)}{#if i}{' '}{/if}<span class:said={i < moment.spoken}>{w}</span>{/each}</span>
+					<span class="line">{moment.cue.text}</span>
 				</div>
 			{/if}
 		</div>
@@ -270,11 +270,10 @@
 	.compact .screen { --h: var(--story-screen, clamp(14rem, calc(100vh - 25rem), 520px)); }
 	.frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 	.frame.empty { display: grid; place-items: center; color: #cfc8b8; background: #24211b; font-size: 0.9rem; }
-	.subtitle { position: absolute; left: 5%; right: 5%; bottom: 3.5%; display: grid; gap: 0.25rem; justify-items: center; text-align: center; pointer-events: none; }
-	/* the subtitle sized to the frame, as it would be in the film */
-	.who { font-size: clamp(0.55rem, 2.6cqw, 0.75rem); font-weight: 700; letter-spacing: 0.06em; color: #ffe6a8; text-shadow: 0 1px 3px rgb(0 0 0 / 0.8); }
-	.line { font-size: clamp(0.62rem, 4cqw, 1.05rem); font-weight: 600; line-height: 1.35; color: rgb(255 255 255 / 0.55); background: rgb(10 10 8 / 0.55); padding: 0.35em 0.6em; border-radius: 8px; }
-	.line .said { color: #fff; }
+	.subtitle { position: absolute; left: 3%; right: 3%; bottom: 9%; display: grid; gap: 0.3rem; justify-items: center; text-align: center; pointer-events: none; }
+	/* the subtitle sized to the frame, as it would be in the film: one line of about 26 characters across it (CUE_CHARS) */
+	.who { font-size: clamp(0.55rem, 2.8cqw, 0.85rem); font-weight: 700; letter-spacing: 0.08em; color: #ffe6a8; text-shadow: 0 1px 3px rgb(0 0 0 / 0.85); }
+	.line { font-size: clamp(0.85rem, 5.6cqw, 2rem); font-weight: 700; line-height: 1.2; color: #fff; text-wrap: balance; background: rgb(10 10 8 / 0.5); padding: 0.18em 0.45em; border-radius: 0.3em; text-shadow: 0 1px 4px rgb(0 0 0 / 0.7); }
 	.details { display: grid; gap: 0.6rem; align-content: start; min-width: 0; }
 	.details h2 { margin: 0; font-size: 1.25rem; }
 	.beat { margin: 0; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }

@@ -24,8 +24,100 @@ export type Moment = {
 	/** the narration at t: its clip, and how many of its words are spoken by now */
 	voice: Voice | null;
 	spoken: number;
+	/** the one line of it on screen now: the cue being spoken */
+	cue: Cue | null;
 	notes: Notes | null;
 };
+
+/** one subtitle line: its text and which of the narration's words it holds (from, and how many) */
+export type Cue = { text: string; from: number; words: number };
+
+/** about how many characters one subtitle line holds at the film's size (the player's .line: 5.6% of the frame's width) */
+export const CUE_CHARS = 26;
+
+/** words a line should not end on (it would leave the reader hanging), and words a line may well begin with */
+const GLUE = new Set('a an the of to in on at for with by from and or but nor so that how than as its his her their our your my one two ten is are was be every each this these those some any no all few many more most such own little very'.split(' '));
+const OPENS = new Set('and but or so that which who how to of in on at for with from than as when while because until'.split(' '));
+const bare = (w: string | undefined) => (w ?? '').toLowerCase().replace(/[^a-z']/g, '');
+
+/** a run of words cut into `n` lines of about even length, breaking where a reader would pause: never after a small
+ *  word, gladly before a new phrase (the cheapest cut points, found by trying them all) */
+function evenly(words: string[], max: number): string[][] {
+	const len = words.join(' ').length;
+	const n = Math.ceil(len / max);
+	if (n <= 1 || words.length < 2) return [words];
+	const target = len / n;
+	const lineLen = (i: number, j: number) => words.slice(i, j).join(' ').length;
+	const cost = (i: number, j: number) => {
+		const l = lineLen(i, j);
+		let c = (l - target) ** 2 + (l > max * 1.15 ? 1e4 : 0);
+		if (j < words.length) {
+			if (GLUE.has(bare(words[j - 1]))) c += 60;
+			if (OPENS.has(bare(words[j]))) c -= 20;
+			if (/[,;:–—]$/.test(words[j - 1])) c -= 30;
+		}
+		return c;
+	};
+	// best[k][j]: the cheapest way to set the first j words as k lines, and where its last line began
+	const best: { c: number; from: number }[][] = Array.from({ length: n + 1 }, () => Array(words.length + 1).fill(null).map(() => ({ c: Infinity, from: -1 })));
+	best[0][0] = { c: 0, from: -1 };
+	for (let k = 1; k <= n; k++)
+		for (let j = 1; j <= words.length; j++)
+			for (let i = k - 1; i < j; i++) {
+				const c = best[k - 1][i].c + cost(i, j);
+				if (c < best[k][j].c) best[k][j] = { c, from: i };
+			}
+	const out: string[][] = [];
+	for (let k = n, j = words.length; k > 0; k--) {
+		const i = best[k][j].from;
+		out.unshift(words.slice(i, j));
+		j = i;
+	}
+	return out;
+}
+
+const cueCache = new Map<string, Cue[]>();
+
+/** a narration line cut into subtitles of one line each, as a film shows them (Samuel 2026-11-04: large, one line at a
+ *  time, never the whole paragraph): at its sentences, then its commas, then evenly by words */
+export function cuesOf(line: string, max = CUE_CHARS): Cue[] {
+	const key = max + '|' + line;
+	const known = cueCache.get(key);
+	if (known) return known;
+	const lines: string[] = [];
+	// a line may run a little over rather than be cut
+	const hard = Math.round(max * 1.15);
+	for (const sentence of line.trim().split(/(?<=[.!?:;])\s+/).filter(Boolean)) {
+		if (sentence.length <= hard) {
+			lines.push(sentence);
+			continue;
+		}
+		// its clauses, kept together while they fit one line
+		let acc = '';
+		const pieces: string[] = [];
+		for (const clause of sentence.split(/(?<=[,–—])\s+/)) {
+			if (acc && (acc + ' ' + clause).length > max) {
+				pieces.push(acc);
+				acc = clause;
+			} else acc = acc ? acc + ' ' + clause : clause;
+		}
+		if (acc) pieces.push(acc);
+		for (const p of pieces) {
+			if (p.length <= hard) lines.push(p);
+			else for (const ws of evenly(p.split(/\s+/).filter(Boolean), max)) lines.push(ws.join(' '));
+		}
+	}
+	let from = 0;
+	const cues = lines.map((text) => {
+		const words = text.split(/\s+/).filter(Boolean).length;
+		const c = { text, from, words };
+		from += words;
+		return c;
+	});
+	if (cueCache.size > 500) cueCache.clear();
+	cueCache.set(key, cues);
+	return cues;
+}
 
 export const clipsOf = <C extends Clip = Clip>(s: StoryBody | null | undefined, kind: string): C[] => (s?.tracks?.find((t) => t.kind === kind)?.clips ?? []) as C[];
 
@@ -67,7 +159,10 @@ export function renderAt(story: StoryBody | null, t: number): Moment {
 	const words = v.clip ? (v.clip.line ?? '').split(/\s+/).filter(Boolean).length : 0;
 	// the words are spoken evenly over the first 92% of the clip, so the line is whole before the next begins
 	const spoken = v.clip ? Math.min(words, Math.ceil(((time - v.clip.at) / Math.max(0.01, v.clip.duration * 0.92)) * words)) : 0;
-	return { t: time, shot, index: s.index, prev: mix < 1 ? touching : null, mix, voice: v.clip, spoken, notes: at(clipsOf<Notes>(story, 'notes'), time).clip };
+	// the line being spoken: the one holding the last word said (the first, before any is)
+	const cues = v.clip ? cuesOf(v.clip.line ?? '') : [];
+	const cue = cues.find((c) => Math.max(0, spoken - 1) < c.from + c.words) ?? cues[cues.length - 1] ?? null;
+	return { t: time, shot, index: s.index, prev: mix < 1 ? touching : null, mix, voice: v.clip, spoken, cue, notes: at(clipsOf<Notes>(story, 'notes'), time).clip };
 }
 
 /** a mood's height: each ↑ one up, each ↓ one down (↕, END and the rest level) */
