@@ -165,15 +165,15 @@ suite("documents in Loro", () => {
     expect(Number(rows[0].n)).toBeGreaterThanOrEqual(3);
   });
 
-  test("a rejected proposal stays on its side line: out of the main history, its steps still readable", async () => {
+  test("an archived proposal stays on its side line: out of the main history, its steps still readable", async () => {
     const b = await branch(db, "story:test", { author: mcp });
     const s = await commit(db, "story:test", { branch: b.id, edits: [{ op: "set", path: ["title"], value: "A worse title" }], message: "worse", author: mcp });
     await propose(db, "story:test", b.id, { note: "try", author: mcp });
-    await close(db, "story:test", b.id, { author: ada, status: "rejected" });
+    await close(db, "story:test", b.id, { author: ada, status: "archived" });
     expect((await history(db, "story:test")).map((x) => x.message)).not.toContain("worse");
     expect((await stateAt(db, "story:test", { step: s!.seq })).title).toBe("A worse title");
     expect((await readDoc(db, "story:test")).json.title).toBe("Test story, cut 2");
-    await expect(accept(db, "story:test", b.id, { author: ada })).rejects.toThrow(/rejected/);
+    await expect(accept(db, "story:test", b.id, { author: ada })).rejects.toThrow(/archived/);
   });
 
   test("named versions and steps are never changed, and each version's hash is its content's", async () => {

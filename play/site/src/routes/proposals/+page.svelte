@@ -1,6 +1,6 @@
 <!--
 	PROPOSALS, AS A BOARD (Samuel 2026-11-03) — every proposed version of Maia City's assets as a card in its column
-	(Open, Accepted, Rejected, Stale, Withdrawn), newest first. A card opened is reviewed nearly full screen: the version
+	(Open, Accepted, Archived), newest first. A card opened is reviewed nearly full screen: the version
 	built in the asset box as large as the screen allows, what it says of itself folded to two lines, its source (beside
 	its base's, as the lines that changed) a button away. Admins decide here; nothing is proposed or edited here:
 	versions come over MCP only (play/api/src/mcp.ts).
@@ -28,9 +28,7 @@
 	const COLUMNS = [
 		['open', 'Open'],
 		['accepted', 'Accepted'],
-		['rejected', 'Rejected'],
-		['stale', 'Stale'],
-		['withdrawn', 'Withdrawn']
+		['archived', 'Archived']
 	] as const;
 	let list = $state<P[]>([]);
 	let loaded = $state(false);
@@ -147,11 +145,8 @@
 							</button>
 							{#if p.status === 'open' && (deciding || p.author === session.me?.name)}
 								<div class="actions">
-									{#if deciding}
-										<button class="btn small" onclick={() => act(p.id, 'accept')}>Accept</button>
-										<button class="btn small ghost" onclick={() => act(p.id, 'reject')}>Reject</button>
-									{/if}
-									{#if p.author === session.me?.name}<button class="btn small ghost" onclick={() => act(p.id, 'withdraw')}>Withdraw</button>{/if}
+									{#if deciding}<button class="btn small" onclick={() => act(p.id, 'accept')}>Accept</button>{/if}
+									<button class="btn small ghost" onclick={() => act(p.id, 'archive')}>Archive</button>
 								</div>
 							{/if}
 						</article>
@@ -172,11 +167,8 @@
 					<p class="meta">{p.grp}/{p.slug} · by {p.author ?? 'someone'}{#if p.via === 'mcp'} <span class="via" title="Proposed by an agent working for them over MCP">via MCP</span>{/if} · {when(p.created)}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}</p>
 				</div>
 				<div class="actions">
-					{#if p.status === 'open' && deciding}
-						<button class="btn small" onclick={() => (act(p.id, 'accept'), close())}>Accept</button>
-						<button class="btn small ghost" onclick={() => (act(p.id, 'reject'), close())}>Reject</button>
-					{/if}
-					{#if p.status === 'open' && p.author === session.me?.name}<button class="btn small ghost" onclick={() => (act(p.id, 'withdraw'), close())}>Withdraw</button>{/if}
+					{#if p.status === 'open' && deciding}<button class="btn small" onclick={() => (act(p.id, 'accept'), close())}>Accept</button>{/if}
+					{#if p.status === 'open' && (deciding || p.author === session.me?.name)}<button class="btn small ghost" onclick={() => (act(p.id, 'archive'), close())}>Archive</button>{/if}
 					{#if review}<button class="btn small ghost" class:on={showSource} onclick={() => (showSource = !showSource)}>{showSource ? 'Hide source' : review.source ? 'Source' : 'Recipe file'}</button>{/if}
 					<button class="btn small ghost" onclick={close} aria-label="Close">Close</button>
 				</div>

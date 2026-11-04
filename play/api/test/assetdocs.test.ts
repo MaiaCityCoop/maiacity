@@ -110,7 +110,7 @@ suite("assets as documents", () => {
     const rs = await put(src("a rejected fern"));
     const rr = await put(RECIPE_HEAD + src("a rejected fern") + recipeTail("fern", 5, null));
     await db.query(`INSERT INTO play.asset_versions (id, asset_id, parents, recipe_hash, source_hash, card, engine, author, note) VALUES ($1, $2, $3, $4, $5, '{"card":{}}', 5, $6, 'not this')`, [rejected, ids.fern, [written.fern[4].id], rr, rs, who.cit.id]);
-    await db.query(`INSERT INTO play.proposals (id, coop_id, kind, asset_id, base, version, author, note, via, status) VALUES ($1, $2, 'asset_version', $3, $4, $5, $6, 'not this', 'web', 'rejected')`, [crypto.randomUUID(), COOP, ids.fern, written.fern[4].id, rejected, who.cit.id]);
+    await db.query(`INSERT INTO play.proposals (id, coop_id, kind, asset_id, base, version, author, note, via, status) VALUES ($1, $2, 'asset_version', $3, $4, $5, $6, 'not this', 'web', 'archived')`, [crypto.randomUUID(), COOP, ids.fern, written.fern[4].id, rejected, who.cit.id]);
 
     const before = { catalog: await catalogOf(db), pins: await pinsOf(db, "sandbox-1"), versions: (await db.query(`SELECT id, number, recipe_hash, source_hash FROM play.asset_versions ORDER BY id`)).rows };
     const r = await ensureAssetDocs(db, store);
@@ -131,7 +131,7 @@ suite("assets as documents", () => {
     expect((await docs.stateAt(db, assetDocId(ids.lamp), { version: 2 })).source).toBe(src("one lamp"));
     // the rejected proposal: a branch at v4, closed
     const { rows: br } = await db.query<any>(`SELECT b.status FROM play.proposals p JOIN play.doc_branches b ON b.id = p.doc_branch WHERE p.version = $1`, [rejected]);
-    expect(br[0].status).toBe("rejected");
+    expect(br[0].status).toBe("archived");
     // run again, nothing new
     const again = await ensureAssetDocs(db, store);
     expect([again.made, again.branches, again.errors.length]).toEqual([0, 0, 0]);
@@ -201,7 +201,7 @@ suite("assets as documents", () => {
     expect(h.steps.at(-1)?.version).toBe(5);
   });
 
-  test("a draft made on an older head is refused when proposed; a proposal over the web gets a branch, withdrawn it is closed", async () => {
+  test("a draft made on an older head is refused when proposed; a proposal over the web gets a branch, archived by its author it is closed", async () => {
     const ada = (await me("ada"))!, cit = (await me("cit"))!;
     const old = await editAsset(db, store, ada, { asset: ids.lamp, message: "brighter", edits: [{ op: "replace", find: "one lamp", replace: "one bright lamp" }] });
     const web = await propose(db, store, cit, { asset: ids.lamp, note: "a dimmer lamp", source: src("one dim lamp") });
@@ -209,9 +209,9 @@ suite("assets as documents", () => {
     await decide(db, store, ada, web.id, "accept");
     await expect(propose(db, store, ada, { asset: ids.lamp, note: "brighter", branch: old.branch }, "mcp")).rejects.toThrow(/newer version/);
     const again = await propose(db, store, cit, { asset: ids.lamp, note: "warmer", source: src("one warm lamp") });
-    await decide(db, store, cit, again.id, "withdraw");
+    await decide(db, store, cit, again.id, "archive");
     const { rows } = await db.query<any>(`SELECT status FROM play.doc_branches WHERE id = $1`, [again.branch]);
-    expect(rows[0].status).toBe("withdrawn");
+    expect(rows[0].status).toBe("archived");
     // a new asset's first version: its document starts empty, its proposal's branch fills it
     const fresh = await propose(db, store, cit, { new: { group: "things", slug: "stool", label: "Stool" }, note: "a stool", source: src("a stool") });
     await decide(db, store, ada, fresh.id, "accept");
