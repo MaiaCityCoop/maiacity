@@ -25,8 +25,8 @@
  * it at its real size and scale the studio to it instead (the floor, the contact shadow, the occlusion radius, the
  * section hatch). The page around it (the turntable's canvas, its camera and controls) is the caller's.
  *
- * Under the sky (`sky: true`, every asset viewer's, ./viewer.js): no paper studio but an evening at golden hour (./sky.js),
- * the sun low behind the asset, the sky lighting its front, the floor running out to a horizon.
+ * Under the sky (`sky: true`, every asset viewer's, ./viewer.js): no paper studio but a clear afternoon (./sky.js), the
+ * sun in the back behind the asset, the sky lighting its front, the floor running out to a horizon.
  *
  * It shows any build of the box's as well, through ./hero.js, which is a sealed asset made of the build's checked data
  * (its solver running in the box): with what a rigged one adds, a part found by the group of its skinned mesh
@@ -35,7 +35,7 @@
  */
 import * as THREE from 'three';
 import { ShaderPass, createPost } from '$lib/content/render/post.js';
-import { goldenSky } from './sky.js';
+import { daySky } from './sky.js';
 import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment, untonemap } from './kit.js';
 
 export const MODES = /** @type {const} */ (['explode', 'cut', 'xray', 'labels', 'slow']);
@@ -52,7 +52,7 @@ export class Stage {
 	 * @param {THREE.PerspectiveCamera} camera
 	 * @param {{ theme?: 'paper' | 'night', low?: boolean, sky?: boolean }} [o] `low`: a phone's budget (no occlusion pass, 2× multisampling,
 	 *   a smaller, softer-sampled shadow), so it draws smoothly and fits in a phone's memory ($content/render/core.js);
-	 *   `sky`: shown under the golden-hour sky (./sky.js) instead of in the paper studio
+	 *   `sky`: shown under the afternoon sky (./sky.js) instead of in the paper studio
 	 */
 	constructor(renderer, camera, { theme = 'paper', low = false, sky = false } = {}) {
 		this.renderer = renderer;
@@ -86,12 +86,12 @@ export class Stage {
 		this.scene.background = this.bg.clone();
 		this.scene.environment = studioEnvironment(renderer, theme);
 		this.scene.environmentIntensity = paper ? 0.82 : 0.9;
-		/** the golden-hour sky, when shown under it: its dome drawn behind everything, its light the environment's */
-		this.sky = sky ? goldenSky(renderer) : null;
+		/** the afternoon sky, when shown under it: its dome drawn behind everything, its light the environment's */
+		this.sky = sky ? daySky(renderer) : null;
 		if (this.sky) {
 			this.scene.environment.dispose();
 			this.scene.environment = this.sky.environment;
-			this.scene.environmentIntensity = 1.45;
+			this.scene.environmentIntensity = 1.35;
 			this.scene.background = null;
 			this.scene.add(this.sky.dome);
 		}
@@ -104,14 +104,14 @@ export class Stage {
 		const rim = new THREE.DirectionalLight(0xdbe8ff, paper ? 0.9 : 1.8);
 		const fill = new THREE.HemisphereLight(0xffffff, paper ? 0xd9d5cc : 0x202020, paper ? 0.2 : 0.15);
 		if (this.sky) {
-			// the sun, warm and low behind the asset; the 'rim' a soft fill from the eye's side, so its front reads; the
-			// hemisphere the blue sky over it and the warm ground under it
-			key.color.set('#ffc890');
-			key.intensity = 3.4;
-			rim.color.set('#ffe9d6');
-			rim.intensity = 1.5;
-			fill.color.set('#b9cdea');
-			fill.groundColor.set('#b49a7c');
+			// the sun behind the asset, a little warm; the 'rim' a soft fill from the eye's side, so its front reads; the
+			// hemisphere the blue sky over it and the ground under it
+			key.color.set('#fff0dc');
+			key.intensity = 3.0;
+			rim.color.set('#ffffff');
+			rim.intensity = 1.8;
+			fill.color.set('#cfe0f5');
+			fill.groundColor.set('#b3a892');
 			fill.intensity = 0.5;
 		}
 		this.scene.add(key, key.target, rim, fill);
@@ -217,8 +217,8 @@ export class Stage {
 		const s = this.s, paper = this.theme === 'paper';
 		this.groundY = ground ?? box.min.y;
 		// the seamless floor: the backdrop's colour far away; shadows and the contact shadow near the asset
-		// under the sky a warm, sandy ground; in the studio its paper or its night
-		const fm = new THREE.MeshStandardMaterial({ color: this.sky ? new THREE.Color('#c9b293') : paper ? 0xf0efea : 0x121315, roughness: paper ? 0.92 : 0.55, metalness: 0, envMapIntensity: paper ? 0.25 : 0.6 });
+		// under the sky a light, warm-grey ground; in the studio its paper or its night
+		const fm = new THREE.MeshStandardMaterial({ color: this.sky ? new THREE.Color('#c8bfae') : paper ? 0xf0efea : 0x121315, roughness: paper ? 0.92 : 0.55, metalness: 0, envMapIntensity: paper ? 0.25 : 0.6 });
 		const bg = this.bg, fade = this.sky ? new THREE.Vector2(5 * s, 30 * s) : new THREE.Vector2(4.5 * s, 16 * s);
 		const sky = this.sky;
 		fm.onBeforeCompile = (sh) => {
@@ -255,13 +255,11 @@ export class Stage {
 		key.target.position.copy(centre);
 		key.position.copy(centre).add(new THREE.Vector3(-3.2, 6.5, 4.2).multiplyScalar(s));
 		if (this.sky) {
-			// the sun's light from its bearing, a little higher than its disc stands (a light that low would draw shadows
-			// across the whole floor, and grazing, ragged): the evening's long shadows, toward the eye
-			const sun = this.sky.sunDir.clone().setY(0).normalize().multiplyScalar(Math.cos(0.26)).setY(Math.sin(0.26));
-			key.position.copy(centre).addScaledVector(sun, 9 * s);
+			// the sun's light from where it stands: the afternoon's shadows, toward the eye
+			key.position.copy(centre).addScaledVector(this.sky.sunDir, 9 * s);
 		}
 		const sc = key.shadow.camera;
-		const wide = this.sky ? 1.7 : 1;
+		const wide = this.sky ? 1.4 : 1;
 		sc.left = sc.bottom = -reach * wide;
 		sc.right = sc.top = reach * wide;
 		sc.near = 0.5 * s;
