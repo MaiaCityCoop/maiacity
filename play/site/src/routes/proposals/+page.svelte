@@ -24,7 +24,7 @@
 		if (!admin) goto('/', { replaceState: true });
 	});
 
-	type P = { id: string; kind?: 'asset_version' | 'story_version' | 'sandbox_change' | 'factory_version'; asset_id: string | null; label: string; grp: string; slug: string; version_label: string | null; number: number | null; changes?: number; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
+	type P = { id: string; kind?: 'asset_version' | 'story_version' | 'sandbox_change' | 'factory_version'; asset_id: string | null; label: string; grp: string; slug: string | null; version_label: string | null; number: number | null; changes?: number; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
 	const COLUMNS = [
 		['open', 'Open'],
 		['accepted', 'Accepted'],
@@ -178,7 +178,7 @@
 						<article class="card">
 							<button class="open" onclick={() => openCard(p)}>
 								<span class="title">{p.label} <span class="muted">{titleOf(p)}</span></span>
-								<span class="meta">{p.grp}/{p.slug}{#if p.via === 'mcp'} <span class="via">MCP</span>{/if}</span>
+								<span class="meta">{p.grp}{#if p.via === 'mcp'} <span class="via">MCP</span>{/if}</span>
 								{#if p.note}<span class="gist">{gist(p.note)}</span>{/if}
 								<span class="meta">{p.author ?? 'someone'} · {when(p.created)}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}</span>
 							</button>
@@ -203,7 +203,7 @@
 			<header class="review-head">
 				<div class="who">
 					<h2>{p.label} <span class="muted">{titleOf(p)}</span> <span class="pill">{p.status}</span></h2>
-					<p class="meta">{p.grp}/{p.slug} · by {p.author ?? 'someone'}{#if p.via === 'mcp'} <span class="via" title="Proposed by an agent working for them over MCP">via MCP</span>{/if} · {when(p.created)}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}</p>
+					<p class="meta">{p.grp} · by {p.author ?? 'someone'}{#if p.via === 'mcp'} <span class="via" title="Proposed by an agent working for them over MCP">via MCP</span>{/if} · {when(p.created)}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}</p>
 				</div>
 				<div class="actions">
 					{#if p.status === 'open' && deciding}<button class="btn small" onclick={() => (act(p.id, 'accept'), close())}>Accept</button>{/if}

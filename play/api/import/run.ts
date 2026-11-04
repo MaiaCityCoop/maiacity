@@ -31,7 +31,7 @@ const ROOT = process.env.PLAY_REPO ?? join(import.meta.dir, "../../..");
 const args = process.argv.slice(2);
 const flag = (f: string) => args.includes(f);
 const option = (f: string) => (args.includes(f) ? args[args.indexOf(f) + 1] : undefined);
-const COOP = "maia-city";
+import { COOP, SANDBOX } from "../src/ids";
 const MEDIA = "text/javascript";
 
 async function inParallel<T, R>(items: T[], n: number, fn: (t: T) => Promise<R>): Promise<R[]> {
@@ -101,12 +101,13 @@ async function writeAssets(tx: Queryable, assets: PlannedAsset[], files: Planned
   }
 }
 
-async function writePins(tx: Queryable, sandbox: string, pins: ReturnType<typeof planPins>, w: Report["written"], errors: string[]) {
+async function writePins(tx: Queryable, sandbox: string, pins: ReturnType<typeof planPins>, idOf: Map<string, string>, w: Report["written"], errors: string[]) {
   for (const p of pins) {
-    // a pin names its asset by the name legacy gave it (`<grp>/<slug>`), resolved here to the asset's UUID, once
+    // a pin names its asset by the name legacy gave it (`<grp>/<slug>`), resolved here, once, to the UUID the import
+    // gave the asset it planned under that name (never looked up by its name in play)
     const { rows } = await tx.query<{ id: string }>(
-      `SELECT v.id FROM play.asset_versions v JOIN play.assets a ON a.id = v.asset_id WHERE a.grp || '/' || a.slug = $1 AND v.number = $2`,
-      [p.asset, p.number],
+      `SELECT v.id FROM play.asset_versions v WHERE v.asset_id = $1 AND v.number = $2`,
+      [idOf.get(p.asset) ?? null, p.number],
     );
     if (!rows[0]) {
       errors.push(`${sandbox} ${p.slot}: ${p.asset}@${p.number} is not imported`);
@@ -232,6 +233,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
   log(`${assets.length} assets, ${report.assets.versions} versions, ${report.assets.variants} variants planned; ${report.assets.failed.length} failed`);
 
   const entryOf = new Map(assets.map((a) => [a.name, a.imported.entry]));
+  const idOf = new Map(assets.map((a) => [a.name, a.id]));
   const read = (p: string) => JSON.parse(readFileSync(join(ROOT, p), "utf8"));
   let pins: ReturnType<typeof planPins> = [];
   try {
@@ -282,13 +284,13 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
 
   await db.transaction(async (tx) => {
     await writeAssets(tx, assets, [...files.values()], keyFor, report.written);
-    await writePins(tx, "sandbox-1", pins, report.written, report.verified.pinErrors);
-    await writePins(tx, "sandbox-3", pins3, report.written, report.verified.pinErrors);
-    await writePins(tx, "factories", pinsF, report.written, report.verified.pinErrors);
+    await writePins(tx, SANDBOX.one, pins, idOf, report.written, report.verified.pinErrors);
+    await writePins(tx, SANDBOX.three, pins3, idOf, report.written, report.verified.pinErrors);
+    await writePins(tx, SANDBOX.factories, pinsF, idOf, report.written, report.verified.pinErrors);
     // Sandbox 1's garden, each planting by its slot of the pins; written once, then play's own
     await tx.query(
-      `INSERT INTO play.sandbox_configs (sandbox_id, name, data) VALUES ('sandbox-1', 'garden', ($1::text)::jsonb) ON CONFLICT DO NOTHING`,
-      [JSON.stringify(garden)],
+      `INSERT INTO play.sandbox_configs (sandbox_id, name, data) VALUES ($2, 'garden', ($1::text)::jsonb) ON CONFLICT DO NOTHING`,
+      [JSON.stringify(garden), SANDBOX.one],
     );
     if (opts.founders) await writeFounders(tx, opts.admins, report.written);
     if (report.verified.pinErrors.length) throw new Error(`pins failed: ${report.verified.pinErrors.join("; ")}`);
@@ -367,23 +369,23 @@ function mediaNamed(): { hash: string; ending: string }[] {
   return [...out].map(([hash, ending]) => ({ hash, ending }));
 }
 
-/** each animal's sound, by its asset's slug (./sounds.json): the recording, imported as media, and its gain */
-const SOUNDS: Record<string, { file: string; gain: number }> = Object.fromEntries(
+/** each animal's sound, by its asset's id (./sounds.json): the recording, imported as media, and its gain */
+const SOUNDS: Record<string, { name?: string; file: string; gain: number }> = Object.fromEntries(
   Object.entries(JSON.parse(readFileSync(join(import.meta.dir, "sounds.json"), "utf8"))).filter(([k]) => k !== "_"),
-) as Record<string, { file: string; gain: number }>;
+) as Record<string, { name?: string; file: string; gain: number }>;
 
 /** the animals' sounds onto their assets, once their recordings are among play's files */
 async function importSounds(db: Db, report: Report) {
-  for (const [slug, s] of Object.entries(SOUNDS)) {
+  for (const [asset, s] of Object.entries(SOUNDS)) {
     const hash = s.file.slice(0, 64);
     const { rows } = await db.query(
-      `UPDATE play.assets SET sound = $2, sound_gain = $3 WHERE grp = 'actors' AND slug = $1 AND sound IS NULL AND EXISTS (SELECT 1 FROM play.files WHERE hash = $2) RETURNING id`,
-      [slug, hash, s.gain],
+      `UPDATE play.assets SET sound = $2, sound_gain = $3 WHERE id = $1 AND sound IS NULL AND EXISTS (SELECT 1 FROM play.files WHERE hash = $2) RETURNING id`,
+      [asset, hash, s.gain],
     );
     // a sound play holds already is play's: kept, never overridden
-    const held = rows.length ? rows : (await db.query(`SELECT id FROM play.assets WHERE grp = 'actors' AND slug = $1 AND sound IS NOT NULL`, [slug])).rows;
+    const held = rows.length ? rows : (await db.query(`SELECT id FROM play.assets WHERE id = $1 AND sound IS NOT NULL`, [asset])).rows;
     if (held.length) report.assets.sounds++;
-    else report.verified.mediaErrors.push(`sound of ${slug}: no such animal, or its recording ${hash.slice(0, 12)}… is not among play's files`);
+    else report.verified.mediaErrors.push(`sound of ${s.name ?? asset}: no such animal, or its recording ${hash.slice(0, 12)}… is not among play's files`);
   }
 }
 

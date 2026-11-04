@@ -208,12 +208,12 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         type: "object",
         properties: {
           group: { type: "string", enum: GROUPS },
-          slug: { type: "string", description: "lowercase words joined by '-', unique in its group" },
-          label: { type: "string", description: "its name as shown" },
+          label: { type: "string", description: "its name as shown. The asset gets a UUID of its own, which names it from then on; the label is only shown" },
+          slug: { type: "string", description: "optional: a short lowercase name (words joined by '-') its recipe is called with; made from the label if left out. Only a name, never its id: two assets may share it" },
           source: { type: "string", description: "version 1's readable source (see above)" },
           note: { type: "string", description: "what it is and why, for the admins deciding" },
         },
-        required: ["group", "slug", "label", "source", "note"],
+        required: ["group", "label", "source", "note"],
         additionalProperties: false,
       },
       run: async ({ group, slug, label, source, note }, me) => propose(db, store, me, { new: { group, slug, label }, source: `${source ?? ""}`, note }, "mcp"),
@@ -230,7 +230,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
       description:
         "One sandbox's layout as it stands. Its pins: each slot it draws, with the asset (id, group, slug, label), the version it pins and the asset's newest (`latest`), its variant (none: the version's default) and the variants it has, its values (params), and where its configs name the slot (`usedBy`). " +
         "Its configs whole, by name (Sandbox 1's `garden`: its layers of plantings, each { id, slot, stages, weight, … }, its spacing, drift and fields): anything in a config with a `slot` is drawn as that slot's pin. Change any of it with propose_sandbox_change.",
-      inputSchema: { type: "object", properties: { sandbox: { type: "string", description: "its id (list_sandboxes)" } }, required: ["sandbox"], additionalProperties: false },
+      inputSchema: { type: "object", properties: { sandbox: { type: "string", description: "its id, a UUID (list_sandboxes)" } }, required: ["sandbox"], additionalProperties: false },
       run: async ({ sandbox }, me) => sandboxOf(db, me, `${sandbox ?? ""}`),
     },
     {
@@ -243,7 +243,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
       inputSchema: {
         type: "object",
         properties: {
-          sandbox: { type: "string", description: "its id (list_sandboxes)" },
+          sandbox: { type: "string", description: "its id, a UUID (list_sandboxes)" },
           note: { type: "string", description: "what changes and why, for the admins deciding" },
           edits: { type: "array", items: { type: "object" }, minItems: 1, description: "the edits, applied in order" },
         },
@@ -335,7 +335,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
       inputSchema: {
         type: "object",
         properties: {
-          story: { type: "string", description: "the story's id (a slug, from list_stories)" },
+          story: { type: "string", description: "the story's id, a UUID (list_stories)" },
           version: { type: "integer", minimum: 1, description: "an accepted version's number; the head if left out" },
           step: { type: "integer", minimum: 1, description: "a step of its history (story_history's `seq`), instead of a version" },
         },
@@ -350,7 +350,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         "Every step of a story's history, oldest first: each with its seq, who made it (and whether over MCP), its message, its time, and the version it was named, if one. A story is kept step by step (a Loro document, play/SPEC.md §4.4): every story_edit, every proposal and every accepted version is a step. Also its versions and its drafts (each draft's status, steps and proposal). With `draft`, one draft's own steps. Read any step's timeline with get_story's `step`.",
       inputSchema: {
         type: "object",
-        properties: { story: { type: "string", description: "the story's id" }, draft: { type: "integer", minimum: 1, description: "a draft's number, for its own steps" } },
+        properties: { story: { type: "string", description: "the story's id, a UUID" }, draft: { type: "integer", minimum: 1, description: "a draft's number, for its own steps" } },
         required: ["story"],
         additionalProperties: false,
       },
@@ -364,7 +364,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
       inputSchema: {
         type: "object",
         properties: {
-          story: { type: "string", description: "the story's id" },
+          story: { type: "string", description: "the story's id, a UUID" },
           message: { type: "string", description: "what this step does, as its history will say it" },
           branch: { type: "integer", minimum: 1, description: "the draft to add the step to (story_edit gives it); a new draft from the head if left out" },
           edits: { type: "array", items: { type: "object" }, description: "edits applied in order to the draft's timeline" },
@@ -378,19 +378,18 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     },
     {
       name: "propose_story",
-      description: `Propose a new story, its first version, as its whole timeline. It goes to Maia City's admins as a proposal (via MCP), who play it in the Stories player on the Proposals page and accept or archive it. ${STORY_FORMAT} Add each storyboard image first with add_story_frame and use the hashes it gives as the shots' frames.`,
+      description: `Propose a new story, its first version, as its whole timeline. It gets a UUID of its own (the answer's story), which names it from then on; its title is only shown. It goes to Maia City's admins as a proposal (via MCP), who play it in the Stories player on the Proposals page and accept or archive it. ${STORY_FORMAT} Add each storyboard image first with add_story_frame and use the hashes it gives as the shots' frames.`,
       inputSchema: {
         type: "object",
         properties: {
-          story: { type: "string", description: "its id: lower-case words joined by '-', up to 64 characters, unique" },
           title: { type: "string", description: "its title as shown" },
           body: { type: "object", description: "the timeline: { format, fps, tracks: [{ id, kind, clips: [{ id, at, duration, … }] }] }" },
           note: { type: "string", description: "what it is and why, for the admins deciding" },
         },
-        required: ["story", "title", "body", "note"],
+        required: ["title", "body", "note"],
         additionalProperties: false,
       },
-      run: async ({ story, title, body, note }, me) => proposeStory(db, me, { story, title, body, note }, true),
+      run: async ({ title, body, note }, me) => proposeStory(db, me, { title, body, note }, true),
     },
     {
       name: "propose_story_version",
@@ -405,7 +404,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
       inputSchema: {
         type: "object",
         properties: {
-          story: { type: "string", description: "the story's id" },
+          story: { type: "string", description: "the story's id, a UUID" },
           note: { type: "string", description: "what changed and why, for the admins deciding" },
           base: { type: "string", description: "the head version's id it was made from (get_story's `version`); refused if the story moved on since" },
           title: { type: "string", description: "a new title, if it changes" },

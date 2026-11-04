@@ -21,6 +21,7 @@ import { canonical, hashText } from "./hash";
 import type { Db, Queryable } from "./pg";
 import { NOTE_MOST } from "./notes";
 import { libraryOf, RECIPE_HEAD, recipeTail } from "./recipes";
+import { UUID } from "./uuid";
 import { named } from "./stories";
 
 export const HISTORY = join(import.meta.dir, "../import/history");
@@ -111,21 +112,20 @@ const VERSIONS = `SELECT v.id, v.number, v.recipe_hash, v.source_hash, v.default
 
 // ---- the work kept between two versions (../import/history)
 
-type Kept = { asset: string; after: number; before: number; from: string; lands: string; by: "before"; via: string; steps: { file: string; hash: string; at: string; message: string }[]; final?: { file: string; hash: string } };
-/** the steps kept for asset `grp/slug`, or null */
-export function keptFor(grp: string, slug: string, dir = HISTORY): (Kept & { dir: string }) | null {
-  const at = join(dir, grp, slug);
+type Kept = { asset: string; name?: string; after: number; before: number; from: string; lands: string; by: "before"; via: string; steps: { file: string; hash: string; at: string; message: string }[]; final?: { file: string; hash: string } };
+/** the steps kept for the asset `asset` (its UUID: the folder ../import/history/<uuid>), or null */
+export function keptFor(asset: string, dir = HISTORY): (Kept & { dir: string }) | null {
+  if (!UUID.test(asset)) return null;
+  const at = join(dir, asset);
   if (!existsSync(join(at, "index.json"))) return null;
   const k = JSON.parse(readFileSync(join(at, "index.json"), "utf8")) as Kept;
-  if (k.asset !== `${grp}/${slug}`) throw new AssetDocError(`${at}/index.json names ${k.asset}`, 500);
+  if (k.asset !== asset) throw new AssetDocError(`${at}/index.json names ${k.asset}`, 500);
   return { ...k, dir: at };
 }
-/** every asset with kept steps: group/slug */
+/** every asset with kept steps: its UUID */
 export function keptAssets(dir = HISTORY): string[] {
-  const out: string[] = [];
-  if (!existsSync(dir)) return out;
-  for (const g of readdirSync(dir)) if (statSync(join(dir, g)).isDirectory()) for (const s of readdirSync(join(dir, g))) if (existsSync(join(dir, g, s, "index.json"))) out.push(`${g}/${s}`);
-  return out;
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir).filter((a) => UUID.test(a) && existsSync(join(dir, a, "index.json")));
 }
 /** one kept step's text, held to its hash */
 function keptText(k: Kept & { dir: string }, file: string, hash: string): string {
@@ -151,7 +151,7 @@ export async function ensureAssetDoc(q: Queryable, store: BlobStore, asset: stri
   const id = assetDocId(asset);
   const { rows: a } = await q.query<{ grp: string; slug: string; label: string }>(`SELECT grp, slug, label FROM play.assets WHERE id = $1 FOR UPDATE`, [asset]);
   if (!a[0]) throw new AssetDocError(`there is no asset ${asset}`, 404);
-  const { grp, slug } = a[0];
+  const { slug } = a[0];
   const label = a[0].label || slug;
   const { rows: have } = await q.query(`SELECT 1 FROM play.docs WHERE id = $1`, [id]);
   let made = false, keptSteps = 0;
@@ -160,7 +160,7 @@ export async function ensureAssetDoc(q: Queryable, store: BlobStore, asset: stri
     const { rows: vs } = await q.query<VersionRow>(`${VERSIONS} WHERE v.asset_id = $1 AND v.number IS NOT NULL ORDER BY v.number`, [asset]);
     // an asset not accepted yet stands on an empty source: its proposal is the branch that fills it
     if (!vs.length) await docs.createDoc(q, { id, schema: "asset/1", json: { schema: "asset/1", label, source: "" }, author: { human: null, via: "system" }, message: "a new asset, not yet accepted" });
-    const kept = keptFor(grp, slug, dir);
+    const kept = keptFor(asset, dir);
     let prev: AssetJson | null = null;
     for (const [i, v] of vs.entries()) {
       const json = await versionJson(q, store, label, v);

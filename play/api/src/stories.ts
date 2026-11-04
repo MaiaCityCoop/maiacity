@@ -11,7 +11,7 @@
 // Any clip of any track may sound (the voice's takes, a music or sfx or ambience track's clips): `audio` is a recording
 // kept among play's files by its hash (add_story_audio), `audio_in` where in the recording the clip starts, `gain` in
 // dB, `fade_in`/`fade_out` in seconds, `eq` (biquad bands) and `keys` (gain automation, [s, dB]), as the old studio's
-// clips had them; a track's own `gain` (dB) and `mute` apply to all its clips, and music is ducked under the voice.
+// clips had them; a track's own `gain` (dB) and `mute` apply to all its clips, and nothing ducks under the voice unless its track says `duck: true`.
 // A clip may hold more than its kind names, and a track may be of a kind not named here (music, sfx, callout, scene):
 // those are kept as given, so a later kind needs no migration. Frames are images kept among play's files by their
 // BLAKE3 hash and served by /api/files/<hash>.
@@ -26,6 +26,7 @@ import { keyOf, type BlobStore } from "./blobs";
 import { canonical, HASH, hashBytes } from "./hash";
 import type { Db, Queryable } from "./pg";
 import { storyVersionId } from "./versions";
+import { UUID } from "./uuid";
 import { NOTE_MOST } from "./notes";
 import * as docs from "./docs";
 import { EditError } from "./docs/core";
@@ -45,7 +46,8 @@ export type VersionInfo = { number: number; id: string; note: string; created: s
 export type Story = { id: string; title: string; version: string; number: number | null; note: string; created: string; author: string | null; versions: VersionInfo[] } & StoryBody;
 export type StoryItem = { id: string; title: string; number: number; versions: number; duration: number; shots: number; tracks: number; updated: string; cover: string | null };
 
-export const SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/;
+/** a story is named by its UUID (Samuel 2026-11-04); its title is only shown */
+export const STORY_ID = UUID;
 const TRACK_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
 const CLIP_ID = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$/;
 export const FORMATS = ["9:16", "16:9", "1:1", "4:5"];
@@ -403,7 +405,7 @@ type VersionRow = { id: string; story_id: string; number: number | null; title: 
 /** story `id` at its head, or at accepted version `number` */
 export async function storyOf(db: Queryable, me: Me | null, id: string, number?: number): Promise<Story> {
   admin(me);
-  if (!SLUG.test(id)) throw new StoryError("A story is named by a short slug: lower-case letters, digits and dashes.", 404);
+  if (!STORY_ID.test(id)) throw new StoryError("A story is named by its id, a UUID (list_stories).", 404);
   if (number !== undefined && !(Number.isInteger(number) && number >= 1)) throw new StoryError(`${number} is not a version.`, 404);
   const { rows } = await db.query<VersionRow>(
     `SELECT v.id, v.story_id, v.number, v.title, v.body, v.note, v.created, au.name AS author, ap.name AS approved_by
@@ -424,7 +426,7 @@ export async function storyOf(db: Queryable, me: Me | null, id: string, number?:
 // are its proposals, each change a step on one
 
 export type StoryProposal = {
-  story: string;
+  story?: string; // the story a version is of (its UUID); a new story gets one of its own
   title?: string;
   note?: string;
   body?: unknown; // the whole new timeline
@@ -476,7 +478,7 @@ export type StoryDraft = { story: string; branch?: number; edits?: unknown; body
 export async function editStory(db: Db, me: Me | null, p: StoryDraft, via: "web" | "mcp" = "mcp") {
   const who = admin(me);
   const id = `${p?.story ?? ""}`;
-  if (!SLUG.test(id)) throw new StoryError("Name the story by its slug (list_stories).");
+  if (!STORY_ID.test(id)) throw new StoryError("Name the story by its id, a UUID (list_stories).");
   const message = text(p.message, "The step's message (what it does)", 500, true);
   if (p.edits === undefined && p.body === undefined && p.title === undefined) throw new StoryError("A step is edits, a whole timeline (body) or a new title.");
   if (p.edits !== undefined && p.body !== undefined) throw new StoryError("Give edits or a whole timeline (body), not both.");
@@ -500,8 +502,10 @@ export async function editStory(db: Db, me: Me | null, p: StoryDraft, via: "web"
 /** Propose a new story (`fresh`) or a new version of one, as the admin `me`, via `via`; filed as a proposal for an admin to decide. */
 export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fresh: boolean, via: "web" | "mcp" = "mcp") {
   const who = admin(me);
-  const id = `${p?.story ?? ""}`;
-  if (!SLUG.test(id)) throw new StoryError("Name the story by a short slug: lower-case letters, digits and dashes, up to 64.");
+  // a new story gets a UUID of its own; a version names its story by its UUID
+  if (fresh && p?.story !== undefined) throw new StoryError("A new story gets its id when it is proposed: give its title, not an id.");
+  const id = fresh ? randomUUID() : `${p?.story ?? ""}`;
+  if (!STORY_ID.test(id)) throw new StoryError("Name the story by its id, a UUID (list_stories).");
   const note = text(p.note, "The note", NOTE_MOST, true);
   const drafted = p.branch != null;
   if (drafted && fresh) throw new StoryError("A new story is proposed whole (its body); drafts are of a story that has a version.");
@@ -601,8 +605,8 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
   for (const f of folds) {
     for (const from of f.from) {
       try {
-        if (!SLUG.test(f.into) || !SLUG.test(from) || from === f.into) throw new Error("a fold names two stories by their slugs");
-        const { rows: st } = await db.query<{ id: string; folded_into: string | null }>(`SELECT id, folded_into FROM play.stories WHERE id = ANY($1)`, [[from, f.into]]);
+        if (!STORY_ID.test(f.into) || !STORY_ID.test(from) || from === f.into) throw new Error("a fold names two stories by their ids (UUIDs)");
+        const { rows: st } = await db.query<{ id: string; title: string; folded_into: string | null }>(`SELECT id, title, folded_into FROM play.stories WHERE id = ANY($1::uuid[])`, [[from, f.into]]);
         const src = st.find((x) => x.id === from), dst = st.find((x) => x.id === f.into);
         if (!src || src.folded_into) {
           out.present.push(from);
@@ -617,7 +621,7 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
         );
         for (const v of versions) {
           if (await onInto(f.into, v.title, v.body, true)) continue;
-          const said = `(Brought from story ${from}, its v${v.number} of ${iso(v.created).slice(0, 10)}, so the film is one timeline.)`;
+          const said = `(Brought from story “${src.title}”, its v${v.number} of ${iso(v.created).slice(0, 10)}, so the film is one timeline.)`;
           const note = `${`${v.note ?? ""}`.slice(0, NOTE_MOST - said.length - 2)}\n\n${said}`.trim();
           const author = await as(v.author ?? v.approved_by);
           const made = await proposeStory(db, author, { story: f.into, title: v.title, body: v.body, note }, false, v.via === "web" ? "web" : "mcp");
@@ -637,7 +641,7 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
         for (const p of open) {
           const author = await as(p.author);
           if (!(await onInto(f.into, p.title, p.body, false))) {
-            const said = `(Moved from story ${from}, where it was proposed on ${iso(p.created).slice(0, 10)}: the film is one timeline now.)`;
+            const said = `(Moved from story “${src.title}”, where it was proposed on ${iso(p.created).slice(0, 10)}: the film is one timeline now.)`;
             const note = `${`${p.note ?? ""}`.slice(0, NOTE_MOST - said.length - 2)}\n\n${said}`.trim();
             await proposeStory(db, author, { story: f.into, title: p.title, body: p.body, note }, false, p.via === "web" ? "web" : "mcp");
           }
@@ -769,7 +773,7 @@ export async function archiveOwnStory(tx: Queryable, me: Me, p: any) {
 /** every step of story `id` (its main line with each accepted proposal's steps, or one draft's), its versions and drafts */
 export async function storyHistory(db: Db, me: Me | null, id: string, o: { branch?: number } = {}) {
   admin(me);
-  if (!SLUG.test(id)) throw new StoryError("A story is named by a short slug.", 404);
+  if (!STORY_ID.test(id)) throw new StoryError("A story is named by its id, a UUID.", 404);
   return asStoryError(async () => {
     const docId = await db.transaction((q) => ensureStoryDoc(q, id));
     const versions = await docs.versionsOf(db, docId);
@@ -793,7 +797,7 @@ export async function storyHistory(db: Db, me: Me | null, id: string, o: { branc
 /** story `id` as it was at step `seq` of its history */
 export async function storyAtStep(db: Db, me: Me | null, id: string, seq: number) {
   admin(me);
-  if (!SLUG.test(id)) throw new StoryError("A story is named by a short slug.", 404);
+  if (!STORY_ID.test(id)) throw new StoryError("A story is named by its id, a UUID.", 404);
   if (!Number.isInteger(seq) || seq < 1) throw new StoryError(`${seq} is not a step.`, 404);
   return asStoryError(async () => {
     const docId = await db.transaction((q) => ensureStoryDoc(q, id));
@@ -804,7 +808,7 @@ export async function storyAtStep(db: Db, me: Me | null, id: string, seq: number
 
 /** A story kept in the repo, written as its accepted v1 where play holds no story of its id (import/stories.ts). */
 export async function seedStory(db: Db, id: string, title: string, note: string, given: unknown): Promise<boolean> {
-  if (!SLUG.test(id)) throw new StoryError("its folder's name is no story's slug");
+  if (!STORY_ID.test(id)) throw new StoryError("its story.json names no id (a UUID)");
   const body = await checkBody(db, given);
   const t = text(title, "The title", 120, true);
   const version = versionIdOf(id, [], t, body);

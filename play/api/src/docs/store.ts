@@ -106,7 +106,7 @@ async function compact(q: Queryable, row: DocRow, d: LoroDoc): Promise<void> {
 
 /** a new document from its first state, as one step of its main line (and, if `version`, named v1) */
 export async function createDoc(db: Db | Queryable, o: { id: string; schema: string; json: unknown; author: Author; message?: string; at?: Date; version?: string; number?: number }): Promise<{ id: string; step: Step; version: Version | null }> {
-  if (!ID.test(o.id)) throw new DocError(`a document's id is its type and a name, like story:papaya-v2: not ${JSON.stringify(o.id)}`);
+  if (!ID.test(o.id)) throw new DocError(`a document's id is its type and a name, like story:<uuid>: not ${JSON.stringify(o.id)}`);
   const t = typeOf(o.schema);
   if (!o.id.startsWith(t.type + ":")) throw new DocError(`a ${t.type} document's id starts with ${t.type}:`);
   return inTx(db, async (q) => {

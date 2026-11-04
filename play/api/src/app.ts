@@ -5,7 +5,8 @@ import type { BlobStore } from "./blobs";
 import { HASH } from "./hash";
 import { UUID } from "./uuid";
 import type { Db } from "./pg";
-import { Denied, meOf, must } from "./access";
+import { COOP, Denied, meOf, must } from "./access";
+import { SANDBOX } from "./ids";
 import { assetOf, catalogOf, configOf, fileOf, listAssets, NotFound, versionOf } from "./assets";
 import { mcp } from "./mcp";
 import { adminByToken, listTokens, makeToken, revokeToken } from "./tokens";
@@ -30,7 +31,7 @@ const json = (body: unknown, init: ResponseInit = {}) => Response.json(body, ini
  * nothing more. Every other route (members, tokens, proposals, stories, the database, anything that writes) still wants
  * a session; the MCP server takes the token as before.
  */
-const READ_BY_TOKEN = [/^\/api\/me$/, /^\/api\/catalog$/, /^\/api\/files\/[0-9a-f]{64}$/, /^\/api\/sandboxes\/[a-z0-9-]{1,64}\/config$/, /^\/api\/assets(\/[^/]+){0,4}$/];
+const READ_BY_TOKEN = [/^\/api\/me$/, /^\/api\/catalog$/, /^\/api\/files\/[0-9a-f]{64}$/, /^\/api\/sandboxes\/[0-9a-f-]{36}\/config$/, /^\/api\/assets(\/[^/]+){0,4}$/];
 async function body(req: Request): Promise<any> {
   try {
     return await req.json();
@@ -59,7 +60,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("GET", "/api/health", () => json({ ok: true }));
   // how many build Maia City: the number alone, public, for the website's manifesto (maia.city, website/src/lib/FounderCounter.svelte)
   on("GET", "/api/founders", async () => {
-    const { rows } = await db.query<{ n: string }>(`SELECT count(*) AS n FROM play.memberships WHERE coop_id = 'maia-city'`);
+    const { rows } = await db.query<{ n: string }>(`SELECT count(*) AS n FROM play.memberships WHERE coop_id = $1`, [COOP]);
     return json({ count: Number(rows[0].n) }, { headers: { "Access-Control-Allow-Origin": "https://maia.city", "Cache-Control": "public, max-age=30" } });
   });
 
@@ -142,7 +143,8 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("GET", "/api/sandboxes/:id/config", async (req, p) => {
     const m = must(await me(req), "read", "sandboxes");
     // the Factories are Maia City's admins' alone for now (Samuel 2026-11-03)
-    if (p.id === "factories" && m.level !== "admin") throw new Denied("Only Maia City's admins may open the Factories, for now.");
+    if (!UUID.test(p.id)) throw new NotFound("A sandbox is named by its id, a UUID.");
+    if (p.id === SANDBOX.factories && m.level !== "admin") throw new Denied("Only Maia City's admins may open the Factories, for now.");
     // as an open proposal would make it (admins, ./sandboxes.ts), to walk it before deciding
     const proposal = new URL(req.url).searchParams.get("proposal");
     if (proposal) return json(await configOf(db, p.id, await proposedState(db, m, p.id, proposal)));

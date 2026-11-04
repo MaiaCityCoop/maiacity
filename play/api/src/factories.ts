@@ -14,6 +14,7 @@ import * as docs from "./docs";
 import { EditError } from "./docs/core";
 import { named } from "./stories";
 import { overlap } from "./storydocs";
+import { UUID } from "./uuid";
 
 export class FactoryError extends Error {
   constructor(message: string, public status = 400) {
@@ -22,7 +23,8 @@ export class FactoryError extends Error {
 }
 
 export const SCHEMA = "factory/1";
-export const SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/;
+/** a factory is named by its UUID (play/SPEC.md §4.7); its label is only shown */
+export const FACTORY_ID = UUID;
 export const docIdOf = (factory: string) => `factory:${factory}`;
 const iso = (d: Date | string) => new Date(d).toISOString();
 const authorOf = (me: Me, via: "web" | "mcp"): docs.Author => ({ human: me.id, via: via === "mcp" ? "mcp" : "site" });
@@ -32,9 +34,9 @@ function admin(me: Me | null): Me {
   if (me.level !== "admin") throw new Denied("Only Maia City's admins may open the Factories, for now.");
   return me;
 }
-function slugOf(id: unknown): string {
+function idOf(id: unknown): string {
   const s = `${id ?? ""}`;
-  if (!SLUG.test(s)) throw new FactoryError("Name the factory by its id (list_factories).", 404);
+  if (!FACTORY_ID.test(s)) throw new FactoryError("Name the factory by its id, a UUID (list_factories).", 404);
   return s;
 }
 function text(v: unknown, what: string, most: number): string {
@@ -62,7 +64,7 @@ async function exists(q: Queryable, id: string): Promise<void> {
  */
 export async function seedFactory(db: Db, o: { id: string; json: any; note: string; at?: Date }): Promise<boolean> {
   return db.transaction(async (q) => {
-    const id = slugOf(o.id);
+    const id = idOf(o.id);
     const { rows } = await q.query(`SELECT 1 FROM play.factories WHERE id = $1`, [id]);
     if (rows.length) return false;
     await q.query(`INSERT INTO play.factories (id, coop_id, label) VALUES ($1, $2, $3)`, [id, COOP, o.json.label]);
@@ -110,7 +112,7 @@ async function versionsNamed(db: Queryable, id: string) {
  */
 export async function factoryOf(db: Queryable, me: Me | null, id: string, at: { version?: number; step?: number; proposal?: string } = {}) {
   admin(me);
-  const f = slugOf(id);
+  const f = idOf(id);
   await exists(db, f);
   return asFactoryError(async () => {
     const docId = docIdOf(f);
@@ -139,7 +141,7 @@ export async function factoryOf(db: Queryable, me: Me | null, id: string, at: { 
 /** every step of a factory (its main line with each accepted proposal's steps, or one draft's), its versions and drafts */
 export async function factoryHistory(db: Queryable, me: Me | null, id: string, o: { branch?: number } = {}) {
   admin(me);
-  const f = slugOf(id);
+  const f = idOf(id);
   await exists(db, f);
   return asFactoryError(async () => {
     const docId = docIdOf(f);
@@ -215,7 +217,7 @@ export type FactoryDraft = { factory: string; branch?: number; edits?: unknown; 
 /** One step of a draft change to a factory, as the admin `me`: on draft `branch`, or on a new draft from its newest version. */
 export async function editFactory(db: Db, me: Me | null, p: FactoryDraft, via: "web" | "mcp" = "mcp") {
   const who = admin(me);
-  const f = slugOf(p?.factory);
+  const f = idOf(p?.factory);
   const message = text(p.message, "The step's message (what it does)", 500);
   if ((p.edits === undefined) === (p.whole === undefined)) throw new FactoryError("A step is edits or the whole factory, one of them.");
   return asFactoryError(() =>
@@ -235,7 +237,7 @@ export type FactoryProposal = { factory: string; note: string; branch?: number; 
 /** Propose a new version of a factory, as the admin `me`: a draft (its `branch`, perhaps with one more step), or edits at once. */
 export async function proposeFactory(db: Db, me: Me | null, p: FactoryProposal, via: "web" | "mcp" = "mcp") {
   const who = admin(me);
-  const f = slugOf(p?.factory);
+  const f = idOf(p?.factory);
   const note = text(p.note, "The note (what changes and why)", 4000);
   if (p.branch == null && (p.edits === undefined) === (p.whole === undefined)) throw new FactoryError("Propose a draft (its branch), edits, or the whole factory.");
   if (p.edits !== undefined && p.whole !== undefined) throw new FactoryError("Give edits or the whole factory, not both.");

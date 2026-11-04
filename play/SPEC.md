@@ -91,8 +91,8 @@ A **version DAG**, the part of avenDB worth keeping, without signatures and with
 
 ```sql
 assets          (id UUID /*its identity: random for a new asset, derived from its avenDB entry (v5) for an imported one*/,
-                 coop_id /*owner: maia-city*/, grp, slug /*a label, shown and renameable*/, label, head → asset_versions, created)
-                 -- unique (grp, slug); nothing refers to an asset by its group and slug
+                 coop_id /*owner: the Maia City coop*/, grp, slug /*a name, shown; two assets may share it*/, label, head → asset_versions, created)
+                 -- nothing refers to an asset by its group and slug (§4.7)
 asset_versions  (id /*BLAKE3 of canonical {asset, parents, recipe, default_variant, variants, card, engine}*/,
                  asset_id, parents text[] /*version ids; one, or none for the first*/,
                  number int /*@v, given on accept, 1, 2, 3 …*/,
@@ -155,7 +155,7 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
 
 - **Its history, made once from its versions** (in the deploy's import, and the first time an asset is touched): each
   accepted version a step at its own date, by its author, named its own number (a number legacy skipped stays
-  skipped); the work kept between two versions (`play/api/import/history/<group>/<slug>`: each step's file, hash, date
+  skipped); the work kept between two versions (`play/api/import/history/<asset's uuid>`: each step's file, hash, date
   and message) as the steps between them, only where the two versions are exactly the sources it ran between, its last
   step then the next version byte for byte. The papaya's nine rounds between v1 and v2, by Maia over MCP, are the first.
   Each proposal not yet on a branch gets one at its base, closed as it was decided.
@@ -209,21 +209,45 @@ asset's newest, its variant and values, and where a config names it) and propose
 newest version), `unpin`, and `set`/`delete` of any value at a path of a config ("update Sandbox 1's papayas to v4",
 "move the hens", "weight the apples 5"). Each is checked as a whole: only accepted versions, variants they have, no
 readable refs, every slot a config names pinned. The Proposals page shows each change before and after and opens the
-sandbox as it would be (`/sandbox-1/?layout=sandbox-1/<proposal>`, its config read with `?proposal=`, admins only); an
+sandbox as it would be (`/sandbox-1/?layout=<sandbox's uuid>/<proposal>`, its config read with `?proposal=`, admins only); an
 admin accepts it there, which applies the edits to the sandbox as it is then, in one transaction (one that no longer
 holds is archived). Admins only for now (`play/api/src/sandboxes.ts`).
 
-### 4.7 The Factories on Loro (the `factory_version` proposal, Samuel 2026-11-04)
+### 4.7 Every reference a UUID or a hash (Samuel 2026-11-04)
 
-Every production line play shows is a Loro document, `factory:<id>` (type `factory/1`, `play/api/src/docs/schema.ts`;
+A thing is named by its UUID (a coop, an asset, a story, a sandbox, a proposal, a human, a token) or, where it never
+changes, by the BLAKE3 hash of its content (a file, a recipe, a version). A title, a label, a slug, a group or a route
+is only shown: nothing is looked up by it, no row refers to it, and two things may share it.
+
+- **Migration `0017-uuids`** moved what was still named by a readable id onto UUIDs, everywhere it was named: the coop
+  (`maia-city`), the sandboxes (`sandbox-1`, `sandbox-2`, `sandbox-3`, `factories`) and the stories (their slugs), with
+  the story documents (`story:<slug>` → `story:<uuid>`) and every step of their history. Each got the UUID
+  `play.uuid_of('<kind>:<old id>')` (version 8, the first 16 bytes of SHA-256 over `play:<kind>:<old id>`; `uuidOf` in
+  `play/api/src/uuid.ts`), so the repo names the same ones: `play/api/src/ids.ts` (the coop and the sandboxes),
+  `play/site/src/lib/content/assets/sandboxes.js` (a slot is `pin:<sandbox's uuid>/<slot>`), each `story.json`'s `id`,
+  `folds.json`, the kept history's folders (`import/history/<asset's uuid>`) and the animals' sounds (`sounds.json`).
+- **Anything new gets a random UUID**: `propose_story` takes no id and answers with the story's; `propose_asset` needs
+  a group and a label, its slug (the name its recipe is called with, `recipe(slug, v, variant)`) made from the label
+  where none is given, and no longer unique. A story or a sandbox named by anything but a UUID is not found.
+- **What stays a name, on purpose**: a version's number (`v3`, shown, given on accept), a slot of a sandbox's pins and
+  a config's name (keys inside one sandbox's layout, like the fields of a record), a clip's or track's id inside a
+  timeline, a variant's name, a draft's number. None of them is looked up across play.
+- **Hashes made before stay as they were**: a version id is the hash of its content as it was made, and that content
+  named its asset or story by what it was then (`plants/papaya`, `papaya-v2-devlog`); new versions name their story by
+  its UUID. Nothing recomputes an old one.
+
+### 4.8 The Factories on Loro (the `factory_version` proposal, Samuel 2026-11-04)
+
+Every production line play shows is a Loro document, `factory:<uuid>` (a factory is its UUID, §4.7; the first,
+the LifeTrac line, `uuidOf('factory:lifetrac-line')`, `play/api/src/ids.ts` `FACTORY`; type `factory/1`, `play/api/src/docs/schema.ts`;
 `play/api/src/factories.ts`): its **line** as AirSup's factory runtime reads it (the product, the demand, the calendar,
 every station with its machine, cycle variation, buffer, spare floor, breakdowns, yield and what it joins, the stages'
 looks, the floor's layout) and its **bill of process** (every part of what it builds with its raw stock and every
 operation it goes through, at which station and for how many seconds; the stock it buys; the assemblies; each station's
 own handling). Data only, nothing of it code: a station's cycle time is the sum of its operations and its handling,
 worked out where the line is drawn (`play/site`'s `content/factories/index.js` `lineOf`), unless the station gives its
-own `ct`, so changing a part's operation moves the line. `play.factories` (migration `0017`) holds each factory's id and
-label so a proposal can name it. A factory's first version is made once from the repo by the deploy's import
+own `ct`, so changing a part's operation moves the line. `play.factories` holds each factory's id and
+label so a proposal can name it (migration `0018`). A factory's first version is made once from the repo by the deploy's import
 (`play/api/import/factories`: the LifeTrac line as it was first written, 2026-11-03); from then on play's Postgres is
 its source of truth.
 
@@ -339,7 +363,7 @@ The format and the player are made for that now.
 | `shots` | `frame` (an image's file hash, a still of the storyboard), `transition` (how it goes into the next shot) | `scene`: an asset ref by hash, its values (a plant's stage…), camera keyframes `[{ t, pos, look, fov }]`, replacing the still shot by shot |
 | `voice` | `who`, `line` (the narration; its subtitle); its take as the clip's sound (below) | |
 | `notes` | `section`, `camera`, `retention`, `mood` (↑ ↑↑ ↑↑↑ ↓ ↓↓ ↕) | |
-| `music`, `sfx`, `ambience` | the score and cues (ducked about 6 dB under the voice), spot sounds and hits, beds; clips may overlap | |
+| `music`, `sfx`, `ambience` | the score and cues, spot sounds and hits, beds; clips may overlap; nothing dips under the voice by itself (a track's `duck: true` asks for about 6 dB under it; Samuel 2026-11-04) | |
 
 **Every clip may sound** (Samuel 2026-11-03, the old studio's model of a clip's sound, `SNAPSHOT_2611101`
 `maia/content/studio`): `audio` a recording's file hash (MCP `add_story_audio`: MP3, WAV, Ogg, FLAC, M4A or WebM, its
@@ -373,7 +397,7 @@ frame-by-frame export needs (WebCodecs in the browser, or a page a renderer seek
 **Versioned like assets: the content-addressed DAG of §4.**
 
 ```sql
-stories         (id /*slug*/, coop_id, title /*its head's*/, head → story_versions, created, updated)
+stories         (id UUID /*§4.7*/, coop_id, title /*its head's*/, head → story_versions, created, updated)
 story_versions  (id /*BLAKE3 of canonical {story, parents, title, body}, as asset versions' ids (versions.ts)*/,
                  story_id, parents text[], number /*v1, v2 …, given on accept, shown only*/, title, body jsonb /*story/1*/,
                  note, author → humans, approved_by → humans, created)
@@ -390,8 +414,9 @@ proposals       (… kind 'story_version', story_id, story_base → story_versio
   the proposal (its note says it was merged). Where they touch **the same field** it is **archived**, never accepted: it
   is proposed again on the new head. Archived proposals stay as side lines in the history; their versions keep no
   number.
-- The repo's stories (`play/api/import/stories/<id>/`, `story.json` and its `frames/`) are written once, as their
-  accepted v1, by the import every deploy runs, only where play holds no story of that id (`import/stories.ts`).
+- The repo's stories (`play/api/import/stories/<folder>/`, `story.json`, whose `id` is the story's UUID, and its
+  `frames/`) are written once, as their accepted v1, by the import every deploy runs, only where play holds no story of
+  that id (`import/stories.ts`).
 
 **Changed only by proposal, over MCP.** No page and no route edits a story: `GET /api/stories` and
 `GET /api/stories/:id[?v=n]` read them (admins), and a story changes only by an admin's agent proposing over play's
@@ -411,7 +436,7 @@ title and settings, and track by track the clips added, removed, moved and chang
 Admins accept or archive it there. No tool accepts; the agent that proposed it may archive it while it is open
 (`archive_proposal`: one it has replaced, or no longer stands by), and nothing else of anyone's.
 
-**Every step kept: each story is a Loro document (§4.4).** Under its versions, story `x` is the document `story:x`
+**Every step kept: each story is a Loro document (§4.4).** Under its versions, story `x` (its UUID) is the document `story:x`
 (its title and its timeline; a clip's line, transition, camera and retention Loro texts), every change a step with
 its author, its means, its message and its time (`play/api/src/storydocs.ts`):
 

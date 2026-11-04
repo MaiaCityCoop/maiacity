@@ -14,6 +14,7 @@
  * (`collidersAt`). A list of Things says where each one's builder's ground is put (x, z, turned by `turn`); a Thing the
  * library brings to its own middle stands that far off it (`MIDDLE`, `placeOf`).
  */
+import { SANDBOX } from '$lib/content/assets/sandboxes.js';
 import { coopsAround } from './spaces';
 
 /**
@@ -21,7 +22,7 @@ import { coopsAround } from './spaces';
  * the heads of its version, $content/assets/vault.js `WORLD_PIN`), with the values it is built with.
  * @param {string} key @param {string} [query]
  */
-export const villageAsset = (key, query = '') => `pin:sandbox-1/${key}${query ? `?${query}` : ''}`;
+export const villageAsset = (key, query = '') => `pin:${SANDBOX.one}/${key}${query ? `?${query}` : ''}`;
 
 /** the Things the village puts down, each at the version its config pins */
 export const THINGS = {

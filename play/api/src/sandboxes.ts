@@ -43,6 +43,7 @@ function admin(me: Me | null): Me {
 }
 
 async function sandboxRow(q: Queryable, sandbox: string) {
+  if (!UUID.test(sandbox)) throw new SandboxError("A sandbox is named by its id, a UUID (list_sandboxes).", 404);
   const { rows } = await q.query<{ id: string; title: string; route: string; note: string }>(`SELECT id, title, route, note FROM play.sandboxes WHERE id = $1`, [sandbox]);
   if (!rows[0]) throw new SandboxError(`There is no sandbox ${sandbox}.`, 404);
   return rows[0];
@@ -285,7 +286,7 @@ export async function listSandboxes(db: Queryable, me: Me | null) {
   const { rows } = await db.query(
     `SELECT s.id, s.title, s.route, s.note, (SELECT count(*)::int FROM play.sandbox_pins p WHERE p.sandbox_id = s.id) AS pins,
             COALESCE((SELECT array_agg(c.name ORDER BY c.name) FROM play.sandbox_configs c WHERE c.sandbox_id = s.id), '{}') AS configs
-       FROM play.sandboxes s ORDER BY s.id`,
+       FROM play.sandboxes s ORDER BY s.title, s.id`,
   );
   return rows;
 }
