@@ -9,6 +9,8 @@ const webAudioQ = (b: { type: string; q: number }) => (b.type === 'highpass' || 
 
 export class StorySound {
 	private ctx: AudioContext | null = null;
+	/** a context made in the user's own tap, waiting for the start it was made for */
+	private primed: AudioContext | null = null;
 	private bus: GainNode | null = null;
 	private buffers = new Map<string, AudioBuffer>();
 	private loading = new Map<string, Promise<AudioBuffer | null>>();
@@ -50,7 +52,7 @@ export class StorySound {
 			p = fetch(url(hash), { credentials: 'same-origin' })
 				.then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`${r.status}`))))
 				.then((bytes) => this.decoder().decodeAudioData(bytes))
-				.then((b) => (this.buffers.set(hash, b), b))
+				.then((b) => (this.buffers.set(hash, b), this.arrived(hash), b))
 				.catch((e) => (this.failed.push(`${hash.slice(0, 10)}: ${e?.message ?? e}`), null));
 			this.loading.set(hash, p);
 		}
@@ -65,11 +67,41 @@ export class StorySound {
 		return this.timeStart + Math.max(0, ctxNow - this.ctxStart) * this.rate;
 	}
 
+	/**
+	 * Called inside the user's tap or key press, before what it starts: Safari lets a Web Audio context sound only when it
+	 * is made (or resumed) inside a gesture, and the start comes a moment later, from the player's effects. iOS also mutes
+	 * Web Audio by its silent switch unless the page asks for playback (the Audio Session API, Safari 17).
+	 */
+	prime() {
+		try {
+			const session = (navigator as any).audioSession;
+			if (session && session.type !== 'playback') session.type = 'playback';
+		} catch {}
+		if (!this.primed || this.primed.state === 'closed') this.primed = new AudioContext({ latencyHint: 'playback' });
+		this.primed.resume?.().catch(() => {});
+	}
+
+	/** a recording that arrives while the story already plays is laid in from now, not lost until the next Play */
+	private arrived(hash: string) {
+		if (!this.running || !this.ctx) return;
+		const now = this.now();
+		if (now == null) return;
+		for (const s of this.sounds)
+			if (s.hash === hash)
+				try {
+					this.lay(s, now + 0.05);
+				} catch (e: any) {
+					this.failed.push(`${s.track}/${s.clip}: ${e?.message ?? e}`);
+				}
+	}
+
 	/** start sounding from story time `t` at `rate` (a press of Play or a seek while playing) */
 	start(t: number, rate = 1) {
 		this.stop();
-		// a fresh context on every start: WebKit keeps a stopped one's clock oddly
-		this.ctx = new AudioContext({ latencyHint: 'playback' });
+		// a fresh context on every start (WebKit keeps a stopped one's clock oddly): the one made in the tap if there is one
+		this.ctx = this.primed && this.primed.state !== 'closed' ? this.primed : new AudioContext({ latencyHint: 'playback' });
+		this.primed = null;
+		this.ctx.resume?.().catch(() => {});
 		this.bus = this.ctx.createGain();
 		this.bus.gain.value = this.volume;
 		this.bus.connect(this.ctx.destination);
@@ -114,7 +146,7 @@ export class StorySound {
 		const offset = s.from + (begin - s.at); // how far into the file
 		const length = Math.min(s.at + s.duration - begin, buf.duration - offset); // story seconds it sounds
 		if (length <= 0.01 || offset >= buf.duration) return;
-		const when = (x: number) => Math.max(ac.currentTime, this.ctxStart + (x - t) / r); // story time → context time
+		const when = (x: number) => Math.max(ac.currentTime, this.ctxStart + (x - this.timeStart) / r); // story time → context time
 		const src = ac.createBufferSource();
 		src.buffer = buf;
 		src.playbackRate.value = r;
