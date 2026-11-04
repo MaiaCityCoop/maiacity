@@ -41,8 +41,8 @@ const greenness = (recipe) => {
 
 /**
  * The library's biomes a plant can stand on: each one's newest accepted version, read off its card (one whose card is
- * no floor's is left out), the greenest first (Samuel 2026-11-04: a plant is shown on a green floor unless one is
- * chosen), then by name. Each is known by `key`, its asset's UUID (its id where the index gives none).
+ * no floor's is left out), the greenest first (Samuel 2026-11-04: every plant is shown on one green floor, the
+ * first), then by name. Each is known by `key`, its asset's UUID (its id where the index gives none).
  * @param {{ index: { recipes: Record<string, any> }, cardOf: (hash: string) => any }} source
  * @returns {{ key: string, id: string, label: string, hash: string, recipe: any }[]}
  */
