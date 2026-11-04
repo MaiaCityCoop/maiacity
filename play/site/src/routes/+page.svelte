@@ -34,6 +34,8 @@
 		{ href: '/proposals/', label: 'Proposals', note: 'New versions, proposed and decided', icon: 'proposals' },
 		// our films as timelines, storyboard beside the script, to feel whether they work (routes/stories)
 		{ href: '/stories/', label: 'Stories', note: 'Our films as timelines: storyboard, voice, notes', icon: 'studio' },
+		// every image, video and recording play keeps, labelled, and where the stories use it (routes/library, Samuel 2026-11-04)
+		{ href: '/library/', label: 'Library', note: 'Every image, video and recording play keeps', icon: 'media' },
 		// the game's configs, each a Loro document, first the levelling (routes/game-editor, Samuel 2026-11-04)
 		{ href: '/game-editor/', label: 'Game editor', note: 'The game\'s configs: how a village grows', icon: 'gear' },
 		{ href: '/admin/', label: 'Members', note: 'Who holds which level', icon: 'coops' },
