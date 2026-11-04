@@ -338,6 +338,15 @@ Every route checks the caller's level against `level_rules`; a visitor gets 401 
 a chain, its variants, a viewer) · `/proposals/` · `/game/` (placeholder; claim an invite to become a citizen) ·
 `/admin/` (members, invites).
 
+**The Library** (`/library/`, Samuel 2026-11-04; `play/api/src/library.ts`): every image, video and recording play
+keeps among its `files` (§4.3), newest first, for Maia City's admins only. Each shows its preview (a video plays,
+a recording sounds), its media type, size and when it was kept, its **label**, and where the newest version of
+every story uses it: a shot's still or video, or a clip's recording. A label is only shown, never looked up by: a
+file is named by its hash. An agent gives one with `add_story_frame`, `add_story_video` or `add_story_audio`'s
+`label`, where a new label replaces the old one and none keeps it. An admin renames it in the Library
+(`POST /api/library/:hash/label`). `GET /api/library?kind=image|video|audio&q=…&offset=…&limit=…` lists them, `q`
+matching a label or the start of a hash, with the count of each kind.
+
 ## 9. Deploy
 
 - `play-api` service + a Caddy block for `play.maia.city`; DNS to the same machine.

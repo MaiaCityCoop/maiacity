@@ -609,6 +609,13 @@ export const MIGRATIONS: Migration[] = [
           OR (kind = 'game_config_version' AND game_config_id IS NOT NULL AND doc_branch IS NOT NULL AND asset_id IS NULL AND version IS NULL AND story_id IS NULL AND sandbox_id IS NULL AND factory_id IS NULL));
     `,
   },
+  {
+    id: "0020-file-labels",
+    sql: `
+      -- a file's label in the Library (Samuel 2026-11-04): only shown, never looked up by; a file is named by its hash
+      ALTER TABLE play.files ADD COLUMN label TEXT CHECK (label IS NULL OR length(label) BETWEEN 1 AND 200);
+    `,
+  },
 ];
 
 /** Runs every migration not yet run, each in its own transaction. */

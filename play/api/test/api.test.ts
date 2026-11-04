@@ -702,6 +702,34 @@ suite("play API", () => {
     expect((await tool("propose_story_version", { story: S.seed, base: head.version, note: "no", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { video: "nope" } }] })).error).toContain("video's file hash");
   });
 
+  test("the Library: every image, video and recording play keeps, newest first, labelled, and where stories use it; admins only", async () => {
+    const mp4 = Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from("ftypmp42"), Buffer.alloc(400, 9)]);
+    const clip = await tool("add_story_video", { data: mp4.toString("base64"), media_type: "video/mp4", label: "Omni take 3 · the city to his smile" });
+    expect(clip.error).toBeNull();
+    const head = (await tool("get_story", { story: S.seed })).out;
+    const shot = head.tracks.find((t: any) => t.id === "shots").clips[0];
+    const all = await call("ada", "GET", "/api/library");
+    expect(all.status).toBe(200);
+    expect(all.data.counts.video).toBeGreaterThanOrEqual(1);
+    const mine = all.data.files.find((f: any) => f.hash === clip.out.hash);
+    expect(mine).toMatchObject({ media_type: "video/mp4", size: mp4.length, label: "Omni take 3 · the city to his smile", used: [] });
+    // the seed story's newest version uses its first shot's still
+    const still = (await call("ada", "GET", `/api/library?kind=image&q=${shot.frame.slice(0, 10)}`)).data.files[0];
+    expect(still.hash).toBe(shot.frame);
+    expect(still.used).toContainEqual(expect.objectContaining({ story: S.seed, track: "shots", clip: shot.id, as: "frame" }));
+    // found by its label, not by another kind; renamed by an admin; a label given again replaces it
+    expect((await call("ada", "GET", "/api/library?kind=video&q=omni%20take")).data.files.map((f: any) => f.hash)).toContain(clip.out.hash);
+    expect((await call("ada", "GET", "/api/library?kind=audio&q=omni%20take")).data.files).toHaveLength(0);
+    expect((await call("ada", "POST", `/api/library/${clip.out.hash}/label`, { label: "  The first fly-over  " })).data.label).toBe("The first fly-over");
+    await tool("add_story_video", { data: mp4.toString("base64"), media_type: "video/mp4" });
+    expect((await call("ada", "GET", `/api/library?q=${clip.out.hash.slice(0, 12)}`)).data.files[0].label).toBe("The first fly-over");
+    expect((await call("ada", "POST", `/api/library/${clip.out.hash}/label`, { label: "x".repeat(201) })).status).toBe(400);
+    expect((await call("ada", "GET", "/api/library?kind=text")).status).toBe(400);
+    // nobody else opens it
+    expect((await call("cit", "GET", "/api/library")).status).toBe(403);
+    expect((await call(null, "GET", "/api/library")).status).toBe(401);
+  });
+
   test("a story sounds: an agent adds recordings, and any clip of any track plays one, with its trim, gain, fades, EQ and keys", async () => {
     // a tenth of a second of silence as a WAV, and an MP3's first bytes
     const wav = (n = 4800) => {
