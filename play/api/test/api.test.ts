@@ -866,4 +866,74 @@ suite("play API", () => {
     expect(await foldStories(db, [{ into: "fold-a", from: ["fold-b", "fold-c"] }])).toEqual({ folded: [], present: ["fold-b", "fold-c"], errors: [] });
     expect((await call("ada", "GET", "/api/stories/fold-a")).data.number).toBe(5);
   });
+
+  // ---- a sandbox's layout: what it draws and how it lays it out, changed only by proposal over MCP
+  test("a sandbox's layout changes only by an MCP proposal an admin accepts: its pins and any field of its configs", async () => {
+    const t = (await call("ada", "POST", "/api/tokens", { name: "sandboxes" })).data.token;
+    // a plant of two versions, the second of variants
+    const p1 = await call("cit", "POST", "/api/proposals", { new: { group: "plants", slug: "pawpaw-t", label: "Pawpaw" }, recipe: recipe("pawpaw-t", 1) });
+    await call("ada", "POST", `/api/proposals/${p1.data.id}/accept`);
+    const asset = p1.data.asset;
+    const v1 = p1.data.version;
+    expect((await tool("get_sandbox", { sandbox: "sandbox-2" }, t)).out.pins).toEqual([]);
+    await db.query(`INSERT INTO play.sandbox_pins (sandbox_id, slot, version_id, params) VALUES ('sandbox-2', 'grove/pawpaw', $1, '{"stage":"9"}'), ('sandbox-2', 'gate', $1, NULL)`, [v1]);
+    await db.query(`INSERT INTO play.sandbox_configs (sandbox_id, name, data) VALUES ('sandbox-2', 'grove', '{"trees":[{"id":"pawpaw","v":1,"slot":"grove/pawpaw","weight":2,"at":[0,0]}]}')`);
+    const p2 = await call("cit", "POST", "/api/proposals", {
+      asset, variants: { both: { recipe: recipe("pawpaw-t", 2, "both") }, male: { recipe: recipe("pawpaw-t", 2, "male") } }, defaultVariant: "both",
+    });
+    await call("ada", "POST", `/api/proposals/${p2.data.id}/accept`);
+    const read = (await tool("get_sandbox", { sandbox: "sandbox-2" }, t)).out;
+    expect(read.pins.find((x: any) => x.slot === "grove/pawpaw")).toMatchObject({ asset, number: 1, latest: 2, params: { stage: "9" }, usedBy: [{ config: "grove", path: ["trees", 0] }] });
+    expect(read.configs.grove.trees[0].weight).toBe(2);
+
+    // refused: no note, a ref in a config, a slot no pin draws, a variant it lacks, nothing changed, a traveler's page
+    const bad = async (edits: unknown[], note = "x") => (await tool("propose_sandbox_change", { sandbox: "sandbox-2", note, edits }, t)).error;
+    expect(await bad([{ op: "pin_latest", asset }], "")).toContain("note");
+    expect(await bad([{ op: "set", config: "grove", path: ["trees", 0, "ref"], value: "plants/apple@2" }])).toContain("by a slot");
+    expect(await bad([{ op: "unpin", slot: "grove/pawpaw" }])).toContain("would not pin");
+    expect(await bad([{ op: "pin", slot: "gate", variant: "female" }])).toContain("no variant female");
+    expect(await bad([{ op: "pin", slot: "gate", version: 1 }])).toContain("change nothing");
+    expect(await bad([{ op: "set", config: "grove", path: ["nope", "x"], value: 1 }])).toContain("is not there");
+    expect((await call("cit", "GET", "/api/sandboxes/sandbox-2/config?proposal=00000000-0000-4000-8000-000000000000")).status).toBe(403);
+
+    // the papaya case: every slot of the plant on its newest version, and a planting moved and weighted
+    const r = await tool("propose_sandbox_change", {
+      sandbox: "sandbox-2", note: "the pawpaws on v2; the grove's tree further out",
+      edits: [{ op: "pin_latest", asset }, { op: "set", config: "grove", path: ["trees", 0, "at"], value: [4, 2] }, { op: "set", config: "grove", path: ["trees", 0, "weight"], value: 3 }],
+    }, t);
+    expect(r.error).toBeNull();
+    expect(r.out.changes.map((c: any) => c.kind === "pin" ? [c.slot, c.before.number, c.after.number, c.after.usedVariant] : [c.config, c.path.join("/"), c.before, c.after]))
+      .toEqual([["gate", 1, 2, "both"], ["grove/pawpaw", 1, 2, "both"], ["grove", "trees/0/at", [0, 0], [4, 2]], ["grove", "trees/0/weight", 2, 3]]);
+    const listed = (await call("ada", "GET", "/api/proposals?status=open")).data.find((x: any) => x.id === r.out.id);
+    expect(listed).toMatchObject({ kind: "sandbox_change", grp: "sandboxes", slug: "sandbox-2", label: "Sandbox 2", via: "mcp", changes: 4 });
+    expect((await call("cit", "GET", "/api/proposals")).data.some((x: any) => x.id === r.out.id)).toBe(false);
+    const review = (await call("ada", "GET", `/api/proposals/${r.out.id}`)).data;
+    expect(review).toMatchObject({ holds: true, moved: false });
+    // the sandbox as it would be, before anyone decides; as it is, for everyone else
+    const v2 = (await db.query<any>(`SELECT recipe_hash FROM play.asset_variants WHERE version_id = $1 AND name = 'both'`, [p2.data.version])).rows[0].recipe_hash;
+    const proposed = (await call("ada", "GET", `/api/sandboxes/sandbox-2/config?proposal=${r.out.id}`)).data;
+    expect(proposed.assets["grove/pawpaw"]).toBe(`${v2}?stage=9`);
+    expect(proposed.grove.trees[0]).toMatchObject({ at: [4, 2], weight: 3, v: 2, asset: `${v2}?stage=9` });
+    const before = (await call("cit", "GET", "/api/sandboxes/sandbox-2/config")).data;
+    expect(before.grove.trees[0]).toMatchObject({ at: [0, 0], v: 1 });
+
+    // no tool accepts; a citizen may not; an admin does, on the page
+    expect((await call("cit", "POST", `/api/proposals/${r.out.id}/accept`)).status).toBe(403);
+    expect((await call("ada", "POST", `/api/proposals/${r.out.id}/accept`)).data).toMatchObject({ status: "accepted" });
+    const after = (await call("cit", "GET", "/api/sandboxes/sandbox-2/config")).data;
+    expect(after.assets).toEqual({ gate: v2, "grove/pawpaw": `${v2}?stage=9` });
+    expect(after.grove.trees[0]).toMatchObject({ at: [4, 2], weight: 3, v: 2 });
+    expect((await call("ada", "GET", `/api/proposals/${r.out.id}`)).data.changes.length).toBe(4);
+
+    // one that no longer holds when it is decided is archived; an agent archives its own
+    const stale = await tool("propose_sandbox_change", { sandbox: "sandbox-2", note: "the gate's male", edits: [{ op: "pin", slot: "gate", variant: "male" }, { op: "delete", config: "grove", path: ["trees", 0, "at"] }] }, t);
+    const first = await tool("propose_sandbox_change", { sandbox: "sandbox-2", note: "no position", edits: [{ op: "delete", config: "grove", path: ["trees", 0, "at"] }] }, t);
+    await call("ada", "POST", `/api/proposals/${first.out.id}/accept`);
+    expect((await call("ada", "GET", `/api/proposals/${stale.out.id}`)).data).toMatchObject({ holds: false });
+    expect((await call("ada", "POST", `/api/proposals/${stale.out.id}/accept`)).data).toMatchObject({ status: "archived" });
+    expect((await call("cit", "GET", "/api/sandboxes/sandbox-2/config")).data.assets.gate).toBe(v2);
+    const mine = await tool("propose_sandbox_change", { sandbox: "sandbox-2", note: "unpin the gate", edits: [{ op: "unpin", slot: "gate" }] }, t);
+    expect((await tool("archive_proposal", { proposal: mine.out.id }, t)).out).toMatchObject({ status: "archived" });
+    expect((await call("cit", "GET", "/api/sandboxes/sandbox-2/config")).data.assets.gate).toBe(v2);
+  });
 });

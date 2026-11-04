@@ -24,7 +24,7 @@
 		if (!admin) goto('/', { replaceState: true });
 	});
 
-	type P = { id: string; kind?: 'asset_version' | 'story_version'; asset_id: string | null; label: string; grp: string; slug: string; version_label: string | null; number: number; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
+	type P = { id: string; kind?: 'asset_version' | 'story_version' | 'sandbox_change'; asset_id: string | null; label: string; grp: string; slug: string; version_label: string | null; number: number | null; changes?: number; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
 	const COLUMNS = [
 		['open', 'Open'],
 		['accepted', 'Accepted'],
@@ -82,10 +82,23 @@
 	type Step = { seq: number; message: string; author: string | null; via: string; at: string };
 	type StoryReview = { story: Story; baseStory: (Story & { number: number }) | null; diff: StoryDiff; steps?: Step[] };
 	let storyReview = $state<StoryReview | null>(null);
+	// a sandbox's change (play/api/src/sandboxes.ts): what each edit changes, before and after, and the sandbox as it would be
+	type PinShown = { label: string; group: string; slug: string; number: number; variant: string | null; usedVariant: string | null; params: Record<string, string> | null } | null;
+	type SandboxChange =
+		| { kind: 'pin'; slot: string; before: PinShown; after: PinShown }
+		| { kind: 'config'; config: string; path: (string | number)[]; before: unknown; after: unknown };
+	type SandboxReview = { sandbox: { id: string; title: string; route: string }; changes: SandboxChange[]; holds: boolean; why: string | null; moved: boolean };
+	let sandboxReview = $state<SandboxReview | null>(null);
+	const pinText = (x: PinShown) =>
+		x ? `${x.label} v${x.number}${x.usedVariant ? ` · ${x.usedVariant}${x.variant ? '' : ' (default)'}` : ''}${x.params ? ` · ${Object.entries(x.params).map(([k, v]) => `${k} ${v}`).join(', ')}` : ''}` : 'none';
+	const valueText = (v: unknown) => (v === undefined ? '(none)' : JSON.stringify(v, null, 1));
+	/** a title for a card: an asset's or story's version, or a sandbox's change */
+	const titleOf = (p: P) => (p.kind === 'sandbox_change' ? `${p.changes ?? 0} change${p.changes === 1 ? '' : 's'}` : `v${p.number}`);
 	async function openCard(p: P) {
 		open = p;
 		review = null;
 		storyReview = null;
+		sandboxReview = null;
 		code = '';
 		baseCode = null;
 		shown = '';
@@ -96,6 +109,15 @@
 			try {
 				const r = await api<StoryReview>(`/proposals/${p.id}`);
 				if (open?.id === p.id) storyReview = r;
+			} catch (e) {
+				reviewError = (e as Error).message;
+			}
+			return;
+		}
+		if (p.kind === 'sandbox_change') {
+			try {
+				const r = await api<SandboxReview>(`/proposals/${p.id}`);
+				if (open?.id === p.id) sandboxReview = r;
 			} catch (e) {
 				reviewError = (e as Error).message;
 			}
@@ -127,7 +149,7 @@
 	<main class="board-page">
 		<header class="head">
 			<h1>Proposals</h1>
-			<p class="muted">New versions of Maia City's assets, proposed by agents over MCP. Open one to see it built and decide.</p>
+			<p class="muted">New versions of Maia City's assets and stories, and changes of its sandboxes, proposed by agents over MCP. Open one to see it and decide.</p>
 		</header>
 		{#if error}<p class="error">{error}</p>{/if}
 		<div class="board">
@@ -138,7 +160,7 @@
 					{#each cards as p (p.id)}
 						<article class="card">
 							<button class="open" onclick={() => openCard(p)}>
-								<span class="title">{p.label} <span class="muted">v{p.number}</span></span>
+								<span class="title">{p.label} <span class="muted">{titleOf(p)}</span></span>
 								<span class="meta">{p.grp}/{p.slug}{#if p.via === 'mcp'} <span class="via">MCP</span>{/if}</span>
 								{#if p.note}<span class="gist">{gist(p.note)}</span>{/if}
 								<span class="meta">{p.author ?? 'someone'} · {when(p.created)}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}</span>
@@ -160,10 +182,10 @@
 
 	{#if open}
 		{@const p = open}
-		<div class="review" role="dialog" aria-modal="true" aria-label="{p.label} v{p.number}">
+		<div class="review" role="dialog" aria-modal="true" aria-label="{p.label} {titleOf(p)}">
 			<header class="review-head">
 				<div class="who">
-					<h2>{p.label} <span class="muted">v{p.number}</span> <span class="pill">{p.status}</span></h2>
+					<h2>{p.label} <span class="muted">{titleOf(p)}</span> <span class="pill">{p.status}</span></h2>
 					<p class="meta">{p.grp}/{p.slug} · by {p.author ?? 'someone'}{#if p.via === 'mcp'} <span class="via" title="Proposed by an agent working for them over MCP">via MCP</span>{/if} · {when(p.created)}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}</p>
 				</div>
 				<div class="actions">
@@ -179,7 +201,38 @@
 				</div>
 				<button class="more" onclick={() => (noteOpen = !noteOpen)}>{noteOpen ? 'Less' : 'More'}</button>
 			{/if}
-			{#if p.kind === 'story_version'}
+			{#if p.kind === 'sandbox_change'}
+				<div class="sandbox-review">
+					{#if reviewError}<p class="error">{reviewError}</p>
+					{:else if !sandboxReview}<p class="muted">Reading it…</p>
+					{:else}
+						{@const r = sandboxReview}
+						{#if p.status === 'open'}
+							{#if !r.holds}<p class="error">It no longer holds on {r.sandbox.title} as it is now: {r.why} Accepting it archives it.</p>
+							{:else}
+								<p>
+									<a class="btn small" href="{r.sandbox.route}?layout={encodeURIComponent(`${r.sandbox.id}/${p.id}`)}" target="_blank" rel="noopener">Open {r.sandbox.title} as it would be</a>
+									{#if r.moved}<span class="muted small"> {r.sandbox.title} changed since it was proposed: shown as accepting would apply it now.</span>{/if}
+								</p>
+							{/if}
+						{/if}
+						<h3>{p.status === 'accepted' ? 'What it changed' : 'What it changes'}</h3>
+						<ol class="changes">
+							{#each r.changes as c, i (i)}
+								<li>
+									{#if c.kind === 'pin'}
+										<span class="where">{c.slot}</span>
+										<span class="was">{pinText(c.before)}</span> → <span class="now">{pinText(c.after)}</span>
+									{:else}
+										<span class="where">{c.config}{#each c.path as k}<span class="muted"> › </span>{k}{/each}</span>
+										<div class="vals"><pre class="was">{valueText(c.before)}</pre><pre class="now">{valueText(c.after)}</pre></div>
+									{/if}
+								</li>
+							{/each}
+						</ol>
+					{/if}
+				</div>
+			{:else if p.kind === 'story_version'}
 				<div class="story-review">
 					{#if reviewError}<p class="error">{reviewError}</p>
 					{:else if !storyReview}<p class="muted">Reading it…</p>
@@ -310,4 +363,15 @@
 	.steps li { display: grid; gap: 0.05rem; }
 	.steps .small { font-size: 0.74rem; }
 	@media (max-width: 1000px) { .story-review { grid-template-columns: minmax(0, 1fr); } }
+	/* a sandbox's change: each edit, before and after */
+	.sandbox-review { flex: 1 1 auto; min-height: 0; overflow: auto; }
+	.sandbox-review h3 { margin: 0.4rem 0 0.5rem; font-size: 1rem; }
+	.changes { margin: 0; padding-left: 1.4rem; display: grid; gap: 0.55rem; font-size: 0.88rem; }
+	.changes .where { font-weight: 600; margin-right: 0.5rem; }
+	.changes .was { color: var(--muted, #777); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--terracotta, #c96f53) 70%, transparent); }
+	.changes .now { font-weight: 600; }
+	.vals { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0.4rem; margin-top: 0.25rem; }
+	.vals pre { margin: 0; padding: 0.45rem 0.6rem; border-radius: 8px; background: var(--paper, #f6f1e6); font-size: 0.76rem; white-space: pre-wrap; max-height: 14rem; overflow: auto; }
+	.vals pre.was { text-decoration: none; background: color-mix(in srgb, var(--terracotta, #c96f53) 14%, transparent); }
+	.vals pre.now { font-weight: 400; background: color-mix(in srgb, var(--sage, #8fae8b) 22%, transparent); }
 </style>

@@ -8,12 +8,24 @@ export class CodeError extends Error {}
 const CONFIGS = new Map();
 const loading = new Map();
 
+/**
+ * the open proposal of a change of sandbox `id` the page is opened with (`?layout=<id>/<proposal>`, from the Proposals
+ * page), to walk the sandbox as it would make it before an admin decides; else null
+ */
+function layoutOf(id) {
+	if (typeof location === 'undefined') return null;
+	const l = new URLSearchParams(location.search).get('layout') ?? '';
+	return l.startsWith(`${id}/`) ? l.slice(id.length + 1) : null;
+}
+
 /** the config of sandbox `id`, read once a page */
 export function loadConfig(id) {
-	if (!loading.has(id))
+	if (!loading.has(id)) {
+		const proposal = layoutOf(id);
+		const url = `/api/sandboxes/${encodeURIComponent(id)}/config${proposal ? `?proposal=${encodeURIComponent(proposal)}` : ''}`;
 		loading.set(
 			id,
-			fetch(`/api/sandboxes/${encodeURIComponent(id)}/config`, { credentials: 'same-origin' }).then(async (res) => {
+			fetch(url, { credentials: 'same-origin' }).then(async (res) => {
 				if (!res.ok) {
 					loading.delete(id);
 					throw new CodeError(`${id}'s config could not be read (HTTP ${res.status})`);
@@ -23,6 +35,7 @@ export function loadConfig(id) {
 				return configs;
 			})
 		);
+	}
 	return loading.get(id);
 }
 

@@ -12,6 +12,7 @@ import { adminByToken, listTokens, makeToken, revokeToken } from "./tokens";
 import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, registerOptions, sessionCookie, tokenFor } from "./auth";
 import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameMember, renameSelf, setLevel } from "./members";
 import { listTables, readTable, TableError } from "./tables";
+import { proposedState, SandboxError } from "./sandboxes";
 import { decide, listProposals, proposalOf, propose, ProposalError, type Verdict } from "./proposals";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 import { listStories, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
@@ -141,6 +142,9 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     const m = must(await me(req), "read", "sandboxes");
     // the Factories are Maia City's admins' alone for now (Samuel 2026-11-03)
     if (p.id === "factories" && m.level !== "admin") throw new Denied("Only Maia City's admins may open the Factories, for now.");
+    // as an open proposal would make it (admins, ./sandboxes.ts), to walk it before deciding
+    const proposal = new URL(req.url).searchParams.get("proposal");
+    if (proposal) return json(await configOf(db, p.id, await proposedState(db, m, p.id, proposal)));
     return json(await configOf(db, p.id));
   });
 
@@ -215,7 +219,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       try {
         return await r.handler(req, params);
       } catch (e) {
-        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError)
+        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError)
           return json({ error: e.message }, { status: (e as any).status });
         console.error(e);
         return json({ error: "Something went wrong on our side." }, { status: 500 });
