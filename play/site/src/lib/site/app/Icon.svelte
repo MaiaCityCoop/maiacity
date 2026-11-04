@@ -1,7 +1,7 @@
 <!-- The app's icons: plain line drawings, drawn in the text colour. -->
 <script lang="ts">
 	/** every icon this set draws */
-	type IconName = 'back' | 'home' | 'play' | 'board' | 'calendar' | 'media' | 'studio' | 'journal' | 'spark' | 'user' | 'key' | 'ledger' | 'coops' | 'proposals' | 'leaf' | 'database' | 'universe' | 'gear' | 'chat' | 'factory';
+	type IconName = 'back' | 'home' | 'play' | 'board' | 'calendar' | 'media' | 'studio' | 'journal' | 'spark' | 'user' | 'key' | 'ledger' | 'coops' | 'proposals' | 'leaf' | 'database' | 'universe' | 'gear' | 'chat' | 'factory' | 'paw' | 'box' | 'building' | 'mountain';
 
 	let { name, size = 24 }: { name: IconName; size?: number } = $props();
 </script>
@@ -47,5 +47,13 @@
 		<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /><path d="M8 10.5h8M8 14h5" />
 	{:else if name === 'universe'}
 		<circle cx="12" cy="12" r="3.2" /><ellipse cx="12" cy="12" rx="9" ry="4" transform="rotate(-25 12 12)" /><circle cx="19.2" cy="8.3" r="0.9" fill="currentColor" />
+	{:else if name === 'paw'}
+		<ellipse cx="12" cy="16" rx="4" ry="3.3" /><circle cx="6" cy="10.5" r="1.7" /><circle cx="9.5" cy="6.5" r="1.7" /><circle cx="14.5" cy="6.5" r="1.7" /><circle cx="18" cy="10.5" r="1.7" />
+	{:else if name === 'box'}
+		<path d="m12 3.5 8 4v9l-8 4-8-4v-9Z" /><path d="m4 7.5 8 4 8-4M12 11.5v9" />
+	{:else if name === 'building'}
+		<path d="M3.5 20.5h17" /><path d="M5 20.5v-6a7 7 0 0 1 14 0v6" /><path d="M10 20.5v-4h4v4" /><path d="M12 7.5v13M5.6 11.5h12.8" />
+	{:else if name === 'mountain'}
+		<path d="m2.5 19.5 6.5-11 4 6.5 2.5-3.5 6 8Z" /><path d="m7 12 2 1.5 2-1" /><circle cx="17" cy="6" r="1.8" />
 	{/if}
 </svg>
