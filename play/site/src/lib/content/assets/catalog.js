@@ -39,7 +39,13 @@ export const catalog = { phase: 'idle', count: 0, error: '' };
 async function load() {
 	Object.assign(catalog, { phase: 'loading', count: 0, error: '' });
 	try {
-		const res = await fetch('/api/catalog', { credentials: 'same-origin' });
+		// asked again, twice, where the proxy got no answer for a moment (502, 503, 504)
+		let res = await fetch('/api/catalog', { credentials: 'same-origin' });
+		for (const wait of [1000, 3000]) {
+			if (![502, 503, 504].includes(res.status)) break;
+			await new Promise((ok) => setTimeout(ok, wait));
+			res = await fetch('/api/catalog', { credentials: 'same-origin' });
+		}
 		if (!res.ok) throw new Error(res.status === 401 ? 'Please sign in first.' : `The asset catalog could not be read (HTTP ${res.status}).`);
 		const rows = await res.json();
 		for (const k of Object.keys(INDEX.recipes)) delete INDEX.recipes[k];
