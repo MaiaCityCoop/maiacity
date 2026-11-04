@@ -38,7 +38,7 @@ export type Moment = {
 	prev: Shot | null;
 	/** how far the shot has faded in over the one before it, 0…1 (1: it alone) */
 	mix: number;
-	/** how bright the picture is, 0 black … 1 full: a shot's own `fade_in` from black and `fade_out` to black */
+	/** how bright the picture is, 0 black … 1 full: a shot's transition coded `from black`, `to black` or `dip to black` */
 	light: number;
 	/** the narration at t: its clip, and how many of its words are spoken by now */
 	voice: Voice | null;
@@ -204,20 +204,54 @@ export function spansOf<C extends Clip = Clip>(story: StoryBody | null | undefin
 	return out;
 }
 
-/** how long a shot fades in over the one before it, from how that one said it goes into the next: a cut cuts */
+const ease = (x: number) => x * x * (3 - 2 * x);
+
+/** a shot's transition read as code (Samuel 2026-11-04: a fade is a transition like any other, written in the shot's
+ *  `transition` and set by a proposal like any other field). Codes are separated by commas, `;` or `·`, each from its
+ *  start, seconds where it gives them:
+ *  - `cut` (and a hard, smash, match or jump cut, "cut to …"): into the next shot at once;
+ *  - `dissolve` / `cross-fade` [s]: the next shot fades in over this one (0.5 s unless it says);
+ *  - `from black` / `fade in` [s]: this shot comes up from black;
+ *  - `to black` / `fade out` [s]: this shot goes down to black;
+ *  - `dip to black` [s]: this shot goes down to black and the next comes up out of it.
+ *  Anything else is prose about the transition, and a shot whose transition codes no cut goes into the next with a short
+ *  dissolve, as before. */
+export type Transition = { cut: boolean; dissolve: number | null; fromBlack: number; toBlack: number; dip: number };
+
+const secondsIn = (part: string, otherwise: number) => {
+	const n = Number(part.match(/(\d+(?:\.\d+)?)/)?.[1]);
+	return Number.isFinite(n) ? Math.min(10, Math.max(0, n)) : otherwise;
+};
+
+export function transitionOf(text: string | null | undefined): Transition {
+	const out: Transition = { cut: false, dissolve: null, fromBlack: 0, toBlack: 0, dip: 0 };
+	for (const raw of String(text ?? '').split(/[,;·]/)) {
+		const p = raw.trim().toLowerCase();
+		if (!p) continue;
+		if (/^dip\b/.test(p)) out.dip = secondsIn(p, 0.5);
+		else if (/^(fade )?(from black|in)\b/.test(p)) out.fromBlack = secondsIn(p, 0.5);
+		else if (/^(fade )?(to black|out)\b/.test(p)) out.toBlack = secondsIn(p, 0.5);
+		else if (/^(dissolve|cross-?fade)\b/.test(p)) out.dissolve = secondsIn(p, 0.5);
+		else if (/^cut\b/.test(p) || /\b(hard|smash|match|jump)\s*cut\b|\bcut to\b/.test(p)) out.cut = true;
+	}
+	return out;
+}
+
+/** how long a shot fades in over the one before it, from the code of the one before: a cut cuts, a fade or dip to
+ *  black goes through black instead, a dissolve takes its seconds (at most half of either shot) */
 export function fadeOf(prev: Shot | null, shot: Shot): number {
 	if (!prev) return 0;
-	if (/\b(hard|smash|match|jump)\s*cut\b|\bcut to\b/i.test(prev.transition ?? '')) return 0;
+	const code = transitionOf(prev.transition);
+	if (code.cut || code.toBlack > 0 || code.dip > 0) return 0;
+	if (code.dissolve !== null) return Math.min(code.dissolve, prev.duration / 2, shot.duration / 2);
 	return Math.min(0.5, 0.3 * Math.min(prev.duration, shot.duration));
 }
 
-const ease = (x: number) => x * x * (3 - 2 * x);
-
-/** how bright a shot is at second t, 0 black … 1 full: it comes up from black over its `fade_in` seconds and goes down to
- *  black over its `fade_out` (a film's first shot out of black, its last into it; Samuel 2026-11-04) */
-export function lightOf(shot: Shot, t: number): number {
-	const c = shot as Shot & { fade_in?: unknown; fade_out?: unknown };
-	const fin = Math.max(0, Number(c.fade_in) || 0), fout = Math.max(0, Number(c.fade_out) || 0);
+/** how bright a shot is at second t, 0 black … 1 full, from the transition codes: its own `from black` and `to black`,
+ *  its `dip to black` at its end, and the shot before it's `dip to black` at its start */
+export function lightOf(shot: Shot, t: number, prev: Shot | null = null): number {
+	const own = transitionOf(shot.transition);
+	const fin = Math.max(own.fromBlack, prev ? transitionOf(prev.transition).dip : 0), fout = Math.max(own.toBlack, own.dip);
 	let light = 1;
 	if (fin > 0) light = Math.min(light, ease(Math.max(0, Math.min(1, (t - shot.at) / fin))));
 	if (fout > 0) light = Math.min(light, ease(Math.max(0, Math.min(1, (shot.at + shot.duration - t) / fout))));
@@ -234,7 +268,7 @@ export function renderAt(story: StoryBody | null, t: number): Moment {
 	const touching = before && shot && Math.abs(before.at + before.duration - shot.at) < 0.05 ? before : null;
 	const fade = shot ? fadeOf(touching, shot) : 0;
 	const mix = shot && fade > 0 ? ease(Math.max(0, Math.min(1, (time - shot.at) / fade))) : 1;
-	const light = shot ? lightOf(shot, time) : 1;
+	const light = shot ? lightOf(shot, time, touching) : 1;
 	const v = at(clipsOf<Voice>(story, 'voice'), time);
 	const words = v.clip ? (v.clip.line ?? '').split(/\s+/).filter(Boolean).length : 0;
 	// the words are spoken evenly over the first 92% of the clip, so the line is whole before the next begins

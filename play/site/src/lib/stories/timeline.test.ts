@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clipsOf, CUE_CHARS, cuesOf, flatten, lightOf, linkedOf, renderAt, sectionsOf, setCuesOf, soundsOf, type Links, type StoryBody } from './timeline';
+import { clipsOf, CUE_CHARS, cuesOf, flatten, lightOf, linkedOf, renderAt, transitionOf, sectionsOf, setCuesOf, soundsOf, type Links, type StoryBody } from './timeline';
 
 const LEAVES = 'Every few days, a new leaf unfolds at its crown, each turned a little further round than the last, so that every leaf finds the light. The old ones, it lets fall. Each leaves a scar, and in time its trunk becomes a diary of every leaf it ever wore.';
 const TRAILER = 'This is the story of how one million humans build a hundred times better way of living: their own solarpunk city, from the ground up. First in a game, then for real.';
@@ -203,25 +203,47 @@ describe('linked stories: one timeline composed of others', () => {
 	});
 });
 
-describe('a shot out of black and into it', () => {
+describe('transitions are code: cuts, dissolves and fades', () => {
 	const F = 'f'.repeat(64);
-	const story = {
-		schema: 'story/1', format: '1:1', fps: 30, duration: 6,
-		tracks: [{ id: 'shots', kind: 'shots', clips: [
-			{ id: 'a', at: 0, duration: 3, frame: F, transition: 'cut', fade_in: 0.7 },
-			{ id: 'b', at: 3, duration: 3, frame: F, transition: 'cut', fade_out: 1 }
-		] }]
-	} as unknown as StoryBody;
-	it('comes up from black over its fade_in, and goes down over its fade_out', () => {
-		expect(renderAt(story, 0).light).toBe(0);
-		expect(renderAt(story, 0.35).light).toBeCloseTo(0.5, 5);
-		expect(renderAt(story, 0.7).light).toBe(1);
-		expect(renderAt(story, 2).light).toBe(1);
-		expect(renderAt(story, 4).light).toBe(1);
-		expect(renderAt(story, 5.5).light).toBeCloseTo(0.5, 5);
-		expect(renderAt(story, 6).light).toBe(0);
+	const story = (a: string, b: string, c = 'cut') =>
+		({
+			schema: 'story/1', format: '1:1', fps: 30, duration: 9,
+			tracks: [{ id: 'shots', kind: 'shots', clips: [
+				{ id: 'a', at: 0, duration: 3, frame: F, transition: a },
+				{ id: 'b', at: 3, duration: 3, frame: F, transition: b },
+				{ id: 'c', at: 6, duration: 3, frame: F, transition: c }
+			] }]
+		}) as unknown as StoryBody;
+	it('reads the codes, each from its start, with their seconds', () => {
+		expect(transitionOf('from black 0.7, cut')).toEqual({ cut: true, dissolve: null, fromBlack: 0.7, toBlack: 0, dip: 0 });
+		expect(transitionOf('Dissolve 1.2 s')).toMatchObject({ dissolve: 1.2, cut: false });
+		expect(transitionOf('fade to black').toBlack).toBe(0.5);
+		expect(transitionOf('dip to black 0.4').dip).toBe(0.4);
+		expect(transitionOf('Match cut on the dome').cut).toBe(true);
+		expect(transitionOf('the light carries over')).toEqual({ cut: false, dissolve: null, fromBlack: 0, toBlack: 0, dip: 0 });
 	});
-	it('a shot with no fades is full', () => {
+	it('a cut cuts; a dissolve takes its seconds; prose dissolves briefly as before', () => {
+		expect(renderAt(story('cut', 'cut'), 3.01).mix).toBe(1);
+		const d = renderAt(story('dissolve 1', 'cut'), 3.5);
+		expect(d.mix).toBeCloseTo(0.5, 5);
+		expect(d.prev?.id).toBe('a');
+		expect(renderAt(story('the light carries over', 'cut'), 3.2).mix).toBeLessThan(1);
+	});
+	it('from black and to black: the first shot comes up, the last goes down', () => {
+		const s = story('from black 0.7, cut', 'cut', 'to black 1');
+		expect(renderAt(s, 0).light).toBe(0);
+		expect(renderAt(s, 0.35).light).toBeCloseTo(0.5, 5);
+		expect(renderAt(s, 0.7).light).toBe(1);
+		expect(renderAt(s, 4).light).toBe(1);
+		expect(renderAt(s, 8.5).light).toBeCloseTo(0.5, 5);
+		expect(renderAt(s, 9).light).toBe(0);
+	});
+	it('a dip to black goes down at the end of one shot and up at the start of the next, with no dissolve', () => {
+		const s = story('dip to black 0.4', 'cut');
+		expect(renderAt(s, 2.8).light).toBeCloseTo(0.5, 5);
+		expect(renderAt(s, 3).mix).toBe(1);
+		expect(renderAt(s, 3.2).light).toBeCloseTo(0.5, 5);
+		expect(renderAt(s, 3.4).light).toBe(1);
 		expect(lightOf({ id: 'x', at: 0, duration: 2, frame: F, transition: 'cut' } as never, 0)).toBe(1);
 	});
 });
