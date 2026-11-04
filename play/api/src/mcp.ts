@@ -3,12 +3,14 @@
 // and their recipe files, and proposes new versions and new assets, drafted step by step if it likes (asset_edit, each
 // step kept in the asset's Loro document, ./assetdocs.ts); it reads the stories (./stories.ts) and proposes new stories
 // and new versions of them, with the storyboard images they show. All are filed as the admin's proposals with `via`
-// 'mcp'. Accepting or rejecting stays a person's, on the Proposals page (Samuel 2026-11-02): no tool here decides.
+// 'mcp'. Accepting stays a person's, on the Proposals page (Samuel 2026-11-02): no tool here accepts. An agent may
+// archive only its own open proposals made here (archive_proposal, Samuel 2026-11-04), one it has replaced or no longer
+// stands by.
 import type { BlobStore } from "./blobs";
 import type { Db } from "./pg";
 import type { Me } from "./access";
 import { assetOf, listAssets, NotFound } from "./assets";
-import { listProposals, propose, ProposalError } from "./proposals";
+import { archiveOwn, listProposals, propose, ProposalError } from "./proposals";
 import { adminByToken } from "./tokens";
 import { admin, AUDIO_TYPES, editStory, listStories, MOST_AUDIO, MOST_FRAME, proposeStory, putAudioBase64, putFrameBase64, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
 import { AssetDocError, assetAtStep, assetHistory, editAsset } from "./assetdocs";
@@ -122,7 +124,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     {
       name: "propose_version",
       description:
-        `Propose a new version of an asset. It goes to Maia City's admins as a proposal (via MCP), to accept or reject on the Proposals page, where they see it built in the asset box and the steps it was made in. Give its whole \`source\`, or propose a draft made step by step with asset_edit (its \`branch\`): its steps go with it. ${RECIPE_RULE}`,
+        `Propose a new version of an asset. It goes to Maia City's admins as a proposal (via MCP), to accept or archive on the Proposals page, where they see it built in the asset box and the steps it was made in. Give its whole \`source\`, or propose a draft made step by step with asset_edit (its \`branch\`): its steps go with it. ${RECIPE_RULE}`,
       inputSchema: {
         type: "object",
         properties: {
@@ -258,7 +260,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     },
     {
       name: "propose_story",
-      description: `Propose a new story, its first version, as its whole timeline. It goes to Maia City's admins as a proposal (via MCP), who play it in the Stories player on the Proposals page and accept or reject it. ${STORY_FORMAT} Add each storyboard image first with add_story_frame and use the hashes it gives as the shots' frames.`,
+      description: `Propose a new story, its first version, as its whole timeline. It goes to Maia City's admins as a proposal (via MCP), who play it in the Stories player on the Proposals page and accept or archive it. ${STORY_FORMAT} Add each storyboard image first with add_story_frame and use the hashes it gives as the shots' frames.`,
       inputSchema: {
         type: "object",
         properties: {
@@ -330,6 +332,18 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
       },
       run: async ({ status }, me) => listProposals(db, me, status),
     },
+    {
+      name: "archive_proposal",
+      description:
+        "Archive a proposal of your own that is still open: one a newer proposal of yours replaces, or one you no longer stand by. Only one made over MCP by this token's admin, never anyone else's or one made on the page. It ends archived, its branch kept as a side line in the history; accepting stays a person's, on the Proposals page.",
+      inputSchema: {
+        type: "object",
+        properties: { proposal: { type: "string", description: "the proposal's id (list_proposals gives it, with its author and where it came from)" } },
+        required: ["proposal"],
+        additionalProperties: false,
+      },
+      run: async ({ proposal }, me) => archiveOwn(db, me, `${proposal ?? ""}`),
+    },
   ];
 
   const reply = (id: unknown, result: unknown) => Response.json({ jsonrpc: "2.0", id, result });
@@ -359,7 +373,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           capabilities: { tools: {} },
           serverInfo: { name: "play.maia.city", version: "1" },
           instructions:
-            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files, and every step of an asset's history (asset_history, get_asset at a step); propose new versions or assets as readable source, or draft a version step by step with asset_edit and propose the draft. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame. Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's Proposals page, then accept or reject it; nothing here decides, and no proposed code runs on play's server.",
+            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files, and every step of an asset's history (asset_history, get_asset at a step); propose new versions or assets as readable source, or draft a version step by step with asset_edit and propose the draft. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame. Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's Proposals page, then accept or archive it; nothing here accepts, an agent archives only its own open proposals (archive_proposal), and no proposed code runs on play's server.",
         });
       case "ping":
         return reply(msg.id, {});
