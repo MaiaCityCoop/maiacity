@@ -376,7 +376,7 @@ The format and the player are made for that now.
 
 | kind | a clip's fields | later |
 |---|---|---|
-| `shots` | `frame` (an image's file hash, a still of the storyboard), `transition` (how it goes into the next shot) | `scene`: an asset ref by hash, its values (a plant's stage…), camera keyframes `[{ t, pos, look, fov }]`, replacing the still shot by shot |
+| `shots` | `frame` (an image's file hash, a still of the storyboard), `transition` (how it goes into the next shot, read as code where it starts with one, below) | `scene`: an asset ref by hash, its values (a plant's stage…), camera keyframes `[{ t, pos, look, fov }]`, replacing the still shot by shot |
 | `voice` | `who`, `line` (the narration; its subtitle, cut into lines of about 26 characters spoken evenly); `cues` its own subtitles where it sets them, `[{ at, text, em? }]` (`at` seconds into the clip, each until the next; `em` one set apart, alone and large: "100x" while "a hundred times" is said; Samuel 2026-11-04); its take as the clip's sound (below) | |
 | `notes` | `section`, `camera`, `retention`, `mood` (↑ ↑↑ ↑↑↑ ↓ ↓↓ ↕) | |
 | `music`, `sfx`, `ambience` | the score and cues, spot sounds and hits, beds; clips may overlap; nothing dips under the voice by itself (a track's `duck: true` asks for about 6 dB under it; Samuel 2026-11-04) | |
@@ -441,9 +441,19 @@ its own, and each film links a version of it:
 
 **One function shows it.** The player's picture is `renderAt(story, t)` (`play/site/src/lib/stories/timeline.ts`):
 from the timeline alone, the shot at second t, the one fading out under it and how far (a cut cuts, other
-transitions cross-fade over up to half a second), the subtitle and how much of it is spoken, the notes. Play and
-scrub only move t; nothing runs on a clock of its own. The same t gives the same picture every time, which is what a
-frame-by-frame export needs (WebCodecs in the browser, or a page a renderer seeks through): it comes later.
+transitions cross-fade over up to half a second), how bright it is (the fades from and to black), the
+subtitle and how much of it is spoken, the notes. Play and scrub only move t; nothing runs on a clock of its own. The
+same t gives the same picture every time, which is what a frame-by-frame export needs (WebCodecs in the browser, or a
+page a renderer seeks through): it comes later.
+
+**A transition is code** (Samuel 2026-11-04: a fade is a transition like any other, set by a proposal like any other
+field). A shot's `transition` holds codes separated by commas (`;` and `·` too), each read from its start, with its
+seconds where it gives them (`transitionOf`): `cut` (and a hard, smash, match or jump cut, "cut to …") goes into the
+next shot at once; `dissolve` or `cross-fade` [s] fades the next shot in over it (0.5 s unless it says, at most half of
+either shot); `from black` or `fade in` [s] brings this shot up from black; `to black` or `fade out` [s] takes it down
+to black; `dip to black` [s] takes it down and brings the next up out of black. Anything else is prose about the
+transition, and a shot whose codes name no cut goes into the next with a short dissolve. A film opens out of black
+with its first shot's `from black 0.7, cut`.
 
 **Versioned like assets: the content-addressed DAG of §4.**
 
