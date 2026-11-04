@@ -15,11 +15,12 @@ the voice, the music (kind music or score) and the rest (ambience, sfx).
 It prints and flags:
   - every voice line's margin over everything else (dB), LOW under --min-voice;
   - every section boundary (a notes clip's start) with the voice's pause around it and how the music crosses it:
-      BREATH  the voice pausing less than 1.5 s at a section's change (a TURN: the music changes there, a cue
-              starting or ending within 2 s, or the world's sound does, a bed or an effect starting within 1 s of it),
-              or less than 0.6 s inside one running cue with nothing new arriving (a FLOW): the music needs
-              room to make the turn, and the listener a breath, before the next line (Samuel 2026-11-04: "a short
-              breathing break of the voice between 3 and 4"); a story break (silence) wants 2-3.5 s;
+      BREATH  the voice pausing less than its section's planned breath: the notes clip's `breath` (seconds of a
+              still voice before the section's first line), chosen for that film and that moment, never from a
+              table (Samuel 2026-11-04: "each section, each movie, each timeline has their own dynamic ... a longer
+              pause of thinking where the voice is still"). Without a plan, only a floor: 1.5 s at a TURN (the
+              music changes there, a cue starting or ending within 2 s, or the world's sound does, a bed or an
+              effect starting within 1 s of it), 0.6 s at a FLOW (one running cue, nothing new arriving);
   - around every section boundary (a notes clip's start) and every music clip's first and last second, the music and
     the beds in 0.5 s steps, with:
       HOLE  the music under -52 dB for 0.4 s or more while the beds are under -45 (nothing carries across), or under
@@ -201,11 +202,13 @@ def main():
         pause = (a1 - a0) * H if not speech[i] else 0.0
         world = [c['at'] for c in clips(('ambience', 'sfx', 'effects')) if isinstance(c.get('audio'), str) and c['audio']]
         kind = 'TURN' if any(abs(e - b) <= 2 for e in edges) or any(abs(a - b) <= 1 for a in world) else 'FLOW'
-        need = 1.5 if kind == 'TURN' else 0.6
+        planned = n.get('breath') if isinstance(n.get('breath'), (int, float)) else None
+        need = planned - 0.2 if planned is not None else (1.5 if kind == 'TURN' else 0.6)
         short = pause < need
-        print(f"  {b:7.2f}s {str(n.get('section', n['id']))[:22]:22} {kind}  voice pause {pause:4.2f} s (at least {need}){'   BREATH' if short else ''}")
+        what = f'planned {planned} s' if planned is not None else f'no plan, a floor of {need} s'
+        print(f"  {b:7.2f}s {str(n.get('section', n['id']))[:22]:22} {kind}  voice pause {pause:4.2f} s ({what}){'   BREATH' if short else ''}")
         if short:
-            msg = f"BREATH at {b:.2f}s ({n.get('section', n['id'])}): the voice pauses {pause:.2f} s at a {kind}, at least {need} s"
+            msg = f"BREATH at {b:.2f}s ({n.get('section', n['id'])}): the voice pauses {pause:.2f} s at a {kind} ({what})"
             (passed if any(abs(b - x) <= 2.5 for x in o.allow) else flags).append(msg)
     film_end = max(c['at'] + c['duration'] for t in story['tracks'] for c in t['clips'])
     near_edge = lambda t0: any(abs(e - t0) <= 2 for e in edges)
