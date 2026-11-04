@@ -1,0 +1,217 @@
+<!--
+	The Game editor (Samuel 2026-11-04): the game's configs, in the asset library's frame ($lib/app/Frame). On the left
+	the configs to pick from (first the levelling: how a village grows, level by level); in the middle the one picked,
+	worked out (./levels.ts): every level with the villagers that reach it, what it unlocks and costs, what a mind costs,
+	the minds each new villager gets for their euros and hearts, the investor's ticket with its minds and share, the minds
+	minted, and the treasury after it in euros, hearts and minds. On the right its versions.
+
+	A config is a Loro document in play's Postgres (play/api/src/gameconfigs.ts), read from the API; it changes only by
+	proposal (over MCP: game_config_edit, propose_game_config_version), decided on the Proposals page. `?config=<id>`
+	picks one, `&v=<n>` one of its versions, `&proposal=<id>` the config as an open proposal would make it. Admins only.
+-->
+<script lang="ts">
+	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
+	import { api } from '$lib/api';
+	import { session } from '$lib/session.svelte';
+	import Frame from '$lib/app/Frame.svelte';
+	import Icon from '$lib/app/Icon.svelte';
+	import { euros, ledger, pct, short, whole, type Levelling, type Row } from './levels';
+
+	type Item = { id: string; label: string; schema: string; note: string; number: number; versions: number };
+	type Version = { number: number; note: string; at: string; acceptedBy: string | null };
+	type Config = { id: string; json: any; number: number; version?: number; versions: Version[]; proposal?: { id: string; status: string; note: string } };
+
+	const admin = $derived(session.me?.level === 'admin');
+	let list = $state<Item[]>([]);
+	let config = $state<Config | null>(null);
+	let error = $state('');
+	const params = $derived(page.url.searchParams);
+	const id = $derived(params.get('config') ?? list[0]?.id ?? '');
+	const wantV = $derived(params.get('v'));
+	const wantProposal = $derived(params.get('proposal'));
+	$effect(() => {
+		if (!admin) return;
+		api<Item[]>('/game/configs').then((l) => (list = l), (e) => (error = e.message));
+	});
+	$effect(() => {
+		if (!admin || !id) return;
+		const q = wantProposal ? `?proposal=${encodeURIComponent(wantProposal)}` : wantV ? `?v=${encodeURIComponent(wantV)}` : '';
+		let gone = false;
+		api<Config>(`/game/configs/${id}${q}`).then(
+			(c) => !gone && ((config = c), (error = '')),
+			(e) => !gone && (error = e.message)
+		);
+		return () => (gone = true);
+	});
+	const at = (c: string, v?: number) => goto(`?config=${c}${v ? `&v=${v}` : ''}`, { keepFocus: true, noScroll: true });
+
+	const levelling = $derived(config?.json.schema === 'levels/1' ? (config.json as Levelling) : null);
+	const rows = $derived(levelling ? ledger(levelling) : []);
+	const last = $derived(rows.at(-1));
+	/** the phases in order, each with its rows */
+	const phases = $derived.by(() => {
+		const out: { phase: string; rows: Row[] }[] = [];
+		for (const r of rows) {
+			if (out.at(-1)?.phase !== r.level.phase) out.push({ phase: r.level.phase, rows: [] });
+			out.at(-1)!.rows.push(r);
+		}
+		return out;
+	});
+</script>
+
+<svelte:head><title>{config?.json.label ?? 'Game editor'} · Game editor · maiaCITY play</title></svelte:head>
+
+{#snippet shelf()}
+	<h3 class="nav-group">Game configs</h3>
+	{#each list as c (c.id)}
+		<a class="nav-item" class:on={id === c.id} href="?config={c.id}" onclick={(e) => (e.preventDefault(), at(c.id))} aria-current={id === c.id ? 'page' : undefined}
+			><Icon name="settings" size={16} /><span>{c.label}</span><small>v{c.number}</small></a
+		>
+	{/each}
+	<p class="soon">More configs come here as the game grows: the buildings, the resources, the coops.</p>
+	{#if config}
+		<header class="about-head">
+			<small>Owned by Maia City</small>
+			<h3>{config.json.label}</h3>
+			{#if config.proposal}
+				<p class="asif">As the {config.proposal.status} proposal would make it: “{config.proposal.note}” <a href="/proposals/">Back to the proposals</a> · <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>its newest version</a></p>
+			{:else if config.version !== config.number}
+				<p class="asif">Version {config.version}, not its newest: <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>v{config.number}</a></p>
+			{/if}
+		</header>
+		<h4 class="side-head">Versions</h4>
+		<ol class="chain">
+			{#each [...config.versions].reverse() as v (v.number)}
+				<li class:on={!config.proposal && v.number === config.version}>
+					<a href="?config={config.id}&v={v.number}" onclick={(e) => (e.preventDefault(), at(config!.id, v.number === config!.number ? undefined : v.number))}><b>v{v.number}</b></a>
+					<span class="from">{new Date(v.at).toLocaleDateString('en-GB')}{v.acceptedBy ? ` · accepted by ${v.acceptedBy}` : ''}</span>
+					<p class="note">{v.note}</p>
+				</li>
+			{/each}
+		</ol>
+		<p class="soft propose">Every change is a step of its Loro document. Propose v{config.number + 1} over MCP (game_config_edit, propose_game_config_version); it is decided in <a href="/proposals/">Proposals</a>.</p>
+	{/if}
+{/snippet}
+
+{#if admin}
+	<div class="editor">
+		<Frame nav={shelf} navLabel="The game's configs and their versions" navIcon="board">
+			<div class="body">
+				{#if error}<p class="bad">{error}</p>{/if}
+				{#if levelling && last}
+					<header class="top">
+						<p class="eyebrow">Game editor · {levelling.label}</p>
+						<h1>How a village grows</h1>
+						{#if levelling.note}<p class="lead">{levelling.note}</p>{/if}
+						<p class="rules">
+							Every villager brings <b>{euros(levelling.villager.euros)}</b> and <b>{short(levelling.villager.hearts)} hearts</b>. A mind costs {short(levelling.minds.heartsPerMind)} hearts at level 1 and {short(levelling.minds.step)} more at every level, or that in euros at {levelling.minds.heartsPerEuro} hearts a euro. At each level an investor adds a multiple of the new villagers' euros.
+						</p>
+					</header>
+
+					<div class="stats">
+						<div><span>Villagers</span><b>{whole(last.level.villagers)}</b><small>{rows.length} levels</small></div>
+						<div><span>Raised</span><b>{euros(last.treasury.raised)}</b><small>{euros(rows.reduce((t, r) => t + r.villagers.euros, 0))} villagers · {euros(rows.reduce((t, r) => t + r.investor.euros, 0))} investors</small></div>
+						<div><span>Built</span><b>{euros(last.treasury.spent)}</b><small>{euros(last.treasury.left)} left in the treasury</small></div>
+						<div><span>Hearts</span><b>{short(last.treasury.hearts)}</b><small>in the coop's treasury</small></div>
+						<div><span>Minds</span><b>{short(last.treasury.minds)}</b><small>investors hold {pct(last.treasury.investors)}</small></div>
+						<div><span>Early bird</span><b>{whole(rows[0].villager.minds)}</b><small>minds for the first villager, {whole(last.villager.minds)} for the last</small></div>
+					</div>
+
+					<div class="scroll">
+						<table>
+							<thead>
+								<tr>
+									<th>Level</th>
+									<th>Villagers</th>
+									<th class="wide">Unlocks</th>
+									<th class="num">Cost</th>
+									<th class="num">Each new villager</th>
+									<th class="num">Investor</th>
+									<th class="num">Minted</th>
+									<th class="num tre">Treasury</th>
+								</tr>
+							</thead>
+							{#each phases as ph (ph.phase + ph.rows[0].n)}
+								<tbody>
+									<tr class="phase"><th colspan="8">{ph.phase}</th></tr>
+									{#each ph.rows as r (r.level.id)}
+										<tr>
+											<td><b class="lvl">{r.n}</b></td>
+											<td><b>{whole(r.level.villagers)}</b><small>+{whole(r.joined)} new</small></td>
+											<td class="wide">
+												<ul class="unlocks">
+													{#each r.level.unlocks as u, i (i)}<li>{u.label}<em>{euros(u.cost)}</em></li>{/each}
+												</ul>
+											</td>
+											<td class="num"><b>{euros(r.cost)}</b></td>
+											<td class="num"><b>{whole(r.villager.minds)} minds</b><small>a mind {short(r.price.hearts)} hearts or {euros(r.price.euros)}</small></td>
+											<td class="num"><b>{euros(r.investor.euros)}</b><small>{r.level.investor}× the villagers'</small><small>{short(r.investor.minds)} minds · {pct(r.investor.share)}</small></td>
+											<td class="num">{short(r.minted)}</td>
+											<td class="num tre"><b>{euros(r.treasury.raised)}</b><small class:low={r.treasury.left < 0}>{euros(r.treasury.left)} left after building</small><small>{short(r.treasury.hearts)} hearts · {short(r.treasury.minds)} minds</small><small>investors hold {pct(r.treasury.investors)}</small></td>
+										</tr>
+									{/each}
+								</tbody>
+							{/each}
+						</table>
+					</div>
+					<p class="foot">
+						Each new villager's minds: their hearts and euros at the level's price. The investor's: its euros at the same price, and its share of the minds minted at that level. Treasury: euros raised so far and what is left after building everything unlocked, the hearts villagers brought, and every mind minted so far with the share investors hold and what they are worth at the level's price.
+					</p>
+				{:else if config && !levelling}
+					<p class="muted">This config is of a kind the editor can't show yet ({config.json.schema}).</p>
+				{:else if !error}
+					<p class="muted">Reading the configs…</p>
+				{/if}
+			</div>
+		</Frame>
+	</div>
+{:else}
+	<main class="page"><p class="muted">The Game editor is for Maia City's admins.</p></main>
+{/if}
+
+<style>
+	.editor { position: fixed; inset: 0; background: var(--cream); --soft: rgb(38 56 44 / 0.6); --accent: var(--brand-green); }
+	.editor :global(.soft) { color: var(--soft); }
+	.body { height: 100%; overflow: auto; padding: 1.6rem clamp(1rem, 3vw, 2rem) 7rem; }
+	.top { max-width: 60rem; }
+	.eyebrow { margin: 0; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--terracotta); }
+	h1 { margin: 0.3rem 0 0.4rem; font-size: clamp(1.8rem, 3.5vw, 2.6rem); }
+	.lead { margin: 0 0 0.5rem; color: var(--ink-soft); }
+	.rules { margin: 0; font-size: 0.86rem; color: var(--ink-soft); line-height: 1.5; }
+	.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: 10px; margin: 1.3rem 0; }
+	.stats div { display: flex; flex-direction: column; padding: 0.7rem 0.9rem; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+	.stats span { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+	.stats b { font-family: var(--font-display); font-size: 1.45rem; font-weight: 500; }
+	.stats small { font-size: 0.74rem; color: var(--muted); }
+	.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+	table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+	th, td { padding: 0.5rem 0.55rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+	thead th { position: sticky; top: 0; z-index: 1; background: var(--paper); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+	.num { text-align: right; white-space: nowrap; }
+	td small { display: block; font-size: 0.72rem; color: var(--muted); }
+	td small.low { color: #c23a22; }
+	.tre { background: rgb(168 184 138 / 0.12); }
+	tr.phase th { padding: 0.45rem 0.65rem; background: var(--sage-soft); color: var(--ink); font-family: var(--font-display); font-size: 0.95rem; font-weight: 500; letter-spacing: 0; text-transform: none; }
+	.lvl { display: inline-grid; place-items: center; width: 1.7rem; height: 1.7rem; border-radius: 50%; background: var(--ink); color: var(--paper); font-size: 0.78rem; }
+	.wide { min-width: 15rem; }
+	.unlocks { list-style: none; margin: 0; padding: 0; }
+	.unlocks li { display: flex; gap: 0.4rem; align-items: baseline; padding: 0.1rem 0; }
+	.unlocks em { margin-left: auto; padding-left: 0.6rem; font-style: normal; color: var(--muted); white-space: nowrap; }
+	.foot { max-width: 60rem; margin: 0.8rem 0 0; font-size: 0.76rem; color: var(--muted); line-height: 1.5; }
+	.bad { color: #c23a22; }
+	.soon { margin: 0.8rem 0.35rem; font-size: 0.76rem; color: var(--soft); }
+	.about-head { margin: 1.4rem 0 0.9rem 0.35rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+	.about-head small { color: var(--accent); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+	.about-head h3 { margin: 0.15rem 0 0.3rem; font-size: 1.15rem; font-family: var(--font-body); font-weight: 600; }
+	.note { margin: 0.1rem 0 0; font-size: 0.76rem; line-height: 1.4; color: var(--ink-soft); }
+	.from { margin: 0.3rem 0 0; font-size: 0.74rem; color: var(--soft); }
+	.side-head { margin: 0 0 0.5rem 0.35rem; color: var(--soft); font-family: var(--font-body); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+	.chain { list-style: none; padding: 0; margin: 0 0 1.2rem 0.4rem; border-left: 2px solid var(--line); }
+	.chain li { position: relative; display: block; padding: 0.35rem 0 0.6rem 0.9rem; font-size: 0.9rem; }
+	.chain li::before { content: ''; position: absolute; left: -7px; top: 0.75rem; width: 10px; height: 10px; border-radius: 50%; background: var(--paper); border: 2px solid var(--sage); }
+	.chain li.on::before { background: var(--mustard); border-color: var(--mustard); }
+	.chain a { color: inherit; text-decoration: none; }
+	.asif { margin: 0.4rem 0 0.5rem; padding: 0.45rem 0.6rem; border-radius: 8px; background: var(--mustard-soft); font-size: 0.78rem; line-height: 1.4; }
+	.propose { margin: -0.6rem 0 1.2rem 0.35rem; font-size: 0.76rem; }
+</style>

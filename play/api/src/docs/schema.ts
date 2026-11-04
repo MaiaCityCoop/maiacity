@@ -317,7 +317,83 @@ export const FACTORY: DocType = {
   },
 };
 
-export const TYPES: Record<string, DocType> = { [STORY.name]: STORY, [ASSET.name]: ASSET, [FACTORY.name]: FACTORY };
+/**
+ * A game config's levelling (../gameconfigs.ts, Samuel 2026-11-04): how a village grows. Each level is reached at a
+ * number of villagers (Fibonacci counts: 1, 2, 3, 5, 8 …) and unlocks what the village builds next (a tent, a
+ * container, a dome, an energy plant), each with its cost in euros; every new villager brings `villager.euros` and
+ * `villager.hearts`, and an investor adds `investor` times what the level's new villagers brought in euros. Minds are
+ * minted at a price that climbs with the level (`minds`); everything else (the minds each gets, the treasury in euros,
+ * hearts and minds, who owns what) is worked out where it is shown (play/site's routes/game-editor/levels.ts). Data
+ * only.
+ */
+const unlock: Node = {
+  type: "object",
+  required: ["label", "cost"],
+  properties: { label: { type: "string", minLength: 1, maxLength: 300 }, cost: { type: "number", minimum: 0, maximum: 1e12 }, kind: { type: "string", maxLength: 40 }, note: { type: "string", maxLength: 2000 } },
+  additionalProperties: true,
+};
+export const LEVELS: DocType = {
+  name: "levels/1",
+  type: "game",
+  schema: {
+    type: "object",
+    required: ["schema", "label", "villager", "minds", "levels"],
+    properties: {
+      schema: { const: "levels/1" },
+      label: { type: "string", minLength: 1, maxLength: 200 },
+      note: { type: "string", maxLength: 20000, "x-loro": "text" },
+      villager: {
+        type: "object",
+        required: ["euros", "hearts"],
+        properties: { euros: { type: "number", minimum: 0, maximum: 1e9 }, hearts: { type: "number", minimum: 0, maximum: 1e12 } },
+        additionalProperties: true,
+      },
+      minds: {
+        type: "object",
+        required: ["heartsPerMind", "step", "heartsPerEuro"],
+        properties: {
+          heartsPerMind: { type: "number", minimum: 0.0001, maximum: 1e9 },
+          step: { type: "number", minimum: 0, maximum: 1e9 },
+          heartsPerEuro: { type: "number", minimum: 0.0001, maximum: 1e9 },
+        },
+        additionalProperties: true,
+      },
+      levels: {
+        type: "array",
+        minItems: 1,
+        maxItems: 100,
+        items: {
+          type: "object",
+          required: ["id", "villagers", "phase", "investor", "unlocks"],
+          properties: {
+            id: { type: "string", pattern: ITEM_ID },
+            villagers: { type: "integer", minimum: 1, maximum: 1e9 },
+            phase: { type: "string", minLength: 1, maxLength: 100 },
+            investor: { type: "number", minimum: 0, maximum: 1000 },
+            unlocks: { type: "array", maxItems: 50, items: unlock },
+            note: { type: "string", maxLength: 4000 },
+          },
+          additionalProperties: true,
+        },
+      },
+    },
+    additionalProperties: true,
+  },
+  check(doc) {
+    const out: string[] = [];
+    const ids = new Set<string>();
+    let last = 0;
+    for (const l of doc.levels ?? []) {
+      if (ids.has(l.id)) out.push(`level ${l.id}: its id is taken twice`);
+      ids.add(l.id);
+      if (l.villagers <= last) out.push(`level ${l.id}: ${l.villagers} villagers, not more than the level before (${last})`);
+      last = l.villagers;
+    }
+    return out;
+  },
+};
+
+export const TYPES: Record<string, DocType> = { [STORY.name]: STORY, [ASSET.name]: ASSET, [FACTORY.name]: FACTORY, [LEVELS.name]: LEVELS };
 
 /** the type a schema name names, or a SchemaError */
 export function typeOf(name: string): DocType {

@@ -19,3 +19,9 @@ export const FACTORY = {
   /** the LifeTrac line (once 'lifetrac-line') */
   lifetrac: "bb437f73-48c6-8dd9-82c6-07ce2630e43e",
 } as const;
+
+/** the game's configs (the Game editor, ../import/gameconfigs.ts), each made with a random UUID when it was first written */
+export const GAME_CONFIG = {
+  /** the levelling: how a village grows, level by level (Samuel 2026-11-04) */
+  levelling: "a392ce93-f60e-4d67-8f96-19ba866c7710",
+} as const;

@@ -262,6 +262,22 @@ names the next version; made on a version that is no longer the newest, it still
 different fields and is archived where they touch the same. The Factories page reads every version (`&v=<n>`). Admins
 only, as the Factories are.
 
+### 4.9 The Game editor (the `game_config_version` proposal, Samuel 2026-11-04)
+
+The game's configs are Loro documents too, `game:<uuid>` (type by kind: `levels/1` first, `play/api/src/docs/schema.ts`;
+`play/api/src/gameconfigs.ts`, which follows the Factories step for step), listed in `play.game_configs` (migration
+`0019`) and shown on the **Game editor** (`/game-editor/`, a tile of the coop's own on the dashboard; admins only): on the
+left the configs and the picked one's versions, in the middle the config worked out. The first, the **levelling**
+(`GAME_CONFIG.levelling`, its v1 made once by the deploy's import, `play/api/import/gameconfigs`), is how a village
+grows: a level at every Fibonacci count of villagers (1, 2, 3, 5 … 1,597), each unlocking what the village builds next
+with its cost; every new villager brings €12,500 and 50,000 hearts, and an investor adds a multiple of the level's new
+villagers' euros. A mind costs 10 hearts more at every level (or that in euros at 4 hearts a euro), so the page works
+out (`play/site`'s `routes/game-editor/levels.ts`) the minds each villager and investor gets, the investor's share, the
+minds minted, and the treasury after every level in euros (raised and left after building), hearts and minds. A config
+changes only by proposal, as a factory does: `list_game_configs`, `get_game_config`, `game_config_history`,
+`game_config_edit`, `propose_game_config_version` over MCP; the Proposals page shows it field by field and opens the
+Game editor as it would be (`?config=<id>&proposal=<id>`).
+
 ## 5. The three sandboxes
 
 | New | Cloned from | What changes |

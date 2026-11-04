@@ -19,6 +19,7 @@ import { clientOf, perMinute, Rate, costly } from "./limits";
 import { listStories, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
 import { AssetDocError, assetHistory, recipeAtStep } from "./assetdocs";
 import { factoryHistory, factoryOf, FactoryError, listFactories } from "./factories";
+import { gameConfigHistory, gameConfigOf, GameConfigError, listGameConfigs } from "./gameconfigs";
 
 type Handler = (req: Request, params: Record<string, string>) => Promise<Response> | Response;
 type Route = { method: string; pattern: RegExp; keys: string[]; handler: Handler };
@@ -226,6 +227,20 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await factoryHistory(db, await me(req), p.id, b == null ? {} : { branch: Number(b) }));
   });
 
+  // the Game editor (./gameconfigs.ts), admins only: each of the game's configs a Loro document, read at its newest
+  // version, a version (?v=2), a step (?step=7) or as an open proposal would make it (?proposal=<id>); changed only by
+  // proposal
+  on("GET", "/api/game/configs", async (req) => json(await listGameConfigs(db, await me(req))));
+  on("GET", "/api/game/configs/:id", async (req, p) => {
+    const q = new URL(req.url).searchParams;
+    const num = (k: string) => (q.get(k) == null ? undefined : Number(q.get(k)));
+    return json(await gameConfigOf(db, await me(req), p.id, { version: num("v"), step: num("step"), proposal: q.get("proposal") ?? undefined }));
+  });
+  on("GET", "/api/game/configs/:id/history", async (req, p) => {
+    const b = new URL(req.url).searchParams.get("draft");
+    return json(await gameConfigHistory(db, await me(req), p.id, b == null ? {} : { branch: Number(b) }));
+  });
+
   async function fetch(req: Request, server?: unknown): Promise<Response> {
     if (costly(req) && !rate.allows(clientOf(req, server as any)))
       return json({ error: "Too many requests: try again in a minute." }, { status: 429, headers: { "Retry-After": "60" } });
@@ -242,7 +257,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       try {
         return await r.handler(req, params);
       } catch (e) {
-        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError || e instanceof FactoryError)
+        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError)
           return json({ error: e.message }, { status: (e as any).status });
         console.error(e);
         return json({ error: "Something went wrong on our side." }, { status: 500 });
