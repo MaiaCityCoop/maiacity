@@ -1,9 +1,13 @@
 /*
- * THE LIFETRAC LINE — a fully automated factory that builds our LifeTrac (machines/lifetrac@1, Open Source Ecology's
+ * THE LIFETRAC LINE, as it was first made (2026-11-03): v1 of the factory document `factory:lifetrac-line`, made from this file
+ * and ./bom.js by ../../factories.ts once, the first time a deploy finds no such document. From then on play's Postgres
+ * is the line's source of truth (play/SPEC.md §4.7): it changes only by proposal, and nothing here writes over it.
+ *
+ * A fully automated factory that builds our LifeTrac (machines/lifetrac@1, Open Source Ecology's
  * LifeTrac v25 as the asset draws it) part by part, from raw steel, bar, hose and wire to a tested machine driving off
  * the end of the line. This file is the spec AirSup's factory runtime reads (.claude/skills/factory-skill/SKILL.md);
  * its stations' cycle times are not typed in here: each is the sum of the operations every part of the LifeTrac goes
- * through at that station (./lifetrac-bom.js, one entry per part of the asset's catalog, all 135 of them).
+ * through at that station (./bom.js, one entry per part of the asset's catalog, all 135 of them).
  *
  * Assumptions (2026-11-03):
  *   - Volume: 24 LifeTracs a day, one an hour: 6,000 a year on 250 days. A region's tractors.
@@ -43,7 +47,7 @@
  *   cyls    saw → turn → weld → assemble → paint → test ─────────────→ cylinders → bucket and deck
  *   control harness → controller build → test ──────────────────────→ wire → fill → end-of-line test → drive-off
  */
-import { contentOf, opsAt, RATE } from './lifetrac-bom.js';
+import { contentOf, opsAt, RATE } from './bom.js';
 
 /** the LifeTrac the line builds, by its slot of the Factories' pins (play's database: machines/lifetrac@1, lifetrac-v25) */
 export const LIFETRAC_REF = 'pin:factories/lifetrac';
@@ -70,7 +74,7 @@ function noteOf(id, what, rate) {
 }
 
 /**
- * One station: its cycle time the sum of its operations (./lifetrac-bom.js), its breakdowns by its kind of machine.
+ * One station: its cycle time the sum of its operations (./bom.js), its breakdowns by its kind of machine.
  * @param {string} id @param {string} name @param {string} machine @param {Record<string, any>} o
  */
 function station(id, name, machine, o = {}) {
@@ -79,7 +83,9 @@ function station(id, name, machine, o = {}) {
 	const big = machine === 'asmcell' && rest.variant !== 'cube' || machine === 'testcage' ? { beltW: 1.8, pitch: 3.0 } : { beltW: 1.8, pitch: 1.4 };
 	// spare floor for one more machine only where the line's constraint sits or moves to (the weld cell, then the
 	// laser, the cylinder lathes); everywhere else the cell is built to its size
-	return { id, name, machine, ct: contentOf(id), cv: 0.05, buffer: 2, operators: 0, reserve: 0, ...big, ...(kind ? BREAKS[kind] : {}), note: noteOf(id, what, rate), ...rest };
+	// `kind`, `what` and `rate` kept as they are, so the factory's document (../../factories.ts) holds them and the page
+	// writes the note again from the operations as they stand
+	return { id, name, machine, ct: contentOf(id), cv: 0.05, buffer: 2, operators: 0, reserve: 0, ...big, ...(kind ? BREAKS[kind] : {}), note: noteOf(id, what, rate), ...(kind ? { kind } : {}), what, ...(rate ? { rate } : {}), ...rest };
 }
 
 /** the line as AirSup's runtime reads it (SKILL.md "Spec"), every station fully automated */
@@ -153,7 +159,7 @@ export const SPEC = {
 		station('eol', 'End-of-line test', 'testcage', { stage: 'lifetrac', kind: 'tester', cv: 0.04, buffer: 2, yield: 0.98, what: 'The whole machine:', rate: '2 % fail and go to the rework bay off the line.' }),
 		station('ship', 'Audit and drive-off', 'asmcell', { variant: 'audit', stage: 'lifetrac', cv: 0.03, buffer: 3, what: 'The whole machine:', rate: 'Vision arch and the build record.' })
 	],
-	/** what each stage looks like: our own shapes at their real size (./lifetrac-kit.js), the finished machine our
+	/** what each stage looks like: our own shapes at their real size (play/site's content/factories/lifetrac-kit.js), the finished machine our
 	 *  LifeTrac by its slot (built in the asset box; `fallback` is our own model of it, drawn until the pin resolves) */
 	stages: {
 		sheets: { shape: 'sheets', color: '#7b8084' },

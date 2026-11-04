@@ -24,7 +24,7 @@
 		if (!admin) goto('/', { replaceState: true });
 	});
 
-	type P = { id: string; kind?: 'asset_version' | 'story_version' | 'sandbox_change'; asset_id: string | null; label: string; grp: string; slug: string; version_label: string | null; number: number | null; changes?: number; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
+	type P = { id: string; kind?: 'asset_version' | 'story_version' | 'sandbox_change' | 'factory_version'; asset_id: string | null; label: string; grp: string; slug: string; version_label: string | null; number: number | null; changes?: number; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
 	const COLUMNS = [
 		['open', 'Open'],
 		['accepted', 'Accepted'],
@@ -48,7 +48,9 @@
 	const inColumn = (s: string) => list.filter((p) => p.status === s);
 	async function act(id: string, verdict: string) {
 		try {
-			await api(`/proposals/${id}/${verdict}`, { method: 'POST' });
+			// accepting may still archive it (its head moved and the two changes touch the same field): say why
+			const r = await api<{ status: string; message?: string }>(`/proposals/${id}/${verdict}`, { method: 'POST' });
+			error = r?.message ?? '';
 			await load();
 		} catch (e) {
 			error = (e as Error).message;
@@ -89,6 +91,11 @@
 		| { kind: 'config'; config: string; path: (string | number)[]; before: unknown; after: unknown };
 	type SandboxReview = { sandbox: { id: string; title: string; route: string }; changes: SandboxChange[]; holds: boolean; why: string | null; moved: boolean };
 	let sandboxReview = $state<SandboxReview | null>(null);
+	// a factory's: what changed, field by field (its document's paths, list items named by their ids), and its steps
+	type FactoryReview = { factory: { id: string; label: string }; baseNumber: number | null; moved: boolean; changes: { path: string; kind: 'added' | 'removed' | 'changed'; from?: unknown; to?: unknown }[]; steps: { seq: number; message: string; author: string | null; via: string; at: string }[] };
+	let factoryReview = $state<FactoryReview | null>(null);
+	/** a document path as people read it: $.line.stations[id=weld].servers → line › stations › weld › servers */
+	const pathText = (path: string) => path.replace(/^\$\.?/, '').replace(/\[id=([^\]]+)\]/g, '.$1').replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
 	const pinText = (x: PinShown) =>
 		x ? `${x.label} v${x.number}${x.usedVariant ? ` · ${x.usedVariant}${x.variant ? '' : ' (default)'}` : ''}${x.params ? ` · ${Object.entries(x.params).map(([k, v]) => `${k} ${v}`).join(', ')}` : ''}` : 'none';
 	const valueText = (v: unknown) => (v === undefined ? '(none)' : JSON.stringify(v, null, 1));
@@ -99,6 +106,7 @@
 		review = null;
 		storyReview = null;
 		sandboxReview = null;
+		factoryReview = null;
 		code = '';
 		baseCode = null;
 		shown = '';
@@ -118,6 +126,15 @@
 			try {
 				const r = await api<SandboxReview>(`/proposals/${p.id}`);
 				if (open?.id === p.id) sandboxReview = r;
+			} catch (e) {
+				reviewError = (e as Error).message;
+			}
+			return;
+		}
+		if (p.kind === 'factory_version') {
+			try {
+				const r = await api<FactoryReview>(`/proposals/${p.id}`);
+				if (open?.id === p.id) factoryReview = r;
 			} catch (e) {
 				reviewError = (e as Error).message;
 			}
@@ -230,6 +247,38 @@
 								</li>
 							{/each}
 						</ol>
+					{/if}
+				</div>
+			{:else if p.kind === 'factory_version'}
+				<div class="sandbox-review">
+					{#if reviewError}<p class="error">{reviewError}</p>
+					{:else if !factoryReview}<p class="muted">Reading it…</p>
+					{:else}
+						{@const r = factoryReview}
+						<p>
+							<a class="btn small" href="/factories/?factory={encodeURIComponent(r.factory.id)}&proposal={encodeURIComponent(p.id)}" target="_blank" rel="noopener">Open {r.factory.label} as it would be</a>
+							{#if r.moved}<span class="muted small"> It was made on v{r.baseNumber}; the factory has a newer version since. Accepting merges it where the two touch different fields, and archives it where they touch the same.</span>{/if}
+						</p>
+						<h3>{p.status === 'accepted' ? 'What it changed' : 'What it changes'}{r.baseNumber ? ` from v${r.baseNumber}` : ''}</h3>
+						<ol class="changes">
+							{#each r.changes as c, i (i)}
+								<li>
+									<span class="where">{#each pathText(c.path) as k, j}{#if j}<span class="muted"> › </span>{/if}{k}{/each}</span>
+									<div class="vals"><pre class="was">{c.kind === 'added' ? '(none)' : valueText(c.from)}</pre><pre class="now">{c.kind === 'removed' ? '(none)' : valueText(c.to)}</pre></div>
+								</li>
+							{/each}
+						</ol>
+						{#if r.steps.length > 1}
+							<h3 class="steps-head">Made in {r.steps.length} steps</h3>
+							<ol class="steps">
+								{#each r.steps as s (s.seq)}
+									<li>
+										<span class="msg">{s.message}</span>
+										<span class="muted small">{s.author ?? 'play'}{s.via === 'mcp' ? ' · MCP' : ''} · {new Date(s.at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+									</li>
+								{/each}
+							</ol>
+						{/if}
 					{/if}
 				</div>
 			{:else if p.kind === 'story_version'}

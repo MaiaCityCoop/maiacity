@@ -308,6 +308,12 @@ export async function stateAt(db: Queryable, id: string, at: { step: number } | 
   return jsonAt(d, rows[0].frontiers);
 }
 
+/** the document's JSON where branch `b` was made from (its base on the main line): what a proposal is read against */
+export async function baseOf(db: Queryable, id: string, b: number): Promise<any> {
+  const row = await rowOf(db, id);
+  return jsonAt(await loadMain(db, row), (await branchOf(db, id, b)).base);
+}
+
 /** what changed between two points (a step's seq or a version's number) */
 export async function diffBetween(db: Queryable, id: string, a: { step: number } | { version: number }, b: { step: number } | { version: number }): Promise<Change[]> {
   return diff(await stateAt(db, id, a), await stateAt(db, id, b));
