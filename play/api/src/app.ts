@@ -131,12 +131,19 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     // origin could run: it runs only in the asset box, which gets its text by fetch, held to its hash. Media keep their
     // type (covers, sounds), and nothing served here is sniffed or may run as a document.
     const media = /^(image|audio|video)\//.test(f.media_type) ? f.media_type : "text/plain; charset=utf-8";
-    return new Response(Buffer.from(bytes), {
-      headers: {
-        "Content-Type": media, "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; sandbox",
-        "Cache-Control": "private, max-age=31536000, immutable", ETag: `"${p.hash}"`,
-      },
-    });
+    const headers: Record<string, string> = {
+      "Content-Type": media, "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; sandbox",
+      "Cache-Control": "private, max-age=31536000, immutable", ETag: `"${p.hash}"`, "Accept-Ranges": "bytes",
+    };
+    // a part of it, by its bytes: a sound starts playing where it is asked to (a loop begun anywhere in it) without the
+    // whole recording coming down first
+    const range = rangeOf(req.headers.get("range"), bytes.length);
+    if (range === "unsatisfiable") return new Response(null, { status: 416, headers: { ...headers, "Content-Range": `bytes */${bytes.length}` } });
+    if (range) {
+      const [from, to] = range;
+      return new Response(Buffer.from(bytes.subarray(from, to + 1)), { status: 206, headers: { ...headers, "Content-Range": `bytes ${from}-${to}/${bytes.length}` } });
+    }
+    return new Response(Buffer.from(bytes), { headers });
   });
 
   // ---- sandboxes
@@ -245,4 +252,19 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json({ error: "Not found." }, { status: 404 });
   }
   return { fetch };
+}
+
+/** the one byte range a Range header asks of a file of `size` bytes (inclusive), null for the whole file (no header, or
+ * one asking several ranges or another unit), "unsatisfiable" for one that starts past its end */
+export function rangeOf(header: string | null, size: number): [number, number] | null | "unsatisfiable" {
+  const m = /^bytes=(\d*)-(\d*)$/.exec(header?.trim() ?? "");
+  if (!m || (m[1] === "" && m[2] === "")) return null;
+  if (m[1] === "") {
+    const n = Math.min(Number(m[2]), size);
+    return n > 0 ? [size - n, size - 1] : "unsatisfiable";
+  }
+  const from = Number(m[1]);
+  if (from >= size) return "unsatisfiable";
+  const to = m[2] === "" ? size - 1 : Math.min(Number(m[2]), size - 1);
+  return to < from ? null : [from, to];
 }

@@ -6,8 +6,11 @@
  * volume, easing it up and down as the distances change. Under the glass of
  * a dome everything outside is muffled.
  *
- * Browsers only let a page make sound after you have touched it, so the
- * sounds start with your first click or key.
+ * The recordings start loading the moment the world is made, while it is
+ * still loading, and play as soon as it opens: a page you came to by a click
+ * (the dashboard's) may make sound at once. Where the browser still holds it
+ * back, it starts with your first touch, click or key. play serves each
+ * recording in parts (Range), so a loop begun anywhere in it plays at once.
  */
 import { asset } from '$lib/site/media/url'
 
@@ -49,31 +52,49 @@ export function ambience(): Ambience {
 	const tracks = new Map<SoundName, { el: HTMLAudioElement; gain: GainNode }>()
 	let wanted: Partial<Record<SoundName, number>> = {}
 	let underGlass = false
+	let gone = false
+	let asked = false
 
-	const start = () => {
-		if (ctx) return void ctx.resume()
-		ctx = new AudioContext()
+	/** the sounds made and loading, silent until they are wanted: at once, so they are ready when the world opens */
+	const make = () => {
+		if (ctx) return
+		try {
+			ctx = new AudioContext()
+		} catch {
+			return
+		}
 		filter = ctx.createBiquadFilter()
 		filter.type = 'lowpass'
 		filter.frequency.value = 20000
 		filter.connect(ctx.destination)
-		for (const name of Object.keys(FILES) as SoundName[]) {
+		// the beds first (the forest outside, the soft nature inside): the ones heard the moment the world opens
+		const order = (Object.keys(FILES) as SoundName[]).sort((a, b) => Number(!['forest', 'inside'].includes(a)) - Number(!['forest', 'inside'].includes(b)))
+		for (const name of order) {
 			const el = new Audio()
-			const src = asset(FILES[name])
-			if (src) el.src = src
 			el.loop = true
 			el.preload = 'auto'
 			el.crossOrigin = 'anonymous'
+			const src = asset(FILES[name])
+			if (src) el.src = src
 			const gain = ctx.createGain()
 			gain.gain.value = 0
 			// the soft nature inside is heard in the room itself, not through the glass
 			ctx.createMediaElementSource(el).connect(gain).connect(name === 'inside' || name === 'factory' || name === 'machine' || name === 'lift' ? ctx.destination : filter)
 			// every loop starts somewhere else, so two visits never sound the same
 			el.addEventListener('loadedmetadata', () => (el.currentTime = Math.random() * Math.max(0, el.duration - 1)), { once: true })
-			void el.play().catch(() => {})
 			tracks.set(name, { el, gain })
 		}
 		apply()
+	}
+	/** playing, if the browser lets it: true once the sound is on */
+	const start = () => {
+		if (gone) return false
+		make()
+		if (!ctx) return false
+		if (ctx.state !== 'running') void ctx.resume().then(() => ctx?.state === 'running' && unlisten(), () => {})
+		for (const { el } of tracks.values()) if (el.paused) void el.play().catch(() => {})
+		if (ctx.state === 'running') unlisten()
+		return ctx.state === 'running'
 	}
 	const apply = () => {
 		if (!ctx || !filter) return
@@ -87,24 +108,36 @@ export function ambience(): Ambience {
 		}
 		filter.frequency.setTargetAtTime(underGlass ? 900 : 20000, now, 0.5)
 	}
-	const gesture = () => start()
-	window.addEventListener('pointerdown', gesture)
-	window.addEventListener('keydown', gesture)
+	// where the browser holds the sound back, the first touch, click or key lets it play
+	const GESTURES = ['pointerdown', 'touchend', 'keydown'] as const
+	const gesture = () => void start()
+	const unlisten = () => {
+		for (const g of GESTURES) window.removeEventListener(g, gesture)
+	}
+	for (const g of GESTURES) window.addEventListener(g, gesture)
+	make()
 
 	return {
 		set: (levels, indoors) => {
 			wanted = levels
 			underGlass = indoors
+			// the world asks for its sounds once it is open: they play from then on (where the browser holds them back,
+			// from the first touch, click or key)
+			if (!asked) {
+				asked = true
+				start()
+			}
 			// a dev hook: what is playing, and how loud
-			;(window as unknown as { __ambience?: unknown }).__ambience = { levels, indoors, started: !!ctx, state: ctx?.state }
+			;(window as unknown as { __ambience?: unknown }).__ambience = { levels, indoors, started: ctx?.state === 'running', state: ctx?.state }
 			apply()
 		},
 		dispose: () => {
-			window.removeEventListener('pointerdown', gesture)
-			window.removeEventListener('keydown', gesture)
+			gone = true
+			unlisten()
 			for (const { el } of tracks.values()) {
 				el.pause()
-				el.src = ''
+				el.removeAttribute('src')
+				el.load()
 			}
 			void ctx?.close()
 			ctx = null
