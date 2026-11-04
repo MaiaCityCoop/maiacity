@@ -39,7 +39,19 @@ for it, and the proposal's note says so.
 7. **Spot sounds by where they sound, not where the file starts.** Measure the first audible moment of an effect (hens,
    geese, bees: a bee recording starts quiet and buzzes 0.7 s in) and place that moment just after its word; skip a quiet
    head with `audio_in`.
-8. **Give a speaker's change a breath after a big musical moment:** after a trailer's crest, 1.2–1.5 s before the next
+8. **Every cue builds up and builds down.** The film's first music swells into its first beat over about half a second,
+   never at full on the first frame (Samuel 2026-11-04: "always have build ups and build downs, unless it helps to give
+   the story like a good break and you want it"); every cue ends by ringing out, fading or handing over. A hard start or
+   a dead stop only where the story wants that break (the old way's pulse stopping dead into "Here."), and the note
+   says so.
+9. **Sections of one energy and tempo are one cue, not two joined.** An intro running straight into a trailer is
+   composed as one piece (one composition plan, its sections as chunks, the intro's old cue as the first chunk's
+   `audio_reference`), not two generated cues butted together: even on the beat and in place of the final hit (rule 3),
+   a seam between two recordings changes the mix, the instruments and the key at once and is heard as a cut (Samuel
+   2026-11-04, the vision trailer's v13: "still very hard"; v15 is one cue). Make three or four takes, choose by
+   measuring (a swell at its start, one beat all through, no dip at the chunks' joins, accents where the words need
+   them), and land its accents on the words by its `audio_in` and the lines' gaps, never by cutting it.
+10. **Give a speaker's change a breath after a big musical moment:** after a trailer's crest, 1.2–1.5 s before the next
    line ("then for real." … "Maia, can you…", Samuel 2026-11-04).
 
 ## Measure it: check_mix.py
@@ -59,7 +71,9 @@ section boundary and every music clip's first and last second. It fails (exit 1)
 | LATE | a music clip still under −42 dB a second after it starts | start it on its energy, leave a silent head out (rule 4) |
 | LOW | a line under `--min-voice` dB over the rest | the music's keys under that line, or its EQ pocket (`mix.md`) |
 | OFFBEAT | two cues of one tempo (within 3 %) whose beats are more than 30 ms apart where one takes over | move the incoming so its downbeat lands on the outgoing's bar line (rule 3) |
-| ENDING | the outgoing cue strikes its final hit and the incoming, of the same tempo, comes more than 0.15 s after it | end the outgoing before its final hit; the incoming's downbeat takes that hit's place (rule 3) |
+| ENDING | the outgoing cue strikes its final hit and the incoming, of the same tempo, comes more than 0.15 s after it | end the outgoing before its final hit; the incoming's downbeat takes that hit's place (rule 3), or make the two one cue (rule 9) |
+| BUILD | the film's first music at full less than 0.4 s after its first sound | start it on its own swell (`audio_in`), ease it in with `keys` (rule 8) |
+| CUT | the music falling more than 15 dB within 0.25 s with nothing taking over | let it ring out or fade, or hand it over (rules 1, 8); a wanted dead stop passes with `--allow` |
 
 Run it on the body you are about to propose (local recordings or play's hashes, fetched with `$PLAY_MCP_TOKEN`) and
 propose only when it passes. A break Samuel heard and wants is passed with `--allow` and its second, and the note says
@@ -67,4 +81,5 @@ why. The day it was written it flagged every break Samuel had complained of in t
 into the trailer, the old way into the brick, the brick into the life, the life into the city) and passed v12; Samuel
 then still heard v12's intro end and the trailer start again, which its levels could not show, so it learned OFFBEAT and
 ENDING (each cue's pulse measured from its recording by onset autocorrelation, its last hit as its ending's start): they
-flag v12 and pass v13.
+flag v12 and pass v13. Samuel then heard v14's intro start at full on the first frame, which its first half second
+(not checked then) hid: it now checks the film's start (BUILD) and every hard stop (CUT), and flags v14, passing v15.

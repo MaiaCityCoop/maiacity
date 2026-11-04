@@ -20,14 +20,19 @@ It prints and flags:
             -50 dB for a second or more even over the beds (a break in the music: an L- and a J-cut belong there);
       JUMP  the music rising more than 12 dB within 0.25 s from under -45 to over -42 (a hard cut in from nothing; a
             J-cut or a swell rises over half a second or more);
+      BUILD the film's first music taking less than 0.4 s from its first sound (-60 dB) to full (within 3 dB of its
+            level a second in): it starts at full on the first frame instead of building up into its first beat
+            (Samuel 2026-11-04: "always have build ups and build downs");
+      CUT   the music falling more than 15 dB within 0.25 s from over -42 to under -50 with nothing taking over (a
+            hard stop: it builds down, rings out or hands over);
       LATE  a music clip still under -42 dB a second after it starts (an entrance too low or too slow);
   - and where one cue hands over to another of the same tempo (within 3 %, each pulse measured from its recording):
       OFFBEAT  the incoming cue's beat more than 30 ms off the outgoing's (the two pulses stumble over each other);
       ENDING   the outgoing cue strikes its final hit (its last chord, its dead stop) and the incoming comes in more than
                0.15 s after it: the music ends and starts again, a cut however smooth the levels (the incoming's downbeat
                belongs where that final hit was, and only the outgoing's ring goes on under it).
-  Not checked: the film's first half second and its ending after the last line, and a section boundary inside one
-  music clip with no clip starting or ending within 2 s of it (the cue's own composed dynamics, a drop after its peak).
+  Not checked: the film's ending after the last line, and a section boundary inside one music clip with no clip
+  starting or ending within 2 s of it (the cue's own composed dynamics, a drop after its peak).
 Exit code 1 when anything is flagged, so a proposal can wait on it. A break Samuel has heard and wants (a breath he asked
 for) is passed with --allow and its second on the timeline: flags within 2.5 s of it are listed as allowed, and the
 proposal's note says why.
@@ -209,7 +214,7 @@ def main():
             if a['at'] < hit < a['at'] + a['duration'] - 0.15 and b['at'] > hit + 0.15:
                 (passed if allowed else flags).append(f"ENDING {a['id']} -> {b['id']} at {b['at']:.2f}s: {a['id']} strikes its final hit at {hit:.2f}s and {b['id']} comes {b['at'] - hit:.2f} s after it (let {b['id']}'s downbeat take that hit's place)")
     last_line = max((c['at'] + c['duration'] for c in clips(('voice',))), default=film_end)
-    marks = [(t0, w) for t0, w in marks if 0.5 < t0 < min(film_end - 2.5, last_line + 1.0)]
+    marks = [(t0, w) for t0, w in marks if 0 <= t0 < min(film_end - 2.5, last_line + 1.0)]
     print('\nAround every boundary (music / beds, dB, 0.5 s steps from -2 to +2 s):')
     seen = set()
     for t0, what in sorted(marks):
@@ -218,22 +223,38 @@ def main():
         seen.add(round(t0, 1))
         i0, i1 = max(0, int((t0 - 2) / H)), min(len(bed), int((t0 + 2) / H))
         mus, beds = L['music'][i0:i1], L['other'][i0:i1]
+        pad = 0
+        if t0 - 2 < 0:   # before the film: silence
+            pad = int(round((2 - t0) / H))
+            mus, beds = np.r_[np.full(pad, -120.0), mus], np.r_[np.full(pad, -120.0), beds]
         steps = ' '.join(f'{mus[j:j + 10].max():4.0f}/{beds[j:j + 10].max():4.0f}' for j in range(0, len(mus), 10))
-        hole = jump = False
+        hole = jump = cut = False
         dead = gap = 0
-        for j in range(len(mus)):
+        for j in range(pad, len(mus)):   # not counting the silence before the film
             dead = dead + 1 if (mus[j] < -52 and beds[j] < -45) else 0
             gap = gap + 1 if mus[j] < -50 else 0
             hole |= dead * H >= 0.4 or gap * H >= 1.0
-        for j in range(len(mus) - 5):
-            jump |= mus[j] < -45 and mus[j + 5] > -42 and mus[j + 5] - mus[j] > 12
-        tag = ('  HOLE' if hole else '') + ('  JUMP' if jump else '')
+        build = False
+        for j in range(pad, len(mus) - 5):
+            jump |= mus[j] < -45 and mus[j + 5] > -42 and mus[j + 5] - mus[j] > 12 and not (pad and t0 < 0.5)
+            cut |= mus[j] > -42 and mus[j + 5] < -50 and mus[j] - mus[j + 5] > 15
+        if pad and t0 < 0.5:   # the film's first music: how long it takes to build up
+            film = L['music'][:int(2 / H)]
+            on = np.argmax(film > -60)
+            full = film[int(0.8 / H):int(1.2 / H)].max()
+            up = on + np.argmax(film[on:] >= full - 3)
+            build = film.max() > -60 and (up - on) * H < 0.4
+        tag = ('  HOLE' if hole else '') + ('  JUMP' if jump else '') + ('  CUT' if cut else '') + ('  BUILD' if build else '')
         print(f'  {t0:7.2f}s {what[:34]:34} {steps}{tag}')
         allowed = any(abs(t0 - a) <= 2.5 for a in o.allow)
         if hole:
             (passed if allowed else flags).append(f'HOLE around {t0:.2f}s ({what}): the music gone with nothing carrying across')
         if jump:
             (passed if allowed else flags).append(f'JUMP around {t0:.2f}s ({what}): the music rises more than 12 dB within 0.25 s')
+        if cut:
+            (passed if allowed else flags).append(f'CUT around {t0:.2f}s ({what}): the music falls more than 15 dB within 0.25 s, no build-down')
+        if build:
+            (passed if allowed else flags).append(f'BUILD at {t0:.2f}s ({what}): the music is at full {(up - on) * H:.2f} s after its first sound; it builds up over half a second')
 
     if passed:
         print('\nAllowed (--allow):\n' + '\n'.join(passed))
