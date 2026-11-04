@@ -233,6 +233,31 @@ suite("play API", () => {
     expect((await call("cit", "POST", "/api/proposals", { asset: "plants/fern", recipe: recipe("fern", 3) })).status).toBe(400);
   });
 
+  test("migration 0015 archives a live database's rejected, withdrawn and stale proposals", async () => {
+    // the database as production had it before 0015: the old checks, proposals and branches in the old states
+    const made: any[] = [];
+    for (const n of [1, 2, 3]) made.push((await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 3, null, `/* old ${n} */`) })).data);
+    await db.query(`ALTER TABLE play.proposals DROP CONSTRAINT proposals_status_check`);
+    await db.query(`ALTER TABLE play.doc_branches DROP CONSTRAINT doc_branches_status_check`);
+    // what earlier tests archived was rejected then
+    await db.query(`UPDATE play.proposals SET status = 'rejected' WHERE status = 'archived'`);
+    await db.query(`UPDATE play.doc_branches SET status = 'rejected' WHERE status = 'archived'`);
+    await db.query(`ALTER TABLE play.proposals ADD CONSTRAINT proposals_status_check_old CHECK (status IN ('open', 'accepted', 'rejected', 'withdrawn', 'stale'))`);
+    await db.query(`ALTER TABLE play.doc_branches ADD CONSTRAINT doc_branches_status_check_old CHECK (status IN ('open', 'proposed', 'accepted', 'rejected', 'withdrawn', 'stale'))`);
+    const old = ["rejected", "withdrawn", "stale"];
+    for (const [i, p] of made.entries()) {
+      await db.query(`UPDATE play.proposals SET status = $2, decided_by = NULL WHERE id = $1`, [p.id, old[i]]);
+      await db.query(`UPDATE play.doc_branches SET status = $2 WHERE id = (SELECT doc_branch FROM play.proposals WHERE id = $1)`, [p.id, old[i]]);
+    }
+    await db.query(`DELETE FROM play.migrations WHERE id = '0015-accepted-or-archived'`);
+    expect(await migrate(db)).toEqual(["0015-accepted-or-archived"]);
+    const { rows } = await db.query<any>(`SELECT p.id, p.status, p.decided_by, p.author, b.status AS branch FROM play.proposals p LEFT JOIN play.doc_branches b ON b.id = p.doc_branch WHERE p.id = ANY($1)`, [made.map((p) => p.id)]);
+    for (const r of rows) expect([r.status, r.branch ?? "archived"]).toEqual(["archived", "archived"]);
+    expect(rows.find((r) => r.id === made[1].id).decided_by).toBe(who.cit.id);
+    expect((await db.query<any>(`SELECT count(*)::int AS n FROM play.proposals WHERE status NOT IN ('open', 'accepted', 'archived')`)).rows[0].n).toBe(0);
+    await expect(db.query(`UPDATE play.proposals SET status = 'rejected' WHERE id = $1`, [made[0].id])).rejects.toThrow(/proposals_status_check/);
+  });
+
   test("a proposal ends accepted or archived: archived by its author or by an admin", async () => {
     const a = await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* w */") });
     expect((await call("cit2", "POST", `/api/proposals/${a.data.id}/archive`)).status).toBe(403);
