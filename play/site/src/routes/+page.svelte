@@ -4,7 +4,7 @@
 	only for everyone else, Samuel 2026-11-04); the Game Worlds, the three sandboxes, open to every traveler; then the
 	apps — a tile for each group of the asset library (plants, animals, things, machines, buildings, biomes;
 	$lib/app/groups.ts) and the factories — and, for an admin acting as Maia City (the nav pill's You menu), the coop's
-	own: its proposals, its stories, its members, invites and its Postgres.
+	own: its proposals, its stories, the Game editor, its members, invites and its Postgres.
 -->
 <script lang="ts">
 	import Icon from '$lib/site/app/Icon.svelte';
@@ -21,7 +21,7 @@
 		{ href: '/sandbox-2/', label: 'Sandbox 2', note: 'The physical world lab: buildings from their parts, with physics, fixings and wind', cover: 'bd34c342d7db41283ff4d243aa21bf08daf40fe1e9b47a0f63f92a00d65a9c6e.jpg' },
 		{ href: '/sandbox-3/', label: 'Sandbox 3', note: 'The tired land: walk it as someone new every visit', cover: '41a858860a82169d3d5586d30b648723c32874a94e014f30718a5a70f5b56e85.jpg' }
 	];
-	type Tile = { href: string; label: string; note: string; icon: (typeof GROUP_APPS)[number]['icon'] | 'proposals' | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio'; admins?: boolean };
+	type Tile = { href: string; label: string; note: string; icon: (typeof GROUP_APPS)[number]['icon'] | 'proposals' | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio' | 'gear'; admins?: boolean };
 	const APPS: Tile[] = [
 		// the asset library, a tile per group, each the same viewer (Samuel 2026-11-04)
 		...GROUP_APPS.map(({ href, label, note, icon }) => ({ href, label, note, icon })),
@@ -34,6 +34,8 @@
 		{ href: '/proposals/', label: 'Proposals', note: 'New versions, proposed and decided', icon: 'proposals' },
 		// our films as timelines, storyboard beside the script, to feel whether they work (routes/stories)
 		{ href: '/stories/', label: 'Stories', note: 'Our films as timelines: storyboard, voice, notes', icon: 'studio' },
+		// the game's configs, each a Loro document, first the levelling (routes/game-editor, Samuel 2026-11-04)
+		{ href: '/game-editor/', label: 'Game editor', note: 'The game\'s configs: how a village grows', icon: 'gear' },
 		{ href: '/admin/', label: 'Members', note: 'Who holds which level', icon: 'coops' },
 		{ href: '/admin/#invites', label: 'Invites', note: 'Make a citizen', icon: 'key' },
 		// the admins' window into play's Postgres, read only (routes/postgres): the coop's own (Samuel 2026-11-03)

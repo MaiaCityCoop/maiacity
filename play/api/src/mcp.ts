@@ -17,6 +17,7 @@ import { admin, AUDIO_TYPES, editStory, listStories, MOST_AUDIO, MOST_FRAME, pro
 import { AssetDocError, assetAtStep, assetHistory, editAsset } from "./assetdocs";
 import { listSandboxes, proposeSandbox, sandboxOf, SandboxError } from "./sandboxes";
 import { editFactory, factoryHistory, factoryOf, FactoryError, listFactories, proposeFactory } from "./factories";
+import { gameConfigHistory, gameConfigOf, editGameConfig, GameConfigError, listGameConfigs, proposeGameConfig } from "./gameconfigs";
 
 const PROTOCOL = "2025-06-18";
 const HASH = /^[0-9a-f]{64}$/;
@@ -55,6 +56,11 @@ const FACTORY_FORMAT =
   "stations: [{ id, name, machine (the kit's machine it is drawn as), variant?, cv (cycle time's variation), buffer (in front of it), reserve (spare floor for more machines), operators, mtbf and mttr (s: breakdowns), kind (laser, cnc, robot, line, oven, press, tester), yield?, input? (a stage it is fed), after? (the stations it joins), stage (what leaves it), what and rate (its description and where its rate comes from), ct? }], stages: { stage: its look }, layout, look }. " +
   "A station's cycle time is the sum of every operation at it (the parts' ops and its handling), worked out where the line is drawn, unless it gives its own ct; the line is sized from the demand and run as a discrete event simulation. " +
   "parts: [{ id, label, assembly, qty, raw: { stock?, also?, size?, kg?, bought? }, ops: [{ at: a station's id, s: seconds for one unit's worth, what }] }]; stock: { id: { label, form, … } }; assemblies: [{ id, label }]; handling: { station: [{ at: that station, s, what }] }.";
+
+const LEVELS_FORMAT =
+  "The levelling config is { schema: 'levels/1', label, note, villager: { euros, hearts } (what each new villager brings), minds: { heartsPerMind, step, heartsPerEuro } (a mind costs heartsPerMind + step × (level − 1) hearts, or that over heartsPerEuro in euros), " +
+  "levels: [{ id, villagers (the count that reaches it: Fibonacci 1, 2, 3, 5, 8 …), phase, investor (the investor's ticket as a multiple of the euros the level's new villagers bring), unlocks: [{ label, cost (euros), kind? }], note? }] }. " +
+  "The Game editor works out the rest: each level's new villagers, their euros and hearts and the minds they get, the investor's euros and minds and share, the minds minted, and the treasury in euros (raised and left after building), hearts and minds.";
 
 const FACTORY_EDITS =
   "Edits, applied in order to the document: { op: 'set', path, value } (a field, or a list's item, replaced; a new field too), { op: 'insert', path, value } (into a list, before the index the path ends with; one past the end adds it last), { op: 'delete', path }, { op: 'move', path, to }, { op: 'text', path, index, delete?, insert? } (a range of the note). " +
@@ -322,6 +328,76 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
       },
       run: async ({ factory, note, branch, edits, whole }, me) => proposeFactory(db, me, { factory, note, edits, whole, ...(branch != null ? { branch: Number(branch) } : {}) }),
     },
+    // ---- the game's configs: each a Loro document, changed only by proposal (./gameconfigs.ts, the Game editor)
+    {
+      name: "list_game_configs",
+      description: "The game's configs, shown in play's Game editor (first the levelling: how a village grows, level by level): id, label, its kind (schema), note, newest version's number and how many versions.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      run: async (_args, me) => listGameConfigs(db, me),
+    },
+    {
+      name: "get_game_config",
+      description: `One game config whole (its \`json\`), at its newest version, an accepted version, a step of its history (game_config_history lists them) or as an open proposal would make it; with its versions. ${LEVELS_FORMAT}`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          config: { type: "string", description: "its id (list_game_configs)" },
+          version: { type: "integer", minimum: 1, description: "an accepted version's number; its newest if left out" },
+          step: { type: "integer", minimum: 1, description: "a step of its history (game_config_history's \`seq\`), instead of a version" },
+          proposal: { type: "string", description: "an open proposal's id: the config as it would make it" },
+        },
+        required: ["config"],
+        additionalProperties: false,
+      },
+      run: async ({ config, version, step, proposal }, me) => gameConfigOf(db, me, `${config ?? ""}`, { version, step, proposal }),
+    },
+    {
+      name: "game_config_history",
+      description: "Every step of a game config's history, oldest first: each with its seq, who made it (and whether over MCP), its message, its time and the version it was named, if one; its versions and its drafts. With \`draft\`, one draft's own steps.",
+      inputSchema: {
+        type: "object",
+        properties: { config: { type: "string", description: "its id" }, draft: { type: "integer", minimum: 1, description: "a draft's number, for its own steps" } },
+        required: ["config"],
+        additionalProperties: false,
+      },
+      run: async ({ config, draft }, me) => gameConfigHistory(db, me, `${config ?? ""}`, draft != null ? { branch: Number(draft) } : {}),
+    },
+    {
+      name: "game_config_edit",
+      description:
+        `One step of a draft change to a game config, kept with its message: a level's villagers, phase, investor multiple or unlocks (each with its label and cost in euros), a new level, what a villager brings, the minds' price. Then propose the draft with propose_game_config_version and its \`branch\`. Without \`branch\` it starts a new draft from the newest version and gives back its number. Every step is checked whole (levels in rising villagers, every level's id once). ${FACTORY_EDITS} Or give the whole config (\`whole\`, get_game_config's \`json\` changed).`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          config: { type: "string", description: "its id" },
+          message: { type: "string", description: "what this step does, as its history will say it" },
+          branch: { type: "integer", minimum: 1, description: "the draft to add the step to; a new draft from the newest version if left out" },
+          edits: { type: "array", items: { type: "object" }, description: "edits applied in order to the draft" },
+          whole: { type: "object", description: "the draft's whole new config (instead of edits)" },
+        },
+        required: ["config", "message"],
+        additionalProperties: false,
+      },
+      run: async ({ config, message, branch, edits, whole }, me) => editGameConfig(db, me, { config, message, edits, whole, ...(branch != null ? { branch: Number(branch) } : {}) }),
+    },
+    {
+      name: "propose_game_config_version",
+      description:
+        `Propose a new version of a game config: a draft made step by step with game_config_edit (its \`branch\`), or edits applied at once to its newest version, or the whole config. ${FACTORY_EDITS} It goes to Maia City's admins as a proposal (via MCP), who see what changed field by field on the Proposals page and open the Game editor as it would be, then accept or archive it.`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          config: { type: "string", description: "its id" },
+          note: { type: "string", description: "what changes and why, for the admins deciding" },
+          branch: { type: "integer", minimum: 1, description: "a draft to propose (game_config_edit gives it)" },
+          edits: { type: "array", items: { type: "object" }, description: "edits applied in order (to the draft, if one is named)" },
+          whole: { type: "object", description: "the whole new config (instead of edits)" },
+        },
+        required: ["config", "note"],
+        additionalProperties: false,
+      },
+      run: async ({ config, note, branch, edits, whole }, me) => proposeGameConfig(db, me, { config, note, edits, whole, ...(branch != null ? { branch: Number(branch) } : {}) }),
+    },
     // ---- stories: a film as one timeline of tracks and clips (./stories.ts, play/SPEC.md §12)
     {
       name: "list_stories",
@@ -490,7 +566,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           capabilities: { tools: {} },
           serverInfo: { name: "play.maia.city", version: "1" },
           instructions:
-            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files, and every step of an asset's history (asset_history, get_asset at a step); propose new versions or assets as readable source, or draft a version step by step with asset_edit and propose the draft. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame. Read the sandboxes (get_sandbox: what each draws, at which version, and how it lays it out) and propose changes of them (propose_sandbox_change). Read the factories (get_factory: a production line and its bill of process, its simulation sized from it) and propose new versions of them, drafted step by step with factory_edit (propose_factory_version). Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's Proposals page, then accept or archive it; nothing here accepts, an agent archives only its own open proposals (archive_proposal), and no proposed code runs on play's server.",
+            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files, and every step of an asset's history (asset_history, get_asset at a step); propose new versions or assets as readable source, or draft a version step by step with asset_edit and propose the draft. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame. Read the sandboxes (get_sandbox: what each draws, at which version, and how it lays it out) and propose changes of them (propose_sandbox_change). Read the factories (get_factory: a production line and its bill of process, its simulation sized from it) and propose new versions of them, drafted step by step with factory_edit (propose_factory_version). Read the game's configs (get_game_config: first the levelling, how a village grows level by level) and propose new versions of them (game_config_edit, propose_game_config_version). Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's Proposals page, then accept or archive it; nothing here accepts, an agent archives only its own open proposals (archive_proposal), and no proposed code runs on play's server.",
         });
       case "ping":
         return reply(msg.id, {});
@@ -504,7 +580,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           return reply(msg.id, { content: [{ type: "text", text: JSON.stringify(out, null, 2) }], structuredContent: Array.isArray(out) ? { items: out } : out });
         } catch (e) {
           // what went wrong, as the tool's own answer the agent reads (a refused recipe, a moved head, no such asset)
-          if (e instanceof ProposalError || e instanceof NotFound || e instanceof StoryError || e instanceof SandboxError || e instanceof FactoryError || e instanceof AssetDocError || (e as Error)?.name === "Denied" || (e as any)?.status)
+          if (e instanceof ProposalError || e instanceof NotFound || e instanceof StoryError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError || e instanceof AssetDocError || (e as Error)?.name === "Denied" || (e as any)?.status)
             return reply(msg.id, { content: [{ type: "text", text: (e as Error).message }], isError: true });
           console.error(e);
           return reply(msg.id, { content: [{ type: "text", text: "Something went wrong on play's side." }], isError: true });
