@@ -10,7 +10,9 @@ export type StoryBody = { schema: 'story/1'; format: string; fps: number; durati
 export type Story = StoryBody & { id: string; title: string; number?: number | null; version?: string; note?: string; versions?: { number: number; id: string; note: string; created: string; author: string | null }[] };
 
 export type Shot = Clip & { frame: string | null; transition: string };
-export type Voice = Clip & { who: string; line: string };
+/** a subtitle the clip sets itself: `at` seconds into the clip it comes on, until the next; `em` sets it alone, large */
+export type SetCue = { at: number; text: string; em?: boolean };
+export type Voice = Clip & { who: string; line: string; cues?: SetCue[] };
 export type Notes = Clip & { section: string; camera: string; retention: string; mood: string; pace?: string; sound?: string };
 
 /** what a clip of a sound track says it is, sounding or still to be made: its note (a planned cue, an effect, a bed) or its name */
@@ -32,8 +34,9 @@ export type Moment = {
 	notes: Notes | null;
 };
 
-/** one subtitle line: its text and which of the narration's words it holds (from, and how many) */
-export type Cue = { text: string; from: number; words: number };
+/** one subtitle line: its text and which of the narration's words it holds (from, and how many); `em` when the clip
+ *  set it to stand alone, emphasized (a number the film wants seen: "100x") */
+export type Cue = { text: string; from: number; words: number; em?: boolean };
 
 /** about how many characters one subtitle line holds at the film's size (the player's .line: 5.6% of the frame's width) */
 export const CUE_CHARS = 26;
@@ -80,6 +83,17 @@ function evenly(words: string[], max: number): string[][] {
 }
 
 const cueCache = new Map<string, Cue[]>();
+
+/** the subtitles a voice clip sets itself (Samuel 2026-11-04: "100x" on its own, emphasized, while "a hundred times" is
+ *  said), in time order; none when it sets none, and then its line is cut evenly (cuesOf) */
+export function setCuesOf(v: Voice | null | undefined): (SetCue & Cue)[] {
+	const given = Array.isArray(v?.cues) ? v!.cues : [];
+	const cues = given
+		.filter((c) => c && typeof c.text === 'string' && c.text.trim() && Number.isFinite(c.at))
+		.map((c) => ({ at: Math.max(0, c.at), text: c.text.trim(), em: c.em === true }))
+		.sort((a, b) => a.at - b.at);
+	return cues.map((c, i) => ({ ...c, from: i, words: 1 }));
+}
 
 /** a narration line cut into subtitles of one line each, as a film shows them (Samuel 2026-11-04: large, one line at a
  *  time, never the whole paragraph): at its sentences, then its commas, then evenly by words */
@@ -162,9 +176,15 @@ export function renderAt(story: StoryBody | null, t: number): Moment {
 	const words = v.clip ? (v.clip.line ?? '').split(/\s+/).filter(Boolean).length : 0;
 	// the words are spoken evenly over the first 92% of the clip, so the line is whole before the next begins
 	const spoken = v.clip ? Math.min(words, Math.ceil(((time - v.clip.at) / Math.max(0.01, v.clip.duration * 0.92)) * words)) : 0;
-	// the line being spoken: the one holding the last word said (the first, before any is)
-	const cues = v.clip ? cuesOf(v.clip.line ?? '') : [];
-	const cue = cues.find((c) => Math.max(0, spoken - 1) < c.from + c.words) ?? cues[cues.length - 1] ?? null;
+	// the line being spoken: the subtitle the clip set for this second, if it sets its own (each from its own second);
+	// else its line cut evenly, the cue holding the last word said (the first, before any is)
+	const set = setCuesOf(v.clip);
+	let cue: Cue | null;
+	if (set.length) cue = set.findLast((c) => c.at <= time - v.clip!.at + 1e-9) ?? set[0];
+	else {
+		const cues = v.clip ? cuesOf(v.clip.line ?? '') : [];
+		cue = cues.find((c) => Math.max(0, spoken - 1) < c.from + c.words) ?? cues[cues.length - 1] ?? null;
+	}
 	return { t: time, shot, index: s.index, prev: mix < 1 ? touching : null, mix, voice: v.clip, spoken, cue, notes: at(clipsOf<Notes>(story, 'notes'), time).clip };
 }
 

@@ -6,7 +6,8 @@
 //
 // Every clip has its place in time (`at`, `duration`, in seconds); what else it holds is its track's kind:
 //   shots  { frame: <an image's file hash>, transition }   — the storyboard; a `scene` will replace the still later
-//   voice  { who, line }                                   — the narration and its subtitle
+//   voice  { who, line, cues? }                            — the narration and its subtitle; `cues` its own subtitles,
+//          [{ at (seconds into the clip), text, em? }], else its line is cut evenly (`em`: one set apart, alone, large)
 //   notes  { section, camera, retention, mood }            — what the editor reads beside the picture
 // Any clip of any track may sound (the voice's takes, a music or sfx or ambience track's clips): `audio` is a recording
 // kept among play's files by its hash (add_story_audio), `audio_in` where in the recording the clip starts, `gain` in
@@ -120,7 +121,7 @@ const KINDS: Record<string, (c: Record<string, unknown>, what: string) => Record
     if (frame !== null && !HASH.test(frame)) throw new StoryError(`${what}'s frame must be an image's file hash (add_story_frame gives one).`);
     return { frame, transition: text(c.transition, `${what}'s transition`, 500) };
   },
-  voice: (c, what) => ({ who: text(c.who, `${what}'s speaker`, 60), line: text(c.line, `${what}'s line`, 1000) }),
+  voice: (c, what) => ({ who: text(c.who, `${what}'s speaker`, 60), line: text(c.line, `${what}'s line`, 1000), ...cuesOf(c.cues, what, c.duration) }),
   notes: (c, what) => ({
     section: text(c.section, `${what}'s section`, 40),
     camera: text(c.camera, `${what}'s camera`, 500),
@@ -128,6 +129,24 @@ const KINDS: Record<string, (c: Record<string, unknown>, what: string) => Record
     mood: text(c.mood, `${what}'s mood`, 12),
   }),
 };
+
+const MOST_CUES = 64;
+/** a voice clip's own subtitles, where it sets them: [{ at (seconds into the clip), text, em? }] in time order, each
+ *  inside the clip; `em` sets one apart, alone and large (Samuel 2026-11-04: "100x" while "a hundred times" is said) */
+function cuesOf(v: unknown, what: string, duration: unknown): { cues?: { at: number; text: string; em?: true }[] } {
+  if (v == null) return {};
+  if (!Array.isArray(v)) throw new StoryError(`${what}'s cues are a list of subtitles: { at (seconds into the clip), text, em? }.`);
+  if (v.length > MOST_CUES) throw new StoryError(`${what} sets at most ${MOST_CUES} subtitles.`);
+  const most = typeof duration === "number" && duration > 0 ? duration : 3600;
+  const cues = v.map((c: any, i) => {
+    const cue = `${what}'s subtitle ${i + 1}`;
+    if (!c || typeof c !== "object" || Array.isArray(c)) throw new StoryError(`${cue} is { at, text, em? }.`);
+    const out: { at: number; text: string; em?: true } = { at: seconds(c.at, `${cue}'s start (seconds into the clip)`, 0, most), text: text(c.text, `${cue}'s text`, 200, true) };
+    if (c.em === true) out.em = true;
+    return out;
+  });
+  return { cues: cues.sort((a, b) => a.at - b.at) };
+}
 
 /** a clip's sound, where it has one: its recording (a hash), where in it the clip starts, its gain and fades */
 function sound(c: Record<string, unknown>, what: string): Record<string, unknown> {
