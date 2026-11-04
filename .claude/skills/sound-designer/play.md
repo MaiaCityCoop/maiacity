@@ -29,5 +29,6 @@ Stories player lays them all on one Web Audio clock and its playhead follows tha
    (`silenceremove`, −45 dB) and transcribe each take back (`fal-ai/wizper`); take again what doesn't match.
 3. `add_story_audio` each take (base64), and set the voice clip's `audio`; retime every clip to its take.
 4. Music, sfx and beds the same way, each on its track, at its track's level (`mix.md`).
-5. Propose: `propose_story_version` (edits `set_clip` with `audio`, `shift` to make room) or the whole body. A story
+5. Check the hand-overs and the voice: `check_mix.py` on the body (`transitions.md`) must pass.
+6. Propose: `propose_story_version` (edits `set_clip` with `audio`, `shift` to make room) or the whole body. A story
    with no accepted version yet takes no version: its first is proposed whole (`propose_story`).

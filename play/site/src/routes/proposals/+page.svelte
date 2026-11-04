@@ -58,6 +58,10 @@
 	}
 	const deciding = $derived(may(session.me, 'decide', 'asset_version'));
 	const when = (s: string) => new Date(s).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+	/** a card's date, short: "4 Nov, 16:27" */
+	const shortWhen = (s: string) => new Date(s).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+	/** the author's mark on a card: their initials in a round badge */
+	const initialsOf = (name: string | null | undefined) => (name ?? '?').split(/\s+/).filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase() || '?';
 	/** a note's first line, for its card */
 	const gist = (s: string) => (s ?? '').split('\n')[0];
 
@@ -185,26 +189,27 @@
 		<div class="board">
 			{#each COLUMNS as [s, name] (s)}
 				{@const cards = inColumn(s)}
+				<!-- the column's header stays; only its cards scroll (Samuel 2026-11-04) -->
 				<section class="column" data-status={s}>
 					<h2>{name} <span class="count">{cards.length}</span></h2>
-					{#each cards as p (p.id)}
-						<article class="card">
-							<button class="open" onclick={() => openCard(p)}>
-								<span class="title">{p.label} <span class="muted">{titleOf(p)}</span></span>
-								<span class="meta">{p.grp}{#if p.via === 'mcp'} <span class="via">MCP</span>{/if}</span>
-								{#if p.note}<span class="gist">{gist(p.note)}</span>{/if}
-								<span class="meta">{p.author ?? 'someone'} · {when(p.created)}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}</span>
-							</button>
-							{#if p.status === 'open' && (deciding || p.author === session.me?.name)}
-								<div class="actions">
-									{#if deciding}<button class="btn small" onclick={() => act(p.id, 'accept')}>Accept</button>{/if}
-									<button class="btn small ghost" onclick={() => act(p.id, 'archive')}>Archive</button>
-								</div>
-							{/if}
-						</article>
-					{:else}
-						<p class="empty muted">{loaded ? 'None' : '…'}</p>
-					{/each}
+					<div class="cards">
+						{#each cards as p (p.id)}
+							<!-- compact: the title and who, when; the note, the review and the decision open with it -->
+							<article class="card">
+								<button class="open" onclick={() => openCard(p)} title={p.note ? gist(p.note) : undefined}>
+									<span class="title">{p.label} <span class="muted">{titleOf(p)}</span></span>
+									<span class="meta">
+										<span class="avatar" aria-hidden="true">{initialsOf(p.author)}</span>
+										<span class="author">{p.author ?? 'someone'}</span>
+										{#if p.via === 'mcp'}<span class="via" title="Proposed by an agent working for them over MCP">MCP</span>{/if}
+										<span class="date">{shortWhen(p.created)}</span>
+									</span>
+								</button>
+							</article>
+						{:else}
+							<p class="empty muted">{loaded ? 'None' : '…'}</p>
+						{/each}
+					</div>
 				</section>
 			{/each}
 		</div>
@@ -403,22 +408,30 @@
 {/if}
 
 <style>
-	.board-page { padding: 1.5rem 1rem 6rem; max-width: none; }
+	/* the page as tall as the screen: its title and the columns' headers stay, each column scrolls its own cards, the
+	   board sideways on a narrow screen (Samuel 2026-11-04) */
+	.board-page { height: 100vh; height: 100dvh; box-sizing: border-box; display: flex; flex-direction: column; padding: 1.2rem 1rem var(--nav-room, 6rem); max-width: none; }
+	.head { flex: 0 0 auto; }
 	.head h1 { margin: 0; }
-	.head p { margin: 0.3rem 0 1.2rem; }
-	/* the board: a column per status, side by side, the board scrolling sideways on a narrow screen */
-	.board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(16rem, 1fr); gap: 0.8rem; overflow-x: auto; align-items: start; padding-bottom: 0.5rem; }
-	.column { background: color-mix(in srgb, var(--paper, #f6f1e6) 70%, transparent); border-radius: 14px; padding: 0.7rem; display: grid; gap: 0.55rem; min-width: 0; }
-	.column h2 { margin: 0 0.2rem 0.2rem; font-size: 0.95rem; display: flex; align-items: center; gap: 0.4rem; }
+	.head p { margin: 0.2rem 0 0.9rem; }
+	.board { flex: 1 1 auto; min-height: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(15rem, 1fr); gap: 0.8rem; overflow-x: auto; align-items: stretch; }
+	.column { background: color-mix(in srgb, var(--paper, #f6f1e6) 70%, transparent); border-radius: 14px; padding: 0.7rem 0.6rem 0.5rem; display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; min-height: 0; }
+	.column h2 { flex: 0 0 auto; margin: 0 0.2rem; font-size: 0.95rem; display: flex; align-items: center; gap: 0.4rem; }
+	.cards { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 0.4rem; padding: 0.1rem 0.1rem 0.4rem; }
+	/* each card keeps its own height; the column scrolls (a card that clips would otherwise be squeezed to fit) */
+	.cards > :global(*) { flex: 0 0 auto; }
 	.count { font-size: 0.75rem; font-weight: 600; padding: 0 0.5em; border-radius: 999px; background: var(--card, #fff); }
 	.card { padding: 0; overflow: hidden; }
-	.open { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 0.2rem; padding: 0.7rem 0.8rem; width: 100%; }
+	.open { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 0.3rem; padding: 0.5rem 0.65rem; width: 100%; }
 	.open:hover { background: color-mix(in srgb, var(--sage, #8fae8b) 10%, transparent); }
 	.open:focus-visible { outline: 2px solid var(--ink, #222); outline-offset: -2px; }
-	.title { font-weight: 600; font-size: 1rem; }
+	.title { font-weight: 600; font-size: 0.9rem; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 	.meta { font-size: 0.78rem; color: var(--muted, #777); }
+	.card .meta { display: flex; align-items: center; gap: 0.35rem; min-width: 0; }
+	.avatar { flex: 0 0 auto; display: grid; place-items: center; width: 1.35rem; height: 1.35rem; border-radius: 50%; background: #c8744f; color: #fff; font-size: 0.62rem; font-weight: 700; }
+	.author { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.date { margin-left: auto; white-space: nowrap; }
 	.gist { font-size: 0.85rem; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-	.card .actions { display: flex; gap: 0.35rem; padding: 0 0.8rem 0.7rem; flex-wrap: wrap; }
 	.empty { margin: 0.2rem; font-size: 0.85rem; }
 	.via { display: inline-block; padding: 0 0.45em; border-radius: 999px; background: var(--mustard-soft); color: var(--ink); font-size: 0.72rem; font-weight: 600; }
 	/* reviewing one: nearly the whole screen, the build as large as it can be */
