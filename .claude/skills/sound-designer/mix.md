@@ -124,7 +124,8 @@ In the timeline:
 - A video's linked sound that starts before its picture is a J; one that ends after it is an L. The badge is on the
   clip.
 
-Build them on purpose at every scene transition, never by accident inside a scene.
+Build them on purpose at every scene transition, never by accident inside a scene. Between two music cues, how (where a
+generated cue really ends, downbeats, keys) and the check that must pass before a proposal: `transitions.md`.
 
 ## Mixing for phones
 

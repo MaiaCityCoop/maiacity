@@ -65,6 +65,13 @@ The spotting pass for a 3–5 minute film from a cold low to a warm high:
 
 Whether ElevenLabs Music holds one melody across its chunks is untested: keep the take that does.
 
+**What a generated cue does at its edges, and with its chunks** (measured on the vision trailer, 2026-11-04): it starts
+at full level on its first downbeat (good to enter on) unless asked for a pad, whose first second can be near-silent; it
+decays to nothing over its last 1–2 s; and a chunk's planned length is only roughly kept (a 4.8 s intro came out 9.6 s, a
+climax planned at 16.5 s landed at 15.0 s). Make three takes, measure each one's loudness curve, onsets, tempo and key,
+and place it by what it really does: its climax on the word, its handovers where its decay begins (`transitions.md`).
+Ask for the key of the cue it hands over to.
+
 Sources: Murch in Ondaatje's *The Conversations*; Heather Fenoughty (heather-fenoughty.com, spotting guide);
 modwheel.net/guides/scoring-to-picture-spotting; carterburwell.com/projects/NCFOM.html; aftersunsetmusic.com (sting vs
 link); storyblocks.com (cutting music without a sudden stop); sheridantongue.com (temp tracks).
