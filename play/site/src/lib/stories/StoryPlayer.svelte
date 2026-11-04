@@ -218,6 +218,7 @@
 			{#if shots.length}<span class="muted">Shot {Math.max(1, moment.index + 1)} of {shots.length}</span>{/if}
 			{#if moment.notes?.mood}<span class="mood">{moment.notes.mood}</span>{/if}
 		</p>
+		{#if moment.notes?.emotion}<div class="field"><b>Emotion</b><p class="emotion">{moment.notes.emotion}</p></div>{/if}
 		{#if moment.notes?.camera}<div class="field"><b>Camera</b><p>{moment.notes.camera}</p></div>{/if}
 		{#if moment.shot?.transition}<div class="field"><b>Into the next shot</b><p>{moment.shot.transition}</p></div>{/if}
 		{#if moment.notes?.retention}<div class="field"><b>Retention</b><p>{moment.notes.retention}</p></div>{/if}
@@ -251,7 +252,7 @@
 	<div class="timeline">
 		<div class="sections">
 			{#each sections as s, i (i)}
-				<span class="section" style:left={pct(s.at)} style:width={pct(s.end - s.at)} style:border-color={colourOf(s.section)} title={s.section}>{s.section}</span>
+				<span class="section" style:left={pct(s.at)} style:width={pct(s.end - s.at)} style:border-color={colourOf(s.section)} title="{s.section}{s.emotion ? ` · ${s.emotion}` : ''}"><b>{s.section}</b>{#if s.emotion}<em>{s.emotion}</em>{/if}</span>
 			{/each}
 		</div>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -334,8 +335,13 @@
 	.controls .spacer { flex: 1; }
 	.btn.on { background: var(--ink); color: var(--paper); }
 	.timeline { display: grid; gap: 0.25rem; }
-	.sections { position: relative; height: 1.3rem; }
-	.section { position: absolute; top: 0; bottom: 0; border-top: 3px solid; font-size: 0.66rem; font-weight: 700; padding-top: 0.15rem; padding-left: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-soft, #444); box-sizing: border-box; }
+	.sections { position: relative; height: 2.2rem; }
+	/* a section: its name, and under it the primary emotion it should leave the viewer with */
+	.section { position: absolute; top: 0; bottom: 0; display: flex; flex-direction: column; border-top: 3px solid; padding-top: 0.15rem; padding-left: 0.2rem; overflow: hidden; color: var(--ink-soft, #444); box-sizing: border-box; }
+	.section b, .section em { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.section b { font-size: 0.66rem; font-weight: 700; }
+	.section em { font-size: 0.7rem; font-style: italic; color: var(--terracotta, #c96f53); }
+	.field .emotion { font-family: var(--font-display); font-size: 1.05rem; font-style: italic; color: var(--terracotta, #c96f53); }
 	.lanes { position: relative; display: grid; gap: 3px; cursor: pointer; touch-action: none; user-select: none; padding-top: 2.6rem; }
 	.mood-line { position: absolute; left: 0; right: 0; top: 0; height: 2.4rem; width: 100%; pointer-events: none; }
 	.mood-line line { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
