@@ -161,7 +161,7 @@ factories, worlds, buildings and biomes keep their own pages for now:
 | Buildings | `building-skill` | `maia/content/buildings`, `/app/buildings` | a tent, a dome, a container, a tower: sized, engineered, walked inside |
 | Things | `thing-skill` | `maia/content/models`, avenDB's Assets | the still things: a prop, a tent, equipment or furniture, built, versioned, resized, pitched, taken apart, walked into |
 | Biomes | `biome-skill` | `maia/content/biomes`, `/app/biomes` | the floor a world stands on: surfaces, cover in colonies, streamed round the eye |
-| Plants | `plant-skill` | `maia/content/plants`, avenDB's Assets | a plant, a tree, a crop, a herb or a fungus grown from its seed through its stages to fruit |
+| Plants | `plant-skill` | play's asset library (group `plants`), proposed over the maia-play MCP | a plant, a tree, a crop, a herb or a fungus grown from its seed through its stages to fruit, one named cultivar, checked against photos of the real one |
 
 Every one of our sub skills has the same shape, so what one group learns is found in the same place in the next:
 **Where it lives**, **How it is built**, **Composable** (what goes into it, what it goes into), **Versions**,
