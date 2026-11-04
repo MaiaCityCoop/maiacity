@@ -4,13 +4,14 @@
 `/api/files/<hash>` or kept from where it was made) and set its gain so it plays at its track's aim before the render
 levels the whole mix to −14 LUFS / −1 dBTP:
 - voice (A1) −18 LUFS
-- music (A2) −26 LUFS, and the render ducks it 6 dB more under the voice; keep voice over music 12–18 LU
+- music (A2) −26 LUFS, steady: **no ducking** (Samuel 2026-11-04: music that dips whenever someone speaks feels bad;
+  a clean, continuous flow). Keep voice over music 12–18 LU by the music's level and a pocket for the voice (below)
 - sounds and beds (A3) −30 LUFS
 
 A clip's gain is its `gain` in dB on the story's timeline (0 = as it came; a track's `gain` adds to it), its tone its
 `eq` (below), its automation its `keys` ([seconds into the clip, dB]), all written on a proposed version of the story
 (`play.md`). Clips carry their own fades (`fade_in`, `fade_out`, seconds): a voice at least 0.03 s so it never clicks,
-the music 1 s in and 2.5 s out at the film's ends. The Stories player plays it all, music ducked under the voice.
+the music 1 s in and 2.5 s out at the film's ends. The Stories player plays it all as set: nothing dips under the voice unless its track says `duck: true`.
 (The old studio's clips had `vol` linear, `fin`, `fout`; story/1 keeps the same model in dB.)
 
 ## Tone: EQ, measured and matched
@@ -68,8 +69,8 @@ Byers). The numbers, from the research on Day 01 (AES, EBU R 128, iZotope, Produ
 - At least **10 LU** below the voice (Torcoli et al., AES). Ordinary viewers want about 4 LU more than engineers do,
   so aim for **14–16 LU**. Voice over music, measured where they play together, is the number.
 - No lyrics and no busy percussion under speech. Heavy bass masks a voice more than anything else.
-- Let it breathe: up in pauses of 1.5 s or more, down again before the next word. The render's ducker does this per
-  word (ratio 4, 120 ms attack, 900 ms release).
+- Let it breathe by the music's own shape, never per word: no ducker on play (Samuel 2026-11-04). Where a long pause
+  (1.5 s or more) should lift, write it as the clip's `keys`, a slow swell, not a dip and return under every line.
 - **A second score comes in on a beat that matters:** find its first strong downbeat (onsets in its first seconds)
   and put that beat on the picture cut. Pre-lap it 0.5–2 s under the outgoing shot.
 - **The first score leaves under the action:** a 2–3 s fade that starts as the closing line lands, over the

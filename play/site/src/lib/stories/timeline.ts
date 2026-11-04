@@ -219,13 +219,15 @@ export type Sound = {
 	fadeOut: number;
 	eq: EqBand[];
 	keys: [number, number][];
-	/** ducked under the voice (music tracks, as the old studio did) */
+	/** dips under the voice: only a track that asks for it (`duck: true`) */
 	duck: boolean;
 };
 
-/** the kinds whose sound ducks under the voice */
-export const DUCKED = new Set(['music', 'score']);
-/** how far music dips under the voice (about -6 dB), and how fast it goes down and comes back up */
+/**
+ * No sound dips under the voice by itself (Samuel 2026-11-04: music that drops whenever someone speaks feels bad; a
+ * clean, continuous flow): the mix is set by each clip's level and EQ. A track that wants the old studio's dip asks for
+ * it with `duck: true`; then it goes this far down (about -6 dB) and this fast.
+ */
 export const DUCK = { level: 0.5, down: 0.15, up: 0.9 };
 export const dbToGain = (db: number) => Math.pow(10, db / 20);
 
@@ -251,7 +253,7 @@ export function soundsOf(story: StoryBody | null | undefined): Sound[] {
 				fadeOut: Math.min(Number(c.fade_out ?? (voice ? 0.08 : 0.3)), c.duration / 2),
 				eq: Array.isArray(c.eq) ? (c.eq as EqBand[]) : [],
 				keys: Array.isArray(c.keys) ? (c.keys as [number, number][]) : [],
-				duck: DUCKED.has(t.kind),
+				duck: (t as any).duck === true,
 			});
 		}
 	}

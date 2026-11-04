@@ -11,7 +11,7 @@
 // Any clip of any track may sound (the voice's takes, a music or sfx or ambience track's clips): `audio` is a recording
 // kept among play's files by its hash (add_story_audio), `audio_in` where in the recording the clip starts, `gain` in
 // dB, `fade_in`/`fade_out` in seconds, `eq` (biquad bands) and `keys` (gain automation, [s, dB]), as the old studio's
-// clips had them; a track's own `gain` (dB) and `mute` apply to all its clips, and music is ducked under the voice.
+// clips had them; a track's own `gain` (dB) and `mute` apply to all its clips, and nothing ducks under the voice unless its track says `duck: true`.
 // A clip may hold more than its kind names, and a track may be of a kind not named here (music, sfx, callout, scene):
 // those are kept as given, so a later kind needs no migration. Frames are images kept among play's files by their
 // BLAKE3 hash and served by /api/files/<hash>.

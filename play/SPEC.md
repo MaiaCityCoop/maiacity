@@ -314,7 +314,7 @@ The format and the player are made for that now.
 | `shots` | `frame` (an image's file hash, a still of the storyboard), `transition` (how it goes into the next shot) | `scene`: an asset ref by hash, its values (a plant's stage…), camera keyframes `[{ t, pos, look, fov }]`, replacing the still shot by shot |
 | `voice` | `who`, `line` (the narration; its subtitle); its take as the clip's sound (below) | |
 | `notes` | `section`, `camera`, `retention`, `mood` (↑ ↑↑ ↑↑↑ ↓ ↓↓ ↕) | |
-| `music`, `sfx`, `ambience` | the score and cues (ducked about 6 dB under the voice), spot sounds and hits, beds; clips may overlap | |
+| `music`, `sfx`, `ambience` | the score and cues, spot sounds and hits, beds; clips may overlap; nothing dips under the voice by itself (a track's `duck: true` asks for about 6 dB under it; Samuel 2026-11-04) | |
 
 **Every clip may sound** (Samuel 2026-11-03, the old studio's model of a clip's sound, `SNAPSHOT_2611101`
 `maia/content/studio`): `audio` a recording's file hash (MCP `add_story_audio`: MP3, WAV, Ogg, FLAC, M4A or WebM, its

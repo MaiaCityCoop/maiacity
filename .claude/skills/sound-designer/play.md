@@ -15,7 +15,7 @@ Stories player lays them all on one Web Audio clock and its playhead follows tha
 | `mute` | a track | left out of the mix |
 
 - **Tracks by kind:** `voice` (each line's take on its clip; its clips never overlap), `music` (the score and cues,
-  **ducked about 6 dB under the voice**, down in 0.15 s, back in 0.9 s), `sfx` (spot sounds and hits), `ambience`
+  steady under the voice: no ducking unless the track says `duck: true`, Samuel 2026-11-04), `sfx` (spot sounds and hits), `ambience`
   (the beds). Sound tracks other than voice may overlap their clips.
 - A clip plays from `at` for `duration`: a take longer than its clip is cut, so **retime the clip to its take** (a
   breath of 0.3–0.5 s after it), and shift what follows.
