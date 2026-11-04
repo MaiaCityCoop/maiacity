@@ -17,6 +17,7 @@ import { proposedState, SandboxError } from "./sandboxes";
 import { decide, listProposals, proposalOf, propose, ProposalError, type Verdict } from "./proposals";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 import { listStories, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
+import { labelFile, listLibrary } from "./library";
 import { AssetDocError, assetHistory, recipeAtStep } from "./assetdocs";
 import { factoryHistory, factoryOf, FactoryError, listFactories } from "./factories";
 import { gameConfigHistory, gameConfigOf, GameConfigError, listGameConfigs } from "./gameconfigs";
@@ -199,6 +200,14 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     const q = new URL(req.url).searchParams;
     return json(await readTable(db, p.name, Number(q.get("offset") ?? 0), Number(q.get("limit") ?? 50)));
   });
+
+  // The Library (./library.ts): every image, video and recording play keeps, its label and where stories use it; admins
+  // only. A label is only shown, so an admin renames it here; a file is named by its hash.
+  on("GET", "/api/library", async (req) => {
+    const q = new URL(req.url).searchParams;
+    return json(await listLibrary(db, await me(req), { kind: q.get("kind"), q: q.get("q"), offset: Number(q.get("offset") ?? 0), limit: Number(q.get("limit") ?? 60) }));
+  });
+  on("POST", "/api/library/:hash/label", async (req, p) => json(await labelFile(db, await me(req), p.hash, (await body(req))?.label)));
 
   // Stories, the admins' timeline player (./stories.ts): read here, at their head or an accepted version (?v=2); they
   // change only by proposal, over MCP, decided on the Proposals page

@@ -1042,7 +1042,7 @@ export async function seedStory(db: Db, id: string, title: string, note: string,
 export const audioType = (bytes: Uint8Array): string | null => AUDIO.find((a) => a.is(bytes))?.type ?? null;
 
 /** Keep one recording (MP3, WAV, Ogg, FLAC, M4A or WebM audio, at most MOST_AUDIO bytes) among play's files; its hash. */
-export async function putAudio(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string): Promise<{ hash: string; size: number; media_type: string }> {
+export async function putAudio(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string): Promise<{ hash: string; size: number; media_type: string }> {
   if (!bytes.length) throw new StoryError("The recording is empty.");
   if (bytes.length > MOST_AUDIO) throw new StoryError(`A recording is at most ${MOST_AUDIO / 1e6} MB.`, 413);
   const type = audioType(bytes);
@@ -1050,17 +1050,37 @@ export async function putAudio(db: Queryable, store: BlobStore, bytes: Uint8Arra
   if (said && said !== type && !(said === "audio/mp3" && type === "audio/mpeg") && !(said === "audio/x-wav" && type === "audio/wav")) throw new StoryError(`Those bytes are ${type}, not ${said}.`, 415);
   const hash = hashBytes(bytes);
   const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, type);
-  await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, $3, $4) ON CONFLICT (hash) DO NOTHING`, [hash, bytes.length, type, key]);
+  await keepFile(db, hash, bytes.length, type, key, label);
   return { hash, size: bytes.length, media_type: type };
 }
 
 /** A recording given as base64 (an agent's), checked and kept */
-export async function putAudioBase64(db: Queryable, store: BlobStore, data: unknown, mediaType: unknown) {
+export async function putAudioBase64(db: Queryable, store: BlobStore, data: unknown, mediaType: unknown, label?: unknown) {
   if (typeof data !== "string" || !data) throw new StoryError("Give the recording as base64 text (data).");
   const clean = data.replace(/^data:[^,]*,/, "").replace(/\s+/g, "");
   if (clean.length > Math.ceil((MOST_AUDIO * 4) / 3) + 8) throw new StoryError(`A recording is at most ${MOST_AUDIO / 1e6} MB.`, 413);
   if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean)) throw new StoryError("That is not base64.");
-  return putAudio(db, store, new Uint8Array(Buffer.from(clean, "base64")), typeof mediaType === "string" ? mediaType : undefined);
+  return putAudio(db, store, new Uint8Array(Buffer.from(clean, "base64")), typeof mediaType === "string" ? mediaType : undefined, fileLabel(label));
+}
+
+// ---- files kept for stories, each with its label (only shown in the Library; a file is named by its hash)
+
+/** A label given with a file: trimmed text of at most 200 characters, or none */
+export function fileLabel(v: unknown): string | undefined {
+  if (v == null || v === "") return undefined;
+  if (typeof v !== "string") throw new StoryError("A file's label must be text.");
+  const t = v.trim().replace(/\s+/g, " ");
+  if (t.length > 200) throw new StoryError("A file's label is at most 200 characters.");
+  return t || undefined;
+}
+
+/** Keep a file's row: a new label replaces the old one, none keeps it */
+async function keepFile(db: Queryable, hash: string, size: number, type: string, key: string, label?: string) {
+  await db.query(
+    `INSERT INTO play.files (hash, size, media_type, bucket_key, label) VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (hash) DO UPDATE SET label = COALESCE(EXCLUDED.label, play.files.label)`,
+    [hash, size, type, key, label ?? null],
+  );
 }
 
 // ---- videos
@@ -1069,7 +1089,7 @@ export async function putAudioBase64(db: Queryable, store: BlobStore, data: unkn
 export const videoType = (bytes: Uint8Array): string | null => VIDEOS.find((v) => v.is(bytes))?.type ?? null;
 
 /** Keep one video (MP4 or WebM, at most MOST_VIDEO bytes) among play's files; its hash. */
-export async function putVideo(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string): Promise<{ hash: string; size: number; media_type: string }> {
+export async function putVideo(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string): Promise<{ hash: string; size: number; media_type: string }> {
   if (!bytes.length) throw new StoryError("The video is empty.");
   if (bytes.length > MOST_VIDEO) throw new StoryError(`A video is at most ${MOST_VIDEO / 1e6} MB.`, 413);
   const type = videoType(bytes);
@@ -1077,17 +1097,17 @@ export async function putVideo(db: Queryable, store: BlobStore, bytes: Uint8Arra
   if (said && said !== type) throw new StoryError(`Those bytes are ${type}, not ${said}.`, 415);
   const hash = hashBytes(bytes);
   const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, type);
-  await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, $3, $4) ON CONFLICT (hash) DO NOTHING`, [hash, bytes.length, type, key]);
+  await keepFile(db, hash, bytes.length, type, key, label);
   return { hash, size: bytes.length, media_type: type };
 }
 
 /** A video given as base64 (an agent's), checked and kept */
-export async function putVideoBase64(db: Queryable, store: BlobStore, data: unknown, mediaType: unknown) {
+export async function putVideoBase64(db: Queryable, store: BlobStore, data: unknown, mediaType: unknown, label?: unknown) {
   if (typeof data !== "string" || !data) throw new StoryError("Give the video as base64 text (data).");
   const clean = data.replace(/^data:[^,]*,/, "").replace(/\s+/g, "");
   if (clean.length > Math.ceil((MOST_VIDEO * 4) / 3) + 8) throw new StoryError(`A video is at most ${MOST_VIDEO / 1e6} MB.`, 413);
   if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean)) throw new StoryError("That is not base64.");
-  return putVideo(db, store, new Uint8Array(Buffer.from(clean, "base64")), typeof mediaType === "string" ? mediaType : undefined);
+  return putVideo(db, store, new Uint8Array(Buffer.from(clean, "base64")), typeof mediaType === "string" ? mediaType : undefined, fileLabel(label));
 }
 
 // ---- frames
@@ -1096,7 +1116,7 @@ export async function putVideoBase64(db: Queryable, store: BlobStore, data: unkn
 export const imageType = (bytes: Uint8Array): string | null => IMAGES.find((i) => i.is(bytes))?.type ?? null;
 
 /** Keep one frame (an image, at most MOST_FRAME bytes) among play's files; its hash. */
-export async function putFrame(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string): Promise<{ hash: string; size: number; media_type: string }> {
+export async function putFrame(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string): Promise<{ hash: string; size: number; media_type: string }> {
   if (!bytes.length) throw new StoryError("The frame is empty.");
   if (bytes.length > MOST_FRAME) throw new StoryError(`A frame is at most ${MOST_FRAME / 1e6} MB.`, 413);
   const type = imageType(bytes);
@@ -1104,15 +1124,15 @@ export async function putFrame(db: Queryable, store: BlobStore, bytes: Uint8Arra
   if (said && said !== type) throw new StoryError(`Those bytes are ${type}, not ${said}.`, 415);
   const hash = hashBytes(bytes);
   const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, type);
-  await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, $3, $4) ON CONFLICT (hash) DO NOTHING`, [hash, bytes.length, type, key]);
+  await keepFile(db, hash, bytes.length, type, key, label);
   return { hash, size: bytes.length, media_type: type };
 }
 
 /** A frame given as base64 (an agent's), checked and kept */
-export async function putFrameBase64(db: Queryable, store: BlobStore, data: unknown, mediaType: unknown) {
+export async function putFrameBase64(db: Queryable, store: BlobStore, data: unknown, mediaType: unknown, label?: unknown) {
   if (typeof data !== "string" || !data) throw new StoryError("Give the image as base64 text (data).");
   const clean = data.replace(/^data:[^,]*,/, "").replace(/\s+/g, "");
   if (clean.length > Math.ceil((MOST_FRAME * 4) / 3) + 8) throw new StoryError(`A frame is at most ${MOST_FRAME / 1e6} MB.`, 413);
   if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean)) throw new StoryError("That is not base64.");
-  return putFrame(db, store, new Uint8Array(Buffer.from(clean, "base64")), typeof mediaType === "string" ? mediaType : undefined);
+  return putFrame(db, store, new Uint8Array(Buffer.from(clean, "base64")), typeof mediaType === "string" ? mediaType : undefined, fileLabel(label));
 }
