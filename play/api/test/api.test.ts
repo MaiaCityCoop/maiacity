@@ -290,7 +290,7 @@ suite("play API", () => {
     expect((await call("trav", "POST", `/api/invites/${inv.data.code}/claim`)).status).toBe(404);
   });
 
-  test("an admin's agent proposes over MCP by their token; it decides nothing, and stops with the token or the admin", async () => {
+  test("an admin's agent proposes over MCP by their token; it accepts nothing, archives only its own, and stops with the token or the admin", async () => {
     expect((await call("cit", "POST", "/api/tokens", { name: "laptop" })).status).toBe(403);
     const made = await call("ada", "POST", "/api/tokens", { name: "Claude laptop" });
     expect(made.status).toBe(201);
@@ -320,6 +320,23 @@ suite("play API", () => {
     expect(proposed.data.result.isError).toBeUndefined();
     const open = (await call("ada", "GET", "/api/proposals?status=open")).data.find((p: any) => p.slug === "mcp-fern");
     expect(open).toMatchObject({ via: "mcp", author: "ada", status: "open" });
+    // it archives its own open proposal, and nothing else: not one made on the page, not anyone else's
+    const archive = (proposal: string) => rpc(made.data.token, "tools/call", { name: "archive_proposal", arguments: { proposal } });
+    const byPage = await call("ada", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* on the page */") });
+    const theirsOpen = await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* a citizen's */") });
+    for (const id of [byPage.data.id, theirsOpen.data.id]) {
+      const r = await archive(id);
+      expect(r.data.result.isError).toBe(true);
+      expect(r.data.result.content[0].text).toContain("made over MCP");
+    }
+    expect((await call("ada", "GET", `/api/proposals/${byPage.data.id}`)).data.status).toBe("open");
+    expect((await archive("not-an-id")).data.result.content[0].text).toContain("by its id");
+    const done = await archive(open.id);
+    expect(done.data.result.isError).toBeUndefined();
+    expect(done.data.result.structuredContent).toEqual({ id: open.id, status: "archived" });
+    expect((await call("ada", "GET", `/api/proposals/${open.id}`)).data).toMatchObject({ status: "archived", decided_by: expect.any(String) });
+    expect((await archive(open.id)).data.result.content[0].text).toContain("archived already");
+    for (const id of [byPage.data.id, theirsOpen.data.id]) await call("ada", "POST", `/api/proposals/${id}/archive`);
     const wrong = await rpc(made.data.token, "tools/call", {
       name: "propose_asset",
       arguments: { group: "plants", slug: "mcp-moss", label: "Moss", source: `module.exports.recipe=function(){return{a:${"1+".repeat(800)}1}};`, note: "minified" },
