@@ -40,7 +40,9 @@ export function fromBunSql(sql: SQL): Db {
 /** A connection to `url` (DATABASE_URL). */
 export function connect(url = process.env.DATABASE_URL): Db {
   if (!url) throw new Error("DATABASE_URL is not set");
-  return fromBunSql(new Bun.SQL(url));
+  // twenty connections, not Bun's ten: a few agents drafting and proposing at once (each step a transaction holding
+  // one while its document is read and written) left none for the pages, and every page's query waited (2026-11-04)
+  return fromBunSql(new Bun.SQL(url, { max: 20 }));
 }
 
 /** The live connection. Set once at boot (or by a test) before API queries run. */
