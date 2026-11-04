@@ -454,15 +454,16 @@ export const MIGRATIONS: Migration[] = [
   {
     // a proposal ends accepted or archived, nothing else (Samuel 2026-11-04): what was rejected, withdrawn or stale is archived
     id: "0015-accepted-or-archived",
+    // the old checks go first: they would refuse 'archived' (the first try of this migration failed so in production)
     sql: `
-      UPDATE play.proposals SET status = 'archived', decided_by = COALESCE(decided_by, CASE WHEN status = 'withdrawn' THEN author END)
-        WHERE status IN ('rejected', 'withdrawn', 'stale');
       DO $$ DECLARE c record; BEGIN
         FOR c IN SELECT conrelid::regclass AS t, conname FROM pg_constraint
                   WHERE conrelid IN ('play.proposals'::regclass, 'play.doc_branches'::regclass) AND contype = 'c'
                     AND pg_get_constraintdef(oid) LIKE '%rejected%'
         LOOP EXECUTE format('ALTER TABLE %s DROP CONSTRAINT %I', c.t, c.conname); END LOOP;
       END $$;
+      UPDATE play.proposals SET status = 'archived', decided_by = COALESCE(decided_by, CASE WHEN status = 'withdrawn' THEN author END)
+        WHERE status IN ('rejected', 'withdrawn', 'stale');
       UPDATE play.doc_branches SET status = 'archived' WHERE status IN ('rejected', 'withdrawn', 'stale');
       ALTER TABLE play.proposals ADD CONSTRAINT proposals_status_check CHECK (status IN ('open', 'accepted', 'archived'));
       ALTER TABLE play.doc_branches ADD CONSTRAINT doc_branches_status_check CHECK (status IN ('open', 'proposed', 'accepted', 'archived'));`,

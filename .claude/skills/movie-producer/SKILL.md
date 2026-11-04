@@ -22,7 +22,7 @@ description: How maiaCITY makes films from the sandbox worlds, learned on the fi
 > real. It never names a day ("Day 1"). Each film places its subject in that big picture early
 > (`storyteller/format.md`, "The meta story"), and never talks about AI.
 >
-> **The fixed order** (Samuel, 2026-11-03): the topic hook, then the fixed trailer spoken by Samuel (*"This is the story of how one million humans build a ten times better way of living: their own solarpunk city, from the ground up. First in a game, then for real."*), then
+> **The fixed order** (Samuel, 2026-11-03): the topic hook, then the fixed trailer spoken by Samuel (*"This is the story of how one million humans build a hundred times better way of living: their own solarpunk city, from the ground up. First in a game, then for real."*), then
 > the story that keeps the hook's promise. Storyboards use only our own assets (domes, the sandbox UI, the plants, …).
 
 # Movie producer
