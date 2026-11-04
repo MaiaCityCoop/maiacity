@@ -12,7 +12,7 @@ import { boxEngine, LATEST_BOX } from "./engines";
 import { readableRefs } from "../import/plan";
 import { versionId } from "./versions";
 import { newId, UUID } from "./uuid";
-import { decideStory, named, storyReview, withdrawStory } from "./stories";
+import { decideStory, named, rejectOwnStory, storyReview } from "./stories";
 import * as docs from "./docs";
 import { acceptBranch, asAssetJson, AssetDocError, assetDocId, authorOf, closeBranch, draftOf, draftState, ensureAssetDoc, proposalBranch, type AssetJson } from "./assetdocs";
 
@@ -349,12 +349,14 @@ export async function proposalOf(db: Queryable, me: Me | null, id: string) {
   };
 }
 
-export type Verdict = "accept" | "reject" | "withdraw";
+export type Verdict = "accept" | "reject";
 
 /**
- * Accept, reject or withdraw a proposal. An asset's is accepted only on the head it was made on (else it goes stale), so
- * what is accepted is exactly the version the Proposals page built and showed in the asset box; its branch of the
- * asset's document is merged and named the version's number. Decided otherwise, its branch is closed, its steps kept.
+ * Accept or reject a proposal. An admin decides any; its author may reject their own (there is no other way to end
+ * one: Samuel 2026-11-04, "it's just rejected"). An asset's is accepted only on the head it was made on (else it goes
+ * stale), so what is accepted is exactly the version the Proposals page built and showed in the asset box; its branch
+ * of the asset's document is merged and named the version's number. Decided otherwise, its branch is closed, its steps
+ * kept.
  */
 export async function decide(db: Db, store: BlobStore, me: Me | null, id: string, verdict: Verdict) {
   if (!me) throw new Denied("Please sign in first.", 401);
@@ -363,12 +365,12 @@ export async function decide(db: Db, store: BlobStore, me: Me | null, id: string
     const p = rows[0];
     if (!p) throw new ProposalError("There is no such proposal.", 404);
     if (p.status !== "open") throw new ProposalError(`This proposal is ${p.status} already.`, 409);
-    if (verdict === "withdraw") {
-      if (p.author !== me.id) throw new Denied("Only its author withdraws a proposal.");
-      await tx.query(`UPDATE play.proposals SET status = 'withdrawn', decided_at = now() WHERE id = $1`, [id]);
-      if (p.kind === "story_version") await withdrawStory(tx, me, p);
-      else await closeBranch(tx, p.asset_id, p.doc_branch, me, "withdrawn");
-      return { id, status: "withdrawn" };
+    // its author rejects their own, whoever may decide the rest
+    if (verdict === "reject" && p.author === me.id && me.level !== "admin") {
+      await tx.query(`UPDATE play.proposals SET status = 'rejected', decided_by = $2, decided_at = now() WHERE id = $1`, [id, me.id]);
+      if (p.kind === "story_version") await rejectOwnStory(tx, me, p);
+      else await closeBranch(tx, p.asset_id, p.doc_branch, me, "rejected");
+      return { id, status: "rejected" };
     }
     if (p.kind === "story_version") return decideStory(tx, me, p, verdict);
     must(me, "decide", "asset_version");

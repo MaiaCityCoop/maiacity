@@ -322,10 +322,10 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     },
     {
       name: "list_proposals",
-      description: "The proposals, newest first, with their status (open, accepted, rejected, withdrawn, stale), author and where they came from (web or mcp).",
+      description: "The proposals, newest first, with their status (open, accepted, rejected, stale), author and where they came from (web or mcp).",
       inputSchema: {
         type: "object",
-        properties: { status: { type: "string", enum: ["open", "accepted", "rejected", "withdrawn", "stale"] } },
+        properties: { status: { type: "string", enum: ["open", "accepted", "rejected", "stale"] } },
         additionalProperties: false,
       },
       run: async ({ status }, me) => listProposals(db, me, status),

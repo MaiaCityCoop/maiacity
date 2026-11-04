@@ -201,7 +201,7 @@ suite("assets as documents", () => {
     expect(h.steps.at(-1)?.version).toBe(5);
   });
 
-  test("a draft made on an older head is refused when proposed; a proposal over the web gets a branch, withdrawn it is closed", async () => {
+  test("a draft made on an older head is refused when proposed; a proposal over the web gets a branch, rejected by its author it is closed", async () => {
     const ada = (await me("ada"))!, cit = (await me("cit"))!;
     const old = await editAsset(db, store, ada, { asset: ids.lamp, message: "brighter", edits: [{ op: "replace", find: "one lamp", replace: "one bright lamp" }] });
     const web = await propose(db, store, cit, { asset: ids.lamp, note: "a dimmer lamp", source: src("one dim lamp") });
@@ -209,9 +209,9 @@ suite("assets as documents", () => {
     await decide(db, store, ada, web.id, "accept");
     await expect(propose(db, store, ada, { asset: ids.lamp, note: "brighter", branch: old.branch }, "mcp")).rejects.toThrow(/newer version/);
     const again = await propose(db, store, cit, { asset: ids.lamp, note: "warmer", source: src("one warm lamp") });
-    await decide(db, store, cit, again.id, "withdraw");
+    await decide(db, store, cit, again.id, "reject");
     const { rows } = await db.query<any>(`SELECT status FROM play.doc_branches WHERE id = $1`, [again.branch]);
-    expect(rows[0].status).toBe("withdrawn");
+    expect(rows[0].status).toBe("rejected");
     // a new asset's first version: its document starts empty, its proposal's branch fills it
     const fresh = await propose(db, store, cit, { new: { group: "things", slug: "stool", label: "Stool" }, note: "a stool", source: src("a stool") });
     await decide(db, store, ada, fresh.id, "accept");

@@ -451,6 +451,21 @@ export const MIGRATIONS: Migration[] = [
     id: "0014-story-folds",
     sql: `ALTER TABLE play.stories ADD COLUMN folded_into TEXT REFERENCES play.stories(id);`,
   },
+  {
+    // one way to end a proposal: rejected, by an admin or by its author (Samuel 2026-11-04); what was withdrawn is rejected
+    id: "0015-withdrawn-is-rejected",
+    sql: `
+      UPDATE play.proposals SET status = 'rejected', decided_by = COALESCE(decided_by, author) WHERE status = 'withdrawn';
+      UPDATE play.doc_branches SET status = 'rejected' WHERE status = 'withdrawn';
+      DO $$ DECLARE c record; BEGIN
+        FOR c IN SELECT conrelid::regclass AS t, conname FROM pg_constraint
+                  WHERE conrelid IN ('play.proposals'::regclass, 'play.doc_branches'::regclass) AND contype = 'c'
+                    AND pg_get_constraintdef(oid) LIKE '%withdrawn%'
+        LOOP EXECUTE format('ALTER TABLE %s DROP CONSTRAINT %I', c.t, c.conname); END LOOP;
+      END $$;
+      ALTER TABLE play.proposals ADD CONSTRAINT proposals_status_check CHECK (status IN ('open', 'accepted', 'rejected', 'stale'));
+      ALTER TABLE play.doc_branches ADD CONSTRAINT doc_branches_status_check CHECK (status IN ('open', 'proposed', 'accepted', 'rejected', 'stale'));`,
+  },
 ];
 
 /** Runs every migration not yet run, each in its own transaction. */

@@ -578,7 +578,7 @@ export type FoldReport = { folded: string[]; present: string[]; errors: string[]
 /**
  * Brings stories into one timeline: each story of `from`, in order, has its accepted versions proposed on `into` and
  * accepted there, one after the other, as that story's next versions (each by its own author and approver, its note
- * saying where it came from), and its open proposals proposed again on `into`'s new head, their own withdrawn. Then it
+ * saying where it came from), and its open proposals proposed again on `into`'s new head, their own rejected. Then it
  * is folded: kept with its whole history, listed no more, taking no proposal. Run with every deploy (import/stories.ts);
  * a version already on `into` (the same title and timeline) is not brought twice, and a folded story is passed over.
  */
@@ -627,7 +627,7 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
           });
           if (res.status !== "accepted") throw new Error(`${from} v${v.number} did not go in: ${(res as any).message ?? res.status}`);
         }
-        // its open proposals, proposed again on the timeline's new head; their own withdrawn
+        // its open proposals, proposed again on the timeline's new head; their own rejected
         const { rows: open } = await db.query<any>(
           `SELECT p.*, v.title, v.body FROM play.proposals p JOIN play.story_versions v ON v.id = p.story_version
             WHERE p.story_id = $1 AND p.kind = 'story_version' AND p.status = 'open' ORDER BY p.created`,
@@ -641,8 +641,8 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
             await proposeStory(db, author, { story: f.into, title: p.title, body: p.body, note }, false, p.via === "web" ? "web" : "mcp");
           }
           await db.transaction(async (tx) => {
-            await tx.query(`UPDATE play.proposals SET status = 'withdrawn', decided_at = now() WHERE id = $1 AND status = 'open'`, [p.id]);
-            await withdrawStory(tx, author, p);
+            await tx.query(`UPDATE play.proposals SET status = 'rejected', decided_at = now() WHERE id = $1 AND status = 'open'`, [p.id]);
+            await rejectOwnStory(tx, author, p);
           });
         }
         await db.query(`UPDATE play.stories SET folded_into = $2 WHERE id = $1`, [from, f.into]);
@@ -756,11 +756,11 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
   });
 }
 
-/** a story proposal withdrawn by its author: its branch closed, its steps kept on their side line */
-export async function withdrawStory(tx: Queryable, me: Me, p: any) {
+/** a story proposal rejected by its author (or moved by a fold): its branch closed, its steps kept on their side line */
+export async function rejectOwnStory(tx: Queryable, me: Me, p: any) {
   if (p.doc_branch == null) return;
   const { rows } = await tx.query<{ status: string }>(`SELECT status FROM play.doc_branches WHERE id = $1`, [p.doc_branch]);
-  if (rows[0] && (rows[0].status === "open" || rows[0].status === "proposed")) await docs.close(tx, docIdOf(p.story_id), Number(p.doc_branch), { author: authorOf(me, "site"), status: "withdrawn" });
+  if (rows[0] && (rows[0].status === "open" || rows[0].status === "proposed")) await docs.close(tx, docIdOf(p.story_id), Number(p.doc_branch), { author: authorOf(me, "site"), status: "rejected" });
 }
 
 // ---- a story's history, step by step
