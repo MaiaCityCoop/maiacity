@@ -11,6 +11,7 @@ import { labelOf, libraryOf, RECIPE_HEAD, recipeTail } from "./recipes";
 import { boxEngine, LATEST_BOX } from "./engines";
 import { readableRefs } from "../import/plan";
 import { versionId } from "./versions";
+import { NOTE_MOST } from "./notes";
 import { newId, UUID } from "./uuid";
 import { archiveOwnStory, decideStory, named, storyReview } from "./stories";
 import * as docs from "./docs";
@@ -248,13 +249,13 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
     await tx.query(
       `INSERT INTO play.asset_versions (id, asset_id, parents, recipe_hash, source_hash, default_variant, card, engine, author, note)
        VALUES ($1, $2, $3, $4, $5, $6, ($7::text)::jsonb, $8, $9, $10) ON CONFLICT (id) DO NOTHING`,
-      [id, asset, content.parents, recipe, source, defaultVariant, JSON.stringify(card), engine, who.id, `${body.note ?? ""}`.slice(0, 2000)],
+      [id, asset, content.parents, recipe, source, defaultVariant, JSON.stringify(card), engine, who.id, `${body.note ?? ""}`.slice(0, NOTE_MOST)],
     );
     for (const [name, x] of Object.entries(variants))
       await tx.query(`INSERT INTO play.asset_variants (version_id, name, recipe_hash, source_hash, card) VALUES ($1, $2, $3, $4, ($5::text)::jsonb) ON CONFLICT DO NOTHING`, [id, name, x.recipe, x.source, JSON.stringify(x.card)]);
     // its branch of the asset's Loro document (play/SPEC.md §4.4): the draft it was made on, or a new branch at its
     // head, the version as proposed its last step
-    const note = `${body.note ?? ""}`.slice(0, 2000);
+    const note = `${body.note ?? ""}`.slice(0, NOTE_MOST);
     const json: AssetJson = asAssetJson(label, {
       note, engine, card, defaultVariant,
       source: recipe ? ownText : variantTexts[defaultVariant!],

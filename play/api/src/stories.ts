@@ -26,6 +26,7 @@ import { keyOf, type BlobStore } from "./blobs";
 import { canonical, HASH, hashBytes } from "./hash";
 import type { Db, Queryable } from "./pg";
 import { storyVersionId } from "./versions";
+import { NOTE_MOST } from "./notes";
 import * as docs from "./docs";
 import { EditError } from "./docs/core";
 import { asDoc, asStory, authorOf, docIdOf, ensureStoryDoc, overlap, storyDocAt, versionAtFrontiers } from "./storydocs";
@@ -501,7 +502,7 @@ export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fres
   const who = admin(me);
   const id = `${p?.story ?? ""}`;
   if (!SLUG.test(id)) throw new StoryError("Name the story by a short slug: lower-case letters, digits and dashes, up to 64.");
-  const note = text(p.note, "The note", 2000, true);
+  const note = text(p.note, "The note", NOTE_MOST, true);
   const drafted = p.branch != null;
   if (drafted && fresh) throw new StoryError("A new story is proposed whole (its body); drafts are of a story that has a version.");
   if (!drafted && (p.body === undefined) === (p.edits === undefined)) throw new StoryError("Give the new timeline (body) or edits to the head's, not both and not neither.");
@@ -617,7 +618,7 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
         for (const v of versions) {
           if (await onInto(f.into, v.title, v.body, true)) continue;
           const said = `(Brought from story ${from}, its v${v.number} of ${iso(v.created).slice(0, 10)}, so the film is one timeline.)`;
-          const note = `${`${v.note ?? ""}`.slice(0, 2000 - said.length - 2)}\n\n${said}`.trim();
+          const note = `${`${v.note ?? ""}`.slice(0, NOTE_MOST - said.length - 2)}\n\n${said}`.trim();
           const author = await as(v.author ?? v.approved_by);
           const made = await proposeStory(db, author, { story: f.into, title: v.title, body: v.body, note }, false, v.via === "web" ? "web" : "mcp");
           const decider = await as(v.approved_by ?? v.author);
@@ -637,7 +638,7 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
           const author = await as(p.author);
           if (!(await onInto(f.into, p.title, p.body, false))) {
             const said = `(Moved from story ${from}, where it was proposed on ${iso(p.created).slice(0, 10)}: the film is one timeline now.)`;
-            const note = `${`${p.note ?? ""}`.slice(0, 2000 - said.length - 2)}\n\n${said}`.trim();
+            const note = `${`${p.note ?? ""}`.slice(0, NOTE_MOST - said.length - 2)}\n\n${said}`.trim();
             await proposeStory(db, author, { story: f.into, title: p.title, body: p.body, note }, false, p.via === "web" ? "web" : "mcp");
           }
           await db.transaction(async (tx) => {
