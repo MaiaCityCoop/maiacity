@@ -15,6 +15,7 @@ import { NOTE_MOST } from "./notes";
 import { newId, UUID } from "./uuid";
 import { archiveOwnStory, decideStory, named, storyReview } from "./stories";
 import * as docs from "./docs";
+import { decideSandbox, sandboxReview } from "./sandboxes";
 import { acceptBranch, asAssetJson, AssetDocError, assetDocId, authorOf, closeBranch, draftOf, draftState, ensureAssetDoc, proposalBranch, type AssetJson } from "./assetdocs";
 
 export class ProposalError extends Error {
@@ -276,25 +277,29 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
 
 export async function listProposals(db: Queryable, me: Me | null, status?: string) {
   const m = must(me, "read", "assets");
-  // a story's proposals are the admins' alone, as the Stories are (./stories.ts)
-  return listProposalsWhere(db, `($1::text IS NULL OR p.status = $1) AND (p.kind <> 'story_version' OR $2)`, [status ?? null, m.level === "admin"]);
+  // a story's proposals are the admins' alone, as the Stories are (./stories.ts), and a sandbox's layout's (./sandboxes.ts)
+  return listProposalsWhere(db, `($1::text IS NULL OR p.status = $1) AND (p.kind = 'asset_version' OR $2)`, [status ?? null, m.level === "admin"]);
 }
 
 // a proposal of an asset version or of a story version (./stories.ts): a story's is listed as its title (label), the
-// group "stories" and its id (slug), with the version it would be
+// group "stories" and its id (slug), with the version it would be; a sandbox's change (./sandboxes.ts) as its title,
+// the group "sandboxes" and its id, with how many changes it makes
 async function listProposalsWhere(db: Queryable, where: string, args: unknown[]) {
   const { rows } = await db.query<any>(
     `SELECT p.id, p.kind, p.asset_id, p.base, p.version, p.story_id, p.story_base, p.story_version, p.doc_branch, p.status, p.note, p.created, p.decided_at, p.via,
+            p.sandbox_id, p.sandbox_base, p.sandbox_change, p.sandbox_diff, jsonb_array_length(COALESCE(p.sandbox_diff, '[]')) AS changes,
             au.name AS author, de.name AS decided_by,
-            COALESCE(a.label, sv.title) AS label, COALESCE(a.grp, CASE WHEN p.kind = 'story_version' THEN 'stories' END) AS grp,
-            COALESCE(a.slug, p.story_id) AS slug, v.card->'card'->>'label' AS version_label,
-            CASE WHEN p.kind = 'story_version' THEN COALESCE(sb.number, 0) + 1 ELSE COALESCE(b.number, 0) + 1 END AS number
+            COALESCE(a.label, sv.title, sx.title) AS label,
+            COALESCE(a.grp, CASE WHEN p.kind = 'story_version' THEN 'stories' WHEN p.kind = 'sandbox_change' THEN 'sandboxes' END) AS grp,
+            COALESCE(a.slug, p.story_id, p.sandbox_id) AS slug, v.card->'card'->>'label' AS version_label,
+            CASE WHEN p.kind = 'story_version' THEN COALESCE(sb.number, 0) + 1 WHEN p.kind = 'sandbox_change' THEN NULL ELSE COALESCE(b.number, 0) + 1 END AS number
        FROM play.proposals p
        LEFT JOIN play.assets a ON a.id = p.asset_id
        LEFT JOIN play.asset_versions v ON v.id = p.version
        LEFT JOIN play.asset_versions b ON b.id = p.base
        LEFT JOIN play.story_versions sv ON sv.id = p.story_version
        LEFT JOIN play.story_versions sb ON sb.id = p.story_base
+       LEFT JOIN play.sandboxes sx ON sx.id = p.sandbox_id
        LEFT JOIN play.humans au ON au.id = p.author
        LEFT JOIN play.humans de ON de.id = p.decided_by
       WHERE ${where}
@@ -312,8 +317,10 @@ async function listProposalsWhere(db: Queryable, where: string, args: unknown[])
 export async function proposalOf(db: Queryable, me: Me | null, id: string) {
   const m = must(me, "read", "assets");
   if (!UUID.test(id)) throw new ProposalError("A proposal is named by its id, a UUID.", 404);
-  const [p] = (await listProposalsWhere(db, `p.id = $1 AND (p.kind <> 'story_version' OR $2)`, [id, m.level === "admin"]));
+  const [p] = (await listProposalsWhere(db, `p.id = $1 AND (p.kind = 'asset_version' OR $2)`, [id, m.level === "admin"]));
   if (!p) throw new ProposalError("There is no such proposal.", 404);
+  // a sandbox's change: what each edit changes, before and after, as accepting would apply it
+  if (p.kind === "sandbox_change") return { ...p, ...(await sandboxReview(db, p)) };
   // a story's: its proposed timeline, the head's it was made from, and what changed, clip by clip
   if (p.kind === "story_version") return { ...p, ...(await storyReview(db, p)) };
   const { rows: v } = await db.query<any>(
@@ -363,7 +370,7 @@ export type Verdict = "accept" | "archive";
 async function archiveAsAuthor(tx: Queryable, me: Me, p: any) {
   await tx.query(`UPDATE play.proposals SET status = 'archived', decided_by = $2, decided_at = now() WHERE id = $1`, [p.id, me.id]);
   if (p.kind === "story_version") await archiveOwnStory(tx, me, p);
-  else await closeBranch(tx, p.asset_id, p.doc_branch, me, "archived");
+  else if (p.kind !== "sandbox_change") await closeBranch(tx, p.asset_id, p.doc_branch, me, "archived");
   return { id: p.id as string, status: "archived" as const };
 }
 
@@ -396,6 +403,7 @@ export async function decide(db: Db, store: BlobStore, me: Me | null, id: string
     // its author archives their own, whoever may decide the rest
     if (verdict === "archive" && p.author === me.id && me.level !== "admin") return archiveAsAuthor(tx, me, p);
     if (p.kind === "story_version") return decideStory(tx, me, p, verdict);
+    if (p.kind === "sandbox_change") return decideSandbox(tx, me, p, verdict);
     must(me, "decide", "asset_version");
     if (verdict === "archive") {
       await tx.query(`UPDATE play.proposals SET status = 'archived', decided_by = $2, decided_at = now() WHERE id = $1`, [id, me.id]);

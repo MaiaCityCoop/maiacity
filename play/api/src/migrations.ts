@@ -469,15 +469,22 @@ export const MIGRATIONS: Migration[] = [
       ALTER TABLE play.doc_branches ADD CONSTRAINT doc_branches_status_check CHECK (status IN ('open', 'proposed', 'accepted', 'archived'));`,
   },
   {
-    // Sandbox 1's papayas on their newest version (Samuel 2026-11-04): every pin of plants/papaya there moved to its
-    // newest accepted version (v4), its variant left unset so it draws v4's default (Both, the v2 plant with pollen)
-    id: "0016-sandbox-1-papaya-latest",
+    // a sandbox's layout changes only by proposal (Samuel 2026-11-04): what it draws (its pins) and how it lays them out
+    // (its configs), proposed over MCP as edits and accepted by an admin on the Proposals page (./sandboxes.ts)
+    id: "0016-sandbox-changes",
     sql: `
-      UPDATE play.sandbox_pins p SET version_id = n.id, variant = NULL
-        FROM play.asset_versions v, play.assets a,
-             (SELECT DISTINCT ON (asset_id) asset_id, id FROM play.asset_versions WHERE number IS NOT NULL ORDER BY asset_id, number DESC) n
-       WHERE p.sandbox_id = 'sandbox-1' AND v.id = p.version_id AND a.id = v.asset_id AND a.grp = 'plants' AND a.slug = 'papaya'
-         AND n.asset_id = a.id AND p.version_id <> n.id;
+      ALTER TABLE play.proposals
+        ADD COLUMN sandbox_id     TEXT REFERENCES play.sandboxes(id),
+        ADD COLUMN sandbox_base   TEXT,   -- the BLAKE3 of the sandbox's pins and configs it was made on
+        ADD COLUMN sandbox_change JSONB,  -- its edits, in order
+        ADD COLUMN sandbox_diff   JSONB,  -- what they change, before and after (as accepted, once accepted)
+        DROP CONSTRAINT proposals_kind_check,
+        ADD CONSTRAINT proposals_kind_check CHECK (kind IN ('asset_version', 'story_version', 'sandbox_change')),
+        DROP CONSTRAINT proposals_names_what,
+        ADD CONSTRAINT proposals_names_what CHECK (
+          (kind = 'asset_version' AND asset_id IS NOT NULL AND version IS NOT NULL AND story_id IS NULL AND story_version IS NULL AND sandbox_id IS NULL)
+          OR (kind = 'story_version' AND story_id IS NOT NULL AND story_version IS NOT NULL AND asset_id IS NULL AND version IS NULL AND sandbox_id IS NULL)
+          OR (kind = 'sandbox_change' AND sandbox_id IS NOT NULL AND sandbox_change IS NOT NULL AND asset_id IS NULL AND version IS NULL AND story_id IS NULL));
     `,
   },
 ];

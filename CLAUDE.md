@@ -55,6 +55,10 @@ card and variants, its history made from its versions (and the work kept between
 an agent drafts an asset step by step with `asset_edit` (a replace by its text, a range, a card field, each step with
 its message), reads it with `asset_history` and `get_asset`'s `step`, and proposes the draft with `propose_version`'s
 `branch`, its steps shown on the Proposals page; admins play an asset's making in the asset viewer's history bar. A
+**sandbox's layout** (which asset version and variant each slot draws, and any field of its configs: Sandbox 1's garden,
+where a thing stands) changes only by proposal too: `get_sandbox` reads it, `propose_sandbox_change` proposes edits
+(`pin`, `pin_latest`, `unpin`, `set`, `delete`; play/SPEC.md §4.6), shown on the Proposals page before and after and
+openable in the sandbox as it would be; never by a migration. A
 version can be a kind of **variants** (`propose_version`'s `variants`: a plant's kinds, an animal's breeds), each its own
 recipe and a chip in the asset viewer. No tool accepts; an agent archives only its own open proposals made over MCP
 (`archive_proposal`: one it has replaced or no longer stands by; Samuel 2026-11-04). The same token also opens play's **read-only world routes** (`GET /api/me`, `/api/catalog`,
