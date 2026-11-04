@@ -108,6 +108,18 @@ silence is only ever there because the plan says it is a break, and the proposal
     - Before a bridge into a new world, the night falls silent first (Samuel 2026-11-04: "a short breathing break of
       voiceover between 3 and 4, so the night turns silent", then "Now imagine a million of us").
 
+11. **A segment played in every film (the trailer) stands on its own.**
+    - It must work after any intro, so it shares nothing with the intro: no key, no beat, no seam (Samuel 2026-11-04:
+      "the trailer we will play every video again and again, and each intro will be different, so it should work with
+      any intro music").
+    - The intro builds down after its last line: an even fade of about 30 dB over 1.5–2 s (in `keys`, linear in dB, not a
+      linear-amplitude fade, whose tail drops like a cut), or its own composed ending.
+    - A breath of 1.5–2 s. The segment's voice may begin in it, over its own soft air bed, never in dead silence.
+    - The segment builds up on its own: its music swells in within a second of entering and rises through its first
+      line, held back under its last line, its big moment right after it.
+    - It is its own story, linked into each film (play's linked stories). Rule 9 (one cue for one energy) is for a film's
+      own sections; between a film and a reused segment the break is the design.
+
 ## Measure it: check_mix.py
 
 ```
@@ -150,6 +162,7 @@ and passes the fix.
 | the intro ending, then the trailer starting again | v12 | OFFBEAT, ENDING |
 | the intro at full on the first frame | v14 | BUILD, CUT, and the film's first moment checked |
 | the bridge into the city starting right on "the forest goes quiet." | v15 | BREATH |
+| (the trailer as its own story, its music starting 1.4 s in: BUILD measured a second from the film's start, not from the music's first sound) | v17 | BUILD measures from the first sound |
 
 A clean check is not a good transition: the plan is. Write the map first, so the next flag never needs Samuel's ear to
 find it.

@@ -263,10 +263,10 @@ def main():
             jump |= mus[j] < -45 and mus[j + 5] > -42 and mus[j + 5] - mus[j] > 12 and not (pad and t0 < 0.5)
             cut |= mus[j] > -42 and mus[j + 5] < -50 and mus[j] - mus[j + 5] > 15
         if pad and t0 < 0.5:   # the film's first music: how long it takes to build up
-            film = L['music'][:int(2 / H)]
-            on = np.argmax(film > -60)
-            full = film[int(0.8 / H):int(1.2 / H)].max()
-            up = on + np.argmax(film[on:] >= full - 3)
+            film = L['music'][:int(6 / H)]
+            on = int(np.argmax(film > -60))
+            full = film[on + int(0.8 / H):on + int(1.2 / H)].max() if film.max() > -60 else -120.0   # its level a second after its first sound
+            up = on + int(np.argmax(film[on:] >= full - 3))
             build = film.max() > -60 and (up - on) * H < 0.4
         tag = ('  HOLE' if hole else '') + ('  JUMP' if jump else '') + ('  CUT' if cut else '') + ('  BUILD' if build else '')
         print(f'  {t0:7.2f}s {what[:34]:34} {steps}{tag}')
