@@ -359,6 +359,33 @@ export type Verdict = "accept" | "archive";
  * in the asset box; its branch of the asset's document is merged and named the version's number. Archived, its branch
  * is closed, its steps kept.
  */
+/** A proposal archived by its own author: its status, and its branch closed as a side line in the history. */
+async function archiveAsAuthor(tx: Queryable, me: Me, p: any) {
+  await tx.query(`UPDATE play.proposals SET status = 'archived', decided_by = $2, decided_at = now() WHERE id = $1`, [p.id, me.id]);
+  if (p.kind === "story_version") await archiveOwnStory(tx, me, p);
+  else await closeBranch(tx, p.asset_id, p.doc_branch, me, "archived");
+  return { id: p.id as string, status: "archived" as const };
+}
+
+/**
+ * An agent archives its own open proposal over MCP (Samuel 2026-11-04): one a newer proposal of its own replaces, or one
+ * it no longer stands by. Only a proposal its admin made over MCP, never anyone else's and never one made on the page;
+ * accepting stays a person's, on the Proposals page.
+ */
+export async function archiveOwn(db: Db, me: Me | null, id: string) {
+  if (!me) throw new Denied("Please sign in first.", 401);
+  if (!UUID.test(id)) throw new ProposalError("Name the proposal by its id (list_proposals gives it).");
+  return db.transaction(async (tx) => {
+    const { rows } = await tx.query<any>(`SELECT * FROM play.proposals WHERE id = $1 FOR UPDATE`, [id]);
+    const p = rows[0];
+    if (!p) throw new ProposalError("There is no such proposal.", 404);
+    if (p.author !== me.id || p.via !== "mcp")
+      throw new ProposalError("Only a proposal you made over MCP is yours to archive; the rest are decided on the Proposals page.", 403);
+    if (p.status !== "open") throw new ProposalError(`This proposal is ${p.status} already.`, 409);
+    return archiveAsAuthor(tx, me, p);
+  });
+}
+
 export async function decide(db: Db, store: BlobStore, me: Me | null, id: string, verdict: Verdict) {
   if (!me) throw new Denied("Please sign in first.", 401);
   return db.transaction(async (tx) => {
@@ -367,12 +394,7 @@ export async function decide(db: Db, store: BlobStore, me: Me | null, id: string
     if (!p) throw new ProposalError("There is no such proposal.", 404);
     if (p.status !== "open") throw new ProposalError(`This proposal is ${p.status} already.`, 409);
     // its author archives their own, whoever may decide the rest
-    if (verdict === "archive" && p.author === me.id && me.level !== "admin") {
-      await tx.query(`UPDATE play.proposals SET status = 'archived', decided_by = $2, decided_at = now() WHERE id = $1`, [id, me.id]);
-      if (p.kind === "story_version") await archiveOwnStory(tx, me, p);
-      else await closeBranch(tx, p.asset_id, p.doc_branch, me, "archived");
-      return { id, status: "archived" };
-    }
+    if (verdict === "archive" && p.author === me.id && me.level !== "admin") return archiveAsAuthor(tx, me, p);
     if (p.kind === "story_version") return decideStory(tx, me, p, verdict);
     must(me, "decide", "asset_version");
     if (verdict === "archive") {

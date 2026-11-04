@@ -56,7 +56,8 @@ an agent drafts an asset step by step with `asset_edit` (a replace by its text, 
 its message), reads it with `asset_history` and `get_asset`'s `step`, and proposes the draft with `propose_version`'s
 `branch`, its steps shown on the Proposals page; admins play an asset's making in the asset viewer's history bar. A
 version can be a kind of **variants** (`propose_version`'s `variants`: a plant's kinds, an animal's breeds), each its own
-recipe and a chip in the asset viewer. No tool accepts or rejects. The same token also opens play's **read-only world routes** (`GET /api/me`, `/api/catalog`,
+recipe and a chip in the asset viewer. No tool accepts; an agent archives only its own open proposals made over MCP
+(`archive_proposal`: one it has replaced or no longer stands by; Samuel 2026-11-04). The same token also opens play's **read-only world routes** (`GET /api/me`, `/api/catalog`,
 `/api/files/<hash>`, `/api/sandboxes/<id>/config`, `/api/assets…`) as its admin, so an agent can load a sandbox in its own
 browser (sending the header to play only) and film it for a storyboard; nothing else, and nothing that writes. Admins
 only for now: a token opens nothing once its owner is no admin.

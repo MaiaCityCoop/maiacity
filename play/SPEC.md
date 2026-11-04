@@ -81,7 +81,7 @@ e.g. `actors/stand-in:stand-in?face=…`) belong to a version.
 
 ### 4.2 What it has to do
 
-Propose a new version, accept or reject it, read an asset's history as a chain, read any old version forever, compare
+Propose a new version, accept or archive it, read an asset's history as a chain, read any old version forever, compare
 two versions (card diff, file hashes), revert (propose an old version's content as the next one), pin a sandbox to a
 version.
 
@@ -251,7 +251,8 @@ still only adds what is missing and changes nothing that is there.
   document, §4.4) and `GET /api/assets/:id/steps/:seq/recipe` (the recipe file it builds at a step, kept by its hash).
 - Sandboxes (traveler+): `GET /api/sandboxes/:id/pins`.
 - Proposals: `POST /api/proposals` (citizen+: a new asset version, card + recipe file upload), `GET /api/proposals`,
-  `POST /api/proposals/:id/{accept,reject}` (admin+), `POST /api/proposals/:id/withdraw` (its author).
+  `POST /api/proposals/:id/{accept,archive}` (admin+; its author archives their own). Over MCP an agent archives only
+  its own open proposals made there (`archive_proposal`, Samuel 2026-11-04); no tool accepts.
 - Coop (admin+): `GET/POST /api/coops/:id/members`, `POST /api/invites`; `POST /api/invites/:code/claim` (makes the
   claimer a citizen).
 
@@ -373,7 +374,8 @@ MCP server (§7, `play/api/src/mcp.ts`):
 
 The Proposals page shows a story's proposal played in the Stories player, beside what changed against its base (the
 title and settings, and track by track the clips added, removed, moved and changed) and the steps it was made in.
-Admins accept or reject it there; no tool decides.
+Admins accept or archive it there. No tool accepts; the agent that proposed it may archive it while it is open
+(`archive_proposal`: one it has replaced, or no longer stands by), and nothing else of anyone's.
 
 **Every step kept: each story is a Loro document (§4.4).** Under its versions, story `x` is the document `story:x`
 (its title and its timeline; a clip's line, transition, camera and retention Loro texts), every change a step with
