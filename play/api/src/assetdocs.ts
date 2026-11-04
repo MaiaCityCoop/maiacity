@@ -19,6 +19,7 @@ import * as docs from "./docs";
 import { EditError } from "./docs/core";
 import { canonical, hashText } from "./hash";
 import type { Db, Queryable } from "./pg";
+import { NOTE_MOST } from "./notes";
 import { libraryOf, RECIPE_HEAD, recipeTail } from "./recipes";
 import { named } from "./stories";
 
@@ -67,7 +68,7 @@ async function asAssetError<R>(fn: () => Promise<R>): Promise<R> {
  */
 export function asAssetJson(label: string, v: { note?: string | null; engine?: number | null; card?: any; defaultVariant?: string | null; source: string; variants?: { name: string; source: string; card?: any }[] }): AssetJson {
   const json: AssetJson = { schema: "asset/1", label: label || "An asset", source: v.source };
-  if (v.note) json.note = `${v.note}`.slice(0, 20000);
+  if (v.note) json.note = `${v.note}`.slice(0, NOTE_MOST);
   if (Number.isInteger(v.engine) && (v.engine as number) >= 1) json.engine = v.engine as number;
   if (v.card && typeof v.card === "object" && !Array.isArray(v.card)) json.card = v.card;
   if (v.variants?.length) {
@@ -389,7 +390,7 @@ export async function editAsset(db: Db, store: BlobStore, me: Me | null, p: Asse
           target.source = p.source;
         }
         if (p.label !== undefined) target.label = `${p.label}`.trim().slice(0, 200);
-        if (p.note !== undefined) target.note = `${p.note}`.slice(0, 20000);
+        if (p.note !== undefined) target.note = `${p.note}`.slice(0, NOTE_MOST);
         if (p.source === undefined && p.label === undefined && p.note === undefined) throw new AssetDocError("Give edits, a whole source, a label or a note.");
         step = await docs.commit(tx, docId, { branch: b, target, message, author });
       }
