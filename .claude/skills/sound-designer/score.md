@@ -17,7 +17,8 @@ Called on fal directly (the old `score.ts` runner is gone with the refactor, `SN
   0.35 s later a **breakfast** cue bursting in (a sunburst chord, bouncy piano, pizzicato, 92 bpm).
 - **A turn needs energy, not just warmth:** joy after the low is a lift in loudness, rhythm and brightness at once
   (`storyteller`, `retention.md`).
-- **The music steps back under the voice:** the render ducks A2 with the voice as key (sidechain, about −6 dB, 120 ms
+- **No ducking on play** (Samuel 2026-11-04): the music keeps a clean, continuous flow at a level the voice sits over,
+  with a 2–4 kHz pocket. The old render's ducker, for the record: the render ducks A2 with the voice as key (sidechain, about −6 dB, 120 ms
   attack, 900 ms release). Score around 0.6.
 
 ## Choosing music from the script, before the shoot
