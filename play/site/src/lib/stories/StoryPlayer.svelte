@@ -221,6 +221,8 @@
 		{:else if moment.shot}
 			<div class="frame empty" style:opacity={moment.mix}><span>Shot {moment.index + 1}: no frame yet</span></div>
 		{/if}
+		<!-- a shot's fade from black and to black: the picture under a black veil, the subtitles over it -->
+		{#if moment.light < 1}<div class="black" style:opacity={1 - moment.light}></div>{/if}
 		<!-- one line at a time, large, as the film shows it; words set on screen are in the frame once it has one -->
 		{#if moment.voice && moment.cue && !(moment.voice.who === 'ON SCREEN' && moment.shot?.frame)}
 			<div class="subtitle">
@@ -353,6 +355,7 @@
 	/* paused: a quiet play mark in the middle of the picture, gone the moment it plays */
 	.play-mark { position: absolute; left: 50%; top: 46%; width: clamp(2.6rem, 16cqw, 4.5rem); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; background: rgb(10 10 8 / 0.45); display: grid; place-items: center; pointer-events: none; }
 	.play-mark svg { width: 55%; height: 55%; fill: #fff; margin-left: 8%; }
+	.black { position: absolute; inset: 0; background: #000; pointer-events: none; }
 	.frame.empty { display: grid; place-items: center; color: #cfc8b8; background: #24211b; font-size: 0.9rem; }
 	.subtitle { position: absolute; left: 3%; right: 3%; bottom: 9%; display: grid; gap: 0.3rem; justify-items: center; text-align: center; pointer-events: none; }
 	/* the subtitle sized to the frame, as it would be in the film: one line of about 26 characters across it (CUE_CHARS) */

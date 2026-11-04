@@ -376,7 +376,7 @@ The format and the player are made for that now.
 
 | kind | a clip's fields | later |
 |---|---|---|
-| `shots` | `frame` (an image's file hash, a still of the storyboard), `transition` (how it goes into the next shot) | `scene`: an asset ref by hash, its values (a plant's stage…), camera keyframes `[{ t, pos, look, fov }]`, replacing the still shot by shot |
+| `shots` | `frame` (an image's file hash, a still of the storyboard), `transition` (how it goes into the next shot); `fade_in` / `fade_out` (s) bring the picture up from black and down to black (a film's first shot out of black; Samuel 2026-11-04) | `scene`: an asset ref by hash, its values (a plant's stage…), camera keyframes `[{ t, pos, look, fov }]`, replacing the still shot by shot |
 | `voice` | `who`, `line` (the narration; its subtitle, cut into lines of about 26 characters spoken evenly); `cues` its own subtitles where it sets them, `[{ at, text, em? }]` (`at` seconds into the clip, each until the next; `em` one set apart, alone and large: "100x" while "a hundred times" is said; Samuel 2026-11-04); its take as the clip's sound (below) | |
 | `notes` | `section`, `camera`, `retention`, `mood` (↑ ↑↑ ↑↑↑ ↓ ↓↓ ↕) | |
 | `music`, `sfx`, `ambience` | the score and cues, spot sounds and hits, beds; clips may overlap; nothing dips under the voice by itself (a track's `duck: true` asks for about 6 dB under it; Samuel 2026-11-04) | |
@@ -441,9 +441,10 @@ its own, and each film links a version of it:
 
 **One function shows it.** The player's picture is `renderAt(story, t)` (`play/site/src/lib/stories/timeline.ts`):
 from the timeline alone, the shot at second t, the one fading out under it and how far (a cut cuts, other
-transitions cross-fade over up to half a second), the subtitle and how much of it is spoken, the notes. Play and
-scrub only move t; nothing runs on a clock of its own. The same t gives the same picture every time, which is what a
-frame-by-frame export needs (WebCodecs in the browser, or a page a renderer seeks through): it comes later.
+transitions cross-fade over up to half a second), how bright it is (a shot's own fades from and to black), the
+subtitle and how much of it is spoken, the notes. Play and scrub only move t; nothing runs on a clock of its own. The
+same t gives the same picture every time, which is what a frame-by-frame export needs (WebCodecs in the browser, or a
+page a renderer seeks through): it comes later.
 
 **Versioned like assets: the content-addressed DAG of §4.**
 

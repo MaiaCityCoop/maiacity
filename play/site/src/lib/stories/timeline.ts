@@ -38,6 +38,8 @@ export type Moment = {
 	prev: Shot | null;
 	/** how far the shot has faded in over the one before it, 0…1 (1: it alone) */
 	mix: number;
+	/** how bright the picture is, 0 black … 1 full: a shot's own `fade_in` from black and `fade_out` to black */
+	light: number;
 	/** the narration at t: its clip, and how many of its words are spoken by now */
 	voice: Voice | null;
 	spoken: number;
@@ -211,6 +213,17 @@ export function fadeOf(prev: Shot | null, shot: Shot): number {
 
 const ease = (x: number) => x * x * (3 - 2 * x);
 
+/** how bright a shot is at second t, 0 black … 1 full: it comes up from black over its `fade_in` seconds and goes down to
+ *  black over its `fade_out` (a film's first shot out of black, its last into it; Samuel 2026-11-04) */
+export function lightOf(shot: Shot, t: number): number {
+	const c = shot as Shot & { fade_in?: unknown; fade_out?: unknown };
+	const fin = Math.max(0, Number(c.fade_in) || 0), fout = Math.max(0, Number(c.fade_out) || 0);
+	let light = 1;
+	if (fin > 0) light = Math.min(light, ease(Math.max(0, Math.min(1, (t - shot.at) / fin))));
+	if (fout > 0) light = Math.min(light, ease(Math.max(0, Math.min(1, (shot.at + shot.duration - t) / fout))));
+	return light;
+}
+
 /** exactly what is shown at second t */
 export function renderAt(story: StoryBody | null, t: number): Moment {
 	const shots = clipsOf<Shot>(story, 'shots');
@@ -221,6 +234,7 @@ export function renderAt(story: StoryBody | null, t: number): Moment {
 	const touching = before && shot && Math.abs(before.at + before.duration - shot.at) < 0.05 ? before : null;
 	const fade = shot ? fadeOf(touching, shot) : 0;
 	const mix = shot && fade > 0 ? ease(Math.max(0, Math.min(1, (time - shot.at) / fade))) : 1;
+	const light = shot ? lightOf(shot, time) : 1;
 	const v = at(clipsOf<Voice>(story, 'voice'), time);
 	const words = v.clip ? (v.clip.line ?? '').split(/\s+/).filter(Boolean).length : 0;
 	// the words are spoken evenly over the first 92% of the clip, so the line is whole before the next begins
@@ -234,7 +248,7 @@ export function renderAt(story: StoryBody | null, t: number): Moment {
 		const cues = v.clip ? cuesOf(v.clip.line ?? '') : [];
 		cue = cues.find((c) => Math.max(0, spoken - 1) < c.from + c.words) ?? cues[cues.length - 1] ?? null;
 	}
-	return { t: time, shot, index: s.index, prev: mix < 1 ? touching : null, mix, voice: v.clip, spoken, cue, notes: at(clipsOf<Notes>(story, 'notes'), time).clip };
+	return { t: time, shot, index: s.index, prev: mix < 1 ? touching : null, mix, light, voice: v.clip, spoken, cue, notes: at(clipsOf<Notes>(story, 'notes'), time).clip };
 }
 
 /** a mood's height: each ↑ one up, each ↓ one down (↕, END and the rest level) */
