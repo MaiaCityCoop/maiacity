@@ -33,6 +33,8 @@ It prints and flags:
       CUT   the music falling more than 15 dB within 0.25 s from over -42 to under -50 with nothing taking over (a
             hard stop: it builds down, rings out or hands over);
       LATE  a music clip still under -42 dB a second after it starts (an entrance too low or too slow);
+  - STRAY: a clip still sounding more than 1 s after the film's music and 3 s after its last line (a bed or an effect
+    placed by mistake past the end: it stretches the film, and it plays on after the last word);
   - and where one cue hands over to another of the same tempo (within 3 %, each pulse measured from its recording):
       OFFBEAT  the incoming cue's beat more than 30 ms off the outgoing's (the two pulses stumble over each other);
       ENDING   the outgoing cue strikes its final hit (its last chord, its dead stop) and the incoming comes in more than
@@ -188,6 +190,16 @@ def main():
 
     music = clips(('music', 'score'))
     edges = sorted([c['at'] for c in music] + [c['at'] + c['duration'] for c in music])
+
+    # a clip sounding on after the film's music and its last line: placed by mistake past the end (the vision trailer's v20:
+    # the invitation's air bed shifted twice, starting after the film had ended, stretching it from 2:32 to 2:46)
+    music_end = max((c['at'] + c['duration'] for c in music if isinstance(c.get('audio'), str) and c['audio']), default=0)
+    words_end = max((c['at'] + c['duration'] for c in clips(('voice',))), default=0)
+    for t in story['tracks']:
+        for c in t['clips']:
+            e = c['at'] + c['duration']
+            if isinstance(c.get('audio'), str) and c['audio'] and e > music_end + 1.0 and e > words_end + 3.0:
+                flags.append(f"STRAY {c['id']} ({t['kind']}) at {c['at']:.2f}-{e:.2f}s: it sounds on {e - max(music_end, words_end):.1f} s after the film's music and last line, stretching the film")
 
     # the sections' changes: the voice's pause at each, and whether the music turns there or runs on (transitions.md)
     speech = L['voice'] > -38

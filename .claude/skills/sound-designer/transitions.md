@@ -161,6 +161,7 @@ It fails (exit 1) on:
 | BUILD | the film's first music at full less than 0.4 s after its first sound | start it on its own swell (`audio_in`), ease it in with `keys` (rule 8) |
 | LATE | a music clip still under −42 dB a second after it starts | start it on its energy, leave a silent head out (rule 4) |
 | LOW | a line under `--min-voice` dB over the rest | the music's keys under that line, or its EQ pocket (`mix.md`) |
+| STRAY | a clip still sounding more than 1 s after the film's music and 3 s after its last line | place it where it belongs (a time shifted twice is the usual cause); a film ends with its music |
 | OFFBEAT | two cues of one tempo (within 3 %) whose beats are more than 30 ms apart where one takes over | move the incoming so its downbeat lands on the outgoing's bar line (rule 3) |
 | ENDING | the outgoing cue strikes its final hit and the incoming, of the same tempo, comes more than 0.15 s after it | end the outgoing before its final hit; the incoming's downbeat takes that hit's place (rule 3), or make the two one cue (rule 9) |
 
@@ -182,6 +183,7 @@ and passes the fix.
 | (the trailer as its own story, its music starting 1.4 s in: BUILD measured a second from the film's start, not from the music's first sound) | v17 | BUILD measures from the first sound |
 | the handover into the old way (warmth into unease, the horn and the traffic arriving) passed as a FLOW with a 0.95 s pause | v17 | a section change where a bed or an effect arrives is a TURN |
 | the pause before the city met the table's number but was too short for its moment ("a longer pause of thinking") | v18 | each change's pause planned in its notes (`breath`), not taken from a table |
+| an ambience playing on after the last line, stretching the film from 2:32 to 2:46 (its start shifted twice in the build) | v20 | STRAY |
 
 A clean check is not a good transition: the plan is. Write the map first, so the next flag never needs Samuel's ear to
 find it.
