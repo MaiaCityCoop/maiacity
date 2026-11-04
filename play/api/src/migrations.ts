@@ -468,6 +468,18 @@ export const MIGRATIONS: Migration[] = [
       ALTER TABLE play.proposals ADD CONSTRAINT proposals_status_check CHECK (status IN ('open', 'accepted', 'archived'));
       ALTER TABLE play.doc_branches ADD CONSTRAINT doc_branches_status_check CHECK (status IN ('open', 'proposed', 'accepted', 'archived'));`,
   },
+  {
+    // Sandbox 1's papayas on their newest version (Samuel 2026-11-04): every pin of plants/papaya there moved to its
+    // newest accepted version (v4), its variant left unset so it draws v4's default (Both, the v2 plant with pollen)
+    id: "0016-sandbox-1-papaya-latest",
+    sql: `
+      UPDATE play.sandbox_pins p SET version_id = n.id, variant = NULL
+        FROM play.asset_versions v, play.assets a,
+             (SELECT DISTINCT ON (asset_id) asset_id, id FROM play.asset_versions WHERE number IS NOT NULL ORDER BY asset_id, number DESC) n
+       WHERE p.sandbox_id = 'sandbox-1' AND v.id = p.version_id AND a.id = v.asset_id AND a.grp = 'plants' AND a.slug = 'papaya'
+         AND n.asset_id = a.id AND p.version_id <> n.id;
+    `,
+  },
 ];
 
 /** Runs every migration not yet run, each in its own transaction. */
