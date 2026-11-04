@@ -58,7 +58,6 @@
 		}
 		return out;
 	});
-	const KIND: Record<string, string> = { tent: '⛺', vehicle: '🛻', container: '📦', dome: '🌐', water: '💧', energy: '⚡', workshop: '🛠', factory: '🏭' };
 </script>
 
 <svelte:head><title>{config?.json.label ?? 'Game editor'} · Game editor · maiaCITY play</title></svelte:head>
@@ -106,7 +105,7 @@
 						<h1>How a village grows</h1>
 						{#if levelling.note}<p class="lead">{levelling.note}</p>{/if}
 						<p class="rules">
-							Every villager brings <b>{euros(levelling.villager.euros)}</b> and <b>♥ {short(levelling.villager.hearts)}</b>. A mind costs ♥ {short(levelling.minds.heartsPerMind)} at level 1 and ♥ {short(levelling.minds.step)} more at every level, or that in euros at {levelling.minds.heartsPerEuro} hearts a euro. At each level an investor adds a multiple of the new villagers' euros.
+							Every villager brings <b>{euros(levelling.villager.euros)}</b> and <b>{short(levelling.villager.hearts)} hearts</b>. A mind costs {short(levelling.minds.heartsPerMind)} hearts at level 1 and {short(levelling.minds.step)} more at every level, or that in euros at {levelling.minds.heartsPerEuro} hearts a euro. At each level an investor adds a multiple of the new villagers' euros.
 						</p>
 					</header>
 
@@ -114,7 +113,7 @@
 						<div><span>Villagers</span><b>{whole(last.level.villagers)}</b><small>{rows.length} levels</small></div>
 						<div><span>Raised</span><b>{euros(last.treasury.raised)}</b><small>{euros(rows.reduce((t, r) => t + r.villagers.euros, 0))} villagers · {euros(rows.reduce((t, r) => t + r.investor.euros, 0))} investors</small></div>
 						<div><span>Built</span><b>{euros(last.treasury.spent)}</b><small>{euros(last.treasury.left)} left in the treasury</small></div>
-						<div><span>Hearts</span><b>♥ {short(last.treasury.hearts)}</b><small>in the coop's treasury</small></div>
+						<div><span>Hearts</span><b>{short(last.treasury.hearts)}</b><small>in the coop's treasury</small></div>
 						<div><span>Minds</span><b>{short(last.treasury.minds)}</b><small>investors hold {pct(last.treasury.investors)}</small></div>
 						<div><span>Early bird</span><b>{whole(rows[0].villager.minds)}</b><small>minds for the first villager, {whole(last.villager.minds)} for the last</small></div>
 					</div>
@@ -142,14 +141,14 @@
 											<td><b>{whole(r.level.villagers)}</b><small>+{whole(r.joined)} new</small></td>
 											<td class="wide">
 												<ul class="unlocks">
-													{#each r.level.unlocks as u, i (i)}<li><span class="k">{KIND[u.kind ?? ''] ?? '•'}</span>{u.label}<em>{euros(u.cost)}</em></li>{/each}
+													{#each r.level.unlocks as u, i (i)}<li>{u.label}<em>{euros(u.cost)}</em></li>{/each}
 												</ul>
 											</td>
 											<td class="num"><b>{euros(r.cost)}</b></td>
-											<td class="num"><b>{whole(r.villager.minds)} minds</b><small>a mind ♥ {short(r.price.hearts)} or {euros(r.price.euros)}</small></td>
+											<td class="num"><b>{whole(r.villager.minds)} minds</b><small>a mind {short(r.price.hearts)} hearts or {euros(r.price.euros)}</small></td>
 											<td class="num"><b>{euros(r.investor.euros)}</b><small>{r.level.investor}× the villagers'</small><small>{short(r.investor.minds)} minds · {pct(r.investor.share)}</small></td>
 											<td class="num">{short(r.minted)}</td>
-											<td class="num tre"><b>{euros(r.treasury.raised)}</b><small class:low={r.treasury.left < 0}>{euros(r.treasury.left)} left after building</small><small>♥ {short(r.treasury.hearts)} · {short(r.treasury.minds)} minds</small><small>investors hold {pct(r.treasury.investors)}</small></td>
+											<td class="num tre"><b>{euros(r.treasury.raised)}</b><small class:low={r.treasury.left < 0}>{euros(r.treasury.left)} left after building</small><small>{short(r.treasury.hearts)} hearts · {short(r.treasury.minds)} minds</small><small>investors hold {pct(r.treasury.investors)}</small></td>
 										</tr>
 									{/each}
 								</tbody>
@@ -198,7 +197,6 @@
 	.wide { min-width: 15rem; }
 	.unlocks { list-style: none; margin: 0; padding: 0; }
 	.unlocks li { display: flex; gap: 0.4rem; align-items: baseline; padding: 0.1rem 0; }
-	.unlocks .k { flex: none; width: 1.2rem; text-align: center; }
 	.unlocks em { margin-left: auto; padding-left: 0.6rem; font-style: normal; color: var(--muted); white-space: nowrap; }
 	.foot { max-width: 60rem; margin: 0.8rem 0 0; font-size: 0.76rem; color: var(--muted); line-height: 1.5; }
 	.bad { color: #c23a22; }
