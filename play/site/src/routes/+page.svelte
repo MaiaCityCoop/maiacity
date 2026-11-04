@@ -1,7 +1,7 @@
 <!--
 	The dashboard, the one place everything starts from (legacy's $lib/app/Dashboard.svelte, its layout and design): a
-	greeting; the Game Worlds, the three sandboxes, open to every traveler; then the apps — the asset library, the
-	factories, the proposals, the game — and, for an admin acting as Maia City (the nav pill's You menu), the coop's
+	greeting; the Game Worlds, the three sandboxes, open to every traveler; then the apps — the asset library, a tile
+	for each of its groups (plants, animals, things, machines, buildings, biomes; $lib/app/groups.ts), the factories, the proposals, the game — and, for an admin acting as Maia City (the nav pill's You menu), the coop's
 	own: its members, invites and its Postgres.
 -->
 <script lang="ts">
@@ -9,6 +9,7 @@
 	import { asset } from '$lib/site/media/url';
 	import { session } from '$lib/session.svelte';
 	import { asCity } from '$lib/acting.svelte';
+	import { GROUP_APPS } from '$lib/app/groups';
 
 	const hour = new Date().getHours();
 	const hello = hour < 5 ? 'Good night' : hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -18,9 +19,10 @@
 		{ href: '/sandbox-2/', label: 'Sandbox 2', note: 'The physical world lab: buildings from their parts, with physics, fixings and wind', cover: 'bd34c342d7db41283ff4d243aa21bf08daf40fe1e9b47a0f63f92a00d65a9c6e.jpg' },
 		{ href: '/sandbox-3/', label: 'Sandbox 3', note: 'The tired land: walk it as someone new every visit', cover: '41a858860a82169d3d5586d30b648723c32874a94e014f30718a5a70f5b56e85.jpg' }
 	];
-	type Tile = { href: string; label: string; note: string; icon: 'leaf' | 'proposals' | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio'; admins?: boolean };
+	type Tile = { href: string; label: string; note: string; icon: (typeof GROUP_APPS)[number]['icon'] | 'proposals' | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio'; admins?: boolean };
 	const APPS: Tile[] = [
-		{ href: '/assets/', label: 'Assets', note: 'Every asset and its versions', icon: 'leaf' },
+		// the asset library, a tile per group, each the same viewer (Samuel 2026-11-04)
+		...GROUP_APPS.map(({ href, label, note, icon }) => ({ href, label, note, icon })),
 		// the factories that build our assets, each a live simulation (routes/factories): first the LifeTrac line; admins
 		// only for now (Samuel 2026-11-03)
 		{ href: '/factories/', label: 'Factories', note: 'The LifeTrac line, every part from raw stock', icon: 'factory', admins: true },
