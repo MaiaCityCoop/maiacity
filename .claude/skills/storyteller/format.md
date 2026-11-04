@@ -77,7 +77,7 @@ three rules in `scenes.md`:
 | Its feeling | Momentum, competence, "look, it works" | Warmth, longing, the dream, the cost |
 
 **The fixed order** (Samuel, 2026-11-03; `hook-writer`, "The fixed trailer"): the topic hook, then the fixed trailer
-spoken by Samuel, *"This is the story of how one million humans build a ten times better way of living: their own solarpunk city, from the ground up. First in a game, then for real."*, then the story, which keeps the hook's promise.
+spoken by Samuel, *"This is the story of how one million humans build a hundred times better way of living: their own solarpunk city, from the ground up. First in a game, then for real."*, then the story, which keeps the hook's promise.
 
 **Every story teaches** (Samuel, 2026-11-03; `SKILL.md`, law 6b): one clear insight from permaculture or food forest
 design (how the plant lives, how the forest is planted and works), plus surprising true facts, each one a step of the

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CUE_CHARS, cuesOf, renderAt, type StoryBody } from './timeline';
 
 const LEAVES = 'Every few days, a new leaf unfolds at its crown, each turned a little further round than the last, so that every leaf finds the light. The old ones, it lets fall. Each leaves a scar, and in time its trunk becomes a diary of every leaf it ever wore.';
-const TRAILER = 'This is the story of how one million humans build a ten times better way of living: their own solarpunk city, from the ground up. First in a game, then for real.';
+const TRAILER = 'This is the story of how one million humans build a hundred times better way of living: their own solarpunk city, from the ground up. First in a game, then for real.';
 
 describe('subtitle cues: one line at a time', () => {
 	it('keeps every word, in order, once', () => {
