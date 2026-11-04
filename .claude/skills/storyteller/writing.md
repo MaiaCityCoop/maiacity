@@ -62,6 +62,15 @@ belongs to avenMAIA's episodes and to Samuel's own journey, never to the vision.
 with no trucks. Concrete senses, small details, present tense. Open on one when it serves the hook; return to it two
 or three times — never more, or it becomes a device.
 
+**You live here (Samuel, 2026-11-04).** Every story puts the viewer into the future as someone who lives in it, never
+as a visitor watching other people's lives. Say *you*, in the present tense once they are inside: *your* room, the seed
+*you* plant, *your* breakfast, the stairs *you* walk down every morning. Not "the people who live here", not "they".
+- **The switch:** "Picture yourself living here…" opens the mode, once or twice a film, at a turning point (the first
+  look at the place, the reveal of what it became). After it, everything is *you*, now.
+- **You act:** the viewer plants, waits, picks, wakes; the story's choices are theirs ("The first seed you plant here…").
+- **Honest:** it is a picture of a future to build, first in the game, then for real; never a claim that it already
+  exists for them.
+
 ## Rhythm
 
 Pace it like Dan Koe: short sentences, then a longer paragraph that develops the thought, then short again.
@@ -150,6 +159,7 @@ draft: true
 - [ ] The intensity curve alternates highs and lows; the peak comes late
 - [ ] Every heading is a rehook; the mechanism is never named before it is earned
 - [ ] Two to four "Imagine…" scenes; no paragraph explains an image
+- [ ] The viewer lives here: "you", present tense, from "Picture yourself living here…" on; they act, never only watch
 - [ ] Every claim about the future stands on a precedent or on what nature already does; the sceptic's best case is said and the true part conceded
 - [ ] The loop is said out loud early and paid by name; the last lines echo the first
 - [ ] Rhythm varies: short against long, uneven sections
