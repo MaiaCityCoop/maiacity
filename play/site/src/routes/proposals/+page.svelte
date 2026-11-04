@@ -339,7 +339,7 @@
 						<div class="story-play"><StoryPlayer story={storyReview.story} compact /></div>
 						<div class="story-diff">
 							<h3>{storyReview.baseStory ? `Changes from v${storyReview.baseStory.number}` : 'A new story'}</h3>
-							<StoryChanges diff={storyReview.diff} fresh={!storyReview.baseStory} />
+							<StoryChanges diff={storyReview.diff} fresh={!storyReview.baseStory} links={{ ...storyReview.baseStory?.links, ...storyReview.story.links }} />
 							{#if (storyReview.steps?.length ?? 0) > 1}
 								<h3 class="steps-head">Made in {storyReview.steps!.length} steps</h3>
 								<ol class="steps">
