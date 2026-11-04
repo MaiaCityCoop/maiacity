@@ -328,11 +328,15 @@
 	.playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--terracotta, #c96f53); pointer-events: none; }
 	.playhead::before { content: ''; position: absolute; top: 2.3rem; left: -5px; border: 6px solid transparent; border-top-color: var(--terracotta, #c96f53); }
 	.legend { display: flex; gap: 1rem; font-size: 0.7rem; }
+	/* on a phone: the frame, right under it the controls and the timeline, and only then what the editor reads (Samuel
+	   2026-11-04: play directly below the view, no prose between) */
 	@media (max-width: 820px) {
-		.stage-row { grid-template-columns: 1fr; justify-items: center; }
+		.stage-row { display: contents; }
 		.stage-row .screen, .stage-row .details { grid-column: 1; }
-		.screen { --h: min(58vh, 560px); }
+		.screen { --h: min(58vh, 560px); justify-self: center; order: 1; }
 		.compact .screen { --h: min(50vh, 480px); }
-		.details { justify-self: stretch; }
+		.controls { order: 2; }
+		.timeline { order: 3; }
+		.details { order: 4; justify-self: stretch; }
 	}
 </style>
