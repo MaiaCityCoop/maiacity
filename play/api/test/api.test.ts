@@ -214,6 +214,23 @@ suite("play API", () => {
     expect(r.data.error).toContain("by their hash");
   });
 
+  test("a file is served in part by its bytes (Range), so a sound plays from anywhere in it at once", async () => {
+    const hash = (await call("trav", "GET", `/api/assets/${ids.fern}`)).data.versions[0].recipe;
+    const whole = (await call("trav", "GET", `/api/files/${hash}`));
+    expect(whole.headers.get("accept-ranges")).toBe("bytes");
+    const text: string = whole.data;
+    const get = (range: string) => api.fetch(new Request(`http://play.test/api/files/${hash}`, { headers: { cookie: who.trav.cookie, range } }));
+    const part = await get("bytes=10-19");
+    expect(part.status).toBe(206);
+    expect(part.headers.get("content-range")).toBe(`bytes 10-19/${text.length}`);
+    expect(await part.text()).toBe(text.slice(10, 20));
+    const tail = await get("bytes=-5");
+    expect(await tail.text()).toBe(text.slice(-5));
+    expect((await get(`bytes=${text.length - 3}-`)).headers.get("content-range")).toBe(`bytes ${text.length - 3}-${text.length - 1}/${text.length}`);
+    expect((await get(`bytes=${text.length}-`)).status).toBe(416);
+    expect((await get("bytes=0-1,5-6")).status).toBe(200);
+  });
+
   test("a sandbox's config hands every slot out as the build it pins", async () => {
     const v = (await db.query<any>(`SELECT id, recipe_hash FROM play.asset_versions WHERE asset_id = $1 AND number = 1`, [ids.fern])).rows[0];
     await db.query(`INSERT INTO play.sandbox_pins (sandbox_id, slot, version_id, params) VALUES ('ec08b07d-6ec0-8f65-92b2-3efe7d91df5d', 'fern', $1, '{"stage":"9","seed":"a"}')`, [v.id]);
