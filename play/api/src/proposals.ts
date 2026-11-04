@@ -2,6 +2,7 @@
 // the version after its head, as a recipe file names its own version; an admin accepts or rejects it. Accepting checks
 // the head is still the one it was made from, in one transaction, so of two proposals on one head only the first goes
 // in and the other is archived: rebuilt and proposed again on the new head.
+import { closeFactoryBranch, decideFactory, factoryReview } from "./factories";
 import { randomUUID } from "node:crypto";
 import type { BlobStore } from "./blobs";
 import { hashText } from "./hash";
@@ -292,12 +293,14 @@ export async function listProposals(db: Queryable, me: Me | null, status?: strin
 async function listProposalsWhere(db: Queryable, where: string, args: unknown[]) {
   const { rows } = await db.query<any>(
     `SELECT p.id, p.kind, p.asset_id, p.base, p.version, p.story_id, p.story_base, p.story_version, p.doc_branch, p.status, p.note, p.created, p.decided_at, p.via,
-            p.sandbox_id, p.sandbox_base, p.sandbox_change, p.sandbox_diff, jsonb_array_length(COALESCE(p.sandbox_diff, '[]')) AS changes,
+            p.sandbox_id, p.sandbox_base, p.sandbox_change, p.sandbox_diff, jsonb_array_length(COALESCE(p.sandbox_diff, '[]')) AS changes, p.factory_id,
             au.name AS author, de.name AS decided_by,
-            COALESCE(a.label, sv.title, sx.title) AS label,
-            COALESCE(a.grp, CASE WHEN p.kind = 'story_version' THEN 'stories' WHEN p.kind = 'sandbox_change' THEN 'sandboxes' END) AS grp,
+            COALESCE(a.label, sv.title, sx.title, fx.label) AS label,
+            COALESCE(a.grp, CASE WHEN p.kind = 'story_version' THEN 'stories' WHEN p.kind = 'sandbox_change' THEN 'sandboxes' WHEN p.kind = 'factory_version' THEN 'factories' END) AS grp,
             a.slug, v.card->'card'->>'label' AS version_label,
-            CASE WHEN p.kind = 'story_version' THEN COALESCE(sb.number, 0) + 1 WHEN p.kind = 'sandbox_change' THEN NULL ELSE COALESCE(b.number, 0) + 1 END AS number
+            CASE WHEN p.kind = 'story_version' THEN COALESCE(sb.number, 0) + 1 WHEN p.kind = 'sandbox_change' THEN NULL
+                 WHEN p.kind = 'factory_version' THEN COALESCE(dbv.number, (SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = 'factory:' || p.factory_id) + 1)
+                 ELSE COALESCE(b.number, 0) + 1 END AS number
        FROM play.proposals p
        LEFT JOIN play.assets a ON a.id = p.asset_id
        LEFT JOIN play.asset_versions v ON v.id = p.version
@@ -305,6 +308,9 @@ async function listProposalsWhere(db: Queryable, where: string, args: unknown[])
        LEFT JOIN play.story_versions sv ON sv.id = p.story_version
        LEFT JOIN play.story_versions sb ON sb.id = p.story_base
        LEFT JOIN play.sandboxes sx ON sx.id = p.sandbox_id
+       LEFT JOIN play.factories fx ON fx.id = p.factory_id
+       LEFT JOIN play.doc_branches dbr ON dbr.id = p.doc_branch AND p.kind = 'factory_version'
+       LEFT JOIN play.doc_versions dbv ON dbv.doc_id = dbr.doc_id AND dbv.number = dbr.version
        LEFT JOIN play.humans au ON au.id = p.author
        LEFT JOIN play.humans de ON de.id = p.decided_by
       WHERE ${where}
@@ -328,6 +334,8 @@ export async function proposalOf(db: Queryable, me: Me | null, id: string) {
   if (p.kind === "sandbox_change") return { ...p, ...(await sandboxReview(db, p)) };
   // a story's: its proposed timeline, the head's it was made from, and what changed, clip by clip
   if (p.kind === "story_version") return { ...p, ...(await storyReview(db, p)) };
+  // a factory's: what changed, field by field, against the version it was made on, and its steps
+  if (p.kind === "factory_version") return { ...p, ...(await factoryReview(db, p)) };
   const { rows: v } = await db.query<any>(
     `SELECT v.recipe_hash, v.source_hash, v.card, v.default_variant, f.size FROM play.asset_versions v
        LEFT JOIN play.files f ON f.hash = v.recipe_hash WHERE v.id = $1`, [p.version],
@@ -375,6 +383,7 @@ export type Verdict = "accept" | "archive";
 async function archiveAsAuthor(tx: Queryable, me: Me, p: any) {
   await tx.query(`UPDATE play.proposals SET status = 'archived', decided_by = $2, decided_at = now() WHERE id = $1`, [p.id, me.id]);
   if (p.kind === "story_version") await archiveOwnStory(tx, me, p);
+  else if (p.kind === "factory_version") await closeFactoryBranch(tx, me, p);
   else if (p.kind !== "sandbox_change") await closeBranch(tx, p.asset_id, p.doc_branch, me, "archived");
   return { id: p.id as string, status: "archived" as const };
 }
@@ -409,6 +418,7 @@ export async function decide(db: Db, store: BlobStore, me: Me | null, id: string
     if (verdict === "archive" && p.author === me.id && me.level !== "admin") return archiveAsAuthor(tx, me, p);
     if (p.kind === "story_version") return decideStory(tx, me, p, verdict);
     if (p.kind === "sandbox_change") return decideSandbox(tx, me, p, verdict);
+    if (p.kind === "factory_version") return decideFactory(tx, me, p, verdict);
     must(me, "decide", "asset_version");
     if (verdict === "archive") {
       await tx.query(`UPDATE play.proposals SET status = 'archived', decided_by = $2, decided_at = now() WHERE id = $1`, [id, me.id]);

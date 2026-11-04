@@ -1,6 +1,8 @@
 /*
+ * (v1 of the factory document `factory:lifetrac-line`'s bill of process, with ./line.js: see there.)
+ *
  * THE LIFETRAC'S BILL OF PROCESS — how every part of our LifeTrac (machines/lifetrac@1, variant lifetrac-v25: the
- * catalog its card carries, 135 entries, 529 pieces) is made in the LifeTrac line (./lifetrac-line.js), from its raw
+ * catalog its card carries, 135 entries, 529 pieces) is made in the LifeTrac line (./line.js), from its raw
  * stock to its place on the machine. One entry per part of the asset's catalog, by the same id: what it is made from
  * (a plate, a tube, a bar, a reel of hose, a spool of wire) or who makes it when we buy it (an engine, a valve, a board),
  * how many and how heavy, and every operation it goes through: at which station, on which machine, and for how many

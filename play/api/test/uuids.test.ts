@@ -69,7 +69,8 @@ suite("every reference a UUID (migration 0017)", () => {
       [change, ada.id],
     );
 
-    expect(await migrate(db)).toEqual(["0017-uuids"]);
+    // 0017 runs, then whatever came after it
+    expect((await migrate(db))[0]).toBe("0017-uuids");
 
     const film = uuidOf("story:old-film"), cut = uuidOf("story:old-cut");
     const q = async (text: string, args: unknown[] = []) => (await db.query<any>(text, args)).rows;

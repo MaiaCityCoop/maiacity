@@ -200,7 +200,7 @@
 			{#if moment.voice && moment.cue && !(moment.voice.who === 'ON SCREEN' && moment.shot?.frame)}
 				<div class="subtitle">
 					<span class="who">{moment.voice.who}</span>
-					<span class="line">{moment.cue.text}</span>
+					<span class="line" class:em={moment.cue.em}>{moment.cue.text}</span>
 				</div>
 			{/if}
 			{#if !playing}<span class="play-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg></span>{/if}
@@ -299,6 +299,8 @@
 	/* the subtitle sized to the frame, as it would be in the film: one line of about 26 characters across it (CUE_CHARS) */
 	.who { font-size: clamp(0.55rem, 2.8cqw, 0.85rem); font-weight: 700; letter-spacing: 0.08em; color: #ffe6a8; text-shadow: 0 1px 3px rgb(0 0 0 / 0.85); }
 	.line { font-size: clamp(0.85rem, 5.6cqw, 2rem); font-weight: 700; line-height: 1.2; color: #fff; text-wrap: balance; background: rgb(10 10 8 / 0.5); padding: 0.18em 0.45em; border-radius: 0.3em; text-shadow: 0 1px 4px rgb(0 0 0 / 0.7); }
+	/* a subtitle the clip set apart (cues' `em`): alone, about two and a half times as large, warm gold, no box */
+	.line.em { font-size: clamp(2rem, 14cqw, 5rem); font-weight: 800; letter-spacing: 0.02em; line-height: 1; color: #ffd76a; background: none; padding: 0; text-shadow: 0 2px 10px rgb(0 0 0 / 0.75), 0 0 2px rgb(0 0 0 / 0.9); }
 	.details { display: grid; gap: 0.6rem; align-content: start; min-width: 0; }
 	.details h2 { margin: 0; font-size: 1.25rem; }
 	.beat { margin: 0; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }

@@ -13,3 +13,9 @@ export const SANDBOX = {
   three: "a2af9568-53c6-8917-a816-da88d3ff66ff",
   factories: "9862777e-04c2-8362-b028-27ff7e0591b8",
 } as const;
+
+/** the factories' first versions, made by the deploy's import (../import/factories.ts): each uuidOf("factory:<its first name>") */
+export const FACTORY = {
+  /** the LifeTrac line (once 'lifetrac-line') */
+  lifetrac: "bb437f73-48c6-8dd9-82c6-07ce2630e43e",
+} as const;

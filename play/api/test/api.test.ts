@@ -731,6 +731,23 @@ suite("play API", () => {
     expect((await tool("propose_story", { title: "x", note: "x", body: { tracks: [{ id: "voice", kind: "voice", clips: [] }] } })).error).toContain("at least one clip");
   });
 
+  test("a voice clip may set its own subtitles, one of them apart and large: kept in time order, checked", async () => {
+    const voice = (cues: unknown) => ({ tracks: [{ id: "voice", kind: "voice", clips: [{ id: "t1", at: 0, duration: 6, who: "SAMUEL", line: "One million humans build a hundred times better way of living.", cues }] }] });
+    const ok = await tool("propose_story", {
+      title: "100x", note: "its own subtitles",
+      body: voice([{ at: 2.4, text: "100x", em: true }, { at: 0, text: "One million humans build" }, { at: 3.2, text: "better way of living.", em: "yes" }]),
+    });
+    expect(ok.error).toBeNull();
+    const clip = (await call("ada", "GET", `/api/proposals/${ok.out.id}`)).data.story.tracks[0].clips[0];
+    expect(clip.cues).toEqual([{ at: 0, text: "One million humans build" }, { at: 2.4, text: "100x", em: true }, { at: 3.2, text: "better way of living." }]);
+    const bad = async (cues: unknown) => (await tool("propose_story", { title: "x", note: "x", body: voice(cues) })).error;
+    expect(await bad("100x")).toContain("list of subtitles");
+    expect(await bad([{ at: 7, text: "late" }])).toContain("seconds into the clip");
+    expect(await bad([{ at: 1, text: " " }])).toContain("text is missing");
+    expect(await bad([{ at: 1, text: "x".repeat(201) }])).toContain("longer than 200");
+    expect(await bad(Array.from({ length: 65 }, (_, i) => ({ at: i / 20, text: "x" })))).toContain("at most 64");
+  });
+
   test("the repo's stories are written into Postgres once, as their accepted v1, and never over play's", async () => {
     const dir = mkdtempSync(join(tmpdir(), "play-stories-"));
     const SEEDED = "5eed7e57-0000-4000-8000-000000000001";

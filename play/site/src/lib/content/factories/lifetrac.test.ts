@@ -1,8 +1,20 @@
-// The LifeTrac line held to the LifeTrac and to its own numbers. Run: bunx vitest run src/lib/content/factories
+// The LifeTrac line held to the LifeTrac and to its own numbers: its first version as play's factory document
+// (play/api/import/factories/lifetrac-line, play/api/src/factories.ts), drawn as this folder's lineOf draws it. Run:
+// bunx vitest run src/lib/content/factories
 import { describe, expect, test } from 'vitest';
-import { contentOf, EXTRA, PARTS, STOCK, stationsNamed, totals } from './lifetrac-bom.js';
-import { SPEC } from './lifetrac-line.js';
+import { lifetracLine, SPEC as FIRST } from '../../../../../api/import/factories/lifetrac-line/index.js';
+import { lineOf } from './index.js';
 import { forecast, plan } from './des.js';
+
+const doc = lifetracLine();
+const L = lineOf(doc);
+const SPEC = L.spec;
+const PARTS = L.parts as any[];
+const STOCK = L.stock;
+const EXTRA = doc.handling as Record<string, any[]>;
+const contentOf = L.contentOf;
+const totals = () => L.totals;
+const stationsNamed = () => [...new Set([...PARTS.flatMap((p) => p.ops.map((o: any) => o.at)), ...Object.keys(EXTRA)])];
 
 /** the catalog machines/lifetrac@1 (variant lifetrac-v25) carries on its card: every part's id and how many pieces it counts */
 const CATALOG: [string, number][] = [
@@ -47,7 +59,7 @@ describe('the bill of process', () => {
 		}
 	});
 	test('every operation is at a station of the line, and takes no negative time', () => {
-		const ids = new Set(SPEC.stations.map((s) => s.id));
+		const ids = new Set(SPEC.stations.map((s: any) => s.id));
 		for (const p of PARTS) for (const o of p.ops) {
 			expect(ids.has(o.at), `${p.id} at ${o.at}`).toBe(true);
 			expect(o.s).toBeGreaterThanOrEqual(0);
@@ -56,10 +68,13 @@ describe('the bill of process', () => {
 		for (const st of Object.keys(EXTRA)) expect(ids.has(st), st).toBe(true);
 	});
 	test('every station’s cycle time is the sum of what it does for one LifeTrac', () => {
-		for (const s of SPEC.stations) {
+		for (const s of SPEC.stations as any[]) {
 			expect(s.ct, s.id).toBe(contentOf(s.id));
 			expect(s.ct, s.id).toBeGreaterThan(0);
 		}
+	});
+	test('drawn from the document, the line is the line as it was first made: every cycle time and note', () => {
+		expect(SPEC.stations.map((s: any) => [s.id, s.ct, s.note])).toEqual(FIRST.stations.map((s: any) => [s.id, s.ct, s.note]));
 	});
 });
 
@@ -70,17 +85,17 @@ describe('the line', () => {
 		expect(p.daySec).toBe(86400);
 		expect(p.sink).toBe('ship');
 		expect(p.stations.length).toBe(42);
-		expect(Object.fromEntries(p.stations.filter((s) => s.servers > 1).map((s) => [s.id, s.servers]))).toEqual({ frame: 2, cylturn: 2 });
-		for (const s of p.stations) expect(s.operators, s.id).toBe(0);
+		expect(Object.fromEntries(p.stations.filter((s: any) => s.servers > 1).map((s: any) => [s.id, s.servers]))).toEqual({ frame: 2, cylturn: 2 });
+		for (const s of p.stations as any[]) expect(s.operators, s.id).toBe(0);
 	});
 	test('five production days: 30 a day against 24, the welding cell the constraint', () => {
-		const r = forecast(plan(SPEC), {}, { days: 5 });
+		const r: any = forecast(plan(SPEC), {}, { days: 5 });
 		expect(r.perDay).toBeCloseTo(30.0, 1);
 		expect(r.bottleneck).toBe('weld');
 		expect(r.st.weld.busy + r.st.weld.down).toBeGreaterThan(0.95);
 	});
 	test('a second welding cell: 41 a day, and the plate laser becomes the constraint', () => {
-		const r = forecast(plan(SPEC), { weld: { servers: 2 } }, { days: 5 });
+		const r: any = forecast(plan(SPEC), { weld: { servers: 2 } }, { days: 5 });
 		expect(r.perDay).toBeCloseTo(41.2, 1);
 		expect(r.bottleneck).toBe('laser');
 	});
