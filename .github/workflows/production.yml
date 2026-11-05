@@ -198,6 +198,24 @@ jobs:
           scp play/deploy/setup.sql play/deploy/after-import.sql play/deploy/Caddyfile.play "prod:$APP_DIR/play/deploy/"
           ssh prod "mkdir -p $APP_DIR/deploy"
           scp deploy/backup.sh deploy/restore.sh "prod:$APP_DIR/deploy/"
+      # The server's disks before the backup (it copies play's files whole, so it needs their size free twice): what is
+      # free, what takes it, and what is safe to let go of (a backup's scratch left by a run cut short, Docker's build
+      # cache and images no container uses). 2026-11-05: a full disk left play's new files empty under their hashes.
+      - name: Disk
+        env:
+          DATA_MOUNT: ${{ steps.infra.outputs.data_mount }}
+        run: |
+          ssh prod "bash -s" <<EOS
+          set -u
+          echo "== before"; df -h / "$DATA_MOUNT" $APP_DIR 2>/dev/null
+          sudo du -xsh $APP_DIR/backups-tmp "$DATA_MOUNT"/* 2>/dev/null | sort -h | tail -15
+          sudo du -xsh "$DATA_MOUNT"/play/* 2>/dev/null | sort -h | tail -10
+          docker system df 2>/dev/null
+          rm -rf $APP_DIR/backups-tmp
+          docker builder prune -af >/dev/null 2>&1 || true
+          docker image prune -af >/dev/null 2>&1 || true
+          echo "== after"; df -h / "$DATA_MOUNT" $APP_DIR 2>/dev/null
+          EOS
       # Before anything changes: play's schema and a full copy of its files go to the bucket, with the image that ran
       # with them (deploy/backup.sh); the deploy stops if that fails. Only here, on a deploy: nothing runs on a
       # schedule, and the old daily dump's cron is taken away (Samuel 2026-11-02). Restore by hand: restore.yml.

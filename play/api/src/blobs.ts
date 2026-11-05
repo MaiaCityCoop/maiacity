@@ -1,6 +1,6 @@
 // Where blobs live: the bucket (Hetzner Object Storage, S3's protocol) in production, a folder on disk in development
 // and tests. Each blob is kept under its BLAKE3 hash and handed out only after its bytes are checked against it.
-import { mkdir, stat } from "node:fs/promises";
+import { mkdir, rename, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { HASH, hashBytes } from "./hash";
 
@@ -22,16 +22,32 @@ function checked(hash: string, bytes: Uint8Array) {
   if (got !== hash) throw new Error(`blob ${hash} holds bytes hashing to ${got}`);
 }
 
+// A file on disk is written beside its place and renamed into it, so a write cut short (a full disk, a restart) never
+// leaves a broken file under a hash; and a file counts as held only when its bytes hash to its name, so one broken
+// before (2026-11-05: empty files left by a full disk, skipped by every later upload because has() saw them) is
+// written again by the next put of its bytes instead of staying broken for good.
 export function folderStore(dir: string, publicBase = "/api/files"): BlobStore {
   const path = (h: string) => join(dir, keyOf(h));
+  const sound = async (h: string) => {
+    const f = Bun.file(path(h));
+    if (!(await f.exists())) return false;
+    return hashBytes(new Uint8Array(await f.arrayBuffer())) === h;
+  };
   return {
-    async has(h) {
-      return stat(path(h)).then(() => true, () => false);
-    },
+    has: sound,
     async put(h, bytes) {
       checked(h, bytes);
+      if (await sound(h)) return keyOf(h);
       await mkdir(join(dir, "blobs", h.slice(0, 2)), { recursive: true });
-      await Bun.write(path(h), bytes);
+      const part = `${path(h)}.${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.part`;
+      try {
+        await Bun.write(part, bytes);
+        if ((await stat(part)).size !== bytes.length) throw new Error(`blob ${h}: the disk took ${(await stat(part)).size} of ${bytes.length} bytes`);
+        await rename(part, path(h));
+      } catch (e) {
+        await rm(part, { force: true });
+        throw e;
+      }
       return keyOf(h);
     },
     async get(h) {
