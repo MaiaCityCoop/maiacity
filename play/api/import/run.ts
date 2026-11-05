@@ -335,23 +335,32 @@ export async function legacyRan(db: Queryable): Promise<string | null> {
   return rows[0] ? new Date(rows[0].ran).toISOString() : null;
 }
 
-/** every file play keeps, read back from the bucket and checked against its hash */
+/**
+ * Every file play keeps, in its store at its size. Its bytes were checked against its hash when it was written (a store
+ * takes nothing else) and it never changes, so a deploy no longer reads every file back (2,300 files, videos and all,
+ * every deploy: minutes, and one slow answer from the bucket failed it). The store holds each call steady itself
+ * (blobs.ts `steady`), and one the bucket lacks is put back from its second copy (blobs.ts `mirroredStore`).
+ * Reading every file's bytes again is the server workflow's report, by hand.
+ */
 async function verifyFiles(db: Db, store: BlobStore, report: Report) {
-  const { rows: kept } = await db.query<{ hash: string }>(`SELECT hash FROM play.files`);
-  await inParallel(kept, 8, async ({ hash }) => {
-    // the bucket now and then does not answer in time (an S3 timeout, a 5xx): such a file is asked again, up to three
-    // times; one missing or not hashing to its name is an error at once
-    for (let attempt = 1; ; attempt++) {
-      try {
-        if (!(await store.get(hash))) throw Object.assign(new Error("missing"), { final: true });
-        report.verified.filesReadBack++;
-        return;
-      } catch (e) {
-        const err = e as Error & { final?: boolean };
-        const final = err.final || /hashing to/.test(err.message) || attempt >= 3;
-        if (final) { report.verified.fileErrors.push(`${hash}: ${err.message}`); return; }
-        await new Promise((r) => setTimeout(r, 2000 * attempt));
+  const { rows: kept } = await db.query<{ hash: string; size: string | number }>(`SELECT hash, size FROM play.files`);
+  await inParallel(kept, 16, async ({ hash, size }) => {
+    try {
+      const n = await store.size(hash);
+      if (n === null) report.verified.fileErrors.push(`${hash}: missing`);
+      else if (n === Number(size)) report.verified.filesReadBack++;
+      else {
+        // not the size its row says: its bytes read and checked against its hash (a store hands out nothing else); whole,
+        // it is the row that was wrong, and it is set right
+        const bytes = await store.get(hash);
+        if (!bytes) report.verified.fileErrors.push(`${hash}: missing`);
+        else {
+          await db.query(`UPDATE play.files SET size = $2 WHERE hash = $1`, [hash, bytes.length]);
+          report.verified.filesReadBack++;
+        }
       }
+    } catch (e) {
+      report.verified.fileErrors.push(`${hash}: ${(e as Error).message}`);
     }
   });
 }
@@ -450,7 +459,7 @@ export function reportText(r: Report): string {
     `| Refs to other assets rewritten as hashes | ${r.assets.hashedRefs} (the pickup's to the Power Cube dropped) |`,
     `| Plant versions with their words (Latin, layer, origin, stages) | ${r.assets.plantWords} |`,
     `| Written now | ${Object.entries(r.written).map(([k, n]) => `${k} ${n}`).join(", ")} |`,
-    `| Files read back and hash-checked | ${r.verified.filesReadBack} |`,
+    `| Files in the store, each at its size (its bytes checked against its hash when written) | ${r.verified.filesReadBack} |`,
     `| Assets per group match the feed | ${r.verified.groupsMatch ? "yes" : "no"} |`,
     `| Sandbox pins resolving (Sandbox 1 and 3, the Factories) | ${r.verified.pinsResolved} |`,
     `| Media files (covers, sounds) | ${r.written.media} written, ${r.verified.mediaErrors.length} failed |`,

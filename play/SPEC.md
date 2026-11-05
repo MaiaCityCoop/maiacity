@@ -189,6 +189,14 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
 - **One source of truth:** Postgres (the catalog: assets, versions, variants, cards, the owner; the sandboxes' pins and
   configs) and the bucket (every file under the BLAKE3 hash of its bytes). Nothing else is read: no avenDB, no repo
   fallback, no index of readable names in the site.
+- **A resilient store (Samuel 2026-11-05: "never run into this flaky store issue").** The bucket is reached only
+  through `play/api/src/blobs.ts`, which holds it to never failing play for a slow moment:
+  - every call is given its time to answer and asked again, with a doubling wait, when it is slow, cut off or answers
+    5xx / slow down (`steady`); a missing key, refused access or bytes not hashing to their name are not asked again;
+  - every file is kept **twice**: in play's `blobs/` and, written through on every put, in the backups' store
+    `BACKUPS/play-files/blobs/` (`PLAY_MIRROR_ROOT`). A file the first can't hand back whole (missing, cut short, not
+    answering) is read from the second, checked against its hash, and put back into the first (`mirroredStore`);
+  - files never change, so the ones handed out are kept in memory (`PLAY_CACHE_MB`, default 256; `cachedStore`).
 - **An asset is its UUID; a recipe is its hash.** Versions, proposals, the catalog and the library's addresses
   (`#<uuid>[/<hash>]`) name an asset by its UUID; a group and slug are only shown, and can't be taken twice.
 - **Every reference is a hash.** A build is `<hash>?values`. A sandbox names an asset by a slot of its pins,
@@ -451,8 +459,11 @@ ranges its card allows. In all three sandboxes; in Sandbox 2 the character walks
 No V2 game state is imported (Sandbox 3 is stateless). The master recovery key is not needed. The avenDB feed takes
 only post-quantum TLS: the import runs on Bun (OpenSSL 3.5).
 
-The import verifies before it reports success: every file's BLAKE3 after a read back from the bucket, every pin
-resolving, the counts per group against the feed.
+The import verifies before it reports success: every file in the store at its size (its bytes were checked against
+its BLAKE3 when it was written, and it never changes; one at another size is read and checked against its hash, and
+its row set right if the bytes are whole; one the bucket lacks is put back from its second copy), every pin resolving,
+the counts per group against the feed. Reading every file's bytes back is the server workflow's report, by hand: a
+deploy no longer reads 2,300 files (videos and all), where one slow answer from the bucket failed it.
 
 **It runs once (Samuel 2026-11-03).** Postgres keeps that it ran (`play.imports`), and from then on **play's Postgres is
 the one source of truth** for its assets, members and sandboxes: a later run (every deploy runs it) writes none of the
@@ -502,7 +513,8 @@ matching a label or the start of a hash, with the count of each kind.
 - Env: `DATABASE_URL` (role `play`), `PLAY_BUCKET`, `PLAY_BUCKET_ENDPOINT`, `PLAY_BUCKET_ACCESS_KEY`,
   `PLAY_BUCKET_SECRET_KEY`, `RP_ID=maia.city`, `SITE_ORIGIN=https://play.maia.city`.
 - A release workflow for `play/` only; legacy workflows stay parked.
-- Backups: a daily `pg_dump -n play` to the backup bucket; the object bucket with versioning or Object Lock.
+- Backups: before every deploy a snapshot, like Time Machine's: a full `pg_dump -n play` and the list of the files it
+  names, the files themselves kept once each in the shared store `BACKUPS/play-files/blobs/` (`deploy/backup.sh`).
 
 ## 10. Milestones
 
