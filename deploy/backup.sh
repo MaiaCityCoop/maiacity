@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
-# play's backup, to Hetzner Object Storage (bucket `maiacity`, under BACKUPS/play/<when>-<label>/): always both halves
-# together — its schema in Postgres (pg_dump -n play) and a full copy of its files (the blob store, from its folder or
-# its bucket, small enough to copy whole each time; the backup fails unless it holds every file the dump names) — and a manifest
-# naming the play image that ran with them, so a rollback brings that image back too. It runs before every deploy (the
-# production workflow's server job, which stops if it fails), and by hand:
+# play's backup, to Hetzner Object Storage (bucket `maiacity`): a snapshot like Time Machine's, made before every deploy.
+#   BACKUPS/play/<when>-<label>/   the snapshot: a full dump of play's schema in Postgres (pg_dump -n play, every time),
+#                                  files.txt (every file the dump names: its hash and size) and a manifest naming the
+#                                  play image that ran with them, so a rollback brings that image back too
+#   BACKUPS/play-files/blobs/      play's files, each kept once under its hash (blobs/<xx>/<hash>), shared by every
+#                                  snapshot: a file is named by its BLAKE3 hash and never changes, so a snapshot copies
+#                                  only the files the store does not hold yet (a deploy's few new ones), never the rest
+# The backup fails unless the store holds every file the dump names, each at its size, and the snapshot's three
+# objects are in the bucket whole. Older snapshots (before 2026-11-05) carry their own full copy (blobs.tar or blobs/).
+# It runs before every deploy (the production workflow's server job, which stops if it fails), and by hand:
 #   bash /opt/maia-city/deploy/backup.sh <label> [commit]
 # Restoring, as a check or as a rollback, is .github/workflows/restore.yml, run by hand. Nothing runs on a schedule
-# (Samuel 2026-11-02).
+# (Samuel 2026-11-02; snapshots, Samuel 2026-11-05).
 # Access comes from ../backup.env (the deploy writes it, readable by deploy only):
 #   BACKUP_BUCKET, BACKUP_ENDPOINT, BACKUP_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
 # Each file is written first and uploaded as a file: no stream through stdin, and every step says where it is.
@@ -34,53 +39,73 @@ trap 'rm -rf "$WORK"' EXIT
 echo "backup: dumping the schema play …"
 timeout 900 docker exec maia-city-db pg_dump -U maiacity -d maiacity -n play -Fc -w --lock-wait-timeout=120s </dev/null >"$WORK/play.dump"
 [ -s "$WORK/play.dump" ] || { echo "backup: the dump is empty"; exit 1; }
-# the files the dump names, counted now, before the copy: play keeps a file in its store before its row, so every row
-# counted here has its file there when the copy starts; counted after it, the files play keeps while the copy runs (a
-# few minutes) were counted but not copied, and the backup failed for them (2026-11-05: 2287 rows, 2267 copied)
-ROWS=$(docker exec maia-city-db psql -U maiacity -d maiacity -Atc "SELECT count(*) FROM play.files" </dev/null)
-# the files, always beside the dump: from the bucket where play keeps them there, else from its folder. Each is named by
-# its hash and never changes, so files written after the dump only add to what the copy holds.
+# the files the dump names, listed now, before the copy: play keeps a file in its store before its row, so every row
+# listed here has its file there when the copy starts (listed after it, files play kept while the copy ran were named
+# but not copied; 2026-11-05: 2287 rows, 2267 copied)
+docker exec maia-city-db psql -U maiacity -d maiacity -AtF ' ' -c "SELECT hash, size FROM play.files ORDER BY hash" </dev/null >"$WORK/files.txt"
+ROWS=$(wc -l <"$WORK/files.txt")
+STORE_PREFIX="BACKUPS/play-files/blobs"
+# the backup bucket, with the backup's own access
+s3b() {
+  timeout "${S3_TIMEOUT:-900}" docker run --rm -v "$WORK:/work" "$@"
+}
+backup_cli() {
+  s3b -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION="$BACKUP_REGION" \
+    -e AWS_REQUEST_CHECKSUM_CALCULATION=when_required -e AWS_RESPONSE_CHECKSUM_VALIDATION=when_required \
+    -e AWS_RETRY_MODE=adaptive -e AWS_MAX_ATTEMPTS=6 \
+    amazon/aws-cli --endpoint-url "$BACKUP_ENDPOINT" --cli-connect-timeout 20 --cli-read-timeout 120 "$@" </dev/null
+}
+# the files into the store: from the bucket where play keeps them there, else from its folder. Only what the store
+# does not hold yet is copied: a sync compares each name and size, and a file named by its hash never changes.
 STORE=folder
 # while play's folder is still on the volume (the deploy moves it off once its files are in the bucket), the folder is
 # where play's files are, whatever play.env already says
 if [ -n "${PLAY_BUCKET:-}" ] && ! { [ -n "${PLAY_DATA_PATH:-}" ] && [ -d "$PLAY_DATA_PATH/blobs" ]; }; then
-  # copied inside the object storage, from play's files to the backup's (nothing comes down to the server's disk); each
-  # is named by its hash and never changes, so files written after the dump only add to what the copy holds
+  # copied inside the object storage, from play's files to the store (nothing comes down to the server's disk)
   STORE="bucket $PLAY_BUCKET"
-  echo "backup: copying the files in s3://$PLAY_BUCKET/blobs/ to s3://$BACKUP_BUCKET/$PREFIX/blobs/ …"
-  s3play() {
-    timeout 1800 docker run --rm \
+  echo "backup: adding what is new in s3://$PLAY_BUCKET/blobs/ to s3://$BACKUP_BUCKET/$STORE_PREFIX/ …"
+  copy() {
+    S3_TIMEOUT=1800 s3b \
       -e AWS_ACCESS_KEY_ID="$PLAY_BUCKET_ACCESS_KEY" -e AWS_SECRET_ACCESS_KEY="$PLAY_BUCKET_SECRET_KEY" \
       -e AWS_DEFAULT_REGION="${PLAY_BUCKET_REGION:-$BACKUP_REGION}" \
       -e AWS_REQUEST_CHECKSUM_CALCULATION=when_required -e AWS_RESPONSE_CHECKSUM_VALIDATION=when_required \
       -e AWS_RETRY_MODE=adaptive -e AWS_MAX_ATTEMPTS=6 \
-      amazon/aws-cli --endpoint-url "$PLAY_BUCKET_ENDPOINT" --cli-connect-timeout 20 --cli-read-timeout 120 "$@" </dev/null
+      amazon/aws-cli --endpoint-url "$PLAY_BUCKET_ENDPOINT" --cli-connect-timeout 20 --cli-read-timeout 120 \
+      s3 sync "s3://$PLAY_BUCKET/blobs/" "s3://$BACKUP_BUCKET/$STORE_PREFIX/" --size-only --exclude '*.part-*' --only-show-errors </dev/null
   }
-  # the bucket now and then answers a copy of a large file with a GatewayTimeout: the sync is run again (it copies only
-  # what is still missing), up to three times, before the backup gives up
-  for try in 1 2 3; do
-    if s3play s3 sync "s3://$PLAY_BUCKET/blobs/" "s3://$BACKUP_BUCKET/$PREFIX/blobs/" --only-show-errors; then break; fi
-    [ "$try" -lt 3 ] || { echo "backup: the copy of play's files failed three times"; exit 1; }
-    echo "backup: the copy stopped short (try $try of 3); copying what is still missing …"; sleep $((10 * try))
-  done
-  FILES=$(s3play s3 ls "s3://$BACKUP_BUCKET/$PREFIX/blobs/" --recursive | wc -l)
 elif [ -n "${PLAY_DATA_PATH:-}" ] && [ -d "$PLAY_DATA_PATH/blobs" ]; then
-  # packed straight from the folder (no copy of it first: that held every file twice on the disk), and only if the
-  # disk has room for the pack, so a backup never fills it
-  NEED=$(du -sk "$PLAY_DATA_PATH/blobs" | cut -f1)
-  FREE=$(df -Pk "$WORK" | awk 'NR == 2 {print $4}')
-  if [ "$FREE" -lt $((NEED + NEED / 10 + 524288)) ]; then
-    echo "backup: $((FREE / 1024)) MB free beside $WORK, the files need $((NEED / 1024)) MB: free some space first (the server workflow's clean)"; exit 1
-  fi
-  echo "backup: packing the files in $PLAY_DATA_PATH/blobs …"
-  tar -cf "$WORK/blobs.tar" --exclude='*.part-*' -C "$PLAY_DATA_PATH" blobs
-  FILES=$(find "$PLAY_DATA_PATH/blobs" -type f ! -name '*.part-*' | wc -l)
+  # uploaded straight from the folder (no copy or pack of it on the disk)
+  echo "backup: adding what is new in $PLAY_DATA_PATH/blobs to s3://$BACKUP_BUCKET/$STORE_PREFIX/ …"
+  copy() {
+    S3_TIMEOUT=1800 s3b -v "$PLAY_DATA_PATH/blobs:/blobs:ro" \
+      -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION="$BACKUP_REGION" \
+      -e AWS_REQUEST_CHECKSUM_CALCULATION=when_required -e AWS_RESPONSE_CHECKSUM_VALIDATION=when_required \
+      -e AWS_RETRY_MODE=adaptive -e AWS_MAX_ATTEMPTS=6 \
+      amazon/aws-cli --endpoint-url "$BACKUP_ENDPOINT" --cli-connect-timeout 20 --cli-read-timeout 120 \
+      s3 sync /blobs/ "s3://$BACKUP_BUCKET/$STORE_PREFIX/" --size-only --exclude '*.part-*' --only-show-errors </dev/null
+  }
 else
   echo "backup: play.env names neither PLAY_BUCKET nor a PLAY_DATA_PATH with blobs/: no files to copy"; exit 1
 fi
-# a backup holds every file the dump names, or it is no backup
-if [ "$FILES" -lt "$ROWS" ]; then
-  echo "backup: the dump names $ROWS files and the copy holds $FILES"; exit 1
+# the bucket now and then answers a copy of a large file with a GatewayTimeout: the sync is run again (it copies only
+# what is still missing), up to three times, before the backup gives up
+for try in 1 2 3; do
+  if copy; then break; fi
+  [ "$try" -lt 3 ] || { echo "backup: adding play's files to the store failed three times"; exit 1; }
+  echo "backup: the copy stopped short (try $try of 3); copying what is still missing …"; sleep $((10 * try))
+done
+# a snapshot holds every file the dump names, or it is no snapshot: each in the store under its hash, at its size
+backup_cli s3 ls "s3://$BACKUP_BUCKET/$STORE_PREFIX/" --recursive >"$WORK/store.txt"
+MISSING=$(awk 'NR == FNR { n = split($4, k, "/"); have[k[n]] = $3; next } !($1 in have) || have[$1] != $2 { print $1 }' \
+  "$WORK/store.txt" "$WORK/files.txt")
+FILES=$((ROWS - $(printf '%s' "$MISSING" | grep -c . || true)))
+STORED=$(wc -l <"$WORK/store.txt")
+rm -f "$WORK/store.txt"
+if [ -n "$MISSING" ]; then
+  echo "backup: the dump names $ROWS files and the store lacks $(printf '%s\n' "$MISSING" | wc -l) of them (or holds them at another size):"
+  printf '%s\n' "$MISSING" | head -20
+  echo "backup: (the server workflow's report says which of play's files are broken; its clean mends them)"
+  exit 1
 fi
 cat >"$WORK/manifest.json" <<EOF
 {
@@ -92,24 +117,19 @@ cat >"$WORK/manifest.json" <<EOF
   "dumpBytes": $(stat -c %s "$WORK/play.dump"),
   "files": $FILES,
   "fileRows": $ROWS,
-  "blobsBytes": $([ -f "$WORK/blobs.tar" ] && stat -c %s "$WORK/blobs.tar" || echo 0),
-  "store": "$STORE"
+  "layout": "snapshot",
+  "filesIn": "$STORE_PREFIX",
+  "storeHolds": $STORED,
+  "from": "$STORE"
 }
 EOF
 
-echo "backup: uploading to s3://$BACKUP_BUCKET/$PREFIX/ …"
+echo "backup: uploading the snapshot to s3://$BACKUP_BUCKET/$PREFIX/ …"
 # Hetzner's S3 does not take the checksums newer AWS CLIs send by default, only when an operation requires one
-timeout 900 docker run --rm -v "$WORK:/work:ro" \
-  -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION="$BACKUP_REGION" \
-  -e AWS_REQUEST_CHECKSUM_CALCULATION=when_required -e AWS_RESPONSE_CHECKSUM_VALIDATION=when_required \
-  amazon/aws-cli --endpoint-url "$BACKUP_ENDPOINT" --cli-connect-timeout 20 --cli-read-timeout 120 \
-  s3 cp /work "s3://$BACKUP_BUCKET/$PREFIX/" --recursive --only-show-errors </dev/null
-# and both are there: the dump and the files, each at its size
-LISTED=$(timeout 300 docker run --rm \
-  -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION="$BACKUP_REGION" \
-  amazon/aws-cli --endpoint-url "$BACKUP_ENDPOINT" s3 ls "s3://$BACKUP_BUCKET/$PREFIX/" </dev/null)
-PARTS="play.dump manifest.json"; [ -f "$WORK/blobs.tar" ] && PARTS="$PARTS blobs.tar"
-for f in $PARTS; do
+backup_cli s3 cp /work "s3://$BACKUP_BUCKET/$PREFIX/" --recursive --only-show-errors
+# and all three are there, each at its size
+LISTED=$(S3_TIMEOUT=300 backup_cli s3 ls "s3://$BACKUP_BUCKET/$PREFIX/")
+for f in play.dump files.txt manifest.json; do
   size=$(awk -v f="$f" '$4 == f {print $3}' <<<"$LISTED")
   [ "$size" = "$(stat -c %s "$WORK/$f")" ] || { echo "backup: $f is not in the bucket whole ($size)"; exit 1; }
 done
