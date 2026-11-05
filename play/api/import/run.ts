@@ -339,11 +339,19 @@ export async function legacyRan(db: Queryable): Promise<string | null> {
 async function verifyFiles(db: Db, store: BlobStore, report: Report) {
   const { rows: kept } = await db.query<{ hash: string }>(`SELECT hash FROM play.files`);
   await inParallel(kept, 8, async ({ hash }) => {
-    try {
-      if (!(await store.get(hash))) throw new Error("missing");
-      report.verified.filesReadBack++;
-    } catch (e) {
-      report.verified.fileErrors.push(`${hash}: ${(e as Error).message}`);
+    // the bucket now and then does not answer in time (an S3 timeout, a 5xx): such a file is asked again, up to three
+    // times; one missing or not hashing to its name is an error at once
+    for (let attempt = 1; ; attempt++) {
+      try {
+        if (!(await store.get(hash))) throw Object.assign(new Error("missing"), { final: true });
+        report.verified.filesReadBack++;
+        return;
+      } catch (e) {
+        const err = e as Error & { final?: boolean };
+        const final = err.final || /hashing to/.test(err.message) || attempt >= 3;
+        if (final) { report.verified.fileErrors.push(`${hash}: ${err.message}`); return; }
+        await new Promise((r) => setTimeout(r, 2000 * attempt));
+      }
     }
   });
 }
