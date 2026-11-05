@@ -8,7 +8,9 @@
 #           journal past 200 MB; apt's cache; the leftovers of backups and restores. Then mends play's broken files:
 #           each one's good bytes from the backups in the bucket (streamed, never stored whole), checked against its
 #           hash and put back; one no backup holds is moved aside (kept beside the files), so play writes it anew the
-#           next time it is made. Then reports again.
+#           next time it is made; first from the folders kept when play's files moved into the bucket. A file whose
+#           bytes are lost everywhere and that nothing in play's data names but its own row is forgotten (its row in
+#           play.files removed); one that anything names is kept and reported. Then reports again.
 #   retire-avendb  avenDB is no longer run (Samuel 2026-11-05): its container stopped and removed for good, its data
 #           kept as a legacy copy on the root disk (/var/lib/maia-city/avendb-legacy), compared file by file, and only
 #           then removed from the data volume (it held 8.2 GB of the 9.8 GB volume, which filled).
@@ -71,10 +73,45 @@ aws() {
     amazon/aws-cli --endpoint-url "$BACKUP_ENDPOINT" --cli-connect-timeout 20 --cli-read-timeout 300 "$@"
 }
 
+# whether a file's bytes hash to its name (by play's own hash, in a container of its image)
+whole_file() {
+  [ -s "$1" ] && [ "$(docker run --rm -i -v "$1:/f:ro" --entrypoint bun "${PLAY_IMAGE}" -e 'import { hashBytes } from "/app/api/src/hash.ts"; console.log(hashBytes(new Uint8Array(await Bun.file("/f").arrayBuffer())))' </dev/null)" = "$2" ]
+}
+
+# a file's good bytes put back into play's store (the bucket or the folder)
+put_back() {
+  local h=$1 f=$2
+  if [ -n "${PLAY_BUCKET:-}" ]; then
+    docker run --rm -v "$f:/f:ro" -e AWS_ACCESS_KEY_ID="$PLAY_BUCKET_ACCESS_KEY" -e AWS_SECRET_ACCESS_KEY="$PLAY_BUCKET_SECRET_KEY" \
+      -e AWS_DEFAULT_REGION="${PLAY_BUCKET_REGION:-$BACKUP_REGION}" \
+      -e AWS_REQUEST_CHECKSUM_CALCULATION=when_required -e AWS_RESPONSE_CHECKSUM_VALIDATION=when_required \
+      amazon/aws-cli --endpoint-url "$PLAY_BUCKET_ENDPOINT" s3 cp /f "s3://$PLAY_BUCKET/blobs/${h:0:2}/$h" --only-show-errors </dev/null
+  else
+    sudo install -D -o 1000 -g 1000 -m 0644 "$f" "$DATA/blobs/blobs/${h:0:2}/$h.mended" && sudo mv "$DATA/blobs/blobs/${h:0:2}/$h.mended" "$DATA/blobs/blobs/${h:0:2}/$h"
+  fi
+}
+
 mend() {
   local want; want=$(broken || true)
   [ -n "$want" ] || { echo "mend: every file is whole"; return 0; }
-  echo "mend: $(echo "$want" | wc -l) files not whole; looking for their bytes in the backups …"
+  echo "mend: $(echo "$want" | wc -l) files not whole"
+  # first the folders play's files were kept in when they moved into the bucket (a file written whole there after the
+  # copy began is whole in them, not in the bucket)
+  local left=""
+  for h in $want; do
+    local found=""
+    for k in $(ls -d /opt/maia-city/play-folder-blobs-* 2>/dev/null | sort -r); do
+      if sudo test -s "$k/blobs/${h:0:2}/$h"; then
+        local t; t=$(mktemp /opt/maia-city/backups-tmp/kept-XXXX); sudo cat "$k/blobs/${h:0:2}/$h" > "$t"
+        if whole_file "$t" "$h"; then put_back "$h" "$t"; echo "mend: $h put back from $k"; found=1; fi
+        rm -f "$t"; [ -n "$found" ] && break
+      fi
+    done
+    [ -n "$found" ] || left="$left $h"
+  done
+  want=$(echo $left)
+  [ -n "$want" ] || return 0
+  echo "mend: looking for $(echo $want | wc -w) in the backups …"
   local tmp; tmp=$(mktemp -d /opt/maia-city/backups-tmp/mend-XXXX); trap 'rm -rf "$tmp"' RETURN
   # the newest backups first: each one's blobs.tar streamed through tar, which takes out only the files wanted (a
   # backup of the folder holds blobs/blobs/<xx>/<hash>)
@@ -82,27 +119,37 @@ mend() {
     [ -n "$want" ] || break
     local names=""; for h in $want; do names="$names blobs/blobs/${h:0:2}/$h"; done
     aws s3 cp "s3://$BACKUP_BUCKET/BACKUPS/play/$b/blobs.tar" - </dev/null 2>/dev/null | tar -x -C "$tmp" $names 2>/dev/null || true
-    local left=""
+    left=""
     for h in $want; do
       f="$tmp/blobs/blobs/${h:0:2}/$h"
-      if [ -s "$f" ] && [ "$(docker run --rm -i -v "$f:/f:ro" --entrypoint bun "${PLAY_IMAGE}" -e 'import { hashBytes } from "/app/api/src/hash.ts"; console.log(hashBytes(new Uint8Array(await Bun.file("/f").arrayBuffer())))' </dev/null)" = "$h" ]; then
-        if [ -n "${PLAY_BUCKET:-}" ]; then
-          docker run --rm -v "$f:/f:ro" -e AWS_ACCESS_KEY_ID="$PLAY_BUCKET_ACCESS_KEY" -e AWS_SECRET_ACCESS_KEY="$PLAY_BUCKET_SECRET_KEY" \
-            -e AWS_DEFAULT_REGION="${PLAY_BUCKET_REGION:-$BACKUP_REGION}" \
-            -e AWS_REQUEST_CHECKSUM_CALCULATION=when_required -e AWS_RESPONSE_CHECKSUM_VALIDATION=when_required \
-            amazon/aws-cli --endpoint-url "$PLAY_BUCKET_ENDPOINT" s3 cp /f "s3://$PLAY_BUCKET/blobs/${h:0:2}/$h" --only-show-errors </dev/null
-        else
-          sudo install -D -o 1000 -g 1000 -m 0644 "$f" "$DATA/blobs/blobs/${h:0:2}/$h.mended" && sudo mv "$DATA/blobs/blobs/${h:0:2}/$h.mended" "$DATA/blobs/blobs/${h:0:2}/$h"
-        fi
-        echo "mend: $h put back from $b"
-      else
-        left="$left $h"
-      fi
+      if whole_file "$f" "$h"; then put_back "$h" "$f"; echo "mend: $h put back from $b"; else left="$left $h"; fi
       rm -f "$f"
     done
     want=$(echo $left)
   done
-  for h in $want; do echo "mend: $h is in no backup whole (it is written again when the same bytes are put again)"; done
+  for h in $want; do echo "mend: $h is in no backup whole"; done
+}
+
+# a file whose bytes are lost everywhere (in no store, no kept folder, no backup) and that nothing in play's data
+# names but its own row in play.files: its row is removed, so play no longer counts it as one of its files. One that
+# anything else names (a version, a story, a proposal, a document) is kept and reported.
+forget_lost() {
+  local lost; lost=$(broken || true)
+  [ -n "$lost" ] || { echo "forget-lost: every file is whole"; return 0; }
+  local dump; dump=$(mktemp /opt/maia-city/backups-tmp/play-data-XXXX.sql)
+  docker exec maia-city-db pg_dump -U maiacity -d maiacity -n play --data-only --inserts </dev/null > "$dump"
+  for h in $lost; do
+    local n; n=$(grep -o "$h" "$dump" | wc -l)
+    # its own row names it twice (its hash and its bucket key); a foreign key from any other row also stops the delete
+    local own; own=$(grep "^INSERT INTO play.files " "$dump" | grep -o "$h" | wc -l)
+    if [ "$n" -le "$own" ]; then
+      docker exec maia-city-db psql -U maiacity -d maiacity -v ON_ERROR_STOP=1 -Atc "DELETE FROM play.files WHERE hash = '$h'" </dev/null >/dev/null
+      echo "forget-lost: $h: its bytes are lost and nothing names it; its row in play.files is removed"
+    else
+      echo "forget-lost: $h: its bytes are lost, and $((n - own)) other places in play's data name it: kept, to be put again"
+    fi
+  done
+  rm -f "$dump"
 }
 
 clean() {
@@ -117,6 +164,7 @@ clean() {
   sudo find /opt/maia-city/backups-tmp -mindepth 1 -maxdepth 1 -mmin +60 -exec rm -rf {} + 2>/dev/null || true
   mkdir -p /opt/maia-city/backups-tmp
   mend
+  forget_lost
 }
 
 retire_avendb() {
