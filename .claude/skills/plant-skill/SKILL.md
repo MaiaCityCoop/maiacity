@@ -22,10 +22,13 @@ brief in `references/peach-saturn-brief.md`), and **sapodilla v2** ('Alano', a g
 from its own sheet, its silhouette laid on the sheet's tree; its numbers in `references/sapodilla-alano.md`, its brief in
 `references/sapodilla-alano-brief.md`), and **lemon v2** ('Femminello Santa Teresa', a grafted tree grown flush by flush
 inside the crown the grower keeps, three crops on it at once; its numbers in `references/lemon-femminello-santa-teresa.md`,
-its brief beside them, its whole source `references/lemon-v2.js`). Start a new plant from the newest: copy its part 1
+its brief beside them, its whole source `references/lemon-v2.js`), and **plum v2** ('Hauszwetschge', grown from its stone as
+Rauh's model, a leader with tiers of limbs year by year, colour pictures only and leaf undersides with their own normals;
+its numbers in `references/plum-hauszwetschge.md`, its brief beside them, its whole source `references/plum-v2.js`). Start
+a new plant from the newest: copy its part 1
 (the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps as lemon v2 has it; the file is
 `references/banana-v2.js` or `references/lemon-v2.js`) as it is and write parts 2–4 for the new plant; a tree takes its
-part 3 from orange v2 or lemon v2 (flushes) or apricot v2 (years).
+part 3 from orange v2 or lemon v2 (flushes) or plum v2 or apricot v2 (years).
 
 ## The order of work
 
