@@ -49,9 +49,16 @@ if [ -n "${PLAY_BUCKET:-}" ] && ! { [ -n "${PLAY_DATA_PATH:-}" ] && [ -d "$PLAY_
       -e AWS_ACCESS_KEY_ID="$PLAY_BUCKET_ACCESS_KEY" -e AWS_SECRET_ACCESS_KEY="$PLAY_BUCKET_SECRET_KEY" \
       -e AWS_DEFAULT_REGION="${PLAY_BUCKET_REGION:-$BACKUP_REGION}" \
       -e AWS_REQUEST_CHECKSUM_CALCULATION=when_required -e AWS_RESPONSE_CHECKSUM_VALIDATION=when_required \
+      -e AWS_RETRY_MODE=adaptive -e AWS_MAX_ATTEMPTS=6 \
       amazon/aws-cli --endpoint-url "$PLAY_BUCKET_ENDPOINT" --cli-connect-timeout 20 --cli-read-timeout 120 "$@" </dev/null
   }
-  s3play s3 sync "s3://$PLAY_BUCKET/blobs/" "s3://$BACKUP_BUCKET/$PREFIX/blobs/" --only-show-errors
+  # the bucket now and then answers a copy of a large file with a GatewayTimeout: the sync is run again (it copies only
+  # what is still missing), up to three times, before the backup gives up
+  for try in 1 2 3; do
+    if s3play s3 sync "s3://$PLAY_BUCKET/blobs/" "s3://$BACKUP_BUCKET/$PREFIX/blobs/" --only-show-errors; then break; fi
+    [ "$try" -lt 3 ] || { echo "backup: the copy of play's files failed three times"; exit 1; }
+    echo "backup: the copy stopped short (try $try of 3); copying what is still missing …"; sleep $((10 * try))
+  done
   FILES=$(s3play s3 ls "s3://$BACKUP_BUCKET/$PREFIX/blobs/" --recursive | wc -l)
 elif [ -n "${PLAY_DATA_PATH:-}" ] && [ -d "$PLAY_DATA_PATH/blobs" ]; then
   # packed straight from the folder (no copy of it first: that held every file twice on the disk), and only if the
