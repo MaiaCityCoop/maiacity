@@ -27,7 +27,26 @@ Rauh's model, a leader with tiers of limbs year by year, colour pictures only an
 its numbers in `references/plum-hauszwetschge.md`, its brief beside them, its whole source `references/plum-v2.js`), and
 **avocado v3** ('Fuerte', Rauh's model flush by flush from its rootstock's seed to mature fruit in its tenth year, inside
 the crown measured for each age; its numbers in `references/avocado-fuerte.md`, its brief beside them, its whole source
-`references/avocado-v3.js`). Start
+`references/avocado-v3.js`), and **pineapple v2** ('Queen Victoria', a rosette herb from its planted sucker, forced, its
+fruit a syncarp of 80 eyes in spirals of 8 and 13 laid on the golden-angle spiral, each eye a shield in geometry; its
+numbers in `references/pineapple-queen-victoria.md`, its brief beside them, its whole source `references/pineapple-v2.js`,
+whose part 1 carries banana's core with the later lessons: mipmaps, `named()`, `backLit`), and **soursop v3** ('Morada',
+Troll's model shoot by shoot, grafted, topped and trained, cauliflorous flowers and spiny fruit from the bark; its numbers
+in `references/soursop-morada.md`, its brief beside them, its whole source `references/soursop-v3.js`), and **red banana
+v2** ('Red Dacca', banana v2's flow made a tall red clone: its pseudostem, petioles and midribs red, six hands of fat
+straight fingers along a bare scarred rachis; its numbers in `references/banana-red-dacca.md`, its brief beside them, its
+whole source `references/red-banana-v2.js`, the banana to start the next one from: its part 1 has `picture()` with
+mipmaps and the blade's underside with its own normals), and **coffee v2** ('Caturra', Roux's model node by node: a
+stem of decussate pairs, a pair of level branches at every node, each node flowering once a year old; from the seed in
+parchment through the soldier and the butterfly to the ripe crop of its fifth year; its numbers in
+`references/coffee-caturra.md`, its brief beside them, its whole source `references/coffee-v2.js`), and **yam v1** ('Pona', *Dioscorea rotundata*, the first
+twining vine: a sett in a mound cut open in the viewer, one stem as a right-handed helix up its stake, side shoots
+climbing loosely and hanging over, one tuber growing down through the mound, the season to senescence; its numbers in
+`references/yam-pona.md`, its brief beside them, its whole source `references/yam-v1.js`, the climber to start the
+next vine from), and **serviceberry v2** (Saskatoon 'Smoky', the first shrub: a suckering clump of canes
+from its crown and suckers from its rhizomes, each cane a leader with side shoots and short flowering shoots, grown year
+by year from its seed; its numbers in `references/serviceberry-smoky.md`, its brief beside them, its whole source
+`references/serviceberry-v2.js`, whose part 1 is plum v2's without the leaves' clearcoat). Start
 a new plant from the newest: copy its part 1
 (the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps as lemon v2 has it; the file is
 `references/banana-v2.js` or `references/lemon-v2.js`) as it is and write parts 2–4 for the new plant; a tree takes its
@@ -316,6 +335,23 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   THREE.Color('#hex')` in `mix()` and every `lerp` was a fifth of plum v2's build. Keep parsed colours in a map
   (`named()`, plum v2's part 1).
 
+- **A lathe closes on a circle, not on a sine** (serviceberry v2, 2026-11-05). With its rings laid along its height (y = −H·u),
+  a fruit's radius near its poles must follow the circle, 2√(u(1 − u)); a sine of u (`sin(πu)^k`) closes in a point, and
+  the round berry came off the bench like a lemon, pointed at both ends, at an overlap of 0.907 that looked fine. The
+  side-by-side picture showed it; the circle took it to 0.965. Look at the bench's picture, not only its numbers.
+- **A sheet with no width at either end has no area.** A sepal drawn with one row (`along: 1`) and a shape that is 0 at
+  u = 0 and u = 1 is all collapsed triangles: `sound()` drops every one and the sepals vanish without an error. Give
+  it two rows.
+- **A shrub is a clump of canes** (serviceberry v2). Grow each stem as its own leader from the crown, a few a year
+  (2–3 for a Saskatoon), and suckers from rhizomes from the third year, each with its own lean (5–20°, the outer ones
+  more) and an arch that grows with its age. Calibrate by stems, height and the thickest stem's foot per age, as a tree
+  by its trunk. The broom lesson holds for a bush too: side shoots low on a stem wider and stronger, those near its top
+  weaker, or the bush is wider at its top than through its middle.
+- **Measure a crown's fill, band by band.** Beside the envelope's overlap, count how much of its closed envelope the
+  silhouette fills, in five height bands, against the sheet's (serviceberry v2: 61–63 % against 86 %, the top two
+  fifths thinnest). The interior counts: the silhouette is a projection, so shading out the leaves inside the bush
+  lowered the fill as well as the triangles. Each few points of fill cost 100k+ triangles in leaves and short shoots:
+  decide the trade against the budget, and say what is left short. The sheet may draw a bush denser than it is.
 - **A lathe from traced widths closes round, or it is a box.** Orange v2's first fruit came off the bench at overlap
   0.78, its ends flat: a lathe's first and last rings jumped from the traced width straight to zero. Space the rings by
   `(1 − cos)` toward the poles and keep the traced profile as a correction of an ellipse (held at its neighbours' near the
@@ -352,6 +388,84 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   (forks of two or three at most flushes, a minimum spacing between new rosettes of ~9 cm) before its crown stopped
   being see-through; check `forks` and the spacing rule's rejections when a crown stays thin.
 
+- **A syncarp's eyes are a phyllotaxis, counted** (pineapple v2, 2026-11-05). Lay the fruitlets on the generative
+  spiral at the golden angle on the fruit's own surface (its length along the profile and its angle), each the next a
+  step up in proportion to the girth there, the step found by bisection so the measured count fits (80 for Victoria);
+  then check in node that every inner eye's nearest neighbours are its 5th, 8th and 13th (spirals of 8 and 13, the flat
+  5) before rendering. Draw each eye from the Voronoi of the lattice on the surface (F1, F2: the groove where F2 − F1 is
+  small), rounded off by the distance to its centre or the eyes come out as lozenges; relief as geometry, no bump
+  picture. The sheet showed what an eye is made of: a crescent along its lower rim (dark on the green fruit, bright on
+  the ripe), the pale fibrous bract over its middle, the deep groove under the crescent.
+- **A rosette is shaped by rank, not by age alone.** Pitch (from the vertical) and arch by how many leaves came after a
+  leaf: upright in the heart, the D leaves ~30–45°, the outer ones arching over; after forcing, when no new leaves come,
+  let the rank still grow a little a day or the heart stays a spike. Tune it by numbers first (height and spread at
+  forcing against the data sheet), then the side silhouette on row 1 (`compare.py --close 0.04`); a sheet that draws
+  leaves wider than the data (the pineapple's 7 : 1 against a measured 13 : 1) draws a denser fountain than the data
+  will ever give: keep the data's width and say so.
+- **Bench a whole plant above its soil.** The organ bench draws what is buried too (the stem's foot, dead sheaths):
+  crop it at the soil line, and crop the sheet's ground line off the panel's bottom rows; `--colourful` drops a
+  grey-green rosette with the line, so do not use it there. `upright.py` pads only 100 px: a long leaf laid at 60° comes
+  out cut at both ends; rotate it with `expand=True` and the angle that makes it narrowest.
+- **Troll's model: a relay is the axis going on** (soursop v3, 2026-11-05). Each shoot rises, bends over and lies out
+  level, and an upright relay rises from its bend. Charging the relay a branch order's loss of vigour (as a side shoot
+  pays) stopped the tree at 2.5 m for a measured 3.5; give relays their parent's tier and only side shoots a tier more.
+  Relays out in the crown turn back over its middle, or the dome's top stays hollow; renewal shoots from lit older wood
+  keep the lower crown leafed; a dome envelope with full shoulders (a superellipse, power 3) matched the sheet's head.
+- **A cut axis keeps growing from its cut.** Grafting (the stock cut at 22 cm) and topping (at 0.7 m) cut the trunk;
+  an axis length clamped by its cuts forever never let the scion grow. Clamp only what grew before the cut, and keep
+  looping over the nodes past it (a `break` there dropped the scion's leaves).
+- **A shoot at the crown's edge must be able to stop.** Breaking out of a pulse's steps only after its first step lets
+  every shoot past the edge creep on a step each pulse; break at once, and a stalled shoot dies after a year.
+- **Judge a fruit's shape by its mesh, not a lit picture.** Twice the soursop's heart looked broad at the bottom in a
+  render and on the bench's lit side-by-side while it was broad at the top; the widths measured off the mesh (and the
+  overlap) were right. Measure before turning anything over.
+- **A thick petal is a slab.** The soursop's 3 mm fleshy petals as a two-faced sheet with a rim (`slab()`); a bud of
+  three valvate petals closes as an ovoid only when each bulges out at its middle and curls in at its tip
+  (lift `0.2 sin(πu^0.75) − 0.2u²`); cupping its edges hard made them cross into an X. Bench the bud, front and side.
+
+- **Roux's model is a cylinder, not a cone** (coffee v2, 2026-11-05). Branches that grow at one steady rate make the
+  oldest, lowest ones the longest: a Christmas tree. A Caturra's young upper branches reach out fast in their first year
+  (~40 cm, fastest at first) and then nearly stop (60–70 cm at two years), its old lower ones hang under their age and
+  load; laid on the sheet's bush with `silhouette.cjs` and `compare.py --close` that took the envelope to 0.80. A node
+  that flowers once, a year old, puts the crop behind the leafy tips on bare wood: right, and it is what the real bush
+  shows inside.
+- **A tube's profile lives only at its points.** `tube()` samples `radius(u)` at the points it is given: a two- or
+  three-point anther drawn with a spindle profile came out as a needle (coffee v2). Give a short organ with a profile
+  enough points, and fewer only where it is many (4,300 flowers: two segments far, five close up).
+- **Thousands of small organs set the budget.** A coffee bush blooms ~4,300 flowers and sets ~6,000 fruitlets: cheap
+  flowers (~90 triangles, the style's branches and calyx only for the fruit view), pinheads as 4 × 6 lathes, and the
+  cherries thinned by `DETAIL.thin` for crowds (each grown a little to fill), or detail 0.1 stays at 70k.
+- **A composite from two plates and an edit is a sheet too.** Coffee's plate 1 drew the cut cherry as a peach stone,
+  plate 2 drew it right (two beans flat face to flat face) but no roots in row 1; the edit fixed two cells, cast
+  magenta and left the cherry as it was. Plate 1 as the base, the edit's cells grey-balanced to plate 1's checker, plate
+  2's cell pasted in: kept in the Library and held to.
+
+- **A twining vine is one path round its stake** (yam v1, 2026-11-05). The stem is made once at its whole length, a
+  helix round the stake's axis (Dioscorea sect. *Enantiophyllum* twines to the right: x = r cos θ, z = −r sin θ, θ
+  rising with height; on the near side each turn rises from lower left to upper right; anticlockwise seen from above;
+  "clockwise" in the sources means seen from below), then up past the stake's top, over and hanging; its age is the
+  first part of it, its nodes by length along it. Before the stake goes in it is a free shoot nodding over: the path
+  changes on the staking day, as the farmer's hand changes it. Side shoots climb too: a loose, wide helix round the
+  stake (0.12–0.3 m out) until the stake's top or their share of length, then over and down. Sent straight out and
+  arcing down they made a weeping willow on a bare pole; from 0.3 m up they fill the column the sheet shows.
+- **A storage organ inside a mound sits above the ground line.** The viewer's Roots view shows what is under y = 0;
+  a yam's tuber hangs in its mound, above the field. So the mound is cut open while roots are drawn (the viewer): a
+  wedge out towards the viewer's camera (it frames from (1.5, 0.45, 1.9), az 38°), its two faces the moist soil, the
+  sett, tuber and roots in the opening; whole in a world (`DETAIL.roots` off). Cut faces and floor need their winding
+  checked (the first one drew only the faces' backs: arches over nothing).
+- **A heart-shaped blade as rings round a point a quarter up its midrib.** The sheet's outline as a radius by angle
+  (`outline`, every 3.75°, both halves averaged, the notch between the basal lobes kept) held at 0.97 on the bench at
+  once. Its winding put the upper face down: the bench's `--flat` colours showed the underside's grey where the upper
+  green should be, and every leaf in the renders had looked grey-blue. Bench both faces flat before anything else.
+- **Size a tuber by its mass.** The data sheet's estimated 32 × 13 cm weighs 3.3 kg; Pona's is 1.5–2.5. The recipe
+  computes the lathe's volume (`tuberMass`) and the size follows the measured proportion (Ghana's 30.6 × 13.6 cm, the
+  sheet's 2.35 : 1) at the right mass: 27 cm, 2.1 kg, and the bulking curve's masses month by month.
+- **A hairy organ's overlap is its body's.** Rootlets on the panel and on the bench cost a tuber 0.05 of overlap
+  whatever its outline; `scripts/body.py` opens both masks (rootlets and hairs out), scales them to one height and
+  centres them: the yam's tubers at three ages 0.91–0.93.
+- **When fal's balance runs out, composite.** The yam's edit pass was refused (balance exhausted); its two wrong stem
+  cells were taken from the other plate of the same brief, their ground made white, and pasted in (kept in the
+  Library as its own sheet, b5143254…). Make `--n 2` the first time: the second plate is the spare parts.
 - **Safe on every GPU, or black on an iPad.** Banana v2's first proposal drew black in play's viewer on an iPad:
   some 800 normals of no length where its blades' rows met at the tip, with a bump picture, made NaN pixels on
   Apple's GPU, and the viewer blurred them over the frame (Chromium's software GL, which the renders use, hid it).
@@ -369,6 +483,19 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
 - **The bench sees what the eye misses.** Banana v2's fingers all hung downward for three renders that looked right
   (a rotation's sign); its fingers were 6 : 1 where the sheet and Pope say 4 : 1. Count and measure: tips above
   stalks, aspects, cover.
+- **Read a descriptor as the descriptors draw it** (red banana v2, 2026-11-05). Musalogue scores the Red's fruit
+  "parallel to the stalk"; the research agent read that as fingers pointing down the rachis. In the Musa descriptors it is
+  the class between "curved towards the stalk" and "curved upward": the fingers turn up off their short pedicels and lie
+  straight along the rachis, tips toward the peduncle, as the sheet drew them. Check a coded descriptor against its
+  figure before building on it.
+- **A tube's u runs along it, v round it** (red banana v2). Banana v2's `skinBump` varied along x, so its "lines along
+  the finger" were rings round it, plain in the fruit view; the Red's runs them round v.
+- **A cultivar of the banana flow is mostly its numbers and colours, but look at its stem and its bunch first.** The Red
+  is 4.4 m to the throat and 1.15 m round its foot, swelling to its corm (Ø 0.37 m at 0.3 m, 0.25 m at 1 m: a foot
+  flare, not a taper); its long petioles splay early, so the leaves lean out from their first weeks or the crown stands
+  a metre too tall (7.0 m for the measured 5.5–6.5); its peduncle arches over early so the bunch hangs below the petioles,
+  not among them; its male bracts fall (a bare, knotted rachis, against the Cavendish's dry tail). The plate drew the stem
+  some 40 % of the height against the data's 70 %: hold the height to the data and judge the crown by eye.
 
 - **Name the cultivar first.** The old cacao was "a cacao": narrow willow leaves, a shrub, little orange pods. Every
   look that is wrong is easier to see against one real kind.

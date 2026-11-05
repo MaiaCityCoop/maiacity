@@ -74,19 +74,49 @@
 	 *  across their cuts and loads once), muted and kept in step with t (the story's own sound is the sound). The one on
 	 *  screen plays from its shot's video_in; the others wait where their next shot starts. A video shows only once it has
 	 *  the frame t asks for: while it still loads or seeks (a phone on a slow line) the shot's still shows, never a stale
-	 *  frame. On a phone a video plays only once a tap has started it: Play wakes them all (and so starts their loading). */
+	 *  frame. A take loads only once it is needed (on screen, or its shot within LOOKAHEAD seconds), so on a phone's line
+	 *  the one about to show has the line to itself rather than sharing it with every other take and every still. Play
+	 *  (a tap) starts the takes already loading, as a phone lets a video play only once a tap has. */
 	const videoShots = $derived(clipsOf<Shot>(flat, 'shots').filter((s) => typeof s.video === 'string' && s.video));
 	const videoSources = $derived([...new Set(videoShots.map((s) => s.video as string))]);
 	const videoEls: Record<string, HTMLVideoElement | undefined> = {};
 	const seekedAt: Record<string, number> = {};
+	/** where a take that was behind waits, a little ahead of the time, for the time to reach it; and how far ahead */
+	const aheadAt: Record<string, number> = {};
+	const LEAD = 2.5;
 	let showing = $state<Record<string, boolean>>({});
+	/** the takes asked for so far (a take once asked for keeps its file), and how far ahead a take starts loading */
+	let wanted = $state<Record<string, boolean>>({});
+	const LOOKAHEAD = 8;
+	/** with ?debug in the address: each take's state under the player, to see what a phone does */
+	const debug = typeof location !== 'undefined' && /[?&]debug\b/.test(location.search);
+	let diag = $state('');
+	let diagAt = 0;
+	/** the timeline's thumbnails wait until the take on screen has loaded enough, so they do not take its line */
+	let thumbs = $state(false);
+	/** whether a video holds the second from `at` on already */
+	const loaded = (v: HTMLVideoElement, at: number) => {
+		for (let i = 0; i < v.buffered.length; i++) if (v.buffered.start(i) <= at + 0.05 && at + 1 <= v.buffered.end(i)) return true;
+		return false;
+	};
 	const videoAt = (s: Shot, now: number) => Math.max(0, now - s.at) + (Number(s.video_in) || 0);
 	$effect(() => {
 		const cur = moment.shot, now = t, on = playing, rate = speed;
 		const next: Record<string, boolean> = {};
+		const ask: string[] = [];
+		const had = untrack(() => wanted);
+		// the take on screen first: the next one starts loading once this one holds all it still has to play (or, at the
+		// latest, when its shot is 3 s away)
+		const liveEl = cur?.video ? videoEls[cur.video] : undefined;
+		const liveUntil = cur?.video ? Math.max(...videoShots.filter((s) => s.video === cur.video).map((s) => (Number(s.video_in) || 0) + s.duration)) : 0;
+		const liveDone = !liveEl || !had[cur!.video as string] || (liveEl.buffered.length > 0 && liveEl.buffered.end(liveEl.buffered.length - 1) >= Math.min(liveUntil, liveEl.duration || liveUntil) - 0.3);
+		const ahead = liveDone ? LOOKAHEAD : 3;
 		for (const h of videoSources) {
+			const near = cur?.video === h || videoShots.some((s) => s.video === h && s.at + s.duration > now && s.at <= now + ahead);
+			if (near && !had[h]) ask.push(h);
 			const v = videoEls[h];
-			if (!v) continue;
+			if (!v || !had[h]) continue;
+			if (cur?.video === h && v.readyState >= 3 && !untrack(() => thumbs)) thumbs = true;
 			v.muted = true;
 			const live = cur?.video === h ? cur : null;
 			// where it should be: in the shot on screen, or at the start of the next shot that plays it
@@ -97,37 +127,60 @@
 			if (live) {
 				v.playbackRate = rate;
 				if (on) {
-					// seek only when well off, and not again while the last seek still loads: on a slow line seeking every
-					// frame never lets it catch up, and the picture freezes
-					const wall = performance.now();
-					if (settled && off > 0.5 && wall - (seekedAt[h] ?? 0) > 1500) {
-						v.currentTime = want;
+					// a take that is off is set right only when well off, and not again while the last jump still loads (on a slow
+					// line jumping every frame never lets it catch up, and the picture freezes). It jumps to where the time is when
+					// that has loaded; otherwise a little ahead of the time, where it waits paused (the still showing) while that
+					// loads, and plays on from the moment the time reaches it.
+					const wall = performance.now(), wait = aheadAt[h];
+					if (wait !== undefined && (want >= wait - 0.04 || want < wait - LEAD - 1)) delete aheadAt[h];
+					if (aheadAt[h] === undefined && settled && off > 0.5 && wall - (seekedAt[h] ?? 0) > 1500) {
 						seekedAt[h] = wall;
+						if (loaded(v, want) || v.currentTime > want) v.currentTime = want;
+						else v.currentTime = aheadAt[h] = Math.min(want + LEAD, v.duration || want + LEAD);
 					}
-					if (v.paused) v.play().catch(() => {});
+					if (aheadAt[h] !== undefined) {
+						if (!v.paused) v.pause();
+					} else if (v.paused) v.play().catch(() => {});
 				} else {
 					if (!v.paused) v.pause();
 					if (settled && off > 0.04) v.currentTime = want;
 				}
-				next[h] = v.readyState >= 2 && !v.seeking && Math.abs(v.currentTime - want) < 0.75;
+				// shown once it has its frame; while it plays, even a little off (moving picture rather than the still)
+				const gap = Math.abs(v.currentTime - want);
+				next[h] = v.readyState >= 2 && !v.seeking && (gap < 0.75 || (!v.paused && gap < 3));
 			} else {
 				if (!v.paused) v.pause();
 				if (settled && Number.isFinite(want) && off > 0.04) v.currentTime = want;
 				next[h] = false;
 			}
 		}
+		if (ask.length) wanted = { ...had, ...Object.fromEntries(ask.map((h) => [h, true])) };
+		if (debug && performance.now() - diagAt > 250) {
+			diagAt = performance.now();
+			diag = videoSources
+				.map((h) => {
+					const v = videoEls[h];
+					if (!v) return `${h.slice(0, 6)} none`;
+					const end = v.buffered.length ? v.buffered.end(v.buffered.length - 1).toFixed(1) : '-';
+					return `${h.slice(0, 6)} ${had[h] ? 'file' : v.getAttribute('src') ? 'blank' : 'idle'} rs${v.readyState} ${v.paused ? 'paused' : 'playing'}${v.seeking ? ' seeking' : ''} t${v.currentTime.toFixed(1)} buf${end}${next[h] ? ' SHOWN' : ''}${v.error ? ' err' + v.error.code : ''}`;
+				})
+				.join('\n');
+		}
 		const was = untrack(() => showing);
 		if (Object.keys(next).length !== Object.keys(was).length || Object.entries(next).some(([h, on]) => was[h] !== on)) showing = next;
 	});
-	/** in the user's own tap: every video started once (iOS lets a video play later only after a tap has), so they load */
+	/** in the user's own tap: every video started once, as an iPhone lets a video play from code only after a tap has started
+	 *  it (and in Low Power Mode never otherwise). A take already loading plays itself; one not yet needed plays a tiny
+	 *  blank clip, so its own file still loads only when its shot comes near. */
 	const woken = new WeakSet<HTMLVideoElement>();
 	function wake() {
 		for (const h of videoSources) {
 			const v = videoEls[h];
 			if (!v || woken.has(v)) continue;
 			woken.add(v);
-			v.muted = true;
-			v.play().catch(() => woken.delete(v));
+			v.muted = v.defaultMuted = true;
+			if (!wanted[h] && !v.getAttribute('src')) v.src = '/blank.mp4';
+			v.play().catch(() => {});
 		}
 	}
 	/** a video taken off the page lets go of its file at once (a phone holds only a few) */
@@ -152,7 +205,13 @@
 		playing = false;
 		audio.stop();
 		const all = flat;
-		for (const s of clipsOf<Shot>(all, 'shots')) if (s.frame) new Image().src = frameUrl(s.frame);
+		// the stills fetched ahead: the first shot's, and those of shots without a video (a moving shot's still only stands
+		// in while its take loads, so it is not fetched ahead to share the line with it)
+		const stills = clipsOf<Shot>(all, 'shots');
+		for (const [i, s] of stills.entries()) if (s.frame && (i === 0 || !s.video)) new Image().src = frameUrl(s.frame);
+		wanted = {};
+		thumbs = !stills.some((s) => s.video);
+		if (!thumbs) setTimeout(() => shown === key && (thumbs = true), 12000);
 		// its recordings (its links' too) fetched and decoded ahead, so the first Play sounds at once
 		if (!soundsOf(all).length) soundState = 'none';
 		else {
@@ -289,6 +348,7 @@
 	{#if head}<div class="p-head">{@render head()}</div>{/if}
 	<!-- a tap on the picture plays and pauses it, as on any film player (Samuel 2026-11-04) -->
 	<div class="screen" style:--ratio={ratio} role="button" tabindex="0" aria-label={playing ? 'Pause' : 'Play'} onclick={toggle} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), e.stopPropagation(), toggle())}>
+		{#if debug}<pre class="diag">{diag || 'no takes'}</pre>{/if}
 		{#if moment.prev?.frame}<img class="frame" src={frameUrl(moment.prev.frame)} alt="" draggable="false" />{/if}
 		{#if moment.shot?.frame}
 			<img class="frame" src={frameUrl(moment.shot.frame)} alt="Shot {moment.index + 1}" draggable="false" style:opacity={moment.mix} />
@@ -298,7 +358,7 @@
 		<!-- the shots that move, over their stills: one video per take, shown while the shot on screen plays it and it has
 			 its frame (and faded in as the still would) -->
 		{#each videoSources as h (h)}
-			<video class="frame" bind:this={videoEls[h]} use:release src={frameUrl(h)} muted playsinline preload="auto" aria-hidden="true" style:opacity={moment.shot?.video === h && showing[h] ? moment.mix : 0}></video>
+			<video class="frame" bind:this={videoEls[h]} use:release src={wanted[h] ? frameUrl(h) : undefined} muted playsinline preload="auto" aria-hidden="true" style:opacity={moment.shot?.video === h && showing[h] ? moment.mix : 0}></video>
 		{/each}
 		<!-- a shot's fade from black and to black: the picture under a black veil, the subtitles over it -->
 		{#if moment.light < 1}<div class="black" style:opacity={1 - moment.light}></div>{/if}
@@ -381,7 +441,7 @@
 			{#if shots.length}
 				<div class="lane shots-lane">
 					{#each shots as s, i (s.id)}
-						<span class="seg" class:on={i === moment.index} class:linked={!!s.link} style:left={pct(s.at)} style:width={pct(s.duration)} style:background-image={s.frame ? `url(${frameUrl(s.frame)})` : 'none'} style:border-top-color={colourOf(sectionOf(s.at + 0.01))} title="Shot {i + 1}{s.video ? ' · video' : ''}{s.link ? ` · ${s.link.title}` : ''}"></span>
+						<span class="seg" class:on={i === moment.index} class:linked={!!s.link} style:left={pct(s.at)} style:width={pct(s.duration)} style:background-image={s.frame && (thumbs || !s.video) ? `url(${frameUrl(s.frame)})` : 'none'} style:border-top-color={colourOf(sectionOf(s.at + 0.01))} title="Shot {i + 1}{s.video ? ' · video' : ''}{s.link ? ` · ${s.link.title}` : ''}"></span>
 					{/each}
 				</div>
 			{/if}
@@ -468,6 +528,7 @@
 	.shots-lane { height: 3.4rem; }
 	.compact .shots-lane { height: 2.8rem; }
 	.voice-lane { height: 1.25rem; }
+	.diag { position: absolute; top: 4px; left: 4px; right: 4px; z-index: 5; margin: 0; padding: 4px 6px; border-radius: 6px; background: rgb(0 0 0 / 0.6); color: #fff; font: 10px/1.35 ui-monospace, monospace; white-space: pre-wrap; pointer-events: none; }
 	.seg { position: absolute; top: 0; bottom: 0; background-size: cover; background-position: center 35%; border-top: 3px solid; border-left: 1px solid rgb(255 255 255 / 0.7); box-sizing: border-box; filter: saturate(0.85) brightness(0.92); }
 	.seg.on { filter: none; box-shadow: inset 0 0 0 2px var(--ink); }
 	.bar { position: absolute; top: 2px; bottom: 2px; border-radius: 4px; background: var(--sage-soft, #dfe8dc); border: 1px solid color-mix(in srgb, var(--sage, #8fae8b) 60%, transparent); font-size: 0.6rem; font-weight: 700; padding: 0 0.25rem; overflow: hidden; white-space: nowrap; box-sizing: border-box; line-height: 1rem; }
