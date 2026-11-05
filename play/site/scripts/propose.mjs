@@ -11,6 +11,8 @@
  *   PLAY_MCP_TOKEN=play_… node scripts/propose.mjs --file <source.js> --asset <uuid> --base <version id> --note <note.md>
  *                                                                          its next version (propose_version)
  *        [--check] only check (the source, and every hash it names against the catalog), propose nothing
+ *        [--pending <file>] hashes proposed with it and not accepted yet (a JSON list, or an object whose values have
+ *                  a `hash`): named builds among them pass the check (they draw once an admin accepts them)
  *        [--url https://play.maia.city]
  *
  * The token is an admin's (made on play's profile page) and is read from the environment only. Nothing is accepted
@@ -54,8 +56,18 @@ if (named.length) {
 	const rows = await res.json();
 	const byHash = new Map(rows.map((r) => [r.hash, r]));
 	let missing = 0;
+	const pendingFile = arg('pending');
+	const pending = new Set();
+	if (pendingFile) {
+		const p = JSON.parse(readFileSync(pendingFile, 'utf8'));
+		for (const x of Array.isArray(p) ? p : Object.values(p)) pending.add(typeof x === 'string' ? x : x.hash);
+	}
 	for (const h of named) {
 		const r = byHash.get(h);
+		if (!r && pending.has(h)) {
+			console.log(`  pending ${h.slice(0, 12)}… (proposed with it, not accepted yet)`);
+			continue;
+		}
 		if (!r) {
 			missing++;
 			console.log(`  MISSING ${h}: no recipe of play's catalog`);
