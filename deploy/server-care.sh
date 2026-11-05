@@ -122,7 +122,7 @@ mend() {
   want=$(echo $left)
   [ -n "$want" ] || return 0
   echo "mend: looking for $(echo $want | wc -w) in the backups …"
-  local tmp; tmp=$(mktemp -d /opt/maia-city/backups-tmp/mend-XXXX); trap 'rm -rf "$tmp"' RETURN
+  local tmp; tmp=$(mktemp -d /opt/maia-city/backups-tmp/mend-XXXX)
   # the newest backups first: each one's blobs.tar streamed through tar, which takes out only the files wanted (a
   # backup of the folder holds blobs/blobs/<xx>/<hash>)
   for b in $(aws s3 ls "s3://$BACKUP_BUCKET/BACKUPS/play/" </dev/null | awk '{print $2}' | tr -d / | sort -r | head -8); do
@@ -138,6 +138,8 @@ mend() {
     want=$(echo $left)
   done
   for h in $want; do echo "mend: $h is in no backup whole"; done
+  # removed here, not by a RETURN trap: that trap outlives the function and fired again where tmp is not set
+  rm -rf "$tmp"
 }
 
 # a file whose bytes are lost everywhere (in no store, no kept folder, no backup) and that nothing in play's data
