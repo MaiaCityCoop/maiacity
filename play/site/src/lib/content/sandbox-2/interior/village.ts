@@ -38,6 +38,7 @@ import { createCover } from './cover.js'
 import { FLOORS, THINGS, coopsOf, putThings } from './things.js'
 import { swapLegacy } from './legacy.js'
 import { assetOf, pick, planting, stageOf, type Flora } from './sandbox5.js'
+import { groundOf } from './solo.js'
 
 export type VillageDome = { kind: DomeKind; x: number; z: number; R: number; ext: number }
 export type VillageHandle = {
@@ -122,6 +123,9 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	   it reaches (its arcade, the paths out of its gates) is what the cell keeps clear round it */
 	let soloBuild: { obj: THREE.Object3D; walk: ReturnType<typeof import('$lib/content/assets/hero.js').walkOf>; plantings: ReturnType<typeof import('$lib/content/assets/plantings.js').createPlantings> } | null = null
 	let soloFoot = { x: 0, z: 0, R: 0, ext: 0 }
+	/** Sandbox 5: where its building has ground of its own (its walk, apron, the paths out of its gates, and each gate's
+	 *  way on to the cell's ring path), as distances from it (./solo.js): the forest garden is planted up to it */
+	let soloGround: ReturnType<typeof groundOf> | null = null
 	if (solo) {
 		onProgress('Building the dome')
 		const [{ loadAsset }, { createPlantings }, { walkOf }] = await Promise.all([import('$lib/content/assets/load.js'), import('$lib/content/assets/plantings.js'), import('$lib/content/assets/hero.js')])
@@ -146,6 +150,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			}
 		})
 		soloFoot = { x: 0, z: 0, R: glass, ext: reach }
+		soloGround = groundOf(obj, { gates: solo.gates, gateHalf: 1.4, gateTo: reach + 2.6, reach: reach + 8 })
 	}
 	/** what the cell keeps clear: every dome with its terrace, or Sandbox 5's building with its paths */
 	const foots: { x: number; z: number; R: number; ext: number }[] = solo ? [soloFoot] : domes
@@ -746,7 +751,9 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	const plantedTrees: Planted[] = []
 	/** Sandbox 5's forest garden, layer under layer, each at its own spacing (OUTDOOR_SPACING), over the whole cell */
 	const plantGarden = async () => {
-		const O = flora!.outside, seed = flora!.seed, r = seeded(505)
+		const O = flora!.outside, seed = flora!.seed
+		// one stream of chances for the cell's forest (the ring round Sandbox 5's building has its own, below)
+		let r = seeded(505)
 		/** the trunks so far, filed by 4 m cells: nothing is planted into a trunk */
 		const trunks = new Map<number, { x: number; z: number; r: number }[]>()
 		const trunkKey = (ix: number, iz: number) => (ix + 512) * 1024 + iz + 512
@@ -764,13 +771,13 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 				for (let dz = -2; dz <= 2; dz++) for (const t of trunks.get(trunkKey(ix + dx, iz + dz)) ?? []) if (Math.hypot(t.x - x, t.z - z) < t.r + gap) return false
 			return true
 		}
-		const open = (x: number, z: number, margin: number) => inHex(x, z) && !inDome(x, z, margin + 1) && !inSquare(x, z) && !nearPath(x, z, margin + 0.6) && !nearWater(x, z, W / 2 + margin)
-		/** a jittered grid, a point every `every` square metres */
-		const grid = async (every: number, label: string, at: (x: number, z: number) => void) => {
+		const open = (x: number, z: number, margin: number) => openGround(x, z, margin) && !inDome(x, z, margin + 1)
+		/** a jittered grid, a point every `every` square metres, over the cell (or the square `half` either side of cx, cz) */
+		const grid = async (every: number, label: string, at: (x: number, z: number) => void, cx = 0, cz = 0, half = WORLD) => {
 			const step = Math.sqrt(every)
 			let n = 0
-			for (let gx = -WORLD; gx < WORLD; gx += step)
-				for (let gz = -WORLD; gz < WORLD; gz += step) {
+			for (let gx = cx - half; gx < cx + half; gx += step)
+				for (let gz = cz - half; gz < cz + half; gz += step) {
 					at(gx + r() * step, gz + r() * step)
 					if (++n % 6000 === 0) await pause(label)
 				}
@@ -872,7 +879,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			}
 		})
 		/** a drift of one kind round x, z: 5 to 15 of it close together, on a sunflower spiral, most at one stage */
-		const drift = (layer: 'shrubs' | 'climbers' | 'herbs' | 'roots' | 'ground' | 'fungi', x: number, z: number, margin: number, keep: number) => {
+		const drift = (layer: 'shrubs' | 'climbers' | 'herbs' | 'roots' | 'ground' | 'fungi', x: number, z: number, margin: number, keep: number, fits: (x: number, z: number, margin: number) => boolean = open) => {
 			const species = planting(O[layer], r)
 			const main = stageOf(species, r, seed)
 			const n = D.least + Math.floor(r() * (D.most - D.least + 1))
@@ -880,7 +887,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			for (let k = 0; k < n; k++) {
 				const d = gap * Math.sqrt(k + 0.3) * (0.85 + r() * 0.3), a = turn + k * 2.39996
 				const px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d
-				if (!open(px, pz, margin) || !clearOf(px, pz, keep)) continue
+				if (!fits(px, pz, margin) || !clearOf(px, pz, keep)) continue
 				const kind = r() < 0.75 ? main : stageOf(species, r, seed)
 				forest!.add(kind, layer === 'shrubs' || layer === 'climbers' ? 'shrub' : 'cover', px, 0, pz, r() * 6.28, 0.85 + r() * 0.3)
 			}
@@ -894,9 +901,35 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		await drifts('climbers', S.climbers, 'Planting the climbers', 1.2, 0.8)
 		// and every bit of soil covered: perennial vegetables and herbs, roots, the ground cover, the mushrooms
 		for (const [layer, every] of [['herbs', S.herbs], ['roots', S.roots], ['ground', S.ground], ['fungi', S.fungi]] as const) await drifts(layer, every, 'Covering the ground', 0.5, 0.35)
+		// Sandbox 5: the ring round its building, between the building's own ground and where the forest above begins
+		// (open() keeps clear a whole circle as far as the building's longest path reaches), is forest garden too (Samuel
+		// 2026-11-05: "this green space before the dome also a food forest with plants"). Planted from its own stream
+		// of chances, so the rest of the cell's forest stands as it did, and stepping down to the building: fruit trees
+		// from 4 m off its ground (their crowns clear of the arcade and of the paths), twice as many to the square metre as
+		// in the forest beyond since no canopy stands over them here (the tall trees stand beyond, as before); shrubs and
+		// climbers from 1.2 m; the herbs, roots, ground cover and mushrooms from 0.3 m (each surely so far: ./solo.js
+		// takes the field's own error off, about half a metre, so they stand some 0.5–0.8 m further out than that)
+		if (soloGround) {
+			r = seeded(616)
+			const around = (every: number, at: (x: number, z: number) => void) => grid(every, 'Planting round the dome', at, soloFoot.x, soloFoot.z, soloFoot.ext + 4)
+			await around(S.trees / 2, (x, z) => {
+				if (!inBand(x, z, 4, 2.4) || !clearOf(x, z, 1.4)) return
+				tree('trees', x, z, 1)
+				if (r() < 0.2) {
+					const b = r() * 6.28
+					forest!.add(pick(O.climbers, r, seed), 'shrub', x + Math.cos(b) * 0.8, 0, z + Math.sin(b) * 0.8, r() * 6.28, 0.9 + r() * 0.2)
+				}
+			})
+			const ring = (layer: Parameters<typeof drift>[0], every: number, off: number, margin: number, keep: number) =>
+				around(every * ((D.least + D.most) / 2), (x, z) => drift(layer, x, z, margin, keep, (px, pz, m) => inBand(px, pz, off, m)))
+			await ring('shrubs', S.shrubs, 1.2, 1.4, 0.9)
+			await ring('climbers', S.climbers, 1.2, 1.2, 0.8)
+			for (const [layer, every] of [['herbs', S.herbs], ['roots', S.roots], ['ground', S.ground], ['fungi', S.fungi]] as const) await ring(layer, every, 0.3, 0.5, 0.35)
+			await pause('Planting round the dome')
+		}
 		// and the floor itself under all of it, the biome's cover, may stand wherever the ground is open: not on a path,
-		// in the water, a dome, a field or a trunk
-		floorOpen = (x, z) => open(x, z, 0.1) && clearOf(x, z, 0.15)
+		// in the water, a dome (or Sandbox 5's building's own ground), a field or a trunk
+		floorOpen = (x, z) => (open(x, z, 0.1) || inBand(x, z, 0.1, 0.1)) && clearOf(x, z, 0.15)
 	}
 	/** where the floor's cover may stand (set once the garden is planted) */
 	let floorOpen = (_x: number, _z: number) => true
@@ -922,6 +955,14 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	const greens = ['#3f7a34', '#4f8a38', '#5b9a40', '#2f6a30', '#6aa84a', '#477f3a'].map((c) => new THREE.Color(c))
 	const inDome = (x: number, z: number, margin: number) => foots.some((d) => Math.abs(x - d.x) < d.ext + margin && Math.abs(z - d.z) < d.ext + margin && Math.hypot(x - d.x, z - d.z) < d.ext + margin)
 	const inSquare = (x: number, z: number) => AROUND_MASTER.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + 1.5)
+	/** ground a plant of `margin` may stand on, domes aside: in the cell, off the squares, the paths and the water */
+	const openGround = (x: number, z: number, margin: number) => inHex(x, z) && !inSquare(x, z) && !nearPath(x, z, margin + 0.6) && !nearWater(x, z, W / 2 + margin)
+	/** Sandbox 5: whether x, z lies in the ring round its building that inDome keeps clear for a plant of `margin`
+	 *  (the whole circle of the building's reach), yet outside all that stands high on it (its glass, its arcade:
+	 *  soloFoot.R) and `off` metres or more from its own ground and its gates' ways out (./solo.js), and as clear of the
+	 *  cell's paths, water and squares as open() keeps that plant */
+	const inBand = (x: number, z: number, off: number, margin: number) =>
+		!!soloGround && inDome(x, z, margin + 1) && Math.hypot(x - soloFoot.x, z - soloFoot.z) > soloFoot.R && soloGround.clear(x, z, off) && openGround(x, z, margin)
 	const q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), sv = new THREE.Vector3()
 	const mat = (x: number, y: number, z: number, rot: number, sx: number, sy = sx, sz = sx) => new THREE.Matrix4().compose(p.set(x, y, z), q.setFromEuler(e.set(0, rot, 0)), sv.set(sx, sy, sz))
 	{
@@ -1033,7 +1074,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			const sh = forest.shape(t.kind)
 			return sh && sh.height * t.s > 2.5 ? [{ x: t.x, z: t.z, height: sh.height * t.s, reach: sh.reach * t.s }] : []
 		})
-		const birds = songbirds(birdTrees, 160, 81, (x, z) => inHex(x, z) && !inDome(x, z, 1) && !inSquare(x, z) && !nearPath(x, z, 1) && !nearWater(x, z, W / 2 + 0.6), eye)
+		const birds = songbirds(birdTrees, 160, 81, (x, z) => (inHex(x, z) && !inDome(x, z, 1) && !inSquare(x, z) && !nearPath(x, z, 1) && !nearWater(x, z, W / 2 + 0.6)) || inBand(x, z, 0.5, 1), eye)
 		scene.add(birds.object)
 		animated.push(birds.update)
 		// where they are, for a look from the console: __birds.where()
@@ -1631,6 +1672,15 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			let got: PickedPlant | null = null
 			const hit = forest.pick(o, d)
 			if (hit) got = { id: hit.kind.id, v: hit.kind.v, ...assetOf(hit.kind), stage: hit.kind.stage, seed: hit.kind.seed, x: hit.x, z: hit.z, height: hit.height, distance: hit.t, inside: false }
+			// Sandbox 5: what stands behind its building is hidden by it (its arcade, its terrace, its closed panels; not its
+			// glass, which you see through), so a click on the building picks no plant behind it
+			if (got && soloBuild) {
+				const wall = ray.intersectObject(soloBuild.obj, true).find((h) => {
+					const mesh = h.object as THREE.Mesh
+					return mesh.isMesh && mesh.visible && !mesh.userData.studio && ![mesh.material].flat().some((mt) => mt.transparent)
+				})
+				if (wall && wall.distance < got.distance) got = null
+			}
 			// and the forests inside the domes built near you, in their own ground
 			for (const i of shown) {
 				const dm = domes[i]!, inner = built.get(i)?.pickPlant?.(new THREE.Vector3(o.x - dm.x, o.y, o.z - dm.z), d)
