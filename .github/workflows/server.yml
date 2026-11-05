@@ -2,21 +2,21 @@
 #   report  what fills its disks, what Docker holds, and which of play's files are broken
 #   clean   frees what nothing uses (unused images, build cache, the journal, leftovers of backups) and mends play's
 #           broken files from the backups in the bucket; then reports again
-#   move-avendb  avenDB's data from the data volume onto the root disk (stopped, copied, compared, started on the copy,
-#           and only then the old folder removed); type MOVE to confirm
+#   retire-avendb  avenDB stopped for good, its data kept as a legacy copy on the root disk (compared file by file), and
+#           only then removed from the data volume; type RETIRE to confirm
 name: server
 
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "report (changes nothing), clean, or move-avendb"
+        description: "report (changes nothing), clean, or retire-avendb"
         required: true
         type: choice
-        options: [report, clean, move-avendb]
+        options: [report, clean, retire-avendb]
         default: report
       confirm:
-        description: "For move-avendb: type MOVE"
+        description: "For retire-avendb: type RETIRE"
         required: false
         default: ""
 
@@ -43,8 +43,8 @@ jobs:
     environment: production
     steps:
       - name: Confirmed
-        if: inputs.mode == 'move-avendb' && inputs.confirm != 'MOVE'
-        run: echo "::error::move-avendb stops avenDB and moves its data; type MOVE in confirm to run it."; exit 1
+        if: inputs.mode == 'retire-avendb' && inputs.confirm != 'RETIRE'
+        run: echo "::error::retire-avendb stops avenDB for good and moves its data off the volume; type RETIRE in confirm to run it."; exit 1
       - uses: actions/checkout@v4
       - uses: ./.github/actions/prod-ssh
         with:
