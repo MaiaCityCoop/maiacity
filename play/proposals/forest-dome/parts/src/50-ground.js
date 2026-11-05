@@ -734,29 +734,29 @@ function gr_need(a, b) {
 		switch (a.layer) {
 			case 'canopy':
 				// a palm's crown is high over the others': it may stand nearer them
-				if (a.stage <= 4 || b.stage <= 4) return 0.55 * (a.w + b.w);
-				return clamp((a.kind === 'king-coconut' || b.kind === 'king-coconut' ? 0.5 : 0.6) * (a.w + b.w), 9, 12);
+				if (a.stage <= 4 || b.stage <= 4) return 0.42 * (a.w + b.w);
+				return clamp((a.kind === 'king-coconut' || b.kind === 'king-coconut' ? 0.36 : 0.45) * (a.w + b.w), 5.5, 8);
 			case 'low':
-				return 0.4 * (a.w + b.w);
+				return 0.3 * (a.w + b.w);
 			case 'climber':
 				return 2.4;
 			case 'fungi':
 				return 0.3;
 			default:
-				return 0.42 * (a.w + b.w);
+				return 0.33 * (a.w + b.w);
 		}
 	}
 	const [big, small] = gr_RANK[a.layer] <= gr_RANK[b.layer] ? [a, b] : [b, a];
 	switch (big.layer) {
 		case 'canopy':
-			return small.layer === 'low' ? Math.max(2.2, 0.2 * big.w + 0.25 * small.w) : 0.9 + 0.2 * small.w;
+			return small.layer === 'low' ? Math.max(1.5, 0.15 * big.w + 0.2 * small.w) : 0.55 + 0.15 * small.w;
 		case 'low':
-			return small.layer === 'shrub' || small.layer === 'climber' ? Math.max(1.1, 0.22 * big.w + 0.35 * small.w) : 0.5 + 0.25 * small.w;
+			return small.layer === 'shrub' || small.layer === 'climber' ? Math.max(0.8, 0.16 * big.w + 0.28 * small.w) : 0.35 + 0.2 * small.w;
 		case 'shrub':
 		case 'climber':
-			return 0.3 * big.w + 0.3 * small.w;
+			return 0.24 * big.w + 0.24 * small.w;
 		case 'herb':
-			return 0.38 * (big.w + small.w);
+			return 0.32 * (big.w + small.w);
 		default:
 			return 0.25;
 	}
@@ -794,7 +794,7 @@ function gr_nearPlants(G, x, z) {
 /** whether a plant of `kind` may stand at [x, z] at this stage and scale */
 function gr_ok(G, kind, x, z, stage, scale, o = {}) {
 	const p = PLANTS[kind], layer = p.layer;
-	if (G.plants.length >= 946) return false;
+	if (G.plants.length >= 3400) return false;
 	if (!inGarden(x, z)) return false;
 	if (!gr_underShell(Math.hypot(x, z), p.h * scale, p.w * scale)) return false;
 	const w = p.w * gr_grown(stage) * scale, cr = w / 2;
@@ -876,21 +876,21 @@ function gr_shadeGrid(G) {
 	G.shade = S;
 }
 
-/** the canopy: trees 9–12 m apart, king coconuts where the dome is tallest, no two alike side by side */
+/** the canopy (Samuel 2026-11-05: way denser): trees 5.5–8 m apart, king coconuts where the dome is tallest, no two alike side by side */
 function gr_plantCanopy(G) {
 	const r = chance('forest-dome', 'canopy');
 	const base = { mango: 1.25, jackfruit: 1, durian: 0.9, avocado: 1.1, sapodilla: 0.9 };
-	const want = { 'king-coconut': 6, mango: 7, jackfruit: 5, durian: 4, avocado: 6, sapodilla: 4 };
+	const want = { 'king-coconut': 9, mango: 14, jackfruit: 10, durian: 8, avocado: 12, sapodilla: 8 };
 	// candidates on a loose hexagonal lattice (a forest planted, then grown wild), then thrown into the gaps
 	const cand = [];
-	const sp = 9.8, rot = r() * Math.PI, ox = r() * sp, oz = r() * sp;
-	for (let j = -6; j <= 6; j++)
-		for (let i = -6; i <= 6; i++) {
+	const sp = 6.8, rot = r() * Math.PI, ox = r() * sp, oz = r() * sp;
+	for (let j = -8; j <= 8; j++)
+		for (let i = -8; i <= 8; i++) {
 			const u = (i + (j % 2) * 0.5) * sp + ox, v = j * sp * 0.866 + oz;
 			const x = u * Math.cos(rot) - v * Math.sin(rot), z = u * Math.sin(rot) + v * Math.cos(rot);
 			for (let t = 0; t < 4; t++) cand.push([x + (r() - 0.5) * 3.2, z + (r() - 0.5) * 3.2]);
 		}
-	for (let k = 0; k < 700; k++) cand.push([between(r, -38.5, 38.5), between(r, -38.5, 11)]);
+	for (let k = 0; k < 1600; k++) cand.push([between(r, -38.5, 38.5), between(r, -38.5, 11)]);
 	// the king coconuts first, where the dome is tallest, in a loose group or two
 	for (let k = 0; k < 600 && (G.count['king-coconut'] ?? 0) < want['king-coconut']; k++) {
 		const [x, z] = polar(Math.sqrt(r()) * 24, r() * TAU);
@@ -898,9 +898,9 @@ function gr_plantCanopy(G) {
 		if (gr_ok(G, 'king-coconut', x, z, stage, scale)) gr_put(G, 'king-coconut', x, z, { stage, scale });
 	}
 	for (const [x, z] of cand) {
-		if (G.canopy.length >= 34) break;
+		if (G.canopy.length >= 75) break;
 		if (!inGarden(x, z)) continue;
-		let nb = null, nd = 13;
+		let nb = null, nd = 9;
 		for (const t of G.canopy) {
 			const d = Math.hypot(t.x - x, t.z - z);
 			if (d < nd) (nd = d), (nb = t);
@@ -924,7 +924,7 @@ function gr_plantCanopy(G) {
 		}
 	}
 	// a few young ones coming up in the gaps (succession)
-	for (let k = 0, n = 0; k < 3000 && n < 4; k++) {
+	for (let k = 0, n = 0; k < 6000 && n < 10; k++) {
 		const x = between(r, -36, 36), z = between(r, -36, 9);
 		const kind = gr_pick(r, base);
 		if (gr_ok(G, kind, x, z, 4, 1)) gr_put(G, kind, x, z, { stage: 4, scale: between(r, 0.92, 1.08) }), n++;
@@ -943,10 +943,10 @@ function gr_plantGuilds(G) {
 		if (!palm && r() < 0.7) gr_around(G, 'cacao', T.x, T.z, 0.55 * Rc + 1.5, 0.9 * Rc + 1.8, gr_SHADY, 1.3, { stage: r() < 0.5 ? 8 : 6 });
 		gr_around(G, gr_pick(r, sunny), T.x, T.z, 0.85 * Rc + 0.4, 1.25 * Rc + 0.8, gr_SUN, 1.0, { stage: r() < 0.6 ? 9 : 8 });
 		if (r() < 0.4) gr_around(G, gr_pick(r, sunny), T.x, T.z, 0.9 * Rc, 1.3 * Rc + 1, gr_SUN + 1.4 * (r() < 0.5 ? 1 : -1), 0.6, { stage: r() < 0.5 ? 8 : 6 });
-		const nc = palm ? 1 : 2 + Math.floor(r() * 3);
+		const nc = palm ? 2 : 3 + Math.floor(r() * 4);
 		for (let k = 0; k < nc; k++) gr_around(G, 'coffee', T.x, T.z, 0.5 * Rc, 0.95 * Rc, gr_SHADY, 1.9, { stage: r() < 0.7 ? 9 : 7 });
 		if (!palm && r() < 0.42) gr_around(G, 'pepper', T.x, T.z, 0.75, 1.0, r() * TAU, Math.PI, { stage: 9 });
-		const nf = 2 + Math.floor(r() * 3);
+		const nf = 3 + Math.floor(r() * 4);
 		for (let k = 0; k < nf; k++) gr_around(G, 'comfrey', T.x, T.z, 1.3, 2.6, r() * TAU, Math.PI, { stage: r() < 0.7 ? 9 : 7 });
 		if (!palm && r() < 0.6) {
 			const [dx, dz] = polar(between(r, 0.45, 0.85) * Rc, gr_SHADY + (r() - 0.5) * 2.4);
@@ -996,7 +996,7 @@ function gr_plantBananas(G) {
 function gr_plantLow(G) {
 	const r = G.r;
 	// papayas: in the sun along the paths
-	for (let k = 0, n = 0; k < 900 && n < 8; k++) {
+	for (let k = 0, n = 0; k < 3000 && n < 18; k++) {
 		const L = G.pathList[Math.floor(r() * G.pathList.length)];
 		const i = Math.floor(r() * L.P.length);
 		const [nx, nz] = gr_normal(L.P, i, L.closed);
@@ -1007,7 +1007,7 @@ function gr_plantLow(G) {
 		if (gr_ok(G, 'papaya', x, z, stage, scale)) gr_put(G, 'papaya', x, z, { stage, scale }), n++;
 	}
 	// more low trees in the gaps, the sun-loving ones where it is open, cacao where it is shaded
-	for (let k = 0; k < 6000 && (G.layers.low ?? 0) < 76; k++) {
+	for (let k = 0; k < 30000 && (G.layers.low ?? 0) < 260; k++) {
 		const x = between(r, -38, 38), z = between(r, -38, 10);
 		const sh = gr_shadeAt(G, x, z);
 		const kind = sh > 0.5 ? 'cacao' : gr_pick(r, { orange: 1, lemon: 0.9, fig: 0.8, pomegranate: 0.8, soursop: 0.7, papaya: 0.4 });
@@ -1017,9 +1017,9 @@ function gr_plantLow(G) {
 		if (gr_ok(G, kind, x, z, stage, scale)) gr_put(G, kind, x, z, { stage, scale });
 	}
 	// coffee filling the shade
-	for (let k = 0; k < 5000 && (G.layers.shrub ?? 0) < 96; k++) {
+	for (let k = 0; k < 30000 && (G.layers.shrub ?? 0) < 380; k++) {
 		const x = between(r, -38, 38), z = between(r, -38, 10);
-		if (gr_shadeAt(G, x, z) < 0.35) continue;
+		if (gr_shadeAt(G, x, z) < 0.2) continue;
 		const kind = r() < 0.86 ? 'coffee' : 'pepper';
 		const stage = r() < 0.7 ? 9 : 7, scale = between(r, 0.9, 1.1);
 		if (gr_ok(G, kind, x, z, stage, scale)) gr_put(G, kind, x, z, { stage, scale });
@@ -1053,7 +1053,7 @@ function gr_plantEdges(G) {
 	const r = G.r;
 	for (const L of G.pathList) {
 		const n = L.P.length;
-		for (let i = 2; i < n - 2; i += 6 + Math.floor(r() * 6)) {
+		for (let i = 2; i < n - 2; i += 3 + Math.floor(r() * 3)) {
 			if (L.skip[i]) continue;
 			const [nx, nz] = gr_normal(L.P, i, L.closed);
 			const [x0, z0] = L.P[i];
@@ -1095,7 +1095,7 @@ function gr_plantEdges(G) {
 	}
 	// herbs under the low trees and in the shade, until there are enough
 	const lows = G.plants.filter((p) => p.layer === 'low');
-	for (let k = 0; k < 400 && (G.layers.herb ?? 0) < 250; k++) {
+	for (let k = 0; k < 4000 && (G.layers.herb ?? 0) < 900; k++) {
 		const T = lows[Math.floor(r() * lows.length)];
 		const sh = gr_shadeAt(G, T.x, T.z);
 		const kind = sh > 0.45 ? (r() < 0.6 ? 'ginger' : 'comfrey') : r() < 0.5 ? 'comfrey' : 'ginger';
@@ -1103,7 +1103,7 @@ function gr_plantEdges(G) {
 		gr_cluster(G, kind, T.x + dx, T.z + dz, 2 + Math.floor(r() * 3), 0.5, 0.8);
 	}
 	// strawberries under the sunny low trees
-	for (let k = 0; k < 300 && (G.layers.ground ?? 0) < 235; k++) {
+	for (let k = 0; k < 4000 && (G.layers.ground ?? 0) < 900; k++) {
 		const T = lows[Math.floor(r() * lows.length)];
 		const [dx, dz] = polar(between(r, 1, 2.2), gr_SUN + (r() - 0.5) * 2);
 		gr_drift(G, r() < 0.7 ? 'strawberry' : 'nasturtium', T.x + dx, T.z + dz, 4, 0.7);

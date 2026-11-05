@@ -1110,7 +1110,8 @@ const doorSize = (d) => {
 
 /**
  * THE PLANTS — play's own plants the forest is grown from, each named by the hash of its recipe file (an accepted
- * version in play's catalog: plants/<id>@<v>), never copied in. The page builds each where the dome marks it
+ * version in play's catalog: plants/<id>@<v>, always its newest, and for a plant of kinds its default kind), never
+ * copied in (Samuel 2026-11-05: always the latest plants; a plant's newer version moves the dome by its own proposal). The page builds each where the dome marks it
  * (a node named `use:<hash>?seed=…&stage=…`) and draws it with its levels of detail. Stages 0 … 9 for each.
  * `h` its height grown (m, its build at its last stage), `w` its crown's width, the layer it stands in, `stages` its
  * last stage where it is not 9 (a stage asked for 0 … 9 is laid on its own, the last on its last).
@@ -1118,32 +1119,32 @@ const doorSize = (d) => {
 const PLANTS = {
 	// canopy
 	'king-coconut': { v: 1, hash: '36c753b13daf0bcde55996355c7096117cf3a0c862683726e9491db18dd22cee', layer: 'canopy', h: 15.6, w: 9.7 },
-	mango: { v: 1, hash: '79608d49e2f966e3c9a0eff532f7fcb24cb785cb25e16afa9f6b89f948ab3c6f', layer: 'canopy', h: 7.5, w: 7.6 },
+	mango: { v: 2, hash: 'f6facbf6d1f408d8d0ae04d201ab1f2951844143a6bb36d79c6c9726ec75167c', layer: 'canopy', h: 7.5, w: 7.6, stages: 10 },
 	jackfruit: { v: 3, hash: '4eaeacc79ff3804890891417ee7ac86ad9398761881c78412ab7ac5c07fadd38', layer: 'canopy', h: 9, w: 8.5 },
-	durian: { v: 2, hash: 'a0249eb63e0bf53f96d1591d18bd08c4db33250114020b5e445b3a68a09277fa', layer: 'canopy', h: 10, w: 8 },
-	// 'Fuerte', grown from its reference sheet (v3)
-	avocado: { v: 3, hash: 'c87a1bee76bae8d4e9675612f712a177e7ace81979524911ae59d43c944bb347', layer: 'canopy', h: 6.4, w: 7.2 },
-	sapodilla: { v: 1, hash: 'cb6dd6d2381da7f2bee1120bfa2e2065f5f4d4838df9b0048c4e4f4b0840e8ed', layer: 'canopy', h: 8, w: 6.5 },
+	durian: { v: 3, hash: '7a080288fc115fe82ae9dbe7155bce55202f242667fad1de370dca8670c0d78e', layer: 'canopy', h: 10, w: 8, stages: 11 },
+	// 'Fuerte', grown from its reference sheet
+	avocado: { v: 4, hash: '03ac067b6ed739e33f51870077e750fc266673bd1f4cdf70fe2d3014f6f153a9', layer: 'canopy', h: 6.4, w: 7.2 },
+	sapodilla: { v: 3, hash: '13238fa27a29a14f2a441dd4fd2a9c9dd98552a902608c05a44da6b944065810', layer: 'canopy', h: 8, w: 6.5, stages: 10 },
 	// below the canopy
-	// 'Tarocco' (v2, eleven stages: 0 … 10) and 'Femminello Santa Teresa' (v2), grown flush by flush
-	orange: { v: 2, hash: '31af60dad4b4f4fdc9b894d597b44d4f165c72c3225872dc71ec4d9b532f3372', layer: 'low', h: 5, w: 3.4, stages: 10 },
-	lemon: { v: 2, hash: 'dcf1d1ba12bb3b71e89693dc75a1086bae72010e8fe865dc7dbba5007086b6ee', layer: 'low', h: 4.1, w: 3.7 },
-	cacao: { v: 2, hash: '240837e0e234feb1be3418a80921feaa8f7c180e5bca3f0c87db17f03c463d54', layer: 'low', h: 6.4, w: 7.4 },
-	soursop: { v: 2, hash: '75b99655073d960adf97a0761a54a2eac5e5e147158c897cce86467bec55edf4', layer: 'low', h: 6, w: 5 },
-	// papaya v2 (Maia's, from 26 photographs) and the 'Dwarf Cavendish' banana (v2, from its reference sheet)
-	papaya: { v: 2, hash: '6280e6ea87360b193bbe044dce3bdee65b60b67ad98c5c98e4369b28b928211f', layer: 'low', h: 3.2, w: 2.3 },
-	banana: { v: 2, hash: 'daf1d37f0a4a3f84783a9ff9b555cf63a59dbcfb74a0301cf6799666ac324f88', layer: 'low', h: 3.4, w: 4 },
-	'red-banana': { v: 1, hash: '4413ba1e7eddec87a2bda85335d6b88768c16a697f6fbb007939b3ed3f23fadf', layer: 'low', h: 6, w: 4.7 },
-	fig: { v: 1, hash: 'aaffa509dfb980b65889477a4d5247570455f1ab5b06119a831d1edcde6e80fa', layer: 'low', h: 4.5, w: 5 },
-	pomegranate: { v: 1, hash: 'e38e4dd6f4b122aae451f484edc9cba599adb67bc381fb51647a637cc0d078f4', layer: 'low', h: 4, w: 3.5 },
+	// 'Tarocco' and 'Femminello Santa Teresa', grown flush by flush
+	orange: { v: 3, hash: '43292fc2e2e6926b49c0f605ec726e737695e42ddb8eb228ffada339b61e040b', layer: 'low', h: 5, w: 3.4, stages: 10 },
+	lemon: { v: 3, hash: '9159e9965f12b0b9697dea6af42161c28034b2aa39c4d15470fa274035e3e761', layer: 'low', h: 4.1, w: 3.7 },
+	cacao: { v: 4, hash: '7f7accd6a5f02cfa427cb33f8cc287dd087ca9112bf6bd0fedf493d472069ad2', layer: 'low', h: 6.4, w: 7.4, stages: 10 },
+	soursop: { v: 4, hash: '811c83a519169772c4f39a6b02d5f3075621dea2c96f437deceee91980a74c45', layer: 'low', h: 6, w: 5 },
+	// papaya (Maia's, from 26 photographs; its hermaphrodite kind, 'both') and the 'Dwarf Cavendish' banana
+	papaya: { v: 4, hash: '715ba989382708bdf946298ecdac92031b59cb09970234102a59127f2f4ab2f2', variant: 'both', layer: 'low', h: 3.2, w: 2.3 },
+	banana: { v: 4, hash: '971f2c616e1ee35daaa2f0e12d760937860784689276ebffe98f8949823aeed6', layer: 'low', h: 3.4, w: 4 },
+	'red-banana': { v: 3, hash: '24a2ac91da2479a9c32938c794fa9a57127f0a679911deea465657fddbe29c5a', layer: 'low', h: 6, w: 4.7 },
+	fig: { v: 2, hash: 'd33ed2f1de12e8d282861ef6b8bebdcb535f7f60526eb449a1aa42b0032d1fd7', layer: 'low', h: 4.5, w: 5, stages: 11 },
+	pomegranate: { v: 3, hash: '067a7a817edcc672264bee5853bcc7be133725dd0af4af76841cc197801a8eeb', layer: 'low', h: 4, w: 3.5 },
 	// shrubs
-	coffee: { v: 1, hash: '2b33b077ef0c0a63716e5396845d75a701f795dfc520dd9b1d0351e86b9c465b', layer: 'shrub', h: 2.5, w: 2 },
+	coffee: { v: 3, hash: 'a1c18ba1c4c7568bc0b2908a1370ed9773b7b5293077ea0b008a3718b3ad94f9', layer: 'shrub', h: 2.5, w: 2, stages: 11 },
 	pepper: { v: 1, hash: '7c48d80dd697801f49011598a7d52ed1694155c5dc036240e5ac57599732318c', layer: 'shrub', h: 1, w: 0.8 },
 	// herbs and the ground
 	ginger: { v: 1, hash: 'dc8bef9174dce599b1dd04b61e9c69386c4ea668e853fb19fb2eec185f96cde5', layer: 'herb', h: 1.2, w: 0.8 },
 	comfrey: { v: 1, hash: 'c3c19e96d453f788d9dbe0304745e018c9cbeb5f22a2af5ede69e740504aac82', layer: 'herb', h: 0.9, w: 0.8 },
 	basil: { v: 1, hash: '76947a593571ab762030bf3055654cd1d7390404083e460a65434c4e05d50785', layer: 'herb', h: 0.5, w: 0.4 },
-	pineapple: { v: 1, hash: '16eed6a7af3fdb233243d62680cc4761ef5c33f7b4628a0a7f00a02f9bdcac29', layer: 'herb', h: 1, w: 1.2 },
+	pineapple: { v: 3, hash: '6d8dd54db02745284d29277dea4b51ecd7cd19b3563a211e78d2d30d869b4efa', layer: 'herb', h: 1, w: 1.2, stages: 10 },
 	strawberry: { v: 1, hash: '05794d83dbe6711c0455740bbb7d0a37e273abd865d4b6f6b27ee47c6230a65b', layer: 'ground', h: 0.25, w: 0.4 },
 	nasturtium: { v: 1, hash: '9b0a505c9cc5770ce98345159bef475a742d8a6817b05a26dbdd2bfb3c3f9705', layer: 'ground', h: 0.3, w: 0.6 },
 	clover: { v: 1, hash: '7784d276d5bce4f40938e19a48fdefd392806c689fe51139d36d9bd36c132cb0', layer: 'ground', h: 0.2, w: 0.4 },
@@ -4140,29 +4141,29 @@ function gr_need(a, b) {
 		switch (a.layer) {
 			case 'canopy':
 				// a palm's crown is high over the others': it may stand nearer them
-				if (a.stage <= 4 || b.stage <= 4) return 0.55 * (a.w + b.w);
-				return clamp((a.kind === 'king-coconut' || b.kind === 'king-coconut' ? 0.5 : 0.6) * (a.w + b.w), 9, 12);
+				if (a.stage <= 4 || b.stage <= 4) return 0.42 * (a.w + b.w);
+				return clamp((a.kind === 'king-coconut' || b.kind === 'king-coconut' ? 0.36 : 0.45) * (a.w + b.w), 5.5, 8);
 			case 'low':
-				return 0.4 * (a.w + b.w);
+				return 0.3 * (a.w + b.w);
 			case 'climber':
 				return 2.4;
 			case 'fungi':
 				return 0.3;
 			default:
-				return 0.42 * (a.w + b.w);
+				return 0.33 * (a.w + b.w);
 		}
 	}
 	const [big, small] = gr_RANK[a.layer] <= gr_RANK[b.layer] ? [a, b] : [b, a];
 	switch (big.layer) {
 		case 'canopy':
-			return small.layer === 'low' ? Math.max(2.2, 0.2 * big.w + 0.25 * small.w) : 0.9 + 0.2 * small.w;
+			return small.layer === 'low' ? Math.max(1.5, 0.15 * big.w + 0.2 * small.w) : 0.55 + 0.15 * small.w;
 		case 'low':
-			return small.layer === 'shrub' || small.layer === 'climber' ? Math.max(1.1, 0.22 * big.w + 0.35 * small.w) : 0.5 + 0.25 * small.w;
+			return small.layer === 'shrub' || small.layer === 'climber' ? Math.max(0.8, 0.16 * big.w + 0.28 * small.w) : 0.35 + 0.2 * small.w;
 		case 'shrub':
 		case 'climber':
-			return 0.3 * big.w + 0.3 * small.w;
+			return 0.24 * big.w + 0.24 * small.w;
 		case 'herb':
-			return 0.38 * (big.w + small.w);
+			return 0.32 * (big.w + small.w);
 		default:
 			return 0.25;
 	}
@@ -4200,7 +4201,7 @@ function gr_nearPlants(G, x, z) {
 /** whether a plant of `kind` may stand at [x, z] at this stage and scale */
 function gr_ok(G, kind, x, z, stage, scale, o = {}) {
 	const p = PLANTS[kind], layer = p.layer;
-	if (G.plants.length >= 946) return false;
+	if (G.plants.length >= 3400) return false;
 	if (!inGarden(x, z)) return false;
 	if (!gr_underShell(Math.hypot(x, z), p.h * scale, p.w * scale)) return false;
 	const w = p.w * gr_grown(stage) * scale, cr = w / 2;
@@ -4282,21 +4283,21 @@ function gr_shadeGrid(G) {
 	G.shade = S;
 }
 
-/** the canopy: trees 9–12 m apart, king coconuts where the dome is tallest, no two alike side by side */
+/** the canopy (Samuel 2026-11-05: way denser): trees 5.5–8 m apart, king coconuts where the dome is tallest, no two alike side by side */
 function gr_plantCanopy(G) {
 	const r = chance('forest-dome', 'canopy');
 	const base = { mango: 1.25, jackfruit: 1, durian: 0.9, avocado: 1.1, sapodilla: 0.9 };
-	const want = { 'king-coconut': 6, mango: 7, jackfruit: 5, durian: 4, avocado: 6, sapodilla: 4 };
+	const want = { 'king-coconut': 9, mango: 14, jackfruit: 10, durian: 8, avocado: 12, sapodilla: 8 };
 	// candidates on a loose hexagonal lattice (a forest planted, then grown wild), then thrown into the gaps
 	const cand = [];
-	const sp = 9.8, rot = r() * Math.PI, ox = r() * sp, oz = r() * sp;
-	for (let j = -6; j <= 6; j++)
-		for (let i = -6; i <= 6; i++) {
+	const sp = 6.8, rot = r() * Math.PI, ox = r() * sp, oz = r() * sp;
+	for (let j = -8; j <= 8; j++)
+		for (let i = -8; i <= 8; i++) {
 			const u = (i + (j % 2) * 0.5) * sp + ox, v = j * sp * 0.866 + oz;
 			const x = u * Math.cos(rot) - v * Math.sin(rot), z = u * Math.sin(rot) + v * Math.cos(rot);
 			for (let t = 0; t < 4; t++) cand.push([x + (r() - 0.5) * 3.2, z + (r() - 0.5) * 3.2]);
 		}
-	for (let k = 0; k < 700; k++) cand.push([between(r, -38.5, 38.5), between(r, -38.5, 11)]);
+	for (let k = 0; k < 1600; k++) cand.push([between(r, -38.5, 38.5), between(r, -38.5, 11)]);
 	// the king coconuts first, where the dome is tallest, in a loose group or two
 	for (let k = 0; k < 600 && (G.count['king-coconut'] ?? 0) < want['king-coconut']; k++) {
 		const [x, z] = polar(Math.sqrt(r()) * 24, r() * TAU);
@@ -4304,9 +4305,9 @@ function gr_plantCanopy(G) {
 		if (gr_ok(G, 'king-coconut', x, z, stage, scale)) gr_put(G, 'king-coconut', x, z, { stage, scale });
 	}
 	for (const [x, z] of cand) {
-		if (G.canopy.length >= 34) break;
+		if (G.canopy.length >= 75) break;
 		if (!inGarden(x, z)) continue;
-		let nb = null, nd = 13;
+		let nb = null, nd = 9;
 		for (const t of G.canopy) {
 			const d = Math.hypot(t.x - x, t.z - z);
 			if (d < nd) (nd = d), (nb = t);
@@ -4330,7 +4331,7 @@ function gr_plantCanopy(G) {
 		}
 	}
 	// a few young ones coming up in the gaps (succession)
-	for (let k = 0, n = 0; k < 3000 && n < 4; k++) {
+	for (let k = 0, n = 0; k < 6000 && n < 10; k++) {
 		const x = between(r, -36, 36), z = between(r, -36, 9);
 		const kind = gr_pick(r, base);
 		if (gr_ok(G, kind, x, z, 4, 1)) gr_put(G, kind, x, z, { stage: 4, scale: between(r, 0.92, 1.08) }), n++;
@@ -4349,10 +4350,10 @@ function gr_plantGuilds(G) {
 		if (!palm && r() < 0.7) gr_around(G, 'cacao', T.x, T.z, 0.55 * Rc + 1.5, 0.9 * Rc + 1.8, gr_SHADY, 1.3, { stage: r() < 0.5 ? 8 : 6 });
 		gr_around(G, gr_pick(r, sunny), T.x, T.z, 0.85 * Rc + 0.4, 1.25 * Rc + 0.8, gr_SUN, 1.0, { stage: r() < 0.6 ? 9 : 8 });
 		if (r() < 0.4) gr_around(G, gr_pick(r, sunny), T.x, T.z, 0.9 * Rc, 1.3 * Rc + 1, gr_SUN + 1.4 * (r() < 0.5 ? 1 : -1), 0.6, { stage: r() < 0.5 ? 8 : 6 });
-		const nc = palm ? 1 : 2 + Math.floor(r() * 3);
+		const nc = palm ? 2 : 3 + Math.floor(r() * 4);
 		for (let k = 0; k < nc; k++) gr_around(G, 'coffee', T.x, T.z, 0.5 * Rc, 0.95 * Rc, gr_SHADY, 1.9, { stage: r() < 0.7 ? 9 : 7 });
 		if (!palm && r() < 0.42) gr_around(G, 'pepper', T.x, T.z, 0.75, 1.0, r() * TAU, Math.PI, { stage: 9 });
-		const nf = 2 + Math.floor(r() * 3);
+		const nf = 3 + Math.floor(r() * 4);
 		for (let k = 0; k < nf; k++) gr_around(G, 'comfrey', T.x, T.z, 1.3, 2.6, r() * TAU, Math.PI, { stage: r() < 0.7 ? 9 : 7 });
 		if (!palm && r() < 0.6) {
 			const [dx, dz] = polar(between(r, 0.45, 0.85) * Rc, gr_SHADY + (r() - 0.5) * 2.4);
@@ -4402,7 +4403,7 @@ function gr_plantBananas(G) {
 function gr_plantLow(G) {
 	const r = G.r;
 	// papayas: in the sun along the paths
-	for (let k = 0, n = 0; k < 900 && n < 8; k++) {
+	for (let k = 0, n = 0; k < 3000 && n < 18; k++) {
 		const L = G.pathList[Math.floor(r() * G.pathList.length)];
 		const i = Math.floor(r() * L.P.length);
 		const [nx, nz] = gr_normal(L.P, i, L.closed);
@@ -4413,7 +4414,7 @@ function gr_plantLow(G) {
 		if (gr_ok(G, 'papaya', x, z, stage, scale)) gr_put(G, 'papaya', x, z, { stage, scale }), n++;
 	}
 	// more low trees in the gaps, the sun-loving ones where it is open, cacao where it is shaded
-	for (let k = 0; k < 6000 && (G.layers.low ?? 0) < 76; k++) {
+	for (let k = 0; k < 30000 && (G.layers.low ?? 0) < 260; k++) {
 		const x = between(r, -38, 38), z = between(r, -38, 10);
 		const sh = gr_shadeAt(G, x, z);
 		const kind = sh > 0.5 ? 'cacao' : gr_pick(r, { orange: 1, lemon: 0.9, fig: 0.8, pomegranate: 0.8, soursop: 0.7, papaya: 0.4 });
@@ -4423,9 +4424,9 @@ function gr_plantLow(G) {
 		if (gr_ok(G, kind, x, z, stage, scale)) gr_put(G, kind, x, z, { stage, scale });
 	}
 	// coffee filling the shade
-	for (let k = 0; k < 5000 && (G.layers.shrub ?? 0) < 96; k++) {
+	for (let k = 0; k < 30000 && (G.layers.shrub ?? 0) < 380; k++) {
 		const x = between(r, -38, 38), z = between(r, -38, 10);
-		if (gr_shadeAt(G, x, z) < 0.35) continue;
+		if (gr_shadeAt(G, x, z) < 0.2) continue;
 		const kind = r() < 0.86 ? 'coffee' : 'pepper';
 		const stage = r() < 0.7 ? 9 : 7, scale = between(r, 0.9, 1.1);
 		if (gr_ok(G, kind, x, z, stage, scale)) gr_put(G, kind, x, z, { stage, scale });
@@ -4459,7 +4460,7 @@ function gr_plantEdges(G) {
 	const r = G.r;
 	for (const L of G.pathList) {
 		const n = L.P.length;
-		for (let i = 2; i < n - 2; i += 6 + Math.floor(r() * 6)) {
+		for (let i = 2; i < n - 2; i += 3 + Math.floor(r() * 3)) {
 			if (L.skip[i]) continue;
 			const [nx, nz] = gr_normal(L.P, i, L.closed);
 			const [x0, z0] = L.P[i];
@@ -4501,7 +4502,7 @@ function gr_plantEdges(G) {
 	}
 	// herbs under the low trees and in the shade, until there are enough
 	const lows = G.plants.filter((p) => p.layer === 'low');
-	for (let k = 0; k < 400 && (G.layers.herb ?? 0) < 250; k++) {
+	for (let k = 0; k < 4000 && (G.layers.herb ?? 0) < 900; k++) {
 		const T = lows[Math.floor(r() * lows.length)];
 		const sh = gr_shadeAt(G, T.x, T.z);
 		const kind = sh > 0.45 ? (r() < 0.6 ? 'ginger' : 'comfrey') : r() < 0.5 ? 'comfrey' : 'ginger';
@@ -4509,7 +4510,7 @@ function gr_plantEdges(G) {
 		gr_cluster(G, kind, T.x + dx, T.z + dz, 2 + Math.floor(r() * 3), 0.5, 0.8);
 	}
 	// strawberries under the sunny low trees
-	for (let k = 0; k < 300 && (G.layers.ground ?? 0) < 235; k++) {
+	for (let k = 0; k < 4000 && (G.layers.ground ?? 0) < 900; k++) {
 		const T = lows[Math.floor(r() * lows.length)];
 		const [dx, dz] = polar(between(r, 1, 2.2), gr_SUN + (r() - 0.5) * 2);
 		gr_drift(G, r() < 0.7 ? 'strawberry' : 'nasturtium', T.x + dx, T.z + dz, 4, 0.7);
