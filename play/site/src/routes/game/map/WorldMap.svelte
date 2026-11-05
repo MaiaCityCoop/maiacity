@@ -2,7 +2,9 @@
 	The game's world map on the whole screen, in 3D: the map ./map.ts grows from a seed, drawn by ./scene.ts. Drag to
 	pan, right-drag or two fingers to turn and tilt, wheel or pinch to zoom. Pointing at a plot lights it; tapping it
 	shows its biome, size and what it gives. The seed is in the address (?seed=), so a map can be shared; the dice
-	grows a new one. Nothing is built on it yet.
+	grows a new one. Nothing is built on it yet; the Empty | City switch shows it as it could be built up (./city.ts:
+	a tower and its domes on every plot, fruit trees between them, deep jungle between the plots), kept in the address too
+	(?view=city).
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
@@ -16,6 +18,7 @@
 	let picked = $state<Plot | null>(null);
 	let hovered = $state<Plot | null>(null);
 	let world: World | null = null;
+	let view = $state<'empty' | 'city'>('empty');
 
 	const counts = $derived.by(() => {
 		const c: Record<Biome, number> = { river: 0, forest: 0, grass: 0, sand: 0, mountain: 0 };
@@ -35,8 +38,18 @@
 				world?.select(picked?.id ?? null);
 			}
 		});
+		world.city(view === 'city');
 		const url = new URL(location.href);
 		url.searchParams.set('seed', seed);
+		replaceState(url, {});
+	}
+
+	function show(next: 'empty' | 'city') {
+		view = next;
+		world?.city(next === 'city');
+		const url = new URL(location.href);
+		if (next === 'city') url.searchParams.set('view', 'city');
+		else url.searchParams.delete('view');
 		replaceState(url, {});
 	}
 
@@ -50,6 +63,7 @@
 	const totals = $derived.by(() => ({ people: (map?.plots ?? []).reduce((t, p) => t + p.people, 0), area: (map?.plots ?? []).reduce((t, p) => t + p.area, 0) }));
 
 	onMount(() => {
+		if (new URLSearchParams(location.search).get('view') === 'city') view = 'city';
 		grow(new URLSearchParams(location.search).get('seed') || randomSeed());
 		return () => world?.dispose();
 	});
@@ -70,6 +84,10 @@
 			<input id="seed" bind:value={draft} spellcheck="false" autocomplete="off" />
 			<button type="button" title="A new map" aria-label="A new map" onclick={() => grow(randomSeed())}>⚄</button>
 		</form>
+		<div class="views chip" role="group" aria-label="What the map shows">
+			<button type="button" class:on={view === 'empty'} aria-pressed={view === 'empty'} onclick={() => show('empty')}>Empty</button>
+			<button type="button" class:on={view === 'city'} aria-pressed={view === 'city'} onclick={() => show('city')}>City</button>
+		</div>
 		<ul class="legend chip">
 			{#each Object.entries(BIOMES).filter(([key]) => !UNBUILDABLE.includes(key as Biome)) as [key, b] (key)}
 				<li><i style:background={b.colour}></i>{b.label}<small>{counts[key as Biome]}</small></li>
@@ -104,6 +122,9 @@
 	.seed label { font-size: 0.8rem; color: var(--muted); }
 	.seed input { width: 8.5em; border: 0; background: transparent; font: inherit; color: var(--ink); padding: 0.25rem 0; outline: none; }
 	.seed button { border: 1px solid #e3d3ad; background: #fff9ec; border-radius: 10px; width: 2.1rem; height: 2.1rem; font-size: 1.25rem; line-height: 1; cursor: pointer; color: var(--ink); }
+	.views { display: flex; gap: 0.2rem; padding: 0.3rem; }
+	.views button { border: 0; background: transparent; border-radius: 10px; padding: 0.35rem 0.8rem; font: inherit; font-size: 0.85rem; color: var(--ink-soft); cursor: pointer; }
+	.views button.on { background: #f3e2b8; color: var(--ink); box-shadow: inset 0 0 0 1px #e3d3ad; }
 	.legend { display: flex; flex-wrap: wrap; gap: 0.2rem 0.9rem; list-style: none; margin: 0; padding: 0.55rem 0.9rem; font-size: 0.85rem; color: var(--ink-soft); }
 	.legend li { display: flex; align-items: center; gap: 0.35rem; }
 	.legend small { color: var(--muted); }
