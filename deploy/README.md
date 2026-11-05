@@ -28,3 +28,18 @@ GitHub → Actions → **restore** → Run workflow, with the backup's name (or 
   beside them) and the image it ran with, and checks that play answers. The next deploy moves play forward again.
 
 The workflow shares the deploy's concurrency group, so it never runs beside a deploy.
+
+## The server's care, by hand only
+
+GitHub → Actions → **server** → Run workflow (`server-care.sh`), never beside a deploy:
+
+- **report** changes nothing: what fills the root disk and the data volume, what Docker holds, the journal, the
+  leftovers of backups, play's files, and which of them are broken (their bytes not hashing to their name).
+- **clean** frees what nothing uses (Docker's unused images older than a day, stopped containers, its build cache,
+  the journal past 200 MB, apt's cache, leftovers of backups older than an hour; no volume is removed), then mends
+  play's broken files: their good bytes from the newest backups in the bucket, checked against their hash; one no
+  backup holds is moved aside to `broken-<when>/` beside the files, so play writes it anew when it is made again.
+
+A full disk is what breaks files: play now writes a file whole beside its name and only then moves it there, and takes
+a file whose bytes do not hash to its name for missing (`play/api/src/blobs.ts`). The backup packs the files straight
+from their folder and refuses to start without room for the pack.
