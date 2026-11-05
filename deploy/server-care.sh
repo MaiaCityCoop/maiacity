@@ -9,6 +9,10 @@
 #           each one's good bytes from the backups in the bucket (streamed, never stored whole), checked against its
 #           hash and put back; one no backup holds is moved aside (kept beside the files), so play writes it anew the
 #           next time it is made. Then reports again.
+#   move-avendb  avenDB's data off the data volume onto the root disk (/var/lib/maia-city/avendb; Samuel
+#           2026-11-05: the 9.8 GB volume was full, avenDB's 8.2 GB of it): avenDB stopped, its folder copied and the
+#           copy compared file by file, .env pointed at it, avenDB started and answering; only then is the folder on
+#           the volume removed. If avenDB does not answer on the copy, .env goes back and it starts on the old folder.
 # Access to the bucket for the mending comes from ../backup.env, as for deploy/backup.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -113,8 +117,49 @@ clean() {
   mend
 }
 
+move_avendb() {
+  local NEW=/var/lib/maia-city/avendb cur
+  cur=$(sed -n 's/^AVENDB_DATA_PATH=//p' .env | tail -1)
+  [ -n "$cur" ] || { echo "move-avendb: .env names no AVENDB_DATA_PATH"; exit 1; }
+  if [ "$cur" = "$NEW" ]; then echo "move-avendb: avenDB's data is at $NEW already"; return 0; fi
+  [ -d "$cur" ] || { echo "move-avendb: $cur is not there"; exit 1; }
+  local need free
+  need=$(sudo du -sk "$cur" | cut -f1); free=$(df -Pk / | awk 'NR == 2 {print $4}')
+  [ "$free" -gt $((need * 2)) ] || { echo "move-avendb: $((free / 1024)) MB free on /, avenDB holds $((need / 1024)) MB"; exit 1; }
+  local C="docker compose -f docker-compose.yml -f docker-compose.prod.yml -f play/docker-compose.play.yml"
+  set -a; . ./.env; [ -f play.env ] && . ./play.env; set +a
+  echo "move-avendb: stopping avenDB, copying $cur ($((need / 1024)) MB) to $NEW …"
+  $C stop avendb </dev/null
+  sudo mkdir -p "$NEW"
+  sudo cp -a "$cur/." "$NEW/"
+  # the copy, compared file by file with what it was copied from
+  if ! sudo diff -r --no-dereference "$cur" "$NEW" >/dev/null; then
+    echo "move-avendb: the copy differs from $cur: avenDB starts again on $cur, the copy is left at $NEW"
+    $C up -d --no-deps avendb </dev/null; exit 1
+  fi
+  cp .env ".env.before-avendb-move-$(date -u +%Y%m%dT%H%M%SZ)"
+  sed -i "s#^AVENDB_DATA_PATH=.*#AVENDB_DATA_PATH=$NEW#" .env
+  set -a; . ./.env; set +a
+  $C up -d --no-deps avendb </dev/null
+  local ok=""
+  for i in $(seq 1 30); do
+    if docker exec maia-city-caddy wget -q -O /dev/null -T 5 http://avendb:3351/feed 2>/dev/null; then ok=1; break; fi
+    sleep 3
+  done
+  if [ -z "$ok" ]; then
+    docker logs --tail 30 maia-city-avendb 2>&1 | sed 's/^/    /' || true
+    echo "move-avendb: avenDB did not answer on $NEW: back to $cur"
+    sed -i "s#^AVENDB_DATA_PATH=.*#AVENDB_DATA_PATH=$cur#" .env
+    set -a; . ./.env; set +a
+    $C up -d --no-deps avendb </dev/null; exit 1
+  fi
+  echo "move-avendb: avenDB answers on $NEW; removing the folder it left on the volume ($cur)"
+  sudo rm -rf "$cur"
+}
+
 case "$MODE" in
   report) report ;;
   clean) report; echo; clean; echo; echo "# After"; report ;;
-  *) echo "server-care: report or clean, not $MODE"; exit 1 ;;
+  move-avendb) move_avendb; echo; echo "# After"; report ;;
+  *) echo "server-care: report, clean or move-avendb, not $MODE"; exit 1 ;;
 esac
