@@ -69,7 +69,8 @@
 		window.__worldBench = {
 			/** play's catalog read in (its accepted assets, by hash): a world's guests not handed in come from it */
 			async catalog() {
-				const r = await cat.loadRecipes();
+				// play's own catalog read now, the guests handed in before kept beside it (never in its place)
+				const r = await cat.readRecipes();
 				return { phase: r.phase, count: Object.keys(cat.INDEX.recipes).length, error: r.error ?? '' };
 			},
 			/** whether play's catalog (read in with catalog()) holds a recipe by this hash */
