@@ -1,7 +1,7 @@
 <!--
 	The dashboard, the one place everything starts from (legacy's $lib/app/Dashboard.svelte, its layout and design): a
 	greeting; the game, one thin card across the page (straight into its world map for an admin, greyed out and invite
-	only for everyone else, Samuel 2026-11-04); the Game Worlds, the three sandboxes, open to every traveler; then the
+	only for everyone else, Samuel 2026-11-04); the Game Worlds, the four sandboxes, open to every traveler; then the
 	apps — a tile for each group of the asset library (plants, animals, things, machines, buildings, biomes;
 	$lib/app/groups.ts) and the factories — and, for an admin acting as Maia City (the nav pill's You menu), the coop's
 	own: its proposals, its stories, the Game editor, its members, invites and its Postgres.
@@ -19,7 +19,8 @@
 	const WORLDS = [
 		{ href: '/sandbox-1/', label: 'Sandbox 1', note: 'The dome cell, its food forest grown from our plants', cover: '5ddd7dc657e28a84e7ef48b8064dafe5698791950dea387e7059b1c41e5d2fc1.jpg' },
 		{ href: '/sandbox-2/', label: 'Sandbox 2', note: 'The physical world lab: buildings from their parts, with physics, fixings and wind', cover: 'bd34c342d7db41283ff4d243aa21bf08daf40fe1e9b47a0f63f92a00d65a9c6e.jpg' },
-		{ href: '/sandbox-3/', label: 'Sandbox 3', note: 'The tired land: walk it as someone new every visit', cover: '41a858860a82169d3d5586d30b648723c32874a94e014f30718a5a70f5b56e85.jpg' }
+		{ href: '/sandbox-3/', label: 'Sandbox 3', note: 'The tired land: walk it as someone new every visit', cover: '41a858860a82169d3d5586d30b648723c32874a94e014f30718a5a70f5b56e85.jpg' },
+		{ href: '/sandbox-4/', label: 'Sandbox 4', note: 'The cassette joint: a cast cassette of the 100 m dome seated, keyed, capped and clamped', cover: 'd308f061bd5498775faa69da06ae54aef9a39c784b714c5c3605382e18540aca.jpg' }
 	];
 	type Tile = { href: string; label: string; note: string; icon: (typeof GROUP_APPS)[number]['icon'] | 'proposals' | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio' | 'gear' | 'media'; admins?: boolean };
 	const APPS: Tile[] = [
@@ -107,7 +108,8 @@
 	.play.off { background: var(--paper); color: var(--muted); border: 1px solid var(--line); cursor: not-allowed; }
 	.play.off:hover { transform: none; box-shadow: none; }
 	.play.off :global(svg), .play.off em { color: var(--muted); }
-	.games { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+	/* four worlds, two by two (Samuel 2026-11-05: Sandbox 4 joined the three) */
+	.games { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 	.game { position: relative; overflow: hidden; aspect-ratio: 16 / 9; border-radius: 18px; background: var(--ink); }
 	.game a { display: block; height: 100%; color: #fff; text-decoration: none; }
 	.game img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 300ms ease; }
