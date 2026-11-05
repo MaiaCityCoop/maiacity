@@ -86,7 +86,7 @@ function build(cars = 18) {
 	}
 	// the mood and the sound, as nodes the page reads
 	const mood = new THREE.Object3D();
-	mood.name = 'mood:smog-dusk?sun=4&fog=0.006&haze=8a8478&lamps=1';
+	mood.name = 'mood:smog-dusk';
 	root.add(mood);
 	for (const [k, h] of Object.entries(SOUND)) {
 		const s = new THREE.Object3D();

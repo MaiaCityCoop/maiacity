@@ -25,7 +25,7 @@ const HASH = /^[0-9a-f]{64}$/;
 
 /** the moods a world may be in, each its sky's numbers; a world's keys are laid over its preset */
 export const MOODS = {
-	'smog-dusk': { sun: 4, az: 250, fog: 0.006, haze: '8a8478', lamps: 1, zenith: '4d5058', horizon: 'a39a8c', sunColor: 'd9a070', light: 0.55 },
+	'smog-dusk': { sun: 6, az: 250, fog: 0.0045, haze: '8e9396', lamps: 1, zenith: '5d636b', horizon: 'b0a682', sunColor: 'd8b088', light: 0.85 },
 	overcast: { sun: 30, az: 200, fog: 0.003, haze: 'a7a9a8', lamps: 0, zenith: '7d8389', horizon: 'b9bbb8', sunColor: 'e6e3dc', light: 0.9 },
 	'clear-day': { sun: 40, az: 220, fog: 0.0012, haze: 'd4e0ea', lamps: 0, zenith: '5a8ccc', horizon: 'dde7ee', sunColor: 'fff1d6', light: 1.2 },
 	night: { sun: -12, az: 250, fog: 0.004, haze: '20232a', lamps: 1, zenith: '07080c', horizon: '1d2028', sunColor: '8090b0', light: 0.12 }

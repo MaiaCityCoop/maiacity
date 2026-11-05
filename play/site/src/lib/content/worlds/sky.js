@@ -54,7 +54,9 @@ export function createSky(scene, renderer) {
 					float s = max(0.0, dot(d, normalize(uSun)));
 					c += uSunC * (pow(s, 6.0) * 0.35 + pow(s, 40.0) * 0.5) * (1.0 - 0.6 * uSmog);
 					// the band of haze where the land meets the sky, and the land's colour below it
-					c = mix(c, uHaze, smoothstep(0.18, 0.0, abs(h)) * 0.85);
+					// the cold grey haze over the lower sky, the sick yellow-brown only in a thin band at the horizon
+					c = mix(c, uHaze, smoothstep(0.3, 0.04, h) * 0.75);
+					c = mix(c, uHorizon, smoothstep(0.06, 0.0, abs(h)) * 0.6);
 					if (h < 0.0) c = uHaze;
 					// not tone mapped: three lays fog on after tone mapping, so the land fades into exactly this colour
 					gl_FragColor = vec4(c, 1.0);
@@ -100,9 +102,9 @@ export function createSky(scene, renderer) {
 			scene.fog.color.copy(lin(m.haze));
 			scene.fog.density = m.fog;
 			// the sky's light: from the lid above, the dull ground below; the sun dim and warm through the smog
-			hemi.color.copy(lin(m.zenith)).lerp(new THREE.Color(1, 1, 1), 0.45);
-			hemi.groundColor.copy(lin(m.haze)).multiplyScalar(0.5);
-			hemi.intensity = 2.6 * m.light;
+			hemi.color.copy(lin(m.zenith)).lerp(new THREE.Color(1, 1, 1), 0.6);
+			hemi.groundColor.copy(lin(m.haze)).multiplyScalar(0.7);
+			hemi.intensity = 3.2 * m.light;
 			sun.color.copy(lin(m.sunColor));
 			sun.intensity = m.sun > 0 ? 3.2 * m.light * Math.min(1, 0.45 + m.sun / 25) : 0.15;
 			renderer.toneMappingExposure = 1.0 + 0.2 * m.light;

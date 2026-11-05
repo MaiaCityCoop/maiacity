@@ -109,7 +109,7 @@ describe('the stand-in test world', () => {
 		const root = world.build(10);
 		root.userData.view = { ticks: typeof root.userData.tick === 'function' };
 		const info = worldOf(root);
-		expect(info).toMatchObject({ moves: true, mood: { preset: 'smog-dusk', lamps: true } });
+		expect(info).toMatchObject({ moves: true, mood: { preset: 'smog-dusk', lamps: true, haze: '8e9396' } });
 		expect(info.sounds.map((s: any) => s.for).sort()).toEqual(['bed', 'horn', 'siren']);
 		const planted = plantingsOf(root);
 		// 2 lanes of 10 cars, an ambulance, 2 signals

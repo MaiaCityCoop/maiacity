@@ -94,7 +94,11 @@
 				triangles = view.renderer.info.render.triangles;
 				return { ms: Math.round(performance.now() - t0), t: +s.t.toFixed(1), live: s.live, guests: s.guests, kinds: s.kinds, missing: s.missing, lit: s.lit, fps: s.fps, triangles, calls: view.renderer.info.render.calls };
 			},
-			stats: () => ({ ...view.state, building: view.building() })
+			stats: () => ({ ...view.state, building: view.building() }),
+			/** the world view itself, for a look in the console */
+			get view() {
+				return view;
+			}
 		};
 	});
 </script>
