@@ -27,7 +27,9 @@
  *
  *   --play            the page's API is play's own (https://play.maia.city), read with the admin token in PLAY_MCP_TOKEN
  *                     (its read-only routes; the token is sent to play and nowhere else): with --world, the guests a world
- *                     names that are not handed in with --guests are play's accepted assets, from its catalog
+ *                     names that are not handed in with --guests are play's accepted assets, from its catalog, and a
+ *                     --guests entry whose `as` play already holds is taken from play too (its own file: the hash a
+ *                     biome names its plants by, or a world its guests by, stays the one play holds)
  *   --world           the --file is a world (group `worlds`, play/SPEC.md §4.11): run as the Worlds page runs it, on the
  *                     world bench (/worlds/bench/): its guests (--guests, as above) drawn, lit and heard where it
  *                     stands them, and if it moves, kept running in the box. Its shots: { "name", "run": s of the
@@ -136,17 +138,23 @@ try {
 		let code = readFileSync(r.file, 'utf8');
 		/** each guest's hash here, by the hash play holds it by */
 		const here = {};
+		// with --play, play's catalog first: a guest play already holds by the hash it is named by is play's own file
+		// (a biome's oats named by play's hash stay that hash), never one made here from a readable source
+		if (o.world && o.play) {
+			const got = await page.evaluate(() => window.__worldBench.catalog());
+			console.log(`  play's catalog: ${got.count} recipes${got.error ? ` (${got.error})` : ''}`);
+		}
 		for (const g of o.guests ? JSON.parse(readFileSync(o.guests, 'utf8')) : []) {
+			if (o.world && o.play && g.as && (await page.evaluate((h) => window.__worldBench.holds(h), g.as))) {
+				console.log(`  guest ${g.id} from play (${g.as.slice(0, 12)}…)`);
+				continue;
+			}
 			const refs = g.refs ? Object.fromEntries(Object.entries(g.refs).map(([name, h]) => [name, here[h] ?? h])) : null;
 			const got = await page.evaluate(([b, x]) => window[b].guest(x), [bench, { code: readFileSync(resolve(dirname(o.guests), g.file), 'utf8'), id: g.id, v: g.v, variant: g.variant ?? null, refs }]);
 			if (g.as) (here[g.as] = got.hash), (code = code.replaceAll(g.as, got.hash));
 			console.log(`  guest ${got.label} (${got.hash.slice(0, 12)}…${g.as ? ` for ${g.as.slice(0, 12)}…` : ''})`);
 		}
 		console.log(`${r.file}: building in the asset box …`);
-		if (o.world && o.play) {
-			const got = await page.evaluate(() => window.__worldBench.catalog());
-			console.log(`  play's catalog: ${got.count} recipes${got.error ? ` (${got.error})` : ''}`);
-		}
 		if (o.world) {
 			const loaded = await page.evaluate((x) => window.__worldBench.load(x), { code, id: r.id, v: r.v, values: o.values ?? {} });
 			console.log(`  ${loaded.label} (${loaded.hash.slice(0, 12)}…) · ${loaded.size.join(' × ')} m${loaded.moves ? ' · it moves' : ''}${loaded.views.length ? ` · views ${loaded.views.join(', ')}` : ''}`);

@@ -72,6 +72,8 @@
 				const r = await cat.loadRecipes();
 				return { phase: r.phase, count: Object.keys(cat.INDEX.recipes).length, error: r.error ?? '' };
 			},
+			/** whether play's catalog (read in with catalog()) holds a recipe by this hash */
+			holds: (hash) => !!cat.recipeInfo(hash),
 			async guest(x) {
 				const { hash, card } = await hand(x);
 				return { hash, label: card.label };
