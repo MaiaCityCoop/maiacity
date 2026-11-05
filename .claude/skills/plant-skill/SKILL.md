@@ -24,7 +24,10 @@ from its own sheet, its silhouette laid on the sheet's tree; its numbers in `ref
 inside the crown the grower keeps, three crops on it at once; its numbers in `references/lemon-femminello-santa-teresa.md`,
 its brief beside them, its whole source `references/lemon-v2.js`), and **plum v2** ('Hauszwetschge', grown from its stone as
 Rauh's model, a leader with tiers of limbs year by year, colour pictures only and leaf undersides with their own normals;
-its numbers in `references/plum-hauszwetschge.md`, its brief beside them, its whole source `references/plum-v2.js`). Start
+its numbers in `references/plum-hauszwetschge.md`, its brief beside them, its whole source `references/plum-v2.js`), and
+**avocado v3** ('Fuerte', Rauh's model flush by flush from its rootstock's seed to mature fruit in its tenth year, inside
+the crown measured for each age; its numbers in `references/avocado-fuerte.md`, its brief beside them, its whole source
+`references/avocado-v3.js`). Start
 a new plant from the newest: copy its part 1
 (the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps as lemon v2 has it; the file is
 `references/banana-v2.js` or `references/lemon-v2.js`) as it is and write parts 2–4 for the new plant; a tree takes its
@@ -297,7 +300,9 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
 - **A small leaf's underside needs its own normals.** `sheet({ back })` lights a leaf's underside with the upper
   face's normals (a banana's thin blade lets the light through). Seen from below, those normals face away from the eye,
   the Fresnel term takes the whole sky, and a tree of small hanging leaves draws white wherever undersides show (plum
-  v2's seedling leaves were silver). `backLit: false` gives the underside its own normals (plum v2's part 1).
+  v2's seedling leaves were silver). `backLit: false` gives the underside its own normals (plum v2's part 1). It holds
+  for a whole crown of big leathery leaves too: avocado v3's dome read silver-blue until the back half's normals were
+  negated in its `leaf()`; give thick leaves (avocado, citrus, olive, cacao) their own underside normals.
 - **trace.py measures from the bottom of its box.** Lay a specimen base down (`upright.py`) or flip the table: plum
   v2's leaf was first laid in tip first (a wedge base, a broad tip); the organ bench showed it at once.
 - **White on white has no silhouette.** compare.py finds a white petal on the sheet's white ground as ground: a flower's
@@ -320,6 +325,19 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   (`box/serialize.js`): an `onBeforeCompile` (a leaf's underside tinted by `gl_FrontFacing`) is lost. A leaf's two
   colours are two faces; budget a tree's leaves by their rows (orange v2: 6 blade stations, 3 across, ~11k leaves, about
   half its 800k triangles), and thin harder for crowds where twigs and leaves are many (`detailAt`).
+- **Calibrate the girth where the stem already is.** Avocado v3's germinating shoot came out as a 6 m cone: the trunk
+  was scaled to its measured diameter at 30 cm while the shoot was 6 cm tall (a division by zero). Measure at
+  `min(0.32, half the length grown)`.
+- **What falls, falls.** A shoot shaded out must die with every shoot it carries and leave the tree within a year
+  (avocado v3: drawn as length 0 after it); kept, the crown is a broom of bare sticks between the leaves.
+- **Don't search for what will drop.** Placing every fruitlet of the set with `Space.settle` took avocado v3's fruit-set
+  stage to 56 s in the box; only the fruit kept to maturity search, the ones that drop hang as they are (3 s). Winter
+  inflorescence buds as one bead a tip, not stub racemes (140k triangles saved).
+- **Bench what the sheet can be held to.** Where the data sheet and the sheet disagree on a part (the avocado's
+  petiole is 'very long' to UPOV, short on the plate), bench the blade alone; give a radial organ (a flower) a `turn`
+  so its first tepal lies where the panel's does, or the overlap measures the rotation (0.43 → 0.85).
+- **A big tree has no close-up in render.mjs.** With the camera inside a grown crown's bounds the frame comes out white
+  (its exposure, not NaN: nan-check was clean); judge leaves, flowers and fruit on the organ bench, and the tree whole.
 - **Judge a panel's colour on its middle.** On the light box the underside of a fruit or a trunk is in its own soft
   shadow: the bench's bottom zones disagree with the panel by 0.1–0.2 however right the colour is.
 - **A tree's architecture is grown, then checked as a silhouette** (sapodilla v2, Aubréville's model, 2026-11-05). Its
