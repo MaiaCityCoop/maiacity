@@ -64,4 +64,17 @@ describe('walkOf a building that stands still: the same floors and walls, by its
 		// some strides were stopped, so walls were really tested
 		expect(stopped).toBeGreaterThan(20)
 	})
+
+	it('files a build whose parts lie far apart by the squares they cover, not a grid between them', () => {
+		const far = new THREE.Group()
+		const here = new THREE.Mesh(new THREE.BoxGeometry(2, 0.5, 2).translate(0, 0.25, 0), new THREE.MeshStandardMaterial())
+		const there = here.clone()
+		there.position.set(40000, 0, -40000)
+		far.add(here, there)
+		far.updateMatrixWorld(true)
+		const t = performance.now()
+		const w = walkOf(far, { still: true }), s = walkOf(far)
+		expect(performance.now() - t).toBeLessThan(500)
+		for (const [x, z] of [[0.3, 0.2], [40000.3, -39999.8], [20000, -20000], [-0.9, 0.9]]) expect(w.floorAt(x!, z!, 0)).toBeCloseTo(s.floorAt(x!, z!, 0), 5)
+	})
 })

@@ -68,7 +68,7 @@ export type PickedPlant = { id: string; v: number; asset?: string; stage: number
 
 const WORLD = 380
 /** how near the eye a walking animal's shadow is drawn again with it, once a second (m): further off it trails unseen */
-const HERD_SHADOWS = 40
+const HERD_SHADOWS = 20
 
 /** The cell: the master dome, six medium domes round it, six small domes further out between them. */
 function layout(): VillageDome[] {
@@ -134,7 +134,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	let shadowsStale = false
 	const staleShadows = () => void (shadowsStale = true)
 	/** where the animals that walk are (each herd's), so their shadows go with them while they are near */
-	const walking: (() => { x: number; z: number }[])[] = []
+	const walking: (() => { x: number; z: number; v?: number }[])[] = []
 	if (solo) {
 		onProgress('Building the dome')
 		const [{ loadAsset }, { createPlantings }, { walkOf }] = await Promise.all([import('$lib/content/assets/load.js'), import('$lib/content/assets/plantings.js'), import('$lib/content/assets/hero.js')])
@@ -1482,7 +1482,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	let lodChecked = 0
 	/** when the walking animals' shadows were last drawn again with them */
 	let herdShadows = 0
-	const herdNear = (x: number, z: number) => walking.some((w) => w().some((a) => Math.abs(a.x - x) < HERD_SHADOWS && Math.abs(a.z - z) < HERD_SHADOWS))
+	/** whether an animal walks (one standing still keeps its shadow) near enough to x, z for its shadow to be seen */
+	const herdNear = (x: number, z: number) => walking.some((w) => w().some((a) => (a.v ?? 1) > 0.01 && (a.x - x) ** 2 + (a.z - z) ** 2 < HERD_SHADOWS * HERD_SHADOWS))
 	const tick = () => {
 		if (!running) return
 		const now = performance.now()
@@ -1496,7 +1497,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		if (now - lodChecked > 400) {
 			lodChecked = now
 			// the sun's shadows are drawn again as it turns (a quarter of a degree, every few seconds: sky.js follow), the
-			// walking animals' once a second while one is near enough to be seen, so a goat's shadow keeps under it
+			// walking animals' once a second while one walks near enough to be seen (20 m), so a goat's shadow keeps under it
 			if (now - herdShadows > 1000 && herdNear(camera.position.x, camera.position.z)) {
 				herdShadows = now
 				shadowsStale = true
@@ -1519,6 +1520,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		library.update()
 		soloBuild?.plantings.update()
 		// the film camera draws the canvas itself while it holds it (maia/content/film)
+		// every shadow pass counts as the animals' (the sun's, a level's, the grid's): theirs waits a second from it
+		if (renderer.shadowMap.needsUpdate) herdShadows = now
 		if (!filmDraws()) renderer.render(scene, camera)
 		// keep it smooth; while a film is shot every frame is rendered at the resolution it asks for
 		stage.adapt(now, filmHoldsSize())

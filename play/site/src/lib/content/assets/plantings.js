@@ -142,8 +142,9 @@ export function createPlantings(o) {
 		const boxes = o.boxes ?? Math.max(1, Math.min(4, (globalThis.navigator?.hardwareConcurrency || 4) - 1));
 		// a build's guests stand close and many (a dome's forest: 2,500 plants within 40 m), so each steps to its
 		// coarser shape and its picture sooner than an asset on its own does (render/lod.js LEVELS: 1.2, 0.28, 0.11)
-		// (`levels` a world's own for its plants, built at its `details`; a thing, built whole, always at the guests')
-		assets = createAssets({ renderer: o.renderer, camera: o.camera, boxes, levels: o.levels ?? GUEST_LEVELS, whole: GUEST_LEVELS, details: o.details, onShadows: o.shadows });
+		// (`levels` a world's own for its plants, built at its `details`; a thing, built whole, then at the guests' own,
+		// turning into its picture as far off as with the plants' levels: render/index.js `whole`)
+		assets = createAssets({ renderer: o.renderer, camera: o.camera, boxes, levels: o.levels ?? GUEST_LEVELS, whole: o.levels ? GUEST_LEVELS : undefined, details: o.details, onShadows: o.shadows });
 		o.scene.add(assets.group);
 		return assets;
 	};

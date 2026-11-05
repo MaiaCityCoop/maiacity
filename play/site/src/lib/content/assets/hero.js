@@ -488,40 +488,9 @@ function walkStill(root) {
 		}
 	});
 	const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), p = new THREE.Vector3();
-	const corners = (e, t) => {
-		const g = e.g, pos = g.attributes.position, idx = g.index, k = t * 3;
-		a.fromBufferAttribute(pos, idx ? idx.getX(k) : k);
-		b.fromBufferAttribute(pos, idx ? idx.getX(k + 1) : k + 1);
-		c.fromBufferAttribute(pos, idx ? idx.getX(k + 2) : k + 2);
-		if (!e.identity) a.applyMatrix4(e.M), b.applyMatrix4(e.M), c.applyMatrix4(e.M);
-	};
+	const corners = (e, t) => cornersOf(e, t, a, b, c);
 	const cell = (v) => Math.floor(v / STILL_CELL);
-	// each triangle read once: the squares its footprint spans, its heights, and its mesh
-	const I0 = new Int32Array(count), I1 = new Int32Array(count), J0 = new Int32Array(count), J1 = new Int32Array(count);
-	const Y0 = new Float32Array(count), Y1 = new Float32Array(count), owner = new Uint32Array(count);
-	let minI = Infinity, maxI = -Infinity, minJ = Infinity, maxJ = -Infinity;
-	meshes.forEach((e, o) => {
-		for (let t = 0; t < e.tris; t++) {
-			corners(e, t);
-			const n = e.start + t;
-			I0[n] = cell(Math.min(a.x, b.x, c.x)), I1[n] = cell(Math.max(a.x, b.x, c.x));
-			J0[n] = cell(Math.min(a.z, b.z, c.z)), J1[n] = cell(Math.max(a.z, b.z, c.z));
-			Y0[n] = Math.min(a.y, b.y, c.y), Y1[n] = Math.max(a.y, b.y, c.y);
-			owner[n] = o;
-			if (I0[n] < minI) minI = I0[n];
-			if (I1[n] > maxI) maxI = I1[n];
-			if (J0[n] < minJ) minJ = J0[n];
-			if (J1[n] > maxJ) maxJ = J1[n];
-		}
-	});
-	if (!count) (minI = minJ = 0), (maxI = maxJ = -1);
-	// filed by squares over the build's own: counted, then laid in one array (each square's triangles together)
-	const nx = maxI - minI + 1, nz = maxJ - minJ + 1;
-	const from = new Int32Array(nx * nz + 1);
-	for (let n = 0; n < count; n++) for (let i = I0[n]; i <= I1[n]; i++) for (let j = J0[n]; j <= J1[n]; j++) from[(i - minI) * nz + (j - minJ) + 1]++;
-	for (let s = 0; s < nx * nz; s++) from[s + 1] += from[s];
-	const next = from.slice(0, nx * nz), filed = new Int32Array(from[nx * nz]);
-	for (let n = 0; n < count; n++) for (let i = I0[n]; i <= I1[n]; i++) for (let j = J0[n]; j <= J1[n]; j++) filed[next[(i - minI) * nz + (j - minJ)]++] = n;
+	const { from, filed, Y0, Y1, owner, minI, maxI, minJ, maxJ, slotOf } = fileStill(meshes, count);
 	const seen = new Uint32Array(count);
 	let stamp = 0;
 	const ray = new THREE.Ray();
@@ -535,7 +504,8 @@ function walkStill(root) {
 		let best = Infinity;
 		for (let i = Math.max(i0, minI); i <= Math.min(i1, maxI); i++)
 			for (let j = Math.max(j0, minJ); j <= Math.min(j1, maxJ); j++) {
-				const s = (i - minI) * nz + (j - minJ);
+				const s = slotOf(i, j);
+				if (s < 0) continue;
 				for (let q = from[s]; q < from[s + 1]; q++) {
 					const n = filed[q];
 					if (seen[n] === stamp) continue;
@@ -594,4 +564,59 @@ function walkStill(root) {
 		}
 	};
 }
+/** the corners of triangle t of a walk's mesh entry, in the world, into a, b, c */
+function cornersOf(e, t, a, b, c) {
+	const g = e.g, pos = g.attributes.position, idx = g.index, k = t * 3;
+	a.fromBufferAttribute(pos, idx ? idx.getX(k) : k);
+	b.fromBufferAttribute(pos, idx ? idx.getX(k + 1) : k + 1);
+	c.fromBufferAttribute(pos, idx ? idx.getX(k + 2) : k + 2);
+	if (!e.identity) a.applyMatrix4(e.M), b.applyMatrix4(e.M), c.applyMatrix4(e.M);
+}
+
+/**
+ * walkStill's filing: each triangle read once (the squares its footprint spans, its heights, its mesh), then filed by
+ * square in one array, the squares' runs in `from`. The squares are the build's whole rectangle while that is not much
+ * more than it holds; a build with parts far apart is filed by the squares it covers only (a map), so a far marker
+ * never makes it a grid of millions. Only what the walk keeps is returned: the footprints go with this call.
+ * @param {any[]} meshes @param {number} count
+ */
+function fileStill(meshes, count) {
+	const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+	const cell = (v) => Math.floor(v / STILL_CELL);
+	const I0 = new Int32Array(count), I1 = new Int32Array(count), J0 = new Int32Array(count), J1 = new Int32Array(count);
+	const Y0 = new Float32Array(count), Y1 = new Float32Array(count), owner = meshes.length < 65536 ? new Uint16Array(count) : new Uint32Array(count);
+	let minI = Infinity, maxI = -Infinity, minJ = Infinity, maxJ = -Infinity, spans = 0;
+	for (let o = 0; o < meshes.length; o++) {
+		const e = meshes[o];
+		for (let t = 0; t < e.tris; t++) {
+			cornersOf(e, t, a, b, c);
+			const n = e.start + t;
+			I0[n] = cell(Math.min(a.x, b.x, c.x)), I1[n] = cell(Math.max(a.x, b.x, c.x));
+			J0[n] = cell(Math.min(a.z, b.z, c.z)), J1[n] = cell(Math.max(a.z, b.z, c.z));
+			Y0[n] = Math.min(a.y, b.y, c.y), Y1[n] = Math.max(a.y, b.y, c.y);
+			owner[n] = o;
+			if (I0[n] < minI) minI = I0[n];
+			if (I1[n] > maxI) maxI = I1[n];
+			if (J0[n] < minJ) minJ = J0[n];
+			if (J1[n] > maxJ) maxJ = J1[n];
+			spans += (I1[n] - I0[n] + 1) * (J1[n] - J0[n] + 1);
+		}
+	}
+	if (!count) (minI = minJ = 0), (maxI = maxJ = -1);
+	const nx = maxI - minI + 1, nz = maxJ - minJ + 1;
+	// the rectangle, or (parts far apart) the squares held, each numbered as first met
+	const dense = nx * nz <= 4 * spans + 65536;
+	const held = dense ? null : new Map();
+	const key = (i, j) => (i - minI) * nz + (j - minJ);
+	if (held) for (let n = 0; n < count; n++) for (let i = I0[n]; i <= I1[n]; i++) for (let j = J0[n]; j <= J1[n]; j++) if (!held.has(key(i, j))) held.set(key(i, j), held.size);
+	const squares = held ? held.size : nx * nz;
+	const slotOf = held ? (i, j) => held.get(key(i, j)) ?? -1 : key;
+	const from = new Int32Array(squares + 1);
+	for (let n = 0; n < count; n++) for (let i = I0[n]; i <= I1[n]; i++) for (let j = J0[n]; j <= J1[n]; j++) from[slotOf(i, j) + 1]++;
+	for (let s = 0; s < squares; s++) from[s + 1] += from[s];
+	const next = from.slice(0, squares), filed = new Int32Array(from[squares]);
+	for (let n = 0; n < count; n++) for (let i = I0[n]; i <= I1[n]; i++) for (let j = J0[n]; j <= J1[n]; j++) filed[next[slotOf(i, j)]++] = n;
+	return { from, filed, Y0, Y1, owner, minI, maxI, minJ, maxJ, slotOf };
+}
+
 const IDENTITY = new THREE.Matrix4();

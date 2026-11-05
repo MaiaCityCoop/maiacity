@@ -70,7 +70,8 @@ function resolve(ref) {
  *   levels?: number[], whole?: number[], px?: number, cache?: boolean, onShadows?: () => void
  * }} o `boxes` how many build side by side; `details` and `levels` the details a recipe is built at and the sizes on
  *   screen each is drawn to (./lod.js); `whole` the sizes on screen of a kind built once, at its finest (one that takes
- *   no detail: a thing), its lower levels made from it (`levels` when not given); `px` each picture's pixels a side;
+ *   no detail: a thing), its lower levels made from it, its picture taking over where its second shape's triangles put
+ *   it (`levels` when not given, its picture where its coarsest shape's put it); `px` each picture's pixels a side;
  *   `cache: false` builds everything afresh;
  *   `onShadows` told when what casts a shadow changed, for a world that draws its shadows again only every so often
  *   (else they are drawn again with the next frame)
@@ -281,11 +282,17 @@ export function createAssets(o) {
 		);
 	}
 
-	/** a kind's thresholds by its coarsest shape: as it came, or, while it is being made, by what it may cost */
+	/**
+	 * A kind's thresholds by its coarsest shape: as it came, or, while it is being made, by what it may cost. A kind built
+	 * whole at a world's own `whole` sizes (a thing among a build's guests, its plants at coarser levels) turns into its
+	 * picture where its second shape (30 %) would have it, not its coarsest (8 %): as far off as with the plants' two
+	 * levels, so a room of furniture is still mostly pictures from across the dome, and only near is drawn finer.
+	 */
 	function retune(k) {
 		if (k.tuned) return;
 		const last = k.levels.length - 1;
-		const tris = k.levels[last].level?.tris ?? budgetOf(last, k.levels[k.base].level.tris, k.sizes);
+		const by = o.whole && k.sizes === whole && !k.names[1] ? Math.min(1, last) : last;
+		const tris = k.levels[by].level?.tris ?? budgetOf(by, k.levels[k.base].level.tris, k.sizes);
 		k.thresholds = thresholdsOf(k.levels.length, tris, k.sizes);
 	}
 
