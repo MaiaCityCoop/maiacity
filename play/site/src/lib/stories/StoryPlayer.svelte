@@ -358,15 +358,16 @@
 		{#if moment.prev?.frame && !moment.prev.video}<img class="frame" src={frameUrl(moment.prev.frame)} alt="" draggable="false" />{/if}
 		{#if moment.shot && !moment.shot.video}
 			{#if moment.shot.frame}
-				<img class="frame" src={frameUrl(moment.shot.frame)} alt="Shot {moment.index + 1}" draggable="false" style:opacity={moment.mix} />
+				<img class="frame on" src={frameUrl(moment.shot.frame)} alt="Shot {moment.index + 1}" draggable="false" style:opacity={moment.mix} />
 			{:else}
-				<div class="frame empty" style:opacity={moment.mix}><span>Shot {moment.index + 1}: no frame yet</span></div>
+				<div class="frame empty on" style:opacity={moment.mix}><span>Shot {moment.index + 1}: no frame yet</span></div>
 			{/if}
 		{/if}
 		<!-- one video per take: the one the shot on screen plays on top (faded in as its transition says), the one the shot
-			 before played under it while they mix -->
+			 before played under it while they mix. The layers, bottom to top: the shot before, the shot on screen (.on), the
+			 black veil of a fade, the subtitles and the play mark -->
 		{#each videoSources as h (h)}
-			<video class="frame" bind:this={videoEls[h]} use:release src={wanted[h] ? frameUrl(h) : undefined} poster={posterOf(h)} muted playsinline preload="auto" aria-hidden="true" style:z-index={moment.shot?.video === h ? 2 : 1} style:opacity={moment.shot?.video === h ? moment.mix : moment.prev?.video === h && moment.mix < 1 ? 1 : 0}></video>
+			<video class="frame" bind:this={videoEls[h]} use:release src={wanted[h] ? frameUrl(h) : undefined} poster={posterOf(h)} muted playsinline preload="auto" aria-hidden="true" class:on={moment.shot?.video === h} style:opacity={moment.shot?.video === h ? moment.mix : moment.prev?.video === h && moment.mix < 1 ? 1 : 0}></video>
 		{/each}
 		<!-- a shot's fade from black and to black: the picture under a black veil, the subtitles over it -->
 		{#if moment.light < 1}<div class="black" style:opacity={1 - moment.light}></div>{/if}
@@ -496,15 +497,16 @@
 	   contained that way has no width of its own to give a grid column (it collapsed to nothing) */
 	.screen { position: relative; --h: min(var(--story-screen, clamp(15rem, calc(100vh - 24.5rem), 660px)), calc((100cqw - 20rem) / var(--ratio))); height: var(--h); width: calc(var(--h) * var(--ratio)); max-width: 100%; border-radius: 14px; overflow: hidden; background: #15130f; box-shadow: var(--shadow); user-select: none; container-type: size; }
 	.compact .screen { --h: min(var(--story-screen, clamp(14rem, calc(100vh - 25rem), 520px)), calc((100cqw - 20rem) / var(--ratio))); }
-	.frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+	.frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; z-index: 1; }
+	.frame.on { z-index: 2; }
 	.screen { cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 	.screen:focus-visible { outline: 3px solid var(--terracotta, #c96f53); outline-offset: 3px; }
 	/* paused: a quiet play mark in the middle of the picture, gone the moment it plays */
-	.play-mark { position: absolute; left: 50%; top: 46%; width: clamp(2.6rem, 16cqw, 4.5rem); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; background: rgb(10 10 8 / 0.45); display: grid; place-items: center; pointer-events: none; }
+	.play-mark { position: absolute; z-index: 4; left: 50%; top: 46%; width: clamp(2.6rem, 16cqw, 4.5rem); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; background: rgb(10 10 8 / 0.45); display: grid; place-items: center; pointer-events: none; }
 	.play-mark svg { width: 55%; height: 55%; fill: #fff; margin-left: 8%; }
-	.black { position: absolute; inset: 0; background: #000; pointer-events: none; }
+	.black { position: absolute; inset: 0; background: #000; pointer-events: none; z-index: 3; }
 	.frame.empty { display: grid; place-items: center; color: #cfc8b8; background: #24211b; font-size: 0.9rem; }
-	.subtitle { position: absolute; left: 3%; right: 3%; bottom: 9%; display: grid; gap: 0.3rem; justify-items: center; text-align: center; pointer-events: none; }
+	.subtitle { position: absolute; z-index: 4; left: 3%; right: 3%; bottom: 9%; display: grid; gap: 0.3rem; justify-items: center; text-align: center; pointer-events: none; }
 	/* the subtitle sized to the frame, as it would be in the film: one line of about 26 characters across it (CUE_CHARS) */
 	.who { font-size: clamp(0.55rem, 2.8cqw, 0.85rem); font-weight: 700; letter-spacing: 0.08em; color: #ffe6a8; text-shadow: 0 1px 3px rgb(0 0 0 / 0.85); }
 	.line { font-size: clamp(0.85rem, 5.6cqw, 2rem); font-weight: 700; line-height: 1.2; color: #fff; text-wrap: balance; background: rgb(10 10 8 / 0.5); padding: 0.18em 0.45em; border-radius: 0.3em; text-shadow: 0 1px 4px rgb(0 0 0 / 0.7); }
