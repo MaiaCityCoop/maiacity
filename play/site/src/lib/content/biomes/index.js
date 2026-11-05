@@ -22,7 +22,7 @@ import { fbm2 } from './noise.js';
 import { versioned } from '$lib/site/app/versions.js';
 
 export { COVER } from './cover.js';
-export { SURFACE, SURFACES, groundMaterial, surfacesAt } from './surfaces.js';
+export { SURFACE, SURFACES, groundMaterial, inTrack, rowsOf, surfacesAt } from './surfaces.js';
 
 /** @typedef {import('./cover.js').Cover} Cover */
 /** @typedef {import('./surfaces.js').Surface} Surface */
@@ -36,6 +36,10 @@ export { SURFACE, SURFACES, groundMaterial, surfacesAt } from './surfaces.js';
  * @property {number} [fill] how full its colonies are (0…1, 0.85 if not said)
  * @property {string} [ref] the asset it is, as a biome's card names it (./card.js): the cover's kind at its seed; where a
  *   biome says none, ./built.js `coverRef` of its kind and ./index.js `coverSeed`
+ * @property {{ spacing: number, along: number, jitter?: number }} [rows] a kind a machine sowed: it stands on row lines
+ *   `spacing` apart, one every `along` metres along them, `jitter` off its place at most (m), the way the floor's rows
+ *   run (./stream.js `coverTile`'s `rows`), none in its tramlines; still only inside its colonies. Its plants are as
+ *   dense as its rows make them, not as the biome's density says
  */
 /**
  * @typedef {object} Recipe a biome
@@ -46,6 +50,7 @@ export { SURFACE, SURFACES, groundMaterial, surfacesAt } from './surfaces.js';
  * @property {Partial<Record<Surface, number>>} surface how much of the floor each surface takes
  * @property {number} density how many plants (or things) of its cover stand on a square metre inside their colonies
  * @property {Colony[]} cover
+ * @property {import('./surfaces.js').Tramlines} [tramlines] a field's wheel tracks along its rows (none if not said)
  */
 
 /** @type {Recipe[]} */
@@ -205,7 +210,8 @@ export function coverAt(recipe, r, x, z, hidden) {
 	const here = surfacesAt(recipe.surface, x, z);
 	let empty = 1, total = 0;
 	const w = recipe.cover.map((c, i) => {
-		if (hidden?.has(i)) return 0;
+		// a kind in rows is laid on its rows (./stream.js), never scattered
+		if (hidden?.has(i) || c.rows) return 0;
 		const f = fbm2(x / c.colony + i * 9.7 + 3.1, z / c.colony - i * 5.3);
 		const cut = 0.5 + (0.5 - c.spread) * 0.55;
 		const inColony = Math.min(1, Math.max(0, (f - cut) / 0.04 + 0.5));
@@ -221,6 +227,19 @@ export function coverAt(recipe, r, x, z, hidden) {
 	let t = r() * total;
 	for (let i = 0; i < w.length; i++) if ((t -= /** @type {number} */ (w[i])) < 0) return i;
 	return w.length - 1;
+}
+
+/**
+ * How much of a kind's colonies stand at x, z (0…1): the same sum as `coverAt`'s, for one kind (a kind in rows).
+ * @param {Recipe} recipe @param {number} i @param {number} x @param {number} z
+ */
+export function colonyAt(recipe, i, x, z) {
+	const c = /** @type {Colony} */ (recipe.cover[i]);
+	const f = fbm2(x / c.colony + i * 9.7 + 3.1, z / c.colony - i * 5.3);
+	const cut = 0.5 + (0.5 - c.spread) * 0.55;
+	const inColony = Math.min(1, Math.max(0, (f - cut) / 0.04 + 0.5));
+	const ground = c.on ? Math.min(1, /** @type {number} */ (surfacesAt(recipe.surface, x, z)[c.on]) * 2.2 + 0.05) : 1;
+	return inColony * ground;
 }
 
 /**
