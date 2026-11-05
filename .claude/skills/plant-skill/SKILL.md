@@ -61,7 +61,10 @@ leaf rosettes on one- and two-year wood, fruit hanging crown-down from short sho
 `references/pomegranate-wonderful.md`, its brief beside them, its whole source `references/pomegranate-v2.js`), and
 **safou v2** (*Dacryodes edulis* var. edulis, a seedling tree with imparipinnate leaves grown as Rauh's model flush by
 flush, fruit clusters on its sunlit crown; its numbers in `references/safou-dacryodes-edulis.md`, its brief and the fruit
-plate's beside them, its whole source `references/safou-v2.js`). Start
+plate's beside them, its whole source `references/safou-v2.js`), and **walnut v2** ('Franquette', the first big terminal-bearing tree: a Rauh
+cone year by year that turns sympodial once it bears, every fruiting tip relayed by the shoots below it into a dome,
+pinnate leaves, catkins on last year's wood, husks that split black; its numbers in `references/walnut-franquette.md`,
+its brief beside them, its whole source `references/walnut-v2.js`). Start
 a new plant from the newest: copy its part 1
 (the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps, `backLit: false` and `named()` as
 plum v2 and cassava v1 have them; the file is `references/cassava-v1.js` or `references/plum-v2.js`) as it is and write
@@ -275,6 +278,10 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
 
 - **Clean first**: `node .claude/skills/plant-skill/scripts/nan-check.cjs <source.js> <id> <v>` prints clean for
   every stage, plant and fruit, at detail 1 and 0.3 (no NaN, no normal of no length), or it is not proposed.
+- **Keep the whole dataset in play**: the data sheet and the brief each as a Markdown document with MCP `add_document`
+  (labelled `Data sheet · <Plant 'Cultivar'>`, `Brief · <Plant 'Cultivar'>`), and their hashes named with
+  `datasheet` and `brief` in the proposal, beside `sheet` (play/SPEC.md §4.10): a plant's numbers and their sources live
+  in play with the version, not only in the repository.
 - **Link the sheet**: `propose_version` (or `propose_asset`) with `sheet`: the hash of the reference sheet Samuel gave
   the go for. play keeps it with the version (play/SPEC.md §4.10): the asset library shows it beside the version, the
   Library shows the plant beside the sheet.
@@ -630,3 +637,21 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   and sides, soften the edges, or make the pattern larger.
 - **A young axis is the first part of the old one**: directions as functions of the length along the axis, chance per
   organ by name; then a plant tabbed from seed to fruit grows instead of being redrawn.
+
+- **A big tree's budget is its leaves** (walnut v2, 2026-11-05). A pinnate leaf is seven blades: at the plum's 3 × 2 rows
+  a fifteen-year walnut drew 1.2 M triangles. Far off each leaflet is 3 × 1 rows and the rachis a two-sided ribbon
+  (~100 a leaf), close organs judged on the bench; count leaves and tips per age before rendering. Part 1's thinning
+  grows a kept leaf only to 0.14 m round (`most`): a 30 cm leaf could not grow and the crowds went bare; give it the
+  leaf's own size (0.4).
+- **Terminal bearing makes the dome, and its tips explode** (walnut v2). A shoot that ends in a female flower stops and
+  one to three relays carry on below it: the cone of the young tree forks into the round crown of the grown one (the
+  leader too, once it bears, or it pokes a spire over the dome). At two or more relays a tip the tips grew 1.5× a year
+  (1,700 at 15 y, 1.6 M triangles); about 1.3 a tip held them near 900, a crop of the data sheet's size.
+- **A short shoot is in its bud** (walnut v2). Nodes laid down only as a shoot lengthens leave a tree in early May
+  leafless at its tips; a short shoot's leaves are all there at budbreak, its internodes stretching after.
+- **A fissure picture belongs on old bark only** (walnut v2). One material's map lies on every limb: the old trunk's
+  fissure net drew a lattice over the smooth silver-grey limbs. Put smooth wood on a material without it (`twig`), the
+  fissured trunk and limbs on `bark`.
+- **The sheet's tree is a painter's tree** (walnut v2). Its walnuts were as wide as tall; the data sheet's crowns are
+  three quarters of the height. Hold the form (a dome, a low skirt, a short trunk) to the sheet's silhouette and the
+  sizes to the data sheet, and say the aspect left over.

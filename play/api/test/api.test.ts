@@ -639,6 +639,38 @@ suite("play API", () => {
     expect((await db.query<any>(`SELECT card ? 'sheet' AS has FROM play.asset_versions WHERE id = $1`, [r.out.version])).rows[0].has).toBe(false);
     await call("ada", "POST", `/api/proposals/${r.out.id}/archive`);
   });
+
+  test("a version names its data sheet and brief: Markdown documents kept by hash, in the Library as documents", async () => {
+    const ds = await tool("add_document", { text: "# Data sheet · Fern\n\n| Row | Value | Source |\n|---|---|---|\n| Frond | 0.6 m | S1 |\n", label: "Data sheet · Fern" });
+    expect(ds.error).toBeNull();
+    expect(ds.out).toMatchObject({ media_type: "text/markdown" });
+    expect((await tool("add_document", { text: "# Data sheet · Fern\n\n| Row | Value | Source |\n|---|---|---|\n| Frond | 0.6 m | S1 |\n" })).out.hash).toBe(ds.out.hash);
+    expect((await tool("add_document", { text: "   " })).error).toContain("Markdown");
+    const brief = await tool("add_document", { text: "A fern, its fronds unrolling.\n\nLAYOUT: row 1 the stages.", label: "Brief · Fern" });
+    const img = await tool("add_story_frame", { data: frameOf("04.jpg").toString("base64"), media_type: "image/jpeg" });
+    const src = "// a fern with its data sheet\nmodule.exports.recipe = function (id, v) {\n  return { meta: { id, v }, build: () => null };\n};\n";
+    // each is what it must be: a data sheet and a brief are documents, a sheet an image
+    expect((await tool("propose_version", { asset: ids.fern, source: src, note: "x", datasheet: img.out.hash })).error).toContain("Markdown document");
+    expect((await tool("propose_version", { asset: ids.fern, source: src, note: "x", sheet: ds.out.hash })).error).toContain("an image");
+    const head = (await call("ada", "GET", `/api/assets/${ids.fern}`)).data.head;
+    const p = await tool("propose_version", { asset: ids.fern, base: head, source: src, note: "its data sheet", datasheet: ds.out.hash, brief: brief.out.hash });
+    expect(p.error).toBeNull();
+    const card = (await db.query<any>(`SELECT card FROM play.asset_versions WHERE id = $1`, [p.out.version])).rows[0].card;
+    expect(card).toMatchObject({ datasheet: ds.out.hash, brief: brief.out.hash });
+    // the Library lists documents as their own kind, never the recipe sources, each with the plant that names it
+    const lib = (await call("ada", "GET", "/api/library?kind=document")).data;
+    expect(lib.files.every((f: any) => f.media_type === "text/markdown")).toBe(true);
+    const doc = lib.files.find((f: any) => f.hash === ds.out.hash);
+    expect(doc.label).toBe("Data sheet · Fern");
+    expect(doc.used).toEqual([expect.objectContaining({ asset: ids.fern, as: "datasheet", accepted: false })]);
+    expect(lib.counts.document).toBeGreaterThanOrEqual(2);
+    // accepted, the version lists them; the next one carries them on
+    expect((await call("ada", "POST", `/api/proposals/${p.out.id}/accept`)).data.status).toBe("accepted");
+    expect((await call("ada", "GET", `/api/assets/${ids.fern}`)).data.versions[0]).toMatchObject({ datasheet: ds.out.hash, brief: brief.out.hash });
+    const q = await tool("propose_version", { asset: ids.fern, base: p.out.version, source: src + "// again\n", note: "the same documents" });
+    expect((await db.query<any>(`SELECT card FROM play.asset_versions WHERE id = $1`, [q.out.version])).rows[0].card).toMatchObject({ datasheet: ds.out.hash, brief: brief.out.hash });
+    await call("ada", "POST", `/api/proposals/${q.out.id}/archive`);
+  });
   test("every clip is editable by a proposed version, made as edits on the head; accepted, it is the new head and the old one stays", async () => {
     const head = (await tool("get_story", { story: S.seed })).out;
     const edited = await tool("propose_story_version", {
