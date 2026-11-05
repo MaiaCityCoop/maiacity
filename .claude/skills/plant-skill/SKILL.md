@@ -15,8 +15,10 @@ are kept for plants.
 Worked examples, all proposed over MCP and kept on play: **apricot v2** ('Ungarische Beste'), **cacao v3** (West
 African Amelonado; its numbers in `references/cacao-amelonado.md`) and **banana v2** ('Dwarf Cavendish', the first made
 from its own reference sheet; its numbers in `references/banana-dwarf-cavendish.md`, its brief in
-`references/banana-dwarf-cavendish-brief.md`). Start a new plant from the newest: copy its part 1 (the growing core,
-with its surfaces and `sound()`; the file is `references/banana-v2.js`) as it is and write parts 2–4 for the new plant.
+`references/banana-dwarf-cavendish-brief.md`), and **orange v2** ('Tarocco', a grafted tree grown flush by flush; its
+numbers in `references/orange-tarocco.md`, its brief in `references/orange-tarocco-brief.md`). Start a new plant from
+the newest: copy its part 1 (the growing core, with its surfaces and `sound()`; the file is `references/banana-v2.js`)
+as it is and write parts 2–4 for the new plant; a tree takes its part 3 from orange v2 (flushes) or apricot v2 (years).
 
 ## The order of work
 
@@ -72,8 +74,10 @@ in one even light, straight on, beside one another. It replaces searching the we
   never to trust: its scale bars and labels (the first banana sheet's bars disagreed with its own labels), counts
   (petals, locules, hands), relative sizes between panels, and anything the data sheet contradicts (its banana
   pseudostem was drawn thin and brown, the real one 0.8 m round and green, blotched). Sizes always come from the data
-  sheet. A wrong panel is made again: with `fal-ai/nano-banana-pro/edit` and the sheet as its image ("redraw only the
-  cell …"), or a whole new plate with the fault named in the brief.
+  sheet. A wrong panel is made again: `bun .claude/skills/plant-skill/scripts/sheet-edit.ts --sheet sheet-1.jpg --fix
+  fix.txt --out <dir>/sheet-3 --label …` (`fal-ai/nano-banana-pro/edit`, the sheet as its image, "keep the whole plate,
+  redraw only these cells", one paragraph a cell; kept in the Library too), or a whole new plate with the fault named in
+  the brief.
 - **Keep it in play's Library**: `sheet.ts` keeps every sheet it makes there at once (MCP `add_story_frame`, up to
   4 MB), labelled `Reference sheet · <Plant 'Cultivar'> · <k>` (give `--label "Lemon 'Femminello Santa Teresa'"`),
   and prints its BLAKE3 hash (`sheet-<k>.hash`); a sheet made otherwise is kept with `sheet.ts --upload <jpg>
@@ -93,7 +97,11 @@ in the same light as its panel.
    sheet) and its colours zone by zone in linear sRGB with their spread. They go into the organs object as tables
    (`LEAF_W`, `FRUIT_R`…) with a comment naming the sheet's hash and the panel, so a blade, a petal or a fruit's
    lathe has the real outline and not an ellipse. Colours: the median as the base, p10–p90 as each organ's own
-   variation by its chance; check first that the checker's grey patches came out grey.
+   variation by its chance; check first that the checker's grey patches came out grey. A plate's ground is often light
+   grey, not white: with the default `--white 0.10` the ground counts as specimen and every width comes out the box's
+   (the orange's leaf traced as 57 mm at every station); pass `--white 0.2`–`0.25`, and read the widths before using
+   them. A fruit's ends lie in its own shadow on the light box: cut it from the ground by its colour (saturation) to get
+   its real profile, which closes round at both ends.
 2. **Shape the third dimension** the plate does not show flat: a blade's fold along its midrib and its wave, a fruit's
    ridges and section (from the cut panel), a pseudostem's sheath edges, from the side views and the cuts.
 3. **Detail where the eye reads it, as surfaces**: what vertex colours cannot carry (veins, blotches, fibres, spots,
@@ -140,6 +148,15 @@ One file in four parts, as the worked examples are:
    - **Its architecture as the botany names it**: a cacao's chupon to a jorquette of five fans, their side branches in
      their own plane, the next chupon and tier; an apricot's leader, scaffolds, long shoots and spurs, year by year. The
      architecture is the first thing the eye reads; get it from the sheet's row 1, the real photos and the monograph (Hallé's tree models).
+   - **A tree that grows in flushes** (citrus, mango, avocado, tea, cacao's fans): shoot units, one a flush, each tip
+     aborting and the next flush breaking from the buds below it (orange v2's `shoots()`). Grow them in time order, flush
+     by flush, so each decision rests only on older shoots and a younger tree is the first part of an older one. What
+     made the orange read as itself, each found by a render that did not: the crown held to an envelope by age (a dome,
+     widest two fifths up, its skirt near the ground) with the shoots steered along its normal toward the light; vigorous
+     shoots upright, the strong ones high in the crown leaning in over its middle (or the dome's top stays hollow, two
+     lobes); low side shoots arching out and down; a bud with no room yet waiting a few flushes instead of dying; a crowding
+     grid of young tips (a light competition) for density; and renewal breaks from lit older wood, without which the
+     skirt dies and the crown climbs into a ring as the old leaves fall.
    - **Nodes**: a leaf at each, formed when the axis grew past it; phyllotaxis as it really is (2/5, 3/8 spiral; two
      rows on plagiotropic branches); a leaf lives its real life (so a crown is bare inside where it should be).
    - **Girth by the pipe model** (r^2.5 summed over what the wood feeds) plus a ring a year, calibrated to measured
@@ -200,6 +217,18 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   change.
 
 ## Lessons kept
+
+- **A lathe from traced widths closes round, or it is a box.** Orange v2's first fruit came off the bench at overlap
+  0.78, its ends flat: a lathe's first and last rings jumped from the traced width straight to zero. Space the rings by
+  `(1 − cos)` toward the poles and keep the traced profile as a correction of an ellipse (held at its neighbours' near the
+  ends): 0.956 at once. Its blush, first drawn from noise along u and round v, came out as smears: patterns on a fruit are
+  noise on the unit ball, so they are round.
+- **No shader code leaves the box.** play's asset box sends a material out as its kind and plain settings
+  (`box/serialize.js`): an `onBeforeCompile` (a leaf's underside tinted by `gl_FrontFacing`) is lost. A leaf's two
+  colours are two faces; budget a tree's leaves by their rows (orange v2: 6 blade stations, 3 across, ~11k leaves, about
+  half its 800k triangles), and thin harder for crowds where twigs and leaves are many (`detailAt`).
+- **Judge a panel's colour on its middle.** On the light box the underside of a fruit or a trunk is in its own soft
+  shadow: the bench's bottom zones disagree with the panel by 0.1–0.2 however right the colour is.
 
 - **Safe on every GPU, or black on an iPad.** Banana v2's first proposal drew black in play's viewer on an iPad:
   some 800 normals of no length where its blades' rows met at the tip, with a bump picture, made NaN pixels on
