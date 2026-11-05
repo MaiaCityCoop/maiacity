@@ -104,7 +104,8 @@ asset_versions  (id /*BLAKE3 of canonical {asset, parents, recipe, default_varia
 asset_variants  (version_id, name, recipe_hash → files, card jsonb)              -- immutable
 files           (hash PK /*BLAKE3 of the bytes*/, size, media_type, bucket_key, created)
 proposals       (id, coop_id, kind /*asset_version*/, asset_id, base → asset_versions, version → asset_versions,
-                 author, status /*open|accepted|archived*/, decided_by, decided_at, note, created)
+                 author, status /*proposed|accepted|archived*/, decided_by, decided_at, note, created,
+                 inbox_id → inbox /*the Inbox item it was made for, if any (§4.12)*/)
 ```
 
 - A proposal names its **base** (the head it was made from) and a not yet numbered version.
@@ -374,6 +375,31 @@ world has run (`run`) from eyes, views or street cameras. The stand-in test worl
 `$content/worlds/test/` (the template of the contract); the contract is read in one place,
 `$content/worlds/contract.js`.
 
+### 4.12 The Inbox (Samuel 2026-11-05)
+
+The stage before a proposal: an idea board of what Maia City wants made, fixed or improved, triaged by its admins and
+taken up by agents. The Proposals board's columns are **Inbox, Proposed, Accepted, Archived** (what waits for a decision
+was called open until migration `0023-proposed`; `?status=open` still answers with it).
+
+```sql
+inbox (id UUID, coop_id, kind /*idea|fix|improve*/, title /*only shown, 1–200 characters*/, note,
+       status /*inbox|done|archived*/, author, via /*web|mcp*/, created, edited_by, edited_at, decided_by, decided_at)
+proposals.inbox_id → inbox   -- the item a proposal was made for
+```
+
+- **On the board** (admins only, `play/api/src/inbox.ts`): an item is jotted down at the top of the Inbox column (its
+  title, its kind, a note if there is more), and opened to edit it, see what was proposed for it (each a click from
+  its review, and each proposal's review a click back to its item) and copy the **brief** that sends an agent to it
+  (the item by its UUID, how to read it and how to name it in what it proposes). An admin marks an item **done** (it
+  moves to Accepted) or **archives** it, or brings it back to the Inbox; accepting a proposal made for it leaves it
+  where it is, as one item may take several proposals. `GET/POST /api/inbox`, `GET/PATCH /api/inbox/:id`,
+  `POST /api/inbox/:id/{done,archive,reopen}`.
+- **Over MCP**: `list_inbox` (the items still in the Inbox, or done, archived, all), `get_inbox_item` (one whole, with
+  its proposals as the board lists them) and `add_inbox_item` (what an agent found and is not doing now, in its admin's
+  name, marked MCP). Every propose tool takes `inbox`, the item's UUID: the item must still be in the Inbox, and the
+  proposal is linked to it once made. No tool marks an item done or archives it.
+- A proposal shows its item's title (only to admins: the Inbox is theirs); an item is named by its UUID only.
+
 ## 5. The sandboxes
 
 | New | Cloned from | What changes |
@@ -422,9 +448,12 @@ still only adds what is missing and changes nothing that is there.
   `GET /api/files/:hash` (signed redirect to the bucket). Admins: `GET /api/assets/:id/history` (every step of its
   document, §4.4) and `GET /api/assets/:id/steps/:seq/recipe` (the recipe file it builds at a step, kept by its hash).
 - Sandboxes (traveler+): `GET /api/sandboxes/:id/pins`.
-- Proposals: `POST /api/proposals` (citizen+: a new asset version, card + recipe file upload), `GET /api/proposals`,
-  `POST /api/proposals/:id/{accept,archive}` (admin+; its author archives their own). Over MCP an agent archives only
-  its own open proposals made there (`archive_proposal`, Samuel 2026-11-04); no tool accepts.
+- Proposals: `POST /api/proposals` (citizen+: a new asset version, card + recipe file upload), `GET /api/proposals`
+  (`?status=proposed|accepted|archived`), `POST /api/proposals/:id/{accept,archive}` (admin+; its author archives their
+  own). Over MCP an agent archives only its own proposals made there that are still proposed (`archive_proposal`,
+  Samuel 2026-11-04); no tool accepts.
+- The Inbox (admin): `GET/POST /api/inbox`, `GET/PATCH /api/inbox/:id`, `POST /api/inbox/:id/{done,archive,reopen}`
+  (§4.12).
 - Coop (admin+): `GET/POST /api/coops/:id/members`, `POST /api/invites`; `POST /api/invites/:code/claim` (makes the
   claimer a citizen).
 
@@ -433,7 +462,7 @@ Every route checks the caller's level against `level_rules`; a visitor gets 401 
 ## 8. App (`play/site`, SvelteKit, light brand CI throughout)
 
 `/` sign in or sign up · `/sandbox-1/` · `/sandbox-2/` · `/sandbox-3/` · `/sandbox-4/` · `/sandbox-5/` · `/assets/` (library; an asset's versions as
-a chain, its variants, a viewer) · `/proposals/` · `/game/` (placeholder; claim an invite to become a citizen) ·
+a chain, its variants, a viewer) · `/proposals/` (the board: Inbox, Proposed, Accepted, Archived; §4.12) · `/game/` (placeholder; claim an invite to become a citizen) ·
 `/admin/` (members, invites).
 
 **The Library** (`/library/`, Samuel 2026-11-04; `play/api/src/library.ts`): every image, video and recording play

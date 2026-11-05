@@ -270,7 +270,7 @@ export async function gameConfigReview(db: Queryable, p: { id: string; game_conf
   const { rows } = await db.query<{ base: docs.Frontiers }>(`SELECT base FROM play.doc_branches WHERE id = $1`, [b]);
   const baseNumber = rows[0] ? versions.find((v) => key(v.frontiers) === key(rows[0].base))?.number ?? null : null;
   const steps = await named(db, await docs.history(db, docId, { branch: b }));
-  const moved = p.status === "open" && baseNumber !== null && baseNumber !== versions.at(-1)?.number;
+  const moved = p.status === "proposed" && baseNumber !== null && baseNumber !== versions.at(-1)?.number;
   return { config: { id: p.game_config_id, label: next.label }, baseNumber, moved, changes: docs.diff(base, next), steps };
 }
 

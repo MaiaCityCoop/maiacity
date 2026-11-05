@@ -14,7 +14,8 @@ import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, re
 import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameMember, renameSelf, setLevel } from "./members";
 import { listTables, readTable, TableError } from "./tables";
 import { proposedState, SandboxError } from "./sandboxes";
-import { decide, listProposals, proposalOf, propose, ProposalError, type Verdict } from "./proposals";
+import { decide, listProposals, proposalOf, proposalsOfInbox, propose, ProposalError, type Verdict } from "./proposals";
+import { addInbox, decideInbox, editInbox, inboxItem, InboxError, listInbox, type InboxVerdict } from "./inbox";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 import { listStories, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
 import { labelFile, listLibrary } from "./library";
@@ -169,6 +170,18 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await decide(db, store, await me(req), p.id, p.verdict as Verdict));
   });
 
+  // ---- the Inbox (./inbox.ts), the stage before a proposal: what Maia City wants made, fixed or improved, kept by its
+  // admins on the Proposals board, each item marked done or archived there (or brought back); agents read and add to it
+  // over MCP and name an item in what they propose for it
+  on("GET", "/api/inbox", async (req) => json(await listInbox(db, await me(req), new URL(req.url).searchParams.get("status") ?? undefined)));
+  on("POST", "/api/inbox", async (req) => json(await addInbox(db, await me(req), (await body(req)) ?? {}), { status: 201 }));
+  on("GET", "/api/inbox/:id", async (req, p) => json(await inboxItem(db, await me(req), p.id, proposalsOfInbox)));
+  on("PATCH", "/api/inbox/:id", async (req, p) => json(await editInbox(db, await me(req), p.id, (await body(req)) ?? {})));
+  on("POST", "/api/inbox/:id/:verdict", async (req, p) => {
+    if (!["done", "archive", "reopen"].includes(p.verdict)) throw new NotFound("No such verdict.");
+    return json(await decideInbox(db, await me(req), p.id, p.verdict as InboxVerdict));
+  });
+
   // ---- the coop
   on("GET", "/api/members", async (req) => json(await listMembers(db, await me(req))));
   on("POST", "/api/members/:id/level", async (req, p) => json(await setLevel(db, await me(req), p.id, `${(await body(req))?.level ?? ""}`)));
@@ -266,7 +279,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       try {
         return await r.handler(req, params);
       } catch (e) {
-        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError)
+        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof InboxError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError)
           return json({ error: e.message }, { status: (e as any).status });
         console.error(e);
         return json({ error: "Something went wrong on our side." }, { status: 500 });

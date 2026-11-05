@@ -639,6 +639,43 @@ export const MIGRATIONS: Migration[] = [
       ON CONFLICT (id) DO NOTHING;
     `,
   },
+  {
+    // what waits for a decision is proposed (Samuel 2026-11-05): a proposal is proposed, accepted or archived, the
+    // Proposals board's columns Inbox (0024), Proposed, Accepted and Archived
+    id: "0023-proposed",
+    sql: `
+      ALTER TABLE play.proposals DROP CONSTRAINT IF EXISTS proposals_status_check;
+      UPDATE play.proposals SET status = 'proposed' WHERE status = 'open';
+      ALTER TABLE play.proposals ALTER COLUMN status SET DEFAULT 'proposed';
+      ALTER TABLE play.proposals ADD CONSTRAINT proposals_status_check CHECK (status IN ('proposed', 'accepted', 'archived'));
+    `,
+  },
+  {
+    // the Inbox (Samuel 2026-11-05, play/SPEC.md §4.12): the stage before a proposal, what Maia City wants made, fixed
+    // or improved, each a note named by its UUID, triaged by its admins and taken up by agents; a proposal made for one
+    // names it
+    id: "0024-inbox",
+    sql: `
+      CREATE TABLE play.inbox (
+        id         UUID PRIMARY KEY,
+        coop_id    UUID NOT NULL REFERENCES play.coops(id),
+        kind       TEXT NOT NULL DEFAULT 'idea' CHECK (kind IN ('idea', 'fix', 'improve')),
+        title      TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 200),  -- only shown: an item is named by its id
+        note       TEXT NOT NULL DEFAULT '',
+        status     TEXT NOT NULL DEFAULT 'inbox' CHECK (status IN ('inbox', 'done', 'archived')),
+        author     TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
+        via        TEXT NOT NULL DEFAULT 'web' CHECK (via IN ('web', 'mcp')),
+        created    TIMESTAMPTZ NOT NULL DEFAULT now(),
+        edited_by  TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
+        edited_at  TIMESTAMPTZ,
+        decided_by TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
+        decided_at TIMESTAMPTZ
+      );
+      CREATE INDEX ix_inbox_status ON play.inbox(status, created);
+      ALTER TABLE play.proposals ADD COLUMN inbox_id UUID REFERENCES play.inbox(id);
+      CREATE INDEX ix_proposals_inbox ON play.proposals(inbox_id) WHERE inbox_id IS NOT NULL;
+    `,
+  },
 ];
 
 /** Runs every migration not yet run, each in its own transaction. */

@@ -105,7 +105,7 @@ suite("the Game editor's configs on Loro", () => {
     const proposed = await tool("propose_game_config_version", { config: LV, branch: one.branch, note: "a richer last investor, a dearer tent" });
     expect(proposed).toMatchObject({ config: LV, number: 2, steps: 2, changes: 2 });
 
-    const listed = (await call("ada", "GET", "/api/proposals?status=open")).data.find((p: any) => p.id === proposed.id);
+    const listed = (await call("ada", "GET", "/api/proposals?status=proposed")).data.find((p: any) => p.id === proposed.id);
     expect(listed).toMatchObject({ kind: "game_config_version", grp: "game", label: "Levelling", number: 2, via: "mcp" });
     const review = (await call("ada", "GET", `/api/proposals/${proposed.id}`)).data;
     expect(review).toMatchObject({ config: { id: LV, label: "Levelling" }, baseNumber: 1, moved: false });

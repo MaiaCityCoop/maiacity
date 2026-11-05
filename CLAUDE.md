@@ -78,8 +78,12 @@ version names its **reference sheet** (`propose_version`'s `sheet`: the hash of 
 its **data sheet** and its sheet's **brief** (`datasheet`, `brief`: Markdown kept with `add_document`), so a plant's whole
 dataset is in play. A
 version can be a kind of **variants** (`propose_version`'s `variants`: a plant's kinds, an animal's breeds), each its own
-recipe and a chip in the asset viewer. No tool accepts; an agent archives only its own open proposals made over MCP
-(`archive_proposal`: one it has replaced or no longer stands by; Samuel 2026-11-04). The same token also opens play's **read-only world routes** (`GET /api/me`, `/api/catalog`,
+recipe and a chip in the asset viewer. The **Inbox** (play/SPEC.md §4.12) is the stage before a proposal on the
+Proposals board (Inbox, Proposed, Accepted, Archived): what Maia City wants made, fixed or improved, kept by its admins;
+an agent reads it (`list_inbox`, `get_inbox_item`), adds what it finds and is not doing now (`add_inbox_item`), and,
+sent to an item, names it in what it proposes (every propose tool's `inbox`, the item's UUID). No tool accepts or marks
+an item done; an agent archives only its own proposals made over MCP that are still proposed (`archive_proposal`: one
+it has replaced or no longer stands by; Samuel 2026-11-04). The same token also opens play's **read-only world routes** (`GET /api/me`, `/api/catalog`,
 `/api/files/<hash>`, `/api/sandboxes/<id>/config`, `/api/assets…`) as its admin, so an agent can load a sandbox in its own
 browser (sending the header to play only) and film it for a storyboard; nothing else, and nothing that writes. Admins
 only for now: a token opens nothing once its owner is no admin.
