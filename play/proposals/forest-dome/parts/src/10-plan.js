@@ -220,7 +220,7 @@ const BIOME = { hash: '7be775be02b915dbda75d99cfec0b3edbb79c0a4950c0cd6258fd1406
  * lit (a point light each, at most LAMPS, and the walker's lamps), the places that must stay clear (`keep`: circles
  * a plant must not stand in), and the floors a walker starts on.
  */
-const LAMPS = 12;
+const LAMPS = 4;
 function newDome() {
 	const dome = {
 		root: new THREE.Group(),
@@ -240,9 +240,12 @@ function newDome() {
 		plant(kind, x, y, z, o = {}) {
 			const p = PLANTS[kind];
 			if (!p) throw new Error(`no plant ${kind}`);
-			// asked 0 … 9 (9 ripe), laid on the plant's own stages
-			const stage = Math.round((clamp(o.stage ?? 9, 0, 9) / 9) * (p.stages ?? 9));
-			const seed = String(o.seed ?? 'maia').replace(/[^a-z0-9-]/gi, '').slice(0, 16) || 'maia';
+			// asked 0 … 9 (9 ripe), laid on the plant's own stages: only two of them, grown (7 and on) or young, and one
+			// seed for every plant of a kind, so the page builds each kind twice at most however many stand (each stage
+			// and seed is a build of its own, made in the box: 289 of them made v2 slow to come in); the forest's variety
+			// is in each one's turn and size
+			const stage = Math.round(((clamp(o.stage ?? 9, 0, 9) >= 7 ? 9 : 6) / 9) * (p.stages ?? 9));
+			const seed = 'a';
 			const node = new THREE.Group();
 			node.name = `use:${p.hash}?seed=${seed}&stage=${stage}`;
 			node.position.set(x, y, z);

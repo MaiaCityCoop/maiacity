@@ -1,0 +1,9 @@
+Version 3 of the forest dome (Samuel 2026-11-05: "reduce the paths and their widths", and the whole building renders too slowly). On v2: the same latest plants and the same dense forest, with fewer, narrower paths, and built so play's viewer draws it far faster.
+
+**Fewer, narrower paths.** Two of the seven gravel paths are gone (the west gate's branch to the loop, the east gate's branch to the plaza), and so are two of the stepping-stone paths (south-west and south-east into the forest). The rest are narrower: gravel 1.4–1.6 m (2.0–2.3 m), the stepping stones' strip 0.68 m (0.84 m). Every gate still reaches the loop and the plaza (the west gate by the plaza, the east gate by the loop). The ground they freed is forest.
+
+**Faster to draw.** Measured on v1 and v2: the dome named 289 different plant builds (each kind at up to five stages and three seeds), and play's viewer builds every one in the asset box at three levels of detail and a picture, which is why the forest took minutes to come in. Now each plant is planted at two stages only (grown, and young) and with one seed, its variety in its turn and size: 77 builds in all, plants and things. And four lamps are lit (point lights) instead of eleven; the others glow as before. (Play's viewer itself now draws the shadows only when they change, and the guests coarser sooner: play PR #2028.)
+
+**Numbers.** 2,468 plants (47 canopy trees, 269 low trees, 404 shrubs, 879 herbs, 839 ground plants, 7 passion fruit, 23 mushroom bolts) and 468 things, 77 builds named; 839k triangles of its own, 33 pictures, 4 lights; it builds in about 4.4 s (node, measured).
+
+**Checked.** Built in node as the box builds it; every plant, thing and the biome it names found in play's catalog; a plan of v2's and v3's plants side by side (the corridor of the west path now forest, the remaining paths clear).
