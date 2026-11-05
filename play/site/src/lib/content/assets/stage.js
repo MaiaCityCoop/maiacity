@@ -301,6 +301,9 @@ export class Stage {
 		// 0.02 × its size lifted a room's furniture off its shadows in an 80 m dome
 		const texel = (2 * reach * wide) / fine;
 		key.shadow.normalBias = s > 4 ? Math.max(0.08, 2 * texel) : 0.02 * s;
+		// its shadows softened over a few centimetres, not over its own measure: three's PCF takes five samples turned by a
+		// noise per pixel, and a radius of 7 texels on a dome (≈ 50 cm) spread that noise as dots over every sunlit wall
+		key.shadow.radius = s > 4 ? Math.max(1, Math.min(3, 0.08 / texel)) : this.low ? 4 : 7;
 		this.rim.position.copy(centre).add(this.sky ? new THREE.Vector3(3.5, 3, 4.5).multiplyScalar(s) : new THREE.Vector3(4, 3, -5).multiplyScalar(s));
 		// an asset one walks into (a dome, a hall: over ~10 m) lit as a place is: its light the sun's, through its glass
 		// and its doors, and the sky's; the fill from the eye's side and the hemisphere cast no shadow, so they lit its
