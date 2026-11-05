@@ -55,8 +55,20 @@ a late fork only where it flowers, and the crop under the ground, nine to eleven
 cutting, the fruit view one harvested root; its numbers in `references/cassava-tme-419.md`, its brief beside them, its
 whole source `references/cassava-v1.js`), and **quince v2** ('Vranja', a grafted tree headed at planting into tiered scaffolds,
 its fruit on short sympodial shoots each ending in one flower, its crown steered to a dome by age; its numbers in
-`references/quince-vranja.md`, its brief beside them, its whole source `references/quince-v2.js`), and **moringa v1** ('PKM-1', the annual drumstick tree grown from its winged seed, pinched
-into a vase, its 2–3-pinnate leaves laid as batches of leaflets, to its first pods dry and split; its numbers in
+`references/quince-vranja.md`, its brief beside them, its whole source `references/quince-v2.js`), and **pomegranate v2** ('Wonderful', grown as it is grown, from a hardwood cutting on its own
+roots: a bush of shoots in its first year, four kept as low trunks, a twiggy vase of opposite laterals, spurs, thorns and
+leaf rosettes on one- and two-year wood, fruit hanging crown-down from short shoots; its numbers in
+`references/pomegranate-wonderful.md`, its brief beside them, its whole source `references/pomegranate-v2.js`), and
+**safou v2** (*Dacryodes edulis* var. edulis, a seedling tree with imparipinnate leaves grown as Rauh's model flush by
+flush, fruit clusters on its sunlit crown; its numbers in `references/safou-dacryodes-edulis.md`, its brief and the fruit
+plate's beside them, its whole source `references/safou-v2.js`), and **walnut v2** ('Franquette', the first big terminal-bearing tree: a Rauh
+cone year by year that turns sympodial once it bears, every fruiting tip relayed by the shoots below it into a dome,
+pinnate leaves, catkins on last year's wood, husks that split black; its numbers in `references/walnut-franquette.md`,
+its brief beside them, its whole source `references/walnut-v2.js`), and **alder v2** (*Alnus glutinosa*, the wild
+black alder: a big forest tree from its nutlet to its twentieth year, Rauh's model with syllepsis, its catkins and cones
+in overlapping yearly cohorts, its roots with Frankia nodules; its data sheet, brief and source kept in play with the
+version), and **moringa v1** ('PKM-1', the annual drumstick tree grown from its winged seed,
+pinched into a vase, its 2–3-pinnate leaves laid as batches of leaflets, to its first pods dry and split; its numbers in
 `references/moringa-pkm1.md`, its brief beside them, its whole source `references/moringa-v1.js`). Start
 a new plant from the newest: copy its part 1
 (the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps, `backLit: false` and `named()` as
@@ -271,6 +283,10 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
 
 - **Clean first**: `node .claude/skills/plant-skill/scripts/nan-check.cjs <source.js> <id> <v>` prints clean for
   every stage, plant and fruit, at detail 1 and 0.3 (no NaN, no normal of no length), or it is not proposed.
+- **Keep the whole dataset in play**: the data sheet and the brief each as a Markdown document with MCP `add_document`
+  (labelled `Data sheet · <Plant 'Cultivar'>`, `Brief · <Plant 'Cultivar'>`), and their hashes named with
+  `datasheet` and `brief` in the proposal, beside `sheet` (play/SPEC.md §4.10): a plant's numbers and their sources live
+  in play with the version, not only in the repository.
 - **Link the sheet**: `propose_version` (or `propose_asset`) with `sheet`: the hash of the reference sheet Samuel gave
   the go for. play keeps it with the version (play/SPEC.md §4.10): the asset library shows it beside the version, the
   Library shows the plant beside the sheet.
@@ -427,6 +443,47 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   white. Its section with one seed and the dry pod's single row of seeds came from that plate too.
 - **The taproot's shoulder is at least the trunk's foot.** A tuberous root sized from its own table was narrower than the
   flaring trunk above it by harvest, a step at the soil line in the Roots view; pass the foot's radius as its least.
+- **A compound leaf is one geometry, and its faces are checked from both sides** (safou v2, 2026-11-05). A crown of
+  thousands of imparipinnate leaves is built leaf by leaf, rachis and leaflets written straight into one set of arrays
+  (`compoundLeaf`), never a Bag merge a leaflet. Its first crowns were pale grey and glinted white: the leaflets'
+  faces were wound the wrong way, so the underside colour faced the sky. Bench one leaf from `top` and `bottom` before
+  any tree render. Then roll and droop every leaflet a little (`rollA`, `droop`): flat glossy leaflets seen at a
+  grazing angle mirror the sky white, as the lemon's leaves did.
+- **Count leaves by the leaf area before rendering.** A crown's leaves ≈ its projected area × a leaf area index of
+  about 4 ÷ one leaf's area (safou: 38 m² × 4 ÷ 0.055 m² ≈ 2,800 compound leaves at ten years). The first safou had
+  27,000 (7.5 M triangles): a compound-leaved tree has few, stout shoots with a rosette of leaves each, so set its
+  crowding cells and caps (cell 0.65 m, cap 2) and its leaves a flush from that count, not from a small-leaved tree's.
+  A young tree's leaves may live their real life; only the grown crown's need holding to the budget.
+- **Fruit on the sunlit crown, or none is seen.** Flowering on every live shoot put the safou's 640 fruit at a
+  median 2.2 m out in a crown 3.3 m wide, all hidden. Let only shoots whose tips stand near the crown's face flower
+  (`crownOut(...).f > 0.72`), as the data sheet says the tree bears: the clusters then hang at 2.8 m, where they show.
+- **When the full sheet will not draw the cultivar's fruit, make a plate of the fruit alone.** Three plates and an
+  edit drew var. edulis's long fruit round (1.15–1.5 : 1, measured 2.1); a fruit-only brief naming the shape in plain
+  words ("like a big olive or a short sausage … NEVER round, NEVER egg-shaped") drew it at 2.15 : 1 at every age.
+  Paste its row into the sheet's fruit cells, each plate grey-balanced on its own checker, and keep both in the Library.
+- **A crown's underside is part of its silhouette.** The safou's first bearing crowns were V-shaped below, narrowing
+  to the trunk, where the sheet's crown has a flat skirt at about 1.2 m: lower tiers leaving the trunk nearly level
+  (75° from upright), a stronger sag near the skirt, and a leader slowed after the fifth year took the 10-year
+  silhouette's overlap from 0.55 to 0.79 (`compare.py --close 0.04`).
+
+- **Narrow leaves held flat make a see-through crown** (pomegranate v2, 2026-11-05). 44k leaves of 6 × 1.7 cm, measured
+  as an LAI of ~3.7 through the crown, still rendered as a grey haze of twigs from the side: every blade lay near
+  level, so seen from the side it was edge-on. Roll each blade about its midrib by its own chance (±65°), as narrow leaves
+  really stand along their twigs; then count leaves by place (a 25 cm grid of where they are) before adding more.
+- **A twiggy tree is clothed by its short shoots, not its long ones.** The pomegranate's crown read as a broom of bare
+  rods until the nodes of one- and two-year wood carried leaf rosettes (most nodes of last year's wood, fewer of the
+  year before), as its axillary short shoots do; more long shoots only added bare wood and triangles.
+- **Mark every fruit, at every detail.** `Bag.add` thins beads with the leaves when a crowd is drawn, and a fruit drawn
+  as a bead outside `bag.fruit(…)` is thinned with them: the pomegranate's crowd of 96 fruit kept 7. Call `bag.fruit` at
+  every detail: a fruit tree far off is seen by its fruit.
+- **A tube's u runs along it.** `tube()` lays u along the axis and v round it, so a bark picture laid with `metric()` has
+  its x up the trunk; drawn the other way (x round), the pomegranate's long bark strips came out as dark dashes across
+  every branch.
+- **compare.py lists its widths from the top down** (station 0 the top of the panel): read the far end of the list for a
+  tree's skirt and trunk. The pomegranate's first crown fix went the wrong way on that misreading.
+- **Time the colouring stage by the data sheet's colour break**, and bench the colouring fruit: the first pomegranate
+  'Colouring' stage was a month past the break and all red, where the sheet and the data sheet (break at 11 weeks,
+  deep red at 22) show a blush over yellow-green.
 - **A crown envelope pushes in, and down only above its widest** (quince v2, 2026-11-05). Its first envelope turned
   every shoot that left the dome "in and down"; below the dome's widest point that drove the lowest scaffold into the
   ground (its tip at −0.34 m). Push down above `yc`, up below it, and turn any limb up that comes within ~0.7 m of the
@@ -597,6 +654,30 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   not among them; its male bracts fall (a bare, knotted rachis, against the Cavendish's dry tail). The plate drew the stem
   some 40 % of the height against the data's 70 %: hold the height to the data and judge the crown by eye.
 
+- **A forest tree's leaves lie at every angle, or the crown is see-through** (alder v2, 2026-11-05). With every blade
+  held near level (as a twig's leaves lie flat to the light), the crown seen from the side at eye height was a stack
+  of edge-on plates: 30,000 leaves and the trunk visible to the top. Roll each blade on its midrib by its own chance
+  (±0.75 rad far off) and tilt its droop more widely; the same leaves then fill the crown.
+- **A young deciduous tree fills its cone by syllepsis.** Alder v2's five-year tree, branching only from buds that
+  rested a winter, had a bare upper half (overlap with the sheet's tree 0.35): every limb on the last year's leader was
+  still a bud. The alder (birch, poplar, many pioneers) grows side shoots the same summer from the leader's upper
+  growth; a share of same-summer shoots (born at their node's time, first year 0.6 as long) and more vigour for the
+  first years' limbs gave the young cone its width (1.1 → 2.1 m, data sheet 1.5–2.5).
+- **Hold a grown tree's leaves to a ceiling.** Seven seeds of alder v2 at full detail ranged 0.75–1.03 M triangles,
+  the leaves alone 26–38 k. Count the leaf places first, then keep each by its own chance up to the crown's number
+  (`TREE.leaves`, ~27 k from its leaf area); seeds then ranged 0.56–0.81 M with the same look. A grown tree's far leaves
+  are three rows across one (`sheet`'s `stations: [0, 0.3, 0.8, 1]`, 12 triangles a leaf, the blunt tip kept) and no
+  stalks; a seedling's few leaves are drawn fine, with their teeth.
+- **Pick the fruit view's fruit from the right cohort.** An alder carries next year's catkins beside this year's cones;
+  the fruit view picked the fullest cluster of the ripe stage, a cohort not yet formed at the earlier stages, and
+  showed nothing from winter to July. Pick from the clusters of the cohort that ripens at the last stage.
+- **Don't let one chance choose and size.** Nodules kept by the smallest of their chance numbers were also the
+  smallest (the size drew on the same number): 1–2 cm for a data sheet's 4–6. And the ones nearest the trunk sat inside
+  the root crown. Draw the pick by its own chance, keep them clear of the crown, and set each on the side of its root.
+- **Diamond scales need symmetric spirals.** A cone's scales from two families of spiral rows (s1 = 7u + 5a, s2 = 8a −
+  5u) came out as diagonal stripes; s1 = 5u + 7a and s2 = 5u − 7a with a max-norm cell gave the sheet's diamond shields
+  (overlap 0.92 green, 0.8 open and black, colour within 0.011 black).
+
 - **Name the cultivar first.** The old cacao was "a cacao": narrow willow leaves, a shrub, little orange pods. Every
   look that is wrong is easier to see against one real kind.
 - **The architecture is what reads.** A real cacao is a straight stem to a jorquette, fans rising at 35–55° and arching
@@ -612,3 +693,21 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   and sides, soften the edges, or make the pattern larger.
 - **A young axis is the first part of the old one**: directions as functions of the length along the axis, chance per
   organ by name; then a plant tabbed from seed to fruit grows instead of being redrawn.
+
+- **A big tree's budget is its leaves** (walnut v2, 2026-11-05). A pinnate leaf is seven blades: at the plum's 3 × 2 rows
+  a fifteen-year walnut drew 1.2 M triangles. Far off each leaflet is 3 × 1 rows and the rachis a two-sided ribbon
+  (~100 a leaf), close organs judged on the bench; count leaves and tips per age before rendering. Part 1's thinning
+  grows a kept leaf only to 0.14 m round (`most`): a 30 cm leaf could not grow and the crowds went bare; give it the
+  leaf's own size (0.4).
+- **Terminal bearing makes the dome, and its tips explode** (walnut v2). A shoot that ends in a female flower stops and
+  one to three relays carry on below it: the cone of the young tree forks into the round crown of the grown one (the
+  leader too, once it bears, or it pokes a spire over the dome). At two or more relays a tip the tips grew 1.5× a year
+  (1,700 at 15 y, 1.6 M triangles); about 1.3 a tip held them near 900, a crop of the data sheet's size.
+- **A short shoot is in its bud** (walnut v2). Nodes laid down only as a shoot lengthens leave a tree in early May
+  leafless at its tips; a short shoot's leaves are all there at budbreak, its internodes stretching after.
+- **A fissure picture belongs on old bark only** (walnut v2). One material's map lies on every limb: the old trunk's
+  fissure net drew a lattice over the smooth silver-grey limbs. Put smooth wood on a material without it (`twig`), the
+  fissured trunk and limbs on `bark`.
+- **The sheet's tree is a painter's tree** (walnut v2). Its walnuts were as wide as tall; the data sheet's crowns are
+  three quarters of the height. Hold the form (a dome, a low skirt, a short trunk) to the sheet's silhouette and the
+  sizes to the data sheet, and say the aspect left over.

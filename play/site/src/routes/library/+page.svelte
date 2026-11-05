@@ -15,7 +15,7 @@
 
 	const PAGE = 60;
 	type StoryUse = { story: string; title: string; number: number | null; track: string; clip: string; as: 'frame' | 'video' | 'audio'; at: number };
-	type SheetUse = { asset: string; label: string; group: string; number: number | null; version: string; as: 'sheet'; accepted: boolean };
+	type SheetUse = { asset: string; label: string; group: string; number: number | null; version: string; as: 'sheet' | 'datasheet' | 'brief'; accepted: boolean };
 	type Use = StoryUse | SheetUse;
 	type File = { hash: string; size: number; media_type: string; created: string; label: string | null; used: Use[] };
 	type Page = { total: number; offset: number; limit: number; counts: Record<string, number>; files: File[] };
@@ -23,7 +23,8 @@
 		{ id: '', label: 'Everything', icon: 'library' },
 		{ id: 'image', label: 'Images', icon: 'image' },
 		{ id: 'video', label: 'Videos', icon: 'film' },
-		{ id: 'audio', label: 'Recordings', icon: 'audio' }
+		{ id: 'audio', label: 'Recordings', icon: 'audio' },
+		{ id: 'document', label: 'Documents', icon: 'article' }
 	] as const;
 
 	let kind = $state('');
@@ -40,7 +41,10 @@
 	let copied = $state(false);
 	const admin = $derived(session.me?.level === 'admin');
 	const url = (h: string) => `/api/files/${h}`;
-	const kindOf = (f: File) => f.media_type.split('/')[0];
+	// a document is Markdown (a plant's data sheet, its sheet's brief); the rest by their media type
+	const kindOf = (f: File) => (f.media_type === 'text/markdown' ? 'document' : f.media_type.split('/')[0]);
+	/** what a plant version keeps a file as */
+	const DOC_AS = { sheet: 'reference sheet', datasheet: 'data sheet', brief: 'sheet brief' };
 	const size = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : n >= 1e3 ? `${Math.round(n / 1e3)} kB` : `${n} B`);
 	const when = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 	const AS = { frame: 'still', video: 'video', audio: 'recording' };
@@ -68,7 +72,10 @@
 	}
 	onMount(() => {
 		if (!admin) return void goto('/', { replaceState: true });
-		kind = new URLSearchParams(location.search).get('kind') ?? '';
+		const given = new URLSearchParams(location.search);
+		kind = given.get('kind') ?? '';
+		// a link straight to one file (the asset library's data sheet and brief): the search for its hash
+		query = given.get('q') ?? '';
 		void load();
 	});
 	let searching: ReturnType<typeof setTimeout> | undefined;
@@ -136,6 +143,14 @@
 				<video src={url(open.hash)} controls autoplay muted loop playsinline></video>
 			{:else if kindOf(open) === 'audio'}
 				<audio src={url(open.hash)} controls></audio>
+			{:else if kindOf(open) === 'document'}
+				{#await fetch(url(open.hash), { credentials: 'same-origin' }).then((r) => r.text())}
+					<p class="soft">Reading it…</p>
+				{:then text}
+					<pre class="doc">{text}</pre>
+				{:catch}
+					<p class="soft">It could not be read.</p>
+				{/await}
 			{:else}
 				<a href={url(open.hash)} target="_blank" rel="noopener"><img src={url(open.hash)} alt={open.label ?? 'An image'} /></a>
 			{/if}
@@ -152,11 +167,11 @@
 		<h4 class="side-head">Used in</h4>
 		{#if open.used.length}
 			<ul class="uses">
-				{#each open.used as u (u.as === 'sheet' ? u.version : u.story + u.track + u.clip + u.as)}
-					{#if u.as === 'sheet'}
+				{#each open.used as u ('version' in u ? u.version + u.as : u.story + u.track + u.clip + u.as)}
+					{#if 'version' in u}
 						<li>
-							{#if u.accepted}<a href="/assets/#{u.asset}">{u.label}</a> <span class="soft">v{u.number} · its reference sheet</span>
-							{:else}<a href="/proposals/">{u.label}</a> <span class="soft">a proposed version · its reference sheet</span>{/if}
+							{#if u.accepted}<a href="/assets/#{u.asset}">{u.label}</a> <span class="soft">v{u.number} · its {DOC_AS[u.as]}</span>
+							{:else}<a href="/proposals/">{u.label}</a> <span class="soft">a proposed version · its {DOC_AS[u.as]}</span>{/if}
 						</li>
 					{:else}
 						<li><a href="/stories/#{u.story}">{u.title}</a> <span class="soft">v{u.number ?? '?'} · {u.track} · {u.clip} at {u.at} s · its {AS[u.as]}</span></li>
@@ -191,6 +206,9 @@
 									{:else if kindOf(f) === 'audio'}
 										<span class="sound"><Icon name="audio" size={30} /></span>
 										<span class="badge">Recording</span>
+									{:else if kindOf(f) === 'document'}
+										<span class="sound"><Icon name="article" size={30} /></span>
+										<span class="badge">Document</span>
 									{:else}
 										<img src={url(f.hash)} alt="" loading="lazy" />
 									{/if}
@@ -262,4 +280,6 @@
 	.uses { margin: 0 0 0 0.35rem; padding: 0; list-style: none; display: grid; gap: 0.35rem; font-size: 0.82rem; }
 	.uses a { font-weight: 600; }
 	.hint { margin: 0 0 0 0.35rem; font-size: 0.8rem; }
+	/* a document opened whole: its Markdown as it is written */
+	.doc { max-height: 60vh; overflow: auto; margin: 0; padding: 0.75rem; white-space: pre-wrap; font-size: 0.78rem; line-height: 1.45; background: rgb(0 0 0 / 0.03); border-radius: 0.5rem; }
 </style>

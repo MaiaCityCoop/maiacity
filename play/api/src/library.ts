@@ -9,12 +9,13 @@ import { Denied, type Me } from "./access";
 import { HASH } from "./hash";
 import { fileLabel, StoryError, type StoryBody } from "./stories";
 
-export const LIBRARY_KINDS = ["image", "video", "audio"] as const;
+// a document is Markdown (text/markdown: a plant's data sheet, its sheet's brief); recipe sources (text/javascript) are not shown
+export const LIBRARY_KINDS = ["image", "video", "audio", "document"] as const;
 type Kind = (typeof LIBRARY_KINDS)[number];
 
 export type StoryUse = { story: string; title: string; number: number | null; track: string; clip: string; as: "frame" | "video" | "audio"; at: number };
 /** an asset version whose record names the file as its reference sheet: accepted (a version of the asset) or proposed */
-export type SheetUse = { asset: string; label: string; group: string; number: number | null; version: string; as: "sheet"; accepted: boolean };
+export type SheetUse = { asset: string; label: string; group: string; number: number | null; version: string; as: "sheet" | "datasheet" | "brief"; accepted: boolean };
 export type Use = StoryUse | SheetUse;
 export type LibraryFile = { hash: string; size: number; media_type: string; created: string; label: string | null; used: Use[] };
 
@@ -36,15 +37,19 @@ async function usesOf(db: Queryable): Promise<Map<string, Use[]>> {
     list.push(use);
     out.set(hash, list);
   };
-  // every asset version naming a reference sheet: the accepted ones, and the proposals still open
-  const { rows: sheets } = await db.query<{ asset: string; label: string; grp: string; number: number | null; version: string; sheet: string; accepted: boolean }>(
-    `SELECT a.id AS asset, a.label, a.grp, v.number, v.id AS version, v.card->>'sheet' AS sheet, v.number IS NOT NULL AS accepted
+  // every asset version naming its documents (its reference sheet, data sheet, brief): the accepted ones, and the
+  // proposals still open
+  const { rows: docs } = await db.query<{ asset: string; label: string; grp: string; number: number | null; version: string; sheet: string | null; datasheet: string | null; brief: string | null; accepted: boolean }>(
+    `SELECT a.id AS asset, a.label, a.grp, v.number, v.id AS version, v.card->>'sheet' AS sheet, v.card->>'datasheet' AS datasheet,
+            v.card->>'brief' AS brief, v.number IS NOT NULL AS accepted
        FROM play.asset_versions v JOIN play.assets a ON a.id = v.asset_id
-      WHERE v.card ? 'sheet'
+      WHERE (v.card ? 'sheet' OR v.card ? 'datasheet' OR v.card ? 'brief')
         AND (v.number IS NOT NULL OR EXISTS (SELECT 1 FROM play.proposals p WHERE p.version = v.id AND p.status = 'open'))
       ORDER BY a.label, v.number NULLS LAST`,
   );
-  for (const s of sheets) add(s.sheet, { asset: s.asset, label: s.label, group: s.grp, number: s.number, version: s.version, as: "sheet", accepted: s.accepted });
+  for (const d of docs)
+    for (const as of ["sheet", "datasheet", "brief"] as const)
+      if (d[as]) add(d[as], { asset: d.asset, label: d.label, group: d.grp, number: d.number, version: d.version, as, accepted: d.accepted });
   for (const r of rows)
     for (const t of r.body?.tracks ?? [])
       for (const c of t.clips ?? []) {
@@ -66,13 +71,13 @@ export async function listLibrary(db: Queryable, me: Me | null, o: { kind?: stri
   const limit = Math.max(1, Math.min(200, Math.floor(o.limit ?? 60)));
   const offset = Math.max(0, Math.floor(o.offset ?? 0));
   const q = (o.q ?? "").trim().toLowerCase();
-  const where = `split_part(media_type, '/', 1) = ANY($1) AND ($2 = '' OR lower(coalesce(label, '')) LIKE '%' || $2 || '%' OR hash LIKE $2 || '%')`;
+  const where = `(CASE WHEN media_type = 'text/markdown' THEN 'document' ELSE split_part(media_type, '/', 1) END) = ANY($1) AND ($2 = '' OR lower(coalesce(label, '')) LIKE '%' || $2 || '%' OR hash LIKE $2 || '%')`;
   const { rows } = await db.query<{ hash: string; size: string; media_type: string; created: Date; label: string | null }>(
     `SELECT hash, size, media_type, created, label FROM play.files WHERE ${where} ORDER BY created DESC, hash LIMIT $3 OFFSET $4`,
     [kinds, q, limit, offset],
   );
   const counts = await db.query<{ kind: string; n: string }>(
-    `SELECT split_part(media_type, '/', 1) AS kind, count(*) AS n FROM play.files WHERE ${where} GROUP BY 1`,
+    `SELECT (CASE WHEN media_type = 'text/markdown' THEN 'document' ELSE split_part(media_type, '/', 1) END) AS kind, count(*) AS n FROM play.files WHERE ${where} GROUP BY 1`,
     [LIBRARY_KINDS as unknown as string[], q],
   );
   const total = (await db.query<{ n: string }>(`SELECT count(*) AS n FROM play.files WHERE ${where}`, [kinds, q])).rows[0];

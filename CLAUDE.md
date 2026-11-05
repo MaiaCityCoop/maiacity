@@ -74,7 +74,9 @@ its simulation running; never by a migration. The **game's configs** (the Game e
 village grows level by level) are Loro documents the same way (play/SPEC.md §4.9): `list_game_configs`,
 `get_game_config`, `game_config_history`, `game_config_edit`, `propose_game_config_version`. A plant
 version names its **reference sheet** (`propose_version`'s `sheet`: the hash of the plate kept with `add_story_frame`; play/SPEC.md
-§4.10), shown with the version in the asset library and, in the Library, beside the image, the plant it belongs to. A
+§4.10), shown with the version in the asset library and, in the Library, beside the image, the plant it belongs to, and
+its **data sheet** and its sheet's **brief** (`datasheet`, `brief`: Markdown kept with `add_document`), so a plant's whole
+dataset is in play. A
 version can be a kind of **variants** (`propose_version`'s `variants`: a plant's kinds, an animal's breeds), each its own
 recipe and a chip in the asset viewer. No tool accepts; an agent archives only its own open proposals made over MCP
 (`archive_proposal`: one it has replaced or no longer stands by; Samuel 2026-11-04). The same token also opens play's **read-only world routes** (`GET /api/me`, `/api/catalog`,

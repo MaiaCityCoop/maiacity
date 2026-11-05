@@ -14,7 +14,8 @@
  * move what it was not asked to.
  */
 import { $ } from "bun";
-import { readFileSync, writeFileSync, statSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, statSync } from "node:fs";
+import { dirname } from "node:path";
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -48,6 +49,7 @@ for (;;) {
 const result: any = await (await fetch(submit.response_url, { headers })).json();
 if (!result.images?.length) throw new Error(JSON.stringify(result));
 const png = `${out}.png`, jpg = `${out}.jpg`;
+mkdirSync(dirname(png), { recursive: true }); // the out folder may not exist yet: never lose a paid edit to it
 writeFileSync(png, new Uint8Array(await (await fetch(result.images[0].url)).arrayBuffer()));
 for (const q of [92, 88, 84, 80, 75]) {
   await $`convert ${png} -quality ${q} ${jpg}`.quiet();
