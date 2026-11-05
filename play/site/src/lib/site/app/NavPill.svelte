@@ -108,6 +108,9 @@
 		</button>
 	{:else if up}
 		<a class="item" href={up.href} title={up.label} aria-label={up.label}><Icon name="back" /><span>Back</span></a>
+	{:else}
+		<!-- nowhere to go back to (the dashboard): Back keeps its place, greyed, so the star stays in the middle -->
+		<button class="item idle" disabled aria-label="Back" title="Nowhere to go back to"><Icon name="back" /><span>Back</span></button>
 	{/if}
 	<button class="item star" class:on={proposals && proposalsModal.open} onclick={toggleProposals} disabled={!proposals} aria-expanded={proposals ? proposalsModal.open : undefined} title={proposals ? (proposalsModal.open ? 'Close the proposals' : 'Proposals') : "Proposals: Maia City's admins only, for now"} aria-label="Proposals">
 		<Icon name="star" size={26} />
@@ -174,7 +177,7 @@
 		width: max-content;
 		max-width: calc(100% - max(8px, env(safe-area-inset-left, 0px)) - max(8px, env(safe-area-inset-right, 0px)));
 		margin: 0 auto;
-		padding: 5px;
+		padding: 4px;
 		border: 1px solid var(--line);
 		border-radius: 999px;
 		background: var(--overlay-paper, rgb(250 248 242 / .75));
@@ -190,16 +193,25 @@
 		align-items: center;
 		gap: 1px;
 		min-width: 3.4rem;
-		padding: 0.35rem 0.6rem 0.3rem;
+		padding: 0.3rem 0.6rem 0.25rem;
 		border: 0;
 		border-radius: 999px;
 		background: none;
 		color: var(--ink-soft);
 		font: inherit;
 		font-size: 0.66rem;
+		line-height: 1.15;
 		letter-spacing: 0.04em;
 		text-decoration: none;
 		cursor: pointer;
+	}
+	.item.idle {
+		opacity: 0.35;
+		cursor: default;
+	}
+	.item.idle:hover {
+		background: none;
+		color: var(--ink-soft);
 	}
 
 	.item:hover {
@@ -212,15 +224,27 @@
 		background: var(--ink);
 	}
 
-	/* the proposals' star: its mark alone, no word under it (Samuel 2026-11-05), round, as tall as the avatar beside it;
-	   mustard, the AI's colour; greyed out where it may not be opened, but still there */
+	/* the proposals' star, the pill's middle (Samuel 2026-11-05): its mark alone, no word under it, a round button a
+	   little larger than Back and You either side of it, brand green, the star mustard, the AI's colour; ringed while
+	   the board is open; greyed out where it may not be opened, but still there */
 	.item.star {
 		justify-content: center;
 		min-width: 0;
-		width: 44px;
-		height: 44px;
+		width: 48px;
+		height: 48px;
+		margin: 0 4px;
 		padding: 0;
 		border-radius: 50%;
+		background: var(--brand-green);
+		box-shadow: 0 2px 8px rgb(36 69 47 / 0.35);
+	}
+	.item.star:hover {
+		background: var(--brand-green);
+		filter: brightness(1.12);
+	}
+	.item.star.on {
+		background: var(--brand-green);
+		box-shadow: 0 0 0 3px var(--mustard-soft), 0 2px 8px rgb(36 69 47 / 0.35);
 	}
 	.star :global(svg) {
 		color: var(--mustard);
@@ -231,8 +255,8 @@
 		filter: grayscale(1);
 	}
 	.star:disabled:hover {
-		background: none;
-		color: var(--ink-soft);
+		background: var(--brand-green);
+		filter: grayscale(1);
 	}
 
 	/* the page's "+": a round, brand green button in the middle of the pill */
@@ -399,7 +423,7 @@
 	@media (max-width: 760px), (max-height: 500px) {
 		.pill {
 			gap: 0;
-			padding: 4px;
+			padding: 3px;
 		}
 		.item span:not(.avatar, .ring) {
 			display: none;
@@ -407,7 +431,14 @@
 		.item {
 			width: 2.8rem;
 			min-width: 0;
-			padding: 0.55rem 0;
+			padding: 0.5rem 0;
+		}
+		.item.identity {
+			padding: 0.125rem 0;
+		}
+		.item.star {
+			width: 44px;
+			height: 44px;
 		}
 		.item.plus {
 			padding: 0.2rem 0;

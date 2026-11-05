@@ -52,9 +52,10 @@
 		['archived', 'Archived']
 	] as const;
 	type Column = (typeof COLUMNS)[number][0];
-	// a column folded away or open, each viewer's own (kept in this browser): Archived folded at first
-	const FOLDED = 'play:proposals:folded';
-	let folded = $state<Record<string, boolean>>({ archived: true });
+	// a column folded away or open, each viewer's own (kept in this browser): Accepted and Archived folded at first
+	// (Samuel 2026-11-05; the key renamed so that holds for those who had folded something before)
+	const FOLDED = 'play:proposals:folded:2';
+	let folded = $state<Record<string, boolean>>({ accepted: true, archived: true });
 	try {
 		const kept = JSON.parse(localStorage.getItem(FOLDED) ?? 'null');
 		if (kept && typeof kept === 'object') folded = kept;

@@ -67,7 +67,7 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible { outline: 2px sol
    takes, which every page keeps at its foot (--nav-room). The joystick's corner beside it. */
 :root {
 	--nav-foot: max(14px, min(env(safe-area-inset-bottom, 0px), 18px));
-	--nav-height: 64px;
+	--nav-height: 58px;
 	--nav-room: calc(var(--nav-foot) + var(--nav-height) + 0.5rem);
 	--stick-edge: 1.5rem;
 	--stick-size: 8rem;
