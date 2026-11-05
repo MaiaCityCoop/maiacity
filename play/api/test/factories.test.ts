@@ -117,7 +117,7 @@ suite("the Factories on Loro", () => {
     expect((await tool("propose_factory_version", { factory: LT, note: "same", edits: [{ op: "set", path: ["label"], value: "LifeTrac line" }] })).error).toContain("nothing changed");
 
     // the Proposals page: listed under the factories, reviewed field by field, opened as it would be
-    const listed = (await call("ada", "GET", "/api/proposals?status=open")).data.find((p: any) => p.id === proposed.id);
+    const listed = (await call("ada", "GET", "/api/proposals?status=proposed")).data.find((p: any) => p.id === proposed.id);
     expect(listed).toMatchObject({ kind: "factory_version", grp: "factories", label: "LifeTrac line", number: 2, via: "mcp" });
     const review = (await call("ada", "GET", `/api/proposals/${proposed.id}`)).data;
     expect(review.baseNumber).toBe(1);
@@ -130,7 +130,7 @@ suite("the Factories on Loro", () => {
     ]);
     const asIf = (await call("ada", "GET", `/api/factories/${LT}?proposal=${proposed.id}`)).data;
     expect(asIf.json.line.stations[weld].servers).toBe(2);
-    expect(asIf.proposal).toMatchObject({ id: proposed.id, status: "open" });
+    expect(asIf.proposal).toMatchObject({ id: proposed.id, status: "proposed" });
     // the factory itself is as it was until it is accepted
     expect((await call("ada", "GET", `/api/factories/${LT}`)).data.json.line.stations[weld].servers).toBeUndefined();
 

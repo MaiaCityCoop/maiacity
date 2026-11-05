@@ -1,8 +1,9 @@
 <!--
 	play's app shell, as legacy's (maia/site/routes/app/+layout.svelte): no bar across the top — each page is its own,
 	the sandboxes full screen with their own top bars — and at the foot of every page the nav pill ($lib/site/app/NavPill
-	.svelte): back, home to the dashboard, and you, whose menu switches whom you act as (yourself, or Maia City for its
-	admins) and signs out. A visitor sees only the sign-in page.
+	.svelte): back, the proposals (a star: their board in a modal over the page, $lib/site/proposals, admins only), and
+	you, whose menu switches whom you act as (yourself, or Maia City for its admins) and signs out. A visitor sees only
+	the sign-in page.
 
 	An app shell (Samuel 2026-11-04: on the iPad the pill floated up the page and stayed there): the document itself never
 	scrolls; every page scrolls inside .app-scroll, a box as tall as the screen (100dvh), and the pill sits at the foot of
@@ -20,6 +21,8 @@
 	import { afterNavigate, beforeNavigate } from '$app/navigation';
 	import { page, updated } from '$app/state';
 	import NavPill from '$lib/site/app/NavPill.svelte';
+	import ProposalsModal from '$lib/site/proposals/ProposalsModal.svelte';
+	import { closeProposals, openProposals, proposalsModal } from '$lib/site/proposals/proposals.svelte';
 	import { pillContext } from '$lib/site/app/pill.svelte.js';
 	import { footHost } from '$lib/site/app/foot.js';
 	import { loadMe, session, signOut } from '$lib/session.svelte';
@@ -39,6 +42,15 @@
 	// their next navigation
 	beforeNavigate(({ willUnload, to }) => {
 		if (updated.current && !willUnload && to?.url) location.href = to.url.href;
+	});
+	// the proposals are a modal over the page now (Samuel 2026-11-05): a link that names their old page opens it here
+	// instead, and going anywhere else closes it
+	beforeNavigate((nav) => {
+		if (nav.willUnload) return;
+		if (nav.type === 'link' && nav.to?.url.pathname === '/proposals/') {
+			nav.cancel();
+			openProposals();
+		} else closeProposals();
 	});
 	const keepsPlay = () => /^\/(sandbox-|game)/.test(page.url.pathname);
 	onMount(() => {
@@ -134,7 +146,8 @@
 		<div class="app-dock">
 			<!-- what floats over the pill (its account menu, a toast) is moved here, so the pill keeps its size -->
 			<div class="foot-stack" use:footHost></div>
-			<NavPill founder={session.me.founder == null ? null : { number: session.me.founder }} name={session.me.name} onsignout={signOut} />
+			<NavPill founder={session.me.founder == null ? null : { number: session.me.founder }} name={session.me.name} onsignout={signOut} proposals={session.me.level === 'admin'} />
 		</div>
+		{#if proposalsModal.open && session.me.level === 'admin'}<ProposalsModal />{/if}
 	</div>
 {/if}

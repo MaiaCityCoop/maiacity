@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# The server's care, by hand only (Actions → server → Run workflow; .github/workflows/server.yml):
+#   report  what fills its disks (the root disk and the data volume), what Docker holds, the journal, the leftovers of
+#           backups, play's files on the volume, and which of them are broken (their bytes not hashing to their name: a
+#           write cut short by a full disk leaves a file empty or partial, and play then took it for the file).
+#   clean   frees what nothing uses: Docker's unused images (older than a day; a rollback pulls its image again),
+#           stopped containers, its build cache and dangling volumes are NOT touched (no volume is removed); the
+#           journal past 200 MB; apt's cache; the leftovers of backups and restores. Then mends play's broken files:
+#           each one's good bytes from the backups in the bucket (streamed, never stored whole), checked against its
+#           hash and put back; one no backup holds is moved aside (kept beside the files), so play writes it anew the
+#           next time it is made. Then reports again.
+# Access to the bucket for the mending comes from ../backup.env, as for deploy/backup.sh.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+MODE="${1:-report}"
+set -a
+[ -f backup.env ] && . ./backup.env
+[ -f play.env ] && . ./play.env
+set +a
+DATA="${PLAY_DATA_PATH:-}"
+
+broken() {
+  # every file in play's folder whose bytes do not hash to its name, by play's own hash (inside its container)
+  docker exec maia-city-play bun -e '
+    import { hashBytes } from "/app/api/src/hash.ts";
+    import { readdirSync } from "node:fs";
+    const root = "/data/blobs";
+    for (const d of readdirSync(root)) for (const n of readdirSync(`${root}/${d}`)) {
+      if (!/^[0-9a-f]{64}$/.test(n)) { console.log(`${n} stray`); continue; }
+      const b = new Uint8Array(await Bun.file(`${root}/${d}/${n}`).arrayBuffer());
+      if (hashBytes(b) !== n) console.log(`${n} ${b.length}`);
+    }' </dev/null
+}
+
+report() {
+  echo "## Disks"; df -h / "${DATA:-/}" | sed 's/^/    /'
+  echo "## Docker"; docker system df | sed 's/^/    /'
+  echo "## Largest under the app, the volume and Docker"
+  sudo du -xsh /opt/maia-city/* /var/lib/docker /var/log 2>/dev/null | sort -h | tail -12 | sed 's/^/    /'
+  [ -n "$DATA" ] && sudo du -xsh "$(dirname "$DATA")"/* 2>/dev/null | sort -h | tail -12 | sed 's/^/    /'
+  echo "## Journal"; sudo journalctl --disk-usage 2>/dev/null | sed 's/^/    /' || true
+  if [ -n "$DATA" ] && [ -d "$DATA/blobs" ]; then
+    echo "## play's files: $(find "$DATA/blobs" -type f | wc -l) in $(du -sh "$DATA/blobs" | cut -f1)"
+    B=$(broken || true)
+    if [ -n "$B" ]; then
+      echo "## Broken files (name, bytes held) and what play says they are"
+      echo "$B" | sed 's/^/    /'
+      for h in $(echo "$B" | awk '$2 != "stray" {print $1}'); do
+        docker exec maia-city-db psql -U maiacity -d maiacity -Atc \
+          "SELECT hash, size, media_type, coalesce(label, ''), created FROM play.files WHERE hash = '$h'" </dev/null | sed 's/^/    /' || true
+      done
+    else
+      echo "## No broken files"
+    fi
+  fi
+}
+
+aws() {
+  docker run --rm -i -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION="$BACKUP_REGION" \
+    -e AWS_REQUEST_CHECKSUM_CALCULATION=when_required -e AWS_RESPONSE_CHECKSUM_VALIDATION=when_required \
+    amazon/aws-cli --endpoint-url "$BACKUP_ENDPOINT" --cli-connect-timeout 20 --cli-read-timeout 300 "$@"
+}
+
+mend() {
+  [ -n "$DATA" ] && [ -d "$DATA/blobs" ] || return 0
+  local B want
+  B=$(broken || true)
+  want=$(echo "$B" | awk 'NF == 2 && $2 != "stray" {print $1}')
+  [ -n "$want" ] || { echo "mend: no broken files"; return 0; }
+  echo "mend: $(echo "$want" | wc -l) broken files; looking for their bytes in the backups …"
+  local tmp; tmp=$(mktemp -d /opt/maia-city/backups-tmp/mend-XXXX); trap 'rm -rf "$tmp"' RETURN
+  # the newest backups first: each one's blobs.tar streamed through tar, which takes out only the files wanted
+  for b in $(aws s3 ls "s3://$BACKUP_BUCKET/BACKUPS/play/" </dev/null | awk '{print $2}' | tr -d / | sort -r | head -8); do
+    [ -n "$want" ] || break
+    local names=""; for h in $want; do names="$names blobs/${h:0:2}/$h"; done
+    aws s3 cp "s3://$BACKUP_BUCKET/BACKUPS/play/$b/blobs.tar" - </dev/null | tar -x -C "$tmp" $names 2>/dev/null || true
+    local left=""
+    for h in $want; do
+      f="$tmp/blobs/${h:0:2}/$h"
+      if [ -s "$f" ] && [ "$(docker run --rm -i -v "$f:/f:ro" --entrypoint bun "${PLAY_IMAGE}" -e 'import { hashBytes } from "/app/api/src/hash.ts"; console.log(hashBytes(new Uint8Array(await Bun.file("/f").arrayBuffer())))' </dev/null)" = "$h" ]; then
+        sudo install -o 1000 -g 1000 -m 0644 "$f" "$DATA/blobs/${h:0:2}/$h.mended" && sudo mv "$DATA/blobs/${h:0:2}/$h.mended" "$DATA/blobs/${h:0:2}/$h"
+        echo "mend: $h put back from $b"
+      else
+        left="$left $h"
+      fi
+      rm -f "$f"
+    done
+    want=$(echo $left)
+  done
+  if [ -n "$want" ]; then
+    local aside="$DATA/broken-$(date -u +%Y%m%dT%H%M%SZ)"
+    sudo mkdir -p "$aside"
+    for h in $want; do sudo mv "$DATA/blobs/${h:0:2}/$h" "$aside/$h"; echo "mend: $h is in no backup: moved aside to $aside (play writes it anew when it is made again)"; done
+  fi
+}
+
+clean() {
+  echo "clean: Docker's unused images older than a day, stopped containers, its build cache"
+  docker container prune -f | tail -1
+  docker image prune -af --filter "until=24h" | tail -1
+  docker builder prune -af | tail -1
+  echo "clean: the journal past 200 MB, apt's cache"
+  sudo journalctl --vacuum-size=200M 2>&1 | tail -1 || true
+  sudo apt-get clean || true
+  echo "clean: the leftovers of backups and restores"
+  sudo find /opt/maia-city/backups-tmp -mindepth 1 -maxdepth 1 -mmin +60 -exec rm -rf {} + 2>/dev/null || true
+  mkdir -p /opt/maia-city/backups-tmp
+  mend
+}
+
+case "$MODE" in
+  report) report ;;
+  clean) report; echo; clean; echo; echo "# After"; report ;;
+  *) echo "server-care: report or clean, not $MODE"; exit 1 ;;
+esac

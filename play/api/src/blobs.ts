@@ -1,6 +1,6 @@
 // Where blobs live: the bucket (Hetzner Object Storage, S3's protocol) in production, a folder on disk in development
 // and tests. Each blob is kept under its BLAKE3 hash and handed out only after its bytes are checked against it.
-import { mkdir, stat } from "node:fs/promises";
+import { mkdir, rename, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { HASH, hashBytes } from "./hash";
 
@@ -24,14 +24,28 @@ function checked(hash: string, bytes: Uint8Array) {
 
 export function folderStore(dir: string, publicBase = "/api/files"): BlobStore {
   const path = (h: string) => join(dir, keyOf(h));
+  /** whether the file there holds the blob whole: a write cut short (a full disk) leaves it empty or partial */
+  const whole = async (h: string) => {
+    const f = Bun.file(path(h));
+    if (!(await f.exists())) return false;
+    return hashBytes(new Uint8Array(await f.arrayBuffer())) === h;
+  };
   return {
-    async has(h) {
-      return stat(path(h)).then(() => true, () => false);
-    },
+    has: whole,
     async put(h, bytes) {
       checked(h, bytes);
+      if (await whole(h)) return keyOf(h);
       await mkdir(join(dir, "blobs", h.slice(0, 2)), { recursive: true });
-      await Bun.write(path(h), bytes);
+      // written whole beside it, then moved into its name: a blob's name never stands on bytes that are not it
+      const part = `${path(h)}.part-${process.pid}-${Math.random().toString(36).slice(2)}`;
+      try {
+        await Bun.write(part, bytes);
+        if ((await stat(part)).size !== bytes.length) throw new Error(`blob ${h}: written short (is the disk full?)`);
+        await rename(part, path(h));
+      } catch (e) {
+        await rm(part, { force: true });
+        throw e;
+      }
       return keyOf(h);
     },
     async get(h) {

@@ -1,13 +1,15 @@
 <!--
 	The app's one way round, a pill floating at the foot of every page of the app, the full-screen worlds and sandboxes
 	too, on a phone and a desktop alike: back ($lib/app/back.svelte.js: out of what a page has open over itself, else up
-	a place), home to the dashboard, and you (who is signed in, your name, the public site, signing out). No page has a
-	bar or a back button of its own, and everything else — the games, the worlds, the admin's tools — is a tile on the
-	dashboard. You is the person's vault switcher too (Samuel 2026-10-18): their avenDB vaults, their own first, which
+	a place, the dashboard last), the proposals, and you (who is signed in, your name, the public site, signing out). No
+	page has a bar or a back button of its own, and everything else — the games, the worlds, the admin's tools — is a tile
+	on the dashboard. The proposals (Samuel 2026-11-05) are a star, the AI's mark, in place of Home (Back goes up to the
+	dashboard anyway): it opens the board of what agents propose, and what comes before (the Inbox, Specify), in a modal
+	over the page ($lib/site/proposals), and is greyed out for everyone but Maia City's admins. You is the person's vault switcher too (Samuel 2026-10-18): their avenDB vaults, their own first, which
 	is their profile (their name lives there alone), and the one picked shown on the item, with how many changes wait
 	in the others; then the public site and signing out. Invites live in avenDB's Vaults app alone ($avendb/Vaults.svelte,
 	Samuel 2026-10-20), beside the roles they give. A page may add a
-	green "+" between Home and You that opens its main sheet, and the accounts it can be looked at as, listed in the You
+	green "+" between the proposals and You that opens its main sheet, and the accounts it can be looked at as, listed in the You
 	menu ($lib/app/pill.svelte.js: MaiaCity V1's wallet and its COOPs).
 
 	Where it floats and the room it takes are said once, in maia/site/app.css (--nav-foot, --nav-height, --nav-room): full-screen
@@ -20,15 +22,16 @@
 	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import Icon from './Icon.svelte';
-	import { back, onDashboard, upFrom } from './back.svelte.js';
+	import { back, upFrom } from './back.svelte.js';
 	import { pill } from './pill.svelte.js';
 	import { shaped } from './shapes.js';
+	import { proposalsModal, toggleProposals } from '../proposals/proposals.svelte';
 
-	/** @type {{ founder: { number: number } | null, name?: string, onsignout?: () => void }} the person signed in: their
-	 *  founder number where they came from legacy's founders, their name, and how they sign out */
-	let { founder, name = '', onsignout } = $props();
+	/** @type {{ founder: { number: number } | null, name?: string, onsignout?: () => void, proposals?: boolean }} the
+	 *  person signed in: their founder number where they came from legacy's founders, their name, how they sign out, and
+	 *  whether they may open the proposals (Maia City's admins, for now) */
+	let { founder, name = '', onsignout, proposals = false } = $props();
 
-	const home = `${base}/`;
 	let open = $state(false);
 	const menuId = $props.id();
 	/** @type {HTMLButtonElement | undefined} */
@@ -47,8 +50,6 @@
 	let hash = $state(typeof location === 'undefined' ? '' : location.hash);
 	afterNavigate(() => (hash = location.hash));
 	const up = $derived(upFrom(path.slice(base.length), hash));
-	/** on the dashboard itself, not on one of avenDB's views on it */
-	const atHome = $derived(path === home && onDashboard(hash));
 	const initials = $derived(name ? name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase() : '·');
 	const who = $derived(name || 'You');
 	// looking at another account than one's own (a COOP's wallet): the avatar and accessible name say whose
@@ -108,9 +109,9 @@
 	{:else if up}
 		<a class="item" href={up.href} title={up.label} aria-label={up.label}><Icon name="back" /><span>Back</span></a>
 	{/if}
-	<a class="item" href={home} aria-current={atHome ? 'page' : undefined} title="Dashboard">
-		<Icon name="home" /><span>Home</span>
-	</a>
+	<button class="item star" class:on={proposals && proposalsModal.open} onclick={toggleProposals} disabled={!proposals} aria-expanded={proposals ? proposalsModal.open : undefined} title={proposals ? (proposalsModal.open ? 'Close the proposals' : 'Proposals') : "Proposals: Maia City's admins only, for now"} aria-label="Proposals">
+		<Icon name="star" /><span>Proposals</span>
+	</button>
 	{#if pill.center}
 		<button class="item plus" class:on={pill.center.on} onclick={() => pill.center?.go()} title={pill.center.label} aria-label={pill.center.label} aria-expanded={pill.center.on}>
 			<span class="ring"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></span><span>{pill.center.label}</span>
@@ -206,10 +207,23 @@
 		background: rgb(38 56 44 / 0.06);
 	}
 
-	.item[aria-current='page'],
 	.item.on {
 		color: var(--paper);
 		background: var(--ink);
+	}
+
+	/* the proposals' star: mustard, the AI's colour; greyed out where it may not be opened, but still there */
+	.star :global(svg) {
+		color: var(--mustard);
+	}
+	.star:disabled {
+		cursor: not-allowed;
+		opacity: 0.45;
+		filter: grayscale(1);
+	}
+	.star:disabled:hover {
+		background: none;
+		color: var(--ink-soft);
 	}
 
 	/* the page's "+": a round, brand green button in the middle of the pill */

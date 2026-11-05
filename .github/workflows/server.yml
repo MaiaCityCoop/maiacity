@@ -1,0 +1,60 @@
+# server: the production machine's care, by hand only — Actions → server → Run workflow (deploy/server-care.sh).
+#   report  what fills its disks, what Docker holds, and which of play's files are broken
+#   clean   frees what nothing uses (unused images, build cache, the journal, leftovers of backups) and mends play's
+#           broken files from the backups in the bucket; then reports again
+name: server
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "report (changes nothing) or clean"
+        required: true
+        type: choice
+        options: [report, clean]
+        default: report
+
+permissions:
+  contents: read
+
+# never beside a deploy or a restore
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
+env:
+  APP_DIR: /opt/maia-city
+  HOST: api.maia.city
+  S3_BUCKET: maiacity
+  S3_ENDPOINT: https://hel1.your-objectstorage.com
+  S3_REGION: hel1
+
+jobs:
+  care:
+    name: ${{ inputs.mode }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prod-ssh
+        with:
+          host: ${{ env.HOST }}
+          ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      - name: Copy the script and the bucket's access
+        env:
+          S3_ACCESS_KEY: ${{ secrets.HETZNER_S3_ACCESS_KEY }}
+          S3_SECRET_KEY: ${{ secrets.HETZNER_S3_SECRET_KEY }}
+        run: |
+          ssh prod "mkdir -p $APP_DIR/deploy $APP_DIR/backups-tmp"
+          scp deploy/server-care.sh "prod:$APP_DIR/deploy/"
+          if [ -n "$S3_ACCESS_KEY" ] && [ -n "$S3_SECRET_KEY" ]; then
+            printf 'BACKUP_BUCKET=%s\nBACKUP_ENDPOINT=%s\nBACKUP_REGION=%s\nAWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s\n' \
+              "$S3_BUCKET" "$S3_ENDPOINT" "$S3_REGION" "$S3_ACCESS_KEY" "$S3_SECRET_KEY" \
+              | ssh prod "umask 077; cat > $APP_DIR/backup.env"
+          fi
+      - name: ${{ inputs.mode }}
+        env:
+          MODE: ${{ inputs.mode }}
+        run: ssh prod "cd $APP_DIR && timeout 2400 bash deploy/server-care.sh '$MODE'"
