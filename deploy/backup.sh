@@ -36,10 +36,10 @@ timeout 900 docker exec maia-city-db pg_dump -U maiacity -d maiacity -n play -Fc
 [ -s "$WORK/play.dump" ] || { echo "backup: the dump is empty"; exit 1; }
 # the files, always beside the dump: from the bucket where play keeps them there, else from its folder. Each is named by
 # its hash and never changes, so files written after the dump only add to what the copy holds.
-mkdir -p "$WORK/data/blobs"
 STORE=folder
 if [ -n "${PLAY_BUCKET:-}" ]; then
   STORE="bucket $PLAY_BUCKET"
+  mkdir -p "$WORK/data/blobs"
   echo "backup: copying the files in s3://$PLAY_BUCKET/blobs/ …"
   timeout 1800 docker run --rm -v "$WORK/data:/data" \
     -e AWS_ACCESS_KEY_ID="$PLAY_BUCKET_ACCESS_KEY" -e AWS_SECRET_ACCESS_KEY="$PLAY_BUCKET_SECRET_KEY" \
@@ -47,15 +47,23 @@ if [ -n "${PLAY_BUCKET:-}" ]; then
     -e AWS_REQUEST_CHECKSUM_CALCULATION=when_required -e AWS_RESPONSE_CHECKSUM_VALIDATION=when_required \
     amazon/aws-cli --endpoint-url "$PLAY_BUCKET_ENDPOINT" --cli-connect-timeout 20 --cli-read-timeout 120 \
     s3 sync "s3://$PLAY_BUCKET/blobs/" /data/blobs/ --only-show-errors </dev/null
+  tar -cf "$WORK/blobs.tar" -C "$WORK/data" blobs
+  FILES=$(find "$WORK/data/blobs" -type f | wc -l)
+  rm -rf "$WORK/data"
 elif [ -n "${PLAY_DATA_PATH:-}" ] && [ -d "$PLAY_DATA_PATH/blobs" ]; then
-  echo "backup: copying the files in $PLAY_DATA_PATH/blobs …"
-  cp -a "$PLAY_DATA_PATH/blobs/." "$WORK/data/blobs/"
+  # packed straight from the folder (no copy of it first: that held every file twice on the disk), and only if the
+  # disk has room for the pack, so a backup never fills it
+  NEED=$(du -sk "$PLAY_DATA_PATH/blobs" | cut -f1)
+  FREE=$(df -Pk "$WORK" | awk 'NR == 2 {print $4}')
+  if [ "$FREE" -lt $((NEED + NEED / 10 + 524288)) ]; then
+    echo "backup: $((FREE / 1024)) MB free beside $WORK, the files need $((NEED / 1024)) MB: free some space first (the server workflow's clean)"; exit 1
+  fi
+  echo "backup: packing the files in $PLAY_DATA_PATH/blobs …"
+  tar -cf "$WORK/blobs.tar" --exclude='*.part-*' -C "$PLAY_DATA_PATH" blobs
+  FILES=$(find "$PLAY_DATA_PATH/blobs" -type f ! -name '*.part-*' | wc -l)
 else
   echo "backup: play.env names neither PLAY_BUCKET nor a PLAY_DATA_PATH with blobs/: no files to copy"; exit 1
 fi
-tar -cf "$WORK/blobs.tar" -C "$WORK/data" blobs
-FILES=$(find "$WORK/data/blobs" -type f | wc -l)
-rm -rf "$WORK/data"
 # a backup holds every file the dump names, or it is no backup
 ROWS=$(docker exec maia-city-db psql -U maiacity -d maiacity -Atc "SELECT count(*) FROM play.files" </dev/null)
 if [ "$FILES" -lt "$ROWS" ]; then
