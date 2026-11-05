@@ -24,23 +24,18 @@ flowering.
 ## 0. The cultivar in one paragraph
 
 - **What it is.** The pomegranate of California and of most export orchards: a vigorous, thorny, own-rooted shrub-tree
-  with large, deep red, slightly flattened fruit, a long crown, a thin-to-medium rind, dark red tart-sweet arils and
-  medium-hard seeds. Said to have been found **about 1896 in Porterville, California, among cuttings received from
-  Florida** (UC fact sheet, S37 [2nd]); UGA calls the origin disputed (one story: found in Florida and brought west;
-  the other: found in a shipment of cuttings or seedlings in California, S13). UF says it "originated in Florida"
-  (S12). It accounts for about **90–95 %** of US production (S38 [2nd]) and is the main cultivar of Israel's ~3,000 ha
-  (S27 [2nd]).
-- **Genetically one plant.** Every 'Wonderful' is a clone from cuttings: germplasm studies find "pronounced genetic
-  uniformity consistent with their widespread clonal propagation in global commercial orchards" (S32). Its genome
-  (accession PG-100-1, Newe Ya'ar) is ~351 Mb in 8 pseudochromosomes, 2n = 16 (S31). So one model is true of it.
-- **Its marks.** UPOV uses 'Wonderful' as the example variety for: medium vigour, long and narrow leaf blades with a
-  moderately acute apex and a medium petiole, a broad calyx of orange-red colour, a medium orange corolla, a long and
-  broad fruit with a **long crown**, round cross-section, thin skin, medium acidity, low juiciness, medium aril width,
-  **dark red arils**, medium seed width and **medium seed hardness**, and medium flowering and ripening time (S4).
-- **Rules for the model.** One clone. Fruit from hermaphrodite flowers at the tips of short new shoots borne on spurs and
-  one-year wood, mostly on the outer shell of the crown. Most flowers are male and fall. The tree is trained in
-  California as a short single trunk (30–45 cm) with 4–6 scaffolds in a vase, or as 3–6 trunks from the ground; left
-  alone it is a suckering bush.
+  with large, deep red, slightly flattened fruit, a long crown, a thin rind, dark red sweet-tart arils and medium-hard
+  seeds. Said to have been found **about 1896 in Porterville, California, among cuttings from Florida** (S37 [2nd]);
+  UGA calls the origin disputed (S13), UF says Florida (S12). About **90–95 %** of US production (S38 [2nd]); the main
+  cultivar of Israel's ~3,000 ha (S42 [2nd]).
+- **One clone.** Propagated only by cuttings; its accessions show "pronounced genetic uniformity" (S32). Genome ~351 Mb,
+  8 pseudochromosomes, 2n = 16 (S31). So one model is true of it.
+- **Its marks (UPOV example variety, S4).** Medium vigour; long, narrow leaves, moderately acute apex, medium petiole;
+  broad orange-red calyx; medium orange corolla; long, broad fruit with a **long crown**, round in section, thin skin;
+  **dark red arils**; **medium-hard seeds**; medium flowering and ripening time.
+- **Rules for the model.** Fruit from hermaphrodite flowers at the tips of short new shoots on spurs and one-year wood, on
+  the crown's outer shell; most flowers are male and fall. Trained as a short trunk (30–45 cm) with 4–6 scaffolds in a
+  vase, or as 3–6 trunks from the ground; left alone, a suckering bush.
 
 ## Name
 
@@ -124,9 +119,7 @@ trees at 5.2 × 4.3 m (S9). The rest is fitted between them.
 | 8 y | 3.0–3.5 m | 3–6 (dozens of suckers if not removed) | 7–10 cm | 3–4 m | [EST] |
 | 15 y | **3–4 m** (UGA: "naturally 10–12 ft", a "dense, bushy, multi-stemmed shrub") | 3–6 | 10–15 cm | 3.5–4.5 m | [SP] S13; Ø [EST] by the pipe model: n stems share one trunk's area, Ø_stem ≈ Ø_trunk / √n |
 
-- **Vigour.** UPOV: 'Wonderful' is the example of **medium** vigour (S4); Ferrara et al. call it a "vigorous cultivar" whose
-  vegetative buds give "primary shoots often with abundant secondary shoots having a terminal thorn" (S22); Morton:
-  "vigorous and productive" (S14). 'Red Jay' is "slightly less vigorous" than 'Wonderful' (S18). [CV]
+- **Vigour.** Medium (UPOV example, S4); "vigorous" (S22, S14); 'Red Jay' "slightly less vigorous" (S18). [CV]
 - **Maturity.** Trees "reach maturity in five to seven years" (UGA, S13). [SP]
 
 ### Growth rhythm
@@ -142,11 +135,10 @@ trees at 5.2 × 4.3 m (S9). The rest is fitted between them.
 
 - **Buds.** Small (0.1–0.3 cm), brownish-green; typically **two buds per node at 90°** to the pair below, sometimes one,
   sometimes three (S22). [SP incl. 'Wonderful']
-- **Thorns.** Young branches are 4-angled and "often terminating as indurate spines" (FOC, S15). In 'Wonderful' many
-  secondary shoots end in a thorn (S22). Thorn lengths in related cultivars: 3–5 mm (EMEK), 3–8 mm (KAMEL) (S19);
-  ~3 cm ('Red Jay', sport of 'Wonderful', S18); from 3 mm to 9 cm, in opposite pairs about 5 cm apart on second-year wood
-  ('Smith', S20). For 'Wonderful' use **1–4 cm, stiff, straight, red-brown to grey**, at the tips of short side shoots
-  and in pairs at nodes [EST]. The Cal Poly thesis on 'Wonderful' is titled "Fruit, Flower, and Thorn" (S10).
+- **Thorns.** Branchlets "often terminating as indurate spines" (S15); in 'Wonderful' many secondary shoots end in a
+  thorn (S22). Related cultivars: 3–8 mm (EMEK, KAMEL, S19), ~3 cm ('Red Jay', S18), 3 mm–9 cm in opposite pairs ~5 cm
+  apart on second-year wood ('Smith', S20). Use **1–4 cm, stiff, straight, red-brown to grey**, at short-shoot tips and
+  in pairs at nodes [EST].
 - **Spurs and fruit wood.** "Short fruiting spurs appear primarily on two- or three-year-old wood, and are found growing
   mostly on the outer perimeter of the canopy" (UGA, S13). On mature 'Wonderful' (S10 [2nd]): one-year wood bore **70 %**
   of the flowers (5 % hermaphrodite) and **57 %** of marketable fruit; two-year wood 19 % (10 % hermaphrodite); older
@@ -166,11 +158,9 @@ trees at 5.2 × 4.3 m (S9). The rest is fitted between them.
 
 ### Phyllotaxis
 
-- **Opposite and decussate** on growing shoots (UF: "opposed and pairs alternately crossing at right angles"), sometimes
-  in **whorls of 3**; **clustered** on spurs and short shoots, "in whorls of 5 or 6" (Morton) because the internodes of a
-  spur are nil (S12, S14, S22). UPOV records the predominant number of leaves per node on young shoots as two, three
-  or more than three (S4). Model: decussate pairs on long shoots, ±10° jitter; rosettes of **4–8 leaves** on spurs.
-  [SP; counts EST]
+- **Opposite and decussate** on long shoots ("pairs alternately crossing at right angles", S12), sometimes **whorls of
+  3** (S22, S4); **clustered** on spurs, "in whorls of 5 or 6" (S14). Model: decussate pairs, ±10° jitter; rosettes of
+  **4–8 leaves** on spurs. [SP; counts EST]
 
 ### Roots and suckers
 
@@ -204,8 +194,8 @@ trees at 5.2 × 4.3 m (S9). The rest is fitted between them.
 |---|---|---|
 | Where borne | at the **tips of current-season shoots**, singly or in clusters of **2–5** (a terminal and lateral flowers), on short shoots from spurs and one-year wood, mostly on the canopy's outer shell (S14, S12, S13, S10). Flower organogenesis in 'Wonderful' is not visible before bud break; flowers form on the new spring shoots (S22 citing S2) | [CV] S10 [2nd], S2 [2nd]; [SP] |
 | Two flower types (andromonoecy) | **hermaphrodite** (bisexual, fruit-setting): a swollen, broad **urn-shaped** base (the inferior ovary), long style; **functionally male**: narrow, tapering **bell/vase-shaped** base, a rudimentary ovary with degenerate ovules, short or no style; they fall after shedding pollen (S1, S2, S40). Hermaphrodite flowers of 'Wonderful': styles longer (≈ 15–16 mm) than in males (≈ 1–2 mm) (S22) | [CV] S1, S22 |
-| Naming warning | the words swap between sources: Wetzstein calls the bisexual "urn" and the male "vase" (S1); others call the bisexual "vase" (urceolate) and the male "bell" (campanulate); UGA says both ways in one bulletin (S13). **Model by form, not by name: fruit flowers are fat at the base, male flowers are slim at the base** | S1, S13 |
-| Ratio of types | mature 'Wonderful', Cal Poly 2015: **93 % staminate** (over 1,100 hermaphrodite, ~1,800 male tagged, ~14,000 fallen males collected) (S10 [2nd]); 'Wonderful' and 'Ermioni', Greece: **19 % bisexual** (S11 [2nd]); collected open flowers at Delano: 93 % (terminal), 90 % (single) and 51 % (lateral) bisexual (S1, a sample chosen for bisexual flowers, not a census) | [CV] |
+| Naming warning | the words swap: bisexual "urn" and male "vase" (S1); bisexual "vase" and male "bell" (others); UGA both ways (S13). **Model by form: fruit flowers fat at the base, male flowers slim** | S1, S13 |
+| Ratio of types | **93 % staminate** on mature 'Wonderful' (Cal Poly 2015; ~14,000 fallen males collected) (S10 [2nd]); **19 % bisexual** in Greece (S11 [2nd]); of open flowers sampled at Delano 51–93 % were bisexual by position (S1, not a census) | [CV] |
 | Size, hermaphrodite (Delano) | base to sepal tip **42 mm** (31–51), base to sepal notch **31 mm**, ovary width **14.5 mm** (10–22), pistil **31 mm**, stigma + style 12 mm (terminal flowers; lateral flowers ~15 % smaller) | [CV] S1 (Wetzstein et al. 2013) |
 | Size, buds and lab flowers (Puglia) | flower height **24.1 mm**, width **13.2 mm** (closed/opening flowers, both types) | [CV] S22 |
 | Diameter open | **4–6 cm** (UF); related cultivars: 45–50 mm (EMEK), 33–41 mm (KAMEL), 47 mm ('Red Jay'), 37–42 mm ('Smith') | [SP] S12, S19, S18, S20 |
@@ -218,7 +208,7 @@ trees at 5.2 × 4.3 m (S9). The rest is fitted between them.
 | Pedicel | very short, 2–5 mm; flowers sit almost on the shoot tip | [EST] |
 | First flowering | a tree from a hardwood cutting **bears in year 2** after planting (UGA); "may begin bearing 1 year after planting; 2½ to 3 years is more common" (Morton); juvenile fruit drop is severe for **3–5 years** (UF) | [SP] S13, S14, S12 |
 | Full bearing | **5–7 years** (UGA "maturity"); 15–18-year trees in full commercial crop (S9) | [SP] S13; [CV] S9 |
-| Season, California | **April to June**, "either in a continuous manner or in three to four flushes" (UGA); 'Wonderful': **three distinct bloom periods**, the first lasting about **6 weeks** (S10 [2nd]); 'Wonderful' "produces up to three sets of blooms" (S34); full bloom of 'Wonderful' **early to mid May** in Kern County (S18); a single wave of 44–56 days, most flowers in 1–2 weeks (Greece, S11 [2nd]). UPOV: medium time of flowering | [SP] S13; [CV] S10, S18, S11, S4 |
+| Season, California | **April to June**, continuous or in 3–4 flushes (S13); 'Wonderful': **three bloom periods**, the first ~**6 weeks** (S10 [2nd]); full bloom **early–mid May** in Kern Co. (S18); one 44–56-day wave in Greece (S11 [2nd]); UPOV: medium | [SP] S13; [CV] S10, S18, S11, S4 |
 | Flower life | petals last **1–3 days** in commercial cultivars | [SP] S22 |
 | Pollination | self-fertile; bees, other insects and hummingbirds (S13); cross-pollination raises set (68 % against 45 % for bagged selfed flowers, S14) | [SP] |
 | Fruit set and flower age | hand pollination on the day of opening: **79 %** set, 557 g fruit, 941 arils; on day 4: 50 % set, 309 g, 480 arils ('Wonderful', Delano) | [CV] S1 |
@@ -234,25 +224,25 @@ trees at 5.2 × 4.3 m (S9). The rest is fitted between them.
 | Size | **10.8 cm wide × 8.9 cm long** (Italy, length without crown); 10.6 × 9.3 cm for 557 g fruit (Delano); 8.6–8.9 × 7.8 cm (Egypt); 'Wonderful' "about 3 in (7.6 cm) diameter" in an old Porterville patent (S38 [2nd]) | [CV] S5, S1, S7 |
 | Diameter for the model | **9.5 cm** (8–11 cm), length 8.5 cm, length/width **0.87–0.92** | [EST]; ratios [CV] S6 (0.895–0.919), S7 (0.87–0.91) |
 | Shape | **globose, slightly flattened (oblate)** (Morton: "oblate"), round in cross-section (UPOV note 1, example 'Wonderful'), not angular; UPOV: long and broad fruit, medium length/width ratio | [CV] S14, S4 |
-| Crown (persistent calyx) | **long** (UPOV note 7, example 'Wonderful'); **1.9 cm** long in Caserta (the longest of six cultivars, range 1.3–1.9); calyx **broad**; 'Red Jay': open crown 15–20 mm high × 38–40 mm wide, closed 25–30 × 15–20 mm, **5–8 lobes**; 'Smith': six points, "pointed and upright". For 'Wonderful' use **2.0–2.5 cm high, mouth 2.5–3.5 cm across, 6 (5–7) triangular lobes** spreading or incurved | [CV] S4, S5; [SP] S18, S20; model [EST] |
+| Crown (persistent calyx) | **long** and broad (UPOV, example 'Wonderful'); **1.9 cm** long at Caserta, the longest of six cultivars; 'Red Jay' open crown 15–20 mm high × 38–40 mm wide, 5–8 lobes. Use **2.0–2.5 cm high, mouth 2.5–3.5 cm, 6 (5–7) triangular lobes**, spreading or incurved | [CV] S4, S5; [SP] S18; [EST] |
 | Crown colour | the same red as the rind outside; the lobe tips dry brownish; inside the crown the dried stamens persist as a brown brush | [EST] (filaments persistent, S17) |
-| Rind colour by stage | **dark green** at 3 weeks after petal fall; **colour break** (green with the first red on the sun side) at **11 weeks**; **deep red** at **22 weeks** (harvest) (Israel, Volcani, S8). Ripe: 'Wonderful' "dark purple-red" (Morton), red over a red ground (UPOV records only a small extent of extra over-colour, note 3). The ripening rind is first glossy, then "a little less shiny" (S34). Pigments mostly delphinidin, then cyanidin and pelargonidin glucosides (S8) | [CV] S8, S14, S4 |
+| Rind colour by stage | **dark green** at 3 weeks after petal fall, **colour break** (first red on the sun side) at **11 weeks**, **deep red** at **22 weeks** (Israel, S8); ripe "dark purple-red" (S14), red on a red ground (UPOV over-colour extent small); glossy, then "a little less shiny" (S34); mainly delphinidin glucosides (S8) | [CV] S8, S14, S4 |
 | Rind colours for the model | green ≈ #5d8a2e → yellow-green with a pink-red blush on the sun side ≈ #b5b04a / #c0503a → **deep red** ≈ #9c1626 to #b52430, the shaded underside a little paler and browner ≈ #8a3a2a; small brown lenticel dots and wind-scar russet | [EST] from S8 |
 | Rind thickness | **3.9 mm** at the equator (Caserta; "thin", 3–3.9 mm class); UPOV: thin (note 3, example 'Wonderful'); Morton: "medium-thick". Rind (exocarp + white spongy mesocarp) is **36 %** of fruit mass (Egypt) | [CV] S5, S4, S14, S7 |
 | Inside | a cream to pale yellow spongy mesocarp (albedo) around **chambers** walled by thin, papery, cream-yellow septa ("thin leathery yellow septa", S17); in cross-section the upper layer shows **5–9 chambers** (the 8–13 locules sit in 2–3 layers, the lower 2–3 with central, the upper 5–7 with wall placentas) | [SP] S16, S15, S17; visible count [EST] |
 | Arils per fruit | **488 ± 167** (201–985) over 48 fruit; 941 in large (557 g) fruit, 480 in small (309 g) fruit; "300 g: 480 arils, 550 g: 930 arils"; fruit size is set by aril number, not aril size. "Mature fruit commonly contain 300 to >1,000 arils" | [CV] S1 |
 | Aril share and juice | arils **50.4 ± 3.9 %** of fruit mass (S1); 63–64 % (Egypt, S7); 166–221 g of arils a fruit (Iran, S6); UPOV: juiciness low (note 3) | [CV] |
 | Aril colour, taste | dark red; sweet-sour (S19 Table 1), medium acidity (UPOV); harvest standard in California: titratable acidity < 1.85 %, soluble solids > 16–17 %, ratio > 18.5 (S13); Morton: 1.8 % acid, 17 % SSC | [CV] S4, S13, S14 |
-| Days from flowering to harvest | **~154 days** (22 weeks after petal fall, Israel, S8); harvests at **155, 170, 185 DAF** in Iran, best at 170–185 (S6); "6 to 7 months after flowering" (Morton, S14); 'Smith' ripe ~3 weeks before 'Wonderful', which is picked about **1 October** (S20); 'Red Jay' ripe ~60 days before 'Wonderful' (S18). Use **~150–165 days** from a mid-May full bloom to a late-September–mid-October harvest | [CV] S8, S6; [EST] |
-| Harvest, California | "Late (beginning of October)" (S19 Table 1, 'Wonderful'); "ripens in late September and October" (UC, S37 [2nd]); strip-picked in **late September or early October**, "after early maturity but before fruit cracking" (S9); 2–4 picks a season in most orchards (S13) | [CV] |
-| Growth curve | [EST, shape SP] a **single sigmoid** in mass, diameter about **35–45 % of final at 50 DAFB**, the steep phase 50–120 DAFB, then slow swelling to harvest while colour builds; the hard seed tissue stops growing and hardens by late June while the juicy coat grows on to October (Israel, Shulman et al. 1984, S39 [2nd]); 'Mollar de Elche' still grew from 78 to 95 mm diameter after 92 DAFB (S41 [2nd]); 'Wonderful' still gained 13–40 g between 155 and 185 DAF (S6) |
+| Days from flowering to harvest | **~154 d** (22 weeks after petal fall, Israel, S8); best at **170–185 DAF** in Iran (S6); "6 to 7 months" (S14); picked about **1 October** in Tulare Co. (S20). Use **150–165 d** from a mid-May full bloom | [CV] S8, S6; [EST] |
+| Harvest, California | "Late (beginning of October)" (S19); late September–October (S37 [2nd]); strip-picked late Sept–early Oct "before fruit cracking" (S9); 2–4 picks elsewhere (S13) | [CV] |
+| Growth curve | [EST, shape SP] a **single sigmoid**; the hard seed tissue hardens by late June while the juicy coat grows on to October (S39 [2nd]); 'Mollar de Elche' still grew 78 → 95 mm after 92 DAFB (S41 [2nd]); 'Wonderful' still gained 13–40 g between 155 and 185 DAF (S6) | [EST]; S39, S41, S6 |
 | Diameter by DAFB for the model | 10 DAFB 1.5 cm (the ovary just swelling under the crown) · 30 d 3.5 cm · 60 d 5.5 cm · 90 d 7.0 cm · 120 d 8.3 cm · 150 d 9.2 cm · 165 d 9.5 cm | [EST] fitted to the curve above and a 9.5 cm final size |
-| Splitting (cracking) | rises late in the season and after rain or irregular irrigation: **negligible at 155 DAF; 5–21 % at 170 DAF; 12–30 % at 185 DAF** (Iran, two orchards); "with the first fall rains, the fruit often begins to crack" (S34); a standard **7 %** split loss used in California budgets (S23). Splits open as a jagged crack through the rind from the side toward the crown, showing arils | [CV] S6; [SP] S34, S23; form [EST] |
+| Splitting (cracking) | **negligible at 155 DAF, 5–21 % at 170, 12–30 % at 185 DAF** (Iran, S6); after the first autumn rains (S34); 7 % split loss in California budgets (S23). A jagged crack through the rind from the side toward the crown | [CV] S6; [SP] S34, S23; form [EST] |
 | Sunburn | 'Wonderful' shows high sunburn loss, **56.7 %** in UC Riverside field data (S23): a bleached, then brown-black, leathery patch on the sun side | [CV] S23; look S13 |
 | Stalk | almost none: the fruit sits on a short woody stalk **5–8 mm** long and ~6 mm thick ('Smith': 6 mm) at the shoot tip, often hanging from the bent shoot | [SP] S20; [EST] |
 | Yield per tree | **70.0–96.6 kg a tree a year** on 15–18-year 'Wonderful' trees at 5.2 × 4.3 m, California, 2009–2012 (CV 0.135–0.225); yield follows fruit count (r = 0.893) | [CV] S9 [2nd] |
 | Fruit per tree | ≈ **180–280 fruit** a mature tree | [EST]: 70–97 kg ÷ 0.35–0.40 kg |
-| Yield per hectare | **31–43 t/ha** in that block (computed: 447 trees/ha × 70–97 kg); California average over all bearing acres **6.72 short tons/acre ≈ 15 t/ha** (2023, all ages and cultivars); Israel 35–45 t/ha (trade press) | [CV] S9 computed; [SP] S23, S27 [2nd] |
+| Yield per hectare | **31–43 t/ha** in that block (computed: 447 trees/ha × 70–97 kg); California average over all bearing acres **6.72 short tons/acre ≈ 15 t/ha** (2023, all ages and cultivars); Israel 35–45 t/ha (trade press) | [CV] S9 computed; [SP] S23, S42 [2nd] |
 | Alternate bearing | not marked; yield varies 14–23 % between years and trees (S9) | [CV] S9 |
 
 ## 7. Bark
@@ -271,11 +261,11 @@ trees at 5.2 × 4.3 m (S9). The rest is fitted between them.
 |---|---|---|
 | Climate | best fruit in **cool winters and hot, dry summers** (Mediterranean or semi-arid) (UF); "perform best when temperatures are above 85 °F (29 °C) for at least 120 days a year" (UGA); the San Joaquin Valley, California (hot dry summers, 250–300 mm rain in winter) | [SP] S12, S13 |
 | Chill | 'Wonderful' needs **longer chilling** than 'Fleischman' and two Italian locals; budbreak highest after **300–400 h** at ≤ 7.2 °C (Puglia, 2024–25) (S21 [2nd]); nurseries give 150–200 h below 7 °C | [CV] S21 [2nd]; nursery [2nd] |
-| Cold hardiness | dormant trees severely injured below **−11 °C (12 °F)** (UF, Morton, UGA; the hardier types to −14 °C / 7 °F); "quite resistant to cold, down to 10 °F (−12 °C)" when dormant (UC MG); very sensitive to frost before full dormancy in late fall and after bud swell (−2 °C / 28 °F damaged a non-dormant tree in Florida) | [SP] S12, S13, S14, S34 |
+| Cold hardiness | dormant trees badly hurt below **−11 °C (12 °F)**, hardier types to −14 °C (S12, S13, S14); "down to 10 °F (−12 °C)" when dormant (S34); tender before full dormancy and after bud swell (−2 °C hurt a leafing tree, S12) | [SP] |
 | Heat, sun | very heat tolerant; sunburn and sunscald on exposed fruit (above) | [SP] S13; [CV] S23 |
 | Water | about as much as citrus, **1,250–1,500 mm a year** (UF); drought tolerant but crops need regular water; uneven watering splits fruit | [SP] S12 |
 | Soil | deep loams best; sand to heavy clay; pH 5.5–7.0 best (UF); poor on alkaline soils, poor colour on clays | [SP] S12 |
-| Spacing | UC: **3–5 m in the row × 5–7 m between rows**; UC cost study: **5.5 × 5.5 m** (18 × 18 ft, 134 trees an acre ≈ 331/ha); the measured block **5.2 × 4.3 m** (≈ 447/ha); tighter 4.3–4.9 × 5.5 m and down to 1.5 × 3.6 m used; Egypt 4 × 2.5 m. Use **5.5 × 3.7 m** (18 × 12 ft, ≈ 490/ha) for a modern San Joaquin Valley hedgerow | [SP] S38 [2nd], S24 [2nd], S13; [CV] S9, S7; 5.5 × 3.7 m [EST] |
+| Spacing | UC: **3–5 m in the row × 5–7 m between rows** (S38 [2nd]); cost study **5.5 × 5.5 m** (134 an acre, S24 [2nd]); measured block **5.2 × 4.3 m** (S9); Egypt 4 × 2.5 m (S7). Use **5.5 × 3.7 m** (≈ 490/ha) for a modern hedgerow | [SP]; [CV] S9, S7; [EST] |
 | Productive life | orchard lifespan **25 years** in UC budgets (S23 citing Day et al. 2010); the plant "can live up to 200 years" (UGA), trees at Versailles two centuries (Morton) | [SP] S23, S13, S14 |
 | Pests and diseases (what a world shows) | heart rot (*Alternaria*, *Aspergillus*) inside sound-looking fruit; split fruit with mould; leaf-footed bugs; birds at split fruit; sunburn; dry rot can destroy up to 80 % of a crop (Morton) | [SP] S14, S13 |
 | Uses | fresh fruit, arils, juice (POM Wonderful), grenadine; ornamental | [SP] |
@@ -284,17 +274,12 @@ trees at 5.2 × 4.3 m (S9). The rest is fitted between them.
 
 | Date / age | Event | Source |
 |---|---|---|
-| Dec–Feb (year −1) | hardwood cuttings taken from one-year wood (or suckers), stuck in nursery rows | S13, S12 |
-| Year 0, late winter | rooted cutting planted bare-root, headed to 60–75 cm | S13, S12 |
-| From seed (if ever): day 0 | fresh seed sown in warmth; root out ~day 5–9, epigeal emergence ~day 9–20, cotyledons open | S27 [2nd], S26; [EST] |
-| Seedling, day 20–60 | first decussate leaf pairs; 5 cm at 30 d, 15 cm at 60 d | [EST] from S27 |
-| Seedling, day 90 | ~35 cm, cotyledons shed | [EST] from S27 |
+| Year −1 → 0 | cuttings stuck in winter, rooted for a season, planted bare-root and headed to 60–75 cm | S13, S12 |
 | Mid–late March | bud break; bronze-red new leaves | S33 [2nd]; [EST] date |
 | April | shoots 10–30 cm; first flower buds at their tips (organogenesis only after bud break; bud to anthesis 14–28 days) | S22 |
 | Late April–mid May | **first bloom wave** (full bloom early–mid May); most flowers male and dropped within days; petals last 1–3 days | S18, S10, S22 |
 | May–June | second and third bloom waves; fruit set on early hermaphrodite flowers; crowns stand upright on 2–4 cm green fruitlets | S10, S13 |
-| June (≈ 21 DAFB) | fruit dark green; ~30 % of final diameter | S8; [EST] |
-| Late June | the hard seed tissue stops growing and hardens | S39 [2nd] |
+| June (≈ 21–45 DAFB) | fruit dark green; the hard seed tissue hardens by late June | S8, S39 [2nd] |
 | July–August (≈ 77 DAFB) | **colour break**: first red blush on the sun side; fruit 6–7.5 cm; limbs begin to bend | S8; [EST] |
 | September | rind turning deep red all over; arils darkening; sugars rising; sunburn on exposed faces | S8, S23 |
 | Late Sept–mid Oct (≈ 150–165 DAFB) | **harvest**: deep red, crown long and dry-tipped; strip-picked before rains | S9, S19, S8 |
@@ -302,47 +287,32 @@ trees at 5.2 × 4.3 m (S9). The rest is fitted between them.
 | November | leaves butter-yellow, then fall; split and mummified fruit may hang through winter | S33 [2nd]; S34 |
 | Year 1–2 | first few fruit (year 2 from a cutting); heavy juvenile fruit drop for 3–5 years | S13, S12 |
 | Year 3 | 3–3.7 m, trunk ~6 cm, 2.1–2.4 m wide | [EST] from S18 |
-| Year 5–7 | maturity, full crop begins | S13 |
-| Year 15–18 | 70–97 kg a tree a year | S9 |
+| Year 5–7 → 15–18 | maturity; then 70–97 kg a tree a year | S13, S9 |
 | Year 25 | commercial orchard replaced; untended plants live on for a century or more as suckering bushes | S23, S13, S14 |
 
 ## Gaps
 
-These rows have no published number for 'Wonderful' (nor, sometimes, for the species). Each is marked [EST] above with
-how it was estimated.
+Every row below is marked [EST] above, with how it was estimated.
 
-- **Height, crown width and trunk diameter by age, 1–15 years.** No year-by-year measurement of 'Wonderful' found. The
-  3-year values are those of its sport 'Red Jay' grown beside it and said to be similar (S18); the 10-year trunk is
-  'Smith' (S20); the mature trunk is from two Israeli single-trunk cultivars (S19); the rest is fitted. The Wilkins &
-  McCoy trial measured trunk circumference of 15–18-year 'Wonderful' trees but the abstract gives no value (S9).
-- **Leaf blade length, width and petiole in cm.** UPOV gives only classes for 'Wonderful' (long, narrow, medium petiole;
-  S4); the cm values are placed against measured related cultivars.
-- **Germination days, cotyledon size and shape, seedling heights.** Only species values from India and Costa Rica (S26,
-  S27 [2nd]); the cotyledon size is estimated from the seed size and the rolled embryo (S28 [2nd]); seedling heights are
-  derived from vigour indices. 'Wonderful' is never grown from seed, so these stages are generic pomegranate.
-- **Hallé–Oldeman model.** No source assigns *Punica*; Champagnat's model is my reading of its thorn- and
-  flower-tipped, arching, basally renewed axes.
-- **Thorn length and spacing on 'Wonderful'.** Only "thorny" and the shoot structure are published for it (S22, S10);
-  the 1–4 cm length is the middle of related cultivars' values.
-- **Fruit diameter by DAFB.** The colour stages and harvest days are measured on 'Wonderful' (S8, S6); the diameter curve
-  is fitted to a single sigmoid from other cultivars (S39, S41 [2nd]).
-- **Crown height and mouth width for the model.** Only the Italian crown length (1.9 cm, S5) and the UPOV class "long"
-  are measured on 'Wonderful'; sizes from 'Red Jay' (S18).
-- **Number of visible chambers in cross-section.** From the species' locule count (S15, S16).
-- **Bud break and leaf-fall dates, leaf life.** From UC IPM and UF general statements (S33 [2nd], S12).
-- **Root depth and spread.** Measured only on 4-year 'Bhagwa' in shallow Indian soil (S25 [2nd]); deep California soils
-  are an estimate.
-- **Hex colours throughout.** Estimates from RHS codes of related cultivars (S18, S19) and the colour words of S4, S8, S12.
-- **Spacing 5.5 × 3.7 m.** A common modern hedgerow spacing between the published ones; not itself sourced.
-- **The 1896 Porterville origin, 90–95 % share, and LaRue's 12–15 ft.** Read only in search snippets citing UC
-  publications (S37, S38 [2nd]); UGA calls the origin disputed and UF says Florida.
-- **Not read at all, though they are the standard references:** Stover & Mercure 2007 (S35), Holland, Hatib &
-  Bar-Ya'akov 2009 (S36), Levin 2006 *Pomegranate Roads*, Chater et al. 2018 (S30, numbers not reached), the UC ANR
-  production manual, the Cal Poly thesis in full (S10, only its abstract), and Wetzstein et al. 2011 JASHS (S2, only as
-  presented in S1). Their numbers would replace several estimates above, especially the flower-type ratios, leaf sizes
-  and fruit growth.
-- **Second-hand values ([2nd]).** S2, S3 (via S1's slides), S9, S10, S11, S21, S24, S25, S27, S28, S33, S37, S38, S39,
-  S41 were read only as abstracts, slides or snippets.
+- **Height, crown and trunk by age, 1–15 y**: no year-by-year record of 'Wonderful'. Anchored on its sport 'Red Jay' at
+  3 y (S18), 'Smith' at 10 y (S20), Israeli single-trunk cultivars when mature (S19) and the 5.2 × 4.3 m spacing of
+  15–18-year 'Wonderful' (S9); fitted between. The multi-trunk stem sizes follow the pipe model.
+- **Leaf L × W and petiole in cm**: UPOV gives only classes for 'Wonderful' (S4); cm placed against related cultivars.
+- **Seedling stages** (germination days, cotyledon size, heights by month): species values only (S26, S27 [2nd]);
+  cotyledons from the seed size and rolled embryo (S28); heights from vigour indices. 'Wonderful' is never grown from seed.
+- **Hallé–Oldeman model**: no source assigns *Punica*; Champagnat's is my reading.
+- **Thorn length and spacing**, **crown height and mouth width**, **visible chamber count**: from related cultivars and
+  the species' locule count.
+- **Fruit diameter by DAFB**: colour stages and harvest days are measured (S8, S6); the curve is fitted.
+- **Bud break, leaf fall, leaf life; root depth and spread**: general statements (S33 [2nd]) and 4-year 'Bhagwa' (S25 [2nd]).
+- **All hex colours**: from RHS codes of related cultivars and colour words.
+- **Spacing 5.5 × 3.7 m**: a common modern hedgerow between the published spacings.
+- **Origin (Porterville 1896), 90–95 % share, LaRue's 12–15 ft**: snippets only (S37, S38 [2nd]); UGA calls the origin
+  disputed, UF says Florida.
+- **Not read**: Stover & Mercure 2007 (S35), Holland et al. 2009 (S36), Levin's *Pomegranate Roads*, Chater et al. 2018
+  numbers (S30), the UC ANR manual, the Cal Poly thesis (S10) and Wetzstein et al. 2011 (S2) in full. They would replace
+  several estimates (flower-type ratios, leaf sizes, fruit growth).
+- **[2nd] sources**: S2, S3, S9, S10, S11, S21, S24, S25, S27, S28, S33, S37–S39, S41, S42.
 
 ## For the brief
 
@@ -412,118 +382,46 @@ What image models (and people) usually get wrong about pomegranates, and what is
 
 ## Sources
 
-- **S1** Porter, J. & Wetzstein, H.Y. (2014). *The Biology of Pomegranates: All about Flowers, Fruit and Arils*. Talk to
-  the Florida Pomegranate Association, 10 Oct 2014 (University of Georgia / Purdue University). Slides from 'Wonderful'
-  orchards of Paramount Farming Co. near Delano, CA. https://www.growables.org/information/TropicalFruit/documents/PomegranateBiology.pdf
-  (read in full: fruit quality matrix of 48 fruit, flower-age pollination table, bisexual flower measurements, ovule
-  counts; it presents S2, S3 and Wetzstein, Zhang, Ravid & Wetzstein 2011, HortScience 46:908–912)
-- **S2** Wetzstein, H.Y., Ravid, N., Wilkins, E. & Martinelli, A.P. (2011). A morphological and histological
-  characterization of bisexual and male flower types in pomegranate. *J. Amer. Soc. Hort. Sci.* 136(2): 83–92.
-  doi:10.21273/JASHS.136.2.83 ('Wonderful', 8-year trees near Delano) [2nd: via S1, S22 and search snippets]
-- **S3** Wetzstein, H.Y., Yi, W., Porter, J.A. & Ravid, N. (2013). Flower position and size impact ovule number per flower,
-  fruitset, and fruit size in pomegranate. *J. Amer. Soc. Hort. Sci.* 138(3): 159–166 [2nd: via S1]
-- **S4** UPOV (2013). *Pomegranate. Guidelines for the conduct of tests for distinctness, uniformity and stability.*
-  TG/284/1 (UPOV code PUNIC_GRA). https://www.upov.int/edocs/tgdocs/en/tg284.pdf (read: the table of characteristics,
-  'Wonderful' as example variety in 25 characteristics; the observation rules in 8.1). Note: the request cited
-  "TG/288"; the pomegranate guideline is TG/284/1.
-- **S5** Adiletta, G., Petriccione, M., Liguori, L., Pizzolongo, F., Romano, R. & Di Matteo, M. (2018). Study of
-  pomological traits and physico-chemical quality of pomegranate (*Punica granatum* L.) genotypes grown in Italy. *Eur.
-  Food Res. Technol.* doi:10.1007/s00217-018-3056-x (read: Table 1, 'Wonderful' at Caserta, ~10-year trees, 2015–2016)
-- **S6** Narjesi, V., Bonyanpour, A. & Ghasemi-Soloklui, A.A. (2025). Determining the optimal harvest time for
-  pomegranate variety Wonderful in semi-arid climate. *Sci. Rep.* 15: 7668. doi:10.1038/s41598-025-92015-7 (read in
-  full: fruit and aril weight, L/D ratio, cracking at 155/170/185 DAF, Saveh, Iran)
-- **S7** Almutairi, K.F., Abdel-Sattar, M., Mahdy, A.M. & El-Mahrouky, M.A. (2021). Co-application of mineral and organic
-  fertilizers under deficit irrigation improves the fruit quality of the Wonderful pomegranate. *PeerJ* 9: e11328.
-  doi:10.7717/peerj.11328 (read: 6-year trees, 4 × 2.5 m, Matrouh, Egypt; fruit weight, size, peel %)
-- **S8** Ginzberg, I. & Faigenboim, A. (2022). Ripening of pomegranate skin as revealed by developmental transcriptomics.
-  *Cells* 11(14): 2215. doi:10.3390/cells11142215 (read: 'Wonderful' at Mishmar HaNegev, Israel; stages at 3, 11 and 22
-  weeks after petal fall; skin pigments; ARO Volcani)
-- **S9** Wilkins, E.D. & McCoy, D.L. (2015). Multi-year study of commercial pomegranates in California exhibits
-  significant yield variability. *Acta Hortic.* 1089: 387–394. https://ishs.org/ishs-article/1089_52/ [2nd: abstract only]
-- **S10** Mendonca, K.M. (2020). *Fruit, Flower, and Thorn: A Phenological Study of 'Wonderful' Pomegranate*. MS thesis,
-  California Polytechnic State University, San Luis Obispo. doi:10.15368/theses.2020.99 [2nd: abstract only]
-- **S11** Drogoudi, P., Pantelidis, G.E. & Manganaris, A. (2022). Trends in bisexual and male flower production and fruit
-  set during blooming of pomegranate. *Acta Hortic.* 1342: 159–164. https://ishs.org/ishs-article/1342_23/ [2nd: abstract only]
-- **S12** Sarkhosh, A. & Williamson, J. (2018, rev.). *The Pomegranate*. UF/IFAS Extension HS44 (MG056).
-  https://ask.ifas.ufl.edu/publication/MG056 (read in full)
-- **S13** Westerfield, B. (rev.), MacLean, D. et al. *Pomegranate Production*. UGA Cooperative Extension Circular 997.
-  https://fieldreport.caes.uga.edu/publications/C997/pomegranate-production/ (read in full)
-- **S14** Morton, J.F. (1987). Pomegranate. In: *Fruits of Warm Climates*, pp. 352–355. Miami. Online:
-  https://www.growables.org/information/TropicalFruit/PomegranateJuliaMorton.htm (read, through a summarising fetch)
-- **S15** Qin, H. & Graham, S.A. (2007). *Punica granatum* L. In: *Flora of China* vol. 13: 283.
-  http://www.efloras.org/florataxon.aspx?flora_id=2&taxon_id=200014674 (read)
-- **S16** Graham, S.A. (2021?). *Punica granatum* L. In: *Flora of North America* vol. 10 (Lythraceae).
-  http://www.efloras.org/florataxon.aspx?flora_id=1&taxon_id=200014674 (read)
-- **S17** *Flora of Pakistan*: Punicaceae, *Punica granatum* L. http://www.efloras.org/florataxon.aspx?flora_id=5&taxon_id=200014674 (read)
-- **S18** US Plant Patent PP27,981 (2017). *Pomegranate tree named 'Red Jay'* (a sport of 'Wonderful' found near
-  McFarland, Kern Co., CA; 3-year trees described beside 'Wonderful'). https://patents.google.com/patent/USPP27981 (read,
-  through a summarising fetch)
-- **S19** US Plant Patents PP21,907 *'EMEK'* and PP21,966 *'KAMEL'* (2011; Holland, Hatib, Bar-Ya'akov; Newe Ya'ar,
-  Israel), with 'Wonderful' in their comparison tables (ripening "late (beginning of October)", skin red, sweet-sour).
-  https://patents.google.com/patent/USPP21907, https://patents.google.com/patent/USPP21966 (read, through a summarising fetch)
-- **S20** US Plant Patent PP16,578 (2006). *Pomegranate tree denominated 'Smith'* (Visalia/Strathmore, Tulare Co., CA;
-  10-year tree; ripe about 3 weeks before 'Wonderful'). https://patents.google.com/patent/USPP16578 (read, through a
-  summarising fetch)
-- **S21** Pitardi, S., Chiriacò, A., Pesole, A., Mazzeo, A., Palasciano, M. & Ferrara, G. (2026). Comparison of chilling
-  requirements among pomegranate cultivars grown in Puglia, southeastern Italy. *Acta Hortic.* 1464.
-  doi:10.17660/ActaHortic.2026.1464.39 [2nd: abstract only]
-- **S22** Ferrara, G., Porfido, C., Terzano, R., Sarkhosh, A. & Mazzeo, A. (2023). A study on the characteristics of buds
-  and flowers in pomegranate: differences among cultivars. *Horticulturae* 9(1): 117. doi:10.3390/horticulturae9010117
-  (read in part: 'Wonderful' sepals 5.8, petals 5.7, stamens 168.6, flower 24.1 × 13.2 mm; buds, thorns, shoot classes)
-- **S23** Kaplan, J. et al. (2025). *An economic analysis of sunburn and fruit split for alternative pomegranate varieties*.
-  Research note, California State University, Sacramento.
-  https://www.csus.edu/faculty/k/kaplanj/_internal/_documents/pomegranate_rn_2025.pdf (read: county yields 2023,
-  sunburn 56.7 % in 'Wonderful', 7 % split, 25-year life from Day et al. 2010)
-- **S24** Day, K.R., Klonsky, K.M. & De Moura, R.L. (2010). *Sample costs to establish and produce pomegranates, San
-  Joaquin Valley South*. UC Cooperative Extension [2nd: search snippets and S23: bareroot trees at 18 × 18 ft, 134 an acre]
-- **S25** Marathe, R.A. & Chaudhary, D.T. (2017). Roots density and activity of pomegranate grown in light textured soil
-  of semi-arid region. *Vegetos* 30(3): 48–50. doi:10.5958/2229-4473.2017.00154.9 (ICAR) [2nd: abstract only]
-- **S26** Rojas-Rodríguez, F. & Torres-Córdoba, G. (2017). Árboles del Valle Central de Costa Rica: reproducción. Granada
-  (*Punica granatum* L). *Revista Forestal Mesoamericana Kurú* 14(35): 53–55 (read in full: epigeal germination, 36–79
-  days, 60–84 %, 32,860 seeds/kg, bark and trunk)
-- **S27** Kumar, S., Singh, K. & Prasad, R. Effect of pre-sowing seed treatment on germination behaviour of pomegranate
-  cv. Bhagwa. ICAR ePubs, https://epubs.icar.org.in/index.php/IJA/article/view/103413 [2nd: abstract only]; Israel
-  acreage and yields from trade press (freshplaza, fruitnet) and *Acta Hortic.* 1089_23 [2nd: search snippets]
-- **S28** Watson, L. & Dallwitz, M.J. *The Families of Flowering Plants*: Punicaceae.
-  https://www-archiv.fdm.uni-hamburg.de/b-online/delta/angio/www/punicace.htm [2nd: search snippet: cotyledons 2,
-  large, spirally rolled; germination phanerocotylar]
-- **S29** Melgarejo, P., Martínez-Nicolás, J.J., Núñez-Gómez, D., Almansa, M.S. & Legua, P. (2024). Accurate botanical
-  nomenclature: pomegranate and the 'aril' misconception. *Foods* 13(2): 201. doi:10.3390/foods13020201 (read)
-- **S30** Chater, J.M., Merhaut, D.J., Jia, Z., Mauk, P.A. & Preece, J.E. (2018). Fruit quality traits of ten
-  California-grown pomegranate cultivars harvested over three months. *Sci. Hortic.* 237: 11–19 (read: abstract only;
-  the 'Wonderful' values were not reached)
-- **S31** The pomegranate (*Punica granatum* L. cv. 'Wonderful') genome and *P. protopunica* shed light on pomegranate
-  domestication (2025). *BMC Genomics*. PMC12535167 (read in part)
-- **S32** Pomegranate germplasm collections from Elche (Spain) and Bari (Italy) (2025). *Plants* 14. PMC12608311 (read in
-  part: genetic uniformity of 'Wonderful' accessions)
-- **S33** UC IPM, *Pomegranate* (garden pests page), and UF/IFAS 'Purple Sunset' cultivar note: bronze new growth, yellow
-  autumn colour, dormancy December–March. https://ipm.ucanr.edu/PMG/GARDEN/PLANTS/pomegranate.html [2nd: search snippets]
-- **S34** Franciskovich, S. (2025). Pomegranates in the Valley: Harmony and Sweet Success. UC Master Gardeners
-  Tulare/Kings Counties. https://ccfruitandnuts.ucanr.edu/sites/default/files/2025-06/Pomegranates%20in%20the%20Valley%20Harmony%20and%20Sweet%20Success.pdf (read)
-- **S35** Stover, E. & Mercure, E.W. (2007). The pomegranate: a new look at the fruit of paradise. *HortScience* 42(5):
-  1088–1092. doi:10.21273/HORTSCI.42.5.1088 (not read: full text blocked)
-- **S36** Holland, D., Hatib, K. & Bar-Ya'akov, I. (2009). Pomegranate: botany, horticulture, breeding. *Hort. Rev.* 35:
-  127–191. doi:10.1002/9780470593776.ch2 (not read: no access)
-- **S37** LaRue, J.H. (1980). *Growing Pomegranates in California*. UC DANR Leaflet 2459; and UC Fruit & Nut Research &
-  Information Center fact sheet "Growing Pomegranates in California" (Wonderful found ~1896 in Porterville among
-  cuttings from Florida; ripens late September–October; trained small tree 12–15 ft) [2nd: search snippets; the page
-  returned 503]
-- **S38** Search snippets citing UC and other sources, not read in the original: UC spacing recommendation (3–5 × 5–7 m;
-  down to 1.5 × 3.6 m); 'Wonderful' ~90–95 % of US production; "rootstocks are not currently used or necessary … in
-  California (Morton 1987)"; nitrate to 1.5 m; 'Wonderful' flowers vivid orange-red with red filaments and yellow
-  anthers; Indian cultivar leaf sizes and 'Wonderful' "lanceolate" (journal.iahs.org.in); USPP3884 (Porterville sport,
-  'Wonderful' ~3 in diameter) [2nd]
-- **S39** Ben-Arie, R., Segal, N. & Guelfat-Reich, S. (1984). The maturation and ripening of the 'Wonderful' pomegranate.
-  *J. Amer. Soc. Hort. Sci.* 109: 898–902; Shulman, Y., Fainberstein, L. & Lavee, S. (1984). Pomegranate fruit
-  development and maturation. *J. Hort. Sci.* 59: 265–274 [2nd: abstracts only: harvest at 15 % SSC, non-climacteric;
-  seed hardening by end of June]
-- **S40** Chen, L. et al. (2017). Transcriptomic analysis reveals candidate genes for female sterility in pomegranate
-  flowers. *Front. Plant Sci.* 8: 1430. doi:10.3389/fpls.2017.01430 (read: abstract; ovule development stops in male
-  flowers at bud length 5–13 mm)
-- **S41** Growth patterns of 'Mollar de Elche' pomegranate fruit in the final phase of development (IVIA/ReDivia record)
-  [2nd: search snippet: diameter 78 → 95 mm after 92 DAFB]
-- Not read, but the standard references to check the gaps against:
-  - Levin, G.M. (2006). *Pomegranate Roads: A Soviet Botanist's Exile from Eden*. Floreant Press.
-  - Holland & Bar-Ya'akov (2008). The pomegranate: new interest in an ancient fruit. *Chronica Horticulturae* 48(3): 12–15.
-  - UC ANR. *Pomegranate* production and IPM guidelines (ipm.ucanr.edu/agriculture/pomegranate).
-  - ICAR-National Research Centre on Pomegranate, Solapur: annual reports and the *Pomegranate* technical bulletins.
+- **S1** Porter, J. & Wetzstein, H.Y. (2014). *The Biology of Pomegranates: All about Flowers, Fruit and Arils*. Florida Pomegranate Association talk (UGA/Purdue); 'Wonderful' of Paramount Farming Co., Delano, CA. https://www.growables.org/information/TropicalFruit/documents/PomegranateBiology.pdf (read in full; presents S2, S3 and Wetzstein et al. 2011, HortScience 46:908–912)
+- **S2** Wetzstein, H.Y., Ravid, N., Wilkins, E. & Martinelli, A.P. (2011). A morphological and histological characterization of bisexual and male flower types in pomegranate. *J. Amer. Soc. Hort. Sci.* 136: 83–92. doi:10.21273/JASHS.136.2.83 [2nd: via S1, S22]
+- **S3** Wetzstein, H.Y., Yi, W., Porter, J.A. & Ravid, N. (2013). Flower position and size impact ovule number per flower, fruitset, and fruit size in pomegranate. *J. Amer. Soc. Hort. Sci.* 138: 159–166 [2nd: via S1]
+- **S4** UPOV (2013). *Pomegranate*, TG/284/1 (PUNIC_GRA). https://www.upov.int/edocs/tgdocs/en/tg284.pdf (read: table of characteristics, 'Wonderful' the example in 25 of them). The request's "TG/288" is TG/284/1.
+- **S5** Adiletta, G., Petriccione, M., Liguori, L., Pizzolongo, F., Romano, R. & Di Matteo, M. (2018). Study of pomological traits and physico-chemical quality of pomegranate genotypes grown in Italy. *Eur. Food Res. Technol.* doi:10.1007/s00217-018-3056-x (read: Table 1)
+- **S6** Narjesi, V., Bonyanpour, A. & Ghasemi-Soloklui, A.A. (2025). Determining the optimal harvest time for pomegranate variety Wonderful in semi-arid climate. *Sci. Rep.* 15: 7668. doi:10.1038/s41598-025-92015-7 (read)
+- **S7** Almutairi, K.F., Abdel-Sattar, M. et al. (2021). Co-application of mineral and organic fertilizers under deficit irrigation improves the fruit quality of the Wonderful pomegranate. *PeerJ* 9: e11328 (read)
+- **S8** Ginzberg, I. & Faigenboim, A. (2022). Ripening of pomegranate skin as revealed by developmental transcriptomics. *Cells* 11: 2215. doi:10.3390/cells11142215 (read; ARO Volcani, 'Wonderful' at Mishmar HaNegev)
+- **S9** Wilkins, E.D. & McCoy, D.L. (2015). Multi-year study of commercial pomegranates in California exhibits significant yield variability. *Acta Hortic.* 1089: 387–394 [2nd: abstract]
+- **S10** Mendonca, K.M. (2020). *Fruit, Flower, and Thorn: A Phenological Study of 'Wonderful' Pomegranate*. MS thesis, Cal Poly San Luis Obispo. doi:10.15368/theses.2020.99 [2nd: abstract]
+- **S11** Drogoudi, P., Pantelidis, G.E. & Manganaris, A. (2022). Trends in bisexual and male flower production and fruit set during blooming of pomegranate. *Acta Hortic.* 1342: 159–164 [2nd: abstract]
+- **S12** Sarkhosh, A. & Williamson, J. (2018). *The Pomegranate*. UF/IFAS HS44. https://ask.ifas.ufl.edu/publication/MG056 (read)
+- **S13** Westerfield, B. (rev.), MacLean, D. et al. *Pomegranate Production*. UGA Extension Circular 997 (read)
+- **S14** Morton, J.F. (1987). Pomegranate. *Fruits of Warm Climates*: 352–355. https://www.growables.org/information/TropicalFruit/PomegranateJuliaMorton.htm (read through a summarising fetch)
+- **S15** Qin, H. & Graham, S.A. (2007). *Punica granatum*. *Flora of China* 13: 283. efloras taxon 200014674 (read)
+- **S16** Graham, S.A. *Punica granatum*. *Flora of North America* vol. 10. efloras taxon 200014674 (read)
+- **S17** *Flora of Pakistan*, Punicaceae: *Punica granatum*. efloras taxon 200014674 (read)
+- **S18** US Plant Patent PP27,981 (2017). *Pomegranate tree named 'Red Jay'*, a sport of 'Wonderful', McFarland, Kern Co., CA. https://patents.google.com/patent/USPP27981 (read through a summarising fetch)
+- **S19** US Plant Patents PP21,907 *'EMEK'* and PP21,966 *'KAMEL'* (2011; Holland, Hatib, Bar-Ya'akov, Israel), 'Wonderful' in their comparison tables (read through a summarising fetch)
+- **S20** US Plant Patent PP16,578 (2006). *Pomegranate tree denominated 'Smith'*, Tulare Co., CA (read through a summarising fetch)
+- **S21** Pitardi, S. et al. (2026). Comparison of chilling requirements among pomegranate cultivars grown in Puglia. *Acta Hortic.* 1464. doi:10.17660/ActaHortic.2026.1464.39 [2nd: abstract]
+- **S22** Ferrara, G., Porfido, C., Terzano, R., Sarkhosh, A. & Mazzeo, A. (2023). A study on the characteristics of buds and flowers in pomegranate: differences among cultivars. *Horticulturae* 9: 117 (read in part)
+- **S23** Kaplan, J. et al. (2025). *An economic analysis of sunburn and fruit split for alternative pomegranate varieties*. Research note, CSU Sacramento (read; cites Day et al. 2010)
+- **S24** Day, K.R., Klonsky, K.M. & De Moura, R.L. (2010). *Sample costs to establish and produce pomegranates, San Joaquin Valley South*. UC Cooperative Extension [2nd: snippets, S23]
+- **S25** Marathe, R.A. & Chaudhary, D.T. (2017). Roots density and activity of pomegranate grown in light textured soil of semi-arid region. *Vegetos* 30(3): 48–50 [2nd: abstract]
+- **S26** Rojas-Rodríguez, F. & Torres-Córdoba, G. (2017). Granada (*Punica granatum* L). *Rev. For. Mesoam. Kurú* 14(35): 53–55 (read)
+- **S27** Kumar, S., Singh, K. & Prasad, R. Effect of pre-sowing seed treatment on germination behaviour of pomegranate cv. Bhagwa. ICAR ePubs IJA 103413 [2nd: abstract]
+- **S28** Watson, L. & Dallwitz, M.J. *The Families of Flowering Plants*: Punicaceae [2nd: snippet]
+- **S29** Melgarejo, P. et al. (2024). Accurate botanical nomenclature: pomegranate and the 'aril' misconception. *Foods* 13: 201 (read)
+- **S30** Chater, J.M., Merhaut, D.J., Jia, Z., Mauk, P.A. & Preece, J.E. (2018). Fruit quality traits of ten California-grown pomegranate cultivars harvested over three months. *Sci. Hortic.* 237: 11–19 (abstract only; the 'Wonderful' numbers not reached)
+- **S31** The pomegranate (cv. 'Wonderful') genome and *P. protopunica* shed light on pomegranate domestication (2025). *BMC Genomics*, PMC12535167 (read in part)
+- **S32** Pomegranate germplasm collections from Elche (Spain) and Bari (Italy) (2025). *Plants*, PMC12608311 (read in part)
+- **S33** UC IPM, *Pomegranate* (garden page), and a UF/IFAS cultivar note: bronze new growth, yellow autumn, dormancy December–March [2nd: snippets]
+- **S34** Franciskovich, S. (2025). Pomegranates in the Valley. UC Master Gardeners Tulare/Kings Counties (read)
+- **S35** Stover, E. & Mercure, E.W. (2007). The pomegranate: a new look at the fruit of paradise. *HortScience* 42: 1088–1092 (not read: blocked)
+- **S36** Holland, D., Hatib, K. & Bar-Ya'akov, I. (2009). Pomegranate: botany, horticulture, breeding. *Hort. Rev.* 35: 127–191 (not read)
+- **S37** LaRue, J.H. (1980). *Growing Pomegranates in California*. UC Leaflet 2459, and the UC Fruit & Nut Center fact sheet of that name [2nd: snippets; the page returned 503]
+- **S38** Search snippets citing UC and others, not read in the original: UC spacing (3–5 × 5–7 m); 'Wonderful' 90–95 % of US production; no rootstocks in California (Morton 1987); nitrate to 1.5 m; 'Wonderful' flower colours; Indian cultivar leaf sizes (journal.iahs.org.in); USPP3884 [2nd]
+- **S39** Ben-Arie, R., Segal, N. & Guelfat-Reich, S. (1984). The maturation and ripening of the 'Wonderful' pomegranate. *J. Amer. Soc. Hort. Sci.* 109: 898–902; Shulman, Y., Fainberstein, L. & Lavee, S. (1984). Pomegranate fruit development and maturation. *J. Hort. Sci.* 59: 265–274 [2nd: abstracts]
+- **S40** Chen, L. et al. (2017). Transcriptomic analysis reveals candidate genes for female sterility in pomegranate flowers. *Front. Plant Sci.* 8: 1430 (read: abstract)
+- **S41** Growth patterns of 'Mollar de Elche' fruit in the final phase of development (IVIA/ReDivia) [2nd: snippet]
+- **S42** Israeli acreage and yields: Fruitnet (*Eurofruit*) and *Acta Hortic.* 1089: 23 [2nd: snippets]
+- Not read, to check the gaps against: Levin, G.M. (2006) *Pomegranate Roads*; Holland & Bar-Ya'akov (2008) *Chronica Hortic.* 48(3): 12–15; UC ANR pomegranate production and IPM guidelines; ICAR-NRC on Pomegranate (Solapur) bulletins.
