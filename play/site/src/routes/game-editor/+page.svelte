@@ -75,7 +75,7 @@
 			<small>Owned by Maia City</small>
 			<h3>{config.json.label}</h3>
 			{#if config.proposal}
-				<p class="asif">As the {config.proposal.status} proposal would make it: “{config.proposal.note}” <a href="/proposals/">Back to the proposals</a> · <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>its newest version</a></p>
+				<p class="asif">As the {config.proposal.status === 'proposed' ? '' : `${config.proposal.status} `}proposal would make it: “{config.proposal.note}” <a href="/proposals/">Back to the proposals</a> · <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>its newest version</a></p>
 			{:else if config.version !== config.number}
 				<p class="asif">Version {config.version}, not its newest: <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>v{config.number}</a></p>
 			{/if}

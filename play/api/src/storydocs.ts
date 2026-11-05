@@ -57,7 +57,7 @@ export async function ensureStoryDoc(q: Queryable, story: string): Promise<strin
   const { rows: open } = await q.query<{ id: string; author: string | null; via: string | null; note: string; base_number: number | null; title: string; body: StoryBody; created: Date }>(
     `SELECT p.id, p.author, p.via, p.note, b.number AS base_number, v.title, v.body, p.created FROM play.proposals p
        JOIN play.story_versions v ON v.id = p.story_version LEFT JOIN play.story_versions b ON b.id = p.story_base
-      WHERE p.story_id = $1 AND p.kind = 'story_version' AND p.status = 'open' AND p.doc_branch IS NULL ORDER BY p.created`,
+      WHERE p.story_id = $1 AND p.kind = 'story_version' AND p.status = 'proposed' AND p.doc_branch IS NULL ORDER BY p.created`,
     [story],
   );
   for (const p of open) {
@@ -76,7 +76,7 @@ export async function ensureStoryDoc(q: Queryable, story: string): Promise<strin
 export async function ensureStoryDocs(db: Db): Promise<string[]> {
   const { rows } = await db.query<{ id: string }>(
     `SELECT s.id FROM play.stories s WHERE NOT EXISTS (SELECT 1 FROM play.docs d WHERE d.id = 'story:' || s.id)
-        OR EXISTS (SELECT 1 FROM play.proposals p WHERE p.story_id = s.id AND p.status = 'open' AND p.doc_branch IS NULL) ORDER BY s.id`,
+        OR EXISTS (SELECT 1 FROM play.proposals p WHERE p.story_id = s.id AND p.status = 'proposed' AND p.doc_branch IS NULL) ORDER BY s.id`,
   );
   for (const r of rows) await db.transaction((q) => ensureStoryDoc(q, r.id));
   return rows.map((r) => r.id);

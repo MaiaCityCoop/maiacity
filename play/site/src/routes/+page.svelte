@@ -4,7 +4,8 @@
 	only for everyone else, Samuel 2026-11-04); the Game Worlds, the four sandboxes, open to every traveler; then the
 	apps — a tile for each group of the asset library (plants, animals, things, machines, buildings, biomes;
 	$lib/app/groups.ts) and the factories — and, for an admin acting as Maia City (the nav pill's You menu), the coop's
-	own: its proposals, its stories, the Game editor, its members, invites and its Postgres.
+	own: its stories, its Library, the Game editor, its members, invites and its Postgres. The proposals are no tile:
+	they open from the nav pill's star over any page (Samuel 2026-11-05).
 -->
 <script lang="ts">
 	import Icon from '$lib/site/app/Icon.svelte';
@@ -23,7 +24,7 @@
 		{ href: '/sandbox-4/', label: 'Sandbox 4', note: 'The cassette joint: a cast cassette of the 100 m dome seated, keyed, capped and clamped', cover: 'd308f061bd5498775faa69da06ae54aef9a39c784b714c5c3605382e18540aca.jpg' },
 		{ href: '/sandbox-5/', label: 'Sandbox 5', note: 'The forest dome alone in its own food forest, outside and under the glass', cover: '9e442ce81d3237243f561780fa6d3aeeeb7f1d83ea8e68f3a166650739c398b2.jpg' }
 	];
-	type Tile = { href: string; label: string; note: string; icon: (typeof GROUP_APPS)[number]['icon'] | 'proposals' | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio' | 'gear' | 'media'; admins?: boolean };
+	type Tile = { href: string; label: string; note: string; icon: (typeof GROUP_APPS)[number]['icon'] | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio' | 'gear' | 'media'; admins?: boolean };
 	const APPS: Tile[] = [
 		// the asset library, a tile per group, each the same viewer (Samuel 2026-11-04)
 		...GROUP_APPS.map(({ href, label, note, icon }) => ({ href, label, note, icon })),
@@ -31,9 +32,9 @@
 		// only for now (Samuel 2026-11-03)
 		{ href: '/factories/', label: 'Factories', note: 'The LifeTrac line, every part from raw stock', icon: 'factory', admins: true },
 	];
-	// the coop's own, for an admin acting as Maia City (Samuel 2026-11-04: the proposals and the stories moved here)
+	// the coop's own, for an admin acting as Maia City (Samuel 2026-11-04: the stories moved here; 2026-11-05: the
+	// proposals left for the nav pill's star)
 	const CITY: Tile[] = [
-		{ href: '/proposals/', label: 'Proposals', note: 'New versions, proposed and decided', icon: 'proposals' },
 		// our films as timelines, storyboard beside the script, to feel whether they work (routes/stories)
 		{ href: '/stories/', label: 'Stories', note: 'Our films as timelines: storyboard, voice, notes', icon: 'studio' },
 		// every image, video and recording play keeps, labelled, and where the stories use it (routes/library, Samuel 2026-11-04)

@@ -36,7 +36,8 @@ export function wayBack(label, go) {
 
 /**
  * The place above a page, by its path (without the base): an asset's own page goes back to the library, everything
- * else (a sandbox, the library, proposals, the game, admin) to the dashboard, which has none.
+ * else (a sandbox, the library, the game, admin) to the dashboard, which has none. With no Home in the pill (Samuel
+ * 2026-11-05: the proposals' star took its place), Back is the way to the dashboard from everywhere.
  * @param {string} rel
  * @param {string} [hash]
  * @returns {{ href: string, label: string } | null}

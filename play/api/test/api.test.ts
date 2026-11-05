@@ -282,15 +282,20 @@ suite("play API", () => {
     expect((await call("cit", "POST", "/api/proposals", { asset: "plants/fern", recipe: recipe("fern", 3) })).status).toBe(400);
   });
 
-  test("migration 0015 archives a live database's rejected, withdrawn and stale proposals", async () => {
+  test("migrations 0015 and 0023 archive a live database's rejected, withdrawn and stale proposals, and call open proposed", async () => {
     // the database as production had it before 0015: the old checks, proposals and branches in the old states
     const made: any[] = [];
     for (const n of [1, 2, 3]) made.push((await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 3, null, `/* old ${n} */`) })).data);
+    const waits = (await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* waits */") })).data;
     await db.query(`ALTER TABLE play.proposals DROP CONSTRAINT proposals_status_check`);
     await db.query(`ALTER TABLE play.doc_branches DROP CONSTRAINT doc_branches_status_check`);
     // what earlier tests archived was rejected then
     await db.query(`UPDATE play.proposals SET status = 'rejected' WHERE status = 'archived'`);
     await db.query(`UPDATE play.doc_branches SET status = 'rejected' WHERE status = 'archived'`);
+    // and what waits for a decision was open, before 0023
+    await db.query(`UPDATE play.proposals SET status = 'open' WHERE status = 'proposed'`);
+    const waiting = (await db.query<{ id: string }>(`SELECT id FROM play.proposals WHERE status = 'open'`)).rows.map((r) => r.id).filter((id) => !made.some((p) => p.id === id));
+    expect(waiting).toContain(waits.id);
     await db.query(`ALTER TABLE play.proposals ADD CONSTRAINT proposals_status_check_old CHECK (status IN ('open', 'accepted', 'rejected', 'withdrawn', 'stale'))`);
     await db.query(`ALTER TABLE play.doc_branches ADD CONSTRAINT doc_branches_status_check_old CHECK (status IN ('open', 'proposed', 'accepted', 'rejected', 'withdrawn', 'stale'))`);
     const old = ["rejected", "withdrawn", "stale"];
@@ -298,13 +303,18 @@ suite("play API", () => {
       await db.query(`UPDATE play.proposals SET status = $2, decided_by = NULL WHERE id = $1`, [p.id, old[i]]);
       await db.query(`UPDATE play.doc_branches SET status = $2 WHERE id = (SELECT doc_branch FROM play.proposals WHERE id = $1)`, [p.id, old[i]]);
     }
-    await db.query(`DELETE FROM play.migrations WHERE id = '0015-accepted-or-archived'`);
-    expect(await migrate(db)).toEqual(["0015-accepted-or-archived"]);
+    await db.query(`DELETE FROM play.migrations WHERE id IN ('0015-accepted-or-archived', '0023-proposed')`);
+    expect(await migrate(db)).toEqual(["0015-accepted-or-archived", "0023-proposed"]);
     const { rows } = await db.query<any>(`SELECT p.id, p.status, p.decided_by, p.author, b.status AS branch FROM play.proposals p LEFT JOIN play.doc_branches b ON b.id = p.doc_branch WHERE p.id = ANY($1)`, [made.map((p) => p.id)]);
     for (const r of rows) expect([r.status, r.branch ?? "archived"]).toEqual(["archived", "archived"]);
     expect(rows.find((r) => r.id === made[1].id).decided_by).toBe(who.cit.id);
-    expect((await db.query<any>(`SELECT count(*)::int AS n FROM play.proposals WHERE status NOT IN ('open', 'accepted', 'archived')`)).rows[0].n).toBe(0);
-    await expect(db.query(`UPDATE play.proposals SET status = 'rejected' WHERE id = $1`, [made[0].id])).rejects.toThrow(/proposals_status_check/);
+    expect((await db.query<any>(`SELECT count(*)::int AS n FROM play.proposals WHERE status NOT IN ('proposed', 'accepted', 'archived')`)).rows[0].n).toBe(0);
+    expect((await db.query<any>(`SELECT DISTINCT status FROM play.proposals WHERE id = ANY($1)`, [waiting])).rows).toEqual([{ status: "proposed" }]);
+    for (const old of ["rejected", "open"])
+      await expect(db.query(`UPDATE play.proposals SET status = $2 WHERE id = $1`, [made[0].id, old])).rejects.toThrow(/proposals_status_check/);
+    // asked for the open ones, as before the rename, the API answers with those proposed
+    expect((await call("ada", "GET", "/api/proposals?status=open")).data.map((p: any) => p.id)).toContain(waits.id);
+    expect((await call("cit", "POST", `/api/proposals/${waits.id}/archive`)).data.status).toBe("archived");
   });
 
   test("a proposal ends accepted or archived: archived by its author or by an admin", async () => {
@@ -366,8 +376,8 @@ suite("play API", () => {
       arguments: { group: "plants", slug: "mcp-fern", label: "MCP fern", source: "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n", note: "proposed by an agent" },
     });
     expect(proposed.data.result.isError).toBeUndefined();
-    const open = (await call("ada", "GET", "/api/proposals?status=open")).data.find((p: any) => p.slug === "mcp-fern");
-    expect(open).toMatchObject({ via: "mcp", author: "ada", status: "open" });
+    const open = (await call("ada", "GET", "/api/proposals?status=proposed")).data.find((p: any) => p.slug === "mcp-fern");
+    expect(open).toMatchObject({ via: "mcp", author: "ada", status: "proposed" });
     // it archives its own open proposal, and nothing else: not one made on the page, not anyone else's
     const archive = (proposal: string) => rpc(made.data.token, "tools/call", { name: "archive_proposal", arguments: { proposal } });
     const byPage = await call("ada", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* on the page */") });
@@ -377,7 +387,7 @@ suite("play API", () => {
       expect(r.data.result.isError).toBe(true);
       expect(r.data.result.content[0].text).toContain("made over MCP");
     }
-    expect((await call("ada", "GET", `/api/proposals/${byPage.data.id}`)).data.status).toBe("open");
+    expect((await call("ada", "GET", `/api/proposals/${byPage.data.id}`)).data.status).toBe("proposed");
     expect((await archive("not-an-id")).data.result.content[0].text).toContain("by its id");
     const done = await archive(open.id);
     expect(done.data.result.isError).toBeUndefined();
@@ -392,8 +402,8 @@ suite("play API", () => {
       arguments: { group: "worlds", slug: "mcp-test-world", label: "Test world", source: "module.exports.recipe = function (id, v) {\n  return { meta: { group: 'worlds', id, v } };\n};\n", note: "a stand-in world" },
     });
     expect(world.data.result.isError).toBeUndefined();
-    const worldOpen = (await call("ada", "GET", "/api/proposals?status=open")).data.find((p: any) => p.slug === "mcp-test-world");
-    expect(worldOpen).toMatchObject({ via: "mcp", status: "open" });
+    const worldOpen = (await call("ada", "GET", "/api/proposals?status=proposed")).data.find((p: any) => p.slug === "mcp-test-world");
+    expect(worldOpen).toMatchObject({ via: "mcp", status: "proposed" });
     expect((await archive(worldOpen.id)).data.result.isError).toBeUndefined();
     // a new asset with its variants at once (a truck's kinds), each its own recipe
     const kinds = await rpc(made.data.token, "tools/call", {
@@ -401,8 +411,8 @@ suite("play API", () => {
       arguments: { group: "machines", slug: "mcp-truck", label: "Truck", source: "module.exports.recipe = function (id, v, variant) {\n  return { meta: { id, v, variant } };\n};\n", variants: [{ name: "box" }, { name: "tanker", label: "Truck: Tanker" }], default_variant: "tanker", note: "two kinds" },
     });
     expect(kinds.data.result.isError).toBeUndefined();
-    const kindsOpen = (await call("ada", "GET", "/api/proposals?status=open")).data.find((p: any) => p.slug === "mcp-truck");
-    expect(kindsOpen).toMatchObject({ via: "mcp", status: "open" });
+    const kindsOpen = (await call("ada", "GET", "/api/proposals?status=proposed")).data.find((p: any) => p.slug === "mcp-truck");
+    expect(kindsOpen).toMatchObject({ via: "mcp", status: "proposed" });
     expect((await archive(kindsOpen.id)).data.result.isError).toBeUndefined();
     // a recipe that declares params is refused without them, and records them when given
     const PARAMS = [{ id: "kind", label: "Kind", type: "integer", min: 0, max: 1, value: 0 }];
@@ -412,7 +422,7 @@ suite("play API", () => {
     expect(noParams.data.result.content[0].text).toContain("params");
     const given = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { group: "things", slug: "mcp-lamp", label: "Lamp", source: withParams, params: PARAMS, note: "params given" } });
     expect(given.data.result.isError).toBeUndefined();
-    const lampOpen = (await call("ada", "GET", "/api/proposals?status=open")).data.find((p: any) => p.slug === "mcp-lamp");
+    const lampOpen = (await call("ada", "GET", "/api/proposals?status=proposed")).data.find((p: any) => p.slug === "mcp-lamp");
     const lamp = (await call("ada", "GET", `/api/proposals/${lampOpen.id}`)).data;
     expect(JSON.stringify(lamp)).toContain('"kind"');
     expect((await archive(lampOpen.id)).data.result.isError).toBeUndefined();
@@ -647,7 +657,7 @@ suite("play API", () => {
     expect(S.seed).toMatch(UUID); // a new story is its new UUID; its title is only shown
     expect(proposed.out).toMatchObject({ story: S.seed, number: 1, base: null, duration: 7 });
     expect((await call("ada", "GET", `/api/stories/${S.seed}`)).status).toBe(404); // not a story until it is accepted
-    const open = (await call("ada", "GET", "/api/proposals?status=open")).data.find((p: any) => p.id === proposed.out.id);
+    const open = (await call("ada", "GET", "/api/proposals?status=proposed")).data.find((p: any) => p.id === proposed.out.id);
     expect(open).toMatchObject({ kind: "story_version", grp: "stories", story_id: S.seed, slug: null, label: "Seed to fruit", number: 1, via: "mcp", author: "ada" });
     // a story's proposals are the admins' alone
     expect((await call("cit", "GET", "/api/proposals")).data.some((p: any) => p.kind === "story_version")).toBe(false);
@@ -1075,7 +1085,7 @@ suite("play API", () => {
     for (const n of [2, 3]) lines.push((await call("ada", "GET", `/api/stories/${A}?v=${n}`)).data.tracks.find((t: any) => t.id === "voice").clips[1].line);
     expect(lines).toEqual(["two", "three"]);
     // the open proposal is on the one timeline now, its own archived
-    const open = (await call("ada", "GET", "/api/proposals?status=open")).data.filter((p: any) => p.story_id === A);
+    const open = (await call("ada", "GET", "/api/proposals?status=proposed")).data.filter((p: any) => p.story_id === A);
     expect(open.length).toBe(1);
     expect(open[0].note).toContain("Moved from story “Three seeds”");
     expect((await call("ada", "GET", `/api/proposals/${c2.out.id}`)).data.status).toBe("archived");
@@ -1274,7 +1284,7 @@ suite("play API", () => {
     expect(r.error).toBeNull();
     expect(r.out.changes.map((c: any) => c.kind === "pin" ? [c.slot, c.before.number, c.after.number, c.after.usedVariant] : [c.config, c.path.join("/"), c.before, c.after]))
       .toEqual([["gate", 1, 2, "both"], ["grove/pawpaw", 1, 2, "both"], ["grove", "trees/0/at", [0, 0], [4, 2]], ["grove", "trees/0/weight", 2, 3]]);
-    const listed = (await call("ada", "GET", "/api/proposals?status=open")).data.find((x: any) => x.id === r.out.id);
+    const listed = (await call("ada", "GET", "/api/proposals?status=proposed")).data.find((x: any) => x.id === r.out.id);
     expect(listed).toMatchObject({ kind: "sandbox_change", grp: "sandboxes", sandbox_id: SANDBOX.two, slug: null, label: "Sandbox 2", via: "mcp", changes: 4 });
     expect((await call("cit", "GET", "/api/proposals")).data.some((x: any) => x.id === r.out.id)).toBe(false);
     const review = (await call("ada", "GET", `/api/proposals/${r.out.id}`)).data;

@@ -319,7 +319,7 @@ export async function sandboxReview(db: Queryable, p: any) {
   let holds = true;
   let why: string | null = null;
   // an open one: against the sandbox as it is now, as accepting would apply it
-  if (p.status === "open") {
+  if (p.status === "proposed") {
     const now = await stateOf(db, p.sandbox_id);
     try {
       changes = (await applyEdits(db, now, p.sandbox_change)).changes;
@@ -329,7 +329,7 @@ export async function sandboxReview(db: Queryable, p: any) {
       why = e.message;
     }
   }
-  return { sandbox: s, edits: p.sandbox_change, changes: await shown(db, changes), holds, why, moved: p.status === "open" && stateHash(await stateOf(db, p.sandbox_id)) !== p.sandbox_base };
+  return { sandbox: s, edits: p.sandbox_change, changes: await shown(db, changes), holds, why, moved: p.status === "proposed" && stateHash(await stateOf(db, p.sandbox_id)) !== p.sandbox_base };
 }
 
 /** accept or archive a sandbox change: accepted, its edits applied to the sandbox as it is, in this transaction */
@@ -384,7 +384,7 @@ export async function proposedState(db: Queryable, me: Me | null, sandbox: strin
   const { rows } = await db.query<any>(`SELECT * FROM play.proposals WHERE id = $1 AND kind = 'sandbox_change' AND sandbox_id = $2`, [proposal, sandbox]);
   if (!rows[0]) throw new NotFound("There is no such proposal of this sandbox.");
   const now = await stateOf(db, sandbox);
-  if (rows[0].status !== "open") return now;
+  if (rows[0].status !== "proposed") return now;
   return (await applyEdits(db, now, rows[0].sandbox_change).catch((e) => {
     throw e instanceof SandboxError ? new NotFound(`It no longer holds: ${e.message}`) : e;
   })).state;
