@@ -19,7 +19,8 @@
  *                     dome's plants): { "file", "id", "v", "variant"?, "as"? }, each a readable source handed to the
  *                     page's catalog; `as` the hash play holds it by, which the recipe names: every --file's code has
  *                     it replaced by the hash the guest is held by here (made here from its readable source, its
- *                     bytes and so its hash differ from play's minified file), so it draws the same plant
+ *                     bytes and so its hash differ from play's minified file), so it draws the same plant;
+ *                     `refs` what its card names by readable refs, each by the `as` of a guest listed before it
  *
  * Out: one PNG per shot and file (<out>/<file>-<shot>.png), a contact sheet (<out>/sheet.png) with every shot's
  * values, triangles and build time under it, and shots.json of what was shown. Needs Playwright with a Chromium
@@ -105,9 +106,12 @@ try {
 		const name = basename(r.file).replace(/\.[^.]+$/, '');
 		// the assets it names, handed to the page first; the hashes it names them by turned into theirs here
 		let code = readFileSync(r.file, 'utf8');
+		/** each guest's hash here, by the hash play holds it by */
+		const here = {};
 		for (const g of o.guests ? JSON.parse(readFileSync(o.guests, 'utf8')) : []) {
-			const got = await page.evaluate((x) => window.__render.guest(x), { code: readFileSync(resolve(dirname(o.guests), g.file), 'utf8'), id: g.id, v: g.v, variant: g.variant ?? null });
-			if (g.as) code = code.replaceAll(g.as, got.hash);
+			const refs = g.refs ? Object.fromEntries(Object.entries(g.refs).map(([name, h]) => [name, here[h] ?? h])) : null;
+			const got = await page.evaluate((x) => window.__render.guest(x), { code: readFileSync(resolve(dirname(o.guests), g.file), 'utf8'), id: g.id, v: g.v, variant: g.variant ?? null, refs });
+			if (g.as) (here[g.as] = got.hash), (code = code.replaceAll(g.as, got.hash));
 			console.log(`  guest ${got.label} (${got.hash.slice(0, 12)}…${g.as ? ` for ${g.as.slice(0, 12)}…` : ''})`);
 		}
 		console.log(`${r.file}: building in the asset box …`);

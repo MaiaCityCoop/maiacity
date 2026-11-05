@@ -9,9 +9,11 @@
 	  load({ code, id, v, variant?, label? })   a readable source (wrapped into its recipe file as play wraps one,
 	                                            ./engines.js `recipeFile`) or a recipe file; shown; gives its hash,
 	                                            card and params
-	  guest({ code, id, v, variant? })          a readable source (or a recipe file) handed to the page's catalog, not
+	  guest({ code, id, v, variant?, refs? })   a readable source (or a recipe file) handed to the page's catalog, not
 	                                            shown: an asset another one names by its build's hash (a dome's
-	                                            plants); gives the hash it is held by here
+	                                            plants, its biome); gives the hash it is held by here. `refs`: the
+	                                            hashes its card's readable refs are held by (a biome's cover kinds,
+	                                            `biomes/cover@1:fern`), as play's import rewrote them
 	  shot({ values?, camera? })                built with `values` (stage, seed, fruit …), the camera set (`az`, `el`
 	                                            degrees round what is framed, `zoom` × the framing's distance, or a
 	                                            `target` [x, y, z] and `dist` m), and settled (what it plants built
@@ -98,11 +100,15 @@
 	}
 
 	window.__render = {
-		async guest({ code, id, v, variant = null }) {
+		async guest({ code, id, v, variant = null, refs = null }) {
 			const file = code.startsWith(RECIPE_HEAD) ? code : recipeFile(code, id, v, variant);
 			const h = hashText(file);
 			const card = await cardOf(h, file);
-			admitHanded([{ hash: h, code: file, group: card.group, id: card.id ?? id, v: card.version ?? v, variant, label: card.label ?? id, params: card.params ?? [] }]);
+			for (const p of refs ? card.catalog?.parts ?? [] : []) {
+				const [name, q] = String(p.ref ?? '').split('?');
+				if (refs[name]) p.ref = refs[name] + (q ? `?${q}` : '');
+			}
+			admitHanded([{ hash: h, code: file, group: card.group, id: card.id ?? id, v: card.version ?? v, variant, label: card.label ?? id, params: card.params ?? [], card }]);
 			return { hash: h, label: card.label };
 		},
 		async load({ code, id, v, variant = null, label: name = '' }) {

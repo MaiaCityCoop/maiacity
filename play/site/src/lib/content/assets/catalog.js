@@ -193,13 +193,13 @@ const handed = new Map();
  * Recipes handed to this page by hand: the render bench's guests (the plants a dome names, made on this machine from
  * their readable sources), each `{ hash, code, group, id, v, variant, label, params }`, held to its hash and kept beside
  * the catalog for this page alone. A page that never reads play's catalog (the bench) takes them as its catalog.
- * @param {{ hash: string, code: string, group: string, id: string, v: number, variant?: string | null, label: string, params?: any[] }[]} rows
+ * @param {{ hash: string, code: string, group: string, id: string, v: number, variant?: string | null, label: string, params?: any[], card?: any }[]} rows
  */
 export function admitHanded(rows) {
 	for (const r of rows) {
 		if (hashText(r.code) !== r.hash) throw new Error(`refused: the recipe handed as ${String(r.hash).slice(0, 12)}… hashes otherwise`);
 		handed.set(r.hash, r.code);
-		keep({ hash: r.hash, group: r.group, id: r.id, v: r.v, variant: r.variant ?? null, label: r.label, record: { card: { params: r.params ?? [] } }, size: r.code.length });
+		keep({ hash: r.hash, group: r.group, id: r.id, v: r.v, variant: r.variant ?? null, label: r.label, record: { card: r.card ?? { params: r.params ?? [] } }, size: r.code.length });
 	}
 	if (catalog.phase !== 'ready') {
 		Object.assign(catalog, { phase: 'ready', count: Object.keys(INDEX.recipes).length, error: '' });
