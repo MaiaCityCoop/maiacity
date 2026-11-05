@@ -2,7 +2,9 @@
 /*
  * THE POST STACK — the one way a page draws through post-processing: the scene into a half-float, multisampled target,
  * then ambient occlusion (GTAO), bloom, the output pass (tone mapping and colour space) and a page's own passes (a
- * grade, a tilt shift), each only where it is asked for. The asset stage (../assets/stage.js) draws through it; the
+ * grade, a tilt shift), each only where it is asked for. Before bloom, every pixel that is not a finite number is
+ * made black (`FINITE`): a NaN from one bad surface (a normal of no length, a bump picture on a triangle of no area, on
+ * Apple's GPUs) would otherwise be blurred by ambient occlusion and bloom over the whole frame, and the frame goes black. The asset stage (../assets/stage.js) draws through it; the
  * Factories' look (../factories/look.js, AirSup's, line for line) lays its own passes on the composer made here
  * (`createComposer`, its `T.EffectComposer`); the film camera's darkroom (../film/pipeline.js) is the film's own.
  */
@@ -15,6 +17,20 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
 export { ShaderPass };
+
+/** a pixel that is not a finite number (NaN, ±∞) made black, so it stays one pixel and is not blurred over the frame */
+const FINITE = {
+	uniforms: { tDiffuse: { value: null } },
+	vertexShader: /* glsl */ `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+	fragmentShader: /* glsl */ `
+		uniform sampler2D tDiffuse;
+		varying vec2 vUv;
+		void main() {
+			vec4 c = texture2D(tDiffuse, vUv);
+			bool bad = isnan(c.r) || isnan(c.g) || isnan(c.b) || isinf(c.r) || isinf(c.g) || isinf(c.b);
+			gl_FragColor = bad ? vec4(0.0, 0.0, 0.0, 1.0) : c;
+		}`,
+};
 
 /**
  * The one EffectComposer: `renderer` drawing through `target` (the composer's own when not given).
@@ -55,6 +71,8 @@ export function createPost(renderer, scene, camera, o = {}) {
 		o.ao(ao);
 		composer.addPass(ao);
 	}
+	// what is not a number stops here, before anything blurs it over the frame
+	if (o.ao || o.bloom) composer.addPass(new ShaderPass(FINITE));
 	let bloom = null;
 	if (o.bloom) {
 		bloom = new UnrealBloomPass(new THREE.Vector2(...(o.bloom.size ?? [w / 2, h / 2])), o.bloom.strength, o.bloom.radius, o.bloom.threshold);
