@@ -72,9 +72,9 @@
 
 	/** the shots that move, by their video: one element per video (the shots cut from one take share it, so it plays on
 	 *  across their cuts and loads once), muted and kept in step with t (the story's own sound is the sound). The one on
-	 *  screen plays from its shot's video_in; the others wait where their next shot starts. A video shows only once it has
-	 *  the frame t asks for: while it still loads or seeks (a phone on a slow line) the shot's still shows, never a stale
-	 *  frame. A take loads only once it is needed (on screen, or its shot within LOOKAHEAD seconds), so on a phone's line
+	 *  screen plays from its shot's video_in; the others wait where their next shot starts. A shot with a video shows only
+	 *  its video, never a still (Samuel 2026-11-05); until its first frame has loaded, its poster, the thumbnail taken from
+	 *  that video. A take loads only once it is needed (on screen, or its shot within LOOKAHEAD seconds), so on a phone's line
 	 *  the one about to show has the line to itself rather than sharing it with every other take and every still. Play
 	 *  (a tap) starts the takes already loading, as a phone lets a video play only once a tap has. */
 	const videoShots = $derived(clipsOf<Shot>(flat, 'shots').filter((s) => typeof s.video === 'string' && s.video));
@@ -84,7 +84,6 @@
 	/** where a take that was behind waits, a little ahead of the time, for the time to reach it; and how far ahead */
 	const aheadAt: Record<string, number> = {};
 	const LEAD = 2.5;
-	let showing = $state<Record<string, boolean>>({});
 	/** the takes asked for so far (a take once asked for keeps its file), and how far ahead a take starts loading */
 	let wanted = $state<Record<string, boolean>>({});
 	const LOOKAHEAD = 8;
@@ -98,6 +97,12 @@
 	const loaded = (v: HTMLVideoElement, at: number) => {
 		for (let i = 0; i < v.buffered.length; i++) if (v.buffered.start(i) <= at + 0.05 && at + 1 <= v.buffered.end(i)) return true;
 		return false;
+	};
+	/** a take's poster: the thumbnail of the shot on screen that plays it, else of the next one that will (each shot's frame
+	 *  is the frame its video starts on) */
+	const posterOf = (h: string) => {
+		const s = moment.shot?.video === h ? moment.shot : (videoShots.find((x) => x.video === h && x.at >= t) ?? videoShots.find((x) => x.video === h));
+		return s?.frame ? frameUrl(s.frame) : undefined;
 	};
 	const videoAt = (s: Shot, now: number) => Math.max(0, now - s.at) + (Number(s.video_in) || 0);
 	$effect(() => {
@@ -129,7 +134,7 @@
 				if (on) {
 					// a take that is off is set right only when well off, and not again while the last jump still loads (on a slow
 					// line jumping every frame never lets it catch up, and the picture freezes). It jumps to where the time is when
-					// that has loaded; otherwise a little ahead of the time, where it waits paused (the still showing) while that
+					// that has loaded; otherwise a little ahead of the time, where it waits paused (that frame showing) while that
 					// loads, and plays on from the moment the time reaches it.
 					const wall = performance.now(), wait = aheadAt[h];
 					if (wait !== undefined && (want >= wait - 0.04 || want < wait - LEAD - 1)) delete aheadAt[h];
@@ -166,8 +171,6 @@
 				})
 				.join('\n');
 		}
-		const was = untrack(() => showing);
-		if (Object.keys(next).length !== Object.keys(was).length || Object.entries(next).some(([h, on]) => was[h] !== on)) showing = next;
 	});
 	/** in the user's own tap: every video started once, as an iPhone lets a video play from code only after a tap has started
 	 *  it (and in Low Power Mode never otherwise). A take already loading plays itself; one not yet needed plays a tiny
@@ -349,16 +352,21 @@
 	<!-- a tap on the picture plays and pauses it, as on any film player (Samuel 2026-11-04) -->
 	<div class="screen" style:--ratio={ratio} role="button" tabindex="0" aria-label={playing ? 'Pause' : 'Play'} onclick={toggle} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), e.stopPropagation(), toggle())}>
 		{#if debug}<pre class="diag">{diag || 'no takes'}</pre>{/if}
-		{#if moment.prev?.frame}<img class="frame" src={frameUrl(moment.prev.frame)} alt="" draggable="false" />{/if}
-		{#if moment.shot?.frame}
-			<img class="frame" src={frameUrl(moment.shot.frame)} alt="Shot {moment.index + 1}" draggable="false" style:opacity={moment.mix} />
-		{:else if moment.shot}
-			<div class="frame empty" style:opacity={moment.mix}><span>Shot {moment.index + 1}: no frame yet</span></div>
+		<!-- a shot with a video shows only its video (Samuel 2026-11-05: no stills any more); a still shows only for a shot
+			 that has no video yet. Before a take's first frame has loaded, it shows its poster: the thumbnail taken from that
+			 same video, the shot's frame -->
+		{#if moment.prev?.frame && !moment.prev.video}<img class="frame" src={frameUrl(moment.prev.frame)} alt="" draggable="false" />{/if}
+		{#if moment.shot && !moment.shot.video}
+			{#if moment.shot.frame}
+				<img class="frame" src={frameUrl(moment.shot.frame)} alt="Shot {moment.index + 1}" draggable="false" style:opacity={moment.mix} />
+			{:else}
+				<div class="frame empty" style:opacity={moment.mix}><span>Shot {moment.index + 1}: no frame yet</span></div>
+			{/if}
 		{/if}
-		<!-- the shots that move, over their stills: one video per take, shown while the shot on screen plays it and it has
-			 its frame (and faded in as the still would) -->
+		<!-- one video per take: the one the shot on screen plays on top (faded in as its transition says), the one the shot
+			 before played under it while they mix -->
 		{#each videoSources as h (h)}
-			<video class="frame" bind:this={videoEls[h]} use:release src={wanted[h] ? frameUrl(h) : undefined} muted playsinline preload="auto" aria-hidden="true" style:opacity={moment.shot?.video === h && showing[h] ? moment.mix : 0}></video>
+			<video class="frame" bind:this={videoEls[h]} use:release src={wanted[h] ? frameUrl(h) : undefined} poster={posterOf(h)} muted playsinline preload="auto" aria-hidden="true" style:z-index={moment.shot?.video === h ? 2 : 1} style:opacity={moment.shot?.video === h ? moment.mix : moment.prev?.video === h && moment.mix < 1 ? 1 : 0}></video>
 		{/each}
 		<!-- a shot's fade from black and to black: the picture under a black veil, the subtitles over it -->
 		{#if moment.light < 1}<div class="black" style:opacity={1 - moment.light}></div>{/if}

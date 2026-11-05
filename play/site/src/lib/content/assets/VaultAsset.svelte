@@ -30,6 +30,7 @@
 	import TouchStick from '$lib/site/touch/TouchStick.svelte';
 	import { valuesOf } from './params.js';
 	import { groundOf, groundsIn } from './ground.js';
+	import { createPlantings } from './plantings.js';
 	import { buildName, vaultBuild } from './sources/viewer.js';
 	import { plantOf } from './catalog.js';
 	import { VIEWS, asker, camerawork, letGoOf, loop, measure, movesOf, onTap, openStage, safeArea, tabbed, viewsOf } from './viewer.js';
@@ -198,13 +199,16 @@
 		const { THREE, view, renderer, camera, controls, adapt, resize } = up;
 		const { createWalker, PACE } = await import('$lib/content/sandbox-kit/walker.js');
 		stage = up.stage;
+		// what a build plants (a dome's forest: play's plants, named by their builds' hashes), drawn where it stands them
+		const plantings = createPlantings({ renderer, camera, scene: stage.scene });
 		if (gone) {
+			plantings.dispose();
 			stage.dispose();
 			view.dispose();
 			return;
 		}
 		// for a test in a browser to read what is shown, as AssetViewer's `__viewer`
-		window.__vaultAsset = { stage, camera, controls, get hero() { return hero; }, get picked() { return picked; }, get building() { return building; }, get phase() { return buildPhase; }, get error() { return error; }, get values() { return values; }, get wanted() { return wanted; }, set: (id, v) => setParam(id, v) };
+		window.__vaultAsset = { stage, camera, controls, plantings, get hero() { return hero; }, get picked() { return picked; }, get building() { return building; }, get phase() { return buildPhase; }, get error() { return error; }, get values() { return values; }, get wanted() { return wanted; }, set: (id, v) => setParam(id, v) };
 		// a plant's ground: its biome's floor to the horizon, whole, the plant's roots in the earth under it, seen by
 		// tilting the camera below the ground line (./ground.js); never under its fruit on its own, which stands on the
 		// studio's floor. One floor for every plant, not chosen (Samuel 2026-11-04): the library's greenest biome
@@ -250,6 +254,7 @@
 				const { centre, size: s } = stage.show(got.obj, { asset: h, ground: soiled ? 0 : undefined, keep: shownHash === h0, studio: !soiled });
 				if (soiled) earth.fit(got.obj);
 				earth.show(soiled);
+				plantings.show(got.obj);
 				// round a plant on its ground the camera may go down below the ground line, to 60° under it, but no further
 				controls.maxPolarAngle = soiled ? Math.PI * (5 / 6) : Math.PI;
 				buildPhase = 'prepare';
@@ -257,6 +262,7 @@
 				if (!asks.is(ask)) {
 					stage.clear();
 					earth.show(false);
+					plantings.clear();
 					return void letGo(h);
 				}
 				letGo(was);
@@ -292,6 +298,7 @@
 				catalog = picked = null;
 				stage.clear();
 				earth.show(false);
+				plantings.clear();
 				size = rise = null;
 				plantShown = false;
 				latin = null;
@@ -405,6 +412,7 @@
 					else if (grower.done) growing = false;
 				}
 			}
+			plantings.update();
 			stage.render();
 			if (stage.root && (stage.state?.labels > 0.01 || tags.length)) tags = stage.labels(box.clientWidth, box.clientHeight, safeArea(box, { inView: true }));
 			else if (!stage.root && tags.length) tags = [];
@@ -423,6 +431,7 @@
 			letGo(hero);
 			hero = null;
 			earth.dispose();
+			plantings.dispose();
 			stage.dispose();
 			view.dispose();
 			boxes?.build.stop('the viewer was left');
