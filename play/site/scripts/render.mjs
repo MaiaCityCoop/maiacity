@@ -27,9 +27,9 @@
  *
  *   --play            the page's API is play's own (https://play.maia.city), read with the admin token in PLAY_MCP_TOKEN
  *                     (its read-only routes; the token is sent to play and nowhere else): with --world, the guests a world
- *                     names that are not handed in with --guests are play's accepted assets, from its catalog, and a
- *                     --guests entry whose `as` play already holds is taken from play too (its own file: the hash a
- *                     biome names its plants by, or a world its guests by, stays the one play holds)
+ *                     names that are not handed in with --guests are play's accepted assets, from its catalog; a
+ *                     --guests entry stands in for its `as` even where play holds that hash (a new version, before and
+ *                     after): list only what you change, and what play holds is drawn as play holds it
  *   --world           the --file is a world (group `worlds`, play/SPEC.md §4.11): run as the Worlds page runs it, on the
  *                     world bench (/worlds/bench/): its guests (--guests, as above) drawn, lit and heard where it
  *                     stands them, and if it moves, kept running in the box. Its shots: { "name", "run": s of the
@@ -145,10 +145,9 @@ try {
 			console.log(`  play's catalog: ${got.count} recipes${got.error ? ` (${got.error})` : ''}`);
 		}
 		for (const g of o.guests ? JSON.parse(readFileSync(o.guests, 'utf8')) : []) {
-			if (o.world && o.play && g.as && (await page.evaluate((h) => window.__worldBench.holds(h), g.as))) {
-				console.log(`  guest ${g.id} from play (${g.as.slice(0, 12)}…)`);
-				continue;
-			}
+			// a guest handed in always stands in for the hash it is named by, play's copy or not (an "after" run draws the
+			// new version); one play holds that you do not change, leave out: play's own is drawn
+			if (o.world && o.play && g.as && (await page.evaluate((h) => window.__worldBench.holds(h), g.as))) console.log(`  guest ${g.id} stands in for play's ${g.as.slice(0, 12)}…`);
 			const refs = g.refs ? Object.fromEntries(Object.entries(g.refs).map(([name, h]) => [name, here[h] ?? h])) : null;
 			const got = await page.evaluate(([b, x]) => window[b].guest(x), [bench, { code: readFileSync(resolve(dirname(o.guests), g.file), 'utf8'), id: g.id, v: g.v, variant: g.variant ?? null, refs }]);
 			if (g.as) (here[g.as] = got.hash), (code = code.replaceAll(g.as, got.hash));

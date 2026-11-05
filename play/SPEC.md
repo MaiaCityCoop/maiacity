@@ -335,7 +335,8 @@ tail and lamp lights follow the mood's `lamps`; the rest are off.
 
 **The guests name the parts the page lights**, each modelled dark (its lens off): `light:head`, `light:tail`,
 `light:brake`, `light:indicator-l`, `light:indicator-r`, `light:reverse`, `light:beacon-blue`, `light:beacon-red`,
-`light:beacon-amber` (a work vehicle's; all beacons flash on `state:beacon`, the red against the others),
+`light:beacon-amber` (a work vehicle's; all beacons flash on `state:beacon`, the red against the others), `light:sign`
+(a shop's lit sign: lit always, unless its guest's `state:sign` says otherwise),
 `light:lamp`, `light:window` (a building's window cells, lit at dusk: the cells fall into four sets in their order and
 each copy lights some of them by its seed), and a signal head's `lamp:red`, `lamp:amber`, `lamp:green`, one set per
 head. The name is on the mesh itself or on a group holding it: every mesh under a named group is that light. The page
@@ -344,7 +345,8 @@ touching the guest's own drawing. Node names survive the box to 120 characters. 
 groups at their hubs `wheel:fl|fr|rl|rr` (spun about local x from a guest's speed), and a guest's sub-node turned by
 the world (a semi-trailer swinging at its kingpin).
 
-**Its mood** is a root node `mood:<preset>?k=v` (presets `smog-dusk`, `overcast`, `clear-day`, `night`; keys `sun` and
+**Its mood** is a root node `mood:<preset>?k=v` (presets `smog-dusk`, `overcast`, `clear-day`, `night`, and `indoor`: no
+sky, sun or fog, a flat soft light from everywhere, lamps and signs lit; keys `sun` and
 `az` in degrees, `fog` a density a metre, `haze` a hex colour, `lamps` 0 or 1): the sky dome, the fog in the haze's
 colour, the sun and the sky's light (`$content/worlds/sky.js`); `fog` is the density in the street, thinned with the
 eye's height to a third of it from 300 m up (smog lies low: a crane shot over a city still reads its blocks). Keys `shadows` (1: the sun casts them; a clear day's preset does, smog, overcast and night do not: under
@@ -369,7 +371,8 @@ instead); a world in the box and the same recipe run in Node at the same t stand
 
 **Developing a world** before its guests are accepted: `scripts/render.mjs --world --file <world.js> --guests
 <guests.json>` runs it on the world bench (`/worlds/bench/`, development only) exactly as the Worlds page does, each
-guest a local readable source put in place of the hash the world names it by (`as`), and shoots stills after the
+guest a local readable source put in place of the hash the world names it by (`as`), even one play holds (a new
+version, before and after; with `--play` every guest not handed in is play's own), and shoots stills after the
 world has run (`run`) from eyes, views or street cameras. The stand-in test world and its guests are
 `$content/worlds/test/` (the template of the contract); the contract is read in one place,
 `$content/worlds/contract.js`.

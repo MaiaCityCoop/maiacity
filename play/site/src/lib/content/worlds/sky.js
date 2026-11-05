@@ -93,6 +93,9 @@ export function createSky(scene, renderer) {
 		},
 		apply(m) {
 			mood = m;
+			// inside: no sky drawn, no sun, no fog; the background the room's own light colour
+			dome.visible = !m.indoor;
+			scene.background = m.indoor ? lin(m.haze) : null;
 			uniforms.uZenith.value.copy(lin(m.zenith));
 			uniforms.uHorizon.value.copy(lin(m.horizon));
 			uniforms.uHaze.value.copy(lin(m.haze));
@@ -109,7 +112,7 @@ export function createSky(scene, renderer) {
 			sun.color.copy(lin(m.sunColor));
 			// no shadow pass at all where the mood casts none (every caster would be drawn a second time)
 			sun.castShadow = m.shadows;
-			sun.intensity = m.sun > 0 ? 3.2 * m.light * Math.min(1, 0.45 + m.sun / 25) : 0.15;
+			sun.intensity = m.indoor ? 0 : m.sun > 0 ? 3.2 * m.light * Math.min(1, 0.45 + m.sun / 25) : 0.15;
 			renderer.toneMappingExposure = 1.0 + 0.2 * m.light;
 		},
 		/** each frame: the dome round the eye, the sun's shadow over where the camera looks */

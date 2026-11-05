@@ -26,6 +26,7 @@ export const LOOK = {
 	'beacon-amber': ['#ffa010', 2.4],
 	reverse: ['#f4f6ff', 0.8],
 	window: ['#ffcf8a', 0],
+	sign: ['#f4f7ff', 0],
 	lamp: ['#ffb85c', 5.0],
 	red: ['#ff2a18', 1.3],
 	amber: ['#ffae00', 1.3],

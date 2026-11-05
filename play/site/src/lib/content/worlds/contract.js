@@ -19,7 +19,8 @@
  * and the guests name their own parts the page drives: `light:<name>` (LIGHTS) and a signal's `lamp:<colour>`, one
  * set per head, each modelled dark (its lens off): the page draws the lit one over it, copy by copy (./lights.js). The
  * name is on the mesh itself or on a group holding it (every mesh under a named group is that light). A building's
- * `light:window` cells fall into WINDOW_SETS sets by their order, and each copy lights some of them by its seed.
+ * `light:window` cells fall into WINDOW_SETS sets by their order, and each copy lights some of them by its seed. A
+ * `light:sign` (a shop's lit sign) is lit always, unless its guest's `state:sign` says otherwise.
  */
 
 /** a recording's or a recipe's hash */
@@ -30,7 +31,9 @@ export const MOODS = {
 	'smog-dusk': { sun: 6, az: 250, fog: 0.0026, haze: '8e9396', lamps: 1, shadows: 0, zenith: '5d636b', horizon: 'b0a682', sunColor: 'd8b088', light: 0.85 },
 	overcast: { sun: 30, az: 200, fog: 0.003, haze: 'a7a9a8', lamps: 0, shadows: 0, zenith: '7d8389', horizon: 'b9bbb8', sunColor: 'e6e3dc', light: 0.9 },
 	'clear-day': { sun: 40, az: 220, fog: 0.0012, haze: 'd4e0ea', lamps: 0, shadows: 1, zenith: '5a8ccc', horizon: 'dde7ee', sunColor: 'fff1d6', light: 1.2 },
-	night: { sun: -12, az: 250, fog: 0.004, haze: '20232a', lamps: 1, shadows: 0, zenith: '07080c', horizon: '1d2028', sunColor: '8090b0', light: 0.12 }
+	night: { sun: -12, az: 250, fog: 0.004, haze: '20232a', lamps: 1, shadows: 0, zenith: '07080c', horizon: '1d2028', sunColor: '8090b0', light: 0.12 },
+	// inside (a shop, a checkout): no sky, no sun, no fog, a flat soft light from everywhere, its lamps and signs lit
+	indoor: { sun: -90, az: 0, fog: 0, haze: 'd8d8d4', lamps: 1, shadows: 0, zenith: 'e8e8e4', horizon: 'd8d8d4', sunColor: 'ffffff', light: 0.9, indoor: 1 }
 };
 export const DEFAULT_MOOD = 'overcast';
 
@@ -46,7 +49,8 @@ export const LIGHTS = {
 	'beacon-amber': 'beacon',
 	reverse: 'reverse',
 	lamp: 'lamp',
-	window: 'window'
+	window: 'window',
+	sign: 'sign'
 };
 /** how many sets a building's windows fall into, each lit or dark by the guest's seed (so no two blocks are lit alike) */
 export const WINDOW_SETS = 4;
@@ -54,6 +58,8 @@ export const WINDOW_SETS = 4;
 export const LAMPS = ['red', 'amber', 'green'];
 /** the lights lit by the mood where a guest says nothing of them */
 export const BY_MOOD = new Set(['head', 'tail', 'lamp', 'window']);
+/** the lights lit whatever the mood, unless a guest's state says otherwise: a shop's sign */
+export const ALWAYS = new Set(['sign']);
 
 /** `k=v&…` as an object of strings (bounded: a node's name is at most 120 characters) */
 export function query(q) {
@@ -92,7 +98,8 @@ export function moodOf(name) {
 		zenith: hex(q.zenith, base.zenith),
 		horizon: hex(q.horizon, base.horizon),
 		sunColor: base.sunColor,
-		light: base.light
+		light: base.light,
+		indoor: base.indoor === 1
 	};
 }
 
@@ -177,7 +184,7 @@ export function litNow(part, states, mood, t, phase = 0) {
 		if (h?.has(part.lamp)) return h.get(part.lamp);
 		return states.on.get(part.lamp) === true;
 	}
-	const on = states.on.has(part.state) ? states.on.get(part.state) : BY_MOOD.has(part.state) && mood.lamps;
+	const on = states.on.has(part.state) ? states.on.get(part.state) : ALWAYS.has(part.state) || (BY_MOOD.has(part.state) && mood.lamps);
 	if (!on) return false;
 	if (part.state === 'indicator-l' || part.state === 'indicator-r') return (t * BLINK + phase) % 1 < 0.5;
 	if (part.state === 'beacon') return ((t * FLASH + phase) % 1 < 0.5) === (part.light !== 'beacon-red');

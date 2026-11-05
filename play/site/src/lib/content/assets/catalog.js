@@ -51,6 +51,8 @@ async function load() {
 		for (const k of Object.keys(INDEX.recipes)) delete INDEX.recipes[k];
 		records.clear();
 		for (const r of rows) keep(r);
+		// what was handed to this page by hand stays beside it, over a row of the same hash (the bench's guests)
+		for (const r of handedRows.values()) keep(r);
 		INDEX.engine = LATEST.v;
 		Object.assign(catalog, { phase: 'ready', count: rows.length });
 	} catch (e) {
@@ -80,6 +82,12 @@ export async function admitProposed(rows) {
 }
 
 let loading = null;
+/** play's catalog read now, even where recipes handed by hand stood in for it (the world bench with --play) */
+export function readRecipes() {
+	loading = load();
+	return loading;
+}
+
 /** the catalog, read once a page (again after a failure) */
 export function loadRecipes() {
 	if (catalog.phase === 'failed') loading = null;
@@ -189,6 +197,8 @@ export const plantOf = (hash) => (recipeInfo(hash) ? records.get(hash)?.plant : 
 
 /** recipe files handed to this page by hand (the render bench's guests, in development), by their hashes */
 const handed = new Map();
+/** and their rows, kept over play's catalog when it is read after them */
+const handedRows = new Map();
 /**
  * Recipes handed to this page by hand: the render bench's guests (the plants a dome names, made on this machine from
  * their readable sources), each `{ hash, code, group, id, v, variant, label, params }`, held to its hash and kept beside
@@ -199,7 +209,9 @@ export function admitHanded(rows) {
 	for (const r of rows) {
 		if (hashText(r.code) !== r.hash) throw new Error(`refused: the recipe handed as ${String(r.hash).slice(0, 12)}… hashes otherwise`);
 		handed.set(r.hash, r.code);
-		keep({ hash: r.hash, group: r.group, id: r.id, v: r.v, variant: r.variant ?? null, label: r.label, record: { card: r.card ?? { params: r.params ?? [] } }, size: r.code.length });
+		const row = { hash: r.hash, group: r.group, id: r.id, v: r.v, variant: r.variant ?? null, label: r.label, record: { card: r.card ?? { params: r.params ?? [] } }, size: r.code.length };
+		handedRows.set(r.hash, row);
+		keep(row);
 	}
 	if (catalog.phase !== 'ready') {
 		Object.assign(catalog, { phase: 'ready', count: Object.keys(INDEX.recipes).length, error: '' });
