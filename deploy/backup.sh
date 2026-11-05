@@ -34,6 +34,10 @@ trap 'rm -rf "$WORK"' EXIT
 echo "backup: dumping the schema play …"
 timeout 900 docker exec maia-city-db pg_dump -U maiacity -d maiacity -n play -Fc -w --lock-wait-timeout=120s </dev/null >"$WORK/play.dump"
 [ -s "$WORK/play.dump" ] || { echo "backup: the dump is empty"; exit 1; }
+# the files the dump names, counted now, before the copy: play keeps a file in its store before its row, so every row
+# counted here has its file there when the copy starts; counted after it, the files play keeps while the copy runs (a
+# few minutes) were counted but not copied, and the backup failed for them (2026-11-05: 2287 rows, 2267 copied)
+ROWS=$(docker exec maia-city-db psql -U maiacity -d maiacity -Atc "SELECT count(*) FROM play.files" </dev/null)
 # the files, always beside the dump: from the bucket where play keeps them there, else from its folder. Each is named by
 # its hash and never changes, so files written after the dump only add to what the copy holds.
 STORE=folder
@@ -75,7 +79,6 @@ else
   echo "backup: play.env names neither PLAY_BUCKET nor a PLAY_DATA_PATH with blobs/: no files to copy"; exit 1
 fi
 # a backup holds every file the dump names, or it is no backup
-ROWS=$(docker exec maia-city-db psql -U maiacity -d maiacity -Atc "SELECT count(*) FROM play.files" </dev/null)
 if [ "$FILES" -lt "$ROWS" ]; then
   echo "backup: the dump names $ROWS files and the copy holds $FILES"; exit 1
 fi
