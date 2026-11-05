@@ -25,10 +25,11 @@ const STEP = 0.5;
  *   recipe: import('$lib/content/biomes/index.js').Recipe,
  *   open?: (x: number, z: number) => boolean,
  *   tile?: number, reach?: number, near?: number, thin?: number, perFrame?: number, seed?: number, density?: number,
- *   origin?: [number, number], at?: [number, number, number], hidden?: boolean
+ *   origin?: [number, number], at?: [number, number, number], hidden?: boolean, heightAt?: (x: number, z: number) => number
  * }} o
  *   the stream's options (`coverStream`), and: drawn, the renderer it is drawn by; at, where the floor's own ground lies
- *   in the world it draws (a dome's floor, off the village's middle); hidden, none of it drawn until it is shown
+ *   in the world it draws (a dome's floor, off the village's middle); hidden, none of it drawn until it is shown;
+ *   heightAt, the floor's height at x, z of its own ground where it is not flat (a building's forest floor)
  */
 export function createCover(o) {
 	const tile = o.tile ?? 12, reach = o.reach ?? 30, perFrame = o.perFrame ?? 1, seed = o.seed ?? 1;
@@ -79,7 +80,7 @@ export function createCover(o) {
 						const e = m.elements;
 						for (let j = 0; j < 12; j++) if (j % 4 < 3) e[j] *= grow;
 						e[12] += ax;
-						e[13] += ay;
+						e[13] += ay + (o.heightAt ? o.heightAt(px, pz) : 0);
 						e[14] += az;
 						const n = counts[k]++;
 						if (n < list.length) drawn.move(list[n], m);
