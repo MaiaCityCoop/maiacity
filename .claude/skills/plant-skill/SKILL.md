@@ -284,6 +284,29 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
 - **A washed-white close-up is a leaf at the lens.** With the camera's target inside the crown, a leaf right in front of
   it blurs the frame white; nan-check tells that from NaN. Put the target on the crown's near side. The organ bench
   times out on a whole tree of over ~400k triangles: judge whole stages from render.mjs.
+- **But a white frame with one black pixel is a NaN nan-check cannot see** (plum v2, 2026-11-05). Its bearing tree went
+  white from 3–4 m and at zoom 0.4, from anywhere and with leaves, fruit or wood each taken out, though nan-check was
+  clean: one NaN pixel (black, at the frame's edge) and the viewer metered the frame white. The cause was its bump
+  pictures: three's `perturbNormalArb` normalises a vector of no length wherever a triangle stands edge-on or shrinks
+  under a pixel on screen, and a tree of a million small triangles finds such a pixel. Taking every bump picture out
+  cured it (colour pictures cannot make NaN). For a dense tree: colour pictures only, relief as geometry; and render a
+  zoom series (`camera: { zoom: 0.6 / 0.4 / 0.25 }`) before proposing, a uniformly white or black frame failing it.
+- **A small leaf's underside needs its own normals.** `sheet({ back })` lights a leaf's underside with the upper
+  face's normals (a banana's thin blade lets the light through). Seen from below, those normals face away from the eye,
+  the Fresnel term takes the whole sky, and a tree of small hanging leaves draws white wherever undersides show (plum
+  v2's seedling leaves were silver). `backLit: false` gives the underside its own normals (plum v2's part 1).
+- **trace.py measures from the bottom of its box.** Lay a specimen base down (`upright.py`) or flip the table: plum
+  v2's leaf was first laid in tip first (a wedge base, a broad tip); the organ bench showed it at once.
+- **White on white has no silhouette.** compare.py finds a white petal on the sheet's white ground as ground: a flower's
+  overlap of 0.5 meant nothing (only its centre and stamens were measured). Judge white organs by eye, side by side.
+- **A crown's form is set by height as well as by order** (plum v2, Rauh's model). Every tier of limbs leaving the
+  leader at the same steep angle and rising to the light made an inverted cone, a broom; the sheet's tree is fullest
+  just below the middle. Give the lower tiers a wider angle, a little more vigour and little upward turn (passed down
+  to their shoots), the upper ones less vigour; then lay the silhouette (`silhouette.cjs`, `compare.py --close`) on
+  row 1. Raising the clear stem by 20 cm took away a whole first tier: put the clear stem below the first year's top.
+- **Parse a colour once.** A tree asks for the same few named colours hundreds of thousands of times; `new
+  THREE.Color('#hex')` in `mix()` and every `lerp` was a fifth of plum v2's build. Keep parsed colours in a map
+  (`named()`, plum v2's part 1).
 
 - **A lathe from traced widths closes round, or it is a box.** Orange v2's first fruit came off the bench at overlap
   0.78, its ends flat: a lathe's first and last rings jumped from the traced width straight to zero. Space the rings by
