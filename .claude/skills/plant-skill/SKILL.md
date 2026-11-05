@@ -27,7 +27,10 @@ Rauh's model, a leader with tiers of limbs year by year, colour pictures only an
 its numbers in `references/plum-hauszwetschge.md`, its brief beside them, its whole source `references/plum-v2.js`), and
 **avocado v3** ('Fuerte', Rauh's model flush by flush from its rootstock's seed to mature fruit in its tenth year, inside
 the crown measured for each age; its numbers in `references/avocado-fuerte.md`, its brief beside them, its whole source
-`references/avocado-v3.js`). Start
+`references/avocado-v3.js`), and **pineapple v2** ('Queen Victoria', a rosette herb from its planted sucker, forced, its
+fruit a syncarp of 80 eyes in spirals of 8 and 13 laid on the golden-angle spiral, each eye a shield in geometry; its
+numbers in `references/pineapple-queen-victoria.md`, its brief beside them, its whole source `references/pineapple-v2.js`,
+whose part 1 carries banana's core with the later lessons: mipmaps, `named()`, `backLit`). Start
 a new plant from the newest: copy its part 1
 (the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps as lemon v2 has it; the file is
 `references/banana-v2.js` or `references/lemon-v2.js`) as it is and write parts 2–4 for the new plant; a tree takes its
@@ -351,6 +354,25 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
 - **Tips by the hundred.** A crown reads as dense only with enough shoot tips: the sapodilla needed some 1,000 at 8 years
   (forks of two or three at most flushes, a minimum spacing between new rosettes of ~9 cm) before its crown stopped
   being see-through; check `forks` and the spacing rule's rejections when a crown stays thin.
+
+- **A syncarp's eyes are a phyllotaxis, counted** (pineapple v2, 2026-11-05). Lay the fruitlets on the generative
+  spiral at the golden angle on the fruit's own surface (its length along the profile and its angle), each the next a
+  step up in proportion to the girth there, the step found by bisection so the measured count fits (80 for Victoria);
+  then check in node that every inner eye's nearest neighbours are its 5th, 8th and 13th (spirals of 8 and 13, the flat
+  5) before rendering. Draw each eye from the Voronoi of the lattice on the surface (F1, F2: the groove where F2 − F1 is
+  small), rounded off by the distance to its centre or the eyes come out as lozenges; relief as geometry, no bump
+  picture. The sheet showed what an eye is made of: a crescent along its lower rim (dark on the green fruit, bright on
+  the ripe), the pale fibrous bract over its middle, the deep groove under the crescent.
+- **A rosette is shaped by rank, not by age alone.** Pitch (from the vertical) and arch by how many leaves came after a
+  leaf: upright in the heart, the D leaves ~30–45°, the outer ones arching over; after forcing, when no new leaves come,
+  let the rank still grow a little a day or the heart stays a spike. Tune it by numbers first (height and spread at
+  forcing against the data sheet), then the side silhouette on row 1 (`compare.py --close 0.04`); a sheet that draws
+  leaves wider than the data (the pineapple's 7 : 1 against a measured 13 : 1) draws a denser fountain than the data
+  will ever give: keep the data's width and say so.
+- **Bench a whole plant above its soil.** The organ bench draws what is buried too (the stem's foot, dead sheaths):
+  crop it at the soil line, and crop the sheet's ground line off the panel's bottom rows; `--colourful` drops a
+  grey-green rosette with the line, so do not use it there. `upright.py` pads only 100 px: a long leaf laid at 60° comes
+  out cut at both ends; rotate it with `expand=True` and the angle that makes it narrowest.
 
 - **Safe on every GPU, or black on an iPad.** Banana v2's first proposal drew black in play's viewer on an iPad:
   some 800 normals of no length where its blades' rows met at the tip, with a bump picture, made NaN pixels on
