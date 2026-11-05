@@ -27,6 +27,7 @@ export function createSky(scene, renderer) {
 			depthWrite: false,
 			depthTest: false,
 			fog: false,
+			toneMapped: false,
 			vertexShader: /* glsl */ `
 				varying vec3 vDir;
 				void main() {
@@ -55,8 +56,8 @@ export function createSky(scene, renderer) {
 					// the band of haze where the land meets the sky, and the land's colour below it
 					c = mix(c, uHaze, smoothstep(0.18, 0.0, abs(h)) * 0.85);
 					if (h < 0.0) c = uHaze;
+					// not tone mapped: three lays fog on after tone mapping, so the land fades into exactly this colour
 					gl_FragColor = vec4(c, 1.0);
-					#include <tonemapping_fragment>
 					#include <colorspace_fragment>
 				}`
 		})
