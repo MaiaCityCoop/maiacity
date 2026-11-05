@@ -1,0 +1,3 @@
+A low oak platform bed for a 160 × 200 cm mattress (1.92 × 2.32 m, frame 0.28 m high, headboard 1.0 m): upholstered linen headboard, a draped linen duvet, four stuffed pillows and a rust throw across the foot.
+
+Made for the Forest dome (buildings group), whose rooms place it by this version's recipe hash: the dome names `things/bed-platform@1` and draws it once accepted. Real size, built in its parts from the natural-material kit the dome shares (oak, travertine, linen, bouclé, brass, glazed ceramic, paper: each a surface painted in the box, laid in metres). Checked in play's render bench (scripts/render.mjs) from several sides and close up, and its numbers with the box's budget (triangles, pictures, build time).

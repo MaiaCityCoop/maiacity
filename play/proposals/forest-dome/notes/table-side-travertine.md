@@ -1,0 +1,3 @@
+A round travertine side table, Ø 0.45 m and 0.50 m high: a top with a soft bullnose edge on a drum Ø 0.30 m cut with twenty stopped flutes.
+
+Made for the Forest dome (buildings group), whose rooms place it by this version's recipe hash: the dome names `things/table-side-travertine@1` and draws it once accepted. Real size, built in its parts from the natural-material kit the dome shares (oak, travertine, linen, bouclé, brass, glazed ceramic, paper: each a surface painted in the box, laid in metres). Checked in play's render bench (scripts/render.mjs) from several sides and close up, and its numbers with the box's budget (triangles, pictures, build time).

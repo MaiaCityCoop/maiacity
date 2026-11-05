@@ -1,0 +1,3 @@
+A walk-in shower: a 1.20 × 2.20 m zellige wall panel, a 1.20 × 0.90 m travertine tray with a linear brass drain, an 8 mm glass screen 2.00 m high in slim brass edges with a stay to the wall, a round brass rain head, a mixer and a hand shower.
+
+Made for the Forest dome (buildings group), whose rooms place it by this version's recipe hash: the dome names `things/shower-walk-in@1` and draws it once accepted. Real size, built in its parts from the natural-material kit the dome shares (oak, travertine, linen, bouclé, brass, glazed ceramic, paper: each a surface painted in the box, laid in metres). Checked in play's render bench (scripts/render.mjs) from several sides and close up, and its numbers with the box's budget (triangles, pictures, build time).

@@ -1,0 +1,3 @@
+A round floor cushion of oat linen, Ø 0.60 m and 0.30 m high: a boxed, piped cover stuffed full, its top drawn to a covered button, its band slightly slumped.
+
+Made for the Forest dome (buildings group), whose rooms place it by this version's recipe hash: the dome names `things/pouf-linen@1` and draws it once accepted. Real size, built in its parts from the natural-material kit the dome shares (oak, travertine, linen, bouclé, brass, glazed ceramic, paper: each a surface painted in the box, laid in metres). Checked in play's render bench (scripts/render.mjs) from several sides and close up, and its numbers with the box's budget (triangles, pictures, build time).

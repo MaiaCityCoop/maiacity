@@ -1,0 +1,3 @@
+A rimless wall-hung toilet, its glazed bowl 0.36 × 0.55 m with a slim seat and lid at 0.42 m, on a 0.80 m wide, 1.11 m high cistern box clad in lime-plaster panels under a travertine shelf, with a brass dual flush plate.
+
+Made for the Forest dome (buildings group), whose rooms place it by this version's recipe hash: the dome names `things/toilet-wall@1` and draws it once accepted. Real size, built in its parts from the natural-material kit the dome shares (oak, travertine, linen, bouclé, brass, glazed ceramic, paper: each a surface painted in the box, laid in metres). Checked in play's render bench (scripts/render.mjs) from several sides and close up, and its numbers with the box's budget (triangles, pictures, build time).

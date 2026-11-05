@@ -1,0 +1,37 @@
+/**
+ * THE THINGS — play's own furniture the rooms are furnished with, each its own asset of the Things group, named by the
+ * hash of its recipe file (things/<slug>@1): the page draws each where the dome places it (dome.place), never copied in.
+ */
+const THINGS = {
+	'armchair-round': { hash: '343f073aed71f011975771bd4f6c1a950c0e453366764cf185546bd804c388ef', label: "Armchair, round" },
+	'bath-tub-freestanding': { hash: '1ea81f24767d86443c13ea8a197720f068359efff72fbc3248720da71d2b5166', label: "Freestanding bath tub" },
+	'bed-platform': { hash: 'e221daa585b9548b768db715bcdcd084dbbd9414125d4ec838b542a1207e5167', label: "Bed, platform" },
+	'bench-oak-curved': { hash: 'd28efccc1c2076469b652d8890b9c86c7e2bde9d65820e0a1373e134188e0472', label: "Curved oak bench" },
+	'bookcase-oak': { hash: '5c4b003c21f1cb93ef48257c00f14a0a5095a24c3ae17f4d1842fe48838b628a', label: "Oak bookcase" },
+	'chair-desk': { hash: 'bf17d5b79d4c4e5d176086bc9ab2cbab435592fb7a49c12e9414dc1813a3cb2e', label: "Chair, desk" },
+	'chair-spindle': { hash: 'c1a130c7f83c479e68ee43724e29381d31f1b6c359bc1ae4c412b978e7143402', label: "Oak spindle chair" },
+	'curtain-linen': { hash: '1f49cb03e15e8b0bce5e588a8261c2e3a2eeac490a7d2e44ea1cec5f918ed13e', label: "Curtain, linen" },
+	'daybed-terrace': { hash: 'e8f28e0767bf3f4636b58c23909aa3fa9a09b7a46eaff9e8d1565232b5a89976', label: "Terrace daybed" },
+	'desk-curved': { hash: 'fe0550236824a963e4d699ea77afcb5048a85675b3f59d15f39344a3235922cc', label: "Desk, curved" },
+	'kitchen-counter': { hash: '8a36fd608ff607ab86983ed445cc86d8f732cf4a0bf675b0341307fafdd12e0b', label: "Oak kitchen counter" },
+	'kitchen-island-curved': { hash: '25c3798ad10bc0382037ae010a6e8c385c584c9303ef5cb12ead9bd03e44acf1', label: "Curved kitchen island" },
+	'lamp-mushroom': { hash: '795e81f88390b90873e6d556e4631ad6b8cb0109e3b49cb0a6b9baa59091572a', label: "Lamp, mushroom" },
+	'lantern-floor': { hash: 'a1e2f254548d65c8e5d52f2f32a2078c2b34474d596efac34f790d01dd3f533a', label: "Paper floor lantern" },
+	'lantern-pendant-large': { hash: '296bf169c7fdaf386d10094159ce02134d3d7dc1d0c4980806cf5028494aace1', label: "Large paper lantern" },
+	'lantern-pendant': { hash: 'be3c94e6040b070f27e5583b48651616f18858b47b4b969d4ab6235df2e2c597', label: "Paper pendant lantern" },
+	'nightstand-round': { hash: '2f724ed75dc558660bbf26874d86687ac3d36679cd3c73edd9ec34162c254d28', label: "Nightstand, round" },
+	'planter-trough': { hash: '14a0055018b0fbecf83b17075342d1dac94e9c2da9580cf605193ed7db1ac230', label: "Long planter trough" },
+	'pot-terracotta': { hash: '4b51c90df21283350778a7be2bab8a85166d16d739771a14bec9326cf518d479', label: "Terracotta pot" },
+	'pouf-linen': { hash: 'c3842dd8afba5bdc0bd49e891fc45321612382752b227b3a0dc5b22327cdfaba', label: "Pouf, linen" },
+	'rug-jute-round': { hash: 'fce8bafdbfb03dd386f3d8728e653c9a711c068294aaf1f7605fb9d855202ad8', label: "Rug, jute, round" },
+	'shower-walk-in': { hash: '8042e8fa9c4b20220b8088793cf9e2df701f91da3e94522e1a03a1058476af3d', label: "Walk-in shower" },
+	'sofa-curved': { hash: '28b74c206e804c1b614609f091409bce3d833c7cc0e3c5508ec01da89cb48e1d', label: "Sofa, curved" },
+	'stool-oak': { hash: 'd04107cf89209820bf69635a6b26d7663638afbb725b12c1f601811585fcc49c', label: "Oak counter stool" },
+	'table-coffee-travertine': { hash: '90bb6c1497b331726e925c26c359b7f50c8bea41388f07fcabe46a20c3aa38ba', label: "Coffee table, travertine" },
+	'table-dining-round': { hash: 'fe5bcb710b9b0ac3d71d8d59f53e49061350504fb6e62c9777bca1f512d0fb3c', label: "Round oak dining table" },
+	'table-library-long': { hash: '7826dd82151977fd5123d737dbca2ae8632367311b6486fd52cdc0e9069ab6fa', label: "Oak library table" },
+	'table-side-travertine': { hash: '9cd27ea1cc828c3fa9bc1ebfdd25ff8cc5a6182f58c4d3a579237a8c2dd7d6d8', label: "Side table, travertine" },
+	'toilet-wall': { hash: 'de6665311200af1e3d83584d8d2a17d23fcb99b9c6b19da65179365bc30abaad', label: "Wall-hung toilet" },
+	'vanity-curved': { hash: '47d2feb9dd1e02b9da24e7c88ee8c954cb24c806ea8469fff531d49eb45167d9', label: "Curved oak vanity" },
+	'workbench-oak': { hash: '603e4fb35b38312c72c513e1afbf1e70af176fcd092c76a8fb8d7a17e2efa17c', label: "Oak workbench" }
+};

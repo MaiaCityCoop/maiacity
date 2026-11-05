@@ -1,0 +1,3 @@
+A wall-hung oak vanity 1.40 × 0.50 m with rounded ends and two curved doors, a travertine top at 0.86 m with an undermounted round basin and a wall-mounted brass tap; above it a 1.00 × 0.60 m stadium mirror in a slim brass edge between two opal pill sconces.
+
+Made for the Forest dome (buildings group), whose rooms place it by this version's recipe hash: the dome names `things/vanity-curved@1` and draws it once accepted. Real size, built in its parts from the natural-material kit the dome shares (oak, travertine, linen, bouclé, brass, glazed ceramic, paper: each a surface painted in the box, laid in metres). Checked in play's render bench (scripts/render.mjs) from several sides and close up, and its numbers with the box's budget (triangles, pictures, build time).
