@@ -27,7 +27,10 @@ Rauh's model, a leader with tiers of limbs year by year, colour pictures only an
 its numbers in `references/plum-hauszwetschge.md`, its brief beside them, its whole source `references/plum-v2.js`), and
 **avocado v3** ('Fuerte', Rauh's model flush by flush from its rootstock's seed to mature fruit in its tenth year, inside
 the crown measured for each age; its numbers in `references/avocado-fuerte.md`, its brief beside them, its whole source
-`references/avocado-v3.js`). Start
+`references/avocado-v3.js`), and **pomegranate v2** ('Wonderful', grown as it is grown, from a hardwood cutting on its own
+roots: a bush of shoots in its first year, four kept as low trunks, a twiggy vase of opposite laterals, spurs, thorns and
+leaf rosettes on one- and two-year wood, fruit hanging crown-down from short shoots; its numbers in
+`references/pomegranate-wonderful.md`, its brief beside them, its whole source `references/pomegranate-v2.js`). Start
 a new plant from the newest: copy its part 1
 (the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps as lemon v2 has it; the file is
 `references/banana-v2.js` or `references/lemon-v2.js`) as it is and write parts 2–4 for the new plant; a tree takes its
@@ -352,6 +355,24 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   (forks of two or three at most flushes, a minimum spacing between new rosettes of ~9 cm) before its crown stopped
   being see-through; check `forks` and the spacing rule's rejections when a crown stays thin.
 
+- **Narrow leaves held flat make a see-through crown** (pomegranate v2, 2026-11-05). 44k leaves of 6 × 1.7 cm, measured
+  as an LAI of ~3.7 through the crown, still rendered as a grey haze of twigs from the side: every blade lay near
+  level, so seen from the side it was edge-on. Roll each blade about its midrib by its own chance (±65°), as narrow leaves
+  really stand along their twigs; then count leaves by place (a 25 cm grid of where they are) before adding more.
+- **A twiggy tree is clothed by its short shoots, not its long ones.** The pomegranate's crown read as a broom of bare
+  rods until the nodes of one- and two-year wood carried leaf rosettes (most nodes of last year's wood, fewer of the
+  year before), as its axillary short shoots do; more long shoots only added bare wood and triangles.
+- **Mark every fruit, at every detail.** `Bag.add` thins beads with the leaves when a crowd is drawn, and a fruit drawn
+  as a bead outside `bag.fruit(…)` is thinned with them: the pomegranate's crowd of 96 fruit kept 7. Call `bag.fruit` at
+  every detail: a fruit tree far off is seen by its fruit.
+- **A tube's u runs along it.** `tube()` lays u along the axis and v round it, so a bark picture laid with `metric()` has
+  its x up the trunk; drawn the other way (x round), the pomegranate's long bark strips came out as dark dashes across
+  every branch.
+- **compare.py lists its widths from the top down** (station 0 the top of the panel): read the far end of the list for a
+  tree's skirt and trunk. The pomegranate's first crown fix went the wrong way on that misreading.
+- **Time the colouring stage by the data sheet's colour break**, and bench the colouring fruit: the first pomegranate
+  'Colouring' stage was a month past the break and all red, where the sheet and the data sheet (break at 11 weeks,
+  deep red at 22) show a blush over yellow-green.
 - **Safe on every GPU, or black on an iPad.** Banana v2's first proposal drew black in play's viewer on an iPad:
   some 800 normals of no length where its blades' rows met at the tip, with a bump picture, made NaN pixels on
   Apple's GPU, and the viewer blurred them over the frame (Chromium's software GL, which the renders use, hid it).
