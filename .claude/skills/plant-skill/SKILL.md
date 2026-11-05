@@ -16,7 +16,9 @@ Worked examples, all proposed over MCP and kept on play: **apricot v2** ('Ungari
 African Amelonado; its numbers in `references/cacao-amelonado.md`) and **banana v2** ('Dwarf Cavendish', the first made
 from its own reference sheet; its numbers in `references/banana-dwarf-cavendish.md`, its brief in
 `references/banana-dwarf-cavendish-brief.md`), and **orange v2** ('Tarocco', a grafted tree grown flush by flush; its
-numbers in `references/orange-tarocco.md`, its brief in `references/orange-tarocco-brief.md`). Start a new plant from
+numbers in `references/orange-tarocco.md`, its brief in `references/orange-tarocco-brief.md`), and **peach v2** ('Saturn',
+the flat peach, a stone budded and trained as an open vase year by year; its numbers in `references/peach-saturn.md`, its
+brief in `references/peach-saturn-brief.md`). Start a new plant from
 the newest: copy its part 1 (the growing core, with its surfaces and `sound()`; the file is `references/banana-v2.js`)
 as it is and write parts 2–4 for the new plant; a tree takes its part 3 from orange v2 (flushes) or apricot v2 (years).
 
@@ -220,6 +222,24 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   change.
 
 ## Lessons kept
+
+- **The model draws the usual form of the species.** Peach v2's two first plates drew every 'Saturn' fruit round from
+  the side and its stone almond-shaped, though the brief said flat, 62 × 30 mm, a disc stone; two edit passes got the
+  side views to 1.4 : 1, not 2 : 1. When a cultivar's mark is its departure from the species (flat, seedless, dwarf),
+  check that first, and if the plate will not draw it, take that shape from the data sheet and say so in the go question.
+- **Every edit pass casts the plate.** Each `nano-banana-pro/edit` pass on peach v2's sheet tinted it magenta (the
+  checker's greys from neutral to R and B some 15 levels over G). Read the checker's greys after every edit; grey-balance
+  the edited plate against the first one's checker (a curve per channel through the six greys) before tracing a colour.
+- **Size a fruit's balls so it touches nothing where it should hang.** A flat peach sits tight on its shoot; balls as big
+  as the fruit overlapped its own shoot, so `Space.settle` ran its whole search for every fruit (46 shapes each, 3.6 s of
+  a 5.7 s build). Balls a little inside the fruit, and a short search of its own round the shoot (`hangFlat`), brought
+  the build to 1.7 s.
+- **Measure a cover, do not guess its threshold.** A blush meant to cover 70–85 % covered 34 % at its first threshold.
+  Count the red share of the skin on the mesh (area-weighted, over seeds and suns), tabulate cover against threshold and
+  draw it through that table (`BLUSH_AT`, peach v2).
+- **A washed-white close-up is a leaf at the lens.** With the camera's target inside the crown, a leaf right in front of
+  it blurs the frame white; nan-check tells that from NaN. Put the target on the crown's near side. The organ bench
+  times out on a whole tree of over ~400k triangles: judge whole stages from render.mjs.
 
 - **A lathe from traced widths closes round, or it is a box.** Orange v2's first fruit came off the bench at overlap
   0.78, its ends flat: a lathe's first and last rings jumped from the traced width straight to zero. Space the rings by
