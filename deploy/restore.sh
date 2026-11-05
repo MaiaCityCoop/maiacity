@@ -4,7 +4,8 @@
 #                                                  every file there and hashing to its name, every head a version
 #                                                  (play's src/verify.ts), its image answering on it. Production untouched.
 #   bash deploy/restore.sh rollback <name|latest>  put it back in production: first a backup of how things are now, then
-#                                                  play's schema from the dump, its files from the copy (the ones before
+#                                                  play's schema from the dump, its files (the ones it names, from the
+#                                                  shared store; an older backup's from its own copy; the ones before
 #                                                  kept beside them), and the image it ran with.
 # GHCR_TOKEN and ACTOR in the environment let it pull an image the server does not have.
 set -euo pipefail
@@ -34,17 +35,17 @@ s3() {
 json() { sed -n "s/^ *\"$1\": *\"\(.*\)\",\{0,1\}$/\1/p" "$WORK/manifest.json" | head -1; }
 
 if [ "$NAME" = latest ]; then
-  NAME=$(s3 s3 ls "s3://$BACKUP_BUCKET/BACKUPS/play/" | awk '/PRE /{print $2}' | tr -d / | sort | tail -1)
+  NAME=$(s3 s3 ls "s3://$BACKUP_BUCKET/BACKUPS/play/" | awk '/PRE /{print $2}' | tr -d / | grep -E '^[0-9]{8}T[0-9]{6}Z-' | sort | tail -1)
   [ -n "$NAME" ] || { echo "restore: there is no backup under BACKUPS/play/"; exit 1; }
 fi
 echo "restore: $MODE from s3://$BACKUP_BUCKET/BACKUPS/play/$NAME/ …"
 s3 s3 cp "s3://$BACKUP_BUCKET/BACKUPS/play/$NAME/" /work/ --recursive --only-show-errors
-# a backup is both halves, the dump and the files, or it is none
-# (its files either packed in blobs.tar, or, from a play on the bucket, copied under blobs/)
+# a backup is both halves, the dump and the files, or it is none: a snapshot's files are in the shared store
+# (files.txt names them), an older backup's in its own blobs.tar or blobs/
 for f in play.dump manifest.json; do
   [ -s "$WORK/$f" ] || { echo "restore: $NAME has no $f: not a whole backup"; exit 1; }
 done
-[ -s "$WORK/blobs.tar" ] || [ -d "$WORK/blobs" ] || { echo "restore: $NAME has neither blobs.tar nor blobs/: not a whole backup"; exit 1; }
+[ -f "$WORK/files.txt" ] || [ -s "$WORK/blobs.tar" ] || [ -d "$WORK/blobs" ] || { echo "restore: $NAME has neither files.txt nor blobs.tar nor blobs/: not a whole backup"; exit 1; }
 echo "restore: manifest $(tr -d '\n ' < "$WORK/manifest.json")"
 IMAGE=$(json image)
 IMAGE="${IMAGE:-$PLAY_IMAGE}"
@@ -52,7 +53,28 @@ if [ -n "${GHCR_TOKEN:-}" ]; then echo "$GHCR_TOKEN" | docker login ghcr.io -u "
 docker image inspect "$IMAGE" >/dev/null 2>&1 || docker pull "$IMAGE" >/dev/null
 docker image inspect "$PLAY_IMAGE" >/dev/null 2>&1 || docker pull "$PLAY_IMAGE" >/dev/null
 mkdir -p "$WORK/data"
-if [ -s "$WORK/blobs.tar" ]; then tar -xf "$WORK/blobs.tar" -C "$WORK/data"; else mv "$WORK/blobs" "$WORK/data/blobs"; fi
+if [ -f "$WORK/files.txt" ]; then
+  # a snapshot: the files it names, from the store every snapshot shares (a file named by its hash never changes, so
+  # the store's copy is the one the snapshot was made with); each must be there, at its size
+  echo "restore: fetching the $(wc -l <"$WORK/files.txt") files it names from s3://$BACKUP_BUCKET/BACKUPS/play-files/blobs/ …"
+  mkdir -p "$WORK/data/blobs"
+  # the store synced down whole (in parallel, only what is not here yet), then whatever this snapshot does not name
+  # taken out again below
+  timeout 2400 docker run --rm -v "$WORK:/work" \
+    -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION="$BACKUP_REGION" \
+    -e AWS_REQUEST_CHECKSUM_CALCULATION=when_required -e AWS_RESPONSE_CHECKSUM_VALIDATION=when_required \
+    -e AWS_RETRY_MODE=adaptive -e AWS_MAX_ATTEMPTS=6 \
+    amazon/aws-cli --endpoint-url "$BACKUP_ENDPOINT" --cli-connect-timeout 20 --cli-read-timeout 120 \
+    s3 sync "s3://$BACKUP_BUCKET/BACKUPS/play-files/blobs/" /work/data/blobs/ --size-only --only-show-errors </dev/null
+  while read -r h size; do
+    f="$WORK/data/blobs/${h:0:2}/$h"
+    [ -f "$f" ] && [ "$(stat -c %s "$f")" = "$size" ] || { echo "restore: the store lacks $h (or holds it at another size): not a whole snapshot"; exit 1; }
+  done <"$WORK/files.txt"
+  # the store's files this snapshot does not name are not part of it
+  find "$WORK/data/blobs" -type f | awk -F/ 'NR == FNR { want[$1] = 1; next } !($NF in want) { print }' <(cut -d' ' -f1 "$WORK/files.txt") - | xargs -r rm -f
+elif [ -s "$WORK/blobs.tar" ]; then tar -xf "$WORK/blobs.tar" -C "$WORK/data"
+else mv "$WORK/blobs" "$WORK/data/blobs"
+fi
 chmod -R a+rX "$WORK/data"
 
 if [ "$MODE" = check ]; then
