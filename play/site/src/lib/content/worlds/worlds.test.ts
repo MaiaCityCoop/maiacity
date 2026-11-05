@@ -28,6 +28,8 @@ describe('the world contract', () => {
 		expect(moodOf('mood:smog-dusk?fog=9').fog).toBe(0.05);
 		expect(moodOf('mood:nonsense').preset).toBe('overcast');
 		expect(moodOf('mood:night?haze=zzz').haze).toBe('20232a');
+		expect(moodOf('mood:indoor')).toMatchObject({ indoor: true, fog: 0, lamps: true, shadows: false });
+		expect(moodOf('mood:smog-dusk').indoor).toBe(false);
 	});
 	it('reads sounds by their hash and what they are for', () => {
 		expect(soundOf(`sound:${HASH}?for=horn&gain=0.8`)).toEqual({ hash: HASH, for: 'horn', gain: 0.8, once: true });
@@ -41,7 +43,7 @@ describe('the world contract', () => {
 		expect(lightOf('light:beacon-blue')).toEqual({ light: 'beacon-blue', state: 'beacon' });
 		expect(lightOf('lamp:amber')).toEqual({ lamp: 'amber' });
 		expect(lightOf('light:laser')).toBeNull();
-		for (const n of ['beacon-amber', 'reverse', 'window']) expect(lightOf(`light:${n}`)).not.toBeNull();
+		for (const n of ['beacon-amber', 'reverse', 'window', 'sign']) expect(lightOf(`light:${n}`)).not.toBeNull();
 		expect(lightOf('lamp:purple')).toBeNull();
 	});
 	it('lights by state, else by the mood; blinks indicators and turns beacons about', () => {
@@ -64,6 +66,8 @@ describe('the world contract', () => {
 		// an amber work beacon flashes with the blue; reversing lamps only by their state; windows lit at dusk, some sets dark
 		expect(litNow({ light: 'beacon-amber', state: 'beacon' }, s, day, t)).toBe(litNow({ light: 'beacon-blue', state: 'beacon' }, s, day, t));
 		expect(litNow({ light: 'reverse', state: 'reverse' }, s, dusk, 0)).toBe(false);
+		// a shop's sign is lit by day as by night
+		expect(litNow({ light: 'sign', state: 'sign' }, s, day, 0)).toBe(true);
 		expect([0, 1, 2, 3].some((set) => litNow({ light: 'window', state: 'window', set }, s, day, 0))).toBe(false);
 		const lit = [0, 1, 2, 3].flatMap((set) => [0.1, 0.3, 0.7].map((ph) => litNow({ light: 'window', state: 'window', set }, s, dusk, 0, ph)));
 		expect(lit).toContain(true);
