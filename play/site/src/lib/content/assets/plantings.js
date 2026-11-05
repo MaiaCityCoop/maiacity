@@ -26,7 +26,7 @@
 import * as THREE from 'three';
 import { createAssets } from './render/index.js';
 import { cardOf } from './catalog.js';
-import { groundMaterial } from '$lib/content/biomes/surfaces.js';
+import { groundMaterial, rowsOf } from '$lib/content/biomes/surfaces.js';
 import { biomeOfCard } from '$lib/content/biomes/card.js';
 import { createCover } from '$lib/content/sandbox-2/interior/cover.js';
 
@@ -217,7 +217,9 @@ export function createPlantings(o) {
 	};
 	/** a biome's floor laid on its meshes: its surfaces painted, its cover streamed over them */
 	const floor = (hash, meshes, recipe) => {
-		const ground = groundMaterial(recipe.surface);
+		// the way its rows run (a field's furrows and its crop): `rows:<deg>` in the mesh's name, else the mesh's own +x
+		const rows = rowsOf(meshes[0]);
+		const ground = groundMaterial(recipe.surface, { rows, tramlines: recipe.tramlines });
 		for (const m of meshes) m.material = ground;
 		const grid = floorGrid(meshes);
 		renderer();
@@ -233,7 +235,8 @@ export function createPlantings(o) {
 				thin: 0.25,
 				// as dense as the biome is near the eye: a viewer shows one floor, not a village of them
 				density: recipe.density,
-				seed: 707
+				seed: 707,
+				rows
 			})
 		);
 		state.floors++;
