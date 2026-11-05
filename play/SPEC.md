@@ -404,11 +404,15 @@ proposals.inbox_id → inbox   -- the item a proposal was made for
 - **On the board** (admins only): an item opened shows its note, its spec (or that it has none yet), what was proposed
   for it (each a click from its review, and each proposal's review a click back to its item), and the **brief** that
   sends an agent to it: the item by its UUID, to specify it first if it is not yet, then make it, check it against its
-  metric and propose it naming the item. An admin archives an item (from the Inbox or Specify), marks a specified one
-  **done** once what it asked is in (it moves to Accepted), or brings one back (to Specify if it has its spec, else to
+  metric and propose it naming the item. An admin rejects an item (from the Inbox or Specify; it ends archived), marks a
+  specified one **done** once what it asked is in (it moves to Accepted), or brings one back (to Specify if it has its spec, else to
   the Inbox); accepting a proposal made for it leaves it where it is, as one item may take several proposals.
   `GET /api/inbox` (`?status=inbox,specify`), `GET /api/inbox/:id`, `POST /api/inbox/:id/{done,archive,reopen}`.
 - A proposal shows its item's title (only to admins: the Inbox is theirs); an item is named by its UUID only.
+- **The decision sits at the foot** of what is open (a proposal's review, an item), in the middle, where a thumb
+  reaches it on a pad: **Reject** on the left, reddish (a proposal or an item rejected ends archived: a proposal ends
+  accepted or archived), **Accept** (an item's **Done**) on the right, the rest between (Source, Close). A proposal's
+  build keeps a height of its own (at least about half the screen) and its steps scroll below it.
 - **The board is a modal** (Samuel 2026-11-05), not a page or a tile among the apps: the nav pill's **star** (the AI's
   mark, in Home's place: Back goes up to the dashboard anyway) opens it over whatever page is open, greyed out for
   everyone but the admins. Back closes what is open on it (a review, an item), then the board; so do the star, Escape

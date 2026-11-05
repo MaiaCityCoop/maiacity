@@ -377,16 +377,8 @@
 					<h2>{i.title}</h2>
 					<p class="meta">by {i.author ?? 'someone'}{' '}<span class="via" title="Added by an agent working for them over MCP">via MCP</span> · {when(i.created)}{i.specified_by && i.specified_at ? ` · specified by ${i.specified_by}, ${when(i.specified_at)}` : ''}{i.decided_by ? ` · ${i.status} by ${i.decided_by}` : ''}</p>
 				</div>
-				<div class="actions">
-					{#if i.status === 'specify'}<button class="btn small" onclick={() => decideItem(i.id, 'done')} title="What it asked is in">Done</button>{/if}
-					{#if i.status === 'inbox' || i.status === 'specify'}
-						<button class="btn small ghost" onclick={() => decideItem(i.id, 'archive')}>Archive</button>
-					{:else}
-						<button class="btn small ghost" onclick={() => decideItem(i.id, 'reopen')}>Back to {i.definition ? 'Specify' : 'the Inbox'}</button>
-					{/if}
-					<button class="btn small ghost" onclick={closeItem} aria-label="Close">Close</button>
-				</div>
 			</header>
+			<div class="item-body">
 			{#if itemError}<p class="error">{itemError}</p>{/if}
 			{#if i.note}<div class="md">{@html md(i.note)}</div>{/if}
 			<section class="spec" class:none={!i.definition}>
@@ -431,6 +423,17 @@
 					<button class="btn small ghost" onclick={() => copyBrief(i)}>{copied ? 'Copied' : 'Copy the brief'}</button>
 				</section>
 			{/if}
+			</div>
+			<!-- the decision at its foot, in the middle: Reject (it ends archived) on the left, Done on the right -->
+			<footer class="decide">
+				{#if i.status === 'inbox' || i.status === 'specify'}
+					<button class="btn small reject" onclick={() => decideItem(i.id, 'archive')} title="Not to be done: it ends archived">Reject</button>
+				{:else}
+					<button class="btn small ghost" onclick={() => decideItem(i.id, 'reopen')}>Back to {i.definition ? 'Specify' : 'the Inbox'}</button>
+				{/if}
+				<button class="btn small ghost" onclick={closeItem} aria-label="Close">Close</button>
+				{#if i.status === 'specify'}<button class="btn small" onclick={() => decideItem(i.id, 'done')} title="What it asked is in">Done</button>{/if}
+			</footer>
 		</div>
 	{/if}
 
@@ -441,12 +444,6 @@
 				<div class="who">
 					<h2>{p.label} <span class="muted">{titleOf(p)}</span> <span class="pill">{p.status}</span></h2>
 					<p class="meta">{p.grp} · by {p.author ?? 'someone'}{#if p.via === 'mcp'}{' '}<span class="via" title="Proposed by an agent working for them over MCP">via MCP</span>{/if} · {when(p.created)}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}{#if p.inbox_id}{' · for '}<button class="link" onclick={() => openItemOf(p.inbox_id!)} title="The item of the Inbox it was made for">{p.inbox_title}</button>{/if}</p>
-				</div>
-				<div class="actions">
-					{#if p.status === 'proposed' && deciding}<button class="btn small" onclick={() => (act(p.id, 'accept'), close())}>Accept</button>{/if}
-					{#if p.status === 'proposed' && (deciding || p.author === session.me?.name)}<button class="btn small ghost" onclick={() => (act(p.id, 'archive'), close())}>Archive</button>{/if}
-					{#if review}<button class="btn small ghost" class:on={showSource} onclick={() => (showSource = !showSource)}>{showSource ? 'Hide source' : review.source ? 'Source' : 'Recipe file'}</button>{/if}
-					<button class="btn small ghost" onclick={close} aria-label="Close">Close</button>
 				</div>
 			</header>
 			{#if p.note}
@@ -622,6 +619,14 @@
 				{/if}
 			</div>
 			{/if}
+			<!-- the decision at its foot, in the middle, where a thumb reaches it on a pad (Samuel 2026-11-05): Reject on the
+			     left (it ends archived: a proposal ends accepted or archived), Accept on the right, the rest between -->
+			<footer class="decide">
+				{#if p.status === 'proposed' && (deciding || p.author === session.me?.name)}<button class="btn small reject" onclick={() => (act(p.id, 'archive'), close())} title="Not taken: it ends archived">Reject</button>{/if}
+				{#if review}<button class="btn small ghost" class:on={showSource} onclick={() => (showSource = !showSource)}>{showSource ? 'Hide source' : review.source ? 'Source' : 'Recipe file'}</button>{/if}
+				<button class="btn small ghost" onclick={close} aria-label="Close">Close</button>
+				{#if p.status === 'proposed' && deciding}<button class="btn small" onclick={() => (act(p.id, 'accept'), close())}>Accept</button>{/if}
+			</footer>
 		</div>
 	{/if}
 {/if}
@@ -680,7 +685,9 @@
 	.for { font-size: 0.76rem; color: var(--ink-soft, #4d5d51); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	/* an item opened: a panel in the middle of the screen over a scrim, not the whole screen a version's build takes */
 	.scrim { all: unset; position: absolute; inset: 0; z-index: 9; border-radius: inherit; background: rgb(38 56 44 / 0.28); }
-	.review.item-review { inset: auto; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(48rem, calc(100% - 1rem)); max-height: calc(100% - 1rem); overflow: auto; gap: 0.7rem; padding: 1rem 1.1rem 1.1rem; }
+	.review.item-review { inset: auto; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(48rem, calc(100% - 1rem)); max-height: calc(100% - 1rem); gap: 0.7rem; padding: 1rem 1.1rem 0.8rem; }
+	/* its header and its decision stay; what is between them scrolls */
+	.item-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 0.7rem; }
 	.item-review .tags { margin: 0 0 0.3rem; display: flex; gap: 0.35rem; align-items: center; }
 	.item-review .review-head h2 { font-size: 1.35rem; }
 	/* an item's note and its spec, as Markdown */
@@ -707,7 +714,13 @@
 	.review-head { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; align-items: flex-start; }
 	.review-head h2 { margin: 0; font-size: 1.3rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 	.review-head .meta { margin: 0.15rem 0 0; }
-	.review-head .actions { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+	/* the decision at the foot of what is open, in its middle (Samuel 2026-11-05): Reject on the left, reddish, Accept
+	   (or Done) on the right, the rest between */
+	.decide { flex: 0 0 auto; display: flex; justify-content: center; align-items: center; gap: 0.5rem; flex-wrap: wrap; padding: 0.6rem 0 0.1rem; border-top: 1px solid var(--line, #dcd5c4); }
+	.decide .btn { min-width: 6.2rem; justify-content: center; }
+	@media (max-width: 520px) { .decide { flex-wrap: nowrap; gap: 0.35rem; } .decide .btn { min-width: 0; flex: 1 1 0; padding-inline: 0.4em; } }
+	.btn.reject { background: color-mix(in srgb, var(--terracotta, #c8744f) 14%, transparent); color: #9c3b22; border-color: color-mix(in srgb, var(--terracotta, #c8744f) 55%, transparent); }
+	.btn.reject:hover { background: color-mix(in srgb, var(--terracotta, #c8744f) 26%, transparent); filter: none; }
 	.btn.on { background: var(--ink, #222); color: var(--bg, #fff); }
 	.note { flex: 0 0 auto; }
 	.note p { margin: 0; font-size: 0.88rem; white-space: pre-line; }
@@ -717,8 +730,10 @@
 	.review-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.8rem; }
 	.review-body.split { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
 	@media (max-width: 900px) { .review-body.split { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 3fr) minmax(0, 2fr); } }
-	.built { min-height: 0; display: flex; flex-direction: column; gap: 0.3rem; }
-	.stage { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+	/* the build as large as there is room for, and never squeezed by what follows it (Samuel 2026-11-05: on a pad seven
+	   steps squeezed it to a strip): the steps scroll below it */
+	.built { min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 0.3rem; }
+	.stage { flex: 1 0 auto; min-height: clamp(16rem, 58dvh, 42rem); display: flex; flex-direction: column; }
 	.stage > :global(*) { flex: 1 1 auto; min-height: 0; }
 	.tabs { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 	.code { min-height: 0; display: flex; flex-direction: column; gap: 0.4rem; }
