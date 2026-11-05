@@ -30,10 +30,16 @@ the crown measured for each age; its numbers in `references/avocado-fuerte.md`, 
 `references/avocado-v3.js`), and **pineapple v2** ('Queen Victoria', a rosette herb from its planted sucker, forced, its
 fruit a syncarp of 80 eyes in spirals of 8 and 13 laid on the golden-angle spiral, each eye a shield in geometry; its
 numbers in `references/pineapple-queen-victoria.md`, its brief beside them, its whole source `references/pineapple-v2.js`,
-whose part 1 carries banana's core with the later lessons: mipmaps, `named()`, `backLit`), and **coffee v2** ('Caturra',
-Roux's model node by node: a stem of decussate pairs, a pair of level branches at every node, each node flowering once
-a year old; from the seed in parchment through the soldier and the butterfly to the ripe crop of its fifth year; its
-numbers in `references/coffee-caturra.md`, its brief beside them, its whole source `references/coffee-v2.js`). Start
+whose part 1 carries banana's core with the later lessons: mipmaps, `named()`, `backLit`), and **soursop v3** ('Morada',
+Troll's model shoot by shoot, grafted, topped and trained, cauliflorous flowers and spiny fruit from the bark; its numbers
+in `references/soursop-morada.md`, its brief beside them, its whole source `references/soursop-v3.js`), and **red banana
+v2** ('Red Dacca', banana v2's flow made a tall red clone: its pseudostem, petioles and midribs red, six hands of fat
+straight fingers along a bare scarred rachis; its numbers in `references/banana-red-dacca.md`, its brief beside them, its
+whole source `references/red-banana-v2.js`, the banana to start the next one from: its part 1 has `picture()` with
+mipmaps and the blade's underside with its own normals), and **coffee v2** ('Caturra', Roux's model node by node: a
+stem of decussate pairs, a pair of level branches at every node, each node flowering once a year old; from the seed in
+parchment through the soldier and the butterfly to the ripe crop of its fifth year; its numbers in
+`references/coffee-caturra.md`, its brief beside them, its whole source `references/coffee-v2.js`). Start
 a new plant from the newest: copy its part 1
 (the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps as lemon v2 has it; the file is
 `references/banana-v2.js` or `references/lemon-v2.js`) as it is and write parts 2–4 for the new plant; a tree takes its
@@ -376,6 +382,22 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   crop it at the soil line, and crop the sheet's ground line off the panel's bottom rows; `--colourful` drops a
   grey-green rosette with the line, so do not use it there. `upright.py` pads only 100 px: a long leaf laid at 60° comes
   out cut at both ends; rotate it with `expand=True` and the angle that makes it narrowest.
+- **Troll's model: a relay is the axis going on** (soursop v3, 2026-11-05). Each shoot rises, bends over and lies out
+  level, and an upright relay rises from its bend. Charging the relay a branch order's loss of vigour (as a side shoot
+  pays) stopped the tree at 2.5 m for a measured 3.5; give relays their parent's tier and only side shoots a tier more.
+  Relays out in the crown turn back over its middle, or the dome's top stays hollow; renewal shoots from lit older wood
+  keep the lower crown leafed; a dome envelope with full shoulders (a superellipse, power 3) matched the sheet's head.
+- **A cut axis keeps growing from its cut.** Grafting (the stock cut at 22 cm) and topping (at 0.7 m) cut the trunk;
+  an axis length clamped by its cuts forever never let the scion grow. Clamp only what grew before the cut, and keep
+  looping over the nodes past it (a `break` there dropped the scion's leaves).
+- **A shoot at the crown's edge must be able to stop.** Breaking out of a pulse's steps only after its first step lets
+  every shoot past the edge creep on a step each pulse; break at once, and a stalled shoot dies after a year.
+- **Judge a fruit's shape by its mesh, not a lit picture.** Twice the soursop's heart looked broad at the bottom in a
+  render and on the bench's lit side-by-side while it was broad at the top; the widths measured off the mesh (and the
+  overlap) were right. Measure before turning anything over.
+- **A thick petal is a slab.** The soursop's 3 mm fleshy petals as a two-faced sheet with a rim (`slab()`); a bud of
+  three valvate petals closes as an ovoid only when each bulges out at its middle and curls in at its tip
+  (lift `0.2 sin(πu^0.75) − 0.2u²`); cupping its edges hard made them cross into an X. Bench the bud, front and side.
 
 - **Roux's model is a cylinder, not a cone** (coffee v2, 2026-11-05). Branches that grow at one steady rate make the
   oldest, lowest ones the longest: a Christmas tree. A Caturra's young upper branches reach out fast in their first year
@@ -411,6 +433,19 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
 - **The bench sees what the eye misses.** Banana v2's fingers all hung downward for three renders that looked right
   (a rotation's sign); its fingers were 6 : 1 where the sheet and Pope say 4 : 1. Count and measure: tips above
   stalks, aspects, cover.
+- **Read a descriptor as the descriptors draw it** (red banana v2, 2026-11-05). Musalogue scores the Red's fruit
+  "parallel to the stalk"; the research agent read that as fingers pointing down the rachis. In the Musa descriptors it is
+  the class between "curved towards the stalk" and "curved upward": the fingers turn up off their short pedicels and lie
+  straight along the rachis, tips toward the peduncle, as the sheet drew them. Check a coded descriptor against its
+  figure before building on it.
+- **A tube's u runs along it, v round it** (red banana v2). Banana v2's `skinBump` varied along x, so its "lines along
+  the finger" were rings round it, plain in the fruit view; the Red's runs them round v.
+- **A cultivar of the banana flow is mostly its numbers and colours, but look at its stem and its bunch first.** The Red
+  is 4.4 m to the throat and 1.15 m round its foot, swelling to its corm (Ø 0.37 m at 0.3 m, 0.25 m at 1 m: a foot
+  flare, not a taper); its long petioles splay early, so the leaves lean out from their first weeks or the crown stands
+  a metre too tall (7.0 m for the measured 5.5–6.5); its peduncle arches over early so the bunch hangs below the petioles,
+  not among them; its male bracts fall (a bare, knotted rachis, against the Cavendish's dry tail). The plate drew the stem
+  some 40 % of the height against the data's 70 %: hold the height to the data and judge the crown by eye.
 
 - **Name the cultivar first.** The old cacao was "a cacao": narrow willow leaves, a shrub, little orange pods. Every
   look that is wrong is easier to see against one real kind.

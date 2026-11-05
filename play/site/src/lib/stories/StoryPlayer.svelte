@@ -88,6 +88,10 @@
 	/** the takes asked for so far (a take once asked for keeps its file), and how far ahead a take starts loading */
 	let wanted = $state<Record<string, boolean>>({});
 	const LOOKAHEAD = 8;
+	/** with ?debug in the address: each take's state under the player, to see what a phone does */
+	const debug = typeof location !== 'undefined' && /[?&]debug\b/.test(location.search);
+	let diag = $state('');
+	let diagAt = 0;
 	/** the timeline's thumbnails wait until the take on screen has loaded enough, so they do not take its line */
 	let thumbs = $state(false);
 	/** whether a video holds the second from `at` on already */
@@ -141,7 +145,9 @@
 					if (!v.paused) v.pause();
 					if (settled && off > 0.04) v.currentTime = want;
 				}
-				next[h] = v.readyState >= 2 && !v.seeking && Math.abs(v.currentTime - want) < 0.75;
+				// shown once it has its frame; while it plays, even a little off (moving picture rather than the still)
+				const gap = Math.abs(v.currentTime - want);
+				next[h] = v.readyState >= 2 && !v.seeking && (gap < 0.75 || (!v.paused && gap < 3));
 			} else {
 				if (!v.paused) v.pause();
 				if (settled && Number.isFinite(want) && off > 0.04) v.currentTime = want;
@@ -149,18 +155,32 @@
 			}
 		}
 		if (ask.length) wanted = { ...had, ...Object.fromEntries(ask.map((h) => [h, true])) };
+		if (debug && performance.now() - diagAt > 250) {
+			diagAt = performance.now();
+			diag = videoSources
+				.map((h) => {
+					const v = videoEls[h];
+					if (!v) return `${h.slice(0, 6)} none`;
+					const end = v.buffered.length ? v.buffered.end(v.buffered.length - 1).toFixed(1) : '-';
+					return `${h.slice(0, 6)} ${had[h] ? 'file' : v.getAttribute('src') ? 'blank' : 'idle'} rs${v.readyState} ${v.paused ? 'paused' : 'playing'}${v.seeking ? ' seeking' : ''} t${v.currentTime.toFixed(1)} buf${end}${next[h] ? ' SHOWN' : ''}${v.error ? ' err' + v.error.code : ''}`;
+				})
+				.join('\n');
+		}
 		const was = untrack(() => showing);
 		if (Object.keys(next).length !== Object.keys(was).length || Object.entries(next).some(([h, on]) => was[h] !== on)) showing = next;
 	});
-	/** in the user's own tap: every video started once (iOS lets a video play later only after a tap has), so they load */
+	/** in the user's own tap: every video started once, as an iPhone lets a video play from code only after a tap has started
+	 *  it (and in Low Power Mode never otherwise). A take already loading plays itself; one not yet needed plays a tiny
+	 *  blank clip, so its own file still loads only when its shot comes near. */
 	const woken = new WeakSet<HTMLVideoElement>();
 	function wake() {
 		for (const h of videoSources) {
 			const v = videoEls[h];
-			if (!v || !wanted[h] || woken.has(v)) continue;
+			if (!v || woken.has(v)) continue;
 			woken.add(v);
-			v.muted = true;
-			v.play().catch(() => woken.delete(v));
+			v.muted = v.defaultMuted = true;
+			if (!wanted[h] && !v.getAttribute('src')) v.src = '/blank.mp4';
+			v.play().catch(() => {});
 		}
 	}
 	/** a video taken off the page lets go of its file at once (a phone holds only a few) */
@@ -328,6 +348,7 @@
 	{#if head}<div class="p-head">{@render head()}</div>{/if}
 	<!-- a tap on the picture plays and pauses it, as on any film player (Samuel 2026-11-04) -->
 	<div class="screen" style:--ratio={ratio} role="button" tabindex="0" aria-label={playing ? 'Pause' : 'Play'} onclick={toggle} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), e.stopPropagation(), toggle())}>
+		{#if debug}<pre class="diag">{diag || 'no takes'}</pre>{/if}
 		{#if moment.prev?.frame}<img class="frame" src={frameUrl(moment.prev.frame)} alt="" draggable="false" />{/if}
 		{#if moment.shot?.frame}
 			<img class="frame" src={frameUrl(moment.shot.frame)} alt="Shot {moment.index + 1}" draggable="false" style:opacity={moment.mix} />
@@ -507,6 +528,7 @@
 	.shots-lane { height: 3.4rem; }
 	.compact .shots-lane { height: 2.8rem; }
 	.voice-lane { height: 1.25rem; }
+	.diag { position: absolute; top: 4px; left: 4px; right: 4px; z-index: 5; margin: 0; padding: 4px 6px; border-radius: 6px; background: rgb(0 0 0 / 0.6); color: #fff; font: 10px/1.35 ui-monospace, monospace; white-space: pre-wrap; pointer-events: none; }
 	.seg { position: absolute; top: 0; bottom: 0; background-size: cover; background-position: center 35%; border-top: 3px solid; border-left: 1px solid rgb(255 255 255 / 0.7); box-sizing: border-box; filter: saturate(0.85) brightness(0.92); }
 	.seg.on { filter: none; box-shadow: inset 0 0 0 2px var(--ink); }
 	.bar { position: absolute; top: 2px; bottom: 2px; border-radius: 4px; background: var(--sage-soft, #dfe8dc); border: 1px solid color-mix(in srgb, var(--sage, #8fae8b) 60%, transparent); font-size: 0.6rem; font-weight: 700; padding: 0 0.25rem; overflow: hidden; white-space: nowrap; box-sizing: border-box; line-height: 1rem; }
