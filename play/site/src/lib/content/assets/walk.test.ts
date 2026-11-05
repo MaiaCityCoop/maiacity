@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { walkOf } from './hero.js'
 
 /** a little building: a floor, a raised terrace with steps up to it, walls (one seen only from inside: BackSide), a
- *  two-sided screen, a turned and scaled roof on posts, a hidden mesh, and a few instances of a kerb */
+ *  two-sided screen, a turned and scaled roof on posts, a hidden mesh, a few instances of a kerb, and mirrored parts */
 function building() {
 	const root = new THREE.Group()
 	const std = (side: THREE.Side = THREE.FrontSide) => new THREE.MeshStandardMaterial({ side })
@@ -20,7 +20,20 @@ function building() {
 	hidden.visible = false
 	const kerbs = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.15, 0.3), std(), 3)
 	for (let q = 0; q < 3; q++) kerbs.setMatrixAt(q, new THREE.Matrix4().makeTranslation(-2 + q * 1.1, 0.075, 7))
-	root.add(floor, terrace, ...steps, inner, screen, roof, hidden, kerbs)
+	// mirrored parts, as recipes mirror a pair (scale −1): a slab, a room seen from inside, and a wall in a mirrored group
+	const slab = new THREE.Mesh(new THREE.BoxGeometry(4, 0.3, 4), std())
+	slab.position.set(6, 0.15, -6)
+	slab.scale.x = -1
+	const room = new THREE.Mesh(new THREE.BoxGeometry(4, 2.5, 4), std(THREE.BackSide))
+	room.position.set(-7, 1.25, 6)
+	room.scale.z = -1
+	const pair = new THREE.Group()
+	pair.scale.x = -1
+	pair.position.set(8, 0, 6)
+	const plank = new THREE.Mesh(new THREE.PlaneGeometry(3, 3).rotateX(-Math.PI / 2).translate(0, 0.4, 0), std())
+	const wall = new THREE.Mesh(new THREE.PlaneGeometry(3, 2).translate(0, 1, 1.5), std())
+	pair.add(plank, wall)
+	root.add(floor, terrace, ...steps, inner, screen, roof, hidden, kerbs, slab, room, pair)
 	root.position.set(1, 0, -2)
 	return root
 }

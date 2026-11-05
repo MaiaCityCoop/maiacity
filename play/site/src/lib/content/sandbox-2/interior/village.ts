@@ -67,6 +67,8 @@ export type VillageHandle = {
 export type PickedPlant = { id: string; v: number; asset?: string; stage: number; seed: string; x: number; z: number; height: number; distance: number; inside: boolean }
 
 const WORLD = 380
+/** how near the eye a walking animal's shadow is drawn again with it, once a second (m): further off it trails unseen */
+const HERD_SHADOWS = 40
 
 /** The cell: the master dome, six medium domes round it, six small domes further out between them. */
 function layout(): VillageDome[] {
@@ -131,6 +133,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	 *  next look at the level of detail (below), not every frame */
 	let shadowsStale = false
 	const staleShadows = () => void (shadowsStale = true)
+	/** where the animals that walk are (each herd's), so their shadows go with them while they are near */
+	const walking: (() => { x: number; z: number }[])[] = []
 	if (solo) {
 		onProgress('Building the dome')
 		const [{ loadAsset }, { createPlantings }, { walkOf }] = await Promise.all([import('$lib/content/assets/load.js'), import('$lib/content/assets/plantings.js'), import('$lib/content/assets/hero.js')])
@@ -159,7 +163,9 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			// triangles in the shadow pass: it still receives every one
 			if (mesh.castShadow) {
 				if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox()
-				if (lowBox.copy(mesh.geometry.boundingBox!).applyMatrix4(mesh.matrixWorld).max.y < 0.12) mesh.castShadow = false
+				const b = lowBox.copy(mesh.geometry.boundingBox!).applyMatrix4(mesh.matrixWorld)
+				// lying flat on it, not sunk into it: a brook's wall or a pond's bed still shades the water
+				if (b.max.y < 0.12 && b.min.y > -0.05) mesh.castShadow = false
 			}
 		})
 		// its reach, from what it stands on the ground (up to 7 m: its arcade, its gates and their paths, not its glass)
@@ -703,6 +709,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		herds.hens = hens.where
 		// and in every other coop's place, a hutch of rabbits
 		const rabbits = herd('rabbit', rabbitPatches(SQUARE_R), 78, eye)
+		walking.push(hens.where, rabbits.where)
 		for (const f of [hens, rabbits]) {
 			scene.add(f.object)
 			animated.push(f.update)
@@ -1207,6 +1214,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		const goats = herd('goat', goatPatches, 71, eye), geese = herd('goose', goosePatches, 72, eye), frogs = herd('frog', frogPatches, 74, eye)
 		const sheep = herd('sheep', sheepPatches, 77, eye)
 		herds.frogs = frogs.where
+		walking.push(goats.where, sheep.where, geese.where, frogs.where)
 		// bee hives, three or four together, in clearings of the forest round the cell
 		const hiveSpots: { x: number; z: number; rot: number }[] = []
 		for (let k = 0; k < 16; k++) {
@@ -1469,6 +1477,9 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	let last = performance.now()
 	const clock0 = performance.now()
 	let lodChecked = 0
+	/** when the walking animals' shadows were last drawn again with them */
+	let herdShadows = 0
+	const herdNear = (x: number, z: number) => walking.some((w) => w().some((a) => Math.abs(a.x - x) < HERD_SHADOWS && Math.abs(a.z - z) < HERD_SHADOWS))
 	const tick = () => {
 		if (!running) return
 		const now = performance.now()
@@ -1481,6 +1492,12 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		sky.tick(now)
 		if (now - lodChecked > 400) {
 			lodChecked = now
+			// the sun's shadows are drawn again as it turns (a quarter of a degree, every few seconds: sky.js follow), the
+			// walking animals' once a second while one is near enough to be seen, so a goat's shadow keeps under it
+			if (now - herdShadows > 1000 && herdNear(camera.position.x, camera.position.z)) {
+				herdShadows = now
+				shadowsStale = true
+			}
 			if (shadowsStale) {
 				shadowsStale = false
 				renderer.shadowMap.needsUpdate = true

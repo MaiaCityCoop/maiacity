@@ -481,7 +481,9 @@ function walkStill(root) {
 			const mats = Array.isArray(m.material) ? m.material : null;
 			if (mats) for (const gr of g.groups) for (let t = Math.floor(gr.start / 3); t < Math.min(tris, Math.floor((gr.start + gr.count) / 3)); t++) side[t] = mats[gr.materialIndex]?.side ?? 255;
 			else side.fill(m.material ? m.material.side : 255);
-			meshes.push({ mesh: m, g, M, identity: M.equals(IDENTITY), side, start: count, tris });
+			// a mirrored matrix turns the faces' winding round in the world: three's raycaster culls by the winding in the
+			// mesh's own space, as the renderer draws it
+			meshes.push({ mesh: m, g, M, identity: M.equals(IDENTITY), flip: M.determinant() < 0, side, start: count, tris });
 			count += tris;
 		}
 	});
@@ -550,7 +552,7 @@ function walkStill(root) {
 					const side = e.side[t];
 					if (side === 255) continue;
 					corners(e, t);
-					const hit = side === THREE.BackSide ? ray.intersectTriangle(c, b, a, true, p) : ray.intersectTriangle(a, b, c, side === THREE.FrontSide, p);
+					const hit = side === THREE.DoubleSide ? ray.intersectTriangle(a, b, c, false, p) : (side === THREE.BackSide) !== e.flip ? ray.intersectTriangle(c, b, a, true, p) : ray.intersectTriangle(a, b, c, true, p);
 					if (!hit) continue;
 					const dist = ray.origin.distanceTo(p);
 					if (dist > far) continue;
