@@ -58,11 +58,13 @@ its fruit on short sympodial shoots each ending in one flower, its crown steered
 `references/quince-vranja.md`, its brief beside them, its whole source `references/quince-v2.js`), and **pomegranate v2** ('Wonderful', grown as it is grown, from a hardwood cutting on its own
 roots: a bush of shoots in its first year, four kept as low trunks, a twiggy vase of opposite laterals, spurs, thorns and
 leaf rosettes on one- and two-year wood, fruit hanging crown-down from short shoots; its numbers in
-`references/pomegranate-wonderful.md`, its brief beside them, its whole source `references/pomegranate-v2.js`), and **walnut v2**
-('Franquette', the first big terminal-bearing tree: a Rauh cone year by year that turns sympodial once it bears, every
-fruiting tip relayed by the shoots below it into a dome, pinnate leaves, catkins on last year's wood, husks that split
-black; its numbers in `references/walnut-franquette.md`, its brief beside them, its whole source
-`references/walnut-v2.js`). Start
+`references/pomegranate-wonderful.md`, its brief beside them, its whole source `references/pomegranate-v2.js`), and
+**safou v2** (*Dacryodes edulis* var. edulis, a seedling tree with imparipinnate leaves grown as Rauh's model flush by
+flush, fruit clusters on its sunlit crown; its numbers in `references/safou-dacryodes-edulis.md`, its brief and the fruit
+plate's beside them, its whole source `references/safou-v2.js`), and **walnut v2** ('Franquette', the first big terminal-bearing tree: a Rauh
+cone year by year that turns sympodial once it bears, every fruiting tip relayed by the shoots below it into a dome,
+pinnate leaves, catkins on last year's wood, husks that split black; its numbers in `references/walnut-franquette.md`,
+its brief beside them, its whole source `references/walnut-v2.js`). Start
 a new plant from the newest: copy its part 1
 (the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps, `backLit: false` and `named()` as
 plum v2 and cassava v1 have them; the file is `references/cassava-v1.js` or `references/plum-v2.js`) as it is and write
@@ -404,6 +406,29 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
 - **Tips by the hundred.** A crown reads as dense only with enough shoot tips: the sapodilla needed some 1,000 at 8 years
   (forks of two or three at most flushes, a minimum spacing between new rosettes of ~9 cm) before its crown stopped
   being see-through; check `forks` and the spacing rule's rejections when a crown stays thin.
+
+- **A compound leaf is one geometry, and its faces are checked from both sides** (safou v2, 2026-11-05). A crown of
+  thousands of imparipinnate leaves is built leaf by leaf, rachis and leaflets written straight into one set of arrays
+  (`compoundLeaf`), never a Bag merge a leaflet. Its first crowns were pale grey and glinted white: the leaflets'
+  faces were wound the wrong way, so the underside colour faced the sky. Bench one leaf from `top` and `bottom` before
+  any tree render. Then roll and droop every leaflet a little (`rollA`, `droop`): flat glossy leaflets seen at a
+  grazing angle mirror the sky white, as the lemon's leaves did.
+- **Count leaves by the leaf area before rendering.** A crown's leaves ≈ its projected area × a leaf area index of
+  about 4 ÷ one leaf's area (safou: 38 m² × 4 ÷ 0.055 m² ≈ 2,800 compound leaves at ten years). The first safou had
+  27,000 (7.5 M triangles): a compound-leaved tree has few, stout shoots with a rosette of leaves each, so set its
+  crowding cells and caps (cell 0.65 m, cap 2) and its leaves a flush from that count, not from a small-leaved tree's.
+  A young tree's leaves may live their real life; only the grown crown's need holding to the budget.
+- **Fruit on the sunlit crown, or none is seen.** Flowering on every live shoot put the safou's 640 fruit at a
+  median 2.2 m out in a crown 3.3 m wide, all hidden. Let only shoots whose tips stand near the crown's face flower
+  (`crownOut(...).f > 0.72`), as the data sheet says the tree bears: the clusters then hang at 2.8 m, where they show.
+- **When the full sheet will not draw the cultivar's fruit, make a plate of the fruit alone.** Three plates and an
+  edit drew var. edulis's long fruit round (1.15–1.5 : 1, measured 2.1); a fruit-only brief naming the shape in plain
+  words ("like a big olive or a short sausage … NEVER round, NEVER egg-shaped") drew it at 2.15 : 1 at every age.
+  Paste its row into the sheet's fruit cells, each plate grey-balanced on its own checker, and keep both in the Library.
+- **A crown's underside is part of its silhouette.** The safou's first bearing crowns were V-shaped below, narrowing
+  to the trunk, where the sheet's crown has a flat skirt at about 1.2 m: lower tiers leaving the trunk nearly level
+  (75° from upright), a stronger sag near the skirt, and a leader slowed after the fifth year took the 10-year
+  silhouette's overlap from 0.55 to 0.79 (`compare.py --close 0.04`).
 
 - **Narrow leaves held flat make a see-through crown** (pomegranate v2, 2026-11-05). 44k leaves of 6 × 1.7 cm, measured
   as an LAI of ~3.7 through the crown, still rendered as a grey haze of twigs from the side: every blade lay near
