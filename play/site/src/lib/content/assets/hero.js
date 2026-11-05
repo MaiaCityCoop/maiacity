@@ -81,6 +81,10 @@ export function heroOf({ obj: root, card }, { start, exact = false } = {}) {
 	/** the box's first answer is still to come: it tells what moved from the build as built, not from this copy */
 	let fresh = false;
 	let asking = false;
+	/** the step asked and not yet answered (null: none) */
+	let pending = null;
+	/** its run is still being started in the box */
+	let starting = !!(view.ticks && start);
 	let waited = 0;
 	let gone = false;
 	let sent = '';
@@ -96,7 +100,8 @@ export function heroOf({ obj: root, card }, { start, exact = false } = {}) {
 				running = r;
 				fresh = true;
 			})
-			.catch(() => {});
+			.catch(() => {})
+			.finally(() => (starting = false));
 
 	/** the poser at what the stage set (its own copy only while nothing runs in the box) */
 	function playHere() {
@@ -203,14 +208,18 @@ export function heroOf({ obj: root, card }, { start, exact = false } = {}) {
 		waited = exact ? Math.max(0, waited - send) : 0;
 		asking = true;
 		const r = running;
-		r.tick(ask)
+		pending = r
+			.tick(ask)
 			.then((out) => r === running && !gone && follow(out))
 			.catch(() => {
 				// the box was torn down, it was late, or its answer was refused: the copy stands as it is, its run let go
 				if (r === running) running = null;
 				r.end?.();
 			})
-			.finally(() => (asking = false));
+			.finally(() => {
+				asking = false;
+				pending = null;
+			});
 	}
 
 	const hero = {
@@ -311,6 +320,12 @@ export function heroOf({ obj: root, card }, { start, exact = false } = {}) {
 		get busy() {
 			return asking || waited > 0;
 		},
+		/** whether its run is still being started in the box (it moves once it is, or never, if the box can't keep it) */
+		get starting() {
+			return starting;
+		},
+		/** resolves once the step asked of the box now (if one is) is answered and followed, or failed */
+		answered: () => pending ?? Promise.resolve(),
 		dispose() {
 			gone = true;
 			running?.end();

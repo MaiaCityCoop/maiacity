@@ -20,13 +20,17 @@
 	import { session } from '$lib/session.svelte';
 	import { wayBack } from '$lib/site/app/back.svelte.js';
 	import { markdown } from '$lib/site/markdown/index.js';
-	import { admitProposed, source as catalogSource } from '$lib/content/assets/catalog.js';
+	import { INDEX, admitProposed, source as catalogSource } from '$lib/content/assets/catalog.js';
 	import { changesOnly, lineDiff } from '$lib/diff';
 	import StoryPlayer from '$lib/stories/StoryPlayer.svelte';
 	import StoryChanges, { type StoryDiff } from '$lib/stories/StoryChanges.svelte';
 	import type { Story } from '$lib/stories/timeline';
 
 	const viewer = import('$lib/content/assets/VaultAsset.svelte');
+	// a world is shown as the Worlds page shows it (its own view: sky, lights, its guests at the sizes a world draws them,
+	// one renderer let go of whole when it closes), not on the asset stage, whose studio, shadows and section cuts over
+	// a whole city (most of a million triangles) crashed iPad Safari
+	const worldViewer = import('$lib/content/worlds/WorldStage.svelte');
 
 	/** how the board is closed (the modal's ×, Escape with nothing open on it) */
 	let { onclose }: { onclose?: () => void } = $props();
@@ -583,9 +587,15 @@
 						{#if shown}
 							<div class="stage">
 								{#key shown}
-									{#await viewer then { default: VaultAsset }}
-										<VaultAsset source={catalogSource} hash={shown} title="{p.label} v{p.number} (proposed)" fill />
-									{/await}
+									{#if p.grp === 'worlds'}
+										{#await worldViewer then { default: WorldStage }}
+											<WorldStage source={catalogSource} engine={INDEX.engine} hash={shown} />
+										{/await}
+									{:else}
+										{#await viewer then { default: VaultAsset }}
+											<VaultAsset source={catalogSource} hash={shown} title="{p.label} v{p.number} (proposed)" fill />
+										{/await}
+									{/if}
 								{/key}
 							</div>
 						{/if}

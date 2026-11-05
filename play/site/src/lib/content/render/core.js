@@ -237,11 +237,15 @@ export function disposeObject(root, { materials = true, textures = true, keep } 
 }
 
 /**
- * The renderer let go of, and its canvas taken off the page.
+ * The renderer let go of, its context too, and its canvas taken off the page. The context is lost on purpose: a browser
+ * keeps a context's memory on the graphics card until the canvas is collected, and a tablet opening one viewer after
+ * another (a proposal's world, then the next) ran out of it before that came (iPad Safari: "A problem repeatedly
+ * occurred").
  * @param {THREE.WebGLRenderer} renderer
  */
 export function disposeRenderer(renderer) {
 	renderer.dispose();
+	renderer.forceContextLoss();
 	renderer.domElement.remove();
 }
 
