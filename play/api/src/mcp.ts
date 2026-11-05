@@ -246,6 +246,12 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
             },
           },
           default_variant: { type: "string", description: "the variant a ref without one names (the first if left out)" },
+          params: {
+            type: "array",
+            description:
+              "the parameters its recipe declares (its meta.params: { id, label, type: 'number' | 'integer' | 'string', value, min?, max?, step?, names?, maxLength? }), in the order its build takes them. play runs no code, so it knows them only from here: a recipe that declares params and is proposed without them is refused",
+            items: { type: "object" },
+          },
           sheet: { type: ["string", "null"], description: "its reference sheet: the hash of an image play keeps (add it first with add_story_frame, with a label for the Library), a plant's plate of every stage and organ made for it; shown with the version in the asset library and, in the Library, beside the image, the plant it belongs to. Carried on from the head unless given; null takes it away" },
           datasheet: { type: ["string", "null"], description: "its data sheet: the hash of a document play keeps (add_document), the researched numbers with every source. Shown with the version and, in the Library, beside the document. Carried on from the head unless given; null takes it away" },
           brief: { type: ["string", "null"], description: "the brief its reference sheet was made from: the hash of a document play keeps (add_document). Carried on from the head unless given; null takes it away" },
@@ -253,9 +259,13 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         required: ["group", "label", "note"],
         additionalProperties: false,
       },
-      run: async ({ group, slug, label, source, note, variants, default_variant, sheet, datasheet, brief }, me) => {
+      run: async ({ group, slug, label, source, note, variants, default_variant, params, sheet, datasheet, brief }, me) => {
         const kinds = Array.isArray(variants) && variants.length ? variants : null;
         if (!source && !kinds) throw new ProposalError("Give its source, or its variants.");
+        // play runs no code: a recipe's declared params reach its record only from here (a build with values is refused without them)
+        const texts = [source, ...(kinds ?? []).map((x: any) => x?.source)].filter((x) => typeof x === "string");
+        if (params === undefined && texts.some((x) => /\bparams\s*:\s*(\[|[A-Za-z_$])/.test(x) && !/\bparams\s*:\s*\[\s*\]/.test(x)))
+          throw new ProposalError("Its recipe declares parameters (meta.params): give them as `params`, in the order its build takes them, or its builds with values are refused.");
         if (kinds && kinds.some((x: any) => !x?.source) && !source) throw new ProposalError("Give the version's source, or each variant's own.");
         return propose(
           db,
@@ -263,6 +273,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           me,
           {
             new: { group, slug, label },
+            ...(params !== undefined ? { card: { params } } : {}),
             ...(kinds
               ? { variants: Object.fromEntries(kinds.map((x: any) => [`${x.name}`, { source: `${x.source ?? source ?? ""}`, ...(x.label !== undefined ? { label: `${x.label}` } : {}) }])), ...(default_variant ? { defaultVariant: `${default_variant}` } : {}) }
               : { source: `${source}` }),

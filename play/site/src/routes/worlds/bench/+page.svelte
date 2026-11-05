@@ -3,11 +3,12 @@
 	Worlds page runs one (its build in the asset box, kept running if it moves, its guests drawn, lit and heard) before
 	any of it is proposed or accepted; driven by scripts/render.mjs --world. In a production build an empty page.
 
-	Driven through `window.__world`:
+	Driven through `window.__worldBench` (`window.__world` is the film camera's, $lib/content/worlds/film.js):
 	  guest({ code, id, v, variant?, refs? })   a readable source (or a recipe file) handed to the page's catalog: an
 	                                            asset the world names by hash; gives the hash it is held by here
 	  load({ code, id, v, values? })            the world itself, handed in the same way and shown; gives its hash,
 	                                            card and what it says (mood, sounds, views)
+	  seek(t)                                   the world brought to time t as a film brings it: where each guest is
 	  shot({ run?, eye?, target?, view?, mode? }) the world run on for `run` s, the camera put at `eye` looking at
 	                                            `target` (m), or at a view it names, or in a street mode; then settled
 	                                            (its guests built for where the camera looks): the caller takes its
@@ -63,7 +64,7 @@
 			while (performance.now() - t0 < timeout && (view.state.phase === 'building' || view.building() > 0)) await frames(4);
 			await frames(4);
 		};
-		window.__world = {
+		window.__worldBench = {
 			async guest(x) {
 				const { hash, card } = await hand(x);
 				return { hash, label: card.label };
@@ -93,6 +94,14 @@
 				view.renderer.info.autoReset = true;
 				triangles = view.renderer.info.render.triangles;
 				return { ms: Math.round(performance.now() - t0), t: +s.t.toFixed(1), live: s.live, guests: s.guests, kinds: s.kinds, missing: s.missing, lit: s.lit, fps: s.fps, triangles, calls: view.renderer.info.render.calls };
+			},
+			/** the world brought to time t, as a film brings it (seek, settle): where each guest stands then */
+			async seek(t) {
+				// the page's own clock stopped: only the seeks move the world
+				view.pause(true);
+				view.seek(t);
+				await view.settle();
+				return view.plantings.guests().map((g) => (g.away ? null : [g.node.position.x, g.node.position.z].map((x) => +x.toFixed(3))));
 			},
 			stats: () => ({ ...view.state, building: view.building() }),
 			/** the world view itself, for a look in the console */

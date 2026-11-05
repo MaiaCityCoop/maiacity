@@ -36,10 +36,12 @@ export const DEFAULT_SANDBOX = 'sandbox-4';
 
 /**
  * The film page of a shot's world, from the site's root (prefix the base path).
- * @param {{ sandbox?: string, area?: string }} world
+ * @param {{ sandbox?: string, area?: string, asset?: string, recipe?: string }} world
  */
 export function filmPath(world) {
 	const sandbox = world.sandbox ?? DEFAULT_SANDBOX;
+	// a world of play's asset group worlds: its page in film mode, the world by its asset's UUID and recipe hash
+	if (sandbox === 'worlds') return `/worlds/?film&asset=${encodeURIComponent(world.asset ?? '')}&recipe=${encodeURIComponent(world.recipe ?? '')}`;
 	const area = world.area ?? (isWorld(sandbox) ? WORLDS[sandbox].areas?.[0] : undefined);
 	return `/games/${sandbox}/?film${area ? `&area=${encodeURIComponent(area)}` : ''}`;
 }
@@ -47,10 +49,11 @@ export function filmPath(world) {
 /**
  * Which world a film page is, from its address: what `filmPath` made.
  * @param {string} href
- * @returns {{ sandbox: string, area?: string } | null}
+ * @returns {{ sandbox: string, area?: string, asset?: string, recipe?: string } | null}
  */
 export function worldOfPath(href) {
 	const u = new URL(href, 'http://x');
+	if (/\/worlds\/?$/.test(u.pathname) && u.searchParams.has('film')) return { sandbox: 'worlds', asset: u.searchParams.get('asset') ?? '', recipe: u.searchParams.get('recipe') ?? '' };
 	const m = /\/games\/([a-z0-9-]+)\/?$/.exec(u.pathname);
 	if (!m || !u.searchParams.has('film') || !isWorld(m[1])) return null;
 	const area = u.searchParams.get('area') ?? WORLDS[m[1]].areas?.[0];
