@@ -24,11 +24,11 @@ DATA="${PLAY_DATA_PATH:-}"
 
 broken() {
   # every file in play's folder whose bytes do not hash to its name, by play's own hash (in a container of its image,
-  # so it works while play itself is down)
+  # so it works while play itself is down); the folder store keeps a file at <PLAY_BLOBS>/blobs/<xx>/<hash>
   docker run --rm -v "$DATA/blobs:/data/blobs:ro" --entrypoint bun "$PLAY_IMAGE" -e '
     import { hashBytes } from "/app/api/src/hash.ts";
     import { readdirSync } from "node:fs";
-    const root = "/data/blobs";
+    const root = "/data/blobs/blobs";
     for (const d of readdirSync(root)) for (const n of readdirSync(`${root}/${d}`)) {
       if (!/^[0-9a-f]{64}$/.test(n)) { console.log(`${n} stray`); continue; }
       const b = new Uint8Array(await Bun.file(`${root}/${d}/${n}`).arrayBuffer());
@@ -80,13 +80,13 @@ mend() {
   # the newest backups first: each one's blobs.tar streamed through tar, which takes out only the files wanted
   for b in $(aws s3 ls "s3://$BACKUP_BUCKET/BACKUPS/play/" </dev/null | awk '{print $2}' | tr -d / | sort -r | head -8); do
     [ -n "$want" ] || break
-    local names=""; for h in $want; do names="$names blobs/${h:0:2}/$h"; done
+    local names=""; for h in $want; do names="$names blobs/blobs/${h:0:2}/$h"; done
     aws s3 cp "s3://$BACKUP_BUCKET/BACKUPS/play/$b/blobs.tar" - </dev/null | tar -x -C "$tmp" $names 2>/dev/null || true
     local left=""
     for h in $want; do
-      f="$tmp/blobs/${h:0:2}/$h"
+      f="$tmp/blobs/blobs/${h:0:2}/$h"
       if [ -s "$f" ] && [ "$(docker run --rm -i -v "$f:/f:ro" --entrypoint bun "${PLAY_IMAGE}" -e 'import { hashBytes } from "/app/api/src/hash.ts"; console.log(hashBytes(new Uint8Array(await Bun.file("/f").arrayBuffer())))' </dev/null)" = "$h" ]; then
-        sudo install -o 1000 -g 1000 -m 0644 "$f" "$DATA/blobs/${h:0:2}/$h.mended" && sudo mv "$DATA/blobs/${h:0:2}/$h.mended" "$DATA/blobs/${h:0:2}/$h"
+        sudo install -o 1000 -g 1000 -m 0644 "$f" "$DATA/blobs/blobs/${h:0:2}/$h.mended" && sudo mv "$DATA/blobs/blobs/${h:0:2}/$h.mended" "$DATA/blobs/blobs/${h:0:2}/$h"
         echo "mend: $h put back from $b"
       else
         left="$left $h"
@@ -98,7 +98,7 @@ mend() {
   if [ -n "$want" ]; then
     local aside="$DATA/broken-$(date -u +%Y%m%dT%H%M%SZ)"
     sudo mkdir -p "$aside"
-    for h in $want; do sudo mv "$DATA/blobs/${h:0:2}/$h" "$aside/$h"; echo "mend: $h is in no backup: moved aside to $aside (play writes it anew when it is made again)"; done
+    for h in $want; do sudo mv "$DATA/blobs/blobs/${h:0:2}/$h" "$aside/$h"; echo "mend: $h is in no backup: moved aside to $aside (play writes it anew when it is made again)"; done
   fi
 }
 
