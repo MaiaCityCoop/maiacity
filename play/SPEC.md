@@ -375,30 +375,42 @@ world has run (`run`) from eyes, views or street cameras. The stand-in test worl
 `$content/worlds/test/` (the template of the contract); the contract is read in one place,
 `$content/worlds/contract.js`.
 
-### 4.12 The Inbox (Samuel 2026-11-05)
+### 4.12 The Inbox and Specify (Samuel 2026-11-05)
 
-The stage before a proposal: an idea board of what Maia City wants made, fixed or improved, triaged by its admins and
-taken up by agents. The Proposals board's columns are **Inbox, Proposed, Accepted, Archived** (what waits for a decision
-was called open until migration `0023-proposed`; `?status=open` still answers with it).
+The stages before a proposal: what Maia City wants made, fixed or improved, as it came (**Inbox**), then specified
+(**Specify**: its definition, and its metric of what is good), then made and proposed for. The Proposals board's columns
+are **Inbox, Specify, Proposed, Accepted, Archived** (what waits for a decision was called open until migration
+`0023-proposed`; `?status=open` still answers with it). Each column folds away to a strip and opens again, each
+viewer's own choice kept in their browser; Archived is folded at first.
 
 ```sql
 inbox (id UUID, coop_id, kind /*idea|fix|improve*/, title /*only shown, 1–200 characters*/, note,
-       status /*inbox|done|archived*/, author, via /*web|mcp*/, created, edited_by, edited_at, decided_by, decided_at)
+       status /*inbox|specify|done|archived*/, author, via /*mcp*/, created,
+       definition, metric /*its spec: both or neither*/, specified_by, specified_at, decided_by, decided_at)
 proposals.inbox_id → inbox   -- the item a proposal was made for
 ```
 
-- **On the board** (admins only, `play/api/src/inbox.ts`): an item is jotted down at the top of the Inbox column (its
-  title, its kind, a note if there is more), and opened to edit it, see what was proposed for it (each a click from
-  its review, and each proposal's review a click back to its item) and copy the **brief** that sends an agent to it
-  (the item by its UUID, how to read it and how to name it in what it proposes). An admin marks an item **done** (it
-  moves to Accepted) or **archives** it, or brings it back to the Inbox; accepting a proposal made for it leaves it
-  where it is, as one item may take several proposals. `GET/POST /api/inbox`, `GET/PATCH /api/inbox/:id`,
-  `POST /api/inbox/:id/{done,archive,reopen}`.
-- **Over MCP**: `list_inbox` (the items still in the Inbox, or done, archived, all), `get_inbox_item` (one whole, with
-  its proposals as the board lists them) and `add_inbox_item` (what an agent found and is not doing now, in its admin's
-  name, marked MCP). Every propose tool takes `inbox`, the item's UUID: the item must still be in the Inbox, and the
-  proposal is linked to it once made. No tool marks an item done or archives it.
+- **Over MCP only** (`play/api/src/inbox.ts`): nothing is typed into the Inbox by hand. An admin's agent adds an item
+  (`add_inbox_item`: what the admin asked it to note, or what it found and is not doing now), and specifies it
+  (`specify_inbox_item`: its **definition**, what is to be made, precisely, and its **metric**, what good is: how a
+  proposal for it is judged, measurable where it can be), which moves it to Specify; specified again, its spec is
+  replaced. `list_inbox` (the items in the Inbox and Specify, or done, archived, all) and `get_inbox_item` (one whole,
+  with its proposals as the board lists them) read it. Every propose tool takes `inbox`, the item's UUID: only a
+  specified item takes proposals (not one in the Inbox, done or archived), and the proposal is linked to it once made.
+  No tool marks an item done or archives it.
+- **On the board** (admins only): an item opened shows its note, its spec (or that it has none yet), what was proposed
+  for it (each a click from its review, and each proposal's review a click back to its item), and the **brief** that
+  sends an agent to it: the item by its UUID, to specify it first if it is not yet, then make it, check it against its
+  metric and propose it naming the item. An admin archives an item (from the Inbox or Specify), marks a specified one
+  **done** once what it asked is in (it moves to Accepted), or brings one back (to Specify if it has its spec, else to
+  the Inbox); accepting a proposal made for it leaves it where it is, as one item may take several proposals.
+  `GET /api/inbox` (`?status=inbox,specify`), `GET /api/inbox/:id`, `POST /api/inbox/:id/{done,archive,reopen}`.
 - A proposal shows its item's title (only to admins: the Inbox is theirs); an item is named by its UUID only.
+- **The board is a modal** (Samuel 2026-11-05), not a page or a tile among the apps: the nav pill's **star** (the AI's
+  mark, in Home's place: Back goes up to the dashboard anyway) opens it over whatever page is open, greyed out for
+  everyone but the admins. Back closes what is open on it (a review, an item), then the board; so do the star, Escape
+  and its Close. `/proposals/` (an older link, a new tab) opens it over the dashboard, and a link to it from a page
+  opens it over that page (`play/site/src/lib/site/proposals`).
 
 ## 5. The sandboxes
 
@@ -452,8 +464,8 @@ still only adds what is missing and changes nothing that is there.
   (`?status=proposed|accepted|archived`), `POST /api/proposals/:id/{accept,archive}` (admin+; its author archives their
   own). Over MCP an agent archives only its own proposals made there that are still proposed (`archive_proposal`,
   Samuel 2026-11-04); no tool accepts.
-- The Inbox (admin): `GET/POST /api/inbox`, `GET/PATCH /api/inbox/:id`, `POST /api/inbox/:id/{done,archive,reopen}`
-  (§4.12).
+- The Inbox and Specify (admin): `GET /api/inbox`, `GET /api/inbox/:id`, `POST /api/inbox/:id/{done,archive,reopen}`;
+  items are added and specified over MCP only (§4.12).
 - Coop (admin+): `GET/POST /api/coops/:id/members`, `POST /api/invites`; `POST /api/invites/:code/claim` (makes the
   claimer a citizen).
 
@@ -462,7 +474,7 @@ Every route checks the caller's level against `level_rules`; a visitor gets 401 
 ## 8. App (`play/site`, SvelteKit, light brand CI throughout)
 
 `/` sign in or sign up · `/sandbox-1/` · `/sandbox-2/` · `/sandbox-3/` · `/sandbox-4/` · `/sandbox-5/` · `/assets/` (library; an asset's versions as
-a chain, its variants, a viewer) · `/proposals/` (the board: Inbox, Proposed, Accepted, Archived; §4.12) · `/game/` (placeholder; claim an invite to become a citizen) ·
+a chain, its variants, a viewer) · the proposals (a modal from the nav pill's star, not a page: Inbox, Specify, Proposed, Accepted, Archived; §4.12) · `/game/` (placeholder; claim an invite to become a citizen) ·
 `/admin/` (members, invites).
 
 **The Library** (`/library/`, Samuel 2026-11-04; `play/api/src/library.ts`): every image, video and recording play

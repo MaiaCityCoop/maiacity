@@ -7,14 +7,15 @@
 // archive only its own proposals made here, still proposed (archive_proposal, Samuel 2026-11-04), one it has replaced or no longer
 // stands by. It reads the factories and proposes new versions of them, drafted step by step if it likes
 // (factory_edit, each step kept in the factory's Loro document, ./factories.ts). It reads the Inbox (./inbox.ts), what
-// Maia City wants made, fixed or improved, adds to it what it finds, and names the item it works on in what it proposes
-// (every propose tool's `inbox`); marking an item done stays a person's, on the Proposals page.
+// Maia City wants made, fixed or improved, adds to it (the only way in) and specifies its items (their definition and
+// metric of what is good), and names the specified item it works on in what it proposes (every propose tool's `inbox`);
+// marking an item done stays a person's, on the Proposals page.
 import type { BlobStore } from "./blobs";
 import type { Db } from "./pg";
 import type { Me } from "./access";
 import { assetOf, listAssets, NotFound } from "./assets";
 import { archiveOwn, listProposals, proposalsOfInbox, propose, ProposalError } from "./proposals";
-import { addInbox, inboxItem, InboxError, inboxOpen, INBOX_KINDS, linkInbox, listInbox, TITLE_MOST } from "./inbox";
+import { addInbox, inboxItem, InboxError, inboxOpen, INBOX_KINDS, INBOX_STATUSES, linkInbox, listInbox, OPEN_ITEMS, specifyInbox, TITLE_MOST } from "./inbox";
 import { adminByToken } from "./tokens";
 import { admin, AUDIO_TYPES, editStory, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, proposeStory, putAudioBase64, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAtStep, storyHistory, storyOf, StoryError, VIDEO_TYPES } from "./stories";
 import { AssetDocError, assetAtStep, assetHistory, editAsset } from "./assetdocs";
@@ -618,22 +619,22 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
       },
       run: async ({ status }, me) => listProposals(db, me, status),
     },
-    // ---- the Inbox (./inbox.ts): the stage before a proposal, what Maia City wants made, fixed or improved
+    // ---- the Inbox and Specify (./inbox.ts): the stages before a proposal, what Maia City wants made, fixed or improved
     {
       name: "list_inbox",
       description:
-        "The Inbox, newest first: what Maia City wants made, fixed or improved, the stage before a proposal on the Proposals board. Each item has its id (a UUID), kind (idea, fix, improve), title, note, status (inbox: still to be taken up; done; archived), who wrote it and the proposals made for it (their ids and statuses). " +
-        "When you are sent to work on an item, read it whole with get_inbox_item, make the change, and name the item in what you propose (every propose tool's `inbox`), so the admins see it with the item.",
+        "The items still to be taken up, newest first: what Maia City wants made, fixed or improved, the stages before a proposal on the Proposals board. Each has its id (a UUID), kind (idea, fix, improve), title, note, status (inbox: as it came; specify: specified, its definition and metric of what is good; done; archived), who wrote it, its spec and the proposals made for it (their ids and statuses). " +
+        "Sent to work on an item: read it whole with get_inbox_item; if it is still in the inbox, specify it first with specify_inbox_item; then make what its definition says, check it against its metric, and propose it naming the item (every propose tool's `inbox`).",
       inputSchema: {
         type: "object",
-        properties: { status: { type: "string", enum: ["inbox", "done", "archived", "all"], description: "which items: inbox (the default), done, archived or all" } },
+        properties: { status: { type: "string", enum: [...INBOX_STATUSES, "all"], description: "which items: inbox, specify, done, archived or all; those in the inbox and specify if left out" } },
         additionalProperties: false,
       },
-      run: async ({ status }, me) => listInbox(db, me, status === "all" ? undefined : `${status ?? "inbox"}`),
+      run: async ({ status }, me) => listInbox(db, me, status === "all" ? undefined : status ? [`${status}`] : OPEN_ITEMS),
     },
     {
       name: "get_inbox_item",
-      description: "One item of the Inbox, whole: its kind, title, note, status, who wrote it, and every proposal made for it as the Proposals page lists them (kind, label, version, status, author).",
+      description: "One item of the Inbox, whole: its kind, title, note, status, who wrote it, its spec (definition and metric, once specified), and every proposal made for it as the Proposals page lists them (kind, label, version, status, author).",
       inputSchema: {
         type: "object",
         properties: { item: { type: "string", description: "the item's id (a UUID: list_inbox gives it)" } },
@@ -645,19 +646,39 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     {
       name: "add_inbox_item",
       description:
-        "Add an item to the Inbox, in this token's admin's name, marked MCP: something to make, fix or improve that you found and are not doing now (a bug seen while working, an idea for an asset, a story or a sandbox), for the admins to triage and send an agent to. " +
-        "Say it in the title, in a line, and the rest in the note: where it is (name assets, stories and sandboxes by their ids), what is wrong or wanted, and how you would do it. Only the admins mark an item done or archive it.",
+        "Add an item to the Inbox, in this token's admin's name: something to make, fix or improve, as the admin asked you to note it or as you found it and are not doing now (a bug seen while working, an idea for an asset, a story or a sandbox), for the admins to triage and send an agent to. This is the only way into the Inbox: no one adds an item by hand. " +
+        "Say it in the title, in a line, and the rest in the note: where it is (name assets, stories and sandboxes by their ids), what is wrong or wanted, and why. Specify it (specify_inbox_item) when it is to be taken up.",
       inputSchema: {
         type: "object",
         properties: {
           title: { type: "string", maxLength: TITLE_MOST, description: "what is to be made, fixed or improved, in a line" },
-          note: { type: "string", description: "the rest: where, what and why, how (Markdown)" },
+          note: { type: "string", description: "the rest: where, what and why (Markdown)" },
           kind: { type: "string", enum: [...INBOX_KINDS], description: "idea (something new), fix (something wrong) or improve (something there, made better); idea if left out" },
         },
         required: ["title"],
         additionalProperties: false,
       },
-      run: async ({ title, note, kind }, me) => addInbox(db, me, { title, note, kind }, "mcp"),
+      run: async ({ title, note, kind }, me) => addInbox(db, me, { title, note, kind }),
+    },
+    {
+      name: "specify_inbox_item",
+      description:
+        "Specify an item of the Inbox, the stage between the Inbox and Proposed: its definition, what is to be made, precisely (what changes, where, what stays as it is), and its metric, what good is: how a proposal for it is judged, measurable where it can be (numbers against the real thing, checks that pass or fail, references it must match). The item moves to Specify, and only a specified item takes proposals. " +
+        "Specified again, its spec is replaced; give its title, kind or note too to make them sharper. One done or archived is brought back by an admin first. Specify before you build, and check what you propose against the metric.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          item: { type: "string", description: "the item's id (a UUID: list_inbox gives it)" },
+          definition: { type: "string", description: "what is to be made, precisely (Markdown)" },
+          metric: { type: "string", description: "what good is: how a proposal for it is judged, measurable where it can be (Markdown)" },
+          title: { type: "string", maxLength: TITLE_MOST, description: "a sharper title, if it needs one" },
+          kind: { type: "string", enum: [...INBOX_KINDS] },
+          note: { type: "string", description: "a new note, if it needs one" },
+        },
+        required: ["item", "definition", "metric"],
+        additionalProperties: false,
+      },
+      run: async ({ item, definition, metric, title, kind, note }, me) => specifyInbox(db, me, `${item ?? ""}`, { definition, metric, title, kind, note }),
     },
     {
       name: "archive_proposal",
@@ -673,13 +694,13 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     },
   ];
 
-  // a proposal made for an item of the Inbox names it (play/SPEC.md §4.12): the item checked before, still in the Inbox,
-  // and the proposal linked to it once made, shown with it on the Proposals page
+  // a proposal made for an item of the Inbox names it (play/SPEC.md §4.12): the item checked before, specified and not yet
+  // done or archived, and the proposal linked to it once made, shown with it on the Proposals page
   for (const t of tools) {
     if (!t.name.startsWith("propose_")) continue;
     (t.inputSchema.properties as Record<string, unknown>).inbox = {
       type: "string",
-      description: "the Inbox item this is made for, by its id (a UUID: list_inbox gives it), if you were sent to work on one; it must still be in the Inbox",
+      description: "the Inbox item this is made for, by its id (a UUID: list_inbox gives it), if you were sent to work on one; it must be specified (specify_inbox_item) and not yet done or archived",
     };
     const run = t.run;
     t.run = async ({ inbox, ...args }, me) => {
@@ -718,7 +739,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           capabilities: { tools: {} },
           serverInfo: { name: "play.maia.city", version: "1" },
           instructions:
-            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files, and every step of an asset's history (asset_history, get_asset at a step); propose new versions or assets as readable source, or draft a version step by step with asset_edit and propose the draft. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame; a story may link a version of another into its timeline (a track of kind story, its clip naming that story's id and the version it plays: the trailer as its own story, linked into every film). Read the sandboxes (get_sandbox: what each draws, at which version, and how it lays it out) and propose changes of them (propose_sandbox_change). Read the factories (get_factory: a production line and its bill of process, its simulation sized from it) and propose new versions of them, drafted step by step with factory_edit (propose_factory_version). Read the game's configs (get_game_config: first the levelling, how a village grows level by level) and propose new versions of them (game_config_edit, propose_game_config_version). Read the Inbox (list_inbox, get_inbox_item: what Maia City wants made, fixed or improved, the stage before a proposal) and add to it what you find (add_inbox_item); sent to work on an item, name it in what you propose (every propose tool's inbox). Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's Proposals page, then accept or archive it; nothing here accepts or marks an item done, an agent archives only its own proposals still proposed (archive_proposal), and no proposed code runs on play's server.",
+            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files, and every step of an asset's history (asset_history, get_asset at a step); propose new versions or assets as readable source, or draft a version step by step with asset_edit and propose the draft. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame; a story may link a version of another into its timeline (a track of kind story, its clip naming that story's id and the version it plays: the trailer as its own story, linked into every film). Read the sandboxes (get_sandbox: what each draws, at which version, and how it lays it out) and propose changes of them (propose_sandbox_change). Read the factories (get_factory: a production line and its bill of process, its simulation sized from it) and propose new versions of them, drafted step by step with factory_edit (propose_factory_version). Read the game's configs (get_game_config: first the levelling, how a village grows level by level) and propose new versions of them (game_config_edit, propose_game_config_version). Read the Inbox (list_inbox, get_inbox_item: what Maia City wants made, fixed or improved, the stages before a proposal), add to it (add_inbox_item: the only way into it) and specify its items (specify_inbox_item: the definition, and the metric of what is good); sent to work on an item, specify it if it is not yet, make it, check it against its metric, and name it in what you propose (every propose tool's inbox). Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's Proposals page, then accept or archive it; nothing here accepts or marks an item done, an agent archives only its own proposals still proposed (archive_proposal), and no proposed code runs on play's server.",
         });
       case "ping":
         return reply(msg.id, {});

@@ -651,25 +651,30 @@ export const MIGRATIONS: Migration[] = [
     `,
   },
   {
-    // the Inbox (Samuel 2026-11-05, play/SPEC.md §4.12): the stage before a proposal, what Maia City wants made, fixed
-    // or improved, each a note named by its UUID, triaged by its admins and taken up by agents; a proposal made for one
-    // names it
+    // the Inbox (Samuel 2026-11-05, play/SPEC.md §4.12): the stages before a proposal, what Maia City wants made, fixed
+    // or improved, each item named by its UUID, added by agents over MCP: in the Inbox as it came, then specified (its
+    // definition, and its metric of what is good) before anything is proposed for it; a proposal made for one names it
     id: "0024-inbox",
     sql: `
       CREATE TABLE play.inbox (
-        id         UUID PRIMARY KEY,
-        coop_id    UUID NOT NULL REFERENCES play.coops(id),
-        kind       TEXT NOT NULL DEFAULT 'idea' CHECK (kind IN ('idea', 'fix', 'improve')),
-        title      TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 200),  -- only shown: an item is named by its id
-        note       TEXT NOT NULL DEFAULT '',
-        status     TEXT NOT NULL DEFAULT 'inbox' CHECK (status IN ('inbox', 'done', 'archived')),
-        author     TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
-        via        TEXT NOT NULL DEFAULT 'web' CHECK (via IN ('web', 'mcp')),
-        created    TIMESTAMPTZ NOT NULL DEFAULT now(),
-        edited_by  TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
-        edited_at  TIMESTAMPTZ,
-        decided_by TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
-        decided_at TIMESTAMPTZ
+        id             UUID PRIMARY KEY,
+        coop_id        UUID NOT NULL REFERENCES play.coops(id),
+        kind           TEXT NOT NULL DEFAULT 'idea' CHECK (kind IN ('idea', 'fix', 'improve')),
+        title          TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 200),  -- only shown: an item is named by its id
+        note           TEXT NOT NULL DEFAULT '',
+        status         TEXT NOT NULL DEFAULT 'inbox' CHECK (status IN ('inbox', 'specify', 'done', 'archived')),
+        author         TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
+        via            TEXT NOT NULL DEFAULT 'mcp' CHECK (via IN ('web', 'mcp')),
+        created        TIMESTAMPTZ NOT NULL DEFAULT now(),
+        -- its spec: what is to be made, precisely, and the metric of what is good (how a proposal for it is judged)
+        definition     TEXT,
+        metric         TEXT,
+        specified_by   TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
+        specified_at   TIMESTAMPTZ,
+        decided_by     TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
+        decided_at     TIMESTAMPTZ,
+        CHECK ((definition IS NULL) = (metric IS NULL)),
+        CHECK (status <> 'specify' OR definition IS NOT NULL)
       );
       CREATE INDEX ix_inbox_status ON play.inbox(status, created);
       ALTER TABLE play.proposals ADD COLUMN inbox_id UUID REFERENCES play.inbox(id);

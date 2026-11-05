@@ -15,7 +15,7 @@ import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameM
 import { listTables, readTable, TableError } from "./tables";
 import { proposedState, SandboxError } from "./sandboxes";
 import { decide, listProposals, proposalOf, proposalsOfInbox, propose, ProposalError, type Verdict } from "./proposals";
-import { addInbox, decideInbox, editInbox, inboxItem, InboxError, listInbox, type InboxVerdict } from "./inbox";
+import { decideInbox, inboxItem, InboxError, listInbox, type InboxVerdict } from "./inbox";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 import { listStories, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
 import { labelFile, listLibrary } from "./library";
@@ -170,13 +170,14 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await decide(db, store, await me(req), p.id, p.verdict as Verdict));
   });
 
-  // ---- the Inbox (./inbox.ts), the stage before a proposal: what Maia City wants made, fixed or improved, kept by its
-  // admins on the Proposals board, each item marked done or archived there (or brought back); agents read and add to it
-  // over MCP and name an item in what they propose for it
-  on("GET", "/api/inbox", async (req) => json(await listInbox(db, await me(req), new URL(req.url).searchParams.get("status") ?? undefined)));
-  on("POST", "/api/inbox", async (req) => json(await addInbox(db, await me(req), (await body(req)) ?? {}), { status: 201 }));
+  // ---- the Inbox and Specify (./inbox.ts), the stages before a proposal: what Maia City wants made, fixed or improved,
+  // added and specified by agents over MCP only (nothing here adds or edits an item), read by its admins on the
+  // Proposals board, and each item archived, marked done or brought back there
+  on("GET", "/api/inbox", async (req) => {
+    const s = new URL(req.url).searchParams.get("status");
+    return json(await listInbox(db, await me(req), s ? s.split(",") : undefined));
+  });
   on("GET", "/api/inbox/:id", async (req, p) => json(await inboxItem(db, await me(req), p.id, proposalsOfInbox)));
-  on("PATCH", "/api/inbox/:id", async (req, p) => json(await editInbox(db, await me(req), p.id, (await body(req)) ?? {})));
   on("POST", "/api/inbox/:id/:verdict", async (req, p) => {
     if (!["done", "archive", "reopen"].includes(p.verdict)) throw new NotFound("No such verdict.");
     return json(await decideInbox(db, await me(req), p.id, p.verdict as InboxVerdict));
