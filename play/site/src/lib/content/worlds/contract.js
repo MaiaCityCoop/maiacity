@@ -8,7 +8,8 @@
  *   mood:<preset>?k=v          its sky and light: a preset (MOODS) and its keys over it: sun (the sun's height, °),
  *                              (fog is the density at street level; the page thins it with the eye's height, ./sky.js)
  *                              az (its bearing, ° from +z toward +x), fog (density a metre), haze (the fog's colour,
- *                              hex), lamps (1: street lamps and vehicles' head and tail lights lit)
+ *                              hex), lamps (1: street lamps and vehicles' head and tail lights lit), shadows (1: the
+ *                              sun casts them; off under smog and overcast by default)
  *   sound:<file hash>?for=x&gain=g   a recording of play's (by its BLAKE3 hash) and what it is for: `bed` the
  *                              world's ambient loop; any other name sounds at each guest whose `state:<name>` is on
  *                              (`horn`: once each time it comes on; anything else looped while it is on)
@@ -26,10 +27,10 @@ const HASH = /^[0-9a-f]{64}$/;
 
 /** the moods a world may be in, each its sky's numbers; a world's keys are laid over its preset */
 export const MOODS = {
-	'smog-dusk': { sun: 6, az: 250, fog: 0.0026, haze: '8e9396', lamps: 1, zenith: '5d636b', horizon: 'b0a682', sunColor: 'd8b088', light: 0.85 },
-	overcast: { sun: 30, az: 200, fog: 0.003, haze: 'a7a9a8', lamps: 0, zenith: '7d8389', horizon: 'b9bbb8', sunColor: 'e6e3dc', light: 0.9 },
-	'clear-day': { sun: 40, az: 220, fog: 0.0012, haze: 'd4e0ea', lamps: 0, zenith: '5a8ccc', horizon: 'dde7ee', sunColor: 'fff1d6', light: 1.2 },
-	night: { sun: -12, az: 250, fog: 0.004, haze: '20232a', lamps: 1, zenith: '07080c', horizon: '1d2028', sunColor: '8090b0', light: 0.12 }
+	'smog-dusk': { sun: 6, az: 250, fog: 0.0026, haze: '8e9396', lamps: 1, shadows: 0, zenith: '5d636b', horizon: 'b0a682', sunColor: 'd8b088', light: 0.85 },
+	overcast: { sun: 30, az: 200, fog: 0.003, haze: 'a7a9a8', lamps: 0, shadows: 0, zenith: '7d8389', horizon: 'b9bbb8', sunColor: 'e6e3dc', light: 0.9 },
+	'clear-day': { sun: 40, az: 220, fog: 0.0012, haze: 'd4e0ea', lamps: 0, shadows: 1, zenith: '5a8ccc', horizon: 'dde7ee', sunColor: 'fff1d6', light: 1.2 },
+	night: { sun: -12, az: 250, fog: 0.004, haze: '20232a', lamps: 1, shadows: 0, zenith: '07080c', horizon: '1d2028', sunColor: '8090b0', light: 0.12 }
 };
 export const DEFAULT_MOOD = 'overcast';
 
@@ -85,6 +86,9 @@ export function moodOf(name) {
 		fog: num(q.fog, 0, 0.05, base.fog),
 		haze: hex(q.haze, base.haze),
 		lamps: num(q.lamps, 0, 1, base.lamps) >= 0.5,
+		// the sun's shadows: none under an overcast or smoggy sky (no sun to cast them, and every caster drawn twice), a
+		// clear day's; `shadows=1` asks for them anyway
+		shadows: num(q.shadows, 0, 1, base.shadows) >= 0.5,
 		zenith: hex(q.zenith, base.zenith),
 		horizon: hex(q.horizon, base.horizon),
 		sunColor: base.sunColor,

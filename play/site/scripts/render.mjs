@@ -25,6 +25,11 @@
  *                     bytes and so its hash differ from play's minified file), so it draws the same plant;
  *                     `refs` what its card names by readable refs, each by the `as` of a guest listed before it
  *
+ *   --play            the page's API is play's own (https://play.maia.city), read with the admin token in PLAY_MCP_TOKEN
+ *                     (its read-only routes; the token is sent to play and nowhere else): with --world, the guests a world
+ *                     names that are not handed in with --guests are play's accepted assets, from its catalog, and a
+ *                     --guests entry whose `as` play already holds is taken from play too (its own file: the hash a
+ *                     biome names its plants by, or a world its guests by, stays the one play holds)
  *   --world           the --file is a world (group `worlds`, play/SPEC.md §4.11): run as the Worlds page runs it, on the
  *                     world bench (/worlds/bench/): its guests (--guests, as above) drawn, lit and heard where it
  *                     stands them, and if it moves, kept running in the box. Its shots: { "name", "run": s of the
@@ -58,6 +63,7 @@ function args(argv) {
 		else if (k === '--guests') (o.guests = v), i++;
 		else if (k === '--slack') (o.slack = Number(v)), i++;
 		else if (k === '--world') o.world = true;
+		else if (k === '--play') o.play = true;
 		else if (k === '--values') (o.values = JSON.parse(v)), i++;
 		else if (k === '--out') (o.out = v), i++;
 		else if (k === '--url') (o.url = v), i++;
@@ -115,6 +121,16 @@ try {
 		const page = await browser.newPage({ viewport: { width: o.size, height: o.size }, deviceScaleFactor: o.scale });
 		page.on('pageerror', (e) => console.error(`  page: ${e.message}`));
 		const bench = o.world ? '__worldBench' : '__render';
+		if (o.play) {
+			if (!process.env.PLAY_MCP_TOKEN) throw new Error('--play reads play with the admin token in PLAY_MCP_TOKEN');
+			// the page's API answered by play itself, read only, the token sent there and nowhere else
+			await page.route(`${dev.url}/api/**`, async (route) => {
+				const u = new URL(route.request().url());
+				if (route.request().method() !== 'GET') return route.fulfill({ status: 405, body: 'read only' });
+				const res = await route.fetch({ url: `https://play.maia.city${u.pathname}${u.search}`, headers: { accept: route.request().headers().accept ?? '*/*', authorization: `Bearer ${process.env.PLAY_MCP_TOKEN}` } });
+				await route.fulfill({ response: res });
+			});
+		}
 		await page.goto(`${dev.url}${o.world ? '/worlds/bench/' : '/render/'}${o.slack ? `?slack=${o.slack}` : ''}`);
 		await page.waitForFunction((b) => !!window[b], bench, { timeout: 120_000 });
 		const name = basename(r.file).replace(/\.[^.]+$/, '');
@@ -122,7 +138,17 @@ try {
 		let code = readFileSync(r.file, 'utf8');
 		/** each guest's hash here, by the hash play holds it by */
 		const here = {};
+		// with --play, play's catalog first: a guest play already holds by the hash it is named by is play's own file
+		// (a biome's oats named by play's hash stay that hash), never one made here from a readable source
+		if (o.world && o.play) {
+			const got = await page.evaluate(() => window.__worldBench.catalog());
+			console.log(`  play's catalog: ${got.count} recipes${got.error ? ` (${got.error})` : ''}`);
+		}
 		for (const g of o.guests ? JSON.parse(readFileSync(o.guests, 'utf8')) : []) {
+			if (o.world && o.play && g.as && (await page.evaluate((h) => window.__worldBench.holds(h), g.as))) {
+				console.log(`  guest ${g.id} from play (${g.as.slice(0, 12)}…)`);
+				continue;
+			}
 			const refs = g.refs ? Object.fromEntries(Object.entries(g.refs).map(([name, h]) => [name, here[h] ?? h])) : null;
 			const got = await page.evaluate(([b, x]) => window[b].guest(x), [bench, { code: readFileSync(resolve(dirname(o.guests), g.file), 'utf8'), id: g.id, v: g.v, variant: g.variant ?? null, refs }]);
 			if (g.as) (here[g.as] = got.hash), (code = code.replaceAll(g.as, got.hash));
@@ -139,8 +165,9 @@ try {
 				const png = resolve(o.out, `${name}-${s.name}.png`);
 				const box = await canvas.boundingBox();
 				await page.screenshot({ path: png, clip: box ?? undefined, timeout: 120_000 });
+				if (got.cut) console.log(`    drawings: world ${got.cut.world}, guests ${got.cut.guests} (${got.cut.kinds} kinds; most: ${got.cut.top.map(([k, n]) => `${k} ${n}`).join(', ')}), lights ${got.cut.lights}, other ${got.cut.other}`);
 				results.push({ recipe: name, label: loaded.label, shot: s.name, png, values: { t: got.t, guests: got.guests, lit: got.lit }, ...got });
-				console.log(`  ${s.name}: t ${got.t} s · ${got.guests} guests of ${got.kinds} kinds${got.missing ? ` (${got.missing} missing)` : ''} · ${got.lit} lit · ${got.live ? 'alive' : 'still'} · ${got.triangles.toLocaleString('en')} triangles, ${got.calls} calls · ${got.ms} ms`);
+				console.log(`  ${s.name}: t ${got.t} s · ${got.guests} guests of ${got.kinds} kinds${got.missing ? ` (${got.missing} missing)` : ''} · ${got.lit} lit (${got.faces ?? 0} face drawings, ${got.glows ?? 0} glows) · ${got.live ? 'alive' : 'still'} · ${got.triangles.toLocaleString('en')} triangles, ${got.calls} calls · ${got.ms} ms`);
 			}
 			await page.close();
 			continue;

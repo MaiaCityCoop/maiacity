@@ -107,6 +107,10 @@
 		x ? `${x.label} v${x.number}${x.usedVariant ? ` · ${x.usedVariant}${x.variant ? '' : ' (default)'}` : ''}${x.params ? ` · ${Object.entries(x.params).map(([k, v]) => `${k} ${v}`).join(', ')}` : ''}` : 'none';
 	const valueText = (v: unknown) => (v === undefined ? '(none)' : JSON.stringify(v, null, 1));
 	/** a title for a card: an asset's or story's version, or a sandbox's change */
+	/** what a proposal is of, its card's tag (Samuel 2026-11-05: the type, not how it came; that it came over MCP is in its title and its review) */
+	const GROUP_TYPE: Record<string, string> = { plants: 'Plant', things: 'Thing', machines: 'Machine', buildings: 'Building', actors: 'Actor', biomes: 'Biome', worlds: 'World' };
+	const typeOf = (p: P) =>
+		p.kind === 'story_version' ? 'Story' : p.kind === 'sandbox_change' ? 'Sandbox' : p.kind === 'factory_version' ? 'Factory' : p.kind === 'game_config_version' ? 'Game config' : (GROUP_TYPE[p.grp] ?? p.grp);
 	const titleOf = (p: P) => (p.kind === 'sandbox_change' ? `${p.changes ?? 0} change${p.changes === 1 ? '' : 's'}` : `v${p.number}`);
 	async function openCard(p: P) {
 		open = p;
@@ -201,7 +205,7 @@
 									<span class="meta">
 										<span class="avatar" aria-hidden="true">{initialsOf(p.author)}</span>
 										<span class="author">{p.author ?? 'someone'}</span>
-										{#if p.via === 'mcp'}<span class="via" title="Proposed by an agent working for them over MCP">MCP</span>{/if}
+										<span class="type" data-type={typeOf(p)} title={p.via === 'mcp' ? `${typeOf(p)} · proposed by an agent working for them over MCP` : typeOf(p)}>{typeOf(p)}</span>
 										<span class="date">{shortWhen(p.created)}</span>
 									</span>
 								</button>
@@ -433,6 +437,10 @@
 	.date { margin-left: auto; white-space: nowrap; }
 	.gist { font-size: 0.85rem; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 	.empty { margin: 0.2rem; font-size: 0.85rem; }
+	.type { display: inline-block; padding: 0 0.45em; border-radius: 999px; background: var(--mustard-soft); color: var(--ink); font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
+	.type[data-type='Building'], .type[data-type='World'], .type[data-type='Sandbox'] { background: color-mix(in srgb, var(--terracotta, #c4673f) 22%, transparent); }
+	.type[data-type='Plant'], .type[data-type='Biome'] { background: color-mix(in srgb, var(--sage, #8fa67a) 30%, transparent); }
+	.type[data-type='Story'] { background: color-mix(in srgb, var(--ink, #1f3a2c) 14%, transparent); }
 	.via { display: inline-block; padding: 0 0.45em; border-radius: 999px; background: var(--mustard-soft); color: var(--ink); font-size: 0.72rem; font-weight: 600; }
 	/* reviewing one: nearly the whole screen, the build as large as it can be */
 	.review { position: fixed; inset: 0.6rem; z-index: 60; background: var(--bg, #fbf8f2); border-radius: 16px; box-shadow: 0 20px 60px rgb(0 0 0 / 0.25); display: flex; flex-direction: column; padding: 0.8rem 1rem 0.6rem; gap: 0.4rem; overflow: hidden; }
