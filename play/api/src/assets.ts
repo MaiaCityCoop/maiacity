@@ -8,7 +8,7 @@ export class NotFound extends Error {
 
 const summary = (record: any) => {
   const c = record?.card ?? {};
-  return { cardLabel: c.label ?? record?.title ?? null, size: c.size ?? null, triangles: c.triangles ?? null, skinned: c.skinned ?? null, params: record?.params ?? c.params ?? [], sheet: typeof record?.sheet === "string" ? record.sheet : null };
+  return { cardLabel: c.label ?? record?.title ?? null, size: c.size ?? null, triangles: c.triangles ?? null, skinned: c.skinned ?? null, params: record?.params ?? c.params ?? [], sheet: typeof record?.sheet === "string" ? record.sheet : null, datasheet: typeof record?.datasheet === "string" ? record.datasheet : null, brief: typeof record?.brief === "string" ? record.brief : null };
 };
 
 /** every asset with a version, by group and slug, with its newest version's summary */

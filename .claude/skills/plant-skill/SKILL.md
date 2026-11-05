@@ -278,6 +278,10 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
 
 - **Clean first**: `node .claude/skills/plant-skill/scripts/nan-check.cjs <source.js> <id> <v>` prints clean for
   every stage, plant and fruit, at detail 1 and 0.3 (no NaN, no normal of no length), or it is not proposed.
+- **Keep the whole dataset in play**: the data sheet and the brief each as a Markdown document with MCP `add_document`
+  (labelled `Data sheet · <Plant 'Cultivar'>`, `Brief · <Plant 'Cultivar'>`), and their hashes named with
+  `datasheet` and `brief` in the proposal, beside `sheet` (play/SPEC.md §4.10): a plant's numbers and their sources live
+  in play with the version, not only in the repository.
 - **Link the sheet**: `propose_version` (or `propose_asset`) with `sheet`: the hash of the reference sheet Samuel gave
   the go for. play keeps it with the version (play/SPEC.md §4.10): the asset library shows it beside the version, the
   Library shows the plant beside the sheet.
