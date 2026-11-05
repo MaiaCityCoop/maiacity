@@ -40,9 +40,11 @@ fi
 echo "restore: $MODE from s3://$BACKUP_BUCKET/BACKUPS/play/$NAME/ …"
 s3 s3 cp "s3://$BACKUP_BUCKET/BACKUPS/play/$NAME/" /work/ --recursive --only-show-errors
 # a backup is both halves, the dump and the files, or it is none
-for f in play.dump blobs.tar manifest.json; do
+# (its files either packed in blobs.tar, or, from a play on the bucket, copied under blobs/)
+for f in play.dump manifest.json; do
   [ -s "$WORK/$f" ] || { echo "restore: $NAME has no $f: not a whole backup"; exit 1; }
 done
+[ -s "$WORK/blobs.tar" ] || [ -d "$WORK/blobs" ] || { echo "restore: $NAME has neither blobs.tar nor blobs/: not a whole backup"; exit 1; }
 echo "restore: manifest $(tr -d '\n ' < "$WORK/manifest.json")"
 IMAGE=$(json image)
 IMAGE="${IMAGE:-$PLAY_IMAGE}"
@@ -50,7 +52,7 @@ if [ -n "${GHCR_TOKEN:-}" ]; then echo "$GHCR_TOKEN" | docker login ghcr.io -u "
 docker image inspect "$IMAGE" >/dev/null 2>&1 || docker pull "$IMAGE" >/dev/null
 docker image inspect "$PLAY_IMAGE" >/dev/null 2>&1 || docker pull "$PLAY_IMAGE" >/dev/null
 mkdir -p "$WORK/data"
-tar -xf "$WORK/blobs.tar" -C "$WORK/data"
+if [ -s "$WORK/blobs.tar" ]; then tar -xf "$WORK/blobs.tar" -C "$WORK/data"; else mv "$WORK/blobs" "$WORK/data/blobs"; fi
 chmod -R a+rX "$WORK/data"
 
 if [ "$MODE" = check ]; then

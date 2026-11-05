@@ -38,18 +38,19 @@ timeout 900 docker exec maia-city-db pg_dump -U maiacity -d maiacity -n play -Fc
 # its hash and never changes, so files written after the dump only add to what the copy holds.
 STORE=folder
 if [ -n "${PLAY_BUCKET:-}" ]; then
+  # copied inside the object storage, from play's files to the backup's (nothing comes down to the server's disk); each
+  # is named by its hash and never changes, so files written after the dump only add to what the copy holds
   STORE="bucket $PLAY_BUCKET"
-  mkdir -p "$WORK/data/blobs"
-  echo "backup: copying the files in s3://$PLAY_BUCKET/blobs/ …"
-  timeout 1800 docker run --rm -v "$WORK/data:/data" \
-    -e AWS_ACCESS_KEY_ID="$PLAY_BUCKET_ACCESS_KEY" -e AWS_SECRET_ACCESS_KEY="$PLAY_BUCKET_SECRET_KEY" \
-    -e AWS_DEFAULT_REGION="${PLAY_BUCKET_REGION:-$BACKUP_REGION}" \
-    -e AWS_REQUEST_CHECKSUM_CALCULATION=when_required -e AWS_RESPONSE_CHECKSUM_VALIDATION=when_required \
-    amazon/aws-cli --endpoint-url "$PLAY_BUCKET_ENDPOINT" --cli-connect-timeout 20 --cli-read-timeout 120 \
-    s3 sync "s3://$PLAY_BUCKET/blobs/" /data/blobs/ --only-show-errors </dev/null
-  tar -cf "$WORK/blobs.tar" -C "$WORK/data" blobs
-  FILES=$(find "$WORK/data/blobs" -type f | wc -l)
-  rm -rf "$WORK/data"
+  echo "backup: copying the files in s3://$PLAY_BUCKET/blobs/ to s3://$BACKUP_BUCKET/$PREFIX/blobs/ …"
+  s3play() {
+    timeout 1800 docker run --rm \
+      -e AWS_ACCESS_KEY_ID="$PLAY_BUCKET_ACCESS_KEY" -e AWS_SECRET_ACCESS_KEY="$PLAY_BUCKET_SECRET_KEY" \
+      -e AWS_DEFAULT_REGION="${PLAY_BUCKET_REGION:-$BACKUP_REGION}" \
+      -e AWS_REQUEST_CHECKSUM_CALCULATION=when_required -e AWS_RESPONSE_CHECKSUM_VALIDATION=when_required \
+      amazon/aws-cli --endpoint-url "$PLAY_BUCKET_ENDPOINT" --cli-connect-timeout 20 --cli-read-timeout 120 "$@" </dev/null
+  }
+  s3play s3 sync "s3://$PLAY_BUCKET/blobs/" "s3://$BACKUP_BUCKET/$PREFIX/blobs/" --only-show-errors
+  FILES=$(s3play s3 ls "s3://$BACKUP_BUCKET/$PREFIX/blobs/" --recursive | wc -l)
 elif [ -n "${PLAY_DATA_PATH:-}" ] && [ -d "$PLAY_DATA_PATH/blobs" ]; then
   # packed straight from the folder (no copy of it first: that held every file twice on the disk), and only if the
   # disk has room for the pack, so a backup never fills it
@@ -79,7 +80,7 @@ cat >"$WORK/manifest.json" <<EOF
   "dumpBytes": $(stat -c %s "$WORK/play.dump"),
   "files": $FILES,
   "fileRows": $ROWS,
-  "blobsBytes": $(stat -c %s "$WORK/blobs.tar"),
+  "blobsBytes": $([ -f "$WORK/blobs.tar" ] && stat -c %s "$WORK/blobs.tar" || echo 0),
   "store": "$STORE"
 }
 EOF
@@ -95,7 +96,8 @@ timeout 900 docker run --rm -v "$WORK:/work:ro" \
 LISTED=$(timeout 300 docker run --rm \
   -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION="$BACKUP_REGION" \
   amazon/aws-cli --endpoint-url "$BACKUP_ENDPOINT" s3 ls "s3://$BACKUP_BUCKET/$PREFIX/" </dev/null)
-for f in play.dump blobs.tar manifest.json; do
+PARTS="play.dump manifest.json"; [ -f "$WORK/blobs.tar" ] && PARTS="$PARTS blobs.tar"
+for f in $PARTS; do
   size=$(awk -v f="$f" '$4 == f {print $3}' <<<"$LISTED")
   [ "$size" = "$(stat -c %s "$WORK/$f")" ] || { echo "backup: $f is not in the bucket whole ($size)"; exit 1; }
 done

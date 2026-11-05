@@ -126,8 +126,8 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     if (!HASH.test(p.hash)) throw new NotFound("That is not a file's hash.");
     const f = await fileOf(db, p.hash);
     if (!f) throw new NotFound("There is no such file.");
-    const url = store.url(p.hash, 3600);
-    if (/^https?:/.test(url)) return new Response(null, { status: 302, headers: { Location: url, "Cache-Control": "private, max-age=3000" } });
+    // served from here whether the store is the folder or the bucket: never a redirect to the bucket, so a file keeps
+    // the headers below (code as plain text, nothing sniffed or run as a document) and needs no CORS on the bucket
     const bytes = await store.get(p.hash);
     if (!bytes) throw new NotFound("The file's bytes are missing.");
     // code (recipes and their sources, accepted or only proposed) is served as plain text, never as script the page's
