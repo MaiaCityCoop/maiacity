@@ -181,6 +181,9 @@ export function createAssets(o) {
 	const kinds = new Map();
 	/** something to draw changed; and what casts shadows did */
 	let dirty = true, shadows = true;
+	/** whether a kind's copies are in the shadows at all (cast at some level, or by their picture): a floor cover's, a
+	 *  small plant's coming and going changes nothing there, and draws no shadow pass */
+	const casts = (k) => k.shadows !== false || k.picture;
 	/** the renderer was disposed */
 	let gone = false;
 
@@ -484,7 +487,8 @@ export function createAssets(o) {
 		set(k, i, at);
 		k.alive[i] = 1;
 		k.was[i] = -1;
-		dirty = shadows = true;
+		dirty = true;
+		if (casts(k)) shadows = true;
 		return { kind: k, i };
 	}
 
@@ -507,13 +511,15 @@ export function createAssets(o) {
 	/** a copy moved */
 	const move = (copy, at) => {
 		set(copy.kind, copy.i, at);
-		dirty = shadows = true;
+		dirty = true;
+		if (casts(copy.kind)) shadows = true;
 	};
 	/** a copy taken away */
 	const remove = (copy) => {
 		copy.kind.alive[copy.i] = 0;
 		unpose(copy.kind, copy.i);
-		dirty = shadows = true;
+		dirty = true;
+		if (casts(copy.kind)) shadows = true;
 	};
 
 	/* ── the copies moved by their controls ── */
@@ -724,7 +730,7 @@ export function createAssets(o) {
 			for (const lv of k.levels) for (const d of lv.meshes ?? []) d.used = 0;
 			for (const p of k.posed.values()) if (p.tree) p.tree.visible = false;
 			if (!k.ok) continue;
-			const c = k.center;
+			const c = k.center, cast = casts(k);
 			for (let i = 0; i < k.n; i++) {
 				if (!k.alive[i]) continue;
 				const M = k.M, o = i * 16;
@@ -733,16 +739,16 @@ export function createAssets(o) {
 				ball.radius = k.radius * k.S[i] * (k.posed.size && k.posed.has(i) ? 2 : 1);
 				if (!frustum.intersectsSphere(ball)) {
 					counted.culled++;
-					if (k.was[i] !== -1) (k.was[i] = -1), (shadows = true);
+					if (k.was[i] !== -1) (k.was[i] = -1), (shadows ||= cast);
 					continue;
 				}
 				const size = sizeOn(ball.radius, ball.center.distanceTo(eye), tanHalf);
 				if (size < SMALLEST) {
-					if (k.was[i] !== -1) (k.was[i] = -1), (shadows = true);
+					if (k.was[i] !== -1) (k.was[i] = -1), (shadows ||= cast);
 					continue;
 				}
 				const { level, fade } = forced >= 0 ? { level: Math.min(forced, k.levels.length), fade: 0 } : choose(size, k.thresholds, k.was[i]);
-				if (level !== k.was[i]) shadows = true;
+				if (level !== k.was[i]) shadows ||= cast;
 				k.was[i] = level;
 				// moved by its controls: its own tree, once it is ready
 				const p = k.posed.size ? k.posed.get(i) : undefined;

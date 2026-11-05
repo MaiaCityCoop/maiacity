@@ -253,6 +253,8 @@ export function apiary(spots: { x: number; z: number; rot: number }[], seed: num
 		const at = eye?.()
 		swarm.begin()
 		for (const b of paths) {
+			// a bee is a centimetre and a half long: past 30 m from its hive it is under a pixel, not flown or drawn
+			if (at && (b.s.x - at.x) ** 2 + (b.s.z - at.z) ** 2 > 30 * 30) continue
 			const a = t * b.speed + b.phase
 			const rr = b.rad * (0.6 + 0.4 * Math.sin(t * 0.7 + b.wob))
 			const x = b.s.x + Math.sin(a) * rr, z = b.s.z + Math.cos(a) * rr

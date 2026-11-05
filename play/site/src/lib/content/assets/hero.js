@@ -414,9 +414,16 @@ export function forStage(root) {
  * How a build is walked in, read off its own shape (a container's floor, its walls): the floor under a walker is the
  * first face looking up below their knees, and they may step where nothing stands across their way at knee or chest
  * height. Nothing of the box's decides it.
+ *
+ * `still`: the build never moves or changes shape once walked in (a building standing in a world): its triangles are
+ * filed once by the metre squares of the ground they lie over, and each ray tests only those of the squares it crosses,
+ * as three's raycaster would test them (each face's own material's side, the same distances): the same answers, in a
+ * few hundredths of a millisecond instead of tens over a big building's million triangles.
  * @param {THREE.Object3D} root
+ * @param {{ still?: boolean }} [o]
  */
-export function walkOf(root) {
+export function walkOf(root, o = {}) {
+	if (o.still) return walkStill(root);
 	const ray = new THREE.Raycaster();
 	const down = new THREE.Vector3(0, -1, 0), from = new THREE.Vector3(), dir = new THREE.Vector3();
 	const solid = (hits) => hits.filter((h) => h.object.visible && h.object.isMesh && !h.object.userData.studio);
@@ -441,3 +448,153 @@ export function walkOf(root) {
 		}
 	};
 }
+
+/** a build's triangles filed by the metre squares of the ground they lie over (walkOf's `still`) */
+const STILL_CELL = 1;
+
+/**
+ * walkOf for a build that stands still: the same floors and walls, its rays tested against the triangles under the
+ * squares they cross only. Each mesh is kept as it is (its positions, index, matrix and materials' sides), nothing
+ * copied but the filing: a triangle's number in each square its footprint touches.
+ * @param {THREE.Object3D} root
+ */
+function walkStill(root) {
+	root.updateMatrixWorld(true);
+	/** the meshes, each with where its triangles start in the build's numbering */
+	const meshes = [];
+	let count = 0;
+	root.traverse((m) => {
+		if (!m.isMesh || !m.geometry?.attributes?.position || m.isSkinnedMesh) return;
+		const g = m.geometry, tris = (g.index ? g.index.count : g.attributes.position.count) / 3;
+		const inst = m.isInstancedMesh ? m.count : 1;
+		// each instance's matrix in the world (an instanced mesh), or the mesh's own
+		const matrices = [];
+		for (let q = 0; q < inst; q++) {
+			const M = new THREE.Matrix4();
+			if (m.isInstancedMesh) m.getMatrixAt(q, M), M.premultiply(m.matrixWorld);
+			else M.copy(m.matrixWorld);
+			matrices.push(M);
+		}
+		for (const M of matrices) {
+			// each triangle's side, from its group's material (three tests a face only as its material's side allows)
+			const side = new Uint8Array(tris).fill(255);
+			const mats = Array.isArray(m.material) ? m.material : null;
+			if (mats) for (const gr of g.groups) for (let t = Math.floor(gr.start / 3); t < Math.min(tris, Math.floor((gr.start + gr.count) / 3)); t++) side[t] = mats[gr.materialIndex]?.side ?? 255;
+			else side.fill(m.material ? m.material.side : 255);
+			meshes.push({ mesh: m, g, M, identity: M.equals(IDENTITY), side, start: count, tris });
+			count += tris;
+		}
+	});
+	const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), p = new THREE.Vector3();
+	const corners = (e, t) => {
+		const g = e.g, pos = g.attributes.position, idx = g.index, k = t * 3;
+		a.fromBufferAttribute(pos, idx ? idx.getX(k) : k);
+		b.fromBufferAttribute(pos, idx ? idx.getX(k + 1) : k + 1);
+		c.fromBufferAttribute(pos, idx ? idx.getX(k + 2) : k + 2);
+		if (!e.identity) a.applyMatrix4(e.M), b.applyMatrix4(e.M), c.applyMatrix4(e.M);
+	};
+	// filed by squares: counted first, then laid in one array (each square's triangles together)
+	const key = (i, j) => (i + 32768) * 65536 + (j + 32768);
+	const span = (e, t) => {
+		corners(e, t);
+		return [Math.floor(Math.min(a.x, b.x, c.x) / STILL_CELL), Math.floor(Math.max(a.x, b.x, c.x) / STILL_CELL), Math.floor(Math.min(a.z, b.z, c.z) / STILL_CELL), Math.floor(Math.max(a.z, b.z, c.z) / STILL_CELL)];
+	};
+	const sizes = new Map();
+	for (const e of meshes)
+		for (let t = 0; t < e.tris; t++) {
+			const [i0, i1, j0, j1] = span(e, t);
+			for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) sizes.set(key(i, j), (sizes.get(key(i, j)) ?? 0) + 1);
+		}
+	const at = new Map();
+	let total = 0;
+	for (const [k, n] of sizes) at.set(k, [total, total]), (total += n);
+	const filed = new Int32Array(total);
+	for (const e of meshes)
+		for (let t = 0; t < e.tris; t++) {
+			const [i0, i1, j0, j1] = span(e, t);
+			for (let i = i0; i <= i1; i++)
+				for (let j = j0; j <= j1; j++) {
+					const r = at.get(key(i, j));
+					filed[r[1]++] = e.start + t;
+				}
+		}
+	/** which mesh a triangle of the build's numbering is in */
+	const owner = (n) => {
+		let lo = 0, hi = meshes.length - 1;
+		while (lo < hi) {
+			const mid = (lo + hi + 1) >> 1;
+			if (meshes[mid].start <= n) lo = mid;
+			else hi = mid - 1;
+		}
+		return meshes[lo];
+	};
+	const seen = new Uint32Array(count);
+	let stamp = 0;
+	const ray = new THREE.Ray();
+	const normal = new THREE.Vector3();
+	/** every hit of the ray within `far` over the squares i0…i1, j0…j1: [distance, its face's normal's height] */
+	const hits = (i0, i1, j0, j1, far, wantNormal) => {
+		stamp = (stamp + 1) >>> 0 || 1;
+		const out = [];
+		for (let i = i0; i <= i1; i++)
+			for (let j = j0; j <= j1; j++) {
+				const r = at.get(key(i, j));
+				if (!r) continue;
+				for (let q = r[0]; q < r[1]; q++) {
+					const n = filed[q];
+					if (seen[n] === stamp) continue;
+					seen[n] = stamp;
+					const e = owner(n), t = n - e.start, m = e.mesh;
+					// as walkOf counts a hit: a mesh drawn, not the studio's
+					if (!m.visible || m.userData.studio) continue;
+					const side = e.side[t];
+					if (side === 255) continue;
+					corners(e, t);
+					const hit = side === THREE.BackSide ? ray.intersectTriangle(c, b, a, true, p) : ray.intersectTriangle(a, b, c, side === THREE.FrontSide, p);
+					if (!hit) continue;
+					const dist = ray.origin.distanceTo(p);
+					if (dist > far) continue;
+					let ny = 1;
+					if (wantNormal) {
+						// the face's own normal (its corners' order) as the raycaster gives it, turned into the world
+						if (e.identity) ny = normal.subVectors(c, b).cross(p.subVectors(a, b)).normalize().y;
+						else {
+							const g = e.g, pos = g.attributes.position, idx = g.index, k = t * 3;
+							a.fromBufferAttribute(pos, idx ? idx.getX(k) : k);
+							b.fromBufferAttribute(pos, idx ? idx.getX(k + 1) : k + 1);
+							c.fromBufferAttribute(pos, idx ? idx.getX(k + 2) : k + 2);
+							ny = normal.subVectors(c, b).cross(p.subVectors(a, b)).normalize().transformDirection(e.M).y;
+						}
+					}
+					out.push([dist, ny]);
+				}
+			}
+		return out;
+	};
+	const cell = (v) => Math.floor(v / STILL_CELL);
+	const down = new THREE.Vector3(0, -1, 0), dir = new THREE.Vector3();
+	return {
+		floorAt(x, z, ground = 0) {
+			ray.origin.set(x, ground + 0.6, z);
+			ray.direction.copy(down);
+			const i = cell(x), j = cell(z);
+			const found = hits(i, i, j, j, ground + 3, true).sort((u, v) => u[0] - v[0]).find((h) => h[1] > 0.5);
+			return found ? ground + 0.6 - found[0] : 0;
+		},
+		canStand(x, z, here, _ground, was) {
+			dir.set(x - was.x, 0, z - was.z);
+			const d = dir.length();
+			if (d < 1e-6) return true;
+			dir.divideScalar(d);
+			const ex = was.x + dir.x * (d + 0.25), ez = was.z + dir.z * (d + 0.25);
+			const i0 = cell(Math.min(was.x, ex)), i1 = cell(Math.max(was.x, ex)), j0 = cell(Math.min(was.z, ez)), j1 = cell(Math.max(was.z, ez));
+			for (const h of [0.45, 1.2]) {
+				ray.origin.set(was.x, here + h, was.z);
+				ray.direction.copy(dir);
+				if (hits(i0, i1, j0, j1, d + 0.25, false).length) return false;
+			}
+			return true;
+		}
+	};
+}
+const IDENTITY = new THREE.Matrix4();

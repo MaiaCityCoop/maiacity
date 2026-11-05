@@ -123,18 +123,45 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	   it reaches (its arcade, the paths out of its gates) is what the cell keeps clear round it */
 	let soloBuild: { obj: THREE.Object3D; walk: ReturnType<typeof import('$lib/content/assets/hero.js').walkOf>; plantings: ReturnType<typeof import('$lib/content/assets/plantings.js').createPlantings> } | null = null
 	let soloFoot = { x: 0, z: 0, R: 0, ext: 0 }
+	const lowBox = new THREE.Box3()
 	/** Sandbox 5: where its building has ground of its own (its walk, apron, the paths out of its gates, and each gate's
 	 *  way on to the cell's ring path), as distances from it (./solo.js): the forest garden is planted up to it */
 	let soloGround: ReturnType<typeof groundOf> | null = null
+	/** what the renderers draw (their copies' levels change as you walk) casts its shadows anew: drawn again with the
+	 *  next look at the level of detail (below), not every frame */
+	let shadowsStale = false
+	const staleShadows = () => void (shadowsStale = true)
 	if (solo) {
 		onProgress('Building the dome')
 		const [{ loadAsset }, { createPlantings }, { walkOf }] = await Promise.all([import('$lib/content/assets/load.js'), import('$lib/content/assets/plantings.js'), import('$lib/content/assets/hero.js')])
 		const { obj } = await loadAsset(await newestOf(solo.asset))
 		obj.updateMatrixWorld(true)
 		scene.add(obj)
-		const plantings = createPlantings({ renderer, camera, scene })
+		// its forest and things drawn as the cell's are: their shadows drawn again with the cell's (every 400 ms at most,
+		// not with every frame a copy changes its level), its plants at the cell's forest's details and no finer (0.25
+		// near, 0.1 further, a picture far: as Sandbox 1 draws its domes' insides; a tree filling the view at its full
+		// detail is half a million triangles), switching where the guests' last two levels do (plantings.js GUEST_LEVELS)
+		const plantings = createPlantings({ renderer, camera, scene, levels: [0.4, 0.16], details: [0.25, 0.1], shadows: staleShadows })
 		plantings.show(obj)
-		soloBuild = { obj, walk: walkOf(obj), plantings }
+		// the building stands still: walked in by its triangles filed by the ground's squares (the same floors and walls,
+		// each ray testing a few hundred triangles, not a million), its many marker nodes (where each plant and thing
+		// stands, drawn by the plantings now) left out of every frame's traversal, its matrices kept as they are
+		soloBuild = { obj, walk: walkOf(obj, { still: true }), plantings }
+		obj.traverse((o) => {
+			o.matrixAutoUpdate = false
+			if (o.children.length && o.children.every((c) => c.name.startsWith('use:'))) o.visible = false
+			const mesh = o as THREE.Mesh
+			if (!mesh.isMesh) return
+			// its glass, see-through and two-sided, in one pass (its far panes behind its near ones as they lie in the mesh;
+			// one pale tint at 0.14, the order does not show), not two
+			for (const mt of [mesh.material].flat()) if (mt.transparent && mt.side === THREE.DoubleSide) mt.forceSinglePass = true
+			// what lies on the ground (its floor, gravel, flagstones, the stones of its brook) casts no shadow worth its
+			// triangles in the shadow pass: it still receives every one
+			if (mesh.castShadow) {
+				if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox()
+				if (lowBox.copy(mesh.geometry.boundingBox!).applyMatrix4(mesh.matrixWorld).max.y < 0.12) mesh.castShadow = false
+			}
+		})
 		// its reach, from what it stands on the ground (up to 7 m: its arcade, its gates and their paths, not its glass)
 		let reach = 0, glass = 0
 		const v = new THREE.Vector3()
@@ -154,10 +181,6 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	}
 	/** what the cell keeps clear: every dome with its terrace, or Sandbox 5's building with its paths */
 	const foots: { x: number; z: number; R: number; ext: number }[] = solo ? [soloFoot] : domes
-	/** what the renderers draw (their copies' levels change as you walk) casts its shadows anew: drawn again with the
-	 *  next look at the level of detail (below), not every frame */
-	let shadowsStale = false
-	const staleShadows = () => void (shadowsStale = true)
 	/** Sandbox 5: our plants drawn by the universal renderer (./drawn.js, $content/assets/render), each kind built in the asset
 	 *  box: the cell's at the village's distances, and the domes' insides' at the nearer ones under their glass */
 	const plantsOut = flora ? createFlora({ renderer, camera, scene, shadows: staleShadows }) : null
@@ -1252,8 +1275,9 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	   village a piece at a time, and the simple one steps aside. You walk in through the
 	   door with nothing to wait for: its floors, stairs, galleries and terraces are the
 	   dome's own (interior.ts). Walk far enough away and it is taken down again. ── */
-	/** a few real lights, following you from lamp to lamp inside the dome you are in or at */
-	const pool = Array.from({ length: 8 }, () => {
+	/** a few real lights, following you from lamp to lamp inside the dome you are in or at (none in Sandbox 5: it has
+	 *  no domes of the cell's, and eight unlit lights would still be reckoned in every lit pixel) */
+	const pool = Array.from({ length: solo ? 0 : 8 }, () => {
 		const light = new THREE.PointLight(LAMP, 0, 10, 2)
 		scene.add(light)
 		return light
