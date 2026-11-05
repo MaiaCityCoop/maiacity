@@ -22,18 +22,19 @@ set -a
 set +a
 DATA="${PLAY_DATA_PATH:-}"
 
+C="docker compose -f docker-compose.yml -f docker-compose.prod.yml -f play/docker-compose.play.yml"
+
 broken() {
-  # every file in play's folder whose bytes do not hash to its name, by play's own hash (in a container of its image,
-  # so it works while play itself is down); the folder store keeps a file at <PLAY_BLOBS>/blobs/<xx>/<hash>
-  docker run --rm -v "$DATA/blobs:/data/blobs:ro" --entrypoint bun "$PLAY_IMAGE" -e '
-    import { hashBytes } from "/app/api/src/hash.ts";
-    import { readdirSync } from "node:fs";
-    const root = "/data/blobs/blobs";
-    for (const d of readdirSync(root)) for (const n of readdirSync(`${root}/${d}`)) {
-      if (!/^[0-9a-f]{64}$/.test(n)) { console.log(`${n} stray`); continue; }
-      const b = new Uint8Array(await Bun.file(`${root}/${d}/${n}`).arrayBuffer());
-      if (hashBytes(b) !== n) console.log(`${n} ${b.length}`);
-    }' </dev/null
+  # every file play's database names that its store (the folder or the bucket, as play.env sets it) cannot hand back
+  # whole: missing, or its bytes not hashing to its name (a write cut short by a full disk); asked of play's own code,
+  # in a one-off container of its image on the compose network, so it works while play itself is down
+  $C run --rm -T --no-deps play-api bun -e '
+    import { connect } from "/app/api/src/pg.ts";
+    import { blobStore } from "/app/api/src/blobs.ts";
+    const db = connect(), store = blobStore();
+    const { rows } = await db.query("SELECT hash FROM play.files ORDER BY hash");
+    for (const { hash } of rows) if (!(await store.get(hash).catch(() => null))) console.log(hash);
+    process.exit(0);' </dev/null
 }
 
 report() {
@@ -47,19 +48,17 @@ report() {
     sudo du -xh --max-depth=3 "$(dirname "$DATA")" 2>/dev/null | sort -h | tail -20 | sed 's/^/    /'
   fi
   echo "## Journal"; sudo journalctl --disk-usage 2>/dev/null | sed 's/^/    /' || true
-  if [ -n "$DATA" ] && [ -d "$DATA/blobs" ]; then
-    echo "## play's files: $(find "$DATA/blobs" -type f | wc -l) in $(du -sh "$DATA/blobs" | cut -f1)"
-    B=$(broken || true)
-    if [ -n "$B" ]; then
-      echo "## Broken files (name, bytes held) and what play says they are"
-      echo "$B" | sed 's/^/    /'
-      for h in $(echo "$B" | awk '$2 != "stray" {print $1}'); do
-        docker exec maia-city-db psql -U maiacity -d maiacity -Atc \
-          "SELECT hash, size, media_type, coalesce(label, ''), created FROM play.files WHERE hash = '$h'" </dev/null | sed 's/^/    /' || true
-      done
-    else
-      echo "## No broken files"
-    fi
+  [ -n "$DATA" ] && [ -d "$DATA/blobs" ] && echo "## play's files in the folder: $(find "$DATA/blobs" -type f | wc -l) in $(du -sh "$DATA/blobs" | cut -f1)"
+  echo "## play's store: ${PLAY_BUCKET:+the bucket $PLAY_BUCKET}${PLAY_BUCKET:-the folder $DATA/blobs}"
+  B=$(broken || true)
+  if [ -n "$B" ]; then
+    echo "## Files play's database names that its store cannot hand back whole, and what they are"
+    for h in $B; do
+      docker exec maia-city-db psql -U maiacity -d maiacity -Atc \
+        "SELECT hash, size, media_type, coalesce(label, ''), created FROM play.files WHERE hash = '$h'" </dev/null | sed 's/^/    /' || true
+    done
+  else
+    echo "## Every file play's database names is whole in its store"
   fi
 }
 
@@ -70,23 +69,28 @@ aws() {
 }
 
 mend() {
-  [ -n "$DATA" ] && [ -d "$DATA/blobs" ] || return 0
-  local B want
-  B=$(broken || true)
-  want=$(echo "$B" | awk 'NF == 2 && $2 != "stray" {print $1}')
-  [ -n "$want" ] || { echo "mend: no broken files"; return 0; }
-  echo "mend: $(echo "$want" | wc -l) broken files; looking for their bytes in the backups …"
+  local want; want=$(broken || true)
+  [ -n "$want" ] || { echo "mend: every file is whole"; return 0; }
+  echo "mend: $(echo "$want" | wc -l) files not whole; looking for their bytes in the backups …"
   local tmp; tmp=$(mktemp -d /opt/maia-city/backups-tmp/mend-XXXX); trap 'rm -rf "$tmp"' RETURN
-  # the newest backups first: each one's blobs.tar streamed through tar, which takes out only the files wanted
+  # the newest backups first: each one's blobs.tar streamed through tar, which takes out only the files wanted (a
+  # backup of the folder holds blobs/blobs/<xx>/<hash>)
   for b in $(aws s3 ls "s3://$BACKUP_BUCKET/BACKUPS/play/" </dev/null | awk '{print $2}' | tr -d / | sort -r | head -8); do
     [ -n "$want" ] || break
     local names=""; for h in $want; do names="$names blobs/blobs/${h:0:2}/$h"; done
-    aws s3 cp "s3://$BACKUP_BUCKET/BACKUPS/play/$b/blobs.tar" - </dev/null | tar -x -C "$tmp" $names 2>/dev/null || true
+    aws s3 cp "s3://$BACKUP_BUCKET/BACKUPS/play/$b/blobs.tar" - </dev/null 2>/dev/null | tar -x -C "$tmp" $names 2>/dev/null || true
     local left=""
     for h in $want; do
       f="$tmp/blobs/blobs/${h:0:2}/$h"
       if [ -s "$f" ] && [ "$(docker run --rm -i -v "$f:/f:ro" --entrypoint bun "${PLAY_IMAGE}" -e 'import { hashBytes } from "/app/api/src/hash.ts"; console.log(hashBytes(new Uint8Array(await Bun.file("/f").arrayBuffer())))' </dev/null)" = "$h" ]; then
-        sudo install -o 1000 -g 1000 -m 0644 "$f" "$DATA/blobs/blobs/${h:0:2}/$h.mended" && sudo mv "$DATA/blobs/blobs/${h:0:2}/$h.mended" "$DATA/blobs/blobs/${h:0:2}/$h"
+        if [ -n "${PLAY_BUCKET:-}" ]; then
+          docker run --rm -v "$f:/f:ro" -e AWS_ACCESS_KEY_ID="$PLAY_BUCKET_ACCESS_KEY" -e AWS_SECRET_ACCESS_KEY="$PLAY_BUCKET_SECRET_KEY" \
+            -e AWS_DEFAULT_REGION="${PLAY_BUCKET_REGION:-$BACKUP_REGION}" \
+            -e AWS_REQUEST_CHECKSUM_CALCULATION=when_required -e AWS_RESPONSE_CHECKSUM_VALIDATION=when_required \
+            amazon/aws-cli --endpoint-url "$PLAY_BUCKET_ENDPOINT" s3 cp /f "s3://$PLAY_BUCKET/blobs/${h:0:2}/$h" --only-show-errors </dev/null
+        else
+          sudo install -D -o 1000 -g 1000 -m 0644 "$f" "$DATA/blobs/blobs/${h:0:2}/$h.mended" && sudo mv "$DATA/blobs/blobs/${h:0:2}/$h.mended" "$DATA/blobs/blobs/${h:0:2}/$h"
+        fi
         echo "mend: $h put back from $b"
       else
         left="$left $h"
@@ -95,11 +99,7 @@ mend() {
     done
     want=$(echo $left)
   done
-  if [ -n "$want" ]; then
-    local aside="$DATA/broken-$(date -u +%Y%m%dT%H%M%SZ)"
-    sudo mkdir -p "$aside"
-    for h in $want; do sudo mv "$DATA/blobs/blobs/${h:0:2}/$h" "$aside/$h"; echo "mend: $h is in no backup: moved aside to $aside (play writes it anew when it is made again)"; done
-  fi
+  for h in $want; do echo "mend: $h is in no backup whole (it is written again when the same bytes are put again)"; done
 }
 
 clean() {
