@@ -173,7 +173,8 @@ brain check fails a commit that changed a doc without the event a verb writes. R
 ${VERBS.map(([v, w]) => `- \`brain ${v}\`: ${w}.`).join('\n')}
 
 A write names the intent it serves (--intent) and its author (--by, an author doc's id) and appends that intent's event;
-commit the files it wrote with your work. To replace or drop a doc, add a newer one whose supersedes names it
+commit the files it wrote with your work. Lessons and measurements are written at Learn: write them before the event
+that closes Learn (measured), or, in one commit, put their writes' events before it. To replace or drop a doc, add a newer one whose supersedes names it
 (\`{ "doc": "<id>", "part": "all" or the part, "what": "…" }\`); brain refuses a supersede of a doc that no longer
 holds, and records the candidates you left for the reviewer. Add \`--json\` for data. A refusal prints a fixed code and
 its fix; follow the fix.

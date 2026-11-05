@@ -236,3 +236,20 @@ test('check outside any git repository (theOS copied into the box): the commits 
   const ids = J(root, 'brain/ids'); const ix = ids.ids[ids.index.decisions]; const x = J(root, ix); x.items = []; put(root, ix, x);
   assert.ok(check(root).fails.some((f) => f.commit === 'tree'));
 });
+
+test('check refuses an old numbered name (D-n, AIP-n) in new text, but not in a quote or as OLD-AIP-n, from the commit after the rule', () => {
+  const { root, names, I } = world();
+  git(root, 'init', '-q'); git(root, 'add', '-A'); git(root, 'commit', '-qm', 'base');
+  // before the rule is in the repository, an old name passes
+  edit(root, { id: names['D-4'], patch: { means: 'before the rule, D-3' }, intent: I, by: 'a-0001' });
+  git(root, 'commit', '-qam', 'before');
+  assert.deepEqual(check(root, { range: 'HEAD~1..HEAD' }).fails, []);
+  cpSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'door.mjs'), join(root, 'brain', 'door.mjs'));
+  git(root, 'add', '-A'); git(root, 'commit', '-qm', 'the rule');
+  edit(root, { id: names['D-4'], patch: { means: 'see OLD-AIP-7', quote: 'Samuel said D-3' }, intent: I, by: 'a-0001' });
+  git(root, 'commit', '-qam', 'fine');
+  assert.deepEqual(check(root, { range: 'HEAD~1..HEAD' }).fails, []);
+  edit(root, { id: names['D-4'], patch: { means: 'as D-3 says' }, intent: I, by: 'a-0001' });
+  git(root, 'commit', '-qam', 'old');
+  assert.match(check(root, { range: 'HEAD~1..HEAD' }).fails.map((f) => f.fails.join()).join(), new RegExp(`D-3 is an old name; write ${names['D-3']}`));
+});

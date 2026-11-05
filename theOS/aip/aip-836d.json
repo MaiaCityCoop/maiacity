@@ -2061,6 +2061,54 @@
    "writes": [],
    "reads": [],
    "task": "t31"
+  },
+  {
+   "at": "2026-11-05T13:14Z",
+   "by": "a-6ffb",
+   "what": "edit",
+   "text": "l-8ece: evidence",
+   "how": "brain edit",
+   "writes": [
+    "l-8ece"
+   ],
+   "reads": [],
+   "task": "t31"
+  },
+  {
+   "at": "2026-11-05T13:14Z",
+   "by": "a-6ffb",
+   "what": "edit",
+   "text": "aip-836d: tasks",
+   "how": "brain edit",
+   "writes": [
+    "aip-836d"
+   ],
+   "reads": [],
+   "task": "t31"
+  },
+  {
+   "at": "2026-11-05T13:14Z",
+   "by": "a-6ffb",
+   "what": "erratum",
+   "text": "m-c535's last measurement names its decisions by their old numbers, and brain cannot change an earlier measurement (lists that only grow): they are d-ac7d, d-3a9c, d-f83e (hash ids), d-432d, d-9271 (MCP's home), d-6b87 (where sessions start) and d-0a3f (the reflection). Correcting a measurement after the fact is follow-up t33.",
+   "how": "by hand, at avenMAIA's ask",
+   "writes": [],
+   "reads": [
+    "m-c535"
+   ],
+   "task": "t31"
+  },
+  {
+   "at": "2026-11-05T13:14Z",
+   "by": "a-6ffb",
+   "what": "changed",
+   "text": "brain check refuses an old numbered name (D-n, AIP-n) in new text, naming the id to write; a person's quote and OLD-AIP-n stay; the rule binds the commits made after it, so the texts written before it stand. l-8ece's evidence names aip-31df's check report. brain's skill says lessons and measurements come before the event that closes Learn.",
+   "how": "theOS/brain/door.mjs, brain edit, brain index (the skill)",
+   "writes": [
+    "l-8ece"
+   ],
+   "reads": [],
+   "task": "t31"
   }
  ],
  "reviews": [
@@ -2266,6 +2314,12 @@
   {
    "id": "t32",
    "what": "Learn: measure the outcome over the three sessions after checkpoint 3 (corrections whose cause is an outdated decision, an outdated word or a missed supersede)",
+   "step": 4,
+   "who": "a-6ffb"
+  },
+  {
+   "id": "t33",
+   "what": "Follow-up: correct a measurement or a metric's note after Learn (now refused twice: written outside Learn, and earlier measurements only grow): a correction entry, or an erratum the apps show",
    "step": 4,
    "who": "a-6ffb"
   }

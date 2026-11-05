@@ -238,7 +238,7 @@ const PATH = /^(theOS\/)?(aip|decisions|sessions|sources|metrics|lessons|authors
 const IDS = /(?<![\w/-])[a-z]+-[0-9a-f]{4,}(?![\w-])/g;
 const PREFIXES = new RegExp(`^(${Object.values(PREFIX).join('|')})-`);
 const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-function strings(v, out = []) { if (typeof v === 'string') out.push(v); else if (Array.isArray(v)) v.forEach((x) => strings(x, out)); else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) if (!(k === 'prompt' && v.type === 'review')) strings(x, out); return out; }
+function strings(v, out = [], noQuotes = false) { if (typeof v === 'string') out.push(v); else if (Array.isArray(v)) v.forEach((x) => strings(x, out, noQuotes)); else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) if (!(k === 'prompt' && v.type === 'review') && !(noQuotes && k === 'quote')) strings(x, out, noQuotes); return out; }
 // every doc in a commit, by id, as { file, doc }: one git cat-file run
 function allAt(git, sha, prefix, cwd) {
   const files = git('ls-tree', '-r', '--name-only', sha, '--', prefix).split('\n').filter((f) => f.endsWith('.json') && ID.test(f.split('/').pop().slice(0, -5)));
@@ -296,6 +296,9 @@ export function check(root, { range } = {}) {
     }
     const docs = changedFrom(parents[0]);
     if (!docs.length) continue;
+    // a rule binds the commits made after it: this one, once the parent's brain check has it
+    let rule; const oldNameRule = () => rule ??= (() => { try { return git('show', `${parents[0]}:${prefix === '.' ? '' : `${prefix}/`}brain/door.mjs`).includes('is an old name'); } catch { return false; } })();
+    let olds; const oldNames = () => olds ??= Object.fromEntries(Object.entries(at(sha, 'brain/renames')?.names || {}).filter(([k]) => /^(D|AIP)-\d+$/.test(k)));
     let renames; const renamesAt = () => renames ??= Object.entries(ids).filter(([i]) => i.startsWith('t-')).map(([i, f]) => [i, at(sha, f)]).filter(([, t]) => t?.renames).map(([i, t]) => ({ term: i, word: t.word, old: t.renames.old, in: t.renames.in }));
     const covered = new Set();
     const isA = (id, t) => at(sha, ids[id])?.type === t;
@@ -334,10 +337,12 @@ export function check(root, { range } = {}) {
     for (const f of docs) {
       const d = at(sha, f), b = at(parents[0], f); if (!d) continue;
       // c10: every id inside a new text resolves, and no path is used as a link
-      const had = new Set(strings(b || {}));
-      for (const v of strings(d).filter((x) => !had.has(x))) {
+      const had = new Set(strings(b || {}, [], true));
+      for (const v of strings(d, [], true).filter((x) => !had.has(x))) {
         if (PATH.test(v)) bad.push(`${f}: ${v} is a path; link by id`);
         for (const r of v.match(IDS) || []) if (!ids[r] && PREFIXES.test(r)) bad.push(`${f}: ${r} names no doc`);
+        // an old numbered name (D-12, AIP-3) in new text: reference by the id it was renamed to (d-4e7c, d-ac7d)
+        if (oldNameRule()) for (const o of v.match(/(?<![\w/-])(?<!OLD-)(?:D|AIP)-\d+(?![\w-])/g) || []) if (oldNames()[o]) bad.push(`${f}: ${o} is an old name; write ${oldNames()[o]}`);
       }
       // c2: lists that only grow, beyond an intent's events (checked above)
       for (const k of GROW[d.type] || []) if (b && JSON.stringify((d[k] || []).slice(0, (b[k] || []).length)) !== JSON.stringify(b[k] || [])) bad.push(`${f}: earlier ${k} changed (they only grow)`);
