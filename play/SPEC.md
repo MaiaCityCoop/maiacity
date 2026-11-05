@@ -380,6 +380,7 @@ world has run (`run`) from eyes, views or street cameras. The stand-in test worl
 | **Sandbox 2** | Sandbox 7 (`maia/content/sandbox-7`), no avenDB dependency | Restyled in the light brand CI: cream/paper backgrounds, ink green text, mustard/sage/terracotta accents, Fraunces display and DM Sans body (tokens from `maia/site/app.css`) |
 | **Sandbox 3** | MaiaCity V2's world (`maia/content/maiacity-v2`, engine `maia/content/game/maiacity-v2/engine.js`) | **Stripped:** coops, tokens and money (HEARTS, the MINDs, €uro, the pool, rents, mint, demurrage, dividends), MIPs/AIPs, seats, the ledger and the trailer/intro/tour/film. Also stripped for now: **planting a tree** (the seedlings in the backpack, planting, watering a planted tree). **Kept:** the land, the plots, the trees already there, the van, the things. **Stateless:** no server state, no seats |
 | **Sandbox 4** (Samuel 2026-11-05) | Nothing: new, `play/site/src/lib/sandbox-4` | The dome cassette joint: one cast cassette of the grand dome's (Ø 100 m) lowest rows seated from outside, keyed with sliding basalt keys, capped at its nodes and clamped by a ring cable, five steps on one clock, with the joint in section. No pins and no configs; a random UUID (migration `0021-sandbox-4`), in the light brand CI |
+| **Sandbox 5** (Samuel 2026-11-05) | Sandbox 1 (`play/site/src/lib/content/sandbox-2/interior/village.ts`, its `solo` option) | The forest dome (buildings, asset `cac16350-08a4-4d51-8cdf-3ade5f61836e`) alone in the middle of Sandbox 1's world, in place of its thirteen domes, at its newest accepted version (never pinned), with its own forest, things and floor drawn where it stands them (`plantings.js`) and walked on its own floors (`hero.js` walkOf); round it Sandbox 1's outdoor food forest (its garden config), stream, ponds, coops and animals, the cell's paths meeting its four gates. No pins and no configs; a random UUID (migration `0022-sandbox-5`) |
 
 **Every visitor gets a random character** when a world opens: today's stand-in actor (`actors/stand-in`) with
 random values for its params (face, hair and colour, skin, height, shirt, trousers, shoes …), drawn within the
@@ -429,7 +430,7 @@ Every route checks the caller's level against `level_rules`; a visitor gets 401 
 
 ## 8. App (`play/site`, SvelteKit, light brand CI throughout)
 
-`/` sign in or sign up · `/sandbox-1/` · `/sandbox-2/` · `/sandbox-3/` · `/sandbox-4/` · `/assets/` (library; an asset's versions as
+`/` sign in or sign up · `/sandbox-1/` · `/sandbox-2/` · `/sandbox-3/` · `/sandbox-4/` · `/sandbox-5/` · `/assets/` (library; an asset's versions as
 a chain, its variants, a viewer) · `/proposals/` · `/game/` (placeholder; claim an invite to become a citizen) ·
 `/admin/` (members, invites).
 

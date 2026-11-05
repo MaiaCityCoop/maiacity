@@ -14,6 +14,8 @@ export const SANDBOX = {
   factories: "9862777e-04c2-8362-b028-27ff7e0591b8",
   /** Sandbox 4, the dome cassette joint: made after 0017, so a random UUID, the one migration 0021-sandbox-4 gives it */
   four: "4d72a048-ccc1-476b-b60f-c5eb0914fa47",
+  /** Sandbox 5, the forest dome alone in its own food forest: a random UUID, the one migration 0022-sandbox-5 gives it */
+  five: "ac154784-c938-47ee-ac74-d61fc91583b3",
 } as const;
 
 /** the factories' first versions, made by the deploy's import (../import/factories.ts): each uuidOf("factory:<its first name>") */
