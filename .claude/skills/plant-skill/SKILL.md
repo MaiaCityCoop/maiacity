@@ -27,7 +27,9 @@ Rauh's model, a leader with tiers of limbs year by year, colour pictures only an
 its numbers in `references/plum-hauszwetschge.md`, its brief beside them, its whole source `references/plum-v2.js`), and
 **avocado v3** ('Fuerte', Rauh's model flush by flush from its rootstock's seed to mature fruit in its tenth year, inside
 the crown measured for each age; its numbers in `references/avocado-fuerte.md`, its brief beside them, its whole source
-`references/avocado-v3.js`). Start
+`references/avocado-v3.js`), and **soursop v3** ('Morada', Troll's model shoot by shoot, grafted, topped and trained,
+cauliflorous flowers and spiny fruit from the bark; its numbers in `references/soursop-morada.md`, its brief beside them,
+its whole source `references/soursop-v3.js`). Start
 a new plant from the newest: copy its part 1
 (the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps as lemon v2 has it; the file is
 `references/banana-v2.js` or `references/lemon-v2.js`) as it is and write parts 2–4 for the new plant; a tree takes its
@@ -351,6 +353,23 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
 - **Tips by the hundred.** A crown reads as dense only with enough shoot tips: the sapodilla needed some 1,000 at 8 years
   (forks of two or three at most flushes, a minimum spacing between new rosettes of ~9 cm) before its crown stopped
   being see-through; check `forks` and the spacing rule's rejections when a crown stays thin.
+
+- **Troll's model: a relay is the axis going on** (soursop v3, 2026-11-05). Each shoot rises, bends over and lies out
+  level, and an upright relay rises from its bend. Charging the relay a branch order's loss of vigour (as a side shoot
+  pays) stopped the tree at 2.5 m for a measured 3.5; give relays their parent's tier and only side shoots a tier more.
+  Relays out in the crown turn back over its middle, or the dome's top stays hollow; renewal shoots from lit older wood
+  keep the lower crown leafed; a dome envelope with full shoulders (a superellipse, power 3) matched the sheet's head.
+- **A cut axis keeps growing from its cut.** Grafting (the stock cut at 22 cm) and topping (at 0.7 m) cut the trunk;
+  an axis length clamped by its cuts forever never let the scion grow. Clamp only what grew before the cut, and keep
+  looping over the nodes past it (a `break` there dropped the scion's leaves).
+- **A shoot at the crown's edge must be able to stop.** Breaking out of a pulse's steps only after its first step lets
+  every shoot past the edge creep on a step each pulse; break at once, and a stalled shoot dies after a year.
+- **Judge a fruit's shape by its mesh, not a lit picture.** Twice the soursop's heart looked broad at the bottom in a
+  render and on the bench's lit side-by-side while it was broad at the top; the widths measured off the mesh (and the
+  overlap) were right. Measure before turning anything over.
+- **A thick petal is a slab.** The soursop's 3 mm fleshy petals as a two-faced sheet with a rim (`slab()`); a bud of
+  three valvate petals closes as an ovoid only when each bulges out at its middle and curls in at its tip
+  (lift `0.2 sin(πu^0.75) − 0.2u²`); cupping its edges hard made them cross into an X. Bench the bud, front and side.
 
 - **Safe on every GPU, or black on an iPad.** Banana v2's first proposal drew black in play's viewer on an iPad:
   some 800 normals of no length where its blades' rows met at the tip, with a bump picture, made NaN pixels on
