@@ -21,7 +21,7 @@ import { gameConfigHistory, gameConfigOf, editGameConfig, GameConfigError, listG
 
 const PROTOCOL = "2025-06-18";
 const HASH = /^[0-9a-f]{64}$/;
-const GROUPS = ["plants", "things", "machines", "buildings", "actors", "biomes"];
+const GROUPS = ["plants", "things", "machines", "buildings", "actors", "biomes", "worlds"];
 
 type Tool = {
   name: string;

@@ -17,6 +17,15 @@
 			"bytes": 7297,
 			"title": "Asset card, v1",
 			"note": "What an asset's build says of it: its ref, recipe hash and engine, group, id, version, variant, label, real size, triangles, catalog of parts, declared parameters, solver sliders, measures, levels of detail and impostor; read by our checker (./check.js), never by avenDB"
+		},
+		{
+			"name": "card",
+			"v": 2,
+			"date": "2026-11-05",
+			"blake3": "98717da583aa1e98534748fe5ff68496df2a6da65df58776c81d40016cd2b722",
+			"bytes": 7307,
+			"title": "Asset card, v2",
+			"note": "v1 with one more group, worlds (play/SPEC.md §4.11): a world's card names its group as any other's; every card v1 took, v2 takes"
 		}
 	]
 }

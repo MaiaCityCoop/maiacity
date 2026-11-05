@@ -30,8 +30,9 @@
 	let { children } = $props();
 	onMount(loadMe);
 
-	// the render bench (/render, ./render/+page.svelte) is a developer's tool: in development it needs no account
-	const bench = $derived(dev && page.url.pathname.startsWith('/render'));
+	// the render bench (/render, ./render/+page.svelte) and the world bench (/worlds/bench, ./worlds/bench/+page.svelte)
+	// are developer's tools: in development they need no account
+	const bench = $derived(dev && (page.url.pathname.startsWith('/render') || page.url.pathname.startsWith('/worlds/bench')));
 	// a new build deployed while this page was open (svelte.config's pollInterval sets updated.current): the next
 	// navigation loads it whole instead of going on with the old code; a tab coming back into view (an iPad's Safari
 	// keeps one for days) checks and reloads where nothing is lost by it, the sandboxes and the game going on until

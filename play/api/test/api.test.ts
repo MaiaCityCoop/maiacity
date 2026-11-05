@@ -364,6 +364,17 @@ suite("play API", () => {
     expect(done.data.result.structuredContent).toEqual({ id: open.id, status: "archived" });
     expect((await call("ada", "GET", `/api/proposals/${open.id}`)).data).toMatchObject({ status: "archived", decided_by: expect.any(String) });
     expect((await archive(open.id)).data.result.content[0].text).toContain("archived already");
+    // a world (play/SPEC.md §4.11) is a group like the others: listed, proposed, archived
+    const worlds = await rpc(made.data.token, "tools/call", { name: "list_assets", arguments: { group: "worlds" } });
+    expect(worlds.data.result.isError).toBeUndefined();
+    const world = await rpc(made.data.token, "tools/call", {
+      name: "propose_asset",
+      arguments: { group: "worlds", slug: "mcp-test-world", label: "Test world", source: "module.exports.recipe = function (id, v) {\n  return { meta: { group: 'worlds', id, v } };\n};\n", note: "a stand-in world" },
+    });
+    expect(world.data.result.isError).toBeUndefined();
+    const worldOpen = (await call("ada", "GET", "/api/proposals?status=open")).data.find((p: any) => p.slug === "mcp-test-world");
+    expect(worldOpen).toMatchObject({ via: "mcp", status: "open" });
+    expect((await archive(worldOpen.id)).data.result.isError).toBeUndefined();
     for (const id of [byPage.data.id, theirsOpen.data.id]) await call("ada", "POST", `/api/proposals/${id}/archive`);
     const wrong = await rpc(made.data.token, "tools/call", {
       name: "propose_asset",
