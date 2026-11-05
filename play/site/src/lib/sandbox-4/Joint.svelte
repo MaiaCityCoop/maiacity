@@ -95,7 +95,7 @@
 							<label class="cj-depth">
 								<span class="chip-label">Depth</span>
 								<input type="range" min={depth.min ?? 0} max={depth.max ?? 1.2} step={depth.step ?? 0.1} value={Number(info.values.depth ?? depth.value)} disabled={info.loading} onchange={(e) => joint?.setValue('depth', parseFloat(e.currentTarget.value))} />
-								<span class="cj-clock">{Number(info.values.depth ?? depth.value).toFixed(1)} m</span>
+								<span class="cj-clock">{Number(info.values.depth ?? depth.value).toFixed(2)} m</span>
 							</label>
 						{/if}
 					</div>
