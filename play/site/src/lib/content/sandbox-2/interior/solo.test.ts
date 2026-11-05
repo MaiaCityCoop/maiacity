@@ -1,16 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import * as THREE from 'three'
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { groundOf } from './solo.js'
 
 /** a building like the forest dome on the ground: a round floor and apron to 47.5 m, a path out of its south gate to
- *  58 m, and a terrace high up reaching further out than the apron (which is not ground) */
+ *  58 m, and a terrace high up reaching further out than the apron (which is not ground), merged into one mesh with the
+ *  floor as a building's meshes are merged by material (so only each face's own height tells them apart) */
 function building() {
 	const root = new THREE.Group()
-	const floor = new THREE.Mesh(new THREE.CircleGeometry(47.5, 96).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial())
-	floor.position.y = 0.03
+	const ground = new THREE.CircleGeometry(47.5, 96).rotateX(-Math.PI / 2).translate(0, 0.03, 0)
+	const high = new THREE.RingGeometry(40, 52, 64).rotateX(-Math.PI / 2).translate(0, 6.45, 0)
+	const floor = new THREE.Mesh(mergeGeometries([ground, high]), new THREE.MeshBasicMaterial())
 	const path = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 12).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial())
 	path.position.set(0, 0.03, -52)
-	const terrace = new THREE.Mesh(new THREE.RingGeometry(40, 52, 64).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial())
+	// and a terrace of its own, wholly high
+	const terrace = new THREE.Mesh(new THREE.RingGeometry(50, 54, 64).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial())
 	terrace.position.y = 6.45
 	// a wall facing out at the apron's edge: it does not face up, so it is no ground either
 	const wall = new THREE.Mesh(new THREE.CylinderGeometry(49, 49, 0.3, 64, 1, true), new THREE.MeshBasicMaterial())
