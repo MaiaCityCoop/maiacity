@@ -313,7 +313,9 @@ hundred draw calls), a mesh `biome:<recipe hash>` is painted with that biome's f
 off its card's catalog: the catalog play keeps (the imported biomes'), else, for a biome proposed over MCP (play keeps
 no catalog for it, and never runs or trusts code to make one), the catalog its own build's card carries, the biome
 built in the box on the page like any guest. A catalog part may name its asset by build hash (`<hash>?values`) in card
-schema v2.
+schema v2. A floor's rows (a tilled field's furrows, stubble, a crop sown in rows, its tramlines) run along the mesh's
+own +x, or the way its name says: `biome:<hash> rows:<deg>` (degrees from world +x toward +z; `$content/biomes/surfaces.js`
+`rowsOf`).
 
 **How a world moves: its own build, kept running in the box** (decided 2026-11-05, over a trusted traffic runtime in
 the page, so a world's behaviour is in its versioned recipe). The recipe sets `root.userData.tick = (t) => …` (engine
