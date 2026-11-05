@@ -40,6 +40,14 @@ function build(kind) {
 		root.add(box(s < 0 ? 'light:indicator-l' : 'light:indicator-r', 0.1, 0.1, 0.04, lens('#5a3a10'), s * (W / 2 - 0.05), 0.8, L / 2 + 0.01));
 		root.add(box(s < 0 ? 'light:indicator-l' : 'light:indicator-r', 0.1, 0.1, 0.04, lens('#5a3a10'), s * (W / 2 - 0.05), 0.85, -L / 2 - 0.01));
 	}
+	// the reversing lamps as a group named for the light, its lenses unnamed (the page lights every mesh under it)
+	const reverse = new THREE.Group();
+	reverse.name = 'light:reverse';
+	for (const s of [-1, 1]) {
+		const m = box('lens', 0.12, 0.08, 0.04, lens('#8a8a86'), s * (W / 2 - 0.5), 0.85, -L / 2 - 0.01);
+		reverse.add(m);
+	}
+	root.add(reverse);
 	if (amb) {
 		root.add(box('light:beacon-blue', 0.5, 0.15, 0.2, lens('#14205a'), -0.45, H + 0.08, L / 2 - 1.4));
 		root.add(box('light:beacon-red', 0.5, 0.15, 0.2, lens('#5a1414'), 0.45, H + 0.08, L / 2 - 1.4));

@@ -15,7 +15,9 @@
  *                              (STATES); `state:<i>:<colour>` a signal's head i (0-based, its heads in tree order)
  *
  * and the guests name their own parts the page drives: `light:<name>` (LIGHTS) and a signal's `lamp:<colour>`, one
- * set per head, each modelled dark (its lens off): the page draws the lit one over it, copy by copy (./lights.js).
+ * set per head, each modelled dark (its lens off): the page draws the lit one over it, copy by copy (./lights.js). The
+ * name is on the mesh itself or on a group holding it (every mesh under a named group is that light). A building's
+ * `light:window` cells fall into WINDOW_SETS sets by their order, and each copy lights some of them by its seed.
  */
 
 /** a recording's or a recipe's hash */
@@ -39,12 +41,17 @@ export const LIGHTS = {
 	'indicator-r': 'indicator-r',
 	'beacon-blue': 'beacon',
 	'beacon-red': 'beacon',
-	lamp: 'lamp'
+	'beacon-amber': 'beacon',
+	reverse: 'reverse',
+	lamp: 'lamp',
+	window: 'window'
 };
+/** how many sets a building's windows fall into, each lit or dark by the guest's seed (so no two blocks are lit alike) */
+export const WINDOW_SETS = 4;
 /** a signal head's lamps */
 export const LAMPS = ['red', 'amber', 'green'];
 /** the lights lit by the mood where a guest says nothing of them */
-export const BY_MOOD = new Set(['head', 'tail', 'lamp']);
+export const BY_MOOD = new Set(['head', 'tail', 'lamp', 'window']);
 
 /** `k=v&…` as an object of strings (bounded: a node's name is at most 120 characters) */
 export function query(q) {
@@ -155,7 +162,7 @@ export const FLASH = 2.5;
 /**
  * Whether one light of a guest is lit now: by its state where the guest has one, else by the mood; an indicator
  * blinks and a beacon's two colours turn about, on the page's clock `t` (s), each guest at its own phase.
- * @param {{ light?: string, state?: string, lamp?: string, head?: number }} part
+ * @param {{ light?: string, state?: string, lamp?: string, head?: number, set?: number }} part
  * @param {{ on: Map<string, boolean>, heads: Map<number, Map<string, boolean>> }} states
  * @param {{ lamps: boolean }} mood @param {number} t @param {number} [phase] 0..1
  */
@@ -168,6 +175,8 @@ export function litNow(part, states, mood, t, phase = 0) {
 	const on = states.on.has(part.state) ? states.on.get(part.state) : BY_MOOD.has(part.state) && mood.lamps;
 	if (!on) return false;
 	if (part.state === 'indicator-l' || part.state === 'indicator-r') return (t * BLINK + phase) % 1 < 0.5;
-	if (part.state === 'beacon') return ((t * FLASH + phase) % 1 < 0.5) === (part.light === 'beacon-blue');
+	if (part.state === 'beacon') return ((t * FLASH + phase) % 1 < 0.5) === (part.light !== 'beacon-red');
+	// a building's windows: each set of them lit or dark by the copy's seed, about two in three lit
+	if (part.state === 'window') return ((Math.sin((part.set ?? 0) * 12.9898 + phase * 78.233) * 43758.5453) % 1 + 1) % 1 < 0.68;
 	return true;
 }

@@ -125,6 +125,8 @@ export function createPlantings(o) {
 	/** @type {{ node: THREE.Object3D, copy: any, kind: any, ref: string, at: Float32Array, away: boolean }[]} */
 	let guests = [];
 	let moving = false;
+	/** which build is shown: a floor read late lays only on the build it was asked for */
+	let generation = 0;
 	/** the biomes' cover streamed over the floors of the build shown */
 	let covers = [];
 	const state = { planted: 0, kinds: 0, missing: 0, floors: 0 };
@@ -194,38 +196,54 @@ export function createPlantings(o) {
 			try {
 				recipe = biomeOfCard(cardOf(hash));
 			} catch (e) {
-				// a biome the catalog doesn't hold: the build's own floor stays
-				console.warn(`no floor laid: ${hash.slice(0, 12)}… (${e?.message ?? e})`);
-				state.missing++;
+				// the catalog's card names no floor (a biome proposed over MCP: play keeps no catalog for it): its own build's
+				// card does, the box made it from its recipe (play/SPEC.md §4.11). Its floor laid once that is here
+				const shown = generation;
+				renderer()
+					.load(hash)
+					.then((got) => {
+						if (shown !== generation) return;
+						floor(hash, meshes, biomeOfCard(got.card));
+					})
+					.catch((e2) => {
+						// a biome the catalog doesn't hold, or whose build says no floor: the build's own floor stays
+						console.warn(`no floor laid: ${hash.slice(0, 12)}… (${e2?.message ?? e?.message ?? e2})`);
+						if (shown === generation) state.missing++;
+					});
 				continue;
 			}
-			const ground = groundMaterial(recipe.surface);
-			for (const m of meshes) m.material = ground;
-			const grid = floorGrid(meshes);
-			renderer();
-			covers.push(
-				createCover({
-					drawn,
-					recipe,
-					open: (x, z) => !Number.isNaN(grid.at(x, z)),
-					heightAt: (x, z) => grid.at(x, z) || 0,
-					tile: 8,
-					reach: 24,
-					near: 9,
-					thin: 0.25,
-					// as dense as the biome is near the eye: a viewer shows one floor, not a village of them
-					density: recipe.density,
-					seed: 707
-				})
-			);
-			state.floors++;
+			floor(hash, meshes, recipe);
 		}
+	};
+	/** a biome's floor laid on its meshes: its surfaces painted, its cover streamed over them */
+	const floor = (hash, meshes, recipe) => {
+		const ground = groundMaterial(recipe.surface);
+		for (const m of meshes) m.material = ground;
+		const grid = floorGrid(meshes);
+		renderer();
+		covers.push(
+			createCover({
+				drawn,
+				recipe,
+				open: (x, z) => !Number.isNaN(grid.at(x, z)),
+				heightAt: (x, z) => grid.at(x, z) || 0,
+				tile: 8,
+				reach: 24,
+				near: 9,
+				thin: 0.25,
+				// as dense as the biome is near the eye: a viewer shows one floor, not a village of them
+				density: recipe.density,
+				seed: 707
+			})
+		);
+		state.floors++;
 	};
 	return {
 		state,
 		/** the plantings of `root` drawn, those shown before put away; how many it plants and how many of them are missing */
 		show(root) {
 			const list = plantingsOf(root);
+			generation++;
 			for (const c of covers.splice(0)) c.dispose();
 			if (assets) putAway();
 			Object.assign(state, { planted: 0, kinds: 0, missing: 0, floors: 0 });
@@ -264,6 +282,7 @@ export function createPlantings(o) {
 		},
 		/** every copy put away (a build that plants nothing shown, or none) */
 		clear() {
+			generation++;
 			for (const c of covers.splice(0)) c.dispose();
 			if (assets) putAway();
 			Object.assign(state, { planted: 0, kinds: 0, missing: 0, floors: 0 });

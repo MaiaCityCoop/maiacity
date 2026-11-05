@@ -22,10 +22,10 @@
 			"name": "card",
 			"v": 2,
 			"date": "2026-11-05",
-			"blake3": "98717da583aa1e98534748fe5ff68496df2a6da65df58776c81d40016cd2b722",
-			"bytes": 7307,
+			"blake3": "8a89456bf6b046473883bf284e361ad26daa1746b53a141ac8977b5f4817bfe8",
+			"bytes": 7527,
 			"title": "Asset card, v2",
-			"note": "v1 with one more group, worlds (play/SPEC.md §4.11): a world's card names its group as any other's; every card v1 took, v2 takes"
+			"note": "v1 with one more group, worlds (play/SPEC.md §4.11), and a catalog part's ref by its build's hash (`<recipe hash>?values`, as play names every asset) as well as by a readable ref: every card v1 took, v2 takes"
 		}
 	]
 }

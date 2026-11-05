@@ -12,7 +12,7 @@
  * street lamps: lit by the mood (lamps=1) unless the guest says otherwise; the rest only by their states.
  */
 import * as THREE from 'three';
-import { lightOf, litNow, statesOf } from './contract.js';
+import { WINDOW_SETS, lightOf, litNow, statesOf } from './contract.js';
 
 /** each light's lit colour (sRGB) and the glow's size round it (m) */
 export const LOOK = {
@@ -23,6 +23,9 @@ export const LOOK = {
 	'indicator-r': ['#ffa21a', 0.7],
 	'beacon-blue': ['#2f5cff', 2.6],
 	'beacon-red': ['#ff1d1d', 2.6],
+	'beacon-amber': ['#ffa010', 2.4],
+	reverse: ['#f4f6ff', 0.8],
+	window: ['#ffcf8a', 0],
 	lamp: ['#ffb85c', 5.0],
 	red: ['#ff2a18', 1.3],
 	amber: ['#ffae00', 1.3],
@@ -95,19 +98,24 @@ export function createLights(o) {
 				const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
 				const byKey = new Map();
 				const heads = new Map();
-				root.traverse((m) => {
-					if (!m.isMesh) return;
-					const L = lightOf(m.name);
-					if (!L) return;
-					// a signal's lamps, head by head: its i-th lamp of a colour is head i's
+				let windows = 0;
+				// each node named for a light (a mesh, or a group: every mesh under it is that light), the outermost only
+				const named = (o) => {
+					const L = lightOf(o.name);
+					if (!L) return void o.children.forEach(named);
+					// a signal's lamps, head by head: its i-th lamp of a colour is head i's; a building's windows in sets
 					const head = L.lamp ? (heads.set(L.lamp, (heads.get(L.lamp) ?? -1) + 1), heads.get(L.lamp)) : -1;
-					const key = L.lamp ? `${L.lamp}:${head}` : L.light;
-					const g = m.geometry.clone().applyMatrix4(_m.multiplyMatrices(inv, m.matrixWorld));
-					if (!byKey.has(key)) byKey.set(key, { ...L, head, geos: [] });
-					byKey.get(key).geos.push(g);
-				});
+					const set = L.light === 'window' ? windows++ % WINDOW_SETS : -1;
+					const key = L.lamp ? `${L.lamp}:${head}` : set >= 0 ? `window:${set}` : L.light;
+					if (!byKey.has(key)) byKey.set(key, { ...L, head, set, geos: [] });
+					o.traverse((m) => {
+						if (m.isMesh && m.geometry?.attributes?.position) byKey.get(key).geos.push(m.geometry.clone().applyMatrix4(_m.multiplyMatrices(inv, m.matrixWorld)));
+					});
+				};
+				named(root);
 				const parts = [];
 				for (const p of byKey.values()) {
+					if (!p.geos.length) continue;
 					const geo = merge(p.geos);
 					geo.computeBoundingBox();
 					const centre = geo.boundingBox.getCenter(new THREE.Vector3());
@@ -119,7 +127,7 @@ export function createLights(o) {
 					mesh.frustumCulled = false;
 					mesh.name = `lit ${p.lamp ?? p.light} · ${kind.label}`;
 					group.add(mesh);
-					parts.push({ light: p.light, state: p.state, lamp: p.lamp, head: p.head, mesh, centre, tint: new THREE.Color(colour), size });
+					parts.push({ light: p.light, state: p.state, lamp: p.lamp, head: p.head, set: p.set, mesh, centre, tint: new THREE.Color(colour), size });
 				}
 				kinds.set(kind.key, { parts });
 				stats.kinds++;
@@ -158,7 +166,7 @@ export function createLights(o) {
 					p.mesh.instanceMatrix.array.set(g.node.matrixWorld.elements, n * 16);
 					counts.set(p.mesh, n + 1);
 					lit++;
-					if (ng < GLOWS) {
+					if (p.size > 0 && ng < GLOWS) {
 						_v.copy(p.centre).applyMatrix4(g.node.matrixWorld);
 						gPos[ng * 3] = _v.x;
 						gPos[ng * 3 + 1] = _v.y;
