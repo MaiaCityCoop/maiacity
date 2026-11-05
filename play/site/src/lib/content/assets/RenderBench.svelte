@@ -20,10 +20,14 @@
 	                                            too): then the caller takes its picture of the canvas; gives what was
 	                                            shown (size, triangles, ms, what it plants)
 	Only in development (../../../routes/render/+page.svelte).
+
+	Opened by a person: `/render/?load=<manifest.json>` loads a recipe and the assets it names by itself, for walking it
+	in a browser before it is proposed (a building with its plants, things and floor). The manifest:
+	`{ recipe: { file, id, v }, guests: [{ file, id, v, variant?, as?, refs? }] }`, files beside it, as render.mjs's --guests.
 -->
 <script>
 	// @ts-nocheck — plain JS
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import VaultAsset from './VaultAsset.svelte';
 	import { AssetBox } from './box/host.js';
 	import { LATEST, RECIPE_HEAD, recipeFile } from './engines.js';
@@ -99,6 +103,33 @@
 		}
 	}
 
+	/** what the page is doing while it opens a manifest by itself */
+	let opening = $state('');
+	onMount(async () => {
+		const at = new URLSearchParams(location.search).get('load');
+		if (!at) return;
+		try {
+			const base = new URL(at, location.href);
+			const m = await (await fetch(base)).json();
+			const text = async (f) => (await fetch(new URL(f, base))).text();
+			const here = {};
+			let n = 0;
+			for (const g of m.guests ?? []) {
+				opening = `Building what it names: ${++n} of ${m.guests.length} (${g.id})…`;
+				const refs = g.refs ? Object.fromEntries(Object.entries(g.refs).map(([k, h]) => [k, here[h] ?? h])) : null;
+				const got = await window.__render.guest({ code: await text(g.file), id: g.id, v: g.v, variant: g.variant ?? null, refs });
+				if (g.as) here[g.as] = got.hash;
+			}
+			let code = await text(m.recipe.file);
+			for (const [was, now] of Object.entries(here)) code = code.replaceAll(was, now);
+			opening = 'Building it…';
+			await window.__render.load({ code, id: m.recipe.id, v: m.recipe.v });
+			opening = '';
+		} catch (e) {
+			opening = `Could not open ${at}: ${e?.message ?? e}`;
+		}
+	});
+
 	window.__render = {
 		async guest({ code, id, v, variant = null, refs = null }) {
 			const file = code.startsWith(RECIPE_HEAD) ? code : recipeFile(code, id, v, variant);
@@ -167,6 +198,7 @@
 </script>
 
 <main class="bench">
+	{#if opening}<p class="opening">{opening}</p>{/if}
 	{#if hash}
 		{#key hash}
 			<VaultAsset {source} {hash} title={label} fill />
@@ -177,6 +209,15 @@
 </main>
 
 <style>
+	.opening {
+		position: fixed;
+		inset: 1rem auto auto 1rem;
+		z-index: 10;
+		padding: 0.5rem 0.8rem;
+		border-radius: 0.5rem;
+		background: rgb(255 255 255 / 0.9);
+		font-size: 0.9rem;
+	}
 	.bench {
 		height: 100vh;
 		padding: 0;
