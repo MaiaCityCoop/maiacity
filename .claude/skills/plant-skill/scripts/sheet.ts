@@ -4,14 +4,19 @@
  * (Nano Banana Pro on fal), grounded in the plant's data sheet, and kept on play among its files by its BLAKE3 hash.
  *
  *   bun .claude/skills/plant-skill/scripts/sheet.ts --brief <brief.md> --out <dir> [--datasheet <datasheet.md>]
- *       [--model fal-ai/nano-banana-pro] [--resolution 4K] [--aspect 16:9] [--n 2] [--search] [--upload <file.jpg>]
+ *       [--label "Lemon 'Femminello Santa Teresa'"] [--model fal-ai/nano-banana-pro] [--resolution 4K] [--aspect 16:9]
+ *       [--n 2] [--search] [--no-upload]
+ *   bun .claude/skills/plant-skill/scripts/sheet.ts --upload <file.jpg> --label <label>
  *
  * The brief is the plant and the plate's layout (SKILL.md, "The reference sheet"): its full Latin name and cultivar,
  * its organs with their real sizes and colours, then the rows: the stages from what is planted to ripe fruit, the
  * parts close up (roots, bark or stem, leaves, buds), the flower and the fruit by age, cut, and a colour checker. The data sheet,
  * when given, goes to the model with the prompt as context. Each image is written as sheet-<k>.png (as made) and
- * sheet-<k>.jpg (for play: at most 4 MB), with prompt.txt beside them. --upload <jpg> keeps one on play (MCP
- * add_story_frame, the session's PLAY_MCP_TOKEN) and prints its hash, to name in the plant's meta as `sheet`.
+ * sheet-<k>.jpg (for play: at most 4 MB), with prompt.txt beside them. Every sheet made is kept at once in play's
+ * Library (MCP add_story_frame, the session's PLAY_MCP_TOKEN), labelled "Reference sheet · <label> · <k>" (the
+ * label from --label, else the brief's first line), and its BLAKE3 hash printed (and written to sheet-<k>.hash): the
+ * one the user gives the go for is named in the plant's meta as `sheet`. --no-upload keeps them only here; --upload
+ * <jpg> --label <label> keeps one more (or labels one again: the same image is the same hash, its label replaced).
  */
 import { $ } from "bun";
 import { mkdirSync, readFileSync, writeFileSync, statSync } from "node:fs";
@@ -24,7 +29,7 @@ const arg = (name: string, fallback?: string) => {
 const flag = (name: string) => process.argv.includes(`--${name}`);
 
 // --- keep one image on play -------------------------------------------------------------------------------------
-async function upload(file: string) {
+async function upload(file: string, label?: string) {
   const token = process.env.PLAY_MCP_TOKEN;
   if (!token) throw new Error("PLAY_MCP_TOKEN is not set.");
   if (statSync(file).size > 4e6) throw new Error(`${file} is over 4 MB: play keeps images up to 4 MB.`);
@@ -32,7 +37,7 @@ async function upload(file: string) {
   const res = await fetch("https://play.maia.city/api/mcp", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "add_story_frame", arguments: { data, media_type: "image/jpeg" } } }),
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "add_story_frame", arguments: { data, media_type: "image/jpeg", ...(label ? { label: label.slice(0, 200) } : {}) } } }),
   });
   const out: any = await res.json();
   if (out.error || out.result?.isError) throw new Error(JSON.stringify(out.error ?? out.result));
@@ -40,7 +45,7 @@ async function upload(file: string) {
 }
 
 if (arg("upload")) {
-  console.log(JSON.stringify(await upload(arg("upload")!), null, 2));
+  console.log(JSON.stringify(await upload(arg("upload")!, arg("label")), null, 2));
   process.exit(0);
 }
 
@@ -103,4 +108,11 @@ for (const [k, img] of result.images.entries()) {
     if (statSync(jpg).size <= 3.9e6) break;
   }
   console.log(`${png}  ${img.width}×${img.height}  →  ${jpg} (${(statSync(jpg).size / 1e6).toFixed(2)} MB)`);
+  // kept in play's Library at once, labelled, so every sheet made is there to see and choose from
+  if (!flag("no-upload")) {
+    const name = arg("label") ?? brief.split("\n")[0].replace(/[*_#`]/g, "").trim().slice(0, 120);
+    const kept: any = await upload(jpg, `Reference sheet · ${name} · ${k + 1}`);
+    writeFileSync(join(out, `sheet-${k + 1}.hash`), kept.hash);
+    console.log(`  kept in play's Library: ${kept.hash}`);
+  }
 }
