@@ -8,6 +8,14 @@
  *   moss     a moss carpet: deep and bright greens, close-packed cushions
  *   green    the living mat of the light: clover in threes, grass blades, small round leaves, shade between
  *   soil     bare mineral earth: brown, a little gravel
+ *   tilled   farmland ploughed and harrowed: grey-brown furrows in rows 0.36 m apart, clods, dust (the tired land)
+ *   stubble  a cereal field after harvest: cut stalks in drill rows 12.5 cm apart, chopped straw over pale soil
+ *   dust     a verge's dust and road gravel: pale, grey-brown, stones thrown off the road
+ *
+ * The first six lie every way. `tilled` and `stubble` lie in rows (`rows`, their spacing in m): their texture's rows
+ * run along the direction a material is given (`groundMaterial(weights, { rows })`, from the floor's mesh, `rowsOf`),
+ * and a field's tramlines (`tramlines`: a pair of wheel tracks every so many metres) are painted across them, so the
+ * rows run straight to the horizon and every 24 m two bare tracks run with them, as a sprayed field's do.
  *
  * `groundMaterial(weights)` paints them blended: each surface's patches drawn from the shared noise (./noise.js), its
  * weight how much of the floor it takes, the patches soft-edged, a broad light-and-shade over it all (the canopy's).
@@ -15,17 +23,24 @@
 import * as THREE from 'three';
 import { GLSL, fbm2, rng } from './noise.js';
 
-/** @typedef {'litter' | 'humus' | 'needles' | 'moss' | 'green' | 'soil'} Surface */
-/** @type {Surface[]} */
-export const SURFACES = ['litter', 'humus', 'needles', 'moss', 'green', 'soil'];
-/** @type {Record<Surface, { label: string, patch: number, tile: number }>} its name, how big its patches are (m), how much ground one tile of its texture covers (m) */
+/** @typedef {'litter' | 'humus' | 'needles' | 'moss' | 'green' | 'soil' | 'tilled' | 'stubble' | 'dust'} Surface */
+/** @type {Surface[]} the order is the shader's: a new surface comes last, so the ones before keep their patches */
+export const SURFACES = ['litter', 'humus', 'needles', 'moss', 'green', 'soil', 'tilled', 'stubble', 'dust'];
+/**
+ * @type {Record<Surface, { label: string, patch: number, tile: number, rows?: number, track?: string }>} its name, how
+ * big its patches are (m), how much ground one tile of its texture covers (m); a surface in rows, how far apart they
+ * are (m, a whole number of them to a tile) and the colour of a wheel track pressed into it (sRGB)
+ */
 export const SURFACE = {
 	litter: { label: 'Leaf litter', patch: 6, tile: 2.2 },
 	humus: { label: 'Humus', patch: 3, tile: 2.4 },
 	needles: { label: 'Needles', patch: 7, tile: 1.6 },
 	moss: { label: 'Moss carpet', patch: 4, tile: 2 },
 	green: { label: 'Living mat', patch: 9, tile: 1.7 },
-	soil: { label: 'Bare soil', patch: 5, tile: 2.6 }
+	soil: { label: 'Bare soil', patch: 5, tile: 2.6 },
+	tilled: { label: 'Tilled soil', patch: 9, tile: 2.88, rows: 0.36, track: '#9a8c7a' },
+	stubble: { label: 'Stubble', patch: 11, tile: 2.5, rows: 0.125, track: '#a39581' },
+	dust: { label: 'Dust and gravel', patch: 5, tile: 2.2 }
 };
 
 const textures = new Map();
@@ -180,8 +195,111 @@ export const TEXTURES = {
 				x.ellipse(r() * 512, r() * 512, 1 + r() * 3, 1 + r() * 2.4, r() * 3, 0, Math.PI * 2);
 				x.fill();
 			}
+		}),
+	// ploughed and harrowed: 8 furrows across the tile (0.36 m), each slice lit on its rising side and shadowed where
+	// it falls, broken by the harrow, clods on the ridges, dust over it (Munsell 10YR 5/2–6/3 dry, 4/2 in the furrows)
+	tilled: () =>
+		canvasTexture('biome-tilled', (x, r) => {
+			const img = x.createImageData(512, 512), P = 64;
+			for (let i = 0; i < 512 * 512; i++) {
+				const px = i % 512, py = (i / 512) | 0;
+				const u = (px % P) / P;
+				const slice = u < 0.68 ? Math.sin((Math.PI / 2) * (u / 0.68)) : Math.cos((Math.PI / 2) * ((u - 0.68) / 0.32));
+				const lit = u < 0.68 ? 1.06 : 0.78;
+				const broken = fbm2(px / 40 + 3, py / 90) * 0.5 + 0.75;
+				const k = (0.62 + 0.38 * slice * broken) * lit * (0.88 + 0.24 * r());
+				const c = [[104, 87, 68], [152, 133, 110]];
+				for (let j = 0; j < 3; j++) img.data[i * 4 + j] = /** @type {number} */ (c[0][j]) + (/** @type {number} */ (c[1][j]) - /** @type {number} */ (c[0][j])) * Math.min(1, k * slice + 0.15);
+				img.data[i * 4 + 3] = 255;
+			}
+			x.putImageData(img, 0, 0);
+			for (let i = 0; i < 1600; i++) {
+				const cx = r() * 512, cy = r() * 512, s = 1.5 + r() * 4;
+				x.globalAlpha = 0.55;
+				x.fillStyle = pick(['#7c6a54', '#8f7c64', '#6e5e4a', '#a29078'], r);
+				x.beginPath();
+				x.ellipse(cx, cy, s, s * (0.6 + r() * 0.4), r() * 3, 0, Math.PI * 2);
+				x.fill();
+			}
+			x.globalAlpha = 0.18;
+			x.fillStyle = '#b3a692';
+			x.fillRect(0, 0, 512, 512);
+			x.globalAlpha = 1;
+		}),
+	// after the combine: 20 drill rows across the tile (12.5 cm), cut stalks seen from above as pale dots and short
+	// strokes along them, chopped straw lying every way between, dry pale soil (10YR 6/3) under it all
+	stubble: () =>
+		canvasTexture('biome-stubble', (x, r) => {
+			base(x, r, [138, 120, 96], [168, 150, 120], 18);
+			const P = 512 / 20;
+			for (let i = 0; i < 2600; i++) {
+				const len = 8 + r() * 22, a = r() * Math.PI;
+				x.strokeStyle = pick(['#d6c79e', '#c8b78a', '#b8aa86', '#e0d4b0'], r);
+				x.globalAlpha = 0.8;
+				x.lineWidth = 1 + r() * 0.8;
+				const cx = r() * 512, cy = r() * 512;
+				x.beginPath();
+				x.moveTo(cx, cy);
+				x.lineTo(cx + Math.cos(a) * len, cy + Math.sin(a) * len);
+				x.stroke();
+			}
+			for (let row = 0; row < 20; row++)
+				for (let y = 0; y < 512; y += 3 + r() * 4) {
+					const cx = row * P + P / 2 + (r() - 0.5) * 3;
+					x.globalAlpha = 0.95;
+					x.fillStyle = '#5e5240';
+					x.fillRect(cx - 2, y + 1, 4.5, 3.5);
+					x.fillStyle = pick(['#e2d6b2', '#d4c394', '#c9b98e'], r);
+					x.fillRect(cx - 1.5, y, 3, 2.5);
+				}
+			x.globalAlpha = 1;
+		}),
+	// a verge's dust over road gravel: pale grey-brown, crushed stone 8–32 mm in greys and buff
+	dust: () =>
+		canvasTexture('biome-dust', (x, r) => {
+			base(x, r, [140, 128, 110], [176, 164, 146], 12);
+			for (let i = 0; i < 2600; i++) {
+				const s = 1 + Math.pow(r(), 2) * 6;
+				x.fillStyle = pick(['#a5a39c', '#8f8d87', '#b3a993', '#76746f', '#c2bcb0'], r);
+				x.beginPath();
+				x.ellipse(r() * 512, r() * 512, s, s * (0.6 + r() * 0.4), r() * 3, 0, Math.PI * 2);
+				x.fill();
+				x.fillStyle = 'rgba(70,60,48,0.35)';
+				x.fillRect(r() * 512, r() * 512, 1.5, 1.5);
+			}
 		})
 };
+
+/**
+ * The way a floor's rows run (radians from the world's +x towards +z), from its mesh: `rows:<degrees>` in its name
+ * (`biome:<hash> rows:30`), else the way the mesh's own +x points in the world. 0 where there is no mesh.
+ * @param {THREE.Object3D} [mesh]
+ */
+export function rowsOf(mesh) {
+	const m = /rows:(-?[0-9]+(?:\.[0-9]+)?)/.exec(mesh?.name ?? '');
+	if (m) return (Number(m[1]) * Math.PI) / 180;
+	if (!mesh) return 0;
+	mesh.updateWorldMatrix(true, false);
+	const e = mesh.matrixWorld.elements;
+	return Math.atan2(/** @type {number} */ (e[2]), /** @type {number} */ (e[0])) || 0;
+}
+
+/**
+ * @typedef {{ every: number, gauge: number, tyre: number }} Tramlines a field's wheel tracks along its rows: a pair
+ *   `gauge` apart (centre to centre, m), each `tyre` wide, one pair every `every` metres across the rows
+ */
+
+/**
+ * Whether a point `across` metres across the rows (from the rows' origin) lies in a tramline's track: how deeply,
+ * 0…1. The same sum as the shader's.
+ * @param {Tramlines | null | undefined} t @param {number} across
+ */
+export function inTrack(t, across) {
+	if (!t) return 0;
+	const d = Math.abs(across - t.every * Math.round(across / t.every));
+	const k = Math.abs(d - t.gauge / 2) / (t.tyre / 2);
+	return 1 - Math.min(1, Math.max(0, (k - 0.75) / 0.5));
+}
 
 /** @typedef {Partial<Record<Surface, number>>} Weights how much of the floor each surface takes (any scale) */
 
@@ -210,30 +328,46 @@ export function surfacesAt(weights, x, z) {
 
 /**
  * The ground painted with a biome's surfaces (`weights`): a MeshStandardMaterial for a flat mesh in world metres. Its
- * weights can be changed live: `material.userData.weigh(weights)`.
- * @param {Weights} weights
+ * weights can be changed live: `material.userData.weigh(weights)`. A surface in rows (tilled, stubble) runs its rows
+ * the way `rows` says (radians from +x towards +z; `rowsOf(mesh)`), `material.userData.rows(angle)` to turn them, and a
+ * field's `tramlines` are pressed into them. The six surfaces that lie every way are painted as they always were.
+ * @param {Weights} weights @param {{ rows?: number, tramlines?: Tramlines | null }} [o]
  */
-export function groundMaterial(weights) {
+export function groundMaterial(weights, o = {}) {
 	const m = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1 });
+	const N = SURFACES.length;
 	const W = { value: SURFACES.map((s) => weights[s] ?? 0) };
 	m.userData.weigh = (/** @type {Weights} */ w) => (W.value = SURFACES.map((s) => w[s] ?? 0));
+	const dir = { value: new THREE.Vector2(1, 0) };
+	m.userData.rows = (/** @type {number} */ a) => dir.value.set(Math.cos(a), Math.sin(a));
+	m.userData.rows(o.rows ?? 0);
+	const t = o.tramlines;
+	const tram = { value: new THREE.Vector4(t?.every ?? 24, t?.gauge ?? 1.8, t?.tyre ?? 0.48, t ? 1 : 0) };
 	m.onBeforeCompile = (shader) => {
 		SURFACES.forEach((s, i) => (shader.uniforms[`bS${i}`] = { value: TEXTURES[s]() }));
 		shader.uniforms.bW = W;
 		shader.uniforms.bPatch = { value: SURFACES.map((s) => SURFACE[s].patch) };
 		shader.uniforms.bTile = { value: SURFACES.map((s) => SURFACE[s].tile) };
+		shader.uniforms.bTrack = { value: SURFACES.map((s) => new THREE.Color(SURFACE[s].track ?? '#808080')) };
+		shader.uniforms.bDir = dir;
+		shader.uniforms.bTram = tram;
 		shader.vertexShader = shader.vertexShader
 			.replace('#include <common>', '#include <common>\nvarying vec2 vBiomeXZ;')
 			.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvBiomeXZ = (modelMatrix * vec4(transformed, 1.0)).xz;');
-		const layers = SURFACES.map((_, i) => `BLAYER(${i}, bS${i})`).join('\n\t');
+		// a surface that lies every way, as it always was; one in rows read along them (no turned second read, which
+		// would turn its rows), its tracks pressed in
+		const layers = SURFACES.map((s, i) => (SURFACE[s].rows ? `BROWS(${i}, bS${i})` : `BLAYER(${i}, bS${i})`)).join('\n\t');
 		shader.fragmentShader = shader.fragmentShader
 			.replace(
 				'#include <common>',
 				`#include <common>
 varying vec2 vBiomeXZ;
-uniform float bW[6];
-uniform float bPatch[6];
-uniform float bTile[6];
+uniform float bW[${N}];
+uniform float bPatch[${N}];
+uniform float bTile[${N}];
+uniform vec3 bTrack[${N}];
+uniform vec2 bDir;
+uniform vec4 bTram;
 ${SURFACES.map((_, i) => `uniform sampler2D bS${i};`).join('\n')}
 ${GLSL}`
 			)
@@ -247,6 +381,11 @@ ${GLSL}`
 	float bSwap = smoothstep(0.32, 0.68, bvn(bw * 0.23 + 5.1));
 	const mat2 bTurn = mat2(0.8253, 0.5646, -0.5646, 0.8253);
 	#define BLAYER(i, tex) if (bW[i] > 0.0) { float f = bfbm(bw / bPatch[i] + float(i) * 17.3); float s = bW[i] * pow(0.35 + f, 6.0); vec2 bu = bw / bTile[i] + float(i) * 0.37; bAcc += mix(texture2D(tex, bu).rgb, texture2D(tex, bTurn * bu * 0.83 + 0.41).rgb, bSwap) * s; bSum += s; }
+	// rows: along bDir in the world (x, z), so across and along them in metres; the texture's rows run along its v
+	float bAlong = dot(vBiomeXZ, bDir), bAcross = dot(vBiomeXZ, vec2(-bDir.y, bDir.x));
+	float bTrackK = 0.0;
+	if (bTram.w > 0.5) { float d = abs(bAcross - bTram.x * floor(bAcross / bTram.x + 0.5)); float k = abs(d - bTram.y * 0.5) / (bTram.z * 0.5); bTrackK = 1.0 - clamp((k - 0.75) / 0.5, 0.0, 1.0); }
+	#define BROWS(i, tex) if (bW[i] > 0.0) { float f = bfbm(bw / bPatch[i] + float(i) * 17.3); float s = bW[i] * pow(0.35 + f, 6.0); vec2 bu = vec2(bAcross, bAlong) / bTile[i]; vec3 c = mix(texture2D(tex, bu).rgb, texture2D(tex, bu + vec2(0.5, 0.41)).rgb, bSwap); c = mix(c, bTrack[i] * (0.92 + 0.16 * bvn(vec2(bAcross * 9.0, bAlong * 4.5))), bTrackK * 0.85); bAcc += c * s; bSum += s; }
 	${layers}
 	vec3 bCol = bAcc / max(bSum, 1e-5);
 	// the canopy's light and shade over it all, broad and slow
@@ -254,6 +393,6 @@ ${GLSL}`
 	diffuseColor.rgb *= bCol;`
 			);
 	};
-	m.customProgramCacheKey = () => 'biome-ground';
+	m.customProgramCacheKey = () => 'biome-ground-2';
 	return m;
 }
