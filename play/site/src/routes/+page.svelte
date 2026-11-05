@@ -21,7 +21,7 @@
 		{ href: '/sandbox-2/', label: 'Sandbox 2', note: 'The physical world lab: buildings from their parts, with physics, fixings and wind', cover: 'bd34c342d7db41283ff4d243aa21bf08daf40fe1e9b47a0f63f92a00d65a9c6e.jpg' },
 		{ href: '/sandbox-3/', label: 'Sandbox 3', note: 'The tired land: walk it as someone new every visit', cover: '41a858860a82169d3d5586d30b648723c32874a94e014f30718a5a70f5b56e85.jpg' }
 	];
-	type Tile = { href: string; label: string; note: string; icon: (typeof GROUP_APPS)[number]['icon'] | 'proposals' | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio' | 'gear'; admins?: boolean };
+	type Tile = { href: string; label: string; note: string; icon: (typeof GROUP_APPS)[number]['icon'] | 'proposals' | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio' | 'gear' | 'media'; admins?: boolean };
 	const APPS: Tile[] = [
 		// the asset library, a tile per group, each the same viewer (Samuel 2026-11-04)
 		...GROUP_APPS.map(({ href, label, note, icon }) => ({ href, label, note, icon })),

@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import { FILL, RIM, terrain, type Biome, type Feature, type FeatureKind, type P, type Plot, type WorldMap } from './map';
+import { buildCity } from './city';
 
 const SKY = '#eee8da';
 const FLOOR = '#e9e2cd';
@@ -15,6 +16,8 @@ const PLOT_TOP = 1.6; // m above the ground
 export interface World {
 	/** outline and tint a plot as the picked one, or none */
 	select(id: number | null): void;
+	/** show the map built up as a city (./city.ts), or empty again */
+	city(on: boolean): void;
 	dispose(): void;
 }
 
@@ -141,7 +144,47 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 	let ring: THREE.Mesh | null = null;
 
 	// ── what stands on the land ──
-	addFeatures(scene, map.features, (f) => (f.plot ? PLOT_TOP : ground(f.x, f.y)) - 0.2, X, Z, keep);
+	const footAt = (f: Feature) => (f.plot ? PLOT_TOP : ground(f.x, f.y)) - 0.2;
+	addFeatures(scene, map.features, footAt, X, Z, keep);
+
+	// ── the city view: its domes, towers and trees, grown the first time it is shown ──
+	let city: THREE.Group | null = null;
+	const showCity = (on: boolean) => {
+		if (on && !city) {
+			city = new THREE.Group();
+			const built = buildCity(map);
+			const stone = keep(new THREE.MeshLambertMaterial({ color: '#eadfc8', flatShading: true }));
+			const glass = keep(new THREE.MeshLambertMaterial({ color: '#cfe4e8', flatShading: true }));
+			// every dome on its ring of stone arches; the tower a bell (the legacy Tower180 profile, shape 1: 180 m foot and height)
+			const ring = keep(new THREE.CylinderGeometry(1.06, 1.12, 1, 18).translate(0, 0.5, 0));
+			const cap = keep(new THREE.SphereGeometry(1, 14, 7, 0, Math.PI * 2, 0, Math.PI / 2));
+			const profile = new THREE.SplineCurve(
+				[[90, 0], [90, 7], [85, 27.5], [70, 50.4], [54, 73.4], [44, 100.9], [38, 128.4], [34, 149], [27, 166], [15, 176.5], [0, 180]].map(([a, b]) => new THREE.Vector2(a / 90, b / 90))
+			).getPoints(48);
+			const bell = keep(new THREE.LatheGeometry(profile.map((v) => new THREE.Vector2(Math.max(0.01, v.x), v.y)), 18));
+			const base = (r: number) => Math.max(1.2, r * 0.14);
+			const o = new THREE.Object3D();
+			const place = (geo: THREE.BufferGeometry, mat: THREE.Material, list: typeof built.domes, lift: boolean, scaleY: (r: number) => number) => {
+				const mesh = new THREE.InstancedMesh(geo, mat, list.length);
+				list.forEach((d, i) => {
+					o.position.set(X(d.x), PLOT_TOP + (lift ? base(d.r) : 0), Z(d.y));
+					o.scale.set(d.r, scaleY(d.r), d.r);
+					o.updateMatrix();
+					mesh.setMatrixAt(i, o.matrix);
+				});
+				mesh.castShadow = mesh.receiveShadow = true;
+				city!.add(mesh);
+				keep({ dispose: () => mesh.dispose() });
+			};
+			place(ring, stone, built.domes, false, base);
+			place(cap, glass, built.domes.filter((d) => d.kind !== 'tower'), true, (r) => r);
+			place(bell, glass, built.domes.filter((d) => d.kind === 'tower'), true, (r) => r);
+			// the city's trees cast no shadow: there are a few hundred thousand of them
+			addFeatures(city, [...built.trees, ...built.jungle], footAt, X, Z, keep, false);
+			scene.add(city);
+		}
+		if (city) city.visible = on;
+	};
 
 	// ── the camera, held over the map ──
 	const controls = new MapControls(camera, canvas);
@@ -227,6 +270,7 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 	});
 
 	return {
+		city: showCity,
 		select(id) {
 			picked = id;
 			paint();
@@ -296,12 +340,13 @@ function offsetRing(ring: P[], d: number): P[] {
 
 /** each kind of feature as one or two instanced meshes (crown and trunk) */
 function addFeatures(
-	scene: THREE.Scene,
+	scene: THREE.Object3D,
 	features: Feature[],
 	footAt: (f: Feature) => number,
 	X: (x: number) => number,
 	Z: (y: number) => number,
-	keep: <T extends { dispose(): void }>(x: T) => T
+	keep: <T extends { dispose(): void }>(x: T) => T,
+	shadows = true
 ) {
 	const at = (g: THREE.BufferGeometry, y: number) => keep(g.translate(0, y, 0));
 	const trunkMat = keep(new THREE.MeshLambertMaterial({ color: '#6b4f36' }));
@@ -330,7 +375,7 @@ function addFeatures(
 				mesh.setMatrixAt(i, o.matrix);
 				if (colour) mesh.setColorAt(i, c.set(colour).multiplyScalar(0.88 + ((f.turn * 1000) % 1) * 0.22));
 			});
-			mesh.castShadow = true;
+			mesh.castShadow = shadows;
 			mesh.receiveShadow = !!kinds[kind].flat;
 			scene.add(mesh);
 			keep({ dispose: () => mesh.dispose() });
