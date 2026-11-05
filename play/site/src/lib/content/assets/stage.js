@@ -302,6 +302,12 @@ export class Stage {
 		const texel = (2 * reach * wide) / fine;
 		key.shadow.normalBias = s > 4 ? Math.max(0.08, 2 * texel) : 0.02 * s;
 		this.rim.position.copy(centre).add(this.sky ? new THREE.Vector3(3.5, 3, 4.5).multiplyScalar(s) : new THREE.Vector3(4, 3, -5).multiplyScalar(s));
+		// an asset one walks into (a dome, a hall: over ~10 m) lit as a place is: its light the sun's, through its glass
+		// and its doors, and the sky's; the fill from the eye's side and the hemisphere cast no shadow, so they lit its
+		// rooms as if they had no roof. Turned down for it, and back for the next asset
+		const big = s > 4;
+		this.rim.intensity = (this.sky ? 1.8 : this.theme === 'paper' ? 0.9 : 1.8) * (big ? 0.35 : 1);
+		this.scene.children.forEach((c) => c.isHemisphereLight && (c.intensity = (this.sky ? 0.5 : this.theme === 'paper' ? 0.2 : 0.15) * (big ? 0.5 : 1)));
 		CUT.hatch.value = 0.0015 * this.asset.size;
 		this._fitAO();
 		this.built = views ? 1 : 0;
