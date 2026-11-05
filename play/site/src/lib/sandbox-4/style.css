@@ -54,6 +54,20 @@
 .cassette-joint .cj-follow { position: absolute; top: 10px; right: 10px; font-size: 12px; }
 .cj-failed { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding: 24px; text-align: center; color: var(--terracotta); }
 
+/* the element's kinds and values, once the sandbox draws its pinned asset */
+.cassette-joint .cj-kinds { padding-top: 2px; }
+.cassette-joint .chip-label { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 0 2px 0 8px; }
+.cassette-joint .chip-label:first-child { margin-left: 0; }
+.cassette-joint .cj-kinds button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.cassette-joint .cj-kinds button:disabled { opacity: 0.55; cursor: progress; }
+.cj-depth { display: inline-flex; align-items: center; gap: 6px; }
+.cj-depth input { width: 110px; accent-color: var(--brand-green); }
+.cj-building { position: absolute; top: 10px; left: 12px; margin: 0; font-size: 12px; color: var(--ink-soft); background: rgb(250 248 242 / 0.92); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; }
+.cj-error { top: 44px; color: var(--terracotta); }
+.cj-from { margin: 8px 8px 0; font-size: 12.5px; color: var(--muted); }
+.cj-this p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--ink-soft); }
+.cj-this .nav-group { margin: 0 0 6px; }
+
 /* the joint in section, drawn as a construction drawing */
 .cj-section { margin: 0; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-s); padding: 10px 10px 6px; }
 .cj-section figcaption { font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
