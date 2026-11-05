@@ -1,5 +1,5 @@
 /**
- * @typedef {'sandbox-1' | 'sandbox-2' | 'sandbox-3' | 'sandbox-4' | 'sandbox-5' | 'sandbox-6' | 'tired-land' | 'maiacity-v1' | 'maiacity-v2'} Sandbox
+ * @typedef {'sandbox-1' | 'sandbox-2' | 'sandbox-3' | 'sandbox-4' | 'sandbox-5' | 'sandbox-6' | 'tired-land' | 'maiacity-v1' | 'maiacity-v2' | 'worlds'} Sandbox
  *   every world's id, as a shot names it (`world.sandbox`): the keys of WORLDS
  */
 /**
@@ -27,6 +27,22 @@
  */
 /** @type {PlaceDescriptor[]} */
 export const PLACES = [
+	// the asset group worlds (play/SPEC.md §4.11): one film world for all of them, a shot naming which by the world asset's
+	// UUID and its version's recipe hash (`world.asset`, `world.recipe`; ./film/shot.js), never by a name
+	{
+		id: "worlds",
+		route: "/worlds/",
+		label: "Worlds",
+		note: "The assets composed into one place, alive",
+		version: 1,
+		film: {
+			id: "worlds",
+			order: 100,
+			label: "Worlds · a world of play, by its UUID and version",
+			areas: null,
+			parts: []
+		}
+	},
 	{
 		id: "sandbox-1",
 		route: "/app/games/sandbox-1/",

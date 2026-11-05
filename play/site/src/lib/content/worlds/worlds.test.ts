@@ -72,6 +72,25 @@ describe('the world contract', () => {
 	});
 });
 
+describe('a world under the film camera', () => {
+	it('is named by a shot by its asset UUID and recipe hash, and its film page says so', async () => {
+		// @ts-ignore — plain JS
+		const { normalize } = await import('../game/film/shot.js');
+		// @ts-ignore — plain JS
+		const { filmPath, worldOfPath, isWorld } = await import('../game/film/worlds.js');
+		expect(isWorld('worlds')).toBe(true);
+		const asset = '60f6da00-979d-89e4-b1e5-53667ba41fe4';
+		const shot = (world: any) => normalize({ world: { sandbox: 'worlds', stand: [0, 0], ...world }, camera: { kind: 'orbit', centre: [0, 0], a0: 0, a1: 1, r0: 20, r1: 20, y0: 8, y1: 8, aim: [0, 0, 0] }, time: { hour: 17.5 }, seconds: 6 });
+		const ok = shot({ asset, recipe: HASH });
+		expect(ok.world).toMatchObject({ sandbox: 'worlds', asset, recipe: HASH });
+		expect(() => shot({ asset: 'old-city', recipe: HASH })).toThrow(/UUID/);
+		expect(() => shot({ asset, recipe: 'v1' })).toThrow(/recipe/);
+		const path = filmPath(ok.world);
+		expect(path).toBe(`/worlds/?film&asset=${asset}&recipe=${HASH}`);
+		expect(worldOfPath(path)).toEqual({ sandbox: 'worlds', asset, recipe: HASH });
+	});
+});
+
 describe('card schema v2', () => {
 	it('takes a world, and a catalog part named by its build hash as well as by a readable ref', () => {
 		expect(CARD.properties.group.enum).toContain('worlds');

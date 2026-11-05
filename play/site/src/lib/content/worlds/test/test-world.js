@@ -121,6 +121,11 @@ function build(cars = 18) {
 		}
 	});
 	const amb = guest(CAR, 'kind=1', ['head', 'tail', 'brake', 'beacon', 'siren']);
+	// a seat a film's camera may ride in: the ambulance's driver, eye height, looking ahead (+z)
+	const seat = new THREE.Object3D();
+	seat.name = 'frame:ambulance-driver';
+	seat.position.set(-0.45, 1.6, 1.2);
+	amb.node.add(seat);
 	amb.st.head.visible = amb.st.tail.visible = amb.st.beacon.visible = amb.st.siren.visible = true;
 	root.add(amb.node);
 	const ambulance = { ...amb, s: 0, v: 18, len: 5.6, lane: -1 };

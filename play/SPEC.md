@@ -354,7 +354,13 @@ shots for the films, so a world keeps to the film contract the sandboxes keep (`
 `render/film.js`, `film/pipeline.js`; a shot as data, `game/film/shot.js`): its traffic and lights run on the shot's
 clock, deterministic from its seed (a world's tick is seeded and its own clock is the sum of its steps, so a shot
 stepped from 0 renders the same every time), and a shot names its world by the world asset's UUID and its version's
-recipe hash. Wired in a step after this one.
+recipe hash (`world: { sandbox: 'worlds', asset, recipe, … }`, checked by `shot.js`; its film page
+`/worlds/?film&asset=<uuid>&recipe=<hash>`, `$content/worlds/film.js`). There, each frame the world is brought to the
+shot's moment (forward by its steps, back by building it afresh and stepping from 0), `window.__world.settle()`
+resolving once the box has answered for it; a shot's camera may ride in a node the world names `frame:<name>` (a seat
+in a vehicle, under its `use:` node), and scale its `sun`, `sky` and `lamps`. The frozen box engines run at most 0.25 s
+of a build's time a step, so the page sends a world its time exactly, 0.25 s at a time, owing the rest (a machine's
+time it lets go of instead).
 
 **Developing a world** before its guests are accepted: `scripts/render.mjs --world --file <world.js> --guests
 <guests.json>` runs it on the world bench (`/worlds/bench/`, development only) exactly as the Worlds page does, each

@@ -18,6 +18,9 @@ import { MOVE_SAMPLES } from './box/view.js';
 import { LIGHT, MAT, putLight, putLook } from './box/bake.js';
 import { LAB_PLANES, capPatch } from './kit.js';
 
+/** the most time (s) the box runs a build kept running on in one step (engines 4 and 5 hold a step to it) */
+export const STEP = 0.25;
+
 /** the controls the stage itself plays: drawn apart is its Explode view; built (or pitched) its Assemble move */
 export const STAGED = new Set(['explode', 'build', 'pitch']);
 
@@ -32,10 +35,13 @@ const EMPTY = { assemblies: [], parts: [], steps: [], sources: [], ranges: [], p
 /**
  * A build, ready for the stage.
  * @param {{ obj: THREE.Object3D, card: any }} built what ./load.js `loadAsset` gave
- * @param {{ start?: (nodes: number) => Promise<{ tick: Function, breakIt: Function, end: Function } | null> }} [o]
- *   how its running build is started in the box (none: it only stands)
+ * @param {{ start?: (nodes: number) => Promise<{ tick: Function, breakIt: Function, end: Function } | null>, exact?: boolean }} [o]
+ *   how its running build is started in the box (none: it only stands); `exact`: every second of its time reaches the
+ *   box, at most STEP a step and the rest owed to the next (a world, play/SPEC.md §4.11: its traffic at a time is the
+ *   same however it got there), where otherwise a step owes nothing (the box takes at most STEP of it: a machine
+ *   behind the page skips ahead instead of running late)
  */
-export function heroOf({ obj: root, card }, { start } = {}) {
+export function heroOf({ obj: root, card }, { start, exact = false } = {}) {
 	const nodes = walk(root);
 	const view = root.userData.view ?? {};
 	const catalog = card.catalog ?? EMPTY;
@@ -179,8 +185,10 @@ export function heroOf({ obj: root, card }, { start } = {}) {
 		waited += dt;
 		state.t += dt;
 		if (asking || !running) return;
+		// the box takes at most STEP of a step (the frozen engines keep a step to it); an exact build owes the rest
+		const send = exact ? Math.min(waited, STEP) : waited;
 		const ask = {
-			dt: waited,
+			dt: send,
 			env: { slow: env?.slow ?? 0, cut: env?.cut ?? 0, xray: env?.xray ?? 0 },
 			sliders: lab ? Object.fromEntries(Object.entries(lab.controls).map(([k, c]) => [k, c.value])) : undefined,
 			controls: state.controls,
@@ -192,7 +200,7 @@ export function heroOf({ obj: root, card }, { start } = {}) {
 		const said = JSON.stringify({ ...ask, dt: 0, t: 0 });
 		if (waited <= 0 && said === sent) return;
 		sent = said;
-		waited = 0;
+		waited = exact ? Math.max(0, waited - send) : 0;
 		asking = true;
 		const r = running;
 		r.tick(ask)
@@ -297,6 +305,11 @@ export function heroOf({ obj: root, card }, { start } = {}) {
 		/** whether its build is running in the box yet */
 		get live() {
 			return !!running;
+		},
+		/** whether a step is still owed by the box (asked and not answered, or time gone not yet asked): a film waits
+		 *  for none before it draws a frame (play/SPEC.md §4.11) */
+		get busy() {
+			return asking || waited > 0;
 		},
 		dispose() {
 			gone = true;
