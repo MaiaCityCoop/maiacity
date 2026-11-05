@@ -44,7 +44,6 @@ twining vine: a sett in a mound cut open in the viewer, one stem as a right-hand
 climbing loosely and hanging over, one tuber growing down through the mound, the season to senescence; its numbers in
 `references/yam-pona.md`, its brief beside them, its whole source `references/yam-v1.js`, the climber to start the
 next vine from). Start
-
 a new plant from the newest: copy its part 1
 (the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps as lemon v2 has it; the file is
 `references/banana-v2.js` or `references/lemon-v2.js`) as it is and write parts 2–4 for the new plant; a tree takes its
