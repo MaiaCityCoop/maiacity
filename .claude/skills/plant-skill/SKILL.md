@@ -53,7 +53,9 @@ the one to start from for a long-lived tree grown over decades), and **cassava v
 canes node by node in a 2/5 spiral, the leaves living their real life so the cane below the crown is bare and scarred,
 a late fork only where it flowers, and the crop under the ground, nine to eleven storage roots radiating from the
 cutting, the fruit view one harvested root; its numbers in `references/cassava-tme-419.md`, its brief beside them, its
-whole source `references/cassava-v1.js`). Start
+whole source `references/cassava-v1.js`), and **quince v2** ('Vranja', a grafted tree headed at planting into tiered scaffolds,
+its fruit on short sympodial shoots each ending in one flower, its crown steered to a dome by age; its numbers in
+`references/quince-vranja.md`, its brief beside them, its whole source `references/quince-v2.js`). Start
 a new plant from the newest: copy its part 1
 (the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps, `backLit: false` and `named()` as
 plum v2 and cassava v1 have them; the file is `references/cassava-v1.js` or `references/plum-v2.js`) as it is and write
@@ -395,6 +397,26 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
 - **Tips by the hundred.** A crown reads as dense only with enough shoot tips: the sapodilla needed some 1,000 at 8 years
   (forks of two or three at most flushes, a minimum spacing between new rosettes of ~9 cm) before its crown stopped
   being see-through; check `forks` and the spacing rule's rejections when a crown stays thin.
+
+- **A crown envelope pushes in, and down only above its widest** (quince v2, 2026-11-05). Its first envelope turned
+  every shoot that left the dome "in and down"; below the dome's widest point that drove the lowest scaffold into the
+  ground (its tip at −0.34 m). Push down above `yc`, up below it, and turn any limb up that comes within ~0.7 m of the
+  soil. Then steer each long shoot toward its own point on the dome (its bearing out from the stem, a height drawn from
+  where it starts): the crown filled; nudging only what leaves the envelope left a star of arms.
+- **Count each year's new growth by order before blaming the form.** The quince's old limbs had faded to 6–15 cm a
+  year (a real one's shoots grow 20–60 cm), so its outer crown carried almost no new leaves and read as a see-through
+  broom whatever its angles. Print, per order, how many axes grew this year and how far; then tune `fade`.
+- **A tree headed at planting has no leader.** Kept as a leader, the quince grew a spire over side arms. Stop the trunk
+  at the cut and let the top bud and the four under it (2/5 apart: well spread round the stem) be the scaffolds,
+  tiered: the top one near upright, the lowest near level. That lowest one, with shoots arching out and down from the
+  lower, outer side of the limbs, makes the skirt. compare.py's widths say where a crown misses: the quince's sheet
+  was full down to a quarter of its height and the tree stopped at 40 %.
+- **Check a fruit's polarity on the sheet.** The first quince plate drew its ripe pear upside down, the calyx on the
+  neck. On a pome the neck runs to the stalk and the calyx sits in a hollow at the broad end. One edit redrew it; its
+  twin left the cell as it was. Keep the one that changed.
+- **Measure a flower across on the bench before lengthening its petals.** With the Floras' 18–21 mm petals the
+  quince's flower measured 3.5 cm across, not 4.5, because the cup was deep. Flatten the cup to the sheet's front view
+  first, then lengthen the petals (to 23.5 mm) and say so.
 
 - **A syncarp's eyes are a phyllotaxis, counted** (pineapple v2, 2026-11-05). Lay the fruitlets on the generative
   spiral at the golden angle on the fruit's own surface (its length along the profile and its angle), each the next a
