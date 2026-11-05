@@ -20,9 +20,12 @@ numbers in `references/orange-tarocco.md`, its brief in `references/orange-taroc
 the flat peach, a stone budded and trained as an open vase year by year; its numbers in `references/peach-saturn.md`, its
 brief in `references/peach-saturn-brief.md`), and **sapodilla v2** ('Alano', a grafted tree grown as Aubréville's model
 from its own sheet, its silhouette laid on the sheet's tree; its numbers in `references/sapodilla-alano.md`, its brief in
-`references/sapodilla-alano-brief.md`). Start a new plant from
-the newest: copy its part 1 (the growing core, with its surfaces and `sound()`; the file is `references/banana-v2.js`)
-as it is and write parts 2–4 for the new plant; a tree takes its part 3 from orange v2 (flushes) or apricot v2 (years).
+`references/sapodilla-alano-brief.md`), and **lemon v2** ('Femminello Santa Teresa', a grafted tree grown flush by flush
+inside the crown the grower keeps, three crops on it at once; its numbers in `references/lemon-femminello-santa-teresa.md`,
+its brief beside them, its whole source `references/lemon-v2.js`). Start a new plant from the newest: copy its part 1
+(the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps as lemon v2 has it; the file is
+`references/banana-v2.js` or `references/lemon-v2.js`) as it is and write parts 2–4 for the new plant; a tree takes its
+part 3 from orange v2 or lemon v2 (flushes) or apricot v2 (years).
 
 ## The order of work
 
@@ -84,7 +87,10 @@ in one even light, straight on, beside one another. It replaces searching the we
   the brief. Edit often leaves the cells as they were (the
   sapodilla's redrew one cell of four): then make the wrong organs as a small plate of their own (its brief only those
   organs, the fault named) and paste them into the sheet's cells, their light-grey ground made white; keep that plate
-  in the Library too, and the composite is the sheet held to.
+  in the Library too, and the composite is the sheet held to. A form the model keeps redrawing its own way
+  needs its own edit naming the form in plain words (the lemon's trees came back as lollipop standards twice; "a SHORT
+  trunk … the crown starts LOW … like a haystack, not a ball on a stick" fixed them); make two and keep the one that
+  changed only what was asked (the lemon's other edit replaced its cut fruit with whole ones).
 - **Keep it in play's Library**: `sheet.ts` keeps every sheet it makes there at once (MCP `add_story_frame`, up to
   4 MB), labelled `Reference sheet · <Plant 'Cultivar'> · <k>` (give `--label "Lemon 'Femminello Santa Teresa'"`),
   and prints its BLAKE3 hash (`sheet-<k>.hash`); a sheet made otherwise is kept with `sheet.ts --upload <jpg>
@@ -108,7 +114,10 @@ in the same light as its panel.
    grey, not white: with the default `--white 0.10` the ground counts as specimen and every width comes out the box's
    (the orange's leaf traced as 57 mm at every station); pass `--white 0.2`–`0.25`, and read the widths before using
    them. A fruit's ends lie in its own shadow on the light box: cut it from the ground by its colour (saturation) to get
-   its real profile, which closes round at both ends.
+   its real profile, which closes round at both ends. The lemon's ground was lavender, about 0.91: white-balance
+   the sheet on its ground first. A specimen laid at a slant is traced and compared crooked: turn it upright on its
+   own main axis first, `python3 -I .claude/skills/plant-skill/scripts/upright.py <sheet> x0 y0 x1 y1 <out.png>
+   [white]` (the lemon leaf's overlap went from 0.76 to 0.82 on that alone).
 2. **Shape the third dimension** the plate does not show flat: a blade's fold along its midrib and its wave, a fruit's
    ridges and section (from the cut panel), a pseudostem's sheath edges, from the side views and the cuts.
 3. **Detail where the eye reads it, as surfaces**: what vertex colours cannot carry (veins, blotches, fibres, spots,
@@ -132,7 +141,11 @@ in the same light as its panel.
    eye and say so. A grown tree is more than the bench's page holds: `node .claude/skills/plant-skill/scripts/
    silhouette.cjs --file <source.js> --make "(o) => o.lite({ roots: false }, () => o.grow(10, 'maia'))" --out
    tree.png` rasterises it in node, and `compare.py … --close 0.04` compares crowns by their envelopes (a crown's
-   silhouette is porous: its raw overlap stays near 0.6 even when the form is right).
+   silhouette is porous: its raw overlap stays near 0.6 even when the form is right). A white organ (a lemon flower) on a near-white ground cannot be
+   cut out: judge it side by side. Compare like with like: a blade against a blade (cut the petiole off both when the
+   sheet's is shorter than the data sheet's), a fruit without its stalk; where the sheet's proportion is wrong (the
+   lemon's ripe fruit 1.37 : 1 against a measured 1.15), stretch the bench organ to the panel's aspect once to judge
+   its outline apart from its proportion, and keep the data sheet's.
 5. **Budgets go up with it**: up to about 800k triangles at full detail for a grown plant (a close-up is what the sheet
    is checked by), and still about 60k at 0.3 and 15k at 0.1 for the crowds: the extra detail belongs to `detailAt`.
    A plant of few big leaves (banana) thins by rows, never by dropping parts: `THINNED` holds only what is many. A
@@ -234,6 +247,26 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
 
 ## Lessons kept
 
+- **Pictures need their mipmaps.** A `DataTexture` is nearest-filtered and unmipmapped by default: the lemon's rind
+  glands, a fine pattern, read as a coarse honeycomb from two metres, and leaf veins shimmered. `picture()` sets linear
+  filtering and mipmaps (lemon v2's part 1; banana v2's lacks it).
+- **A bump picture's strength is per UV, not per metre.** A leaf whose UVs run 0 … 1 over its 10 cm needs a bump scale
+  about a twentieth of a rind's laid on 3 cm tiles in metres (lemon: 0.04 against 0.8); too strong, every leaf showed
+  barcode stripes.
+- **Glossy leaves go white at a grazing angle.** A clearcoat on a leaf, however thin, mirrors the sky where the leaf is
+  seen edge-on, and a crown of thousands of leaves turns grey-white. No clearcoat on leaves; roughness about 0.5 and a
+  low `specularIntensity` (0.3) still read glossy. Render close-ups with the sun behind the camera, or glare hides it.
+- **A colour mix must not overshoot.** THREE's `Color.lerp` does not clamp: a factor above 1 runs past the colour (the
+  lemon's ripe yellow went mustard, its blue negative). Clamp the factor, or use `mix()`.
+- **A tree of flushes is held by its crowding, sized by its pruning.** Lemon v2 grows every shoot of three flushes a
+  year from the tips of the last, so its count would double each year; what holds it is a hard cap of young shoots
+  (born within one leaf life) per 25 cm cell, the same everywhere, and its size is the grower's: a crown shape from
+  the data sheet's heights and widths by age that no shoot grows out of. Exempting the crown's face from the cap ran
+  away (60k leaves); a cap of 3 starved its top (2.7 m for 3.3). Tune by numbers per age (height, width, trunk at 30 cm,
+  leaves, fruit, triangles) for two seeds before rendering; dead twigs inside must fall (they also thicken the trunk
+  by the pipe model: 19 cm at eight years for a measured 9–12).
+- **Image models draw standards.** Every tree on the lemon's sheet came out as a lollipop on a metre of bare stem; an
+  orchard tree has a short trunk and a crown down to near the ground. Name the form in the brief and check it first.
 - **The model draws the usual form of the species.** Peach v2's two first plates drew every 'Saturn' fruit round from
   the side and its stone almond-shaped, though the brief said flat, 62 × 30 mm, a disc stone; two edit passes got the
   side views to 1.4 : 1, not 2 : 1. When a cultivar's mark is its departure from the species (flat, seedless, dwarf),
