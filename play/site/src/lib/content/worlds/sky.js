@@ -107,6 +107,8 @@ export function createSky(scene, renderer) {
 			hemi.groundColor.copy(lin(m.haze)).multiplyScalar(0.7);
 			hemi.intensity = 3.2 * m.light;
 			sun.color.copy(lin(m.sunColor));
+			// no shadow pass at all where the mood casts none (every caster would be drawn a second time)
+			sun.castShadow = m.shadows;
 			sun.intensity = m.sun > 0 ? 3.2 * m.light * Math.min(1, 0.45 + m.sun / 25) : 0.15;
 			renderer.toneMappingExposure = 1.0 + 0.2 * m.light;
 		},

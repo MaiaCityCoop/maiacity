@@ -157,6 +157,7 @@ try {
 				const png = resolve(o.out, `${name}-${s.name}.png`);
 				const box = await canvas.boundingBox();
 				await page.screenshot({ path: png, clip: box ?? undefined, timeout: 120_000 });
+				if (got.cut) console.log(`    drawings: world ${got.cut.world}, guests ${got.cut.guests} (${got.cut.kinds} kinds; most: ${got.cut.top.map(([k, n]) => `${k} ${n}`).join(', ')}), lights ${got.cut.lights}, other ${got.cut.other}`);
 				results.push({ recipe: name, label: loaded.label, shot: s.name, png, values: { t: got.t, guests: got.guests, lit: got.lit }, ...got });
 				console.log(`  ${s.name}: t ${got.t} s · ${got.guests} guests of ${got.kinds} kinds${got.missing ? ` (${got.missing} missing)` : ''} · ${got.lit} lit (${got.faces ?? 0} face drawings, ${got.glows ?? 0} glows) · ${got.live ? 'alive' : 'still'} · ${got.triangles.toLocaleString('en')} triangles, ${got.calls} calls · ${got.ms} ms`);
 			}

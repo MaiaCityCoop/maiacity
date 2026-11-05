@@ -100,7 +100,28 @@
 				let triangles = 0;
 				view.renderer.info.autoReset = true;
 				triangles = view.renderer.info.render.triangles;
-				return { ms: Math.round(performance.now() - t0), t: +s.t.toFixed(1), live: s.live, faces: view.lights.stats.faces, glows: view.lights.stats.glows, guests: s.guests, kinds: s.kinds, missing: s.missing, lit: s.lit, fps: s.fps, triangles, calls: view.renderer.info.render.calls };
+				// where the drawings go: the world's own meshes, the guests' instanced drawings (by kind), the lights
+				const cut = { world: 0, worldMats: 0, guests: 0, guestKinds: new Map(), lights: 0, other: 0 };
+				const seen = (o) => {
+					for (let x = o; x; x = x.parent) if (!x.visible) return false;
+					return true;
+				};
+				view.scene.traverse((o) => {
+					if (!o.isMesh && !o.isPoints) return;
+					if (!seen(o) || (o.isInstancedMesh && o.count === 0)) return;
+					let a = o;
+					while (a.parent && a.parent !== view.scene) a = a.parent;
+					const n = Array.isArray(o.material) ? Math.max(1, o.geometry.groups.length) : 1;
+					if (a === view.root) (cut.world += n), (cut.worldMats += 0);
+					else if (a.name === 'world lights') cut.lights += n;
+					else if (a.name === 'assets') {
+						cut.guests += n;
+						const k = String(o.name).split(' · ')[0];
+						cut.guestKinds.set(k, (cut.guestKinds.get(k) ?? 0) + n);
+					} else cut.other += n;
+				});
+				const top = [...cut.guestKinds].sort((x, y) => y[1] - x[1]).slice(0, 12);
+				return { cut: { world: cut.world, guests: cut.guests, lights: cut.lights, other: cut.other, kinds: cut.guestKinds.size, top }, ms: Math.round(performance.now() - t0), t: +s.t.toFixed(1), live: s.live, faces: view.lights.stats.faces, glows: view.lights.stats.glows, guests: s.guests, kinds: s.kinds, missing: s.missing, lit: s.lit, fps: s.fps, triangles, calls: view.renderer.info.render.calls };
 			},
 			/** the world brought to time t, as a film brings it (seek, settle): where each guest stands then */
 			async seek(t) {
