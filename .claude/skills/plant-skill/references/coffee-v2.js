@@ -1153,7 +1153,7 @@ function flower(bag, at, dir, open, fall, r, turn = 0) {
 			shape: (u) => (u < 0.15 ? 0.65 + (0.35 * u) / 0.15 : 1) * (u > 0.78 ? Math.sqrt(Math.max(0, 1 - Math.pow((u - 0.78) / 0.22, 2))) : 1),
 			lift: (u, v) => 0.06 * v * v - 0.05 * u * u * open,
 			paint: (u) => mix(Fl.cream, white, smooth(u / 0.3)),
-			along: DETAIL.fruit ? 12 : 3,
+			along: DETAIL.fruit ? 12 : 2,
 			across: DETAIL.fruit ? 2 : 1,
 		});
 		bag.add('sheet', g, aimFace(mouth, ld, d));
@@ -1164,13 +1164,15 @@ function flower(bag, at, dir, open, fall, r, turn = 0) {
 			const ad = d.clone().multiplyScalar(0.55).addScaledVector(rad2, 0.85).normalize();
 			const p0 = mouth.clone().addScaledVector(d, 0.0008);
 			const p1 = p0.clone().addScaledVector(ad, Fl.anther * open);
-			bag.add('body', tube([0, 0.15, 0.3, 0.55, 0.8, 1].map((k) => p0.clone().lerp(p1, k)), (u) => (u < 0.15 ? 0.00018 : 0.0005 * Math.pow(Math.max(0.03, Math.sin(Math.PI * Math.min(1, (u - 0.15) / 0.85))), 0.3)), () => Fl.antherColour, DETAIL.fruit ? 6 : 3)); // a short filament, the long oblong anther
+			const stations = DETAIL.fruit ? [0, 0.15, 0.3, 0.55, 0.8, 1] : [0, 0.5, 1];
+			const anther = DETAIL.fruit ? (u) => (u < 0.15 ? 0.00018 : 0.0005 * Math.pow(Math.max(0.03, Math.sin(Math.PI * Math.min(1, (u - 0.15) / 0.85))), 0.3)) : (u) => 0.0005 * Math.pow(Math.max(0.05, Math.sin(Math.PI * u)), 0.3);
+			bag.add('body', tube(stations.map((k) => p0.clone().lerp(p1, k)), anther, () => Fl.antherColour, DETAIL.fruit ? 6 : 3)); // a short filament, the long oblong anther
 		}
 	}
 	if (open > 0.2 && fall < 0.6 && DETAIL.level >= 0.5) {
 		const top = mouth.clone().addScaledVector(d, Fl.style - Fl.tube);
 		bag.add('body', tube([pedicel, top], () => 0.00028, () => Fl.white, 3));
-		for (const s of [1, -1]) {
+		if (DETAIL.fruit) for (const s of [1, -1]) {
 			const b = top.clone().addScaledVector(s1, 0.0015 * s).addScaledVector(d, 0.002);
 			bag.add('body', tube([top, b], () => 0.00022, () => Fl.white, 3));
 		}
@@ -1206,7 +1208,8 @@ function cherryRadius(u) {
  */
 function cherryGeometry(L, W, paint, fine) {
 	const small = L < 0.008;
-	const rings = fine ? 22 : small ? 4 : fewer(7, 4), sides = fine ? 24 : small ? 6 : fewer(8, 5);
+	const far = DETAIL.level < 0.5;
+	const rings = fine ? 22 : small || far ? (far ? 3 : 4) : fewer(7, 4), sides = fine ? 24 : small || far ? (far ? 4 : 6) : fewer(8, 5);
 	const pos = [], nor = [], uv = [], col = [], idx = [];
 	const R = W / 2;
 	for (let i = 0; i <= rings; i++) {
@@ -1238,7 +1241,7 @@ function cherryGeometry(L, W, paint, fine) {
 function cherry(bag, at, dir, d, late, r, seedKey, stalk = true) {
 	const Ch = CT.cherry;
 	const dd = d - late;
-	const g = cherrySize(dd) * about(r, 1, 0.05);
+	const g = cherrySize(dd) * about(r, 1, 0.05) * (DETAIL.fruit || DETAIL.thin >= 1 ? 1 : Math.min(1.6, 1 / Math.cbrt(Math.max(0.12, DETAIL.thin)))); // thinned: bigger
 	const L = Ch.length * g, W = (Ch.length / Ch.aspect) * g * lerp(1.15, 1, smooth(dd / 99)); // a pinhead is rounder
 	const stalkEnd = at.clone().addScaledVector(dir, stalk ? Ch.stalk * lerp(0.5, 1, smooth(dd / 60)) : 0);
 	const stalkC = mix(CT.flower.calyx, CT.bark.tan, smooth((dd - 150) / 80));
@@ -1622,6 +1625,8 @@ function flowersAt(bag, seed, key, nd, sv, rr, d0, rn, stats) {
 		if (!survives || d < 4) continue;
 		const late = about(kr, 0, 10) + (i++ % 3) * 2;
 		if (d - late > 285) continue; // picked
+		// a crowd far off draws a share of the cherries, each a little bigger (the leaves are thinned the same way)
+		if (!DETAIL.fruit && DETAIL.thin < 1 && kr() > DETAIL.thin * 1.15) continue;
 		stats.cherries++;
 		const cd = radial.clone().multiplyScalar(0.92).addScaledVector(nd.dir, 0.25).add(v3(0, -0.12, 0)).normalize();
 		const at = nd.at.clone().addScaledVector(radial, rr * 0.9).addScaledVector(nd.dir, along);
