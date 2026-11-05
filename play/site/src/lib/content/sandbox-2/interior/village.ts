@@ -144,16 +144,19 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		// its forest and things drawn as the cell's are: their shadows drawn again with the cell's (every 400 ms at most,
 		// not with every frame a copy changes its level), its plants at the cell's forest's details and no finer (0.25
 		// near, 0.1 further, a picture far: as Sandbox 1 draws its domes' insides; a tree filling the view at its full
-		// detail is half a million triangles), switching where the guests' last two levels do (plantings.js GUEST_LEVELS)
+		// detail is half a million triangles), switching where the guests' last two levels do (plantings.js GUEST_LEVELS);
+		// its things, built whole, at all three of the guests' levels (full, 30 %, 8 %), as before
 		const plantings = createPlantings({ renderer, camera, scene, levels: [0.4, 0.16], details: [0.25, 0.1], shadows: staleShadows })
 		plantings.show(obj)
 		// the building stands still: walked in by its triangles filed by the ground's squares (the same floors and walls,
 		// each ray testing a few hundred triangles, not a million), its many marker nodes (where each plant and thing
 		// stands, drawn by the plantings now) left out of every frame's traversal, its matrices kept as they are
 		soloBuild = { obj, walk: walkOf(obj, { still: true }), plantings }
+		// (a build kept running, view.ticks: its plantings follow its markers, drawn only where they are shown)
+		const follows = obj.userData.view?.ticks === true
 		obj.traverse((o) => {
 			o.matrixAutoUpdate = false
-			if (o.children.length && o.children.every((c) => c.name.startsWith('use:'))) o.visible = false
+			if (!follows && o.children.length && o.children.every((c) => c.name.startsWith('use:'))) o.visible = false
 			const mesh = o as THREE.Mesh
 			if (!mesh.isMesh) return
 			// its glass, see-through and two-sided, in one pass (its far panes behind its near ones as they lie in the mesh;

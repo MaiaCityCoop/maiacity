@@ -67,9 +67,11 @@ function resolve(ref) {
  * A renderer of assets for one scene.
  * @param {{
  *   renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, boxes?: number, details?: number[],
- *   levels?: number[], px?: number, cache?: boolean, onShadows?: () => void
+ *   levels?: number[], whole?: number[], px?: number, cache?: boolean, onShadows?: () => void
  * }} o `boxes` how many build side by side; `details` and `levels` the details a recipe is built at and the sizes on
- *   screen each is drawn to (./lod.js); `px` each picture's pixels a side; `cache: false` builds everything afresh;
+ *   screen each is drawn to (./lod.js); `whole` the sizes on screen of a kind built once, at its finest (one that takes
+ *   no detail: a thing), its lower levels made from it (`levels` when not given); `px` each picture's pixels a side;
+ *   `cache: false` builds everything afresh;
  *   `onShadows` told when what casts a shadow changed, for a world that draws its shadows again only every so often
  *   (else they are drawn again with the next frame)
  */
@@ -77,6 +79,7 @@ export function createAssets(o) {
 	const { renderer, camera } = o;
 	const details = o.details ?? DETAILS;
 	const levels = o.levels ?? LEVELS;
+	const whole = o.whole ?? levels;
 	renderer.localClippingEnabled = true;
 	// three turns a PCFSoftShadowMap (gone from it) into a PCFShadowMap at its first shadow pass; a shader made before
 	// that samples its shadow plainly and is never drawn (GL_INVALID_OPERATION). Ours are made early, while a world
@@ -206,19 +209,22 @@ export function createAssets(o) {
 		const key = names[0];
 		let k = kinds.get(key);
 		if (k) return k;
+		// the sizes on screen its levels are drawn to: a recipe's at its details, or one built whole and lowered from it
+		const sizes = takes ? levels : whole;
 		k = {
 			key,
 			label: at.label,
 			names,
+			sizes,
 			// each level of its shape: built from its recipe (`name`), or made from the coarsest one built (none)
-			levels: levels.map((_, L) => ({ state: 'idle', level: null, meshes: null, name: names[L] ?? null, as: -1 })),
+			levels: sizes.map((_, L) => ({ state: 'idle', level: null, meshes: null, name: names[L] ?? null, as: -1 })),
 			/** the coarsest level built: its measure is the kind's, and its picture is taken from it */
 			base: names.length - 1,
 			ok: false,
 			error: null,
 			radius: 1,
 			center: new THREE.Vector3(),
-			thresholds: thresholdsOf(levels.length, undefined, levels),
+			thresholds: thresholdsOf(sizes.length, undefined, sizes),
 			/** its thresholds the world's own (`tune`), not its shape's */
 			tuned: false,
 			shadows: opts?.shadows,
@@ -279,12 +285,12 @@ export function createAssets(o) {
 	function retune(k) {
 		if (k.tuned) return;
 		const last = k.levels.length - 1;
-		const tris = k.levels[last].level?.tris ?? budgetOf(last, k.levels[k.base].level.tris, levels);
-		k.thresholds = thresholdsOf(k.levels.length, tris, levels);
+		const tris = k.levels[last].level?.tris ?? budgetOf(last, k.levels[k.base].level.tris, k.sizes);
+		k.thresholds = thresholdsOf(k.levels.length, tris, k.sizes);
 	}
 
 	/** what level L of a kind made from `from` (a level of it, or the source of several) is made to: ./lod.js */
-	const planOf = (L, from) => ({ budget: budgetOf(L, from.tris, levels), most: budgetOf(L, Infinity, levels), error: errorOf(L, from.radius, levels), smallest: smallestOf(L, from.radius, levels) });
+	const planOf = (k, L, from) => ({ budget: budgetOf(L, from.tris, k.sizes), most: budgetOf(L, Infinity, k.sizes), error: errorOf(L, from.radius, k.sizes), smallest: smallestOf(L, from.radius, k.sizes) });
 
 	/** a level of a kind asked for, once; its drawings made when it comes */
 	function want(k, L, first = false) {
@@ -299,7 +305,7 @@ export function createAssets(o) {
 				// a build with controls is kept whole as well: a copy moved by them is a tree copied from it
 				if (got.obj.userData.controls?.length) lv.obj = got.obj;
 				await show(k, L);
-				if (L > 0 && lv.level.tris > budgetOf(L, Infinity, levels)) lighten(k, L);
+				if (L > 0 && lv.level.tris > budgetOf(L, Infinity, k.sizes)) lighten(k, L);
 			},
 			(err) => {
 				lv.state = 'failed';
@@ -318,7 +324,7 @@ export function createAssets(o) {
 		const list = k.levels.map((_, j) => j).filter((j) => !k.levels[j].name && k.levels[j].state === 'idle');
 		const made = want(k, k.base).then(() => {
 			const from = k.levels[k.base].level;
-			return lowering.lower(from, list.map((j) => planOf(j, from)));
+			return lowering.lower(from, list.map((j) => planOf(k, j, from)));
 		});
 		list.forEach((j, n) => {
 			const lv = k.levels[j];
@@ -352,8 +358,8 @@ export function createAssets(o) {
 	 */
 	function lighten(k, L) {
 		const lv = k.levels[L], from = lv.level;
-		const most = budgetOf(L, Infinity, levels);
-		lowering.lower(from, [{ ...planOf(L, from), budget: most, most, every: true }], true).then(
+		const most = budgetOf(L, Infinity, k.sizes);
+		lowering.lower(from, [{ ...planOf(k, L, from), budget: most, most, every: true }], true).then(
 			async ([made]) => {
 				if (gone || lv.level !== from) return;
 				const fresh = { level: made, meshes: made.draws.map((d) => meshOf(k, L, d)) };
