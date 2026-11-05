@@ -70,33 +70,76 @@
 	});
 	const frameUrl = (h: string | null | undefined) => (h ? `/api/files/${h}` : '');
 
-	/** the shots that move: each its video, laid over its still, kept loaded and played muted in step with t (the story's
-	 *  own sound is the sound); the one on screen plays from its video_in, the rest wait at their first frame */
+	/** the shots that move, by their video: one element per video (the shots cut from one take share it, so it plays on
+	 *  across their cuts and loads once), muted and kept in step with t (the story's own sound is the sound). The one on
+	 *  screen plays from its shot's video_in; the others wait where their next shot starts. A video shows only once it has
+	 *  the frame t asks for: while it still loads or seeks (a phone on a slow line) the shot's still shows, never a stale
+	 *  frame. On a phone a video plays only once a tap has started it: Play wakes them all (and so starts their loading). */
 	const videoShots = $derived(clipsOf<Shot>(flat, 'shots').filter((s) => typeof s.video === 'string' && s.video));
+	const videoSources = $derived([...new Set(videoShots.map((s) => s.video as string))]);
 	const videoEls: Record<string, HTMLVideoElement | undefined> = {};
+	const seekedAt: Record<string, number> = {};
+	let showing = $state<Record<string, boolean>>({});
+	const videoAt = (s: Shot, now: number) => Math.max(0, now - s.at) + (Number(s.video_in) || 0);
 	$effect(() => {
 		const cur = moment.shot, now = t, on = playing, rate = speed;
-		for (const s of videoShots) {
-			const v = videoEls[s.id];
+		const next: Record<string, boolean> = {};
+		for (const h of videoSources) {
+			const v = videoEls[h];
 			if (!v) continue;
 			v.muted = true;
-			const start = Number(s.video_in) || 0;
-			if (cur && s.id === cur.id) {
-				const into = Math.max(0, now - s.at) + start;
+			const live = cur?.video === h ? cur : null;
+			// where it should be: in the shot on screen, or at the start of the next shot that plays it
+			const coming = live ? null : videoShots.find((s) => s.video === h && s.at >= now);
+			const want = live ? videoAt(live, now) : coming ? Number(coming.video_in) || 0 : NaN;
+			const settled = v.readyState >= 1 && !v.seeking;
+			const off = Math.abs(v.currentTime - want);
+			if (live) {
 				v.playbackRate = rate;
 				if (on) {
-					if (Math.abs(v.currentTime - into) > 0.25) v.currentTime = into;
+					// seek only when well off, and not again while the last seek still loads: on a slow line seeking every
+					// frame never lets it catch up, and the picture freezes
+					const wall = performance.now();
+					if (settled && off > 0.5 && wall - (seekedAt[h] ?? 0) > 1500) {
+						v.currentTime = want;
+						seekedAt[h] = wall;
+					}
 					if (v.paused) v.play().catch(() => {});
 				} else {
 					if (!v.paused) v.pause();
-					if (Math.abs(v.currentTime - into) > 0.04) v.currentTime = into;
+					if (settled && off > 0.04) v.currentTime = want;
 				}
+				next[h] = v.readyState >= 2 && !v.seeking && Math.abs(v.currentTime - want) < 0.75;
 			} else {
 				if (!v.paused) v.pause();
-				if (now < s.at && Math.abs(v.currentTime - start) > 0.04) v.currentTime = start;
+				if (settled && Number.isFinite(want) && off > 0.04) v.currentTime = want;
+				next[h] = false;
 			}
 		}
+		const was = untrack(() => showing);
+		if (Object.keys(next).length !== Object.keys(was).length || Object.entries(next).some(([h, on]) => was[h] !== on)) showing = next;
 	});
+	/** in the user's own tap: every video started once (iOS lets a video play later only after a tap has), so they load */
+	const woken = new WeakSet<HTMLVideoElement>();
+	function wake() {
+		for (const h of videoSources) {
+			const v = videoEls[h];
+			if (!v || woken.has(v)) continue;
+			woken.add(v);
+			v.muted = true;
+			v.play().catch(() => woken.delete(v));
+		}
+	}
+	/** a video taken off the page lets go of its file at once (a phone holds only a few) */
+	function release(v: HTMLVideoElement) {
+		return {
+			destroy() {
+				v.pause();
+				v.removeAttribute('src');
+				v.load();
+			}
+		};
+	}
 
 	// a new story (or another version or step of it: the player stays, so a page's controls around it keep their place) starts
 	// at its beginning, its frames fetched ahead so no shot arrives late, its recordings laid anew
@@ -172,7 +215,10 @@
 	});
 
 	/** in the user's own tap: the sound's context made now, so Safari lets it sound when it starts a moment later */
-	const gesture = () => soundOn && sounds.length && audio.prime();
+	const gesture = () => {
+		wake();
+		if (soundOn && sounds.length) audio.prime();
+	};
 	const toggle = () => {
 		if (t >= D - 0.01) t = 0;
 		if (!playing) gesture();
@@ -249,9 +295,10 @@
 		{:else if moment.shot}
 			<div class="frame empty" style:opacity={moment.mix}><span>Shot {moment.index + 1}: no frame yet</span></div>
 		{/if}
-		<!-- the shots that move, each over its still: only the one on screen shows (and fades in as its still would) -->
-		{#each videoShots as s (s.id)}
-			<video class="frame" bind:this={videoEls[s.id]} src={frameUrl(s.video)} poster={frameUrl(s.frame) || undefined} muted playsinline preload="auto" aria-hidden="true" style:opacity={moment.shot?.id === s.id ? moment.mix : 0}></video>
+		<!-- the shots that move, over their stills: one video per take, shown while the shot on screen plays it and it has
+			 its frame (and faded in as the still would) -->
+		{#each videoSources as h (h)}
+			<video class="frame" bind:this={videoEls[h]} use:release src={frameUrl(h)} muted playsinline preload="auto" aria-hidden="true" style:opacity={moment.shot?.video === h && showing[h] ? moment.mix : 0}></video>
 		{/each}
 		<!-- a shot's fade from black and to black: the picture under a black veil, the subtitles over it -->
 		{#if moment.light < 1}<div class="black" style:opacity={1 - moment.light}></div>{/if}
