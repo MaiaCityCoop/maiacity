@@ -15,6 +15,12 @@
  *                     `zoom` × its distance, or `target` [x, y, z] (m) and `dist` (m). Without it: every stage of a
  *                     recipe that has stages, framed as the viewer frames them, else its default build
  *   --url             a dev server already running; without it one is started here (bun run dev) and stopped after
+ *   --guests          a JSON list of the assets a recipe names by hash and the page draws where it stands them (a
+ *                     dome's plants): { "file", "id", "v", "variant"?, "as"? }, each a readable source handed to the
+ *                     page's catalog; `as` the hash play holds it by, which the recipe names: every --file's code has
+ *                     it replaced by the hash the guest is held by here (made here from its readable source, its
+ *                     bytes and so its hash differ from play's minified file), so it draws the same plant;
+ *                     `refs` what its card names by readable refs, each by the `as` of a guest listed before it
  *
  * Out: one PNG per shot and file (<out>/<file>-<shot>.png), a contact sheet (<out>/sheet.png) with every shot's
  * values, triangles and build time under it, and shots.json of what was shown. Needs Playwright with a Chromium
@@ -39,6 +45,7 @@ function args(argv) {
 		else if (k === '--v') (o.recipes.at(-1).v = Number(v)), i++;
 		else if (k === '--label') (o.recipes.at(-1).label = v), i++;
 		else if (k === '--shots') (o.shots = v), i++;
+		else if (k === '--guests') (o.guests = v), i++;
 		else if (k === '--out') (o.out = v), i++;
 		else if (k === '--url') (o.url = v), i++;
 		else if (k === '--size') (o.size = Number(v)), i++;
@@ -97,8 +104,18 @@ try {
 		await page.goto(`${dev.url}/render/`);
 		await page.waitForFunction(() => !!window.__render, null, { timeout: 120_000 });
 		const name = basename(r.file).replace(/\.[^.]+$/, '');
+		// the assets it names, handed to the page first; the hashes it names them by turned into theirs here
+		let code = readFileSync(r.file, 'utf8');
+		/** each guest's hash here, by the hash play holds it by */
+		const here = {};
+		for (const g of o.guests ? JSON.parse(readFileSync(o.guests, 'utf8')) : []) {
+			const refs = g.refs ? Object.fromEntries(Object.entries(g.refs).map(([name, h]) => [name, here[h] ?? h])) : null;
+			const got = await page.evaluate((x) => window.__render.guest(x), { code: readFileSync(resolve(dirname(o.guests), g.file), 'utf8'), id: g.id, v: g.v, variant: g.variant ?? null, refs });
+			if (g.as) (here[g.as] = got.hash), (code = code.replaceAll(g.as, got.hash));
+			console.log(`  guest ${got.label} (${got.hash.slice(0, 12)}…${g.as ? ` for ${g.as.slice(0, 12)}…` : ''})`);
+		}
 		console.log(`${r.file}: building in the asset box …`);
-		const loaded = await page.evaluate((x) => window.__render.load(x), { code: readFileSync(r.file, 'utf8'), id: r.id, v: r.v, label: r.label });
+		const loaded = await page.evaluate((x) => window.__render.load(x), { code, id: r.id, v: r.v, label: r.label });
 		console.log(`  ${loaded.card.label} (${loaded.hash.slice(0, 12)}…)`);
 		const stage = loaded.params.find((p) => p.id === 'stage' && Array.isArray(p.names));
 		const shots = o.shots ? JSON.parse(readFileSync(o.shots, 'utf8')) : stage ? stage.names.map((n, i) => ({ name: `${String(i).padStart(2, '0')}-${n.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, values: { stage: stage.min + i } })) : [{ name: 'default' }];
@@ -110,7 +127,8 @@ try {
 			const box = await canvas.boundingBox();
 			await page.screenshot({ path: png, clip: box ?? undefined, timeout: 120_000 });
 			results.push({ recipe: name, label: loaded.card.label, shot: s.name, png, ...got });
-			console.log(`  ${s.name}: ${got.triangles.toLocaleString('en')} triangles, ${got.ms} ms${got.note ? ` — ${got.note}` : ''}`);
+			const planted = got.planted?.planted ? ` · ${got.planted.planted} planted (${got.planted.kinds} kinds${got.planted.missing ? `, ${got.planted.missing} missing` : ''})` : '';
+			console.log(`  ${s.name}: ${got.triangles.toLocaleString('en')} triangles, ${got.ms} ms${planted}${got.note ? ` — ${got.note}` : ''}`);
 		}
 		await page.close();
 	}

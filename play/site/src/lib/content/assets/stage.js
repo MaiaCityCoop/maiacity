@@ -38,6 +38,26 @@ import { ShaderPass, createPost } from '$lib/content/render/post.js';
 import { daySky } from './sky.js';
 import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment, untonemap } from './kit.js';
 
+/**
+ * How strong the lights' own highlights are on the stage (Samuel 2026-11-05: the sun's glare on every asset 30% down):
+ * the direct specular of the sun, the fill and any lamp (and a clearcoat's and a sheen's) scaled by it; their diffuse
+ * light and the sky's reflections as they were. Only what this stage draws: each of its materials is given the define
+ * the chunk below reads (`_gloss`), and nothing else in the app has it.
+ */
+export const GLOSS = 0.7;
+if (!THREE.ShaderChunk.lights_fragment_end.includes('VIEWER_GLOSS'))
+	THREE.ShaderChunk.lights_fragment_end += `
+#ifdef VIEWER_GLOSS
+	reflectedLight.directSpecular *= VIEWER_GLOSS;
+	#ifdef USE_CLEARCOAT
+		clearcoatSpecularDirect *= VIEWER_GLOSS;
+	#endif
+	#ifdef USE_SHEEN
+		sheenSpecularDirect *= VIEWER_GLOSS;
+	#endif
+#endif
+`;
+
 export const MODES = /** @type {const} */ (['explode', 'cut', 'xray', 'labels', 'slow']);
 
 /** the layer a part shown on its own puts the rest of its asset on: one no camera of the stage draws */
@@ -186,7 +206,10 @@ export class Stage {
 		}
 	}
 	_fitAO() {
-		if (this.ao) this.ao.updateGtaoMaterial({ radius: 0.35 * this.s, distanceExponent: 1.6, thickness: 1.2 * this.s, scale: 1, samples: 16 });
+		// the occlusion's reach by the asset's size, up to a room's (an asset of 10 m and more): a dome's 12 m reach would
+		// darken whole halls and miss where a chair meets the floor
+		const a = Math.min(this.s, 4);
+		if (this.ao) this.ao.updateGtaoMaterial({ radius: 0.35 * a, distanceExponent: 1.6, thickness: 1.2 * a, scale: 1, samples: 16 });
 	}
 
 	/** the size the stage was set for: AirSup's display units over the asset's (its floor, shadows, hatch scale by it) */
@@ -260,13 +283,24 @@ export class Stage {
 		}
 		const sc = key.shadow.camera;
 		const wide = this.sky ? 1.4 : 1;
+		// a big asset (a dome, a hall) gets the finer shadow map where the device can afford it: its shadows are spread
+		// over all of it, and a chair's must still fall at its feet
+		const fine = !this.low && s > 4 ? 4096 : this.low ? 1024 : 2048;
+		if (key.shadow.mapSize.x !== fine) {
+			key.shadow.mapSize.setScalar(fine);
+			key.shadow.map?.dispose();
+			key.shadow.map = null;
+		}
 		sc.left = sc.bottom = -reach * wide;
 		sc.right = sc.top = reach * wide;
 		sc.near = 0.5 * s;
 		sc.far = 20 * s;
 		sc.updateProjectionMatrix();
 		key.shadow.bias = -0.0004;
-		key.shadow.normalBias = 0.02 * s;
+		// pushed off a surface by its own measure, but never by more than two of the shadow's texels on a big asset:
+		// 0.02 × its size lifted a room's furniture off its shadows in an 80 m dome
+		const texel = (2 * reach * wide) / fine;
+		key.shadow.normalBias = s > 4 ? Math.max(0.08, 2 * texel) : 0.02 * s;
 		this.rim.position.copy(centre).add(this.sky ? new THREE.Vector3(3.5, 3, 4.5).multiplyScalar(s) : new THREE.Vector3(4, 3, -5).multiplyScalar(s));
 		CUT.hatch.value = 0.0015 * this.asset.size;
 		this._fitAO();
@@ -647,6 +681,7 @@ export class Stage {
 	 */
 	compile() {
 		if (!this.composer) this._post();
+		this._gloss();
 		const r = this.renderer;
 		const was = { tm: r.toneMapping, clip: r.localClippingEnabled, rt: r.getRenderTarget() };
 		r.toneMapping = THREE.NeutralToneMapping;
@@ -665,8 +700,20 @@ export class Stage {
 	}
 
 	/** draw a frame (the page's renderer, our post stack) */
+	/** every material on the stage given its gloss (`GLOSS`): checked every few frames, as what is drawn comes and goes */
+	_gloss() {
+		this.scene.traverse((o) => {
+			for (const m of Array.isArray(o.material) ? o.material : o.material ? [o.material] : []) {
+				if (m.isShaderMaterial || m.defines?.VIEWER_GLOSS !== undefined) continue;
+				m.defines = { ...(m.defines ?? {}), VIEWER_GLOSS: GLOSS.toFixed(2) };
+				m.needsUpdate = true;
+			}
+		});
+	}
+
 	render() {
 		if (!this.composer) this._post();
+		if ((this._glossed = (this._glossed ?? 0) + 1) % 12 === 1) this._gloss();
 		const r = this.renderer;
 		const was = { tm: r.toneMapping, clip: r.localClippingEnabled };
 		r.toneMapping = THREE.NeutralToneMapping;
