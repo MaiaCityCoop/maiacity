@@ -266,7 +266,10 @@ export function createSky(renderer, scene, options = {}) {
 		// snapped to a grid, so the shadows do not shimmer as you walk; and drawn again only
 		// when that changes or the sun has moved, not every frame
 		const gx = Math.round(x / shadowGrid) * shadowGrid, gz = Math.round(z / shadowGrid) * shadowGrid;
-		if (gx !== sun.target.position.x || gz !== sun.target.position.z || !lightDir.equals(lastDir)) {
+		// the sun, stepping a tenth of a degree a second with the clock, moves a shadow by less than a texel: drawn again
+		// once it has moved a quarter of a degree (a film's frame, set by its own clock, every time it moves)
+		const turned = dev.__worldTime !== undefined ? !lightDir.equals(lastDir) : lightDir.angleTo(lastDir) > 0.0044;
+		if (gx !== sun.target.position.x || gz !== sun.target.position.z || turned) {
 			renderer.shadowMap.needsUpdate = true;
 			lastDir.copy(lightDir);
 		}

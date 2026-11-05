@@ -115,8 +115,12 @@ export function shownIn(o) {
 
 /**
  * The page's drawing of what the builds it shows plant, in `scene`: `show(root)` draws the root's plantings (and puts
- * away those of the build shown before), `update()` before every frame, `clear()`, `dispose()`.
- * @param {{ renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, boxes?: number }} o
+ * away those of the build shown before), `update()` before every frame, `clear()`, `dispose()`. `levels` and `details`:
+ * the sizes on screen a plant (a recipe that takes a detail) is drawn to and the details it is built at for each, finest
+ * first (GUEST_LEVELS and render/index.js DETAILS when not given; a thing, built whole, keeps GUEST_LEVELS); `shadows`: told when what
+ * casts a shadow changed, for a world that draws its shadows again only every so often (render/index.js `onShadows`;
+ * without it, the shadows are drawn again with the next frame).
+ * @param {{ renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, boxes?: number, levels?: number[], details?: number[], shadows?: () => void }} o
  */
 export function createPlantings(o) {
 	/** @type {ReturnType<typeof createAssets> | null} made the first time a build plants something */
@@ -138,7 +142,9 @@ export function createPlantings(o) {
 		const boxes = o.boxes ?? Math.max(1, Math.min(4, (globalThis.navigator?.hardwareConcurrency || 4) - 1));
 		// a build's guests stand close and many (a dome's forest: 2,500 plants within 40 m), so each steps to its
 		// coarser shape and its picture sooner than an asset on its own does (render/lod.js LEVELS: 1.2, 0.28, 0.11)
-		assets = createAssets({ renderer: o.renderer, camera: o.camera, boxes, levels: o.levels ?? GUEST_LEVELS });
+		// (`levels` a world's own for its plants, built at its `details`; a thing, built whole, then at the guests' own,
+		// turning into its picture as far off as with the plants' levels: render/index.js `whole`)
+		assets = createAssets({ renderer: o.renderer, camera: o.camera, boxes, levels: o.levels ?? GUEST_LEVELS, whole: o.levels ? GUEST_LEVELS : undefined, details: o.details, onShadows: o.shadows });
 		o.scene.add(assets.group);
 		return assets;
 	};
