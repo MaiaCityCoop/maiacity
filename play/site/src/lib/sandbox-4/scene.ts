@@ -11,11 +11,21 @@
  *     key segments (36 cm, 7 per edge) are fed along from the open node pocket (corners cut back 30 cm);
  *   - a cast cap closes each pocket; a ring cable through the keys of the lowest ring joints clamps the row.
  * The numbers are rough hand calculations, not engineering.
+ *
+ * Once Sandbox 4 pins an asset in its slot `element` (play's database, changed only by a proposal on the Proposals
+ * page), it draws that instead of its own cassette: the Dome shell element of the asset library at the pinned version,
+ * any of its variants (Triangle, Hexagon) and its values (Infill, Depth), switched here by whoever is looking and never
+ * saved, built in the asset box, put back on its dome and played by its own controls (build, then explode).
  */
 import * as THREE from 'three';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { createControls, createRenderer, disposeObject, disposeRenderer, fitTo, lowPower } from '$lib/content/render/core.js';
+import { INDEX, buildOf, loadRecipes, parseBuild, recipeInfo } from '$lib/content/assets/catalog.js';
+import { loadAsset } from '$lib/content/assets/load.js';
+import { poserOf } from '$lib/content/assets/controls.js';
+import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+import { configAt, loadConfig } from '$lib/content/game/code/index.js';
 
 /* ---------------- real measures, metres ---------------- */
 export const R = 50; // dome radius
@@ -37,8 +47,25 @@ export const STEPS = [
 	{ t: T.seat, name: 'Seat', title: 'Seat the cassette', text: "It comes in from outside. Its edge faces lie on planes through the dome's centre, so it wedges in like a keystone and cannot fall inward." },
 	{ t: T.keys, name: 'Key', title: 'Feed the keys', text: 'Basalt key segments drop into the open node pocket and slide along the bowtie channel the two neighbours form. Once keyed, the joint cannot open or pull out.' },
 	{ t: T.caps, name: 'Cap', title: 'Cap the nodes', text: 'A cast plug closes each pocket where six cassettes meet and covers the seams at the corner.' },
-	{ t: T.cable, name: 'Clamp', title: 'Clamp the ring', text: 'On the 100 m dome, ring cables run through the keys of the lower rows and are tensioned, pressing every joint shut. Release them and the dome comes apart again.' }
+	{ t: T.cable, name: 'Clamp', title: 'Clamp the ring', text: 'On the 100 m dome, ring cables run through the keys of every row below about 31 m, where the half sphere pulls apart round its rings, and are tensioned, pressing every joint shut. Release them and the dome comes apart again.' }
 ] as const;
+/** the steps when the sandbox draws its pinned element from the asset library */
+export const ASSET_STEPS = [
+	{ t: 0, name: 'Dome', title: 'The grand dome', text: '100 m across. The view closes in on one element of its shell, drawn from the asset library as Sandbox 4 pins it.' },
+	{ t: T.seat, name: 'Seat', title: 'Seat the element', text: "It comes in from outside along its ray to the dome's centre and wedges in like a keystone between its neighbours." },
+	{ t: T.keys, name: 'Key', title: 'Feed the keys', text: 'Basalt key segments drop into the open node pockets and slide along the bowtie channels of its seams. Once keyed, a seam cannot open or pull out.' },
+	{ t: T.caps, name: 'Cap', title: 'Cap the nodes', text: 'A cast plug closes each node pocket and covers the seams at the corner.' },
+	{ t: T.cable, name: 'Apart', title: 'Every seam, apart', text: "The elements drawn apart along their rays, the keys left where they lock the seams; then the view from inside the dome, where a deep hexagon's second layer shows." }
+] as const;
+export type Step = { t: number; name: string; title: string; text: string };
+export type Kind = { hash: string; name: string; on: boolean };
+export type Param = { id: string; label: string; type: string; names?: string[]; min?: number; max?: number; step?: number; value: number | string };
+/** what the page shows beside the scene: which steps, and, once the pinned element is drawn, its kinds and values */
+export type JointInfo = {
+	mode: 'legacy' | 'asset'; steps: readonly Step[]; kinds: Kind[]; params: Param[]; values: Record<string, number | string>;
+	variant: string | null; asset: { href: string; label: string; v: number } | null; what: string; specs: [string, string][];
+	loading: boolean; error: string;
+};
 
 /** the cassette's mass and the dome's counts, from the measures above */
 export const FACTS = (() => {
@@ -203,10 +230,12 @@ export type JointState = { t: number; step: number; playing: boolean; auto: bool
 export type Joint = {
 	toggle(): void; restart(): void; goto(step: number): void; scrub(t: number): void;
 	setXray(on: boolean): void; follow(): void; dispose(): void;
+	/** draw another variant of the pinned version (its recipe's hash), or the element built with another value */
+	setKind(hash: string): void; setValue(id: string, v: number): void;
 };
 
 /** Mounts the scene into `el` (its canvas and its labels), playing from the start unless motion is to be reduced. */
-export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void): Joint {
+export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void, onInfo: (i: JointInfo) => void = () => {}): Joint {
 	const low = lowPower();
 	const renderer = createRenderer({ container: el, alpha: true, toneMapping: 'aces', exposure: 0.88, shadows: 'soft', clipping: true, maxPixelRatio: low ? 1.5 : 2 });
 	renderer.setClearColor(0x000000, 0);
@@ -231,6 +260,9 @@ export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void): Jo
 	Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 5, far: 160 });
 	sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.03;
 	scene.add(sun, sun.target);
+	// the sandbox's own cassette and its joints, drawn until its pinned element is in
+	const patch = new THREE.Group();
+	scene.add(patch);
 
 	/* materials */
 	const ds = THREE.DoubleSide;
@@ -256,7 +288,7 @@ export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void): Jo
 		mesh.castShadow = mesh.receiveShadow = true;
 		mesh.add(new THREE.Mesh(g.glass, matGlass));
 		mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(g.concrete, 25), f.fresh ? lineNew : lineMat));
-		scene.add(mesh);
+		patch.add(mesh);
 		if (f.fresh) { newMesh = mesh; newFrame = f; }
 	});
 	const newOut = newFrame.cen.clone().normalize(); // it arrives along the ray from the dome's centre
@@ -283,7 +315,7 @@ export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void): Jo
 		const own = list.find((x) => frames[x.ci].fresh) ?? list[0];
 		const f = frames[own.ci], ed = f.edges[own.ei];
 		const segs = keySegments(f, ed);
-		if (!f.fresh) { segs.forEach((s) => scene.add(new THREE.Mesh(s.geo, matKey))); continue; }
+		if (!f.fresh) { segs.forEach((s) => patch.add(new THREE.Mesh(s.geo, matKey))); continue; }
 		// the bottom joint is fed from its left node; the two sides from the open top node, the next row not yet there
 		const ends = [ed.ia, ed.ib], entry = ends.includes('1:-1') && ends.includes('1:0') ? '1:-1' : '2:0';
 		const atStart = ed.ia === entry;
@@ -291,7 +323,7 @@ export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void): Jo
 		segs.sort((p, q) => Math.abs(q.uc - uEntry) - Math.abs(p.uc - uEntry));
 		const delay = edgeDelay; edgeDelay += 0.2;
 		segs.forEach((s, j) => {
-			const mesh = new THREE.Mesh(s.geo, matKey); mesh.castShadow = true; scene.add(mesh);
+			const mesh = new THREE.Mesh(s.geo, matKey); mesh.castShadow = true; patch.add(mesh);
 			animKeys.push({ mesh, uFinal: s.uc, uEntry, e: ed.e.clone(), nrm, t0: T.keys + 0.5 + delay + j * 0.45 });
 		});
 	}
@@ -311,7 +343,7 @@ export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void): Jo
 		convexPrism(gb, uniq, 0, D, G);
 		convexPrism(gb, uniq.map((p) => N.clone().add(p.clone().sub(N).multiplyScalar(1.28))), -0.035, 0, G);
 		const mesh = new THREE.Mesh(gb.build(), matPlug);
-		mesh.castShadow = mesh.receiveShadow = true; scene.add(mesh);
+		mesh.castShadow = mesh.receiveShadow = true; patch.add(mesh);
 		return { mesh, nrm, t0: T.caps + 0.5 + idx * 0.35 };
 	});
 
@@ -322,7 +354,7 @@ export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void): Jo
 	const cableGeo = new THREE.TubeGeometry(cablePath, 320, 0.03, 10, false);
 	const cableCount = cableGeo.index!.count;
 	const cable = new THREE.Mesh(cableGeo, matCable);
-	scene.add(cable);
+	patch.add(cable);
 
 	/* the ring beam, the ground, the floor, someone for scale, the crane's rope */
 	const beam = new THREE.Mesh(arcBox(R - 0.85, R + 0.25, -0.9, 0, -3.8 * dA, 3.8 * dA, 48), matBeam);
@@ -338,7 +370,7 @@ export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void): Jo
 	person.add(body, head); person.position.set(53.4, -0.3, 4.4); scene.add(person);
 	const ropeGeo = new THREE.BufferGeometry().setFromPoints([V3(0, 0, 0), V3(0, 1, 0)]);
 	const ropeMat = new THREE.LineBasicMaterial({ color: COL.rope, transparent: true });
-	const rope = new THREE.Line(ropeGeo, ropeMat); scene.add(rope);
+	const rope = new THREE.Line(ropeGeo, ropeMat); patch.add(rope);
 	const ropeTop = nodeOf('2:0');
 
 	/* the whole dome, for the overview */
@@ -351,15 +383,15 @@ export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void): Jo
 	const PATCH = V3(49.8, 3, 0);
 
 	/* labels, each shown in its window of time */
-	const shown: { o: CSS2DObject; a: number; b: number }[] = [];
-	const label = (text: string, pos: V, a: number, b: number, hot = false, parent: THREE.Object3D = scene) => {
+	const shown: { o: CSS2DObject; a: number; b: number; legacy: boolean }[] = [];
+	const label = (text: string, pos: V, a: number, b: number, hot = false, parent: THREE.Object3D = scene, legacy = true) => {
 		const div = document.createElement('div'); div.className = 'cj-label' + (hot ? ' hot' : '');
 		const span = document.createElement('span'); span.textContent = text; div.appendChild(span);
 		const o = new CSS2DObject(div); o.position.copy(pos); parent.add(o);
-		shown.push({ o, a, b });
+		shown.push({ o, a, b, legacy });
 	};
 	const out = (id: string, d: number) => { const p = nodeOf(id); return p.clone().addScaledVector(p.clone().normalize(), d); };
-	label('Ø 100 m · R 50 m', V3(0, 53.5, 0), 0, 3.4);
+	label('Ø 100 m · R 50 m', V3(0, 53.5, 0), 0, 3.4, false, scene, false);
 	label('The lowest two rows', V3(50.6, 7.6, 0), 0.4, 3.8, true);
 	label(`New cassette · 3.4 m · ≈ ${FACTS.mass} t`, newFrame.cen.clone().addScaledVector(newFrame.n, 0.5), T.seat + 0.3, T.keys, true, newMesh);
 	label('Ring beam', V3(50.4, -0.45, -3.6), T.seat + 0.6, T.keys);
@@ -372,7 +404,7 @@ export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void): Jo
 
 	/* the state at time t */
 	let xrayManual = false;
-	const apply = (t: number) => {
+	const applyLegacy = (t: number) => {
 		const seat = easeOutCubic(clamp01((t - (T.seat + 0.5)) / 3.0));
 		newMesh.position.copy(newOut).multiplyScalar(3.2 * (1 - seat));
 		const top = ropeTop.clone().add(newMesh.position), rp = ropeGeo.attributes.position as THREE.BufferAttribute;
@@ -408,6 +440,146 @@ export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void): Jo
 		for (const l of shown) l.o.visible = t >= l.a && t <= l.b;
 	};
 
+	/* ---------------- the element from the asset library, as Sandbox 4 pins it ---------------- */
+	let mode: 'legacy' | 'asset' = 'legacy', disposed = false, turn = 0, current = '';
+	const assetRoot = new THREE.Group();
+	scene.add(assetRoot);
+	let assetObj: THREE.Object3D | null = null;
+	let poser: any = null;
+	const focus = PATCH.clone();
+	let reach = 12; // the fragment's largest size (m): the camera keeps its distance by it
+	let see: { m: any; o: number; tr: boolean; on: boolean }[] = []; // what x-ray looks through
+	const info: JointInfo = { mode: 'legacy', steps: STEPS, kinds: [], params: [], values: {}, variant: null, asset: null, what: '', specs: [], loading: false, error: '' };
+	const say = () => onInfo({ ...info, kinds: info.kinds.map((k) => ({ ...k })), params: [...info.params], values: { ...info.values }, specs: [...info.specs] });
+	const named = (() => {
+		const div = document.createElement('div'); div.className = 'cj-label hot';
+		const span = document.createElement('span'); div.appendChild(span);
+		const o = new CSS2DObject(div); o.visible = false; scene.add(o);
+		return { o, span };
+	})();
+
+	/** the pinned element built as it is chosen now, in the box (or from this device's cache), put back on its dome */
+	const show = async () => {
+		const mine = ++turn;
+		info.loading = true; info.error = ''; say();
+		try {
+			const got: any = await loadAsset(buildOf(current, info.values));
+			if (disposed || mine !== turn) { disposeObject(got.obj); return; }
+			if (assetObj) { assetRoot.remove(assetObj); disposeObject(assetObj); }
+			const obj: THREE.Object3D = got.obj;
+			// back on its dome: undo the turn and shift of its frame group
+			const frame = obj.getObjectByName('dome-frame') ?? obj.children[0];
+			if (frame) { frame.updateMatrix(); frame.matrix.clone().invert().decompose(obj.position, obj.quaternion, obj.scale); }
+			obj.traverse((o: any) => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
+			assetRoot.add(obj);
+			obj.updateMatrixWorld(true);
+			assetObj = obj;
+			poser = poserOf(obj);
+			// x-ray looks through everything but the basalt keys and the glass
+			see = [];
+			const seen = new Set<any>();
+			obj.traverse((o: any) => {
+				if (!o.isMesh) return;
+				for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+					if (!m || seen.has(m)) continue;
+					seen.add(m);
+					const dark = m.color && m.color.r + m.color.g + m.color.b < 0.45;
+					if (m.name === 'basalt' || m.name === 'glass' || (!m.name && (dark || (m.transparent && m.opacity < 0.6)))) continue;
+					see.push({ m, o: m.opacity ?? 1, tr: !!m.transparent, on: false });
+				}
+			});
+			// where it stands and how big it is: the camera's path is made round it
+			const own = obj.getObjectByName('element-cast') ?? obj.getObjectByName('element') ?? obj;
+			new THREE.Box3().setFromObject(own).getCenter(focus);
+			const size = new THREE.Box3().setFromObject(obj).getSize(new THREE.Vector3());
+			reach = Math.max(6, size.x, size.y, size.z);
+			named.o.position.copy(focus).addScaledVector(focus.clone().normalize(), 1.4);
+			const rec: any = recipeInfo(current);
+			const part = got.card?.catalog?.parts?.find((p: any) => p.id === 'element');
+			named.span.textContent = part?.label ?? 'This element';
+			Object.assign(info, {
+				mode: 'asset', steps: ASSET_STEPS, variant: rec?.variant ?? null, loading: false,
+				what: part?.what ?? got.card?.note ?? '',
+				specs: (part?.specs ?? []).map((x: any) => [String(x[0]), String(x[1])]),
+				kinds: info.kinds.map((k) => ({ ...k, on: k.hash === current }))
+			});
+			mode = 'asset';
+			patch.visible = false;
+			for (const l of shown) if (l.legacy) l.o.visible = false;
+			say();
+		} catch (e: any) {
+			if (mine !== turn) return;
+			info.loading = false;
+			info.error = mode === 'asset' ? `It could not be built: ${e?.message ?? e}` : '';
+			console.warn('Sandbox 4: the pinned element could not be drawn', e);
+			say();
+		}
+	};
+
+	// the pin, read once: no pin (or no catalog) keeps the sandbox's own cassette
+	(async () => {
+		try {
+			await Promise.all([loadRecipes(), loadConfig(SANDBOX.four)]);
+			const pins: any = configAt(`configs/${SANDBOX.four}/assets`);
+			const pinned = pins && typeof pins === 'object' ? pins.element : undefined;
+			if (typeof pinned !== 'string' || disposed) return;
+			const { hash, params } = parseBuild(pinned) as { hash: string; params?: Record<string, string> };
+			const rec: any = recipeInfo(hash);
+			if (!rec) return;
+			const declared: Param[] = (rec.params ?? []).map((x: any) => ({ ...x }));
+			info.params = declared;
+			info.values = Object.fromEntries(declared.map((x) => [x.id, x.value]));
+			for (const [k, v] of Object.entries(params ?? {})) info.values[k] = Number.isNaN(Number(v)) ? v : Number(v);
+			// the sandbox shows the element among its neighbours
+			if (declared.some((x) => x.id === 'shell')) info.values.shell = 1;
+			info.kinds = Object.entries(INDEX.recipes as Record<string, any>)
+				.filter(([, r]) => r.asset === rec.asset && r.v === rec.v && !r.proposed)
+				.map(([h, r]) => ({ hash: h, name: String(r.label ?? r.variant ?? 'Element').split(': ').pop() as string, on: h === hash }))
+				.sort((a, b) => a.name.localeCompare(b.name));
+			info.asset = { href: `/${rec.group}/#${rec.asset}`, label: String(rec.label ?? '').split(': ')[0], v: rec.v };
+			current = hash;
+			await show();
+		} catch (e) {
+			console.warn('Sandbox 4: no pinned element, its own cassette stays', e);
+		}
+	})();
+
+	/** the steps played by the element's own controls: seat, key and cap (build 0 … 1), then apart (explode) */
+	const applyAsset = (t: number) => {
+		const b = t < T.keys ? 0.35 * smooth(T.seat + 0.4, T.seat + 3.6, t)
+			: t < T.caps ? 0.35 + 0.45 * smooth(T.keys + 0.4, T.caps - 0.6, t)
+			: 0.8 + 0.2 * smooth(T.caps + 0.4, T.cable - 0.6, t);
+		poser?.setMany({ build: b, explode: smooth(T.cable + 0.4, T.cable + 2.4, t) });
+		const xr = Math.max(xrayManual ? 1 : 0, win(t, T.keys + 0.3, T.caps - 0.1, 0.5));
+		for (const r of see) {
+			const on = r.tr || xr > 0.01;
+			if (on !== r.on) { r.on = on; r.m.transparent = on; r.m.needsUpdate = true; }
+			r.m.opacity = r.o * (1 - 0.72 * xr);
+			r.m.depthWrite = xr < 0.02;
+		}
+		for (const l of shown) l.o.visible = !l.legacy && t >= l.a && t <= l.b;
+		named.o.visible = t >= T.seat + 0.3 && t <= T.keys;
+	};
+
+	/** the camera's path round the element: in, close on its seams and pockets, out, and at last from inside the dome */
+	const camAsset = (t: number) => {
+		const n = focus.clone().normalize(), side = n.clone().cross(V3(0, 1, 0)).normalize(), s = reach;
+		const P = (a: number, b: number, c: number) => focus.clone().addScaledVector(n, a * s).addScaledVector(side, b * s).add(V3(0, c * s, 0));
+		const far = V3(128, 62, -96), mid = V3(0, 14, 0);
+		const K: [number, V, V][] = [
+			[0, far, mid], [1.6, far, mid],
+			[4.0, P(1.5, -0.9, 0.35), focus], [5.0, P(1.0, -0.75, 0.22), focus], [8.0, P(0.95, -0.65, 0.2), focus],
+			[9.2, P(0.62, -0.42, 0.14), focus], [14.3, P(0.6, -0.36, 0.12), focus],
+			[15.6, P(0.7, 0.45, 0.18), focus], [18.0, P(0.68, 0.42, 0.16), focus],
+			[19.6, P(1.3, 0.8, 0.35), focus], [21.0, P(1.2, 0.6, 0.3), focus], [23.5, P(-0.7, 0.45, 0.12), focus]
+		];
+		let i = 0;
+		while (i < K.length - 2 && t > K[i + 1][0]) i++;
+		const [t0, p0, q0] = K[i], [t1, p1, q1] = K[i + 1];
+		const k = smooth(t0, t1, t);
+		return { pos: p0.clone().lerp(p1, k), tgt: q0.clone().lerp(q1, k) };
+	};
+
 	/* size: about 54° across, so a tall screen sees the same patch as a wide one */
 	const fitter = fitTo(renderer, el, {
 		camera,
@@ -428,10 +600,10 @@ export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void): Jo
 	const loop = (now: number) => {
 		const dt = Math.min(0.05, (now - last) / 1000); last = now;
 		if (playing) { t += dt; if (t >= T.end) { t = T.end; playing = false; } }
-		apply(t);
-		if (auto) { const c = camAt(t); camera.position.copy(c.pos); controls.target.copy(c.tgt); }
+		(mode === 'asset' ? applyAsset : applyLegacy)(t);
+		if (auto) { const c = mode === 'asset' ? camAsset(t) : camAt(t); camera.position.copy(c.pos); controls.target.copy(c.tgt); }
 		controls.update();
-		const far = smooth(24, 75, camera.position.distanceTo(PATCH));
+		const far = smooth(24, 75, camera.position.distanceTo(mode === 'asset' ? focus : PATCH));
 		domeLineMat.opacity = 0.4 * far; skinMat.opacity = 0.08 * far;
 		domeLines.visible = skin.visible = far > 0.01;
 		renderer.render(scene, camera);
@@ -440,6 +612,7 @@ export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void): Jo
 		raf = requestAnimationFrame(loop);
 	};
 	raf = requestAnimationFrame(loop);
+	say();
 
 	return {
 		toggle() { if (!playing && t >= T.end) { t = 0; auto = true; } playing = !playing; tell(); },
@@ -448,7 +621,18 @@ export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void): Jo
 		scrub(at) { t = Math.min(T.end, Math.max(0, at)); playing = false; tell(); },
 		setXray(on) { xrayManual = on; },
 		follow() { auto = true; tell(); },
+		setKind(hash) {
+			if (hash === current || !info.kinds.some((k) => k.hash === hash)) return;
+			current = hash;
+			void show();
+		},
+		setValue(id, v) {
+			if (!info.params.some((x) => x.id === id) || info.values[id] === v) return;
+			info.values[id] = v;
+			void show();
+		},
 		dispose() {
+			disposed = true;
 			cancelAnimationFrame(raf);
 			controls.removeEventListener('start', onStart);
 			controls.dispose();

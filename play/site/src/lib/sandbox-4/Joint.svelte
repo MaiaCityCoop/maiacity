@@ -3,16 +3,22 @@
 	steps down the left with the part's facts; in the middle the stage, its step and its clock above a 3D view as tall as
 	the page; down the right the joint in section and its numbers. The scene and its clock are ./scene.ts; this page only
 	shows its state and hands it the buttons. In the light brand CI (play/site/src/app.css), scoped to its root.
+	Once Sandbox 4 pins the Dome shell element of the asset library, the stage head offers its kinds (Triangle, Hexagon)
+	and its values (Infill, a hexagon's Depth) to whoever is looking: a choice of this page, never saved.
 -->
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
-	import { mountJoint, STEPS, T, FACTS, type Joint } from './scene';
+	import { mountJoint, STEPS, T, FACTS, type Joint, type JointInfo } from './scene';
 	import './style.css';
 
 	let viewport: HTMLDivElement | undefined = $state();
 	let joint: Joint | undefined;
 	let t = $state(0), step = $state(0), playing = $state(false), auto = $state(true), xray = $state(false);
 	let failed = $state('');
+	let info: JointInfo = $state({ mode: 'legacy', steps: STEPS, kinds: [], params: [], values: {}, variant: null, asset: null, what: '', specs: [], loading: false, error: '' });
+	const steps = $derived(info.steps);
+	const infill = $derived(info.params.find((p) => p.id === 'infill' && p.names?.length));
+	const depth = $derived(info.variant === 'hexagon' ? info.params.find((p) => p.id === 'depth' && p.type === 'number') : undefined);
 
 	onMount(() => {
 		if (!viewport) return;
@@ -22,7 +28,7 @@
 				if (s.step !== step) step = s.step;
 				if (s.playing !== playing) playing = s.playing;
 				if (s.auto !== auto) auto = s.auto;
-			});
+			}, (i) => (info = i));
 		} catch (e) {
 			failed = 'This device could not start the 3D view (WebGL is off or unavailable).';
 			console.error(e);
@@ -39,30 +45,61 @@
 			<p class="eyebrow">Sandbox 4 · <span>The cassette joint</span></p>
 			<h3 class="nav-group">Steps</h3>
 			<nav class="cj-steps" aria-label="Steps">
-				{#each STEPS as s, i (s.name)}
+				{#each steps as s, i (s.name)}
 					<button type="button" class:active={i === step} aria-current={i === step ? 'step' : undefined} onclick={() => joint?.goto(i)}>
 						<b>{i + 1}</b><span>{s.name}</span><small>{s.title}</small>
 					</button>
 				{/each}
 			</nav>
 			<h3 class="nav-group">The part</h3>
-			<dl class="cj-facts">
-				<dt>Dome</dt><dd>Ø 100 m, R 50 m</dd>
-				<dt>Grid</dt><dd>Geodesic, frequency ≈ 18</dd>
-				<dt>Cassette</dt><dd>3.4 m triangle, cast</dd>
-				<dt>Mass</dt><dd>≈ {FACTS.mass} t with its glass</dd>
-			</dl>
+			{#if info.mode === 'asset'}
+				<dl class="cj-facts">
+					<dt>Dome</dt><dd>Ø 100 m, R 50 m</dd>
+					{#each info.specs as [k, v] (k)}<dt>{k}</dt><dd>{v}</dd>{/each}
+				</dl>
+				{#if info.asset}<p class="cj-from">From the asset library: <a href={info.asset.href}>{info.asset.label} v{info.asset.v}</a></p>{/if}
+			{:else}
+				<dl class="cj-facts">
+					<dt>Dome</dt><dd>Ø 100 m, R 50 m</dd>
+					<dt>Grid</dt><dd>Geodesic, frequency ≈ 18</dd>
+					<dt>Cassette</dt><dd>3.4 m triangle, cast</dd>
+					<dt>Mass</dt><dd>≈ {FACTS.mass} t with its glass</dd>
+				</dl>
+			{/if}
 		</aside>
 
 		<main>
 			<div class="stage-head">
-				<h2>{STEPS[step].title}</h2>
+				<h2>{steps[step].title}</h2>
 				<div class="chips">
 					<button type="button" class="primary" onclick={() => joint?.toggle()}>{playLabel}</button>
 					<button type="button" onclick={() => joint?.restart()}>Restart</button>
 					<label class="cj-toggle"><input type="checkbox" bind:checked={xray} onchange={() => joint?.setXray(xray)} /> X-ray</label>
 					<span class="cj-clock">{t.toFixed(1).padStart(4, '0')} s</span>
 				</div>
+				{#if info.mode === 'asset'}
+					<div class="chips cj-kinds">
+						{#if info.kinds.length > 1}
+							<span class="chip-label">Kind</span>
+							{#each info.kinds as k (k.hash)}
+								<button type="button" class:on={k.on} aria-pressed={k.on} disabled={info.loading} onclick={() => joint?.setKind(k.hash)}>{k.name}</button>
+							{/each}
+						{/if}
+						{#if infill}
+							<span class="chip-label">{infill.label}</span>
+							{#each infill.names ?? [] as n, i (n)}
+								<button type="button" class:on={Number(info.values.infill) === (infill.min ?? 0) + i} aria-pressed={Number(info.values.infill) === (infill.min ?? 0) + i} disabled={info.loading} onclick={() => joint?.setValue('infill', (infill.min ?? 0) + i)}>{n}</button>
+							{/each}
+						{/if}
+						{#if depth}
+							<label class="cj-depth">
+								<span class="chip-label">Depth</span>
+								<input type="range" min={depth.min ?? 0} max={depth.max ?? 1.2} step={depth.step ?? 0.1} value={Number(info.values.depth ?? depth.value)} disabled={info.loading} onchange={(e) => joint?.setValue('depth', parseFloat(e.currentTarget.value))} />
+								<span class="cj-clock">{Number(info.values.depth ?? depth.value).toFixed(1)} m</span>
+							</label>
+						{/if}
+					</div>
+				{/if}
 				<input
 					class="cj-timeline"
 					type="range"
@@ -76,9 +113,11 @@
 			</div>
 			<div class="cj-viewport" bind:this={viewport}>
 				{#if failed}<p class="cj-failed">{failed}</p>{/if}
+				{#if info.loading}<p class="cj-building">Building it in the asset box…</p>{/if}
+				{#if info.error}<p class="cj-building cj-error">{info.error}</p>{/if}
 				<div class="cj-caption" aria-live="polite">
-					<p class="cj-step">Step {step + 1} of {STEPS.length}</p>
-					<p>{STEPS[step].text}</p>
+					<p class="cj-step">Step {step + 1} of {steps.length}</p>
+					<p>{steps[step].text}</p>
 				</div>
 				{#if !auto}<button type="button" class="cj-follow" onclick={() => joint?.follow()}>Resume camera path</button>{/if}
 			</div>
@@ -121,13 +160,19 @@
 				</svg>
 			</figure>
 
+			{#if info.mode === 'asset' && info.what}
+				<div class="cj-this">
+					<h3 class="nav-group">This element</h3>
+					<p>{info.what}</p>
+				</div>
+			{/if}
 			<dl class="cj-specs">
 				<dt>Rib</dt><dd>Each cassette carries half a rib, 16 × 45 cm, along every edge. Two neighbours make one 32 cm strut.</dd>
 				<dt>Channel</dt><dd>6 cm wide at the seam, 12 cm inside, 5 cm deep in each half-rib.</dd>
 				<dt>Keys</dt><dd>Basalt, 36 cm segments, 7 per edge, fed in at the node.</dd>
 				<dt>Node</dt><dd>Corners cut back 30 cm. A cast cap closes the pocket after keying.</dd>
-				<dt>Cables</dt><dd>Lower rows of the 100 m dome only, tensioned once a row is keyed.</dd>
-				<dt>Per dome</dt><dd>≈ {FACTS.cassettes} cassettes · {FACTS.joints} joints · {FACTS.keys} key segments · {FACTS.caps} caps</dd>
+				<dt>Cables</dt><dd>Every row below about 31 m, where the half sphere is in hoop tension, tensioned once the row is keyed.</dd>
+				{#if info.mode !== 'asset'}<dt>Per dome</dt><dd>≈ {FACTS.cassettes} cassettes · {FACTS.joints} joints · {FACTS.keys} key segments · {FACTS.caps} caps</dd>{/if}
 			</dl>
 
 			<p class="cj-note">A concept from rough hand calculations, not engineering. The two rows are drawn as a regular band of the frequency-18 grid. Drag to look around; pinch or scroll to come closer.</p>
