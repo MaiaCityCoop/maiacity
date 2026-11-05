@@ -3,7 +3,7 @@
 	the bucket; play/api/src/library.ts), newest first, laid out as the Postgres page is (its Frame): the kinds and a
 	search down the left, the files as a wall of tiles in the middle, and down the right the one opened whole: played or
 	shown large, its label (renamed here; only shown, a file is named by its hash), its hash, type, size and date, and
-	where the newest version of every story uses it. Maia City's admins alone (the API says so too).
+	where the newest version of every story uses it, and which plants (asset versions) have it as their reference sheet. Maia City's admins alone (the API says so too).
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
@@ -14,7 +14,9 @@
 	import { session } from '$lib/session.svelte';
 
 	const PAGE = 60;
-	type Use = { story: string; title: string; number: number | null; track: string; clip: string; as: 'frame' | 'video' | 'audio'; at: number };
+	type StoryUse = { story: string; title: string; number: number | null; track: string; clip: string; as: 'frame' | 'video' | 'audio'; at: number };
+	type SheetUse = { asset: string; label: string; group: string; number: number | null; version: string; as: 'sheet'; accepted: boolean };
+	type Use = StoryUse | SheetUse;
 	type File = { hash: string; size: number; media_type: string; created: string; label: string | null; used: Use[] };
 	type Page = { total: number; offset: number; limit: number; counts: Record<string, number>; files: File[] };
 	const KINDS = [
@@ -150,12 +152,19 @@
 		<h4 class="side-head">Used in</h4>
 		{#if open.used.length}
 			<ul class="uses">
-				{#each open.used as u (u.story + u.track + u.clip + u.as)}
-					<li><a href="/stories/#{u.story}">{u.title}</a> <span class="soft">v{u.number ?? '?'} · {u.track} · {u.clip} at {u.at} s · its {AS[u.as]}</span></li>
+				{#each open.used as u (u.as === 'sheet' ? u.version : u.story + u.track + u.clip + u.as)}
+					{#if u.as === 'sheet'}
+						<li>
+							{#if u.accepted}<a href="/assets/#{u.asset}">{u.label}</a> <span class="soft">v{u.number} · its reference sheet</span>
+							{:else}<a href="/proposals/">{u.label}</a> <span class="soft">a proposed version · its reference sheet</span>{/if}
+						</li>
+					{:else}
+						<li><a href="/stories/#{u.story}">{u.title}</a> <span class="soft">v{u.number ?? '?'} · {u.track} · {u.clip} at {u.at} s · its {AS[u.as]}</span></li>
+					{/if}
 				{/each}
 			</ul>
 		{:else}
-			<p class="soft hint">No story's newest version uses it yet.</p>
+			<p class="soft hint">No story's newest version uses it, and no plant has it as its sheet yet.</p>
 		{/if}
 	{/if}
 {/snippet}
