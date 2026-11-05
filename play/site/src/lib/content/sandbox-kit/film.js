@@ -176,7 +176,9 @@ export function connectFilm(o) {
 		film: {
 			/**
 			 * Bring the world to world time t (seconds), the camera where `fly` put it: animations, the sun and sky for the
-			 * hour, whatever else the world advances, and the shadows drawn again. `lights` scales the lights over what the
+			 * hour, whatever else the world advances, and the shadows drawn again. The world stays at t until the next
+			 * advance: a world whose clock the film holds (the Worlds page's, ../worlds/film.js) never runs on between two,
+			 * so the same t is the same world however the frames before it came. `lights` scales the lights over what the
 			 * hour gives them (1 = as the hour has them) and may recolour them.
 			 * `parts`: the world's moving parts the shot moves, by their channels' values at t (maia/content/game/film/shot.js `evaluate`).
 			 * `live`: a frame of the studio's live viewer, not a plate: the shadows are drawn again only when the world's own

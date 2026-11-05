@@ -14,8 +14,11 @@
  *
  * Under the film camera (play/SPEC.md §4.11, ./film.js) the world runs on the shot's clock: `seek(t)` brings it to the
  * shot's moment (a world's tick advances exactly the time it is given, so one long step gets there as frame by frame
- * would; a seek back builds the world afresh and steps it from 0), `settle()` resolves once the box has answered, and
- * while the film draws the canvas the view draws nothing itself.
+ * would; a seek back builds the world afresh and steps it from 0), `settle()` resolves once the box has answered every
+ * step owed, and while the film draws the canvas the view draws nothing itself. `clock(true)` gives the world's clock to
+ * the film: only a seek moves it (the film's advance), never the page's own frames, nor `window.__worldTime` (a second
+ * clock: left at an earlier shot's t, every frame of the page sought the world back there between a film's advance and
+ * its settle, built it afresh each time, and a long jump forward drew an empty road).
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -24,6 +27,7 @@ import { heroOf, runner } from '../assets/hero.js';
 import { vaultBuild } from '../assets/sources/viewer.js';
 import { rebuild } from '../assets/box/rebuild.js';
 import { filmDraws, worldTime } from '../render/film.js';
+import { disposeObject, disposeRenderer, lowPower, topPixelRatio } from '../render/core.js';
 import { AssetBox } from '../assets/box/host.js';
 import { createWalker } from '../sandbox-kit/walker.js';
 import { worldOf } from './contract.js';
@@ -36,6 +40,15 @@ export const MODES = {
 	walk: { eye: 1.65, walk: 1.4, hurry: 4.2 },
 	drive: { eye: 1.2, walk: 13.9, hurry: 27 }
 };
+
+/**
+ * A phone or a tablet: a device whose page dies when its graphics memory runs out (iPad Safari: "A problem repeatedly
+ * occurred"), where one world is alive at a time and drawn at fewer pixels.
+ */
+export const handheld = () => lowPower() || !!globalThis.matchMedia?.('(pointer: coarse)').matches;
+
+/** the world views open on the page, the newest last: on a handheld only the newest keeps its world built */
+const open = new Set();
 
 /** the views a world names: `view:<name>` nodes, each its eye and where it looks */
 export function viewsOf(root) {
@@ -57,7 +70,9 @@ export function viewsOf(root) {
  */
 export function createWorldView(el, o) {
 	const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-	renderer.setPixelRatio(Math.min(2, globalThis.devicePixelRatio || 1));
+	// a phone or a tablet draws at fewer pixels: a world fills the graphics memory such a device has as it is
+	const small = handheld();
+	renderer.setPixelRatio(topPixelRatio(small));
 	renderer.toneMapping = THREE.ACESFilmicToneMapping;
 	renderer.outputColorSpace = THREE.SRGBColorSpace;
 	renderer.shadowMap.enabled = true;
@@ -83,8 +98,13 @@ export function createWorldView(el, o) {
 	let walker = null;
 	let ask = 0;
 	let paused = false;
+	/** the world last asked to be shown, kept while a newer view has the device's memory (a handheld): shown again after */
+	let wanted = null;
+	let asleep = false;
 	/** the camera held by a film (its own pose each frame): no controls move it */
 	let held = false;
+	/** the world's clock held by a film: only `seek` moves it, never the page's own frames */
+	let clocked = false;
 
 	function resize() {
 		const w = el.clientWidth || 800, h = el.clientHeight || 600;
@@ -96,12 +116,18 @@ export function createWorldView(el, o) {
 	ro?.observe(el);
 	resize();
 
+	/** a world's own build let go of on the graphics card (a city's land is most of a million triangles) */
+	function drop(root) {
+		scene.remove(root);
+		disposeObject(root);
+	}
+
 	function letGo() {
 		walker?.dispose();
 		walker = null;
 		if (!world) return;
 		world.hero?.dispose();
-		scene.remove(world.root);
+		drop(world.root);
 		plantings.clear();
 		sound?.stop();
 		world = null;
@@ -165,6 +191,11 @@ export function createWorldView(el, o) {
 		 * it names drawn, and kept running if it moves. Resolves once it stands (its guests are built after, `building`).
 		 */
 		async show(hash, given = {}) {
+			wanted = { hash, given };
+			// a handheld keeps one world: the others let theirs go until this one goes (the Proposals preview over the
+			// Worlds page)
+			if (small) for (const v of open) if (v !== view) v.sleep();
+			asleep = false;
 			const mine = ++ask;
 			state.phase = 'building';
 			state.error = '';
@@ -220,7 +251,7 @@ export function createWorldView(el, o) {
 				// back in time: the build as it came from the box, kept running anew
 				const got = { ...world.got, obj: rebuild(world.got.data) };
 				world.hero.dispose();
-				scene.remove(world.root);
+				drop(world.root);
 				got.obj.traverse((x) => {
 					if (x.isMesh) x.receiveShadow = x.castShadow = true;
 				});
@@ -236,15 +267,15 @@ export function createWorldView(el, o) {
 			world.hero?.tick(dt, {});
 		},
 		/**
-		 * Resolves once the world has come to the time it was brought to: its run started, no step owed by the box. A
-		 * long jump is asked of the box 0.25 s at a time (hero.js STEP), each step awaited as the box answers it, for as
-		 * long as the box keeps answering: it gives up only after `stall` ms in which no step went through (the box gone
-		 * or stuck), never part-way through a jump that is still moving (two minutes of world time are 480 steps).
+		 * Resolves once the world has come to the time it was brought to: its run started in the box and every step owed
+		 * asked and answered. A long jump is asked of the box 0.25 s at a time (hero.js STEP), each step awaited as the
+		 * box answers it, for as long as the box keeps answering: it gives up only after `stall` ms in which no step went
+		 * through (the box gone or stuck), never part-way through a jump that is still moving (two minutes of world time
+		 * are 480 steps). Its guests are then followed and lit, for the camera as it is.
 		 */
 		async settle(stall = 60_000) {
 			let moved = performance.now(), owed = Infinity, live = false;
-			while (world?.hero && (!world.hero.live || world.hero.busy)) {
-				const h = world.hero;
+			for (let h = world?.hero; h && h === world?.hero && (h.starting || (h.live && h.busy)); h = world?.hero) {
 				h.tick(0, {});
 				if (h.pending) await h.pending;
 				else await new Promise((r) => setTimeout(r, 16));
@@ -255,8 +286,16 @@ export function createWorldView(el, o) {
 					moved = now;
 				} else if (now - moved > stall) break;
 			}
+			view.drawn();
+		},
+		/** what is planted followed to where its nodes stand now, at the level of detail the camera calls for, and lit */
+		drawn() {
 			plantings.update();
 			if (world) lights.update(plantings.guests(), world.info.mood, state.t);
+		},
+		/** the world's clock held by a film (only `seek` moves it), or the page's own again */
+		clock(on) {
+			clocked = !!on;
 		},
 		/** the world's frames a film camera may ride in: its nodes `frame:<name>` (a seat in a vehicle) */
 		frames() {
@@ -322,21 +361,14 @@ export function createWorldView(el, o) {
 		step(dt) {
 			// under the film camera: its clock the shot's, and nothing drawn while the film draws
 			const shot = worldTime();
-			if (shot !== undefined) this.seek(shot);
-			else if (held) {
-				// held by a film that brings the world to its moments itself (`advance`): no time of the page's own, only
-				// the steps still owed to that moment asked
-				world?.hero?.tick(0, {});
-			} else {
+			if (clocked) world?.hero?.tick(0, {});
+			else if (shot !== undefined) this.seek(shot);
+			else {
 				state.t += dt;
 				world?.hero?.tick(dt, {});
 			}
 			if (world?.hero) state.live = world.hero.live;
-			if (filmDraws()) {
-				plantings.update();
-				if (world) lights.update(plantings.guests(), world.info.mood, state.t);
-				return;
-			}
+			if (filmDraws()) return void this.drawn();
 			if (held) {
 				// the film's hold puts the camera where the shot has it
 			} else if (walker) walker.update(dt);
@@ -352,7 +384,25 @@ export function createWorldView(el, o) {
 			state.missing = plantings.state.missing;
 			state.lit = lights.stats.lit;
 		},
+		/** its world let go of (another view has the device's memory), until `wake` */
+		sleep() {
+			if (asleep || !wanted) return;
+			asleep = true;
+			ask++;
+			letGo();
+			// what it planted and the builds its boxes keep, let go of too: built again on waking
+			plantings.dispose();
+			build.stop('another world was opened');
+			live.stop('another world was opened');
+			state.phase = 'idle';
+		},
+		/** its world shown again after a sleep */
+		wake() {
+			if (asleep && wanted) view.show(wanted.hash, wanted.given).catch(() => {});
+		},
 		dispose() {
+			open.delete(view);
+			if (small) [...open].at(-1)?.wake();
 			ask++;
 			running = false;
 			renderer.setAnimationLoop(null);
@@ -365,11 +415,11 @@ export function createWorldView(el, o) {
 			controls.dispose();
 			build.stop('the world was left');
 			live.stop('the world was left');
-			renderer.dispose();
-			renderer.domElement.remove();
+			disposeRenderer(renderer);
 		}
 	};
 
+	open.add(view);
 	let running = true;
 	let last = performance.now(), frames = 0, since = last;
 	renderer.setAnimationLoop((now) => {

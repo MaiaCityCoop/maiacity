@@ -81,6 +81,8 @@ export function heroOf({ obj: root, card }, { start, exact = false } = {}) {
 	/** the box's first answer is still to come: it tells what moved from the build as built, not from this copy */
 	let fresh = false;
 	let asking = false;
+	/** its run is still being started in the box */
+	let starting = !!(view.ticks && start);
 	let waited = 0;
 	/** the step asked of the box and not yet answered (null: none): a film awaits it rather than polling */
 	let pending = null;
@@ -98,7 +100,8 @@ export function heroOf({ obj: root, card }, { start, exact = false } = {}) {
 				running = r;
 				fresh = true;
 			})
-			.catch(() => {});
+			.catch(() => {})
+			.finally(() => (starting = false));
 
 	/** the poser at what the stage set (its own copy only while nothing runs in the box) */
 	function playHere() {
@@ -316,6 +319,10 @@ export function heroOf({ obj: root, card }, { start, exact = false } = {}) {
 		 *  for none before it draws a frame (play/SPEC.md §4.11) */
 		get busy() {
 			return asking || waited > 0;
+		},
+		/** whether its run is still being started in the box (it moves once it is, or never, if the box can't keep it) */
+		get starting() {
+			return starting;
 		},
 		/** the time (s) not yet asked of the box: an exact build's long step is asked STEP at a time */
 		get owed() {
