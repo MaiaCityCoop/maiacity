@@ -21,6 +21,9 @@ set -a
 [ -f play.env ] && . ./play.env
 set +a
 DATA="${PLAY_DATA_PATH:-}"
+# while play's folder is still on the volume (the deploy moves it off once its files are in the bucket), the folder is
+# play's store, whatever play.env already says
+if [ -n "$DATA" ] && [ -d "$DATA/blobs" ]; then PLAY_BUCKET=""; fi
 
 C="docker compose -f docker-compose.yml -f docker-compose.prod.yml -f play/docker-compose.play.yml"
 
@@ -28,7 +31,7 @@ broken() {
   # every file play's database names that its store (the folder or the bucket, as play.env sets it) cannot hand back
   # whole: missing, or its bytes not hashing to its name (a write cut short by a full disk); asked of play's own code,
   # in a one-off container of its image on the compose network, so it works while play itself is down
-  $C run --rm -T --no-deps play-api bun -e '
+  $C run --rm -T --no-deps -e PLAY_BUCKET="${PLAY_BUCKET:-}" play-api bun -e '
     import { connect } from "/app/api/src/pg.ts";
     import { blobStore } from "/app/api/src/blobs.ts";
     const db = connect(), store = blobStore();
