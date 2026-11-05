@@ -117,6 +117,11 @@ function texture(x, i, images) {
 	if (img?.pixels) {
 		t = new THREE.DataTexture();
 		t.source = img.source;
+		// a picture made of numbers is filtered and mipmapped as any picture is (a DataTexture is born nearest and without
+		// its smaller levels: a field's furrows and a tower's windows shimmered in moiré far off)
+		t.magFilter = THREE.LinearFilter;
+		t.minFilter = THREE.LinearMipmapLinearFilter;
+		t.generateMipmaps = true;
 	} else if (img) {
 		t = new THREE.Texture();
 		t.source = img.source;

@@ -194,6 +194,10 @@ export function createWorldView(el, o) {
 				state.moves = info.moves;
 				state.views = viewsOf(root).map((v) => v.name);
 				state.size = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3()).toArray().map((x) => Math.round(x));
+				// the eye's reach: the whole world across (a city of 6.5 km), its near plane a hand's breadth from the eye
+				camera.near = 0.2;
+				camera.far = Math.min(20_000, Math.max(2000, 1.5 * Math.hypot(state.size[0], state.size[2])));
+				camera.updateProjectionMatrix();
 				state.phase = 'shown';
 				state.t = 0;
 				frame();
