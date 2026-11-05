@@ -16,7 +16,7 @@ Worked examples, all proposed over MCP and kept on play: **apricot v2** ('Ungari
 African Amelonado; its numbers in `references/cacao-amelonado.md`) and **banana v2** ('Dwarf Cavendish', the first made
 from its own reference sheet; its numbers in `references/banana-dwarf-cavendish.md`, its brief in
 `references/banana-dwarf-cavendish-brief.md`). Start a new plant from the newest: copy its part 1 (the growing core,
-with its surfaces) as it is and write parts 2–4 for the new plant.
+with its surfaces and `sound()`; the file is `references/banana-v2.js`) as it is and write parts 2–4 for the new plant.
 
 ## The order of work
 
@@ -187,6 +187,8 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
 
 ## Proposing
 
+- **Clean first**: `node .claude/skills/plant-skill/scripts/nan-check.cjs <source.js> <id> <v>` prints clean for
+  every stage, plant and fruit, at detail 1 and 0.3 (no NaN, no normal of no length), or it is not proposed.
 - Over the maia-play MCP: `get_asset` (the head version's id is the `base`), `propose_version` with the whole `source`,
   the `params` when they change (a new stage count changes the stage's `max` and `names`), and the note. A source of
   80 kB or more is best sent from a script to the same MCP endpoint (`.mcp.json`; the session's `PLAY_MCP_TOKEN`) than
@@ -197,6 +199,13 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
 
 ## Lessons kept
 
+- **Safe on every GPU, or black on an iPad.** Banana v2's first proposal drew black in play's viewer on an iPad:
+  some 800 normals of no length where its blades' rows met at the tip, with a bump picture, made NaN pixels on
+  Apple's GPU, and the viewer blurred them over the frame (Chromium's software GL, which the renders use, hid it).
+  Every mesh goes through `sound()` when the Bag merges it (collapsed triangles out, every normal of no length
+  given its faces'), and `node .claude/skills/plant-skill/scripts/nan-check.cjs <source.js> <id> <v>` must print
+  clean for every stage before proposing. `references/banana-v2.js` is banana v2's whole source: copy its part 1
+  (with `sound()`, `surface()`, `metric()`) for a new plant.
 - **The sheet is clean, not true.** The first banana plate (Nano Banana Pro, 2026-11-04) was clean, sharp and right
   in colour and texture, and its organs traced true (blade 2.4 : 1 against the clone's measured 2.3; bell and leaf
   overlaps 0.93 when matched). But its scale bars disagreed with its own labels, its "hand" at four ages was pairs of
