@@ -49,11 +49,16 @@ by year from its seed; its numbers in `references/serviceberry-smoky.md`, its br
 `references/serviceberry-v2.js`, whose part 1 is plum v2's without the leaves' clearcoat), and **mulberry v2** (Morus nigra, the black mulberry, from a hardwood cutting to a tree of
 25 years: a time-ordered simulation, sympodial axes, short fruiting shoots, renewal shoots, a crown held to its size by
 age; its numbers in `references/mulberry-black.md`, its brief beside them, its whole source `references/mulberry-v2.js`;
-the one to start from for a long-lived tree grown over decades). Start
+the one to start from for a long-lived tree grown over decades), and **cassava v1** ('TME 419', a woody shrub of one season from a 25 cm stem cutting: its
+canes node by node in a 2/5 spiral, the leaves living their real life so the cane below the crown is bare and scarred,
+a late fork only where it flowers, and the crop under the ground, nine to eleven storage roots radiating from the
+cutting, the fruit view one harvested root; its numbers in `references/cassava-tme-419.md`, its brief beside them, its
+whole source `references/cassava-v1.js`). Start
 a new plant from the newest: copy its part 1
-(the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps as lemon v2 has it; the file is
-`references/banana-v2.js` or `references/lemon-v2.js`) as it is and write parts 2–4 for the new plant; a tree takes its
-part 3 from orange v2 or lemon v2 (flushes) or plum v2 or apricot v2 (years).
+(the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps, `backLit: false` and `named()` as
+plum v2 and cassava v1 have them; the file is `references/cassava-v1.js` or `references/plum-v2.js`) as it is and write
+parts 2–4 for the new plant; a tree takes its part 3 from orange v2 or lemon v2 (flushes) or plum v2 or apricot v2
+(years); a plant grown from a cutting, with its crop under the ground, from cassava v1.
 
 ## The order of work
 
@@ -485,6 +490,31 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   heart-shaped leaf: overlap 0.91 against 0.92 close up).
 - **Grow it as it is planted.** A plant the trade grows from cuttings (black mulberry, fig, olive, grape) starts as a
   cutting: its first stage the stick in the soil, its roots out sideways from the base (no taproot).
+- **A crop under the ground is the fruit** (cassava v1, 2026-11-05). Mark each storage root with `bag.fruit(key, neck,
+  dir)` as a fruit is marked, and draw them even when the fruit view grows the plant without roots (a `storage` flag
+  beside `roots`, and `noShoot` so picking one does not grow the canes and leaves). The fruit view hangs it from its
+  neck; a cut face at the neck shows its flesh.
+- **Count a plant's leaves per plant, not per stem.** The field counts (Akure: 33, 40, 55 at 2, 3, 6 months) are a
+  plant's; with two canes each forming leaves at that rate the crown doubled (94 at four months). Share the plant's node
+  rate among its stems by their vigour, and count the leaves the build draws (a `STATS` counter) for several seeds.
+- **A colour picture cannot lighten past its vertex colour.** A pale midrib on a dark lobe was invisible at a picture
+  of 0.9 over the blade. Keep the picture at 0.4 over the blade and 1 on the midrib, and raise the organ's vertex colour
+  by the picture's measured mean (`lifted()`, from the picture's own pixels), so the blade keeps its traced colour.
+- **A cut face is one-sided: wind it toward its normal.** The cutting's ends and the harvested root's neck looked hollow
+  for three renders; the disc was wound away from its normal and culled. Look at every cut end close up once.
+- **Thin a palmate leaf whole.** `THINNED` drops single sheets: a crowd would draw leaves with lobes missing. Decide per
+  leaf (`thinLeaf`), petiole and blade together, and grow the kept ones.
+- **Trace the body apart from its tail.** A storage root's profile traced to the tip already holds its tail; drawn as a
+  body with another tail after it, the root tapered from its middle (bench overlap 0.39). Turn the specimen upright
+  (`upright.py`), cut the profile where the body ends (0.83 of its length) and add the tail apart.
+- **Set the file, then bench without overrides.** Trying lobe angles by changing `o.LOBES` in `--make` leaves the file
+  as it was; a trial value set in the file earlier (±106°) stayed there unseen, and the last bench without overrides
+  read 0.73 for 0.86. Bench the final file once with nothing overridden before proposing.
+- **An edit pass may fix the cells and spoil the plate.** Cassava's second edit drew the roots right but cast the whole
+  plate lavender and garbled three labels. Paste only the redrawn cells back into the first sheet, grey-balanced on the
+  ground (sheet 5 of cassava), and keep that composite in the Library as the sheet held to.
+- **fal can refuse for credit.** `sheet.ts` stops with `User is locked. Reason: TOP_UP` when the fal account is empty:
+  ask the user to top it up; build nothing without a sheet they gave the go for.
 - **Safe on every GPU, or black on an iPad.** Banana v2's first proposal drew black in play's viewer on an iPad:
   some 800 normals of no length where its blades' rows met at the tip, with a bump picture, made NaN pixels on
   Apple's GPU, and the viewer blurred them over the frame (Chromium's software GL, which the renders use, hid it).
