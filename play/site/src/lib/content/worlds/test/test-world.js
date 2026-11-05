@@ -175,14 +175,15 @@ function build(cars = 18) {
 		ambulance.node.rotation.y = Math.PI / 2;
 	}
 	for (let i = 0; i < 300; i++) step(0.1); // the traffic settled before the first look
-	// exactly the time asked, in steps of exactly 0.1 s: the same world at the same time however the time is cut up (a
-	// film seeks to a shot's moment in one long step, the page goes frame by frame)
-	let owed = 0;
-	root.userData.tick = (dt) => {
-		owed += Math.max(0, Number(dt) || 0);
-		while (owed >= 0.1 - 1e-9) {
+	// the box hands the tick the world's time t (s since its run began, a quarter second more at most each call): the
+	// world brought to t in steps of exactly 0.1 s, counted (so the same world at the same t however it got there: a
+	// film steps through a shot, the page frame by frame)
+	let steps = 0;
+	root.userData.tick = (t) => {
+		const to = Number(t) || 0;
+		while ((steps + 1) * 0.1 <= to + 1e-9) {
 			step(0.1);
-			owed -= 0.1;
+			steps++;
 		}
 	};
 	return root;
