@@ -56,7 +56,7 @@ export const ASSET_STEPS = [
 	{ t: T.seat, name: 'Seat', title: 'Seat the element', text: "It comes in from outside along its ray to the dome's centre and wedges in like a keystone between its neighbours." },
 	{ t: T.keys, name: 'Key', title: 'Feed the keys', text: 'Basalt key segments drop into the open node pockets and slide along the bowtie channels of its seams. Once keyed, a seam cannot open or pull out.' },
 	{ t: T.caps, name: 'Cap', title: 'Cap the nodes', text: 'A cast plug closes each node pocket and covers the seams at the corner.' },
-	{ t: T.cable, name: 'Apart', title: 'Every seam, apart', text: "The elements drawn apart along their rays, the keys left where they lock the seams; then the view from inside the dome, where a deep hexagon's second layer shows." }
+	{ t: T.cable, name: 'Apart', title: 'Every seam, apart', text: "The elements drawn apart along their rays, the keys left where they lock the seams; then the view from inside the dome, up through the deep wall's open web to its inner chords." }
 ] as const;
 export type Step = { t: number; name: string; title: string; text: string };
 export type Kind = { hash: string; name: string; on: boolean };
