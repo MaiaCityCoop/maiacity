@@ -511,7 +511,7 @@ function metric(geo, fu, fv) {
  * the limbs of two to five years; `twig` the green shoots; `body` the seed, the roots and everything else.
  */
 const MATERIALS = {
-	leaf: (s) => new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.46, clearcoat: 0.06, clearcoatRoughness: 0.45, ...(s && { map: s('leafMap'), bumpMap: s('leafBump'), bumpScale: 0.25 }) }),
+	leaf: (s) => new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.6, specularIntensity: 0.55, clearcoat: 0, ...(s && { map: s('leafMap'), bumpMap: s('leafBump'), bumpScale: 0.25 }) }),
 	rind: (s) => new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.42, clearcoat: 0.35, clearcoatRoughness: 0.32, ...(s && { map: s('rindMap'), bumpMap: s('rindBump'), bumpScale: 0.9 }) }),
 	petal: () => new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.5, sheen: 0.3, sheenRoughness: 0.5, sheenColor: new THREE.Color(0.9, 0.9, 0.85), side: THREE.DoubleSide }),
 	bark: (s) => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, ...(s && { map: s('barkMap'), bumpMap: s('barkBump'), bumpScale: 1.4 }) }),
