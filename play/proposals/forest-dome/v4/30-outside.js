@@ -1250,10 +1250,13 @@ function outsidePart(dome) {
  * THE TERRACE FURNISHED (Samuel 2026-11-05: "a really beautiful place as a community space outside"), with play's own
  * things and plants (by hash, drawn by the page), the same in each quarter and a lane of 1.3–1.7 m kept clear all
  * the way round. Over each gate the pergola, two round tables under it and passion fruit climbing it from pots; along
- * the balustrade daybeds, armchairs round a travertine table, a curved oak bench, lemons, oranges, a fig and a
- * pomegranate in big terracotta pots by the dies; by the glass round tables to eat at looking into the forest, a
- * bench, troughs of basil, strawberries and nasturtiums. Bearings are reckoned in the quarter from the north gate to
- * the east; `face` 0 turns a thing's front (its +z) to the dome's middle, π out to the land, −π/2 on round the ring.
+ * the balustrade daybeds, armchairs round a travertine table, a curved oak bench, young lemon trees in big terracotta
+ * pots by the dies; by the glass round tables to eat at looking into the forest, a bench, troughs of lavender,
+ * rosemary, basil and nasturtiums. A plant's roots are part of its build: in a pot or a trough only what roots shallow
+ * enough to stay in it (a lemon in its second year after planting, 1.9 m, roots 0.58 m deep and 0.46 m out, in a pot
+ * 1.1 m across; the herbs' 0.25 m), never a grown tree, whose roots would show on the flags and through the soffit.
+ * Bearings are reckoned in the quarter from the north gate to the east; `face` 0 turns a thing's front (its +z) to the
+ * dome's middle, π out to the land, −π/2 on round the ring.
  */
 function out_furnish(dome, plan) {
 	const P = out_stairPlan();
@@ -1266,10 +1269,12 @@ function out_furnish(dome, plan) {
 	const items = [];
 	const thing = (name, rr, a, face = 0, o = {}) => items.push({ name, rr, a, h: o.y ?? 0, turn: a + Math.PI + face, scale: o.scale });
 	const plant = (kind, rr, a, h, o = {}) => items.push({ kind, rr, a, h, o });
-	// a big terracotta pot (half again the library's: 0.75 m across, its soil 0.6 m up) with a young tree in it
-	const pot = (kind, rr, a, k = 1.5) => {
+	// a great terracotta pot, a conca as a villa's lemons stand in (the library's made 2.2 times: 1.1 m across, its soil
+	// 0.88 m up), with a lemon tree in its second year after planting (its stage 3 'Two years': 1.9 m high, 2 m across,
+	// its roots 0.58 m deep and 0.46 m out, inside the pot)
+	const pot = (rr, a, k = 2.2) => {
 		thing('pot-terracotta', rr, a, 0, { scale: k });
-		plant(kind, rr, a, 0.4 * k, { stage: 6, turn: a * 7 });
+		plant('lemon', rr, a, 0.4 * k, { exact: 3, turn: a * 7 });
 	};
 	const trough = (rr, a, kinds) => {
 		thing('planter-trough', rr, a, 0);
@@ -1314,20 +1319,20 @@ function out_furnish(dome, plan) {
 	daybeds(bay(1));
 	dining(41.25, bay(2).am);
 	lounge(bay(3));
-	for (const s of [-1, 1]) trough(40.15, bay(4).am + (s * 0.9) / 40.15, s < 0 ? ['basil', 'strawberry', 'basil'] : ['nasturtium', 'strawberry', 'nasturtium']);
+	for (const s of [-1, 1]) trough(40.15, bay(4).am + (s * 0.9) / 40.15, s < 0 ? ['lavender', 'rosemary', 'lavender'] : ['basil', 'nasturtium', 'basil']);
 	thing('bench-oak-curved', 40.3, bay(5).am, Math.PI);
 	thing('bench-oak-curved', rail(bay(6).am) - 0.33, bay(6).am, 0);
 	// in the strip by the glass beside the stair's well: two troughs
-	for (const s of [P.sw + 1.1, P.sw + 3.4]) trough(40.12, P.bear(s), ['strawberry', 'nasturtium', 'strawberry']);
-	for (const s of [-1, 1]) trough(40.15, bay(9).am + (s * 0.9) / 40.15, s < 0 ? ['nasturtium', 'basil', 'nasturtium'] : ['strawberry', 'basil', 'strawberry']);
+	for (const s of [P.sw + 1.1, P.sw + 3.4]) trough(40.12, P.bear(s), ['lavender', 'nasturtium', 'lavender']);
+	for (const s of [-1, 1]) trough(40.15, bay(9).am + (s * 0.9) / 40.15, s < 0 ? ['rosemary', 'lavender', 'rosemary'] : ['nasturtium', 'basil', 'nasturtium']);
 	lounge(bay(10));
 	dining(41.25, bay(11).am);
 	daybeds(bay(12));
 	view(bay(13));
-	// the trees in pots against the dies: lemons by the pergolas, oranges, a fig and a pomegranate
-	for (const [j, kind] of [[0, 'lemon'], [4, 'orange'], [6, 'fig'], [9, 'pomegranate'], [10, 'orange'], [14, 'lemon']]) {
+	// the lemons in pots against the dies, either side of each pergola and along the ring
+	for (const j of [0, 4, 6, 9, 10, 14]) {
 		const a = pier(j).a;
-		pot(kind, rail(a) - 0.06 - 0.375, a);
+		pot(rail(a) - 0.06 - 0.55, a);
 	}
 	// laid round four times, as the arcade is
 	for (let q = 0; q < 4; q++) {

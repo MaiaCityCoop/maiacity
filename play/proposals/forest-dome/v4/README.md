@@ -8,3 +8,11 @@ base v3 92716408…), proposal 76c3acac-1c05-4240-be63-1ecb5c8399b1. What it cha
   v3's lines 2485–3409; `make.py` assembles v4 from v3's source (fetched from play by its source hash) and this part.
 - `route1.json` — the walk tested with `play/site/.dome/walksim.mjs` (the viewer's walker rules, in node).
 - `renders/` — the render bench's pictures (stand-in plants of legacy versions; play draws its own).
+
+## v5 — roots stay in their pots
+
+Proposed on 2026-11-05 on base v4 421d9ce3… (accepted), proposal c303f544-b447-4934-8583-eab1e58e5404:
+`forest-dome-v5.js` (the whole source), `note-v5.md`. The terrace's pots hold lemons in their second year in great
+conche; the troughs hold herbs; the rooms' banana and coffee pots hold young lemons. A plant's roots are part of
+its build, so only plants whose roots fit go into a pot (`play/site/.dome/roots2.mjs` measures them by stage).
+`30-outside.js` and `make.py` are v5's (make.py also applies the plan's and the rooms' changes to v3's source).
