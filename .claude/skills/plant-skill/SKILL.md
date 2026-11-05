@@ -64,7 +64,10 @@ flush, fruit clusters on its sunlit crown; its numbers in `references/safou-dacr
 plate's beside them, its whole source `references/safou-v2.js`), and **walnut v2** ('Franquette', the first big terminal-bearing tree: a Rauh
 cone year by year that turns sympodial once it bears, every fruiting tip relayed by the shoots below it into a dome,
 pinnate leaves, catkins on last year's wood, husks that split black; its numbers in `references/walnut-franquette.md`,
-its brief beside them, its whole source `references/walnut-v2.js`). Start
+its brief beside them, its whole source `references/walnut-v2.js`), and **alder v2** (*Alnus glutinosa*, the wild
+black alder: a big forest tree from its nutlet to its twentieth year, Rauh's model with syllepsis, its catkins and cones
+in overlapping yearly cohorts, its roots with Frankia nodules; its data sheet, brief and source kept in play with the
+version). Start
 a new plant from the newest: copy its part 1
 (the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps, `backLit: false` and `named()` as
 plum v2 and cassava v1 have them; the file is `references/cassava-v1.js` or `references/plum-v2.js`) as it is and write
@@ -621,6 +624,30 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   a metre too tall (7.0 m for the measured 5.5–6.5); its peduncle arches over early so the bunch hangs below the petioles,
   not among them; its male bracts fall (a bare, knotted rachis, against the Cavendish's dry tail). The plate drew the stem
   some 40 % of the height against the data's 70 %: hold the height to the data and judge the crown by eye.
+
+- **A forest tree's leaves lie at every angle, or the crown is see-through** (alder v2, 2026-11-05). With every blade
+  held near level (as a twig's leaves lie flat to the light), the crown seen from the side at eye height was a stack
+  of edge-on plates: 30,000 leaves and the trunk visible to the top. Roll each blade on its midrib by its own chance
+  (±0.75 rad far off) and tilt its droop more widely; the same leaves then fill the crown.
+- **A young deciduous tree fills its cone by syllepsis.** Alder v2's five-year tree, branching only from buds that
+  rested a winter, had a bare upper half (overlap with the sheet's tree 0.35): every limb on the last year's leader was
+  still a bud. The alder (birch, poplar, many pioneers) grows side shoots the same summer from the leader's upper
+  growth; a share of same-summer shoots (born at their node's time, first year 0.6 as long) and more vigour for the
+  first years' limbs gave the young cone its width (1.1 → 2.1 m, data sheet 1.5–2.5).
+- **Hold a grown tree's leaves to a ceiling.** Seven seeds of alder v2 at full detail ranged 0.75–1.03 M triangles,
+  the leaves alone 26–38 k. Count the leaf places first, then keep each by its own chance up to the crown's number
+  (`TREE.leaves`, ~27 k from its leaf area); seeds then ranged 0.56–0.81 M with the same look. A grown tree's far leaves
+  are three rows across one (`sheet`'s `stations: [0, 0.3, 0.8, 1]`, 12 triangles a leaf, the blunt tip kept) and no
+  stalks; a seedling's few leaves are drawn fine, with their teeth.
+- **Pick the fruit view's fruit from the right cohort.** An alder carries next year's catkins beside this year's cones;
+  the fruit view picked the fullest cluster of the ripe stage, a cohort not yet formed at the earlier stages, and
+  showed nothing from winter to July. Pick from the clusters of the cohort that ripens at the last stage.
+- **Don't let one chance choose and size.** Nodules kept by the smallest of their chance numbers were also the
+  smallest (the size drew on the same number): 1–2 cm for a data sheet's 4–6. And the ones nearest the trunk sat inside
+  the root crown. Draw the pick by its own chance, keep them clear of the crown, and set each on the side of its root.
+- **Diamond scales need symmetric spirals.** A cone's scales from two families of spiral rows (s1 = 7u + 5a, s2 = 8a −
+  5u) came out as diagonal stripes; s1 = 5u + 7a and s2 = 5u − 7a with a max-norm cell gave the sheet's diamond shields
+  (overlap 0.92 green, 0.8 open and black, colour within 0.011 black).
 
 - **Name the cultivar first.** The old cacao was "a cacao": narrow willow leaves, a shrub, little orange pods. Every
   look that is wrong is easier to see against one real kind.
