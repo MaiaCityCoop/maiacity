@@ -4,7 +4,7 @@
 set -euo pipefail
 here=play/proposals/forest-dome
 propose=play/site/scripts/propose.mjs
-: "${PLAY_MCP_TOKEN:?an admin token of play's (its profile page) is needed in PLAY_MCP_TOKEN}"
+: "${PLAY_MCP_TOKEN:?an admin token of play (made on its profile page) is needed in PLAY_MCP_TOKEN}"
 node "$propose" --file "$here/forest-dome.js" --check --pending "$here/things.json"
 for slug in $(node -e "console.log(Object.keys(require('./$here/things.json')).join(' '))"); do
 	label=$(node -e "console.log(require('./$here/things.json')['$slug'].label)")
