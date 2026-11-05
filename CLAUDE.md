@@ -33,7 +33,9 @@ it.
 Every deploy first backs up play to the bucket `maiacity` as a snapshot, like Time Machine's (`deploy/backup.sh`;
 Samuel 2026-11-05): `BACKUPS/play/<when>-<label>/` holds a full dump of its schema, the list of its files (hash and
 size) and the image; the files themselves are kept once each under their hash in `BACKUPS/play-files/blobs/`, shared by
-every snapshot, so a deploy copies only its new files. Nothing on a schedule. Restoring, as a check or a rollback, is by hand only:
+every snapshot, so a deploy copies only its new files. That store is also play's **second copy** of every file: play
+writes each file to both, holds every bucket call steady (timeouts, retries) and mends a file its bucket can't hand back
+from the second copy (`play/api/src/blobs.ts`, play/SPEC.md §4.5). Nothing on a schedule. Restoring, as a check or a rollback, is by hand only:
 `.github/workflows/restore.yml` (`deploy/README.md`).
 
 ## Members

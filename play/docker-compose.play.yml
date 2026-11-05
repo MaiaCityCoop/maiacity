@@ -1,7 +1,8 @@
 # play.maia.city on the production machine, layered on legacy's compose files, which it does not change:
 #   set -a; . ./play.env; set +a
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml -f play/docker-compose.play.yml up -d play-api
-# play.env (on the server, never in git) holds PLAY_IMAGE, PLAY_DATABASE_URL and the bucket's PLAY_BUCKET_* values.
+# play.env (on the server, never in git) holds PLAY_IMAGE, PLAY_DATABASE_URL, the bucket's PLAY_BUCKET_* values and
+# PLAY_MIRROR_ROOT (where the second copy of every file is kept).
 # Caddy answers play.maia.city and proxies it here (deploy/Caddyfile).
 services:
   play-api:
@@ -23,6 +24,8 @@ services:
       PLAY_BUCKET_REGION: ${PLAY_BUCKET_REGION:-}
       PLAY_BUCKET_ACCESS_KEY: ${PLAY_BUCKET_ACCESS_KEY:-}
       PLAY_BUCKET_SECRET_KEY: ${PLAY_BUCKET_SECRET_KEY:-}
+      # every file kept twice: the second copy in the backups' store, mended from it (play/api/src/blobs.ts)
+      PLAY_MIRROR_ROOT: ${PLAY_MIRROR_ROOT:-}
       # without a bucket the blobs stay on the volume
       PLAY_BLOBS: /data/blobs
     volumes:
