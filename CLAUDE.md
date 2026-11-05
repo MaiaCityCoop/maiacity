@@ -72,7 +72,9 @@ step (a station's machines, buffer or breakdowns, a part's operation and its sec
 `propose_factory_version` proposes it, shown on the Proposals page field by field and openable as the factory would be,
 its simulation running; never by a migration. The **game's configs** (the Game editor, first the levelling: how a
 village grows level by level) are Loro documents the same way (play/SPEC.md §4.9): `list_game_configs`,
-`get_game_config`, `game_config_history`, `game_config_edit`, `propose_game_config_version`. A
+`get_game_config`, `game_config_history`, `game_config_edit`, `propose_game_config_version`. A plant
+version names its **reference sheet** (`propose_version`'s `sheet`: the hash of the plate kept with `add_story_frame`; play/SPEC.md
+§4.10), shown with the version in the asset library and, in the Library, beside the image, the plant it belongs to. A
 version can be a kind of **variants** (`propose_version`'s `variants`: a plant's kinds, an animal's breeds), each its own
 recipe and a chip in the asset viewer. No tool accepts; an agent archives only its own open proposals made over MCP
 (`archive_proposal`: one it has replaced or no longer stands by; Samuel 2026-11-04). The same token also opens play's **read-only world routes** (`GET /api/me`, `/api/catalog`,

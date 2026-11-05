@@ -189,6 +189,9 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
 
 - **Clean first**: `node .claude/skills/plant-skill/scripts/nan-check.cjs <source.js> <id> <v>` prints clean for
   every stage, plant and fruit, at detail 1 and 0.3 (no NaN, no normal of no length), or it is not proposed.
+- **Link the sheet**: `propose_version` (or `propose_asset`) with `sheet`: the hash of the reference sheet Samuel gave
+  the go for. play keeps it with the version (play/SPEC.md §4.10): the asset library shows it beside the version, the
+  Library shows the plant beside the sheet.
 - Over the maia-play MCP: `get_asset` (the head version's id is the `base`), `propose_version` with the whole `source`,
   the `params` when they change (a new stage count changes the stage's `max` and `names`), and the note. A source of
   80 kB or more is best sent from a script to the same MCP endpoint (`.mcp.json`; the session's `PLAY_MCP_TOKEN`) than

@@ -278,6 +278,17 @@ changes only by proposal, as a factory does: `list_game_configs`, `get_game_conf
 `game_config_edit`, `propose_game_config_version` over MCP; the Proposals page shows it field by field and opens the
 Game editor as it would be (`?config=<id>&proposal=<id>`).
 
+### 4.10 A plant's reference sheet (Samuel 2026-11-05)
+
+A version may name its **reference sheet**: one clean-lit photographic plate of every stage and organ of the plant,
+made for it (the plant skill makes it with Google's Nano Banana Pro) and kept among play's `files` like any image, in
+the Library, labelled. The version's record holds it by its hash (`sheet`), set by the proposal (`propose_version`'s
+or `propose_asset`'s `sheet`: an image play keeps, else refused) and carried on from the head unless a proposal names
+another, or `null` for none. The asset library shows each version's sheet beside its note, opened whole; the Library
+shows, beside an image, every asset version that has it as its sheet (accepted, or a proposal still open), linked to
+the asset. The recipe names the same hash in its `meta.sheet`, so the plant and the plate it was checked against are
+kept together.
+
 ## 5. The three sandboxes
 
 | New | Cloned from | What changes |
