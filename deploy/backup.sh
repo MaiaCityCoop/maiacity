@@ -37,7 +37,9 @@ timeout 900 docker exec maia-city-db pg_dump -U maiacity -d maiacity -n play -Fc
 # the files, always beside the dump: from the bucket where play keeps them there, else from its folder. Each is named by
 # its hash and never changes, so files written after the dump only add to what the copy holds.
 STORE=folder
-if [ -n "${PLAY_BUCKET:-}" ]; then
+# while play's folder is still on the volume (the deploy moves it off once its files are in the bucket), the folder is
+# where play's files are, whatever play.env already says
+if [ -n "${PLAY_BUCKET:-}" ] && ! { [ -n "${PLAY_DATA_PATH:-}" ] && [ -d "$PLAY_DATA_PATH/blobs" ]; }; then
   # copied inside the object storage, from play's files to the backup's (nothing comes down to the server's disk); each
   # is named by its hash and never changes, so files written after the dump only add to what the copy holds
   STORE="bucket $PLAY_BUCKET"
