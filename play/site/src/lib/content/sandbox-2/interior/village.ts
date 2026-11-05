@@ -166,9 +166,9 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			// triangles in the shadow pass: it still receives every one
 			if (mesh.castShadow) {
 				if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox()
-				const b = lowBox.copy(mesh.geometry.boundingBox!).applyMatrix4(mesh.matrixWorld)
-				// lying flat on it, not sunk into it: a brook's wall or a pond's bed still shades the water
-				if (b.max.y < 0.12 && b.min.y > -0.05) mesh.castShadow = false
+				// (what is sunk below it too: the brook's and pond's banks are gentle swales and their sills lie under the
+				// bridges, so none of it shades the water as seen; 113k triangles fewer in every shadow pass)
+				if (lowBox.copy(mesh.geometry.boundingBox!).applyMatrix4(mesh.matrixWorld).max.y < 0.12) mesh.castShadow = false
 			}
 		})
 		// its reach, from what it stands on the ground (up to 7 m: its arcade, its gates and their paths, not its glass)
