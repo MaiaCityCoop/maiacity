@@ -127,11 +127,13 @@ move_avendb() {
   need=$(sudo du -sk "$cur" | cut -f1); free=$(df -Pk / | awk 'NR == 2 {print $4}')
   [ "$free" -gt $((need * 2)) ] || { echo "move-avendb: $((free / 1024)) MB free on /, avenDB holds $((need / 1024)) MB"; exit 1; }
   local C="docker compose -f docker-compose.yml -f docker-compose.prod.yml -f play/docker-compose.play.yml"
-  set -a; . ./.env; [ -f play.env ] && . ./play.env; set +a
+  # compose reads .env itself, exactly as written (a shell would change some of its values, e.g. AVENDB_WT_ORIGINS's
+  # JSON); only play.env is loaded here, for play's compose file (its values are plain)
+  set -a; [ -f play.env ] && . ./play.env; set +a
   echo "move-avendb: stopping avenDB, copying $cur ($((need / 1024)) MB) to $NEW …"
   $C stop avendb </dev/null
   sudo mkdir -p "$NEW"
-  sudo cp -a "$cur/." "$NEW/"
+  if command -v rsync >/dev/null; then sudo rsync -aH --delete "$cur/" "$NEW/"; else sudo rm -rf "$NEW" && sudo mkdir -p "$NEW" && sudo cp -a "$cur/." "$NEW/"; fi
   # the copy, compared file by file with what it was copied from
   if ! sudo diff -r --no-dereference "$cur" "$NEW" >/dev/null; then
     echo "move-avendb: the copy differs from $cur: avenDB starts again on $cur, the copy is left at $NEW"
@@ -139,7 +141,6 @@ move_avendb() {
   fi
   cp .env ".env.before-avendb-move-$(date -u +%Y%m%dT%H%M%SZ)"
   sed -i "s#^AVENDB_DATA_PATH=.*#AVENDB_DATA_PATH=$NEW#" .env
-  set -a; . ./.env; set +a
   $C up -d --no-deps avendb </dev/null
   local ok=""
   for i in $(seq 1 30); do
@@ -150,8 +151,7 @@ move_avendb() {
     docker logs --tail 30 maia-city-avendb 2>&1 | sed 's/^/    /' || true
     echo "move-avendb: avenDB did not answer on $NEW: back to $cur"
     sed -i "s#^AVENDB_DATA_PATH=.*#AVENDB_DATA_PATH=$cur#" .env
-    set -a; . ./.env; set +a
-    $C up -d --no-deps avendb </dev/null; exit 1
+      $C up -d --no-deps avendb </dev/null; exit 1
   fi
   echo "move-avendb: avenDB answers on $NEW; removing the folder it left on the volume ($cur)"
   sudo rm -rf "$cur"
