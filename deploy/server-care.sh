@@ -20,8 +20,9 @@ set +a
 DATA="${PLAY_DATA_PATH:-}"
 
 broken() {
-  # every file in play's folder whose bytes do not hash to its name, by play's own hash (inside its container)
-  docker exec maia-city-play bun -e '
+  # every file in play's folder whose bytes do not hash to its name, by play's own hash (in a container of its image,
+  # so it works while play itself is down)
+  docker run --rm -v "$DATA/blobs:/data/blobs:ro" --entrypoint bun "$PLAY_IMAGE" -e '
     import { hashBytes } from "/app/api/src/hash.ts";
     import { readdirSync } from "node:fs";
     const root = "/data/blobs";
@@ -37,7 +38,11 @@ report() {
   echo "## Docker"; docker system df | sed 's/^/    /'
   echo "## Largest under the app, the volume and Docker"
   sudo du -xsh /opt/maia-city/* /var/lib/docker /var/log 2>/dev/null | sort -h | tail -12 | sed 's/^/    /'
-  [ -n "$DATA" ] && sudo du -xsh "$(dirname "$DATA")"/* 2>/dev/null | sort -h | tail -12 | sed 's/^/    /'
+  if [ -n "$DATA" ]; then
+    sudo du -xsh "$(dirname "$DATA")"/* 2>/dev/null | sort -h | tail -12 | sed 's/^/    /'
+    echo "## The largest folders on the data volume"
+    sudo du -xh --max-depth=3 "$(dirname "$DATA")" 2>/dev/null | sort -h | tail -20 | sed 's/^/    /'
+  fi
   echo "## Journal"; sudo journalctl --disk-usage 2>/dev/null | sed 's/^/    /' || true
   if [ -n "$DATA" ] && [ -d "$DATA/blobs" ]; then
     echo "## play's files: $(find "$DATA/blobs" -type f | wc -l) in $(du -sh "$DATA/blobs" | cut -f1)"

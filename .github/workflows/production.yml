@@ -252,8 +252,12 @@ jobs:
           \$C pull play-api
           # the files still in the folder on the volume go into the bucket first (only the ones it lacks, each checked
           # against its hash), so play finds every one there once it runs on the bucket; a copy that fails stops here
+          # then the folder leaves the volume (kept whole on the root disk, beside the app), which it was filling
           if [ -d "$DATA_MOUNT/play/blobs" ]; then
             \$C run --rm -T --no-deps play-api bun src/tobucket.ts </dev/null
+            KEPT=$APP_DIR/play-folder-blobs-\$(date -u +%Y%m%dT%H%M%SZ)
+            sudo mv "$DATA_MOUNT/play/blobs" "\$KEPT"
+            echo "play's files are in the bucket; the folder they were in is kept at \$KEPT"
           fi
           # play's role and schema, and its read of the legacy founders for the import
           \$C exec -T db psql -v ON_ERROR_STOP=1 -U maiacity -d maiacity -v pw="'\$PW'" < play/deploy/setup.sql
