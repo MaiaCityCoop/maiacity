@@ -30,6 +30,9 @@ import { groundMaterial, rowsOf } from '$lib/content/biomes/surfaces.js';
 import { biomeOfCard } from '$lib/content/biomes/card.js';
 import { createCover } from '$lib/content/sandbox-2/interior/cover.js';
 
+/** the sizes on screen (of the view's height) a guest is drawn at each level down to, finest first (render/lod.js) */
+export const GUEST_LEVELS = [1.2, 0.4, 0.16];
+
 /** a node's name that plants a build: `use:` and the build */
 const USE = /^use:([0-9a-f]{64}(?:\?[A-Za-z0-9=&._%-]*)?)$/;
 
@@ -133,7 +136,9 @@ export function createPlantings(o) {
 	const renderer = () => {
 		if (assets) return assets;
 		const boxes = o.boxes ?? Math.max(1, Math.min(4, (globalThis.navigator?.hardwareConcurrency || 4) - 1));
-		assets = createAssets({ renderer: o.renderer, camera: o.camera, boxes });
+		// a build's guests stand close and many (a dome's forest: 2,500 plants within 40 m), so each steps to its
+		// coarser shape and its picture sooner than an asset on its own does (render/lod.js LEVELS: 1.2, 0.28, 0.11)
+		assets = createAssets({ renderer: o.renderer, camera: o.camera, boxes, levels: o.levels ?? GUEST_LEVELS });
 		o.scene.add(assets.group);
 		return assets;
 	};

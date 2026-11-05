@@ -733,10 +733,45 @@ export class Stage {
 		if (this.contact) this.contact.update();
 		this.sky?.place(this.camera);
 		this.grade.uniforms.uTime.value = this.time;
+		// the key's shadow map drawn again only when what casts into it changed (a still dome of 800k triangles and
+		// thousands of plants drew all of it into the map every frame, for the same picture)
+		const auto = r.shadowMap.autoUpdate;
+		r.shadowMap.autoUpdate = false;
+		const sig = this._shadowSig();
+		if (sig !== this._shadowWas) {
+			r.shadowMap.needsUpdate = true;
+			this._shadowWas = sig;
+		}
 		this.composer.render();
+		r.shadowMap.autoUpdate = auto;
 		r.toneMapping = was.tm;
 		r.localClippingEnabled = was.clip;
 		this.camera.layers.disable(LAYER_FX);
+	}
+
+	/**
+	 * What the key's shadow is drawn from, as one number: where each visible thing that casts one stands, the views'
+	 * amounts (a cut, an explosion, the x-ray, the build flying in), and the key itself. Anything skinned (a rigged actor
+	 * moves its bones, not its matrices) changes it every frame (NaN is never equal). The guests a build plants are the
+	 * universal renderer's, which rewrites their copies every frame and says itself when what they cast changed
+	 * (render/index.js: `renderer.shadowMap.needsUpdate`), so their copies are not counted here.
+	 */
+	_shadowSig() {
+		this.scene.updateMatrixWorld();
+		const s = this.state;
+		let a = s.explode * 3.1 + s.cut * 5.3 + s.xray * 7.7 + this.built * 11.3, b = 0, k = 0;
+		const key = this.key;
+		if (key) for (const v of [...key.position.toArray(), ...key.target.position.toArray(), key.shadow.mapSize.x]) a += v * (++k * 0.618);
+		let still = true;
+		this.scene.traverseVisible((o) => {
+			if (!still || !o.castShadow || !(o.isMesh || o.isPoints || o.isLine)) return;
+			if (o.isSkinnedMesh) return void (still = false);
+			const e = o.matrixWorld.elements;
+			k++;
+			for (let i = 0; i < 16; i++) a += e[i] * ((k * 16 + i) % 97 + 1) * 0.001;
+			b += o.id * 1.37;
+		});
+		return still ? `${a}|${b}|${k}` : NaN;
 	}
 
 	/** the canvas changed size @param {number} w @param {number} h */
