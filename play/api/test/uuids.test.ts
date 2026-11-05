@@ -34,7 +34,10 @@ suite("every reference a UUID (migration 0017)", () => {
 
   test("the ids play's code names are the ones the migration gives", () => {
     expect(COOP).toBe(uuidOf("coop:maia-city"));
-    expect({ ...SANDBOX } as Record<string, string>).toEqual({ one: uuidOf("sandbox:sandbox-1"), two: uuidOf("sandbox:sandbox-2"), three: uuidOf("sandbox:sandbox-3"), factories: uuidOf("sandbox:factories") });
+    const { four, ...renamed } = SANDBOX;
+    expect({ ...renamed } as Record<string, string>).toEqual({ one: uuidOf("sandbox:sandbox-1"), two: uuidOf("sandbox:sandbox-2"), three: uuidOf("sandbox:sandbox-3"), factories: uuidOf("sandbox:factories") });
+    // a sandbox made after 0017 has a random UUID, the one its own migration writes
+    expect(MIGRATIONS.find((m) => m.id === "0021-sandbox-4")?.sql).toContain(`'${four}'`);
     for (const id of [COOP, ...Object.values(SANDBOX)]) expect(id).toMatch(UUID);
   });
 
@@ -83,7 +86,7 @@ suite("every reference a UUID (migration 0017)", () => {
     expect(await q(`SELECT story_id, coop_id FROM play.proposals WHERE id = $1`, [proposal])).toEqual([{ story_id: film, coop_id: COOP }]);
     expect(await q(`SELECT sandbox_id FROM play.proposals WHERE id = $1`, [change])).toEqual([{ sandbox_id: SANDBOX.two }]);
     expect(await q(`SELECT sandbox_id FROM play.sandbox_configs`)).toEqual([{ sandbox_id: SANDBOX.one }]);
-    expect((await q(`SELECT id, title FROM play.sandboxes ORDER BY title`)).map((r) => r.id)).toEqual([SANDBOX.factories, SANDBOX.one, SANDBOX.two, SANDBOX.three]);
+    expect((await q(`SELECT id, title FROM play.sandboxes ORDER BY title`)).map((r) => r.id)).toEqual([SANDBOX.factories, SANDBOX.one, SANDBOX.two, SANDBOX.three, SANDBOX.four]);
     expect(await q(`SELECT coop_id FROM play.memberships`)).toEqual([{ coop_id: COOP }]);
     expect((await q(`SELECT DISTINCT coop_id FROM play.level_rules`)).map((r) => r.coop_id)).toEqual([COOP]);
     // the story's document, renamed, its every step kept and still read back
