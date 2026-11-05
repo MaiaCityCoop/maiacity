@@ -6,7 +6,10 @@
  *   the ground   each surface it is painted with (`ground-<surface>`) and its weight
  *   the cover    how many plants stand on a square metre inside their colonies (`density`), and each kind
  *                (`cover-<kind>`): the asset it is (its `ref`, the cover's kind at its seed), its share, how big its
- *                colonies are, how much of the ground they take, how full they are and the surface they grow on
+ *                colonies are, how much of the ground they take, how full they are and the surface they grow on;
+ *                a kind a machine sowed, its rows (how far apart, how far along them, how far off its line)
+ *   the field    a field's tramlines (`tramlines`, of the assembly `field`): every how many metres, the gauge and the
+ *                tyre's width; a biome may keep other parts there (its rows' depth, its colours), read by nobody here
  *
  * A world reads a biome from its card alone (`biomeOfCard`), as the vault hands it out, never from the repo's list: the
  * vault's biome at the version a world names is the floor it lays. Every number is checked on the way in.
@@ -15,6 +18,7 @@ import { SURFACE, SURFACES } from './surfaces.js';
 
 /** the specs' names, as the card shows them to people and a world reads them back */
 const WEIGHT = 'Weight', DENSITY = 'Plants a square metre', SHARE = 'Share', COLONY = 'Colony across', SPREAD = 'Ground its colonies take', FILL = 'How full its colonies are', ON = 'Grows on';
+const ROWS = 'Rows apart', ALONG = 'Along the row', JITTER = 'Off its line', EVERY = 'Every', GAUGE = 'Gauge', TYRE = 'Tyre';
 
 /** a number as a spec writes it: as it is, so it reads back the same @param {number} n */
 const num = (n) => String(Number(n));
@@ -39,17 +43,30 @@ export function biomeCatalog(recipe, kinds) {
 		assembly: 'cover',
 		what: 'A kind of the cover, standing in colonies of its own on the surface it belongs on.',
 		ref: kinds.ref(c.kind, i),
-		specs: [[SHARE, num(c.share)], [COLONY, `${num(c.colony)} m`], [SPREAD, num(c.spread)], ...(c.fill === undefined ? [] : [[FILL, num(c.fill)]]), ...(c.on ? [[ON, c.on]] : [])]
+		specs: [
+			[SHARE, num(c.share)],
+			[COLONY, `${num(c.colony)} m`],
+			[SPREAD, num(c.spread)],
+			...(c.fill === undefined ? [] : [[FILL, num(c.fill)]]),
+			...(c.on ? [[ON, c.on]] : []),
+			...(c.rows ? [[ROWS, `${num(c.rows.spacing)} m`], [ALONG, `${num(c.rows.along)} m`], ...(c.rows.jitter === undefined ? [] : [[JITTER, `${num(c.rows.jitter)} m`]])] : [])
+		]
 	}));
+	const t = recipe.tramlines;
+	const field = t
+		? [{ id: 'tramlines', label: 'Tramlines', assembly: 'field', what: 'A pair of wheel tracks along the rows, one pair every working width of the sprayer.', specs: [[EVERY, `${num(t.every)} m`], [GAUGE, `${num(t.gauge)} m`], [TYRE, `${num(t.tyre)} m`]] }]
+		: [];
 	return {
 		assemblies: [
 			{ id: 'ground', label: 'The ground', note: 'The surfaces it is painted with, each in patches of its own size.' },
-			{ id: 'cover', label: 'The cover', note: 'What grows and lies on it, kind by kind, each in its colonies.' }
+			{ id: 'cover', label: 'The cover', note: 'What grows and lies on it, kind by kind, each in its colonies.' },
+			...(field.length ? [{ id: 'field', label: 'The field', note: 'Its tramlines, along its rows.' }] : [])
 		],
 		parts: [
 			...ground,
 			{ id: 'density', label: 'How dense the cover stands', assembly: 'cover', what: 'How many plants (or things) of the cover stand on a square metre inside their colonies.', specs: [[DENSITY, num(recipe.density)]] },
-			...cover
+			...cover,
+			...field
 		]
 	};
 }
@@ -97,6 +114,8 @@ export function biomeOfCard(card) {
 			const on = spec(p, ON);
 			if (on !== undefined && !(/** @type {string[]} */ (SURFACES).includes(on))) no(`${p.id} grows on ${on}, which no ground has`);
 			const fill = number(p, FILL, 0, 1, true);
+			const spacing = number(p, ROWS, 0.02, 10, true);
+			const rows = spacing === undefined ? undefined : { spacing, along: /** @type {number} */ (number(p, ALONG, 0.02, 10)), ...(spec(p, JITTER) === undefined ? {} : { jitter: number(p, JITTER, 0, 1) }) };
 			return {
 				kind: /** @type {import('./cover.js').Cover} */ (kind),
 				ref: /** @type {string} */ (p.ref),
@@ -104,9 +123,12 @@ export function biomeOfCard(card) {
 				colony: /** @type {number} */ (number(p, COLONY, 0.01, 1000)),
 				spread: /** @type {number} */ (number(p, SPREAD, 0, 1)),
 				...(on === undefined ? {} : { on: /** @type {import('./surfaces.js').Surface} */ (on) }),
-				...(fill === undefined ? {} : { fill })
+				...(fill === undefined ? {} : { fill }),
+				...(rows ? { rows } : {})
 			};
 		});
 	if (!cover.length) no('no cover');
-	return { id: card.id, version: card.version, label: card.label, note: card.note ?? '', from: '', surface, density, cover };
+	const tp = parts.find((p) => p.assembly === 'field' && p.id === 'tramlines');
+	const tramlines = tp ? { every: /** @type {number} */ (number(tp, EVERY, 1, 1000)), gauge: /** @type {number} */ (number(tp, GAUGE, 0.5, 10)), tyre: /** @type {number} */ (number(tp, TYRE, 0.1, 2)) } : undefined;
+	return { id: card.id, version: card.version, label: card.label, note: card.note ?? '', from: '', surface, density, cover, ...(tramlines ? { tramlines } : {}) };
 }

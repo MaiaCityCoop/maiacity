@@ -19,7 +19,8 @@
  * both lay it out.
  */
 import * as THREE from 'three';
-import { coverAt, coverOf } from './index.js';
+import { colonyAt, coverAt, coverOf } from './index.js';
+import { inTrack } from './surfaces.js';
 import { rng } from './noise.js';
 
 /**
@@ -27,7 +28,7 @@ import { rng } from './noise.js';
  *   recipe: import('./index.js').Recipe,
  *   open?: (x: number, z: number) => boolean,
  *   tile?: number, reach?: number, near?: number, thin?: number, perFrame?: number, seed?: number, shadows?: boolean,
- *   hidden?: Set<number>, density?: number, origin?: [number, number],
+ *   hidden?: Set<number>, density?: number, origin?: [number, number], rows?: number,
  *   away?: { key: string, head: string, body: string, uniforms: Record<string, { value: unknown }> }
  * }} o
  *   recipe: the biome; open: whether cover may stand at x, z (not on a path, in the water, in a trunk…); tile: a tile's
@@ -58,7 +59,7 @@ export function coverStream(o) {
 	/** @type {Map<string, { ix: number, iz: number, kinds: TileKinds }>} */
 	const tiles = new Map();
 	/** @param {number} ix @param {number} iz @returns {TileKinds} */
-	const build = (ix, iz) => coverTile(recipe, ix, iz, { tile, seed, density: o.density, open: o.open, origin: [ox, oz], hidden });
+	const build = (ix, iz) => coverTile(recipe, ix, iz, { tile, seed, density: o.density, open: o.open, origin: [ox, oz], hidden, rows: o.rows });
 	/** the tiles' plants gathered into each kind's instances, as many of each tile as stand at its distance */
 	let gathered = { x: Infinity, z: Infinity }, changed = true;
 	const gather = (/** @type {number} */ x, /** @type {number} */ z) => {
@@ -147,7 +148,8 @@ export function coverStream(o) {
  * One tile of a biome's cover, worked out from its place alone (the same tile, the same plants, every time): each kind's
  * plants in it (by its index in `recipe.cover`), their places and their ranks, least first.
  * @param {import('./index.js').Recipe} recipe @param {number} ix @param {number} iz
- * @param {{ tile?: number, seed?: number, density?: number, open?: (x: number, z: number) => boolean, origin?: [number, number], hidden?: Set<number> }} [o]
+ * @param {{ tile?: number, seed?: number, density?: number, open?: (x: number, z: number) => boolean, origin?: [number, number], hidden?: Set<number>, rows?: number }} [o]
+ *   rows: the way the floor's rows run (radians from +x towards +z; ./surfaces.js `rowsOf`), for the kinds in rows
  * @returns {TileKinds}
  */
 export function coverTile(recipe, ix, iz, o = {}) {
@@ -166,6 +168,38 @@ export function coverTile(recipe, ix, iz, o = {}) {
 			if (k < 0 || (o.open && !o.open(px, pz))) continue;
 			at[k]?.push({ rank, m: new THREE.Matrix4().compose(p.set(px, 0, pz), q.setFromAxisAngle(up, turn), sc.setScalar(size)) });
 		}
+	// the kinds a machine sowed, on their rows: each row a line across the world (so the tiles join), the rows running
+	// the way `o.rows` says, none in the field's tramlines; by a chance of their own, so a biome without rows lays its
+	// cover exactly as it did before rows were
+	recipe.cover.forEach((c, k) => {
+		if (!c.rows || hidden.has(k)) return;
+		const rr = rng((ix * 2654435761) ^ (iz * 40503) ^ (seed * 83492791) ^ ((k + 1) * 97531));
+		const a = o.rows ?? 0, dx = Math.cos(a), dz = Math.sin(a);
+		const { spacing, along } = c.rows, jitter = c.rows.jitter ?? 0;
+		// the tile's corners in the world, across and along the rows
+		const xs = [x0 + ox, x0 + tile + ox], zs = [z0 + oz, z0 + tile + oz];
+		let c0 = Infinity, c1 = -Infinity, s0 = Infinity, s1 = -Infinity;
+		for (const wx of xs)
+			for (const wz of zs) {
+				const across = -dz * wx + dx * wz, on = dx * wx + dz * wz;
+				c0 = Math.min(c0, across), c1 = Math.max(c1, across), s0 = Math.min(s0, on), s1 = Math.max(s1, on);
+			}
+		for (let j = Math.ceil(c0 / spacing); j * spacing <= c1; j++) {
+			const across = j * spacing;
+			if (inTrack(recipe.tramlines, across) > 0.2) continue;
+			for (let n = Math.ceil(s0 / along); n * along <= s1; n++) {
+				const on = n * along;
+				const wx = dx * on - dz * across, wz = dz * on + dx * across;
+				// the tile its place on the row lies in lays it (nudged off the line by its jitter after)
+				const lx = wx - ox, lz = wz - oz;
+				const px = lx + (rr() - 0.5) * jitter, pz = lz + (rr() - 0.5) * jitter;
+				const turn = rr() * Math.PI * 2, size = 0.85 + rr() * 0.3, rank = rr(), keep = rr();
+				if (lx < x0 || lx >= x0 + tile || lz < z0 || lz >= z0 + tile) continue;
+				if (keep >= (c.fill ?? 0.85) * colonyAt(recipe, k, px + ox, pz + oz) || (o.open && !o.open(px, pz))) continue;
+				at[k]?.push({ rank, m: new THREE.Matrix4().compose(p.set(px, 0, pz), q.setFromAxisAngle(up, turn), sc.setScalar(size)) });
+			}
+		}
+	});
 	return at.map((list) => {
 		list.sort((a, b) => a.rank - b.rank);
 		const m = new Float32Array(list.length * 16), rank = new Float32Array(list.length);
@@ -185,7 +219,7 @@ export function coverTile(recipe, ix, iz, o = {}) {
  * @param {import('./index.js').Recipe} recipe
  * @param {{
  *   tile?: number, reach?: number, near?: number, thin?: number, seed?: number, density?: number, hidden?: Set<number>,
- *   open?: (x: number, z: number) => boolean, origin?: [number, number], eye?: [number, number]
+ *   open?: (x: number, z: number) => boolean, origin?: [number, number], eye?: [number, number], rows?: number
  * }} [o]
  * @returns {Float32Array[]}
  */

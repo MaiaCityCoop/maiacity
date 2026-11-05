@@ -25,11 +25,13 @@ const STEP = 0.5;
  *   recipe: import('$lib/content/biomes/index.js').Recipe,
  *   open?: (x: number, z: number) => boolean,
  *   tile?: number, reach?: number, near?: number, thin?: number, perFrame?: number, seed?: number, density?: number,
- *   origin?: [number, number], at?: [number, number, number], hidden?: boolean, heightAt?: (x: number, z: number) => number
+ *   origin?: [number, number], at?: [number, number, number], hidden?: boolean, heightAt?: (x: number, z: number) => number,
+ *   rows?: number
  * }} o
  *   the stream's options (`coverStream`), and: drawn, the renderer it is drawn by; at, where the floor's own ground lies
  *   in the world it draws (a dome's floor, off the village's middle); hidden, none of it drawn until it is shown;
- *   heightAt, the floor's height at x, z of its own ground where it is not flat (a building's forest floor)
+ *   heightAt, the floor's height at x, z of its own ground where it is not flat (a building's forest floor); rows, the way
+ *   the floor's rows run, for the kinds of its cover sown in rows ($content/biomes/surfaces.js `rowsOf`)
  */
 export function createCover(o) {
 	const tile = o.tile ?? 12, reach = o.reach ?? 30, perFrame = o.perFrame ?? 1, seed = o.seed ?? 1;
@@ -110,7 +112,7 @@ export function createCover(o) {
 				}
 			want.sort((a, b) => a[0] - b[0]);
 			for (const [, tx, tz] of want.slice(0, budget)) {
-				tiles.set(`${tx},${tz}`, { ix: tx, iz: tz, kinds: coverTile(recipe, tx, tz, { tile, seed, density: o.density, open: o.open, origin: [ox, oz] }) });
+				tiles.set(`${tx},${tz}`, { ix: tx, iz: tz, kinds: coverTile(recipe, tx, tz, { tile, seed, density: o.density, open: o.open, origin: [ox, oz], rows: o.rows }) });
 				changed = true;
 			}
 			for (const [key, t] of tiles) if (Math.hypot((t.ix + 0.5) * tile - x, (t.iz + 0.5) * tile - z) - tile * 0.71 > out + tile && tiles.delete(key)) changed = true;
