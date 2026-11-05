@@ -15,6 +15,9 @@
  *                     `zoom` × its distance, or `target` [x, y, z] (m) and `dist` (m). Without it: every stage of a
  *                     recipe that has stages, framed as the viewer frames them, else its default build
  *   --url             a dev server already running; without it one is started here (bun run dev) and stopped after
+ *   --slack           on a machine too busy to keep the box's time (several renders at once), the box's 20 s
+ *                     stretched this many times (at most 6), in development only; the build's own time is checked
+ *                     elsewhere (a built site holds every build to 20 s)
  *   --guests          a JSON list of the assets a recipe names by hash and the page draws where it stands them (a
  *                     dome's plants): { "file", "id", "v", "variant"?, "as"? }, each a readable source handed to the
  *                     page's catalog; `as` the hash play holds it by, which the recipe names: every --file's code has
@@ -53,6 +56,7 @@ function args(argv) {
 		else if (k === '--label') (o.recipes.at(-1).label = v), i++;
 		else if (k === '--shots') (o.shots = v), i++;
 		else if (k === '--guests') (o.guests = v), i++;
+		else if (k === '--slack') (o.slack = Number(v)), i++;
 		else if (k === '--world') o.world = true;
 		else if (k === '--values') (o.values = JSON.parse(v)), i++;
 		else if (k === '--out') (o.out = v), i++;
@@ -111,7 +115,7 @@ try {
 		const page = await browser.newPage({ viewport: { width: o.size, height: o.size }, deviceScaleFactor: o.scale });
 		page.on('pageerror', (e) => console.error(`  page: ${e.message}`));
 		const bench = o.world ? '__world' : '__render';
-		await page.goto(`${dev.url}${o.world ? '/worlds/bench/' : '/render/'}`);
+		await page.goto(`${dev.url}${o.world ? '/worlds/bench/' : '/render/'}${o.slack ? `?slack=${o.slack}` : ''}`);
 		await page.waitForFunction((b) => !!window[b], bench, { timeout: 120_000 });
 		const name = basename(r.file).replace(/\.[^.]+$/, '');
 		// the assets it names, handed to the page first; the hashes it names them by turned into theirs here
