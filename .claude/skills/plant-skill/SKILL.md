@@ -15,8 +15,12 @@ are kept for plants.
 Worked examples, all proposed over MCP and kept on play: **apricot v2** ('Ungarische Beste'), **cacao v3** (West
 African Amelonado; its numbers in `references/cacao-amelonado.md`) and **banana v2** ('Dwarf Cavendish', the first made
 from its own reference sheet; its numbers in `references/banana-dwarf-cavendish.md`, its brief in
-`references/banana-dwarf-cavendish-brief.md`). Start a new plant from the newest: copy its part 1 (the growing core,
-with its surfaces and `sound()`; the file is `references/banana-v2.js`) as it is and write parts 2–4 for the new plant.
+`references/banana-dwarf-cavendish-brief.md`) and **lemon v2** ('Femminello Santa Teresa', the first tree grown flush
+by flush from its own sheet, three crops on it at once; its numbers in `references/lemon-femminello-santa-teresa.md`,
+its brief beside them, its source `references/lemon-v2.js`). Start a new plant from the newest: copy its part 1 (the
+growing core, with its surfaces, `sound()` and `picture()`'s mipmaps; `references/lemon-v2.js`) as it is and write
+parts 2–4 for the new plant. A tree that grows in flushes (citrus, mango, avocado, cacao, tea) can take lemon v2's
+`canopy()` as its part 3.
 
 ## The order of work
 
@@ -72,8 +76,13 @@ in one even light, straight on, beside one another. It replaces searching the we
   never to trust: its scale bars and labels (the first banana sheet's bars disagreed with its own labels), counts
   (petals, locules, hands), relative sizes between panels, and anything the data sheet contradicts (its banana
   pseudostem was drawn thin and brown, the real one 0.8 m round and green, blotched). Sizes always come from the data
-  sheet. A wrong panel is made again: with `fal-ai/nano-banana-pro/edit` and the sheet as its image ("redraw only the
-  cell …"), or a whole new plate with the fault named in the brief.
+  sheet. A wrong panel is made again: `sheet.ts --edit <sheet.jpg> --brief <fix.md> --out <dir> --label …` sends the
+  sheet to `fal-ai/nano-banana-pro/edit` with the fix as its instruction ("keep every cell exactly as it is and redraw
+  ONLY cells 3, 4 and 5: …", each fault named with the data sheet's numbers); make two and keep the one that changed
+  only what was asked (an edit can quietly break another cell: the lemon's second edit replaced its cut fruit with
+  whole ones). A form the model keeps redrawing its own way needs its own edit naming the form in plain words (the
+  lemon's trees came back as lollipop standards twice; "a SHORT trunk … the crown starts LOW … like a haystack, not a
+  ball on a stick" fixed them), or a whole new plate with the fault named in the brief.
 - **Keep it in play's Library**: `sheet.ts` keeps every sheet it makes there at once (MCP `add_story_frame`, up to
   4 MB), labelled `Reference sheet · <Plant 'Cultivar'> · <k>` (give `--label "Lemon 'Femminello Santa Teresa'"`),
   and prints its BLAKE3 hash (`sheet-<k>.hash`); a sheet made otherwise is kept with `sheet.ts --upload <jpg>
@@ -93,7 +102,12 @@ in the same light as its panel.
    sheet) and its colours zone by zone in linear sRGB with their spread. They go into the organs object as tables
    (`LEAF_W`, `FRUIT_R`…) with a comment naming the sheet's hash and the panel, so a blade, a petal or a fruit's
    lathe has the real outline and not an ellipse. Colours: the median as the base, p10–p90 as each organ's own
-   variation by its chance; check first that the checker's grey patches came out grey.
+   variation by its chance; check first that the checker's grey patches came out grey. A sheet's ground is not
+   always white (the lemon's came out lavender, about 0.91): white-balance the sheet on its ground first, and raise
+   `--white` above the ground's own distance from white, or the ground is traced as the organ (widths equal to the
+   box). A specimen laid at a slant is traced and compared crooked: turn it upright on its own main axis first,
+   `python3 -I .claude/skills/plant-skill/scripts/upright.py <sheet> x0 y0 x1 y1 <out.png> [white]` (the lemon leaf's
+   overlap went from 0.76 to 0.82 on that alone).
 2. **Shape the third dimension** the plate does not show flat: a blade's fold along its midrib and its wave, a fruit's
    ridges and section (from the cut panel), a pseudostem's sheath edges, from the side views and the cuts.
 3. **Detail where the eye reads it, as surfaces**: what vertex colours cannot carry (veins, blotches, fibres, spots,
@@ -113,7 +127,12 @@ in the same light as its panel.
    organ as the panel lies (straight, its stalk down), crop the panel to one specimen (neighbours in the box ruin the
    numbers), and read the side-by-side picture as well as the numbers. Then the stages whole against row 1 for form
    and proportion (`--colourful` drops the sheet's ground line and bars); where the sheet cut a plant off or drew it
-   against the data sheet, judge by eye and say so.
+   against the data sheet, judge by eye and say so. A white organ (a lemon flower) on a near-white ground cannot be
+   cut out: judge it side by side. Compare like with like: a blade against a blade (cut the petiole off both when the
+   sheet's is shorter than the data sheet's), a fruit without its stalk; where the sheet's proportion is wrong (the
+   lemon's ripe fruit 1.37 : 1 against a measured 1.15), stretch the bench organ to the panel's aspect once to judge
+   its outline apart from its proportion, and keep the data sheet's. The bench draws an organ, not a tree: a whole
+   tree of 800k triangles times out; check whole trees on play's renders.
 5. **Budgets go up with it**: up to about 800k triangles at full detail for a grown plant (a close-up is what the sheet
    is checked by), and still about 60k at 0.3 and 15k at 0.1 for the crowds: the extra detail belongs to `detailAt`.
    A plant of few big leaves (banana) thins by rows, never by dropping parts: `THINNED` holds only what is many.
@@ -200,6 +219,27 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   change.
 
 ## Lessons kept
+
+- **Pictures need their mipmaps.** A `DataTexture` is nearest-filtered and unmipmapped by default: the lemon's rind
+  glands, a fine pattern, read as a coarse honeycomb from two metres, and leaf veins shimmered. `picture()` sets linear
+  filtering and mipmaps (lemon v2's part 1; banana v2's lacks it).
+- **A bump picture's strength is per UV, not per metre.** A leaf whose UVs run 0 … 1 over its 10 cm needs a bump scale
+  about a twentieth of a rind's laid on 3 cm tiles in metres (lemon: 0.04 against 0.8); too strong, every leaf showed
+  barcode stripes.
+- **Glossy leaves go white at a grazing angle.** A clearcoat on a leaf, however thin, mirrors the sky where the leaf is
+  seen edge-on, and a crown of thousands of leaves turns grey-white. No clearcoat on leaves; roughness about 0.5 and a
+  low `specularIntensity` (0.3) still read glossy. Render close-ups with the sun behind the camera, or glare hides it.
+- **A colour mix must not overshoot.** THREE's `Color.lerp` does not clamp: a factor above 1 runs past the colour (the
+  lemon's ripe yellow went mustard, its blue negative). Clamp the factor, or use `mix()`.
+- **A tree of flushes is held by its crowding, sized by its pruning.** Lemon v2 grows every shoot of three flushes a
+  year from the tips of the last, so its count would double each year; what holds it is a hard cap of young shoots
+  (born within one leaf life) per 25 cm cell, the same everywhere, and its size is the grower's: a crown shape from
+  the data sheet's heights and widths by age that no shoot grows out of. Exempting the crown's face from the cap ran
+  away (60k leaves); a cap of 3 starved its top (2.7 m for 3.3). Tune by numbers per age (height, width, trunk at 30 cm,
+  leaves, fruit, triangles) for two seeds before rendering; dead twigs inside must fall (they also thicken the trunk
+  by the pipe model: 19 cm at eight years for a measured 9–12).
+- **Image models draw standards.** Every tree on the lemon's sheet came out as a lollipop on a metre of bare stem; an
+  orchard tree has a short trunk and a crown down to near the ground. Name the form in the brief and check it first.
 
 - **Safe on every GPU, or black on an iPad.** Banana v2's first proposal drew black in play's viewer on an iPad:
   some 800 normals of no length where its blades' rows met at the tip, with a bump picture, made NaN pixels on

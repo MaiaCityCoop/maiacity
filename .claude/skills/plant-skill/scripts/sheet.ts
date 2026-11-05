@@ -7,6 +7,10 @@
  *       [--label "Lemon 'Femminello Santa Teresa'"] [--model fal-ai/nano-banana-pro] [--resolution 4K] [--aspect 16:9]
  *       [--n 2] [--search] [--no-upload]
  *   bun .claude/skills/plant-skill/scripts/sheet.ts --upload <file.jpg> --label <label>
+ *   bun .claude/skills/plant-skill/scripts/sheet.ts --edit <sheet.jpg> --brief <fix.md> --out <dir> --label <label>
+ *
+ * With --edit, a sheet already made is redrawn where it is wrong (fal-ai/nano-banana-pro/edit): the brief is then the
+ * instruction as it is ("Redraw only the cells …, keep every other cell exactly as it is"), the data sheet its context.
  *
  * The brief is the plant and the plate's layout (SKILL.md, "The reference sheet"): its full Latin name and cultivar,
  * its organs with their real sizes and colours, then the rows: the stages from what is planted to ripe fruit, the
@@ -70,14 +74,16 @@ LIGHT AND CAMERA: a pure white seamless background (#FFFFFF), even shadowless li
 DO NOT: drawings, watercolour, painterly or 3D-render looks; hands, pots, tools, props, soil on the parts; any specimen of another plant or cultivar; overlapping cells; decorative borders; text other than the labels.`;
 
 mkdirSync(out, { recursive: true });
-writeFileSync(join(out, "prompt.txt"), PLATE + (datasheet ? `\n\n--- context: the data sheet ---\n${datasheet}` : ""));
+writeFileSync(join(out, "prompt.txt"), (arg("edit") ? brief : PLATE) + (datasheet ? `\n\n--- context: the data sheet ---\n${datasheet}` : ""));
 
 // --- the model --------------------------------------------------------------------------------------------------
-const model = arg("model", "fal-ai/nano-banana-pro")!;
+const editing = arg("edit");
+const model = arg("model", editing ? "fal-ai/nano-banana-pro/edit" : "fal-ai/nano-banana-pro")!;
 const key = process.env.FAL_API_KEY ?? process.env.FAL_KEY;
 if (!key) throw new Error("FAL_API_KEY is not set.");
 const input: Record<string, unknown> = {
-  prompt: PLATE,
+  prompt: editing ? brief : PLATE,
+  ...(editing ? { image_urls: [`data:image/jpeg;base64,${readFileSync(editing).toString("base64")}`] } : {}),
   aspect_ratio: arg("aspect", "16:9"),
   resolution: arg("resolution", "4K"),
   output_format: "png",
@@ -97,7 +103,7 @@ for (;;) {
 }
 const result: any = await (await fetch(submit.response_url, { headers })).json();
 if (!result.images?.length) throw new Error(JSON.stringify(result));
-writeFileSync(join(out, "result.json"), JSON.stringify({ model, input: { ...input, prompt: "(prompt.txt)", context: input.context ? "(data sheet)" : undefined }, result }, null, 2));
+writeFileSync(join(out, "result.json"), JSON.stringify({ model, input: { ...input, prompt: "(prompt.txt)", image_urls: input.image_urls ? [editing] : undefined, context: input.context ? "(data sheet)" : undefined }, result }, null, 2));
 for (const [k, img] of result.images.entries()) {
   const png = join(out, `sheet-${k + 1}.png`);
   writeFileSync(png, new Uint8Array(await (await fetch(img.url)).arrayBuffer()));
