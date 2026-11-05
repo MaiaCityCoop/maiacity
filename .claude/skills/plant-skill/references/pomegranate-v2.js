@@ -1195,7 +1195,7 @@ function rindAt(d, lit) {
 	if (d < 20) c = mix(R.set, R.green, d / 20);
 	else if (d < 70) c = mix(R.green, R.greenLate, (d - 20) / 50);
 	else c = mix(R.greenLate, R.yellow, clamp((d - 70) / 30));
-	const blush = clamp((d - 82 + 25 * lit) / 75);
+	const blush = clamp((d - 82 + 25 * lit) / 62);
 	if (blush > 0) {
 		const red = mix(R.blush, R.red, clamp((d - 95) / 30));
 		red.lerp(named(R.ripe), clamp((d - 120) / 30));
@@ -1845,7 +1845,7 @@ function spurSeason(bag, seed, ax, t, year, s, pass, leafy, fall, space, sunDir,
 	const keepOne = setsAt.indexOf(true); // the grower and the tree keep one fruit at a site
 	const daysOf = (k) => (s - opens0 - k * 0.012) * 365;
 	const fruitDays = keepOne >= 0 ? daysOf(keepOne) : -1;
-	const hanging = keepOne >= 0 && fruitDays > 0 && fruitDays < RIPE_DAYS + 20 && year >= TREE.firstFruit;
+	const hanging = keepOne >= 0 && fruitDays > 0 && fruitDays < RIPE_DAYS + 40 && year >= TREE.firstFruit;
 	const bendDown = hanging ? smooth(fruitSize(fruitDays) * 1.6 - 0.2) : 0;
 	const sd0 = dir.clone().lerp(v3(0, -1, 0), 0.05 + 0.85 * bendDown).add(out.clone().multiplyScalar(1 - bendDown)).normalize();
 	const len = shootLen * grown;
@@ -1900,7 +1900,7 @@ function spurSeason(bag, seed, ax, t, year, s, pass, leafy, fall, space, sunDir,
 			continue;
 		}
 		const d = ph * 365;
-		if (d > RIPE_DAYS + 20) continue; // picked
+		if (d > RIPE_DAYS + 40) continue; // picked (they hang to 185 days and more: the data sheet measures their cracking there)
 		if (ph < 0.025) {
 			// the perfect flower, its petals falling after four or five days; then the calyx and ovary go on as the fruit
 			flower(bag, at, facing.clone().add(v3(0, 0.35, 0)).normalize(), open, span(ph, 0.012, 0.025), true, fr, false, parts);
@@ -1931,7 +1931,7 @@ function spurSeason(bag, seed, ax, t, year, s, pass, leafy, fall, space, sunDir,
 /**
  * Ten stages, from the cutting to ripe fruit; `t` the years since the cutting was planted (1 February) each is grown
  * at (between two stages, on the way). The last six are the plant's eighth year: bare in February, full bloom about
- * 10 May, ripe fruit picked about 155 days after (mid October).
+ * 10 May, ripe fruit picked about 155 days after (October).
  */
 const STAGES = [
 	{ name: 'Cutting', t: 0.0, note: 'February: a hardwood cutting of last year\'s wood, 28 cm long and 11 mm thick, grey-brown, set 21 cm deep so two pairs of buds show. No rootstock: a Wonderful grows on its own roots.' },
@@ -1943,7 +1943,7 @@ const STAGES = [
 	{ name: 'Fruit set', t: 7.37, note: 'Early June: the first fruit 3–4 cm, bronze-green under the red calyx that becomes their crown, the dry stamens inside; the last wave of flowers still opening; fallen bell flowers under the tree.' },
 	{ name: 'Green fruit', t: 7.43, note: 'Early July, about two months after bloom: round green fruit of 6 cm, hanging crown-down from the ends of the shoots, which bend under them.' },
 	{ name: 'Colouring', t: 7.55, note: 'Mid to late August, about eleven to fourteen weeks after the petals fell: the colour breaks, red flushing over the yellow-green from the sunny side; 8–9 cm.' },
-	{ name: 'Ripe', t: 7.7, note: 'Mid October, about 155 days after full bloom: ripe Wonderfuls, 10–11 cm across and 9 cm high, 350–550 g, deep crimson all over under a tall crown of six stiff lobes; inside some 500 ruby-red arils. The outer shoots arch down under them.' },
+	{ name: 'Ripe', t: 7.74, note: 'Late October, about 155 days after full bloom: ripe Wonderfuls, 10–11 cm across and 9 cm high, 350–550 g, deep crimson all over under a tall crown of six stiff lobes; inside some 500 ruby-red arils. The outer shoots arch down under them.' },
 ];
 
 /** the years since planting at a stage (0 … 9, between two stages on the way) */
