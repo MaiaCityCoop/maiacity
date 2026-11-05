@@ -38,7 +38,17 @@ broken() {
     import { blobStore } from "/app/api/src/blobs.ts";
     const db = connect(), store = blobStore();
     const { rows } = await db.query("SELECT hash FROM play.files ORDER BY hash");
-    for (const { hash } of rows) if (!(await store.get(hash).catch(() => null))) console.log(hash);
+    // the bucket takes a blob only whole (its bytes checked before the put), so there asking it is enough; the folder
+    // is read back, a write cut short leaves a name with less in it; sixteen at a time, each a round trip
+    const bucket = !!process.env.PLAY_BUCKET;
+    let next = 0;
+    await Promise.all(Array.from({ length: 16 }, async () => {
+      for (let i = next++; i < rows.length; i = next++) {
+        const h = rows[i].hash;
+        const ok = await (bucket ? store.has(h) : store.get(h).then(Boolean)).catch(() => false);
+        if (!ok) console.log(h);
+      }
+    }));
     process.exit(0);' </dev/null
 }
 
@@ -54,7 +64,7 @@ report() {
   fi
   echo "## Journal"; sudo journalctl --disk-usage 2>/dev/null | sed 's/^/    /' || true
   [ -n "$DATA" ] && [ -d "$DATA/blobs" ] && echo "## play's files in the folder: $(find "$DATA/blobs" -type f | wc -l) in $(du -sh "$DATA/blobs" | cut -f1)"
-  echo "## play's store: ${PLAY_BUCKET:+the bucket $PLAY_BUCKET}${PLAY_BUCKET:-the folder $DATA/blobs}"
+  if [ -n "${PLAY_BUCKET:-}" ]; then echo "## play's store: the bucket $PLAY_BUCKET"; else echo "## play's store: the folder $DATA/blobs"; fi
   B=$(broken || true)
   if [ -n "$B" ]; then
     echo "## Files play's database names that its store cannot hand back whole, and what they are"
