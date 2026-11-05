@@ -82,6 +82,8 @@ export function heroOf({ obj: root, card }, { start, exact = false } = {}) {
 	let fresh = false;
 	let asking = false;
 	let waited = 0;
+	/** the step asked of the box and not yet answered (null: none): a film awaits it rather than polling */
+	let pending = null;
 	let gone = false;
 	let sent = '';
 	// its break is its solver's, in the box
@@ -203,14 +205,18 @@ export function heroOf({ obj: root, card }, { start, exact = false } = {}) {
 		waited = exact ? Math.max(0, waited - send) : 0;
 		asking = true;
 		const r = running;
-		r.tick(ask)
+		pending = r
+			.tick(ask)
 			.then((out) => r === running && !gone && follow(out))
 			.catch(() => {
 				// the box was torn down, it was late, or its answer was refused: the copy stands as it is, its run let go
 				if (r === running) running = null;
 				r.end?.();
 			})
-			.finally(() => (asking = false));
+			.finally(() => {
+				asking = false;
+				pending = null;
+			});
 	}
 
 	const hero = {
@@ -310,6 +316,14 @@ export function heroOf({ obj: root, card }, { start, exact = false } = {}) {
 		 *  for none before it draws a frame (play/SPEC.md §4.11) */
 		get busy() {
 			return asking || waited > 0;
+		},
+		/** the time (s) not yet asked of the box: an exact build's long step is asked STEP at a time */
+		get owed() {
+			return waited;
+		},
+		/** the step asked of the box and not yet answered, to await (null: none in flight) */
+		get pending() {
+			return pending;
 		},
 		dispose() {
 			gone = true;
