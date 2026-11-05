@@ -22,7 +22,7 @@
 
 	type Listed = { id: string; grp: string; slug: string; label: string; head: number; versions: number };
 	type Variant = { name: string; recipe: string; label: string | null };
-	type Version = { id: string; number: number; parents: string[]; recipe: string | null; defaultVariant: string | null; note: string; created: string; author: string | null; approvedBy: string | null; imported: boolean; variants: Variant[]; cardLabel: string | null; triangles: number | null; size: number[] | null; skinned: boolean | null };
+	type Version = { id: string; number: number; parents: string[]; recipe: string | null; defaultVariant: string | null; note: string; created: string; author: string | null; approvedBy: string | null; imported: boolean; variants: Variant[]; cardLabel: string | null; triangles: number | null; size: number[] | null; skinned: boolean | null; sheet: string | null };
 	type Chain = { id: string; grp: string; slug: string; label: string; versions: Version[]; sound: string | null; sound_gain: number };
 
 	const viewer = import('$lib/content/assets/VaultAsset.svelte');
@@ -300,6 +300,13 @@
 							<p class="note" class:more={opened.includes(v.id)}>{v.note}</p>
 							{#if v.note.length > 110}<button class="fold" aria-expanded={opened.includes(v.id)} onclick={() => (opened = opened.includes(v.id) ? opened.filter((x) => x !== v.id) : [...opened, v.id])}>{opened.includes(v.id) ? 'Show less' : 'Show more'}</button>{/if}
 						{/if}
+						{#if v.sheet}
+							<!-- its reference sheet (a plant's plate of every stage and organ, kept in the Library): opened whole -->
+							<a class="sheet" href="/api/files/{v.sheet}" target="_blank" rel="noopener" title="Its reference sheet, whole (it is kept in the Library)">
+								<img src="/api/files/{v.sheet}" alt="v{v.number}'s reference sheet" loading="lazy" />
+								<span>Reference sheet</span>
+							</a>
+						{/if}
 						{#if v.variants.length > 1 || (v.variants.length && v.recipe)}
 							<div class="variants">
 								{#each v.variants as x (x.name)}
@@ -395,6 +402,9 @@
 	.chain li.on::before { background: var(--mustard); border-color: var(--mustard); }
 	.chain a { color: inherit; text-decoration: none; font-size: 0.9rem; }
 	.chain p { margin: 0.1rem 0 0; font-size: 0.76rem; }
+	.chain .sheet { display: flex; align-items: center; gap: 0.5rem; margin: 0.35rem 0 0.1rem; font-size: 0.78rem; color: inherit; text-decoration: none; }
+	.chain .sheet img { width: 5.5rem; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 0.35rem; border: 1px solid var(--line, #e5e1d8); background: #fff; }
+	.chain .sheet:hover span { text-decoration: underline; }
 	.chain p.note { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; white-space: pre-line; }
 	.chain p.note.more { display: block; -webkit-line-clamp: unset; line-clamp: unset; }
 	.chain .fold { all: unset; margin-top: 0.1rem; font-size: 0.72rem; font-weight: 600; color: var(--soft); cursor: pointer; }

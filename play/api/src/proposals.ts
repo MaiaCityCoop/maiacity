@@ -6,7 +6,7 @@ import { closeFactoryBranch, decideFactory, factoryReview } from "./factories";
 import { closeGameConfigBranch, gameConfigReview, decideGameConfig } from "./gameconfigs";
 import { randomUUID } from "node:crypto";
 import type { BlobStore } from "./blobs";
-import { hashText } from "./hash";
+import { HASH, hashText } from "./hash";
 import type { Db, Queryable } from "./pg";
 import { COOP, Denied, must, type Me } from "./access";
 import { labelOf, libraryOf, RECIPE_HEAD, recipeTail } from "./recipes";
@@ -49,6 +49,7 @@ export type ProposalBody = {
   defaultVariant?: string;
   card?: Record<string, unknown>; // card fields set over the record it takes (its params when the recipe declares new ones), on the version and on each variant
   branch?: number; // a draft made step by step (asset_edit, ./assetdocs.ts), proposed as it stands
+  sheet?: string | null; // its reference sheet: an image play keeps, by its hash (a plant's plate of every stage and organ); null takes the head's away
 };
 
 /**
@@ -140,6 +141,13 @@ const recordOf = (record: any, grp: string, slug: string, n: number, variant: st
   kind: "recipe",
   card: { ...(record?.card ?? {}), group: grp, id: slug, version: n, v: n, ...(variant ? { variant } : {}), recipe: hash },
 });
+
+/** a record with its reference sheet set (a hash), taken away (null) or left as it came (undefined) */
+function withSheet(record: any, sheet: string | null | undefined) {
+  if (sheet === undefined || !record) return record;
+  const { sheet: _, ...rest } = record;
+  return sheet === null ? rest : { ...rest, sheet };
+}
 
 export async function propose(db: Db, store: BlobStore, me: Me | null, given: ProposalBody, via: "web" | "mcp" = "web") {
   const who = must(me, "propose", "asset_version");
@@ -236,7 +244,20 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
     defaultVariant = body.defaultVariant ?? variantNames[0];
     if (!variants[defaultVariant]) throw new ProposalError(`${defaultVariant} is not one of its variants.`);
   }
-  const card = recipe ? recordOf(heldRecord(over(inherited(body.record, a[0]?.card), set), own!.libs, own!.source), grp, slug, n, null, recipe) : variants[defaultVariant!].card;
+  // its reference sheet (play/SPEC.md §4.10): an image play keeps, named by its hash in the version's record, and carried
+  // on from the head like the rest of the record unless the proposal names another (or null, none)
+  let sheet: string | null | undefined;
+  if (body.sheet !== undefined) {
+    sheet = body.sheet === null || body.sheet === "" ? null : `${body.sheet}`;
+    if (sheet !== null) {
+      if (!HASH.test(sheet)) throw new ProposalError("A reference sheet is named by its BLAKE3 hash (64 hex characters).");
+      const { rows: f } = await db.query<{ media_type: string }>(`SELECT media_type FROM play.files WHERE hash = $1`, [sheet]);
+      if (!f[0]) throw new ProposalError("play keeps no file by that hash: add the sheet first (MCP add_story_frame).");
+      if (!f[0].media_type.startsWith("image/")) throw new ProposalError("A reference sheet is an image.");
+    }
+    for (const v of Object.values(variants)) v.card = withSheet(v.card, sheet);
+  }
+  const card = withSheet(recipe ? recordOf(heldRecord(over(inherited(body.record, a[0]?.card), set), own!.libs, own!.source), grp, slug, n, null, recipe) : variants[defaultVariant!].card, sheet);
   // every other asset a version names, it names by hash (play/SPEC.md §4)
   const readable = [card, ...Object.values(variants).map((x) => x.card)].flatMap((c) => readableRefs(c, `${grp}/${slug}`));
   if (readable.length) throw new ProposalError(`Name other assets by their hash, not ${readable.slice(0, 3).join(", ")}.`);
