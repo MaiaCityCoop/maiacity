@@ -26,7 +26,7 @@ export class ProposalError extends Error {
   }
 }
 
-const GROUP = /^(plants|things|machines|buildings|actors|biomes)$/;
+const GROUP = /^(plants|things|machines|buildings|actors|biomes|worlds)$/;
 const SLUG = /^[a-z0-9][a-z0-9-]{0,79}$/;
 /** a label as a slug: its letters and digits, lowercase, joined by '-' */
 const slugOf = (label: string) =>
@@ -183,7 +183,7 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
     // with, made from the label where none is given), and another asset may share them
     grp = `${body?.new?.group ?? ""}`;
     slug = body?.new?.slug == null || body.new.slug === "" ? slugOf(`${body?.new?.label ?? ""}`) : `${body.new.slug}`;
-    if (!GROUP.test(grp)) throw new ProposalError("A new asset needs its group (plants, things, machines, buildings, actors, biomes).");
+    if (!GROUP.test(grp)) throw new ProposalError("A new asset needs its group (plants, things, machines, buildings, actors, biomes, worlds).");
     if (!SLUG.test(slug)) throw new ProposalError("A new asset's slug is lowercase words joined by '-' (or give a label to make it from).");
     asset = newId();
   }

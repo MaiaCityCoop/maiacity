@@ -6,7 +6,7 @@
  *   day assets move in, the Maia City COOP vault creates it as a `schema` entry, and its records are written under it;
  *   a later version comes with an avenDB lens from this one. An asset's versions are its entry's history, its variants
  *   avenDB variants (their own entries, linked to the version they came from), a change someone suggests a proposal.
- * - `card` (./card.v1.json): what an asset's pack says of it (its size, parts, sliders, levels of detail). A file of the
+ * - `card` (./card.v2.json, v1 with the group `worlds`): what an asset's pack says of it (its size, parts, sliders, levels of detail). A file of the
  *   entry, which avenDB keeps as bytes; our checker (./check.js) reads it, avenDB never does.
  *
  * Each is frozen by its version and the BLAKE3 hash of its bytes (./schemas.json, as the engines are in
@@ -16,7 +16,8 @@
  * by these hashes.
  */
 import ASSET from './asset.v1.json';
-import CARD from './card.v1.json';
+/* the card checked against its newest version: v2 takes every card v1 took, and a world's (group `worlds`) */
+import CARD from './card.v2.json';
 import { check, checkText } from './check.js';
 import FROZEN from './schemas.json';
 

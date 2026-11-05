@@ -15,12 +15,22 @@
  *                     `zoom` × its distance, or `target` [x, y, z] (m) and `dist` (m). Without it: every stage of a
  *                     recipe that has stages, framed as the viewer frames them, else its default build
  *   --url             a dev server already running; without it one is started here (bun run dev) and stopped after
+ *   --slack           on a machine too busy to keep the box's time (several renders at once), the box's 20 s
+ *                     stretched this many times (at most 6), in development only; the build's own time is checked
+ *                     elsewhere (a built site holds every build to 20 s)
  *   --guests          a JSON list of the assets a recipe names by hash and the page draws where it stands them (a
  *                     dome's plants): { "file", "id", "v", "variant"?, "as"? }, each a readable source handed to the
  *                     page's catalog; `as` the hash play holds it by, which the recipe names: every --file's code has
  *                     it replaced by the hash the guest is held by here (made here from its readable source, its
  *                     bytes and so its hash differ from play's minified file), so it draws the same plant;
  *                     `refs` what its card names by readable refs, each by the `as` of a guest listed before it
+ *
+ *   --world           the --file is a world (group `worlds`, play/SPEC.md §4.11): run as the Worlds page runs it, on the
+ *                     world bench (/worlds/bench/): its guests (--guests, as above) drawn, lit and heard where it
+ *                     stands them, and if it moves, kept running in the box. Its shots: { "name", "run": s of the
+ *                     world's time before it, "eye": [x, y, z], "target": [x, y, z] (m) | "view": a view it names |
+ *                     "mode": "orbit" | "walk" | "drive" }. Without --shots: the whole, then 10 s on, then each view
+ *                     it names. A world's `values` are given by --values '{"cars": 40}'
  *
  * Out: one PNG per shot and file (<out>/<file>-<shot>.png), a contact sheet (<out>/sheet.png) with every shot's
  * values, triangles and build time under it, and shots.json of what was shown. Needs Playwright with a Chromium
@@ -46,6 +56,9 @@ function args(argv) {
 		else if (k === '--label') (o.recipes.at(-1).label = v), i++;
 		else if (k === '--shots') (o.shots = v), i++;
 		else if (k === '--guests') (o.guests = v), i++;
+		else if (k === '--slack') (o.slack = Number(v)), i++;
+		else if (k === '--world') o.world = true;
+		else if (k === '--values') (o.values = JSON.parse(v)), i++;
 		else if (k === '--out') (o.out = v), i++;
 		else if (k === '--url') (o.url = v), i++;
 		else if (k === '--size') (o.size = Number(v)), i++;
@@ -101,8 +114,9 @@ try {
 	for (const r of o.recipes) {
 		const page = await browser.newPage({ viewport: { width: o.size, height: o.size }, deviceScaleFactor: o.scale });
 		page.on('pageerror', (e) => console.error(`  page: ${e.message}`));
-		await page.goto(`${dev.url}/render/`);
-		await page.waitForFunction(() => !!window.__render, null, { timeout: 120_000 });
+		const bench = o.world ? '__world' : '__render';
+		await page.goto(`${dev.url}${o.world ? '/worlds/bench/' : '/render/'}${o.slack ? `?slack=${o.slack}` : ''}`);
+		await page.waitForFunction((b) => !!window[b], bench, { timeout: 120_000 });
 		const name = basename(r.file).replace(/\.[^.]+$/, '');
 		// the assets it names, handed to the page first; the hashes it names them by turned into theirs here
 		let code = readFileSync(r.file, 'utf8');
@@ -110,11 +124,27 @@ try {
 		const here = {};
 		for (const g of o.guests ? JSON.parse(readFileSync(o.guests, 'utf8')) : []) {
 			const refs = g.refs ? Object.fromEntries(Object.entries(g.refs).map(([name, h]) => [name, here[h] ?? h])) : null;
-			const got = await page.evaluate((x) => window.__render.guest(x), { code: readFileSync(resolve(dirname(o.guests), g.file), 'utf8'), id: g.id, v: g.v, variant: g.variant ?? null, refs });
+			const got = await page.evaluate(([b, x]) => window[b].guest(x), [bench, { code: readFileSync(resolve(dirname(o.guests), g.file), 'utf8'), id: g.id, v: g.v, variant: g.variant ?? null, refs }]);
 			if (g.as) (here[g.as] = got.hash), (code = code.replaceAll(g.as, got.hash));
 			console.log(`  guest ${got.label} (${got.hash.slice(0, 12)}…${g.as ? ` for ${g.as.slice(0, 12)}…` : ''})`);
 		}
 		console.log(`${r.file}: building in the asset box …`);
+		if (o.world) {
+			const loaded = await page.evaluate((x) => window.__world.load(x), { code, id: r.id, v: r.v, values: o.values ?? {} });
+			console.log(`  ${loaded.label} (${loaded.hash.slice(0, 12)}…) · ${loaded.size.join(' × ')} m${loaded.moves ? ' · it moves' : ''}${loaded.views.length ? ` · views ${loaded.views.join(', ')}` : ''}`);
+			const shots = o.shots ? JSON.parse(readFileSync(o.shots, 'utf8')) : [{ name: 'whole' }, { name: 'whole-10s', run: 10 }, ...loaded.views.map((v) => ({ name: `view-${v.replace(/[^a-z0-9]+/gi, '-')}`, view: v }))];
+			const canvas = page.locator('canvas').first();
+			for (const s of shots) {
+				const got = await page.evaluate((x) => window.__world.shot(x), s);
+				const png = resolve(o.out, `${name}-${s.name}.png`);
+				const box = await canvas.boundingBox();
+				await page.screenshot({ path: png, clip: box ?? undefined, timeout: 120_000 });
+				results.push({ recipe: name, label: loaded.label, shot: s.name, png, values: { t: got.t, guests: got.guests, lit: got.lit }, ...got });
+				console.log(`  ${s.name}: t ${got.t} s · ${got.guests} guests of ${got.kinds} kinds${got.missing ? ` (${got.missing} missing)` : ''} · ${got.lit} lit · ${got.live ? 'alive' : 'still'} · ${got.triangles.toLocaleString('en')} triangles, ${got.calls} calls · ${got.ms} ms`);
+			}
+			await page.close();
+			continue;
+		}
 		const loaded = await page.evaluate((x) => window.__render.load(x), { code, id: r.id, v: r.v, label: r.label });
 		console.log(`  ${loaded.card.label} (${loaded.hash.slice(0, 12)}…)`);
 		const stage = loaded.params.find((p) => p.id === 'stage' && Array.isArray(p.names));

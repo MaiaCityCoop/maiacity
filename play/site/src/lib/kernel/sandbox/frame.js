@@ -71,8 +71,13 @@ export function engineCode(kind, v = latestOf(kind)?.v) {
 	return engines.get(k);
 }
 
-/** how long a job may take before the shell is torn down (ms) */
-export const TIMEOUT = BUDGETS.job;
+/**
+ * How long a job may take before the shell is torn down (ms). In development only, the render bench on a machine too
+ * busy to keep time (`/render/?slack=3`, scripts/render.mjs --slack) may stretch it; a built site always holds the job
+ * to its budget.
+ */
+const SLACK = import.meta.env?.DEV && typeof location !== 'undefined' ? Math.min(6, Math.max(1, Number(new URLSearchParams(location.search).get('slack')) || 1)) : 1;
+export const TIMEOUT = BUDGETS.job * SLACK;
 
 export class Shell {
 	/**
