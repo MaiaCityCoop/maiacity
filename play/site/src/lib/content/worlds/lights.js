@@ -34,6 +34,9 @@ export const LOOK = {
 
 /** the most glows drawn at once */
 const GLOWS = 16384;
+/** how near (m) a guest's light is drawn as its lit face too (beyond it, its glow alone: one drawing for every light of
+ *  the world); a building's windows are faces at any distance (a lit tower is its windows) */
+export const FACES_NEAR = 150;
 
 const glowMaterial = () =>
 	new THREE.ShaderMaterial({
@@ -83,8 +86,10 @@ export function createLights(o) {
 	glows.frustumCulled = false;
 	glows.renderOrder = 10;
 	group.add(glows);
-	const stats = { kinds: 0, lit: 0, glows: 0 };
+	/** kinds read, lights lit, glows drawn, and the lit-face drawings made this frame */
+	const stats = { kinds: 0, lit: 0, glows: 0, faces: 0 };
 	const _m = new THREE.Matrix4(), _v = new THREE.Vector3(), _c = new THREE.Color();
+	const frustum = new THREE.Frustum(), _pv = new THREE.Matrix4(), _s = new THREE.Sphere(new THREE.Vector3(), 25);
 
 	/** a kind's lights read off its finest build */
 	function read(kind) {
@@ -129,7 +134,9 @@ export function createLights(o) {
 					group.add(mesh);
 					parts.push({ light: p.light, state: p.state, lamp: p.lamp, head: p.head, set: p.set, mesh, centre, tint: new THREE.Color(colour), size });
 				}
-				kinds.set(kind.key, { parts });
+				// how big it is round its root (a car's few metres, a tower's tens): the ball its lights are seen in
+				const ball = new THREE.Box3().setFromObject(root).getBoundingSphere(new THREE.Sphere());
+				kinds.set(kind.key, { parts, radius: Math.max(5, ball.center.length() + ball.radius) });
 				stats.kinds++;
 			})
 			.catch(() => kinds.set(kind.key, { parts: [] }));
@@ -151,21 +158,30 @@ export function createLights(o) {
 			glowMat.uniforms.uScale.value = (o.renderer.domElement.height || 600) / (2 * Math.tan(THREE.MathUtils.degToRad(o.camera.fov / 2)));
 			const counts = new Map();
 			let ng = 0, lit = 0;
+			const cam = o.camera.position;
+			frustum.setFromProjectionMatrix(_pv.multiplyMatrices(o.camera.projectionMatrix, o.camera.matrixWorldInverse));
 			for (let gi = 0; gi < guests.length; gi++) {
 				const g = guests[gi];
 				if (g.away) continue;
 				let k = kinds.get(g.kind.key);
 				if (k === undefined) read(g.kind);
 				if (!k?.parts.length) continue;
+				const e = g.node.matrixWorld.elements;
+				_s.center.set(e[12], e[13], e[14]);
+				// out of view: neither its faces nor its glows are seen (a building's windows: its sphere is its own size)
+				if (!frustum.intersectsSphere(_s.set(_s.center, k.radius))) continue;
+				const near = _s.center.distanceTo(cam) < FACES_NEAR + k.radius;
 				statesOf(g.node, states);
 				const phase = ((gi * 0.618034) % 1) * 0.5;
 				for (const p of k.parts) {
 					if (!litNow(p, states, mood, t, phase)) continue;
-					const n = counts.get(p.mesh) ?? 0;
-					room(p.mesh, n + 1);
-					p.mesh.instanceMatrix.array.set(g.node.matrixWorld.elements, n * 16);
-					counts.set(p.mesh, n + 1);
 					lit++;
+					if (near || p.light === 'window') {
+						const n = counts.get(p.mesh) ?? 0;
+						room(p.mesh, n + 1);
+						p.mesh.instanceMatrix.array.set(e, n * 16);
+						counts.set(p.mesh, n + 1);
+					}
 					if (p.size > 0 && ng < GLOWS) {
 						_v.copy(p.centre).applyMatrix4(g.node.matrixWorld);
 						gPos[ng * 3] = _v.x;
@@ -183,12 +199,15 @@ export function createLights(o) {
 			for (const k of kinds.values())
 				for (const p of k?.parts ?? []) {
 					p.mesh.count = counts.get(p.mesh) ?? 0;
-					p.mesh.instanceMatrix.needsUpdate = true;
+					// a light no copy has lit is no drawing at all
+					p.mesh.visible = p.mesh.count > 0;
+					if (p.mesh.visible) p.mesh.instanceMatrix.needsUpdate = true;
 				}
 			glowGeo.setDrawRange(0, ng);
 			for (const a of Object.values(glowGeo.attributes)) a.needsUpdate = true;
 			stats.lit = lit;
 			stats.glows = ng;
+			stats.faces = [...counts.keys()].length;
 		},
 		dispose() {
 			group.removeFromParent();

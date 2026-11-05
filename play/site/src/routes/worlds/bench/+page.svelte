@@ -4,6 +4,8 @@
 	any of it is proposed or accepted; driven by scripts/render.mjs --world. In a production build an empty page.
 
 	Driven through `window.__worldBench` (`window.__world` is the film camera's, $lib/content/worlds/film.js):
+	  catalog()                                 play's catalog read in (render.mjs --play: the API is play's own), so a
+	                                            world's guests not handed in are play's accepted assets
 	  guest({ code, id, v, variant?, refs? })   a readable source (or a recipe file) handed to the page's catalog: an
 	                                            asset the world names by hash; gives the hash it is held by here
 	  load({ code, id, v, values? })            the world itself, handed in the same way and shown; gives its hash,
@@ -65,6 +67,11 @@
 			await frames(4);
 		};
 		window.__worldBench = {
+			/** play's catalog read in (its accepted assets, by hash): a world's guests not handed in come from it */
+			async catalog() {
+				const r = await cat.loadRecipes();
+				return { phase: r.phase, count: Object.keys(cat.INDEX.recipes).length, error: r.error ?? '' };
+			},
 			async guest(x) {
 				const { hash, card } = await hand(x);
 				return { hash, label: card.label };
@@ -93,7 +100,7 @@
 				let triangles = 0;
 				view.renderer.info.autoReset = true;
 				triangles = view.renderer.info.render.triangles;
-				return { ms: Math.round(performance.now() - t0), t: +s.t.toFixed(1), live: s.live, guests: s.guests, kinds: s.kinds, missing: s.missing, lit: s.lit, fps: s.fps, triangles, calls: view.renderer.info.render.calls };
+				return { ms: Math.round(performance.now() - t0), t: +s.t.toFixed(1), live: s.live, faces: view.lights.stats.faces, glows: view.lights.stats.glows, guests: s.guests, kinds: s.kinds, missing: s.missing, lit: s.lit, fps: s.fps, triangles, calls: view.renderer.info.render.calls };
 			},
 			/** the world brought to time t, as a film brings it (seek, settle): where each guest stands then */
 			async seek(t) {

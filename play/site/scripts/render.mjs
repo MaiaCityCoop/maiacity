@@ -25,6 +25,9 @@
  *                     bytes and so its hash differ from play's minified file), so it draws the same plant;
  *                     `refs` what its card names by readable refs, each by the `as` of a guest listed before it
  *
+ *   --play            the page's API is play's own (https://play.maia.city), read with the admin token in PLAY_MCP_TOKEN
+ *                     (its read-only routes; the token is sent to play and nowhere else): with --world, the guests a world
+ *                     names that are not handed in with --guests are play's accepted assets, from its catalog
  *   --world           the --file is a world (group `worlds`, play/SPEC.md §4.11): run as the Worlds page runs it, on the
  *                     world bench (/worlds/bench/): its guests (--guests, as above) drawn, lit and heard where it
  *                     stands them, and if it moves, kept running in the box. Its shots: { "name", "run": s of the
@@ -58,6 +61,7 @@ function args(argv) {
 		else if (k === '--guests') (o.guests = v), i++;
 		else if (k === '--slack') (o.slack = Number(v)), i++;
 		else if (k === '--world') o.world = true;
+		else if (k === '--play') o.play = true;
 		else if (k === '--values') (o.values = JSON.parse(v)), i++;
 		else if (k === '--out') (o.out = v), i++;
 		else if (k === '--url') (o.url = v), i++;
@@ -115,6 +119,16 @@ try {
 		const page = await browser.newPage({ viewport: { width: o.size, height: o.size }, deviceScaleFactor: o.scale });
 		page.on('pageerror', (e) => console.error(`  page: ${e.message}`));
 		const bench = o.world ? '__worldBench' : '__render';
+		if (o.play) {
+			if (!process.env.PLAY_MCP_TOKEN) throw new Error('--play reads play with the admin token in PLAY_MCP_TOKEN');
+			// the page's API answered by play itself, read only, the token sent there and nowhere else
+			await page.route(`${dev.url}/api/**`, async (route) => {
+				const u = new URL(route.request().url());
+				if (route.request().method() !== 'GET') return route.fulfill({ status: 405, body: 'read only' });
+				const res = await route.fetch({ url: `https://play.maia.city${u.pathname}${u.search}`, headers: { accept: route.request().headers().accept ?? '*/*', authorization: `Bearer ${process.env.PLAY_MCP_TOKEN}` } });
+				await route.fulfill({ response: res });
+			});
+		}
 		await page.goto(`${dev.url}${o.world ? '/worlds/bench/' : '/render/'}${o.slack ? `?slack=${o.slack}` : ''}`);
 		await page.waitForFunction((b) => !!window[b], bench, { timeout: 120_000 });
 		const name = basename(r.file).replace(/\.[^.]+$/, '');
@@ -129,6 +143,10 @@ try {
 			console.log(`  guest ${got.label} (${got.hash.slice(0, 12)}…${g.as ? ` for ${g.as.slice(0, 12)}…` : ''})`);
 		}
 		console.log(`${r.file}: building in the asset box …`);
+		if (o.world && o.play) {
+			const got = await page.evaluate(() => window.__worldBench.catalog());
+			console.log(`  play's catalog: ${got.count} recipes${got.error ? ` (${got.error})` : ''}`);
+		}
 		if (o.world) {
 			const loaded = await page.evaluate((x) => window.__worldBench.load(x), { code, id: r.id, v: r.v, values: o.values ?? {} });
 			console.log(`  ${loaded.label} (${loaded.hash.slice(0, 12)}…) · ${loaded.size.join(' × ')} m${loaded.moves ? ' · it moves' : ''}${loaded.views.length ? ` · views ${loaded.views.join(', ')}` : ''}`);
@@ -140,7 +158,7 @@ try {
 				const box = await canvas.boundingBox();
 				await page.screenshot({ path: png, clip: box ?? undefined, timeout: 120_000 });
 				results.push({ recipe: name, label: loaded.label, shot: s.name, png, values: { t: got.t, guests: got.guests, lit: got.lit }, ...got });
-				console.log(`  ${s.name}: t ${got.t} s · ${got.guests} guests of ${got.kinds} kinds${got.missing ? ` (${got.missing} missing)` : ''} · ${got.lit} lit · ${got.live ? 'alive' : 'still'} · ${got.triangles.toLocaleString('en')} triangles, ${got.calls} calls · ${got.ms} ms`);
+				console.log(`  ${s.name}: t ${got.t} s · ${got.guests} guests of ${got.kinds} kinds${got.missing ? ` (${got.missing} missing)` : ''} · ${got.lit} lit (${got.faces ?? 0} face drawings, ${got.glows ?? 0} glows) · ${got.live ? 'alive' : 'still'} · ${got.triangles.toLocaleString('en')} triangles, ${got.calls} calls · ${got.ms} ms`);
 			}
 			await page.close();
 			continue;
