@@ -347,7 +347,8 @@ the world (a semi-trailer swinging at its kingpin).
 **Its mood** is a root node `mood:<preset>?k=v` (presets `smog-dusk`, `overcast`, `clear-day`, `night`; keys `sun` and
 `az` in degrees, `fog` a density a metre, `haze` a hex colour, `lamps` 0 or 1): the sky dome, the fog in the haze's
 colour, the sun and the sky's light (`$content/worlds/sky.js`); `fog` is the density in the street, thinned with the
-eye's height to a third of it from 300 m up (smog lies low: a crane shot over a city still reads its blocks). **Its sound** is root nodes
+eye's height to a third of it from 300 m up (smog lies low: a crane shot over a city still reads its blocks). Keys `shadows` (1: the sun casts them; a clear day's preset does, smog, overcast and night do not: under
+them there is no sun to cast one, and each caster would be drawn twice). **Its sound** is root nodes
 `sound:<file hash>?for=<x>&gain=<g>`, recordings among play's files: `for=bed` the ambient loop; any other plays at
 each guest whose `state:<x>` is on, panned and fading with distance (`horn` once each time it comes on, the rest looped
 at the nearest few; `$content/worlds/sound.js`). **Its views** are nodes `view:<name>`: an eye where it stands, looking
