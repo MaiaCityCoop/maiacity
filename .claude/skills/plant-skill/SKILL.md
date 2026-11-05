@@ -27,7 +27,10 @@ Rauh's model, a leader with tiers of limbs year by year, colour pictures only an
 its numbers in `references/plum-hauszwetschge.md`, its brief beside them, its whole source `references/plum-v2.js`), and
 **avocado v3** ('Fuerte', Rauh's model flush by flush from its rootstock's seed to mature fruit in its tenth year, inside
 the crown measured for each age; its numbers in `references/avocado-fuerte.md`, its brief beside them, its whole source
-`references/avocado-v3.js`). Start
+`references/avocado-v3.js`), and **red banana v2** ('Red Dacca', banana v2's flow made a tall red clone: its pseudostem,
+petioles and midribs red, six hands of fat straight fingers along a bare scarred rachis; its numbers in
+`references/banana-red-dacca.md`, its brief beside them, its whole source `references/red-banana-v2.js`, the banana to
+start the next one from: its part 1 has `picture()` with mipmaps and the blade's underside with its own normals). Start
 a new plant from the newest: copy its part 1
 (the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps as lemon v2 has it; the file is
 `references/banana-v2.js` or `references/lemon-v2.js`) as it is and write parts 2–4 for the new plant; a tree takes its
@@ -369,6 +372,19 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
 - **The bench sees what the eye misses.** Banana v2's fingers all hung downward for three renders that looked right
   (a rotation's sign); its fingers were 6 : 1 where the sheet and Pope say 4 : 1. Count and measure: tips above
   stalks, aspects, cover.
+- **Read a descriptor as the descriptors draw it** (red banana v2, 2026-11-05). Musalogue scores the Red's fruit
+  "parallel to the stalk"; the research agent read that as fingers pointing down the rachis. In the Musa descriptors it is
+  the class between "curved towards the stalk" and "curved upward": the fingers turn up off their short pedicels and lie
+  straight along the rachis, tips toward the peduncle, as the sheet drew them. Check a coded descriptor against its
+  figure before building on it.
+- **A tube's u runs along it, v round it** (red banana v2). Banana v2's `skinBump` varied along x, so its "lines along
+  the finger" were rings round it, plain in the fruit view; the Red's runs them round v.
+- **A cultivar of the banana flow is mostly its numbers and colours, but look at its stem and its bunch first.** The Red
+  is 4.4 m to the throat and 1.15 m round its foot, swelling to its corm (Ø 0.37 m at 0.3 m, 0.25 m at 1 m: a foot
+  flare, not a taper); its long petioles splay early, so the leaves lean out from their first weeks or the crown stands
+  a metre too tall (7.0 m for the measured 5.5–6.5); its peduncle arches over early so the bunch hangs below the petioles,
+  not among them; its male bracts fall (a bare, knotted rachis, against the Cavendish's dry tail). The plate drew the stem
+  some 40 % of the height against the data's 70 %: hold the height to the data and judge the crown by eye.
 
 - **Name the cultivar first.** The old cacao was "a cacao": narrow willow leaves, a shrub, little orange pods. Every
   look that is wrong is easier to see against one real kind.
