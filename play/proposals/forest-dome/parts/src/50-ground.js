@@ -46,32 +46,28 @@ const gr_SPRING_W = -0.32;
 /** the brook's course: from under the kerb through its basin, round the clearing's east, under the south path, to the pond */
 const gr_BROOK = [[0, 12.62], [0, 11.5], [0.5, 9.5], [2.0, 7.5], [4.0, 5.8], [5.2, 3.4], [7.6, 1.3], [11.2, 0.2], [14.2, -1.6], [15.6, -4.6], [15.2, -8.2], [16.0, -11.6], [14.6, -15.4], [11.4, -17.6], [8.0, -19.8], [4.6, -22.2], [0.8, -23.6], [-2.8, -24.8], [-5.4, -26.4]];
 /**
- * The gravel paths, in the order they are laid (a path joins only one laid before it): `w` its width, its edging
+ * The gravel paths (Samuel 2026-11-05: fewer and narrower), in the order they are laid (a path joins only one laid before it): `w` its width, its edging
  * (oak boards, or river cobbles on the loop and the spine), where it starts (a door, or on another path near a point),
  * the points it bends through, and where it ends (on another path, or the plaza's front at x, down its steps).
  */
 const gr_PATHS = [
-	{ id: 'loop', w: 2.2, edge: 'cobble', closed: true },
-	{ id: 'south', w: 2.3, edge: 'board', from: { door: 'south' }, pts: [[-1.0, -33.5], [-1.4, -30.8], [-0.4, -27.8], [0.9, -25.2], [0.8, -22.4], [-0.3, -19.6]], to: { on: 'loop', near: [0, -16.6] } },
-	{ id: 'spine', w: 2.2, edge: 'cobble', from: { on: 'loop', near: [-1.8, 0.4] }, pts: [[-3.1, 3.5]], to: { plaza: -7.6 } },
-	{ id: 'west', w: 2.2, edge: 'board', from: { door: 'west' }, pts: [[-33.2, 1.5], [-29.0, 3.4]], to: { plaza: -25 } },
-	{ id: 'westLoop', w: 2.0, edge: 'board', from: { on: 'west', near: [-34.8, 1.0] }, pts: [[-30.5, -1.4], [-25.2, -3.5], [-19.6, -4.4], [-14.4, -6.3]], to: { on: 'loop', near: [-8.6, -8.4] } },
-	{ id: 'east', w: 2.3, edge: 'board', from: { door: 'east' }, pts: [[33.6, -2.0], [28.6, -1.5], [23.6, -3.3], [19.2, -5.1], [16.0, -5.6], [12.4, -6.6]], to: { on: 'loop', near: [8.7, -7.2] } },
-	{ id: 'eastPlaza', w: 2.0, edge: 'board', from: { on: 'east', near: [34.8, -1.9] }, pts: [[31.6, 1.4], [28.2, 4.2]], to: { plaza: 23.5 } }
+	{ id: 'loop', w: 1.5, edge: 'cobble', closed: true },
+	{ id: 'south', w: 1.6, edge: 'board', from: { door: 'south' }, pts: [[-1.0, -33.5], [-1.4, -30.8], [-0.4, -27.8], [0.9, -25.2], [0.8, -22.4], [-0.3, -19.6]], to: { on: 'loop', near: [0, -16.6] } },
+	{ id: 'spine', w: 1.5, edge: 'cobble', from: { on: 'loop', near: [-1.8, 0.4] }, pts: [[-3.1, 3.5]], to: { plaza: -7.6 } },
+	{ id: 'west', w: 1.4, edge: 'board', from: { door: 'west' }, pts: [[-33.2, 1.5], [-29.0, 3.4]], to: { plaza: -25 } },
+	{ id: 'east', w: 1.4, edge: 'board', from: { door: 'east' }, pts: [[33.6, -2.0], [28.6, -1.5], [23.6, -3.3], [19.2, -5.1], [16.0, -5.6], [12.4, -6.6]], to: { on: 'loop', near: [8.7, -7.2] } }
 ];
 /** the stepping-stone paths: into the forest (one across the brook by a ford), to the pond's shore, and into the circle */
 const gr_SIDE = [
 	{ id: 'ford', from: { on: 'loop', near: [5.6, -14.6] }, pts: [[8.6, -14.8], [11.2, -15.7], [13.8, -17.3], [16.6, -19.1], [19.0, -21.6]] },
 	{ id: 'pond', from: { on: 'south', near: [-1.2, -31.6] }, pts: [[-3.6, -32.6], [-5.6, -32.4]], to: 'pond' },
-	{ id: 'southwest', from: { on: 'westLoop', near: [-22.4, -4.0] }, pts: [[-23.6, -7.8], [-25.2, -11.6], [-24.4, -15.6], [-21.8, -18.8]] },
-	{ id: 'southeast', from: { on: 'east', near: [25.6, -2.6] }, pts: [[26.4, -6.6], [28.2, -10.4], [27.4, -14.4], [24.8, -16.8]] },
 	{ id: 'padNorth', from: { on: 'loop', bearing: -0.5 }, to: 'pad' },
 	{ id: 'padSouth', from: { on: 'loop', bearing: 3.5 }, to: 'pad' }
 ];
 /** the top of the flagstone aprons inside the portals: the doorways' floor */
 const gr_APRON_Y = 0;
 /** half the width of the trodden strip a stepping-stone path's stones lie in */
-const gr_SIDE_W = 0.42;
+const gr_SIDE_W = 0.34;
 /** the pergola over the loop's north-east, its posts at these bearings from the loop's middle (degrees) */
 const gr_PERGOLA = [15, 29, 43, 57, 71];
 /** the benches round the paved circle (play's curved oak bench, a thing): the bearing of each one's middle (degrees) */
@@ -1129,7 +1125,7 @@ function gr_plantClimbers(G) {
 		gr_put(G, 'passion-fruit', x, z, { stage: r() < 0.7 ? 9 : 7, turn, scale: between(r, 0.95, 1.05) });
 	}
 	G.frames = [];
-	const doors = ['south', 'west', 'east', 'eastPlaza', 'westLoop'];
+	const doors = ['south', 'west', 'east'];
 	for (let k = 0; k < 2000 && G.frames.length < 5; k++) {
 		const L = G.paths[doors[Math.floor(r() * doors.length)]];
 		const i = 4 + Math.floor(r() * (L.P.length - 8));
@@ -1160,7 +1156,7 @@ function gr_plantClimbers(G) {
 function gr_plantLogs(G) {
 	const r = G.r;
 	G.logs = [];
-	const yards = [G.sideIdx.lines.find((l) => l.id === 'ford'), G.sideIdx.lines.find((l) => l.id === 'southwest')].map((l) => l.P[l.P.length - 1]);
+	const yards = ['ford', 'pond'].map((id) => G.sideIdx.lines.find((l) => l.id === id)).filter(Boolean).map((l) => l.P[l.P.length - 1]);
 	const fits = (ax, az, bx, bz, rad) => {
 		for (let k = 0; k <= 4; k++) {
 			const x = lerp(ax, bx, k / 4), z = lerp(az, bz, k / 4);
@@ -1243,7 +1239,7 @@ function gr_clearViews(G) {
  *  the plants round it and of the gates' views, till there are five */
 function gr_moreFrames(G) {
 	const r = chance('forest-dome', 'frames');
-	const doors = ['south', 'west', 'east', 'eastPlaza', 'westLoop'];
+	const doors = ['south', 'west', 'east'];
 	for (let k = 0; k < 3000 && G.frames.length < 5; k++) {
 		const L = G.paths[doors[Math.floor(r() * doors.length)]];
 		const i = 4 + Math.floor(r() * (L.P.length - 8));
