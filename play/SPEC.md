@@ -365,7 +365,8 @@ stepped from 0 renders the same every time), and a shot names its world by the w
 recipe hash (`world: { sandbox: 'worlds', asset, recipe, … }`, checked by `shot.js`; its film page
 `/worlds/?film&asset=<uuid>&recipe=<hash>`, `$content/worlds/film.js`). There, each frame the world is brought to the
 shot's moment (forward by its steps, back by building it afresh and stepping from 0), `window.__world.settle()`
-resolving once the box has answered for it; a shot's camera may ride in a node the world names `frame:<name>` (a seat
+resolving once the box has answered for it (every step of a jump of any length awaited as the box answers it, given
+up only when the box stops answering; while a film holds the world, the page runs no clock of its own); a shot's camera may ride in a node the world names `frame:<name>` (a seat
 in a vehicle, under its `use:` node), and scale its `sun`, `sky` and `lamps`. The frozen box engines run a build on by at most 0.25 s a
 step, so the page sends a world its time exactly, 0.25 s at a time, owing the rest (a machine's time it lets go of
 instead); a world in the box and the same recipe run in Node at the same t stand alike, guest for guest (checked).

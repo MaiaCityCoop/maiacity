@@ -235,12 +235,25 @@ export function createWorldView(el, o) {
 			state.t = t;
 			world.hero?.tick(dt, {});
 		},
-		/** resolves once the world has come to the time it was brought to: its run started, no step owed by the box */
-		async settle(timeout = 60_000) {
-			const t0 = performance.now();
-			while (world?.hero && (!world.hero.live || world.hero.busy) && performance.now() - t0 < timeout) {
-				world.hero.tick(0, {});
-				await new Promise((r) => setTimeout(r, 16));
+		/**
+		 * Resolves once the world has come to the time it was brought to: its run started, no step owed by the box. A
+		 * long jump is asked of the box 0.25 s at a time (hero.js STEP), each step awaited as the box answers it, for as
+		 * long as the box keeps answering: it gives up only after `stall` ms in which no step went through (the box gone
+		 * or stuck), never part-way through a jump that is still moving (two minutes of world time are 480 steps).
+		 */
+		async settle(stall = 60_000) {
+			let moved = performance.now(), owed = Infinity, live = false;
+			while (world?.hero && (!world.hero.live || world.hero.busy)) {
+				const h = world.hero;
+				h.tick(0, {});
+				if (h.pending) await h.pending;
+				else await new Promise((r) => setTimeout(r, 16));
+				const now = performance.now();
+				if (h.owed < owed || h.live !== live) {
+					owed = h.owed;
+					live = h.live;
+					moved = now;
+				} else if (now - moved > stall) break;
 			}
 			plantings.update();
 			if (world) lights.update(plantings.guests(), world.info.mood, state.t);
@@ -310,7 +323,11 @@ export function createWorldView(el, o) {
 			// under the film camera: its clock the shot's, and nothing drawn while the film draws
 			const shot = worldTime();
 			if (shot !== undefined) this.seek(shot);
-			else {
+			else if (held) {
+				// held by a film that brings the world to its moments itself (`advance`): no time of the page's own, only
+				// the steps still owed to that moment asked
+				world?.hero?.tick(0, {});
+			} else {
 				state.t += dt;
 				world?.hero?.tick(dt, {});
 			}
