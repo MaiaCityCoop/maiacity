@@ -6,22 +6,39 @@ export class NotFound extends Error {
   status = 404;
 }
 
-const summary = (record: any) => {
+/**
+ * What a version's card says of it. Its measures (size, triangles, skinned) only where they were measured on its own
+ * recipe: a version proposed before 2026-11-05 took its parent's card whole, its measures with it, so a measure the
+ * same as its parent's is the parent's and is not shown.
+ */
+export const summary = (record: any, parent?: any) => {
   const c = record?.card ?? {};
-  return { cardLabel: c.label ?? record?.title ?? null, size: c.size ?? null, triangles: c.triangles ?? null, skinned: c.skinned ?? null, params: record?.params ?? c.params ?? [], sheet: typeof record?.sheet === "string" ? record.sheet : null, datasheet: typeof record?.datasheet === "string" ? record.datasheet : null, brief: typeof record?.brief === "string" ? record.brief : null };
+  const p = parent?.card;
+  const inherited = !!p && c.size != null && JSON.stringify(c.size) === JSON.stringify(p.size) && c.triangles === p.triangles;
+  return {
+    cardLabel: c.label ?? record?.title ?? null,
+    size: inherited ? null : (c.size ?? null),
+    triangles: inherited ? null : (c.triangles ?? null),
+    skinned: inherited ? null : (c.skinned ?? null),
+    params: record?.params ?? c.params ?? [],
+    sheet: typeof record?.sheet === "string" ? record.sheet : null,
+    datasheet: typeof record?.datasheet === "string" ? record.datasheet : null,
+    brief: typeof record?.brief === "string" ? record.brief : null,
+  };
 };
 
 /** every asset with a version, by group and slug, with its newest version's summary */
 export async function listAssets(db: Queryable, grp?: string) {
   const { rows } = await db.query<any>(
     `SELECT a.id, a.grp, a.slug, a.label, v.number AS head, v.card,
+            (SELECT p.card FROM play.asset_versions p WHERE p.id = v.parents[1]) AS parent_card,
             (SELECT count(*) FROM play.asset_versions x WHERE x.asset_id = a.id AND x.number IS NOT NULL) AS versions
        FROM play.assets a JOIN play.asset_versions v ON v.id = a.head
       WHERE ($1::text IS NULL OR a.grp = $1)
       ORDER BY a.grp, a.slug`,
     [grp ?? null],
   );
-  return rows.map((r) => ({ id: r.id, grp: r.grp, slug: r.slug, label: r.label, head: r.head, versions: Number(r.versions), ...summary(r.card) }));
+  return rows.map((r) => ({ id: r.id, grp: r.grp, slug: r.slug, label: r.label, head: r.head, versions: Number(r.versions), ...summary(r.card, r.parent_card) }));
 }
 
 /** one asset and its whole chain, newest first */
@@ -30,6 +47,7 @@ export async function assetOf(db: Queryable, id: string) {
   if (!a[0]) throw new NotFound(`There is no asset ${id}.`);
   const { rows: versions } = await db.query<any>(
     `SELECT v.id, v.number, v.parents, v.recipe_hash, v.source_hash, v.default_variant, v.card, v.engine, v.note, v.created, v.imported,
+            (SELECT p.card FROM play.asset_versions p WHERE p.id = v.parents[1]) AS parent_card,
             au.name AS author, ap.name AS approved_by,
             COALESCE((SELECT json_agg(json_build_object('name', x.name, 'recipe', x.recipe_hash, 'source', x.source_hash, 'label', x.card->'card'->>'label') ORDER BY x.name)
                         FROM play.asset_variants x WHERE x.version_id = v.id), '[]') AS variants
@@ -45,7 +63,7 @@ export async function assetOf(db: Queryable, id: string) {
     versions: versions.map((v) => ({
       id: v.id, number: v.number, parents: v.parents, recipe: v.recipe_hash, source: v.source_hash, defaultVariant: v.default_variant,
       engine: v.engine, note: v.note, created: v.created, author: v.author ?? (v.imported ? v.imported.authors?.join(", ") : null),
-      approvedBy: v.approved_by, imported: !!v.imported, variants: v.variants, ...summary(v.card),
+      approvedBy: v.approved_by, imported: !!v.imported, variants: v.variants, ...summary(v.card, v.parent_card),
     })),
   };
 }
