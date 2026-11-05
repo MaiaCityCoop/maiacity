@@ -503,7 +503,7 @@ function metric(geo, fu, fv) {
  */
 const MATERIALS = {
 	leaf: (s) => new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.52, specularIntensity: 0.3, ...(s && { map: s('leafMap'), bumpMap: s('leafBump'), bumpScale: 0.04 }) }),
-	rind: (s) => new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.36, clearcoat: 0.35, clearcoatRoughness: 0.32, ...(s && { map: s('rindMap'), bumpMap: s('rindBump'), bumpScale: 0.8 }) }),
+	rind: (s) => new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.42, specularIntensity: 0.5, clearcoat: 0.1, clearcoatRoughness: 0.35, ...(s && { map: s('rindMap'), bumpMap: s('rindBump'), bumpScale: 0.8 }) }),
 	bark: (s) => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.86, ...(s && { map: s('barkMap'), bumpMap: s('barkBump'), bumpScale: 2 }) }),
 	twig: () => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55 }),
 	petal: () => new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.42, sheen: 0.4, sheenRoughness: 0.5, sheenColor: new THREE.Color(1, 1, 1) }),
@@ -1625,7 +1625,7 @@ function lemonTree(T, seed) {
 			const place = space.settle(at, hang, ripe, 0.01, 0.03) ?? (d < 45 ? { at, dir: hang } : null);
 			if (!place) continue;
 			s.fruit = true;
-			const key = [s.id, k];
+			const key = [s.id, k, B.crop];
 			bag.fruit(key, at, place.dir);
 			if (place.at.distanceTo(at) > 1e-4) bag.add('twig', tube([at, place.at], () => 0.0012, () => CL.fruit.stalkColour, 3));
 			lemon(bag, place.at, place.dir, d, crop, seed, key.join('|'));
@@ -1691,7 +1691,9 @@ function ripePick(seed) {
 	const { plant, fruits } = lite({ roots: false }, () => pickFruit(() => grow(STAGES.length - 1, seed)));
 	dispose(plant);
 	if (!fruits.length) return undefined;
-	const sized = fruits.map((f) => ({ key: f.key, size: sizeOf(f) }));
+	// a lemon of the main crop, yellow in January (the others on the tree then are green)
+	const main = fruits.filter((f) => f.key.endsWith('primofiore'));
+	const sized = (main.length ? main : fruits).map((f) => ({ key: f.key, size: sizeOf(f) }));
 	for (const f of fruits) for (const p of f.parts) p.geometry.dispose();
 	const most = Math.max(...sized.map((f) => f.size));
 	const good = sized.filter((f) => f.size >= most * 0.95);
