@@ -10,7 +10,7 @@
  */
 import { holds } from '../game/hash.js';
 import { configAt } from '../game/code/index.js';
-import { buildOf, parseBuild } from './builds.js';
+import { buildOf, hashText, parseBuild } from './builds.js';
 import * as cache from './cache.js';
 import { LATEST } from './engines.js';
 import { queryOf } from './params.js';
@@ -164,6 +164,7 @@ export const declaredOf = (hash) => {
  * @param {string} hash @returns {Promise<{ hash: string, code: string }>}
  */
 export async function recipeAt(hash) {
+	if (handed.has(hash)) return { hash, code: handed.get(hash) };
 	await loadRecipes();
 	heldAt(hash);
 	if ((sizes.get(hash) ?? 0) > MOST) throw new NotInCatalog(`${nameOf(hash)}: its file is larger than a page reads`);
@@ -185,3 +186,23 @@ export const source = { index: INDEX, recipeAt, nameOf, hashOf, cardOf };
 /** what play's database says of a plant version (its record's `plant`): its Latin name, layer, origin, note and
  *  stages; undefined for anything else */
 export const plantOf = (hash) => (recipeInfo(hash) ? records.get(hash)?.plant : undefined);
+
+/** recipe files handed to this page by hand (the render bench's guests, in development), by their hashes */
+const handed = new Map();
+/**
+ * Recipes handed to this page by hand: the render bench's guests (the plants a dome names, made on this machine from
+ * their readable sources), each `{ hash, code, group, id, v, variant, label, params }`, held to its hash and kept beside
+ * the catalog for this page alone. A page that never reads play's catalog (the bench) takes them as its catalog.
+ * @param {{ hash: string, code: string, group: string, id: string, v: number, variant?: string | null, label: string, params?: any[], card?: any }[]} rows
+ */
+export function admitHanded(rows) {
+	for (const r of rows) {
+		if (hashText(r.code) !== r.hash) throw new Error(`refused: the recipe handed as ${String(r.hash).slice(0, 12)}… hashes otherwise`);
+		handed.set(r.hash, r.code);
+		keep({ hash: r.hash, group: r.group, id: r.id, v: r.v, variant: r.variant ?? null, label: r.label, record: { card: r.card ?? { params: r.params ?? [] } }, size: r.code.length });
+	}
+	if (catalog.phase !== 'ready') {
+		Object.assign(catalog, { phase: 'ready', count: Object.keys(INDEX.recipes).length, error: '' });
+		loading = Promise.resolve(catalog);
+	}
+}
