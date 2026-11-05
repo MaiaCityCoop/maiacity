@@ -278,7 +278,7 @@ changes only by proposal, as a factory does: `list_game_configs`, `get_game_conf
 `game_config_edit`, `propose_game_config_version` over MCP; the Proposals page shows it field by field and opens the
 Game editor as it would be (`?config=<id>&proposal=<id>`).
 
-### 4.10 A plant's reference sheet (Samuel 2026-11-05)
+### 4.10 A plant's reference sheet, data sheet and brief (Samuel 2026-11-05)
 
 A version may name its **reference sheet**: one clean-lit photographic plate of every stage and organ of the plant,
 made for it (the plant skill makes it with Google's Nano Banana Pro) and kept among play's `files` like any image, in
@@ -288,6 +288,14 @@ another, or `null` for none. The asset library shows each version's sheet beside
 shows, beside an image, every asset version that has it as its sheet (accepted, or a proposal still open), linked to
 the asset. The recipe names the same hash in its `meta.sheet`, so the plant and the plate it was checked against are
 kept together.
+
+Its **data sheet** (the researched numbers, every row with its source) and the **brief** its sheet was made from are
+kept the same way, so a plant's whole dataset is in play and nothing of it only in the repository: each a Markdown
+document among play's `files` (`text/markdown`, at most 2 MB, added with MCP `add_document` and a label), named in
+the version's record (`datasheet`, `brief`: `propose_version`'s and `propose_asset`'s fields of those names, refused
+unless a document play keeps; carried on from the head, `null` for none). The Library lists documents as their own kind
+(never the recipe sources, `text/javascript`), opens one as its text, and names beside it every asset version that has
+it as its data sheet or brief; the asset library links a version's data sheet and brief beside its note.
 
 ## 5. The three sandboxes
 
