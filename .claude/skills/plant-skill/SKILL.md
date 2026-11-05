@@ -46,7 +46,11 @@ climbing loosely and hanging over, one tuber growing down through the mound, the
 next vine from), and **serviceberry v2** (Saskatoon 'Smoky', the first shrub: a suckering clump of canes
 from its crown and suckers from its rhizomes, each cane a leader with side shoots and short flowering shoots, grown year
 by year from its seed; its numbers in `references/serviceberry-smoky.md`, its brief beside them, its whole source
-`references/serviceberry-v2.js`, whose part 1 is plum v2's without the leaves' clearcoat). Start
+`references/serviceberry-v2.js`, whose part 1 is plum v2's without the leaves' clearcoat), and **walnut v2**
+('Franquette', the first big terminal-bearing tree: a Rauh cone year by year that turns sympodial once it bears, every
+fruiting tip relayed by the shoots below it into a dome, pinnate leaves, catkins on last year's wood, husks that split
+black; its numbers in `references/walnut-franquette.md`, its brief beside them, its whole source
+`references/walnut-v2.js`, the big tree to start the next from). Start
 a new plant from the newest: copy its part 1
 (the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps as lemon v2 has it; the file is
 `references/banana-v2.js` or `references/lemon-v2.js`) as it is and write parts 2–4 for the new plant; a tree takes its
@@ -512,3 +516,21 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   and sides, soften the edges, or make the pattern larger.
 - **A young axis is the first part of the old one**: directions as functions of the length along the axis, chance per
   organ by name; then a plant tabbed from seed to fruit grows instead of being redrawn.
+
+- **A big tree's budget is its leaves** (walnut v2, 2026-11-05). A pinnate leaf is seven blades: at the plum's 3 × 2 rows
+  a fifteen-year walnut drew 1.2 M triangles. Far off each leaflet is 3 × 1 rows and the rachis a two-sided ribbon
+  (~100 a leaf), close organs judged on the bench; count leaves and tips per age before rendering. Part 1's thinning
+  grows a kept leaf only to 0.14 m round (`most`): a 30 cm leaf could not grow and the crowds went bare; give it the
+  leaf's own size (0.4).
+- **Terminal bearing makes the dome, and its tips explode** (walnut v2). A shoot that ends in a female flower stops and
+  one to three relays carry on below it: the cone of the young tree forks into the round crown of the grown one (the
+  leader too, once it bears, or it pokes a spire over the dome). At two or more relays a tip the tips grew 1.5× a year
+  (1,700 at 15 y, 1.6 M triangles); about 1.3 a tip held them near 900, a crop of the data sheet's size.
+- **A short shoot is in its bud** (walnut v2). Nodes laid down only as a shoot lengthens leave a tree in early May
+  leafless at its tips; a short shoot's leaves are all there at budbreak, its internodes stretching after.
+- **A fissure picture belongs on old bark only** (walnut v2). One material's map lies on every limb: the old trunk's
+  fissure net drew a lattice over the smooth silver-grey limbs. Put smooth wood on a material without it (`twig`), the
+  fissured trunk and limbs on `bark`.
+- **The sheet's tree is a painter's tree** (walnut v2). Its walnuts were as wide as tall; the data sheet's crowns are
+  three quarters of the height. Hold the form (a dome, a low skirt, a short trunk) to the sheet's silhouette and the
+  sizes to the data sheet, and say the aspect left over.
