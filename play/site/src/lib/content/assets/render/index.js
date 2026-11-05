@@ -67,9 +67,12 @@ function resolve(ref) {
  * A renderer of assets for one scene.
  * @param {{
  *   renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, boxes?: number, details?: number[],
- *   levels?: number[], px?: number, cache?: boolean, onShadows?: () => void
+ *   levels?: number[], whole?: number[], px?: number, cache?: boolean, onShadows?: () => void
  * }} o `boxes` how many build side by side; `details` and `levels` the details a recipe is built at and the sizes on
- *   screen each is drawn to (./lod.js); `px` each picture's pixels a side; `cache: false` builds everything afresh;
+ *   screen each is drawn to (./lod.js); `whole` the sizes on screen of a kind built once, at its finest (one that takes
+ *   no detail: a thing), its lower levels made from it, its picture taking over where its second shape's triangles put
+ *   it (`levels` when not given, its picture where its coarsest shape's put it); `px` each picture's pixels a side;
+ *   `cache: false` builds everything afresh;
  *   `onShadows` told when what casts a shadow changed, for a world that draws its shadows again only every so often
  *   (else they are drawn again with the next frame)
  */
@@ -77,6 +80,7 @@ export function createAssets(o) {
 	const { renderer, camera } = o;
 	const details = o.details ?? DETAILS;
 	const levels = o.levels ?? LEVELS;
+	const whole = o.whole ?? levels;
 	renderer.localClippingEnabled = true;
 	// three turns a PCFSoftShadowMap (gone from it) into a PCFShadowMap at its first shadow pass; a shader made before
 	// that samples its shadow plainly and is never drawn (GL_INVALID_OPERATION). Ours are made early, while a world
@@ -181,6 +185,9 @@ export function createAssets(o) {
 	const kinds = new Map();
 	/** something to draw changed; and what casts shadows did */
 	let dirty = true, shadows = true;
+	/** whether a kind's copies are in the shadows at all (cast at some level, or by their picture): a floor cover's, a
+	 *  small plant's coming and going changes nothing there, and draws no shadow pass */
+	const casts = (k) => k.shadows !== false || k.picture;
 	/** the renderer was disposed */
 	let gone = false;
 
@@ -203,19 +210,22 @@ export function createAssets(o) {
 		const key = names[0];
 		let k = kinds.get(key);
 		if (k) return k;
+		// the sizes on screen its levels are drawn to: a recipe's at its details, or one built whole and lowered from it
+		const sizes = takes ? levels : whole;
 		k = {
 			key,
 			label: at.label,
 			names,
+			sizes,
 			// each level of its shape: built from its recipe (`name`), or made from the coarsest one built (none)
-			levels: levels.map((_, L) => ({ state: 'idle', level: null, meshes: null, name: names[L] ?? null, as: -1 })),
+			levels: sizes.map((_, L) => ({ state: 'idle', level: null, meshes: null, name: names[L] ?? null, as: -1 })),
 			/** the coarsest level built: its measure is the kind's, and its picture is taken from it */
 			base: names.length - 1,
 			ok: false,
 			error: null,
 			radius: 1,
 			center: new THREE.Vector3(),
-			thresholds: thresholdsOf(levels.length, undefined, levels),
+			thresholds: thresholdsOf(sizes.length, undefined, sizes),
 			/** its thresholds the world's own (`tune`), not its shape's */
 			tuned: false,
 			shadows: opts?.shadows,
@@ -272,16 +282,22 @@ export function createAssets(o) {
 		);
 	}
 
-	/** a kind's thresholds by its coarsest shape: as it came, or, while it is being made, by what it may cost */
+	/**
+	 * A kind's thresholds by its coarsest shape: as it came, or, while it is being made, by what it may cost. A kind built
+	 * whole at a world's own `whole` sizes (a thing among a build's guests, its plants at coarser levels) turns into its
+	 * picture where its second shape (30 %) would have it, not its coarsest (8 %): as far off as with the plants' two
+	 * levels, so a room of furniture is still mostly pictures from across the dome, and only near is drawn finer.
+	 */
 	function retune(k) {
 		if (k.tuned) return;
 		const last = k.levels.length - 1;
-		const tris = k.levels[last].level?.tris ?? budgetOf(last, k.levels[k.base].level.tris, levels);
-		k.thresholds = thresholdsOf(k.levels.length, tris, levels);
+		const by = o.whole && k.sizes === whole && !k.names[1] ? Math.min(1, last) : last;
+		const tris = k.levels[by].level?.tris ?? budgetOf(by, k.levels[k.base].level.tris, k.sizes);
+		k.thresholds = thresholdsOf(k.levels.length, tris, k.sizes);
 	}
 
 	/** what level L of a kind made from `from` (a level of it, or the source of several) is made to: ./lod.js */
-	const planOf = (L, from) => ({ budget: budgetOf(L, from.tris, levels), most: budgetOf(L, Infinity, levels), error: errorOf(L, from.radius, levels), smallest: smallestOf(L, from.radius, levels) });
+	const planOf = (k, L, from) => ({ budget: budgetOf(L, from.tris, k.sizes), most: budgetOf(L, Infinity, k.sizes), error: errorOf(L, from.radius, k.sizes), smallest: smallestOf(L, from.radius, k.sizes) });
 
 	/** a level of a kind asked for, once; its drawings made when it comes */
 	function want(k, L, first = false) {
@@ -296,7 +312,7 @@ export function createAssets(o) {
 				// a build with controls is kept whole as well: a copy moved by them is a tree copied from it
 				if (got.obj.userData.controls?.length) lv.obj = got.obj;
 				await show(k, L);
-				if (L > 0 && lv.level.tris > budgetOf(L, Infinity, levels)) lighten(k, L);
+				if (L > 0 && lv.level.tris > budgetOf(L, Infinity, k.sizes)) lighten(k, L);
 			},
 			(err) => {
 				lv.state = 'failed';
@@ -315,7 +331,7 @@ export function createAssets(o) {
 		const list = k.levels.map((_, j) => j).filter((j) => !k.levels[j].name && k.levels[j].state === 'idle');
 		const made = want(k, k.base).then(() => {
 			const from = k.levels[k.base].level;
-			return lowering.lower(from, list.map((j) => planOf(j, from)));
+			return lowering.lower(from, list.map((j) => planOf(k, j, from)));
 		});
 		list.forEach((j, n) => {
 			const lv = k.levels[j];
@@ -349,8 +365,8 @@ export function createAssets(o) {
 	 */
 	function lighten(k, L) {
 		const lv = k.levels[L], from = lv.level;
-		const most = budgetOf(L, Infinity, levels);
-		lowering.lower(from, [{ ...planOf(L, from), budget: most, most, every: true }], true).then(
+		const most = budgetOf(L, Infinity, k.sizes);
+		lowering.lower(from, [{ ...planOf(k, L, from), budget: most, most, every: true }], true).then(
 			async ([made]) => {
 				if (gone || lv.level !== from) return;
 				const fresh = { level: made, meshes: made.draws.map((d) => meshOf(k, L, d)) };
@@ -484,7 +500,8 @@ export function createAssets(o) {
 		set(k, i, at);
 		k.alive[i] = 1;
 		k.was[i] = -1;
-		dirty = shadows = true;
+		dirty = true;
+		if (casts(k)) shadows = true;
 		return { kind: k, i };
 	}
 
@@ -507,13 +524,15 @@ export function createAssets(o) {
 	/** a copy moved */
 	const move = (copy, at) => {
 		set(copy.kind, copy.i, at);
-		dirty = shadows = true;
+		dirty = true;
+		if (casts(copy.kind)) shadows = true;
 	};
 	/** a copy taken away */
 	const remove = (copy) => {
 		copy.kind.alive[copy.i] = 0;
 		unpose(copy.kind, copy.i);
-		dirty = shadows = true;
+		dirty = true;
+		if (casts(copy.kind)) shadows = true;
 	};
 
 	/* ── the copies moved by their controls ── */
@@ -724,7 +743,7 @@ export function createAssets(o) {
 			for (const lv of k.levels) for (const d of lv.meshes ?? []) d.used = 0;
 			for (const p of k.posed.values()) if (p.tree) p.tree.visible = false;
 			if (!k.ok) continue;
-			const c = k.center;
+			const c = k.center, cast = casts(k);
 			for (let i = 0; i < k.n; i++) {
 				if (!k.alive[i]) continue;
 				const M = k.M, o = i * 16;
@@ -733,16 +752,16 @@ export function createAssets(o) {
 				ball.radius = k.radius * k.S[i] * (k.posed.size && k.posed.has(i) ? 2 : 1);
 				if (!frustum.intersectsSphere(ball)) {
 					counted.culled++;
-					if (k.was[i] !== -1) (k.was[i] = -1), (shadows = true);
+					if (k.was[i] !== -1) (k.was[i] = -1), (shadows ||= cast);
 					continue;
 				}
 				const size = sizeOn(ball.radius, ball.center.distanceTo(eye), tanHalf);
 				if (size < SMALLEST) {
-					if (k.was[i] !== -1) (k.was[i] = -1), (shadows = true);
+					if (k.was[i] !== -1) (k.was[i] = -1), (shadows ||= cast);
 					continue;
 				}
 				const { level, fade } = forced >= 0 ? { level: Math.min(forced, k.levels.length), fade: 0 } : choose(size, k.thresholds, k.was[i]);
-				if (level !== k.was[i]) shadows = true;
+				if (level !== k.was[i]) shadows ||= cast;
 				k.was[i] = level;
 				// moved by its controls: its own tree, once it is ready
 				const p = k.posed.size ? k.posed.get(i) : undefined;

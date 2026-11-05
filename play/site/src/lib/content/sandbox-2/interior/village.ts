@@ -67,6 +67,8 @@ export type VillageHandle = {
 export type PickedPlant = { id: string; v: number; asset?: string; stage: number; seed: string; x: number; z: number; height: number; distance: number; inside: boolean }
 
 const WORLD = 380
+/** how near the eye a walking animal's shadow is drawn again with it, once a second (m): further off it trails unseen */
+const HERD_SHADOWS = 20
 
 /** The cell: the master dome, six medium domes round it, six small domes further out between them. */
 function layout(): VillageDome[] {
@@ -123,18 +125,52 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	   it reaches (its arcade, the paths out of its gates) is what the cell keeps clear round it */
 	let soloBuild: { obj: THREE.Object3D; walk: ReturnType<typeof import('$lib/content/assets/hero.js').walkOf>; plantings: ReturnType<typeof import('$lib/content/assets/plantings.js').createPlantings> } | null = null
 	let soloFoot = { x: 0, z: 0, R: 0, ext: 0 }
+	const lowBox = new THREE.Box3()
 	/** Sandbox 5: where its building has ground of its own (its walk, apron, the paths out of its gates, and each gate's
 	 *  way on to the cell's ring path), as distances from it (./solo.js): the forest garden is planted up to it */
 	let soloGround: ReturnType<typeof groundOf> | null = null
+	/** what the renderers draw (their copies' levels change as you walk) casts its shadows anew: drawn again with the
+	 *  next look at the level of detail (below), not every frame */
+	let shadowsStale = false
+	const staleShadows = () => void (shadowsStale = true)
+	/** where the animals that walk are (each herd's), so their shadows go with them while they are near */
+	const walking: (() => { x: number; z: number; v?: number }[])[] = []
 	if (solo) {
 		onProgress('Building the dome')
 		const [{ loadAsset }, { createPlantings }, { walkOf }] = await Promise.all([import('$lib/content/assets/load.js'), import('$lib/content/assets/plantings.js'), import('$lib/content/assets/hero.js')])
 		const { obj } = await loadAsset(await newestOf(solo.asset))
 		obj.updateMatrixWorld(true)
 		scene.add(obj)
-		const plantings = createPlantings({ renderer, camera, scene })
+		// its forest and things drawn as the cell's are: their shadows drawn again with the cell's (every 400 ms at most,
+		// not with every frame a copy changes its level), its plants at the cell's forest's details and no finer (0.25
+		// near, 0.1 further, a picture far: as Sandbox 1 draws its domes' insides; a tree filling the view at its full
+		// detail is half a million triangles), switching where the guests' last two levels do (plantings.js GUEST_LEVELS);
+		// its things, built whole, at all three of the guests' levels (full, 30 %, 8 %), as before
+		const plantings = createPlantings({ renderer, camera, scene, levels: [0.4, 0.16], details: [0.25, 0.1], shadows: staleShadows })
 		plantings.show(obj)
-		soloBuild = { obj, walk: walkOf(obj), plantings }
+		// the building stands still: walked in by its triangles filed by the ground's squares (the same floors and walls,
+		// each ray testing a few hundred triangles, not a million), its many marker nodes (where each plant and thing
+		// stands, drawn by the plantings now) left out of every frame's traversal, its matrices kept as they are
+		soloBuild = { obj, walk: walkOf(obj, { still: true }), plantings }
+		// (a build kept running, view.ticks: its plantings follow its markers, drawn only where they are shown)
+		const follows = obj.userData.view?.ticks === true
+		obj.traverse((o) => {
+			o.matrixAutoUpdate = false
+			if (!follows && o.children.length && o.children.every((c) => c.name.startsWith('use:'))) o.visible = false
+			const mesh = o as THREE.Mesh
+			if (!mesh.isMesh) return
+			// its glass, see-through and two-sided, in one pass (its far panes behind its near ones as they lie in the mesh;
+			// one pale tint at 0.14, the order does not show), not two
+			for (const mt of [mesh.material].flat()) if (mt.transparent && mt.side === THREE.DoubleSide) mt.forceSinglePass = true
+			// what lies on the ground (its floor, gravel, flagstones, the stones of its brook) casts no shadow worth its
+			// triangles in the shadow pass: it still receives every one
+			if (mesh.castShadow) {
+				if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox()
+				// (what is sunk below it too: the brook's and pond's banks are gentle swales and their sills lie under the
+				// bridges, so none of it shades the water as seen; 113k triangles fewer in every shadow pass)
+				if (lowBox.copy(mesh.geometry.boundingBox!).applyMatrix4(mesh.matrixWorld).max.y < 0.12) mesh.castShadow = false
+			}
+		})
 		// its reach, from what it stands on the ground (up to 7 m: its arcade, its gates and their paths, not its glass)
 		let reach = 0, glass = 0
 		const v = new THREE.Vector3()
@@ -154,10 +190,6 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	}
 	/** what the cell keeps clear: every dome with its terrace, or Sandbox 5's building with its paths */
 	const foots: { x: number; z: number; R: number; ext: number }[] = solo ? [soloFoot] : domes
-	/** what the renderers draw (their copies' levels change as you walk) casts its shadows anew: drawn again with the
-	 *  next look at the level of detail (below), not every frame */
-	let shadowsStale = false
-	const staleShadows = () => void (shadowsStale = true)
 	/** Sandbox 5: our plants drawn by the universal renderer (./drawn.js, $content/assets/render), each kind built in the asset
 	 *  box: the cell's at the village's distances, and the domes' insides' at the nearer ones under their glass */
 	const plantsOut = flora ? createFlora({ renderer, camera, scene, shadows: staleShadows }) : null
@@ -680,6 +712,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		herds.hens = hens.where
 		// and in every other coop's place, a hutch of rabbits
 		const rabbits = herd('rabbit', rabbitPatches(SQUARE_R), 78, eye)
+		walking.push(hens.where, rabbits.where)
 		for (const f of [hens, rabbits]) {
 			scene.add(f.object)
 			animated.push(f.update)
@@ -1184,6 +1217,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		const goats = herd('goat', goatPatches, 71, eye), geese = herd('goose', goosePatches, 72, eye), frogs = herd('frog', frogPatches, 74, eye)
 		const sheep = herd('sheep', sheepPatches, 77, eye)
 		herds.frogs = frogs.where
+		walking.push(goats.where, sheep.where, geese.where, frogs.where)
 		// bee hives, three or four together, in clearings of the forest round the cell
 		const hiveSpots: { x: number; z: number; rot: number }[] = []
 		for (let k = 0; k < 16; k++) {
@@ -1252,8 +1286,9 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	   village a piece at a time, and the simple one steps aside. You walk in through the
 	   door with nothing to wait for: its floors, stairs, galleries and terraces are the
 	   dome's own (interior.ts). Walk far enough away and it is taken down again. ── */
-	/** a few real lights, following you from lamp to lamp inside the dome you are in or at */
-	const pool = Array.from({ length: 8 }, () => {
+	/** a few real lights, following you from lamp to lamp inside the dome you are in or at (none in Sandbox 5: it has
+	 *  no domes of the cell's, and eight unlit lights would still be reckoned in every lit pixel) */
+	const pool = Array.from({ length: solo ? 0 : 8 }, () => {
 		const light = new THREE.PointLight(LAMP, 0, 10, 2)
 		scene.add(light)
 		return light
@@ -1445,6 +1480,10 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	let last = performance.now()
 	const clock0 = performance.now()
 	let lodChecked = 0
+	/** when the walking animals' shadows were last drawn again with them */
+	let herdShadows = 0
+	/** whether an animal walks (one standing still keeps its shadow) near enough to x, z for its shadow to be seen */
+	const herdNear = (x: number, z: number) => walking.some((w) => w().some((a) => (a.v ?? 1) > 0.01 && (a.x - x) ** 2 + (a.z - z) ** 2 < HERD_SHADOWS * HERD_SHADOWS))
 	const tick = () => {
 		if (!running) return
 		const now = performance.now()
@@ -1457,6 +1496,12 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		sky.tick(now)
 		if (now - lodChecked > 400) {
 			lodChecked = now
+			// the sun's shadows are drawn again as it turns (a quarter of a degree, every few seconds: sky.js follow), the
+			// walking animals' once a second while one walks near enough to be seen (20 m), so a goat's shadow keeps under it
+			if (now - herdShadows > 1000 && herdNear(camera.position.x, camera.position.z)) {
+				herdShadows = now
+				shadowsStale = true
+			}
 			if (shadowsStale) {
 				shadowsStale = false
 				renderer.shadowMap.needsUpdate = true
@@ -1475,6 +1520,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		library.update()
 		soloBuild?.plantings.update()
 		// the film camera draws the canvas itself while it holds it (maia/content/film)
+		// every shadow pass counts as the animals' (the sun's, a level's, the grid's): theirs waits a second from it
+		if (renderer.shadowMap.needsUpdate) herdShadows = now
 		if (!filmDraws()) renderer.render(scene, camera)
 		// keep it smooth; while a film is shot every frame is rendered at the resolution it asks for
 		stage.adapt(now, filmHoldsSize())

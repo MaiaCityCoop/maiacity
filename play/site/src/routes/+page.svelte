@@ -22,7 +22,7 @@
 		{ href: '/sandbox-2/', label: 'Sandbox 2', note: 'The physical world lab: buildings from their parts, with physics, fixings and wind', cover: 'bd34c342d7db41283ff4d243aa21bf08daf40fe1e9b47a0f63f92a00d65a9c6e.jpg' },
 		{ href: '/sandbox-3/', label: 'Sandbox 3', note: 'The tired land: walk it as someone new every visit', cover: '41a858860a82169d3d5586d30b648723c32874a94e014f30718a5a70f5b56e85.jpg' },
 		{ href: '/sandbox-4/', label: 'Sandbox 4', note: 'The cassette joint: a cast cassette of the 100 m dome seated, keyed, capped and clamped', cover: 'd308f061bd5498775faa69da06ae54aef9a39c784b714c5c3605382e18540aca.jpg' },
-		{ href: '/sandbox-5/', label: 'Sandbox 5', note: 'The forest dome alone in its own food forest, outside and under the glass', cover: '9e442ce81d3237243f561780fa6d3aeeeb7f1d83ea8e68f3a166650739c398b2.jpg' }
+		{ href: '/sandbox-5/', label: 'Sandbox 5', note: 'The forest dome alone in its own food forest, outside and under the glass', cover: '80ee079deb5be54066d2fd230d11fa74ee59aa8f13c6ce3b9b7aa27fb30c8892.jpg' }
 	];
 	type Tile = { href: string; label: string; note: string; icon: (typeof GROUP_APPS)[number]['icon'] | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio' | 'gear' | 'media'; admins?: boolean };
 	const APPS: Tile[] = [

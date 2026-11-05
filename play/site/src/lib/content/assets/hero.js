@@ -435,9 +435,16 @@ export function forStage(root) {
  * How a build is walked in, read off its own shape (a container's floor, its walls): the floor under a walker is the
  * first face looking up below their knees, and they may step where nothing stands across their way at knee or chest
  * height. Nothing of the box's decides it.
+ *
+ * `still`: the build never moves or changes shape once walked in (a building standing in a world): its triangles are
+ * filed once by the metre squares of the ground they lie over, and each ray tests only those of the squares it crosses,
+ * as three's raycaster would test them (each face's own material's side, the same distances): the same answers, in a
+ * few hundredths of a millisecond instead of tens over a big building's million triangles.
  * @param {THREE.Object3D} root
+ * @param {{ still?: boolean }} [o]
  */
-export function walkOf(root) {
+export function walkOf(root, o = {}) {
+	if (o.still) return walkStill(root);
 	const ray = new THREE.Raycaster();
 	const down = new THREE.Vector3(0, -1, 0), from = new THREE.Vector3(), dir = new THREE.Vector3();
 	const solid = (hits) => hits.filter((h) => h.object.visible && h.object.isMesh && !h.object.userData.studio);
@@ -462,3 +469,175 @@ export function walkOf(root) {
 		}
 	};
 }
+
+/** a build's triangles filed by the metre squares of the ground they lie over (walkOf's `still`) */
+const STILL_CELL = 1;
+/** how far past a ray's heights a triangle's own (kept to a float's precision) is still tested (m) */
+const STILL_SLACK = 1e-3;
+
+/**
+ * walkOf for a build that stands still: the same floors and walls, its rays tested against the triangles under the
+ * squares they cross only, and of those only the ones whose heights reach the ray's (not every tread of a stair
+ * stacked over a square). Each mesh is kept as it is (its positions, index, matrix and materials' sides), nothing
+ * copied but the filing (a triangle's number in each square its footprint touches, in one array over the build's
+ * squares) and each triangle's lowest and highest point.
+ * @param {THREE.Object3D} root
+ */
+function walkStill(root) {
+	root.updateMatrixWorld(true);
+	/** the meshes (an instanced mesh once for each instance), each with where its triangles start in the build's numbering */
+	const meshes = [];
+	let count = 0;
+	root.traverse((m) => {
+		if (!m.isMesh || !m.geometry?.attributes?.position || m.isSkinnedMesh) return;
+		const g = m.geometry, tris = (g.index ? g.index.count : g.attributes.position.count) / 3;
+		// each triangle's side, from its group's material (three tests a face only as its material's side allows)
+		const side = new Uint8Array(tris).fill(255);
+		const mats = Array.isArray(m.material) ? m.material : null;
+		if (mats) for (const gr of g.groups) for (let t = Math.floor(gr.start / 3); t < Math.min(tris, Math.floor((gr.start + gr.count) / 3)); t++) side[t] = mats[gr.materialIndex]?.side ?? 255;
+		else side.fill(m.material ? m.material.side : 255);
+		// each instance's matrix in the world (an instanced mesh), or the mesh's own
+		const inst = m.isInstancedMesh ? m.count : 1;
+		for (let q = 0; q < inst; q++) {
+			const M = new THREE.Matrix4();
+			if (m.isInstancedMesh) m.getMatrixAt(q, M), M.premultiply(m.matrixWorld);
+			else M.copy(m.matrixWorld);
+			// a mirrored matrix turns the faces' winding round in the world: three's raycaster culls by the winding in the
+			// mesh's own space, as the renderer draws it
+			meshes.push({ mesh: m, g, M, identity: M.equals(IDENTITY), flip: M.determinant() < 0, side, start: count, tris });
+			count += tris;
+		}
+	});
+	const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), p = new THREE.Vector3();
+	const corners = (e, t) => cornersOf(e, t, a, b, c);
+	const cell = (v) => Math.floor(v / STILL_CELL);
+	const { from, filed, Y0, Y1, owner, minI, maxI, minJ, maxJ, slotOf } = fileStill(meshes, count);
+	const seen = new Uint32Array(count);
+	let stamp = 0;
+	const ray = new THREE.Ray();
+	const normal = new THREE.Vector3();
+	/**
+	 * The ray's hits within `far` over the squares i0…i1, j0…j1, among the triangles reaching its heights y0…y1: a
+	 * floor's (the nearest of the faces looking up), or a wall's (the first found; Infinity for none).
+	 */
+	const cast = (i0, i1, j0, j1, far, y0, y1, floor) => {
+		stamp = (stamp + 1) >>> 0 || 1;
+		let best = Infinity;
+		for (let i = Math.max(i0, minI); i <= Math.min(i1, maxI); i++)
+			for (let j = Math.max(j0, minJ); j <= Math.min(j1, maxJ); j++) {
+				const s = slotOf(i, j);
+				if (s < 0) continue;
+				for (let q = from[s]; q < from[s + 1]; q++) {
+					const n = filed[q];
+					if (seen[n] === stamp) continue;
+					seen[n] = stamp;
+					if (Y0[n] > y1 + STILL_SLACK || Y1[n] < y0 - STILL_SLACK) continue;
+					const e = meshes[owner[n]], t = n - e.start, m = e.mesh;
+					// as walkOf counts a hit: a mesh drawn, not the studio's
+					if (!m.visible || m.userData.studio) continue;
+					const side = e.side[t];
+					if (side === 255) continue;
+					corners(e, t);
+					const hit = side === THREE.DoubleSide ? ray.intersectTriangle(a, b, c, false, p) : (side === THREE.BackSide) !== e.flip ? ray.intersectTriangle(c, b, a, true, p) : ray.intersectTriangle(a, b, c, true, p);
+					if (!hit) continue;
+					const dist = ray.origin.distanceTo(p);
+					if (dist > far) continue;
+					if (!floor) return dist;
+					if (dist >= best) continue;
+					// the face's own normal (its corners' order) as the raycaster gives it, turned into the world
+					let ny;
+					if (e.identity) ny = normal.subVectors(c, b).cross(p.subVectors(a, b)).normalize().y;
+					else {
+						const g = e.g, pos = g.attributes.position, idx = g.index, k = t * 3;
+						a.fromBufferAttribute(pos, idx ? idx.getX(k) : k);
+						b.fromBufferAttribute(pos, idx ? idx.getX(k + 1) : k + 1);
+						c.fromBufferAttribute(pos, idx ? idx.getX(k + 2) : k + 2);
+						ny = normal.subVectors(c, b).cross(p.subVectors(a, b)).normalize().transformDirection(e.M).y;
+					}
+					if (ny > 0.5) best = dist;
+				}
+			}
+		return best;
+	};
+	const down = new THREE.Vector3(0, -1, 0), dir = new THREE.Vector3();
+	return {
+		floorAt(x, z, ground = 0) {
+			const top = ground + 0.6, far = ground + 3;
+			ray.origin.set(x, top, z);
+			ray.direction.copy(down);
+			const i = cell(x), j = cell(z);
+			const d = cast(i, i, j, j, far, top - far, top, true);
+			return d < Infinity ? top - d : 0;
+		},
+		canStand(x, z, here, _ground, was) {
+			dir.set(x - was.x, 0, z - was.z);
+			const d = dir.length();
+			if (d < 1e-6) return true;
+			dir.divideScalar(d);
+			const ex = was.x + dir.x * (d + 0.25), ez = was.z + dir.z * (d + 0.25);
+			const i0 = cell(Math.min(was.x, ex)), i1 = cell(Math.max(was.x, ex)), j0 = cell(Math.min(was.z, ez)), j1 = cell(Math.max(was.z, ez));
+			for (const h of [0.45, 1.2]) {
+				ray.origin.set(was.x, here + h, was.z);
+				ray.direction.copy(dir);
+				if (cast(i0, i1, j0, j1, d + 0.25, here + h, here + h, false) < Infinity) return false;
+			}
+			return true;
+		}
+	};
+}
+/** the corners of triangle t of a walk's mesh entry, in the world, into a, b, c */
+function cornersOf(e, t, a, b, c) {
+	const g = e.g, pos = g.attributes.position, idx = g.index, k = t * 3;
+	a.fromBufferAttribute(pos, idx ? idx.getX(k) : k);
+	b.fromBufferAttribute(pos, idx ? idx.getX(k + 1) : k + 1);
+	c.fromBufferAttribute(pos, idx ? idx.getX(k + 2) : k + 2);
+	if (!e.identity) a.applyMatrix4(e.M), b.applyMatrix4(e.M), c.applyMatrix4(e.M);
+}
+
+/**
+ * walkStill's filing: each triangle read once (the squares its footprint spans, its heights, its mesh), then filed by
+ * square in one array, the squares' runs in `from`. The squares are the build's whole rectangle while that is not much
+ * more than it holds; a build with parts far apart is filed by the squares it covers only (a map), so a far marker
+ * never makes it a grid of millions. Only what the walk keeps is returned: the footprints go with this call.
+ * @param {any[]} meshes @param {number} count
+ */
+function fileStill(meshes, count) {
+	const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+	const cell = (v) => Math.floor(v / STILL_CELL);
+	const I0 = new Int32Array(count), I1 = new Int32Array(count), J0 = new Int32Array(count), J1 = new Int32Array(count);
+	const Y0 = new Float32Array(count), Y1 = new Float32Array(count), owner = meshes.length < 65536 ? new Uint16Array(count) : new Uint32Array(count);
+	let minI = Infinity, maxI = -Infinity, minJ = Infinity, maxJ = -Infinity, spans = 0;
+	for (let o = 0; o < meshes.length; o++) {
+		const e = meshes[o];
+		for (let t = 0; t < e.tris; t++) {
+			cornersOf(e, t, a, b, c);
+			const n = e.start + t;
+			I0[n] = cell(Math.min(a.x, b.x, c.x)), I1[n] = cell(Math.max(a.x, b.x, c.x));
+			J0[n] = cell(Math.min(a.z, b.z, c.z)), J1[n] = cell(Math.max(a.z, b.z, c.z));
+			Y0[n] = Math.min(a.y, b.y, c.y), Y1[n] = Math.max(a.y, b.y, c.y);
+			owner[n] = o;
+			if (I0[n] < minI) minI = I0[n];
+			if (I1[n] > maxI) maxI = I1[n];
+			if (J0[n] < minJ) minJ = J0[n];
+			if (J1[n] > maxJ) maxJ = J1[n];
+			spans += (I1[n] - I0[n] + 1) * (J1[n] - J0[n] + 1);
+		}
+	}
+	if (!count) (minI = minJ = 0), (maxI = maxJ = -1);
+	const nx = maxI - minI + 1, nz = maxJ - minJ + 1;
+	// the rectangle, or (parts far apart) the squares held, each numbered as first met
+	const dense = nx * nz <= 4 * spans + 65536;
+	const held = dense ? null : new Map();
+	const key = (i, j) => (i - minI) * nz + (j - minJ);
+	if (held) for (let n = 0; n < count; n++) for (let i = I0[n]; i <= I1[n]; i++) for (let j = J0[n]; j <= J1[n]; j++) if (!held.has(key(i, j))) held.set(key(i, j), held.size);
+	const squares = held ? held.size : nx * nz;
+	const slotOf = held ? (i, j) => held.get(key(i, j)) ?? -1 : key;
+	const from = new Int32Array(squares + 1);
+	for (let n = 0; n < count; n++) for (let i = I0[n]; i <= I1[n]; i++) for (let j = J0[n]; j <= J1[n]; j++) from[slotOf(i, j) + 1]++;
+	for (let s = 0; s < squares; s++) from[s + 1] += from[s];
+	const next = from.slice(0, squares), filed = new Int32Array(from[squares]);
+	for (let n = 0; n < count; n++) for (let i = I0[n]; i <= I1[n]; i++) for (let j = J0[n]; j <= J1[n]; j++) filed[next[slotOf(i, j)]++] = n;
+	return { from, filed, Y0, Y1, owner, minI, maxI, minJ, maxJ, slotOf };
+}
+
+const IDENTITY = new THREE.Matrix4();

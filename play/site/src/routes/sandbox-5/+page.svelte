@@ -69,7 +69,7 @@
 	title="Sandbox 5"
 	subtitle="The forest dome · in its own food forest"
 	cover={{
-		image: asset('9e442ce81d3237243f561780fa6d3aeeeb7f1d83ea8e68f3a166650739c398b2.jpg') /* Day 03: a dome from inside */,
+		image: asset('80ee079deb5be54066d2fd230d11fa74ee59aa8f13c6ce3b9b7aa27fb30c8892.jpg') /* the forest dome's arcade, balustrade and roof terrace over the south gate, its food forest round it (rendered in Sandbox 5) */,
 		eyebrow: 'Sandbox 5',
 		title: 'The forest dome, in its own food forest',
 		size: 'a forest garden all round, the tropics under its glass',
