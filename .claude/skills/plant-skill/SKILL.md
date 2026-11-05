@@ -30,7 +30,10 @@ the crown measured for each age; its numbers in `references/avocado-fuerte.md`, 
 `references/avocado-v3.js`), and **pineapple v2** ('Queen Victoria', a rosette herb from its planted sucker, forced, its
 fruit a syncarp of 80 eyes in spirals of 8 and 13 laid on the golden-angle spiral, each eye a shield in geometry; its
 numbers in `references/pineapple-queen-victoria.md`, its brief beside them, its whole source `references/pineapple-v2.js`,
-whose part 1 carries banana's core with the later lessons: mipmaps, `named()`, `backLit`). Start
+whose part 1 carries banana's core with the later lessons: mipmaps, `named()`, `backLit`), and **coffee v2** ('Caturra',
+Roux's model node by node: a stem of decussate pairs, a pair of level branches at every node, each node flowering once
+a year old; from the seed in parchment through the soldier and the butterfly to the ripe crop of its fifth year; its
+numbers in `references/coffee-caturra.md`, its brief beside them, its whole source `references/coffee-v2.js`). Start
 a new plant from the newest: copy its part 1
 (the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps as lemon v2 has it; the file is
 `references/banana-v2.js` or `references/lemon-v2.js`) as it is and write parts 2–4 for the new plant; a tree takes its
@@ -373,6 +376,23 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   crop it at the soil line, and crop the sheet's ground line off the panel's bottom rows; `--colourful` drops a
   grey-green rosette with the line, so do not use it there. `upright.py` pads only 100 px: a long leaf laid at 60° comes
   out cut at both ends; rotate it with `expand=True` and the angle that makes it narrowest.
+
+- **Roux's model is a cylinder, not a cone** (coffee v2, 2026-11-05). Branches that grow at one steady rate make the
+  oldest, lowest ones the longest: a Christmas tree. A Caturra's young upper branches reach out fast in their first year
+  (~40 cm, fastest at first) and then nearly stop (60–70 cm at two years), its old lower ones hang under their age and
+  load; laid on the sheet's bush with `silhouette.cjs` and `compare.py --close` that took the envelope to 0.80. A node
+  that flowers once, a year old, puts the crop behind the leafy tips on bare wood: right, and it is what the real bush
+  shows inside.
+- **A tube's profile lives only at its points.** `tube()` samples `radius(u)` at the points it is given: a two- or
+  three-point anther drawn with a spindle profile came out as a needle (coffee v2). Give a short organ with a profile
+  enough points, and fewer only where it is many (4,300 flowers: two segments far, five close up).
+- **Thousands of small organs set the budget.** A coffee bush blooms ~4,300 flowers and sets ~6,000 fruitlets: cheap
+  flowers (~90 triangles, the style's branches and calyx only for the fruit view), pinheads as 4 × 6 lathes, and the
+  cherries thinned by `DETAIL.thin` for crowds (each grown a little to fill), or detail 0.1 stays at 70k.
+- **A composite from two plates and an edit is a sheet too.** Coffee's plate 1 drew the cut cherry as a peach stone,
+  plate 2 drew it right (two beans flat face to flat face) but no roots in row 1; the edit fixed two cells, cast
+  magenta and left the cherry as it was. Plate 1 as the base, the edit's cells grey-balanced to plate 1's checker, plate
+  2's cell pasted in: kept in the Library and held to.
 
 - **Safe on every GPU, or black on an iPad.** Banana v2's first proposal drew black in play's viewer on an iPad:
   some 800 normals of no length where its blades' rows met at the tip, with a bump picture, made NaN pixels on
