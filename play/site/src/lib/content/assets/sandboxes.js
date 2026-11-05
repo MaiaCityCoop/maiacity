@@ -15,5 +15,8 @@ export const SANDBOX = Object.freeze({
 	/** the Factories, which keep their pins as a sandbox does */
 	factories: '9862777e-04c2-8362-b028-27ff7e0591b8',
 	/** Sandbox 4: the dome cassette joint (no pins, no configs; a random UUID, play/api's migration 0021-sandbox-4) */
-	four: '4d72a048-ccc1-476b-b60f-c5eb0914fa47'
+	four: '4d72a048-ccc1-476b-b60f-c5eb0914fa47',
+	/** Sandbox 5: the forest dome alone in Sandbox 1's world (no pins, no configs: it reads Sandbox 1's garden and draws
+	 *  the forest dome at its newest version; a random UUID, play/api's migration 0022-sandbox-5) */
+	five: 'ac154784-c938-47ee-ac74-d61fc91583b3'
 });

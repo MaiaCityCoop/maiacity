@@ -83,7 +83,26 @@ function layout(): VillageDome[] {
  * Which sandbox the village is: Sandbox 4 as it was built (its forest of simple stand-in plants, ./plants.ts), or
  * Sandbox 5, its forest grown from our own plants ($content/plants, ./flora.js) as its `flora` says (./sandbox5.js).
  */
-export type VillageOptions = { sandbox?: 'sandbox-4' | 'sandbox-5'; flora?: Flora }
+export type VillageOptions = { sandbox?: 'sandbox-4' | 'sandbox-5'; flora?: Flora; solo?: Solo }
+
+/**
+ * Sandbox 5 (Samuel 2026-11-05): one building of play's library alone in the middle of the cell, in place of its
+ * thirteen domes — `asset`, the building's asset by its UUID, drawn at its newest accepted version (never pinned: it
+ * follows the library), with what it plants (its forest, its things) and the biomes it floors with
+ * ($content/assets/plantings.js), walked on its own floors and through its own gates ($content/assets/hero.js walkOf).
+ * `gates` are its doors' bearings (0 north, +z; π/2 east), where the cell's paths meet its own.
+ */
+export type Solo = { asset: string; gates: number[] }
+
+/** a building of the library, its newest accepted version: its recipe's hash (play's catalog, by its asset's UUID) */
+async function newestOf(asset: string): Promise<string> {
+	const { INDEX } = await import('$lib/content/assets/catalog.js')
+	let best: { hash: string; v: number } | null = null
+	for (const [hash, r] of Object.entries(INDEX.recipes) as [string, { asset?: string; v: number; variant?: string | null; first?: boolean; proposed?: boolean }][])
+		if (r.asset === asset && !r.proposed && (!r.variant || r.first) && (!best || r.v > best.v)) best = { hash, v: r.v }
+	if (!best) throw new Error(`play's catalog holds no accepted version of the building ${asset}`)
+	return best.hash
+}
 
 export async function mountVillage(container: HTMLElement, onProgress: (label: string) => void, opts: VillageOptions = {}): Promise<VillageHandle> {
 	const flora = opts.flora
@@ -97,7 +116,39 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	// where the eye is (the walker's, or the film camera's): the animals near it move every bone
 	const eye = () => camera.position
 	const m = mats()
-	const domes = layout()
+	const solo = opts.solo
+	const domes = solo ? [] : layout()
+	/* Sandbox 5: the building alone in the middle, built in the asset box at its newest version and measured: how far
+	   it reaches (its arcade, the paths out of its gates) is what the cell keeps clear round it */
+	let soloBuild: { obj: THREE.Object3D; walk: ReturnType<typeof import('$lib/content/assets/hero.js').walkOf>; plantings: ReturnType<typeof import('$lib/content/assets/plantings.js').createPlantings> } | null = null
+	let soloFoot = { x: 0, z: 0, R: 0, ext: 0 }
+	if (solo) {
+		onProgress('Building the dome')
+		const [{ loadAsset }, { createPlantings }, { walkOf }] = await Promise.all([import('$lib/content/assets/load.js'), import('$lib/content/assets/plantings.js'), import('$lib/content/assets/hero.js')])
+		const { obj } = await loadAsset(await newestOf(solo.asset))
+		obj.updateMatrixWorld(true)
+		scene.add(obj)
+		const plantings = createPlantings({ renderer, camera, scene })
+		plantings.show(obj)
+		soloBuild = { obj, walk: walkOf(obj), plantings }
+		// its reach, from what it stands on the ground (up to 7 m: its arcade, its gates and their paths, not its glass)
+		let reach = 0, glass = 0
+		const v = new THREE.Vector3()
+		obj.traverse((o) => {
+			const mesh = o as THREE.Mesh
+			if (!mesh.isMesh) return
+			const p = mesh.geometry.attributes.position!
+			for (let i = 0; i < p.count; i += 3) {
+				v.fromBufferAttribute(p, i).applyMatrix4(mesh.matrixWorld)
+				const r = Math.hypot(v.x, v.z)
+				if (v.y < 7) reach = Math.max(reach, r)
+				if (v.y > 8) glass = Math.max(glass, r)
+			}
+		})
+		soloFoot = { x: 0, z: 0, R: glass, ext: reach }
+	}
+	/** what the cell keeps clear: every dome with its terrace, or Sandbox 5's building with its paths */
+	const foots: { x: number; z: number; R: number; ext: number }[] = solo ? [soloFoot] : domes
 	/** what the renderers draw (their copies' levels change as you walk) casts its shadows anew: drawn again with the
 	 *  next look at the level of detail (below), not every frame */
 	let shadowsStale = false
@@ -165,8 +216,12 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	// grasses in the light, leaf litter, humus and moss under the trees. Where the vault holds none, the ground lies bare
 	// (said on the page's banner), never a floor of the repo's
 	const FLOOR_BIOME = opts.flora ? biomeOr(FLOORS.outside) : null
+	// Sandbox 5's building floors its own inside: the cell's ground stops at its glass, and lies a little under its
+	// own ground outside (its arcade's walk, the paths from its gates)
+	if (solo) hexShape.holes.push(new THREE.Path().absarc(soloFoot.x, -soloFoot.z, Math.max(1, soloFoot.R - 0.5), 0, Math.PI * 2, false))
 	const hex = new THREE.Mesh(new THREE.ShapeGeometry(hexShape, 48), opts.flora ? groundMaterial(FLOOR_BIOME?.surface ?? { soil: 1 }) : m.grass)
 	hex.rotation.x = -Math.PI / 2
+	if (solo) hex.position.y = -0.03
 	hex.receiveShadow = true
 	scene.add(hex)
 	const inHex = (x: number, z: number) => {
@@ -176,14 +231,14 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	}
 
 	/** The café squares and hen coops round the master dome, as in Sandbox 3 (spaces.ts). */
-	const SQUARE_R = domes[0]!.ext + 2.6 + 7.5
+	const SQUARE_R = foots[0]!.ext + 2.6 + 7.5
 	/** three wooden playgrounds in the forest between the domes */
 	const PLAYGROUNDS = [0.2, 2.3, 4.4].map((a) => {
 		const [x, z] = polar(118, a + Math.PI / 6)
 		return { x, z, r: 8.5 }
 	})
 	const AROUND_MASTER = [...PLAYGROUNDS,
-		...squaresAround().map(({ a, radius }) => ({ x: Math.sin(a) * SQUARE_R, z: Math.cos(a) * SQUARE_R, r: radius })),
+		...(solo ? [] : squaresAround()).map(({ a, radius }) => ({ x: Math.sin(a) * SQUARE_R, z: Math.cos(a) * SQUARE_R, r: radius })),
 		...coopsAround(SQUARE_R).map(({ a, r }) => ({ x: Math.sin(a) * r, z: Math.cos(a) * r, r: 5 }))
 	]
 	/** A quick test for whether a point is near any of a set of lines, by 6 m cells. */
@@ -206,7 +261,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	}
 	/** Pushes a line of points out of every dome and its terrace, and off the squares and coops. */
 	const clear = (pts: THREE.Vector3[], margin: number, keepEnds = true) => {
-		const obstacles = [...domes.map((d) => ({ x: d.x, z: d.z, r: d.ext })), ...AROUND_MASTER]
+		const obstacles = [...foots.map((d) => ({ x: d.x, z: d.z, r: d.ext })), ...AROUND_MASTER]
 		for (let it = 0; it < 4; it++)
 			pts.forEach((p, i) => {
 				if (keepEnds && (i === 0 || i === pts.length - 1)) return
@@ -285,11 +340,11 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	pathMat.side = THREE.DoubleSide
 	const paths: THREE.Vector3[][] = []
 	const addPath = (pts: THREE.Vector3[], width = 2.4, closed = false) => paths.push(ribbon(pts, width, pathMat, 0.03, closed))
-	for (const d of domes) {
+	for (const d of foots) {
 		const rr = d.ext + 2.6
 		addPath(Array.from({ length: 48 }, (_, i) => new THREE.Vector3(d.x + Math.sin((i / 48) * Math.PI * 2) * rr, 0, d.z + Math.cos((i / 48) * Math.PI * 2) * rr)), 2.2, true)
 	}
-	const master = domes[0]!
+	const master = foots[0]! as VillageDome
 	domes.slice(1).forEach((d, i) => {
 		// from the door that faces the centre, in to the master's nearest door: through the gaps between its café
 		// squares and coops, never between a square and a coop, too close together for a path
@@ -306,6 +361,13 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		return new THREE.Vector3(Math.sin(a) * rr, 0, Math.cos(a) * rr)
 	}), true), 6, false)
 	addPath(loop, 2.4, true)
+	// Sandbox 5: from the ring round the building, at each of its gates, out to the loop
+	if (solo)
+		solo.gates.forEach((g, i) => {
+			const a = new THREE.Vector3(Math.sin(g) * (soloFoot.ext + 2.6), 0, Math.cos(g) * (soloFoot.ext + 2.6))
+			const b = new THREE.Vector3(Math.sin(g) * (loopR + Math.sin(g * 5) * 9), 0, Math.cos(g) * (loopR + Math.sin(g * 5) * 9))
+			addPath(clear(denser(meander(a, b, 6, 450 + i)), 3))
+		})
 	domes.slice(1).forEach((d, i) => {
 		const door = doorToward(d, d.x * 2, d.z * 2)
 		const a = doorPoint(d, door, 2.6)
@@ -601,7 +663,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		// (./things.js), each built in the asset box and drawn by the renderer; the timber coops of the village without
 		// them are its own, in its kit's colours (./spaces.ts), not the library's
 		const mini = !!flora
-		for (const sq of [...cafes(kit, SQUARE_R), ...(mini ? [] : coops(kit, SQUARE_R))]) {
+		for (const sq of [...(solo ? [] : cafes(kit, SQUARE_R)), ...(mini ? [] : coops(kit, SQUARE_R))]) {
 			swap(sq.group)
 			scene.add(bake(sq.group))
 			colliders.push(...sq.colliders)
@@ -858,7 +920,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		return t
 	}
 	const greens = ['#3f7a34', '#4f8a38', '#5b9a40', '#2f6a30', '#6aa84a', '#477f3a'].map((c) => new THREE.Color(c))
-	const inDome = (x: number, z: number, margin: number) => domes.some((d) => Math.abs(x - d.x) < d.ext + margin && Math.abs(z - d.z) < d.ext + margin && Math.hypot(x - d.x, z - d.z) < d.ext + margin)
+	const inDome = (x: number, z: number, margin: number) => foots.some((d) => Math.abs(x - d.x) < d.ext + margin && Math.abs(z - d.z) < d.ext + margin && Math.hypot(x - d.x, z - d.z) < d.ext + margin)
 	const inSquare = (x: number, z: number) => AROUND_MASTER.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + 1.5)
 	const q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), sv = new THREE.Vector3()
 	const mat = (x: number, y: number, z: number, rot: number, sx: number, sy = sx, sz = sx) => new THREE.Matrix4().compose(p.set(x, y, z), q.setFromEuler(e.set(0, rot, 0)), sv.set(sx, sy, sz))
@@ -1075,7 +1137,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			const aim = (k * Math.PI) / 3 + Math.PI / 6 - 0.35
 			let [x, z] = polar(176, aim)
 			// in the open forest: never on a path, by the water, or near enough a dome to wander into it
-			for (let tries = 0; tries < 80 && (nearPath(x, z, 6) || nearWater(x, z, 8) || domes.some((d) => Math.hypot(x - d.x, z - d.z) < d.ext + 16) || AROUND_MASTER.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + 10)); tries++) [x, z] = polar(176 + tries * 1.2, aim - tries * 0.012)
+			for (let tries = 0; tries < 80 && (nearPath(x, z, 6) || nearWater(x, z, 8) || foots.some((d) => Math.hypot(x - d.x, z - d.z) < d.ext + 16) || AROUND_MASTER.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + 10)); tries++) [x, z] = polar(176 + tries * 1.2, aim - tries * 0.012)
 			return { x, z, r: 10, n: 8 }
 		})
 		const goats = herd('goat', goatPatches, 71, eye), geese = herd('goose', goosePatches, 72, eye), frogs = herd('frog', frogPatches, 74, eye)
@@ -1087,7 +1149,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			const aim = (k / 16) * Math.PI * 2 + 0.5
 			let [cx, cz] = polar(k % 2 ? 232 : 118, aim)
 			// never on a path, by the water, against a dome, or on a playground or café square
-			for (let tries = 0; tries < 40 && (nearPath(cx, cz, 5) || nearWater(cx, cz, 6) || domes.some((d) => Math.hypot(cx - d.x, cz - d.z) < d.ext + 8) || AROUND_MASTER.some((c) => Math.hypot(cx - c.x, cz - c.z) < c.r + 5)); tries++) [cx, cz] = polar((k % 2 ? 232 : 118) + tries * 2, aim + tries * 0.02)
+			for (let tries = 0; tries < 40 && (nearPath(cx, cz, 5) || nearWater(cx, cz, 6) || foots.some((d) => Math.hypot(cx - d.x, cz - d.z) < d.ext + 8) || AROUND_MASTER.some((c) => Math.hypot(cx - c.x, cz - c.z) < c.r + 5)); tries++) [cx, cz] = polar((k % 2 ? 232 : 118) + tries * 2, aim + tries * 0.02)
 			for (let j = 0; j < 3 + (k % 2); j++) hiveSpots.push({ x: cx + j * 1.3, z: cz + (j % 2) * 0.6, rot: aim + Math.PI })
 		}
 		// fish in every pond
@@ -1108,13 +1170,13 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			const spots: { x: number; z: number; rot: number; size: number }[] = []
 			for (let tries = 0; spots.length < 48 && tries < 4000; tries++) {
 				const [x, z] = polar(60 + Math.sqrt(ar()) * 235, ar() * Math.PI * 2)
-				if (nearPath(x, z, 3) || nearWater(x, z, 4) || domes.some((d) => Math.hypot(x - d.x, z - d.z) < d.ext + 4) || AROUND_MASTER.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + 3)) continue
+				if (nearPath(x, z, 3) || nearWater(x, z, 4) || foots.some((d) => Math.hypot(x - d.x, z - d.z) < d.ext + 4) || AROUND_MASTER.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + 3)) continue
 				if (colliders.some((c) => Math.abs(c.x - x) < c.r + 1 && Math.abs(c.z - z) < c.r + 1 && Math.hypot(c.x - x, c.z - z) < c.r + 0.9)) continue
 				if (spots.some((q) => Math.hypot(q.x - x, q.z - z) < 12)) continue
 				spots.push({ x, z, rot: ar() * Math.PI * 2, size: 0.7 + ar() * 0.6 })
 			}
 			// their roads run off over the floor, never over a path, into the water or a dome
-			const ants = antHills(spots, eye, (x, z) => nearPath(x, z, 0.8) || nearWater(x, z, W / 2 + 0.4) || domes.some((d) => Math.hypot(x - d.x, z - d.z) < d.ext + 1))
+			const ants = antHills(spots, eye, (x, z) => nearPath(x, z, 0.8) || nearWater(x, z, W / 2 + 0.4) || foots.some((d) => Math.hypot(x - d.x, z - d.z) < d.ext + 1))
 			scene.add(ants.object)
 			animated.push(ants.update)
 			for (const q of spots) colliders.push({ x: q.x, z: q.z, r: 0.75 * q.size })
@@ -1128,7 +1190,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	await pause('Opening the doors')
 
 	/* ── walking: WASD or the touch joystick, drag to look; through a door, into the dome ── */
-	const start = doorPoint(master, Math.PI, 10)
+	// Sandbox 5: a little way out on the path to the building's south gate
+	const start = solo ? new THREE.Vector3(soloFoot.x, 0, soloFoot.z - soloFoot.ext - 18) : doorPoint(master, Math.PI, 10)
 	// facing the master dome; where you may stand and how high (canStand, floorHere) is the cell's, below
 	const walker = createWalker(camera, renderer.domElement, {
 		x: start.x,
@@ -1301,6 +1364,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	/** Where you may stand, and how high: the land, or inside the open dome on its own floors. */
 	const DOOR_HALF = 1.1
 	const floorHere = (x: number, z: number, f: number) => {
+		// Sandbox 5's building: its own floors, stairs and paths
+		if (soloBuild && Math.hypot(x - soloFoot.x, z - soloFoot.z) < soloFoot.ext + 0.3) return soloBuild.walk.floorAt(x, z, f)
 		for (const i of shown) {
 			const d = domes[i]!
 			if (Math.hypot(x - d.x, z - d.z) < d.ext + 0.3) return built.get(i)!.floorAt(x - d.x, z - d.z, f)
@@ -1309,6 +1374,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	}
 	const check = (x: number, z: number, here: number, ground: number, from?: { x: number; z: number }): boolean => {
 		if (!inHex(x, z)) return false
+		// Sandbox 5's building: wherever nothing of it stands across the way, at knee or chest height
+		if (soloBuild && Math.hypot(x - soloFoot.x, z - soloFoot.z) < soloFoot.ext + 0.3) return !from || (soloBuild.walk.canStand(x, z, here, ground, from) && !blockers.blocks(x, z, { from }))
 		for (let i = 0; i < domes.length; i++) {
 			const d = domes[i]!
 			const dx = x - d.x, dz = z - d.z
@@ -1357,7 +1424,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			if (!walker.flying()) manageDomes()
 			lightNearest()
 			// the sounds for where you stand: the forest, the water, the animals; muffled under glass
-			const indoors = domes.some((d) => Math.hypot(pos.x - d.x, pos.z - d.z) < d.R - 0.3)
+			const indoors = foots.some((d) => Math.hypot(pos.x - d.x, pos.z - d.z) < d.R - 0.3)
 			sound.set(levelsAt(pos.x, pos.z, indoors, waterPts, herds), indoors)
 		}
 		for (const i of shown) built.get(i)!.update(t)
@@ -1365,6 +1432,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		// the floor's cover follows the eye every frame (a tile at most built a frame; it fades in as it nears)
 		floorCover?.update(camera.position.x, camera.position.z, filmDraws() ? 999 : 1)
 		library.update()
+		soloBuild?.plantings.update()
 		// the film camera draws the canvas itself while it holds it (maia/content/film)
 		if (!filmDraws()) renderer.render(scene, camera)
 		// keep it smooth; while a film is shot every frame is rendered at the resolution it asks for
@@ -1585,6 +1653,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			domeStream.dispose()
 			plantsOut?.dispose()
 			plantsIn?.dispose()
+			soloBuild?.plantings.dispose()
 			library.dispose()
 			sound.dispose()
 			world.disconnect()
