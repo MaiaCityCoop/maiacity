@@ -10,6 +10,8 @@ The box (pixels of the full sheet) holds one specimen on the white ground; --len
   outline  the silhouette as --points points, in metres, from its base along the axis (a leaf blade's outline for
            `sheet`, a fruit's profile for a lathe)
   width    the full width at --points stations along the axis, in metres (half of it is a lathe's radius)
+  girth    the same, measured across the centreline where the organ bends (a finger, a bent stalk)
+  bend     the centreline's offset from straight at each station, in metres (how it curves)
   aspect   length over greatest width
   colour   per zone along the axis: the median, 10th and 90th percentile, in linear sRGB 0..1 (three's colours), and
            as hex; the spread is the variation to give each organ by its own chance
@@ -54,7 +56,19 @@ for k in range(a.points):
         width.append(0.0); left.append(None); right.append(None); continue
     width.append(round(float(cols[-1] - cols[0]) * px, 4))
     left.append(int(cols[0])); right.append(int(cols[-1]))
-mid = np.median([(l + r) / 2 for l, r in zip(left, right) if l is not None])
+# the centreline, and the width across it: a curved organ (a finger, a bent stalk) is wider in a row than it is thick
+centre = [((l + r) / 2 if l is not None else None) for l, r in zip(left, right)]
+girth = []
+for k in range(a.points):
+    if centre[k] is None:
+        girth.append(0.0); continue
+    j0, j1 = max(0, k - 2), min(a.points - 1, k + 2)
+    while centre[j0] is None: j0 += 1
+    while centre[j1] is None: j1 -= 1
+    dy = (bottom - top) * (j1 - j0) / (a.points - 1)
+    slope = (centre[j1] - centre[j0]) / dy if dy else 0.0
+    girth.append(round(width[k] / np.sqrt(1 + slope * slope), 4))
+mid = np.median([c for c in centre if c is not None])
 outline = []
 for k in range(a.points):  # up the right edge, then down the left: a closed outline round the base
     if right[k] is not None:
@@ -76,7 +90,8 @@ for z in range(a.zones):
                    "p90": [round(float(v), 4) for v in p90], "hex": "#" + "".join(f"{int(round(v * 255)):02x}" for v in srgb)})
 
 out = {"name": a.name, "box": a.box, "length": a.length, "aspect": round(a.length / max(1e-6, max(width)), 3),
-       "width": width, "outline": outline, "colour": colour}
+       "width": width, "girth": girth, "bend": [None if c is None else round(float(c - mid) * px, 4) for c in centre],
+       "outline": outline, "colour": colour}
 text = json.dumps(out, indent=1)
 if a.out:
     open(a.out, "w").write(text)

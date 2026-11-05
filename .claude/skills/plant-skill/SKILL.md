@@ -12,9 +12,11 @@ real plant and every number in it is the real plant's. The laws over every asset
 built in its parts, every upgrade its own version, look at it like a critic) are `asset-producer`'s; this is how they
 are kept for plants.
 
-Worked examples, both proposed over MCP and kept on play: **apricot v2** ('Ungarische Beste') and **cacao v3**
-(West African Amelonado; its researched numbers in `references/cacao-amelonado.md`). Start a new plant from the newer
-of the two: copy its part 1 (the growing core) as it is and write parts 2–4 for the new plant.
+Worked examples, all proposed over MCP and kept on play: **apricot v2** ('Ungarische Beste'), **cacao v3** (West
+African Amelonado; its numbers in `references/cacao-amelonado.md`) and **banana v2** ('Dwarf Cavendish', the first made
+from its own reference sheet; its numbers in `references/banana-dwarf-cavendish.md`, its brief in
+`references/banana-dwarf-cavendish-brief.md`). Start a new plant from the newest: copy its part 1 (the growing core,
+with its surfaces) as it is and write parts 2–4 for the new plant.
 
 ## The order of work
 
@@ -68,10 +70,10 @@ in one even light, straight on, beside one another. It replaces searching the we
   checking only): an image model draws what is usual, not what is true. What to trust: colours (against the
   checker), surface texture, the form of one organ and its proportions *when they agree with the data sheet*. What
   never to trust: its scale bars and labels (the first banana sheet's bars disagreed with its own labels), counts
-  (petals, locules, hands), relative sizes between panels, and anything the data sheet contradicts (its banana leaf
-  was 4 : 1, the real blade 2.3 : 1). Sizes always come from the data sheet. A wrong panel is made again: with
-  `fal-ai/nano-banana-pro/edit` and the sheet as its image ("redraw only the cell …"), or a whole new plate with the
-  fault named in the brief.
+  (petals, locules, hands), relative sizes between panels, and anything the data sheet contradicts (its banana
+  pseudostem was drawn thin and brown, the real one 0.8 m round and green, blotched). Sizes always come from the data
+  sheet. A wrong panel is made again: with `fal-ai/nano-banana-pro/edit` and the sheet as its image ("redraw only the
+  cell …"), or a whole new plate with the fault named in the brief.
 - **Keep it on play**: `bun .claude/skills/plant-skill/scripts/sheet.ts --upload sheet-1.jpg` stores it among play's
   files and prints its BLAKE3 hash (MCP `add_story_frame`: play's image upload, up to 4 MB). The recipe names it in
   `PLANT.sheet = { hash, model, made }` and the version's note names it, so the plant and the plate it was held to are
@@ -92,16 +94,27 @@ in the same light as its panel.
    variation by its chance; check first that the checker's grey patches came out grey.
 2. **Shape the third dimension** the plate does not show flat: a blade's fold along its midrib and its wave, a fruit's
    ridges and section (from the cut panel), a pseudostem's sheath edges, from the side views and the cuts.
-3. **Detail where the eye reads it**: veins and midrib in relief or by vertex colour, the paler underside with its
-   bloom, tears and dry margins on old leaves by their age, lenticels, spots and blotches as cellular patterns sized
-   from the swatch (in centimetres), small damage on a few leaves; and the materials: roughness and sheen per organ
-   (a waxy fruit, a glossy upper leaf, a matt underside), leaves letting light through from behind.
-4. **Match organ by organ**: render each organ alone (`module.exports.organs`) on white with a flat even light,
-   straight on, at the size of its panel, beside its panel; compare the silhouettes (their overlap ≥ 0.9) and the
-   colours (each zone's median within about 0.03 of the trace), then the stages whole against row 1 for form and
-   proportion.
+3. **Detail where the eye reads it, as surfaces**: what vertex colours cannot carry (veins, blotches, fibres, spots,
+   streaks) as small pictures the recipe makes from tiling noise (`surface()`, banana v2: nothing is loaded; the box
+   carries a DataTexture's pixels to the page, up to 64 pictures of 4096 px), laid on by UVs in metres (`metric()`) so
+   a blotch is a blotch's size on every plant; colour pictures multiply the vertex colours, bump pictures lift the
+   light; only at detail 0.5 and over. Measure a pattern like a shape: its cover, its sizes along and across, its
+   colour over each ground it lies on (banana: blotches as cells round scattered points, not stretched noise, which
+   makes strands). And the materials: roughness and sheen per organ (a waxy fruit, a bloom as sheen, a matt
+   underside; little clearcoat on leaves, or the sky turns their undersides blue).
+4. **Match organ by organ on the organ bench**: `node .claude/skills/plant-skill/scripts/organ.mjs --file <source.js>
+   --make "(o, T) => …" --view front|side|top --ppm <px per m> [--flat] --out organ.png` draws one organ from
+   `module.exports.organs` alone, orthographic, in even light, on a transparent ground; `python3 -I
+   .claude/skills/plant-skill/scripts/compare.py <panel.png> organ.png [--box …] [--axis x] [--colourful] --out
+   cmp.png` lays it on its panel and gives the silhouettes' overlap (aim ≥ 0.9), both aspects, the widths edge to
+   edge at ten stations and each zone's colour (aim within 0.03; `--flat` for the organ's own colours). Lay the bench
+   organ as the panel lies (straight, its stalk down), crop the panel to one specimen (neighbours in the box ruin the
+   numbers), and read the side-by-side picture as well as the numbers. Then the stages whole against row 1 for form
+   and proportion (`--colourful` drops the sheet's ground line and bars); where the sheet cut a plant off or drew it
+   against the data sheet, judge by eye and say so.
 5. **Budgets go up with it**: up to about 800k triangles at full detail for a grown plant (a close-up is what the sheet
    is checked by), and still about 60k at 0.3 and 15k at 0.1 for the crowds: the extra detail belongs to `detailAt`.
+   A plant of few big leaves (banana) thins by rows, never by dropping parts: `THINNED` holds only what is many.
 
 ## The recipe
 
@@ -185,9 +198,15 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
 ## Lessons kept
 
 - **The sheet is clean, not true.** The first banana plate (Nano Banana Pro, 2026-11-04) was clean, sharp and right
-  in colour and texture, but its scale bars disagreed with its own labels, its leaf was too narrow, its "hand" at four
-  ages was pairs of fingers, its ripe slice showed five segments for three, and its tallest plants were cut off at the
-  top. Trace the shapes it gets right; take every size and count from the data sheet; make a wrong panel again.
+  in colour and texture, and its organs traced true (blade 2.4 : 1 against the clone's measured 2.3; bell and leaf
+  overlaps 0.93 when matched). But its scale bars disagreed with its own labels, its "hand" at four ages was pairs of
+  fingers, its ripe slice showed five segments for three, its tallest plants were cut off at the top, and it drew the
+  pseudostem thin and brown where the data sheet measures 0.8 m round and blotched green. Trace the shapes it gets
+  right; take every size and count from the data sheet; measure before judging (a first look at its leaf said 4 : 1:
+  the crop held the petiole and white).
+- **The bench sees what the eye misses.** Banana v2's fingers all hung downward for three renders that looked right
+  (a rotation's sign); its fingers were 6 : 1 where the sheet and Pope say 4 : 1. Count and measure: tips above
+  stalks, aspects, cover.
 
 - **Name the cultivar first.** The old cacao was "a cacao": narrow willow leaves, a shrub, little orange pods. Every
   look that is wrong is easier to see against one real kind.
