@@ -900,7 +900,7 @@ const SA = {
 		bronze: lin(0.11, 0.075, 0.045), // turning bronze-green as it hardens (kept dark: in the sun a light bronze reads yellow)
 		rachis: lin(0.13, 0.11, 0.035),
 		old: lin(0.45, 0.36, 0.06), // yellow before it falls
-		life: [0.45, 0.72], // years [EST: evergreen, continuous leaf fall; no measured life; held to a rosette of ~10–15 leaves a tip]
+		life: [0.6, 0.95], // years [EST: evergreen, continuous leaf fall; no measured life; held to a rosette of ~10–15 leaves a tip]
 		expand: 0.04, // years from bud to full size (a flush grows ~2–3 weeks)
 		green: 0.07, // years from rose-violet to green: 3–4 weeks [EST]
 	},
@@ -1090,7 +1090,7 @@ function compoundLeaf(bag, o) {
 	const rachis = tube(pts, (u) => lerp(0.0028, 0.0011, u) * lerp(0.5, 1, expand) * Math.sqrt(size), () => rachisColour, 3, false);
 	// the leaflets, written straight into one set of arrays
 	const pos = [], uv = [], col = [], idx = [];
-	const U = fine ? [0, 0.17, 0.45, 0.76, 1] : [0, 0.45, 1];
+	const U = !fine ? [0, 0.45, 1] : o.coarse ? [0, 0.28, 0.66, 1] : [0, 0.17, 0.45, 0.76, 1];
 	const droopAll = o.flat ? 0 : lerp(0.9 * limp + 0.18 * (1 - limp), 0.18, greening) + 0.2 * yellow;
 	const leaflet = (base, along, face, len, keyed) => {
 		const W = len / F.aspect / 2;
@@ -1992,7 +1992,7 @@ function safouTree(t, seedKey) {
 			const young = t < 1.2;
 			// the seedling's first two leaves stand up between the cotyledons, small
 			const firstPair = ax === trunk && n.i < 2 && n.flush === 1;
-			compoundLeaf(bag, { at, out: side.clone().addScaledVector(n.dir, 0.25).normalize(), size: firstPair ? 0.2 : n.size, pairs: firstPair ? 2 : n.pairs, age, life, r, rise: firstPair ? 1.25 : young ? 0.6 : 0.85, bend: firstPair ? 0.5 : young ? 0.6 : 0.95, limp: firstPair ? 0.15 : 1 });
+			compoundLeaf(bag, { at, out: side.clone().addScaledVector(n.dir, 0.25).normalize(), size: firstPair ? 0.2 : n.size, pairs: firstPair ? 2 : n.pairs, age, life, r, rise: firstPair ? 1.25 : young ? 0.6 : 0.85, bend: firstPair ? 0.5 : young ? 0.6 : 0.95, limp: firstPair ? 0.15 : 1, coarse: n.formed > 4 });
 		}
 	}
 	return bag.build();
