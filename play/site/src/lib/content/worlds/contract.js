@@ -6,6 +6,7 @@
  * the box (`root.userData.tick`), whose steps move its own `use:` nodes. Besides those, it says:
  *
  *   mood:<preset>?k=v          its sky and light: a preset (MOODS) and its keys over it: sun (the sun's height, °),
+ *                              (fog is the density at street level; the page thins it with the eye's height, ./sky.js)
  *                              az (its bearing, ° from +z toward +x), fog (density a metre), haze (the fog's colour,
  *                              hex), lamps (1: street lamps and vehicles' head and tail lights lit)
  *   sound:<file hash>?for=x&gain=g   a recording of play's (by its BLAKE3 hash) and what it is for: `bed` the
@@ -25,7 +26,7 @@ const HASH = /^[0-9a-f]{64}$/;
 
 /** the moods a world may be in, each its sky's numbers; a world's keys are laid over its preset */
 export const MOODS = {
-	'smog-dusk': { sun: 6, az: 250, fog: 0.0045, haze: '8e9396', lamps: 1, zenith: '5d636b', horizon: 'b0a682', sunColor: 'd8b088', light: 0.85 },
+	'smog-dusk': { sun: 6, az: 250, fog: 0.0026, haze: '8e9396', lamps: 1, zenith: '5d636b', horizon: 'b0a682', sunColor: 'd8b088', light: 0.85 },
 	overcast: { sun: 30, az: 200, fog: 0.003, haze: 'a7a9a8', lamps: 0, zenith: '7d8389', horizon: 'b9bbb8', sunColor: 'e6e3dc', light: 0.9 },
 	'clear-day': { sun: 40, az: 220, fog: 0.0012, haze: 'd4e0ea', lamps: 0, zenith: '5a8ccc', horizon: 'dde7ee', sunColor: 'fff1d6', light: 1.2 },
 	night: { sun: -12, az: 250, fog: 0.004, haze: '20232a', lamps: 1, zenith: '07080c', horizon: '1d2028', sunColor: '8090b0', light: 0.12 }

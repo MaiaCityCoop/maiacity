@@ -45,7 +45,8 @@ export function createSky(scene, renderer) {
 				void main() {
 					vec3 d = normalize(vDir);
 					float h = d.y;
-					vec3 c = mix(uHorizon, uZenith, pow(clamp(h, 0.0, 1.0), 0.55));
+					// the lid: from the haze low down to the zenith (the horizon's colour only in its band, below)
+					vec3 c = mix(uHaze, uZenith, pow(clamp(h, 0.0, 1.0), 0.5));
 					// the smog's lid: slow, heavy banks of cloud, darker in their bellies
 					vec2 q = d.xz / max(0.08, h + 0.12) * 1.6;
 					float n = noise(q) * 0.6 + noise(q * 2.3) * 0.3 + noise(q * 5.1) * 0.1;
@@ -56,7 +57,7 @@ export function createSky(scene, renderer) {
 					// the band of haze where the land meets the sky, and the land's colour below it
 					// the cold grey haze over the lower sky, the sick yellow-brown only in a thin band at the horizon
 					c = mix(c, uHaze, smoothstep(0.3, 0.04, h) * 0.75);
-					c = mix(c, uHorizon, smoothstep(0.06, 0.0, abs(h)) * 0.6);
+					c = mix(c, uHorizon, smoothstep(0.05, 0.0, abs(h)) * 0.55);
 					if (h < 0.0) c = uHaze;
 					// not tone mapped: three lays fog on after tone mapping, so the land fades into exactly this colour
 					gl_FragColor = vec4(c, 1.0);
@@ -111,6 +112,9 @@ export function createSky(scene, renderer) {
 		},
 		/** each frame: the dome round the eye, the sun's shadow over where the camera looks */
 		place(camera, focus) {
+			// the smog lies low: thick in the streets, thinner the higher the eye (a crane shot over a city of 6.5 km still
+			// reads its blocks two kilometres off), at a third of it from 300 m up
+			if (mood) scene.fog.density = mood.fog * (1 - 0.65 * THREE.MathUtils.smoothstep(camera.position.y, 15, 300));
 			dome.position.copy(camera.position);
 			dome.scale.setScalar(camera.far * 0.95);
 			const f = focus ?? camera.position;
