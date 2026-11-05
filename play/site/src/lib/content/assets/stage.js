@@ -38,6 +38,26 @@ import { ShaderPass, createPost } from '$lib/content/render/post.js';
 import { daySky } from './sky.js';
 import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment, untonemap } from './kit.js';
 
+/**
+ * How strong the lights' own highlights are on the stage (Samuel 2026-11-05: the sun's glare on every asset 30% down):
+ * the direct specular of the sun, the fill and any lamp (and a clearcoat's and a sheen's) scaled by it; their diffuse
+ * light and the sky's reflections as they were. Only what this stage draws: each of its materials is given the define
+ * the chunk below reads (`_gloss`), and nothing else in the app has it.
+ */
+export const GLOSS = 0.7;
+if (!THREE.ShaderChunk.lights_fragment_end.includes('VIEWER_GLOSS'))
+	THREE.ShaderChunk.lights_fragment_end += `
+#ifdef VIEWER_GLOSS
+	reflectedLight.directSpecular *= VIEWER_GLOSS;
+	#ifdef USE_CLEARCOAT
+		clearcoatSpecularDirect *= VIEWER_GLOSS;
+	#endif
+	#ifdef USE_SHEEN
+		sheenSpecularDirect *= VIEWER_GLOSS;
+	#endif
+#endif
+`;
+
 export const MODES = /** @type {const} */ (['explode', 'cut', 'xray', 'labels', 'slow']);
 
 /** the layer a part shown on its own puts the rest of its asset on: one no camera of the stage draws */
@@ -661,6 +681,7 @@ export class Stage {
 	 */
 	compile() {
 		if (!this.composer) this._post();
+		this._gloss();
 		const r = this.renderer;
 		const was = { tm: r.toneMapping, clip: r.localClippingEnabled, rt: r.getRenderTarget() };
 		r.toneMapping = THREE.NeutralToneMapping;
@@ -679,8 +700,20 @@ export class Stage {
 	}
 
 	/** draw a frame (the page's renderer, our post stack) */
+	/** every material on the stage given its gloss (`GLOSS`): checked every few frames, as what is drawn comes and goes */
+	_gloss() {
+		this.scene.traverse((o) => {
+			for (const m of Array.isArray(o.material) ? o.material : o.material ? [o.material] : []) {
+				if (m.isShaderMaterial || m.defines?.VIEWER_GLOSS !== undefined) continue;
+				m.defines = { ...(m.defines ?? {}), VIEWER_GLOSS: GLOSS.toFixed(2) };
+				m.needsUpdate = true;
+			}
+		});
+	}
+
 	render() {
 		if (!this.composer) this._post();
+		if ((this._glossed = (this._glossed ?? 0) + 1) % 12 === 1) this._gloss();
 		const r = this.renderer;
 		const was = { tm: r.toneMapping, clip: r.localClippingEnabled };
 		r.toneMapping = THREE.NeutralToneMapping;
