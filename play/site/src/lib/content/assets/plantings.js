@@ -9,6 +9,11 @@
  * pictures. So a dome's food forest is play's own plants, named by their recipes' hashes, never copied into the dome:
  * a new version of the dome names newer plants; the plants it names stay as they were.
  *
+ * A world that moves (play/SPEC.md §4.11: a build kept running in the box, whose steps move its own `use:` nodes, its
+ * traffic) is followed: each frame every such node's place is read again and its copy moved there, and a node hidden
+ * (`visible` false, or under a hidden one) has its copy put away until it shows again. `guests()` lists them, each its
+ * node, its copy and its kind, for the page's lights and sounds of a world ($lib/content/worlds).
+ *
  * Only a build of the catalog is drawn: a hash play doesn't hold (or a value its recipe doesn't take) is left out and
  * counted (`missing`), and the rest is drawn.
  *
@@ -94,9 +99,15 @@ export function plantingsOf(root) {
 	root.updateMatrixWorld(true);
 	root.traverse((o) => {
 		const m = USE.exec(o.name ?? '');
-		if (m) out.push({ ref: m[1], matrix: o.matrixWorld.clone() });
+		if (m) out.push({ ref: m[1], matrix: o.matrixWorld.clone(), node: o });
 	});
 	return out;
+}
+
+/** whether a node is drawn: it and every node above it visible */
+export function shownIn(o) {
+	for (let x = o; x; x = x.parent) if (!x.visible) return false;
+	return true;
 }
 
 /**
@@ -110,6 +121,12 @@ export function createPlantings(o) {
 	/** the copies drawn now, and those put away for the next that wants one, by kind */
 	let shown = [];
 	const free = new Map();
+	/** each node of a moving build (one kept running in the box) and its copy: followed every frame */
+	/** @type {{ node: THREE.Object3D, copy: any, kind: any, ref: string, at: Float32Array, away: boolean }[]} */
+	let guests = [];
+	let moving = false;
+	/** which build is shown: a floor read late lays only on the build it was asked for */
+	let generation = 0;
 	/** the biomes' cover streamed over the floors of the build shown */
 	let covers = [];
 	const state = { planted: 0, kinds: 0, missing: 0, floors: 0 };
@@ -128,6 +145,25 @@ export function createPlantings(o) {
 			list.push(c);
 		}
 		shown = [];
+		guests = [];
+	};
+	/** a moving build's guests, each moved where its node stands now (put away while its node is hidden) */
+	const follow = () => {
+		for (const g of guests) {
+			const away = !shownIn(g.node);
+			if (away) {
+				if (!g.away) (g.away = true), assets.move(g.copy, AWAY);
+				continue;
+			}
+			g.node.updateWorldMatrix(true, false);
+			const e = g.node.matrixWorld.elements;
+			let same = !g.away;
+			for (let i = 0; same && i < 16; i++) same = g.at[i] === e[i];
+			if (same) continue;
+			g.at.set(e);
+			g.away = false;
+			assets.move(g.copy, g.node.matrixWorld);
+		}
 	};
 	/** the renderer as a sandbox's cover asks for it (./sandbox-2/interior/drawn.js): kinds used, copies taken and given */
 	const drawn = {
@@ -160,46 +196,64 @@ export function createPlantings(o) {
 			try {
 				recipe = biomeOfCard(cardOf(hash));
 			} catch (e) {
-				// a biome the catalog doesn't hold: the build's own floor stays
-				console.warn(`no floor laid: ${hash.slice(0, 12)}… (${e?.message ?? e})`);
-				state.missing++;
+				// the catalog's card names no floor (a biome proposed over MCP: play keeps no catalog for it): its own build's
+				// card does, the box made it from its recipe (play/SPEC.md §4.11). Its floor laid once that is here
+				const shown = generation;
+				renderer()
+					.load(hash)
+					.then((got) => {
+						if (shown !== generation) return;
+						floor(hash, meshes, biomeOfCard(got.card));
+					})
+					.catch((e2) => {
+						// a biome the catalog doesn't hold, or whose build says no floor: the build's own floor stays
+						console.warn(`no floor laid: ${hash.slice(0, 12)}… (${e2?.message ?? e?.message ?? e2})`);
+						if (shown === generation) state.missing++;
+					});
 				continue;
 			}
-			const ground = groundMaterial(recipe.surface);
-			for (const m of meshes) m.material = ground;
-			const grid = floorGrid(meshes);
-			renderer();
-			covers.push(
-				createCover({
-					drawn,
-					recipe,
-					open: (x, z) => !Number.isNaN(grid.at(x, z)),
-					heightAt: (x, z) => grid.at(x, z) || 0,
-					tile: 8,
-					reach: 24,
-					near: 9,
-					thin: 0.25,
-					// as dense as the biome is near the eye: a viewer shows one floor, not a village of them
-					density: recipe.density,
-					seed: 707
-				})
-			);
-			state.floors++;
+			floor(hash, meshes, recipe);
 		}
+	};
+	/** a biome's floor laid on its meshes: its surfaces painted, its cover streamed over them */
+	const floor = (hash, meshes, recipe) => {
+		const ground = groundMaterial(recipe.surface);
+		for (const m of meshes) m.material = ground;
+		const grid = floorGrid(meshes);
+		renderer();
+		covers.push(
+			createCover({
+				drawn,
+				recipe,
+				open: (x, z) => !Number.isNaN(grid.at(x, z)),
+				heightAt: (x, z) => grid.at(x, z) || 0,
+				tile: 8,
+				reach: 24,
+				near: 9,
+				thin: 0.25,
+				// as dense as the biome is near the eye: a viewer shows one floor, not a village of them
+				density: recipe.density,
+				seed: 707
+			})
+		);
+		state.floors++;
 	};
 	return {
 		state,
 		/** the plantings of `root` drawn, those shown before put away; how many it plants and how many of them are missing */
 		show(root) {
 			const list = plantingsOf(root);
+			generation++;
 			for (const c of covers.splice(0)) c.dispose();
 			if (assets) putAway();
 			Object.assign(state, { planted: 0, kinds: 0, missing: 0, floors: 0 });
+			// a build kept running in the box moves what it plants: each node followed (play/SPEC.md §4.11)
+			moving = root.userData?.view?.ticks === true;
 			lay(root);
 			if (!list.length) return state;
 			const a = renderer();
 			const kinds = new Map();
-			for (const { ref, matrix } of list) {
+			for (const { ref, matrix, node } of list) {
 				let k = kinds.get(ref);
 				if (k === undefined) {
 					try {
@@ -216,8 +270,11 @@ export function createPlantings(o) {
 					continue;
 				}
 				const c = free.get(k.key)?.pop();
-				if (c) a.move(c, matrix);
-				shown.push(c ?? a.place(k, matrix));
+				const away = !shownIn(node);
+				if (c) a.move(c, away ? AWAY : matrix);
+				const copy = c ?? a.place(k, away ? AWAY : matrix);
+				shown.push(copy);
+				guests.push({ node, copy, kind: k, ref, at: new Float32Array(matrix.elements), away });
 				state.planted++;
 			}
 			state.kinds = [...kinds.values()].filter(Boolean).length;
@@ -225,14 +282,22 @@ export function createPlantings(o) {
 		},
 		/** every copy put away (a build that plants nothing shown, or none) */
 		clear() {
+			generation++;
 			for (const c of covers.splice(0)) c.dispose();
 			if (assets) putAway();
 			Object.assign(state, { planted: 0, kinds: 0, missing: 0, floors: 0 });
 		},
 		/** what the camera sees drawn: before every frame (the floors' cover gathered round where it is) */
 		update() {
+			if (moving && assets) follow();
 			for (const c of covers) c.update(o.camera.position.x, o.camera.position.z);
 			if (assets && (shown.length || covers.length)) assets.update();
+		},
+		/** every copy drawn now, with the node it stands at, its kind and its build (a world's lights and sounds read them) */
+		guests: () => guests,
+		/** the renderer drawing them (none until the first build plants something) */
+		get assets() {
+			return assets;
 		},
 		/** whether what is planted is still being built (its kinds, their finer shapes, their pictures) */
 		building: () => (assets ? assets.stats().building : 0),
@@ -242,6 +307,7 @@ export function createPlantings(o) {
 			assets?.group.removeFromParent();
 			assets = null;
 			shown = [];
+			guests = [];
 			free.clear();
 		}
 	};

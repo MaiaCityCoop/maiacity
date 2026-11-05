@@ -9,7 +9,9 @@ export const GROUP_APPS = [
 	{ grp: 'things', label: 'Things', href: '/things/', note: 'Props and furniture', icon: 'box' },
 	{ grp: 'machines', label: 'Machines', href: '/machines/', note: 'Moving parts, real physics', icon: 'gear' },
 	{ grp: 'buildings', label: 'Buildings', href: '/buildings/', note: 'Tents, domes, containers', icon: 'building' },
-	{ grp: 'biomes', label: 'Biomes', href: '/biomes/', note: 'The floor a world stands on', icon: 'mountain' }
+	{ grp: 'biomes', label: 'Biomes', href: '/biomes/', note: 'The floor a world stands on', icon: 'mountain' },
+	// a world composes the others into one place (Samuel 2026-11-05, play/SPEC.md §4.11): its own page, not the library's
+	{ grp: 'worlds', label: 'Worlds', href: '/worlds/', note: 'The assets composed into one place, alive', icon: 'universe' }
 ] as const;
 
 /** a group's name, by its key */

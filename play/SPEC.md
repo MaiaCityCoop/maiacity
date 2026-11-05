@@ -278,7 +278,7 @@ changes only by proposal, as a factory does: `list_game_configs`, `get_game_conf
 `game_config_edit`, `propose_game_config_version` over MCP; the Proposals page shows it field by field and opens the
 Game editor as it would be (`?config=<id>&proposal=<id>`).
 
-### 4.10 A plant's reference sheet (Samuel 2026-11-05)
+### 4.10 A plant's reference sheet, data sheet and brief (Samuel 2026-11-05)
 
 A version may name its **reference sheet**: one clean-lit photographic plate of every stage and organ of the plant,
 made for it (the plant skill makes it with Google's Nano Banana Pro) and kept among play's `files` like any image, in
@@ -289,13 +289,88 @@ shows, beside an image, every asset version that has it as its sheet (accepted, 
 the asset. The recipe names the same hash in its `meta.sheet`, so the plant and the plate it was checked against are
 kept together.
 
-## 5. The three sandboxes
+Its **data sheet** (the researched numbers, every row with its source) and the **brief** its sheet was made from are
+kept the same way, so a plant's whole dataset is in play and nothing of it only in the repository: each a Markdown
+document among play's `files` (`text/markdown`, at most 2 MB, added with MCP `add_document` and a label), named in
+the version's record (`datasheet`, `brief`: `propose_version`'s and `propose_asset`'s fields of those names, refused
+unless a document play keeps; carried on from the head, `null` for none). The Library lists documents as their own kind
+(never the recipe sources, `text/javascript`), opens one as its text, and names beside it every asset version that has
+it as its data sheet or brief; the asset library links a version's data sheet and brief beside its note.
+
+### 4.11 Worlds (Samuel 2026-11-05)
+
+A **world** is an asset of the group `worlds`: the other assets composed into one place (the first, the Old City: a
+section of an old city, the highway into it across monoculture land, its traffic, under a smoggy dusk). It is
+versioned, proposed and accepted like any asset (§4.1–4.5); only accepted versions of what it names are drawn on play.
+Its card is checked against card schema v2 (`card.v2.json`: v1 with the group `worlds`). The Worlds page (`/worlds/`,
+`#<asset id>[/<recipe hash>]`) shows the one picked big, under its own sky, with three cameras (orbit; walk at 1.65 m;
+drive at 1.2 m and 50 km/h) and the views it names.
+
+**Its recipe builds its land** (terrain, roads and their markings, kerbs, pavements, field plots; root on y 0, 1 unit =
+1 m) and **names everything else by hash**: a node `use:<recipe hash>?values` is drawn by the page with that build
+there (`plantings.js`, the universal renderer's levels of detail and far pictures, so hundreds of guests cost a few
+hundred draw calls), a mesh `biome:<recipe hash>` is painted with that biome's floor and cover. A biome's floor is read
+off its card's catalog: the catalog play keeps (the imported biomes'), else, for a biome proposed over MCP (play keeps
+no catalog for it, and never runs or trusts code to make one), the catalog its own build's card carries, the biome
+built in the box on the page like any guest. A catalog part may name its asset by build hash (`<hash>?values`) in card
+schema v2.
+
+**How a world moves: its own build, kept running in the box** (decided 2026-11-05, over a trusted traffic runtime in
+the page, so a world's behaviour is in its versioned recipe). The recipe sets `root.userData.tick = (dt) => …` (engine
+4 on; `dt` in seconds). It advances exactly the time it is given, in fixed steps of its own (the time left over kept for
+the next call), seeded, so the world at a time is the same however that time was cut up: a film seeks to a shot's moment
+in one long step, the page goes frame by frame. Each step it moves its own `use:`
+nodes (or their parents) and hides one by `visible = false`; the box sends back what changed, and the page moves each
+guest where its node now stands (a hidden node's guest is put away). Lanes, car following, queues, red lights and
+emergency vehicles are the world's own code. A world keeps its moving guests to about 400.
+
+**A guest's state** is the empty child nodes of its `use:` node named `state:<name>`, on while visible: a vehicle's
+`head`, `tail`, `brake`, `indicator-l`, `indicator-r` (blinked by the page), `beacon` (its blue and red flashed in
+turn), `horn`, `siren`, `engine` and any other a sound is for; a signal's `red`, `amber`, `green` (all its heads) or
+`<i>:<colour>` (head i, its heads in tree order); a street lamp's `lamp`. Where a guest has no state for it, head,
+tail and lamp lights follow the mood's `lamps`; the rest are off.
+
+**The guests name the parts the page lights**, each modelled dark (its lens off): `light:head`, `light:tail`,
+`light:brake`, `light:indicator-l`, `light:indicator-r`, `light:reverse`, `light:beacon-blue`, `light:beacon-red`,
+`light:beacon-amber` (a work vehicle's; all beacons flash on `state:beacon`, the red against the others),
+`light:lamp`, `light:window` (a building's window cells, lit at dusk: the cells fall into four sets in their order and
+each copy lights some of them by its seed), and a signal head's `lamp:red`, `lamp:amber`, `lamp:green`, one set per
+head. The name is on the mesh itself or on a group holding it: every mesh under a named group is that light. The page
+draws each lit light over its copy, bright and with its glow, copy by copy (`$content/worlds/lights.js`), never
+touching the guest's own drawing. Node names survive the box to 120 characters. Later, not yet driven: wheels as
+groups at their hubs `wheel:fl|fr|rl|rr` (spun about local x from a guest's speed), and a guest's sub-node turned by
+the world (a semi-trailer swinging at its kingpin).
+
+**Its mood** is a root node `mood:<preset>?k=v` (presets `smog-dusk`, `overcast`, `clear-day`, `night`; keys `sun` and
+`az` in degrees, `fog` a density a metre, `haze` a hex colour, `lamps` 0 or 1): the sky dome, the fog in the haze's
+colour, the sun and the sky's light (`$content/worlds/sky.js`). **Its sound** is root nodes
+`sound:<file hash>?for=<x>&gain=<g>`, recordings among play's files: `for=bed` the ambient loop; any other plays at
+each guest whose `state:<x>` is on, panned and fading with distance (`horn` once each time it comes on, the rest looped
+at the nearest few; `$content/worlds/sound.js`). **Its views** are nodes `view:<name>`: an eye where it stands, looking
+along its +z.
+
+**Filmable** (Samuel 2026-11-05): the Worlds screen is where a virtual film camera will fly through a world and render
+shots for the films, so a world keeps to the film contract the sandboxes keep (`sandbox-kit/film.js` `connectFilm`,
+`render/film.js`, `film/pipeline.js`; a shot as data, `game/film/shot.js`): its traffic and lights run on the shot's
+clock, deterministic from its seed (a world's tick is seeded and its own clock is the sum of its steps, so a shot
+stepped from 0 renders the same every time), and a shot names its world by the world asset's UUID and its version's
+recipe hash. Wired in a step after this one.
+
+**Developing a world** before its guests are accepted: `scripts/render.mjs --world --file <world.js> --guests
+<guests.json>` runs it on the world bench (`/worlds/bench/`, development only) exactly as the Worlds page does, each
+guest a local readable source put in place of the hash the world names it by (`as`), and shoots stills after the
+world has run (`run`) from eyes, views or street cameras. The stand-in test world and its guests are
+`$content/worlds/test/` (the template of the contract); the contract is read in one place,
+`$content/worlds/contract.js`.
+
+## 5. The sandboxes
 
 | New | Cloned from | What changes |
 |---|---|---|
 | **Sandbox 1** | Sandbox 4 (`maia/site/routes/app/games/sandbox-4`, `maia/content/sandbox-kit`, `maia/content/sandbox-2/interior`), its 56 asset pins | Recipes come from play's API instead of the avenDB device; pins become `group/id@v` |
 | **Sandbox 2** | Sandbox 7 (`maia/content/sandbox-7`), no avenDB dependency | Restyled in the light brand CI: cream/paper backgrounds, ink green text, mustard/sage/terracotta accents, Fraunces display and DM Sans body (tokens from `maia/site/app.css`) |
 | **Sandbox 3** | MaiaCity V2's world (`maia/content/maiacity-v2`, engine `maia/content/game/maiacity-v2/engine.js`) | **Stripped:** coops, tokens and money (HEARTS, the MINDs, €uro, the pool, rents, mint, demurrage, dividends), MIPs/AIPs, seats, the ledger and the trailer/intro/tour/film. Also stripped for now: **planting a tree** (the seedlings in the backpack, planting, watering a planted tree). **Kept:** the land, the plots, the trees already there, the van, the things. **Stateless:** no server state, no seats |
+| **Sandbox 4** (Samuel 2026-11-05) | Nothing: new, `play/site/src/lib/sandbox-4` | The dome cassette joint: one cast cassette of the grand dome's (Ø 100 m) lowest rows seated from outside, keyed with sliding basalt keys, capped at its nodes and clamped by a ring cable, five steps on one clock, with the joint in section. No pins and no configs; a random UUID (migration `0021-sandbox-4`), in the light brand CI |
 
 **Every visitor gets a random character** when a world opens: today's stand-in actor (`actors/stand-in`) with
 random values for its params (face, hair and colour, skin, height, shirt, trousers, shoes …), drawn within the
@@ -345,7 +420,7 @@ Every route checks the caller's level against `level_rules`; a visitor gets 401 
 
 ## 8. App (`play/site`, SvelteKit, light brand CI throughout)
 
-`/` sign in or sign up · `/sandbox-1/` · `/sandbox-2/` · `/sandbox-3/` · `/assets/` (library; an asset's versions as
+`/` sign in or sign up · `/sandbox-1/` · `/sandbox-2/` · `/sandbox-3/` · `/sandbox-4/` · `/assets/` (library; an asset's versions as
 a chain, its variants, a viewer) · `/proposals/` · `/game/` (placeholder; claim an invite to become a citizen) ·
 `/admin/` (members, invites).
 

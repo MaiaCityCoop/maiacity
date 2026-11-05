@@ -13,7 +13,7 @@ import type { Me } from "./access";
 import { assetOf, listAssets, NotFound } from "./assets";
 import { archiveOwn, listProposals, propose, ProposalError } from "./proposals";
 import { adminByToken } from "./tokens";
-import { admin, AUDIO_TYPES, editStory, listStories, MOST_AUDIO, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, proposeStory, putAudioBase64, putFrameBase64, putVideoBase64, slimLinks, storyAtStep, storyHistory, storyOf, StoryError, VIDEO_TYPES } from "./stories";
+import { admin, AUDIO_TYPES, editStory, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, proposeStory, putAudioBase64, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAtStep, storyHistory, storyOf, StoryError, VIDEO_TYPES } from "./stories";
 import { AssetDocError, assetAtStep, assetHistory, editAsset } from "./assetdocs";
 import { listSandboxes, proposeSandbox, sandboxOf, SandboxError } from "./sandboxes";
 import { editFactory, factoryHistory, factoryOf, FactoryError, listFactories, proposeFactory } from "./factories";
@@ -21,7 +21,7 @@ import { gameConfigHistory, gameConfigOf, editGameConfig, GameConfigError, listG
 
 const PROTOCOL = "2025-06-18";
 const HASH = /^[0-9a-f]{64}$/;
-const GROUPS = ["plants", "things", "machines", "buildings", "actors", "biomes"];
+const GROUPS = ["plants", "things", "machines", "buildings", "actors", "biomes", "worlds"];
 
 type Tool = {
   name: string;
@@ -176,6 +176,8 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           },
           default_variant: { type: "string", description: "the variant a ref without one names (the first if left out)" },
           sheet: { type: ["string", "null"], description: "its reference sheet: the hash of an image play keeps (add it first with add_story_frame, with a label for the Library), a plant's plate of every stage and organ made for it; shown with the version in the asset library and, in the Library, beside the image, the plant it belongs to. Carried on from the head unless given; null takes it away" },
+          datasheet: { type: ["string", "null"], description: "its data sheet: the hash of a document play keeps (add_document), the researched numbers with every source. Shown with the version and, in the Library, beside the document. Carried on from the head unless given; null takes it away" },
+          brief: { type: ["string", "null"], description: "the brief its reference sheet was made from: the hash of a document play keeps (add_document). Carried on from the head unless given; null takes it away" },
           params: {
             type: "array",
             description:
@@ -186,7 +188,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         required: ["asset", "note"],
         additionalProperties: false,
       },
-      run: async ({ asset, source, note, base, branch, variants, default_variant, params, sheet }, me) => {
+      run: async ({ asset, source, note, base, branch, variants, default_variant, params, sheet, datasheet, brief }, me) => {
         if (branch == null && !source && !variants?.length) throw new ProposalError("Give the new version's source, or the draft (branch) it stands in.");
         const kinds = Array.isArray(variants) && variants.length ? variants : null;
         if (kinds && kinds.some((x: any) => !x?.source) && !source) throw new ProposalError("Give the version's source, or each variant's own.");
@@ -208,6 +210,8 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
             ...(base ? { base } : {}),
             ...(branch != null ? { branch: Number(branch) } : {}),
             ...(sheet !== undefined ? { sheet } : {}),
+            ...(datasheet !== undefined ? { datasheet } : {}),
+            ...(brief !== undefined ? { brief } : {}),
           },
           "mcp",
         );
@@ -222,14 +226,54 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           group: { type: "string", enum: GROUPS },
           label: { type: "string", description: "its name as shown. The asset gets a UUID of its own, which names it from then on; the label is only shown" },
           slug: { type: "string", description: "optional: a short lowercase name (words joined by '-') its recipe is called with; made from the label if left out. Only a name, never its id: two assets may share it" },
-          source: { type: "string", description: "version 1's readable source (see above)" },
+          source: { type: "string", description: "version 1's readable source (see above); left out where its `variants` each give their own" },
           note: { type: "string", description: "what it is and why, for the admins deciding" },
+          variants: {
+            type: "array",
+            minItems: 1,
+            maxItems: 16,
+            description:
+              "make the version a kind of variants (a plant's kinds, an animal's breeds), each selectable in the asset viewer: every variant is its own recipe file, built from its own `source` or else the version's, its recipe called with its name as `variant` (module.exports.recipe(id, v, variant)). A variant's `label` is how it is shown (\"Papaya: Male\" shows as Male).",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string", pattern: "^[a-z0-9][a-z0-9-]{0,79}$", description: "lowercase, as a ref names it (plants/papaya@3:male)" },
+                label: { type: "string" },
+                source: { type: "string", description: "this variant's own readable source, where it differs from the version's" },
+              },
+              required: ["name"],
+              additionalProperties: false,
+            },
+          },
+          default_variant: { type: "string", description: "the variant a ref without one names (the first if left out)" },
           sheet: { type: ["string", "null"], description: "its reference sheet: the hash of an image play keeps (add it first with add_story_frame, with a label for the Library), a plant's plate of every stage and organ made for it; shown with the version in the asset library and, in the Library, beside the image, the plant it belongs to. Carried on from the head unless given; null takes it away" },
+          datasheet: { type: ["string", "null"], description: "its data sheet: the hash of a document play keeps (add_document), the researched numbers with every source. Shown with the version and, in the Library, beside the document. Carried on from the head unless given; null takes it away" },
+          brief: { type: ["string", "null"], description: "the brief its reference sheet was made from: the hash of a document play keeps (add_document). Carried on from the head unless given; null takes it away" },
         },
-        required: ["group", "label", "source", "note"],
+        required: ["group", "label", "note"],
         additionalProperties: false,
       },
-      run: async ({ group, slug, label, source, note, sheet }, me) => propose(db, store, me, { new: { group, slug, label }, source: `${source ?? ""}`, note, ...(sheet !== undefined ? { sheet } : {}) }, "mcp"),
+      run: async ({ group, slug, label, source, note, variants, default_variant, sheet, datasheet, brief }, me) => {
+        const kinds = Array.isArray(variants) && variants.length ? variants : null;
+        if (!source && !kinds) throw new ProposalError("Give its source, or its variants.");
+        if (kinds && kinds.some((x: any) => !x?.source) && !source) throw new ProposalError("Give the version's source, or each variant's own.");
+        return propose(
+          db,
+          store,
+          me,
+          {
+            new: { group, slug, label },
+            ...(kinds
+              ? { variants: Object.fromEntries(kinds.map((x: any) => [`${x.name}`, { source: `${x.source ?? source ?? ""}`, ...(x.label !== undefined ? { label: `${x.label}` } : {}) }])), ...(default_variant ? { defaultVariant: `${default_variant}` } : {}) }
+              : { source: `${source}` }),
+            note,
+            ...(sheet !== undefined ? { sheet } : {}),
+            ...(datasheet !== undefined ? { datasheet } : {}),
+            ...(brief !== undefined ? { brief } : {}),
+          },
+          "mcp",
+        );
+      },
     },
     // ---- sandboxes: what each draws (its pins) and how it lays them out (its configs), changed only by proposal (./sandboxes.ts)
     {
@@ -527,6 +571,17 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         additionalProperties: false,
       },
       run: async ({ data, media_type, label }, me) => (admin(me), putVideoBase64(db, store, data, media_type, label)),
+    },
+    {
+      name: "add_document",
+      description: `Add a document (Markdown text, at most ${MOST_DOCUMENT / 1e6} MB): a plant's data sheet (its researched numbers, every row with its source) or the brief its reference sheet was made from. play keeps it among its files, shown in the Library with its label, and gives back its BLAKE3 hash, to name as a version's \`datasheet\` or \`brief\` in propose_version or propose_asset (play/SPEC.md §4.10). The same text always gives the same hash.`,
+      inputSchema: {
+        type: "object",
+        properties: { text: { type: "string", description: "the document as Markdown text" }, label: { type: "string", description: "a short label for the Library (\"Data sheet · Plum 'Hauszwetschge'\"); only shown, the file is named by its hash" } },
+        required: ["text"],
+        additionalProperties: false,
+      },
+      run: async ({ text, label }, me) => (admin(me), putDocument(db, store, text, label)),
     },
     {
       name: "add_story_audio",

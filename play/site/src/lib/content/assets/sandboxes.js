@@ -13,5 +13,7 @@ export const SANDBOX = Object.freeze({
 	/** Sandbox 3: the tired land */
 	three: 'a2af9568-53c6-8917-a816-da88d3ff66ff',
 	/** the Factories, which keep their pins as a sandbox does */
-	factories: '9862777e-04c2-8362-b028-27ff7e0591b8'
+	factories: '9862777e-04c2-8362-b028-27ff7e0591b8',
+	/** Sandbox 4: the dome cassette joint (no pins, no configs; a random UUID, play/api's migration 0021-sandbox-4) */
+	four: '4d72a048-ccc1-476b-b60f-c5eb0914fa47'
 });

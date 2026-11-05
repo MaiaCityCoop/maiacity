@@ -1083,6 +1083,25 @@ async function keepFile(db: Queryable, hash: string, size: number, type: string,
   );
 }
 
+// ---- documents: a plant's data sheet and its sheet's brief, as Markdown (play/SPEC.md §4.10)
+
+/** a document is Markdown text of at most this many bytes */
+export const MOST_DOCUMENT = 2_000_000;
+/** the one media type play keeps a document as (recipe sources are text/javascript, never shown in the Library) */
+export const DOCUMENT_TYPE = "text/markdown";
+
+/** Keep one document (Markdown text, at most MOST_DOCUMENT bytes) among play's files; its hash. */
+export async function putDocument(db: Queryable, store: BlobStore, text: unknown, label?: unknown): Promise<{ hash: string; size: number; media_type: string }> {
+  if (typeof text !== "string" || !text.trim()) throw new StoryError("Give the document as Markdown text (text).");
+  if (/\u0000/.test(text)) throw new StoryError("A document is text: no NUL characters.");
+  const bytes = new TextEncoder().encode(text);
+  if (bytes.length > MOST_DOCUMENT) throw new StoryError(`A document is at most ${MOST_DOCUMENT / 1e6} MB.`, 413);
+  const hash = hashBytes(bytes);
+  const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, DOCUMENT_TYPE);
+  await keepFile(db, hash, bytes.length, DOCUMENT_TYPE, key, fileLabel(label));
+  return { hash, size: bytes.length, media_type: DOCUMENT_TYPE };
+}
+
 // ---- videos
 
 /** The video type of `bytes`, by how they start, or null */

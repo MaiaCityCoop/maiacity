@@ -364,6 +364,28 @@ suite("play API", () => {
     expect(done.data.result.structuredContent).toEqual({ id: open.id, status: "archived" });
     expect((await call("ada", "GET", `/api/proposals/${open.id}`)).data).toMatchObject({ status: "archived", decided_by: expect.any(String) });
     expect((await archive(open.id)).data.result.content[0].text).toContain("archived already");
+    // a world (play/SPEC.md §4.11) is a group like the others: listed, proposed, archived
+    const worlds = await rpc(made.data.token, "tools/call", { name: "list_assets", arguments: { group: "worlds" } });
+    expect(worlds.data.result.isError).toBeUndefined();
+    const world = await rpc(made.data.token, "tools/call", {
+      name: "propose_asset",
+      arguments: { group: "worlds", slug: "mcp-test-world", label: "Test world", source: "module.exports.recipe = function (id, v) {\n  return { meta: { group: 'worlds', id, v } };\n};\n", note: "a stand-in world" },
+    });
+    expect(world.data.result.isError).toBeUndefined();
+    const worldOpen = (await call("ada", "GET", "/api/proposals?status=open")).data.find((p: any) => p.slug === "mcp-test-world");
+    expect(worldOpen).toMatchObject({ via: "mcp", status: "open" });
+    expect((await archive(worldOpen.id)).data.result.isError).toBeUndefined();
+    // a new asset with its variants at once (a truck's kinds), each its own recipe
+    const kinds = await rpc(made.data.token, "tools/call", {
+      name: "propose_asset",
+      arguments: { group: "machines", slug: "mcp-truck", label: "Truck", source: "module.exports.recipe = function (id, v, variant) {\n  return { meta: { id, v, variant } };\n};\n", variants: [{ name: "box" }, { name: "tanker", label: "Truck: Tanker" }], default_variant: "tanker", note: "two kinds" },
+    });
+    expect(kinds.data.result.isError).toBeUndefined();
+    const kindsOpen = (await call("ada", "GET", "/api/proposals?status=open")).data.find((p: any) => p.slug === "mcp-truck");
+    expect(kindsOpen).toMatchObject({ via: "mcp", status: "open" });
+    expect((await archive(kindsOpen.id)).data.result.isError).toBeUndefined();
+    const none = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { group: "machines", label: "Nothing", note: "no source" } });
+    expect(none.data.result.isError).toBe(true);
     for (const id of [byPage.data.id, theirsOpen.data.id]) await call("ada", "POST", `/api/proposals/${id}/archive`);
     const wrong = await rpc(made.data.token, "tools/call", {
       name: "propose_asset",
@@ -638,6 +660,38 @@ suite("play API", () => {
     const r = await tool("propose_version", { asset: ids.fern, base: p.out.version, source: src + "// none\n", note: "no sheet", sheet: null });
     expect((await db.query<any>(`SELECT card ? 'sheet' AS has FROM play.asset_versions WHERE id = $1`, [r.out.version])).rows[0].has).toBe(false);
     await call("ada", "POST", `/api/proposals/${r.out.id}/archive`);
+  });
+
+  test("a version names its data sheet and brief: Markdown documents kept by hash, in the Library as documents", async () => {
+    const ds = await tool("add_document", { text: "# Data sheet · Fern\n\n| Row | Value | Source |\n|---|---|---|\n| Frond | 0.6 m | S1 |\n", label: "Data sheet · Fern" });
+    expect(ds.error).toBeNull();
+    expect(ds.out).toMatchObject({ media_type: "text/markdown" });
+    expect((await tool("add_document", { text: "# Data sheet · Fern\n\n| Row | Value | Source |\n|---|---|---|\n| Frond | 0.6 m | S1 |\n" })).out.hash).toBe(ds.out.hash);
+    expect((await tool("add_document", { text: "   " })).error).toContain("Markdown");
+    const brief = await tool("add_document", { text: "A fern, its fronds unrolling.\n\nLAYOUT: row 1 the stages.", label: "Brief · Fern" });
+    const img = await tool("add_story_frame", { data: frameOf("04.jpg").toString("base64"), media_type: "image/jpeg" });
+    const src = "// a fern with its data sheet\nmodule.exports.recipe = function (id, v) {\n  return { meta: { id, v }, build: () => null };\n};\n";
+    // each is what it must be: a data sheet and a brief are documents, a sheet an image
+    expect((await tool("propose_version", { asset: ids.fern, source: src, note: "x", datasheet: img.out.hash })).error).toContain("Markdown document");
+    expect((await tool("propose_version", { asset: ids.fern, source: src, note: "x", sheet: ds.out.hash })).error).toContain("an image");
+    const head = (await call("ada", "GET", `/api/assets/${ids.fern}`)).data.head;
+    const p = await tool("propose_version", { asset: ids.fern, base: head, source: src, note: "its data sheet", datasheet: ds.out.hash, brief: brief.out.hash });
+    expect(p.error).toBeNull();
+    const card = (await db.query<any>(`SELECT card FROM play.asset_versions WHERE id = $1`, [p.out.version])).rows[0].card;
+    expect(card).toMatchObject({ datasheet: ds.out.hash, brief: brief.out.hash });
+    // the Library lists documents as their own kind, never the recipe sources, each with the plant that names it
+    const lib = (await call("ada", "GET", "/api/library?kind=document")).data;
+    expect(lib.files.every((f: any) => f.media_type === "text/markdown")).toBe(true);
+    const doc = lib.files.find((f: any) => f.hash === ds.out.hash);
+    expect(doc.label).toBe("Data sheet · Fern");
+    expect(doc.used).toEqual([expect.objectContaining({ asset: ids.fern, as: "datasheet", accepted: false })]);
+    expect(lib.counts.document).toBeGreaterThanOrEqual(2);
+    // accepted, the version lists them; the next one carries them on
+    expect((await call("ada", "POST", `/api/proposals/${p.out.id}/accept`)).data.status).toBe("accepted");
+    expect((await call("ada", "GET", `/api/assets/${ids.fern}`)).data.versions[0]).toMatchObject({ datasheet: ds.out.hash, brief: brief.out.hash });
+    const q = await tool("propose_version", { asset: ids.fern, base: p.out.version, source: src + "// again\n", note: "the same documents" });
+    expect((await db.query<any>(`SELECT card FROM play.asset_versions WHERE id = $1`, [q.out.version])).rows[0].card).toMatchObject({ datasheet: ds.out.hash, brief: brief.out.hash });
+    await call("ada", "POST", `/api/proposals/${q.out.id}/archive`);
   });
   test("every clip is editable by a proposed version, made as edits on the head; accepted, it is the new head and the old one stays", async () => {
     const head = (await tool("get_story", { story: S.seed })).out;
