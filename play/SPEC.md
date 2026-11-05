@@ -317,7 +317,9 @@ schema v2.
 
 **How a world moves: its own build, kept running in the box** (decided 2026-11-05, over a trusted traffic runtime in
 the page, so a world's behaviour is in its versioned recipe). The recipe sets `root.userData.tick = (dt) => …` (engine
-4 on; `dt` in seconds; the world keeps its own clock, seeded, the same every run). Each step it moves its own `use:`
+4 on; `dt` in seconds). It advances exactly the time it is given, in fixed steps of its own (the time left over kept for
+the next call), seeded, so the world at a time is the same however that time was cut up: a film seeks to a shot's moment
+in one long step, the page goes frame by frame. Each step it moves its own `use:`
 nodes (or their parents) and hides one by `visible = false`; the box sends back what changed, and the page moves each
 guest where its node now stands (a hidden node's guest is put away). Lanes, car following, queues, red lights and
 emergency vehicles are the world's own code. A world keeps its moving guests to about 400.

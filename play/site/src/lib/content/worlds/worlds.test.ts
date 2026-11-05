@@ -148,9 +148,11 @@ describe('the stand-in test world', () => {
 		expect(queued).toBeGreaterThan(0);
 	});
 
-	it('is the same every run (seeded)', () => {
+	it('is the same every run (seeded), however its time is cut up (a film seeks in one step)', () => {
 		const a = world.build(8), b = world.build(8);
-		for (let i = 0; i < 50; i++) (a.userData.tick(0.2), b.userData.tick(0.2));
+		for (let i = 0; i < 50; i++) a.userData.tick(0.2);
+		b.userData.tick(7.3);
+		b.userData.tick(2.7);
 		const pos = (r: THREE.Object3D) => plantingsOf(r).map((p: any) => p.node.position.toArray().join());
 		expect(pos(a)).toEqual(pos(b));
 	});

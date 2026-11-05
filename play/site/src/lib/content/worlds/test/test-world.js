@@ -170,8 +170,15 @@ function build(cars = 18) {
 		ambulance.node.rotation.y = Math.PI / 2;
 	}
 	for (let i = 0; i < 300; i++) step(0.1); // the traffic settled before the first look
+	// exactly the time asked, in steps of exactly 0.1 s: the same world at the same time however the time is cut up (a
+	// film seeks to a shot's moment in one long step, the page goes frame by frame)
+	let owed = 0;
 	root.userData.tick = (dt) => {
-		for (let left = Math.min(dt, 0.5); left > 1e-6; left -= 0.1) step(Math.min(0.1, left));
+		owed += Math.max(0, Number(dt) || 0);
+		while (owed >= 0.1 - 1e-9) {
+			step(0.1);
+			owed -= 0.1;
+		}
 	};
 	return root;
 }
