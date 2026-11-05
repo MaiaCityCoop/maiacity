@@ -43,7 +43,10 @@ parchment through the soldier and the butterfly to the ripe crop of its fifth ye
 twining vine: a sett in a mound cut open in the viewer, one stem as a right-handed helix up its stake, side shoots
 climbing loosely and hanging over, one tuber growing down through the mound, the season to senescence; its numbers in
 `references/yam-pona.md`, its brief beside them, its whole source `references/yam-v1.js`, the climber to start the
-next vine from). Start
+next vine from), and **serviceberry v2** (Saskatoon 'Smoky', the first shrub: a suckering clump of canes
+from its crown and suckers from its rhizomes, each cane a leader with side shoots and short flowering shoots, grown year
+by year from its seed; its numbers in `references/serviceberry-smoky.md`, its brief beside them, its whole source
+`references/serviceberry-v2.js`, whose part 1 is plum v2's without the leaves' clearcoat). Start
 a new plant from the newest: copy its part 1
 (the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps as lemon v2 has it; the file is
 `references/banana-v2.js` or `references/lemon-v2.js`) as it is and write parts 2–4 for the new plant; a tree takes its
@@ -332,6 +335,23 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   THREE.Color('#hex')` in `mix()` and every `lerp` was a fifth of plum v2's build. Keep parsed colours in a map
   (`named()`, plum v2's part 1).
 
+- **A lathe closes on a circle, not on a sine** (serviceberry v2, 2026-11-05). With its rings laid along its height (y = −H·u),
+  a fruit's radius near its poles must follow the circle, 2√(u(1 − u)); a sine of u (`sin(πu)^k`) closes in a point, and
+  the round berry came off the bench like a lemon, pointed at both ends, at an overlap of 0.907 that looked fine. The
+  side-by-side picture showed it; the circle took it to 0.965. Look at the bench's picture, not only its numbers.
+- **A sheet with no width at either end has no area.** A sepal drawn with one row (`along: 1`) and a shape that is 0 at
+  u = 0 and u = 1 is all collapsed triangles: `sound()` drops every one and the sepals vanish without an error. Give
+  it two rows.
+- **A shrub is a clump of canes** (serviceberry v2). Grow each stem as its own leader from the crown, a few a year
+  (2–3 for a Saskatoon), and suckers from rhizomes from the third year, each with its own lean (5–20°, the outer ones
+  more) and an arch that grows with its age. Calibrate by stems, height and the thickest stem's foot per age, as a tree
+  by its trunk. The broom lesson holds for a bush too: side shoots low on a stem wider and stronger, those near its top
+  weaker, or the bush is wider at its top than through its middle.
+- **Measure a crown's fill, band by band.** Beside the envelope's overlap, count how much of its closed envelope the
+  silhouette fills, in five height bands, against the sheet's (serviceberry v2: 61–63 % against 86 %, the top two
+  fifths thinnest). The interior counts: the silhouette is a projection, so shading out the leaves inside the bush
+  lowered the fill as well as the triangles. Each few points of fill cost 100k+ triangles in leaves and short shoots:
+  decide the trade against the budget, and say what is left short. The sheet may draw a bush denser than it is.
 - **A lathe from traced widths closes round, or it is a box.** Orange v2's first fruit came off the bench at overlap
   0.78, its ends flat: a lathe's first and last rings jumped from the traced width straight to zero. Space the rings by
   `(1 − cos)` toward the poles and keep the traced profile as a correction of an ellipse (held at its neighbours' near the
