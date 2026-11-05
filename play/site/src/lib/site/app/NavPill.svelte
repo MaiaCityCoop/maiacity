@@ -110,7 +110,7 @@
 		<a class="item" href={up.href} title={up.label} aria-label={up.label}><Icon name="back" /><span>Back</span></a>
 	{/if}
 	<button class="item star" class:on={proposals && proposalsModal.open} onclick={toggleProposals} disabled={!proposals} aria-expanded={proposals ? proposalsModal.open : undefined} title={proposals ? (proposalsModal.open ? 'Close the proposals' : 'Proposals') : "Proposals: Maia City's admins only, for now"} aria-label="Proposals">
-		<Icon name="star" /><span>Proposals</span>
+		<Icon name="star" size={26} />
 	</button>
 	{#if pill.center}
 		<button class="item plus" class:on={pill.center.on} onclick={() => pill.center?.go()} title={pill.center.label} aria-label={pill.center.label} aria-expanded={pill.center.on}>
@@ -212,7 +212,16 @@
 		background: var(--ink);
 	}
 
-	/* the proposals' star: mustard, the AI's colour; greyed out where it may not be opened, but still there */
+	/* the proposals' star: its mark alone, no word under it (Samuel 2026-11-05), round, as tall as the avatar beside it;
+	   mustard, the AI's colour; greyed out where it may not be opened, but still there */
+	.item.star {
+		justify-content: center;
+		min-width: 0;
+		width: 44px;
+		height: 44px;
+		padding: 0;
+		border-radius: 50%;
+	}
 	.star :global(svg) {
 		color: var(--mustard);
 	}
