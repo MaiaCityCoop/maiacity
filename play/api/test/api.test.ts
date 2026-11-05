@@ -208,6 +208,26 @@ suite("play API", () => {
     await call("ada", "POST", `/api/proposals/${r.out.id}/archive`);
   });
 
+  test("a new version never shows what was measured on its parent's recipe (its size, triangles)", async () => {
+    const first = await call("cit", "POST", "/api/proposals", { new: { group: "plants", slug: "sedge", label: "Sedge" }, recipe: recipe("sedge", 1, null, "/* measured */"), record: { card: { label: "Sedge", size: [1.5, 2.5, 1.25], triangles: 4200 } } });
+    expect(first.status).toBe(201);
+    const asset = first.data.asset;
+    await call("ada", "POST", `/api/proposals/${first.data.id}/accept`);
+    const shown = async () => (await call("trav", "GET", `/api/assets/${asset}`)).data.versions;
+    expect((await shown())[0]).toMatchObject({ size: [1.5, 2.5, 1.25], triangles: 4200 });
+    // the next takes the head's record, but not its measures
+    const next = await call("cit", "POST", "/api/proposals", { asset, recipe: recipe("sedge", 2, null, "/* another recipe */") });
+    expect(next.status).toBe(201);
+    const card = (await db.query<any>(`SELECT card FROM play.asset_versions WHERE id = $1`, [next.data.version])).rows[0].card;
+    expect(card.card.label).toBe("Sedge");
+    expect(card.card.size).toBeUndefined();
+    expect(card.card.triangles).toBeUndefined();
+    await call("ada", "POST", `/api/proposals/${next.data.id}/accept`);
+    const [after, before] = await shown();
+    expect(after).toMatchObject({ number: 2, size: null, triangles: null });
+    expect(before).toMatchObject({ number: 1, size: [1.5, 2.5, 1.25], triangles: 4200 });
+  });
+
   test("a proposal naming another asset by a readable ref is refused", async () => {
     const r = await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* r */"), record: { card: { label: "Fern", parts: [{ ref: "actors/goat@1" }] } } });
     expect(r.status).toBe(400);

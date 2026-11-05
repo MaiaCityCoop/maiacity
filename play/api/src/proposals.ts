@@ -194,7 +194,13 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
   );
   // a proposal that brings no record of its own takes its head's (the engine it runs on, its label, its parameters),
   // with its own recipe and version written in: an upload of the recipe file alone makes a version the site can build
-  const inherited = (own: any, from: any) => own ?? (from ? { ...from, card: { ...(from.card ?? {}) } } : undefined);
+  // but never what was measured on the head's recipe (its size, triangles, whether it is skinned): this is another one
+  const inherited = (own: any, from: any) => {
+    if (own) return own;
+    if (!from) return undefined;
+    const { size: _s, triangles: _t, skinned: _k, ...card } = from.card ?? {};
+    return { ...from, card };
+  };
   // the card fields a proposal sets over the record it takes: its params, a variant's label
   const over = (record: any, card: Record<string, unknown>) => (Object.keys(card).length ? { ...(record ?? {}), card: { ...(record?.card ?? {}), ...card } } : record);
   const set = cardFields(body.card);
