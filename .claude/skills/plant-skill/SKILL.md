@@ -67,7 +67,9 @@ pinnate leaves, catkins on last year's wood, husks that split black; its numbers
 its brief beside them, its whole source `references/walnut-v2.js`), and **alder v2** (*Alnus glutinosa*, the wild
 black alder: a big forest tree from its nutlet to its twentieth year, Rauh's model with syllepsis, its catkins and cones
 in overlapping yearly cohorts, its roots with Frankia nodules; its data sheet, brief and source kept in play with the
-version). Start
+version), and **moringa v1** ('PKM-1', the annual drumstick tree grown from its winged seed,
+pinched into a vase, its 2–3-pinnate leaves laid as batches of leaflets, to its first pods dry and split; its numbers in
+`references/moringa-pkm1.md`, its brief beside them, its whole source `references/moringa-v1.js`). Start
 a new plant from the newest: copy its part 1
 (the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps, `backLit: false` and `named()` as
 plum v2 and cassava v1 have them; the file is `references/cassava-v1.js` or `references/plum-v2.js`) as it is and write
@@ -414,6 +416,33 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   (forks of two or three at most flushes, a minimum spacing between new rosettes of ~9 cm) before its crown stopped
   being see-through; check `forks` and the spacing rule's rejections when a crown stays thin.
 
+- **A compound leaf is a batch of leaflets** (moringa v1, 2026-11-05: 2–3-pinnate, ~100 leaflets a leaf, ~20,000 on a
+  bearing tree). Lay the leaflets from one template through a matrix into one array per plant (`Batch`), plan the leaf
+  once (`leafPlan`, `pinnateInto`) and draw it from the plan, so the bench draws a pinna exactly as the tree does. Budget
+  by leaflets and rows: the first plan had 199 leaflets a leaf (the flora says 75–150) at 40 triangles each, 2.2M on the
+  tree; 100 leaflets at 20 triangles (12 on the side shoots' smaller leaves) brought it to 800k. Space leaflets by their
+  own width (they nearly touch) and lean them as the panel does (55° at a pinna's foot to 40° at its tip): spaced by the
+  pinna's length they read as sparse clover.
+- **A rounded tip needs rows that crowd to it.** A leaflet traced at 12 stations closed to a point between its last two;
+  rows by (1 − cos) (`template({ ease })`) and a round cap on the outline's last 15 % made it close round (overlap 0.87
+  → 0.90 at the panel's proportion), as orange v2's lathe did.
+- **The leaves make the crown's width.** Leaves rising 50° off near-vertical branches made a column whatever the
+  branches did; held out at 60–75° and arching (grown) they made the umbrella. And an umbrella is branches whose angle
+  grows toward the level past a metre or so, not branches that sag from their foot (that bulges the crown's middle).
+- **A plastochron slows with the shoot.** Nodes every 2.6 days regardless of growth put a thousand leaves on the late,
+  slow shoots; stretching it with the growth rate (half the pace at a fifth of the speed) halved them. Keep the leader's
+  own early timing out of it.
+- **Count a crop in the order it sets.** Collect every pod with its set day, sort, keep the first N for the season (the
+  measured pods a tree), drop the rest young: a pod kept at one stage is kept at every later one, and the last stage no
+  longer carries twice the measured crop.
+- **compare.py turns a horizontal organ a quarter turn** (`--axis x`: np.rot90): its zone 0 is the organ's right end. Read
+  which end is which before tuning a colour gradient along it (the moringa pod's was first graded the wrong way).
+- **The model draws a long thin fruit fat.** Every whole-plate moringa sheet drew the 70 × 2 cm drumstick as a flat bean
+  pod 16 : 1, and two edit passes left it; a plate of the pods alone (their brief: "NOT a bean pod … 35 times longer than
+  thick", the dry pod as long as the green one, split into three) drew them right, pasted into the sheet's cells on
+  white. Its section with one seed and the dry pod's single row of seeds came from that plate too.
+- **The taproot's shoulder is at least the trunk's foot.** A tuberous root sized from its own table was narrower than the
+  flaring trunk above it by harvest, a step at the soil line in the Roots view; pass the foot's radius as its least.
 - **A compound leaf is one geometry, and its faces are checked from both sides** (safou v2, 2026-11-05). A crown of
   thousands of imparipinnate leaves is built leaf by leaf, rachis and leaflets written straight into one set of arrays
   (`compoundLeaf`), never a Bag merge a leaflet. Its first crowns were pale grey and glinted white: the leaflets'
