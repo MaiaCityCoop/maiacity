@@ -113,7 +113,7 @@
 		<button class="item idle" disabled aria-label="Back" title="Nowhere to go back to"><Icon name="back" /><span>Back</span></button>
 	{/if}
 	<button class="item star" class:on={proposals && proposalsModal.open} onclick={toggleProposals} disabled={!proposals} aria-expanded={proposals ? proposalsModal.open : undefined} title={proposals ? (proposalsModal.open ? 'Close the proposals' : 'Proposals') : "Proposals: Maia City's admins only, for now"} aria-label="Proposals">
-		<Icon name="star" size={26} />
+		<Icon name="star" size={30} />
 	</button>
 	{#if pill.center}
 		<button class="item plus" class:on={pill.center.on} onclick={() => pill.center?.go()} title={pill.center.label} aria-label={pill.center.label} aria-expanded={pill.center.on}>
@@ -224,15 +224,16 @@
 		background: var(--ink);
 	}
 
-	/* the proposals' star, the pill's middle (Samuel 2026-11-05): its mark alone, no word under it, a round button a
-	   little larger than Back and You either side of it, brand green, the star mustard, the AI's colour; ringed while
-	   the board is open; greyed out where it may not be opened, but still there */
+	/* the proposals' star, the pill's middle (Samuel 2026-11-05): its mark alone, no word under it, a round action
+	   button taller than the pill, standing out of it by a few pixels above and below as a nav pill's centre button
+	   does (its negative margins keep it out of the pill's height, which Back and You set), brand green, the star
+	   mustard, the AI's colour; ringed while the board is open; greyed out where it may not be opened, but still there */
 	.item.star {
 		justify-content: center;
 		min-width: 0;
-		width: 48px;
-		height: 48px;
-		margin: 0 4px;
+		width: 64px;
+		height: 64px;
+		margin: -9px 4px;
 		padding: 0;
 		border-radius: 50%;
 		background: var(--brand-green);
@@ -437,8 +438,9 @@
 			padding: 0.125rem 0;
 		}
 		.item.star {
-			width: 44px;
-			height: 44px;
+			width: 56px;
+			height: 56px;
+			margin: -8px 3px;
 		}
 		.item.plus {
 			padding: 0.2rem 0;

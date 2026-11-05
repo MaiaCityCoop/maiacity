@@ -67,14 +67,16 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible { outline: 2px sol
    takes, which every page keeps at its foot (--nav-room). The joystick's corner beside it. */
 :root {
 	--nav-foot: max(14px, min(env(safe-area-inset-bottom, 0px), 18px));
-	--nav-height: 58px;
-	--nav-room: calc(var(--nav-foot) + var(--nav-height) + 0.5rem);
+	--nav-height: 56px;
+	/* how far the pill's centre button (the proposals' star) stands out above it (Samuel 2026-11-05) */
+	--nav-rise: 4px;
+	--nav-room: calc(var(--nav-foot) + var(--nav-height) + var(--nav-rise) + 0.5rem);
 	--stick-edge: 1.5rem;
 	--stick-size: 8rem;
 	--stick-room: calc(var(--stick-edge) + var(--stick-size));
 }
 @media (max-width: 760px), (max-height: 500px) {
-	:root { --nav-foot: max(8px, min(env(safe-area-inset-bottom, 0px), 18px)); --nav-height: 52px; }
+	:root { --nav-foot: max(8px, min(env(safe-area-inset-bottom, 0px), 18px)); --nav-height: 48px; }
 }
 @media (max-width: 640px), (max-height: 500px) {
 	:root { --stick-edge: 1rem; --stick-size: 6.5rem; }

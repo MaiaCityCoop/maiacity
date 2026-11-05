@@ -358,7 +358,7 @@
 									</article>
 								{/if}
 							{:else}
-								<p class="empty muted">{!loaded ? '…' : s === 'inbox' ? 'None. Agents add here over MCP (add_inbox_item).' : s === 'specify' ? 'None. Agents specify an item over MCP (specify_inbox_item).' : 'None'}</p>
+								<p class="empty muted">{!loaded ? '…' : s === 'inbox' ? 'None. Agents add here over MCP.' : s === 'specify' ? 'None. Agents specify an item over MCP.' : 'None'}</p>
 							{/each}
 						</div>
 					{/if}
@@ -394,7 +394,7 @@
 					</div>
 				{:else}
 					<h3>Not specified yet</h3>
-					<p class="muted small">Its definition and its metric of what is good are written over MCP (specify_inbox_item) before anything is proposed for it: the brief below asks an agent to do that first.</p>
+					<p class="muted small">Its definition and its metric of what is good are written over MCP before anything is proposed for it: the brief below asks an agent to do that first.</p>
 				{/if}
 			</section>
 			<section>
@@ -419,7 +419,7 @@
 			{#if i.status === 'inbox' || i.status === 'specify'}
 				<section class="agent">
 					<h3>For an agent</h3>
-					<p class="muted small">Give this to an agent with play's MCP server (maia-play): {i.status === 'inbox' ? 'it specifies the item, makes it' : 'it makes the item'} and names it in what it proposes.</p>
+					<p class="muted small">Give this to an agent with play's MCP server: {i.status === 'inbox' ? 'it specifies the item, makes it' : 'it makes the item'} and names it in what it proposes.</p>
 					<pre class="brief">{briefOf(i)}</pre>
 					<button class="btn small ghost" onclick={() => copyBrief(i)}>{copied ? 'Copied' : 'Copy the brief'}</button>
 				</section>

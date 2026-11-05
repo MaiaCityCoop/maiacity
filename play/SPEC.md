@@ -415,8 +415,8 @@ proposals.inbox_id → inbox   -- the item a proposal was made for
   build keeps a height of its own (at least about half the screen) and its steps scroll below it.
 - **The board is a modal** (Samuel 2026-11-05), not a page or a tile among the apps: the nav pill's **star** (the AI's
   mark, in Home's place: Back goes up to the dashboard anyway) opens it over whatever page is open, greyed out for
-  everyone but the admins. The pill is Back, the star and You: the star its middle, a green round button a little
-  larger than either side (which are as wide as each other, Back greyed in its place where there is nowhere to go
+  everyone but the admins. The pill is Back, the star and You: the star its middle, a green round action button
+  taller than the pill, standing out of it a few pixels above and below (which are as wide as each other, Back greyed in its place where there is nowhere to go
   back to), its mark alone with no word under it. Back closes what is open on it (a review, an item), then the board; so do the star, Escape
   and its Close. `/proposals/` (an older link, a new tab) opens it over the dashboard, and a link to it from a page
   opens it over that page (`play/site/src/lib/site/proposals`).
