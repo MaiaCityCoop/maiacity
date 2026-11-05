@@ -72,6 +72,25 @@ describe('the world contract', () => {
 	});
 });
 
+describe('a world under the film camera', () => {
+	it('is named by a shot by its asset UUID and recipe hash, and its film page says so', async () => {
+		// @ts-ignore — plain JS
+		const { normalize } = await import('../game/film/shot.js');
+		// @ts-ignore — plain JS
+		const { filmPath, worldOfPath, isWorld } = await import('../game/film/worlds.js');
+		expect(isWorld('worlds')).toBe(true);
+		const asset = '60f6da00-979d-89e4-b1e5-53667ba41fe4';
+		const shot = (world: any) => normalize({ world: { sandbox: 'worlds', stand: [0, 0], ...world }, camera: { kind: 'orbit', centre: [0, 0], a0: 0, a1: 1, r0: 20, r1: 20, y0: 8, y1: 8, aim: [0, 0, 0] }, time: { hour: 17.5 }, seconds: 6 });
+		const ok = shot({ asset, recipe: HASH });
+		expect(ok.world).toMatchObject({ sandbox: 'worlds', asset, recipe: HASH });
+		expect(() => shot({ asset: 'old-city', recipe: HASH })).toThrow(/UUID/);
+		expect(() => shot({ asset, recipe: 'v1' })).toThrow(/recipe/);
+		const path = filmPath(ok.world);
+		expect(path).toBe(`/worlds/?film&asset=${asset}&recipe=${HASH}`);
+		expect(worldOfPath(path)).toEqual({ sandbox: 'worlds', asset, recipe: HASH });
+	});
+});
+
 describe('card schema v2', () => {
 	it('takes a world, and a catalog part named by its build hash as well as by a readable ref', () => {
 		expect(CARD.properties.group.enum).toContain('worlds');
@@ -126,7 +145,7 @@ describe('the stand-in test world', () => {
 		let braking = 0, queued = 0;
 		for (let i = 0; i < 400; i++) {
 			const before = cars.map((c: THREE.Object3D) => c.position.x);
-			root.userData.tick(0.25);
+			root.userData.tick((i + 1) * 0.25);
 			for (const s of signals) seen.add(s.children.find((c: THREE.Object3D) => c.visible)?.name ?? 'none');
 			braking += cars.filter((c: THREE.Object3D) => c.children.find((x) => x.name === 'state:brake')!.visible).length;
 			// the first way's signal red: cars standing (all but still) in the 60 m before its stop line, at x = -8
@@ -143,16 +162,15 @@ describe('the stand-in test world', () => {
 		// the ambulance is hidden off the road part of each minute: its guest is put away
 		const amb = plantingsOf(root).find((p: any) => p.ref.endsWith('kind=1'))!.node;
 		let hidden = false;
-		for (let i = 0; i < 240 && !hidden; i++) (root.userData.tick(0.25), (hidden = !shownIn(amb)));
+		for (let i = 0; i < 240 && !hidden; i++) (root.userData.tick(100 + i * 0.25), (hidden = !shownIn(amb)));
 		expect(hidden).toBe(true);
 		expect(queued).toBeGreaterThan(0);
 	});
 
-	it('is the same every run (seeded), however its time is cut up (a film seeks in one step)', () => {
+	it('is the same every run (seeded) at the same time, however it got there (the box hands it its time t)', () => {
 		const a = world.build(8), b = world.build(8);
-		for (let i = 0; i < 50; i++) a.userData.tick(0.2);
-		b.userData.tick(7.3);
-		b.userData.tick(2.7);
+		for (let i = 1; i <= 40; i++) a.userData.tick(i * 0.25);
+		for (const t of [0.25, 3.3, 7.3, 10]) b.userData.tick(t);
 		const pos = (r: THREE.Object3D) => plantingsOf(r).map((p: any) => p.node.position.toArray().join());
 		expect(pos(a)).toEqual(pos(b));
 	});

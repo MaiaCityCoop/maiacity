@@ -384,6 +384,18 @@ suite("play API", () => {
     const kindsOpen = (await call("ada", "GET", "/api/proposals?status=open")).data.find((p: any) => p.slug === "mcp-truck");
     expect(kindsOpen).toMatchObject({ via: "mcp", status: "open" });
     expect((await archive(kindsOpen.id)).data.result.isError).toBeUndefined();
+    // a recipe that declares params is refused without them, and records them when given
+    const PARAMS = [{ id: "kind", label: "Kind", type: "integer", min: 0, max: 1, value: 0 }];
+    const withParams = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v, params: PARAMS } };\n};\nconst PARAMS = [];\n";
+    const noParams = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { group: "things", slug: "mcp-lamp", label: "Lamp", source: withParams, note: "params left out" } });
+    expect(noParams.data.result.isError).toBe(true);
+    expect(noParams.data.result.content[0].text).toContain("params");
+    const given = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { group: "things", slug: "mcp-lamp", label: "Lamp", source: withParams, params: PARAMS, note: "params given" } });
+    expect(given.data.result.isError).toBeUndefined();
+    const lampOpen = (await call("ada", "GET", "/api/proposals?status=open")).data.find((p: any) => p.slug === "mcp-lamp");
+    const lamp = (await call("ada", "GET", `/api/proposals/${lampOpen.id}`)).data;
+    expect(JSON.stringify(lamp)).toContain('"kind"');
+    expect((await archive(lampOpen.id)).data.result.isError).toBeUndefined();
     const none = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { group: "machines", label: "Nothing", note: "no source" } });
     expect(none.data.result.isError).toBe(true);
     for (const id of [byPage.data.id, theirsOpen.data.id]) await call("ada", "POST", `/api/proposals/${id}/archive`);

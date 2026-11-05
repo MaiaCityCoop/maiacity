@@ -11,12 +11,19 @@
  * come closer), `walk` (at a person's eye, 1.65 m, at a walk) and `drive` (at a driver's eye, 1.2 m, at a city's
  * 50 km/h), the last two by WASD or the arrows, the mouse or a finger to look. A world may name where to look from:
  * its nodes `view:<name>`, each an eye where it stands looking along its +z (./contract.js); `look(name)` goes there.
+ *
+ * Under the film camera (play/SPEC.md §4.11, ./film.js) the world runs on the shot's clock: `seek(t)` brings it to the
+ * shot's moment (a world's tick advances exactly the time it is given, so one long step gets there as frame by frame
+ * would; a seek back builds the world afresh and steps it from 0), `settle()` resolves once the box has answered, and
+ * while the film draws the canvas the view draws nothing itself.
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createPlantings, floorGrid } from '../assets/plantings.js';
 import { heroOf, runner } from '../assets/hero.js';
 import { vaultBuild } from '../assets/sources/viewer.js';
+import { rebuild } from '../assets/box/rebuild.js';
+import { filmDraws, worldTime } from '../render/film.js';
 import { AssetBox } from '../assets/box/host.js';
 import { createWalker } from '../sandbox-kit/walker.js';
 import { worldOf } from './contract.js';
@@ -76,6 +83,8 @@ export function createWorldView(el, o) {
 	let walker = null;
 	let ask = 0;
 	let paused = false;
+	/** the camera held by a film (its own pose each frame): no controls move it */
+	let held = false;
 
 	function resize() {
 		const w = el.clientWidth || 800, h = el.clientHeight || 600;
@@ -165,7 +174,7 @@ export function createWorldView(el, o) {
 				letGo();
 				const root = got.obj;
 				const info = worldOf(root);
-				const hero = info.moves ? heroOf(got, { start: runner(live, got.recipe, got.given) }) : null;
+				const hero = info.moves ? heroOf(got, { start: runner(live, got.recipe, got.given), exact: true }) : null;
 				scene.add(root);
 				root.traverse((x) => {
 					if (x.isMesh) x.receiveShadow = x.castShadow = true;
@@ -177,7 +186,7 @@ export function createWorldView(el, o) {
 				try {
 					floor = land.length ? floorGrid(land, 1) : null;
 				} catch {}
-				world = { root, hero, info, floor };
+				world = { root, hero, info, floor, got };
 				sky.apply(info.mood);
 				sound?.set(info.sounds);
 				plantings.show(root);
@@ -185,6 +194,10 @@ export function createWorldView(el, o) {
 				state.moves = info.moves;
 				state.views = viewsOf(root).map((v) => v.name);
 				state.size = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3()).toArray().map((x) => Math.round(x));
+				// the eye's reach: the whole world across (a city of 6.5 km), its near plane a hand's breadth from the eye
+				camera.near = 0.2;
+				camera.far = Math.min(20_000, Math.max(2000, 1.5 * Math.hypot(state.size[0], state.size[2])));
+				camera.updateProjectionMatrix();
 				state.phase = 'shown';
 				state.t = 0;
 				frame();
@@ -196,6 +209,55 @@ export function createWorldView(el, o) {
 				state.error = String(e?.message ?? e);
 				throw e;
 			}
+		},
+		/**
+		 * The world at time t (s from its build): a step of the difference asked of the box, or, for a time before the
+		 * one it is at, the world built afresh from its data and stepped from 0. Its guests followed and lit for t.
+		 */
+		seek(t) {
+			if (!world) return;
+			if (t < state.t - 1e-6 && world.hero) {
+				// back in time: the build as it came from the box, kept running anew
+				const got = { ...world.got, obj: rebuild(world.got.data) };
+				world.hero.dispose();
+				scene.remove(world.root);
+				got.obj.traverse((x) => {
+					if (x.isMesh) x.receiveShadow = x.castShadow = true;
+				});
+				scene.add(got.obj);
+				world.root = got.obj;
+				world.got = got;
+				world.hero = heroOf(got, { start: runner(live, got.recipe, got.given), exact: true });
+				plantings.show(got.obj);
+				state.t = 0;
+			}
+			const dt = t - state.t;
+			state.t = t;
+			world.hero?.tick(dt, {});
+		},
+		/** resolves once the world has come to the time it was brought to: its run started, no step owed by the box */
+		async settle(timeout = 60_000) {
+			const t0 = performance.now();
+			while (world?.hero && (!world.hero.live || world.hero.busy) && performance.now() - t0 < timeout) {
+				world.hero.tick(0, {});
+				await new Promise((r) => setTimeout(r, 16));
+			}
+			plantings.update();
+			if (world) lights.update(plantings.guests(), world.info.mood, state.t);
+		},
+		/** the world's frames a film camera may ride in: its nodes `frame:<name>` (a seat in a vehicle) */
+		frames() {
+			const out = {};
+			world?.root.traverse((o) => {
+				const m = /^frame:([a-z0-9][a-z0-9-]{0,39})$/i.exec(o.name ?? '');
+				if (m) out[m[1]] = () => o;
+			});
+			return out;
+		},
+		/** the camera held by a film, or let go to the controls again */
+		hold(on) {
+			held = !!on;
+			controls.enabled = !held && !walker;
 		},
 		/** the camera: orbit, walk or drive */
 		mode(m) {
@@ -245,12 +307,22 @@ export function createWorldView(el, o) {
 		},
 		/** one frame: the world's step asked, its guests followed, lit and heard, and drawn */
 		step(dt) {
-			state.t += dt;
-			if (world?.hero) {
-				world.hero.tick(dt, {});
-				state.live = world.hero.live;
+			// under the film camera: its clock the shot's, and nothing drawn while the film draws
+			const shot = worldTime();
+			if (shot !== undefined) this.seek(shot);
+			else {
+				state.t += dt;
+				world?.hero?.tick(dt, {});
 			}
-			if (walker) walker.update(dt);
+			if (world?.hero) state.live = world.hero.live;
+			if (filmDraws()) {
+				plantings.update();
+				if (world) lights.update(plantings.guests(), world.info.mood, state.t);
+				return;
+			}
+			if (held) {
+				// the film's hold puts the camera where the shot has it
+			} else if (walker) walker.update(dt);
 			else controls.update();
 			plantings.update();
 			const guests = plantings.guests();

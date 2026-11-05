@@ -3,6 +3,9 @@
 	into one place. On the left Maia City's worlds; in the middle the one picked, big, everything it names drawn where it
 	stands, alive if it moves (its traffic, its signals, its sirens), under its own sky; on the right its versions. Its
 	address is `#<asset id>` (its UUID), a version of it `#<asset id>/<recipe hash>`.
+
+	Its film page, `/worlds/?film&asset=<asset id>&recipe=<recipe hash>` (play/SPEC.md §4.11): the world alone, whole
+	screen, handed to the film camera (`window.__world`, $lib/content/worlds/film.js), its clock the shot's.
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
@@ -22,6 +25,19 @@
 	let failed = $state('');
 	let hash = $state(typeof location === 'undefined' ? '' : decodeURIComponent(location.hash.slice(1)));
 	let chain = $state<Chain | null>(null);
+	// the film page: the world a shot names, by its asset's UUID and its version's recipe hash
+	const filmed = typeof location === 'undefined' ? null : new URLSearchParams(location.search);
+	const film = filmed?.has('film') ? { asset: filmed.get('asset') ?? '', recipe: filmed.get('recipe') ?? '' } : null;
+	const filmOk = !!film && /^[0-9a-f-]{36}$/.test(film.asset) && /^[0-9a-f]{64}$/.test(film.recipe);
+	/** the film camera given the world once its view is up */
+	const toFilm = async (view: any) => {
+		const { connectWorldFilm } = await import('$lib/content/worlds/film.js');
+		const shown = new Promise<void>((done, fail) => {
+			const wait = () => (view.state.phase === 'shown' ? done() : view.state.phase === 'failed' ? fail(new Error(view.state.error)) : setTimeout(wait, 50));
+			wait();
+		});
+		connectWorldFilm(view, { asset: film!.asset, recipe: film!.recipe, shown });
+	};
 
 	onMount(() => {
 		const on = () => (hash = decodeURIComponent(location.hash.slice(1)));
@@ -95,6 +111,17 @@
 	{/if}
 {/snippet}
 
+{#if film}
+	<div class="film">
+		{#if !filmOk}
+			<p class="error">A world's film page names it by its asset's UUID and its version's recipe hash: /worlds/?film&amp;asset=…&amp;recipe=…</p>
+		{:else if failed}
+			<p class="error">{failed}</p>
+		{:else if ready}
+			<WorldStage {source} engine={INDEX.engine} hash={film.recipe} bare onview={toFilm} />
+		{/if}
+	</div>
+{:else}
 <div class="worlds">
 	<Frame nav={ready ? shelf : undefined} aside={chain && shownVersion ? about : undefined} navLabel="Maia City's worlds" asideLabel="The world's versions" navIcon="asset" flush>
 		{#if failed}
@@ -108,8 +135,14 @@
 		{/if}
 	</Frame>
 </div>
+{/if}
 
 <style>
+	.film {
+		position: fixed;
+		inset: 0;
+		background: #000;
+	}
 	.worlds {
 		height: 100%;
 	}

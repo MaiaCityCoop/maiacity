@@ -114,7 +114,7 @@ try {
 	for (const r of o.recipes) {
 		const page = await browser.newPage({ viewport: { width: o.size, height: o.size }, deviceScaleFactor: o.scale });
 		page.on('pageerror', (e) => console.error(`  page: ${e.message}`));
-		const bench = o.world ? '__world' : '__render';
+		const bench = o.world ? '__worldBench' : '__render';
 		await page.goto(`${dev.url}${o.world ? '/worlds/bench/' : '/render/'}${o.slack ? `?slack=${o.slack}` : ''}`);
 		await page.waitForFunction((b) => !!window[b], bench, { timeout: 120_000 });
 		const name = basename(r.file).replace(/\.[^.]+$/, '');
@@ -130,12 +130,12 @@ try {
 		}
 		console.log(`${r.file}: building in the asset box …`);
 		if (o.world) {
-			const loaded = await page.evaluate((x) => window.__world.load(x), { code, id: r.id, v: r.v, values: o.values ?? {} });
+			const loaded = await page.evaluate((x) => window.__worldBench.load(x), { code, id: r.id, v: r.v, values: o.values ?? {} });
 			console.log(`  ${loaded.label} (${loaded.hash.slice(0, 12)}…) · ${loaded.size.join(' × ')} m${loaded.moves ? ' · it moves' : ''}${loaded.views.length ? ` · views ${loaded.views.join(', ')}` : ''}`);
 			const shots = o.shots ? JSON.parse(readFileSync(o.shots, 'utf8')) : [{ name: 'whole' }, { name: 'whole-10s', run: 10 }, ...loaded.views.map((v) => ({ name: `view-${v.replace(/[^a-z0-9]+/gi, '-')}`, view: v }))];
 			const canvas = page.locator('canvas').first();
 			for (const s of shots) {
-				const got = await page.evaluate((x) => window.__world.shot(x), s);
+				const got = await page.evaluate((x) => window.__worldBench.shot(x), s);
 				const png = resolve(o.out, `${name}-${s.name}.png`);
 				const box = await canvas.boundingBox();
 				await page.screenshot({ path: png, clip: box ?? undefined, timeout: 120_000 });

@@ -3,7 +3,8 @@
 // renders it on demand — live in the studio, as a proxy, or as a 4K log plate at render time.
 //
 //   spec = {
-//     world:    { sandbox: one of ./worlds.js WORLDS (sandbox-1 … sandbox-6, tired-land, maiacity-v1), area?, build: { commit, hash, file? } | null, seed, stand: [x, z],
+//     world:    { sandbox: one of ./worlds.js WORLDS (sandbox-1 … sandbox-6, tired-land, maiacity-v1, worlds), area?, build: { commit, hash, file? } | null, seed, stand: [x, z],
+//                 asset?, recipe? (sandbox `worlds`: the world asset's UUID and its version's recipe hash, play/SPEC.md §4.11),
 //                 dome?, props?, clock },   which world (maia/content/game/film/worlds.js) and where in it; dome and props are Sandbox 4's
 //     seconds, fps: 30, aspect: '1:1',          the shot's length, frame rate, and the shape it was composed for
 //     camera:   maia/content/game/film/camera.js (move · orbit · turn · fly · whip · keys, with a curve; or `world`, the world's
@@ -41,7 +42,7 @@ import { DEFAULT_SANDBOX, WORLDS } from './worlds.js';
 /** @typedef {{ fov?: number, yaw?: number, pitch?: number, dx?: number, dy?: number }} Frame */
 /**
  * @typedef {{
- *   world: { sandbox: Sandbox, area?: string, build: Build, seed: number, stand: [number, number], dome?: number, props?: string, clock: number },
+ *   world: { sandbox: Sandbox, area?: string, build: Build, seed: number, stand: [number, number], dome?: number, props?: string, asset?: string, recipe?: string, clock: number },
  *   seconds: number, fps: number, aspect: Shape,
  *   camera: Camera,
  *   lens: { fov: number, fovTo?: number, near?: number },
@@ -112,6 +113,11 @@ export function normalize(s) {
 		if (w.build.file !== undefined && !/^[0-9a-f]{64}$/.test(String(w.build.file))) bad('world.build.file is the build in the vault, by its hash.');
 		build = { commit, hash, ...(w.build.file ? { file: String(w.build.file) } : {}) };
 	}
+	// a world of play's group worlds is named by its asset's UUID and its version's recipe hash (play/SPEC.md §4.7, §4.11)
+	if (sandbox === 'worlds') {
+		if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(String(w.asset ?? ''))) bad('world.asset is the world asset\'s UUID.');
+		if (!/^[0-9a-f]{64}$/.test(String(w.recipe ?? ''))) bad('world.recipe is the hash of the world version\'s recipe.');
+	}
 	if (w.props !== undefined && !(where.sets ?? []).includes(w.props)) bad(where.sets ? `world.props is one of ${where.sets.join(', ')}.` : `${sandbox} has no sets.`);
 	const world = {
 		sandbox,
@@ -122,6 +128,7 @@ export function normalize(s) {
 		stand: /** @type {[number, number]} */ ([w.stand[0], w.stand[1]]),
 		...(w.dome !== undefined && w.dome !== null ? { dome: Math.round(num(w.dome, 'world.dome', 0, /** @type {number} */ (where.domes) - 1)) } : {}),
 		...(w.props ? { props: String(w.props) } : {}),
+		...(sandbox === 'worlds' ? { asset: String(w.asset), recipe: String(w.recipe) } : {}),
 		clock: num(w.clock, 'world.clock', -1e6, 1e6, 0)
 	};
 	const aspect = s.aspect ?? '1:1';
