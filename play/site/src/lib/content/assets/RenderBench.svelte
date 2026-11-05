@@ -9,10 +9,14 @@
 	  load({ code, id, v, variant?, label? })   a readable source (wrapped into its recipe file as play wraps one,
 	                                            ./engines.js `recipeFile`) or a recipe file; shown; gives its hash,
 	                                            card and params
+	  guest({ code, id, v, variant? })          a readable source (or a recipe file) handed to the page's catalog, not
+	                                            shown: an asset another one names by its build's hash (a dome's
+	                                            plants); gives the hash it is held by here
 	  shot({ values?, camera? })                built with `values` (stage, seed, fruit …), the camera set (`az`, `el`
 	                                            degrees round what is framed, `zoom` × the framing's distance, or a
-	                                            `target` [x, y, z] and `dist` m), and settled: then the caller takes
-	                                            its picture of the canvas; gives what was shown (size, triangles, ms)
+	                                            `target` [x, y, z] and `dist` m), and settled (what it plants built
+	                                            too): then the caller takes its picture of the canvas; gives what was
+	                                            shown (size, triangles, ms, what it plants)
 	Only in development (../../../routes/render/+page.svelte).
 -->
 <script>
@@ -22,6 +26,7 @@
 	import { AssetBox } from './box/host.js';
 	import { LATEST, RECIPE_HEAD, recipeFile } from './engines.js';
 	import { hashText } from './builds.js';
+	import { admitHanded } from './catalog.js';
 
 	/** the recipes handed in, as the viewer reads a catalog (./catalog.js `source`) */
 	const index = { engine: LATEST.v, recipes: {} };
@@ -64,6 +69,13 @@
 		}
 		throw new Error('the build took longer than the bench waits');
 	}
+	/** until what the build plants is built and drawn for where the camera is (or `timeout` ms) */
+	async function planted(v, timeout = 600_000) {
+		const t0 = performance.now();
+		await frames(4);
+		while (performance.now() - t0 < timeout && (v.plantings?.building() ?? 0) > 0) await frames(4);
+		await frames(4);
+	}
 	/** the camera, still: no glide or follow moving it any more */
 	async function still(camera) {
 		let last = '';
@@ -75,7 +87,24 @@
 		}
 	}
 
+	/** the card of a recipe file, built once in a box of its own: what it says it is and the parameters it takes */
+	async function cardOf(h, file) {
+		const box = new AssetBox({ engine: index.engine });
+		try {
+			return (await box.build({ hash: h, code: file })).card;
+		} finally {
+			box.stop('the bench read its card');
+		}
+	}
+
 	window.__render = {
+		async guest({ code, id, v, variant = null }) {
+			const file = code.startsWith(RECIPE_HEAD) ? code : recipeFile(code, id, v, variant);
+			const h = hashText(file);
+			const card = await cardOf(h, file);
+			admitHanded([{ hash: h, code: file, group: card.group, id: card.id ?? id, v: card.version ?? v, variant, label: card.label ?? id, params: card.params ?? [] }]);
+			return { hash: h, label: card.label };
+		},
 		async load({ code, id, v, variant = null, label: name = '' }) {
 			const file = code.startsWith(RECIPE_HEAD) ? code : recipeFile(code, id, v, variant);
 			const h = hashText(file);
@@ -105,6 +134,7 @@
 			await tick();
 			const t0 = performance.now();
 			await settled(view, view.wanted);
+			await planted(view);
 			const ms = Math.round(performance.now() - t0);
 			const { camera, controls } = view;
 			await still(camera);
@@ -118,12 +148,14 @@
 			camera.lookAt(controls.target);
 			controls.update();
 			await frames(8);
+			// the camera moved: what it plants built finer where it now looks closer
+			await planted(view);
 			let triangles = 0;
 			view.stage.root?.traverse((o) => {
 				if (o.isMesh && o.geometry) triangles += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3;
 			});
 			const box = view.stage.root ? new THREE.Box3().setFromObject(view.stage.root) : null;
-			return { values: { ...view.values }, ms, triangles: Math.round(triangles), size: box ? box.getSize(new THREE.Vector3()).toArray().map((x) => +x.toFixed(3)) : null, note: view.hero?.view?.note ?? '' };
+			return { values: { ...view.values }, ms, triangles: Math.round(triangles), size: box ? box.getSize(new THREE.Vector3()).toArray().map((x) => +x.toFixed(3)) : null, note: view.hero?.view?.note ?? '', planted: { ...(view.plantings?.state ?? {}) } };
 		}
 	};
 </script>

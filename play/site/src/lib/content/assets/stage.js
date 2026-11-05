@@ -186,7 +186,10 @@ export class Stage {
 		}
 	}
 	_fitAO() {
-		if (this.ao) this.ao.updateGtaoMaterial({ radius: 0.35 * this.s, distanceExponent: 1.6, thickness: 1.2 * this.s, scale: 1, samples: 16 });
+		// the occlusion's reach by the asset's size, up to a room's (an asset of 10 m and more): a dome's 12 m reach would
+		// darken whole halls and miss where a chair meets the floor
+		const a = Math.min(this.s, 4);
+		if (this.ao) this.ao.updateGtaoMaterial({ radius: 0.35 * a, distanceExponent: 1.6, thickness: 1.2 * a, scale: 1, samples: 16 });
 	}
 
 	/** the size the stage was set for: AirSup's display units over the asset's (its floor, shadows, hatch scale by it) */
@@ -260,13 +263,24 @@ export class Stage {
 		}
 		const sc = key.shadow.camera;
 		const wide = this.sky ? 1.4 : 1;
+		// a big asset (a dome, a hall) gets the finer shadow map where the device can afford it: its shadows are spread
+		// over all of it, and a chair's must still fall at its feet
+		const fine = !this.low && s > 4 ? 4096 : this.low ? 1024 : 2048;
+		if (key.shadow.mapSize.x !== fine) {
+			key.shadow.mapSize.setScalar(fine);
+			key.shadow.map?.dispose();
+			key.shadow.map = null;
+		}
 		sc.left = sc.bottom = -reach * wide;
 		sc.right = sc.top = reach * wide;
 		sc.near = 0.5 * s;
 		sc.far = 20 * s;
 		sc.updateProjectionMatrix();
 		key.shadow.bias = -0.0004;
-		key.shadow.normalBias = 0.02 * s;
+		// pushed off a surface by its own measure, but never by more than two of the shadow's texels on a big asset:
+		// 0.02 × its size lifted a room's furniture off its shadows in an 80 m dome
+		const texel = (2 * reach * wide) / fine;
+		key.shadow.normalBias = s > 4 ? Math.max(0.08, 2 * texel) : 0.02 * s;
 		this.rim.position.copy(centre).add(this.sky ? new THREE.Vector3(3.5, 3, 4.5).multiplyScalar(s) : new THREE.Vector3(4, 3, -5).multiplyScalar(s));
 		CUT.hatch.value = 0.0015 * this.asset.size;
 		this._fitAO();
