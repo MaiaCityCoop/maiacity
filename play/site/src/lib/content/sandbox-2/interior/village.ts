@@ -771,13 +771,13 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 				for (let dz = -2; dz <= 2; dz++) for (const t of trunks.get(trunkKey(ix + dx, iz + dz)) ?? []) if (Math.hypot(t.x - x, t.z - z) < t.r + gap) return false
 			return true
 		}
-		const open = (x: number, z: number, margin: number) => inHex(x, z) && !inDome(x, z, margin + 1) && !inSquare(x, z) && !nearPath(x, z, margin + 0.6) && !nearWater(x, z, W / 2 + margin)
-		/** a jittered grid, a point every `every` square metres */
-		const grid = async (every: number, label: string, at: (x: number, z: number) => void) => {
+		const open = (x: number, z: number, margin: number) => openGround(x, z, margin) && !inDome(x, z, margin + 1)
+		/** a jittered grid, a point every `every` square metres, over the cell (or the square `half` either side of cx, cz) */
+		const grid = async (every: number, label: string, at: (x: number, z: number) => void, cx = 0, cz = 0, half = WORLD) => {
 			const step = Math.sqrt(every)
 			let n = 0
-			for (let gx = -WORLD; gx < WORLD; gx += step)
-				for (let gz = -WORLD; gz < WORLD; gz += step) {
+			for (let gx = cx - half; gx < cx + half; gx += step)
+				for (let gz = cz - half; gz < cz + half; gz += step) {
 					at(gx + r() * step, gz + r() * step)
 					if (++n % 6000 === 0) await pause(label)
 				}
@@ -905,21 +905,13 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		// (open() keeps clear a whole circle as far as the building's longest path reaches), is forest garden too (Samuel
 		// 2026-11-05: "this green space before the dome also a food forest with plants"). Planted from its own stream
 		// of chances, so the rest of the cell's forest stands as it did, and stepping down to the building: fruit trees
-		// from 4 m off its ground (their crowns clear of the arcade and of the paths), twice as close as in the forest
-		// beyond since no canopy stands over them here (the tall trees stand beyond, as before); shrubs and climbers from
-		// 1.2 m; the herbs, roots, ground cover and mushrooms from 0.4 m
+		// from 4 m off its ground (their crowns clear of the arcade and of the paths), twice as many to the square metre as
+		// in the forest beyond since no canopy stands over them here (the tall trees stand beyond, as before); shrubs and
+		// climbers from 1.2 m; the herbs, roots, ground cover and mushrooms from 0.3 m (each surely so far: ./solo.js
+		// takes the field's own error off, about half a metre, so they stand some 0.5–0.8 m further out than that)
 		if (soloGround) {
 			r = seeded(616)
-			const reach = soloFoot.ext + 4
-			const around = async (every: number, at: (x: number, z: number) => void) => {
-				const step = Math.sqrt(every)
-				let n = 0
-				for (let gx = soloFoot.x - reach; gx < soloFoot.x + reach; gx += step)
-					for (let gz = soloFoot.z - reach; gz < soloFoot.z + reach; gz += step) {
-						at(gx + r() * step, gz + r() * step)
-						if (++n % 6000 === 0) await pause('Planting round the dome')
-					}
-			}
+			const around = (every: number, at: (x: number, z: number) => void) => grid(every, 'Planting round the dome', at, soloFoot.x, soloFoot.z, soloFoot.ext + 4)
 			await around(S.trees / 2, (x, z) => {
 				if (!inBand(x, z, 4, 2.4) || !clearOf(x, z, 1.4)) return
 				tree('trees', x, z, 1)
@@ -932,12 +924,12 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 				around(every * ((D.least + D.most) / 2), (x, z) => drift(layer, x, z, margin, keep, (px, pz, m) => inBand(px, pz, off, m)))
 			await ring('shrubs', S.shrubs, 1.2, 1.4, 0.9)
 			await ring('climbers', S.climbers, 1.2, 1.2, 0.8)
-			for (const [layer, every] of [['herbs', S.herbs], ['roots', S.roots], ['ground', S.ground], ['fungi', S.fungi]] as const) await ring(layer, every, 0.4, 0.5, 0.35)
+			for (const [layer, every] of [['herbs', S.herbs], ['roots', S.roots], ['ground', S.ground], ['fungi', S.fungi]] as const) await ring(layer, every, 0.3, 0.5, 0.35)
 			await pause('Planting round the dome')
 		}
 		// and the floor itself under all of it, the biome's cover, may stand wherever the ground is open: not on a path,
 		// in the water, a dome (or Sandbox 5's building's own ground), a field or a trunk
-		floorOpen = (x, z) => (open(x, z, 0.1) || inBand(x, z, 0.4, 0.1)) && clearOf(x, z, 0.15)
+		floorOpen = (x, z) => (open(x, z, 0.1) || inBand(x, z, 0.1, 0.1)) && clearOf(x, z, 0.15)
 	}
 	/** where the floor's cover may stand (set once the garden is planted) */
 	let floorOpen = (_x: number, _z: number) => true
@@ -963,12 +955,14 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	const greens = ['#3f7a34', '#4f8a38', '#5b9a40', '#2f6a30', '#6aa84a', '#477f3a'].map((c) => new THREE.Color(c))
 	const inDome = (x: number, z: number, margin: number) => foots.some((d) => Math.abs(x - d.x) < d.ext + margin && Math.abs(z - d.z) < d.ext + margin && Math.hypot(x - d.x, z - d.z) < d.ext + margin)
 	const inSquare = (x: number, z: number) => AROUND_MASTER.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + 1.5)
+	/** ground a plant of `margin` may stand on, domes aside: in the cell, off the squares, the paths and the water */
+	const openGround = (x: number, z: number, margin: number) => inHex(x, z) && !inSquare(x, z) && !nearPath(x, z, margin + 0.6) && !nearWater(x, z, W / 2 + margin)
 	/** Sandbox 5: whether x, z lies in the ring round its building that inDome keeps clear for a plant of `margin`
 	 *  (the whole circle of the building's reach), yet outside all that stands high on it (its glass, its arcade:
 	 *  soloFoot.R) and `off` metres or more from its own ground and its gates' ways out (./solo.js), and as clear of the
 	 *  cell's paths, water and squares as open() keeps that plant */
 	const inBand = (x: number, z: number, off: number, margin: number) =>
-		!!soloGround && inDome(x, z, margin + 1) && Math.hypot(x - soloFoot.x, z - soloFoot.z) > soloFoot.R && soloGround.clear(x, z, off) && inHex(x, z) && !inSquare(x, z) && !nearPath(x, z, margin + 0.6) && !nearWater(x, z, W / 2 + margin)
+		!!soloGround && inDome(x, z, margin + 1) && Math.hypot(x - soloFoot.x, z - soloFoot.z) > soloFoot.R && soloGround.clear(x, z, off) && openGround(x, z, margin)
 	const q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), sv = new THREE.Vector3()
 	const mat = (x: number, y: number, z: number, rot: number, sx: number, sy = sx, sz = sx) => new THREE.Matrix4().compose(p.set(x, y, z), q.setFromEuler(e.set(0, rot, 0)), sv.set(sx, sy, sz))
 	{

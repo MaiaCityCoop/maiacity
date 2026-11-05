@@ -17,8 +17,9 @@ import * as THREE from 'three';
  *   building); cell: the field's cells (m)
  * @returns {{ distance: (x: number, z: number) => number, clear: (x: number, z: number, off: number) => boolean }}
  *   distance: how far x, z is from the building's ground or a gate's way (0 on it, Infinity beyond `reach`); clear:
- *   whether it is surely `off` metres or more from them (the field's own error taken off: a cell counts as ground where
- *   its middle is, and is read at the nearest cell's middle). A building in which no ground is found is clear nowhere.
+ *   whether it is surely `off` metres or more from them (the field's own errors taken off: a cell counts as ground where
+ *   its middle is, it is read at the nearest cell's middle, and the chamfer reads up to 8.24 % long, at 22.5° to the
+ *   cells). A building in which no ground is found is clear nowhere.
  */
 export function groundOf(obj, o = {}) {
 	const low = o.low ?? 0.5, cell = o.cell ?? 0.25, reach = o.reach ?? 70;
@@ -123,6 +124,8 @@ export function groundOf(obj, o = {}) {
 		const i = Math.round((x - x0) / cell), j = Math.round((z - z0) / cell);
 		return i < 0 || j < 0 || i >= n || j >= n ? Infinity : D[j * n + i] * cell;
 	};
-	const slack = cell * Math.SQRT2;
-	return { distance, clear: (x, z, off) => found > 0 && distance(x, z) - slack >= off };
+	/** what the field may be out by: half a cell's diagonal where the ground is marked and as much where it is read,
+	 *  and the chamfer's 8.24 % at worst (√(4 − 2√2)) */
+	const slack = cell * Math.SQRT2, long = Math.sqrt(4 - 2 * Math.SQRT2);
+	return { distance, clear: (x, z, off) => found > 0 && distance(x, z) / long - slack >= off };
 }

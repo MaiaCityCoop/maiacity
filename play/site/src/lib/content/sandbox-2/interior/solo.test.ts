@@ -25,14 +25,19 @@ describe('groundOf: where a building alone in the cell has ground of its own', (
 	it('is on its floor and apron, and on the path out of its gate', () => {
 		expect(g.distance(0, 0)).toBe(0)
 		expect(g.distance(30, 30)).toBe(0)
-		expect(g.distance(0, -55)).toBe(0)
+		// the path itself, measured with no gate's way kept: its own mesh is ground, beside it is not
+		const bare = groundOf(building(), { reach: 66 })
+		expect(bare.distance(0, -55)).toBe(0)
+		expect(bare.distance(0.9, -56)).toBe(0)
+		expect(bare.distance(4, -56)).toBeGreaterThan(2)
 	})
 
 	it('measures the distance out from the apron, round the dome', () => {
 		expect(g.distance(51.5, 0)).toBeGreaterThan(3.4)
 		expect(g.distance(51.5, 0)).toBeLessThan(4.6)
-		expect(g.clear(52, 0, 4)).toBe(true)
-		expect(g.clear(49, 0, 4)).toBe(false)
+		// surely 4 m off: a little further out than 4 m, by the field's own error
+		expect(g.clear(52.6, 0, 4)).toBe(true)
+		expect(g.clear(51.5, 0, 4)).toBe(false)
 	})
 
 	it('keeps the gate its way on to the ring path, but not the other bearings', () => {
@@ -45,13 +50,15 @@ describe('groundOf: where a building alone in the cell has ground of its own', (
 	})
 
 	it('takes no high terrace or upright wall for ground, and is far beyond its reach', () => {
+		// under the terrace (40–52 m, 6.45 m up) and beyond the apron, and on the wall's ring at 49 m: open ground
 		expect(g.distance(0, 51)).toBeGreaterThan(3)
+		expect(g.distance(0, 49)).toBeGreaterThan(1.2)
 		expect(g.distance(200, 0)).toBe(Infinity)
 	})
 
 	it('is clear only surely: right at the apron\'s edge nothing is clear of it by its own error', () => {
 		expect(g.clear(47.8, 0, 0.1)).toBe(false)
-		expect(g.clear(48.6, 0, 0.1)).toBe(true)
+		expect(g.clear(48.7, 0, 0.1)).toBe(true)
 	})
 
 	it('counts an instanced paving where each instance lies', () => {
