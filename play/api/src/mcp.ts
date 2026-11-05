@@ -175,6 +175,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
             },
           },
           default_variant: { type: "string", description: "the variant a ref without one names (the first if left out)" },
+          sheet: { type: ["string", "null"], description: "its reference sheet: the hash of an image play keeps (add it first with add_story_frame, with a label for the Library), a plant's plate of every stage and organ made for it; shown with the version in the asset library and, in the Library, beside the image, the plant it belongs to. Carried on from the head unless given; null takes it away" },
           params: {
             type: "array",
             description:
@@ -185,7 +186,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         required: ["asset", "note"],
         additionalProperties: false,
       },
-      run: async ({ asset, source, note, base, branch, variants, default_variant, params }, me) => {
+      run: async ({ asset, source, note, base, branch, variants, default_variant, params, sheet }, me) => {
         if (branch == null && !source && !variants?.length) throw new ProposalError("Give the new version's source, or the draft (branch) it stands in.");
         const kinds = Array.isArray(variants) && variants.length ? variants : null;
         if (kinds && kinds.some((x: any) => !x?.source) && !source) throw new ProposalError("Give the version's source, or each variant's own.");
@@ -206,6 +207,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
             note,
             ...(base ? { base } : {}),
             ...(branch != null ? { branch: Number(branch) } : {}),
+            ...(sheet !== undefined ? { sheet } : {}),
           },
           "mcp",
         );
@@ -222,11 +224,12 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           slug: { type: "string", description: "optional: a short lowercase name (words joined by '-') its recipe is called with; made from the label if left out. Only a name, never its id: two assets may share it" },
           source: { type: "string", description: "version 1's readable source (see above)" },
           note: { type: "string", description: "what it is and why, for the admins deciding" },
+          sheet: { type: ["string", "null"], description: "its reference sheet: the hash of an image play keeps (add it first with add_story_frame, with a label for the Library), a plant's plate of every stage and organ made for it; shown with the version in the asset library and, in the Library, beside the image, the plant it belongs to. Carried on from the head unless given; null takes it away" },
         },
         required: ["group", "label", "source", "note"],
         additionalProperties: false,
       },
-      run: async ({ group, slug, label, source, note }, me) => propose(db, store, me, { new: { group, slug, label }, source: `${source ?? ""}`, note }, "mcp"),
+      run: async ({ group, slug, label, source, note, sheet }, me) => propose(db, store, me, { new: { group, slug, label }, source: `${source ?? ""}`, note, ...(sheet !== undefined ? { sheet } : {}) }, "mcp"),
     },
     // ---- sandboxes: what each draws (its pins) and how it lays them out (its configs), changed only by proposal (./sandboxes.ts)
     {

@@ -1,6 +1,7 @@
 // The Library (Samuel 2026-11-04): every image, video and recording play keeps among its files (play.files, the bytes in
 // the bucket), newest first, each with its label and where the newest version of every story uses it (a shot's still or
-// video, a clip's recording). Admins only. A file is named by its BLAKE3 hash; its label is only shown, and an admin may
+// video, a clip's recording), and which asset versions name it as their reference sheet (a plant's plate, Samuel
+// 2026-11-05). Admins only. A file is named by its BLAKE3 hash; its label is only shown, and an admin may
 // rename it here.
 
 import type { Queryable } from "./pg";
@@ -11,7 +12,10 @@ import { fileLabel, StoryError, type StoryBody } from "./stories";
 export const LIBRARY_KINDS = ["image", "video", "audio"] as const;
 type Kind = (typeof LIBRARY_KINDS)[number];
 
-export type Use = { story: string; title: string; number: number | null; track: string; clip: string; as: "frame" | "video" | "audio"; at: number };
+export type StoryUse = { story: string; title: string; number: number | null; track: string; clip: string; as: "frame" | "video" | "audio"; at: number };
+/** an asset version whose record names the file as its reference sheet: accepted (a version of the asset) or proposed */
+export type SheetUse = { asset: string; label: string; group: string; number: number | null; version: string; as: "sheet"; accepted: boolean };
+export type Use = StoryUse | SheetUse;
 export type LibraryFile = { hash: string; size: number; media_type: string; created: string; label: string | null; used: Use[] };
 
 function admin(me: Me | null): Me {
@@ -32,6 +36,15 @@ async function usesOf(db: Queryable): Promise<Map<string, Use[]>> {
     list.push(use);
     out.set(hash, list);
   };
+  // every asset version naming a reference sheet: the accepted ones, and the proposals still open
+  const { rows: sheets } = await db.query<{ asset: string; label: string; grp: string; number: number | null; version: string; sheet: string; accepted: boolean }>(
+    `SELECT a.id AS asset, a.label, a.grp, v.number, v.id AS version, v.card->>'sheet' AS sheet, v.number IS NOT NULL AS accepted
+       FROM play.asset_versions v JOIN play.assets a ON a.id = v.asset_id
+      WHERE v.card ? 'sheet'
+        AND (v.number IS NOT NULL OR EXISTS (SELECT 1 FROM play.proposals p WHERE p.version = v.id AND p.status = 'open'))
+      ORDER BY a.label, v.number NULLS LAST`,
+  );
+  for (const s of sheets) add(s.sheet, { asset: s.asset, label: s.label, group: s.grp, number: s.number, version: s.version, as: "sheet", accepted: s.accepted });
   for (const r of rows)
     for (const t of r.body?.tracks ?? [])
       for (const c of t.clips ?? []) {
