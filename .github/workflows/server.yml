@@ -2,17 +2,23 @@
 #   report  what fills its disks, what Docker holds, and which of play's files are broken
 #   clean   frees what nothing uses (unused images, build cache, the journal, leftovers of backups) and mends play's
 #           broken files from the backups in the bucket; then reports again
+#   move-avendb  avenDB's data from the data volume onto the root disk (stopped, copied, compared, started on the copy,
+#           and only then the old folder removed); type MOVE to confirm
 name: server
 
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "report (changes nothing) or clean"
+        description: "report (changes nothing), clean, or move-avendb"
         required: true
         type: choice
-        options: [report, clean]
+        options: [report, clean, move-avendb]
         default: report
+      confirm:
+        description: "For move-avendb: type MOVE"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -36,6 +42,9 @@ jobs:
     timeout-minutes: 45
     environment: production
     steps:
+      - name: Confirmed
+        if: inputs.mode == 'move-avendb' && inputs.confirm != 'MOVE'
+        run: echo "::error::move-avendb stops avenDB and moves its data; type MOVE in confirm to run it."; exit 1
       - uses: actions/checkout@v4
       - uses: ./.github/actions/prod-ssh
         with:

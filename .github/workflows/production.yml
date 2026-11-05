@@ -220,7 +220,13 @@ jobs:
           IMAGE: ${{ needs.image.outputs.image }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ACTOR: ${{ github.actor }}
+          # play's files live in the bucket (blobs/<xx>/<hash>), not on the server's disk
+          S3_ACCESS_KEY: ${{ secrets.HETZNER_S3_ACCESS_KEY }}
+          S3_SECRET_KEY: ${{ secrets.HETZNER_S3_SECRET_KEY }}
         run: |
+          if [ -z "$S3_ACCESS_KEY" ] || [ -z "$S3_SECRET_KEY" ]; then
+            echo "::error::play keeps its files in the bucket: set HETZNER_S3_ACCESS_KEY and HETZNER_S3_SECRET_KEY."; exit 1
+          fi
           ssh prod "cd $APP_DIR && bash -s" <<EOS
           set -e
           exec 9>.env.lock; flock -w 300 9
@@ -234,11 +240,25 @@ jobs:
           PLAY_IMAGE=$IMAGE
           PLAY_DATABASE_URL=postgres://play:\$PW@db:5432/maiacity
           PLAY_DATA_PATH=$DATA_MOUNT/play
+          PLAY_BUCKET=$S3_BUCKET
+          PLAY_BUCKET_ENDPOINT=$S3_ENDPOINT
+          PLAY_BUCKET_REGION=$S3_REGION
+          PLAY_BUCKET_ACCESS_KEY=$S3_ACCESS_KEY
+          PLAY_BUCKET_SECRET_KEY=$S3_SECRET_KEY
           EOF2
           set -a; . ./play.env; set +a
           C="docker compose -f docker-compose.yml -f docker-compose.prod.yml -f play/docker-compose.play.yml"
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin >/dev/null
           \$C pull play-api
+          # the files still in the folder on the volume go into the bucket first (only the ones it lacks, each checked
+          # against its hash), so play finds every one there once it runs on the bucket; a copy that fails stops here
+          # then the folder leaves the volume (kept whole on the root disk, beside the app), which it was filling
+          if [ -d "$DATA_MOUNT/play/blobs" ]; then
+            \$C run --rm -T --no-deps play-api bun src/tobucket.ts </dev/null
+            KEPT=$APP_DIR/play-folder-blobs-\$(date -u +%Y%m%dT%H%M%SZ)
+            sudo mv "$DATA_MOUNT/play/blobs" "\$KEPT"
+            echo "play's files are in the bucket; the folder they were in is kept at \$KEPT"
+          fi
           # play's role and schema, and its read of the legacy founders for the import
           \$C exec -T db psql -v ON_ERROR_STOP=1 -U maiacity -d maiacity -v pw="'\$PW'" < play/deploy/setup.sql
           \$C up -d --no-deps play-api
