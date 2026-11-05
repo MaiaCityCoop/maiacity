@@ -74,8 +74,10 @@ in one even light, straight on, beside one another. It replaces searching the we
   pseudostem was drawn thin and brown, the real one 0.8 m round and green, blotched). Sizes always come from the data
   sheet. A wrong panel is made again: with `fal-ai/nano-banana-pro/edit` and the sheet as its image ("redraw only the
   cell …"), or a whole new plate with the fault named in the brief.
-- **Keep it on play**: `bun .claude/skills/plant-skill/scripts/sheet.ts --upload sheet-1.jpg` stores it among play's
-  files and prints its BLAKE3 hash (MCP `add_story_frame`: play's image upload, up to 4 MB). The recipe names it in
+- **Keep it in play's Library**: `sheet.ts` keeps every sheet it makes there at once (MCP `add_story_frame`, up to
+  4 MB), labelled `Reference sheet · <Plant 'Cultivar'> · <k>` (give `--label "Lemon 'Femminello Santa Teresa'"`),
+  and prints its BLAKE3 hash (`sheet-<k>.hash`); a sheet made otherwise is kept with `sheet.ts --upload <jpg>
+  --label "<label>"`. Admins find them on play's Library page (`/library/`). The recipe names it in
   `PLANT.sheet = { hash, model, made }` and the version's note names it, so the plant and the plate it was held to are
   kept together; every later version that is checked against a new plate names that one.
 - **Ask the user for the go** with the sheet shown (SendUserFile) and what you found wrong in it; build only once they
