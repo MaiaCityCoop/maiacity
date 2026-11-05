@@ -30,7 +30,9 @@
 	import TouchStick from '$lib/site/touch/TouchStick.svelte';
 	import { valuesOf } from './params.js';
 	import { groundOf, groundsIn } from './ground.js';
+	import { createPlantings } from './plantings.js';
 	import { buildName, vaultBuild } from './sources/viewer.js';
+	import { plantOf } from './catalog.js';
 	import { VIEWS, asker, camerawork, letGoOf, loop, measure, movesOf, onTap, openStage, safeArea, tabbed, viewsOf } from './viewer.js';
 	import { builtRows, heroReading, labRows, longNote, moveChips, paramTabs, scaleBar, tagLines, viewChips } from './ViewerParts.svelte';
 
@@ -102,6 +104,40 @@
 	/** the camera below the ground line (the frame split there, the roots in the earth), and the one tap down to them or back up */
 	let below = $state(false);
 	let toRoots = null;
+	/** a plant shown (in its soil, or its fruit on its own), its Latin name, and Roots asked from the fruit view: down
+	 *  to them once the plant is built again */
+	let plantShown = $state(false);
+	let latin = $state.raw(null);
+	let wantRoots = false;
+	/**
+	 * Every plant's one switch, top centre: the plant, its fruit (where its recipe has the Fruit view) and its roots (the
+	 * camera down below the ground line), whichever is shown pressed (Samuel 2026-11-05)
+	 */
+	const fruitOn = $derived(!!fruitView && Math.round(values[fruitView.id]) !== fruitView.min);
+	const viewTabs = $derived.by(() => {
+		if (!plantShown && !fruitView) return [];
+		const fruit = (k) => fruitView && setParam(fruitView.id, fruitView.min + k);
+		const tabs = [
+			{ id: 'plant', label: fruitView?.names?.[0] ?? 'Plant', on: !fruitOn && !below, go: () => (below ? toRoots?.() : fruitOn && fruit(0)) },
+		];
+		if (fruitView && fruitView.names.length > 1)
+			tabs.push({ id: 'fruit', label: fruitView.names[1], on: fruitOn, go: () => (below && toRoots?.(), fruitOn || fruit(1)) });
+		if (plantShown)
+			tabs.push({ id: 'roots', label: 'Roots', on: below && !fruitOn, go: () => (fruitOn ? ((wantRoots = true), fruit(0)) : below || toRoots?.()) });
+		return tabs;
+	});
+	/**
+	 * A plant's Latin name, from its own recipe's label as the plant skill writes it ("Banana 'Dwarf Cavendish' · Musa
+	 * acuminata": Musa acuminata 'Dwarf Cavendish'); else from play's record of the plant (its Latin name before any
+	 * " · " aside); else none
+	 */
+	function latinOf(label, hash) {
+		const m = typeof label === 'string' && label.match(/^(.*?)(?:\s+'([^']+)')?\s+·\s+([A-Z][a-z]+(?:\s+[×x])?\s+[a-z][a-z-]+.*)$/);
+		if (m) return { name: m[3].trim(), cultivar: m[2] ?? '' };
+		const said = plantOf(hash)?.latin;
+		if (typeof said === 'string' && said.trim()) return { name: said.split(' · ')[0].trim(), cultivar: '' };
+		return null;
+	}
 	let moving = $state('run');
 	/** its solver's sliders and its reading */
 	let sliders = $state({});
@@ -163,13 +199,16 @@
 		const { THREE, view, renderer, camera, controls, adapt, resize } = up;
 		const { createWalker, PACE } = await import('$lib/content/sandbox-kit/walker.js');
 		stage = up.stage;
+		// what a build plants (a dome's forest: play's plants, named by their builds' hashes), drawn where it stands them
+		const plantings = createPlantings({ renderer, camera, scene: stage.scene });
 		if (gone) {
+			plantings.dispose();
 			stage.dispose();
 			view.dispose();
 			return;
 		}
 		// for a test in a browser to read what is shown, as AssetViewer's `__viewer`
-		window.__vaultAsset = { stage, camera, controls, get hero() { return hero; }, get picked() { return picked; }, get building() { return building; }, get phase() { return buildPhase; }, get error() { return error; }, get values() { return values; }, get wanted() { return wanted; }, set: (id, v) => setParam(id, v) };
+		window.__vaultAsset = { stage, camera, controls, plantings, get hero() { return hero; }, get picked() { return picked; }, get building() { return building; }, get phase() { return buildPhase; }, get error() { return error; }, get values() { return values; }, get wanted() { return wanted; }, set: (id, v) => setParam(id, v) };
 		// a plant's ground: its biome's floor to the horizon, whole, the plant's roots in the earth under it, seen by
 		// tilting the camera below the ground line (./ground.js); never under its fruit on its own, which stands on the
 		// studio's floor. One floor for every plant, not chosen (Samuel 2026-11-04): the library's greenest biome
@@ -215,6 +254,7 @@
 				const { centre, size: s } = stage.show(got.obj, { asset: h, ground: soiled ? 0 : undefined, keep: shownHash === h0, studio: !soiled });
 				if (soiled) earth.fit(got.obj);
 				earth.show(soiled);
+				plantings.show(got.obj);
 				// round a plant on its ground the camera may go down below the ground line, to 60° under it, but no further
 				controls.maxPolarAngle = soiled ? Math.PI * (5 / 6) : Math.PI;
 				buildPhase = 'prepare';
@@ -222,6 +262,7 @@
 				if (!asks.is(ask)) {
 					stage.clear();
 					earth.show(false);
+					plantings.clear();
 					return void letGo(h);
 				}
 				letGo(was);
@@ -233,6 +274,8 @@
 				from = got.from;
 				size = [s.x, s.y, s.z];
 				rise = soiled ? [Math.max(0, bounds.max.y), Math.max(0, -bounds.min.y)] : null;
+				plantShown = got.card?.group === 'plants';
+				latin = plantShown ? latinOf(got.card?.label, h0) : null;
 				drawnApart = false;
 				if (shownHash !== h0) more = false;
 				readValues();
@@ -241,6 +284,11 @@
 				// unless it grew or shrank by much; a plant growing, the camera follows it
 				cam.reframe(centre, s, { fresh: shownHash !== h0, growing, ground: soiled ? 0 : undefined });
 				shownHash = h0;
+				// Roots asked while its fruit was shown: down to them now the plant stands in its soil again
+				if (wantRoots && soiled) {
+					wantRoots = false;
+					if (!earth.below) toRoots?.();
+				}
 				arriving = false;
 			} catch (e) {
 				if (!asks.is(ask)) return;
@@ -250,7 +298,11 @@
 				catalog = picked = null;
 				stage.clear();
 				earth.show(false);
+				plantings.clear();
 				size = rise = null;
+				plantShown = false;
+				latin = null;
+				wantRoots = false;
 				from = '';
 				shownHash = '';
 				cam.framed = null;
@@ -360,6 +412,7 @@
 					else if (grower.done) growing = false;
 				}
 			}
+			plantings.update();
 			stage.render();
 			if (stage.root && (stage.state?.labels > 0.01 || tags.length)) tags = stage.labels(box.clientWidth, box.clientHeight, safeArea(box, { inView: true }));
 			else if (!stage.root && tags.length) tags = [];
@@ -378,6 +431,7 @@
 			letGo(hero);
 			hero = null;
 			earth.dispose();
+			plantings.dispose();
 			stage.dispose();
 			view.dispose();
 			boxes?.build.stop('the viewer was left');
@@ -528,14 +582,16 @@
 <Turntable name="vault-asset" inline {compact} {fill} panel={details ? undefined : panelBody} readout={details ? undefined : readoutBody} bind:canvas={canvasBox}>
 	{#snippet head()}
 		{#if named}<h2 class="name">{title || source.nameOf?.(hash) || 'An asset'}{#if stageName}<small>{` · ${stageName}`}</small>{/if}</h2>{/if}
-		{#if fruitView}
-			<!-- shown while it builds and where a fruit has not set yet too, so the plant is always one tap away -->
-			<div class="views-of" role="group" aria-label={fruitView.label}>
-				{#each fruitView.names as n, k (k)}
-					<button class:on={Math.round(values[fruitView.id]) === fruitView.min + k} aria-pressed={Math.round(values[fruitView.id]) === fruitView.min + k} onclick={() => ((growing = false), setParam(fruitView.id, fruitView.min + k))}>{n}</button>
+		{#if viewTabs.length > 1}
+			<!-- every plant's one switch, top centre: Plant | Fruit | Roots; shown while it builds and where a fruit has not
+			     set yet too, so the plant is always one tap away -->
+			<div class="views-of" role="group" aria-label="View">
+				{#each viewTabs as t (t.id)}
+					<button class:on={t.on} aria-pressed={t.on} onclick={() => ((growing = false), t.go())}>{t.label}</button>
 				{/each}
 			</div>
 		{/if}
+		{#if latin}<p class="latin"><i>{latin.name}</i>{latin.cultivar ? ` '${latin.cultivar}'` : ''}</p>{/if}
 		{#if hero && !error}
 			<div class="chips">
 				{@render paramTabs(barParams, values, (id, v) => ((growing = false), setParam(id, v)))}
@@ -544,12 +600,6 @@
 				{@render viewChips(views, (k) => (k === 'explode' && rigApart ? drawnApart : modes[k]), setMode)}
 				{#if hero.view?.walk}<button class="chip walk" class:on={walking} onclick={() => (walking ? walkOut?.() : walkIn?.())}>{walking ? 'Step outside' : 'Step inside'}</button>{/if}
 			</div>
-			{#if rise}
-				<!-- the ground a plant stands on: down to its roots and back up -->
-				<div class="chips grounds" role="group" aria-label="Ground">
-					<button class="chip roots" class:on={below} aria-pressed={below} onclick={() => toRoots?.()}>{below ? 'Above ground' : 'Roots'}</button>
-				</div>
-			{/if}
 		{/if}
 	{/snippet}
 	{#if walking && stick}
@@ -582,17 +632,10 @@
 </Turntable>
 
 <style>
-	/* the ground a plant stands on: its one chip, down to the roots and back up, under the bar's */
-	.grounds {
-		align-items: center;
-	}
-	.grounds .roots:not(.on) {
-		background: #fff;
-	}
-	/* a plant's Plant | Fruit: one pill of two halves, the one shown pressed dark, like the bar's chips */
+	/* every plant's Plant | Fruit | Roots: one pill, top centre, the one shown pressed dark, like the bar's chips */
 	.views-of {
 		display: inline-flex;
-		align-self: flex-start;
+		align-self: center;
 		gap: 2px;
 		padding: 3px;
 		border: 1px solid rgb(0 0 0 / 0.12);
@@ -611,6 +654,14 @@
 	.views-of button.on {
 		background: #1f2a23;
 		color: #fff;
+	}
+	/* its Latin name under the switch: the genus and species in italics, the cultivar in quotes */
+	.latin {
+		align-self: center;
+		margin: -0.15rem 0 0;
+		font-size: 0.85rem;
+		opacity: 0.7;
+		text-align: center;
 	}
 	/* what is said of it, in the page's aside: two cards */
 	.details {
