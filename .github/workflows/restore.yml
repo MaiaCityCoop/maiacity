@@ -4,8 +4,10 @@
 #             every file there and hashing to its name, every head a version, the image it ran with answering on it.
 #             Production is not touched.
 #   rollback  puts it back in production: a backup of how things are now first, then play's schema from the dump, its
-#             files from the copy (the ones before kept beside them) and the image it ran with. Type ROLLBACK to confirm.
-# Which backups there are: BACKUPS/play/<when>-<label>/ in the bucket `maiacity`; the deploy's log names each one.
+#             files (the ones it names, from the store every snapshot shares; the ones before kept beside them) and the
+#             image it ran with. Type ROLLBACK to confirm.
+# Which backups there are: the snapshots BACKUPS/play/<when>-<label>/ in the bucket `maiacity` (their files shared in
+# BACKUPS/play-files/blobs/); the deploy's log names each one.
 name: restore
 
 on:

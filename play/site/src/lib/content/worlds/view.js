@@ -268,18 +268,23 @@ export function createWorldView(el, o) {
 		},
 		/**
 		 * Resolves once the world has come to the time it was brought to: its run started in the box and every step owed
-		 * asked and answered, however many a long seek owes (each answered in its turn: a step the box is late with lets
-		 * its run go, and the world stands where it was). Its guests are then followed and lit, for the camera as it is.
-		 * `timeout` (ms) gives up sooner, for a caller that would rather draw what is there.
+		 * asked and answered. A long jump is asked of the box 0.25 s at a time (hero.js STEP), each step awaited as the
+		 * box answers it, for as long as the box keeps answering: it gives up only after `stall` ms in which no step went
+		 * through (the box gone or stuck), never part-way through a jump that is still moving (two minutes of world time
+		 * are 480 steps). Its guests are then followed and lit, for the camera as it is.
 		 */
-		async settle(timeout = Infinity) {
-			const t0 = performance.now();
-			for (let h = world?.hero; h && h === world?.hero && performance.now() - t0 < timeout; h = world?.hero) {
-				if (h.starting) await new Promise((r) => setTimeout(r, 16));
-				else if (h.live && h.busy) {
-					h.tick(0, {});
-					await h.answered();
-				} else break;
+		async settle(stall = 60_000) {
+			let moved = performance.now(), owed = Infinity, live = false;
+			for (let h = world?.hero; h && h === world?.hero && (h.starting || (h.live && h.busy)); h = world?.hero) {
+				h.tick(0, {});
+				if (h.pending) await h.pending;
+				else await new Promise((r) => setTimeout(r, 16));
+				const now = performance.now();
+				if (h.owed < owed || h.live !== live) {
+					owed = h.owed;
+					live = h.live;
+					moved = now;
+				} else if (now - moved > stall) break;
 			}
 			view.drawn();
 		},

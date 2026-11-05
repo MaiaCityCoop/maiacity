@@ -81,11 +81,11 @@ export function heroOf({ obj: root, card }, { start, exact = false } = {}) {
 	/** the box's first answer is still to come: it tells what moved from the build as built, not from this copy */
 	let fresh = false;
 	let asking = false;
-	/** the step asked and not yet answered (null: none) */
-	let pending = null;
 	/** its run is still being started in the box */
 	let starting = !!(view.ticks && start);
 	let waited = 0;
+	/** the step asked of the box and not yet answered (null: none): a film awaits it rather than polling */
+	let pending = null;
 	let gone = false;
 	let sent = '';
 	// its break is its solver's, in the box
@@ -324,8 +324,14 @@ export function heroOf({ obj: root, card }, { start, exact = false } = {}) {
 		get starting() {
 			return starting;
 		},
-		/** resolves once the step asked of the box now (if one is) is answered and followed, or failed */
-		answered: () => pending ?? Promise.resolve(),
+		/** the time (s) not yet asked of the box: an exact build's long step is asked STEP at a time */
+		get owed() {
+			return waited;
+		},
+		/** the step asked of the box and not yet answered, to await (null: none in flight) */
+		get pending() {
+			return pending;
+		},
 		dispose() {
 			gone = true;
 			running?.end();
