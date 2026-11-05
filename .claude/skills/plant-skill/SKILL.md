@@ -27,7 +27,10 @@ Rauh's model, a leader with tiers of limbs year by year, colour pictures only an
 its numbers in `references/plum-hauszwetschge.md`, its brief beside them, its whole source `references/plum-v2.js`), and
 **avocado v3** ('Fuerte', Rauh's model flush by flush from its rootstock's seed to mature fruit in its tenth year, inside
 the crown measured for each age; its numbers in `references/avocado-fuerte.md`, its brief beside them, its whole source
-`references/avocado-v3.js`). Start
+`references/avocado-v3.js`), and **mulberry v2** (Morus nigra, the black mulberry, from a hardwood cutting to a tree of
+25 years: a time-ordered simulation, sympodial axes, short fruiting shoots, renewal shoots, a crown held to its size by
+age; its numbers in `references/mulberry-black.md`, its brief beside them, its whole source `references/mulberry-v2.js`;
+the one to start from for a long-lived tree grown over decades). Start
 a new plant from the newest: copy its part 1
 (the growing core, with its surfaces and `sound()`, and `picture()` with its mipmaps as lemon v2 has it; the file is
 `references/banana-v2.js` or `references/lemon-v2.js`) as it is and write parts 2–4 for the new plant; a tree takes its
@@ -352,6 +355,22 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   (forks of two or three at most flushes, a minimum spacing between new rosettes of ~9 cm) before its crown stopped
   being see-through; check `forks` and the spacing rule's rejections when a crown stays thin.
 
+- **A tree of decades is grown in time order, and every per-step nudge adds up** (mulberry v2, 2026-11-05). Plum v2's
+  per-step "up" (0.03 every 3 cm) and its sag growing with the axis's age without bound were fine for 8 years; over 25
+  they made a broom of upright sticks, then limbs lying on the ground. What made the black mulberry's low, wide dome:
+  grow it year by year over all axes at once (deaths, then buds of last year's wood, then each axis's extension), so a
+  shoot's birth rests only on older wood and a crowding grid can refuse it; small nudges (up 0.008–0.012 a step, sag
+  capped), a pull toward the crown envelope's outward normal (toward the light) and a slide along it near its face;
+  the limbs leaving the trunk all round it by the golden angle (by node bearing they all went to one side and the crown
+  was lopsided); renewal shoots from sleeping buds on 2–7-year wood where a cell has no young tip (else the shell has
+  holes between the limbs); the leader stopped after its fourth year. Count tips by height (`tips.cjs`-style) and lay
+  the silhouette on the sheet's tree before every render.
+- **Leaves turned every way read as a crown.** Blades held near flat with a little roll are edge-on from the side: a
+  crown of 16k leaves looked like veils. A droop of −0.3 ± 0.55 and a roll of ± 0.85 made it solid without one more
+  leaf. And a 24-triangle blade keeps its outline if its rows are crowded where the outline turns (rows at u^1.45 for a
+  heart-shaped leaf: overlap 0.91 against 0.92 close up).
+- **Grow it as it is planted.** A plant the trade grows from cuttings (black mulberry, fig, olive, grape) starts as a
+  cutting: its first stage the stick in the soil, its roots out sideways from the base (no taproot).
 - **Safe on every GPU, or black on an iPad.** Banana v2's first proposal drew black in play's viewer on an iPad:
   some 800 normals of no length where its blades' rows met at the tip, with a bump picture, made NaN pixels on
   Apple's GPU, and the viewer blurred them over the frame (Chromium's software GL, which the renders use, hid it).
