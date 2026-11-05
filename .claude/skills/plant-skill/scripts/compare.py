@@ -2,7 +2,7 @@
 """An organ against its panel: how well the silhouettes overlap, their proportions, and their colours zone by zone.
 
     python3 -I .claude/skills/plant-skill/scripts/compare.py <panel.png> <organ.png> [--box x0 y0 x1 y1]
-        [--axis y|x] [--zones 5] [--out side-by-side.png]
+        [--axis y|x] [--zones 5] [--colourful] [--close 0.04] [--out side-by-side.png]
 
 <panel.png> a crop of the sheet (white ground; --box narrows it to one specimen); <organ.png> the organ bench's
 picture of the same organ (organ.mjs, transparent ground; with --flat for its colours). Both are cut to their
@@ -25,6 +25,7 @@ ap.add_argument("--box", nargs=4, type=int)
 ap.add_argument("--axis", default="y", choices=["x", "y"])
 ap.add_argument("--zones", type=int, default=5)
 ap.add_argument("--white", type=float, default=0.1)
+ap.add_argument("--close", type=float, default=0, help="close both silhouettes with a disc this part of their height first (0.04 for a crown: compares its envelope, not where light gets through)")
 ap.add_argument("--colourful", action="store_true", help="keep only coloured pixels of the panel: drops its grey ground line, scale bars and labels")
 ap.add_argument("--out")
 a = ap.parse_args()
@@ -57,6 +58,11 @@ def scaled(img, m):
     mm = np.asarray(Image.fromarray((m * 255).astype(np.uint8)).resize((W, H), Image.BILINEAR)) > 127
     return im, mm
 P, pm = scaled(P, pm); O, om = scaled(O, om)
+if a.close:  # a crown's envelope: the gaps between its rosettes filled
+    from PIL import ImageFilter
+    k = max(3, int(H * a.close) | 1)
+    closed = lambda m: np.asarray(Image.fromarray((m * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(k)).filter(ImageFilter.MinFilter(k))) > 127
+    pm, om = closed(pm), closed(om)
 W = max(pm.shape[1], om.shape[1])
 def pad(img, m):
     l = (W - m.shape[1]) // 2; r = W - m.shape[1] - l

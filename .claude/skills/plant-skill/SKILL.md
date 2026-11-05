@@ -18,7 +18,9 @@ from its own reference sheet; its numbers in `references/banana-dwarf-cavendish.
 `references/banana-dwarf-cavendish-brief.md`), and **orange v2** ('Tarocco', a grafted tree grown flush by flush; its
 numbers in `references/orange-tarocco.md`, its brief in `references/orange-tarocco-brief.md`), and **peach v2** ('Saturn',
 the flat peach, a stone budded and trained as an open vase year by year; its numbers in `references/peach-saturn.md`, its
-brief in `references/peach-saturn-brief.md`). Start a new plant from
+brief in `references/peach-saturn-brief.md`), and **sapodilla v2** ('Alano', a grafted tree grown as Aubréville's model
+from its own sheet, its silhouette laid on the sheet's tree; its numbers in `references/sapodilla-alano.md`, its brief in
+`references/sapodilla-alano-brief.md`). Start a new plant from
 the newest: copy its part 1 (the growing core, with its surfaces and `sound()`; the file is `references/banana-v2.js`)
 as it is and write parts 2–4 for the new plant; a tree takes its part 3 from orange v2 (flushes) or apricot v2 (years).
 
@@ -79,7 +81,10 @@ in one even light, straight on, beside one another. It replaces searching the we
   sheet. A wrong panel is made again: `bun .claude/skills/plant-skill/scripts/sheet-edit.ts --sheet sheet-1.jpg --fix
   fix.txt --out <dir>/sheet-3 --label …` (`fal-ai/nano-banana-pro/edit`, the sheet as its image, "keep the whole plate,
   redraw only these cells", one paragraph a cell; kept in the Library too), or a whole new plate with the fault named in
-  the brief.
+  the brief. Edit often leaves the cells as they were (the
+  sapodilla's redrew one cell of four): then make the wrong organs as a small plate of their own (its brief only those
+  organs, the fault named) and paste them into the sheet's cells, their light-grey ground made white; keep that plate
+  in the Library too, and the composite is the sheet held to.
 - **Keep it in play's Library**: `sheet.ts` keeps every sheet it makes there at once (MCP `add_story_frame`, up to
   4 MB), labelled `Reference sheet · <Plant 'Cultivar'> · <k>` (give `--label "Lemon 'Femminello Santa Teresa'"`),
   and prints its BLAKE3 hash (`sheet-<k>.hash`); a sheet made otherwise is kept with `sheet.ts --upload <jpg>
@@ -122,11 +127,17 @@ in the same light as its panel.
    edge at ten stations and each zone's colour (aim within 0.03; `--flat` for the organ's own colours). Lay the bench
    organ as the panel lies (straight, its stalk down), crop the panel to one specimen (neighbours in the box ruin the
    numbers), and read the side-by-side picture as well as the numbers. Then the stages whole against row 1 for form
-   and proportion (`--colourful` drops the sheet's ground line and bars); where the sheet cut a plant off or drew it
-   against the data sheet, judge by eye and say so.
+   and proportion (`--colourful` drops the sheet's ground line and bars; it also drops a dark crown, so for a tree
+   white out the bars by hand instead); where the sheet cut a plant off or drew it against the data sheet, judge by
+   eye and say so. A grown tree is more than the bench's page holds: `node .claude/skills/plant-skill/scripts/
+   silhouette.cjs --file <source.js> --make "(o) => o.lite({ roots: false }, () => o.grow(10, 'maia'))" --out
+   tree.png` rasterises it in node, and `compare.py … --close 0.04` compares crowns by their envelopes (a crown's
+   silhouette is porous: its raw overlap stays near 0.6 even when the form is right).
 5. **Budgets go up with it**: up to about 800k triangles at full detail for a grown plant (a close-up is what the sheet
    is checked by), and still about 60k at 0.3 and 15k at 0.1 for the crowds: the extra detail belongs to `detailAt`.
-   A plant of few big leaves (banana) thins by rows, never by dropping parts: `THINNED` holds only what is many.
+   A plant of few big leaves (banana) thins by rows, never by dropping parts: `THINNED` holds only what is many. A
+   tree of ten thousand small leaves (sapodilla v2) lays them from a few leaf templates into one batch of arrays (its
+   `Leaves`, thinned there) instead of ten thousand Bag merges, and tunes `detailAt`'s table to keep far fewer far off.
 
 ## The recipe
 
@@ -252,6 +263,17 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   half its 800k triangles), and thin harder for crowds where twigs and leaves are many (`detailAt`).
 - **Judge a panel's colour on its middle.** On the light box the underside of a fruit or a trunk is in its own soft
   shadow: the bench's bottom zones disagree with the panel by 0.1–0.2 however right the colour is.
+- **A tree's architecture is grown, then checked as a silhouette** (sapodilla v2, Aubréville's model, 2026-11-05). Its
+  first crowns were a vase, an umbrella over a bare leader, and a pagoda of thin tiers, though each read as "a tree"
+  in its own render. What fixed it, each found by laying the silhouette on the sheet's tree: a shade rule that counts
+  only the rosettes just over a tip (its own tier's canopy, 0.1–0.6 m up), not everything up to the top (the upper
+  tiers had starved the lower); branches aimed a little below level, because each unit's end turns up to its rosette
+  and the rise adds up along a branch; twigs that stop and lose their leaves die and fall (else the inside is a broom of
+  bare sticks); the first scaffold tier kept low (the data sheet's 0.5–0.8 m), not pruned; the crown envelope a dome
+  widest half way up. Count where the rosettes are by height before rendering: it is quicker than a render.
+- **Tips by the hundred.** A crown reads as dense only with enough shoot tips: the sapodilla needed some 1,000 at 8 years
+  (forks of two or three at most flushes, a minimum spacing between new rosettes of ~9 cm) before its crown stopped
+  being see-through; check `forks` and the spacing rule's rejections when a crown stays thin.
 
 - **Safe on every GPU, or black on an iPad.** Banana v2's first proposal drew black in play's viewer on an iPad:
   some 800 normals of no length where its blades' rows met at the tip, with a bump picture, made NaN pixels on
