@@ -10,6 +10,8 @@ import { lightOf, litNow, moodOf, soundOf, stateOf, statesOf, worldOf } from './
 import { plantingsOf, shownIn } from '../assets/plantings.js';
 // @ts-ignore — plain JS
 import { CARD, checkCard } from '../assets/schemas/index.js';
+// @ts-ignore — plain JS
+import { heroOf, STEP } from '../assets/hero.js';
 
 const HASH = 'f'.repeat(64);
 
@@ -177,5 +179,38 @@ describe('the stand-in test world', () => {
 		for (const t of [0.25, 3.3, 7.3, 10]) b.userData.tick(t);
 		const pos = (r: THREE.Object3D) => plantingsOf(r).map((p: any) => p.node.position.toArray().join());
 		expect(pos(a)).toEqual(pos(b));
+	});
+});
+
+describe('a world brought far ahead under the film camera', () => {
+	it('is asked every second of a long jump, STEP at a time, each step awaited as the box answers it', async () => {
+		// a box that answers each step a little later, and moves nothing (what it moves is the world's own business)
+		const asked: number[] = [];
+		const box = {
+			tick: (ask: { dt: number }) =>
+				new Promise((done) => {
+					asked.push(ask.dt);
+					setTimeout(() => done({ nodes: new Uint32Array(0), trs: new Float32Array(0), visible: new Uint8Array(0) }), 1);
+				}),
+			breakIt: () => {},
+			end: () => {}
+		};
+		const root = new THREE.Group();
+		root.userData.view = { ticks: true };
+		const hero = heroOf({ obj: root, card: {} }, { start: async () => box, exact: true });
+		while (!hero.live) await new Promise((r) => setTimeout(r, 1));
+		// the film jumps 30 s ahead in one call, then waits as view.js settle() does: each step in flight awaited
+		hero.tick(30, {});
+		expect(hero.owed).toBeGreaterThan(29);
+		let rounds = 0;
+		while (hero.busy && rounds++ < 1000) {
+			hero.tick(0, {});
+			if (hero.pending) await hero.pending;
+		}
+		expect(hero.busy).toBe(false);
+		expect(hero.owed).toBe(0);
+		expect(Math.max(...asked)).toBeLessThanOrEqual(STEP);
+		expect(asked.reduce((a, b) => a + b, 0)).toBeCloseTo(30, 6);
+		expect(asked.length).toBe(Math.ceil(30 / STEP));
 	});
 });
