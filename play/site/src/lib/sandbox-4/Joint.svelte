@@ -3,8 +3,8 @@
 	steps down the left with the part's facts; in the middle the stage, its step and its clock above a 3D view as tall as
 	the page; down the right the joint in section and its numbers. The scene and its clock are ./scene.ts; this page only
 	shows its state and hands it the buttons. In the light brand CI (play/site/src/app.css), scoped to its root.
-	Once Sandbox 4 pins the Dome shell element of the asset library, the stage head offers its kinds (Triangle, Hexagon)
-	and its values (Infill, a hexagon's Depth) to whoever is looking: a choice of this page, never saved.
+	Once Sandbox 4 pins the Dome shell element of the asset library, the stage head offers its kinds (Hexagon, Pentagon,
+	Triangle) and its values (Infill, the wall's Depth) to whoever is looking: a choice of this page, never saved.
 -->
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
@@ -18,7 +18,8 @@
 	let info: JointInfo = $state({ mode: 'legacy', steps: STEPS, kinds: [], params: [], values: {}, variant: null, asset: null, what: '', specs: [], loading: false, error: '' });
 	const steps = $derived(info.steps);
 	const infill = $derived(info.params.find((p) => p.id === 'infill' && p.names?.length));
-	const depth = $derived(info.variant === 'hexagon' ? info.params.find((p) => p.id === 'depth' && p.type === 'number') : undefined);
+	// the wall's depth: every kind's from the element's v5 (a hexagon's only before it)
+	const depth = $derived(info.params.find((p) => p.id === 'depth' && p.type === 'number'));
 
 	onMount(() => {
 		if (!viewport) return;

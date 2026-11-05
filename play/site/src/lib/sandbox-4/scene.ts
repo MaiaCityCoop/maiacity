@@ -14,8 +14,9 @@
  *
  * Once Sandbox 4 pins an asset in its slot `element` (play's database, changed only by a proposal on the Proposals
  * page), it draws that instead of its own cassette: the Dome shell element of the asset library at the pinned version,
- * any of its variants (Triangle, Hexagon) and its values (Infill, Depth), switched here by whoever is looking and never
- * saved, built in the asset box, put back on its dome and played by its own controls (build, then explode).
+ * any of its variants (Hexagon, Pentagon, Triangle) and its values (Infill, Depth), switched here by whoever is
+ * looking and never saved, built in the asset box, put back on its dome and played by its own controls (build, then
+ * explode).
  */
 import * as THREE from 'three';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
