@@ -36,7 +36,7 @@
  * on a Mac it drives the system's Chrome, so no Playwright browser is needed there).
  */
 import { spawn, execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -73,24 +73,51 @@ async function playwright() {
 	throw new Error('Playwright is needed: bun install (in play/site)');
 }
 
-/** a dev server: the one given, or one started here, and how to stop it (as scripts/render.mjs) */
+/**
+ * a dev server: the one given, or one started here, and how to stop it (as scripts/render.mjs). `bun run dev` starts
+ * vite as a child of its own, which a kill of bun alone leaves running, holding our pipes and so this process open: it
+ * is started as a process group of its own and the whole group is stopped, and stop() waits until it has gone.
+ */
 async function server(url) {
-	if (url) return { url, stop: () => {} };
+	if (url) return { url, stop: async () => {} };
 	const port = 5300 + Math.floor(Math.random() * 400);
-	const dev = spawn('bun', ['run', 'dev', '--', '--port', String(port), '--strictPort'], { cwd: site, stdio: ['ignore', 'pipe', 'pipe'] });
+	const dev = spawn('bun', ['run', 'dev', '--', '--port', String(port), '--strictPort'], { cwd: site, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
 	let log = '';
 	dev.stdout.on('data', (d) => (log += d));
 	dev.stderr.on('data', (d) => (log += d));
+	const gone = new Promise((ok) => dev.on('close', ok));
+	const stop = async () => {
+		try {
+			process.kill(-dev.pid, 'SIGTERM');
+		} catch {}
+		const late = setTimeout(() => {
+			try {
+				process.kill(-dev.pid, 'SIGKILL');
+			} catch {}
+		}, 5000);
+		await gone;
+		clearTimeout(late);
+	};
 	const at = `http://localhost:${port}`;
 	for (let i = 0; i < 240; i++) {
 		await new Promise((r) => setTimeout(r, 500));
 		try {
-			if ((await fetch(`${at}/game/map/film/`)).ok) return { url: at, stop: () => dev.kill() };
+			if ((await fetch(`${at}/game/map/film/`)).ok) return { url: at, stop };
 		} catch {}
 		if (dev.exitCode !== null) break;
 	}
-	dev.kill();
+	await stop();
 	throw new Error(`the dev server did not start:\n${log.slice(-2000)}`);
+}
+
+/** a film's still: its frame at `at` s, or with `last` its last frame; an error if ffmpeg wrote none */
+function still(file, out, { at, last }) {
+	// -ss near the end finds no frame and writes nothing without failing: the last frame is the last one decoded from a
+	// second before the end, each written over the one before
+	const seek = last ? ['-sseof', '-1', '-i', file, '-update', '1'] : ['-ss', String(at), '-i', file, '-frames:v', '1'];
+	rmSync(out, { force: true });
+	execFileSync('ffmpeg', ['-y', '-loglevel', 'error', ...seek, '-q:v', '2', out]);
+	if (!existsSync(out) || statSync(out).size === 0) throw new Error(`ffmpeg wrote no still ${out} from ${file}`);
 }
 
 /** the browser: on a Mac, Chrome on Metal; elsewhere Playwright's Chromium in software */
@@ -173,7 +200,9 @@ try {
 			for (const [k, i] of [[0, 0], [50, Math.floor(n / 2)], [100, n - 1]]) {
 				await frame(s, i / film.fps, 1);
 				const path = `${dir}/${s.name}-${k}.png`;
+				rmSync(path, { force: true });
 				await page.screenshot({ path });
+				if (!existsSync(path)) throw new Error(`no still ${path}`);
 				row.push(path);
 			}
 			rows.push(row);
@@ -197,11 +226,12 @@ try {
 				if (i % 30 === 29) process.stdout.write(`\r${s.name}: ${i + 1}/${n} frames, ${((Date.now() - t0) / (i + 1) / 1000).toFixed(2)} s a frame   `);
 			}
 			await enc.end();
-			const still = `${o.out}/${s.name}.jpg`, at = s.ui ? s.dur - 0.5 / film.fps : s.dur / 2;
-			execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-ss', String(at), '-i', file, '-frames:v', '1', '-q:v', '2', still]);
+			// its still: the middle frame, or the last of a shot with the bar (the bar's totals counted up)
+			const frameFile = `${o.out}/${s.name}.jpg`;
+			still(file, frameFile, s.ui ? { last: true } : { at: s.dur / 2 });
 			const mb = statSync(file).size / 1e6;
 			console.log(`\r${s.name}: ${n} frames in ${((Date.now() - t0) / 1000).toFixed(0)} s → ${file} (${mb.toFixed(1)} MB${mb > 40 ? ', over play\'s 40 MB' : ''})`);
-			made.push({ name: s.name, dur: s.dur, size: s.size, note: s.note, video: file, frame: still, look: s.look ?? [] });
+			made.push({ name: s.name, dur: s.dur, size: s.size, note: s.note, video: file, frame: frameFile, look: s.look ?? [] });
 		}
 		writeFileSync(`${o.out}/list.txt`, made.map((m) => `file '${resolve(m.video)}'`).join('\n'));
 		execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', `${o.out}/list.txt`, '-c', 'copy', '-movflags', '+faststart', `${o.out}/reel.mp4`]);
@@ -210,5 +240,5 @@ try {
 	}
 } finally {
 	await b.close();
-	dev.stop();
+	await dev.stop();
 }
