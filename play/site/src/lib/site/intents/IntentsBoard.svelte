@@ -333,11 +333,9 @@
 {#if !admin}
 	<p class="muted">The intents are Maia City's admins' for now.</p>
 {:else}
+		<!-- the title alone above the columns: no words about the board (Samuel 2026-11-06) -->
 		<header class="head">
-			<div>
-				<h1>Intents</h1>
-				<p class="muted">Everything Maia City wants made, fixed or improved is an intent. Agents add it and specify it over MCP (a goal, a scope and checks that pass or fail); an admin approves the spec, and an agent prototypes it until every must check passes, then proposes it. Every new version of the assets, stories, factories and configs and change of the sandboxes comes in as a proposal. Open one to see it and decide.</p>
-			</div>
+			<h1>Intents</h1>
 			{#if onclose}<button class="btn small ghost close" onclick={onclose} aria-label="Close the intents" title="Close (Esc)">Close</button>{/if}
 		</header>
 		{#if error}<p class="error">{error}</p>{/if}
@@ -691,12 +689,10 @@
 	/* the board as tall as the modal it is in: its title and the columns' headers stay, each column scrolls its own
 	   cards, the board sideways on a narrow screen (Samuel 2026-11-04); what is opened on it covers it, inside the modal */
 	.intents { position: relative; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; padding: 1rem 1rem 0.8rem; }
-	.head { flex: 0 0 auto; display: flex; gap: 1rem; align-items: flex-start; justify-content: space-between; }
+	.head { flex: 0 0 auto; display: flex; gap: 1rem; align-items: center; justify-content: space-between; margin-bottom: 0.7rem; }
 	.head h1 { margin: 0; font-size: clamp(1.6rem, 3.5vw, 2.2rem); }
-	.head p { margin: 0.2rem 0 0.8rem; font-size: 0.92rem; max-width: 62rem; }
 	.head .close { flex: 0 0 auto; }
-	/* a phone: the board's own words give way to its columns */
-	@media (max-width: 640px) { .head p { display: none; } .head h1 { margin-bottom: 0.6rem; } .intents { padding: 0.8rem 0.7rem 0.6rem; } }
+	@media (max-width: 640px) { .head { margin-bottom: 0.6rem; } .intents { padding: 0.8rem 0.7rem 0.6rem; } }
 	.board { flex: 1 1 auto; min-height: 0; display: grid; grid-auto-flow: column; gap: 0.7rem; overflow-x: auto; align-items: stretch; }
 	.column { background: color-mix(in srgb, var(--paper, #f6f1e6) 70%, transparent); border-radius: 14px; padding: 0.7rem 0.6rem 0.5rem; display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; min-height: 0; }
 	.column h2 { flex: 0 0 auto; margin: 0; font-size: 0.95rem; min-height: 1.5rem; }
