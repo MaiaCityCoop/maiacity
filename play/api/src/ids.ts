@@ -31,5 +31,5 @@ export const GAME_CONFIG = {
 } as const;
 
 /** avenMAIA, the one identity of every agent connected over MCP (play/SPEC.md §4.13, Samuel 2026-11-06): uuidOf("agent:avenmaia"),
- * the row migration 0027-sources makes. Its name is only shown. */
+ * the row migration 0027-artifacts makes. Its name is only shown. */
 export const AVENMAIA = "86090f35-1937-8d5d-bd28-194b80430f25";

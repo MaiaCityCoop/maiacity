@@ -1,18 +1,17 @@
-// Sources (play/SPEC.md §4.13, Samuel 2026-11-06): every link from the net Maia City keeps, a library of what we read,
-// quote and point to. A source is kept over MCP by avenMAIA, the one identity of every agent connected to play's MCP,
+// Artifacts (play/SPEC.md §4.13, Samuel 2026-11-06; first called Sources): every link from the net Maia City keeps, a
+// library of what we read, quote and point to: all of them artifacts. An artifact is kept over MCP by avenMAIA, the one identity of every agent connected to play's MCP,
 // for the admin whose token connected it (its operator), and says where it came from: the operator pasted it (origin
 // 'human', shown "Added by <the operator>") or avenMAIA found it in its own research (origin 'agent', shown "Sourced by
-// avenMAIA"). Each keeps three texts avenMAIA writes from the source itself, held to their form here:
+// avenMAIA"). Each keeps three texts avenMAIA writes from the artifact itself, held to their form here:
 //
 //   title        very compact: one line, at most 70 characters;
 //   description  the mini summary: one line, at most 280 characters, no Markdown (one or two sentences);
 //   summary      a small report on the overall topic: Markdown, 500–1,500 words, in the sections
 //                ## What it is, ## Key points (as bullets), ## The topic, and if it likes ## For Maia City.
 //
-// Its authors are rows of their own (play.authors), n:m with the sources in their order: named by their UUIDs, never
-// looked up or merged by a name (two of one name stay two). One link, one source: a link is kept normalised (urlOf),
-// and adding one already kept answers with that source. Not "sources.ts": in play a source is also an asset version's
-// readable source (source_hash, ../import/sources). Admins only, the coop's own; nothing here is typed in by hand.
+// Its authors are rows of their own (play.authors), n:m with the artifacts in their order: named by their UUIDs, never
+// looked up or merged by a name (two of one name stay two). One link, one artifact: a link is kept normalised (urlOf),
+// and adding one already kept answers with that artifact. Admins only, the coop's own; nothing here is typed in by hand.
 import { COOP, Denied, type Me } from "./access";
 import { AVENMAIA } from "./ids";
 import { keyOf, type BlobStore } from "./blobs";
@@ -20,14 +19,14 @@ import { hashBytes } from "./hash";
 import type { Db, Queryable } from "./pg";
 import { newId, UUID } from "./uuid";
 
-export class SourceError extends Error {
+export class ArtifactError extends Error {
   constructor(message: string, public status = 400) {
     super(message);
   }
 }
 
-export const SOURCE_KINDS = ["page", "article", "paper", "video", "post", "book", "podcast", "code", "other"] as const;
-export type SourceKind = (typeof SOURCE_KINDS)[number];
+export const ARTIFACT_KINDS = ["page", "article", "paper", "video", "post", "book", "podcast", "code", "other"] as const;
+export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 export const AUTHOR_KINDS = ["person", "organization"] as const;
 export const ORIGINS = ["human", "agent"] as const;
 export type Origin = (typeof ORIGINS)[number];
@@ -45,11 +44,11 @@ export const TEXT_MOST = 2_000_000;
 const SUMMARY_CHARS_MOST = 20_000;
 const URL_MOST = 2000;
 
-/** The rule every agent is taught, in initialize's instructions and add_source's description (./mcp.ts). */
-export const SOURCES_RULE =
-  "Sources: Maia City's library of links (list_sources, get_source, add_source, update_source; list_authors, get_author). " +
-  "Every link your operator pastes to you, add with origin 'human' (shown \"Added by\" them); every source you find and use in your own research (a plant's numbers, a claim in a story, a technique), add with origin 'agent' (shown \"Sourced by avenMAIA\"). " +
-  `Read the source itself and write three texts: a title, very compact (one line, at most ${TITLE_MOST} characters, without the site's or channel's name, which is an author); ` +
+/** The rule every agent is taught, in initialize's instructions and add_artifact's description (./mcp.ts). */
+export const ARTIFACTS_RULE =
+  "Artifacts: Maia City's library of links (list_artifacts, get_artifact, add_artifact, update_artifact; list_authors, get_author). " +
+  "Every link your operator pastes to you, add with origin 'human' (shown \"Added by\" them); every artifact you find and use in your own research (a plant's numbers, a claim in a story, a technique), add with origin 'agent' (shown \"Sourced by avenMAIA\"). " +
+  `Read the artifact itself and write three texts: a title, very compact (one line, at most ${TITLE_MOST} characters, without the site's or channel's name, which is an author); ` +
   `a description, the mini summary (1–2 sentences, one line, at most ${DESCRIPTION_MOST} characters, no Markdown); ` +
   `and a summary, a small report on the overall topic (Markdown, ${SUMMARY_WORDS.least}–${SUMMARY_WORDS.most} words, in the sections ## What it is, ## Key points as bullets, ## The topic, and if you like ## For Maia City). ` +
   "Find its authors with list_authors first and reuse an author by their id (a UUID); add a new one only when none is them, and where no person is named, its publisher as an organization.";
@@ -58,7 +57,7 @@ export const SOURCES_RULE =
 
 function admin(me: Me | null): Me {
   if (!me) throw new Denied("Please sign in first.", 401);
-  if (me.level !== "admin") throw new Denied("Only Maia City's admins open the Sources.");
+  if (me.level !== "admin") throw new Denied("Only Maia City's admins open the Artifacts.");
   return me;
 }
 
@@ -67,7 +66,7 @@ function admin(me: Me | null): Me {
 const TRACKING = (k: string) => /^utm_/i.test(k) || /^(fbclid|gclid)$/i.test(k);
 
 /**
- * A link as Maia City keeps it, so the same page is one source: http(s) only; its scheme and host lower-cased; its
+ * A link as Maia City keeps it, so the same page is one artifact: http(s) only; its scheme and host lower-cased; its
  * #fragment, utm_* , fbclid and gclid dropped, the rest of its query kept as written; a trailing slash dropped; and a
  * YouTube video named one way (youtu.be/<id>, /shorts/<id>, /embed/<id>, /live/<id> and m.youtube.com are all
  * https://www.youtube.com/watch?v=<id>).
@@ -78,10 +77,10 @@ export function urlOf(raw: unknown): string {
   try {
     u = new URL(s);
   } catch {
-    throw new SourceError("A source's url is a whole link: http(s)://…");
+    throw new ArtifactError("An artifact's url is a whole link: http(s)://…");
   }
-  if (u.protocol !== "http:" && u.protocol !== "https:") throw new SourceError("A source's url is an http(s) link.");
-  if (u.username || u.password) throw new SourceError("A link with a user or a password in it is not kept: send it without them.");
+  if (u.protocol !== "http:" && u.protocol !== "https:") throw new ArtifactError("An artifact's url is an http(s) link.");
+  if (u.username || u.password) throw new ArtifactError("A link with a user or a password in it is not kept: send it without them.");
   const host = u.host.toLowerCase();
   const video = (id: string | null | undefined) => (id && /^[A-Za-z0-9_-]{6,20}$/.test(id) ? `https://www.youtube.com/watch?v=${id}` : null);
   if (host === "youtu.be" || host === "www.youtu.be") {
@@ -105,7 +104,7 @@ export function urlOf(raw: unknown): string {
     })
     .join("&");
   const out = `${u.protocol}//${host}${u.pathname.replace(/\/+$/, "")}${query ? `?${query}` : ""}`;
-  if (out.length > URL_MOST) throw new SourceError(`A source's url is at most ${URL_MOST} characters.`);
+  if (out.length > URL_MOST) throw new ArtifactError(`An artifact's url is at most ${URL_MOST} characters.`);
   return out;
 }
 
@@ -124,10 +123,10 @@ export function wordsOf(md: string): number {
 }
 
 const oneLine = (v: unknown, what: string, most: number) => {
-  if (typeof v !== "string" || !v.trim()) throw new SourceError(`A source needs its ${what}.`);
+  if (typeof v !== "string" || !v.trim()) throw new ArtifactError(`An artifact needs its ${what}.`);
   const t = v.trim();
-  if (/[\r\n]/.test(t)) throw new SourceError(`A source's ${what} is one line.`);
-  if (chars(t) > most) throw new SourceError(`A source's ${what} is at most ${most} characters (this one is ${chars(t)}).`);
+  if (/[\r\n]/.test(t)) throw new ArtifactError(`An artifact's ${what} is one line.`);
+  if (chars(t) > most) throw new ArtifactError(`An artifact's ${what} is at most ${most} characters (this one is ${chars(t)}).`);
   return t;
 };
 
@@ -136,20 +135,20 @@ export const titleOf = (v: unknown) => oneLine(v, "title (very compact: what it 
 export function descriptionOf(v: unknown) {
   const d = oneLine(v, "description (the mini summary: one or two sentences)", DESCRIPTION_MOST);
   if (/\*\*|__|`|\[[^\]]*\]\([^)]*\)|^#{1,6}\s|^[-*+>]\s|(^|\s)\*[^*\s][^*]*\*(?=$|[\s.,;:!?])/.test(d))
-    throw new SourceError("A source's description is plain text: no Markdown (no **, _, `, links, headings or bullets).");
+    throw new ArtifactError("An artifact's description is plain text: no Markdown (no **, _, `, links, headings or bullets).");
   return d;
 }
 
 /** A summary held to its form: Markdown, 500–1,500 words, in its sections in their order, its key points as bullets. */
 export function summaryOf(v: unknown) {
-  if (typeof v !== "string" || !v.trim()) throw new SourceError("A source needs its summary: a small report on the overall topic.");
+  if (typeof v !== "string" || !v.trim()) throw new ArtifactError("An artifact needs its summary: a small report on the overall topic.");
   const s = v.trim();
-  if (chars(s) > SUMMARY_CHARS_MOST) throw new SourceError(`A source's summary is at most ${SUMMARY_CHARS_MOST} characters.`);
+  if (chars(s) > SUMMARY_CHARS_MOST) throw new ArtifactError(`An artifact's summary is at most ${SUMMARY_CHARS_MOST} characters.`);
   const words = wordsOf(s);
   if (words < SUMMARY_WORDS.least || words > SUMMARY_WORDS.most)
-    throw new SourceError(`A source's summary is ${SUMMARY_WORDS.least}–${SUMMARY_WORDS.most} words (this one is ${words}): a small report on the overall topic.`);
+    throw new ArtifactError(`An artifact's summary is ${SUMMARY_WORDS.least}–${SUMMARY_WORDS.most} words (this one is ${words}): a small report on the overall topic.`);
   const lines = s.split(/\r?\n/);
-  if (lines.some((l) => /^#\s/.test(l))) throw new SourceError("A summary's sections are level-2 headings (##); use ### inside one, never #.");
+  if (lines.some((l) => /^#\s/.test(l))) throw new ArtifactError("A summary's sections are level-2 headings (##); use ### inside one, never #.");
   const heads: { name: string; at: number }[] = [];
   lines.forEach((l, at) => {
     const m = /^##\s+(.+?)\s*#*\s*$/.exec(l);
@@ -160,38 +159,38 @@ export function summaryOf(v: unknown) {
   const fits =
     (names.length === 3 || (names.length === 4 && names[3] === OPTIONAL_SECTION.toLowerCase())) && want.every((w, i) => names[i] === w.toLowerCase());
   const form = `## ${SECTIONS.join(", ## ")} in that order, and if you like ## ${OPTIONAL_SECTION} last`;
-  if (!fits) throw new SourceError(`A summary's sections are ${form}${heads.length ? ` (this one has ${heads.map((h) => `## ${h.name}`).join(", ")})` : ""}.`);
-  if (lines.slice(0, heads[0].at).some((l) => l.trim())) throw new SourceError(`A summary starts with ## ${SECTIONS[0]}.`);
+  if (!fits) throw new ArtifactError(`A summary's sections are ${form}${heads.length ? ` (this one has ${heads.map((h) => `## ${h.name}`).join(", ")})` : ""}.`);
+  if (lines.slice(0, heads[0].at).some((l) => l.trim())) throw new ArtifactError(`A summary starts with ## ${SECTIONS[0]}.`);
   heads.forEach((h, i) => {
     const body = lines.slice(h.at + 1, heads[i + 1]?.at ?? lines.length);
-    if (!wordsOf(body.join("\n"))) throw new SourceError(`A summary's ## ${h.name} has something in it.`);
-    if (i === 1 && !body.some((l) => /^\s*([-*+]|\d+[.)])\s+\S/.test(l))) throw new SourceError(`A summary's ## ${SECTIONS[1]} are bullets (- …), each a claim, finding or number as the source puts it.`);
+    if (!wordsOf(body.join("\n"))) throw new ArtifactError(`A summary's ## ${h.name} has something in it.`);
+    if (i === 1 && !body.some((l) => /^\s*([-*+]|\d+[.)])\s+\S/.test(l))) throw new ArtifactError(`A summary's ## ${SECTIONS[1]} are bullets (- …), each a claim, finding or number as the artifact puts it.`);
   });
   return s;
 }
 
-const kindOf = (v: unknown): SourceKind => {
-  if (!SOURCE_KINDS.includes(v as SourceKind)) throw new SourceError(`A source's kind is one of ${SOURCE_KINDS.join(", ")}.`);
-  return v as SourceKind;
+const kindOf = (v: unknown): ArtifactKind => {
+  if (!ARTIFACT_KINDS.includes(v as ArtifactKind)) throw new ArtifactError(`An artifact's kind is one of ${ARTIFACT_KINDS.join(", ")}.`);
+  return v as ArtifactKind;
 };
 
 const originOf = (v: unknown): Origin => {
   if (!ORIGINS.includes(v as Origin))
-    throw new SourceError("A source's origin is 'human' (your operator pasted it) or 'agent' (you found it in your own research).");
+    throw new ArtifactError("An artifact's origin is 'human' (your operator pasted it) or 'agent' (you found it in your own research).");
   return v as Origin;
 };
 
 function tagsOf(v: unknown): string[] {
   if (v === undefined || v === null) return [];
-  if (!Array.isArray(v)) throw new SourceError("A source's tags are a list of words.");
+  if (!Array.isArray(v)) throw new ArtifactError("An artifact's tags are a list of words.");
   const out: string[] = [];
   for (const t of v) {
     const n = `${t ?? ""}`.trim().toLowerCase().replace(/\s+/g, " ");
     if (!n) continue;
-    if (chars(n) > 40) throw new SourceError("A tag is at most 40 characters.");
+    if (chars(n) > 40) throw new ArtifactError("A tag is at most 40 characters.");
     if (!out.includes(n)) out.push(n);
   }
-  if (out.length > TAGS_MOST) throw new SourceError(`A source has at most ${TAGS_MOST} tags.`);
+  if (out.length > TAGS_MOST) throw new ArtifactError(`An artifact has at most ${TAGS_MOST} tags.`);
   return out;
 }
 
@@ -200,7 +199,7 @@ function publishedOf(v: unknown): string | null {
   const s = `${v}`.trim();
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
   const d = m ? new Date(`${s}T00:00:00Z`) : null;
-  if (!m || !d || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s) throw new SourceError("A source's published date is YYYY-MM-DD.");
+  if (!m || !d || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s) throw new ArtifactError("An artifact's published date is YYYY-MM-DD.");
   return s;
 }
 
@@ -208,31 +207,31 @@ type AuthorGiven = { id: string } | { name: string; kind: string; url: string | 
 
 function authorsGiven(v: unknown): AuthorGiven[] {
   if (!Array.isArray(v) || !v.length)
-    throw new SourceError("A source has at least one author: each an author's id (list_authors), or a new one { name, kind: person | organization }; where no person is named, its publisher as an organization.");
-  if (v.length > AUTHORS_MOST) throw new SourceError(`A source has at most ${AUTHORS_MOST} authors.`);
+    throw new ArtifactError("An artifact has at least one author: each an author's id (list_authors), or a new one { name, kind: person | organization }; where no person is named, its publisher as an organization.");
+  if (v.length > AUTHORS_MOST) throw new ArtifactError(`An artifact has at most ${AUTHORS_MOST} authors.`);
   const ids = new Set<string>();
   return v.map((a: any, i): AuthorGiven => {
     if (a && typeof a === "object" && a.id !== undefined) {
       const id = `${a.id}`;
-      if (!UUID.test(id)) throw new SourceError(`Author ${i + 1} is named by an author's id, a UUID (list_authors gives it).`);
-      if (ids.has(id)) throw new SourceError(`Author ${i + 1} is named twice.`);
+      if (!UUID.test(id)) throw new ArtifactError(`Author ${i + 1} is named by an author's id, a UUID (list_authors gives it).`);
+      if (ids.has(id)) throw new ArtifactError(`Author ${i + 1} is named twice.`);
       ids.add(id);
       return { id };
     }
     const name = `${a?.name ?? ""}`.trim().replace(/\s+/g, " ");
-    if (!name) throw new SourceError(`Author ${i + 1} is an author's id or a new one with a name.`);
-    if (chars(name) > 200) throw new SourceError(`Author ${i + 1}'s name is at most 200 characters.`);
-    if (!AUTHOR_KINDS.includes(a?.kind)) throw new SourceError(`Author ${i + 1}'s kind is person or organization.`);
+    if (!name) throw new ArtifactError(`Author ${i + 1} is an author's id or a new one with a name.`);
+    if (chars(name) > 200) throw new ArtifactError(`Author ${i + 1}'s name is at most 200 characters.`);
+    if (!AUTHOR_KINDS.includes(a?.kind)) throw new ArtifactError(`Author ${i + 1}'s kind is person or organization.`);
     let url: string | null = null;
     if (a?.url !== undefined && a?.url !== null && a?.url !== "") {
       try {
         url = urlOf(a.url);
       } catch {
-        throw new SourceError(`Author ${i + 1}'s url is an http(s) link.`);
+        throw new ArtifactError(`Author ${i + 1}'s url is an http(s) link.`);
       }
     }
     const note = a?.note ? `${a.note}`.trim() : null;
-    if (note && chars(note) > 600) throw new SourceError(`Author ${i + 1}'s note is at most 600 characters.`);
+    if (note && chars(note) > 600) throw new ArtifactError(`Author ${i + 1}'s note is at most 600 characters.`);
     return { name, kind: a.kind, url, note: note || null };
   });
 }
@@ -243,10 +242,10 @@ const TEXT_TYPE = "text/plain";
 
 async function keepText(db: Queryable, store: BlobStore, text: unknown, title: string): Promise<string | null> {
   if (text === undefined || text === null || text === "") return null;
-  if (typeof text !== "string") throw new SourceError("A source's text is the page's readable text, as a string.");
-  if (/\u0000/.test(text)) throw new SourceError("A source's text is text: no NUL characters.");
+  if (typeof text !== "string") throw new ArtifactError("An artifact's text is the page's readable text, as a string.");
+  if (/\u0000/.test(text)) throw new ArtifactError("An artifact's text is text: no NUL characters.");
   const bytes = new TextEncoder().encode(text);
-  if (bytes.length > TEXT_MOST) throw new SourceError(`A source's text is at most ${TEXT_MOST / 1e6} MB.`, 413);
+  if (bytes.length > TEXT_MOST) throw new ArtifactError(`An artifact's text is at most ${TEXT_MOST / 1e6} MB.`, 413);
   const hash = hashBytes(bytes);
   const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, TEXT_TYPE);
   await db.query(
@@ -259,14 +258,14 @@ async function keepText(db: Queryable, store: BlobStore, text: unknown, title: s
 
 // ---- reading
 
-const SOURCE_COLUMNS = `s.id, s.url, s.title, s.description, s.kind, s.tags, to_char(s.published, 'YYYY-MM-DD') AS published, s.origin,
+const ARTIFACT_COLUMNS = `s.id, s.url, s.title, s.description, s.kind, s.tags, to_char(s.published, 'YYYY-MM-DD') AS published, s.origin,
   s.created, s.updated_at, s.text_hash, s.agent_id, ag.name AS agent, s.operator_id, op.name AS operator, up.name AS updated_by,
   COALESCE((SELECT json_agg(json_build_object('id', a.id, 'name', a.name, 'kind', a.kind, 'url', a.url) ORDER BY sa.position)
-              FROM play.source_authors sa JOIN play.authors a ON a.id = sa.author_id WHERE sa.source_id = s.id), '[]'::json) AS authors`;
-const SOURCE_FROM = `play.sources s JOIN play.agents ag ON ag.id = s.agent_id
+              FROM play.artifact_authors sa JOIN play.authors a ON a.id = sa.author_id WHERE sa.artifact_id = s.id), '[]'::json) AS authors`;
+const ARTIFACT_FROM = `play.artifacts s JOIN play.agents ag ON ag.id = s.agent_id
   LEFT JOIN play.humans op ON op.id = s.operator_id LEFT JOIN play.humans up ON up.id = s.updated_by`;
 
-/** who brought a source, as it is shown */
+/** who brought an artifact, as it is shown */
 const byOf = (origin: Origin, operator: string | null, agent: string) =>
   origin === "human" ? `Added by ${operator ?? "a former member"}` : `Sourced by ${agent}`;
 
@@ -290,29 +289,29 @@ const shape = (r: any, whole = false) => ({
 
 const idOf = (v: unknown, what: string) => {
   const id = `${v ?? ""}`;
-  if (!UUID.test(id)) throw new SourceError(`A ${what} is named by its id, a UUID (list_${what}s gives it).`, 404);
+  if (!UUID.test(id)) throw new ArtifactError(`${what === "artifact" ? "An" : "A"} ${what} is named by its id, a UUID (list_${what}s gives it).`, 404);
   return id;
 };
 
-async function sourceRow(db: Queryable, id: string) {
-  const { rows } = await db.query(`SELECT ${SOURCE_COLUMNS}, s.summary FROM ${SOURCE_FROM} WHERE s.coop_id = $1 AND s.id = $2`, [COOP, id]);
-  if (!rows[0]) throw new SourceError("No source is kept by that id.", 404);
+async function artifactRow(db: Queryable, id: string) {
+  const { rows } = await db.query(`SELECT ${ARTIFACT_COLUMNS}, s.summary FROM ${ARTIFACT_FROM} WHERE s.coop_id = $1 AND s.id = $2`, [COOP, id]);
+  if (!rows[0]) throw new ArtifactError("No artifact is kept by that id.", 404);
   return shape(rows[0], true);
 }
 
-/** One source, whole: its three texts, kind, tags, date, link, who brought it, its authors in order, and its text's hash. */
-export async function sourceOf(db: Queryable, me: Me | null, id: unknown) {
+/** One artifact, whole: its three texts, kind, tags, date, link, who brought it, its authors in order, and its text's hash. */
+export async function artifactOf(db: Queryable, me: Me | null, id: unknown) {
   admin(me);
-  return sourceRow(db, idOf(id, "source"));
+  return artifactRow(db, idOf(id, "artifact"));
 }
 
-export type SourceQuery = { q?: string | null; author?: string | null; tag?: string | null; kind?: string | null; origin?: string | null; offset?: number; limit?: number };
+export type ArtifactQuery = { q?: string | null; author?: string | null; tag?: string | null; kind?: string | null; origin?: string | null; offset?: number; limit?: number };
 
 /**
- * The sources, newest first, a page at a time, with how many match: `q` in a title, description, summary, link or an
- * author's name; an author (their id), a tag, a kind and an origin narrow them. Each without its summary (get_source).
+ * The artifacts, newest first, a page at a time, with how many match: `q` in a title, description, summary, link or an
+ * author's name; an author (their id), a tag, a kind and an origin narrow them. Each without its summary (get_artifact).
  */
-export async function listSources(db: Queryable, me: Me | null, o: SourceQuery = {}) {
+export async function listArtifacts(db: Queryable, me: Me | null, o: ArtifactQuery = {}) {
   admin(me);
   const where = ["s.coop_id = $1"];
   const args: unknown[] = [COOP];
@@ -321,44 +320,44 @@ export async function listSources(db: Queryable, me: Me | null, o: SourceQuery =
   if (q) {
     const p = arg(`%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
     where.push(`(lower(s.title) LIKE ${p} OR lower(s.description) LIKE ${p} OR lower(s.summary) LIKE ${p} OR lower(s.url) LIKE ${p}
-      OR EXISTS (SELECT 1 FROM play.source_authors sa JOIN play.authors a ON a.id = sa.author_id WHERE sa.source_id = s.id AND lower(a.name) LIKE ${p}))`);
+      OR EXISTS (SELECT 1 FROM play.artifact_authors sa JOIN play.authors a ON a.id = sa.author_id WHERE sa.artifact_id = s.id AND lower(a.name) LIKE ${p}))`);
   }
-  if (o.author) where.push(`EXISTS (SELECT 1 FROM play.source_authors sa WHERE sa.source_id = s.id AND sa.author_id = ${arg(idOf(o.author, "author"))})`);
+  if (o.author) where.push(`EXISTS (SELECT 1 FROM play.artifact_authors sa WHERE sa.artifact_id = s.id AND sa.author_id = ${arg(idOf(o.author, "author"))})`);
   if (o.tag) where.push(`${arg(`${o.tag}`.trim().toLowerCase())} = ANY(s.tags)`);
   if (o.kind) where.push(`s.kind = ${arg(kindOf(o.kind))}`);
   if (o.origin) where.push(`s.origin = ${arg(originOf(o.origin))}`);
   const limit = Math.max(1, Math.min(200, Math.floor(Number(o.limit ?? 50)) || 50));
   const offset = Math.max(0, Math.floor(Number(o.offset ?? 0)) || 0);
   const w = where.join(" AND ");
-  const total = (await db.query<{ n: string }>(`SELECT count(*) AS n FROM play.sources s WHERE ${w}`, args)).rows[0];
-  const { rows } = await db.query(`SELECT ${SOURCE_COLUMNS} FROM ${SOURCE_FROM} WHERE ${w} ORDER BY s.created DESC, s.id LIMIT ${arg(limit)} OFFSET ${arg(offset)}`, args);
-  // every source in the coop, by origin and by kind, and its tags, most used first: the page's filters
-  const tags = await db.query<{ tag: string; n: string }>(`SELECT t AS tag, count(*) AS n FROM play.sources, unnest(tags) t WHERE coop_id = $1 GROUP BY t ORDER BY count(*) DESC, t LIMIT 100`, [COOP]);
-  const by = await db.query<{ origin: Origin; kind: SourceKind; n: string }>(`SELECT origin, kind, count(*) AS n FROM play.sources WHERE coop_id = $1 GROUP BY origin, kind`, [COOP]);
-  const counts = { all: 0, origin: Object.fromEntries(ORIGINS.map((o) => [o, 0])) as Record<Origin, number>, kind: Object.fromEntries(SOURCE_KINDS.map((k) => [k, 0])) as Record<SourceKind, number> };
+  const total = (await db.query<{ n: string }>(`SELECT count(*) AS n FROM play.artifacts s WHERE ${w}`, args)).rows[0];
+  const { rows } = await db.query(`SELECT ${ARTIFACT_COLUMNS} FROM ${ARTIFACT_FROM} WHERE ${w} ORDER BY s.created DESC, s.id LIMIT ${arg(limit)} OFFSET ${arg(offset)}`, args);
+  // every artifact in the coop, by origin and by kind, and its tags, most used first: the page's filters
+  const tags = await db.query<{ tag: string; n: string }>(`SELECT t AS tag, count(*) AS n FROM play.artifacts, unnest(tags) t WHERE coop_id = $1 GROUP BY t ORDER BY count(*) DESC, t LIMIT 100`, [COOP]);
+  const by = await db.query<{ origin: Origin; kind: ArtifactKind; n: string }>(`SELECT origin, kind, count(*) AS n FROM play.artifacts WHERE coop_id = $1 GROUP BY origin, kind`, [COOP]);
+  const counts = { all: 0, origin: Object.fromEntries(ORIGINS.map((o) => [o, 0])) as Record<Origin, number>, kind: Object.fromEntries(ARTIFACT_KINDS.map((k) => [k, 0])) as Record<ArtifactKind, number> };
   for (const r of by.rows) {
     const k = Number(r.n);
     counts.all += k;
     counts.origin[r.origin] += k;
     counts.kind[r.kind] += k;
   }
-  return { total: Number(total?.n ?? 0), offset, limit, sources: rows.map((r) => shape(r)), tags: tags.rows.map((t) => ({ tag: t.tag, count: Number(t.n) })), counts };
+  return { total: Number(total?.n ?? 0), offset, limit, artifacts: rows.map((r) => shape(r)), tags: tags.rows.map((t) => ({ tag: t.tag, count: Number(t.n) })), counts };
 }
 
-/** The authors, by name, those whose name holds `q`: each with how many sources name them. */
+/** The authors, by name, those whose name holds `q`: each with how many artifacts name them. */
 export async function listAuthors(db: Queryable, me: Me | null, o: { q?: string | null } = {}) {
   admin(me);
   const q = `${o.q ?? ""}`.trim().toLowerCase();
   const { rows } = await db.query(
-    `SELECT a.id, a.name, a.kind, a.url, a.note, a.created, (SELECT count(*) FROM play.source_authors sa WHERE sa.author_id = a.id) AS sources
+    `SELECT a.id, a.name, a.kind, a.url, a.note, a.created, (SELECT count(*) FROM play.artifact_authors sa WHERE sa.author_id = a.id) AS artifacts
        FROM play.authors a WHERE a.coop_id = $1 AND ($2 = '' OR lower(a.name) LIKE '%' || $2 || '%')
       ORDER BY lower(a.name), a.created LIMIT 500`,
     [COOP, q],
   );
-  return rows.map((r: any) => ({ id: r.id, name: r.name, kind: r.kind, url: r.url, note: r.note, sources: Number(r.sources), created: new Date(r.created).toISOString() }));
+  return rows.map((r: any) => ({ id: r.id, name: r.name, kind: r.kind, url: r.url, note: r.note, artifacts: Number(r.artifacts), created: new Date(r.created).toISOString() }));
 }
 
-/** One author, with every source that names them, newest first. */
+/** One author, with every artifact that names them, newest first. */
 export async function authorOf(db: Queryable, me: Me | null, id: unknown) {
   admin(me);
   const aid = idOf(id, "author");
@@ -369,13 +368,13 @@ export async function authorOf(db: Queryable, me: Me | null, id: unknown) {
     [COOP, aid],
   );
   const a: any = rows[0];
-  if (!a) throw new SourceError("No author is kept by that id.", 404);
-  const { rows: sources } = await db.query(
-    `SELECT ${SOURCE_COLUMNS} FROM ${SOURCE_FROM} WHERE s.coop_id = $1 AND EXISTS (SELECT 1 FROM play.source_authors sa WHERE sa.source_id = s.id AND sa.author_id = $2)
+  if (!a) throw new ArtifactError("No author is kept by that id.", 404);
+  const { rows: artifacts } = await db.query(
+    `SELECT ${ARTIFACT_COLUMNS} FROM ${ARTIFACT_FROM} WHERE s.coop_id = $1 AND EXISTS (SELECT 1 FROM play.artifact_authors sa WHERE sa.artifact_id = s.id AND sa.author_id = $2)
       ORDER BY s.created DESC, s.id`,
     [COOP, aid],
   );
-  return { id: a.id, name: a.name, kind: a.kind, url: a.url, note: a.note, created: new Date(a.created).toISOString(), agent: a.agent, operator: a.operator, sources: sources.map((r) => shape(r)) };
+  return { id: a.id, name: a.name, kind: a.kind, url: a.url, note: a.note, created: new Date(a.created).toISOString(), agent: a.agent, operator: a.operator, artifacts: artifacts.map((r) => shape(r)) };
 }
 
 // ---- writing (over MCP only: avenMAIA, for the admin whose token connected it)
@@ -386,7 +385,7 @@ async function authorIds(tx: Queryable, me: Me, given: AuthorGiven[]): Promise<s
   for (const [i, a] of given.entries()) {
     if ("id" in a) {
       const { rows } = await tx.query(`SELECT id FROM play.authors WHERE coop_id = $1 AND id = $2`, [COOP, a.id]);
-      if (!rows[0]) throw new SourceError(`Author ${i + 1} (${a.id}) is not kept: list_authors gives the ids, or give a new one { name, kind }.`, 404);
+      if (!rows[0]) throw new ArtifactError(`Author ${i + 1} (${a.id}) is not kept: list_authors gives the ids, or give a new one { name, kind }.`, 404);
       out.push(a.id);
     } else {
       const id = newId();
@@ -399,26 +398,26 @@ async function authorIds(tx: Queryable, me: Me, given: AuthorGiven[]): Promise<s
   return out;
 }
 
-async function setAuthors(tx: Queryable, source: string, ids: string[]) {
-  await tx.query(`DELETE FROM play.source_authors WHERE source_id = $1`, [source]);
+async function setAuthors(tx: Queryable, artifact: string, ids: string[]) {
+  await tx.query(`DELETE FROM play.artifact_authors WHERE artifact_id = $1`, [artifact]);
   for (const [position, author] of ids.entries())
-    await tx.query(`INSERT INTO play.source_authors (source_id, author_id, position) VALUES ($1, $2, $3)`, [source, author, position]);
+    await tx.query(`INSERT INTO play.artifact_authors (artifact_id, author_id, position) VALUES ($1, $2, $3)`, [artifact, author, position]);
 }
 
-export type SourceGiven = {
+export type ArtifactGiven = {
   url?: unknown; title?: unknown; description?: unknown; summary?: unknown; authors?: unknown;
   kind?: unknown; tags?: unknown; published?: unknown; origin?: unknown; text?: unknown;
 };
 
 /**
- * Keep a source, as avenMAIA's for the admin whose token connected it. A link already kept is not kept again: the answer
- * is that source, `kept: true` (correct it with updateSource).
+ * Keep an artifact, as avenMAIA's for the admin whose token connected it. A link already kept is not kept again: the answer
+ * is that artifact, `kept: true` (correct it with updateArtifact).
  */
-export async function addSource(db: Db, store: BlobStore, me: Me | null, b: SourceGiven) {
+export async function addArtifact(db: Db, store: BlobStore, me: Me | null, b: ArtifactGiven) {
   const who = admin(me);
   const url = urlOf(b?.url);
-  const kept = await db.query<{ id: string }>(`SELECT id FROM play.sources WHERE coop_id = $1 AND url = $2`, [COOP, url]);
-  if (kept.rows[0]) return { ...(await sourceRow(db, kept.rows[0].id)), kept: true };
+  const kept = await db.query<{ id: string }>(`SELECT id FROM play.artifacts WHERE coop_id = $1 AND url = $2`, [COOP, url]);
+  if (kept.rows[0]) return { ...(await artifactRow(db, kept.rows[0].id)), kept: true };
   const title = titleOf(b?.title);
   const description = descriptionOf(b?.description);
   const summary = summaryOf(b?.summary);
@@ -431,7 +430,7 @@ export async function addSource(db: Db, store: BlobStore, me: Me | null, b: Sour
   const id = newId();
   const made = await db.transaction(async (tx) => {
     const { rows } = await tx.query<{ id: string }>(
-      `INSERT INTO play.sources (id, coop_id, url, title, description, summary, kind, tags, published, text_hash, agent_id, origin, operator_id, token_id)
+      `INSERT INTO play.artifacts (id, coop_id, url, title, description, summary, kind, tags, published, text_hash, agent_id, origin, operator_id, token_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) ON CONFLICT (coop_id, url) DO NOTHING RETURNING id`,
       [id, COOP, url, title, description, summary, kind, tags, published, text, AVENMAIA, origin, who.id, who.token ?? null],
     );
@@ -441,30 +440,30 @@ export async function addSource(db: Db, store: BlobStore, me: Me | null, b: Sour
   });
   if (!made) {
     // kept a moment ago by another agent
-    const { rows } = await db.query<{ id: string }>(`SELECT id FROM play.sources WHERE coop_id = $1 AND url = $2`, [COOP, url]);
-    return { ...(await sourceRow(db, rows[0].id)), kept: true };
+    const { rows } = await db.query<{ id: string }>(`SELECT id FROM play.artifacts WHERE coop_id = $1 AND url = $2`, [COOP, url]);
+    return { ...(await artifactRow(db, rows[0].id)), kept: true };
   }
-  return { ...(await sourceRow(db, id)), kept: false };
+  return { ...(await artifactRow(db, id)), kept: false };
 }
 
 /**
- * Correct a kept source: any of its texts, link, kind, tags, date, authors (the whole list, in order) and text, each
+ * Correct a kept artifact: any of its texts, link, kind, tags, date, authors (the whole list, in order) and text, each
  * held to the same form; who changed it and when are kept. Its origin, agent and operator never change.
  */
-export async function updateSource(db: Db, store: BlobStore, me: Me | null, source: unknown, b: SourceGiven) {
+export async function updateArtifact(db: Db, store: BlobStore, me: Me | null, artifact: unknown, b: ArtifactGiven) {
   const who = admin(me);
-  const id = idOf(source, "source");
-  const now = await sourceRow(db, id);
+  const id = idOf(artifact, "artifact");
+  const now = await artifactRow(db, id);
   if (b && "origin" in b && b.origin !== undefined && b.origin !== now.origin)
-    throw new SourceError("A source's origin is kept as it came: who brought it never changes.");
+    throw new ArtifactError("An artifact's origin is kept as it came: who brought it never changes.");
   const set: string[] = [];
   const args: unknown[] = [id];
   const put = (col: string, v: unknown) => (args.push(v), set.push(`${col} = $${args.length}`));
   if (b?.url !== undefined) {
     const url = urlOf(b.url);
     if (url !== now.url) {
-      const { rows } = await db.query<{ id: string }>(`SELECT id FROM play.sources WHERE coop_id = $1 AND url = $2`, [COOP, url]);
-      if (rows[0]) throw new SourceError(`That link is kept already, as source ${rows[0].id}.`, 409);
+      const { rows } = await db.query<{ id: string }>(`SELECT id FROM play.artifacts WHERE coop_id = $1 AND url = $2`, [COOP, url]);
+      if (rows[0]) throw new ArtifactError(`That link is kept already, as artifact ${rows[0].id}.`, 409);
       put("url", url);
     }
   }
@@ -476,12 +475,12 @@ export async function updateSource(db: Db, store: BlobStore, me: Me | null, sour
   if (b?.published !== undefined) put("published", publishedOf(b.published));
   const authors = b?.authors !== undefined ? authorsGiven(b.authors) : null;
   if (b?.text !== undefined) put("text_hash", await keepText(db, store, b.text, `${b?.title ?? now.title}`));
-  if (!set.length && !authors) throw new SourceError("Nothing to change: give the fields to correct.");
+  if (!set.length && !authors) throw new ArtifactError("Nothing to change: give the fields to correct.");
   await db.transaction(async (tx) => {
     args.push(who.id);
     set.push(`updated_by = $${args.length}`, "updated_at = now()");
-    await tx.query(`UPDATE play.sources SET ${set.join(", ")} WHERE id = $1`, args);
+    await tx.query(`UPDATE play.artifacts SET ${set.join(", ")} WHERE id = $1`, args);
     if (authors) await setAuthors(tx, id, await authorIds(tx, who, authors));
   });
-  return sourceRow(db, id);
+  return artifactRow(db, id);
 }

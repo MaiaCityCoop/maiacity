@@ -4,7 +4,7 @@
 	only for everyone else, Samuel 2026-11-04); the Game Worlds, the four sandboxes, open to every traveler; then the
 	apps — a tile for each group of the asset library (plants, animals, things, machines, buildings, biomes;
 	$lib/app/groups.ts) and the factories — and, for an admin acting as Maia City (the nav pill's You menu), the coop's
-	own: its stories, its Library, its Sources, the Game editor, its members, invites and its Postgres. The proposals are no tile:
+	own: its stories, its Library, its Artifacts, the Game editor, its members, invites and its Postgres. The proposals are no tile:
 	they open from the nav pill's star over any page (Samuel 2026-11-05).
 -->
 <script lang="ts">
@@ -39,8 +39,9 @@
 		{ href: '/stories/', label: 'Stories', note: 'Our films as timelines: storyboard, voice, notes', icon: 'studio' },
 		// every image, video and recording play keeps, labelled, and where the stories use it (routes/library, Samuel 2026-11-04)
 		{ href: '/library/', label: 'Library', note: 'Every image, video and recording play keeps', icon: 'media' },
-		// every link from the net Maia City keeps, its summaries and its authors, kept by avenMAIA (routes/sources, Samuel 2026-11-06)
-		{ href: '/sources/', label: 'Sources', note: 'Every link we keep, summarized, with its authors', icon: 'link' },
+		// every link from the net Maia City keeps, its summaries and its authors, kept by avenMAIA: all of them artifacts
+		// (routes/artifacts, Samuel 2026-11-06)
+		{ href: '/artifacts/', label: 'Artifacts', note: 'Every link we keep, summarized, with its authors', icon: 'link' },
 		// the game's configs, each a Loro document, first the levelling (routes/game-editor, Samuel 2026-11-04)
 		{ href: '/game-editor/', label: 'Game editor', note: 'The game\'s configs: how a village grows', icon: 'gear' },
 		{ href: '/admin/', label: 'Members', note: 'Who holds which level', icon: 'coops' },

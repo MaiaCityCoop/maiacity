@@ -456,56 +456,56 @@ proposals.intent_id → intents NOT NULL  -- the intent a proposal was made for
   and its Close. `/intents/` (and `/proposals/` from before; a link, a new tab) opens it over the dashboard, and a link
   to it from a page opens it over that page (`play/site/src/lib/site/intents`).
 
-### 4.13 Sources (Samuel 2026-11-06)
+### 4.13 Artifacts (Samuel 2026-11-06; first called Sources)
 
-Every link from the net Maia City keeps is a **source**: a web page, an article, a paper, a video, a social post, a book,
-a podcast, code. The Sources (`/sources/`) are the coop's library of what we read, quote and point to, so we can say
-where something comes from and have a proper summary of it to hand instead of a bare link. Admins only for now, every row
-the Maia City coop's (`play/api/src/websources.ts`; not `sources.ts`: a source is also an asset version's readable source).
+Every link from the net Maia City keeps is an **artifact**: a web page, an article, a paper, a video, a social post, a
+book, a podcast, code; all of them artifacts. The Artifacts (`/artifacts/`) are the coop's library of what we read, quote
+and point to, so we can say where something comes from and have a proper summary of it to hand instead of a bare link.
+Admins only for now, every row the Maia City coop's (`play/api/src/artifacts.ts`).
 
 - **avenMAIA is every agent connected over MCP**, whatever its client, session or token: one row of `play.agents`, named
   by `uuidOf('agent:avenmaia')` (`AVENMAIA` in `play/api/src/ids.ts`), its name only shown. It is no human (no
   membership, no passkey, no level) and acts only through an admin's token; `initialize`'s instructions tell every
   connected agent that on play it is avenMAIA, working for the admin whose token connected it (its **operator**).
-- **Who brought it.** Every source is avenMAIA's and names its operator, and its **origin**: `human`, a link the
-  operator pasted to their agent, shown **Added by <the operator>**; `agent`, a source avenMAIA found and used in its
+- **Who brought it.** Every artifact is avenMAIA's and names its operator, and its **origin**: `human`, a link the
+  operator pasted to their agent, shown **Added by <the operator>**; `agent`, an artifact avenMAIA found and used in its
   own research (a plant's numbers, a claim in a story, a technique), shown **Sourced by avenMAIA**. The MCP teaches every
   agent to keep both. Who brought it never changes.
-- **The three texts**, written by avenMAIA from the source itself and held to their form by play (refused otherwise,
+- **The three texts**, written by avenMAIA from the artifact itself and held to their form by play (refused otherwise,
   saying which): the **title**, very compact (one line, at most 70 characters, without the site's or channel's name);
   the **description**, the mini summary (1–2 sentences, one line, at most 280 characters, no Markdown); the
   **summary**, a small report on the overall topic (Markdown, **500–1,500 words**, in the sections `## What it is`,
   `## Key points` as bullets, `## The topic`, and if it likes `## For Maia City` last). Words are counted on the
   Markdown's text: headings', bullets' and links' words, not their marks or a link's address.
 - **Authors** are rows of their own (`play.authors`: a person or an organization, its page and a note), n:m with the
-  sources in their order (`play.source_authors`). A source has at least one: where no person is named, its publisher as
+  artifacts in their order (`play.artifact_authors`). An artifact has at least one: where no person is named, its publisher as
   an organization. An agent finds an author with `list_authors` and names them by their UUID; a new one is made only
   when none is them, and two of one name stay two (nothing is looked up or merged by a name, §4.7).
-- **One link, one source.** A link is kept normalised: http(s) only, its scheme and host lower-cased, its `#fragment`,
+- **One link, one artifact.** A link is kept normalised: http(s) only, its scheme and host lower-cased, its `#fragment`,
   `utm_*`, `fbclid` and `gclid` dropped, a trailing slash dropped, a YouTube video one link however it is written
   (`youtu.be/<id>`, `/shorts/`, `/embed/`, `m.youtube.com` → `https://www.youtube.com/watch?v=<id>`); unique in the coop.
-  Adding a link already kept answers with that source (`kept: true`); `update_source` corrects one. A source is still
+  Adding a link already kept answers with that artifact (`kept: true`); `update_artifact` corrects one. An artifact is still
   named by its UUID: its link is only data.
-- **The page as it was**: `add_source` may take the page's readable text as fetched, kept among play's files by its hash
+- **The page as it was**: `add_artifact` may take the page's readable text as fetched, kept among play's files by its hash
   (`text/plain`, not shown in the Library), since links rot and pages change.
-- **Not a proposal**, and nothing typed in by hand: a source is kept directly over MCP, like a Library label.
-  Citing (stories, asset versions and intents naming the sources they rest on) comes later.
+- **Not a proposal**, and nothing typed in by hand: an artifact is kept directly over MCP, like a Library label.
+  Citing (stories, asset versions and intents naming the artifacts they rest on) comes later.
 
 ```sql
-agents         (id UUID, coop_id, name /*only shown*/, created)            -- avenMAIA, seeded by 0027-sources
-sources        (id UUID, coop_id, url /*normalised, unique per coop*/, title /*≤ 70*/, description /*≤ 280*/,
+agents         (id UUID, coop_id, name /*only shown*/, created)            -- avenMAIA, seeded by 0027-artifacts
+artifacts        (id UUID, coop_id, url /*normalised, unique per coop*/, title /*≤ 70*/, description /*≤ 280*/,
                 summary /*Markdown, 500–1,500 words*/, kind /*page|article|paper|video|post|book|podcast|code|other*/,
                 tags text[], published date, text_hash → files, agent_id → agents, origin /*human|agent*/,
                 operator_id → humans, token_id → api_tokens, created, updated_by → humans, updated_at)
 authors        (id UUID, coop_id, name /*only shown*/, kind /*person|organization*/, url, note, agent_id, operator_id, created)
-source_authors (source_id → sources, author_id → authors, position)    -- n:m, in order
+artifact_authors (artifact_id → artifacts, author_id → authors, position)    -- n:m, in order
 ```
 
-Over MCP: `add_source`, `update_source`, `list_sources` (`q` in a title, description, summary, link or an author's name;
-`author`, `tag`, `kind`, `origin`; newest first, paged), `get_source`, `list_authors`, `get_author`. The page
-(`/sources/`, a tile among the coop's own beside the Library) lists them newest first, each its title alone (its description is the opened source's, so a list stays short), kind,
+Over MCP: `add_artifact`, `update_artifact`, `list_artifacts` (`q` in a title, description, summary, link or an author's name;
+`author`, `tag`, `kind`, `origin`; newest first, paged), `get_artifact`, `list_authors`, `get_author`. The page
+(`/artifacts/`, a tile among the coop's own beside the Library) lists them newest first, each its title alone (its description is the opened artifact's, so a list stays short), kind,
 date, authors, tags, its link (a new tab) and who brought it, filtered down its left by who brought it, kind, tag and
-author; a source opens to be read (`?source=<uuid>`: its summary as Markdown, its authors), an author to their sources
+author; an artifact opens to be read (`?artifact=<uuid>`: its summary as Markdown, its authors), an author to their artifacts
 (`?author=<uuid>`).
 
 ## 5. The sandboxes
@@ -565,9 +565,9 @@ still only adds what is missing and changes nothing that is there.
   Samuel 2026-11-04); no tool accepts.
 - Intents (admin): `GET /api/intents`, `GET /api/intents/:id`, `POST /api/intents/:id/{approve,respecify,accept,reject,reopen}`;
   intents are added, specified and checked over MCP only (§4.12).
-- Sources (admin): `GET /api/sources` (`?q=&author=&tag=&kind=&origin=human|agent&offset=&limit=`, with the count and
-  the counts by origin, kind and tag), `GET /api/sources/:id`, `GET /api/authors` (`?q=`), `GET /api/authors/:id` (with
-  their sources); sources are kept over MCP only, by avenMAIA (§4.13).
+- Artifacts (admin): `GET /api/artifacts` (`?q=&author=&tag=&kind=&origin=human|agent&offset=&limit=`, with the count and
+  the counts by origin, kind and tag), `GET /api/artifacts/:id`, `GET /api/authors` (`?q=`), `GET /api/authors/:id` (with
+  their artifacts); artifacts are kept over MCP only, by avenMAIA (§4.13).
 - Coop (admin+): `GET/POST /api/coops/:id/members`, `POST /api/invites`; `POST /api/invites/:code/claim` (makes the
   claimer a citizen).
 
@@ -577,7 +577,7 @@ Every route checks the caller's level against `level_rules`; a visitor gets 401 
 
 `/` sign in or sign up · `/sandbox-1/` · `/sandbox-2/` · `/sandbox-3/` · `/sandbox-4/` · `/sandbox-5/` · `/assets/` (library; an asset's versions as
 a chain, its variants, a viewer) · the intents (a modal from the nav pill's star, not a page: Idea, Specify, Prototype, Proposal, Accepted, Archived; §4.12) · `/game/` (placeholder; claim an invite to become a citizen) ·
-`/admin/` (members, invites) · `/sources/` (admins: every link we keep, §4.13).
+`/admin/` (members, invites) · `/artifacts/` (admins: every link we keep, §4.13).
 
 **The Library** (`/library/`, Samuel 2026-11-04; `play/api/src/library.ts`): every image, video and recording play
 keeps among its `files` (§4.3), newest first, for Maia City's admins only. Each shows its preview (a video plays,

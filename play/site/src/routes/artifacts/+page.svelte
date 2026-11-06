@@ -1,11 +1,11 @@
 <!--
-	The Sources (Samuel 2026-11-06; play/SPEC.md §4.13, play/api/src/websources.ts): every link from the net Maia City
-	keeps, kept over MCP by avenMAIA, the one identity of every agent connected there, for the admin whose token it came
+	The Artifacts (Samuel 2026-11-06, first called Sources; play/SPEC.md §4.13, play/api/src/artifacts.ts): every link from
+	the net Maia City keeps, all of them artifacts, kept over MCP by avenMAIA, the one identity of every agent connected there, for the admin whose token it came
 	by. Laid out as the Library is (its Frame): down the left a search and the filters (who brought it, its kind, its
-	tags, its authors); in the middle the sources, newest first, each its title, kind, date, authors, tags,
-	its link (a new tab) and "Added by <the operator>" or "Sourced by avenMAIA". A source opens in the middle to be read
-	(?source=<uuid>): its summary, a small report on its topic, as Markdown, and its authors; an author opens to their
-	sources (?author=<uuid>). Read only: nothing here adds or changes one. Maia City's admins alone (the API says so too).
+	tags, its authors); in the middle the artifacts, newest first, each its title, kind, date, authors, tags,
+	its link (a new tab) and "Added by <the operator>" or "Sourced by avenMAIA". An artifact opens in the middle to be read
+	(?artifact=<uuid>): its summary, a small report on its topic, as Markdown, and its authors; an author opens to their
+	artifacts (?author=<uuid>). Read only: nothing here adds or changes one. Maia City's admins alone (the API says so too).
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
@@ -19,36 +19,36 @@
 	const PAGE = 50;
 	type Origin = 'human' | 'agent';
 	type AuthorRef = { id: string; name: string; kind: 'person' | 'organization'; url: string | null };
-	type Source = {
+	type Artifact = {
 		id: string; url: string; title: string; description: string; summary?: string; kind: string; tags: string[]; published: string | null;
 		origin: Origin; by: string; authors: AuthorRef[]; created: string; text_hash?: string | null; updated_by?: string | null; updated_at?: string | null;
 	};
 	type Counts = { all: number; origin: Record<Origin, number>; kind: Record<string, number> };
-	type Page = { total: number; offset: number; limit: number; sources: Source[]; tags: { tag: string; count: number }[]; counts: Counts };
-	type Author = { id: string; name: string; kind: 'person' | 'organization'; url: string | null; note: string | null; sources: number };
-	type AuthorWhole = Omit<Author, 'sources'> & { created: string; sources: Source[] };
+	type Page = { total: number; offset: number; limit: number; artifacts: Artifact[]; tags: { tag: string; count: number }[]; counts: Counts };
+	type Author = { id: string; name: string; kind: 'person' | 'organization'; url: string | null; note: string | null; artifacts: number };
+	type AuthorWhole = Omit<Author, 'artifacts'> & { created: string; artifacts: Artifact[] };
 
 	const KINDS: Record<string, string> = { page: 'Web pages', article: 'Articles', paper: 'Papers', video: 'Videos', post: 'Posts', book: 'Books', podcast: 'Podcasts', code: 'Code', other: 'Other' };
-	const ONE: Record<string, string> = { page: 'Web page', article: 'Article', paper: 'Paper', video: 'Video', post: 'Post', book: 'Book', podcast: 'Podcast', code: 'Code', other: 'Source' };
+	const ONE: Record<string, string> = { page: 'Web page', article: 'Article', paper: 'Paper', video: 'Video', post: 'Post', book: 'Book', podcast: 'Podcast', code: 'Code', other: 'Artifact' };
 	const ORIGINS: { id: Origin; label: string }[] = [
 		{ id: 'human', label: 'Added by people' },
 		{ id: 'agent', label: 'Sourced by avenMAIA' }
 	];
 
-	// what the page shows, as its address says: the filters, and a source or an author opened
+	// what the page shows, as its address says: the filters, and an artifact or an author opened
 	let query = $state('');
 	let kind = $state('');
 	let tag = $state('');
 	let origin = $state<'' | Origin>('');
 	let authorId = $state('');
-	let sourceId = $state('');
+	let artifactId = $state('');
 
-	let sources = $state<Source[]>([]);
+	let artifacts = $state<Artifact[]>([]);
 	let total = $state(0);
 	let tags = $state<Page['tags']>([]);
 	let counts = $state<Counts | null>(null);
 	let authors = $state<Author[]>([]);
-	let opened = $state<Source | null>(null);
+	let opened = $state<Artifact | null>(null);
 	let author = $state<AuthorWhole | null>(null);
 	let loaded = $state(false);
 	let busy = $state(false);
@@ -67,10 +67,10 @@
 	const when = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 	const names = (a: AuthorRef[]) => a.map((x) => x.name).join(', ');
 
-	/** the page's address from what it shows: a source or an author opened, and the filters */
+	/** the page's address from what it shows: an artifact or an author opened, and the filters */
 	function address() {
 		const q = new URLSearchParams();
-		if (sourceId) q.set('source', sourceId);
+		if (artifactId) q.set('artifact', artifactId);
 		if (authorId) q.set('author', authorId);
 		if (query.trim()) q.set('q', query.trim());
 		if (kind) q.set('kind', kind);
@@ -81,7 +81,7 @@
 	}
 	function fromAddress() {
 		const q = new URLSearchParams(location.search);
-		sourceId = q.get('source') ?? '';
+		artifactId = q.get('artifact') ?? '';
 		authorId = q.get('author') ?? '';
 		query = q.get('q') ?? '';
 		kind = q.get('kind') ?? '';
@@ -90,19 +90,19 @@
 		origin = o === 'human' || o === 'agent' ? o : '';
 	}
 
-	/** a page of sources as the filters say: the first (again) or the next */
+	/** a page of artifacts as the filters say: the first (again) or the next */
 	async function load(more = false) {
 		busy = true;
 		error = '';
 		try {
-			const q = new URLSearchParams({ offset: String(more ? sources.length : 0), limit: String(PAGE) });
+			const q = new URLSearchParams({ offset: String(more ? artifacts.length : 0), limit: String(PAGE) });
 			if (query.trim()) q.set('q', query.trim());
 			if (kind) q.set('kind', kind);
 			if (tag) q.set('tag', tag);
 			if (origin) q.set('origin', origin);
 			if (authorId) q.set('author', authorId);
-			const page = await api<Page>(`/sources?${q}`);
-			sources = more ? [...sources, ...page.sources] : page.sources;
+			const page = await api<Page>(`/artifacts?${q}`);
+			artifacts = more ? [...artifacts, ...page.artifacts] : page.artifacts;
 			total = page.total;
 			tags = page.tags;
 			counts = page.counts;
@@ -113,23 +113,23 @@
 	}
 	async function loadAuthors() {
 		try {
-			authors = (await api<Author[]>('/authors')).sort((a, b) => b.sources - a.sources || a.name.localeCompare(b.name));
+			authors = (await api<Author[]>('/authors')).sort((a, b) => b.artifacts - a.artifacts || a.name.localeCompare(b.name));
 		} catch {
 			authors = [];
 		}
 	}
-	/** what the address names: the source opened, the author opened, and the list under the filters */
+	/** what the address names: the artifact opened, the author opened, and the list under the filters */
 	async function show() {
 		error = '';
 		opened = null;
 		author = null;
 		try {
-			if (sourceId) opened = await api<Source>(`/sources/${encodeURIComponent(sourceId)}`);
+			if (artifactId) opened = await api<Artifact>(`/artifacts/${encodeURIComponent(artifactId)}`);
 			if (authorId) author = await api<AuthorWhole>(`/authors/${encodeURIComponent(authorId)}`);
 		} catch (e) {
 			error = (e as Error).message;
 		}
-		if (!sourceId) await load();
+		if (!artifactId) await load();
 		loaded = true;
 	}
 	/** go to another view of the page: a new step in the history, so Back returns */
@@ -140,10 +140,10 @@
 		void show();
 		document.querySelector('.middle')?.scrollTo({ top: 0 });
 	}
-	const openSource = (id: string) => go(() => (sourceId = id));
-	const openAuthor = (id: string) => go(() => ((authorId = id), (sourceId = '')));
-	const filter = (change: () => void) => go(() => (change(), (sourceId = '')), false);
-	const all = () => go(() => ((sourceId = ''), (authorId = ''), (kind = ''), (tag = ''), (origin = ''), (query = '')));
+	const openArtifact = (id: string) => go(() => (artifactId = id));
+	const openAuthor = (id: string) => go(() => ((authorId = id), (artifactId = '')));
+	const filter = (change: () => void) => go(() => (change(), (artifactId = '')), false);
+	const all = () => go(() => ((artifactId = ''), (authorId = ''), (kind = ''), (tag = ''), (origin = ''), (query = '')));
 
 	onMount(() => {
 		if (!admin) return void goto('/', { replaceState: true });
@@ -162,12 +162,12 @@
 	const filtered = $derived(!!(query.trim() || kind || tag || origin || authorId));
 </script>
 
-<svelte:head><title>{opened ? `${opened.title} · ` : author ? `${author.name} · ` : ''}Sources · maiaCITY play</title></svelte:head>
+<svelte:head><title>{opened ? `${opened.title} · ` : author ? `${author.name} · ` : ''}Artifacts · maiaCITY play</title></svelte:head>
 
 {#snippet shelf()}
-	<input class="nav-search" type="search" placeholder="Find in titles, summaries, links, authors" bind:value={query} oninput={search} aria-label="Find a source" />
-	<h3 class="nav-group">Sources · every link we keep</h3>
-	<a class="nav-item" class:on={!filtered && !sourceId} href="/sources/" onclick={(e) => (e.preventDefault(), all())} aria-current={!filtered && !sourceId ? 'page' : undefined}
+	<input class="nav-search" type="search" placeholder="Find in titles, summaries, links, authors" bind:value={query} oninput={search} aria-label="Find an artifact" />
+	<h3 class="nav-group">Artifacts · every link we keep</h3>
+	<a class="nav-item" class:on={!filtered && !artifactId} href="/artifacts/" onclick={(e) => (e.preventDefault(), all())} aria-current={!filtered && !artifactId ? 'page' : undefined}
 		><Icon name="library" size={16} /><span>Everything</span><small>{(counts?.all ?? 0).toLocaleString('en-US')}</small></a
 	>
 	{#each ORIGINS as o (o.id)}
@@ -195,14 +195,14 @@
 		<h3 class="nav-group">Authors</h3>
 		{#each authors.slice(0, 30) as a (a.id)}
 			<a class="nav-item" class:on={authorId === a.id} href="?author={a.id}" onclick={(e) => (e.preventDefault(), openAuthor(a.id))} aria-current={authorId === a.id ? 'page' : undefined}
-				><Icon name={a.kind === 'person' ? 'users' : 'vault'} size={16} /><span>{a.name}</span><small>{a.sources}</small></a
+				><Icon name={a.kind === 'person' ? 'users' : 'vault'} size={16} /><span>{a.name}</span><small>{a.artifacts}</small></a
 			>
 		{/each}
 		{#if authors.length > 30}<p class="nav-empty soft">…and {authors.length - 30} more: find them by name above.</p>{/if}
 	{/if}
 {/snippet}
 
-{#snippet card(s: Source)}
+{#snippet card(s: Artifact)}
 	<article class="card">
 		<p class="meta">
 			<span class="kind">{ONE[s.kind] ?? s.kind}</span>
@@ -210,8 +210,8 @@
 			{#if s.authors.length}<span class="who">{names(s.authors)}</span>{/if}
 		</p>
 		<!-- the title alone, no description, so a list stays short (Samuel 2026-11-06): the description is the opened
-		     source's, and the title's tooltip -->
-		<h2><a class="stretch" href="?source={s.id}" title={s.description} onclick={(e) => (e.preventDefault(), openSource(s.id))}>{s.title}</a></h2>
+		     artifact's, and the title's tooltip -->
+		<h2><a class="stretch" href="?artifact={s.id}" title={s.description} onclick={(e) => (e.preventDefault(), openArtifact(s.id))}>{s.title}</a></h2>
 		<p class="foot">
 			<span class="by" class:agent={s.origin === 'agent'}>{#if s.origin === 'agent'}<Icon name="spark" size={13} />{/if}{s.by}</span>
 			<a class="out" href={s.url} target="_blank" rel="noopener noreferrer" title={s.url}>{host(s.url)} ↗</a>
@@ -222,14 +222,14 @@
 
 {#if admin}
 	<div class="pg">
-		<Frame nav={loaded ? shelf : undefined} bind:open={side} navLabel="Find and filter the sources" navIcon="search" flush>
+		<Frame nav={loaded ? shelf : undefined} bind:open={side} navLabel="Find and filter the artifacts" navIcon="search" flush>
 			{#if !loaded}
-				<p class="note soft">Opening the Sources…</p>
-			{:else if sourceId}
-				<!-- one source, to be read -->
+				<p class="note soft">Opening the Artifacts…</p>
+			{:else if artifactId}
+				<!-- one artifact, to be read -->
 				<div class="scroll">
 					<div class="read">
-						<button class="backlink" onclick={() => history.length > 1 ? history.back() : all()}>← Sources</button>
+						<button class="backlink" onclick={() => history.length > 1 ? history.back() : all()}>← Artifacts</button>
 						{#if error}<p class="bad">{error}</p>{/if}
 						{#if opened}
 							<p class="eyebrow">{ONE[opened.kind] ?? opened.kind}{opened.published ? ` · ${date(opened.published)}` : ''}</p>
@@ -258,11 +258,11 @@
 				<div class="sheet">
 					<div class="bar">
 						{#if author}
-							<button class="backlink" onclick={() => filter(() => (authorId = ''))}>← All sources</button>
+							<button class="backlink" onclick={() => filter(() => (authorId = ''))}>← All artifacts</button>
 						{/if}
 						<b>{author ? author.name : origin ? ORIGINS.find((o) => o.id === origin)?.label : kind ? KINDS[kind] : tag ? `#${tag}` : 'Everything'}</b>
 						<span class="soft"
-							>{total.toLocaleString('en-US')} {total === 1 ? 'source' : 'sources'}{query.trim() ? ` matching “${query.trim()}”` : ''}{author && (kind || tag || origin) ? ' (filtered)' : ''}{!author && tag && (kind || origin) ? ' (filtered)' : ''} · newest first</span
+							>{total.toLocaleString('en-US')} {total === 1 ? 'artifact' : 'artifacts'}{query.trim() ? ` matching “${query.trim()}”` : ''}{author && (kind || tag || origin) ? ' (filtered)' : ''}{!author && tag && (kind || origin) ? ' (filtered)' : ''} · newest first</span
 						>
 						{#if filtered && !author}<button class="chip" onclick={all}>Clear</button>{/if}
 					</div>
@@ -276,13 +276,13 @@
 								{#if author.url}<p><a class="out" href={author.url} target="_blank" rel="noopener noreferrer">{host(author.url)} ↗</a></p>{/if}
 							</header>
 						{/if}
-						{#each sources as s (s.id)}
+						{#each artifacts as s (s.id)}
 							{@render card(s)}
 						{:else}
-							<p class="note soft">{filtered ? 'No source matches that.' : 'No source is kept yet: paste a link to your agent, and it keeps it here.'}</p>
+							<p class="note soft">{filtered ? 'No artifact matches that.' : 'No artifact is kept yet: paste a link to your agent, and it keeps it here.'}</p>
 						{/each}
-						{#if sources.length < total}
-							<div class="more"><button class="chip" disabled={busy} onclick={() => load(true)}>{busy ? 'Loading…' : `Show more (${total - sources.length} left)`}</button></div>
+						{#if artifacts.length < total}
+							<div class="more"><button class="chip" disabled={busy} onclick={() => load(true)}>{busy ? 'Loading…' : `Show more (${total - artifacts.length} left)`}</button></div>
 						{/if}
 					</div>
 				</div>
@@ -339,7 +339,7 @@
 	.more { display: flex; justify-content: center; padding: 0.5rem 0 1rem; max-width: 46rem; }
 	.authorhead { max-width: 46rem; margin-bottom: 0.4rem; }
 
-	/* one source, to be read */
+	/* one artifact, to be read */
 	.scroll { height: 100%; overflow: auto; }
 	.read { max-width: 44rem; margin: 0 auto; padding: 1.2rem clamp(1rem, 4vw, 2rem) var(--nav-room, 6rem); box-sizing: border-box; }
 	.backlink { margin: 0 0 0.9rem; padding: 0; border: 0; background: none; font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--brand-green, #24452f); cursor: pointer; }

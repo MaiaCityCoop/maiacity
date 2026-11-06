@@ -788,14 +788,14 @@ export const MIGRATIONS: Migration[] = [
     `,
   },
   {
-    // Sources (play/SPEC.md §4.13, Samuel 2026-11-06): every link from the net Maia City keeps, kept once by avenMAIA,
-    // the one identity of every agent connected over MCP (./websources.ts). avenMAIA is a row of its own, named by
+    // Artifacts (play/SPEC.md §4.13, Samuel 2026-11-06): every link from the net Maia City keeps, kept once by avenMAIA,
+    // the one identity of every agent connected over MCP (./artifacts.ts). avenMAIA is a row of its own, named by
     // play.uuid_of('agent:avenmaia') (AVENMAIA in ./ids.ts): no human, no member, acting only through an admin's token.
-    // A source keeps its compact title, its two-sentence description and its summary (a small report on its topic), who
+    // An artifact keeps its compact title, its two-sentence description and its summary (a small report on its topic), who
     // brought it (the operator, the admin whose token was used, and its origin: the operator pasted it, or avenMAIA found
-    // it in its own research) and its authors, each a row of its own, n:m with the sources, in their order. One link,
-    // one source: its link is kept normalised, unique in the coop; a source and an author are named by their UUIDs.
-    id: "0027-sources",
+    // it in its own research) and its authors, each a row of its own, n:m with the artifacts, in their order. One link,
+    // one artifact: its link is kept normalised, unique in the coop; an artifact and an author are named by their UUIDs.
+    id: "0027-artifacts",
     sql: `
       CREATE TABLE play.agents (
         id      UUID PRIMARY KEY,
@@ -805,10 +805,10 @@ export const MIGRATIONS: Migration[] = [
       );
       INSERT INTO play.agents (id, coop_id, name) VALUES (play.uuid_of('agent:avenmaia'), play.uuid_of('coop:maia-city'), 'avenMAIA');
 
-      CREATE TABLE play.sources (
+      CREATE TABLE play.artifacts (
         id          UUID PRIMARY KEY,
         coop_id     UUID NOT NULL REFERENCES play.coops(id),
-        url         TEXT NOT NULL CHECK (url ~ '^https?://' AND length(url) <= 2000),   -- normalised (./websources.ts urlOf)
+        url         TEXT NOT NULL CHECK (url ~ '^https?://' AND length(url) <= 2000),   -- normalised (./artifacts.ts urlOf)
         title       TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 70),
         description TEXT NOT NULL CHECK (length(description) BETWEEN 1 AND 280),
         summary     TEXT NOT NULL CHECK (length(summary) BETWEEN 1 AND 20000),          -- Markdown, 500–1,500 words
@@ -825,8 +825,8 @@ export const MIGRATIONS: Migration[] = [
         updated_at  TIMESTAMPTZ,
         UNIQUE (coop_id, url)
       );
-      CREATE INDEX ix_sources_created ON play.sources(coop_id, created DESC);
-      CREATE INDEX ix_sources_tags ON play.sources USING gin(tags);
+      CREATE INDEX ix_artifacts_created ON play.artifacts(coop_id, created DESC);
+      CREATE INDEX ix_artifacts_tags ON play.artifacts USING gin(tags);
 
       CREATE TABLE play.authors (
         id          UUID PRIMARY KEY,
@@ -840,14 +840,14 @@ export const MIGRATIONS: Migration[] = [
         created     TIMESTAMPTZ NOT NULL DEFAULT now()
       );
 
-      CREATE TABLE play.source_authors (
-        source_id UUID NOT NULL REFERENCES play.sources(id) ON DELETE CASCADE,
+      CREATE TABLE play.artifact_authors (
+        artifact_id UUID NOT NULL REFERENCES play.artifacts(id) ON DELETE CASCADE,
         author_id UUID NOT NULL REFERENCES play.authors(id),
         position  INT NOT NULL CHECK (position >= 0),
-        PRIMARY KEY (source_id, author_id),
-        UNIQUE (source_id, position)
+        PRIMARY KEY (artifact_id, author_id),
+        UNIQUE (artifact_id, position)
       );
-      CREATE INDEX ix_source_authors_author ON play.source_authors(author_id);
+      CREATE INDEX ix_artifact_authors_author ON play.artifact_authors(author_id);
     `,
   },
 ];

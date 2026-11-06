@@ -22,7 +22,7 @@ import { labelFile, listLibrary } from "./library";
 import { AssetDocError, assetHistory, recipeAtStep } from "./assetdocs";
 import { factoryHistory, factoryOf, FactoryError, listFactories } from "./factories";
 import { gameConfigHistory, gameConfigOf, GameConfigError, listGameConfigs } from "./gameconfigs";
-import { authorOf, listAuthors, listSources, SourceError, sourceOf } from "./websources";
+import { authorOf, listAuthors, listArtifacts, ArtifactError, artifactOf } from "./artifacts";
 
 type Handler = (req: Request, params: Record<string, string>) => Promise<Response> | Response;
 type Route = { method: string; pattern: RegExp; keys: string[]; handler: Handler };
@@ -225,18 +225,18 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   });
   on("POST", "/api/library/:hash/label", async (req, p) => json(await labelFile(db, await me(req), p.hash, (await body(req))?.label)));
 
-  // Sources (./websources.ts, play/SPEC.md §4.13): every link from the net Maia City keeps, its title, description,
+  // Artifacts (./artifacts.ts, play/SPEC.md §4.13): every link from the net Maia City keeps, its title, description,
   // summary and authors, kept over MCP by avenMAIA (nothing here adds or edits one); admins only, read here
-  on("GET", "/api/sources", async (req) => {
+  on("GET", "/api/artifacts", async (req) => {
     const q = new URL(req.url).searchParams;
     return json(
-      await listSources(db, await me(req), {
+      await listArtifacts(db, await me(req), {
         q: q.get("q"), author: q.get("author"), tag: q.get("tag"), kind: q.get("kind"), origin: q.get("origin"),
         offset: Number(q.get("offset") ?? 0), limit: Number(q.get("limit") ?? 50),
       }),
     );
   });
-  on("GET", "/api/sources/:id", async (req, p) => json(await sourceOf(db, await me(req), p.id)));
+  on("GET", "/api/artifacts/:id", async (req, p) => json(await artifactOf(db, await me(req), p.id)));
   on("GET", "/api/authors", async (req) => json(await listAuthors(db, await me(req), { q: new URL(req.url).searchParams.get("q") })));
   on("GET", "/api/authors/:id", async (req, p) => json(await authorOf(db, await me(req), p.id)));
 
@@ -297,7 +297,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       try {
         return await r.handler(req, params);
       } catch (e) {
-        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof IntentError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError || e instanceof SourceError)
+        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof IntentError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError || e instanceof ArtifactError)
           return json({ error: e.message }, { status: (e as any).status });
         console.error(e);
         return json({ error: "Something went wrong on our side." }, { status: 500 });
