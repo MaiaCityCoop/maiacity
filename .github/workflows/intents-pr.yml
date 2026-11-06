@@ -1,0 +1,141 @@
+# An intent's checks on its pull request, in avenBOX on GitHub (play/SPEC.md §4.12, "Prototype is fast and untrusted;
+# ready promotes to Proposal", "Only the box's run is evidence"; Samuel 2026-11-06). While the intent is prototyped its
+# pull request is a draft, and nothing runs here: the agent tests itself, anywhere (play/avenbox/intent.ts without
+# --record). Marking it ready for review runs the intent's checks in the box (play/avenbox/setup.sh, PostgreSQL 17,
+# bun 1.4.4) on the pull request's head and records them on the intent with that head, this run's link and the pull
+# request (which becomes the intent's active one): every must green, the intent moves to Proposal; any must red, it
+# stays in (or goes back to) Prototype with the failures, and this run turns the pull request back into a draft. Each
+# new push to a ready pull request runs and records again on the new head, so Accept merges only a head every must
+# passed on (play/api/src/ship.ts).
+#
+# Only the box's run is evidence: on pull_request_target this file is main's, and so is the intent.ts that holds a
+# token. Three jobs:
+#   spec    main's pr-intent.ts and intent.ts, with avenBOX's token (PLAY_MCP_TOKEN): which intent, and its spec
+#   run     the pull request's head, checked out without credentials, no secret, a read-only GITHUB_TOKEN: main's
+#           intent.ts (handed over by spec) runs the spec's checks there and writes their results
+#   record  main's intent.ts, with avenBOX's token: records the results (only if they ran on the head), and turns a
+#           red run's pull request back into a draft
+# Heads in this repository only: a fork's pull request runs nothing here.
+name: intents on pull requests
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions: {}
+
+concurrency:
+  group: intents-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  spec:
+    name: the intent's spec
+    if: github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      intent: ${{ steps.which.outputs.intent }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - name: The intent it names, and its spec (main's code, avenBOX's token)
+        id: which
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PLAY_MCP_TOKEN: ${{ secrets.PLAY_MCP_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          [ -n "$PLAY_MCP_TOKEN" ] || { echo "::error::The repository secret PLAY_MCP_TOKEN (avenBOX's token) is not set"; exit 1; }
+          intent=$(bun play/avenbox/pr-intent.ts "$PR" --id)
+          echo "intent=$intent" >> "$GITHUB_OUTPUT"
+          mkdir -p "$RUNNER_TEMP/box"
+          bun play/avenbox/intent.ts "$intent" --spec-out "$RUNNER_TEMP/box/spec.json"
+          cp play/avenbox/intent.ts "$RUNNER_TEMP/box/intent.ts"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: box-spec
+          path: ${{ runner.temp }}/box
+          retention-days: 7
+
+  run:
+    name: the checks in avenBOX
+    needs: spec
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: box-spec
+          path: ${{ runner.temp }}/box
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - name: avenBOX (play/avenbox/setup.sh)
+        run: sudo env "PATH=$PATH" bash play/avenbox/setup.sh
+      - name: The intent's checks on the head (no token)
+        run: |
+          mkdir -p "$RUNNER_TEMP/results"
+          bun "$RUNNER_TEMP/box/intent.ts" --from "$RUNNER_TEMP/box/spec.json" --results-out "$RUNNER_TEMP/results/results.json" --root "$GITHUB_WORKSPACE" || echo "a must check failed: recorded as it ran"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: box-results
+          path: ${{ runner.temp }}/results/results.json
+          retention-days: 30
+
+  record:
+    name: recorded on the intent
+    needs: [spec, run]
+    if: always() && needs.spec.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: play/avenbox
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - uses: actions/download-artifact@v4
+        if: needs.run.result == 'success'
+        with:
+          name: box-results
+          path: ${{ runner.temp }}/results
+      - name: The results, recorded with the head, this run's link and the pull request (main's code, avenBOX's token)
+        id: recorded
+        env:
+          PLAY_MCP_TOKEN: ${{ secrets.PLAY_MCP_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          INTENT: ${{ needs.spec.outputs.intent }}
+        run: |
+          [ -f "$RUNNER_TEMP/results/results.json" ] || { echo "::error::The checks did not run to the end: nothing recorded"; exit 1; }
+          bun play/avenbox/intent.ts "$INTENT" --record-from "$RUNNER_TEMP/results/results.json" --pr "$PR" --head "$HEAD"
+      - name: A red run turns the pull request back into a draft
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NODE: ${{ github.event.pull_request.node_id }}
+        run: |
+          gh api graphql -f query='mutation($id: ID!) { convertPullRequestToDraft(input: { pullRequestId: $id }) { pullRequest { isDraft } } }' -f id="$NODE"
+          echo "::error::A must check failed in avenBOX: the pull request is a draft again, the intent in Prototype. Fix it, push, and mark it ready."

@@ -127,7 +127,10 @@ suite("accept ships it", () => {
     }
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.cit.id]);
-    token = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data.token;
+    const made = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data;
+    token = made.token;
+    // the GitHub runs' token (play/SPEC.md §4.12): what decides a code intent is recorded with it alone
+    expect((await call("ada", "POST", `/api/tokens/${made.id}/avenbox`, { avenbox: true })).data.avenbox).toBe(true);
   });
 
   afterAll(async () => {

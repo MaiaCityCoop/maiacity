@@ -9,7 +9,7 @@ import { COOP, Denied, meOf, must } from "./access";
 import { SANDBOX } from "./ids";
 import { assetOf, catalogOf, configOf, fileOf, listAssets, NotFound, versionOf } from "./assets";
 import { mcp } from "./mcp";
-import { adminByToken, listTokens, makeToken, revokeToken } from "./tokens";
+import { adminByToken, listTokens, makeToken, markAvenbox, revokeToken } from "./tokens";
 import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, registerOptions, sessionCookie, tokenFor } from "./auth";
 import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameMember, renameSelf, setLevel } from "./members";
 import { listTables, readTable, TableError } from "./tables";
@@ -210,6 +210,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   // assets and proposes, as the token's admin; no tool decides a proposal
   on("GET", "/api/tokens", async (req) => json(await listTokens(db, await me(req))));
   on("POST", "/api/tokens", async (req) => json(await makeToken(db, await me(req), (await body(req))?.name), { status: 201 }));
+  on("POST", "/api/tokens/:id/avenbox", async (req, p) => json(await markAvenbox(db, await me(req), p.id, (await body(req))?.avenbox)));
   on("DELETE", "/api/tokens/:id", async (req, p) => json(await revokeToken(db, await me(req), p.id)));
   const mcpServer = mcp({ db, store });
   on("POST", "/api/mcp", (req) => mcpServer(req));

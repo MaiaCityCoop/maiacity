@@ -490,8 +490,8 @@ proposal_ids (proposal_id PK, intent_id → intents, how /*its|own*/)  -- every 
     at, where, commit }`), shown by its mark on the board (*avenBOX*, *main @ 1a2b3c4*), each check's `run` as code
     under its `by`.
   - **what is merged is what was checked.** Code goes by pull request into main, its commits naming the intent (the
-    trailer `Intent: <UUID>`), its checks recorded on the pull request's head (`intent.ts <intent> --record --pr <its
-    number>`): an Accept merges it only when every must check with a `run` last passed on that head (`unmetOn`). Once
+    trailer `Intent: <UUID>`), its checks recorded on the pull request's head by its run in avenBOX on GitHub
+    (`.github/workflows/intents-pr.yml`, below): an Accept merges it only when every must check with a `run` last passed on that head (`unmetOn`). Once
     merged, **`.github/workflows/intents.yml`** (*intents on main*; also by hand, an intent's UUID, on main's head)
     builds the same box on GitHub's runner (`sudo bash play/avenbox/setup.sh`) and runs `intent.ts <intent> --record
     --where main` on the merged commit, with the repository secret `PLAY_MCP_TOKEN` (an admin's access token). It
@@ -499,6 +499,45 @@ proposal_ids (proposal_id PK, intent_id → intents, how /*its|own*/)  -- every 
     **confirmation**, taken in any stage once the spec is approved: in Prototype or at Proposal they move the intent as
     any result does, in Ship, Accepted or Archived they are kept and move nothing. Intents whose work is play's keep
     their gate (`intentReady`).
+- **Every pull request names its one intent; only the box's run is evidence** (Samuel 2026-11-06; intent
+  `4ea6b2ed-f96a-4bf6-83fd-4d165a793194`). Intent `c9113886` was decided on checks run on a Mac (Postgres 15, a bun
+  fetched by hand) recorded as avenBOX's, and marked `+dirty` only by a per-user file; so every result an admin decides
+  a code intent on now comes from avenBOX itself, on the pull request's head, before Accept, whatever machine the agent
+  works on.
+  - **One intent, one active pull request.** Every pull request into main is the work of exactly one intent: its title
+    shows the intent's first 8 characters, `[c9113886] …` (only shown), its body and its commits carry the full UUID on
+    the line `Intent: <uuid>`, which is what everything reads (`.github/pull_request_template.md`). An intent has
+    **one active pull request**: the one named on it (`pull_request`). The required check **Intent named**
+    (`.github/workflows/intent-named.yml`, `play/avenbox/pr-intent.ts`, main's own on `pull_request_target`, the pull
+    request only read through GitHub's API) is red when a pull request names no intent or more than one, names one not
+    at Prototype, Proposal or Ship, or is not the intent's active one while that one is open, saying which to
+    consolidate into, or to close this one. main's ruleset requires it beside `play / API and site`, `website / build`
+    and `Intent accepted`.
+  - **A draft while prototyping; ready promotes to Proposal.** While the intent is prototyped its pull request is a
+    **draft**, and the agent tests itself anywhere, untrusted: `bash play/avenbox/gate.sh`, and `bun
+    play/avenbox/intent.ts <uuid>`, which runs and prints the checks and records nothing (`--record` refuses outside a
+    GitHub run). **Marking it ready for review** runs **`.github/workflows/intents-pr.yml`** (*intents on pull
+    requests*): the intent's checks in avenBOX on GitHub (`play/avenbox/setup.sh`, PostgreSQL 17, bun 1.4.4) on the
+    pull request's head, recorded on the intent with that head, the run's link and `pr` (so it becomes the active pull
+    request). Every must green: the intent moves to Proposal. Any must red: it stays in (or goes back to) Prototype with
+    the failures, and the run turns the pull request back into a draft. Each new push to a ready pull request runs and
+    records again on the new head, so Accept merges only a head every must passed on (`ship.ts`, unchanged). Looks are
+    still judged and recorded by hand (`check_intent`).
+  - **Only the box's run is evidence.** intents-pr.yml runs on `pull_request_target`, for heads in this repository
+    only, in three jobs: **spec** (main's `pr-intent.ts --id` and `intent.ts <uuid> --spec-out`, with avenBOX's token),
+    **run** (the head checked out with `persist-credentials: false`, no secret and a read-only `GITHUB_TOKEN`; main's
+    intent.ts, handed over by spec, runs the spec's checks with `--from <spec> --results-out <file> --root <head>`) and
+    **record** (main's `intent.ts <uuid> --record-from <results> --pr <n> --head <sha>`, with avenBOX's token, refusing
+    results of another intent or another commit; a red run's pull request turned back into a draft). The workflow and
+    the intent.ts that hold a token are always main's. **avenBOX's token** is an admin's access token marked so on
+    play's profile page (`play.api_tokens.avenbox`, migration 0032; `POST /api/tokens/<id>/avenbox`), the repository
+    secret `PLAY_MCP_TOKEN` that intents-pr.yml, intent-named.yml and intents.yml hold. From any other token
+    `check_intent` refuses a pull request named and every test or measure result that could decide a code intent (on a
+    commit, on main, or once its pull request is named), saying the pull request's run records them; a result recorded
+    by the box is marked `box` with its run's `link`. Work of play's own (no pull request, no commit) records as before.
+  - **Dirty.** `.gitignore` ignores `.claude/settings.local.json`, the per-user file the Claude app writes; a dirty run
+    names the files that made it dirty (`commit 1a2b…+dirty (a.ts, b.ts)`).
+  - Later: work of play's own, proposed with `intent`, would dispatch the same box run on main's head.
 - **Accept ships it** (Samuel 2026-11-06: *"only the manual accept should directly trigger the flow … it should
   instantly start the merge into main and prod"*; intent `d29933ff-3636-4148-8df7-c183c6065216`). The intent flow is the
   one authority over what lands on main and goes to production, and GitHub requires it.

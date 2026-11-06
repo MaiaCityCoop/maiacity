@@ -21,8 +21,9 @@
 // Every check runs in avenBOX (play/SPEC.md §4.12, Samuel 2026-11-06): the cloud environment the agents prototype in,
 // with Postgres up and TEST_DATABASE_URL set (play/avenbox/up.sh). A test or measure check carries its `run`, the exact
 // command that decides it there, from the repository's root, as written: no placeholder in it. In Prototype,
-// `bun play/avenbox/intent.ts <intent> --record` runs every check of a spec and records the results, with the commit
-// they ran on: a code intent is accepted only when every must check with a run last passed on its pull request's head.
+// the pull request's run in avenBOX on GitHub (.github/workflows/intents-pr.yml, as it is marked ready and on each push)
+// records them with the commit they ran on, and only avenBOX's token may record what decides a code intent: a code
+// intent is accepted only when every must check with a run last passed on its pull request's head.
 // Once merged, main runs the same checks in the same box (.github/workflows/intents.yml, the commits' `Intent: <uuid>`
 // trailers) and records them as main's: a confirmation, whatever the stage.
 import { Denied, COOP, type Me } from "./access";
@@ -57,7 +58,11 @@ const reduces = (spec: Spec | null) => !!spec && (spec.checks.some((c) => c.step
 /** where a check's result was run: in avenBOX by the agent, or on main by .github/workflows/intents.yml after the merge */
 export const WHERES = ["avenBOX", "main"] as const;
 export type Where = (typeof WHERES)[number];
-export type Result = { pass: boolean; evidence: string; by: string | null; at: string; where?: Where; commit?: string };
+/** box: recorded by avenBOX's token (the GitHub run of the intent's checks: play/avenbox/intent.ts); link: that run */
+export type Result = { pass: boolean; evidence: string; by: string | null; at: string; where?: Where; commit?: string; box?: true; link?: string };
+/** what play says to a token that is not avenBOX's when it records what only the box's run may (play/SPEC.md §4.12) */
+export const BOX_ONLY =
+  "the pull request's run records them: a code intent's test and measure checks are recorded only by its run in avenBOX on GitHub (.github/workflows/intents-pr.yml, as the pull request is marked ready, and again on each push to it), with avenBOX's token";
 export const TITLE_MOST = 200;
 export const CHECKS_MOST = 12;
 const LINE_MOST = 600;
@@ -294,7 +299,20 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
       409,
     );
   if (named !== undefined && intent.work) throw new IntentError(`Intent ${intent.id} holds work of play's: it is accepted in play, with no pull request.`, 409);
-  const ids = new Set((intent.spec?.checks ?? []).map((c: Check) => c.id));
+  // only the box's run is evidence (play/SPEC.md §4.12, Samuel 2026-11-06): what can decide a code intent (its pull
+  // request named, a test or measure result on a commit or on main, or any once its pull request is named) is taken
+  // from avenBOX's token alone; a look is still judged and recorded by hand
+  const checkOf = new Map<string, Check>((intent.spec?.checks ?? []).map((c: Check) => [c.id, c]));
+  if (!who.box) {
+    if (named !== undefined) throw new IntentError(`Intent ${intent.id}: its pull request is named by its run, not by hand: ${BOX_ONLY}.`, 403);
+    for (const r of list as any[]) {
+      const c = checkOf.get(r?.check);
+      if (!c || c.how === "look") continue;
+      const code = !!intent.pull_request || (r?.commit !== undefined && r?.commit !== null && r?.commit !== "") || r?.where === "main";
+      if (code) throw new IntentError(`${c.id} (${c.how}) of intent ${intent.id}: ${BOX_ONLY}.`, 403);
+    }
+  }
+  const ids = new Set(checkOf.keys());
   const results: Record<string, Result> = { ...(intent.results ?? {}) };
   const at = new Date().toISOString();
   for (const r of list as any[]) {
@@ -305,7 +323,9 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
     if (!WHERES.includes(where)) throw new IntentError(`${r.check}: where is ${WHERES.join(" or ")} (where the check was run).`);
     const commit = r?.commit === undefined || r?.commit === null || r?.commit === "" ? undefined : `${r.commit}`;
     if (commit !== undefined && !/^[0-9a-f]{40}$/.test(commit)) throw new IntentError(`${r.check}: commit is the 40-character git hash it ran on.`);
-    results[r.check] = { pass: r.pass, evidence, by: who.name, at, where, ...(commit ? { commit } : {}) };
+    const link = r?.link === undefined || r?.link === null || r?.link === "" ? undefined : `${r.link}`;
+    if (link !== undefined && !/^https:\/\/[^\s]{1,300}$/.test(link)) throw new IntentError(`${r.check}: link is the https link of the run it was recorded by.`);
+    results[r.check] = { pass: r.pass, evidence, by: who.name, at, where, ...(commit ? { commit } : {}), ...(who.box ? { box: true as const } : {}), ...(link ? { link } : {}) };
   }
   // every must check passed: to Proposal, the one gate left; a must failing again: back to Prototype; main's results
   // after the merge (in Ship, Accepted, Archived) only kept
