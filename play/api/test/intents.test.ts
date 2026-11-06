@@ -147,7 +147,8 @@ suite("intents", () => {
     const none = (await fern(i.id)).error;
     expect(none).toContain("c1 (The recipe builds in the asset box): no result yet");
     expect(none).toContain("c2 (Its height is 0.4–0.6 m): no result yet");
-    expect(none).not.toContain("c3");
+    // the nice check is not named (as "c3 (…)": the bare "c3" may be in the intent's random UUID)
+    expect(none).not.toContain("c3 (");
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c9", pass: true, evidence: "x" }] })).error).toContain("not one of this intent's checks");
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: " " }] })).error).toContain("evidence");
     await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "render.mjs: built in 1.2 s" }, { check: "c2", pass: false, evidence: "measured 0.72 m" }] });
