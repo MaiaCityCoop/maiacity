@@ -9,3 +9,7 @@ build
 play/api/.import-cache
 play/api/blobs
 __pycache__
+# the flyover camera's films (play/site/scripts/flyover), made on the machine that renders them
+play/site/film/
+# the Rust build cache the cloud environment's setup script unpacks at the root (avenDB's, from before)
+/target/
