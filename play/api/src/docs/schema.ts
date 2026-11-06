@@ -393,7 +393,34 @@ export const LEVELS: DocType = {
   },
 };
 
-export const TYPES: Record<string, DocType> = { [STORY.name]: STORY, [ASSET.name]: ASSET, [FACTORY.name]: FACTORY, [LEVELS.name]: LEVELS };
+/** an intent's stages, each a part of the Intents skill (../intents.ts INTENT_STAGES, the same list) */
+export const SKILL_STAGES = ["idea", "specify", "prototype", "proposal", "ship", "accepted", "archived"] as const;
+const skillText = (most: number): Node => ({ type: "string", maxLength: most, "x-loro": "text" });
+
+/**
+ * A skill (../skills.ts, play/SPEC.md §4.14): what play teaches its agents, kept once. Its `system` is its part of the
+ * system prompt every MCP agent gets; the Intents skill's `stages` say what to do at each of an intent's stages, its
+ * `{intent}` and `{title}` filled with the intent's id and title where it is served. Its label and group are only shown.
+ */
+export const SKILL: DocType = {
+  name: "skill/1",
+  type: "skill",
+  schema: {
+    type: "object",
+    required: ["schema", "label", "group", "system"],
+    properties: {
+      schema: { const: "skill/1" },
+      label: { type: "string", minLength: 1, maxLength: 200 },
+      group: { type: "string", minLength: 1, maxLength: 100 },
+      note: skillText(20000),
+      system: skillText(50000),
+      stages: { type: "object", properties: Object.fromEntries(SKILL_STAGES.map((s) => [s, skillText(20000)])), additionalProperties: false },
+    },
+    additionalProperties: false,
+  },
+};
+
+export const TYPES: Record<string, DocType> = { [STORY.name]: STORY, [ASSET.name]: ASSET, [FACTORY.name]: FACTORY, [LEVELS.name]: LEVELS, [SKILL.name]: SKILL };
 
 /** the type a schema name names, or a SchemaError */
 export function typeOf(name: string): DocType {

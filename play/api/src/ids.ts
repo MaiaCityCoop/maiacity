@@ -30,6 +30,15 @@ export const GAME_CONFIG = {
   levelling: "a392ce93-f60e-4d67-8f96-19ba866c7710",
 } as const;
 
+/** the skills (../import/skills.ts, play/SPEC.md §4.14): what play teaches its agents, kept once in Postgres, each made with a
+ * random UUID when it was first written (Samuel 2026-11-06). The two system skills make the system prompt, in this order. */
+export const SKILL = {
+  /** avenMAIA: who every MCP agent is and what it does on play */
+  avenmaia: "28454738-e3a5-4443-ba7f-05fd14644b3f",
+  /** the Intents skill: the lifecycle, and what to do at each of an intent's stages */
+  intents: "a1d69c1b-4e2c-4516-bb6f-9b68ad29f06f",
+} as const;
+
 /** avenMAIA, the one identity of every agent connected over MCP (play/SPEC.md §4.13, Samuel 2026-11-06): uuidOf("agent:avenmaia"),
  * the row migration 0027-artifacts makes. Its name is only shown. */
 export const AVENMAIA = "86090f35-1937-8d5d-bd28-194b80430f25";

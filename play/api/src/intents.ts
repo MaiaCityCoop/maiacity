@@ -28,6 +28,7 @@
 import { Denied, COOP, type Me } from "./access";
 import type { Queryable } from "./pg";
 import { NOTE_MOST } from "./notes";
+import { briefOf } from "./skills";
 import { newId, UUID } from "./uuid";
 import { intentIdOf, WORK_KINDS, type WorkKind } from "./work";
 
@@ -145,15 +146,16 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
             CASE WHEN i.work IS NULL THEN NULL ELSE json_build_object(
               'kind', i.work, 'status', CASE i.stage WHEN 'proposal' THEN 'proposal' WHEN 'accepted' THEN 'accepted' ELSE 'archived' END,
               'asset_id', i.asset_id, 'base', i.base, 'version', i.version, 'story_id', i.story_id, 'story_base', i.story_base, 'story_version', i.story_version,
-              'sandbox_id', i.sandbox_id, 'factory_id', i.factory_id, 'game_config_id', i.game_config_id, 'doc_branch', i.doc_branch,
+              'sandbox_id', i.sandbox_id, 'factory_id', i.factory_id, 'game_config_id', i.game_config_id, 'skill_id', i.skill_id, 'doc_branch', i.doc_branch,
               'changes', jsonb_array_length(COALESCE(i.sandbox_diff, '[]'::jsonb)),
               'note', COALESCE(i.work_note, ''), 'author', pb.name, 'via', i.proposed_via, 'created', i.proposed_at, 'decided_by', de.name, 'decided_at', i.decided_at,
-              'label', COALESCE(wa.label, sv.title, sx.title, fx.label, gc.label),
-              'grp', COALESCE(wa.grp, CASE i.work WHEN 'story_version' THEN 'stories' WHEN 'sandbox_change' THEN 'sandboxes' WHEN 'factory_version' THEN 'factories' WHEN 'game_config_version' THEN 'game' END),
+              'label', COALESCE(wa.label, sv.title, sx.title, fx.label, gc.label, sk.label),
+              'grp', COALESCE(wa.grp, CASE i.work WHEN 'story_version' THEN 'stories' WHEN 'sandbox_change' THEN 'sandboxes' WHEN 'factory_version' THEN 'factories' WHEN 'game_config_version' THEN 'game' WHEN 'skill_version' THEN 'skills' END),
               'slug', wa.slug, 'version_label', wv.card->'card'->>'label',
               'number', CASE i.work WHEN 'story_version' THEN COALESCE(sb.number, 0) + 1 WHEN 'sandbox_change' THEN NULL
                  WHEN 'factory_version' THEN COALESCE(dbv.number, (SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = 'factory:' || i.factory_id) + 1)
                  WHEN 'game_config_version' THEN COALESCE(dbv.number, (SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = 'game:' || i.game_config_id) + 1)
+                 WHEN 'skill_version' THEN COALESCE(dbv.number, (SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = 'skill:' || i.skill_id) + 1)
                  ELSE COALESCE(wb.number, 0) + 1 END
             ) END AS work
        FROM play.intents i
@@ -170,7 +172,8 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
        LEFT JOIN play.sandboxes sx ON sx.id = i.sandbox_id
        LEFT JOIN play.factories fx ON fx.id = i.factory_id
        LEFT JOIN play.game_configs gc ON gc.id = i.game_config_id
-       LEFT JOIN play.doc_branches dbr ON dbr.id = i.doc_branch AND i.work IN ('factory_version', 'game_config_version')
+       LEFT JOIN play.skills sk ON sk.id = i.skill_id
+       LEFT JOIN play.doc_branches dbr ON dbr.id = i.doc_branch AND i.work IN ('factory_version', 'game_config_version', 'skill_version')
        LEFT JOIN play.doc_versions dbv ON dbv.doc_id = dbr.doc_id AND dbv.number = dbr.version
       WHERE i.coop_id = $1 AND ${where}
       ORDER BY COALESCE(i.decided_at, i.proposed_at, i.created) DESC LIMIT 500`,
@@ -199,13 +202,15 @@ export async function getIntent(db: Queryable, id: string) {
 }
 
 /**
- * One intent, whole: as the board lists it, and its work's review where it holds work (`review`: what it changes, as
- * people read it before they decide, ./proposals.ts reviewOf). An old proposal's id finds the intent it is now.
+ * One intent, whole: as the board lists it, its work's review where it holds work (`review`: what it changes, as
+ * people read it before they decide, ./proposals.ts reviewOf), and its `brief`: what an agent sent to it does at its
+ * stage, the Intents skill's part for it (./skills.ts; null where it says nothing). An old proposal's id finds the
+ * intent it is now.
  */
 export async function intentOf(db: Queryable, me: Me | null, id: string, reviewOf: (db: Queryable, id: string, shown: any) => Promise<unknown>) {
   admin(me);
   const intent = await getIntent(db, id);
-  return { ...intent, review: intent.work ? await reviewOf(db, intent.id, intent.work) : null };
+  return { ...intent, brief: await briefOf(db, intent), review: intent.work ? await reviewOf(db, intent.id, intent.work) : null };
 }
 
 /** A new intent at the Idea stage, by an admin's agent over MCP (no one adds one by hand). */

@@ -101,19 +101,15 @@ Proposal → (Ship →) Accepted** (or Archived). **One record** (Samuel 2026-11
 has a state, proposal"): there is no proposal beside an intent; Proposal is the intent's stage, and the work it brings
 (an asset's or story's version, a sandbox's change, a factory's or config's version) is on the intent itself
 (`play/api/src/work.ts`). An agent adds one (`add_intent`, over MCP only: nothing is
-typed in by hand), reads them (`list_intents`, `get_intent`) and, sent to one at Idea, specifies it (`specify_intent`:
-its goal, its scope, and checks, each one statement that passes or fails, by a `test`, a `measure` or a `look`, must or
-nice, every test and measure with its `run`: the exact command that decides it in **avenBOX**, from the repository's
-root, as written, play refusing a placeholder in it) and **stops: an admin approves the spec**. Sent to one in
-Prototype, it builds it in avenBOX, runs every check and records each result with its evidence (`bun
-play/avenbox/intent.ts <the intent's UUID> --record`, which calls `check_intent`, a failure as a failure; a look by hand)
-until every must check passes: then the intent **moves to Proposal by itself**, the one gate with a person in it after
-the spec, where an admin decides it (nothing is accepted from Prototype; Samuel 2026-11-06). Work of play's it
-proposes with the propose tool's `intent` (the intent's UUID), which puts that intent at Proposal holding the work (new
-work for it replaces the old): play refuses it before every must check passes; accepting applies it. Code goes by pull request instead, its commits naming the intent (`Intent: <UUID>`), the pull request named on the
-intent (`check_intent`'s `pr`) with its checks recorded on its head, and never merged by the agent: an admin's Accept
-merges it and ships it (*Accept ships it*, above; the intent in Ship until it is in production), and main runs the
-checks again after the merge as a confirmation (`.github/workflows/intents.yml`, `where: main`). Work
+typed in by hand), reads them (`list_intents`, `get_intent`) and does what the intent's **brief** says for the stage it
+is at (`get_intent`'s `brief`): the **Intents skill**'s text for that stage. What play teaches its agents (avenMAIA's
+system prompt, the intents' lifecycle, each stage's instructions) is kept once, as **skills** in play's Postgres
+(`list_skills`, `get_skill`, `skill_history`; play/SPEC.md §4.14), never in the code or on the board, and changes only
+by proposal (`skill_edit`, `propose_skill_version`), served from Postgres on each request (`initialize`, the brief, MCP's
+prompts). In short: at Idea it specifies the intent (every test and measure check with its `run` in **avenBOX**) and
+stops for an admin's approval; in Prototype it builds it and records every check (`bun play/avenbox/intent.ts <the
+intent's UUID> --record`) until it moves to Proposal by itself, where an admin decides it; work of play's it proposes
+naming the intent, code it ships by pull request (*Accept ships it*, above). Work
 proposed without `intent` is a new intent at Proposal of its own, with no spec. No tool approves, accepts or rejects an
 intent; an agent archives only its own intents at Proposal put there over MCP (`archive_intent`: one it no longer
 stands by; Samuel 2026-11-04). An old proposal's id still finds its intent (`play.proposal_ids`, migration 0029). **Every agent connected over MCP is avenMAIA** (play/SPEC.md
