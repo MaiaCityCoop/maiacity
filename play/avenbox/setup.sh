@@ -76,6 +76,17 @@ else
   say "no PostgreSQL tools in this image"
 fi
 
+# ffmpeg, for the flyover camera's stills and drafts (play/site/scripts/flyover, drawn in software here; its final
+# render is a Mac's, on Metal): Ubuntu's own, the package lists fetched again only if the first try finds none
+if ! command -v ffmpeg > /dev/null; then
+  ff() { DEBIAN_FRONTEND=noninteractive timeout 600 apt-get install -y -qq --no-install-recommends ffmpeg > /dev/null 2>&1; }
+  if ff || { timeout 300 apt-get update -qq -o Acquire::Retries=2 > /dev/null 2>&1 && ff; }; then
+    say "ffmpeg installed"
+  else
+    say "could not install ffmpeg (no network?): the flyover camera needs it for its films"
+  fi
+fi
+
 # the dependencies, as CI installs them, as the checkout's owner (on main's runner this runs under sudo)
 as_owner() {
   if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != root ]; then sudo -u "$SUDO_USER" -H env "PATH=$PATH" "$@"; else "$@"; fi
