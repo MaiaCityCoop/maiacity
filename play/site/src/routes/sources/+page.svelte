@@ -2,7 +2,7 @@
 	The Sources (Samuel 2026-11-06; play/SPEC.md §4.13, play/api/src/websources.ts): every link from the net Maia City
 	keeps, kept over MCP by avenMAIA, the one identity of every agent connected there, for the admin whose token it came
 	by. Laid out as the Library is (its Frame): down the left a search and the filters (who brought it, its kind, its
-	tags, its authors); in the middle the sources, newest first, each its title, description, kind, date, authors, tags,
+	tags, its authors); in the middle the sources, newest first, each its title, kind, date, authors, tags,
 	its link (a new tab) and "Added by <the operator>" or "Sourced by avenMAIA". A source opens in the middle to be read
 	(?source=<uuid>): its summary, a small report on its topic, as Markdown, and its authors; an author opens to their
 	sources (?author=<uuid>). Read only: nothing here adds or changes one. Maia City's admins alone (the API says so too).
@@ -209,8 +209,9 @@
 			{#if s.published}<span>{date(s.published)}</span>{/if}
 			{#if s.authors.length}<span class="who">{names(s.authors)}</span>{/if}
 		</p>
-		<h2><a class="stretch" href="?source={s.id}" onclick={(e) => (e.preventDefault(), openSource(s.id))}>{s.title}</a></h2>
-		<p class="desc">{s.description}</p>
+		<!-- the title alone, no description, so a list stays short (Samuel 2026-11-06): the description is the opened
+		     source's, and the title's tooltip -->
+		<h2><a class="stretch" href="?source={s.id}" title={s.description} onclick={(e) => (e.preventDefault(), openSource(s.id))}>{s.title}</a></h2>
 		<p class="foot">
 			<span class="by" class:agent={s.origin === 'agent'}>{#if s.origin === 'agent'}<Icon name="spark" size={13} />{/if}{s.by}</span>
 			<a class="out" href={s.url} target="_blank" rel="noopener noreferrer" title={s.url}>{host(s.url)} ↗</a>
@@ -317,9 +318,9 @@
 	.sheet { display: flex; flex-direction: column; height: 100%; }
 	.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.9rem; padding: 0.7rem 1rem; border-bottom: 1px solid var(--line); background: rgb(255 255 255 / 0.94); font-size: 0.85rem; }
 	.bar b { font-size: 1rem; }
-	.list { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 0.8rem; padding: 1rem clamp(0.8rem, 3vw, 1.6rem) var(--nav-room, 6rem); }
+	.list { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 0.6rem; padding: 1rem clamp(0.8rem, 3vw, 1.6rem) var(--nav-room, 6rem); }
 	.list.busy { opacity: 0.55; }
-	.card { position: relative; max-width: 46rem; width: 100%; box-sizing: border-box; padding: 0.9rem 1rem 0.8rem; border: 1px solid var(--line); border-radius: 14px; background: var(--paper, #fff); transition: box-shadow 150ms ease, transform 150ms ease; }
+	.card { position: relative; max-width: 46rem; width: 100%; box-sizing: border-box; padding: 0.75rem 1rem 0.7rem; border: 1px solid var(--line); border-radius: 14px; background: var(--paper, #fff); transition: box-shadow 150ms ease, transform 150ms ease; }
 	.card:hover { box-shadow: 0 6px 18px rgb(38 56 44 / 0.08); transform: translateY(-1px); }
 	.meta { display: flex; flex-wrap: wrap; gap: 0.15rem 0.55rem; margin: 0; font-size: 0.72rem; color: var(--soft); }
 	.meta .kind { color: var(--terracotta); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
@@ -328,8 +329,7 @@
 	.card h2 a { color: var(--ink); text-decoration: none; }
 	/* the title's link covers the card; the link out and the tags stand above it */
 	.stretch::after { content: ''; position: absolute; inset: 0; border-radius: 14px; }
-	.desc { margin: 0; font-size: 0.9rem; line-height: 1.45; color: var(--ink); opacity: 0.85; overflow-wrap: anywhere; }
-	.foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; margin: 0.6rem 0 0; font-size: 0.76rem; }
+	.foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; margin: 0.45rem 0 0; font-size: 0.76rem; }
 	.foot > * { position: relative; z-index: 1; }
 	.by { display: inline-flex; align-items: center; gap: 0.25rem; color: var(--soft); font-weight: 500; }
 	.by.agent { color: var(--brand-green, #24452f); }

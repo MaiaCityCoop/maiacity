@@ -503,7 +503,7 @@ source_authors (source_id → sources, author_id → authors, position)    -- n:
 
 Over MCP: `add_source`, `update_source`, `list_sources` (`q` in a title, description, summary, link or an author's name;
 `author`, `tag`, `kind`, `origin`; newest first, paged), `get_source`, `list_authors`, `get_author`. The page
-(`/sources/`, a tile among the coop's own beside the Library) lists them newest first, each its title, description, kind,
+(`/sources/`, a tile among the coop's own beside the Library) lists them newest first, each its title alone (its description is the opened source's, so a list stays short), kind,
 date, authors, tags, its link (a new tab) and who brought it, filtered down its left by who brought it, kind, tag and
 author; a source opens to be read (`?source=<uuid>`: its summary as Markdown, its authors), an author to their sources
 (`?author=<uuid>`).
