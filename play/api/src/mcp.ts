@@ -810,7 +810,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
               additionalProperties: false,
             },
           },
-          pr: { type: "integer", minimum: 1, description: "the number of the intent's pull request into main (its code), which an admin's Accept merges, only on the head every must check with a run last passed on; named while it is prototyped or at Proposal, a newer one replacing it" },
+          pr: { type: "integer", minimum: 1, description: "the number of the intent's pull request into main (its code), which an admin's Accept merges (in Ship, when its turn comes and GitHub is ready), only on the head every must check with a run last passed on; named while it is prototyped or at Proposal, a newer one replacing it" },
         },
         required: ["intent"],
         additionalProperties: false,

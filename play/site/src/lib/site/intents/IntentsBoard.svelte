@@ -21,9 +21,11 @@
 	review. Nothing is accepted from Prototype.
 
 	ACCEPT SHIPS IT (Samuel 2026-11-06, play/api/src/ship.ts): an intent whose work is code names its pull request, and
-	its Accept ("Accept and ship") merges it into main at once: the intent is in Ship, its way to production shown live
-	(merged, main's checks, the release, the deploy's backup, image, server and website, each with its link), the board
-	read again every 3 s while any intent ships. All green, it is Accepted; a red step brings it back to Proposal with
+	its Accept ("Accept and ship") puts it in Ship at once: its first step, Ready to merge, waits with its reason for its
+	turn (one ship at a time, in the order accepted: its card says "Queued · behind …") and for GitHub ("Waiting for #N's
+	checks", "Waiting for GitHub"), then play merges it by itself, and its way to production shows live (merged, main's
+	checks, the release, the deploy's backup, image, server and website, each with its link), the board read again every
+	3 s while any intent ships. All green, it is Accepted; a red step brings it back to Proposal with
 	the report at the top of its dialog (the step, its link, the log's last lines), and Accept there ships it again.
 -->
 <script lang="ts">
@@ -62,7 +64,7 @@
 	// its way to production, once an Accept merged its pull request (play/api/src/ship.ts): each step's state, when, its
 	// link; a red one's report
 	type ShipStep = { key: string; name: string; state: 'queued' | 'running' | 'green' | 'red' | 'skipped'; started?: string; finished?: string; link?: string; note?: string };
-	type Ship = { pr: number; head: string; merge: string; by: string; round: number; started: string; steps: ShipStep[]; report?: { step: string; why: string; link?: string; log: string; at: string } | null; ended?: string; outcome?: 'green' | 'red'; again?: 'main' | 'release' };
+	type Ship = { pr: number; head: string; merge: string; by: string; round: number; started: string; steps: ShipStep[]; report?: { step: string; why: string; link?: string; log: string; at: string } | null; ended?: string; outcome?: 'green' | 'red'; again?: 'main' | 'release'; pending?: { kind: 'merge' | 'main' | 'release'; head?: string } | null; accepted?: string };
 	// run: the command that decides a check in avenBOX (test and measure checks since 2026-11-06; play/SPEC.md §4.12)
 	// step: a spec's two steps, reduce first, then the MVP (specs from before have none: mvp; play/SPEC.md §4.12)
 	type Check = { id: string; check: string; how: 'test' | 'measure' | 'look'; by: string; run?: string; must: boolean; step?: 'reduce' | 'mvp' };
@@ -130,7 +132,11 @@
 		}
 	});
 	// a column's cards: the intents at its stage, the latest first (those decided by when they were)
-	const inColumn = (s: string): Intent[] => intents.filter((i) => i.stage === s);
+	const inColumn = (s: string): Intent[] => {
+		const cards = intents.filter((i) => i.stage === s);
+		// Ship is a queue: the one shipping, then the rest in the order accepted, first in line on top
+		return s === 'ship' ? [...cards].sort((a, b) => Date.parse(a.decided_at ?? a.created) - Date.parse(b.decided_at ?? b.created)) : cards;
+	};
 	/** how far an intent's must checks are: "2/3 checks" */
 	const checksDone = (i: { spec: Spec | null; results: Results | null }) => {
 		const musts = i.spec?.checks.filter((c) => c.must) ?? [];
@@ -161,6 +167,8 @@
 		if (!i.ship) return '';
 		if (i.stage === 'ship') {
 			const n = shipNow(i.ship);
+			// still waiting to start: why (its turn, GitHub, its checks), as the first step says
+			if (n?.key === 'ready' && n.note) return n.note;
 			return n ? `${n.name} · ${STEP_WORD[n.state]}` : 'in production';
 		}
 		if (i.stage === 'proposal' && i.ship.outcome === 'red' && i.ship.report) return `red at ${i.ship.report.step}`;
@@ -514,7 +522,7 @@
 			{#if i.ship && (i.stage === 'ship' || i.stage === 'accepted' || i.stage === 'proposal')}
 				{@const sh = i.ship}
 				<section class="ship" aria-label="Its way to production">
-					<h3>{i.stage === 'ship' ? 'Shipping' : i.stage === 'accepted' ? 'Shipped' : 'Its last ship'} <span class="muted small">#{sh.pr} as {sh.merge.slice(0, 7)} · accepted by {sh.by}{sh.round > 1 ? ` · round ${sh.round}` : ''}</span></h3>
+					<h3>{i.stage === 'ship' ? 'Shipping' : i.stage === 'accepted' ? 'Shipped' : 'Its last ship'} <span class="muted small">#{sh.pr}{sh.merge ? ` as ${sh.merge.slice(0, 7)}` : ''} · accepted by {sh.by}{sh.round > 1 ? ` · round ${sh.round}` : ''}</span></h3>
 					<ol class="steps-live">
 						{#each sh.steps as st (st.key)}
 							<li data-state={st.state}>
@@ -581,7 +589,7 @@
 			</section>
 			<section>
 				<h3>Its work</h3>
-				{#if !i.work && i.pull_request}<p class="small">Code: <a href="{REPO_URL}/pull/{i.pull_request}" target="_blank" rel="noopener">pull request #{i.pull_request}</a> <span class="muted">· {i.stage === 'proposal' ? 'Accept merges it into main and ships it' : i.stage === 'ship' ? 'merged, on its way to production' : i.stage === 'accepted' ? 'in production' : 'named by its agent'}</span></p>
+				{#if !i.work && i.pull_request}<p class="small">Code: <a href="{REPO_URL}/pull/{i.pull_request}" target="_blank" rel="noopener">pull request #{i.pull_request}</a> <span class="muted">· {i.stage === 'proposal' ? 'Accept merges it into main and ships it' : i.stage === 'ship' ? (i.ship?.pending ? 'in Ship, merged when its turn comes and GitHub is ready' : 'merged, on its way to production') : i.stage === 'accepted' ? 'in production' : 'named by its agent'}</span></p>
 				{:else if !i.work}<p class="muted small">Nothing yet.{i.stage === 'idea' || i.stage === 'specify' || i.stage === 'prototype' ? ' Send an agent to it with the brief below.' : ''}</p>
 				{:else}
 					{@const w = i.work}
@@ -626,7 +634,7 @@
 					<button class="btn small ghost" onclick={() => decideIntent(i.id, 'reopen')} title="Open again: back to {i.spec ? 'Specify' : 'Idea'}">Reopen</button>
 				{/if}
 				{#if i.stage === 'specify' && i.spec}<button class="btn small" onclick={() => decideIntent(i.id, 'approve')} title="The spec is right: an agent may build it">Approve spec</button>
-				{:else if i.stage === 'proposal' && !waits}<button class="btn small" onclick={() => decideIntent(i.id, 'accept')} disabled={!allMustPass(i) || merging} title={!allMustPass(i) ? 'Every must check passes first' : isCode(i) ? (shipsAgain(i) ? 'Ship it again: its pull request is merged; the release (or main\'s failed jobs) runs again' : `Merge pull request #${i.pull_request} into main now and ship it to production`) : 'What it asked is in'}>{merging ? 'Merging…' : isCode(i) ? (shipsAgain(i) ? 'Ship again' : 'Accept and ship') : 'Accept'}</button>{/if}
+				{:else if i.stage === 'proposal' && !waits}<button class="btn small" onclick={() => decideIntent(i.id, 'accept')} disabled={!allMustPass(i) || merging} title={!allMustPass(i) ? 'Every must check passes first' : isCode(i) ? (shipsAgain(i) ? 'Ship it again: its pull request is merged; the release (or main\'s failed jobs) runs again' : `Ship pull request #${i.pull_request}: in Ship at once, merged into main when its turn comes and GitHub is ready, then to production`) : 'What it asked is in'}>{merging ? 'Accepting…' : isCode(i) ? (shipsAgain(i) ? 'Ship again' : 'Accept and ship') : 'Accept'}</button>{/if}
 			</footer>
 			{/if}
 		</div>
