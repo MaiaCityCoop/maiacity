@@ -75,12 +75,20 @@ suite("play API", () => {
     } catch {}
     return { status: r.status, data, headers: r.headers };
   };
+  /** an intent's work decided by an admin: what the work came to (its status, number, version, merged, message), or the refusal */
+  const decided = async (intent: string, verdict: "accept" | "archive") => {
+    const r = await call("ada", "POST", `/api/intents/${intent}/${verdict}`);
+    return r.data?.decision ? { ...r.data.decision, stage: r.data.stage } : r.data;
+  };
+  /** the intents at Proposal, each as its work (its kind, label, status, who proposed it, how), named by the intent's id */
+  const waiting = async () => (await call("ada", "GET", "/api/intents?stage=proposal")).data.map((i: any) => ({ ...i.work, id: i.id, intent: i }));
+
 
   test("a visitor may do nothing but sign in", async () => {
     expect((await call(null, "GET", "/api/health")).status).toBe(200);
     expect((await call(null, "GET", "/api/assets")).status).toBe(401);
     expect((await call(null, "GET", "/api/sandboxes/ec08b07d-6ec0-8f65-92b2-3efe7d91df5d/config")).status).toBe(401);
-    expect((await call(null, "POST", "/api/proposals", {})).status).toBe(401);
+    expect((await call(null, "POST", "/api/intents", {})).status).toBe(401);
   });
 
   test("a traveler reads sandboxes and assets, but proposes nothing", async () => {
@@ -88,20 +96,20 @@ suite("play API", () => {
     expect((await call("trav", "GET", "/api/sandboxes/ec08b07d-6ec0-8f65-92b2-3efe7d91df5d/config")).status).toBe(200);
     expect((await call("trav", "GET", "/api/sandboxes")).status).toBe(404);
     expect((await call("trav", "GET", "/api/assets")).status).toBe(200);
-    const r = await call("trav", "POST", "/api/proposals", { new: { group: "plants", slug: "fern", label: "Fern" }, recipe: recipe("fern", 1) });
+    const r = await call("trav", "POST", "/api/intents", { new: { group: "plants", slug: "fern", label: "Fern" }, recipe: recipe("fern", 1) });
     expect(r.status).toBe(403);
   });
 
   test("a citizen proposes a new asset, an admin accepts it, everyone reads it", async () => {
-    const p = await call("cit", "POST", "/api/proposals", { new: { group: "plants", slug: "fern", label: "Fern" }, note: "first", recipe: recipe("fern", 1), record: { card: { label: "Fern" } } });
+    const p = await call("cit", "POST", "/api/intents", { new: { group: "plants", slug: "fern", label: "Fern" }, note: "first", recipe: recipe("fern", 1), record: { card: { label: "Fern" } } });
     expect(p.status).toBe(201);
     expect(p.data.number).toBe(1);
     expect(p.data.asset).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     ids.fern = p.data.asset;
     expect((await call("trav", "GET", "/api/assets")).data.find((a: any) => a.id === ids.fern)).toBeUndefined();
-    expect((await call("cit", "POST", `/api/proposals/${p.data.id}/accept`)).status).toBe(403);
-    const ok = await call("ada", "POST", `/api/proposals/${p.data.id}/accept`);
-    expect(ok.data).toMatchObject({ status: "accepted", number: 1 });
+    expect((await call("cit", "POST", `/api/intents/${p.data.intent}/accept`)).status).toBe(403);
+    const ok = await call("ada", "POST", `/api/intents/${p.data.intent}/accept`);
+    expect(ok.data).toMatchObject({ id: p.data.intent, stage: "accepted", decision: { status: "accepted", number: 1 } });
     const a = await call("trav", "GET", `/api/assets/${ids.fern}`);
     expect(a.data.versions.map((v: any) => [v.number, v.author, v.approvedBy])).toEqual([[1, "cit", "ada"]]);
     const f = await call("trav", "GET", `/api/files/${a.data.versions[0].recipe}`);
@@ -114,32 +122,33 @@ suite("play API", () => {
   test("a version proposed without a record takes its head's, with its own recipe and number", async () => {
     const head = (await call("trav", "GET", `/api/assets/${ids.fern}/1`)).data;
     expect(head.card.card.label).toBe("Fern");
-    const p = await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 2, null, "/* bare */") });
+    const p = await call("cit", "POST", "/api/intents", { asset: ids.fern, recipe: recipe("fern", 2, null, "/* bare */") });
     const v = (await db.query<any>(`SELECT card FROM play.asset_versions WHERE id = $1`, [p.data.version])).rows[0].card;
     expect(v.card).toMatchObject({ label: "Fern", version: 2, id: "fern", group: "plants" });
     expect(v.card.recipe).not.toBe(head.card.card.recipe);
-    await call("cit", "POST", `/api/proposals/${p.data.id}/archive`);
+    await call("cit", "POST", `/api/intents/${p.data.intent}/archive`);
   });
 
   test("a recipe file must name the version it is proposed for", async () => {
-    const r = await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 1, null, "/* again */") });
+    const r = await call("cit", "POST", "/api/intents", { asset: ids.fern, recipe: recipe("fern", 1, null, "/* again */") });
     expect(r.status).toBe(400);
     expect(r.data.error).toContain("not fern@2");
   });
 
   test("of two proposals on one head, the second goes stale", async () => {
-    const a = await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 2, null, "/* a */") });
-    const b = await call("cit2", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 2, null, "/* b */") });
+    const a = await call("cit", "POST", "/api/intents", { asset: ids.fern, recipe: recipe("fern", 2, null, "/* a */") });
+    const b = await call("cit2", "POST", "/api/intents", { asset: ids.fern, recipe: recipe("fern", 2, null, "/* b */") });
     expect([a.status, b.status]).toEqual([201, 201]);
-    expect((await call("ada", "POST", `/api/proposals/${b.data.id}/accept`)).data.status).toBe("accepted");
-    expect((await call("ada", "POST", `/api/proposals/${a.data.id}/accept`)).status).toBe(409);
-    const list = await call("trav", "GET", "/api/proposals");
-    expect(list.data.find((p: any) => p.id === a.data.id).status).toBe("archived");
+    expect((await call("ada", "POST", `/api/intents/${b.data.intent}/accept`)).data.decision.status).toBe("accepted");
+    expect((await call("ada", "POST", `/api/intents/${a.data.intent}/accept`)).status).toBe(409);
+    const list = await call("trav", "GET", "/api/intents");
+    expect(list.status).toBe(403); // the board is the admins'
+    expect((await call("ada", "GET", "/api/intents")).data.find((i: any) => i.id === a.data.intent).stage).toBe("archived");
     const chain = (await call("trav", "GET", `/api/assets/${ids.fern}`)).data.versions;
     expect(chain.map((v: any) => v.number)).toEqual([2, 1]);
     expect(chain[0].parents).toEqual([chain[1].id]);
     // a base the proposer saw that is no longer the head is refused at once
-    expect((await call("cit", "POST", "/api/proposals", { asset: ids.fern, base: chain[1].id, recipe: recipe("fern", 3) })).status).toBe(409);
+    expect((await call("cit", "POST", "/api/intents", { asset: ids.fern, base: chain[1].id, recipe: recipe("fern", 3) })).status).toBe(409);
   });
 
   test("the legacy import runs once: after it, Postgres is the source of truth and a run writes none of it again", async () => {
@@ -173,14 +182,14 @@ suite("play API", () => {
   });
 
   test("a kind of variants: each variant its own hash in the catalog, its default marked", async () => {
-    const p = await call("cit", "POST", "/api/proposals", {
+    const p = await call("cit", "POST", "/api/intents", {
       new: { group: "actors", slug: "goat", label: "Goat" },
       variants: { "goat-saanen": { recipe: recipe("goat", 1, "goat-saanen"), record: { card: { label: "Goat: Saanen" } } }, "goat-pied": { recipe: recipe("goat", 1, "goat-pied") } },
       defaultVariant: "goat-saanen",
     });
     expect(p.status).toBe(201);
     ids.goat = p.data.asset;
-    await call("ada", "POST", `/api/proposals/${p.data.id}/accept`);
+    await call("ada", "POST", `/api/intents/${p.data.intent}/accept`);
     const goats = (await call("trav", "GET", "/api/catalog")).data.filter((r: any) => r.asset === ids.goat);
     expect(goats.map((g: any) => [g.variant, g.first])).toEqual([["goat-pied", false], ["goat-saanen", true]]);
     expect(goats[0].hash).not.toBe(goats[1].hash);
@@ -205,31 +214,31 @@ suite("play API", () => {
     expect(v).toMatchObject({ default_variant: "both", recipe_hash: null });
     expect((await tool("propose_version", { asset: ids.fern, source: src, note: "bad", params: [{ id: "1x", type: "number", value: 1 }] }, t)).error).toContain("own id");
     expect((await tool("propose_version", { asset: ids.fern, source: src, note: "twice", variants: [{ name: "a" }, { name: "a" }] }, t)).error).toContain("name of its own");
-    await call("ada", "POST", `/api/proposals/${r.out.id}/archive`);
+    await call("ada", "POST", `/api/intents/${r.out.intent}/archive`);
   });
 
   test("a new version never shows what was measured on its parent's recipe (its size, triangles)", async () => {
-    const first = await call("cit", "POST", "/api/proposals", { new: { group: "plants", slug: "sedge", label: "Sedge" }, recipe: recipe("sedge", 1, null, "/* measured */"), record: { card: { label: "Sedge", size: [1.5, 2.5, 1.25], triangles: 4200 } } });
+    const first = await call("cit", "POST", "/api/intents", { new: { group: "plants", slug: "sedge", label: "Sedge" }, recipe: recipe("sedge", 1, null, "/* measured */"), record: { card: { label: "Sedge", size: [1.5, 2.5, 1.25], triangles: 4200 } } });
     expect(first.status).toBe(201);
     const asset = first.data.asset;
-    await call("ada", "POST", `/api/proposals/${first.data.id}/accept`);
+    await call("ada", "POST", `/api/intents/${first.data.intent}/accept`);
     const shown = async () => (await call("trav", "GET", `/api/assets/${asset}`)).data.versions;
     expect((await shown())[0]).toMatchObject({ size: [1.5, 2.5, 1.25], triangles: 4200 });
     // the next takes the head's record, but not its measures
-    const next = await call("cit", "POST", "/api/proposals", { asset, recipe: recipe("sedge", 2, null, "/* another recipe */") });
+    const next = await call("cit", "POST", "/api/intents", { asset, recipe: recipe("sedge", 2, null, "/* another recipe */") });
     expect(next.status).toBe(201);
     const card = (await db.query<any>(`SELECT card FROM play.asset_versions WHERE id = $1`, [next.data.version])).rows[0].card;
     expect(card.card.label).toBe("Sedge");
     expect(card.card.size).toBeUndefined();
     expect(card.card.triangles).toBeUndefined();
-    await call("ada", "POST", `/api/proposals/${next.data.id}/accept`);
+    await call("ada", "POST", `/api/intents/${next.data.intent}/accept`);
     const [after, before] = await shown();
     expect(after).toMatchObject({ number: 2, size: null, triangles: null });
     expect(before).toMatchObject({ number: 1, size: [1.5, 2.5, 1.25], triangles: 4200 });
   });
 
   test("a proposal naming another asset by a readable ref is refused", async () => {
-    const r = await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* r */"), record: { card: { label: "Fern", parts: [{ ref: "actors/goat@1" }] } } });
+    const r = await call("cit", "POST", "/api/intents", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* r */"), record: { card: { label: "Fern", parts: [{ ref: "actors/goat@1" }] } } });
     expect(r.status).toBe(400);
     expect(r.data.error).toContain("by their hash");
   });
@@ -270,61 +279,26 @@ suite("play API", () => {
 
   test("an asset is named by its UUID; its group and slug are only a name, which another asset may share", async () => {
     expect((await call("trav", "GET", "/api/assets/plants/fern")).status).toBe(404);
-    const again = await call("cit", "POST", "/api/proposals", { new: { group: "plants", slug: "fern", label: "Fern again" }, recipe: recipe("fern", 1, null, "/* twin */") });
+    const again = await call("cit", "POST", "/api/intents", { new: { group: "plants", slug: "fern", label: "Fern again" }, recipe: recipe("fern", 1, null, "/* twin */") });
     expect(again.status).toBe(201);
     expect(again.data.asset).toMatch(UUID);
     expect(again.data.asset).not.toBe(ids.fern);
     // a new asset needs no slug: it is made from its label, only to name the recipe's call
-    const named = await call("cit", "POST", "/api/proposals", { new: { group: "plants", label: "Fern, the third" }, source: "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n" });
+    const named = await call("cit", "POST", "/api/intents", { new: { group: "plants", label: "Fern, the third" }, source: "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n" });
     expect(named.status).toBe(201);
-    expect((await call("ada", "GET", `/api/proposals/${named.data.id}`)).data.slug).toBe("fern-the-third");
-    for (const p of [again, named]) await call("ada", "POST", `/api/proposals/${p.data.id}/archive`);
-    expect((await call("cit", "POST", "/api/proposals", { asset: "plants/fern", recipe: recipe("fern", 3) })).status).toBe(400);
-  });
-
-  test("migrations 0015, 0023 and 0025 archive a live database's rejected, withdrawn and stale proposals, and call open a proposal", async () => {
-    // the database as production had it before 0015: the old checks, proposals and branches in the old states
-    const made: any[] = [];
-    for (const n of [1, 2, 3]) made.push((await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 3, null, `/* old ${n} */`) })).data);
-    const waits = (await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* waits */") })).data;
-    await db.query(`ALTER TABLE play.proposals DROP CONSTRAINT proposals_status_check`);
-    await db.query(`ALTER TABLE play.doc_branches DROP CONSTRAINT doc_branches_status_check`);
-    // what earlier tests archived was rejected then
-    await db.query(`UPDATE play.proposals SET status = 'rejected' WHERE status = 'archived'`);
-    await db.query(`UPDATE play.doc_branches SET status = 'rejected' WHERE status = 'archived'`);
-    // and what waits for a decision was open, before 0023
-    await db.query(`UPDATE play.proposals SET status = 'open' WHERE status = 'proposal'`);
-    const waiting = (await db.query<{ id: string }>(`SELECT id FROM play.proposals WHERE status = 'open'`)).rows.map((r) => r.id).filter((id) => !made.some((p) => p.id === id));
-    expect(waiting).toContain(waits.id);
-    await db.query(`ALTER TABLE play.proposals ADD CONSTRAINT proposals_status_check_old CHECK (status IN ('open', 'accepted', 'rejected', 'withdrawn', 'stale'))`);
-    await db.query(`ALTER TABLE play.doc_branches ADD CONSTRAINT doc_branches_status_check_old CHECK (status IN ('open', 'proposed', 'accepted', 'rejected', 'withdrawn', 'stale'))`);
-    const old = ["rejected", "withdrawn", "stale"];
-    for (const [i, p] of made.entries()) {
-      await db.query(`UPDATE play.proposals SET status = $2, decided_by = NULL WHERE id = $1`, [p.id, old[i]]);
-      await db.query(`UPDATE play.doc_branches SET status = $2 WHERE id = (SELECT doc_branch FROM play.proposals WHERE id = $1)`, [p.id, old[i]]);
-    }
-    await db.query(`DELETE FROM play.migrations WHERE id IN ('0015-accepted-or-archived', '0023-proposed', '0025-proposal')`);
-    expect(await migrate(db)).toEqual(["0015-accepted-or-archived", "0023-proposed", "0025-proposal"]);
-    const { rows } = await db.query<any>(`SELECT p.id, p.status, p.decided_by, p.author, b.status AS branch FROM play.proposals p LEFT JOIN play.doc_branches b ON b.id = p.doc_branch WHERE p.id = ANY($1)`, [made.map((p) => p.id)]);
-    for (const r of rows) expect([r.status, r.branch ?? "archived"]).toEqual(["archived", "archived"]);
-    expect(rows.find((r) => r.id === made[1].id).decided_by).toBe(who.cit.id);
-    expect((await db.query<any>(`SELECT count(*)::int AS n FROM play.proposals WHERE status NOT IN ('proposal', 'accepted', 'archived')`)).rows[0].n).toBe(0);
-    expect((await db.query<any>(`SELECT DISTINCT status FROM play.proposals WHERE id = ANY($1)`, [waiting])).rows).toEqual([{ status: "proposal" }]);
-    for (const old of ["rejected", "open"])
-      await expect(db.query(`UPDATE play.proposals SET status = $2 WHERE id = $1`, [made[0].id, old])).rejects.toThrow(/proposals_status_check/);
-    // asked for the open ones, as before the rename, the API answers with those proposed
-    expect((await call("ada", "GET", "/api/proposals?status=open")).data.map((p: any) => p.id)).toContain(waits.id);
-    expect((await call("cit", "POST", `/api/proposals/${waits.id}/archive`)).data.status).toBe("archived");
+    expect((await call("ada", "GET", `/api/intents/${named.data.intent}`)).data.review.slug).toBe("fern-the-third");
+    for (const p of [again, named]) await call("ada", "POST", `/api/intents/${p.data.intent}/archive`);
+    expect((await call("cit", "POST", "/api/intents", { asset: "plants/fern", recipe: recipe("fern", 3) })).status).toBe(400);
   });
 
   test("a proposal ends accepted or archived: archived by its author or by an admin", async () => {
-    const a = await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* w */") });
-    expect((await call("cit2", "POST", `/api/proposals/${a.data.id}/archive`)).status).toBe(403);
-    expect((await call("cit", "POST", `/api/proposals/${a.data.id}/withdraw`)).status).toBe(404);
-    expect((await call("cit", "POST", `/api/proposals/${a.data.id}/archive`)).data.status).toBe("archived");
-    expect((await call("cit", "GET", `/api/proposals/${a.data.id}`)).data).toMatchObject({ status: "archived", decided_by: expect.any(String) });
-    const b = await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* r */") });
-    expect((await call("ada", "POST", `/api/proposals/${b.data.id}/archive`)).data.status).toBe("archived");
+    const a = await call("cit", "POST", "/api/intents", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* w */") });
+    expect((await call("cit2", "POST", `/api/intents/${a.data.intent}/archive`)).status).toBe(403);
+    expect((await call("cit", "POST", `/api/intents/${a.data.intent}/withdraw`)).status).toBe(404);
+    expect((await call("cit", "POST", `/api/intents/${a.data.intent}/archive`)).data.decision.status).toBe("archived");
+    expect((await call("ada", "GET", `/api/intents/${a.data.intent}`)).data).toMatchObject({ stage: "archived", decided_by: "cit", work: { status: "archived" } });
+    const b = await call("cit", "POST", "/api/intents", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* r */") });
+    expect((await call("ada", "POST", `/api/intents/${b.data.intent}/archive`)).data.decision.status).toBe("archived");
   });
 
   test("sign-up is by invite only: an invite makes a traveler, once", async () => {
@@ -367,7 +341,7 @@ suite("play API", () => {
     const init = await rpc(made.data.token, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });
     expect(init.data.result.protocolVersion).toBe("2025-06-18");
     const names = (await rpc(made.data.token, "tools/list")).data.result.tools.map((t: any) => t.name);
-    expect(names).toEqual(expect.arrayContaining(["list_assets", "get_asset", "get_file", "propose_version", "propose_asset", "list_proposals"]));
+    expect(names).toEqual(expect.arrayContaining(["list_assets", "get_asset", "get_file", "propose_version", "propose_asset", "list_intents", "archive_intent"]));
     expect(names.some((x: string) => /accept|reject|decide/.test(x))).toBe(false);
     const listed = await rpc(made.data.token, "tools/call", { name: "list_assets", arguments: { group: "plants" } });
     expect(listed.data.result.isError).toBeUndefined();
@@ -376,24 +350,25 @@ suite("play API", () => {
       arguments: { group: "plants", slug: "mcp-fern", label: "MCP fern", source: "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n", note: "proposed by an agent" },
     });
     expect(proposed.data.result.isError).toBeUndefined();
-    const open = (await call("ada", "GET", "/api/proposals?status=proposal")).data.find((p: any) => p.slug === "mcp-fern");
+    const open = (await waiting()).find((p: any) => p.slug === "mcp-fern");
     expect(open).toMatchObject({ via: "mcp", author: "ada", status: "proposal" });
     // it archives its own open proposal, and nothing else: not one made on the page, not anyone else's
-    const archive = (proposal: string) => rpc(made.data.token, "tools/call", { name: "archive_proposal", arguments: { proposal } });
-    const byPage = await call("ada", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* on the page */") });
-    const theirsOpen = await call("cit", "POST", "/api/proposals", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* a citizen's */") });
-    for (const id of [byPage.data.id, theirsOpen.data.id]) {
+    const archive = (intent: string) => rpc(made.data.token, "tools/call", { name: "archive_intent", arguments: { intent } });
+    const byPage = await call("ada", "POST", "/api/intents", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* on the page */") });
+    const theirsOpen = await call("cit", "POST", "/api/intents", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* a citizen's */") });
+    expect([byPage.status, theirsOpen.status, byPage.data?.error, theirsOpen.data?.error]).toEqual([201, 201, undefined, undefined]);
+    for (const id of [byPage.data.intent, theirsOpen.data.intent]) {
       const r = await archive(id);
       expect(r.data.result.isError).toBe(true);
-      expect(r.data.result.content[0].text).toContain("made over MCP");
+      expect(r.data.result.content[0].text).toContain("over MCP");
     }
-    expect((await call("ada", "GET", `/api/proposals/${byPage.data.id}`)).data.status).toBe("proposal");
+    expect((await call("ada", "GET", `/api/intents/${byPage.data.intent}`)).data.review.status).toBe("proposal");
     expect((await archive("not-an-id")).data.result.content[0].text).toContain("by its id");
     const done = await archive(open.id);
     expect(done.data.result.isError).toBeUndefined();
-    expect(done.data.result.structuredContent).toEqual({ id: open.id, status: "archived" });
-    expect((await call("ada", "GET", `/api/proposals/${open.id}`)).data).toMatchObject({ status: "archived", decided_by: expect.any(String) });
-    expect((await archive(open.id)).data.result.content[0].text).toContain("archived already");
+    expect(done.data.result.structuredContent).toEqual({ id: open.id, status: "archived", intent: open.id, stage: "archived" });
+    expect((await call("ada", "GET", `/api/intents/${open.id}`)).data).toMatchObject({ stage: "archived", decided_by: "ada" });
+    expect((await archive(open.id)).data.result.content[0].text).toContain("at the archived stage");
     // a world (play/SPEC.md §4.11) is a group like the others: listed, proposed, archived
     const worlds = await rpc(made.data.token, "tools/call", { name: "list_assets", arguments: { group: "worlds" } });
     expect(worlds.data.result.isError).toBeUndefined();
@@ -402,7 +377,7 @@ suite("play API", () => {
       arguments: { group: "worlds", slug: "mcp-test-world", label: "Test world", source: "module.exports.recipe = function (id, v) {\n  return { meta: { group: 'worlds', id, v } };\n};\n", note: "a stand-in world" },
     });
     expect(world.data.result.isError).toBeUndefined();
-    const worldOpen = (await call("ada", "GET", "/api/proposals?status=proposal")).data.find((p: any) => p.slug === "mcp-test-world");
+    const worldOpen = (await waiting()).find((p: any) => p.slug === "mcp-test-world");
     expect(worldOpen).toMatchObject({ via: "mcp", status: "proposal" });
     expect((await archive(worldOpen.id)).data.result.isError).toBeUndefined();
     // a new asset with its variants at once (a truck's kinds), each its own recipe
@@ -411,7 +386,7 @@ suite("play API", () => {
       arguments: { group: "machines", slug: "mcp-truck", label: "Truck", source: "module.exports.recipe = function (id, v, variant) {\n  return { meta: { id, v, variant } };\n};\n", variants: [{ name: "box" }, { name: "tanker", label: "Truck: Tanker" }], default_variant: "tanker", note: "two kinds" },
     });
     expect(kinds.data.result.isError).toBeUndefined();
-    const kindsOpen = (await call("ada", "GET", "/api/proposals?status=proposal")).data.find((p: any) => p.slug === "mcp-truck");
+    const kindsOpen = (await waiting()).find((p: any) => p.slug === "mcp-truck");
     expect(kindsOpen).toMatchObject({ via: "mcp", status: "proposal" });
     expect((await archive(kindsOpen.id)).data.result.isError).toBeUndefined();
     // a recipe that declares params is refused without them, and records them when given
@@ -422,13 +397,13 @@ suite("play API", () => {
     expect(noParams.data.result.content[0].text).toContain("params");
     const given = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { group: "things", slug: "mcp-lamp", label: "Lamp", source: withParams, params: PARAMS, note: "params given" } });
     expect(given.data.result.isError).toBeUndefined();
-    const lampOpen = (await call("ada", "GET", "/api/proposals?status=proposal")).data.find((p: any) => p.slug === "mcp-lamp");
-    const lamp = (await call("ada", "GET", `/api/proposals/${lampOpen.id}`)).data;
+    const lampOpen = (await waiting()).find((p: any) => p.slug === "mcp-lamp");
+    const lamp = (await call("ada", "GET", `/api/intents/${lampOpen.id}`)).data.review;
     expect(JSON.stringify(lamp)).toContain('"kind"');
     expect((await archive(lampOpen.id)).data.result.isError).toBeUndefined();
     const none = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { group: "machines", label: "Nothing", note: "no source" } });
     expect(none.data.result.isError).toBe(true);
-    for (const id of [byPage.data.id, theirsOpen.data.id]) await call("ada", "POST", `/api/proposals/${id}/archive`);
+    for (const id of [byPage.data.intent, theirsOpen.data.intent]) await call("ada", "POST", `/api/intents/${id}/archive`);
     const wrong = await rpc(made.data.token, "tools/call", {
       name: "propose_asset",
       arguments: { group: "plants", slug: "mcp-moss", label: "Moss", source: `module.exports.recipe=function(){return{a:${"1+".repeat(800)}1}};`, note: "minified" },
@@ -455,8 +430,8 @@ suite("play API", () => {
     expect(await get("/api/catalog")).toBe(200);
     expect(await get(`/api/assets/${ids.fern}`)).toBe(200);
     expect(await get("/api/sandboxes/ec08b07d-6ec0-8f65-92b2-3efe7d91df5d/config")).toBe(200);
-    for (const path of ["/api/members", "/api/tokens", "/api/proposals", "/api/stories", "/api/postgres/tables"]) expect(await get(path)).toBeGreaterThanOrEqual(401);
-    expect(await get("/api/proposals", "POST")).toBe(401);
+    for (const path of ["/api/members", "/api/tokens", "/api/intents", "/api/stories", "/api/postgres/tables"]) expect(await get(path)).toBeGreaterThanOrEqual(401);
+    expect(await get("/api/intents", "POST")).toBe(401);
     expect(await get("/api/catalog", "GET", "play_notarealtokenatallxxxxxxxx")).toBe(401);
     await call("ada", "DELETE", `/api/tokens/${t.id}`);
     expect(await get("/api/catalog")).toBe(401);
@@ -464,9 +439,9 @@ suite("play API", () => {
 
   test("a proposal brings its readable source: play wraps it into the recipe, keeps both, and serves them as text", async () => {
     const source = "// a fern, version 3\nconst THREE = require('three');\nmodule.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
-    const p = await call("cit", "POST", "/api/proposals", { asset: ids.fern, source, note: "readable" });
+    const p = await call("cit", "POST", "/api/intents", { asset: ids.fern, source, note: "readable" });
     expect(p.status).toBe(201);
-    const r = (await call("ada", "GET", `/api/proposals/${p.data.id}`)).data;
+    const r = (await call("ada", "GET", `/api/intents/${p.data.intent}`)).data.review;
     expect(r.source).toBe(hashText(source));
     expect(r.builds).toHaveLength(1);
     expect(r.builds[0]).toMatchObject({ hash: r.recipe, proposed: true, v: p.data.number });
@@ -479,7 +454,7 @@ suite("play API", () => {
     expect(file.headers.get("x-content-type-options")).toBe("nosniff");
     expect(file.headers.get("content-security-policy")).toContain("sandbox");
     expect((await call("ada", "GET", `/api/files/${r.source}`)).data).toBe(source);
-    await call("cit", "POST", `/api/proposals/${p.data.id}/archive`);
+    await call("cit", "POST", `/api/intents/${p.data.intent}/archive`);
   });
 
   test("an imported version and its variants are given their readable source once, and nothing else of them changes", async () => {
@@ -531,11 +506,11 @@ suite("play API", () => {
   });
 
   test("minified code, a source that sets no recipe, and an engine that is not frozen are refused", async () => {
-    const min = await call("cit", "POST", "/api/proposals", { asset: ids.fern, source: `module.exports.recipe=function(){return ${"[1,2,3],".repeat(200)}0};` });
+    const min = await call("cit", "POST", "/api/intents", { asset: ids.fern, source: `module.exports.recipe=function(){return ${"[1,2,3],".repeat(200)}0};` });
     expect(min.status).toBe(400);
     expect(min.data.error).toContain("not readable");
-    expect((await call("cit", "POST", "/api/proposals", { asset: ids.fern, source: "// nothing here\n" })).data.error).toContain("module.exports.recipe");
-    const engine = await call("cit", "POST", "/api/proposals", { asset: ids.fern, source: "module.exports.recipe = () => ({});\n", record: { engine: { version: 99 } } });
+    expect((await call("cit", "POST", "/api/intents", { asset: ids.fern, source: "// nothing here\n" })).data.error).toContain("module.exports.recipe");
+    const engine = await call("cit", "POST", "/api/intents", { asset: ids.fern, source: "module.exports.recipe = () => ({});\n", record: { engine: { version: 99 } } });
     expect(engine.data.error).toContain("not one of the frozen engines");
   });
 
@@ -657,17 +632,17 @@ suite("play API", () => {
     expect(S.seed).toMatch(UUID); // a new story is its new UUID; its title is only shown
     expect(proposed.out).toMatchObject({ story: S.seed, number: 1, base: null, duration: 7 });
     expect((await call("ada", "GET", `/api/stories/${S.seed}`)).status).toBe(404); // not a story until it is accepted
-    const open = (await call("ada", "GET", "/api/proposals?status=proposal")).data.find((p: any) => p.id === proposed.out.id);
+    const open = (await waiting()).find((p: any) => p.id === proposed.out.intent);
     expect(open).toMatchObject({ kind: "story_version", grp: "stories", story_id: S.seed, slug: null, label: "Seed to fruit", number: 1, via: "mcp", author: "ada" });
     // a story's proposals are the admins' alone
-    expect((await call("cit", "GET", "/api/proposals")).data.some((p: any) => p.kind === "story_version")).toBe(false);
-    expect((await call("cit", "GET", `/api/proposals/${proposed.out.id}`)).status).toBe(404);
-    const review = (await call("ada", "GET", `/api/proposals/${proposed.out.id}`)).data;
+    expect((await call("cit", "GET", "/api/intents")).status).toBe(403);
+    expect((await call("cit", "GET", `/api/intents/${proposed.out.intent}`)).status).toBe(403);
+    const review = (await call("ada", "GET", `/api/intents/${proposed.out.intent}`)).data.review;
     expect(review.story.tracks[2].clips[0].custom).toEqual({ kept: true }); // a field no kind names is kept
     expect(review.baseStory).toBeNull();
     expect(review.diff.tracks.map((t: any) => t.state)).toEqual(["added", "added", "added"]);
-    expect((await call("cit", "POST", `/api/proposals/${proposed.out.id}/accept`)).status).toBe(403);
-    expect((await call("ada", "POST", `/api/proposals/${proposed.out.id}/accept`)).data).toMatchObject({ status: "accepted", number: 1 });
+    expect((await call("cit", "POST", `/api/intents/${proposed.out.intent}/accept`)).status).toBe(403);
+    expect((await call("ada", "POST", `/api/intents/${proposed.out.intent}/accept`)).data.decision).toMatchObject({ status: "accepted", number: 1 });
     const story = (await call("ada", "GET", `/api/stories/${S.seed}`)).data;
     expect(story).toMatchObject({ title: "Seed to fruit", number: 1, duration: 7, note: "a first cut" });
   });
@@ -690,7 +665,7 @@ suite("play API", () => {
     const before = (await call("ada", "GET", `/api/library?kind=image&q=${sheet.out.hash.slice(0, 16)}`)).data.files[0];
     expect(before.used.filter((u: any) => u.as === "sheet")).toEqual([expect.objectContaining({ asset: ids.fern, as: "sheet", accepted: false })]);
     // accepted: the version lists its sheet, and the Library names the plant's version
-    expect((await call("ada", "POST", `/api/proposals/${p.out.id}/accept`)).data.status).toBe("accepted");
+    expect((await call("ada", "POST", `/api/intents/${p.out.intent}/accept`)).data.decision.status).toBe("accepted");
     const fern = (await call("ada", "GET", `/api/assets/${ids.fern}`)).data;
     expect(fern.versions[0]).toMatchObject({ id: p.out.version, sheet: sheet.out.hash });
     const after = (await call("ada", "GET", `/api/library?kind=image&q=${sheet.out.hash.slice(0, 16)}`)).data.files[0];
@@ -698,10 +673,10 @@ suite("play API", () => {
     // the next version carries it on unless it names another, and null takes it away
     const q = await tool("propose_version", { asset: ids.fern, base: p.out.version, source: src + "// again\n", note: "the same sheet" });
     expect((await db.query<any>(`SELECT card->>'sheet' AS s FROM play.asset_versions WHERE id = $1`, [q.out.version])).rows[0].s).toBe(sheet.out.hash);
-    await call("ada", "POST", `/api/proposals/${q.out.id}/archive`);
+    await call("ada", "POST", `/api/intents/${q.out.intent}/archive`);
     const r = await tool("propose_version", { asset: ids.fern, base: p.out.version, source: src + "// none\n", note: "no sheet", sheet: null });
     expect((await db.query<any>(`SELECT card ? 'sheet' AS has FROM play.asset_versions WHERE id = $1`, [r.out.version])).rows[0].has).toBe(false);
-    await call("ada", "POST", `/api/proposals/${r.out.id}/archive`);
+    await call("ada", "POST", `/api/intents/${r.out.intent}/archive`);
   });
 
   test("a version names its data sheet and brief: Markdown documents kept by hash, in the Library as documents", async () => {
@@ -729,11 +704,11 @@ suite("play API", () => {
     expect(doc.used).toEqual([expect.objectContaining({ asset: ids.fern, as: "datasheet", accepted: false })]);
     expect(lib.counts.document).toBeGreaterThanOrEqual(2);
     // accepted, the version lists them; the next one carries them on
-    expect((await call("ada", "POST", `/api/proposals/${p.out.id}/accept`)).data.status).toBe("accepted");
+    expect((await call("ada", "POST", `/api/intents/${p.out.intent}/accept`)).data.decision.status).toBe("accepted");
     expect((await call("ada", "GET", `/api/assets/${ids.fern}`)).data.versions[0]).toMatchObject({ datasheet: ds.out.hash, brief: brief.out.hash });
     const q = await tool("propose_version", { asset: ids.fern, base: p.out.version, source: src + "// again\n", note: "the same documents" });
     expect((await db.query<any>(`SELECT card FROM play.asset_versions WHERE id = $1`, [q.out.version])).rows[0].card).toMatchObject({ datasheet: ds.out.hash, brief: brief.out.hash });
-    await call("ada", "POST", `/api/proposals/${q.out.id}/archive`);
+    await call("ada", "POST", `/api/intents/${q.out.intent}/archive`);
   });
   test("every clip is editable by a proposed version, made as edits on the head; accepted, it is the new head and the old one stays", async () => {
     const head = (await tool("get_story", { story: S.seed })).out;
@@ -750,13 +725,13 @@ suite("play API", () => {
     });
     expect(edited.error).toBeNull();
     expect(edited.out).toMatchObject({ number: 2, base: head.version, duration: 8 });
-    const review = (await call("ada", "GET", `/api/proposals/${edited.out.id}`)).data;
+    const review = (await call("ada", "GET", `/api/intents/${edited.out.intent}`)).data.review;
     expect(review.diff.title).toEqual({ from: "Seed to fruit", to: "From seed to fruit" });
     const voice = review.diff.tracks.find((t: any) => t.id === "voice");
     expect(voice.changed.find((c: any) => c.id === "v2").changes.map((x: any) => x.field).sort()).toEqual(["at", "line"]);
     expect(review.diff.tracks.find((t: any) => t.id === "callouts").state).toBe("added");
     expect(review.diff.tracks.find((t: any) => t.id === "notes").changed[0].changes.find((x: any) => x.field === "custom")).toEqual({ field: "custom", from: { kept: true }, to: null });
-    expect((await call("ada", "POST", `/api/proposals/${edited.out.id}/accept`)).data).toMatchObject({ status: "accepted", number: 2 });
+    expect((await call("ada", "POST", `/api/intents/${edited.out.intent}/accept`)).data.decision).toMatchObject({ status: "accepted", number: 2 });
     const now = (await call("ada", "GET", `/api/stories/${S.seed}`)).data;
     expect(now).toMatchObject({ number: 2, title: "From seed to fruit", duration: 8 });
     expect(now.versions.map((v: any) => v.number)).toEqual([2, 1]);
@@ -774,12 +749,12 @@ suite("play API", () => {
     const whole = await tool("propose_story_version", { story: S.seed, base: now.version, note: changelog, body: { format: "9:16", fps: 30, tracks: now.tracks.filter((t: any) => t.id !== "notes").map((t: any) => (t.id === "shots" ? { ...t, clips: t.clips.slice(0, 1) } : t)) } });
     expect(whole.error).toBeNull();
     expect(changelog.length).toBeGreaterThan(2000);
-    expect((await call("ada", "GET", `/api/proposals/${whole.out.id}`)).data.note).toBe(changelog.trim());
-    const removed = (await call("ada", "GET", `/api/proposals/${whole.out.id}`)).data.diff.tracks;
+    expect((await call("ada", "GET", `/api/intents/${whole.out.intent}`)).data.review.note).toBe(changelog.trim());
+    const removed = (await call("ada", "GET", `/api/intents/${whole.out.intent}`)).data.review.diff.tracks;
     expect(removed.find((t: any) => t.id === "notes").state).toBe("removed");
     expect(removed.find((t: any) => t.id === "shots").removed.map((c: any) => c.id)).toEqual(["s2"]);
     // rejected, it stays as a side line in the history, and the head is as it was
-    expect((await call("ada", "POST", `/api/proposals/${whole.out.id}/archive`)).data.status).toBe("archived");
+    expect((await call("ada", "POST", `/api/intents/${whole.out.intent}/archive`)).data.decision.status).toBe("archived");
     expect((await call("ada", "GET", `/api/stories/${S.seed}`)).data.number).toBe(2);
     expect((await db.query(`SELECT number FROM play.story_versions WHERE id = $1`, [whole.out.version])).rows[0].number).toBeNull();
   });
@@ -790,11 +765,11 @@ suite("play API", () => {
     const b = await tool("propose_story_version", { story: S.seed, base: head.version, note: "B", edits: [{ op: "set_clip", track: "voice", clip: "v1", fields: { line: "B's line" } }] });
     expect(a.out.base).toBe(head.version);
     expect(b.out.base).toBe(head.version);
-    expect((await call("ada", "POST", `/api/proposals/${a.out.id}/accept`)).data).toMatchObject({ status: "accepted", number: 3 });
+    expect((await call("ada", "POST", `/api/intents/${a.out.intent}/accept`)).data.decision).toMatchObject({ status: "accepted", number: 3 });
     // B was made on a head that is no longer the head: accepting it is refused, and it is kept, archived
-    const late = (await call("ada", "POST", `/api/proposals/${b.out.id}/accept`)).data;
+    const late = await decided(b.out.intent, "accept");
     expect(late.status === "archived" || late.error).toBeTruthy();
-    expect((await call("ada", "GET", `/api/proposals/${b.out.id}`)).data.status).toBe("archived");
+    expect((await call("ada", "GET", `/api/intents/${b.out.intent}`)).data.review.status).toBe("archived");
     const now = (await call("ada", "GET", `/api/stories/${S.seed}`)).data;
     expect(now.version).toBe(a.out.version);
     expect(now.tracks.find((t: any) => t.id === "voice").clips[0].line).toBe("A's line");
@@ -821,7 +796,7 @@ suite("play API", () => {
     const shot = head.tracks.find((t: any) => t.id === "shots").clips[0];
     const moving = await tool("propose_story_version", { story: S.seed, base: head.version, note: "the first shot moves", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { video: clip.out.hash, video_in: 0.5 } }] });
     expect(moving.error).toBeNull();
-    const body = (await call("ada", "GET", `/api/proposals/${moving.out.id}`)).data.story;
+    const body = (await call("ada", "GET", `/api/intents/${moving.out.intent}`)).data.review.story;
     expect(body.tracks.find((t: any) => t.id === "shots").clips[0]).toMatchObject({ frame: shot.frame, video: clip.out.hash, video_in: 0.5 });
     // a frame's hash is no video, and a hash play does not hold is refused
     const still = await tool("propose_story_version", { story: S.seed, base: head.version, note: "no", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { video: shot.frame } }] });
@@ -892,7 +867,7 @@ suite("play API", () => {
       },
     });
     expect(sounding.error).toBeNull();
-    const body = (await call("ada", "GET", `/api/proposals/${sounding.out.id}`)).data.story;
+    const body = (await call("ada", "GET", `/api/intents/${sounding.out.intent}`)).data.review.story;
     const music = body.tracks.find((t: any) => t.id === "music");
     expect(music.gain).toBe(-12);
     expect(music.clips[0]).toMatchObject({ audio: cue.out.hash, audio_in: 2.5, fade_in: 1.5, fade_out: 4, keys: [[0, 0], [5, -6]] });
@@ -937,7 +912,7 @@ suite("play API", () => {
       body: voice([{ at: 2.4, text: "100x", em: true }, { at: 0, text: "One million humans build" }, { at: 3.2, text: "better way of living.", em: "yes" }]),
     });
     expect(ok.error).toBeNull();
-    const clip = (await call("ada", "GET", `/api/proposals/${ok.out.id}`)).data.story.tracks[0].clips[0];
+    const clip = (await call("ada", "GET", `/api/intents/${ok.out.intent}`)).data.review.story.tracks[0].clips[0];
     expect(clip.cues).toEqual([{ at: 0, text: "One million humans build" }, { at: 2.4, text: "100x", em: true }, { at: 3.2, text: "better way of living." }]);
     const bad = async (cues: unknown) => (await tool("propose_story", { title: "x", note: "x", body: voice(cues) })).error;
     expect(await bad("100x")).toContain("list of subtitles");
@@ -990,12 +965,12 @@ suite("play API", () => {
     const proposed = await tool("propose_story_version", { story: S.seed, branch: draft, note: "a sharper hook, drafted in three steps" });
     expect(proposed.error).toBeNull();
     expect(proposed.out).toMatchObject({ branch: draft, steps: 3, base: head.version });
-    const review = (await call("ada", "GET", `/api/proposals/${proposed.out.id}`)).data;
+    const review = (await call("ada", "GET", `/api/intents/${proposed.out.intent}`)).data.review;
     expect(review.steps.map((s: any) => s.message)).toEqual(["a word in the hook", "a longer last shot", "a callout"]);
     expect(review.diff.tracks.find((t: any) => t.id === "titles").state).toBe("added");
     // a proposed draft takes no more steps
     expect((await tool("story_edit", { story: S.seed, branch: draft, message: "late", title: "x" })).error).toContain("proposed already");
-    const accepted = (await call("ada", "POST", `/api/proposals/${proposed.out.id}/accept`)).data;
+    const accepted = await decided(proposed.out.intent, "accept");
     expect(accepted).toMatchObject({ status: "accepted", number: head.number + 1 });
     const hist = (await call("ada", "GET", `/api/stories/${S.seed}/history`)).data;
     const messages = hist.steps.map((s: any) => s.message);
@@ -1004,7 +979,7 @@ suite("play API", () => {
     expect(hist.steps.at(-1).version).toBe(head.number + 1);
     // the document's versions are the story's, number for number
     expect(hist.versions.map((v: any) => v.number)).toEqual((await call("ada", "GET", `/api/stories/${S.seed}`)).data.versions.map((v: any) => v.number).reverse());
-    expect(hist.drafts.find((d: any) => d.id === draft)).toMatchObject({ status: "accepted", proposal: proposed.out.id, steps: 3 });
+    expect(hist.drafts.find((d: any) => d.id === draft)).toMatchObject({ status: "accepted", intent: proposed.out.intent, intent_stage: "accepted", steps: 3 });
     const step = (await call("ada", "GET", `/api/stories/${S.seed}/steps/${own.steps[1].seq}`)).data;
     expect(step.tracks.find((t: any) => t.id === "notes").clips[0].retention).toBe("Payoff first, then the question");
     expect((await call("cit", "GET", `/api/stories/${S.seed}/history`)).status).toBe(403);
@@ -1014,8 +989,8 @@ suite("play API", () => {
     const head = (await tool("get_story", { story: S.seed })).out;
     const a = await tool("propose_story_version", { story: S.seed, base: head.version, note: "A: the speaker", edits: [{ op: "set_clip", track: "voice", clip: "v1", fields: { who: "SAMUEL (VO)" } }] });
     const b = await tool("propose_story_version", { story: S.seed, base: head.version, note: "B: the camera", edits: [{ op: "set_clip", track: "notes", clip: "n1", fields: { camera: "Low angle, 35 mm" } }] });
-    expect((await call("ada", "POST", `/api/proposals/${a.out.id}/accept`)).data).toMatchObject({ status: "accepted", number: head.number + 1 });
-    const late = (await call("ada", "POST", `/api/proposals/${b.out.id}/accept`)).data;
+    expect((await call("ada", "POST", `/api/intents/${a.out.intent}/accept`)).data.decision).toMatchObject({ status: "accepted", number: head.number + 1 });
+    const late = await decided(b.out.intent, "accept");
     expect(late).toMatchObject({ status: "accepted", number: head.number + 2, merged: true });
     const now = (await call("ada", "GET", `/api/stories/${S.seed}`)).data;
     expect(now.tracks.find((t: any) => t.id === "voice").clips[0].who).toBe("SAMUEL (VO)");
@@ -1027,11 +1002,11 @@ suite("play API", () => {
     expect(d.versions.at(-1).number).toBe(now.number);
     // archived, a proposal's branch is closed and its step kept on its side line
     const c = await tool("propose_story_version", { story: S.seed, note: "C", edits: [{ op: "set", fields: { fps: 25 } }] });
-    expect((await call("ada", "POST", `/api/proposals/${c.out.id}/archive`)).data.status).toBe("archived");
+    expect((await call("ada", "POST", `/api/intents/${c.out.intent}/archive`)).data.decision.status).toBe("archived");
     expect((await call("ada", "GET", `/api/stories/${S.seed}/history`)).data.drafts.find((x: any) => x.id === c.out.branch).status).toBe("archived");
   });
 
-  test("a story from before the documents gets one made from its history: each version a step at its date, an open proposal a branch", async () => {
+  test("a story from before the documents gets one made from its history: each version a step at its date, work waiting at Proposal a branch", async () => {
     const body = (line: string) => ({ schema: "story/1", format: "9:16", fps: 30, duration: 4, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line }] }] });
     const OLD = "0d5707e5-0000-4000-8000-000000000001";
     const v1 = storyVersionId({ story: OLD, parents: [], title: "Old", body: body("first") });
@@ -1043,32 +1018,38 @@ suite("play API", () => {
     await db.query(`INSERT INTO play.story_versions (id, story_id, parents, title, body, note, author) VALUES ($1, '${OLD}', $2, 'Old', ($3::text)::jsonb, 'three', $4)`, [p3, [v2], JSON.stringify(body("third")), who.ada.id]);
     await db.query(`UPDATE play.stories SET head = $1 WHERE id = '${OLD}'`, [v2]);
     const pid = crypto.randomUUID();
-    await db.query(`INSERT INTO play.proposals (id, coop_id, kind, story_id, story_base, story_version, author, note, via) VALUES ($1, '12f8d4e7-701f-8727-a327-de9b240ea867', 'story_version', '${OLD}', $2, $3, $4, 'three', 'mcp')`, [pid, v2, p3, who.ada.id]);
+    // an intent at Proposal whose work was proposed before the documents: it has no branch yet
+    await db.query(
+      `INSERT INTO play.intents (id, coop_id, kind, title, stage, author, via, work, story_id, story_base, story_version, work_note, proposed_by, proposed_via, proposed_at)
+       VALUES ($1, '12f8d4e7-701f-8727-a327-de9b240ea867', 'improve', 'Old v3', 'proposal', $4, 'mcp', 'story_version', '${OLD}', $2, $3, 'three', $4, 'mcp', now())`,
+      [pid, v2, p3, who.ada.id],
+    );
     const h = (await call("ada", "GET", `/api/stories/${OLD}/history`)).data;
     expect(h.steps.map((s: any) => s.message)).toEqual(["v1: one", "v2: two"]);
     expect(h.steps.map((s: any) => s.at.slice(0, 10))).toEqual(["2026-10-01", "2026-10-02"]);
     expect(h.versions.map((v: any) => v.number)).toEqual([1, 2]);
     expect(h.drafts).toHaveLength(1);
+    expect(h.drafts[0]).toMatchObject({ intent: pid, intent_stage: "proposal" });
     expect((await call("ada", "GET", `/api/stories/${OLD}/steps/${h.steps[0].seq}`)).data.tracks[0].clips[0].line).toBe("first");
-    // the old proposal is a branch now, and accepting it goes through the document like any other
-    expect((await call("ada", "POST", `/api/proposals/${pid}/accept`)).data).toMatchObject({ status: "accepted", number: 3 });
+    // the old work is a branch now, and accepting it goes through the document like any other
+    expect((await call("ada", "POST", `/api/intents/${pid}/accept`)).data.decision).toMatchObject({ status: "accepted", number: 3 });
     expect((await call("ada", "GET", `/api/stories/${OLD}`)).data.tracks[0].clips[0].line).toBe("third");
     expect((await call("ada", "GET", `/api/stories/${OLD}/history`)).data.versions.map((v: any) => v.number)).toEqual([1, 2, 3]);
   });
 
-  test("stories folded into one: each its versions in turn as the timeline's next, its open proposal moved, then listed no more", async () => {
+  test("stories folded into one: each its versions in turn as the timeline's next, the work of its intent at Proposal moved, then listed no more", async () => {
     const frame = (await tool("add_story_frame", { data: frameOf("02.jpg").toString("base64"), media_type: "image/jpeg" })).out.hash;
     const make = async (title: string, line: string): Promise<string> => {
       const p = await tool("propose_story", { title, note: `${title} v1`, body: { format: "9:16", fps: 30, tracks: tracks(frame, line) } });
       expect(p.error).toBeNull();
-      await call("ada", "POST", `/api/proposals/${p.out.id}/accept`);
+      await call("ada", "POST", `/api/intents/${p.out.intent}/accept`);
       return p.out.story;
     };
     const A = await make("Devlog", "one");
     const B = await make("Day 1", "two");
     const b2 = await tool("propose_story_version", { story: B, note: "fold-b v2", edits: [{ op: "set_clip", track: "voice", clip: "v2", fields: { line: "three" } }] });
     expect(b2.error).toBeNull();
-    await call("ada", "POST", `/api/proposals/${b2.out.id}/accept`);
+    await call("ada", "POST", `/api/intents/${b2.out.intent}/accept`);
     const C = await make("Three seeds", "four");
     const c2 = await tool("propose_story_version", { story: C, note: "its voice", edits: [{ op: "set_clip", track: "voice", clip: "v2", fields: { line: "five" } }] });
     expect(c2.error).toBeNull();
@@ -1084,12 +1065,13 @@ suite("play API", () => {
     const lines = [];
     for (const n of [2, 3]) lines.push((await call("ada", "GET", `/api/stories/${A}?v=${n}`)).data.tracks.find((t: any) => t.id === "voice").clips[1].line);
     expect(lines).toEqual(["two", "three"]);
-    // the open proposal is on the one timeline now, its own archived
-    const open = (await call("ada", "GET", "/api/proposals?status=proposal")).data.filter((p: any) => p.story_id === A);
+    // the intent at Proposal is on the one timeline now: the same intent, its work moved, its branch on the old story closed
+    const open = (await waiting()).filter((p: any) => p.story_id === A);
     expect(open.length).toBe(1);
+    expect(open[0].id).toBe(c2.out.intent);
     expect(open[0].note).toContain("Moved from story “Three seeds”");
-    expect((await call("ada", "GET", `/api/proposals/${c2.out.id}`)).data.status).toBe("archived");
-    expect((await call("ada", "POST", `/api/proposals/${open[0].id}/accept`)).data).toMatchObject({ status: "accepted", number: 5 });
+    expect((await db.query<any>(`SELECT status FROM play.doc_branches WHERE id = $1`, [c2.out.branch])).rows[0].status).toBe("archived");
+    expect((await call("ada", "POST", `/api/intents/${open[0].id}/accept`)).data.decision).toMatchObject({ status: "accepted", number: 5 });
     // the folded stories are kept but listed no more, and take no proposal
     const listed = (await tool("list_stories", {})).out.items.map((x: any) => x.id);
     expect(listed).toContain(A);
@@ -1104,7 +1086,7 @@ suite("play API", () => {
   // ---- linked stories (Samuel 2026-11-04): the trailer its own timeline, a version of it linked into every film
   const accept = async (r: { error: string | null; out: any }) => {
     expect(r.error).toBeNull();
-    expect((await call("ada", "POST", `/api/proposals/${r.out.id}/accept`)).data.status).toBe("accepted");
+    expect((await call("ada", "POST", `/api/intents/${r.out.intent}/accept`)).data.decision.status).toBe("accepted");
     return r.out;
   };
   const TRAILER_BODY = {
@@ -1135,7 +1117,7 @@ suite("play API", () => {
     expect(made.error).toBeNull();
     L.film = made.out.story;
     expect(made.out.duration).toBe(12);
-    const review = (await call("ada", "GET", `/api/proposals/${made.out.id}`)).data;
+    const review = (await call("ada", "GET", `/api/intents/${made.out.intent}`)).data.review;
     expect(review.story.tracks.find((x: any) => x.kind === "story").clips).toEqual([{ id: "trailer", at: 3, duration: 5, story: T, version: L.t1 }]);
     expect(review.story.links[L.t1]).toMatchObject({ id: T, title: "The trailer", number: 1, version: L.t1, duration: 5, newest: 1 });
     expect(review.story.links[L.t1].body.tracks[0].clips[0].line).toContain("one million humans");
@@ -1196,7 +1178,7 @@ suite("play API", () => {
     // moving Day 1 to the new trailer: its link's version set (its length the new version's), what follows shifted
     const moved = await tool("propose_story_version", { story: F, note: "the new trailer", edits: [{ op: "shift", from: 8, by: 1 }, { op: "set_clip", track: "trailer", clip: "trailer", fields: { version: t2.version } }] });
     expect(moved.error).toBeNull();
-    const diff = (await call("ada", "GET", `/api/proposals/${moved.out.id}`)).data.diff.tracks.find((x: any) => x.id === "trailer");
+    const diff = (await call("ada", "GET", `/api/intents/${moved.out.intent}`)).data.review.diff.tracks.find((x: any) => x.id === "trailer");
     expect(diff.changed[0].changes.map((c: any) => [c.field, c.from, c.to])).toEqual(expect.arrayContaining([["duration", 5, 6], ["version", t1, t2.version]]));
     await accept(moved);
     const now = (await call("ada", "GET", `/api/stories/${F}`)).data;
@@ -1234,7 +1216,7 @@ suite("play API", () => {
     expect(Object.keys(atFirst.links)).toEqual([t1]);
     const proposed = await tool("propose_story_version", { story: F, branch: draft, note: "the first trailer again, drafted in two steps" });
     expect(proposed.error).toBeNull();
-    const review = (await call("ada", "GET", `/api/proposals/${proposed.out.id}`)).data;
+    const review = (await call("ada", "GET", `/api/intents/${proposed.out.intent}`)).data.review;
     expect(review.diff.tracks.find((x: any) => x.id === "trailer").changed[0].changes.map((c: any) => c.field).sort()).toEqual(["duration", "version"]);
     expect(review.steps.length).toBe(2);
     expect(review.baseStory.links[t2]).toMatchObject({ number: 2 });
@@ -1251,17 +1233,17 @@ suite("play API", () => {
   test("a sandbox's layout changes only by an MCP proposal an admin accepts: its pins and any field of its configs", async () => {
     const t = (await call("ada", "POST", "/api/tokens", { name: "sandboxes" })).data.token;
     // a plant of two versions, the second of variants
-    const p1 = await call("cit", "POST", "/api/proposals", { new: { group: "plants", slug: "pawpaw-t", label: "Pawpaw" }, recipe: recipe("pawpaw-t", 1) });
-    await call("ada", "POST", `/api/proposals/${p1.data.id}/accept`);
+    const p1 = await call("cit", "POST", "/api/intents", { new: { group: "plants", slug: "pawpaw-t", label: "Pawpaw" }, recipe: recipe("pawpaw-t", 1) });
+    await call("ada", "POST", `/api/intents/${p1.data.intent}/accept`);
     const asset = p1.data.asset;
     const v1 = p1.data.version;
     expect((await tool("get_sandbox", { sandbox: "7a7894a9-f37a-8181-9164-920389ee7675" }, t)).out.pins).toEqual([]);
     await db.query(`INSERT INTO play.sandbox_pins (sandbox_id, slot, version_id, params) VALUES ('7a7894a9-f37a-8181-9164-920389ee7675', 'grove/pawpaw', $1, '{"stage":"9"}'), ('7a7894a9-f37a-8181-9164-920389ee7675', 'gate', $1, NULL)`, [v1]);
     await db.query(`INSERT INTO play.sandbox_configs (sandbox_id, name, data) VALUES ('7a7894a9-f37a-8181-9164-920389ee7675', 'grove', '{"trees":[{"id":"pawpaw","v":1,"slot":"grove/pawpaw","weight":2,"at":[0,0]}]}')`);
-    const p2 = await call("cit", "POST", "/api/proposals", {
+    const p2 = await call("cit", "POST", "/api/intents", {
       asset, variants: { both: { recipe: recipe("pawpaw-t", 2, "both") }, male: { recipe: recipe("pawpaw-t", 2, "male") } }, defaultVariant: "both",
     });
-    await call("ada", "POST", `/api/proposals/${p2.data.id}/accept`);
+    await call("ada", "POST", `/api/intents/${p2.data.intent}/accept`);
     const read = (await tool("get_sandbox", { sandbox: "7a7894a9-f37a-8181-9164-920389ee7675" }, t)).out;
     expect(read.pins.find((x: any) => x.slot === "grove/pawpaw")).toMatchObject({ asset, number: 1, latest: 2, params: { stage: "9" }, usedBy: [{ config: "grove", path: ["trees", 0] }] });
     expect(read.configs.grove.trees[0].weight).toBe(2);
@@ -1284,36 +1266,36 @@ suite("play API", () => {
     expect(r.error).toBeNull();
     expect(r.out.changes.map((c: any) => c.kind === "pin" ? [c.slot, c.before.number, c.after.number, c.after.usedVariant] : [c.config, c.path.join("/"), c.before, c.after]))
       .toEqual([["gate", 1, 2, "both"], ["grove/pawpaw", 1, 2, "both"], ["grove", "trees/0/at", [0, 0], [4, 2]], ["grove", "trees/0/weight", 2, 3]]);
-    const listed = (await call("ada", "GET", "/api/proposals?status=proposal")).data.find((x: any) => x.id === r.out.id);
+    const listed = (await waiting()).find((x: any) => x.id === r.out.intent);
     expect(listed).toMatchObject({ kind: "sandbox_change", grp: "sandboxes", sandbox_id: SANDBOX.two, slug: null, label: "Sandbox 2", via: "mcp", changes: 4 });
-    expect((await call("cit", "GET", "/api/proposals")).data.some((x: any) => x.id === r.out.id)).toBe(false);
-    const review = (await call("ada", "GET", `/api/proposals/${r.out.id}`)).data;
+    expect((await call("cit", "GET", "/api/intents")).status).toBe(403);
+    const review = (await call("ada", "GET", `/api/intents/${r.out.intent}`)).data.review;
     expect(review).toMatchObject({ holds: true, moved: false });
     // the sandbox as it would be, before anyone decides; as it is, for everyone else
     const v2 = (await db.query<any>(`SELECT recipe_hash FROM play.asset_variants WHERE version_id = $1 AND name = 'both'`, [p2.data.version])).rows[0].recipe_hash;
-    const proposed = (await call("ada", "GET", `/api/sandboxes/7a7894a9-f37a-8181-9164-920389ee7675/config?proposal=${r.out.id}`)).data;
+    const proposed = (await call("ada", "GET", `/api/sandboxes/7a7894a9-f37a-8181-9164-920389ee7675/config?intent=${r.out.intent}`)).data;
     expect(proposed.assets["grove/pawpaw"]).toBe(`${v2}?stage=9`);
     expect(proposed.grove.trees[0]).toMatchObject({ at: [4, 2], weight: 3, v: 2, asset: `${v2}?stage=9` });
     const before = (await call("cit", "GET", "/api/sandboxes/7a7894a9-f37a-8181-9164-920389ee7675/config")).data;
     expect(before.grove.trees[0]).toMatchObject({ at: [0, 0], v: 1 });
 
     // no tool accepts; a citizen may not; an admin does, on the page
-    expect((await call("cit", "POST", `/api/proposals/${r.out.id}/accept`)).status).toBe(403);
-    expect((await call("ada", "POST", `/api/proposals/${r.out.id}/accept`)).data).toMatchObject({ status: "accepted" });
+    expect((await call("cit", "POST", `/api/intents/${r.out.intent}/accept`)).status).toBe(403);
+    expect((await call("ada", "POST", `/api/intents/${r.out.intent}/accept`)).data.decision).toMatchObject({ status: "accepted" });
     const after = (await call("cit", "GET", "/api/sandboxes/7a7894a9-f37a-8181-9164-920389ee7675/config")).data;
     expect(after.assets).toEqual({ gate: v2, "grove/pawpaw": `${v2}?stage=9` });
     expect(after.grove.trees[0]).toMatchObject({ at: [4, 2], weight: 3, v: 2 });
-    expect((await call("ada", "GET", `/api/proposals/${r.out.id}`)).data.changes.length).toBe(4);
+    expect((await call("ada", "GET", `/api/intents/${r.out.intent}`)).data.review.changes.length).toBe(4);
 
     // one that no longer holds when it is decided is archived; an agent archives its own
     const stale = await tool("propose_sandbox_change", { sandbox: "7a7894a9-f37a-8181-9164-920389ee7675", note: "the gate's male", edits: [{ op: "pin", slot: "gate", variant: "male" }, { op: "delete", config: "grove", path: ["trees", 0, "at"] }] }, t);
     const first = await tool("propose_sandbox_change", { sandbox: "7a7894a9-f37a-8181-9164-920389ee7675", note: "no position", edits: [{ op: "delete", config: "grove", path: ["trees", 0, "at"] }] }, t);
-    await call("ada", "POST", `/api/proposals/${first.out.id}/accept`);
-    expect((await call("ada", "GET", `/api/proposals/${stale.out.id}`)).data).toMatchObject({ holds: false });
-    expect((await call("ada", "POST", `/api/proposals/${stale.out.id}/accept`)).data).toMatchObject({ status: "archived" });
+    await call("ada", "POST", `/api/intents/${first.out.intent}/accept`);
+    expect((await call("ada", "GET", `/api/intents/${stale.out.intent}`)).data.review).toMatchObject({ holds: false });
+    expect((await call("ada", "POST", `/api/intents/${stale.out.intent}/accept`)).data.decision).toMatchObject({ status: "archived" });
     expect((await call("cit", "GET", "/api/sandboxes/7a7894a9-f37a-8181-9164-920389ee7675/config")).data.assets.gate).toBe(v2);
     const mine = await tool("propose_sandbox_change", { sandbox: "7a7894a9-f37a-8181-9164-920389ee7675", note: "unpin the gate", edits: [{ op: "unpin", slot: "gate" }] }, t);
-    expect((await tool("archive_proposal", { proposal: mine.out.id }, t)).out).toMatchObject({ status: "archived" });
+    expect((await tool("archive_intent", { intent: mine.out.intent }, t)).out).toMatchObject({ stage: "archived" });
     expect((await call("cit", "GET", "/api/sandboxes/7a7894a9-f37a-8181-9164-920389ee7675/config")).data.assets.gate).toBe(v2);
   });
 });

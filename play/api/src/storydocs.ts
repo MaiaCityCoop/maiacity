@@ -3,7 +3,7 @@
 // pins read; the document keeps every step under them: an agent drafts a change step by step on a branch (story_edit),
 // proposes the branch as a version, and accepting merges the branch and numbers the version, the document's named
 // version of the same number. The first time a story is touched here its document is made from its history: each
-// accepted version a step at its own date, named its number; each open proposal a branch at its base.
+// accepted version a step at its own date, named its number; each intent's work waiting at Proposal a branch at its base.
 import type { Me } from "./access";
 import type { Db, Queryable } from "./pg";
 import * as docs from "./docs";
@@ -16,7 +16,7 @@ export function asStory(json: any): { title: string; body: StoryBody } {
   const { title, ...body } = json ?? {};
   return { title, body: body as StoryBody };
 }
-/** a story not accepted yet stands on an empty timeline: its proposal is the branch that fills it */
+/** a story not accepted yet stands on an empty timeline: its intent's work is the branch that fills it */
 const BLANK = (title: string) => ({ schema: "story/1", title, format: "9:16", fps: 30, duration: 0, tracks: [] });
 export const authorOf = (me: Pick<Me, "id"> | null, via: string | null | undefined): docs.Author => ({ human: me?.id ?? null, via: via === "mcp" ? "mcp" : via === "import" ? "import" : "site" });
 
@@ -31,7 +31,7 @@ async function frontiersOf(q: Queryable, docId: string, number: number): Promise
 
 /**
  * The story's document, made from the story's history the first time (in the caller's transaction, the story's row
- * locked): every accepted version a step at its date and named its number, every open proposal a branch at its base.
+ * locked): every accepted version a step at its date and named its number, every intent's work at Proposal a branch at its base.
  */
 export async function ensureStoryDoc(q: Queryable, story: string): Promise<string> {
   const id = docIdOf(story);
@@ -53,11 +53,11 @@ export async function ensureStoryDoc(q: Queryable, story: string): Promise<strin
       }
     }
   }
-  // each open proposal made before the document: a branch at its base, the proposed timeline its one step
+  // each intent's work at Proposal made before the document: a branch at its base, the proposed timeline its one step
   const { rows: open } = await q.query<{ id: string; author: string | null; via: string | null; note: string; base_number: number | null; title: string; body: StoryBody; created: Date }>(
-    `SELECT p.id, p.author, p.via, p.note, b.number AS base_number, v.title, v.body, p.created FROM play.proposals p
-       JOIN play.story_versions v ON v.id = p.story_version LEFT JOIN play.story_versions b ON b.id = p.story_base
-      WHERE p.story_id = $1 AND p.kind = 'story_version' AND p.status = 'proposal' AND p.doc_branch IS NULL ORDER BY p.created`,
+    `SELECT i.id, i.proposed_by AS author, i.proposed_via AS via, COALESCE(i.work_note, '') AS note, b.number AS base_number, v.title, v.body, i.proposed_at AS created
+       FROM play.intents i JOIN play.story_versions v ON v.id = i.story_version LEFT JOIN play.story_versions b ON b.id = i.story_base
+      WHERE i.story_id = $1 AND i.work = 'story_version' AND i.stage = 'proposal' AND i.doc_branch IS NULL ORDER BY i.proposed_at`,
     [story],
   );
   for (const p of open) {
@@ -67,7 +67,8 @@ export async function ensureStoryDoc(q: Queryable, story: string): Promise<strin
     const b = await docs.branch(q, id, { author, note: p.note, ...(at ? { at } : {}) });
     await docs.commit(q, id, { branch: b.id, target: asDoc(p.title, p.body), message: p.note || "proposed", author, at: p.created });
     await docs.propose(q, id, b.id, { note: p.note, author });
-    await q.query(`UPDATE play.proposals SET doc_branch = $2 WHERE id = $1`, [p.id, b.id]);
+    await q.query(`UPDATE play.intents SET doc_branch = $2 WHERE id = $1`, [p.id, b.id]);
+    await q.query(`UPDATE play.doc_branches SET intent_id = $1 WHERE id = $2`, [p.id, b.id]);
   }
   return id;
 }
@@ -76,7 +77,7 @@ export async function ensureStoryDoc(q: Queryable, story: string): Promise<strin
 export async function ensureStoryDocs(db: Db): Promise<string[]> {
   const { rows } = await db.query<{ id: string }>(
     `SELECT s.id FROM play.stories s WHERE NOT EXISTS (SELECT 1 FROM play.docs d WHERE d.id = 'story:' || s.id)
-        OR EXISTS (SELECT 1 FROM play.proposals p WHERE p.story_id = s.id AND p.status = 'proposal' AND p.doc_branch IS NULL) ORDER BY s.id`,
+        OR EXISTS (SELECT 1 FROM play.intents i WHERE i.story_id = s.id AND i.work = 'story_version' AND i.stage = 'proposal' AND i.doc_branch IS NULL) ORDER BY s.id`,
   );
   for (const r of rows) await db.transaction((q) => ensureStoryDoc(q, r.id));
   return rows.map((r) => r.id);

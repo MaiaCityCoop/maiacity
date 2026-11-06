@@ -1,5 +1,7 @@
-// Intents (play/SPEC.md §4.12, Samuel 2026-11-06): everything on the Proposals board is an intent, something Maia City
-// wants made, fixed or improved, named by its UUID, its title only shown. An intent goes
+// Intents (play/SPEC.md §4.12, Samuel 2026-11-06): everything on the board is an intent, something Maia City wants made,
+// fixed or improved, named by its UUID, its title only shown. One record: an intent and its proposal are the same thing
+// ("not a proposal belongs to an intent: the intent has a state, proposal"), so the work it brings (an asset's or a
+// story's version, a sandbox's change, a factory's or a config's version: ./work.ts) is on the intent itself. It goes
 //
 //   Idea → Specify → Prototype → Proposal → Accepted (or Archived)
 //
@@ -7,12 +9,12 @@
 // a scope and its checks, each check one statement that passes or fails and how it is checked (test: a command that
 // passes; measure: a value and its range from a named tool; look: judged by eye against a named reference), must or
 // nice. Prototype: once an admin approves the spec, the whole round trip of building it, the agent recording each
-// check's result with its evidence. Proposal: the moment every must check has passed, the intent moves there by itself
-// (Samuel 2026-11-06), so after the spec there is one gate with a person in it, the decision at Proposal: an intent's
-// proposals are decided on their reviews and it follows them (the database's triggers, ./migrations.ts 0026); one whose
-// work is no proposal of play's (code, shipped by its pull request) is accepted or rejected there itself. play takes a
-// proposal for an intent only once every must check has passed (the gate is play's, not a promise in a note). A
-// proposal made with no intent gets one of its own, so the history is intents too.
+// check's result with its evidence, its work perhaps in progress (a draft branch). Proposal: the moment every must check
+// has passed, the intent moves there by itself (Samuel 2026-11-06), and proposing its work (every propose tool's
+// `intent`) puts it there with that work, play taking it only once every must check has passed; so after the spec there
+// is one gate with a person in it, the decision at Proposal: accepting applies its work (./proposals.ts decide), or, for
+// work that is no work of play's (code, shipped by its pull request), accepts it on main's checks. Work proposed with no
+// intent named is a new intent at Proposal of its own, with no spec.
 //
 // Every check runs in avenBOX (play/SPEC.md §4.12, Samuel 2026-11-06): the cloud environment the agents prototype in,
 // with Postgres up and TEST_DATABASE_URL set (play/avenbox/up.sh). A test or measure check carries its `run`, the exact
@@ -25,6 +27,7 @@ import { Denied, COOP, type Me } from "./access";
 import type { Queryable } from "./pg";
 import { NOTE_MOST } from "./notes";
 import { newId, UUID } from "./uuid";
+import { intentIdOf, WORK_KINDS, type WorkKind } from "./work";
 
 export class IntentError extends Error {
   constructor(message: string, public status = 400) {
@@ -52,7 +55,7 @@ const LINE_MOST = 600;
 const RUN_MOST = 2000;
 export type IntentVerdict = "approve" | "accept" | "reject" | "respecify" | "reopen";
 
-/** only Maia City's admins keep the intents, as they decide the proposals */
+/** only Maia City's admins keep the intents, as they decide them */
 function admin(me: Me | null): Me {
   if (!me) throw new Denied("Please sign in first.", 401);
   if (me.level !== "admin") throw new Denied("Only Maia City's admins keep the intents.");
@@ -126,30 +129,59 @@ export function specOf(body: { goal?: unknown; scope?: unknown; checks?: unknown
   return { goal, scope, checks };
 }
 
-/** the intents with who wrote, specified, approved and decided them, and each one's proposals (id, status, kind, group) */
+/**
+ * The intents with who wrote, specified, approved and decided them, and each one's work (null where it has none): its
+ * kind, what it is of (an asset's group, slug and label, a story's, sandbox's, factory's or config's title), the version
+ * it would be, how many changes a sandbox's makes, its note, who proposed it, how and when, and its status (its
+ * intent's stage: waiting at Proposal, accepted, else archived).
+ */
 async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
   const { rows } = await db.query<any>(
-    `SELECT i.id, i.kind, i.title, i.note, i.stage, i.via, i.created, i.spec, i.results, i.specified_at, i.approved_at, i.decided_at,
+    `SELECT i.id, i.kind, i.title, i.note, i.stage, i.via, i.created, i.spec, i.results, i.specified_at, i.approved_at, i.decided_at, i.came_with,
             au.name AS author, sp.name AS specified_by, ap.name AS approved_by, de.name AS decided_by,
-            COALESCE((SELECT json_agg(json_build_object('id', p.id, 'status', p.status, 'kind', p.kind, 'grp', a.grp) ORDER BY p.created)
-                        FROM play.proposals p LEFT JOIN play.assets a ON a.id = p.asset_id WHERE p.intent_id = i.id), '[]'::json) AS proposals
+            CASE WHEN i.work IS NULL THEN NULL ELSE json_build_object(
+              'kind', i.work, 'status', CASE i.stage WHEN 'proposal' THEN 'proposal' WHEN 'accepted' THEN 'accepted' ELSE 'archived' END,
+              'asset_id', i.asset_id, 'base', i.base, 'version', i.version, 'story_id', i.story_id, 'story_base', i.story_base, 'story_version', i.story_version,
+              'sandbox_id', i.sandbox_id, 'factory_id', i.factory_id, 'game_config_id', i.game_config_id, 'doc_branch', i.doc_branch,
+              'changes', jsonb_array_length(COALESCE(i.sandbox_diff, '[]'::jsonb)),
+              'note', COALESCE(i.work_note, ''), 'author', pb.name, 'via', i.proposed_via, 'created', i.proposed_at, 'decided_by', de.name, 'decided_at', i.decided_at,
+              'label', COALESCE(wa.label, sv.title, sx.title, fx.label, gc.label),
+              'grp', COALESCE(wa.grp, CASE i.work WHEN 'story_version' THEN 'stories' WHEN 'sandbox_change' THEN 'sandboxes' WHEN 'factory_version' THEN 'factories' WHEN 'game_config_version' THEN 'game' END),
+              'slug', wa.slug, 'version_label', wv.card->'card'->>'label',
+              'number', CASE i.work WHEN 'story_version' THEN COALESCE(sb.number, 0) + 1 WHEN 'sandbox_change' THEN NULL
+                 WHEN 'factory_version' THEN COALESCE(dbv.number, (SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = 'factory:' || i.factory_id) + 1)
+                 WHEN 'game_config_version' THEN COALESCE(dbv.number, (SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = 'game:' || i.game_config_id) + 1)
+                 ELSE COALESCE(wb.number, 0) + 1 END
+            ) END AS work
        FROM play.intents i
        LEFT JOIN play.humans au ON au.id = i.author
        LEFT JOIN play.humans sp ON sp.id = i.specified_by
        LEFT JOIN play.humans ap ON ap.id = i.approved_by
        LEFT JOIN play.humans de ON de.id = i.decided_by
+       LEFT JOIN play.humans pb ON pb.id = i.proposed_by
+       LEFT JOIN play.assets wa ON wa.id = i.asset_id
+       LEFT JOIN play.asset_versions wv ON wv.id = i.version
+       LEFT JOIN play.asset_versions wb ON wb.id = i.base
+       LEFT JOIN play.story_versions sv ON sv.id = i.story_version
+       LEFT JOIN play.story_versions sb ON sb.id = i.story_base
+       LEFT JOIN play.sandboxes sx ON sx.id = i.sandbox_id
+       LEFT JOIN play.factories fx ON fx.id = i.factory_id
+       LEFT JOIN play.game_configs gc ON gc.id = i.game_config_id
+       LEFT JOIN play.doc_branches dbr ON dbr.id = i.doc_branch AND i.work IN ('factory_version', 'game_config_version')
+       LEFT JOIN play.doc_versions dbv ON dbv.doc_id = dbr.doc_id AND dbv.number = dbr.version
       WHERE i.coop_id = $1 AND ${where}
-      ORDER BY COALESCE(i.decided_at, i.created) DESC LIMIT 500`,
+      ORDER BY COALESCE(i.decided_at, i.proposed_at, i.created) DESC LIMIT 500`,
     [COOP, ...args],
   );
   return rows;
 }
 
-/** The intents at the given stages (every stage where none is given), the latest first. */
-export async function listIntents(db: Queryable, me: Me | null, stages?: string[]) {
+/** The intents at the given stages (every stage where none is given), the latest first; with `work`, only those holding work of that kind. */
+export async function listIntents(db: Queryable, me: Me | null, stages?: string[], work?: string) {
   admin(me);
   for (const s of stages ?? []) if (!INTENT_STAGES.includes(s as IntentStage)) throw new IntentError(`An intent's stage is ${INTENT_STAGES.join(", ")}.`);
-  return intentsWhere(db, `($2::text[] IS NULL OR i.stage = ANY($2::text[]))`, [stages ?? null]);
+  if (work !== undefined && !WORK_KINDS.includes(work as WorkKind)) throw new IntentError(`An intent's work is ${WORK_KINDS.join(", ")}.`);
+  return intentsWhere(db, `($2::text[] IS NULL OR i.stage = ANY($2::text[])) AND ($3::text IS NULL OR i.work = $3)`, [stages ?? null, work ?? null]);
 }
 
 async function intentRow(db: Queryable, id: string) {
@@ -158,11 +190,19 @@ async function intentRow(db: Queryable, id: string) {
   return intent;
 }
 
-/** One intent with its proposals as the board lists them (their labels, kinds and statuses), via ./proposals.ts. */
-export async function intentOf(db: Queryable, me: Me | null, id: string, proposalsOf: (db: Queryable, intent: string) => Promise<unknown[]>) {
+/** One intent as the board lists it (admins), by its id or an old proposal's (play.proposal_ids). */
+export async function getIntent(db: Queryable, id: string) {
+  return intentRow(db, (await intentIdOf(db, idOf(id))) ?? id);
+}
+
+/**
+ * One intent, whole: as the board lists it, and its work's review where it holds work (`review`: what it changes, as
+ * people read it before they decide, ./proposals.ts reviewOf). An old proposal's id finds the intent it is now.
+ */
+export async function intentOf(db: Queryable, me: Me | null, id: string, reviewOf: (db: Queryable, id: string, shown: any) => Promise<unknown>) {
   admin(me);
-  const intent = await intentRow(db, id);
-  return { ...intent, proposals: await proposalsOf(db, intent.id) };
+  const intent = await getIntent(db, id);
+  return { ...intent, review: intent.work ? await reviewOf(db, intent.id, intent.work) : null };
 }
 
 /** A new intent at the Idea stage, by an admin's agent over MCP (no one adds one by hand). */
@@ -198,14 +238,14 @@ export async function specifyIntent(db: Queryable, me: Me | null, id: string, bo
   return intentRow(db, intent.id);
 }
 
-/** whether a proposal made for the intent still waits for a decision: then that proposal is where it is decided */
-const waiting = (intent: { proposals: { status: string }[] }) => intent.proposals.some((p) => p.status === "proposal");
+/** whether the intent's work waits for a decision at Proposal: then accepting applies it (./proposals.ts decide) */
+const waiting = (intent: { stage: string; work: unknown }) => intent.stage === "proposal" && !!intent.work;
 
 /**
  * Checks' results recorded while an intent is prototyped (over MCP): each names its check, passes or fails, and says
  * its evidence (the command and what it printed, the value measured, what was compared with what). The latest result of
- * a check stands; the gate to a proposal reads them. Once every must check has passed, the intent moves to Proposal by
- * itself, where an admin decides it (Samuel 2026-11-06); checked again there (none of its proposals waiting), a must
+ * a check stands; the gate to Proposal reads them. Once every must check has passed, the intent moves to Proposal by
+ * itself, where an admin decides it (Samuel 2026-11-06); checked again there (its work not waiting there), a must
  * that fails takes it back to Prototype.
  */
 export async function recordChecks(db: Queryable, me: Me | null, id: string, given: unknown) {
@@ -214,7 +254,7 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
   const checkable = intent.stage === "prototype" || (intent.stage === "proposal" && intent.approved_at && !waiting(intent));
   if (!checkable)
     throw new IntentError(
-      `Intent ${intent.id} is at the ${intent.stage} stage: checks are recorded while it is prototyped (its spec approved)${intent.stage === "proposal" ? ", or at Proposal while none of its proposals waits" : ""}.`,
+      `Intent ${intent.id} is at the ${intent.stage} stage: checks are recorded while it is prototyped (its spec approved)${intent.stage === "proposal" ? ", or at Proposal while no work of it waits there" : ""}.`,
       409,
     );
   const ids = new Set((intent.spec?.checks ?? []).map((c: Check) => c.id));
@@ -237,7 +277,7 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
   return intentRow(db, intent.id);
 }
 
-/** the must checks of an intent that have not passed, as people read them, or none: the gate to a proposal and to accepting */
+/** the must checks of an intent that have not passed, as people read them, or none: the gate to Proposal and to accepting */
 export function unmet(intent: { spec: Spec | null; results: Record<string, Result> | null }) {
   return (intent.spec?.checks ?? [])
     .filter((c) => c.must && intent.results?.[c.id]?.pass !== true)
@@ -245,7 +285,7 @@ export function unmet(intent: { spec: Spec | null; results: Record<string, Resul
 }
 
 /**
- * The final gate, for an intent accepted at Proposal (its work merged into main, outside play's proposals): every
+ * The final gate, for an intent accepted at Proposal with no work of play's (its code merged into main): every
  * must check with a `run` has passed on main (its latest result recorded there by .github/workflows/intents.yml), a
  * pass in avenBOX alone is not enough; a must check without a run (a look, a spec from before) as unmet() reads it.
  */
@@ -261,15 +301,15 @@ export function unmetOnMain(intent: { spec: Spec | null; results: Record<string,
 }
 
 /**
- * The intent a proposal is about to be made for, held to the gate: its spec approved (Prototype, or Proposal when it
- * takes another), and every must check passed. Otherwise nothing is proposed and the agent is told what is missing.
+ * The intent work is about to be proposed for, held to the gate: its spec approved (Prototype, or Proposal when its
+ * work is replaced), and every must check passed. Otherwise nothing is proposed and the agent is told what is missing.
  */
 export async function intentReady(db: Queryable, me: Me | null, id: unknown) {
   admin(me);
   const intent = await intentRow(db, `${id ?? ""}`);
   if (intent.stage === "idea" || intent.stage === "specify")
     throw new IntentError(`Intent ${intent.id} is at the ${intent.stage} stage: it is specified (specify_intent) and its spec approved by an admin before it is built and proposed.`, 409);
-  if (intent.stage !== "prototype" && intent.stage !== "proposal") throw new IntentError(`Intent ${intent.id} is ${intent.stage}: it takes no more proposals.`, 409);
+  if (intent.stage !== "prototype" && intent.stage !== "proposal") throw new IntentError(`Intent ${intent.id} is ${intent.stage}: it takes no more work.`, 409);
   const missing = unmet(intent);
   if (missing.length) throw new IntentError(`Intent ${intent.id} is not ready to propose: every must check passes first (record them with check_intent). ${missing.join("; ")}.`, 409);
   return intent;
@@ -277,7 +317,7 @@ export async function intentReady(db: Queryable, me: Me | null, id: unknown) {
 
 /**
  * An admin's decision on the board: approve a spec (Specify → Prototype: the agent may build it), send an approved one
- * back to Specify, accept an intent at Proposal whose work is not one of play's proposals (none of them waiting, every
+ * back to Specify, accept an intent at Proposal that holds no work of play's (its code: every
  * must check passed: it moved there by itself; and on main where the check has a run: unmetOnMain), reject one (it ends
  * archived), or bring a decided one back (to Specify with its spec, else to Idea). Nothing is accepted from Prototype:
  * Proposal is the one gate after the spec.
@@ -294,7 +334,7 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
       await db.query(`UPDATE play.intents SET stage = 'prototype', approved_by = $2, approved_at = now(), results = NULL WHERE id = $1`, [intent.id, who.id]);
       break;
     case "respecify":
-      if (intent.stage === "proposal" && waiting(intent)) refuse("A proposal of this intent waits for a decision: decide it first.");
+      if (intent.stage === "proposal" && waiting(intent)) refuse("Its work waits for a decision at Proposal: decide it first.");
       if (intent.stage !== "prototype" && !(intent.stage === "proposal" && intent.approved_at))
         refuse(`Only an intent being prototyped or at Proposal goes back to Specify; this one is at the ${intent.stage} stage.`);
       await db.query(`UPDATE play.intents SET stage = 'specify', approved_by = NULL, approved_at = NULL, results = NULL WHERE id = $1`, [intent.id]);
@@ -303,20 +343,21 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
       if (intent.stage === "prototype")
         refuse("An intent in Prototype is not accepted: it moves to Proposal by itself once every must check passes, and is decided there.");
       if (intent.stage !== "proposal") refuse(`An intent at the ${intent.stage} stage is decided already, or not yet built.`);
-      if (waiting(intent)) refuse("A proposal of this intent waits for a decision: accept or archive the proposal, and the intent follows it.");
+      if (waiting(intent)) refuse("Its work waits for a decision: accepting applies it (./proposals.ts decide).");
       const missing = unmetOnMain(intent);
       if (missing.length) refuse(`Every must check passes before an intent is accepted, each with a run on main once its work is merged (.github/workflows/intents.yml): ${missing.join("; ")}.`);
       await db.query(`UPDATE play.intents SET stage = 'accepted', decided_by = $2, decided_at = now() WHERE id = $1`, [intent.id, who.id]);
       break;
     }
     case "reject":
-      if (intent.stage === "proposal" && waiting(intent)) refuse("A proposal of this intent waits for a decision: archive the proposal, and the intent follows it.");
+      if (intent.stage === "proposal" && waiting(intent)) refuse("Its work waits for a decision: archiving it archives the intent.");
       if (!["idea", "specify", "prototype", "proposal"].includes(intent.stage)) refuse(`An intent at the ${intent.stage} stage is decided already.`);
       await db.query(`UPDATE play.intents SET stage = 'archived', decided_by = $2, decided_at = now() WHERE id = $1`, [intent.id, who.id]);
       break;
     case "reopen":
       if (intent.stage !== "accepted" && intent.stage !== "archived") refuse(`This intent is at the ${intent.stage} stage already.`);
-      if (intent.proposals.some((p: { status: string }) => p.status === "proposal")) refuse("This intent still has a proposal waiting for a decision.");
+      // accepted work is in: what comes after it is an intent of its own
+      if (intent.stage === "accepted" && intent.work) refuse("Its work is in (accepted): what is wanted now is an intent of its own.");
       await db.query(
         `UPDATE play.intents SET stage = CASE WHEN spec IS NULL OR jsonb_array_length(spec->'checks') = 0 THEN 'idea' ELSE 'specify' END,
                 approved_by = NULL, approved_at = NULL, results = NULL, decided_by = NULL, decided_at = NULL WHERE id = $1`,

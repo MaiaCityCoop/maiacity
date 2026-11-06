@@ -84,8 +84,10 @@ suite("every reference a UUID (migration 0017)", () => {
     ]);
     expect((await q(`SELECT DISTINCT story_id FROM play.story_versions WHERE story_id = $1`, [film])).length).toBe(1);
     expect(await q(`SELECT id FROM play.story_versions WHERE story_id = $1 ORDER BY id`, [film])).toEqual([v1, p2].sort().map((id) => ({ id })));
-    expect(await q(`SELECT story_id, coop_id FROM play.proposals WHERE id = $1`, [proposal])).toEqual([{ story_id: film, coop_id: COOP }]);
-    expect(await q(`SELECT sandbox_id FROM play.proposals WHERE id = $1`, [change])).toEqual([{ sandbox_id: SANDBOX.two }]);
+    // the proposals are intents now (0029), each found by its old id through play.proposal_ids
+    const intentOf = `SELECT i.* FROM play.intents i JOIN play.proposal_ids m ON m.intent_id = i.id WHERE m.proposal_id = $1`;
+    expect((await q(intentOf, [proposal])).map((i) => ({ story_id: i.story_id, coop_id: i.coop_id, work: i.work, stage: i.stage }))).toEqual([{ story_id: film, coop_id: COOP, work: "story_version", stage: "proposal" }]);
+    expect((await q(intentOf, [change])).map((i) => i.sandbox_id)).toEqual([SANDBOX.two]);
     expect(await q(`SELECT sandbox_id FROM play.sandbox_configs`)).toEqual([{ sandbox_id: SANDBOX.one }]);
     expect((await q(`SELECT id, title FROM play.sandboxes ORDER BY title`)).map((r) => r.id)).toEqual([SANDBOX.factories, SANDBOX.one, SANDBOX.two, SANDBOX.three, SANDBOX.four, SANDBOX.five]);
     expect(await q(`SELECT coop_id FROM play.memberships`)).toEqual([{ coop_id: COOP }]);
@@ -96,7 +98,7 @@ suite("every reference a UUID (migration 0017)", () => {
     expect((await readDoc(db, `story:${film}`)).json.tracks[0].clips[0].who).toBe("SAMUEL");
     // the history is append only again, and every foreign key holds
     await expect(db.query(`DELETE FROM play.doc_updates`)).rejects.toThrow(/append only/);
-    await expect(db.query(`UPDATE play.proposals SET story_id = $1 WHERE id = $2`, [crypto.randomUUID(), proposal])).rejects.toThrow(/foreign key/);
+    await expect(db.query(`UPDATE play.intents SET story_id = $1 WHERE id = (SELECT intent_id FROM play.proposal_ids WHERE proposal_id = $2)`, [crypto.randomUUID(), proposal])).rejects.toThrow(/foreign key/);
     await expect(db.query(`INSERT INTO play.docs (id, type, schema) VALUES ('story:old-film', 'story', 'story/1')`)).rejects.toThrow(/docs_id_check/);
     // a new story or sandbox gets a random UUID; two assets may share a group and slug
     expect((await q(`INSERT INTO play.stories (coop_id, title) VALUES ($1, 'New') RETURNING id`, [COOP]))[0].id).toMatch(UUID);
