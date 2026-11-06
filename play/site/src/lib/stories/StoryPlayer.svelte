@@ -14,6 +14,11 @@
 	Its links (Samuel 2026-11-04: the trailer its own story, linked into every film): the story is played as one timeline
 	with every version it links laid in (`flatten`, from the `links` play reads with it), a lane of the links, each one's
 	story named and opened on the Stories page by its UUID, and the clips it lays in shown in their lanes, dashed.
+	Full screen (Samuel 2026-11-06): the picture alone on the whole screen, black around it and kept to the film's format
+	(letterboxed, never cropped), its subtitles in it; the Full screen button or F, Esc or F again to leave. A tap still
+	plays and pauses; a bar (play, the time, a line to seek on, exit) shows while it is paused or the pointer moves, and
+	goes with the cursor while it plays. Where the browser has no full screen for a page's element (an iPhone's Safari), the
+	same mode fills the window.
 -->
 <script lang="ts">
 	import { onMount, untrack, type Snippet } from 'svelte';
@@ -293,13 +298,76 @@
 	};
 	const step = (dir: 1 | -1) => seek(shotEdge(flat, t, dir));
 
+	// full screen: the browser's own where it has it for an element, else the picture over the whole window (an iPhone)
+	let screenEl: HTMLElement | undefined = $state();
+	let full = $state(false);
+	/** full only in the window, without the browser's full screen */
+	let inWindow = $state(false);
+	/** the bar and the cursor hidden while it plays and the pointer rests */
+	let resting = $state(false);
+	let restTimer: ReturnType<typeof setTimeout> | undefined;
+	const fsElement = () => document.fullscreenElement ?? (document as any).webkitFullscreenElement ?? null;
+	async function enterFull() {
+		gesture();
+		const el = screenEl as any;
+		const ask = el?.requestFullscreen ?? el?.webkitRequestFullscreen;
+		if (ask && (document.fullscreenEnabled || (document as any).webkitFullscreenEnabled)) {
+			try {
+				await ask.call(el);
+				return;
+			} catch {
+				// refused (not in a tap, or not allowed here): the window instead
+			}
+		}
+		inWindow = true;
+		full = true;
+	}
+	async function exitFull() {
+		if (fsElement()) await (document.exitFullscreen ?? (document as any).webkitExitFullscreen)?.call(document);
+		inWindow = false;
+		full = false;
+	}
+	const toggleFull = () => void (full ? exitFull() : enterFull());
+	/** the pointer moved over the picture: the bar back, hidden again after a moment of rest while it plays */
+	function stir() {
+		resting = false;
+		clearTimeout(restTimer);
+		restTimer = setTimeout(() => (resting = true), 2500);
+	}
+	onMount(() => {
+		const sync = () => {
+			if (!inWindow) full = !!screenEl && fsElement() === screenEl;
+		};
+		document.addEventListener('fullscreenchange', sync);
+		document.addEventListener('webkitfullscreenchange', sync);
+		return () => {
+			document.removeEventListener('fullscreenchange', sync);
+			document.removeEventListener('webkitfullscreenchange', sync);
+			clearTimeout(restTimer);
+		};
+	});
+	// seeking on the full screen's line: the time where the pointer is along it
+	let barLine: HTMLElement | undefined = $state();
+	let barDragging = false;
+	const barSeek = (e: PointerEvent) => {
+		const r = barLine!.getBoundingClientRect();
+		seek(((e.clientX - r.left) / r.width) * D);
+	};
+
 	function onKey(e: KeyboardEvent) {
 		if (!keys) return;
 		const el = e.target as HTMLElement | null;
 		if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(el.tagName) && e.key !== ' ')) return;
+		if (e.metaKey || e.ctrlKey || e.altKey) return;
 		if (e.key === ' ') {
 			e.preventDefault();
 			toggle();
+		} else if (e.key === 'f' || e.key === 'F') {
+			e.preventDefault();
+			toggleFull();
+		} else if (e.key === 'Escape' && full) {
+			e.preventDefault();
+			void exitFull();
 		} else if (e.key === 'ArrowRight') {
 			e.preventDefault();
 			step(1);
@@ -346,39 +414,57 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="player" class:compact class:framed={!!(list || side)} style:--below="{21.2 + (shots.length ? 3.6 : 0) + soundTracks.length * 1.2 + (slots.length ? 1.8 : 0)}rem">
+<div class="player" class:compact class:framed={!!(list || side)} class:windowed={full && inWindow} style:--below="{21.2 + (shots.length ? 3.6 : 0) + soundTracks.length * 1.2 + (slots.length ? 1.8 : 0)}rem">
 	{#if list}<div class="p-list">{@render list()}</div>{/if}
 	{#if head}<div class="p-head">{@render head()}</div>{/if}
 	<!-- a tap on the picture plays and pauses it, as on any film player (Samuel 2026-11-04) -->
-	<div class="screen" style:--ratio={ratio} role="button" tabindex="0" aria-label={playing ? 'Pause' : 'Play'} onclick={toggle} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), e.stopPropagation(), toggle())}>
-		{#if debug}<pre class="diag">{diag || 'no takes'}</pre>{/if}
-		<!-- a shot with a video shows only its video (Samuel 2026-11-05: no stills any more); a still shows only for a shot
-			 that has no video yet. Before a take's first frame has loaded, it shows its poster: the thumbnail taken from that
-			 same video, the shot's frame -->
-		{#if moment.prev?.frame && !moment.prev.video}<img class="frame" src={frameUrl(moment.prev.frame)} alt="" draggable="false" />{/if}
-		{#if moment.shot && !moment.shot.video}
-			{#if moment.shot.frame}
-				<img class="frame on" src={frameUrl(moment.shot.frame)} alt="Shot {moment.index + 1}" draggable="false" style:opacity={moment.mix} />
-			{:else}
-				<div class="frame empty on" style:opacity={moment.mix}><span>Shot {moment.index + 1}: no frame yet</span></div>
+	<div class="screen" class:full class:resting={full && playing && resting} bind:this={screenEl} style:--ratio={ratio} role="button" tabindex="0" aria-label={playing ? 'Pause' : 'Play'} onclick={toggle} onpointermove={stir} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), e.stopPropagation(), toggle())}>
+		<!-- the picture: the whole screen, or in full screen the film's format as large as fits, black around it -->
+		<div class="picture">
+			{#if debug}<pre class="diag">{diag || 'no takes'}</pre>{/if}
+			<!-- a shot with a video shows only its video (Samuel 2026-11-05: no stills any more); a still shows only for a shot
+				 that has no video yet. Before a take's first frame has loaded, it shows its poster: the thumbnail taken from that
+				 same video, the shot's frame -->
+			{#if moment.prev?.frame && !moment.prev.video}<img class="frame" src={frameUrl(moment.prev.frame)} alt="" draggable="false" />{/if}
+			{#if moment.shot && !moment.shot.video}
+				{#if moment.shot.frame}
+					<img class="frame on" src={frameUrl(moment.shot.frame)} alt="Shot {moment.index + 1}" draggable="false" style:opacity={moment.mix} />
+				{:else}
+					<div class="frame empty on" style:opacity={moment.mix}><span>Shot {moment.index + 1}: no frame yet</span></div>
+				{/if}
 			{/if}
-		{/if}
-		<!-- one video per take: the one the shot on screen plays on top (faded in as its transition says), the one the shot
-			 before played under it while they mix. The layers, bottom to top: the shot before, the shot on screen (.on), the
-			 black veil of a fade, the subtitles and the play mark -->
-		{#each videoSources as h (h)}
-			<video class="frame" bind:this={videoEls[h]} use:release src={wanted[h] ? frameUrl(h) : undefined} poster={posterOf(h)} muted playsinline preload="auto" aria-hidden="true" class:on={moment.shot?.video === h} style:opacity={moment.shot?.video === h ? moment.mix : moment.prev?.video === h && moment.mix < 1 ? 1 : 0}></video>
-		{/each}
-		<!-- a shot's fade from black and to black: the picture under a black veil, the subtitles over it -->
-		{#if moment.light < 1}<div class="black" style:opacity={1 - moment.light}></div>{/if}
-		<!-- one line at a time, large, as the film shows it; words set on screen are in the frame once it has one -->
-		{#if moment.voice && moment.cue && !(moment.voice.who === 'ON SCREEN' && moment.shot?.frame)}
-			<div class="subtitle">
-				<span class="who">{moment.voice.who}</span>
-				<span class="line" class:em={moment.cue.em}>{moment.cue.text}</span>
+			<!-- one video per take: the one the shot on screen plays on top (faded in as its transition says), the one the shot
+				 before played under it while they mix. The layers, bottom to top: the shot before, the shot on screen (.on), the
+				 black veil of a fade, the subtitles and the play mark -->
+			{#each videoSources as h (h)}
+				<video class="frame" bind:this={videoEls[h]} use:release src={wanted[h] ? frameUrl(h) : undefined} poster={posterOf(h)} muted playsinline preload="auto" aria-hidden="true" class:on={moment.shot?.video === h} style:opacity={moment.shot?.video === h ? moment.mix : moment.prev?.video === h && moment.mix < 1 ? 1 : 0}></video>
+			{/each}
+			<!-- a shot's fade from black and to black: the picture under a black veil, the subtitles over it -->
+			{#if moment.light < 1}<div class="black" style:opacity={1 - moment.light}></div>{/if}
+			<!-- one line at a time, large, as the film shows it; words set on screen are in the frame once it has one -->
+			{#if moment.voice && moment.cue && !(moment.voice.who === 'ON SCREEN' && moment.shot?.frame)}
+				<div class="subtitle">
+					<span class="who">{moment.voice.who}</span>
+					<span class="line" class:em={moment.cue.em}>{moment.cue.text}</span>
+				</div>
+			{/if}
+			{#if !playing}<span class="play-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg></span>{/if}
+		</div>
+		{#if full}
+			<!-- the bar's own presses and keys stay its own: they never reach the picture, which would play or pause again -->
+			<div class="full-bar" role="toolbar" tabindex="-1" aria-label="Playback" onclick={(e) => e.stopPropagation()} onpointerdown={(e) => e.stopPropagation()} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && e.stopPropagation()}>
+				<button type="button" onclick={toggle} aria-label={playing ? 'Pause' : 'Play'}>{playing ? 'Pause' : t >= D - 0.01 ? 'Replay' : 'Play'}</button>
+				<span class="full-time">{clock(t)} <span>/ {clock(D)}</span></span>
+				<div class="full-line" bind:this={barLine} role="slider" tabindex="-1" aria-label="Time" aria-valuemin={0} aria-valuemax={Math.round(D)} aria-valuenow={Math.round(t)}
+					onpointerdown={(e) => (barLine!.setPointerCapture(e.pointerId), (barDragging = true), audio.stop(), barSeek(e))}
+					onpointermove={(e) => barDragging && barSeek(e)}
+					onpointerup={() => barDragging && ((barDragging = false), resound())}
+					onpointercancel={() => barDragging && ((barDragging = false), resound())}>
+					<span style:width={pct(t)}></span>
+				</div>
+				<button type="button" onclick={() => void exitFull()} aria-label="Leave full screen" title="Leave full screen (Esc)">Exit</button>
 			</div>
 		{/if}
-		{#if !playing}<span class="play-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg></span>{/if}
 	</div>
 	<aside class="details">
 		{#if side}<div class="p-side">{@render side()}</div>{/if}
@@ -416,6 +502,7 @@
 				Sound {soundState === 'loading' ? '…' : soundState === 'failed' ? '(failed)' : soundOn ? 'on' : 'off'}
 			</button>
 		{/if}
+		<button class="btn small ghost" onclick={toggleFull} title="Full screen: the picture alone, on the whole screen (F)">Full screen</button>
 		{#if unrecorded}
 			<button class="btn small ghost" class:on={voiceOn} onclick={() => (voiceOn = !voiceOn)} title="Read each line that has no take yet aloud with the browser's voice">Voice {voiceOn ? 'on' : 'off'}</button>
 		{/if}
@@ -495,7 +582,24 @@
 	/* the frame as tall as leaves the controls and the timeline in view above the nav pill (a page may say otherwise) */
 	/* its width worked out from its height: the subtitles are sized to the frame (container-type: size), and a box
 	   contained that way has no width of its own to give a grid column (it collapsed to nothing) */
-	.screen { position: relative; --h: min(var(--story-screen, clamp(15rem, calc(100vh - 24.5rem), 660px)), calc((100cqw - 20rem) / var(--ratio))); height: var(--h); width: calc(var(--h) * var(--ratio)); max-width: 100%; border-radius: 14px; overflow: hidden; background: #15130f; box-shadow: var(--shadow); user-select: none; container-type: size; }
+	.screen { position: relative; --h: min(var(--story-screen, clamp(15rem, calc(100vh - 24.5rem), 660px)), calc((100cqw - 20rem) / var(--ratio))); height: var(--h); width: calc(var(--h) * var(--ratio)); max-width: 100%; border-radius: 14px; overflow: hidden; background: #15130f; box-shadow: var(--shadow); user-select: none; }
+	/* the picture's layers, sized to it (container-type: size: the subtitles and the play mark scale with the picture) */
+	.picture { position: absolute; inset: 0; overflow: hidden; container-type: size; }
+	/* full screen: the whole screen black, the picture the film's format as large as fits in the middle of it */
+	.screen.full { position: fixed; inset: 0; z-index: 2000; width: 100vw; height: 100vh; height: 100dvh; max-width: none; border-radius: 0; background: #000; box-shadow: none; }
+	.full .picture { inset: auto; left: 50%; top: 50%; width: min(100vw, 100dvh * var(--ratio)); height: min(100dvh, 100vw / var(--ratio)); transform: translate(-50%, -50%); }
+	.screen.resting { cursor: none; }
+	/* the window filled without the browser's full screen: the player is no container then, which would hold the fixed
+	   screen inside it (a container contains its layout) */
+	.player.windowed { container-type: normal; }
+	.full-bar { position: absolute; z-index: 6; left: 50%; bottom: max(1rem, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(44rem, calc(100% - 2rem)); display: flex; align-items: center; gap: 0.8rem; padding: 0.55rem 0.8rem; border-radius: 14px; background: rgb(20 18 14 / 0.72); backdrop-filter: blur(8px); color: #f3efe6; cursor: default; transition: opacity 0.3s; }
+	.resting .full-bar { opacity: 0; pointer-events: none; }
+	.full-bar button { border: 1px solid rgb(255 255 255 / 0.25); background: rgb(255 255 255 / 0.08); color: inherit; font: inherit; font-size: 0.85rem; font-weight: 600; padding: 0.3rem 0.75rem; border-radius: 9px; cursor: pointer; }
+	.full-time { font-variant-numeric: tabular-nums; font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
+	.full-time span { opacity: 0.6; }
+	.full-line { flex: 1; height: 1.4rem; position: relative; cursor: pointer; touch-action: none; }
+	.full-line::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 4px; transform: translateY(-50%); border-radius: 2px; background: rgb(255 255 255 / 0.22); }
+	.full-line span { position: absolute; left: 0; top: 50%; height: 4px; transform: translateY(-50%); border-radius: 2px; background: #efb54d; }
 	.compact .screen { --h: min(var(--story-screen, clamp(14rem, calc(100vh - 25rem), 520px)), calc((100cqw - 20rem) / var(--ratio))); }
 	.frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; z-index: 1; }
 	.frame.on { z-index: 2; }
