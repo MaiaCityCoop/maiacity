@@ -4,18 +4,18 @@
 // step kept in the asset's Loro document, ./assetdocs.ts); it reads the stories (./stories.ts) and proposes new stories
 // and new versions of them, with the storyboard images they show. All are filed as the admin's proposals with `via`
 // 'mcp'. Accepting stays a person's, on the Proposals page (Samuel 2026-11-02): no tool here accepts. An agent may
-// archive only its own proposals made here, still proposed (archive_proposal, Samuel 2026-11-04), one it has replaced or no longer
-// stands by. It reads the factories and proposes new versions of them, drafted step by step if it likes
-// (factory_edit, each step kept in the factory's Loro document, ./factories.ts). It reads the Inbox (./inbox.ts), what
-// Maia City wants made, fixed or improved, adds to it (the only way in) and specifies its items (their definition and
-// metric of what is good), and names the specified item it works on in what it proposes (every propose tool's `inbox`);
-// marking an item done stays a person's, on the Proposals page.
+// archive only its own proposals made here, still waiting (archive_proposal, Samuel 2026-11-04), one it has replaced or no
+// longer stands by. It reads the factories and proposes new versions of them, drafted step by step if it likes
+// (factory_edit, each step kept in the factory's Loro document, ./factories.ts). Everything on the board is an intent
+// (./intents.ts): it adds intents (the only way in), specifies them (a goal, a scope, checks), records their checks'
+// results while it prototypes an approved one, and names the intent in what it proposes (every propose tool's
+// `intent`), play taking it only once every must check passes; approving a spec and accepting stay a person's.
 import type { BlobStore } from "./blobs";
 import type { Db } from "./pg";
 import type { Me } from "./access";
 import { assetOf, listAssets, NotFound } from "./assets";
-import { archiveOwn, listProposals, proposalsOfInbox, propose, ProposalError } from "./proposals";
-import { addInbox, inboxItem, InboxError, inboxOpen, INBOX_KINDS, INBOX_STATUSES, linkInbox, listInbox, OPEN_ITEMS, specifyInbox, TITLE_MOST } from "./inbox";
+import { archiveOwn, listProposals, proposalsOfIntent, propose, ProposalError } from "./proposals";
+import { addIntent, CHECK_HOWS, CHECKS_MOST, intentOf, IntentError, intentReady, INTENT_KINDS, INTENT_STAGES, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST } from "./intents";
 import { adminByToken } from "./tokens";
 import { admin, AUDIO_TYPES, editStory, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, proposeStory, putAudioBase64, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAtStep, storyHistory, storyOf, StoryError, VIDEO_TYPES } from "./stories";
 import { AssetDocError, assetAtStep, assetHistory, editAsset } from "./assetdocs";
@@ -192,7 +192,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         required: ["asset", "note"],
         additionalProperties: false,
       },
-      run: async ({ asset, source, note, base, branch, variants, default_variant, params, sheet, datasheet, brief }, me) => {
+      run: async ({ asset, source, note, base, branch, variants, default_variant, params, sheet, datasheet, brief, intent }, me) => {
         if (branch == null && !source && !variants?.length) throw new ProposalError("Give the new version's source, or the draft (branch) it stands in.");
         const kinds = Array.isArray(variants) && variants.length ? variants : null;
         if (kinds && kinds.some((x: any) => !x?.source) && !source) throw new ProposalError("Give the version's source, or each variant's own.");
@@ -216,6 +216,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
             ...(sheet !== undefined ? { sheet } : {}),
             ...(datasheet !== undefined ? { datasheet } : {}),
             ...(brief !== undefined ? { brief } : {}),
+            ...(intent ? { intent } : {}),
           },
           "mcp",
         );
@@ -263,7 +264,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         required: ["group", "label", "note"],
         additionalProperties: false,
       },
-      run: async ({ group, slug, label, source, note, variants, default_variant, params, sheet, datasheet, brief }, me) => {
+      run: async ({ group, slug, label, source, note, variants, default_variant, params, sheet, datasheet, brief, intent }, me) => {
         const kinds = Array.isArray(variants) && variants.length ? variants : null;
         if (!source && !kinds) throw new ProposalError("Give its source, or its variants.");
         // play runs no code: a recipe's declared params reach its record only from here (a build with values is refused without them)
@@ -285,6 +286,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
             ...(sheet !== undefined ? { sheet } : {}),
             ...(datasheet !== undefined ? { datasheet } : {}),
             ...(brief !== undefined ? { brief } : {}),
+            ...(intent ? { intent } : {}),
           },
           "mcp",
         );
@@ -322,7 +324,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         required: ["sandbox", "note", "edits"],
         additionalProperties: false,
       },
-      run: async ({ sandbox, note, edits }, me) => proposeSandbox(db, me, { sandbox, note, edits }, "mcp"),
+      run: async ({ sandbox, note, edits, intent }, me) => proposeSandbox(db, me, { sandbox, note, edits, intent }, "mcp"),
     },
     // ---- factories: each production line a Loro document, changed only by proposal (./factories.ts, play/SPEC.md §4.7)
     {
@@ -392,7 +394,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         required: ["factory", "note"],
         additionalProperties: false,
       },
-      run: async ({ factory, note, branch, edits, whole }, me) => proposeFactory(db, me, { factory, note, edits, whole, ...(branch != null ? { branch: Number(branch) } : {}) }),
+      run: async ({ factory, note, branch, edits, whole, intent }, me) => proposeFactory(db, me, { factory, note, edits, whole, intent, ...(branch != null ? { branch: Number(branch) } : {}) }),
     },
     // ---- the game's configs: each a Loro document, changed only by proposal (./gameconfigs.ts, the Game editor)
     {
@@ -462,7 +464,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         required: ["config", "note"],
         additionalProperties: false,
       },
-      run: async ({ config, note, branch, edits, whole }, me) => proposeGameConfig(db, me, { config, note, edits, whole, ...(branch != null ? { branch: Number(branch) } : {}) }),
+      run: async ({ config, note, branch, edits, whole, intent }, me) => proposeGameConfig(db, me, { config, note, edits, whole, intent, ...(branch != null ? { branch: Number(branch) } : {}) }),
     },
     // ---- stories: a film as one timeline of tracks and clips (./stories.ts, play/SPEC.md §12)
     {
@@ -536,7 +538,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         required: ["title", "body", "note"],
         additionalProperties: false,
       },
-      run: async ({ title, body, note }, me) => proposeStory(db, me, { title, body, note }, true),
+      run: async ({ title, body, note, intent }, me) => proposeStory(db, me, { title, body, note, intent }, true),
     },
     {
       name: "propose_story_version",
@@ -563,7 +565,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         required: ["story", "note"],
         additionalProperties: false,
       },
-      run: async ({ story, note, base, title, body, edits, branch }, me) => proposeStory(db, me, { story, note, title, body, edits, ...(base ? { base } : {}), ...(branch != null ? { branch: Number(branch) } : {}) }, false),
+      run: async ({ story, note, base, title, body, edits, branch, intent }, me) => proposeStory(db, me, { story, note, title, body, edits, intent, ...(base ? { base } : {}), ...(branch != null ? { branch: Number(branch) } : {}) }, false),
     },
     {
       name: "add_story_frame",
@@ -611,79 +613,122 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     },
     {
       name: "list_proposals",
-      description: "The proposals, newest first, with their status (proposed: waiting for a decision; accepted; archived), author, where they came from (web or mcp) and the Inbox item each was made for (inbox_id), if any.",
+      description: "The proposals, newest first, with their status (proposal: waiting for a decision; accepted; archived), author, where they came from (web or mcp) and the intent each is (intent_id, intent_title: every proposal is an intent's).",
       inputSchema: {
         type: "object",
-        properties: { status: { type: "string", enum: ["proposed", "accepted", "archived"] } },
+        properties: { status: { type: "string", enum: ["proposal", "accepted", "archived"] } },
         additionalProperties: false,
       },
       run: async ({ status }, me) => listProposals(db, me, status),
     },
-    // ---- the Inbox and Specify (./inbox.ts): the stages before a proposal, what Maia City wants made, fixed or improved
+    // ---- intents (./intents.ts): everything on the Proposals board, Idea → Specify → Prototype → Proposal → Accepted or Archived
     {
-      name: "list_inbox",
+      name: "list_intents",
       description:
-        "The items still to be taken up, newest first: what Maia City wants made, fixed or improved, the stages before a proposal on the Proposals board. Each has its id (a UUID), kind (idea, fix, improve), title, note, status (inbox: as it came; specify: specified, its definition and metric of what is good; done; archived), who wrote it, its spec and the proposals made for it (their ids and statuses). " +
-        "Sent to work on an item: read it whole with get_inbox_item; if it is still in the inbox, specify it first with specify_inbox_item; then make what its definition says, check it against its metric, and propose it naming the item (every propose tool's `inbox`).",
+        "Maia City's intents, the latest first: everything on the Proposals board, each something wanted made, fixed or improved, going Idea → Specify → Prototype → Proposal → Accepted (or Archived). Each has its id (a UUID), kind (idea, fix, improve), title, note, stage, who wrote it, its spec (goal, scope, checks) once specified, its checks' results while prototyped, and its proposals (ids and statuses). Every proposal is an intent's. " +
+        "Sent to work on an intent: read it with get_intent. At Idea, specify it (specify_intent) and stop: an admin approves the spec. At Prototype (approved), build it, run each check and record its result with its evidence (check_intent), and once every must check passes, propose it naming the intent (every propose tool's `intent`): play refuses it before.",
       inputSchema: {
         type: "object",
-        properties: { status: { type: "string", enum: [...INBOX_STATUSES, "all"], description: "which items: inbox, specify, done, archived or all; those in the inbox and specify if left out" } },
+        properties: { stage: { type: "string", enum: [...INTENT_STAGES, "all"], description: "which intents: one stage, or all; those not yet decided (idea, specify, prototype, proposal) if left out" } },
         additionalProperties: false,
       },
-      run: async ({ status }, me) => listInbox(db, me, status === "all" ? undefined : status ? [`${status}`] : OPEN_ITEMS),
+      run: async ({ stage }, me) => listIntents(db, me, stage === "all" ? undefined : stage ? [`${stage}`] : OPEN_STAGES),
     },
     {
-      name: "get_inbox_item",
-      description: "One item of the Inbox, whole: its kind, title, note, status, who wrote it, its spec (definition and metric, once specified), and every proposal made for it as the Proposals page lists them (kind, label, version, status, author).",
+      name: "get_intent",
+      description: "One intent, whole: its kind, title, note, stage, who wrote, specified and approved it, its spec (goal, scope, checks: each its id, statement, how it is checked, must or nice), its checks' latest results with their evidence, and every proposal of it as the Proposals page lists them.",
       inputSchema: {
         type: "object",
-        properties: { item: { type: "string", description: "the item's id (a UUID: list_inbox gives it)" } },
-        required: ["item"],
+        properties: { intent: { type: "string", description: "the intent's id (a UUID: list_intents gives it)" } },
+        required: ["intent"],
         additionalProperties: false,
       },
-      run: async ({ item }, me) => inboxItem(db, me, `${item ?? ""}`, proposalsOfInbox),
+      run: async ({ intent }, me) => intentOf(db, me, `${intent ?? ""}`, proposalsOfIntent),
     },
     {
-      name: "add_inbox_item",
+      name: "add_intent",
       description:
-        "Add an item to the Inbox, in this token's admin's name: something to make, fix or improve, as the admin asked you to note it or as you found it and are not doing now (a bug seen while working, an idea for an asset, a story or a sandbox), for the admins to triage and send an agent to. This is the only way into the Inbox: no one adds an item by hand. " +
-        "Say it in the title, in a line, and the rest in the note: where it is (name assets, stories and sandboxes by their ids), what is wrong or wanted, and why. Specify it (specify_inbox_item) when it is to be taken up.",
+        "Add an intent at the Idea stage, in this token's admin's name: something to make, fix or improve, as the admin asked you to note it or as you found it and are not doing now (a bug seen while working, an idea for an asset, a story or a sandbox), for the admins to triage. This is the only way an intent comes in: no one adds one by hand. " +
+        "Say it in the title, in a line, and the rest in the note: where it is (name assets, stories and sandboxes by their ids), what is wrong or wanted, and why.",
       inputSchema: {
         type: "object",
         properties: {
           title: { type: "string", maxLength: TITLE_MOST, description: "what is to be made, fixed or improved, in a line" },
           note: { type: "string", description: "the rest: where, what and why (Markdown)" },
-          kind: { type: "string", enum: [...INBOX_KINDS], description: "idea (something new), fix (something wrong) or improve (something there, made better); idea if left out" },
+          kind: { type: "string", enum: [...INTENT_KINDS], description: "idea (something new), fix (something wrong) or improve (something there, made better); idea if left out" },
         },
         required: ["title"],
         additionalProperties: false,
       },
-      run: async ({ title, note, kind }, me) => addInbox(db, me, { title, note, kind }),
+      run: async ({ title, note, kind }, me) => addIntent(db, me, { title, note, kind }),
     },
     {
-      name: "specify_inbox_item",
+      name: "specify_intent",
       description:
-        "Specify an item of the Inbox, the stage between the Inbox and Proposed: its definition, what is to be made, precisely (what changes, where, what stays as it is), and its metric, what good is: how a proposal for it is judged, measurable where it can be (numbers against the real thing, checks that pass or fail, references it must match). The item moves to Specify, and only a specified item takes proposals. " +
-        "Specified again, its spec is replaced; give its title, kind or note too to make them sharper. One done or archived is brought back by an admin first. Specify before you build, and check what you propose against the metric.",
+        "Specify an intent (Idea → Specify): what is wanted, made testable, the gate it is built and judged against. " +
+        "goal: what is true when it is done, in a sentence. scope: what changes, named precisely (assets, stories and sandboxes by their UUIDs, files by their paths), and what stays as it is. " +
+        `checks: 1 to ${CHECKS_MOST}, each ONE statement that passes or fails ("the fronds are 40–60 cm long", never "it looks realistic"), how it is checked, and must or nice: ` +
+        "test (by: the command or test that passes), measure (by: the tool that measures it and the range it must fall in: the asset box's measured size or triangles, a count, a timing), look (by: the reference it is judged against by eye: a reference sheet by its hash, a photo, a named sandbox view). Prefer test and measure: they are deterministic; look is not. " +
+        "Every check must be decidable by someone who reads only the intent and the result. At least one is a must; every must passes before it is proposed. Specified again, the spec is replaced. Then an admin approves it (Specify → Prototype) before anything is built.",
       inputSchema: {
         type: "object",
         properties: {
-          item: { type: "string", description: "the item's id (a UUID: list_inbox gives it)" },
-          definition: { type: "string", description: "what is to be made, precisely (Markdown)" },
-          metric: { type: "string", description: "what good is: how a proposal for it is judged, measurable where it can be (Markdown)" },
+          intent: { type: "string", description: "the intent's id (a UUID: list_intents gives it)" },
+          goal: { type: "string", description: "what is true when it is done, in a sentence" },
+          scope: { type: "string", description: "what changes, named by UUIDs, hashes or paths, and what stays as it is (Markdown)" },
+          checks: {
+            type: "array",
+            minItems: 1,
+            maxItems: CHECKS_MOST,
+            items: {
+              type: "object",
+              properties: {
+                check: { type: "string", description: "one statement that passes or fails" },
+                how: { type: "string", enum: [...CHECK_HOWS] },
+                by: { type: "string", description: "test: the command that passes; measure: the tool and the range; look: the reference it is judged against" },
+                must: { type: "boolean", description: "true (the default): it must pass before the intent is proposed; false: nice to have" },
+              },
+              required: ["check", "how", "by"],
+              additionalProperties: false,
+            },
+          },
           title: { type: "string", maxLength: TITLE_MOST, description: "a sharper title, if it needs one" },
-          kind: { type: "string", enum: [...INBOX_KINDS] },
+          kind: { type: "string", enum: [...INTENT_KINDS] },
           note: { type: "string", description: "a new note, if it needs one" },
         },
-        required: ["item", "definition", "metric"],
+        required: ["intent", "goal", "scope", "checks"],
         additionalProperties: false,
       },
-      run: async ({ item, definition, metric, title, kind, note }, me) => specifyInbox(db, me, `${item ?? ""}`, { definition, metric, title, kind, note }),
+      run: async ({ intent, goal, scope, checks, title, kind, note }, me) => specifyIntent(db, me, `${intent ?? ""}`, { goal, scope, checks, title, kind, note }),
+    },
+    {
+      name: "check_intent",
+      description:
+        "Record the results of an intent's checks while it is prototyped (its spec approved): for each check its id (c1, c2 …), whether it passes, and its evidence: for a test the command and what it printed, for a measure the value measured and by what, for a look what was compared with what. Run the check before you record it; record a failure as a failure. The latest result of each check stands. Once every must check passes, propose the intent's work naming it (every propose tool's `intent`).",
+      inputSchema: {
+        type: "object",
+        properties: {
+          intent: { type: "string", description: "the intent's id (a UUID)" },
+          results: {
+            type: "array",
+            minItems: 1,
+            items: {
+              type: "object",
+              properties: { check: { type: "string", description: "the check's id: c1, c2 …" }, pass: { type: "boolean" }, evidence: { type: "string" } },
+              required: ["check", "pass", "evidence"],
+              additionalProperties: false,
+            },
+          },
+        },
+        required: ["intent", "results"],
+        additionalProperties: false,
+      },
+      run: async ({ intent, results }, me) => recordChecks(db, me, `${intent ?? ""}`, results),
     },
     {
       name: "archive_proposal",
       description:
-        "Archive a proposal of your own that is still proposed (waiting for a decision): one a newer proposal of yours replaces, or one you no longer stand by. Only one made over MCP by this token's admin, never anyone else's or one made on the page. It ends archived, its branch kept as a side line in the history; accepting stays a person's, on the Proposals page.",
+        "Archive a proposal of your own that is still waiting for a decision: one a newer proposal of yours replaces, or one you no longer stand by. Only one made over MCP by this token's admin, never anyone else's or one made on the page. It ends archived, its branch kept as a side line in the history; accepting stays a person's, on the Proposals page.",
       inputSchema: {
         type: "object",
         properties: { proposal: { type: "string", description: "the proposal's id (list_proposals gives it, with its author and where it came from)" } },
@@ -694,21 +739,19 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     },
   ];
 
-  // a proposal made for an item of the Inbox names it (play/SPEC.md §4.12): the item checked before, specified and not yet
-  // done or archived, and the proposal linked to it once made, shown with it on the Proposals page
+  // every proposal is an intent's (play/SPEC.md §4.12): one made for an intent names it, held to its gate first (its spec
+  // approved and every must check passed, ./intents.ts intentReady); one made without gets an intent of its own
   for (const t of tools) {
     if (!t.name.startsWith("propose_")) continue;
-    (t.inputSchema.properties as Record<string, unknown>).inbox = {
+    (t.inputSchema.properties as Record<string, unknown>).intent = {
       type: "string",
-      description: "the Inbox item this is made for, by its id (a UUID: list_inbox gives it), if you were sent to work on one; it must be specified (specify_inbox_item) and not yet done or archived",
+      description: "the intent this is made for, by its id (a UUID: list_intents gives it): its spec approved and every must check passed (check_intent), or nothing is proposed. Without it, the proposal becomes an intent of its own, with no spec",
     };
     const run = t.run;
-    t.run = async ({ inbox, ...args }, me) => {
-      if (inbox === undefined || inbox === null || inbox === "") return run(args, me);
-      const item = await inboxOpen(db, me, inbox);
-      const made = (await run(args, me)) as { id: string };
-      await linkInbox(db, item.id, made.id);
-      return { ...made, inbox: item.id };
+    t.run = async ({ intent, ...args }, me) => {
+      if (intent === undefined || intent === null || intent === "") return run(args, me);
+      const ready = await intentReady(db, me, intent);
+      return { ...((await run({ ...args, intent: ready.id }, me)) as object), intent: ready.id };
     };
   }
 
@@ -739,7 +782,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           capabilities: { tools: {} },
           serverInfo: { name: "play.maia.city", version: "1" },
           instructions:
-            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files, and every step of an asset's history (asset_history, get_asset at a step); propose new versions or assets as readable source, or draft a version step by step with asset_edit and propose the draft. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame; a story may link a version of another into its timeline (a track of kind story, its clip naming that story's id and the version it plays: the trailer as its own story, linked into every film). Read the sandboxes (get_sandbox: what each draws, at which version, and how it lays it out) and propose changes of them (propose_sandbox_change). Read the factories (get_factory: a production line and its bill of process, its simulation sized from it) and propose new versions of them, drafted step by step with factory_edit (propose_factory_version). Read the game's configs (get_game_config: first the levelling, how a village grows level by level) and propose new versions of them (game_config_edit, propose_game_config_version). Read the Inbox (list_inbox, get_inbox_item: what Maia City wants made, fixed or improved, the stages before a proposal), add to it (add_inbox_item: the only way into it) and specify its items (specify_inbox_item: the definition, and the metric of what is good); sent to work on an item, specify it if it is not yet, make it, check it against its metric, and name it in what you propose (every propose tool's inbox). Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's Proposals page, then accept or archive it; nothing here accepts or marks an item done, an agent archives only its own proposals still proposed (archive_proposal), and no proposed code runs on play's server.",
+            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files, and every step of an asset's history (asset_history, get_asset at a step); propose new versions or assets as readable source, or draft a version step by step with asset_edit and propose the draft. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame; a story may link a version of another into its timeline (a track of kind story, its clip naming that story's id and the version it plays: the trailer as its own story, linked into every film). Read the sandboxes (get_sandbox: what each draws, at which version, and how it lays it out) and propose changes of them (propose_sandbox_change). Read the factories (get_factory: a production line and its bill of process, its simulation sized from it) and propose new versions of them, drafted step by step with factory_edit (propose_factory_version). Read the game's configs (get_game_config: first the levelling, how a village grows level by level) and propose new versions of them (game_config_edit, propose_game_config_version). Everything on the Proposals board is an intent, Idea → Specify → Prototype → Proposal → Accepted (list_intents, get_intent): add one (add_intent: the only way in), specify it (specify_intent: a goal, a scope and checks, each a test, a measure or a look, must or nice), and once an admin has approved the spec, build it, record each check's result with its evidence (check_intent) and propose it naming the intent (every propose tool's intent): play takes it only when every must check passes. Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's Proposals page, then accept or archive it; nothing here approves a spec, accepts or marks an intent done, an agent archives only its own proposals still waiting (archive_proposal), and no proposed code runs on play's server.",
         });
       case "ping":
         return reply(msg.id, {});
@@ -753,7 +796,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           return reply(msg.id, { content: [{ type: "text", text: JSON.stringify(out, null, 2) }], structuredContent: Array.isArray(out) ? { items: out } : out });
         } catch (e) {
           // what went wrong, as the tool's own answer the agent reads (a refused recipe, a moved head, no such asset)
-          if (e instanceof ProposalError || e instanceof InboxError || e instanceof NotFound || e instanceof StoryError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError || e instanceof AssetDocError || (e as Error)?.name === "Denied" || (e as any)?.status)
+          if (e instanceof ProposalError || e instanceof IntentError || e instanceof NotFound || e instanceof StoryError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError || e instanceof AssetDocError || (e as Error)?.name === "Denied" || (e as any)?.status)
             return reply(msg.id, { content: [{ type: "text", text: (e as Error).message }], isError: true });
           console.error(e);
           return reply(msg.id, { content: [{ type: "text", text: "Something went wrong on play's side." }], isError: true });
