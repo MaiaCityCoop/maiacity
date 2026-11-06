@@ -164,7 +164,7 @@
 			<small>Factory · owned by Maia City</small>
 			<h3>{factory.json.label}</h3>
 			{#if factory.proposal}
-				<p class="asif">As the {factory.proposal.status === 'proposed' ? '' : `${factory.proposal.status} `}proposal would make it: “{factory.proposal.note}” <a href="/proposals/">Back to the proposals</a> · <a href="?factory={factory.id}" onclick={(e) => (e.preventDefault(), at(factory!.id))}>its newest version</a></p>
+				<p class="asif">As the {factory.proposal.status === 'proposal' ? '' : `${factory.proposal.status} `}proposal would make it: “{factory.proposal.note}” <a href="/proposals/">Back to the intents</a> · <a href="?factory={factory.id}" onclick={(e) => (e.preventDefault(), at(factory!.id))}>its newest version</a></p>
 			{:else if factory.version !== factory.number}
 				<p class="asif">Version {factory.version}, not its newest: <a href="?factory={factory.id}" onclick={(e) => (e.preventDefault(), at(factory!.id))}>v{factory.number}</a></p>
 			{/if}

@@ -44,7 +44,7 @@ async function usesOf(db: Queryable): Promise<Map<string, Use[]>> {
             v.card->>'brief' AS brief, v.number IS NOT NULL AS accepted
        FROM play.asset_versions v JOIN play.assets a ON a.id = v.asset_id
       WHERE (v.card ? 'sheet' OR v.card ? 'datasheet' OR v.card ? 'brief')
-        AND (v.number IS NOT NULL OR EXISTS (SELECT 1 FROM play.proposals p WHERE p.version = v.id AND p.status = 'proposed'))
+        AND (v.number IS NOT NULL OR EXISTS (SELECT 1 FROM play.proposals p WHERE p.version = v.id AND p.status = 'proposal'))
       ORDER BY a.label, v.number NULLS LAST`,
   );
   for (const d of docs)

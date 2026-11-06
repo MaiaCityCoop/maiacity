@@ -641,6 +641,7 @@ export type StoryProposal = {
   edits?: unknown; // or edits applied to the head's (or, with a branch, its last step)
   base?: string | null; // the head version's id it was made from, as the proposer saw it
   branch?: number; // a draft made step by step with story_edit, proposed as it stands
+  intent?: string; // the intent it is made for, by its UUID, held to its gate before (./intents.ts); none, and the database makes it one
 };
 
 // a story version's id is content-addressed as an asset version's is (./versions.ts, play/SPEC.md §4.3): the same story,
@@ -773,8 +774,8 @@ export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fres
         [version, id, parents, title, JSON.stringify(body), note, who.id],
       );
       await tx.query(
-        `INSERT INTO play.proposals (id, coop_id, kind, story_id, story_base, story_version, author, note, via, doc_branch) VALUES ($1, $2, 'story_version', $3, $4, $5, $6, $7, $8, $9)`,
-        [proposal, COOP, id, base, version, who.id, note, via, branchId],
+        `INSERT INTO play.proposals (id, coop_id, kind, story_id, story_base, story_version, author, note, via, doc_branch, intent_id) VALUES ($1, $2, 'story_version', $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [proposal, COOP, id, base, version, who.id, note, via, branchId, p.intent ?? null],
       );
       await docs.propose(tx, docIdOf(id), branchId, { note, author });
       const steps = (await docs.history(tx, docIdOf(id), { branch: branchId })).length;
@@ -806,7 +807,7 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
     (
       await db.query(
         `SELECT 1 FROM play.story_versions v WHERE v.story_id = $1 AND v.title = $2 AND v.body = ($3::text)::jsonb
-            AND (${accepted ? "v.number IS NOT NULL" : "EXISTS (SELECT 1 FROM play.proposals p WHERE p.story_version = v.id AND p.status = 'proposed')"})`,
+            AND (${accepted ? "v.number IS NOT NULL" : "EXISTS (SELECT 1 FROM play.proposals p WHERE p.story_version = v.id AND p.status = 'proposal')"})`,
         [into, title, JSON.stringify(body)],
       )
     ).rows.length > 0;
@@ -843,7 +844,7 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
         // its open proposals, proposed again on the timeline's new head; their own archived
         const { rows: open } = await db.query<any>(
           `SELECT p.*, v.title, v.body FROM play.proposals p JOIN play.story_versions v ON v.id = p.story_version
-            WHERE p.story_id = $1 AND p.kind = 'story_version' AND p.status = 'proposed' ORDER BY p.created`,
+            WHERE p.story_id = $1 AND p.kind = 'story_version' AND p.status = 'proposal' ORDER BY p.created`,
           [from],
         );
         for (const p of open) {
@@ -854,7 +855,7 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
             await proposeStory(db, author, { story: f.into, title: p.title, body: p.body, note }, false, p.via === "web" ? "web" : "mcp");
           }
           await db.transaction(async (tx) => {
-            await tx.query(`UPDATE play.proposals SET status = 'archived', decided_at = now() WHERE id = $1 AND status = 'proposed'`, [p.id]);
+            await tx.query(`UPDATE play.proposals SET status = 'archived', decided_at = now() WHERE id = $1 AND status = 'proposal'`, [p.id]);
             await archiveOwnStory(tx, author, p);
           });
         }

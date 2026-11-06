@@ -82,13 +82,16 @@ version names its **reference sheet** (`propose_version`'s `sheet`: the hash of 
 its **data sheet** and its sheet's **brief** (`datasheet`, `brief`: Markdown kept with `add_document`), so a plant's whole
 dataset is in play. A
 version can be a kind of **variants** (`propose_version`'s `variants`: a plant's kinds, an animal's breeds), each its own
-recipe and a chip in the asset viewer. The **Inbox** and **Specify** (play/SPEC.md §4.12) are the stages before a
-proposal on the Proposals board (Inbox, Specify, Proposed, Accepted, Archived; a modal from the nav pill's star): what
-Maia City wants made, fixed or improved, added over MCP only (`add_inbox_item`: nothing is typed in by hand), then
-specified (`specify_inbox_item`: its definition, and its metric of what is good); an agent reads them (`list_inbox`,
-`get_inbox_item`) and, sent to an item, specifies it if it is not yet, makes it, checks it against its metric and names
-it in what it proposes (every propose tool's `inbox`, the item's UUID: only a specified item takes proposals). No tool
-accepts or marks an item done; an agent archives only its own proposals made over MCP that are still proposed (`archive_proposal`: one
+recipe and a chip in the asset viewer. Everything Maia City wants made, fixed or improved is an **intent** (play/SPEC.md
+§4.12; Samuel 2026-11-06), every proposal an intent's, on the intents' board (a modal from the nav pill's star): **Idea →
+Specify → Prototype → Proposal → Accepted** (or Archived). An agent adds one (`add_intent`, over MCP only: nothing is
+typed in by hand), reads them (`list_intents`, `get_intent`) and, sent to one at Idea, specifies it (`specify_intent`:
+its goal, its scope, and checks, each one statement that passes or fails, by a `test`, a `measure` or a `look`, must or
+nice) and **stops: an admin approves the spec**. Sent to one in Prototype, it builds it, runs every check and records
+each result with its evidence (`check_intent`, a failure as a failure) until every must check passes, then proposes it
+with the propose tool's `intent` (the intent's UUID): play refuses the proposal before every must check passes. A
+proposal made without `intent` is an intent of its own, with no spec. No tool approves, accepts or rejects an intent;
+an agent archives only its own proposals made over MCP that still wait for a decision (`archive_proposal`: one
 it has replaced or no longer stands by; Samuel 2026-11-04). The same token also opens play's **read-only world routes** (`GET /api/me`, `/api/catalog`,
 `/api/files/<hash>`, `/api/sandboxes/<id>/config`, `/api/assets…`) as its admin, so an agent can load a sandbox in its own
 browser (sending the header to play only) and film it for a storyboard; nothing else, and nothing that writes. Admins

@@ -52,6 +52,7 @@ export type ProposalBody = {
   sheet?: string | null; // its reference sheet: an image play keeps, by its hash (a plant's plate of every stage and organ); null takes the head's away
   datasheet?: string | null; // its data sheet: a Markdown document play keeps, by its hash; null takes the head's away
   brief?: string | null; // the brief its reference sheet was made from: a Markdown document play keeps, by its hash
+  intent?: string; // the intent it is made for, by its UUID, held to its gate before (./intents.ts intentReady); none, and the database makes it one
 };
 
 /**
@@ -319,8 +320,8 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
       throw e instanceof AssetDocError ? new ProposalError(e.message, e.status) : e;
     });
     await tx.query(
-      `INSERT INTO play.proposals (id, coop_id, kind, asset_id, base, version, author, note, via, doc_branch) VALUES ($1, $2, 'asset_version', $3, $4, $5, $6, $7, $8, $9)`,
-      [proposal, COOP, asset, head, id, who.id, note, via, branch],
+      `INSERT INTO play.proposals (id, coop_id, kind, asset_id, base, version, author, note, via, doc_branch, intent_id) VALUES ($1, $2, 'asset_version', $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [proposal, COOP, asset, head, id, who.id, note, via, branch, body.intent ?? null],
     );
     steps = (await docs.history(tx, assetDocId(asset), { branch })).length;
     branchId = branch;
@@ -330,27 +331,28 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
 
 export async function listProposals(db: Queryable, me: Me | null, status?: string) {
   const m = must(me, "read", "assets");
-  // what waited for a decision was called open before it was called proposed (Samuel 2026-11-05): asked so, it still answers
-  const s = status === "open" ? "proposed" : status;
+  // what waits for a decision was called open, then proposed, before it was called a proposal (Samuel 2026-11-06): asked
+  // so, it still answers
+  const s = status === "open" || status === "proposed" ? "proposal" : status;
   // a story's proposals are the admins' alone, as the Stories are (./stories.ts), and a sandbox's layout's (./sandboxes.ts)
-  return inboxFor(m, await listProposalsWhere(db, `($1::text IS NULL OR p.status = $1) AND (p.kind = 'asset_version' OR $2)`, [s ?? null, m.level === "admin"]));
+  return intentFor(m, await listProposalsWhere(db, `($1::text IS NULL OR p.status = $1) AND (p.kind = 'asset_version' OR $2)`, [s ?? null, m.level === "admin"]));
 }
 
-/** the Inbox is the admins' alone (./inbox.ts): to anyone else a proposal names no item */
-const inboxFor = (m: Me, rows: any[]) => (m.level === "admin" ? rows : rows.map((r) => ({ ...r, inbox_id: null, inbox_title: null })));
+/** the intents are the admins' alone (./intents.ts): to anyone else a proposal names no intent */
+const intentFor = (m: Me, rows: any[]) => (m.level === "admin" ? rows : rows.map((r) => ({ ...r, intent_id: null, intent_title: null, intent_spec: null, intent_results: null })));
 
-/** the proposals made for an item of the Inbox (./inbox.ts), as the board lists them: the Inbox is the admins' alone */
-export const proposalsOfInbox = (db: Queryable, item: string) => listProposalsWhere(db, `p.inbox_id = $1`, [item]);
+/** the proposals of an intent (./intents.ts), as the board lists them: the intents are the admins' alone */
+export const proposalsOfIntent = (db: Queryable, intent: string) => listProposalsWhere(db, `p.intent_id = $1`, [intent]);
 
 // a proposal of an asset version or of a story version (./stories.ts): a story's is listed as its title (label), the
 // group "stories" and its id (story_id, a UUID), with the version it would be; a sandbox's change (./sandboxes.ts) as
 // its title, the group "sandboxes" and its id (sandbox_id), with how many changes it makes. Only an asset has a slug,
-// and it is only shown. One made for an item of the Inbox names it (inbox_id), its title shown
+// and it is only shown. Every proposal is an intent's (intent_id, ./intents.ts), its title shown
 async function listProposalsWhere(db: Queryable, where: string, args: unknown[]) {
   const { rows } = await db.query<any>(
     `SELECT p.id, p.kind, p.asset_id, p.base, p.version, p.story_id, p.story_base, p.story_version, p.doc_branch, p.status, p.note, p.created, p.decided_at, p.via,
             p.sandbox_id, p.sandbox_base, p.sandbox_change, p.sandbox_diff, jsonb_array_length(COALESCE(p.sandbox_diff, '[]')) AS changes, p.factory_id, p.game_config_id,
-            p.inbox_id, ib.title AS inbox_title, au.name AS author, de.name AS decided_by,
+            p.intent_id, it.title AS intent_title, it.spec AS intent_spec, it.results AS intent_results, au.name AS author, de.name AS decided_by,
             COALESCE(a.label, sv.title, sx.title, fx.label, gc.label) AS label,
             COALESCE(a.grp, CASE WHEN p.kind = 'story_version' THEN 'stories' WHEN p.kind = 'sandbox_change' THEN 'sandboxes' WHEN p.kind = 'factory_version' THEN 'factories' WHEN p.kind = 'game_config_version' THEN 'game' END) AS grp,
             a.slug, v.card->'card'->>'label' AS version_label,
@@ -369,7 +371,7 @@ async function listProposalsWhere(db: Queryable, where: string, args: unknown[])
        LEFT JOIN play.game_configs gc ON gc.id = p.game_config_id
        LEFT JOIN play.doc_branches dbr ON dbr.id = p.doc_branch AND p.kind IN ('factory_version', 'game_config_version')
        LEFT JOIN play.doc_versions dbv ON dbv.doc_id = dbr.doc_id AND dbv.number = dbr.version
-       LEFT JOIN play.inbox ib ON ib.id = p.inbox_id
+       LEFT JOIN play.intents it ON it.id = p.intent_id
        LEFT JOIN play.humans au ON au.id = p.author
        LEFT JOIN play.humans de ON de.id = p.decided_by
       WHERE ${where}
@@ -387,7 +389,7 @@ async function listProposalsWhere(db: Queryable, where: string, args: unknown[])
 export async function proposalOf(db: Queryable, me: Me | null, id: string) {
   const m = must(me, "read", "assets");
   if (!UUID.test(id)) throw new ProposalError("A proposal is named by its id, a UUID.", 404);
-  const [p] = inboxFor(m, await listProposalsWhere(db, `p.id = $1 AND (p.kind = 'asset_version' OR $2)`, [id, m.level === "admin"]));
+  const [p] = intentFor(m, await listProposalsWhere(db, `p.id = $1 AND (p.kind = 'asset_version' OR $2)`, [id, m.level === "admin"]));
   if (!p) throw new ProposalError("There is no such proposal.", 404);
   // a sandbox's change: what each edit changes, before and after, as accepting would apply it
   if (p.kind === "sandbox_change") return { ...p, ...(await sandboxReview(db, p)) };
@@ -464,7 +466,7 @@ export async function archiveOwn(db: Db, me: Me | null, id: string) {
     if (!p) throw new ProposalError("There is no such proposal.", 404);
     if (p.author !== me.id || p.via !== "mcp")
       throw new ProposalError("Only a proposal you made over MCP is yours to archive; the rest are decided on the Proposals page.", 403);
-    if (p.status !== "proposed") throw new ProposalError(`This proposal is ${p.status} already.`, 409);
+    if (p.status !== "proposal") throw new ProposalError(`This proposal is ${p.status} already.`, 409);
     return archiveAsAuthor(tx, me, p);
   });
 }
@@ -475,7 +477,7 @@ export async function decide(db: Db, store: BlobStore, me: Me | null, id: string
     const { rows } = await tx.query<any>(`SELECT * FROM play.proposals WHERE id = $1 FOR UPDATE`, [id]);
     const p = rows[0];
     if (!p) throw new ProposalError("There is no such proposal.", 404);
-    if (p.status !== "proposed") throw new ProposalError(`This proposal is ${p.status} already.`, 409);
+    if (p.status !== "proposal") throw new ProposalError(`This proposal is ${p.status} already.`, 409);
     // its author archives their own, whoever may decide the rest
     if (verdict === "archive" && p.author === me.id && me.level !== "admin") return archiveAsAuthor(tx, me, p);
     if (p.kind === "story_version") return decideStory(tx, me, p, verdict);
@@ -507,7 +509,7 @@ export async function decide(db: Db, store: BlobStore, me: Me | null, id: string
     await acceptBranch(tx, store, p, me, n);
     const { rows: stale } = await tx.query<{ doc_branch: string | null }>(
       `UPDATE play.proposals SET status = 'archived', decided_at = now()
-        WHERE asset_id = $1 AND status = 'proposed' AND id <> $2 AND base IS NOT DISTINCT FROM $3 RETURNING doc_branch`,
+        WHERE asset_id = $1 AND status = 'proposal' AND id <> $2 AND base IS NOT DISTINCT FROM $3 RETURNING doc_branch`,
       [p.asset_id, id, p.base],
     );
     for (const s of stale) await closeBranch(tx, p.asset_id, s.doc_branch, me, "archived");

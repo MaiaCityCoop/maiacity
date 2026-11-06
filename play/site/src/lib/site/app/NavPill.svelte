@@ -4,8 +4,8 @@
 	a place, the dashboard last), the proposals, and you (who is signed in, your name, the public site, signing out). No
 	page has a bar or a back button of its own, and everything else — the games, the worlds, the admin's tools — is a tile
 	on the dashboard. The proposals (Samuel 2026-11-05) are a star, the AI's mark, in place of Home (Back goes up to the
-	dashboard anyway): it opens the board of what agents propose, and what comes before (the Inbox, Specify), in a modal
-	over the page ($lib/site/proposals), and is greyed out for everyone but Maia City's admins. You is the person's vault switcher too (Samuel 2026-10-18): their avenDB vaults, their own first, which
+	dashboard anyway): it opens the board of the intents (Samuel 2026-11-06: everything Maia City wants made, fixed or
+	improved, from its idea through its spec and prototype to its proposal and the decision), in a modal over the page ($lib/site/proposals), and is greyed out for everyone but Maia City's admins. You is the person's vault switcher too (Samuel 2026-10-18): their avenDB vaults, their own first, which
 	is their profile (their name lives there alone), and the one picked shown on the item, with how many changes wait
 	in the others; then the public site and signing out. Invites live in avenDB's Vaults app alone ($avendb/Vaults.svelte,
 	Samuel 2026-10-20), beside the roles they give. A page may add a
@@ -112,7 +112,7 @@
 		<!-- nowhere to go back to (the dashboard): Back keeps its place, greyed, so the star stays in the middle -->
 		<button class="item idle" disabled aria-label="Back" title="Nowhere to go back to"><Icon name="back" /><span>Back</span></button>
 	{/if}
-	<button class="item star" class:on={proposals && proposalsModal.open} onclick={toggleProposals} disabled={!proposals} aria-expanded={proposals ? proposalsModal.open : undefined} title={proposals ? (proposalsModal.open ? 'Close the proposals' : 'Proposals') : "Proposals: Maia City's admins only, for now"} aria-label="Proposals">
+	<button class="item star" class:on={proposals && proposalsModal.open} onclick={toggleProposals} disabled={!proposals} aria-expanded={proposals ? proposalsModal.open : undefined} title={proposals ? (proposalsModal.open ? 'Close the intents' : 'Intents') : "Intents: Maia City's admins only, for now"} aria-label="Intents">
 		<Icon name="star" size={30} />
 	</button>
 	{#if pill.center}
