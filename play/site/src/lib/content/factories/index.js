@@ -6,7 +6,7 @@
  * "maiaCITY").
  *
  * What a factory is lives in play's Postgres, not here (Samuel 2026-11-04, play/SPEC.md §4.7): each is a Loro document
- * of type factory/1 (play/api/src/factories.ts), read from /api/factories/<id>, changed only by proposal. This file
+ * of type factory/1 (play/api/src/factories.ts), read from /api/docs/<id>, changed only by proposal. This file
  * turns such a document into what the runtime reads: its line, every station's cycle time the sum of what it does for one
  * unit (its parts' operations and its own handling) unless the station gives its own, and its note written from them;
  * and the bill of process the page lists beside it. The engine, the kit and the shapes stay code here

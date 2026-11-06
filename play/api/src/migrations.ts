@@ -1038,13 +1038,65 @@ export const MIGRATIONS: Migration[] = [
       CREATE INDEX ix_intents_skill ON play.intents(skill_id) WHERE skill_id IS NOT NULL;
     `,
   },
+  {
+    // One version control (play/SPEC.md "Version control", intent 30dfa87a-b3c6-4af8-a3be-aac03907ff37, Samuel
+    // 2026-11-06): every versioned kind through one module (./versioned.ts), in one vocabulary. The store's tables take
+    // the words (an edit, a variant, its seed); an intent's work names its document and its variant, whatever its kind;
+    // a document holds its label and group itself, so the factories', configs' and skills' own tables go; and the old
+    // proposals' ids, kept since 0029 so old links found their intents, go with the links.
+    id: "0032-versioned",
+    sql: `
+      ALTER TABLE play.doc_branches RENAME TO doc_variants;
+      ALTER TABLE play.doc_variants RENAME COLUMN base TO seed;
+      ALTER TABLE play.doc_variants ADD COLUMN type TEXT NOT NULL DEFAULT 'intent' CHECK (type IN ('intent'));
+      ALTER TABLE play.doc_variants RENAME CONSTRAINT doc_branches_status_check TO doc_variants_status_check;
+      ALTER INDEX play.doc_branches_doc RENAME TO doc_variants_doc;
+      ALTER TABLE play.doc_updates RENAME TO doc_edits;
+      ALTER TABLE play.doc_edits RENAME COLUMN branch TO variant;
+      ALTER INDEX play.doc_updates_line RENAME TO doc_edits_line;
+      ALTER TRIGGER doc_updates_kept ON play.doc_edits RENAME TO doc_edits_kept;
+      ALTER TABLE play.doc_peers RENAME COLUMN branch TO variant;
+      ALTER TABLE play.doc_versions RENAME COLUMN branch TO variant;
+
+      -- a document's label and group, only shown (a factory's, a config's, a skill's: their tables go)
+      ALTER TABLE play.docs ADD COLUMN label TEXT NOT NULL DEFAULT '', ADD COLUMN grp TEXT NOT NULL DEFAULT '';
+      UPDATE play.docs d SET label = f.label FROM play.factories f WHERE d.id = 'factory:' || f.id;
+      UPDATE play.docs d SET label = g.label FROM play.game_configs g WHERE d.id = 'game:' || g.id;
+      UPDATE play.docs d SET label = s.label, grp = s.grp FROM play.skills s WHERE d.id = 'skill:' || s.id;
+      UPDATE play.docs d SET label = a.label, grp = a.grp FROM play.assets a WHERE d.id = 'asset:' || a.id;
+      UPDATE play.docs d SET label = s.title FROM play.stories s WHERE d.id = 'story:' || s.id;
+      ALTER TABLE play.docs DROP CONSTRAINT docs_id_check,
+        ADD CONSTRAINT docs_id_check CHECK (id ~ '^[a-z]+:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+
+      -- an intent's work names its document and its variant
+      ALTER TABLE play.intents DROP CONSTRAINT intents_work_names_what;
+      ALTER TABLE play.intents RENAME COLUMN doc_branch TO doc_variant;
+      ALTER INDEX play.ix_intents_doc_branch RENAME TO ix_intents_doc_variant;
+      ALTER TABLE play.intents ADD COLUMN doc_id TEXT REFERENCES play.docs(id);
+      UPDATE play.intents i SET doc_id = v.doc_id FROM play.doc_variants v WHERE v.id = i.doc_variant;
+      ALTER TABLE play.intents DROP COLUMN factory_id, DROP COLUMN game_config_id, DROP COLUMN skill_id;
+      ALTER TABLE play.intents DROP CONSTRAINT intents_work_check;
+      ALTER TABLE play.intents ADD CONSTRAINT intents_work_check CHECK (work ~ '^[a-z]+(_[a-z]+)*$');
+      ALTER TABLE play.intents ADD CONSTRAINT intents_work_names_what CHECK (
+        (work IS NULL AND asset_id IS NULL AND version IS NULL AND story_id IS NULL AND story_version IS NULL AND sandbox_id IS NULL AND doc_id IS NULL AND doc_variant IS NULL)
+        OR (work = 'asset_version' AND asset_id IS NOT NULL AND version IS NOT NULL AND story_id IS NULL AND story_version IS NULL AND sandbox_id IS NULL)
+        OR (work = 'story_version' AND story_id IS NOT NULL AND story_version IS NOT NULL AND asset_id IS NULL AND version IS NULL AND sandbox_id IS NULL)
+        OR (work = 'sandbox_change' AND sandbox_id IS NOT NULL AND sandbox_change IS NOT NULL AND asset_id IS NULL AND version IS NULL AND story_id IS NULL AND doc_id IS NULL AND doc_variant IS NULL)
+        OR (work NOT IN ('asset_version', 'story_version', 'sandbox_change') AND doc_id IS NOT NULL AND doc_variant IS NOT NULL AND asset_id IS NULL AND version IS NULL AND story_id IS NULL AND sandbox_id IS NULL));
+      CREATE INDEX ix_intents_doc ON play.intents(doc_id) WHERE doc_id IS NOT NULL;
+      -- a document is found by its UUID alone (/api/docs/<uuid>, doc_at): its id without its kind
+      CREATE UNIQUE INDEX docs_uuid ON play.docs ((split_part(id, ':', 2)));
+      DROP TABLE play.factories, play.game_configs, play.skills;
+      DROP TABLE play.proposal_ids;
+    `,
+  },
 ];
 
-/** Runs every migration not yet run, each in its own transaction. */
 /** The advisory lock every migration step holds: play-api and the import start together on a deploy, and both migrate. */
 const MIGRATION_LOCK = 4_711_029;
 
-export async function migrate(db: Db): Promise<string[]> {
+/** Runs every migration not yet run (up to `until`, where given), each in its own transaction. */
+export async function migrate(db: Db, o: { until?: string } = {}): Promise<string[]> {
   // Two processes migrate the same database at once on a deploy (play-api as it starts, and the import beside it;
   // 2026-11-06 the second ran 0029 again after the first had, and failed on its ALTER). So every step takes one
   // advisory lock for its transaction and looks again whether its migration has run, under the lock.
@@ -1062,6 +1114,8 @@ export async function migrate(db: Db): Promise<string[]> {
   const ran: string[] = [];
   for (const m of MIGRATIONS) {
     if (done.has(m.id)) continue;
+    // a test that builds a database at an older migration stops there, and migrates on later
+    if (o.until !== undefined && m.id > o.until) break;
     const did = await db.transaction(async (tx) => {
       await tx.query(`SELECT pg_advisory_xact_lock(${MIGRATION_LOCK})`);
       if ((await tx.query("SELECT 1 FROM play.migrations WHERE id = $1", [m.id])).rows.length) return false;

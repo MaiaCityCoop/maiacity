@@ -1,36 +1,24 @@
-// Proposing and deciding (play/SPEC.md §4.3, §4.12): to propose is to put an intent at Proposal with its work (./work.ts),
-// one record, the intent; Proposal is only its stage. Here an asset's new version (or a new asset) is proposed, built for
-// the version after its head, as a recipe file names its own version, and any intent's work is reviewed and decided: an
-// admin accepts or archives it. Accepting an asset's checks the head is still the one it was made from, in one
-// transaction, so of two intents' work on one head only the first goes in and the other is archived: rebuilt and
-// proposed again on the new head. The rest is decided by its own kind (./stories.ts, ./sandboxes.ts, ./factories.ts,
-// ./gameconfigs.ts, ./skills.ts), the intent settled in the same transaction.
-import { decideFactory, factoryReview } from "./factories";
-import { gameConfigReview, decideGameConfig } from "./gameconfigs";
-import { skillReview, decideSkill } from "./skills";
+// An asset's versions (play/SPEC.md §4.3, "Version control"): the asset kind of ./versioned.ts. An asset's document
+// (./assetdocs.ts) keeps every edit; its versions stay play.asset_versions, content-addressed, what the catalog, the pins
+// and the box read. So what is an asset's own is here: proposing makes the version (its readable source checked, its
+// recipe file built for the version after its head, as a recipe file names its own version), its review shows it built
+// in the asset box, and accepting it checks the head is still the one it was made from, in one transaction, so of two
+// intents' work on one head only the first goes in and the other is archived, to be built again on the new head.
 import type { BlobStore } from "./blobs";
 import { HASH, hashText } from "./hash";
 import type { Db, Queryable } from "./pg";
-import { COOP, Denied, must, type Me } from "./access";
+import { COOP, must, type Me } from "./access";
 import { labelOf, libraryOf, RECIPE_HEAD, recipeTail } from "./recipes";
 import { boxEngine, LATEST_BOX } from "./engines";
 import { readableRefs } from "../import/plan";
 import { versionId } from "./versions";
 import { NOTE_MOST } from "./notes";
 import { newId, UUID } from "./uuid";
-import { decideStory, named, storyReview } from "./stories";
 import * as docs from "./docs";
-import { decideSandbox, sandboxReview } from "./sandboxes";
-import { acceptBranch, asAssetJson, AssetDocError, assetDocId, authorOf, draftOf, draftState, ensureAssetDoc, proposalBranch, type AssetJson } from "./assetdocs";
-import { closeWork, putAtProposal, settle, WORK_OF, workOf, WorkError } from "./work";
-import { decideIntent, getIntent, IntentError, type IntentVerdict } from "./intents";
-import { acceptAndShip, type GitHub } from "./ship";
+import { acceptVariant, asAssetJson, AssetDocError, assetChange, assetDocId, authorOf, ensureAssetDoc, proposalVariant, variantState, type AssetJson } from "./assetdocs";
+import { closeWork, putAtProposal, settle, WORK_OF, WorkError } from "./work";
+import { openVariant, register, seedNumberOf, VersionError, type Verdict } from "./versioned";
 
-export class ProposalError extends Error {
-  constructor(message: string, public status = 400) {
-    super(message);
-  }
-}
 
 const GROUP = /^(plants|things|machines|buildings|actors|biomes|worlds)$/;
 const SLUG = /^[a-z0-9][a-z0-9-]{0,79}$/;
@@ -54,7 +42,7 @@ export type ProposalBody = {
   variants?: Record<string, Upload>;
   defaultVariant?: string;
   card?: Record<string, unknown>; // card fields set over the record it takes (its params when the recipe declares new ones), on the version and on each variant
-  branch?: number; // a draft made step by step (asset_edit, ./assetdocs.ts), proposed as it stands
+  variant?: number; // an intent variant made edit by edit (doc_edit, ./versioned.ts), proposed as it stands
   sheet?: string | null; // its reference sheet: an image play keeps, by its hash (a plant's plate of every stage and organ); null takes the head's away
   datasheet?: string | null; // its data sheet: a Markdown document play keeps, by its hash; null takes the head's away
   brief?: string | null; // the brief its reference sheet was made from: a Markdown document play keeps, by its hash
@@ -83,21 +71,21 @@ const libsOf = (code: string) => [...new Set([...code.matchAll(/\brequire\(\s*["
 function checkedCode(up: { source?: unknown; recipe?: unknown }, slug: string, n: number, variant: string | null) {
   let source: string;
   if (typeof up.source === "string" && up.source) {
-    if (up.recipe) throw new ProposalError("Give the readable source or the recipe file, not both.");
-    if (up.source.startsWith(RECIPE_HEAD)) throw new ProposalError("That is a recipe file: give it as the recipe, or give its source alone.");
+    if (up.recipe) throw new VersionError("Give the readable source or the recipe file, not both.");
+    if (up.source.startsWith(RECIPE_HEAD)) throw new VersionError("That is a recipe file: give it as the recipe, or give its source alone.");
     source = up.source;
   } else if (typeof up.recipe === "string" && up.recipe) {
     const label = labelOf(up.recipe);
-    if (!label) throw new ProposalError("That is not a recipe file of the asset box.");
+    if (!label) throw new VersionError("That is not a recipe file of the asset box.");
     if (label.id !== slug || label.v !== n || label.variant !== variant)
-      throw new ProposalError(`The recipe file builds ${label.id}@${label.v}${label.variant ? `:${label.variant}` : ""}, not ${slug}@${n}${variant ? `:${variant}` : ""}.`);
+      throw new VersionError(`The recipe file builds ${label.id}@${label.v}${label.variant ? `:${label.variant}` : ""}, not ${slug}@${n}${variant ? `:${variant}` : ""}.`);
     source = libraryOf(up.recipe)!;
-  } else throw new ProposalError("The version's readable source is missing.");
-  if (Buffer.byteLength(source) > MOST_FILE) throw new ProposalError("The source is larger than 16 MB.");
+  } else throw new VersionError("The version's readable source is missing.");
+  if (Buffer.byteLength(source) > MOST_FILE) throw new VersionError("The source is larger than 16 MB.");
   if (!/module\.exports\.recipe\s*=|exports\.recipe\s*=/.test(source))
-    throw new ProposalError("The source sets no module.exports.recipe = function (id, v, variant) { … }: the recipe its file calls.");
+    throw new VersionError("The source sets no module.exports.recipe = function (id, v, variant) { … }: the recipe its file calls.");
   const why = unreadable(source);
-  if (why) throw new ProposalError(`The source is not readable: ${why}.`);
+  if (why) throw new VersionError(`The source is not readable: ${why}.`);
   const recipe = RECIPE_HEAD + source + recipeTail(slug, n, variant);
   return { source: { text: source, hash: hashText(source) }, recipe: { text: recipe, hash: hashText(recipe) }, libs: libsOf(source) };
 }
@@ -109,8 +97,8 @@ function checkedCode(up: { source?: unknown; recipe?: unknown }, slug: string, n
 function heldRecord(record: any, libs: string[], source: string) {
   const named = record?.engine?.version ?? record?.card?.engine;
   const e = named === undefined ? LATEST_BOX : boxEngine(Number(named));
-  if (!e) throw new ProposalError(`Box engine ${named} is not one of the frozen engines.`);
-  if (record?.engine?.hash !== undefined && record.engine.hash !== e.blake3) throw new ProposalError(`Box engine ${e.v} is frozen under another hash.`);
+  if (!e) throw new VersionError(`Box engine ${named} is not one of the frozen engines.`);
+  if (record?.engine?.hash !== undefined && record.engine.hash !== e.blake3) throw new VersionError(`Box engine ${e.v} is frozen under another hash.`);
   return {
     ...(record ?? {}),
     engine: { host: "box", version: e.v, hash: e.blake3 },
@@ -127,16 +115,16 @@ const PARAM_KEY = /^[A-Za-z][A-Za-z0-9_.-]{0,79}$/;
  */
 function cardFields(card: unknown): Record<string, unknown> {
   if (card === undefined || card === null) return {};
-  if (typeof card !== "object" || Array.isArray(card)) throw new ProposalError("The card's fields come as an object.");
+  if (typeof card !== "object" || Array.isArray(card)) throw new VersionError("The card's fields come as an object.");
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(card)) {
-    if (k !== "params") throw new ProposalError(`A proposal sets only the card's params, not ${k}.`);
-    if (!Array.isArray(v) || v.length > 24) throw new ProposalError("params is a list of at most 24 parameters.");
+    if (k !== "params") throw new VersionError(`A proposal sets only the card's params, not ${k}.`);
+    if (!Array.isArray(v) || v.length > 24) throw new VersionError("params is a list of at most 24 parameters.");
     const ids = new Set<string>();
     for (const p of v as any[]) {
-      if (!p || typeof p !== "object" || !PARAM_KEY.test(`${p.id}`) || ids.has(p.id)) throw new ProposalError("Each parameter has its own id (a letter, then letters, digits, _ . -).");
-      if (!["number", "integer", "string"].includes(p.type)) throw new ProposalError(`${p.id}: its type is number, integer or string.`);
-      if (p.value === undefined || (p.type === "string" ? typeof p.value !== "string" : typeof p.value !== "number")) throw new ProposalError(`${p.id}: its value is a ${p.type === "string" ? "string" : "number"}.`);
+      if (!p || typeof p !== "object" || !PARAM_KEY.test(`${p.id}`) || ids.has(p.id)) throw new VersionError("Each parameter has its own id (a letter, then letters, digits, _ . -).");
+      if (!["number", "integer", "string"].includes(p.type)) throw new VersionError(`${p.id}: its type is number, integer or string.`);
+      if (p.value === undefined || (p.type === "string" ? typeof p.value !== "string" : typeof p.value !== "number")) throw new VersionError(`${p.id}: its value is a ${p.type === "string" ? "string" : "number"}.`);
       ids.add(p.id);
     }
     out.params = v;
@@ -180,9 +168,9 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
   let grp: string;
   let slug: string;
   if (body?.asset !== undefined) {
-    if (!UUID.test(`${body.asset}`)) throw new ProposalError("Name the asset by its id (a UUID).");
+    if (!UUID.test(`${body.asset}`)) throw new VersionError("Name the asset by its id (a UUID).");
     const { rows } = await db.query<{ grp: string; slug: string }>(`SELECT grp, slug FROM play.assets WHERE id = $1`, [body.asset]);
-    if (!rows[0]) throw new ProposalError("There is no such asset.", 404);
+    if (!rows[0]) throw new VersionError("There is no such asset.", 404);
     ({ grp, slug } = rows[0]);
     asset = body.asset;
   } else {
@@ -190,8 +178,8 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
     // with, made from the label where none is given), and another asset may share them
     grp = `${body?.new?.group ?? ""}`;
     slug = body?.new?.slug == null || body.new.slug === "" ? slugOf(`${body?.new?.label ?? ""}`) : `${body.new.slug}`;
-    if (!GROUP.test(grp)) throw new ProposalError("A new asset needs its group (plants, things, machines, buildings, actors, biomes, worlds).");
-    if (!SLUG.test(slug)) throw new ProposalError("A new asset's slug is lowercase words joined by '-' (or give a label to make it from).");
+    if (!GROUP.test(grp)) throw new VersionError("A new asset needs its group (plants, things, machines, buildings, actors, biomes, worlds).");
+    if (!SLUG.test(slug)) throw new VersionError("A new asset's slug is lowercase words joined by '-' (or give a label to make it from).");
     asset = newId();
   }
   const { rows: a } = await db.query<{ head: string | null; number: number | null; label: string; card: any; variants: Record<string, any> | null }>(
@@ -213,27 +201,27 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
   const set = cardFields(body.card);
   const head = a[0]?.head ?? null;
   if (body.base !== undefined && (body.base ?? null) !== head)
-    throw new ProposalError("Someone changed this asset since you started: build it again on its newest version.", 409);
+    throw new VersionError("Someone changed this asset since you started: build it again on its newest version.", 409);
   const n = (a[0]?.number ?? 0) + 1;
   const label = `${body.new?.label ?? body.label ?? a[0]?.label ?? ""}`.trim().slice(0, 120);
-  if (!label) throw new ProposalError("A new asset needs a label.");
+  if (!label) throw new VersionError("A new asset needs a label.");
 
-  // a draft made step by step (asset_edit): proposed as it stands, made on the head; its source and card are the
-  // version's where the proposal brings none of its own
-  let draft: number | undefined;
-  if (body.branch != null) {
-    if (body.asset === undefined) throw new ProposalError("A draft is of an asset there already.");
+  // an intent variant made edit by edit (doc_edit): proposed as it stands, seeded at the head; its source and card are
+  // the version's where the proposal brings none of its own
+  let variant: number | undefined;
+  if (body.variant != null) {
+    if (body.asset === undefined) throw new VersionError("A variant is of an asset there already.");
     const d = await db
       .transaction(async (q) => {
         await ensureAssetDoc(q, store, asset);
-        const dr = await draftOf(q, asset, body.branch);
-        return { ...dr, json: await draftState(q, asset, dr.id) };
+        const v = await openVariant(q, assetDocId(asset), body.variant);
+        return { id: v.id, seed: await seedNumberOf(q, assetDocId(asset), v.id), json: await variantState(q, asset, v.id) };
       })
       .catch((e) => {
-        throw e instanceof AssetDocError ? new ProposalError(e.message, e.status) : e;
+        throw e instanceof AssetDocError ? new VersionError(e.message, e.status) : e;
       });
-    if ((d.base ?? null) !== (a[0]?.number ?? null)) throw new ProposalError(`This asset has a newer version than the one draft ${d.id} was made on: start the draft again on its head.`, 409);
-    draft = d.id;
+    if ((d.seed ?? null) !== (a[0]?.number ?? null)) throw new VersionError(`This asset has a newer version than the one variant ${d.id} was seeded on: start it again on its head.`, 409);
+    variant = d.id;
     if (!body.source && !body.recipe && !body.variants) {
       if (d.json.variants?.length)
         body = { ...body, variants: Object.fromEntries(d.json.variants.map((x) => [x.name, { source: x.source ?? d.json.source, record: x.card }])), defaultVariant: d.json.defaultVariant ?? d.json.variants[0].name };
@@ -242,7 +230,7 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
   }
 
   const variantNames = Object.keys(body.variants ?? {});
-  if (!!(body.recipe || body.source) === !!variantNames.length) throw new ProposalError("Give either the version's source (or recipe file) or its variants, not both.");
+  if (!!(body.recipe || body.source) === !!variantNames.length) throw new VersionError("Give either the version's source (or recipe file) or its variants, not both.");
   const files: { text: string; hash: string }[] = [];
   let recipe: string | null = null;
   let source: string | null = null;
@@ -261,7 +249,7 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
     ownText = c.source.text;
   } else {
     for (const name of variantNames) {
-      if (!VARIANT.test(name)) throw new ProposalError(`${name} is not a variant's name.`);
+      if (!VARIANT.test(name)) throw new VersionError(`${name} is not a variant's name.`);
       const c = checkedCode(body.variants![name], slug, n, name);
       files.push(c.source, c.recipe);
       variantTexts[name] = c.source.text;
@@ -271,7 +259,7 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
       variants[name] = { recipe: c.recipe.hash, source: c.source.hash, card: recordOf(record, grp, slug, n, name, c.recipe.hash) };
     }
     defaultVariant = body.defaultVariant ?? variantNames[0];
-    if (!variants[defaultVariant]) throw new ProposalError(`${defaultVariant} is not one of its variants.`);
+    if (!variants[defaultVariant]) throw new VersionError(`${defaultVariant} is not one of its variants.`);
   }
   // its documents (play/SPEC.md §4.10): its reference sheet (an image), its data sheet and its sheet's brief (Markdown),
   // each a file play keeps, named by its hash in the version's record, and carried on from the head like the rest of the
@@ -282,10 +270,10 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
     if (given === undefined) continue;
     const h = given === null || given === "" ? null : `${given}`;
     if (h !== null) {
-      if (!HASH.test(h)) throw new ProposalError(`A ${k} is named by its BLAKE3 hash (64 hex characters).`);
+      if (!HASH.test(h)) throw new VersionError(`A ${k} is named by its BLAKE3 hash (64 hex characters).`);
       const { rows: f } = await db.query<{ media_type: string }>(`SELECT media_type FROM play.files WHERE hash = $1`, [h]);
-      if (!f[0]) throw new ProposalError(`play keeps no file by that hash: add the ${k} first (MCP ${REFS[k].add}).`);
-      if (!REFS[k].is(f[0].media_type)) throw new ProposalError(`${REFS[k].what}.`);
+      if (!f[0]) throw new VersionError(`play keeps no file by that hash: add the ${k} first (MCP ${REFS[k].add}).`);
+      if (!REFS[k].is(f[0].media_type)) throw new VersionError(`${REFS[k].what}.`);
     }
     refs[k] = h;
   }
@@ -293,13 +281,13 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
   const card = withRefs(recipe ? recordOf(heldRecord(over(inherited(body.record, a[0]?.card), set), own!.libs, own!.source), grp, slug, n, null, recipe) : variants[defaultVariant!].card, refs);
   // every other asset a version names, it names by hash (play/SPEC.md §4)
   const readable = [card, ...Object.values(variants).map((x) => x.card)].flatMap((c) => readableRefs(c, `${grp}/${slug}`));
-  if (readable.length) throw new ProposalError(`Name other assets by their hash, not ${readable.slice(0, 3).join(", ")}.`);
+  if (readable.length) throw new VersionError(`Name other assets by their hash, not ${readable.slice(0, 3).join(", ")}.`);
   const engine = Number(card?.engine?.version ?? card?.card?.engine) || null;
   const content = { asset, parents: head ? [head] : [], recipe, defaultVariant, variants, card, engine };
   const id = versionId(content);
 
   for (const f of files) await store.put(f.hash, new TextEncoder().encode(f.text), MEDIA);
-  let intent = "", branchId = 0, steps = 0;
+  let intent = "", variantId = 0, edits = 0;
   await db.transaction(async (tx) => {
     for (const f of files)
       await tx.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, [
@@ -313,45 +301,33 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
     );
     for (const [name, x] of Object.entries(variants))
       await tx.query(`INSERT INTO play.asset_variants (version_id, name, recipe_hash, source_hash, card) VALUES ($1, $2, $3, $4, ($5::text)::jsonb) ON CONFLICT DO NOTHING`, [id, name, x.recipe, x.source, JSON.stringify(x.card)]);
-    // its branch of the asset's Loro document (play/SPEC.md §4.4): the draft it was made on, or a new branch at its
-    // head, the version as proposed its last step
+    // its variant of the asset's Loro document (play/SPEC.md "Version control"): the one it was made on, or a new one
+    // seeded at its head, the version as proposed its last edit
     const note = `${body.note ?? ""}`.slice(0, NOTE_MOST);
     const json: AssetJson = asAssetJson(label, {
       note, engine, card, defaultVariant,
       source: recipe ? ownText : variantTexts[defaultVariant!],
       variants: Object.entries(variants).map(([name, x]) => ({ name, source: variantTexts[name], card: x.card })),
     });
-    const branch = await proposalBranch(tx, store, { asset, base: a[0]?.number ?? null, json, note, author: authorOf(who, via === "mcp" ? "mcp" : "site"), draft }).catch((e) => {
-      throw e instanceof AssetDocError ? new ProposalError(e.message, e.status) : e;
+    const b = await proposalVariant(tx, store, { asset, seed: a[0]?.number ?? null, json, note, author: authorOf(who, via === "mcp" ? "mcp" : "site"), variant }).catch((e) => {
+      throw e instanceof AssetDocError ? new VersionError(e.message, e.status) : e;
     });
-    intent = await putAtProposal(tx, who, { intent: body.intent, work: { kind: "asset_version", asset_id: asset, base: head, version: id, doc_branch: branch }, note, via }).catch((e) => {
-      throw e instanceof WorkError ? new ProposalError(e.message, e.status) : e;
+    intent = await putAtProposal(tx, who, { intent: body.intent, work: { kind: "asset_version", asset_id: asset, base: head, version: id, doc_id: assetDocId(asset), doc_variant: b }, note, via }).catch((e) => {
+      throw e instanceof WorkError ? new VersionError(e.message, e.status) : e;
     });
-    steps = (await docs.history(tx, assetDocId(asset), { branch })).length;
-    branchId = branch;
+    edits = (await docs.history(tx, assetDocId(asset), { variant: b })).length;
+    variantId = b;
   });
-  return { intent, stage: "proposal" as const, asset, version: id, number: n, base: head, branch: branchId, steps };
+  return { intent, stage: "proposal" as const, asset, version: id, number: n, base: head, variant: variantId, edits };
 }
 
 /**
- * An intent's work as people review it before they decide (`w`: the intent's work as ./intents.ts lists it, with its
- * label, group and number): for an asset's version, its readable source and its recipe files, the base's source to set
- * it beside, and the version as the catalog would list it once accepted (`builds`), so the page can build it in the
- * asset box, the sandboxed frame every recipe runs in, before anyone accepts it; for the rest, its kind's own review.
+ * An asset's version as people review it before they decide (`p`: the intent's work as ./intents.ts lists it, with its
+ * label, group and number): its readable source and its recipe files, the seed's source to set it beside, and the
+ * version as the catalog would list it once accepted (`builds`), so the page builds it in the asset box, the sandboxed
+ * frame every recipe runs in, before anyone accepts it. Its changes and edits are ./versioned.ts's.
  */
-export async function reviewOf(db: Queryable, id: string, shown: any) {
-  const p = { ...(await workOf(db, id)), ...shown, id };
-  if (!p.kind) return null;
-  // a sandbox's change: what each edit changes, before and after, as accepting would apply it
-  if (p.kind === "sandbox_change") return { ...p, ...(await sandboxReview(db, p)) };
-  // a story's: its proposed timeline, the head's it was made from, and what changed, clip by clip
-  if (p.kind === "story_version") return { ...p, ...(await storyReview(db, p)) };
-  // a factory's: what changed, field by field, against the version it was made on, and its steps
-  if (p.kind === "factory_version") return { ...p, ...(await factoryReview(db, p)) };
-  // a game config's: the same, field by field
-  if (p.kind === "game_config_version") return { ...p, ...(await gameConfigReview(db, p)) };
-  // a skill's: the same, field by field (its system part, each stage's text)
-  if (p.kind === "skill_version") return { ...p, ...(await skillReview(db, p)) };
+export async function assetReview(db: Queryable, p: any) {
   const { rows: v } = await db.query<any>(
     `SELECT v.recipe_hash, v.source_hash, v.card, v.default_variant, f.size FROM play.asset_versions v
        LEFT JOIN play.files f ON f.hash = v.recipe_hash WHERE v.id = $1`, [p.version],
@@ -373,138 +349,80 @@ export async function reviewOf(db: Queryable, id: string, shown: any) {
   const builds = v[0]?.recipe_hash
     ? [row(v[0].recipe_hash, v[0].size, v[0].card, null, false)]
     : x.map((r) => row(r.recipe_hash, r.size, r.card, r.name, r.name === v[0]?.default_variant));
-  // the steps it was made in: its branch of the asset's Loro document (play/SPEC.md §4.4)
-  const steps = p.doc_branch != null ? await named(db, await docs.history(db, assetDocId(p.asset_id), { branch: Number(p.doc_branch) })) : [];
   return {
-    ...p,
     source: v[0]?.source_hash ?? null,
     recipe: v[0]?.recipe_hash ?? null,
     variants: x.map((r) => ({ name: r.name, recipe: r.recipe_hash, source: r.source_hash })),
     baseVersion: b[0] ? { number: b[0].number, source: b[0].source_hash ?? b[0].variant_source ?? null, recipe: b[0].recipe_hash } : null,
     builds,
-    steps,
   };
 }
 
-export type Verdict = "accept" | "archive";
-
-/** An intent's work archived by whoever proposed it: the intent archived, its branch closed as a side line in the history. */
-async function archiveAsAuthor(tx: Queryable, me: Me, p: any) {
-  await settle(tx, p.id, "archived", me.id);
-  await closeWork(tx, me, p);
-  return { id: p.id as string, status: "archived" as const };
-}
-
 /**
- * An agent archives its own intent over MCP (Samuel 2026-11-04): one at Proposal whose work it no longer stands by, or
- * one newer work of its own replaces elsewhere. Only an intent its admin put at Proposal over MCP (its work proposed so,
- * or, with no work, added so), never anyone else's and never one proposed on the page; accepting stays a person's, on
- * the intents' board.
+ * Accept or archive an asset's version (locked by the caller's transaction). It is accepted only on the head it was
+ * made on (else it is archived, to be proposed again on the new head), so what is accepted is exactly the version the
+ * board built and showed in the asset box; its variant of the asset's document is merged and named the version's number.
  */
-export async function archiveOwn(db: Db, me: Me | null, id: string) {
-  if (!me) throw new Denied("Please sign in first.", 401);
-  if (!UUID.test(id)) throw new ProposalError("Name the intent by its id (list_intents gives it).");
-  return db.transaction(async (tx) => {
-    const { rows } = await tx.query<any>(`SELECT ${WORK_OF}, i.author AS intent_author, i.via AS intent_via FROM play.intents i WHERE i.id = $1 AND i.coop_id = $2 FOR UPDATE`, [id, COOP]);
-    const p = rows[0];
-    if (!p) throw new ProposalError("There is no such intent.", 404);
-    const [by, via] = p.kind ? [p.author, p.via] : [p.intent_author, p.intent_via];
-    if (by !== me.id || via !== "mcp")
-      throw new ProposalError("Only an intent you put at Proposal over MCP is yours to archive; the rest are decided on the intents' board.", 403);
-    if (p.stage !== "proposal") throw new ProposalError(`This intent is at the ${p.stage} stage: only one at Proposal is archived so.`, 409);
-    return { ...(await archiveAsAuthor(tx, me, p)), intent: p.id as string, stage: "archived" as const };
-  });
-}
-
-/**
- * Accept or archive an intent's work at Proposal (Samuel 2026-11-04: it ends accepted or archived, nothing else). An
- * admin decides any; whoever proposed it may archive their own. An asset's is accepted only on the head it was made on
- * (else it is archived, to be proposed again on the new head), so what is accepted is exactly the version the board
- * built and showed in the asset box; its branch of the asset's document is merged and named the version's number.
- * Archived, its branch is closed, its steps kept. The answer says the stage the intent settled at.
- */
-export async function decide(db: Db, store: BlobStore, me: Me | null, id: string, verdict: Verdict) {
-  if (!me) throw new Denied("Please sign in first.", 401);
-  return db.transaction(async (tx) => {
-    const p = await workOf(tx, id, true);
-    if (!p) throw new ProposalError("There is no such intent.", 404);
-    if (!p.kind) throw new ProposalError(`Intent ${p.id} holds no work of play's to decide.`, 409);
-    if (p.stage !== "proposal") throw new ProposalError(`This intent is at the ${p.stage} stage: only one at Proposal is decided.`, 409);
-    const r: any = await decideAt(tx, store, me, p, verdict);
-    const { rows } = await tx.query<{ stage: string }>(`SELECT stage FROM play.intents WHERE id = $1`, [p.id]);
-    return { ...r, intent: p.id as string, stage: rows[0]?.stage };
-  });
-}
-
-async function decideAt(tx: Queryable, store: BlobStore, me: Me, p: any, verdict: Verdict) {
+export async function decideAsset(store: BlobStore, tx: Queryable, me: Me, p: any, verdict: Verdict) {
   const id = p.id as string;
-  {
-    // whoever proposed it archives their own, whoever may decide the rest
-    if (verdict === "archive" && p.author === me.id && me.level !== "admin") return archiveAsAuthor(tx, me, p);
-    if (p.kind === "story_version") return decideStory(tx, me, p, verdict);
-    if (p.kind === "sandbox_change") return decideSandbox(tx, me, p, verdict);
-    if (p.kind === "factory_version") return decideFactory(tx, me, p, verdict);
-    if (p.kind === "game_config_version") return decideGameConfig(tx, me, p, verdict);
-    if (p.kind === "skill_version") return decideSkill(tx, me, p, verdict);
-    must(me, "decide", "asset_version");
-    if (verdict === "archive") {
-      await settle(tx, id, "archived", me.id);
-      await closeWork(tx, me, p);
-      return { id, status: "archived" };
-    }
-    const { rows: a } = await tx.query<{ head: string | null; number: number | null }>(
-      `SELECT a.head, v.number FROM play.assets a LEFT JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1 FOR UPDATE OF a`, [p.asset_id],
-    );
-    if ((a[0]?.head ?? null) !== (p.base ?? null)) {
-      await settle(tx, id, "archived", null);
-      await closeWork(tx, me, p);
-      return { id, status: "archived", message: "This asset has a newer version than the one this was made on: build it again on its head." };
-    }
-    // the asset's document, made from its history first where it has none (and this proposal's branch, if it lacks one)
-    await ensureAssetDoc(tx, store, p.asset_id).catch((e) => {
-      throw e instanceof AssetDocError ? new ProposalError(e.message, e.status) : e;
-    });
-    const n = (a[0]?.number ?? 0) + 1;
-    await tx.query(`UPDATE play.asset_versions SET number = $2, approved_by = $3 WHERE id = $1`, [p.version, n, me.id]);
-    await tx.query(`UPDATE play.assets SET head = $2 WHERE id = $1`, [p.asset_id, p.version]);
-    await settle(tx, id, "accepted", me.id);
-    await acceptBranch(tx, store, p, me, n);
-    // the other intents' work made on the same head can go in no more: archived, to be built again on the new one
-    const { rows: stale } = await tx.query<any>(
-      `SELECT ${WORK_OF} FROM play.intents i
-        WHERE i.asset_id = $1 AND i.work = 'asset_version' AND i.stage = 'proposal' AND i.id <> $2 AND i.base IS NOT DISTINCT FROM $3 FOR UPDATE`,
-      [p.asset_id, id, p.base],
-    );
-    for (const s of stale) {
-      await settle(tx, s.id, "archived", null);
-      await closeWork(tx, me, s);
-    }
-    return { id, status: "accepted", number: n, version: p.version };
+  must(me, "decide", "asset_version");
+  if (verdict === "archive") {
+    await settle(tx, id, "archived", me.id);
+    await closeWork(tx, me, p);
+    return { id, status: "archived" };
   }
+  const { rows: a } = await tx.query<{ head: string | null; number: number | null }>(
+    `SELECT a.head, v.number FROM play.assets a LEFT JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1 FOR UPDATE OF a`, [p.asset_id],
+  );
+  if ((a[0]?.head ?? null) !== (p.base ?? null)) {
+    await settle(tx, id, "archived", null);
+    await closeWork(tx, me, p);
+    return { id, status: "archived", message: "This asset has a newer version than the one this was made on: build it again on its head." };
+  }
+  // the asset's document, made from its history first where it has none (and this proposal's variant, if it lacks one)
+  await ensureAssetDoc(tx, store, p.asset_id).catch((e) => {
+    throw e instanceof AssetDocError ? new VersionError(e.message, e.status) : e;
+  });
+  const n = (a[0]?.number ?? 0) + 1;
+  await tx.query(`UPDATE play.asset_versions SET number = $2, approved_by = $3 WHERE id = $1`, [p.version, n, me.id]);
+  await tx.query(`UPDATE play.assets SET head = $2 WHERE id = $1`, [p.asset_id, p.version]);
+  await tx.query(`UPDATE play.docs SET label = (SELECT label FROM play.assets WHERE id = $2) WHERE id = $1`, [assetDocId(p.asset_id), p.asset_id]);
+  await settle(tx, id, "accepted", me.id);
+  await acceptVariant(tx, store, p, me, n);
+  // the other intents' work made on the same head can go in no more: archived, to be built again on the new one
+  const { rows: stale } = await tx.query<any>(
+    `SELECT ${WORK_OF} FROM play.intents i
+      WHERE i.asset_id = $1 AND i.work = 'asset_version' AND i.stage = 'proposal' AND i.id <> $2 AND i.base IS NOT DISTINCT FROM $3 FOR UPDATE`,
+    [p.asset_id, id, p.base],
+  );
+  for (const s of stale) {
+    await settle(tx, s.id, "archived", null);
+    await closeWork(tx, me, s);
+  }
+  return { id, status: "accepted", number: n, version: p.version };
 }
 
-/**
- * An admin's decision on an intent, whatever its stage (the one place an intent is decided; play/SPEC.md §4.12): at
- * Proposal with work of play's, accepting applies it and archiving archives it (decide); anything else is the intent's
- * own decision (./intents.ts decideIntent: approve its spec, send it back to Specify, accept it, archive it, reopen it),
- * except that accepting an intent whose code is a pull request ships it (./ship.ts acceptAndShip: merged into main at
- * once, the intent in Ship). Gives back the intent, with the decision's message where it has one.
- */
-export async function decideAny(db: Db, store: BlobStore, me: Me | null, id: string, verdict: IntentVerdict | "archive", gh: GitHub | null = null) {
-  const w = await workOf(db, id);
-  if (!w) throw new IntentError("There is no such intent.", 404);
-  if (verdict === "accept" && !w.kind) {
-    const shipped = await acceptAndShip(db, gh, me, w.id);
-    if (shipped) return shipped;
-  }
-  // the work's decision, where it had work at Proposal: what it came to (accepted, archived), the version it is, merged
-  let decision: { status: string; number?: number; version?: string; merged?: boolean; message?: string } | undefined;
-  if (w.kind && w.stage === "proposal" && (verdict === "accept" || verdict === "archive" || verdict === "reject")) {
-    const { id: _id, intent: _i, stage: _s, why, ...r }: any = await decide(db, store, me, w.id, verdict === "accept" ? "accept" : "archive");
-    decision = { ...r, ...(r.message ?? why ? { message: r.message ?? why } : {}) };
-  } else await decideIntent(db, me, w.id, verdict === "archive" ? "reject" : verdict);
-  const said = decision ? { decision, ...(decision.message ? { message: decision.message } : {}) } : {};
-  // whoever decides it reads it back: an admin all of it, its proposer (archiving their own) what it came to
-  if (me?.level !== "admin") return { id: w.id, stage: (await workOf(db, w.id))?.stage, ...said };
-  return { ...(await getIntent(db, w.id)), ...said };
-}
+/** an asset's document, said for an agent (MCP) */
+export const ASSET_FORMAT =
+  "An asset's document is { schema: 'asset/1', label, note?, source (its readable source: the CommonJS module its recipe file wraps), engine?, card? (its record), " +
+  "defaultVariant?, variants?: [{ name, source? (only where it differs from source), card? }] }. Edit it with operations ({ op: 'replace', find, replace, field?: 'source' | 'note', variant? } " +
+  "replaces a piece of text found once; { op: 'text', path, index, delete?, insert? } a range; { op: 'set', path, value } a field of its card), or set its fields { source, label, note }. " +
+  "Proposed (propose_doc_version), it is built as the asset's next version; extra may carry the version's record, card, variants, defaultVariant, sheet, datasheet and brief.";
+
+/** the asset kind of document (./versioned.ts): its proposal, review and decision are its own */
+export const ASSET = register({
+  kind: "asset",
+  work: "asset_version",
+  title: "Asset",
+  grp: "assets",
+  format: ASSET_FORMAT,
+  exists: async (q, uuid) => (await q.query(`SELECT 1 FROM play.assets WHERE id = $1`, [uuid])).rows.length > 0,
+  ensure: async (env, q, uuid) => {
+    await ensureAssetDoc(q, env.store, uuid);
+  },
+  shown: (json) => ({ label: `${json?.label ?? ""}` }),
+  change: async (_env, _tx, _uuid, cur, c) => assetChange(cur, c),
+  propose: (env, me, p, via) => propose(env.db, env.store, me, { ...(p.extra ?? {}), asset: p.uuid, note: p.note, intent: p.intent, ...(p.variant != null ? { variant: p.variant } : {}) } as ProposalBody, via),
+  review: async (env, w) => assetReview(env.db, w),
+  decide: async (env, tx, me, w, verdict) => decideAsset(env.store, tx, me, w, verdict),
+});

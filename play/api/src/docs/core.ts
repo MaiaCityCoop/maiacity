@@ -1,6 +1,6 @@
 // A document in Loro, without the database (play/SPEC.md §4.4): its JSON written into Loro containers as its type's
 // hints say (./schema.ts), edits applied as Loro operations, a whole new state turned into the few operations that
-// make it (so a proposal that sends its whole body still lands as small steps), the state read back as plain JSON at
+// make it (so a proposal that sends its whole body still lands as small operations), the state read back as plain JSON at
 // any point of its history, and two states compared field by field.
 import { LoroDoc, LoroList, LoroMap, LoroMovableList, LoroText } from "loro-crdt";
 import { canonical, hashText } from "../hash";
@@ -137,66 +137,67 @@ function patchList(l: LoroMovableList, target: unknown[], n: Node): void {
   for (let i = common; i < target.length; i++) putInList(l, i, target[i], item);
 }
 
-// ---- edits: the small steps an agent sends (MCP), one or more per commit
+// ---- operations: what an agent sends (MCP), one or more an edit
 
-export type Edit =
+/** one operation of an edit: a field set, a list item inserted, deleted or moved, or a range of a text changed */
+export type Op =
   | { op: "set"; path: Path; value: unknown } // a map's key or a list's item, replaced (a text: changed to the value)
   | { op: "insert"; path: Path; value: unknown } // into a list, before the index the path ends with
   | { op: "delete"; path: Path } // a map's key or a list's item
   | { op: "move"; path: Path; to: number } // a list's item, the path ending with its index, to index `to`
   | { op: "text"; path: Path; index: number; delete?: number; insert?: string }; // a range of a text
 
-export class EditError extends Error {}
+export class OpError extends Error {}
 
 /** the container the path leads into (all but its last step), and that last step */
 function parentOf(d: LoroDoc, path: Path): [LoroMap | LoroMovableList, string | number] {
-  if (!path.length) throw new EditError("an edit names a field: its path is empty");
+  if (!path.length) throw new OpError("an operation names a field: its path is empty");
   let at: unknown = d.getMap(ROOT);
   for (const [i, p] of path.slice(0, -1).entries()) {
     const next = at instanceof LoroMap && typeof p === "string" ? at.get(p) : at instanceof LoroMovableList && typeof p === "number" ? at.get(p) : undefined;
-    if (!(next instanceof LoroMap || next instanceof LoroMovableList || next instanceof LoroText)) throw new EditError(`${fmt(path.slice(0, i + 1))}: there is no map or list there`);
+    if (!(next instanceof LoroMap || next instanceof LoroMovableList || next instanceof LoroText)) throw new OpError(`${fmt(path.slice(0, i + 1))}: there is no map or list there`);
     at = next;
   }
-  if (!(at instanceof LoroMap || at instanceof LoroMovableList)) throw new EditError(`${fmt(path.slice(0, -1))}: not a map or a list`);
+  if (!(at instanceof LoroMap || at instanceof LoroMovableList)) throw new OpError(`${fmt(path.slice(0, -1))}: not a map or a list`);
   const last = path[path.length - 1];
-  if (at instanceof LoroMap && typeof last !== "string") throw new EditError(`${fmt(path)}: a map's field is named by a string`);
-  if (at instanceof LoroMovableList && (typeof last !== "number" || !Number.isInteger(last) || last < 0)) throw new EditError(`${fmt(path)}: a list's item is named by its index`);
+  if (at instanceof LoroMap && typeof last !== "string") throw new OpError(`${fmt(path)}: a map's field is named by a string`);
+  if (at instanceof LoroMovableList && (typeof last !== "number" || !Number.isInteger(last) || last < 0)) throw new OpError(`${fmt(path)}: a list's item is named by its index`);
   return [at, last];
 }
 export const fmt = (p: Path) => "$" + p.map((x) => (typeof x === "number" ? `[${x}]` : `.${x}`)).join("");
 
-/** applies `edits` (not yet committed); the caller checks the whole result against its type */
-export function applyEdits(d: LoroDoc, t: DocType, edits: Edit[]): void {
-  for (const e of edits) {
+/** applies `ops` (not yet committed); the caller checks the whole result against its type */
+export function applyOps(d: LoroDoc, t: DocType, ops: Op[]): void {
+  for (const e of ops) {
     const [parent, key] = parentOf(d, e.path);
     const n = nodeAt(t.schema, e.path);
     const cur = parent instanceof LoroMap ? parent.get(key as string) : (key as number) < parent.length ? parent.get(key as number) : undefined;
     if (e.op === "set") {
-      if (parent instanceof LoroMovableList && (key as number) >= parent.length) throw new EditError(`${fmt(e.path)}: no item there to set`);
+      if (parent instanceof LoroMovableList && (key as number) >= parent.length) throw new OpError(`${fmt(e.path)}: no item there to set`);
       patchChild(parent, key, cur, e.value, n);
     } else if (e.op === "insert") {
-      if (!(parent instanceof LoroMovableList)) throw new EditError(`${fmt(e.path)}: insert is into a list`);
-      if ((key as number) > parent.length) throw new EditError(`${fmt(e.path)}: the list has only ${parent.length} items`);
+      if (!(parent instanceof LoroMovableList)) throw new OpError(`${fmt(e.path)}: insert is into a list`);
+      if ((key as number) > parent.length) throw new OpError(`${fmt(e.path)}: the list has only ${parent.length} items`);
       putInList(parent, key as number, e.value, n);
     } else if (e.op === "delete") {
       if (parent instanceof LoroMap) {
-        if (cur === undefined) throw new EditError(`${fmt(e.path)}: nothing there to delete`);
+        if (cur === undefined) throw new OpError(`${fmt(e.path)}: nothing there to delete`);
         parent.delete(key as string);
       } else {
-        if ((key as number) >= parent.length) throw new EditError(`${fmt(e.path)}: no item there to delete`);
+        if ((key as number) >= parent.length) throw new OpError(`${fmt(e.path)}: no item there to delete`);
         parent.delete(key as number, 1);
       }
     } else if (e.op === "move") {
-      if (!(parent instanceof LoroMovableList)) throw new EditError(`${fmt(e.path)}: move is within a list`);
+      if (!(parent instanceof LoroMovableList)) throw new OpError(`${fmt(e.path)}: move is within a list`);
       const from = key as number;
-      if (from >= parent.length || !Number.isInteger(e.to) || e.to < 0 || e.to >= parent.length) throw new EditError(`${fmt(e.path)}: move from ${from} to ${e.to} is outside the list of ${parent.length}`);
+      if (from >= parent.length || !Number.isInteger(e.to) || e.to < 0 || e.to >= parent.length) throw new OpError(`${fmt(e.path)}: move from ${from} to ${e.to} is outside the list of ${parent.length}`);
       if (from !== e.to) parent.move(from, e.to);
     } else if (e.op === "text") {
-      if (!(cur instanceof LoroText)) throw new EditError(`${fmt(e.path)}: not a text`);
+      if (!(cur instanceof LoroText)) throw new OpError(`${fmt(e.path)}: not a text`);
       const len = cur.length, del = e.delete ?? 0;
-      if (!Number.isInteger(e.index) || e.index < 0 || e.index > len || del < 0 || e.index + del > len) throw new EditError(`${fmt(e.path)}: the range ${e.index}+${del} is outside the text of ${len}`);
+      if (!Number.isInteger(e.index) || e.index < 0 || e.index > len || del < 0 || e.index + del > len) throw new OpError(`${fmt(e.path)}: the range ${e.index}+${del} is outside the text of ${len}`);
       cur.splice(e.index, del, e.insert ?? "");
-    } else throw new EditError(`an edit is one of set, insert, delete, move, text, not ${JSON.stringify((e as any).op)}`);
+    } else throw new OpError(`an operation is one of set, insert, delete, move, text, not ${JSON.stringify((e as any).op)}`);
   }
 }
 

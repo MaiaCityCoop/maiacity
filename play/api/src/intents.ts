@@ -30,7 +30,7 @@ import type { Queryable } from "./pg";
 import { NOTE_MOST } from "./notes";
 import { briefOf } from "./skills";
 import { newId, UUID } from "./uuid";
-import { intentIdOf, WORK_KINDS, type WorkKind } from "./work";
+import { workKindOf, workKinds } from "./versioned";
 
 export class IntentError extends Error {
   constructor(message: string, public status = 400) {
@@ -134,7 +134,7 @@ export function specOf(body: { goal?: unknown; scope?: unknown; checks?: unknown
 
 /**
  * The intents with who wrote, specified, approved and decided them, and each one's work (null where it has none): its
- * kind, what it is of (an asset's group, slug and label, a story's, sandbox's, factory's or config's title), the version
+ * kind, what it is of (an asset's group, slug and label, a story's or sandbox's title, a document's label), the version
  * it would be, how many changes a sandbox's makes, its note, who proposed it, how and when, and its status (its
  * intent's stage: waiting at Proposal, accepted, else archived).
  */
@@ -146,17 +146,14 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
             CASE WHEN i.work IS NULL THEN NULL ELSE json_build_object(
               'kind', i.work, 'status', CASE i.stage WHEN 'proposal' THEN 'proposal' WHEN 'accepted' THEN 'accepted' ELSE 'archived' END,
               'asset_id', i.asset_id, 'base', i.base, 'version', i.version, 'story_id', i.story_id, 'story_base', i.story_base, 'story_version', i.story_version,
-              'sandbox_id', i.sandbox_id, 'factory_id', i.factory_id, 'game_config_id', i.game_config_id, 'skill_id', i.skill_id, 'doc_branch', i.doc_branch,
+              'sandbox_id', i.sandbox_id, 'doc_id', i.doc_id, 'doc_variant', i.doc_variant,
               'changes', jsonb_array_length(COALESCE(i.sandbox_diff, '[]'::jsonb)),
               'note', COALESCE(i.work_note, ''), 'author', pb.name, 'via', i.proposed_via, 'created', i.proposed_at, 'decided_by', de.name, 'decided_at', i.decided_at,
-              'label', COALESCE(wa.label, sv.title, sx.title, fx.label, gc.label, sk.label),
-              'grp', COALESCE(wa.grp, CASE i.work WHEN 'story_version' THEN 'stories' WHEN 'sandbox_change' THEN 'sandboxes' WHEN 'factory_version' THEN 'factories' WHEN 'game_config_version' THEN 'game' WHEN 'skill_version' THEN 'skills' END),
+              'label', COALESCE(wa.label, sv.title, sx.title, dd.label),
+              'grp', COALESCE(wa.grp, CASE i.work WHEN 'sandbox_change' THEN 'sandboxes' END),
               'slug', wa.slug, 'version_label', wv.card->'card'->>'label',
-              'number', CASE i.work WHEN 'story_version' THEN COALESCE(sb.number, 0) + 1 WHEN 'sandbox_change' THEN NULL
-                 WHEN 'factory_version' THEN COALESCE(dbv.number, (SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = 'factory:' || i.factory_id) + 1)
-                 WHEN 'game_config_version' THEN COALESCE(dbv.number, (SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = 'game:' || i.game_config_id) + 1)
-                 WHEN 'skill_version' THEN COALESCE(dbv.number, (SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = 'skill:' || i.skill_id) + 1)
-                 ELSE COALESCE(wb.number, 0) + 1 END
+              'number', CASE i.work WHEN 'story_version' THEN COALESCE(sb.number, 0) + 1 WHEN 'sandbox_change' THEN NULL WHEN 'asset_version' THEN COALESCE(wb.number, 0) + 1
+                 ELSE COALESCE(dbv.number, COALESCE((SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = i.doc_id), 0) + 1) END
             ) END AS work
        FROM play.intents i
        LEFT JOIN play.humans au ON au.id = i.author
@@ -170,15 +167,19 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
        LEFT JOIN play.story_versions sv ON sv.id = i.story_version
        LEFT JOIN play.story_versions sb ON sb.id = i.story_base
        LEFT JOIN play.sandboxes sx ON sx.id = i.sandbox_id
-       LEFT JOIN play.factories fx ON fx.id = i.factory_id
-       LEFT JOIN play.game_configs gc ON gc.id = i.game_config_id
-       LEFT JOIN play.skills sk ON sk.id = i.skill_id
-       LEFT JOIN play.doc_branches dbr ON dbr.id = i.doc_branch AND i.work IN ('factory_version', 'game_config_version', 'skill_version')
-       LEFT JOIN play.doc_versions dbv ON dbv.doc_id = dbr.doc_id AND dbv.number = dbr.version
+       LEFT JOIN play.docs dd ON dd.id = i.doc_id
+       LEFT JOIN play.doc_variants dvr ON dvr.id = i.doc_variant AND i.work NOT IN ('asset_version', 'story_version', 'sandbox_change')
+       LEFT JOIN play.doc_versions dbv ON dbv.doc_id = dvr.doc_id AND dbv.number = dvr.version
       WHERE i.coop_id = $1 AND ${where}
       ORDER BY COALESCE(i.decided_at, i.proposed_at, i.created) DESC LIMIT 500`,
     [COOP, ...args],
   );
+  // a document's work is filed under its kind's group (./versioned.ts), an asset's under its own
+  for (const r of rows)
+    if (r.work && !r.work.grp) {
+      const k = workKindOf(r.work.kind);
+      r.work.grp = k && "grp" in k ? k.grp : null;
+    }
   return rows;
 }
 
@@ -186,7 +187,7 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
 export async function listIntents(db: Queryable, me: Me | null, stages?: string[], work?: string) {
   admin(me);
   for (const s of stages ?? []) if (!INTENT_STAGES.includes(s as IntentStage)) throw new IntentError(`An intent's stage is ${INTENT_STAGES.join(", ")}.`);
-  if (work !== undefined && !WORK_KINDS.includes(work as WorkKind)) throw new IntentError(`An intent's work is ${WORK_KINDS.join(", ")}.`);
+  if (work !== undefined && !workKindOf(work)) throw new IntentError(`An intent's work is ${workKinds().join(", ")}.`);
   return intentsWhere(db, `($2::text[] IS NULL OR i.stage = ANY($2::text[])) AND ($3::text IS NULL OR i.work = $3)`, [stages ?? null, work ?? null]);
 }
 
@@ -196,16 +197,15 @@ async function intentRow(db: Queryable, id: string) {
   return intent;
 }
 
-/** One intent as the board lists it (admins), by its id or an old proposal's (play.proposal_ids). */
+/** One intent as the board lists it (admins), by its id. */
 export async function getIntent(db: Queryable, id: string) {
-  return intentRow(db, (await intentIdOf(db, idOf(id))) ?? id);
+  return intentRow(db, id);
 }
 
 /**
  * One intent, whole: as the board lists it, its work's review where it holds work (`review`: what it changes, as
- * people read it before they decide, ./proposals.ts reviewOf), and its `brief`: what an agent sent to it does at its
- * stage, the Intents skill's part for it (./skills.ts; null where it says nothing). An old proposal's id finds the
- * intent it is now.
+ * people read it before they decide, ./versioned.ts reviewOf), and its `brief`: what an agent sent to it does at its
+ * stage, the Intents skill's part for it (./skills.ts; null where it says nothing).
  */
 export async function intentOf(db: Queryable, me: Me | null, id: string, reviewOf: (db: Queryable, id: string, shown: any) => Promise<unknown>) {
   admin(me);

@@ -226,21 +226,21 @@ suite("intents", () => {
     expect((await fern(i.id)).error).toContain("accepted: it takes no more work");
   });
 
-  test("archived at Proposal, an intent ends archived; its work replaced, the earlier work's branch is closed; brought back, to Specify", async () => {
+  test("archived at Proposal, an intent ends archived; its work replaced, the earlier work's variant is closed; brought back, to Specify", async () => {
     const i = await intentAt("A taller fern", "prototype");
     await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "built" }, { check: "c2", pass: true, evidence: "0.5 m" }] });
     const made = await tool("propose_asset", { group: "plants", label: "Taller fern", source: SOURCE, note: "x", intent: i.id });
     expect((await tool("get_intent", { intent: i.id })).stage).toBe("proposal");
-    // proposed again for the same intent: the new work replaces it, the earlier one's branch closed, kept in the history
-    const again = await tool("propose_version", { asset: made.asset, source: SOURCE + "// taller\n", note: "taller still", intent: i.id });
+    // proposed again for the same intent: the new work replaces it, the earlier one's variant closed, kept in the history
+    const again = await tool("propose_doc_version", { doc: made.asset, extra: { source: SOURCE + "// taller\n" }, note: "taller still", intent: i.id });
     expect(again).toMatchObject({ intent: i.id, stage: "proposal" });
     const held = await tool("get_intent", { intent: i.id });
     expect(held.work).toMatchObject({ version: again.version, note: "taller still" });
-    expect((await db.query<any>(`SELECT status, intent_id FROM play.doc_branches WHERE id = $1`, [made.branch])).rows[0]).toEqual({ status: "archived", intent_id: i.id });
+    expect((await db.query<any>(`SELECT status, intent_id FROM play.doc_variants WHERE id = $1`, [made.variant])).rows[0]).toEqual({ status: "archived", intent_id: i.id });
     expect((await call("ada", "GET", "/api/intents")).data.filter((x: any) => x.title === i.title)).toHaveLength(1);
-    // archived at Proposal: the intent is archived, its work's branch closed
+    // archived at Proposal: the intent is archived, its work's variant closed
     expect((await call("ada", "POST", `/api/intents/${i.id}/archive`)).data).toMatchObject({ stage: "archived", decision: { status: "archived" } });
-    expect((await db.query<any>(`SELECT status FROM play.doc_branches WHERE id = $1`, [again.branch])).rows[0].status).toBe("archived");
+    expect((await db.query<any>(`SELECT status FROM play.doc_variants WHERE id = $1`, [again.variant])).rows[0].status).toBe("archived");
     expect((await tool("propose_asset", { group: "plants", label: "Taller fern", source: SOURCE, note: "again", intent: i.id })).error).toContain("archived: it takes no more work");
     // brought back, to Specify with its spec; approved, prototyped and proposed anew
     expect((await call("ada", "POST", `/api/intents/${i.id}/reopen`)).data.stage).toBe("specify");
@@ -348,8 +348,8 @@ suite("intents", () => {
     expect(check.inputSchema.properties.pr.type).toBe("integer");
     expect(check.inputSchema.required).toEqual(["intent"]);
     // what to do at each stage is the Intents skill's (play/SPEC.md §4.14), list_intents pointing to it
-    for (const says of ["get_intent", "brief", "get_skill"]) expect(of("list_intents").description).toContain(says);
-    const skill = (await tool("get_skill", { skill: SKILL.intents })).json;
+    for (const says of ["get_intent", "brief", "doc_at"]) expect(of("list_intents").description).toContain(says);
+    const skill = (await tool("doc_at", { doc: SKILL.intents })).json;
     const taught = [skill.system, ...Object.values(skill.stages)].join("\n");
     for (const says of ["avenBOX", "play/avenbox/intent.ts", "Intent: ", ".github/workflows/intents.yml", "never merge", "Ship", "--pr"]) expect(taught).toContain(says);
     expect(of("list_intents").inputSchema.properties.stage.enum).toEqual(["idea", "specify", "prototype", "proposal", "ship", "accepted", "archived", "all"]);
@@ -375,10 +375,10 @@ suite("intents", () => {
     expect((await tool("check_intent", { intent: i.id, results: all })).error).toContain("no work of it waits there");
     // other work made on the same base goes in first: its work is archived by itself, and an intent with an approved
     // spec goes back to Prototype, its results cleared, to be built on the new head
-    const first = await tool("propose_version", { asset: made.asset, source: SOURCE + "// first\n", note: "first in" });
+    const first = await tool("propose_doc_version", { doc: made.asset, extra: { source: SOURCE + "// first\n" }, note: "first in" });
     expect((await call("ada", "POST", `/api/intents/${first.intent}/accept`)).data.stage).toBe("accepted");
     expect(await tool("get_intent", { intent: i.id })).toMatchObject({ stage: "prototype", results: null, decided_by: null, work: { status: "archived", version: made.version } });
-    expect((await db.query<any>(`SELECT status FROM play.doc_branches WHERE id = $1`, [made.branch])).rows[0].status).toBe("archived");
+    expect((await db.query<any>(`SELECT status FROM play.doc_variants WHERE id = $1`, [made.variant])).rows[0].status).toBe("archived");
     expect((await tool("check_intent", { intent: i.id, results: all })).stage).toBe("proposal");
     expect((await call("ada", "POST", `/api/intents/${i.id}/reject`)).data).toMatchObject({ stage: "archived", decided_by: "ada" });
   });
@@ -409,7 +409,7 @@ suite("intents", () => {
     expect(own).toMatchObject({ stage: "proposal", kind: "idea", title: "Plain fern v1", note: "no intent named\nmore lines", spec: null, author: "ada", via: "mcp" });
     expect(own.work).toMatchObject({ kind: "asset_version", grp: "plants", status: "proposal", note: "no intent named\nmore lines", author: "ada", via: "mcp" });
     // another version of it, on the same (still empty) head: an intent of its own too, a new thing while nothing is accepted
-    const next = await tool("propose_version", { asset: plain.asset, source: SOURCE + "// v2\n", note: "darker" });
+    const next = await tool("propose_doc_version", { doc: plain.asset, extra: { source: SOURCE + "// v2\n" }, note: "darker" });
     const second = await tool("get_intent", { intent: next.intent });
     expect(second).toMatchObject({ stage: "proposal", kind: "idea", title: "Plain fern v1", note: "darker" });
     // accepted, it is; the other, made on the same base, is archived by itself
@@ -418,7 +418,7 @@ suite("intents", () => {
     expect((await tool("list_intents", { stage: "accepted" })).map((x: any) => x.id)).toContain(own.id);
     expect((await tool("list_intents", { stage: "all", work: "asset_version" })).map((x: any) => x.id)).toEqual(expect.arrayContaining([own.id, second.id]));
     // a version on the accepted head is an improvement
-    const v2 = await tool("propose_version", { asset: plain.asset, source: SOURCE + "// v2 again\n", note: "on v1" });
+    const v2 = await tool("propose_doc_version", { doc: plain.asset, extra: { source: SOURCE + "// v2 again\n" }, note: "on v1" });
     expect(await tool("get_intent", { intent: v2.intent })).toMatchObject({ kind: "improve", title: "Plain fern v2" });
     // an agent archives its own at Proposal, made over MCP; not one proposed on the page
     expect(await tool("archive_intent", { intent: v2.intent })).toMatchObject({ intent: v2.intent, stage: "archived" });

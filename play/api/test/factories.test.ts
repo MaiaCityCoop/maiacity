@@ -84,90 +84,90 @@ suite("the Factories on Loro", () => {
   });
 
   test("admins read it, at its newest version; nobody else", async () => {
-    expect((await call("cit", "GET", "/api/factories")).status).toBe(403);
-    expect((await call(null, "GET", `/api/factories/${LT}`)).status).toBe(401);
-    const list = await call("ada", "GET", "/api/factories");
+    expect((await call("cit", "GET", "/api/docs?kind=factory")).status).toBe(403);
+    expect((await call(null, "GET", `/api/docs/${LT}`)).status).toBe(401);
+    const list = await call("ada", "GET", "/api/docs?kind=factory");
     expect(list.data).toEqual([expect.objectContaining({ id: LT, label: "LifeTrac line", number: 1, versions: 1, stations: 42, parts: 135 })]);
-    const f = await call("ada", "GET", `/api/factories/${LT}`);
+    const f = await call("ada", "GET", `/api/docs/${LT}`);
     expect(f.data).toMatchObject({ id: LT, number: 1, version: 1 });
     expect(f.data.json).toEqual(lifetracLine());
-    expect((await call("ada", "GET", "/api/factories/nope")).status).toBe(404);
+    expect((await call("ada", "GET", "/api/docs/nope")).status).toBe(404);
   });
 
   test("an agent drafts a change step by step, each step checked whole, and proposes it", async () => {
-    const names = (await tool("list_factories", {}))[0];
+    const names = (await tool("list_docs", { kind: "factory" }))[0];
     expect(names.id).toBe(LT);
     // a second welding cell, by the station's id
-    const one = await tool("factory_edit", { factory: LT, message: "a second welding cell", edits: [{ op: "set", path: ["line", "stations", { id: "weld" }, "servers"], value: 2 }] });
-    // (bun's toMatchObject writes an asymmetric matcher's match over the field it matched: the branch checked apart)
-    expect(typeof one.branch).toBe("number");
-    expect(one).toMatchObject({ changed: true, steps: 1, changes: 1 });
+    const one = await tool("doc_edit", { doc: LT, message: "a second welding cell", edits: [{ op: "set", path: ["line", "stations", { id: "weld" }, "servers"], value: 2 }] });
+    // (bun's toMatchObject writes an asymmetric matcher's match over the field it matched: the variant checked apart)
+    expect(typeof one.variant).toBe("number");
+    expect(one).toMatchObject({ changed: true, edits: 1, changes: 1 });
     // a faster laser on one part
-    const two = await tool("factory_edit", { factory: LT, branch: one.branch, message: "the floor cut faster", edits: [{ op: "set", path: ["parts", { id: "floor" }, "ops", 0, "s"], value: 10 }] });
-    expect(two).toMatchObject({ branch: one.branch, steps: 2, changes: 2 });
+    const two = await tool("doc_edit", { doc: LT, variant: one.variant, message: "the floor cut faster", edits: [{ op: "set", path: ["parts", { id: "floor" }, "ops", 0, "s"], value: 10 }] });
+    expect(two).toMatchObject({ variant: one.variant, edits: 2, changes: 2 });
     // a step that breaks the line is refused, and kept nowhere
-    const bad = await tool("factory_edit", { factory: LT, branch: one.branch, message: "an op at no station", edits: [{ op: "set", path: ["parts", { id: "floor" }, "ops", 0, "at"], value: "nowhere" }] });
+    const bad = await tool("doc_edit", { doc: LT, variant: one.variant, message: "an op at no station", edits: [{ op: "set", path: ["parts", { id: "floor" }, "ops", 0, "at"], value: "nowhere" }] });
     expect(bad.error).toContain("no station of the line");
-    expect((await tool("factory_edit", { factory: LT, branch: one.branch, message: "x", edits: [{ op: "set", path: ["parts", { id: "nope" }, "qty"], value: 1 }] })).error).toContain("no item nope");
-    const proposed = await tool("propose_factory_version", { factory: LT, branch: one.branch, note: "a second weld cell and a faster floor cut: about 41 a day" });
-    expect(proposed).toMatchObject({ factory: LT, number: 2, branch: one.branch, steps: 2, changes: 2 });
+    expect((await tool("doc_edit", { doc: LT, variant: one.variant, message: "x", edits: [{ op: "set", path: ["parts", { id: "nope" }, "qty"], value: 1 }] })).error).toContain("no item nope");
+    const proposed = await tool("propose_doc_version", { doc: LT, variant: one.variant, note: "a second weld cell and a faster floor cut: about 41 a day" });
+    expect(proposed).toMatchObject({ doc: LT, number: 2, variant: one.variant, edits: 2, changes: 2 });
     // proposed, the draft takes no more steps
-    expect((await tool("factory_edit", { factory: LT, branch: one.branch, message: "late", edits: [{ op: "set", path: ["label"], value: "x" }] })).error).toContain("proposed already");
+    expect((await tool("doc_edit", { doc: LT, variant: one.variant, message: "late", edits: [{ op: "set", path: ["label"], value: "x" }] })).error).toContain("proposed already");
     // nothing changed is no proposal
-    expect((await tool("propose_factory_version", { factory: LT, note: "same", edits: [{ op: "set", path: ["label"], value: "LifeTrac line" }] })).error).toContain("nothing changed");
+    expect((await tool("propose_doc_version", { doc: LT, note: "same", edits: [{ op: "set", path: ["label"], value: "LifeTrac line" }] })).error).toContain("nothing changed");
 
     // the intents' board: an intent at Proposal holding the factory's work, reviewed field by field, opened as it would be
     const listed = (await call("ada", "GET", "/api/intents?stage=proposal")).data.find((i: any) => i.id === proposed.intent);
     expect(listed).toMatchObject({ stage: "proposal", title: "LifeTrac line", work: { kind: "factory_version", grp: "factories", label: "LifeTrac line", number: 2, via: "mcp", status: "proposal" } });
     const review = (await call("ada", "GET", `/api/intents/${proposed.intent}`)).data.review;
-    expect(review.baseNumber).toBe(1);
+    expect(review.seedNumber).toBe(1);
     expect(review.moved).toBe(false);
-    expect(review.steps.map((s: any) => s.message)).toEqual(["a second welding cell", "the floor cut faster"]);
+    expect(review.edits.map((s: any) => s.message)).toEqual(["a second welding cell", "the floor cut faster"]);
     const weld = lifetracLine().line.stations.findIndex((s: any) => s.id === "weld");
     expect(review.changes).toEqual([
       { path: "$.line.stations[id=weld].servers", kind: "added", to: 2 },
       { path: "$.parts[id=floor].ops[0].s", kind: "changed", from: 111.2, to: 10 },
     ]);
-    const asIf = (await call("ada", "GET", `/api/factories/${LT}?intent=${proposed.intent}`)).data;
+    const asIf = (await call("ada", "GET", `/api/docs/${LT}?intent=${proposed.intent}`)).data;
     expect(asIf.json.line.stations[weld].servers).toBe(2);
     expect(asIf.intent).toMatchObject({ id: proposed.intent, status: "proposal" });
     // the factory itself is as it was until it is accepted
-    expect((await call("ada", "GET", `/api/factories/${LT}`)).data.json.line.stations[weld].servers).toBeUndefined();
+    expect((await call("ada", "GET", `/api/docs/${LT}`)).data.json.line.stations[weld].servers).toBeUndefined();
 
     // accepted: v2, the merge a step of its history, v1 still readable
     const decided = await call("ada", "POST", `/api/intents/${proposed.intent}/accept`);
     expect(decided.data).toMatchObject({ id: proposed.intent, stage: "accepted", decision: { status: "accepted", number: 2 } });
-    const now = (await call("ada", "GET", `/api/factories/${LT}`)).data;
+    const now = (await call("ada", "GET", `/api/docs/${LT}`)).data;
     expect(now).toMatchObject({ number: 2, version: 2 });
     expect(now.json.line.stations[weld].servers).toBe(2);
     expect(now.versions.map((v: any) => v.number)).toEqual([1, 2]);
-    expect((await call("ada", "GET", `/api/factories/${LT}?v=1`)).data.json).toEqual(lifetracLine());
-    const history = (await call("ada", "GET", `/api/factories/${LT}/history`)).data;
-    expect(history.steps.map((s: any) => s.message)).toEqual(expect.arrayContaining(["a second welding cell", "the floor cut faster"]));
-    expect(history.steps.at(-1).version).toBe(2);
+    expect((await call("ada", "GET", `/api/docs/${LT}?v=1`)).data.json).toEqual(lifetracLine());
+    const history = (await call("ada", "GET", `/api/docs/${LT}/history`)).data;
+    expect(history.edits.map((s: any) => s.message)).toEqual(expect.arrayContaining(["a second welding cell", "the floor cut faster"]));
+    expect(history.edits.at(-1).version).toBe(2);
   });
 
   test("made on an older version: merged where it touches other fields, archived where the same", async () => {
-    const a = await tool("propose_factory_version", { factory: LT, note: "more demand", edits: [{ op: "set", path: ["line", "demand", "perDay"], value: 30 }] });
-    const b = await tool("propose_factory_version", { factory: LT, note: "a bigger weld buffer", edits: [{ op: "set", path: ["line", "stations", { id: "weld" }, "buffer"], value: 4 }] });
-    const c = await tool("propose_factory_version", { factory: LT, note: "even more demand", edits: [{ op: "set", path: ["line", "demand", "perDay"], value: 40 }] });
+    const a = await tool("propose_doc_version", { doc: LT, note: "more demand", edits: [{ op: "set", path: ["line", "demand", "perDay"], value: 30 }] });
+    const b = await tool("propose_doc_version", { doc: LT, note: "a bigger weld buffer", edits: [{ op: "set", path: ["line", "stations", { id: "weld" }, "buffer"], value: 4 }] });
+    const c = await tool("propose_doc_version", { doc: LT, note: "even more demand", edits: [{ op: "set", path: ["line", "demand", "perDay"], value: 40 }] });
     expect((await call("ada", "POST", `/api/intents/${a.intent}/accept`)).data.decision).toMatchObject({ status: "accepted", number: 3 });
     expect((await call("ada", "GET", `/api/intents/${b.intent}`)).data.review.moved).toBe(true);
     expect((await call("ada", "POST", `/api/intents/${b.intent}/accept`)).data.decision).toMatchObject({ status: "accepted", number: 4, merged: true });
     const clash = (await call("ada", "POST", `/api/intents/${c.intent}/accept`)).data;
     expect(clash.stage).toBe("archived");
     expect(clash.message).toContain("line.demand.perDay");
-    const now = (await call("ada", "GET", `/api/factories/${LT}`)).data.json;
+    const now = (await call("ada", "GET", `/api/docs/${LT}`)).data.json;
     expect(now.line.demand.perDay).toBe(30);
     expect(now.line.stations.find((s: any) => s.id === "weld").buffer).toBe(4);
   });
 
   test("an agent archives its own intent at Proposal; a citizen sees none of them", async () => {
-    const p = await tool("propose_factory_version", { factory: LT, note: "a new label", edits: [{ op: "set", path: ["label"], value: "The LifeTrac line" }] });
+    const p = await tool("propose_doc_version", { doc: LT, note: "a new label", edits: [{ op: "set", path: ["label"], value: "The LifeTrac line" }] });
     expect((await call("cit", "GET", `/api/intents/${p.intent}`)).status).toBe(403);
     expect((await call("cit", "GET", "/api/intents")).status).toBe(403);
     expect(await tool("archive_intent", { intent: p.intent })).toMatchObject({ intent: p.intent, stage: "archived" });
-    const branches = (await call("ada", "GET", `/api/factories/${LT}/history`)).data.drafts;
+    const branches = (await call("ada", "GET", `/api/docs/${LT}/history`)).data.variants;
     expect(branches.find((d: any) => d.intent === p.intent)).toMatchObject({ status: "archived", intent_stage: "archived" });
   });
 });

@@ -110,24 +110,24 @@ suite("skills: what play teaches its agents, kept once", () => {
     expect(await seedSkills(db)).toEqual({ seeded: [SKILL.avenmaia, SKILL.intents], present: [], errors: [] });
     expect(await seedSkills(db)).toEqual({ seeded: [], present: [SKILL.avenmaia, SKILL.intents], errors: [] });
 
-    const list = await tool("list_skills", {});
+    const list = await tool("list_docs", { kind: "skill" });
     expect(list).toEqual([
       expect.objectContaining({ id: SKILL.avenmaia, label: "avenMAIA", group: "agents", number: 1, versions: 1, stages: [] }),
       expect.objectContaining({ id: SKILL.intents, label: "Intents", group: "intents", number: 1, versions: 1, stages: ["idea", "specify", "prototype", "proposal", "ship"] }),
     ]);
-    const s = await tool("get_skill", { skill: SKILL.intents });
+    const s = await tool("doc_at", { doc: SKILL.intents });
     expect(s).toMatchObject({ id: SKILL.intents, number: 1, version: 1 });
     expect(s.json).toEqual(intents());
     expect(Object.keys(s.json.stages).sort()).toEqual([...INTENT_STAGES].sort());
     expect([...SKILL_STAGES]).toEqual([...INTENT_STAGES]);
-    expect((await tool("get_skill", { skill: SKILL.avenmaia })).json).toEqual(avenmaia());
+    expect((await tool("doc_at", { doc: SKILL.avenmaia })).json).toEqual(avenmaia());
 
     // named by its id, never by its label or group
-    for (const not of ["Intents", "intents", "skills/intents", "avenMAIA"]) expect((await tool("get_skill", { skill: not })).error).toContain("UUID");
-    expect((await call("ada", "GET", "/api/skills/intents")).status).toBe(404);
-    expect((await call("ada", "GET", `/api/skills/${SKILL.intents}`)).data.json.label).toBe("Intents");
-    expect((await call("cit", "GET", "/api/skills")).status).toBe(403);
-    expect((await call(null, "GET", `/api/skills/${SKILL.intents}`)).status).toBe(401);
+    for (const not of ["Intents", "intents", "skills/intents", "avenMAIA"]) expect((await tool("doc_at", { doc: not })).error).toContain("UUID");
+    expect((await call("ada", "GET", "/api/docs/intents")).status).toBe(404);
+    expect((await call("ada", "GET", `/api/docs/${SKILL.intents}`)).data.json.label).toBe("Intents");
+    expect((await call("cit", "GET", "/api/docs?kind=skill")).status).toBe(403);
+    expect((await call(null, "GET", `/api/docs/${SKILL.intents}`)).status).toBe(401);
   });
 
   // ---- c2: nothing lost in the move
@@ -156,52 +156,52 @@ suite("skills: what play teaches its agents, kept once", () => {
   // ---- c3: changed only by proposal
 
   test("c3: drafted step by step, refused before its intent's checks pass, proposed, reviewed field by field, accepted as v2", async () => {
-    const one = await tool("skill_edit", { skill: SKILL.intents, message: "the prototype part names the gate", edits: [{ op: "text", path: ["stages", "prototype"], index: 0, insert: "Run bash play/avenbox/gate.sh before you push. " }] });
-    expect(typeof one.branch).toBe("number");
-    expect(one).toMatchObject({ changed: true, steps: 1, changes: 1 });
-    const bad = await tool("skill_edit", { skill: SKILL.intents, branch: one.branch, message: "a stage that is none", edits: [{ op: "set", path: ["stages", "done"], value: "x" }] });
+    const one = await tool("doc_edit", { doc: SKILL.intents, message: "the prototype part names the gate", edits: [{ op: "text", path: ["stages", "prototype"], index: 0, insert: "Run bash play/avenbox/gate.sh before you push. " }] });
+    expect(typeof one.variant).toBe("number");
+    expect(one).toMatchObject({ changed: true, edits: 1, changes: 1 });
+    const bad = await tool("doc_edit", { doc: SKILL.intents, variant: one.variant, message: "a stage that is none", edits: [{ op: "set", path: ["stages", "done"], value: "x" }] });
     expect(bad.error).toBeTruthy();
-    const two = await tool("skill_edit", { skill: SKILL.intents, branch: one.branch, message: "the system part says skills", edits: [{ op: "text", path: ["system"], index: intents().system.length, insert: " Skills change by proposal too." }] });
-    expect(two).toMatchObject({ branch: one.branch, steps: 2, changes: 2 });
-    const history = await tool("skill_history", { skill: SKILL.intents, draft: one.branch });
-    expect(history.steps.map((s: any) => s.message)).toEqual(["the prototype part names the gate", "the system part says skills"]);
+    const two = await tool("doc_edit", { doc: SKILL.intents, variant: one.variant, message: "the system part says skills", edits: [{ op: "text", path: ["system"], index: intents().system.length, insert: " Skills change by proposal too." }] });
+    expect(two).toMatchObject({ variant: one.variant, edits: 2, changes: 2 });
+    const history = await tool("doc_history", { doc: SKILL.intents, variant: one.variant });
+    expect(history.edits.map((s: any) => s.message)).toEqual(["the prototype part names the gate", "the system part says skills"]);
 
     // for an intent, only once its must checks pass
     const i = await intentAt("The Intents skill names the gate", "prototype");
-    expect((await tool("propose_skill_version", { skill: SKILL.intents, branch: one.branch, note: "the gate", intent: i.id })).error).toBeTruthy();
+    expect((await tool("propose_doc_version", { doc: SKILL.intents, variant: one.variant, note: "the gate", intent: i.id })).error).toBeTruthy();
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] })).stage).toBe("proposal");
-    const proposed = await tool("propose_skill_version", { skill: SKILL.intents, branch: one.branch, note: "the gate, and skills by proposal", intent: i.id });
-    expect(proposed).toMatchObject({ intent: i.id, stage: "proposal", skill: SKILL.intents, number: 2, steps: 2, changes: 2 });
+    const proposed = await tool("propose_doc_version", { doc: SKILL.intents, variant: one.variant, note: "the gate, and skills by proposal", intent: i.id });
+    expect(proposed).toMatchObject({ intent: i.id, stage: "proposal", doc: SKILL.intents, kind: "skill", number: 2, edits: 2, changes: 2 });
 
     const listed = (await call("ada", "GET", "/api/intents?stage=proposal")).data.find((x: any) => x.id === i.id);
     expect(listed).toMatchObject({ stage: "proposal", work: { kind: "skill_version", grp: "skills", label: "Intents", number: 2, via: "mcp" } });
     const review = (await call("ada", "GET", `/api/intents/${i.id}`)).data.review;
-    expect(review).toMatchObject({ skill: { id: SKILL.intents, label: "Intents", group: "intents" }, baseNumber: 1, moved: false });
+    expect(review).toMatchObject({ doc: { id: SKILL.intents, kind: "skill", label: "Intents", group: "intents" }, seedNumber: 1, moved: false });
     expect(review.changes.map((c: any) => c.path).sort()).toEqual(["$.stages.prototype", "$.system"]);
     expect(review.changes.find((c: any) => c.path === "$.system")).toMatchObject({ kind: "changed", from: intents().system, to: intents().system + " Skills change by proposal too." });
-    expect(review.steps).toHaveLength(2);
+    expect(review.edits).toHaveLength(2);
     // still v1 until it is accepted
-    expect((await tool("get_skill", { skill: SKILL.intents })).json.stages.prototype).toBe(intents().stages.prototype);
-    expect((await tool("get_skill", { skill: SKILL.intents, intent: i.id })).json.stages.prototype).toStartWith("Run bash play/avenbox/gate.sh");
+    expect((await tool("doc_at", { doc: SKILL.intents })).json.stages.prototype).toBe(intents().stages.prototype);
+    expect((await tool("doc_at", { doc: SKILL.intents, intent: i.id })).json.stages.prototype).toStartWith("Run bash play/avenbox/gate.sh");
 
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data).toMatchObject({ stage: "accepted", decision: { status: "accepted", number: 2 } });
-    const now = await tool("get_skill", { skill: SKILL.intents });
+    const now = await tool("doc_at", { doc: SKILL.intents });
     expect(now).toMatchObject({ number: 2, version: 2 });
     expect(now.json.stages.prototype).toStartWith("Run bash play/avenbox/gate.sh before you push. Build Maia City's intent {intent}");
-    expect((await tool("get_skill", { skill: SKILL.intents, version: 1 })).json).toEqual(intents());
+    expect((await tool("doc_at", { doc: SKILL.intents, version: 1 })).json).toEqual(intents());
 
     // archived, the skill stays as it was
-    const p = await tool("propose_skill_version", { skill: SKILL.avenmaia, note: "a new label", edits: [{ op: "set", path: ["label"], value: "Maia" }] });
+    const p = await tool("propose_doc_version", { doc: SKILL.avenmaia, note: "a new label", edits: [{ op: "set", path: ["label"], value: "Maia" }] });
     expect((await call("ada", "POST", `/api/intents/${p.intent}/reject`)).data.stage).toBe("archived");
-    expect((await tool("get_skill", { skill: SKILL.avenmaia })).json).toEqual(avenmaia());
-    expect((await tool("skill_history", { skill: SKILL.avenmaia })).drafts.find((d: any) => d.intent === p.intent).status).toBe("archived");
+    expect((await tool("doc_at", { doc: SKILL.avenmaia })).json).toEqual(avenmaia());
+    expect((await tool("doc_history", { doc: SKILL.avenmaia })).variants.find((d: any) => d.intent === p.intent).status).toBe("archived");
   });
 
   // ---- c4: the system prompt, from Postgres on each request
 
   test("c4: initialize's instructions are avenMAIA's system part, then the Intents skill's, as accepted, on each request", async () => {
     const init = await initialize();
-    const skillNow = (await tool("get_skill", { skill: SKILL.intents })).json;
+    const skillNow = (await tool("doc_at", { doc: SKILL.intents })).json;
     expect(init.instructions).toBe(`${avenmaia().system}\n\n${skillNow.system}`);
     expect(init.instructions).toStartWith("You are avenMAIA, Maia City's agent");
     // accepted in c3 a moment ago, no restart between
@@ -209,7 +209,7 @@ suite("skills: what play teaches its agents, kept once", () => {
 
     const i = await intentAt("avenMAIA says hello", "prototype");
     await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] });
-    await tool("propose_skill_version", { skill: SKILL.avenmaia, note: "a greeting", intent: i.id, edits: [{ op: "text", path: ["system"], index: 0, insert: "Hello. " }] });
+    await tool("propose_doc_version", { doc: SKILL.avenmaia, note: "a greeting", intent: i.id, edits: [{ op: "text", path: ["system"], index: 0, insert: "Hello. " }] });
     expect((await initialize()).instructions).toStartWith("You are avenMAIA");
     await call("ada", "POST", `/api/intents/${i.id}/accept`);
     expect((await initialize()).instructions).toStartWith("Hello. You are avenMAIA");
@@ -218,7 +218,7 @@ suite("skills: what play teaches its agents, kept once", () => {
   // ---- c5: an intent's brief
 
   test("c5: get_intent and GET /api/intents/<id> carry its brief: the Intents skill's text for its stage, filled; none once it is done", async () => {
-    const skillNow = (await tool("get_skill", { skill: SKILL.intents })).json;
+    const skillNow = (await tool("doc_at", { doc: SKILL.intents })).json;
     const at: Record<string, any> = {};
     for (const s of ["idea", "specify", "prototype", "proposal"] as const) at[s] = await intentAt(`A brief at ${s}`, s);
     // Ship and after, as an Accept would leave them (./ship.test.ts takes one there for real)

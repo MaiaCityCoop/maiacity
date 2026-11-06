@@ -15,10 +15,16 @@
 	then it moves to Proposal by itself (Samuel 2026-11-06), the one gate after the spec, where an admin decides it.
 
 	ONE RECORD (Samuel 2026-11-06: "not a proposal belongs to an intent: the intent has a state, proposal"): an intent's
-	work (an asset's or story's version, a sandbox's change, a factory's or config's version) is on the intent itself, and
-	Proposal is only its stage. Its work is reviewed from the intent and decided there: accepting applies it, archiving
-	archives the intent. Work proposed without an intent is an intent of its own, with no spec, opened straight into its
-	review. Nothing is accepted from Prototype.
+	work (an asset's or story's version, a sandbox's change, a factory's, game config's or skill's version) is on the
+	intent itself, and Proposal is only its stage. Its work is reviewed from the intent and decided there: accepting
+	applies it, archiving archives the intent. Work proposed without an intent is an intent of its own, with no spec,
+	opened straight into its review. Nothing is accepted from Prototype.
+
+	ONE VERSION CONTROL (play/SPEC.md §4.4): a document's work (a factory's, game config's or skill's) is reviewed in one
+	block, what its intent variant changes against its seed field by field and the edits it was made in
+	($lib/app/Changes.svelte), with a link opening the document as it would be; a story's and an asset's keep their own
+	preview (the Stories player and what changed in the story; the build and its source beside its seed's), their edits
+	shown the same way.
 
 	ACCEPT SHIPS IT (Samuel 2026-11-06, play/api/src/ship.ts): an intent whose work is code names its pull request, and
 	its Accept ("Accept and ship") merges it into main at once: the intent is in Ship, its way to production shown live
@@ -28,7 +34,7 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, may } from '$lib/api';
+	import { api } from '$lib/api';
 	import { session } from '$lib/session.svelte';
 	import { wayBack } from '$lib/site/app/back.svelte.js';
 	import { intentsModal } from './intents.svelte';
@@ -37,6 +43,7 @@
 	import { changesOnly, lineDiff } from '$lib/diff';
 	import StoryPlayer from '$lib/stories/StoryPlayer.svelte';
 	import StoryChanges, { type StoryDiff } from '$lib/stories/StoryChanges.svelte';
+	import Changes, { type Change, type EditRow } from '$lib/app/Changes.svelte';
 	import type { Story } from '$lib/stories/timeline';
 
 	const viewer = import('$lib/content/assets/VaultAsset.svelte');
@@ -117,7 +124,7 @@
 	onMount(async () => {
 		if (!admin) return;
 		await load();
-		// opened on an intent (/intents/#<id>, or /proposals/#<an old proposal's id>): play finds it, and it opens
+		// opened on an intent (/intents/#<id>; an old proposal's id finds its intent too): play finds it, and it opens
 		const focus = intentsModal.focus;
 		intentsModal.focus = null;
 		if (!focus) return;
@@ -200,7 +207,6 @@
 			error = (e as Error).message;
 		}
 	}
-	const deciding = $derived(may(session.me, 'decide', 'asset_version'));
 	const when = (s: string) => new Date(s).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 	/** a card's date, short: "4 Nov, 16:27" */
 	const shortWhen = (s: string) => new Date(s).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -212,7 +218,10 @@
 	// reviewing one: the version built in the asset box (the sandboxed frame every recipe runs in), large; its note
 	// folded; its readable source beside its base's, as the lines that changed, a button away. Code is only text here.
 	type Build = { hash: string; variant: string | null; label: string; first: boolean };
-	type Review = { id: string; source: string | null; recipe: string | null; baseVersion: { number: number; source: string | null } | null; builds: Build[]; steps?: Step[] };
+	/** what every document's work brings to its review (play/api's review): the document, the version its variant grew
+	 *  from (its seed), whether Main moved on since, what it changes field by field and the edits it was made in */
+	type DocWork = { doc: { id: string; kind: string; label: string; group: string }; seedNumber: number | null; moved: boolean; changes: Change[]; edits: EditRow[] };
+	type Review = Partial<DocWork> & { id: string; source: string | null; recipe: string | null; baseVersion: { number: number; source: string | null } | null; builds: Build[] };
 	let open = $state<P | null>(null);
 	let review = $state<Review | null>(null);
 	let code = $state('');
@@ -227,10 +236,9 @@
 		if (!r.ok) throw new Error(`The file could not be read (HTTP ${r.status}).`);
 		return r.text();
 	};
-	// a story's proposal (play/api/src/stories.ts): its timeline played in the Stories player, beside what changed
-	/** each step the proposal was made in (its branch of the story's Loro document, play/SPEC.md §4.4) */
-	type Step = { seq: number; message: string; author: string | null; via: string; at: string };
-	type StoryReview = { story: Story; baseStory: (Story & { number: number }) | null; diff: StoryDiff; steps?: Step[] };
+	// a story's work (play/api/src/stories.ts): its timeline played in the Stories player, beside what changed and the
+	// edits it was made in (its intent variant of the story's Loro document, play/SPEC.md §4.4)
+	type StoryReview = Partial<DocWork> & { story: Story; baseStory: (Story & { number: number }) | null; diff: StoryDiff };
 	let storyReview = $state<StoryReview | null>(null);
 	// a sandbox's change (play/api/src/sandboxes.ts): what each edit changes, before and after, and the sandbox as it would be
 	type PinShown = { label: string; group: string; slug: string; number: number; variant: string | null; usedVariant: string | null; params: Record<string, string> | null } | null;
@@ -239,20 +247,18 @@
 		| { kind: 'config'; config: string; path: (string | number)[]; before: unknown; after: unknown };
 	type SandboxReview = { sandbox: { id: string; title: string; route: string }; changes: SandboxChange[]; holds: boolean; why: string | null; moved: boolean };
 	let sandboxReview = $state<SandboxReview | null>(null);
-	// a factory's: what changed, field by field (its document's paths, list items named by their ids), and its steps
-	type FactoryReview = { factory: { id: string; label: string }; baseNumber: number | null; moved: boolean; changes: { path: string; kind: 'added' | 'removed' | 'changed'; from?: unknown; to?: unknown }[]; steps: { seq: number; message: string; author: string | null; via: string; at: string }[] };
-	let factoryReview = $state<FactoryReview | null>(null);
-	// a game config's: the same, field by field (the Game editor, routes/game-editor)
-	type ConfigReview = Omit<FactoryReview, 'factory'> & { config: { id: string; label: string } };
-	let configReview = $state<ConfigReview | null>(null);
-	// a skill's (play/api/src/skills.ts): the same, field by field, its texts shown sentence by sentence, before and after
-	type SkillReview = Omit<FactoryReview, 'factory'> & { skill: { id: string; label: string; group: string } };
-	let skillReview = $state<SkillReview | null>(null);
-	/** a skill's text as the diff reads it: one sentence a line */
-	const sentenced = (v: unknown) => (typeof v === 'string' ? v.replace(/([.!?]) (?=[A-Z`"(])/g, '$1\n') : '');
-	const textDiff = (c: { kind: string; from?: unknown; to?: unknown }) => changesOnly(lineDiff(c.kind === 'added' ? '' : sentenced(c.from), c.kind === 'removed' ? '' : sentenced(c.to)), 1);
-	/** a document path as people read it: $.line.stations[id=weld].servers → line › stations › weld › servers */
-	const pathText = (path: string) => path.replace(/^\$\.?/, '').replace(/\[id=([^\]]+)\]/g, '.$1').replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
+	// a factory's, a game config's or a skill's: one review, what it changes field by field and the edits it was made in
+	let docReview = $state<DocWork | null>(null);
+	/** the kinds of work that are a document's version, reviewed in that one block */
+	const DOC_WORK = new Set<Work['kind']>(['factory_version', 'game_config_version', 'skill_version']);
+	/** where a document is opened as an intent's work would make it, by its kind */
+	const asItWouldBe = (d: DocWork['doc'], intent: string) => {
+		const at = encodeURIComponent(d.id);
+		const of = encodeURIComponent(intent);
+		return d.kind === 'factory' ? `/factories/?factory=${at}&intent=${of}` : d.kind === 'game' ? `/game-editor/?config=${at}&intent=${of}` : d.kind === 'skill' ? `/skills/?skill=${at}&intent=${of}` : null;
+	};
+	/** what a document is called in a sentence, by its kind */
+	const DOC_NAME: Record<string, string> = { factory: 'the factory', game: 'the config', skill: 'the skill', story: 'the story', asset: 'the asset' };
 	const pinText = (x: PinShown) =>
 		x ? `${x.label} v${x.number}${x.usedVariant ? ` · ${x.usedVariant}${x.variant ? '' : ' (default)'}` : ''}${x.params ? ` · ${Object.entries(x.params).map(([k, v]) => `${k} ${v}`).join(', ')}` : ''}` : 'none';
 	const valueText = (v: unknown) => (v === undefined ? '(none)' : JSON.stringify(v, null, 1));
@@ -270,9 +276,7 @@
 		review = null;
 		storyReview = null;
 		sandboxReview = null;
-		factoryReview = null;
-		configReview = null;
-		skillReview = null;
+		docReview = null;
 		code = '';
 		baseCode = null;
 		shown = '';
@@ -297,28 +301,10 @@
 			}
 			return;
 		}
-		if (p.kind === 'factory_version') {
+		if (DOC_WORK.has(p.kind)) {
 			try {
-				const r = (await api<{ review: FactoryReview }>(`/intents/${p.id}`)).review;
-				if (open?.id === p.id) factoryReview = r;
-			} catch (e) {
-				reviewError = (e as Error).message;
-			}
-			return;
-		}
-		if (p.kind === 'game_config_version') {
-			try {
-				const r = (await api<{ review: ConfigReview }>(`/intents/${p.id}`)).review;
-				if (open?.id === p.id) configReview = r;
-			} catch (e) {
-				reviewError = (e as Error).message;
-			}
-			return;
-		}
-		if (p.kind === 'skill_version') {
-			try {
-				const r = (await api<{ review: SkillReview }>(`/intents/${p.id}`)).review;
-				if (open?.id === p.id) skillReview = r;
+				const r = (await api<{ review: DocWork }>(`/intents/${p.id}`)).review;
+				if (open?.id === p.id) docReview = r;
 			} catch (e) {
 				reviewError = (e as Error).message;
 			}
@@ -670,105 +656,22 @@
 						</ol>
 					{/if}
 				</div>
-			{:else if p.kind === 'factory_version'}
+			{:else if DOC_WORK.has(p.kind)}
 				<div class="sandbox-review">
 					{#if reviewError}<p class="error">{reviewError}</p>
-					{:else if !factoryReview}<p class="muted">Reading it…</p>
+					{:else if !docReview}<p class="muted">Reading it…</p>
 					{:else}
-						{@const r = factoryReview}
+						{@const r = docReview}
+						{@const href = asItWouldBe(r.doc, p.id)}
+						{#if r.doc.kind === 'skill'}
+							<p class="muted small">What every agent is taught (skills / {r.doc.group}): accepted, it is the skill's next version, taught from the next request on.</p>
+						{/if}
 						<p>
-							<a class="btn small" href="/factories/?factory={encodeURIComponent(r.factory.id)}&intent={encodeURIComponent(p.id)}" target="_blank" rel="noopener">Open {r.factory.label} as it would be</a>
-							{#if r.moved}<span class="muted small"> It was made on v{r.baseNumber}; the factory has a newer version since. Accepting merges it where the two touch different fields, and archives it where they touch the same.</span>{/if}
+							{#if href}<a class="btn small" {href} target="_blank" rel="noopener">Open {r.doc.label} as it would be</a>{/if}
+							{#if r.moved}<span class="muted small"> It was made on v{r.seedNumber}; {DOC_NAME[r.doc.kind] ?? 'it'} has a newer version since. Accepting merges it where the two touch different fields, and archives it where they touch the same.</span>{/if}
 						</p>
-						<h3>{p.status === 'accepted' ? 'What it changed' : 'What it changes'}{r.baseNumber ? ` from v${r.baseNumber}` : ''}</h3>
-						<ol class="changes">
-							{#each r.changes as c, i (i)}
-								<li>
-									<span class="where">{#each pathText(c.path) as k, j}{#if j}<span class="muted"> › </span>{/if}{k}{/each}</span>
-									<div class="vals"><pre class="was">{c.kind === 'added' ? '(none)' : valueText(c.from)}</pre><pre class="now">{c.kind === 'removed' ? '(none)' : valueText(c.to)}</pre></div>
-								</li>
-							{/each}
-						</ol>
-						{#if r.steps.length > 1}
-							<h3 class="steps-head">Made in {r.steps.length} steps</h3>
-							<ol class="steps">
-								{#each r.steps as s (s.seq)}
-									<li>
-										<span class="msg">{s.message}</span>
-										<span class="muted small">{s.author ?? 'play'}{s.via === 'mcp' ? ' · MCP' : ''} · {new Date(s.at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-									</li>
-								{/each}
-							</ol>
-						{/if}
-					{/if}
-				</div>
-			{:else if p.kind === 'game_config_version'}
-				<div class="sandbox-review">
-					{#if reviewError}<p class="error">{reviewError}</p>
-					{:else if !configReview}<p class="muted">Reading it…</p>
-					{:else}
-						{@const r = configReview}
-						<p>
-							<a class="btn small" href="/game-editor/?config={encodeURIComponent(r.config.id)}&intent={encodeURIComponent(p.id)}" target="_blank" rel="noopener">Open {r.config.label} as it would be</a>
-							{#if r.moved}<span class="muted small"> It was made on v{r.baseNumber}; the config has a newer version since. Accepting merges it where the two touch different fields, and archives it where they touch the same.</span>{/if}
-						</p>
-						<h3>{p.status === 'accepted' ? 'What it changed' : 'What it changes'}{r.baseNumber ? ` from v${r.baseNumber}` : ''}</h3>
-						<ol class="changes">
-							{#each r.changes as c, i (i)}
-								<li>
-									<span class="where">{#each pathText(c.path) as k, j}{#if j}<span class="muted"> › </span>{/if}{k}{/each}</span>
-									<div class="vals"><pre class="was">{c.kind === 'added' ? '(none)' : valueText(c.from)}</pre><pre class="now">{c.kind === 'removed' ? '(none)' : valueText(c.to)}</pre></div>
-								</li>
-							{/each}
-						</ol>
-						{#if r.steps.length > 1}
-							<h3 class="steps-head">Made in {r.steps.length} steps</h3>
-							<ol class="steps">
-								{#each r.steps as s (s.seq)}
-									<li>
-										<span class="msg">{s.message}</span>
-										<span class="muted small">{s.author ?? 'play'}{s.via === 'mcp' ? ' · MCP' : ''} · {new Date(s.at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-									</li>
-								{/each}
-							</ol>
-						{/if}
-					{/if}
-				</div>
-			{:else if p.kind === 'skill_version'}
-				<div class="sandbox-review">
-					{#if reviewError}<p class="error">{reviewError}</p>
-					{:else if !skillReview}<p class="muted">Reading it…</p>
-					{:else}
-						{@const r = skillReview}
-						<p class="muted small">
-							What every agent is taught (skills / {r.skill.group}): accepted, it is the skill's next version, taught from the next request on.
-							{#if r.moved}It was made on v{r.baseNumber}; the skill has a newer version since. Accepting merges it where the two touch different fields, and archives it where they touch the same.{/if}
-						</p>
-						<h3>{p.status === 'accepted' ? 'What it changed' : 'What it changes'}{r.baseNumber ? ` from v${r.baseNumber}` : ''}</h3>
-						<ol class="changes">
-							{#each r.changes as c, i (i)}
-								<li>
-									<span class="where">{#each pathText(c.path) as k, j}{#if j}<span class="muted"> › </span>{/if}{k}{/each}</span>
-									{#if typeof c.from === 'string' || typeof c.to === 'string'}
-										<pre class="src">{#each textDiff(c) as l, k (k)}<span class={l.op}>{l.op === 'add' ? '+ ' : l.op === 'del' ? '- ' : l.op === 'skip' ? '' : '  '}{l.text}
-</span>{/each}</pre>
-									{:else}
-										<div class="vals"><pre class="was">{c.kind === 'added' ? '(none)' : valueText(c.from)}</pre><pre class="now">{c.kind === 'removed' ? '(none)' : valueText(c.to)}</pre></div>
-									{/if}
-								</li>
-							{/each}
-						</ol>
-						{#if r.steps.length > 1}
-							<h3 class="steps-head">Made in {r.steps.length} steps</h3>
-							<ol class="steps">
-								{#each r.steps as s (s.seq)}
-									<li>
-										<span class="msg">{s.message}</span>
-										<span class="muted small">{s.author ?? 'play'}{s.via === 'mcp' ? ' · MCP' : ''} · {new Date(s.at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-									</li>
-								{/each}
-							</ol>
-						{/if}
+						<h3>{p.status === 'accepted' ? 'What it changed' : 'What it changes'}{r.seedNumber ? ` from v${r.seedNumber}` : ''}</h3>
+						<Changes changes={r.changes} edits={r.edits} fresh={r.seedNumber == null} />
 					{/if}
 				</div>
 			{:else if p.kind === 'story_version'}
@@ -780,17 +683,7 @@
 						<div class="story-diff">
 							<h3>{storyReview.baseStory ? `Changes from v${storyReview.baseStory.number}` : 'A new story'}</h3>
 							<StoryChanges diff={storyReview.diff} fresh={!storyReview.baseStory} links={{ ...storyReview.baseStory?.links, ...storyReview.story.links }} />
-							{#if (storyReview.steps?.length ?? 0) > 1}
-								<h3 class="steps-head">Made in {storyReview.steps!.length} steps</h3>
-								<ol class="steps">
-									{#each storyReview.steps! as s (s.seq)}
-										<li>
-											<span class="msg">{s.message}</span>
-											<span class="muted small">{s.author ?? 'play'}{s.via === 'mcp' ? ' · MCP' : ''} · {new Date(s.at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-										</li>
-									{/each}
-								</ol>
-							{/if}
+							{#if (storyReview.edits?.length ?? 0) > 1}<div class="made"><Changes edits={storyReview.edits} /></div>{/if}
 						</div>
 					{/if}
 				</div>
@@ -819,18 +712,11 @@
 							</div>
 						{/if}
 						<p class="muted small">Built in the asset box: a sandboxed frame with no origin, running the frozen engine in a worker, with no network, no storage and no access to this page.</p>
-						{#if (review.steps?.length ?? 0) > 1}
-							<!-- the steps it was made in: its branch of the asset's Loro document (play/SPEC.md §4.4) -->
-							<h3 class="steps-head">Made in {review.steps!.length} steps</h3>
-							<ol class="steps">
-								{#each review.steps! as s (s.seq)}
-									<li>
-										<span class="msg">{s.message}</span>
-										<span class="muted small">{s.author ?? 'play'}{s.via === 'mcp' ? ' · MCP' : ''} · {new Date(s.at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-									</li>
-								{/each}
-							</ol>
-						{/if}
+						{@const besides = (review.changes ?? []).filter((c) => c.path !== '$.source')}
+						<!-- what else it changes (its card, its variants: its source is a button away) and the edits it was
+						     made in: its intent variant of the asset's Loro document (play/SPEC.md §4.4) -->
+						{#if besides.length}<h3 class="besides">What it changes besides its source</h3>{/if}
+						{#if besides.length || (review.edits?.length ?? 0) > 1}<div class="made"><Changes changes={besides.length ? besides : null} edits={review.edits} /></div>{/if}
 					{/if}
 				</div>
 				{#if showSource && review}
@@ -851,11 +737,12 @@
 			{/if}
 			<!-- the decision at its foot, in the middle, where a thumb reaches it on a pad (Samuel 2026-11-05): Reject on the
 			     left (it ends archived: a proposal ends accepted or archived), Accept on the right, the rest between -->
-			{#if (p.status === 'proposal' && (deciding || p.author === session.me?.name)) || review}
+			<!-- deciding is the admins' (the board is theirs; play decides who may) -->
+			{#if p.status === 'proposal' || review}
 			<footer class="decide">
-				{#if p.status === 'proposal' && (deciding || p.author === session.me?.name)}<button class="btn small reject" onclick={() => (act(p.id, 'archive'), close())} title="Not taken: it ends archived">Reject</button>{/if}
+				{#if p.status === 'proposal'}<button class="btn small reject" onclick={() => (act(p.id, 'archive'), close())} title="Not taken: it ends archived">Reject</button>{/if}
 				{#if review}<button class="btn small ghost" class:on={showSource} onclick={() => (showSource = !showSource)}>{showSource ? 'Hide source' : review.source ? 'Source' : 'Recipe file'}</button>{/if}
-				{#if p.status === 'proposal' && deciding}<button class="btn small" onclick={() => (act(p.id, 'accept'), close())}>Accept</button>{/if}
+				{#if p.status === 'proposal'}<button class="btn small" onclick={() => (act(p.id, 'accept'), close())}>Accept</button>{/if}
 			</footer>
 			{/if}
 		</div>
@@ -1012,7 +899,7 @@
 	.review-body.split { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
 	@media (max-width: 900px) { .review-body.split { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 3fr) minmax(0, 2fr); } }
 	/* the build as large as there is room for, and never squeezed by what follows it (Samuel 2026-11-05: on a pad seven
-	   steps squeezed it to a strip): the steps scroll below it */
+	   steps squeezed it to a strip): what follows scrolls below it */
 	.built { min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 0.3rem; }
 	.stage { flex: 1 0 auto; min-height: clamp(16rem, 58dvh, 42rem); display: flex; flex-direction: column; }
 	.stage > :global(*) { flex: 1 1 auto; min-height: 0; }
@@ -1029,10 +916,10 @@
 	.story-review { flex: 1 1 auto; min-height: 0; overflow: auto; display: grid; grid-template-columns: minmax(0, 3fr) minmax(16rem, 2fr); gap: 1rem; align-items: start; }
 	.story-diff { min-width: 0; }
 	.story-diff h3 { margin: 0 0 0.5rem; font-size: 1rem; }
-	.story-diff .steps-head { margin-top: 1rem; }
-	.steps { margin: 0; padding-left: 1.3rem; display: grid; gap: 0.35rem; font-size: 0.85rem; }
-	.steps li { display: grid; gap: 0.05rem; }
-	.steps .small { font-size: 0.74rem; }
+	/* the edits a story's or an asset's work was made in, and what else an asset's changes */
+	.made { margin-top: 1rem; }
+	.built .made { margin-top: 0.4rem; }
+	.besides { margin: 0.6rem 0 0; font-size: 1rem; }
 	@media (max-width: 1000px) { .story-review { grid-template-columns: minmax(0, 1fr); } }
 	/* a sandbox's change: each edit, before and after */
 	.sandbox-review { flex: 1 1 auto; min-height: 0; overflow: auto; }

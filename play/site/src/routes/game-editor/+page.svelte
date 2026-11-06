@@ -3,24 +3,28 @@
 	the configs to pick from (first the levelling: how a village grows, level by level); in the middle the one picked,
 	worked out (./levels.ts): every level with the villagers that reach it, what it unlocks and costs, what a mind costs,
 	the minds each new villager gets for their euros and hearts, the investor's ticket with its minds and share, the minds
-	minted, and the treasury after it in euros, hearts and minds. On the right its versions.
+	minted, and the treasury after it in euros, hearts and minds. On the right its History ($lib/app/History.svelte: its
+	versions, every edit it was made in, its open intent variants, any of them worked out as the config stood there).
 
-	A config is a Loro document in play's Postgres (play/api/src/gameconfigs.ts), read from the API; it changes only by
-	proposal (over MCP: game_config_edit, propose_game_config_version), decided on the intents' board. `?config=<id>`
-	picks one, `&v=<n>` one of its versions, `&intent=<id>` the config as an intent's work at Proposal would make it. Admins only.
+	A config is a Loro document in play's Postgres (play/api/src/gameconfigs.ts), read as every document is (GET
+	/api/docs?kind=game, /api/docs/<uuid>); it changes only by proposal (over MCP: doc_edit,
+	propose_doc_version), decided on the intents' board. `?config=<id>` picks one, `&v=<n>` one of its versions,
+	`&intent=<id>` the config as an intent's work at Proposal would make it. Admins only.
 -->
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { session } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
+	import History, { type Pick } from '$lib/app/History.svelte';
 	import { euros, ledger, pct, short, whole, type Levelling, type Row } from './levels';
 
-	type Item = { id: string; label: string; schema: string; note: string; number: number; versions: number };
-	type Version = { number: number; note: string; at: string; acceptedBy: string | null };
-	type Config = { id: string; json: any; number: number; version?: number; versions: Version[]; intent?: { id: string; status: string; note: string } };
+	type Item = { id: string; kind: string; label: string; group: string; schema: string; note: string; number: number; versions: number; updated: string };
+	type Version = { number: number; note: string; at: string; acceptedBy: string | null; contentHash?: string };
+	type Config = { id: string; kind: string; json: any; number: number; version?: number; edit?: number; variant?: string; versions: Version[]; intent?: { id: string; status: string; note: string } };
 
 	const admin = $derived(session.me?.level === 'admin');
 	let list = $state<Item[]>([]);
@@ -29,23 +33,44 @@
 	const params = $derived(page.url.searchParams);
 	const id = $derived(params.get('config') ?? list[0]?.id ?? '');
 	const wantV = $derived(params.get('v'));
-	// `proposal`: its name before an intent and its proposal were one record (play finds the intent by the old id)
-	const wantIntent = $derived(params.get('intent') ?? params.get('proposal'));
+	const wantIntent = $derived(params.get('intent'));
 	$effect(() => {
 		if (!admin) return;
-		api<Item[]>('/game/configs').then((l) => (list = l), (e) => (error = e.message));
+		api<Item[]>('/docs?kind=game').then((l) => (list = l), (e) => (error = e.message));
 	});
+	/** the config read as the address names it, or as its History picks it (an edit, an intent variant) */
+	let asked = 0;
+	async function load(c: string, q: string, picked = false) {
+		const mine = ++asked;
+		try {
+			const got = await api<Config>(`/docs/${c}${q}`);
+			if (mine === asked) ((config = got), (error = ''));
+		} catch (e) {
+			// a pick that fails is said in the History, under its bar; the config shown stays
+			if (picked) throw e;
+			if (mine === asked) error = (e as Error).message;
+		}
+	}
+	const addressed = $derived(wantIntent ? `?intent=${encodeURIComponent(wantIntent)}` : wantV ? `?v=${encodeURIComponent(wantV)}` : '');
 	$effect(() => {
 		if (!admin || !id) return;
-		const q = wantIntent ? `?intent=${encodeURIComponent(wantIntent)}` : wantV ? `?v=${encodeURIComponent(wantV)}` : '';
-		let gone = false;
-		api<Config>(`/game/configs/${id}${q}`).then(
-			(c) => !gone && ((config = c), (error = '')),
-			(e) => !gone && (error = e.message)
-		);
-		return () => (gone = true);
+		const c = id, q = addressed;
+		untrack(() => load(c, q));
 	});
 	const at = (c: string, v?: number) => goto(`?config=${c}${v ? `&v=${v}` : ''}`, { keepFocus: true, noScroll: true });
+	/** what its History picks: an edit or a variant read as it stood there, a version (or Main's newest) by the address */
+	async function onPick(p: Pick) {
+		if (!config) return;
+		const c = config.id;
+		if (p.kind === 'edit') return load(c, `?edit=${p.seq}`, true);
+		if (p.kind === 'variant') return load(c, `?variant=${encodeURIComponent(p.id)}`, true);
+		const v = p.kind === 'version' && p.number !== config.number ? p.number : undefined;
+		// the address names it already: read it again, else go there and it is read
+		if (!wantIntent && (wantV ?? '') === (v ? String(v) : '')) return load(c, addressed, true);
+		await at(c, v);
+	}
+	/** the version of Main shown (none while an intent's work is) */
+	const shownV = $derived(wantIntent ? null : wantV ? Number(wantV) : (config?.number ?? null));
 
 	const levelling = $derived(config?.json.schema === 'levels/1' ? (config.json as Levelling) : null);
 	const rows = $derived(levelling ? ledger(levelling) : []);
@@ -71,33 +96,35 @@
 		>
 	{/each}
 	<p class="soon">More configs come here as the game grows: the buildings, the resources, the coops.</p>
+{/snippet}
+
+<!-- on the right: the config picked, and its History -->
+{#snippet about()}
 	{#if config}
 		<header class="about-head">
-			<small>Owned by Maia City</small>
+			<small>Game config · owned by Maia City</small>
 			<h3>{config.json.label}</h3>
-			{#if config.intent}
-				<p class="asif">As its intent's work would make it{config.intent.status === 'proposal' ? '' : ` (${config.intent.status})`}: “{config.intent.note}” <a href="/intents/">Back to the intents</a> · <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>its newest version</a></p>
-			{:else if config.version !== config.number}
+			{#if config.edit != null}
+				<p class="asif">As it stood at an edit of its history, worked out as it was then.</p>
+			{:else if config.variant}
+				<p class="asif">As an intent variant would make it, worked out.</p>
+			{:else if config.intent}
+				<p class="asif">As its intent's work would make it{config.intent.status === 'proposal' ? '' : ` (${config.intent.status})`}: “{config.intent.note}” <a href="/intents/#{config.intent.id}">Its intent</a> · <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>its newest version</a></p>
+			{:else if (config.version ?? config.number) !== config.number}
 				<p class="asif">Version {config.version}, not its newest: <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>v{config.number}</a></p>
 			{/if}
 		</header>
-		<h4 class="side-head">Versions</h4>
-		<ol class="chain">
-			{#each [...config.versions].reverse() as v (v.number)}
-				<li class:on={!config.intent && v.number === config.version}>
-					<a href="?config={config.id}&v={v.number}" onclick={(e) => (e.preventDefault(), at(config!.id, v.number === config!.number ? undefined : v.number))}><b>v{v.number}</b></a>
-					<span class="from">{new Date(v.at).toLocaleDateString('en-GB')}{v.acceptedBy ? ` · accepted by ${v.acceptedBy}` : ''}</span>
-					<p class="note">{v.note}</p>
-				</li>
-			{/each}
-		</ol>
-		<p class="soft propose">Every change is a step of its Loro document. Propose v{config.number + 1} over MCP (game_config_edit, propose_game_config_version); it is decided in <a href="/intents/">Intents</a>.</p>
+		<div class="tabs" role="tablist">
+			<button role="tab" aria-selected="true" class="on">History</button>
+		</div>
+		<History doc={config.id} {onPick} version={shownV} versions={config.versions.map((v) => ({ number: v.number, note: v.note, at: v.at, acceptedBy: v.acceptedBy }))} />
+		<p class="soft propose">Every change is an edit of its Loro document. Propose v{config.number + 1} over MCP (doc_edit, propose_doc_version); it is decided in <a href="/intents/">Intents</a>.</p>
 	{/if}
 {/snippet}
 
 {#if admin}
 	<div class="editor">
-		<Frame nav={shelf} navLabel="The game's configs and their versions" navIcon="board">
+		<Frame nav={shelf} aside={config ? about : undefined} navLabel="The game's configs" asideLabel="The config's history" navIcon="board">
 			<div class="body">
 				{#if error}<p class="bad">{error}</p>{/if}
 				{#if levelling && last}
@@ -202,17 +229,12 @@
 	.foot { max-width: 60rem; margin: 0.8rem 0 0; font-size: 0.76rem; color: var(--muted); line-height: 1.5; }
 	.bad { color: #c23a22; }
 	.soon { margin: 0.8rem 0.35rem; font-size: 0.76rem; color: var(--soft); }
-	.about-head { margin: 1.4rem 0 0.9rem 0.35rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+	.about-head { margin: 0 0 0.9rem 0.35rem; }
 	.about-head small { color: var(--accent); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
 	.about-head h3 { margin: 0.15rem 0 0.3rem; font-size: 1.15rem; font-family: var(--font-body); font-weight: 600; }
-	.note { margin: 0.1rem 0 0; font-size: 0.76rem; line-height: 1.4; color: var(--ink-soft); }
-	.from { margin: 0.3rem 0 0; font-size: 0.74rem; color: var(--soft); }
-	.side-head { margin: 0 0 0.5rem 0.35rem; color: var(--soft); font-family: var(--font-body); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
-	.chain { list-style: none; padding: 0; margin: 0 0 1.2rem 0.4rem; border-left: 2px solid var(--line); }
-	.chain li { position: relative; display: block; padding: 0.35rem 0 0.6rem 0.9rem; font-size: 0.9rem; }
-	.chain li::before { content: ''; position: absolute; left: -7px; top: 0.75rem; width: 10px; height: 10px; border-radius: 50%; background: var(--paper); border: 2px solid var(--sage); }
-	.chain li.on::before { background: var(--mustard); border-color: var(--mustard); }
-	.chain a { color: inherit; text-decoration: none; }
+	.tabs { display: flex; gap: 4px; margin: 0 0 0.8rem; }
+	.tabs button { font: inherit; font-size: 0.82rem; padding: 0.35rem 0.8rem; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); cursor: pointer; }
+	.tabs button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 	.asif { margin: 0.4rem 0 0.5rem; padding: 0.45rem 0.6rem; border-radius: 8px; background: var(--mustard-soft); font-size: 0.78rem; line-height: 1.4; }
-	.propose { margin: -0.6rem 0 1.2rem 0.35rem; font-size: 0.76rem; }
+	.propose { margin: 0 0 1.2rem 0.35rem; font-size: 0.76rem; }
 </style>

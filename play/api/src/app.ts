@@ -14,17 +14,16 @@ import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, re
 import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameMember, renameSelf, setLevel } from "./members";
 import { listTables, readTable, TableError } from "./tables";
 import { proposedState, SandboxError } from "./sandboxes";
-import { decideAny, propose, ProposalError, reviewOf } from "./proposals";
+import "./kinds";
+import { propose } from "./assetversions";
+import { decideAny, docAt, docChanges, docHistory, listDocs, reviewOf, VersionError } from "./versioned";
 import type { GitHub } from "./ship";
-import { intentIdOf, WorkError } from "./work";
+import { WorkError } from "./work";
 import { intentOf, IntentError, intentReady, listIntents, type IntentVerdict } from "./intents";
 import { clientOf, perMinute, Rate, costly } from "./limits";
-import { listStories, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
+import { listStories, storyOf } from "./stories";
 import { labelFile, listLibrary } from "./library";
-import { AssetDocError, assetHistory, recipeAtStep } from "./assetdocs";
-import { factoryHistory, factoryOf, FactoryError, listFactories } from "./factories";
-import { gameConfigHistory, gameConfigOf, GameConfigError, listGameConfigs } from "./gameconfigs";
-import { listSkills, skillHistory, skillOf, SkillError } from "./skills";
+import { recipeAtEdit } from "./assetdocs";
 import { authorOf, listAuthors, listArtifacts, ArtifactError, artifactOf } from "./artifacts";
 
 type Handler = (req: Request, params: Record<string, string>) => Promise<Response> | Response;
@@ -103,16 +102,11 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     if (!UUID.test(p.id)) throw new NotFound("An asset is named by its id, a UUID.");
     return json(await assetOf(db, p.id));
   });
-  // an asset's history, step by step (its Loro document, play/SPEC.md §4.4), and the recipe file it builds at any step,
-  // kept among play's files by its hash for the asset viewer's history bar: admins only (before /:id/:v, which they'd match)
-  on("GET", "/api/assets/:id/history", async (req, p) => {
+  // the recipe file an asset builds at any edit of its history (its document's, /api/docs/<uuid>/history), kept among
+  // play's files by its hash for the asset viewer's History tab: admins only (before /:id/:v, which it would match)
+  on("GET", "/api/assets/:id/edits/:seq/recipe", async (req, p) => {
     if (!UUID.test(p.id)) throw new NotFound("An asset is named by its id, a UUID.");
-    const b = new URL(req.url).searchParams.get("draft");
-    return json(await assetHistory(db, store, await me(req), p.id, b == null ? {} : { branch: Number(b) }));
-  });
-  on("GET", "/api/assets/:id/steps/:seq/recipe", async (req, p) => {
-    if (!UUID.test(p.id)) throw new NotFound("An asset is named by its id, a UUID.");
-    return json(await recipeAtStep(db, store, await me(req), p.id, Number(p.seq)));
+    return json(await recipeAtEdit(db, store, await me(req), p.id, Number(p.seq)));
   });
   on("GET", "/api/assets/:id/:v", async (req, p) => {
     must(await me(req), "read", "assets");
@@ -159,10 +153,9 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     // the Factories are Maia City's admins' alone for now (Samuel 2026-11-03)
     if (!UUID.test(p.id)) throw new NotFound("A sandbox is named by its id, a UUID.");
     if (p.id === SANDBOX.factories && m.level !== "admin") throw new Denied("Only Maia City's admins may open the Factories, for now.");
-    // as an intent's work at Proposal would make it (admins, ./sandboxes.ts), to walk it before deciding; `proposal`, the
-    // name it had before an intent and its proposal were one record, is read as the intent it is now
+    // as an intent's work at Proposal would make it (admins, ./sandboxes.ts), to walk it before deciding
     const q = new URL(req.url).searchParams;
-    const intent = q.get("intent") ?? q.get("proposal");
+    const intent = q.get("intent");
     if (intent) return json(await configOf(db, p.id, await proposedState(db, m, p.id, intent)));
     return json(await configOf(db, p.id));
   });
@@ -177,7 +170,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     const s = q.get("stage");
     return json(await listIntents(db, await me(req), s ? s.split(",") : undefined, q.get("work") ?? undefined));
   });
-  on("GET", "/api/intents/:id", async (req, p) => json(await intentOf(db, await me(req), p.id, reviewOf)));
+  on("GET", "/api/intents/:id", async (req, p) => json(await intentOf(db, await me(req), p.id, (q, id, w) => reviewOf({ db: q, store }, id, w))));
   // to propose is to put an intent at Proposal: the one named (held to its gate), or a new one of its own
   on("POST", "/api/intents", async (req) => {
     const b = await body(req);
@@ -187,14 +180,26 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   });
   on("POST", "/api/intents/:id/:verdict", async (req, p) => {
     if (!["approve", "respecify", "accept", "archive", "reject", "reopen"].includes(p.verdict)) throw new NotFound("No such decision.");
-    return json(await decideAny(db, store, await me(req), p.id, p.verdict as IntentVerdict | "archive", github));
+    return json(await decideAny({ db, store }, await me(req), p.id, p.verdict as IntentVerdict | "archive", github));
   });
-  // a proposal's old address: a proposal and its intent are one record now (migration 0029), so its id answers as the
-  // intent it is (play.proposal_ids), and nothing else is served here
-  on("GET", "/api/proposals/:id", async (_req, p) => {
-    const id = await intentIdOf(db, p.id);
-    if (!id) throw new NotFound("There is no such intent: a proposal is an intent now (/api/intents).");
-    return new Response(null, { status: 308, headers: { location: `/api/intents/${id}` } });
+
+  // ---- every versioned document, of any kind (./versioned.ts, play/SPEC.md "Version control"), by its UUID: listed by
+  // kind, read at a version (?v=2), an edit (?edit=7), a variant (?variant=3) or as an intent's work would make it
+  // (?intent=<uuid>), its history (its edits, versions and variants), and what an edit or a variant changes. Admins only;
+  // a document changes only by an intent's Accept, over MCP and on the intents' board
+  const num = (q: URLSearchParams, k: string) => (q.get(k) == null ? undefined : Number(q.get(k)));
+  on("GET", "/api/docs", async (req) => json(await listDocs({ db, store }, await me(req), new URL(req.url).searchParams.get("kind"))));
+  on("GET", "/api/docs/:id", async (req, p) => {
+    const q = new URL(req.url).searchParams;
+    return json(await docAt({ db, store }, await me(req), p.id, { version: num(q, "v"), edit: num(q, "edit"), variant: num(q, "variant"), intent: q.get("intent") ?? undefined }));
+  });
+  on("GET", "/api/docs/:id/history", async (req, p) => {
+    const v = num(new URL(req.url).searchParams, "variant");
+    return json(await docHistory({ db, store }, await me(req), p.id, v === undefined ? {} : { variant: v }));
+  });
+  on("GET", "/api/docs/:id/changes", async (req, p) => {
+    const q = new URL(req.url).searchParams;
+    return json(await docChanges({ db, store }, await me(req), p.id, q.get("variant") != null ? { variant: num(q, "variant") } : { edit: num(q, "edit") }));
   });
 
   // ---- the coop
@@ -259,53 +264,6 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     const v = new URL(req.url).searchParams.get("v");
     return json(await storyOf(db, await me(req), p.id, v == null ? undefined : Number(v)));
   });
-  // every step of a story's history (its Loro document, play/SPEC.md §4.4), and the story as it was at one, as JSON
-  on("GET", "/api/stories/:id/history", async (req, p) => {
-    const b = new URL(req.url).searchParams.get("draft");
-    return json(await storyHistory(db, await me(req), p.id, b == null ? {} : { branch: Number(b) }));
-  });
-  on("GET", "/api/stories/:id/steps/:seq", async (req, p) => json(await storyAtStep(db, await me(req), p.id, Number(p.seq))));
-
-  // the Factories (./factories.ts), admins only: each line a Loro document, read at its newest version, a version (?v=2),
-  // a step of its history (?step=7) or as an intent's work at Proposal would make it (?intent=<id>); changed only so
-  on("GET", "/api/factories", async (req) => json(await listFactories(db, await me(req))));
-  on("GET", "/api/factories/:id", async (req, p) => {
-    const q = new URL(req.url).searchParams;
-    const num = (k: string) => (q.get(k) == null ? undefined : Number(q.get(k)));
-    return json(await factoryOf(db, await me(req), p.id, { version: num("v"), step: num("step"), intent: q.get("intent") ?? q.get("proposal") ?? undefined }));
-  });
-  on("GET", "/api/factories/:id/history", async (req, p) => {
-    const b = new URL(req.url).searchParams.get("draft");
-    return json(await factoryHistory(db, await me(req), p.id, b == null ? {} : { branch: Number(b) }));
-  });
-
-  // the Game editor (./gameconfigs.ts), admins only: each of the game's configs a Loro document, read at its newest
-  // version, a version (?v=2), a step (?step=7) or as an intent's work at Proposal would make it (?intent=<id>); changed
-  // only so
-  on("GET", "/api/game/configs", async (req) => json(await listGameConfigs(db, await me(req))));
-  on("GET", "/api/game/configs/:id", async (req, p) => {
-    const q = new URL(req.url).searchParams;
-    const num = (k: string) => (q.get(k) == null ? undefined : Number(q.get(k)));
-    return json(await gameConfigOf(db, await me(req), p.id, { version: num("v"), step: num("step"), intent: q.get("intent") ?? q.get("proposal") ?? undefined }));
-  });
-  on("GET", "/api/game/configs/:id/history", async (req, p) => {
-    const b = new URL(req.url).searchParams.get("draft");
-    return json(await gameConfigHistory(db, await me(req), p.id, b == null ? {} : { branch: Number(b) }));
-  });
-
-  // the skills (./skills.ts, play/SPEC.md §4.14), admins only: what play teaches its agents, each a Loro document, read
-  // as the Game editor's configs are; changed only by proposal, over MCP
-  on("GET", "/api/skills", async (req) => json(await listSkills(db, await me(req))));
-  on("GET", "/api/skills/:id", async (req, p) => {
-    const q = new URL(req.url).searchParams;
-    const num = (k: string) => (q.get(k) == null ? undefined : Number(q.get(k)));
-    return json(await skillOf(db, await me(req), p.id, { version: num("v"), step: num("step"), intent: q.get("intent") ?? undefined }));
-  });
-  on("GET", "/api/skills/:id/history", async (req, p) => {
-    const b = new URL(req.url).searchParams.get("draft");
-    return json(await skillHistory(db, await me(req), p.id, b == null ? {} : { branch: Number(b) }));
-  });
-
   async function fetch(req: Request, server?: unknown): Promise<Response> {
     if (costly(req) && !rate.allows(clientOf(req, server as any)))
       return json({ error: "Too many requests: try again in a minute." }, { status: 429, headers: { "Retry-After": "60" } });
@@ -322,7 +280,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       try {
         return await r.handler(req, params);
       } catch (e) {
-        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof WorkError || e instanceof IntentError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError || e instanceof SkillError || e instanceof ArtifactError)
+        if (e instanceof Denied || e instanceof NotFound || e instanceof VersionError || e instanceof WorkError || e instanceof IntentError || e instanceof MemberError || e instanceof TableError || e instanceof SandboxError || e instanceof ArtifactError)
           return json({ error: e.message }, { status: (e as any).status });
         console.error(e);
         return json({ error: "Something went wrong on our side." }, { status: 500 });

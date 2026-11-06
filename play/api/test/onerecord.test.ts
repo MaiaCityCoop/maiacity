@@ -9,11 +9,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MIGRATIONS, migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
+import { branchOld, commitOld, createOldDoc, proposeOld } from "./olddocs";
 import { COOP } from "../src/ids";
 import { UUID } from "../src/uuid";
 import { hashText } from "../src/hash";
 import { storyVersionId } from "../src/versions";
-import * as docs from "../src/docs";
 import { app } from "../src/app";
 import { initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
@@ -125,10 +125,10 @@ suite("one record: the intent (migration 0029)", () => {
     );
     await db.query(`UPDATE play.stories SET head = $2 WHERE id = $1`, [story, s1]);
     const author = { human: ada, via: "mcp" as const };
-    await docs.createDoc(db, { id: `story:${story}`, schema: "story/1", json: { title: "A film", ...body("one") }, author, message: "v1", version: "one" });
-    const branch = (await docs.branch(db, `story:${story}`, { author, note: "two" })).id;
-    await docs.commit(db, `story:${story}`, { branch, target: { title: "A film", ...body("two") }, message: "two", author });
-    await docs.propose(db, `story:${story}`, branch, { note: `two (see ${sp})`, author });
+    await createOldDoc(db, { id: `story:${story}`, schema: "story/1", json: { title: "A film", ...body("one") }, author, message: "v1", version: "one" });
+    const branch = await branchOld(db, `story:${story}`, { author, note: "two" });
+    await commitOld(db, `story:${story}`, { branch, target: { title: "A film", ...body("two") }, message: "two", author });
+    await proposeOld(db, branch, `two (see ${sp})`);
     await db.query(
       `INSERT INTO play.proposals (id, coop_id, kind, story_id, story_base, story_version, author, note, via, doc_branch, created) VALUES ($1, $2, 'story_version', $3, $4, $5, $6, 'two', 'mcp', $7, $8)`,
       [sp, COOP, story, s1, s2, ada, branch, when()],
@@ -137,7 +137,7 @@ suite("one record: the intent (migration 0029)", () => {
     const all = (await q(`SELECT id, intent_id, status FROM play.proposals`)) as { id: string; intent_id: string; status: string }[];
 
     // ---- 0029
-    expect(await migrate(db)).toEqual(MIGRATIONS.filter((m) => m.id >= "0029").map((m) => m.id));
+    expect(await migrate(db, { until: "0031-skills" })).toEqual(MIGRATIONS.filter((m) => m.id >= "0029" && m.id <= "0031-skills").map((m) => m.id));
     expect((await q(`SELECT to_regclass('play.proposals') AS t`))[0].t).toBeNull();
     expect(await q(`SELECT proname FROM pg_proc WHERE proname IN ('intent_for', 'proposal_intent', 'intent_follows')`)).toEqual([]);
     // every proposal's id is kept, beside the intent it is now
@@ -180,15 +180,20 @@ suite("one record: the intent (migration 0029)", () => {
     // what an intent's work names is held to its kind
     await expect(db.query(`UPDATE play.intents SET story_id = $2 WHERE id = $1`, [two, story])).rejects.toThrow(/intents_work_names_what/);
 
-    // and through the API: an old proposal's address answers as its intent; the board lists the work on it
+    // ---- 0032 (one version control): the store's words, an intent naming its document and variant, the old ids gone
+    expect(await migrate(db)).toEqual(MIGRATIONS.filter((m) => m.id > "0031-skills").map((m) => m.id));
+    expect((await q(`SELECT to_regclass('play.proposal_ids') AS a, to_regclass('play.doc_branches') AS b, to_regclass('play.doc_updates') AS c, to_regclass('play.factories') AS d`))[0]).toEqual({ a: null, b: null, c: null, d: null });
+    expect(await intent(storyIntent)).toMatchObject({ stage: "proposal", work: "story_version", story_id: story, doc_id: `story:${story}`, doc_variant: String(branch) });
+    expect((await q(`SELECT intent_id, status, type FROM play.doc_variants WHERE id = $1`, [branch]))[0]).toEqual({ intent_id: storyIntent, status: "proposed", type: "intent" });
+    expect(Number((await q(`SELECT count(*) AS n FROM play.doc_edits WHERE doc_id = $1`, [`story:${story}`]))[0].n)).toBe(2);
+    for (const c of ["factory_id", "game_config_id", "skill_id", "doc_branch"]) expect((await q(`SELECT 1 FROM information_schema.columns WHERE table_schema = 'play' AND table_name = 'intents' AND column_name = $1`, [c])).length).toBe(0);
+
+    // and through the API: the board lists the work on it, the old proposals' address answers no more
     await initSessions(db);
     const api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
     const get = (path: string) => api.fetch(new Request(`http://play.test${path}`, { headers: { cookie: `play_session=${tokenFor(ada)}` }, redirect: "manual" }));
-    const moved = await get(`/api/proposals/${twoB}`);
-    expect(moved.status).toBe(308);
-    expect(moved.headers.get("location")).toBe(`/api/intents/${two}`);
-    expect((await get(`/api/proposals/${crypto.randomUUID()}`)).status).toBe(404);
-    const byOld = await (await get(`/api/intents/${sp}`)).json();
+    expect((await get(`/api/proposals/${twoB}`)).status).toBe(404);
+    const byOld = await (await get(`/api/intents/${storyIntent}`)).json();
     expect(byOld).toMatchObject({ id: storyIntent, stage: "proposal", work: { kind: "story_version", story_id: story, status: "proposal" } });
     expect(byOld.review.diff).toBeDefined();
     const board = await (await get(`/api/intents`)).json();

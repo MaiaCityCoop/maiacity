@@ -1,8 +1,9 @@
 <!--
 	WORLDS (Samuel 2026-11-05, play/SPEC.md §4.11): the asset group `worlds`, a world being the other assets composed
 	into one place. On the left Maia City's worlds; in the middle the one picked, big, everything it names drawn where it
-	stands, alive if it moves (its traffic, its signals, its sirens), under its own sky; on the right its versions. Its
-	address is `#<asset id>` (its UUID), a version of it `#<asset id>/<recipe hash>`.
+	stands, alive if it moves (its traffic, its signals, its sirens), under its own sky; on the right its History, as
+	the asset library's ($lib/app/History.svelte: its versions, every edit an admin can see it at, its open intent
+	variants), and its details. Its address is `#<asset id>` (its UUID), a version of it `#<asset id>/<recipe hash>`.
 
 	Its film page, `/worlds/?film&asset=<asset id>&recipe=<recipe hash>` (play/SPEC.md §4.11): the world alone, whole
 	screen, handed to the film camera (`window.__world`, $lib/content/worlds/film.js), its clock the shot's.
@@ -11,9 +12,10 @@
 	import { onMount } from 'svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
+	import History, { type Pick } from '$lib/app/History.svelte';
 	import { api } from '$lib/api';
 	import { catalogReady } from '$lib/recipes';
-	import { INDEX, source } from '$lib/content/assets/catalog.js';
+	import { INDEX, admitProposed, source } from '$lib/content/assets/catalog.js';
 	import WorldStage from '$lib/content/worlds/WorldStage.svelte';
 
 	type Listed = { id: string; grp: string; slug: string; label: string; head: number; versions: number };
@@ -72,6 +74,41 @@
 		hash = h;
 	};
 	const short = (h: string | null) => (h ? `${h.slice(0, 10)}…` : '—');
+	let tab = $state<'history' | 'details'>('history');
+
+	// ---- its history (the asset's Loro document): an edit or an intent variant picked is built in the box, as the
+	// asset library builds it, and the world drawn from that recipe
+	let pickHash = $state<string | null>(null);
+	let asked = 0;
+	$effect(() => {
+		void shownHash;
+		asked++;
+		pickHash = null;
+	});
+	async function onPick(p: Pick) {
+		const c = chain;
+		if (!c) return;
+		if (p.kind === 'version' || p.kind === 'main') {
+			asked++;
+			pickHash = null;
+			const v = p.kind === 'version' ? c.versions.find((x) => x.number === p.number) : null;
+			const own = v && v.number !== c.versions[0]?.number ? ownOf(v) : null;
+			if ((own ?? '') !== wanted) go(own ? `${c.id}/${own}` : c.id);
+			return;
+		}
+		const mine = ++asked;
+		// a variant shown as its newest edit stands
+		let seq = p.kind === 'edit' ? p.seq : null;
+		if (p.kind === 'variant') {
+			const h = await api<{ edits: { seq: number }[] }>(`/docs/${c.id}/history?variant=${encodeURIComponent(p.id)}`);
+			seq = h.edits.at(-1)?.seq ?? null;
+			if (seq === null) throw new Error('This variant has no edit yet.');
+		}
+		const b = await api<any>(`/assets/${c.id}/edits/${seq}/recipe`);
+		if (mine !== asked) return;
+		await admitProposed([b]);
+		if (mine === asked) pickHash = b.hash;
+	}
 </script>
 
 <svelte:head><title>Worlds · maiaCITY play</title></svelte:head>
@@ -94,20 +131,20 @@
 			<h3>{chain.label}</h3>
 			<p class="soft">v{shownVersion.number} · {chain.versions.length} version{chain.versions.length === 1 ? '' : 's'}</p>
 		</header>
-		<ol class="chain">
-			{#each chain.versions as v (v.id)}
-				{@const own = ownOf(v)}
-				<li class:on={v.id === shownVersion.id}>
-					<a href="#{chain.id}/{own}" onclick={(e) => (e.preventDefault(), go(`${chain!.id}/${own}`))}><b>v{v.number}</b> <span>{v.cardLabel ?? chain.label}</span></a>
-					<p class="soft">By {v.author ?? 'someone'}{v.approvedBy ? ` · accepted by ${v.approvedBy}` : ''} · {new Date(v.created).toLocaleDateString('en-GB')}</p>
-					{#if v.note}<p class="note">{v.note}</p>{/if}
-				</li>
-			{/each}
-		</ol>
-		<dl>
-			<dt>Id</dt><dd class="mono" title={shownVersion.id}>{short(shownVersion.id)}</dd>
-			<dt>Recipe</dt><dd class="mono" title={shownHash ?? ''}>BLAKE3 {short(shownHash)}</dd>
-		</dl>
+		<div class="tabs" role="tablist">
+			<button role="tab" aria-selected={tab === 'history'} class:on={tab === 'history'} onclick={() => (tab = 'history')}>History</button>
+			<button role="tab" aria-selected={tab === 'details'} class:on={tab === 'details'} onclick={() => (tab = 'details')}>Details</button>
+		</div>
+		{#if tab === 'history'}
+			<History doc={chain.id} {onPick} version={shownVersion.number} versions={chain.versions.map((v) => ({ number: v.number, note: v.note, at: v.created, by: v.author ?? 'someone', acceptedBy: v.approvedBy, label: v.cardLabel ?? chain!.label }))} />
+		{:else}
+			<dl>
+				<dt>Version</dt><dd>v{shownVersion.number}</dd>
+				<dt>Id</dt><dd class="mono" title={shownVersion.id}>{short(shownVersion.id)}</dd>
+				<dt>Recipe</dt><dd class="mono" title={shownHash ?? ''}>BLAKE3 {short(shownHash)}</dd>
+				<dt>By</dt><dd>{shownVersion.author ?? 'someone'}{shownVersion.approvedBy ? `, accepted by ${shownVersion.approvedBy}` : ''} · {new Date(shownVersion.created).toLocaleDateString('en-GB')}</dd>
+			</dl>
+		{/if}
 	{/if}
 {/snippet}
 
@@ -123,13 +160,13 @@
 	</div>
 {:else}
 <div class="worlds">
-	<Frame nav={ready ? shelf : undefined} aside={chain && shownVersion ? about : undefined} navLabel="Maia City's worlds" asideLabel="The world's versions" navIcon="asset" flush>
+	<Frame nav={ready ? shelf : undefined} aside={chain && shownVersion ? about : undefined} navLabel="Maia City's worlds" asideLabel="The world's history and details" navIcon="asset" flush>
 		{#if failed}
 			<p class="error">{failed}</p>
 		{:else if !ready}
 			<p class="soft">Reading Maia City's worlds…</p>
 		{:else if shownHash}
-			<WorldStage {source} engine={INDEX.engine} hash={shownHash} />
+			<WorldStage {source} engine={INDEX.engine} hash={pickHash ?? shownHash} />
 		{:else}
 			<p class="soft">No world is picked.</p>
 		{/if}
@@ -146,34 +183,59 @@
 	.worlds {
 		height: 100%;
 	}
-	.chain {
-		list-style: none;
-		padding: 0;
-		margin: 12px 0;
+	.about-head {
+		margin: 0 0 0.9rem 0.35rem;
 	}
-	.chain li {
-		padding: 8px 0;
-		border-top: 1px solid rgb(0 0 0 / 0.08);
-	}
-	.chain li.on b {
+	.about-head small {
 		color: var(--accent, #2f6b4f);
+		font-size: 0.7rem;
+		font-weight: 600;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
 	}
-	.chain a {
-		color: inherit;
-		text-decoration: none;
+	.about-head h3 {
+		margin: 0.15rem 0 0;
+		font-size: 1.15rem;
+		font-family: var(--font-body);
+		font-weight: 600;
 	}
-	.note {
-		margin: 4px 0 0;
-		font-size: 13px;
+	.about-head p.soft {
+		margin: 0.1rem 0 0;
+		padding: 0;
+		font-size: 0.8rem;
+	}
+	.tabs {
+		display: flex;
+		gap: 4px;
+		margin: 0 0 0.8rem;
+	}
+	.tabs button {
+		font: inherit;
+		font-size: 0.82rem;
+		padding: 0.35rem 0.8rem;
+		border-radius: 999px;
+		border: 1px solid var(--line);
+		background: var(--paper);
+		cursor: pointer;
+	}
+	.tabs button.on {
+		background: var(--ink);
+		color: var(--paper);
+		border-color: var(--ink);
 	}
 	dl {
 		display: grid;
-		grid-template-columns: auto 1fr;
+		grid-template-columns: max-content minmax(0, 1fr);
 		gap: 4px 10px;
+		margin: 0 0 0 0.35rem;
 		font-size: 13px;
+	}
+	dt {
+		opacity: 0.6;
 	}
 	dd {
 		margin: 0;
+		overflow-wrap: anywhere;
 	}
 	.mono {
 		font-family: ui-monospace, monospace;

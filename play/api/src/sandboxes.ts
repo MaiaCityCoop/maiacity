@@ -12,6 +12,7 @@ import { UUID } from "./uuid";
 import { readableRefs } from "../import/plan";
 import { NotFound } from "./assets";
 import { intentIdOf, putAtProposal, settle, WorkError } from "./work";
+import { registerWork } from "./versioned";
 
 export class SandboxError extends Error {
   constructor(message: string, public status = 400) {
@@ -389,3 +390,6 @@ export async function proposedState(db: Queryable, me: Me | null, sandbox: strin
     throw e instanceof SandboxError ? new NotFound(`It no longer holds: ${e.message}`) : e;
   })).state;
 }
+
+/** a sandbox's change, as work the intents' board reviews and decides (./versioned.ts): not a document yet, so its own */
+registerWork({ work: "sandbox_change", title: "Sandbox", review: sandboxReview, decide: decideSandbox });

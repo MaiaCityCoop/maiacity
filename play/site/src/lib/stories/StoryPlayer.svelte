@@ -6,8 +6,8 @@
 	the same picture every time (a frame-by-frame export later renders exactly this). A viewer: nothing is edited here.
 	Its layout (Samuel 2026-11-04): the picture large in the middle, what the editor reads in a thin rail on its right, and
 	the controls and the timeline across the whole width below. A page may hand it `list` (a column on the left, as tall
-	as the picture), `head` (above the picture) and `side` (the top of the rail): the Stories page's list, title and
-	version picker.
+	as the picture), `head` (above the picture), `side` (the top of the rail) and `history` (the rail's History tab,
+	beside its Notes): the Stories page's list, title and the story's history ($lib/app/History.svelte).
 	Its sound (./sound.ts): every clip with a recording (the voice's takes, music, sfx, ambience) laid on one Web Audio
 	clock; while it plays, t follows that clock, so picture and sound stay together. Lines with no take yet can be read
 	by the browser's voice.
@@ -25,7 +25,9 @@
 	import { clipAt, clipsOf, clock, cueOf, flatten, LINK, moodLevel, renderAt, sectionsOf, shotEdge, soundsOf, spansOf, type Links, type Notes, type Shot, type Slot, type StoryBody, type Track, type Voice } from './timeline';
 	import { StorySound } from './sound';
 
-	let { story, compact = false, keys = true, list, head, side }: { story: StoryBody & { title?: string; links?: Links | null }; compact?: boolean; keys?: boolean; list?: Snippet; head?: Snippet; side?: Snippet } = $props();
+	let { story, compact = false, keys = true, list, head, side, history }: { story: StoryBody & { title?: string; links?: Links | null }; compact?: boolean; keys?: boolean; list?: Snippet; head?: Snippet; side?: Snippet; history?: Snippet } = $props();
+	/** the rail's tab, where a page gives the story's history: what the editor reads at the playhead, or its history */
+	let rail = $state<'notes' | 'history'>('notes');
 	/** the story with every story it links laid in: one timeline, which everything below plays and shows */
 	const flat = $derived(flatten(story));
 
@@ -358,6 +360,8 @@
 		if (!keys) return;
 		const el = e.target as HTMLElement | null;
 		if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(el.tagName) && e.key !== ' ')) return;
+		// the history's own bar takes its arrows
+		if (el?.closest?.('.p-history')) return;
 		if (e.metaKey || e.ctrlKey || e.altKey) return;
 		if (e.key === ' ') {
 			e.preventDefault();
@@ -468,25 +472,35 @@
 	</div>
 	<aside class="details">
 		{#if side}<div class="p-side">{@render side()}</div>{/if}
-		<p class="beat">
-			<span class="badge" style:background={colourOf(moment.notes?.section ?? '')}>{moment.notes?.section || '—'}</span>
-			{#if shots.length}<span class="muted">Shot {Math.max(1, moment.index + 1)} of {shots.length}</span>{/if}
-			{#if moment.notes?.mood}<span class="mood">{moment.notes.mood}</span>{/if}
-		</p>
-		{#if inLink}
-			<div class="field"><b>Linked story</b><p><a class="in-link" href={linkHref(inLink)}>{linkName(inLink)}</a>{#if newer(inLink)}<span class="muted">{` · v${newer(inLink)} available`}</span>{/if}</p></div>
-		{/if}
-		{#if moment.notes?.emotion}<div class="field"><b>Emotion</b><p class="emotion">{moment.notes.emotion}</p></div>{/if}
-		{#if moment.notes?.camera}<div class="field"><b>Camera</b><p>{moment.notes.camera}</p></div>{/if}
-		{#if moment.shot?.transition}<div class="field"><b>Transition</b><p>{moment.shot.transition}</p></div>{/if}
-		{#if moment.notes?.retention}<div class="field"><b>Retention</b><p>{moment.notes.retention}</p></div>{/if}
-		{#if moment.notes?.pace}<div class="field"><b>Pace</b><p>{moment.notes.pace}</p></div>{/if}
-		{#if soundNow.length || moment.notes?.sound}
-			<div class="field">
-				<b>Sound</b>
-				{#if moment.notes?.sound}<p>{moment.notes.sound}</p>{/if}
-				{#each soundNow as s, i (i)}<p><span class="kind">{s.track}{s.planned ? ' (to make)' : ''}</span> {s.text}</p>{/each}
+		{#if history}
+			<div class="rail-tabs" role="tablist">
+				<button role="tab" aria-selected={rail === 'notes'} class:on={rail === 'notes'} onclick={() => (rail = 'notes')}>Notes</button>
+				<button role="tab" aria-selected={rail === 'history'} class:on={rail === 'history'} onclick={() => (rail = 'history')}>History</button>
 			</div>
+		{/if}
+		{#if history && rail === 'history'}
+			<div class="p-history">{@render history()}</div>
+		{:else}
+			<p class="beat">
+				<span class="badge" style:background={colourOf(moment.notes?.section ?? '')}>{moment.notes?.section || '—'}</span>
+				{#if shots.length}<span class="muted">Shot {Math.max(1, moment.index + 1)} of {shots.length}</span>{/if}
+				{#if moment.notes?.mood}<span class="mood">{moment.notes.mood}</span>{/if}
+			</p>
+			{#if inLink}
+				<div class="field"><b>Linked story</b><p><a class="in-link" href={linkHref(inLink)}>{linkName(inLink)}</a>{#if newer(inLink)}<span class="muted">{` · v${newer(inLink)} available`}</span>{/if}</p></div>
+			{/if}
+			{#if moment.notes?.emotion}<div class="field"><b>Emotion</b><p class="emotion">{moment.notes.emotion}</p></div>{/if}
+			{#if moment.notes?.camera}<div class="field"><b>Camera</b><p>{moment.notes.camera}</p></div>{/if}
+			{#if moment.shot?.transition}<div class="field"><b>Transition</b><p>{moment.shot.transition}</p></div>{/if}
+			{#if moment.notes?.retention}<div class="field"><b>Retention</b><p>{moment.notes.retention}</p></div>{/if}
+			{#if moment.notes?.pace}<div class="field"><b>Pace</b><p>{moment.notes.pace}</p></div>{/if}
+			{#if soundNow.length || moment.notes?.sound}
+				<div class="field">
+					<b>Sound</b>
+					{#if moment.notes?.sound}<p>{moment.notes.sound}</p>{/if}
+					{#each soundNow as s, i (i)}<p><span class="kind">{s.track}{s.planned ? ' (to make)' : ''}</span> {s.text}</p>{/each}
+				</div>
+			{/if}
 		{/if}
 	</aside>
 
@@ -579,6 +593,11 @@
 	.framed .details { gap: 0.5rem; padding: 0 0.15rem 1.6rem 0; mask-image: linear-gradient(to bottom, #000 calc(100% - 1.6rem), transparent); }
 	.framed .field p { font-size: 0.84rem; line-height: 1.38; }
 	.p-side { display: grid; gap: 0.5rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--line); }
+	/* the rail's tabs, where a page gives the story's history: its Notes and its History */
+	.rail-tabs { display: flex; gap: 4px; }
+	.rail-tabs button { font: inherit; font-size: 0.78rem; padding: 0.25rem 0.7rem; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); color: inherit; cursor: pointer; }
+	.rail-tabs button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+	.p-history { min-width: 0; }
 	/* the frame as tall as leaves the controls and the timeline in view above the nav pill (a page may say otherwise) */
 	/* its width worked out from its height: the subtitles are sized to the frame (container-type: size), and a box
 	   contained that way has no width of its own to give a grid column (it collapsed to nothing) */
