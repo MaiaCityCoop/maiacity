@@ -162,6 +162,7 @@ suite("accept ships it", () => {
 
   const SPEC = {
     goal: "A change of play's code is shipped.",
+    nothing_to_reduce: "A test fixture: nothing to reduce.",
     scope: "play/api/src: something small.",
     checks: [
       { check: "Its tests pass", how: "test", by: "bun test", run: "cd play/api && bun test" },

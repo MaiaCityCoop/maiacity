@@ -90,6 +90,7 @@ suite("skills: what play teaches its agents, kept once", () => {
   /** an intent made over MCP and taken to `stage`: specified, approved, its must checks passed (to Proposal by itself) */
   const SPEC = {
     goal: "A skill says more.",
+    nothing_to_reduce: "A test fixture: nothing to reduce.",
     scope: "The Intents skill. Nothing else changes.",
     checks: [{ check: "Its prototype part names avenBOX", how: "test", by: "grep", run: "true" }],
   };
