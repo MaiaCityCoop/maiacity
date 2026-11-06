@@ -25,7 +25,7 @@
 // Stories are versioned like the assets (play.story_versions, each written once, numbered when accepted; the story's
 // head its newest accepted version) and change only by proposal: an admin's agent proposes a new story or a new
 // version over MCP (./mcp.ts), as the whole timeline or as edits applied to the head, and an admin accepts or archives
-// the intent it puts at Proposal on the intents' board (./proposals.ts `decide`). Admins only, reading and proposing.
+// the intent it puts at Proposal on the intents' board (./versioned.ts `decide`). Admins only, reading and proposing.
 import { randomUUID } from "node:crypto";
 import { COOP, Denied, type Me } from "./access";
 import { keyOf, type BlobStore } from "./blobs";
@@ -633,15 +633,15 @@ export async function storyOf(db: Queryable, me: Me | null, id: string, number?:
   return { id, title: v.title, version: v.id, number: v.number, note: v.note, created: iso(v.created), author: v.author, versions, ...v.body, links: await linksOf(db, v.body, id), linked_by: await linkedBy(db, id) };
 }
 
-// ---- proposing, step by step (play/SPEC.md §4.4): every story is also a Loro document (./storydocs.ts) whose branches
-// are its proposals, each change a step on one
+// ---- proposing (play/SPEC.md §4.4, "Version control"): every story is also a Loro document (./storydocs.ts), each
+// intent's work an intent variant of it, each change an edit on one
 
 export type StoryProposal = {
   story?: string; // the story a version is of (its UUID); a new story gets one of its own
   title?: string;
   note?: string;
   body?: unknown; // the whole new timeline
-  edits?: unknown; // or edits applied to the head's (or, with a branch, its last step)
+  edits?: unknown; // or edits applied to the head's
   base?: string | null; // the head version's id it was made from, as the proposer saw it
   variant?: number; // an intent variant made edit by edit (doc_edit), proposed as it stands
   intent?: string; // the intent it is the work of, by its UUID, held to its gate before (./intents.ts); none, and it is a new intent of its own
@@ -673,11 +673,11 @@ async function openVariant(tx: Queryable, docId: string, story: string, v: unkno
 }
 
 /**
- * A story's edit as its document's whole new state (./versioned.ts's step hook): its edits (propose_story's ops:
+ * A story's edit as its document's whole new state (./versioned.ts's write hook): its edits (propose_story's ops:
  * set_clip, add_clip, shift, edit_text …) applied to the timeline, or a whole new state (its title and timeline), the
  * timeline checked whole as a proposal is.
  */
-export async function storyStep(tx: Queryable, story: string, cur: any, p: { edits?: unknown; whole?: unknown }): Promise<docs.Write> {
+export async function storyEdit(tx: Queryable, story: string, cur: any, p: { edits?: unknown; whole?: unknown }): Promise<docs.Write> {
   const now = asStory(cur);
   if (p.whole !== undefined) {
     if (!p.whole || typeof p.whole !== "object") throw new StoryError("A whole story is an object: its title and its timeline (doc_at's `json`).");
@@ -831,7 +831,7 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
           if (res.status !== "accepted") throw new Error(`${from} v${v.number} did not go in: ${(res as any).message ?? res.status}`);
         }
         // the work of its intents at Proposal, proposed again on the timeline's new head for the same intent (which
-        // closes its branch on this story); where it is there already, the intent is archived
+        // closes its intent variant on this story); where it is there already, the intent is archived
         const { rows: open } = await db.query<any>(
           `SELECT ${WORK_OF}, v.title, v.body FROM play.intents i JOIN play.story_versions v ON v.id = i.story_version
             WHERE i.story_id = $1 AND i.work = $2 AND i.stage = 'proposal' ORDER BY i.proposed_at`,
@@ -875,7 +875,7 @@ export async function storyReview(db: Queryable, p: { story_id: string; story_ba
 }
 
 /**
- * Accept or reject story proposal `p` (locked by the caller's transaction), as admin `me`. Accepted, its branch is
+ * Accept or reject a story's work `p` (its intent locked by the caller's transaction), as admin `me`. Accepted, its intent variant is
  * merged into the story's document and the version numbered, the document's version of the same number. Made on a head
  * that has moved on since, it still goes in where the two changes touch different fields (both stand, in a version
  * whose parents are both); where they touch the same field it is archived, kept on its side line, to be proposed again.
@@ -980,7 +980,7 @@ export async function seedStory(db: Db, id: string, title: string, note: string,
       [version, id, t, JSON.stringify(body), text(note, "The note", 2000)],
     );
     await tx.query(`UPDATE play.stories SET head = $2 WHERE id = $1`, [id, version]);
-    // and its document, its first step that version
+    // and its document, its first edit that version
     await ensureStoryDoc(tx, id);
     return true;
   });

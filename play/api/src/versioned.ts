@@ -28,7 +28,7 @@ import { decideSandbox, sandboxReview } from "./sandboxes";
 import { decideIntent, getIntent, IntentError, type IntentVerdict } from "./intents";
 import { acceptAndShip, type GitHub } from "./ship";
 import { assetDocFor, assetEdits, assetReview, decideAsset, ensureAssetDoc, proposeAssetVariant } from "./assetdocs";
-import { decideStory, proposeStoryVariant, storyReview, storyStep } from "./stories";
+import { decideStory, proposeStoryVariant, storyEdit, storyReview } from "./stories";
 import { ensureStoryDoc } from "./storydocs";
 import { COOP } from "./access";
 
@@ -55,15 +55,16 @@ export type Kind = {
   table: string;
   labelColumn?: string;
   listed?: string;
-  /** only shown: what one is called, and the board's group for it */
+  /** only shown: what one is called, the board's group for it, and the page that opens one (`{id}` its UUID, `{intent}` an intent's) */
   label: string;
   group: string;
+  open?: string;
   /** an accepted version's fields its row keeps (column → field of the document) */
   row?: Record<string, (json: any) => unknown>;
   /** its document made where it is missing (from the kind's own history) */
   ensure?: (q: Queryable, ctx: Ctx, id: string) => Promise<void>;
   /** an edit of an agent's turned into the document's own: edits, or the whole new state */
-  step?: (q: Queryable, id: string, cur: any, input: Input) => Promise<docs.Write>;
+  write?: (q: Queryable, id: string, cur: any, input: Input) => Promise<docs.Write>;
   /** the kind's own propose, its intent variant as it stands (an asset's recipe files and frozen version; a story's) */
   propose?: (ctx: Ctx, me: Me, o: { id: string; variant: number; note: string; intent?: string }, via: "web" | "mcp") => Promise<Record<string, unknown> & { intent: string }>;
   /** what the board shows of its work beside the changes and edits (an asset's builds, a story's player) */
@@ -264,7 +265,7 @@ export async function docHistory(ctx: Ctx, me: Me | null, id: unknown, o: { vari
       id: uuid,
       kind: kind.name,
       edits,
-      versions: versions.map((v) => ({ number: v.number, note: v.note, at: iso(v.created), contentHash: v.contentHash, variant: v.variant })),
+      versions: (await versionsNamed(db, docId)).map((v, i) => ({ ...v, variant: versions[i].variant })),
       variants: vs.map((v) => ({
         id: v.id,
         type: v.type,
@@ -340,7 +341,7 @@ export function resolveEdits(json: any, edits: unknown): docs.Edit[] {
 
 /** an edit's write: the kind's own, else the edits resolved, or the whole state with its schema kept */
 async function writeOf(q: Queryable, k: Kind, uuid: string, cur: any, input: Input): Promise<docs.Write> {
-  if (k.step) return k.step(q, uuid, cur, input);
+  if (k.write) return k.write(q, uuid, cur, input);
   if (input.whole !== undefined) {
     if (!input.whole || typeof input.whole !== "object" || Array.isArray(input.whole)) throw new VersionError(`A whole ${k.label} is an object (doc_at's \`json\`).`);
     return { target: { ...(input.whole as object), schema: cur.schema } };
@@ -457,7 +458,9 @@ export async function reviewDoc(db: Queryable, p: any) {
   const seedNumber = versionAt(versions, row.seed);
   const moved = p.status === "proposal" && seedNumber !== null && seedNumber !== versions.at(-1)?.number;
   const edits = await named(db, await docs.history(db, docId, { variant: v }));
-  return { doc: { id: docId.split(":")[1], kind: k.name, label: next.label ?? next.title ?? k.label, ...(next.group ? { group: next.group } : {}) }, seedNumber, moved, changes: docs.diff(seed, next), edits, ...extra };
+  const uuid = docId.split(":")[1];
+  const open = k.open ? k.open.replace("{id}", encodeURIComponent(uuid)).replace("{intent}", encodeURIComponent(p.id)) : null;
+  return { doc: { id: uuid, kind: k.name, what: k.label, label: next.label ?? next.title ?? k.label, ...(next.group ? { group: next.group } : {}), open }, seedNumber, moved, changes: docs.diff(seed, next), edits, ...extra };
 }
 
 /**
@@ -592,7 +595,8 @@ export function workSql() {
     ? `CASE split_part(i.doc_id, ':', 1) ${KINDS.map((k) => `WHEN '${k.prefix}' THEN (SELECT r.${qi(k.labelColumn ?? "label")} FROM ${qi(k.table)} r WHERE r.id::text = split_part(i.doc_id, ':', 2))`).join(" ")} END`
     : "NULL";
   const group = KINDS.length ? `CASE split_part(i.doc_id, ':', 1) ${KINDS.map((k) => `WHEN '${k.prefix}' THEN '${k.group}'`).join(" ")} END` : "NULL";
-  return { label, group };
+  const what = KINDS.length ? `CASE split_part(i.doc_id, ':', 1) ${KINDS.map((k) => `WHEN '${k.prefix}' THEN '${k.label}'`).join(" ")} END` : "NULL";
+  return { label, group, what };
 }
 
 // ---- the kinds
@@ -601,7 +605,7 @@ const ensureAsset = (q: Queryable, ctx: Ctx, id: string) => ensureAssetDoc(q, ct
 register({
   name: "asset", prefix: "asset", type: ASSET, work: "asset_version", table: "play.assets", label: "asset", group: "assets",
   ensure: ensureAsset,
-  step: async (_q, _id, cur, input) => (input.whole !== undefined ? { target: { ...(input.whole as object), schema: cur.schema } } : { edits: assetEdits(cur, input.edits) }),
+  write: async (_q, _id, cur, input) => (input.whole !== undefined ? { target: { ...(input.whole as object), schema: cur.schema } } : { edits: assetEdits(cur, input.edits) }),
   propose: (ctx, me, o, via) => proposeAssetVariant(ctx, me, o, via),
   review: (q, p) => assetReview(q, p),
   decide: (tx, ctx, me, p, verdict) => decideAsset(tx, ctx.store, me, p, verdict),
@@ -609,23 +613,23 @@ register({
 register({
   name: "story", prefix: "story", type: STORY, work: "story_version", table: "play.stories", labelColumn: "title", listed: "r.folded_into IS NULL", label: "story", group: "stories",
   ensure: (q, _ctx, id) => ensureStoryDoc(q, id).then(() => undefined),
-  step: (q, id, cur, input) => storyStep(q, id, cur, input),
+  write: (q, id, cur, input) => storyEdit(q, id, cur, input),
   propose: (ctx, me, o, via) => proposeStoryVariant(ctx.db, me, o, via),
   review: (q, p) => storyReview(q, p),
   decide: (tx, _ctx, me, p, verdict) => decideStory(tx, me, p, verdict),
 });
 register({
-  name: "factory", prefix: "factory", type: FACTORY, work: "factory_version", table: "play.factories", label: "factory", group: "factories",
+  name: "factory", prefix: "factory", type: FACTORY, work: "factory_version", table: "play.factories", label: "factory", group: "factories", open: "/factories/?factory={id}&intent={intent}",
   row: { updated: () => new Date() },
   item: (json) => ({ note: json.note ?? "", stations: json.line?.stations?.length ?? 0, parts: json.parts?.length ?? 0 }),
 });
 register({
-  name: "game_config", prefix: "game", type: LEVELS, work: "game_config_version", table: "play.game_configs", label: "config", group: "game",
+  name: "game_config", prefix: "game", type: LEVELS, work: "game_config_version", table: "play.game_configs", label: "config", group: "game", open: "/game-editor/?config={id}&intent={intent}",
   row: { updated: () => new Date() },
   item: (json) => ({ note: json.note ?? "", schema: json.schema }),
 });
 register({
-  name: "skill", prefix: "skill", type: SKILL, work: "skill_version", table: "play.skills", label: "skill", group: "skills",
+  name: "skill", prefix: "skill", type: SKILL, work: "skill_version", table: "play.skills", label: "skill", group: "skills", open: "/skills/?skill={id}&intent={intent}",
   row: { grp: (json) => json.group, updated: () => new Date() },
   item: (json) => ({ note: json.note ?? "", group: json.group, stages: SKILL_STAGES.filter((s) => `${json.stages?.[s] ?? ""}`.trim()) }),
 });

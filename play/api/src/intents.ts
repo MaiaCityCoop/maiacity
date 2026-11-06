@@ -12,7 +12,7 @@
 // check's result with its evidence, its work perhaps in progress (a draft branch). Proposal: the moment every must check
 // has passed, the intent moves there by itself (Samuel 2026-11-06), and proposing its work (every propose tool's
 // `intent`) puts it there with that work, play taking it only once every must check has passed; so after the spec there
-// is one gate with a person in it, the decision at Proposal: accepting applies its work (./proposals.ts decide), or, for
+// is one gate with a person in it, the decision at Proposal: accepting applies its work (./versioned.ts decide), or, for
 // work that is no work of play's (code, its pull request named with check_intent's `pr`), Accept ships it (./ship.ts,
 // Samuel 2026-11-06): play merges the pull request into main that moment and the intent is in Ship, where play follows
 // it to production step by step; all green, it is Accepted; any red, it is back at Proposal with the report. Work
@@ -167,6 +167,7 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
               'note', COALESCE(i.work_note, ''), 'author', pb.name, 'via', i.proposed_via, 'created', i.proposed_at, 'decided_by', de.name, 'decided_at', i.decided_at,
               'label', COALESCE(wa.label, sv.title, sx.title, ${kind.label}),
               'grp', COALESCE(wa.grp, CASE WHEN i.sandbox_id IS NOT NULL THEN 'sandboxes' END, ${kind.group}),
+              'what', CASE WHEN i.sandbox_id IS NOT NULL THEN 'sandbox' ELSE ${kind.what} END,
               'slug', wa.slug, 'version_label', wv.card->'card'->>'label',
               'number', CASE WHEN i.sandbox_id IS NOT NULL THEN NULL
                  WHEN i.asset_id IS NOT NULL THEN COALESCE(wb.number, 0) + 1
@@ -257,7 +258,7 @@ export async function specifyIntent(db: Queryable, me: Me | null, id: string, bo
   return intentRow(db, intent.id);
 }
 
-/** whether the intent's work waits for a decision at Proposal: then accepting applies it (./proposals.ts decide) */
+/** whether the intent's work waits for a decision at Proposal: then accepting applies it (./versioned.ts decide) */
 const waiting = (intent: { stage: string; work: unknown }) => intent.stage === "proposal" && !!intent.work;
 
 /** an intent's pull request into main, by its number (check_intent's `pr`), or undefined where none is given */
@@ -379,7 +380,7 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
       if (intent.stage === "prototype")
         refuse("An intent in Prototype is not accepted: it moves to Proposal by itself once every must check passes, and is decided there.");
       if (intent.stage !== "proposal") refuse(`An intent at the ${intent.stage} stage is decided already, or not yet built.`);
-      if (waiting(intent)) refuse("Its work waits for a decision: accepting applies it (./proposals.ts decide).");
+      if (waiting(intent)) refuse("Its work waits for a decision: accepting applies it (./versioned.ts decide).");
       if (intent.pull_request) refuse(`Its code is pull request #${intent.pull_request}: Accept ships it (./ship.ts), merging it into main.`);
       const missing = unmet(intent);
       if (missing.length) refuse(`Every must check passes before an intent is accepted: ${missing.join("; ")}.`);

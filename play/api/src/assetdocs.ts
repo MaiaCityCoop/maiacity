@@ -199,7 +199,7 @@ export async function ensureAssetDoc(q: Queryable, store: BlobStore, asset: stri
 /**
  * The asset's document for reading (its history, an edit, the recipe at an edit): where it is there already and every
  * intent's work has its intent variant, its id straight away, with no transaction and no lock on the asset; only where something is
- * missing, made under the lock as ensureAssetDoc does. A read never waits behind another's draft or proposal.
+ * missing, made under the lock as ensureAssetDoc does. A read never waits behind another's intent variant.
  */
 export async function assetDocFor(db: Db, store: BlobStore, asset: string): Promise<{ id: string }> {
   const id = assetDocId(asset);
@@ -393,15 +393,15 @@ async function numberAt(q: Queryable, docId: string, seq: number): Promise<{ n: 
   );
   if (!rows[0]) throw new AssetDocError(`no edit ${seq}`, 404);
   const versions = await docs.versionsOf(q, docId);
-  const steps = await named(q, await docs.history(q, docId), versions);
-  const i = steps.findIndex((s) => s.seq === seq);
+  const edits = await named(q, await docs.history(q, docId), versions);
+  const i = edits.findIndex((s) => s.seq === seq);
   if (i < 0) {
     const base = rows[0].type === "intent" ? versionAt(versions, rows[0].seed) : null;
     return { n: (base ?? 0) + 1, exact: null };
   }
-  if (steps[i].version) return { n: steps[i].version!, exact: steps[i].version! };
+  if (edits[i].version) return { n: edits[i].version!, exact: edits[i].version! };
   let last = 0;
-  for (let j = 0; j < i; j++) if (steps[j].version) last = steps[j].version!;
+  for (let j = 0; j < i; j++) if (edits[j].version) last = edits[j].version!;
   return { n: last + 1, exact: null };
 }
 
