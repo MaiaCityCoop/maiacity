@@ -11,9 +11,11 @@
 	improved, in its stage's column: Idea → Specify → Prototype → Proposal → Accepted (or Archived), Accepted and Archived
 	folded at first. Agents add and specify intents over MCP (never typed in here): a spec is a goal, a scope and checks,
 	each one statement that passes or fails, checked by a test, a measure or a look, must or nice. Here an admin approves
-	a spec (Specify → Prototype), and an agent builds it, recording each check's result, until every must check passes;
-	only then does play take its proposal. An intent's proposals are reviewed and decided here as before, the intent
-	following them; a proposal made without an intent is an intent of its own, opened straight into its review.
+	a spec (Specify → Prototype), and an agent builds it, recording each check's result, until every must check passes:
+	then it moves to Proposal by itself (Samuel 2026-11-06), the one gate after the spec, where an admin decides it. An
+	intent's proposals are reviewed and decided here as before, the intent following them; one whose work is no proposal
+	of play's (code) is accepted or rejected at Proposal itself; a proposal made without an intent is an intent of its
+	own, opened straight into its review. Nothing is accepted from Prototype.
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
@@ -302,7 +304,7 @@
 	/** what to tell an agent sent to an intent: the intent by its id (its title only shown), and its stage's work */
 	const briefOf = (i: Intent) =>
 		i.stage === 'prototype'
-			? `Build Maia City's intent ${i.id} on play ("${i.title}") in avenBOX, the cloud environment our agents prototype in (Postgres up, TEST_DATABASE_URL set: play/avenbox/up.sh). Read it and its approved spec with the maia-play MCP tool get_intent. Build what its goal and scope say. Run every check and record it with bun play/avenbox/intent.ts ${i.id} --record (it runs each check's run and records it with check_intent, a failure as a failure; record a look by hand with check_intent); repeat until every must check passes. Then propose the work with the propose tool's intent: "${i.id}" (play refuses it before every must check passes), or, when the work is code, ship it by pull request with the line Intent: ${i.id} at the end of its commits' messages: once it is merged, main runs the same checks in the same box (.github/workflows/intents.yml) and records them as main's, and it is accepted on main's results.`
+			? `Build Maia City's intent ${i.id} on play ("${i.title}") in avenBOX, the cloud environment our agents prototype in (Postgres up, TEST_DATABASE_URL set: play/avenbox/up.sh). Read it and its approved spec with the maia-play MCP tool get_intent. Build what its goal and scope say. Run every check and record it with bun play/avenbox/intent.ts ${i.id} --record (it runs each check's run and records it with check_intent, a failure as a failure; record a look by hand with check_intent); repeat until every must check passes: then the intent moves to Proposal by itself, where an admin decides it. If the work is one of play's proposals (an asset or story version, a sandbox change, a factory or a config), also propose it with the propose tool's intent: "${i.id}"; play refuses it before every must check passes. If the work is code, ship it by pull request with the line Intent: ${i.id} at the end of its commits' messages: once it is merged, main runs the same checks in the same box (.github/workflows/intents.yml) and records them as main's, and it is accepted on main's results.`
 			: `Specify Maia City's intent ${i.id} on play ("${i.title}"). Read it with the maia-play MCP tool get_intent, then specify it with specify_intent: its goal (what is true when it is done, in a sentence), its scope (what changes, named by UUIDs, hashes or paths, and what stays as it is) and its checks, each ONE statement that passes or fails, checked by a test (a command that passes), a measure (a value and its range from a named tool) or a look (against a named reference), must or nice; every check decidable by someone who reads only the intent and the result. Every test and measure check carries its run: the exact command that decides it in avenBOX, from the repository's root, as written, nothing in it left to fill in (a test passes when it exits 0; a measure prints its value and exits 0 only in its range); in Prototype bun play/avenbox/intent.ts runs them all, and main runs them again once the work is merged. Then stop: an admin approves the spec before anything is built.`;
 	async function copyBrief(i: Intent) {
 		try {
@@ -387,13 +389,15 @@
 	{#if intent}
 		{@const i = intent}
 		{@const musts = i.spec?.checks.filter((c) => c.must) ?? []}
+		<!-- a proposal of it waiting: that proposal's review is where it is decided -->
+		{@const waits = (intentProposals ?? i.proposals).some((p) => p.status === 'proposal')}
 		<!-- an intent opened: read here (it is added and specified over MCP only), its spec and its checks with their
 		     results, its proposals a click away, the brief that sends an agent to it, and the admins' decision on it -->
 		<button class="scrim" onclick={closeIntent} aria-label="Close" tabindex="-1"></button>
 		<div class="review item-review" role="dialog" aria-modal="true" aria-label={i.title}>
 			<header class="review-head">
 				<div class="who">
-					<p class="tags"><span class="type" data-kind={i.kind}>{kindName(i.kind)}</span> <span class="pill">{STAGE_NAME[i.stage]}</span>{#if i.stage === 'prototype' && musts.length}{' '}<span class="pill" class:pass={allMustPass(i)}>{checksDone(i)}</span>{/if}</p>
+					<p class="tags"><span class="type" data-kind={i.kind}>{kindName(i.kind)}</span> <span class="pill">{STAGE_NAME[i.stage]}</span>{#if (i.stage === 'prototype' || i.stage === 'proposal') && musts.length}{' '}<span class="pill" class:pass={allMustPass(i)}>{checksDone(i)}</span>{/if}</p>
 					<h2>{i.title}</h2>
 					<p class="meta">by {i.author ?? 'someone'}{#if i.via === 'mcp'}{' '}<span class="via" title="Added by an agent working for them over MCP">via MCP</span>{/if} · {when(i.created)}{i.specified_by && i.specified_at ? ` · specified by ${i.specified_by}, ${when(i.specified_at)}` : ''}{i.approved_by && i.approved_at ? ` · spec approved by ${i.approved_by}` : ''}{i.decided_by && i.decided_at ? ` · ${i.stage} by ${i.decided_by}, ${when(i.decided_at)}` : ''}</p>
 				</div>
@@ -412,7 +416,7 @@
 						<div class="md">{@html md(i.spec.scope)}</div>
 					</div>
 					<div class="checks-wrap">
-						<h3>Checks <span class="muted small">{i.stage === 'specify' ? 'what will be checked, once approved' : 'each must check passes before it is proposed'}</span></h3>
+						<h3>Checks <span class="muted small">{i.stage === 'specify' ? 'what will be checked, once approved' : 'once every must check passes, it moves to Proposal by itself'}</span></h3>
 						<ol class="checks">
 							{#each i.spec.checks as c (c.id)}
 								{@const r = i.results?.[c.id]}
@@ -460,26 +464,30 @@
 			{#if i.stage === 'idea' || (i.stage === 'specify' && !i.spec) || i.stage === 'prototype'}
 				<section class="agent">
 					<h3>For an agent</h3>
-					<p class="muted small">Give this to an agent with play's MCP server: {i.stage === 'prototype' ? 'it builds the intent, records every check, and proposes it once every must check passes.' : 'it specifies the intent, then stops for an admin to approve the spec here.'}</p>
+					<p class="muted small">Give this to an agent with play's MCP server: {i.stage === 'prototype' ? 'it builds the intent and records every check; once every must check passes, the intent moves to Proposal by itself, to be decided here.' : 'it specifies the intent, then stops for an admin to approve the spec here.'}</p>
 					<pre class="brief">{briefOf(i)}</pre>
 					<button class="btn small ghost" onclick={() => copyBrief(i)}>{copied ? 'Copied' : 'Copy the brief'}</button>
 				</section>
 			{/if}
 			</div>
-			<!-- the decision at its foot, in the middle: Reject (it ends archived) on the left, Approve or Accept on the right -->
+			<!-- the decision at its foot, in the middle: Reject (it ends archived) on the left, Approve or Accept on the right;
+			     no Close: the nav pill's Back (or Escape, or the scrim) closes it, the star the board (Samuel 2026-11-06).
+			     Accept only at Proposal (it moves there by itself once every must check passes; Samuel 2026-11-06), and only
+			     where no proposal of it waits: then that proposal, on its review, is where it is decided -->
+			{#if !(i.stage === 'proposal' && waits)}
 			<footer class="decide">
-				{#if i.stage === 'idea' || i.stage === 'specify' || i.stage === 'prototype'}
+				{#if i.stage === 'idea' || i.stage === 'specify' || i.stage === 'prototype' || (i.stage === 'proposal' && !waits)}
 					<button class="btn small reject" onclick={() => decideIntent(i.id, 'reject')} title="Not to be done: it ends archived">Reject</button>
 				{/if}
-				{#if i.stage === 'prototype'}
+				{#if i.stage === 'prototype' || (i.stage === 'proposal' && i.approved_at && !waits)}
 					<button class="btn small ghost" onclick={() => decideIntent(i.id, 'respecify')} title="Its spec is to change: back to Specify, its approval and results cleared">Back to Specify</button>
 				{:else if i.stage === 'accepted' || i.stage === 'archived'}
 					<button class="btn small ghost" onclick={() => decideIntent(i.id, 'reopen')} title="Open again: back to {i.spec ? 'Specify' : 'Idea'}">Reopen</button>
 				{/if}
-				<button class="btn small ghost" onclick={closeIntent} aria-label="Close">Close</button>
 				{#if i.stage === 'specify' && i.spec}<button class="btn small" onclick={() => decideIntent(i.id, 'approve')} title="The spec is right: an agent may build it">Approve spec</button>
-				{:else if i.stage === 'prototype'}<button class="btn small" onclick={() => decideIntent(i.id, 'accept')} disabled={!allMustPassOnMain(i)} title={allMustPassOnMain(i) ? 'What it asked is in' : allMustPass(i) ? 'Every must check with a run passes on main first, once its work is merged' : 'Every must check passes first'}>Accept</button>{/if}
+				{:else if i.stage === 'proposal' && !waits}<button class="btn small" onclick={() => decideIntent(i.id, 'accept')} disabled={!allMustPassOnMain(i)} title={allMustPassOnMain(i) ? 'What it asked is in' : allMustPass(i) ? 'Every must check with a run passes on main first, once its work is merged' : 'Every must check passes first'}>Accept</button>{/if}
 			</footer>
+			{/if}
 		</div>
 	{/if}
 
@@ -682,12 +690,13 @@
 			{/if}
 			<!-- the decision at its foot, in the middle, where a thumb reaches it on a pad (Samuel 2026-11-05): Reject on the
 			     left (it ends archived: a proposal ends accepted or archived), Accept on the right, the rest between -->
+			{#if (p.status === 'proposal' && (deciding || p.author === session.me?.name)) || review}
 			<footer class="decide">
 				{#if p.status === 'proposal' && (deciding || p.author === session.me?.name)}<button class="btn small reject" onclick={() => (act(p.id, 'archive'), close())} title="Not taken: it ends archived">Reject</button>{/if}
 				{#if review}<button class="btn small ghost" class:on={showSource} onclick={() => (showSource = !showSource)}>{showSource ? 'Hide source' : review.source ? 'Source' : 'Recipe file'}</button>{/if}
-				<button class="btn small ghost" onclick={close} aria-label="Close">Close</button>
 				{#if p.status === 'proposal' && deciding}<button class="btn small" onclick={() => (act(p.id, 'accept'), close())}>Accept</button>{/if}
 			</footer>
+			{/if}
 		</div>
 	{/if}
 {/if}

@@ -850,6 +850,20 @@ export const MIGRATIONS: Migration[] = [
       CREATE INDEX ix_artifact_authors_author ON play.artifact_authors(author_id);
     `,
   },
+  {
+    // an intent moves to Proposal by itself once every must check has passed (Samuel 2026-11-06, ./intents.ts
+    // recordChecks): the one gate after the spec is the decision at Proposal, none in Prototype. An intent already in
+    // Prototype with every must check passed moves there now (a check with no must is one).
+    id: "0028-intents-ready-propose",
+    sql: `
+      UPDATE play.intents i SET stage = 'proposal'
+       WHERE i.stage = 'prototype' AND i.spec IS NOT NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM jsonb_array_elements(COALESCE(i.spec->'checks', '[]'::jsonb)) c
+            WHERE COALESCE((c->>'must')::boolean, true)
+              AND (i.results->(c->>'id')->>'pass') IS DISTINCT FROM 'true');
+    `,
+  },
 ];
 
 /** Runs every migration not yet run, each in its own transaction. */

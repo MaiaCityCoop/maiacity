@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
-import { migrate } from "../src/migrations";
+import { migrate, MIGRATIONS } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
 import { Rate } from "../src/limits";
 import { UUID } from "../src/uuid";
@@ -196,12 +196,14 @@ suite("intents", () => {
     expect(none).not.toContain("c3 ("); // the nice check is not named (the bare "c3" can be in the intent's UUID)
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c9", pass: true, evidence: "x" }] })).error).toContain("not one of this intent's checks");
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: " " }] })).error).toContain("evidence");
-    await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "render.mjs: built in 1.2 s" }, { check: "c2", pass: false, evidence: "measured 0.72 m" }] });
+    const partly = await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "render.mjs: built in 1.2 s" }, { check: "c2", pass: false, evidence: "measured 0.72 m" }] });
+    expect(partly.stage).toBe("prototype");
     expect((await fern(i.id)).error).toContain("c2 (Its height is 0.4–0.6 m): failed");
     expect((await call("ada", "GET", "/api/proposals")).data.length).toBe(before);
-    // every must passes (the nice one need not): the proposal is taken, the intent is at the proposal stage
+    // every must passes (the nice one need not): the intent moves to Proposal by itself, and the proposal is taken
     const checked = await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "measured 0.52 m" }] });
     expect(checked.results).toMatchObject({ c1: { pass: true, by: "ada" }, c2: { pass: true, evidence: "measured 0.52 m" } });
+    expect(checked.stage).toBe("proposal");
     const made = await fern(i.id);
     expect(made.error).toBeUndefined();
     expect(made.intent).toBe(i.id);
@@ -232,26 +234,44 @@ suite("intents", () => {
     expect((await call("ada", "POST", `/api/intents/${i.id}/reopen`)).data.stage).toBe("specify");
   });
 
-  test("the final gate: an intent whose work goes through main is accepted on main's results", async () => {
+  test("the final gate: an intent whose work goes through main moves to Proposal, and is accepted there on main's results", async () => {
     const i = await intentAt("Sources on play", "prototype");
-    expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.error).toContain("Every must check passes");
+    expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.error).toContain("moves to Proposal by itself");
     const sha = "0123456789abcdef0123456789abcdef01234567";
     // where a result ran: avenBOX by default, or main; a commit is a whole git hash
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "x", where: "laptop" }] })).error).toContain("where is avenBOX or main");
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "x", commit: "abc123" }] })).error).toContain("40-character git hash");
+    // every must passes in avenBOX: to Proposal by itself, while its pull request is reviewed and merged
     const boxed = await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "intent.ts: exit 0" }, { check: "c2", pass: true, evidence: "0.5", commit: sha }] });
+    expect(boxed.stage).toBe("proposal");
     expect(boxed.results).toMatchObject({ c1: { pass: true, where: "avenBOX" }, c2: { pass: true, where: "avenBOX", commit: sha } });
-    // passed in avenBOX alone: not yet; each check named
+    // passed in avenBOX alone: not yet accepted; each check named
     const refused = (await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.error;
     expect(refused).toContain("c1 (The recipe builds in the asset box): passed in avenBOX, not yet run on main");
     expect(refused).toContain("c2 (Its height is 0.4–0.6 m): passed in avenBOX, not yet run on main");
-    // main runs them after the merge: one fails there
-    await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "main", where: "main", commit: sha }, { check: "c2", pass: false, evidence: "0.7", where: "main", commit: sha }] });
-    const onMain = (await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.error;
-    expect(onMain).toContain("c2 (Its height is 0.4–0.6 m): failed on main");
-    expect(onMain).not.toContain("c1 (");
-    await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5 on main", where: "main", commit: sha }] });
+    // main runs them after the merge, recorded at Proposal: one fails there, and it goes back to Prototype
+    const failed = await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "main", where: "main", commit: sha }, { check: "c2", pass: false, evidence: "0.7", where: "main", commit: sha }] });
+    expect(failed.stage).toBe("prototype");
+    expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.error).toContain("moves to Proposal by itself");
+    // fixed and run on main again: to Proposal, and accepted on main's results
+    const fixed = await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5 on main", where: "main", commit: sha }] });
+    expect(fixed.stage).toBe("proposal");
     expect((await call("ada", "GET", `/api/intents/${i.id}`)).data.results.c2).toMatchObject({ where: "main", commit: sha, pass: true });
+    expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data).toMatchObject({ stage: "accepted", decided_by: "ada" });
+    expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).status).toBe(409);
+  });
+
+  test("an intent moves to Proposal by itself once every must check passes, and is accepted there, never from Prototype", async () => {
+    const i = await intentAt("Artifacts on play", "prototype");
+    expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.error).toContain("moves to Proposal by itself");
+    const half = await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "PR #1 merged, tests green", where: "main" }, { check: "c2", pass: false, evidence: "0.7", where: "main" }] });
+    expect(half.stage).toBe("prototype");
+    expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).status).toBe(409);
+    // the last must passes: Proposal, by itself (the nice check has no result and need not)
+    const ready = await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5", where: "main" }] });
+    expect(ready).toMatchObject({ stage: "proposal", proposals: [] });
+    // at Proposal, the one gate: an admin accepts it (a citizen may not)
+    expect((await call("cit", "POST", `/api/intents/${i.id}/accept`)).status).toBe(403);
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data).toMatchObject({ stage: "accepted", decided_by: "ada" });
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).status).toBe(409);
   });
@@ -276,6 +296,48 @@ suite("intents", () => {
     for (const says of ["avenBOX", "play/avenbox/intent.ts", "Intent: ", ".github/workflows/intents.yml", "main's results"]) expect(of("list_intents").description).toContain(says);
     const { instructions } = await rpc("initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1" } });
     for (const says of ["avenBOX", "play/avenbox/intent.ts", "Intent: ", "main's results"]) expect(instructions).toContain(says);
+  });
+
+  test("at Proposal: checked again, a failing must takes it back; it is rejected or sent back to Specify there; a waiting proposal decides it", async () => {
+    const i = await intentAt("A fern at Proposal", "prototype");
+    const all = [{ check: "c1", pass: true, evidence: "built" }, { check: "c2", pass: true, evidence: "0.5 m" }];
+    expect((await tool("check_intent", { intent: i.id, results: all })).stage).toBe("proposal");
+    // checked again while none of its proposals waits: a must that fails takes it back to Prototype, and passing again to Proposal
+    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: false, evidence: "0.8 m after the change" }] })).stage).toBe("prototype");
+    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5 m again" }] })).stage).toBe("proposal");
+    // sent back to Specify from Proposal, its approval and results go
+    expect((await call("ada", "POST", `/api/intents/${i.id}/respecify`)).data).toMatchObject({ stage: "specify", approved_at: null, results: null });
+    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("prototype");
+    expect((await tool("check_intent", { intent: i.id, results: all })).stage).toBe("proposal");
+    // with a proposal of it waiting, that proposal is where it is decided: the intent itself is neither accepted,
+    // rejected, sent back nor checked again
+    const made = await tool("propose_asset", { group: "plants", label: "Fern at Proposal", source: SOURCE, note: "x", intent: i.id });
+    expect(made.error).toBeUndefined();
+    for (const v of ["accept", "reject", "respecify"]) expect((await call("ada", "POST", `/api/intents/${i.id}/${v}`)).data.error).toContain("waits for a decision");
+    expect((await tool("check_intent", { intent: i.id, results: all })).error).toContain("none of its proposals waits");
+    // the proposal archived, it goes back to Prototype to be checked again; checked, to Proposal; rejected there, archived
+    expect((await call("ada", "POST", `/api/proposals/${made.id}/archive`)).data.status).toBe("archived");
+    expect((await tool("get_intent", { intent: i.id })).stage).toBe("prototype");
+    expect((await tool("check_intent", { intent: i.id, results: all })).stage).toBe("proposal");
+    expect((await call("ada", "POST", `/api/intents/${i.id}/reject`)).data).toMatchObject({ stage: "archived", decided_by: "ada" });
+  });
+
+  test("migration 0028 moves an intent already in Prototype with every must check passed to Proposal", async () => {
+    const m = MIGRATIONS.find((x) => x.id === "0028-intents-ready-propose")!;
+    const at = async (title: string, results: Record<string, boolean>) => {
+      const i = await intentAt(title, "prototype");
+      const r = Object.fromEntries(Object.entries(results).map(([k, pass]) => [k, { pass, evidence: "x", by: "ada", at: new Date().toISOString() }]));
+      await db.query(`UPDATE play.intents SET results = ($2::text)::jsonb, stage = 'prototype' WHERE id = $1`, [i.id, JSON.stringify(r)]);
+      return i.id;
+    };
+    const ready = await at("Ready before 0028", { c1: true, c2: true });
+    const failing = await at("A must failing before 0028", { c1: true, c2: false });
+    const unchecked = await at("A must unchecked before 0028", { c1: true });
+    await db.query(m.sql);
+    const stage = async (id: string) => (await tool("get_intent", { intent: id })).stage;
+    expect(await stage(ready)).toBe("proposal");
+    expect(await stage(failing)).toBe("prototype");
+    expect(await stage(unchecked)).toBe("prototype");
   });
 
   test("every proposal is an intent's: one made without an intent gets one, which follows it", async () => {

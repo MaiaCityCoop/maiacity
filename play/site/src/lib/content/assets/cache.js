@@ -29,6 +29,7 @@
 import { blake3 } from '@noble/hashes/blake3.js';
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
 import { queryOf } from './params.js';
+import { budget } from '../render/budget.js';
 
 export const CONTEXT = 'maiaCITY 2026-10-15 asset cache';
 /** how much the cache may hold (bytes) */
@@ -510,19 +511,22 @@ export async function get(key) {
 
 /** the builds being kept, one after another */
 let line = Promise.resolve();
-/** how long no build has to come in before those that came are kept (ms), and how long one waits for that at most */
+/** how long no build has to come in before those that came are kept (ms), and how long one waits for that at most: on a
+ *  small device (../render/budget.js) a little only, as every build waiting holds its whole data in the page */
 const QUIET = 2000, LATEST = 20000;
+const waits = () => (budget().small ? { quiet: 300, latest: 2000 } : { quiet: QUIET, latest: LATEST });
 /** the builds waiting for a quiet moment, and the timer that ends the wait */
 let calm = [], timer = 0;
 /** settles once no build has been handed in for QUIET ms (each one handed in starts that wait again), or LATEST ms on */
 function quiet() {
 	clearTimeout(timer);
+	const w = waits();
 	timer = setTimeout(() => {
 		for (const ok of calm.splice(0)) ok();
-	}, QUIET);
+	}, w.quiet);
 	return new Promise((ok) => {
 		calm.push(ok);
-		setTimeout(ok, LATEST);
+		setTimeout(ok, w.latest);
 	});
 }
 /** the bytes the cache holds as this page last counted them, and what it kept since (more, if one was kept again);

@@ -36,6 +36,7 @@
 import * as THREE from 'three';
 import { ShaderPass, createPost } from '$lib/content/render/post.js';
 import { daySky } from './sky.js';
+import { budget } from '$lib/content/render/budget.js';
 import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment, untonemap } from './kit.js';
 
 /**
@@ -285,7 +286,8 @@ export class Stage {
 		const wide = this.sky ? 1.4 : 1;
 		// a big asset (a dome, a hall) gets the finer shadow map where the device can afford it: its shadows are spread
 		// over all of it, and a chair's must still fall at its feet
-		const fine = !this.low && s > 4 ? 4096 : this.low ? 1024 : 2048;
+		// (never past the device's budget: an iPad that is no low-power device still holds 2048 at most)
+		const fine = Math.min(!this.low && s > 4 ? 4096 : this.low ? 1024 : 2048, budget().shadowMap);
 		if (key.shadow.mapSize.x !== fine) {
 			key.shadow.mapSize.setScalar(fine);
 			key.shadow.map?.dispose();

@@ -97,10 +97,13 @@ nice, every test and measure with its `run`: the exact command that decides it i
 root, as written, play refusing a placeholder in it) and **stops: an admin approves the spec**. Sent to one in
 Prototype, it builds it in avenBOX, runs every check and records each result with its evidence (`bun
 play/avenbox/intent.ts <the intent's UUID> --record`, which calls `check_intent`, a failure as a failure; a look by hand)
-until every must check passes, then proposes it with the propose tool's `intent` (the intent's UUID): play refuses the
-proposal before every must check passes. Code ships by pull request instead, its commits naming the intent
-(`Intent: <UUID>`): main runs the checks again after the merge (`.github/workflows/intents.yml`, `where: main`), and an
-admin accepts the intent only once every must check with a `run` has passed on main. A
+until every must check passes: then the intent **moves to Proposal by itself**, the one gate with a person in it after
+the spec, where an admin decides it (nothing is accepted from Prototype; Samuel 2026-11-06). Work that is one of play's
+proposals it also proposes with the propose tool's `intent` (the intent's UUID): play refuses the proposal before every
+must check passes. Code ships by pull request instead, its commits naming the intent (`Intent: <UUID>`): main runs the
+checks again after the merge (`.github/workflows/intents.yml`, `where: main`, recorded at Proposal; a must failing there
+takes it back to Prototype), and an admin accepts the intent only once every must check with a `run` has passed on
+main. A
 proposal made without `intent` is an intent of its own, with no spec. No tool approves, accepts or rejects an intent;
 an agent archives only its own proposals made over MCP that still wait for a decision (`archive_proposal`: one
 it has replaced or no longer stands by; Samuel 2026-11-04). **Every agent connected over MCP is avenMAIA** (play/SPEC.md
