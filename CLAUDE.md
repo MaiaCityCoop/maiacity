@@ -20,8 +20,14 @@ tests against Postgres, its types, the site's build) and the website's (`website
 reads main's checks for that commit instead of running them again). The push to `production` deploys play (image, DNS,
 server, import, Caddy) and the website (its build into the server's `site/releases/<commit>`, `site/current` switched).
 
-Before you push, run the checks of what you touched: in `play/api` `bunx tsc --noEmit && bun test` (with
-`TEST_DATABASE_URL`), in `play/site` `bun run build`, in `website` `bun run check && bun run build`.
+Before you push, run the checks of what you touched, in **avenBOX** (the cloud environment the agents work in; play/SPEC.md
+§4.12): `bash play/avenbox/gate.sh` runs what CI runs (in `play/api` `bunx tsc --noEmit` and `bun test`, none skipped,
+against the box's Postgres 17; in `play/site` `bun run build`; in `website` `bun run check && bun run build`), `gate.sh
+api|site|website` one part. A cloud session starts with the box up (`.claude/settings.json` runs `play/avenbox/up.sh`:
+Postgres on 127.0.0.1:5432, `TEST_DATABASE_URL` set). A change made for an intent names it in its commits, the line
+`Intent: <the intent's UUID>` at the end of each message: once it is merged, `.github/workflows/intents.yml` runs the
+intent's checks again on main in the same box and records them on the intent as main's, and the intent is accepted on
+those.
 
 **Ship without asking** (Samuel 2026-11-03): once a change is done and its checks pass, mark its pull request ready,
 merge it into `main` (a merge commit), open the pull request `main` → `production` and merge it when its gates are
@@ -87,11 +93,17 @@ recipe and a chip in the asset viewer. Everything Maia City wants made, fixed or
 Specify → Prototype → Proposal → Accepted** (or Archived). An agent adds one (`add_intent`, over MCP only: nothing is
 typed in by hand), reads them (`list_intents`, `get_intent`) and, sent to one at Idea, specifies it (`specify_intent`:
 its goal, its scope, and checks, each one statement that passes or fails, by a `test`, a `measure` or a `look`, must or
-nice) and **stops: an admin approves the spec**. Sent to one in Prototype, it builds it, runs every check and records
-each result with its evidence (`check_intent`, a failure as a failure) until every must check passes: then the intent
-**moves to Proposal by itself**, the one gate with a person in it after the spec, where an admin decides it (nothing is
-accepted from Prototype; Samuel 2026-11-06). Work that is one of play's proposals it also proposes with the propose
-tool's `intent` (the intent's UUID): play refuses the proposal before every must check passes. A
+nice, every test and measure with its `run`: the exact command that decides it in **avenBOX**, from the repository's
+root, as written, play refusing a placeholder in it) and **stops: an admin approves the spec**. Sent to one in
+Prototype, it builds it in avenBOX, runs every check and records each result with its evidence (`bun
+play/avenbox/intent.ts <the intent's UUID> --record`, which calls `check_intent`, a failure as a failure; a look by hand)
+until every must check passes: then the intent **moves to Proposal by itself**, the one gate with a person in it after
+the spec, where an admin decides it (nothing is accepted from Prototype; Samuel 2026-11-06). Work that is one of play's
+proposals it also proposes with the propose tool's `intent` (the intent's UUID): play refuses the proposal before every
+must check passes. Code ships by pull request instead, its commits naming the intent (`Intent: <UUID>`): main runs the
+checks again after the merge (`.github/workflows/intents.yml`, `where: main`, recorded at Proposal; a must failing there
+takes it back to Prototype), and an admin accepts the intent only once every must check with a `run` has passed on
+main. A
 proposal made without `intent` is an intent of its own, with no spec. No tool approves, accepts or rejects an intent;
 an agent archives only its own proposals made over MCP that still wait for a decision (`archive_proposal`: one
 it has replaced or no longer stands by; Samuel 2026-11-04). **Every agent connected over MCP is avenMAIA** (play/SPEC.md
