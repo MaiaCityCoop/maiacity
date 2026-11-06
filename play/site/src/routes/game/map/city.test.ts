@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { buildCity, byRiver, TOWER } from './city';
-import { generateMap, inside } from './map';
+import { generateMap, inside, SEED } from './map';
 
 describe('the city view', () => {
-	const map = generateMap('rio-1234');
+	// the game's one map
+	const map = generateMap(SEED);
 	const city = buildCity(map);
 
 	it('grows the same city from the same map', () => {
-		expect(JSON.stringify(buildCity(generateMap('rio-1234')))).toBe(JSON.stringify(city));
+		expect(JSON.stringify(buildCity(generateMap(SEED)))).toBe(JSON.stringify(city));
 	});
 
 	it('stands one tower at the centre of every plot, with its master dome and domes round it, all on the plot and clear of each other', () => {
