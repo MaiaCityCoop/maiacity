@@ -45,9 +45,15 @@ export type IntentStage = (typeof INTENT_STAGES)[number];
 /** the intents still to be taken further: not yet done (Ship: accepted, on its way to production) */
 export const OPEN_STAGES: IntentStage[] = ["idea", "specify", "prototype", "proposal", "ship"];
 export const CHECK_HOWS = ["test", "measure", "look"] as const;
-/** run: the command that decides it in avenBOX (required for test and measure since 2026-11-06; specs from before have none) */
-export type Check = { id: string; check: string; how: (typeof CHECK_HOWS)[number]; by: string; run?: string; must: boolean };
-export type Spec = { goal: string; scope: string; checks: Check[] };
+/** a spec's two steps, reduce first (what it takes away), then the MVP (Samuel 2026-11-06; play/SPEC.md §4.12) */
+export const STEPS = ["reduce", "mvp"] as const;
+/** run: the command that decides it in avenBOX (required for test and measure since 2026-11-06; specs from before have
+ *  none); step: reduce or mvp (specs from before have none: mvp) */
+export type Check = { id: string; check: string; how: (typeof CHECK_HOWS)[number]; by: string; run?: string; must: boolean; step?: (typeof STEPS)[number] };
+/** nothing_to_reduce: why nothing is to be reduced, where no check is its reduce step */
+export type Spec = { goal: string; scope: string; checks: Check[]; nothing_to_reduce?: string };
+/** whether a spec has its reduce step: a reduce check, or why nothing is to be reduced */
+const reduces = (spec: Spec | null) => !!spec && (spec.checks.some((c) => c.step === "reduce") || !!spec.nothing_to_reduce);
 /** where a check's result was run: in avenBOX by the agent, or on main by .github/workflows/intents.yml after the merge */
 export const WHERES = ["avenBOX", "main"] as const;
 export type Where = (typeof WHERES)[number];
@@ -57,6 +63,7 @@ export const CHECKS_MOST = 12;
 const LINE_MOST = 600;
 const RUN_MOST = 2000;
 export type IntentVerdict = "approve" | "accept" | "reject" | "respecify" | "reopen";
+const NO_REDUCE = "Its reduce step comes first: at least one check with step reduce (what it removes, simplifies or compacts), or nothing_to_reduce saying why nothing is.";
 
 /** only Maia City's admins keep the intents, as they decide them */
 function admin(me: Me | null): Me {
@@ -109,9 +116,9 @@ export function placeholderIn(run: string): string | null {
  * A spec as given, held to its shape: a goal (what is true when it is done), a scope (what changes, named by UUIDs,
  * hashes or paths, and what stays as it is), and 1–12 checks, at least one of them a must, each one statement that
  * passes or fails and how it is checked, a test or a measure with its `run`; each check gets its id (c1, c2 …), which
- * its results name.
+ * its results name, and its step. Its reduce step comes first: a reduce check (every one a must), or nothing_to_reduce.
  */
-export function specOf(body: { goal?: unknown; scope?: unknown; checks?: unknown }): Spec {
+export function specOf(body: { goal?: unknown; scope?: unknown; checks?: unknown; nothing_to_reduce?: unknown }): Spec {
   const goal = textOf(body?.goal, "goal (what is true when it is done, in a sentence)", 1000, true);
   const scope = textOf(body?.scope, "scope (what changes, named by its ids or paths, and what stays as it is)", NOTE_MOST, true);
   const given = body?.checks;
@@ -126,10 +133,16 @@ export function specOf(body: { goal?: unknown; scope?: unknown; checks?: unknown
       throw new IntentError(`Check c${i + 1} (a ${c.how}) needs its run: the command that decides it in avenBOX, from the repository's root, as written (${c.how === "test" ? "it passes when it exits 0" : "it prints the value it measures and exits 0 only when that is in its range"}).`);
     const hole = run && placeholderIn(run);
     if (hole) throw new IntentError(`Check c${i + 1}'s run holds a placeholder (${hole}): a run is a command that runs as written in avenBOX, nothing in it left to fill in.`);
-    return { id: `c${i + 1}`, check, how: c.how, by, ...(run ? { run } : {}), must: c?.must !== false };
+    const step = c?.step ?? "mvp";
+    if (!STEPS.includes(step)) throw new IntentError(`Check c${i + 1}'s step is reduce (what it takes away) or mvp.`);
+    if (step === "reduce" && c?.must === false) throw new IntentError(`Check c${i + 1} is a reduction: every reduction is a must.`);
+    return { id: `c${i + 1}`, check, how: c.how, by, ...(run ? { run } : {}), must: c?.must !== false, step };
   });
   if (!checks.some((c) => c.must)) throw new IntentError("At least one of an intent's checks is a must: what must hold before it is accepted.");
-  return { goal, scope, checks };
+  const none = textOf(body?.nothing_to_reduce, "nothing_to_reduce", LINE_MOST);
+  const spec: Spec = { goal, scope, checks, ...(none ? { nothing_to_reduce: none } : {}) };
+  if (!reduces(spec)) throw new IntentError(NO_REDUCE);
+  return spec;
 }
 
 /**
@@ -228,7 +241,7 @@ export async function addIntent(db: Queryable, me: Me | null, body: { kind?: unk
  * Specify, where an admin approves it before it is built; specified again, its spec is replaced. One already approved
  * is sent back to Specify by an admin first.
  */
-export async function specifyIntent(db: Queryable, me: Me | null, id: string, body: { goal?: unknown; scope?: unknown; checks?: unknown; title?: unknown; kind?: unknown; note?: unknown }) {
+export async function specifyIntent(db: Queryable, me: Me | null, id: string, body: { goal?: unknown; scope?: unknown; checks?: unknown; nothing_to_reduce?: unknown; title?: unknown; kind?: unknown; note?: unknown }) {
   const who = admin(me);
   const intent = await intentRow(db, id);
   if (intent.stage !== "idea" && intent.stage !== "specify")
@@ -355,6 +368,7 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
   switch (verdict) {
     case "approve":
       if (intent.stage !== "specify") refuse(`Only a specified intent's spec is approved; this one is at the ${intent.stage} stage.`);
+      if (!reduces(intent.spec)) refuse(`${NO_REDUCE} It is specified again first.`);
       await db.query(`UPDATE play.intents SET stage = 'prototype', approved_by = $2, approved_at = now(), results = NULL WHERE id = $1`, [intent.id, who.id]);
       break;
     case "respecify":

@@ -77,6 +77,7 @@ suite("avenBOX's runner", () => {
       intent: i.id,
       goal: "The runner runs every check.",
       scope: "play/avenbox/intent.ts",
+      nothing_to_reduce: "A test fixture: nothing to reduce.",
       checks: [
         { check: "true passes", how: "test", by: "it exits 0", run: "true" },
         { check: "false fails", how: "test", by: "it exits 1", run: "false" },

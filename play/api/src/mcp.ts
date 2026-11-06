@@ -746,12 +746,8 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     {
       name: "specify_intent",
       description:
-        "Specify an intent (Idea → Specify): what is wanted, made testable, the gate it is built and judged against. " +
-        "goal: what is true when it is done, in a sentence. scope: what changes, named precisely (assets, stories and sandboxes by their UUIDs, files by their paths), and what stays as it is. " +
-        `checks: 1 to ${CHECKS_MOST}, each ONE statement that passes or fails ("the fronds are 40–60 cm long", never "it looks realistic"), how it is checked, and must or nice: ` +
-        "test (by: the command or test that passes), measure (by: the tool that measures it and the range it must fall in: the asset box's measured size or triangles, a count, a timing), look (by: the reference it is judged against by eye: a reference sheet by its hash, a photo, a named sandbox view). Prefer test and measure: they are deterministic; look is not. " +
-        "Every test and measure check carries its run: the exact command that decides it in avenBOX (the cloud environment the agents prototype in, and main's runner after the merge: Postgres 17 up, TEST_DATABASE_URL set, every part's dependencies installed), from the repository's root, as written: a test passes when its run exits 0; a measure's run prints the value and exits 0 only when it is in its range. Nothing in a run is left to fill in: play refuses a placeholder (`…`, `...`, `<its id>`, TEST_DATABASE_URL given a value) outside quotes. In Prototype `bun play/avenbox/intent.ts <the intent's id> --record` runs them all. " +
-        "Every check must be decidable by someone who reads only the intent and the result. At least one is a must; every must passes before it is proposed. Specified again, the spec is replaced. Then an admin approves it (Specify → Prototype) before anything is built.",
+        `Specify an intent at Idea or Specify: its goal, scope and 1 to ${CHECKS_MOST} checks, at least one a must, replacing any spec before. Its reduce step comes first: a check with step reduce (every one a must), or nothing_to_reduce. ` +
+        "Gives back the intent at Specify, where an admin approves the spec. Refused: no reduce step, a reduce check marked nice, a test or measure without its run, a run holding a placeholder, an intent past Specify. How to write a spec is the Intents skill's (get_intent's brief).",
       inputSchema: {
         type: "object",
         properties: {
@@ -766,7 +762,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
               type: "object",
               properties: {
                 check: { type: "string", description: "one statement that passes or fails" },
-                how: { type: "string", enum: [...CHECK_HOWS] },
+                how: { type: "string", enum: [...CHECK_HOWS], description: "test and measure are deterministic: preferred over look" },
                 by: { type: "string", description: "test: the command that passes; measure: the tool and the range; look: the reference it is judged against" },
                 run: {
                   type: "string",
@@ -774,11 +770,13 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
                     "the command that decides it in avenBOX, run from the repository's root as written, no placeholder in it (TEST_DATABASE_URL is set already): required for test (passes when it exits 0) and measure (prints the value, exits 0 only in its range); for a look, optionally the command that makes what is looked at (screenshots)",
                 },
                 must: { type: "boolean", description: "true (the default): it must pass before the intent is proposed; false: nice to have" },
+                step: { type: "string", enum: ["reduce", "mvp"], description: "reduce: what it removes, simplifies or compacts (a must); mvp (the default): what it does" },
               },
               required: ["check", "how", "by"],
               additionalProperties: false,
             },
           },
+          nothing_to_reduce: { type: "string", description: "where no check is a reduction: why nothing is to be reduced" },
           title: { type: "string", maxLength: TITLE_MOST, description: "a sharper title, if it needs one" },
           kind: { type: "string", enum: [...INTENT_KINDS] },
           note: { type: "string", description: "a new note, if it needs one" },
@@ -786,12 +784,12 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         required: ["intent", "goal", "scope", "checks"],
         additionalProperties: false,
       },
-      run: async ({ intent, goal, scope, checks, title, kind, note }, me) => specifyIntent(db, me, `${intent ?? ""}`, { goal, scope, checks, title, kind, note }),
+      run: async ({ intent, goal, scope, checks, nothing_to_reduce, title, kind, note }, me) => specifyIntent(db, me, `${intent ?? ""}`, { goal, scope, checks, nothing_to_reduce, title, kind, note }),
     },
     {
       name: "check_intent",
       description:
-        "Record the results of an intent's checks while it is prototyped (its spec approved): for each check its id (c1, c2 …), whether it passes, and its evidence: for a test the command and what it printed, for a measure the value measured and by what, for a look what was compared with what; where it ran (avenBOX, the default, or main) and the commit. Run the check before you record it; record a failure as a failure. The latest result of each check stands. `bun play/avenbox/intent.ts <the intent's id> --record` runs every check with a run in avenBOX and records them itself; record by hand only a look. Once every must check passes, the intent moves to Proposal by itself, where an admin decides it (checked again there while no work of it waits, a must that fails takes it back to Prototype); work of play's you propose naming the intent (every propose tool's `intent`). Code goes by pull request into main with `Intent: <the intent's id>` in its commits: name it with `pr` (intent.ts --pr) and record the checks on its head, as Accept merges only the head every must check with a run last passed on; never merge it yourself: an admin's Accept merges it and ships it (the intent in Ship until it is in production). main records the checks again after the merge (where main), a confirmation in any stage.",
+        "Record an intent's checks' results while it is prototyped (its spec approved), or at Proposal while no work of it waits: each check's id, pass and evidence, where it ran and the commit; the latest result of each stands. Gives back the intent: at Proposal once every must check passes, back at Prototype if a must fails there. main's results confirm in any stage once approved, moving nothing. Refused: an unknown check, no evidence, an intent not approved. What to do at each stage is the Intents skill's (get_intent's brief).",
       inputSchema: {
         type: "object",
         properties: {
@@ -812,7 +810,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
               additionalProperties: false,
             },
           },
-          pr: { type: "integer", minimum: 1, description: "the number of the intent's pull request into main (its code), which an admin's Accept merges; named while it is prototyped or at Proposal, a newer one replacing it" },
+          pr: { type: "integer", minimum: 1, description: "the number of the intent's pull request into main (its code), which an admin's Accept merges, only on the head every must check with a run last passed on; named while it is prototyped or at Proposal, a newer one replacing it" },
         },
         required: ["intent"],
         additionalProperties: false,

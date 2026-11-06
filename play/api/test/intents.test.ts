@@ -85,6 +85,7 @@ suite("intents", () => {
   /** an intent added, specified with three checks (two musts, one nice) and, where asked, approved */
   const SPEC = {
     goal: "A shade fern stands in the north beds.",
+    nothing_to_reduce: "A test fixture: nothing to reduce.",
     scope: "A new plant asset (group plants). Nothing else changes.",
     checks: [
       { check: "The recipe builds in the asset box", how: "test", by: "render.mjs builds it", run: "cd play/site && bun scripts/render.mjs --group plants --label 'Shade fern'" },
@@ -335,26 +336,79 @@ suite("intents", () => {
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.stage).toBe("accepted");
   });
 
-  test("the MCP teaches it: every check runs in avenBOX, intent.ts records them, main records them again", async () => {
+  test("specify_intent and check_intent say only what they take, give back and refuse; the Intents skill teaches the rest", async () => {
     const tools = (await rpc("tools/list")).tools as { name: string; description: string; inputSchema: any }[];
     const of = (name: string) => tools.find((t) => t.name === name)!;
     const specify = of("specify_intent");
-    for (const says of ["avenBOX", "run", "play/avenbox/intent.ts", "placeholder"]) expect(specify.description).toContain(says);
-    expect(specify.inputSchema.properties.checks.items.properties.run.description).toContain("avenBOX");
     const check = of("check_intent");
+    // say only what they take: each at most 600 characters, pointing to the skill for the rest
+    for (const t of [specify, check]) {
+      expect(t.description.length).toBeLessThanOrEqual(600);
+      for (const says of ["Gives back", "Refused", "Intents skill"]) expect(t.description).toContain(says);
+    }
+    for (const says of ["reduce", "nothing_to_reduce", "placeholder", "run"]) expect(specify.description).toContain(says);
+    expect(specify.inputSchema.properties.checks.items.properties.run.description).toContain("avenBOX");
+    expect(specify.inputSchema.properties.checks.items.properties.step.enum).toEqual(["reduce", "mvp"]);
+    expect(specify.inputSchema.properties.nothing_to_reduce.type).toBe("string");
     expect(check.inputSchema.properties.results.items.properties.where.enum).toEqual(["avenBOX", "main"]);
-    for (const says of ["play/avenbox/intent.ts", "Intent: ", "main"]) expect(check.description).toContain(says);
-    for (const says of ["--pr", "never merge", "Accept merges"]) expect(check.description).toContain(says);
     expect(check.inputSchema.properties.pr.type).toBe("integer");
+    expect(check.inputSchema.properties.pr.description).toContain("Accept merges");
     expect(check.inputSchema.required).toEqual(["intent"]);
-    // what to do at each stage is the Intents skill's (play/SPEC.md §4.14), list_intents pointing to it
+    // nothing they taught is lost: what to do at each stage is the Intents skill's (play/SPEC.md §4.14)
     for (const says of ["get_intent", "brief", "get_skill"]) expect(of("list_intents").description).toContain(says);
     const skill = (await tool("get_skill", { skill: SKILL.intents })).json;
     const taught = [skill.system, ...Object.values(skill.stages)].join("\n");
-    for (const says of ["avenBOX", "play/avenbox/intent.ts", "Intent: ", ".github/workflows/intents.yml", "never merge", "Ship", "--pr"]) expect(taught).toContain(says);
+    for (const says of [
+      "avenBOX", "play/avenbox/intent.ts", "--record", "--pr", "Intent: ", ".github/workflows/intents.yml", "never merge", "Ship",
+      "ONE statement that passes or fails", "decidable by someone who reads only the intent and the result", "nothing in it left to fill in",
+      "exits 0 only in its range", "a failure as a failure", "record a look by hand", "main runs them again", "an admin approves the spec",
+    ])
+      expect(taught).toContain(says);
     expect(of("list_intents").inputSchema.properties.stage.enum).toEqual(["idea", "specify", "prototype", "proposal", "ship", "accepted", "archived", "all"]);
     const { instructions } = await rpc("initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1" } });
     for (const says of ["avenBOX", "play/avenbox/intent.ts", "Intent: ", "never merge", "Accept merges it", "Ship"]) expect(instructions).toContain(says);
+  });
+
+  const { nothing_to_reduce: _, ...MVP } = SPEC;
+  const REDUCE = { check: "intents.ts is smaller", how: "measure", by: "wc -c, at most 30,000", run: "[ $(wc -c < play/api/src/intents.ts) -le 30000 ]", step: "reduce" };
+
+  test("reduce first: a spec without its reduce step is refused; with a reduce check or nothing_to_reduce it is taken, each check its step", async () => {
+    const i = await tool("add_intent", { title: "Reduce first" });
+    expect((await tool("specify_intent", { intent: i.id, ...MVP })).error).toContain("Its reduce step comes first");
+    expect((await tool("specify_intent", { intent: i.id, ...MVP, nothing_to_reduce: " " })).error).toContain("Its reduce step comes first");
+    expect((await tool("get_intent", { intent: i.id })).stage).toBe("idea");
+    expect((await tool("specify_intent", { intent: i.id, ...MVP, checks: [{ ...REDUCE, step: "less" }, ...MVP.checks] })).error).toContain("step is reduce");
+    const reduced = await tool("specify_intent", { intent: i.id, ...MVP, checks: [REDUCE, ...MVP.checks] });
+    expect(reduced.stage).toBe("specify");
+    expect(reduced.spec.checks.map((c: any) => [c.id, c.step, c.must])).toEqual([["c1", "reduce", true], ["c2", "mvp", true], ["c3", "mvp", true], ["c4", "mvp", false]]);
+    expect(reduced.spec.nothing_to_reduce).toBeUndefined();
+    const none = await tool("specify_intent", { intent: i.id, ...MVP, nothing_to_reduce: "A new asset: nothing of play's is in its way." });
+    expect(none.spec).toMatchObject({ nothing_to_reduce: "A new asset: nothing of play's is in its way." });
+    expect(none.spec.checks.every((c: any) => c.step === "mvp")).toBe(true);
+  });
+
+  test("a reduction is a must: a reduce check marked nice is refused", async () => {
+    const i = await tool("add_intent", { title: "A nice reduction" });
+    const nice = await tool("specify_intent", { intent: i.id, ...MVP, checks: [{ ...REDUCE, must: false }, ...MVP.checks] });
+    expect(nice.error).toContain("Check c1 is a reduction: every reduction is a must");
+    expect((await tool("specify_intent", { intent: i.id, ...MVP, checks: [{ ...REDUCE, must: true }, ...MVP.checks] })).spec.checks[0].must).toBe(true);
+  });
+
+  test("approve refuses a spec without its reduce step (one from before); one already in Prototype still moves on its checks", async () => {
+    const old = { goal: "x", scope: "y", checks: [{ id: "c1", check: "It builds", how: "test", by: "true", run: "true", must: true }] };
+    const i = await tool("add_intent", { title: "Specified before" });
+    await db.query(`UPDATE play.intents SET stage = 'specify', spec = ($2::text)::jsonb WHERE id = $1`, [i.id, JSON.stringify(old)]);
+    const refused = await call("ada", "POST", `/api/intents/${i.id}/approve`);
+    expect(refused.status).toBe(409);
+    expect(JSON.stringify(refused.data)).toContain("Its reduce step comes first");
+    expect((await tool("get_intent", { intent: i.id })).stage).toBe("specify");
+    // specified again with its reduce step, it is approved
+    await tool("specify_intent", { intent: i.id, ...MVP, checks: [REDUCE, ...MVP.checks] });
+    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("prototype");
+    // in Prototype already with a spec from before: not held to the new step
+    const p = await tool("add_intent", { title: "Prototyped before" });
+    await db.query(`UPDATE play.intents SET stage = 'prototype', spec = ($2::text)::jsonb, approved_by = $3, approved_at = now() WHERE id = $1`, [p.id, JSON.stringify(old), who.ada.id]);
+    expect((await tool("check_intent", { intent: p.id, results: [{ check: "c1", pass: true, evidence: "true: exit 0" }] })).stage).toBe("proposal");
   });
 
   test("at Proposal: checked again, a failing must takes it back; it is rejected or sent back to Specify there; a waiting proposal decides it", async () => {

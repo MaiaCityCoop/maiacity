@@ -418,10 +418,20 @@ and its range, read with a named tool) or a **look** (a comparison with a named 
 explicit), and each **must** (it holds the intent back from Proposal) or **nice** (it does not). The checks are ids
 `c1…cn`.
 
+**Reduce first, then the MVP** (Samuel 2026-11-06, Musk's algorithm made ours). A spec is written in two steps, in that
+order. **Reduce**: what the intent removes, simplifies, consolidates or compacts where it works before it adds anything
+(legacy glue gone, scattered concepts merged into one interface, fewer dependencies, less code, fewer indirections), so
+play's architecture gets better with every intent instead of only bigger; each reduction is a check of step `reduce`,
+always a must, so Proposal's gate holds it as it holds the MVP, or, where truly nothing is to be reduced, the spec's
+`nothing_to_reduce` says why, which the admin accepts with the spec. **MVP**: the goal, the scope and the checks of step
+`mvp` (the default), what is done at its smallest. `specify_intent` refuses a spec without its reduce step, and an
+admin's approval refuses one at Specify (a spec from before the step): it is specified again first. Intents already in
+Prototype or later are not held to it. The board shows a spec's Reduce above its MVP.
+
 ```sql
 intents (id UUID, coop_id, kind /*idea|fix|improve: shown as Make, Fix, Improve*/, title /*only shown, 1–200*/, note,
          stage /*idea|specify|prototype|proposal|ship|accepted|archived*/, author, via /*web|mcp*/, created,
-         spec jsonb /*{ goal, scope, checks: [{ id, check, how: test|measure|look, by, run, must }] }*/, specified_by, specified_at,
+         spec jsonb /*{ goal, scope, checks: [{ id, check, how: test|measure|look, by, run, must, step: reduce|mvp }], nothing_to_reduce }*/, specified_by, specified_at,
          approved_by, approved_at /*the spec approved: Prototype and on need it, unless it came with its work*/,
          results jsonb /*each check's last result in Prototype: { "c1": { pass, evidence, by, at, where: avenBOX|main, commit } }*/, decided_by, decided_at,
          -- its work (0029-one-record): none, or one kind of work and the refs of that kind (intents_work_names_what)

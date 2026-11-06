@@ -64,8 +64,9 @@
 	type ShipStep = { key: string; name: string; state: 'queued' | 'running' | 'green' | 'red' | 'skipped'; started?: string; finished?: string; link?: string; note?: string };
 	type Ship = { pr: number; head: string; merge: string; by: string; round: number; started: string; steps: ShipStep[]; report?: { step: string; why: string; link?: string; log: string; at: string } | null; ended?: string; outcome?: 'green' | 'red'; again?: 'main' | 'release' };
 	// run: the command that decides a check in avenBOX (test and measure checks since 2026-11-06; play/SPEC.md §4.12)
-	type Check = { id: string; check: string; how: 'test' | 'measure' | 'look'; by: string; run?: string; must: boolean };
-	type Spec = { goal: string; scope: string; checks: Check[] };
+	// step: a spec's two steps, reduce first, then the MVP (specs from before have none: mvp; play/SPEC.md §4.12)
+	type Check = { id: string; check: string; how: 'test' | 'measure' | 'look'; by: string; run?: string; must: boolean; step?: 'reduce' | 'mvp' };
+	type Spec = { goal: string; scope: string; checks: Check[]; nothing_to_reduce?: string };
 	// where: in avenBOX (the agent's), or on main after the merge (.github/workflows/intents.yml), on which commit
 	type Results = Record<string, { pass: boolean; evidence: string; by: string | null; at: string; where?: 'avenBOX' | 'main'; commit?: string }>;
 	type Intent = { id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null; spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null; decided_at: string | null; decided_by: string | null; came_with: string | null; work: Work | null; pull_request: number | null; ship: Ship | null };
@@ -529,18 +530,12 @@
 			{#if i.note}<div class="md">{@html md(i.note)}</div>{/if}
 			<section class="spec" class:none={!i.spec}>
 				{#if i.spec}
-					<div>
-						<h3>Goal</h3>
-						<div class="md">{@html md(i.spec.goal)}</div>
-					</div>
-					<div>
-						<h3>Scope</h3>
-						<div class="md">{@html md(i.spec.scope)}</div>
-					</div>
-					<div class="checks-wrap">
-						<h3>Checks <span class="muted small">{i.stage === 'specify' ? 'what will be checked, once approved' : 'once every must check passes, it moves to Proposal by itself'}</span></h3>
+					{@const reduce = i.spec.checks.filter((c) => c.step === 'reduce')}
+					{@const mvp = i.spec.checks.filter((c) => c.step !== 'reduce')}
+					{@const hint = i.stage === 'specify' ? 'what will be checked, once approved' : 'once every must check passes, it moves to Proposal by itself'}
+					{#snippet checkList(list: Check[])}
 						<ol class="checks">
-							{#each i.spec.checks as c (c.id)}
+							{#each list as c (c.id)}
 								{@const r = i.results?.[c.id]}
 								<li class:pass={r?.pass === true} class:fail={r?.pass === false}>
 									<span class="mark" title={r ? (r.pass ? 'Passed' : 'Failed') : 'No result yet'}>{r ? (r.pass ? '✓' : '✗') : '·'}</span>
@@ -553,6 +548,26 @@
 								</li>
 							{/each}
 						</ol>
+					{/snippet}
+					<!-- its two steps (Samuel 2026-11-06): what it takes away first, then the MVP -->
+					<div class="step reduce">
+						<h3>Reduce <span class="muted small">what it removes, simplifies or compacts first</span></h3>
+						{#if reduce.length}{@render checkList(reduce)}
+						{:else if i.spec.nothing_to_reduce}<p class="small"><span class="muted">Nothing to reduce:</span> {i.spec.nothing_to_reduce}</p>
+						{:else}<p class="muted small">Specified before the reduce step: none named.</p>{/if}
+					</div>
+					<h3 class="step">MVP</h3>
+					<div>
+						<h3>Goal</h3>
+						<div class="md">{@html md(i.spec.goal)}</div>
+					</div>
+					<div>
+						<h3>Scope</h3>
+						<div class="md">{@html md(i.spec.scope)}</div>
+					</div>
+					<div class="checks-wrap">
+						<h3>Checks <span class="muted small">{hint}</span></h3>
+						{@render checkList(mvp)}
 					</div>
 				{:else}
 					{#if i.stage === 'idea' || i.stage === 'specify'}
@@ -953,7 +968,9 @@
 	.spec { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0.8rem; padding: 0.8rem 0.9rem; border-radius: 12px; background: color-mix(in srgb, var(--sage, #a8b88a) 16%, var(--paper, #faf8f2)); border: 1px solid color-mix(in srgb, var(--sage, #a8b88a) 45%, transparent); }
 	/* its checks, the whole width of the spec: each its mark (✓ passed, ✗ failed, · no result yet), its statement, how and
 	   by what it is checked, and its last result's evidence */
-	.checks-wrap { grid-column: 1 / -1; }
+	.checks-wrap, .step { grid-column: 1 / -1; }
+	h3.step { margin: 0.2rem 0 -0.4rem; padding-top: 0.6rem; border-top: 1px solid color-mix(in srgb, var(--sage, #a8b88a) 45%, transparent); }
+	.step h3 .small { font-weight: 400; margin-left: 0.3rem; }
 	.checks-wrap h3 .small { font-weight: 400; margin-left: 0.3rem; }
 	.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
 	.checks li { display: flex; gap: 0.55rem; align-items: flex-start; padding: 0.45rem 0.6rem; border-radius: 10px; background: var(--card, #fff); border: 1px solid var(--line, #dcd5c4); }
