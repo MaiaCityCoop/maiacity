@@ -14,20 +14,24 @@
 // Every agent connected here is avenMAIA (play/SPEC.md §4.13, Samuel 2026-11-06), whatever its client or token: it keeps
 // Maia City's artifacts (./artifacts.ts), every link its operator pastes (origin 'human') and every artifact it finds in
 // its own research (origin 'agent'), each with its title, description, summary and authors.
+// What it is taught is not written here: the system prompt (initialize's instructions), an intent's brief and the
+// prompts are the skills', kept once in play's Postgres and changed only by proposal (./skills.ts, play/SPEC.md §4.14,
+// Samuel 2026-11-06); a tool's description says only what it takes, gives back and refuses.
 import type { BlobStore } from "./blobs";
 import type { Db } from "./pg";
 import type { Me } from "./access";
 import { assetOf, listAssets, NotFound } from "./assets";
 import { archiveOwn, propose, ProposalError, reviewOf } from "./proposals";
 import { WORK_KINDS, WorkError } from "./work";
-import { addIntent, CHECK_HOWS, CHECKS_MOST, intentOf, IntentError, intentReady, INTENT_KINDS, INTENT_STAGES, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES } from "./intents";
+import { addIntent, CHECK_HOWS, CHECKS_MOST, getIntent, intentOf, IntentError, intentReady, INTENT_KINDS, INTENT_STAGES, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES } from "./intents";
+import { editSkill, instructionsOf, listSkills, promptOf, promptsOf, proposeSkill, skillHistory, skillOf, SkillError } from "./skills";
 import { adminByToken } from "./tokens";
 import { admin, AUDIO_TYPES, editStory, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, proposeStory, putAudioBase64, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAtStep, storyHistory, storyOf, StoryError, VIDEO_TYPES } from "./stories";
 import { AssetDocError, assetAtStep, assetHistory, editAsset } from "./assetdocs";
 import { listSandboxes, proposeSandbox, sandboxOf, SandboxError } from "./sandboxes";
 import { editFactory, factoryHistory, factoryOf, FactoryError, listFactories, proposeFactory } from "./factories";
 import { gameConfigHistory, gameConfigOf, editGameConfig, GameConfigError, listGameConfigs, proposeGameConfig } from "./gameconfigs";
-import { addArtifact, AUTHOR_KINDS, authorOf, DESCRIPTION_MOST, listAuthors, listArtifacts, ORIGINS, ARTIFACT_KINDS, ARTIFACTS_RULE, ArtifactError, artifactOf, SUMMARY_WORDS, TITLE_MOST as ARTIFACT_TITLE_MOST, updateArtifact } from "./artifacts";
+import { addArtifact, AUTHOR_KINDS, authorOf, DESCRIPTION_MOST, listAuthors, listArtifacts, ORIGINS, ARTIFACT_KINDS, ArtifactError, artifactOf, SUMMARY_WORDS, TITLE_MOST as ARTIFACT_TITLE_MOST, updateArtifact } from "./artifacts";
 
 const PROTOCOL = "2025-06-18";
 const HASH = /^[0-9a-f]{64}$/;
@@ -75,6 +79,14 @@ const LEVELS_FORMAT =
   "The levelling config is { schema: 'levels/1', label, note, villager: { euros, hearts } (what each new villager brings), minds: { heartsPerMind, step, heartsPerEuro } (a mind costs heartsPerMind + step × (level − 1) hearts, or that over heartsPerEuro in euros), " +
   "levels: [{ id, villagers (the count that reaches it: Fibonacci 1, 2, 3, 5, 8 …), phase, investor (the investor's ticket as a multiple of the euros the level's new villagers bring), unlocks: [{ label, cost (euros), kind? }], note? }] }. " +
   "The Game editor works out the rest: each level's new villagers, their euros and hearts and the minds they get, the investor's euros and minds and share, the minds minted, and the treasury in euros (raised and left after building), hearts and minds.";
+
+const SKILL_FORMAT =
+  "A skill is { schema: 'skill/1', label, group (both only shown: a skill is named by its id), note, system (Markdown: its part of the system prompt every agent connected here gets, initialize's instructions), " +
+  "stages? (the Intents skill's: { idea, specify, prototype, proposal, ship, accepted, archived }, each Markdown: what an agent sent to an intent at that stage does, {intent} and {title} filled with the intent's id and title where it is served as the intent's brief) }.";
+
+const SKILL_EDITS =
+  "Edits, applied in order to the document: { op: 'set', path, value } (a field replaced: a text changed to the value), { op: 'text', path, index, delete?, insert? } (a range of a text), { op: 'delete', path }. " +
+  "A path is a list of field names: ['system'], ['stages', 'prototype'], ['note'].";
 
 const FACTORY_EDITS =
   "Edits, applied in order to the document: { op: 'set', path, value } (a field, or a list's item, replaced; a new field too), { op: 'insert', path, value } (into a list, before the index the path ends with; one past the end adds it last), { op: 'delete', path }, { op: 'move', path, to }, { op: 'text', path, index, delete?, insert? } (a range of the note). " +
@@ -472,6 +484,76 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
       },
       run: async ({ config, note, branch, edits, whole, intent }, me) => proposeGameConfig(db, me, { config, note, edits, whole, intent, ...(branch != null ? { branch: Number(branch) } : {}) }),
     },
+    // ---- skills: what play teaches its agents, each a Loro document, changed only by proposal (./skills.ts, play/SPEC.md §4.14)
+    {
+      name: "list_skills",
+      description: "The skills: what play teaches its agents, kept once in play (avenMAIA, who every agent connected here is; the Intents skill, the intents' lifecycle and what to do at each stage). Each its id (a UUID), label and group (only shown), note, the stages it speaks to, its newest version's number and how many versions.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      run: async (_args, me) => listSkills(db, me),
+    },
+    {
+      name: "get_skill",
+      description: `One skill whole (its \`json\`), at its newest version, an accepted version, a step of its history (skill_history lists them) or as an intent's work would make it; with its versions. ${SKILL_FORMAT}`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          skill: { type: "string", description: "its id (list_skills)" },
+          version: { type: "integer", minimum: 1, description: "an accepted version's number; its newest if left out" },
+          step: { type: "integer", minimum: 1, description: "a step of its history (skill_history's `seq`), instead of a version" },
+          intent: { type: "string", description: "an intent's id: the skill as its work would make it" },
+        },
+        required: ["skill"],
+        additionalProperties: false,
+      },
+      run: async ({ skill, version, step, intent }, me) => skillOf(db, me, `${skill ?? ""}`, { version, step, intent }),
+    },
+    {
+      name: "skill_history",
+      description: "Every step of a skill's history, oldest first: each with its seq, who made it (and whether over MCP), its message, its time and the version it was named, if one; its versions and its drafts. With `draft`, one draft's own steps.",
+      inputSchema: {
+        type: "object",
+        properties: { skill: { type: "string", description: "its id" }, draft: { type: "integer", minimum: 1, description: "a draft's number, for its own steps" } },
+        required: ["skill"],
+        additionalProperties: false,
+      },
+      run: async ({ skill, draft }, me) => skillHistory(db, me, `${skill ?? ""}`, draft != null ? { branch: Number(draft) } : {}),
+    },
+    {
+      name: "skill_edit",
+      description:
+        `One step of a draft change to a skill, kept with its message: its system part, a stage's text, its note. Then propose the draft with propose_skill_version and its \`branch\`. Without \`branch\` it starts a new draft from the newest version and gives back its number. Every step is checked whole. ${SKILL_EDITS} Or give \`whole\`, the draft's whole new skill.`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          skill: { type: "string", description: "its id" },
+          message: { type: "string", description: "what this step does, as its history will say it" },
+          branch: { type: "integer", minimum: 1, description: "the draft to add the step to; a new draft from the newest version if left out" },
+          edits: { type: "array", items: { type: "object" }, description: "edits applied in order to the draft" },
+          whole: { type: "object", description: "the draft's whole new skill (instead of edits)" },
+        },
+        required: ["skill", "message"],
+        additionalProperties: false,
+      },
+      run: async ({ skill, message, branch, edits, whole }, me) => editSkill(db, me, { skill, message, edits, whole, ...(branch != null ? { branch: Number(branch) } : {}) }),
+    },
+    {
+      name: "propose_skill_version",
+      description:
+        `Propose a new version of a skill: a draft made step by step with skill_edit (its \`branch\`), or edits applied at once to its newest version, or the whole skill. ${SKILL_EDITS} It puts an intent at Proposal with it (via MCP), for Maia City's admins, who see what changed field by field on the intents' board, then accept or archive it; accepted, every agent is taught it from its next request on.`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          skill: { type: "string", description: "its id" },
+          note: { type: "string", description: "what changes and why, for the admins deciding" },
+          branch: { type: "integer", minimum: 1, description: "a draft to propose (skill_edit gives it)" },
+          edits: { type: "array", items: { type: "object" }, description: "edits applied in order (to the draft, if one is named)" },
+          whole: { type: "object", description: "the whole new skill (instead of edits)" },
+        },
+        required: ["skill", "note"],
+        additionalProperties: false,
+      },
+      run: async ({ skill, note, branch, edits, whole, intent }, me) => proposeSkill(db, me, { skill, note, edits, whole, intent, ...(branch != null ? { branch: Number(branch) } : {}) }),
+    },
     // ---- stories: a film as one timeline of tracks and clips (./stories.ts, play/SPEC.md §12)
     {
       name: "list_stories",
@@ -622,7 +704,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
       name: "list_intents",
       description:
         "Maia City's intents, the latest first: everything on the board, each something wanted made, fixed or improved, going Idea → Specify → Prototype → Proposal → Accepted (or Archived), code through Ship between Proposal and Accepted. Each has its id (a UUID), kind (idea, fix, improve), title, note, stage, who wrote it, its spec (goal, scope, checks) once specified, its checks' results while prototyped, and its work once proposed (`work`: what it changes, the version it would be, who proposed it and how, its status). One record: an intent at Proposal is the proposal, its work waiting for the decision. " +
-        "Sent to work on an intent: read it with get_intent. At Idea, specify it (specify_intent: every test and measure check with its `run`, a command that runs as written in avenBOX) and stop: an admin approves the spec. At Prototype (approved), build it in avenBOX (the cloud environment the agents prototype in: Postgres up, TEST_DATABASE_URL set, play/avenbox/up.sh), run every check and record it with `bun play/avenbox/intent.ts <the intent's id> --record` (check_intent by hand only for a look): once every must check passes, the intent moves to Proposal by itself, where an admin decides it. Work of play's (an asset or story version, a sandbox change, a factory or a config) you propose naming the intent (every propose tool's `intent`): play refuses it before every must check passes. Other work (code) goes by pull request into main, the trailer `Intent: <the intent's id>` in its commits: open it, record the checks on its head with `bun play/avenbox/intent.ts <the intent's id> --record --pr <its number>` (check_intent's `pr` names it) and stop: never merge it, into main or production. An admin's Accept at Proposal merges it at once and ships it: the intent is in Ship while play follows it to production (main's checks, the release, the deploy's backup, image, server and website), Accepted once all are green, back at Proposal with the report if one is red (fix it in a new pull request of it, named with pr; Accept ships it again). After the merge main runs the checks again (.github/workflows/intents.yml) and records them as main's, a confirmation.",
+        "Sent to work on an intent: read it with get_intent, whose `brief` says what to do at the stage it is at (the Intents skill's part for that stage: get_skill).",
       inputSchema: {
         type: "object",
         properties: {
@@ -635,7 +717,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     },
     {
       name: "get_intent",
-      description: "One intent, whole: its kind, title, note, stage, who wrote, specified and approved it, its spec (goal, scope, checks: each its id, statement, how it is checked, must or nice), its checks' latest results with their evidence, and its work (`work`) with its review (`review`: what it changes, as the board shows it before it is decided). An old proposal's id finds the intent it is now.",
+      description: "One intent, whole: its kind, title, note, stage, who wrote, specified and approved it, its spec (goal, scope, checks: each its id, statement, how it is checked, must or nice), its checks' latest results with their evidence, its `brief` (what to do now, at the stage it is at: the Intents skill's part for that stage, filled for it; null where there is nothing to do), and its work (`work`) with its review (`review`: what it changes, as the board shows it before it is decided). An old proposal's id finds the intent it is now.",
       inputSchema: {
         type: "object",
         properties: { intent: { type: "string", description: "the intent's id (a UUID: list_intents gives it)" } },
@@ -784,7 +866,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     {
       name: "add_artifact",
       description:
-        "Keep an artifact in Maia City's Artifacts: a link from the net (a web page, an article, a paper, a video, a social post, a book, a podcast, code) with its three texts and its authors. You are avenMAIA: every artifact is kept as avenMAIA's, for the admin whose token connected you (its operator). " +
+        "Keep an artifact in Maia City's Artifacts: a link from the net (a web page, an article, a paper, a video, a social post, a book, a podcast, code) with its three texts and its authors. Every artifact is kept as avenMAIA's (who you are: initialize's instructions), for the admin whose token connected you (its operator). " +
         "Every link your operator pastes to you, add with origin 'human' (shown \"Added by\" them); every artifact you find and use in your own research (a plant's numbers, a claim in a story, a technique), add with origin 'agent' (shown \"Sourced by avenMAIA\"). " +
         `Read the artifact itself first, then write: title, very compact (what it is about in plain words: one line, at most ${ARTIFACT_TITLE_MOST} characters, without the site's or channel's name, which is an author, no clickbait); ` +
         `description, the mini summary (1–2 sentences, one line, at most ${DESCRIPTION_MOST} characters, no Markdown: what it is and its main point); ` +
@@ -911,17 +993,25 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     if (msg.id === undefined) return new Response(null, { status: 202 });
     switch (msg.method) {
       case "initialize":
+        // the system prompt is the system skills' parts as accepted (./skills.ts), read on each request: an accepted
+        // version teaches the next agent that connects, with no deploy
         return reply(msg.id, {
           protocolVersion: PROTOCOL,
-          capabilities: { tools: {} },
+          capabilities: { tools: {}, prompts: {} },
           serverInfo: { name: "play.maia.city", title: "play.maia.city, for avenMAIA", version: "1" },
-          instructions:
-            "You are avenMAIA, Maia City's agent: on play every agent connected over MCP is avenMAIA, whatever its client or token, working for the admin whose token connected it (your operator). " +
-            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files, and every step of an asset's history (asset_history, get_asset at a step); propose new versions or assets as readable source, or draft a version step by step with asset_edit and propose the draft. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame; a story may link a version of another into its timeline (a track of kind story, its clip naming that story's id and the version it plays: the trailer as its own story, linked into every film). Read the sandboxes (get_sandbox: what each draws, at which version, and how it lays it out) and propose changes of them (propose_sandbox_change). Read the factories (get_factory: a production line and its bill of process, its simulation sized from it) and propose new versions of them, drafted step by step with factory_edit (propose_factory_version). Read the game's configs (get_game_config: first the levelling, how a village grows level by level) and propose new versions of them (game_config_edit, propose_game_config_version). Everything on the board is an intent, Idea → Specify → Prototype → Proposal → (Ship →) Accepted (list_intents, get_intent): add one (add_intent: the only way in), specify it (specify_intent: a goal, a scope and checks, each a test, a measure or a look, must or nice, every test and measure with its run, a command that runs as written in avenBOX), and once an admin has approved the spec, build it in avenBOX (the cloud environment the agents prototype in, Postgres up), run and record every check with bun play/avenbox/intent.ts <the intent's id> --record (check_intent): once every must check passes the intent moves to Proposal by itself, where an admin decides it, and work of play's is proposed naming the intent (every propose tool's intent; to propose is to put the intent at Proposal with its work): play takes it only when every must check passes; code goes by pull request into main with Intent: <the intent's id> in its commits: open it, name it (check_intent's pr) with the checks recorded on its head, and never merge it, into main or production: an admin's Accept merges it at once and ships it (Ship: main's checks, the release and the deploy followed live; Accepted once in production, back at Proposal with the report if one is red), and main runs the same checks again after the merge as a confirmation. Intents at Proposal go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's intents' board, then accept (its work applied) or archive it; nothing here approves a spec, accepts or marks an intent done, an agent archives only its own intents at Proposal put there over MCP (archive_intent), and no proposed code runs on play's server. " +
-            ARTIFACTS_RULE,
+          instructions: await instructionsOf(db),
         });
       case "ping":
         return reply(msg.id, {});
+      case "prompts/list":
+        return reply(msg.id, { prompts: await promptsOf(db) });
+      case "prompts/get":
+        try {
+          return reply(msg.id, await promptOf(db, msg.params?.name, msg.params?.arguments, (q, id) => getIntent(q, id)));
+        } catch (e) {
+          if (e instanceof SkillError || e instanceof IntentError) return fail(msg.id, -32602, (e as Error).message);
+          throw e;
+        }
       case "tools/list":
         return reply(msg.id, { tools: tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })) });
       case "tools/call": {
@@ -932,7 +1022,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           return reply(msg.id, { content: [{ type: "text", text: JSON.stringify(out, null, 2) }], structuredContent: Array.isArray(out) ? { items: out } : out });
         } catch (e) {
           // what went wrong, as the tool's own answer the agent reads (a refused recipe, a moved head, no such asset)
-          if (e instanceof ProposalError || e instanceof WorkError || e instanceof IntentError || e instanceof NotFound || e instanceof StoryError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError || e instanceof AssetDocError || e instanceof ArtifactError || (e as Error)?.name === "Denied" || (e as any)?.status)
+          if (e instanceof ProposalError || e instanceof WorkError || e instanceof IntentError || e instanceof NotFound || e instanceof StoryError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError || e instanceof SkillError || e instanceof AssetDocError || e instanceof ArtifactError || (e as Error)?.name === "Denied" || (e as any)?.status)
             return reply(msg.id, { content: [{ type: "text", text: (e as Error).message }], isError: true });
           console.error(e);
           return reply(msg.id, { content: [{ type: "text", text: "Something went wrong on play's side." }], isError: true });

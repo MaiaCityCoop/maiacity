@@ -4,9 +4,10 @@
 // admin accepts or archives it. Accepting an asset's checks the head is still the one it was made from, in one
 // transaction, so of two intents' work on one head only the first goes in and the other is archived: rebuilt and
 // proposed again on the new head. The rest is decided by its own kind (./stories.ts, ./sandboxes.ts, ./factories.ts,
-// ./gameconfigs.ts), the intent settled in the same transaction.
+// ./gameconfigs.ts, ./skills.ts), the intent settled in the same transaction.
 import { decideFactory, factoryReview } from "./factories";
 import { gameConfigReview, decideGameConfig } from "./gameconfigs";
+import { skillReview, decideSkill } from "./skills";
 import type { BlobStore } from "./blobs";
 import { HASH, hashText } from "./hash";
 import type { Db, Queryable } from "./pg";
@@ -349,6 +350,8 @@ export async function reviewOf(db: Queryable, id: string, shown: any) {
   if (p.kind === "factory_version") return { ...p, ...(await factoryReview(db, p)) };
   // a game config's: the same, field by field
   if (p.kind === "game_config_version") return { ...p, ...(await gameConfigReview(db, p)) };
+  // a skill's: the same, field by field (its system part, each stage's text)
+  if (p.kind === "skill_version") return { ...p, ...(await skillReview(db, p)) };
   const { rows: v } = await db.query<any>(
     `SELECT v.recipe_hash, v.source_hash, v.card, v.default_variant, f.size FROM play.asset_versions v
        LEFT JOIN play.files f ON f.hash = v.recipe_hash WHERE v.id = $1`, [p.version],
@@ -442,6 +445,7 @@ async function decideAt(tx: Queryable, store: BlobStore, me: Me, p: any, verdict
     if (p.kind === "sandbox_change") return decideSandbox(tx, me, p, verdict);
     if (p.kind === "factory_version") return decideFactory(tx, me, p, verdict);
     if (p.kind === "game_config_version") return decideGameConfig(tx, me, p, verdict);
+    if (p.kind === "skill_version") return decideSkill(tx, me, p, verdict);
     must(me, "decide", "asset_version");
     if (verdict === "archive") {
       await settle(tx, id, "archived", me.id);

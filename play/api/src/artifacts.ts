@@ -44,14 +44,8 @@ export const TEXT_MOST = 2_000_000;
 const SUMMARY_CHARS_MOST = 20_000;
 const URL_MOST = 2000;
 
-/** The rule every agent is taught, in initialize's instructions and add_artifact's description (./mcp.ts). */
-export const ARTIFACTS_RULE =
-  "Artifacts: Maia City's library of links (list_artifacts, get_artifact, add_artifact, update_artifact; list_authors, get_author). " +
-  "Every link your operator pastes to you, add with origin 'human' (shown \"Added by\" them); every artifact you find and use in your own research (a plant's numbers, a claim in a story, a technique), add with origin 'agent' (shown \"Sourced by avenMAIA\"). " +
-  `Read the artifact itself and write three texts: a title, very compact (one line, at most ${TITLE_MOST} characters, without the site's or channel's name, which is an author); ` +
-  `a description, the mini summary (1–2 sentences, one line, at most ${DESCRIPTION_MOST} characters, no Markdown); ` +
-  `and a summary, a small report on the overall topic (Markdown, ${SUMMARY_WORDS.least}–${SUMMARY_WORDS.most} words, in the sections ## What it is, ## Key points as bullets, ## The topic, and if you like ## For Maia City). ` +
-  "Find its authors with list_authors first and reuse an author by their id (a UUID); add a new one only when none is them, and where no person is named, its publisher as an organization.";
+// The rule every agent is taught about the Artifacts is avenMAIA's skill's now (../import/skills/avenmaia.ts, ./skills.ts),
+// add_artifact's description its contract.
 
 // ---- who may
 

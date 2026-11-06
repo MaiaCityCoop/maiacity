@@ -557,7 +557,8 @@ proposal_ids (proposal_id PK, intent_id → intents, how /*its|own*/)  -- every 
   evidence), its work (a click from its review; for code, its pull request), and the **brief** that sends an agent to
   it (at Idea: specify it and stop; in Prototype: build it and record every check, so that it moves to Proposal by
   itself, and propose its work with `intent` if it is play's, or open its pull request, name it and stop if it is
-  code). An admin **approves the spec** (Specify → Prototype), sends it **back to Specify** (from Prototype or
+  code). The brief is play's, never the board's: the Intents skill's text for the intent's stage (§4.14), the same
+  `brief` `get_intent` gives an agent. An admin **approves the spec** (Specify → Prototype), sends it **back to Specify** (from Prototype or
   Proposal: its approval and results cleared), **accepts** it only at Proposal (what it asked is in; nothing is
   accepted from Prototype; an intent of code **Accept and ship**, or **Ship again** after a red ship, a refused one
   saying why), nothing in Ship (its card says its current step, its dialog the steps ticking with their links, the
@@ -634,6 +635,38 @@ Over MCP: `add_artifact`, `update_artifact`, `list_artifacts` (`q` in a title, d
 date, authors, tags, its link (a new tab) and who brought it, filtered down its left by who brought it, kind, tag and
 author; an artifact opens to be read (`?artifact=<uuid>`: its summary as Markdown, its authors), an author to their artifacts
 (`?author=<uuid>`).
+
+### 4.14 Skills (Samuel 2026-11-06)
+
+What play teaches its agents is kept **once, in play's Postgres**, as **skills**: never in the code, never in the
+board. Before, the system prompt every MCP agent got, the stage rules in the intent tools' descriptions and the board's
+two briefs were four copies of one thing, each edited by hand (intent c9113886-0803-4ab9-bc3c-8e73b6667484).
+
+- **A skill is a Loro document** (§4.4), `skill:<uuid>` of type `skill/1`, versioned like a game config (§4.9): every
+  step kept with its author, message and time, its versions numbered on accept, a draft a branch. Its fields: `system`,
+  its part of the system prompt; for the Intents skill, `stages`, one text for each of an intent's stages (`idea`,
+  `specify`, `prototype`, `proposal`, `ship`, `accepted`, `archived`; empty where an agent has nothing to do), in which
+  `{intent}` and `{title}` are the intent's UUID and title, filled where it is served; and its `note`. Its `label` and
+  `group` are only shown (*skills / intents*): a skill is named by its UUID (§4.7), `SKILL` in `play/api/src/ids.ts`.
+- **Two skills** so far: **avenMAIA** (group *agents*: who every MCP agent is, what it does on play, the Artifacts'
+  rule, §4.13) and the **Intents** skill (group *intents*: the lifecycle, and each stage's instructions, Ship
+  included). Their v1 is the deploy's import (`play/api/import/skills.ts`), only where play holds none of that id:
+  today's texts moved word for word. From then on Postgres is the source and the seed is never read again.
+- **Changed only by proposal**: `skill_edit` drafts a change step by step (a field's text, a range of it, each step with
+  its message), `propose_skill_version` proposes the draft (with `intent`, held to its gate), the `skill_version` work on
+  the intent, shown on the board field by field, each text sentence by sentence before and after; accepting merges it
+  and names its next version. Never by a migration. `list_skills`, `get_skill` (a version, a step, an intent's work) and
+  `skill_history` read them; `GET /api/skills`, `/api/skills/<uuid>` and its `/history` for the site. Admins only.
+- **Served from Postgres, on each request**, so an accepted version teaches the next agent with no deploy:
+  `initialize`'s instructions are avenMAIA's `system`, then the Intents skill's; an intent's **brief** (`get_intent` and
+  `GET /api/intents/<uuid>`, and so the board's *For an agent*) is the Intents skill's text for its stage, filled, or
+  null; and MCP's **prompts** (`prompts/list`, `prompts/get`) are one for each stage it speaks to (`intent_<stage>`, its
+  argument the intent's UUID). A tool's description says only what it takes, gives back and refuses.
+
+```sql
+skills  (id UUID, coop_id, label /*only shown*/, grp /*only shown*/, created, updated)   -- its document: docs 'skill:<id>'
+intents (…, work 'skill_version', skill_id → skills, doc_branch)                          -- 0031-skills
+```
 
 ## 5. The sandboxes
 

@@ -26,6 +26,7 @@ import { seedStories, type StoriesReport } from "./stories";
 import { ensureAssetDocs, type AssetDocsReport } from "../src/assetdocs";
 import { seedFactories, type FactoriesReport } from "./factories";
 import { seedGameConfigs, type GameConfigsReport } from "./gameconfigs";
+import { seedSkills, type SkillsReport } from "./skills";
 
 // the repo root: three up from play/api/import in a checkout; PLAY_REPO in the image (/app)
 const ROOT = process.env.PLAY_REPO ?? join(import.meta.dir, "../../..");
@@ -61,6 +62,8 @@ export type Report = {
   factories: FactoriesReport;
   /** the game's configs kept in the repo, each written once into play's Postgres as its document's v1 (./gameconfigs.ts) */
   gameConfigs: GameConfigsReport;
+  /** the skills kept in the repo (what play teaches its agents), each written once into play's Postgres as its document's v1 (./skills.ts) */
+  skills: SkillsReport;
   /** every asset's Loro document, made from its history where it has none (../src/assetdocs.ts) */
   assetDocs: AssetDocsReport;
   /** when the legacy import ran (play.imports), and whether this run left it alone */
@@ -171,6 +174,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
     stories: { seeded: [], present: [], errors: [] },
     factories: { seeded: [], present: [], errors: [] },
     gameConfigs: { seeded: [], present: [], errors: [] },
+    skills: { seeded: [], present: [], errors: [] },
     assetDocs: { made: 0, branches: 0, kept: 0, steps: 0, versions: 0, bytes: 0, errors: [] },
     legacy: { ran: null, skipped: false },
     ok: false,
@@ -188,10 +192,11 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
       report.stories = await seedStories(db, store);
       report.factories = await seedFactories(db);
       report.gameConfigs = await seedGameConfigs(db);
+      report.skills = await seedSkills(db);
       report.assetDocs = await ensureAssetDocs(db, store);
       await verifyFiles(db, store, report);
       report.verified.groupsMatch = true; // the feed is not read
-      report.ok = !report.verified.fileErrors.length && !report.verified.mediaErrors.length && !report.sources.errors.length && !report.stories.errors.length && !report.factories.errors.length && !report.gameConfigs.errors.length && !report.assetDocs.errors.length;
+      report.ok = !report.verified.fileErrors.length && !report.verified.mediaErrors.length && !report.sources.errors.length && !report.stories.errors.length && !report.factories.errors.length && !report.gameConfigs.errors.length && !report.skills.errors.length && !report.assetDocs.errors.length;
       return report;
     }
   }
@@ -310,6 +315,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
   report.stories = await seedStories(db, store);
   report.factories = await seedFactories(db);
   report.gameConfigs = await seedGameConfigs(db);
+  report.skills = await seedSkills(db);
   log("making every asset's document from its history…");
   report.assetDocs = await ensureAssetDocs(db, store);
   const { rows: groups } = await db.query<{ grp: string; n: string }>(`SELECT grp, count(*) AS n FROM play.assets GROUP BY grp`);
@@ -323,7 +329,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
   report.verified.pinsResolved = Number(pinned[0].n);
   if (report.verified.pinsResolved !== pins.length + pins3.length + pinsF.length)
     report.verified.pinErrors.push(`${report.verified.pinsResolved} of ${pins.length + pins3.length + pinsF.length} pins resolve`);
-  report.ok = !report.assets.failed.length && !report.verified.fileErrors.length && report.verified.groupsMatch && !report.verified.pinErrors.length && !report.verified.mediaErrors.length && !report.sources.errors.length && !report.stories.errors.length && !report.factories.errors.length && !report.gameConfigs.errors.length && !report.assetDocs.errors.length;
+  report.ok = !report.assets.failed.length && !report.verified.fileErrors.length && report.verified.groupsMatch && !report.verified.pinErrors.length && !report.verified.mediaErrors.length && !report.sources.errors.length && !report.stories.errors.length && !report.factories.errors.length && !report.gameConfigs.errors.length && !report.skills.errors.length && !report.assetDocs.errors.length;
   // kept: it ran, and play's Postgres is the source of truth from now on
   if (report.ok) await db.query(`INSERT INTO play.imports (name, report) VALUES ('legacy', ($1::text)::jsonb) ON CONFLICT (name) DO NOTHING`, [JSON.stringify(report)]);
   return report;

@@ -16,6 +16,7 @@ import { Rate } from "../src/limits";
 import { UUID, uuidOf } from "../src/uuid";
 import { AVENMAIA, COOP } from "../src/ids";
 import { urlOf, wordsOf } from "../src/artifacts";
+import { seedSkills } from "../import/skills";
 
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;
@@ -82,6 +83,7 @@ suite("artifacts", () => {
     db = fromBunSql(sql);
     await migrate(db);
     await initSessions(db);
+    await seedSkills(db); // what the MCP teaches is the skills'
     store = folderStore(mkdtempSync(join(tmpdir(), "play-blobs-")));
     api = app({ db, store, rate: new Rate(0) });
     for (const n of ["Samuel", "Bea", "cit", "trav"]) {
@@ -415,7 +417,8 @@ suite("artifacts", () => {
     const add = (await rpc("Bea", "tools/list")).tools.find((t: any) => t.name === "add_artifact");
     expect(init.instructions).toMatch(/^You are avenMAIA/);
     expect(init.instructions).toMatch(/every agent connected over MCP is avenMAIA/);
-    expect(add.description).toMatch(/You are avenMAIA/);
+    // who it is is the system prompt's (avenMAIA's skill); add_artifact keeps the rule as its contract
+    expect(add.description).toMatch(/kept as avenMAIA's/);
     for (const text of [init.instructions, add.description]) {
       expect(text).toMatch(/your operator pastes.*origin 'human'/);
       expect(text).toMatch(/find and use in your own research.*origin 'agent'/);

@@ -1,6 +1,6 @@
 // An intent's work (play/SPEC.md §4.12; Samuel 2026-11-06: "not a proposal belongs to an intent: the intent has a state,
 // proposal"). One record, the intent: what it changes is on it (the kind of work, the asset, story, sandbox, factory or
-// config it changes, the base it was made on, the version it would be, its branch of that one's document), with what the
+// config or skill it changes, the base it was made on, the version it would be, its branch of that one's document), with what the
 // work says of itself, who proposed it, how and when. Proposal is only a stage: its work done and checked, waiting for
 // the decision. To propose is to put an intent at Proposal: the intent named (its gate held before, ./intents.ts
 // intentReady) takes the work, any it held before replaced (that one's branch closed, kept in the history), or, with no
@@ -12,7 +12,7 @@ import * as docs from "./docs";
 import type { Queryable } from "./pg";
 import { newId, UUID } from "./uuid";
 
-export const WORK_KINDS = ["asset_version", "story_version", "sandbox_change", "factory_version", "game_config_version"] as const;
+export const WORK_KINDS = ["asset_version", "story_version", "sandbox_change", "factory_version", "game_config_version", "skill_version"] as const;
 export type WorkKind = (typeof WORK_KINDS)[number];
 
 /** what a piece of work names: its kind and the refs of that kind (play.intents' work columns) */
@@ -21,10 +21,10 @@ export type Work = {
   asset_id?: string; base?: string | null; version?: string;
   story_id?: string; story_base?: string | null; story_version?: string;
   sandbox_id?: string; sandbox_base?: string; sandbox_change?: unknown; sandbox_diff?: unknown;
-  factory_id?: string; game_config_id?: string;
+  factory_id?: string; game_config_id?: string; skill_id?: string;
   doc_branch?: number | null;
 };
-const REFS = ["asset_id", "base", "version", "story_id", "story_base", "story_version", "sandbox_id", "sandbox_base", "sandbox_change", "sandbox_diff", "factory_id", "game_config_id", "doc_branch"] as const;
+const REFS = ["asset_id", "base", "version", "story_id", "story_base", "story_version", "sandbox_id", "sandbox_base", "sandbox_change", "sandbox_diff", "factory_id", "game_config_id", "skill_id", "doc_branch"] as const;
 const JSON_REFS = new Set(["sandbox_change", "sandbox_diff"]);
 
 /**
@@ -32,7 +32,7 @@ const JSON_REFS = new Set(["sandbox_change", "sandbox_diff"]);
  * and when, and its status, which is the intent's stage (waiting at Proposal, accepted, else archived).
  */
 export const WORK_OF = `i.id, i.coop_id, i.work AS kind, i.asset_id, i.base, i.version, i.story_id, i.story_base, i.story_version,
-  i.sandbox_id, i.sandbox_base, i.sandbox_change, i.sandbox_diff, i.factory_id, i.game_config_id, i.doc_branch,
+  i.sandbox_id, i.sandbox_base, i.sandbox_change, i.sandbox_diff, i.factory_id, i.game_config_id, i.skill_id, i.doc_branch,
   COALESCE(i.work_note, '') AS note, i.proposed_by AS author, i.proposed_via AS via, i.proposed_at AS created,
   i.stage, CASE i.stage WHEN 'proposal' THEN 'proposal' WHEN 'accepted' THEN 'accepted' ELSE 'archived' END AS status,
   i.decided_by, i.decided_at, i.spec, i.approved_at, i.title AS intent_title`;
@@ -66,8 +66,8 @@ export async function intentIdOf(q: Queryable, id: string): Promise<string | nul
 }
 
 /** the document a piece of work changes, by its kind (a sandbox's change has none) */
-export const docIdOfWork = (w: { kind: string | null; asset_id?: string | null; story_id?: string | null; factory_id?: string | null; game_config_id?: string | null }) =>
-  w.kind === "asset_version" ? `asset:${w.asset_id}` : w.kind === "story_version" ? `story:${w.story_id}` : w.kind === "factory_version" ? `factory:${w.factory_id}` : w.kind === "game_config_version" ? `game:${w.game_config_id}` : null;
+export const docIdOfWork = (w: { kind: string | null; asset_id?: string | null; story_id?: string | null; factory_id?: string | null; game_config_id?: string | null; skill_id?: string | null }) =>
+  w.kind === "asset_version" ? `asset:${w.asset_id}` : w.kind === "story_version" ? `story:${w.story_id}` : w.kind === "factory_version" ? `factory:${w.factory_id}` : w.kind === "game_config_version" ? `game:${w.game_config_id}` : w.kind === "skill_version" ? `skill:${w.skill_id}` : null;
 
 /** a piece of work's branch closed (archived), its steps kept on their side line in the history */
 export async function closeWork(q: Queryable, me: Pick<Me, "id"> | null, w: { kind: string | null; doc_branch?: string | number | null } & Parameters<typeof docIdOfWork>[0]) {
@@ -79,7 +79,7 @@ export async function closeWork(q: Queryable, me: Pick<Me, "id"> | null, w: { ki
 }
 
 // a new intent's title: what its work proposes (an asset's or story's label and the version it would be, a sandbox's
-// change, a factory's or config's label), as migration 0026 titled the proposals made before
+// change, a factory's, config's or skill's label), as migration 0026 titled the proposals made before
 const TITLED = `UPDATE play.intents i SET title = left(COALESCE(NULLIF(btrim(CASE i.work
     WHEN 'asset_version' THEN (SELECT a.label || ' v' || COALESCE(v.number, COALESCE(b.number, 0) + 1) FROM play.assets a
                                  LEFT JOIN play.asset_versions v ON v.id = i.version LEFT JOIN play.asset_versions b ON b.id = i.base WHERE a.id = i.asset_id)
@@ -87,7 +87,8 @@ const TITLED = `UPDATE play.intents i SET title = left(COALESCE(NULLIF(btrim(CAS
                                  LEFT JOIN play.story_versions sb ON sb.id = i.story_base WHERE sv.id = i.story_version)
     WHEN 'sandbox_change' THEN (SELECT sx.title || ': ' || jsonb_array_length(COALESCE(i.sandbox_diff, '[]'::jsonb)) || ' changes' FROM play.sandboxes sx WHERE sx.id = i.sandbox_id)
     WHEN 'factory_version' THEN (SELECT fx.label FROM play.factories fx WHERE fx.id = i.factory_id)
-    WHEN 'game_config_version' THEN (SELECT gc.label FROM play.game_configs gc WHERE gc.id = i.game_config_id) END), ''), 'A proposal'), 200)
+    WHEN 'game_config_version' THEN (SELECT gc.label FROM play.game_configs gc WHERE gc.id = i.game_config_id)
+    WHEN 'skill_version' THEN (SELECT sk.label FROM play.skills sk WHERE sk.id = i.skill_id) END), ''), 'A proposal'), 200)
   WHERE i.id = $1`;
 
 /**

@@ -16,6 +16,8 @@ import { fromBunSql, type Db } from "../src/pg";
 import { Rate } from "../src/limits";
 import { UUID } from "../src/uuid";
 import { placeholderIn } from "../src/intents";
+import { seedSkills } from "../import/skills";
+import { SKILL } from "../src/ids";
 
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;
@@ -38,6 +40,7 @@ suite("intents", () => {
     db = fromBunSql(sql);
     await migrate(db);
     await initSessions(db);
+    await seedSkills(db); // what the MCP teaches is the skills'
     api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
     for (const n of ["ada", "bea", "cit"]) {
       const h = await createHuman(db, n);
@@ -344,7 +347,11 @@ suite("intents", () => {
     for (const says of ["--pr", "never merge", "Accept merges"]) expect(check.description).toContain(says);
     expect(check.inputSchema.properties.pr.type).toBe("integer");
     expect(check.inputSchema.required).toEqual(["intent"]);
-    for (const says of ["avenBOX", "play/avenbox/intent.ts", "Intent: ", ".github/workflows/intents.yml", "never merge", "Ship", "--pr"]) expect(of("list_intents").description).toContain(says);
+    // what to do at each stage is the Intents skill's (play/SPEC.md §4.14), list_intents pointing to it
+    for (const says of ["get_intent", "brief", "get_skill"]) expect(of("list_intents").description).toContain(says);
+    const skill = (await tool("get_skill", { skill: SKILL.intents })).json;
+    const taught = [skill.system, ...Object.values(skill.stages)].join("\n");
+    for (const says of ["avenBOX", "play/avenbox/intent.ts", "Intent: ", ".github/workflows/intents.yml", "never merge", "Ship", "--pr"]) expect(taught).toContain(says);
     expect(of("list_intents").inputSchema.properties.stage.enum).toEqual(["idea", "specify", "prototype", "proposal", "ship", "accepted", "archived", "all"]);
     const { instructions } = await rpc("initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1" } });
     for (const says of ["avenBOX", "play/avenbox/intent.ts", "Intent: ", "never merge", "Accept merges it", "Ship"]) expect(instructions).toContain(says);

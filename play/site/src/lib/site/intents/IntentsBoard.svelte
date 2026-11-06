@@ -52,7 +52,7 @@
 
 	// an intent's work, as the board lists it (play/api/src/intents.ts): what it changes, the version it would be, who
 	// proposed it and how, and its status (the intent's stage: waiting at Proposal, accepted, else archived)
-	type Work = { kind: 'asset_version' | 'story_version' | 'sandbox_change' | 'factory_version' | 'game_config_version'; asset_id: string | null; label: string; grp: string; slug: string | null; version_label: string | null; number: number | null; changes?: number; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
+	type Work = { kind: 'asset_version' | 'story_version' | 'sandbox_change' | 'factory_version' | 'game_config_version' | 'skill_version'; asset_id: string | null; label: string; grp: string; slug: string | null; version_label: string | null; number: number | null; changes?: number; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
 	// the work opened for review: the intent's id, with the intent's title, spec and results beside it
 	type P = Work & { id: string; intent_id: string; intent_title: string; intent_spec: Spec | null; intent_results: Results | null };
 	// an intent (play/api/src/intents.ts): its kind, title and note, its stage, its spec once specified (a goal, a scope and
@@ -245,6 +245,12 @@
 	// a game config's: the same, field by field (the Game editor, routes/game-editor)
 	type ConfigReview = Omit<FactoryReview, 'factory'> & { config: { id: string; label: string } };
 	let configReview = $state<ConfigReview | null>(null);
+	// a skill's (play/api/src/skills.ts): the same, field by field, its texts shown sentence by sentence, before and after
+	type SkillReview = Omit<FactoryReview, 'factory'> & { skill: { id: string; label: string; group: string } };
+	let skillReview = $state<SkillReview | null>(null);
+	/** a skill's text as the diff reads it: one sentence a line */
+	const sentenced = (v: unknown) => (typeof v === 'string' ? v.replace(/([.!?]) (?=[A-Z`"(])/g, '$1\n') : '');
+	const textDiff = (c: { kind: string; from?: unknown; to?: unknown }) => changesOnly(lineDiff(c.kind === 'added' ? '' : sentenced(c.from), c.kind === 'removed' ? '' : sentenced(c.to)), 1);
 	/** a document path as people read it: $.line.stations[id=weld].servers → line › stations › weld › servers */
 	const pathText = (path: string) => path.replace(/^\$\.?/, '').replace(/\[id=([^\]]+)\]/g, '.$1').replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
 	const pinText = (x: PinShown) =>
@@ -254,7 +260,7 @@
 	/** what a proposal is of, its card's tag (Samuel 2026-11-05: the type, not how it came; that it came over MCP is in its title and its review) */
 	const GROUP_TYPE: Record<string, string> = { plants: 'Plant', things: 'Thing', machines: 'Machine', buildings: 'Building', actors: 'Actor', biomes: 'Biome', worlds: 'World' };
 	const typeOf = (p: { kind?: Work['kind']; grp: string | null }) =>
-		p.kind === 'story_version' ? 'Story' : p.kind === 'sandbox_change' ? 'Sandbox' : p.kind === 'factory_version' ? 'Factory' : p.kind === 'game_config_version' ? 'Game config' : (GROUP_TYPE[p.grp ?? ''] ?? p.grp ?? '');
+		p.kind === 'story_version' ? 'Story' : p.kind === 'sandbox_change' ? 'Sandbox' : p.kind === 'factory_version' ? 'Factory' : p.kind === 'game_config_version' ? 'Game config' : p.kind === 'skill_version' ? 'Skill' : (GROUP_TYPE[p.grp ?? ''] ?? p.grp ?? '');
 	/** an intent's tag: what its work is (a plant, a story …) where it has some, else its kind */
 	const tagOf = (i: Intent) => (i.work ? typeOf(i.work) : kindName(i.kind));
 	const titleOf = (p: Work) => (p.kind === 'sandbox_change' ? `${p.changes ?? 0} change${p.changes === 1 ? '' : 's'}` : `v${p.number}`);
@@ -266,6 +272,7 @@
 		sandboxReview = null;
 		factoryReview = null;
 		configReview = null;
+		skillReview = null;
 		code = '';
 		baseCode = null;
 		shown = '';
@@ -308,6 +315,15 @@
 			}
 			return;
 		}
+		if (p.kind === 'skill_version') {
+			try {
+				const r = (await api<{ review: SkillReview }>(`/intents/${p.id}`)).review;
+				if (open?.id === p.id) skillReview = r;
+			} catch (e) {
+				reviewError = (e as Error).message;
+			}
+			return;
+		}
 		try {
 			const r = (await api<{ review: Review & { builds: any[] } }>(`/intents/${p.id}`)).review;
 			if (open?.id !== p.id) return;
@@ -328,6 +344,22 @@
 	let intent = $state<Intent | null>(null);
 	let intentError = $state('');
 	let copied = $state(false);
+	/** what to tell an agent sent to the intent opened: play's (GET /api/intents/<id>'s brief, the Intents skill's part for
+	 * its stage, play/api/src/skills.ts), never written here; null where there is nothing for an agent to do */
+	let brief = $state<{ id: string; stage: Stage; text: string | null } | null>(null);
+	// read again whenever the intent opened is another, or at another stage (an Accept that ships it, the board's refresh)
+	$effect(() => {
+		const i = intent;
+		if (!i || (brief?.id === i.id && brief.stage === i.stage)) return;
+		const { id, stage } = i;
+		api<Intent & { brief: string | null }>(`/intents/${id}`)
+			.then((r) => {
+				if (intent?.id === id) brief = { id, stage, text: r.brief };
+			})
+			.catch((e) => {
+				if (intent?.id === id) intentError = (e as Error).message;
+			});
+	});
 	/** an intent that is only its one proposal (one made without an intent): its card opens straight into the review */
 	const onlyItsWork = (i: Intent | undefined) => !!i && !i.spec && !!i.work;
 	/** an intent opened from its card: straight into its proposal's review where it is only that proposal */
@@ -365,14 +397,9 @@
 			merging = false;
 		}
 	}
-	/** what to tell an agent sent to an intent: the intent by its id (its title only shown), and its stage's work */
-	const briefOf = (i: Intent) =>
-		i.stage === 'prototype'
-			? `Build Maia City's intent ${i.id} on play ("${i.title}") in avenBOX, the cloud environment our agents prototype in (Postgres up, TEST_DATABASE_URL set: play/avenbox/up.sh). Read it and its approved spec with the maia-play MCP tool get_intent. Build what its goal and scope say. Run every check and record it with bun play/avenbox/intent.ts ${i.id} --record (it runs each check's run and records it with check_intent, a failure as a failure; record a look by hand with check_intent); repeat until every must check passes: then the intent moves to Proposal by itself, where an admin decides it. If the work is play's (an asset or story version, a sandbox change, a factory or a config), propose it with the propose tool's intent: "${i.id}" (it puts this intent at Proposal with the work); play refuses it before every must check passes. If the work is code, open a pull request into main with the line Intent: ${i.id} at the end of its commits' messages, and record the checks on its head with bun play/avenbox/intent.ts ${i.id} --record --pr <its number>; then stop: never merge it, into main or production. An admin's Accept here merges it and ships it to production, followed live in Ship.`
-			: `Specify Maia City's intent ${i.id} on play ("${i.title}"). Read it with the maia-play MCP tool get_intent, then specify it with specify_intent: its goal (what is true when it is done, in a sentence), its scope (what changes, named by UUIDs, hashes or paths, and what stays as it is) and its checks, each ONE statement that passes or fails, checked by a test (a command that passes), a measure (a value and its range from a named tool) or a look (against a named reference), must or nice; every check decidable by someone who reads only the intent and the result. Every test and measure check carries its run: the exact command that decides it in avenBOX, from the repository's root, as written, nothing in it left to fill in (a test passes when it exits 0; a measure prints its value and exits 0 only in its range); in Prototype bun play/avenbox/intent.ts runs them all, and main runs them again once the work is merged. Then stop: an admin approves the spec before anything is built.`;
-	async function copyBrief(i: Intent) {
+	async function copyBrief(text: string) {
 		try {
-			await navigator.clipboard.writeText(briefOf(i));
+			await navigator.clipboard.writeText(text);
 			copied = true;
 			setTimeout(() => (copied = false), 2000);
 		} catch {
@@ -552,12 +579,13 @@
 				{/if}
 				{#if i.came_with}<p class="muted small">Proposed for <button class="link" onclick={() => openIntentOf(i.came_with!)}>{intents.find((x) => x.id === i.came_with)?.title ?? 'another intent'}</button>, beside the work it kept.</p>{/if}
 			</section>
-			{#if i.stage === 'idea' || (i.stage === 'specify' && !i.spec) || i.stage === 'prototype'}
+			{#if brief?.id === i.id && brief.stage === i.stage && brief.text}
+				{@const text = brief.text}
 				<section class="agent">
 					<h3>For an agent</h3>
-					<p class="muted small">Give this to an agent with play's MCP server: {i.stage === 'prototype' ? 'it builds the intent and records every check; once every must check passes, the intent moves to Proposal by itself, to be decided here.' : 'it specifies the intent, then stops for an admin to approve the spec here.'}</p>
-					<pre class="brief">{briefOf(i)}</pre>
-					<button class="btn small ghost" onclick={() => copyBrief(i)}>{copied ? 'Copied' : 'Copy the brief'}</button>
+					<p class="muted small">Give this to an agent with play's MCP server: what to do with the intent at its stage, the Intents skill's (get_intent gives it the same).</p>
+					<pre class="brief">{text}</pre>
+					<button class="btn small ghost" onclick={() => copyBrief(text)}>{copied ? 'Copied' : 'Copy the brief'}</button>
 				</section>
 			{/if}
 			</div>
@@ -685,6 +713,43 @@
 								<li>
 									<span class="where">{#each pathText(c.path) as k, j}{#if j}<span class="muted"> › </span>{/if}{k}{/each}</span>
 									<div class="vals"><pre class="was">{c.kind === 'added' ? '(none)' : valueText(c.from)}</pre><pre class="now">{c.kind === 'removed' ? '(none)' : valueText(c.to)}</pre></div>
+								</li>
+							{/each}
+						</ol>
+						{#if r.steps.length > 1}
+							<h3 class="steps-head">Made in {r.steps.length} steps</h3>
+							<ol class="steps">
+								{#each r.steps as s (s.seq)}
+									<li>
+										<span class="msg">{s.message}</span>
+										<span class="muted small">{s.author ?? 'play'}{s.via === 'mcp' ? ' · MCP' : ''} · {new Date(s.at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+									</li>
+								{/each}
+							</ol>
+						{/if}
+					{/if}
+				</div>
+			{:else if p.kind === 'skill_version'}
+				<div class="sandbox-review">
+					{#if reviewError}<p class="error">{reviewError}</p>
+					{:else if !skillReview}<p class="muted">Reading it…</p>
+					{:else}
+						{@const r = skillReview}
+						<p class="muted small">
+							What every agent is taught (skills / {r.skill.group}): accepted, it is the skill's next version, taught from the next request on.
+							{#if r.moved}It was made on v{r.baseNumber}; the skill has a newer version since. Accepting merges it where the two touch different fields, and archives it where they touch the same.{/if}
+						</p>
+						<h3>{p.status === 'accepted' ? 'What it changed' : 'What it changes'}{r.baseNumber ? ` from v${r.baseNumber}` : ''}</h3>
+						<ol class="changes">
+							{#each r.changes as c, i (i)}
+								<li>
+									<span class="where">{#each pathText(c.path) as k, j}{#if j}<span class="muted"> › </span>{/if}{k}{/each}</span>
+									{#if typeof c.from === 'string' || typeof c.to === 'string'}
+										<pre class="src">{#each textDiff(c) as l, k (k)}<span class={l.op}>{l.op === 'add' ? '+ ' : l.op === 'del' ? '- ' : l.op === 'skip' ? '' : '  '}{l.text}
+</span>{/each}</pre>
+									{:else}
+										<div class="vals"><pre class="was">{c.kind === 'added' ? '(none)' : valueText(c.from)}</pre><pre class="now">{c.kind === 'removed' ? '(none)' : valueText(c.to)}</pre></div>
+									{/if}
 								</li>
 							{/each}
 						</ol>

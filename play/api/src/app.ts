@@ -24,6 +24,7 @@ import { labelFile, listLibrary } from "./library";
 import { AssetDocError, assetHistory, recipeAtStep } from "./assetdocs";
 import { factoryHistory, factoryOf, FactoryError, listFactories } from "./factories";
 import { gameConfigHistory, gameConfigOf, GameConfigError, listGameConfigs } from "./gameconfigs";
+import { listSkills, skillHistory, skillOf, SkillError } from "./skills";
 import { authorOf, listAuthors, listArtifacts, ArtifactError, artifactOf } from "./artifacts";
 
 type Handler = (req: Request, params: Record<string, string>) => Promise<Response> | Response;
@@ -292,6 +293,19 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await gameConfigHistory(db, await me(req), p.id, b == null ? {} : { branch: Number(b) }));
   });
 
+  // the skills (./skills.ts, play/SPEC.md §4.14), admins only: what play teaches its agents, each a Loro document, read
+  // as the Game editor's configs are; changed only by proposal, over MCP
+  on("GET", "/api/skills", async (req) => json(await listSkills(db, await me(req))));
+  on("GET", "/api/skills/:id", async (req, p) => {
+    const q = new URL(req.url).searchParams;
+    const num = (k: string) => (q.get(k) == null ? undefined : Number(q.get(k)));
+    return json(await skillOf(db, await me(req), p.id, { version: num("v"), step: num("step"), intent: q.get("intent") ?? undefined }));
+  });
+  on("GET", "/api/skills/:id/history", async (req, p) => {
+    const b = new URL(req.url).searchParams.get("draft");
+    return json(await skillHistory(db, await me(req), p.id, b == null ? {} : { branch: Number(b) }));
+  });
+
   async function fetch(req: Request, server?: unknown): Promise<Response> {
     if (costly(req) && !rate.allows(clientOf(req, server as any)))
       return json({ error: "Too many requests: try again in a minute." }, { status: 429, headers: { "Retry-After": "60" } });
@@ -308,7 +322,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       try {
         return await r.handler(req, params);
       } catch (e) {
-        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof WorkError || e instanceof IntentError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError || e instanceof ArtifactError)
+        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof WorkError || e instanceof IntentError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError || e instanceof SkillError || e instanceof ArtifactError)
           return json({ error: e.message }, { status: (e as any).status });
         console.error(e);
         return json({ error: "Something went wrong on our side." }, { status: 500 });
