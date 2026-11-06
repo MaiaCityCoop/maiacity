@@ -88,8 +88,10 @@ Specify → Prototype → Proposal → Accepted** (or Archived). An agent adds o
 typed in by hand), reads them (`list_intents`, `get_intent`) and, sent to one at Idea, specifies it (`specify_intent`:
 its goal, its scope, and checks, each one statement that passes or fails, by a `test`, a `measure` or a `look`, must or
 nice) and **stops: an admin approves the spec**. Sent to one in Prototype, it builds it, runs every check and records
-each result with its evidence (`check_intent`, a failure as a failure) until every must check passes, then proposes it
-with the propose tool's `intent` (the intent's UUID): play refuses the proposal before every must check passes. A
+each result with its evidence (`check_intent`, a failure as a failure) until every must check passes: then the intent
+**moves to Proposal by itself**, the one gate with a person in it after the spec, where an admin decides it (nothing is
+accepted from Prototype; Samuel 2026-11-06). Work that is one of play's proposals it also proposes with the propose
+tool's `intent` (the intent's UUID): play refuses the proposal before every must check passes. A
 proposal made without `intent` is an intent of its own, with no spec. No tool approves, accepts or rejects an intent;
 an agent archives only its own proposals made over MCP that still wait for a decision (`archive_proposal`: one
 it has replaced or no longer stands by; Samuel 2026-11-04). **Every agent connected over MCP is avenMAIA** (play/SPEC.md

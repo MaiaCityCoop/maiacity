@@ -393,7 +393,9 @@ Everything Maia City wants made, fixed or improved is an **intent**, and every p
 through stages, the board's columns: **Idea → Specify → Prototype → Proposal → Accepted** (or **Archived**). Idea is it
 as it came; Specify is its spec written, waiting for an admin's approval; Prototype is the whole round of making it, an
 agent building and checking until the spec is met (any intent an agent is working on is in Prototype); Proposal is its
-work proposed, waiting for the decision. Each column folds away to a strip and opens again, each viewer's own choice
+work done and checked, waiting for the decision: an intent moves there **by itself** the moment every must check has
+passed (Samuel 2026-11-06), so after the spec's approval there is one gate with a person in it, the decision at
+Proposal, and none in Prototype. Each column folds away to a strip and opens again, each viewer's own choice
 kept in their browser; Accepted and Archived are folded at first.
 
 **The spec is the gate**, as a test is in test-driven development: it says what is wanted so that it can be checked,
@@ -416,9 +418,12 @@ proposals.intent_id → intents NOT NULL  -- the intent a proposal was made for
   (`add_intent`, at Idea) and specifies it (`specify_intent`: its goal, scope and checks; to Specify, its spec replaced
   if specified again, only at Idea or Specify), then stops: **an admin approves the spec** (Specify → Prototype). In
   Prototype the agent builds it, runs each check as its spec says and records every result with its evidence
-  (`check_intent`: a failure as a failure; only in Prototype), until every must check passes. Every propose tool takes
-  `intent`, the intent's UUID: play takes the proposal only for an intent in Prototype (or Proposal) whose must checks
-  all pass, and refuses it otherwise, saying which checks are not met; the intent then moves to Proposal.
+  (`check_intent`: a failure as a failure), until every must check passes: then the intent moves to **Proposal by
+  itself**. Checked again at Proposal (only while none of its proposals waits), a must that fails takes it back to
+  Prototype. Work that is one of play's proposals (an asset or story version, a sandbox change, a factory, a config) is
+  also proposed: every propose tool takes `intent`, the intent's UUID, and play takes the proposal only for an intent in
+  Prototype or Proposal whose must checks all pass, refusing it otherwise and saying which checks are not met. Other
+  work (code, shipped by its pull request) needs no proposal: the intent at Proposal is decided itself.
   `list_intents` (the open stages, or one stage, or all) and `get_intent` (one whole, with its proposals) read them.
   No tool approves, accepts or rejects an intent.
 - **A proposal made without an intent is an intent of its own** (a database trigger): titled by what it proposes (an
@@ -430,23 +435,27 @@ proposals.intent_id → intents NOT NULL  -- the intent a proposal was made for
 - **An intent follows its proposals**: when none of them is waiting any more, one accepted makes it Accepted; none,
   and its spec approved, takes it back to Prototype (its results cleared, to be checked again); none, and no spec,
   archives it.
-- **On the board** (admins only), each card is an intent: its title, how far its must checks are in Prototype ("2/3
-  checks"), its type (what its proposal is, else its kind), who and when. An intent that is only its one proposal opens
+- **On the board** (admins only), each card is an intent: its title, how far its must checks are in Prototype and
+  Proposal ("2/3 checks"), its type (what its proposal is, else its kind), who and when. An intent that is only its one proposal opens
   straight into the proposal's review; any other opens its dialog: its note, its spec (the goal, the scope and each
   check with its mark, ✓ passed, ✗ failed, · no result yet, how and by what it is checked, and its last evidence), what
   was proposed for it (each a click from its review), and the **brief** that sends an agent to it (at Idea: specify it
-  and stop; in Prototype: build it, record every check, propose it with `intent` once every must check passes). An
-  admin **approves the spec** (Specify → Prototype), sends it **back to Specify** (from Prototype: its approval and
-  results cleared), **accepts** it from Prototype once every must check passes (what it asked is in, nothing to
-  propose), **rejects** it (from Idea, Specify or Prototype; it ends archived) or **reopens** it (to Specify if it has a
-  spec, else to Idea; not while a proposal waits). `GET /api/intents` (`?stage=idea,specify`), `GET /api/intents/:id`,
+  and stop; in Prototype: build it and record every check, so that it moves to Proposal by itself, and propose it with
+  `intent` if its work is one of play's proposals). An admin **approves the spec** (Specify → Prototype), sends it
+  **back to Specify** (from Prototype or Proposal: its approval and results cleared), **accepts** it only at Proposal
+  (what it asked is in; nothing is accepted from Prototype), **rejects** it (from Idea, Specify, Prototype or Proposal;
+  it ends archived) or **reopens** it (to Specify if it has a spec, else to Idea). While a proposal of it waits, that
+  proposal's review is where it is decided: the intent itself is not accepted, rejected, sent back, reopened or checked
+  again, and follows the proposal. Migration `0028-intents-ready-propose` moved the intents already in Prototype with
+  every must check passed to Proposal. `GET /api/intents` (`?stage=idea,specify`), `GET /api/intents/:id`,
   `POST /api/intents/:id/{approve,respecify,accept,reject,reopen}`.
 - A proposal's review shows the intent it was made for (only to admins: the intents are theirs) and its checks as a
   strip of marks; an intent is named by its UUID only.
 - **The decision sits at the foot** of what is open (a proposal's review, an intent), in the middle, where a thumb
   reaches it on a pad: **Reject** on the left, reddish (a proposal or an intent rejected ends archived: a proposal ends
   accepted or archived), **Accept** (an intent's **Approve spec** in Specify) on the right, the rest between (Source,
-  Back to Specify, Reopen, Close). A proposal's
+  Back to Specify, Reopen); no Close there: the nav pill's Back (or Escape) closes what is open, and the star the
+  board (Samuel 2026-11-06). A proposal's
   build keeps a height of its own (at least about half the screen) and its steps scroll below it.
 - **The board is a modal** (Samuel 2026-11-05), not a page or a tile among the apps: the nav pill's **star** (the AI's
   mark, in Home's place: Back goes up to the dashboard anyway) opens it over whatever page is open, greyed out for
