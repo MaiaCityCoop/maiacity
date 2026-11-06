@@ -494,14 +494,27 @@ proposal_ids (proposal_id PK, intent_id → intents, how /*its|own*/)  -- every 
   one authority over what lands on main and goes to production, and GitHub requires it.
   - **Accept and ship** (admins, at Proposal, an intent whose work is code: its pull request named;
     `play/api/src/ship.ts` `acceptAndShip`). On the press, play reads the pull request with `SHIP_TOKEN` (a
-    fine-grained token of Samuel's, the repository secret written into play's environment; deploy/README.md): it must
-    be open into main, mergeable, its head the commit every must check with a `run` last passed on, and main.yml's
-    `play / API and site` and `website / build` green on that head. Otherwise **Accept is refused**, nothing is posted
-    or merged, the intent stays at Proposal and the dialog says why. Then play posts the commit status **`Intent
-    accepted`** on that head and merges the pull request (a merge commit, that head's sha), in that one request, and
-    the intent is in **Ship**, decided by the admin, its first step *Merged into main*. A merge GitHub refuses posts
-    the status back as failed and leaves it at Proposal. An intent of code with no pull request named (a decision, or
-    code merged before ships) is accepted on its checks, straight to Accepted, as play's own work is.
+    fine-grained token of Samuel's, the repository secret written into play's environment; deploy/README.md).
+    **Accept is refused at once**, nothing posted or merged, the intent left at Proposal and the dialog saying why,
+    only for what can never ship as the pull request stands: its head not the commit every must check with a `run`
+    last passed on, `play / API and site` or `website / build` red on that head, a conflict (`mergeable` false),
+    closed, not into main, or a draft. Anything else is only *not yet*, so **Accept goes straight to Ship**
+    (Samuel 2026-11-06: *"Accept proposal should directly go to ship and ship should self queue smartly"*; intent
+    `2f13976c-c85c-43fd-89eb-2e7651f657e1`): the intent is in **Ship** at once, decided by the admin, its first step
+    **Ready to merge** waiting with its reason, shown on its card and in its dialog:
+    - *Queued · behind \<title\>*: **one ship at a time, in the order accepted**. An intent waits behind every ship
+      accepted before it until that one is Accepted or back at Proposal.
+    - *Waiting for #N's checks* (a required check still running) or *Waiting for GitHub to work out whether #N
+      merges* (`mergeable` null, which GitHub answers on a pull request's first read).
+
+    When its turn comes and GitHub is ready (`startIfReady`, from Accept itself and from the watcher, one decision at
+    a time under a lock), play posts the commit status **`Intent accepted`** on that head and merges the pull request
+    (a merge commit, that head's sha): *Ready to merge* and *Merged into main* go green. First in line and ready, that
+    happens within Accept's own request. While it waits, a required check turning red, the head moving, a conflict,
+    the pull request closed, GitHub refusing the merge (the status posted back as failed) or **30 minutes** first in
+    line without GitHub or its checks ready takes it back to Proposal with the report, nothing merged; waiting its
+    turn has no limit. An intent of code with no pull request named (a decision, or code merged before ships) is
+    accepted on its checks, straight to Accepted, as play's own work is.
   - **The ship watcher** (in play-api, every 10 s, `startShipWatcher`; its state is the intent's `ship` in Postgres, so
     it goes on after a restart) reads GitHub's Actions for the merge commit: **main's checks** (main.yml's run for the
     push), the **release** (release.yml's run named `release <sha>`), and the **deploy** (production.yml's run on the
@@ -512,9 +525,10 @@ proposal_ids (proposal_id PK, intent_id → intents, how /*its|own*/)  -- every 
   - **All green: Accepted**, its steps and links kept. **Any red: back to Proposal** with the **ship report**: the
     failing step, why, its link and the last 60 lines of the failed job's log (fetched from where GitHub points,
     without the token). From there an agent fixes it (a new pull request of the intent, named with `pr`, its checks
-    recorded on its head) and Accept merges that one; or, its pull request merged already by a ship of it, **Ship
+    recorded on its head) and Accept ships that one; or, its pull request merged already by a ship of it, **Ship
     again** runs main's failed jobs again (a red on main) or the release of the commit last merged (a red release or
-    deploy), and it is in Ship again (`round` 2, 3 …), the earlier round's runs never this one's.
+    deploy), waiting its turn like any ship (*Ready to run main's checks again*, *Ready to release again*), and it is
+    in Ship again (`round` 2, 3 …), the earlier round's runs never this one's.
   - **production follows main** (`.github/workflows/release.yml`): once main.yml is green for a push to main, or by
     `workflow_dispatch` with a sha (Ship again, or by hand), it moves `production` to that commit, fast-forward only,
     with `GITHUB_TOKEN`, and starts `production.yml` on it (`workflow_dispatch`; a push by `GITHUB_TOKEN` starts no
