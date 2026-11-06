@@ -408,9 +408,9 @@ explicit), and each **must** (it holds the proposal back) or **nice** (it does n
 ```sql
 intents (id UUID, coop_id, kind /*idea|fix|improve: shown as Make, Fix, Improve*/, title /*only shown, 1–200*/, note,
          stage /*idea|specify|prototype|proposal|accepted|archived*/, author, via /*web|mcp*/, created,
-         spec jsonb /*{ goal, scope, checks: [{ id, check, how: test|measure|look, by, must }] }*/, specified_by, specified_at,
+         spec jsonb /*{ goal, scope, checks: [{ id, check, how: test|measure|look, by, run, must }] }*/, specified_by, specified_at,
          approved_by, approved_at /*the spec approved: Prototype and on need it, unless it came as a proposal*/,
-         results jsonb /*each check's last result in Prototype: { "c1": { pass, evidence, by, at } }*/, decided_by, decided_at)
+         results jsonb /*each check's last result in Prototype: { "c1": { pass, evidence, by, at, where: avenBOX|main, commit } }*/, decided_by, decided_at)
 proposals.intent_id → intents NOT NULL  -- the intent a proposal was made for
 ```
 
@@ -426,6 +426,35 @@ proposals.intent_id → intents NOT NULL  -- the intent a proposal was made for
   work (code, shipped by its pull request) needs no proposal: the intent at Proposal is decided itself.
   `list_intents` (the open stages, or one stage, or all) and `get_intent` (one whole, with its proposals) read them.
   No tool approves, accepts or rejects an intent.
+- **Checks run in avenBOX, and again on main** (Samuel 2026-11-06; intent `8888e140-a6e4-4472-b1db-e78692db5c4a`).
+  **avenBOX** (one word, `aven` lowercase and `BOX` in capitals) is the cloud environment the agents prototype in
+  (`env_01BqgqGckrzz4FdXd8SD4HHd`), and the box is built the same way wherever a check runs, by `play/avenbox/`:
+  `setup.sh` (as root, once per container: PostgreSQL 17, CI's major, its cluster on 127.0.0.1:5432 with the
+  `postgres` role's password `play`, every part's dependencies; idempotent, it never fails a session), `up.sh` (in
+  every session, from the SessionStart hook in `.claude/settings.json`: Postgres started, `TEST_DATABASE_URL =
+  postgres://postgres:play@127.0.0.1:5432/postgres` set, the dependencies brought up to their lockfiles) and `gate.sh`
+  (what CI runs, red when a play/api test is skipped). So every check is a command:
+  - each test and measure check carries its **`run`**, the exact command that decides it in avenBOX, from the
+    repository's root, as written: a test passes when it exits 0, a measure prints its value and exits 0 only in its
+    range. play refuses a test or measure check without one, and a `run` that holds a placeholder outside quotes
+    (`…`, `...`, `<something>`, `TEST_DATABASE_URL` given a value), saying which check (`placeholderIn`). A look may
+    carry the command that makes what is looked at. Specs from before keep their checks without a `run`.
+  - in Prototype, **`bun play/avenbox/intent.ts <intent> --record`** reads the intent over MCP, makes the box ready,
+    runs every check's `run` (no run sees `PLAY_MCP_TOKEN` or GitHub's tokens), prints each result and records the test
+    and measure checks with `check_intent`: pass by the exit code, the evidence the command, its exit code, where it
+    ran, the commit, Postgres's version and the output's tail. A look is judged by eye and recorded by hand.
+  - each result says **where** it ran (`avenBOX`, or `main`) and on which **commit** (results `{ pass, evidence, by,
+    at, where, commit }`), shown by its mark on the board (*avenBOX*, *main @ 1a2b3c4*), each check's `run` as code
+    under its `by`.
+  - **the final gate is main's.** Code ships by pull request, its commits naming the intent (the trailer `Intent:
+    <UUID>`). Once merged, **`.github/workflows/intents.yml`** (*intents on main*; also by hand, an intent's UUID, on
+    main's head) builds the same box on GitHub's runner (`sudo bash play/avenbox/setup.sh`) and runs `intent.ts
+    <intent> --record --where main` on the merged commit, with the repository secret `PLAY_MCP_TOKEN` (an admin's
+    access token). It records and never blocks: production's *Main is green* reads only main.yml's checks. It records
+    while the intent is at Proposal (where it moved by itself once every must check passed in avenBOX; none of its
+    proposals waiting) or in Prototype; a must failing on main takes it back to Prototype. An intent is accepted at
+    Proposal only when every must check with a `run` has passed **on main** (`unmetOnMain`); a pass in avenBOX alone is
+    not enough. Intents whose work is one of play's proposals keep their gate (`intentReady`).
 - **A proposal made without an intent is an intent of its own** (a database trigger): titled by what it proposes (an
   asset's or a story's label and the version it would be, a sandbox's changes, a factory's or a config's label), its
   note and author the proposal's, at the Proposal stage, with no spec. Every proposal before intents became one this
