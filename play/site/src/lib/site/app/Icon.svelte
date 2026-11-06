@@ -1,7 +1,7 @@
 <!-- The app's icons: plain line drawings, drawn in the text colour. -->
 <script lang="ts">
 	/** every icon this set draws */
-	type IconName = 'back' | 'home' | 'play' | 'board' | 'calendar' | 'media' | 'studio' | 'journal' | 'spark' | 'user' | 'key' | 'ledger' | 'coops' | 'proposals' | 'leaf' | 'database' | 'universe' | 'gear' | 'chat' | 'factory' | 'paw' | 'box' | 'building' | 'mountain' | 'star';
+	type IconName = 'back' | 'home' | 'play' | 'board' | 'calendar' | 'media' | 'studio' | 'journal' | 'spark' | 'user' | 'key' | 'ledger' | 'coops' | 'proposals' | 'leaf' | 'database' | 'universe' | 'gear' | 'chat' | 'factory' | 'paw' | 'box' | 'building' | 'mountain' | 'star' | 'link';
 
 	let { name, size = 24 }: { name: IconName; size?: number } = $props();
 </script>
@@ -56,6 +56,9 @@
 	{:else if name === 'star'}
 		<!-- the AI's mark: a four-pointed spark and a small one beside it (Samuel 2026-11-05: the proposals' button) -->
 		<path d="M10.5 4c.7 4.6 2.9 6.8 7.5 7.5-4.6.7-6.8 2.9-7.5 7.5-.7-4.6-2.9-6.8-7.5-7.5 4.6-.7 6.8-2.9 7.5-7.5Z" /><path d="M18.5 2.5c.25 1.5.95 2.25 2.5 2.5-1.55.25-2.25 1-2.5 2.5-.25-1.5-1-2.25-2.5-2.5 1.5-.25 2.25-1 2.5-2.5Z" />
+	{:else if name === 'link'}
+		<!-- two links of a chain: the Sources, every link Maia City keeps (Samuel 2026-11-06) -->
+		<path d="M10 14a4.2 4.2 0 0 0 6 0l3.2-3.2a4.2 4.2 0 0 0-6-6L11.6 6.4" /><path d="M14 10a4.2 4.2 0 0 0-6 0l-3.2 3.2a4.2 4.2 0 0 0 6 6l1.6-1.6" />
 	{:else if name === 'mountain'}
 		<path d="m2.5 19.5 6.5-11 4 6.5 2.5-3.5 6 8Z" /><path d="m7 12 2 1.5 2-1" /><circle cx="17" cy="6" r="1.8" />
 	{/if}

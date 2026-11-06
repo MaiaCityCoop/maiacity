@@ -787,6 +787,69 @@ export const MIGRATIONS: Migration[] = [
       CREATE TRIGGER proposals_move_intent AFTER UPDATE OF status ON play.proposals FOR EACH ROW EXECUTE FUNCTION play.intent_follows();
     `,
   },
+  {
+    // Sources (play/SPEC.md §4.13, Samuel 2026-11-06): every link from the net Maia City keeps, kept once by avenMAIA,
+    // the one identity of every agent connected over MCP (./websources.ts). avenMAIA is a row of its own, named by
+    // play.uuid_of('agent:avenmaia') (AVENMAIA in ./ids.ts): no human, no member, acting only through an admin's token.
+    // A source keeps its compact title, its two-sentence description and its summary (a small report on its topic), who
+    // brought it (the operator, the admin whose token was used, and its origin: the operator pasted it, or avenMAIA found
+    // it in its own research) and its authors, each a row of its own, n:m with the sources, in their order. One link,
+    // one source: its link is kept normalised, unique in the coop; a source and an author are named by their UUIDs.
+    id: "0027-sources",
+    sql: `
+      CREATE TABLE play.agents (
+        id      UUID PRIMARY KEY,
+        coop_id UUID NOT NULL REFERENCES play.coops(id),
+        name    TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 60),   -- only shown: an agent is named by its id
+        created TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      INSERT INTO play.agents (id, coop_id, name) VALUES (play.uuid_of('agent:avenmaia'), play.uuid_of('coop:maia-city'), 'avenMAIA');
+
+      CREATE TABLE play.sources (
+        id          UUID PRIMARY KEY,
+        coop_id     UUID NOT NULL REFERENCES play.coops(id),
+        url         TEXT NOT NULL CHECK (url ~ '^https?://' AND length(url) <= 2000),   -- normalised (./websources.ts urlOf)
+        title       TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 70),
+        description TEXT NOT NULL CHECK (length(description) BETWEEN 1 AND 280),
+        summary     TEXT NOT NULL CHECK (length(summary) BETWEEN 1 AND 20000),          -- Markdown, 500–1,500 words
+        kind        TEXT NOT NULL CHECK (kind IN ('page', 'article', 'paper', 'video', 'post', 'book', 'podcast', 'code', 'other')),
+        tags        TEXT[] NOT NULL DEFAULT '{}',
+        published   DATE,
+        text_hash   TEXT REFERENCES play.files(hash),        -- the page's text as it was fetched, if it was given
+        agent_id    UUID NOT NULL REFERENCES play.agents(id),
+        origin      TEXT NOT NULL CHECK (origin IN ('human', 'agent')),
+        operator_id TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
+        token_id    UUID REFERENCES play.api_tokens(id) ON DELETE SET NULL,
+        created     TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_by  TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
+        updated_at  TIMESTAMPTZ,
+        UNIQUE (coop_id, url)
+      );
+      CREATE INDEX ix_sources_created ON play.sources(coop_id, created DESC);
+      CREATE INDEX ix_sources_tags ON play.sources USING gin(tags);
+
+      CREATE TABLE play.authors (
+        id          UUID PRIMARY KEY,
+        coop_id     UUID NOT NULL REFERENCES play.coops(id),
+        name        TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 200),   -- only shown: two may share it
+        kind        TEXT NOT NULL CHECK (kind IN ('person', 'organization')),
+        url         TEXT CHECK (url IS NULL OR (url ~ '^https?://' AND length(url) <= 2000)),
+        note        TEXT CHECK (note IS NULL OR length(note) <= 600),
+        agent_id    UUID NOT NULL REFERENCES play.agents(id),
+        operator_id TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
+        created     TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE play.source_authors (
+        source_id UUID NOT NULL REFERENCES play.sources(id) ON DELETE CASCADE,
+        author_id UUID NOT NULL REFERENCES play.authors(id),
+        position  INT NOT NULL CHECK (position >= 0),
+        PRIMARY KEY (source_id, author_id),
+        UNIQUE (source_id, position)
+      );
+      CREATE INDEX ix_source_authors_author ON play.source_authors(author_id);
+    `,
+  },
 ];
 
 /** Runs every migration not yet run, each in its own transaction. */

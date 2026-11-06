@@ -57,5 +57,5 @@ export async function adminByToken(db: Queryable, req: Request): Promise<Me | nu
   );
   if (!rows[0]) return null;
   const me = await meOf(db, rows[0].human_id);
-  return me && me.level === "admin" ? me : null;
+  return me && me.level === "admin" ? { ...me, token: rows[0].id } : null;
 }

@@ -92,7 +92,14 @@ each result with its evidence (`check_intent`, a failure as a failure) until eve
 with the propose tool's `intent` (the intent's UUID): play refuses the proposal before every must check passes. A
 proposal made without `intent` is an intent of its own, with no spec. No tool approves, accepts or rejects an intent;
 an agent archives only its own proposals made over MCP that still wait for a decision (`archive_proposal`: one
-it has replaced or no longer stands by; Samuel 2026-11-04). The same token also opens play's **read-only world routes** (`GET /api/me`, `/api/catalog`,
+it has replaced or no longer stands by; Samuel 2026-11-04). **Every agent connected over MCP is avenMAIA** (play/SPEC.md
+§4.13; Samuel 2026-11-06), whatever its client or token, working for the admin whose token connected it, and it keeps
+Maia City's **Sources** (`/sources/`, admins): every link from the net we keep, once each, with a very compact title (at
+most 70 characters), a description (1–2 sentences, at most 280 characters) and a summary (a small report on the topic,
+500–1,500 words: `## What it is`, `## Key points`, `## The topic`), and its authors, each a row of its own named by its
+UUID (`list_authors` first). Every link its operator pastes it adds with `add_source`'s `origin: 'human'` (shown "Added
+by" the operator), every source it finds and uses in its own research with `origin: 'agent'` (shown "Sourced by
+avenMAIA"); `list_sources`, `get_source`, `update_source`, `get_author` read and correct them. The same token also opens play's **read-only world routes** (`GET /api/me`, `/api/catalog`,
 `/api/files/<hash>`, `/api/sandboxes/<id>/config`, `/api/assets…`) as its admin, so an agent can load a sandbox in its own
 browser (sending the header to play only) and film it for a storyboard; nothing else, and nothing that writes. Admins
 only for now: a token opens nothing once its owner is no admin.
