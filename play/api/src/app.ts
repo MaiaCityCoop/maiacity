@@ -14,8 +14,9 @@ import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, re
 import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameMember, renameSelf, setLevel } from "./members";
 import { listTables, readTable, TableError } from "./tables";
 import { proposedState, SandboxError } from "./sandboxes";
-import { decide, listProposals, proposalOf, proposalsOfIntent, propose, ProposalError, type Verdict } from "./proposals";
-import { decideIntent, intentOf, IntentError, listIntents, type IntentVerdict } from "./intents";
+import { decideAny, propose, ProposalError, reviewOf } from "./proposals";
+import { intentIdOf, WorkError } from "./work";
+import { intentOf, IntentError, intentReady, listIntents, type IntentVerdict } from "./intents";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 import { listStories, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
 import { labelFile, listLibrary } from "./library";
@@ -32,7 +33,7 @@ const json = (body: unknown, init: ResponseInit = {}) => Response.json(body, ini
 /**
  * The read-only routes an admin's MCP token also opens (Samuel 2026-11-03), so an agent can load a sandbox in its own
  * browser and film it: who it is, the catalog, the files, a sandbox's config and the assets — what a traveler may read,
- * nothing more. Every other route (members, tokens, proposals, stories, the database, anything that writes) still wants
+ * nothing more. Every other route (members, tokens, intents, stories, the database, anything that writes) still wants
  * a session; the MCP server takes the token as before.
  */
 const READ_BY_TOKEN = [/^\/api\/me$/, /^\/api\/catalog$/, /^\/api\/files\/[0-9a-f]{64}$/, /^\/api\/sandboxes\/[0-9a-f-]{36}\/config$/, /^\/api\/assets(\/[^/]+){0,4}$/];
@@ -156,33 +157,41 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     // the Factories are Maia City's admins' alone for now (Samuel 2026-11-03)
     if (!UUID.test(p.id)) throw new NotFound("A sandbox is named by its id, a UUID.");
     if (p.id === SANDBOX.factories && m.level !== "admin") throw new Denied("Only Maia City's admins may open the Factories, for now.");
-    // as an open proposal would make it (admins, ./sandboxes.ts), to walk it before deciding
-    const proposal = new URL(req.url).searchParams.get("proposal");
-    if (proposal) return json(await configOf(db, p.id, await proposedState(db, m, p.id, proposal)));
+    // as an intent's work at Proposal would make it (admins, ./sandboxes.ts), to walk it before deciding; `proposal`, the
+    // name it had before an intent and its proposal were one record, is read as the intent it is now
+    const q = new URL(req.url).searchParams;
+    const intent = q.get("intent") ?? q.get("proposal");
+    if (intent) return json(await configOf(db, p.id, await proposedState(db, m, p.id, intent)));
     return json(await configOf(db, p.id));
   });
 
-  // ---- proposals
-  on("GET", "/api/proposals", async (req) => json(await listProposals(db, await me(req), new URL(req.url).searchParams.get("status") ?? undefined)));
-  on("GET", "/api/proposals/:id", async (req, p) => json(await proposalOf(db, await me(req), p.id)));
-  on("POST", "/api/proposals", async (req) => json(await propose(db, store, await me(req), await body(req)), { status: 201 }));
-  on("POST", "/api/proposals/:id/:verdict", async (req, p) => {
-    if (!["accept", "archive"].includes(p.verdict)) throw new NotFound("No such verdict.");
-    return json(await decide(db, store, await me(req), p.id, p.verdict as Verdict));
-  });
-
-  // ---- intents (./intents.ts): everything on the Proposals board, Idea → Specify → Prototype → Proposal → Accepted or
-  // Archived; added, specified and prototyped by agents over MCP only (nothing here adds or edits one), decided by its
-  // admins here: a spec approved (Specify → Prototype) or sent back, an intent accepted (Prototype, every must check
-  // passed: work outside play's proposals), rejected or brought back
+  // ---- intents (./intents.ts, ./work.ts): the one record on the board, Idea → Specify → Prototype → Proposal → Accepted
+  // or Archived; added, specified and prototyped by agents over MCP, its work (an asset's version here; the rest over MCP)
+  // proposed by putting it at Proposal, decided by its admins here: a spec approved (Specify → Prototype) or sent back,
+  // its work at Proposal accepted (applied) or archived, its code accepted on main's checks, or brought back
   on("GET", "/api/intents", async (req) => {
-    const s = new URL(req.url).searchParams.get("stage");
-    return json(await listIntents(db, await me(req), s ? s.split(",") : undefined));
+    const q = new URL(req.url).searchParams;
+    const s = q.get("stage");
+    return json(await listIntents(db, await me(req), s ? s.split(",") : undefined, q.get("work") ?? undefined));
   });
-  on("GET", "/api/intents/:id", async (req, p) => json(await intentOf(db, await me(req), p.id, proposalsOfIntent)));
+  on("GET", "/api/intents/:id", async (req, p) => json(await intentOf(db, await me(req), p.id, reviewOf)));
+  // to propose is to put an intent at Proposal: the one named (held to its gate), or a new one of its own
+  on("POST", "/api/intents", async (req) => {
+    const b = await body(req);
+    const m = await me(req);
+    if (b?.intent !== undefined && b?.intent !== null && b?.intent !== "") b.intent = (await intentReady(db, m, b.intent)).id;
+    return json(await propose(db, store, m, b), { status: 201 });
+  });
   on("POST", "/api/intents/:id/:verdict", async (req, p) => {
-    if (!["approve", "respecify", "accept", "reject", "reopen"].includes(p.verdict)) throw new NotFound("No such decision.");
-    return json(await decideIntent(db, await me(req), p.id, p.verdict as IntentVerdict));
+    if (!["approve", "respecify", "accept", "archive", "reject", "reopen"].includes(p.verdict)) throw new NotFound("No such decision.");
+    return json(await decideAny(db, store, await me(req), p.id, p.verdict as IntentVerdict | "archive"));
+  });
+  // a proposal's old address: a proposal and its intent are one record now (migration 0029), so its id answers as the
+  // intent it is (play.proposal_ids), and nothing else is served here
+  on("GET", "/api/proposals/:id", async (_req, p) => {
+    const id = await intentIdOf(db, p.id);
+    if (!id) throw new NotFound("There is no such intent: a proposal is an intent now (/api/intents).");
+    return new Response(null, { status: 308, headers: { location: `/api/intents/${id}` } });
   });
 
   // ---- the coop
@@ -241,7 +250,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("GET", "/api/authors/:id", async (req, p) => json(await authorOf(db, await me(req), p.id)));
 
   // Stories, the admins' timeline player (./stories.ts): read here, at their head or an accepted version (?v=2); they
-  // change only by proposal, over MCP, decided on the Proposals page
+  // change only by proposal, over MCP, decided on the intents' board
   on("GET", "/api/stories", async (req) => json(await listStories(db, await me(req))));
   on("GET", "/api/stories/:id", async (req, p) => {
     const v = new URL(req.url).searchParams.get("v");
@@ -255,12 +264,12 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("GET", "/api/stories/:id/steps/:seq", async (req, p) => json(await storyAtStep(db, await me(req), p.id, Number(p.seq))));
 
   // the Factories (./factories.ts), admins only: each line a Loro document, read at its newest version, a version (?v=2),
-  // a step of its history (?step=7) or as an open proposal would make it (?proposal=<id>); changed only by proposal
+  // a step of its history (?step=7) or as an intent's work at Proposal would make it (?intent=<id>); changed only so
   on("GET", "/api/factories", async (req) => json(await listFactories(db, await me(req))));
   on("GET", "/api/factories/:id", async (req, p) => {
     const q = new URL(req.url).searchParams;
     const num = (k: string) => (q.get(k) == null ? undefined : Number(q.get(k)));
-    return json(await factoryOf(db, await me(req), p.id, { version: num("v"), step: num("step"), proposal: q.get("proposal") ?? undefined }));
+    return json(await factoryOf(db, await me(req), p.id, { version: num("v"), step: num("step"), intent: q.get("intent") ?? q.get("proposal") ?? undefined }));
   });
   on("GET", "/api/factories/:id/history", async (req, p) => {
     const b = new URL(req.url).searchParams.get("draft");
@@ -268,13 +277,13 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   });
 
   // the Game editor (./gameconfigs.ts), admins only: each of the game's configs a Loro document, read at its newest
-  // version, a version (?v=2), a step (?step=7) or as an open proposal would make it (?proposal=<id>); changed only by
-  // proposal
+  // version, a version (?v=2), a step (?step=7) or as an intent's work at Proposal would make it (?intent=<id>); changed
+  // only so
   on("GET", "/api/game/configs", async (req) => json(await listGameConfigs(db, await me(req))));
   on("GET", "/api/game/configs/:id", async (req, p) => {
     const q = new URL(req.url).searchParams;
     const num = (k: string) => (q.get(k) == null ? undefined : Number(q.get(k)));
-    return json(await gameConfigOf(db, await me(req), p.id, { version: num("v"), step: num("step"), proposal: q.get("proposal") ?? undefined }));
+    return json(await gameConfigOf(db, await me(req), p.id, { version: num("v"), step: num("step"), intent: q.get("intent") ?? q.get("proposal") ?? undefined }));
   });
   on("GET", "/api/game/configs/:id/history", async (req, p) => {
     const b = new URL(req.url).searchParams.get("draft");
@@ -297,7 +306,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       try {
         return await r.handler(req, params);
       } catch (e) {
-        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof IntentError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError || e instanceof ArtifactError)
+        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof WorkError || e instanceof IntentError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError || e instanceof ArtifactError)
           return json({ error: e.message }, { status: (e as any).status });
         console.error(e);
         return json({ error: "Something went wrong on our side." }, { status: 500 });

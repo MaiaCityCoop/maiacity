@@ -4,9 +4,8 @@
 // versions numbered on accept. A config changes only by proposal, as a factory does (./factories.ts, which this follows
 // step for step): an agent drafts a change step by step (game_config_edit, each step checked whole) and proposes the
 // draft (propose_game_config_version, a `game_config_version` proposal whose branch is the draft), or proposes edits
-// at once; admins see it field by field on the Proposals page and open the config as it would be, then accept or
+// at once; admins see it field by field on the intents' board and open the config as it would be, then accept or
 // archive it. Admins only, as the Game editor is. `play.game_configs` holds each config's id and label.
-import { randomUUID } from "node:crypto";
 import { COOP, Denied, type Me } from "./access";
 import type { Db, Queryable } from "./pg";
 import * as docs from "./docs";
@@ -14,6 +13,7 @@ import { EditError } from "./docs/core";
 import { named } from "./stories";
 import { overlap } from "./storydocs";
 import { UUID } from "./uuid";
+import { closeWork, intentIdOf, putAtProposal, settle, WorkError } from "./work";
 
 export class GameConfigError extends Error {
   constructor(message: string, public status = 400) {
@@ -104,10 +104,10 @@ async function versionsNamed(db: Queryable, id: string) {
 }
 
 /**
- * One config, whole: at its newest version, at version `v`, at step `step` of its history, or as open proposal
- * `proposal` would make it (its branch). With its versions, and, at a proposal, the proposal it is.
+ * One config, whole: at its newest version, at version `v`, at step `step` of its history, or as intent
+ * `intent`'s work would make it (its branch; an old proposal's id finds its intent). With its versions, and, so, the intent.
  */
-export async function gameConfigOf(db: Queryable, me: Me | null, id: string, at: { version?: number; step?: number; proposal?: string } = {}) {
+export async function gameConfigOf(db: Queryable, me: Me | null, id: string, at: { version?: number; step?: number; intent?: string } = {}) {
   admin(me);
   const f = idOf(id);
   await exists(db, f);
@@ -115,13 +115,15 @@ export async function gameConfigOf(db: Queryable, me: Me | null, id: string, at:
     const docId = docIdOf(f);
     const versions = await versionsNamed(db, f);
     const number = versions.at(-1)?.number ?? 0;
-    if (at.proposal !== undefined) {
+    if (at.intent !== undefined) {
+      const intent = await intentIdOf(db, at.intent);
       const { rows } = await db.query<{ id: string; doc_branch: string | null; status: string; note: string }>(
-        `SELECT id, doc_branch, status, note FROM play.proposals WHERE id::text = $1 AND kind = 'game_config_version' AND game_config_id = $2`, [at.proposal, f],
+        `SELECT id, doc_branch, CASE stage WHEN 'proposal' THEN 'proposal' WHEN 'accepted' THEN 'accepted' ELSE 'archived' END AS status, COALESCE(work_note, '') AS note
+           FROM play.intents WHERE id = $1 AND work = 'game_config_version' AND game_config_id = $2`, [intent, f],
       );
-      if (!rows[0]?.doc_branch) throw new GameConfigError(`Config ${f} has no such proposal.`, 404);
+      if (!rows[0]?.doc_branch) throw new GameConfigError(`Config ${f} has no such intent's work.`, 404);
       const json = (await docs.readDoc(db, docId, { branch: Number(rows[0].doc_branch) })).json;
-      return { id: f, json, number, versions, proposal: { id: rows[0].id, status: rows[0].status, note: rows[0].note } };
+      return { id: f, json, number, versions, intent: { id: rows[0].id, status: rows[0].status, note: rows[0].note } };
     }
     if (at.step !== undefined) {
       if (!Number.isInteger(at.step) || at.step < 1) throw new GameConfigError(`${at.step} is not a step.`, 404);
@@ -145,9 +147,9 @@ export async function gameConfigHistory(db: Queryable, me: Me | null, id: string
     const versions = await docs.versionsOf(db, docId);
     const steps = await named(db, await docs.history(db, docId, o.branch === undefined ? {} : { branch: o.branch }), versions);
     const { rows: drafts } = await db.query<any>(
-      `SELECT b.id, b.status, b.note, b.created, h.name AS author, p.id AS proposal,
+      `SELECT b.id, b.status, b.note, b.created, h.name AS author, p.id AS intent, p.stage AS intent_stage,
               (SELECT count(*) FROM play.doc_updates u WHERE u.branch = b.id) AS steps
-         FROM play.doc_branches b LEFT JOIN play.humans h ON h.id = b.created_by LEFT JOIN play.proposals p ON p.doc_branch = b.id
+         FROM play.doc_branches b LEFT JOIN play.humans h ON h.id = b.created_by LEFT JOIN play.intents p ON p.id = b.intent_id
         WHERE b.doc_id = $1 ORDER BY b.id`,
       [docId],
     );
@@ -155,7 +157,7 @@ export async function gameConfigHistory(db: Queryable, me: Me | null, id: string
       config: f,
       steps,
       versions: versions.map((v) => ({ number: v.number, note: v.note, at: iso(v.created) })),
-      drafts: drafts.map((d) => ({ id: Number(d.id), status: d.status, note: d.note, at: iso(d.created), author: d.author, proposal: d.proposal, steps: Number(d.steps) })),
+      drafts: drafts.map((d) => ({ id: Number(d.id), status: d.status, note: d.note, at: iso(d.created), author: d.author, intent: d.intent, intent_stage: d.intent_stage, steps: Number(d.steps) })),
     };
   });
 }
@@ -247,13 +249,11 @@ export async function proposeGameConfig(db: Db, me: Me | null, p: GameConfigProp
       const changes = docs.diff(await docs.baseOf(tx, docId, b), (await docs.readDoc(tx, docId, { branch: b })).json);
       if (!changes.length) throw new GameConfigError("That is the config as it is: nothing changed.");
       await docs.propose(tx, docId, b, { note, author });
-      const proposal = randomUUID();
-      await tx.query(
-        `INSERT INTO play.proposals (id, coop_id, kind, game_config_id, author, note, via, doc_branch, intent_id) VALUES ($1, $2, 'game_config_version', $3, $4, $5, $6, $7, $8)`,
-        [proposal, COOP, f, who.id, note, via, b, p.intent ?? null],
-      );
+      const intent = await putAtProposal(tx, who, { intent: p.intent, work: { kind: "game_config_version", game_config_id: f, doc_branch: b }, note, via: via === "mcp" ? "mcp" : "web" }).catch((e) => {
+        throw e instanceof WorkError ? new GameConfigError(e.message, e.status) : e;
+      });
       const number = ((await docs.versionsOf(tx, docId)).at(-1)?.number ?? 0) + 1;
-      return { id: proposal, config: f, number, branch: b, steps: (await docs.history(tx, docId, { branch: b })).length, changes: changes.length };
+      return { intent, stage: "proposal" as const, config: f, number, branch: b, steps: (await docs.history(tx, docId, { branch: b })).length, changes: changes.length };
     }),
   );
 }
@@ -285,8 +285,8 @@ export async function decideGameConfig(tx: Queryable, me: Me, p: any, verdict: "
     const docId = docIdOf(p.game_config_id), b = Number(p.doc_branch);
     const author = authorOf(me, "web");
     const archive = async (message?: string) => {
-      await tx.query(`UPDATE play.proposals SET status = 'archived', decided_by = $2, decided_at = now() WHERE id = $1`, [p.id, verdict === "archive" ? me.id : null]);
-      await closeGameConfigBranch(tx, me, p);
+      await settle(tx, p.id, "archived", verdict === "archive" ? me.id : null);
+      await closeWork(tx, me, p);
       return { id: p.id as string, status: "archived" as const, ...(message ? { message } : {}) };
     };
     if (verdict === "archive") return archive();
@@ -300,14 +300,8 @@ export async function decideGameConfig(tx: Queryable, me: Me, p: any, verdict: "
     if (preview.problems.length) return archive(`Merged into the config as it is now, this is no longer a valid config: ${preview.problems.slice(0, 3).join("; ")}. Propose it again on its newest version.`);
     const v = await docs.accept(tx, docId, b, { author, note: p.note });
     await tx.query(`UPDATE play.game_configs SET label = $2, updated = now() WHERE id = $1`, [p.game_config_id, preview.json.label]);
-    await tx.query(`UPDATE play.proposals SET status = 'accepted', decided_by = $2, decided_at = now() WHERE id = $1`, [p.id, me.id]);
+    await settle(tx, p.id, "accepted", me.id);
     return { id: p.id as string, status: "accepted" as const, number: v.number, ...(preview.concurrent ? { merged: true } : {}) };
   });
 }
 
-/** a config proposal's branch closed (archived), its steps kept on their side line */
-export async function closeGameConfigBranch(tx: Queryable, me: Me, p: any) {
-  if (p.doc_branch == null) return;
-  const { rows } = await tx.query<{ status: string }>(`SELECT status FROM play.doc_branches WHERE id = $1`, [p.doc_branch]);
-  if (rows[0] && (rows[0].status === "open" || rows[0].status === "proposed")) await docs.close(tx, docIdOf(p.game_config_id), Number(p.doc_branch), { author: authorOf(me, "web"), status: "archived" });
-}

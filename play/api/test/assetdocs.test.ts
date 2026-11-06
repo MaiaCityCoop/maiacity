@@ -16,7 +16,7 @@ import * as docs from "../src/docs";
 import { hashText } from "../src/hash";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
-import { decide, propose, proposalOf } from "../src/proposals";
+import { decide, propose, reviewOf } from "../src/proposals";
 import { RECIPE_HEAD, recipeTail } from "../src/recipes";
 import { Rate } from "../src/limits";
 import { makeToken } from "../src/tokens";
@@ -106,12 +106,16 @@ suite("assets as documents", () => {
     await writeAsset("plants", "fern", [{ n: 1, source: src("first") }, { n: 2, source: src("second, a frond more") }, { n: 4, source: src("fourth: legacy skipped a number") }]);
     await writeAsset("things", "lamp", [{ n: 1, source: src("lamp"), variants: { off: src("lamp"), on: src("lamp, lit") } }, { n: 2, source: src("one lamp") }]);
     await db.query(`INSERT INTO play.sandbox_pins (sandbox_id, slot, version_id) VALUES ('ec08b07d-6ec0-8f65-92b2-3efe7d91df5d', 'fern', $1)`, [written.fern[2].id]);
-    // a proposal decided before the documents: a branch of its own, closed as it was
+    // an intent's work decided before the documents: a branch of its own, closed as it was
     const rejected = hashText("fern|rejected");
     const rs = await put(src("a rejected fern"));
     const rr = await put(RECIPE_HEAD + src("a rejected fern") + recipeTail("fern", 5, null));
     await db.query(`INSERT INTO play.asset_versions (id, asset_id, parents, recipe_hash, source_hash, card, engine, author, note) VALUES ($1, $2, $3, $4, $5, '{"card":{}}', 5, $6, 'not this')`, [rejected, ids.fern, [written.fern[4].id], rr, rs, who.cit.id]);
-    await db.query(`INSERT INTO play.proposals (id, coop_id, kind, asset_id, base, version, author, note, via, status) VALUES ($1, $2, 'asset_version', $3, $4, $5, $6, 'not this', 'web', 'archived')`, [crypto.randomUUID(), COOP, ids.fern, written.fern[4].id, rejected, who.cit.id]);
+    await db.query(
+      `INSERT INTO play.intents (id, coop_id, kind, title, stage, author, via, work, asset_id, base, version, work_note, proposed_by, proposed_via, proposed_at)
+       VALUES ($1, $2, 'improve', 'Fern v5', 'archived', $6, 'web', 'asset_version', $3, $4, $5, 'not this', $6, 'web', now())`,
+      [crypto.randomUUID(), COOP, ids.fern, written.fern[4].id, rejected, who.cit.id],
+    );
 
     const before = { catalog: await catalogOf(db), pins: await pinsOf(db, "ec08b07d-6ec0-8f65-92b2-3efe7d91df5d"), versions: (await db.query(`SELECT id, number, recipe_hash, source_hash FROM play.asset_versions ORDER BY id`)).rows };
     const r = await ensureAssetDocs(db, store);
@@ -130,8 +134,8 @@ suite("assets as documents", () => {
     expect(lamp1.defaultVariant).toBe("off");
     expect(lamp1.variants.map((x: any) => [x.name, x.source ?? null])).toEqual([["off", null], ["on", src("lamp, lit")]]);
     expect((await docs.stateAt(db, assetDocId(ids.lamp), { version: 2 })).source).toBe(src("one lamp"));
-    // the rejected proposal: a branch at v4, closed
-    const { rows: br } = await db.query<any>(`SELECT b.status FROM play.proposals p JOIN play.doc_branches b ON b.id = p.doc_branch WHERE p.version = $1`, [rejected]);
+    // the rejected work: a branch at v4, closed, naming its intent
+    const { rows: br } = await db.query<any>(`SELECT b.status FROM play.intents i JOIN play.doc_branches b ON b.id = i.doc_branch AND b.intent_id = i.id WHERE i.version = $1`, [rejected]);
     expect(br[0].status).toBe("archived");
     // run again, nothing new
     const again = await ensureAssetDocs(db, store);
@@ -186,10 +190,10 @@ suite("assets as documents", () => {
     expect(p.branch).toBe(s1.branch);
     expect(p.number).toBe(5);
     expect(p.steps).toBeGreaterThanOrEqual(3);
-    const review = await proposalOf(db, ada, p.id);
+    const review: any = await reviewOf(db, p.intent, {});
     expect(review.steps.map((s: any) => s.message).slice(0, 2)).toEqual(["a longer frond", "and a curl"]);
-    const d = await decide(db, store, ada, p.id, "accept");
-    expect(d).toMatchObject({ status: "accepted", number: 5 });
+    const d = await decide(db, store, ada, p.intent, "accept");
+    expect(d).toMatchObject({ status: "accepted", number: 5, intent: p.intent, stage: "accepted" });
     const vs = await docs.versionsOf(db, assetDocId(ids.fern));
     expect(vs.map((v) => v.number)).toEqual([1, 2, 4, 5]);
     const head = (await docs.readDoc(db, assetDocId(ids.fern))).json;
@@ -202,20 +206,20 @@ suite("assets as documents", () => {
     expect(h.steps.at(-1)?.version).toBe(5);
   });
 
-  test("a draft made on an older head is refused when proposed; a proposal over the web gets a branch, archived by its author it is closed", async () => {
+  test("a draft made on an older head is refused when proposed; work proposed over the web gets a branch, archived by its author it is closed", async () => {
     const ada = (await me("ada"))!, cit = (await me("cit"))!;
     const old = await editAsset(db, store, ada, { asset: ids.lamp, message: "brighter", edits: [{ op: "replace", find: "one lamp", replace: "one bright lamp" }] });
     const web = await propose(db, store, cit, { asset: ids.lamp, note: "a dimmer lamp", source: src("one dim lamp") });
     expect(web.branch).toBeGreaterThan(0);
-    await decide(db, store, ada, web.id, "accept");
+    await decide(db, store, ada, web.intent, "accept");
     await expect(propose(db, store, ada, { asset: ids.lamp, note: "brighter", branch: old.branch }, "mcp")).rejects.toThrow(/newer version/);
     const again = await propose(db, store, cit, { asset: ids.lamp, note: "warmer", source: src("one warm lamp") });
-    await decide(db, store, cit, again.id, "archive");
+    await decide(db, store, cit, again.intent, "archive");
     const { rows } = await db.query<any>(`SELECT status FROM play.doc_branches WHERE id = $1`, [again.branch]);
     expect(rows[0].status).toBe("archived");
     // a new asset's first version: its document starts empty, its proposal's branch fills it
     const fresh = await propose(db, store, cit, { new: { group: "things", slug: "stool", label: "Stool" }, note: "a stool", source: src("a stool") });
-    await decide(db, store, ada, fresh.id, "accept");
+    await decide(db, store, ada, fresh.intent, "accept");
     const stool = await docs.readDoc(db, assetDocId(fresh.asset));
     expect(stool.json.source).toBe(src("a stool"));
     expect(stool.versions.map((v) => v.number)).toEqual([1]);

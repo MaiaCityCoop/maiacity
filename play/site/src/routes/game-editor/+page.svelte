@@ -6,8 +6,8 @@
 	minted, and the treasury after it in euros, hearts and minds. On the right its versions.
 
 	A config is a Loro document in play's Postgres (play/api/src/gameconfigs.ts), read from the API; it changes only by
-	proposal (over MCP: game_config_edit, propose_game_config_version), decided on the Proposals page. `?config=<id>`
-	picks one, `&v=<n>` one of its versions, `&proposal=<id>` the config as an open proposal would make it. Admins only.
+	proposal (over MCP: game_config_edit, propose_game_config_version), decided on the intents' board. `?config=<id>`
+	picks one, `&v=<n>` one of its versions, `&intent=<id>` the config as an intent's work at Proposal would make it. Admins only.
 -->
 <script lang="ts">
 	import { page } from '$app/state';
@@ -20,7 +20,7 @@
 
 	type Item = { id: string; label: string; schema: string; note: string; number: number; versions: number };
 	type Version = { number: number; note: string; at: string; acceptedBy: string | null };
-	type Config = { id: string; json: any; number: number; version?: number; versions: Version[]; proposal?: { id: string; status: string; note: string } };
+	type Config = { id: string; json: any; number: number; version?: number; versions: Version[]; intent?: { id: string; status: string; note: string } };
 
 	const admin = $derived(session.me?.level === 'admin');
 	let list = $state<Item[]>([]);
@@ -29,14 +29,15 @@
 	const params = $derived(page.url.searchParams);
 	const id = $derived(params.get('config') ?? list[0]?.id ?? '');
 	const wantV = $derived(params.get('v'));
-	const wantProposal = $derived(params.get('proposal'));
+	// `proposal`: its name before an intent and its proposal were one record (play finds the intent by the old id)
+	const wantIntent = $derived(params.get('intent') ?? params.get('proposal'));
 	$effect(() => {
 		if (!admin) return;
 		api<Item[]>('/game/configs').then((l) => (list = l), (e) => (error = e.message));
 	});
 	$effect(() => {
 		if (!admin || !id) return;
-		const q = wantProposal ? `?proposal=${encodeURIComponent(wantProposal)}` : wantV ? `?v=${encodeURIComponent(wantV)}` : '';
+		const q = wantIntent ? `?intent=${encodeURIComponent(wantIntent)}` : wantV ? `?v=${encodeURIComponent(wantV)}` : '';
 		let gone = false;
 		api<Config>(`/game/configs/${id}${q}`).then(
 			(c) => !gone && ((config = c), (error = '')),
@@ -74,8 +75,8 @@
 		<header class="about-head">
 			<small>Owned by Maia City</small>
 			<h3>{config.json.label}</h3>
-			{#if config.proposal}
-				<p class="asif">As the {config.proposal.status === 'proposal' ? '' : `${config.proposal.status} `}proposal would make it: “{config.proposal.note}” <a href="/intents/">Back to the intents</a> · <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>its newest version</a></p>
+			{#if config.intent}
+				<p class="asif">As its intent's work would make it{config.intent.status === 'proposal' ? '' : ` (${config.intent.status})`}: “{config.intent.note}” <a href="/intents/">Back to the intents</a> · <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>its newest version</a></p>
 			{:else if config.version !== config.number}
 				<p class="asif">Version {config.version}, not its newest: <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>v{config.number}</a></p>
 			{/if}
@@ -83,7 +84,7 @@
 		<h4 class="side-head">Versions</h4>
 		<ol class="chain">
 			{#each [...config.versions].reverse() as v (v.number)}
-				<li class:on={!config.proposal && v.number === config.version}>
+				<li class:on={!config.intent && v.number === config.version}>
 					<a href="?config={config.id}&v={v.number}" onclick={(e) => (e.preventDefault(), at(config!.id, v.number === config!.number ? undefined : v.number))}><b>v{v.number}</b></a>
 					<span class="from">{new Date(v.at).toLocaleDateString('en-GB')}{v.acceptedBy ? ` · accepted by ${v.acceptedBy}` : ''}</span>
 					<p class="note">{v.note}</p>

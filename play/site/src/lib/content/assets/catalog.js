@@ -70,7 +70,7 @@ const keep = (r) => {
 };
 
 /**
- * A proposed version's builds (play's /api/proposals/:id `builds`), held beside the accepted ones so the Proposals page
+ * A proposed version's builds (play's /api/intents/:id `review.builds`), held beside the accepted ones so the intents' board
  * can build it to be seen before anyone decides. It builds the way every recipe does: its file read from play by its
  * hash and held to it, then run in the asset box (./box/host.js), the sandboxed frame with no origin, on the frozen
  * engine its record names. Nothing else names a proposed hash, so no sandbox ever draws one.

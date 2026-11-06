@@ -15,8 +15,8 @@ is changed, moved or deleted, and the new sandboxes drift apart from it from day
 | State | All three sandboxes are **stateless**: nothing a visitor does in a world is saved on the server |
 | Accounts | Today's founders and passkeys copied in once (the same passkey works: RP_ID `maia.city` covers the subdomain). Sign-up is **open**; everyone who signs up is a **traveler** |
 | Ownership | The **Maia City coop owns every asset** and is their authority. Its **admins** are its owners and act for it (Samuel to start) |
-| Rights | Visitors (not signed in): no rights, they see the sign-in page. Travelers: enter and play every sandbox, read every asset and every version. Citizens (by invite): + propose new asset versions, + the coming game. Admins: accept or reject proposals, run members and invites |
-| Proposals | v0: **asset update proposals** only (a new version of an asset): **citizens propose, admins accept**. Pinning a sandbox to an asset version is a separate proposal kind, later (§4.4) |
+| Rights | Visitors (not signed in): no rights, they see the sign-in page. Travelers: enter and play every sandbox, read every asset and every version. Citizens (by invite): + propose new asset versions, + the coming game. Admins: accept or archive the intents at Proposal, run members and invites |
+| Proposals | v0: **asset update proposals** only (a new version of an asset): **citizens propose, admins accept**. Pinning a sandbox to an asset version is a separate proposal kind, later (§4.4). Since 2026-11-06 a proposal is no record of its own: it is an intent at its stage Proposal, its work on it (§4.12) |
 | Encryption | None for now; it can come back as a layer on top |
 | Versioning | A content-addressed version DAG in Postgres (§4.3), and under it every step kept in Loro: one Loro document per story (assets next), proposals as branches, versions named by the hash of their content (§4.4, §12; Samuel 2026-11-03) |
 | Out of scope | Studio, blog, stories, posts, chat, the agent MCP, theOS, DB2, the V2 trailer/intro |
@@ -60,9 +60,9 @@ CommonJS module that sets `module.exports.recipe`, as written (play refuses mini
 file the box runs is exactly the source people read. Proposed code never runs on play's server (it only measures,
 labels and hashes text), and in the page only in the **asset box**: a frame with `sandbox="allow-scripts"` and no
 origin, its own CSP with no connection, the frozen engine (held to its hash) in a worker. A proposal's record may name
-only a frozen box engine, and its manifest is the libraries its source requires. The Proposals page is a board (Samuel 2026-11-03): a
-column per status (Open, Accepted, Archived: a proposal ends accepted or archived, nothing else, Samuel 2026-11-04;
-an admin archives any, its author their own); a card opened shows the version built in the box nearly
+only a frozen box engine, and its manifest is the libraries its source requires. The board is the intents' (Samuel
+2026-11-03; §4.12): a column per stage (work at Proposal ends accepted or archived, nothing else, Samuel 2026-11-04;
+an admin archives any, whoever proposed it their own); a card opened shows the version built in the box nearly
 full screen, its note folded, its source (beside its base's, as changes) a button away, before anyone decides. Nothing
 is proposed or edited on the page: versions come over MCP. `/api/files` serves
 code as plain text (`nosniff`, `sandbox`), never as script on play's origin.
@@ -103,15 +103,16 @@ asset_versions  (id /*BLAKE3 of canonical {asset, parents, recipe, default_varia
                  -- immutable: a trigger refuses UPDATE and DELETE (only number/approver are set once, on accept)
 asset_variants  (version_id, name, recipe_hash → files, card jsonb)              -- immutable
 files           (hash PK /*BLAKE3 of the bytes*/, size, media_type, bucket_key, created)
-proposals       (id, coop_id, kind /*asset_version*/, asset_id, base → asset_versions, version → asset_versions,
-                 author, status /*proposal|accepted|archived*/, decided_by, decided_at, note, created,
-                 intent_id → intents /*the intent it was made for: every proposal is an intent's (§4.12)*/)
+intents         (… work 'asset_version', asset_id, base → asset_versions, version → asset_versions,
+                 work_note, proposed_by, proposed_via, proposed_at /*the intent's work: one record (§4.12)*/)
 ```
 
-- A proposal names its **base** (the head it was made from) and a not yet numbered version.
-- **Accept** is one transaction: it checks `assets.head = proposal.base` (optimistic concurrency), gives the version
-  the next number, moves the head, writes `approved_by`. If someone accepted another version first, the proposal is
-  **archived**: re-propose it on the new head, or an admin accepts it as a replacement (its parents then name both).
+- Proposing a version puts an intent at **Proposal** with it (the intent named, or a new one, §4.12): its work names
+  its **base** (the head it was made from) and a not yet numbered version.
+- **Accept** is one transaction: it checks `assets.head = intent.base` (optimistic concurrency), gives the version
+  the next number, moves the head, writes `approved_by`, and the intent is Accepted. If someone accepted another
+  version first, its work is **archived** (and so is the intent, or, its spec approved, it goes back to Prototype):
+  re-propose it on the new head.
 - Content addressing gives what avenDB gave: the same content has the same id, a file is checked by its hash wherever
   it is read, and history can't be rewritten without every id changing.
 
@@ -130,7 +131,7 @@ to read, to time-travel through and to tell (a making-of is that history played 
   result against its type (and the type's own rules, such as a clip inside its story), and appends a **step**: its Loro
   update, its author (a member, or an agent under its admin's name), its means (site, mcp, import), its message and its
   time. Every MCP call that edits is a step. A whole new body sent at once lands as the few operations it differs by.
-- **A proposal is a branch**: forked at the main line's head, with its own steps (an agent can take as many as it needs).
+- **An intent's work is a branch**: forked at the main line's head, with its own steps (an agent can take as many as it needs).
   Proposing names it; accepting merges it into the main line (a CRDT merge: if the line moved on, both sets of edits
   stand), checks the merged result, and names it the next **version**, whose canonical JSON's BLAKE3 is recorded with
   its frontiers. Rejecting or withdrawing keeps its steps on their side line.
@@ -140,7 +141,7 @@ to read, to time-travel through and to tell (a making-of is that history played 
   hash; sandboxes still pin builds. Loro adds the history under a version; it replaces nothing of §4.5.
 - **Tables** (migration `0013-docs`): `docs` (its type, schema, head frontiers and a snapshot of its main line, written
   again every 32 steps and always holding the whole history), `doc_updates` (every step, append only), `doc_versions`
-  (named versions, never changed), `doc_branches` (proposals), `doc_peers` (who writes as which Loro peer: one per
+  (named versions, never changed), `doc_branches` (drafts and the intents' work, each naming its intent), `doc_peers` (who writes as which Loro peer: one per
   author on the main line, a fresh one on every branch, so two branches never write the same operation ids).
 - **Reading**: a document now, any step or version as JSON, its history (the main line with every accepted branch's
   steps where they were made), and what changed between two points, field by field (lists of clips followed by their ids).
@@ -159,8 +160,8 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   skipped); the work kept between two versions (`play/api/import/history/<asset's uuid>`: each step's file, hash, date
   and message) as the steps between them, only where the two versions are exactly the sources it ran between, its last
   step then the next version byte for byte. The papaya's nine rounds between v1 and v2, by Maia over MCP, are the first.
-  Each proposal not yet on a branch gets one at its base, closed as it was decided.
-- **Proposals are branches**: a proposal over the web or MCP is a branch at the head it was made on, the version as
+  Each intent's work not yet on a branch gets one at its base, closed as it was decided.
+- **Work is a branch**: work proposed over the web or MCP is a branch at the head it was made on, the version as
   proposed its last step; an agent can draft it first step by step (`asset_edit`: a replace by its text, a range of the
   source, a field of the card, each step with its message) and propose the draft (`propose_version` with its `branch`),
   its steps going with it. Accepting merges the branch and names the document's version the asset's new number.
@@ -174,8 +175,8 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   ("Papaya: Male" as Male), `default_variant` the one a ref without a variant names. `params` sets the card's
   parameters when the recipe declares new ones (its meta.params, in its build's order), on the version and every
   variant. The papaya's three kinds (both, female, male) are the first.
-- **Never merged unseen**: an asset's proposal is still accepted only on the head it was made on (a moved head archives it,
-  §4.3), so what is accepted is exactly the version the Proposals page built and showed in the asset box; the
+- **Never merged unseen**: an asset's work is still accepted only on the head it was made on (a moved head archives it,
+  §4.3), so what is accepted is exactly the version the intents' board built and showed in the asset box; the
   document's own rule (a merge that met other edits needs its previewed hash) stands behind it.
 - **The making-of**: for admins the asset viewer has a history bar of every step (versions marked; who, how, message,
   time) and plays them as a time-lapse. At a version's point it builds that version's own recipe file; at any other step
@@ -207,7 +208,7 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
 - **One loader** (play/site's `content/assets/catalog.js`): hash → its record from `/api/catalog` → its file from
   `/api/files/<hash>`, held to the hash → the frozen box engine builds it. Media (covers, sounds) are play's files too.
 
-### 4.6 A sandbox's layout (the `sandbox_change` proposal, Samuel 2026-11-04)
+### 4.6 A sandbox's layout (the `sandbox_change` work, Samuel 2026-11-04)
 
 `sandbox_pins (sandbox_id, slot, version_id, variant, params)`: which version a sandbox draws; `sandbox_configs
 (sandbox_id, name, data)`: how it lays them out (Sandbox 1's `garden`: its plantings, spacing, drifts and fields; where a
@@ -217,14 +218,14 @@ asset's newest, its variant and values, and where a config names it) and propose
 `pin` (a slot to an accepted version, variant and values; a new slot too), `pin_latest` (every slot of an asset to its
 newest version), `unpin`, and `set`/`delete` of any value at a path of a config ("update Sandbox 1's papayas to v4",
 "move the hens", "weight the apples 5"). Each is checked as a whole: only accepted versions, variants they have, no
-readable refs, every slot a config names pinned. The Proposals page shows each change before and after and opens the
-sandbox as it would be (`/sandbox-1/?layout=<sandbox's uuid>/<proposal>`, its config read with `?proposal=`, admins only); an
-admin accepts it there, which applies the edits to the sandbox as it is then, in one transaction (one that no longer
-holds is archived). Admins only for now (`play/api/src/sandboxes.ts`).
+readable refs, every slot a config names pinned. The intents' board shows each change before and after and opens the
+sandbox as it would be (`/sandbox-1/?layout=<sandbox's uuid>/<intent>`, its config read with `?intent=`, admins only); an
+admin accepts the intent there, which applies the edits to the sandbox as it is then, in one transaction (one that no
+longer holds is archived). Admins only for now (`play/api/src/sandboxes.ts`).
 
 ### 4.7 Every reference a UUID or a hash (Samuel 2026-11-04)
 
-A thing is named by its UUID (a coop, an asset, a story, a sandbox, a proposal, a human, a token) or, where it never
+A thing is named by its UUID (a coop, an asset, a story, a sandbox, an intent, a human, a token) or, where it never
 changes, by the BLAKE3 hash of its content (a file, a recipe, a version). A title, a label, a slug, a group or a route
 is only shown: nothing is looked up by it, no row refers to it, and two things may share it.
 
@@ -245,7 +246,7 @@ is only shown: nothing is looked up by it, no row refers to it, and two things m
   named its asset or story by what it was then (`plants/papaya`, `papaya-v2-devlog`); new versions name their story by
   its UUID. Nothing recomputes an old one.
 
-### 4.8 The Factories on Loro (the `factory_version` proposal, Samuel 2026-11-04)
+### 4.8 The Factories on Loro (the `factory_version` work, Samuel 2026-11-04)
 
 Every production line play shows is a Loro document, `factory:<uuid>` (a factory is its UUID, §4.7; the first,
 the LifeTrac line, `uuidOf('factory:lifetrac-line')`, `play/api/src/ids.ts` `FACTORY`; type `factory/1`, `play/api/src/docs/schema.ts`;
@@ -256,22 +257,22 @@ operation it goes through, at which station and for how many seconds; the stock 
 own handling). Data only, nothing of it code: a station's cycle time is the sum of its operations and its handling,
 worked out where the line is drawn (`play/site`'s `content/factories/index.js` `lineOf`), unless the station gives its
 own `ct`, so changing a part's operation moves the line. `play.factories` holds each factory's id and
-label so a proposal can name it (migration `0018`). A factory's first version is made once from the repo by the deploy's import
+label so an intent's work can name it (migration `0018`). A factory's first version is made once from the repo by the deploy's import
 (`play/api/import/factories`: the LifeTrac line as it was first written, 2026-11-03); from then on play's Postgres is
 its source of truth.
 
 A factory changes **only by proposal**, as a story does: an agent reads it (`list_factories`, `get_factory` at its
-newest version, a version, a step or as an open proposal would make it; `factory_history`), drafts a change step by
+newest version, a version, a step or as an intent's work would make it; `factory_history`), drafts a change step by
 step (`factory_edit`: the document's own edits, set, insert, delete, move and text, a list's item named by its index or
 by its id, `{ id: 'weld' }`; each step checked whole: every operation at a station of the line, every id once) and
-proposes the draft (`propose_factory_version` with its `branch`), or proposes edits at once. The Proposals page shows
+proposes the draft (`propose_factory_version` with its `branch`), or proposes edits at once. The intents' board shows
 what it changes field by field from the version it was made on, its steps, and opens the factory as it would be
-(`/factories/?factory=<id>&proposal=<id>`), its simulation running. Accepting merges the branch into the main line and
+(`/factories/?factory=<id>&intent=<id>`), its simulation running. Accepting merges the branch into the main line and
 names the next version; made on a version that is no longer the newest, it still goes in where the two changes touch
 different fields and is archived where they touch the same. The Factories page reads every version (`&v=<n>`). Admins
 only, as the Factories are.
 
-### 4.9 The Game editor (the `game_config_version` proposal, Samuel 2026-11-04)
+### 4.9 The Game editor (the `game_config_version` work, Samuel 2026-11-04)
 
 The game's configs are Loro documents too, `game:<uuid>` (type by kind: `levels/1` first, `play/api/src/docs/schema.ts`;
 `play/api/src/gameconfigs.ts`, which follows the Factories step for step), listed in `play.game_configs` (migration
@@ -284,8 +285,8 @@ villagers' euros. A mind costs 10 hearts more at every level (or that in euros a
 out (`play/site`'s `routes/game-editor/levels.ts`) the minds each villager and investor gets, the investor's share, the
 minds minted, and the treasury after every level in euros (raised and left after building), hearts and minds. A config
 changes only by proposal, as a factory does: `list_game_configs`, `get_game_config`, `game_config_history`,
-`game_config_edit`, `propose_game_config_version` over MCP; the Proposals page shows it field by field and opens the
-Game editor as it would be (`?config=<id>&proposal=<id>`).
+`game_config_edit`, `propose_game_config_version` over MCP; the intents' board shows it field by field and opens the
+Game editor as it would be (`?config=<id>&intent=<id>`).
 
 ### 4.10 A plant's reference sheet, data sheet and brief (Samuel 2026-11-05)
 
@@ -294,7 +295,7 @@ made for it (the plant skill makes it with Google's Nano Banana Pro) and kept am
 the Library, labelled. The version's record holds it by its hash (`sheet`), set by the proposal (`propose_version`'s
 or `propose_asset`'s `sheet`: an image play keeps, else refused) and carried on from the head unless a proposal names
 another, or `null` for none. The asset library shows each version's sheet beside its note, opened whole; the Library
-shows, beside an image, every asset version that has it as its sheet (accepted, or a proposal still open), linked to
+shows, beside an image, every asset version that has it as its sheet (accepted, or an intent's work still at Proposal), linked to
 the asset. The recipe names the same hash in its `meta.sheet`, so the plant and the plate it was checked against are
 kept together.
 
@@ -389,8 +390,8 @@ world has run (`run`) from eyes, views or street cameras. The stand-in test worl
 
 ### 4.12 Intents (Samuel 2026-11-06; the Inbox and Specify before, 2026-11-05)
 
-Everything Maia City wants made, fixed or improved is an **intent**, and every proposal is an intent's. An intent goes
-through stages, the board's columns: **Idea → Specify → Prototype → Proposal → Accepted** (or **Archived**). Idea is it
+Everything Maia City wants made, fixed or improved is an **intent**. An intent goes through stages, the board's
+columns: **Idea → Specify → Prototype → Proposal → Accepted** (or **Archived**). Idea is it
 as it came; Specify is its spec written, waiting for an admin's approval; Prototype is the whole round of making it, an
 agent building and checking until the spec is met (any intent an agent is working on is in Prototype); Proposal is its
 work done and checked, waiting for the decision: an intent moves there **by itself** the moment every must check has
@@ -398,20 +399,40 @@ passed (Samuel 2026-11-06), so after the spec's approval there is one gate with 
 Proposal, and none in Prototype. Each column folds away to a strip and opens again, each viewer's own choice
 kept in their browser; Accepted and Archived are folded at first.
 
+**One record, the intent** (Samuel 2026-11-06: *"proposal and intent are the same!! not different, merge, DRY"*, and
+*"not a proposal belongs to an intent: the intent has a state, proposal. Do you see the difference?!"*). There is no
+proposal beside an intent: **Proposal is a stage of the intent**, its work done and checked, waiting for the decision.
+The work it brings, when it is work of play's (an asset's or a story's version, a sandbox's change, a factory's or a
+config's version), is on the intent itself: what it changes and its refs, the base it was made on, the version it would
+be (or its edits), its branch of the document it changes, what it says of itself, who proposed it, how and when. An
+intent at Idea, Specify or Prototype has no work yet, or work in progress (a draft branch, `asset_edit`,
+`story_edit` …); one whose work is code holds none of play's: its work is its pull request.
+
 **The spec is the gate**, as a test is in test-driven development: it says what is wanted so that it can be checked,
 and the same checks decide when the work is done. A spec is a **goal** (what is true once it is done, in a sentence), a
 **scope** (what changes, named by UUIDs, hashes or paths, and what stays as it is) and 1–12 **checks**, each ONE
 statement that passes or fails, checked one of three ways: a **test** (a command that passes), a **measure** (a value
 and its range, read with a named tool) or a **look** (a comparison with a named reference: the subjective made
-explicit), and each **must** (it holds the proposal back) or **nice** (it does not). The checks are ids `c1…cn`.
+explicit), and each **must** (it holds the intent back from Proposal) or **nice** (it does not). The checks are ids
+`c1…cn`.
 
 ```sql
 intents (id UUID, coop_id, kind /*idea|fix|improve: shown as Make, Fix, Improve*/, title /*only shown, 1–200*/, note,
          stage /*idea|specify|prototype|proposal|accepted|archived*/, author, via /*web|mcp*/, created,
          spec jsonb /*{ goal, scope, checks: [{ id, check, how: test|measure|look, by, run, must }] }*/, specified_by, specified_at,
-         approved_by, approved_at /*the spec approved: Prototype and on need it, unless it came as a proposal*/,
-         results jsonb /*each check's last result in Prototype: { "c1": { pass, evidence, by, at, where: avenBOX|main, commit } }*/, decided_by, decided_at)
-proposals.intent_id → intents NOT NULL  -- the intent a proposal was made for
+         approved_by, approved_at /*the spec approved: Prototype and on need it, unless it came with its work*/,
+         results jsonb /*each check's last result in Prototype: { "c1": { pass, evidence, by, at, where: avenBOX|main, commit } }*/, decided_by, decided_at,
+         -- its work (0029-one-record): none, or one kind of work and the refs of that kind (intents_work_names_what)
+         work /*asset_version|story_version|sandbox_change|factory_version|game_config_version*/,
+         asset_id, base → asset_versions, version → asset_versions,            -- an asset's version
+         story_id, story_base → story_versions, story_version → story_versions, -- a story's version
+         sandbox_id, sandbox_base /*BLAKE3 of the layout it was made on*/, sandbox_change jsonb, sandbox_diff jsonb,
+         factory_id, game_config_id,                                          -- a factory's, a config's version
+         doc_branch → doc_branches /*its branch of the document it changes*/,
+         work_note, proposed_by → humans, proposed_via /*web|mcp*/, proposed_at,
+         came_with → intents /*where it was one of several proposals of one intent before 0029*/)
+doc_branches.intent_id → intents        -- the intent a branch was proposed as (kept when newer work replaces it)
+proposal_ids (proposal_id PK, intent_id → intents, how /*its|own*/)  -- every proposal's id from before 0029, and the intent it is
 ```
 
 - **Agents, over MCP only** (`play/api/src/intents.ts`): nothing is typed in by hand. An admin's agent adds an intent
@@ -419,13 +440,18 @@ proposals.intent_id → intents NOT NULL  -- the intent a proposal was made for
   if specified again, only at Idea or Specify), then stops: **an admin approves the spec** (Specify → Prototype). In
   Prototype the agent builds it, runs each check as its spec says and records every result with its evidence
   (`check_intent`: a failure as a failure), until every must check passes: then the intent moves to **Proposal by
-  itself**. Checked again at Proposal (only while none of its proposals waits), a must that fails takes it back to
-  Prototype. Work that is one of play's proposals (an asset or story version, a sandbox change, a factory, a config) is
-  also proposed: every propose tool takes `intent`, the intent's UUID, and play takes the proposal only for an intent in
-  Prototype or Proposal whose must checks all pass, refusing it otherwise and saying which checks are not met. Other
-  work (code, shipped by its pull request) needs no proposal: the intent at Proposal is decided itself.
-  `list_intents` (the open stages, or one stage, or all) and `get_intent` (one whole, with its proposals) read them.
-  No tool approves, accepts or rejects an intent.
+  itself**. Checked again at Proposal (only while no work of it waits there), a must that fails takes it back to
+  Prototype. **To propose is to put an intent at Proposal**: work of play's (an asset or story version, a sandbox
+  change, a factory, a config) is proposed with every propose tool's `intent`, the intent's UUID; play takes it only
+  for an intent in Prototype or Proposal whose must checks all pass (`intentReady`), refusing it otherwise and saying
+  which checks are not met, and the intent moves to Proposal holding that work. **New work for the same intent replaces
+  its work**: the earlier one's branch is closed, its steps kept as a side line, its version kept unnumbered in the
+  DAG (`play/api/src/work.ts` `putAtProposal`). Every propose tool gives back the intent (`intent`, at `proposal`).
+  Other work (code, shipped by its pull request) holds none of play's: the intent at Proposal is decided on main's
+  checks. `list_intents` (the open stages, or one stage, or all; `work`, one kind of work) and `get_intent` (one whole,
+  its work and its work's review) read them. No tool approves, accepts or rejects an intent; an agent archives only its
+  own intents at Proposal that it put there over MCP (`archive_intent`: its work proposed over MCP, or, with no work,
+  the intent added so), one it no longer stands by.
 - **Checks run in avenBOX, and again on main** (Samuel 2026-11-06; intent `8888e140-a6e4-4472-b1db-e78692db5c4a`).
   **avenBOX** (one word, `aven` lowercase and `BOX` in capitals) is the cloud environment the agents prototype in
   (`env_01BqgqGckrzz4FdXd8SD4HHd`), and the box is built the same way wherever a check runs, by `play/avenbox/`:
@@ -451,47 +477,61 @@ proposals.intent_id → intents NOT NULL  -- the intent a proposal was made for
     main's head) builds the same box on GitHub's runner (`sudo bash play/avenbox/setup.sh`) and runs `intent.ts
     <intent> --record --where main` on the merged commit, with the repository secret `PLAY_MCP_TOKEN` (an admin's
     access token). It records and never blocks: production's *Main is green* reads only main.yml's checks. It records
-    while the intent is at Proposal (where it moved by itself once every must check passed in avenBOX; none of its
-    proposals waiting) or in Prototype; a must failing on main takes it back to Prototype. An intent is accepted at
+    while the intent is at Proposal (where it moved by itself once every must check passed in avenBOX; no work of
+    play's waiting) or in Prototype; a must failing on main takes it back to Prototype. An intent is accepted at
     Proposal only when every must check with a `run` has passed **on main** (`unmetOnMain`); a pass in avenBOX alone is
-    not enough. Intents whose work is one of play's proposals keep their gate (`intentReady`).
-- **A proposal made without an intent is an intent of its own** (a database trigger): titled by what it proposes (an
-  asset's or a story's label and the version it would be, a sandbox's changes, a factory's or a config's label), its
-  note and author the proposal's, at the Proposal stage, with no spec. Every proposal before intents became one this
-  way (migration `0026-intents`), and what waited for a decision is a **proposal** (`proposed` before `0025-proposal`,
-  `open` before `0023-proposed`; `?status=open` and `?status=proposed` still answer with them). An Inbox item became
-  an intent at Idea (one done, Accepted), its definition and metric kept in its note, to be specified again with checks.
-- **An intent follows its proposals**: when none of them is waiting any more, one accepted makes it Accepted; none,
-  and its spec approved, takes it back to Prototype (its results cleared, to be checked again); none, and no spec,
-  archives it.
+    not enough. Intents whose work is play's keep their gate (`intentReady`).
+- **Work proposed without an intent is a new intent of its own**, at Proposal: titled by what it proposes (an asset's
+  or a story's label and the version it would be, a sandbox's changes, a factory's or a config's label), its note and
+  author the work's, with no spec; a new asset or story is its kind *idea* (Make), anything else *improve*.
+- **Deciding settles the intent** (`POST /api/intents/:id/{accept,archive}`, `play/api/src/proposals.ts` `decideAny`),
+  in one transaction. At Proposal with work of play's, **accepting applies it** as its kind says (§4.3 an asset's head,
+  §12 a story's head, §4.6 a sandbox's pins and configs, §4.8 a factory's, §4.9 a config's next version) and the intent
+  is Accepted; made on a base that has moved, the kind's own rule decides: merged where the two changes touch different
+  fields, else its work is archived, and so is the intent; **archiving archives it**, its work's branch closed. Work
+  archived by itself (its base moved, another's work accepted first) takes an intent whose spec is approved back to
+  Prototype (its results cleared, to be built again on the new head); one with no spec ends archived. Whoever proposed
+  work may archive their own. The answer is the intent, with what its work came to (`decision`: status, number,
+  version, merged, the message where it was archived).
+- **Proposals became intents** (migrations `0026-intents`, then `0029-one-record`). 0026 gave every proposal an
+  intent (one of its own, at its stage, where it had none) and a trigger kept them in step. 0029 made them one record,
+  losing nothing: an intent and its one proposal became one intent; an intent with several kept the newest live one
+  whose status was its stage (waiting, else accepted, else the newest), and each other proposal became an intent of
+  its own at its own stage, named by the proposal's UUID and `came_with` the intent it was proposed for; every doc
+  branch names the intent it was proposed as, a proposal's id written in an intent's or a branch's text became its
+  intent's, and every proposal's id is kept in `proposal_ids` beside the intent it is, so an old link still finds it
+  (`GET /api/proposals/:id` answers `308` to `/api/intents/<the intent>`, `/proposals/#<id>` opens it on the board,
+  `?proposal=` on a factory, config or sandbox reads as `?intent=`). Then `play.proposals` and its triggers went. An
+  Inbox item became an intent at Idea (one done, Accepted), its definition and metric kept in its note, to be
+  specified again with checks.
 - **On the board** (admins only), each card is an intent: its title, how far its must checks are in Prototype and
-  Proposal ("2/3 checks"), its type (what its proposal is, else its kind), who and when. An intent that is only its one proposal opens
-  straight into the proposal's review; any other opens its dialog: its note, its spec (the goal, the scope and each
-  check with its mark, ✓ passed, ✗ failed, · no result yet, how and by what it is checked, and its last evidence), what
-  was proposed for it (each a click from its review), and the **brief** that sends an agent to it (at Idea: specify it
-  and stop; in Prototype: build it and record every check, so that it moves to Proposal by itself, and propose it with
-  `intent` if its work is one of play's proposals). An admin **approves the spec** (Specify → Prototype), sends it
-  **back to Specify** (from Prototype or Proposal: its approval and results cleared), **accepts** it only at Proposal
-  (what it asked is in; nothing is accepted from Prototype), **rejects** it (from Idea, Specify, Prototype or Proposal;
-  it ends archived) or **reopens** it (to Specify if it has a spec, else to Idea). While a proposal of it waits, that
-  proposal's review is where it is decided: the intent itself is not accepted, rejected, sent back, reopened or checked
-  again, and follows the proposal. Migration `0028-intents-ready-propose` moved the intents already in Prototype with
-  every must check passed to Proposal. `GET /api/intents` (`?stage=idea,specify`), `GET /api/intents/:id`,
-  `POST /api/intents/:id/{approve,respecify,accept,reject,reopen}`.
-- A proposal's review shows the intent it was made for (only to admins: the intents are theirs) and its checks as a
-  strip of marks; an intent is named by its UUID only.
-- **The decision sits at the foot** of what is open (a proposal's review, an intent), in the middle, where a thumb
-  reaches it on a pad: **Reject** on the left, reddish (a proposal or an intent rejected ends archived: a proposal ends
-  accepted or archived), **Accept** (an intent's **Approve spec** in Specify) on the right, the rest between (Source,
+  Proposal ("2/3 checks"), its type (what its work is, else its kind), who and when. An intent that is only its work
+  (no spec) opens straight into its work's review; any other opens its dialog: its note, its spec (the goal, the scope
+  and each check with its mark, ✓ passed, ✗ failed, · no result yet, how and by what it is checked, and its last
+  evidence), its work (a click from its review), and the **brief** that sends an agent to it (at Idea: specify it and
+  stop; in Prototype: build it and record every check, so that it moves to Proposal by itself, and propose its work
+  with `intent` if it is play's). An admin **approves the spec** (Specify → Prototype), sends it **back to Specify**
+  (from Prototype or Proposal: its approval and results cleared), **accepts** it only at Proposal (what it asked is in;
+  nothing is accepted from Prototype), **rejects** it (from Idea, Specify, Prototype or Proposal; it ends archived) or
+  **reopens** it (to Specify if it has a spec, else to Idea; not once its work of play's is accepted: what comes after
+  it is an intent of its own). While its work waits at Proposal, its review is where it is decided: the intent is not
+  sent back or checked again. Migration `0028-intents-ready-propose` moved the intents already in Prototype with every
+  must check passed to Proposal. `GET /api/intents` (`?stage=idea,specify`, `?work=story_version`), `GET
+  /api/intents/:id` (with `review`), `POST /api/intents` (an asset's version proposed on the web: an intent at
+  Proposal), `POST /api/intents/:id/{approve,respecify,accept,archive,reject,reopen}`.
+- The review of an intent's work shows the intent's checks as a strip of marks; an intent is named by its UUID only.
+- **The decision sits at the foot** of what is open (a work's review, an intent), in the middle, where a thumb
+  reaches it on a pad: **Reject** on the left, reddish (an intent rejected ends archived: its work ends accepted or
+  archived), **Accept** (an intent's **Approve spec** in Specify) on the right, the rest between (Source,
   Back to Specify, Reopen); no Close there: the nav pill's Back (or Escape) closes what is open, and the star the
-  board (Samuel 2026-11-06). A proposal's
+  board (Samuel 2026-11-06). An asset's work's
   build keeps a height of its own (at least about half the screen) and its steps scroll below it.
 - **The board is a modal** (Samuel 2026-11-05), not a page or a tile among the apps: the nav pill's **star** (the AI's
   mark, in Home's place: Back goes up to the dashboard anyway) opens it over whatever page is open, greyed out for
   everyone but the admins. The pill is Back, the star and You: the star its middle, a green round action button
   taller than the pill, standing out of it a few pixels above and below (which are as wide as each other, Back greyed in its place where there is nowhere to go
   back to), its mark alone with no word under it. Back closes what is open on it (a review, an intent), then the board; so do the star, Escape
-  and its Close. `/intents/` (and `/proposals/` from before; a link, a new tab) opens it over the dashboard, and a link
+  and its Close. `/intents/` (and `/proposals/` from before; a link, a new tab; `#<id>` opens that intent) opens it over the dashboard, and a link
   to it from a page opens it over that page (`play/site/src/lib/site/intents`).
 
 ### 4.13 Artifacts (Samuel 2026-11-06; first called Sources)
@@ -597,12 +637,13 @@ still only adds what is missing and changes nothing that is there.
   `GET /api/files/:hash` (signed redirect to the bucket). Admins: `GET /api/assets/:id/history` (every step of its
   document, §4.4) and `GET /api/assets/:id/steps/:seq/recipe` (the recipe file it builds at a step, kept by its hash).
 - Sandboxes (traveler+): `GET /api/sandboxes/:id/pins`.
-- Proposals: `POST /api/proposals` (citizen+: a new asset version, card + recipe file upload), `GET /api/proposals`
-  (`?status=proposal|accepted|archived`), `POST /api/proposals/:id/{accept,archive}` (admin+; its author archives their
-  own). Over MCP an agent archives only its own proposals made there that still wait (`archive_proposal`,
-  Samuel 2026-11-04); no tool accepts.
-- Intents (admin): `GET /api/intents`, `GET /api/intents/:id`, `POST /api/intents/:id/{approve,respecify,accept,reject,reopen}`;
-  intents are added, specified and checked over MCP only (§4.12).
+- Intents, the one record (§4.12): `POST /api/intents` (citizen+: a new asset version, card + recipe file upload: an
+  intent put at Proposal with it, the one named by `intent` held to its gate, else a new one), `GET /api/intents`
+  (admin; `?stage=…&work=…`), `GET /api/intents/:id` (admin; with its work's `review`; an old proposal's id finds its
+  intent), `POST /api/intents/:id/{approve,respecify,accept,archive,reject,reopen}` (admin; whoever proposed work
+  archives their own). Intents are added, specified and checked over MCP only; over MCP an agent archives only its own
+  intents at Proposal put there over MCP (`archive_intent`, Samuel 2026-11-04); no tool accepts. `GET
+  /api/proposals/:id`, a proposal's old address, answers `308` to its intent (`proposal_ids`) and nothing else.
 - Artifacts (admin): `GET /api/artifacts` (`?q=&author=&tag=&kind=&origin=human|agent&offset=&limit=`, with the count and
   the counts by origin, kind and tag), `GET /api/artifacts/:id`, `GET /api/authors` (`?q=`), `GET /api/authors/:id` (with
   their artifacts); artifacts are kept over MCP only, by avenMAIA (§4.13).
@@ -684,7 +725,7 @@ clock, and a seek lays the sound again from the new t.
 own: `propose_story_version` on its head. Stories proposed apart are brought together by `import/stories/folds.json`
 (run with every deploy, `foldStories` in `play/api/src/stories.ts`): each story it names, in turn, has its accepted
 versions proposed and accepted on the one story as its next versions (each by its own author and approver, its note
-saying where it came from), its open proposals proposed again there and archived where they were; then it is
+saying where it came from), the work of its intents at Proposal proposed again there for the same intents (their branches here closed); then it is
 `folded_into` that story: kept with its whole history, listed no more, taking no proposal. The papaya devlog is the
 first: v1 the devlog short, v2 "The Tree That Remembers", v3–v5 the Day 1 rewrites ("Your papaya flew across an
 ocean", the same voiced, "Three seeds. One will never give fruit."), Three Seeds' voice its next proposal.
@@ -713,7 +754,7 @@ its own, and each film links a version of it:
   track's clips never overlap each other; a link's content may overlap the story's own clips (the trailer's music
   ringing out under the film's next line) and is never checked against them. A story folded into another (below)
   keeps its versions, so a link to one of them plays on as it was.
-- **Reading resolves them.** `GET /api/stories/:id[?v=n]`, a step's read, a proposal's review (the proposal and its
+- **Reading resolves them.** `GET /api/stories/:id[?v=n]`, a step's read, an intent's work's review (the work and its
   base) and MCP `get_story` give the story as stored and `links`: every version it links, to any depth, by the
   version's id, each `{ id (its story), title, number, version, duration, newest, body }` (`newest`: its story's newest
   accepted number, shown as "v5 available", never played). `get_story` leaves the bodies out unless asked
@@ -752,18 +793,18 @@ story_versions  (id /*BLAKE3 of canonical {story, parents, title, body}, as asse
                  story_id, parents text[], number /*v1, v2 …, given on accept, shown only*/, title, body jsonb /*story/1*/,
                  note, author → humans, approved_by → humans, created)
                  -- immutable: a trigger refuses UPDATE and DELETE (only number/approver are set once, on accept)
-proposals       (… kind 'story_version', story_id, story_base → story_versions, story_version → story_versions)
+intents         (… work 'story_version', story_id, story_base → story_versions, story_version → story_versions)
 ```
 
 - A version's id is its content's: the same story, parents, title and timeline give the same id; any change to any
   of them, or to the history it stands on, gives another, so history can't be rewritten without the ids changing.
-- Each version names its parent; a proposal names the **base** it was made on.
-- **Accept** is the asset versions' transaction: it checks `stories.head = proposal.story_base`, gives the version
-  the next number and moves the head (and the story's title). A proposal whose base is no longer the head still goes
-  in where the two changes touch **different fields**: both stand, in a new version whose parents are the head and
-  the proposal (its note says it was merged). Where they touch **the same field** it is **archived**, never accepted: it
-  is proposed again on the new head. Archived proposals stay as side lines in the history; their versions keep no
-  number.
+- Each version names its parent; an intent's work names the **base** it was made on.
+- **Accept** is the asset versions' transaction: it checks `stories.head = intent.story_base`, gives the version
+  the next number and moves the head (and the story's title), and the intent is Accepted. Work whose base is no longer
+  the head still goes in where the two changes touch **different fields**: both stand, in a new version whose parents
+  are the head and the work's (its note says it was merged). Where they touch **the same field** it is **archived**,
+  never accepted: it is proposed again on the new head. Archived work stays as side lines in the history; its versions
+  keep no number.
 - The repo's stories (`play/api/import/stories/<folder>/`, `story.json`, whose `id` is the story's UUID, and its
   `frames/`) are written once, as their accepted v1, by the import every deploy runs, only where play holds no story of
   that id (`import/stories.ts`).
@@ -781,22 +822,23 @@ MCP server (§7, `play/api/src/mcp.ts`):
   an image play holds;
 - `add_story_frame`: an image (JPEG, PNG or WebP, up to 4 MB) as base64, kept as a file; its hash for a shot's frame.
 
-The Proposals page shows a story's proposal played in the Stories player, beside what changed against its base (the
-title and settings, and track by track the clips added, removed, moved and changed) and the steps it was made in.
-Admins accept or archive it there. No tool accepts; the agent that proposed it may archive it while it is open
-(`archive_proposal`: one it has replaced, or no longer stands by), and nothing else of anyone's.
+The intents' board shows an intent's story work played in the Stories player, beside what changed against its base
+(the title and settings, and track by track the clips added, removed, moved and changed) and the steps it was made in.
+Admins accept or archive the intent there. No tool accepts; the agent that proposed it may archive it while it waits
+(`archive_intent`: one it no longer stands by; to replace its work, it proposes again for the same intent), and nothing
+else of anyone's.
 
 **Every step kept: each story is a Loro document (§4.4).** Under its versions, story `x` (its UUID) is the document `story:x`
 (its title and its timeline; a clip's line, transition, camera and retention Loro texts), every change a step with
 its author, its means, its message and its time (`play/api/src/storydocs.ts`):
 
-- every proposal is a **branch** of the document; accepting merges it, and the document's version of the same number
+- every intent's work is a **branch** of the document; accepting merges it, and the document's version of the same number
   is named with the BLAKE3 of its content. Versions and documents stay in step, number for number;
 - an agent can make a change **step by step**: `story_edit` (`message`, and edits, a whole timeline or a title; plus
   `edit_text`, a range of one of a clip's texts) adds a step to a draft (a new one from the head if none is named),
   each checked whole; `propose_story_version` with the draft's `branch` proposes it, its steps going with it;
-- `story_history` lists every step (the main line with every accepted proposal's steps; or one draft's) and
+- `story_history` lists every step (the main line with every accepted work's steps; or one draft's, with the intent it was proposed as) and
   `get_story`'s `step` reads the story at any of them; the site reads them at `GET /api/stories/:id/history` and
   `GET /api/stories/:id/steps/:seq`, and the Stories page's history bar plays the story as it was at any step;
 - a story from before the documents gets one from its history the first time it is touched, and at every deploy's
-  import: each accepted version a step at its date, named its number, and each open proposal a branch at its base.
+  import: each accepted version a step at its date, named its number, and each intent's work waiting at Proposal a branch at its base.

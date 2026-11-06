@@ -25,7 +25,11 @@ const { rows: recipes } = await db.query<{ id: string }>(
   `SELECT v.id FROM play.asset_versions v LEFT JOIN play.files f ON f.hash = v.recipe_hash WHERE v.recipe_hash IS NOT NULL AND f.hash IS NULL`,
 );
 for (const r of recipes) problems.push(`version ${r.id.slice(0, 12)}…: its recipe is no file play keeps`);
-const count = async (t: string) => Number((await db.query<{ n: string }>(`SELECT count(*) AS n FROM play.${t}`)).rows[0].n);
+// a table a restored backup may be too old to hold (the intents came with 0026) counts as none
+const count = async (t: string) => {
+  const { rows } = await db.query<{ t: string | null }>(`SELECT to_regclass($1) AS t`, [`play.${t}`]);
+  return rows[0]?.t ? Number((await db.query<{ n: string }>(`SELECT count(*) AS n FROM play.${t}`)).rows[0].n) : 0;
+};
 const report = {
   ok: problems.length === 0,
   files: files.length,
@@ -33,7 +37,7 @@ const report = {
   assets: await count("assets"),
   versions: await count("asset_versions"),
   humans: await count("humans"),
-  proposals: await count("proposals"),
+  intents: await count("intents"),
   problems: problems.slice(0, 50),
 };
 console.log(JSON.stringify(report, null, 2));

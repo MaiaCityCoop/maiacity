@@ -10,8 +10,8 @@
 
 	A factory is a Loro document in play's Postgres (play/SPEC.md §4.7, play/api/src/factories.ts), read from the API and
 	turned into the runtime's line by $lib/content/factories (every station's cycle time the sum of its operations); it
-	changes only by proposal. `?factory=<id>` picks a line, `&v=<n>` one of its versions, `&proposal=<id>` the line as an
-	open proposal would make it (the Proposals page opens it so). What a line builds is our own asset, by its slot of the
+	changes only by proposal. `?factory=<id>` picks a line, `&v=<n>` one of its versions, `&intent=<id>` the line as an
+	intent's work at Proposal would make it (the intents' board opens it so). What a line builds is our own asset, by its slot of the
 	Factories' pins (the LifeTrac), built in the asset box. AirSup's queries still work (`?select=weld`, `?assemble=0`).
 -->
 <script lang="ts">
@@ -30,7 +30,7 @@
 	type App = { dispose: () => void; select: (id: string | null) => void; showRoute: (ids: string[] | null) => void; camTo: (v: object, s?: number) => void; stationCenter: (id: string) => unknown };
 	type Item = { id: string; label: string; note: string; number: number; versions: number };
 	type Version = { number: number; note: string; at: string; acceptedBy: string | null };
-	type Factory = { id: string; json: any; number: number; version?: number; versions: Version[]; proposal?: { id: string; status: string; note: string } };
+	type Factory = { id: string; json: any; number: number; version?: number; versions: Version[]; intent?: { id: string; status: string; note: string } };
 
 	let host = $state<HTMLDivElement>();
 	let error = $state('');
@@ -42,20 +42,21 @@
 	// factories and the Factories' pins to admins alone
 	const admin = $derived(session.me?.level === 'admin');
 
-	// the factories, and the one picked by the address: at a version, or as an open proposal would make it
+	// the factories, and the one picked by the address: at a version, or as an intent's work would make it
 	let list = $state<Item[]>([]);
 	let factory = $state<Factory | null>(null);
 	const params = $derived(page.url.searchParams);
 	const id = $derived(params.get('factory') ?? list[0]?.id ?? '');
 	const wantV = $derived(params.get('v'));
-	const wantProposal = $derived(params.get('proposal'));
+	// `proposal`: its name before an intent and its proposal were one record (play finds the intent by the old id)
+	const wantIntent = $derived(params.get('intent') ?? params.get('proposal'));
 	$effect(() => {
 		if (!admin) return;
 		api<Item[]>('/factories').then((l) => (list = l), (e) => (error = e.message));
 	});
 	$effect(() => {
 		if (!admin || !id) return;
-		const q = wantProposal ? `?proposal=${encodeURIComponent(wantProposal)}` : wantV ? `?v=${encodeURIComponent(wantV)}` : '';
+		const q = wantIntent ? `?intent=${encodeURIComponent(wantIntent)}` : wantV ? `?v=${encodeURIComponent(wantV)}` : '';
 		let gone = false;
 		api<Factory>(`/factories/${id}${q}`).then(
 			(f) => !gone && (factory = f),
@@ -112,7 +113,7 @@
 		return `<div class="fs-ops"><div class="fs-lab">For one ${esc(L.product)}, here · ${ops.length} operations</div><ol>${rows}</ol></div>`;
 	}
 
-	// the line, built and booted in its host; again whenever another factory, version or proposal is shown
+	// the line, built and booted in its host; again whenever another factory, version or intent's work is shown
 	$effect(() => {
 		if (!admin) return void goto('/', { replaceState: true });
 		const line = L, el = host;
@@ -163,8 +164,8 @@
 		<header class="about-head">
 			<small>Factory · owned by Maia City</small>
 			<h3>{factory.json.label}</h3>
-			{#if factory.proposal}
-				<p class="asif">As the {factory.proposal.status === 'proposal' ? '' : `${factory.proposal.status} `}proposal would make it: “{factory.proposal.note}” <a href="/intents/">Back to the intents</a> · <a href="?factory={factory.id}" onclick={(e) => (e.preventDefault(), at(factory!.id))}>its newest version</a></p>
+			{#if factory.intent}
+				<p class="asif">As its intent's work would make it{factory.intent.status === 'proposal' ? '' : ` (${factory.intent.status})`}: “{factory.intent.note}” <a href="/intents/">Back to the intents</a> · <a href="?factory={factory.id}" onclick={(e) => (e.preventDefault(), at(factory!.id))}>its newest version</a></p>
 			{:else if factory.version !== factory.number}
 				<p class="asif">Version {factory.version}, not its newest: <a href="?factory={factory.id}" onclick={(e) => (e.preventDefault(), at(factory!.id))}>v{factory.number}</a></p>
 			{/if}
@@ -177,7 +178,7 @@
 		<h4 class="side-head">Versions</h4>
 		<ol class="chain">
 			{#each [...factory.versions].reverse() as v (v.number)}
-				<li class:on={!factory.proposal && v.number === factory.version}>
+				<li class:on={!factory.intent && v.number === factory.version}>
 					<a href="?factory={factory.id}&v={v.number}" onclick={(e) => (e.preventDefault(), at(factory!.id, v.number === factory!.number ? undefined : v.number))}><b>v{v.number}</b></a>
 					<span class="from">{new Date(v.at).toLocaleDateString('en-GB')}{v.acceptedBy ? ` · accepted by ${v.acceptedBy}` : ''}</span>
 					<p class="note">{v.note}</p>
@@ -230,7 +231,7 @@
 	<div class="factories">
 		<Frame nav={list.length ? shelf : undefined} aside={factory ? about : undefined} navLabel="Maia City's factories" asideLabel="The factory, its versions and its bill of process" navIcon="board" flush>
 			<div class="stage">
-				{#key `${factory?.id}:${factory?.version}:${factory?.proposal?.id}`}<div class="factory" bind:this={host}></div>{/key}
+				{#key `${factory?.id}:${factory?.version}:${factory?.intent?.id}`}<div class="factory" bind:this={host}></div>{/key}
 				{#if phase && !error}<p class="phase">{phase}</p>{/if}
 				{#if error}<p class="bad">The factory could not be built: {error}</p>{/if}
 			</div>

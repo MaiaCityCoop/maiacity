@@ -37,14 +37,14 @@ async function usesOf(db: Queryable): Promise<Map<string, Use[]>> {
     list.push(use);
     out.set(hash, list);
   };
-  // every asset version naming its documents (its reference sheet, data sheet, brief): the accepted ones, and the
-  // proposals still open
+  // every asset version naming its documents (its reference sheet, data sheet, brief): the accepted ones, and those an
+  // intent at Proposal would make
   const { rows: docs } = await db.query<{ asset: string; label: string; grp: string; number: number | null; version: string; sheet: string | null; datasheet: string | null; brief: string | null; accepted: boolean }>(
     `SELECT a.id AS asset, a.label, a.grp, v.number, v.id AS version, v.card->>'sheet' AS sheet, v.card->>'datasheet' AS datasheet,
             v.card->>'brief' AS brief, v.number IS NOT NULL AS accepted
        FROM play.asset_versions v JOIN play.assets a ON a.id = v.asset_id
       WHERE (v.card ? 'sheet' OR v.card ? 'datasheet' OR v.card ? 'brief')
-        AND (v.number IS NOT NULL OR EXISTS (SELECT 1 FROM play.proposals p WHERE p.version = v.id AND p.status = 'proposal'))
+        AND (v.number IS NOT NULL OR EXISTS (SELECT 1 FROM play.intents i WHERE i.version = v.id AND i.stage = 'proposal'))
       ORDER BY a.label, v.number NULLS LAST`,
   );
   for (const d of docs)
