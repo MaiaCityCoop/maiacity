@@ -5,7 +5,8 @@
 // that roads run between them and with rounded corners. A cell's biome comes from two noise fields (height and
 // wetness) and its distance to water; the outer ring of cells and the cells under the river and the lakes stay wild
 // land, and a plot by the water ends at its shore. What stands on the land (trees, rocks, peaks) is a list of
-// features. The same seed always gives the same map. Nothing here touches the DOM or three.js: ./scene.ts draws it.
+// features. The same seed always gives the same map, and the game has one (SEED). Nothing here touches the DOM or
+// three.js: ./scene.ts draws it.
 //
 // Geometry is in map units (x runs east, y runs south, 6720 × 4470 of them); the map's real size follows from its
 // people: PEOPLE inhabitants with M2_PER_PERSON each, so every map's buildable land is exactly PEOPLE × M2_PER_PERSON
@@ -261,10 +262,8 @@ interface Cell {
 	biome: Biome;
 }
 
-export function randomSeed(): string {
-	const words = ['alba', 'brisa', 'cedro', 'duna', 'eira', 'flor', 'gaia', 'horta', 'ilha', 'luz', 'mar', 'norte', 'oliva', 'pinho', 'rio', 'serra', 'terra', 'vale'];
-	return `${words[Math.floor(Math.random() * words.length)]}-${Math.floor(Math.random() * 9000 + 1000)}`;
-}
+/** the one world's seed: every player's map is grown from it, always the same (Samuel 2026-11-06: no random maps) */
+export const SEED = 'one-world';
 
 export function generateMap(seed: string): WorldMap {
 	const rand = mulberry32(hashSeed(seed));
@@ -521,7 +520,7 @@ export function terrain(seed: string, river: P[], massif: Massif): (x: number, y
 		const t = Math.max(0, Math.min(1, (v - a) / (b - a)));
 		return t * t * (3 - 2 * t);
 	};
-	const peaks = buckets(massif.peaks), land = buckets(massif.land);
+	const peaks = buckets(massif.peaks), land = buckets(massif.land), cut = nearLine(river, BANK + 240);
 	return (x, y) => {
 		// the valley's mountains: zero where a mountain cell meets any other cell, higher the deeper inside a range
 		let inner = 0;
@@ -540,7 +539,30 @@ export function terrain(seed: string, river: P[], massif: Massif): (x: number, y
 		}
 		const h = Math.max(inner, outer);
 		// the river runs out of the valley through a cut in the hills
-		return h > 0 ? h * smooth(BANK + 6, BANK + 240, nearest(river, [x, y]).d) : 0;
+		return h > 0 ? h * smooth(BANK + 6, BANK + 240, cut(x, y)) : 0;
+	};
+}
+
+/** the distance from a point to a line (its pieces' nearest), or `reach` if it is farther: only the pieces whose grid
+ * cells come within reach of the point are measured */
+export function nearLine(line: P[], reach: number): (x: number, y: number) => number {
+	const S = 150, key = (gx: number, gy: number) => (gx + 1000) * 4096 + gy + 1000, grid = new Map<number, number[]>();
+	for (let i = 1; i < line.length; i++) {
+		const [ax, ay] = line[i - 1], [bx, by] = line[i];
+		for (let gx = Math.floor((Math.min(ax, bx) - reach) / S); gx <= Math.floor((Math.max(ax, bx) + reach) / S); gx++)
+			for (let gy = Math.floor((Math.min(ay, by) - reach) / S); gy <= Math.floor((Math.max(ay, by) + reach) / S); gy++) {
+				const k = key(gx, gy);
+				(grid.get(k) ?? grid.set(k, []).get(k)!).push(i);
+			}
+	}
+	return (x, y) => {
+		let best = reach;
+		for (const i of grid.get(key(Math.floor(x / S), Math.floor(y / S))) ?? []) {
+			const [ax, ay] = line[i - 1], [bx, by] = line[i], vx = bx - ax, vy = by - ay;
+			const t = Math.max(0, Math.min(1, ((x - ax) * vx + (y - ay) * vy) / (vx * vx + vy * vy)));
+			best = Math.min(best, Math.hypot(x - (ax + vx * t), y - (ay + vy * t)));
+		}
+		return best;
 	};
 }
 

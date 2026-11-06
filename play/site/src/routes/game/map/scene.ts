@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import { FILL, RIM, terrain, type Biome, type Feature, type FeatureKind, type P, type Plot, type WorldMap } from './map';
-import { buildCity } from './city';
+import { buildCity, type City, type Dome } from './city';
 
 const SKY = '#eee8da';
 const FLOOR = '#e9e2cd';
@@ -16,8 +16,8 @@ const PLOT_TOP = 1.6; // m above the ground
 export interface World {
 	/** outline and tint a plot as the picked one, or none */
 	select(id: number | null): void;
-	/** show the map built up as a city (./city.ts), or empty again */
-	city(on: boolean): void;
+	/** show the map built up as a city (./city.ts), or empty again; resolves once it is drawn (grown the first time) */
+	city(on: boolean): Promise<void>;
 	dispose(): void;
 }
 
@@ -145,45 +145,27 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 
 	// ── what stands on the land ──
 	const footAt = (f: Feature) => (f.plot ? PLOT_TOP : ground(f.x, f.y)) - 0.2;
-	addFeatures(scene, map.features, footAt, X, Z, keep);
+	const kinds = featureKinds(keep);
+	addFeatures(scene, map.features, kinds, footAt, X, Z, keep);
 
-	// ── the city view: its domes, towers and trees, grown the first time it is shown ──
-	let city: THREE.Group | null = null;
-	const showCity = (on: boolean) => {
-		if (on && !city) {
-			city = new THREE.Group();
-			const built = buildCity(map);
-			const stone = keep(new THREE.MeshLambertMaterial({ color: '#eadfc8', flatShading: true }));
-			const glass = keep(new THREE.MeshLambertMaterial({ color: '#cfe4e8', flatShading: true }));
-			// every dome on its ring of stone arches; the tower a bell (the legacy Tower180 profile, shape 1: 180 m foot and height)
-			const ring = keep(new THREE.CylinderGeometry(1.06, 1.12, 1, 18).translate(0, 0.5, 0));
-			const cap = keep(new THREE.SphereGeometry(1, 14, 7, 0, Math.PI * 2, 0, Math.PI / 2));
-			const profile = new THREE.SplineCurve(
-				[[90, 0], [90, 7], [85, 27.5], [70, 50.4], [54, 73.4], [44, 100.9], [38, 128.4], [34, 149], [27, 166], [15, 176.5], [0, 180]].map(([a, b]) => new THREE.Vector2(a / 90, b / 90))
-			).getPoints(48);
-			const bell = keep(new THREE.LatheGeometry(profile.map((v) => new THREE.Vector2(Math.max(0.01, v.x), v.y)), 18));
-			const base = (r: number) => Math.max(1.2, r * 0.14);
-			const o = new THREE.Object3D();
-			const place = (geo: THREE.BufferGeometry, mat: THREE.Material, list: typeof built.domes, lift: boolean, scaleY: (r: number) => number) => {
-				const mesh = new THREE.InstancedMesh(geo, mat, list.length);
-				list.forEach((d, i) => {
-					o.position.set(X(d.x), PLOT_TOP + (lift ? base(d.r) : 0), Z(d.y));
-					o.scale.set(d.r, scaleY(d.r), d.r);
-					o.updateMatrix();
-					mesh.setMatrixAt(i, o.matrix);
-				});
-				mesh.castShadow = mesh.receiveShadow = true;
-				city!.add(mesh);
-				keep({ dispose: () => mesh.dispose() });
-			};
-			place(ring, stone, built.domes, false, base);
-			place(cap, glass, built.domes.filter((d) => d.kind !== 'tower'), true, (r) => r);
-			place(bell, glass, built.domes.filter((d) => d.kind === 'tower'), true, (r) => r);
-			// the city's trees cast no shadow: there are a few hundred thousand of them
-			addFeatures(city, [...built.trees, ...built.jungle], footAt, X, Z, keep, false);
-			scene.add(city);
-		}
-		if (city) city.visible = on;
+	// ── the city view: grown and drawn the first time it is shown, a frame after the switch so the switch shows first ──
+	let city: CityLayer | null = null, growing: Promise<void> | null = null, wantCity = false, disposed = false;
+	const showCity = (show: boolean): Promise<void> => {
+		wantCity = show;
+		if (city) city.group.visible = show;
+		if (city || !show) return Promise.resolve();
+		return (growing ??= new Promise<void>((done) =>
+			requestAnimationFrame(() =>
+				setTimeout(() => {
+					if (!disposed) {
+						city = cityLayer(buildCity(map), kinds, footAt, X, Z, keep);
+						city.group.visible = wantCity;
+						scene.add(city.group);
+					}
+					done();
+				})
+			)
+		));
 	};
 
 	// ── the camera, held over the map ──
@@ -266,6 +248,7 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 		}
 		controls.update();
 		followSun();
+		if (city?.group.visible) city.near(camera.position);
 		renderer.render(scene, camera);
 	});
 
@@ -287,6 +270,7 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 			}
 		},
 		dispose() {
+			disposed = true;
 			renderer.setAnimationLoop(null);
 			observer.disconnect();
 			canvas.removeEventListener('pointerdown', down);
@@ -338,33 +322,47 @@ function offsetRing(ring: P[], d: number): P[] {
 	});
 }
 
-/** each kind of feature as one or two instanced meshes (crown and trunk) */
+type Kinds = Record<FeatureKind, { parts: [THREE.BufferGeometry, THREE.Material][]; flat?: boolean; colour: string; crown?: [number, number, number] }>;
+
+/** each kind of feature: its parts (crown, trunk), its colour, and for a tree its crown as a blob (half its width, half
+ * its height, the height of its middle) for the city's far tiles. A trunk is open: its ends are never seen (in its
+ * crown, and in the ground) */
+function featureKinds(keep: <T extends { dispose(): void }>(x: T) => T): Kinds {
+	const at = (g: THREE.BufferGeometry, y: number) => keep(g.translate(0, y, 0));
+	const trunk = keep(new THREE.MeshLambertMaterial({ color: '#6b4f36' }));
+	const tinted = () => keep(new THREE.MeshLambertMaterial({ color: '#ffffff', flatShading: true }));
+	return {
+		conifer: { colour: '#3d5b47', parts: [[at(new THREE.ConeGeometry(3.4, 14, 7), 9), tinted()], [at(new THREE.CylinderGeometry(0.45, 0.6, 3, 5, 1, true), 1.5), trunk]], crown: [3.4, 7, 9] },
+		broadleaf: { colour: '#6f8b5c', parts: [[at(new THREE.IcosahedronGeometry(4.6, 0), 8.5), tinted()], [at(new THREE.CylinderGeometry(0.5, 0.7, 6, 5, 1, true), 3), trunk]], crown: [4.6, 4.6, 8.5] },
+		willow: { colour: '#88a26b', parts: [[at(new THREE.IcosahedronGeometry(4.8, 0), 8), tinted()], [at(new THREE.CylinderGeometry(0.5, 0.7, 6, 5, 1, true), 3), trunk]], crown: [4.8, 4.8, 8] },
+		cypress: { colour: '#2c4035', parts: [[at(new THREE.ConeGeometry(1.8, 13, 6), 7.5), tinted()], [at(new THREE.CylinderGeometry(0.3, 0.4, 1.5, 5, 1, true), 0.75), trunk]], crown: [1.8, 6.5, 7.5] },
+		stone: { colour: '#bdb5a6', parts: [[at(new THREE.DodecahedronGeometry(1.6, 0).scale(1, 0.65, 1), 0.5), tinted()]] },
+		spire: { colour: '#c97850', parts: [[at(new THREE.CylinderGeometry(0.55, 1, 1, 5), 0.5), tinted()]], flat: true },
+		peak: { colour: '#c8c0b1', parts: [[at(new THREE.ConeGeometry(1, 1, 6), 0.5), tinted()]], flat: true }
+	};
+}
+
+/** a feature's colour, a little lighter or darker by how it is turned */
+const tint = (c: THREE.Color, colour: string, f: Feature) => c.set(colour).multiplyScalar(0.88 + ((f.turn * 1000) % 1) * 0.22);
+
+/** each kind of feature as one or two instanced meshes (crown and trunk); `trunks: false` draws only the crowns */
 function addFeatures(
-	scene: THREE.Object3D,
+	parent: THREE.Object3D,
 	features: Feature[],
+	kinds: Kinds,
 	footAt: (f: Feature) => number,
 	X: (x: number) => number,
 	Z: (y: number) => number,
 	keep: <T extends { dispose(): void }>(x: T) => T,
-	shadows = true
+	{ shadows = true, trunks = true } = {}
 ) {
-	const at = (g: THREE.BufferGeometry, y: number) => keep(g.translate(0, y, 0));
-	const trunkMat = keep(new THREE.MeshLambertMaterial({ color: '#6b4f36' }));
-	const kinds: Record<FeatureKind, { parts: [THREE.BufferGeometry, string | null][]; flat?: boolean }> = {
-		conifer: { parts: [[at(new THREE.ConeGeometry(3.4, 14, 7), 9), '#3d5b47'], [at(new THREE.CylinderGeometry(0.45, 0.6, 3, 5), 1.5), null]] },
-		broadleaf: { parts: [[at(new THREE.IcosahedronGeometry(4.6, 0), 8.5), '#6f8b5c'], [at(new THREE.CylinderGeometry(0.5, 0.7, 6, 5), 3), null]] },
-		willow: { parts: [[at(new THREE.IcosahedronGeometry(4.8, 0), 8), '#88a26b'], [at(new THREE.CylinderGeometry(0.5, 0.7, 6, 5), 3), null]] },
-		cypress: { parts: [[at(new THREE.ConeGeometry(1.8, 13, 6), 7.5), '#2c4035'], [at(new THREE.CylinderGeometry(0.3, 0.4, 1.5, 5), 0.75), null]] },
-		stone: { parts: [[at(new THREE.DodecahedronGeometry(1.6, 0).scale(1, 0.65, 1), 0.5), '#bdb5a6']] },
-		spire: { parts: [[at(new THREE.CylinderGeometry(0.55, 1, 1, 5), 0.5), '#c97850']], flat: true },
-		peak: { parts: [[at(new THREE.ConeGeometry(1, 1, 6), 0.5), '#c8c0b1']], flat: true }
-	};
 	const byKind = new Map<FeatureKind, Feature[]>();
 	for (const f of features) (byKind.get(f.kind) ?? byKind.set(f.kind, []).get(f.kind)!).push(f);
 	const o = new THREE.Object3D(), c = new THREE.Color();
 	for (const [kind, list] of byKind) {
-		for (const [geo, colour] of kinds[kind].parts) {
-			const mat = colour ? keep(new THREE.MeshLambertMaterial({ color: '#ffffff', flatShading: true })) : trunkMat;
+		const { parts, colour, flat } = kinds[kind];
+		for (const [geo, mat] of trunks ? parts : parts.slice(0, 1)) {
+			const crown = mat === parts[0][1];
 			const mesh = new THREE.InstancedMesh(geo, mat, list.length);
 			list.forEach((f, i) => {
 				o.position.set(X(f.x), footAt(f), Z(f.y));
@@ -373,12 +371,135 @@ function addFeatures(
 				else o.scale.setScalar(f.s);
 				o.updateMatrix();
 				mesh.setMatrixAt(i, o.matrix);
-				if (colour) mesh.setColorAt(i, c.set(colour).multiplyScalar(0.88 + ((f.turn * 1000) % 1) * 0.22));
+				if (crown) mesh.setColorAt(i, tint(c, colour, f));
 			});
 			mesh.castShadow = shadows;
-			mesh.receiveShadow = !!kinds[kind].flat;
-			scene.add(mesh);
+			mesh.receiveShadow = !!flat;
+			parent.add(mesh);
 			keep({ dispose: () => mesh.dispose() });
 		}
 	}
+}
+
+// ── the city view ───────────────────────────────────────────────────────────
+
+/** the city is drawn in square tiles of the map this wide; a tile nearer the camera than NEAR in full, one farther off
+ * cheaply */
+const TILE = 700;
+const NEAR = 1000;
+/** the tower's bell: the legacy Tower180 profile (shape 1: 180 m foot and height), as a share of its radius */
+const BELL = new THREE.SplineCurve(
+	[[90, 0], [90, 7], [85, 27.5], [70, 50.4], [54, 73.4], [44, 100.9], [38, 128.4], [34, 149], [27, 166], [15, 176.5], [0, 180]].map(([a, b]) => new THREE.Vector2(a / 90, b / 90))
+);
+
+interface CityLayer {
+	group: THREE.Group;
+	/** draw in full the tiles near this point (the camera), the others cheaply */
+	near(eye: THREE.Vector3): void;
+}
+
+/**
+ * The map built up as a city (./city.ts) in tiles: a tile near the camera has every dome on its ring of stone arches,
+ * each tower a bell, every tree its kind with its trunk (the jungle's only crowns: its canopy hides them); a tile
+ * farther off has each dome and tower a low cap, still casting its shadow, and each tree a small cone of its crown's
+ * size and colour (from above, all that is seen of it). Each tile's meshes know their own bounds, so the tiles out of
+ * sight are not drawn at all. Drawn whole and in full (some 120,000 trees and 15,000 domes) the city was eight times the
+ * empty map's load and froze a phone.
+ */
+function cityLayer(
+	built: City,
+	kinds: Kinds,
+	footAt: (f: Feature) => number,
+	X: (x: number) => number,
+	Z: (y: number) => number,
+	keep: <T extends { dispose(): void }>(x: T) => T
+): CityLayer {
+	const group = new THREE.Group();
+	const stone = keep(new THREE.MeshLambertMaterial({ color: '#eadfc8', flatShading: true }));
+	const glass = keep(new THREE.MeshLambertMaterial({ color: '#cfe4e8', flatShading: true }));
+	const leaves = keep(new THREE.MeshLambertMaterial({ color: '#ffffff', flatShading: true }));
+	const bell = (points: number, around: number) => keep(new THREE.LatheGeometry(BELL.getPoints(points).map((v) => new THREE.Vector2(Math.max(0.01, v.x), v.y)), around));
+	const geo = {
+		ring: keep(new THREE.CylinderGeometry(1.06, 1.12, 1, 10, 1, true).translate(0, 0.5, 0)),
+		cap: keep(new THREE.SphereGeometry(1, 10, 4, 0, Math.PI * 2, 0, Math.PI / 2)),
+		bell: bell(16, 10),
+		lowCap: keep(new THREE.SphereGeometry(1, 8, 2, 0, Math.PI * 2, 0, Math.PI / 2)),
+		// a crown's blob: from just below its middle (-0.6) to its top (1)
+		blob: keep(new THREE.ConeGeometry(1, 1.6, 5, 1, true).translate(0, 0.2, 0))
+	};
+	const base = (r: number) => Math.max(1.2, r * 0.14);
+	const o = new THREE.Object3D(), c = new THREE.Color();
+	const domes = (parent: THREE.Object3D, g: THREE.BufferGeometry, mat: THREE.Material, list: Dome[], at: (d: Dome) => [number, number], shadows: boolean) => {
+		if (!list.length) return;
+		const mesh = new THREE.InstancedMesh(g, mat, list.length);
+		list.forEach((d, i) => {
+			const [lift, high] = at(d);
+			o.position.set(X(d.x), PLOT_TOP + lift, Z(d.y));
+			o.rotation.set(0, 0, 0);
+			o.scale.set(d.r, high, d.r);
+			o.updateMatrix();
+			mesh.setMatrixAt(i, o.matrix);
+		});
+		mesh.castShadow = true;
+		mesh.receiveShadow = shadows;
+		parent.add(mesh);
+		keep({ dispose: () => mesh.dispose() });
+	};
+	const blobs = (parent: THREE.Object3D, list: Feature[]) => {
+		if (!list.length) return;
+		const mesh = new THREE.InstancedMesh(geo.blob, leaves, list.length);
+		list.forEach((f, i) => {
+			const { crown = [1, 1, 1], colour } = kinds[f.kind];
+			o.position.set(X(f.x), footAt(f) + crown[2] * f.s, Z(f.y));
+			o.rotation.set(0, f.turn, 0);
+			o.scale.set(crown[0] * f.s, crown[1] * f.s, crown[0] * f.s);
+			o.updateMatrix();
+			mesh.setMatrixAt(i, o.matrix);
+			mesh.setColorAt(i, tint(c, colour, f));
+		});
+		parent.add(mesh);
+		keep({ dispose: () => mesh.dispose() });
+	};
+
+	// everything by the tile its foot stands in
+	const tiles = new Map<number, { domes: Dome[]; trees: Feature[]; jungle: Feature[] }>();
+	const tileOf = (x: number, y: number) => {
+		const k = Math.floor(x / TILE) * 1024 + Math.floor(y / TILE);
+		return tiles.get(k) ?? tiles.set(k, { domes: [], trees: [], jungle: [] }).get(k)!;
+	};
+	for (const d of built.domes) tileOf(d.x, d.y).domes.push(d);
+	for (const f of built.trees) tileOf(f.x, f.y).trees.push(f);
+	for (const f of built.jungle) tileOf(f.x, f.y).jungle.push(f);
+
+	const drawn: { box: THREE.Box3; full: THREE.Group; light: THREE.Group }[] = [];
+	for (const t of tiles.values()) {
+		const full = new THREE.Group(), light = new THREE.Group();
+		const towers = t.domes.filter((d) => d.kind === 'tower'), others = t.domes.filter((d) => d.kind !== 'tower');
+		domes(full, geo.ring, stone, t.domes, (d) => [0, base(d.r)], true);
+		domes(full, geo.cap, glass, others, (d) => [base(d.r), d.r], true);
+		domes(full, geo.bell, glass, towers, (d) => [base(d.r), d.r], true);
+		addFeatures(full, t.trees, kinds, footAt, X, Z, keep, { shadows: false });
+		addFeatures(full, t.jungle, kinds, footAt, X, Z, keep, { shadows: false, trunks: false });
+		// a tower's cap as tall as its bell
+		domes(light, geo.lowCap, glass, t.domes, (d) => [0, (d.kind === 'tower' ? 2 * d.r : d.r) + base(d.r)], false);
+		blobs(light, [...t.trees, ...t.jungle]);
+		const box = new THREE.Box3();
+		for (const p of [...t.domes, ...t.trees, ...t.jungle]) box.expandByPoint(new THREE.Vector3(X(p.x), 0, Z(p.y)));
+		box.expandByVector(new THREE.Vector3(20, 0, 20)).max.y = 40;
+		full.visible = false;
+		group.add(full, light);
+		drawn.push({ box, full, light });
+	}
+
+	return {
+		group,
+		near(eye) {
+			for (const t of drawn) {
+				// a little more room to stay full than to become it, so a tile at the edge does not flicker
+				const d = t.box.distanceToPoint(eye), full = d < (t.full.visible ? NEAR * 1.1 : NEAR);
+				t.full.visible = full;
+				t.light.visible = !full;
+			}
+		}
+	};
 }

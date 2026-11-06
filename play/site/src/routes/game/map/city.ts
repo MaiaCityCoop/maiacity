@@ -6,7 +6,7 @@
 // (its 180 m foot and height), the master dome 12 across, the others 10, 7.5, 5.5 and 4.5 (`DOMES`). Nothing here
 // touches the DOM or three.js: ./scene.ts draws it.
 
-import { hashSeed, inside, mulberry32, terrain, type Feature, type P, type WorldMap } from './map';
+import { hashSeed, inside, mulberry32, nearLine, terrain, type Feature, type P, type WorldMap } from './map';
 
 export type DomeKind = 'tower' | 'master' | 'dome';
 /** a dome or a tower on a plot: where its centre stands and its radius at the foot (map units) */
@@ -36,9 +36,10 @@ export const DOMES: [number, number, number][] = [
 	[84, 15, 5.5],
 	[100, 18, 4.5]
 ];
-/** fruit trees tried per plot, and the jungle's spacing between the plots */
+/** fruit trees tried per plot, and the jungle's spacing between the plots (its crowns, 1.2 to 1.8 of a broadleaf's,
+ * still close over it) */
 const TREES = 70;
-const JUNGLE = 11;
+const JUNGLE = 13;
 /** room between two domes, and between a dome and a tree */
 const GAP = 3;
 const TREE_GAP = 4;
@@ -79,22 +80,26 @@ export function buildCity(map: WorldMap): City {
 	}
 
 	// the jungle: every free spot of the valley floor between the plots (no plot, no water, no hill)
-	const ground = terrain(map.seed, map.river, map.massif), CELL = 200, grid = new Map<string, P[][]>();
+	const ground = terrain(map.seed, map.river, map.massif), CELL = 200, grid = new Map<number, (P[] & { box: ReturnType<typeof bounds> })[]>();
 	for (const p of map.plots) {
-		const xs = p.outline.map(([x]) => x), ys = p.outline.map(([, y]) => y);
-		for (let gx = Math.floor(Math.min(...xs) / CELL); gx <= Math.floor(Math.max(...xs) / CELL); gx++)
-			for (let gy = Math.floor(Math.min(...ys) / CELL); gy <= Math.floor(Math.max(...ys) / CELL); gy++) {
-				const k = `${gx},${gy}`;
-				(grid.get(k) ?? grid.set(k, []).get(k)!).push(p.outline);
+		const box = bounds(p.outline), outline = Object.assign(p.outline.slice(), { box });
+		for (let gx = Math.floor(box.x0 / CELL); gx <= Math.floor(box.x1 / CELL); gx++)
+			for (let gy = Math.floor(box.y0 / CELL); gy <= Math.floor(box.y1 / CELL); gy++) {
+				const k = cellKey(gx, gy);
+				(grid.get(k) ?? grid.set(k, []).get(k)!).push(outline);
 			}
 	}
-	const onPlot = (x: number, y: number) => (grid.get(`${Math.floor(x / CELL)},${Math.floor(y / CELL)}`) ?? []).some((o) => inside(o, x, y));
-	const wet = (x: number, y: number) => byRiver(map, x, y) || map.lakes.some((ring) => inside(ring, x, y));
+	const onPlot = (x: number, y: number) =>
+		(grid.get(cellKey(Math.floor(x / CELL), Math.floor(y / CELL))) ?? []).some(
+			(o) => x >= o.box.x0 && x <= o.box.x1 && y >= o.box.y0 && y <= o.box.y1 && inside(o, x, y)
+		);
+	const lakes = map.lakes.map((ring) => ({ ring, ...bounds(ring) }));
+	const inLake = (x: number, y: number) => lakes.some((l) => x >= l.x0 && x <= l.x1 && y >= l.y0 && y <= l.y1 && inside(l.ring, x, y));
 	for (let y = 0; y < map.height; y += JUNGLE)
 		for (let x = 0; x < map.width; x += JUNGLE) {
 			const jx = x + (rand() - 0.5) * JUNGLE, jy = y + (rand() - 0.5) * JUNGLE;
-			if (ground(jx, jy) > 6 || onPlot(jx, jy) || wet(jx, jy)) continue;
-			jungle.push({ kind: rand() < 0.85 ? 'broadleaf' : 'willow', x: jx, y: jy, s: 1.1 + rand() * 0.6, turn: rand() * 6.28, plot: false });
+			if (onPlot(jx, jy) || byRiver(map, jx, jy) || inLake(jx, jy) || ground(jx, jy) > 6) continue;
+			jungle.push({ kind: rand() < 0.85 ? 'broadleaf' : 'willow', x: jx, y: jy, s: 1.2 + rand() * 0.6, turn: rand() * 6.28, plot: false });
 		}
 
 	return { domes, trees, jungle };
@@ -102,11 +107,22 @@ export function buildCity(map: WorldMap): City {
 
 /** whether a point is in the river or on its banks */
 export function byRiver(map: WorldMap, x: number, y: number): boolean {
-	const r = map.river;
-	for (let i = 1; i < r.length; i++) {
-		const [ax, ay] = r[i - 1], [bx, by] = r[i], dx = bx - ax, dy = by - ay;
-		const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)));
-		if (Math.hypot(ax + t * dx - x, ay + t * dy - y) < map.bank + 4) return true;
+	const reach = map.bank + 4;
+	let near = rivers.get(map);
+	if (!near) rivers.set(map, (near = nearLine(map.river, reach)));
+	return near(x, y) < reach;
+}
+const rivers = new WeakMap<WorldMap, (x: number, y: number) => number>();
+
+const cellKey = (gx: number, gy: number) => (gx + 1000) * 4096 + gy + 1000;
+
+function bounds(pts: P[]) {
+	let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+	for (const [x, y] of pts) {
+		x0 = Math.min(x0, x);
+		y0 = Math.min(y0, y);
+		x1 = Math.max(x1, x);
+		y1 = Math.max(y1, y);
 	}
-	return false;
+	return { x0, y0, x1, y1 };
 }
