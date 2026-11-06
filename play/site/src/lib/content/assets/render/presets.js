@@ -50,6 +50,8 @@ export const DITHER = 'fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.23
 export function createPresets() {
 	/** @type {Map<string, THREE.Material>} */
 	const kept = new Map();
+	/** each kept material's key, and how many times `of` handed it out and it was not given back (`release`) */
+	const keys = new Map(), uses = new Map();
 	/** @type {WeakSet<THREE.Material>} the materials kept */
 	const ours = new WeakSet();
 	// the cut, shared by every material: the plane (removed where dot(n, p) + w < 0), and a second one never used yet
@@ -167,9 +169,29 @@ void labClip(vec4 P, vec3 ro, vec3 rd, inout float t0, inout float t1, inout int
 			if (ours.has(m)) return m;
 			const key = keyOf(m);
 			let p = kept.get(key);
-			if (!p) kept.set(key, (p = patch(m)));
+			if (!p) kept.set(key, (p = patch(m))), keys.set(p, key);
 			ours.add(p);
+			uses.set(p, (uses.get(p) ?? 0) + 1);
 			return p;
+		},
+		/**
+		 * One use of a material handed out by `of` given back (a level let go of): the last one gone, the material and
+		 * its pictures go too (but a picture another kept material still shows).
+		 * @param {THREE.Material} p
+		 */
+		release(p) {
+			const left = (uses.get(p) ?? 0) - 1;
+			if (left > 0) return void uses.set(p, left);
+			uses.delete(p);
+			const key = keys.get(p);
+			if (key === undefined || kept.get(key) !== p) return;
+			kept.delete(key);
+			keys.delete(p);
+			ours.delete(p);
+			const shown = new Set();
+			for (const q of kept.values()) for (const k of MAPS) if (q[k]?.isTexture) shown.add(q[k]);
+			for (const k of MAPS) if (p[k]?.isTexture && !shown.has(p[k])) p[k].dispose();
+			p.dispose();
 		},
 		/** how many there are */
 		get size() {

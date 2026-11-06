@@ -16,6 +16,7 @@
 import * as THREE from 'three';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { blend, playerOf, poser } from '../clips.js';
+import { budget } from '../../render/budget.js';
 
 export { blend };
 
@@ -36,7 +37,7 @@ let turn = 0;
 const loaderOf = () =>
 	(loader ??= Promise.all([import('../box/host.js'), import('../load.js'), import('../catalog.js')]).then(async ([{ AssetBox }, { loadAsset }, { INDEX, buildAt, loadRecipes }]) => {
 		await loadRecipes();
-		const n = Math.max(1, Math.min(3, ((typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4) - 1));
+		const n = Math.max(1, Math.min(3, budget().boxes, ((typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4) - 1));
 		const boxes = Array.from({ length: n }, () => new AssetBox({ engine: INDEX.engine }));
 		return { loadAsset, buildAt, box: () => boxes[turn++ % boxes.length] };
 	}));

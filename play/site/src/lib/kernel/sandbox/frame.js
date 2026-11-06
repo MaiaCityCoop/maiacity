@@ -102,8 +102,11 @@ export class Shell {
 	/** starts the shell (once; again after it was torn down) */
 	start() {
 		if (this.ready) return this.ready;
-		this.ready = (async () => {
-			const code = await this.code();
+		// a stop while it starts ends the start too (its frame gone, its load never comes): nothing waits on it for ever
+		const halted = new Promise((_, no) => (this.halt = no));
+		halted.catch(() => {});
+		const ready = (this.ready = (async () => {
+			const code = await Promise.race([this.code(), halted]);
 			const frame = document.createElement('iframe');
 			frame.setAttribute('sandbox', SANDBOX);
 			frame.setAttribute('allow', DENY);
@@ -120,12 +123,13 @@ export class Shell {
 			addEventListener('message', this.onmessage);
 			const loaded = new Promise((ok) => frame.addEventListener('load', ok, { once: true }));
 			document.body.append(frame);
-			await loaded;
-			frame.contentWindow.postMessage({ op: 'boot', code, spare: this.spare }, '*');
-			await up;
-		})();
-		this.ready.catch(() => this.stop('the box did not start'));
-		return this.ready;
+			await Promise.race([loaded, up, halted]);
+			frame.contentWindow?.postMessage({ op: 'boot', code, spare: this.spare }, '*');
+			await Promise.race([up, halted]);
+		})());
+		// a start that failed stops the shell, unless the shell was stopped or started again meanwhile
+		ready.catch(() => this.ready === ready && this.stop('the box did not start'));
+		return ready;
 	}
 
 	#message(e) {
@@ -156,7 +160,11 @@ export class Shell {
 	ask(op, payload = {}, { timeout = this.timeout, soft = false, room = 0 } = {}) {
 		if (soft) return this.#post(op, payload, timeout, soft, room);
 		const turn = (this.queue ?? Promise.resolve()).then(() => this.#post(op, payload, timeout, soft, room));
-		this.queue = turn.catch(() => {});
+		// the line waits for the job but keeps nothing of its answer (a build's whole data, held till the next job)
+		this.queue = turn.then(
+			() => {},
+			() => {}
+		);
 		return turn;
 	}
 
@@ -200,6 +208,8 @@ export class Shell {
 
 	/** tears the shell down: the frame and its workers are gone, every job open fails with `why` */
 	stop(why = 'the box was stopped') {
+		this.halt?.(new Error(why));
+		this.halt = null;
 		removeEventListener('message', this.onmessage);
 		this.frame?.remove();
 		this.frame = null;

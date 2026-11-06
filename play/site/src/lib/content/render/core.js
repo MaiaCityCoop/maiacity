@@ -19,6 +19,7 @@
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { reopenOnRestore } from './budget.js';
 
 /** tone mappings by name */
 export const TONE = /** @type {const} */ ({ none: THREE.NoToneMapping, aces: THREE.ACESFilmicToneMapping, neutral: THREE.NeutralToneMapping });
@@ -59,6 +60,9 @@ export function createRenderer(o = {}) {
 		if (o.shadows !== true) renderer.shadowMap.type = SHADOWS[o.shadows];
 	}
 	if (o.clipping) renderer.localClippingEnabled = true;
+	// a phone that let go of its shapes' and pictures' copies once they were drawn (./budget.js `release`) opens the page
+	// anew when its context comes back, rather than draw without them
+	reopenOnRestore(renderer.domElement);
 	if (o.onLost) {
 		const lost = o.onLost;
 		renderer.domElement.addEventListener('webglcontextlost', (e) => {

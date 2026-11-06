@@ -1,6 +1,7 @@
 // @ts-nocheck — plain JS
 import { LATEST, engineAt } from '../engines.js';
 import { Shell, TIMEOUT, engineCode as frozenCode } from '$lib/kernel/sandbox/frame.js';
+import { budget, buildTurn } from '$lib/content/render/budget.js';
 /*
  * THE ASSET BOX — where an asset's builder runs when we cannot trust it: the shell (../../../../aven/kernel/sandbox/frame.js, a worker
  * inside a frame with no origin, the same for every host of code we cannot trust) running the asset engine.
@@ -14,6 +15,9 @@ import { Shell, TIMEOUT, engineCode as frozenCode } from '$lib/kernel/sandbox/fr
  *   that recipe's name). A recipe is known by its code, the bytes it runs, so even a caller handing two recipes one
  *   hash keeps them apart. The box keeps the rooms of the last ROOMS recipes asked of it and of every build it keeps
  *   running, and one worker made ahead, nothing run in it, for the next: it loads three.js while the last builds.
+ * - It holds only what the device's budget lets it (../../render/budget.js): as many builds at once in the whole page,
+ *   as many rooms kept, a spare or none, and a box with nothing to do (no job open, no build kept running) lets its
+ *   frame and workers go after the budget's `idle` time; its next job starts it again.
  * - Out comes plain data only (./serialize.js), which the page checks and builds its own objects from (./rebuild.js).
  * - A recipe dies alone (the shell's `apart`): one whose build runs past its time, or whose worker crashes, has its
  *   room let go, its worker ended and the builds kept running in it gone with it, while every other recipe's room, and
@@ -23,8 +27,9 @@ import { Shell, TIMEOUT, engineCode as frozenCode } from '$lib/kernel/sandbox/fr
 export { TIMEOUT };
 
 /** how many recipes' rooms a box keeps at once, the last asked of it (one with a job open, or a build kept running in
- *  it, is always kept) */
+ *  it, is always kept): the device's budget, four on a desktop */
 export const ROOMS = 4;
+const rooms = () => Math.min(ROOMS, budget().rooms);
 
 /**
  * A frozen box engine's code, its bytes checked against its hash (once a page: the boxes that run it share the checked
@@ -39,13 +44,43 @@ export function engineCode(v) {
 export class AssetBox extends Shell {
 	/** @param {{ engine?: number, timeout?: number }} [o] the engine it runs (the latest) */
 	constructor({ engine = LATEST.v, timeout = TIMEOUT } = {}) {
-		super({ code: () => engineCode(engine), timeout, spare: true, apart: true });
+		super({ code: () => engineCode(engine), timeout, spare: budget().spare, apart: true });
 		this.engine = engine;
 		/** @type {{ room: number, code: string }[]} the recipes' rooms, the one asked of last at the end */
 		this.rooms = [];
 		/** @type {Map<number, { room: number, session: number }>} the builds kept running, by the page's handle on each */
 		this.sessions = new Map();
 		this.ids = 0;
+		/** the builds asked of this box, one after another: each takes one of the page's turns only once it is next */
+		this.line = Promise.resolve();
+		/** how many times its owner stopped it (not a rest): a build asked before a stop is not run after it */
+		this.stops = 0;
+	}
+
+	/**
+	 * A build's job run once the builds asked of the box before it are done, holding one of the page's few turns
+	 * (../../render/budget.js `buildTurn`) only while it runs, never while it waits behind its own box. One asked before
+	 * the box's owner stopped it fails with the stop, as if it had been open then.
+	 * @template T @param {() => Promise<T>} job @returns {Promise<T>}
+	 */
+	#turned(job) {
+		const asked = this.stops;
+		const mine = this.line.then(async () => {
+			if (this.stops !== asked) throw new Error(this.stopped ?? 'the box was stopped');
+			const back = await buildTurn();
+			try {
+				if (this.stops !== asked) throw new Error(this.stopped ?? 'the box was stopped');
+				return await job();
+			} finally {
+				back();
+			}
+		});
+		// (the line keeps nothing of the build it waited for)
+		this.line = mine.then(
+			() => {},
+			() => {}
+		);
+		return mine;
 	}
 
 	/**
@@ -58,7 +93,7 @@ export class AssetBox extends Shell {
 		const r = i >= 0 ? this.rooms.splice(i, 1)[0] : { room: ++this.ids, code };
 		const busy = new Set([...this.jobs.values(), ...this.sessions.values()].map((j) => j.room));
 		for (const old of this.rooms.slice()) {
-			if (this.rooms.length < ROOMS) break;
+			if (this.rooms.length < rooms()) break;
 			if (busy.has(old.room)) continue;
 			this.rooms.splice(this.rooms.indexOf(old), 1);
 			this.leave(old.room);
@@ -82,7 +117,8 @@ export class AssetBox extends Shell {
 	 * @param {Record<string, string>} [given] its parameters' values, as text
 	 */
 	build(recipe, given, o) {
-		return this.ask('build', { recipe, given, engine: this.engine }, { ...o, room: () => this.#roomOf(recipe.code) });
+		// one of the page's few builds at a time (the device's budget), whichever box asks
+		return this.#turned(() => this.ask('build', { recipe, given, engine: this.engine }, { ...o, room: () => this.#roomOf(recipe.code) }));
 	}
 
 	/**
@@ -92,7 +128,7 @@ export class AssetBox extends Shell {
 	 */
 	async live(recipe, given, nodes, o) {
 		let room;
-		const got = await this.ask('live', { recipe, given, nodes }, { ...o, room: () => (room = this.#roomOf(recipe.code)) });
+		const got = await this.#turned(() => this.ask('live', { recipe, given, nodes }, { ...o, room: () => (room = this.#roomOf(recipe.code)) }));
 		const session = ++this.ids;
 		// (a box torn down meanwhile has no room for it: its steps fail, as a torn-down box's do)
 		if (this.rooms.some((r) => r.room === room)) this.sessions.set(session, { room, session: got.session });
@@ -117,6 +153,27 @@ export class AssetBox extends Shell {
 		return ended;
 	}
 
+	/**
+	 * A job, as the shell's (`Shell.ask`), and when the box has nothing left to do (no job open, no build kept running
+	 * in it) it lets its frame and workers go after the budget's `idle` time: the next job starts it again.
+	 */
+	ask(op, payload, o) {
+		clearTimeout(this.resting);
+		const done = super.ask(op, payload, o);
+		const idle = budget().idle;
+		if (!idle) return done;
+		const rest = () => {
+			clearTimeout(this.resting);
+			if (this.jobs.size || this.sessions.size || !this.frame) return;
+			this.resting = setTimeout(() => {
+				// a rest, not its owner's stop: builds asked of it later start it again
+				if (!this.jobs.size && !this.sessions.size && this.frame) super.stop('the box rested'), (this.rooms = []);
+			}, idle);
+		};
+		done.then(rest, rest);
+		return done;
+	}
+
 	/** a recipe's room let go (kept too many, or it crashed or ran too long): the builds kept running in it go with it */
 	leave(room, why) {
 		this.rooms = this.rooms.filter((r) => r.room !== room);
@@ -126,6 +183,10 @@ export class AssetBox extends Shell {
 
 	/** tears the box down: its rooms, and the builds kept running in them, go with it */
 	stop(why) {
+		clearTimeout(this.resting);
+		// its owner's stop: the builds asked of it and still waiting are not run (`#turned`)
+		this.stops++;
+		this.stopped = why ?? 'the box was stopped';
 		this.rooms = [];
 		this.sessions.clear();
 		super.stop(why);
