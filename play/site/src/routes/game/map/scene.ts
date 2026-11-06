@@ -400,9 +400,10 @@ interface CityLayer {
 
 /**
  * The map built up as a city (./city.ts) in tiles: a tile near the camera has every dome on its ring of stone arches,
- * each tower a bell, every tree its kind with its trunk (the jungle's only crowns: its canopy hides them); a tile
- * farther off has each dome and tower a low cap, still casting its shadow, and each tree a small cone of its crown's
- * size and colour (from above, all that is seen of it). Each tile's meshes know their own bounds, so the tiles out of
+ * faceted, and every tree its kind with its trunk (the jungle's only crowns: its canopy hides them); a tile farther off
+ * has each dome a smooth round cap down to its foot, with fewer faces but as round from afar, and each tree a smooth low
+ * mound of its crown's size and colour (from above, all that is seen of it). Every tower is its bell on its ring, near or far:
+ * there are only some 900 of them, and a cheaper shape no longer reads as the tower. Each tile's meshes know their own bounds, so the tiles out of
  * sight are not drawn at all. Drawn whole and in full (some 120,000 trees and 15,000 domes) the city was eight times the
  * empty map's load and froze a phone.
  */
@@ -417,15 +418,16 @@ function cityLayer(
 	const group = new THREE.Group();
 	const stone = keep(new THREE.MeshLambertMaterial({ color: '#eadfc8', flatShading: true }));
 	const glass = keep(new THREE.MeshLambertMaterial({ color: '#cfe4e8', flatShading: true }));
-	const leaves = keep(new THREE.MeshLambertMaterial({ color: '#ffffff', flatShading: true }));
+	const smoothGlass = keep(new THREE.MeshLambertMaterial({ color: '#cfe4e8' }));
+	const leaves = keep(new THREE.MeshLambertMaterial({ color: '#ffffff' }));
 	const bell = (points: number, around: number) => keep(new THREE.LatheGeometry(BELL.getPoints(points).map((v) => new THREE.Vector2(Math.max(0.01, v.x), v.y)), around));
 	const geo = {
 		ring: keep(new THREE.CylinderGeometry(1.06, 1.12, 1, 10, 1, true).translate(0, 0.5, 0)),
 		cap: keep(new THREE.SphereGeometry(1, 10, 4, 0, Math.PI * 2, 0, Math.PI / 2)),
 		bell: bell(16, 10),
-		lowCap: keep(new THREE.SphereGeometry(1, 8, 2, 0, Math.PI * 2, 0, Math.PI / 2)),
-		// a crown's blob: from just below its middle (-0.6) to its top (1)
-		blob: keep(new THREE.ConeGeometry(1, 1.6, 5, 1, true).translate(0, 0.2, 0))
+		lowCap: keep(new THREE.SphereGeometry(1, 8, 3, 0, Math.PI * 2, 0, Math.PI / 2)),
+		// a crown's blob, smooth so it reads as round: a low mound from below its middle (-0.5) to near its top (0.7)
+		blob: keep(new THREE.ConeGeometry(1, 1.2, 6, 1, true).translate(0, 0.1, 0))
 	};
 	const base = (r: number) => Math.max(1.2, r * 0.14);
 	const o = new THREE.Object3D(), c = new THREE.Color();
@@ -480,8 +482,9 @@ function cityLayer(
 		domes(full, geo.bell, glass, towers, (d) => [base(d.r), d.r], true);
 		addFeatures(full, t.trees, kinds, footAt, X, Z, keep, { shadows: false });
 		addFeatures(full, t.jungle, kinds, footAt, X, Z, keep, { shadows: false, trunks: false });
-		// a tower's cap as tall as its bell
-		domes(light, geo.lowCap, glass, t.domes, (d) => [0, (d.kind === 'tower' ? 2 * d.r : d.r) + base(d.r)], false);
+		domes(light, geo.lowCap, smoothGlass, others, (d) => [0, d.r + base(d.r)], false);
+		domes(light, geo.ring, stone, towers, (d) => [0, base(d.r)], false);
+		domes(light, geo.bell, glass, towers, (d) => [base(d.r), d.r], false);
 		blobs(light, [...t.trees, ...t.jungle]);
 		const box = new THREE.Box3();
 		for (const p of [...t.domes, ...t.trees, ...t.jungle]) box.expandByPoint(new THREE.Vector3(X(p.x), 0, Z(p.y)));
