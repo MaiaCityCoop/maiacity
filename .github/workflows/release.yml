@@ -1,0 +1,64 @@
+# release: production follows main (play/SPEC.md §4.12, "Accept ships it"; Samuel 2026-11-06). Code lands on main only
+# by an admin's Accept on play, which merges the intent's pull request (play/api/src/ship.ts; main's ruleset requires
+# play's 'Intent accepted'). Once main.yml is green for that push, this moves production to the commit, fast-forward
+# only, and starts production.yml on it: the deploy (backup, image, server, website). Started by hand, or by play's
+# Accept again after a red release or deploy, with a sha: the release of that commit again.
+#
+# play's ship watcher follows this run by its name (`release <sha>`) and the deploy by its commit; nothing is reported
+# to play from here. One release at a time. GITHUB_TOKEN moves production; a push by it starts no workflow, so
+# production.yml is started here by workflow_dispatch, which GITHUB_TOKEN may do.
+name: release
+run-name: release ${{ github.event.workflow_run.head_sha || inputs.sha }}
+
+on:
+  workflow_run:
+    workflows: [main]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "the commit of main to release, its 40-character hash"
+        required: true
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release
+    # main's checks green for a push to main (a pull request's own run of main.yml never releases), or by hand
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: production moves to the commit, fast-forward only
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha || inputs.sha }}
+        run: |
+          echo "$SHA" | grep -qxE '[0-9a-f]{40}' || { echo "::error::A release is of a commit, its 40-character hash: '$SHA'"; exit 1; }
+          git fetch -q origin main production
+          git merge-base --is-ancestor "$SHA" origin/main || { echo "::error::$SHA is not on main: only main is released"; exit 1; }
+          PROD=$(git rev-parse origin/production)
+          if [ "$PROD" = "$SHA" ]; then
+            echo "production is at $SHA already: it is deployed again"
+          elif git merge-base --is-ancestor "$SHA" "$PROD"; then
+            echo "::error::production is past $SHA already (at $PROD): a newer release holds it"; exit 1
+          elif git merge-base --is-ancestor "$PROD" "$SHA"; then
+            git push origin "$SHA:refs/heads/production"
+            echo "production moved from $PROD to $SHA"
+          else
+            echo "::error::production ($PROD) is not behind $SHA: it moves fast-forward only"; exit 1
+          fi
+      - name: production.yml deploys it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run production.yml --ref production --repo "$GITHUB_REPOSITORY"

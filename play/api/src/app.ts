@@ -15,6 +15,7 @@ import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameM
 import { listTables, readTable, TableError } from "./tables";
 import { proposedState, SandboxError } from "./sandboxes";
 import { decideAny, propose, ProposalError, reviewOf } from "./proposals";
+import type { GitHub } from "./ship";
 import { intentIdOf, WorkError } from "./work";
 import { intentOf, IntentError, intentReady, listIntents, type IntentVerdict } from "./intents";
 import { clientOf, perMinute, Rate, costly } from "./limits";
@@ -45,7 +46,7 @@ async function body(req: Request): Promise<any> {
   }
 }
 
-export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)) }: { db: Db; store: BlobStore; rate?: Rate }) {
+export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)), github = null }: { db: Db; store: BlobStore; rate?: Rate; github?: GitHub | null }) {
   const routes: Route[] = [];
   const on = (method: string, path: string, handler: Handler) => {
     const keys: string[] = [];
@@ -165,10 +166,11 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await configOf(db, p.id));
   });
 
-  // ---- intents (./intents.ts, ./work.ts): the one record on the board, Idea → Specify → Prototype → Proposal → Accepted
-  // or Archived; added, specified and prototyped by agents over MCP, its work (an asset's version here; the rest over MCP)
-  // proposed by putting it at Proposal, decided by its admins here: a spec approved (Specify → Prototype) or sent back,
-  // its work at Proposal accepted (applied) or archived, its code accepted on main's checks, or brought back
+  // ---- intents (./intents.ts, ./work.ts): the one record on the board, Idea → Specify → Prototype → Proposal → (Ship →)
+  // Accepted or Archived; added, specified and prototyped by agents over MCP, its work (an asset's version here; the rest
+  // over MCP) proposed by putting it at Proposal, decided by its admins here: a spec approved (Specify → Prototype) or
+  // sent back, its work at Proposal accepted (applied) or archived, its code accepted and shipped (./ship.ts: its pull
+  // request merged into main at once, followed to production in Ship), or brought back
   on("GET", "/api/intents", async (req) => {
     const q = new URL(req.url).searchParams;
     const s = q.get("stage");
@@ -184,7 +186,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   });
   on("POST", "/api/intents/:id/:verdict", async (req, p) => {
     if (!["approve", "respecify", "accept", "archive", "reject", "reopen"].includes(p.verdict)) throw new NotFound("No such decision.");
-    return json(await decideAny(db, store, await me(req), p.id, p.verdict as IntentVerdict | "archive"));
+    return json(await decideAny(db, store, await me(req), p.id, p.verdict as IntentVerdict | "archive", github));
   });
   // a proposal's old address: a proposal and its intent are one record now (migration 0029), so its id answers as the
   // intent it is (play.proposal_ids), and nothing else is served here

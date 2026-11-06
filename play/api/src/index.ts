@@ -5,12 +5,18 @@ import { blobStore } from "./blobs";
 import { migrate } from "./migrations";
 import { connect } from "./pg";
 import { siteHandler } from "./site";
+import { shipGitHub, startShipWatcher } from "./ship";
 
 const db = connect();
 const ran = await migrate(db);
 if (ran.length) console.log(`migrations: ${ran.join(", ")}`);
 await initSessions(db);
-const { fetch } = app({ db, store: blobStore() });
+// Accept ships it (./ship.ts): with SHIP_TOKEN, an admin's Accept merges an intent's pull request and the ship watcher
+// follows it to production every 10 s; without it, Accept on a code intent is refused and says why
+const github = shipGitHub();
+if (github) startShipWatcher(db, github);
+else console.log("ship: no SHIP_TOKEN: code intents are not shipped from here");
+const { fetch } = app({ db, store: blobStore(), github });
 // the site too, where PLAY_SITE names its build (the image's /app/site): everything outside /api
 const site = process.env.PLAY_SITE ? siteHandler(process.env.PLAY_SITE) : null;
 // a request that waits on the database longer than Bun's default 10 s was cut off, and Caddy answered 502 to the page

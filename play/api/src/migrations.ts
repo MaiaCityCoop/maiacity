@@ -988,6 +988,24 @@ export const MIGRATIONS: Migration[] = [
       DROP FUNCTION play.intent_follows();
     `,
   },
+  {
+    // Accept ships it (play/SPEC.md §4.12, Samuel 2026-11-06): an intent whose work is code names its pull request
+    // (check_intent's `pr`), and an admin's Accept at Proposal merges it into main at once (./ship.ts): the intent is in
+    // Ship, between Proposal and Accepted, while play's ship watcher follows the merge to production (main's checks,
+    // the release, the deploy's jobs), each step kept on the intent (`ship`); all green, Accepted; any red, back to
+    // Proposal with its report. Work of play's own never ships: it is accepted straight to Accepted.
+    id: "0030-ship",
+    sql: `
+      ALTER TABLE play.intents DROP CONSTRAINT intents_stage_check;
+      ALTER TABLE play.intents ADD CONSTRAINT intents_stage_check
+        CHECK (stage IN ('idea', 'specify', 'prototype', 'proposal', 'ship', 'accepted', 'archived'));
+      ALTER TABLE play.intents
+        ADD COLUMN pull_request INTEGER CHECK (pull_request > 0),   -- its pull request into main, by its number
+        ADD COLUMN ship         JSONB;                              -- its way to production: the merge, each step, a red one's report
+      ALTER TABLE play.intents ADD CONSTRAINT intents_ship_is_code CHECK (stage <> 'ship' OR work IS NULL);
+      CREATE INDEX ix_intents_shipping ON play.intents(id) WHERE stage = 'ship';
+    `,
+  },
 ];
 
 /** Runs every migration not yet run, each in its own transaction. */

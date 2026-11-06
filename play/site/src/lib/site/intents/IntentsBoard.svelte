@@ -8,8 +8,8 @@
 	(./IntentsModal.svelte), the way back closing first what is open on it (a review, an intent), then the board.
 
 	INTENTS (Samuel 2026-11-06, play/SPEC.md §4.12): every card is an intent, something Maia City wants made, fixed or
-	improved, in its stage's column: Idea → Specify → Prototype → Proposal → Accepted (or Archived), Accepted and Archived
-	folded at first. Agents add and specify intents over MCP (never typed in here): a spec is a goal, a scope and checks,
+	improved, in its stage's column: Idea → Specify → Prototype → Proposal → Ship → Accepted (or Archived), Accepted and
+	Archived folded at first. Agents add and specify intents over MCP (never typed in here): a spec is a goal, a scope and checks,
 	each one statement that passes or fails, checked by a test, a measure or a look, must or nice. Here an admin approves
 	a spec (Specify → Prototype), and an agent builds it, recording each check's result, until every must check passes:
 	then it moves to Proposal by itself (Samuel 2026-11-06), the one gate after the spec, where an admin decides it.
@@ -17,8 +17,14 @@
 	ONE RECORD (Samuel 2026-11-06: "not a proposal belongs to an intent: the intent has a state, proposal"): an intent's
 	work (an asset's or story's version, a sandbox's change, a factory's or config's version) is on the intent itself, and
 	Proposal is only its stage. Its work is reviewed from the intent and decided there: accepting applies it, archiving
-	archives the intent; an intent whose work is code is accepted at Proposal on main's checks. Work proposed without an
-	intent is an intent of its own, with no spec, opened straight into its review. Nothing is accepted from Prototype.
+	archives the intent. Work proposed without an intent is an intent of its own, with no spec, opened straight into its
+	review. Nothing is accepted from Prototype.
+
+	ACCEPT SHIPS IT (Samuel 2026-11-06, play/api/src/ship.ts): an intent whose work is code names its pull request, and
+	its Accept ("Accept and ship") merges it into main at once: the intent is in Ship, its way to production shown live
+	(merged, main's checks, the release, the deploy's backup, image, server and website, each with its link), the board
+	read again every 3 s while any intent ships. All green, it is Accepted; a red step brings it back to Proposal with
+	the report at the top of its dialog (the step, its link, the log's last lines), and Accept there ships it again.
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
@@ -52,13 +58,17 @@
 	// an intent (play/api/src/intents.ts): its kind, title and note, its stage, its spec once specified (a goal, a scope and
 	// its checks), its checks' latest results while prototyped, and its work once proposed
 	type Kind = 'idea' | 'fix' | 'improve';
-	type Stage = 'idea' | 'specify' | 'prototype' | 'proposal' | 'accepted' | 'archived';
+	type Stage = 'idea' | 'specify' | 'prototype' | 'proposal' | 'ship' | 'accepted' | 'archived';
+	// its way to production, once an Accept merged its pull request (play/api/src/ship.ts): each step's state, when, its
+	// link; a red one's report
+	type ShipStep = { key: string; name: string; state: 'queued' | 'running' | 'green' | 'red' | 'skipped'; started?: string; finished?: string; link?: string; note?: string };
+	type Ship = { pr: number; head: string; merge: string; by: string; round: number; started: string; steps: ShipStep[]; report?: { step: string; why: string; link?: string; log: string; at: string } | null; ended?: string; outcome?: 'green' | 'red'; again?: 'main' | 'release' };
 	// run: the command that decides a check in avenBOX (test and measure checks since 2026-11-06; play/SPEC.md §4.12)
 	type Check = { id: string; check: string; how: 'test' | 'measure' | 'look'; by: string; run?: string; must: boolean };
 	type Spec = { goal: string; scope: string; checks: Check[] };
 	// where: in avenBOX (the agent's), or on main after the merge (.github/workflows/intents.yml), on which commit
 	type Results = Record<string, { pass: boolean; evidence: string; by: string | null; at: string; where?: 'avenBOX' | 'main'; commit?: string }>;
-	type Intent = { id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null; spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null; decided_at: string | null; decided_by: string | null; came_with: string | null; work: Work | null };
+	type Intent = { id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null; spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null; decided_at: string | null; decided_by: string | null; came_with: string | null; work: Work | null; pull_request: number | null; ship: Ship | null };
 	// an intent's kind, shown as what it asks (the kind 'idea' as Make, the stage Idea being its own; Samuel 2026-11-06)
 	const KINDS: [Kind, string][] = [
 		['idea', 'Make'],
@@ -71,10 +81,11 @@
 		['specify', 'Specify'],
 		['prototype', 'Prototype'],
 		['proposal', 'Proposal'],
+		['ship', 'Ship'],
 		['accepted', 'Accepted'],
 		['archived', 'Archived']
 	] as const;
-	const STAGE_NAME: Record<Stage, string> = { idea: 'Idea', specify: 'Specify', prototype: 'Prototype', proposal: 'Proposal', accepted: 'Accepted', archived: 'Archived' };
+	const STAGE_NAME: Record<Stage, string> = { idea: 'Idea', specify: 'Specify', prototype: 'Prototype', proposal: 'Proposal', ship: 'Ship', accepted: 'Accepted', archived: 'Archived' };
 	type Column = (typeof COLUMNS)[number][0];
 	// a column folded away or open, each viewer's own (kept in this browser): Accepted and Archived folded at first
 	// (Samuel 2026-11-05; the key named for the intents' columns, Samuel 2026-11-06)
@@ -125,9 +136,52 @@
 		return musts.length ? `${musts.filter((c) => i.results?.[c.id]?.pass === true).length}/${musts.length} checks` : '';
 	};
 	const allMustPass = (i: { spec: Spec | null; results: Results | null }) => !!i.spec && i.spec.checks.filter((c) => c.must).every((c) => i.results?.[c.id]?.pass === true);
-	/** the final gate to accepting from Prototype: every must check passed, and on main where it has a run (play/api's unmetOnMain) */
-	const allMustPassOnMain = (i: { spec: Spec | null; results: Results | null }) =>
-		!!i.spec && i.spec.checks.filter((c) => c.must).every((c) => i.results?.[c.id]?.pass === true && (!c.run || i.results?.[c.id]?.where === 'main'));
+	// ---- Accept ships it (play/api/src/ship.ts): an intent of code, its pull request named, merged by its Accept
+	const REPO_URL = 'https://github.com/MyAvenCEO/maiacity';
+	/** whether an intent's Accept ships it: its work is code, its pull request named */
+	const isCode = (i: Intent) => !i.work && !!i.pull_request;
+	/** its pull request merged by an earlier ship that went red: Accept ships that again */
+	const shipsAgain = (i: Intent) => isCode(i) && !!i.ship?.merge && i.ship.pr === i.pull_request && i.ship.outcome === 'red';
+	const doneStep = (s: ShipStep) => s.state === 'green' || s.state === 'skipped';
+	/** where a ship is now: its red step, else the first not yet done */
+	const shipNow = (sh: Ship) => sh.steps.find((s) => s.state === 'red') ?? sh.steps.find((s) => !doneStep(s));
+	const STEP_MARK: Record<ShipStep['state'], string> = { queued: '·', running: '●', green: '✓', red: '✗', skipped: '–' };
+	const STEP_WORD: Record<ShipStep['state'], string> = { queued: 'waiting', running: 'running', green: 'done', red: 'red', skipped: 'skipped' };
+	/** a step's time: how long it took, or has run so far */
+	const tookOf = (s: ShipStep, now: number) => {
+		if (!s.started) return '';
+		const ms = (s.finished ? Date.parse(s.finished) : now) - Date.parse(s.started);
+		if (!(ms >= 0)) return '';
+		const sec = Math.round(ms / 1000);
+		return sec < 60 ? `${sec} s` : `${Math.floor(sec / 60)} min ${sec % 60} s`;
+	};
+	/** a card's line in Ship (its current step) or at Proposal after a red ship */
+	const shipLine = (i: Intent) => {
+		if (!i.ship) return '';
+		if (i.stage === 'ship') {
+			const n = shipNow(i.ship);
+			return n ? `${n.name} · ${STEP_WORD[n.state]}` : 'in production';
+		}
+		if (i.stage === 'proposal' && i.ship.outcome === 'red' && i.ship.report) return `red at ${i.ship.report.step}`;
+		return '';
+	};
+	/** a log shown from its end, where it went red */
+	const toEnd = (el: HTMLElement) => {
+		el.scrollTop = el.scrollHeight;
+	};
+	// while any intent ships, the board (and the intent open on it) is read again every 3 s
+	const shipping = $derived(intents.some((i) => i.stage === 'ship'));
+	let now = $state(Date.now());
+	$effect(() => {
+		if (!shipping) return;
+		const t = setInterval(async () => {
+			now = Date.now();
+			await load();
+			const o = intent;
+			if (o) intent = intents.find((x) => x.id === o.id) ?? o;
+		}, 3000);
+		return () => clearInterval(t);
+	});
 	/** where a result ran, as its mark says: avenBOX, or main and its commit */
 	const whereOf = (r: Results[string]) => (r.where === 'main' ? `main${r.commit ? ` @ ${r.commit.slice(0, 7)}` : ''}` : 'avenBOX');
 	/** what an intent's work is, on its card: "v3 · waiting", "2 changes · accepted" */
@@ -294,19 +348,27 @@
 		copied = false;
 	}
 	const closeIntent = () => (intent = null);
+	/** an Accept that merges (Accept and ship): GitHub takes a few seconds */
+	let merging = $state(false);
 	async function decideIntent(id: string, verdict: 'approve' | 'respecify' | 'accept' | 'reject' | 'reopen') {
+		merging = verdict === 'accept' && !!intent && isCode(intent);
+		intentError = '';
 		try {
 			const r = await api<Intent>(`/intents/${id}/${verdict}`, { method: 'POST' });
 			intents = intents.map((x) => (x.id === r.id ? r : x));
-			closeIntent();
+			// shipped: the dialog stays, its way to production ticking
+			if (r.stage === 'ship') intent = r;
+			else closeIntent();
 		} catch (e) {
 			intentError = (e as Error).message;
+		} finally {
+			merging = false;
 		}
 	}
 	/** what to tell an agent sent to an intent: the intent by its id (its title only shown), and its stage's work */
 	const briefOf = (i: Intent) =>
 		i.stage === 'prototype'
-			? `Build Maia City's intent ${i.id} on play ("${i.title}") in avenBOX, the cloud environment our agents prototype in (Postgres up, TEST_DATABASE_URL set: play/avenbox/up.sh). Read it and its approved spec with the maia-play MCP tool get_intent. Build what its goal and scope say. Run every check and record it with bun play/avenbox/intent.ts ${i.id} --record (it runs each check's run and records it with check_intent, a failure as a failure; record a look by hand with check_intent); repeat until every must check passes: then the intent moves to Proposal by itself, where an admin decides it. If the work is play's (an asset or story version, a sandbox change, a factory or a config), propose it with the propose tool's intent: "${i.id}" (it puts this intent at Proposal with the work); play refuses it before every must check passes. If the work is code, ship it by pull request with the line Intent: ${i.id} at the end of its commits' messages: once it is merged, main runs the same checks in the same box (.github/workflows/intents.yml) and records them as main's, and it is accepted on main's results.`
+			? `Build Maia City's intent ${i.id} on play ("${i.title}") in avenBOX, the cloud environment our agents prototype in (Postgres up, TEST_DATABASE_URL set: play/avenbox/up.sh). Read it and its approved spec with the maia-play MCP tool get_intent. Build what its goal and scope say. Run every check and record it with bun play/avenbox/intent.ts ${i.id} --record (it runs each check's run and records it with check_intent, a failure as a failure; record a look by hand with check_intent); repeat until every must check passes: then the intent moves to Proposal by itself, where an admin decides it. If the work is play's (an asset or story version, a sandbox change, a factory or a config), propose it with the propose tool's intent: "${i.id}" (it puts this intent at Proposal with the work); play refuses it before every must check passes. If the work is code, open a pull request into main with the line Intent: ${i.id} at the end of its commits' messages, and record the checks on its head with bun play/avenbox/intent.ts ${i.id} --record --pr <its number>; then stop: never merge it, into main or production. An admin's Accept here merges it and ships it to production, followed live in Ship.`
 			: `Specify Maia City's intent ${i.id} on play ("${i.title}"). Read it with the maia-play MCP tool get_intent, then specify it with specify_intent: its goal (what is true when it is done, in a sentence), its scope (what changes, named by UUIDs, hashes or paths, and what stays as it is) and its checks, each ONE statement that passes or fails, checked by a test (a command that passes), a measure (a value and its range from a named tool) or a look (against a named reference), must or nice; every check decidable by someone who reads only the intent and the result. Every test and measure check carries its run: the exact command that decides it in avenBOX, from the repository's root, as written, nothing in it left to fill in (a test passes when it exits 0; a measure prints its value and exits 0 only in its range); in Prototype bun play/avenbox/intent.ts runs them all, and main runs them again once the work is merged. Then stop: an admin approves the spec before anything is built.`;
 	async function copyBrief(i: Intent) {
 		try {
@@ -368,7 +430,8 @@
 								<article class="card" class:item={!!i.spec || !i.work} data-kind={i.kind}>
 									<button class="open" onclick={() => openIntent(i)} title={i.note ? gist(i.note) : undefined}>
 										<span class="title">{i.title}</span>
-										{#if progress}<span class="for" class:done={allMustPass(i)}>{progress}</span>
+										{#if shipLine(i)}<span class="for ship" class:red={i.stage === 'proposal' || i.ship?.steps.some((x) => x.state === 'red')} class:running={i.stage === 'ship'}>{shipLine(i)}</span>
+										{:else if progress}<span class="for" class:done={allMustPass(i)}>{progress}</span>
 										{:else if i.spec && s === 'specify'}<span class="for">{i.spec.checks.length} check{i.spec.checks.length === 1 ? '' : 's'} · to approve</span>
 										{:else if i.spec && i.work}<span class="for">{workText(i)}</span>{/if}
 										<span class="meta">
@@ -380,7 +443,7 @@
 									</button>
 								</article>
 							{:else}
-								<p class="empty muted">{!loaded ? '…' : s === 'idea' ? 'None. Agents add intents over MCP.' : s === 'specify' ? 'None. Agents specify an intent over MCP.' : s === 'prototype' ? 'None. An approved spec is built here.' : 'None'}</p>
+								<p class="empty muted">{!loaded ? '…' : s === 'idea' ? 'None. Agents add intents over MCP.' : s === 'specify' ? 'None. Agents specify an intent over MCP.' : s === 'prototype' ? 'None. An approved spec is built here.' : s === 'ship' ? 'None. Accepted code is shipped here.' : 'None'}</p>
 							{/each}
 						</div>
 					{/if}
@@ -399,13 +462,39 @@
 		<div class="review item-review" role="dialog" aria-modal="true" aria-label={i.title}>
 			<header class="review-head">
 				<div class="who">
-					<p class="tags"><span class="type" data-kind={i.kind}>{kindName(i.kind)}</span> <span class="pill">{STAGE_NAME[i.stage]}</span>{#if (i.stage === 'prototype' || i.stage === 'proposal') && musts.length}{' '}<span class="pill" class:pass={allMustPass(i)}>{checksDone(i)}</span>{/if}</p>
+					<p class="tags"><span class="type" data-kind={i.kind}>{kindName(i.kind)}</span> <span class="pill" class:shipping={i.stage === 'ship'}>{STAGE_NAME[i.stage]}{#if i.stage === 'ship' && i.ship}{@const n = shipNow(i.ship)}{n ? ` · ${n.name}` : ''}{/if}</span>{#if (i.stage === 'prototype' || i.stage === 'proposal') && musts.length}{' '}<span class="pill" class:pass={allMustPass(i)}>{checksDone(i)}</span>{/if}</p>
 					<h2>{i.title}</h2>
-					<p class="meta">by {i.author ?? 'someone'}{#if i.via === 'mcp'}{' '}<span class="via" title="Added by an agent working for them over MCP">via MCP</span>{/if} · {when(i.created)}{i.specified_by && i.specified_at ? ` · specified by ${i.specified_by}, ${when(i.specified_at)}` : ''}{i.approved_by && i.approved_at ? ` · spec approved by ${i.approved_by}` : ''}{i.decided_by && i.decided_at ? ` · ${i.stage} by ${i.decided_by}, ${when(i.decided_at)}` : ''}</p>
+					<p class="meta">by {i.author ?? 'someone'}{#if i.via === 'mcp'}{' '}<span class="via" title="Added by an agent working for them over MCP">via MCP</span>{/if} · {when(i.created)}{i.specified_by && i.specified_at ? ` · specified by ${i.specified_by}, ${when(i.specified_at)}` : ''}{i.approved_by && i.approved_at ? ` · spec approved by ${i.approved_by}` : ''}{i.decided_by && i.decided_at ? ` · ${i.stage === 'ship' ? 'accepted' : i.stage} by ${i.decided_by}, ${when(i.decided_at)}` : ''}</p>
 				</div>
 			</header>
 			<div class="item-body">
 			{#if intentError}<p class="error">{intentError}</p>{/if}
+			{#if i.stage === 'proposal' && i.ship?.outcome === 'red' && i.ship.report}
+				{@const rep = i.ship.report}
+				<!-- a red ship: what went red, where, and the log's last lines; Accept ships it again -->
+				<section class="ship-report" aria-label="The ship's report">
+					<h3>Not shipped: red at {rep.step}</h3>
+					<p class="small">{rep.why}{#if rep.link}{' · '}<a href={rep.link} target="_blank" rel="noopener">Open it on GitHub</a>{/if} <span class="muted">· {shortWhen(rep.at)}</span></p>
+					{#if rep.log}<pre class="log" use:toEnd>{rep.log}</pre>{/if}
+					<p class="muted small">{shipsAgain(i) ? `Accept ships it again (${i.ship.again === 'main' ? "main's failed jobs run again" : 'the release of ' + i.ship.merge.slice(0, 7) + ' again'}); or an agent fixes it in a new pull request of the intent, its checks recorded on its head.` : 'Accept merges its newer pull request and ships it.'}</p>
+				</section>
+			{/if}
+			{#if i.ship && (i.stage === 'ship' || i.stage === 'accepted' || i.stage === 'proposal')}
+				{@const sh = i.ship}
+				<section class="ship" aria-label="Its way to production">
+					<h3>{i.stage === 'ship' ? 'Shipping' : i.stage === 'accepted' ? 'Shipped' : 'Its last ship'} <span class="muted small">#{sh.pr} as {sh.merge.slice(0, 7)} · accepted by {sh.by}{sh.round > 1 ? ` · round ${sh.round}` : ''}</span></h3>
+					<ol class="steps-live">
+						{#each sh.steps as st (st.key)}
+							<li data-state={st.state}>
+								<span class="mark" title={STEP_WORD[st.state]}>{STEP_MARK[st.state]}</span>
+								<span class="name">{st.name}</span>
+								<span class="muted small">{st.note ?? ''}{st.note && tookOf(st, now) ? ' · ' : ''}{tookOf(st, now)}</span>
+								{#if st.link}<a class="small" href={st.link} target="_blank" rel="noopener">GitHub</a>{/if}
+							</li>
+						{/each}
+					</ol>
+				</section>
+			{/if}
 			{#if i.note}<div class="md">{@html md(i.note)}</div>{/if}
 			<section class="spec" class:none={!i.spec}>
 				{#if i.spec}
@@ -446,7 +535,8 @@
 			</section>
 			<section>
 				<h3>Its work</h3>
-				{#if !i.work}<p class="muted small">Nothing yet.{i.stage === 'idea' || i.stage === 'specify' || i.stage === 'prototype' ? ' Send an agent to it with the brief below.' : ''}</p>
+				{#if !i.work && i.pull_request}<p class="small">Code: <a href="{REPO_URL}/pull/{i.pull_request}" target="_blank" rel="noopener">pull request #{i.pull_request}</a> <span class="muted">· {i.stage === 'proposal' ? 'Accept merges it into main and ships it' : i.stage === 'ship' ? 'merged, on its way to production' : i.stage === 'accepted' ? 'in production' : 'named by its agent'}</span></p>
+				{:else if !i.work}<p class="muted small">Nothing yet.{i.stage === 'idea' || i.stage === 'specify' || i.stage === 'prototype' ? ' Send an agent to it with the brief below.' : ''}</p>
 				{:else}
 					{@const w = i.work}
 					<ul class="linked">
@@ -475,7 +565,7 @@
 			     no Close: the nav pill's Back (or Escape, or the scrim) closes it, the star the board (Samuel 2026-11-06).
 			     Accept only at Proposal (it moves there by itself once every must check passes; Samuel 2026-11-06), and only
 			     where no work of it waits: then its work's review, opened from it, is where it is decided -->
-			{#if !(i.stage === 'proposal' && waits)}
+			{#if !(i.stage === 'proposal' && waits) && i.stage !== 'ship'}
 			<footer class="decide">
 				{#if i.stage === 'idea' || i.stage === 'specify' || i.stage === 'prototype' || (i.stage === 'proposal' && !waits)}
 					<button class="btn small reject" onclick={() => decideIntent(i.id, 'reject')} title="Not to be done: it ends archived">Reject</button>
@@ -486,7 +576,7 @@
 					<button class="btn small ghost" onclick={() => decideIntent(i.id, 'reopen')} title="Open again: back to {i.spec ? 'Specify' : 'Idea'}">Reopen</button>
 				{/if}
 				{#if i.stage === 'specify' && i.spec}<button class="btn small" onclick={() => decideIntent(i.id, 'approve')} title="The spec is right: an agent may build it">Approve spec</button>
-				{:else if i.stage === 'proposal' && !waits}<button class="btn small" onclick={() => decideIntent(i.id, 'accept')} disabled={!allMustPassOnMain(i)} title={allMustPassOnMain(i) ? 'What it asked is in' : allMustPass(i) ? 'Every must check with a run passes on main first, once its work is merged' : 'Every must check passes first'}>Accept</button>{/if}
+				{:else if i.stage === 'proposal' && !waits}<button class="btn small" onclick={() => decideIntent(i.id, 'accept')} disabled={!allMustPass(i) || merging} title={!allMustPass(i) ? 'Every must check passes first' : isCode(i) ? (shipsAgain(i) ? 'Ship it again: its pull request is merged; the release (or main\'s failed jobs) runs again' : `Merge pull request #${i.pull_request} into main now and ship it to production`) : 'What it asked is in'}>{merging ? 'Merging…' : isCode(i) ? (shipsAgain(i) ? 'Ship again' : 'Accept and ship') : 'Accept'}</button>{/if}
 			</footer>
 			{/if}
 		</div>
@@ -753,6 +843,27 @@
 	.card.item { border-left: 4px solid var(--kind); }
 	.for { font-size: 0.76rem; color: var(--ink-soft, #4d5d51); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.for.done { color: var(--brand-green, #24452f); font-weight: 600; }
+	.for.ship { font-weight: 600; color: var(--brand-green, #24452f); }
+	.for.ship.running::before { content: '● '; color: var(--mustard, #efb54d); }
+	.for.ship.red { color: #9c3b22; }
+	.for.ship.red::before { content: '✗ '; }
+	/* Ship: its way to production, step by step, live; a red ship's report */
+	.pill.shipping { background: color-mix(in srgb, var(--mustard, #efb54d) 35%, transparent); }
+	.ship, .ship-report { padding: 0.7rem 0.9rem; border-radius: 12px; border: 1px solid var(--line, #dcd5c4); background: var(--card, #fff); }
+	.ship h3, .ship-report h3 { margin: 0 0 0.4rem; }
+	.ship h3 .small { font-weight: 400; margin-left: 0.3rem; }
+	.steps-live { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
+	.steps-live li { display: grid; grid-template-columns: 1.4rem minmax(0, auto) 1fr auto; gap: 0.5rem; align-items: center; font-size: 0.88rem; }
+	.steps-live .mark { width: 1.4rem; height: 1.4rem; display: grid; place-items: center; border-radius: 50%; font-weight: 700; font-size: 0.8rem; background: var(--paper, #f6f1e6); color: var(--muted, #777); }
+	.steps-live li[data-state='green'] .mark { background: color-mix(in srgb, var(--sage, #8fae8b) 45%, transparent); color: var(--brand-green, #24452f); }
+	.steps-live li[data-state='red'] .mark { background: color-mix(in srgb, var(--terracotta, #c8744f) 30%, transparent); color: #9c3b22; }
+	.steps-live li[data-state='running'] .mark { background: color-mix(in srgb, var(--mustard, #efb54d) 40%, transparent); color: var(--ink, #1f2a22); animation: beat 1.2s ease-in-out infinite; }
+	.steps-live li[data-state='queued'] .name { color: var(--muted, #777); }
+	@keyframes beat { 50% { opacity: 0.45; } }
+	@media (prefers-reduced-motion: reduce) { .steps-live li[data-state='running'] .mark { animation: none; } }
+	.ship-report { border-color: color-mix(in srgb, var(--terracotta, #c8744f) 60%, transparent); background: color-mix(in srgb, var(--terracotta, #c8744f) 8%, var(--card, #fff)); }
+	.ship-report p { margin: 0 0 0.4rem; }
+	.ship-report .log { margin: 0 0 0.4rem; max-height: 16rem; overflow: auto; padding: 0.5rem 0.65rem; border-radius: 8px; background: #1f2a22; color: #e9efe6; font-size: 0.72rem; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
 	/* an intent opened: a panel in the middle of the screen over a scrim, not the whole screen a version's build takes */
 	.scrim { all: unset; position: absolute; inset: 0; z-index: 9; border-radius: inherit; background: rgb(38 56 44 / 0.28); }
 	.review.item-review { inset: auto; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(48rem, calc(100% - 1rem)); max-height: calc(100% - 1rem); gap: 0.7rem; padding: 1rem 1.1rem 0.8rem; }

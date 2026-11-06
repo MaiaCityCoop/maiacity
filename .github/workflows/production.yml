@@ -1,6 +1,9 @@
-# production: what is released, play and the website. A pull request to production takes main of this repository only
-# ('Only from main'), and the checks run once, on main (main.yml): here 'Main is green' only reads their result for main's
-# commit, on the pull request and again on the push. A push to production (main merged in) then deploys both:
+# production: what is released, play and the website. production follows main (Accept ships it, play/SPEC.md §4.12;
+# Samuel 2026-11-06): an admin's Accept on play merges an intent's pull request into main, and once main.yml is green
+# release.yml moves production to that commit (fast-forward) and starts this by workflow_dispatch. The checks run once,
+# on main (main.yml): here 'Main is green' only reads their result for the commit. (A pull request to production, from
+# main of this repository only, 'Only from main', was the way before; it still runs the same gate, and its push deploys.)
+# The deploy, both:
 #   play to play.maia.city (play/SPEC.md §9): the image to GHCR, the DNS record, the server — play's role and schema in
 #     the same Postgres, play-api beside the running containers (--no-deps), the import, Caddy answering play.maia.city;
 #   the website to maia.city (website/README.md): its build into the server's site/releases/<commit>, site/current
@@ -49,8 +52,9 @@ jobs:
           echo "::error::production takes changes from main of $REPO only; this pull request comes from ${HEAD_REPO:-?}:${HEAD_REF:-?}"
           exit 1
 
-  # play's checks ran on main's commit (main.yml); read their result instead of running them again. On the pull
-  # request that commit is its head; on the push, main's side of the merge (the merge's second parent).
+  # play's checks ran on main's commit (main.yml); read their result instead of running them again. Started by
+  # release.yml, that commit is production's head itself (moved there fast-forward); on a pull request, its head; on a
+  # push, main's side of the merge (the merge's second parent).
   main-green:
     name: Main is green
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
@@ -68,9 +72,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR_SHA: ${{ github.event.pull_request.head.sha }}
+          EVENT: ${{ github.event_name }}
           CHECKS: play / API and site|website / build
         run: |
           sha=$PR_SHA
+          if [ -z "$sha" ] && [ "$EVENT" = workflow_dispatch ]; then sha=$(git rev-parse HEAD); fi
           [ -n "$sha" ] || sha=$(git rev-parse -q --verify HEAD^2 || git rev-parse HEAD)
           echo "main's commit: $sha"
           passed() {
@@ -223,10 +229,15 @@ jobs:
           # play's files live in the bucket (blobs/<xx>/<hash>), not on the server's disk
           S3_ACCESS_KEY: ${{ secrets.HETZNER_S3_ACCESS_KEY }}
           S3_SECRET_KEY: ${{ secrets.HETZNER_S3_SECRET_KEY }}
+          # Accept ships it (play/api/src/ship.ts): play merges an accepted intent's pull request and follows it to
+          # production with this fine-grained token (deploy/README.md); without it, Accept on code says so
+          SHIP_TOKEN: ${{ secrets.SHIP_TOKEN }}
+          SHIP_REPO: ${{ github.repository }}
         run: |
           if [ -z "$S3_ACCESS_KEY" ] || [ -z "$S3_SECRET_KEY" ]; then
             echo "::error::play keeps its files in the bucket: set HETZNER_S3_ACCESS_KEY and HETZNER_S3_SECRET_KEY."; exit 1
           fi
+          [ -n "$SHIP_TOKEN" ] || echo "::warning::No SHIP_TOKEN: play cannot merge an accepted intent's pull request (deploy/README.md)."
           ssh prod "cd $APP_DIR && bash -s" <<EOS
           set -e
           exec 9>.env.lock; flock -w 300 9
@@ -246,6 +257,8 @@ jobs:
           PLAY_BUCKET_ACCESS_KEY=$S3_ACCESS_KEY
           PLAY_BUCKET_SECRET_KEY=$S3_SECRET_KEY
           PLAY_MIRROR_ROOT=BACKUPS/play-files/blobs
+          SHIP_TOKEN=$SHIP_TOKEN
+          SHIP_REPO=$SHIP_REPO
           EOF2
           set -a; . ./play.env; set +a
           C="docker compose -f docker-compose.yml -f docker-compose.prod.yml -f play/docker-compose.play.yml"

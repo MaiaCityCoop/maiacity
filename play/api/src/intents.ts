@@ -3,7 +3,7 @@
 // ("not a proposal belongs to an intent: the intent has a state, proposal"), so the work it brings (an asset's or a
 // story's version, a sandbox's change, a factory's or a config's version: ./work.ts) is on the intent itself. It goes
 //
-//   Idea → Specify → Prototype → Proposal → Accepted (or Archived)
+//   Idea → Specify → Prototype → Proposal → (Ship →) Accepted (or Archived)
 //
 // Idea: as it came, added by an agent over MCP (no one types one in by hand). Specify: an agent writes its spec, a goal,
 // a scope and its checks, each check one statement that passes or fails and how it is checked (test: a command that
@@ -13,16 +13,18 @@
 // has passed, the intent moves there by itself (Samuel 2026-11-06), and proposing its work (every propose tool's
 // `intent`) puts it there with that work, play taking it only once every must check has passed; so after the spec there
 // is one gate with a person in it, the decision at Proposal: accepting applies its work (./proposals.ts decide), or, for
-// work that is no work of play's (code, shipped by its pull request), accepts it on main's checks. Work proposed with no
-// intent named is a new intent at Proposal of its own, with no spec.
+// work that is no work of play's (code, its pull request named with check_intent's `pr`), Accept ships it (./ship.ts,
+// Samuel 2026-11-06): play merges the pull request into main that moment and the intent is in Ship, where play follows
+// it to production step by step; all green, it is Accepted; any red, it is back at Proposal with the report. Work
+// proposed with no intent named is a new intent at Proposal of its own, with no spec.
 //
 // Every check runs in avenBOX (play/SPEC.md §4.12, Samuel 2026-11-06): the cloud environment the agents prototype in,
 // with Postgres up and TEST_DATABASE_URL set (play/avenbox/up.sh). A test or measure check carries its `run`, the exact
 // command that decides it there, from the repository's root, as written: no placeholder in it. In Prototype,
-// `bun play/avenbox/intent.ts <intent> --record` runs every check of a spec and records the results. Code ships by its
-// pull request; once merged, main runs the same checks in the same box (.github/workflows/intents.yml, the commits'
-// `Intent: <uuid>` trailers) and records them as main's while the intent is at Proposal: an intent whose work goes
-// through main is accepted there on main's results.
+// `bun play/avenbox/intent.ts <intent> --record` runs every check of a spec and records the results, with the commit
+// they ran on: a code intent is accepted only when every must check with a run last passed on its pull request's head.
+// Once merged, main runs the same checks in the same box (.github/workflows/intents.yml, the commits' `Intent: <uuid>`
+// trailers) and records them as main's: a confirmation, whatever the stage.
 import { Denied, COOP, type Me } from "./access";
 import type { Queryable } from "./pg";
 import { NOTE_MOST } from "./notes";
@@ -37,10 +39,10 @@ export class IntentError extends Error {
 
 export const INTENT_KINDS = ["idea", "fix", "improve"] as const;
 export type IntentKind = (typeof INTENT_KINDS)[number];
-export const INTENT_STAGES = ["idea", "specify", "prototype", "proposal", "accepted", "archived"] as const;
+export const INTENT_STAGES = ["idea", "specify", "prototype", "proposal", "ship", "accepted", "archived"] as const;
 export type IntentStage = (typeof INTENT_STAGES)[number];
-/** the intents still to be taken further: not yet decided */
-export const OPEN_STAGES: IntentStage[] = ["idea", "specify", "prototype", "proposal"];
+/** the intents still to be taken further: not yet done (Ship: accepted, on its way to production) */
+export const OPEN_STAGES: IntentStage[] = ["idea", "specify", "prototype", "proposal", "ship"];
 export const CHECK_HOWS = ["test", "measure", "look"] as const;
 /** run: the command that decides it in avenBOX (required for test and measure since 2026-11-06; specs from before have none) */
 export type Check = { id: string; check: string; how: (typeof CHECK_HOWS)[number]; by: string; run?: string; must: boolean };
@@ -138,6 +140,7 @@ export function specOf(body: { goal?: unknown; scope?: unknown; checks?: unknown
 async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
   const { rows } = await db.query<any>(
     `SELECT i.id, i.kind, i.title, i.note, i.stage, i.via, i.created, i.spec, i.results, i.specified_at, i.approved_at, i.decided_at, i.came_with,
+            i.pull_request, i.ship,
             au.name AS author, sp.name AS specified_by, ap.name AS approved_by, de.name AS decided_by,
             CASE WHEN i.work IS NULL THEN NULL ELSE json_build_object(
               'kind', i.work, 'status', CASE i.stage WHEN 'proposal' THEN 'proposal' WHEN 'accepted' THEN 'accepted' ELSE 'archived' END,
@@ -241,27 +244,42 @@ export async function specifyIntent(db: Queryable, me: Me | null, id: string, bo
 /** whether the intent's work waits for a decision at Proposal: then accepting applies it (./proposals.ts decide) */
 const waiting = (intent: { stage: string; work: unknown }) => intent.stage === "proposal" && !!intent.work;
 
+/** an intent's pull request into main, by its number (check_intent's `pr`), or undefined where none is given */
+const prOf = (v: unknown) => {
+  if (v === undefined || v === null || v === "") return undefined;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 1) throw new IntentError("pr is the number of the intent's pull request into main (#2096 is 2096).");
+  return n;
+};
+
 /**
  * Checks' results recorded while an intent is prototyped (over MCP): each names its check, passes or fails, and says
- * its evidence (the command and what it printed, the value measured, what was compared with what). The latest result of
- * a check stands; the gate to Proposal reads them. Once every must check has passed, the intent moves to Proposal by
- * itself, where an admin decides it (Samuel 2026-11-06); checked again there (its work not waiting there), a must
- * that fails takes it back to Prototype.
+ * its evidence (the command and what it printed, the value measured, what was compared with what), where it ran and the
+ * commit. The latest result of a check stands; the gate to Proposal reads them. Once every must check has passed, the
+ * intent moves to Proposal by itself, where an admin decides it (Samuel 2026-11-06); checked again there (its work not
+ * waiting there), a must that fails takes it back to Prototype. Results run on main (after the merge,
+ * .github/workflows/intents.yml) are a confirmation in any stage once its spec is approved: in Ship, Accepted or
+ * Archived they are kept and move nothing. `pr` names the intent's pull request into main (its code), which Accept
+ * merges (./ship.ts): named while it is prototyped or at Proposal, a newer one replacing it.
  */
-export async function recordChecks(db: Queryable, me: Me | null, id: string, given: unknown) {
+export async function recordChecks(db: Queryable, me: Me | null, id: string, given: unknown, pr?: unknown) {
   const who = admin(me);
   const intent = await intentRow(db, id);
-  const checkable = intent.stage === "prototype" || (intent.stage === "proposal" && intent.approved_at && !waiting(intent));
-  if (!checkable)
+  const named = prOf(pr);
+  const list = given === undefined || given === null ? [] : given;
+  if (!Array.isArray(list) || (!list.length && named === undefined)) throw new IntentError("Give each check's result: { check: 'c1', pass: true | false, evidence }.");
+  const moves = intent.stage === "prototype" || (intent.stage === "proposal" && intent.approved_at && !waiting(intent));
+  const confirms = list.length > 0 && named === undefined && !!intent.approved_at && list.every((r: any) => r?.where === "main");
+  if (!moves && !confirms)
     throw new IntentError(
-      `Intent ${intent.id} is at the ${intent.stage} stage: checks are recorded while it is prototyped (its spec approved)${intent.stage === "proposal" ? ", or at Proposal while no work of it waits there" : ""}.`,
+      `Intent ${intent.id} is at the ${intent.stage} stage: checks are recorded while it is prototyped (its spec approved)${intent.stage === "proposal" ? ", or at Proposal while no work of it waits there" : ""}; main's results (where main) in any stage once its spec is approved.`,
       409,
     );
+  if (named !== undefined && intent.work) throw new IntentError(`Intent ${intent.id} holds work of play's: it is accepted in play, with no pull request.`, 409);
   const ids = new Set((intent.spec?.checks ?? []).map((c: Check) => c.id));
-  if (!Array.isArray(given) || !given.length) throw new IntentError("Give each check's result: { check: 'c1', pass: true | false, evidence }.");
   const results: Record<string, Result> = { ...(intent.results ?? {}) };
   const at = new Date().toISOString();
-  for (const r of given as any[]) {
+  for (const r of list as any[]) {
     if (!ids.has(r?.check)) throw new IntentError(`${r?.check} is not one of this intent's checks (${[...ids].join(", ")}).`);
     if (typeof r?.pass !== "boolean") throw new IntentError(`${r.check}: pass is true or false.`);
     const evidence = textOf(r?.evidence, `${r.check}'s evidence (the command and what it printed, the value measured, what was compared)`, 4000, true);
@@ -271,9 +289,12 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
     if (commit !== undefined && !/^[0-9a-f]{40}$/.test(commit)) throw new IntentError(`${r.check}: commit is the 40-character git hash it ran on.`);
     results[r.check] = { pass: r.pass, evidence, by: who.name, at, where, ...(commit ? { commit } : {}) };
   }
-  // every must check passed: to Proposal, the one gate left; a must failing again: back to Prototype
-  const stage = unmet({ spec: intent.spec, results }).length ? "prototype" : "proposal";
-  await db.query(`UPDATE play.intents SET results = ($2::text)::jsonb, stage = $3 WHERE id = $1`, [intent.id, JSON.stringify(results), stage]);
+  // every must check passed: to Proposal, the one gate left; a must failing again: back to Prototype; main's results
+  // after the merge (in Ship, Accepted, Archived) only kept
+  const stage = !moves ? intent.stage : unmet({ spec: intent.spec, results }).length ? "prototype" : "proposal";
+  await db.query(`UPDATE play.intents SET results = ($2::text)::jsonb, stage = $3, pull_request = COALESCE($4, pull_request) WHERE id = $1`, [
+    intent.id, JSON.stringify(results), stage, named ?? null,
+  ]);
   return intentRow(db, intent.id);
 }
 
@@ -285,18 +306,16 @@ export function unmet(intent: { spec: Spec | null; results: Record<string, Resul
 }
 
 /**
- * The final gate, for an intent accepted at Proposal with no work of play's (its code merged into main): every
- * must check with a `run` has passed on main (its latest result recorded there by .github/workflows/intents.yml), a
- * pass in avenBOX alone is not enough; a must check without a run (a look, a spec from before) as unmet() reads it.
+ * The gate a code intent's Accept adds (./ship.ts): every must check with a `run` last passed on `head`, its pull
+ * request's head commit, so what is merged is what was checked; as people read them, or none.
  */
-export function unmetOnMain(intent: { spec: Spec | null; results: Record<string, Result> | null }) {
+export function unmetOn(intent: { spec: Spec | null; results: Record<string, Result> | null }, head: string) {
   return (intent.spec?.checks ?? [])
-    .filter((c) => c.must)
+    .filter((c) => c.must && c.run)
     .flatMap((c) => {
       const r = intent.results?.[c.id];
-      if (!c.run) return r?.pass === true ? [] : [`${c.id} (${c.check}): ${r ? "failed" : "no result yet"}`];
-      if (r?.pass === true && r.where === "main") return [];
-      return [`${c.id} (${c.check}): ${!r ? "no result yet" : r.where !== "main" ? `${r.pass ? "passed" : "failed"} in avenBOX, not yet run on main` : "failed on main"}`];
+      if (r?.pass === true && r.commit === head) return [];
+      return [`${c.id} (${c.check}): ${!r ? "no result yet" : !r.pass ? "failed" : r.commit ? `passed on ${r.commit.slice(0, 7)}, not on the head ${head.slice(0, 7)}` : "passed on no named commit"}`];
     });
 }
 
@@ -317,10 +336,10 @@ export async function intentReady(db: Queryable, me: Me | null, id: unknown) {
 
 /**
  * An admin's decision on the board: approve a spec (Specify → Prototype: the agent may build it), send an approved one
- * back to Specify, accept an intent at Proposal that holds no work of play's (its code: every
- * must check passed: it moved there by itself; and on main where the check has a run: unmetOnMain), reject one (it ends
+ * back to Specify, accept an intent at Proposal that holds no work of play's and names no pull request (every must check
+ * passed: it moved there by itself; one that names its pull request is shipped instead, ./ship.ts), reject one (it ends
  * archived), or bring a decided one back (to Specify with its spec, else to Idea). Nothing is accepted from Prototype:
- * Proposal is the one gate after the spec.
+ * Proposal is the one gate after the spec; nothing is decided in Ship, where play follows it to production.
  */
 export async function decideIntent(db: Queryable, me: Me | null, id: string, verdict: IntentVerdict) {
   const who = admin(me);
@@ -344,8 +363,9 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
         refuse("An intent in Prototype is not accepted: it moves to Proposal by itself once every must check passes, and is decided there.");
       if (intent.stage !== "proposal") refuse(`An intent at the ${intent.stage} stage is decided already, or not yet built.`);
       if (waiting(intent)) refuse("Its work waits for a decision: accepting applies it (./proposals.ts decide).");
-      const missing = unmetOnMain(intent);
-      if (missing.length) refuse(`Every must check passes before an intent is accepted, each with a run on main once its work is merged (.github/workflows/intents.yml): ${missing.join("; ")}.`);
+      if (intent.pull_request) refuse(`Its code is pull request #${intent.pull_request}: Accept ships it (./ship.ts), merging it into main.`);
+      const missing = unmet(intent);
+      if (missing.length) refuse(`Every must check passes before an intent is accepted: ${missing.join("; ")}.`);
       await db.query(`UPDATE play.intents SET stage = 'accepted', decided_by = $2, decided_at = now() WHERE id = $1`, [intent.id, who.id]);
       break;
     }
