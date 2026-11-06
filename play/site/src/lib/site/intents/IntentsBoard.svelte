@@ -347,7 +347,10 @@
 		intentError = '';
 		copied = false;
 	}
-	const closeIntent = () => (intent = null);
+	const closeIntent = () => {
+		intent = null;
+		intentError = '';
+	};
 	/** an Accept that merges (Accept and ship): GitHub takes a few seconds */
 	let merging = $state(false);
 	async function decideIntent(id: string, verdict: 'approve' | 'respecify' | 'accept' | 'reject' | 'reopen') {
@@ -468,7 +471,6 @@
 				</div>
 			</header>
 			<div class="item-body">
-			{#if intentError}<p class="error">{intentError}</p>{/if}
 			{#if i.stage === 'proposal' && i.ship?.outcome === 'red' && i.ship.report}
 				{@const rep = i.ship.report}
 				<!-- a red ship: what went red, where, and the log's last lines; Accept ships it again -->
@@ -561,6 +563,9 @@
 				</section>
 			{/if}
 			</div>
+			<!-- a refused decision's reason at the foot, right above the buttons that were pressed, seen without scrolling
+			     the dialog's body (Samuel 2026-11-06); gone once another decision is pressed or the dialog closes -->
+			{#if intentError}<p class="refused" role="alert">{intentError}</p>{/if}
 			<!-- the decision at its foot, in the middle: Reject (it ends archived) on the left, Approve or Accept on the right;
 			     no Close: the nav pill's Back (or Escape, or the scrim) closes it, the star the board (Samuel 2026-11-06).
 			     Accept only at Proposal (it moves there by itself once every must check passes; Samuel 2026-11-06), and only
@@ -925,6 +930,8 @@
 	.review-head .meta { margin: 0.15rem 0 0; }
 	/* the decision at the foot of what is open, in its middle (Samuel 2026-11-05): Reject on the left, reddish, Accept
 	   (or Done) on the right, the rest between */
+	/* a refused decision's reason, at the foot: at most four lines, then it scrolls */
+	.refused { flex: 0 0 auto; margin: 0; padding: 0.45rem 0.7rem; border-radius: 10px; font-size: 0.85rem; line-height: 1.4; max-height: 5.6em; overflow-y: auto; overflow-wrap: anywhere; color: #9c3b22; background: color-mix(in srgb, var(--terracotta, #c8744f) 12%, var(--card, #fff)); border: 1px solid color-mix(in srgb, var(--terracotta, #c8744f) 45%, transparent); }
 	.decide { flex: 0 0 auto; display: flex; justify-content: center; align-items: center; gap: 0.5rem; flex-wrap: wrap; padding: 0.6rem 0 0.1rem; border-top: 1px solid var(--line, #dcd5c4); }
 	.decide .btn { min-width: 6.2rem; justify-content: center; }
 	@media (max-width: 520px) { .decide { flex-wrap: nowrap; gap: 0.35rem; } .decide .btn { min-width: 0; flex: 1 1 0; padding-inline: 0.4em; } }
