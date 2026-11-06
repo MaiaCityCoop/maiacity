@@ -50,6 +50,25 @@ suite("one record: the intent (migration 0029)", () => {
     await admin?.close();
   });
 
+  test("two runners migrating at once take turns: each migration runs once, neither fails", async () => {
+    const other = `${name}_race`;
+    await admin.unsafe(`CREATE DATABASE ${other}`);
+    const u = new URL(URL_!);
+    u.pathname = `/${other}`;
+    const [s1, s2] = [new Bun.SQL(u.toString()), new Bun.SQL(u.toString())];
+    try {
+      const [a, b] = [fromBunSql(s1), fromBunSql(s2)];
+      // play-api starting and the deploy's import beside it (the deploy of 0029, 2026-11-06)
+      const [ra, rb] = await Promise.all([migrate(a), migrate(b)]);
+      expect([...ra, ...rb].sort()).toEqual(MIGRATIONS.map((m) => m.id).sort());
+      expect((await a.query<{ n: number }>(`SELECT count(*)::int AS n FROM play.migrations`)).rows[0].n).toBe(MIGRATIONS.length);
+    } finally {
+      await s1.close();
+      await s2.close();
+      await admin.unsafe(`DROP DATABASE IF EXISTS ${other} WITH (FORCE)`);
+    }
+  });
+
   test("every proposal becomes an intent's work or an intent of its own; every old id still finds it; the table goes", async () => {
     const ada = crypto.randomUUID(), cit = crypto.randomUUID();
     const fern = crypto.randomUUID();

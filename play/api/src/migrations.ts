@@ -994,20 +994,31 @@ export const MIGRATIONS: Migration[] = [
 export async function migrate(db: Db): Promise<string[]> {
   // In production the role play owns the schema but may not create one in the database (play/deploy/setup.sql makes
   // it), and CREATE SCHEMA IF NOT EXISTS checks that right even when the schema is there: so only create it if missing.
-  await db.exec(`DO $$ BEGIN
+  // under the same lock as each migration below, so two runners at once never race to make them
+  await db.transaction(async (tx) => {
+    await tx.query(`SELECT pg_advisory_xact_lock(hashtext('play.migrations'))`);
+    await tx.query(`DO $$ BEGIN
       IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'play') THEN CREATE SCHEMA play; END IF;
-    END $$;
-    CREATE TABLE IF NOT EXISTS play.migrations (id TEXT PRIMARY KEY, ran TIMESTAMPTZ NOT NULL DEFAULT now());`);
+    END $$`);
+    await tx.query(`CREATE TABLE IF NOT EXISTS play.migrations (id TEXT PRIMARY KEY, ran TIMESTAMPTZ NOT NULL DEFAULT now())`);
+  });
   const { rows } = await db.query<{ id: string }>("SELECT id FROM play.migrations");
   const done = new Set(rows.map((r) => r.id));
   const ran: string[] = [];
   for (const m of MIGRATIONS) {
     if (done.has(m.id)) continue;
-    await db.transaction(async (tx) => {
+    // two runners at once (play-api starting, and the deploy's import beside it) take turns: each migration under one
+    // lock, run only if no one ran it while this one waited (the deploy of 0029 failed so, 2026-11-06, its migration
+    // committed by the other)
+    const fresh = await db.transaction(async (tx) => {
+      await tx.query(`SELECT pg_advisory_xact_lock(hashtext('play.migrations'))`);
+      const { rows: had } = await tx.query(`SELECT 1 FROM play.migrations WHERE id = $1`, [m.id]);
+      if (had.length) return false;
       await tx.query(m.sql);
       await tx.query("INSERT INTO play.migrations (id) VALUES ($1)", [m.id]);
+      return true;
     });
-    ran.push(m.id);
+    if (fresh) ran.push(m.id);
   }
   return ran;
 }
