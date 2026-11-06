@@ -178,7 +178,7 @@ suite("assets as documents", () => {
     expect(ok.status).toBe(200);
   });
 
-  test("a proposal is a branch: a draft made step by step with asset_edit is proposed with its steps and accepted as the version", async () => {
+  test("a proposal is a branch: an intent variant made edit by edit with doc_edit is proposed with its edits and accepted as the version", async () => {
     const ada = (await me("ada"))!;
     const s1 = await editDoc({ db, store }, ada, { doc: ids.fern, message: "a longer frond", edits: [{ op: "replace", find: "legacy skipped a number", replace: "a longer frond" }] });
     expect(s1.changed).toBe(true);

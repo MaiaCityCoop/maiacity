@@ -11,8 +11,8 @@ const db = connect();
 const ran = await migrate(db);
 if (ran.length) console.log(`migrations: ${ran.join(", ")}`);
 await initSessions(db);
-// Accept ships it (./ship.ts): with SHIP_TOKEN, an admin's Accept merges an intent's pull request and the ship watcher
-// follows it to production every 10 s; without it, Accept on a code intent is refused and says why
+// Accept ships it (./ship.ts): with SHIP_TOKEN, an admin's Accept puts an intent in Ship, and the ship watcher (every
+// 10 s) merges its pull request when its turn comes and GitHub is ready, and follows it to production; without it, Accept on a code intent is refused and says why
 const github = shipGitHub();
 if (github) startShipWatcher(db, github);
 else console.log("ship: no SHIP_TOKEN: code intents are not shipped from here");

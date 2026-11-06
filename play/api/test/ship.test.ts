@@ -162,6 +162,7 @@ suite("accept ships it", () => {
 
   const SPEC = {
     goal: "A change of play's code is shipped.",
+    nothing_to_reduce: "A test fixture: nothing to reduce.",
     scope: "play/api/src: something small.",
     checks: [
       { check: "Its tests pass", how: "test", by: "bun test", run: "cd play/api && bun test" },
@@ -195,18 +196,38 @@ suite("accept ships it", () => {
   const intent = async (id: string) => (await call("ada", "GET", `/api/intents/${id}`)).data;
   const writesSince = (from: number) => gh.calls.slice(from).filter((c) => c.method !== "GET");
 
-  test("Accept and ship: 'Intent accepted' on the head, merged as a merge commit at once, in Ship; play's own work is accepted straight", async () => {
+  /** what is in Ship from an earlier case done with: the queue is one for the whole database */
+  const clearShips = () => db.query(`UPDATE play.intents SET stage = 'archived' WHERE stage = 'ship'`);
+  const shipOf = async (id: string) => (await intent(id)).ship;
+  const stateOf = async (id: string) => Object.fromEntries((await shipOf(id)).steps.map((s: any) => [s.key, s.state]));
+  const readyOf = async (id: string) => (await shipOf(id)).steps.find((s: any) => s.key === "ready");
+  /** its ship all the way through on GitHub: main's checks, the release, the deploy's jobs green */
+  const allGreen = (merge: string, base: number) => {
+    gh.runs["main.yml"].push(run(base + 1, merge, { status: "completed", conclusion: "success" }));
+    gh.runs["release.yml"].push(run(base + 2, merge, { display_title: `release ${merge}`, event: "workflow_run", status: "completed", conclusion: "success" }));
+    gh.runs["production.yml"].push(run(base + 3, merge, { event: "workflow_dispatch", status: "completed", conclusion: "success" }));
+    gh.jobs.set(base + 3, [
+      job(base + 31, "Main is green", "completed", "success"),
+      job(base + 32, "The image", "completed", "success"),
+      job(base + 33, "The server", "completed", "success", [{ name: "Back up play", status: "completed", conclusion: "success" }]),
+      job(base + 34, "The website", "completed", "success"),
+    ]);
+  };
+
+  test("Accept and ship, first in line and GitHub ready: in Ship and merged in that one request ('Intent accepted' on the head, a merge commit); play's own work is accepted straight", async () => {
+    await clearShips();
     const c = await codeAtProposal("A small fix of play");
     const from = gh.calls.length;
     const r = await call("ada", "POST", `/api/intents/${c.id}/accept`);
     expect(r.status).toBe(200);
-    expect(r.data).toMatchObject({ stage: "ship", decided_by: "ada", pull_request: c.pr, ship: { pr: c.pr, head: c.head, merge: c.merge, by: "ada", round: 1 } });
-    const [merged, ...rest] = r.data.ship.steps;
+    expect(r.data).toMatchObject({ stage: "ship", decided_by: "ada", pull_request: c.pr, ship: { pr: c.pr, head: c.head, merge: c.merge, by: "ada", round: 1, pending: null } });
+    const [ready, merged, ...rest] = r.data.ship.steps;
+    expect(ready).toMatchObject({ key: "ready", name: "Ready to merge", state: "green" });
     expect(merged).toMatchObject({ key: "merged", state: "green", link: `https://github.test/${REPO}/pull/${c.pr}` });
     expect(rest.map((s: any) => [s.key, s.state])).toEqual([
       ["main", "queued"], ["release", "queued"], ["main-green", "queued"], ["image", "queued"], ["backup", "queued"], ["server", "queued"], ["website", "queued"],
     ]);
-    // in that one request: the status on the head, then the merge of that head, each with SHIP_TOKEN as Bearer
+    // the status on the head, then the merge of that head, each with SHIP_TOKEN as Bearer
     const writes = writesSince(from);
     expect(writes.map((w) => `${w.method} ${w.path}`)).toEqual([`POST /statuses/${c.head}`, `PUT /pulls/${c.pr}/merge`]);
     expect(writes[0].body).toMatchObject({ state: "success", context: ACCEPTED_CONTEXT, description: "Accepted by ada on play" });
@@ -232,7 +253,93 @@ suite("accept ships it", () => {
     expect(gh.calls.length).toBe(before);
   });
 
-  test("Accept is refused, nothing posted or merged, the intent left at Proposal with the reason", async () => {
+  test("Accept answers at once with the intent in Ship when it is only not yet: GitHub working out whether it merges, its checks running, another ship ahead", async () => {
+    await clearShips();
+    // GitHub hasn't worked it out yet (mergeable null on the first read)
+    const g = await codeAtProposal("Waits for GitHub", { mergeable: null });
+    let from = gh.calls.length;
+    const r = await call("ada", "POST", `/api/intents/${g.id}/accept`);
+    expect(r.status).toBe(200);
+    expect(r.data).toMatchObject({ stage: "ship", decided_by: "ada", ship: { pending: { kind: "merge", head: g.head }, merge: "" } });
+    expect(r.data.ship.steps[0]).toMatchObject({ key: "ready", name: "Ready to merge", state: "running", note: `Waiting for GitHub to work out whether #${g.pr} merges` });
+    expect(r.data.ship.steps.slice(1).every((s: any) => s.state === "queued")).toBe(true);
+    expect(writesSince(from)).toEqual([]);
+    // still not worked out: it waits, nothing written
+    await watchShips(db, gh.gh);
+    expect(writesSince(from)).toEqual([]);
+    // worked out: the watcher merges it
+    gh.pulls.get(g.pr)!.mergeable = true;
+    await watchShips(db, gh.gh);
+    expect(writesSince(from).map((w) => `${w.method} ${w.path}`)).toEqual([`POST /statuses/${g.head}`, `PUT /pulls/${g.pr}/merge`]);
+    expect(await shipOf(g.id)).toMatchObject({ merge: g.merge, pending: null });
+    expect(await stateOf(g.id)).toMatchObject({ ready: "green", merged: "green", main: "queued" });
+    await clearShips();
+
+    // its checks still running (or not yet begun)
+    const k = await codeAtProposal("Waits for its checks");
+    gh.checks.set(k.head, [green("play / API and site"), { ...green("website / build"), status: "in_progress", conclusion: null }]);
+    from = gh.calls.length;
+    expect((await call("ada", "POST", `/api/intents/${k.id}/accept`)).data.stage).toBe("ship");
+    expect(await readyOf(k.id)).toMatchObject({ state: "running", note: `Waiting for #${k.pr}'s checks (website / build)` });
+    gh.checks.set(k.head, [green("play / API and site")]);
+    await watchShips(db, gh.gh);
+    expect(await readyOf(k.id)).toMatchObject({ note: `Waiting for #${k.pr}'s checks (website / build)` });
+    expect(writesSince(from)).toEqual([]);
+    gh.checks.set(k.head, [green("play / API and site"), green("website / build")]);
+    await watchShips(db, gh.gh);
+    expect(await shipOf(k.id)).toMatchObject({ merge: k.merge, pending: null });
+
+    // another ship ahead (k, merged and shipping): it waits behind it, nothing written
+    const q = await codeAtProposal("Waits its turn");
+    from = gh.calls.length;
+    expect((await call("ada", "POST", `/api/intents/${q.id}/accept`)).data.stage).toBe("ship");
+    expect(await readyOf(q.id)).toMatchObject({ state: "running", note: "Queued · behind Waits for its checks" });
+    expect(writesSince(from)).toEqual([]);
+    // the board's card says so
+    const listed = (await call("ada", "GET", "/api/intents?stage=ship")).data.find((x: any) => x.id === q.id);
+    expect(listed.ship.steps[0].note).toBe("Queued · behind Waits for its checks");
+  });
+
+  test("one ship at a time, in the order accepted: the next merges by itself once the one before it is Accepted or back at Proposal", async () => {
+    await clearShips();
+    const a = await codeAtProposal("First accepted");
+    const b = await codeAtProposal("Second accepted");
+    const c = await codeAtProposal("Third accepted");
+    // a waits for its checks, first in line; b and c are ready, but behind it
+    gh.checks.set(a.head, [green("play / API and site")]);
+    const from = gh.calls.length;
+    await call("ada", "POST", `/api/intents/${a.id}/accept`);
+    await Bun.sleep(5);
+    await call("ada", "POST", `/api/intents/${b.id}/accept`);
+    await Bun.sleep(5);
+    await call("ada", "POST", `/api/intents/${c.id}/accept`);
+    expect(await readyOf(a.id)).toMatchObject({ note: `Waiting for #${a.pr}'s checks (website / build)` });
+    expect(await readyOf(b.id)).toMatchObject({ note: "Queued · behind First accepted" });
+    expect(await readyOf(c.id)).toMatchObject({ note: "Queued · behind Second accepted" });
+    expect(writesSince(from)).toEqual([]);
+    // a's checks green: a merges; b and c wait while it ships
+    gh.checks.set(a.head, [green("play / API and site"), green("website / build")]);
+    await watchShips(db, gh.gh);
+    expect(writesSince(from).filter((w) => w.method === "PUT").map((w) => w.path)).toEqual([`/pulls/${a.pr}/merge`]);
+    expect(await readyOf(b.id)).toMatchObject({ state: "running", note: "Queued · behind First accepted" });
+    expect(await readyOf(c.id)).toMatchObject({ note: "Queued · behind Second accepted" });
+    // a goes all the way: Accepted, and in that same look b, next in line, merges; c waits behind it
+    allGreen(a.merge, 7000);
+    await watchShips(db, gh.gh);
+    expect((await intent(a.id)).stage).toBe("accepted");
+    expect(writesSince(from).filter((w) => w.method === "PUT").map((w) => w.path)).toEqual([`/pulls/${a.pr}/merge`, `/pulls/${b.pr}/merge`]);
+    expect(await shipOf(b.id)).toMatchObject({ merge: b.merge, pending: null });
+    expect(await readyOf(c.id)).toMatchObject({ note: "Queued · behind Second accepted" });
+    // b goes red on main: back to Proposal, and c merges next
+    gh.runs["main.yml"].push(run(7101, b.merge, { status: "completed", conclusion: "failure" }));
+    await watchShips(db, gh.gh);
+    expect((await intent(b.id)).stage).toBe("proposal");
+    expect(writesSince(from).filter((w) => w.method === "PUT").map((w) => w.path)).toEqual([`/pulls/${a.pr}/merge`, `/pulls/${b.pr}/merge`, `/pulls/${c.pr}/merge`]);
+    expect(await shipOf(c.id)).toMatchObject({ merge: c.merge, pending: null });
+  });
+
+  test("Accept is still refused at once, nothing posted or merged, the intent left at Proposal with the reason, for what can never ship as it stands", async () => {
+    await clearShips();
     const refused = async (id: string, says: string, as = "ada", through = () => api) => {
       const from = gh.calls.length;
       const r = await call(as, "POST", `/api/intents/${id}/accept`, undefined, through);
@@ -249,22 +356,15 @@ suite("accept ships it", () => {
     await refused(c.id, `passes on #${c.pr}'s head ${pr.head.sha.slice(0, 7)} first`);
     await refused(c.id, `c1 (Its tests pass): passed on ${c.head.slice(0, 7)}, not on the head`);
     pr.head.sha = c.head;
-    // main.yml's checks: red, still running, not run
+    // a required check red (its latest run: a green re-run after a red one stands)
     gh.checks.set(c.head, [{ ...green("play / API and site"), conclusion: "failure" }, green("website / build")]);
     await refused(c.id, "'play / API and site' is failure");
-    gh.checks.set(c.head, [green("play / API and site"), { ...green("website / build"), status: "in_progress", conclusion: null }]);
-    await refused(c.id, "'website / build' is still running");
-    gh.checks.set(c.head, [green("play / API and site")]);
-    await refused(c.id, "'website / build' has not run");
-    // a red run, then a green re-run of it: the latest stands
     gh.checks.set(c.head, [{ ...green("play / API and site", Date.now() - 60_000), conclusion: "failure" }, green("play / API and site"), green("website / build")]);
-    // not mergeable, or GitHub not yet sure
+    // a conflict
     pr.mergeable = false;
     await refused(c.id, "does not merge into main as it is");
-    pr.mergeable = null;
-    await refused(c.id, "still working out whether");
     pr.mergeable = true;
-    // not open into main
+    // not open into main, or a draft
     pr.base.ref = "production";
     await refused(c.id, "goes into production");
     pr.base.ref = "main";
@@ -277,33 +377,86 @@ suite("accept ships it", () => {
     // a citizen; and a play with no SHIP_TOKEN
     await refused(c.id, "admins", "cit");
     await refused(c.id, "SHIP_TOKEN", "ada", () => bare);
-    // GitHub refuses the merge: the status is taken back, and it stays at Proposal
-    gh.refuseMerge("Repository rule violations found");
-    const from = gh.calls.length;
-    const r = await call("ada", "POST", `/api/intents/${c.id}/accept`);
-    expect(r.status).toBe(409);
-    expect(r.data.error).toContain("GitHub did not merge");
-    expect(r.data.error).toContain("Repository rule violations found");
-    expect(writesSince(from).map((w) => [w.path.split("/")[1], w.body.state])).toEqual([["statuses", "success"], ["pulls", undefined], ["statuses", "failure"]]);
-    expect((await intent(c.id)).stage).toBe("proposal");
-    gh.refuseMerge(null);
     // everything in order now: it ships
-    expect((await call("ada", "POST", `/api/intents/${c.id}/accept`)).data.stage).toBe("ship");
+    expect((await call("ada", "POST", `/api/intents/${c.id}/accept`)).data).toMatchObject({ stage: "ship", ship: { pending: null } });
+  });
+
+  test("while it waits, a red check, a moved head, a conflict, GitHub refusing the merge or 30 minutes waiting takes it back to Proposal with the report, nothing merged", async () => {
+    const waiting = async (title: string) => {
+      await clearShips();
+      const w = await codeAtProposal(title);
+      gh.checks.set(w.head, [green("play / API and site")]);
+      expect((await call("ada", "POST", `/api/intents/${w.id}/accept`)).data.stage).toBe("ship");
+      expect(await readyOf(w.id)).toMatchObject({ note: `Waiting for #${w.pr}'s checks (website / build)` });
+      return { ...w, from: gh.calls.length };
+    };
+    const back = async (w: { id: string; pr: number; from: number }, says: string, link?: string, tried = false) => {
+      const i = await intent(w.id);
+      expect(i).toMatchObject({ stage: "proposal", decided_by: null, decided_at: null, ship: { outcome: "red", pending: null, report: { step: "Ready to merge" } } });
+      expect(i.ship.report.why).toContain(says);
+      if (link) expect(i.ship.report.link).toBe(link);
+      expect(i.ship.steps[0]).toMatchObject({ key: "ready", state: "red" });
+      expect(gh.pulls.get(w.pr)!.merged).toBe(false);
+      if (!tried) expect(writesSince(w.from).filter((x) => x.method === "PUT")).toEqual([]);
+    };
+    // a required check turns red
+    const r = await waiting("Its check turns red");
+    gh.checks.set(r.head, [green("play / API and site"), { ...green("website / build"), conclusion: "failure", html_url: "https://github.test/checks/red" }]);
+    await watchShips(db, gh.gh);
+    await back(r, `'website / build' is failure on #${r.pr}'s head`, "https://github.test/checks/red");
+    // Accept there again: still red, refused at once
+    expect((await call("ada", "POST", `/api/intents/${r.id}/accept`)).status).toBe(409);
+    // its head moves
+    const h = await waiting("Its head moves");
+    const moved = sha(++commits);
+    gh.pulls.get(h.pr)!.head.sha = moved;
+    await watchShips(db, gh.gh);
+    await back(h, `#${h.pr}'s head moved from ${h.head.slice(0, 7)} to ${moved.slice(0, 7)}`, `https://github.test/${REPO}/pull/${h.pr}`);
+    // a conflict
+    const m = await waiting("It no longer merges");
+    gh.pulls.get(m.pr)!.mergeable = false;
+    await watchShips(db, gh.gh);
+    await back(m, `#${m.pr} no longer merges into main`);
+    // 30 minutes first in line, its checks not done
+    const t = await waiting("Its checks take too long");
+    await watchShips(db, gh.gh, Date.now() + 31 * 60_000);
+    await back(t, `Waiting for #${t.pr}'s checks (website / build), for more than 30 minutes`);
+    // GitHub refuses the merge: the status is taken back
+    const g = await waiting("GitHub refuses the merge");
+    gh.checks.set(g.head, [green("play / API and site"), green("website / build")]);
+    gh.refuseMerge("Repository rule violations found");
+    await watchShips(db, gh.gh);
+    gh.refuseMerge(null);
+    await back(g, "GitHub did not merge", undefined, true);
+    expect((await intent(g.id)).ship.report.why).toContain("Repository rule violations found");
+    expect(writesSince(g.from).map((w) => [w.path.split("/")[1], w.body.state])).toEqual([["statuses", "success"], ["pulls", undefined], ["statuses", "failure"]]);
+    // queued behind another, it waits however long that takes
+    await clearShips();
+    const first = await codeAtProposal("Ships for a long time");
+    await call("ada", "POST", `/api/intents/${first.id}/accept`);
+    // its main's checks still running, two hours on
+    gh.runs["main.yml"].push(run(8101, first.merge, { status: "in_progress" }));
+    const later = await codeAtProposal("Waits behind it");
+    await call("ada", "POST", `/api/intents/${later.id}/accept`);
+    await watchShips(db, gh.gh, Date.now() + 2 * 60 * 60_000);
+    expect((await intent(later.id)).stage).toBe("ship");
+    expect(await readyOf(later.id)).toMatchObject({ note: "Queued · behind Ships for a long time" });
   });
 
   test("the ship watcher follows main's checks, the release and the deploy, step by step, to Accepted; it resumes after a restart", async () => {
+    await clearShips();
     const c = await codeAtProposal("Shipped all the way");
     expect((await call("ada", "POST", `/api/intents/${c.id}/accept`)).data.stage).toBe("ship");
-    const steps = async () => Object.fromEntries((await intent(c.id)).ship.steps.map((s: any) => [s.key, s.state]));
+    const steps = () => stateOf(c.id);
     // nothing on GitHub yet: all waits
     await watchShips(db, gh.gh);
-    expect(await steps()).toMatchObject({ merged: "green", main: "queued", release: "queued" });
+    expect(await steps()).toMatchObject({ ready: "green", merged: "green", main: "queued", release: "queued" });
     // main's checks run, then pass
     const main = run(1101, c.merge, { status: "in_progress" });
     gh.runs["main.yml"].push(main);
     await watchShips(db, gh.gh);
     expect(await steps()).toMatchObject({ main: "running", release: "queued" });
-    expect((await intent(c.id)).ship.steps[1].link).toBe(main.html_url);
+    expect((await shipOf(c.id)).steps[2].link).toBe(main.html_url);
     Object.assign(main, { status: "completed", conclusion: "success" });
     // play restarts: a new client, the same database; it goes on where it was
     const again = gitHub({ token: TOKEN, repo: REPO, fetch: gh.fetch, api: "https://api.github.test" });
@@ -323,7 +476,7 @@ suite("accept ships it", () => {
       job(4, "The website", "completed", "success"),
     ]);
     await watchShips(db, again);
-    expect(await steps()).toEqual({ merged: "green", main: "green", release: "green", "main-green": "green", image: "running", backup: "queued", server: "queued", website: "green" });
+    expect(await steps()).toEqual({ ready: "green", merged: "green", main: "green", release: "green", "main-green": "green", image: "running", backup: "queued", server: "queued", website: "green" });
     expect((await intent(c.id)).stage).toBe("ship");
     // the image is built, the server backs up and starts play
     gh.jobs.set(1301, [
@@ -352,6 +505,7 @@ suite("accept ships it", () => {
   });
 
   test("a red step takes it back to Proposal with the report; Accept ships it again: the release, main's failed jobs, or a newer pull request", async () => {
+    await clearShips();
     const c = await codeAtProposal("Red at the backup");
     await call("ada", "POST", `/api/intents/${c.id}/accept`);
     gh.runs["main.yml"].push(run(2101, c.merge, { status: "completed", conclusion: "success" }));
@@ -376,15 +530,17 @@ suite("accept ships it", () => {
     expect(gh.calls.find((x) => x.path === "/23")!.auth).toBeNull();
     expect(Object.fromEntries(red.ship.steps.map((s: any) => [s.key, s.state]))).toMatchObject({ backup: "red", server: "red", image: "green", website: "green" });
 
-    // its pull request is merged: Accept runs the release again for that commit, in Ship again
+    // its pull request is merged: Accept runs the release again for that commit, first in line, at once
     let from = gh.calls.length;
     const again = (await call("ada", "POST", `/api/intents/${c.id}/accept`)).data;
     expect(writesSince(from)).toEqual([expect.objectContaining({ method: "POST", path: "/actions/workflows/release.yml/dispatches", body: { ref: "main", inputs: { sha: c.merge } } })]);
-    expect(again).toMatchObject({ stage: "ship", ship: { round: 2, merge: c.merge, report: null } });
-    expect(again.ship.steps.map((s: any) => s.state)).toEqual(["green", "green", "queued", "queued", "queued", "queued", "queued", "queued"]);
+    expect(again).toMatchObject({ stage: "ship", ship: { round: 2, merge: c.merge, report: null, pending: null } });
+    expect(again.ship.steps[0]).toMatchObject({ name: "Ready to release again", state: "green" });
+    expect(again.ship.steps.map((s: any) => s.state)).toEqual(["green", "green", "green", "queued", "queued", "queued", "queued", "queued", "queued"]);
     // the earlier round's runs are not this one's: nothing moves until a new release runs
     await watchShips(db, gh.gh);
-    expect((await intent(c.id)).ship.steps[2].state).toBe("queued");
+    expect((await shipOf(c.id)).steps[3].state).toBe("queued");
+    await clearShips();
 
     // a red on main: Accept runs main's failed jobs again
     const m = await codeAtProposal("Red on main");
@@ -393,9 +549,11 @@ suite("accept ships it", () => {
     gh.jobs.set(3101, [job(31, "play / API and site", "completed", "failure"), job(32, "website / build", "completed", "success")]);
     gh.logs.set(31, "2026-11-06T12:00:00.0000000Z error: 1 fail\n");
     await watchShips(db, gh.gh);
-    expect((await intent(m.id)).ship).toMatchObject({ outcome: "red", again: "main", main_run: 3101, report: { step: "main's checks", log: "error: 1 fail" } });
+    expect(await shipOf(m.id)).toMatchObject({ outcome: "red", again: "main", main_run: 3101, report: { step: "main's checks", log: "error: 1 fail" } });
     from = gh.calls.length;
-    expect((await call("ada", "POST", `/api/intents/${m.id}/accept`)).data).toMatchObject({ stage: "ship", ship: { round: 2 } });
+    const rerun = (await call("ada", "POST", `/api/intents/${m.id}/accept`)).data;
+    expect(rerun).toMatchObject({ stage: "ship", ship: { round: 2, pending: null } });
+    expect(rerun.ship.steps[0]).toMatchObject({ name: "Ready to run main's checks again", state: "green" });
     expect(writesSince(from).map((w) => `${w.method} ${w.path}`)).toEqual(["POST /actions/runs/3101/rerun-failed-jobs"]);
 
     // a newer pull request of it, checked on its head: Accept merges that one
@@ -424,6 +582,11 @@ suite("accept ships it", () => {
     expect(shipGitHub({})).toBeNull();
     expect(shipGitHub({ SHIP_TOKEN: "  " })).toBeNull();
     expect(shipGitHub({ SHIP_TOKEN: "x" })!.repo).toBe("MyAvenCEO/maiacity");
+    // a stand-in GitHub only where SHIP_API names one: the token goes to api.github.com otherwise
+    const asked: string[] = [];
+    const seen = (async (u: string) => (asked.push(`${u}`), new Response(JSON.stringify({ number: 1 }), { status: 200 }))) as any;
+    await gitHub({ token: "x", repo: REPO, fetch: seen }).pull(1);
+    expect(asked[0]).toBe(`https://api.github.com/repos/${REPO}/pulls/1`);
     expect(() => gitHub({ token: "x", repo: "not a repo" })).toThrow();
     // GitHub's errors name the request, never a header
     const broken = gitHub({ token: TOKEN, repo: REPO, api: "https://api.github.test", fetch: (async () => new Response(JSON.stringify({ message: "Bad credentials" }), { status: 401 })) as any });

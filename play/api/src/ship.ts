@@ -9,6 +9,14 @@
 //   2. it posts the commit status `Intent accepted` on that head (main's ruleset requires it: only play posts it);
 //   3. it merges the pull request (a merge commit, that head's sha), and the intent is in Ship, its first step merged.
 //
+// Accept goes straight to Ship (Samuel 2026-11-06, intent 2f13976c-c85c-43fd-89eb-2e7651f657e1: "Accept proposal should
+// directly go to ship and ship should self queue smartly"): Accept refuses at once only what can never ship as the pull
+// request stands (1. above, but for what is only not yet); the intent is in Ship at once, its first step Ready to merge
+// waiting, with its reason, for its turn (one ship at a time, in the order accepted) and for GitHub (mergeability
+// worked out, the checks green). When both are there, play does 2. and 3. by itself (startIfReady, from Accept and the
+// watcher). A red check, a moved head or a conflict while it waits, or 30 minutes waiting for GitHub, takes it back to
+// Proposal with the report.
+//
 // While an intent is in Ship, the ship watcher (every 10 s, in play-api; its state is the intent's `ship` in Postgres,
 // so it resumes after a restart) reads GitHub's Actions for the merge commit: main.yml's run (main's checks), then
 // release.yml's (.github/workflows/release.yml: production moved to the commit once main is green), then production.yml's
@@ -20,8 +28,8 @@
 //
 // play only calls GitHub's API: no proposed code runs on its server. SHIP_TOKEN stays here: it is sent to
 // api.github.com only, never answered by a route, never written to a log.
-import { Denied, type Me } from "./access";
-import type { Db, Queryable } from "./pg";
+import { COOP, Denied, type Me } from "./access";
+import type { Db } from "./pg";
 import { getIntent, IntentError, unmet, unmetOn } from "./intents";
 
 /** the checks main.yml runs on a pull request, required green on its head before Accept merges it */
@@ -30,6 +38,8 @@ export const REQUIRED_CHECKS = ["play / API and site", "website / build"];
 export const ACCEPTED_CONTEXT = "Intent accepted";
 /** how long a step may wait for its run to appear before the ship is red */
 export const START_WITHIN_MS = 15 * 60_000;
+/** how long a ship first in line waits for its pull request's checks or for GitHub before it is red */
+export const WAIT_MOST_MS = 30 * 60_000;
 /** how many of the failed job's last log lines the report keeps */
 export const LOG_LINES = 60;
 const LOG_MOST = 12_000;
@@ -62,10 +72,18 @@ export type Ship = {
   past?: number[];
   /** what a failed round leaves for the next press: a red step's run on main, run again; else the release */
   again?: "main" | "release";
+  /** what it does when its turn comes and GitHub is ready (null once done): merge the pull request at the checked
+   *  head, or ship again (main's failed jobs run again, or the release) */
+  pending?: Pending | null;
+  /** when it was accepted (this round), and when it first stood first in line, from which it waits at most 30 minutes */
+  accepted?: string;
+  front?: string;
 };
+export type Pending = { kind: "merge"; head: string } | { kind: "main" } | { kind: "release" };
 
 /** the way to production, in order: the merge, main's checks, the release, the deploy's jobs */
 export const STEPS: { key: string; name: string; job?: string; step?: string }[] = [
+  { key: "ready", name: "Ready to merge" },
   { key: "merged", name: "Merged into main" },
   { key: "main", name: "main's checks" },
   { key: "release", name: "Release" },
@@ -180,13 +198,16 @@ export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.git
   };
 }
 
-/** play's GitHub, where SHIP_TOKEN is set (the repository SHIP_REPO, MyAvenCEO/maiacity by default), else null */
+/**
+ * play's GitHub, where SHIP_TOKEN is set (the repository SHIP_REPO, MyAvenCEO/maiacity by default), else null;
+ * SHIP_API names another GitHub API than api.github.com, for a play run against a stand-in (never set in production)
+ */
 export function shipGitHub(env: Record<string, string | undefined> = process.env): GitHub | null {
   const token = env.SHIP_TOKEN?.trim();
-  return token ? gitHub({ token, repo: env.SHIP_REPO?.trim() || "MyAvenCEO/maiacity" }) : null;
+  return token ? gitHub({ token, repo: env.SHIP_REPO?.trim() || "MyAvenCEO/maiacity", api: env.SHIP_API?.trim() || undefined }) : null;
 }
 
-// ---- Accept and ship
+// ---- Accept and ship: Accept puts it in Ship at once; it starts when its turn comes and GitHub is ready
 
 function refuse(why: string): never {
   throw new IntentError(why, 409);
@@ -194,16 +215,24 @@ function refuse(why: string): never {
 const now = () => new Date().toISOString();
 /** the intent on play's board, where the status 'Intent accepted' links to */
 const intentLink = (id: string) => `https://play.maia.city/intents/#${id}`;
+/** one start at a time: the queue's order is read and its head started under this lock */
+const QUEUE_LOCK = 4_711_030;
+/** the first step's name, by what it waits to do */
+const READY: Record<Pending["kind"], string> = { merge: "Ready to merge", main: "Ready to run main's checks again", release: "Ready to release again" };
 
-function steps(at: string, pr: Pull, merge: string, from: Step[] = [], restart: "main" | "release" | null = null): Step[] {
-  if (restart) {
-    const i = STEPS.findIndex((s) => s.key === restart);
-    return STEPS.map((s, j) => (j < i ? from.find((f) => f.key === s.key) ?? { key: s.key, name: s.name, state: "green" } : { key: s.key, name: s.name, state: "queued" }));
-  }
-  return STEPS.map((s) =>
-    s.key === "merged"
-      ? { key: s.key, name: s.name, state: "green", started: at, finished: at, link: pr.html_url, note: `#${pr.number} merged as ${merge.slice(0, 7)}` }
-      : { key: s.key, name: s.name, state: "queued" },
+/** a new ship's steps: Ready to merge waiting, the rest to come */
+function freshSteps(at: string): Step[] {
+  return STEPS.map((s) => (s.key === "ready" ? { key: s.key, name: s.name, state: "running", started: at, note: "Accepted" } : { key: s.key, name: s.name, state: "queued" }));
+}
+/** a ship again's steps: what went before kept, its first step waiting again, from where it starts again on to come */
+function againSteps(at: string, from: Step[], restart: "main" | "release"): Step[] {
+  const i = STEPS.findIndex((s) => s.key === restart);
+  return STEPS.map((s, j) =>
+    s.key === "ready"
+      ? { key: s.key, name: READY[restart], state: "running", started: at, note: "Accepted" }
+      : j < i
+        ? from.find((f) => f.key === s.key) ?? { key: s.key, name: s.name, state: "green" }
+        : { key: s.key, name: s.name, state: "queued" },
   );
 }
 
@@ -218,18 +247,21 @@ function latestRuns(runs: any[]) {
 }
 
 /**
- * An admin's Accept on an intent at Proposal whose work is code (it names its pull request): checked, `Intent accepted`
- * posted on its head, merged into main, and the intent in Ship; or, its pull request merged already by an earlier ship
- * of it, shipped again. Gives back the intent; null where the intent is no code intent at Proposal (it is decided as
- * before: ./intents.ts decideIntent, ./proposals.ts decide).
+ * An admin's Accept on an intent at Proposal whose work is code (it names its pull request). Refused at once, nothing
+ * posted or merged, only for what can never ship as the pull request stands: its head not the commit every must check
+ * with a run last passed on, a required check red there, a conflict, closed, not into main or a draft (or no
+ * SHIP_TOKEN, or no admin). Anything else puts it in Ship at once, its first step Ready to merge waiting with its
+ * reason, and it starts at once if it may (startIfReady); its pull request merged already by an earlier ship of it,
+ * it is shipped again the same way. Gives back the intent; null where the intent is no code intent at Proposal (it is
+ * decided as before: ./intents.ts decideIntent, ./proposals.ts decide).
  */
 export async function acceptAndShip(db: Db, gh: GitHub | null, me: Me | null, id: string) {
   if (!me) throw new Denied("Please sign in first.", 401);
   if (me.level !== "admin") throw new Denied("Only Maia City's admins keep the intents.");
   const first = await getIntent(db, id);
   if (first.stage !== "proposal" || first.work || !first.pull_request) return null;
-  return db.transaction(async (tx) => {
-    // one Accept at a time: a second press waits here, then finds it shipped
+  await db.transaction(async (tx) => {
+    // one Accept at a time: a second press waits here, then finds it in Ship
     await tx.query(`SELECT 1 FROM play.intents WHERE id = $1 FOR UPDATE`, [first.id]);
     const intent = await getIntent(tx, first.id);
     if (intent.stage !== "proposal") refuse(`Intent ${intent.id} is at the ${intent.stage} stage now.`);
@@ -238,73 +270,164 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, me: Me | null, id
     if (missing.length) refuse(`Every must check passes before an intent is accepted: ${missing.join("; ")}.`);
     const pr = await gh!.pull(intent.pull_request).catch((e) => refuse(`Pull request #${intent.pull_request} could not be read: ${(e as Error).message}.`));
     const was: Ship | null = intent.ship ?? null;
+    const at = now();
+    let ship: Ship;
     if (pr.merged) {
       if (!was?.merge || was.pr !== pr.number || pr.merge_commit_sha !== was.merge)
         refuse(`Pull request #${pr.number} is merged already, and not by a ship of this intent: name the intent's open pull request (check_intent's pr).`);
-      return shipAgain(tx, gh!, me, intent, pr, was!);
+      // shipped again: main's failed jobs run again (a red on main), else the release of the commit last merged
+      const again = was!.again === "main" && was!.main_run ? "main" : "release";
+      ship = {
+        ...was!,
+        by: me.name,
+        round: was!.round + 1,
+        accepted: at,
+        front: undefined,
+        started: at,
+        steps: againSteps(at, was!.steps, again),
+        report: null,
+        ended: undefined,
+        outcome: undefined,
+        again: undefined,
+        pending: { kind: again },
+        main_after: again === "main" ? was!.main_attempt ?? 1 : undefined,
+        past: [...(was!.past ?? []), ...[was!.release_run, was!.deploy_run].filter((r): r is number => !!r)],
+        release_run: undefined,
+        deploy_run: undefined,
+      };
+    } else {
+      if (pr.state !== "open") refuse(`Pull request #${pr.number} is ${pr.state}: name the intent's open pull request (check_intent's pr).`);
+      if (pr.base.ref !== "main") refuse(`Pull request #${pr.number} goes into ${pr.base.ref}: an intent's code goes into main.`);
+      if (pr.draft) refuse(`Pull request #${pr.number} is a draft: it is marked ready (main's checks run then) before it is merged.`);
+      const head = pr.head.sha;
+      const stale = unmetOn(intent, head);
+      if (stale.length)
+        refuse(`What is merged is what was checked: every must check with a run passes on #${pr.number}'s head ${head.slice(0, 7)} first (bun play/avenbox/intent.ts ${intent.id} --record on it): ${stale.join("; ")}.`);
+      if (pr.mergeable === false) refuse(`#${pr.number} does not merge into main as it is (a conflict): main is merged into its branch, and its checks run again on the new head.`);
+      const runs = latestRuns(await gh!.checkRuns(head).catch((e) => refuse(`#${pr.number}'s checks could not be read: ${(e as Error).message}.`)));
+      for (const name of REQUIRED_CHECKS) {
+        const r = runs.get(name);
+        if (r?.status === "completed" && r.conclusion !== "success") refuse(`'${name}' is ${r.conclusion} on #${pr.number}'s head ${head.slice(0, 7)}: it is green before it is merged.`);
+      }
+      ship = { pr: pr.number, head, merge: "", by: me.name, round: (was?.round ?? 0) + 1, accepted: at, started: at, steps: freshSteps(at), report: null, pending: { kind: "merge", head } };
     }
-    if (pr.state !== "open") refuse(`Pull request #${pr.number} is ${pr.state}: name the intent's open pull request (check_intent's pr).`);
-    if (pr.base.ref !== "main") refuse(`Pull request #${pr.number} goes into ${pr.base.ref}: an intent's code goes into main.`);
-    if (pr.draft) refuse(`Pull request #${pr.number} is a draft: it is marked ready (main's checks run then) before it is merged.`);
-    const head = pr.head.sha;
-    const stale = unmetOn(intent, head);
-    if (stale.length)
-      refuse(`What is merged is what was checked: every must check with a run passes on #${pr.number}'s head ${head.slice(0, 7)} first (bun play/avenbox/intent.ts ${intent.id} --record on it): ${stale.join("; ")}.`);
-    if (pr.mergeable === null) refuse(`GitHub is still working out whether #${pr.number} merges: try again in a moment.`);
-    if (pr.mergeable === false) refuse(`#${pr.number} does not merge into main as it is (a conflict): main is merged into its branch, and its checks run again on the new head.`);
-    const runs = latestRuns(await gh!.checkRuns(head).catch((e) => refuse(`#${pr.number}'s checks could not be read: ${(e as Error).message}.`)));
-    for (const name of REQUIRED_CHECKS) {
-      const r = runs.get(name);
-      if (!r) refuse(`'${name}' has not run on #${pr.number}'s head ${head.slice(0, 7)} (a draft runs nothing: mark it ready).`);
-      if (r.status !== "completed") refuse(`'${name}' is still running on #${pr.number}'s head: Accept once it is green.`);
-      if (r.conclusion !== "success") refuse(`'${name}' is ${r.conclusion} on #${pr.number}'s head ${head.slice(0, 7)}: it is green before it is merged.`);
-    }
-    // the one moment: accepted on GitHub, merged, in Ship
-    const at = now();
-    await gh!.status(head, { state: "success", description: `Accepted by ${me.name} on play`, target_url: intentLink(intent.id) })
-      .catch((e) => refuse(`GitHub took no '${ACCEPTED_CONTEXT}' on #${pr.number}'s head: ${(e as Error).message}.`));
-    let merged: { sha: string };
-    try {
-      merged = await gh!.merge(pr.number, head, `${pr.title} (#${pr.number})`, `Accepted by ${me.name} on play: ${intentLink(intent.id)}\n\nIntent: ${intent.id}`);
-    } catch (e) {
-      await gh!.status(head, { state: "failure", description: "Accepted, but not merged: accept it again", target_url: intentLink(intent.id) }).catch(() => {});
-      return refuse(`GitHub did not merge #${pr.number}: ${(e as Error).message}. Nothing is shipped; it stays at Proposal.`);
-    }
-    const ship: Ship = { pr: pr.number, head, merge: merged.sha, by: me.name, round: (was?.round ?? 0) + 1, started: at, steps: steps(at, pr, merged.sha), report: null };
     await tx.query(`UPDATE play.intents SET stage = 'ship', ship = ($2::text)::jsonb, decided_by = $3, decided_at = now() WHERE id = $1`, [intent.id, JSON.stringify(ship), me.id]);
-    console.log(`ship: intent ${intent.id} accepted by ${me.name}: #${pr.number} merged as ${merged.sha}`);
-    return getIntent(tx, intent.id);
+    console.log(`ship: intent ${intent.id} accepted by ${me.name}: in Ship (#${ship.pr}, ${ship.pending!.kind})`);
   });
+  // its turn at once, where no ship is ahead of it and GitHub is ready; else the watcher starts it
+  await startIfReady(db, gh!, first.id).catch((e) => console.warn(`ship: intent ${first.id} not started yet: ${(e as Error).message}`));
+  return getIntent(db, first.id);
 }
 
-/** its pull request merged by an earlier ship that went red: main's failed jobs run again, else the release, and it is in Ship again */
-async function shipAgain(tx: Queryable, gh: GitHub, me: Me, intent: any, pr: Pull, was: Ship) {
-  const at = now();
-  const again = was.again === "main" && was.main_run ? "main" : "release";
-  try {
-    if (again === "main") await gh.rerunFailed(was.main_run!);
-    else await gh.dispatch("release.yml", "main", { sha: was.merge });
-  } catch (e) {
-    refuse(`GitHub did not ${again === "main" ? "run main's failed jobs again" : "start the release again"}: ${(e as Error).message}. It stays at Proposal.`);
-  }
-  const ship: Ship = {
-    ...was,
-    by: me.name,
-    round: was.round + 1,
-    started: at,
-    steps: steps(at, pr, was.merge, was.steps, again),
-    report: null,
-    ended: undefined,
-    outcome: undefined,
-    again: undefined,
-    main_after: again === "main" ? was.main_attempt ?? 1 : undefined,
-    past: [...(was.past ?? []), ...[was.release_run, was.deploy_run].filter((r): r is number => !!r)],
-    release_run: undefined,
-    deploy_run: undefined,
-  };
-  await tx.query(`UPDATE play.intents SET stage = 'ship', ship = ($2::text)::jsonb, decided_by = $3, decided_at = now() WHERE id = $1`, [intent.id, JSON.stringify(ship), me.id]);
-  console.log(`ship: intent ${intent.id} shipped again by ${me.name} (${again === "main" ? "main's failed jobs" : "the release"} of ${was.merge})`);
-  return getIntent(tx, intent.id);
+/**
+ * A ship waiting in Ship (its `pending` set) started where it may: no other ship running (merged and not yet Accepted
+ * or back at Proposal) and none waiting ahead of it (accepted earlier); and, for a merge, GitHub ready (mergeable
+ * worked out, both required checks green on the checked head). Then 'Intent accepted' is posted on that head and the
+ * pull request merged (or, shipped again, main's failed jobs run again or the release dispatched), and the watcher
+ * follows it on. Waiting, its first step says why (queued behind whom, waiting for GitHub or for its checks); a red
+ * check, a moved head, a conflict, a closed pull request, or 30 minutes first in line without GitHub or its checks
+ * ready takes it back to Proposal with the report. One decision at a time, under the queue's lock.
+ */
+export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now()) {
+  return db.transaction(async (tx) => {
+    await tx.query(`SELECT pg_advisory_xact_lock(${QUEUE_LOCK})`);
+    const { rows: [row] } = await tx.query<any>(`SELECT id, title, ship, decided_at FROM play.intents WHERE id = $1 AND stage = 'ship' FOR UPDATE`, [id]);
+    const was: Ship | undefined = row?.ship;
+    if (!was?.pending) return;
+    const ship: Ship = { ...was, steps: was.steps.map((s) => ({ ...s })) };
+    const pending = was.pending;
+    const ready = ship.steps.find((s) => s.key === "ready")!;
+    const iso = new Date(at).toISOString();
+    const save = (stage: "ship" | "proposal") =>
+      tx.query(
+        `UPDATE play.intents SET ship = ($2::text)::jsonb, stage = $3,
+                decided_by = CASE WHEN $3 = 'proposal' THEN NULL ELSE decided_by END,
+                decided_at = CASE WHEN $3 = 'proposal' THEN NULL ELSE decided_at END
+          WHERE id = $1`,
+        [id, JSON.stringify(ship), stage],
+      );
+    const red = async (why: string, link?: string) => {
+      Object.assign(ready, { state: "red", finished: iso, note: why });
+      ship.report = { step: ready.name, why, ...(link ? { link } : {}), log: "", at: iso };
+      ship.outcome = "red";
+      ship.ended = iso;
+      ship.pending = null;
+      ship.again = pending.kind === "merge" ? undefined : pending.kind;
+      await save("proposal");
+      console.log(`ship: intent ${id} is red before it started (${why}): back to Proposal`);
+    };
+    const wait = async (why: string, timed: boolean) => {
+      if (timed && ship.front && at - Date.parse(ship.front) > WAIT_MOST_MS) return red(`${why}, for more than ${WAIT_MOST_MS / 60_000} minutes`);
+      Object.assign(ready, { state: "running", note: why });
+      if (stable(ship) !== stable(was)) await save("ship");
+    };
+
+    // its turn: no ship running, none waiting ahead of it
+    const { rows: others } = await tx.query<any>(`SELECT id, title, ship, decided_at FROM play.intents WHERE stage = 'ship' AND id <> $1 AND coop_id = $2`, [id, COOP]);
+    const time = (d: unknown) => new Date(d as any).getTime();
+    const running = others.find((o) => o.ship && !o.ship.pending);
+    const ahead = others
+      .filter((o) => o.ship?.pending && (time(o.decided_at) < time(row.decided_at) || (time(o.decided_at) === time(row.decided_at) && o.id < id)))
+      .sort((a, b) => time(b.decided_at) - time(a.decided_at))[0];
+    // named for the one just before it: the last waiting ahead of it, else the one shipping
+    const blocker = ahead ?? running;
+    if (blocker) return wait(`Queued · behind ${blocker.title}`, false);
+    if (!ship.front) ship.front = iso;
+
+    if (pending.kind !== "merge") {
+      try {
+        if (pending.kind === "main") await gh.rerunFailed(ship.main_run!);
+        else await gh.dispatch("release.yml", "main", { sha: ship.merge });
+      } catch (e) {
+        return red(`GitHub did not ${pending.kind === "main" ? "run main's failed jobs again" : "start the release again"}: ${(e as Error).message}`);
+      }
+      Object.assign(ready, { state: "green", finished: iso, note: pending.kind === "main" ? "main's failed jobs run again" : `the release of ${ship.merge.slice(0, 7)} started again` });
+      ship.pending = null;
+      ship.started = iso;
+      await save("ship");
+      console.log(`ship: intent ${id} shipped again (${pending.kind})`);
+      return;
+    }
+
+    // a merge: GitHub ready, the head as checked, its checks green
+    const pr = await gh.pull(ship.pr);
+    if (pr.merged) return red(`#${pr.number} was merged while it waited, not by this ship`, pr.html_url);
+    if (pr.state !== "open") return red(`#${pr.number} was closed while it waited`, pr.html_url);
+    if (pr.draft) return red(`#${pr.number} was made a draft while it waited`, pr.html_url);
+    if (pr.head.sha !== pending.head)
+      return red(`#${pr.number}'s head moved from ${pending.head.slice(0, 7)} to ${pr.head.sha.slice(0, 7)} while it waited: its checks are recorded on the new head, then Accept again`, pr.html_url);
+    if (pr.mergeable === false) return red(`#${pr.number} no longer merges into main (a conflict): main is merged into its branch, its checks run again, then Accept again`, pr.html_url);
+    const runs = latestRuns(await gh.checkRuns(pending.head));
+    const notYet: string[] = [];
+    for (const name of REQUIRED_CHECKS) {
+      const r = runs.get(name);
+      if (r?.status === "completed" && r.conclusion !== "success") return red(`'${name}' is ${r.conclusion} on #${pr.number}'s head ${pending.head.slice(0, 7)}`, r.html_url);
+      if (r?.status !== "completed") notYet.push(name);
+    }
+    if (notYet.length) return wait(`Waiting for #${pr.number}'s checks (${notYet.join(", ")})`, true);
+    if (pr.mergeable === null) return wait(`Waiting for GitHub to work out whether #${pr.number} merges`, true);
+
+    const by = ship.by;
+    try {
+      await gh.status(pending.head, { state: "success", description: `Accepted by ${by} on play`, target_url: intentLink(id) });
+    } catch (e) {
+      return red(`GitHub took no '${ACCEPTED_CONTEXT}' on #${pr.number}'s head: ${(e as Error).message}`, pr.html_url);
+    }
+    let merged: { sha: string };
+    try {
+      merged = await gh.merge(pr.number, pending.head, `${pr.title} (#${pr.number})`, `Accepted by ${by} on play: ${intentLink(id)}\n\nIntent: ${id}`);
+    } catch (e) {
+      await gh.status(pending.head, { state: "failure", description: "Accepted, but not merged: accept it again", target_url: intentLink(id) }).catch(() => {});
+      return red(`GitHub did not merge #${pr.number}: ${(e as Error).message}`, pr.html_url);
+    }
+    Object.assign(ready, { state: "green", finished: iso, note: `#${pr.number} ready, its checks green` });
+    Object.assign(ship.steps.find((s) => s.key === "merged")!, { state: "green", started: iso, finished: iso, link: pr.html_url, note: `#${pr.number} merged as ${merged.sha.slice(0, 7)}` });
+    ship.merge = merged.sha;
+    ship.pending = null;
+    ship.started = iso;
+    await save("ship");
+    console.log(`ship: intent ${id}: #${pr.number} merged as ${merged.sha}`);
+  });
 }
 
 // ---- the ship watcher
@@ -437,9 +560,14 @@ const stable = (v: unknown): string =>
  * to Proposal with its report. Its state is the intents' `ship`, so a restarted play goes on where it was.
  */
 export async function watchShips(db: Db, gh: GitHub, at = Date.now()) {
-  const { rows } = await db.query<{ id: string; ship: Ship }>(`SELECT id, ship FROM play.intents WHERE stage = 'ship' AND ship IS NOT NULL ORDER BY decided_at`);
+  const { rows } = await db.query<{ id: string; ship: Ship }>(`SELECT id, ship FROM play.intents WHERE stage = 'ship' AND ship IS NOT NULL ORDER BY decided_at, id`);
   for (const { id, ship } of rows) {
     try {
+      // waiting: its turn and GitHub (read again, as the ones before it may have moved on in this look)
+      if (ship.pending) {
+        await startIfReady(db, gh, id, at);
+        continue;
+      }
       const next = await advance(gh, ship, at);
       if (stable(next) === stable(ship)) continue;
       const stage = next.outcome === "green" ? "accepted" : next.outcome === "red" ? "proposal" : "ship";

@@ -33,10 +33,11 @@ authority over what lands on main and goes to production. Once the change is don
 (ready, not a draft), record the intent's checks on its head and name it: `bun play/avenbox/intent.ts <the intent's
 UUID> --record --pr <its number>`. Once every must check passes, the intent moves to Proposal by itself: **stop there**.
 **Never merge** into `main` or `production` by hand, and open no pull request into `production`. An admin's Accept on
-play's intents' board merges the pull request at once (play posts the commit status **`Intent accepted`** on its head
-first; main's ruleset requires it, with `play / API and site` and `website / build`) and the intent is in **Ship**,
-where play shows live main's checks, the release and the deploy (backup, image, server, website); all green, it is
-Accepted; a red step brings it back to Proposal with the report: fix it in a new pull request of the intent (named
+play's intents' board puts the intent in **Ship** at once: there it waits its turn (one ship at a time, in the order
+accepted) and for GitHub (the pull request's checks green, its mergeability worked out), its reason shown live, and
+play then merges the pull request itself (it posts the commit status **`Intent accepted`** on its head first; main's
+ruleset requires it, with `play / API and site` and `website / build`); Ship shows live main's checks, the release and
+the deploy (backup, image, server, website); all green, it is Accepted; a red step brings it back to Proposal with the report: fix it in a new pull request of the intent (named
 with `--pr`, its checks recorded on its head), and Accept ships it again. After the merge,
 `.github/workflows/intents.yml` runs the intent's checks again on main in the same box and records them as main's, a
 confirmation. Say what you opened and that it waits for Accept; report a failing check instead of going past it.

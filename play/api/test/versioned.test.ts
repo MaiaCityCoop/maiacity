@@ -95,7 +95,7 @@ suite("one version control", () => {
   /** an intent specified, approved and every must check passed: ready for its work */
   const ready = async (title: string) => {
     const i = await tool("add_intent", { title });
-    await tool("specify_intent", { intent: i.id, goal: "A change.", scope: "One document.", checks: [{ check: "It holds", how: "test", by: "true", run: "true" }] });
+    await tool("specify_intent", { intent: i.id, goal: "A change.", scope: "One document.", checks: [{ check: "It holds", how: "test", by: "true", run: "true" }], nothing_to_reduce: "A test fixture: nothing to reduce." });
     await call("ada", "POST", `/api/intents/${i.id}/approve`);
     await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] });
     return i.id as string;

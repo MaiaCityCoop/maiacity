@@ -27,9 +27,11 @@
 	shown the same way.
 
 	ACCEPT SHIPS IT (Samuel 2026-11-06, play/api/src/ship.ts): an intent whose work is code names its pull request, and
-	its Accept ("Accept and ship") merges it into main at once: the intent is in Ship, its way to production shown live
-	(merged, main's checks, the release, the deploy's backup, image, server and website, each with its link), the board
-	read again every 3 s while any intent ships. All green, it is Accepted; a red step brings it back to Proposal with
+	its Accept ("Accept and ship") puts it in Ship at once: its first step, Ready to merge, waits with its reason for its
+	turn (one ship at a time, in the order accepted: its card says "Queued · behind …") and for GitHub ("Waiting for #N's
+	checks", "Waiting for GitHub"), then play merges it by itself, and its way to production shows live (merged, main's
+	checks, the release, the deploy's backup, image, server and website, each with its link), the board read again every
+	3 s while any intent ships. All green, it is Accepted; a red step brings it back to Proposal with
 	the report at the top of its dialog (the step, its link, the log's last lines), and Accept there ships it again.
 -->
 <script lang="ts">
@@ -69,10 +71,11 @@
 	// its way to production, once an Accept merged its pull request (play/api/src/ship.ts): each step's state, when, its
 	// link; a red one's report
 	type ShipStep = { key: string; name: string; state: 'queued' | 'running' | 'green' | 'red' | 'skipped'; started?: string; finished?: string; link?: string; note?: string };
-	type Ship = { pr: number; head: string; merge: string; by: string; round: number; started: string; steps: ShipStep[]; report?: { step: string; why: string; link?: string; log: string; at: string } | null; ended?: string; outcome?: 'green' | 'red'; again?: 'main' | 'release' };
+	type Ship = { pr: number; head: string; merge: string; by: string; round: number; started: string; steps: ShipStep[]; report?: { step: string; why: string; link?: string; log: string; at: string } | null; ended?: string; outcome?: 'green' | 'red'; again?: 'main' | 'release'; pending?: { kind: 'merge' | 'main' | 'release'; head?: string } | null; accepted?: string };
 	// run: the command that decides a check in avenBOX (test and measure checks since 2026-11-06; play/SPEC.md §4.12)
-	type Check = { id: string; check: string; how: 'test' | 'measure' | 'look'; by: string; run?: string; must: boolean };
-	type Spec = { goal: string; scope: string; checks: Check[] };
+	// step: a spec's two steps, reduce first, then the MVP (specs from before have none: mvp; play/SPEC.md §4.12)
+	type Check = { id: string; check: string; how: 'test' | 'measure' | 'look'; by: string; run?: string; must: boolean; step?: 'reduce' | 'mvp' };
+	type Spec = { goal: string; scope: string; checks: Check[]; nothing_to_reduce?: string };
 	// where: in avenBOX (the agent's), or on main after the merge (.github/workflows/intents.yml), on which commit
 	type Results = Record<string, { pass: boolean; evidence: string; by: string | null; at: string; where?: 'avenBOX' | 'main'; commit?: string }>;
 	type Intent = { id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null; spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null; decided_at: string | null; decided_by: string | null; came_with: string | null; work: Work | null; pull_request: number | null; ship: Ship | null };
@@ -136,7 +139,11 @@
 		}
 	});
 	// a column's cards: the intents at its stage, the latest first (those decided by when they were)
-	const inColumn = (s: string): Intent[] => intents.filter((i) => i.stage === s);
+	const inColumn = (s: string): Intent[] => {
+		const cards = intents.filter((i) => i.stage === s);
+		// Ship is a queue: the one shipping, then the rest in the order accepted, first in line on top
+		return s === 'ship' ? [...cards].sort((a, b) => Date.parse(a.decided_at ?? a.created) - Date.parse(b.decided_at ?? b.created)) : cards;
+	};
 	/** how far an intent's must checks are: "2/3 checks" */
 	const checksDone = (i: { spec: Spec | null; results: Results | null }) => {
 		const musts = i.spec?.checks.filter((c) => c.must) ?? [];
@@ -167,6 +174,8 @@
 		if (!i.ship) return '';
 		if (i.stage === 'ship') {
 			const n = shipNow(i.ship);
+			// still waiting to start: why (its turn, GitHub, its checks), as the first step says
+			if (n?.key === 'ready' && n.note) return n.note;
 			return n ? `${n.name} · ${STEP_WORD[n.state]}` : 'in production';
 		}
 		if (i.stage === 'proposal' && i.ship.outcome === 'red' && i.ship.report) return `red at ${i.ship.report.step}`;
@@ -478,6 +487,8 @@
 		<div class="review item-review" role="dialog" aria-modal="true" aria-label={i.title}>
 			<header class="review-head">
 				<div class="who">
+					<!-- the way back to the board, seen at once on a phone too, where the nav pill's arrow has no word (Samuel 2026-11-06) -->
+					<button class="to-board" onclick={closeIntent} title="Back to the intents (Esc)">‹ Intents</button>
 					<p class="tags"><span class="type" data-kind={i.kind}>{kindName(i.kind)}</span> <span class="pill" class:shipping={i.stage === 'ship'}>{STAGE_NAME[i.stage]}{#if i.stage === 'ship' && i.ship}{@const n = shipNow(i.ship)}{n ? ` · ${n.name}` : ''}{/if}</span>{#if (i.stage === 'prototype' || i.stage === 'proposal') && musts.length}{' '}<span class="pill" class:pass={allMustPass(i)}>{checksDone(i)}</span>{/if}</p>
 					<h2>{i.title}</h2>
 					<p class="meta">by {i.author ?? 'someone'}{#if i.via === 'mcp'}{' '}<span class="via" title="Added by an agent working for them over MCP">via MCP</span>{/if} · {when(i.created)}{i.specified_by && i.specified_at ? ` · specified by ${i.specified_by}, ${when(i.specified_at)}` : ''}{i.approved_by && i.approved_at ? ` · spec approved by ${i.approved_by}` : ''}{i.decided_by && i.decided_at ? ` · ${i.stage === 'ship' ? 'accepted' : i.stage} by ${i.decided_by}, ${when(i.decided_at)}` : ''}</p>
@@ -497,7 +508,7 @@
 			{#if i.ship && (i.stage === 'ship' || i.stage === 'accepted' || i.stage === 'proposal')}
 				{@const sh = i.ship}
 				<section class="ship" aria-label="Its way to production">
-					<h3>{i.stage === 'ship' ? 'Shipping' : i.stage === 'accepted' ? 'Shipped' : 'Its last ship'} <span class="muted small">#{sh.pr} as {sh.merge.slice(0, 7)} · accepted by {sh.by}{sh.round > 1 ? ` · round ${sh.round}` : ''}</span></h3>
+					<h3>{i.stage === 'ship' ? 'Shipping' : i.stage === 'accepted' ? 'Shipped' : 'Its last ship'} <span class="muted small">#{sh.pr}{sh.merge ? ` as ${sh.merge.slice(0, 7)}` : ''} · accepted by {sh.by}{sh.round > 1 ? ` · round ${sh.round}` : ''}</span></h3>
 					<ol class="steps-live">
 						{#each sh.steps as st (st.key)}
 							<li data-state={st.state}>
@@ -513,18 +524,12 @@
 			{#if i.note}<div class="md">{@html md(i.note)}</div>{/if}
 			<section class="spec" class:none={!i.spec}>
 				{#if i.spec}
-					<div>
-						<h3>Goal</h3>
-						<div class="md">{@html md(i.spec.goal)}</div>
-					</div>
-					<div>
-						<h3>Scope</h3>
-						<div class="md">{@html md(i.spec.scope)}</div>
-					</div>
-					<div class="checks-wrap">
-						<h3>Checks <span class="muted small">{i.stage === 'specify' ? 'what will be checked, once approved' : 'once every must check passes, it moves to Proposal by itself'}</span></h3>
+					{@const reduce = i.spec.checks.filter((c) => c.step === 'reduce')}
+					{@const mvp = i.spec.checks.filter((c) => c.step !== 'reduce')}
+					{@const hint = i.stage === 'specify' ? 'what will be checked, once approved' : 'once every must check passes, it moves to Proposal by itself'}
+					{#snippet checkList(list: Check[])}
 						<ol class="checks">
-							{#each i.spec.checks as c (c.id)}
+							{#each list as c (c.id)}
 								{@const r = i.results?.[c.id]}
 								<li class:pass={r?.pass === true} class:fail={r?.pass === false}>
 									<span class="mark" title={r ? (r.pass ? 'Passed' : 'Failed') : 'No result yet'}>{r ? (r.pass ? '✓' : '✗') : '·'}</span>
@@ -537,6 +542,26 @@
 								</li>
 							{/each}
 						</ol>
+					{/snippet}
+					<!-- its two steps (Samuel 2026-11-06): what it takes away first, then the MVP -->
+					<div class="step reduce">
+						<h3>Reduce <span class="muted small">what it removes, simplifies or compacts first</span></h3>
+						{#if reduce.length}{@render checkList(reduce)}
+						{:else if i.spec.nothing_to_reduce}<p class="small"><span class="muted">Nothing to reduce:</span> {i.spec.nothing_to_reduce}</p>
+						{:else}<p class="muted small">Specified before the reduce step: none named.</p>{/if}
+					</div>
+					<h3 class="step">MVP</h3>
+					<div>
+						<h3>Goal</h3>
+						<div class="md">{@html md(i.spec.goal)}</div>
+					</div>
+					<div>
+						<h3>Scope</h3>
+						<div class="md">{@html md(i.spec.scope)}</div>
+					</div>
+					<div class="checks-wrap">
+						<h3>Checks <span class="muted small">{hint}</span></h3>
+						{@render checkList(mvp)}
 					</div>
 				{:else}
 					{#if i.stage === 'idea' || i.stage === 'specify'}
@@ -550,7 +575,7 @@
 			</section>
 			<section>
 				<h3>Its work</h3>
-				{#if !i.work && i.pull_request}<p class="small">Code: <a href="{REPO_URL}/pull/{i.pull_request}" target="_blank" rel="noopener">pull request #{i.pull_request}</a> <span class="muted">· {i.stage === 'proposal' ? 'Accept merges it into main and ships it' : i.stage === 'ship' ? 'merged, on its way to production' : i.stage === 'accepted' ? 'in production' : 'named by its agent'}</span></p>
+				{#if !i.work && i.pull_request}<p class="small">Code: <a href="{REPO_URL}/pull/{i.pull_request}" target="_blank" rel="noopener">pull request #{i.pull_request}</a> <span class="muted">· {i.stage === 'proposal' ? 'Accept merges it into main and ships it' : i.stage === 'ship' ? (i.ship?.pending ? 'in Ship, merged when its turn comes and GitHub is ready' : 'merged, on its way to production') : i.stage === 'accepted' ? 'in production' : 'named by its agent'}</span></p>
 				{:else if !i.work}<p class="muted small">Nothing yet.{i.stage === 'idea' || i.stage === 'specify' || i.stage === 'prototype' ? ' Send an agent to it with the brief below.' : ''}</p>
 				{:else}
 					{@const w = i.work}
@@ -595,7 +620,7 @@
 					<button class="btn small ghost" onclick={() => decideIntent(i.id, 'reopen')} title="Open again: back to {i.spec ? 'Specify' : 'Idea'}">Reopen</button>
 				{/if}
 				{#if i.stage === 'specify' && i.spec}<button class="btn small" onclick={() => decideIntent(i.id, 'approve')} title="The spec is right: an agent may build it">Approve spec</button>
-				{:else if i.stage === 'proposal' && !waits}<button class="btn small" onclick={() => decideIntent(i.id, 'accept')} disabled={!allMustPass(i) || merging} title={!allMustPass(i) ? 'Every must check passes first' : isCode(i) ? (shipsAgain(i) ? 'Ship it again: its pull request is merged; the release (or main\'s failed jobs) runs again' : `Merge pull request #${i.pull_request} into main now and ship it to production`) : 'What it asked is in'}>{merging ? 'Merging…' : isCode(i) ? (shipsAgain(i) ? 'Ship again' : 'Accept and ship') : 'Accept'}</button>{/if}
+				{:else if i.stage === 'proposal' && !waits}<button class="btn small" onclick={() => decideIntent(i.id, 'accept')} disabled={!allMustPass(i) || merging} title={!allMustPass(i) ? 'Every must check passes first' : isCode(i) ? (shipsAgain(i) ? 'Ship it again: its pull request is merged; the release (or main\'s failed jobs) runs again' : `Ship pull request #${i.pull_request}: in Ship at once, merged into main when its turn comes and GitHub is ready, then to production`) : 'What it asked is in'}>{merging ? 'Accepting…' : isCode(i) ? (shipsAgain(i) ? 'Ship again' : 'Accept and ship') : 'Accept'}</button>{/if}
 			</footer>
 			{/if}
 		</div>
@@ -606,6 +631,7 @@
 		<div class="review" role="dialog" aria-modal="true" aria-label="{p.label} {titleOf(p)}">
 			<header class="review-head">
 				<div class="who">
+					<button class="to-board" onclick={close} title="Back to the intents (Esc)">‹ Intents</button>
 					<h2>{p.label} <span class="muted">{titleOf(p)}</span> <span class="pill">{p.status}</span></h2>
 					<p class="meta">{p.grp} · by {p.author ?? 'someone'}{#if p.via === 'mcp'}{' '}<span class="via" title="Proposed by an agent working for them over MCP">via MCP</span>{/if} · {when(p.created)}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}{#if p.intent_id && !onlyItsWork(intents.find((x) => x.id === p.intent_id))}{' · for '}<button class="link" onclick={() => openIntentOf(p.intent_id!)} title="The intent it was made for: its spec and checks">{p.intent_title}</button>{/if}</p>
 					{#if p.intent_spec}
@@ -837,7 +863,9 @@
 	.spec { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0.8rem; padding: 0.8rem 0.9rem; border-radius: 12px; background: color-mix(in srgb, var(--sage, #a8b88a) 16%, var(--paper, #faf8f2)); border: 1px solid color-mix(in srgb, var(--sage, #a8b88a) 45%, transparent); }
 	/* its checks, the whole width of the spec: each its mark (✓ passed, ✗ failed, · no result yet), its statement, how and
 	   by what it is checked, and its last result's evidence */
-	.checks-wrap { grid-column: 1 / -1; }
+	.checks-wrap, .step { grid-column: 1 / -1; }
+	h3.step { margin: 0.2rem 0 -0.4rem; padding-top: 0.6rem; border-top: 1px solid color-mix(in srgb, var(--sage, #a8b88a) 45%, transparent); }
+	.step h3 .small { font-weight: 400; margin-left: 0.3rem; }
 	.checks-wrap h3 .small { font-weight: 400; margin-left: 0.3rem; }
 	.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
 	.checks li { display: flex; gap: 0.55rem; align-items: flex-start; padding: 0.45rem 0.6rem; border-radius: 10px; background: var(--card, #fff); border: 1px solid var(--line, #dcd5c4); }
@@ -878,6 +906,10 @@
 	/* reviewing one: nearly the whole screen, the build as large as it can be */
 	.review { position: absolute; inset: 0.4rem; z-index: 10; background: var(--bg, #fbf8f2); border-radius: 16px; box-shadow: 0 20px 60px rgb(0 0 0 / 0.25); display: flex; flex-direction: column; padding: 0.8rem 1rem 0.6rem; gap: 0.4rem; overflow: hidden; }
 	.review-head { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; align-items: flex-start; }
+	/* ‹ Intents: back to the board from what is open on it; a tap's height (44 px), drawn as a quiet link */
+	.to-board { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; margin: -0.65rem 0 -0.35rem -0.45rem; padding: 0 0.6rem 0 0.45rem; border-radius: 10px; font-size: 0.88rem; font-weight: 600; color: var(--ink-soft, #4d5d51); }
+	.to-board:hover { background: color-mix(in srgb, var(--ink, #26382c) 6%, transparent); color: var(--ink, #1f2a22); }
+	.to-board:focus-visible { outline: 2px solid var(--ink, #222); outline-offset: -2px; }
 	.review-head h2 { margin: 0; font-size: 1.3rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 	.review-head .meta { margin: 0.15rem 0 0; }
 	/* the decision at the foot of what is open, in its middle (Samuel 2026-11-05): Reject on the left, reddish, Accept
