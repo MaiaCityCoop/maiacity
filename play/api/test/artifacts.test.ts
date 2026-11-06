@@ -176,7 +176,8 @@ suite("artifacts", () => {
       }
       const h = await createHuman(db2, "Old");
       await db2.query(`INSERT INTO play.intents (id, coop_id, title, author) VALUES (gen_random_uuid(), $1, 'An intent from before', $2)`, [COOP, h.id]);
-      expect(await migrate(db2)).toEqual(["0027-artifacts"]);
+      // the migrations after 0026 run, 0027-artifacts first among them (later ones may follow)
+      expect((await migrate(db2))[0]).toBe("0027-artifacts");
       expect((await db2.query(`SELECT name FROM play.agents WHERE id = $1`, [AVENMAIA])).rows).toEqual([{ name: "avenMAIA" }]);
       expect((await db2.query(`SELECT title FROM play.intents`)).rows).toEqual([{ title: "An intent from before" }]);
       expect(await migrate(db2)).toEqual([]);

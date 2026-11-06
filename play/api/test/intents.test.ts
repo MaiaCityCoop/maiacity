@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
-import { migrate } from "../src/migrations";
+import { migrate, MIGRATIONS } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
 import { Rate } from "../src/limits";
 import { UUID } from "../src/uuid";
@@ -150,12 +150,14 @@ suite("intents", () => {
     expect(none).not.toContain("c3 ("); // the nice check is not named (the bare "c3" can be in the intent's UUID)
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c9", pass: true, evidence: "x" }] })).error).toContain("not one of this intent's checks");
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: " " }] })).error).toContain("evidence");
-    await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "render.mjs: built in 1.2 s" }, { check: "c2", pass: false, evidence: "measured 0.72 m" }] });
+    const partly = await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "render.mjs: built in 1.2 s" }, { check: "c2", pass: false, evidence: "measured 0.72 m" }] });
+    expect(partly.stage).toBe("prototype");
     expect((await fern(i.id)).error).toContain("c2 (Its height is 0.4–0.6 m): failed");
     expect((await call("ada", "GET", "/api/proposals")).data.length).toBe(before);
-    // every must passes (the nice one need not): the proposal is taken, the intent is at the proposal stage
+    // every must passes (the nice one need not): the intent moves to Proposal by itself, and the proposal is taken
     const checked = await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "measured 0.52 m" }] });
     expect(checked.results).toMatchObject({ c1: { pass: true, by: "ada" }, c2: { pass: true, evidence: "measured 0.52 m" } });
+    expect(checked.stage).toBe("proposal");
     const made = await fern(i.id);
     expect(made.error).toBeUndefined();
     expect(made.intent).toBe(i.id);
@@ -186,12 +188,61 @@ suite("intents", () => {
     expect((await call("ada", "POST", `/api/intents/${i.id}/reopen`)).data.stage).toBe("specify");
   });
 
-  test("an intent whose work is not a proposal is accepted from Prototype, once every must check passes", async () => {
-    const i = await intentAt("Sources on play", "prototype");
-    expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.error).toContain("Every must check passes");
-    await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "PR #1 merged, tests green" }, { check: "c2", pass: true, evidence: "0.5" }] });
+  test("an intent moves to Proposal by itself once every must check passes, and is accepted there, never from Prototype", async () => {
+    const i = await intentAt("Artifacts on play", "prototype");
+    expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.error).toContain("moves to Proposal by itself");
+    const half = await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "PR #1 merged, tests green" }, { check: "c2", pass: false, evidence: "0.7" }] });
+    expect(half.stage).toBe("prototype");
+    expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).status).toBe(409);
+    // the last must passes: Proposal, by itself (the nice check has no result and need not)
+    const ready = await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5" }] });
+    expect(ready).toMatchObject({ stage: "proposal", proposals: [] });
+    // at Proposal, the one gate: an admin accepts it (a citizen may not)
+    expect((await call("cit", "POST", `/api/intents/${i.id}/accept`)).status).toBe(403);
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data).toMatchObject({ stage: "accepted", decided_by: "ada" });
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).status).toBe(409);
+  });
+
+  test("at Proposal: checked again, a failing must takes it back; it is rejected or sent back to Specify there; a waiting proposal decides it", async () => {
+    const i = await intentAt("A fern at Proposal", "prototype");
+    const all = [{ check: "c1", pass: true, evidence: "built" }, { check: "c2", pass: true, evidence: "0.5 m" }];
+    expect((await tool("check_intent", { intent: i.id, results: all })).stage).toBe("proposal");
+    // checked again while none of its proposals waits: a must that fails takes it back to Prototype, and passing again to Proposal
+    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: false, evidence: "0.8 m after the change" }] })).stage).toBe("prototype");
+    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5 m again" }] })).stage).toBe("proposal");
+    // sent back to Specify from Proposal, its approval and results go
+    expect((await call("ada", "POST", `/api/intents/${i.id}/respecify`)).data).toMatchObject({ stage: "specify", approved_at: null, results: null });
+    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("prototype");
+    expect((await tool("check_intent", { intent: i.id, results: all })).stage).toBe("proposal");
+    // with a proposal of it waiting, that proposal is where it is decided: the intent itself is neither accepted,
+    // rejected, sent back nor checked again
+    const made = await tool("propose_asset", { group: "plants", label: "Fern at Proposal", source: SOURCE, note: "x", intent: i.id });
+    expect(made.error).toBeUndefined();
+    for (const v of ["accept", "reject", "respecify"]) expect((await call("ada", "POST", `/api/intents/${i.id}/${v}`)).data.error).toContain("waits for a decision");
+    expect((await tool("check_intent", { intent: i.id, results: all })).error).toContain("none of its proposals waits");
+    // the proposal archived, it goes back to Prototype to be checked again; checked, to Proposal; rejected there, archived
+    expect((await call("ada", "POST", `/api/proposals/${made.id}/archive`)).data.status).toBe("archived");
+    expect((await tool("get_intent", { intent: i.id })).stage).toBe("prototype");
+    expect((await tool("check_intent", { intent: i.id, results: all })).stage).toBe("proposal");
+    expect((await call("ada", "POST", `/api/intents/${i.id}/reject`)).data).toMatchObject({ stage: "archived", decided_by: "ada" });
+  });
+
+  test("migration 0028 moves an intent already in Prototype with every must check passed to Proposal", async () => {
+    const m = MIGRATIONS.find((x) => x.id === "0028-intents-ready-propose")!;
+    const at = async (title: string, results: Record<string, boolean>) => {
+      const i = await intentAt(title, "prototype");
+      const r = Object.fromEntries(Object.entries(results).map(([k, pass]) => [k, { pass, evidence: "x", by: "ada", at: new Date().toISOString() }]));
+      await db.query(`UPDATE play.intents SET results = ($2::text)::jsonb, stage = 'prototype' WHERE id = $1`, [i.id, JSON.stringify(r)]);
+      return i.id;
+    };
+    const ready = await at("Ready before 0028", { c1: true, c2: true });
+    const failing = await at("A must failing before 0028", { c1: true, c2: false });
+    const unchecked = await at("A must unchecked before 0028", { c1: true });
+    await db.query(m.sql);
+    const stage = async (id: string) => (await tool("get_intent", { intent: id })).stage;
+    expect(await stage(ready)).toBe("proposal");
+    expect(await stage(failing)).toBe("prototype");
+    expect(await stage(unchecked)).toBe("prototype");
   });
 
   test("every proposal is an intent's: one made without an intent gets one, which follows it", async () => {
