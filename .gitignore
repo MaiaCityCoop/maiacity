@@ -9,3 +9,5 @@ build
 play/api/.import-cache
 play/api/blobs
 __pycache__
+# the flyover camera's films (play/site/scripts/flyover), made on the machine that renders them
+play/site/film/

@@ -2,6 +2,8 @@
 // slabs, the river and the lakes, and every tree, rock and peak as instances, lit by a low sun with soft shadows. The
 // camera moves as in a city builder: drag to pan, right-drag or two fingers to turn and tilt, wheel or pinch to zoom.
 // Map metres become world units: x east, z south (the map's y), y up, the map's centre at the origin.
+// In film mode (./film, scripts/flyover) nothing moves by itself: no loop, no controls; each `frame` puts the camera
+// where a shot says and draws once, so a shot is the same picture every time it is rendered.
 
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
@@ -18,15 +20,19 @@ export interface World {
 	select(id: number | null): void;
 	/** show the map built up as a city (./city.ts), or empty again */
 	city(on: boolean): void;
+	/** film mode: the camera at `eye` looking at `at` (world units) through a lens of `fov` degrees (vertical), the sun's
+	 *  shadows following where it looks, drawn once */
+	frame(eye: number[], at: number[], fov: number): void;
 	dispose(): void;
 }
 
-export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hover(p: Plot | null): void; pick(p: Plot | null): void }): World {
+export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hover(p: Plot | null): void; pick(p: Plot | null): void }, film = false): World {
 	const W = map.width, H = map.height;
 	const X = (x: number) => x - W / 2, Z = (y: number) => y - H / 2;
 	const ground = terrain(map.seed, map.river, map.massif);
 
-	const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+	// a film reads each frame back off the canvas (and adds frames up for its shutter), so the drawing is kept
+	const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: film });
 	renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 	renderer.shadowMap.enabled = true;
 	renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -48,11 +54,13 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 	// the shadows cover what the camera looks at, more of it the farther it is, so they stay sharp up close
 	Object.assign(sun.shadow.camera, { near: 100, far: 5200 });
 	let shadowAt = new THREE.Vector4(NaN);
-	const followSun = () => {
+	const followSun = (exact = false) => {
 		const t = controls.target, reach = THREE.MathUtils.clamp(camera.position.distanceTo(t) * 1.15, 450, 4600);
-		if (Math.abs(shadowAt.x - t.x) < 4 && Math.abs(shadowAt.z - t.z) < 4 && Math.abs(shadowAt.w - reach) / reach < 0.05) return;
-		shadowAt = new THREE.Vector4(t.x, 0, t.z, reach);
-		sun.target.position.set(t.x, 0, t.z);
+		if (!exact && Math.abs(shadowAt.x - t.x) < 4 && Math.abs(shadowAt.z - t.z) < 4 && Math.abs(shadowAt.w - reach) / reach < 0.05) return;
+		// a film's shadows follow every frame, held to whole texels of the shadow map so their edges do not crawl
+		const texel = (2 * reach) / sun.shadow.mapSize.x, x = exact ? Math.round(t.x / texel) * texel : t.x, z = exact ? Math.round(t.z / texel) * texel : t.z;
+		shadowAt = new THREE.Vector4(x, 0, z, reach);
+		sun.target.position.set(x, 0, z);
 		sun.position.copy(sun.target.position).add(SUN);
 		Object.assign(sun.shadow.camera, { left: -reach, right: reach, top: reach, bottom: -reach });
 		sun.shadow.camera.updateProjectionMatrix();
@@ -188,6 +196,7 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 
 	// ── the camera, held over the map ──
 	const controls = new MapControls(camera, canvas);
+	controls.enabled = !film;
 	controls.enableDamping = true;
 	controls.dampingFactor = 0.08;
 	controls.minPolarAngle = 0.3;
@@ -254,7 +263,7 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 	canvas.addEventListener('pointermove', move);
 	canvas.addEventListener('pointerleave', leave);
 
-	renderer.setAnimationLoop(() => {
+	if (!film) renderer.setAnimationLoop(() => {
 		if (pending) {
 			const p = plotAt(pending);
 			pending = null;
@@ -271,6 +280,17 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 
 	return {
 		city: showCity,
+		frame(eye, at, fov) {
+			controls.target.set(at[0], at[1] ?? 0, at[2]);
+			camera.position.set(eye[0], eye[1], eye[2]);
+			camera.fov = fov;
+			// near enough for a camera among the domes, no nearer than it needs (depth precision far off)
+			camera.near = THREE.MathUtils.clamp((eye[1] - ground(eye[0] + W / 2, eye[2] + H / 2)) / 25, 1, 10);
+			camera.updateProjectionMatrix();
+			camera.lookAt(controls.target);
+			followSun(true);
+			renderer.render(scene, camera);
+		},
 		select(id) {
 			picked = id;
 			paint();
