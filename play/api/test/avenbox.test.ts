@@ -58,10 +58,12 @@ suite("avenBOX's runner", () => {
     const res = ((await r.json()) as any).result;
     return res.isError ? { error: res.content[0].text } : JSON.parse(res.content[0].text);
   };
-  /** intent.ts as an agent runs it, its token and GitHub's in its environment */
+  /** intent.ts as main's runner runs it: its token, GitHub's token and the Actions run in its environment (the same here
+   *  as on GitHub's own runner, where these are GitHub's) */
+  const ACTIONS = { GITHUB_SERVER_URL: "https://github.example", GITHUB_REPOSITORY: "maia/city", GITHUB_RUN_ID: "7" };
   const runner = async (...args: string[]) => {
     const p = Bun.spawn([process.execPath, RUNNER, ...args, "--no-up"], {
-      env: { ...process.env, PLAY_MCP_URL: `${server.url}api/mcp`, PLAY_MCP_TOKEN: token, GITHUB_TOKEN: "ghs_not_for_runs" },
+      env: { ...process.env, ...ACTIONS, PLAY_MCP_URL: `${server.url}api/mcp`, PLAY_MCP_TOKEN: token, GITHUB_TOKEN: "ghs_not_for_runs" },
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -113,7 +115,7 @@ suite("avenBOX's runner", () => {
     expect(results.c1.commit).toMatch(/^[0-9a-f]{40}$/);
     expect(results.c3.evidence).toContain("$ echo 42");
     expect(results.c3.evidence).toContain("exit 0 in ");
-    expect(results.c3.evidence).toContain(`main · commit ${results.c3.commit}`);
+    expect(results.c3.evidence).toContain(`main (https://github.example/maia/city/actions/runs/7) · commit ${results.c3.commit}`);
     expect(results.c3.evidence).toMatch(/\n42$/);
     expect(results.c2.evidence).toContain("exit 1 in ");
 
