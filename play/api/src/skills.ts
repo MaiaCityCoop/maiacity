@@ -227,7 +227,7 @@ function editsOf(edits: unknown): docs.Edit[] {
   if (edits.length > 500) throw new SkillError("At most 500 edits at once.");
   return edits.map((e: any, i) => {
     if (!e || typeof e !== "object" || !Array.isArray(e.path) || !e.path.every((p: unknown) => typeof p === "string" || (typeof p === "number" && Number.isInteger(p))))
-      throw new SkillError(`Edit ${i + 1} names no path (a list of field names: ['stages', 'prototype']).`);
+      throw new SkillError(`Edit ${i + 1} names no path (a list of field names: ['stages', 'build']).`);
     return e as docs.Edit;
   });
 }

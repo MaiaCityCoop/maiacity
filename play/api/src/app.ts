@@ -167,9 +167,9 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await configOf(db, p.id));
   });
 
-  // ---- intents (./intents.ts, ./work.ts): the one record on the board, Idea → Specify → Prototype → Proposal → (Ship →)
-  // Accepted or Archived; added, specified and prototyped by agents over MCP, its work (an asset's version here; the rest
-  // over MCP) proposed by putting it at Proposal, decided by its admins here: a spec approved (Specify → Prototype) or
+  // ---- intents (./intents.ts, ./work.ts): the one record on the board, Idea → Specify → Build → Proposal → (Ship →)
+  // Accepted or Archived; added, specified and built by agents over MCP, its work (an asset's version here; the rest
+  // over MCP) proposed by putting it at Proposal, decided by its admins here: a spec approved (Specify → Build) or
   // sent back, its work at Proposal accepted (applied) or archived, its code accepted and shipped (./ship.ts: its pull
   // request merged into main at once, followed to production in Ship), or brought back
   on("GET", "/api/intents", async (req) => {

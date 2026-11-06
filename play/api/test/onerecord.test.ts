@@ -167,7 +167,7 @@ suite("one record: the intent (migration 0029)", () => {
     expect(await intent(of(threeB).intent_id)).toMatchObject({ stage: "archived", version: version("three-b"), came_with: three });
     // a stage its proposal does not have: the proposal its own intent, the intent no work
     expect(of(fiveA).how).toBe("own");
-    expect(await intent(five)).toMatchObject({ stage: "prototype", work: null });
+    expect(await intent(five)).toMatchObject({ stage: "build", work: null });
     expect(await intent(fiveA)).toMatchObject({ stage: "archived", version: version("five-a"), came_with: five });
 
     // the story's: its work and branch on its intent, the branch naming the intent, the id in its note the intent's
@@ -192,7 +192,7 @@ suite("one record: the intent (migration 0029)", () => {
     expect(byOld).toMatchObject({ id: storyIntent, stage: "proposal", work: { kind: "story_version", story_id: story, status: "proposal" } });
     expect(byOld.review.diff).toBeDefined();
     const board = await (await get(`/api/intents`)).json();
-    // one intent for each proposal, and the one back in Prototype that kept none
+    // one intent for each proposal, and the one back in Build (0032) that kept none
     expect(board.length).toBe(all.length + 1);
     expect(board.find((i: any) => i.id === two).work).toMatchObject({ kind: "asset_version", status: "proposal", label: "Fern", number: 2, author: "cit" });
   });

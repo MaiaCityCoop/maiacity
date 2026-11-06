@@ -1,5 +1,5 @@
 # intents on main (play/SPEC.md §4.12, "Checks run in avenBOX, and again on main"; Samuel 2026-11-06): once an
-# intent's work is merged, main runs the intent's checks again in the same box the agent prototyped it in (avenBOX:
+# intent's work is merged, main runs the intent's checks again in the same box the agent built it in (avenBOX:
 # play/avenbox/setup.sh, PostgreSQL 17, the same TEST_DATABASE_URL) on the merged commit, and records each result on
 # the intent as main's (play/avenbox/intent.ts --record --where main), whatever its stage: a confirmation, as an intent
 # is accepted and shipped on its checks on its pull request's head (play/api/src/ship.ts). Which intents: the

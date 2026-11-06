@@ -176,7 +176,7 @@ suite("accept ships it", () => {
   const codeAtProposal = async (title: string, more: Partial<Pull> = {}) => {
     const i = await tool("add_intent", { title, kind: "improve" });
     await tool("specify_intent", { intent: i.id, ...SPEC });
-    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("prototype");
+    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
     const pr = ++prs;
     const head = sha(++commits);
     const at = await tool("check_intent", {
