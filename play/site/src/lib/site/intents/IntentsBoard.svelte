@@ -492,6 +492,8 @@
 		<div class="review item-review" role="dialog" aria-modal="true" aria-label={i.title}>
 			<header class="review-head">
 				<div class="who">
+					<!-- the way back to the board, seen at once on a phone too, where the nav pill's arrow has no word (Samuel 2026-11-06) -->
+					<button class="to-board" onclick={closeIntent} title="Back to the intents (Esc)">‹ Intents</button>
 					<p class="tags"><span class="type" data-kind={i.kind}>{kindName(i.kind)}</span> <span class="pill" class:shipping={i.stage === 'ship'}>{STAGE_NAME[i.stage]}{#if i.stage === 'ship' && i.ship}{@const n = shipNow(i.ship)}{n ? ` · ${n.name}` : ''}{/if}</span>{#if (i.stage === 'prototype' || i.stage === 'proposal') && musts.length}{' '}<span class="pill" class:pass={allMustPass(i)}>{checksDone(i)}</span>{/if}</p>
 					<h2>{i.title}</h2>
 					<p class="meta">by {i.author ?? 'someone'}{#if i.via === 'mcp'}{' '}<span class="via" title="Added by an agent working for them over MCP">via MCP</span>{/if} · {when(i.created)}{i.specified_by && i.specified_at ? ` · specified by ${i.specified_by}, ${when(i.specified_at)}` : ''}{i.approved_by && i.approved_at ? ` · spec approved by ${i.approved_by}` : ''}{i.decided_by && i.decided_at ? ` · ${i.stage === 'ship' ? 'accepted' : i.stage} by ${i.decided_by}, ${when(i.decided_at)}` : ''}</p>
@@ -620,6 +622,7 @@
 		<div class="review" role="dialog" aria-modal="true" aria-label="{p.label} {titleOf(p)}">
 			<header class="review-head">
 				<div class="who">
+					<button class="to-board" onclick={close} title="Back to the intents (Esc)">‹ Intents</button>
 					<h2>{p.label} <span class="muted">{titleOf(p)}</span> <span class="pill">{p.status}</span></h2>
 					<p class="meta">{p.grp} · by {p.author ?? 'someone'}{#if p.via === 'mcp'}{' '}<span class="via" title="Proposed by an agent working for them over MCP">via MCP</span>{/if} · {when(p.created)}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}{#if p.intent_id && !onlyItsWork(intents.find((x) => x.id === p.intent_id))}{' · for '}<button class="link" onclick={() => openIntentOf(p.intent_id!)} title="The intent it was made for: its spec and checks">{p.intent_title}</button>{/if}</p>
 					{#if p.intent_spec}
@@ -991,6 +994,10 @@
 	/* reviewing one: nearly the whole screen, the build as large as it can be */
 	.review { position: absolute; inset: 0.4rem; z-index: 10; background: var(--bg, #fbf8f2); border-radius: 16px; box-shadow: 0 20px 60px rgb(0 0 0 / 0.25); display: flex; flex-direction: column; padding: 0.8rem 1rem 0.6rem; gap: 0.4rem; overflow: hidden; }
 	.review-head { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; align-items: flex-start; }
+	/* ‹ Intents: back to the board from what is open on it; a tap's height (44 px), drawn as a quiet link */
+	.to-board { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; margin: -0.65rem 0 -0.35rem -0.45rem; padding: 0 0.6rem 0 0.45rem; border-radius: 10px; font-size: 0.88rem; font-weight: 600; color: var(--ink-soft, #4d5d51); }
+	.to-board:hover { background: color-mix(in srgb, var(--ink, #26382c) 6%, transparent); color: var(--ink, #1f2a22); }
+	.to-board:focus-visible { outline: 2px solid var(--ink, #222); outline-offset: -2px; }
 	.review-head h2 { margin: 0; font-size: 1.3rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 	.review-head .meta { margin: 0.15rem 0 0; }
 	/* the decision at the foot of what is open, in its middle (Samuel 2026-11-05): Reject on the left, reddish, Accept
