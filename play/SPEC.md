@@ -776,6 +776,12 @@ subtitle and how much of it is spoken, the notes. Play and scrub only move t; no
 same t gives the same picture every time, which is what a frame-by-frame export needs (WebCodecs in the browser, or a
 page a renderer seeks through): it comes later.
 
+**Full screen** (Samuel 2026-11-06): the player's Full screen button (or F) shows the picture alone on the whole screen,
+black around it and kept to the story's format (letterboxed, never cropped), its subtitles in it; a tap plays and pauses,
+a bar (play, the time, a line to seek on, exit) shows while it is paused or the pointer moves and goes with the cursor
+while it plays, and Esc or F leaves. Where a browser has no full screen for a page's element (an iPhone's Safari), the
+same mode fills the window (`play/site/src/lib/stories/StoryPlayer.svelte`).
+
 **A transition is code** (Samuel 2026-11-04: a fade is a transition like any other, set by a proposal like any other
 field). A shot's `transition` holds codes separated by commas (`;` and `·` too), each read from its start, with its
 seconds where it gives them (`transitionOf`): `cut` (and a hard, smash, match or jump cut, "cut to …") goes into the
