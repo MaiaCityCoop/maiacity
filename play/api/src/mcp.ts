@@ -10,6 +10,9 @@
 // (./intents.ts): it adds intents (the only way in), specifies them (a goal, a scope, checks), records their checks'
 // results while it prototypes an approved one, and names the intent in what it proposes (every propose tool's
 // `intent`), play taking it only once every must check passes; approving a spec and accepting stay a person's.
+// Every agent connected here is avenMAIA (play/SPEC.md §4.13, Samuel 2026-11-06), whatever its client or token: it keeps
+// Maia City's artifacts (./artifacts.ts), every link its operator pastes (origin 'human') and every artifact it finds in
+// its own research (origin 'agent'), each with its title, description, summary and authors.
 import type { BlobStore } from "./blobs";
 import type { Db } from "./pg";
 import type { Me } from "./access";
@@ -22,6 +25,7 @@ import { AssetDocError, assetAtStep, assetHistory, editAsset } from "./assetdocs
 import { listSandboxes, proposeSandbox, sandboxOf, SandboxError } from "./sandboxes";
 import { editFactory, factoryHistory, factoryOf, FactoryError, listFactories, proposeFactory } from "./factories";
 import { gameConfigHistory, gameConfigOf, editGameConfig, GameConfigError, listGameConfigs, proposeGameConfig } from "./gameconfigs";
+import { addArtifact, AUTHOR_KINDS, authorOf, DESCRIPTION_MOST, listAuthors, listArtifacts, ORIGINS, ARTIFACT_KINDS, ARTIFACTS_RULE, ArtifactError, artifactOf, SUMMARY_WORDS, TITLE_MOST as ARTIFACT_TITLE_MOST, updateArtifact } from "./artifacts";
 
 const PROTOCOL = "2025-06-18";
 const HASH = /^[0-9a-f]{64}$/;
@@ -749,6 +753,127 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
       },
       run: async ({ proposal }, me) => archiveOwn(db, me, `${proposal ?? ""}`),
     },
+    // ---- artifacts (./artifacts.ts, play/SPEC.md §4.13): Maia City's library of links, kept by avenMAIA
+    {
+      name: "list_artifacts",
+      description:
+        "Maia City's artifacts, newest first: every link kept, each its id (a UUID), link, title, description, kind, tags, published date, authors (ids and names), origin and who brought it (\"Added by <operator>\" or \"Sourced by avenMAIA\"), without its summary (get_artifact). " +
+        "q finds words in a title, description, summary, link or an author's name; author (an author's id), tag, kind and origin narrow it. Look here before you add a link: one link is one artifact.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          q: { type: "string", description: "words to find in a title, description, summary, link or an author's name" },
+          author: { type: "string", description: "only the artifacts of this author (their id, a UUID: list_authors gives it)" },
+          tag: { type: "string" },
+          kind: { type: "string", enum: [...ARTIFACT_KINDS] },
+          origin: { type: "string", enum: [...ORIGINS], description: "human: pasted by an operator; agent: found by avenMAIA in its own research" },
+          offset: { type: "integer", minimum: 0 },
+          limit: { type: "integer", minimum: 1, maximum: 200 },
+        },
+        additionalProperties: false,
+      },
+      run: async (args, me) => listArtifacts(db, me, args),
+    },
+    {
+      name: "get_artifact",
+      description: "One artifact, whole: its link, title, description and summary, kind, tags, published date, authors in order, origin and who brought it, when it was kept and last corrected, and the hash of its page's text if it was kept (get_file reads it).",
+      inputSchema: {
+        type: "object",
+        properties: { artifact: { type: "string", description: "the artifact's id (a UUID: list_artifacts gives it)" } },
+        required: ["artifact"],
+        additionalProperties: false,
+      },
+      run: async ({ artifact }, me) => artifactOf(db, me, artifact),
+    },
+    {
+      name: "add_artifact",
+      description:
+        "Keep an artifact in Maia City's Artifacts: a link from the net (a web page, an article, a paper, a video, a social post, a book, a podcast, code) with its three texts and its authors. You are avenMAIA: every artifact is kept as avenMAIA's, for the admin whose token connected you (its operator). " +
+        "Every link your operator pastes to you, add with origin 'human' (shown \"Added by\" them); every artifact you find and use in your own research (a plant's numbers, a claim in a story, a technique), add with origin 'agent' (shown \"Sourced by avenMAIA\"). " +
+        `Read the artifact itself first, then write: title, very compact (what it is about in plain words: one line, at most ${ARTIFACT_TITLE_MOST} characters, without the site's or channel's name, which is an author, no clickbait); ` +
+        `description, the mini summary (1–2 sentences, one line, at most ${DESCRIPTION_MOST} characters, no Markdown: what it is and its main point); ` +
+        `summary, a small report on the overall topic (Markdown, ${SUMMARY_WORDS.least}–${SUMMARY_WORDS.most} words, in the sections ## What it is (who made it, what kind of thing, when, from which angle), ## Key points (its claims, findings and numbers as bullets, as the artifact puts them), ## The topic (the wider subject: what it is, where this artifact stands in it, what else is known or disputed), and if you like ## For Maia City last (where it bears on our work); what the artifact says in the first two, what you know beyond it only in ## The topic). ` +
+        "Authors: call list_authors first and name an author already kept by their id; add a new one { name, kind: person | organization, url? } only when none is them (two of one name stay two: never guess by a name). Where no person is named, its publisher (a site, a channel, a lab) is its author, as an organization. " +
+        "One link is one artifact: links are compared without their #fragment, utm_*, fbclid and gclid and a trailing slash, and a YouTube video is one link however it is written; a link already kept answers with that artifact and kept: true (correct it with update_artifact). " +
+        "Give text, the page's readable text as you fetched it, to keep a copy: links rot and pages change.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          url: { type: "string", description: "the link, http(s)" },
+          title: { type: "string", maxLength: ARTIFACT_TITLE_MOST, description: `very compact: one line, at most ${ARTIFACT_TITLE_MOST} characters` },
+          description: { type: "string", maxLength: DESCRIPTION_MOST, description: `the mini summary: 1–2 sentences, one line, at most ${DESCRIPTION_MOST} characters, no Markdown` },
+          summary: { type: "string", description: `a small report on the overall topic: Markdown, ${SUMMARY_WORDS.least}–${SUMMARY_WORDS.most} words, ## What it is, ## Key points (bullets), ## The topic, and if you like ## For Maia City` },
+          authors: {
+            type: "array",
+            minItems: 1,
+            description: "its authors, in order: an author already kept by their id ({ id }, list_authors), or a new one ({ name, kind, url?, note? })",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string", description: "an author already kept (a UUID: list_authors gives it)" },
+                name: { type: "string", description: "a new author's name" },
+                kind: { type: "string", enum: [...AUTHOR_KINDS] },
+                url: { type: "string", description: "their page or profile, http(s)" },
+                note: { type: "string", description: "who they are, in a line" },
+              },
+              additionalProperties: false,
+            },
+          },
+          kind: { type: "string", enum: [...ARTIFACT_KINDS] },
+          tags: { type: "array", items: { type: "string" }, description: "a few words it is about, lower case" },
+          published: { type: "string", description: "when it was published, YYYY-MM-DD, if known" },
+          origin: { type: "string", enum: [...ORIGINS], description: "human: your operator pasted it; agent: you found it in your own research" },
+          text: { type: "string", description: "the page's readable text as you fetched it, kept among play's files by its hash" },
+        },
+        required: ["url", "title", "description", "summary", "authors", "kind", "origin"],
+        additionalProperties: false,
+      },
+      run: async (args, me) => addArtifact(db, store, me, args),
+    },
+    {
+      name: "update_artifact",
+      description:
+        "Correct a kept artifact: any of its link, title, description, summary, kind, tags, published date, authors (the whole list, in order, as in add_artifact) and text, each held to the same form as in add_artifact. Who corrected it and when are kept; its origin and who brought it never change.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          artifact: { type: "string", description: "the artifact's id (a UUID)" },
+          url: { type: "string" },
+          title: { type: "string", maxLength: ARTIFACT_TITLE_MOST },
+          description: { type: "string", maxLength: DESCRIPTION_MOST },
+          summary: { type: "string" },
+          authors: { type: "array", minItems: 1, items: { type: "object", properties: { id: { type: "string" }, name: { type: "string" }, kind: { type: "string", enum: [...AUTHOR_KINDS] }, url: { type: "string" }, note: { type: "string" } }, additionalProperties: false } },
+          kind: { type: "string", enum: [...ARTIFACT_KINDS] },
+          tags: { type: "array", items: { type: "string" } },
+          published: { type: "string" },
+          text: { type: "string" },
+        },
+        required: ["artifact"],
+        additionalProperties: false,
+      },
+      run: async ({ artifact, ...fields }, me) => updateArtifact(db, store, me, artifact, fields),
+    },
+    {
+      name: "list_authors",
+      description: "The authors of Maia City's artifacts, by name: each their id (a UUID), name, kind (person or organization), page and how many artifacts name them. q finds words in a name. Look here before you name an author in add_artifact, and reuse one by their id.",
+      inputSchema: {
+        type: "object",
+        properties: { q: { type: "string", description: "words in the author's name" } },
+        additionalProperties: false,
+      },
+      run: async ({ q }, me) => listAuthors(db, me, { q }),
+    },
+    {
+      name: "get_author",
+      description: "One author, with every artifact that names them, newest first.",
+      inputSchema: {
+        type: "object",
+        properties: { author: { type: "string", description: "the author's id (a UUID: list_authors gives it)" } },
+        required: ["author"],
+        additionalProperties: false,
+      },
+      run: async ({ author }, me) => authorOf(db, me, author),
+    },
   ];
 
   // every proposal is an intent's (play/SPEC.md §4.12): one made for an intent names it, held to its gate first (its spec
@@ -792,9 +917,11 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         return reply(msg.id, {
           protocolVersion: PROTOCOL,
           capabilities: { tools: {} },
-          serverInfo: { name: "play.maia.city", version: "1" },
+          serverInfo: { name: "play.maia.city", title: "play.maia.city, for avenMAIA", version: "1" },
           instructions:
-            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files, and every step of an asset's history (asset_history, get_asset at a step); propose new versions or assets as readable source, or draft a version step by step with asset_edit and propose the draft. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame; a story may link a version of another into its timeline (a track of kind story, its clip naming that story's id and the version it plays: the trailer as its own story, linked into every film). Read the sandboxes (get_sandbox: what each draws, at which version, and how it lays it out) and propose changes of them (propose_sandbox_change). Read the factories (get_factory: a production line and its bill of process, its simulation sized from it) and propose new versions of them, drafted step by step with factory_edit (propose_factory_version). Read the game's configs (get_game_config: first the levelling, how a village grows level by level) and propose new versions of them (game_config_edit, propose_game_config_version). Everything on the Proposals board is an intent, Idea → Specify → Prototype → Proposal → Accepted (list_intents, get_intent): add one (add_intent: the only way in), specify it (specify_intent: a goal, a scope and checks, each a test, a measure or a look, must or nice, every test and measure with its run, a command that runs as written in avenBOX), and once an admin has approved the spec, build it in avenBOX (the cloud environment the agents prototype in, Postgres up), run and record every check with bun play/avenbox/intent.ts <the intent's id> --record (check_intent) and propose it naming the intent (every propose tool's intent): play takes it only when every must check passes; code ships by pull request with Intent: <the intent's id> in its commits, main runs the same checks after the merge and the intent is accepted on main's results. Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's Proposals page, then accept or archive it; nothing here approves a spec, accepts or marks an intent done, an agent archives only its own proposals still waiting (archive_proposal), and no proposed code runs on play's server.",
+            "You are avenMAIA, Maia City's agent: on play every agent connected over MCP is avenMAIA, whatever its client or token, working for the admin whose token connected it (your operator). " +
+            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files, and every step of an asset's history (asset_history, get_asset at a step); propose new versions or assets as readable source, or draft a version step by step with asset_edit and propose the draft. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame; a story may link a version of another into its timeline (a track of kind story, its clip naming that story's id and the version it plays: the trailer as its own story, linked into every film). Read the sandboxes (get_sandbox: what each draws, at which version, and how it lays it out) and propose changes of them (propose_sandbox_change). Read the factories (get_factory: a production line and its bill of process, its simulation sized from it) and propose new versions of them, drafted step by step with factory_edit (propose_factory_version). Read the game's configs (get_game_config: first the levelling, how a village grows level by level) and propose new versions of them (game_config_edit, propose_game_config_version). Everything on the Proposals board is an intent, Idea → Specify → Prototype → Proposal → Accepted (list_intents, get_intent): add one (add_intent: the only way in), specify it (specify_intent: a goal, a scope and checks, each a test, a measure or a look, must or nice, every test and measure with its run, a command that runs as written in avenBOX), and once an admin has approved the spec, build it in avenBOX (the cloud environment the agents prototype in, Postgres up), run and record every check with bun play/avenbox/intent.ts <the intent's id> --record (check_intent) and propose it naming the intent (every propose tool's intent): play takes it only when every must check passes; code ships by pull request with Intent: <the intent's id> in its commits, main runs the same checks after the merge and the intent is accepted on main's results. Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's Proposals page, then accept or archive it; nothing here approves a spec, accepts or marks an intent done, an agent archives only its own proposals still waiting (archive_proposal), and no proposed code runs on play's server." +
+            ARTIFACTS_RULE,
         });
       case "ping":
         return reply(msg.id, {});
@@ -808,7 +935,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           return reply(msg.id, { content: [{ type: "text", text: JSON.stringify(out, null, 2) }], structuredContent: Array.isArray(out) ? { items: out } : out });
         } catch (e) {
           // what went wrong, as the tool's own answer the agent reads (a refused recipe, a moved head, no such asset)
-          if (e instanceof ProposalError || e instanceof IntentError || e instanceof NotFound || e instanceof StoryError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError || e instanceof AssetDocError || (e as Error)?.name === "Denied" || (e as any)?.status)
+          if (e instanceof ProposalError || e instanceof IntentError || e instanceof NotFound || e instanceof StoryError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError || e instanceof AssetDocError || e instanceof ArtifactError || (e as Error)?.name === "Denied" || (e as any)?.status)
             return reply(msg.id, { content: [{ type: "text", text: (e as Error).message }], isError: true });
           console.error(e);
           return reply(msg.id, { content: [{ type: "text", text: "Something went wrong on play's side." }], isError: true });

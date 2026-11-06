@@ -29,3 +29,7 @@ export const GAME_CONFIG = {
   /** the levelling: how a village grows, level by level (Samuel 2026-11-04) */
   levelling: "a392ce93-f60e-4d67-8f96-19ba866c7710",
 } as const;
+
+/** avenMAIA, the one identity of every agent connected over MCP (play/SPEC.md §4.13, Samuel 2026-11-06): uuidOf("agent:avenmaia"),
+ * the row migration 0027-artifacts makes. Its name is only shown. */
+export const AVENMAIA = "86090f35-1937-8d5d-bd28-194b80430f25";

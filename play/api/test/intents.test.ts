@@ -193,7 +193,7 @@ suite("intents", () => {
     const none = (await fern(i.id)).error;
     expect(none).toContain("c1 (The recipe builds in the asset box): no result yet");
     expect(none).toContain("c2 (Its height is 0.4–0.6 m): no result yet");
-    expect(none).not.toContain("c3");
+    expect(none).not.toContain("c3 ("); // the nice check is not named (the bare "c3" can be in the intent's UUID)
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c9", pass: true, evidence: "x" }] })).error).toContain("not one of this intent's checks");
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: " " }] })).error).toContain("evidence");
     await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "render.mjs: built in 1.2 s" }, { check: "c2", pass: false, evidence: "measured 0.72 m" }] });
@@ -249,7 +249,7 @@ suite("intents", () => {
     await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "main", where: "main", commit: sha }, { check: "c2", pass: false, evidence: "0.7", where: "main", commit: sha }] });
     const onMain = (await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.error;
     expect(onMain).toContain("c2 (Its height is 0.4–0.6 m): failed on main");
-    expect(onMain).not.toContain("c1");
+    expect(onMain).not.toContain("c1 (");
     await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5 on main", where: "main", commit: sha }] });
     expect((await call("ada", "GET", `/api/intents/${i.id}`)).data.results.c2).toMatchObject({ where: "main", commit: sha, pass: true });
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data).toMatchObject({ stage: "accepted", decided_by: "ada" });
