@@ -15,6 +15,7 @@ import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
 import { Rate } from "../src/limits";
 import { UUID } from "../src/uuid";
+import { placeholderIn } from "../src/intents";
 
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;
@@ -83,8 +84,8 @@ suite("intents", () => {
     goal: "A shade fern stands in the north beds.",
     scope: "A new plant asset (group plants). Nothing else changes.",
     checks: [
-      { check: "The recipe builds in the asset box", how: "test", by: "bun run scripts/render.mjs --asset <its id>" },
-      { check: "Its height is 0.4–0.6 m", how: "measure", by: "the asset box's measured size, y" },
+      { check: "The recipe builds in the asset box", how: "test", by: "render.mjs builds it", run: "cd play/site && bun scripts/render.mjs --group plants --label 'Shade fern'" },
+      { check: "Its height is 0.4–0.6 m", how: "measure", by: "the asset box's measured size, y, 0.4–0.6 m", run: "cd play/site && bun scripts/measure.mjs --axis y --min 0.4 --max 0.6" },
       { check: "Its silhouette matches the reference sheet", how: "look", by: "the reference sheet, side by side at 1 m", must: false },
     ],
   };
@@ -127,6 +128,51 @@ suite("intents", () => {
     expect(s.spec.checks.map((c: any) => [c.id, c.how, c.must])).toEqual([["c1", "test", true], ["c2", "measure", true], ["c3", "look", false]]);
     // specified again, its spec is replaced
     expect((await tool("specify_intent", { intent: i.id, ...SPEC, checks: SPEC.checks.slice(0, 2) })).spec.checks).toHaveLength(2);
+  });
+
+  test("a test or measure check carries its run, a command that runs as written in avenBOX: no placeholder in it", async () => {
+    const i = await tool("add_intent", { title: "Runnable checks" });
+    const spec = (run: string | undefined, how = "test") => tool("specify_intent", { intent: i.id, ...SPEC, checks: [{ check: "It holds", how, by: "the command passes", ...(run === undefined ? {} : { run }) }] });
+    expect((await spec(undefined)).error).toContain("Check c1 (a test) needs its run");
+    expect((await spec(" ", "measure")).error).toContain("Check c1 (a measure) needs its run");
+    const second = await tool("specify_intent", { intent: i.id, ...SPEC, checks: [SPEC.checks[0], { check: "It is 1 m", how: "measure", by: "a ruler" }] });
+    expect(second.error).toContain("Check c2 (a measure) needs its run");
+    for (const run of [
+      "TEST_DATABASE_URL=<a Postgres it may create databases on> bun test",
+      "bun test test/<name>.test.ts",
+      "cd play/api && bun test …",
+      "cd play/api && bun test ...",
+      "cd play/api && TEST_DATABASE_URL=postgres://x@127.0.0.1/y bun test",
+    ])
+      expect((await spec(run)).error).toContain("Check c1's run holds a placeholder");
+    for (const run of [
+      `grep -c '<div class="card">' play/site/build/index.html`,
+      "bun test 2>&1 | tail -3",
+      "cd play/api && bun test test/intents.test.ts",
+      `grep -q "…" play/SPEC.md && sort < play/SPEC.md > /dev/null`,
+      `psql "$TEST_DATABASE_URL" -tAc 'select 1'`,
+    ]) {
+      const ok = await spec(run);
+      expect(ok.error).toBeUndefined();
+      expect(ok.spec.checks[0].run).toBe(run);
+    }
+    // a look needs none; given one, it is kept (the command that makes what is looked at)
+    const look = await tool("specify_intent", { intent: i.id, ...SPEC, checks: [SPEC.checks[0], { check: "It looks right", how: "look", by: "the sheet", must: false }] });
+    expect(look.spec.checks[1].run).toBeUndefined();
+    expect(placeholderIn("node shoot.mjs > out/<id>.png")).toBe("<id>");
+    expect(placeholderIn("cat < in.txt > out.txt")).toBeNull();
+    expect(placeholderIn("diff <(sort a) <(sort b)")).toBeNull();
+  });
+
+  test("a spec from before runs existed keeps its checks without one, and its intent still proposes", async () => {
+    const i = await tool("add_intent", { title: "An old fern" });
+    const old = { goal: "x", scope: "y", checks: [{ id: "c1", check: "It builds", how: "test", by: "bun run scripts/render.mjs --asset <its id>", must: true }] };
+    await db.query(`UPDATE play.intents SET stage = 'prototype', spec = ($2::text)::jsonb, approved_by = $3, approved_at = now() WHERE id = $1`, [i.id, JSON.stringify(old), who.ada.id]);
+    expect((await tool("get_intent", { intent: i.id })).spec.checks[0].run).toBeUndefined();
+    await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "built" }] });
+    const made = await tool("propose_asset", { group: "plants", label: "Old fern", source: SOURCE, note: "x", intent: i.id });
+    expect(made.error).toBeUndefined();
+    expect((await tool("get_intent", { intent: i.id })).stage).toBe("proposal");
   });
 
   test("the gates: approved before it is built, every must check passed before it is proposed", async () => {
@@ -186,12 +232,50 @@ suite("intents", () => {
     expect((await call("ada", "POST", `/api/intents/${i.id}/reopen`)).data.stage).toBe("specify");
   });
 
-  test("an intent whose work is not a proposal is accepted from Prototype, once every must check passes", async () => {
+  test("the final gate: an intent whose work goes through main is accepted on main's results", async () => {
     const i = await intentAt("Sources on play", "prototype");
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.error).toContain("Every must check passes");
-    await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "PR #1 merged, tests green" }, { check: "c2", pass: true, evidence: "0.5" }] });
+    const sha = "0123456789abcdef0123456789abcdef01234567";
+    // where a result ran: avenBOX by default, or main; a commit is a whole git hash
+    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "x", where: "laptop" }] })).error).toContain("where is avenBOX or main");
+    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "x", commit: "abc123" }] })).error).toContain("40-character git hash");
+    const boxed = await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "intent.ts: exit 0" }, { check: "c2", pass: true, evidence: "0.5", commit: sha }] });
+    expect(boxed.results).toMatchObject({ c1: { pass: true, where: "avenBOX" }, c2: { pass: true, where: "avenBOX", commit: sha } });
+    // passed in avenBOX alone: not yet; each check named
+    const refused = (await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.error;
+    expect(refused).toContain("c1 (The recipe builds in the asset box): passed in avenBOX, not yet run on main");
+    expect(refused).toContain("c2 (Its height is 0.4–0.6 m): passed in avenBOX, not yet run on main");
+    // main runs them after the merge: one fails there
+    await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "main", where: "main", commit: sha }, { check: "c2", pass: false, evidence: "0.7", where: "main", commit: sha }] });
+    const onMain = (await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.error;
+    expect(onMain).toContain("c2 (Its height is 0.4–0.6 m): failed on main");
+    expect(onMain).not.toContain("c1");
+    await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5 on main", where: "main", commit: sha }] });
+    expect((await call("ada", "GET", `/api/intents/${i.id}`)).data.results.c2).toMatchObject({ where: "main", commit: sha, pass: true });
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data).toMatchObject({ stage: "accepted", decided_by: "ada" });
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).status).toBe(409);
+  });
+
+  test("a must check without a run (a look, a spec from before) is accepted on its result wherever it ran", async () => {
+    const i = await tool("add_intent", { title: "A look only" });
+    await tool("specify_intent", { intent: i.id, ...SPEC, checks: [{ check: "It looks like the sheet", how: "look", by: "the sheet at 1 m" }] });
+    await call("ada", "POST", `/api/intents/${i.id}/approve`);
+    await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "side by side: the same" }] });
+    expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.stage).toBe("accepted");
+  });
+
+  test("the MCP teaches it: every check runs in avenBOX, intent.ts records them, main records them again", async () => {
+    const tools = (await rpc("tools/list")).tools as { name: string; description: string; inputSchema: any }[];
+    const of = (name: string) => tools.find((t) => t.name === name)!;
+    const specify = of("specify_intent");
+    for (const says of ["avenBOX", "run", "play/avenbox/intent.ts", "placeholder"]) expect(specify.description).toContain(says);
+    expect(specify.inputSchema.properties.checks.items.properties.run.description).toContain("avenBOX");
+    const check = of("check_intent");
+    expect(check.inputSchema.properties.results.items.properties.where.enum).toEqual(["avenBOX", "main"]);
+    for (const says of ["play/avenbox/intent.ts", "Intent: ", "main"]) expect(check.description).toContain(says);
+    for (const says of ["avenBOX", "play/avenbox/intent.ts", "Intent: ", ".github/workflows/intents.yml", "main's results"]) expect(of("list_intents").description).toContain(says);
+    const { instructions } = await rpc("initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1" } });
+    for (const says of ["avenBOX", "play/avenbox/intent.ts", "Intent: ", "main's results"]) expect(instructions).toContain(says);
   });
 
   test("every proposal is an intent's: one made without an intent gets one, which follows it", async () => {

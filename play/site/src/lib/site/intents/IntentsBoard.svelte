@@ -43,9 +43,11 @@
 	// its checks), its checks' latest results while prototyped, and its proposals (id, status, kind, group)
 	type Kind = 'idea' | 'fix' | 'improve';
 	type Stage = 'idea' | 'specify' | 'prototype' | 'proposal' | 'accepted' | 'archived';
-	type Check = { id: string; check: string; how: 'test' | 'measure' | 'look'; by: string; must: boolean };
+	// run: the command that decides a check in avenBOX (test and measure checks since 2026-11-06; play/SPEC.md §4.12)
+	type Check = { id: string; check: string; how: 'test' | 'measure' | 'look'; by: string; run?: string; must: boolean };
 	type Spec = { goal: string; scope: string; checks: Check[] };
-	type Results = Record<string, { pass: boolean; evidence: string; by: string | null; at: string }>;
+	// where: in avenBOX (the agent's), or on main after the merge (.github/workflows/intents.yml), on which commit
+	type Results = Record<string, { pass: boolean; evidence: string; by: string | null; at: string; where?: 'avenBOX' | 'main'; commit?: string }>;
 	type Intent = { id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null; spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null; decided_at: string | null; decided_by: string | null; proposals: { id: string; status: string; kind: P['kind']; grp: string | null }[] };
 	// an intent's kind, shown as what it asks (the kind 'idea' as Make, the stage Idea being its own; Samuel 2026-11-06)
 	const KINDS: [Kind, string][] = [
@@ -102,6 +104,11 @@
 		return musts.length ? `${musts.filter((c) => i.results?.[c.id]?.pass === true).length}/${musts.length} checks` : '';
 	};
 	const allMustPass = (i: { spec: Spec | null; results: Results | null }) => !!i.spec && i.spec.checks.filter((c) => c.must).every((c) => i.results?.[c.id]?.pass === true);
+	/** the final gate to accepting from Prototype: every must check passed, and on main where it has a run (play/api's unmetOnMain) */
+	const allMustPassOnMain = (i: { spec: Spec | null; results: Results | null }) =>
+		!!i.spec && i.spec.checks.filter((c) => c.must).every((c) => i.results?.[c.id]?.pass === true && (!c.run || i.results?.[c.id]?.where === 'main'));
+	/** where a result ran, as its mark says: avenBOX, or main and its commit */
+	const whereOf = (r: Results[string]) => (r.where === 'main' ? `main${r.commit ? ` @ ${r.commit.slice(0, 7)}` : ''}` : 'avenBOX');
 	/** what an intent's proposals came to, by status: "2 proposals · 1 accepted" */
 	const proposedFor = (i: Intent) => {
 		const n: Record<string, number> = {};
@@ -295,8 +302,8 @@
 	/** what to tell an agent sent to an intent: the intent by its id (its title only shown), and its stage's work */
 	const briefOf = (i: Intent) =>
 		i.stage === 'prototype'
-			? `Build Maia City's intent ${i.id} on play ("${i.title}"). Read it and its approved spec with the maia-play MCP tool get_intent. Build what its goal and scope say. Run each check as its spec says (test: run the command; measure: read the value; look: compare with the reference) and record every result with its evidence with check_intent, a failure as a failure; repeat until every must check passes. Then propose the work with the propose tool's intent: "${i.id}". play refuses it before every must check passes.`
-			: `Specify Maia City's intent ${i.id} on play ("${i.title}"). Read it with the maia-play MCP tool get_intent, then specify it with specify_intent: its goal (what is true when it is done, in a sentence), its scope (what changes, named by UUIDs, hashes or paths, and what stays as it is) and its checks, each ONE statement that passes or fails, checked by a test (a command that passes), a measure (a value and its range from a named tool) or a look (against a named reference), must or nice; every check decidable by someone who reads only the intent and the result. Then stop: an admin approves the spec before anything is built.`;
+			? `Build Maia City's intent ${i.id} on play ("${i.title}") in avenBOX, the cloud environment our agents prototype in (Postgres up, TEST_DATABASE_URL set: play/avenbox/up.sh). Read it and its approved spec with the maia-play MCP tool get_intent. Build what its goal and scope say. Run every check and record it with bun play/avenbox/intent.ts ${i.id} --record (it runs each check's run and records it with check_intent, a failure as a failure; record a look by hand with check_intent); repeat until every must check passes. Then propose the work with the propose tool's intent: "${i.id}" (play refuses it before every must check passes), or, when the work is code, ship it by pull request with the line Intent: ${i.id} at the end of its commits' messages: once it is merged, main runs the same checks in the same box (.github/workflows/intents.yml) and records them as main's, and it is accepted on main's results.`
+			: `Specify Maia City's intent ${i.id} on play ("${i.title}"). Read it with the maia-play MCP tool get_intent, then specify it with specify_intent: its goal (what is true when it is done, in a sentence), its scope (what changes, named by UUIDs, hashes or paths, and what stays as it is) and its checks, each ONE statement that passes or fails, checked by a test (a command that passes), a measure (a value and its range from a named tool) or a look (against a named reference), must or nice; every check decidable by someone who reads only the intent and the result. Every test and measure check carries its run: the exact command that decides it in avenBOX, from the repository's root, as written, nothing in it left to fill in (a test passes when it exits 0; a measure prints its value and exits 0 only in its range); in Prototype bun play/avenbox/intent.ts runs them all, and main runs them again once the work is merged. Then stop: an admin approves the spec before anything is built.`;
 	async function copyBrief(i: Intent) {
 		try {
 			await navigator.clipboard.writeText(briefOf(i));
@@ -414,7 +421,8 @@
 									<div class="what">
 										<p><span class="cid">{c.id}</span> {c.check}{#if !c.must}{' '}<span class="pill nice" title="Nice to have: it does not hold the proposal back">nice</span>{/if}</p>
 										<p class="muted small"><span class="how">{c.how}</span> · {c.by}</p>
-										{#if r}<p class="evidence small">{r.evidence}{#if r.by}{' '}<span class="muted">· {r.by}, {shortWhen(r.at)}</span>{/if}</p>{/if}
+										{#if c.run}<code class="run" title="Its run: the command that decides it in avenBOX, and on main once merged">{c.run}</code>{/if}
+										{#if r}<p class="evidence small"><span class="where" class:main={r.where === 'main'} title={r.where === 'main' ? 'Run on main after the merge' : 'Run in avenBOX'}>{whereOf(r)}</span>{' '}{r.evidence}{#if r.by}{' '}<span class="muted">· {r.by}, {shortWhen(r.at)}</span>{/if}</p>{/if}
 									</div>
 								</li>
 							{/each}
@@ -470,7 +478,7 @@
 				{/if}
 				<button class="btn small ghost" onclick={closeIntent} aria-label="Close">Close</button>
 				{#if i.stage === 'specify' && i.spec}<button class="btn small" onclick={() => decideIntent(i.id, 'approve')} title="The spec is right: an agent may build it">Approve spec</button>
-				{:else if i.stage === 'prototype'}<button class="btn small" onclick={() => decideIntent(i.id, 'accept')} disabled={!allMustPass(i)} title={allMustPass(i) ? 'What it asked is in' : 'Every must check passes first'}>Accept</button>{/if}
+				{:else if i.stage === 'prototype'}<button class="btn small" onclick={() => decideIntent(i.id, 'accept')} disabled={!allMustPassOnMain(i)} title={allMustPassOnMain(i) ? 'What it asked is in' : allMustPass(i) ? 'Every must check with a run passes on main first, once its work is merged' : 'Every must check passes first'}>Accept</button>{/if}
 			</footer>
 		</div>
 	{/if}
@@ -766,6 +774,10 @@
 	.cid { font-family: ui-monospace, monospace; font-size: 0.76rem; color: var(--muted, #777); margin-right: 0.15rem; }
 	.how { font-weight: 600; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.04em; }
 	.evidence { white-space: pre-line; color: var(--ink-soft, #4d5d51); }
+	/* a check's run, the command that decides it, and where its last result ran (avenBOX, or main @ its commit) */
+	.checks code.run { display: block; margin-top: 0.2rem; padding: 0.25rem 0.45rem; border-radius: 6px; background: var(--paper, #f6f1e6); font-family: ui-monospace, monospace; font-size: 0.74rem; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink, #1f2a22); }
+	.where { display: inline-block; padding: 0 0.4em; border-radius: 999px; font-size: 0.68rem; font-weight: 600; background: var(--paper, #f6f1e6); color: var(--muted, #777); white-space: nowrap; }
+	.where.main { background: color-mix(in srgb, var(--sage, #8fae8b) 40%, transparent); color: var(--brand-green, #24452f); }
 	.pill.nice { font-size: 0.68rem; padding: 0 0.45em; }
 	.pill.pass { background: color-mix(in srgb, var(--sage, #8fae8b) 40%, transparent); }
 	/* a proposal's review: its intent's checks as one strip of marks */

@@ -76,11 +76,14 @@ else
   say "no PostgreSQL tools in this image"
 fi
 
-# the dependencies, as CI installs them
+# the dependencies, as CI installs them, as the checkout's owner (on main's runner this runs under sudo)
+as_owner() {
+  if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != root ]; then sudo -u "$SUDO_USER" -H env "PATH=$PATH" "$@"; else "$@"; fi
+}
 if command -v bun > /dev/null; then
   for d in play/api play/site website; do
     if [ -f "$ROOT/$d/bun.lock" ]; then
-      (cd "$ROOT/$d" && timeout 300 bun install --frozen-lockfile > /dev/null 2>&1 && touch node_modules) && say "$d's dependencies installed" || say "could not install $d's dependencies"
+      (cd "$ROOT/$d" && as_owner timeout 300 bun install --frozen-lockfile > /dev/null 2>&1 && as_owner touch node_modules) && say "$d's dependencies installed" || say "could not install $d's dependencies"
     fi
   done
 else

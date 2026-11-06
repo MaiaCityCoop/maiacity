@@ -14,7 +14,9 @@
 // Every check runs in avenBOX (play/SPEC.md §4.12, Samuel 2026-11-06): the cloud environment the agents prototype in,
 // with Postgres up and TEST_DATABASE_URL set (play/avenbox/up.sh). A test or measure check carries its `run`, the exact
 // command that decides it there, from the repository's root, as written: no placeholder in it. In Prototype,
-// `bun play/avenbox/intent.ts <intent> --record` runs every check of a spec and records the results.
+// `bun play/avenbox/intent.ts <intent> --record` runs every check of a spec and records the results. Once the work is
+// merged, main runs the same checks in the same box (.github/workflows/intents.yml, the commits' `Intent: <uuid>`
+// trailers) and records them as main's: an intent whose work goes through main is accepted on main's results.
 import { Denied, COOP, type Me } from "./access";
 import type { Queryable } from "./pg";
 import { NOTE_MOST } from "./notes";
@@ -36,7 +38,10 @@ export const CHECK_HOWS = ["test", "measure", "look"] as const;
 /** run: the command that decides it in avenBOX (required for test and measure since 2026-11-06; specs from before have none) */
 export type Check = { id: string; check: string; how: (typeof CHECK_HOWS)[number]; by: string; run?: string; must: boolean };
 export type Spec = { goal: string; scope: string; checks: Check[] };
-export type Result = { pass: boolean; evidence: string; by: string | null; at: string };
+/** where a check's result was run: in avenBOX by the agent, or on main by .github/workflows/intents.yml after the merge */
+export const WHERES = ["avenBOX", "main"] as const;
+export type Where = (typeof WHERES)[number];
+export type Result = { pass: boolean; evidence: string; by: string | null; at: string; where?: Where; commit?: string };
 export const TITLE_MOST = 200;
 export const CHECKS_MOST = 12;
 const LINE_MOST = 600;
@@ -206,7 +211,11 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
     if (!ids.has(r?.check)) throw new IntentError(`${r?.check} is not one of this intent's checks (${[...ids].join(", ")}).`);
     if (typeof r?.pass !== "boolean") throw new IntentError(`${r.check}: pass is true or false.`);
     const evidence = textOf(r?.evidence, `${r.check}'s evidence (the command and what it printed, the value measured, what was compared)`, 4000, true);
-    results[r.check] = { pass: r.pass, evidence, by: who.name, at };
+    const where = r?.where === undefined || r?.where === null || r?.where === "" ? "avenBOX" : r.where;
+    if (!WHERES.includes(where)) throw new IntentError(`${r.check}: where is ${WHERES.join(" or ")} (where the check was run).`);
+    const commit = r?.commit === undefined || r?.commit === null || r?.commit === "" ? undefined : `${r.commit}`;
+    if (commit !== undefined && !/^[0-9a-f]{40}$/.test(commit)) throw new IntentError(`${r.check}: commit is the 40-character git hash it ran on.`);
+    results[r.check] = { pass: r.pass, evidence, by: who.name, at, where, ...(commit ? { commit } : {}) };
   }
   await db.query(`UPDATE play.intents SET results = ($2::text)::jsonb WHERE id = $1`, [intent.id, JSON.stringify(results)]);
   return intentRow(db, intent.id);
@@ -217,6 +226,22 @@ export function unmet(intent: { spec: Spec | null; results: Record<string, Resul
   return (intent.spec?.checks ?? [])
     .filter((c) => c.must && intent.results?.[c.id]?.pass !== true)
     .map((c) => `${c.id} (${c.check}): ${intent.results?.[c.id] ? "failed" : "no result yet"}`);
+}
+
+/**
+ * The final gate, for an intent accepted from Prototype (its work merged into main, outside play's proposals): every
+ * must check with a `run` has passed on main (its latest result recorded there by .github/workflows/intents.yml), a
+ * pass in avenBOX alone is not enough; a must check without a run (a look, a spec from before) as unmet() reads it.
+ */
+export function unmetOnMain(intent: { spec: Spec | null; results: Record<string, Result> | null }) {
+  return (intent.spec?.checks ?? [])
+    .filter((c) => c.must)
+    .flatMap((c) => {
+      const r = intent.results?.[c.id];
+      if (!c.run) return r?.pass === true ? [] : [`${c.id} (${c.check}): ${r ? "failed" : "no result yet"}`];
+      if (r?.pass === true && r.where === "main") return [];
+      return [`${c.id} (${c.check}): ${!r ? "no result yet" : r.where !== "main" ? `${r.pass ? "passed" : "failed"} in avenBOX, not yet run on main` : "failed on main"}`];
+    });
 }
 
 /**
@@ -237,7 +262,7 @@ export async function intentReady(db: Queryable, me: Me | null, id: unknown) {
 /**
  * An admin's decision on the board: approve a spec (Specify → Prototype: the agent may build it), send an approved one
  * back to Specify, accept an intent whose work is not one of play's proposals (Prototype → Accepted, every must check
- * passed), reject one (it ends archived), or bring a decided one back (to Specify with its spec, else to Idea).
+ * passed, on main where it has a run: unmetOnMain), reject one (it ends archived), or bring a decided one back (to Specify with its spec, else to Idea).
  */
 export async function decideIntent(db: Queryable, me: Me | null, id: string, verdict: IntentVerdict) {
   const who = admin(me);
@@ -256,8 +281,8 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
       break;
     case "accept": {
       if (intent.stage !== "prototype") refuse(`An intent is accepted here from Prototype (its work outside play's proposals); one at the ${intent.stage} stage is decided by its proposals.`);
-      const missing = unmet(intent);
-      if (missing.length) refuse(`Every must check passes before an intent is accepted: ${missing.join("; ")}.`);
+      const missing = unmetOnMain(intent);
+      if (missing.length) refuse(`Every must check passes before an intent is accepted, each with a run on main once its work is merged (.github/workflows/intents.yml): ${missing.join("; ")}.`);
       await db.query(`UPDATE play.intents SET stage = 'accepted', decided_by = $2, decided_at = now() WHERE id = $1`, [intent.id, who.id]);
       break;
     }

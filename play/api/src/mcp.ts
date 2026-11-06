@@ -15,7 +15,7 @@ import type { Db } from "./pg";
 import type { Me } from "./access";
 import { assetOf, listAssets, NotFound } from "./assets";
 import { archiveOwn, listProposals, proposalsOfIntent, propose, ProposalError } from "./proposals";
-import { addIntent, CHECK_HOWS, CHECKS_MOST, intentOf, IntentError, intentReady, INTENT_KINDS, INTENT_STAGES, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST } from "./intents";
+import { addIntent, CHECK_HOWS, CHECKS_MOST, intentOf, IntentError, intentReady, INTENT_KINDS, INTENT_STAGES, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES } from "./intents";
 import { adminByToken } from "./tokens";
 import { admin, AUDIO_TYPES, editStory, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, proposeStory, putAudioBase64, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAtStep, storyHistory, storyOf, StoryError, VIDEO_TYPES } from "./stories";
 import { AssetDocError, assetAtStep, assetHistory, editAsset } from "./assetdocs";
@@ -626,7 +626,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
       name: "list_intents",
       description:
         "Maia City's intents, the latest first: everything on the Proposals board, each something wanted made, fixed or improved, going Idea → Specify → Prototype → Proposal → Accepted (or Archived). Each has its id (a UUID), kind (idea, fix, improve), title, note, stage, who wrote it, its spec (goal, scope, checks) once specified, its checks' results while prototyped, and its proposals (ids and statuses). Every proposal is an intent's. " +
-        "Sent to work on an intent: read it with get_intent. At Idea, specify it (specify_intent) and stop: an admin approves the spec. At Prototype (approved), build it, run each check and record its result with its evidence (check_intent), and once every must check passes, propose it naming the intent (every propose tool's `intent`): play refuses it before.",
+        "Sent to work on an intent: read it with get_intent. At Idea, specify it (specify_intent: every test and measure check with its `run`, a command that runs as written in avenBOX) and stop: an admin approves the spec. At Prototype (approved), build it in avenBOX (the cloud environment the agents prototype in: Postgres up, TEST_DATABASE_URL set, play/avenbox/up.sh), run every check and record it with `bun play/avenbox/intent.ts <the intent's id> --record` (check_intent by hand only for a look), until every must check passes; then propose it naming the intent (every propose tool's `intent`: play refuses it before), or, when its work is code, ship it by pull request with the trailer `Intent: <the intent's id>` in its commits: once merged, main runs the same checks in the same box (.github/workflows/intents.yml) and records them as main's, and an admin accepts it on main's results.",
       inputSchema: {
         type: "object",
         properties: { stage: { type: "string", enum: [...INTENT_STAGES, "all"], description: "which intents: one stage, or all; those not yet decided (idea, specify, prototype, proposal) if left out" } },
@@ -669,6 +669,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         "goal: what is true when it is done, in a sentence. scope: what changes, named precisely (assets, stories and sandboxes by their UUIDs, files by their paths), and what stays as it is. " +
         `checks: 1 to ${CHECKS_MOST}, each ONE statement that passes or fails ("the fronds are 40–60 cm long", never "it looks realistic"), how it is checked, and must or nice: ` +
         "test (by: the command or test that passes), measure (by: the tool that measures it and the range it must fall in: the asset box's measured size or triangles, a count, a timing), look (by: the reference it is judged against by eye: a reference sheet by its hash, a photo, a named sandbox view). Prefer test and measure: they are deterministic; look is not. " +
+        "Every test and measure check carries its run: the exact command that decides it in avenBOX (the cloud environment the agents prototype in, and main's runner after the merge: Postgres 17 up, TEST_DATABASE_URL set, every part's dependencies installed), from the repository's root, as written: a test passes when its run exits 0; a measure's run prints the value and exits 0 only when it is in its range. Nothing in a run is left to fill in: play refuses a placeholder (`…`, `...`, `<its id>`, TEST_DATABASE_URL given a value) outside quotes. In Prototype `bun play/avenbox/intent.ts <the intent's id> --record` runs them all. " +
         "Every check must be decidable by someone who reads only the intent and the result. At least one is a must; every must passes before it is proposed. Specified again, the spec is replaced. Then an admin approves it (Specify → Prototype) before anything is built.",
       inputSchema: {
         type: "object",
@@ -686,6 +687,11 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
                 check: { type: "string", description: "one statement that passes or fails" },
                 how: { type: "string", enum: [...CHECK_HOWS] },
                 by: { type: "string", description: "test: the command that passes; measure: the tool and the range; look: the reference it is judged against" },
+                run: {
+                  type: "string",
+                  description:
+                    "the command that decides it in avenBOX, run from the repository's root as written, no placeholder in it (TEST_DATABASE_URL is set already): required for test (passes when it exits 0) and measure (prints the value, exits 0 only in its range); for a look, optionally the command that makes what is looked at (screenshots)",
+                },
                 must: { type: "boolean", description: "true (the default): it must pass before the intent is proposed; false: nice to have" },
               },
               required: ["check", "how", "by"],
@@ -704,7 +710,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     {
       name: "check_intent",
       description:
-        "Record the results of an intent's checks while it is prototyped (its spec approved): for each check its id (c1, c2 …), whether it passes, and its evidence: for a test the command and what it printed, for a measure the value measured and by what, for a look what was compared with what. Run the check before you record it; record a failure as a failure. The latest result of each check stands. Once every must check passes, propose the intent's work naming it (every propose tool's `intent`).",
+        "Record the results of an intent's checks while it is prototyped (its spec approved): for each check its id (c1, c2 …), whether it passes, and its evidence: for a test the command and what it printed, for a measure the value measured and by what, for a look what was compared with what; where it ran (avenBOX, the default, or main) and the commit. Run the check before you record it; record a failure as a failure. The latest result of each check stands. `bun play/avenbox/intent.ts <the intent's id> --record` runs every check with a run in avenBOX and records them itself; record by hand only a look. Once every must check passes, propose the intent's work naming it (every propose tool's `intent`), or ship its code by pull request with `Intent: <the intent's id>` in its commits: main records the checks again after the merge (where main), and the intent is accepted on those.",
       inputSchema: {
         type: "object",
         properties: {
@@ -714,7 +720,13 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
             minItems: 1,
             items: {
               type: "object",
-              properties: { check: { type: "string", description: "the check's id: c1, c2 …" }, pass: { type: "boolean" }, evidence: { type: "string" } },
+              properties: {
+                check: { type: "string", description: "the check's id: c1, c2 …" },
+                pass: { type: "boolean" },
+                evidence: { type: "string" },
+                where: { type: "string", enum: [...WHERES], description: "where it ran: avenBOX (the default) or main (after the merge, by .github/workflows/intents.yml)" },
+                commit: { type: "string", description: "the 40-character git hash it ran on" },
+              },
               required: ["check", "pass", "evidence"],
               additionalProperties: false,
             },
@@ -782,7 +794,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           capabilities: { tools: {} },
           serverInfo: { name: "play.maia.city", version: "1" },
           instructions:
-            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files, and every step of an asset's history (asset_history, get_asset at a step); propose new versions or assets as readable source, or draft a version step by step with asset_edit and propose the draft. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame; a story may link a version of another into its timeline (a track of kind story, its clip naming that story's id and the version it plays: the trailer as its own story, linked into every film). Read the sandboxes (get_sandbox: what each draws, at which version, and how it lays it out) and propose changes of them (propose_sandbox_change). Read the factories (get_factory: a production line and its bill of process, its simulation sized from it) and propose new versions of them, drafted step by step with factory_edit (propose_factory_version). Read the game's configs (get_game_config: first the levelling, how a village grows level by level) and propose new versions of them (game_config_edit, propose_game_config_version). Everything on the Proposals board is an intent, Idea → Specify → Prototype → Proposal → Accepted (list_intents, get_intent): add one (add_intent: the only way in), specify it (specify_intent: a goal, a scope and checks, each a test, a measure or a look, must or nice), and once an admin has approved the spec, build it, record each check's result with its evidence (check_intent) and propose it naming the intent (every propose tool's intent): play takes it only when every must check passes. Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's Proposals page, then accept or archive it; nothing here approves a spec, accepts or marks an intent done, an agent archives only its own proposals still waiting (archive_proposal), and no proposed code runs on play's server.",
+            "Maia City's asset library and its stories. Read assets, versions, their readable sources and recipe files, and every step of an asset's history (asset_history, get_asset at a step); propose new versions or assets as readable source, or draft a version step by step with asset_edit and propose the draft. Read stories (films as timelines of tracks and clips: storyboard shots, voice, notes) and propose new stories or new versions of them, every field of every clip editable, adding their storyboard images with add_story_frame; a story may link a version of another into its timeline (a track of kind story, its clip naming that story's id and the version it plays: the trailer as its own story, linked into every film). Read the sandboxes (get_sandbox: what each draws, at which version, and how it lays it out) and propose changes of them (propose_sandbox_change). Read the factories (get_factory: a production line and its bill of process, its simulation sized from it) and propose new versions of them, drafted step by step with factory_edit (propose_factory_version). Read the game's configs (get_game_config: first the levelling, how a village grows level by level) and propose new versions of them (game_config_edit, propose_game_config_version). Everything on the Proposals board is an intent, Idea → Specify → Prototype → Proposal → Accepted (list_intents, get_intent): add one (add_intent: the only way in), specify it (specify_intent: a goal, a scope and checks, each a test, a measure or a look, must or nice, every test and measure with its run, a command that runs as written in avenBOX), and once an admin has approved the spec, build it in avenBOX (the cloud environment the agents prototype in, Postgres up), run and record every check with bun play/avenbox/intent.ts <the intent's id> --record (check_intent) and propose it naming the intent (every propose tool's intent): play takes it only when every must check passes; code ships by pull request with Intent: <the intent's id> in its commits, main runs the same checks after the merge and the intent is accepted on main's results. Proposals go to Maia City's admins, who read the source and see it built in the sandboxed asset box, or play a story's timeline, on play's Proposals page, then accept or archive it; nothing here approves a spec, accepts or marks an intent done, an agent archives only its own proposals still waiting (archive_proposal), and no proposed code runs on play's server.",
         });
       case "ping":
         return reply(msg.id, {});

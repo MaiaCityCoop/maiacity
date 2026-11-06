@@ -17,21 +17,23 @@ URL="postgres://postgres:play@127.0.0.1:$PORT/postgres"
 export PATH="$HOME/.bun/bin:$PATH"
 say() { echo "avenBOX: $*"; }
 ready() { pg_isready -q -h 127.0.0.1 -p "$PORT" 2> /dev/null; }
+# starting a cluster is root's (avenBOX runs as root; main's runner has sudo)
+as_root() { if [ "$(id -u)" = 0 ]; then "$@"; else sudo -n "$@"; fi; }
 # the cluster set to our port (pg_lsclusters: version, name, port …)
 ours() { pg_lsclusters -h 2> /dev/null | awk -v p="$PORT" '$3 == p { print $1, $2; exit }'; }
 
 if ! ready; then
   if [ -z "$(ours)" ]; then
     say "no PostgreSQL cluster on port $PORT yet: setting the box up first"
-    if [ "$(id -u)" = 0 ]; then bash "$ROOT/play/avenbox/setup.sh"; else sudo -n bash "$ROOT/play/avenbox/setup.sh"; fi
+    as_root env "PATH=$PATH" bash "$ROOT/play/avenbox/setup.sh"
   fi
   read -r V C <<< "$(ours)"
   if [ -n "${V:-}" ]; then
-    pg_ctlcluster "$V" "$C" start > /dev/null 2>&1 || {
+    as_root pg_ctlcluster "$V" "$C" start > /dev/null 2>&1 || {
       # a pid file left behind by a container that stopped (a snapshot keeps files, not processes)
       pid="/var/lib/postgresql/$V/$C/postmaster.pid"
-      if [ -f "$pid" ] && ! kill -0 "$(head -1 "$pid")" 2> /dev/null; then rm -f "$pid"; fi
-      pg_ctlcluster "$V" "$C" start > /dev/null 2>&1
+      if as_root test -f "$pid" && ! as_root kill -0 "$(as_root head -1 "$pid")" 2> /dev/null; then as_root rm -f "$pid"; fi
+      as_root pg_ctlcluster "$V" "$C" start > /dev/null 2>&1
     }
   fi
   for _ in $(seq 1 40); do ready && break; sleep 0.25; done
