@@ -4,7 +4,7 @@
 // source of truth: a factory changes only by proposal (over MCP), and nothing here writes over it. Run with every
 // deploy, by ./run.ts.
 import type { Db } from "../src/pg";
-import { seedFactory } from "../src/factories";
+import { seedDoc } from "../src/versioned";
 import { FACTORY } from "../src/ids";
 import { lifetracLine } from "./factories/lifetrac-line/index.js";
 
@@ -24,7 +24,7 @@ export async function seedFactories(db: Db): Promise<FactoriesReport> {
   const out: FactoriesReport = { seeded: [], present: [], errors: [] };
   for (const f of FACTORIES) {
     try {
-      if (await seedFactory(db, { id: f.id, json: f.json(), note: f.note, at: f.at })) out.seeded.push(f.id);
+      if (await seedDoc(db, "factory", { id: f.id, json: f.json(), note: f.note, at: f.at })) out.seeded.push(f.id);
       else out.present.push(f.id);
     } catch (e) {
       out.errors.push(`${f.id}: ${String((e as Error)?.message ?? e).slice(0, 300)}`);

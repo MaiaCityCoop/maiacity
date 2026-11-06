@@ -35,8 +35,8 @@ import { storyVersionId } from "./versions";
 import { UUID } from "./uuid";
 import { NOTE_MOST } from "./notes";
 import * as docs from "./docs";
-import { EditError } from "./docs/core";
-import { asDoc, asStory, authorOf, docIdOf, ensureStoryDoc, overlap, storyDocAt, versionAtFrontiers } from "./storydocs";
+import { asDoc, asStory, authorOf, docIdOf, ensureStoryDoc, storyDocAt, versionAtFrontiers } from "./storydocs";
+import { overlap } from "./versioned";
 import { closeWork, putAtProposal, settle, WORK_OF, workOf, WorkError } from "./work";
 
 export class StoryError extends Error {
@@ -46,6 +46,8 @@ export class StoryError extends Error {
 }
 
 export const SCHEMA = "story/1";
+/** the work a story's version is */
+const STORY_WORK = "story_version";
 export type Clip = { id: string; at: number; duration: number; [field: string]: unknown };
 export type Track = { id: string; kind: string; gain?: number; mute?: boolean; clips: Clip[] };
 export type StoryBody = { schema: typeof SCHEMA; format: string; fps: number; duration: number; tracks: Track[] };
@@ -641,7 +643,7 @@ export type StoryProposal = {
   body?: unknown; // the whole new timeline
   edits?: unknown; // or edits applied to the head's (or, with a branch, its last step)
   base?: string | null; // the head version's id it was made from, as the proposer saw it
-  branch?: number; // a draft made step by step with story_edit, proposed as it stands
+  variant?: number; // an intent variant made edit by edit (doc_edit), proposed as it stands
   intent?: string; // the intent it is the work of, by its UUID, held to its gate before (./intents.ts); none, and it is a new intent of its own
 };
 
@@ -655,58 +657,50 @@ async function asStoryError<R>(run: () => Promise<R>): Promise<R> {
     return await run();
   } catch (e) {
     if (e instanceof docs.DocError) throw new StoryError(e.message, e.status);
-    if (e instanceof docs.SchemaError || e instanceof EditError) throw new StoryError(e.message);
+    if (e instanceof docs.SchemaError || e instanceof docs.EditError) throw new StoryError(e.message);
     throw e;
   }
 }
 
-/** a draft branch of story `id`'s document, still open for steps */
-async function draftOf(tx: Queryable, docId: string, story: string, b: unknown): Promise<{ id: number; base: docs.Frontiers }> {
-  const n = Number(b);
-  if (!Number.isInteger(n) || n < 1) throw new StoryError("A draft is named by its number (story_edit gives it).");
-  const { rows } = await tx.query<{ id: string; status: string; base: docs.Frontiers }>(`SELECT id, status, base FROM play.doc_branches WHERE id = $1 AND doc_id = $2`, [n, docId]);
-  if (!rows[0]) throw new StoryError(`Story ${story} has no draft ${n}.`, 404);
-  if (rows[0].status !== "open") throw new StoryError(`Draft ${n} of ${story} was ${rows[0].status === "proposed" ? "proposed already: it is decided as it was proposed. Start a new draft" : rows[0].status}.`, 409);
-  return { id: n, base: rows[0].base };
+/** a story's intent variant `v`, still open for edits */
+async function openVariant(tx: Queryable, docId: string, story: string, v: unknown): Promise<{ id: number; seed: docs.Frontiers }> {
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 1) throw new StoryError("An intent variant is named by its number (doc_edit gives it).");
+  const { rows } = await tx.query<{ id: string; status: string; seed: docs.Frontiers }>(`SELECT id, status, seed FROM play.doc_variants WHERE id = $1 AND doc_id = $2 AND type = 'intent'`, [n, docId]);
+  if (!rows[0]) throw new StoryError(`Story ${story} has no intent variant ${n}.`, 404);
+  if (rows[0].status !== "open") throw new StoryError(`Variant ${n} of ${story} was ${rows[0].status === "proposed" ? "proposed already: it is decided as it was proposed. Start a new variant" : rows[0].status}.`, 409);
+  return { id: n, seed: rows[0].seed };
 }
-
-/** one step on draft `b`: edits, a whole timeline, or a title, checked whole */
-async function draftStep(tx: Queryable, story: string, docId: string, b: number, p: { edits?: unknown; body?: unknown; title?: unknown }, message: string, author: docs.Author) {
-  const cur = await storyDocAt(tx, story, b);
-  const title = p.title !== undefined ? text(p.title, "The title", 120, true) : cur.title;
-  const body = await checkBody(tx, p.body !== undefined ? p.body : p.edits !== undefined ? applyEdits(cur.body, p.edits) : cur.body, story);
-  return docs.commit(tx, docId, { branch: b, target: asDoc(title, body), message, author });
-}
-
-export type StoryDraft = { story: string; branch?: number; edits?: unknown; body?: unknown; title?: string; message?: string };
 
 /**
- * One step of a draft change to story `id`, as the admin `me`: edits (or a whole timeline, or a new title) on draft
- * `branch`, or on a new draft from the head. Every step is kept, with its message, who made it and when; the draft is
- * proposed as a version with propose_story_version (its `branch`).
+ * A story's edit as its document's whole new state (./versioned.ts's step hook): its edits (propose_story's ops:
+ * set_clip, add_clip, shift, edit_text …) applied to the timeline, or a whole new state (its title and timeline), the
+ * timeline checked whole as a proposal is.
  */
-export async function editStory(db: Db, me: Me | null, p: StoryDraft, via: "web" | "mcp" = "mcp") {
-  const who = admin(me);
-  const id = `${p?.story ?? ""}`;
-  if (!STORY_ID.test(id)) throw new StoryError("Name the story by its id, a UUID (list_stories).");
-  const message = text(p.message, "The step's message (what it does)", 500, true);
-  if (p.edits === undefined && p.body === undefined && p.title === undefined) throw new StoryError("A step is edits, a whole timeline (body) or a new title.");
-  if (p.edits !== undefined && p.body !== undefined) throw new StoryError("Give edits or a whole timeline (body), not both.");
-  return asStoryError(() =>
-    db.transaction(async (tx) => {
-      const { rows } = await tx.query<{ head: string | null; folded_into: string | null }>(`SELECT head, folded_into FROM play.stories WHERE id = $1`, [id]);
-      if (!rows[0]) throw new StoryError(`There is no story ${id}: propose it as a new story (propose_story).`, 404);
-      if (rows[0].folded_into) throw folded(id, rows[0].folded_into);
-      if (!rows[0].head) throw new StoryError(`Story ${id} has no accepted version yet: a new story is proposed whole (propose_story).`, 409);
-      const docId = await ensureStoryDoc(tx, id);
-      const author = authorOf(who, via === "mcp" ? "mcp" : "site");
-      const b = p.branch == null ? (await docs.branch(tx, docId, { author, note: message })).id : (await draftOf(tx, docId, id, p.branch)).id;
-      const step = await draftStep(tx, id, docId, b, p, message, author);
-      const now = await storyDocAt(tx, id, b);
-      const steps = await docs.history(tx, docId, { branch: b });
-      return { story: id, branch: b, step: step?.seq ?? null, changed: !!step, steps: steps.length, title: now.title, duration: now.body.duration };
-    }),
-  );
+export async function storyStep(tx: Queryable, story: string, cur: any, p: { edits?: unknown; whole?: unknown }): Promise<docs.Write> {
+  const now = asStory(cur);
+  if (p.whole !== undefined) {
+    if (!p.whole || typeof p.whole !== "object") throw new StoryError("A whole story is an object: its title and its timeline (doc_at's `json`).");
+    const w = asStory(p.whole);
+    return { target: asDoc(text(w.title ?? now.title, "The title", 120, true), await checkBody(tx, w.body, story)) };
+  }
+  // a title set among the edits ({ op: 'set', fields: { title } }) is the story's own field, beside its timeline
+  let title = now.title;
+  const edits = Array.isArray(p.edits)
+    ? p.edits.flatMap((e: any) => {
+        if (e?.op !== "set" || !e.fields || typeof e.fields !== "object" || !("title" in e.fields)) return [e];
+        const { title: t, ...rest } = e.fields;
+        title = text(t, "The title", 120, true);
+        return Object.keys(rest).length ? [{ ...e, fields: rest }] : [];
+      })
+    : p.edits;
+  if (Array.isArray(edits) && !edits.length) return { target: asDoc(title, now.body) };
+  return { target: asDoc(title, await checkBody(tx, applyEdits(now.body, edits), story)) };
+}
+
+/** a story's intent variant proposed as it stands (./versioned.ts propose_doc_version): its frozen version written */
+export async function proposeStoryVariant(db: Db, me: Me, o: { id: string; variant: number; note: string; intent?: string }, via: "web" | "mcp") {
+  return proposeStory(db, me, { story: o.id, variant: o.variant, note: o.note, ...(o.intent ? { intent: o.intent } : {}) }, false, via);
 }
 
 /** Propose a new story (`fresh`) or a new version of one, as the admin `me`, via `via`: an intent put at Proposal with it, for an admin to decide. */
@@ -717,10 +711,10 @@ export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fres
   const id = fresh ? randomUUID() : `${p?.story ?? ""}`;
   if (!STORY_ID.test(id)) throw new StoryError("Name the story by its id, a UUID (list_stories).");
   const note = text(p.note, "The note", NOTE_MOST, true);
-  const drafted = p.branch != null;
-  if (drafted && fresh) throw new StoryError("A new story is proposed whole (its body); drafts are of a story that has a version.");
+  const drafted = p.variant != null;
+  if (drafted && fresh) throw new StoryError("A new story is proposed whole (its body); an intent variant is of a story that has a version.");
   if (!drafted && (p.body === undefined) === (p.edits === undefined)) throw new StoryError("Give the new timeline (body) or edits to the head's, not both and not neither.");
-  if (drafted && p.body !== undefined && p.edits !== undefined) throw new StoryError("Give edits or a whole timeline (body) for the draft's last step, not both.");
+  if (drafted && (p.body !== undefined || p.edits !== undefined)) throw new StoryError("An intent variant is proposed as it stands: make its last edit with doc_edit.");
   const author = authorOf(who, via === "mcp" ? "mcp" : "site");
   return asStoryError(() =>
     db.transaction(async (tx) => {
@@ -733,33 +727,32 @@ export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fres
       if (!fresh && !s[0]) throw new StoryError(`There is no story ${id}: propose it as a new story.`, 404);
       if (!fresh && !head) throw new StoryError(`Story ${id} has no accepted version yet: propose it as a new story.`, 409);
       if (p.base !== undefined && (p.base ?? null) !== head) throw new StoryError("Someone changed this story since you read it: make your change again on its newest version (get_story).", 409);
-      let title: string, body: StoryBody, branchId: number, base: string | null;
+      let title: string, body: StoryBody, variantId: number, base: string | null;
       if (fresh) {
         title = text(p.title, "The title", 120, true);
         if (p.edits !== undefined) throw new StoryError("A new story is given as its whole timeline (body), not as edits.");
         body = await checkBody(tx, p.body, id);
         await tx.query(`INSERT INTO play.stories (id, coop_id, title) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING`, [id, COOP, title]);
         const docId = await ensureStoryDoc(tx, id);
-        branchId = (await docs.branch(tx, docId, { author, note })).id;
-        await docs.commit(tx, docId, { branch: branchId, target: asDoc(title, body), message: note, author });
+        variantId = (await docs.variant(tx, docId, { author, note })).id;
+        await docs.commit(tx, docId, { variant: variantId, target: asDoc(title, body), message: note, author });
         base = null;
       } else {
         const docId = await ensureStoryDoc(tx, id);
         if (drafted) {
-          const d = await draftOf(tx, docId, id, p.branch);
-          if (p.body !== undefined || p.edits !== undefined || p.title !== undefined) await draftStep(tx, id, docId, d.id, p, note, author);
-          if (!(await docs.history(tx, docId, { branch: d.id })).length) throw new StoryError(`Draft ${d.id} has no steps yet: there is nothing to propose.`);
+          const d = await openVariant(tx, docId, id, p.variant);
+          if (!(await docs.history(tx, docId, { variant: d.id })).length) throw new StoryError(`Variant ${d.id} has no edits yet: there is nothing to propose.`);
           const cur = await storyDocAt(tx, id, d.id);
           title = cur.title;
           body = await checkBody(tx, cur.body, id);
-          branchId = d.id;
-          const n = await versionAtFrontiers(tx, id, d.base);
+          variantId = d.id;
+          const n = await versionAtFrontiers(tx, id, d.seed);
           base = n === null ? head : ((await tx.query<{ id: string }>(`SELECT id FROM play.story_versions WHERE story_id = $1 AND number = $2`, [id, n])).rows[0]?.id ?? head);
         } else {
           title = text(p.title ?? s[0]?.title, "The title", 120, true);
           body = await checkBody(tx, p.body !== undefined ? p.body : applyEdits(s[0]!.body!, p.edits), id);
-          branchId = (await docs.branch(tx, docId, { author, note })).id;
-          await docs.commit(tx, docId, { branch: branchId, target: asDoc(title, body), message: note, author });
+          variantId = (await docs.variant(tx, docId, { author, note })).id;
+          await docs.commit(tx, docId, { variant: variantId, target: asDoc(title, body), message: note, author });
           base = head;
         }
       }
@@ -773,12 +766,12 @@ export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fres
         `INSERT INTO play.story_versions (id, story_id, parents, title, body, note, author) VALUES ($1, $2, $3, $4, ($5::text)::jsonb, $6, $7) ON CONFLICT (id) DO NOTHING`,
         [version, id, parents, title, JSON.stringify(body), note, who.id],
       );
-      await docs.propose(tx, docIdOf(id), branchId, { note, author });
-      const intent = await putAtProposal(tx, who, { intent: p.intent, work: { kind: "story_version", story_id: id, story_base: base, story_version: version, doc_branch: branchId }, note, via }).catch((e) => {
+      await docs.propose(tx, docIdOf(id), variantId, { note, author });
+      const intent = await putAtProposal(tx, who, { intent: p.intent, work: { kind: STORY_WORK, doc_id: docIdOf(id), doc_variant: variantId, story_id: id, story_base: base, story_version: version }, note, via }).catch((e) => {
         throw e instanceof WorkError ? new StoryError(e.message, e.status) : e;
       });
-      const steps = (await docs.history(tx, docIdOf(id), { branch: branchId })).length;
-      return { intent, stage: "proposal" as const, story: id, version, number: (s[0]?.number ?? 0) + 1, base, duration: body.duration, branch: branchId, steps };
+      const edits = (await docs.history(tx, docIdOf(id), { variant: variantId })).length;
+      return { intent, stage: "proposal" as const, story: id, version, number: (s[0]?.number ?? 0) + 1, base, duration: body.duration, variant: variantId, edits };
     }),
   );
 }
@@ -841,8 +834,8 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
         // closes its branch on this story); where it is there already, the intent is archived
         const { rows: open } = await db.query<any>(
           `SELECT ${WORK_OF}, v.title, v.body FROM play.intents i JOIN play.story_versions v ON v.id = i.story_version
-            WHERE i.story_id = $1 AND i.work = 'story_version' AND i.stage = 'proposal' ORDER BY i.proposed_at`,
-          [from],
+            WHERE i.story_id = $1 AND i.work = $2 AND i.stage = 'proposal' ORDER BY i.proposed_at`,
+          [from, STORY_WORK],
         );
         for (const p of open) {
           const author = await as(p.author);
@@ -866,36 +859,18 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
   return out;
 }
 
-/** each step with its author's name, and the version it was named where one was (an asset's history too, ./assetdocs.ts) */
-export async function named(db: Queryable, steps: docs.Step[], versions: docs.Version[] = []) {
-  const ids = [...new Set(steps.map((s) => s.author).filter((x): x is string => !!x))];
-  const names = new Map((await db.query<{ id: string; name: string }>(`SELECT id, name FROM play.humans WHERE id = ANY($1)`, [ids])).rows.map((r) => [r.id, r.name]));
-  const key = (f: docs.Frontiers) => canonical([...f].sort((a, b) => (a.peer < b.peer ? -1 : 1)));
-  const at = new Map(versions.map((v) => [key(v.frontiers), v.number]));
-  // a version marks the latest step at its point (a merge that only caught the main line up stands where the draft's
-  // last step stood: the merge is the step that made it the version)
-  const marked = new Map<number, number>();
-  for (let i = steps.length - 1; i >= 0; i--) {
-    const n = at.get(key(steps[i].frontiers));
-    if (n !== undefined && ![...marked.values()].includes(n)) marked.set(i, n);
-  }
-  return steps.map((s, i) => ({ seq: s.seq, branch: s.branch, kind: s.kind, author: s.author ? names.get(s.author) ?? null : null, via: s.via, message: s.message, at: iso(s.created), bytes: s.bytes, version: marked.get(i) ?? null }));
-}
-
-/** a story proposal as people review it: the proposed timeline, the head's it was made from (each with the versions it
- *  links), what changed, and its steps */
-export async function storyReview(db: Queryable, p: { story_id: string; story_base: string | null; story_version: string; doc_branch?: string | number | null }) {
+/** a story's work as people review it beside its changes and edits (./versioned.ts reviewDoc): the proposed timeline
+ *  and the head's it was made from (each with the versions it links, to play side by side), what changed clip by clip */
+export async function storyReview(db: Queryable, p: { story_id: string; story_base: string | null; story_version: string }) {
   const { rows } = await db.query<{ id: string; title: string; body: StoryBody; number: number | null }>(
     `SELECT id, title, body, number FROM play.story_versions WHERE id = ANY($1)`, [[p.story_version, p.story_base].filter(Boolean)],
   );
   const next = rows.find((r) => r.id === p.story_version)!;
   const base = p.story_base ? rows.find((r) => r.id === p.story_base) ?? null : null;
-  const steps = p.doc_branch != null ? await named(db, await docs.history(db, docIdOf(p.story_id), { branch: Number(p.doc_branch) })) : [];
   return {
     story: { id: p.story_id, title: next.title, ...next.body, links: await linksOf(db, next.body, p.story_id) },
     baseStory: base ? { id: p.story_id, title: base.title, number: base.number, ...base.body, links: await linksOf(db, base.body, p.story_id) } : null,
     diff: diffStories(base ? { title: base.title, body: base.body } : null, { title: next.title, body: next.body }),
-    steps,
   };
 }
 
@@ -909,11 +884,11 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
   if (me.level !== "admin") throw new Denied("Only Maia City's admins decide on stories.");
   return asStoryError(async () => {
     const docId = await ensureStoryDoc(tx, p.story_id);
-    const branch = Number((await tx.query<{ doc_branch: string | null }>(`SELECT doc_branch FROM play.intents WHERE id = $1`, [p.id])).rows[0]?.doc_branch);
+    const variant = Number((await tx.query<{ doc_variant: string | null }>(`SELECT doc_variant FROM play.intents WHERE id = $1`, [p.id])).rows[0]?.doc_variant);
     const author = authorOf(me, "site");
     const closeBranch = async (status: "archived") => {
-      const { rows } = await tx.query<{ status: string }>(`SELECT status FROM play.doc_branches WHERE id = $1`, [branch]);
-      if (rows[0] && (rows[0].status === "open" || rows[0].status === "proposed")) await docs.close(tx, docId, branch, { author, status });
+      const { rows } = await tx.query<{ status: string }>(`SELECT status FROM play.doc_variants WHERE id = $1`, [variant]);
+      if (rows[0] && (rows[0].status === "open" || rows[0].status === "proposed")) await docs.close(tx, docId, variant, { author, status });
     };
     if (verdict === "archive") {
       await settle(tx, p.id, "archived", me.id);
@@ -925,7 +900,7 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
     );
     const head = rows[0]?.head ?? null, n = (rows[0]?.number ?? 0) + 1;
     const accepted = async (version: string) => {
-      const v = await docs.accept(tx, docId, branch, { author, note: p.note });
+      const v = await docs.accept(tx, docId, variant, { author, note: p.note });
       if (v.number !== n) throw new Error(`story ${p.story_id} and its document disagree: version ${n} against ${v.number}`);
       await tx.query(`UPDATE play.stories SET head = $2, title = (SELECT title FROM play.story_versions WHERE id = $2), updated = now() WHERE id = $1`, [p.story_id, version]);
       await settle(tx, p.id, "accepted", me.id);
@@ -940,9 +915,9 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
     if (head && p.story_base) {
       const baseNumber = (await tx.query<{ number: number }>(`SELECT number FROM play.story_versions WHERE id = $1`, [p.story_base])).rows[0]?.number;
       const was = await docs.stateAt(tx, docId, { version: baseNumber });
-      const now = (await docs.readDoc(tx, docId)).json, mine = (await docs.readDoc(tx, docId, { branch })).json;
+      const now = (await docs.readDoc(tx, docId)).json, mine = (await docs.readDoc(tx, docId, { variant })).json;
       clash = overlap(docs.diff(was, now).map((c) => c.path), docs.diff(was, mine).map((c) => c.path));
-      const preview = await docs.previewMerge(tx, docId, branch);
+      const preview = await docs.previewMerge(tx, docId, variant);
       if (!clash.length && !preview.problems.length) {
         const m = asStory(preview.json);
         try {
@@ -969,41 +944,25 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
   });
 }
 
-// ---- a story's history, step by step
+// ---- a story at an edit, or as an intent's variant would make it
 
-/** every step of story `id` (its main line with each accepted proposal's steps, or one draft's), its versions and drafts */
-export async function storyHistory(db: Db, me: Me | null, id: string, o: { branch?: number } = {}) {
+/** story `id` as it was at edit `edit` of its history, or as intent `intent`'s variant would make it, with the versions it links */
+export async function storyAt(db: Db, me: Me | null, id: string, at: { edit?: number; intent?: string }) {
   admin(me);
   if (!STORY_ID.test(id)) throw new StoryError("A story is named by its id, a UUID.", 404);
   return asStoryError(async () => {
     const docId = await db.transaction((q) => ensureStoryDoc(q, id));
-    const versions = await docs.versionsOf(db, docId);
-    const steps = await named(db, await docs.history(db, docId, o.branch === undefined ? {} : { branch: o.branch }), versions);
-    const { rows: drafts } = await db.query<any>(
-      `SELECT b.id, b.status, b.note, b.created, h.name AS author, p.id AS intent, p.stage AS intent_stage,
-              (SELECT count(*) FROM play.doc_updates u WHERE u.branch = b.id) AS steps
-         FROM play.doc_branches b LEFT JOIN play.humans h ON h.id = b.created_by LEFT JOIN play.intents p ON p.id = b.intent_id
-        WHERE b.doc_id = $1 ORDER BY b.id`,
-      [docId],
-    );
-    return {
-      story: id,
-      steps,
-      versions: versions.map((v) => ({ number: v.number, note: v.note, at: iso(v.created), contentHash: v.contentHash })),
-      drafts: drafts.map((d) => ({ id: Number(d.id), status: d.status, note: d.note, at: iso(d.created), author: d.author, intent: d.intent, intent_stage: d.intent_stage, steps: Number(d.steps) })),
-    };
-  });
-}
-
-/** story `id` as it was at step `seq` of its history, with the versions it links */
-export async function storyAtStep(db: Db, me: Me | null, id: string, seq: number) {
-  admin(me);
-  if (!STORY_ID.test(id)) throw new StoryError("A story is named by its id, a UUID.", 404);
-  if (!Number.isInteger(seq) || seq < 1) throw new StoryError(`${seq} is not a step.`, 404);
-  return asStoryError(async () => {
-    const docId = await db.transaction((q) => ensureStoryDoc(q, id));
-    const { title, body } = asStory(await docs.stateAt(db, docId, { step: seq }));
-    return { id, title, step: seq, ...body, links: await linksOf(db, body, id) };
+    let json: any;
+    if (at.intent !== undefined) {
+      const { rows } = await db.query<{ doc_variant: string | null }>(`SELECT doc_variant FROM play.intents WHERE id::text = $1 AND doc_id = $2`, [`${at.intent}`.toLowerCase(), docId]);
+      if (!rows[0]?.doc_variant) throw new StoryError(`Story ${id} has no variant of intent ${at.intent}.`, 404);
+      json = (await docs.readDoc(db, docId, { variant: Number(rows[0].doc_variant) })).json;
+    } else {
+      if (!Number.isInteger(at.edit) || (at.edit as number) < 1) throw new StoryError(`${at.edit} is not an edit.`, 404);
+      json = await docs.stateAt(db, docId, { edit: at.edit as number });
+    }
+    const { title, body } = asStory(json);
+    return { id, title, ...(at.intent !== undefined ? { intent: `${at.intent}`.toLowerCase() } : { edit: at.edit }), ...body, links: await linksOf(db, body, id) };
   });
 }
 
