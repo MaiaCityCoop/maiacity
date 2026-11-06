@@ -462,9 +462,11 @@
 				</section>
 			{/if}
 			</div>
-			<!-- the decision at its foot, in the middle: Reject (it ends archived) on the left, Approve or Accept on the right.
+			<!-- the decision at its foot, in the middle: Reject (it ends archived) on the left, Approve or Accept on the right;
+			     no Close: the nav pill's Back (or Escape, or the scrim) closes it, the star the board (Samuel 2026-11-06).
 			     Accept only at Proposal (it moves there by itself once every must check passes; Samuel 2026-11-06), and only
 			     where no proposal of it waits: then that proposal, on its review, is where it is decided -->
+			{#if !(i.stage === 'proposal' && waits)}
 			<footer class="decide">
 				{#if i.stage === 'idea' || i.stage === 'specify' || i.stage === 'prototype' || (i.stage === 'proposal' && !waits)}
 					<button class="btn small reject" onclick={() => decideIntent(i.id, 'reject')} title="Not to be done: it ends archived">Reject</button>
@@ -474,10 +476,10 @@
 				{:else if i.stage === 'accepted' || i.stage === 'archived'}
 					<button class="btn small ghost" onclick={() => decideIntent(i.id, 'reopen')} title="Open again: back to {i.spec ? 'Specify' : 'Idea'}">Reopen</button>
 				{/if}
-				<button class="btn small ghost" onclick={closeIntent} aria-label="Close">Close</button>
 				{#if i.stage === 'specify' && i.spec}<button class="btn small" onclick={() => decideIntent(i.id, 'approve')} title="The spec is right: an agent may build it">Approve spec</button>
 				{:else if i.stage === 'proposal' && !waits}<button class="btn small" onclick={() => decideIntent(i.id, 'accept')} disabled={!allMustPass(i)} title={allMustPass(i) ? 'What it asked is in' : 'Every must check passes first'}>Accept</button>{/if}
 			</footer>
+			{/if}
 		</div>
 	{/if}
 
@@ -680,12 +682,13 @@
 			{/if}
 			<!-- the decision at its foot, in the middle, where a thumb reaches it on a pad (Samuel 2026-11-05): Reject on the
 			     left (it ends archived: a proposal ends accepted or archived), Accept on the right, the rest between -->
+			{#if (p.status === 'proposal' && (deciding || p.author === session.me?.name)) || review}
 			<footer class="decide">
 				{#if p.status === 'proposal' && (deciding || p.author === session.me?.name)}<button class="btn small reject" onclick={() => (act(p.id, 'archive'), close())} title="Not taken: it ends archived">Reject</button>{/if}
 				{#if review}<button class="btn small ghost" class:on={showSource} onclick={() => (showSource = !showSource)}>{showSource ? 'Hide source' : review.source ? 'Source' : 'Recipe file'}</button>{/if}
-				<button class="btn small ghost" onclick={close} aria-label="Close">Close</button>
 				{#if p.status === 'proposal' && deciding}<button class="btn small" onclick={() => (act(p.id, 'accept'), close())}>Accept</button>{/if}
 			</footer>
+			{/if}
 		</div>
 	{/if}
 {/if}

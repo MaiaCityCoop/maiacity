@@ -454,7 +454,8 @@ proposals.intent_id → intents NOT NULL  -- the intent a proposal was made for
 - **The decision sits at the foot** of what is open (a proposal's review, an intent), in the middle, where a thumb
   reaches it on a pad: **Reject** on the left, reddish (a proposal or an intent rejected ends archived: a proposal ends
   accepted or archived), **Accept** (an intent's **Approve spec** in Specify) on the right, the rest between (Source,
-  Back to Specify, Reopen, Close). A proposal's
+  Back to Specify, Reopen); no Close there: the nav pill's Back (or Escape) closes what is open, and the star the
+  board (Samuel 2026-11-06). A proposal's
   build keeps a height of its own (at least about half the screen) and its steps scroll below it.
 - **The board is a modal** (Samuel 2026-11-05), not a page or a tile among the apps: the nav pill's **star** (the AI's
   mark, in Home's place: Back goes up to the dashboard anyway) opens it over whatever page is open, greyed out for
