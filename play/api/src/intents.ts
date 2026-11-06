@@ -10,6 +10,11 @@
 // check's result with its evidence. Proposal: play takes a proposal for it only once every must check has passed (the
 // gate is play's, not a promise in a note); then it follows its proposals as admins decide them (the database's
 // triggers, ./migrations.ts 0026). A proposal made with no intent gets one of its own, so the history is intents too.
+//
+// Every check runs in avenBOX (play/SPEC.md §4.12, Samuel 2026-11-06): the cloud environment the agents prototype in,
+// with Postgres up and TEST_DATABASE_URL set (play/avenbox/up.sh). A test or measure check carries its `run`, the exact
+// command that decides it there, from the repository's root, as written: no placeholder in it. In Prototype,
+// `bun play/avenbox/intent.ts <intent> --record` runs every check of a spec and records the results.
 import { Denied, COOP, type Me } from "./access";
 import type { Queryable } from "./pg";
 import { NOTE_MOST } from "./notes";
@@ -28,12 +33,14 @@ export type IntentStage = (typeof INTENT_STAGES)[number];
 /** the intents still to be taken further: not yet decided */
 export const OPEN_STAGES: IntentStage[] = ["idea", "specify", "prototype", "proposal"];
 export const CHECK_HOWS = ["test", "measure", "look"] as const;
-export type Check = { id: string; check: string; how: (typeof CHECK_HOWS)[number]; by: string; must: boolean };
+/** run: the command that decides it in avenBOX (required for test and measure since 2026-11-06; specs from before have none) */
+export type Check = { id: string; check: string; how: (typeof CHECK_HOWS)[number]; by: string; run?: string; must: boolean };
 export type Spec = { goal: string; scope: string; checks: Check[] };
 export type Result = { pass: boolean; evidence: string; by: string | null; at: string };
 export const TITLE_MOST = 200;
 export const CHECKS_MOST = 12;
 const LINE_MOST = 600;
+const RUN_MOST = 2000;
 export type IntentVerdict = "approve" | "accept" | "reject" | "respecify" | "reopen";
 
 /** only Maia City's admins keep the intents, as they decide the proposals */
@@ -67,9 +74,27 @@ const idOf = (v: unknown) => {
 };
 
 /**
+ * What in a check's `run` is a placeholder rather than a command, or null: a `run` runs as written in avenBOX, so
+ * nothing in it is left for its reader to fill in. Outside quotes (where a `<div class="card">` or a "…" is only text
+ * searched for): an ellipsis (`…`, or `...` as a word), a `<something>` (`<its id>`, `test/<name>.test.ts`; a
+ * redirection such as `< in > out` or `2>&1` is none), or TEST_DATABASE_URL given a value (avenBOX sets it).
+ */
+export function placeholderIn(run: string): string | null {
+  const bare = run.replace(/'[^']*'|"(?:[^"\\]|\\.)*"/g, "''");
+  if (bare.includes("…")) return "…";
+  const dots = bare.match(/(?:^|\s)\.\.\.(?=\s|$)/);
+  if (dots) return "...";
+  const angle = bare.match(/<[^<>\s]([^<>]*[^<>\s])?>/);
+  if (angle) return angle[0];
+  if (/(?:^|[\s;&|(])TEST_DATABASE_URL=/.test(bare)) return "TEST_DATABASE_URL=";
+  return null;
+}
+
+/**
  * A spec as given, held to its shape: a goal (what is true when it is done), a scope (what changes, named by UUIDs,
  * hashes or paths, and what stays as it is), and 1–12 checks, at least one of them a must, each one statement that
- * passes or fails and how it is checked; each check gets its id (c1, c2 …), which its results name.
+ * passes or fails and how it is checked, a test or a measure with its `run`; each check gets its id (c1, c2 …), which
+ * its results name.
  */
 export function specOf(body: { goal?: unknown; scope?: unknown; checks?: unknown }): Spec {
   const goal = textOf(body?.goal, "goal (what is true when it is done, in a sentence)", 1000, true);
@@ -81,7 +106,12 @@ export function specOf(body: { goal?: unknown; scope?: unknown; checks?: unknown
     const check = textOf(c?.check, `check ${i + 1}'s statement`, LINE_MOST, true);
     if (!CHECK_HOWS.includes(c?.how)) throw new IntentError(`Check ${i + 1} is checked by test (a command that passes), measure (a value and its range) or look (by eye against a named reference).`);
     const by = textOf(c?.by, `check ${i + 1}'s how (${c.how === "test" ? "the command or test that passes" : c.how === "measure" ? "the tool that measures it and the range it must fall in" : "the reference it is judged against"})`, LINE_MOST, true);
-    return { id: `c${i + 1}`, check, how: c.how, by, must: c?.must !== false };
+    const run = textOf(c?.run, `check ${i + 1}'s run`, RUN_MOST);
+    if (!run && c.how !== "look")
+      throw new IntentError(`Check c${i + 1} (a ${c.how}) needs its run: the command that decides it in avenBOX, from the repository's root, as written (${c.how === "test" ? "it passes when it exits 0" : "it prints the value it measures and exits 0 only when that is in its range"}).`);
+    const hole = run && placeholderIn(run);
+    if (hole) throw new IntentError(`Check c${i + 1}'s run holds a placeholder (${hole}): a run is a command that runs as written in avenBOX, nothing in it left to fill in.`);
+    return { id: `c${i + 1}`, check, how: c.how, by, ...(run ? { run } : {}), must: c?.must !== false };
   });
   if (!checks.some((c) => c.must)) throw new IntentError("At least one of an intent's checks is a must: what must hold before it is accepted.");
   return { goal, scope, checks };
