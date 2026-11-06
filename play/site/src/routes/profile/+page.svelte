@@ -85,7 +85,7 @@
 			<h2>Agents (MCP)</h2>
 			<p class="hint muted">
 				An agent (Claude, say) works on Maia City's assets for you with an access token: it reads the assets and their
-				recipe files and proposes new versions, which come to the Proposals page under your name, marked MCP. Deciding
+				recipe files and proposes new versions, which come to the intents (the star in the nav pill) under your name, marked MCP. Deciding
 				stays with the admins there. Admins only, for now.
 			</p>
 			<form class="row" onsubmit={makeToken}>

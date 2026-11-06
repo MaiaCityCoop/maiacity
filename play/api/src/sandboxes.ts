@@ -292,7 +292,7 @@ export async function listSandboxes(db: Queryable, me: Me | null) {
 }
 
 /** propose a change of a sandbox's layout: the edits, checked against it as it stands */
-export async function proposeSandbox(db: Db, me: Me | null, body: { sandbox?: string; note?: string; edits?: unknown; base?: string }, via: "web" | "mcp" = "mcp") {
+export async function proposeSandbox(db: Db, me: Me | null, body: { sandbox?: string; note?: string; edits?: unknown; base?: string; intent?: string }, via: "web" | "mcp" = "mcp") {
   const who = admin(me);
   const sandbox = `${body?.sandbox ?? ""}`;
   await sandboxRow(db, sandbox);
@@ -305,9 +305,9 @@ export async function proposeSandbox(db: Db, me: Me | null, body: { sandbox?: st
   if (!changes.length) throw new SandboxError("These edits change nothing.");
   const id = randomUUID();
   await db.query(
-    `INSERT INTO play.proposals (id, coop_id, kind, sandbox_id, sandbox_base, sandbox_change, sandbox_diff, author, note, via)
-     VALUES ($1, $2, 'sandbox_change', $3, $4, ($5::text)::jsonb, ($6::text)::jsonb, $7, $8, $9)`,
-    [id, COOP, sandbox, base, JSON.stringify(body.edits), JSON.stringify(changes), who.id, note, via],
+    `INSERT INTO play.proposals (id, coop_id, kind, sandbox_id, sandbox_base, sandbox_change, sandbox_diff, author, note, via, intent_id)
+     VALUES ($1, $2, 'sandbox_change', $3, $4, ($5::text)::jsonb, ($6::text)::jsonb, $7, $8, $9, $10)`,
+    [id, COOP, sandbox, base, JSON.stringify(body.edits), JSON.stringify(changes), who.id, note, via, body.intent ?? null],
   );
   return { id, sandbox, changes: await shown(db, changes) };
 }
@@ -319,7 +319,7 @@ export async function sandboxReview(db: Queryable, p: any) {
   let holds = true;
   let why: string | null = null;
   // an open one: against the sandbox as it is now, as accepting would apply it
-  if (p.status === "proposed") {
+  if (p.status === "proposal") {
     const now = await stateOf(db, p.sandbox_id);
     try {
       changes = (await applyEdits(db, now, p.sandbox_change)).changes;
@@ -329,7 +329,7 @@ export async function sandboxReview(db: Queryable, p: any) {
       why = e.message;
     }
   }
-  return { sandbox: s, edits: p.sandbox_change, changes: await shown(db, changes), holds, why, moved: p.status === "proposed" && stateHash(await stateOf(db, p.sandbox_id)) !== p.sandbox_base };
+  return { sandbox: s, edits: p.sandbox_change, changes: await shown(db, changes), holds, why, moved: p.status === "proposal" && stateHash(await stateOf(db, p.sandbox_id)) !== p.sandbox_base };
 }
 
 /** accept or archive a sandbox change: accepted, its edits applied to the sandbox as it is, in this transaction */
@@ -384,7 +384,7 @@ export async function proposedState(db: Queryable, me: Me | null, sandbox: strin
   const { rows } = await db.query<any>(`SELECT * FROM play.proposals WHERE id = $1 AND kind = 'sandbox_change' AND sandbox_id = $2`, [proposal, sandbox]);
   if (!rows[0]) throw new NotFound("There is no such proposal of this sandbox.");
   const now = await stateOf(db, sandbox);
-  if (rows[0].status !== "proposed") return now;
+  if (rows[0].status !== "proposal") return now;
   return (await applyEdits(db, now, rows[0].sandbox_change).catch((e) => {
     throw e instanceof SandboxError ? new NotFound(`It no longer holds: ${e.message}`) : e;
   })).state;

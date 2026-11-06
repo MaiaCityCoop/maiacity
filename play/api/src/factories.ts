@@ -232,7 +232,7 @@ export async function editFactory(db: Db, me: Me | null, p: FactoryDraft, via: "
   );
 }
 
-export type FactoryProposal = { factory: string; note: string; branch?: number; edits?: unknown; whole?: unknown };
+export type FactoryProposal = { factory: string; note: string; branch?: number; edits?: unknown; whole?: unknown; intent?: string };
 
 /** Propose a new version of a factory, as the admin `me`: a draft (its `branch`, perhaps with one more step), or edits at once. */
 export async function proposeFactory(db: Db, me: Me | null, p: FactoryProposal, via: "web" | "mcp" = "mcp") {
@@ -252,8 +252,8 @@ export async function proposeFactory(db: Db, me: Me | null, p: FactoryProposal, 
       await docs.propose(tx, docId, b, { note, author });
       const proposal = randomUUID();
       await tx.query(
-        `INSERT INTO play.proposals (id, coop_id, kind, factory_id, author, note, via, doc_branch) VALUES ($1, $2, 'factory_version', $3, $4, $5, $6, $7)`,
-        [proposal, COOP, f, who.id, note, via, b],
+        `INSERT INTO play.proposals (id, coop_id, kind, factory_id, author, note, via, doc_branch, intent_id) VALUES ($1, $2, 'factory_version', $3, $4, $5, $6, $7, $8)`,
+        [proposal, COOP, f, who.id, note, via, b, p.intent ?? null],
       );
       const number = ((await docs.versionsOf(tx, docId)).at(-1)?.number ?? 0) + 1;
       return { id: proposal, factory: f, number, branch: b, steps: (await docs.history(tx, docId, { branch: b })).length, changes: changes.length };
@@ -273,7 +273,7 @@ export async function factoryReview(db: Queryable, p: { id: string; factory_id: 
   const { rows } = await db.query<{ base: docs.Frontiers }>(`SELECT base FROM play.doc_branches WHERE id = $1`, [b]);
   const baseNumber = rows[0] ? versions.find((v) => key(v.frontiers) === key(rows[0].base))?.number ?? null : null;
   const steps = await named(db, await docs.history(db, docId, { branch: b }));
-  const moved = p.status === "proposed" && baseNumber !== null && baseNumber !== versions.at(-1)?.number;
+  const moved = p.status === "proposal" && baseNumber !== null && baseNumber !== versions.at(-1)?.number;
   return { factory: { id: p.factory_id, label: next.label }, baseNumber, moved, changes: docs.diff(base, next), steps };
 }
 

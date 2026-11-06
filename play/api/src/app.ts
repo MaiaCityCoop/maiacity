@@ -14,8 +14,8 @@ import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, re
 import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameMember, renameSelf, setLevel } from "./members";
 import { listTables, readTable, TableError } from "./tables";
 import { proposedState, SandboxError } from "./sandboxes";
-import { decide, listProposals, proposalOf, proposalsOfInbox, propose, ProposalError, type Verdict } from "./proposals";
-import { decideInbox, inboxItem, InboxError, listInbox, type InboxVerdict } from "./inbox";
+import { decide, listProposals, proposalOf, proposalsOfIntent, propose, ProposalError, type Verdict } from "./proposals";
+import { decideIntent, intentOf, IntentError, listIntents, type IntentVerdict } from "./intents";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 import { listStories, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
 import { labelFile, listLibrary } from "./library";
@@ -170,17 +170,18 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await decide(db, store, await me(req), p.id, p.verdict as Verdict));
   });
 
-  // ---- the Inbox and Specify (./inbox.ts), the stages before a proposal: what Maia City wants made, fixed or improved,
-  // added and specified by agents over MCP only (nothing here adds or edits an item), read by its admins on the
-  // Proposals board, and each item archived, marked done or brought back there
-  on("GET", "/api/inbox", async (req) => {
-    const s = new URL(req.url).searchParams.get("status");
-    return json(await listInbox(db, await me(req), s ? s.split(",") : undefined));
+  // ---- intents (./intents.ts): everything on the Proposals board, Idea → Specify → Prototype → Proposal → Accepted or
+  // Archived; added, specified and prototyped by agents over MCP only (nothing here adds or edits one), decided by its
+  // admins here: a spec approved (Specify → Prototype) or sent back, an intent accepted (Prototype, every must check
+  // passed: work outside play's proposals), rejected or brought back
+  on("GET", "/api/intents", async (req) => {
+    const s = new URL(req.url).searchParams.get("stage");
+    return json(await listIntents(db, await me(req), s ? s.split(",") : undefined));
   });
-  on("GET", "/api/inbox/:id", async (req, p) => json(await inboxItem(db, await me(req), p.id, proposalsOfInbox)));
-  on("POST", "/api/inbox/:id/:verdict", async (req, p) => {
-    if (!["done", "archive", "reopen"].includes(p.verdict)) throw new NotFound("No such verdict.");
-    return json(await decideInbox(db, await me(req), p.id, p.verdict as InboxVerdict));
+  on("GET", "/api/intents/:id", async (req, p) => json(await intentOf(db, await me(req), p.id, proposalsOfIntent)));
+  on("POST", "/api/intents/:id/:verdict", async (req, p) => {
+    if (!["approve", "respecify", "accept", "reject", "reopen"].includes(p.verdict)) throw new NotFound("No such decision.");
+    return json(await decideIntent(db, await me(req), p.id, p.verdict as IntentVerdict));
   });
 
   // ---- the coop
@@ -280,7 +281,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       try {
         return await r.handler(req, params);
       } catch (e) {
-        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof InboxError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError)
+        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof IntentError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError)
           return json({ error: e.message }, { status: (e as any).status });
         console.error(e);
         return json({ error: "Something went wrong on our side." }, { status: 500 });

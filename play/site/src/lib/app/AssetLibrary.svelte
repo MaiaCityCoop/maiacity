@@ -333,7 +333,7 @@
 				{#if shownVersion.size}<dt>Size</dt><dd>{shownVersion.size.map((n) => n.toFixed(2)).join(' × ')} m</dd>{/if}
 			</dl>
 			{#if session.me?.level === 'admin'}
-				<p class="soft propose">Propose v{(chain.versions[0]?.number ?? 0) + 1} in <a href="/proposals/">Proposals</a>.</p>
+				<p class="soft propose">Propose v{(chain.versions[0]?.number ?? 0) + 1} in <a href="/intents/">Intents</a>.</p>
 			{/if}
 		{:else if catalog}
 			{#await partsList then { default: Parts }}
