@@ -104,8 +104,8 @@ asset_versions  (id /*BLAKE3 of canonical {asset, parents, recipe, default_varia
 asset_variants  (version_id, name, recipe_hash → files, card jsonb)              -- immutable
 files           (hash PK /*BLAKE3 of the bytes*/, size, media_type, bucket_key, created)
 proposals       (id, coop_id, kind /*asset_version*/, asset_id, base → asset_versions, version → asset_versions,
-                 author, status /*proposed|accepted|archived*/, decided_by, decided_at, note, created,
-                 inbox_id → inbox /*the Inbox item it was made for, if any (§4.12)*/)
+                 author, status /*proposal|accepted|archived*/, decided_by, decided_at, note, created,
+                 intent_id → intents /*the intent it was made for: every proposal is an intent's (§4.12)*/)
 ```
 
 - A proposal names its **base** (the head it was made from) and a not yet numbered version.
@@ -387,48 +387,164 @@ world has run (`run`) from eyes, views or street cameras. The stand-in test worl
 `$content/worlds/test/` (the template of the contract); the contract is read in one place,
 `$content/worlds/contract.js`.
 
-### 4.12 The Inbox and Specify (Samuel 2026-11-05)
+### 4.12 Intents (Samuel 2026-11-06; the Inbox and Specify before, 2026-11-05)
 
-The stages before a proposal: what Maia City wants made, fixed or improved, as it came (**Inbox**), then specified
-(**Specify**: its definition, and its metric of what is good), then made and proposed for. The Proposals board's columns
-are **Inbox, Specify, Proposed, Accepted, Archived** (what waits for a decision was called open until migration
-`0023-proposed`; `?status=open` still answers with it). Each column folds away to a strip and opens again, each
-viewer's own choice kept in their browser; Accepted and Archived are folded at first.
+Everything Maia City wants made, fixed or improved is an **intent**, and every proposal is an intent's. An intent goes
+through stages, the board's columns: **Idea → Specify → Prototype → Proposal → Accepted** (or **Archived**). Idea is it
+as it came; Specify is its spec written, waiting for an admin's approval; Prototype is the whole round of making it, an
+agent building and checking until the spec is met (any intent an agent is working on is in Prototype); Proposal is its
+work done and checked, waiting for the decision: an intent moves there **by itself** the moment every must check has
+passed (Samuel 2026-11-06), so after the spec's approval there is one gate with a person in it, the decision at
+Proposal, and none in Prototype. Each column folds away to a strip and opens again, each viewer's own choice
+kept in their browser; Accepted and Archived are folded at first.
+
+**The spec is the gate**, as a test is in test-driven development: it says what is wanted so that it can be checked,
+and the same checks decide when the work is done. A spec is a **goal** (what is true once it is done, in a sentence), a
+**scope** (what changes, named by UUIDs, hashes or paths, and what stays as it is) and 1–12 **checks**, each ONE
+statement that passes or fails, checked one of three ways: a **test** (a command that passes), a **measure** (a value
+and its range, read with a named tool) or a **look** (a comparison with a named reference: the subjective made
+explicit), and each **must** (it holds the proposal back) or **nice** (it does not). The checks are ids `c1…cn`.
 
 ```sql
-inbox (id UUID, coop_id, kind /*idea|fix|improve*/, title /*only shown, 1–200 characters*/, note,
-       status /*inbox|specify|done|archived*/, author, via /*mcp*/, created,
-       definition, metric /*its spec: both or neither*/, specified_by, specified_at, decided_by, decided_at)
-proposals.inbox_id → inbox   -- the item a proposal was made for
+intents (id UUID, coop_id, kind /*idea|fix|improve: shown as Make, Fix, Improve*/, title /*only shown, 1–200*/, note,
+         stage /*idea|specify|prototype|proposal|accepted|archived*/, author, via /*web|mcp*/, created,
+         spec jsonb /*{ goal, scope, checks: [{ id, check, how: test|measure|look, by, run, must }] }*/, specified_by, specified_at,
+         approved_by, approved_at /*the spec approved: Prototype and on need it, unless it came as a proposal*/,
+         results jsonb /*each check's last result in Prototype: { "c1": { pass, evidence, by, at, where: avenBOX|main, commit } }*/, decided_by, decided_at)
+proposals.intent_id → intents NOT NULL  -- the intent a proposal was made for
 ```
 
-- **Over MCP only** (`play/api/src/inbox.ts`): nothing is typed into the Inbox by hand. An admin's agent adds an item
-  (`add_inbox_item`: what the admin asked it to note, or what it found and is not doing now), and specifies it
-  (`specify_inbox_item`: its **definition**, what is to be made, precisely, and its **metric**, what good is: how a
-  proposal for it is judged, measurable where it can be), which moves it to Specify; specified again, its spec is
-  replaced. `list_inbox` (the items in the Inbox and Specify, or done, archived, all) and `get_inbox_item` (one whole,
-  with its proposals as the board lists them) read it. Every propose tool takes `inbox`, the item's UUID: only a
-  specified item takes proposals (not one in the Inbox, done or archived), and the proposal is linked to it once made.
-  No tool marks an item done or archives it.
-- **On the board** (admins only): an item opened shows its note, its spec (or that it has none yet), what was proposed
-  for it (each a click from its review, and each proposal's review a click back to its item), and the **brief** that
-  sends an agent to it: the item by its UUID, to specify it first if it is not yet, then make it, check it against its
-  metric and propose it naming the item. An admin rejects an item (from the Inbox or Specify; it ends archived), marks a
-  specified one **done** once what it asked is in (it moves to Accepted), or brings one back (to Specify if it has its spec, else to
-  the Inbox); accepting a proposal made for it leaves it where it is, as one item may take several proposals.
-  `GET /api/inbox` (`?status=inbox,specify`), `GET /api/inbox/:id`, `POST /api/inbox/:id/{done,archive,reopen}`.
-- A proposal shows its item's title (only to admins: the Inbox is theirs); an item is named by its UUID only.
-- **The decision sits at the foot** of what is open (a proposal's review, an item), in the middle, where a thumb
-  reaches it on a pad: **Reject** on the left, reddish (a proposal or an item rejected ends archived: a proposal ends
-  accepted or archived), **Accept** (an item's **Done**) on the right, the rest between (Source, Close). A proposal's
+- **Agents, over MCP only** (`play/api/src/intents.ts`): nothing is typed in by hand. An admin's agent adds an intent
+  (`add_intent`, at Idea) and specifies it (`specify_intent`: its goal, scope and checks; to Specify, its spec replaced
+  if specified again, only at Idea or Specify), then stops: **an admin approves the spec** (Specify → Prototype). In
+  Prototype the agent builds it, runs each check as its spec says and records every result with its evidence
+  (`check_intent`: a failure as a failure), until every must check passes: then the intent moves to **Proposal by
+  itself**. Checked again at Proposal (only while none of its proposals waits), a must that fails takes it back to
+  Prototype. Work that is one of play's proposals (an asset or story version, a sandbox change, a factory, a config) is
+  also proposed: every propose tool takes `intent`, the intent's UUID, and play takes the proposal only for an intent in
+  Prototype or Proposal whose must checks all pass, refusing it otherwise and saying which checks are not met. Other
+  work (code, shipped by its pull request) needs no proposal: the intent at Proposal is decided itself.
+  `list_intents` (the open stages, or one stage, or all) and `get_intent` (one whole, with its proposals) read them.
+  No tool approves, accepts or rejects an intent.
+- **Checks run in avenBOX, and again on main** (Samuel 2026-11-06; intent `8888e140-a6e4-4472-b1db-e78692db5c4a`).
+  **avenBOX** (one word, `aven` lowercase and `BOX` in capitals) is the cloud environment the agents prototype in
+  (`env_01BqgqGckrzz4FdXd8SD4HHd`), and the box is built the same way wherever a check runs, by `play/avenbox/`:
+  `setup.sh` (as root, once per container: PostgreSQL 17, CI's major, its cluster on 127.0.0.1:5432 with the
+  `postgres` role's password `play`, every part's dependencies; idempotent, it never fails a session), `up.sh` (in
+  every session, from the SessionStart hook in `.claude/settings.json`: Postgres started, `TEST_DATABASE_URL =
+  postgres://postgres:play@127.0.0.1:5432/postgres` set, the dependencies brought up to their lockfiles) and `gate.sh`
+  (what CI runs, red when a play/api test is skipped). So every check is a command:
+  - each test and measure check carries its **`run`**, the exact command that decides it in avenBOX, from the
+    repository's root, as written: a test passes when it exits 0, a measure prints its value and exits 0 only in its
+    range. play refuses a test or measure check without one, and a `run` that holds a placeholder outside quotes
+    (`…`, `...`, `<something>`, `TEST_DATABASE_URL` given a value), saying which check (`placeholderIn`). A look may
+    carry the command that makes what is looked at. Specs from before keep their checks without a `run`.
+  - in Prototype, **`bun play/avenbox/intent.ts <intent> --record`** reads the intent over MCP, makes the box ready,
+    runs every check's `run` (no run sees `PLAY_MCP_TOKEN` or GitHub's tokens), prints each result and records the test
+    and measure checks with `check_intent`: pass by the exit code, the evidence the command, its exit code, where it
+    ran, the commit, Postgres's version and the output's tail. A look is judged by eye and recorded by hand.
+  - each result says **where** it ran (`avenBOX`, or `main`) and on which **commit** (results `{ pass, evidence, by,
+    at, where, commit }`), shown by its mark on the board (*avenBOX*, *main @ 1a2b3c4*), each check's `run` as code
+    under its `by`.
+  - **the final gate is main's.** Code ships by pull request, its commits naming the intent (the trailer `Intent:
+    <UUID>`). Once merged, **`.github/workflows/intents.yml`** (*intents on main*; also by hand, an intent's UUID, on
+    main's head) builds the same box on GitHub's runner (`sudo bash play/avenbox/setup.sh`) and runs `intent.ts
+    <intent> --record --where main` on the merged commit, with the repository secret `PLAY_MCP_TOKEN` (an admin's
+    access token). It records and never blocks: production's *Main is green* reads only main.yml's checks. It records
+    while the intent is at Proposal (where it moved by itself once every must check passed in avenBOX; none of its
+    proposals waiting) or in Prototype; a must failing on main takes it back to Prototype. An intent is accepted at
+    Proposal only when every must check with a `run` has passed **on main** (`unmetOnMain`); a pass in avenBOX alone is
+    not enough. Intents whose work is one of play's proposals keep their gate (`intentReady`).
+- **A proposal made without an intent is an intent of its own** (a database trigger): titled by what it proposes (an
+  asset's or a story's label and the version it would be, a sandbox's changes, a factory's or a config's label), its
+  note and author the proposal's, at the Proposal stage, with no spec. Every proposal before intents became one this
+  way (migration `0026-intents`), and what waited for a decision is a **proposal** (`proposed` before `0025-proposal`,
+  `open` before `0023-proposed`; `?status=open` and `?status=proposed` still answer with them). An Inbox item became
+  an intent at Idea (one done, Accepted), its definition and metric kept in its note, to be specified again with checks.
+- **An intent follows its proposals**: when none of them is waiting any more, one accepted makes it Accepted; none,
+  and its spec approved, takes it back to Prototype (its results cleared, to be checked again); none, and no spec,
+  archives it.
+- **On the board** (admins only), each card is an intent: its title, how far its must checks are in Prototype and
+  Proposal ("2/3 checks"), its type (what its proposal is, else its kind), who and when. An intent that is only its one proposal opens
+  straight into the proposal's review; any other opens its dialog: its note, its spec (the goal, the scope and each
+  check with its mark, ✓ passed, ✗ failed, · no result yet, how and by what it is checked, and its last evidence), what
+  was proposed for it (each a click from its review), and the **brief** that sends an agent to it (at Idea: specify it
+  and stop; in Prototype: build it and record every check, so that it moves to Proposal by itself, and propose it with
+  `intent` if its work is one of play's proposals). An admin **approves the spec** (Specify → Prototype), sends it
+  **back to Specify** (from Prototype or Proposal: its approval and results cleared), **accepts** it only at Proposal
+  (what it asked is in; nothing is accepted from Prototype), **rejects** it (from Idea, Specify, Prototype or Proposal;
+  it ends archived) or **reopens** it (to Specify if it has a spec, else to Idea). While a proposal of it waits, that
+  proposal's review is where it is decided: the intent itself is not accepted, rejected, sent back, reopened or checked
+  again, and follows the proposal. Migration `0028-intents-ready-propose` moved the intents already in Prototype with
+  every must check passed to Proposal. `GET /api/intents` (`?stage=idea,specify`), `GET /api/intents/:id`,
+  `POST /api/intents/:id/{approve,respecify,accept,reject,reopen}`.
+- A proposal's review shows the intent it was made for (only to admins: the intents are theirs) and its checks as a
+  strip of marks; an intent is named by its UUID only.
+- **The decision sits at the foot** of what is open (a proposal's review, an intent), in the middle, where a thumb
+  reaches it on a pad: **Reject** on the left, reddish (a proposal or an intent rejected ends archived: a proposal ends
+  accepted or archived), **Accept** (an intent's **Approve spec** in Specify) on the right, the rest between (Source,
+  Back to Specify, Reopen); no Close there: the nav pill's Back (or Escape) closes what is open, and the star the
+  board (Samuel 2026-11-06). A proposal's
   build keeps a height of its own (at least about half the screen) and its steps scroll below it.
 - **The board is a modal** (Samuel 2026-11-05), not a page or a tile among the apps: the nav pill's **star** (the AI's
   mark, in Home's place: Back goes up to the dashboard anyway) opens it over whatever page is open, greyed out for
   everyone but the admins. The pill is Back, the star and You: the star its middle, a green round action button
   taller than the pill, standing out of it a few pixels above and below (which are as wide as each other, Back greyed in its place where there is nowhere to go
-  back to), its mark alone with no word under it. Back closes what is open on it (a review, an item), then the board; so do the star, Escape
-  and its Close. `/proposals/` (an older link, a new tab) opens it over the dashboard, and a link to it from a page
-  opens it over that page (`play/site/src/lib/site/proposals`).
+  back to), its mark alone with no word under it. Back closes what is open on it (a review, an intent), then the board; so do the star, Escape
+  and its Close. `/intents/` (and `/proposals/` from before; a link, a new tab) opens it over the dashboard, and a link
+  to it from a page opens it over that page (`play/site/src/lib/site/intents`).
+
+### 4.13 Artifacts (Samuel 2026-11-06; first called Sources)
+
+Every link from the net Maia City keeps is an **artifact**: a web page, an article, a paper, a video, a social post, a
+book, a podcast, code; all of them artifacts. The Artifacts (`/artifacts/`) are the coop's library of what we read, quote
+and point to, so we can say where something comes from and have a proper summary of it to hand instead of a bare link.
+Admins only for now, every row the Maia City coop's (`play/api/src/artifacts.ts`).
+
+- **avenMAIA is every agent connected over MCP**, whatever its client, session or token: one row of `play.agents`, named
+  by `uuidOf('agent:avenmaia')` (`AVENMAIA` in `play/api/src/ids.ts`), its name only shown. It is no human (no
+  membership, no passkey, no level) and acts only through an admin's token; `initialize`'s instructions tell every
+  connected agent that on play it is avenMAIA, working for the admin whose token connected it (its **operator**).
+- **Who brought it.** Every artifact is avenMAIA's and names its operator, and its **origin**: `human`, a link the
+  operator pasted to their agent, shown **Added by <the operator>**; `agent`, an artifact avenMAIA found and used in its
+  own research (a plant's numbers, a claim in a story, a technique), shown **Sourced by avenMAIA**. The MCP teaches every
+  agent to keep both. Who brought it never changes.
+- **The three texts**, written by avenMAIA from the artifact itself and held to their form by play (refused otherwise,
+  saying which): the **title**, very compact (one line, at most 70 characters, without the site's or channel's name);
+  the **description**, the mini summary (1–2 sentences, one line, at most 280 characters, no Markdown); the
+  **summary**, a small report on the overall topic (Markdown, **500–1,500 words**, in the sections `## What it is`,
+  `## Key points` as bullets, `## The topic`, and if it likes `## For Maia City` last). Words are counted on the
+  Markdown's text: headings', bullets' and links' words, not their marks or a link's address.
+- **Authors** are rows of their own (`play.authors`: a person or an organization, its page and a note), n:m with the
+  artifacts in their order (`play.artifact_authors`). An artifact has at least one: where no person is named, its publisher as
+  an organization. An agent finds an author with `list_authors` and names them by their UUID; a new one is made only
+  when none is them, and two of one name stay two (nothing is looked up or merged by a name, §4.7).
+- **One link, one artifact.** A link is kept normalised: http(s) only, its scheme and host lower-cased, its `#fragment`,
+  `utm_*`, `fbclid` and `gclid` dropped, a trailing slash dropped, a YouTube video one link however it is written
+  (`youtu.be/<id>`, `/shorts/`, `/embed/`, `m.youtube.com` → `https://www.youtube.com/watch?v=<id>`); unique in the coop.
+  Adding a link already kept answers with that artifact (`kept: true`); `update_artifact` corrects one. An artifact is still
+  named by its UUID: its link is only data.
+- **The page as it was**: `add_artifact` may take the page's readable text as fetched, kept among play's files by its hash
+  (`text/plain`, not shown in the Library), since links rot and pages change.
+- **Not a proposal**, and nothing typed in by hand: an artifact is kept directly over MCP, like a Library label.
+  Citing (stories, asset versions and intents naming the artifacts they rest on) comes later.
+
+```sql
+agents         (id UUID, coop_id, name /*only shown*/, created)            -- avenMAIA, seeded by 0027-artifacts
+artifacts        (id UUID, coop_id, url /*normalised, unique per coop*/, title /*≤ 70*/, description /*≤ 280*/,
+                summary /*Markdown, 500–1,500 words*/, kind /*page|article|paper|video|post|book|podcast|code|other*/,
+                tags text[], published date, text_hash → files, agent_id → agents, origin /*human|agent*/,
+                operator_id → humans, token_id → api_tokens, created, updated_by → humans, updated_at)
+authors        (id UUID, coop_id, name /*only shown*/, kind /*person|organization*/, url, note, agent_id, operator_id, created)
+artifact_authors (artifact_id → artifacts, author_id → authors, position)    -- n:m, in order
+```
+
+Over MCP: `add_artifact`, `update_artifact`, `list_artifacts` (`q` in a title, description, summary, link or an author's name;
+`author`, `tag`, `kind`, `origin`; newest first, paged), `get_artifact`, `list_authors`, `get_author`. The page
+(`/artifacts/`, a tile among the coop's own beside the Library) lists them newest first, each its title alone (its description is the opened artifact's, so a list stays short), kind,
+date, authors, tags, its link (a new tab) and who brought it, filtered down its left by who brought it, kind, tag and
+author; an artifact opens to be read (`?artifact=<uuid>`: its summary as Markdown, its authors), an author to their artifacts
+(`?author=<uuid>`).
 
 ## 5. The sandboxes
 
@@ -482,11 +598,14 @@ still only adds what is missing and changes nothing that is there.
   document, §4.4) and `GET /api/assets/:id/steps/:seq/recipe` (the recipe file it builds at a step, kept by its hash).
 - Sandboxes (traveler+): `GET /api/sandboxes/:id/pins`.
 - Proposals: `POST /api/proposals` (citizen+: a new asset version, card + recipe file upload), `GET /api/proposals`
-  (`?status=proposed|accepted|archived`), `POST /api/proposals/:id/{accept,archive}` (admin+; its author archives their
-  own). Over MCP an agent archives only its own proposals made there that are still proposed (`archive_proposal`,
+  (`?status=proposal|accepted|archived`), `POST /api/proposals/:id/{accept,archive}` (admin+; its author archives their
+  own). Over MCP an agent archives only its own proposals made there that still wait (`archive_proposal`,
   Samuel 2026-11-04); no tool accepts.
-- The Inbox and Specify (admin): `GET /api/inbox`, `GET /api/inbox/:id`, `POST /api/inbox/:id/{done,archive,reopen}`;
-  items are added and specified over MCP only (§4.12).
+- Intents (admin): `GET /api/intents`, `GET /api/intents/:id`, `POST /api/intents/:id/{approve,respecify,accept,reject,reopen}`;
+  intents are added, specified and checked over MCP only (§4.12).
+- Artifacts (admin): `GET /api/artifacts` (`?q=&author=&tag=&kind=&origin=human|agent&offset=&limit=`, with the count and
+  the counts by origin, kind and tag), `GET /api/artifacts/:id`, `GET /api/authors` (`?q=`), `GET /api/authors/:id` (with
+  their artifacts); artifacts are kept over MCP only, by avenMAIA (§4.13).
 - Coop (admin+): `GET/POST /api/coops/:id/members`, `POST /api/invites`; `POST /api/invites/:code/claim` (makes the
   claimer a citizen).
 
@@ -495,8 +614,8 @@ Every route checks the caller's level against `level_rules`; a visitor gets 401 
 ## 8. App (`play/site`, SvelteKit, light brand CI throughout)
 
 `/` sign in or sign up · `/sandbox-1/` · `/sandbox-2/` · `/sandbox-3/` · `/sandbox-4/` · `/sandbox-5/` · `/assets/` (library; an asset's versions as
-a chain, its variants, a viewer) · the proposals (a modal from the nav pill's star, not a page: Inbox, Specify, Proposed, Accepted, Archived; §4.12) · `/game/` (placeholder; claim an invite to become a citizen) ·
-`/admin/` (members, invites).
+a chain, its variants, a viewer) · the intents (a modal from the nav pill's star, not a page: Idea, Specify, Prototype, Proposal, Accepted, Archived; §4.12) · `/game/` (placeholder; claim an invite to become a citizen) ·
+`/admin/` (members, invites) · `/artifacts/` (admins: every link we keep, §4.13).
 
 **The Library** (`/library/`, Samuel 2026-11-04; `play/api/src/library.ts`): every image, video and recording play
 keeps among its `files` (§4.3), newest first, for Maia City's admins only. Each shows its preview (a video plays,

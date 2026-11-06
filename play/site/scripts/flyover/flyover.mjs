@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /*
  * THE FLYOVER CAMERA — films the game's world map (/game/map/, the City view or empty) from a shot list, for the
  * films' shots on play's Stories (each shot's `video` and `frame`, MCP add_story_video / add_story_frame). The map is
@@ -6,10 +6,10 @@
  * film page (/game/map/film/, development only): every frame is put where the shot says and drawn once, so a shot
  * renders the same every time.
  *
- *   node scripts/flyover/flyover.mjs scripts/flyover/outro.mjs [--stills] [--only a,b] [--out film/outro]
- *        [--url http://localhost:5173] [--samples 6] [--scale 2] [--png]
+ *   bun scripts/flyover/flyover.mjs scripts/flyover/outro.mjs [--stills] [--only a,b] [--out film/outro]
+ *        [--url http://localhost:5173] [--samples 6] [--scale 2] [--png]          (node runs it as well)
  *
- *   <shot list>  a module exporting `film` ({ seed, fps, size: [w, h], shutter }) and `shots(map)`: the shots, each
+ *   <shot list>  a module exporting `film` ({ fps, size: [w, h], css, shutter }) and `shots(map)`: the shots, each
  *                { name, dur (s), move: (u 0…1) => { eye, at, fov } (./camera.mjs), ui?: the game's bar on,
  *                cityFrom?: s into the shot the City is switched on (before it the map is empty), look?: ['tilt'],
  *                focus?: where a tilt's sharp band lies (0 top … 1 foot), size?, note? }; `map` is the map's
@@ -20,6 +20,10 @@
  *                blur a camera has; 1 for none
  *   --scale      the picture drawn this many times larger and filtered down (2: a 2160 × 3840 drawing for a 1080 ×
  *                1920 film), so a thousand distant trees do not shimmer
+ *
+ * The map is the game's one (SEED in ../../src/routes/game/map/map.ts), as the map page shows it. The page is laid out
+ * `film.css` CSS pixels across (760 by default: the bar's whole row fits, its totals in view) and drawn at the pixel
+ * ratio that makes it the film's size, times --scale.
  *   --png        each frame read off as PNG instead of JPEG (95): slower, lossless
  *
  * On a Mac it draws on the GPU (Google Chrome, ANGLE on Metal: CHROME names another Chrome): fast, and the defaults are
@@ -28,7 +32,8 @@
  *
  * Out, in --out: <shot>.mp4 (H.264, the film's size and fps, ≤ 40 MB as play takes them), <shot>.jpg (its still: the
  * middle frame, or the last of a shot with the bar), reel.mp4 (every shot in order, to watch them together) and
- * shots.json (each shot's name, length, note and files). Needs ffmpeg and Playwright (the project's).
+ * shots.json (each shot's name, length, note and files). Needs ffmpeg and Playwright (play/site's devDependencies;
+ * on a Mac it drives the system's Chrome, so no Playwright browser is needed there).
  */
 import { spawn, execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
@@ -54,7 +59,7 @@ function args(argv) {
 		else if (!k.startsWith('--') && !o.list) o.list = k;
 		else throw new Error(`what is ${k}? (see the top of scripts/flyover/flyover.mjs)`);
 	}
-	if (!o.list) throw new Error('give a shot list: node scripts/flyover/flyover.mjs scripts/flyover/outro.mjs');
+	if (!o.list) throw new Error('give a shot list: bun scripts/flyover/flyover.mjs scripts/flyover/outro.mjs');
 	o.out ??= `film/${o.list.split('/').pop().replace(/\.m?js$/, '')}`;
 	return o;
 }
@@ -123,16 +128,18 @@ function encoder({ out, fps, size, png, look, focus, dur }) {
 
 const o = args(process.argv.slice(2));
 const list = await import(pathToFileURL(resolve(process.cwd(), o.list)).href);
-const film = { seed: 'maia', fps: 30, size: [1080, 1920], shutter: 0.5, ...list.film };
+const film = { fps: 30, size: [1080, 1920], css: 760, shutter: 0.5, ...list.film };
+// the page laid out film.css pixels across, drawn at the ratio that makes it the film's size (and --scale times that)
+const ratio = film.size[0] / film.css, viewport = { width: film.css, height: Math.round(film.size[1] / ratio) };
 mkdirSync(o.out, { recursive: true });
 const { chromium } = await playwright();
 const dev = await server(o.url);
 const b = await browser(chromium);
 try {
-	const page = await b.newPage({ viewport: { width: film.size[0], height: film.size[1] }, deviceScaleFactor: o.stills ? 1 : o.scale });
+	const page = await b.newPage({ viewport, deviceScaleFactor: ratio * (o.stills ? 1 : o.scale) });
 	page.on('pageerror', (e) => console.error(`  page: ${e.message}`));
-	await page.goto(`${dev.url}/game/map/film/?seed=${encodeURIComponent(film.seed)}&view=city`);
-	await page.waitForFunction(() => !!window.__mapFilm, null, { timeout: 180_000 });
+	await page.goto(`${dev.url}/game/map/film/`);
+	await page.waitForFunction(() => !!window.__mapFilm, null, { timeout: 300_000, polling: 500 });
 	await page.evaluate(() => document.fonts.ready);
 	const gpu = await page.evaluate(() => {
 		const gl = document.createElement('canvas').getContext('webgl2'), x = gl?.getExtension('WEBGL_debug_renderer_info');
@@ -198,7 +205,7 @@ try {
 		}
 		writeFileSync(`${o.out}/list.txt`, made.map((m) => `file '${resolve(m.video)}'`).join('\n'));
 		execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', `${o.out}/list.txt`, '-c', 'copy', '-movflags', '+faststart', `${o.out}/reel.mp4`]);
-		writeFileSync(`${o.out}/shots.json`, JSON.stringify({ seed: film.seed, fps: film.fps, size: film.size, samples: o.samples, scale: o.scale, gpu, shots: made }, null, 2));
+		writeFileSync(`${o.out}/shots.json`, JSON.stringify({ seed: info.seed, fps: film.fps, size: film.size, samples: o.samples, scale: o.scale, gpu, shots: made }, null, 2));
 		console.log(`${o.out}/reel.mp4 · ${o.out}/shots.json`);
 	}
 } finally {

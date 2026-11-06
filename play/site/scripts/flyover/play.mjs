@@ -1,16 +1,16 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /*
  * THE FLYOVERS ONTO PLAY — the shots flyover.mjs rendered, put on a story over play's MCP server (play/api/src/mcp.ts:
  * stateless JSON-RPC by POST), with the admin token in PLAY_MCP_TOKEN (sent to play.maia.city and nowhere else). It
  * reads and uploads; a story changes only by the proposal it files, which an admin accepts on the Proposals page.
  *
- *   node scripts/flyover/play.mjs list                          the stories: id, title, versions, length, shots
- *   node scripts/flyover/play.mjs show <story>                  its timeline track by track: sections, shots, voice lines
+ *   bun scripts/flyover/play.mjs list                          the stories: id, title, versions, length, shots
+ *   bun scripts/flyover/play.mjs show <story>                  its timeline track by track: sections, shots, voice lines
  *                                                               (to plan which shots the flyovers take), and story-<id>.json
- *   node scripts/flyover/play.mjs upload <film dir>             every shot in <film dir>/shots.json: its video
+ *   bun scripts/flyover/play.mjs upload <film dir>             every shot in <film dir>/shots.json: its video
  *                                                               (add_story_video) and its still (add_story_frame) →
  *                                                               <film dir>/play.json, each shot's two hashes
- *   node scripts/flyover/play.mjs propose <story> <plan.json>   propose_story_version with the plan's { base, note, edits }
+ *   bun scripts/flyover/play.mjs propose <story> <plan.json>   propose_story_version with the plan's { base, note, edits }
  *                                                               (its set_clip edits naming the hashes from play.json)
  */
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -55,7 +55,7 @@ if (cmd === 'list') {
 } else if (cmd === 'upload') {
 	const film = JSON.parse(readFileSync(`${a}/shots.json`, 'utf8')), out = {};
 	for (const s of film.shots) {
-		const video = await call('add_story_video', { data: readFileSync(s.video).toString('base64'), media_type: 'video/mp4', label: `World map flyover · ${s.name} · ${s.size ?? ''} (seed ${film.seed}, City)` });
+		const video = await call('add_story_video', { data: readFileSync(s.video).toString('base64'), media_type: 'video/mp4', label: `World map flyover · ${s.name} · ${s.size ?? ''} (seed ${film.seed}, City view)` });
 		const frame = await call('add_story_frame', { data: readFileSync(s.frame).toString('base64'), media_type: 'image/jpeg', label: `World map flyover · ${s.name} (still)` });
 		out[s.name] = { video: video.hash, frame: frame.hash, dur: s.dur, size: s.size, note: s.note };
 		console.log(`${s.name}: video ${video.hash} · frame ${frame.hash}`);

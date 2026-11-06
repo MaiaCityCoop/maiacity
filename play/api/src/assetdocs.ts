@@ -196,7 +196,7 @@ export async function ensureAssetDoc(q: Queryable, store: BlobStore, asset: stri
     const b = await branchAt(q, id, p.base_number, { human: p.author, via: p.via === "mcp" ? "mcp" : "site" }, p.note);
     await docs.commit(q, id, { branch: b, target: json, message: firstLine(p.note) || "proposed", author: { human: p.author, via: p.via === "mcp" ? "mcp" : "site" }, at: p.created });
     await docs.propose(q, id, b, { note: p.note, author: { human: p.author, via: p.via === "mcp" ? "mcp" : "site" } });
-    if (p.status !== "proposed") await docs.close(q, id, b, { author: { human: null, via: "system" }, status: p.status as "archived" });
+    if (p.status !== "proposal") await docs.close(q, id, b, { author: { human: null, via: "system" }, status: p.status as "archived" });
     await q.query(`UPDATE play.proposals SET doc_branch = $2 WHERE id = $1`, [p.id, b]);
   }
   return { id, made, branches: ps.length, kept: keptSteps };

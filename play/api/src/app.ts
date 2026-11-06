@@ -14,14 +14,15 @@ import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, re
 import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameMember, renameSelf, setLevel } from "./members";
 import { listTables, readTable, TableError } from "./tables";
 import { proposedState, SandboxError } from "./sandboxes";
-import { decide, listProposals, proposalOf, proposalsOfInbox, propose, ProposalError, type Verdict } from "./proposals";
-import { decideInbox, inboxItem, InboxError, listInbox, type InboxVerdict } from "./inbox";
+import { decide, listProposals, proposalOf, proposalsOfIntent, propose, ProposalError, type Verdict } from "./proposals";
+import { decideIntent, intentOf, IntentError, listIntents, type IntentVerdict } from "./intents";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 import { listStories, storyAtStep, storyHistory, storyOf, StoryError } from "./stories";
 import { labelFile, listLibrary } from "./library";
 import { AssetDocError, assetHistory, recipeAtStep } from "./assetdocs";
 import { factoryHistory, factoryOf, FactoryError, listFactories } from "./factories";
 import { gameConfigHistory, gameConfigOf, GameConfigError, listGameConfigs } from "./gameconfigs";
+import { authorOf, listAuthors, listArtifacts, ArtifactError, artifactOf } from "./artifacts";
 
 type Handler = (req: Request, params: Record<string, string>) => Promise<Response> | Response;
 type Route = { method: string; pattern: RegExp; keys: string[]; handler: Handler };
@@ -170,17 +171,18 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await decide(db, store, await me(req), p.id, p.verdict as Verdict));
   });
 
-  // ---- the Inbox and Specify (./inbox.ts), the stages before a proposal: what Maia City wants made, fixed or improved,
-  // added and specified by agents over MCP only (nothing here adds or edits an item), read by its admins on the
-  // Proposals board, and each item archived, marked done or brought back there
-  on("GET", "/api/inbox", async (req) => {
-    const s = new URL(req.url).searchParams.get("status");
-    return json(await listInbox(db, await me(req), s ? s.split(",") : undefined));
+  // ---- intents (./intents.ts): everything on the Proposals board, Idea → Specify → Prototype → Proposal → Accepted or
+  // Archived; added, specified and prototyped by agents over MCP only (nothing here adds or edits one), decided by its
+  // admins here: a spec approved (Specify → Prototype) or sent back, an intent accepted (Prototype, every must check
+  // passed: work outside play's proposals), rejected or brought back
+  on("GET", "/api/intents", async (req) => {
+    const s = new URL(req.url).searchParams.get("stage");
+    return json(await listIntents(db, await me(req), s ? s.split(",") : undefined));
   });
-  on("GET", "/api/inbox/:id", async (req, p) => json(await inboxItem(db, await me(req), p.id, proposalsOfInbox)));
-  on("POST", "/api/inbox/:id/:verdict", async (req, p) => {
-    if (!["done", "archive", "reopen"].includes(p.verdict)) throw new NotFound("No such verdict.");
-    return json(await decideInbox(db, await me(req), p.id, p.verdict as InboxVerdict));
+  on("GET", "/api/intents/:id", async (req, p) => json(await intentOf(db, await me(req), p.id, proposalsOfIntent)));
+  on("POST", "/api/intents/:id/:verdict", async (req, p) => {
+    if (!["approve", "respecify", "accept", "reject", "reopen"].includes(p.verdict)) throw new NotFound("No such decision.");
+    return json(await decideIntent(db, await me(req), p.id, p.verdict as IntentVerdict));
   });
 
   // ---- the coop
@@ -222,6 +224,21 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await listLibrary(db, await me(req), { kind: q.get("kind"), q: q.get("q"), offset: Number(q.get("offset") ?? 0), limit: Number(q.get("limit") ?? 60) }));
   });
   on("POST", "/api/library/:hash/label", async (req, p) => json(await labelFile(db, await me(req), p.hash, (await body(req))?.label)));
+
+  // Artifacts (./artifacts.ts, play/SPEC.md §4.13): every link from the net Maia City keeps, its title, description,
+  // summary and authors, kept over MCP by avenMAIA (nothing here adds or edits one); admins only, read here
+  on("GET", "/api/artifacts", async (req) => {
+    const q = new URL(req.url).searchParams;
+    return json(
+      await listArtifacts(db, await me(req), {
+        q: q.get("q"), author: q.get("author"), tag: q.get("tag"), kind: q.get("kind"), origin: q.get("origin"),
+        offset: Number(q.get("offset") ?? 0), limit: Number(q.get("limit") ?? 50),
+      }),
+    );
+  });
+  on("GET", "/api/artifacts/:id", async (req, p) => json(await artifactOf(db, await me(req), p.id)));
+  on("GET", "/api/authors", async (req) => json(await listAuthors(db, await me(req), { q: new URL(req.url).searchParams.get("q") })));
+  on("GET", "/api/authors/:id", async (req, p) => json(await authorOf(db, await me(req), p.id)));
 
   // Stories, the admins' timeline player (./stories.ts): read here, at their head or an accepted version (?v=2); they
   // change only by proposal, over MCP, decided on the Proposals page
@@ -280,7 +297,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       try {
         return await r.handler(req, params);
       } catch (e) {
-        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof InboxError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError)
+        if (e instanceof Denied || e instanceof NotFound || e instanceof ProposalError || e instanceof IntentError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError || e instanceof FactoryError || e instanceof GameConfigError || e instanceof ArtifactError)
           return json({ error: e.message }, { status: (e as any).status });
         console.error(e);
         return json({ error: "Something went wrong on our side." }, { status: 500 });

@@ -31,6 +31,7 @@ import { labelOf, poserOf } from '../controls.js';
 import { canonical, loadAsset } from '../load.js';
 import { INDEX, buildOf, hashOf, heldAt, paramsOf, parseBuild } from '../catalog.js';
 import { createImpostors } from './impostors.js';
+import { budget, dropOnUpload } from '../../render/budget.js';
 import { LEVELS, SMALLEST, budgetOf, choose, errorOf, sizeOn, smallestOf, thresholdsOf } from './lod.js';
 import { createLowering } from './lower.js';
 import { prepare } from './prepare.js';
@@ -95,14 +96,15 @@ export function createAssets(o) {
 
 	/* ── the builds asked for: each read from this device's cache, and those not kept built in the boxes, the most
 	 *    wanted first, else in the order asked ── */
-	const pool = Array.from({ length: Math.max(1, o.boxes ?? 3) }, () => ({ box: new AssetBox({ engine: INDEX.engine }), busy: false, starting: false, up: false }));
+	// as many as asked, but no more than the device's budget lets one renderer have (../../render/budget.js)
+	const pool = Array.from({ length: Math.max(1, Math.min(o.boxes ?? 3, budget().boxes)) }, () => ({ box: new AssetBox({ engine: INDEX.engine }), busy: false, starting: false, up: false }));
 	/** the builds asked for, waiting to be read from the cache (READS at a time) */
 	/** @type {{ name: string, rank: number | (() => number), ok: Function, no: Function }[]} */
 	const queue = [];
 	/** the builds the cache did not have, waiting for a box that is up and free */
 	/** @type {{ rank: number | (() => number), recipe: any, given: any, ok: Function, no: Function }[]} */
 	const line = [];
-	const READS = 16;
+	const READS = budget().reads;
 	/** the builds being loaded (read, built or opened), and those of them reading the cache now */
 	let loads = 0, reading = 0;
 	/** how much a build waiting is wanted now (a rank can change while it waits: what is on screen) */
@@ -305,14 +307,22 @@ export function createAssets(o) {
 		if (lv.state !== 'idle') return lv.promise;
 		if (!lv.name) return lower(k, L);
 		lv.state = 'loading';
+		const gen = (lv.gen = (lv.gen ?? 0) + 1);
 		lv.promise = build(lv.name, () => 2 * (k.rank?.() ?? 0) + (first ? 1 : 0)).then(
 			async (got) => {
-				lv.level = prepare(got.obj, presets);
+				// the materials it was handed (given back when it is let go of: `evict`)
+				const mats = [];
+				lv.level = prepare(got.obj, { of: (m) => (mats.push(presets.of(m)), mats[mats.length - 1]) });
+				lv.mats = mats;
 				lv.from = got.from;
+				// whether this device's cache holds it, to be read again rather than built again once it was let go of
+				lv.kept = got.from === 'cache';
+				got.stored?.then((yes) => yes && lv.gen === gen && (lv.kept = true), () => {});
 				// a build with controls is kept whole as well: a copy moved by them is a tree copied from it
 				if (got.obj.userData.controls?.length) lv.obj = got.obj;
 				await show(k, L);
 				if (L > 0 && lv.level.tris > budgetOf(L, Infinity, k.sizes)) lighten(k, L);
+				else letGo(k, L);
 			},
 			(err) => {
 				lv.state = 'failed';
@@ -343,6 +353,7 @@ export function createAssets(o) {
 					// nothing taken away (a kiosk of sixty triangles): drawn as the level it was made from
 					if (lv.level.same) lv.as = k.base;
 					await show(k, j);
+					letGo(k, j);
 					if (j === k.levels.length - 1) retune(k);
 				},
 				(err) => {
@@ -373,7 +384,7 @@ export function createAssets(o) {
 				await compiled(fresh, false);
 				// the new drawings take the old ones' place (unless the renderer went meanwhile: then they go)
 				const away = gone || lv.level !== from ? fresh.meshes : lv.meshes;
-				if (away !== fresh.meshes) Object.assign(lv, fresh);
+				if (away !== fresh.meshes) Object.assign(lv, fresh), letGo(k, L);
 				for (const { mesh } of away) {
 					mesh.removeFromParent();
 					mesh.geometry.dispose();
@@ -389,12 +400,63 @@ export function createAssets(o) {
 	async function show(k, L) {
 		const lv = k.levels[L];
 		lv.meshes = lv.as >= 0 ? [] : lv.level.draws.map((d) => meshOf(k, L, d));
+		lv.seen = performance.now();
 		const base = L === k.base;
 		await compiled(lv, base && k.picture);
 		// its picture taken as soon as its coarsest built shape is here, while the world loads, not by a frame that
 		// wants it: a copy whose picture is missing draws that whole shape in its place
 		if (base && !k.slot && k.picture) k.slot = pictures.add(lv.level);
 		lv.state = 'ready';
+		dirty = shadows = true;
+	}
+
+	/**
+	 * A level's corners let go in the page once the graphics card has them, where the device's budget says so (a phone
+	 * keeps one copy of what it draws, not two: ../../render/budget.js `release`). Never the coarsest built (the other
+	 * levels are lowered from it, and a world measures and picks its plants by it), a level kept whole for its controls,
+	 * one drawn as another, or any corners it shares with those.
+	 */
+	function letGo(k, L) {
+		const lv = k.levels[L];
+		if (!budget().release || gone || L === k.base || lv.as >= 0 || lv.obj || !lv.level) return;
+		const kept = keptBeside(k, lv);
+		lv.released = true;
+		for (const d of lv.level.draws) for (const a of cornersOf(d)) if (!kept.has(a)) dropOnUpload(a);
+	}
+
+	/** a drawing's attributes and index */
+	const cornersOf = (d) => [...Object.values(d.geometry.attributes), d.geometry.index].filter(Boolean);
+	/** the attributes the kind's other levels keep (its coarsest built, one kept whole, one not let go of) */
+	function keptBeside(k, lv) {
+		const kept = new Set();
+		for (const [j, other] of k.levels.entries())
+			if (other.level && other !== lv && (j === k.base || other.obj || !other.released)) for (const d of other.level.draws) for (const a of cornersOf(d)) kept.add(a);
+		return kept;
+	}
+
+	/**
+	 * A level no copy was drawn at for the device's budget's `evict` time let go of, all of it: its drawings, and the
+	 * graphics card's copy of its corners (but those its kind's other levels keep). Asked for again when a copy wants it
+	 * (from the device's cache, or lowered again from the coarsest). Never the coarsest built, nor one kept whole.
+	 */
+	function evict(k, L) {
+		const lv = k.levels[L];
+		// (one built from its recipe only where this device's cache holds it: built again, it would cost what the budget
+		// saves; one drawn as another, or with no drawings, holds nothing)
+		if (gone || L === k.base || lv.state !== 'ready' || lv.obj || (lv.name && !lv.kept) || lv.as >= 0 || !lv.meshes?.length) return;
+		const kept = keptBeside(k, lv);
+		for (const { mesh } of lv.meshes ?? []) {
+			mesh.removeFromParent();
+			// its own instance arrays; its shape's corners only where no other level keeps them (three lets a shape's
+			// buffers go with the shape)
+			for (const name of Object.keys(mesh.geometry.attributes)) if (kept.has(mesh.geometry.attributes[name])) mesh.geometry.deleteAttribute(name);
+			if (mesh.geometry.index && kept.has(mesh.geometry.index)) mesh.geometry.setIndex(null);
+			mesh.geometry.dispose();
+			mesh.dispose();
+		}
+		// its materials given back (the last use of one gone, it and its pictures go: read again, a level's are new ones)
+		for (const m of lv.mats ?? []) presets.release(m);
+		Object.assign(lv, { state: 'idle', level: null, meshes: null, mats: null, promise: null, released: false, kept: false, as: -1, from: undefined, seen: 0 });
 		dirty = shadows = true;
 	}
 
@@ -666,7 +728,7 @@ export function createAssets(o) {
 
 	/* ── each frame ── */
 	/** the level every copy is drawn at, whatever its size (a film's, or a check's), or -1: each by its size */
-	let forced = -1;
+	let forced = -1, swept = 0, held = false;
 	const frustum = new THREE.Frustum(), view = new THREE.Matrix4(), ball = new THREE.Sphere(), eye = new THREE.Vector3();
 	const last = { world: new Float32Array(16), proj: new Float32Array(16) };
 	const counted = { levels: [0, 0, 0], pictures: 0, posed: 0, tris: 0, calls: 0, culled: 0 };
@@ -779,6 +841,7 @@ export function createAssets(o) {
 					shadows = true;
 				}
 		let tris = counted.tris + pictures.drawn * 2, calls = counted.calls + (pictures.pages && pictures.drawn ? 1 : 0);
+		const now = performance.now();
 		for (const k of kinds.values())
 			for (const lv of k.levels)
 				for (const d of lv.meshes ?? []) {
@@ -786,6 +849,7 @@ export function createAssets(o) {
 					m.count = d.used;
 					m.visible = d.used > 0;
 					if (!m.visible) continue;
+					lv.seen = now;
 					m.instanceMatrix.clearUpdateRanges();
 					m.instanceMatrix.addUpdateRange(0, d.used * 16);
 					m.instanceMatrix.needsUpdate = true;
@@ -800,6 +864,12 @@ export function createAssets(o) {
 		counted.pictures = pictures.drawn;
 		counted.tris = tris;
 		counted.calls = calls;
+		// the levels no copy wanted for a while let go of (the device's budget: a phone's memory holds the near ones only)
+		const after = held ? 0 : budget().evict;
+		if (after && now - swept > 2000) {
+			swept = now;
+			for (const k of kinds.values()) k.levels.forEach((lv, L) => lv.state === 'ready' && L !== k.base && now - (lv.seen ?? now) > after && evict(k, L));
+		}
 		// what casts a shadow changed: the shadows drawn again (a world whose sky draws them only when it must)
 		if (shadows) {
 			if (o.onShadows) o.onShadows();
@@ -816,6 +886,8 @@ export function createAssets(o) {
 	 * @param {(done: number, of: number) => void} [onKind] @param {boolean} [every]
 	 */
 	async function ready(onKind, every = false) {
+		// a film's every shape kept from now on: none let go of while its shots are drawn (`evict`)
+		if (every) held = true;
 		const list = [...kinds.values()];
 		let done = 0;
 		await Promise.all(

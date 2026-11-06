@@ -229,7 +229,7 @@ export async function editGameConfig(db: Db, me: Me | null, p: GameConfigDraft, 
   );
 }
 
-export type GameConfigProposal = { config: string; note: string; branch?: number; edits?: unknown; whole?: unknown };
+export type GameConfigProposal = { config: string; note: string; branch?: number; edits?: unknown; whole?: unknown; intent?: string };
 
 /** Propose a new version of a config, as the admin `me`: a draft (its `branch`, perhaps with one more step), or edits at once. */
 export async function proposeGameConfig(db: Db, me: Me | null, p: GameConfigProposal, via: "web" | "mcp" = "mcp") {
@@ -249,8 +249,8 @@ export async function proposeGameConfig(db: Db, me: Me | null, p: GameConfigProp
       await docs.propose(tx, docId, b, { note, author });
       const proposal = randomUUID();
       await tx.query(
-        `INSERT INTO play.proposals (id, coop_id, kind, game_config_id, author, note, via, doc_branch) VALUES ($1, $2, 'game_config_version', $3, $4, $5, $6, $7)`,
-        [proposal, COOP, f, who.id, note, via, b],
+        `INSERT INTO play.proposals (id, coop_id, kind, game_config_id, author, note, via, doc_branch, intent_id) VALUES ($1, $2, 'game_config_version', $3, $4, $5, $6, $7, $8)`,
+        [proposal, COOP, f, who.id, note, via, b, p.intent ?? null],
       );
       const number = ((await docs.versionsOf(tx, docId)).at(-1)?.number ?? 0) + 1;
       return { id: proposal, config: f, number, branch: b, steps: (await docs.history(tx, docId, { branch: b })).length, changes: changes.length };
@@ -270,7 +270,7 @@ export async function gameConfigReview(db: Queryable, p: { id: string; game_conf
   const { rows } = await db.query<{ base: docs.Frontiers }>(`SELECT base FROM play.doc_branches WHERE id = $1`, [b]);
   const baseNumber = rows[0] ? versions.find((v) => key(v.frontiers) === key(rows[0].base))?.number ?? null : null;
   const steps = await named(db, await docs.history(db, docId, { branch: b }));
-  const moved = p.status === "proposed" && baseNumber !== null && baseNumber !== versions.at(-1)?.number;
+  const moved = p.status === "proposal" && baseNumber !== null && baseNumber !== versions.at(-1)?.number;
   return { config: { id: p.game_config_id, label: next.label }, baseNumber, moved, changes: docs.diff(base, next), steps };
 }
 

@@ -171,7 +171,7 @@
 					{#if 'version' in u}
 						<li>
 							{#if u.accepted}<a href="/assets/#{u.asset}">{u.label}</a> <span class="soft">v{u.number} · its {DOC_AS[u.as]}</span>
-							{:else}<a href="/proposals/">{u.label}</a> <span class="soft">a proposed version · its {DOC_AS[u.as]}</span>{/if}
+							{:else}<a href="/intents/">{u.label}</a> <span class="soft">a proposed version · its {DOC_AS[u.as]}</span>{/if}
 						</li>
 					{:else}
 						<li><a href="/stories/#{u.story}">{u.title}</a> <span class="soft">v{u.number ?? '?'} · {u.track} · {u.clip} at {u.at} s · its {AS[u.as]}</span></li>

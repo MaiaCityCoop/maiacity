@@ -1,18 +1,21 @@
 <!--
-	PROPOSALS, AS A BOARD (Samuel 2026-11-03) — every proposed version of Maia City's assets as a card in its column,
+	INTENTS, AS A BOARD (Samuel 2026-11-03; the proposals' board until 2026-11-06) — every proposed version of Maia City's assets as a card in its column,
 	newest first. A card opened is reviewed over the whole board: the version built in the asset box as large as it can
 	be, what it says of itself folded to two lines, its source (beside its base's, as the lines that changed) a button
 	away. Admins decide here; nothing is proposed or edited here: versions come over MCP only (play/api/src/mcp.ts).
 
 	A MODAL, NOT A PAGE (Samuel 2026-11-05): the board opens from the nav pill's star over whatever page is open
-	(./ProposalsModal.svelte), the way back closing first what is open on it (a review, an item), then the board.
+	(./IntentsModal.svelte), the way back closing first what is open on it (a review, an intent), then the board.
 
-	ITS STAGES (Samuel 2026-11-05, play/SPEC.md §4.12): Inbox, Specify, Proposed, Accepted, Archived, each column folded
-	away or open (Archived folded at first). The Inbox is what Maia City wants made, fixed or improved, as it came: added
-	by agents over MCP only, never typed in here. Specify is the items specified, over MCP too: their definition, and
-	their metric of what is good. What an agent proposes for a specified item names it, so the item lists its proposals
-	and each proposal its item. Here an admin reads them, hands one to an agent by the brief its card gives, archives it,
-	marks it done (it moves to Accepted) or brings it back.
+	INTENTS (Samuel 2026-11-06, play/SPEC.md §4.12): every card is an intent, something Maia City wants made, fixed or
+	improved, in its stage's column: Idea → Specify → Prototype → Proposal → Accepted (or Archived), Accepted and Archived
+	folded at first. Agents add and specify intents over MCP (never typed in here): a spec is a goal, a scope and checks,
+	each one statement that passes or fails, checked by a test, a measure or a look, must or nice. Here an admin approves
+	a spec (Specify → Prototype), and an agent builds it, recording each check's result, until every must check passes:
+	then it moves to Proposal by itself (Samuel 2026-11-06), the one gate after the spec, where an admin decides it. An
+	intent's proposals are reviewed and decided here as before, the intent following them; one whose work is no proposal
+	of play's (code) is accepted or rejected at Proposal itself; a proposal made without an intent is an intent of its
+	own, opened straight into its review. Nothing is accepted from Prototype.
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
@@ -37,28 +40,37 @@
 	// admins only for now (Samuel 2026-11-02): the nav pill's star is greyed out for everyone else
 	const admin = $derived(session.me?.level === 'admin');
 
-	type P = { id: string; kind?: 'asset_version' | 'story_version' | 'sandbox_change' | 'factory_version' | 'game_config_version'; asset_id: string | null; label: string; grp: string; slug: string | null; version_label: string | null; number: number | null; changes?: number; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp'; inbox_id?: string | null; inbox_title?: string | null };
-	// an item of the Inbox (play/api/src/inbox.ts): its kind, title and note, its spec once specified (its definition and
-	// its metric of what is good), and the proposals made for it
+	type P = { id: string; kind?: 'asset_version' | 'story_version' | 'sandbox_change' | 'factory_version' | 'game_config_version'; asset_id: string | null; label: string; grp: string; slug: string | null; version_label: string | null; number: number | null; changes?: number; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp'; intent_id?: string | null; intent_title?: string | null; intent_spec?: Spec | null; intent_results?: Results | null };
+	// an intent (play/api/src/intents.ts): its kind, title and note, its stage, its spec once specified (a goal, a scope and
+	// its checks), its checks' latest results while prototyped, and its proposals (id, status, kind, group)
 	type Kind = 'idea' | 'fix' | 'improve';
-	type Item = { id: string; kind: Kind; title: string; note: string; status: 'inbox' | 'specify' | 'done' | 'archived'; via: 'web' | 'mcp'; created: string; author: string | null; definition: string | null; metric: string | null; specified_at: string | null; specified_by: string | null; decided_at: string | null; decided_by: string | null; proposals: { id: string; status: string }[] };
+	type Stage = 'idea' | 'specify' | 'prototype' | 'proposal' | 'accepted' | 'archived';
+	// run: the command that decides a check in avenBOX (test and measure checks since 2026-11-06; play/SPEC.md §4.12)
+	type Check = { id: string; check: string; how: 'test' | 'measure' | 'look'; by: string; run?: string; must: boolean };
+	type Spec = { goal: string; scope: string; checks: Check[] };
+	// where: in avenBOX (the agent's), or on main after the merge (.github/workflows/intents.yml), on which commit
+	type Results = Record<string, { pass: boolean; evidence: string; by: string | null; at: string; where?: 'avenBOX' | 'main'; commit?: string }>;
+	type Intent = { id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null; spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null; decided_at: string | null; decided_by: string | null; proposals: { id: string; status: string; kind: P['kind']; grp: string | null }[] };
+	// an intent's kind, shown as what it asks (the kind 'idea' as Make, the stage Idea being its own; Samuel 2026-11-06)
 	const KINDS: [Kind, string][] = [
-		['idea', 'Idea'],
+		['idea', 'Make'],
 		['fix', 'Fix'],
 		['improve', 'Improve']
 	];
 	const kindName = (k: Kind) => KINDS.find(([x]) => x === k)?.[1] ?? k;
 	const COLUMNS = [
-		['inbox', 'Inbox'],
+		['idea', 'Idea'],
 		['specify', 'Specify'],
-		['proposed', 'Proposed'],
+		['prototype', 'Prototype'],
+		['proposal', 'Proposal'],
 		['accepted', 'Accepted'],
 		['archived', 'Archived']
 	] as const;
+	const STAGE_NAME: Record<Stage, string> = { idea: 'Idea', specify: 'Specify', prototype: 'Prototype', proposal: 'Proposal', accepted: 'Accepted', archived: 'Archived' };
 	type Column = (typeof COLUMNS)[number][0];
 	// a column folded away or open, each viewer's own (kept in this browser): Accepted and Archived folded at first
-	// (Samuel 2026-11-05; the key renamed so that holds for those who had folded something before)
-	const FOLDED = 'play:proposals:folded:2';
+	// (Samuel 2026-11-05; the key named for the intents' columns, Samuel 2026-11-06)
+	const FOLDED = 'play:intents:folded';
 	let folded = $state<Record<string, boolean>>({ accepted: true, archived: true });
 	try {
 		const kept = JSON.parse(localStorage.getItem(FOLDED) ?? 'null');
@@ -71,13 +83,12 @@
 		} catch {}
 	}
 	const columnsTemplate = $derived(COLUMNS.map(([s]) => (folded[s] ? '2.6rem' : 'minmax(14rem, 1fr)')).join(' '));
-	let list = $state<P[]>([]);
-	let items = $state<Item[]>([]);
+	let intents = $state<Intent[]>([]);
 	let loaded = $state(false);
 	let error = $state('');
 	const load = async () => {
 		try {
-			[list, items] = await Promise.all([api<P[]>('/proposals'), api<Item[]>('/inbox')]);
+			intents = await api<Intent[]>('/intents');
 			error = '';
 		} catch (e) {
 			error = (e as Error).message;
@@ -87,20 +98,24 @@
 	onMount(() => {
 		if (admin) load();
 	});
-	// a column's cards: its proposals and, where an item stands at that stage, its items (an item done is accepted);
-	// newest first, those decided by when they were
-	type Entry = { proposal: P; item?: undefined; at: string } | { item: Item; proposal?: undefined; at: string };
-	const ITEM_STAGE: Record<Item['status'], Column> = { inbox: 'inbox', specify: 'specify', done: 'accepted', archived: 'archived' };
-	const inColumn = (s: string): Entry[] =>
-		[
-			...list.filter((p) => p.status === s).map((p) => ({ proposal: p, at: p.decided_at ?? p.created })),
-			...items.filter((i) => ITEM_STAGE[i.status] === s).map((i) => ({ item: i, at: i.decided_at ?? i.created }))
-		].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
-	/** what has been proposed for an item, by status: "2 proposed · 1 accepted" */
-	const proposedFor = (i: Item) => {
+	// a column's cards: the intents at its stage, the latest first (those decided by when they were)
+	const inColumn = (s: string): Intent[] => intents.filter((i) => i.stage === s);
+	/** how far an intent's must checks are: "2/3 checks" */
+	const checksDone = (i: { spec: Spec | null; results: Results | null }) => {
+		const musts = i.spec?.checks.filter((c) => c.must) ?? [];
+		return musts.length ? `${musts.filter((c) => i.results?.[c.id]?.pass === true).length}/${musts.length} checks` : '';
+	};
+	const allMustPass = (i: { spec: Spec | null; results: Results | null }) => !!i.spec && i.spec.checks.filter((c) => c.must).every((c) => i.results?.[c.id]?.pass === true);
+	/** the final gate to accepting from Prototype: every must check passed, and on main where it has a run (play/api's unmetOnMain) */
+	const allMustPassOnMain = (i: { spec: Spec | null; results: Results | null }) =>
+		!!i.spec && i.spec.checks.filter((c) => c.must).every((c) => i.results?.[c.id]?.pass === true && (!c.run || i.results?.[c.id]?.where === 'main'));
+	/** where a result ran, as its mark says: avenBOX, or main and its commit */
+	const whereOf = (r: Results[string]) => (r.where === 'main' ? `main${r.commit ? ` @ ${r.commit.slice(0, 7)}` : ''}` : 'avenBOX');
+	/** what an intent's proposals came to, by status: "2 proposals · 1 accepted" */
+	const proposedFor = (i: Intent) => {
 		const n: Record<string, number> = {};
 		for (const p of i.proposals) n[p.status] = (n[p.status] ?? 0) + 1;
-		return ['proposed', 'accepted', 'archived'].filter((s) => n[s]).map((s) => `${n[s]} ${s}`).join(' · ');
+		return ['proposal', 'accepted', 'archived'].filter((s) => n[s]).map((s) => `${n[s]} ${s === 'proposal' ? (n[s] === 1 ? 'proposal' : 'proposals') : s}`).join(' · ');
 	};
 	async function act(id: string, verdict: string) {
 		try {
@@ -165,11 +180,13 @@
 	/** a title for a card: an asset's or story's version, or a sandbox's change */
 	/** what a proposal is of, its card's tag (Samuel 2026-11-05: the type, not how it came; that it came over MCP is in its title and its review) */
 	const GROUP_TYPE: Record<string, string> = { plants: 'Plant', things: 'Thing', machines: 'Machine', buildings: 'Building', actors: 'Actor', biomes: 'Biome', worlds: 'World' };
-	const typeOf = (p: P) =>
-		p.kind === 'story_version' ? 'Story' : p.kind === 'sandbox_change' ? 'Sandbox' : p.kind === 'factory_version' ? 'Factory' : p.kind === 'game_config_version' ? 'Game config' : (GROUP_TYPE[p.grp] ?? p.grp);
+	const typeOf = (p: { kind?: P['kind']; grp: string | null }) =>
+		p.kind === 'story_version' ? 'Story' : p.kind === 'sandbox_change' ? 'Sandbox' : p.kind === 'factory_version' ? 'Factory' : p.kind === 'game_config_version' ? 'Game config' : (GROUP_TYPE[p.grp ?? ''] ?? p.grp ?? '');
+	/** an intent's tag: what its proposal is (a plant, a story …) where it has one, else its kind */
+	const tagOf = (i: Intent) => (i.proposals[0] ? typeOf(i.proposals[0]) : kindName(i.kind));
 	const titleOf = (p: P) => (p.kind === 'sandbox_change' ? `${p.changes ?? 0} change${p.changes === 1 ? '' : 's'}` : `v${p.number}`);
 	async function openCard(p: P) {
-		item = null;
+		intent = null;
 		open = p;
 		review = null;
 		storyReview = null;
@@ -233,53 +250,69 @@
 	const close = () => (open = null);
 	const diff = $derived(baseCode !== null && code ? changesOnly(lineDiff(baseCode, code)) : null);
 
-	// ---- an item of the Inbox or Specify opened: read, handed to an agent by its brief, archived, done or brought back
-	let item = $state<Item | null>(null);
-	/** the item's proposals as the board lists them (null while they are read) */
-	let itemProposals = $state<P[] | null>(null);
-	let itemError = $state('');
+	// ---- an intent opened: its spec and checks, its proposals a click away, the brief that sends an agent to it, and the
+	// admin's decision; one with no spec and a single proposal (one made without an intent) opens straight into its review
+	let intent = $state<Intent | null>(null);
+	/** the intent's proposals as the board lists them (null while they are read) */
+	let intentProposals = $state<P[] | null>(null);
+	let intentError = $state('');
 	let copied = $state(false);
-	async function openItem(i: Item) {
+	/** an intent that is only its one proposal (one made without an intent): its card opens straight into the review */
+	const onlyItsProposal = (i: Intent | undefined) => !!i && !i.spec && i.proposals.length === 1;
+	/** an intent opened from its card: straight into its proposal's review where it is only that proposal */
+	async function openIntent(i: Intent) {
+		if (onlyItsProposal(i)) {
+			try {
+				const r = await api<{ proposals: P[] }>(`/intents/${i.id}`);
+				if (r.proposals[0]) return openCard(r.proposals[0]);
+			} catch (e) {
+				error = (e as Error).message;
+				return;
+			}
+		}
+		openIntentDialog(i);
+	}
+	/** the intent a proposal was made for, from its review */
+	function openIntentOf(id: string) {
+		const i = intents.find((x) => x.id === id);
+		if (i) openIntentDialog(i);
+	}
+	/** the intent's own dialog (its spec, checks and proposals), even where it has a single proposal */
+	async function openIntentDialog(i: Intent) {
 		open = null;
-		item = i;
-		itemProposals = null;
-		itemError = '';
+		intent = i;
+		intentProposals = null;
+		intentError = '';
 		copied = false;
 		try {
-			const r = await api<Item & { proposals: P[] }>(`/inbox/${i.id}`);
-			if (item?.id === i.id) itemProposals = r.proposals;
+			const r = await api<{ proposals: P[] }>(`/intents/${i.id}`);
+			if (intent?.id === i.id) intentProposals = r.proposals;
 		} catch (e) {
-			itemError = (e as Error).message;
+			intentError = (e as Error).message;
 		}
 	}
-	/** the item a proposal was made for, from its review */
-	async function openItemOf(id: string) {
-		const i = items.find((x) => x.id === id) ?? (await api<Item>(`/inbox/${id}`).catch(() => null));
-		if (i) openItem({ ...i, proposals: i.proposals.map((p: any) => ({ id: p.id, status: p.status })) });
-	}
-	const closeItem = () => (item = null);
-	async function decideItem(id: string, verdict: 'done' | 'archive' | 'reopen') {
+	const closeIntent = () => (intent = null);
+	async function decideIntent(id: string, verdict: 'approve' | 'respecify' | 'accept' | 'reject' | 'reopen') {
 		try {
-			const r = await api<Item>(`/inbox/${id}/${verdict}`, { method: 'POST' });
-			items = items.map((x) => (x.id === r.id ? r : x));
-			closeItem();
+			const r = await api<Intent>(`/intents/${id}/${verdict}`, { method: 'POST' });
+			intents = intents.map((x) => (x.id === r.id ? r : x));
+			closeIntent();
 		} catch (e) {
-			itemError = (e as Error).message;
+			intentError = (e as Error).message;
 		}
 	}
-	/** what to tell an agent sent to an item: the item by its id (its title only shown), to specify it first if it is
-	 *  not yet, then to make it, check it against its metric and propose it naming the item */
-	const briefOf = (i: Item) =>
-		i.status === 'inbox'
-			? `Take up Maia City's Inbox item ${i.id} on play ("${i.title}"). Read it with the maia-play MCP tool get_inbox_item, then specify it with specify_inbox_item: its definition (what is to be made, precisely) and its metric (what good is: how a proposal for it is judged, measurable where it can be). Then make it, check it against that metric, and propose it with the propose tool's inbox: "${i.id}", saying in its note how it meets the metric.`
-			: `Make Maia City's Inbox item ${i.id} on play ("${i.title}"). Read it and its spec with the maia-play MCP tool get_inbox_item, make what its definition says, check it against its metric, and propose it with the propose tool's inbox: "${i.id}", saying in its note how it meets the metric.`;
-	async function copyBrief(i: Item) {
+	/** what to tell an agent sent to an intent: the intent by its id (its title only shown), and its stage's work */
+	const briefOf = (i: Intent) =>
+		i.stage === 'prototype'
+			? `Build Maia City's intent ${i.id} on play ("${i.title}") in avenBOX, the cloud environment our agents prototype in (Postgres up, TEST_DATABASE_URL set: play/avenbox/up.sh). Read it and its approved spec with the maia-play MCP tool get_intent. Build what its goal and scope say. Run every check and record it with bun play/avenbox/intent.ts ${i.id} --record (it runs each check's run and records it with check_intent, a failure as a failure; record a look by hand with check_intent); repeat until every must check passes: then the intent moves to Proposal by itself, where an admin decides it. If the work is one of play's proposals (an asset or story version, a sandbox change, a factory or a config), also propose it with the propose tool's intent: "${i.id}"; play refuses it before every must check passes. If the work is code, ship it by pull request with the line Intent: ${i.id} at the end of its commits' messages: once it is merged, main runs the same checks in the same box (.github/workflows/intents.yml) and records them as main's, and it is accepted on main's results.`
+			: `Specify Maia City's intent ${i.id} on play ("${i.title}"). Read it with the maia-play MCP tool get_intent, then specify it with specify_intent: its goal (what is true when it is done, in a sentence), its scope (what changes, named by UUIDs, hashes or paths, and what stays as it is) and its checks, each ONE statement that passes or fails, checked by a test (a command that passes), a measure (a value and its range from a named tool) or a look (against a named reference), must or nice; every check decidable by someone who reads only the intent and the result. Every test and measure check carries its run: the exact command that decides it in avenBOX, from the repository's root, as written, nothing in it left to fill in (a test passes when it exits 0; a measure prints its value and exits 0 only in its range); in Prototype bun play/avenbox/intent.ts runs them all, and main runs them again once the work is merged. Then stop: an admin approves the spec before anything is built.`;
+	async function copyBrief(i: Intent) {
 		try {
 			await navigator.clipboard.writeText(briefOf(i));
 			copied = true;
 			setTimeout(() => (copied = false), 2000);
 		} catch {
-			itemError = 'The brief could not be copied here: select it and copy it by hand.';
+			intentError = 'The brief could not be copied here: select it and copy it by hand.';
 		}
 	}
 	/** Markdown, as the site's one engine writes it (safe to show: nothing in it can run or load) */
@@ -288,16 +321,16 @@
 	// the way back (the nav pill's Back) closes what is open on the board first, then the board itself (the modal's)
 	$effect(() => {
 		if (!open) return;
-		return wayBack('Back to the proposals', close);
+		return wayBack('Back to the intents', close);
 	});
 	$effect(() => {
-		if (!item) return;
-		return wayBack('Back to the proposals', closeItem);
+		if (!intent) return;
+		return wayBack('Back to the intents', closeIntent);
 	});
 
 	const onKey = (e: KeyboardEvent) => {
 		if (e.key !== 'Escape') return;
-		if (item) closeItem();
+		if (intent) closeIntent();
 		else if (open) close();
 		else onclose?.();
 	};
@@ -305,16 +338,14 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="proposals">
+<div class="intents">
 {#if !admin}
-	<p class="muted">The proposals are Maia City's admins' for now.</p>
+	<p class="muted">The intents are Maia City's admins' for now.</p>
 {:else}
+		<!-- the title alone above the columns: no words about the board (Samuel 2026-11-06) -->
 		<header class="head">
-			<div>
-				<h1>Proposals</h1>
-				<p class="muted">What Maia City wants made, fixed or improved comes into the Inbox and is specified (its definition, and its metric of what is good) by agents over MCP; what they make of it, and every other new version of the assets, stories, factories and configs and change of the sandboxes, comes in as Proposed. Open one to see it and decide.</p>
-			</div>
-			{#if onclose}<button class="btn small ghost close" onclick={onclose} aria-label="Close the proposals" title="Close (Esc)">Close</button>{/if}
+			<h1>Intents</h1>
+			{#if onclose}<button class="btn small ghost close" onclick={onclose} aria-label="Close the intents" title="Close (Esc)">Close</button>{/if}
 		</header>
 		{#if error}<p class="error">{error}</p>{/if}
 		<div class="board" style:grid-template-columns={columnsTemplate}>
@@ -329,40 +360,25 @@
 					</h2>
 					{#if !folded[s]}
 						<div class="cards">
-							{#each cards as c (c.item?.id ?? c.proposal?.id)}
-								{#if c.item}
-									{@const i = c.item}
-									<!-- an item: its title, how far what was proposed for it got, who wrote it and its kind -->
-									<article class="card item" data-kind={i.kind}>
-										<button class="open" onclick={() => openItem(i)} title={i.note ? gist(i.note) : undefined}>
-											<span class="title">{i.title}</span>
-											{#if i.proposals.length}<span class="for">{proposedFor(i)}</span>{/if}
-											<span class="meta">
-												<span class="avatar" aria-hidden="true">{initialsOf(i.author)}</span>
-												<span class="author">{i.author ?? 'someone'}</span>
-												<span class="type" data-kind={i.kind} title="{kindName(i.kind)} · added by an agent working for them over MCP">{kindName(i.kind)}</span>
-												<span class="date">{shortWhen(i.created)}</span>
-											</span>
-										</button>
-									</article>
-								{:else}
-									{@const p = c.proposal!}
-									<!-- compact: the title and who, when; the note, the review and the decision open with it -->
-									<article class="card">
-										<button class="open" onclick={() => openCard(p)} title={p.note ? gist(p.note) : undefined}>
-											<span class="title">{p.label} <span class="muted">{titleOf(p)}</span></span>
-											{#if p.inbox_title}<span class="for" title="Made for this item of the Inbox">↳ {p.inbox_title}</span>{/if}
-											<span class="meta">
-												<span class="avatar" aria-hidden="true">{initialsOf(p.author)}</span>
-												<span class="author">{p.author ?? 'someone'}</span>
-												<span class="type" data-type={typeOf(p)} title={p.via === 'mcp' ? `${typeOf(p)} · proposed by an agent working for them over MCP` : typeOf(p)}>{typeOf(p)}</span>
-												<span class="date">{shortWhen(p.created)}</span>
-											</span>
-										</button>
-									</article>
-								{/if}
+							{#each cards as i (i.id)}
+								{@const progress = s === 'prototype' ? checksDone(i) : ''}
+								<!-- an intent: its title, how far its checks or proposals got, who it is by, its type and its date -->
+								<article class="card" class:item={!!i.spec || !i.proposals.length} data-kind={i.kind}>
+									<button class="open" onclick={() => openIntent(i)} title={i.note ? gist(i.note) : undefined}>
+										<span class="title">{i.title}</span>
+										{#if progress}<span class="for" class:done={allMustPass(i)}>{progress}</span>
+										{:else if i.spec && s === 'specify'}<span class="for">{i.spec.checks.length} check{i.spec.checks.length === 1 ? '' : 's'} · to approve</span>
+										{:else if i.spec && i.proposals.length}<span class="for">{proposedFor(i)}</span>{/if}
+										<span class="meta">
+											<span class="avatar" aria-hidden="true">{initialsOf(i.author)}</span>
+											<span class="author">{i.author ?? 'someone'}</span>
+											<span class="type" data-type={tagOf(i)} data-kind={i.proposals.length ? undefined : i.kind} title={i.via === 'mcp' ? `${tagOf(i)} · by an agent working for them over MCP` : tagOf(i)}>{tagOf(i)}</span>
+											<span class="date">{shortWhen(i.decided_at ?? i.created)}</span>
+										</span>
+									</button>
+								</article>
 							{:else}
-								<p class="empty muted">{!loaded ? '…' : s === 'inbox' ? 'None. Agents add here over MCP.' : s === 'specify' ? 'None. Agents specify an item over MCP.' : 'None'}</p>
+								<p class="empty muted">{!loaded ? '…' : s === 'idea' ? 'None. Agents add intents over MCP.' : s === 'specify' ? 'None. Agents specify an intent over MCP.' : s === 'prototype' ? 'None. An approved spec is built here.' : 'None'}</p>
 							{/each}
 						</div>
 					{/if}
@@ -370,44 +386,69 @@
 			{/each}
 		</div>
 
-	{#if item}
-		{@const i = item}
-		<!-- an item opened: read here (it is added and specified over MCP only), its proposals a click away, the brief
-		     that hands it to an agent, and the admins' decision on it -->
-		<button class="scrim" onclick={closeItem} aria-label="Close" tabindex="-1"></button>
+	{#if intent}
+		{@const i = intent}
+		{@const musts = i.spec?.checks.filter((c) => c.must) ?? []}
+		<!-- a proposal of it waiting: that proposal's review is where it is decided -->
+		{@const waits = (intentProposals ?? i.proposals).some((p) => p.status === 'proposal')}
+		<!-- an intent opened: read here (it is added and specified over MCP only), its spec and its checks with their
+		     results, its proposals a click away, the brief that sends an agent to it, and the admins' decision on it -->
+		<button class="scrim" onclick={closeIntent} aria-label="Close" tabindex="-1"></button>
 		<div class="review item-review" role="dialog" aria-modal="true" aria-label={i.title}>
 			<header class="review-head">
 				<div class="who">
-					<p class="tags"><span class="type" data-kind={i.kind}>{kindName(i.kind)}</span> <span class="pill">{i.status === 'inbox' ? 'in the Inbox' : i.status === 'specify' ? 'specified' : i.status}</span></p>
+					<p class="tags"><span class="type" data-kind={i.kind}>{kindName(i.kind)}</span> <span class="pill">{STAGE_NAME[i.stage]}</span>{#if (i.stage === 'prototype' || i.stage === 'proposal') && musts.length}{' '}<span class="pill" class:pass={allMustPass(i)}>{checksDone(i)}</span>{/if}</p>
 					<h2>{i.title}</h2>
-					<p class="meta">by {i.author ?? 'someone'}{' '}<span class="via" title="Added by an agent working for them over MCP">via MCP</span> · {when(i.created)}{i.specified_by && i.specified_at ? ` · specified by ${i.specified_by}, ${when(i.specified_at)}` : ''}{i.decided_by ? ` · ${i.status} by ${i.decided_by}` : ''}</p>
+					<p class="meta">by {i.author ?? 'someone'}{#if i.via === 'mcp'}{' '}<span class="via" title="Added by an agent working for them over MCP">via MCP</span>{/if} · {when(i.created)}{i.specified_by && i.specified_at ? ` · specified by ${i.specified_by}, ${when(i.specified_at)}` : ''}{i.approved_by && i.approved_at ? ` · spec approved by ${i.approved_by}` : ''}{i.decided_by && i.decided_at ? ` · ${i.stage} by ${i.decided_by}, ${when(i.decided_at)}` : ''}</p>
 				</div>
 			</header>
 			<div class="item-body">
-			{#if itemError}<p class="error">{itemError}</p>{/if}
+			{#if intentError}<p class="error">{intentError}</p>{/if}
 			{#if i.note}<div class="md">{@html md(i.note)}</div>{/if}
-			<section class="spec" class:none={!i.definition}>
-				{#if i.definition}
+			<section class="spec" class:none={!i.spec}>
+				{#if i.spec}
 					<div>
-						<h3>Definition</h3>
-						<div class="md">{@html md(i.definition)}</div>
+						<h3>Goal</h3>
+						<div class="md">{@html md(i.spec.goal)}</div>
 					</div>
 					<div>
-						<h3>Metric of what is good</h3>
-						<div class="md">{@html md(i.metric)}</div>
+						<h3>Scope</h3>
+						<div class="md">{@html md(i.spec.scope)}</div>
+					</div>
+					<div class="checks-wrap">
+						<h3>Checks <span class="muted small">{i.stage === 'specify' ? 'what will be checked, once approved' : 'once every must check passes, it moves to Proposal by itself'}</span></h3>
+						<ol class="checks">
+							{#each i.spec.checks as c (c.id)}
+								{@const r = i.results?.[c.id]}
+								<li class:pass={r?.pass === true} class:fail={r?.pass === false}>
+									<span class="mark" title={r ? (r.pass ? 'Passed' : 'Failed') : 'No result yet'}>{r ? (r.pass ? '✓' : '✗') : '·'}</span>
+									<div class="what">
+										<p><span class="cid">{c.id}</span> {c.check}{#if !c.must}{' '}<span class="pill nice" title="Nice to have: it does not hold the proposal back">nice</span>{/if}</p>
+										<p class="muted small"><span class="how">{c.how}</span> · {c.by}</p>
+										{#if c.run}<code class="run" title="Its run: the command that decides it in avenBOX, and on main once merged">{c.run}</code>{/if}
+										{#if r}<p class="evidence small"><span class="where" class:main={r.where === 'main'} title={r.where === 'main' ? 'Run on main after the merge' : 'Run in avenBOX'}>{whereOf(r)}</span>{' '}{r.evidence}{#if r.by}{' '}<span class="muted">· {r.by}, {shortWhen(r.at)}</span>{/if}</p>{/if}
+									</div>
+								</li>
+							{/each}
+						</ol>
 					</div>
 				{:else}
-					<h3>Not specified yet</h3>
-					<p class="muted small">Its definition and its metric of what is good are written over MCP before anything is proposed for it: the brief below asks an agent to do that first.</p>
+					{#if i.stage === 'idea' || i.stage === 'specify'}
+						<h3>Not specified yet</h3>
+						<p class="muted small">Its spec (a goal, a scope and the checks that decide when it is done) is written over MCP before anything is built for it: the brief below asks an agent to do that, and an admin approves it here.</p>
+					{:else}
+						<h3>Without a spec</h3>
+						<p class="muted small">It was proposed without a spec: what is proposed for it is judged by its review alone.{i.stage === 'accepted' || i.stage === 'archived' ? ' Reopened, it is specified first.' : ''}</p>
+					{/if}
 				{/if}
 			</section>
 			<section>
 				<h3>Proposed for it</h3>
-				{#if itemProposals === null}<p class="muted small">Reading them…</p>
-				{:else if !itemProposals.length}<p class="muted small">Nothing yet. Send an agent to it with the brief below.</p>
+				{#if intentProposals === null}<p class="muted small">Reading them…</p>
+				{:else if !intentProposals.length}<p class="muted small">Nothing yet.{i.stage === 'idea' || i.stage === 'specify' || i.stage === 'prototype' ? ' Send an agent to it with the brief below.' : ''}</p>
 				{:else}
 					<ul class="linked">
-						{#each itemProposals as p (p.id)}
+						{#each intentProposals as p (p.id)}
 							<li>
 								<button class="open" onclick={() => openCard(p)}>
 									<span class="type" data-type={typeOf(p)}>{typeOf(p)}</span>
@@ -420,25 +461,33 @@
 					</ul>
 				{/if}
 			</section>
-			{#if i.status === 'inbox' || i.status === 'specify'}
+			{#if i.stage === 'idea' || (i.stage === 'specify' && !i.spec) || i.stage === 'prototype'}
 				<section class="agent">
 					<h3>For an agent</h3>
-					<p class="muted small">Give this to an agent with play's MCP server: {i.status === 'inbox' ? 'it specifies the item, makes it' : 'it makes the item'} and names it in what it proposes.</p>
+					<p class="muted small">Give this to an agent with play's MCP server: {i.stage === 'prototype' ? 'it builds the intent and records every check; once every must check passes, the intent moves to Proposal by itself, to be decided here.' : 'it specifies the intent, then stops for an admin to approve the spec here.'}</p>
 					<pre class="brief">{briefOf(i)}</pre>
 					<button class="btn small ghost" onclick={() => copyBrief(i)}>{copied ? 'Copied' : 'Copy the brief'}</button>
 				</section>
 			{/if}
 			</div>
-			<!-- the decision at its foot, in the middle: Reject (it ends archived) on the left, Done on the right -->
+			<!-- the decision at its foot, in the middle: Reject (it ends archived) on the left, Approve or Accept on the right;
+			     no Close: the nav pill's Back (or Escape, or the scrim) closes it, the star the board (Samuel 2026-11-06).
+			     Accept only at Proposal (it moves there by itself once every must check passes; Samuel 2026-11-06), and only
+			     where no proposal of it waits: then that proposal, on its review, is where it is decided -->
+			{#if !(i.stage === 'proposal' && waits)}
 			<footer class="decide">
-				{#if i.status === 'inbox' || i.status === 'specify'}
-					<button class="btn small reject" onclick={() => decideItem(i.id, 'archive')} title="Not to be done: it ends archived">Reject</button>
-				{:else}
-					<button class="btn small ghost" onclick={() => decideItem(i.id, 'reopen')}>Back to {i.definition ? 'Specify' : 'the Inbox'}</button>
+				{#if i.stage === 'idea' || i.stage === 'specify' || i.stage === 'prototype' || (i.stage === 'proposal' && !waits)}
+					<button class="btn small reject" onclick={() => decideIntent(i.id, 'reject')} title="Not to be done: it ends archived">Reject</button>
 				{/if}
-				<button class="btn small ghost" onclick={closeItem} aria-label="Close">Close</button>
-				{#if i.status === 'specify'}<button class="btn small" onclick={() => decideItem(i.id, 'done')} title="What it asked is in">Done</button>{/if}
+				{#if i.stage === 'prototype' || (i.stage === 'proposal' && i.approved_at && !waits)}
+					<button class="btn small ghost" onclick={() => decideIntent(i.id, 'respecify')} title="Its spec is to change: back to Specify, its approval and results cleared">Back to Specify</button>
+				{:else if i.stage === 'accepted' || i.stage === 'archived'}
+					<button class="btn small ghost" onclick={() => decideIntent(i.id, 'reopen')} title="Open again: back to {i.spec ? 'Specify' : 'Idea'}">Reopen</button>
+				{/if}
+				{#if i.stage === 'specify' && i.spec}<button class="btn small" onclick={() => decideIntent(i.id, 'approve')} title="The spec is right: an agent may build it">Approve spec</button>
+				{:else if i.stage === 'proposal' && !waits}<button class="btn small" onclick={() => decideIntent(i.id, 'accept')} disabled={!allMustPassOnMain(i)} title={allMustPassOnMain(i) ? 'What it asked is in' : allMustPass(i) ? 'Every must check with a run passes on main first, once its work is merged' : 'Every must check passes first'}>Accept</button>{/if}
 			</footer>
+			{/if}
 		</div>
 	{/if}
 
@@ -448,7 +497,16 @@
 			<header class="review-head">
 				<div class="who">
 					<h2>{p.label} <span class="muted">{titleOf(p)}</span> <span class="pill">{p.status}</span></h2>
-					<p class="meta">{p.grp} · by {p.author ?? 'someone'}{#if p.via === 'mcp'}{' '}<span class="via" title="Proposed by an agent working for them over MCP">via MCP</span>{/if} · {when(p.created)}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}{#if p.inbox_id}{' · for '}<button class="link" onclick={() => openItemOf(p.inbox_id!)} title="The item of the Inbox it was made for">{p.inbox_title}</button>{/if}</p>
+					<p class="meta">{p.grp} · by {p.author ?? 'someone'}{#if p.via === 'mcp'}{' '}<span class="via" title="Proposed by an agent working for them over MCP">via MCP</span>{/if} · {when(p.created)}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}{#if p.intent_id && !onlyItsProposal(intents.find((x) => x.id === p.intent_id))}{' · for '}<button class="link" onclick={() => openIntentOf(p.intent_id!)} title="The intent it was made for: its spec and checks">{p.intent_title}</button>{/if}</p>
+					{#if p.intent_spec}
+						{@const checks = p.intent_spec.checks}
+						<p class="gate small" title="The intent's checks, each as its last result: every must check passed before play took this">
+							{#each checks as c (c.id)}
+								{@const r = p.intent_results?.[c.id]}
+								<span class="chk" class:pass={r?.pass === true} class:fail={r?.pass === false} title="{c.id} {c.check}{c.must ? '' : ' (nice)'}{r ? ` — ${r.evidence}` : ''}">{r ? (r.pass ? '✓' : '✗') : '·'} {c.id}</span>
+							{/each}
+						</p>
+					{/if}
 				</div>
 			</header>
 			{#if p.note}
@@ -463,7 +521,7 @@
 					{:else if !sandboxReview}<p class="muted">Reading it…</p>
 					{:else}
 						{@const r = sandboxReview}
-						{#if p.status === 'proposed'}
+						{#if p.status === 'proposal'}
 							{#if !r.holds}<p class="error">It no longer holds on {r.sandbox.title} as it is now: {r.why} Accepting it archives it.</p>
 							{:else}
 								<p>
@@ -632,12 +690,13 @@
 			{/if}
 			<!-- the decision at its foot, in the middle, where a thumb reaches it on a pad (Samuel 2026-11-05): Reject on the
 			     left (it ends archived: a proposal ends accepted or archived), Accept on the right, the rest between -->
+			{#if (p.status === 'proposal' && (deciding || p.author === session.me?.name)) || review}
 			<footer class="decide">
-				{#if p.status === 'proposed' && (deciding || p.author === session.me?.name)}<button class="btn small reject" onclick={() => (act(p.id, 'archive'), close())} title="Not taken: it ends archived">Reject</button>{/if}
+				{#if p.status === 'proposal' && (deciding || p.author === session.me?.name)}<button class="btn small reject" onclick={() => (act(p.id, 'archive'), close())} title="Not taken: it ends archived">Reject</button>{/if}
 				{#if review}<button class="btn small ghost" class:on={showSource} onclick={() => (showSource = !showSource)}>{showSource ? 'Hide source' : review.source ? 'Source' : 'Recipe file'}</button>{/if}
-				<button class="btn small ghost" onclick={close} aria-label="Close">Close</button>
-				{#if p.status === 'proposed' && deciding}<button class="btn small" onclick={() => (act(p.id, 'accept'), close())}>Accept</button>{/if}
+				{#if p.status === 'proposal' && deciding}<button class="btn small" onclick={() => (act(p.id, 'accept'), close())}>Accept</button>{/if}
 			</footer>
+			{/if}
 		</div>
 	{/if}
 {/if}
@@ -646,13 +705,11 @@
 <style>
 	/* the board as tall as the modal it is in: its title and the columns' headers stay, each column scrolls its own
 	   cards, the board sideways on a narrow screen (Samuel 2026-11-04); what is opened on it covers it, inside the modal */
-	.proposals { position: relative; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; padding: 1rem 1rem 0.8rem; }
-	.head { flex: 0 0 auto; display: flex; gap: 1rem; align-items: flex-start; justify-content: space-between; }
+	.intents { position: relative; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; padding: 1rem 1rem 0.8rem; }
+	.head { flex: 0 0 auto; display: flex; gap: 1rem; align-items: center; justify-content: space-between; margin-bottom: 0.7rem; }
 	.head h1 { margin: 0; font-size: clamp(1.6rem, 3.5vw, 2.2rem); }
-	.head p { margin: 0.2rem 0 0.8rem; font-size: 0.92rem; max-width: 62rem; }
 	.head .close { flex: 0 0 auto; }
-	/* a phone: the board's own words give way to its columns */
-	@media (max-width: 640px) { .head p { display: none; } .head h1 { margin-bottom: 0.6rem; } .proposals { padding: 0.8rem 0.7rem 0.6rem; } }
+	@media (max-width: 640px) { .head { margin-bottom: 0.6rem; } .intents { padding: 0.8rem 0.7rem 0.6rem; } }
 	.board { flex: 1 1 auto; min-height: 0; display: grid; grid-auto-flow: column; gap: 0.7rem; overflow-x: auto; align-items: stretch; }
 	.column { background: color-mix(in srgb, var(--paper, #f6f1e6) 70%, transparent); border-radius: 14px; padding: 0.7rem 0.6rem 0.5rem; display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; min-height: 0; }
 	.column h2 { flex: 0 0 auto; margin: 0; font-size: 0.95rem; min-height: 1.5rem; }
@@ -687,27 +744,56 @@
 	.type[data-type='Plant'], .type[data-type='Biome'] { background: color-mix(in srgb, var(--sage, #8fa67a) 30%, transparent); }
 	.type[data-type='Story'] { background: color-mix(in srgb, var(--ink, #1f3a2c) 14%, transparent); }
 	.via { display: inline-block; padding: 0 0.45em; border-radius: 999px; background: var(--mustard-soft); color: var(--ink); font-size: 0.72rem; font-weight: 600; }
-	/* the Inbox: each kind its colour, an item's card marked with it down its left edge */
+	/* an intent's kind its colour, the card of one added over MCP (not only a proposal's) marked with it down its left edge */
 	[data-kind='idea'] { --kind: var(--mustard, #efb54d); }
 	[data-kind='fix'] { --kind: var(--terracotta, #c8744f); }
 	[data-kind='improve'] { --kind: var(--sage, #a8b88a); }
 	.type[data-kind] { background: color-mix(in srgb, var(--kind) 35%, transparent); }
 	.card.item { border-left: 4px solid var(--kind); }
 	.for { font-size: 0.76rem; color: var(--ink-soft, #4d5d51); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	/* an item opened: a panel in the middle of the screen over a scrim, not the whole screen a version's build takes */
+	.for.done { color: var(--brand-green, #24452f); font-weight: 600; }
+	/* an intent opened: a panel in the middle of the screen over a scrim, not the whole screen a version's build takes */
 	.scrim { all: unset; position: absolute; inset: 0; z-index: 9; border-radius: inherit; background: rgb(38 56 44 / 0.28); }
 	.review.item-review { inset: auto; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(48rem, calc(100% - 1rem)); max-height: calc(100% - 1rem); gap: 0.7rem; padding: 1rem 1.1rem 0.8rem; }
 	/* its header and its decision stay; what is between them scrolls */
 	.item-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 0.7rem; }
 	.item-review .tags { margin: 0 0 0.3rem; display: flex; gap: 0.35rem; align-items: center; }
 	.item-review .review-head h2 { font-size: 1.35rem; }
-	/* an item's note and its spec, as Markdown */
+	/* an intent's note and its spec, as Markdown */
 	.md { font-size: 0.92rem; line-height: 1.5; overflow-wrap: anywhere; }
 	.md :global(:first-child) { margin-top: 0; }
 	.md :global(:last-child) { margin-bottom: 0; }
 	.md :global(ul), .md :global(ol) { padding-left: 1.3rem; }
 	.md :global(pre) { white-space: pre-wrap; background: var(--paper, #faf8f2); padding: 0.5rem 0.7rem; border-radius: 8px; }
 	.spec { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0.8rem; padding: 0.8rem 0.9rem; border-radius: 12px; background: color-mix(in srgb, var(--sage, #a8b88a) 16%, var(--paper, #faf8f2)); border: 1px solid color-mix(in srgb, var(--sage, #a8b88a) 45%, transparent); }
+	/* its checks, the whole width of the spec: each its mark (✓ passed, ✗ failed, · no result yet), its statement, how and
+	   by what it is checked, and its last result's evidence */
+	.checks-wrap { grid-column: 1 / -1; }
+	.checks-wrap h3 .small { font-weight: 400; margin-left: 0.3rem; }
+	.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
+	.checks li { display: flex; gap: 0.55rem; align-items: flex-start; padding: 0.45rem 0.6rem; border-radius: 10px; background: var(--card, #fff); border: 1px solid var(--line, #dcd5c4); }
+	.checks li.pass { border-color: color-mix(in srgb, var(--sage, #8fae8b) 70%, transparent); }
+	.checks li.fail { border-color: color-mix(in srgb, var(--terracotta, #c8744f) 60%, transparent); }
+	.checks .mark { flex: 0 0 1.4rem; height: 1.4rem; display: grid; place-items: center; border-radius: 50%; font-weight: 700; font-size: 0.8rem; background: var(--paper, #f6f1e6); color: var(--muted, #777); }
+	.checks li.pass .mark { background: color-mix(in srgb, var(--sage, #8fae8b) 45%, transparent); color: var(--brand-green, #24452f); }
+	.checks li.fail .mark { background: color-mix(in srgb, var(--terracotta, #c8744f) 30%, transparent); color: #9c3b22; }
+	.checks .what { min-width: 0; flex: 1 1 auto; }
+	.checks .what p { margin: 0; font-size: 0.88rem; overflow-wrap: anywhere; }
+	.checks .what p + p { margin-top: 0.15rem; }
+	.cid { font-family: ui-monospace, monospace; font-size: 0.76rem; color: var(--muted, #777); margin-right: 0.15rem; }
+	.how { font-weight: 600; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.04em; }
+	.evidence { white-space: pre-line; color: var(--ink-soft, #4d5d51); }
+	/* a check's run, the command that decides it, and where its last result ran (avenBOX, or main @ its commit) */
+	.checks code.run { display: block; margin-top: 0.2rem; padding: 0.25rem 0.45rem; border-radius: 6px; background: var(--paper, #f6f1e6); font-family: ui-monospace, monospace; font-size: 0.74rem; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink, #1f2a22); }
+	.where { display: inline-block; padding: 0 0.4em; border-radius: 999px; font-size: 0.68rem; font-weight: 600; background: var(--paper, #f6f1e6); color: var(--muted, #777); white-space: nowrap; }
+	.where.main { background: color-mix(in srgb, var(--sage, #8fae8b) 40%, transparent); color: var(--brand-green, #24452f); }
+	.pill.nice { font-size: 0.68rem; padding: 0 0.45em; }
+	.pill.pass { background: color-mix(in srgb, var(--sage, #8fae8b) 40%, transparent); }
+	/* a proposal's review: its intent's checks as one strip of marks */
+	.gate { margin: 0.25rem 0 0; display: flex; flex-wrap: wrap; gap: 0.3rem; }
+	.chk { padding: 0 0.5em; border-radius: 999px; font-size: 0.72rem; font-weight: 600; background: var(--paper, #f6f1e6); color: var(--muted, #777); white-space: nowrap; }
+	.chk.pass { background: color-mix(in srgb, var(--sage, #8fae8b) 40%, transparent); color: var(--brand-green, #24452f); }
+	.chk.fail { background: color-mix(in srgb, var(--terracotta, #c8744f) 25%, transparent); color: #9c3b22; }
 	.spec.none { display: block; background: var(--paper, #faf8f2); border-style: dashed; border-color: var(--line, #dcd5c4); }
 	.item-review h3 { margin: 0 0 0.4rem; font-size: 1rem; }
 	.item-review section > p { margin: 0 0 0.4rem; }

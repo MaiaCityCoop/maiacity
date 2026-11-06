@@ -164,7 +164,7 @@
 			<small>Factory · owned by Maia City</small>
 			<h3>{factory.json.label}</h3>
 			{#if factory.proposal}
-				<p class="asif">As the {factory.proposal.status === 'proposed' ? '' : `${factory.proposal.status} `}proposal would make it: “{factory.proposal.note}” <a href="/proposals/">Back to the proposals</a> · <a href="?factory={factory.id}" onclick={(e) => (e.preventDefault(), at(factory!.id))}>its newest version</a></p>
+				<p class="asif">As the {factory.proposal.status === 'proposal' ? '' : `${factory.proposal.status} `}proposal would make it: “{factory.proposal.note}” <a href="/intents/">Back to the intents</a> · <a href="?factory={factory.id}" onclick={(e) => (e.preventDefault(), at(factory!.id))}>its newest version</a></p>
 			{:else if factory.version !== factory.number}
 				<p class="asif">Version {factory.version}, not its newest: <a href="?factory={factory.id}" onclick={(e) => (e.preventDefault(), at(factory!.id))}>v{factory.number}</a></p>
 			{/if}
@@ -184,7 +184,7 @@
 				</li>
 			{/each}
 		</ol>
-		<p class="soft propose">Propose v{factory.number + 1} over MCP (factory_edit, propose_factory_version); it is decided in <a href="/proposals/">Proposals</a>.</p>
+		<p class="soft propose">Propose v{factory.number + 1} over MCP (factory_edit, propose_factory_version); it is decided in <a href="/intents/">Intents</a>.</p>
 		{#if L.parts.length}
 			<section class="parts" aria-label="Every part of what it builds and how it is made">
 				<h4 class="side-head">Bill of process</h4>

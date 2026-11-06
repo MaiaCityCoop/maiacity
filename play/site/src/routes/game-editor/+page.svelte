@@ -75,7 +75,7 @@
 			<small>Owned by Maia City</small>
 			<h3>{config.json.label}</h3>
 			{#if config.proposal}
-				<p class="asif">As the {config.proposal.status === 'proposed' ? '' : `${config.proposal.status} `}proposal would make it: “{config.proposal.note}” <a href="/proposals/">Back to the proposals</a> · <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>its newest version</a></p>
+				<p class="asif">As the {config.proposal.status === 'proposal' ? '' : `${config.proposal.status} `}proposal would make it: “{config.proposal.note}” <a href="/intents/">Back to the intents</a> · <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>its newest version</a></p>
 			{:else if config.version !== config.number}
 				<p class="asif">Version {config.version}, not its newest: <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>v{config.number}</a></p>
 			{/if}
@@ -90,7 +90,7 @@
 				</li>
 			{/each}
 		</ol>
-		<p class="soft propose">Every change is a step of its Loro document. Propose v{config.number + 1} over MCP (game_config_edit, propose_game_config_version); it is decided in <a href="/proposals/">Proposals</a>.</p>
+		<p class="soft propose">Every change is a step of its Loro document. Propose v{config.number + 1} over MCP (game_config_edit, propose_game_config_version); it is decided in <a href="/intents/">Intents</a>.</p>
 	{/if}
 {/snippet}
 
