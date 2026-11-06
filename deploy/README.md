@@ -25,6 +25,11 @@ Accept there ships it again.
   left off, or every merge waits on the pull request being brought up to main first); *Block force pushes*. Then a
   pull request whose
   intent is not accepted cannot be merged: GitHub shows `Intent accepted` as expected.
+- **production's ruleset**: production moves only by release.yml's fast-forward push (GitHub Actions), never by a pull
+  request: enforcement Active; rules *Restrict deletions*, *Block force pushes* (so it only ever moves forward) and
+  *Require status checks to pass*: `play / API and site` and `website / build` (main's own checks on the commit, so
+  only a commit main has checked goes out). No *Require a pull request*, no *Only from main*: those were the old way
+  (a pull request main → production), and they refuse release.yml's push (GH013).
 - It stops every change landing without an Accept by mistake; it does not stop someone acting as the token's owner on
   GitHub on purpose (the agents act as Samuel there).
 - By hand: Actions → **release** → Run workflow with a commit of main releases it (or deploys production's own commit
