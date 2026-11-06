@@ -17,6 +17,7 @@ import { dualQuaternionSkinning } from '$lib/content/actors/dqs.ts';
 import { FORMAT, LIGHTS, MATERIALS } from './serialize.js';
 import { LIGHT, MAT } from './bake.js';
 import { MOVE_SAMPLES } from './view.js';
+import { budget, released } from '$lib/content/render/budget.js';
 
 /**
  * what one asset may be at most (phase 0: generous; phase 1 sets them per LOD). A texture is only its settings and the
@@ -88,8 +89,12 @@ function geometry(x, i) {
  * @param {ImageBitmap} bitmap
  */
 function onCanvas(bitmap) {
-	const c = typeof OffscreenCanvas === 'function' ? new OffscreenCanvas(bitmap.width, bitmap.height) : Object.assign(document.createElement('canvas'), { width: bitmap.width, height: bitmap.height });
-	/** @type {any} */ (c.getContext('2d')).drawImage(bitmap, 0, 0);
+	// no bigger than the device's budget lets a picture be (../../render/budget.js `texture`: a phone holds each picture
+	// in its page and on its graphics card in one memory), its shape kept
+	const scale = Math.min(1, budget().texture / Math.max(bitmap.width, bitmap.height));
+	const width = Math.max(1, Math.round(bitmap.width * scale)), height = Math.max(1, Math.round(bitmap.height * scale));
+	const c = typeof OffscreenCanvas === 'function' ? new OffscreenCanvas(width, height) : Object.assign(document.createElement('canvas'), { width, height });
+	/** @type {any} */ (c.getContext('2d')).drawImage(bitmap, 0, 0, width, height);
 	return c;
 }
 
@@ -138,6 +143,40 @@ function texture(x, i, images) {
 	return t;
 }
 
+/** what a texture's upload depends on: textures showing one picture alike share one upload of it */
+const uploadKey = (t) => [t.colorSpace, t.flipY, t.wrapS, t.wrapT, t.minFilter, t.magFilter, t.generateMipmaps, t.format, t.type, t.anisotropy, t.premultiplyAlpha, t.unpackAlignment, t.internalFormat].join();
+
+/**
+ * On a device whose budget says so (../../render/budget.js `release`: a phone holds a picture in its page and on its
+ * graphics card in one memory), each picture lets go of its canvas once the graphics card has it: where every texture
+ * of the build showing it shows it alike (one upload serves them all; one shown otherwise keeps its picture).
+ */
+function letPicturesGo(images, tex) {
+	if (!budget().release) return;
+	for (const img of images) {
+		if (!img) continue;
+		const users = tex.filter((t) => t.source === img.source);
+		if (!users.length || users.some((t) => uploadKey(t) !== uploadKey(users[0]))) continue;
+		const go = () => {
+			const s = img.source;
+			if (s.letGo) return;
+			s.letGo = true;
+			const d = s.data;
+			// a canvas shrunk to nothing frees its pixels; numbers replaced by none
+			if (d && 'getContext' in d) (d.width = 1), (d.height = 1);
+			else s.data = { data: new Uint8Array(4), width: 1, height: 1 };
+			released.any = true;
+		};
+		for (const t of users) {
+			const before = t.onUpdate;
+			t.onUpdate = (u) => {
+				before?.(u);
+				go();
+			};
+		}
+	}
+}
+
 function material(x, i, textures) {
 	if (!MATERIALS.includes(x.type)) fail(`material ${i}: no kind ${String(x.type).slice(0, 40)}`);
 	const m = new THREE[x.type]();
@@ -173,6 +212,7 @@ export function rebuild(data) {
 	for (const [what, n] of Object.entries(counts)) if (n > BUDGET[what]) fail(`${n} ${what}, more than ${BUDGET[what]}`);
 	const images = listed.map((x, i) => (data.format === 0 && x === null ? null : image(x, i)));
 	const tex = textures.map((t, i) => texture(data.format === 0 ? { ...t, image: images[i] ? i : null } : t, i, images));
+	letPicturesGo(images, tex);
 	const mats = materials.map((x, i) => material(x, i, tex));
 	const geos = geometries.map(geometry);
 	let vertices = 0;

@@ -39,6 +39,7 @@ import { FLOORS, THINGS, coopsOf, putThings } from './things.js'
 import { swapLegacy } from './legacy.js'
 import { assetOf, pick, planting, stageOf, type Flora } from './sandbox5.js'
 import { groundOf } from './solo.js'
+import { dropOnUpload } from '$lib/content/render/budget.js'
 
 export type VillageDome = { kind: DomeKind; x: number; z: number; R: number; ext: number }
 export type VillageHandle = {
@@ -162,6 +163,9 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			// its glass, see-through and two-sided, in one pass (its far panes behind its near ones as they lie in the mesh;
 			// one pale tint at 0.14, the order does not show), not two
 			for (const mt of [mesh.material].flat()) if (mt.transparent && mt.side === THREE.DoubleSide) mt.forceSinglePass = true
+			// on a phone its normals, colours and uv let go in the page once the graphics card has them (the walker, its
+			// ground and the picking read only its corners' places and its index): ../../render/budget.js
+			for (const name of ['normal', 'color', 'uv']) dropOnUpload(mesh.geometry.attributes[name] as THREE.BufferAttribute | undefined)
 			// what lies on the ground (its floor, gravel, flagstones, the stones of its brook) casts no shadow worth its
 			// triangles in the shadow pass: it still receives every one
 			if (mesh.castShadow) {

@@ -7,6 +7,7 @@
  */
 // @ts-nocheck
 import { T } from './three.js'
+import { budget } from '../render/budget.js'
 /*
  * Factory Skill: the miniature look.
  *
@@ -102,7 +103,7 @@ import { T } from './three.js'
       // light: a warm low-ish sun from the back left, a sky dome, a cool fill from the front right
       const sun = (this.sun = new T.DirectionalLight('#ffeed2', 4.0))
       sun.castShadow = true
-      sun.shadow.mapSize.set(4096, 4096)
+      sun.shadow.mapSize.setScalar(Math.min(4096, budget().shadowMap))
       sun.shadow.bias = -0.00025
       sun.shadow.normalBias = 0.025
       sun.shadow.radius = 2.2
