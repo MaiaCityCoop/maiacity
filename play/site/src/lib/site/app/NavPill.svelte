@@ -1,15 +1,15 @@
 <!--
 	The app's one way round, a pill floating at the foot of every page of the app, the full-screen worlds and sandboxes
 	too, on a phone and a desktop alike: back ($lib/app/back.svelte.js: out of what a page has open over itself, else up
-	a place, the dashboard last), the proposals, and you (who is signed in, your name, the public site, signing out). No
+	a place, the dashboard last), the intents, and you (who is signed in, your name, the public site, signing out). No
 	page has a bar or a back button of its own, and everything else — the games, the worlds, the admin's tools — is a tile
-	on the dashboard. The proposals (Samuel 2026-11-05) are a star, the AI's mark, in place of Home (Back goes up to the
+	on the dashboard. The intents (Samuel 2026-11-05, the proposals then) are a star, the AI's mark, in place of Home (Back goes up to the
 	dashboard anyway): it opens the board of the intents (Samuel 2026-11-06: everything Maia City wants made, fixed or
-	improved, from its idea through its spec and prototype to its proposal and the decision), in a modal over the page ($lib/site/proposals), and is greyed out for everyone but Maia City's admins. You is the person's vault switcher too (Samuel 2026-10-18): their avenDB vaults, their own first, which
+	improved, from its idea through its spec and prototype to its proposal and the decision), in a modal over the page ($lib/site/intents), and is greyed out for everyone but Maia City's admins. You is the person's vault switcher too (Samuel 2026-10-18): their avenDB vaults, their own first, which
 	is their profile (their name lives there alone), and the one picked shown on the item, with how many changes wait
 	in the others; then the public site and signing out. Invites live in avenDB's Vaults app alone ($avendb/Vaults.svelte,
 	Samuel 2026-10-20), beside the roles they give. A page may add a
-	green "+" between the proposals and You that opens its main sheet, and the accounts it can be looked at as, listed in the You
+	green "+" between the intents and You that opens its main sheet, and the accounts it can be looked at as, listed in the You
 	menu ($lib/app/pill.svelte.js: MaiaCity V1's wallet and its COOPs).
 
 	Where it floats and the room it takes are said once, in maia/site/app.css (--nav-foot, --nav-height, --nav-room): full-screen
@@ -25,12 +25,12 @@
 	import { back, upFrom } from './back.svelte.js';
 	import { pill } from './pill.svelte.js';
 	import { shaped } from './shapes.js';
-	import { proposalsModal, toggleProposals } from '../proposals/proposals.svelte';
+	import { intentsModal, toggleIntents } from '../intents/intents.svelte';
 
-	/** @type {{ founder: { number: number } | null, name?: string, onsignout?: () => void, proposals?: boolean }} the
+	/** @type {{ founder: { number: number } | null, name?: string, onsignout?: () => void, intents?: boolean }} the
 	 *  person signed in: their founder number where they came from legacy's founders, their name, how they sign out, and
-	 *  whether they may open the proposals (Maia City's admins, for now) */
-	let { founder, name = '', onsignout, proposals = false } = $props();
+	 *  whether they may open the intents (Maia City's admins, for now) */
+	let { founder, name = '', onsignout, intents = false } = $props();
 
 	let open = $state(false);
 	const menuId = $props.id();
@@ -112,7 +112,7 @@
 		<!-- nowhere to go back to (the dashboard): Back keeps its place, greyed, so the star stays in the middle -->
 		<button class="item idle" disabled aria-label="Back" title="Nowhere to go back to"><Icon name="back" /><span>Back</span></button>
 	{/if}
-	<button class="item star" class:on={proposals && proposalsModal.open} onclick={toggleProposals} disabled={!proposals} aria-expanded={proposals ? proposalsModal.open : undefined} title={proposals ? (proposalsModal.open ? 'Close the intents' : 'Intents') : "Intents: Maia City's admins only, for now"} aria-label="Intents">
+	<button class="item star" class:on={intents && intentsModal.open} onclick={toggleIntents} disabled={!intents} aria-expanded={intents ? intentsModal.open : undefined} title={intents ? (intentsModal.open ? 'Close the intents' : 'Intents') : "Intents: Maia City's admins only, for now"} aria-label="Intents">
 		<Icon name="star" size={30} />
 	</button>
 	{#if pill.center}
@@ -224,7 +224,7 @@
 		background: var(--ink);
 	}
 
-	/* the proposals' star, the pill's middle (Samuel 2026-11-05): its mark alone, no word under it, a round action
+	/* the intents' star, the pill's middle (Samuel 2026-11-05): its mark alone, no word under it, a round action
 	   button taller than the pill, standing out of it by a few pixels above and below as a nav pill's centre button
 	   does (its negative margins keep it out of the pill's height, which Back and You set), brand green, the star
 	   mustard, the AI's colour; ringed while the board is open; greyed out where it may not be opened, but still there */

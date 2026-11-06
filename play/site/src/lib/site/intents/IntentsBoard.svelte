@@ -1,11 +1,11 @@
 <!--
-	PROPOSALS, AS A BOARD (Samuel 2026-11-03) — every proposed version of Maia City's assets as a card in its column,
+	INTENTS, AS A BOARD (Samuel 2026-11-03; the proposals' board until 2026-11-06) — every proposed version of Maia City's assets as a card in its column,
 	newest first. A card opened is reviewed over the whole board: the version built in the asset box as large as it can
 	be, what it says of itself folded to two lines, its source (beside its base's, as the lines that changed) a button
 	away. Admins decide here; nothing is proposed or edited here: versions come over MCP only (play/api/src/mcp.ts).
 
 	A MODAL, NOT A PAGE (Samuel 2026-11-05): the board opens from the nav pill's star over whatever page is open
-	(./ProposalsModal.svelte), the way back closing first what is open on it (a review, an intent), then the board.
+	(./IntentsModal.svelte), the way back closing first what is open on it (a review, an intent), then the board.
 
 	INTENTS (Samuel 2026-11-06, play/SPEC.md §4.12): every card is an intent, something Maia City wants made, fixed or
 	improved, in its stage's column: Idea → Specify → Prototype → Proposal → Accepted (or Archived), Accepted and Archived
@@ -329,9 +329,9 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="proposals">
+<div class="intents">
 {#if !admin}
-	<p class="muted">The proposals are Maia City's admins' for now.</p>
+	<p class="muted">The intents are Maia City's admins' for now.</p>
 {:else}
 		<header class="head">
 			<div>
@@ -690,13 +690,13 @@
 <style>
 	/* the board as tall as the modal it is in: its title and the columns' headers stay, each column scrolls its own
 	   cards, the board sideways on a narrow screen (Samuel 2026-11-04); what is opened on it covers it, inside the modal */
-	.proposals { position: relative; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; padding: 1rem 1rem 0.8rem; }
+	.intents { position: relative; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; padding: 1rem 1rem 0.8rem; }
 	.head { flex: 0 0 auto; display: flex; gap: 1rem; align-items: flex-start; justify-content: space-between; }
 	.head h1 { margin: 0; font-size: clamp(1.6rem, 3.5vw, 2.2rem); }
 	.head p { margin: 0.2rem 0 0.8rem; font-size: 0.92rem; max-width: 62rem; }
 	.head .close { flex: 0 0 auto; }
 	/* a phone: the board's own words give way to its columns */
-	@media (max-width: 640px) { .head p { display: none; } .head h1 { margin-bottom: 0.6rem; } .proposals { padding: 0.8rem 0.7rem 0.6rem; } }
+	@media (max-width: 640px) { .head p { display: none; } .head h1 { margin-bottom: 0.6rem; } .intents { padding: 0.8rem 0.7rem 0.6rem; } }
 	.board { flex: 1 1 auto; min-height: 0; display: grid; grid-auto-flow: column; gap: 0.7rem; overflow-x: auto; align-items: stretch; }
 	.column { background: color-mix(in srgb, var(--paper, #f6f1e6) 70%, transparent); border-radius: 14px; padding: 0.7rem 0.6rem 0.5rem; display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; min-height: 0; }
 	.column h2 { flex: 0 0 auto; margin: 0; font-size: 0.95rem; min-height: 1.5rem; }

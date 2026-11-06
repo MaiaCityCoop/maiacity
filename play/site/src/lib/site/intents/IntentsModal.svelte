@@ -1,23 +1,24 @@
 <!--
-	The intents' board (the proposals and what comes before them, Samuel 2026-11-06) in a modal (Samuel 2026-11-05): the nav pill's star opens it over whatever page is open, nearly
+	The intents' board (every proposal and what comes before it, Samuel 2026-11-06) in a modal (Samuel 2026-11-05): the
+	nav pill's star opens it over whatever page is open, nearly
 	the whole screen, the pill still below it. Back (the pill's, $lib/site/app/back.svelte.js), the star again, Escape,
 	its Close or a click beside it close it, Back first closing what is open on the board (a review, an item). The
 	board's code is loaded when it first opens, not with every page.
 -->
 <script lang="ts">
 	import { wayBack } from '$lib/site/app/back.svelte.js';
-	import { closeProposals } from './proposals.svelte';
+	import { closeIntents } from './intents.svelte';
 
-	const board = import('./ProposalsBoard.svelte');
-	$effect(() => wayBack('Close the intents', closeProposals));
+	const board = import('./IntentsBoard.svelte');
+	$effect(() => wayBack('Close the intents', closeIntents));
 </script>
 
-<button class="scrim" onclick={closeProposals} aria-label="Close the intents" tabindex="-1"></button>
+<button class="scrim" onclick={closeIntents} aria-label="Close the intents" tabindex="-1"></button>
 <div class="modal" role="dialog" aria-modal="true" aria-label="Intents">
 	{#await board}
 		<p class="muted wait">Opening the intents…</p>
 	{:then { default: Board }}
-		<Board onclose={closeProposals} />
+		<Board onclose={closeIntents} />
 	{:catch e}
 		<p class="error wait">The intents could not be opened: {e?.message ?? e}</p>
 	{/await}
