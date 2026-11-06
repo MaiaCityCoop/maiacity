@@ -23,6 +23,7 @@ import { decideSandbox, sandboxReview } from "./sandboxes";
 import { acceptBranch, asAssetJson, AssetDocError, assetDocId, authorOf, draftOf, draftState, ensureAssetDoc, proposalBranch, type AssetJson } from "./assetdocs";
 import { closeWork, putAtProposal, settle, WORK_OF, workOf, WorkError } from "./work";
 import { decideIntent, getIntent, IntentError, type IntentVerdict } from "./intents";
+import { acceptAndShip, type GitHub } from "./ship";
 
 export class ProposalError extends Error {
   constructor(message: string, public status = 400) {
@@ -481,12 +482,17 @@ async function decideAt(tx: Queryable, store: BlobStore, me: Me, p: any, verdict
 /**
  * An admin's decision on an intent, whatever its stage (the one place an intent is decided; play/SPEC.md §4.12): at
  * Proposal with work of play's, accepting applies it and archiving archives it (decide); anything else is the intent's
- * own decision (./intents.ts decideIntent: approve its spec, send it back to Specify, accept its code on main's checks,
- * archive it, reopen it). Gives back the intent, with the decision's message where it has one.
+ * own decision (./intents.ts decideIntent: approve its spec, send it back to Specify, accept it, archive it, reopen it),
+ * except that accepting an intent whose code is a pull request ships it (./ship.ts acceptAndShip: merged into main at
+ * once, the intent in Ship). Gives back the intent, with the decision's message where it has one.
  */
-export async function decideAny(db: Db, store: BlobStore, me: Me | null, id: string, verdict: IntentVerdict | "archive") {
+export async function decideAny(db: Db, store: BlobStore, me: Me | null, id: string, verdict: IntentVerdict | "archive", gh: GitHub | null = null) {
   const w = await workOf(db, id);
   if (!w) throw new IntentError("There is no such intent.", 404);
+  if (verdict === "accept" && !w.kind) {
+    const shipped = await acceptAndShip(db, gh, me, w.id);
+    if (shipped) return shipped;
+  }
   // the work's decision, where it had work at Proposal: what it came to (accepted, archived), the version it is, merged
   let decision: { status: string; number?: number; version?: string; merged?: boolean; message?: string } | undefined;
   if (w.kind && w.stage === "proposal" && (verdict === "accept" || verdict === "archive" || verdict === "reject")) {

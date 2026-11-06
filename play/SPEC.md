@@ -391,12 +391,14 @@ world has run (`run`) from eyes, views or street cameras. The stand-in test worl
 ### 4.12 Intents (Samuel 2026-11-06; the Inbox and Specify before, 2026-11-05)
 
 Everything Maia City wants made, fixed or improved is an **intent**. An intent goes through stages, the board's
-columns: **Idea → Specify → Prototype → Proposal → Accepted** (or **Archived**). Idea is it
+columns: **Idea → Specify → Prototype → Proposal → Ship → Accepted** (or **Archived**). Idea is it
 as it came; Specify is its spec written, waiting for an admin's approval; Prototype is the whole round of making it, an
 agent building and checking until the spec is met (any intent an agent is working on is in Prototype); Proposal is its
 work done and checked, waiting for the decision: an intent moves there **by itself** the moment every must check has
 passed (Samuel 2026-11-06), so after the spec's approval there is one gate with a person in it, the decision at
-Proposal, and none in Prototype. Each column folds away to a strip and opens again, each viewer's own choice
+Proposal, and none in Prototype. **Ship** (Samuel 2026-11-06) is an intent of code accepted and on its way to
+production: its Accept merged its pull request into main, and the board shows each step of the way live until it is
+in production (Accepted) or a step is red (back to Proposal with the report): *Accept ships it*, below. Each column folds away to a strip and opens again, each viewer's own choice
 kept in their browser; Accepted and Archived are folded at first.
 
 **One record, the intent** (Samuel 2026-11-06: *"proposal and intent are the same!! not different, merge, DRY"*, and
@@ -418,7 +420,7 @@ explicit), and each **must** (it holds the intent back from Proposal) or **nice*
 
 ```sql
 intents (id UUID, coop_id, kind /*idea|fix|improve: shown as Make, Fix, Improve*/, title /*only shown, 1–200*/, note,
-         stage /*idea|specify|prototype|proposal|accepted|archived*/, author, via /*web|mcp*/, created,
+         stage /*idea|specify|prototype|proposal|ship|accepted|archived*/, author, via /*web|mcp*/, created,
          spec jsonb /*{ goal, scope, checks: [{ id, check, how: test|measure|look, by, run, must }] }*/, specified_by, specified_at,
          approved_by, approved_at /*the spec approved: Prototype and on need it, unless it came with its work*/,
          results jsonb /*each check's last result in Prototype: { "c1": { pass, evidence, by, at, where: avenBOX|main, commit } }*/, decided_by, decided_at,
@@ -430,7 +432,11 @@ intents (id UUID, coop_id, kind /*idea|fix|improve: shown as Make, Fix, Improve*
          factory_id, game_config_id,                                          -- a factory's, a config's version
          doc_branch → doc_branches /*its branch of the document it changes*/,
          work_note, proposed_by → humans, proposed_via /*web|mcp*/, proposed_at,
-         came_with → intents /*where it was one of several proposals of one intent before 0029*/)
+         came_with → intents /*where it was one of several proposals of one intent before 0029*/,
+         -- its code (0030-ship): its pull request into main, and its way to production once an Accept merged it
+         pull_request /*its number*/, ship jsonb /*{ pr, head, merge, by, round, started, steps: [{ key, name, state:
+           queued|running|green|red|skipped, started, finished, link, note }], report: { step, why, link, log, at },
+           outcome: green|red, ended, again: main|release, main_run, release_run, deploy_run, past }*/)
 doc_branches.intent_id → intents        -- the intent a branch was proposed as (kept when newer work replaces it)
 proposal_ids (proposal_id PK, intent_id → intents, how /*its|own*/)  -- every proposal's id from before 0029, and the intent it is
 ```
@@ -447,8 +453,9 @@ proposal_ids (proposal_id PK, intent_id → intents, how /*its|own*/)  -- every 
   which checks are not met, and the intent moves to Proposal holding that work. **New work for the same intent replaces
   its work**: the earlier one's branch is closed, its steps kept as a side line, its version kept unnumbered in the
   DAG (`play/api/src/work.ts` `putAtProposal`). Every propose tool gives back the intent (`intent`, at `proposal`).
-  Other work (code, shipped by its pull request) holds none of play's: the intent at Proposal is decided on main's
-  checks. `list_intents` (the open stages, or one stage, or all; `work`, one kind of work) and `get_intent` (one whole,
+  Other work (code) holds none of play's: its work is its pull request into main, which the agent opens and names
+  (`check_intent`'s `pr`, `intent.ts --pr`) and **never merges**: an admin's Accept merges it (*Accept ships it*,
+  below). `list_intents` (the open stages, or one stage, or all; `work`, one kind of work) and `get_intent` (one whole,
   its work and its work's review) read them. No tool approves, accepts or rejects an intent; an agent archives only its
   own intents at Proposal that it put there over MCP (`archive_intent`: its work proposed over MCP, or, with no work,
   the intent added so), one it no longer stands by.
@@ -472,15 +479,54 @@ proposal_ids (proposal_id PK, intent_id → intents, how /*its|own*/)  -- every 
   - each result says **where** it ran (`avenBOX`, or `main`) and on which **commit** (results `{ pass, evidence, by,
     at, where, commit }`), shown by its mark on the board (*avenBOX*, *main @ 1a2b3c4*), each check's `run` as code
     under its `by`.
-  - **the final gate is main's.** Code ships by pull request, its commits naming the intent (the trailer `Intent:
-    <UUID>`). Once merged, **`.github/workflows/intents.yml`** (*intents on main*; also by hand, an intent's UUID, on
-    main's head) builds the same box on GitHub's runner (`sudo bash play/avenbox/setup.sh`) and runs `intent.ts
-    <intent> --record --where main` on the merged commit, with the repository secret `PLAY_MCP_TOKEN` (an admin's
-    access token). It records and never blocks: production's *Main is green* reads only main.yml's checks. It records
-    while the intent is at Proposal (where it moved by itself once every must check passed in avenBOX; no work of
-    play's waiting) or in Prototype; a must failing on main takes it back to Prototype. An intent is accepted at
-    Proposal only when every must check with a `run` has passed **on main** (`unmetOnMain`); a pass in avenBOX alone is
-    not enough. Intents whose work is play's keep their gate (`intentReady`).
+  - **what is merged is what was checked.** Code goes by pull request into main, its commits naming the intent (the
+    trailer `Intent: <UUID>`), its checks recorded on the pull request's head (`intent.ts <intent> --record --pr <its
+    number>`): an Accept merges it only when every must check with a `run` last passed on that head (`unmetOn`). Once
+    merged, **`.github/workflows/intents.yml`** (*intents on main*; also by hand, an intent's UUID, on main's head)
+    builds the same box on GitHub's runner (`sudo bash play/avenbox/setup.sh`) and runs `intent.ts <intent> --record
+    --where main` on the merged commit, with the repository secret `PLAY_MCP_TOKEN` (an admin's access token). It
+    records and never blocks: production's *Main is green* reads only main.yml's checks. main's results are a
+    **confirmation**, taken in any stage once the spec is approved: in Prototype or at Proposal they move the intent as
+    any result does, in Ship, Accepted or Archived they are kept and move nothing. Intents whose work is play's keep
+    their gate (`intentReady`).
+- **Accept ships it** (Samuel 2026-11-06: *"only the manual accept should directly trigger the flow … it should
+  instantly start the merge into main and prod"*; intent `d29933ff-3636-4148-8df7-c183c6065216`). The intent flow is the
+  one authority over what lands on main and goes to production, and GitHub requires it.
+  - **Accept and ship** (admins, at Proposal, an intent whose work is code: its pull request named;
+    `play/api/src/ship.ts` `acceptAndShip`). On the press, play reads the pull request with `SHIP_TOKEN` (a
+    fine-grained token of Samuel's, the repository secret written into play's environment; deploy/README.md): it must
+    be open into main, mergeable, its head the commit every must check with a `run` last passed on, and main.yml's
+    `play / API and site` and `website / build` green on that head. Otherwise **Accept is refused**, nothing is posted
+    or merged, the intent stays at Proposal and the dialog says why. Then play posts the commit status **`Intent
+    accepted`** on that head and merges the pull request (a merge commit, that head's sha), in that one request, and
+    the intent is in **Ship**, decided by the admin, its first step *Merged into main*. A merge GitHub refuses posts
+    the status back as failed and leaves it at Proposal. An intent of code with no pull request named (a decision, or
+    code merged before ships) is accepted on its checks, straight to Accepted, as play's own work is.
+  - **The ship watcher** (in play-api, every 10 s, `startShipWatcher`; its state is the intent's `ship` in Postgres, so
+    it goes on after a restart) reads GitHub's Actions for the merge commit: **main's checks** (main.yml's run for the
+    push), the **release** (release.yml's run named `release <sha>`), and the **deploy** (production.yml's run on the
+    commit and its jobs *Main is green*, *The image*, the **backup** (the step *Back up play*) inside *The server*,
+    *The server*, *The website*). Each step is kept on the intent as it changes: queued, running, green, red (skipped
+    where a job did not run), when it started and finished, its link. A step whose run has not begun 15 minutes after
+    the one before it is red.
+  - **All green: Accepted**, its steps and links kept. **Any red: back to Proposal** with the **ship report**: the
+    failing step, why, its link and the last 60 lines of the failed job's log (fetched from where GitHub points,
+    without the token). From there an agent fixes it (a new pull request of the intent, named with `pr`, its checks
+    recorded on its head) and Accept merges that one; or, its pull request merged already by a ship of it, **Ship
+    again** runs main's failed jobs again (a red on main) or the release of the commit last merged (a red release or
+    deploy), and it is in Ship again (`round` 2, 3 …), the earlier round's runs never this one's.
+  - **production follows main** (`.github/workflows/release.yml`): once main.yml is green for a push to main, or by
+    `workflow_dispatch` with a sha (Ship again, or by hand), it moves `production` to that commit, fast-forward only,
+    with `GITHUB_TOKEN`, and starts `production.yml` on it (`workflow_dispatch`; a push by `GITHUB_TOKEN` starts no
+    workflow). One release at a time (`concurrency: release`). It reports nothing to play: the watcher reads it.
+    *Main is green*, started so, reads main's checks for production's own commit. A pull request to production is no
+    longer how play is released.
+  - **GitHub requires it**: one repository ruleset on main, with no bypass: a pull request (0 approvals), the status
+    checks `play / API and site`, `website / build` and **`Intent accepted`** (only play posts it, on Accept), no
+    force pushes, no deletion. Agents open the pull request and **never merge**, into main or production.
+  - What it does not stop: someone acting as Samuel on GitHub on purpose (agents act as him there). It stops every
+    change landing without his Accept by mistake. `SHIP_TOKEN` never leaves play's server: no route answers with it,
+    no page holds it, no log names it; play only calls GitHub's API, no proposed code runs on its server.
 - **Work proposed without an intent is a new intent of its own**, at Proposal: titled by what it proposes (an asset's
   or a story's label and the version it would be, a sandbox's changes, a factory's or a config's label), its note and
   author the work's, with no spec; a new asset or story is its kind *idea* (Make), anything else *improve*.
@@ -508,11 +554,14 @@ proposal_ids (proposal_id PK, intent_id → intents, how /*its|own*/)  -- every 
   Proposal ("2/3 checks"), its type (what its work is, else its kind), who and when. An intent that is only its work
   (no spec) opens straight into its work's review; any other opens its dialog: its note, its spec (the goal, the scope
   and each check with its mark, ✓ passed, ✗ failed, · no result yet, how and by what it is checked, and its last
-  evidence), its work (a click from its review), and the **brief** that sends an agent to it (at Idea: specify it and
-  stop; in Prototype: build it and record every check, so that it moves to Proposal by itself, and propose its work
-  with `intent` if it is play's). An admin **approves the spec** (Specify → Prototype), sends it **back to Specify**
-  (from Prototype or Proposal: its approval and results cleared), **accepts** it only at Proposal (what it asked is in;
-  nothing is accepted from Prototype), **rejects** it (from Idea, Specify, Prototype or Proposal; it ends archived) or
+  evidence), its work (a click from its review; for code, its pull request), and the **brief** that sends an agent to
+  it (at Idea: specify it and stop; in Prototype: build it and record every check, so that it moves to Proposal by
+  itself, and propose its work with `intent` if it is play's, or open its pull request, name it and stop if it is
+  code). An admin **approves the spec** (Specify → Prototype), sends it **back to Specify** (from Prototype or
+  Proposal: its approval and results cleared), **accepts** it only at Proposal (what it asked is in; nothing is
+  accepted from Prototype; an intent of code **Accept and ship**, or **Ship again** after a red ship, a refused one
+  saying why), nothing in Ship (its card says its current step, its dialog the steps ticking with their links, the
+  board read again every 3 s while any intent ships; a red ship's report at the top of its dialog back at Proposal), **rejects** it (from Idea, Specify, Prototype or Proposal; it ends archived) or
   **reopens** it (to Specify if it has a spec, else to Idea; not once its work of play's is accepted: what comes after
   it is an intent of its own). While its work waits at Proposal, its review is where it is decided: the intent is not
   sent back or checked again. Migration `0028-intents-ready-propose` moved the intents already in Prototype with every
@@ -655,7 +704,7 @@ Every route checks the caller's level against `level_rules`; a visitor gets 401 
 ## 8. App (`play/site`, SvelteKit, light brand CI throughout)
 
 `/` sign in or sign up · `/sandbox-1/` · `/sandbox-2/` · `/sandbox-3/` · `/sandbox-4/` · `/sandbox-5/` · `/assets/` (library; an asset's versions as
-a chain, its variants, a viewer) · the intents (a modal from the nav pill's star, not a page: Idea, Specify, Prototype, Proposal, Accepted, Archived; §4.12) · `/game/` (placeholder; claim an invite to become a citizen) ·
+a chain, its variants, a viewer) · the intents (a modal from the nav pill's star, not a page: Idea, Specify, Prototype, Proposal, Ship, Accepted, Archived; §4.12) · `/game/` (placeholder; claim an invite to become a citizen) ·
 `/admin/` (members, invites) · `/artifacts/` (admins: every link we keep, §4.13).
 
 **The Library** (`/library/`, Samuel 2026-11-04; `play/api/src/library.ts`): every image, video and recording play
@@ -672,7 +721,10 @@ matching a label or the start of a hash, with the count of each kind.
 - `play-api` service + a Caddy block for `play.maia.city`; DNS to the same machine.
 - Env: `DATABASE_URL` (role `play`), `PLAY_BUCKET`, `PLAY_BUCKET_ENDPOINT`, `PLAY_BUCKET_ACCESS_KEY`,
   `PLAY_BUCKET_SECRET_KEY`, `RP_ID=maia.city`, `SITE_ORIGIN=https://play.maia.city`.
-- A release workflow for `play/` only; legacy workflows stay parked.
+- production follows main (§4.12, *Accept ships it*): an admin's Accept merges an intent's pull request, and once
+  main.yml is green `.github/workflows/release.yml` moves `production` to the commit (fast-forward) and starts
+  `production.yml`, which deploys play and the website; play's ship watcher follows it with `SHIP_TOKEN` (written into
+  `play.env` by the deploy, with `SHIP_REPO`).
 - Backups: before every deploy a snapshot, like Time Machine's: a full `pg_dump -n play` and the list of the files it
   names, the files themselves kept once each in the shared store `BACKUPS/play-files/blobs/` (`deploy/backup.sh`).
 

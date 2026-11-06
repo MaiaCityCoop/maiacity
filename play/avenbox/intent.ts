@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // An intent's checks, run in avenBOX (play/SPEC.md §4.12, "Checks run in avenBOX, and again on main"):
 //
-//   bun play/avenbox/intent.ts <intent-uuid> [--record] [--where avenBOX|main] [--only c1,c3] [--no-up]
+//   bun play/avenbox/intent.ts <intent-uuid> [--record] [--pr <number>] [--where avenBOX|main] [--only c1,c3] [--no-up]
 //
 // It reads the intent over play's MCP (get_intent; PLAY_MCP_URL, play.maia.city's by default, PLAY_MCP_TOKEN its
 // Bearer), makes the box ready (up.sh, unless --no-up), then runs each check's `run` in order from the repository's
@@ -12,7 +12,9 @@
 // --record sends check_intent for every test and measure check it ran: pass as its exit code says, where it ran
 // (avenBOX, or main on main's runner after the merge: .github/workflows/intents.yml), the commit, and the evidence:
 // the command, the exit code, where (the Actions run's link on main), the commit, Postgres's version, the output's
-// tail. Only this process holds the token: no run sees PLAY_MCP_TOKEN, nor GitHub's tokens.
+// tail. --pr names the intent's pull request into main (check_intent's pr): Accept merges it, and only when every must
+// check with a run last passed on its head, the commit recorded here (play/api/src/ship.ts). Only this process holds the
+// token: no run sees PLAY_MCP_TOKEN, nor GitHub's tokens.
 import { resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dir, "../..");
@@ -27,7 +29,7 @@ type Check = { id: string; check: string; how: "test" | "measure" | "look"; by: 
 type Ran = { check: Check; code: number; seconds: number; tail: string };
 
 function usage(why: string): never {
-  console.error(`${why}\nbun play/avenbox/intent.ts <intent-uuid> [--record] [--where avenBOX|main] [--only c1,c3] [--no-up] [--timeout <seconds>]`);
+  console.error(`${why}\nbun play/avenbox/intent.ts <intent-uuid> [--record] [--pr <number>] [--where avenBOX|main] [--only c1,c3] [--no-up] [--timeout <seconds>]`);
   process.exit(2);
 }
 
@@ -40,13 +42,17 @@ const option = (name: string) => {
   if (v === undefined || v.startsWith("--")) usage(`${name} needs a value.`);
   return v;
 };
-const id = argv.find((a, i) => !a.startsWith("--") && !["--where", "--only", "--timeout"].includes(argv[i - 1] ?? ""));
+const id = argv.find((a, i) => !a.startsWith("--") && !["--where", "--only", "--timeout", "--pr"].includes(argv[i - 1] ?? ""));
 if (!id || !UUID.test(id)) usage("Name the intent by its id, a UUID.");
 const where = option("--where") ?? "avenBOX";
 if (where !== "avenBOX" && where !== "main") usage("--where is avenBOX or main.");
 const only = option("--only")?.split(",").map((s) => s.trim());
 const timeout = Number(option("--timeout") ?? 600) * 1000;
 const record = flag("--record");
+const prGiven = option("--pr");
+const pr = prGiven === undefined ? undefined : Number(prGiven.replace(/^#/, ""));
+if (pr !== undefined && (!Number.isInteger(pr) || pr < 1)) usage("--pr is the number of the intent's pull request into main.");
+if (pr !== undefined && !record) usage("--pr names the pull request as the checks are recorded: give --record with it.");
 const endpoint = process.env.PLAY_MCP_URL || "https://play.maia.city/api/mcp";
 const token = process.env.PLAY_MCP_TOKEN;
 if (!token) usage("PLAY_MCP_TOKEN is not set: an admin's play access token (play's profile page).");
@@ -151,8 +157,10 @@ if (record && ran.length) {
     await tool("check_intent", {
       intent: intent.id,
       results: ran.map((r) => ({ check: r.check.id, pass: r.code === 0, evidence: evidenceOf(r), where, ...(commit ? { commit } : {}) })),
+      ...(pr ? { pr } : {}),
     });
-    console.log(`recorded ${ran.map((r) => r.check.id).join(", ")} on intent ${intent.id} (where ${where})`);
+    console.log(`recorded ${ran.map((r) => r.check.id).join(", ")} on intent ${intent.id} (where ${where}${pr ? `, pull request #${pr}` : ""})`);
+    if (dirty) console.log("the work tree had changes not committed: commit, push and run again, so the results are of the pull request's head");
   } catch (e) {
     console.log(`not recorded: ${(e as Error).message}`);
     process.exit(1);

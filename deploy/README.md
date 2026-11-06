@@ -3,6 +3,33 @@
 What the server needs beside the compose files: Caddy's config (`Caddyfile`), the website's publish
 (`publish-site.py`), and play's backups.
 
+## Releases: Accept ships it (Samuel 2026-11-06)
+
+An admin's Accept on play's intents' board is the one way code lands on `main` and goes to production
+(play/SPEC.md §4.12, `play/api/src/ship.ts`): play posts the commit status **`Intent accepted`** on the intent's pull
+request's head, merges it into `main`, and follows it to production in the intent's stage **Ship**. Once main.yml is
+green for the merge, `.github/workflows/release.yml` moves `production` to it (fast-forward only, `GITHUB_TOKEN`) and
+starts `production.yml`, which backs up and deploys. A red step brings the intent back to Proposal with its report;
+Accept there ships it again.
+
+- **`SHIP_TOKEN`**, a repository secret: a fine-grained token (github.com/settings/personal-access-tokens/new), its
+  resource owner MyAvenCEO, only the repository maiacity, with Repository permissions **Contents**, **Pull requests**,
+  **Commit statuses** and **Actions**, each read and write, for one year. The deploy writes it into the server's
+  `play.env` with `SHIP_REPO` (the repository), and play-api reads it (`play/docker-compose.play.yml`); it is sent to
+  api.github.com only and never logged. Without it, Accept on code is refused and says so. Renew it before it ends:
+  a new token saved as the secret, then a deploy.
+- **main's ruleset** (Settings → Rules → Rulesets → New branch ruleset; made once `Intent accepted` has been posted
+  once, so GitHub offers it): target the default branch `main`, enforcement Active, **no bypass list**; rules:
+  *Restrict deletions*; *Require a pull request before merging* (0 approvals); *Require status checks to pass*:
+  `play / API and site`, `website / build` and `Intent accepted` (any source; *Require branches to be up to date*
+  left off, or every merge waits on the pull request being brought up to main first); *Block force pushes*. Then a
+  pull request whose
+  intent is not accepted cannot be merged: GitHub shows `Intent accepted` as expected.
+- It stops every change landing without an Accept by mistake; it does not stop someone acting as the token's owner on
+  GitHub on purpose (the agents act as Samuel there).
+- By hand: Actions → **release** → Run workflow with a commit of main releases it (or deploys production's own commit
+  again).
+
 ## Backups (Samuel 2026-11-02)
 
 - **When:** before every deploy, and only then. The production workflow's step *Back up play* runs `backup.sh`

@@ -1,11 +1,11 @@
 # intents on main (play/SPEC.md §4.12, "Checks run in avenBOX, and again on main"; Samuel 2026-11-06): once an
 # intent's work is merged, main runs the intent's checks again in the same box the agent prototyped it in (avenBOX:
 # play/avenbox/setup.sh, PostgreSQL 17, the same TEST_DATABASE_URL) on the merged commit, and records each result on
-# the intent as main's (play/avenbox/intent.ts --record --where main). An intent whose work goes through main is
-# accepted on those. Which intents: the `Intent: <uuid>` trailers of the commits the push brought, or, run by hand, the
-# one given (on main's head), recorded while the intent is at Proposal (or in Prototype). It records and never blocks: production.yml's 'Main is green' reads only main.yml's
-# checks. PLAY_MCP_TOKEN is an admin's play access token (play's profile page), a repository secret; only intent.ts
-# holds it, no check's command sees it.
+# the intent as main's (play/avenbox/intent.ts --record --where main), whatever its stage: a confirmation, as an intent
+# is accepted and shipped on its checks on its pull request's head (play/api/src/ship.ts). Which intents: the
+# `Intent: <uuid>` trailers of the commits the push brought, or, run by hand, the one given (on main's head). It records
+# and never blocks: production.yml's 'Main is green' reads only main.yml's checks. PLAY_MCP_TOKEN is an admin's play
+# access token (play's profile page), a repository secret; only intent.ts holds it, no check's command sees it.
 name: intents on main
 
 on:

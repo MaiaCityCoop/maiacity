@@ -248,31 +248,65 @@ suite("intents", () => {
     expect((await call("ada", "POST", `/api/intents/${i.id}/reject`)).data.stage).toBe("archived");
   });
 
-  test("the final gate: an intent whose work goes through main moves to Proposal, and is accepted there on main's results", async () => {
+  test("code: an intent moves to Proposal on its checks and names its pull request; its Accept no longer waits for main's results", async () => {
     const i = await intentAt("Sources on play", "prototype");
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.error).toContain("moves to Proposal by itself");
     const sha = "0123456789abcdef0123456789abcdef01234567";
-    // where a result ran: avenBOX by default, or main; a commit is a whole git hash
+    // where a result ran: avenBOX by default, or main; a commit is a whole git hash; a pull request is its number
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "x", where: "laptop" }] })).error).toContain("where is avenBOX or main");
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "x", commit: "abc123" }] })).error).toContain("40-character git hash");
-    // every must passes in avenBOX: to Proposal by itself, while its pull request is reviewed and merged
-    const boxed = await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "intent.ts: exit 0" }, { check: "c2", pass: true, evidence: "0.5", commit: sha }] });
-    expect(boxed.stage).toBe("proposal");
-    expect(boxed.results).toMatchObject({ c1: { pass: true, where: "avenBOX" }, c2: { pass: true, where: "avenBOX", commit: sha } });
-    // passed in avenBOX alone: not yet accepted; each check named
-    const refused = (await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.error;
-    expect(refused).toContain("c1 (The recipe builds in the asset box): passed in avenBOX, not yet run on main");
-    expect(refused).toContain("c2 (Its height is 0.4–0.6 m): passed in avenBOX, not yet run on main");
-    // main runs them after the merge, recorded at Proposal: one fails there, and it goes back to Prototype
-    const failed = await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "main", where: "main", commit: sha }, { check: "c2", pass: false, evidence: "0.7", where: "main", commit: sha }] });
-    expect(failed.stage).toBe("prototype");
-    expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.error).toContain("moves to Proposal by itself");
-    // fixed and run on main again: to Proposal, and accepted on main's results
-    const fixed = await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5 on main", where: "main", commit: sha }] });
-    expect(fixed.stage).toBe("proposal");
-    expect((await call("ada", "GET", `/api/intents/${i.id}`)).data.results.c2).toMatchObject({ where: "main", commit: sha, pass: true });
-    expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data).toMatchObject({ stage: "accepted", decided_by: "ada" });
-    expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).status).toBe(409);
+    expect((await tool("check_intent", { intent: i.id, pr: "#12", results: [{ check: "c1", pass: true, evidence: "x" }] })).error).toContain("pr is the number");
+    expect((await tool("check_intent", { intent: i.id })).error).toContain("Give each check's result");
+    // every must passes in avenBOX, its pull request named: to Proposal by itself
+    const boxed = await tool("check_intent", { intent: i.id, pr: 12, results: [{ check: "c1", pass: true, evidence: "intent.ts: exit 0", commit: sha }, { check: "c2", pass: true, evidence: "0.5", commit: sha }] });
+    expect(boxed).toMatchObject({ stage: "proposal", pull_request: 12, ship: null });
+    expect(boxed.results).toMatchObject({ c1: { pass: true, where: "avenBOX", commit: sha }, c2: { pass: true, where: "avenBOX", commit: sha } });
+    // a newer pull request replaces it, named alone
+    expect((await tool("check_intent", { intent: i.id, pr: 13 })).pull_request).toBe(13);
+    // with a pull request, Accept ships it, and this play holds no SHIP_TOKEN: refused, and it says why (src/ship.ts; test/ship.test.ts)
+    const refused = await call("ada", "POST", `/api/intents/${i.id}/accept`);
+    expect(refused.status).toBe(409);
+    expect(refused.data.error).toContain("SHIP_TOKEN");
+    expect((await call("ada", "GET", `/api/intents/${i.id}`)).data.stage).toBe("proposal");
+    // with none (an intent that is a decision, or code merged before ships), Accept takes its checks, as they passed in avenBOX
+    const j = await intentAt("No pull request", "prototype");
+    await tool("check_intent", { intent: j.id, results: [{ check: "c1", pass: true, evidence: "built" }, { check: "c2", pass: true, evidence: "0.5" }] });
+    expect((await call("ada", "POST", `/api/intents/${j.id}/accept`)).data).toMatchObject({ stage: "accepted", decided_by: "ada" });
+  });
+
+  test("the stage Ship: between Proposal and Accepted, listed; main's results confirm in any stage and move nothing", async () => {
+    const { rows } = await db.query<any>(`SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = 'intents_stage_check'`);
+    expect(rows[0].def).toContain("'proposal'::text, 'ship'::text, 'accepted'::text");
+    const cols = (await db.query<any>(`SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'play' AND table_name = 'intents' AND column_name IN ('pull_request', 'ship') ORDER BY 1`)).rows;
+    expect(cols).toEqual([{ column_name: "pull_request", data_type: "integer" }, { column_name: "ship", data_type: "jsonb" }]);
+    // only code ships: an intent holding work of play's is never in Ship
+    const i = await intentAt("In Ship", "prototype");
+    const all = [{ check: "c1", pass: true, evidence: "built" }, { check: "c2", pass: true, evidence: "0.5" }];
+    await tool("check_intent", { intent: i.id, pr: 21, results: all });
+    const ship = { pr: 21, head: "a".repeat(40), merge: "b".repeat(40), by: "ada", round: 1, started: new Date().toISOString(), steps: [{ key: "merged", name: "Merged into main", state: "green" }] };
+    await db.query(`UPDATE play.intents SET stage = 'ship', ship = ($2::text)::jsonb WHERE id = $1`, [i.id, JSON.stringify(ship)]);
+    const listed = (await call("ada", "GET", "/api/intents?stage=ship")).data;
+    expect(listed.map((x: any) => x.id)).toEqual([i.id]);
+    expect(listed[0]).toMatchObject({ stage: "ship", pull_request: 21, ship: { merge: "b".repeat(40), steps: [{ key: "merged", state: "green" }] } });
+    expect((await tool("list_intents", {})).map((x: any) => x.id)).toContain(i.id);
+    expect((await tool("list_intents", { stage: "ship" })).map((x: any) => x.id)).toEqual([i.id]);
+    // in Ship: avenBOX's results and a pull request are not taken; main's are kept, a red one too, and it stays
+    expect((await tool("check_intent", { intent: i.id, results: all })).error).toContain("main's results (where main) in any stage");
+    expect((await tool("check_intent", { intent: i.id, pr: 22 })).error).toContain("ship stage");
+    const merged = "c".repeat(40);
+    const onMain = await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "main", where: "main", commit: merged }, { check: "c2", pass: false, evidence: "0.7 on main", where: "main", commit: merged }] });
+    expect(onMain).toMatchObject({ stage: "ship", pull_request: 21, results: { c1: { where: "main", commit: merged }, c2: { pass: false, where: "main" } } });
+    // Accepted, the same
+    await db.query(`UPDATE play.intents SET stage = 'accepted' WHERE id = $1`, [i.id]);
+    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5 on main", where: "main" }] })).stage).toBe("accepted");
+    // the database holds it: work of play's in Ship is refused
+    const w = await intentAt("Work in Ship", "prototype");
+    await tool("check_intent", { intent: w.id, results: all });
+    expect((await tool("propose_asset", { group: "plants", label: "Never shipped", source: SOURCE, note: "x", intent: w.id })).error).toBeUndefined();
+    await expect(db.query(`UPDATE play.intents SET stage = 'ship' WHERE id = $1`, [w.id])).rejects.toThrow();
+    // not yet approved: main's results are not taken either
+    const idea = await intentAt("Not approved", "specify");
+    expect((await tool("check_intent", { intent: idea.id, results: [{ check: "c1", pass: true, evidence: "main", where: "main" }] })).error).toContain("specify stage");
   });
 
   test("an intent moves to Proposal by itself once every must check passes, and is accepted there, never from Prototype", async () => {
@@ -307,9 +341,13 @@ suite("intents", () => {
     const check = of("check_intent");
     expect(check.inputSchema.properties.results.items.properties.where.enum).toEqual(["avenBOX", "main"]);
     for (const says of ["play/avenbox/intent.ts", "Intent: ", "main"]) expect(check.description).toContain(says);
-    for (const says of ["avenBOX", "play/avenbox/intent.ts", "Intent: ", ".github/workflows/intents.yml", "main's results"]) expect(of("list_intents").description).toContain(says);
+    for (const says of ["--pr", "never merge", "Accept merges"]) expect(check.description).toContain(says);
+    expect(check.inputSchema.properties.pr.type).toBe("integer");
+    expect(check.inputSchema.required).toEqual(["intent"]);
+    for (const says of ["avenBOX", "play/avenbox/intent.ts", "Intent: ", ".github/workflows/intents.yml", "never merge", "Ship", "--pr"]) expect(of("list_intents").description).toContain(says);
+    expect(of("list_intents").inputSchema.properties.stage.enum).toEqual(["idea", "specify", "prototype", "proposal", "ship", "accepted", "archived", "all"]);
     const { instructions } = await rpc("initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1" } });
-    for (const says of ["avenBOX", "play/avenbox/intent.ts", "Intent: ", "main's results"]) expect(instructions).toContain(says);
+    for (const says of ["avenBOX", "play/avenbox/intent.ts", "Intent: ", "never merge", "Accept merges it", "Ship"]) expect(instructions).toContain(says);
   });
 
   test("at Proposal: checked again, a failing must takes it back; it is rejected or sent back to Specify there; a waiting proposal decides it", async () => {

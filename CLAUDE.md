@@ -14,25 +14,32 @@
 
 ## How changes ship
 
-Changes go to `main` by pull request; `.github/workflows/main.yml` runs play's checks (`play-checks.yml`: the API's
-tests against Postgres, its types, the site's build) and the website's (`website-checks.yml`: its types and build).
-`main` is then merged into `production` by a pull request (`production.yml`: `Only from main`, and `Main is green`
-reads main's checks for that commit instead of running them again). The push to `production` deploys play (image, DNS,
-server, import, Caddy) and the website (its build into the server's `site/releases/<commit>`, `site/current` switched).
+Every change is an intent's (play/SPEC.md §4.12) and goes to `main` by pull request; `.github/workflows/main.yml` runs
+play's checks (`play-checks.yml`: the API's tests against Postgres, its types, the site's build) and the website's
+(`website-checks.yml`: its types and build). Once main is green for the merged commit, `.github/workflows/release.yml`
+moves `production` to it (fast-forward) and starts `production.yml`, which deploys play (backup, image, DNS, server,
+import, Caddy) and the website (its build into the server's `site/releases/<commit>`, `site/current` switched);
+`Main is green` reads main's checks for that commit instead of running them again.
 
 Before you push, run the checks of what you touched, in **avenBOX** (the cloud environment the agents work in; play/SPEC.md
 §4.12): `bash play/avenbox/gate.sh` runs what CI runs (in `play/api` `bunx tsc --noEmit` and `bun test`, none skipped,
 against the box's Postgres 17; in `play/site` `bun run build`; in `website` `bun run check && bun run build`), `gate.sh
 api|site|website` one part. A cloud session starts with the box up (`.claude/settings.json` runs `play/avenbox/up.sh`:
 Postgres on 127.0.0.1:5432, `TEST_DATABASE_URL` set). A change made for an intent names it in its commits, the line
-`Intent: <the intent's UUID>` at the end of each message: once it is merged, `.github/workflows/intents.yml` runs the
-intent's checks again on main in the same box and records them on the intent as main's, and the intent is accepted on
-those.
+`Intent: <the intent's UUID>` at the end of each message.
 
-**Ship without asking** (Samuel 2026-11-03): once a change is done and its checks pass, mark its pull request ready,
-merge it into `main` (a merge commit), open the pull request `main` → `production` and merge it when its gates are
-green, so it deploys. Do not ask first; say what shipped, and report a failing check or deploy instead of merging past
-it.
+**Accept ships it** (Samuel 2026-11-06; play/SPEC.md §4.12, `play/api/src/ship.ts`): the intent flow is the one
+authority over what lands on main and goes to production. Once the change is done, open its pull request into `main`
+(ready, not a draft), record the intent's checks on its head and name it: `bun play/avenbox/intent.ts <the intent's
+UUID> --record --pr <its number>`. Once every must check passes, the intent moves to Proposal by itself: **stop there**.
+**Never merge** into `main` or `production` by hand, and open no pull request into `production`. An admin's Accept on
+play's intents' board merges the pull request at once (play posts the commit status **`Intent accepted`** on its head
+first; main's ruleset requires it, with `play / API and site` and `website / build`) and the intent is in **Ship**,
+where play shows live main's checks, the release and the deploy (backup, image, server, website); all green, it is
+Accepted; a red step brings it back to Proposal with the report: fix it in a new pull request of the intent (named
+with `--pr`, its checks recorded on its head), and Accept ships it again. After the merge,
+`.github/workflows/intents.yml` runs the intent's checks again on main in the same box and records them as main's, a
+confirmation. Say what you opened and that it waits for Accept; report a failing check instead of going past it.
 
 ## Backups
 
@@ -90,7 +97,7 @@ dataset is in play. A
 version can be a kind of **variants** (`propose_version`'s `variants`: a plant's kinds, an animal's breeds), each its own
 recipe and a chip in the asset viewer. Everything Maia City wants made, fixed or improved is an **intent** (play/SPEC.md
 §4.12; Samuel 2026-11-06), on the intents' board (a modal from the nav pill's star): **Idea → Specify → Prototype →
-Proposal → Accepted** (or Archived). **One record** (Samuel 2026-11-06: "not a proposal belongs to an intent: the intent
+Proposal → (Ship →) Accepted** (or Archived). **One record** (Samuel 2026-11-06: "not a proposal belongs to an intent: the intent
 has a state, proposal"): there is no proposal beside an intent; Proposal is the intent's stage, and the work it brings
 (an asset's or story's version, a sandbox's change, a factory's or config's version) is on the intent itself
 (`play/api/src/work.ts`). An agent adds one (`add_intent`, over MCP only: nothing is
@@ -103,10 +110,10 @@ play/avenbox/intent.ts <the intent's UUID> --record`, which calls `check_intent`
 until every must check passes: then the intent **moves to Proposal by itself**, the one gate with a person in it after
 the spec, where an admin decides it (nothing is accepted from Prototype; Samuel 2026-11-06). Work of play's it
 proposes with the propose tool's `intent` (the intent's UUID), which puts that intent at Proposal holding the work (new
-work for it replaces the old): play refuses it before every must check passes; accepting applies it. Code ships by pull request instead, its commits naming the intent (`Intent: <UUID>`): main runs the
-checks again after the merge (`.github/workflows/intents.yml`, `where: main`, recorded at Proposal; a must failing there
-takes it back to Prototype), and an admin accepts the intent only once every must check with a `run` has passed on
-main. Work
+work for it replaces the old): play refuses it before every must check passes; accepting applies it. Code goes by pull request instead, its commits naming the intent (`Intent: <UUID>`), the pull request named on the
+intent (`check_intent`'s `pr`) with its checks recorded on its head, and never merged by the agent: an admin's Accept
+merges it and ships it (*Accept ships it*, above; the intent in Ship until it is in production), and main runs the
+checks again after the merge as a confirmation (`.github/workflows/intents.yml`, `where: main`). Work
 proposed without `intent` is a new intent at Proposal of its own, with no spec. No tool approves, accepts or rejects an
 intent; an agent archives only its own intents at Proposal put there over MCP (`archive_intent`: one it no longer
 stands by; Samuel 2026-11-04). An old proposal's id still finds its intent (`play.proposal_ids`, migration 0029). **Every agent connected over MCP is avenMAIA** (play/SPEC.md
