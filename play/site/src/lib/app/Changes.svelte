@@ -78,7 +78,7 @@
 			<ol class="fields">
 				{#each shown as c, i (i)}
 					<li>
-						<span class="where">{#each pathText(c.path) as k, j}{#if j}<span class="soft"> › </span>{/if}{k}{/each}</span>
+						<span class="where">{#each pathText(c.path) as k, j}{#if j}<span class="soft">&nbsp;›&nbsp;</span>{/if}{k}{/each}</span>
 						{#if typeof c.from === 'string' || typeof c.to === 'string'}
 							<pre class="src">{#each textDiff(c) as l, k (k)}<span class={l.op}>{l.op === 'add' ? '+ ' : l.op === 'del' ? '- ' : l.op === 'skip' ? '' : '  '}{l.text}
 </span>{/each}</pre>
