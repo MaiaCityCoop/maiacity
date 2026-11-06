@@ -29,6 +29,7 @@
 import * as THREE from 'three';
 import { celestial, createUniverse, groundStars, horizonAt } from './universe.js';
 import { skyHour, skyTime } from './skyTime.svelte.js';
+import { budget } from '../render/budget.js';
 
 /**
  * @typedef {{ hour: number, e: number, day: number, low: number, night: number }} SkyLight
@@ -240,7 +241,9 @@ export function createSky(renderer, scene, options = {}) {
 	const sun = new THREE.DirectionalLight('#fff1d8', 2.4);
 	sun.castShadow = !planet;
 	if (!planet) {
-		sun.shadow.mapSize.set(shadowMap, shadowMap);
+		// no bigger than the device's budget lets it be (../render/budget.js: 2048 on a phone, a quarter of the memory)
+		const side = Math.min(shadowMap, budget().shadowMap);
+		sun.shadow.mapSize.set(side, side);
 		const sc = sun.shadow.camera;
 		sc.left = sc.bottom = -shadowReach;
 		sc.right = sc.top = shadowReach;

@@ -34,6 +34,7 @@ import { worldOf } from './contract.js';
 import { createLights } from './lights.js';
 import { createSky } from './sky.js';
 import { createSound } from './sound.js';
+import { reopenOnRestore } from '../render/budget.js';
 
 /** the eye and the paces (m/s) of the street cameras */
 export const MODES = {
@@ -70,6 +71,8 @@ export function viewsOf(root) {
  */
 export function createWorldView(el, o) {
 	const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+	// (as ../render/core.js createRenderer: a phone that let go of what it drew is opened anew when its context returns)
+	reopenOnRestore(renderer.domElement);
 	// a phone or a tablet draws at fewer pixels: a world fills the graphics memory such a device has as it is
 	const small = handheld();
 	renderer.setPixelRatio(topPixelRatio(small));

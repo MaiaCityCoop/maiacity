@@ -14,6 +14,7 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { DITHER } from './presets.js';
+import { budget } from '../../render/budget.js';
 
 /** how many sides each kind is photographed from */
 export const FRAMES = 8;
@@ -30,8 +31,9 @@ export const FRAMES = 8;
  * @param {{ px?: number, page?: number }} [o] each picture `px` pixels a side, on pages of `page` pixels a side
  */
 export function createImpostors(renderer, o = {}) {
-	const most = Math.min(o.page ?? 2048, renderer.capabilities.maxTextureSize);
-	const px = Math.min(o.px ?? 128, most);
+	// (the device's budget: a phone's pages a quarter of a desktop's, the same kinds on each)
+	const most = Math.min(o.page ?? budget().picture.page, renderer.capabilities.maxTextureSize);
+	const px = Math.min(o.px ?? budget().picture.px, most);
 	const cols = Math.floor(most / px), rows = cols;
 	const kindsPerPage = Math.floor((cols * rows) / FRAMES);
 	const group = new THREE.Group();
