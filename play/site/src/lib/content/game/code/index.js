@@ -9,8 +9,8 @@ const CONFIGS = new Map();
 const loading = new Map();
 
 /**
- * the open proposal of a change of sandbox `id` the page is opened with (`?layout=<id>/<proposal>`, from the Proposals
- * page), to walk the sandbox as it would make it before an admin decides; else null
+ * the intent whose change of sandbox `id` the page is opened with (`?layout=<id>/<intent>`, from the intents' board),
+ * to walk the sandbox as its change would make it before an admin decides; else null
  */
 function layoutOf(id) {
 	if (typeof location === 'undefined') return null;
@@ -21,8 +21,8 @@ function layoutOf(id) {
 /** the config of sandbox `id`, read once a page */
 export function loadConfig(id) {
 	if (!loading.has(id)) {
-		const proposal = layoutOf(id);
-		const url = `/api/sandboxes/${encodeURIComponent(id)}/config${proposal ? `?proposal=${encodeURIComponent(proposal)}` : ''}`;
+		const intent = layoutOf(id);
+		const url = `/api/sandboxes/${encodeURIComponent(id)}/config${intent ? `?intent=${encodeURIComponent(intent)}` : ''}`;
 		loading.set(
 			id,
 			fetch(url, { credentials: 'same-origin' }).then(async (res) => {

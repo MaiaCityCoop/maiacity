@@ -1,10 +1,9 @@
 // A sandbox's layout, changed only by proposal (Samuel 2026-11-04): what it draws (its pins: each slot an asset's
 // accepted version, its variant and its values) and how it lays them out (its configs by name: Sandbox 1's garden, its
 // plantings, spacing, drifts and fields; where a thing stands), proposed over MCP as edits (`sandbox_change`), shown on
-// the Proposals page as what each edit changes, before and after, and openable in the sandbox as it would be. An admin
+// the intents' board as what each edit changes, before and after, and openable in the sandbox as it would be. An admin
 // accepts it there; nothing over MCP accepts. Accepting applies the edits to the sandbox as it is then, in one
-// transaction: an edit that no longer holds (its slot gone, its path gone) archives the proposal instead.
-import { randomUUID } from "node:crypto";
+// transaction: an edit that no longer holds (its slot gone, its path gone) archives the intent's change instead (./work.ts settle).
 import type { Db, Queryable } from "./pg";
 import { COOP, Denied, must, type Me } from "./access";
 import { canonical, hashText } from "./hash";
@@ -12,6 +11,7 @@ import { NOTE_MOST } from "./notes";
 import { UUID } from "./uuid";
 import { readableRefs } from "../import/plan";
 import { NotFound } from "./assets";
+import { intentIdOf, putAtProposal, settle, WorkError } from "./work";
 
 export class SandboxError extends Error {
   constructor(message: string, public status = 400) {
@@ -303,13 +303,12 @@ export async function proposeSandbox(db: Db, me: Me | null, body: { sandbox?: st
   if (body.base !== undefined && body.base !== base) throw new SandboxError("The sandbox changed since you read it: read it again (get_sandbox) and make the change on it.", 409);
   const { changes } = await applyEdits(db, from, body.edits);
   if (!changes.length) throw new SandboxError("These edits change nothing.");
-  const id = randomUUID();
-  await db.query(
-    `INSERT INTO play.proposals (id, coop_id, kind, sandbox_id, sandbox_base, sandbox_change, sandbox_diff, author, note, via, intent_id)
-     VALUES ($1, $2, 'sandbox_change', $3, $4, ($5::text)::jsonb, ($6::text)::jsonb, $7, $8, $9, $10)`,
-    [id, COOP, sandbox, base, JSON.stringify(body.edits), JSON.stringify(changes), who.id, note, via, body.intent ?? null],
-  );
-  return { id, sandbox, changes: await shown(db, changes) };
+  const intent = await db
+    .transaction((tx) => putAtProposal(tx, who, { intent: body.intent, work: { kind: "sandbox_change", sandbox_id: sandbox, sandbox_base: base, sandbox_change: body.edits, sandbox_diff: changes }, note, via }))
+    .catch((e) => {
+      throw e instanceof WorkError ? new SandboxError(e.message, e.status) : e;
+    });
+  return { intent, stage: "proposal" as const, sandbox, changes: await shown(db, changes) };
 }
 
 /** a sandbox change as people review it: what each edit changes, before and after */
@@ -336,7 +335,7 @@ export async function sandboxReview(db: Queryable, p: any) {
 export async function decideSandbox(tx: Queryable, me: Me, p: any, verdict: "accept" | "archive") {
   admin(me);
   if (verdict === "archive") {
-    await tx.query(`UPDATE play.proposals SET status = 'archived', decided_by = $2, decided_at = now() WHERE id = $1`, [p.id, me.id]);
+    await settle(tx, p.id, "archived", me.id);
     return { id: p.id, status: "archived" };
   }
   await tx.query(`SELECT 1 FROM play.sandboxes WHERE id = $1 FOR UPDATE`, [p.sandbox_id]);
@@ -347,7 +346,7 @@ export async function decideSandbox(tx: Queryable, me: Me, p: any, verdict: "acc
   } catch (e) {
     if (!(e instanceof SandboxError)) throw e;
     // it no longer holds on the sandbox as it is: archived, to be proposed again
-    await tx.query(`UPDATE play.proposals SET status = 'archived', decided_at = now() WHERE id = $1`, [p.id]);
+    await settle(tx, p.id, "archived", null);
     return { id: p.id, status: "archived", why: e.message };
   }
   const { state, changes } = applied;
@@ -370,21 +369,22 @@ export async function decideSandbox(tx: Queryable, me: Me, p: any, verdict: "acc
         [p.sandbox_id, name, JSON.stringify(state.configs[name])],
       );
   }
-  await tx.query(
-    `UPDATE play.proposals SET status = 'accepted', decided_by = $2, decided_at = now(), sandbox_diff = ($3::text)::jsonb WHERE id = $1`,
-    [p.id, me.id, JSON.stringify(changes)],
-  );
+  await settle(tx, p.id, "accepted", me.id, { sandbox_diff: changes });
   return { id: p.id, status: "accepted" };
 }
 
-/** the sandbox as an open proposal would make it, to open it so before deciding (admins; `?proposal=` on its config) */
-export async function proposedState(db: Queryable, me: Me | null, sandbox: string, proposal: string): Promise<SandboxState> {
+/**
+ * The sandbox as an intent's change at Proposal would make it, to open it so before deciding (admins; `?intent=` on its
+ * config, or an old proposal's id, which finds its intent)
+ */
+export async function proposedState(db: Queryable, me: Me | null, sandbox: string, id: string): Promise<SandboxState> {
   admin(me);
-  if (!UUID.test(proposal)) throw new NotFound("There is no such proposal.");
-  const { rows } = await db.query<any>(`SELECT * FROM play.proposals WHERE id = $1 AND kind = 'sandbox_change' AND sandbox_id = $2`, [proposal, sandbox]);
-  if (!rows[0]) throw new NotFound("There is no such proposal of this sandbox.");
+  const intent = UUID.test(`${id}`.toLowerCase()) ? await intentIdOf(db, id) : null;
+  if (!intent) throw new NotFound("There is no such intent.");
+  const { rows } = await db.query<any>(`SELECT stage, sandbox_change FROM play.intents WHERE id = $1 AND work = 'sandbox_change' AND sandbox_id = $2`, [intent, sandbox]);
+  if (!rows[0]) throw new NotFound("There is no such intent's change of this sandbox.");
   const now = await stateOf(db, sandbox);
-  if (rows[0].status !== "proposal") return now;
+  if (rows[0].stage !== "proposal") return now;
   return (await applyEdits(db, now, rows[0].sandbox_change).catch((e) => {
     throw e instanceof SandboxError ? new NotFound(`It no longer holds: ${e.message}`) : e;
   })).state;

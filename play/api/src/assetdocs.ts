@@ -107,7 +107,7 @@ async function versionJson(q: Queryable, store: BlobStore, label: string, v: Ver
 }
 
 const VERSIONS = `SELECT v.id, v.number, v.recipe_hash, v.source_hash, v.default_variant, v.card, v.engine, v.note, v.author, v.approved_by, v.created, v.imported,
-         (SELECT p.via FROM play.proposals p WHERE p.version = v.id AND p.status = 'accepted' LIMIT 1) AS via
+         (SELECT i.proposed_via FROM play.intents i WHERE i.version = v.id AND i.stage = 'accepted' LIMIT 1) AS via
     FROM play.asset_versions v`;
 
 // ---- the work kept between two versions (../import/history)
@@ -145,7 +145,7 @@ async function versionFrontiers(q: Queryable, docId: string, number: number): Pr
 /**
  * The asset's document, made from its history the first time (in the caller's transaction, the asset's row locked):
  * every accepted version a step at its date, named its own number, and the steps kept between two of them; then a
- * branch for each of its proposals that has none yet (open ones proposed, decided ones closed as they were).
+ * branch for each intent's work on it that has none yet (at Proposal proposed, the rest closed as they ended).
  */
 export async function ensureAssetDoc(q: Queryable, store: BlobStore, asset: string, dir = HISTORY): Promise<{ id: string; made: boolean; branches: number; kept: number }> {
   const id = assetDocId(asset);
@@ -183,11 +183,12 @@ export async function ensureAssetDoc(q: Queryable, store: BlobStore, asset: stri
       prev = json;
     }
   }
-  // each proposal that has no branch yet: a branch at its base, the proposed version its one step
+  // each intent's work that has no branch yet: a branch at its base, the proposed version its one step
   const { rows: ps } = await q.query<{ id: string; status: string; base_number: number | null; author: string | null; via: string | null; note: string; created: Date; version: string }>(
-    `SELECT p.id, p.status, b.number AS base_number, p.author, p.via, p.note, p.created, p.version
-       FROM play.proposals p LEFT JOIN play.asset_versions b ON b.id = p.base
-      WHERE p.asset_id = $1 AND p.kind = 'asset_version' AND p.doc_branch IS NULL AND p.status <> 'accepted' ORDER BY p.created`,
+    `SELECT i.id, CASE i.stage WHEN 'proposal' THEN 'proposal' ELSE 'archived' END AS status, b.number AS base_number, i.proposed_by AS author,
+            i.proposed_via AS via, COALESCE(i.work_note, '') AS note, i.proposed_at AS created, i.version
+       FROM play.intents i LEFT JOIN play.asset_versions b ON b.id = i.base
+      WHERE i.asset_id = $1 AND i.work = 'asset_version' AND i.doc_branch IS NULL AND i.stage <> 'accepted' ORDER BY i.proposed_at`,
     [asset],
   );
   for (const p of ps) {
@@ -197,21 +198,22 @@ export async function ensureAssetDoc(q: Queryable, store: BlobStore, asset: stri
     await docs.commit(q, id, { branch: b, target: json, message: firstLine(p.note) || "proposed", author: { human: p.author, via: p.via === "mcp" ? "mcp" : "site" }, at: p.created });
     await docs.propose(q, id, b, { note: p.note, author: { human: p.author, via: p.via === "mcp" ? "mcp" : "site" } });
     if (p.status !== "proposal") await docs.close(q, id, b, { author: { human: null, via: "system" }, status: p.status as "archived" });
-    await q.query(`UPDATE play.proposals SET doc_branch = $2 WHERE id = $1`, [p.id, b]);
+    await q.query(`UPDATE play.intents SET doc_branch = $2 WHERE id = $1`, [p.id, b]);
+    await q.query(`UPDATE play.doc_branches SET intent_id = $1 WHERE id = $2`, [p.id, b]);
   }
   return { id, made, branches: ps.length, kept: keptSteps };
 }
 
 /**
  * The asset's document for reading (its history, a step, the recipe at a step): where it is there already and every
- * proposal has its branch, its id straight away, with no transaction and no lock on the asset; only where something is
+ * intent's work has its branch, its id straight away, with no transaction and no lock on the asset; only where something is
  * missing, made under the lock as ensureAssetDoc does. A read never waits behind another's draft or proposal.
  */
 export async function assetDocFor(db: Db, store: BlobStore, asset: string): Promise<{ id: string }> {
   const id = assetDocId(asset);
   const { rows } = await db.query<{ ready: boolean }>(
     `SELECT EXISTS (SELECT 1 FROM play.docs WHERE id = $1)
-            AND NOT EXISTS (SELECT 1 FROM play.proposals p WHERE p.asset_id = $2 AND p.kind = 'asset_version' AND p.doc_branch IS NULL AND p.status <> 'accepted') AS ready`,
+            AND NOT EXISTS (SELECT 1 FROM play.intents i WHERE i.asset_id = $2 AND i.work = 'asset_version' AND i.doc_branch IS NULL AND i.stage <> 'accepted') AS ready`,
     [id, asset],
   );
   if (rows[0]?.ready) return { id };
@@ -232,13 +234,13 @@ async function branchAt(q: Queryable, docId: string, base: number | null, author
   return (await docs.branch(q, docId, { author, note, ...(at ? { at } : {}) })).id;
 }
 
-/** every asset's document, made where it is missing or where a proposal has no branch yet (the deploy's import) */
+/** every asset's document, made where it is missing or where an intent's work on it has no branch yet (the deploy's import) */
 export async function ensureAssetDocs(db: Db, store: BlobStore, dir = HISTORY): Promise<AssetDocsReport> {
   const out: AssetDocsReport = { made: 0, branches: 0, kept: 0, steps: 0, versions: 0, bytes: 0, errors: [] };
   const { rows } = await db.query<{ id: string; grp: string; slug: string }>(
     `SELECT a.id, a.grp, a.slug FROM play.assets a
       WHERE NOT EXISTS (SELECT 1 FROM play.docs d WHERE d.id = 'asset:' || a.id::text)
-         OR EXISTS (SELECT 1 FROM play.proposals p WHERE p.asset_id = a.id AND p.kind = 'asset_version' AND p.doc_branch IS NULL AND p.status <> 'accepted')
+         OR EXISTS (SELECT 1 FROM play.intents i WHERE i.asset_id = a.id AND i.work = 'asset_version' AND i.doc_branch IS NULL AND i.stage <> 'accepted')
       ORDER BY a.grp, a.slug`,
   );
   for (const r of rows) {
@@ -265,7 +267,7 @@ export async function ensureAssetDocs(db: Db, store: BlobStore, dir = HISTORY): 
 }
 export type AssetDocsReport = { made: number; branches: number; kept: number; steps: number; versions: number; bytes: number; docs?: number; errors: string[] };
 
-// ---- proposals as branches (./proposals.ts)
+// ---- an intent's work as a branch (./proposals.ts, ./work.ts)
 
 /** an asset's open draft branch `b`, and the version it was made on */
 export async function draftOf(q: Queryable, asset: string, b: unknown): Promise<{ id: number; base: number | null; status: string }> {
@@ -290,7 +292,7 @@ export async function draftState(q: Queryable, asset: string, b: number): Promis
 }
 
 /**
- * A proposal's branch (in the proposal's transaction, the asset's document made first): the draft it was made on, its
+ * The branch of an intent's work (in the proposing transaction, the asset's document made first): the draft it was made on, its
  * last step the version as proposed; or a new branch at the head it was made on, the version its one step. Proposed.
  */
 export async function proposalBranch(q: Queryable, store: BlobStore, o: { asset: string; base: number | null; json: AssetJson; note: string; author: docs.Author; draft?: number }): Promise<number> {
@@ -310,23 +312,16 @@ export async function proposalBranch(q: Queryable, store: BlobStore, o: { asset:
   });
 }
 
-/** an accepted proposal's branch merged into the asset's document and named its version `n` */
+/** an intent's accepted work: its branch merged into the asset's document and named its version `n` */
 export async function acceptBranch(q: Queryable, store: BlobStore, p: { id: string; asset_id: string; note: string }, me: Me, n: number): Promise<void> {
   await asAssetError(async () => {
     const { id } = await ensureAssetDoc(q, store, p.asset_id);
-    const { rows } = await q.query<{ doc_branch: string | null }>(`SELECT doc_branch FROM play.proposals WHERE id = $1`, [p.id]);
+    const { rows } = await q.query<{ doc_branch: string | null }>(`SELECT doc_branch FROM play.intents WHERE id = $1`, [p.id]);
     const b = rows[0]?.doc_branch;
-    if (b == null) throw new AssetDocError(`proposal ${p.id} has no branch`, 500);
+    if (b == null) throw new AssetDocError(`intent ${p.id}'s work has no branch`, 500);
     const v = await docs.accept(q, id, Number(b), { author: authorOf(me, "site"), note: p.note });
     if (v.number !== n) throw new Error(`asset ${p.asset_id} and its document disagree: version ${n} against ${v.number}`);
   });
-}
-
-/** an archived proposal's branch closed: its steps stay in the history, on their side line */
-export async function closeBranch(q: Queryable, asset: string, branch: string | number | null | undefined, me: Me | null, status: "archived"): Promise<void> {
-  if (branch == null) return;
-  const { rows } = await q.query<{ status: string }>(`SELECT status FROM play.doc_branches WHERE id = $1`, [branch]);
-  if (rows[0] && (rows[0].status === "open" || rows[0].status === "proposed")) await docs.close(q, assetDocId(asset), Number(branch), { author: authorOf(me, "site"), status });
 }
 
 // ---- drafting step by step (MCP asset_edit)
@@ -433,9 +428,9 @@ export async function assetHistory(db: Db, store: BlobStore, me: Me | null, asse
     const versions = await docs.versionsOf(db, docId);
     const steps = await named(db, await docs.history(db, docId, o.branch === undefined ? {} : { branch: o.branch }), versions);
     const { rows: drafts } = await db.query<any>(
-      `SELECT b.id, b.status, b.note, b.created, h.name AS author, p.id AS proposal, p.status AS proposal_status,
+      `SELECT b.id, b.status, b.note, b.created, h.name AS author, p.id AS intent, p.stage AS intent_stage,
               (SELECT count(*) FROM play.doc_updates u WHERE u.branch = b.id) AS steps
-         FROM play.doc_branches b LEFT JOIN play.humans h ON h.id = b.created_by LEFT JOIN play.proposals p ON p.doc_branch = b.id
+         FROM play.doc_branches b LEFT JOIN play.humans h ON h.id = b.created_by LEFT JOIN play.intents p ON p.id = b.intent_id
         WHERE b.doc_id = $1 ORDER BY b.id`,
       [docId],
     );
@@ -443,7 +438,7 @@ export async function assetHistory(db: Db, store: BlobStore, me: Me | null, asse
       asset,
       steps,
       versions: versions.map((v) => ({ number: v.number, note: firstLine(v.note, 300), at: new Date(v.created).toISOString(), contentHash: v.contentHash })),
-      drafts: drafts.map((d) => ({ id: Number(d.id), status: d.status, note: firstLine(d.note, 300), at: new Date(d.created).toISOString(), author: d.author, proposal: d.proposal, steps: Number(d.steps) })),
+      drafts: drafts.map((d) => ({ id: Number(d.id), status: d.status, note: firstLine(d.note, 300), at: new Date(d.created).toISOString(), author: d.author, intent: d.intent, intent_stage: d.intent_stage, steps: Number(d.steps) })),
     };
   });
 }

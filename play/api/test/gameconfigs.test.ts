@@ -105,18 +105,18 @@ suite("the Game editor's configs on Loro", () => {
     const proposed = await tool("propose_game_config_version", { config: LV, branch: one.branch, note: "a richer last investor, a dearer tent" });
     expect(proposed).toMatchObject({ config: LV, number: 2, steps: 2, changes: 2 });
 
-    const listed = (await call("ada", "GET", "/api/proposals?status=proposal")).data.find((p: any) => p.id === proposed.id);
-    expect(listed).toMatchObject({ kind: "game_config_version", grp: "game", label: "Levelling", number: 2, via: "mcp" });
-    const review = (await call("ada", "GET", `/api/proposals/${proposed.id}`)).data;
+    const listed = (await call("ada", "GET", "/api/intents?stage=proposal")).data.find((i: any) => i.id === proposed.intent);
+    expect(listed).toMatchObject({ stage: "proposal", work: { kind: "game_config_version", grp: "game", label: "Levelling", number: 2, via: "mcp" } });
+    const review = (await call("ada", "GET", `/api/intents/${proposed.intent}`)).data.review;
     expect(review).toMatchObject({ config: { id: LV, label: "Levelling" }, baseNumber: 1, moved: false });
     expect(review.changes).toEqual([
       { path: "$.levels[id=l1].unlocks[0].cost", kind: "changed", from: 2000, to: 3000 },
       { path: "$.levels[id=l16].investor", kind: "changed", from: 8, to: 10 },
     ]);
-    expect((await call("ada", "GET", `/api/game/configs/${LV}?proposal=${proposed.id}`)).data.json.levels[15].investor).toBe(10);
+    expect((await call("ada", "GET", `/api/game/configs/${LV}?intent=${proposed.intent}`)).data.json.levels[15].investor).toBe(10);
     expect((await call("ada", "GET", `/api/game/configs/${LV}`)).data.json.levels[15].investor).toBe(8);
 
-    expect((await call("ada", "POST", `/api/proposals/${proposed.id}/accept`)).data).toMatchObject({ status: "accepted", number: 2 });
+    expect((await call("ada", "POST", `/api/intents/${proposed.intent}/accept`)).data).toMatchObject({ stage: "accepted", decision: { status: "accepted", number: 2 } });
     const now = (await call("ada", "GET", `/api/game/configs/${LV}`)).data;
     expect(now).toMatchObject({ number: 2, version: 2 });
     expect(now.json.levels[15].investor).toBe(10);
@@ -125,10 +125,10 @@ suite("the Game editor's configs on Loro", () => {
     expect(history.steps.at(-1).version).toBe(2);
   });
 
-  test("an agent archives its own open proposal; a citizen sees none of them", async () => {
+  test("an agent archives its own intent at Proposal; a citizen sees none of them", async () => {
     const p = await tool("propose_game_config_version", { config: LV, note: "a new label", edits: [{ op: "set", path: ["label"], value: "Village levels" }] });
-    expect((await call("cit", "GET", `/api/proposals/${p.id}`)).status).toBe(404);
-    expect(await tool("archive_proposal", { proposal: p.id })).toMatchObject({ status: "archived" });
-    expect((await call("ada", "GET", `/api/game/configs/${LV}/history`)).data.drafts.find((d: any) => d.proposal === p.id).status).toBe("archived");
+    expect((await call("cit", "GET", `/api/intents/${p.intent}`)).status).toBe(403);
+    expect(await tool("archive_intent", { intent: p.intent })).toMatchObject({ stage: "archived" });
+    expect((await call("ada", "GET", `/api/game/configs/${LV}/history`)).data.drafts.find((d: any) => d.intent === p.intent).status).toBe("archived");
   });
 });

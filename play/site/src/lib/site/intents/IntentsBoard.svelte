@@ -1,5 +1,5 @@
 <!--
-	INTENTS, AS A BOARD (Samuel 2026-11-03; the proposals' board until 2026-11-06) — every proposed version of Maia City's assets as a card in its column,
+	INTENTS, AS A BOARD (Samuel 2026-11-03; the proposals' board until 2026-11-06) — every intent of Maia City's as a card in its column,
 	newest first. A card opened is reviewed over the whole board: the version built in the asset box as large as it can
 	be, what it says of itself folded to two lines, its source (beside its base's, as the lines that changed) a button
 	away. Admins decide here; nothing is proposed or edited here: versions come over MCP only (play/api/src/mcp.ts).
@@ -12,16 +12,20 @@
 	folded at first. Agents add and specify intents over MCP (never typed in here): a spec is a goal, a scope and checks,
 	each one statement that passes or fails, checked by a test, a measure or a look, must or nice. Here an admin approves
 	a spec (Specify → Prototype), and an agent builds it, recording each check's result, until every must check passes:
-	then it moves to Proposal by itself (Samuel 2026-11-06), the one gate after the spec, where an admin decides it. An
-	intent's proposals are reviewed and decided here as before, the intent following them; one whose work is no proposal
-	of play's (code) is accepted or rejected at Proposal itself; a proposal made without an intent is an intent of its
-	own, opened straight into its review. Nothing is accepted from Prototype.
+	then it moves to Proposal by itself (Samuel 2026-11-06), the one gate after the spec, where an admin decides it.
+
+	ONE RECORD (Samuel 2026-11-06: "not a proposal belongs to an intent: the intent has a state, proposal"): an intent's
+	work (an asset's or story's version, a sandbox's change, a factory's or config's version) is on the intent itself, and
+	Proposal is only its stage. Its work is reviewed from the intent and decided there: accepting applies it, archiving
+	archives the intent; an intent whose work is code is accepted at Proposal on main's checks. Work proposed without an
+	intent is an intent of its own, with no spec, opened straight into its review. Nothing is accepted from Prototype.
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, may } from '$lib/api';
 	import { session } from '$lib/session.svelte';
 	import { wayBack } from '$lib/site/app/back.svelte.js';
+	import { intentsModal } from './intents.svelte';
 	import { markdown } from '$lib/site/markdown/index.js';
 	import { INDEX, admitProposed, source as catalogSource } from '$lib/content/assets/catalog.js';
 	import { changesOnly, lineDiff } from '$lib/diff';
@@ -40,9 +44,13 @@
 	// admins only for now (Samuel 2026-11-02): the nav pill's star is greyed out for everyone else
 	const admin = $derived(session.me?.level === 'admin');
 
-	type P = { id: string; kind?: 'asset_version' | 'story_version' | 'sandbox_change' | 'factory_version' | 'game_config_version'; asset_id: string | null; label: string; grp: string; slug: string | null; version_label: string | null; number: number | null; changes?: number; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp'; intent_id?: string | null; intent_title?: string | null; intent_spec?: Spec | null; intent_results?: Results | null };
+	// an intent's work, as the board lists it (play/api/src/intents.ts): what it changes, the version it would be, who
+	// proposed it and how, and its status (the intent's stage: waiting at Proposal, accepted, else archived)
+	type Work = { kind: 'asset_version' | 'story_version' | 'sandbox_change' | 'factory_version' | 'game_config_version'; asset_id: string | null; label: string; grp: string; slug: string | null; version_label: string | null; number: number | null; changes?: number; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
+	// the work opened for review: the intent's id, with the intent's title, spec and results beside it
+	type P = Work & { id: string; intent_id: string; intent_title: string; intent_spec: Spec | null; intent_results: Results | null };
 	// an intent (play/api/src/intents.ts): its kind, title and note, its stage, its spec once specified (a goal, a scope and
-	// its checks), its checks' latest results while prototyped, and its proposals (id, status, kind, group)
+	// its checks), its checks' latest results while prototyped, and its work once proposed
 	type Kind = 'idea' | 'fix' | 'improve';
 	type Stage = 'idea' | 'specify' | 'prototype' | 'proposal' | 'accepted' | 'archived';
 	// run: the command that decides a check in avenBOX (test and measure checks since 2026-11-06; play/SPEC.md §4.12)
@@ -50,7 +58,7 @@
 	type Spec = { goal: string; scope: string; checks: Check[] };
 	// where: in avenBOX (the agent's), or on main after the merge (.github/workflows/intents.yml), on which commit
 	type Results = Record<string, { pass: boolean; evidence: string; by: string | null; at: string; where?: 'avenBOX' | 'main'; commit?: string }>;
-	type Intent = { id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null; spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null; decided_at: string | null; decided_by: string | null; proposals: { id: string; status: string; kind: P['kind']; grp: string | null }[] };
+	type Intent = { id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null; spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null; decided_at: string | null; decided_by: string | null; came_with: string | null; work: Work | null };
 	// an intent's kind, shown as what it asks (the kind 'idea' as Make, the stage Idea being its own; Samuel 2026-11-06)
 	const KINDS: [Kind, string][] = [
 		['idea', 'Make'],
@@ -95,8 +103,19 @@
 		}
 		loaded = true;
 	};
-	onMount(() => {
-		if (admin) load();
+	onMount(async () => {
+		if (!admin) return;
+		await load();
+		// opened on an intent (/intents/#<id>, or /proposals/#<an old proposal's id>): play finds it, and it opens
+		const focus = intentsModal.focus;
+		intentsModal.focus = null;
+		if (!focus) return;
+		try {
+			const i = await api<Intent>(`/intents/${focus}`);
+			openIntent(intents.find((x) => x.id === i.id) ?? i);
+		} catch (e) {
+			error = (e as Error).message;
+		}
 	});
 	// a column's cards: the intents at its stage, the latest first (those decided by when they were)
 	const inColumn = (s: string): Intent[] => intents.filter((i) => i.stage === s);
@@ -111,17 +130,17 @@
 		!!i.spec && i.spec.checks.filter((c) => c.must).every((c) => i.results?.[c.id]?.pass === true && (!c.run || i.results?.[c.id]?.where === 'main'));
 	/** where a result ran, as its mark says: avenBOX, or main and its commit */
 	const whereOf = (r: Results[string]) => (r.where === 'main' ? `main${r.commit ? ` @ ${r.commit.slice(0, 7)}` : ''}` : 'avenBOX');
-	/** what an intent's proposals came to, by status: "2 proposals · 1 accepted" */
-	const proposedFor = (i: Intent) => {
-		const n: Record<string, number> = {};
-		for (const p of i.proposals) n[p.status] = (n[p.status] ?? 0) + 1;
-		return ['proposal', 'accepted', 'archived'].filter((s) => n[s]).map((s) => `${n[s]} ${s === 'proposal' ? (n[s] === 1 ? 'proposal' : 'proposals') : s}`).join(' · ');
-	};
-	async function act(id: string, verdict: string) {
+	/** what an intent's work is, on its card: "v3 · waiting", "2 changes · accepted" */
+	const workText = (i: Intent) => (i.work ? `${titleOf(i.work)} · ${i.work.status === 'proposal' ? 'waiting' : i.work.status}` : '');
+	/** the work of intent `i`, opened for review */
+	const cardOf = (i: Intent): P => ({ ...i.work!, id: i.id, intent_id: i.id, intent_title: i.title, intent_spec: i.spec, intent_results: i.results });
+	/** an intent's work decided: accepting applies it (or archives it, where its base moved and the two changes touch the
+	 *  same field: the board says why), archiving archives the intent */
+	async function act(id: string, verdict: 'accept' | 'archive') {
 		try {
-			// accepting may still archive it (its head moved and the two changes touch the same field): say why
-			const r = await api<{ status: string; message?: string }>(`/proposals/${id}/${verdict}`, { method: 'POST' });
+			const r = await api<Intent & { message?: string }>(`/intents/${id}/${verdict}`, { method: 'POST' });
 			error = r?.message ?? '';
+			close();
 			await load();
 		} catch (e) {
 			error = (e as Error).message;
@@ -180,11 +199,11 @@
 	/** a title for a card: an asset's or story's version, or a sandbox's change */
 	/** what a proposal is of, its card's tag (Samuel 2026-11-05: the type, not how it came; that it came over MCP is in its title and its review) */
 	const GROUP_TYPE: Record<string, string> = { plants: 'Plant', things: 'Thing', machines: 'Machine', buildings: 'Building', actors: 'Actor', biomes: 'Biome', worlds: 'World' };
-	const typeOf = (p: { kind?: P['kind']; grp: string | null }) =>
+	const typeOf = (p: { kind?: Work['kind']; grp: string | null }) =>
 		p.kind === 'story_version' ? 'Story' : p.kind === 'sandbox_change' ? 'Sandbox' : p.kind === 'factory_version' ? 'Factory' : p.kind === 'game_config_version' ? 'Game config' : (GROUP_TYPE[p.grp ?? ''] ?? p.grp ?? '');
-	/** an intent's tag: what its proposal is (a plant, a story …) where it has one, else its kind */
-	const tagOf = (i: Intent) => (i.proposals[0] ? typeOf(i.proposals[0]) : kindName(i.kind));
-	const titleOf = (p: P) => (p.kind === 'sandbox_change' ? `${p.changes ?? 0} change${p.changes === 1 ? '' : 's'}` : `v${p.number}`);
+	/** an intent's tag: what its work is (a plant, a story …) where it has some, else its kind */
+	const tagOf = (i: Intent) => (i.work ? typeOf(i.work) : kindName(i.kind));
+	const titleOf = (p: Work) => (p.kind === 'sandbox_change' ? `${p.changes ?? 0} change${p.changes === 1 ? '' : 's'}` : `v${p.number}`);
 	async function openCard(p: P) {
 		intent = null;
 		open = p;
@@ -201,7 +220,7 @@
 		reviewError = '';
 		if (p.kind === 'story_version') {
 			try {
-				const r = await api<StoryReview>(`/proposals/${p.id}`);
+				const r = (await api<{ review: StoryReview }>(`/intents/${p.id}`)).review;
 				if (open?.id === p.id) storyReview = r;
 			} catch (e) {
 				reviewError = (e as Error).message;
@@ -210,7 +229,7 @@
 		}
 		if (p.kind === 'sandbox_change') {
 			try {
-				const r = await api<SandboxReview>(`/proposals/${p.id}`);
+				const r = (await api<{ review: SandboxReview }>(`/intents/${p.id}`)).review;
 				if (open?.id === p.id) sandboxReview = r;
 			} catch (e) {
 				reviewError = (e as Error).message;
@@ -219,7 +238,7 @@
 		}
 		if (p.kind === 'factory_version') {
 			try {
-				const r = await api<FactoryReview>(`/proposals/${p.id}`);
+				const r = (await api<{ review: FactoryReview }>(`/intents/${p.id}`)).review;
 				if (open?.id === p.id) factoryReview = r;
 			} catch (e) {
 				reviewError = (e as Error).message;
@@ -228,7 +247,7 @@
 		}
 		if (p.kind === 'game_config_version') {
 			try {
-				const r = await api<ConfigReview>(`/proposals/${p.id}`);
+				const r = (await api<{ review: ConfigReview }>(`/intents/${p.id}`)).review;
 				if (open?.id === p.id) configReview = r;
 			} catch (e) {
 				reviewError = (e as Error).message;
@@ -236,7 +255,7 @@
 			return;
 		}
 		try {
-			const r = await api<Review & { builds: any[] }>(`/proposals/${p.id}`);
+			const r = (await api<{ review: Review & { builds: any[] } }>(`/intents/${p.id}`)).review;
 			if (open?.id !== p.id) return;
 			await admitProposed(r.builds);
 			review = r;
@@ -250,26 +269,16 @@
 	const close = () => (open = null);
 	const diff = $derived(baseCode !== null && code ? changesOnly(lineDiff(baseCode, code)) : null);
 
-	// ---- an intent opened: its spec and checks, its proposals a click away, the brief that sends an agent to it, and the
+	// ---- an intent opened: its spec and checks, its work a click away, the brief that sends an agent to it, and the
 	// admin's decision; one with no spec and a single proposal (one made without an intent) opens straight into its review
 	let intent = $state<Intent | null>(null);
-	/** the intent's proposals as the board lists them (null while they are read) */
-	let intentProposals = $state<P[] | null>(null);
 	let intentError = $state('');
 	let copied = $state(false);
 	/** an intent that is only its one proposal (one made without an intent): its card opens straight into the review */
-	const onlyItsProposal = (i: Intent | undefined) => !!i && !i.spec && i.proposals.length === 1;
+	const onlyItsWork = (i: Intent | undefined) => !!i && !i.spec && !!i.work;
 	/** an intent opened from its card: straight into its proposal's review where it is only that proposal */
 	async function openIntent(i: Intent) {
-		if (onlyItsProposal(i)) {
-			try {
-				const r = await api<{ proposals: P[] }>(`/intents/${i.id}`);
-				if (r.proposals[0]) return openCard(r.proposals[0]);
-			} catch (e) {
-				error = (e as Error).message;
-				return;
-			}
-		}
+		if (onlyItsWork(i)) return openCard(cardOf(i));
 		openIntentDialog(i);
 	}
 	/** the intent a proposal was made for, from its review */
@@ -277,19 +286,12 @@
 		const i = intents.find((x) => x.id === id);
 		if (i) openIntentDialog(i);
 	}
-	/** the intent's own dialog (its spec, checks and proposals), even where it has a single proposal */
+	/** the intent's own dialog (its spec, checks and work), even where it is only its work */
 	async function openIntentDialog(i: Intent) {
 		open = null;
 		intent = i;
-		intentProposals = null;
 		intentError = '';
 		copied = false;
-		try {
-			const r = await api<{ proposals: P[] }>(`/intents/${i.id}`);
-			if (intent?.id === i.id) intentProposals = r.proposals;
-		} catch (e) {
-			intentError = (e as Error).message;
-		}
 	}
 	const closeIntent = () => (intent = null);
 	async function decideIntent(id: string, verdict: 'approve' | 'respecify' | 'accept' | 'reject' | 'reopen') {
@@ -304,7 +306,7 @@
 	/** what to tell an agent sent to an intent: the intent by its id (its title only shown), and its stage's work */
 	const briefOf = (i: Intent) =>
 		i.stage === 'prototype'
-			? `Build Maia City's intent ${i.id} on play ("${i.title}") in avenBOX, the cloud environment our agents prototype in (Postgres up, TEST_DATABASE_URL set: play/avenbox/up.sh). Read it and its approved spec with the maia-play MCP tool get_intent. Build what its goal and scope say. Run every check and record it with bun play/avenbox/intent.ts ${i.id} --record (it runs each check's run and records it with check_intent, a failure as a failure; record a look by hand with check_intent); repeat until every must check passes: then the intent moves to Proposal by itself, where an admin decides it. If the work is one of play's proposals (an asset or story version, a sandbox change, a factory or a config), also propose it with the propose tool's intent: "${i.id}"; play refuses it before every must check passes. If the work is code, ship it by pull request with the line Intent: ${i.id} at the end of its commits' messages: once it is merged, main runs the same checks in the same box (.github/workflows/intents.yml) and records them as main's, and it is accepted on main's results.`
+			? `Build Maia City's intent ${i.id} on play ("${i.title}") in avenBOX, the cloud environment our agents prototype in (Postgres up, TEST_DATABASE_URL set: play/avenbox/up.sh). Read it and its approved spec with the maia-play MCP tool get_intent. Build what its goal and scope say. Run every check and record it with bun play/avenbox/intent.ts ${i.id} --record (it runs each check's run and records it with check_intent, a failure as a failure; record a look by hand with check_intent); repeat until every must check passes: then the intent moves to Proposal by itself, where an admin decides it. If the work is play's (an asset or story version, a sandbox change, a factory or a config), propose it with the propose tool's intent: "${i.id}" (it puts this intent at Proposal with the work); play refuses it before every must check passes. If the work is code, ship it by pull request with the line Intent: ${i.id} at the end of its commits' messages: once it is merged, main runs the same checks in the same box (.github/workflows/intents.yml) and records them as main's, and it is accepted on main's results.`
 			: `Specify Maia City's intent ${i.id} on play ("${i.title}"). Read it with the maia-play MCP tool get_intent, then specify it with specify_intent: its goal (what is true when it is done, in a sentence), its scope (what changes, named by UUIDs, hashes or paths, and what stays as it is) and its checks, each ONE statement that passes or fails, checked by a test (a command that passes), a measure (a value and its range from a named tool) or a look (against a named reference), must or nice; every check decidable by someone who reads only the intent and the result. Every test and measure check carries its run: the exact command that decides it in avenBOX, from the repository's root, as written, nothing in it left to fill in (a test passes when it exits 0; a measure prints its value and exits 0 only in its range); in Prototype bun play/avenbox/intent.ts runs them all, and main runs them again once the work is merged. Then stop: an admin approves the spec before anything is built.`;
 	async function copyBrief(i: Intent) {
 		try {
@@ -362,17 +364,17 @@
 						<div class="cards">
 							{#each cards as i (i.id)}
 								{@const progress = s === 'prototype' ? checksDone(i) : ''}
-								<!-- an intent: its title, how far its checks or proposals got, who it is by, its type and its date -->
-								<article class="card" class:item={!!i.spec || !i.proposals.length} data-kind={i.kind}>
+								<!-- an intent: its title, how far its checks or its work got, who it is by, its type and its date -->
+								<article class="card" class:item={!!i.spec || !i.work} data-kind={i.kind}>
 									<button class="open" onclick={() => openIntent(i)} title={i.note ? gist(i.note) : undefined}>
 										<span class="title">{i.title}</span>
 										{#if progress}<span class="for" class:done={allMustPass(i)}>{progress}</span>
 										{:else if i.spec && s === 'specify'}<span class="for">{i.spec.checks.length} check{i.spec.checks.length === 1 ? '' : 's'} · to approve</span>
-										{:else if i.spec && i.proposals.length}<span class="for">{proposedFor(i)}</span>{/if}
+										{:else if i.spec && i.work}<span class="for">{workText(i)}</span>{/if}
 										<span class="meta">
 											<span class="avatar" aria-hidden="true">{initialsOf(i.author)}</span>
 											<span class="author">{i.author ?? 'someone'}</span>
-											<span class="type" data-type={tagOf(i)} data-kind={i.proposals.length ? undefined : i.kind} title={i.via === 'mcp' ? `${tagOf(i)} · by an agent working for them over MCP` : tagOf(i)}>{tagOf(i)}</span>
+											<span class="type" data-type={tagOf(i)} data-kind={i.work ? undefined : i.kind} title={i.via === 'mcp' ? `${tagOf(i)} · by an agent working for them over MCP` : tagOf(i)}>{tagOf(i)}</span>
 											<span class="date">{shortWhen(i.decided_at ?? i.created)}</span>
 										</span>
 									</button>
@@ -390,9 +392,9 @@
 		{@const i = intent}
 		{@const musts = i.spec?.checks.filter((c) => c.must) ?? []}
 		<!-- a proposal of it waiting: that proposal's review is where it is decided -->
-		{@const waits = (intentProposals ?? i.proposals).some((p) => p.status === 'proposal')}
+		{@const waits = i.stage === 'proposal' && !!i.work}
 		<!-- an intent opened: read here (it is added and specified over MCP only), its spec and its checks with their
-		     results, its proposals a click away, the brief that sends an agent to it, and the admins' decision on it -->
+		     results, its work a click away, the brief that sends an agent to it, and the admins' decision on it -->
 		<button class="scrim" onclick={closeIntent} aria-label="Close" tabindex="-1"></button>
 		<div class="review item-review" role="dialog" aria-modal="true" aria-label={i.title}>
 			<header class="review-head">
@@ -443,23 +445,22 @@
 				{/if}
 			</section>
 			<section>
-				<h3>Proposed for it</h3>
-				{#if intentProposals === null}<p class="muted small">Reading them…</p>
-				{:else if !intentProposals.length}<p class="muted small">Nothing yet.{i.stage === 'idea' || i.stage === 'specify' || i.stage === 'prototype' ? ' Send an agent to it with the brief below.' : ''}</p>
+				<h3>Its work</h3>
+				{#if !i.work}<p class="muted small">Nothing yet.{i.stage === 'idea' || i.stage === 'specify' || i.stage === 'prototype' ? ' Send an agent to it with the brief below.' : ''}</p>
 				{:else}
+					{@const w = i.work}
 					<ul class="linked">
-						{#each intentProposals as p (p.id)}
-							<li>
-								<button class="open" onclick={() => openCard(p)}>
-									<span class="type" data-type={typeOf(p)}>{typeOf(p)}</span>
-									<span class="what">{p.label} <span class="muted">{titleOf(p)}</span></span>
-									<span class="pill">{p.status}</span>
-									<span class="date muted">{shortWhen(p.created)}</span>
-								</button>
-							</li>
-						{/each}
+						<li>
+							<button class="open" onclick={() => openCard(cardOf(i))}>
+								<span class="type" data-type={typeOf(w)}>{typeOf(w)}</span>
+								<span class="what">{w.label} <span class="muted">{titleOf(w)}</span></span>
+								<span class="pill">{w.status === 'proposal' ? 'waiting' : w.status}</span>
+								<span class="date muted">{shortWhen(w.created)}</span>
+							</button>
+						</li>
 					</ul>
 				{/if}
+				{#if i.came_with}<p class="muted small">Proposed for <button class="link" onclick={() => openIntentOf(i.came_with!)}>{intents.find((x) => x.id === i.came_with)?.title ?? 'another intent'}</button>, beside the work it kept.</p>{/if}
 			</section>
 			{#if i.stage === 'idea' || (i.stage === 'specify' && !i.spec) || i.stage === 'prototype'}
 				<section class="agent">
@@ -473,7 +474,7 @@
 			<!-- the decision at its foot, in the middle: Reject (it ends archived) on the left, Approve or Accept on the right;
 			     no Close: the nav pill's Back (or Escape, or the scrim) closes it, the star the board (Samuel 2026-11-06).
 			     Accept only at Proposal (it moves there by itself once every must check passes; Samuel 2026-11-06), and only
-			     where no proposal of it waits: then that proposal, on its review, is where it is decided -->
+			     where no work of it waits: then its work's review, opened from it, is where it is decided -->
 			{#if !(i.stage === 'proposal' && waits)}
 			<footer class="decide">
 				{#if i.stage === 'idea' || i.stage === 'specify' || i.stage === 'prototype' || (i.stage === 'proposal' && !waits)}
@@ -497,7 +498,7 @@
 			<header class="review-head">
 				<div class="who">
 					<h2>{p.label} <span class="muted">{titleOf(p)}</span> <span class="pill">{p.status}</span></h2>
-					<p class="meta">{p.grp} · by {p.author ?? 'someone'}{#if p.via === 'mcp'}{' '}<span class="via" title="Proposed by an agent working for them over MCP">via MCP</span>{/if} · {when(p.created)}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}{#if p.intent_id && !onlyItsProposal(intents.find((x) => x.id === p.intent_id))}{' · for '}<button class="link" onclick={() => openIntentOf(p.intent_id!)} title="The intent it was made for: its spec and checks">{p.intent_title}</button>{/if}</p>
+					<p class="meta">{p.grp} · by {p.author ?? 'someone'}{#if p.via === 'mcp'}{' '}<span class="via" title="Proposed by an agent working for them over MCP">via MCP</span>{/if} · {when(p.created)}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}{#if p.intent_id && !onlyItsWork(intents.find((x) => x.id === p.intent_id))}{' · for '}<button class="link" onclick={() => openIntentOf(p.intent_id!)} title="The intent it was made for: its spec and checks">{p.intent_title}</button>{/if}</p>
 					{#if p.intent_spec}
 						{@const checks = p.intent_spec.checks}
 						<p class="gate small" title="The intent's checks, each as its last result: every must check passed before play took this">
@@ -553,7 +554,7 @@
 					{:else}
 						{@const r = factoryReview}
 						<p>
-							<a class="btn small" href="/factories/?factory={encodeURIComponent(r.factory.id)}&proposal={encodeURIComponent(p.id)}" target="_blank" rel="noopener">Open {r.factory.label} as it would be</a>
+							<a class="btn small" href="/factories/?factory={encodeURIComponent(r.factory.id)}&intent={encodeURIComponent(p.id)}" target="_blank" rel="noopener">Open {r.factory.label} as it would be</a>
 							{#if r.moved}<span class="muted small"> It was made on v{r.baseNumber}; the factory has a newer version since. Accepting merges it where the two touch different fields, and archives it where they touch the same.</span>{/if}
 						</p>
 						<h3>{p.status === 'accepted' ? 'What it changed' : 'What it changes'}{r.baseNumber ? ` from v${r.baseNumber}` : ''}</h3>
@@ -585,7 +586,7 @@
 					{:else}
 						{@const r = configReview}
 						<p>
-							<a class="btn small" href="/game-editor/?config={encodeURIComponent(r.config.id)}&proposal={encodeURIComponent(p.id)}" target="_blank" rel="noopener">Open {r.config.label} as it would be</a>
+							<a class="btn small" href="/game-editor/?config={encodeURIComponent(r.config.id)}&intent={encodeURIComponent(p.id)}" target="_blank" rel="noopener">Open {r.config.label} as it would be</a>
 							{#if r.moved}<span class="muted small"> It was made on v{r.baseNumber}; the config has a newer version since. Accepting merges it where the two touch different fields, and archives it where they touch the same.</span>{/if}
 						</p>
 						<h3>{p.status === 'accepted' ? 'What it changed' : 'What it changes'}{r.baseNumber ? ` from v${r.baseNumber}` : ''}</h3>

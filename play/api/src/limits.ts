@@ -1,5 +1,5 @@
 // How often one address may ask play's costly routes: the passkey ceremonies (/api/passkey/*) and proposals' uploads
-// (POST /api/proposals). Copied from aven/api/src/limits.js. A token bucket for each address, filled at `API_RATE` asks a minute (30 by
+// (POST /api/intents, an intent put at Proposal with its work). Copied from aven/api/src/limits.js. A token bucket for each address, filled at `API_RATE` asks a minute (30 by
 // default, 0 for no limit), as avenDB's own feed limits its signed routes (avendb-server feed.rs `Rate`). The address is
 // the last the proxy in front names in `X-Forwarded-For` (Caddy sets it), else the socket's.
 
@@ -37,7 +37,7 @@ export function perMinute(said: string | undefined) {
 export function costly(req: Request) {
   if (req.method === "OPTIONS") return false;
   const path = new URL(req.url).pathname;
-  return path.startsWith("/api/passkey/") || (req.method === "POST" && (path === "/api/proposals" || path === "/api/mcp"));
+  return path.startsWith("/api/passkey/") || (req.method === "POST" && (path === "/api/intents" || path === "/api/mcp"));
 }
 
 /** Who asks: the last address the proxy names, else the socket's, else nobody known.

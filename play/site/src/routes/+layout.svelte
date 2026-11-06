@@ -49,7 +49,7 @@
 		if (nav.willUnload) return;
 		if (nav.type === 'link' && (nav.to?.url.pathname === '/intents/' || nav.to?.url.pathname === '/proposals/')) {
 			nav.cancel();
-			openIntents();
+			openIntents(nav.to.url.hash.slice(1));
 		} else closeIntents();
 	});
 	const keepsPlay = () => /^\/(sandbox-|game)/.test(page.url.pathname);

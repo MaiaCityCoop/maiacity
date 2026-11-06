@@ -1,10 +1,12 @@
-// Asset update proposals (play/SPEC.md §4.3): a citizen proposes a new version of an asset (or a new asset), built for
-// the version after its head, as a recipe file names its own version; an admin accepts or rejects it. Accepting checks
-// the head is still the one it was made from, in one transaction, so of two proposals on one head only the first goes
-// in and the other is archived: rebuilt and proposed again on the new head.
-import { closeFactoryBranch, decideFactory, factoryReview } from "./factories";
-import { closeGameConfigBranch, gameConfigReview, decideGameConfig } from "./gameconfigs";
-import { randomUUID } from "node:crypto";
+// Proposing and deciding (play/SPEC.md §4.3, §4.12): to propose is to put an intent at Proposal with its work (./work.ts),
+// one record, the intent; Proposal is only its stage. Here an asset's new version (or a new asset) is proposed, built for
+// the version after its head, as a recipe file names its own version, and any intent's work is reviewed and decided: an
+// admin accepts or archives it. Accepting an asset's checks the head is still the one it was made from, in one
+// transaction, so of two intents' work on one head only the first goes in and the other is archived: rebuilt and
+// proposed again on the new head. The rest is decided by its own kind (./stories.ts, ./sandboxes.ts, ./factories.ts,
+// ./gameconfigs.ts), the intent settled in the same transaction.
+import { decideFactory, factoryReview } from "./factories";
+import { gameConfigReview, decideGameConfig } from "./gameconfigs";
 import type { BlobStore } from "./blobs";
 import { HASH, hashText } from "./hash";
 import type { Db, Queryable } from "./pg";
@@ -15,10 +17,12 @@ import { readableRefs } from "../import/plan";
 import { versionId } from "./versions";
 import { NOTE_MOST } from "./notes";
 import { newId, UUID } from "./uuid";
-import { archiveOwnStory, decideStory, named, storyReview } from "./stories";
+import { decideStory, named, storyReview } from "./stories";
 import * as docs from "./docs";
 import { decideSandbox, sandboxReview } from "./sandboxes";
-import { acceptBranch, asAssetJson, AssetDocError, assetDocId, authorOf, closeBranch, draftOf, draftState, ensureAssetDoc, proposalBranch, type AssetJson } from "./assetdocs";
+import { acceptBranch, asAssetJson, AssetDocError, assetDocId, authorOf, draftOf, draftState, ensureAssetDoc, proposalBranch, type AssetJson } from "./assetdocs";
+import { closeWork, putAtProposal, settle, WORK_OF, workOf, WorkError } from "./work";
+import { decideIntent, getIntent, IntentError, type IntentVerdict } from "./intents";
 
 export class ProposalError extends Error {
   constructor(message: string, public status = 400) {
@@ -52,7 +56,7 @@ export type ProposalBody = {
   sheet?: string | null; // its reference sheet: an image play keeps, by its hash (a plant's plate of every stage and organ); null takes the head's away
   datasheet?: string | null; // its data sheet: a Markdown document play keeps, by its hash; null takes the head's away
   brief?: string | null; // the brief its reference sheet was made from: a Markdown document play keeps, by its hash
-  intent?: string; // the intent it is made for, by its UUID, held to its gate before (./intents.ts intentReady); none, and the database makes it one
+  intent?: string; // the intent it is the work of, by its UUID, held to its gate before (./intents.ts intentReady); none, and it is a new intent of its own
 };
 
 /**
@@ -293,8 +297,7 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
   const id = versionId(content);
 
   for (const f of files) await store.put(f.hash, new TextEncoder().encode(f.text), MEDIA);
-  const proposal = randomUUID();
-  let branchId = 0, steps = 0;
+  let intent = "", branchId = 0, steps = 0;
   await db.transaction(async (tx) => {
     for (const f of files)
       await tx.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, [
@@ -319,78 +322,24 @@ export async function propose(db: Db, store: BlobStore, me: Me | null, given: Pr
     const branch = await proposalBranch(tx, store, { asset, base: a[0]?.number ?? null, json, note, author: authorOf(who, via === "mcp" ? "mcp" : "site"), draft }).catch((e) => {
       throw e instanceof AssetDocError ? new ProposalError(e.message, e.status) : e;
     });
-    await tx.query(
-      `INSERT INTO play.proposals (id, coop_id, kind, asset_id, base, version, author, note, via, doc_branch, intent_id) VALUES ($1, $2, 'asset_version', $3, $4, $5, $6, $7, $8, $9, $10)`,
-      [proposal, COOP, asset, head, id, who.id, note, via, branch, body.intent ?? null],
-    );
+    intent = await putAtProposal(tx, who, { intent: body.intent, work: { kind: "asset_version", asset_id: asset, base: head, version: id, doc_branch: branch }, note, via }).catch((e) => {
+      throw e instanceof WorkError ? new ProposalError(e.message, e.status) : e;
+    });
     steps = (await docs.history(tx, assetDocId(asset), { branch })).length;
     branchId = branch;
   });
-  return { id: proposal, asset, version: id, number: n, base: head, branch: branchId, steps };
-}
-
-export async function listProposals(db: Queryable, me: Me | null, status?: string) {
-  const m = must(me, "read", "assets");
-  // what waits for a decision was called open, then proposed, before it was called a proposal (Samuel 2026-11-06): asked
-  // so, it still answers
-  const s = status === "open" || status === "proposed" ? "proposal" : status;
-  // a story's proposals are the admins' alone, as the Stories are (./stories.ts), and a sandbox's layout's (./sandboxes.ts)
-  return intentFor(m, await listProposalsWhere(db, `($1::text IS NULL OR p.status = $1) AND (p.kind = 'asset_version' OR $2)`, [s ?? null, m.level === "admin"]));
-}
-
-/** the intents are the admins' alone (./intents.ts): to anyone else a proposal names no intent */
-const intentFor = (m: Me, rows: any[]) => (m.level === "admin" ? rows : rows.map((r) => ({ ...r, intent_id: null, intent_title: null, intent_spec: null, intent_results: null })));
-
-/** the proposals of an intent (./intents.ts), as the board lists them: the intents are the admins' alone */
-export const proposalsOfIntent = (db: Queryable, intent: string) => listProposalsWhere(db, `p.intent_id = $1`, [intent]);
-
-// a proposal of an asset version or of a story version (./stories.ts): a story's is listed as its title (label), the
-// group "stories" and its id (story_id, a UUID), with the version it would be; a sandbox's change (./sandboxes.ts) as
-// its title, the group "sandboxes" and its id (sandbox_id), with how many changes it makes. Only an asset has a slug,
-// and it is only shown. Every proposal is an intent's (intent_id, ./intents.ts), its title shown
-async function listProposalsWhere(db: Queryable, where: string, args: unknown[]) {
-  const { rows } = await db.query<any>(
-    `SELECT p.id, p.kind, p.asset_id, p.base, p.version, p.story_id, p.story_base, p.story_version, p.doc_branch, p.status, p.note, p.created, p.decided_at, p.via,
-            p.sandbox_id, p.sandbox_base, p.sandbox_change, p.sandbox_diff, jsonb_array_length(COALESCE(p.sandbox_diff, '[]')) AS changes, p.factory_id, p.game_config_id,
-            p.intent_id, it.title AS intent_title, it.spec AS intent_spec, it.results AS intent_results, au.name AS author, de.name AS decided_by,
-            COALESCE(a.label, sv.title, sx.title, fx.label, gc.label) AS label,
-            COALESCE(a.grp, CASE WHEN p.kind = 'story_version' THEN 'stories' WHEN p.kind = 'sandbox_change' THEN 'sandboxes' WHEN p.kind = 'factory_version' THEN 'factories' WHEN p.kind = 'game_config_version' THEN 'game' END) AS grp,
-            a.slug, v.card->'card'->>'label' AS version_label,
-            CASE WHEN p.kind = 'story_version' THEN COALESCE(sb.number, 0) + 1 WHEN p.kind = 'sandbox_change' THEN NULL
-                 WHEN p.kind = 'factory_version' THEN COALESCE(dbv.number, (SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = 'factory:' || p.factory_id) + 1)
-                 WHEN p.kind = 'game_config_version' THEN COALESCE(dbv.number, (SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = 'game:' || p.game_config_id) + 1)
-                 ELSE COALESCE(b.number, 0) + 1 END AS number
-       FROM play.proposals p
-       LEFT JOIN play.assets a ON a.id = p.asset_id
-       LEFT JOIN play.asset_versions v ON v.id = p.version
-       LEFT JOIN play.asset_versions b ON b.id = p.base
-       LEFT JOIN play.story_versions sv ON sv.id = p.story_version
-       LEFT JOIN play.story_versions sb ON sb.id = p.story_base
-       LEFT JOIN play.sandboxes sx ON sx.id = p.sandbox_id
-       LEFT JOIN play.factories fx ON fx.id = p.factory_id
-       LEFT JOIN play.game_configs gc ON gc.id = p.game_config_id
-       LEFT JOIN play.doc_branches dbr ON dbr.id = p.doc_branch AND p.kind IN ('factory_version', 'game_config_version')
-       LEFT JOIN play.doc_versions dbv ON dbv.doc_id = dbr.doc_id AND dbv.number = dbr.version
-       LEFT JOIN play.intents it ON it.id = p.intent_id
-       LEFT JOIN play.humans au ON au.id = p.author
-       LEFT JOIN play.humans de ON de.id = p.decided_by
-      WHERE ${where}
-      ORDER BY p.created DESC LIMIT 200`,
-    args,
-  );
-  return rows;
+  return { intent, stage: "proposal" as const, asset, version: id, number: n, base: head, branch: branchId, steps };
 }
 
 /**
- * One proposal as people review it before they decide: the proposed version's readable source and its recipe files,
- * the base's source to set it beside, and the version as the catalog would list it once accepted (`builds`), so the
- * page can build it in the asset box, the sandboxed frame every recipe runs in, before anyone accepts it.
+ * An intent's work as people review it before they decide (`w`: the intent's work as ./intents.ts lists it, with its
+ * label, group and number): for an asset's version, its readable source and its recipe files, the base's source to set
+ * it beside, and the version as the catalog would list it once accepted (`builds`), so the page can build it in the
+ * asset box, the sandboxed frame every recipe runs in, before anyone accepts it; for the rest, its kind's own review.
  */
-export async function proposalOf(db: Queryable, me: Me | null, id: string) {
-  const m = must(me, "read", "assets");
-  if (!UUID.test(id)) throw new ProposalError("A proposal is named by its id, a UUID.", 404);
-  const [p] = intentFor(m, await listProposalsWhere(db, `p.id = $1 AND (p.kind = 'asset_version' OR $2)`, [id, m.level === "admin"]));
-  if (!p) throw new ProposalError("There is no such proposal.", 404);
+export async function reviewOf(db: Queryable, id: string, shown: any) {
+  const p = { ...(await workOf(db, id)), ...shown, id };
+  if (!p.kind) return null;
   // a sandbox's change: what each edit changes, before and after, as accepting would apply it
   if (p.kind === "sandbox_change") return { ...p, ...(await sandboxReview(db, p)) };
   // a story's: its proposed timeline, the head's it was made from, and what changed, clip by clip
@@ -435,50 +384,58 @@ export async function proposalOf(db: Queryable, me: Me | null, id: string) {
 
 export type Verdict = "accept" | "archive";
 
-/**
- * Accept or archive a proposal: a proposal ends accepted or archived, nothing else (Samuel 2026-11-04). An admin decides
- * any; its author may archive their own. An asset's is accepted only on the head it was made on (else it is archived,
- * to be proposed again on the new head), so what is accepted is exactly the version the Proposals page built and showed
- * in the asset box; its branch of the asset's document is merged and named the version's number. Archived, its branch
- * is closed, its steps kept.
- */
-/** A proposal archived by its own author: its status, and its branch closed as a side line in the history. */
+/** An intent's work archived by whoever proposed it: the intent archived, its branch closed as a side line in the history. */
 async function archiveAsAuthor(tx: Queryable, me: Me, p: any) {
-  await tx.query(`UPDATE play.proposals SET status = 'archived', decided_by = $2, decided_at = now() WHERE id = $1`, [p.id, me.id]);
-  if (p.kind === "story_version") await archiveOwnStory(tx, me, p);
-  else if (p.kind === "factory_version") await closeFactoryBranch(tx, me, p);
-  else if (p.kind === "game_config_version") await closeGameConfigBranch(tx, me, p);
-  else if (p.kind !== "sandbox_change") await closeBranch(tx, p.asset_id, p.doc_branch, me, "archived");
+  await settle(tx, p.id, "archived", me.id);
+  await closeWork(tx, me, p);
   return { id: p.id as string, status: "archived" as const };
 }
 
 /**
- * An agent archives its own open proposal over MCP (Samuel 2026-11-04): one a newer proposal of its own replaces, or one
- * it no longer stands by. Only a proposal its admin made over MCP, never anyone else's and never one made on the page;
- * accepting stays a person's, on the Proposals page.
+ * An agent archives its own intent over MCP (Samuel 2026-11-04): one at Proposal whose work it no longer stands by, or
+ * one newer work of its own replaces elsewhere. Only an intent its admin put at Proposal over MCP (its work proposed so,
+ * or, with no work, added so), never anyone else's and never one proposed on the page; accepting stays a person's, on
+ * the intents' board.
  */
 export async function archiveOwn(db: Db, me: Me | null, id: string) {
   if (!me) throw new Denied("Please sign in first.", 401);
-  if (!UUID.test(id)) throw new ProposalError("Name the proposal by its id (list_proposals gives it).");
+  if (!UUID.test(id)) throw new ProposalError("Name the intent by its id (list_intents gives it).");
   return db.transaction(async (tx) => {
-    const { rows } = await tx.query<any>(`SELECT * FROM play.proposals WHERE id = $1 FOR UPDATE`, [id]);
+    const { rows } = await tx.query<any>(`SELECT ${WORK_OF}, i.author AS intent_author, i.via AS intent_via FROM play.intents i WHERE i.id = $1 AND i.coop_id = $2 FOR UPDATE`, [id, COOP]);
     const p = rows[0];
-    if (!p) throw new ProposalError("There is no such proposal.", 404);
-    if (p.author !== me.id || p.via !== "mcp")
-      throw new ProposalError("Only a proposal you made over MCP is yours to archive; the rest are decided on the Proposals page.", 403);
-    if (p.status !== "proposal") throw new ProposalError(`This proposal is ${p.status} already.`, 409);
-    return archiveAsAuthor(tx, me, p);
+    if (!p) throw new ProposalError("There is no such intent.", 404);
+    const [by, via] = p.kind ? [p.author, p.via] : [p.intent_author, p.intent_via];
+    if (by !== me.id || via !== "mcp")
+      throw new ProposalError("Only an intent you put at Proposal over MCP is yours to archive; the rest are decided on the intents' board.", 403);
+    if (p.stage !== "proposal") throw new ProposalError(`This intent is at the ${p.stage} stage: only one at Proposal is archived so.`, 409);
+    return { ...(await archiveAsAuthor(tx, me, p)), intent: p.id as string, stage: "archived" as const };
   });
 }
 
+/**
+ * Accept or archive an intent's work at Proposal (Samuel 2026-11-04: it ends accepted or archived, nothing else). An
+ * admin decides any; whoever proposed it may archive their own. An asset's is accepted only on the head it was made on
+ * (else it is archived, to be proposed again on the new head), so what is accepted is exactly the version the board
+ * built and showed in the asset box; its branch of the asset's document is merged and named the version's number.
+ * Archived, its branch is closed, its steps kept. The answer says the stage the intent settled at.
+ */
 export async function decide(db: Db, store: BlobStore, me: Me | null, id: string, verdict: Verdict) {
   if (!me) throw new Denied("Please sign in first.", 401);
   return db.transaction(async (tx) => {
-    const { rows } = await tx.query<any>(`SELECT * FROM play.proposals WHERE id = $1 FOR UPDATE`, [id]);
-    const p = rows[0];
-    if (!p) throw new ProposalError("There is no such proposal.", 404);
-    if (p.status !== "proposal") throw new ProposalError(`This proposal is ${p.status} already.`, 409);
-    // its author archives their own, whoever may decide the rest
+    const p = await workOf(tx, id, true);
+    if (!p) throw new ProposalError("There is no such intent.", 404);
+    if (!p.kind) throw new ProposalError(`Intent ${p.id} holds no work of play's to decide.`, 409);
+    if (p.stage !== "proposal") throw new ProposalError(`This intent is at the ${p.stage} stage: only one at Proposal is decided.`, 409);
+    const r: any = await decideAt(tx, store, me, p, verdict);
+    const { rows } = await tx.query<{ stage: string }>(`SELECT stage FROM play.intents WHERE id = $1`, [p.id]);
+    return { ...r, intent: p.id as string, stage: rows[0]?.stage };
+  });
+}
+
+async function decideAt(tx: Queryable, store: BlobStore, me: Me, p: any, verdict: Verdict) {
+  const id = p.id as string;
+  {
+    // whoever proposed it archives their own, whoever may decide the rest
     if (verdict === "archive" && p.author === me.id && me.level !== "admin") return archiveAsAuthor(tx, me, p);
     if (p.kind === "story_version") return decideStory(tx, me, p, verdict);
     if (p.kind === "sandbox_change") return decideSandbox(tx, me, p, verdict);
@@ -486,17 +443,17 @@ export async function decide(db: Db, store: BlobStore, me: Me | null, id: string
     if (p.kind === "game_config_version") return decideGameConfig(tx, me, p, verdict);
     must(me, "decide", "asset_version");
     if (verdict === "archive") {
-      await tx.query(`UPDATE play.proposals SET status = 'archived', decided_by = $2, decided_at = now() WHERE id = $1`, [id, me.id]);
-      await closeBranch(tx, p.asset_id, p.doc_branch, me, "archived");
+      await settle(tx, id, "archived", me.id);
+      await closeWork(tx, me, p);
       return { id, status: "archived" };
     }
     const { rows: a } = await tx.query<{ head: string | null; number: number | null }>(
       `SELECT a.head, v.number FROM play.assets a LEFT JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1 FOR UPDATE OF a`, [p.asset_id],
     );
     if ((a[0]?.head ?? null) !== (p.base ?? null)) {
-      await tx.query(`UPDATE play.proposals SET status = 'archived', decided_at = now() WHERE id = $1`, [id]);
-      await closeBranch(tx, p.asset_id, p.doc_branch, me, "archived");
-      return { id, status: "archived" };
+      await settle(tx, id, "archived", null);
+      await closeWork(tx, me, p);
+      return { id, status: "archived", message: "This asset has a newer version than the one this was made on: build it again on its head." };
     }
     // the asset's document, made from its history first where it has none (and this proposal's branch, if it lacks one)
     await ensureAssetDoc(tx, store, p.asset_id).catch((e) => {
@@ -505,14 +462,39 @@ export async function decide(db: Db, store: BlobStore, me: Me | null, id: string
     const n = (a[0]?.number ?? 0) + 1;
     await tx.query(`UPDATE play.asset_versions SET number = $2, approved_by = $3 WHERE id = $1`, [p.version, n, me.id]);
     await tx.query(`UPDATE play.assets SET head = $2 WHERE id = $1`, [p.asset_id, p.version]);
-    await tx.query(`UPDATE play.proposals SET status = 'accepted', decided_by = $2, decided_at = now() WHERE id = $1`, [id, me.id]);
+    await settle(tx, id, "accepted", me.id);
     await acceptBranch(tx, store, p, me, n);
-    const { rows: stale } = await tx.query<{ doc_branch: string | null }>(
-      `UPDATE play.proposals SET status = 'archived', decided_at = now()
-        WHERE asset_id = $1 AND status = 'proposal' AND id <> $2 AND base IS NOT DISTINCT FROM $3 RETURNING doc_branch`,
+    // the other intents' work made on the same head can go in no more: archived, to be built again on the new one
+    const { rows: stale } = await tx.query<any>(
+      `SELECT ${WORK_OF} FROM play.intents i
+        WHERE i.asset_id = $1 AND i.work = 'asset_version' AND i.stage = 'proposal' AND i.id <> $2 AND i.base IS NOT DISTINCT FROM $3 FOR UPDATE`,
       [p.asset_id, id, p.base],
     );
-    for (const s of stale) await closeBranch(tx, p.asset_id, s.doc_branch, me, "archived");
+    for (const s of stale) {
+      await settle(tx, s.id, "archived", null);
+      await closeWork(tx, me, s);
+    }
     return { id, status: "accepted", number: n, version: p.version };
-  });
+  }
+}
+
+/**
+ * An admin's decision on an intent, whatever its stage (the one place an intent is decided; play/SPEC.md §4.12): at
+ * Proposal with work of play's, accepting applies it and archiving archives it (decide); anything else is the intent's
+ * own decision (./intents.ts decideIntent: approve its spec, send it back to Specify, accept its code on main's checks,
+ * archive it, reopen it). Gives back the intent, with the decision's message where it has one.
+ */
+export async function decideAny(db: Db, store: BlobStore, me: Me | null, id: string, verdict: IntentVerdict | "archive") {
+  const w = await workOf(db, id);
+  if (!w) throw new IntentError("There is no such intent.", 404);
+  // the work's decision, where it had work at Proposal: what it came to (accepted, archived), the version it is, merged
+  let decision: { status: string; number?: number; version?: string; merged?: boolean; message?: string } | undefined;
+  if (w.kind && w.stage === "proposal" && (verdict === "accept" || verdict === "archive" || verdict === "reject")) {
+    const { id: _id, intent: _i, stage: _s, why, ...r }: any = await decide(db, store, me, w.id, verdict === "accept" ? "accept" : "archive");
+    decision = { ...r, ...(r.message ?? why ? { message: r.message ?? why } : {}) };
+  } else await decideIntent(db, me, w.id, verdict === "archive" ? "reject" : verdict);
+  const said = decision ? { decision, ...(decision.message ? { message: decision.message } : {}) } : {};
+  // whoever decides it reads it back: an admin all of it, its proposer (archiving their own) what it came to
+  if (me?.level !== "admin") return { id: w.id, stage: (await workOf(db, w.id))?.stage, ...said };
+  return { ...(await getIntent(db, w.id)), ...said };
 }

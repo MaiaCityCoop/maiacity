@@ -26,8 +26,8 @@ const TOOLS_BEFORE = [
   "get_sandbox", "propose_sandbox_change", "list_factories", "get_factory", "factory_history", "factory_edit",
   "propose_factory_version", "list_game_configs", "get_game_config", "game_config_history", "game_config_edit",
   "propose_game_config_version", "list_stories", "get_story", "story_history", "story_edit", "propose_story",
-  "propose_story_version", "add_story_frame", "add_story_video", "add_document", "add_story_audio", "list_proposals",
-  "list_intents", "get_intent", "add_intent", "specify_intent", "check_intent", "archive_proposal",
+  "propose_story_version", "add_story_frame", "add_story_video", "add_document", "add_story_audio", 
+  "list_intents", "get_intent", "add_intent", "specify_intent", "check_intent", "archive_intent",
 ];
 const ARTIFACT_TOOLS = ["add_artifact", "update_artifact", "list_artifacts", "get_artifact", "list_authors", "get_author"];
 

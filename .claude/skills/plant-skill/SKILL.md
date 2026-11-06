@@ -294,7 +294,7 @@ life, fruit size, mass and days from flower to ripe, yield. Units in metres, kil
   the `params` when they change (a new stage count changes the stage's `max` and `names`), and the note. A source of
   80 kB or more is best sent from a script to the same MCP endpoint (`.mcp.json`; the session's `PLAY_MCP_TOKEN`) than
   pasted into a call. play checks it is readable (lines under 1000 characters) and builds it in the box; admins see it
-  on the Proposals page and accept or archive it. Nothing is accepted over MCP.
+  on the intents' board (the version proposed puts an intent at Proposal) and accept or archive it. Nothing is accepted over MCP.
 - One ask, one version. The older versions stay as they were (their own recipe files); worlds anchored to them do not
   change.
 

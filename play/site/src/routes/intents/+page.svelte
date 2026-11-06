@@ -9,7 +9,8 @@
 	import { openIntents } from '$lib/site/intents/intents.svelte';
 
 	onMount(async () => {
+		const focus = location.hash.slice(1);
 		await goto('/', { replaceState: true });
-		openIntents();
+		openIntents(focus);
 	});
 </script>
