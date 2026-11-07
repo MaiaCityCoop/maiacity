@@ -17,6 +17,7 @@
 	Factories' pins (the LifeTrac), built in the asset box. AirSup's queries still work (`?select=weld`, `?assemble=0`).
 -->
 <script lang="ts">
+	import IntentAsIf from '$lib/app/IntentAsIf.svelte';
 	import { tick } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -174,7 +175,7 @@
 			<small>Factory · owned by Maia City</small>
 			<h3>{factory.json.label}</h3>
 			{#if factory.intent}
-				<p class="asif">As its intent's work would make it{factory.intent.status === 'proposal' ? '' : ` (${factory.intent.status})`}: “{factory.intent.note}” <a href="/intents/">Back to the intents</a> · <a href="?factory={factory.id}" onclick={(e) => (e.preventDefault(), at(factory!.id))}>its newest version</a></p>
+				<IntentAsIf intent={factory.intent}><a href="/intents/">Back to the intents</a> · <a href="?factory={factory.id}" onclick={(e) => (e.preventDefault(), at(factory!.id))}>its newest version</a></IntentAsIf>
 			{:else if factory.edit}
 				<p class="asif">As it stood at an edit of its history: <a href="?factory={factory.id}" onclick={(e) => (e.preventDefault(), at(factory!.id))}>its newest version</a></p>
 			{:else if factory.version !== factory.number}

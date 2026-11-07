@@ -10,6 +10,7 @@
 	picks one, `&v=<n>` one of its versions, `&intent=<id>` the schema as an intent's work would make it. Admins only.
 -->
 <script lang="ts">
+	import IntentAsIf from '$lib/app/IntentAsIf.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
@@ -104,7 +105,7 @@
 			<small>Schemas · {schema.json.name} · owned by Maia City</small>
 			<h3>{schema.json.label}</h3>
 			{#if schema.intent}
-				<p class="asif">As its intent's work would make it{schema.intent.status === 'proposal' ? '' : ` (${schema.intent.status})`}: “{schema.intent.note}” <a href="/intents/">Back to the intents</a> · <a href="?schema={schema.id}" onclick={(e) => (e.preventDefault(), at(schema!.id))}>its newest version</a></p>
+				<IntentAsIf intent={schema.intent}><a href="/intents/">Back to the intents</a> · <a href="?schema={schema.id}" onclick={(e) => (e.preventDefault(), at(schema!.id))}>its newest version</a></IntentAsIf>
 			{:else if schema.edit}
 				<p class="asif">As it stood at an edit of its history: <a href="?schema={schema.id}" onclick={(e) => (e.preventDefault(), at(schema!.id))}>its newest version</a></p>
 			{:else if schema.version !== schema.number}

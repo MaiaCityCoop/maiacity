@@ -9,6 +9,7 @@
 	`?v=<n>` one of its versions. Admins only.
 -->
 <script lang="ts">
+	import IntentAsIf from '$lib/app/IntentAsIf.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
@@ -89,7 +90,7 @@
 			<small>Sandboxes · its layout</small>
 			<h3>{layout.json.title}</h3>
 			{#if layout.intent}
-				<p class="asif">As its intent's work would make it{layout.intent.status === 'proposal' ? '' : ` (${layout.intent.status})`}: “{layout.intent.note}” <a href="/sandboxes/{layout.id}/" onclick={(e) => (e.preventDefault(), at(layout!.id))}>its newest version</a></p>
+				<IntentAsIf intent={layout.intent}><a href="/sandboxes/{layout.id}/" onclick={(e) => (e.preventDefault(), at(layout!.id))}>its newest version</a></IntentAsIf>
 			{:else if layout.edit}
 				<p class="asif">As it stood at an edit of its history: <a href="/sandboxes/{layout.id}/" onclick={(e) => (e.preventDefault(), at(layout!.id))}>its newest version</a></p>
 			{:else if layout.version !== layout.number}

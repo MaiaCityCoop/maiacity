@@ -432,4 +432,37 @@ suite("one version control", () => {
     expect([(await variantOf(A, ga.variant)).status, (await variantOf(B, gb.variant)).status]).toEqual(["archived", "archived"]);
     expect([await number(A), await number(B)]).toEqual([2, 4]);
   });
+  // ---- intent 484aae5f: an intent variant's status is the variant's own
+
+  test("doc_at intent gives the variant its own status", async () => {
+    const D = crypto.randomUUID();
+    await seedDoc(db, "gadget", { id: D, json: { schema: "gadget/1", label: "Gadget S", cogs: 1 }, note: "S" });
+    const both = async (intent: string, variant: number) => {
+      const mcp = (await tool("doc_at", { doc: D, intent })).intent;
+      const http = (await call("ada", "GET", `/api/docs/${D}?intent=${intent}`)).data.intent;
+      const hist = (await tool("doc_history", { doc: D })).variants.find((v: any) => v.id === variant).status;
+      expect(mcp.status).toBe(hist);
+      expect(http.status).toBe(hist);
+      return { stage: mcp.stage as string, status: mcp.status as string };
+    };
+
+    // an intent in Build, its variant being edited: open, not "archived"
+    const i = (await tool("add_intent", { title: "A variant's own status" })).id as string;
+    await tool("specify_intent", { intent: i, ...SPEC });
+    expect((await call("ada", "POST", `/api/intents/${i}/approve`)).data.stage).toBe("build");
+    const e = await tool("doc_edit", { doc: D, intent: i, message: "more cogs", edits: [{ op: "set", path: ["cogs"], value: 2 }] });
+    expect(await both(i, e.variant)).toEqual({ stage: "build", status: "open" });
+    // proposed at Proposal, then accepted
+    expect((await tool("check_intent", { intent: i, results: [{ check: "c1", pass: true, evidence: "exit 0" }] })).stage).toBe("proposal");
+    expect((await tool("propose_doc_version", { doc: D, variant: e.variant, note: "two cogs", intent: i })).stage).toBe("proposal");
+    expect(await both(i, e.variant)).toEqual({ stage: "proposal", status: "proposed" });
+    expect((await call("ada", "POST", `/api/intents/${i}/accept`)).data.stage).toBe("accepted");
+    expect(await both(i, e.variant)).toEqual({ stage: "accepted", status: "accepted" });
+
+    // another, archived: archived
+    const gone = await readyIntent("A variant archived");
+    const g = await tool("propose_doc_version", { doc: D, note: "teal", edits: [{ op: "set", path: ["colour"], value: "teal" }], intent: gone });
+    expect((await call("ada", "POST", `/api/intents/${gone}/archive`)).data.decision.status).toBe("archived");
+    expect((await both(gone, g.variant)).status).toBe("archived");
+  });
 });

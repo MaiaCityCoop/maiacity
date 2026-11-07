@@ -9,6 +9,7 @@
 	`&intent=<id>` the skill as an intent's work at Proposal would make it. Admins only.
 -->
 <script lang="ts">
+	import IntentAsIf from '$lib/app/IntentAsIf.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
@@ -83,7 +84,7 @@
 			<small>Skills / {skill.json.group} · owned by Maia City</small>
 			<h3>{skill.json.label}</h3>
 			{#if skill.intent}
-				<p class="asif">As its intent's work would make it{skill.intent.status === 'proposal' ? '' : ` (${skill.intent.status})`}: “{skill.intent.note}” <a href="/intents/">Back to the intents</a> · <a href="?skill={skill.id}" onclick={(e) => (e.preventDefault(), at(skill!.id))}>its newest version</a></p>
+				<IntentAsIf intent={skill.intent}><a href="/intents/">Back to the intents</a> · <a href="?skill={skill.id}" onclick={(e) => (e.preventDefault(), at(skill!.id))}>its newest version</a></IntentAsIf>
 			{:else if skill.edit}
 				<p class="asif">As it stood at an edit of its history: <a href="?skill={skill.id}" onclick={(e) => (e.preventDefault(), at(skill!.id))}>its newest version</a></p>
 			{:else if skill.version !== skill.number}

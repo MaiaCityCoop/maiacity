@@ -11,6 +11,7 @@
 	picks one, `&v=<n>` one of its versions, `&intent=<id>` the config as an intent's work at Proposal would make it. Admins only.
 -->
 <script lang="ts">
+	import IntentAsIf from '$lib/app/IntentAsIf.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
@@ -87,7 +88,7 @@
 			<small>Game config · owned by Maia City</small>
 			<h3>{config.json.label}</h3>
 			{#if config.intent}
-				<p class="asif">As its intent's work would make it{config.intent.status === 'proposal' ? '' : ` (${config.intent.status})`}: “{config.intent.note}” <a href="/intents/">Back to the intents</a> · <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>its newest version</a></p>
+				<IntentAsIf intent={config.intent}><a href="/intents/">Back to the intents</a> · <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>its newest version</a></IntentAsIf>
 			{:else if config.edit}
 				<p class="asif">As it stood at an edit of its history: <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>its newest version</a></p>
 			{:else if config.version !== config.number}
