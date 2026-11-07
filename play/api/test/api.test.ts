@@ -5,6 +5,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { app } from "../src/app";
+import { runningCommit } from "../src/ship";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore, type BlobStore } from "../src/blobs";
 import { importSources } from "../import/sources";
@@ -83,6 +84,18 @@ suite("play API", () => {
   /** the intents at Proposal, each as its work (its kind, label, status, who proposed it, how), named by the intent's id */
   const waiting = async () => (await call("ada", "GET", "/api/intents?stage=proposal")).data.map((i: any) => ({ ...i.work, id: i.id, intent: i }));
 
+
+  test("knows its commit: GET /api/version answers the commit its image was built with (PLAY_COMMIT), to anyone; /api/health as it was", async () => {
+    const commit = "9876ef0070dd4b648badc43e7a33993b00000001";
+    const built = app({ db, store, rate: new Rate(0), commit: runningCommit({ PLAY_COMMIT: commit }) });
+    const r = await built.fetch(new Request("http://play.test/api/version"));
+    expect(r.status).toBe(200);
+    expect(r.headers.get("cache-control")).toBe("no-store");
+    expect(await r.json()).toEqual({ commit });
+    // built without one: null, said so
+    expect((await call(null, "GET", "/api/version")).data).toEqual({ commit: process.env.PLAY_COMMIT ? runningCommit() : null });
+    expect(await (await built.fetch(new Request("http://play.test/api/health"))).json()).toEqual({ ok: true });
+  });
 
   test("a visitor may do nothing but sign in", async () => {
     expect((await call(null, "GET", "/api/health")).status).toBe(200);
@@ -591,16 +604,29 @@ suite("play API", () => {
    * The story tools as a test calls them: a story's version proposed with its edits (a title among them), its whole
    * timeline, or an intent variant made edit by edit (doc_edit, propose_doc_version, ../src/versioned.ts).
    */
+  /** every edit is an intent's: each variant a test drafts is made for an intent of its own, ready to propose */
+  const variantIntent = new Map<number, string>();
+  const readyIntent = async (title: string, token = storyToken) => {
+    const i = (await rawTool("add_intent", { title }, token)).out;
+    await rawTool("specify_intent", { intent: i.id, goal: "It changes.", nothing_to_reduce: "A test fixture: nothing to reduce.", scope: "One story.", checks: [{ check: "It holds", how: "test", by: "true", run: "true" }] }, token);
+    await call("ada", "POST", `/api/intents/${i.id}/approve`);
+    await rawTool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] }, token);
+    return i.id as string;
+  };
   const tool = async (name: string, args: Record<string, any>, token = storyToken) => {
     const editsOf = (a: Record<string, any>) => (a.title !== undefined ? [...(a.edits ?? []), { op: "set", fields: { title: a.title } }] : a.edits);
     if (name === "propose_story_version") {
-      const { story, note, body, variant, intent } = args;
+      const { story, note, body, variant } = args;
+      const intent = args.intent ?? (variant != null ? variantIntent.get(Number(variant)) : undefined);
       if (body !== undefined && args.edits !== undefined) return { error: "Give edits or the whole document, not both.", out: null };
       return rawTool("propose_doc_version", { doc: story, note, ...(variant != null ? { variant } : {}), ...(intent ? { intent } : {}), ...(body !== undefined ? { whole: { ...(args.title !== undefined ? { title: args.title } : {}), ...body } } : editsOf(args) !== undefined ? { edits: editsOf(args) } : {}) }, token);
     }
     if (name === "story_edit") {
       const { story, message, body, variant } = args;
-      return rawTool("doc_edit", { doc: story, message, ...(variant != null ? { variant } : {}), ...(body !== undefined ? { whole: { ...(args.title !== undefined ? { title: args.title } : {}), ...body } } : { edits: editsOf(args) ?? [] }) }, token);
+      const intent = args.intent ?? (variant != null ? variantIntent.get(Number(variant)) : undefined) ?? (await readyIntent(`An edit of ${story}`, token));
+      const r = await rawTool("doc_edit", { doc: story, intent, message, ...(variant != null ? { variant } : {}), ...(body !== undefined ? { whole: { ...(args.title !== undefined ? { title: args.title } : {}), ...body } } : { edits: editsOf(args) ?? [] }) }, token);
+      if (r.out?.variant != null) variantIntent.set(Number(r.out.variant), intent);
+      return r;
     }
     if (name === "propose_version") {
       // an asset's version: its source, its kinds, the params its recipe declares and its documents, each a field of
@@ -1060,8 +1086,8 @@ suite("play API", () => {
     const pid = crypto.randomUUID();
     // an intent at Proposal whose work was proposed before the documents: it has no intent variant yet
     await db.query(
-      `INSERT INTO play.intents (id, coop_id, kind, title, stage, author, via, work, doc_id, story_id, story_base, story_version, work_note, proposed_by, proposed_via, proposed_at)
-       VALUES ($1, '12f8d4e7-701f-8727-a327-de9b240ea867', 'improve', 'Old v3', 'proposal', $4, 'mcp', 'story_version', 'story:${OLD}', '${OLD}', $2, $3, 'three', $4, 'mcp', now())`,
+      `INSERT INTO play.intents (id, coop_id, kind, title, stage, author, via, work, story_id, story_base, story_version, work_note, proposed_by, proposed_via, proposed_at)
+       VALUES ($1, '12f8d4e7-701f-8727-a327-de9b240ea867', 'improve', 'Old v3', 'proposal', $4, 'mcp', 'story_version', '${OLD}', $2, $3, 'three', $4, 'mcp', now())`,
       [pid, v2, p3, who.ada.id],
     );
     const h = (await call("ada", "GET", `/api/docs/${OLD}/history`)).data;
@@ -1270,73 +1296,5 @@ suite("play API", () => {
     expect(hist.edits.map((s: any) => s.message)).toEqual(expect.arrayContaining(["back to the first trailer", "close the gap it leaves"]));
   });
 
-  // ---- a sandbox's layout: what it draws and how it lays it out, changed only by proposal over MCP
-  test("a sandbox's layout changes only by an MCP proposal an admin accepts: its pins and any field of its configs", async () => {
-    const t = (await call("ada", "POST", "/api/tokens", { name: "sandboxes" })).data.token;
-    // a plant of two versions, the second of variants
-    const p1 = await call("cit", "POST", "/api/intents", { new: { group: "plants", slug: "pawpaw-t", label: "Pawpaw" }, recipe: recipe("pawpaw-t", 1) });
-    await call("ada", "POST", `/api/intents/${p1.data.intent}/accept`);
-    const asset = p1.data.asset;
-    const v1 = p1.data.version;
-    expect((await tool("get_sandbox", { sandbox: "7a7894a9-f37a-8181-9164-920389ee7675" }, t)).out.pins).toEqual([]);
-    await db.query(`INSERT INTO play.sandbox_pins (sandbox_id, slot, version_id, params) VALUES ('7a7894a9-f37a-8181-9164-920389ee7675', 'grove/pawpaw', $1, '{"stage":"9"}'), ('7a7894a9-f37a-8181-9164-920389ee7675', 'gate', $1, NULL)`, [v1]);
-    await db.query(`INSERT INTO play.sandbox_configs (sandbox_id, name, data) VALUES ('7a7894a9-f37a-8181-9164-920389ee7675', 'grove', '{"trees":[{"id":"pawpaw","v":1,"slot":"grove/pawpaw","weight":2,"at":[0,0]}]}')`);
-    const p2 = await call("cit", "POST", "/api/intents", {
-      asset, variants: { both: { recipe: recipe("pawpaw-t", 2, "both") }, male: { recipe: recipe("pawpaw-t", 2, "male") } }, defaultVariant: "both",
-    });
-    await call("ada", "POST", `/api/intents/${p2.data.intent}/accept`);
-    const read = (await tool("get_sandbox", { sandbox: "7a7894a9-f37a-8181-9164-920389ee7675" }, t)).out;
-    expect(read.pins.find((x: any) => x.slot === "grove/pawpaw")).toMatchObject({ asset, number: 1, latest: 2, params: { stage: "9" }, usedBy: [{ config: "grove", path: ["trees", 0] }] });
-    expect(read.configs.grove.trees[0].weight).toBe(2);
-
-    // refused: no note, a ref in a config, a slot no pin draws, a variant it lacks, nothing changed, a traveler's page
-    const bad = async (edits: unknown[], note = "x") => (await tool("propose_sandbox_change", { sandbox: "7a7894a9-f37a-8181-9164-920389ee7675", note, edits }, t)).error;
-    expect(await bad([{ op: "pin_latest", asset }], "")).toContain("note");
-    expect(await bad([{ op: "set", config: "grove", path: ["trees", 0, "ref"], value: "plants/apple@2" }])).toContain("by a slot");
-    expect(await bad([{ op: "unpin", slot: "grove/pawpaw" }])).toContain("would not pin");
-    expect(await bad([{ op: "pin", slot: "gate", variant: "female" }])).toContain("no variant female");
-    expect(await bad([{ op: "pin", slot: "gate", version: 1 }])).toContain("change nothing");
-    expect(await bad([{ op: "set", config: "grove", path: ["nope", "x"], value: 1 }])).toContain("is not there");
-    expect((await call("cit", "GET", "/api/sandboxes/7a7894a9-f37a-8181-9164-920389ee7675/config?intent=00000000-0000-4000-8000-000000000000")).status).toBe(403);
-
-    // the papaya case: every slot of the plant on its newest version, and a planting moved and weighted
-    const r = await tool("propose_sandbox_change", {
-      sandbox: "7a7894a9-f37a-8181-9164-920389ee7675", note: "the pawpaws on v2; the grove's tree further out",
-      edits: [{ op: "pin_latest", asset }, { op: "set", config: "grove", path: ["trees", 0, "at"], value: [4, 2] }, { op: "set", config: "grove", path: ["trees", 0, "weight"], value: 3 }],
-    }, t);
-    expect(r.error).toBeNull();
-    expect(r.out.changes.map((c: any) => c.kind === "pin" ? [c.slot, c.before.number, c.after.number, c.after.usedVariant] : [c.config, c.path.join("/"), c.before, c.after]))
-      .toEqual([["gate", 1, 2, "both"], ["grove/pawpaw", 1, 2, "both"], ["grove", "trees/0/at", [0, 0], [4, 2]], ["grove", "trees/0/weight", 2, 3]]);
-    const listed = (await waiting()).find((x: any) => x.id === r.out.intent);
-    expect(listed).toMatchObject({ kind: "sandbox_change", grp: "sandboxes", sandbox_id: SANDBOX.two, slug: null, label: "Sandbox 2", via: "mcp", changes: 4 });
-    expect((await call("cit", "GET", "/api/intents")).status).toBe(403);
-    const review = (await call("ada", "GET", `/api/intents/${r.out.intent}`)).data.review;
-    expect(review).toMatchObject({ holds: true, moved: false });
-    // the sandbox as it would be, before anyone decides; as it is, for everyone else
-    const v2 = (await db.query<any>(`SELECT recipe_hash FROM play.asset_variants WHERE version_id = $1 AND name = 'both'`, [p2.data.version])).rows[0].recipe_hash;
-    const proposed = (await call("ada", "GET", `/api/sandboxes/7a7894a9-f37a-8181-9164-920389ee7675/config?intent=${r.out.intent}`)).data;
-    expect(proposed.assets["grove/pawpaw"]).toBe(`${v2}?stage=9`);
-    expect(proposed.grove.trees[0]).toMatchObject({ at: [4, 2], weight: 3, v: 2, asset: `${v2}?stage=9` });
-    const before = (await call("cit", "GET", "/api/sandboxes/7a7894a9-f37a-8181-9164-920389ee7675/config")).data;
-    expect(before.grove.trees[0]).toMatchObject({ at: [0, 0], v: 1 });
-
-    // no tool accepts; a citizen may not; an admin does, on the page
-    expect((await call("cit", "POST", `/api/intents/${r.out.intent}/accept`)).status).toBe(403);
-    expect((await call("ada", "POST", `/api/intents/${r.out.intent}/accept`)).data.decision).toMatchObject({ status: "accepted" });
-    const after = (await call("cit", "GET", "/api/sandboxes/7a7894a9-f37a-8181-9164-920389ee7675/config")).data;
-    expect(after.assets).toEqual({ gate: v2, "grove/pawpaw": `${v2}?stage=9` });
-    expect(after.grove.trees[0]).toMatchObject({ at: [4, 2], weight: 3, v: 2 });
-    expect((await call("ada", "GET", `/api/intents/${r.out.intent}`)).data.review.changes.length).toBe(4);
-
-    // one that no longer holds when it is decided is archived; an agent archives its own
-    const stale = await tool("propose_sandbox_change", { sandbox: "7a7894a9-f37a-8181-9164-920389ee7675", note: "the gate's male", edits: [{ op: "pin", slot: "gate", variant: "male" }, { op: "delete", config: "grove", path: ["trees", 0, "at"] }] }, t);
-    const first = await tool("propose_sandbox_change", { sandbox: "7a7894a9-f37a-8181-9164-920389ee7675", note: "no position", edits: [{ op: "delete", config: "grove", path: ["trees", 0, "at"] }] }, t);
-    await call("ada", "POST", `/api/intents/${first.out.intent}/accept`);
-    expect((await call("ada", "GET", `/api/intents/${stale.out.intent}`)).data.review).toMatchObject({ holds: false });
-    expect((await call("ada", "POST", `/api/intents/${stale.out.intent}/accept`)).data.decision).toMatchObject({ status: "archived" });
-    expect((await call("cit", "GET", "/api/sandboxes/7a7894a9-f37a-8181-9164-920389ee7675/config")).data.assets.gate).toBe(v2);
-    const mine = await tool("propose_sandbox_change", { sandbox: "7a7894a9-f37a-8181-9164-920389ee7675", note: "unpin the gate", edits: [{ op: "unpin", slot: "gate" }] }, t);
-    expect((await tool("archive_intent", { intent: mine.out.intent }, t)).out).toMatchObject({ stage: "archived" });
-    expect((await call("cit", "GET", "/api/sandboxes/7a7894a9-f37a-8181-9164-920389ee7675/config")).data.assets.gate).toBe(v2);
-  });
+  // a sandbox's layout, changed only by proposal: its own test, ./sandboxdocs.test.ts
 });

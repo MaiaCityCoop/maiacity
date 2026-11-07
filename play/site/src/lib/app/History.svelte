@@ -224,7 +224,7 @@
 		<div class="head">
 			<h4>Edits <small>{edits.length}</small></h4>
 			{#if edits.length > 1}<button class="chip" onclick={() => (playing = !playing)} aria-pressed={playing}>{playing ? '❚❚ Pause' : '▶ Play its making'}</button>{/if}
-			{#if at || intentVariant}<button class="chip" onclick={back}>Back to v{shown ?? newest}</button>{/if}
+			{#if (at || intentVariant) && (shown ?? newest)}<button class="chip" onclick={back}>Back to v{shown ?? newest}</button>{/if}
 		</div>
 		<div
 			class="ticks"
@@ -253,9 +253,9 @@
 		<p class="soft caption" aria-live="polite">
 			{#if picking}{picking}
 			{:else if at && onVariant?.type === 'breed'}Breed {onVariant.name}, as it is now: Main beneath it on every field it does not override{onVariant.overrides?.length ? ` (it overrides ${onVariant.overrides.join(', ')})` : ''} · its last edit, “{at.message}” · {when(at.at)}
-			{:else if at && onVariant}Intent variant {onVariant.id}{onVariant.intent?.title ? ` (“${onVariant.intent.title}”)` : ''}, seeded from v{onVariant.seed ?? '?'}: its last edit, “{at.message}” · {at.author ?? 'play'}{at.via === 'mcp' ? ' via MCP' : ''} · {when(at.at)}
+			{:else if at && onVariant}Intent variant {onVariant.id}{onVariant.intent?.title ? ` (“${onVariant.intent.title}”)` : ''}, {onVariant.seed ? `seeded from v${onVariant.seed}` : 'its first version'}: its last edit, “{at.message}” · {at.author ?? 'play'}{at.via === 'mcp' ? ' via MCP' : ''} · {when(at.at)}
 			{:else if at}Edit {index + 1} of {edits.length}: “{at.message}” · {at.author ?? 'play'}{at.via === 'mcp' ? ' via MCP' : at.via === 'import' ? ' (imported)' : ''}{at.kind === 'merge' ? ' (a merge)' : ''} · {when(at.at)}
-			{:else if intentVariant}Shown as intent “{intentVariant.intent?.title ?? intent}” would make it: its variant {intentVariant.id}, seeded from v{intentVariant.seed ?? '?'}
+			{:else if intentVariant}Shown as intent “{intentVariant.intent?.title ?? intent}” would make it: its variant {intentVariant.id}, {intentVariant.seed ? `seeded from v${intentVariant.seed}` : 'its first version'}
 			{:else}Every edit {label} was made in, kept: drag along the bar, or use the arrow keys, to see it as it stood at any of them{/if}
 		</p>
 	{:else if failed}
@@ -305,7 +305,7 @@
 			{#each open as v (v.id)}
 				<li class:on={onVariant?.id === v.id || intentVariant?.id === v.id}>
 					<button onclick={() => pickVariant(v)}>{v.intent?.title ?? (v.note || `Variant ${v.id}`)}</button>
-					<p class="soft">{v.status === 'proposed' ? 'at Proposal' : 'being made'}{breeds.length || v.breedName || v.makes ? ` · ${onWhat(v)}` : ''} · seeded from v{v.seed ?? '?'} · {v.edits} edit{v.edits === 1 ? '' : 's'}{v.author ? ` · ${v.author}` : ''}</p>
+					<p class="soft">{v.status === 'proposed' ? 'at Proposal' : 'being made'}{breeds.length || v.breedName || v.makes ? ` · ${onWhat(v)}` : ''} · {v.seed ? `seeded from v${v.seed}` : 'its first version'} · {v.edits} edit{v.edits === 1 ? '' : 's'}{v.author ? ` · ${v.author}` : ''}</p>
 					{#if v.intent}<a class="soft" href="/intents/#{v.intent.id}">Its intent</a>{/if}
 				</li>
 			{/each}

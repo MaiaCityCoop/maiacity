@@ -326,7 +326,7 @@ suite("intents depend on intents", () => {
     expect(merged(from)).toEqual([`/pulls/${b.pr}/merge`]);
     // B all green: Accepted, and in that same look A merges
     allGreen(b.merge, 9000);
-    await watchShips(db, gh.gh);
+    await watchShips(db, gh.gh, Date.now(), b.merge);
     expect((await intent(b.id)).stage).toBe("accepted");
     expect(merged(from)).toEqual([`/pulls/${b.pr}/merge`, `/pulls/${a.pr}/merge`]);
     expect((await intent(a.id)).ship).toMatchObject({ merge: a.merge, pending: null });

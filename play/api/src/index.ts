@@ -5,7 +5,7 @@ import { blobStore } from "./blobs";
 import { migrate } from "./migrations";
 import { connect } from "./pg";
 import { siteHandler } from "./site";
-import { shipGitHub, startShipWatcher } from "./ship";
+import { reconcile, runningCommit, shipGitHub, startShipWatcher } from "./ship";
 import { syncKinds } from "./versioned";
 
 const db = connect();
@@ -18,6 +18,14 @@ await syncKinds(db);
 // 10 s) merges its pull request when its turn comes and GitHub is ready, and follows it to production; without it, Accept on a code intent is refused and says why
 const github = shipGitHub();
 const stopWatcher = github ? startShipWatcher(db, github) : null;
+// once as play starts (a deploy, a rollback, a deploy by hand all start it): every code intent's stage held to the
+// commit it runs (./ship.ts reconcile), in the background
+const commit = runningCommit();
+if (github && commit) void reconcile(db, github, commit).then(
+  (r) => console.log(`reconcile at ${commit.slice(0, 7)}: ${r.accepted.length} accepted, ${r.flagged.length} not live, ${r.cleared.length} live again`),
+  (e) => console.warn(`reconcile: not done as play started: ${(e as Error).message}`),
+);
+else console.log(`reconcile: ${commit ? "no SHIP_TOKEN" : "no PLAY_COMMIT"}: code intents are not reconciled here`);
 if (!github) console.log("ship: no SHIP_TOKEN: code intents are not shipped from here");
 const { fetch } = app({ db, store: blobStore(), github });
 // the site too, where PLAY_SITE names its build (the image's /app/site): everything outside /api

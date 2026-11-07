@@ -3,7 +3,11 @@
 // checked one, a red required check, a conflict, closed, not into main, a draft), else puts it in Ship, where it waits
 // its turn (one ship at a time, in the order accepted) and for GitHub, then play posts 'Intent accepted' on the head and
 // merges it (startIfReady). The ship watcher (every 10 s; its state the intent's `ship` in Postgres) follows main's
-// checks, the release and the deploy's jobs as steps: all green, Accepted; any red, back to Proposal with the report.
+// checks, the release and the deploy's jobs as steps; any red, back to Proposal with the report; ended either way, it asks
+// the reconcile. The reconcile (intent 9876ef00) is the one place a code intent becomes Accepted: play knows the commit
+// it runs (PLAY_COMMIT, built into its image), and a code intent is Accepted exactly when its merge commit is in it; an
+// Accepted one whose commit is not is flagged (ship.live false), its stage left alone. It runs once when play starts
+// (every deploy, a rollback, a deploy by hand restarts play) and as each ship ends.
 // play only calls GitHub's API with SHIP_TOKEN, which never leaves this server.
 import { COOP, type Me } from "./access";
 import type { Db } from "./pg";
@@ -55,6 +59,10 @@ export type Ship = {
   /** when it was accepted (this round), and when it first stood first in line, from which it waits at most 30 minutes */
   accepted?: string;
   front?: string;
+  /** the reconcile's word (reconcile): whether its merge commit is in what play runs, that commit, and how it was Accepted */
+  live?: boolean;
+  commit?: string;
+  note?: string;
 };
 export type Pending = { kind: "merge"; head: string } | { kind: "main" } | { kind: "release" };
 
@@ -110,6 +118,8 @@ export type Job = {
   steps?: { name: string; status: string; conclusion: string | null; started_at?: string | null; completed_at?: string | null }[];
 };
 
+export type Commit = { sha: string; commit: { message: string }; parents: { sha: string }[] };
+
 export class GitHubError extends Error {
   constructor(message: string, public status: number) {
     super(message);
@@ -163,6 +173,8 @@ export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.git
     jobs: async (run: number) => (await json<{ jobs: Job[] }>("GET", `/actions/runs/${run}/jobs?per_page=100`)).jobs,
     dispatch: (workflow: string, ref: string, inputs: Record<string, string>) => json("POST", `/actions/workflows/${workflow}/dispatches`, { ref, inputs }),
     rerunFailed: (run: number) => json("POST", `/actions/runs/${run}/rerun-failed-jobs`, {}),
+    /** one page of the commits a ref or sha reaches (itself first), newest first */
+    commits: (ref: string, page: number) => json<Commit[]>("GET", `/commits?${q({ sha: ref, per_page: 100, page })}`),
     /** a job's log: GitHub answers with a signed address, fetched without the token */
     log: async (job: number) => {
       const r = await call("GET", `/actions/jobs/${job}/logs`, undefined, "manual");
@@ -209,11 +221,11 @@ function stepsFor(at: string, from: Step[], restart: Pending["kind"]): Step[] {
   );
 }
 
-/** a ship kept on its intent, in Ship still, Accepted (decided now) or back at Proposal (undecided) */
-const saveShip = (q: Pick<Db, "query">, id: string, ship: Ship, stage: "ship" | "proposal" | "accepted") =>
+/** a ship kept on its intent, in Ship still or back at Proposal (undecided); only the reconcile makes it Accepted */
+const saveShip = (q: Pick<Db, "query">, id: string, ship: Ship, stage: "ship" | "proposal") =>
   q.query(
     `UPDATE play.intents SET ship = ($2::text)::jsonb, stage = $3, decided_by = CASE WHEN $3 = 'proposal' THEN NULL ELSE decided_by END,
-            decided_at = CASE WHEN $3 = 'proposal' THEN NULL WHEN $3 = 'accepted' THEN now() ELSE decided_at END WHERE id = $1 AND stage = 'ship'`,
+            decided_at = CASE WHEN $3 = 'proposal' THEN NULL ELSE decided_at END WHERE id = $1 AND stage = 'ship'`,
     [id, JSON.stringify(ship), stage],
   );
 
@@ -340,7 +352,8 @@ export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now
     // its turn: no ship running, none waiting ahead of it
     const { rows: others } = await tx.query<any>(`SELECT id, title, ship, decided_at FROM play.intents WHERE stage = 'ship' AND id <> $1 AND coop_id = $2`, [id, COOP]);
     const time = (d: unknown) => new Date(d as any).getTime();
-    const running = others.find((o) => o.ship && !o.ship.pending);
+    // one ended (green, waiting for the reconcile to find it live) runs no more
+    const running = others.find((o) => o.ship && !o.ship.pending && !o.ship.outcome);
     const ahead = others
       .filter((o) => o.ship?.pending && (time(o.decided_at) < time(row.decided_at) || (time(o.decided_at) === time(row.decided_at) && o.id < id)))
       .sort((a, b) => time(b.decided_at) - time(a.decided_at))[0];
@@ -532,10 +545,12 @@ const stable = (v: unknown): string =>
     : JSON.stringify(v);
 
 /**
- * The ship watcher's one look: every intent in Ship advanced as GitHub has it now; all green, Accepted; any red, back
- * to Proposal with its report. Its state is the intents' `ship`, so a restarted play goes on where it was.
+ * The ship watcher's one look: every intent in Ship advanced as GitHub has it now; all green, it stays in Ship, ended;
+ * any red, back to Proposal with its report. Its state is the intents' `ship`, so a restarted play goes on where it was.
+ * As one ends, the reconcile (against `commit`, the commit play runs) decides at once what is Accepted, so the ships
+ * after it in this look see it.
  */
-export async function watchShips(db: Db, gh: GitHub, at = Date.now()) {
+export async function watchShips(db: Db, gh: GitHub, at = Date.now(), commit: string | null = runningCommit()) {
   const { rows } = await db.query<{ id: string; ship: Ship }>(`SELECT id, ship FROM play.intents WHERE stage = 'ship' AND ship IS NOT NULL ORDER BY decided_at, id`);
   for (const { id, ship } of rows) {
     try {
@@ -544,25 +559,29 @@ export async function watchShips(db: Db, gh: GitHub, at = Date.now()) {
         await startIfReady(db, gh, id, at);
         continue;
       }
+      if (ship.outcome) continue;
       const next = await advance(gh, ship, at);
       if (stable(next) === stable(ship)) continue;
-      const stage = next.outcome === "green" ? "accepted" : next.outcome === "red" ? "proposal" : "ship";
-      await saveShip(db, id, next, stage);
-      if (next.outcome) console.log(`ship: intent ${id} ${next.outcome === "green" ? "is in production: accepted" : `is red at ${next.report?.step}: back to Proposal`}`);
+      await saveShip(db, id, next, next.outcome === "red" ? "proposal" : "ship");
+      if (next.outcome) {
+        console.log(`ship: intent ${id} ${next.outcome === "green" ? "is green all the way: the reconcile decides once play runs it" : `is red at ${next.report?.step}: back to Proposal`}`);
+        if (!commit) console.warn("ship: play knows no commit of its own (PLAY_COMMIT): nothing is reconciled");
+        else await reconcile(db, gh, commit).catch((e) => console.warn(`ship: the reconcile missed a look: ${(e as Error).message}`));
+      }
     } catch (e) {
       console.warn(`ship: intent ${id} not looked at: ${(e as Error).message}`);
     }
   }
 }
 
-/** The ship watcher, every `every` ms while play-api runs (one look at a time). */
-export function startShipWatcher(db: Db, gh: GitHub, every = 10_000) {
+/** The ship watcher, every `every` ms while play-api runs (one look at a time), against the commit play runs. */
+export function startShipWatcher(db: Db, gh: GitHub, every = 10_000, commit: string | null = runningCommit()) {
   let busy = false;
   const timer = setInterval(async () => {
     if (busy) return;
     busy = true;
     try {
-      await watchShips(db, gh);
+      await watchShips(db, gh, Date.now(), commit);
     } catch (e) {
       console.warn(`ship: the watcher missed a look: ${(e as Error).message}`);
     } finally {
@@ -571,4 +590,125 @@ export function startShipWatcher(db: Db, gh: GitHub, every = 10_000) {
   }, every);
   (timer as any).unref?.();
   return () => clearInterval(timer);
+}
+
+// ---- the reconcile: a code intent's stage agrees with what play runs (intent 9876ef00)
+
+/** the commit play runs: PLAY_COMMIT, built into its image (production.yml), a 40-character sha; else null */
+export function runningCommit(env: Record<string, string | undefined> = process.env): string | null {
+  const c = env.PLAY_COMMIT?.trim().toLowerCase();
+  return c && /^[0-9a-f]{40}$/.test(c) ? c : null;
+}
+
+/** how many pages of 100 commits a walk of history reads at most */
+const HISTORY_PAGES = 200;
+const UUID = /^Intent:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s*$/gim;
+
+/** every commit `ref` reaches, itself included, with its message */
+async function history(gh: GitHub, ref: string) {
+  const all = new Map<string, string>();
+  for (let page = 1; page <= HISTORY_PAGES; page++) {
+    const list = await gh.commits(ref, page);
+    for (const c of list) all.set(c.sha, c.commit?.message ?? "");
+    if (list.length < 100) return all;
+  }
+  throw new Error(`the history of ${ref.slice(0, 12)} is longer than ${HISTORY_PAGES * 100} commits`);
+}
+
+/** the commits of main naming each intent by its trailer `Intent: <UUID>` */
+function trailersOf(main: Map<string, string>) {
+  const by = new Map<string, string[]>();
+  for (const [sha, message] of main) for (const m of message.matchAll(UUID)) by.set(m[1].toLowerCase(), [...(by.get(m[1].toLowerCase()) ?? []), sha]);
+  return by;
+}
+
+export type Reconciled = { commit: string; accepted: string[]; flagged: string[]; cleared: string[] };
+
+/**
+ * The one place a code intent becomes Accepted. A code intent is one with no work of play's that names a pull request,
+ * or whose trailer `Intent: <its UUID>` is on a commit of main; its merge commit is its pull request's (the ship's, or
+ * GitHub's for one merged by hand), else its commits on main. Against `commit`, the commit play runs:
+ * - its merge commit in it (an ancestor, or itself) and it at Build, Proposal, Archived, or in Ship with its ship ended
+ *   → **Accepted**, its ship saying how (live at the commit, by the reconcile);
+ * - Accepted (or ended in Ship) and its merge commit not in it (rolled back, closed unmerged, never deployed) → flagged,
+ *   `ship.live` false with the running commit, its stage left alone; once play runs it again the flag clears.
+ * A ship still on its way (waiting or running) is the watcher's, and asks the reconcile as it ends.
+ */
+export async function reconcile(db: Db, gh: GitHub, commit: string): Promise<Reconciled> {
+  const live = await history(gh, commit);
+  const trailers = trailersOf(await history(gh, "main"));
+  const { rows } = await db.query<{ id: string; stage: string; pull_request: number | null; ship: Ship | null }>(
+    `SELECT id, stage, pull_request, ship FROM play.intents
+      WHERE coop_id = $1 AND work IS NULL AND stage IN ('build', 'proposal', 'ship', 'archived', 'accepted')
+        AND (pull_request IS NOT NULL OR id = ANY($2::uuid[])) ORDER BY created, id`,
+    [COOP, [...trailers.keys()]],
+  );
+  const out: Reconciled = { commit, accepted: [], flagged: [], cleared: [] };
+  const short = (s: string) => s.slice(0, 7);
+  for (const i of rows) {
+    // on its way still: the watcher's, which asks again as it ends
+    if (i.stage === "ship" && (i.ship?.pending || !i.ship?.outcome)) continue;
+    let merges: string[];
+    try {
+      if (i.pull_request) {
+        const shipped = i.ship?.pr === i.pull_request && i.ship.merge ? i.ship.merge : null;
+        const pr = shipped ? null : await gh.pull(i.pull_request);
+        const merge = shipped ?? (pr?.merged ? pr.merge_commit_sha : null);
+        merges = merge ? [merge] : [];
+      } else merges = trailers.get(i.id) ?? [];
+    } catch (e) {
+      console.warn(`reconcile: intent ${i.id} not looked at: ${(e as Error).message}`);
+      continue;
+    }
+    const isLive = merges.length > 0 && merges.every((m) => live.has(m));
+    const merge = merges[0] ?? null;
+    const patch = (p: Partial<Ship>) => JSON.stringify({ ...p, merge: i.ship?.merge || merge || "" });
+    if (isLive && i.stage !== "accepted") {
+      const note = `Live at ${short(commit)}, ${merges.length > 1 ? `its ${merges.length} commits on main` : `its merge ${short(merge!)}`} in what play runs: Accepted by the reconcile`;
+      const { rows: done } = await db.query(
+        `UPDATE play.intents SET stage = 'accepted', decided_at = now(), decided_by = CASE WHEN stage = 'ship' THEN decided_by END,
+                ship = COALESCE(ship, jsonb_build_object('pr', pull_request, 'steps', '[]'::jsonb)) || ($3::text)::jsonb
+          WHERE id = $1 AND stage = $2 RETURNING id`,
+        [i.id, i.stage, patch({ live: true, commit, note })],
+      );
+      if (done.length) {
+        out.accepted.push(i.id);
+        console.log(`reconcile: intent ${i.id} (${i.stage}) is live at ${short(commit)}: accepted`);
+      }
+    } else if (!isLive && (i.stage === "accepted" || i.stage === "ship") && (i.ship?.live !== false || i.ship.commit !== commit)) {
+      await db.query(
+        `UPDATE play.intents SET ship = COALESCE(ship, jsonb_build_object('pr', pull_request, 'steps', '[]'::jsonb)) || ($3::text)::jsonb WHERE id = $1 AND stage = $2`,
+        [i.id, i.stage, patch({ live: false, commit })],
+      );
+      out.flagged.push(i.id);
+      console.warn(`reconcile: intent ${i.id} is ${i.stage} but not live: production runs ${short(commit)}`);
+    } else if (isLive && i.ship?.live === false) {
+      await db.query(`UPDATE play.intents SET ship = ship || ($2::text)::jsonb WHERE id = $1 AND stage = 'accepted'`, [i.id, JSON.stringify({ live: true, commit })]);
+      out.cleared.push(i.id);
+      console.log(`reconcile: intent ${i.id} is live again at ${short(commit)}`);
+    }
+  }
+  return out;
+}
+
+/**
+ * An admin's Accept on an intent at Proposal with no work of play's and no pull request named: one whose code is on
+ * main (its trailer on a commit of main) is no decision of a person's but the reconcile's, Accepted once play runs it,
+ * else refused with why; null where it names no code (./intents.ts decideIntent accepts it as before). Without GitHub
+ * (no SHIP_TOKEN) play cannot tell code from a decision: null too.
+ */
+export async function acceptCode(db: Db, gh: GitHub | null, who: Me | null, id: string, commit: string | null = runningCommit()) {
+  const me = admin(who);
+  const intent = await getIntent(db, id);
+  if (intent.work || intent.pull_request || !gh) return null;
+  await mustMove(db, intent, "accept");
+  const on = trailersOf(await history(gh, "main")).get(intent.id);
+  if (!on?.length) return null;
+  if (!commit) refuse("Its code is on main, and play knows no commit of its own (PLAY_COMMIT) to find it in: it is Accepted once play runs it.");
+  await reconcile(db, gh, commit!);
+  const now = await getIntent(db, intent.id);
+  if (now.stage !== "accepted")
+    refuse(`Its code is on main (${on.map((s) => s.slice(0, 7)).join(", ")}), not yet in what play runs (${commit!.slice(0, 7)}): it is Accepted by itself once production runs it.`);
+  await db.query(`UPDATE play.intents SET decided_by = COALESCE(decided_by, $2) WHERE id = $1`, [intent.id, me.id]);
+  return getIntent(db, intent.id);
 }

@@ -18,6 +18,28 @@ export function fakeGitHub() {
   const calls: Call[] = [];
   const merges = new Map<number, string>();
   let mergeRefused: string | null = null;
+  // the repository's commits (each its parents and message) and main's head: a merge makes a merge commit on main
+  const ROOT = "f".repeat(40);
+  const graph = new Map<string, { parents: string[]; message: string }>([[ROOT, { parents: [], message: "the first commit" }]]);
+  const main = { head: ROOT };
+  /** a commit of `message` on top of `parents` (main's head by default), main moved to it where `onMain` */
+  const commit = (sha_: string, message: string, parents = [main.head], onMain = true) => {
+    graph.set(sha_, { parents, message });
+    if (onMain) main.head = sha_;
+    return sha_;
+  };
+  /** every commit `from` reaches, itself first */
+  const reach = (from: string) => {
+    const seen: string[] = [];
+    const todo = [from];
+    while (todo.length) {
+      const c = todo.shift()!;
+      if (seen.includes(c) || !graph.has(c)) continue;
+      seen.push(c);
+      todo.push(...graph.get(c)!.parents);
+    }
+    return seen;
+  };
   const reply = (status: number, body?: unknown, headers: Record<string, string> = {}) =>
     new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
   const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
@@ -37,11 +59,21 @@ export function fakeGitHub() {
     if (method === "GET" && (m = p.match(/^\/pulls\/(\d+)$/))) return pulls.has(+m[1]) ? reply(200, pulls.get(+m[1])) : reply(404, { message: "Not Found" });
     if (method === "GET" && (m = p.match(/^\/commits\/([0-9a-f]{40})\/check-runs$/))) return reply(200, { check_runs: checks.get(m[1]) ?? [] });
     if (method === "POST" && p.startsWith("/statuses/")) return reply(201, { id: 1, ...body });
+    if (method === "GET" && p === "/commits") {
+      const from = q.get("sha") === "main" ? main.head : q.get("sha")!;
+      if (!graph.has(from)) return reply(422, { message: `No commit found for SHA: ${from}` });
+      const per = Number(q.get("per_page") ?? 30);
+      const page = Number(q.get("page") ?? 1);
+      const list = reach(from).slice((page - 1) * per, page * per);
+      return reply(200, list.map((c) => ({ sha: c, commit: { message: graph.get(c)!.message }, parents: graph.get(c)!.parents.map((x) => ({ sha: x })) })));
+    }
     if (method === "PUT" && (m = p.match(/^\/pulls\/(\d+)\/merge$/))) {
       if (mergeRefused) return reply(405, { message: mergeRefused });
       const pr = pulls.get(+m[1])!;
       if (body.sha !== pr.head.sha) return reply(409, { message: "Head branch was modified. Review and try the merge again." });
       const made = merges.get(pr.number)!;
+      if (!graph.has(pr.head.sha)) commit(pr.head.sha, `${pr.title}\n\nIntent: (its branch)`, [main.head], false);
+      commit(made, `${body.commit_title}\n\n${body.commit_message}`, [main.head, pr.head.sha]);
       Object.assign(pr, { state: "closed", merged: true, merge_commit_sha: made });
       return reply(200, { sha: made, merged: true, message: "Pull Request successfully merged" });
     }
@@ -59,7 +91,7 @@ export function fakeGitHub() {
     return reply(404, { message: `no route ${method} ${p}` });
   }) as typeof globalThis.fetch;
   return {
-    pulls, checks, runs, jobs, logs, calls, merges,
+    pulls, checks, runs, jobs, logs, calls, merges, graph, main, commit,
     refuseMerge: (why: string | null) => (mergeRefused = why),
     gh: gitHub({ token: TOKEN, repo: REPO, fetch, api: "https://api.github.test" }),
     fetch,

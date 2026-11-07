@@ -24,7 +24,7 @@ const suite = URL_ ? describe : describe.skip;
 /** the tools play's MCP server had before the artifacts: every one must still be there */
 const TOOLS_BEFORE = [
   "list_assets", "get_asset", "get_file", "propose_asset", "list_docs", "doc_at", "doc_history", "doc_edit", "propose_doc_version",
-  "list_sandboxes", "get_sandbox", "propose_sandbox_change", "list_stories", "get_story", "propose_story",
+  "list_sandboxes", "get_sandbox", "list_stories", "get_story", "propose_story",
   "add_story_frame", "add_story_video", "add_document", "add_story_audio",
   "list_intents", "get_intent", "add_intent", "specify_intent", "check_intent", "archive_intent",
 ];
@@ -124,7 +124,21 @@ suite("artifacts", () => {
     const text = res.content[0].text;
     return res.isError ? { error: text as string } : JSON.parse(text);
   };
-  const count = async () => Number((await db.query<{ n: string }>(`SELECT count(*) AS n FROM play.artifacts`)).rows[0].n);
+  const count = async () => Number((await db.query<{ n: string }>(`SELECT count(*) AS n FROM play.artifacts WHERE title IS NOT NULL`)).rows[0].n);
+  /** an artifact's change accepted on the board by Samuel, an admin: its intent's work goes in like any other's */
+  const accepted = async (r: any, id: unknown) => {
+    if (r.error || r.kept) return r;
+    const d = (await call("Samuel", "POST", `/api/intents/${r.intent}/accept`)).data;
+    if (d?.decision?.status !== "accepted") return { error: `not accepted: ${JSON.stringify(d).slice(0, 300)}` };
+    return { ...(await tool("get_artifact", { artifact: id })), kept: false, intent: r.intent };
+  };
+  /** an artifact added (its first version proposed) and kept (its intent accepted) */
+  const keep = async (args: Record<string, unknown>, as = "Samuel") => {
+    const r = await tool("add_artifact", args, as);
+    return accepted(r, r.id);
+  };
+  /** an artifact corrected (its next version proposed) and the correction accepted */
+  const correct = async (args: Record<string, unknown>, as = "Samuel") => accepted(await tool("update_artifact", args, as), args.artifact);
 
   // ---- c1: the tables, avenMAIA, the coop
 
@@ -138,15 +152,15 @@ suite("artifacts", () => {
         .sort();
     expect(await cols("agents")).toEqual(["coop_id", "created", "id", "name"]);
     expect(await cols("artifacts")).toEqual(
-      ["agent_id", "coop_id", "created", "description", "id", "kind", "operator_id", "origin", "published", "summary", "tags", "text_hash", "title", "token_id", "updated_at", "updated_by", "url"].sort(),
+      ["agent_id", "author_ids", "coop_id", "created", "description", "id", "kind", "operator_id", "origin", "published", "summary", "tags", "text_hash", "title", "token_id", "updated_at", "updated_by", "url"].sort(),
     );
     expect(await cols("authors")).toEqual(["agent_id", "coop_id", "created", "id", "kind", "name", "note", "operator_id", "url"].sort());
     expect(await cols("artifact_authors")).toEqual(["artifact_id", "author_id", "position"]);
   });
 
   test("c1: every artifact and author is named by a random UUID and is the Maia City coop's", async () => {
-    const a = await tool("add_artifact", ARTIFACT({ url: "https://example.org/c1", authors: [{ name: "C One", kind: "person" }] }));
-    const b = await tool("add_artifact", ARTIFACT({ url: "https://example.org/c1b", authors: [{ name: "C One", kind: "person" }] }));
+    const a = await keep(ARTIFACT({ url: "https://example.org/c1", authors: [{ name: "C One", kind: "person" }] }));
+    const b = await keep(ARTIFACT({ url: "https://example.org/c1b", authors: [{ name: "C One", kind: "person" }] }));
     expect(a.id).toMatch(UUID);
     expect(b.id).toMatch(UUID);
     expect(a.id).not.toBe(b.id);
@@ -196,7 +210,7 @@ suite("artifacts", () => {
   });
 
   test("c2: add_artifact keeps an artifact at every bound", async () => {
-    const s = await tool("add_artifact", ARTIFACT({
+    const s = await keep(ARTIFACT({
       url: "https://example.org/bounds",
       title: "t".repeat(70),
       description: "d".repeat(279) + ".",
@@ -206,9 +220,9 @@ suite("artifacts", () => {
     expect(s.kept).toBe(false);
     expect(s.title).toHaveLength(70);
     expect(s.description).toHaveLength(280);
-    const t = await tool("add_artifact", ARTIFACT({ url: "https://example.org/bounds-top", summary: summaryOf(1500) }));
+    const t = await keep(ARTIFACT({ url: "https://example.org/bounds-top", summary: summaryOf(1500) }));
     expect(t.error).toBeUndefined();
-    const f = await tool("add_artifact", ARTIFACT({ url: "https://example.org/four", summary: summaryOf(900, { sections: ["What it is", "Key points", "The topic", "For Maia City"] }) }));
+    const f = await keep(ARTIFACT({ url: "https://example.org/four", summary: summaryOf(900, { sections: ["What it is", "Key points", "The topic", "For Maia City"] }) }));
     expect(f.error).toBeUndefined();
   });
 
@@ -249,14 +263,14 @@ suite("artifacts", () => {
       [{ published: "2025-02-30" }, /YYYY-MM-DD/],
     ];
     for (const [over, why] of refused) {
-      const r = await tool("add_artifact", ARTIFACT({ url: `https://example.org/refused/${Math.random()}`, ...over }));
+      const r = await keep(ARTIFACT({ url: `https://example.org/refused/${Math.random()}`, ...over }));
       expect(r.error ?? `kept ${JSON.stringify(over).slice(0, 80)}`).toMatch(why);
     }
     expect(await count()).toBe(before);
   });
 
   test("c2: update_artifact is held to the same bounds", async () => {
-    const s = await tool("add_artifact", ARTIFACT({ url: "https://example.org/update-bounds" }));
+    const s = await keep(ARTIFACT({ url: "https://example.org/update-bounds" }));
     for (const [over, why] of [
       [{ title: "t".repeat(71) }, /at most 70 characters/],
       [{ description: "d".repeat(281) }, /at most 280 characters/],
@@ -265,7 +279,7 @@ suite("artifacts", () => {
       [{ authors: [] }, /at least one author/],
       [{ url: "ftp://example.com" }, /http\(s\)/],
     ] as [Record<string, unknown>, RegExp][]) {
-      const r = await tool("update_artifact", { artifact: s.id, ...over });
+      const r = await correct({ artifact: s.id, ...over });
       expect(r.error ?? "corrected").toMatch(why);
     }
     expect((await tool("get_artifact", { artifact: s.id })).title).toBe(ARTIFACT().title);
@@ -274,8 +288,8 @@ suite("artifacts", () => {
   // ---- c3: avenMAIA's, its operator, its origin
 
   test("c3: every artifact is avenMAIA's, whichever admin's token, and names that admin; shown by its origin", async () => {
-    const pasted = await tool("add_artifact", ARTIFACT({ url: "https://example.org/pasted", origin: "human" }), "Samuel");
-    const found = await tool("add_artifact", ARTIFACT({ url: "https://example.org/found", origin: "agent" }), "Bea");
+    const pasted = await keep(ARTIFACT({ url: "https://example.org/pasted", origin: "human" }), "Samuel");
+    const found = await keep(ARTIFACT({ url: "https://example.org/found", origin: "agent" }), "Bea");
     expect(pasted.agent).toEqual({ id: AVENMAIA, name: "avenMAIA" });
     expect(found.agent).toEqual({ id: AVENMAIA, name: "avenMAIA" });
     expect(pasted.operator).toEqual({ id: who.Samuel.id, name: "Samuel" });
@@ -295,9 +309,9 @@ suite("artifacts", () => {
   });
 
   test("c3: update_artifact corrects an artifact, keeps who and when, and never changes who brought it", async () => {
-    const s = await tool("add_artifact", ARTIFACT({ url: "https://example.org/correct-me", origin: "human" }), "Samuel");
+    const s = await keep(ARTIFACT({ url: "https://example.org/correct-me", origin: "human" }), "Samuel");
     const kept = await tool("list_authors", { q: "jane doe" });
-    const fixed = await tool("update_artifact", {
+    const fixed = await correct({
       artifact: s.id,
       title: "A food forest that feeds a city",
       description: "A corrected description, plainly. In two sentences.",
@@ -320,15 +334,15 @@ suite("artifacts", () => {
     expect(fixed.operator.id).toBe(who.Samuel.id);
     expect(fixed.origin).toBe("human");
     expect(fixed.by).toBe("Added by Samuel");
-    expect((await tool("update_artifact", { artifact: s.id, origin: "agent" } as any)).error).toMatch(/additional|origin/i);
-    const row = (await db.query(`SELECT origin, operator_id, agent_id, updated_by FROM play.artifacts WHERE id = $1`, [s.id])).rows[0];
-    expect(row).toEqual({ origin: "human", operator_id: who.Samuel.id, agent_id: AVENMAIA, updated_by: who.Bea.id });
+    expect((await correct({ artifact: s.id, origin: "agent" } as any)).error).toMatch(/additional|origin/i);
+    const row = (await db.query(`SELECT origin, operator_id, agent_id FROM play.artifacts WHERE id = $1`, [s.id])).rows[0];
+    expect(row).toEqual({ origin: "human", operator_id: who.Samuel.id, agent_id: AVENMAIA });
   });
 
   // ---- c4: authors, n:m
 
   test("c4: authors are rows of their own, n:m with the artifacts, in the order given; one name may be two authors", async () => {
-    const s1 = await tool("add_artifact", ARTIFACT({
+    const s1 = await keep(ARTIFACT({
       url: "https://example.org/three-authors",
       authors: [{ name: "Ada Third", kind: "person" }, { name: "Ben Second", kind: "person", url: "https://ben.example/" }, { name: "Forest Lab", kind: "organization" }],
     }));
@@ -336,7 +350,7 @@ suite("artifacts", () => {
     expect(s1.authors[1].url).toBe("https://ben.example");
     const lab = s1.authors[2];
     expect(lab.kind).toBe("organization");
-    const s2 = await tool("add_artifact", ARTIFACT({ url: "https://example.org/lab-again", authors: [{ id: lab.id }, { name: "Cy First", kind: "person" }] }));
+    const s2 = await keep(ARTIFACT({ url: "https://example.org/lab-again", authors: [{ id: lab.id }, { name: "Cy First", kind: "person" }] }));
     expect(s2.authors.map((a: any) => a.id)[0]).toBe(lab.id);
     const theirs = await tool("get_author", { author: lab.id });
     expect(theirs.name).toBe("Forest Lab");
@@ -345,15 +359,15 @@ suite("artifacts", () => {
     expect(page.status).toBe(200);
     expect(page.data.artifacts).toHaveLength(2);
     // two new authors of one name stay two
-    const a = await tool("add_artifact", ARTIFACT({ url: "https://example.org/same-name-1", authors: [{ name: "Sam Same", kind: "person" }] }));
-    const b = await tool("add_artifact", ARTIFACT({ url: "https://example.org/same-name-2", authors: [{ name: "Sam Same", kind: "person" }] }));
+    const a = await keep(ARTIFACT({ url: "https://example.org/same-name-1", authors: [{ name: "Sam Same", kind: "person" }] }));
+    const b = await keep(ARTIFACT({ url: "https://example.org/same-name-2", authors: [{ name: "Sam Same", kind: "person" }] }));
     expect(a.authors[0].id).not.toBe(b.authors[0].id);
     expect((await db.query(`SELECT count(*)::int AS n FROM play.authors WHERE name = 'Sam Same'`)).rows[0].n).toBe(2);
     const listed = await tool("list_authors", { q: "sam same" });
     expect(listed).toHaveLength(2);
     expect(listed.every((x: any) => x.artifacts === 1)).toBe(true);
     // an author named twice in one artifact is refused
-    expect((await tool("add_artifact", ARTIFACT({ url: "https://example.org/twice", authors: [{ id: lab.id }, { id: lab.id }] }))).error).toMatch(/named twice/);
+    expect((await keep(ARTIFACT({ url: "https://example.org/twice", authors: [{ id: lab.id }, { id: lab.id }] }))).error).toMatch(/named twice/);
   });
 
   // ---- c5: one link, one artifact
@@ -370,27 +384,27 @@ suite("artifacts", () => {
   });
 
   test("c5: adding a link already kept answers with that artifact and writes no second row", async () => {
-    const first = await tool("add_artifact", ARTIFACT({ url: "https://example.com/a" }));
+    const first = await keep(ARTIFACT({ url: "https://example.com/a" }));
     expect(first.kept).toBe(false);
     const before = await count();
-    const again = await tool("add_artifact", ARTIFACT({ url: "https://Example.com/a/?utm_source=x#top", title: "Another title" }));
+    const again = await keep(ARTIFACT({ url: "https://Example.com/a/?utm_source=x#top", title: "Another title" }));
     expect(again.id).toBe(first.id);
     expect(again.kept).toBe(true);
     expect(again.title).toBe(first.title);
     expect(await count()).toBe(before);
-    const v = await tool("add_artifact", ARTIFACT({ url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", kind: "video" }));
-    const v2 = await tool("add_artifact", ARTIFACT({ url: "https://youtu.be/dQw4w9WgXcQ", kind: "video" }));
+    const v = await keep(ARTIFACT({ url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", kind: "video" }));
+    const v2 = await keep(ARTIFACT({ url: "https://youtu.be/dQw4w9WgXcQ", kind: "video" }));
     expect(v2.id).toBe(v.id);
     expect(v2.kept).toBe(true);
     expect(await count()).toBe(before + 1);
     // a correction may not move an artifact onto a link another keeps
-    expect((await tool("update_artifact", { artifact: v.id, url: "https://example.com/a/" })).error).toMatch(/kept already/);
+    expect((await correct({ artifact: v.id, url: "https://example.com/a/" })).error).toMatch(/kept already/);
   });
 
   // ---- c7: admins only
 
   test("c7: the artifacts' routes answer 401 to a visitor, 403 to a traveler and a citizen, 200 to an admin", async () => {
-    const s = await tool("add_artifact", ARTIFACT({ url: "https://example.org/routes" }));
+    const s = await keep(ARTIFACT({ url: "https://example.org/routes" }));
     const paths = ["/api/artifacts", `/api/artifacts/${s.id}`, "/api/authors", `/api/authors/${s.authors[0].id}`];
     for (const p of paths) {
       expect((await call(null, "GET", p)).status).toBe(401);
@@ -435,7 +449,7 @@ suite("artifacts", () => {
   // ---- c9: finding them
 
   test("c9: list_artifacts and GET /api/artifacts answer newest first with the count; q, author, tag, kind and origin find them; offset and limit page them", async () => {
-    const mk = (i: number, over: Record<string, unknown>) => tool("add_artifact", ARTIFACT({ url: `https://find.example/${i}`, title: `Find ${i}`, ...over }));
+    const mk = (i: number, over: Record<string, unknown>) => keep(ARTIFACT({ url: `https://find.example/${i}`, title: `Find ${i}`, ...over }));
     const made = [
       await mk(1, { title: "Mycorrhizal networks under oaks", kind: "paper", tags: ["fungi"], authors: [{ name: "Fungus Author", kind: "person" }] }),
       await mk(2, { description: "A walk through a moss garden. Mosses hold water.", kind: "video", origin: "agent" }),
@@ -444,7 +458,7 @@ suite("artifacts", () => {
       await mk(5, { authors: [{ name: "Unique Writer", kind: "organization" }], origin: "agent" }),
     ];
     const all = await tool("list_artifacts", { limit: 200 });
-    expect(all.total).toBe(Number((await db.query(`SELECT count(*) AS n FROM play.artifacts`)).rows[0].n));
+    expect(all.total).toBe(await count());
     const order = all.artifacts.map((s: any) => s.created);
     expect([...order].sort().reverse()).toEqual(order);
     expect(all.artifacts[0].id).toBe(made[4].id);
@@ -470,21 +484,73 @@ suite("artifacts", () => {
     expect(route.data.total).toBe(2);
     expect(route.data.artifacts.map((s: any) => s.id)).toEqual([made[1].id]);
     expect(route.data.tags.some((t: any) => t.tag === "airships")).toBe(true);
-    const n = async (where: string) => Number((await db.query(`SELECT count(*) AS n FROM play.artifacts ${where}`)).rows[0].n);
+    const n = async (where: string) => Number((await db.query(`SELECT count(*) AS n FROM play.artifacts WHERE title IS NOT NULL ${where}`)).rows[0].n);
     expect(route.data.counts.all).toBe(await n(""));
-    expect(route.data.counts.origin.agent).toBe(await n("WHERE origin = 'agent'"));
-    expect(route.data.counts.kind.post).toBe(await n("WHERE kind = 'post'"));
+    expect(route.data.counts.origin.agent).toBe(await n("AND origin = 'agent'"));
+    expect(route.data.counts.kind.post).toBe(await n("AND kind = 'post'"));
   });
 
   // ---- c12: the page as it was
 
   test("c12: the page's readable text is kept among play's files by its hash, named by get_artifact", async () => {
     const text = "The page as it was fetched.\n\nEvery word of it, kept.";
-    const s = await tool("add_artifact", ARTIFACT({ url: "https://example.org/with-text", text }));
+    const s = await keep(ARTIFACT({ url: "https://example.org/with-text", text }));
     expect(s.text_hash).toMatch(/^[0-9a-f]{64}$/);
     expect(new TextDecoder().decode((await store.get(s.text_hash))!)).toBe(text);
     const row = (await db.query(`SELECT media_type, size FROM play.files WHERE hash = $1`, [s.text_hash])).rows[0];
     expect(row).toEqual({ media_type: "text/plain", size: String(new TextEncoder().encode(text).length) });
     expect((await tool("get_artifact", { artifact: s.id })).text_hash).toBe(s.text_hash);
+  });
+
+  // ---- intent 847c5d38's c5: an artifact is a document like any other
+
+  test("as a document: added or corrected without an intent, each a new intent at Proposal with no spec, kept only once that intent is accepted; naming an intent, held to its gate", async () => {
+    const before = await count();
+    const listed = async () => (await tool("list_artifacts", { q: "doc.example", limit: 200 })).artifacts;
+    // added: a new intent at Proposal of its own, no spec; nothing kept until it is accepted
+    const r = await tool("add_artifact", ARTIFACT({ url: "https://doc.example/one", title: "A page as a document" }));
+    expect(r).toMatchObject({ kept: false, waiting: true, stage: "proposal" });
+    const i = await tool("get_intent", { intent: r.intent });
+    expect(i).toMatchObject({ stage: "proposal", spec: null, title: "A page as a document", work: { kind: "artifact_version", doc: r.id } });
+    expect((await tool("get_artifact", { artifact: r.id })).error).toMatch(/No artifact is kept/);
+    expect(await listed()).toEqual([]);
+    expect(await count()).toBe(before);
+    // the same link again answers with the intent that waits with it
+    expect(await tool("add_artifact", ARTIFACT({ url: "https://doc.example/one/" }))).toMatchObject({ kept: false, waiting: true, intent: r.intent });
+    // decided by the one Accept, as any other intent: then kept, its v1 in its history
+    expect((await call("Samuel", "POST", `/api/intents/${r.intent}/accept`)).data).toMatchObject({ stage: "accepted", decision: { status: "accepted", number: 1 } });
+    expect((await listed()).map((a: any) => [a.id, a.intent])).toEqual([[r.id, null]]);
+    expect((await tool("doc_history", { doc: r.id })).versions.map((v: any) => v.number)).toEqual([1]);
+
+    // corrected: its next version waits at Proposal; the artifact as it was, its open intent marked, until it is accepted
+    const c = await tool("update_artifact", { artifact: r.id, title: "A page, corrected" }, "Bea");
+    expect(c).toMatchObject({ waiting: true, stage: "proposal", number: 2, title: "A page as a document" });
+    expect((await tool("get_intent", { intent: c.intent })).spec).toBeNull();
+    expect((await tool("get_artifact", { artifact: r.id })).title).toBe("A page as a document");
+    expect((await listed()).map((a: any) => a.intent)).toEqual([c.intent]);
+    const review = (await call("Samuel", "GET", `/api/intents/${c.intent}`)).data.review;
+    expect(review).toMatchObject({ doc: { id: r.id, kind: "artifact", label: "A page, corrected" }, seedNumber: 1, changes: [{ path: "$.title", kind: "changed", from: "A page as a document", to: "A page, corrected" }] });
+    expect((await call("Samuel", "POST", `/api/intents/${c.intent}/accept`)).data.decision).toMatchObject({ status: "accepted", number: 2 });
+    expect(await tool("get_artifact", { artifact: r.id })).toMatchObject({ title: "A page, corrected", updated_by: "Bea", intent: null });
+    expect((await tool("doc_history", { doc: r.id })).versions.map((v: any) => v.number)).toEqual([1, 2]);
+    // archived: the artifact as it was
+    const no = await tool("update_artifact", { artifact: r.id, kind: "paper" });
+    expect((await call("Samuel", "POST", `/api/intents/${no.intent}/archive`)).data.decision.status).toBe("archived");
+    expect((await tool("get_artifact", { artifact: r.id })).kind).toBe(ARTIFACT().kind);
+
+    // naming an intent: held to its gate like every propose tool, its work the intent's
+    const idea = await tool("add_intent", { title: "Sources for the papaya" });
+    expect((await tool("add_artifact", { ...ARTIFACT({ url: "https://doc.example/two" }), intent: idea.id })).error).toMatch(/idea stage/);
+    await tool("specify_intent", { intent: idea.id, goal: "Its sources kept.", nothing_to_reduce: "A test fixture: nothing to reduce.", scope: "Two links.", checks: [{ check: "They are kept", how: "test", by: "true", run: "true" }] });
+    await call("Samuel", "POST", `/api/intents/${idea.id}/approve`);
+    expect((await tool("add_artifact", { ...ARTIFACT({ url: "https://doc.example/two" }), intent: idea.id })).error).toMatch(/not ready to propose/);
+    await tool("check_intent", { intent: idea.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] });
+    const two = await tool("add_artifact", { ...ARTIFACT({ url: "https://doc.example/two" }), intent: idea.id });
+    const three = await tool("add_artifact", { ...ARTIFACT({ url: "https://doc.example/three" }), intent: idea.id });
+    expect([two.intent, three.intent]).toEqual([idea.id, idea.id]);
+    // one intent, two artifacts: reviewed with both, accepted together
+    expect((await call("Samuel", "GET", `/api/intents/${idea.id}`)).data.review.docs.map((d: any) => d.doc.id)).toEqual([two.id, three.id]);
+    expect((await call("Samuel", "POST", `/api/intents/${idea.id}/accept`)).data.decision).toMatchObject({ status: "accepted", numbers: [1, 1] });
+    expect((await listed()).length).toBe(3);
   });
 });

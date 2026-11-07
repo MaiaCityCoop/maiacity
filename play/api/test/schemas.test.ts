@@ -86,10 +86,31 @@ suite("schemas as documents", () => {
   const rpc = async (method: string, params?: unknown): Promise<any> =>
     (await (await api.fetch(new Request("http://play.test/api/mcp", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method, params }) }))).json()).result;
   /** a tool called over MCP by ada's token: its result as JSON, or its error's text */
-  const tool = async (name: string, args: Record<string, unknown>): Promise<any> => {
+  const raw = async (name: string, args: Record<string, unknown>): Promise<any> => {
     const res = await rpc("tools/call", { name, arguments: args });
     const text = res.content[0].text;
     return res.isError ? { error: text as string } : JSON.parse(text);
+  };
+  /** every edit is an intent's (intent 847c5d38): a variant this test drafts is made for an intent of its own, in Build with
+   * its one check passed, and proposed for it */
+  const variantIntent = new Map<number, string>();
+  const readyIntent = async (title: string) => {
+    const i = await raw("add_intent", { title });
+    await raw("specify_intent", { intent: i.id, goal: "It changes.", nothing_to_reduce: "A test fixture: nothing to reduce.", scope: "One document.", checks: [{ check: "It holds", how: "test", by: "true", run: "true" }] });
+    await call("ada", "POST", `/api/intents/${i.id}/approve`);
+    await raw("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] });
+    return i.id as string;
+  };
+  const tool = async (name: string, args: Record<string, unknown>): Promise<any> => {
+    if (name === "doc_edit" && args.intent === undefined) {
+      const intent = (args.variant != null ? variantIntent.get(Number(args.variant)) : undefined) ?? (await readyIntent(`An edit: ${args.message}`));
+      const r = await raw(name, { ...args, intent });
+      if (r.variant != null) variantIntent.set(Number(r.variant), intent);
+      return r;
+    }
+    if (name === "propose_doc_version" && args.intent === undefined && args.variant != null && variantIntent.has(Number(args.variant)))
+      return raw(name, { ...args, intent: variantIntent.get(Number(args.variant)) });
+    return raw(name, args);
   };
   const accept = (intent: string) => call("ada", "POST", `/api/intents/${intent}/accept`);
   const q = async (s: string, p: unknown[] = []) => (await db.query<any>(s, p)).rows;
@@ -113,7 +134,7 @@ suite("schemas as documents", () => {
     expect(worse.error).toContain("does not compile");
     // the schemas are listed as every kind is, each with its documents' prefix
     const listed = await tool("list_docs", { kind: "schema" });
-    expect(listed.map((d: any) => d.type).sort()).toEqual(["asset", "factory", "game", "schema", "skill", "story"]);
+    expect(listed.map((d: any) => d.type).sort()).toEqual(["artifact", "asset", "factory", "game", "sandbox", "schema", "skill", "story"]);
     // a document made now names its schema by its UUID, at the version in force
     const S = crypto.randomUUID();
     expect(await seedDoc(db, "skill", { id: S, json: { schema: "skill/1", label: "A test skill", group: "tests", system: "Be brief." }, note: "a test skill" })).toBe(true);

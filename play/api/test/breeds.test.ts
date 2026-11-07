@@ -23,6 +23,12 @@ import { RECIPE_HEAD, recipeTail } from "../src/recipes";
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;
 
+const SPEC = {
+  goal: "A breed changes.",
+  nothing_to_reduce: "A test fixture: nothing to reduce.",
+  scope: "One breed. Nothing else changes.",
+  checks: [{ check: "It holds", how: "test", by: "true", run: "true" }],
+};
 const SOURCE = (line: string) => `module.exports.recipe = function (id, v, variant) {\n  // ${line}\n  return { meta: { id, v, variant }, build: () => null };\n};\n`;
 
 suite("breeds", () => {
@@ -51,6 +57,14 @@ suite("breeds", () => {
     const res = (await r.json()).result;
     const text = res.content[0].text;
     return res.isError ? { error: text as string } : JSON.parse(text);
+  };
+  /** an intent in Build, its spec approved, its one must check passed: ready to take work (every edit is an intent's) */
+  const readyIntent = async (title: string) => {
+    const i = await tool("add_intent", { title });
+    await tool("specify_intent", { intent: i.id, ...SPEC });
+    expect((await call("POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
+    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] })).stage).toBe("proposal");
+    return i.id as string;
   };
   const accept = async (intent: string) => (await call("POST", `/api/intents/${intent}/accept`)).data;
   const breedsOf = async () => (await tool("doc_history", { doc: papaya })).variants.filter((v: any) => v.type === "breed");
@@ -161,11 +175,12 @@ suite("breeds", () => {
     const wrong = await tool("propose_doc_version", { doc: papaya, breed: male.id, note: "a male's note", edits: [{ op: "set", path: ["note"], value: "only the male" }] });
     expect(wrong.error).toContain("A breed changes only its own source and card");
     // edited in an intent variant seeded from the breed, edit by edit, then proposed
-    const one = await tool("doc_edit", { doc: papaya, breed: male.id, message: "a stronger male", edits: [{ op: "replace", find: "a male papaya", replace: "a stronger male papaya" }] });
+    const stronger = await readyIntent("A stronger male papaya");
+    const one = await tool("doc_edit", { doc: papaya, intent: stronger, breed: male.id, message: "a stronger male", edits: [{ op: "replace", find: "a male papaya", replace: "a stronger male papaya" }] });
     expect(one).toMatchObject({ changed: true, edits: 1 });
     const hist = await tool("doc_history", { doc: papaya });
     expect(hist.variants.find((v: any) => v.id === one.variant)).toMatchObject({ type: "intent", breed: male.id, breedName: "male", seed: 2 });
-    const p = await tool("propose_doc_version", { doc: papaya, variant: one.variant, note: "the male, stronger" });
+    const p = await tool("propose_doc_version", { doc: papaya, variant: one.variant, intent: stronger, note: "the male, stronger" });
     expect(p.error).toBeUndefined();
     const review = (await call("GET", `/api/intents/${p.intent}`)).data.review;
     expect(review.doc).toMatchObject({ id: papaya, breed: "male" });
@@ -201,7 +216,7 @@ suite("breeds", () => {
     expect(Object.keys(v.variants)).toEqual(["female", "hermaphrodite", "male"]);
     expect(v.variants.hermaphrodite.card.card.label).toBe("Papaya: Hermaphrodite");
     // a name a breed has is taken
-    expect((await tool("doc_edit", { doc: papaya, new_breed: "male", message: "again", edits: [{ op: "set", path: ["card", "card", "label"], value: "x" }] })).error).toContain("breed male already");
+    expect((await tool("doc_edit", { doc: papaya, intent: await readyIntent("A second male"), new_breed: "male", message: "again", edits: [{ op: "set", path: ["card", "card", "label"], value: "x" }] })).error).toContain("breed male already");
     // Main moves: the new breed takes it, keeping its own label
     const q = await tool("propose_doc_version", { doc: papaya, note: "taller still", edits: [{ op: "replace", find: "a taller papaya", replace: "a tallest papaya" }] });
     expect((await accept(q.intent)).decision.status).toBe("accepted");

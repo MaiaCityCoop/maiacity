@@ -884,7 +884,7 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
   if (me.level !== "admin") throw new Denied("Only Maia City's admins decide on stories.");
   return asStoryError(async () => {
     const docId = await ensureStoryDoc(tx, p.story_id);
-    const variant = Number((await tx.query<{ doc_variant: string | null }>(`SELECT doc_variant FROM play.intents WHERE id = $1`, [p.id])).rows[0]?.doc_variant);
+    const variant = Number((await tx.query<{ doc_variant: string | null }>(`SELECT variant_id AS doc_variant FROM play.intent_variants WHERE intent_id = $1 ORDER BY position LIMIT 1`, [p.id])).rows[0]?.doc_variant);
     const author = authorOf(me, "site");
     const closeBranch = async (status: "archived") => {
       const { rows } = await tx.query<{ status: string }>(`SELECT status FROM play.doc_variants WHERE id = $1`, [variant]);
@@ -954,7 +954,7 @@ export async function storyAt(db: Db, me: Me | null, id: string, at: { edit?: nu
     const docId = await db.transaction((q) => ensureStoryDoc(q, id));
     let json: any;
     if (at.intent !== undefined) {
-      const { rows } = await db.query<{ doc_variant: string | null }>(`SELECT doc_variant FROM play.intents WHERE id::text = $1 AND doc_id = $2`, [`${at.intent}`.toLowerCase(), docId]);
+      const { rows } = await db.query<{ doc_variant: string | null }>(`SELECT variant_id AS doc_variant FROM play.intent_variants WHERE intent_id::text = $1 AND doc_id = $2`, [`${at.intent}`.toLowerCase(), docId]);
       if (!rows[0]?.doc_variant) throw new StoryError(`Story ${id} has no variant of intent ${at.intent}.`, 404);
       json = (await docs.readDoc(db, docId, { variant: Number(rows[0].doc_variant) })).json;
     } else {

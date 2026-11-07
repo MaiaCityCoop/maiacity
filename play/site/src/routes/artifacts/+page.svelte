@@ -6,12 +6,16 @@
 	its link (a new tab) and "Added by <the operator>" or "Sourced by avenMAIA". An artifact opens in the middle to be read
 	(?artifact=<uuid>): its summary, a small report on its topic, as Markdown, and its authors; an author opens to their
 	artifacts (?author=<uuid>). Read only: nothing here adds or changes one. Maia City's admins alone (the API says so too).
+	An artifact is a document like any other (play/SPEC.md "Version control"): every change of it waits at Proposal as an
+	intent's work, marked on its card until it is decided; the opened artifact has the History tab every document has
+	($lib/app/History.svelte), and opens as an intent would make it (?intent=<uuid>, from the intents' board).
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
+	import History, { type Pick } from '$lib/app/History.svelte';
 	import { api } from '$lib/api';
 	import { session } from '$lib/session.svelte';
 	import { markdown } from '$lib/site/markdown/index.js';
@@ -22,7 +26,11 @@
 	type Artifact = {
 		id: string; url: string; title: string; description: string; summary?: string; kind: string; tags: string[]; published: string | null;
 		origin: Origin; by: string; authors: AuthorRef[]; created: string; text_hash?: string | null; updated_by?: string | null; updated_at?: string | null;
+		/** an intent whose change of it waits, not yet decided */
+		intent?: string | null;
 	};
+	/** an artifact's document, as /api/docs gives it: at a version, an edit, or as an intent would make it */
+	type Doc = { id: string; number: number; version?: number; json: Record<string, any>; intent?: { id: string; stage: string } };
 	type Counts = { all: number; origin: Record<Origin, number>; kind: Record<string, number> };
 	type Page = { total: number; offset: number; limit: number; artifacts: Artifact[]; tags: { tag: string; count: number }[]; counts: Counts };
 	type Author = { id: string; name: string; kind: 'person' | 'organization'; url: string | null; note: string | null; artifacts: number };
@@ -42,6 +50,10 @@
 	let origin = $state<'' | Origin>('');
 	let authorId = $state('');
 	let artifactId = $state('');
+	let intentId = $state('');
+	/** the opened artifact as its History picks it (a version, an edit) or as an intent would make it: its fields over the kept ones */
+	let asOf = $state<Doc | null>(null);
+	let shownV = $state<number | null>(null);
 
 	let artifacts = $state<Artifact[]>([]);
 	let total = $state(0);
@@ -71,6 +83,7 @@
 	function address() {
 		const q = new URLSearchParams();
 		if (artifactId) q.set('artifact', artifactId);
+		if (artifactId && intentId) q.set('intent', intentId);
 		if (authorId) q.set('author', authorId);
 		if (query.trim()) q.set('q', query.trim());
 		if (kind) q.set('kind', kind);
@@ -82,6 +95,7 @@
 	function fromAddress() {
 		const q = new URLSearchParams(location.search);
 		artifactId = q.get('artifact') ?? '';
+		intentId = q.get('intent') ?? '';
 		authorId = q.get('author') ?? '';
 		query = q.get('q') ?? '';
 		kind = q.get('kind') ?? '';
@@ -123,8 +137,12 @@
 		error = '';
 		opened = null;
 		author = null;
+		asOf = null;
+		shownV = null;
 		try {
-			if (artifactId) opened = await api<Artifact>(`/artifacts/${encodeURIComponent(artifactId)}`);
+			if (artifactId && intentId) asOf = await api<Doc>(`/docs/${encodeURIComponent(artifactId)}?intent=${encodeURIComponent(intentId)}`);
+			if (artifactId) opened = await api<Artifact>(`/artifacts/${encodeURIComponent(artifactId)}`).catch((e) => (asOf ? null : Promise.reject(e)));
+			if (artifactId && !opened && asOf) opened = { ...fromDoc(asOf), id: artifactId, by: 'Not kept yet: it waits at Proposal', authors: [], created: new Date().toISOString() };
 			if (authorId) author = await api<AuthorWhole>(`/authors/${encodeURIComponent(authorId)}`);
 		} catch (e) {
 			error = (e as Error).message;
@@ -140,7 +158,21 @@
 		void show();
 		document.querySelector('.middle')?.scrollTo({ top: 0 });
 	}
-	const openArtifact = (id: string) => go(() => (artifactId = id));
+	const openArtifact = (id: string) => go(() => ((artifactId = id), (intentId = '')));
+	/** an artifact's fields from its document */
+	const fromDoc = (d: Doc) => {
+		const j = d.json;
+		return { url: j.url ?? '', title: j.title ?? '', description: j.description ?? '', summary: j.summary ?? '', kind: j.kind ?? 'other', tags: j.tags ?? [], published: j.published ?? null, origin: (j.origin ?? 'human') as Origin, text_hash: j.text_hash ?? null };
+	};
+	/** what the opened artifact shows: as kept, or as its History picks it */
+	const view = $derived(opened && asOf ? { ...opened, ...fromDoc(asOf) } : opened);
+	/** its History: a version or an edit picked shows it as it stood there; nothing picked, as it is kept */
+	async function picked(p: Pick | null) {
+		if (!opened) return;
+		if (!p) return void ((asOf = intentId ? await api<Doc>(`/docs/${opened.id}?intent=${encodeURIComponent(intentId)}`) : null), (shownV = null));
+		asOf = await api<Doc>(`/docs/${opened.id}?${'version' in p ? `v=${p.version}` : `edit=${p.edit.seq}`}`);
+		shownV = 'version' in p ? p.version : null;
+	}
 	const openAuthor = (id: string) => go(() => ((authorId = id), (artifactId = '')));
 	const filter = (change: () => void) => go(() => (change(), (artifactId = '')), false);
 	const all = () => go(() => ((artifactId = ''), (authorId = ''), (kind = ''), (tag = ''), (origin = ''), (query = '')));
@@ -202,6 +234,13 @@
 	{/if}
 {/snippet}
 
+{#snippet historyTab()}
+	{#if opened}
+		<History doc={opened.id} shown={shownV} label="the artifact" intent={intentId || null} onPick={picked} />
+		<p class="soft propose">Corrected over MCP (update_artifact): each change waits at Proposal, decided in <a href="/intents/">Intents</a>.</p>
+	{/if}
+{/snippet}
+
 {#snippet card(s: Artifact)}
 	<article class="card">
 		<p class="meta">
@@ -216,13 +255,14 @@
 			<span class="by" class:agent={s.origin === 'agent'}>{#if s.origin === 'agent'}<Icon name="spark" size={13} />{/if}{s.by}</span>
 			<a class="out" href={s.url} target="_blank" rel="noopener noreferrer" title={s.url}>{host(s.url)} ↗</a>
 			{#each s.tags as t (t)}<button class="tagchip small" onclick={() => filter(() => (tag = t))}>{t}</button>{/each}
+			{#if s.intent}<a class="waits" href="/intents/#{s.intent}" title="A change of it waits at Proposal">A change waits</a>{/if}
 		</p>
 	</article>
 {/snippet}
 
 {#if admin}
 	<div class="pg">
-		<Frame nav={loaded ? shelf : undefined} bind:open={side} navLabel="Find and filter the artifacts" navIcon="search" flush>
+		<Frame nav={loaded ? shelf : undefined} history={artifactId && opened ? historyTab : undefined} bind:open={side} navLabel="Find and filter the artifacts" asideLabel="The artifact's history" navIcon="search" flush>
 			{#if !loaded}
 				<p class="note soft">Opening the Artifacts…</p>
 			{:else if artifactId}
@@ -231,26 +271,27 @@
 					<div class="read">
 						<button class="backlink" onclick={() => history.length > 1 ? history.back() : all()}>← Artifacts</button>
 						{#if error}<p class="bad">{error}</p>{/if}
-						{#if opened}
-							<p class="eyebrow">{ONE[opened.kind] ?? opened.kind}{opened.published ? ` · ${date(opened.published)}` : ''}</p>
-							<h1>{opened.title}</h1>
-							<p class="lede">{opened.description}</p>
+						{#if view}
+							<p class="eyebrow">{ONE[view.kind] ?? view.kind}{view.published ? ` · ${date(view.published)}` : ''}</p>
+							{#if asOf}<p class="asif soft">{asOf.intent ? `As intent ${asOf.intent.id.slice(0, 8)} would make it (${asOf.intent.stage})` : shownV ? `Version ${shownV}` : 'As it stood at that edit'}</p>{/if}
+							<h1>{view.title}</h1>
+							<p class="lede">{view.description}</p>
 							<div class="facts">
-								<p class="authors">
+								<p class="authors" hidden={!view.authors.length}>
 									By
-									{#each opened.authors as a, i (a.id)}{#if i}, {/if}<a href="?author={a.id}" onclick={(e) => (e.preventDefault(), openAuthor(a.id))}>{a.name}</a>{/each}
+									{#each view.authors as a, i (a.id)}{#if i}, {/if}<a href="?author={a.id}" onclick={(e) => (e.preventDefault(), openAuthor(a.id))}>{a.name}</a>{/each}
 								</p>
-								<p class="by" class:agent={opened.origin === 'agent'}>{#if opened.origin === 'agent'}<Icon name="spark" size={13} />{/if}{opened.by} · kept {when(opened.created)}{opened.updated_at ? ` · corrected ${when(opened.updated_at)}${opened.updated_by ? ` by ${opened.updated_by}` : ''}` : ''}</p>
+								<p class="by" class:agent={view.origin === 'agent'}>{#if view.origin === 'agent'}<Icon name="spark" size={13} />{/if}{view.by} · kept {when(view.created)}{view.updated_at ? ` · corrected ${when(view.updated_at)}${view.updated_by ? ` by ${view.updated_by}` : ''}` : ''}</p>
 							</div>
 							<p class="actions">
-								<a class="go" href={opened.url} target="_blank" rel="noopener noreferrer">Open the link ↗ <small>{host(opened.url)}</small></a>
-								{#if opened.text_hash}<a class="chip" href="/api/files/{opened.text_hash}" target="_blank" rel="noopener">The page as it was kept</a>{/if}
+								<a class="go" href={view.url} target="_blank" rel="noopener noreferrer">Open the link ↗ <small>{host(view.url)}</small></a>
+								{#if view.text_hash}<a class="chip" href="/api/files/{view.text_hash}" target="_blank" rel="noopener">The page as it was kept</a>{/if}
 							</p>
-							{#if opened.tags.length}
-								<p class="tags">{#each opened.tags as t (t)}<button class="tagchip" onclick={() => filter(() => (tag = t))}>{t}</button>{/each}</p>
+							{#if view.tags.length}
+								<p class="tags">{#each view.tags as t (t)}<button class="tagchip" onclick={() => filter(() => (tag = t))}>{t}</button>{/each}</p>
 							{/if}
-							<div class="summary">{@html markdown(opened.summary ?? '')}</div>
-							<p class="url mono soft">{opened.url}</p>
+							<div class="summary">{@html markdown(view.summary ?? '')}</div>
+							<p class="url mono soft">{view.url}</p>
 						{/if}
 					</div>
 				</div>
@@ -292,6 +333,18 @@
 {/if}
 
 <style>
+	.propose {
+		font-size: 0.8rem;
+		padding: 0 0.25rem;
+	}
+	.waits {
+		font-size: 0.75rem;
+		padding: 0.1rem 0.45rem;
+		border-radius: 999px;
+		background: rgb(196 140 40 / 0.16);
+		color: inherit;
+		text-decoration: none;
+	}
 	.pg {
 		position: fixed;
 		inset: 0;
