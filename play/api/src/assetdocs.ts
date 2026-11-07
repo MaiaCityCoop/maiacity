@@ -33,6 +33,7 @@ import { asVersionError, named, versionAt, VersionError, type Ctx, type Verdict 
 import { closeWork, holdVariant, putAtProposal, settle, stageAfter, WORK_OF, WorkError } from "./work";
 import { SCHEMA } from "./ids";
 import { GROUPS, isGroup } from "./groups";
+import { assetOwner, assetSeen, fileTypes, keepFile, newAssetOwner, OwnerError, PRIVATE_GROUPS, seesAsset } from "./owners";
 
 export const HISTORY = join(import.meta.dir, "../import/history");
 export const assetDocId = (asset: string) => `asset:${asset}`;
@@ -426,6 +427,8 @@ async function editOf(db: Queryable, docId: string, at: { edit?: number; intent?
 export async function assetAt(db: Db, store: BlobStore, me: Me | null, asset: string, at: { edit?: number; intent?: string }) {
   admin(me, HISTORY_ADMINS);
   return asAssetError(async () => {
+    // another's private asset is as one that never was (./owners.ts)
+    if (!(await seesAsset(db, me, asset))) throw new AssetDocError(`there is no asset ${asset}`, 404);
     const { id: docId } = await assetDocFor(db, store, asset);
     const edit = await editOf(db, docId, at);
     const json = (await docs.stateAt(db, docId, { edit })) as AssetJson;
@@ -471,6 +474,7 @@ async function numberAt(q: Queryable, docId: string, seq: number): Promise<{ n: 
 export async function recipeAt(db: Db, store: BlobStore, me: Me | null, asset: string, at: { edit?: number; intent?: string }) {
   admin(me, HISTORY_ADMINS);
   return asAssetError(async () => {
+    if (!(await seesAsset(db, me, asset))) throw new AssetDocError(`there is no asset ${asset}`, 404);
     const { id: docId } = await assetDocFor(db, store, asset);
     const seq = await editOf(db, docId, at);
     const { rows: a } = await db.query<{ grp: string; slug: string; label: string }>(`SELECT grp, slug, label FROM play.assets WHERE id = $1`, [asset]);
@@ -504,7 +508,8 @@ export async function recipeAt(db: Db, store: BlobStore, me: Me | null, asset: s
     const hash = hashText(text);
     const bytes = new TextEncoder().encode(text);
     const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, "text/javascript");
-    await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, 'text/javascript', $3) ON CONFLICT (hash) DO NOTHING`, [hash, bytes.length, key]);
+    // kept in its owner's library: a private asset's recipe files are its owner's alone
+    await keepFile(db, { hash, size: bytes.length, media_type: "text/javascript", bucket_key: key }, { owner: (await assetOwner(db, asset))!.owner });
     const pieces = (await piecesHeld(db, piecesOf(source)).catch(() => ({ all: piecesOf(source) }))).all;
     const made = { ...record, manifest: { ...(record.manifest ?? {}), libs: libsOf(source), pieces }, card: { ...(record.card ?? {}), recipe: hash, version: n, v: n, ...(variant ? { variant } : {}) } };
     return { ...base, hash, size: bytes.length, record: made, version: null };
@@ -527,7 +532,7 @@ const MEDIA = "text/javascript";
 type Upload = { source?: string; recipe?: string; record?: any; label?: string };
 export type ProposalBody = {
   asset?: string; // an existing asset, by its UUID
-  new?: { group: string; slug?: string; label: string }; // or a new one: its group and label (its slug made from the label if none)
+  new?: { group: string; slug?: string; label: string; private?: unknown }; // or a new one: its group and label (its slug made from the label if none); private: its proposer's own (./owners.ts)
   label?: string;
   note?: string;
   base?: string | null; // the head it was made from, as the proposer saw it
@@ -699,11 +704,14 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
   let asset: string;
   let grp: string;
   let slug: string;
+  // its owner (./owners.ts): the coop's, or a person's own (a private character), whose files are then theirs alone
+  let owner: string;
   if (body?.asset !== undefined) {
     if (!UUID.test(`${body.asset}`)) throw new VersionError("Name the asset by its id (a UUID).");
-    const { rows } = await db.query<{ grp: string; slug: string }>(`SELECT grp, slug FROM play.assets WHERE id = $1`, [body.asset]);
+    // (another's private asset is as one that never was)
+    const { rows } = await db.query<{ grp: string; slug: string; owner: string }>(`SELECT a.grp, a.slug, a.owner::text FROM play.assets a WHERE a.id = $1 AND ${assetSeen("a", "$2")}`, [body.asset, who.id]);
     if (!rows[0]) throw new VersionError("There is no such asset.", 404);
-    ({ grp, slug } = rows[0]);
+    ({ grp, slug, owner } = rows[0]);
     asset = body.asset;
   } else {
     // a new asset is its new UUID; its group, label and slug are only shown (the slug, the name its recipe is called
@@ -712,8 +720,14 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
     slug = body?.new?.slug == null || body.new.slug === "" ? slugOf(`${body?.new?.label ?? ""}`) : `${body.new.slug}`;
     if (!isGroup(grp)) throw new VersionError(`A new asset needs its group (${GROUPS.join(", ")}).`);
     if (!SLUG.test(slug)) throw new VersionError("A new asset's slug is lowercase words joined by '-' (or give a label to make it from).");
+    try {
+      owner = newAssetOwner(who, grp, body.new?.private);
+    } catch (e) {
+      throw e instanceof OwnerError ? new VersionError(e.message, e.status) : e;
+    }
     asset = newId();
   }
+  const own_ = owner !== COOP;
   const { rows: a } = await db.query<{ head: string | null; number: number | null; label: string; card: any; variants: Record<string, any> | null; sources: string[] | null }>(
     `SELECT a.head, v.number, a.label, v.card,
             (SELECT json_object_agg(x.name, x.card) FROM play.asset_variants x WHERE x.version_id = v.id) AS variants,
@@ -763,6 +777,7 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
     const to = d.json.card?.card?.group;
     if (to !== undefined && to !== grp && to !== d.seed?.card?.card?.group) {
       if (!isGroup(to)) throw new VersionError(`${to} is not an asset group (${GROUPS.join(", ")}).`);
+      if (own_ && !(PRIVATE_GROUPS as readonly string[]).includes(to)) throw new VersionError(`A private asset stays in ${PRIVATE_GROUPS.join(", ")}: only those may be private, for now.`);
       grp = to;
     }
     // an asset of breeds (play/SPEC.md "Breeds"): the version is Main as it would then be, with every breed built from
@@ -834,9 +849,10 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
     const h = given === null || given === "" ? null : `${given}`;
     if (h !== null) {
       if (!HASH.test(h)) throw new VersionError(`A ${k} is named by its BLAKE3 hash (64 hex characters).`);
-      const { rows: f } = await db.query<{ media_type: string }>(`SELECT media_type FROM play.files WHERE hash = $1`, [h]);
-      if (!f[0]) throw new VersionError(`play keeps no file by that hash: add the ${k} first (MCP ${REFS[k].add}).`);
-      if (!REFS[k].is(f[0].media_type)) throw new VersionError(`${REFS[k].what}.`);
+      // a file its readers may open: everyone's for an asset everyone reads; its owner's own too for a private one
+      const type = (await fileTypes(db, [h], own_ ? who : null)).get(h);
+      if (!type) throw new VersionError(`play keeps no file by that hash${own_ ? "" : " in Maia City's library"}: add the ${k} first (MCP ${REFS[k].add}).`);
+      if (!REFS[k].is(type)) throw new VersionError(`${REFS[k].what}.`);
     }
     refs[k] = h;
   }
@@ -852,11 +868,8 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
   for (const f of files) await store.put(f.hash, new TextEncoder().encode(f.text), MEDIA);
   let intent = "", variantId = 0, edits = 0;
   await db.transaction(async (tx) => {
-    for (const f of files)
-      await tx.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, [
-        f.hash, Buffer.byteLength(f.text), MEDIA, `blobs/${f.hash.slice(0, 2)}/${f.hash}`,
-      ]);
-    await tx.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING`, [asset, COOP, grp, slug, label]);
+    for (const f of files) await keepFile(tx, { hash: f.hash, size: Buffer.byteLength(f.text), media_type: MEDIA, bucket_key: `blobs/${f.hash.slice(0, 2)}/${f.hash}` }, { owner });
+    await tx.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label, owner) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING`, [asset, COOP, grp, slug, label, owner]);
     await tx.query(
       `INSERT INTO play.asset_versions (id, asset_id, parents, recipe_hash, source_hash, default_variant, card, engine, author, note)
        VALUES ($1, $2, $3, $4, $5, $6, ($7::text)::jsonb, $8, $9, $10) ON CONFLICT (id) DO NOTHING`,

@@ -2,9 +2,14 @@
  * The admins' window into play's Postgres, read only (ported from legacy's aven/api/src/tables.ts): every table of the
  * schema play with its columns and how many rows it holds, and a page of one table's rows. Each read runs in a READ
  * ONLY transaction, a table is named only as the catalog names it, and a column that keeps a secret or a credential is
- * never sent, only that it is there.
+ * never sent, only that it is there. A row of another's private thing (./owners.ts) is never sent, nor counted.
  */
 import type { Db, Queryable } from "./pg";
+import { ROWS_SEEN } from "./owners";
+
+/** the rows of table `name` that the admin `me` may see (another's private things left out, ./owners.ts): a WHERE, with `me` as $1 */
+const seenWhere = (name: string) => (ROWS_SEEN[name] ? `WHERE ${ROWS_SEEN[name]("t", "$1")}` : "");
+const seenArgs = (name: string, me: string) => (ROWS_SEEN[name] ? [me] : []);
 
 export class TableError extends Error {
   constructor(message: string, public status = 400) {
@@ -60,12 +65,12 @@ async function columnsOf(tx: Queryable): Promise<Map<string, Column[]>> {
 }
 
 /** Every table, by name, with its columns and its rows counted. */
-export function listTables(db: Db): Promise<Table[]> {
+export function listTables(db: Db, me: { id: string }): Promise<Table[]> {
   return readOnly(db, async (tx) => {
     const all = await columnsOf(tx);
     const out: Table[] = [];
     for (const [name, columns] of [...all].sort(([a], [b]) => a.localeCompare(b))) {
-      const { rows } = await tx.query<{ n: number | string }>(`SELECT count(*) AS n FROM ${qualified(name)}`);
+      const { rows } = await tx.query<{ n: number | string }>(`SELECT count(*) AS n FROM ${qualified(name)} t ${seenWhere(name)}`, seenArgs(name, me.id));
       out.push({ name, rows: Number(rows[0]?.n ?? 0), columns });
     }
     return out;
@@ -85,7 +90,7 @@ function cell(value: unknown, column: Column): unknown {
 }
 
 /** A page of table `name`'s rows, in its primary key's order (else as stored), with how many it has in all. */
-export function readTable(db: Db, name: string, offset = 0, limit = PAGE) {
+export function readTable(db: Db, me: { id: string }, name: string, offset = 0, limit = PAGE) {
   const from = Math.max(0, Math.floor(Number(offset) || 0));
   const take = Math.min(MAX_PAGE, Math.max(1, Math.floor(Number(limit) || PAGE)));
   return readOnly(db, async (tx) => {
@@ -100,9 +105,9 @@ export function readTable(db: Db, name: string, offset = 0, limit = PAGE) {
         ORDER BY k.ordinal_position`,
       [SCHEMA, name],
     );
-    const order = keys.length ? `ORDER BY ${keys.map((k) => quote(k.column_name)).join(", ")}` : "";
-    const { rows: counted } = await tx.query<{ n: number | string }>(`SELECT count(*) AS n FROM ${qualified(name)}`);
-    const { rows } = await tx.query<Record<string, unknown>>(`SELECT * FROM ${qualified(name)} ${order} LIMIT ${take} OFFSET ${from}`);
+    const order = keys.length ? `ORDER BY ${keys.map((k) => `t.${quote(k.column_name)}`).join(", ")}` : "";
+    const { rows: counted } = await tx.query<{ n: number | string }>(`SELECT count(*) AS n FROM ${qualified(name)} t ${seenWhere(name)}`, seenArgs(name, me.id));
+    const { rows } = await tx.query<Record<string, unknown>>(`SELECT t.* FROM ${qualified(name)} t ${seenWhere(name)} ${order} LIMIT ${take} OFFSET ${from}`, seenArgs(name, me.id));
     return {
       name,
       columns,

@@ -4,6 +4,7 @@
 // 280, a summary of 500–1,500 words in its sections) and its authors (play.authors, by their UUIDs, in order). One link,
 // one artifact (urlOf). An artifact is a document like any other (artifact:<uuid>, ./versioned.ts): every change of it
 // waits at Proposal as an intent's work, and its row is what its accepted version says. Admins only.
+import { keepFile } from "./owners";
 import { admin, COOP, type Me } from "./access";
 import { AVENMAIA, SCHEMA } from "./ids";
 import { addIntent, autoMove, intentRow, recordChecks, specifyIntent } from "./intents";
@@ -230,11 +231,7 @@ async function keepText(db: Queryable, store: BlobStore, text: unknown, title: s
   if (bytes.length > TEXT_MOST) throw new ArtifactError(`An artifact's text is at most ${TEXT_MOST / 1e6} MB.`, 413);
   const hash = hashBytes(bytes);
   const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, TEXT_TYPE);
-  await db.query(
-    `INSERT INTO play.files (hash, size, media_type, bucket_key, label) VALUES ($1, $2, $3, $4, $5)
-     ON CONFLICT (hash) DO NOTHING`,
-    [hash, bytes.length, TEXT_TYPE, key, `Text of ${title}`.slice(0, 120)],
-  );
+  await keepFile(db, { hash, size: bytes.length, media_type: TEXT_TYPE, bucket_key: key, label: `Text of ${title}`.slice(0, 120) });
   return hash;
 }
 

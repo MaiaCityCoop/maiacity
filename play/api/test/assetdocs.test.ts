@@ -122,14 +122,14 @@ suite("assets as documents", () => {
       [crypto.randomUUID(), COOP, ids.fern, written.fern[4].id, rejected, who.cit.id],
     );
 
-    const before = { catalog: await catalogOf(db), pins: await pinsOf(db, "ec08b07d-6ec0-8f65-92b2-3efe7d91df5d"), versions: (await db.query(`SELECT id, number, recipe_hash, source_hash FROM play.asset_versions ORDER BY id`)).rows };
+    const before = { catalog: await catalogOf(db, null), pins: await pinsOf(db, "ec08b07d-6ec0-8f65-92b2-3efe7d91df5d"), versions: (await db.query(`SELECT id, number, recipe_hash, source_hash FROM play.asset_versions ORDER BY id`)).rows };
     const r = await ensureAssetDocs(db, store);
     expect(r.errors).toEqual([]);
     expect(r.made).toBe(2);
     expect(r.variants).toBe(1);
     // the versions, the catalog and the pins are exactly as they were
     expect((await db.query(`SELECT id, number, recipe_hash, source_hash FROM play.asset_versions ORDER BY id`)).rows).toEqual(before.versions);
-    expect(await catalogOf(db)).toEqual(before.catalog);
+    expect(await catalogOf(db, null)).toEqual(before.catalog);
     expect(await pinsOf(db, "ec08b07d-6ec0-8f65-92b2-3efe7d91df5d")).toEqual(before.pins);
     // each version's step holds its source byte for byte, under its own number (a gap kept)
     const fern = await docs.versionsOf(db, assetDocId(ids.fern));
