@@ -16,9 +16,9 @@
 
 	ONE RECORD (Samuel 2026-11-06: "not a proposal belongs to an intent: the intent has a state, proposal"): an intent's
 	work (an asset's or story's version, a sandbox's change, a factory's or config's version) is on the intent itself, and
-	Proposal is only its stage. Its work is reviewed from the intent and decided there: accepting applies it, archiving
-	archives the intent. Work proposed without an intent is an intent of its own, with no spec, opened straight into its
-	review. Nothing is accepted from Build.
+	Proposal is only its stage. Only a whole intent is decided, in its dialog (Samuel 2026-11-07): its Accept applies all its work,
+	its Reject archives it; its work's review, opened from it, is read only. Work proposed without an intent is an intent
+	of its own, with no spec. Nothing is accepted from Build.
 
 	ACCEPT SHIPS IT (Samuel 2026-11-06, play/api/src/ship.ts): an intent whose work is code names its pull request, and
 	its Accept ("Accept and ship") puts it in Ship at once: its first step, Ready to merge, waits with its reason for its
@@ -128,7 +128,7 @@
 		if (!focus) return;
 		try {
 			const i = await api<Intent>(`/intents/${focus}`);
-			openIntent(intents.find((x) => x.id === i.id) ?? i);
+			openIntentDialog(intents.find((x) => x.id === i.id) ?? i);
 		} catch (e) {
 			error = (e as Error).message;
 		}
@@ -199,20 +199,6 @@
 	const workText = (i: Intent) => (i.work ? `${titleOf(i.work)} · ${i.work.status === 'proposal' ? 'waiting' : i.work.status}` : '');
 	/** the work of intent `i`, opened for review */
 	const cardOf = (i: Intent): P => ({ ...i.work!, id: i.id, intent_id: i.id, intent_title: i.title, intent_spec: i.spec, intent_results: i.results });
-	/** an intent's work decided: accepting applies it (or archives it, where its base moved and the two changes touch the
-	 *  same field: the board says why), archiving archives the intent */
-	async function act(id: string, verdict: 'accept' | 'archive') {
-		try {
-			const r = await api<Intent & { message?: string }>(`/intents/${id}/${verdict}`, { method: 'POST' });
-			error = r?.message ?? '';
-			close();
-			await load();
-		} catch (e) {
-			error = (e as Error).message;
-		}
-	}
-	// work of play's is decided by its admins, whatever its kind
-	const deciding = $derived(admin);
 	const when = (s: string) => new Date(s).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 	/** a card's date, short: "4 Nov, 16:27" */
 	const shortWhen = (s: string) => new Date(s).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -325,13 +311,6 @@
 				if (intent?.id === id) intentError = (e as Error).message;
 			});
 	});
-	/** an intent that is only its one proposal (one made without an intent): its card opens straight into the review */
-	const onlyItsWork = (i: Intent | undefined) => !!i && !i.spec && !!i.work;
-	/** an intent opened from its card: straight into its proposal's review where it is only that proposal */
-	async function openIntent(i: Intent) {
-		if (onlyItsWork(i)) return openCard(cardOf(i));
-		openIntentDialog(i);
-	}
 	/** the intent a proposal was made for, from its review */
 	function openIntentOf(id: string) {
 		const i = intents.find((x) => x.id === id);
@@ -354,7 +333,9 @@
 		merging = verdict === 'accept' && !!intent && isCode(intent);
 		intentError = '';
 		try {
-			const r = await api<Intent>(`/intents/${id}/${verdict}`, { method: 'POST' });
+			// accepted, its work is applied (or archived, where its base moved and the two touch the same field: why, here)
+			const r = await api<Intent & { message?: string }>(`/intents/${id}/${verdict}`, { method: 'POST' });
+			error = r.message ?? '';
 			intents = intents.map((x) => (x.id === r.id ? r : x));
 			// shipped: the dialog stays, its way to production ticking
 			if (r.stage === 'ship') intent = r;
@@ -423,7 +404,7 @@
 								{@const progress = s === 'build' ? checksDone(i) : ''}
 								<!-- an intent: its title, how far its checks or its work got, who it is by, its type and its date -->
 								<article class="card" class:item={!!i.spec || !i.work} data-kind={i.kind}>
-									<button class="open" onclick={() => openIntent(i)} title={i.note ? gist(i.note) : undefined}>
+									<button class="open" onclick={() => openIntentDialog(i)} title={i.note ? gist(i.note) : undefined}>
 										<span class="title">{i.title}</span>
 										{#if shipLine(i)}<span class="for ship" class:red={i.stage === 'proposal' || i.ship?.steps.some((x) => x.state === 'red')} class:running={i.stage === 'ship'}>{shipLine(i)}</span>
 										{:else if progress}<span class="for" class:done={allMustPass(i)}>{progress}</span>
@@ -449,8 +430,6 @@
 	{#if intent}
 		{@const i = intent}
 		{@const musts = i.spec?.checks.filter((c) => c.must) ?? []}
-		<!-- a proposal of it waiting: that proposal's review is where it is decided -->
-		{@const waits = i.stage === 'proposal' && !!i.work}
 		<!-- an intent opened: read here (it is added and specified over MCP only), its spec and its checks with their
 		     results, its work a click away, the brief that sends an agent to it, and the admins' decision on it -->
 		<button class="scrim" onclick={closeIntent} aria-label="Close" tabindex="-1"></button>
@@ -577,20 +556,20 @@
 			{#if intentError}<p class="refused" role="alert">{intentError}</p>{/if}
 			<!-- the decision at its foot, in the middle: Reject (it ends archived) on the left, Approve or Accept on the right;
 			     no Close: the nav pill's Back (or Escape, or the scrim) closes it, the star the board (Samuel 2026-11-06).
-			     Accept only at Proposal (it moves there by itself once every must check passes; Samuel 2026-11-06), and only
-			     where no work of it waits: then its work's review, opened from it, is where it is decided -->
-			{#if !(i.stage === 'proposal' && waits) && i.stage !== 'ship'}
+			     Accept only at Proposal (it moves there by itself once every must check passes; Samuel 2026-11-06). Only a
+			     whole intent is decided, whatever its work: its Accept applies all of it, its Reject archives it (Samuel 2026-11-07) -->
+			{#if i.stage !== 'ship'}
 			<footer class="decide">
-				{#if i.stage === 'idea' || i.stage === 'specify' || i.stage === 'build' || (i.stage === 'proposal' && !waits)}
+				{#if i.stage === 'idea' || i.stage === 'specify' || i.stage === 'build' || i.stage === 'proposal'}
 					<button class="btn small reject" onclick={() => decideIntent(i.id, 'reject')} title="Not to be done: it ends archived">Reject</button>
 				{/if}
-				{#if i.stage === 'build' || (i.stage === 'proposal' && i.approved_at && !waits)}
+				{#if i.stage === 'build' || (i.stage === 'proposal' && i.approved_at && i.work?.status !== 'proposal')}
 					<button class="btn small ghost" onclick={() => decideIntent(i.id, 'respecify')} title="Its spec is to change: back to Specify, its approval and results cleared">Back to Specify</button>
 				{:else if i.stage === 'accepted' || i.stage === 'archived'}
 					<button class="btn small ghost" onclick={() => decideIntent(i.id, 'reopen')} title="Open again: back to {i.spec ? 'Specify' : 'Idea'}">Reopen</button>
 				{/if}
 				{#if i.stage === 'specify' && i.spec}<button class="btn small" onclick={() => decideIntent(i.id, 'approve')} title="The spec is right: an agent may build it">Approve spec</button>
-				{:else if i.stage === 'proposal' && !waits}<button class="btn small" onclick={() => decideIntent(i.id, 'accept')} disabled={!allMustPass(i) || merging} title={!allMustPass(i) ? 'Every must check passes first' : isCode(i) ? (shipsAgain(i) ? 'Ship it again: its pull request is merged; the release (or main\'s failed jobs) runs again' : `Ship pull request #${i.pull_request}: in Ship at once, merged into main when its turn comes and GitHub is ready, then to production`) : 'What it asked is in'}>{merging ? 'Accepting…' : isCode(i) ? (shipsAgain(i) ? 'Ship again' : 'Accept and ship') : 'Accept'}</button>{/if}
+				{:else if i.stage === 'proposal'}<button class="btn small" onclick={() => decideIntent(i.id, 'accept')} disabled={!allMustPass(i) || merging} title={!allMustPass(i) ? 'Every must check passes first' : isCode(i) ? (shipsAgain(i) ? 'Ship it again: its pull request is merged; the release (or main\'s failed jobs) runs again' : `Ship pull request #${i.pull_request}: in Ship at once, merged into main when its turn comes and GitHub is ready, then to production`) : i.work ? 'Applies its work: what it asked is in' : 'What it asked is in'}>{merging ? 'Accepting…' : isCode(i) ? (shipsAgain(i) ? 'Ship again' : 'Accept and ship') : 'Accept'}</button>{/if}
 			</footer>
 			{/if}
 		</div>
@@ -603,7 +582,7 @@
 				<div class="who">
 					<button class="to-board" onclick={close} title="Back to the intents (Esc)">‹ Intents</button>
 					<h2>{p.label} <span class="muted">{titleOf(p)}</span> <span class="pill">{p.status}</span></h2>
-					<p class="meta">{p.grp} · by {p.author ?? 'someone'}{#if p.via === 'mcp'}{' '}<span class="via" title="Proposed by an agent working for them over MCP">via MCP</span>{/if} · {when(p.created)}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}{#if p.intent_id && !onlyItsWork(intents.find((x) => x.id === p.intent_id))}{' · for '}<button class="link" onclick={() => openIntentOf(p.intent_id!)} title="The intent it was made for: its spec and checks">{p.intent_title}</button>{/if}</p>
+					<p class="meta">{p.grp} · by {p.author ?? 'someone'}{#if p.via === 'mcp'}{' '}<span class="via" title="Proposed by an agent working for them over MCP">via MCP</span>{/if} · {when(p.created)}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}{#if p.intent_id}{' · for '}<button class="link" onclick={() => openIntentOf(p.intent_id!)} title="The intent it was made for: its spec and checks">{p.intent_title}</button>{/if}</p>
 					{#if p.intent_spec}
 						{@const checks = p.intent_spec.checks}
 						<p class="gate small" title="The intent's checks, each as its last result: every must check passed before play took this">
@@ -719,13 +698,10 @@
 				{/if}
 			</div>
 			{/if}
-			<!-- the decision at its foot, in the middle, where a thumb reaches it on a pad (Samuel 2026-11-05): Reject on the
-			     left (it ends archived: a proposal ends accepted or archived), Accept on the right, the rest between -->
-			{#if (p.status === 'proposal' && (deciding || p.author === session.me?.name)) || review}
+			<!-- read only: what the work changes; only its intent is decided, in the intent's dialog (Samuel 2026-11-07) -->
+			{#if review}
 			<footer class="decide">
-				{#if p.status === 'proposal' && (deciding || p.author === session.me?.name)}<button class="btn small reject" onclick={() => (act(p.id, 'archive'), close())} title="Not taken: it ends archived">Reject</button>{/if}
-				{#if review}<button class="btn small ghost" class:on={showSource} onclick={() => (showSource = !showSource)}>{showSource ? 'Hide source' : review.source ? 'Source' : 'Recipe file'}</button>{/if}
-				{#if p.status === 'proposal' && deciding}<button class="btn small" onclick={() => (act(p.id, 'accept'), close())}>Accept</button>{/if}
+				<button class="btn small ghost" class:on={showSource} onclick={() => (showSource = !showSource)}>{showSource ? 'Hide source' : review.source ? 'Source' : 'Recipe file'}</button>
 			</footer>
 			{/if}
 		</div>
