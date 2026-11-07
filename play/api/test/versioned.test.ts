@@ -18,7 +18,8 @@ import { join } from "node:path";
 import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
-import type { DocType } from "../src/docs/schema";
+import { createDoc } from "../src/docs";
+import { COOP, SCHEMA } from "../src/ids";
 import { Rate } from "../src/limits";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
@@ -28,10 +29,13 @@ const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;
 
 /** the test's own kind: a gadget, a label, a count of cogs and a note */
-const GADGET: DocType = {
+/** the gadget's schema: a document of the meta-schema like every schema, made here as its test's setup */
+const GADGET_SCHEMA = "9ad9e7c0-0000-4000-8000-00000000ca75";
+const GADGET = {
+  label: "Gadget",
   name: "gadget/1",
   type: "gadget",
-  schema: {
+  node: {
     type: "object",
     required: ["schema", "label", "cogs"],
     properties: {
@@ -43,8 +47,8 @@ const GADGET: DocType = {
     },
     additionalProperties: false,
   },
-  check: (doc) => (doc.cogs === 13 ? ["a gadget never has 13 cogs"] : []),
 };
+const gadgetCheck = (doc: any) => (doc.cogs === 13 ? ["a gadget never has 13 cogs"] : []);
 
 const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  // ${line}\n  return { meta: { id, v }, build: () => null };\n};\n`;
 const SPEC = {
@@ -72,7 +76,9 @@ suite("one version control", () => {
     await initSessions(db);
     // c1's kind: its row table and its entry, here and nowhere else
     await db.query(`CREATE TABLE play.gadgets (id UUID PRIMARY KEY, coop_id UUID NOT NULL REFERENCES play.coops(id), label TEXT NOT NULL, created TIMESTAMPTZ NOT NULL DEFAULT now())`);
-    register({ name: "gadget", prefix: "gadget", type: GADGET, work: "gadget_version", table: "play.gadgets", label: "gadget", group: "gadgets", item: (j) => ({ cogs: j.cogs }) });
+    await db.query(`INSERT INTO play.records (id, coop_id, kind, label) VALUES ($1, $2, 'schema', 'Gadget')`, [GADGET_SCHEMA, COOP]);
+    await createDoc(db, { id: `schema:${GADGET_SCHEMA}`, schema: SCHEMA.meta, json: GADGET, author: { human: null, via: "import" }, version: "v1" });
+    register({ name: "gadget", prefix: "gadget", schema: GADGET_SCHEMA, check: gadgetCheck, work: "gadget_version", table: "play.gadgets", label: "gadget", group: "gadgets", item: (j) => ({ cogs: j.cogs }) });
     api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
     for (const n of ["ada", "cit"]) {
       const h = await createHuman(db, n);

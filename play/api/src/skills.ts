@@ -1,5 +1,5 @@
 // Skills (play/SPEC.md §4.14, Samuel 2026-11-06): what play teaches its agents, kept once, in play's Postgres. Each is a
-// Loro document, `skill:<id>` (skill/1, ./docs/schema.ts), one kind of ./versioned.ts, versioned as every other kind
+// Loro document, `skill:<id>` (its schema a document, ./ids.ts SCHEMA.skill), one kind of ./versioned.ts, versioned as every other kind
 // is (doc_edit, propose_doc_version; its History tab on /skills/): its `system`, its part of the system prompt every
 // agent connected over MCP gets (initialize's instructions are the system skills' parts, ./ids.ts SKILL, read on each
 // request), and the Intents skill's `stages`, what to do at each of an intent's stages (an intent's `brief`,
@@ -7,7 +7,6 @@
 // Main. `play.skills` holds each skill's id, label and group, both only shown: a skill is named by its id.
 import type { Queryable } from "./pg";
 import * as docs from "./docs";
-import { SKILL_STAGES } from "./docs/schema";
 import { SKILL } from "./ids";
 
 export class SkillError extends Error {
@@ -16,6 +15,8 @@ export class SkillError extends Error {
   }
 }
 
+/** an intent's stages, each a part of the Intents skill (./intents.ts INTENT_STAGES, the same list; the skill schema names them) */
+export const SKILL_STAGES = ["idea", "specify", "prototype", "proposal", "ship", "accepted", "archived"] as const;
 export type SkillStage = (typeof SKILL_STAGES)[number];
 export const docIdOf = (skill: string) => `skill:${skill}`;
 /** the skills whose `system` makes the system prompt, in this order: who the agent is, then the intents */

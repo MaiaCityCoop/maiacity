@@ -6,11 +6,14 @@ import { migrate } from "./migrations";
 import { connect } from "./pg";
 import { siteHandler } from "./site";
 import { shipGitHub, startShipWatcher } from "./ship";
+import { syncKinds } from "./versioned";
 
 const db = connect();
 const ran = await migrate(db);
 if (ran.length) console.log(`migrations: ${ran.join(", ")}`);
 await initSessions(db);
+// every accepted schema whose documents no kind of the code holds is a kind of its own (./versioned.ts)
+await syncKinds(db);
 // Accept ships it (./ship.ts): with SHIP_TOKEN, an admin's Accept puts an intent in Ship, and the ship watcher (every
 // 10 s) merges its pull request when its turn comes and GitHub is ready, and follows it to production; without it, Accept on a code intent is refused and says why
 const github = shipGitHub();

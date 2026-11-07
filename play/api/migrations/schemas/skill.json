@@ -1,0 +1,82 @@
+{
+  "label": "Skill",
+  "type": "skill",
+  "name": "skill/1",
+  "note": "What play teaches its agents (play/SPEC.md §4.14).",
+  "node": {
+    "type": "object",
+    "required": [
+      "schema",
+      "label",
+      "group",
+      "system"
+    ],
+    "properties": {
+      "schema": {
+        "const": "skill/1"
+      },
+      "label": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "group": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 20000,
+        "x-loro": "text"
+      },
+      "system": {
+        "type": "string",
+        "maxLength": 50000,
+        "x-loro": "text"
+      },
+      "stages": {
+        "type": "object",
+        "properties": {
+          "idea": {
+            "type": "string",
+            "maxLength": 20000,
+            "x-loro": "text"
+          },
+          "specify": {
+            "type": "string",
+            "maxLength": 20000,
+            "x-loro": "text"
+          },
+          "prototype": {
+            "type": "string",
+            "maxLength": 20000,
+            "x-loro": "text"
+          },
+          "proposal": {
+            "type": "string",
+            "maxLength": 20000,
+            "x-loro": "text"
+          },
+          "ship": {
+            "type": "string",
+            "maxLength": 20000,
+            "x-loro": "text"
+          },
+          "accepted": {
+            "type": "string",
+            "maxLength": 20000,
+            "x-loro": "text"
+          },
+          "archived": {
+            "type": "string",
+            "maxLength": 20000,
+            "x-loro": "text"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "additionalProperties": false
+  }
+}
