@@ -22,6 +22,8 @@
 	import { clipAt, clipsOf, clock, cueOf, LINK, linkedOf, moodLevel, sectionsOf, shotEdge, spansOf, type Links, type Notes, type Shot, type StoryBody, type Track, type Voice } from './timeline';
 	import { compose, feed, FRAME, seal, VENDOR } from './compose';
 	import { hashText } from '$lib/content/game/hash.js';
+	import { enginesOf, pathOf } from '$lib/kernel/engines.js';
+	import type { Live, LiveAsset } from './live';
 	import fontUrl from '../../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url';
 
 	let { story, compact = false, keys = true, list, head, side }: { story: StoryBody & { id?: string; title?: string; number?: number | null; version?: string; links?: Links | null }; compact?: boolean; keys?: boolean; list?: Snippet; head?: Snippet; side?: Snippet } = $props();
@@ -88,10 +90,29 @@
 	 *  the font come with the site, the rest are play's files */
 	const CODE: Record<string, () => Promise<{ default: string }>> = {
 		[VENDOR.runtime.hash]: () => import('../../../node_modules/@hyperframes/core/dist/hyperframe.runtime.iife.js?raw'),
-		[VENDOR.gsap.hash]: () => import('../../../node_modules/gsap/dist/gsap.min.js?raw')
+		[VENDOR.gsap.hash]: () => import('../../../node_modules/gsap/dist/gsap.min.js?raw'),
+		// a live shot's runtime (intent f270269e): frozen beside the site (scripts/live-runtime.ts --check rebuilds it)
+		[VENDOR.live.hash]: () => import('../../../vendor/live-runtime.js?raw')
 	};
+	/** the frozen box engines a live shot builds with: the site's own files, as every asset viewer's (held to their hash) */
+	const ENGINES: Record<string, string> = Object.fromEntries(enginesOf('box').map((e: { v: number; blake3: string }) => [e.blake3, pathOf('box', e.v)]));
 	const fileOf = (h: string): Promise<Blob> =>
-		CODE[h] ? CODE[h]().then((m) => new Blob([m.default])) : fetch(h === VENDOR.font.hash ? fontUrl : frameUrl(h), { credentials: 'same-origin' }).then((r) => (r.ok ? r.blob() : Promise.reject(new Error(`file ${h.slice(0, 10)}…: ${r.status}`))));
+		CODE[h] ? CODE[h]().then((m) => new Blob([m.default])) : fetch(h === VENDOR.font.hash ? fontUrl : ENGINES[h] ?? frameUrl(h), { credentials: 'same-origin' }).then((r) => (r.ok ? r.blob() : Promise.reject(new Error(`file ${h.slice(0, 10)}…: ${r.status}`))));
+	/** what play knows of each asset version a live shot draws (GET /api/assets/<its UUID>): its recipe, pieces and engine */
+	async function liveAssets(bodies: StoryBody[]): Promise<Record<string, LiveAsset>> {
+		const lives = bodies.flatMap((b) => clipsOf<Shot>(b, 'shots')).map((x) => x.live as Live | undefined).filter((l): l is Live => !!l && typeof l.asset === 'string');
+		const out: Record<string, LiveAsset> = {};
+		await Promise.all([...new Set(lives.map((l) => l.asset))].map(async (id) => {
+			const r = await fetch(`/api/assets/${encodeURIComponent(id)}`, { credentials: 'same-origin' }).catch(() => null);
+			if (!r?.ok) return;
+			const a = await r.json();
+			const pieces = (v: any) => (Array.isArray(v?.pieces) ? v.pieces.map((p: any) => (typeof p === 'string' ? p : p?.hash)).filter((p: unknown) => typeof p === 'string') : []);
+			for (const v of a.versions ?? [])
+				if (v.recipe || v.variants?.length)
+					out[v.id] = { asset: id, version: v.id, recipe: v.recipe ?? v.variants.find((x: any) => x.name === v.defaultVariant)?.recipe, pieces: pieces(v), engine: v.engine ?? 1, variants: Object.fromEntries((v.variants ?? []).map((x: any) => [x.name, { recipe: x.recipe, pieces: pieces(v) }])) };
+		}));
+		return out;
+	}
 	/** the playhead's last word from the player, and when it came: between two, t runs on by the clock; a word older than
 	 *  the last seek is not taken (the player answers a seek a moment later) */
 	let base = { t: 0, at: 0 };
@@ -134,10 +155,11 @@
 	async function make(s: typeof story, links: Links, key: string) {
 		const want = [...new Set([s, ...Object.values(links).map((l) => l.body)].filter(Boolean).flatMap((b) => clipsOf<Shot>(b, 'shots')).map((x) => x.composition).filter((h): h is string => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h)))];
 		const got = await Promise.all(want.map((h) => fetch(frameUrl(h)).then((r) => (r.ok ? r.text() : '')).then((text) => (hashText(text) === h ? [[h, text]] : [])).catch(() => [])));
+		const assets = await liveAssets([s, ...Object.values(links).map((l) => l.body)].filter(Boolean) as StoryBody[]);
 		if (made !== key) return;
 		film = 'loading';
 		try {
-			hf.setAttribute('srcdoc', seal(compose(s, links, Object.fromEntries(got.flat()))));
+			hf.setAttribute('srcdoc', seal(compose(s, links, Object.fromEntries(got.flat()), assets)));
 		} catch (e) {
 			film = 'failed';
 			failure = String((e as Error)?.message ?? e);
