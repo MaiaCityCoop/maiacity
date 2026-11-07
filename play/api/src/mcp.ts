@@ -512,7 +512,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           title: { type: "string", maxLength: TITLE_MOST, description: "a sharper title, if it needs one" },
           kind: { type: "string", enum: [...INTENT_KINDS] },
           note: { type: "string", description: "a new note, if it needs one" },
-          depends_on: { type: "array", items: { type: "string (given, it replaces those before; left out, they stay)" }, description: "the intents it depends on, each by its id (a UUID): while any of them is not shipped (Accepted) it is held at every forward gate (approve, Proposal, accept, Ship); no edge to itself, none closing a cycle (given, it replaces those before; left out, they stay)" },
+          depends_on: { type: "array", items: { type: "string" }, description: "the intents it depends on, each by its id (a UUID): while any of them is not shipped (Accepted) it is held at every forward gate (approve, Proposal, accept, Ship); no edge to itself, none closing a cycle (given, it replaces those before; left out, they stay)" },
         },
         required: ["intent", "goal", "scope", "checks"],
         additionalProperties: false,
