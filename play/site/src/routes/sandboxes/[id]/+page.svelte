@@ -4,7 +4,7 @@
 	(sandbox:<uuid>, play/api/src/sandboxes.ts, one kind of play/api/src/versioned.ts). The sandboxes' pages have no
 	Frame, so its History is here: on the left the sandboxes, in the middle the layout picked, as it stands at the version
 	or edit picked (or as an intent's work would make it, `?intent=<id>`), with the world to open just so; on the right
-	its History tab ($lib/app/History.svelte, the one History of every view). A layout changes only by proposal, over MCP
+	the one aside ($lib/app/Aside.svelte: its Info and History). A layout changes only by proposal, over MCP
 	(doc_edit with its pin, pin_latest, unpin, set and delete; propose_doc_version), decided on the intents' board.
 	`?v=<n>` one of its versions. Admins only.
 -->
@@ -15,7 +15,7 @@
 	import { session } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
-	import History, { type Pick } from '$lib/app/History.svelte';
+	import Aside, { type Pick } from '$lib/app/Aside.svelte';
 
 	type Item = { id: string; label: string; number: number; versions: number; pins: number; configs: string[] };
 	type PinShown = { slot: string; asset: string | null; label: string | null; number: number | null; variant: string | null; usedVariant: string | null; params: Record<string, string> | null };
@@ -83,32 +83,13 @@
 	{/each}
 {/snippet}
 
-{#snippet head()}
-	{#if layout}
-		<header class="about-head">
-			<small>Sandboxes · its layout</small>
-			<h3>{layout.json.title}</h3>
-			{#if layout.intent}
-				<p class="asif">As its intent's work would make it{layout.intent.status === 'proposal' ? '' : ` (${layout.intent.status})`}: “{layout.intent.note}” <a href="/sandboxes/{layout.id}/" onclick={(e) => (e.preventDefault(), at(layout!.id))}>its newest version</a></p>
-			{:else if layout.edit}
-				<p class="asif">As it stood at an edit of its history: <a href="/sandboxes/{layout.id}/" onclick={(e) => (e.preventDefault(), at(layout!.id))}>its newest version</a></p>
-			{:else if layout.version !== layout.number}
-				<p class="asif">Version {layout.version}, not its newest: <a href="/sandboxes/{layout.id}/" onclick={(e) => (e.preventDefault(), at(layout!.id))}>v{layout.number}</a></p>
-			{/if}
-		</header>
-	{/if}
-{/snippet}
-
-{#snippet history()}
-	{#if layout}
-		<History doc={layout.id} shown={wantV ? Number(wantV) : layout.number} label="the layout" intent={layout.intent?.id ?? null} onPick={picked} />
-		<p class="soft propose">Propose v{layout.number + 1} over MCP (doc_edit with pin, pin_latest, unpin, set and delete; propose_doc_version); it is decided in <a href="/intents/">Intents</a>, and the world draws it once accepted.</p>
-	{/if}
+{#snippet side()}
+	<Aside doc={layout!} where="Sandboxes · its layout" label={layout!.json.title} shown={wantV ? Number(wantV) : null} propose="Propose v{layout!.number + 1} over MCP (doc_edit with pin, pin_latest, unpin, set and delete; propose_doc_version): the world draws it once accepted." onPick={picked} />
 {/snippet}
 
 {#if admin}
 	<div class="layouts">
-		<Frame nav={list.length ? shelf : undefined} asideHead={layout ? head : undefined} history={layout ? history : undefined} navLabel="The sandboxes" asideLabel="The layout's history" navIcon="board">
+		<Frame nav={list.length ? shelf : undefined} aside={layout ? side : undefined} navLabel="The sandboxes" asideLabel="The layout's history" navIcon="board">
 			<article class="body">
 				{#if error}<p class="bad">{error}</p>{/if}
 				{#if layout}
@@ -159,10 +140,5 @@
 	.btn { display: inline-block; }
 	.bad { color: var(--terracotta, #c23a22); }
 	.none { padding: 0.4rem 0.6rem; font-size: 0.84rem; }
-	.about-head { margin: 0 0 0.9rem 0.35rem; }
-	.about-head small { color: var(--accent); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
-	.about-head h3 { margin: 0.15rem 0 0.3rem; font-size: 1.15rem; font-family: var(--font-body); font-weight: 600; }
-	.asif { margin: 0.4rem 0 0.5rem; padding: 0.45rem 0.6rem; border-radius: 8px; background: var(--mustard-soft, rgb(232 178 60 / 0.18)); font-size: 0.78rem; line-height: 1.4; }
-	.propose { margin: 0 0 1.2rem 0.35rem; font-size: 0.76rem; }
 	@media (max-width: 640px) { .pins li { grid-template-columns: minmax(0, 1fr); gap: 0.1rem; } }
 </style>

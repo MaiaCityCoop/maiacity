@@ -4,9 +4,8 @@
 	works. Admins only. A viewer: a story changes only by proposal, over MCP (play/api/src/mcp.ts), decided on the
 	intents' board; any accepted version, or any edit of its history, can be played again from its History tab.
 	Laid out with the player (Samuel 2026-11-04): the list on the left only as tall as the picture, the title above the
-	picture, the History tab ($lib/app/History.svelte, the one History of every view: its versions top down, each one's
-	edits folded under it, the scrubber over every edit) at the top of the rail on the right with the notes, the
-	timeline across the whole width below.
+	picture, the notes in the player's rail, the timeline across the whole width below; on the right, in Frame, the one
+	aside ($lib/app/Aside.svelte; Samuel 2026-11-07): its Info (format, length, who links it) and its History.
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
@@ -14,7 +13,8 @@
 	import { session } from '$lib/session.svelte';
 	import { goto } from '$app/navigation';
 	import StoryPlayer from '$lib/stories/StoryPlayer.svelte';
-	import History, { type ChainVersion, type Pick } from '$lib/app/History.svelte';
+	import Frame from '$lib/app/Frame.svelte';
+	import Aside, { type ChainVersion, type Pick } from '$lib/app/Aside.svelte';
 	import { clock, type Story } from '$lib/stories/timeline';
 
 	type Item = { id: string; title: string; number: number; versions: number; duration: number; shots: number; tracks: number; updated: string; cover: string | null };
@@ -107,43 +107,38 @@
 {/snippet}
 
 {#snippet headRow()}
-	{#if story}
-		<header class="head">
-			<h2 title={story.title}>{story.title}</h2>
-			<p class="muted small meta" title={story.note}>{story.format} · {story.fps} fps · {clock(story.duration)} · {story.tracks.length} tracks{story.note ? ` · ${story.note.split('\n')[0]}` : ''}</p>
-			<!-- the stories whose newest version links this one, and which version of it each plays (Samuel 2026-11-04) -->
-			{#if story.linked_by?.length}
-				<p class="muted small meta">Linked by {#each story.linked_by as b, i (b.id + b.version)}{i ? ', ' : ''}<a href="#{b.id}">{b.title}</a> at v{b.plays ?? '?'}{/each}</p>
-			{/if}
-			{#if error}<p class="error">{error}</p>{/if}
-		</header>
-	{/if}
+	<header class="head"><h2 title={story!.title}>{story!.title}</h2>{#if error}<p class="error">{error}</p>{/if}</header>
 {/snippet}
 
-<!-- the rail's top: its History tab, the one History of every view -->
-{#snippet sideTop()}
-	{#if story}
-		<div class="tabs" role="tablist"><button role="tab" aria-selected="true" class="on">History</button></div>
-		<History doc={story.id} shown={version ?? versions[0]?.number ?? null} label="the story" versions={chainOf(versions)} onPick={picked_} />
-	{/if}
+{#snippet side()}
+	<Aside doc={{ id: story!.id, kind: 'story', number: versions[0]?.number, version: version ?? undefined, edit: atEdit ?? undefined }} where="Stories" label={story!.title} versions={chainOf(versions)} propose="Propose its next version over MCP (doc_edit, propose_doc_version)." onPick={picked_}>
+		{#snippet info()}
+			<p class="muted small">{story!.format} · {story!.fps} fps · {clock(story!.duration)} · {story!.tracks.length} tracks</p>
+			<!-- the stories whose newest version links this one, and which version of it each plays (Samuel 2026-11-04) -->
+			{#if story!.linked_by?.length}<p class="muted small">Linked by {#each story!.linked_by as b, i (b.id + b.version)}{i ? ', ' : ''}<a href="#{b.id}">{b.title}</a> at v{b.plays ?? '?'}{/each}</p>{/if}
+		{/snippet}
+	</Aside>
 {/snippet}
 
 {#if admin}
-	<main class="stories" class:framed={!!story}>
-		{#if story}
-			<!-- one player for every version and step, so the history bar keeps hold while it is dragged -->
-			<StoryPlayer {story} list={listCol} head={headRow} side={sideTop} />
-		{:else}
-			{@render listCol()}
-			<section class="main">
-				{#if error}<p class="error">{error}</p>{:else if loading}<p class="muted">Reading it…</p>{/if}
-			</section>
-		{/if}
-	</main>
+	<div class="storyframe"><Frame aside={story ? side : undefined} asideLabel="The story's info and history">
+		<main class="stories" class:framed={!!story}>
+			{#if story}
+				<!-- one player for every version and step, so the history bar keeps hold while it is dragged -->
+				<StoryPlayer {story} list={listCol} head={headRow} />
+			{:else}
+				{@render listCol()}
+				<section class="main">
+					{#if error}<p class="error">{error}</p>{:else if loading}<p class="muted">Reading it…</p>{/if}
+				</section>
+			{/if}
+		</main>
+	</Frame></div>
 {/if}
 
 <style>
-	.stories { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: 0.9rem; padding: 1rem 1rem var(--nav-room, 6rem); min-height: 100vh; box-sizing: border-box; }
+	.storyframe { position: fixed; inset: 0; background: var(--cream); --soft: rgb(38 56 44 / 0.6); --accent: var(--brand-green); }
+	.stories { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: 0.9rem; padding: 0.6rem 0 var(--nav-room, 6rem); box-sizing: border-box; }
 	.stories.framed { display: block; }
 	.list { display: grid; align-content: start; gap: 0.35rem; }
 	.list h1 { font-size: 1.15rem; margin: 0.2rem 0 0.5rem; }
@@ -159,11 +154,7 @@
 	.main { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.8rem; align-content: start; }
 	.head { min-width: 0; }
 	.head h2 { margin: 0; font-size: 1.2rem; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
-	.head .meta { margin: 0.15rem 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.head .error { margin: 0.3rem 0 0; }
-	/* the rail's tab: History */
-	.tabs { display: flex; gap: 4px; margin: 0 0 0.6rem; }
-	.tabs button { font: inherit; font-size: 0.82rem; padding: 0.35rem 0.8rem; border-radius: 999px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); }
 	@media (max-width: 820px) {
 		.stories { grid-template-columns: 1fr; }
 		.list { grid-auto-flow: column; grid-auto-columns: 10rem; overflow-x: auto; }

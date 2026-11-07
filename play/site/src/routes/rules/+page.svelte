@@ -1,8 +1,8 @@
 <!--
 	Rules (play/SPEC.md §4.12 "Auto-accept rules"; intent de24f1c5, Samuel 2026-11-07): the one rule set, a document
 	`rules:<uuid>` of its own schema, read here, its rules in order (the first that matches an intent at a gate it names
-	decides it there with no person) and its History tab on the right ($lib/app/History.svelte, the one History of every
-	view). It changes only by an intent's Accept, over MCP (doc_edit, propose_doc_version); an intent whose work changes
+	decides it there with no person) and the one aside on the right ($lib/app/Aside.svelte: its Info and
+	History). It changes only by an intent's Accept, over MCP (doc_edit, propose_doc_version); an intent whose work changes
 	the rules or their schema is never decided by a rule. `?v=<n>` one of its versions, `?rules=<hash>` the version of
 	that content hash (what an auto decision names), `&rule=<uuid>` one rule marked. Admins only.
 -->
@@ -12,7 +12,7 @@
 	import { api } from '$lib/api';
 	import { session } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
-	import History, { type Pick } from '$lib/app/History.svelte';
+	import Aside, { type Pick } from '$lib/app/Aside.svelte';
 
 	type Match = Record<string, unknown>;
 	type Rule = { id: string; label: string; gates: string[]; match: Match; reason: string };
@@ -79,30 +79,13 @@
 
 <svelte:head><title>Rules · maiaCITY play</title></svelte:head>
 
-{#snippet head()}
-	{#if set}
-		<header class="about-head">
-			<small>Rules · owned by Maia City</small>
-			<h3>{set.json.label}</h3>
-			{#if set.edit}
-				<p class="asif">As it stood at an edit of its history: <a href="?" onclick={(e) => (e.preventDefault(), at())}>its newest version</a></p>
-			{:else if shownVersion !== set.number}
-				<p class="asif">Version {shownVersion}, not its newest: <a href="?" onclick={(e) => (e.preventDefault(), at())}>v{set.number}</a></p>
-			{/if}
-		</header>
-	{/if}
-{/snippet}
-
-{#snippet history()}
-	{#if set}
-		<History doc={set.id} shown={shownVersion ?? set.number} label="the rules" intent={null} onPick={picked} />
-		<p class="soft propose">Propose v{set.number + 1} over MCP (doc_edit, propose_doc_version) as an intent's work; it is decided in <a href="/intents/">Intents</a>, always by a person.</p>
-	{/if}
+{#snippet side()}
+	<Aside doc={set!} where="Rules" label={set!.json.label} shown={shownVersion} propose="Propose v{set!.number + 1} over MCP (doc_edit, propose_doc_version) as an intent's work, always decided by a person." onPick={picked} />
 {/snippet}
 
 {#if admin}
 	<div class="rules">
-		<Frame asideHead={set ? head : undefined} history={set ? history : undefined} asideLabel="The rules' history">
+		<Frame aside={set ? side : undefined} asideLabel="The rules' history">
 			<article class="body">
 				{#if error}<p class="bad">{error}</p>{/if}
 				{#if set}
@@ -160,9 +143,4 @@
 	.match { margin: 0; padding-left: 1.1rem; font-size: 0.84rem; }
 	.id { margin: 0.4rem 0 0; font-size: 0.74rem; }
 	.bad { color: var(--terracotta, #c23a22); }
-	.about-head { margin: 0 0 0.9rem 0.35rem; }
-	.about-head small { color: var(--accent); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
-	.about-head h3 { margin: 0.15rem 0 0.3rem; font-size: 1.15rem; font-family: var(--font-body); font-weight: 600; }
-	.asif { margin: 0.4rem 0 0.5rem; padding: 0.45rem 0.6rem; border-radius: 8px; background: var(--mustard-soft, rgb(232 178 60 / 0.18)); font-size: 0.78rem; line-height: 1.4; }
-	.propose { margin: 0 0 1.2rem 0.35rem; font-size: 0.76rem; }
 </style>
