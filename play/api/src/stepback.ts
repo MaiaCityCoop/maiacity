@@ -43,8 +43,8 @@ export async function stepBack(db: Queryable, me: Me | null, id: string, reason:
   const step: Step = { at: new Date().toISOString(), by: who.name, human: who.id, via: "mcp", from: intent.stage, to, reason: why, ...(to === "idea" ? { spec: intent.spec } : {}) };
   await db.query(
     to === "specify"
-      ? `UPDATE play.intents SET stage = 'specify', approved_by = NULL, approved_at = NULL, results = NULL, steps = steps || ($2::text)::jsonb WHERE id = $1`
-      : `UPDATE play.intents SET stage = 'idea', spec = NULL, specified_by = NULL, specified_at = NULL, approved_by = NULL, approved_at = NULL, results = NULL,
+      ? `UPDATE play.intents SET stage = 'specify', approved_by = NULL, approved_at = NULL, results = NULL, auto = '{}'::jsonb, steps = steps || ($2::text)::jsonb WHERE id = $1`
+      : `UPDATE play.intents SET stage = 'idea', spec = NULL, specified_by = NULL, specified_at = NULL, approved_by = NULL, approved_at = NULL, results = NULL, auto = '{}'::jsonb,
                 steps = steps || ($2::text)::jsonb WHERE id = $1`,
     [intent.id, JSON.stringify([step])],
   );

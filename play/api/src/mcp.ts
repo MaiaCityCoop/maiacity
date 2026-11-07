@@ -21,10 +21,11 @@
 import type { BlobStore } from "./blobs";
 import type { Db } from "./pg";
 import type { Me } from "./access";
+import type { GitHub } from "./ship";
 import { assetOf, listAssets, NotFound } from "./assets";
 import { archiveOwn, docAt, docEdit, docHistory, kinds, listDocs, proposeDocVersion, reviewOf, syncKinds, VersionError, workKinds } from "./versioned";
 import { NO_INTENT, WorkError } from "./work";
-import { addIntent, CHECK_HOWS, CHECKS_MOST, dependIntent, getIntent, intentOf, IntentError, intentReady, INTENT_KINDS, INTENT_STAGES, LINE_MOST, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES } from "./intents";
+import { addIntent, autoMove, CHECK_HOWS, CHECKS_MOST, dependIntent, getIntent, intentOf, IntentError, intentReady, INTENT_KINDS, INTENT_STAGES, LINE_MOST, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES } from "./intents";
 import { stepBack } from "./stepback";
 import { instructionsOf, promptOf, promptsOf, SkillError } from "./skills";
 import { adminByToken } from "./tokens";
@@ -109,7 +110,16 @@ const EDITS =
   "{ op: 'pin_latest', asset, variant? } moves every slot that pins the asset to its newest version; { op: 'unpin', slot } (no config may still name it); " +
   "{ op: 'set', config, path, value } sets the value at a path of a config (['outside', 'trees', 3, 'weight']; an index one past the end adds an item; path [] sets the whole config, a new one too); { op: 'delete', config, path } removes it (path []: the whole config). A config names an asset only by { slot }, never by a ref.";
 
-export function mcp({ db, store }: { db: Db; store: BlobStore }) {
+export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobStore; github?: GitHub | null; commit?: string | null }) {
+  // an intent that reached Specify or Proposal is asked of the auto-accept rules (./intents.ts autoMove, ./rules.ts)
+  const auto = async <R extends Record<string, any>>(out: R, me: Me | null, id?: unknown): Promise<R> => {
+    const intent = `${id ?? out?.intent ?? out?.id ?? ""}`;
+    if (!intent) return out;
+    const moved = await autoMove({ db, store }, intent, { me, gh: github, commit });
+    if (!moved) return out;
+    const now = await getIntent(db, intent);
+    return { ...out, stage: now.stage, auto: now.auto, ...(moved.refused ? { auto_refused: moved.refused } : {}) };
+  };
   const tools: Tool[] = [
     {
       name: "list_assets",
@@ -452,11 +462,17 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           note: { type: "string", description: "the rest: where, what and why (Markdown)" },
           kind: { type: "string", enum: [...INTENT_KINDS], description: "idea (something new), fix (something wrong) or improve (something there, made better); idea if left out" },
           depends_on: { type: "array", items: { type: "string" }, description: "the intents it depends on, each by its id (a UUID): while any of them is not shipped (Accepted) it is held at every forward gate (approve, Proposal, accept, Ship); no edge to itself, none closing a cycle" },
+          work_kind: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "the kinds of work it will bring, declared up front: each a schema's UUID (an artifact's, an asset's, a story's …: list_docs with kind schema gives them) or code (a pull request). Work of another kind is refused; an auto-accept rule may match on it (Approve spec before anything is built). Left out or empty, it declares nothing: any kind, and no rule naming work_kind matches it",
+          },
         },
         required: ["title"],
         additionalProperties: false,
       },
-      run: async ({ title, note, kind, depends_on }, me) => addIntent(db, me, { title, note, kind, depends_on }),
+      run: async ({ title, note, kind, depends_on, work_kind }, me) => addIntent(db, me, { title, note, kind, depends_on, work_kind }),
     },
     {
       name: "depend_intent",
@@ -513,11 +529,18 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           kind: { type: "string", enum: [...INTENT_KINDS] },
           note: { type: "string", description: "a new note, if it needs one" },
           depends_on: { type: "array", items: { type: "string" }, description: "the intents it depends on, each by its id (a UUID): while any of them is not shipped (Accepted) it is held at every forward gate (approve, Proposal, accept, Ship); no edge to itself, none closing a cycle (given, it replaces those before; left out, they stay)" },
+          work_kind: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "the kinds of work it will bring, declared up front: each a schema's UUID (an artifact's, an asset's, a story's …: list_docs with kind schema gives them) or code (a pull request). Work of another kind is refused; an auto-accept rule may match on it (Approve spec before anything is built). Given, it replaces the declaration (only while the intent holds no work); left out, it stays; empty, it declares nothing: any kind, and no rule naming work_kind matches it",
+          },
         },
         required: ["intent", "goal", "scope", "checks"],
         additionalProperties: false,
       },
-      run: async ({ intent, goal, scope, checks, nothing_to_reduce, title, kind, note, depends_on }, me) => specifyIntent(db, me, `${intent ?? ""}`, { goal, scope, checks, nothing_to_reduce, title, kind, note, depends_on }),
+      run: async ({ intent, goal, scope, checks, nothing_to_reduce, title, kind, note, depends_on, work_kind }, me) =>
+        auto(await specifyIntent(db, me, `${intent ?? ""}`, { goal, scope, checks, nothing_to_reduce, title, kind, note, depends_on, work_kind }), me),
     },
     {
       name: "step_back_intent",
@@ -565,7 +588,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         required: ["intent"],
         additionalProperties: false,
       },
-      run: async ({ intent, results, pr }, me) => recordChecks(db, me, `${intent ?? ""}`, results, pr),
+      run: async ({ intent, results, pr }, me) => auto(await recordChecks(db, me, `${intent ?? ""}`, results, pr), me),
     },
     {
       name: "archive_intent",
@@ -621,7 +644,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         `summary, a small report on the overall topic (Markdown, ${SUMMARY_WORDS.least}–${SUMMARY_WORDS.most} words, in the sections ## What it is (who made it, what kind of thing, when, from which angle), ## Key points (its claims, findings and numbers as bullets, as the artifact puts them), ## The topic (the wider subject: what it is, where this artifact stands in it, what else is known or disputed), and if you like ## For Maia City last (where it bears on our work); what the artifact says in the first two, what you know beyond it only in ## The topic). ` +
         "Authors: call list_authors first and name an author already kept by their id; add a new one { name, kind: person | organization, url? } only when none is them (two of one name stay two: never guess by a name). Where no person is named, its publisher (a site, a channel, a lab) is its author, as an organization. " +
         "One link is one artifact: links are compared without their #fragment, utm_*, fbclid and gclid and a trailing slash, and a YouTube video is one link however it is written; a link already kept answers with that artifact and kept: true (correct it with update_artifact), one an intent's work waits with answers with that intent. " +
-        "An artifact is a document like any other: adding one proposes its first version, as the work of the intent named (\`intent\`, held to its gate: no work without an intent), and it is kept (listed, read) once an admin accepts that intent. " +
+        "An artifact is a document like any other: adding one proposes its first version as an intent's work. Named (\`intent\`, held to its gate), it is that intent's, kept once an admin accepts it; left out, play makes the artifact's own intent, declaring the artifact, which the auto-accept rules decide in the same call (the first rule, artifacts need no tap: kept at once, the answer at stage accepted). " +
         "Give text, the page's readable text as you fetched it, to keep a copy: links rot and pages change.",
       inputSchema: {
         type: "object",
@@ -660,7 +683,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     {
       name: "update_artifact",
       description:
-        "Correct a kept artifact: any of its link, title, description, summary, kind, tags, published date, authors (the whole list, in order, as in add_artifact) and text, each held to the same form as in add_artifact. Its origin and who brought it never change. The correction is its next version proposed, as the work of the intent named (\`intent\`, held to its gate: no work without an intent): the artifact stays as it is until an admin accepts it (doc_history shows every accepted change).",
+        "Correct a kept artifact: any of its link, title, description, summary, kind, tags, published date, authors (the whole list, in order, as in add_artifact) and text, each held to the same form as in add_artifact. Its origin and who brought it never change. The correction is its next version proposed as an intent's work: named (\`intent\`, held to its gate), the artifact stays as it is until an admin accepts that intent; left out, play makes its own intent, which the auto-accept rules decide in the same call (the first rule: corrected at once). doc_history shows every accepted change.",
       inputSchema: {
         type: "object",
         properties: {
@@ -708,17 +731,26 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
   // work it held; without one nothing is taken. Every propose tool gives back the intent (`intent`, at stage proposal)
   for (const t of tools) {
     if (!t.name.startsWith("propose_") && t.name !== "add_artifact" && t.name !== "update_artifact") continue;
+    // an artifact added or corrected without one makes its own (./artifacts.ts): the first rule needs no tap for it
+    const own = t.name === "add_artifact" || t.name === "update_artifact";
     (t.inputSchema.properties as Record<string, unknown>).intent = {
       type: "string",
       description: "the intent this is the work of, by its id (a UUID: list_intents gives it), in Build or at Proposal: its spec approved and every must check passed (check_intent), or nothing is proposed; it moves to Proposal with this work, replacing any it held. No work without an intent: add_intent adds one, specify_intent specifies it",
     };
     const req = (t.inputSchema.required ??= []) as string[];
-    if (!req.includes("intent")) req.push("intent");
+    if (!req.includes("intent") && !own) req.push("intent");
+    if (own)
+      (t.inputSchema.properties as Record<string, any>).intent.description =
+        "the intent this is the work of, by its id (a UUID), in Build or at Proposal with every must check passed, held to its gate. Left out, it makes its own: an intent declaring the artifact, its spec play's, approved and accepted in the same request where a rule matches (the first: artifacts need no tap), else waiting for a person";
     const run = t.run;
     t.run = async ({ intent, ...args }, me) => {
-      if (intent === undefined || intent === null || intent === "") throw new WorkError(NO_INTENT, 400);
+      if (intent === undefined || intent === null || intent === "") {
+        if (own) return run(args, me);
+        throw new WorkError(NO_INTENT, 400);
+      }
       const ready = await intentReady(db, me, intent);
-      return run({ ...args, intent: ready.id }, me);
+      // its work proposed, the intent at Proposal: asked of the rules
+      return auto((await run({ ...args, intent: ready.id }, me)) as Record<string, any>, me, ready.id);
     };
   }
 

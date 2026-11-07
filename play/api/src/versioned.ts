@@ -32,7 +32,8 @@ import { NOTE_MOST } from "./notes";
 import { UUID } from "./uuid";
 import { closeWork, NO_INTENT, putAtProposal, settle, WORK_OF, workOf, WorkError } from "./work";
 import { decideLayout, ensureLayoutDoc, layoutReview, layoutShown, layoutView, layoutWrite, sandboxCheck } from "./sandboxes";
-import { decideIntent, getIntent, gate, IntentError, mustDecide, type IntentVerdict } from "./intents";
+import { autoAfter, byOf, decideIntent, getIntent, gate, IntentError, mustDecide, type IntentVerdict } from "./intents";
+import type { AutoBy } from "./rules";
 import { acceptAndShip, acceptCode, runningCommit, type GitHub } from "./ship";
 import { assetDocFor, assetEdits, assetReview, decideAsset, ensureAssetDoc, proposeAssetVariant } from "./assetdocs";
 import { decideStory, proposeStoryVariant, storyEdit, storyReview } from "./stories";
@@ -686,7 +687,7 @@ export async function decideDoc(tx: Queryable, me: Me, p: any, verdict: Verdict)
     const cols = { [k.labelColumn ?? "label"]: preview.json.label ?? preview.json.title, ...Object.fromEntries(Object.entries(k.row ?? {}).map(([c, f]) => [c, f(preview.json)])) };
     const names = Object.keys(cols).map(qi);
     await tx.query(`UPDATE ${qi(k.table)} SET ${names.map((c, i) => `${c} = $${i + 2}`).join(", ")} WHERE id = $1`, [docId.split(":")[1], ...Object.values(cols)]);
-    await settle(tx, p.id, "accepted", me.id);
+    await settle(tx, p.id, "accepted", byOf(me));
     return { id: p.id as string, status: "accepted" as const, number: named_.number, ...(preview.concurrent ? { merged: true } : {}) };
   });
 }
@@ -749,7 +750,7 @@ export async function decideWork(tx: Queryable, ctx: Ctx, me: Me, p: any, verdic
       numbers.push(v.number);
     }
     if (first) return { ...first, ...(numbers.length ? { numbers } : {}) };
-    await settle(tx, p.id, "accepted", me.id);
+    await settle(tx, p.id, "accepted", byOf(me));
     return { id: p.id as string, status: "accepted" as const, number: numbers[0], ...(numbers.length > 1 ? { numbers } : {}), ...(merges[0]?.preview.concurrent ? { merged: true } : {}) };
   });
 }
@@ -828,10 +829,20 @@ export async function decide(ctx: Ctx, me: Me | null, id: string, verdict: Verdi
  * (./ship.ts acceptAndShip), and one whose code is on main by its trailer is the reconcile's (./ship.ts acceptCode,
  * Accepted once play runs it). Gives back the intent, with the decision's message where it has one.
  */
-export async function decideAny(ctx: Ctx, me: Me | null, id: string, verdict: IntentVerdict | "archive", gh: GitHub | null = null, commit = runningCommit()) {
+export async function decideAny(ctx: Ctx, me: Me | null, id: string, verdict: IntentVerdict | "archive", gh: GitHub | null = null, commit = runningCommit(), by?: AutoBy) {
   const db = ctx.db;
   const w = await workOf(db, id);
   if (!w) throw new IntentError("There is no such intent.", 404);
+  // a rule decides (./intents.ts autoMove): a person's path, the rule written as who decided
+  if (by && me) me = { ...me, auto: by };
+  const out = await decideOne(ctx, me, w, verdict, gh, commit);
+  // a person's Accept: the intents it held are asked again (a rule may move them now); a rule's asks itself
+  if (!by && out?.stage === "accepted" && w.stage !== "accepted") await autoAfter(ctx, w.id, { me, gh, commit });
+  return out;
+}
+
+async function decideOne(ctx: Ctx, me: Me | null, w: any, verdict: IntentVerdict | "archive", gh: GitHub | null, commit: string | null) {
+  const db = ctx.db;
   if (verdict === "accept" && !w.kind) {
     const shipped = (await acceptAndShip(db, gh, me, w.id)) ?? (await acceptCode(db, gh, me, w.id, commit));
     if (shipped) return shipped;

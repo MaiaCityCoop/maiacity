@@ -12,7 +12,7 @@
 // play only calls GitHub's API with SHIP_TOKEN, which never leaves this server.
 import { COOP, type Me } from "./access";
 import type { Db } from "./pg";
-import { admin, gate, getIntent, IntentError, mustMove } from "./intents";
+import { admin, autoMove, byOf, decisions, gate, getIntent, IntentError, mustMove } from "./intents";
 import { carrySeen, mainMergeState, mergeMain, type MainMergeState } from "./mainmerge";
 import { checksSeen, decidable, prBlock, sub, type PrSeen } from "./substate";
 
@@ -246,7 +246,8 @@ function stepsFor(at: string, from: Step[], restart: Pending["kind"]): Step[] {
 const saveShip = (q: Pick<Db, "query">, id: string, ship: Ship, stage: "ship" | "proposal") =>
   q.query(
     `UPDATE play.intents SET ship = ($2::text)::jsonb, stage = $3, decided_by = CASE WHEN $3 = 'proposal' THEN NULL ELSE decided_by END,
-            decided_at = CASE WHEN $3 = 'proposal' THEN NULL ELSE decided_at END WHERE id = $1 AND stage = 'ship'`,
+            decided_at = CASE WHEN $3 = 'proposal' THEN NULL ELSE decided_at END, auto = CASE WHEN $3 = 'proposal' THEN auto - 'accept' ELSE auto END
+      WHERE id = $1 AND stage = 'ship'`,
     [id, JSON.stringify(ship), stage],
   );
 
@@ -284,6 +285,8 @@ const keepSeen = (q: Pick<Db, "query">, id: string, seen: PrSeen) => q.query(`UP
  */
 export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, id: string) {
   const me = admin(who);
+  // who Accepted, as the ship shows it: a person, or a rule (./rules.ts)
+  const who_ = me.auto ? `rule ${me.auto.label}` : me.name;
   const first = await getIntent(db, id);
   if (first.work || !first.pull_request) return null;
   await mustMove(db, first, "ship");
@@ -310,7 +313,7 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
       const again = was!.again === "main" && was!.main_run ? "main" : "release";
       ship = {
         ...was!,
-        by: me.name,
+        by: who_,
         round: was!.round + 1,
         accepted: at,
         front: undefined,
@@ -328,10 +331,11 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
       };
     } else {
       const head = pr.head.sha;
-      ship = { pr: pr.number, head, merge: "", by: me.name, round: (was?.round ?? 0) + 1, accepted: at, started: at, steps: stepsFor(at, [], "merge"), report: null, pending: { kind: "merge", head } };
+      ship = { pr: pr.number, head, merge: "", by: who_, round: (was?.round ?? 0) + 1, accepted: at, started: at, steps: stepsFor(at, [], "merge"), report: null, pending: { kind: "merge", head } };
     }
-    await tx.query(`UPDATE play.intents SET stage = 'ship', ship = ($2::text)::jsonb, decided_by = $3, decided_at = now() WHERE id = $1`, [intent.id, JSON.stringify(ship), me.id]);
-    console.log(`ship: intent ${intent.id} accepted by ${me.name}: in Ship (#${ship.pr}, ${ship.pending!.kind})`);
+    // the one decision path (./intents.ts decided): a person's Accept, or a rule's
+    await decisions.decided(tx, intent.id, "ship", byOf(me), { ship });
+    console.log(`ship: intent ${intent.id} accepted by ${who_}: in Ship (#${ship.pr}, ${ship.pending!.kind})`);
   });
   // its turn at once, where no ship is ahead of it; else the watcher starts it
   await startIfReady(db, gh!, first.id).catch((e) => console.warn(`ship: intent ${first.id} not started yet: ${(e as Error).message}`));
@@ -606,7 +610,10 @@ export async function watchPulls(db: Db, gh: GitHub, at = Date.now()) {
       await keepSeen(db, id, carrySeen(pr_seen, (await readPull(gh, pull_request, at)).seen));
     } catch (e) {
       console.warn(`ship: #${pull_request} of intent ${id} not read: ${(e as Error).message}`);
+      continue;
     }
+    // GitHub ready since it reached Proposal: an auto-accept rule may take it now (./intents.ts autoMove)
+    await autoMove({ db }, id, { gh }).catch((e) => console.warn(`auto: intent ${id} not looked at: ${(e as Error).message}`));
   }
 }
 
@@ -758,6 +765,6 @@ export async function acceptCode(db: Db, gh: GitHub | null, who: Me | null, id: 
   const now = await getIntent(db, intent.id);
   if (now.stage !== "accepted")
     refuse(`Its code is on main (${on.map((s) => s.slice(0, 7)).join(", ")}), not yet in what play runs (${commit!.slice(0, 7)}): it is Accepted by itself once production runs it.`);
-  await db.query(`UPDATE play.intents SET decided_by = COALESCE(decided_by, $2) WHERE id = $1`, [intent.id, me.id]);
+  if (!me.auto) await db.query(`UPDATE play.intents SET decided_by = COALESCE(decided_by, $2) WHERE id = $1`, [intent.id, me.id]);
   return getIntent(db, intent.id);
 }

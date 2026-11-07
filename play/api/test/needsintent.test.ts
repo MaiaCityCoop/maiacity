@@ -34,7 +34,7 @@ const SUMMARY = `## What it is\n\n${words(200, "artifact")}\n\n## Key points\n\n
 const ARTIFACT = (url: string) => ({ url, title: "A page with its intent", description: "A page kept only for an intent.", summary: SUMMARY, authors: [{ name: "Ann Author", kind: "person" }], kind: "page", origin: "human" });
 const BODY = { format: "9:16", fps: 30, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line: "One." }] }] };
 /** the tools that propose or edit work: every propose_*, and these */
-const isWork = (name: string) => name.startsWith("propose_") || ["add_artifact", "update_artifact", "doc_edit"].includes(name);
+const isWork = (name: string) => name.startsWith("propose_") || ["doc_edit"].includes(name);
 const CONSTRAINT = "202611070300-706ed873-intents-specified";
 
 async function freshDb(prefix: string) {
@@ -90,8 +90,6 @@ suite("no work without an intent", () => {
     propose_asset: (intent) => tool("propose_asset", { group: "plants", label: `A fern ${++n}`, source: SOURCE(`a fern ${n}`), note: "a new asset", ...(intent ? { intent } : {}) }),
     propose_story: (intent) => tool("propose_story", { title: `A film ${++n}`, body: BODY, note: "a new story", ...(intent ? { intent } : {}) }),
     propose_doc_version: (intent) => tool("propose_doc_version", { doc: K, note: `more ${++n}`, edits: [{ op: "set", path: ["system"], value: `Say it ${n}.` }], ...(intent ? { intent } : {}) }),
-    add_artifact: (intent) => tool("add_artifact", { ...ARTIFACT(`https://needsintent.example/${++n}`), ...(intent ? { intent } : {}) }),
-    update_artifact: (intent) => tool("update_artifact", { artifact: art, title: `A page, corrected ${++n}`, ...(intent ? { intent } : {}) }),
     doc_edit: (intent) => tool("doc_edit", { doc: K, message: `an edit ${++n}`, edits: [{ op: "set", path: ["system"], value: `Edited ${n}.` }], ...(intent ? { intent } : {}) }),
     "POST /api/intents": async (intent) => {
       const r = await call("ada", "POST", "/api/intents", { asset, note: "from the page", source: SOURCE(`from the page ${++n}`), ...(intent ? { intent } : {}) });

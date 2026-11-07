@@ -229,7 +229,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("POST", "/api/tokens", async (req) => json(await makeToken(db, await me(req), (await body(req))?.name), { status: 201 }));
   on("POST", "/api/tokens/:id/avenbox", async (req, p) => json(await markAvenbox(db, await me(req), p.id, (await body(req))?.avenbox)));
   on("DELETE", "/api/tokens/:id", async (req, p) => json(await revokeToken(db, await me(req), p.id)));
-  const mcpServer = mcp({ db, store });
+  const mcpServer = mcp({ db, store, github, commit });
   on("POST", "/api/mcp", (req) => mcpServer(req));
   on("GET", "/api/mcp", (req) => mcpServer(req));
 

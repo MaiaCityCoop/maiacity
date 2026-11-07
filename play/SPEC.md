@@ -745,7 +745,53 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   and refuses otherwise: without one (400, naming `add_intent` and `specify_intent`), or one at another stage (409, by
   the one gate, `mayMove`'s work), nothing is written. `add_intent` is the only way an intent comes in, so every intent
   with work has an approved spec, and Postgres holds it: an intent in Build, at Proposal or in Ship has a spec (the
-  constraint `intents_specified`, migration `202611070300-706ed873-intents-specified`).
+  constraint `intents_specified`, migration `202611070300-706ed873-intents-specified`). The one exception is an
+  artifact's: `add_artifact` and `update_artifact` without `intent` make their own (*Auto-accept rules*, below), so
+  even that work is an intent's.
+- **Auto-accept rules** (intent `de24f1c5-3f5d-47fb-a630-981d95534d44`; Samuel 2026-11-07: *"Rules that we set on
+  allowed for specify specs intent types or proposal accept state intents, that can get auto accepted and need no
+  HITL … only changeable via HITLs and also version controlled"*). One rule set, **`rules:<uuid>`** (`RULES`,
+  `play/api/src/ids.ts`) of its own schema `schema:<SCHEMA.rules>` (`rules/1`, seeded from
+  `play/api/migrations/schemas/rules.json`), a kind of `play.records` alone, versioned like every document (§4.15): its
+  Main is the rules in force, its v1 made at migrate's end where absent (`ensureRules`, `play/api/src/rules.ts`), every
+  later version a person's Accept of an intent variant (`doc_edit`, `propose_doc_version`). Admins read it on `/rules/`,
+  its rules in order and its History tab.
+  - **A rule** is `{ id (UUID), label (only shown), gates: approve and/or accept, match, reason (only shown) }`. At a
+    gate it names, it matches when every field it names holds (a list: any of its values): for both gates `kind`,
+    `via`, `author` (humans' UUIDs) and `work_kind` (every kind the intent declares is one of these); at accept also
+    `proposed_by`, `proposed_via`, `schemas` (every document its work changes is of one of these), `code` (its work is
+    a pull request), `new_only`, `max_documents`, `max_edits`. The first matching rule, in order, decides. The schema
+    holds every rule to that form.
+  - **Declared up front**: `add_intent` and `specify_intent` take `work_kind`, the kinds of work the intent will bring
+    (schemas' UUIDs and/or `code`), kept as `play.intents.work_kind` (migration
+    `202611071155-de24f1c5-auto-rules`) and shown on the board. Work of another kind is refused by `mayMove`'s work
+    (409, naming the declared kinds), a pull request (`check_intent`'s `pr`) unless `code` is declared. An intent that
+    declares nothing takes any kind, and no rule naming `work_kind` matches it; specified again, its declaration changes
+    only while it holds no work.
+  - **The matching**: one pure function, `matchRule` (`play/api/src/rules.ts`), called only by `autoMove`
+    (`play/api/src/intents.ts`, beside `mayMove`), which runs as an intent reaches Specify (`specify_intent`) or
+    Proposal (`check_intent`, its work proposed), as Ship's watcher reads its pull request, and for every intent held by
+    one just Accepted. It moves an intent only where `mayMove` allows the move (its stage, its reduce step, its must
+    checks, held) and a rule matches, and then by **exactly a person's path** (`versioned.ts` `decideAny`): a spec
+    approved, work of play's accepted and applied, code into Ship by Ship's own steps (a refusal of Accept leaves it at
+    Proposal, saying why). Every forward decision, a person's or a rule's, is written by one function, `decided`
+    (`intents.ts`).
+  - **The rules are always a person's**: `matchRule` gives null, whatever the rules say, for an intent whose work changes
+    `rules:<RULES>` or `schema:<SCHEMA.rules>`, or that declares the rules' or the meta-schema's kind. No rule opens any
+    gate but Approve spec and Accept, or changes what *No work without an intent* requires.
+  - **Recorded**: `play.intents.auto`, `{ approve?, accept? }`, each the rule's UUID and label, `rules` (the BLAKE3
+    content hash of the rule set's Main version it was decided by), its reason and when; `approved_by` and
+    `decided_by` stay null. A step back, a reject or a reopen clears it; work back at Proposal (archived by itself, a red
+    ship) clears its accept. The board marks the card *Auto* and its dialog says "Spec approved by rule …" or "Accepted
+    by rule …", with the rule set's version and the reason, opening `/rules/` at that version.
+  - **The first rule** (v1), *Artifacts need no tap* (`RULE.artifacts`): gates approve and accept, `via: ['mcp']`,
+    `work_kind` and `schemas` `[SCHEMA.artifact]`. `add_artifact` and `update_artifact` called without `intent` make
+    their own, in the same request and transaction, through the intent flow's own functions (`addIntent`,
+    `specifyIntent`, `recordChecks`, `putAtProposal`): author the admin, via MCP, kind idea ("Keep …") or improve
+    ("Correct …"), declaring the artifact; its spec play's (one must look, the artifacts' form, recorded as passed with
+    the form checks as its evidence). The first rule approves it and accepts it: the artifact is kept, and the answer is
+    the artifact with its intent, Accepted. Where no rule matches any more, the intent waits for a person, at Specify
+    or at Proposal. Named with `intent`, they are held to that intent's gate as before.
 - **Deciding settles the intent** (`POST /api/intents/:id/{accept,archive}`, `play/api/src/versioned.ts` `decideAny`),
   in one transaction. At Proposal with work of play's, **accepting applies it** as its kind says (§4.3 an asset's head,
   §12 a story's head, §4.6 a sandbox's pins and configs, §4.8 a factory's, §4.9 a config's next version) and the intent
@@ -895,7 +941,7 @@ intents (…, work 'skill_version', skill_id → skills, doc_branch)            
 ### 4.15 Version control (Samuel 2026-11-06)
 
 **One version control for everything play versions**: assets, stories, factories, the game's configs, skills,
-sandboxes' layouts (§4.6) and the schemas themselves (and, by its own intent, breeds next), in one vocabulary, by one
+sandboxes' layouts (§4.6), the auto-accept rules (`rules:<uuid>`, §4.12) and the schemas themselves (and, by its own intent, breeds next), in one vocabulary, by one
 registry and one module, shown by one History.
 
 | Word | Meaning | Was |
@@ -927,7 +973,8 @@ registry and one module, shown by one History.
   **`play.intent_variants`** (intent, document, variant, seed, position: the first its work's own), in place of the
   intent's one `doc_id` and `doc_variant`.
 - **Every change an intent variant** (intent 847c5d38, Samuel 2026-11-06): no MCP tool, HTTP route or token writes a
-  document's Main but an admin's Accept of the intent holding the change, at Proposal (and a document's v1 by the
+  document's Main but an admin's Accept of the intent holding the change, at Proposal (or a rule's Accept by the same
+  path, §4.12 *Auto-accept rules*: today an artifact's) (and a document's v1 by the
   import, or made from its kind's own history the first time it is read). `doc_edit` names its intent (`intent`, one in
   Build or waiting at Proposal) and is refused without one; a variant made for an intent is proposed for that
   intent only. `play/api/test/nobypass.test.ts` calls every tool tools/list holds that is not a read, and every write

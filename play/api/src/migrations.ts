@@ -11,6 +11,7 @@ import { join } from "node:path";
 import type { Db } from "./pg";
 import { ensureSchemas } from "./docs/schemas";
 import { ensureLayouts } from "./sandboxes";
+import { ensureRules } from "./rules";
 
 export type Migration = { id: string; sql: string };
 
@@ -87,5 +88,7 @@ export async function migrate(db: Db, o: { until?: string; migrations?: Migratio
   // then the sandboxes' layouts, each a document, and every sandbox change kept by 202611070115-d2f50bf1-sandbox-layouts
   // an intent variant of its layout (play/SPEC.md §4.6): SQL can't write a Loro document
   if (o.until === undefined) await ensureLayouts(db);
+  // then the auto-accept rules' v1 (play/SPEC.md §4.12 "Auto-accept rules"): one document, made only where absent
+  if (o.until === undefined) await ensureRules(db);
   return ran;
 }
