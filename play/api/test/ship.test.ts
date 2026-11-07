@@ -274,7 +274,7 @@ suite("accept ships it", () => {
     pr.head.sha = sha(++commits);
     gh.checks.set(pr.head.sha, [green("play / API and site"), green("website / build")]);
     await refused(c.id, `passes on #${c.pr}'s head ${pr.head.sha.slice(0, 7)} first`);
-    await refused(c.id, `c1 (Its tests pass): passed on ${c.head.slice(0, 7)}, not on the head`);
+    await refused(c.id, `c1, c2 passed on ${c.head.slice(0, 7)}, not yet on the head`);
     pr.head.sha = c.head;
     // a required check red (its latest run: a green re-run after a red one stands)
     gh.checks.set(c.head, [{ ...green("play / API and site"), conclusion: "failure" }, green("website / build")]);

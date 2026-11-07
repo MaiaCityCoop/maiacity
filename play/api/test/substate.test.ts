@@ -82,6 +82,31 @@ describe("subStateOf", () => {
     const red = { pr: 7, outcome: "red", report: { step: "Ready to merge", why: "x", at: "2026-11-07T11:30:00Z" } };
     expect(of(row({ ship: red, results: { c1: { pass: true, at: "2026-11-07T11:45:00Z", commit: HEAD } } }))?.state).toBe("waiting");
     expect(of(row({ ship: { ...red, merge: sha(3) }, results: { c1: { pass: true, at: "2026-11-07T11:45:00Z", commit: HEAD } } }))?.why).toContain("Accept ships it again");
+    // every sub-state has a short tag, the dialog's chip
+    for (const [what, r] of table) {
+      const t = of(r)!.tag;
+      expect({ what, short: t.length > 0 && t.length <= 32 }).toEqual({ what, short: true });
+    }
+  });
+
+  // intent 2052a88c-0b9d-4bcd-bd4a-12a2ab609994: the reason names checks by id, grouped by what they lack, never a statement
+  test("reasons name checks by id", () => {
+    const OLD = sha(9), NEW = sha(2);
+    const checks = ["c1", "c2", "c3", "c4", "c5"].map((id) => ({ id, check: `The statement of ${id}, long and whole`, must: true, run: "true" }));
+    const results = { c1: { pass: true, commit: OLD }, c2: { pass: true, commit: OLD }, c3: { pass: true, commit: OLD }, c5: { pass: true, commit: NEW } };
+    const stale = row({ spec: { checks, nothing_to_reduce: "x" }, results, pr_seen: seen({ head: NEW, main_merged: { from: OLD, main: sha(5), at: "2026-11-07T11:50:00Z", to: NEW } }) });
+    const s = of(stale)!;
+    expect(s).toMatchObject({ state: "working", tag: "main merged in" });
+    expect(s.why).toBe(`main merged in: its checks run on ${NEW.slice(0, 7)} (c1, c2, c3 passed on ${OLD.slice(0, 7)}, not yet on the head ${NEW.slice(0, 7)}; c4 no result yet)`);
+    expect(s.why).not.toContain("statement");
+    const moved = of(row({ spec: { checks, nothing_to_reduce: "x" }, results, pr_seen: seen({ head: NEW }) }))!;
+    expect(moved).toMatchObject({ state: "working", tag: "head moved" });
+    expect(moved.why).toContain(`c1, c2, c3 passed on ${OLD.slice(0, 7)}, not yet on the head ${NEW.slice(0, 7)}; c4 no result yet`);
+    expect(moved.why).not.toContain("statement");
+    const failed = of(row({ stage: "build", spec: { checks, nothing_to_reduce: "x" }, results: { c2: { pass: false } } }))!;
+    expect(failed).toEqual({ state: "failed", tag: "c2 failed", why: "c2 failed" });
+    const conflict = of(row({ stage: "build", pr_seen: seen({ mergeable: false, conflicts: { head: HEAD, main: sha(5), files: ["a.ts"] } }) }))!;
+    expect(conflict).toEqual({ state: "failed", tag: "conflicts with main", why: "conflicts with main: a.ts" });
   });
 });
 
@@ -183,7 +208,7 @@ suite("sub-states on the board", () => {
     expect((await passed(withWork.id)).stage).toBe("proposal");
     expect((await tool("propose_asset", { group: "plants", label: `Fern ${++k}`, source: SOURCE, note: "x", intent: withWork.id })).error).toBeUndefined();
     const toShip = await codeAtProposal();
-    const STUB = { state: "working" as const, why: "The stub says it is working" };
+    const STUB = { state: "working" as const, tag: "stub", why: "The stub says it is working" };
     const real = sub.of;
     sub.of = () => STUB;
     try {
@@ -232,7 +257,7 @@ suite("sub-states on the board", () => {
     expect(gh.calls.filter((x) => x.method !== "GET")).toEqual([]);
     pr.mergeable = true;
     await watchTick(db, gh.gh, Date.now(), null);
-    expect((await intent(c.id)).sub).toEqual({ state: "waiting", why: "Accept and ship" });
+    expect((await intent(c.id)).sub).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });
     expect((await decide(c.id, "accept")).data).toMatchObject({ stage: "ship", ship: { pending: null } });
     await clearShips();
   });
@@ -241,13 +266,13 @@ suite("sub-states on the board", () => {
     await clearShips();
     const c = await codeAtProposal({ mergeable: null });
     gh.checks.set(c.head, [green("play / API and site"), { ...green("website / build"), status: "queued", conclusion: null }]);
-    expect((await intent(c.id)).sub).toEqual({ state: "working", why: `reading #${c.pr} on GitHub` });
+    expect((await intent(c.id)).sub).toEqual({ state: "working", tag: "reading GitHub", why: `reading #${c.pr} on GitHub` });
     const before = Date.now();
     await watchTick(db, gh.gh, Date.now(), null);
     const { rows: [r] } = await db.query<any>(`SELECT pr_seen FROM play.intents WHERE id = $1`, [c.id]);
     expect(r.pr_seen).toMatchObject({ pr: c.pr, head: c.head, draft: false, mergeable: null, state: "open", checks: { "play / API and site": "success", "website / build": "queued" } });
     expect(Date.parse(r.pr_seen.at)).toBeGreaterThanOrEqual(before - 1000);
-    expect((await intent(c.id)).sub).toEqual({ state: "working", why: `Waiting for #${c.pr}'s checks (website / build)` });
+    expect((await intent(c.id)).sub).toEqual({ state: "working", tag: "checks running", why: `Waiting for #${c.pr}'s checks (website / build)` });
     const from = gh.calls.length;
     await call("GET", "/api/intents");
     await call("GET", `/api/intents/${c.id}`);
@@ -256,11 +281,11 @@ suite("sub-states on the board", () => {
     expect(gh.calls.length).toBe(from);
   });
 
-  test("read everywhere: list_intents, get_intent, GET /api/intents and /api/intents/<uuid> give sub { state, why }, null for an Accepted one", async () => {
+  test("read everywhere: list_intents, get_intent, GET /api/intents and /api/intents/<uuid> give sub { state, tag, why }, null for an Accepted one", async () => {
     const open = await specified();
     const done = await specified();
     await db.query(`UPDATE play.intents SET stage = 'accepted' WHERE id = $1`, [done.id]);
-    const want = { state: "waiting", why: "Approve spec" };
+    const want = { state: "waiting", tag: "Approve spec", why: "Approve spec" };
     expect((await intent(open.id)).sub).toEqual(want);
     expect((await call("GET", "/api/intents")).data.find((x: any) => x.id === open.id).sub).toEqual(want);
     expect((await tool("get_intent", { intent: open.id })).sub).toEqual(want);
@@ -274,8 +299,8 @@ suite("sub-states on the board", () => {
     const dep = await add("The engine");
     const s = await add();
     expect((await tool("depend_intent", { intent: s.id, on: dep.id })).error).toBeUndefined();
-    expect((await tool("specify_intent", { intent: s.id, ...SPEC })).sub).toEqual({ state: "waiting", why: "Approve spec" });
-    expect((await decide(s.id, "approve")).data).toMatchObject({ stage: "build", sub: { state: "idle", why: `held: waits for ${dep.title}` } });
+    expect((await tool("specify_intent", { intent: s.id, ...SPEC })).sub).toEqual({ state: "waiting", tag: "Approve spec", why: "Approve spec" });
+    expect((await decide(s.id, "approve")).data).toMatchObject({ stage: "build", sub: { state: "idle", tag: "held", why: `held: waits for ${dep.title}` } });
     expect((await tool("get_intent", { intent: s.id })).brief).toBeNull();
     const held = heldText(s.id, [{ id: dep.id, title: dep.title, stage: "idea" }]);
     expect(await passed(s.id)).toEqual({ error: held });
