@@ -8,8 +8,11 @@ const crown = { man: 1.7978, woman: 1.7353 };
 const face = process.argv.includes('woman') ? 'woman' : 'man';
 const s = arg('height', 1.7) / crown[face];
 const slope = Math.tan((arg('slope', 0) * Math.PI) / 180), rise = arg('step', 0), going = (arg('going', 1.5) * s) / 2;
-const ground = (z) => slope * z + (rise ? rise * Math.max(0, Math.floor((z - going / 2) / going) + 1) : 0);
+const origin = arg('origin', 0);
+const ground = (z) => slope * z + (rise ? rise * Math.max(0, Math.round((z - origin) / going) + 1) : 0);
 const M = JSON.parse(readFileSync(file, 'utf8'));
+const from = arg('from', 0), to = arg('to', 1e9);
+M.frames = M.frames.filter((f) => f.t >= from && f.t <= to);
 const pos = (m) => [m[12], m[13], m[14]];
 const apply = (m, p) => [m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]];
 const ankleUp = 0.085 * s;
@@ -68,4 +71,5 @@ for (const side of ['left', 'right']) {
 	out[side] = { ...out[side], contacts: full.length, slideMostCm: +(Math.max(0, ...full.map((c) => c.most)) * 100).toFixed(2), soleOffMostCm: +(Math.max(0, ...full.map((c) => c.soleOff)) * 100).toFixed(2), throughMostCm: +(-Math.min(0, ...full.map((c) => c.below)) * 100).toFixed(2), each: full.map((c) => `${c.from.toFixed(2)}–${c.to.toFixed(2)} s: ${(c.most * 100).toFixed(1)} cm`) };
 }
 const last = M.frames.at(-1);
+if (process.argv.includes('--trace')) for (const f of M.frames.filter((_, i) => i % 3 === 0)) { const h = apply(f.bones.leftFoot, [0, -0.085 * s, -0.065 * s]), b = apply(f.bones.leftToes, [0, -0.022 * s, 0]); console.log(f.t.toFixed(2), 'heel', (h[1] - ground(h[2])).toFixed(3), h[2].toFixed(3), 'ball', (b[1] - ground(b[2])).toFixed(3), b[2].toFixed(3), 'g', ground(h[2]).toFixed(2)); }
 console.log(JSON.stringify({ file: file.split('/').pop(), frames: M.frames.length, fps: M.plan.fps, distance: last.dist, left: { ...out.left, each: out.left.each.slice(0, 4) }, right: { ...out.right, each: out.right.each.slice(0, 4) } }, null, 1));

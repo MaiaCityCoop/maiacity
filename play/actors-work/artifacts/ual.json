@@ -1,0 +1,24 @@
+{
+ "url": "https://quaternius.com/packs/universalanimationlibrary.html",
+ "title": "Universal Animation Library: 120+ CC0 humanoid animations",
+ "description": "Quaternius' kit of over 120 humanoid animations on one universal rig (locomotion in eight directions, sitting, interacting, emotes, combat), free for commercial use under CC0; its free Standard edition holds 43 of them as glTF and FBX.",
+ "kind": "page",
+ "origin": "agent",
+ "published": "2025-03-01",
+ "tags": [
+  "animation",
+  "humanoid",
+  "rig",
+  "cc0",
+  "game assets"
+ ],
+ "authors": [
+  {
+   "name": "Quaternius",
+   "kind": "person",
+   "url": "https://quaternius.com/",
+   "note": "the 3D artist who publishes free CC0 low-poly packs as Quaternius"
+  }
+ ],
+ "summary": "## What it is\n\nThe page of the **Universal Animation Library** (March 2025) on quaternius.com, the site of the 3D artist who publishes as Quaternius, with its download through itch.io. The kit is \"a kit of 120+ animations, created using a universal humanoid rig, which is compatible with Unreal Engine, Godot and Unity, ready for retargeting\"; the page lists its licence as **CC0** (\"Free to use in personal, educational and commercial projects\"), and the download's `License.txt` reads \"CC0 1.0 Universal (CC0 1.0) Public Domain Dedication\". Supporters get a Source edition with the .blend file; the free Standard edition is what was downloaded and read here.\n\n## Key points\n\n- 120+ animations in all; the free Standard edition (`UAL1_Standard.glb`/`.fbx`, 15 MB) holds 43: idles, walks (`Walk_Loop`, `Walk_Formal_Loop`), jog and sprint, crouch, jump, roll, swim, push, `Sitting_Enter`, `Sitting_Idle_Loop`, `Sitting_Talking_Loop`, `Sitting_Exit`, `PickUp_Table`, `Interact`, driving, fixing while kneeling, pistol, sword, spell and punches, hits and a death.\n- Two exports: with root motion baked into every animation (`_RM`) and without.\n- One rig of 65 joints in Unreal's mannequin naming: `pelvis`, `spine_01`–`spine_03`, `neck_01`, `Head`, clavicles, arms, hands, five fingers of three joints and a leaf each, thighs, calves, feet and balls.\n- Locomotion \"in 8 directions\", sitting, death animations and more in the full kit; an online Animation Viewer shows each.\n- Tested in Godot, Unity and Unreal; the page gives the import settings for each.\n\n## The topic\n\nCC0 animation libraries fill a gap that open motion capture leaves: captured sets cover locomotion well but rarely sitting down on a chair, standing up, hand poses or emotes, and most permissive capture lacks finger data. Hand-keyed (or captured and cleaned) libraries released as CC0 let small studios and games use such moves with no attribution at all. Quaternius is known for CC0 low-poly model packs used widely in indie games and game jams; the Universal Animation Library extends that to motion on a rig built to retarget onto the common engine humanoids (Unreal's mannequin, Unity's Mecanim, Godot's), and through them onto a VRM-style humanoid.\n\nThese animations are keyed by an animator rather than captured from a performer, so they read cleaner but more stylised than capture; mixing them with captured clips is common practice for actions capture sets do not cover.\n\nRetargeting from a keyed library is easier than from capture in one way and harder in another. Its rig is clean: rest poses are exact, joints are named consistently, there is no calibration pose to skip and no marker noise. But its rest pose is a game rig's (an A-pose or T-pose with the bones' own rotations at rest, an armature turned and scaled at its root, centimetres in a metre file), so a retargeter has to read the glTF nodes' rest rotations and the armature's transform before it compares the two skeletons, and line up each bone's rest direction with the target's. Fingers come with it, which is why one of its frames can stand in for the hands at rest under captured clips that have none: a relaxed hand, curled a little, reads as alive where a flat open hand reads as a mannequin's.\n\nThe kit's naming follows Unreal's mannequin (pelvis, spine_01 …), and its documentation is aimed at engine users; nothing in it is tied to an engine, though, and glTF carries everything needed.\n\n## For Maia City\n\nIntent 99b612ec takes from the Standard edition `Sitting_Enter` (sit down), `Sitting_Idle_Loop` (sitting) and `Sitting_Exit` (stand up), and the first frame of `Idle_Loop` for the fingers at rest under every captured clip that has no fingers of its own, all retargeted onto the VRM humanoid. CC0 asks nothing; the cards and the data sheet name Quaternius all the same."
+}

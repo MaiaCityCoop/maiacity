@@ -10,7 +10,7 @@
  * Taku Komura, 100STYLE (CC BY 4.0, doi:10.1145/3522618). CC0: Quaternius; MakeHuman.
  */
 const BODY = require('bd01f7ace1a24e16af3195fe7c33fca6c28d416852d0314a73a620c9bc6da2e9');
-const MOTION = require('0756feee025033006826310c3662332a083e64cc08b7fa9378be5775e4275054');
+const MOTION = require('51e2cc215edd217474bf8898ae38ce8a5cae8fcb2e00ba0bd5dd3d7efb28f0c3');
 const GAIT = require('4b8c571ac7e163ebb75fb92d15e4e4cd4ceacf43f3811086c373fdf55cc6a7b5');
 const ACTIONS = require('6a252e13b7fa26071650e300d87eac43b29ce5caf4788ddd45a0b9fa84448aa0');
 
@@ -48,20 +48,21 @@ function lookOf(given) {
 }
 
 /** the ground it is checked on: a ramp or stairs under it, drawn (only when asked for) */
-function groundOf(THREE, slope, step, s) {
+function groundOf(THREE, slope, step, stairs) {
 	if (!slope && !step) return null;
 	const g = new THREE.Group();
 	const mat = new THREE.MeshStandardMaterial({ color: '#b9b2a6', roughness: 0.95 });
-	const going = 0.75 * s;
-	if (step) {
+	if (step && stairs) {
+		// the stairs the motion walks up: tread k centred at origin + k · going, rising `step` each
+		const { origin, going } = stairs;
 		for (let k = 0; k < 24; k++) {
-			const top = step * k;
-			const box = new THREE.Mesh(new THREE.BoxGeometry(1.4, top + 0.2, k ? going : 2), mat);
-			box.position.set(0, top / 2 - 0.1, k ? going / 2 + (k - 1) * going + going / 2 : -1 + going / 2);
+			const top = step * (k + 1), from = origin + (k - 0.5) * going;
+			const box = new THREE.Mesh(new THREE.BoxGeometry(1.4, top + 0.2, going), mat);
+			box.position.set(0, top / 2 - 0.1, from + going / 2);
 			box.receiveShadow = true;
 			g.add(box);
 		}
-	} else {
+	} else if (slope) {
 		const len = 30, a = Math.atan(Math.tan((slope * Math.PI) / 180));
 		const ramp = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.1, len), mat);
 		ramp.rotation.x = -a;
@@ -80,7 +81,7 @@ function standIn(height = 1.7, ...rest) {
 	const build = detail < 1 ? BODY.lowDetail(make, Math.max(0.05, detail)) : make();
 	build.rig.object.name = 'stand-in';
 	const m = MOTION.moves(build, { gait: GAIT, actions: ACTIONS, gears: { walk: 1.4, run: 3 }, strides: { walk: 1.5, run: 2.3 }, ground: { slope, step } });
-	const ground = groundOf(require('three'), slope, step, build.measure.s);
+	const ground = groundOf(require('three'), slope, step, m.stairs);
 	if (ground) build.rig.object.add(ground);
 	return { rig: build.rig, clips: m.clips, gears: m.gears, poses: build.poses, first: 'idle' };
 }

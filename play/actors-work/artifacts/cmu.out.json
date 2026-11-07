@@ -1,0 +1,57 @@
+{
+ "id": "ca0033b0-89fe-436a-8725-0cf1f91694eb",
+ "url": "http://mocap.cs.cmu.edu",
+ "title": "CMU Graphics Lab Motion Capture Database and its terms of use",
+ "description": "Carnegie Mellon's free motion capture library (thousands of takes, ASF/AMC and C3D) and its terms: free for research, may go into commercially sold products, but may not be resold directly, even converted; not CC0, CC BY or public domain.",
+ "summary": "## What it is\n\nThe home page of the Carnegie Mellon University Graphics Lab Motion Capture Database, with its search, its subjects and motion categories, its tools for ASF/AMC and Vicon files, and the terms of use stated on the page. The database was created with funding from the US National Science Foundation (EIA-0196217) and recorded in a lab of 12 Vicon MX-40 infrared cameras at 120 Hz over a capture area of about 3 m × 8 m, performers wearing 41 markers.\n\n## Key points\n\n- The terms, verbatim: \"This data is free for use in research projects. You may include this data in commercially-sold products, but you may not resell this data directly, even in converted form. If you publish results obtained using this data, we would appreciate it if you would send the citation to your published paper to jkh+mocap@cs.cmu.edu, and also would add this text to your acknowledgments section: The data used in this project was obtained from mocap.cs.cmu.edu.\"\n- The page asks not to crawl the database.\n- Data as ASF/AMC skeleton files and C3D marker files; third parties have converted it into BVH and other formats.\n- Scale: ASF/AMC bone lengths and root positions × (1.0/0.45) × 2.54/100 = 0.056444 to get metres (the FAQ).\n- Thousands of takes over more than a hundred subjects, from walking and running to everyday actions, sports and dance.\n\n## The topic\n\nCMU's database is the most widely used free motion capture library and the basis of many later datasets (AMASS, and through it HumanML3D and others). Its terms are its own rather than a standard open licence: they allow inclusion in commercial products but forbid reselling the data, even converted, and they predate the Creative Commons conventions many newer sets use. Whether redistributing converted clips inside a product's open files counts as \"reselling\" is not stated; projects that need a standard licence choose sets under CC0, CC BY or the public domain instead.\n\nFor a project like Maia City, which keeps its assets' sources and the data they are built from in readable form on its own servers, and whose recipes anyone with access can read, \"not reselling\" is hard to square with keeping converted clips as shared pieces: the converted data would be redistributed in a form that is the data itself, even if never sold. A standard licence avoids having to interpret custom terms at all. CC0 dedicates a work to the public domain; CC BY asks only for credit and an indication of changes, both of which a data sheet and an asset card can give; neither restricts redistribution, conversion or commercial use. That is why the intent's spec limits motion to those licences, and why this widely used database, for all its breadth, stays out of it. Should its terms ever be reissued under a standard open licence, its everyday actions (waving among them, which no CC BY set used here captures cleanly) would be the first to take.\n\n## For Maia City\n\nIntent 99b612ec's spec allows only motion under CC0, CC BY or public domain. CMU's terms are none of these, so no CMU clip was used, though it was a candidate in the spec; its everyday actions came from ACCAD's Open Motion Project (CC BY 3.0) and Quaternius' library (CC0) instead. This artifact keeps the terms as they read on 2026-11-07, as the reason for leaving it out.",
+ "kind": "page",
+ "tags": [
+  "motion capture",
+  "mocap",
+  "licence",
+  "dataset"
+ ],
+ "published": null,
+ "origin": "agent",
+ "by": "Sourced by avenMAIA",
+ "agent": {
+  "id": "86090f35-1937-8d5d-bd28-194b80430f25",
+  "name": "avenMAIA"
+ },
+ "operator": {
+  "id": "733a1849-caf8-447f-a1fb-ef251351c69d",
+  "name": "Samuel"
+ },
+ "authors": [
+  {
+   "id": "c1cf3807-b7f8-4e64-900b-ddf3e09f5a3c",
+   "name": "CMU Graphics Lab",
+   "kind": "organization",
+   "url": "http://graphics.cs.cmu.edu"
+  }
+ ],
+ "created": "2026-11-07T13:21:04.276Z",
+ "intent": "86f1f3df-7065-4991-b01b-f00e0e0edd0a",
+ "text_hash": null,
+ "updated_by": null,
+ "updated_at": null,
+ "kept": false,
+ "waiting": false,
+ "stage": "accepted",
+ "auto": {
+  "accept": {
+   "at": "2026-11-07T13:21:04.439Z",
+   "rule": "0f05a3ee-1aa8-43a2-a3e8-958456f04128",
+   "label": "Artifacts need no tap",
+   "rules": "660fe717711f5db205aeca0f3db82615cee803ec3675b2ae3abfbc9877601acd",
+   "reason": "Samuel 2026-11-07: an artifact added or corrected over MCP needs no tap"
+  },
+  "approve": {
+   "at": "2026-11-07T13:21:04.364Z",
+   "rule": "0f05a3ee-1aa8-43a2-a3e8-958456f04128",
+   "label": "Artifacts need no tap",
+   "rules": "660fe717711f5db205aeca0f3db82615cee803ec3675b2ae3abfbc9877601acd",
+   "reason": "Samuel 2026-11-07: an artifact added or corrected over MCP needs no tap"
+  }
+ }
+}

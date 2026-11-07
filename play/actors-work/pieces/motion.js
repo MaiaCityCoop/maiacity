@@ -228,11 +228,15 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 	const tracks = {};
 	for (const g of ['walk', 'run']) tracks[g] = track(g, strides[g] * s);
 
-	/** the ground's height at a place in the world (the person walks towards +z from z 0) */
+	/** the ground's height at a place in the world (the person walks towards +z from z 0): a slope, or stairs of one
+	 *  step a stride's half, each tread centred under where a foot comes down flat (the left foot's first, past z 0) */
 	const going = (strides.walk * s) / 2;
-	const heightAt = (z) => slope * z + (rise ? rise * Math.max(0, Math.floor((z - going / 2) / going) + 1) : 0);
+	const LT = tracks.walk.left, Lw = strides.walk * s;
+	const flat = LT.P[Math.round(frac(LT.land + LT.stance / 2) * C.walk.n) % C.walk.n];
+	const origin = frac(LT.land + LT.stance / 2) * Lw + flat.z + 0.07 * s + Lw;
+	const heightAt = (z) => slope * z + (rise ? rise * Math.max(0, Math.round((z - origin) / going) + 1) : 0);
 	/** the hips' ground: stairs smoothed into their slope */
-	const hipsGround = (z) => slope * z + (rise ? (rise * Math.max(0, z)) / going : 0);
+	const hipsGround = (z) => slope * z + (rise ? (rise * Math.max(0, z - origin + going * 1.5)) / going : 0);
 	const tilt = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), -Math.atan(slope));
 
 	// ---- one pose as the rig takes it ----
@@ -468,7 +472,7 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 	/** how long each clip played once lasts (s) */
 	const lengths = Object.fromEntries(['start', 'stop', 'sit down', 'stand up', 'wave', 'pick up'].map((k) => [k, (C[k].n - 1) / C[k].fps]));
 	lengths['turn left'] = lengths['turn right'] = 1.6;
-	return { clips, gears: { walk: gears.walk, run: gears.run }, lengths, names };
+	return { clips, gears: { walk: gears.walk, run: gears.run }, lengths, names, stairs: rise ? { origin, going, rise } : null };
 }
 
 module.exports = { moves, decode, sample };

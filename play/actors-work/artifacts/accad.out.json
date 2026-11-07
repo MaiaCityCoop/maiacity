@@ -1,0 +1,59 @@
+{
+ "id": "71df3fea-6eca-4938-a566-6d8d72f34532",
+ "url": "https://accad.osu.edu/research/motion-lab/mocap-system-and-data",
+ "title": "ACCAD Open Motion Project: free motion capture under CC BY 3.0",
+ "description": "Ohio State's ACCAD motion lab shares motion capture of three performers (stand, walk, run, start and stop, turns, pick up a box, gestures, martial arts) as BVH and C3D, under a Creative Commons Attribution 3.0 Unported licence.",
+ "summary": "## What it is\n\nThe page of the Motion Lab at ACCAD (the Advanced Computing Center for the Arts and Design, The Ohio State University) describing its motion capture system and sharing its data as the **Open Motion Project**. It lists sets by performer (Female 1, Male 1, Male 2) and kind (General, Gestures, Walking, Running, Martial Arts …), each as C3D marker files with a PDF of the takes and, for each performer, a zip of BVH skeleton files. The page states: \"Open Motion Project by ACCAD/The Ohio State University is licensed under a Creative Commons Attribution 3.0 Unported License.\"\n\n## Key points\n\n- Three performers: `Female1`, `Male1` and `Male2`, each with a BVH archive (`Female1_bvh.zip`, `Male1_bvh.zip`, `Male2_bvh.zip`).\n- Takes are named by a letter series: A (stand, sway, look around, pick up and lift a box, crouch, lie down, crawl, skip), B (walking: stand to walk, walk, walk to stand, backwards, turns of 45°, 90°, 135° and 180°, side steps, walk with a box), C (the same for running), D (gestures and performance: urban gestures, waiting, conversation, random actions; for Male2, martial arts stances), E and G (martial arts).\n- BVH in centimetres; Female1 takes at 30 frames a second, Male takes at 120. Each skeleton has Hips, a `ToSpine` joint, Spine, Spine1, Neck, Head, shoulders, arms, forearms, hands, up legs, legs, feet and toe bases; no fingers.\n- The performers walk and run at natural speeds over the 3 m × 8 m volume: Male2 walks at about 1.65 m/s and runs at about 3.6 m/s, Male1 walks at 1.2 m/s.\n- The Hips joint carries a large twist that `ToSpine` undoes, so a retargeter reading joint rotations must read the back from the joints' places instead.\n\n## The topic\n\nOpenly licensed motion capture that allows commercial use is rare. CMU's Graphics Lab database, the best known, comes with custom terms (no reselling the data, even converted); SFU's database is for non-commercial use only; LAFAN1 and Bandai Namco's sets are CC BY-NC-ND. ACCAD's Open Motion Project, with 100STYLE (CC BY 4.0) and hand-keyed CC0 libraries such as Quaternius', is one of the few sources a product may build on. Its takes are short and purposeful (one start, one stop, one turn), which suits a library of clips better than long free-form sessions, and its walks and runs move at real speeds across a long volume, where many capture sets turn in small circles.\n\nCC BY 3.0 asks for attribution in a reasonable manner, a link to the licence and an indication of changes; it does not restrict derivative or commercial use.\n\n## For Maia City\n\nIntent 99b612ec takes from it the Stand-in's walk (`Male2_B3_Walk`, one cycle at 1.62–2.62 s), run (`Male2_C3_Run`), start (`Male2_B1_StandToWalk`), stop (`Male2_B2_WalkToStand`) and pick up (`Male2_A5_PickUpBox`, 1.2–4.8 s); the Elder woman's walk, start and stop (`Female1_B03_Walk1`, `Female1_B01_StandToWalk`, `Female1_B02_WalkToStand`); and everyone's wave, a hand raised in greeting (`Female1_D1_Urban`, 0.7–2.7 s). Credit on both cards and in the data sheet: ACCAD, The Ohio State University, Open Motion Project (CC BY 3.0).",
+ "kind": "page",
+ "tags": [
+  "motion capture",
+  "mocap",
+  "bvh",
+  "walking",
+  "running",
+  "cc by"
+ ],
+ "published": null,
+ "origin": "agent",
+ "by": "Sourced by avenMAIA",
+ "agent": {
+  "id": "86090f35-1937-8d5d-bd28-194b80430f25",
+  "name": "avenMAIA"
+ },
+ "operator": {
+  "id": "733a1849-caf8-447f-a1fb-ef251351c69d",
+  "name": "Samuel"
+ },
+ "authors": [
+  {
+   "id": "a6e331ff-28d2-4b91-a719-6f752db94aef",
+   "name": "ACCAD, The Ohio State University",
+   "kind": "organization",
+   "url": "https://accad.osu.edu"
+  }
+ ],
+ "created": "2026-11-07T13:21:02.903Z",
+ "intent": "88d78062-4cf1-4eed-bb7a-f5ae4e9e89f0",
+ "text_hash": null,
+ "updated_by": null,
+ "updated_at": null,
+ "kept": false,
+ "waiting": false,
+ "stage": "accepted",
+ "auto": {
+  "accept": {
+   "at": "2026-11-07T13:21:03.084Z",
+   "rule": "0f05a3ee-1aa8-43a2-a3e8-958456f04128",
+   "label": "Artifacts need no tap",
+   "rules": "660fe717711f5db205aeca0f3db82615cee803ec3675b2ae3abfbc9877601acd",
+   "reason": "Samuel 2026-11-07: an artifact added or corrected over MCP needs no tap"
+  },
+  "approve": {
+   "at": "2026-11-07T13:21:03.000Z",
+   "rule": "0f05a3ee-1aa8-43a2-a3e8-958456f04128",
+   "label": "Artifacts need no tap",
+   "rules": "660fe717711f5db205aeca0f3db82615cee803ec3675b2ae3abfbc9877601acd",
+   "reason": "Samuel 2026-11-07: an artifact added or corrected over MCP needs no tap"
+  }
+ }
+}

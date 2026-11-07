@@ -1,0 +1,28 @@
+{
+ "url": "https://pubmed.ncbi.nlm.nih.gov/21820535/",
+ "title": "Normal walking speed: a descriptive meta-analysis by age and gender",
+ "description": "A meta-analysis of 41 studies and 23,111 healthy adults giving normal gait speed by gender and decade: from 1.43 m/s for men aged 40–49 down to 0.94 m/s for women aged 80–99.",
+ "kind": "paper",
+ "origin": "agent",
+ "published": "2011-09-01",
+ "tags": [
+  "gait",
+  "walking speed",
+  "ageing",
+  "elderly",
+  "biomechanics"
+ ],
+ "authors": [
+  {
+   "name": "Richard W. Bohannon",
+   "kind": "person",
+   "note": "physical therapy researcher, University of Connecticut"
+  },
+  {
+   "name": "A. Williams Andrews",
+   "kind": "person",
+   "note": "physical therapy researcher, co-author of the meta-analysis"
+  }
+ ],
+ "summary": "## What it is\n\nA research article by Richard W. Bohannon and A. Williams Andrews in *Physiotherapy* 97(3):182–189 (September 2011; doi:10.1016/j.physio.2010.12.004), read here as its PubMed abstract. It uses meta-analysis to describe the normal walking speed of healthy adults by gender and decade of age, so that a person's measured speed can be compared with what is normal for people like them.\n\n## Key points\n\n- Sources: PubMed, CINAHL, Scopus, Science Citation Index and hand searches.\n- Inclusion: the gait speed of apparently healthy adults walking at a normal pace over a 3 to 30 m course; summary data only where a gender-and-decade stratum had at least 10 participants.\n- Both authors reviewed the articles and extracted data independently; each checked the other's extraction.\n- 41 articles, 23,111 subjects in all; within each stratum the speeds were homogeneous.\n- Mean normal speed ranged \"from a mean of 143.4 cm/second for men aged 40 to 49 years to a mean of 94.3 cm/second for women aged 80 to 99 years\".\n- Limitation stated: the values may not serve as a standard where gait is measured over short distances from a command to go, or where a turn is involved.\n\n## The topic\n\nGait speed is called a vital sign of older adults: it falls with age, with frailty and with illness, and slower speed predicts falls, hospitalisation and survival. As people age they walk more slowly mostly by taking shorter steps, while their cadence (steps a minute) changes less; they spend longer with both feet on the ground (double support) and swing their arms less, and many lean forward a little. Normative tables such as this meta-analysis's are what clinicians compare a patient with. For animation the same numbers say how fast a believable person of a given age and gender walks: about 1.4 m/s for a middle-aged man, about 1.1 m/s for women in their seventies, and below 1 m/s past eighty.\n\nThe meta-analysis reports speed, not step length or cadence, and only for walking at a comfortable pace over a straight course. Step length follows from speed and cadence (speed = step length × steps a second), and cadence in healthy older adults stays roughly between 100 and 115 steps a minute, so a slower speed at much the same cadence means shorter steps, the pattern described in gait studies of ageing. The values are means: individuals vary widely around them, and a frail or ill person walks well below them, which is why gait speed under about 0.8 m/s is used as a warning sign in geriatric care, and under 0.6 m/s as a sign of high risk. An animated elder who is meant to read as healthy and active, as the Elder woman is, belongs near the bottom of the healthy range rather than below it: noticeably slower than a younger adult, but not shuffling. The 100STYLE \"Old\" style's 0.2 m/s shuffle, by contrast, is a caricature of frailty, which is why only half of its stoop is kept and none of its pace.\n\n## For Maia City\n\nIntent 99b612ec plays the Stand-in's walk at 1.4 m/s (a man in his prime, 143 cm/s here) and the Elder woman's at 0.95 m/s, at the bottom of this range (94 cm/s for women 80–99). Her stride is 1.1 m against his 1.5 m (steps of about 0.55 m and 0.75 m), so her cadence stays near a normal 100–110 steps a minute, and she is slower and shorter-stepping from these numbers, not from a guess."
+}
