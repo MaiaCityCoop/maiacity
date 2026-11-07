@@ -13,5 +13,8 @@ __pycache__
 play/site/film/
 # the Rust build cache the cloud environment's setup script unpacks at the root (avenDB's, from before)
 /target/
+tools/security-auditor/target/
 # a per-user file the Claude app writes into the work tree: it never marks a run dirty (play/avenbox/intent.ts)
 .claude/settings.local.json
+# the skills, written from play's database at each avenBOX session's start (play/avenbox/skills.ts, play/SPEC.md §4.14)
+.claude/skills/
