@@ -19,6 +19,8 @@
 import { plugin } from 'bun';
 import { compileModule } from 'svelte/compiler';
 import { createHash } from 'node:crypto';
+import { gunzipSync, gzipSync } from 'node:zlib';
+import { hashOf } from '../../src/lib/content/assets/box/headless.js';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { El, VIEWPORT, makeDocument } from './dom';
@@ -76,6 +78,8 @@ export function setup(o: Setup = {}) {
 		if (s.endsWith('.svelte')) return stub('svelte.js');
 		return s;
 	};
+	const STATS_ONLY = '__assets = { stats: () => ({ out: plantsOut?.assets.stats(), in: plantsIn?.assets.stats(), library: library.assets.stats() }) }';
+	const STATS_AND_KINDS = '__assets = { stats: () => ({ out: plantsOut?.assets.stats(), in: plantsIn?.assets.stats(), library: library.assets.stats() }), kinds: () => ({ out: plantsOut?.assets.kinds(), in: plantsIn?.assets.kinds(), library: library.assets.kinds() }) }';
 	const SPEC = /((?:\bfrom|\bimport)\s*\(?\s*)(['"])([^'"\n]+)\2/g;
 	plugin({
 		name: 'census',
@@ -89,6 +93,9 @@ export function setup(o: Setup = {}) {
 					if (a.path.endsWith('.ts')) text = new Bun.Transpiler({ loader: 'ts' }).transformSync(text);
 					text = compileModule(text, { filename: a.path, generate: 'client', dev: false }).js.code;
 				}
+				// the census's one look into the page, where a tree lacks it: each kind the asset renderers hold, as 6295a650's
+				// census hook adds it (intent-work/6295a650-render out/run5/base-census-hook.diff)
+				if (a.path.endsWith('/sandbox-2/interior/village.ts')) text = text.replace(STATS_ONLY, STATS_AND_KINDS);
 				text = text.replace(SPEC, (all, pre, q, s) => {
 					const to = spec(s, a.path);
 					return to === s ? all : `${pre}${q}${to}${q}`;
@@ -235,9 +242,9 @@ export function setup(o: Setup = {}) {
 				fetched.files++;
 				return new Response(readFileSync(at), { status: 200, headers: { 'content-type': 'application/octet-stream' } });
 			}
-			const pinnedAt = done.inputs && join(done.inputs, `${createHash('sha256').update(route).digest('hex').slice(0, 20)}.json`);
+			const pinnedAt = done.inputs && join(done.inputs, `${createHash('sha256').update(route).digest('hex').slice(0, 20)}.json.gz`);
 			if (pinnedAt && existsSync(pinnedAt)) {
-				const p = JSON.parse(readFileSync(pinnedAt, 'utf8'));
+				const p = JSON.parse(gunzipSync(readFileSync(pinnedAt)).toString('utf8'));
 				fetched.pinned.add(route);
 				return new Response(p.body, { status: p.status, headers: { 'content-type': p.type } });
 			}
@@ -245,7 +252,7 @@ export function setup(o: Setup = {}) {
 			fetched.live.add(route);
 			if (done.verbose) console.error('census: live', r.status, route);
 			const body = await r.text();
-			if (done.record && pinnedAt && r.ok) writeFileSync(pinnedAt, JSON.stringify({ route, status: r.status, type: r.headers.get('content-type') ?? 'application/json', body }));
+			if (done.record && pinnedAt && r.ok) writeFileSync(pinnedAt, gzipSync(JSON.stringify({ route, status: r.status, type: r.headers.get('content-type') ?? 'application/json', blake3: hashOf(body), body }), { level: 9 }));
 			return new Response(body, { status: r.status, headers: { 'content-type': r.headers.get('content-type') ?? 'application/json' } });
 		}
 		// the site's static files: the frozen engines from this checkout's (they never change), the rest from root's

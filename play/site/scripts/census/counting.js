@@ -269,8 +269,11 @@ export class CountingRenderer {
 		for (const d of list) {
 			const { object, geometry, material, group } = d;
 			object.onBeforeRender(this, scene, camera, geometry, material, group);
+			material.onBeforeRender?.(this, scene, camera, geometry, object, group);
 			const n = drawOf(object, geometry, material, group);
-			this.#count(n.tris, 1, toScreen, false, object, n);
+			// a see-through material drawn from both sides is drawn twice, its back then its front (three's renderObject)
+			const passes = material.transparent === true && material.side === THREE.DoubleSide && material.forceSinglePass === false ? 2 : 1;
+			for (let p = 0; p < passes; p++) this.#count(n.tris, 1, toScreen, false, object, n);
 			object.onAfterRender(this, scene, camera, geometry, material, group);
 		}
 		if (scene.isScene === true) scene.onAfterRender(this, scene, camera);

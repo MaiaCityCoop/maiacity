@@ -20,22 +20,9 @@ for (const dir of ['pieces', 'assets'])
 		files[`${dir}/${f}`] = hash(code);
 		if (dir === 'pieces') byHash.set(hash(code), code);
 	}
-const loaded = new Map();
-export function run(code, name = 'source') {
-	const module = { exports: {} };
-	const require = (id) => {
-		if (id === 'three') return THREE;
-		if (addons[id]) return addons[id];
-		if (/^[0-9a-f]{64}$/.test(id)) {
-			if (!byHash.has(id)) throw new Error(`${name}: no piece ${id}`);
-			if (!loaded.has(id)) loaded.set(id, run(byHash.get(id), id));
-			return loaded.get(id);
-		}
-		throw new Error(`${name}: may not require ${id}`);
-	};
-	new Function('module', 'exports', 'require', code)(module, module.exports, require);
-	return module.exports;
-}
+// the one runner of readable sources outside the browser (play/site/src/lib/content/assets/box/headless.js)
+const { runner } = await import(new URL('../../play/site/src/lib/content/assets/box/headless.js', import.meta.url).href);
+export const run = runner({ three: THREE, addons, piece: (h) => byHash.get(h) });
 /** a mirrored piece's exports, by its file's name */
 export const piece = (name) => run(`module.exports = require('${files[`pieces/${name}.js`]}')`);
 /** an asset of the mirror built at its defaults: its cast ({ rig, clips, gears, poses }) */
