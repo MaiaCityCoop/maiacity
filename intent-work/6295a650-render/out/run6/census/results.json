@@ -1,0 +1,90 @@
+[
+ {
+  "site": "base",
+  "world": "sandbox-1",
+  "view": "far",
+  "settled": true,
+  "frames": 239,
+  "frameMs": 33.3,
+  "frameP95": 33.40000000000873,
+  "tris": 1826777,
+  "trisMax": 1826777,
+  "assets": {
+   "out": {
+    "tris": 426092,
+    "calls": 100,
+    "levels": [
+     0,
+     198
+    ],
+    "pictures": 6174,
+    "copies": 7361
+   },
+   "in": {
+    "tris": 1222,
+    "calls": 1,
+    "levels": [
+     0,
+     0
+    ],
+    "pictures": 611,
+    "copies": 611
+   },
+   "library": {
+    "tris": 96486,
+    "calls": 109,
+    "levels": [
+     61
+    ],
+    "pictures": 0,
+    "copies": 633
+   }
+  },
+  "png": "../../../s6295-shots/run6-census/base-sandbox-1-far.png"
+ },
+ {
+  "site": "head",
+  "world": "sandbox-1",
+  "view": "far",
+  "settled": true,
+  "frames": 238,
+  "frameMs": 33.6,
+  "frameP95": 33.400000000001455,
+  "tris": 1546753,
+  "trisMax": 2763741,
+  "assets": {
+   "out": {
+    "tris": 277598,
+    "calls": 82,
+    "levels": [
+     0,
+     157
+    ],
+    "pictures": 6173,
+    "copies": 7239
+   },
+   "in": {
+    "tris": 0,
+    "calls": 0,
+    "levels": [
+     0,
+     0
+    ],
+    "pictures": 0,
+    "copies": 0
+   },
+   "library": {
+    "tris": 47600,
+    "calls": 27,
+    "levels": [
+     0,
+     0,
+     34
+    ],
+    "pictures": 0,
+    "copies": 528
+   }
+  },
+  "png": "../../../s6295-shots/run6-census/head-sandbox-1-far.png"
+ }
+]
