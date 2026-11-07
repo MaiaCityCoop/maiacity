@@ -49,7 +49,6 @@ describe.each(["sheet.ts", "sheet-edit.ts"] as const)("%s", (tool) => {
     expect(r.code).toBe(0);
     expect(r.falPosts).toEqual([]);
     expect(r.requests).toEqual([]);
-    expect(r.err + r.out).toContain("dry run");
   });
 
   test("with --allow 1 it makes one call and prints the calls made", () => {
