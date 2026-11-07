@@ -60,6 +60,9 @@ suite("migrate, twice at once", () => {
 // (intent 847c5d38): every intent's document and variant a row of play.intent_variants, the intent's own columns gone,
 // and an artifact kept before (its authors in order) its v1, read as a document like any other.
 const COOP = "12f8d4e7-701f-8727-a327-de9b240ea867";
+// every intent with work has a spec (no work without an intent, 706ed873: its migration archives one waiting without),
+// so the intents a test seeds with work are specified and approved, as production's at Proposal were
+const SPEC = JSON.stringify({ goal: "Its work is in.", scope: "A migration's fixture.", checks: [{ id: "c1", check: "It holds", how: "test", by: "a test", run: "true", must: true, step: "mvp" }] });
 
 suite("migration 0032-versioned", () => {
   let admin: Bun.SQL, sql: Bun.SQL, name: string;
@@ -89,9 +92,9 @@ suite("migration 0032-versioned", () => {
       const id = crypto.randomUUID();
       const cols = Object.keys(refs);
       await db.query(
-        `INSERT INTO play.intents (id, coop_id, kind, title, stage, author, via, work, ${cols.join(", ")}, work_note, proposed_by, proposed_via, proposed_at, decided_at)
-         VALUES ($1, $2, 'improve', $3, $4, $5, 'mcp', $3, ${cols.map((_, i) => `$${i + 6}`).join(", ")}, 'the work', $5, 'mcp', now(), ${stage === "accepted" ? "now()" : "NULL"})`,
-        [id, COOP, work, stage, ada, ...Object.values(refs)],
+        `INSERT INTO play.intents (id, coop_id, kind, title, stage, author, via, work, ${cols.join(", ")}, work_note, proposed_by, proposed_via, proposed_at, decided_at, spec, approved_at)
+         VALUES ($1, $2, 'improve', $3, $4, $5, 'mcp', $3, ${cols.map((_, i) => `$${i + 7}`).join(", ")}, 'the work', $5, 'mcp', now(), ${stage === "accepted" ? "now()" : "NULL"}, ($6::text)::jsonb, now())`,
+        [id, COOP, work, stage, ada, SPEC, ...Object.values(refs)],
       );
       return id;
     };
@@ -317,9 +320,9 @@ suite("migration 202611070115-d2f50bf1-sandbox-layouts", () => {
     const change = async (stage: "proposal" | "accepted" | "archived", edits: unknown[], diff: unknown[] | null) => {
       const id = crypto.randomUUID();
       await db.query(
-        `INSERT INTO play.intents (id, coop_id, kind, title, stage, author, via, work, sandbox_id, sandbox_base, sandbox_change, sandbox_diff, work_note, proposed_by, proposed_via, proposed_at, decided_by, decided_at)
-         VALUES ($1, $2, 'improve', 'Sandbox 2: a change', $3, $4, 'mcp', 'sandbox_change', $5, 'base', ($6::text)::jsonb, ($7::text)::jsonb, 'the change', $4, 'mcp', now(), $8, $9)`,
-        [id, COOP, stage, ada, S2, JSON.stringify(edits), diff ? JSON.stringify(diff) : null, stage === "proposal" ? null : ada, stage === "proposal" ? null : new Date()],
+        `INSERT INTO play.intents (id, coop_id, kind, title, stage, author, via, work, sandbox_id, sandbox_base, sandbox_change, sandbox_diff, work_note, proposed_by, proposed_via, proposed_at, decided_by, decided_at, spec, approved_at)
+         VALUES ($1, $2, 'improve', 'Sandbox 2: a change', $3, $4, 'mcp', 'sandbox_change', $5, 'base', ($6::text)::jsonb, ($7::text)::jsonb, 'the change', $4, 'mcp', now(), $8, $9, ($10::text)::jsonb, now())`,
+        [id, COOP, stage, ada, S2, JSON.stringify(edits), diff ? JSON.stringify(diff) : null, stage === "proposal" ? null : ada, stage === "proposal" ? null : new Date(), SPEC],
       );
       return id;
     };
@@ -359,7 +362,8 @@ suite("migration 202611070115-d2f50bf1-sandbox-layouts", () => {
     expect(w.review).toMatchObject({ holds: true, moved: false, seedNumber: 1 });
     expect(w.review.changes).toEqual([expect.objectContaining({ path: "$.configs.grove.trees[id=pawpaw].weight", from: 2, to: 5 })]);
     expect((await as("GET", `/api/intents/${gone}`)).data.review).toMatchObject({ holds: false });
-    expect((await as("POST", `/api/intents/${gone}/accept`)).data).toMatchObject({ stage: "archived", decision: { status: "archived" } });
+    // its work no longer holds: archived by itself, so its intent (specified, as every one with work) goes back to Build
+    expect((await as("POST", `/api/intents/${gone}/accept`)).data).toMatchObject({ stage: "build", decision: { status: "archived" } });
     expect((await as("POST", `/api/intents/${waits}/accept`)).data).toMatchObject({ stage: "accepted", decision: { status: "accepted", number: 2 } });
     expect((await q(`SELECT data FROM play.sandbox_configs WHERE sandbox_id = $1 AND name = 'grove'`, [S2]))[0].data.trees[0].weight).toBe(5);
     const h = (await as("GET", `/api/docs/${S2}/history`)).data;
