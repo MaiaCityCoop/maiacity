@@ -40,5 +40,8 @@ describe("every asset by hash", () => {
     const card = { card: { ref: "biomes/meadow@1", cover: [{ kind: "fern", ref: "biomes/cover@1:fern?seed=7" }, { ref: "ab".repeat(32) }] } };
     expect(readableRefs(card, "biomes/meadow")).toEqual(["biomes/cover@1:fern?seed=7"]);
     expect(readableRefs({ card: { ref: "biomes/meadow@1" } }, "biomes/meadow")).toEqual([]);
+    // its own names, several: the group it is in and the one it moves to (intent dc3c0b3e)
+    expect(readableRefs({ card: { preset: "actors/stand-in@11:stand-in?belt=1" } }, ["actors/stand-in", "characters/stand-in"])).toEqual([]);
+    expect(readableRefs({ card: { with: "actors/elder-woman@2" } }, ["actors/stand-in", "characters/stand-in"])).toEqual(["actors/elder-woman@2"]);
   });
 });
