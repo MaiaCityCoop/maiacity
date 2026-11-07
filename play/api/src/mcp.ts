@@ -27,6 +27,7 @@ import { archiveOwn, docAt, docEdit, docHistory, kinds, listDocs, proposeDocVers
 import { NO_INTENT, WorkError } from "./work";
 import { addIntent, autoMove, CHECK_HOWS, CHECKS_MOST, dependIntent, getIntent, intentOf, IntentError, intentReady, INTENT_KINDS, INTENT_STAGES, LINE_MOST, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES } from "./intents";
 import { stepBack } from "./stepback";
+import { withdrawDoc } from "./withdraw";
 import { instructionsOf, promptOf, promptsOf, SkillError } from "./skills";
 import { adminByToken } from "./tokens";
 import { STORY_ADMINS, AUDIO_TYPES, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, proposeStory, putAudioBase64, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAt, storyOf, StoryError, VIDEO_TYPES } from "./stories";
@@ -594,6 +595,23 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         additionalProperties: false,
       },
       run: async ({ intent, reason }, me) => stepBack(db, me, `${intent ?? ""}`, reason),
+    },
+    {
+      name: "withdraw_doc",
+      description:
+        "Take one document out of an intent's work before it is decided, always with its reason (a document proposed by mistake): its intent variant closed and kept in the history, the rest of the work as it was. " +
+        "Only while the intent is in Build or at Proposal; at Proposal it goes back to Build, its results kept, the reason kept in its history and shown on the board. Refused: no reason, a decided intent (Ship, Accepted, Archived) or one not built yet, a document not in its work.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          intent: { type: "string", description: "the intent's id (a UUID: list_intents gives it)" },
+          doc: { type: "string", description: "the document to take out: its UUID (get_intent's review.docs[].doc.id), or <kind>:<uuid>" },
+          reason: { type: "string", maxLength: LINE_MOST, description: "why it goes, in one line" },
+        },
+        required: ["intent", "doc", "reason"],
+        additionalProperties: false,
+      },
+      run: async ({ intent, doc, reason }, me) => withdrawDoc(db, me, `${intent ?? ""}`, doc, reason, "mcp"),
     },
     {
       name: "check_intent",

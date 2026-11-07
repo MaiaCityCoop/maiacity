@@ -337,7 +337,8 @@ suite("play API", () => {
   test("a proposal ends accepted or archived: archived by its author or by an admin", async () => {
     const a = await propose("ada", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* w */") });
     expect((await call("cit", "POST", `/api/intents/${a.data.intent}/archive`)).status).toBe(403);
-    expect((await call("ada", "POST", `/api/intents/${a.data.intent}/withdraw`)).status).toBe(404);
+    // (withdraw takes one document out, with its reason: ../src/withdraw.ts; none given, refused)
+    expect((await call("ada", "POST", `/api/intents/${a.data.intent}/withdraw`)).status).toBe(400);
     expect((await call("ada", "POST", `/api/intents/${a.data.intent}/archive`)).data.decision.status).toBe("archived");
     expect((await call("ada", "GET", `/api/intents/${a.data.intent}`)).data).toMatchObject({ stage: "archived", decided_by: "ada", work: { status: "archived" } });
     const b = await propose("ada", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* r */") });
