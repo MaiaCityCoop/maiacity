@@ -176,3 +176,17 @@ play, variants 1458, 1459, checked): head v2 `04ff652935a0b510c224beb4f369c65a84
 `2f0ecb1327aef23afafcd12fcb04685e2dcdff979259390f22bdb4a54605eed1` (head inputs only, on body v1), body v3
 `7c173d07ac8888ce91d1d95f7cd5e8afd4340b2666eaec8d4c5354cd0c47e4f5` (wear, a diff on v2). Without a face or wear, every
 person is still v1's (checked byte for byte).
+
+### 18:40: everything proposed; c1, c2, c4, c5 passed; c3 waits for the Mac
+
+- **Proposed on the intent (7 documents):** the two licence Artifacts; Person head v2 (variant 1458,
+  `04ff652935a0b510c224beb4f369c65a8407b4ce53f73bf3eea63ffb08e884b9`); Person body v2 (1480,
+  `2f0ecb1327aef23afafcd12fcb04685e2dcdff979259390f22bdb4a54605eed1`) and v3 growing from it (1481,
+  `b5aec61b1bfc9e91e251b9194d74cd15ada3a8705792973ec31a8074c78cc8bd`: the v3 of the diff, its header's `wear` without
+  backticks); the actor skill's part (1467, its version 4); **Samuel's character**, asset
+  `b58c7b2c-6e59-4f14-980a-db93974326d0` v1 (`private: true`, group characters, recipe `411870eb…`), proposed by MCP from
+  the job folder's samuel.js (never git). The first body variants (1459, 1479) were withdrawn: 1479 had been seeded
+  from v2 while its edits were made against v1.
+- **A lesson:** a second version of a piece in one intent is seeded from the first's variant, so its edits must be made
+  against that one; and a proposed variant is frozen (withdraw_doc, then propose again).
+- **Recorded:** c1, c2, c4, c5 pass. **Open:** c3, the bench film (run 2 at 2809f24 on the Mac); then mark PR #2157 ready.

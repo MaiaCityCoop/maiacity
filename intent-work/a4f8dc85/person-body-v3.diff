@@ -9,7 +9,7 @@
 + * `trousers` { ankle (m: where they end), ease }, `shoes` 'sandals' (two straps on the bare foot). Each garment is
 + * cloth of its own over the skin (the shirt a shell from its hem to a band collar, flared at an untucked hem, and its
 + * sleeves; the trousers a shell over the hips and loose legs), skinned to the same bones with the same weights as the
-+ * body under it, so it moves with it and stays outside it; the skin under it is painted too. Without `wear` it is v2's
++ * body under it, so it moves with it and stays outside it; the skin under it is painted too. Without wear it is v2's
 + * person.
   */
  const three = require('three');
