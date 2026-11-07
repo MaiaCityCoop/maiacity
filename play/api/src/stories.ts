@@ -154,6 +154,8 @@ const KINDS: Record<string, (c: Record<string, unknown>, what: string) => Record
       out.video = video;
       if (c.video_in != null) out.video_in = seconds(c.video_in, `${what}'s video_in`, 0, 36_000);
     } else if (c.video === "") out.video = null;
+    // the real asset drawn in it (intent f270269e): a version of an asset, its parameters over the shot and a camera path
+    if (c.live != null) out.live = liveOf(c.live, what, Number(c.duration));
     return out;
   },
   voice: (c, what) => ({ who: text(c.who, `${what}'s speaker`, 60), line: text(c.line, `${what}'s line`, 1000), ...cuesOf(c.cues, what, c.duration) }),
@@ -165,6 +167,98 @@ const KINDS: Record<string, (c: Record<string, unknown>, what: string) => Record
   }),
   [LINK]: (c, what) => linkOf(c, what),
 };
+
+// ---- a live shot (intent f270269e; play/site/src/lib/stories/live.ts, which draws it): the asset by its UUID, its
+// version by its id (a hash), a variant by its name; its parameters (`values`, and `keys` over the shot's time, s into
+// it) and its camera's keyframes (`camera`: eye and target in metres, fov in degrees); `steps`, how many builds a keyed
+// change is drawn in. The shot's frame stays its poster.
+const LIVE_KEYS = new Set(["asset", "version", "variant", "values", "keys", "camera", "steps"]);
+export const MOST_LIVE_STEPS = 24;
+const PARAM = /^[A-Za-z][A-Za-z0-9_.-]{0,79}$/;
+function liveValues(v: unknown, what: string): Record<string, number | string | boolean> {
+  if (!v || typeof v !== "object" || Array.isArray(v)) throw new StoryError(`${what} must be { parameter: a number, text or true/false }.`);
+  const out: Record<string, number | string | boolean> = {};
+  const entries = Object.entries(v as object);
+  if (entries.length > 32) throw new StoryError(`${what} names at most 32 parameters.`);
+  for (const [k, x] of entries) {
+    if (!PARAM.test(k)) throw new StoryError(`${what}: ${k.slice(0, 40)} is no parameter's name.`);
+    if (typeof x === "number" && Number.isFinite(x)) out[k] = Math.round(x * 1e6) / 1e6;
+    else if (typeof x === "boolean") out[k] = x;
+    else if (typeof x === "string" && x.length <= 80) out[k] = x;
+    else throw new StoryError(`${what}'s ${k} must be a number, a text of at most 80 characters or true/false.`);
+  }
+  return out;
+}
+const vec3 = (v: unknown, what: string): [number, number, number] => {
+  if (!Array.isArray(v) || v.length !== 3 || !v.every((x) => typeof x === "number" && Number.isFinite(x) && Math.abs(x) <= 100_000)) throw new StoryError(`${what} must be [x, y, z] in metres.`);
+  return v.map((x) => Math.round(x * 1e6) / 1e6) as [number, number, number];
+};
+function liveOf(v: unknown, what: string, duration: number) {
+  const w = `${what}'s live`;
+  if (!v || typeof v !== "object" || Array.isArray(v)) throw new StoryError(`${w} must be { asset, version, values?, keys?, camera }.`);
+  const l = v as Record<string, unknown>;
+  for (const k of Object.keys(l)) if (!LIVE_KEYS.has(k)) throw new StoryError(`${w} has no field ${k.slice(0, 40)} (it takes ${[...LIVE_KEYS].join(", ")}).`);
+  if (typeof l.asset !== "string" || !UUID.test(l.asset)) throw new StoryError(`${w}.asset must be the asset's UUID (list_assets gives it).`);
+  if (typeof l.version !== "string" || !HASH.test(l.version)) throw new StoryError(`${w}.version must be the id of one of its accepted versions (get_asset gives them).`);
+  const out: Record<string, unknown> = { asset: l.asset, version: l.version };
+  if (l.variant != null) {
+    if (typeof l.variant !== "string" || !/^[a-z0-9][a-z0-9-]{0,79}$/.test(l.variant)) throw new StoryError(`${w}.variant must be a variant's name.`);
+    out.variant = l.variant;
+  }
+  if (l.values != null) out.values = liveValues(l.values, `${w}.values`);
+  const inShot = (at: unknown, what: string) => {
+    const n = typeof at === "number" ? at : NaN;
+    if (!Number.isFinite(n) || n < 0 || n > duration + 1e-6) throw new StoryError(`${what} must be a time in the shot, 0 to ${duration} s.`);
+    return round(n);
+  };
+  if (l.keys != null) {
+    if (!Array.isArray(l.keys) || l.keys.length > 64) throw new StoryError(`${w}.keys must be a list of at most 64 { at, values }.`);
+    let last = -1;
+    out.keys = l.keys.map((k: any, i: number) => {
+      if (!k || typeof k !== "object") throw new StoryError(`${w}.keys[${i}] must be { at, values }.`);
+      const at = inShot(k.at, `${w}.keys[${i}].at`);
+      if (at <= last) throw new StoryError(`${w}.keys must be in time order, one per moment.`);
+      last = at;
+      return { at, values: liveValues(k.values, `${w}.keys[${i}].values`) };
+    });
+  }
+  if (!Array.isArray(l.camera) || !l.camera.length || l.camera.length > 64) throw new StoryError(`${w}.camera must be 1 to 64 keyframes { at, eye, target, fov }.`);
+  let last = -1;
+  out.camera = l.camera.map((c: any, i: number) => {
+    const cw = `${w}.camera[${i}]`;
+    if (!c || typeof c !== "object") throw new StoryError(`${cw} must be { at, eye, target, fov }.`);
+    const at = inShot(c.at, `${cw}.at`);
+    if (at <= last) throw new StoryError(`${w}.camera must be in time order, one per moment.`);
+    last = at;
+    if (typeof c.fov !== "number" || !(c.fov >= 5 && c.fov <= 120)) throw new StoryError(`${cw}.fov must be 5 to 120 degrees.`);
+    if (c.ease != null && c.ease !== "smooth" && c.ease !== "linear") throw new StoryError(`${cw}.ease is smooth or linear.`);
+    return { at, eye: vec3(c.eye, `${cw}.eye`), target: vec3(c.target, `${cw}.target`), fov: round(c.fov), ...(c.ease ? { ease: c.ease } : {}) };
+  });
+  if (l.steps != null) {
+    if (!Number.isInteger(l.steps) || (l.steps as number) < 2 || (l.steps as number) > MOST_LIVE_STEPS) throw new StoryError(`${w}.steps must be a whole number from 2 to ${MOST_LIVE_STEPS}.`);
+    out.steps = l.steps;
+  }
+  return out;
+}
+
+/** every live shot's asset version is one play holds of that asset, accepted, and its variant one of that version's */
+async function checkLive(db: Queryable, tracks: Track[]) {
+  const lives = tracks.filter((t) => t.kind === "shots").flatMap((t) => t.clips.filter((c) => c.live).map((c) => ({ c, t, l: c.live as { asset: string; version: string; variant?: string } })));
+  if (!lives.length) return;
+  const rows = (await db.query<{ id: string; asset_id: string; number: number | null; recipe_hash: string | null; default_variant: string | null; variants: string[] | null }>(
+    `SELECT v.id, v.asset_id::text AS asset_id, v.number, v.recipe_hash, v.default_variant,
+            (SELECT array_agg(x.name) FROM play.asset_variants x WHERE x.version_id = v.id) AS variants
+       FROM play.asset_versions v WHERE v.id = ANY($1)`, [[...new Set(lives.map((x) => x.l.version))]])).rows;
+  const by = new Map(rows.map((r) => [r.id, r]));
+  for (const { c, t, l } of lives) {
+    const what = `Clip ${c.id} of track ${t.id}'s live`;
+    const v = by.get(l.version);
+    if (!v || v.asset_id !== l.asset) throw new StoryError(`${what}: asset ${l.asset.slice(0, 8)} has no version ${l.version.slice(0, 12)} (get_asset lists its versions).`);
+    if (v.number == null) throw new StoryError(`${what}: version ${l.version.slice(0, 12)} of asset ${l.asset.slice(0, 8)} is not accepted: a live shot draws an accepted version.`);
+    if (l.variant != null && !(v.variants ?? []).includes(l.variant)) throw new StoryError(`${what}: version ${v.number} has no variant ${l.variant}${v.variants?.length ? ` (it has ${v.variants.join(", ")})` : ""}.`);
+    if (l.variant == null && !v.recipe_hash && !v.default_variant) throw new StoryError(`${what}: version ${v.number} is a kind of variants: name one (${(v.variants ?? []).join(", ")}).`);
+  }
+}
 
 /** a link clip's own fields: the story it links (a UUID, never a title) and the version of it it plays (a hash), always
  *  (Samuel 2026-11-04: "you need to link the actual version, so different timelines can link different trailer versions") */
@@ -325,6 +419,7 @@ export async function checkBody(db: Queryable, given: any, self?: string): Promi
     const missing = videos.filter((v) => !held.has(v));
     if (missing.length) throw new StoryError(`No video is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_video first.`);
   }
+  await checkLive(db, tracks);
   const duration = round(Math.max(0, ...tracks.flatMap((t) => t.clips.map((c) => c.at + c.duration))));
   if (!(duration > 0)) throw new StoryError("A story has at least one clip.");
   const body: StoryBody = { schema: SCHEMA, format, fps, duration, tracks };
