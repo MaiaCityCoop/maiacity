@@ -29,7 +29,7 @@ export async function makeToken(db: Queryable, me: Me | null, name: unknown) {
 export async function listTokens(db: Queryable, me: Me | null) {
   const who = adminOnly(me);
   const { rows } = await db.query(
-    `SELECT id, name, created, last_used, revoked_at FROM play.api_tokens WHERE human_id = $1 ORDER BY created DESC`,
+    `SELECT id, name, created, last_used, revoked_at, avenbox FROM play.api_tokens WHERE human_id = $1 ORDER BY created DESC`,
     [who.id],
   );
   return rows;
@@ -46,16 +46,32 @@ export async function revokeToken(db: Queryable, me: Me | null, id: string) {
   return { id, revoked: true };
 }
 
+/**
+ * One of `me`'s tokens marked as avenBOX's, or no longer (play/SPEC.md §4.12, "Only the box's run is evidence"): the
+ * token kept as the repository's secret PLAY_MCP_TOKEN, held only by main's play/avenbox/intent.ts in the GitHub runs
+ * of the intents' checks. A code intent's test and measure results are taken from such a token alone.
+ */
+export async function markAvenbox(db: Queryable, me: Me | null, id: string, avenbox: unknown) {
+  const who = adminOnly(me);
+  if (typeof avenbox !== "boolean") throw new Denied("avenbox is true or false.", 400);
+  const { rows } = await db.query(
+    `UPDATE play.api_tokens SET avenbox = $3 WHERE id::text = $1 AND human_id = $2 AND revoked_at IS NULL RETURNING id, name, avenbox`,
+    [id, who.id, avenbox],
+  );
+  if (!rows[0]) throw new Denied("You have no such token, or it is revoked.", 404);
+  return rows[0];
+}
+
 /** the admin a request's bearer token speaks for, or null: unknown, revoked, or its owner no admin */
 export async function adminByToken(db: Queryable, req: Request): Promise<Me | null> {
   const auth = req.headers.get("authorization") ?? "";
   const m = /^Bearer\s+(play_[A-Za-z0-9_-]{20,})$/.exec(auth.trim());
   if (!m) return null;
-  const { rows } = await db.query<{ id: string; human_id: string }>(
-    `UPDATE play.api_tokens SET last_used = now() WHERE token_hash = $1 AND revoked_at IS NULL RETURNING id, human_id`,
+  const { rows } = await db.query<{ id: string; human_id: string; avenbox: boolean }>(
+    `UPDATE play.api_tokens SET last_used = now() WHERE token_hash = $1 AND revoked_at IS NULL RETURNING id, human_id, avenbox`,
     [sha256(m[1])],
   );
   if (!rows[0]) return null;
   const me = await meOf(db, rows[0].human_id);
-  return me && me.level === "admin" ? { ...me, token: rows[0].id } : null;
+  return me && me.level === "admin" ? { ...me, token: rows[0].id, ...(rows[0].avenbox ? { box: true } : {}) } : null;
 }

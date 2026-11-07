@@ -464,3 +464,111 @@ describe("migrations, one file each", () => {
     }
   }, 120_000);
 });
+
+// Migration 202611070120-7c8085db-breeds and the import after it (play/SPEC.md "Breeds"; intent 7c8085db, its check c3): a database made
+// just before it holding assets of variants (a plant's kinds, each its own recipe in every frozen version), one with its
+// document made already (its variants in Main) and one without, and a sandbox pinning a variant by its name. Migrated
+// and imported: every asset's variants are breeds of its document with the same sources and cards (each breed built
+// gives its variant's recipe hash of the newest version, byte for byte), Main holds none, and every frozen version, its
+// variants' rows and the pin are as they were.
+const BREEDS = "202611070120-7c8085db-breeds";
+suite("migration 202611070120-7c8085db-breeds", () => {
+  let admin: Bun.SQL, sql: Bun.SQL, name: string;
+  beforeAll(async () => {
+    name = `play_migrate34_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+    admin = new Bun.SQL(URL_!);
+    await admin.unsafe(`CREATE DATABASE ${name}`);
+    const u = new URL(URL_!);
+    u.pathname = `/${name}`;
+    sql = new Bun.SQL(u.toString());
+  });
+  afterAll(async () => {
+    await sql?.close();
+    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+    await admin?.close();
+  });
+
+  test("every asset's variants become breeds with the same sources and cards; frozen versions and pins unchanged", async () => {
+    const db = fromBunSql(sql);
+    // the database as it stands before breeds: every migration before it, the schemas as documents
+    const before_ = MIGRATIONS[MIGRATIONS.findIndex((m) => m.id === BREEDS) - 1].id;
+    expect((await migrate(db, { until: before_ })).at(-1)).toBe(before_);
+    await (await import("../src/docs/schemas")).ensureSchemas(db);
+    const q = async (text: string, args: unknown[] = []) => (await db.query<any>(text, args)).rows;
+    const store = folderStore(mkdtempSync(join(tmpdir(), "play-blobs-")));
+    const keep = async (t: string) => {
+      await store.put(hashText(t), new TextEncoder().encode(t), "text/javascript");
+      await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, 'text/javascript', $3) ON CONFLICT DO NOTHING`, [hashText(t), t.length, `blobs/${hashText(t).slice(0, 2)}/${hashText(t)}`]);
+      return hashText(t);
+    };
+    const src = (line: string) => `module.exports.recipe = function (id, v, variant) {\n  // ${line}\n  return { meta: { id, v, variant } };\n};\n`;
+    /** a frozen version of variants: each variant its source (or the version's first) built as its own recipe */
+    const version = async (asset: string, slug: string, n: number, parents: string[], kinds: Record<string, string>) => {
+      const id = hashText(`${slug}|v${n}`);
+      await db.query(`INSERT INTO play.asset_versions (id, asset_id, parents, number, default_variant, card, engine, note) VALUES ($1, $2, $3, $4, 'female', ($5::text)::jsonb, 5, $6)`, [
+        id, asset, parents, n, JSON.stringify({ card: { label: `${slug}: Female` }, variant: "female" }), `v${n}`,
+      ]);
+      for (const [kind, line] of Object.entries(kinds)) {
+        const s = src(line);
+        const recipe = await keep(RECIPE_HEAD + s + recipeTail(slug, n, kind));
+        await db.query(`INSERT INTO play.asset_variants (version_id, name, recipe_hash, source_hash, card) VALUES ($1, $2, $3, $4, ($5::text)::jsonb)`, [
+          id, kind, recipe, await keep(s), JSON.stringify({ card: { label: `${slug}: ${kind[0].toUpperCase()}${kind.slice(1)}` }, variant: kind, recipe, version: n }),
+        ]);
+      }
+      return id;
+    };
+    // a papaya of two kinds over two versions, no document yet
+    const papaya = crypto.randomUUID();
+    await db.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, $2, 'plants', 'papaya', 'Papaya')`, [papaya, COOP]);
+    const p1 = await version(papaya, "papaya", 1, [], { female: "a female papaya", male: "a male papaya" });
+    const p2 = await version(papaya, "papaya", 2, [p1], { female: "a female papaya, taller", male: "a male papaya, taller" });
+    await db.query(`UPDATE play.assets SET head = $2 WHERE id = $1`, [papaya, p2]);
+    // a kiwi of two kinds sharing one source, its document made already (its variants in Main, as before)
+    const kiwi = crypto.randomUUID();
+    await db.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, $2, 'plants', 'kiwi', 'Kiwi')`, [kiwi, COOP]);
+    const k1 = await version(kiwi, "kiwi", 1, [], { female: "a kiwi vine", male: "a kiwi vine" });
+    await db.query(`UPDATE play.assets SET head = $2 WHERE id = $1`, [kiwi, k1]);
+    const kv = await q(`SELECT name, card FROM play.asset_variants WHERE version_id = $1 ORDER BY name`, [k1]);
+    const kjson = { schema: "asset/1", label: "Kiwi", source: src("a kiwi vine"), engine: 5, card: { card: { label: "kiwi: Female" }, variant: "female" }, defaultVariant: "female", variants: kv.map((x: any) => ({ name: x.name, card: x.card })) };
+    // (written by the store before breeds, its variants in Main)
+    const { createDoc } = await import("../src/docs");
+    const { SCHEMA } = await import("../src/ids");
+    await createDoc(db, { id: `asset:${kiwi}`, schema: SCHEMA.asset, json: kjson, author: { human: null, via: "import" }, message: "v1", version: "v1", number: 1 });
+    // a sandbox pinning a papaya by its variant's name
+    await db.query(`INSERT INTO play.sandbox_pins (sandbox_id, slot, version_id, variant) SELECT id, 'papaya-tree', $1, 'male' FROM play.sandboxes ORDER BY id LIMIT 1`, [p2]);
+    const frozen = async () => [
+      await q(`SELECT id, asset_id, number, recipe_hash, source_hash, default_variant, card FROM play.asset_versions ORDER BY id`),
+      await q(`SELECT version_id, name, recipe_hash, source_hash, card FROM play.asset_variants ORDER BY version_id, name`),
+      await q(`SELECT sandbox_id, slot, version_id, variant FROM play.sandbox_pins ORDER BY sandbox_id, slot`),
+    ];
+    const before = await frozen();
+
+    // ---- 0033 and 0034, and the import's breeds
+    expect(await migrate(db)).toEqual([BREEDS]);
+    const { ensureAssetDocs } = await import("../src/assetdocs");
+    const docs = await import("../src/docs");
+    const report = await ensureAssetDocs(db, store, mkdtempSync(join(tmpdir(), "play-history-")));
+    expect(report.errors).toEqual([]);
+    expect(report.breeds).toBe(4);
+    for (const [asset, slug, head] of [[papaya, "papaya", p2], [kiwi, "kiwi", k1]] as const) {
+      const doc = `asset:${asset}`;
+      const main = (await docs.readDoc(db, doc)).json;
+      expect(main.variants).toBeUndefined();
+      expect(main.defaultVariant).toBe("female");
+      const breeds = await docs.breedsOf(db, doc);
+      expect(breeds.map((b) => b.name)).toEqual(["female", "male"]);
+      const n = (await q(`SELECT number FROM play.asset_versions WHERE id = $1`, [head]))[0].number;
+      for (const b of breeds) {
+        const x = (await q(`SELECT recipe_hash, source_hash, card FROM play.asset_variants WHERE version_id = $1 AND name = $2`, [head, b.name]))[0];
+        // the same source and card, and so the same recipe, byte for byte
+        expect(hashText(b.json.source)).toBe(x.source_hash);
+        expect(hashText(RECIPE_HEAD + b.json.source + recipeTail(slug, n, b.name))).toBe(x.recipe_hash);
+        expect(b.json.card).toEqual(x.card);
+      }
+    }
+    // a second import changes nothing
+    expect((await ensureAssetDocs(db, store, mkdtempSync(join(tmpdir(), "play-history-")))).breeds).toBe(0);
+    // every frozen version, its variants' rows and the pin as they were
+    expect(await frozen()).toEqual(before);
+  }, 60_000);
+});

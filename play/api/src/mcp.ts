@@ -246,16 +246,17 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           version: { type: "integer", minimum: 1, description: "an accepted version's number; Main's newest if left out" },
           edit: { type: "integer", minimum: 1, description: "an edit of its history (doc_history's `seq`), instead of a version" },
           intent: { type: "string", description: "an intent's id: the document as its intent variant would make it" },
+          breed: { type: "integer", minimum: 1, description: "an asset's breed (doc_history's variants of type breed, by number): the breed as it is now, Main beneath it on every field it does not override" },
         },
         required: ["doc"],
         additionalProperties: false,
       },
-      run: async ({ doc, version, edit, intent }, me) => docAt({ db, store }, me, doc, { version, edit, intent }),
+      run: async ({ doc, version, edit, intent, breed }, me) => docAt({ db, store }, me, doc, { version, edit, intent, ...(breed != null ? { breed: Number(breed) } : {}) }),
     },
     {
       name: "doc_history",
       description:
-        "A document's history: its edits, oldest first (each with its seq, its variant, who made it and whether over MCP, its message, its time, and the version it was named, if one; Main's edits, with each accepted intent variant's where it was made, a merge where one went in), its versions, and its variants (Main, then each intent variant with its status, its seed, its intent and how many edits it holds). With `variant`, one intent variant's own edits. Read any edit's state with doc_at's `edit`.",
+        "A document's history: its edits, oldest first (each with its seq, its variant, who made it and whether over MCP, its message, its time, and the version it was named, if one; Main's edits, with each accepted intent variant's where it was made, a merge where one went in), its versions, and its variants (Main; an asset's breeds, each with its name and the fields it overrides; then each intent variant with its status, its seed, the breed it changes or makes, its intent and how many edits it holds). With `variant`, one variant's own edits (a breed's: its own and every edit of Main merged into it). Read any edit's state with doc_at's `edit`.",
       inputSchema: {
         type: "object",
         properties: { doc: { type: "string", description: "its UUID" }, variant: { type: "integer", minimum: 1, description: "an intent variant's number, for its own edits" } },
@@ -276,18 +277,21 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           intent: { type: "string", description: "the intent this edit is made for, by its id (a UUID: add_intent makes one): in Build, or waiting at Proposal" },
           message: { type: "string", description: "what this edit does, as its history will say it" },
           variant: { type: "integer", minimum: 1, description: "the intent variant to add the edit to (doc_edit gives it); a new one seeded from Main's newest version if left out" },
+          breed: { type: "integer", minimum: 1, description: "with no `variant`: start the intent variant from this breed of the asset's (its number), to change the breed; it changes only the breed's `source` and `card`" },
+          new_breed: { type: "string", description: "with no `variant`: start an intent variant that makes a new breed of the asset's, of this name (lowercase words joined by '-'), seeded from Main" },
           edits: { type: "array", items: { type: "object" }, description: "edits applied in order" },
           whole: { type: "object", description: "the whole new document (instead of edits)" },
         },
         required: ["intent", "message"],
         additionalProperties: false,
       },
-      run: async ({ doc, kind, intent, message, variant, edits, whole }, me) => docEdit({ db, store }, me, { doc, kind, intent, message, edits, whole, ...(variant != null ? { variant: Number(variant) } : {}) }),
+      run: async ({ doc, kind, intent, message, variant, breed, new_breed, edits, whole }, me) =>
+        docEdit({ db, store }, me, { doc, kind, intent, message, edits, whole, ...(variant != null ? { variant: Number(variant) } : {}), ...(breed != null ? { breed: Number(breed) } : {}), ...(new_breed != null ? { newBreed: `${new_breed}` } : {}) }),
     },
     {
       name: "propose_doc_version",
       description:
-        `Propose a document's next version: an intent variant made edit by edit with doc_edit (its \`variant\`; its edits go with it), or edits applied at once to Main's newest version, or the whole document. ${EDITS} It puts an intent at Proposal with it (via MCP), for Maia City's admins, who see what changed field by field on the intents' board (an asset built in the asset box, a story played in the Stories player, a factory opened with its simulation running) and accept or archive it. An asset's version is checked as readable source when it is proposed: ${RECIPE_RULE} If Main gets a newer version first, it still goes in where the two changes touch different fields, and is archived where they touch the same (an asset's, whenever its head moved). With \`kind\` and \`whole\` and no \`doc\`, a new document: a schema (every schema is a document of the meta-schema: \`label\`, \`type\` its documents' prefix, \`name\`, \`node\` the JSON Schema it holds them to; once accepted, its documents are a kind of their own, listed, read, edited and proposed with these same tools), or a document of a kind that is a schema alone. A schema's new version is accepted only while every document on Main still validates against it: the Accept names those that would not.`,
+        `Propose a document's next version: an intent variant made edit by edit with doc_edit (its \`variant\`; its edits go with it), or edits applied at once to Main's newest version, or the whole document. ${EDITS} It puts an intent at Proposal with it (via MCP), for Maia City's admins, who see what changed field by field on the intents' board (an asset built in the asset box, a story played in the Stories player, a factory opened with its simulation running) and accept or archive it. An asset's version is checked as readable source when it is proposed: ${RECIPE_RULE} If Main gets a newer version first, it still goes in where the two changes touch different fields, and is archived where they touch the same (an asset's, whenever its head moved). With \`kind\` and \`whole\` and no \`doc\`, a new document: a schema (every schema is a document of the meta-schema: \`label\`, \`type\` its documents' prefix, \`name\`, \`node\` the JSON Schema it holds them to; once accepted, its documents are a kind of their own, listed, read, edited and proposed with these same tools), or a document of a kind that is a schema alone. A schema's new version is accepted only while every document on Main still validates against it: the Accept names those that would not. An asset's breeds (doc_history) live beside Main and take every change accepted on Main except on the fields they override: change one with \`breed\` (an intent variant seeded from it), make one with \`new_breed\`; either Accept makes the asset's next version, every breed built as its variant.`,
       inputSchema: {
         type: "object",
         properties: {
@@ -295,13 +299,16 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           kind: { type: "string", description: "a new document's kind (list_docs's kinds): a schema (a new type of document, its documents' prefix its `type`), or a kind that is a schema alone" },
           note: { type: "string", description: "what changes and why, for the admins deciding" },
           variant: { type: "integer", minimum: 1, description: "an intent variant to propose (doc_edit gives it)" },
+          breed: { type: "integer", minimum: 1, description: "with no `variant`: the edits change this breed of the asset's (its number), not Main" },
+          new_breed: { type: "string", description: "with no `variant`: the edits make a new breed of the asset's, of this name" },
           edits: { type: "array", items: { type: "object" }, description: "edits applied in order (to the intent variant, if one is named)" },
           whole: { type: "object", description: "the whole new document (instead of edits)" },
         },
         required: ["note"],
         additionalProperties: false,
       },
-      run: async ({ doc, kind, note, variant, edits, whole, intent }, me) => proposeDocVersion({ db, store }, me, { doc, kind, note, edits, whole, intent, ...(variant != null ? { variant: Number(variant) } : {}) }),
+      run: async ({ doc, kind, note, variant, breed, new_breed, edits, whole, intent }, me) =>
+        proposeDocVersion({ db, store }, me, { doc, kind, note, edits, whole, intent, ...(variant != null ? { variant: Number(variant) } : {}), ...(breed != null ? { breed: Number(breed) } : {}), ...(new_breed != null ? { newBreed: `${new_breed}` } : {}) }),
     },
     // ---- sandboxes: what each draws (its pins) and how it lays them out (its configs): its layout, a document (./sandboxes.ts)
     {
@@ -531,7 +538,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     {
       name: "check_intent",
       description:
-        "Record an intent's checks' results while it is being built (its spec approved), or at Proposal while no work of it waits: each check's id, pass and evidence, where it ran and the commit; the latest result of each stands. Gives back the intent: at Proposal once every must check passes, back at Build if a must fails there. main's results confirm in any stage once approved, moving nothing. Refused: an unknown check, no evidence, an intent not approved. What to do at each stage is the Intents skill's (get_intent's brief).",
+        "Record an intent's checks' results while it is being built, or at Proposal while no work of it waits: each check's id, pass, evidence, where and commit; the latest stands. Gives back the intent: at Proposal once every must passes, back at Build if a must fails there. main's results confirm, moving nothing. Refused: an unknown check, no evidence, an unapproved intent; from a token not avenBOX's, a pull request or a test or measure result that could decide a code intent (a commit, main, a pull request named): its run records them. The rest is the Intents skill's (get_intent's brief).",
       inputSchema: {
         type: "object",
         properties: {
@@ -547,12 +554,13 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
                 evidence: { type: "string" },
                 where: { type: "string", enum: [...WHERES], description: "where it ran: avenBOX (the default) or main (after the merge, by .github/workflows/intents.yml)" },
                 commit: { type: "string", description: "the 40-character git hash it ran on" },
+                link: { type: "string", description: "the https link of the GitHub run that ran it (avenBOX's token only)" },
               },
               required: ["check", "pass", "evidence"],
               additionalProperties: false,
             },
           },
-          pr: { type: "integer", minimum: 1, description: "the number of the intent's pull request into main (its code), which an admin's Accept merges (in Ship, when its turn comes and GitHub is ready), only on the head every must check with a run last passed on; named while it is being built or at Proposal, a newer one replacing it" },
+          pr: { type: "integer", minimum: 1, description: "the number of the intent's pull request into main (its code), which an admin's Accept merges (in Ship, when its turn comes and GitHub is ready), only on the head every must check with a run last passed on; named while it is being built or at Proposal, a newer one replacing it; named by its run in avenBOX on GitHub (avenBOX's token only)" },
         },
         required: ["intent"],
         additionalProperties: false,

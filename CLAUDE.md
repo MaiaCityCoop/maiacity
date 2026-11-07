@@ -38,16 +38,25 @@ Postgres on 127.0.0.1:5432, `TEST_DATABASE_URL` set). A change made for an inten
 `Intent: <the intent's UUID>` at the end of each message.
 
 **Accept ships it** (Samuel 2026-11-06; play/SPEC.md §4.12, `play/api/src/ship.ts`): the intent flow is the one
-authority over what lands on main and goes to production. Once the change is done, open its pull request into `main`
-(ready, not a draft), record the intent's checks on its head and name it: `bun play/avenbox/intent.ts <the intent's
-UUID> --record --pr <its number>`. Once every must check passes, the intent moves to Proposal by itself: **stop there**.
+authority over what lands on main and goes to production. Every pull request into main is the work of exactly **one
+intent**, its **one active pull request**: its title `[<the intent's first 8 characters>] …` (only shown), its body and
+commits ending with `Intent: <the intent's UUID>` (`.github/pull_request_template.md`); the required check
+**Intent named** (`.github/workflows/intent-named.yml`) is red otherwise, or when another open pull request is the intent's
+(consolidate into it, or close yours). While building, open it as a **draft** and test yourself anywhere: `bash
+play/avenbox/gate.sh` and `bun play/avenbox/intent.ts <the intent's UUID>` (it runs and prints the checks, records
+nothing). Once the change is done, **mark it ready for review**: `.github/workflows/intents-pr.yml` runs the intent's
+checks in avenBOX on GitHub on its head and records them with the head, the run's link and the pull request (**only
+the box's run is evidence**: play takes a code intent's test and measure results from avenBOX's token alone; looks you
+still record by hand with check_intent). Every must green, the intent moves to Proposal by itself: **stop there**; any
+red, the run turns it back into a draft: fix, push, mark it ready again. Each push to a ready pull request is run and
+recorded again.
 **Never merge** into `main` or `production` by hand, and open no pull request into `production`. An admin's Accept on
 play's intents' board puts the intent in **Ship** at once: there it waits its turn (one ship at a time, in the order
 accepted) and for GitHub (the pull request's checks green, its mergeability worked out), its reason shown live, and
 play then merges the pull request itself (it posts the commit status **`Intent accepted`** on its head first; main's
 ruleset requires it, with `play / API and site` and `website / build`); Ship shows live main's checks, the release and
-the deploy (backup, image, server, website); it is Accepted exactly when play runs its merge commit (the reconcile, `play/api/src/ship.ts`, against the commit `GET /api/version` names; an Accepted one not live is flagged); a red step brings it back to Proposal with the report: fix it in a new pull request of the intent (named
-with `--pr`, its checks recorded on its head), and Accept ships it again. After the merge,
+the deploy (backup, image, server, website); it is Accepted exactly when play runs its merge commit (the reconcile, `play/api/src/ship.ts`, against the commit `GET /api/version` names; an Accepted one not live is flagged); a red step brings it back to Proposal with the report: fix it in a new pull request of the intent (its
+run records its checks on its head as it is marked ready), and Accept ships it again. After the merge,
 `.github/workflows/intents.yml` runs the intent's checks again on main in the same box and records them as main's, a
 confirmation. Say what you opened and that it waits for Accept; report a failing check instead of going past it.
 
@@ -122,8 +131,11 @@ version names its **reference sheet** (its card's `sheet`, set with `doc_edit`, 
 §4.10), shown with the version in the asset library and, in the Library, beside the image, the plant it belongs to, and
 its **data sheet** and its sheet's **brief** (`datasheet`, `brief`: Markdown kept with `add_document`), so a plant's whole
 dataset is in play. A
-version can be a kind of **variants** (the document's `variants`, or `propose_asset`'s: a plant's kinds, an animal's breeds), each its own
-recipe and a chip in the asset viewer. Everything Maia City wants made, fixed or improved is an **intent** (play/SPEC.md
+version can be a kind of **variants** (a plant's kinds, an animal's breeds), each its own
+recipe and a chip in the asset viewer: an asset's variants are **breeds** of its document (play/SPEC.md §4.15, Breeds), named variants beside Main
+that take every edit accepted on Main except on the fields they override (its `source`, its `card`); a breed changes by its own intent variant
+(`doc_edit`'s and `propose_doc_version`'s `breed`), a new one is made by one (`new_breed`), and every Accept, on Main or on a breed, is the asset's
+next frozen version with every breed built as its variant. Everything Maia City wants made, fixed or improved is an **intent** (play/SPEC.md
 §4.12; Samuel 2026-11-06), on the intents' board (a modal from the nav pill's star): **Idea → Specify → Build →
 Proposal → (Ship →) Accepted** (or Archived). **One record** (Samuel 2026-11-06: "not a proposal belongs to an intent: the intent
 has a state, proposal"): there is no proposal beside an intent; Proposal is the intent's stage, and the work it brings
@@ -137,8 +149,8 @@ system prompt, the intents' lifecycle, each stage's instructions) is kept once, 
 (`list_docs`, `doc_at`, `doc_history`; `/skills/`; play/SPEC.md §4.14), never in the code or on the board, and changes
 only by proposal (`doc_edit`, `propose_doc_version`), served from Postgres on each request (`initialize`, the brief, MCP's
 prompts). In short: at Idea it specifies the intent (every test and measure check with its `run` in **avenBOX**) and
-stops for an admin's approval; in Build it builds it and records every check (`bun play/avenbox/intent.ts <the
-intent's UUID> --record`) until it moves to Proposal by itself, where an admin decides it; work of play's it proposes
+stops for an admin's approval; in Build it builds it, tests itself (`bun play/avenbox/intent.ts <the intent's
+UUID>`) and marks its draft pull request ready, whose run in avenBOX on GitHub records the checks, until it moves to Proposal by itself, where an admin decides it; work of play's it proposes
 naming the intent, code it ships by pull request (*Accept ships it*, above). **No work without an intent** (intent
 706ed873): every propose path (`propose_*`, `add_artifact`, `update_artifact`, `doc_edit`, `POST /api/intents`) needs
 `intent`, one in Build or at Proposal, so every intent at Proposal has a spec. No tool approves, accepts or rejects an

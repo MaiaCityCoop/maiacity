@@ -140,7 +140,7 @@ async function versionFrontiers(q: Queryable, docId: string, number: number): Pr
  * every accepted version an edit at its date, named its own number, and the edits kept between two of them; then an
  * intent variant for each intent's work on it that has none yet (at Proposal proposed, the rest closed as they ended).
  */
-export async function ensureAssetDoc(q: Queryable, store: BlobStore, asset: string, dir = HISTORY): Promise<{ id: string; made: boolean; variants: number; kept: number }> {
+export async function ensureAssetDoc(q: Queryable, store: BlobStore, asset: string, dir = HISTORY): Promise<{ id: string; made: boolean; variants: number; kept: number; breeds: number }> {
   const id = assetDocId(asset);
   const { rows: a } = await q.query<{ grp: string; slug: string; label: string }>(`SELECT grp, slug, label FROM play.assets WHERE id = $1 FOR UPDATE`, [asset]);
   if (!a[0]) throw new AssetDocError(`there is no asset ${asset}`, 404);
@@ -193,7 +193,8 @@ export async function ensureAssetDoc(q: Queryable, store: BlobStore, asset: stri
     if (p.status !== "proposal") await docs.close(q, id, b, { author: { human: null, via: "system" }, status: p.status as "archived" });
     await holdVariant(q, null, p.id, id, Number(b));
   }
-  return { id, made, variants: ps.length, kept: keptSteps };
+  const breeds = await breedsFromVariants(q, id);
+  return { id, made, variants: ps.length, kept: keptSteps, breeds };
 }
 
 /**
@@ -228,11 +229,14 @@ async function variantAt(q: Queryable, docId: string, base: number | null, autho
 
 /** every asset's document, made where it is missing or where an intent's work on it has no intent variant yet (the deploy's import) */
 export async function ensureAssetDocs(db: Db, store: BlobStore, dir = HISTORY): Promise<AssetDocsReport> {
-  const out: AssetDocsReport = { made: 0, variants: 0, kept: 0, edits: 0, versions: 0, bytes: 0, errors: [] };
+  const out: AssetDocsReport = { made: 0, variants: 0, kept: 0, breeds: 0, edits: 0, versions: 0, bytes: 0, errors: [] };
   const { rows } = await db.query<{ id: string; grp: string; slug: string }>(
     `SELECT a.id, a.grp, a.slug FROM play.assets a
       WHERE NOT EXISTS (SELECT 1 FROM play.docs d WHERE d.id = 'asset:' || a.id::text)
          OR EXISTS (SELECT 1 FROM play.intents i WHERE i.asset_id = a.id AND NOT EXISTS (SELECT 1 FROM play.intent_variants iv WHERE iv.intent_id = i.id) AND i.stage <> 'accepted')
+         -- an asset of variants whose document has no breeds yet (play/SPEC.md "Breeds")
+         OR (EXISTS (SELECT 1 FROM play.asset_variants x JOIN play.asset_versions v ON v.id = x.version_id WHERE v.asset_id = a.id AND v.number IS NOT NULL)
+             AND NOT EXISTS (SELECT 1 FROM play.doc_variants b WHERE b.doc_id = 'asset:' || a.id::text AND b.type = 'breed'))
       ORDER BY a.grp, a.slug`,
   );
   for (const r of rows) {
@@ -240,6 +244,7 @@ export async function ensureAssetDocs(db: Db, store: BlobStore, dir = HISTORY): 
       const got = await db.transaction((q) => ensureAssetDoc(q, store, r.id, dir));
       out.made += got.made ? 1 : 0;
       out.variants += got.variants;
+      out.breeds += got.breeds;
       out.kept += got.kept;
     } catch (e) {
       out.errors.push(`${r.grp}/${r.slug}: ${(e as Error).message}`);
@@ -257,7 +262,7 @@ export async function ensureAssetDocs(db: Db, store: BlobStore, dir = HISTORY): 
   out.versions = Number(t[0].versions);
   return out;
 }
-export type AssetDocsReport = { made: number; variants: number; kept: number; edits: number; versions: number; bytes: number; docs?: number; errors: string[] };
+export type AssetDocsReport = { made: number; variants: number; kept: number; breeds: number; edits: number; versions: number; bytes: number; docs?: number; errors: string[] };
 
 // ---- an intent's work as an intent variant (./versioned.ts, ./work.ts)
 
@@ -266,10 +271,55 @@ export async function openVariantOf(q: Queryable, asset: string, v: unknown): Pr
   const n = Number(v);
   if (!Number.isInteger(n) || n < 1) throw new AssetDocError("An intent variant is named by its number.");
   const docId = assetDocId(asset);
-  const { rows } = await q.query<{ id: string; status: string; seed: docs.Frontiers }>(`SELECT id, status, seed FROM play.doc_variants WHERE id = $1 AND doc_id = $2 AND type = 'intent'`, [n, docId]);
+  const { rows } = await q.query<{ id: string; status: string; seed: docs.Frontiers; main_seed: docs.Frontiers | null }>(`SELECT id, status, seed, main_seed FROM play.doc_variants WHERE id = $1 AND doc_id = $2 AND type = 'intent'`, [n, docId]);
   if (!rows[0]) throw new AssetDocError(`This asset has no intent variant ${n}.`, 404);
   if (rows[0].status !== "open") throw new AssetDocError(`Variant ${n} was ${rows[0].status}: start a new one.`, 409);
-  return { id: n, base: versionAt(await docs.versionsOf(q, docId), rows[0].seed), status: rows[0].status };
+  return { id: n, base: await baseOf(q, docId, rows[0].main_seed ?? rows[0].seed), status: rows[0].status };
+}
+
+/**
+ * The version a variant seeded at Main's point `at` grew from: the version named there; or, where Main moved past its
+ * newest version only by the import's own edits (its variants turned into breeds), that newest version.
+ */
+async function baseOf(q: Queryable, docId: string, at: docs.Frontiers): Promise<number | null> {
+  const versions = await docs.versionsOf(q, docId);
+  const n = versionAt(versions, at);
+  if (n !== null || !versions.length) return n;
+  const last = versions.at(-1)!;
+  const { rows } = await q.query<{ n: string }>(
+    `SELECT count(*) AS n FROM play.doc_edits e JOIN play.doc_variants m ON m.id = e.variant AND m.type = 'main'
+      WHERE e.doc_id = $1 AND e.kind <> 'import' AND e.seq > (SELECT max(e2.seq) FROM play.doc_edits e2 JOIN play.doc_variants m2 ON m2.id = e2.variant AND m2.type = 'main'
+                                                         WHERE e2.doc_id = $1 AND e2.frontiers = ($2::text)::jsonb)`,
+    [docId, JSON.stringify(last.frontiers)],
+  );
+  const { rows: head } = await q.query<{ head: docs.Frontiers }>(`SELECT head FROM play.docs WHERE id = $1`, [docId]);
+  return Number(rows[0]?.n ?? 1) === 0 && docs.frontiersKey(head[0].head) === docs.frontiersKey(at) ? last.number : null;
+}
+
+// ---- breeds (play/SPEC.md "Breeds"): an asset's variants as variants of its document beside Main
+
+/**
+ * An asset's variants, where its Main holds them (a document made from its history, or a version proposed with
+ * `variants`), turned into breeds: each variant a breed of its name, its source (where it has its own) and its card
+ * the fields it overrides; then Main without them, merged into every breed. The asset's frozen versions are untouched.
+ * Gives back how many breeds it made or changed.
+ */
+export async function breedsFromVariants(q: Queryable, docId: string): Promise<number> {
+  const main = (await docs.readDoc(q, docId)).json as AssetJson;
+  if (!main.variants?.length) return 0;
+  const author: docs.Author = { human: null, via: "system" };
+  const have = new Map((await docs.variantsOf(q, docId)).filter((v) => v.type === "breed").map((v) => [v.name!, v.id]));
+  for (const x of main.variants) {
+    const id = have.get(x.name) ?? (await docs.breed(q, docId, { name: x.name, author, note: `the variant ${x.name}` })).id;
+    const now = (await docs.readDoc(q, docId, { breed: id })).json;
+    const target = { ...now, source: x.source ?? main.source };
+    if (x.card) target.card = x.card;
+    await docs.commit(q, docId, { variant: id, target, message: `breed ${x.name}: the variant ${x.name}'s own source and card`, author, kind: "import" });
+  }
+  const { variants: _v, ...rest } = main;
+  await docs.commit(q, docId, { target: rest, message: "its variants are breeds now, beside Main", author, kind: "import" });
+  await docs.trackMainInBreeds(q, docId, { message: "tracks Main", author });
+  return main.variants.length;
 }
 /** an intent variant's state: the whole asset as it stands on it */
 export async function variantState(q: Queryable, asset: string, v: number): Promise<AssetJson> {
@@ -281,12 +331,13 @@ export async function variantState(q: Queryable, asset: string, v: number): Prom
  * was made on, its last edit the version as proposed; or a new one seeded at the head it was made on, the version its
  * one edit. Proposed.
  */
-export async function proposalVariant(q: Queryable, store: BlobStore, o: { asset: string; base: number | null; json: AssetJson; note: string; author: docs.Author; variant?: number }): Promise<number> {
+export async function proposalVariant(q: Queryable, store: BlobStore, o: { asset: string; base: number | null; json: AssetJson | null; note: string; author: docs.Author; variant?: number }): Promise<number> {
   return asAssetError(async () => {
     const { id } = await ensureAssetDoc(q, store, o.asset);
     const message = firstLine(o.note) || "proposed";
     const v = o.variant !== undefined ? (await openVariantOf(q, o.asset, o.variant)).id : await variantAt(q, id, o.base, o.author, o.note);
-    await docs.commit(q, id, { variant: v, target: o.json, message, author: o.author });
+    // the version as proposed, its intent variant's last edit (an asset of breeds: its variant as it stands, each breed built from it)
+    if (o.json) await docs.commit(q, id, { variant: v, target: o.json, message, author: o.author });
     await docs.propose(q, id, v, { note: o.note, author: o.author });
     return v;
   });
@@ -388,11 +439,18 @@ export async function assetAt(db: Db, store: BlobStore, me: Me | null, asset: st
  * it (an edit on an intent variant: the one after the version it was seeded from).
  */
 async function numberAt(q: Queryable, docId: string, seq: number): Promise<{ n: number; exact: number | null }> {
-  const { rows } = await q.query<{ type: string; seed: docs.Frontiers }>(
-    `SELECT v.type, v.seed FROM play.doc_edits u JOIN play.doc_variants v ON v.id = u.variant WHERE u.doc_id = $1 AND u.seq = $2`, [docId, seq],
+  const { rows } = await q.query<{ type: string; seed: docs.Frontiers; main_seed: docs.Frontiers | null; status: string; version: number | null }>(
+    `SELECT v.type, v.seed, v.main_seed, v.status, v.version FROM play.doc_edits u JOIN play.doc_variants v ON v.id = u.variant WHERE u.doc_id = $1 AND u.seq = $2`, [docId, seq],
   );
   if (!rows[0]) throw new AssetDocError(`no edit ${seq}`, 404);
   const versions = await docs.versionsOf(q, docId);
+  // a breed's edit: the breed as it stands in the newest version (each Accept builds every breed as its variant)
+  if (rows[0].type === "breed") return { n: versions.at(-1)?.number ?? 1, exact: versions.at(-1)?.number ?? null };
+  // an edit of an intent variant of a breed, or making one: the version after the one it was seeded from (its own, once accepted)
+  if (rows[0].main_seed) {
+    if (rows[0].status === "accepted" && rows[0].version) return { n: rows[0].version, exact: null };
+    return { n: (versionAt(versions, rows[0].main_seed) ?? versions.at(-1)?.number ?? 0) + 1, exact: null };
+  }
   const edits = await named(q, await docs.history(q, docId), versions);
   const i = edits.findIndex((s) => s.seq === seq);
   if (i < 0) {
@@ -419,18 +477,25 @@ export async function recipeAt(db: Db, store: BlobStore, me: Me | null, asset: s
     const { rows: a } = await db.query<{ grp: string; slug: string; label: string }>(`SELECT grp, slug, label FROM play.assets WHERE id = $1`, [asset]);
     const json = (await docs.stateAt(db, docId, { edit: seq })) as AssetJson;
     const { n, exact } = await numberAt(db, docId, seq);
-    const variant = json.defaultVariant ?? null;
-    const v = variant ? json.variants?.find((x) => x.name === variant) : undefined;
+    // an edit of a breed's (on its own line, or on an intent variant changing or making it) builds that breed
+    const { rows: line } = await db.query<{ name: string | null }>(
+      `SELECT COALESCE(l.name, b.name, l.makes) AS name FROM play.doc_edits e JOIN play.doc_variants l ON l.id = e.variant LEFT JOIN play.doc_variants b ON b.id = l.breed
+        WHERE e.doc_id = $1 AND e.seq = $2`,
+      [docId, seq],
+    );
+    const bred = line[0]?.name ?? null;
+    const variant = bred ?? json.defaultVariant ?? null;
+    const v = bred ? { name: bred, source: json.source, card: json.card } : variant ? json.variants?.find((x) => x.name === variant) : undefined;
     const record = (v?.card ?? json.card ?? {}) as any;
     const base = { asset, group: a[0].grp, slug: a[0].slug, v: n, variant, first: true, label: record?.card?.label ?? json.label, edit: seq };
     // a version's point: its own recipe file, as the catalog has it, where the edit holds that version's source
     if (exact !== null) {
       const { rows } = await db.query<{ hash: string; size: string; card: any; source_hash: string | null }>(
         `SELECT COALESCE(x.recipe_hash, v.recipe_hash) AS hash, f.size, COALESCE(x.card, v.card) AS card, COALESCE(x.source_hash, v.source_hash) AS source_hash
-           FROM play.asset_versions v LEFT JOIN play.asset_variants x ON x.version_id = v.id AND x.name = v.default_variant
+           FROM play.asset_versions v LEFT JOIN play.asset_variants x ON x.version_id = v.id AND x.name = COALESCE($3, v.default_variant)
            JOIN play.files f ON f.hash = COALESCE(x.recipe_hash, v.recipe_hash)
           WHERE v.asset_id = $1 AND v.number = $2`,
-        [asset, exact],
+        [asset, exact, bred],
       );
       const src = v?.source ?? json.source;
       if (rows[0] && (rows[0].source_hash === null || rows[0].source_hash === hashText(src))) return { ...base, hash: rows[0].hash, size: Number(rows[0].size), record: rows[0].card, version: exact };
@@ -588,6 +653,31 @@ const REFS = {
   brief: { is: (t: string) => t === "text/markdown", what: "A brief is a Markdown document", add: "add_document" },
 } as const;
 
+/**
+ * What a version proposed from intent variant `v` holds of the asset's breeds, where it has any (or the variant makes
+ * one): each breed as it would then be, its source and card (the breed the variant changes, or makes, as the variant
+ * has it; every other one Main as it would then be beneath its own fields), and the breed shown first. A variant of a
+ * breed, or one making a breed, changes only a breed's own fields (its source and card). Null: an asset of no breeds.
+ */
+async function breedsFor(q: Queryable, asset: string, v: number, json: AssetJson): Promise<{ variants: Record<string, { source: string; record: any }>; defaultVariant: string } | null> {
+  const docId = assetDocId(asset);
+  const row = await docs.variantOf(q, docId, v);
+  const breeds = await docs.breedsOf(q, docId);
+  if (!breeds.length && row.makes === null) return null;
+  const onBreed = row.breed !== null || row.makes !== null;
+  if (onBreed) {
+    const outside = docs.outsideBreed(await docs.seedOf(q, docId, v), json);
+    if (outside.length) throw new AssetDocError(`A breed changes only its own source and card, not ${outside.slice(0, 3).map((p) => p.join(".")).join(", ")}: change those on Main.`);
+  }
+  const main = onBreed ? ((await docs.readDoc(q, docId)).json as AssetJson) : json;
+  const out: { name: string; json: AssetJson }[] = breeds.map((b) => ({ name: b.name, json: b.id === row.breed ? json : docs.breedOn(main, b.json, b.overrides) }));
+  if (row.makes !== null) out.push({ name: row.makes, json });
+  out.sort((x, y) => (x.name < y.name ? -1 : 1));
+  const variants = Object.fromEntries(out.map((x) => [x.name, { source: x.json.source, record: x.json.card }]));
+  const defaultVariant = main.defaultVariant && variants[main.defaultVariant] ? main.defaultVariant : out[0].name;
+  return { variants, defaultVariant };
+}
+
 export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, given: ProposalBody, via: "web" | "mcp" = "web") {
   const who = must(me, "propose", "asset_version");
   let body: ProposalBody = given ?? {};
@@ -637,6 +727,9 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
   // an intent variant made edit by edit (doc_edit): proposed as it stands, seeded from the head; its source and card
   // are the version's where the proposal brings none of its own
   let draft: number | undefined;
+  let breeding = false;
+  if (body.variant == null && body.asset !== undefined && (await db.query(`SELECT 1 FROM play.doc_variants WHERE doc_id = $1 AND type = 'breed' AND status = 'open'`, [assetDocId(asset)])).rows.length)
+    throw new VersionError("This asset has breeds: change it with doc_edit and propose_doc_version (Main, a breed with `breed`, or a new one with `new_breed`), so every breed is built from it.", 409);
   if (body.variant != null) {
     if (body.asset === undefined) throw new VersionError("An intent variant is of an asset there already.");
     const d = await db
@@ -650,16 +743,28 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
       });
     if ((d.base ?? null) !== (a[0]?.number ?? null)) throw new VersionError(`This asset has a newer version than the one variant ${d.id} was seeded from: start a variant again on its head.`, 409);
     draft = d.id;
-    if (!body.source && !body.recipe && !body.variants) {
+    // an asset of breeds (play/SPEC.md "Breeds"): the version is Main as it would then be, with every breed built from
+    // it as its variant (the breed the intent variant changes, or makes, as it changes it)
+    const bred = await db.transaction((q) => breedsFor(q, asset, d.id, d.json)).catch((e) => {
+      throw e instanceof AssetDocError ? new VersionError(e.message, e.status) : e;
+    });
+    if (bred) {
+      breeding = true;
+      body = { ...body, variants: bred.variants, defaultVariant: bred.defaultVariant };
+    }
+    if (!breeding && !body.source && !body.recipe && !body.variants) {
       if (d.json.variants?.length)
         body = { ...body, variants: Object.fromEntries(d.json.variants.map((x) => [x.name, { source: x.source ?? d.json.source, record: x.card }])), defaultVariant: d.json.defaultVariant ?? d.json.variants[0].name };
       else body = { ...body, source: d.json.source, ...(body.record === undefined && d.json.card ? { record: d.json.card } : {}) };
     }
     // what its card names (its reference sheet, data sheet and brief; the params its recipe declares) is held as a
     // proposal's own would be
-    for (const k of ["sheet", "datasheet", "brief"] as const) if ((body as any)[k] === undefined && d.json.card && k in d.json.card) (body as any)[k] = d.json.card[k];
-    // (params it changed, held as given ones are; the head's carried on as they were)
-    if (body.card === undefined && Array.isArray(d.json.card?.card?.params) && JSON.stringify(d.json.card.card.params) !== JSON.stringify(a[0]?.card?.card?.params)) body = { ...body, card: { params: d.json.card.card.params } };
+    // (a breed's own record carries them, each its own)
+    if (!breeding) {
+      for (const k of ["sheet", "datasheet", "brief"] as const) if ((body as any)[k] === undefined && d.json.card && k in d.json.card) (body as any)[k] = d.json.card[k];
+      // (params it changed, held as given ones are; the head's carried on as they were)
+      if (body.card === undefined && Array.isArray(d.json.card?.card?.params) && JSON.stringify(d.json.card.card.params) !== JSON.stringify(a[0]?.card?.card?.params)) body = { ...body, card: { params: d.json.card.card.params } };
+    }
     set = cardFields(body.card);
   }
 
@@ -743,7 +848,7 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
       source: recipe ? ownText : variantTexts[defaultVariant!],
       variants: Object.entries(variants).map(([name, x]) => ({ name, source: variantTexts[name], card: x.card })),
     });
-    const v = await proposalVariant(tx, store, { asset, base: a[0]?.number ?? null, json, note, author: authorOf(who, via === "mcp" ? "mcp" : "site"), variant: draft }).catch((e) => {
+    const v = await proposalVariant(tx, store, { asset, base: a[0]?.number ?? null, json: breeding ? null : json, note, author: authorOf(who, via === "mcp" ? "mcp" : "site"), variant: draft }).catch((e) => {
       throw e instanceof AssetDocError ? new VersionError(e.message, e.status) : e;
     });
     intent = await putAtProposal(tx, who, { intent: body.intent, work: { kind: ASSET_WORK, doc_id: assetDocId(asset), doc_variant: v, asset_id: asset, base: head, version: id }, note, via }).catch((e) => {
@@ -829,6 +934,8 @@ export async function decideAsset(tx: Queryable, store: BlobStore, me: Me, p: an
     await tx.query(`UPDATE play.assets SET head = $2 WHERE id = $1`, [p.asset_id, p.version]);
     await settle(tx, id, "accepted", me.id);
     await acceptVariant(tx, store, p, me, n);
+    // a version proposed with its variants given whole: they are the asset's breeds from now on
+    await asAssetError(() => breedsFromVariants(tx, assetDocId(p.asset_id)));
     // the other intents' work made on the same head can go in no more: archived, to be built again on the new one
     const { rows: stale } = await tx.query<any>(
       `SELECT ${WORK_OF} FROM play.intents i

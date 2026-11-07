@@ -55,7 +55,12 @@ suite("intents depend on intents", () => {
       who[n] = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
     }
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = ANY($1)`, [[who.ada.id, who.bea.id]]);
-    for (const n of ["ada", "bea"]) tokens[n] = (await call(n, "POST", "/api/tokens", { name: "agent" })).data.token;
+    for (const n of ["ada", "bea"]) {
+      const made = (await call(n, "POST", "/api/tokens", { name: "agent" })).data;
+      tokens[n] = made.token;
+      // avenBOX's tokens (play/SPEC.md §4.12): a code intent's results on a commit, and its pull request, are taken from them alone
+      await call(n, "POST", `/api/tokens/${made.id}/avenbox`, { avenbox: true });
+    }
   });
 
   afterAll(async () => {

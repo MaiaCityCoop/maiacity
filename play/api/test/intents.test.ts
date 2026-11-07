@@ -30,6 +30,7 @@ suite("intents", () => {
   let api: ReturnType<typeof app>;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
+  let boxToken = "";
 
   beforeAll(async () => {
     name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
@@ -50,6 +51,10 @@ suite("intents", () => {
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = ANY($1)`, [[who.ada.id, who.bea.id]]);
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.cit.id]);
     token = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data.token;
+    // avenBOX's token, the GitHub runs' (play/SPEC.md §4.12): what decides a code intent is recorded with it alone
+    const box = (await call("ada", "POST", "/api/tokens", { name: "avenBOX" })).data;
+    boxToken = box.token;
+    await call("ada", "POST", `/api/tokens/${box.id}/avenbox`, { avenbox: true });
   });
 
   afterAll(async () => {
@@ -66,27 +71,29 @@ suite("intents", () => {
     return { status: r.status, data: await r.json().catch(() => null) };
   };
   let n = 0;
-  const rpc = async (method: string, params?: unknown) => {
+  const rpc = async (method: string, params?: unknown, bearer = token) => {
     const r = await api.fetch(
       new Request("http://play.test/api/mcp", {
         method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        headers: { "content-type": "application/json", authorization: `Bearer ${bearer}` },
         body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method, params }),
       }),
     );
     return (await r.json()).result;
   };
   /** a tool called over MCP by ada's token: its result as JSON, or its error's text */
-  const tool = async (name: string, args: Record<string, any>): Promise<any> => {
+  const tool = async (name: string, args: Record<string, any>, bearer = token): Promise<any> => {
     // an asset's next version: its source edited on an intent variant and proposed (propose_doc_version)
     if (name === "propose_version") {
       const { asset, source, note, intent } = args;
-      return tool("propose_doc_version", { doc: asset, note, edits: [{ op: "set", path: ["source"], value: source }], ...(intent ? { intent } : {}) });
+      return tool("propose_doc_version", { doc: asset, note, edits: [{ op: "set", path: ["source"], value: source }], ...(intent ? { intent } : {}) }, bearer);
     }
-    const res = await rpc("tools/call", { name, arguments: args });
+    const res = await rpc("tools/call", { name, arguments: args }, bearer);
     const text = res.content[0].text;
     return res.isError ? { error: text as string } : JSON.parse(text);
   };
+  /** a tool called by avenBOX's token, as the GitHub runs call it */
+  const box = (name: string, args: Record<string, unknown>) => tool(name, args, boxToken);
 
   /** an intent added, specified with three checks (two musts, one nice) and, where asked, approved */
   const SPEC = {
@@ -270,16 +277,16 @@ suite("intents", () => {
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.error).toContain("moves to Proposal by itself");
     const sha = "0123456789abcdef0123456789abcdef01234567";
     // where a result ran: avenBOX by default, or main; a commit is a whole git hash; a pull request is its number
-    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "x", where: "laptop" }] })).error).toContain("where is avenBOX or main");
-    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "x", commit: "abc123" }] })).error).toContain("40-character git hash");
-    expect((await tool("check_intent", { intent: i.id, pr: "#12", results: [{ check: "c1", pass: true, evidence: "x" }] })).error).toContain("pr is the number");
-    expect((await tool("check_intent", { intent: i.id })).error).toContain("Give each check's result");
+    expect((await box("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "x", where: "laptop" }] })).error).toContain("where is avenBOX or main");
+    expect((await box("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "x", commit: "abc123" }] })).error).toContain("40-character git hash");
+    expect((await box("check_intent", { intent: i.id, pr: "#12", results: [{ check: "c1", pass: true, evidence: "x" }] })).error).toContain("pr is the number");
+    expect((await box("check_intent", { intent: i.id })).error).toContain("Give each check's result");
     // every must passes in avenBOX, its pull request named: to Proposal by itself
-    const boxed = await tool("check_intent", { intent: i.id, pr: 12, results: [{ check: "c1", pass: true, evidence: "intent.ts: exit 0", commit: sha }, { check: "c2", pass: true, evidence: "0.5", commit: sha }] });
+    const boxed = await box("check_intent", { intent: i.id, pr: 12, results: [{ check: "c1", pass: true, evidence: "intent.ts: exit 0", commit: sha }, { check: "c2", pass: true, evidence: "0.5", commit: sha }] });
     expect(boxed).toMatchObject({ stage: "proposal", pull_request: 12, ship: null });
     expect(boxed.results).toMatchObject({ c1: { pass: true, where: "avenBOX", commit: sha }, c2: { pass: true, where: "avenBOX", commit: sha } });
     // a newer pull request replaces it, named alone
-    expect((await tool("check_intent", { intent: i.id, pr: 13 })).pull_request).toBe(13);
+    expect((await box("check_intent", { intent: i.id, pr: 13 })).pull_request).toBe(13);
     // with a pull request, Accept ships it, and this play holds no SHIP_TOKEN: refused, and it says why (src/ship.ts; test/ship.test.ts)
     const refused = await call("ada", "POST", `/api/intents/${i.id}/accept`);
     expect(refused.status).toBe(409);
@@ -287,7 +294,7 @@ suite("intents", () => {
     expect((await call("ada", "GET", `/api/intents/${i.id}`)).data.stage).toBe("proposal");
     // with none (an intent that is a decision, or code merged before ships), Accept takes its checks, as they passed in avenBOX
     const j = await intentAt("No pull request", "build");
-    await tool("check_intent", { intent: j.id, results: [{ check: "c1", pass: true, evidence: "built" }, { check: "c2", pass: true, evidence: "0.5" }] });
+    await box("check_intent", { intent: j.id, results: [{ check: "c1", pass: true, evidence: "built" }, { check: "c2", pass: true, evidence: "0.5" }] });
     expect((await call("ada", "POST", `/api/intents/${j.id}/accept`)).data).toMatchObject({ stage: "accepted", decided_by: "ada" });
   });
 
@@ -299,7 +306,7 @@ suite("intents", () => {
     // only code ships: an intent holding work of play's is never in Ship
     const i = await intentAt("In Ship", "build");
     const all = [{ check: "c1", pass: true, evidence: "built" }, { check: "c2", pass: true, evidence: "0.5" }];
-    await tool("check_intent", { intent: i.id, pr: 21, results: all });
+    await box("check_intent", { intent: i.id, pr: 21, results: all });
     const ship = { pr: 21, head: "a".repeat(40), merge: "b".repeat(40), by: "ada", round: 1, started: new Date().toISOString(), steps: [{ key: "merged", name: "Merged into main", state: "green" }] };
     await db.query(`UPDATE play.intents SET stage = 'ship', ship = ($2::text)::jsonb WHERE id = $1`, [i.id, JSON.stringify(ship)]);
     const listed = (await call("ada", "GET", "/api/intents?stage=ship")).data;
@@ -308,32 +315,32 @@ suite("intents", () => {
     expect((await tool("list_intents", {})).map((x: any) => x.id)).toContain(i.id);
     expect((await tool("list_intents", { stage: "ship" })).map((x: any) => x.id)).toEqual([i.id]);
     // in Ship: avenBOX's results and a pull request are not taken; main's are kept, a red one too, and it stays
-    expect((await tool("check_intent", { intent: i.id, results: all })).error).toContain("main's results (where main) in any stage");
-    expect((await tool("check_intent", { intent: i.id, pr: 22 })).error).toContain("ship stage");
+    expect((await box("check_intent", { intent: i.id, results: all })).error).toContain("main's results (where main) in any stage");
+    expect((await box("check_intent", { intent: i.id, pr: 22 })).error).toContain("ship stage");
     const merged = "c".repeat(40);
-    const onMain = await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "main", where: "main", commit: merged }, { check: "c2", pass: false, evidence: "0.7 on main", where: "main", commit: merged }] });
+    const onMain = await box("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "main", where: "main", commit: merged }, { check: "c2", pass: false, evidence: "0.7 on main", where: "main", commit: merged }] });
     expect(onMain).toMatchObject({ stage: "ship", pull_request: 21, results: { c1: { where: "main", commit: merged }, c2: { pass: false, where: "main" } } });
     // Accepted, the same
     await db.query(`UPDATE play.intents SET stage = 'accepted' WHERE id = $1`, [i.id]);
-    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5 on main", where: "main" }] })).stage).toBe("accepted");
+    expect((await box("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5 on main", where: "main" }] })).stage).toBe("accepted");
     // the database holds it: work of play's in Ship is refused
     const w = await intentAt("Work in Ship", "build");
-    await tool("check_intent", { intent: w.id, results: all });
+    await box("check_intent", { intent: w.id, results: all });
     expect((await tool("propose_asset", { group: "plants", label: "Never shipped", source: SOURCE, note: "x", intent: w.id })).error).toBeUndefined();
     await expect(db.query(`UPDATE play.intents SET stage = 'ship' WHERE id = $1`, [w.id])).rejects.toThrow();
     // not yet approved: main's results are not taken either
     const idea = await intentAt("Not approved", "specify");
-    expect((await tool("check_intent", { intent: idea.id, results: [{ check: "c1", pass: true, evidence: "main", where: "main" }] })).error).toContain("specify stage");
+    expect((await box("check_intent", { intent: idea.id, results: [{ check: "c1", pass: true, evidence: "main", where: "main" }] })).error).toContain("specify stage");
   });
 
   test("an intent moves to Proposal by itself once every must check passes, and is accepted there, never from Build", async () => {
     const i = await intentAt("Artifacts on play", "build");
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.error).toContain("moves to Proposal by itself");
-    const half = await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "PR #1 merged, tests green", where: "main" }, { check: "c2", pass: false, evidence: "0.7", where: "main" }] });
+    const half = await box("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "PR #1 merged, tests green", where: "main" }, { check: "c2", pass: false, evidence: "0.7", where: "main" }] });
     expect(half.stage).toBe("build");
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).status).toBe(409);
     // the last must passes: Proposal, by itself (the nice check has no result and need not)
-    const ready = await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5", where: "main" }] });
+    const ready = await box("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5", where: "main" }] });
     expect(ready).toMatchObject({ stage: "proposal", work: null });
     // at Proposal, the one gate: an admin accepts it (a citizen may not)
     expect((await call("cit", "POST", `/api/intents/${i.id}/accept`)).status).toBe(403);
@@ -345,8 +352,53 @@ suite("intents", () => {
     const i = await tool("add_intent", { title: "A look only" });
     await tool("specify_intent", { intent: i.id, ...SPEC, checks: [{ check: "It looks like the sheet", how: "look", by: "the sheet at 1 m" }] });
     await call("ada", "POST", `/api/intents/${i.id}/approve`);
-    await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "side by side: the same" }] });
+    await box("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "side by side: the same" }] });
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.stage).toBe("accepted");
+  });
+
+  test("only the box's run is evidence: avenBOX's token records a code intent's test and measure results, any other token is refused for them and may record a look", async () => {
+    const sha = "1".repeat(40);
+    const SAYS = "the pull request's run records them";
+    // the token is marked on the profile page by its owner, an admin; it is listed so
+    const listed = (await call("ada", "GET", "/api/tokens")).data;
+    expect(listed.find((t: any) => t.name === "avenBOX").avenbox).toBe(true);
+    expect(listed.find((t: any) => t.name === "agent").avenbox).toBe(false);
+    expect((await call("bea", "POST", `/api/tokens/${listed[0].id}/avenbox`, { avenbox: true })).status).toBe(404);
+    expect((await call("cit", "POST", `/api/tokens/${listed[0].id}/avenbox`, { avenbox: true })).status).toBe(403);
+    expect((await call("ada", "POST", `/api/tokens/${listed[0].id}/avenbox`, { avenbox: "yes" })).status).toBe(400);
+
+    const i = await intentAt("Box only", "build");
+    // any other admin's token: no pull request, no result on a commit or on main
+    const look = { check: "c3", pass: true, evidence: "side by side at 1 m: it matches" };
+    for (const args of [
+      { pr: 30 },
+      { results: [{ check: "c1", pass: true, evidence: "exit 0", commit: sha }] },
+      { results: [{ check: "c2", pass: true, evidence: "0.5", where: "main" }] },
+      { results: [look, { check: "c1", pass: true, evidence: "exit 0", commit: sha }] },
+    ]) {
+      const r = await tool("check_intent", { intent: i.id, ...args });
+      expect(r.error).toContain(SAYS);
+    }
+    expect((await call("ada", "GET", `/api/intents/${i.id}`)).data.results).toBeNull();
+    // a look it still records by hand
+    expect((await tool("check_intent", { intent: i.id, results: [look] })).results.c3).toMatchObject({ pass: true, by: "ada" });
+    // the box's run: a red must keeps it in Prototype, its pull request named; recorded with the run's link, marked the box's
+    const link = "https://github.com/maia/city/actions/runs/9";
+    const red = await box("check_intent", { intent: i.id, pr: 30, results: [{ check: "c1", pass: true, evidence: "exit 0", commit: sha, link }, { check: "c2", pass: false, evidence: "0.7", commit: sha, link }] });
+    expect(red).toMatchObject({ stage: "build", pull_request: 30, results: { c1: { pass: true, box: true, link, commit: sha }, c2: { pass: false, box: true } } });
+    expect(red.results.c3.box).toBeUndefined();
+    expect((await box("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "x", link: "javascript:alert(1)" }] })).error).toContain("link is the https link");
+    // once its pull request is named, no other token records a test or measure, even with no commit
+    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5" }] })).error).toContain(SAYS);
+    // all green from the box: to Proposal; a red must from it there: back to Prototype
+    const green = await box("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5", commit: sha, link }] });
+    expect(green.stage).toBe("proposal");
+    const sha2 = "2".repeat(40);
+    const back = await box("check_intent", { intent: i.id, results: [{ check: "c1", pass: false, evidence: "exit 1", commit: sha2, link }, { check: "c2", pass: true, evidence: "0.5", commit: sha2, link }] });
+    expect(back.stage).toBe("build");
+    // work of play's own (no pull request, no commit): any admin's token records it, as before
+    const w = await intentAt("Play's own work", "build");
+    expect((await tool("check_intent", { intent: w.id, results: [{ check: "c1", pass: true, evidence: "built" }, { check: "c2", pass: true, evidence: "0.5" }] })).stage).toBe("proposal");
   });
 
   test("specify_intent and check_intent say only what they take, give back and refuse; the Intents skill teaches the rest", async () => {

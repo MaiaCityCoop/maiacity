@@ -292,7 +292,7 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
       const head = pr.head.sha;
       const stale = unmetOn(intent, head);
       if (stale.length)
-        refuse(`What is merged is what was checked: every must check with a run passes on #${pr.number}'s head ${head.slice(0, 7)} first (bun play/avenbox/intent.ts ${intent.id} --record on it): ${stale.join("; ")}.`);
+        refuse(`What is merged is what was checked: every must check with a run passes on #${pr.number}'s head ${head.slice(0, 7)} first (its run in avenBOX on GitHub records them on it: mark the pull request ready, or push to it): ${stale.join("; ")}.`);
       if (pr.mergeable === false) refuse(`#${pr.number} does not merge into main as it is (a conflict): main is merged into its branch, and its checks run again on the new head.`);
       const runs = latestRuns(await gh!.checkRuns(head).catch((e) => refuse(`#${pr.number}'s checks could not be read: ${(e as Error).message}.`)));
       for (const name of REQUIRED_CHECKS) {

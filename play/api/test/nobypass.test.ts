@@ -190,6 +190,7 @@ suite("no write past an Accept", () => {
       "POST /api/invites": () => call("ada", "POST", "/api/invites"),
       "POST /api/tokens": () => call("ada", "POST", "/api/tokens", { name: "another" }),
       "DELETE /api/tokens/:id": () => call("ada", "DELETE", `/api/tokens/${crypto.randomUUID()}`),
+      "POST /api/tokens/:id/avenbox": () => call("ada", "POST", `/api/tokens/${crypto.randomUUID()}/avenbox`, { avenbox: true }),
       "POST /api/mcp": () => rpc("tools/call", { name: "doc_edit", arguments: { doc: K, message: "no intent", edits: [{ op: "set", path: ["note"], value: "z" }] } }),
       "POST /api/library/:hash/label": async () => {
         const f = await tool("add_document", { text: "# Another sheet", label: "a sheet" });

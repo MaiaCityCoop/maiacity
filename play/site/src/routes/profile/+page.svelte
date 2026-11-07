@@ -16,7 +16,7 @@
 	const changed = $derived(name.trim().replace(/\s+/g, ' ') !== (session.me?.name ?? ''));
 
 	// an admin's access tokens, for an agent working for them over MCP (/api/mcp): the token shown once, here alone
-	type Token = { id: string; name: string; created: string; last_used: string | null; revoked_at: string | null };
+	type Token = { id: string; name: string; created: string; last_used: string | null; revoked_at: string | null; avenbox: boolean };
 	const admin = $derived(session.me?.level === 'admin');
 	let tokens = $state<Token[]>([]);
 	let tokenName = $state('');
@@ -42,6 +42,14 @@
 		if (!confirm(`Revoke "${t.name}"? An agent using it can do nothing more.`)) return;
 		await api(`/tokens/${t.id}`, { method: 'DELETE' }).catch((err) => (tokenError = (err as Error).message));
 		if (fresh && tokens.find((x) => x.id === t.id)?.name === fresh.name) fresh = null;
+		await loadTokens();
+	}
+	// avenBOX's token (play/SPEC.md §4.12): the one the GitHub runs of the intents' checks hold (the repository's secret
+	// PLAY_MCP_TOKEN); a code intent's test and measure results are taken from it alone
+	async function markBox(t: Token) {
+		const avenbox = !t.avenbox;
+		if (avenbox && !confirm(`Mark "${t.name}" as avenBOX's? Only the GitHub runs of the intents' checks should hold it: what it records decides code intents.`)) return;
+		await api(`/tokens/${t.id}/avenbox`, { json: { avenbox } }).catch((err) => (tokenError = (err as Error).message));
 		await loadTokens();
 	}
 	const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : '—');
@@ -103,13 +111,14 @@
 			{/if}
 			{#if tokens.length}
 				<table>
-					<thead><tr><th>Token</th><th>Made</th><th>Last used</th><th></th></tr></thead>
+					<thead><tr><th>Token</th><th>Made</th><th>Last used</th><th title="The token of the intents' checks' runs on GitHub">avenBOX</th><th></th></tr></thead>
 					<tbody>
 						{#each tokens as t (t.id)}
 							<tr class:revoked={!!t.revoked_at}>
 								<td>{t.name}</td>
 								<td class="muted">{day(t.created)}</td>
 								<td class="muted">{day(t.last_used)}</td>
+								<td>{#if !t.revoked_at}<label class="muted"><input type="checkbox" checked={t.avenbox} onchange={() => markBox(t)} aria-label="avenBOX's token" /> avenBOX's</label>{:else if t.avenbox}<span class="muted">avenBOX's</span>{/if}</td>
 								<td class="end">{#if t.revoked_at}<span class="muted">revoked</span>{:else}<button class="btn small ghost" onclick={() => revoke(t)}>Revoke</button>{/if}</td>
 							</tr>
 						{/each}

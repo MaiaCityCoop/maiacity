@@ -7,8 +7,9 @@ import { COOP } from "./ids";
 export type Level = "admin" | "citizen" | "traveler";
 export type Rule = { read?: string[]; propose?: string[]; decide?: string[]; manage?: string[] };
 export type Action = keyof Rule;
-/** a human signed in; `token`, the id of the access token they came by, when it is an agent over MCP (./tokens.ts) */
-export type Me = { id: string; name: string; level: Level; rule: Rule; founder_number: number | null; token?: string };
+/** a human signed in; `token`, the id of the access token they came by, when it is an agent over MCP (./tokens.ts);
+ *  `box`, that token is avenBOX's (the GitHub runs of the intents' checks: play/SPEC.md §4.12) */
+export type Me = { id: string; name: string; level: Level; rule: Rule; founder_number: number | null; token?: string; box?: boolean };
 
 export class Denied extends Error {
   constructor(message: string, public status = 403) {
