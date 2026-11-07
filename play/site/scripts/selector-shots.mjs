@@ -56,9 +56,13 @@ const proxy = createServer(async (req, res) => {
 });
 await new Promise((ok) => proxy.listen(3911, '127.0.0.1', ok));
 
-/** counts every triangle the page draws, per frame (window.__tri.frames: [time, triangles]) */
-function countTriangles() {
+/** the world's hour, the same for every site and view (the sky's film hook, sandbox-kit/sky.js): noon, lamps out */
+const HOUR = 12;
+
+/** counts every triangle the page draws, per frame (window.__tri.frames: [time, triangles]); and pins the hour */
+function countTriangles(hour) {
 	const w = /** @type {any} */ (window);
+	w.__interiorHour = hour;
 	w.__tri = { now: 0, frames: [] };
 	for (const C of [WebGL2RenderingContext, WebGLRenderingContext]) {
 		const P = C.prototype, TRIANGLES = 4;
@@ -82,7 +86,13 @@ function countTriangles() {
 	raf(tick);
 }
 
-const browser = await chromium.launch({ args: process.platform === 'darwin' ? ['--use-angle=metal', '--ignore-gpu-blocklist'] : ['--ignore-gpu-blocklist'] });
+// a Mac's Metal, as the render box ran it (intent-work/6295a650-render/out/NOTES.md); the GPU named first
+const browser = await chromium.launch(process.platform === 'darwin' ? { channel: 'chromium', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] } : { args: ['--ignore-gpu-blocklist'] });
+{
+	const p = await browser.newPage();
+	console.log('GPU:', await p.evaluate(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g?.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'unknown'; }));
+	await p.close();
+}
 const results = [];
 const building = (page) => page.evaluate(() => { const s = window.__assets?.stats?.(); return s ? ['out', 'in', 'library'].reduce((a, k) => a + (s[k]?.building ?? 0), 0) : null; }).catch(() => null);
 const settle = async (page, ms) => {
@@ -92,7 +102,7 @@ const settle = async (page, ms) => {
 for (const site of sites) {
 	const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 	const page = await ctx.newPage();
-	await page.addInitScript(countTriangles);
+	await page.addInitScript(countTriangles, HOUR);
 	const t0 = Date.now();
 	await page.goto(`${site.url}/sandbox-1/`, { waitUntil: 'domcontentloaded' });
 	await page.waitForFunction(() => window.__walker && window.__assets, null, { timeout: 10 * 60e3 });
@@ -120,7 +130,7 @@ for (const site of sites) {
 	// Sandbox 3, the old city, as it opens (c5: the same things there, nothing missing far off)
 	const ctx3 = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 	const p3 = await ctx3.newPage();
-	await p3.addInitScript(countTriangles);
+	await p3.addInitScript(countTriangles, HOUR);
 	await p3.goto(`${site.url}/sandbox-3/`, { waitUntil: 'domcontentloaded' });
 	await p3.waitForTimeout(60e3);
 	const png3 = `${out}/${site.name}-sandbox-3-open.png`;
