@@ -14,6 +14,8 @@ export function fakeGitHub() {
   const checks = new Map<string, any[]>();
   const runs: Record<string, Run[]> = { "main.yml": [], "release.yml": [], "production.yml": [] };
   const jobs = new Map<number, Job[]>();
+  /** each branch's runs, every workflow (GET /actions/runs?branch=) */
+  const branchRuns = new Map<string, Run[]>();
   const logs = new Map<number, string>();
   const calls: Call[] = [];
   const merges = new Map<number, string>();
@@ -117,6 +119,11 @@ export function fakeGitHub() {
       );
       return reply(200, { total_count: list.length, workflow_runs: list });
     }
+    if (method === "GET" && p === "/actions/runs") return reply(200, { workflow_runs: branchRuns.get(q.get("branch") ?? "") ?? [] });
+    if (method === "GET" && (m = p.match(/^\/actions\/runs\/(\d+)$/))) {
+      const found = [...Object.values(runs).flat(), ...[...branchRuns.values()].flat()].find((r) => r.id === +m![1]);
+      return found ? reply(200, found) : reply(404, { message: "Not Found" });
+    }
     if (method === "GET" && (m = p.match(/^\/actions\/runs\/(\d+)\/jobs$/))) return reply(200, { jobs: jobs.get(+m[1]) ?? [] });
     if (method === "POST" && p.match(/^\/actions\/workflows\/[\w.]+\/dispatches$/)) return reply(204);
     if (method === "POST" && p.match(/^\/actions\/runs\/\d+\/rerun-failed-jobs$/)) return reply(201, {});
@@ -124,7 +131,7 @@ export function fakeGitHub() {
     return reply(404, { message: `no route ${method} ${p}` });
   }) as typeof globalThis.fetch;
   return {
-    pulls, checks, runs, jobs, logs, calls, merges, graph, main, commit, pullFiles,
+    pulls, checks, runs, branchRuns, jobs, logs, calls, merges, graph, main, commit, pullFiles,
     refuseMerge: (why: string | null) => (mergeRefused = why),
     refuseUpdate: (how: { status: number; message: string } | null) => (updateRefused = how),
     gh: gitHub({ token: TOKEN, repo: REPO, fetch, api: "https://api.github.test" }),

@@ -36,6 +36,7 @@ import { AssetDocError, assetAt, proposeAsset } from "./assetdocs";
 import { GROUPS, isGroup } from "./groups";
 import { listSandboxes, sandboxOf, SandboxError } from "./sandboxes";
 import { LIBRARY_KINDS, listLibrary } from "./library";
+import { delivery } from "./delivery";
 import { fileHidden, LIBRARIES, libraryOf, maskEdges, seesIntent } from "./owners";
 
 /** the library a file is added to: Maia City's (the default), or the operator's own personal one (./owners.ts) */
@@ -189,6 +190,20 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         if (!bytes) throw new NotFound("There is no such file.");
         return { hash, text: new TextDecoder().decode(bytes) };
       },
+    },
+    {
+      name: "delivery",
+      description:
+        "Read-only: where Maia City's intents' time goes, over the last `days` (7 by default, 1 to 30): each day's intents accepted with their median and longest Idea→Accepted and each stage's median; each intent open now or accepted in the window with its time at each stage (Idea and Build an agent's, Specify and Proposal waiting for a person, Ship CI's, with each ship step's time), its step backs, how many times play merged main into its pull request, and the budgets it went over and by how much (`budgets`). With `ci`, each intent's CI from GitHub: the runs of its pull request's branch and its ship's runs, their minutes, the share cancelled, each run's three slowest steps, runs over 10 minutes flagged. Also on /delivery/ and GET /api/delivery. Changes nothing.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          days: { type: "integer", minimum: 1, maximum: 30, description: "optional: the window in days, today included (7 by default)" },
+          ci: { type: "boolean", description: "optional: also read each intent's CI runs from GitHub (slower)" },
+        },
+        additionalProperties: false,
+      },
+      run: async ({ days, ci }, me) => delivery(db, me, github ?? null, { days, ci: ci === true }),
     },
     {
       name: "list_library",
