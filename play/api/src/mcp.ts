@@ -24,7 +24,7 @@ import type { Me } from "./access";
 import { assetOf, listAssets, NotFound } from "./assets";
 import { archiveOwn, docAt, docEdit, docHistory, kinds, listDocs, proposeDocVersion, reviewOf, syncKinds, VersionError, workKinds } from "./versioned";
 import { WorkError } from "./work";
-import { addIntent, CHECK_HOWS, CHECKS_MOST, getIntent, intentOf, IntentError, intentReady, INTENT_KINDS, INTENT_STAGES, LINE_MOST, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES } from "./intents";
+import { addIntent, CHECK_HOWS, CHECKS_MOST, dependIntent, getIntent, intentOf, IntentError, intentReady, INTENT_KINDS, INTENT_STAGES, LINE_MOST, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES } from "./intents";
 import { stepBack } from "./stepback";
 import { instructionsOf, promptOf, promptsOf, SkillError } from "./skills";
 import { adminByToken } from "./tokens";
@@ -419,7 +419,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     {
       name: "list_intents",
       description:
-        "Maia City's intents, the latest first: everything on the board, each something wanted made, fixed or improved, going Idea → Specify → Build → Proposal → Accepted (or Archived), code through Ship between Proposal and Accepted. Each has its id (a UUID), kind (idea, fix, improve), title, note, stage, who wrote it, its spec (goal, scope, checks) once specified, its checks' results while being built, and its work once proposed (`work`: what it changes, the version it would be, who proposed it and how, its status). One record: an intent at Proposal is the proposal, its work waiting for the decision. " +
+        "Maia City's intents, the latest first: everything on the board, each something wanted made, fixed or improved, going Idea → Specify → Build → Proposal → Accepted (or Archived), code through Ship between Proposal and Accepted. Each has its id (a UUID), kind (idea, fix, improve), title, note, stage, who wrote it, its spec (goal, scope, checks) once specified, its checks' results while being built, its work once proposed (`work`: what it changes, the version it would be, who proposed it and how, its status), and its dependencies (`depends_on`, each with its stage; `held_by`, those not shipped yet, which hold it; `needed_by`, the intents waiting on it). One record: an intent at Proposal is the proposal, its work waiting for the decision. " +
         "Sent to work on an intent: read it with get_intent, whose `brief` says what to do at the stage it is at (the Intents skill's part for that stage: doc_at on the Intents skill).",
       inputSchema: {
         type: "object",
@@ -433,7 +433,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     },
     {
       name: "get_intent",
-      description: "One intent, whole: its kind, title, note, stage, who wrote, specified and approved it, its spec (goal, scope, checks: each its id, statement, how it is checked, must or nice), its checks' latest results with their evidence, its `brief` (what to do now, at the stage it is at: the Intents skill's part for that stage, filled for it; null where there is nothing to do), and its work (`work`) with its review (`review`: what it changes, as the board shows it before it is decided). An old proposal's id finds the intent it is now.",
+      description: "One intent, whole: its kind, title, note, stage, who wrote, specified and approved it, its spec (goal, scope, checks: each its id, statement, how it is checked, must or nice), its checks' latest results with their evidence, its `brief` (what to do now, at the stage it is at: the Intents skill's part for that stage, filled for it; null where there is nothing to do), its work (`work`) with its review (`review`: what it changes, as the board shows it before it is decided), and its dependencies (`depends_on` each with its stage, `held_by` those not shipped yet, `needed_by` those waiting on it). An old proposal's id finds the intent it is now.",
       inputSchema: {
         type: "object",
         properties: { intent: { type: "string", description: "the intent's id (a UUID: list_intents gives it)" } },
@@ -453,11 +453,29 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           title: { type: "string", maxLength: TITLE_MOST, description: "what is to be made, fixed or improved, in a line" },
           note: { type: "string", description: "the rest: where, what and why (Markdown)" },
           kind: { type: "string", enum: [...INTENT_KINDS], description: "idea (something new), fix (something wrong) or improve (something there, made better); idea if left out" },
+          depends_on: { type: "array", items: { type: "string" }, description: "the intents it depends on, each by its id (a UUID): while any of them is not shipped (Accepted) it is held at every forward gate (approve, Proposal, accept, Ship); no edge to itself, none closing a cycle" },
         },
         required: ["title"],
         additionalProperties: false,
       },
-      run: async ({ title, note, kind }, me) => addIntent(db, me, { title, note, kind }),
+      run: async ({ title, note, kind, depends_on }, me) => addIntent(db, me, { title, note, kind, depends_on }),
+    },
+    {
+      name: "depend_intent",
+      description:
+        "Add, or drop (drop: true), one dependency: intent `intent` depends on intent `on`, each by its id. While any intent it depends on is not shipped (Accepted; in Ship is not yet, archived holds until the edge is dropped or it is reopened and shipped), it is held: not approved, not moved to Proposal, given no work, not accepted, not shipped; going back is never held. " +
+        "Refused: an edge to itself, one closing a cycle. Gives back the intent with depends_on, held_by and needed_by.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          intent: { type: "string", description: "the intent that waits, by its id (a UUID)" },
+          on: { type: "string", description: "the intent it depends on, by its id (a UUID)" },
+          drop: { type: "boolean", description: "true drops the edge" },
+        },
+        required: ["intent", "on"],
+        additionalProperties: false,
+      },
+      run: async ({ intent, on, drop }, me) => dependIntent(db, me, `${intent ?? ""}`, on, drop),
     },
     {
       name: "specify_intent",
@@ -496,11 +514,12 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           title: { type: "string", maxLength: TITLE_MOST, description: "a sharper title, if it needs one" },
           kind: { type: "string", enum: [...INTENT_KINDS] },
           note: { type: "string", description: "a new note, if it needs one" },
+          depends_on: { type: "array", items: { type: "string (given, it replaces those before; left out, they stay)" }, description: "the intents it depends on, each by its id (a UUID): while any of them is not shipped (Accepted) it is held at every forward gate (approve, Proposal, accept, Ship); no edge to itself, none closing a cycle (given, it replaces those before; left out, they stay)" },
         },
         required: ["intent", "goal", "scope", "checks"],
         additionalProperties: false,
       },
-      run: async ({ intent, goal, scope, checks, nothing_to_reduce, title, kind, note }, me) => specifyIntent(db, me, `${intent ?? ""}`, { goal, scope, checks, nothing_to_reduce, title, kind, note }),
+      run: async ({ intent, goal, scope, checks, nothing_to_reduce, title, kind, note, depends_on }, me) => specifyIntent(db, me, `${intent ?? ""}`, { goal, scope, checks, nothing_to_reduce, title, kind, note, depends_on }),
     },
     {
       name: "step_back_intent",

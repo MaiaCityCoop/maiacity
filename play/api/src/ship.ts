@@ -1,36 +1,13 @@
-// Accept ships it (play/SPEC.md §4.12, Samuel 2026-11-06): "only the manual accept should directly trigger the flow ...
-// it should instantly start the merge into main and prod". An intent whose work is code names its pull request into
-// main (check_intent's `pr`); an admin's Accept at Proposal is the one gate before anything lands, and it acts at once:
-//
-//   1. play reads the pull request with SHIP_TOKEN (a fine-grained token, the repository secret written into play.env):
-//      open into main, mergeable, its head the commit every must check with a run last passed on, and main.yml's checks
-//      (`play / API and site`, `website / build`) green there; otherwise Accept is refused, nothing is posted or merged,
-//      and the intent stays at Proposal with the reason given;
-//   2. it posts the commit status `Intent accepted` on that head (main's ruleset requires it: only play posts it);
-//   3. it merges the pull request (a merge commit, that head's sha), and the intent is in Ship, its first step merged.
-//
-// Accept goes straight to Ship (Samuel 2026-11-06, intent 2f13976c-c85c-43fd-89eb-2e7651f657e1: "Accept proposal should
-// directly go to ship and ship should self queue smartly"): Accept refuses at once only what can never ship as the pull
-// request stands (1. above, but for what is only not yet); the intent is in Ship at once, its first step Ready to merge
-// waiting, with its reason, for its turn (one ship at a time, in the order accepted) and for GitHub (mergeability
-// worked out, the checks green). When both are there, play does 2. and 3. by itself (startIfReady, from Accept and the
-// watcher). A red check, a moved head or a conflict while it waits, or 30 minutes waiting for GitHub, takes it back to
-// Proposal with the report.
-//
-// While an intent is in Ship, the ship watcher (every 10 s, in play-api; its state is the intent's `ship` in Postgres,
-// so it resumes after a restart) reads GitHub's Actions for the merge commit: main.yml's run (main's checks), then
-// release.yml's (.github/workflows/release.yml: production moved to the commit once main is green), then production.yml's
-// and its jobs (The image and The backup side by side, then The server; The website beside them). Each step is kept on the
-// intent as it changes (queued, running, green, red; when; its link). All green: Accepted. Any red: back to Proposal,
-// with the report (the step, its link, the failed job's last log lines), from where Accept ships it again: a newer
-// pull request of it merged, or, its pull request merged already, main's failed jobs run again (a red on main) or the
-// release run again for the commit last merged.
-//
-// play only calls GitHub's API: no proposed code runs on its server. SHIP_TOKEN stays here: it is sent to
-// api.github.com only, never answered by a route, never written to a log.
-import { COOP, Denied, type Me } from "./access";
+// Accept ships it (play/SPEC.md §4.12 says it all; Samuel 2026-11-06). A code intent names its pull request into main;
+// an admin's Accept at Proposal refuses at once only what can never ship as the pull request stands (its head not the
+// checked one, a red required check, a conflict, closed, not into main, a draft), else puts it in Ship, where it waits
+// its turn (one ship at a time, in the order accepted) and for GitHub, then play posts 'Intent accepted' on the head and
+// merges it (startIfReady). The ship watcher (every 10 s; its state the intent's `ship` in Postgres) follows main's
+// checks, the release and the deploy's jobs as steps: all green, Accepted; any red, back to Proposal with the report.
+// play only calls GitHub's API with SHIP_TOKEN, which never leaves this server.
+import { COOP, type Me } from "./access";
 import type { Db } from "./pg";
-import { getIntent, IntentError, unmet, unmetOn } from "./intents";
+import { admin, gate, getIntent, IntentError, mustMove, unmetOn } from "./intents";
 
 /** the checks main.yml runs on a pull request, required green on its head before Accept merges it */
 export const REQUIRED_CHECKS = ["play / API and site", "website / build"];
@@ -220,13 +197,9 @@ const QUEUE_LOCK = 4_711_030;
 /** the first step's name, by what it waits to do */
 const READY: Record<Pending["kind"], string> = { merge: "Ready to merge", main: "Ready to run main's checks again", release: "Ready to release again" };
 
-/** a new ship's steps: Ready to merge waiting, the rest to come */
-function freshSteps(at: string): Step[] {
-  return STEPS.map((s) => (s.key === "ready" ? { key: s.key, name: s.name, state: "running", started: at, note: "Accepted" } : { key: s.key, name: s.name, state: "queued" }));
-}
-/** a ship again's steps: what went before kept, its first step waiting again, from where it starts again on to come */
-function againSteps(at: string, from: Step[], restart: "main" | "release"): Step[] {
-  const i = STEPS.findIndex((s) => s.key === restart);
+/** a ship's steps: its first step waiting to do `restart`, what went before it kept (none for a merge), the rest to come */
+function stepsFor(at: string, from: Step[], restart: Pending["kind"]): Step[] {
+  const i = restart === "merge" ? 1 : STEPS.findIndex((s) => s.key === restart);
   return STEPS.map((s, j) =>
     s.key === "ready"
       ? { key: s.key, name: READY[restart], state: "running", started: at, note: "Accepted" }
@@ -235,6 +208,14 @@ function againSteps(at: string, from: Step[], restart: "main" | "release"): Step
         : { key: s.key, name: s.name, state: "queued" },
   );
 }
+
+/** a ship kept on its intent, in Ship still, Accepted (decided now) or back at Proposal (undecided) */
+const saveShip = (q: Pick<Db, "query">, id: string, ship: Ship, stage: "ship" | "proposal" | "accepted") =>
+  q.query(
+    `UPDATE play.intents SET ship = ($2::text)::jsonb, stage = $3, decided_by = CASE WHEN $3 = 'proposal' THEN NULL ELSE decided_by END,
+            decided_at = CASE WHEN $3 = 'proposal' THEN NULL WHEN $3 = 'accepted' THEN now() ELSE decided_at END WHERE id = $1 AND stage = 'ship'`,
+    [id, JSON.stringify(ship), stage],
+  );
 
 /** the latest of the check runs of each name (a re-run after a red one) */
 function latestRuns(runs: any[]) {
@@ -255,19 +236,16 @@ function latestRuns(runs: any[]) {
  * it is shipped again the same way. Gives back the intent; null where the intent is no code intent at Proposal (it is
  * decided as before: ./intents.ts decideIntent, ./versioned.ts decide).
  */
-export async function acceptAndShip(db: Db, gh: GitHub | null, me: Me | null, id: string) {
-  if (!me) throw new Denied("Please sign in first.", 401);
-  if (me.level !== "admin") throw new Denied("Only Maia City's admins keep the intents.");
+export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, id: string) {
+  const me = admin(who);
   const first = await getIntent(db, id);
-  if (first.stage !== "proposal" || first.work || !first.pull_request) return null;
+  if (first.work || !first.pull_request) return null;
   await db.transaction(async (tx) => {
     // one Accept at a time: a second press waits here, then finds it in Ship
     await tx.query(`SELECT 1 FROM play.intents WHERE id = $1 FOR UPDATE`, [first.id]);
     const intent = await getIntent(tx, first.id);
-    if (intent.stage !== "proposal") refuse(`Intent ${intent.id} is at the ${intent.stage} stage now.`);
+    await mustMove(tx, intent, "ship");
     if (!gh) refuse("play holds no SHIP_TOKEN, so it cannot merge: set the repository secret SHIP_TOKEN and deploy (deploy/README.md).");
-    const missing = unmet(intent);
-    if (missing.length) refuse(`Every must check passes before an intent is accepted: ${missing.join("; ")}.`);
     const pr = await gh!.pull(intent.pull_request).catch((e) => refuse(`Pull request #${intent.pull_request} could not be read: ${(e as Error).message}.`));
     const was: Ship | null = intent.ship ?? null;
     const at = now();
@@ -284,7 +262,7 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, me: Me | null, id
         accepted: at,
         front: undefined,
         started: at,
-        steps: againSteps(at, was!.steps, again),
+        steps: stepsFor(at, was!.steps, again),
         report: null,
         ended: undefined,
         outcome: undefined,
@@ -309,7 +287,7 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, me: Me | null, id
         const r = runs.get(name);
         if (r?.status === "completed" && r.conclusion !== "success") refuse(`'${name}' is ${r.conclusion} on #${pr.number}'s head ${head.slice(0, 7)}: it is green before it is merged.`);
       }
-      ship = { pr: pr.number, head, merge: "", by: me.name, round: (was?.round ?? 0) + 1, accepted: at, started: at, steps: freshSteps(at), report: null, pending: { kind: "merge", head } };
+      ship = { pr: pr.number, head, merge: "", by: me.name, round: (was?.round ?? 0) + 1, accepted: at, started: at, steps: stepsFor(at, [], "merge"), report: null, pending: { kind: "merge", head } };
     }
     await tx.query(`UPDATE play.intents SET stage = 'ship', ship = ($2::text)::jsonb, decided_by = $3, decided_at = now() WHERE id = $1`, [intent.id, JSON.stringify(ship), me.id]);
     console.log(`ship: intent ${intent.id} accepted by ${me.name}: in Ship (#${ship.pr}, ${ship.pending!.kind})`);
@@ -338,14 +316,7 @@ export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now
     const pending = was.pending;
     const ready = ship.steps.find((s) => s.key === "ready")!;
     const iso = new Date(at).toISOString();
-    const save = (stage: "ship" | "proposal") =>
-      tx.query(
-        `UPDATE play.intents SET ship = ($2::text)::jsonb, stage = $3,
-                decided_by = CASE WHEN $3 = 'proposal' THEN NULL ELSE decided_by END,
-                decided_at = CASE WHEN $3 = 'proposal' THEN NULL ELSE decided_at END
-          WHERE id = $1`,
-        [id, JSON.stringify(ship), stage],
-      );
+    const save = (stage: "ship" | "proposal") => saveShip(tx, id, ship, stage);
     const red = async (why: string, link?: string) => {
       Object.assign(ready, { state: "red", finished: iso, note: why });
       ship.report = { step: ready.name, why, ...(link ? { link } : {}), log: "", at: iso };
@@ -361,6 +332,10 @@ export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now
       Object.assign(ready, { state: "running", note: why });
       if (stable(ship) !== stable(was)) await save("ship");
     };
+
+    // the gate (./intents.ts mayMove): a dependency ahead of it in Ship is waited for; one gone back takes it back too
+    const no = await gate.mayMove(tx, id, "merge");
+    if (no) return no.wait ? wait(no.why, false) : red(no.why);
 
     // its turn: no ship running, none waiting ahead of it
     const { rows: others } = await tx.query<any>(`SELECT id, title, ship, decided_at FROM play.intents WHERE stage = 'ship' AND id <> $1 AND coop_id = $2`, [id, COOP]);
@@ -572,13 +547,7 @@ export async function watchShips(db: Db, gh: GitHub, at = Date.now()) {
       const next = await advance(gh, ship, at);
       if (stable(next) === stable(ship)) continue;
       const stage = next.outcome === "green" ? "accepted" : next.outcome === "red" ? "proposal" : "ship";
-      await db.query(
-        `UPDATE play.intents SET ship = ($2::text)::jsonb, stage = $3,
-                decided_by = CASE WHEN $3 = 'proposal' THEN NULL ELSE decided_by END,
-                decided_at = CASE WHEN $3 = 'proposal' THEN NULL WHEN $3 = 'accepted' THEN now() ELSE decided_at END
-          WHERE id = $1 AND stage = 'ship'`,
-        [id, JSON.stringify(next), stage],
-      );
+      await saveShip(db, id, next, stage);
       if (next.outcome) console.log(`ship: intent ${id} ${next.outcome === "green" ? "is in production: accepted" : `is red at ${next.report?.step}: back to Proposal`}`);
     } catch (e) {
       console.warn(`ship: intent ${id} not looked at: ${(e as Error).message}`);

@@ -1143,4 +1143,21 @@ export const MIGRATIONS: Migration[] = [
       ALTER TABLE play.intents ADD COLUMN steps JSONB NOT NULL DEFAULT '[]'::jsonb;
     `,
   },
+  {
+    // intents depend on intents (play/SPEC.md §4.12, Samuel 2026-11-06): one edge per pair, the intent held at every
+    // forward gate while the one it depends on is not shipped (src/intents.ts mayMove); no edge to itself, no cycle
+    // (refused when an edge is added)
+    id: "0037-intent-depends",
+    sql: `
+      CREATE TABLE play.intent_depends (
+        intent_id  UUID NOT NULL REFERENCES play.intents(id) ON DELETE CASCADE,
+        depends_on UUID NOT NULL REFERENCES play.intents(id) ON DELETE CASCADE,
+        by         TEXT REFERENCES play.humans(id) ON DELETE SET NULL,
+        at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (intent_id, depends_on),
+        CHECK (intent_id <> depends_on)
+      );
+      CREATE INDEX ix_intent_depends_on ON play.intent_depends (depends_on);
+    `,
+  },
 ];
