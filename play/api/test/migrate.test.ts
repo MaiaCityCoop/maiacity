@@ -253,7 +253,7 @@ describe("migrations, one file each", () => {
       expect(sha(readFileSync(join(MIGRATIONS_DIR, `${id}.sql`), "utf8"))).toBe(h);
       expect(sha(MIGRATIONS.find((m) => m.id === id)!.sql)).toBe(h);
     }
-    // every other migration is well named (0036-step-backs, numbered in the old array before it went, or a dated one)
+    // every other migration is well named (0036-step-backs and 0037-intent-depends, numbered in the old array before it went, or a dated one)
     for (const m of MIGRATIONS) if (!(m.id in frozen)) expect(badId(m.id)).toBeNull();
     expect(MIGRATIONS.map((m) => m.id)).toEqual(MIGRATIONS.map((m) => m.id).sort());
   });
@@ -268,7 +268,7 @@ describe("migrations, one file each", () => {
 
   test("refuses a duplicate or malformed id", () => {
     const bad = [
-      "0037-late",                 // numbered after the last hand-numbered one (0036)
+      "0038-late",                 // numbered after the last hand-numbered one (0037)
       "2026110712-e9afc2d5-short", // the time without its minutes
       "202611071200-e9afc2d-files", // seven hex
       "202611071200-E9AFC2D5-files", // upper case

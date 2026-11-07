@@ -15,8 +15,8 @@ export type Migration = { id: string; sql: string };
 
 /** the folder the migrations are read from */
 export const MIGRATIONS_DIR = join(import.meta.dir, "..", "migrations");
-/** the last hand-numbered migration (0036-step-backs, landed in the old array beside this change): none after it */
-const LAST_NUMBERED = 36;
+/** the last hand-numbered migration (0037-intent-depends, landed in the old array beside this change): none after it */
+const LAST_NUMBERED = 37;
 const NUMBERED = /^(\d{4})-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const DATED = /^(\d{4})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])([01]\d|2[0-3])([0-5]\d)-[0-9a-f]{8}-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 

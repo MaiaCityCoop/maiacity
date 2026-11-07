@@ -64,8 +64,8 @@ never edited after it has shipped, only followed by another.
   migrations (`play/api/test/migrations-merge.sh`).
 - **The shipped ones** `0001-ownership` … `0034-schemas` keep their numbered ids and their SQL byte for byte,
   because `play.migrations` names them; their SHA-256 are frozen in `play/api/test/fixtures/migrations.sha256.json`
-  (`migrate.test.ts`, "shipped migrations unchanged"). `0036-step-backs`, numbered in the old array while this
-  change was built, is the last numbered one: no numbered id comes after it.
+  (`migrate.test.ts`, "shipped migrations unchanged"). `0036-step-backs` and `0037-intent-depends`, numbered in
+  the old array while this change was built, follow them; `0037` is the last numbered id: none comes after it.
 - The runner refuses to start, naming the file, on a malformed id or a duplicate (two files under one number).
 
 ## 4. Asset version control, from first principles
@@ -593,10 +593,34 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   - What it does not stop: someone acting as Samuel on GitHub on purpose (agents act as him there). It stops every
     change landing without his Accept by mistake. `SHIP_TOKEN` never leaves play's server: no route answers with it,
     no page holds it, no log names it; play only calls GitHub's API, no proposed code runs on its server.
+- **Intents depend on intents** (Samuel 2026-11-06: *"this intent can only be started or continued if that other
+  intent is shipped … fully generically"*; intent `420ee348-132f-4b04-a67d-082ae8b72efc`). An intent may name the
+  intents it **depends on**, each by its UUID, of any kind and any work: one relation, `play.intent_depends (intent_id,
+  depends_on, by, at)` (migration `0037-intent-depends`). No edge to itself and no cycle: an edge that would close one
+  (the chain from the one depended on walked back) is refused, so chains and diamonds of any depth hold. While any
+  intent it depends on is not **shipped** (at the stage Accepted: in Ship is not yet, and an archived one holds until
+  the edge is dropped or it is reopened and shipped) it is **held**: `heldBy` (`play/api/src/intents.ts`) gives those,
+  read live, never stored, direct ones only (each is held by its own).
+  - **One forward gate**, `mayMove(intent, to)` (`play/api/src/intents.ts`), decides every forward move: approve
+    (Specify → Build), Build → Proposal on its checks (held, it stays in Build, its results kept, and
+    check_intent's answer says why in `refused`), work proposed for it (`intentReady`, `play/api/src/work.ts`
+    `putAtProposal`), accept, its work accepted (`play/api/src/versioned.ts` `decide`), Accept and ship and Ship's turn
+    (`play/api/src/ship.ts` `acceptAndShip`, `startIfReady`). Each move's stage rules, its must checks and *held* are
+    rules inside it; no path tests the stage on its own, and every refusal names the intents it waits for (UUID, title,
+    stage). Going back (`step_back_intent`, reject, reopen, `archive_intent`) and specifying are never held, so a whole chain is
+    specified up front.
+  - **Ship's queue**: Accept refuses an intent whose dependency is not in Ship; one whose dependency is ahead of it in
+    Ship waits (its first step says it waits for that one to ship) and merges only once that one is Accepted; that one
+    going back to Proposal takes it back too, its report naming it.
+  - **MCP**: `add_intent` and `specify_intent` take `depends_on` (UUIDs; specify's replaces those before),
+    `depend_intent { intent, on, drop? }` adds or drops one edge (an admin's agent's only, as every tool); `list_intents`
+    and `get_intent` give `depends_on` (each with its stage), `held_by` and `needed_by`. On the board, each card shows
+    what it waits for and what waits on it (titles only shown, each opening that intent by its UUID), a held card
+    striped and marked *Held*; the intent's dialog lists them with their stages.
 - **Work proposed without an intent is a new intent of its own**, at Proposal: titled by what it proposes (an asset's
   or a story's label and the version it would be, a sandbox's changes, a factory's or a config's label), its note and
   author the work's, with no spec; a new asset or story is its kind *idea* (Make), anything else *improve*.
-- **Deciding settles the intent** (`POST /api/intents/:id/{accept,archive}`, `play/api/src/proposals.ts` `decideAny`),
+- **Deciding settles the intent** (`POST /api/intents/:id/{accept,archive}`, `play/api/src/versioned.ts` `decideAny`),
   in one transaction. At Proposal with work of play's, **accepting applies it** as its kind says (§4.3 an asset's head,
   §12 a story's head, §4.6 a sandbox's pins and configs, §4.8 a factory's, §4.9 a config's next version) and the intent
   is Accepted; made on a base that has moved, the kind's own rule decides: merged where the two changes touch different
