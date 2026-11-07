@@ -1,0 +1,117 @@
+[
+ {
+  "message": "Stages after Ripe: Bearing palm, Grown palm, Old palm, and the palm's age in days from its stage's day",
+  "find": "\t{\n\t\tname: \"Ripe\",\n\t\tday: 2480,\n\t\tnote: \"Heavy bunches dulling to orange-brown under a crown of thirty fronds; the palm keeps fruiting for decades.\"\n\t}\n];",
+  "replace": "\t{\n\t\tname: \"Ripe\",\n\t\tday: 2480,\n\t\tnote: \"Heavy bunches dulling to orange-brown under a crown of thirty fronds; the palm keeps fruiting for decades.\"\n\t},\n\t{\n\t\tname: \"Bearing palm\",\n\t\tday: 3652,\n\t\tnote: \"Ten years old, in full bearing: a bunch from every leaf axil, a dozen hanging at once, the ringed grey trunk a third of its height.\"\n\t},\n\t{\n\t\tname: \"Grown palm\",\n\t\tday: 8036,\n\t\tnote: \"Twenty-two years old: the tall palm people know, a slender ringed grey trunk curving up to a round crown of thirty arching fronds.\"\n\t},\n\t{\n\t\tname: \"Old palm\",\n\t\tday: 18262,\n\t\tnote: \"Fifty years old: a tall bare trunk, rings close together near its top, a smaller crown of shorter fronds; it still bears.\"\n\t}\n];\n/** the stage worlds draw when they name none: the grown palm */\nconst GROWN = 11;\n/**\n* The palm's age in days at a stage: its stage's `day` (between two stages, on the way). Every size below is a\n* function of this age, never of a stage's index, so a stage added or moved changes no other stage's size.\n* @param {number} g\n*/\nfunction dayAt(g) {\n\tconst i = clamp(Math.floor(g), 0, STAGES.length - 2);\n\treturn lerp(STAGES[i].day, STAGES[i + 1].day, clamp(g - i));\n}\n/** the day of its first ripe nuts, after which its oldest bunches are cut */\nconst FIRST_CROP = 2480;\n/**\n* The king coconut by age (days from sowing), from its data sheet (KING_DATASHEET). Up to day 2480 (Ripe) the young palm as v2\n* drew it; after it the measured palm: a trunk that grows about 0.9 m a year young and slows to a few centimetres when\n* old, a new frond about every four weeks, a crown of about thirty.\n*/\nconst KING = {\n\t/** the bare trunk's height (m) to the crown by age */\n\ttrunk: [[988, 0], [1100, .031], [1460, .12], [2000, 1], [2100, 1.3], [2250, 1.6], [2380, 1.9], [2480, 2.2], [3652, 3.4], [5479, 5.6], [8036, 8.6], [10958, 11.4], [14610, 14], [18262, 15.6], [27393, 17.5]],\n\t/** the trunk's radius over its flare, as a share of a grown trunk's (BOLE) */\n\tgirth: [[216, 0], [240, .007], [540, .198], [1100, .536], [2000, .857], [2100, 1]],\n\t/** fronds made in all */\n\tmade: [[120, 0], [192, 1], [240, 2], [540, 6], [1100, 13], [2000, 24], [2100, 36], [2250, 48], [2380, 60], [2480, 72]],\n\t/** after Ripe, fronds a year */\n\tfronds: 13,\n\t/** fronds it holds at once */\n\tholds: [[120, 0], [192, 1], [240, 2], [540, 5], [1100, 10], [2000, 18], [2100, 24], [2250, 28], [2380, 29], [2480, 30], [10958, 30], [18262, 26]],\n\t/** a frond's full length (m) by the day it was made */\n\tfrond: [[120, .35], [240, .6], [540, 1], [1100, 2.1], [2000, 3.6], [2100, 4.7], [2250, 4.881], [2380, 5.219], [2480, 5.4], [10958, 5.4], [18262, 4.7]],\n\t/** roots grown from the base by age */\n\troots: [[48, 0], [120, 4], [240, 9], [540, 16], [1100, 25], [2000, 34], [2100, 41], [2250, 48], [2380, 52], [2480, 56]],\n\t/** the base root ring's spread, 0 \u2026 1 */\n\tspread: [[1100, 0], [2000, .259], [2100, .741], [2250, 1]],\n\t/** the seed nut rotting away, 0 \u2026 1 */\n\trot: [[652, 0], [1100, .741], [1460, 1]],\n\t/** the first spike's growth, 0 \u2026 1 */\n\tspike: [[30, 0], [120, .721], [168, 1]]\n};\n/** a value of one of KING's curves at an age in days */\nconst byAge = (day, rows) => table(day, rows);"
+ },
+ {
+  "message": "Fronds made and held by the palm's age in days, a new frond about every four weeks after Ripe",
+  "find": "/** how many fronds the palm has made by g, all told */\nconst made = (g) => table(g, [\n\t[1, 0],\n\t[1.6, 1],\n\t[2, 2],\n\t[3, 6],\n\t[4, 13],\n\t[5, 24],\n\t[6, 36],\n\t[7, 48],\n\t[8, 60],\n\t[9, 72]\n]);\n/** how many it holds at once */\nconst holds = (g) => table(g, [\n\t[1, 0],\n\t[1.6, 1],\n\t[2, 2],\n\t[3, 5],\n\t[4, 10],\n\t[5, 18],\n\t[6, 24],\n\t[7, 28],\n\t[9, 30]\n]);\n/** when frond j was made */\nfunction bornAt(j) {\n\tlet lo = 1, hi = 9;\n\tfor (let i = 0; i < 30; i++) {\n\t\tconst mid = (lo + hi) / 2;\n\t\tif (made(mid) > j) hi = mid;\n\t\telse lo = mid;\n\t}\n\treturn hi;\n}",
+  "replace": "/** how many fronds the palm has made by its age in days, all told */\nconst made = (day) => day <= FIRST_CROP ? byAge(day, KING.made) : 72 + (day - FIRST_CROP) / 365.25 * KING.fronds;\n/** how many it holds at once */\nconst holds = (day) => byAge(day, KING.holds);\n/** the day frond j was made */\nfunction bornAt(j) {\n\tlet lo = 120, hi = 4e4;\n\tfor (let i = 0; i < 40; i++) {\n\t\tconst mid = (lo + hi) / 2;\n\t\tif (made(mid) > j) hi = mid;\n\t\telse lo = mid;\n\t}\n\treturn hi;\n}"
+ },
+ {
+  "message": "coconut(): grown from its age in days; the seed nut's rot and the roots by age",
+  "find": "* The king coconut at a stage (0 \u2026 9, between them on the way) from the seed id.\n* @param {number} g\n* @param {string} seed\n*/\nfunction coconut(g, seed) {\n\tconst bag = new Bag();\n\tconst r = chance(seed, \"plant\");\n\tconst vigour = about(r, 1, .08);\n\tconst rot = span(g, 3.2, 4.4);",
+  "replace": "* The king coconut at a stage (0 \u2026 12, between them on the way) from the seed id: grown to its age in days.\n* @param {number} g\n* @param {string} seed\n*/\nfunction coconut(g, seed) {\n\tconst day = dayAt(g);\n\tconst bag = new Bag();\n\tconst r = chance(seed, \"plant\");\n\tconst vigour = about(r, 1, .08);\n\tconst rot = byAge(day, KING.rot);"
+ },
+ {
+  "message": "Roots by age: how many, when each grows and how far the ring spreads",
+  "find": "\tconst roots = Math.round(table(g, [\n\t\t[.4, 0],\n\t\t[1, 4],\n\t\t[2, 9],\n\t\t[3, 16],\n\t\t[5, 34],\n\t\t[7, 48],\n\t\t[9, 56]\n\t]));\n\tfor (let i = 0; i < roots; i++) {\n\t\tconst rr = chance(seed, \"palm-root\", i);\n\t\tconst born = i < 4 ? .4 + i * .12 : bornRoot(i);\n\t\tconst bear = i * 2.39996 + rr() * .4;\n\t\tconst fromNut = i < 4;\n\t\tconst from = fromNut ? NUT_AT.clone().add(v3(.04 + i * .03, -.06, (rr() - .5) * .05)) : BASE.clone().add(v3(Math.cos(bear) * .06 * lerp(1, 2.5, span(g, 4, 7)), -.03 - rr() * .06, Math.sin(bear) * .06 * lerp(1, 2.5, span(g, 4, 7))));",
+  "replace": "\tconst roots = Math.round(byAge(day, KING.roots));\n\tconst spread = byAge(day, KING.spread);\n\tfor (let i = 0; i < roots; i++) {\n\t\tconst rr = chance(seed, \"palm-root\", i);\n\t\tconst born = i < 4 ? 48 + i * 14.4 : bornRoot(i);\n\t\tconst bear = i * 2.39996 + rr() * .4;\n\t\tconst fromNut = i < 4;\n\t\tconst from = fromNut ? NUT_AT.clone().add(v3(.04 + i * .03, -.06, (rr() - .5) * .05)) : BASE.clone().add(v3(Math.cos(bear) * .06 * lerp(1, 2.5, spread), -.03 - rr() * .06, Math.sin(bear) * .06 * lerp(1, 2.5, spread)));"
+ },
+ {
+  "message": "A root's growth and ageing by the days since it was made",
+  "find": "\t\t\tgrown: (g - born) / 2.4,",
+  "replace": "\t\t\tgrown: (day - born) / rootGrows(born),"
+ },
+ {
+  "message": "A root's colour ages by the days since it was made",
+  "find": "\t\t\tage: (g - born - .6) / 2.5,",
+  "replace": "\t\t\tage: (day - born - rootAges(born)[0]) / rootAges(born)[1],"
+ },
+ {
+  "message": "The trunk's height by age from the measured curve; its girth by age",
+  "find": "\tconst H = table(g, [\n\t\t[3.8, 0],\n\t\t[4.4, .12],\n\t\t[5, 1],\n\t\t[6, 1.3],\n\t\t[7, 1.6],\n\t\t[8, 1.9],\n\t\t[9, 2.2]\n\t]) * vigour;",
+  "replace": "\tconst H = byAge(day, KING.trunk) * vigour;"
+ },
+ {
+  "message": "Girth by age",
+  "find": "\tconst bole = lerp(.03, .17, span(g, 1.8, 6)) * vigour;",
+  "replace": "\tconst bole = lerp(.03, BOLE, byAge(day, KING.girth)) * vigour;"
+ },
+ {
+  "message": "Leaf scars up the whole trunk, closer together where the trunk grew slowly (one ring a frond)",
+  "find": "\tconst scars = [.25];\n\twhile (scars[scars.length - 1] < 9) scars.push(scars[scars.length - 1] + between(sr, .07, .13));",
+  "replace": "\tconst scars = [.25];\n\twhile (scars[scars.length - 1] < 2.6) scars.push(scars[scars.length - 1] + between(sr, .07, .13));\n\twhile (scars[scars.length - 1] < H + .5) {\n\t\tconst h = scars[scars.length - 1];\n\t\tscars.push(h + ringAt(h / vigour) * vigour * between(sr, .8, 1.2));\n\t}"
+ },
+ {
+  "message": "A tall trunk: enough rings for its scars, grey to near its top",
+  "find": "\t\tconst n = Math.max(24, Math.min(700, Math.round(ht / .012)));",
+  "replace": "\t\tconst n = Math.max(24, Math.min(2400, Math.round(ht / .012)));"
+ },
+ {
+  "message": "Only the trunk's top metre or so browner under the crown; the old trunk paler grey",
+  "find": "\t\t\treturn mix(mix(\"#8d8476\", \"#7a6a52\", clamp((u - .7) / .3)), \"#6c5f4c\",",
+  "replace": "\t\t\treturn mix(mix(mix(\"#8d8476\", \"#9a958c\", clamp((day - 5479) / 9e3)), \"#7a6a52\", clamp((h - ht + Math.min(.3 * ht, 1.2)) / Math.min(.3 * ht, 1.2))), \"#6c5f4c\","
+ },
+ {
+  "message": "The crown and the first spike by age",
+  "find": "\tconst crown = H > .02 ? trunkAt(1) : BASE.clone().add(v3(0, g < 1.6 ? 0 : bole * .6, 0));\n\tconst spike = span(g, .25, 1.4);\n\tconst sprouting = NUT_AT.clone().add(v3(.11, .05, 0));\n\tif (spike > 0 && g < 2.2) {\n\t\tconst top = (g < 1.6 ? sprouting : crown).clone().add(v3(0, .02 + .2 * spike, 0));\n\t\tbag.add(\"body\", tube([g < 1.6 ? sprouting : crown, top]",
+  "replace": "\tconst crown = H > .02 ? trunkAt(1) : BASE.clone().add(v3(0, day < 192 ? 0 : bole * .6, 0));\n\tconst spike = byAge(day, KING.spike);\n\tconst sprouting = NUT_AT.clone().add(v3(.11, .05, 0));\n\tif (spike > 0 && day < 300) {\n\t\tconst top = (day < 192 ? sprouting : crown).clone().add(v3(0, .02 + .2 * spike, 0));\n\t\tbag.add(\"body\", tube([day < 192 ? sprouting : crown, top]"
+ },
+ {
+  "message": "Fronds by age",
+  "find": "\tconst total = made(g);\n\tconst live = holds(g);",
+  "replace": "\tconst total = made(day);\n\tconst live = holds(day);"
+ },
+ {
+  "message": "Fronds by age: where the first ones stand",
+  "find": "\t\t\tat: g < 1.6 ? sprouting : crown,\n\t\t\tage,\n\t\t\topened: clamp((total - j) / 1.2),\n\t\t\tborn,\n\t\t\tg,\n\t\t\tvigour",
+  "replace": "\t\t\tat: day < 192 ? sprouting : crown,\n\t\t\tage,\n\t\t\topened: clamp((total - j) / 1.2),\n\t\t\tborn,\n\t\t\tvigour"
+ },
+ {
+  "message": "Bunches by age: one from each leaf axil, every 40 days at first and every four weeks once in full bearing; each cut once its nuts are ripe, after the first crop",
+  "find": "\tfor (let b = 0; b < 7; b++) {\n\t\tconst opens = 4.85 + b * .32;\n\t\tconst phase = g - opens;\n\t\tif (phase < -.3 || H < .3) continue;\n\t\tbunch(bag, {\n\t\t\tseed,\n\t\t\tb,\n\t\t\tat: crown,\n\t\t\tphase,\n\t\t\tvigour,\n\t\t\tbear: made(opens) % 5 * 2.513 + b * 2.513,",
+  "replace": "\tconst last = Math.min(BUNCHES, Math.floor(bunchOf(day + .3 * PHASE)));\n\tfor (let b = Math.max(0, Math.floor(bunchOf(day - CUT * PHASE)) - 1); b <= last; b++) {\n\t\tconst opens = opensAt(b);\n\t\tconst phase = (day - opens) / PHASE;\n\t\tif (phase < -.3 || H < .3) continue;\n\t\tif (phase > CUT && day > FIRST_CROP + 30) continue;\n\t\tbunch(bag, {\n\t\t\tseed,\n\t\t\tb,\n\t\t\tat: crown,\n\t\t\tphase,\n\t\t\tvigour,\n\t\t\tbear: made(opens) % 5 * 2.513 + b * 2.513,"
+ },
+ {
+  "message": "Roots made from the base a few a month, each growing and browning over its own days; bunches by the day they open",
+  "find": "/** when a root from the base is made: a few a month */\nconst bornRoot = (i) => 1.4 + (i - 4) * .13;",
+  "replace": "/** the day a root from the base is made: a few a month */\nconst bornRoot = (i) => table(i, [[4, 168], [10, 294], [20, 809], [30, 1802], [40, 2112], [50, 2299], [56, 2396]]);\n/** the days a root made on `born` takes to grow */\nconst rootGrows = (born) => table(born, [[48, 432], [91, 538], [168, 820], [294, 1328], [809, 1279], [1802, 471], [2112, 316], [2299, 181], [2396, 84]]);\n/** when a root made on `born` starts to brown, and over how many days */\nconst rootAges = (born) => [table(born, [[48, 72], [168, 72], [294, 180], [809, 363], [1802, 236], [2112, 90], [2299, 78], [2396, 60]]), table(born, [[48, 700], [168, 1310], [294, 1554], [809, 1015], [1802, 326], [2112, 278], [2299, 103], [2396, 24]])];\n/** a grown trunk's radius over its flare (m) */\nconst BOLE = .17;\n/** the leaf-scar ring's spacing (m) at a height of trunk: the trunk's growth over the days one frond takes */\nfunction ringAt(h) {\n\tlet lo = 2480, hi = 27393;\n\tfor (let i = 0; i < 30; i++) {\n\t\tconst mid = (lo + hi) / 2;\n\t\tif (table(mid, KING.trunk) > h) hi = mid;\n\t\telse lo = mid;\n\t}\n\tconst rate = (table(lo + 60, KING.trunk) - table(lo - 60, KING.trunk)) / 120;\n\treturn clamp(rate * 365.25 / KING.fronds, .025, .13);\n}\n/** days of a bunch's growth that one unit of its phase stands for: opening to ripe nuts is about 3.4 of them */\nconst PHASE = 125;\n/** the phase a bunch is cut at, its nuts ripe */\nconst CUT = 3.8;\n/** the most bunches a palm ever makes here */\nconst BUNCHES = 1200;\n/** the day bunch b opens: the first seven every 40 days, then from the first crop on one with each new frond */\nconst opensAt = (b) => b < 7 ? 1974 + b * 40 : FIRST_CROP + 40 + (b - 7) * 365.25 / KING.fronds;\n/** which bunch opens on a day (fractional) */\nconst bunchOf = (day) => day < FIRST_CROP + 40 ? Math.min(6.99, (day - 1974) / 40) : 7 + (day - FIRST_CROP - 40) / (365.25 / KING.fronds);"
+ },
+ {
+  "message": "A frond's length and leaflets by the day it was made",
+  "find": "\tconst full = table(o.born, [\n\t\t[1, .35],\n\t\t[2, .6],\n\t\t[3, 1],\n\t\t[4, 2.1],\n\t\t[5, 3.6],\n\t\t[6, 4.7],\n\t\t[9, 5.4]\n\t]) * o.vigour;",
+  "replace": "\tconst full = byAge(o.born, KING.frond) * o.vigour;"
+ },
+ {
+  "message": "Pinnate fronds from the day it was made",
+  "find": "\tconst pinnate = o.born > 3.1;",
+  "replace": "\tconst pinnate = o.born > 596;"
+ },
+ {
+  "message": "Leaflet pairs by the day the frond was made",
+  "find": "\tconst pairs = Math.round(lerp(28, 70, clamp((o.born - 3) / 2)));",
+  "replace": "\tconst pairs = Math.round(lerp(28, 70, o.born < 1100 ? clamp((o.born - 540) / 560) * .5 : .5 + clamp((o.born - 1100) / 900) * .5));"
+ },
+ {
+  "message": "Its card: a palm of fifty years; the stage worlds draw by default is the grown palm",
+  "find": "\tfrom: \"Palm \u00b7 7 years\",",
+  "replace": "\tfrom: \"Palm \u00b7 50 years\",\n\tgrownStage: GROWN,"
+ },
+ {
+  "message": "The stage parameter defaults to a plant's grown stage where it names one",
+  "find": "\t\tvalue: p.stages.length - 1,\n\t\tnames: p.stages.map((s) => s.name)",
+  "replace": "\t\tvalue: p.grownStage ?? p.stages.length - 1,\n\t\tnames: p.stages.map((s) => s.name)"
+ },
+ {
+  "message": "A frond's doc: made on a day, not at a stage",
+  "find": "* @param {{ seed: string, j: number, at: THREE.Vector3, age: number, opened: number, born: number, g: number, vigour: number }} o",
+  "replace": "* @param {{ seed: string, j: number, at: THREE.Vector3, age: number, opened: number, born: number, vigour: number }} o \u2014 `born` the day it was made"
+ },
+ {
+  "message": "The library's history names version 3",
+  "find": "{ v: 2, date: \"2026-11-05\", note: \"Sizes to the real king coconut\" }] }",
+  "replace": "{ v: 2, date: \"2026-11-05\", note: \"Sizes to the real king coconut\" }, { v: 3, date: \"2026-11-07\", note: \"Grows on past its first harvest into the tall palm, sized by its age\" }] }"
+ }
+]
