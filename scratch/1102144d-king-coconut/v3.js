@@ -305,7 +305,11 @@ function made$1(pos, nor, uv, col, idx, flat) {
 	g.setAttribute("uv", new three.Float32BufferAttribute(uv, 2));
 	g.setAttribute("color", new three.Float32BufferAttribute(col, 3));
 	g.setIndex(idx);
-	if (flat) g.computeVertexNormals();
+	if (flat) {
+		g.computeVertexNormals();
+		const n = g.attributes.normal;
+		for (let i = 0; i < n.count; i++) if (n.getX(i) ** 2 + n.getY(i) ** 2 + n.getZ(i) ** 2 < 1e-12) n.setXYZ(i, 0, 1, 0);
+	}
 	return g;
 }
 /** the materials, made once: a plant's body, its thin sheets (lit from both sides), its glossy fruit */
@@ -764,23 +768,24 @@ function dayAt(g) {
 /** the day of its first ripe nuts, after which its oldest bunches are cut */
 const FIRST_CROP = 2480;
 /**
-* The king coconut by age (days from sowing), from its data sheet (KING_DATASHEET). Up to day 2480 (Ripe) the young palm as v2
-* drew it; after it the measured palm: a trunk that grows about 0.9 m a year young and slows to a few centimetres when
-* old, a new frond about every four weeks, a crown of about thirty.
+* The king coconut by age (days from sowing), from its data sheet (the card's `datasheet`). Up to day 2480 (Ripe) the
+* young palm as v2 drew it; after it the intermediate palm the Coconut Research Institute measured (Liyanage 1958:
+* 12 m grown, fronds 4.3 m at ten years, girth 71 cm at 1.5 m): a trunk growing about 0.35 m a year, 0.2 after 25
+* years and 0.1 after 40, to about 12.5 m; 15–16 fronds and bunches a year; a crown of about thirty fronds.
 */
 const KING = {
 	/** the bare trunk's height (m) to the crown by age */
-	trunk: [[988, 0], [1100, .031], [1460, .12], [2000, 1], [2100, 1.3], [2250, 1.6], [2380, 1.9], [2480, 2.2], [3652, 3.4], [5479, 5.6], [8036, 8.6], [10958, 11.4], [14610, 14], [18262, 15.6], [27393, 17.5]],
+	trunk: [[988, 0], [1100, .031], [1460, .12], [2000, 1], [2100, 1.3], [2250, 1.6], [2380, 1.9], [2480, 2.2], [3652, 3], [5479, 4.25], [8036, 6.3], [9131, 6.8], [14610, 9.8], [18262, 11.1], [21915, 11.8], [27393, 12.4]],
 	/** the trunk's radius over its flare, as a share of a grown trunk's (BOLE) */
 	girth: [[216, 0], [240, .007], [540, .198], [1100, .536], [2000, .857], [2100, 1]],
 	/** fronds made in all */
 	made: [[120, 0], [192, 1], [240, 2], [540, 6], [1100, 13], [2000, 24], [2100, 36], [2250, 48], [2380, 60], [2480, 72]],
 	/** after Ripe, fronds a year */
-	fronds: 13,
+	fronds: 15.5,
 	/** fronds it holds at once */
-	holds: [[120, 0], [192, 1], [240, 2], [540, 5], [1100, 10], [2000, 18], [2100, 24], [2250, 28], [2380, 29], [2480, 30], [10958, 30], [18262, 26]],
+	holds: [[120, 0], [192, 1], [240, 2], [540, 5], [1100, 10], [2000, 18], [2100, 24], [2250, 28], [2380, 29], [2480, 30], [14610, 30], [18262, 26]],
 	/** a frond's full length (m) by the day it was made */
-	frond: [[120, .35], [240, .6], [540, 1], [1100, 2.1], [2000, 3.6], [2100, 4.7], [2250, 4.881], [2380, 5.219], [2480, 5.4], [10958, 5.4], [18262, 4.7]],
+	frond: [[120, .35], [240, .6], [540, 1], [1100, 2.1], [2000, 3.6], [2100, 4.7], [2250, 4.881], [2380, 5.219], [2480, 5.4], [3652, 4.8], [7305, 4.3], [14610, 4.2], [18262, 3.9]],
 	/** roots grown from the base by age */
 	roots: [[48, 0], [120, 4], [240, 9], [540, 16], [1100, 25], [2000, 34], [2100, 41], [2250, 48], [2380, 52], [2480, 56]],
 	/** the base root ring's spread, 0 … 1 */
@@ -889,7 +894,9 @@ function coconut(g, seed) {
 		if (H > .3) space.rod(pts, bole * 1.05);
 		bag.add("body", tube(H > .02 ? pts : [BASE.clone().add(v3(0, -.05, 0)), BASE.clone().add(v3(0, bole * .8, 0))], (u, v) => {
 			const h = u * ht;
-			const body = bole * (1 + .7 * Math.pow(1 - Math.min(1, h / .8), 2)) * (1 - .28 * u + .12 * Math.pow(u, 6));
+			const young = 1 - .28 * u + .12 * Math.pow(u, 6);
+			const tall = .66 + .34 * Math.exp(-h / .9) + .12 * Math.exp(-(ht - h) / .6);
+			const body = bole * (1 + .7 * Math.pow(1 - Math.min(1, h / .8), 2)) * lerp(young, tall, clamp((ht - 2.3) / 2));
 			const d = nearest(h);
 			return body * (1 + (h > .2 ? -.035 * Math.exp(-Math.pow(d / .006, 2)) + .03 * Math.exp(-Math.pow((d - .014) / .01, 2)) : 0) + .008 * Math.sin(v * Math.PI * 2 * 9 + h * 3));
 		}, (u, v) => {
@@ -987,13 +994,13 @@ function frond(bag, o) {
 	const out = v3(Math.cos(bear), 0, Math.sin(bear));
 	const full = byAge(o.born, KING.frond) * o.vigour;
 	const len = full * lerp(.35, 1, o.opened);
-	const tilt = lerp(.1, 1.55, Math.pow(clamp(o.age), .75)) + Math.max(0, o.age - .85) * 4 + about(fr, 0, .1);
+	const tilt = lerp(.1 + .35 * span(o.born, 3652, 8036), 1.55, Math.pow(clamp(o.age), .75)) + Math.max(0, o.age - .85) * 4 + about(fr, 0, .1);
 	const dying = span(o.age, .82, 1.02);
 	const pinnate = o.born > 596;
 	const steps = 14;
 	const pts = [o.at.clone()];
 	let d = out.clone().multiplyScalar(Math.sin(tilt)).add(v3(0, Math.cos(tilt), 0)).normalize();
-	const arch = .06 + .06 * o.age;
+	const arch = .06 + .06 * o.age + .1 * span(o.born, 3652, 8036);
 	for (let k = 0; k < steps; k++) {
 		d = d.clone().add(v3(0, -arch * (k / steps) * (o.opened > .7 ? 1 : .3), 0)).normalize();
 		pts.push(pts[k].clone().addScaledVector(d, len / steps));
