@@ -1,0 +1,54 @@
+{
+ "base": {
+  "photo-front": {
+   "mean_px": 6.48,
+   "max_px": 40.36,
+   "mean_iod_pct": 4.65
+  },
+  "photo-34": {
+   "mean_px": 7.65,
+   "max_px": 25.37,
+   "mean_iod_pct": 5.17
+  },
+  "sheet-front": {
+   "mean_px": 5.09,
+   "max_px": 34.84,
+   "mean_iod_pct": 2.72
+  }
+ },
+ "fitted": {
+  "photo-front": {
+   "mean_px": 2.14,
+   "max_px": 20.98,
+   "mean_iod_pct": 1.54
+  },
+  "photo-34": {
+   "mean_px": 2.05,
+   "max_px": 17.43,
+   "mean_iod_pct": 1.38
+  },
+  "sheet-front": {
+   "mean_px": 3.65,
+   "max_px": 17.87,
+   "mean_iod_pct": 1.95
+  }
+ },
+ "outline": [
+  {
+   "view": "sheet-front.png",
+   "mean_px": 1.24,
+   "points": 170
+  },
+  {
+   "view": "sheet-profile.png",
+   "mean_px": 1.35,
+   "points": 309
+  }
+ ],
+ "lambda": 0.02,
+ "views": [
+  "photo-front",
+  "photo-34",
+  "sheet-front"
+ ]
+}
