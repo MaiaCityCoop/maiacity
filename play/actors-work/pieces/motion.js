@@ -186,7 +186,6 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 			const [a, b] = best; // lands at a, lifts after b (b may pass n)
 			const len = b - a + 1;
 			const mid = a + (len - 1) / 2;
-			const zMid = L.slice(0).reduce((sum, f, i) => sum, 0);
 			let zc = 0, xc = 0;
 			for (let i = a; i <= b; i++) (zc += L[i % n].p.z + ((i - mid) * stride) / n), (xc += L[i % n].p.x);
 			zc /= len;
@@ -332,17 +331,18 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 	function grounded(L, g, phase, dist) {
 		const stride = strides[g] * s;
 		const T = L.T;
-		const z = dist + L.p.z;
 		if (L.down > 0.5) {
+			const z = dist + L.p.z;
 			L.p.y += heightAt(z) + (slope ? ankleRest * (1 / Math.cos(Math.atan(slope)) - 1) : 0);
 			L.Q.premultiply(tilt);
 			return;
 		}
-		// in the air: from the phase it lifted to the phase it lands
+		// in the air: carried from the ground where it lifted to the ground where it lands
+		const n = C[g].n, P = T.P;
 		const since = frac(phase - T.lift), until = frac(T.land - phase), all = since + until || 1;
 		const u = since / all;
-		const zLift = z - since * stride - (L.p.z - L.p.z), zLand = z + until * stride;
-		const y0 = heightAt(dist - since * stride + (L.p.z - (u * 0))) , y1 = heightAt(dist + until * stride + L.p.z);
+		const zLift = dist - since * stride + P[(Math.round(T.lift * n) - 1 + n) % n].z;
+		const zLand = dist + until * stride + P[Math.round(T.land * n) % n].z;
 		const gy = heightAt(zLift) + (heightAt(zLand) - heightAt(zLift)) * smooth(0, 1, u);
 		L.p.y += gy + (rise ? rise * 0.6 * Math.sin(Math.PI * u) : 0);
 		L.Q.premultiply(new Quaternion().slerp(tilt, Math.abs(0.5 - u) * 2));
