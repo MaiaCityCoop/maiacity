@@ -60,6 +60,11 @@ if command -v pg_lsclusters > /dev/null; then
       sed -i "s/^port = .*/port = $PORT/" "/etc/postgresql/$V/main/postgresql.conf"
     fi
     if [ -f "/etc/postgresql/$V/main/postgresql.conf" ]; then
+      # room for the API's tests in parallel (intent aa59f248): each test file's pool and each play-api it starts take up
+      # to 20 connections, and 100 (the default) left a play-api started by a test without one ("too many clients")
+      conf="/etc/postgresql/$V/main/postgresql.conf"
+      sed -i 's/^#\?max_connections = [0-9]*/max_connections = 500/' "$conf"
+      grep -q '^max_connections = 500' "$conf" || echo "max_connections = 500" >> "$conf"
       running=0
       pg_isready -q -h 127.0.0.1 -p "$PORT" && running=1
       [ $running = 1 ] || pg_ctlcluster "$V" main start > /dev/null 2>&1
@@ -99,5 +104,12 @@ if command -v bun > /dev/null; then
   done
 else
   say "no bun in this image"
+fi
+# the workflows' lint (intent aa59f248), pinned, built once into the cache of whoever runs the gate (the user sudo ran
+# this for, on GitHub's runner)
+if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != root ]; then
+  sudo -H -u "$SUDO_USER" env "PATH=$PATH" bash "$ROOT/play/avenbox/actionlint.sh" --install && say "actionlint ready" || say "could not install actionlint"
+else
+  bash "$ROOT/play/avenbox/actionlint.sh" --install && say "actionlint ready" || say "could not install actionlint"
 fi
 exit 0

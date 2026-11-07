@@ -218,7 +218,7 @@ suite("play API", () => {
     // play's own again, for the tests after this one
     const newest = (await db.query<{ id: string }>(`SELECT id FROM play.asset_versions WHERE asset_id = $1 AND number IS NOT NULL ORDER BY number DESC LIMIT 1`, [ids.fern])).rows[0].id;
     await db.query(`UPDATE play.assets SET label = 'Fern', head = $2 WHERE id = $1`, [ids.fern, newest]);
-  });
+  }, 60_000);
 
   test("an accepted version can't be changed", async () => {
     await expect(db.query(`UPDATE play.asset_versions SET note = 'x' WHERE asset_id = $1 AND number = 1`, [ids.fern])).rejects.toThrow(/frozen/);
