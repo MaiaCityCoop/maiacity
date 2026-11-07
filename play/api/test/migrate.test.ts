@@ -539,8 +539,11 @@ suite("migration 202611070120-7c8085db-breeds", () => {
     ];
     const before = await frozen();
 
-    // ---- 0033 and 0034, and the import's breeds
-    expect(await migrate(db, { until: BREEDS })).toEqual([BREEDS]);
+    // ---- the breeds migration, then every one after it (the migrations that land after breeds run too: 4ea6b2ed's
+    // avenBOX token column first), and the import's breeds
+    const rest = MIGRATIONS.map((m) => m.id).slice(MIGRATIONS.findIndex((m) => m.id === BREEDS));
+    expect(rest[0]).toBe(BREEDS);
+    expect(await migrate(db)).toEqual(rest);
     const { ensureAssetDocs } = await import("../src/assetdocs");
     const docs = await import("../src/docs");
     const report = await ensureAssetDocs(db, store, mkdtempSync(join(tmpdir(), "play-history-")));
