@@ -576,11 +576,11 @@ suite("migration 202611070120-7c8085db-breeds", () => {
   }, 60_000);
 });
 
-// Migration 202611071300-1d9995c3-skills-records (intent 1d9995c3): a skill's row is play.records' (kind 'skill'), as
+// Migration 202611070945-1d9995c3-skills-records (intent 1d9995c3): a skill's row is play.records' (kind 'skill'), as
 // a schema's and a piece's are, so a new skill is made over MCP as any schema-alone document. Every play.skills row
 // moves with its id, label and times; the table goes; avenMAIA and the Intents skill keep their documents, versions
 // and history, and are served as before.
-const SKILLS_RECORDS = "202611071300-1d9995c3-skills-records";
+const SKILLS_RECORDS = "202611070945-1d9995c3-skills-records";
 suite(`migration ${SKILLS_RECORDS}`, () => {
   let admin: Bun.SQL, sql: Bun.SQL, name: string;
   beforeAll(async () => {

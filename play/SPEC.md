@@ -958,7 +958,7 @@ two briefs were four copies of one thing, each edited by hand (intent c9113886-0
 
 ```sql
 records (id UUID, coop_id, kind 'skill', label /*only shown*/, created, updated)  -- its document: docs 'skill:<id>';
-                                                                                  -- play.skills (0031) moved here and gone (202611071300-1d9995c3)
+                                                                                  -- play.skills (0031) moved here and gone (202611070945-1d9995c3-skills-records)
 intents (…, work 'skill_version')                                                 -- its document and variant: intent_variants
 ```
 

@@ -274,6 +274,8 @@ suite("skills: what play teaches its agents, kept once", () => {
   test("a new skill is made like any document: doc_edit with kind skill and its whole, proposed, accepted as v1", async () => {
     // the skill schema as the seed holds it (v1; production's later versions add description, body and references)
     const whole = { schema: "skill/1", label: "Iroh", group: "engineering", system: "Store, sync and serve media by BLAKE3 hash.", note: "When work touches iroh." };
+    // avenMAIA and Intents as the import seeds them (already, when the whole file runs)
+    expect((await seedSkills(db)).errors).toEqual([]);
     const i = await intentAt("The engineering skills live in play", "build");
     // made over MCP edit by edit: its first state an intent variant's, Main born empty
     const made = await tool("doc_edit", { kind: "skill", whole, intent: i.id, message: "the iroh skill, its first state" });
