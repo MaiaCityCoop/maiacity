@@ -1,0 +1,1 @@
+fiat500@1:fiat500	e05851bf84021327f78a681891465fdb6a14a41954c386ac26e28e9f0a123253	tris 273039	meshes 161	materials 39 (38 kinds)	nodes 259	pieces 3

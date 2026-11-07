@@ -1,0 +1,2 @@
+police-car@1:white	65e7475eee5ea4a227306c68351776d472c0355d4c07e34ba4255174a612e8a8	tris 5728	meshes 15	materials 10 (10 kinds)	nodes 20	pieces 0
+police-car@1:silver	d639a4d793f4ef29647aee2a9d04bbf2f1e2c9bcbed2eec6a435bd66b2782d61	tris 5728	meshes 15	materials 10 (10 kinds)	nodes 20	pieces 0

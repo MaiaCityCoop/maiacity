@@ -1,0 +1,6 @@
+hatchback@1:silver	e2aadb33bbd499d5abed85e2c8f9fb70e9964cf1a504c621bc04e47569041470	tris 4952	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 0
+hatchback@1:grey	dea2d1ea82605f0ff9392112c4653585bf725e40d4505b85caf67c50505462f0	tris 4952	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 0
+hatchback@1:black	9f948702cd72a83cdade4f82c8db4904837b87e7ef8bfe41ba41398e89748506	tris 4952	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 0
+hatchback@1:white	9297d3db7790ca3f1a85685e7d9890e78b4ef42b45f8c3d55abe11ebe03ca2f2	tris 4952	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 0
+hatchback@1:red	a901b80aeb82b338d51dcc55547a93a94ce3d0376b2f921d7cdae3a54a3a1a3f	tris 4952	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 0
+hatchback@1:blue	59986273df0b8f1af1f70862499cf76bfa0ab497a25dc0ed729dab02058fa0af	tris 4952	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 0

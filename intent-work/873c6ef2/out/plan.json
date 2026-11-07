@@ -1,0 +1,419 @@
+{
+ "pieces": [
+  {
+   "key": "carkit",
+   "doc": "carkit",
+   "v": 1,
+   "hash": "1db78f5dc8186d2afcb1551d1e15e757c20610bfbe7228e6638504f8b5b4ec5d",
+   "copy": 24400,
+   "bytes": 24755,
+   "freeGlobals": [
+    "require",
+    "Math",
+    "Object",
+    "Float32Array",
+    "Set"
+   ]
+  },
+  {
+   "key": "kitA",
+   "doc": "kit",
+   "v": 1,
+   "hash": "2e17ebde03995c8624aa6d4e45aabf54df6b23089c309586330793b8c4a15e70",
+   "copy": 25833,
+   "bytes": 26397,
+   "freeGlobals": [
+    "Math",
+    "isFinite",
+    "document",
+    "Set",
+    "Array"
+   ]
+  },
+  {
+   "key": "kitB",
+   "doc": "kit",
+   "v": 2,
+   "hash": "f17f8358fd4bca21830facf59f17092bc9250f126123f848212da085a3789833",
+   "copy": 3779,
+   "bytes": 4249,
+   "freeGlobals": [
+    "Float32Array",
+    "Uint16Array",
+    "Math"
+   ]
+  },
+  {
+   "key": "parts",
+   "doc": "parts",
+   "v": 1,
+   "hash": "ccd99107fc32069ed80f956c2274b339fdb3758a8a535ea32f6cce97eac9a569",
+   "copy": 14586,
+   "bytes": 14955,
+   "freeGlobals": [
+    "Set",
+    "Error",
+    "Math",
+    "Map",
+    "Object"
+   ]
+  },
+  {
+   "key": "veh1",
+   "doc": "vehicle",
+   "v": 1,
+   "hash": "ae16075b4e9197b3028c7862c399bbf18e7b04dcdc14d20113bd9186bbe366eb",
+   "copy": 46767,
+   "bytes": 47668,
+   "freeGlobals": [
+    "Math",
+    "Array",
+    "Float32Array",
+    "Infinity"
+   ]
+  },
+  {
+   "key": "veh2",
+   "doc": "vehicle",
+   "v": 2,
+   "hash": "5c7ac999d7434d04e4dea7109f6f810baf783a3a3d17f1da078c1fee3b37fcae",
+   "copy": 116847,
+   "bytes": 118056,
+   "freeGlobals": [
+    "Math",
+    "Array",
+    "Float32Array",
+    "Infinity"
+   ]
+  },
+  {
+   "key": "pc1",
+   "doc": "powercube",
+   "v": 1,
+   "hash": "10d2e20903bec7fecdbdceb03c8f34115adfa8cbe5322779a4e123e0d2532dd4",
+   "copy": 71089,
+   "bytes": 71766,
+   "freeGlobals": [
+    "Math"
+   ]
+  },
+  {
+   "key": "pc2",
+   "doc": "powercube",
+   "v": 2,
+   "hash": "44c5df1d50edb05cb0415b65836e78faaa3b3816474d95c3517da725c09d47b5",
+   "copy": 71713,
+   "bytes": 72414,
+   "freeGlobals": [
+    "Math"
+   ]
+  },
+  {
+   "key": "click1",
+   "doc": "clicklock",
+   "v": 1,
+   "hash": "03930b5000f46398dfc683098315a5275eefd4c3eb3503bfb41dc9bafba765e3",
+   "copy": 6850,
+   "bytes": 7078,
+   "freeGlobals": []
+  },
+  {
+   "key": "click2",
+   "doc": "clicklock",
+   "v": 2,
+   "hash": "ee8a19c4ec406e6db81831c2f5518ab2955ad8e520fccd9aebe84ee43139b539",
+   "copy": 6167,
+   "bytes": 6382,
+   "freeGlobals": []
+  },
+  {
+   "key": "exc1",
+   "doc": "excavator",
+   "v": 1,
+   "hash": "e36f6b303a2ad03dfff2d7567b39fc4e36b7bd0fd69514e97470adf12eec8467",
+   "copy": 1020,
+   "bytes": 1378,
+   "freeGlobals": [
+    "Math"
+   ]
+  },
+  {
+   "key": "exc2",
+   "doc": "excavator",
+   "v": 2,
+   "hash": "a134eb39dad8913e9f496b7a6a1f6abcb4fdf8855f9616cfb7a8722ab0c8361d",
+   "copy": 410,
+   "bytes": 732,
+   "freeGlobals": [
+    "Math"
+   ]
+  },
+  {
+   "key": "dqs",
+   "doc": "dqs",
+   "v": 1,
+   "hash": "9f6f2e4842963b34da42997cc436da6cf336d5d82acb9a19c8d8d6081b496782",
+   "copy": 3424,
+   "bytes": 3697,
+   "freeGlobals": []
+  },
+  {
+   "key": "rig",
+   "doc": "rig",
+   "v": 1,
+   "hash": "06afbb415f4a3461ffb38847b5a4e190fa9d1cb3529baa070370f2130b25eb20",
+   "copy": 6519,
+   "bytes": 6962,
+   "freeGlobals": [
+    "Map",
+    "Infinity",
+    "Math",
+    "Uint16Array",
+    "Error",
+    "Array",
+    "Object",
+    "Float32Array",
+    "Set"
+   ]
+  },
+  {
+   "key": "aparts",
+   "doc": "aparts",
+   "v": 1,
+   "hash": "68fd6863f764847b8b999ee5e8d4d23758432c7304a58d77191eb79260d6a4cc",
+   "copy": 6420,
+   "bytes": 6644,
+   "freeGlobals": [
+    "Map",
+    "Object",
+    "Error",
+    "Math"
+   ]
+  },
+  {
+   "key": "bp1",
+   "doc": "batterypack",
+   "v": 1,
+   "hash": "65ce4076a8ef9e7fc10c4293d6a26895f78c172809d378ee24f737dcc7d2613d",
+   "copy": 38569,
+   "bytes": 39277,
+   "freeGlobals": [
+    "Math"
+   ]
+  },
+  {
+   "key": "bp2",
+   "doc": "batterypack",
+   "v": 2,
+   "hash": "eae625068b48f664355052af810ff9ca4e2c469324eff822e0a166ffdb85f645",
+   "copy": 49615,
+   "bytes": 50675,
+   "freeGlobals": [
+    "Object",
+    "Math"
+   ]
+  }
+ ],
+ "hosts": {
+  "hatchback": {
+   "head": 28885,
+   "next": 4641,
+   "copies": 24400,
+   "shrink": 24244,
+   "requires": 1,
+   "overhead": 156,
+   "pieces": [
+    "1db78f5dc8186d2afcb1551d1e15e757c20610bfbe7228e6638504f8b5b4ec5d"
+   ],
+   "headBytes": 28899,
+   "nextBytes": 4646
+  },
+  "sedan": {
+   "head": 28965,
+   "next": 4721,
+   "copies": 24400,
+   "shrink": 24244,
+   "requires": 1,
+   "overhead": 156,
+   "pieces": [
+    "1db78f5dc8186d2afcb1551d1e15e757c20610bfbe7228e6638504f8b5b4ec5d"
+   ],
+   "headBytes": 28979,
+   "nextBytes": 4726
+  },
+  "suv": {
+   "head": 29389,
+   "next": 5150,
+   "copies": 24400,
+   "shrink": 24239,
+   "requires": 1,
+   "overhead": 161,
+   "pieces": [
+    "1db78f5dc8186d2afcb1551d1e15e757c20610bfbe7228e6638504f8b5b4ec5d"
+   ],
+   "headBytes": 29403,
+   "nextBytes": 5155
+  },
+  "taxi": {
+   "head": 31338,
+   "next": 7119,
+   "copies": 24400,
+   "shrink": 24219,
+   "requires": 1,
+   "overhead": 181,
+   "pieces": [
+    "1db78f5dc8186d2afcb1551d1e15e757c20610bfbe7228e6638504f8b5b4ec5d"
+   ],
+   "headBytes": 31354,
+   "nextBytes": 7126
+  },
+  "police": {
+   "head": 30245,
+   "next": 6019,
+   "copies": 24400,
+   "shrink": 24226,
+   "requires": 1,
+   "overhead": 174,
+   "pieces": [
+    "1db78f5dc8186d2afcb1551d1e15e757c20610bfbe7228e6638504f8b5b4ec5d"
+   ],
+   "headBytes": 30261,
+   "nextBytes": 6026
+  },
+  "ambulance": {
+   "head": 31117,
+   "next": 6905,
+   "copies": 24400,
+   "shrink": 24212,
+   "requires": 1,
+   "overhead": 188,
+   "pieces": [
+    "1db78f5dc8186d2afcb1551d1e15e757c20610bfbe7228e6638504f8b5b4ec5d"
+   ],
+   "headBytes": 31131,
+   "nextBytes": 6910
+  },
+  "van": {
+   "head": 29067,
+   "next": 4828,
+   "copies": 24400,
+   "shrink": 24239,
+   "requires": 1,
+   "overhead": 161,
+   "pieces": [
+    "1db78f5dc8186d2afcb1551d1e15e757c20610bfbe7228e6638504f8b5b4ec5d"
+   ],
+   "headBytes": 29081,
+   "nextBytes": 4833
+  },
+  "travelvan": {
+   "head": 219151,
+   "next": 62600,
+   "copies": 157266,
+   "shrink": 156551,
+   "requires": 3,
+   "overhead": 715,
+   "pieces": [
+    "2e17ebde03995c8624aa6d4e45aabf54df6b23089c309586330793b8c4a15e70",
+    "ccd99107fc32069ed80f956c2274b339fdb3758a8a535ea32f6cce97eac9a569",
+    "5c7ac999d7434d04e4dea7109f6f810baf783a3a3d17f1da078c1fee3b37fcae"
+   ],
+   "headBytes": 219436,
+   "nextBytes": 62730
+  },
+  "fiat": {
+   "head": 252312,
+   "next": 95656,
+   "copies": 157266,
+   "shrink": 156656,
+   "requires": 3,
+   "overhead": 610,
+   "pieces": [
+    "2e17ebde03995c8624aa6d4e45aabf54df6b23089c309586330793b8c4a15e70",
+    "ccd99107fc32069ed80f956c2274b339fdb3758a8a535ea32f6cce97eac9a569",
+    "5c7ac999d7434d04e4dea7109f6f810baf783a3a3d17f1da078c1fee3b37fcae"
+   ],
+   "headBytes": 252870,
+   "nextBytes": 96059
+  },
+  "truck": {
+   "head": 252957,
+   "next": 166537,
+   "copies": 87186,
+   "shrink": 86420,
+   "requires": 3,
+   "overhead": 766,
+   "pieces": [
+    "2e17ebde03995c8624aa6d4e45aabf54df6b23089c309586330793b8c4a15e70",
+    "ccd99107fc32069ed80f956c2274b339fdb3758a8a535ea32f6cce97eac9a569",
+    "ae16075b4e9197b3028c7862c399bbf18e7b04dcdc14d20113bd9186bbe366eb"
+   ],
+   "headBytes": 253528,
+   "nextBytes": 167070
+  },
+  "pickup": {
+   "head": 298372,
+   "next": 67817,
+   "copies": 231365,
+   "shrink": 230555,
+   "requires": 4,
+   "overhead": 810,
+   "pieces": [
+    "f17f8358fd4bca21830facf59f17092bc9250f126123f848212da085a3789833",
+    "ccd99107fc32069ed80f956c2274b339fdb3758a8a535ea32f6cce97eac9a569",
+    "44c5df1d50edb05cb0415b65836e78faaa3b3816474d95c3517da725c09d47b5",
+    "5c7ac999d7434d04e4dea7109f6f810baf783a3a3d17f1da078c1fee3b37fcae"
+   ],
+   "headBytes": 298891,
+   "nextBytes": 67973
+  },
+  "powercube": {
+   "head": 185450,
+   "next": 70435,
+   "copies": 115287,
+   "shrink": 115015,
+   "requires": 3,
+   "overhead": 272,
+   "pieces": [
+    "f17f8358fd4bca21830facf59f17092bc9250f126123f848212da085a3789833",
+    "ccd99107fc32069ed80f956c2274b339fdb3758a8a535ea32f6cce97eac9a569",
+    "10d2e20903bec7fecdbdceb03c8f34115adfa8cbe5322779a4e123e0d2532dd4"
+   ],
+   "headBytes": 185861,
+   "nextBytes": 70632
+  },
+  "batterycube": {
+   "head": 130498,
+   "next": 84411,
+   "copies": 46439,
+   "shrink": 46087,
+   "requires": 3,
+   "overhead": 352,
+   "pieces": [
+    "e36f6b303a2ad03dfff2d7567b39fc4e36b7bd0fd69514e97470adf12eec8467",
+    "03930b5000f46398dfc683098315a5275eefd4c3eb3503bfb41dc9bafba765e3",
+    "65ce4076a8ef9e7fc10c4293d6a26895f78c172809d378ee24f737dcc7d2613d"
+   ],
+   "headBytes": 130896,
+   "nextBytes": 84620
+  },
+  "batterypack": {
+   "head": 208918,
+   "next": 136928,
+   "copies": 72555,
+   "shrink": 71990,
+   "requires": 6,
+   "overhead": 565,
+   "pieces": [
+    "9f6f2e4842963b34da42997cc436da6cf336d5d82acb9a19c8d8d6081b496782",
+    "06afbb415f4a3461ffb38847b5a4e190fa9d1cb3529baa070370f2130b25eb20",
+    "a134eb39dad8913e9f496b7a6a1f6abcb4fdf8855f9616cfb7a8722ab0c8361d",
+    "68fd6863f764847b8b999ee5e8d4d23758432c7304a58d77191eb79260d6a4cc",
+    "ee8a19c4ec406e6db81831c2f5518ab2955ad8e520fccd9aebe84ee43139b539",
+    "eae625068b48f664355052af810ff9ca4e2c469324eff822e0a166ffdb85f645"
+   ],
+   "headBytes": 209604,
+   "nextBytes": 137389
+  }
+ }
+}

@@ -1,0 +1,1 @@
+van@1:van	03abf53fea6844b5a05449d7dd821ff7929e2c0478fc3aa947df9c2e81595d0a	tris 245450	meshes 266	materials 68 (67 kinds)	nodes 414	pieces 0

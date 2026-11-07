@@ -1,0 +1,5 @@
+suv@1:black	aa450f9e34755253877a09da01b4c7d47b76c0152fc4cb1fd194b9f34462c6b5	tris 5328	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 0
+suv@1:silver	5b48c9c46392901f599d7cae77ba6c72921288bb3a11337a7870ce2ca40b442d	tris 5328	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 0
+suv@1:grey	836e2b5b9c16872f34dcfbe46477eb59d1ce1dbe94276edbbe157ddc057a71f5	tris 5328	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 0
+suv@1:white	7ca139756335fe67c525fdb2c5e6e19b000f65678eaa1384af08cfad12846fe2	tris 5328	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 0
+suv@1:green	ed67e7736634b24001839e97161955cb692e1be07179a5713863b5cd76db486c	tris 5328	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 0

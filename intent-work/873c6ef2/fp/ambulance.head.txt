@@ -1,0 +1,2 @@
+ambulance@1:white	16fe102c57473d20ff163fefb4802101df2544a2f28eab02bd506854e55a5d9c	tris 5506	meshes 16	materials 10 (10 kinds)	nodes 21	pieces 0
+ambulance@1:yellow	61e3ef9d596ddfde050cd42b1baf930a259cc67af9c61d6dfca711d2c789a2ff	tris 5506	meshes 16	materials 10 (10 kinds)	nodes 21	pieces 0

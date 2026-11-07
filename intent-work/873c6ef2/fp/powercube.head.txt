@@ -1,0 +1,4 @@
+powercube@1:powercube-7s	42662f93f18e2c2f8cc057e75b435e815f52623bccb9bbb7779120585bb8a078	tris 29144	meshes 1	materials 1 (1 kinds)	nodes 33	pieces 0
+powercube@1:powercube-electric	7139a0f5e9661ffc5a8acfc1768e1a7ed7b7be94e89e9c696b07c447179cdf9a	tris 22840	meshes 1	materials 1 (1 kinds)	nodes 28	pieces 0
+powercube@2:powercube-7s	42662f93f18e2c2f8cc057e75b435e815f52623bccb9bbb7779120585bb8a078	tris 29144	meshes 1	materials 1 (1 kinds)	nodes 33	pieces 0
+powercube@3:powercube-7s	459cd32517e6836de386e1e104604dc04a6c8a52e3168e070d51c287c7e86f79	tris 178440	meshes 175	materials 36 (36 kinds)	nodes 257	pieces 0

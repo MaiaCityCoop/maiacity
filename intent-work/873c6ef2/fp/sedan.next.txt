@@ -1,0 +1,6 @@
+sedan@1:silver	6038b851b778361476bd56a5bc685a8563084c37635f7efc7607307fb841caf0	tris 5432	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 1
+sedan@1:graphite	a66b846eb4ffe2e3726f08b313ff7b682931570a30696b4fe9743819b5d63d03	tris 5432	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 1
+sedan@1:black	259487337c1bdb59ca6806c8c3ed898dbf981bd516373450cba373231a20a97b	tris 5432	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 1
+sedan@1:white	794283773a5bcf335dcff3a32f6f81171d53be70eafa371416d96b4cdca31f0e	tris 5432	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 1
+sedan@1:maroon	6e5c4accc6f01884725846da50b971c064ec378a961f8a3456b49583807b40d5	tris 5432	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 1
+sedan@1:blue	66e06c0217d8b27f38577a1e97793a095b3995789929a9246c70ca2a09408198	tris 5432	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 1

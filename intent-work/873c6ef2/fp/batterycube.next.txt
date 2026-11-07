@@ -1,0 +1,10 @@
+batterycube@1:batterycube	3f49b2476374568a8d61dd256045e1809dbb3ad4112c8b38e73c6ca727ecf6b4	tris 44136	meshes 1	materials 1 (1 kinds)	nodes 61	pieces 3
+batterycube@2:batterycube	8b2d2873c117a5cffcbd87df99a248c9a9fa02bb37ba79ffe71253657bdf6d48	tris 59268	meshes 1	materials 1 (1 kinds)	nodes 70	pieces 3
+batterycube@3:batterycube	f6bbc7b1b8251b26ee33046d6d634d21a27bd0f026935f0331ee9bd993ed7548	tris 59680	meshes 1	materials 1 (1 kinds)	nodes 71	pieces 3
+batterycube@4:batterycube	2f92107501d64c92086debae26c7e47401faed87485ce6eed49f0133ca018fcc	tris 65728	meshes 1	materials 1 (1 kinds)	nodes 87	pieces 3
+batterycube@5:batterycube	d808b33e40bff3fa89608f94fad33bdda643a34d794c7ebe13e20c82c726a500	tris 65728	meshes 1	materials 1 (1 kinds)	nodes 87	pieces 3
+batterycube@6:batterycube	4cdb1a1ceabe53d0a0437f0529d2e084e3fd4686e2aa7257acf00424a305ee00	tris 69968	meshes 1	materials 1 (1 kinds)	nodes 87	pieces 3
+batterycube@7:batterycube	1b810ae50475fb5ea2a08eeb0080e13191bd3f2b20431e63cc4ec08027ca8a1a	tris 70192	meshes 1	materials 1 (1 kinds)	nodes 107	pieces 3
+batterycube@8:batterycube	7516f13e7ae09ea0533edd9800268c2a624b3a71acc19329625f1554f83cff9c	tris 72496	meshes 1	materials 1 (1 kinds)	nodes 107	pieces 3
+batterycube@9:batterycube	777979b722d9c68131aceb45c0306e8f04a94388d8e87f1a0386b45533c4643c	tris 73504	meshes 1	materials 1 (1 kinds)	nodes 107	pieces 3
+batterycube@10:batterycube	556c3025f04fae85770e91c0a98e0340c344d0b49993cada4c32ad46e00f8215	tris 76496	meshes 1	materials 1 (1 kinds)	nodes 107	pieces 3

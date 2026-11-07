@@ -1,0 +1,2 @@
+truck@1:truck	dd08f8a7a65155c46b31c7946ecc9d436d97e821c2da27416bad284849381f1e	tris 432	meshes 12	materials 4 (4 kinds)	nodes 13	pieces 3
+truck@2:truck	d627b81071a463f558b70fdc6e7d4773bb394dce654f2f48ec3cdfeeef236c9b	tris 743102	meshes 448	materials 79 (77 kinds)	nodes 671	pieces 3

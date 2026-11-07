@@ -1,0 +1,4 @@
+delivery-van@1:white	52437713d24d66ff27046a5ffb4ee41bc56026cdbb24abfd61abe13e0c8a9b4e	tris 5236	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 0
+delivery-van@1:grey	9898da5ead7993489c717c15754020ae102695de7309f0dff480410d2b2e4baf	tris 5368	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 0
+delivery-van@1:red	c6bbb8e9189a23dd59ee3b10b4a950c279d9c94d4689696645fa63e0e71c549e	tris 5236	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 0
+delivery-van@1:beige	f3f0c8c3ec0b69f0f3adb1ba8602f90a42e82ccb17ca7ccb872fa067a2d71d78	tris 5368	meshes 13	materials 9 (9 kinds)	nodes 18	pieces 0

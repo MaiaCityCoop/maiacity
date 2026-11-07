@@ -1,0 +1,3 @@
+taxi@1:yellow	3bbe08e509743d22c7c493393a628b2a9509c510cbe775ef980c8193cd906293	tris 5524	meshes 14	materials 10 (10 kinds)	nodes 19	pieces 1
+taxi@1:cream	2b056e82e545590a45edc1bcbaac53b7e604210cb4f786924a82e62968c2a935	tris 5632	meshes 14	materials 10 (10 kinds)	nodes 19	pieces 1
+taxi@1:black	d0ed63d964a482173022ace5e95434bfefbc9f335ee2bc67863da7d252d316ad	tris 5524	meshes 14	materials 10 (10 kinds)	nodes 19	pieces 1

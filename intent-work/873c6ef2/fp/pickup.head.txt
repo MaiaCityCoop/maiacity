@@ -1,0 +1,2 @@
+pickup@1:pickup	5e78cdbc1abdb74e80e620d7e7df77c043bc22d33fb0af18889ed0b4587efd7e	tris 245812	meshes 278	materials 63 (62 kinds)	nodes 427	pieces 0
+pickup@1:pickup-cube	61f65fe618409ed589300b09ceea7fbc78e613495262977dbad732b170f34fb2	tris 426652	meshes 454	materials 100 (93 kinds)	nodes 686	pieces 0
