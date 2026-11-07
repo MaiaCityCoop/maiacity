@@ -565,8 +565,11 @@ export function unreadable(source: string): string | null {
 /**
  * A version's code as proposed, the readable source or a recipe file wrapping it: its source and the recipe file made
  * from it for this asset, this version and this variant (the same file the box builds, RECIPE_HEAD + source + its tail).
+ * A source that is exactly one its head was accepted with (`accepted`: the head's sources by hash, its own and its
+ * variants') was read and accepted already: it is not judged unreadable again (intent 80bbed15), so a card-only change
+ * of an asset whose accepted source carries long lines (the legacy people's embedded meshes) can be proposed.
  */
-function checkedCode(up: { source?: unknown; recipe?: unknown }, slug: string, n: number, variant: string | null) {
+function checkedCode(up: { source?: unknown; recipe?: unknown }, slug: string, n: number, variant: string | null, accepted: ReadonlySet<string> = new Set()) {
   let source: string;
   if (typeof up.source === "string" && up.source) {
     if (up.recipe) throw new VersionError("Give the readable source or the recipe file, not both.");
@@ -582,10 +585,11 @@ function checkedCode(up: { source?: unknown; recipe?: unknown }, slug: string, n
   if (Buffer.byteLength(source) > MOST_FILE) throw new VersionError("The source is larger than 16 MB.");
   if (!/module\.exports\.recipe\s*=|exports\.recipe\s*=/.test(source))
     throw new VersionError("The source sets no module.exports.recipe = function (id, v, variant) { … }: the recipe its file calls.");
-  const why = unreadable(source);
+  const hash = hashText(source);
+  const why = accepted.has(hash) ? null : unreadable(source);
   if (why) throw new VersionError(`The source is not readable: ${why}.`);
   const recipe = RECIPE_HEAD + source + recipeTail(slug, n, variant);
-  return { source: { text: source, hash: hashText(source) }, recipe: { text: recipe, hash: hashText(recipe) }, libs: libsOf(source), pieces: piecesOf(source) };
+  return { source: { text: source, hash }, recipe: { text: recipe, hash: hashText(recipe) }, libs: libsOf(source), pieces: piecesOf(source) };
 }
 
 /**
@@ -732,6 +736,13 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
             (SELECT json_object_agg(x.name, x.card) FROM play.asset_variants x WHERE x.version_id = v.id) AS variants
        FROM play.assets a LEFT JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1`, [asset],
   );
+  // the sources its head was accepted with, by hash (its own and its variants'): kept as they are, they are not judged again
+  const { rows: kept } = await db.query<{ hash: string }>(
+    `SELECT v.source_hash AS hash FROM play.assets a JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1 AND v.source_hash IS NOT NULL
+     UNION SELECT x.source_hash FROM play.assets a JOIN play.asset_variants x ON x.version_id = a.head WHERE a.id = $1 AND x.source_hash IS NOT NULL`,
+    [asset],
+  );
+  const accepted = new Set(kept.map((r) => r.hash));
   // a proposal that brings no record of its own takes its head's (the engine it runs on, its label, its parameters),
   // with its own recipe and version written in: an upload of the recipe file alone makes a version the site can build
   // but never what was measured on the head's recipe (its size, triangles, whether it is skinned): this is another one
@@ -815,7 +826,7 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
   let ownText = "";
   const variantTexts: Record<string, string> = {};
   if (body.recipe || body.source) {
-    const c = checkedCode(body, slug, n, null);
+    const c = checkedCode(body, slug, n, null, accepted);
     files.push(c.source, c.recipe);
     recipe = c.recipe.hash;
     source = c.source.hash;
@@ -824,7 +835,7 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
   } else {
     for (const name of variantNames) {
       if (!VARIANT.test(name)) throw new VersionError(`${name} is not a variant's name.`);
-      const c = checkedCode(body.variants![name], slug, n, name);
+      const c = checkedCode(body.variants![name], slug, n, name, accepted);
       files.push(c.source, c.recipe);
       variantTexts[name] = c.source.text;
       const from = a[0]?.variants?.[name] ?? a[0]?.card;
