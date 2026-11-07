@@ -2,7 +2,8 @@
 
 A new, separate app with **three sandboxes and the asset library with its versions**, on Postgres and object storage
 instead of avenDB. Legacy (today's maia.city, avenDB, the current API, MaiaCity V1/V2) is not touched: nothing in it
-is changed, moved or deleted, and the new sandboxes drift apart from it from day one.
+is changed, moved or deleted, and the new sandboxes drift apart from it from day one. avenDB was retired on 2026-11-05:
+nothing runs or serves it, and nothing of play's reads it (§6).
 
 ## 1. Decisions
 
@@ -1102,6 +1103,9 @@ ranges its card allows. In all three sandboxes; in Sandbox 2 the character walks
 
 ## 6. Where the data comes from (one-time import, `play/import/`)
 
+Where the legacy import read its data from, in 2026-11, from avenDB's public feed (retired with avenDB on
+2026-11-05: the import reads it no more):
+
 | Data | Source | Key needed? |
 |---|---|---|
 | 203 asset recipes (plants 105, things 55, machines 12, buildings 12, actors 12, biomes 7) and their cards | avenDB public feed `GET /feed/entries?seed=1&type=recipe` | No |
@@ -1112,21 +1116,18 @@ ranges its card allows. In all three sandboxes; in Sandbox 2 the character walks
 | Humans + passkeys | `public.founders`, `public.passkeys` (read once) | No |
 | Owners/admins | Samuel names them; everyone else starts as a traveler | No |
 
-No V2 game state is imported (Sandbox 3 is stateless). The master recovery key is not needed. The avenDB feed takes
-only post-quantum TLS: the import runs on Bun (OpenSSL 3.5).
+No V2 game state is imported (Sandbox 3 is stateless). The master recovery key is not needed.
 
-The import verifies before it reports success: every file in the store at its size (its bytes were checked against
-its BLAKE3 when it was written, and it never changes; one at another size is read and checked against its hash, and
-its row set right if the bytes are whole; one the bucket lacks is put back from its second copy), every pin resolving,
-the counts per group against the feed. Reading every file's bytes back is the server workflow's report, by hand: a
-deploy no longer reads 2,300 files (videos and all), where one slow answer from the bucket failed it.
-
-**It runs once (Samuel 2026-11-03).** Postgres keeps that it ran (`play.imports`), and from then on **play's Postgres is
-the one source of truth** for its assets, members and sandboxes: a later run (every deploy runs it) writes none of the
-legacy import again, so nothing play changed (a label, a head moved by accepting a version, a sound, a member's level, a
-member or pin removed) is ever overridden or brought back. A later run only adds play's own site media missing from its
-files and the imported versions' readable sources where they have none (§4.1). Forced to run again (`--again`), it
-still only adds what is missing and changes nothing that is there.
+**It ran once (Samuel 2026-11-03).** Postgres keeps that it ran (`play.imports`), and from then on **play's Postgres is
+the one source of truth** for its assets, members and sandboxes. **The feed is gone (intent 59af6109, 2026-11-07):**
+avenDB was retired on 2026-11-05, and the import's legacy path, which read its feed, went with it. What every deploy
+still runs (`bun import/run.ts --report <file>`) writes none of the legacy import and overrides nothing play changed
+(a label, a head moved by accepting a version, a sound, a member's level, a member or pin removed); it only adds what
+play lacks from the repo: its site's media from `play/media`, the imported versions' readable sources where they have
+none (§4.1), the stories, factories, game configs and skills kept in the repo, and every asset's document. A media file
+play's site names that is neither among play's files nor in `play/media` is an import error naming its hash: play
+mends a file from its second copy (§4.5), and a database is restored from the backups (`restore.yml`), never from a
+feed. Every file's bytes are read back only by the server workflow's report, by hand.
 
 ## 7. API (`play/api`, Bun)
 

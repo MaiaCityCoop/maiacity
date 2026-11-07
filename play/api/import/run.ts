@@ -1,5 +1,5 @@
 // The import into play (play/SPEC.md §6), run by every deploy. The legacy import ran once (kept in play.imports)
-// and its source, avenDB, was retired on 2026-11-05: play's Postgres is the one source of truth for its
+// and its source was retired on 2026-11-05: play's Postgres is the one source of truth for its
 // assets, members and sandboxes. A run only adds what play lacks from the repo: its site's media (play/media), the
 // imported versions' readable sources (./sources.ts), the stories, factories, game configs and skills kept in the repo,
 // and every asset's Loro document. Nothing it adds can override what play changed. A media file the site names that is
