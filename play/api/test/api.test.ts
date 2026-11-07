@@ -974,17 +974,19 @@ suite("play API", () => {
     expect((await call("cit", "GET", "/api/intents")).data.error).toBe("Only Maia City's admins keep the intents.");
     expect((await call("cit", "POST", "/api/tokens", { name: "x" })).data.error).toBe("Only Maia City's admins may make access tokens, for now.");
     // a token whose owner is no longer an admin opens nothing; a revoked one neither
-    const eves = (await call("eve", "POST", "/api/tokens", { name: "eve's library" })).data;
-    expect((await by("GET", "/api/library", eves.token)).status).toBe(200);
-    await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.eve.id]);
-    try {
-      expect((await by("GET", "/api/library", eves.token)).status).toBe(401);
-    } finally {
-      await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.eve.id]);
-    }
-    expect((await by("GET", "/api/library", eves.token)).status).toBe(200);
-    await call("eve", "DELETE", `/api/tokens/${eves.id}`);
-    expect((await by("GET", "/api/library", eves.token)).status).toBe(401);
+    // (an admin of this test's own, so no other test's demotion reaches it)
+    const h = await createHuman(db, `librarian-${randomUUID().slice(0, 8)}`);
+    who.librarian = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
+    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
+    const theirs = (await call("librarian", "POST", "/api/tokens", { name: "their library" })).data;
+    expect(theirs.token).toMatch(/^play_/);
+    expect((await by("GET", "/api/library", theirs.token)).status).toBe(200);
+    await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [h.id]);
+    expect((await by("GET", "/api/library", theirs.token)).status).toBe(401);
+    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
+    expect((await by("GET", "/api/library", theirs.token)).status).toBe(200);
+    expect((await call("librarian", "DELETE", `/api/tokens/${theirs.id}`)).status).toBeLessThan(300);
+    expect((await by("GET", "/api/library", theirs.token)).status).toBe(401);
     await call("ada", "POST", `/api/intents/${car.intent}/archive`);
   });
 
