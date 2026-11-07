@@ -20,7 +20,7 @@
 // Samuel 2026-11-06); a tool's description says only what it takes, gives back and refuses.
 import type { BlobStore } from "./blobs";
 import type { Db } from "./pg";
-import type { Me } from "./access";
+import { admin, type Me } from "./access";
 import type { GitHub } from "./ship";
 import { assetOf, listAssets, NotFound } from "./assets";
 import { archiveOwn, docAt, docEdit, docHistory, kinds, listDocs, proposeDocVersion, reviewOf, syncKinds, VersionError, workKinds } from "./versioned";
@@ -29,9 +29,10 @@ import { addIntent, autoMove, CHECK_HOWS, CHECKS_MOST, dependIntent, getIntent, 
 import { stepBack } from "./stepback";
 import { instructionsOf, promptOf, promptsOf, SkillError } from "./skills";
 import { adminByToken } from "./tokens";
-import { admin, AUDIO_TYPES, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, proposeStory, putAudioBase64, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAt, storyOf, StoryError, VIDEO_TYPES } from "./stories";
+import { STORY_ADMINS, AUDIO_TYPES, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, proposeStory, putAudioBase64, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAt, storyOf, StoryError, VIDEO_TYPES } from "./stories";
 import { AssetDocError, assetAt, proposeAsset } from "./assetdocs";
 import { listSandboxes, sandboxOf, SandboxError } from "./sandboxes";
+import { LIBRARY_KINDS, listLibrary } from "./library";
 import { addArtifact, AUTHOR_KINDS, authorOf, DESCRIPTION_MOST, listAuthors, listArtifacts, ORIGINS, ARTIFACT_KINDS, ArtifactError, artifactOf, SUMMARY_WORDS, TITLE_MOST as ARTIFACT_TITLE_MOST, updateArtifact } from "./artifacts";
 
 const PROTOCOL = "2025-06-18";
@@ -170,6 +171,22 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         if (!bytes) throw new NotFound("There is no such file.");
         return { hash, text: new TextDecoder().decode(bytes) };
       },
+    },
+    {
+      name: "list_library",
+      description:
+        "The Library (/library/): every image, video, recording and document play keeps among its files, newest first, as its admins see it. Find a file by a part of its label or its hash's first characters (`q`), of one kind or all, a page at a time; each comes with its hash, size, media type, time, label (only shown) and where it is used (a story's shot or clip; an asset version's reference sheet, data sheet or brief). A file is named by its hash: fetch its bytes with GET /api/files/<hash> on play, sending this token as `Authorization: Bearer`. Labels are renamed only on the page.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          kind: { type: "string", enum: [...LIBRARY_KINDS], description: "optional: only files of this kind; every kind if left out" },
+          q: { type: "string", description: "optional: a part of the label (any case) or the first characters of the hash" },
+          offset: { type: "integer", minimum: 0, description: "optional: files to skip (0 by default)" },
+          limit: { type: "integer", minimum: 1, maximum: 200, description: "optional: files in this page (60 by default, at most 200)" },
+        },
+        additionalProperties: false,
+      },
+      run: async ({ kind, q, offset, limit }, me) => listLibrary(db, me, { kind: kind ?? null, q: q ?? null, offset: offset ?? 0, limit: limit ?? 60 }),
     },
     {
       name: "propose_asset",
@@ -393,7 +410,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         required: ["data", "media_type"],
         additionalProperties: false,
       },
-      run: async ({ data, media_type, label }, me) => (admin(me), putFrameBase64(db, store, data, media_type, label)),
+      run: async ({ data, media_type, label }, me) => (admin(me, STORY_ADMINS), putFrameBase64(db, store, data, media_type, label)),
     },
     {
       name: "add_story_video",
@@ -404,7 +421,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         required: ["data", "media_type"],
         additionalProperties: false,
       },
-      run: async ({ data, media_type, label }, me) => (admin(me), putVideoBase64(db, store, data, media_type, label)),
+      run: async ({ data, media_type, label }, me) => (admin(me, STORY_ADMINS), putVideoBase64(db, store, data, media_type, label)),
     },
     {
       name: "add_document",
@@ -415,7 +432,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         required: ["text"],
         additionalProperties: false,
       },
-      run: async ({ text, label }, me) => (admin(me), putDocument(db, store, text, label)),
+      run: async ({ text, label }, me) => (admin(me, STORY_ADMINS), putDocument(db, store, text, label)),
     },
     {
       name: "add_story_audio",
@@ -426,7 +443,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         required: ["data", "media_type"],
         additionalProperties: false,
       },
-      run: async ({ data, media_type, label }, me) => (admin(me), putAudioBase64(db, store, data, media_type, label)),
+      run: async ({ data, media_type, label }, me) => (admin(me, STORY_ADMINS), putAudioBase64(db, store, data, media_type, label)),
     },
     // ---- intents (./intents.ts): everything on the board, Idea → Specify → Build → Proposal → Accepted or Archived
     {

@@ -10,9 +10,9 @@
 // Refused at Idea, at Proposal while work of play's waits there (it is decided first), and in Ship, Accepted and
 // Archived. Each step is kept on the intent (`steps`, migration 0036): when, who (over MCP), from which stage to which,
 // its reason, and the spec it dropped; the board shows them under the intent's note.
-import type { Me } from "./access";
+import { admin, type Me } from "./access";
 import type { Queryable } from "./pg";
-import { admin, IntentError, intentRow, LINE_MOST, waiting } from "./intents";
+import { INTENT_ADMINS, IntentError, intentRow, LINE_MOST, waiting } from "./intents";
 
 /** one step back, as it is kept on the intent */
 export type Step = { at: string; by: string | null; human: string; via: "mcp"; from: string; to: string; reason: string; spec?: unknown };
@@ -26,7 +26,7 @@ const reasonOf = (v: unknown) => {
 
 /** The intent one stage back with its reason, by an admin's agent over MCP (step_back_intent). */
 export async function stepBack(db: Queryable, me: Me | null, id: string, reason: unknown) {
-  const who = admin(me);
+  const who = admin(me, INTENT_ADMINS);
   const why = reasonOf(reason);
   const intent = await intentRow(db, id);
   const refuse = (because: string): never => {

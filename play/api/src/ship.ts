@@ -10,9 +10,9 @@
 // Accepted one whose commit is not is flagged (ship.live false), its stage left alone. It runs once when play starts
 // (every deploy, a rollback, a deploy by hand restarts play) and as each ship ends.
 // play only calls GitHub's API with SHIP_TOKEN, which never leaves this server.
-import { COOP, type Me } from "./access";
+import { admin, COOP, type Me } from "./access";
 import type { Db } from "./pg";
-import { admin, autoMove, byOf, decisions, gate, getIntent, IntentError, mustMove } from "./intents";
+import { INTENT_ADMINS, autoMove, byOf, decisions, gate, getIntent, IntentError, mustMove } from "./intents";
 import { carrySeen, mainMergeState, mergeMain, type MainMergeState } from "./mainmerge";
 import { checksSeen, decidable, prBlock, sub, type PrSeen } from "./substate";
 
@@ -284,7 +284,7 @@ const keepSeen = (q: Pick<Db, "query">, id: string, seen: PrSeen) => q.query(`UP
  * intent is no code intent at Proposal (it is decided as before: ./intents.ts decideIntent, ./versioned.ts decide).
  */
 export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, id: string) {
-  const me = admin(who);
+  const me = admin(who, INTENT_ADMINS);
   // who Accepted, as the ship shows it: a person, or a rule (./rules.ts)
   const who_ = me.auto ? `rule ${me.auto.label}` : me.name;
   const first = await getIntent(db, id);
@@ -754,7 +754,7 @@ export async function reconcile(db: Db, gh: GitHub, commit: string): Promise<Rec
  * (no SHIP_TOKEN) play cannot tell code from a decision: null too.
  */
 export async function acceptCode(db: Db, gh: GitHub | null, who: Me | null, id: string, commit: string | null = runningCommit()) {
-  const me = admin(who);
+  const me = admin(who, INTENT_ADMINS);
   const intent = await getIntent(db, id);
   if (intent.work || intent.pull_request || !gh) return null;
   await mustMove(db, intent, "accept");

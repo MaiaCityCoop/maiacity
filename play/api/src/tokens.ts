@@ -3,20 +3,16 @@
 // nothing once its owner is no longer an admin, or once it is revoked.
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { Queryable } from "./pg";
-import { Denied, meOf, type Me } from "./access";
+import { admin, Denied, meOf, type Me } from "./access";
 
 const PREFIX = "play_";
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 
-const adminOnly = (me: Me | null): Me => {
-  if (!me) throw new Denied("Please sign in first.", 401);
-  if (me.level !== "admin") throw new Denied("Only Maia City's admins may make access tokens, for now.");
-  return me;
-};
+const TOKEN_ADMINS = "Only Maia City's admins may make access tokens, for now.";
 
 /** a new token for `me`, named so they know it again: the token itself is in this answer alone */
 export async function makeToken(db: Queryable, me: Me | null, name: unknown) {
-  const who = adminOnly(me);
+  const who = admin(me, TOKEN_ADMINS);
   const clean = `${name ?? ""}`.trim().replace(/\s+/g, " ").slice(0, 60);
   if (!clean) throw new Denied("Name the token (where it is used, say), so you know it again.", 400);
   const token = PREFIX + randomBytes(32).toString("base64url");
@@ -27,7 +23,7 @@ export async function makeToken(db: Queryable, me: Me | null, name: unknown) {
 
 /** `me`'s tokens, never the tokens themselves */
 export async function listTokens(db: Queryable, me: Me | null) {
-  const who = adminOnly(me);
+  const who = admin(me, TOKEN_ADMINS);
   const { rows } = await db.query(
     `SELECT id, name, created, last_used, revoked_at, avenbox FROM play.api_tokens WHERE human_id = $1 ORDER BY created DESC`,
     [who.id],
@@ -52,7 +48,7 @@ export async function revokeToken(db: Queryable, me: Me | null, id: string) {
  * of the intents' checks. A code intent's test and measure results are taken from such a token alone.
  */
 export async function markAvenbox(db: Queryable, me: Me | null, id: string, avenbox: unknown) {
-  const who = adminOnly(me);
+  const who = admin(me, TOKEN_ADMINS);
   if (typeof avenbox !== "boolean") throw new Denied("avenbox is true or false.", 400);
   const { rows } = await db.query(
     `UPDATE play.api_tokens SET avenbox = $3 WHERE id::text = $1 AND human_id = $2 AND revoked_at IS NULL RETURNING id, name, avenbox`,
