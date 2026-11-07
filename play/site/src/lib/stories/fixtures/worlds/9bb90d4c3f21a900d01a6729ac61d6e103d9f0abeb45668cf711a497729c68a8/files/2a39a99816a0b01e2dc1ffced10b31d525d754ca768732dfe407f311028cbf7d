@@ -1,0 +1,859 @@
+defineRecipe(function (require) {
+"use strict";
+var module = { exports: {} }, exports = module.exports;
+'use strict';
+/*
+ * PANEL SLAB BLOCK — a prefabricated concrete slab block of the old city: the long eleven-storey block of large
+ * concrete panels that the 1970s and 80s built by the thousand on the edge of every city, now weathered grey, its
+ * panels stained by fifty years of rain, satellite dishes and washing on its balconies, a few windows lit at dusk.
+ * Version 1 of buildings/panel-slab-block (Old City, the world the films contrast Maia City with).
+ *
+ * Its measures are those of the most built large-panel system of its kind (the East German WBS 70 and its peers):
+ *   - a 6.0 m axis grid along the block (the wall panels 6.0 m wide), 12.0 m deep between the outer walls;
+ *   - a storey of 2.80 m (floor to floor; 2.60 m clear under a 0.14 m slab and its screed);
+ *   - outer wall panels 0.26–0.30 m thick, three-layer (concrete, insulation, a 6 cm weather skin), their joints
+ *     about 2 cm, sealed dark; windows of about 1.5 × 1.4 m with their sill at 0.85 m, the living room's balcony door
+ *     0.9 × 2.2 m beside a 2.4 m window;
+ *   - balconies cantilevered about 1.4 m, 4.8 m wide, behind a 1.0 m parapet panel;
+ *   - a plinth (the basement standing a metre out of the ground), a stairwell every second axis (a section of 12 m:
+ *     two flats a floor), its lift's machine room standing on the flat roof, an attic parapet of 0.9 m.
+ * Sources: the WBS 70 type documents as summarised by the Bauakademie der DDR (grid 6.0 / 2.80 m, depth 12.0 m),
+ * DIN 18011 and the IBA studies of large-panel estates (window and balcony sizes), photographs of panel estates.
+ * Where a figure is an estimate (the balcony width, the machine room) it is marked so in BLOCK below.
+ *
+ * Its values make one asset many blocks: floors (5–16), length (24–120 m, snapped to the 6 m grid), seed (which
+ * panels are stained, which balconies glazed in, which carry a dish or washing, which windows are lit) and dusk
+ * (0 by day … 1 at night: how bright the lit windows glow; a world may set it too).
+ *
+ * Lit windows are one mesh named `light:window` (the world contract): only the windows the seed lit, each an emissive
+ * cell just in front of its glass. Everything else is merged by material: a block is a few meshes and ~20k triangles.
+ *
+ * Root on y 0 (the ground), centred on x and z, its balcony side to +z. 1 unit = 1 m.
+ *
+ * The file in three parts:
+ *   1. CORE      chance, the Bag (geometry merged by material), facades of panels with their openings, the concrete
+ *                pictures (panels with joints and rain streaks under their sills), materials. Shared by every
+ *                concrete building of the old city.
+ *   2. THE BLOCK its plan (axes, sections), facades front and back, gables, plinth, roof, balconies and what hangs
+ *                on them, entrances.
+ *   3. RECIPE    its params and `module.exports.recipe`.
+ */
+const THREE = require('three');
+
+// ───────────────────────────────────────────── 1. CORE ─────────────────────────────────────────────
+
+/** a seeded random source from any text: rnd() in [0, 1) */
+function chance(seed) {
+	let h = 1779033703 ^ String(seed).length;
+	for (const c of String(seed)) (h = Math.imul(h ^ c.charCodeAt(0), 3432918353)), (h = (h << 13) | (h >>> 19));
+	let a = h >>> 0;
+	const rnd = () => {
+		a = (a + 0x6d2b79f5) | 0;
+		let t = Math.imul(a ^ (a >>> 15), 1 | a);
+		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	};
+	rnd.range = (a0, b0) => a0 + (b0 - a0) * rnd();
+	rnd.int = (n) => Math.floor(rnd() * n);
+	rnd.pick = (list) => list[Math.floor(rnd() * list.length)];
+	rnd.chance = (p) => rnd() < p;
+	return rnd;
+}
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const srgb = (x) => (x <= 0.0031308 ? x * 12.92 : 1.055 * Math.pow(x, 1 / 2.4) - 0.055);
+
+/** value noise in 2D from a hash, smooth, for the pictures */
+function hash2(x, y, s) {
+	let h = Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263) + Math.imul(s | 0, 2147483647);
+	h = Math.imul(h ^ (h >>> 13), 1274126177);
+	return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function noise2(x, y, s) {
+	const xi = Math.floor(x), yi = Math.floor(y);
+	const fx = x - xi, fy = y - yi;
+	const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+	const a = hash2(xi, yi, s), b = hash2(xi + 1, yi, s), c = hash2(xi, yi + 1, s), d = hash2(xi + 1, yi + 1, s);
+	return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbm2(x, y, s, octaves = 4) {
+	let sum = 0, amp = 0.5, f = 1;
+	for (let o = 0; o < octaves; o++) (sum += amp * noise2(x * f, y * f, s + o * 17)), (amp *= 0.5), (f *= 2);
+	return sum;
+}
+
+/**
+ * The Bag: triangles gathered by material, merged at the end into one mesh each. Every triangle carries a position,
+ * a normal, a uv and a colour (the material multiplies its picture by it: a panel's own tint, the grime of the ground).
+ */
+class Bag {
+	constructor() {
+		this.parts = new Map();
+		/** the blank walls by their key: each gets its own picture in the sheet (blankWall) */
+		this.walls = {};
+	}
+	of(name) {
+		if (!this.parts.has(name)) this.parts.set(name, { p: [], n: [], uv: [], c: [] });
+		return this.parts.get(name);
+	}
+	/** one quad a b c d (counter-clockwise seen from its front), its uvs, one colour or one a corner */
+	quad(name, a, b, c, d, uv, col) {
+		const t = this.of(name);
+		const e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], e2 = [d[0] - a[0], d[1] - a[1], d[2] - a[2]];
+		let n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+		const l = Math.hypot(n[0], n[1], n[2]) || 1;
+		n = [n[0] / l, n[1] / l, n[2] / l];
+		const cs = Array.isArray(col[0]) ? col : [col, col, col, col];
+		const uvs = uv ?? [[0, 0], [1, 0], [1, 1], [0, 1]];
+		for (const k of [0, 1, 2, 0, 2, 3]) {
+			const v = [a, b, c, d][k];
+			t.p.push(v[0], v[1], v[2]);
+			t.n.push(n[0], n[1], n[2]);
+			t.uv.push(uvs[k][0], uvs[k][1]);
+			t.c.push(cs[k][0], cs[k][1], cs[k][2]);
+		}
+	}
+	/**
+	 * a box from (x0, y0, z0) to (x1, y1, z1), its uvs in metres / `tile` (u along the face, v up), one colour; `skip`
+	 * the faces not drawn ('-y' under a slab that nobody sees …)
+	 */
+	box(name, x0, y0, z0, x1, y1, z1, col, tile = 4, skip = '') {
+		// corners in any order
+		[x0, x1] = [Math.min(x0, x1), Math.max(x0, x1)];
+		[y0, y1] = [Math.min(y0, y1), Math.max(y0, y1)];
+		[z0, z1] = [Math.min(z0, z1), Math.max(z0, z1)];
+		const s = 1 / tile;
+		const P = (x, y, z) => [x, y, z];
+		const faces = {
+			'+z': [P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1), [[x0 * s, y0 * s], [x1 * s, y0 * s], [x1 * s, y1 * s], [x0 * s, y1 * s]]],
+			'-z': [P(x1, y0, z0), P(x0, y0, z0), P(x0, y1, z0), P(x1, y1, z0), [[-x1 * s, y0 * s], [-x0 * s, y0 * s], [-x0 * s, y1 * s], [-x1 * s, y1 * s]]],
+			'+x': [P(x1, y0, z1), P(x1, y0, z0), P(x1, y1, z0), P(x1, y1, z1), [[-z1 * s, y0 * s], [-z0 * s, y0 * s], [-z0 * s, y1 * s], [-z1 * s, y1 * s]]],
+			'-x': [P(x0, y0, z0), P(x0, y0, z1), P(x0, y1, z1), P(x0, y1, z0), [[z0 * s, y0 * s], [z1 * s, y0 * s], [z1 * s, y1 * s], [z0 * s, y1 * s]]],
+			'+y': [P(x0, y1, z1), P(x1, y1, z1), P(x1, y1, z0), P(x0, y1, z0), [[x0 * s, z1 * s], [x1 * s, z1 * s], [x1 * s, z0 * s], [x0 * s, z0 * s]]],
+			'-y': [P(x0, y0, z0), P(x1, y0, z0), P(x1, y0, z1), P(x0, y0, z1), [[x0 * s, z0 * s], [x1 * s, z0 * s], [x1 * s, z1 * s], [x0 * s, z1 * s]]],
+		};
+		for (const [k, f] of Object.entries(faces)) if (!skip.includes(k)) this.quad(name, f[0], f[1], f[2], f[3], f[4], col);
+	}
+	/** a flat quad on the ground (or any level), its corners in either order: turned to face up */
+	flat(name, a, b, c, d, uv, col) {
+		const e1 = [b[0] - a[0], b[2] - a[2]], e2 = [d[0] - a[0], d[2] - a[2]];
+		if (e1[1] * e2[0] - e1[0] * e2[1] >= 0) this.quad(name, a, b, c, d, uv, col);
+		else this.quad(name, a, d, c, b, uv && [uv[0], uv[3], uv[2], uv[1]], col);
+	}
+	/** a three.js geometry, moved by `matrix`, in one colour (a dish, a pipe) */
+	geometry(name, g, matrix, col) {
+		const t = this.of(name);
+		const geo = (g.index ? g.toNonIndexed() : g.clone()).applyMatrix4(matrix);
+		const p = geo.attributes.position, n = geo.attributes.normal, uv = geo.attributes.uv;
+		for (let i = 0; i < p.count; i++) {
+			t.p.push(p.getX(i), p.getY(i), p.getZ(i));
+			t.n.push(n.getX(i), n.getY(i), n.getZ(i));
+			t.uv.push(uv ? uv.getX(i) : 0, uv ? uv.getY(i) : 0);
+			t.c.push(col[0], col[1], col[2]);
+		}
+	}
+	triangles() {
+		let n = 0;
+		for (const t of this.parts.values()) n += t.p.length / 9;
+		return n;
+	}
+	/** one mesh a material, named as the material is (`light:window` for the lit windows) */
+	build(materials, root) {
+		for (const [name, t] of this.parts) {
+			if (!t.p.length) continue;
+			const g = new THREE.BufferGeometry();
+			g.setAttribute('position', new THREE.Float32BufferAttribute(t.p, 3));
+			g.setAttribute('normal', new THREE.Float32BufferAttribute(t.n, 3));
+			g.setAttribute('uv', new THREE.Float32BufferAttribute(t.uv, 2));
+			g.setAttribute('color', new THREE.Float32BufferAttribute(t.c, 3));
+			g.computeBoundingSphere();
+			const m = new THREE.Mesh(g, materials[name]);
+			m.name = name;
+			m.castShadow = !/light:/.test(name); // the glass too, or the shadow shows every window as a hole
+			m.receiveShadow = true;
+			root.add(m);
+		}
+		return root;
+	}
+}
+
+/**
+ * a picture w × h from `pixel(x, y)` in pixels giving linear [r, g, b] 0 … 1; mipmapped, repeating. With `raw`, its
+ * size and pixels only, to be laid into one Sheet with the others (a building drawn with one material)
+ */
+function picture(w, h, pixel, raw) {
+	if (raw) return { w, h, pixel };
+	const data = new Uint8Array(w * h * 4);
+	for (let y = 0; y < h; y++)
+		for (let x = 0; x < w; x++) {
+			const [r, g, b] = pixel(x, y);
+			const i = (y * w + x) * 4;
+			data[i] = Math.round(clamp(srgb(r)) * 255);
+			data[i + 1] = Math.round(clamp(srgb(g)) * 255);
+			data[i + 2] = Math.round(clamp(srgb(b)) * 255);
+			data[i + 3] = 255;
+		}
+	const t = new THREE.DataTexture(data, w, h, THREE.RGBAFormat);
+	t.wrapS = t.wrapT = THREE.RepeatWrapping;
+	t.colorSpace = THREE.SRGBColorSpace;
+	t.anisotropy = 8;
+	t.generateMipmaps = true;
+	t.minFilter = THREE.LinearMipmapLinearFilter;
+	t.magFilter = THREE.LinearFilter;
+	t.needsUpdate = true;
+	return t;
+}
+
+/**
+ * The panel atlas: COLS × ROWS cells, each one wall panel of PANEL.w × PANEL.h metres as fifty years of rain left it.
+ * A row is a kind of panel (its openings), its columns that kind's variants. In each: the fine mottle of the weather
+ * skin's aggregate, larger damp blotches, its dark sealed joints along its edges, and the streaks of dirt the rain
+ * washes from every sill corner down the panel below (and from the panel above, through its top edge).
+ * `kinds`: [{ streaks: [[x m, from y m] …] }] one a row, the sill corners of that kind of panel.
+ */
+const ATLAS = { cols: 4, cell: [256, 128] };
+function panelAtlas(kinds, panel, seed, raw) {
+	const [cw, ch] = panel.cell ?? ATLAS.cell; // px a cell: about 40 px a metre
+	const cols = panel.cols ?? ATLAS.cols;
+	const rows = kinds.length, W = cw * cols, H = ch * rows;
+	const pxm = cw / panel.w, pym = ch / panel.h;
+	// each cell's streaks laid out first: x in px, from y in px (down to the cell's foot), width, strength
+	const streaks = [];
+	for (let r = 0; r < rows; r++)
+		for (let c = 0; c < cols; c++) {
+			const list = [];
+			const s = (r * 31 + c * 7 + seed) | 0;
+			for (const [xm, ym] of kinds[r].streaks) {
+				const k = 2 + Math.floor(hash2(xm * 10, ym * 10, s) * 3);
+				for (let i = 0; i < k; i++) {
+					const h = hash2(i, xm * 100 + ym, s + 3);
+					list.push({ x: xm * pxm + (h - 0.5) * 14, y: ym * pym, w: 3 + hash2(i, 9, s) * 7, a: 0.09 + h * 0.12, len: 0.75 + hash2(i, 5, s) * 0.25 });
+				}
+			}
+			// faint ones from anywhere along the top edge: rain from the panel above, the roof's run-off
+			for (let i = 0; i < 12; i++) list.push({ x: hash2(i, 1, s) * cw, y: ch, w: 3 + hash2(i, 2, s) * 9, a: 0.04 + hash2(i, 3, s) * 0.08, len: 0.7 + hash2(i, 4, s) * 0.3 });
+			streaks.push(list);
+		}
+	const grey = (x, y) => {
+		const c = Math.floor(x / cw), r = Math.floor(y / ch);
+		const lx = x - c * cw, ly = y - r * ch;
+		const s = (r * 31 + c * 7 + seed) | 0;
+		// the weather skin: a fine mottle, a coarser cloud, damp blotches
+		// each panel its own: some cast darker, some patched lighter, fifty years apart
+		let v = 0.33 + (hash2(c, r, s + 1) - 0.5) * 0.08 + (noise2(x * 0.9, y * 0.9, 11) - 0.5) * 0.06 + (fbm2(x / 18, y / 18, s, 4) - 0.5) * 0.14;
+		const blot = fbm2(x / 40 + 3, y / 40, s + 5, 3);
+		if (blot > 0.52) v -= (blot - 0.52) * 0.5;
+		// small pits and spalls, lighter cement where the skin chipped
+		if (hash2(x, y, 77) > 0.9985) v += 0.08;
+		// the streaks, darker near the sill they start from, fraying as they fall
+		for (const st of streaks[r * cols + c]) {
+			if (ly > st.y) continue;
+			const fall = (st.y - ly) / ch; // 0 at the source, 1 a whole panel below
+			if (fall > st.len) continue;
+			const wob = (noise2(st.x * 0.3, ly / 9, s + 9) - 0.5) * 4 * (0.5 + fall);
+			const d = Math.abs(lx - st.x - wob) / (st.w * (1 + fall * 1.5));
+			if (d < 1) v -= st.a * (1 - d * d) * (1 - d * d) * (1 - fall / st.len) * (0.7 + 0.6 * noise2(lx, ly / 3, s));
+		}
+		// the joints: about 2 cm of dark sealant round every panel, dirt caught along them
+		const jx = Math.min(lx, cw - 1 - lx), jy = Math.min(ly, ch - 1 - ly);
+		if (jx < 1.5 || jy < 1.5) v = 0.05 + v * 0.15;
+		else if (jx < 6 || jy < 5) v -= 0.08 * (1 - Math.min(jx / 6, jy / 5));
+		// a little darker at the foot of the panel, where the splash of the joint below dries last
+		v -= 0.07 * Math.max(0, 1 - ly / (ch * 0.3));
+		return clamp(v, 0.05, 1);
+	};
+	return picture(W, H, (x, y) => {
+		const v = grey(x, y);
+		const d = clamp((0.33 - v) * 3); // the darker the dirtier, and the dirt is brown-grey
+		return [v * (1 + 0.04 * d), v * (0.985 - 0.005 * d), v * (0.95 - 0.06 * d)]; // a faintly warm grey; the panel's own tint is its vertex colour
+	}, raw);
+}
+
+/** a grime tile for everything not a panel (slabs, roofs, boxes): mottle and vertical streaks, laid in metres */
+function grimeTile(size, seed, raw) {
+	return picture(size, size, (x, y) => {
+		let v = 0.42 + (fbm2(x / 14, y / 14, seed, 4) - 0.5) * 0.2 + (noise2(x * 0.8, y * 0.8, seed + 1) - 0.5) * 0.06;
+		const st = noise2(x / 3, 0.5, seed + 2);
+		if (st > 0.62) v -= (st - 0.62) * 0.5 * (0.6 + 0.4 * noise2(x / 3, y / 30, seed + 3));
+		return [v, v * 0.985, v * 0.96];
+	}, raw);
+}
+
+/** the panel's cell in the atlas: its uv for a point (x, y) in metres on a panel of kind `row`, variant `col` */
+function cellUV(row, col, rows, panel, x, y) {
+	const eps = 0.002;
+	const u = (col + clamp(x / panel.w, eps, 1 - eps)) / ATLAS.cols;
+	const v = (row + clamp(y / panel.h, eps, 1 - eps)) / rows;
+	return [u, v];
+}
+
+/**
+ * One facade: a plane of panels, each panel a rectangle in the facade's own (x along, y up) metres with its openings.
+ * `frame`: { o: [x, y, z] the facade's origin (its left foot seen from outside), u: the unit along it, n: its outward
+ * normal }. A panel: { x, y, w, h, row, col, tint: [r, g, b], open: [{ x0, x1, y0, y1, glass, kind }] } (openings in
+ * the panel's own metres). Concrete pieces go to `mat`, the reveals too; each opening's glass to its `glass` (a
+ * material name), recessed `deep` metres, with a sill.
+ */
+function facade(bag, frame, panels, opts) {
+	const { mat, rows, panel, deep = 0.14, shade = () => 1 } = opts;
+	const { o, u, n } = frame;
+	const W = (x, y, z = 0) => [o[0] + u[0] * x + n[0] * z, o[1] + y, o[2] + u[2] * x + n[2] * z];
+	for (const p of panels) {
+		const rmat = p.mat ?? mat;
+		const col = (x, y) => {
+			const s = shade(p.x + x, p.y + y);
+			return [p.tint[0] * s, p.tint[1] * s, p.tint[2] * s];
+		};
+		const piece = (x0, y0, x1, y1) => {
+			if (x1 - x0 < 1e-4 || y1 - y0 < 1e-4) return;
+			// a panel taller than the atlas's (a shop storey) takes the whole cell, stretched up
+			const cell = p.h > panel.h ? { w: panel.w, h: p.h } : panel;
+			const uv = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([x, y]) => cellUV(p.row, p.col, rows, cell, x, y));
+			bag.quad(rmat, W(p.x + x0, p.y + y0), W(p.x + x1, p.y + y0), W(p.x + x1, p.y + y1), W(p.x + x0, p.y + y1), uv, [col(x0, y0), col(x1, y0), col(x1, y1), col(x0, y1)]);
+		};
+		const open = p.open ?? [];
+		// the panel cut into vertical strips at every opening's edges; in a strip an opening covers, the parts below
+		// and above it
+		const xs = [...new Set([0, p.w, ...open.flatMap((q) => [q.x0, q.x1])])].sort((a, b) => a - b);
+		for (let i = 0; i < xs.length - 1; i++) {
+			const x0 = xs[i], x1 = xs[i + 1], mid = (x0 + x1) / 2;
+			const q = open.find((k) => k.x0 <= mid && k.x1 >= mid);
+			if (!q) piece(x0, 0, x1, p.h);
+			else piece(x0, 0, x1, q.y0), piece(x0, q.y1, x1, p.h);
+		}
+		for (const q of open) {
+			const X0 = p.x + q.x0, X1 = p.x + q.x1, Y0 = p.y + q.y0, Y1 = p.y + q.y1;
+			const d = q.deep ?? deep;
+			const c = col(q.x0, q.y0);
+			const dark = [c[0] * 0.72, c[1] * 0.72, c[2] * 0.72];
+			const ruv = [[0, 0], [0.2, 0], [0.2, 1], [0, 1]];
+			// the reveals, each facing into the opening: left, right, the head (its underside) and the sill's back
+			if (!q.flat) {
+				bag.quad(q.revealMat ?? rmat, W(X0, Y0, 0), W(X0, Y0, -d), W(X0, Y1, -d), W(X0, Y1, 0), ruv, dark);
+				bag.quad(q.revealMat ?? rmat, W(X1, Y0, -d), W(X1, Y0, 0), W(X1, Y1, 0), W(X1, Y1, -d), ruv, dark);
+				bag.quad(q.revealMat ?? rmat, W(X0, Y1, -d), W(X1, Y1, -d), W(X1, Y1, 0), W(X0, Y1, 0), ruv, dark);
+				bag.quad(q.revealMat ?? rmat, W(X0, Y0, 0), W(X1, Y0, 0), W(X1, Y0, -d), W(X0, Y0, -d), ruv, c);
+			}
+			// the glass (its own colour: a curtain, a blind, the dark room), and the frame's bars across it
+			if (q.glass) bag.quad(q.glass, W(X0, Y0, -d), W(X1, Y0, -d), W(X1, Y1, -d), W(X0, Y1, -d), [[0, 0], [1, 0], [1, 1], [0, 1]], q.tone ?? [0.1, 0.1, 0.1]);
+			if (q.lit) bag.quad('light:window', W(X0 + 0.06, Y0 + 0.06, -d + 0.01), W(X1 - 0.06, Y0 + 0.06, -d + 0.01), W(X1 - 0.06, Y1 - 0.06, -d + 0.01), W(X0 + 0.06, Y1 - 0.06, -d + 0.01), null, q.lit);
+			if (q.frame) {
+				const fz = -d + 0.03, f = 0.035, fc = q.frame;
+				const bar = (ax, ay, bx, by) => {
+					// a flat bar seen from outside: a thin quad standing a few cm proud of the glass
+					if (ax === bx) bag.quad('frame', W(ax - f, ay, fz), W(ax + f, ay, fz), W(ax + f, by, fz), W(ax - f, by, fz), null, fc);
+					else bag.quad('frame', W(ax, ay - f, fz), W(bx, ay - f, fz), W(bx, ay + f, fz), W(ax, ay + f, fz), null, fc);
+				};
+				// the bottom rail hides behind the sill: three bars and the mullions
+				bar(X0 + f, Y0, X0 + f, Y1), bar(X1 - f, Y0, X1 - f, Y1), bar(X0, Y1 - f, X1, Y1 - f);
+				for (const fx of q.mullions ?? []) bar(X0 + fx, Y0, X0 + fx, Y1);
+				for (const fy of q.transoms ?? []) bar(X0, Y0 + fy, X1, Y0 + fy);
+			}
+			// the sill: a strip of galvanised steel standing out from the panel, catching the light
+			if (q.sill !== false && q.y0 > 0.05) {
+				const s0 = W(X0 - 0.03, Y0 - 0.04, 0.05), s1 = W(X1 + 0.03, Y0 - 0.04, 0.05), s2 = W(X1 + 0.03, Y0, -0.02), s3 = W(X0 - 0.03, Y0, -0.02);
+				bag.quad('metal', s0, s1, s2, s3, null, [0.42, 0.43, 0.42]);
+			}
+		}
+	}
+}
+
+/**
+ * A box laid in a facade's frame (x along it, y up, z out of it), from (x0, y0, z0) to (x1, y1, z1) in its metres:
+ * a parapet, a pier, a fin. `skip` as Bag.box's, in the frame's own axes ('-y' its underside, '-z' its back).
+ */
+function frameBox(bag, mat, frame, x0, x1, y0, y1, z0, z1, col, skip = '', tile = 3) {
+	const { o, u, n } = frame;
+	const W = (x, y, z) => [o[0] + u[0] * x + n[0] * z, o[1] + y, o[2] + u[2] * x + n[2] * z];
+	const s = 1 / tile;
+	const uv = (a, b, c, d) => [[a * s, c * s], [b * s, c * s], [b * s, d * s], [a * s, d * s]];
+	if (!skip.includes('+z')) bag.quad(mat, W(x0, y0, z1), W(x1, y0, z1), W(x1, y1, z1), W(x0, y1, z1), uv(x0, x1, y0, y1), col);
+	if (!skip.includes('-z')) bag.quad(mat, W(x1, y0, z0), W(x0, y0, z0), W(x0, y1, z0), W(x1, y1, z0), uv(x0, x1, y0, y1), col);
+	if (!skip.includes('+y')) bag.quad(mat, W(x0, y1, z1), W(x1, y1, z1), W(x1, y1, z0), W(x0, y1, z0), uv(x0, x1, z0, z1), col);
+	if (!skip.includes('-y')) bag.quad(mat, W(x0, y0, z0), W(x1, y0, z0), W(x1, y0, z1), W(x0, y0, z1), uv(x0, x1, z0, z1), col);
+	if (!skip.includes('-x')) bag.quad(mat, W(x0, y0, z0), W(x0, y0, z1), W(x0, y1, z1), W(x0, y1, z0), uv(z0, z1, y0, y1), col);
+	if (!skip.includes('+x')) bag.quad(mat, W(x1, y0, z1), W(x1, y0, z0), W(x1, y1, z0), W(x1, y1, z1), uv(z0, z1, y0, y1), col);
+}
+
+/**
+ * A blank wall (a gable, an attic band): one plane whose picture is laid on in metres, continuous across it, its
+ * panels' joints and stains drawn in the picture (`blank`: two panels by three storeys, repeating), its grime a
+ * smooth colour by height. Nothing in it changes from one panel to the next, so when a world draws it far off by a
+ * simplified copy (play's levels of detail weld corners that agree and fold flat walls into big triangles), the
+ * picture cannot shear across them. `frame` as facade's; `y0`–`y1` its height, `yRef` a floor level the joints keep
+ * to, `rows` the heights it is cut at for the colour (each cut's corners alike on both sides, so they weld).
+ */
+function blankWall(bag, frame, x0, x1, y0, y1, opts) {
+	const { panel, yRef = 0, shade = () => 1, tint = [1, 1, 1], cuts = [] } = opts;
+	// `ends` pulls its ends in by a hair (an attic band meeting a gable at the corner): two blank walls never share a
+	// corner, so a simplifier welding by place alone cannot hand one wall the other's mapping there
+	const { o, u, n } = frame;
+	const W = (x, y) => [o[0] + u[0] * x, o[1] + y, o[2] + u[2] * x];
+	if (opts.ends) (x0 += 0.003), (x1 -= 0.003);
+	// the wall's own picture in the building's sheet: the whole wall at once, its panels' joints where they stand; two
+	// walls of one size and level share it
+	const key = `blank:${(x1 - x0).toFixed(2)}x${(y1 - y0).toFixed(2)}@${(y0 - yRef).toFixed(2)}`;
+	bag.walls[key] = { w: x1 - x0, h: y1 - y0, from: y0 - yRef, panel };
+	const uv = (x, y) => [(x - x0) / (x1 - x0), (y - y0) / (y1 - y0)];
+	const col = (y) => tint.map((c) => c * shade(0, y));
+	const ys = [y0, ...cuts.filter((y) => y > y0 + 1e-6 && y < y1 - 1e-6), y1];
+	for (let i = 0; i < ys.length - 1; i++) {
+		const a = ys[i], b = ys[i + 1];
+		bag.quad(key, W(x0, a), W(x1, a), W(x1, b), W(x0, b), [uv(x0, a), uv(x1, a), uv(x1, b), uv(x0, b)], [col(a), col(a), col(b), col(b)]);
+	}
+	void n;
+}
+
+/** the materials every concrete building of the old city uses, its pictures made once a build */
+function materials(seed, dusk, kinds, panel, extra = {}) {
+	const atlas = panelAtlas(kinds, panel, seed);
+	// the blank walls' picture: two panels by three storeys of plain panels, laid on in metres
+	const blank = panelAtlas([{ streaks: [] }, { streaks: [] }, { streaks: [] }], { ...panel, cols: 2 }, seed + 7);
+	const grime = grimeTile(256, seed + 101);
+	const std = (o) => new THREE.MeshStandardMaterial({ vertexColors: true, ...o });
+	// the lit windows' OFF look is dark glass, as the others; the page (or `dusk`, 0 by default) lights them
+	const lit = new THREE.MeshStandardMaterial({ color: '#16191c', emissive: '#ffc77a', emissiveIntensity: 1.6 * dusk, roughness: 0.15, metalness: 0.5, vertexColors: false });
+	lit.name = 'light:window';
+	const m = {
+		panel: std({ map: atlas, roughness: 0.95 }),
+		blank: std({ map: blank, roughness: 0.95 }),
+		concrete: std({ map: grime, roughness: 0.95 }),
+		glass: std({ color: '#ffffff', roughness: 0.12, metalness: 0.55 }),
+		frame: std({ color: '#ffffff', roughness: 0.6 }),
+		metal: std({ color: '#ffffff', roughness: 0.45, metalness: 0.6 }),
+		paint: std({ color: '#ffffff', roughness: 0.85 }),
+		roof: std({ map: grime, roughness: 1 }),
+		cloth: std({ color: '#ffffff', roughness: 1, side: THREE.DoubleSide }),
+		'light:window': lit,
+		...extra,
+	};
+	for (const [k, v] of Object.entries(m)) v.name = k;
+	return m;
+}
+
+/**
+ * ONE PICTURE FOR A WHOLE BUILDING. A world draws every kind once per material at each level of detail, so a building
+ * of ten materials costs ten draws where one would do. The Sheet lays every picture a building needs side by side in
+ * one texture (shelf by shelf, a few pixels apart so the far mipmaps do not bleed), and Bag.buildAtlas draws the
+ * building with three materials: its body (everything opaque, the pictures from the sheet and its colours as vertex
+ * colours), its glass, and its lit windows (`light:window`).
+ */
+class Sheet {
+	constructor(width = 2048, pad = 4) {
+		this.W = width;
+		this.pad = pad;
+		this.items = [];
+		this.x = 0;
+		this.y = 0;
+		this.row = 0;
+	}
+	/** a picture of w × h pixels, its `pixel(x, y)` in its own pixels (y up); gives its place, filled in by texture() */
+	add(w, h, pixel) {
+		w = Math.max(1, Math.round(w)), h = Math.max(1, Math.round(h));
+		if (this.x + w + this.pad > this.W) (this.x = 0), (this.y += this.row + this.pad), (this.row = 0);
+		const it = { x: this.x, y: this.y, w, h, pixel, region: null };
+		this.items.push(it);
+		this.x += w + this.pad;
+		this.row = Math.max(this.row, h);
+		return it;
+	}
+	/** the texture, and every item's region in it as [u0, v0, u1, v1] (half a pixel in from its edges) */
+	texture() {
+		const W = this.W, H = this.y + this.row;
+		const data = new Uint8Array(W * H * 4);
+		for (const it of this.items) {
+			for (let y = 0; y < it.h; y++)
+				for (let x = 0; x < it.w; x++) {
+					const c = it.pixel(x, y);
+					const i = ((it.y + y) * W + it.x + x) * 4;
+					data[i] = Math.round(clamp(srgb(c[0])) * 255);
+					data[i + 1] = Math.round(clamp(srgb(c[1])) * 255);
+					data[i + 2] = Math.round(clamp(srgb(c[2])) * 255);
+					data[i + 3] = 255;
+				}
+			it.region = [(it.x + 0.5) / W, (it.y + 0.5) / H, (it.x + it.w - 0.5) / W, (it.y + it.h - 0.5) / H];
+		}
+		const t = new THREE.DataTexture(data, W, H, THREE.RGBAFormat);
+		t.colorSpace = THREE.SRGBColorSpace;
+		t.anisotropy = 8;
+		t.generateMipmaps = true;
+		t.minFilter = THREE.LinearMipmapLinearFilter;
+		t.magFilter = THREE.LinearFilter;
+		t.needsUpdate = true;
+		return t;
+	}
+}
+
+/** what each of the Bag's names becomes in a building drawn from one sheet */
+const FLAT = new Set(['frame', 'metal', 'paint', 'cloth']); // a plain colour: the sheet's white, the vertex colour
+const STRETCH = new Set(['concrete', 'roof', 'shutter']); // each face its own: the whole of its picture laid on it
+
+/**
+ * Draw the Bag with three materials from one Sheet. `o`: { seed, dusk, kinds, panel, pictures: { name: { w, h, pixel } } }
+ * (a building's own pictures, by the Bag's name that shows them: a sign board, a shutter). The panels take the panel
+ * atlas; each blank wall its own picture of itself (blankWall); `concrete` and `roof` faces each the grime picture
+ * whole; frames, metal, paint and cloth (both its sides) the sheet's white under their vertex colours.
+ */
+Bag.prototype.buildAtlas = function (root, o) {
+	const sheet = new Sheet();
+	const regions = {};
+	const atlas = panelAtlas(o.kinds, o.panel, o.seed, true);
+	regions.panel = sheet.add(atlas.w, atlas.h, atlas.pixel);
+	regions.white = sheet.add(8, 8, () => [1, 1, 1]);
+	const grime = grimeTile(256, o.seed + 101, true);
+	regions.grime = sheet.add(256, 256, grime.pixel);
+	// the blank walls: each its own picture, the plain panels (two by three storeys, repeating) laid on at 20 px a metre
+	const blank = panelAtlas([{ streaks: [] }, { streaks: [] }, { streaks: [] }], { ...o.panel, cols: 2 }, o.seed + 7, true);
+	const [bcw, bch] = o.panel.cell ?? ATLAS.cell;
+	for (const [key, w] of Object.entries(this.walls)) {
+		const ppm = Math.min(28, 2040 / w.w, 2040 / w.h);
+		const at = (mx, my) => {
+			const tx = ((mx % (2 * w.panel.w)) + 2 * w.panel.w) % (2 * w.panel.w), ty = ((my % (3 * w.panel.h)) + 3 * w.panel.h) % (3 * w.panel.h);
+			return blank.pixel(Math.min(blank.w - 1, Math.floor((tx / w.panel.w) * bcw)), Math.min(blank.h - 1, Math.floor((ty / w.panel.h) * bch)));
+		};
+		// each pixel the mean of the panels' picture across it (3 × 3 samples), so a joint thinner than a pixel still shows
+		regions[key] = sheet.add(w.w * ppm, Math.max(2, w.h * ppm), (x, y) => {
+			const c = [0, 0, 0];
+			for (let i = 0; i < 3; i++)
+				for (let j = 0; j < 3; j++) {
+					const q = at((x + (i + 0.5) / 3) / ppm, w.from + (y + (j + 0.5) / 3) / ppm);
+					(c[0] += q[0] / 9), (c[1] += q[1] / 9), (c[2] += q[2] / 9);
+				}
+			return c;
+		});
+	}
+	for (const [name, pic] of Object.entries(o.pictures ?? {})) regions[name] = sheet.add(pic.w, pic.h, pic.pixel);
+	const map = sheet.texture();
+
+	const body = { p: [], n: [], uv: [], c: [] }, glass = { p: [], n: [], uv: [], c: [] }, lit = { p: [], n: [], uv: [], c: [] };
+	const lay = (r, u, v) => [r[0] + clamp(u) * (r[2] - r[0]), r[1] + clamp(v) * (r[3] - r[1])];
+	for (const [name, t] of this.parts) {
+		const into = name === 'glass' ? glass : name.startsWith('light:') ? lit : body;
+		const n = t.p.length / 3;
+		const reg = FLAT.has(name) ? regions.white.region : name === 'concrete' || name === 'roof' ? regions.grime.region : regions[name]?.region ?? regions.white.region;
+		for (let q = 0; q < n; q += 6) {
+			// a quad's six corners (a geometry's triangles come in sixes too, or end short: taken as they come)
+			const m = Math.min(6, n - q);
+			let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+			if (STRETCH.has(name)) for (let k = q; k < q + m; k++) (u0 = Math.min(u0, t.uv[2 * k])), (u1 = Math.max(u1, t.uv[2 * k])), (v0 = Math.min(v0, t.uv[2 * k + 1])), (v1 = Math.max(v1, t.uv[2 * k + 1]));
+			const sides = name === 'cloth' ? [false, true] : [false];
+			for (const back of sides) {
+				const order = back ? [0, 2, 1, 3, 5, 4] : [0, 1, 2, 3, 4, 5];
+				for (const j of order.slice(0, m)) {
+					const k = q + j;
+					into.p.push(t.p[3 * k], t.p[3 * k + 1], t.p[3 * k + 2]);
+					const s = back ? -1 : 1;
+					into.n.push(s * t.n[3 * k], s * t.n[3 * k + 1], s * t.n[3 * k + 2]);
+					into.c.push(t.c[3 * k], t.c[3 * k + 1], t.c[3 * k + 2]);
+					let u = t.uv[2 * k], v = t.uv[2 * k + 1];
+					if (FLAT.has(name)) (u = 0.5), (v = 0.5);
+					else if (STRETCH.has(name)) (u = u1 > u0 ? (u - u0) / (u1 - u0) : 0.5), (v = v1 > v0 ? (v - v0) / (v1 - v0) : 0.5);
+					into.uv.push(...(into === body ? lay(reg, u, v) : [u, v]));
+				}
+			}
+		}
+	}
+	const mesh = (t, mat, name) => {
+		if (!t.p.length) return;
+		const g = new THREE.BufferGeometry();
+		g.setAttribute('position', new THREE.Float32BufferAttribute(t.p, 3));
+		g.setAttribute('normal', new THREE.Float32BufferAttribute(t.n, 3));
+		g.setAttribute('uv', new THREE.Float32BufferAttribute(t.uv, 2));
+		g.setAttribute('color', new THREE.Float32BufferAttribute(t.c, 3));
+		g.computeBoundingSphere();
+		const m = new THREE.Mesh(g, mat);
+		m.name = name;
+		m.castShadow = name !== 'light:window';
+		m.receiveShadow = true;
+		root.add(m);
+	};
+	const bodyM = new THREE.MeshStandardMaterial({ vertexColors: true, map, roughness: 0.92 });
+	bodyM.name = 'body';
+	const glassM = new THREE.MeshStandardMaterial({ vertexColors: true, color: '#ffffff', roughness: 0.12, metalness: 0.55 });
+	glassM.name = 'glass';
+	// the lit windows' OFF look is dark glass; the page (or `dusk`, 0 by default) lights them
+	const litM = new THREE.MeshStandardMaterial({ color: '#16191c', emissive: '#ffc77a', emissiveIntensity: 1.6 * clamp(o.dusk), roughness: 0.15, metalness: 0.5 });
+	litM.name = 'light:window';
+	mesh(body, bodyM, 'body'), mesh(glass, glassM, 'glass'), mesh(lit, litM, 'light:window');
+	return root;
+};
+
+/** a satellite dish, its mouth toward +z: a shallow bowl, the feed arm and its head; ~0.8 m across */
+function dish(r = 0.4) {
+	const pts = [];
+	for (let i = 0; i <= 3; i++) {
+		const t = i / 3;
+		pts.push(new THREE.Vector2(r * t, (r * t) ** 2 * 0.55));
+	}
+	const bowl = new THREE.LatheGeometry(pts, 8);
+	bowl.rotateX(Math.PI / 2);
+	const arm = new THREE.BoxGeometry(0.03, 0.03, r * 1.3);
+	arm.translate(0, -r * 0.5, r * 0.55);
+	arm.rotateX(-0.6);
+	const head = new THREE.BoxGeometry(0.07, 0.07, 0.1);
+	head.translate(0, 0, r * 0.75);
+	return [bowl, arm, head].map((g) => (g.index ? g.toNonIndexed() : g));
+}
+
+
+// ───────────────────────────────────────────── 2. THE BLOCK ─────────────────────────────────────────────
+
+const BLOCK = {
+	axis: 6.0, // the grid along the block, m (WBS 70)
+	depth: 12.0, // outer wall to outer wall, m (WBS 70)
+	storey: 2.8, // floor to floor, m
+	plinth: 1.0, // the basement standing out of the ground, m
+	attic: 0.9, // the roof parapet, m
+	balcony: { w: 4.8, d: 1.4, slab: 0.16, parapet: 1.0 }, // m; the width an estimate from photographs
+	machine: { w: 3.0, d: 4.2, h: 2.6 }, // the lift's machine room on the roof, m [EST]
+	porch: { w: 3.0, d: 1.8, h: 2.7 }, // the entrance's vestibule at the foot of each stairwell, m [EST]
+};
+
+/**
+ * The kinds of panel, one a row of the atlas, with their openings in the panel's own metres (x from its left seen
+ * from outside, y from its floor) and the sill corners the rain streaks run from.
+ *   A  the living room's axis behind a balcony: the balcony door and a 2.4 m window;
+ *   B  two rooms' axis: two windows of 1.5 × 1.4 m;
+ *   K  the back: a kitchen and a bathroom's axis: two windows of 1.2 × 1.25 m;
+ *   S  the back: the stairwell's axis: its window between floors, a small one beside;
+ *   G  the gables and the attic: blank.
+ */
+const OPEN = {
+	A: [{ x0: 0.9, x1: 1.8, y0: 0.02, y1: 2.2, kind: 'door' }, { x0: 1.95, x1: 4.35, y0: 0.85, y1: 2.25, kind: 'window', mullions: [1.2] }],
+	B: [{ x0: 0.75, x1: 2.25, y0: 0.85, y1: 2.25, kind: 'window', mullions: [0.75] }, { x0: 3.75, x1: 5.25, y0: 0.85, y1: 2.25, kind: 'window', mullions: [0.75] }],
+	K: [{ x0: 0.9, x1: 2.1, y0: 1.0, y1: 2.25, kind: 'window', mullions: [0.6] }, { x0: 3.9, x1: 5.1, y0: 1.0, y1: 2.25, kind: 'window', mullions: [0.6] }],
+	S: [{ x0: 1.8, x1: 4.2, y0: 1.5, y1: 2.6, kind: 'stair', mullions: [0.8, 1.6] }, { x0: 4.8, x1: 5.4, y0: 1.2, y1: 2.25, kind: 'window' }],
+	G: [],
+};
+const KINDS = ['A', 'B', 'K', 'S', 'G'];
+// the sill corners, and on a balcony's axis the ends of the slab above, where the rain runs off it down the wall
+const streaksOf = (k) => [...OPEN[k].filter((q) => q.y0 > 0.1).flatMap((q) => [[q.x0 + 0.05, q.y0], [q.x1 - 0.05, q.y0]]), ...(k === 'A' ? [[0.65, 2.78], [5.35, 2.78]] : [])];
+
+/** the tones of a window's glass from outside by day: the dark room, net curtains, a blind, a sheet of foil */
+const GLASS = [
+	[0.07, 0.08, 0.09], [0.07, 0.08, 0.09], [0.09, 0.1, 0.1], [0.2, 0.19, 0.17], [0.24, 0.23, 0.2], [0.16, 0.15, 0.13], [0.12, 0.11, 0.1],
+];
+/** what the window frames are: old brown-stained wood, newer white plastic gone grey */
+const FRAMES = [[0.22, 0.17, 0.13], [0.46, 0.46, 0.44], [0.4, 0.4, 0.39]];
+/** the lit windows' warmth: the emissive is the material's; these tint the cell itself, seen by day */
+const LIT = [[1, 0.85, 0.6], [1, 0.8, 0.55], [0.85, 0.9, 1], [1, 0.75, 0.5]];
+/** washing on a line: faded colours */
+const WASH = [[0.6, 0.58, 0.54], [0.42, 0.2, 0.17], [0.22, 0.28, 0.4], [0.5, 0.46, 0.3], [0.66, 0.66, 0.64], [0.3, 0.36, 0.3]];
+/** the balcony parapets' faded paint, one per block (the 70s' ochre, rust, a blue gone grey, plain) */
+const PARAPETS = [[0.5, 0.45, 0.37], [0.47, 0.38, 0.33], [0.4, 0.42, 0.43], [0.5, 0.49, 0.46], [0.44, 0.42, 0.38]];
+
+function slabBlock(floors, length, seed, dusk) {
+	const rnd = chance(`panel-slab:${seed}`);
+	const F = Math.round(clamp(floors, 5, 16));
+	const N = Math.max(4, Math.round(clamp(length, 24, 120) / BLOCK.axis)); // axes along the block
+	const L = N * BLOCK.axis, D = BLOCK.depth, P = BLOCK.plinth, S = BLOCK.storey;
+	const top = P + F * S; // the roof slab's top
+	const panel = { w: BLOCK.axis, h: S };
+	const kinds = KINDS.map((k) => ({ streaks: streaksOf(k) }));
+	const rows = kinds.length;
+	const row = (k) => KINDS.indexOf(k);
+	const bag = new Bag();
+	const parapetPaint = rnd.pick(PARAPETS);
+	const frameOf = rnd.pick([0, 1, 1, 2]);
+
+	// the grime of the whole block: darker at its foot (splash), under the roof's edge (run-off), toward its gables
+	const shade = (x, y) => (1 - 0.35 * Math.exp(-y / 3.2)) * (1 - 0.14 * Math.exp(-(top + BLOCK.attic - y) / 4));
+	const tintOf = () => {
+		const t = rnd.range(0.76, 1.0);
+		const w = rnd.range(-0.02, 0.02);
+		return [t * (1 + w), t, t * (1 - w)];
+	};
+
+	/** one window as seen from outside: its glass tone, its frame, lit or not, its bars */
+	const windowOf = (q) => {
+		const lit = q.kind !== 'stair' ? rnd.chance(0.2) : rnd.chance(0.5);
+		const frame = q.kind === 'stair' ? FRAMES[2] : rnd.chance(0.25) ? rnd.pick(FRAMES) : FRAMES[frameOf];
+		return { ...q, glass: 'glass', tone: rnd.pick(GLASS), frame, lit: lit ? rnd.pick(LIT) : null, transoms: q.kind === 'door' ? [1.2] : [] };
+	};
+
+	// ── the long facades: front (+z, the balconies) and back (-z, the stairwells), floor by floor, axis by axis ──
+	const front = { o: [-L / 2, 0, D / 2], u: [1, 0, 0], n: [0, 0, 1] };
+	const back = { o: [L / 2, 0, -D / 2], u: [-1, 0, 0], n: [0, 0, -1] };
+	const balconies = [];
+	const frontKind = (i) => (i % 2 === 0 ? 'A' : 'B');
+	// the back seen from outside runs the other way: its axis j is the block's axis N - 1 - j; a stairwell every second
+	const backKind = (j) => ((N - 1 - j) % 2 === 1 ? 'S' : 'K');
+	for (const [frame, kindOf, side] of [[front, frontKind, 'front'], [back, backKind, 'back']]) {
+		const panels = [];
+		for (let i = 0; i < N; i++) {
+			// the plinth: the basement's small windows under every axis
+			panels.push({ x: i * BLOCK.axis, y: 0, w: BLOCK.axis, h: P, row: row('G'), col: rnd.int(4), tint: tintOf().map((x) => x * 0.66), open: [{ x0: 2.4, x1: 3.6, y0: 0.35, y1: 0.75, glass: 'glass', tone: [0.05, 0.05, 0.05], deep: 0.2, sill: false }] });
+			for (let f = 0; f < F; f++) {
+				const k = kindOf(i);
+				const open = OPEN[k].map(windowOf);
+				panels.push({ x: i * BLOCK.axis, y: P + f * S, w: BLOCK.axis, h: S, row: row(k), col: rnd.int(4), tint: tintOf(), open });
+				if (side === 'front' && k === 'A') balconies.push({ i, f, x: -L / 2 + i * BLOCK.axis + BLOCK.axis / 2, y: P + f * S });
+			}
+		}
+		facade(bag, frame, panels, { mat: 'panel', rows, panel, shade });
+		// the attic parapet along the whole face: a blank wall, its picture continuous (see blankWall)
+		blankWall(bag, frame, 0, L, top, top + BLOCK.attic, { panel, yRef: P, shade, tint: [0.88, 0.88, 0.88], ends: true });
+	}
+
+	// ── the gables: blank, the weather side's panels the most stained ──
+	for (const sx of [-1, 1]) {
+		const frame = sx > 0 ? { o: [L / 2, 0, D / 2], u: [0, 0, -1], n: [1, 0, 0] } : { o: [-L / 2, 0, -D / 2], u: [0, 0, 1], n: [-1, 0, 0] };
+		// one blank wall from the ground to the coping, its picture continuous so a world's simplified far copy of it
+		// cannot shear its panels (see blankWall); cut at a few heights for its grime
+		blankWall(bag, frame, 0, D, 0, top + BLOCK.attic, { panel, yRef: P, shade, tint: [0.84, 0.84, 0.83], cuts: [P, P + 3, P + 9, top] });
+	}
+
+	// ── the roof: its membrane, the attic's inner faces and coping, the lifts' machine rooms, vents, antennas ──
+	const inset = 0.25;
+	bag.quad('roof', [-L / 2 + inset, top, D / 2 - inset], [L / 2 - inset, top, D / 2 - inset], [L / 2 - inset, top, -D / 2 + inset], [-L / 2 + inset, top, -D / 2 + inset], [[0, 0], [L / 6, 0], [L / 6, D / 6], [0, D / 6]], [0.3, 0.29, 0.28]);
+	const at = top + BLOCK.attic;
+	const ic = [0.62, 0.61, 0.59];
+	bag.quad('concrete', [L / 2 - inset, top, D / 2 - inset], [-L / 2 + inset, top, D / 2 - inset], [-L / 2 + inset, at, D / 2 - inset], [L / 2 - inset, at, D / 2 - inset], null, ic);
+	bag.quad('concrete', [-L / 2 + inset, top, -D / 2 + inset], [L / 2 - inset, top, -D / 2 + inset], [L / 2 - inset, at, -D / 2 + inset], [-L / 2 + inset, at, -D / 2 + inset], null, ic);
+	bag.quad('concrete', [-L / 2 + inset, top, D / 2 - inset], [-L / 2 + inset, top, -D / 2 + inset], [-L / 2 + inset, at, -D / 2 + inset], [-L / 2 + inset, at, D / 2 - inset], null, ic);
+	bag.quad('concrete', [L / 2 - inset, top, -D / 2 + inset], [L / 2 - inset, top, D / 2 - inset], [L / 2 - inset, at, D / 2 - inset], [L / 2 - inset, at, -D / 2 + inset], null, ic);
+	// the coping: a band of sheet metal over the parapet, all round
+	const cp = [0.38, 0.38, 0.37];
+	bag.box('metal', -L / 2 - 0.03, at, D / 2 - inset, L / 2 + 0.03, at + 0.06, D / 2 + 0.03, cp, 4, '-y');
+	bag.box('metal', -L / 2 - 0.03, at, -D / 2 - 0.03, L / 2 + 0.03, at + 0.06, -D / 2 + inset, cp, 4, '-y');
+	bag.box('metal', -L / 2 - 0.03, at, -D / 2 + inset, -L / 2 + inset, at + 0.06, D / 2 - inset, cp, 4, '-y');
+	bag.box('metal', L / 2 - inset, at, -D / 2 + inset, L / 2 + 0.03, at + 0.06, D / 2 - inset, cp, 4, '-y');
+	for (let i = 0; i < N; i++) {
+		if (i % 2 !== 1) continue;
+		// a stairwell under this axis: its machine room on the roof, over the back half
+		const x = -L / 2 + i * BLOCK.axis + BLOCK.axis / 2;
+		const m = BLOCK.machine;
+		const z1 = -D / 2 + 0.6 + m.d;
+		bag.box('concrete', x - m.w / 2, top, -D / 2 + 0.6, x + m.w / 2, top + m.h, z1, [0.66, 0.65, 0.63], 3, '-y');
+		bag.box('roof', x - m.w / 2 - 0.1, top + m.h, -D / 2 + 0.5, x + m.w / 2 + 0.1, top + m.h + 0.12, z1 + 0.1, [0.35, 0.34, 0.33], 3, '-y');
+		bag.box('paint', x - 0.45, top, z1 - 0.01, x + 0.45, top + 2.0, z1 + 0.02, [0.3, 0.32, 0.3], 3, '-y'); // its door
+		// vent stacks and an old TV antenna on a mast
+		for (let k = 0; k < 2; k++) {
+			const vx = x + rnd.range(-2.5, 2.5), vz = rnd.range(0.5, 4.5);
+			bag.box('concrete', vx - 0.3, top, vz - 0.3, vx + 0.3, top + rnd.range(0.6, 1.2), vz + 0.3, [0.58, 0.57, 0.55], 2, '-y');
+		}
+		if (rnd.chance(0.7)) {
+			const ax = x + rnd.range(-1, 1), ah = top + m.h + rnd.range(1.5, 3);
+			bag.box('metal', ax - 0.025, top + m.h, z1 - 1 - 0.025, ax + 0.025, ah, z1 - 1 + 0.025, [0.35, 0.35, 0.35], 4, '-y');
+			for (let e = 0; e < 4; e++) bag.box('metal', ax - 0.6 + e * 0.05, ah - 0.4 - e * 0.25, z1 - 1 - 0.01, ax + 0.6 - e * 0.05, ah - 0.38 - e * 0.25, z1 - 1 + 0.01, [0.35, 0.35, 0.35], 4, '');
+		}
+		// a few dishes on the roof, turned all one way to the same sky
+		for (let k = 0; k < rnd.int(3); k++) {
+			const mtx = new THREE.Matrix4().compose(new THREE.Vector3(x + rnd.range(-2, 2), top + 0.6, rnd.range(1, 4.5)), new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.5, 0.35, 0)), new THREE.Vector3(1.3, 1.3, 1.3));
+			for (const g of dish()) bag.geometry('metal', g, mtx, [0.7, 0.7, 0.68]);
+		}
+	}
+
+	// ── the balconies, row on row: the slab, the parapet panel (its faded paint), and what the people keep there ──
+	const B = BLOCK.balcony;
+	const z0 = D / 2, z1 = D / 2 + B.d;
+	for (const b of balconies) {
+		const x0 = b.x - B.w / 2, x1 = b.x + B.w / 2;
+		const y = b.y;
+		const g = shade(b.x, y);
+		const slab = [0.62 * g, 0.61 * g, 0.59 * g];
+		bag.box('concrete', x0, y - B.slab, z0, x1, y, z1, slab, 3);
+		// the parapet: a ribbed panel in front, two narrow ones at the sides, 6 cm thick
+		const pc = parapetPaint.map((c) => c * g * rnd.range(0.88, 1.05));
+		bag.box('concrete', x0, y, z1 - 0.06, x1, y + B.parapet, z1, pc, 2, '-y');
+		bag.box('concrete', x0, y, z0, x0 + 0.06, y + B.parapet, z1 - 0.06, pc, 2, '-y');
+		bag.box('concrete', x1 - 0.06, y, z0, x1, y + B.parapet, z1 - 0.06, pc, 2, '-y');
+		// the steel handrail on top
+		bag.box('metal', x0, y + B.parapet, z1 - 0.07, x1, y + B.parapet + 0.05, z1 + 0.01, [0.3, 0.3, 0.29], 4, '-y');
+		const r = rnd();
+		if (r < 0.14) {
+			// glazed in by its people: aluminium frames and panes from the parapet to the slab above
+			const yt = y + BLOCK.storey - B.slab - 0.02;
+			bag.quad('glass', [x0 + 0.06, y + B.parapet + 0.05, z1 - 0.03], [x1 - 0.06, y + B.parapet + 0.05, z1 - 0.03], [x1 - 0.06, yt, z1 - 0.03], [x0 + 0.06, yt, z1 - 0.03], null, [0.32, 0.33, 0.33]);
+			for (let k = 0; k <= 4; k++) {
+				const fx = x0 + 0.06 + ((x1 - x0 - 0.12) * k) / 4;
+				bag.box('frame', fx - 0.025, y + B.parapet + 0.05, z1 - 0.05, fx + 0.025, yt, z1, [0.6, 0.6, 0.58], 4, '-y');
+			}
+		} else if (r < 0.3) {
+			// washing on two lines across it
+			for (let line = 0; line < 2; line++) {
+				const lz = z0 + 0.45 + line * 0.5, ly = y + 2.15;
+				for (let k = 0, x = x0 + 0.3; k < 8 && x < x1 - 0.5; k++) {
+					const w = rnd.range(0.2, 0.5), h = rnd.range(0.25, 0.55);
+					if (rnd.chance(0.75)) bag.quad('cloth', [x, ly - h, lz], [x + w, ly - h, lz], [x + w, ly, lz], [x, ly, lz], null, rnd.pick(WASH));
+					x += w + rnd.range(0.05, 0.4);
+				}
+			}
+		} else if (r < 0.4) {
+			// boxes, a bike, a rolled carpet: kept out here for want of room
+			for (let k = 0; k < 3; k++) {
+				const bx = rnd.range(x0 + 0.2, x1 - 0.8), bw = rnd.range(0.3, 0.7), bh = rnd.range(0.3, 0.9);
+				bag.box('paint', bx, y, z0 + 0.1, bx + bw, y + bh, z0 + 0.1 + rnd.range(0.3, 0.6), rnd.pick([[0.45, 0.38, 0.28], [0.3, 0.3, 0.32], [0.55, 0.5, 0.4]]), 2, '-y');
+			}
+		}
+		// a satellite dish on the rail of one balcony in four, all turned the same way to the same sky
+		if (rnd.chance(0.25)) {
+			const dx = rnd.chance(0.5) ? x0 + 0.5 : x1 - 0.5;
+			const mtx = new THREE.Matrix4().compose(new THREE.Vector3(dx, y + B.parapet + 0.45, z1 + 0.12), new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.55, 0.4, 0)), new THREE.Vector3(1, 1, 1));
+			for (const gg of dish(rnd.range(0.3, 0.45))) bag.geometry('metal', gg, mtx, [0.72, 0.72, 0.7]);
+		}
+	}
+
+	// ── the entrances: a vestibule at the foot of every stairwell on the back, its canopy, steps and door ──
+	for (let i = 0; i < N; i++) {
+		if (i % 2 !== 1) continue;
+		const x = -L / 2 + i * BLOCK.axis + BLOCK.axis / 2;
+		const p = BLOCK.porch;
+		const zf = -D / 2 - p.d;
+		bag.box('concrete', x - p.w / 2, 0, zf, x + p.w / 2, p.h, -D / 2, [0.55, 0.54, 0.52], 3, '-y');
+		bag.box('concrete', x - p.w / 2 - 0.4, p.h, zf - 0.6, x + p.w / 2 + 0.4, p.h + 0.18, -D / 2, [0.6, 0.59, 0.57], 3);
+		// its double door, a steel frame and wired glass, a dirty light over it
+		bag.quad('glass', [x + 0.8, 0.05, zf - 0.01], [x - 0.8, 0.05, zf - 0.01], [x - 0.8, 2.25, zf - 0.01], [x + 0.8, 2.25, zf - 0.01], null, [0.12, 0.13, 0.13]);
+		bag.box('metal', x - 0.85, 0.05, zf - 0.04, x - 0.78, 2.3, zf, [0.25, 0.26, 0.26], 4);
+		bag.box('metal', x + 0.78, 0.05, zf - 0.04, x + 0.85, 2.3, zf, [0.25, 0.26, 0.26], 4);
+		bag.box('metal', x - 0.85, 2.25, zf - 0.04, x + 0.85, 2.32, zf, [0.25, 0.26, 0.26], 4);
+		bag.box('metal', x - 0.03, 0.05, zf - 0.04, x + 0.03, 2.25, zf, [0.25, 0.26, 0.26], 4);
+		bag.quad('light:window', [x - 0.2, p.h - 0.01, zf - 0.5], [x + 0.2, p.h - 0.01, zf - 0.5], [x + 0.2, p.h - 0.01, zf - 0.15], [x - 0.2, p.h - 0.01, zf - 0.15], null, [1, 0.9, 0.7]);
+		// two steps up to it
+		bag.box('concrete', x - 1.3, 0, zf - 0.6, x + 1.3, 0.15, zf, [0.5, 0.49, 0.47], 2, '-y');
+		// letterboxes don't show; a bin shelter does: a low concrete box beside the door
+		if (rnd.chance(0.6)) bag.box('concrete', x + p.w / 2 + 0.6, 0, zf, x + p.w / 2 + 2.6, 1.3, zf + 1.2, [0.5, 0.49, 0.47], 2, '-y');
+	}
+
+	const root = new THREE.Group();
+	root.name = 'panel-slab-block';
+	// one sheet, three materials: the body, its glass, its lit windows (a world draws a kind once per material)
+	bag.buildAtlas(root, { seed: rnd.int(1000), dusk, kinds, panel });
+	root.userData.size = [L, at + 0.06, D + B.d + BLOCK.porch.d + 0.6];
+	return root;
+}
+
+// ───────────────────────────────────────────── 3. RECIPE ─────────────────────────────────────────────
+
+const PARAMS = [
+	{ id: 'floors', label: 'Floors', type: 'integer', min: 5, max: 16, step: 1, value: 11 },
+	{ id: 'length', label: 'Length (m)', type: 'number', min: 24, max: 120, step: 6, value: 60 },
+	{ id: 'seed', label: 'Seed', type: 'string', value: 'old-city', maxLength: 40 },
+	{ id: 'dusk', label: 'Dusk', type: 'number', min: 0, max: 1, step: 0.05, value: 0 },
+];
+
+const NOTE =
+	'A prefabricated large-panel slab block of the old city (WBS 70 and its peers): eleven storeys of 2.80 m on a 1 m plinth, 60 m long on a 6.0 m axis grid, 12 m deep; weathered grey panels with dark joints and rain streaks under every sill, rows of cantilevered balconies behind faded parapets, washing, satellite dishes, a few balconies glazed in, the lifts\' machine rooms on the flat roof, a vestibule at the foot of every stairwell on the back. Its values: floors, length, seed, dusk (the lit windows, one mesh named light:window).';
+
+function build(floors, length, seed, dusk) {
+	return slabBlock(floors ?? 11, length ?? 60, seed ?? 'old-city', dusk ?? 0);
+}
+
+module.exports.recipe = function (id, v, variant) {
+	if (variant) throw new Error(`no variant ${variant} of buildings/${id}@${v}`);
+	return {
+		meta: {
+			group: 'buildings',
+			id,
+			version: v,
+			label: 'Panel slab block',
+			note: NOTE,
+			params: JSON.parse(JSON.stringify(PARAMS)),
+		},
+		build,
+	};
+};
+
+module.exports.parts = { chance, Bag, picture, panelAtlas, grimeTile, facade, frameBox, materials, dish, BLOCK, OPEN, slabBlock };
+
+return module.exports.recipe("panel-slab-block", 4, null);
+});

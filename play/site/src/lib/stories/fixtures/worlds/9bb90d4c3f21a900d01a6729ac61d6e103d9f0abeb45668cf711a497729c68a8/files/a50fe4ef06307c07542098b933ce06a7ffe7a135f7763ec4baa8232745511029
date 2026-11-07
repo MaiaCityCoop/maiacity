@@ -1,0 +1,880 @@
+defineRecipe(function (require) {
+"use strict";
+var module = { exports: {} }, exports = module.exports;
+'use strict';
+/*
+ * MULTI-STOREY CAR PARK — the old city's concrete shelf for cars: open decks stacked on a grid of columns, each
+ * edged by a band of stained precast concrete, the dark slots between them, ramps in the aisles, stair towers at the
+ * corners, fluorescent tubes burning under every deck all night. Version 1 of buildings/multi-storey-car-park (Old
+ * City, the world the films contrast Maia City with).
+ *
+ * Its measures are the usual design figures for an open-deck car park:
+ *   - a span of 16 m across (a row of 5.0 m spaces, a 6.0 m two-way aisle, a row), two spans side by side;
+ *   - a column grid of 7.5 m along it (three spaces of 2.5 m between columns);
+ *   - decks 2.9 m apart (2.2 m clear under the beams), slabs and edge beams 0.3 m, the barrier at each deck's edge
+ *     1.05 m (it has to stop a car), the open slot between the bands about 1.55 m: open sides that ventilate it;
+ *   - straight ramps of 22.5 m for 2.9 m (12.9 %, under the 15 % allowed between decks), in the aisles by turns.
+ * Where a figure is an estimate (the stair towers) it is so in PARK below.
+ *
+ * Its values make one asset many car parks: decks (3–8, the ground and the open roof counted), bays (6–12 of 7.5 m),
+ * seed (the bands' tones, worn lines, which stairs are lit) and dusk (0 by day … 1 at night: the tubes, the roof's
+ * lamps and the stairs in the mesh named `light:window`, emissiveIntensity 1.6 × dusk).
+ *
+ * Root on y 0 (the ground), the decks centred on x and z, the way in on its +z face. 1 unit = 1 m.
+ *
+ * The file in three parts:
+ *   1. CORE           chance, the Bag (geometry merged by material), boxes laid in a facade, pictures, materials:
+ *                     shared by every building of the old city (the panel facades are not used here).
+ *   2. THE CAR PARK   the stained precast as a picture; the decks with their holes, lines and tubes, the edge bands,
+ *                     the columns, the ramps, the stair towers, the roof deck's lamps, the way in.
+ *   3. RECIPE         its params and `module.exports.recipe`.
+ */
+const THREE = require('three');
+
+// ───────────────────────────────────────────── 1. CORE ─────────────────────────────────────────────
+
+/** a seeded random source from any text: rnd() in [0, 1) */
+function chance(seed) {
+	let h = 1779033703 ^ String(seed).length;
+	for (const c of String(seed)) (h = Math.imul(h ^ c.charCodeAt(0), 3432918353)), (h = (h << 13) | (h >>> 19));
+	let a = h >>> 0;
+	const rnd = () => {
+		a = (a + 0x6d2b79f5) | 0;
+		let t = Math.imul(a ^ (a >>> 15), 1 | a);
+		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	};
+	rnd.range = (a0, b0) => a0 + (b0 - a0) * rnd();
+	rnd.int = (n) => Math.floor(rnd() * n);
+	rnd.pick = (list) => list[Math.floor(rnd() * list.length)];
+	rnd.chance = (p) => rnd() < p;
+	return rnd;
+}
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const srgb = (x) => (x <= 0.0031308 ? x * 12.92 : 1.055 * Math.pow(x, 1 / 2.4) - 0.055);
+
+/** value noise in 2D from a hash, smooth, for the pictures */
+function hash2(x, y, s) {
+	let h = Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263) + Math.imul(s | 0, 2147483647);
+	h = Math.imul(h ^ (h >>> 13), 1274126177);
+	return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function noise2(x, y, s) {
+	const xi = Math.floor(x), yi = Math.floor(y);
+	const fx = x - xi, fy = y - yi;
+	const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+	const a = hash2(xi, yi, s), b = hash2(xi + 1, yi, s), c = hash2(xi, yi + 1, s), d = hash2(xi + 1, yi + 1, s);
+	return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbm2(x, y, s, octaves = 4) {
+	let sum = 0, amp = 0.5, f = 1;
+	for (let o = 0; o < octaves; o++) (sum += amp * noise2(x * f, y * f, s + o * 17)), (amp *= 0.5), (f *= 2);
+	return sum;
+}
+
+/**
+ * The Bag: triangles gathered by material, merged at the end into one mesh each. Every triangle carries a position,
+ * a normal, a uv and a colour (the material multiplies its picture by it: a panel's own tint, the grime of the ground).
+ */
+class Bag {
+	constructor() {
+		this.parts = new Map();
+		/** the blank walls by their key: each gets its own picture in the sheet (blankWall) */
+		this.walls = {};
+	}
+	of(name) {
+		if (!this.parts.has(name)) this.parts.set(name, { p: [], n: [], uv: [], c: [] });
+		return this.parts.get(name);
+	}
+	/** one quad a b c d (counter-clockwise seen from its front), its uvs, one colour or one a corner */
+	quad(name, a, b, c, d, uv, col) {
+		const t = this.of(name);
+		const e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], e2 = [d[0] - a[0], d[1] - a[1], d[2] - a[2]];
+		let n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+		const l = Math.hypot(n[0], n[1], n[2]) || 1;
+		n = [n[0] / l, n[1] / l, n[2] / l];
+		const cs = Array.isArray(col[0]) ? col : [col, col, col, col];
+		const uvs = uv ?? [[0, 0], [1, 0], [1, 1], [0, 1]];
+		for (const k of [0, 1, 2, 0, 2, 3]) {
+			const v = [a, b, c, d][k];
+			t.p.push(v[0], v[1], v[2]);
+			t.n.push(n[0], n[1], n[2]);
+			t.uv.push(uvs[k][0], uvs[k][1]);
+			t.c.push(cs[k][0], cs[k][1], cs[k][2]);
+		}
+	}
+	/**
+	 * a box from (x0, y0, z0) to (x1, y1, z1), its uvs in metres / `tile` (u along the face, v up), one colour; `skip`
+	 * the faces not drawn ('-y' under a slab that nobody sees …)
+	 */
+	box(name, x0, y0, z0, x1, y1, z1, col, tile = 4, skip = '') {
+		// corners in any order
+		[x0, x1] = [Math.min(x0, x1), Math.max(x0, x1)];
+		[y0, y1] = [Math.min(y0, y1), Math.max(y0, y1)];
+		[z0, z1] = [Math.min(z0, z1), Math.max(z0, z1)];
+		const s = 1 / tile;
+		const P = (x, y, z) => [x, y, z];
+		const faces = {
+			'+z': [P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1), [[x0 * s, y0 * s], [x1 * s, y0 * s], [x1 * s, y1 * s], [x0 * s, y1 * s]]],
+			'-z': [P(x1, y0, z0), P(x0, y0, z0), P(x0, y1, z0), P(x1, y1, z0), [[-x1 * s, y0 * s], [-x0 * s, y0 * s], [-x0 * s, y1 * s], [-x1 * s, y1 * s]]],
+			'+x': [P(x1, y0, z1), P(x1, y0, z0), P(x1, y1, z0), P(x1, y1, z1), [[-z1 * s, y0 * s], [-z0 * s, y0 * s], [-z0 * s, y1 * s], [-z1 * s, y1 * s]]],
+			'-x': [P(x0, y0, z0), P(x0, y0, z1), P(x0, y1, z1), P(x0, y1, z0), [[z0 * s, y0 * s], [z1 * s, y0 * s], [z1 * s, y1 * s], [z0 * s, y1 * s]]],
+			'+y': [P(x0, y1, z1), P(x1, y1, z1), P(x1, y1, z0), P(x0, y1, z0), [[x0 * s, z1 * s], [x1 * s, z1 * s], [x1 * s, z0 * s], [x0 * s, z0 * s]]],
+			'-y': [P(x0, y0, z0), P(x1, y0, z0), P(x1, y0, z1), P(x0, y0, z1), [[x0 * s, z0 * s], [x1 * s, z0 * s], [x1 * s, z1 * s], [x0 * s, z1 * s]]],
+		};
+		for (const [k, f] of Object.entries(faces)) if (!skip.includes(k)) this.quad(name, f[0], f[1], f[2], f[3], f[4], col);
+	}
+	/** a flat quad on the ground (or any level), its corners in either order: turned to face up */
+	flat(name, a, b, c, d, uv, col) {
+		const e1 = [b[0] - a[0], b[2] - a[2]], e2 = [d[0] - a[0], d[2] - a[2]];
+		if (e1[1] * e2[0] - e1[0] * e2[1] >= 0) this.quad(name, a, b, c, d, uv, col);
+		else this.quad(name, a, d, c, b, uv && [uv[0], uv[3], uv[2], uv[1]], col);
+	}
+	/** a three.js geometry, moved by `matrix`, in one colour (a dish, a pipe) */
+	geometry(name, g, matrix, col) {
+		const t = this.of(name);
+		const geo = (g.index ? g.toNonIndexed() : g.clone()).applyMatrix4(matrix);
+		const p = geo.attributes.position, n = geo.attributes.normal, uv = geo.attributes.uv;
+		for (let i = 0; i < p.count; i++) {
+			t.p.push(p.getX(i), p.getY(i), p.getZ(i));
+			t.n.push(n.getX(i), n.getY(i), n.getZ(i));
+			t.uv.push(uv ? uv.getX(i) : 0, uv ? uv.getY(i) : 0);
+			t.c.push(col[0], col[1], col[2]);
+		}
+	}
+	triangles() {
+		let n = 0;
+		for (const t of this.parts.values()) n += t.p.length / 9;
+		return n;
+	}
+	/** one mesh a material, named as the material is (`light:window` for the lit windows) */
+	build(materials, root) {
+		for (const [name, t] of this.parts) {
+			if (!t.p.length) continue;
+			const g = new THREE.BufferGeometry();
+			g.setAttribute('position', new THREE.Float32BufferAttribute(t.p, 3));
+			g.setAttribute('normal', new THREE.Float32BufferAttribute(t.n, 3));
+			g.setAttribute('uv', new THREE.Float32BufferAttribute(t.uv, 2));
+			g.setAttribute('color', new THREE.Float32BufferAttribute(t.c, 3));
+			g.computeBoundingSphere();
+			const m = new THREE.Mesh(g, materials[name]);
+			m.name = name;
+			m.castShadow = !/light:/.test(name); // the glass too, or the shadow shows every window as a hole
+			m.receiveShadow = true;
+			root.add(m);
+		}
+		return root;
+	}
+}
+
+/**
+ * a picture w × h from `pixel(x, y)` in pixels giving linear [r, g, b] 0 … 1; mipmapped, repeating. With `raw`, its
+ * size and pixels only, to be laid into one Sheet with the others (a building drawn with one material)
+ */
+function picture(w, h, pixel, raw) {
+	if (raw) return { w, h, pixel };
+	const data = new Uint8Array(w * h * 4);
+	for (let y = 0; y < h; y++)
+		for (let x = 0; x < w; x++) {
+			const [r, g, b] = pixel(x, y);
+			const i = (y * w + x) * 4;
+			data[i] = Math.round(clamp(srgb(r)) * 255);
+			data[i + 1] = Math.round(clamp(srgb(g)) * 255);
+			data[i + 2] = Math.round(clamp(srgb(b)) * 255);
+			data[i + 3] = 255;
+		}
+	const t = new THREE.DataTexture(data, w, h, THREE.RGBAFormat);
+	t.wrapS = t.wrapT = THREE.RepeatWrapping;
+	t.colorSpace = THREE.SRGBColorSpace;
+	t.anisotropy = 8;
+	t.generateMipmaps = true;
+	t.minFilter = THREE.LinearMipmapLinearFilter;
+	t.magFilter = THREE.LinearFilter;
+	t.needsUpdate = true;
+	return t;
+}
+
+/**
+ * The panel atlas: COLS × ROWS cells, each one wall panel of PANEL.w × PANEL.h metres as fifty years of rain left it.
+ * A row is a kind of panel (its openings), its columns that kind's variants. In each: the fine mottle of the weather
+ * skin's aggregate, larger damp blotches, its dark sealed joints along its edges, and the streaks of dirt the rain
+ * washes from every sill corner down the panel below (and from the panel above, through its top edge).
+ * `kinds`: [{ streaks: [[x m, from y m] …] }] one a row, the sill corners of that kind of panel.
+ */
+const ATLAS = { cols: 4, cell: [256, 128] };
+function panelAtlas(kinds, panel, seed, raw) {
+	const [cw, ch] = panel.cell ?? ATLAS.cell; // px a cell: about 40 px a metre
+	const cols = panel.cols ?? ATLAS.cols;
+	const rows = kinds.length, W = cw * cols, H = ch * rows;
+	const pxm = cw / panel.w, pym = ch / panel.h;
+	// each cell's streaks laid out first: x in px, from y in px (down to the cell's foot), width, strength
+	const streaks = [];
+	for (let r = 0; r < rows; r++)
+		for (let c = 0; c < cols; c++) {
+			const list = [];
+			const s = (r * 31 + c * 7 + seed) | 0;
+			for (const [xm, ym] of kinds[r].streaks) {
+				const k = 2 + Math.floor(hash2(xm * 10, ym * 10, s) * 3);
+				for (let i = 0; i < k; i++) {
+					const h = hash2(i, xm * 100 + ym, s + 3);
+					list.push({ x: xm * pxm + (h - 0.5) * 14, y: ym * pym, w: 3 + hash2(i, 9, s) * 7, a: 0.09 + h * 0.12, len: 0.75 + hash2(i, 5, s) * 0.25 });
+				}
+			}
+			// faint ones from anywhere along the top edge: rain from the panel above, the roof's run-off
+			for (let i = 0; i < 12; i++) list.push({ x: hash2(i, 1, s) * cw, y: ch, w: 3 + hash2(i, 2, s) * 9, a: 0.04 + hash2(i, 3, s) * 0.08, len: 0.7 + hash2(i, 4, s) * 0.3 });
+			streaks.push(list);
+		}
+	const grey = (x, y) => {
+		const c = Math.floor(x / cw), r = Math.floor(y / ch);
+		const lx = x - c * cw, ly = y - r * ch;
+		const s = (r * 31 + c * 7 + seed) | 0;
+		// the weather skin: a fine mottle, a coarser cloud, damp blotches
+		// each panel its own: some cast darker, some patched lighter, fifty years apart
+		let v = 0.33 + (hash2(c, r, s + 1) - 0.5) * 0.08 + (noise2(x * 0.9, y * 0.9, 11) - 0.5) * 0.06 + (fbm2(x / 18, y / 18, s, 4) - 0.5) * 0.14;
+		const blot = fbm2(x / 40 + 3, y / 40, s + 5, 3);
+		if (blot > 0.52) v -= (blot - 0.52) * 0.5;
+		// small pits and spalls, lighter cement where the skin chipped
+		if (hash2(x, y, 77) > 0.9985) v += 0.08;
+		// the streaks, darker near the sill they start from, fraying as they fall
+		for (const st of streaks[r * cols + c]) {
+			if (ly > st.y) continue;
+			const fall = (st.y - ly) / ch; // 0 at the source, 1 a whole panel below
+			if (fall > st.len) continue;
+			const wob = (noise2(st.x * 0.3, ly / 9, s + 9) - 0.5) * 4 * (0.5 + fall);
+			const d = Math.abs(lx - st.x - wob) / (st.w * (1 + fall * 1.5));
+			if (d < 1) v -= st.a * (1 - d * d) * (1 - d * d) * (1 - fall / st.len) * (0.7 + 0.6 * noise2(lx, ly / 3, s));
+		}
+		// the joints: about 2 cm of dark sealant round every panel, dirt caught along them
+		const jx = Math.min(lx, cw - 1 - lx), jy = Math.min(ly, ch - 1 - ly);
+		if (jx < 1.5 || jy < 1.5) v = 0.05 + v * 0.15;
+		else if (jx < 6 || jy < 5) v -= 0.08 * (1 - Math.min(jx / 6, jy / 5));
+		// a little darker at the foot of the panel, where the splash of the joint below dries last
+		v -= 0.07 * Math.max(0, 1 - ly / (ch * 0.3));
+		return clamp(v, 0.05, 1);
+	};
+	return picture(W, H, (x, y) => {
+		const v = grey(x, y);
+		const d = clamp((0.33 - v) * 3); // the darker the dirtier, and the dirt is brown-grey
+		return [v * (1 + 0.04 * d), v * (0.985 - 0.005 * d), v * (0.95 - 0.06 * d)]; // a faintly warm grey; the panel's own tint is its vertex colour
+	}, raw);
+}
+
+/** a grime tile for everything not a panel (slabs, roofs, boxes): mottle and vertical streaks, laid in metres */
+function grimeTile(size, seed, raw) {
+	return picture(size, size, (x, y) => {
+		let v = 0.42 + (fbm2(x / 14, y / 14, seed, 4) - 0.5) * 0.2 + (noise2(x * 0.8, y * 0.8, seed + 1) - 0.5) * 0.06;
+		const st = noise2(x / 3, 0.5, seed + 2);
+		if (st > 0.62) v -= (st - 0.62) * 0.5 * (0.6 + 0.4 * noise2(x / 3, y / 30, seed + 3));
+		return [v, v * 0.985, v * 0.96];
+	}, raw);
+}
+
+/** the panel's cell in the atlas: its uv for a point (x, y) in metres on a panel of kind `row`, variant `col` */
+function cellUV(row, col, rows, panel, x, y) {
+	const eps = 0.002;
+	const u = (col + clamp(x / panel.w, eps, 1 - eps)) / ATLAS.cols;
+	const v = (row + clamp(y / panel.h, eps, 1 - eps)) / rows;
+	return [u, v];
+}
+
+/**
+ * One facade: a plane of panels, each panel a rectangle in the facade's own (x along, y up) metres with its openings.
+ * `frame`: { o: [x, y, z] the facade's origin (its left foot seen from outside), u: the unit along it, n: its outward
+ * normal }. A panel: { x, y, w, h, row, col, tint: [r, g, b], open: [{ x0, x1, y0, y1, glass, kind }] } (openings in
+ * the panel's own metres). Concrete pieces go to `mat`, the reveals too; each opening's glass to its `glass` (a
+ * material name), recessed `deep` metres, with a sill.
+ */
+function facade(bag, frame, panels, opts) {
+	const { mat, rows, panel, deep = 0.14, shade = () => 1 } = opts;
+	const { o, u, n } = frame;
+	const W = (x, y, z = 0) => [o[0] + u[0] * x + n[0] * z, o[1] + y, o[2] + u[2] * x + n[2] * z];
+	for (const p of panels) {
+		const rmat = p.mat ?? mat;
+		const col = (x, y) => {
+			const s = shade(p.x + x, p.y + y);
+			return [p.tint[0] * s, p.tint[1] * s, p.tint[2] * s];
+		};
+		const piece = (x0, y0, x1, y1) => {
+			if (x1 - x0 < 1e-4 || y1 - y0 < 1e-4) return;
+			// a panel taller than the atlas's (a shop storey) takes the whole cell, stretched up
+			const cell = p.h > panel.h ? { w: panel.w, h: p.h } : panel;
+			const uv = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([x, y]) => cellUV(p.row, p.col, rows, cell, x, y));
+			bag.quad(rmat, W(p.x + x0, p.y + y0), W(p.x + x1, p.y + y0), W(p.x + x1, p.y + y1), W(p.x + x0, p.y + y1), uv, [col(x0, y0), col(x1, y0), col(x1, y1), col(x0, y1)]);
+		};
+		const open = p.open ?? [];
+		// the panel cut into vertical strips at every opening's edges; in a strip an opening covers, the parts below
+		// and above it
+		const xs = [...new Set([0, p.w, ...open.flatMap((q) => [q.x0, q.x1])])].sort((a, b) => a - b);
+		for (let i = 0; i < xs.length - 1; i++) {
+			const x0 = xs[i], x1 = xs[i + 1], mid = (x0 + x1) / 2;
+			const q = open.find((k) => k.x0 <= mid && k.x1 >= mid);
+			if (!q) piece(x0, 0, x1, p.h);
+			else piece(x0, 0, x1, q.y0), piece(x0, q.y1, x1, p.h);
+		}
+		for (const q of open) {
+			const X0 = p.x + q.x0, X1 = p.x + q.x1, Y0 = p.y + q.y0, Y1 = p.y + q.y1;
+			const d = q.deep ?? deep;
+			const c = col(q.x0, q.y0);
+			const dark = [c[0] * 0.72, c[1] * 0.72, c[2] * 0.72];
+			const ruv = [[0, 0], [0.2, 0], [0.2, 1], [0, 1]];
+			// the reveals, each facing into the opening: left, right, the head (its underside) and the sill's back
+			if (!q.flat) {
+				bag.quad(q.revealMat ?? rmat, W(X0, Y0, 0), W(X0, Y0, -d), W(X0, Y1, -d), W(X0, Y1, 0), ruv, dark);
+				bag.quad(q.revealMat ?? rmat, W(X1, Y0, -d), W(X1, Y0, 0), W(X1, Y1, 0), W(X1, Y1, -d), ruv, dark);
+				bag.quad(q.revealMat ?? rmat, W(X0, Y1, -d), W(X1, Y1, -d), W(X1, Y1, 0), W(X0, Y1, 0), ruv, dark);
+				bag.quad(q.revealMat ?? rmat, W(X0, Y0, 0), W(X1, Y0, 0), W(X1, Y0, -d), W(X0, Y0, -d), ruv, c);
+			}
+			// the glass (its own colour: a curtain, a blind, the dark room), and the frame's bars across it
+			if (q.glass) bag.quad(q.glass, W(X0, Y0, -d), W(X1, Y0, -d), W(X1, Y1, -d), W(X0, Y1, -d), [[0, 0], [1, 0], [1, 1], [0, 1]], q.tone ?? [0.1, 0.1, 0.1]);
+			if (q.lit) bag.quad('light:window', W(X0 + 0.06, Y0 + 0.06, -d + 0.01), W(X1 - 0.06, Y0 + 0.06, -d + 0.01), W(X1 - 0.06, Y1 - 0.06, -d + 0.01), W(X0 + 0.06, Y1 - 0.06, -d + 0.01), null, q.lit);
+			if (q.frame) {
+				const fz = -d + 0.03, f = 0.035, fc = q.frame;
+				const bar = (ax, ay, bx, by) => {
+					// a flat bar seen from outside: a thin quad standing a few cm proud of the glass
+					if (ax === bx) bag.quad('frame', W(ax - f, ay, fz), W(ax + f, ay, fz), W(ax + f, by, fz), W(ax - f, by, fz), null, fc);
+					else bag.quad('frame', W(ax, ay - f, fz), W(bx, ay - f, fz), W(bx, ay + f, fz), W(ax, ay + f, fz), null, fc);
+				};
+				// the bottom rail hides behind the sill: three bars and the mullions
+				bar(X0 + f, Y0, X0 + f, Y1), bar(X1 - f, Y0, X1 - f, Y1), bar(X0, Y1 - f, X1, Y1 - f);
+				for (const fx of q.mullions ?? []) bar(X0 + fx, Y0, X0 + fx, Y1);
+				for (const fy of q.transoms ?? []) bar(X0, Y0 + fy, X1, Y0 + fy);
+			}
+			// the sill: a strip of galvanised steel standing out from the panel, catching the light
+			if (q.sill !== false && q.y0 > 0.05) {
+				const s0 = W(X0 - 0.03, Y0 - 0.04, 0.05), s1 = W(X1 + 0.03, Y0 - 0.04, 0.05), s2 = W(X1 + 0.03, Y0, -0.02), s3 = W(X0 - 0.03, Y0, -0.02);
+				bag.quad('metal', s0, s1, s2, s3, null, [0.42, 0.43, 0.42]);
+			}
+		}
+	}
+}
+
+/**
+ * A box laid in a facade's frame (x along it, y up, z out of it), from (x0, y0, z0) to (x1, y1, z1) in its metres:
+ * a parapet, a pier, a fin. `skip` as Bag.box's, in the frame's own axes ('-y' its underside, '-z' its back).
+ */
+function frameBox(bag, mat, frame, x0, x1, y0, y1, z0, z1, col, skip = '', tile = 3) {
+	const { o, u, n } = frame;
+	const W = (x, y, z) => [o[0] + u[0] * x + n[0] * z, o[1] + y, o[2] + u[2] * x + n[2] * z];
+	const s = 1 / tile;
+	const uv = (a, b, c, d) => [[a * s, c * s], [b * s, c * s], [b * s, d * s], [a * s, d * s]];
+	if (!skip.includes('+z')) bag.quad(mat, W(x0, y0, z1), W(x1, y0, z1), W(x1, y1, z1), W(x0, y1, z1), uv(x0, x1, y0, y1), col);
+	if (!skip.includes('-z')) bag.quad(mat, W(x1, y0, z0), W(x0, y0, z0), W(x0, y1, z0), W(x1, y1, z0), uv(x0, x1, y0, y1), col);
+	if (!skip.includes('+y')) bag.quad(mat, W(x0, y1, z1), W(x1, y1, z1), W(x1, y1, z0), W(x0, y1, z0), uv(x0, x1, z0, z1), col);
+	if (!skip.includes('-y')) bag.quad(mat, W(x0, y0, z0), W(x1, y0, z0), W(x1, y0, z1), W(x0, y0, z1), uv(x0, x1, z0, z1), col);
+	if (!skip.includes('-x')) bag.quad(mat, W(x0, y0, z0), W(x0, y0, z1), W(x0, y1, z1), W(x0, y1, z0), uv(z0, z1, y0, y1), col);
+	if (!skip.includes('+x')) bag.quad(mat, W(x1, y0, z1), W(x1, y0, z0), W(x1, y1, z0), W(x1, y1, z1), uv(z0, z1, y0, y1), col);
+}
+
+/**
+ * A blank wall (a gable, an attic band): one plane whose picture is laid on in metres, continuous across it, its
+ * panels' joints and stains drawn in the picture (`blank`: two panels by three storeys, repeating), its grime a
+ * smooth colour by height. Nothing in it changes from one panel to the next, so when a world draws it far off by a
+ * simplified copy (play's levels of detail weld corners that agree and fold flat walls into big triangles), the
+ * picture cannot shear across them. `frame` as facade's; `y0`–`y1` its height, `yRef` a floor level the joints keep
+ * to, `rows` the heights it is cut at for the colour (each cut's corners alike on both sides, so they weld).
+ */
+function blankWall(bag, frame, x0, x1, y0, y1, opts) {
+	const { panel, yRef = 0, shade = () => 1, tint = [1, 1, 1], cuts = [] } = opts;
+	// `ends` pulls its ends in by a hair (an attic band meeting a gable at the corner): two blank walls never share a
+	// corner, so a simplifier welding by place alone cannot hand one wall the other's mapping there
+	const { o, u, n } = frame;
+	const W = (x, y) => [o[0] + u[0] * x, o[1] + y, o[2] + u[2] * x];
+	if (opts.ends) (x0 += 0.003), (x1 -= 0.003);
+	// the wall's own picture in the building's sheet: the whole wall at once, its panels' joints where they stand; two
+	// walls of one size and level share it
+	const key = `blank:${(x1 - x0).toFixed(2)}x${(y1 - y0).toFixed(2)}@${(y0 - yRef).toFixed(2)}`;
+	bag.walls[key] = { w: x1 - x0, h: y1 - y0, from: y0 - yRef, panel };
+	const uv = (x, y) => [(x - x0) / (x1 - x0), (y - y0) / (y1 - y0)];
+	const col = (y) => tint.map((c) => c * shade(0, y));
+	const ys = [y0, ...cuts.filter((y) => y > y0 + 1e-6 && y < y1 - 1e-6), y1];
+	for (let i = 0; i < ys.length - 1; i++) {
+		const a = ys[i], b = ys[i + 1];
+		bag.quad(key, W(x0, a), W(x1, a), W(x1, b), W(x0, b), [uv(x0, a), uv(x1, a), uv(x1, b), uv(x0, b)], [col(a), col(a), col(b), col(b)]);
+	}
+	void n;
+}
+
+/** the materials every concrete building of the old city uses, its pictures made once a build */
+function materials(seed, dusk, kinds, panel, extra = {}) {
+	const atlas = panelAtlas(kinds, panel, seed);
+	// the blank walls' picture: two panels by three storeys of plain panels, laid on in metres
+	const blank = panelAtlas([{ streaks: [] }, { streaks: [] }, { streaks: [] }], { ...panel, cols: 2 }, seed + 7);
+	const grime = grimeTile(256, seed + 101);
+	const std = (o) => new THREE.MeshStandardMaterial({ vertexColors: true, ...o });
+	// the lit windows' OFF look is dark glass, as the others; the page (or `dusk`, 0 by default) lights them
+	const lit = new THREE.MeshStandardMaterial({ color: '#16191c', emissive: '#ffc77a', emissiveIntensity: 1.6 * dusk, roughness: 0.15, metalness: 0.5, vertexColors: false });
+	lit.name = 'light:window';
+	const m = {
+		panel: std({ map: atlas, roughness: 0.95 }),
+		blank: std({ map: blank, roughness: 0.95 }),
+		concrete: std({ map: grime, roughness: 0.95 }),
+		glass: std({ color: '#ffffff', roughness: 0.12, metalness: 0.55 }),
+		frame: std({ color: '#ffffff', roughness: 0.6 }),
+		metal: std({ color: '#ffffff', roughness: 0.45, metalness: 0.6 }),
+		paint: std({ color: '#ffffff', roughness: 0.85 }),
+		roof: std({ map: grime, roughness: 1 }),
+		cloth: std({ color: '#ffffff', roughness: 1, side: THREE.DoubleSide }),
+		'light:window': lit,
+		...extra,
+	};
+	for (const [k, v] of Object.entries(m)) v.name = k;
+	return m;
+}
+
+/**
+ * ONE PICTURE FOR A WHOLE BUILDING. A world draws every kind once per material at each level of detail, so a building
+ * of ten materials costs ten draws where one would do. The Sheet lays every picture a building needs side by side in
+ * one texture (shelf by shelf, a few pixels apart so the far mipmaps do not bleed), and Bag.buildAtlas draws the
+ * building with three materials: its body (everything opaque, the pictures from the sheet and its colours as vertex
+ * colours), its glass, and its lit windows (`light:window`).
+ */
+class Sheet {
+	constructor(width = 2048, pad = 4) {
+		this.W = width;
+		this.pad = pad;
+		this.items = [];
+		this.x = 0;
+		this.y = 0;
+		this.row = 0;
+	}
+	/** a picture of w × h pixels, its `pixel(x, y)` in its own pixels (y up); gives its place, filled in by texture() */
+	add(w, h, pixel) {
+		w = Math.max(1, Math.round(w)), h = Math.max(1, Math.round(h));
+		if (this.x + w + this.pad > this.W) (this.x = 0), (this.y += this.row + this.pad), (this.row = 0);
+		const it = { x: this.x, y: this.y, w, h, pixel, region: null };
+		this.items.push(it);
+		this.x += w + this.pad;
+		this.row = Math.max(this.row, h);
+		return it;
+	}
+	/** the texture, and every item's region in it as [u0, v0, u1, v1] (half a pixel in from its edges) */
+	texture() {
+		const W = this.W, H = this.y + this.row;
+		const data = new Uint8Array(W * H * 4);
+		for (const it of this.items) {
+			for (let y = 0; y < it.h; y++)
+				for (let x = 0; x < it.w; x++) {
+					const c = it.pixel(x, y);
+					const i = ((it.y + y) * W + it.x + x) * 4;
+					data[i] = Math.round(clamp(srgb(c[0])) * 255);
+					data[i + 1] = Math.round(clamp(srgb(c[1])) * 255);
+					data[i + 2] = Math.round(clamp(srgb(c[2])) * 255);
+					data[i + 3] = 255;
+				}
+			it.region = [(it.x + 0.5) / W, (it.y + 0.5) / H, (it.x + it.w - 0.5) / W, (it.y + it.h - 0.5) / H];
+		}
+		const t = new THREE.DataTexture(data, W, H, THREE.RGBAFormat);
+		t.colorSpace = THREE.SRGBColorSpace;
+		t.anisotropy = 8;
+		t.generateMipmaps = true;
+		t.minFilter = THREE.LinearMipmapLinearFilter;
+		t.magFilter = THREE.LinearFilter;
+		t.needsUpdate = true;
+		return t;
+	}
+}
+
+/** a picture's pixels worked out once ({ w, h, pixel } in, the same out, its pixel now a lookup) */
+function cached(pic) {
+	const data = new Float32Array(pic.w * pic.h * 3);
+	for (let y = 0; y < pic.h; y++)
+		for (let x = 0; x < pic.w; x++) {
+			const c = pic.pixel(x, y), i = (y * pic.w + x) * 3;
+			(data[i] = c[0]), (data[i + 1] = c[1]), (data[i + 2] = c[2]);
+		}
+	return { w: pic.w, h: pic.h, pixel: (x, y) => { const i = (y * pic.w + x) * 3; return [data[i], data[i + 1], data[i + 2]]; } };
+}
+
+/** what each of the Bag's names becomes in a building drawn from one sheet */
+const FLAT = new Set(['frame', 'metal', 'paint', 'cloth']); // a plain colour: the sheet's white, the vertex colour
+const STRETCH = new Set(['concrete', 'roof', 'shutter']); // each face its own: the whole of its picture laid on it
+
+/**
+ * Draw the Bag with three materials from one Sheet. `o`: { seed, dusk, kinds, panel, pictures: { name: { w, h, pixel } } }
+ * (a building's own pictures, by the Bag's name that shows them: a sign board, a shutter). The panels take the panel
+ * atlas; each blank wall its own picture of itself (blankWall); `concrete` and `roof` faces each the grime picture
+ * whole; frames, metal, paint and cloth (both its sides) the sheet's white under their vertex colours.
+ */
+Bag.prototype.buildAtlas = function (root, o) {
+	const sheet = new Sheet();
+	const regions = {};
+	const atlas = panelAtlas(o.kinds, o.panel, o.seed, true);
+	regions.panel = sheet.add(atlas.w, atlas.h, atlas.pixel);
+	regions.white = sheet.add(8, 8, () => [1, 1, 1]);
+	const grime = grimeTile(256, o.seed + 101, true);
+	regions.grime = sheet.add(256, 256, grime.pixel);
+	// the blank walls: each its own picture, the plain panels (two by three storeys, repeating) laid on at 20 px a metre
+	const blank = cached(panelAtlas([{ streaks: [] }, { streaks: [] }, { streaks: [] }], { ...o.panel, cols: 2 }, o.seed + 7, true));
+	const [bcw, bch] = o.panel.cell ?? ATLAS.cell;
+	for (const [key, w] of Object.entries(this.walls)) {
+		const ppm = Math.min(28, 2040 / w.w, 2040 / w.h);
+		const at = (mx, my) => {
+			const tx = ((mx % (2 * w.panel.w)) + 2 * w.panel.w) % (2 * w.panel.w), ty = ((my % (3 * w.panel.h)) + 3 * w.panel.h) % (3 * w.panel.h);
+			return blank.pixel(Math.min(blank.w - 1, Math.floor((tx / w.panel.w) * bcw)), Math.min(blank.h - 1, Math.floor((ty / w.panel.h) * bch)));
+		};
+		// each pixel the mean of the panels' picture across it (3 × 3 samples), so a joint thinner than a pixel still shows
+		regions[key] = sheet.add(w.w * ppm, Math.max(2, w.h * ppm), (x, y) => {
+			const c = [0, 0, 0];
+			for (let i = 0; i < 3; i++)
+				for (let j = 0; j < 3; j++) {
+					const q = at((x + (i + 0.5) / 3) / ppm, w.from + (y + (j + 0.5) / 3) / ppm);
+					(c[0] += q[0] / 9), (c[1] += q[1] / 9), (c[2] += q[2] / 9);
+				}
+			return c;
+		});
+	}
+	for (const [name, pic] of Object.entries(o.pictures ?? {})) regions[name] = sheet.add(pic.w, pic.h, pic.pixel);
+	// the repeating pictures (`tiled`: board-marked concrete, steel sheet, asphalt): their uvs count tiles, as a
+	// repeating texture takes them. Each is baked into the sheet as many tiles as its faces span, shrunk to fit:
+	// `shift: false` over the uvs of all its faces at once (faces that meet keep one continuous picture); `shift: true`
+	// each face moved by whole tiles to start at the first (faces that stand alone: one region however far apart)
+	const tiled = {};
+	for (const [name, tp] of Object.entries(o.tiled ?? {})) {
+		const t = this.parts.get(name);
+		if (!t) continue;
+		let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+		const n = t.p.length / 3;
+		const shifts = [];
+		for (let q = 0; q < n; q += 6) {
+			let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
+			for (let k = q; k < Math.min(n, q + 6); k++) (a0 = Math.min(a0, t.uv[2 * k])), (a1 = Math.max(a1, t.uv[2 * k])), (b0 = Math.min(b0, t.uv[2 * k + 1])), (b1 = Math.max(b1, t.uv[2 * k + 1]));
+			const su = tp.shift ? Math.floor(a0) : 0, sv = tp.shift ? Math.floor(b0) : 0;
+			shifts.push([su, sv]);
+			(u0 = Math.min(u0, a0 - su)), (u1 = Math.max(u1, a1 - su)), (v0 = Math.min(v0, b0 - sv)), (v1 = Math.max(v1, b1 - sv));
+		}
+		(u0 = Math.floor(u0)), (v0 = Math.floor(v0)), (u1 = Math.max(u0 + 1, Math.ceil(u1))), (v1 = Math.max(v0 + 1, Math.ceil(v1)));
+		const pic = (tp.cached ??= cached(tp.pic)), k = Math.min(1, 1600 / ((u1 - u0) * pic.w), 1600 / ((v1 - v0) * pic.h));
+		const tw = pic.w * k, th = pic.h * k;
+		const region = sheet.add((u1 - u0) * tw, (v1 - v0) * th, (x, y) => {
+			// each pixel the mean of the tile across it (2 × 2 samples)
+			const c = [0, 0, 0];
+			for (let i = 0; i < 2; i++)
+				for (let j = 0; j < 2; j++) {
+					const px = Math.floor((((x + (i + 0.5) / 2) / tw) % 1) * pic.w), py = Math.floor((((y + (j + 0.5) / 2) / th) % 1) * pic.h);
+					const q = pic.pixel(Math.min(pic.w - 1, px), Math.min(pic.h - 1, py));
+					(c[0] += q[0] / 4), (c[1] += q[1] / 4), (c[2] += q[2] / 4);
+				}
+			return c;
+		});
+		tiled[name] = { region, u0, v0, U: u1 - u0, V: v1 - v0, shifts };
+	}
+	const map = sheet.texture();
+
+	const body = { p: [], n: [], uv: [], c: [] }, glass = { p: [], n: [], uv: [], c: [] }, lit = { p: [], n: [], uv: [], c: [] };
+	const lay = (r, u, v) => [r[0] + clamp(u) * (r[2] - r[0]), r[1] + clamp(v) * (r[3] - r[1])];
+	for (const [name, t] of this.parts) {
+		const into = name === 'glass' ? glass : name.startsWith('light:') ? lit : body;
+		const n = t.p.length / 3;
+		const reg = FLAT.has(name) ? regions.white.region : name === 'concrete' || name === 'roof' ? regions.grime.region : regions[name]?.region ?? regions.white.region;
+		const tl = tiled[name];
+		for (let q = 0; q < n; q += 6) {
+			// a quad's six corners (a geometry's triangles come in sixes too, or end short: taken as they come)
+			const m = Math.min(6, n - q);
+			let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+			if (STRETCH.has(name)) for (let k = q; k < q + m; k++) (u0 = Math.min(u0, t.uv[2 * k])), (u1 = Math.max(u1, t.uv[2 * k])), (v0 = Math.min(v0, t.uv[2 * k + 1])), (v1 = Math.max(v1, t.uv[2 * k + 1]));
+			const sides = name === 'cloth' ? [false, true] : [false];
+			for (const back of sides) {
+				const order = back ? [0, 2, 1, 3, 5, 4] : [0, 1, 2, 3, 4, 5];
+				for (const j of order.slice(0, m)) {
+					const k = q + j;
+					into.p.push(t.p[3 * k], t.p[3 * k + 1], t.p[3 * k + 2]);
+					const s = back ? -1 : 1;
+					into.n.push(s * t.n[3 * k], s * t.n[3 * k + 1], s * t.n[3 * k + 2]);
+					into.c.push(t.c[3 * k], t.c[3 * k + 1], t.c[3 * k + 2]);
+					let u = t.uv[2 * k], v = t.uv[2 * k + 1];
+					if (tl) {
+						const [su, sv] = tl.shifts[q / 6];
+						into.uv.push(...lay(tl.region.region, (u - su - tl.u0) / tl.U, (v - sv - tl.v0) / tl.V));
+						continue;
+					}
+					if (FLAT.has(name)) (u = 0.5), (v = 0.5);
+					else if (STRETCH.has(name)) (u = u1 > u0 ? (u - u0) / (u1 - u0) : 0.5), (v = v1 > v0 ? (v - v0) / (v1 - v0) : 0.5);
+					into.uv.push(...(into === body ? lay(reg, u, v) : [u, v]));
+				}
+			}
+		}
+	}
+	const mesh = (t, mat, name) => {
+		if (!t.p.length) return;
+		const g = new THREE.BufferGeometry();
+		g.setAttribute('position', new THREE.Float32BufferAttribute(t.p, 3));
+		g.setAttribute('normal', new THREE.Float32BufferAttribute(t.n, 3));
+		g.setAttribute('uv', new THREE.Float32BufferAttribute(t.uv, 2));
+		g.setAttribute('color', new THREE.Float32BufferAttribute(t.c, 3));
+		g.computeBoundingSphere();
+		const m = new THREE.Mesh(g, mat);
+		m.name = name;
+		m.castShadow = name !== 'light:window';
+		m.receiveShadow = true;
+		root.add(m);
+	};
+	const bodyM = new THREE.MeshStandardMaterial({ vertexColors: true, map, roughness: 0.92 });
+	bodyM.name = 'body';
+	const glassM = new THREE.MeshStandardMaterial({ vertexColors: true, color: '#ffffff', roughness: 0.12, metalness: 0.55 });
+	glassM.name = 'glass';
+	// the lit windows' OFF look is dark glass; the page (or `dusk`, 0 by default) lights them
+	const litM = new THREE.MeshStandardMaterial({ color: '#16191c', emissive: '#ffc77a', emissiveIntensity: 1.6 * clamp(o.dusk), roughness: 0.15, metalness: 0.5 });
+	litM.name = 'light:window';
+	mesh(body, bodyM, 'body'), mesh(glass, glassM, 'glass'), mesh(lit, litM, 'light:window');
+	return root;
+};
+
+/** a satellite dish, its mouth toward +z: a shallow bowl, the feed arm and its head; ~0.8 m across */
+function dish(r = 0.4) {
+	const pts = [];
+	for (let i = 0; i <= 3; i++) {
+		const t = i / 3;
+		pts.push(new THREE.Vector2(r * t, (r * t) ** 2 * 0.55));
+	}
+	const bowl = new THREE.LatheGeometry(pts, 8);
+	bowl.rotateX(Math.PI / 2);
+	const arm = new THREE.BoxGeometry(0.03, 0.03, r * 1.3);
+	arm.translate(0, -r * 0.5, r * 0.55);
+	arm.rotateX(-0.6);
+	const head = new THREE.BoxGeometry(0.07, 0.07, 0.1);
+	head.translate(0, 0, r * 0.75);
+	return [bowl, arm, head].map((g) => (g.index ? g.toNonIndexed() : g));
+}
+
+
+// ───────────────────────────────────────────── 2. THE CAR PARK ─────────────────────────────────────────────
+
+const PARK = {
+	bay: 7.5, // the column grid along it: three spaces, m
+	module: 16.0, // one span across: a row of spaces, the aisle, a row (5.0 + 6.0 + 5.0), m
+	storey: 2.9, // deck to deck, m (2.2 m clear under the beams, the usual design figure)
+	slab: 0.3, // a deck's slab and its beams' edge, m
+	upstand: 1.05, // the barrier wall at each deck's edge, m (it stops a car: about 1.0–1.1 m)
+	column: 0.5, // square columns, m
+	space: { w: 2.5, d: 5.0 }, // a space, m
+	aisle: 6.0, // the aisle between two rows, m
+	ramp: 3, // the bays a straight ramp takes (22.5 m for 2.9 m: 12.9 %, under the 15 % allowed between decks)
+	stair: { w: 5.0, d: 6.0, over: 3.2 }, // the stair and lift towers, m [EST]
+};
+
+/**
+ * Precast concrete of a car park's edge, 2.9 m a tile both ways (a deck's height, so every band takes the same part of
+ * it): a grey mottle, the dark streaks from the barrier's top edge down its face, the white of lime leached from its
+ * joints, rust where the steel inside has come through.
+ */
+function edgeTile(seed, raw) {
+	const N = 290, ppm = 100;
+	const top = (PARK.upstand / PARK.storey) * N; // the band's top edge in the tile, px from its foot
+	const st = [];
+	for (let i = 0; i < 36; i++) st.push({ x: hash2(i, 1, seed) * N, w: 3 + hash2(i, 2, seed) * 12, a: 0.06 + hash2(i, 3, seed) * 0.12, len: (0.4 + hash2(i, 4, seed) * 0.9) * ppm, lime: hash2(i, 5, seed) > 0.8 });
+	return picture(N, N, (x, y) => {
+		let v = 0.4 + (noise2(x * 0.8, y * 0.8, seed) - 0.5) * 0.05 + (fbm2(x / 40, y / 40, seed + 1, 4) - 0.5) * 0.14;
+		const fall = ((top - y) % N + N) % N; // px below the band's top edge, wrapping down to its foot
+		for (const s of st) {
+			if (fall > s.len) continue;
+			const wob = (noise2(s.x * 0.2, y / 25, seed + 2) - 0.5) * 5;
+			const r = Math.abs(x - s.x - wob) / (s.w * (1 + fall / 150));
+			if (r < 1) v += (s.lime ? 0.12 : -s.a) * (1 - r * r) * (1 - fall / s.len) * Math.min(1, fall / 12);
+		}
+		let c = [v, v * 0.985, v * 0.96];
+		const rust = fbm2(x / 8, y / 8, seed + 3, 2);
+		if (rust > 0.74) c = [c[0] * 0.95 + 0.06, c[1] * 0.85, c[2] * 0.7];
+		return c.map((q) => clamp(q, 0.03, 1));
+	}, raw);
+}
+
+function carPark(decks, bays, seed, dusk) {
+	const rnd = chance(`car-park:${seed}`);
+	const N = Math.round(clamp(decks, 3, 8)); // decks, the ground's counted: the last is the open roof deck
+	const NB = Math.round(clamp(bays, 6, 12));
+	const L = NB * PARK.bay, D = 2 * PARK.module, h = L / 2, d = D / 2;
+	const yOf = (k) => k * PARK.storey;
+	const roofDeck = yOf(N - 1);
+	const bag = new Bag();
+	const tint = (k = 1) => {
+		const t = rnd.range(0.74, 1.0) * k;
+		return [t, t, t];
+	};
+	const deckCol = [0.5, 0.49, 0.47], soffitCol = [0.4, 0.39, 0.38];
+	// the ramps: in the aisle of module 0 or 1 by turns, over the ramp's bays at the +x end
+	const rx0 = h - PARK.ramp * PARK.bay, rx1 = h;
+	const aisleZ = (m) => {
+		const z0 = -d + m * PARK.module + PARK.space.d;
+		return [z0, z0 + PARK.aisle];
+	};
+	/** where deck k is cut open for the ramp coming up through it from deck k − 1 */
+	const holeOf = (k) => (k >= 1 ? { m: (k - 1) % 2, x0: rx0, x1: rx1, z: aisleZ((k - 1) % 2) } : null);
+
+	// ── the decks: each slab's top (concrete, the spaces' lines), its underside, its edge band and barrier ──
+	for (let k = 0; k < N; k++) {
+		const y = yOf(k);
+		const hole = holeOf(k);
+		// the slab's top, in strips round the hole; its soffit under it (not under the ground)
+		const strips = hole ? [[-h, -d, h, hole.z[0]], [-h, hole.z[1], h, d], [-h, hole.z[0], hole.x0, hole.z[1]]] : [[-h, -d, h, d]];
+		for (const [x0, z0, x1, z1] of strips) {
+			bag.quad('concrete', [x0, y + 0.01, z1], [x1, y + 0.01, z1], [x1, y + 0.01, z0], [x0, y + 0.01, z0], [[x0 / 4, z1 / 4], [x1 / 4, z1 / 4], [x1 / 4, z0 / 4], [x0 / 4, z0 / 4]], k === N - 1 ? [0.55, 0.54, 0.52] : deckCol);
+			if (k > 0) bag.quad('concrete', [x0, y - PARK.slab, z0], [x1, y - PARK.slab, z0], [x1, y - PARK.slab, z1], [x0, y - PARK.slab, z1], [[x0 / 4, z0 / 4], [x1 / 4, z0 / 4], [x1 / 4, z1 / 4], [x0 / 4, z1 / 4]], soffitCol);
+		}
+		if (hole) {
+			// the hole's edges: the slab's thickness seen round it, and a kerb with a yellow-black edge
+			bag.quad('concrete', [hole.x0, y - PARK.slab, hole.z[1]], [hole.x0, y - PARK.slab, hole.z[0]], [hole.x0, y, hole.z[0]], [hole.x0, y, hole.z[1]], null, soffitCol);
+			for (const [zz, s] of [[hole.z[0], 1], [hole.z[1], -1]]) {
+				bag.box('concrete', hole.x0, y, zz - (s > 0 ? 0.25 : 0), hole.x1, y + 0.2, zz + (s > 0 ? 0 : 0.25), [0.6, 0.55, 0.3], 2, '-y');
+			}
+		}
+		// the lines of the spaces: two rows in each module, the line at every 2.5 m, some worn away
+		for (let m = 0; m < 2; m++) {
+			const z0 = -d + m * PARK.module;
+			for (const [za, zb] of [[z0 + 0.3, z0 + PARK.space.d], [z0 + PARK.space.d + PARK.aisle, z0 + PARK.module - 0.3]]) {
+				for (let x = -h + 0.5; x <= h - 0.5 + 1e-6; x += PARK.space.w) {
+					if (rnd.chance(0.1)) continue;
+					const f = rnd.range(0.55, 0.9);
+					bag.quad('paint', [x - 0.05, y + 0.02, zb], [x + 0.05, y + 0.02, zb], [x + 0.05, y + 0.02, za], [x - 0.05, y + 0.02, za], null, [0.8 * f, 0.8 * f, 0.76 * f]);
+				}
+			}
+		}
+		// the fluorescent tubes under the deck above, one a bay over each aisle: lit at dusk, as car parks are all night
+		if (k < N - 1) {
+			for (let m = 0; m < 2; m++) {
+				const [za, zb] = aisleZ(m), zc = (za + zb) / 2;
+				for (let x = -h + PARK.bay / 2; x < h; x += PARK.bay) {
+					if (holeOf(k + 1) && holeOf(k + 1).m === m && x > rx0 && x < rx1) continue;
+					bag.quad('light:window', [x - 0.6, yOf(k + 1) - PARK.slab - 0.02, zc - 0.08], [x + 0.6, yOf(k + 1) - PARK.slab - 0.02, zc - 0.08], [x + 0.6, yOf(k + 1) - PARK.slab - 0.02, zc + 0.08], [x - 0.6, yOf(k + 1) - PARK.slab - 0.02, zc + 0.08], null, [0.9, 1, 0.95]);
+				}
+			}
+		}
+	}
+
+	// ── the edge bands: the slab's edge and the barrier over it, round every deck from the first up; the ground's kerb ──
+	const sides = [
+		[{ o: [-h, 0, d], u: [1, 0, 0], n: [0, 0, 1] }, 0, L],
+		[{ o: [h, 0, -d], u: [-1, 0, 0], n: [0, 0, -1] }, 0, L],
+		[{ o: [h, 0, d], u: [0, 0, -1], n: [1, 0, 0] }, 0.2, D - 0.2],
+		[{ o: [-h, 0, -d], u: [0, 0, 1], n: [-1, 0, 0] }, 0.2, D - 0.2],
+	];
+	for (const [frame, a, b] of sides) {
+		for (let k = 1; k < N; k++) {
+			const y = yOf(k);
+			// cut by bay so each precast unit has its own tone
+			for (let x = a; x < b - 1e-6; x += PARK.bay) {
+				const x1 = Math.min(b, x + PARK.bay);
+				frameBox(bag, 'edge', frame, x + 0.01, x1 - 0.01, y - PARK.slab, y + PARK.upstand, -0.2, 0, tint(), '', PARK.storey);
+			}
+		}
+		// the ground's low wall, open where cars come in on the front
+		for (let x = a; x < b - 1e-6; x += PARK.bay) {
+			const x1 = Math.min(b, x + PARK.bay);
+			if (frame.n[2] > 0 && x < 2 * PARK.bay) continue;
+			frameBox(bag, 'edge', frame, x + 0.01, x1 - 0.01, 0, 0.6, -0.2, 0, tint(0.9), '-y', PARK.storey);
+		}
+	}
+
+	// ── the columns: on the grid, the edge rows set in behind the bands, the middle row between the modules ──
+	const colC = [0.55, 0.54, 0.52];
+	const c = PARK.column / 2;
+	for (let i = 0; i <= NB; i++) {
+		const x = clamp(-h + i * PARK.bay, -h + 0.25 + c, h - 0.25 - c);
+		for (const z of [-d + 0.25 + c, 0, d - 0.25 - c]) {
+			bag.box('concrete', x - c, 0, z - c, x + c, roofDeck, z + c, colC, 3, '-y+y');
+			// the yellow and black band at a bumper's height
+			bag.box('paint', x - c - 0.01, 0.1, z - c - 0.01, x + c + 0.01, 0.6, z + c + 0.01, [0.7, 0.6, 0.15], 2, '-y+y');
+		}
+	}
+
+	// ── the ramps: a sloping slab in the aisle from each deck to the next, its kerbs, its soffit ──
+	for (let k = 0; k < N - 1; k++) {
+		const m = k % 2, [z0, z1] = aisleZ(m);
+		const ya = yOf(k), yb = yOf(k + 1);
+		// it rises from the −x end of its bays to the +x end; the slab's top and its underside
+		bag.quad('concrete', [rx0, ya + 0.02, z1], [rx1, yb + 0.01, z1], [rx1, yb + 0.01, z0], [rx0, ya + 0.02, z0], [[0, 0], [5.8, 0], [5.8, 1.5], [0, 1.5]], deckCol);
+		bag.quad('concrete', [rx0, ya + 0.02 - PARK.slab, z0], [rx1, yb - PARK.slab, z0], [rx1, yb - PARK.slab, z1], [rx0, ya + 0.02 - PARK.slab, z1], null, soffitCol);
+		for (const [za, zb] of [[z0, z0 + 0.25], [z1 - 0.25, z1]]) {
+			// a kerb up each side, as sloping quads (outer, top, inner)
+			const kc = [0.6, 0.55, 0.3];
+			bag.quad('concrete', [rx0, ya, zb], [rx1, yb, zb], [rx1, yb + 0.25, zb], [rx0, ya + 0.25, zb], null, kc);
+			bag.quad('concrete', [rx1, yb, za], [rx0, ya, za], [rx0, ya + 0.25, za], [rx1, yb + 0.25, za], null, kc);
+			bag.quad('concrete', [rx0, ya + 0.25, zb], [rx1, yb + 0.25, zb], [rx1, yb + 0.25, za], [rx0, ya + 0.25, za], null, kc);
+		}
+		// an arrow painted on it, up
+		const ax = (rx0 + rx1) / 2, az = (z0 + z1) / 2, t = 0.5, ay = (ya + yb) / 2 + 0.04;
+		bag.flat('paint', [ax - 1.5, ay - 0.2, az - 0.15], [ax + 0.8, ay + 0.1, az - 0.15], [ax + 0.8, ay + 0.1, az + 0.15], [ax - 1.5, ay - 0.2, az + 0.15], null, [0.75, 0.75, 0.7]);
+		bag.flat('paint', [ax + 0.8, ay + 0.1, az - t], [ax + 1.8, ay + 0.24, az], [ax + 0.8, ay + 0.1, az + t], [ax + 0.8, ay + 0.1, az + t], null, [0.75, 0.75, 0.7]);
+	}
+
+	// ── the stair towers: at two corners, outside the edge, their glass strip lit, a lift motor room on one ──
+	const S = PARK.stair;
+	const towers = [[-h - S.w, d - S.d, -h, d, -1], [h, -d, h + S.w, -d + S.d, 1]];
+	for (const [x0, z0, x1, z1, sx] of towers) {
+		const tt = roofDeck + S.over;
+		bag.box('edge', x0, 0, z0, x1, tt, z1, tint(0.95), PARK.storey, '-y');
+		bag.box('roof', x0 - 0.1, tt, z0 - 0.1, x1 + 0.1, tt + 0.15, z1 + 0.1, [0.33, 0.32, 0.31], 3, '-y');
+		// the glass strip up its outer face, the landing between decks behind it
+		const fx = sx > 0 ? x1 + 0.01 : x0 - 0.01, zc = (z0 + z1) / 2;
+		const pts = sx > 0 ? [[fx, 0.4, zc + 1.2], [fx, 0.4, zc - 1.2], [fx, tt - 0.6, zc - 1.2], [fx, tt - 0.6, zc + 1.2]] : [[fx, 0.4, zc - 1.2], [fx, 0.4, zc + 1.2], [fx, tt - 0.6, zc + 1.2], [fx, tt - 0.6, zc - 1.2]];
+		bag.quad('glass', ...pts, null, [0.12, 0.13, 0.13]);
+		for (let k = 0; k < N; k++) {
+			const yy = yOf(k) + 1.4;
+			bag.box('frame', fx - 0.05, yy, zc - 1.25, fx + 0.05, yy + 0.08, zc + 1.25, [0.3, 0.3, 0.3], 3, '');
+			if (rnd.chance(0.7)) bag.quad('light:window', ...pts.map((p, i) => [p[0] + sx * 0.005, i < 2 ? yy - 1.2 : yy + 1.3, p[2]]), null, [0.95, 1, 0.95]);
+		}
+		// the big parking sign: a blue square, a white P of bars, high on the tower's front
+		const pz = z1 + 0.02, px = (x0 + x1) / 2, py = tt - 3;
+		if (z1 > 0) {
+			bag.quad('paint', [px - 1.2, py - 1.2, pz], [px + 1.2, py - 1.2, pz], [px + 1.2, py + 1.2, pz], [px - 1.2, py + 1.2, pz], null, [0.12, 0.22, 0.45]);
+			const P = [[-0.55, -0.85, -0.25, 0.85], [-0.25, 0.55, 0.45, 0.85], [-0.25, -0.05, 0.45, 0.25], [0.25, 0.25, 0.55, 0.55]];
+			for (const [a0, b0, a1, b1] of P) bag.quad('paint', [px + a0, py + b0, pz + 0.01], [px + a1, py + b0, pz + 0.01], [px + a1, py + b1, pz + 0.01], [px + a0, py + b1, pz + 0.01], null, [0.85, 0.85, 0.82]);
+		}
+		// its door at the foot
+		bag.quad('paint', [px - 0.5, 0, z1 + 0.01], [px + 0.5, 0, z1 + 0.01], [px + 0.5, 2.1, z1 + 0.01], [px - 0.5, 2.1, z1 + 0.01], null, [0.25, 0.27, 0.28]);
+	}
+
+	// ── the roof deck: lamp posts on the grid's middle row, lit; the way in on the ground: a barrier, a booth, a height bar ──
+	for (let i = 1; i < NB; i += 2) {
+		const x = -h + i * PARK.bay;
+		bag.box('metal', x - 0.06, roofDeck, -0.06, x + 0.06, roofDeck + 6, 0.06, [0.4, 0.4, 0.39], 4, '-y');
+		bag.box('metal', x - 0.3, roofDeck + 5.85, -0.2, x + 0.3, roofDeck + 6.05, 0.2, [0.35, 0.35, 0.34], 4, '-y');
+		bag.quad('light:window', [x - 0.25, roofDeck + 5.84, -0.15], [x + 0.25, roofDeck + 5.84, -0.15], [x + 0.25, roofDeck + 5.84, 0.15], [x - 0.25, roofDeck + 5.84, 0.15], null, [1, 0.85, 0.6]);
+	}
+	const ex = -h + PARK.bay; // the way in: the first two bays of the front
+	bag.box('paint', ex - 6, 2.1, d - 0.15, ex + 6, 2.35, d + 0.05, [0.75, 0.62, 0.12], 3, '');
+	for (const s of [-1, 1]) bag.box('metal', ex + s * 6 - 0.08, 0, d - 0.12, ex + s * 6 + 0.08, 2.1, d + 0.04, [0.4, 0.4, 0.39], 4, '-y');
+	bag.box('paint', ex - 0.9, 0, d - 4, ex + 0.9, 2.5, d - 2.2, [0.55, 0.55, 0.53], 2, '-y');
+	bag.quad('light:window', [ex - 0.7, 1.1, d - 2.19], [ex + 0.7, 1.1, d - 2.19], [ex + 0.7, 2.1, d - 2.19], [ex - 0.7, 2.1, d - 2.19], null, [1, 0.95, 0.85]);
+	for (const s of [-1, 1]) {
+		bag.box('paint', ex + s * 1.2 - 0.15, 0, d - 3.3, ex + s * 1.2 + 0.15, 1.0, d - 3.0, [0.7, 0.6, 0.15], 2, '-y');
+		bag.box('paint', s > 0 ? ex + 1.2 : ex - 1.2 - 3.6, 0.9, d - 3.2, s > 0 ? ex + 1.2 + 3.6 : ex - 1.2, 0.98, d - 3.1, [0.8, 0.78, 0.7], 2, '');
+	}
+
+	const root = new THREE.Group();
+	root.name = 'car-park';
+	// one sheet, three materials: the body (the stained precast baked into the sheet as many tiles as it spans), its
+	// glass, its lit windows
+	const edge = edgeTile(rnd.int(1000), true);
+	bag.buildAtlas(root, { seed: rnd.int(1000), dusk, kinds: [{ streaks: [] }], panel: { w: 6, h: 3 }, tiled: { edge: { pic: edge } } });
+	root.userData.size = [L + 2 * S.w, roofDeck + 6.05, D];
+	return root;
+}
+
+// ───────────────────────────────────────────── 3. RECIPE ─────────────────────────────────────────────
+
+const PARAMS = [
+	{ id: 'decks', label: 'Decks (with the ground and the roof)', type: 'integer', min: 3, max: 8, step: 1, value: 5 },
+	{ id: 'bays', label: 'Bays (7.5 m)', type: 'integer', min: 6, max: 12, step: 1, value: 8 },
+	{ id: 'seed', label: 'Seed', type: 'string', value: 'old-city', maxLength: 40 },
+	{ id: 'dusk', label: 'Dusk', type: 'number', min: 0, max: 1, step: 0.05, value: 0 },
+];
+
+const NOTE =
+	'A multi-storey car park of the old city: five open decks (the ground, three between, the open roof) of 2.9 m, 60 × 32 m on a 7.5 m grid, two 16 m spans of a row, an aisle and a row; bands of stained precast concrete (the slab\'s edge and a 1.05 m barrier) round every deck with the dark open slots between them, straight ramps of 12.9 % in the aisles by turns, columns with yellow-black bands, the spaces\' worn lines, fluorescent tubes under every deck, two stair towers at the corners with their glass strips and a parking sign, lamps on the roof deck, a booth, barriers and a height bar at the way in. Its values: decks, bays, seed, dusk (the tubes, lamps and stairs, one mesh named light:window).';
+
+function build(decks, bays, seed, dusk) {
+	return carPark(decks ?? 5, bays ?? 8, seed ?? 'old-city', dusk ?? 0);
+}
+
+module.exports.recipe = function (id, v, variant) {
+	if (variant) throw new Error(`no variant ${variant} of buildings/${id}@${v}`);
+	return {
+		meta: { group: 'buildings', id, version: v, label: 'Multi-storey car park', note: NOTE, params: JSON.parse(JSON.stringify(PARAMS)) },
+		build,
+	};
+};
+
+module.exports.parts = { chance, Bag, picture, edgeTile, frameBox, materials, PARK, carPark };
+
+return module.exports.recipe("multi-storey-car-park", 3, null);
+});

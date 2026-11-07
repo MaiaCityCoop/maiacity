@@ -14,10 +14,13 @@
  * --story: the story (as the intent's variant makes it, if one is named: doc_at; else its head: get_story; over play's MCP) has at least n world shots,
  * each its own camera path, each but the last going into the next with a cut.
  *
- * Play's files and the story are read with PLAY_MCP_TOKEN (avenBOX's), sent to play only.
+ * With PLAY_MCP_TOKEN (avenBOX's, sent to play only) it reads play: the asset, its files, the story. An intent's checks
+ * run with no token at all (play/avenbox/intent.ts), so what they read is kept beside the code, written from play with
+ * --fetch: a world version's files in src/lib/stories/fixtures/worlds/<version>/ (its manifest, and each file under its
+ * hash, held to it as it is read), a story's timeline as an intent makes it in src/lib/stories/fixtures/stories/.
  */
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { enginesOf } from '../src/lib/kernel/engines.js';
 import { hashBytes, hashText } from '../src/lib/content/game/hash.js';
 import { piecesOf } from '../src/lib/content/assets/box/pieces.js';
@@ -33,13 +36,26 @@ const fail = (why: string): never => {
 	console.error(`world-shot: ${why}`);
 	process.exit(1);
 };
-if (!token) fail('no PLAY_MCP_TOKEN: play\'s files are read with avenBOX\'s token');
+const fetching = args.includes('--fetch');
+if (fetching && !token) fail('--fetch reads play with PLAY_MCP_TOKEN (avenBOX\'s token)');
+/** where what play gave is kept: read from play while fetching, else from here */
+const KEPT = resolve(import.meta.dir, '../src/lib/stories/fixtures');
+const online = fetching;
 const auth = { Authorization: `Bearer ${token}` };
+let keptAt = '';
 
 /** a file of play's as text, held to its hash */
 const files = new Map<string, string>();
 async function file(hash: string) {
 	if (files.has(hash)) return files.get(hash)!;
+	if (!online) {
+		const at = join(keptAt, 'files', hash);
+		if (!existsSync(at)) fail(`file ${hash.slice(0, 12)}… is not kept in ${keptAt} (write it with --fetch)`);
+		const text = readFileSync(at, 'utf8');
+		if (hashText(text) !== hash) fail(`kept file ${hash.slice(0, 12)}… does not hash to its name`);
+		files.set(hash, text);
+		return text;
+	}
 	const r = await fetch(`${PLAY}/api/files/${hash}`, { headers: auth });
 	if (!r.ok) fail(`file ${hash.slice(0, 12)}…: HTTP ${r.status}`);
 	const text = await r.text();
@@ -82,9 +98,17 @@ function workerOf(v: number): () => WorkerLike {
 /** a world version as the Stories player hands it to the frame (StoryPlayer.svelte worldAssets): its recipe, pieces,
  *  engine, and the guests its build plants, each with its pieces */
 async function worldSpec(asset: string, version: string, fps: number, duration: number) {
-	const r = await fetch(`${PLAY}/api/assets/${asset}`, { headers: auth });
-	if (!r.ok) fail(`asset ${asset}: HTTP ${r.status}`);
-	const v = ((await r.json()).versions ?? []).find((x: any) => x.id === version);
+	keptAt = join(KEPT, 'worlds', version);
+	let v: any;
+	if (online) {
+		const r = await fetch(`${PLAY}/api/assets/${asset}`, { headers: auth });
+		if (!r.ok) fail(`asset ${asset}: HTTP ${r.status}`);
+		v = ((await r.json()).versions ?? []).find((x: any) => x.id === version);
+	} else {
+		if (!existsSync(join(keptAt, 'manifest.json'))) fail(`world version ${version.slice(0, 12)}… is not kept in ${keptAt} (write it with --fetch)`);
+		v = JSON.parse(readFileSync(join(keptAt, 'manifest.json'), 'utf8'));
+		if (v.asset !== asset || v.id !== version) fail(`${keptAt} keeps another world`);
+	}
 	if (!v?.recipe) fail(`asset ${asset} has no version ${version.slice(0, 12)}… with a recipe`);
 	const code = await file(v.recipe), pieces = await deep(code), engine = v.engine ?? 1;
 	const all = await Promise.all(pieces.map(async (p) => ({ hash: p, code: await file(p) })));
@@ -100,6 +124,12 @@ async function worldSpec(asset: string, version: string, fps: number, duration: 
 	for (const g of [...new Set(plantingsOf(obj).map((u: { ref: string }) => u.ref.slice(0, 64)))] as string[]) {
 		guests[g] = await deep(await file(g));
 		for (const p of guests[g]) await file(p);
+	}
+	if (fetching) {
+		mkdirSync(join(keptAt, 'files'), { recursive: true });
+		writeFileSync(join(keptAt, 'manifest.json'), JSON.stringify({ asset, id: version, number: v.number, recipe: v.recipe, engine, pieces: v.pieces ?? [] }, null, '\t') + '\n');
+		for (const [h, text] of files) writeFileSync(join(keptAt, 'files', h), text);
+		console.log(`kept ${files.size} files of ${asset.slice(0, 8)} v${v.number} in ${keptAt}`);
 	}
 	return { engine: { v: engine, hash: enginesOf('box').find((x: { v: number }) => x.v === engine)!.blake3 }, recipe: v.recipe, pieces, guests, fps, frames: framesOf(duration, fps) };
 }
@@ -164,8 +194,18 @@ async function tool(name: string, a: Record<string, unknown>) {
 
 async function checkStory() {
 	const story = opt('--story')!, intent = opt('--intent'), want = Number(opt('--world-shots') ?? 1);
-	// as the intent's variant makes it (open or proposed: doc_at reads both), else its head
-	const s = intent ? (await tool('doc_at', { doc: story, intent })).json : await tool('get_story', { story });
+	// as the intent's variant makes it (open or proposed: doc_at reads both), else its head; kept beside the code
+	const at = join(KEPT, 'stories', `${story}${intent ? `.${intent}` : ''}.json`);
+	let s: any;
+	if (online) {
+		s = intent ? (await tool('doc_at', { doc: story, intent })).json : await tool('get_story', { story });
+		mkdirSync(join(KEPT, 'stories'), { recursive: true });
+		writeFileSync(at, JSON.stringify(s, null, '\t') + '\n');
+		console.log(`kept ${at}`);
+	} else {
+		if (!existsSync(at)) fail(`story ${story.slice(0, 8)} is not kept in ${at} (write it with --fetch)`);
+		s = JSON.parse(readFileSync(at, 'utf8'));
+	}
 	const shots = (s.tracks ?? []).filter((t: any) => t.kind === 'shots').flatMap((t: any) => t.clips).sort((a: any, b: any) => a.at - b.at);
 	const worlds = shots.filter((c: any) => c.world && typeof c.world.asset === 'string');
 	console.log(`story ${story.slice(0, 8)}${intent ? ` (intent ${intent.slice(0, 8)})` : ''}: ${shots.length} shots, ${worlds.length} world shots`);
