@@ -1,0 +1,280 @@
+[
+ {
+  "site": "base",
+  "world": "sandbox-1",
+  "view": "near",
+  "settled": true,
+  "frames": 236,
+  "frameMs": 33.7,
+  "frameP95": 50,
+  "tris": 6323758,
+  "trisMax": 6323758,
+  "assets": {
+   "out": {
+    "tris": 1175790,
+    "calls": 190,
+    "levels": [
+     4,
+     455
+    ],
+    "pictures": 2749,
+    "copies": 7568
+   },
+   "in": {
+    "tris": 1991008,
+    "calls": 212,
+    "levels": [
+     0,
+     177
+    ],
+    "pictures": 585,
+    "copies": 868
+   },
+   "library": {
+    "tris": 342904,
+    "calls": 120,
+    "levels": [
+     1358
+    ],
+    "pictures": 0,
+    "copies": 2174
+   }
+  },
+  "png": "../../../s6295-shots4/base-sandbox-1-near.png"
+ },
+ {
+  "site": "base",
+  "world": "sandbox-1",
+  "view": "mid",
+  "settled": true,
+  "frames": 205,
+  "frameMs": 38.9,
+  "frameP95": 50.09999999999127,
+  "tris": 6229591,
+  "trisMax": 6229591,
+  "assets": {
+   "out": {
+    "tris": 2717947,
+    "calls": 275,
+    "levels": [
+     21,
+     424
+    ],
+    "pictures": 4134,
+    "copies": 7746
+   },
+   "in": {
+    "tris": 690374,
+    "calls": 71,
+    "levels": [
+     0,
+     173
+    ],
+    "pictures": 706,
+    "copies": 868
+   },
+   "library": {
+    "tris": 239460,
+    "calls": 120,
+    "levels": [
+     657
+    ],
+    "pictures": 0,
+    "copies": 2684
+   }
+  },
+  "png": "../../../s6295-shots4/base-sandbox-1-mid.png"
+ },
+ {
+  "site": "base",
+  "world": "sandbox-1",
+  "view": "far",
+  "settled": true,
+  "frames": 479,
+  "frameMs": 16.7,
+  "frameP95": 16.79999999998836,
+  "tris": 2551158,
+  "trisMax": 2551158,
+  "assets": {
+   "out": {
+    "tris": 974808,
+    "calls": 131,
+    "levels": [
+     0,
+     384
+    ],
+    "pictures": 6174,
+    "copies": 7746
+   },
+   "in": {
+    "tris": 145635,
+    "calls": 24,
+    "levels": [
+     0,
+     72
+    ],
+    "pictures": 706,
+    "copies": 868
+   },
+   "library": {
+    "tris": 125690,
+    "calls": 109,
+    "levels": [
+     166
+    ],
+    "pictures": 0,
+    "copies": 2684
+   }
+  },
+  "png": "../../../s6295-shots4/base-sandbox-1-far.png"
+ },
+ {
+  "site": "base",
+  "world": "sandbox-3",
+  "view": "open",
+  "tris": 758034,
+  "png": "../../../s6295-shots4/base-sandbox-3-open.png"
+ },
+ {
+  "site": "head",
+  "world": "sandbox-1",
+  "view": "near",
+  "settled": true,
+  "frames": 314,
+  "frameMs": 25.4,
+  "frameP95": 33.40000000000873,
+  "tris": 3833220,
+  "trisMax": 3833220,
+  "assets": {
+   "out": {
+    "tris": 783875,
+    "calls": 169,
+    "levels": [
+     1,
+     351
+    ],
+    "pictures": 2749,
+    "copies": 7423
+   },
+   "in": {
+    "tris": 60088,
+    "calls": 12,
+    "levels": [
+     0,
+     7
+    ],
+    "pictures": 611,
+    "copies": 676
+   },
+   "library": {
+    "tris": 175201,
+    "calls": 120,
+    "levels": [
+     0,
+     0,
+     692
+    ],
+    "pictures": 0,
+    "copies": 1464
+   }
+  },
+  "png": "../../../s6295-shots4/head-sandbox-1-near.png"
+ },
+ {
+  "site": "head",
+  "world": "sandbox-1",
+  "view": "mid",
+  "settled": true,
+  "frames": 211,
+  "frameMs": 38,
+  "frameP95": 50,
+  "tris": 6327273,
+  "trisMax": 6327273,
+  "assets": {
+   "out": {
+    "tris": 3525465,
+    "calls": 219,
+    "levels": [
+     14,
+     364
+    ],
+    "pictures": 4132,
+    "copies": 7538
+   },
+   "in": {
+    "tris": 24412,
+    "calls": 19,
+    "levels": [
+     0,
+     20
+    ],
+    "pictures": 656,
+    "copies": 676
+   },
+   "library": {
+    "tris": 195678,
+    "calls": 120,
+    "levels": [
+     0,
+     1,
+     638
+    ],
+    "pictures": 0,
+    "copies": 2623
+   }
+  },
+  "png": "../../../s6295-shots4/head-sandbox-1-mid.png"
+ },
+ {
+  "site": "head",
+  "world": "sandbox-1",
+  "view": "far",
+  "settled": true,
+  "frames": 350,
+  "frameMs": 23,
+  "frameP95": 33.39999999999418,
+  "tris": 3603020,
+  "trisMax": 3603020,
+  "assets": {
+   "out": {
+    "tris": 2181046,
+    "calls": 149,
+    "levels": [
+     0,
+     361
+    ],
+    "pictures": 6163,
+    "copies": 7538
+   },
+   "in": {
+    "tris": 24412,
+    "calls": 19,
+    "levels": [
+     0,
+     20
+    ],
+    "pictures": 656,
+    "copies": 676
+   },
+   "library": {
+    "tris": 92515,
+    "calls": 109,
+    "levels": [
+     0,
+     0,
+     162
+    ],
+    "pictures": 0,
+    "copies": 2623
+   }
+  },
+  "png": "../../../s6295-shots4/head-sandbox-1-far.png"
+ },
+ {
+  "site": "head",
+  "world": "sandbox-3",
+  "view": "open",
+  "tris": 701324,
+  "png": "../../../s6295-shots4/head-sandbox-3-open.png"
+ }
+]
