@@ -10,7 +10,9 @@ export const REQUIRED_CHECKS = ["play / API and site", "website / build"];
 export const SEEN_MOST_MS = 60_000;
 
 export type SubState = "failed" | "waiting" | "working" | "idle";
-export type Sub = { state: SubState; why: string };
+/** `tag`: what it is, in at most 32 characters (the dialog's chip, "<State> · <tag>"); `why`: its reason, checks named by id only */
+export type Sub = { state: SubState; tag: string; why: string };
+const S = (state: SubState, tag: string, why: string): Sub => ({ state, tag, why });
 export type CheckState = "queued" | "running" | "success" | "failure";
 /** a pull request as Ship's watcher (or an Accept) last read it */
 export type PrSeen = {
@@ -41,16 +43,19 @@ export const heldWhy = (held: { title: string }[]) => `held: waits for ${held.ma
 
 /**
  * The must checks with a `run` that did not last pass on `head`, the pull request's head commit, as people read them:
- * what is merged is what was checked.
+ * what is merged is what was checked. Named by id only (their statements are in the spec), grouped by what they lack:
+ * "c1, c2 passed on 233b24d, not yet on the head 7fbf99b", "c4 no result yet".
  */
 export function unmetOn(intent: Pick<Row, "spec" | "results">, head: string) {
-  return (intent.spec?.checks ?? [])
-    .filter((c) => c.must && c.run)
-    .flatMap((c) => {
-      const r = intent.results?.[c.id];
-      if (r?.pass === true && r.commit === head) return [];
-      return [`${c.id} (${c.check}): ${!r ? "no result yet" : !r.pass ? "failed" : r.commit ? `passed on ${short(r.commit)}, not on the head ${short(head)}` : "passed on no named commit"}`];
-    });
+  const by = new Map<string, string[]>();
+  for (const c of intent.spec?.checks ?? []) {
+    if (!c.must || !c.run) continue;
+    const r = intent.results?.[c.id];
+    if (r?.pass === true && r.commit === head) continue;
+    const lack = !r ? "no result yet" : !r.pass ? "failed" : r.commit ? `passed on ${short(r.commit)}, not yet on the head ${short(head)}` : "passed on no named commit";
+    by.set(lack, [...(by.get(lack) ?? []), c.id]);
+  }
+  return [...by].map(([lack, ids]) => `${ids.join(", ")} ${lack}`);
 }
 
 /**
@@ -63,25 +68,25 @@ export function prBlock(intent: Pick<Row, "spec" | "results">, seen: PrSeen, hea
   // `head` given: Ship's turn, at the head it was accepted on, read again while it waited
   const w = head ? " while it waited" : "";
   const name = "name the intent's open pull request (check_intent's pr)";
-  const failed = (why: string): Sub => ({ state: "failed", why });
-  if (seen.merged) return failed(head ? `${n} was merged while it waited, not by this ship` : `${n} is merged already, and not by a ship of this intent: ${name}`);
-  if (seen.state !== "open") return failed(head ? `${n} was ${seen.state}${w}` : `${n} is ${seen.state}: ${name}`);
-  if (seen.base !== "main") return failed(`${n} goes into ${seen.base}: an intent's code goes into main`);
-  if (seen.draft) return failed(head ? `${n} was made a draft${w}` : `${n} is a draft: it is marked ready (main's checks run then) before it is merged`);
-  if (head && seen.head !== head) return failed(`${n}'s head moved from ${short(head)} to ${short(seen.head)}${w}: its checks are recorded on the new head, then Accept again`);
-  if (seen.mergeable === false) return failed(conflictWhy(seen) + (head ? `: ${n} no longer merges into main${w}` : ""));
+  const failed = (tag: string, why: string) => S("failed", tag, why);
+  if (seen.merged) return failed("merged already", head ? `${n} was merged while it waited, not by this ship` : `${n} is merged already, and not by a ship of this intent: ${name}`);
+  if (seen.state !== "open") return failed(seen.state, head ? `${n} was ${seen.state}${w}` : `${n} is ${seen.state}: ${name}`);
+  if (seen.base !== "main") return failed("not into main", `${n} goes into ${seen.base}: an intent's code goes into main`);
+  if (seen.draft) return failed("a draft", head ? `${n} was made a draft${w}` : `${n} is a draft: it is marked ready (main's checks run then) before it is merged`);
+  if (head && seen.head !== head) return failed("head moved", `${n}'s head moved from ${short(head)} to ${short(seen.head)}${w}: its checks are recorded on the new head, then Accept again`);
+  if (seen.mergeable === false) return failed("conflicts with main", conflictWhy(seen) + (head ? `: ${n} no longer merges into main${w}` : ""));
   const merged = seen.main_merged;
-  if (!head && merged?.from === seen.head) return { state: "working", why: `main merged in: its checks run on ${n}'s new head once GitHub makes it` };
+  if (!head && merged?.from === seen.head) return S("working", "main merged in", `main merged in: its checks run on ${n}'s new head once GitHub makes it`);
   const stale = unmetOn(intent, seen.head);
   if (stale.length && !head && merged?.to === seen.head)
-    return { state: "working", why: `main merged in: its checks run on ${short(seen.head)} (${stale.join("; ")})` };
+    return S("working", "main merged in", `main merged in: its checks run on ${short(seen.head)} (${stale.join("; ")})`);
   if (stale.length)
-    return { state: "working", why: `${n}'s head moved past the checked commit: every must check with a run passes on ${n}'s head ${short(seen.head)} first (its run in avenBOX on GitHub records them on it: mark the pull request ready, or push to it): ${stale.join("; ")}` };
+    return S("working", "head moved", `${n}'s head moved past the checked commit (${stale.join("; ")}): every must check with a run passes on ${n}'s head ${short(seen.head)} first (mark it ready, or push to it)`);
   const red = REQUIRED_CHECKS.find((c) => seen.checks[c] === "failure");
-  if (red) return failed(`'${red}' is failure on ${n}'s head ${short(seen.head)}`);
+  if (red) return failed("check red", `'${red}' is failure on ${n}'s head ${short(seen.head)}`);
   const running = REQUIRED_CHECKS.filter((c) => seen.checks[c] !== "success");
-  if (running.length) return { state: "working", why: `Waiting for ${n}'s checks (${running.join(", ")})` };
-  if (seen.mergeable === null) return { state: "working", why: `Waiting for GitHub to work out whether ${n} merges` };
+  if (running.length) return S("working", "checks running", `Waiting for ${n}'s checks (${running.join(", ")})`);
+  if (seen.mergeable === null) return S("working", "reading GitHub", `Waiting for GitHub to work out whether ${n} merges`);
   return null;
 }
 
@@ -115,40 +120,39 @@ export function subStateOf(intent: Row, seen: PrSeen | null | undefined = intent
   // failed: Ship red (back at Proposal), unless the work went on since (checks recorded again, another pull request)
   if (at === "proposal" && ship?.outcome === "red" && ship.pr === pr) {
     const since = Object.values(results).some((r) => r.at && ship.report?.at && r.at > ship.report.at);
-    if (ship.merge || !since) return { state: "failed", why: `Ship red at ${ship.report?.step ?? "a step"}: ${ship.report?.why ?? "see its report"}${ship.merge ? " (Accept ships it again)" : ""}` };
+    if (ship.merge || !since) return S("failed", "Ship red", `Ship red at ${ship.report?.step ?? "a step"}: ${ship.report?.why ?? "see its report"}${ship.merge ? " (Accept ships it again)" : ""}`);
   }
   const failedMust = (intent.spec?.checks ?? []).find((c) => c.must && results[c.id]?.pass === false);
-  if ((at === "build" || at === "proposal") && failedMust) return { state: "failed", why: `${failedMust.id} failed: ${failedMust.check}` };
+  if ((at === "build" || at === "proposal") && failedMust) return S("failed", `${failedMust.id} failed`.slice(0, 32), `${failedMust.id} failed`);
 
-  if (at === "idea") return { state: "idle", why: "an idea: no agent has specified it yet" };
+  if (at === "idea") return S("idle", "an idea", "an idea: no agent has specified it yet");
   if (at === "specify") {
     const reduces = !!intent.spec && (intent.spec.checks.some((c) => c.step === "reduce") || !!intent.spec.nothing_to_reduce);
-    return reduces ? { state: "waiting", why: "Approve spec" } : { state: "working", why: "specified again first: its reduce step" };
+    return reduces ? S("waiting", "Approve spec", "Approve spec") : S("working", "its reduce step", "specified again first: its reduce step");
   }
   if (at === "ship") {
     const step = ship?.steps?.find((s: any) => s.key === "ready");
     if (ship?.pending) {
       const note = `${step?.note ?? ""}`;
-      return /^(Queued|Waits for)/.test(note) ? { state: "idle", why: note } : { state: "working", why: note || "ready to merge" };
+      return /^Queued/.test(note) ? S("idle", "queued", note) : /^Waits for/.test(note) ? S("idle", "held", note) : S("working", "ready to merge", note || "ready to merge");
     }
-    if (ship?.outcome === "green") return { state: "working", why: "green all the way: Accepted once play runs it" };
+    if (ship?.outcome === "green") return S("working", "green, going live", "green all the way: Accepted once play runs it");
     const s = stepNow(ship);
-    return { state: "working", why: s ? `${s.name}${s.note ? ` · ${s.note}` : ""}` : "on its way" };
+    return S("working", "shipping", s ? `${s.name}${s.note ? ` · ${s.note}` : ""}` : "on its way");
   }
   // code at Proposal waits in Ship for a dependency there (./intents.ts mayMove), so only one elsewhere holds it
   const holds = at === "proposal" && pr && !intent.work ? held.filter((d) => d.stage !== "ship") : held;
-  if (holds.length) return { state: "idle", why: heldWhy(holds) };
+  if (holds.length) return S("idle", "held", heldWhy(holds));
   if (at === "build") {
     // a conflict with main is failed in Build too: its builder resolves it (woken by the status 'Merges with main')
-    if (pr && seen && seen.pr === pr && seen.state === "open" && seen.mergeable === false && now - Date.parse(seen.at) <= SEEN_MOST_MS) return { state: "failed", why: conflictWhy(seen) };
-    return { state: "working", why: "being built: its checks are recorded as they pass" };
+    if (pr && seen && seen.pr === pr && seen.state === "open" && seen.mergeable === false && now - Date.parse(seen.at) <= SEEN_MOST_MS) return S("failed", "conflicts with main", conflictWhy(seen));
+    return S("working", "being built", "being built: its checks are recorded as they pass");
   }
 
   // Proposal
-  if (intent.work) return { state: "waiting", why: "Accept" };
-  if (!pr) return { state: "waiting", why: "Accept" };
-  if (!seen || seen.pr !== pr || now - Date.parse(seen.at) > SEEN_MOST_MS) return { state: "working", why: `reading #${pr} on GitHub` };
-  return prBlock(intent, seen) ?? { state: "waiting", why: "Accept and ship" };
+  if (intent.work || !pr) return S("waiting", "Accept", "Accept");
+  if (!seen || seen.pr !== pr || now - Date.parse(seen.at) > SEEN_MOST_MS) return S("working", "reading GitHub", `reading #${pr} on GitHub`);
+  return prBlock(intent, seen) ?? S("waiting", "Accept and ship", "Accept and ship");
 }
 
 /** the sub-state as every path asks it (a test may stand a stub in its place) */

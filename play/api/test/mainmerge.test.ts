@@ -223,7 +223,7 @@ suite("main merged into open intent pull requests", () => {
     const state = mainMergeState();
     const c = await codeAtProposal();
     await watchTick(db, gh.gh, Date.now(), null, state);
-    expect((await intent(c.id)).sub).toEqual({ state: "waiting", why: "Accept and ship" });
+    expect((await intent(c.id)).sub).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });
     mainMoves();
     await watchTick(db, gh.gh, Date.now(), null, state);
     // GitHub has made the new head, read on the same tick's next look
@@ -247,7 +247,7 @@ suite("main merged into open intent pull requests", () => {
     // the box's run records every must on the new head: waiting
     expect((await tool("check_intent", { intent: c.id, pr: c.pr, results: [{ check: "c1", pass: true, evidence: "0 fail", commit: head }] })).stage).toBe("proposal");
     await watchTick(db, gh.gh, Date.now(), null, state);
-    expect((await intent(c.id)).sub).toEqual({ state: "waiting", why: "Accept and ship" });
+    expect((await intent(c.id)).sub).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });
     // and a builder's push after it is the head moved, as before (not main merged in)
     const pushed = gh.commit(sha(++commits), "the builder's push", [head], false);
     gh.pulls.get(c.pr)!.head.sha = pushed;
@@ -270,9 +270,9 @@ suite("main merged into open intent pull requests", () => {
     await watchTick(db, gh.gh, Date.now(), null, state);
     expect(updates(from)).toEqual([]);
     const line = "conflicts with main: play/SPEC.md, play/api/src/ship.ts";
-    expect((await intent(c.id)).sub).toEqual({ state: "failed", why: line });
+    expect((await intent(c.id)).sub).toEqual({ state: "failed", tag: "conflicts with main", why: line });
     // in Build too: its builder resolves it
-    expect((await intent(b.id)).sub).toEqual({ state: "failed", why: "conflicts with main: CLAUDE.md" });
+    expect((await intent(b.id)).sub).toEqual({ state: "failed", tag: "conflicts with main", why: "conflicts with main: CLAUDE.md" });
     const posted = mergesStatuses(from);
     expect(posted.map((x) => [x.path, x.body.state, x.body.description]).sort()).toEqual(
       [[`/statuses/${c.head}`, "failure", line], [`/statuses/${b.head}`, "failure", "conflicts with main: CLAUDE.md"]].sort(),

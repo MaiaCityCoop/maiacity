@@ -723,8 +723,10 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     what it waits for and what waits on it (titles only shown, each opening that intent by its UUID), a held card
     striped and marked *Held*; the intent's dialog lists them with their stages.
 - **Sub-states** (Samuel 2026-11-07; intent `2bf8af96-5708-42d2-8556-da35f3f805ba`): every open intent is one of
-  failed, waiting, working or idle, with its reason (`sub: { state, why }` on `list_intents`, `get_intent`,
-  `GET /api/intents` and `/api/intents/<uuid>`; null once Accepted or Archived), said by one pure function,
+  failed, waiting, working or idle, with a tag and its reason (`sub: { state, tag, why }` on `list_intents`, `get_intent`,
+  `GET /api/intents` and `/api/intents/<uuid>`; null once Accepted or Archived; the tag at most 32 characters, the
+  dialog's chip *<State> · <tag>*, the reason below its title and on the card, checks named by id only: intent
+  `2052a88c`), said by one pure function,
   `subStateOf` (`play/api/src/substate.ts`), first match wins. **failed** (a person is needed): Ship red (back at
   Proposal with its report, until its checks are recorded again or another pull request is named), a must check whose
   last result failed, its pull request in conflict with main (*conflicts with main: \<files\>*, in Build too: *Main
