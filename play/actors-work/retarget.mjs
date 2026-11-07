@@ -36,11 +36,12 @@ export const MAPS = {
 		...side('style')
 	},
 	accad: {
-		hips: ['Hips', 'Hips', 'Spine', 'RightUpLeg', 'LeftUpLeg'],
-		spine: ['ToSpine', 'Spine', 'Spine1', 'RightUpLeg', 'LeftUpLeg'],
-		chest: ['Spine', 'Spine', 'Spine1', 'RightShoulder', 'LeftShoulder'],
-		upperChest: ['Spine1', 'Spine1', 'Neck', 'RightShoulder', 'LeftShoulder'],
-		neck: ['Neck', 'Neck', 'Head'],
+		// ACCAD's hips joint is twisted and its ToSpine untwists it: the back is read from where its joints are
+		hips: ['@pos', 'Hips', 'Spine', 'RightUpLeg', 'LeftUpLeg'],
+		spine: ['@pos', 'Spine', 'Spine1', 'RightUpLeg', 'LeftUpLeg'],
+		chest: ['@pos', 'Spine', 'Spine1', 'RightArm', 'LeftArm'],
+		upperChest: ['@pos', 'Spine1', 'Neck', 'RightArm', 'LeftArm'],
+		neck: ['@pos', 'Neck', 'Head', 'RightArm', 'LeftArm'],
 		head: ['Head', 'Head', 'Head.tip'],
 		...side('accad')
 	},
@@ -50,7 +51,7 @@ export const MAPS = {
 		chest: ['spine_02', 'spine_02', 'spine_03', 'clavicle_r', 'clavicle_l'],
 		upperChest: ['spine_03', 'spine_03', 'neck_01', 'clavicle_r', 'clavicle_l'],
 		neck: ['neck_01', 'neck_01', 'Head'],
-		head: ['Head', 'neck_01', 'Head', 'clavicle_r', 'clavicle_l'],
+		head: ['Head', null],
 		...side('ual')
 	}
 };
@@ -120,12 +121,23 @@ export function retarget(src, kind, { frames: range } = {}) {
 	const scale = lenT / lenS;
 	// each bone's line-up: A maps the target's rest frame to the source's
 	const bones = TARGET.map((b) => b.name).filter((n) => map[n]);
-	const A = {}, J = {}, R0 = {};
+	const A = {}, J = {}, R0 = {}, POS = {};
 	for (const n of bones) {
 		const [j, f, t, af, at] = map[n];
 		const [tf, tt, taf, tat] = DIRS[kind][n];
+		if (j === '@pos') {
+			// read from places: the source's frame of (dir, across) now, over the target's at rest
+			const bt = basis(tv(tt).clone().sub(tv(tf)), tv(tat ?? 'leftUpperArm').clone().sub(tv(taf ?? 'rightUpperArm')));
+			POS[n] = { f, t, af, at, inv: bt.invert() };
+			continue;
+		}
 		J[n] = jointIndex(src, j);
 		R0[n] = rest.q[J[n]].clone();
+		// a leaf with nothing of its own to line up by: lined up as its parent is
+		if (f === null) {
+			A[n] = A[TARGET.find((b) => b.name === n).parent].clone();
+			continue;
+		}
 		let ds = pos(rest, t).clone().sub(pos(rest, f));
 		let dt = tv(tt).clone().sub(tv(tf));
 		if (n.endsWith('Toes')) dt = new Vector3(...TIPS[n]).sub(tv(n));
@@ -137,7 +149,7 @@ export function retarget(src, kind, { frames: range } = {}) {
 		const bt = taf ? basis(dt, tv(tat).clone().sub(tv(taf))) : null;
 		A[n] = bs && bt ? bs.multiply(bt.invert()) : new Quaternion().setFromUnitVectors(dt.clone().normalize(), ds.clone().normalize());
 	}
-	const hipsJ = J.hips;
+	const hipsJ = jointIndex(src, map.hips[0] === '@pos' ? map.hips[1] : map.hips[0]);
 	const parentOf = Object.fromEntries(TARGET.map((b) => [b.name, b.parent]));
 	const out = [];
 	const [a, b] = range ?? [0, src.frames.length];
@@ -145,7 +157,14 @@ export function retarget(src, kind, { frames: range } = {}) {
 	for (let f = a; f < b; f++) {
 		o = fk(src, src.frames[f], o);
 		const G = {};
-		for (const n of bones) G[n] = o.q[J[n]].clone().multiply(R0[n].clone().invert()).multiply(A[n]);
+		for (const n of bones) {
+			if (POS[n]) {
+				const x = POS[n];
+				G[n] = basis(pos(o, x.t).clone().sub(pos(o, x.f)), pos(o, x.at).clone().sub(pos(o, x.af))).multiply(x.inv);
+				continue;
+			}
+			G[n] = o.q[J[n]].clone().multiply(R0[n].clone().invert()).multiply(A[n]);
+		}
 		const q = {};
 		for (const n of bones) {
 			// the nearest mapped parent's world turn (a bone without a source of its own rests under it)
