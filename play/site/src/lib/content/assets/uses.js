@@ -10,7 +10,7 @@ export const USE = /^use:([0-9a-f]{64}(?:\?[A-Za-z0-9=&._%-]*)?)$/;
 /**
  * Every build a build plants, with where: its nodes named `use:<build>`, each its build's name and its matrix in the
  * world (the build as it stands in the scene).
- * @param {THREE.Object3D} root @returns {{ ref: string, matrix: THREE.Matrix4 }[]}
+ * @param {THREE.Object3D} root @returns {{ ref: string, matrix: THREE.Matrix4, node: THREE.Object3D }[]}
  */
 export function plantingsOf(root) {
 	const out = [];
