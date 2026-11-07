@@ -1,0 +1,12 @@
+pieces: head v2, body v2 and v3 made and checked
+pieces/29bcc48554ddbec417538187d50d45124f1ee6e15f4e2ae85f56a32333e71ef1.js pieces 17 skin vertices 17639 crown 1.7978
+the piece's head on MakeHuman's: 2.15 mm mean, 4.10 mm p95
+colours: 17639 smoothed vertices, nearest fitted surface 0.74 mm median, 3.33 mm p95
+look-fit.json: shape 40272 + colours 70556 base64 chars
+samuel.js
+{"label":"Samuel","ms":243,"meshes":1,"skinned":1,"vertices":50365,"height":1.689,"clips":12}
+renderer: ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)
+morphs: joy, friendly
+480 frames in bench/frames
+film: /Users/samuelandert/a4f8dc85-work/bench.mp4
+kept in his personal library: 525356eab68c05507d6a3e8a30fb9ba9ab80194cb09a6ee14a4c6acc5313d02c
