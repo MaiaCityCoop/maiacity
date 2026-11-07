@@ -538,7 +538,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     {
       name: "check_intent",
       description:
-        "Record an intent's checks' results while it is being built (its spec approved), or at Proposal while no work of it waits: each check's id, pass and evidence, where it ran and the commit; the latest result of each stands. Gives back the intent: at Proposal once every must check passes, back at Build if a must fails there. main's results confirm in any stage once approved, moving nothing. Refused: an unknown check, no evidence, an intent not approved. What to do at each stage is the Intents skill's (get_intent's brief).",
+        "Record an intent's checks' results while it is being built, or at Proposal while no work of it waits: each check's id, pass, evidence, where and commit; the latest stands. Gives back the intent: at Proposal once every must passes, back at Build if a must fails there. main's results confirm, moving nothing. Refused: an unknown check, no evidence, an unapproved intent; from a token not avenBOX's, a pull request or a test or measure result that could decide a code intent (a commit, main, a pull request named): its run records them. The rest is the Intents skill's (get_intent's brief).",
       inputSchema: {
         type: "object",
         properties: {
@@ -554,12 +554,13 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
                 evidence: { type: "string" },
                 where: { type: "string", enum: [...WHERES], description: "where it ran: avenBOX (the default) or main (after the merge, by .github/workflows/intents.yml)" },
                 commit: { type: "string", description: "the 40-character git hash it ran on" },
+                link: { type: "string", description: "the https link of the GitHub run that ran it (avenBOX's token only)" },
               },
               required: ["check", "pass", "evidence"],
               additionalProperties: false,
             },
           },
-          pr: { type: "integer", minimum: 1, description: "the number of the intent's pull request into main (its code), which an admin's Accept merges (in Ship, when its turn comes and GitHub is ready), only on the head every must check with a run last passed on; named while it is being built or at Proposal, a newer one replacing it" },
+          pr: { type: "integer", minimum: 1, description: "the number of the intent's pull request into main (its code), which an admin's Accept merges (in Ship, when its turn comes and GitHub is ready), only on the head every must check with a run last passed on; named while it is being built or at Proposal, a newer one replacing it; named by its run in avenBOX on GitHub (avenBOX's token only)" },
         },
         required: ["intent"],
         additionalProperties: false,
