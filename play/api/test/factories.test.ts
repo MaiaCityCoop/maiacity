@@ -73,6 +73,15 @@ suite("the Factories on Loro", () => {
     return res.isError ? { error: text as string } : JSON.parse(text);
   };
 
+  /** an intent in Prototype, its spec approved, its one must check passed (at Proposal by itself): every edit is an intent's */
+  const readyIntent = async (title: string) => {
+    const i = await tool("add_intent", { title });
+    await tool("specify_intent", { intent: i.id, goal: "It changes.", nothing_to_reduce: "A test fixture: nothing to reduce.", scope: "One document.", checks: [{ check: "It holds", how: "test", by: "true", run: "true" }] });
+    await call("ada", "POST", `/api/intents/${i.id}/approve`);
+    await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] });
+    return i.id as string;
+  };
+
   test("the LifeTrac line is seeded once as its v1, and a valid factory/1", async () => {
     const doc = lifetracLine();
     expect(doc.line.stations).toHaveLength(42);
@@ -98,21 +107,22 @@ suite("the Factories on Loro", () => {
     const names = (await tool("list_docs", { kind: "factory" }))[0];
     expect(names.id).toBe(LT);
     // a second welding cell, by the station's id
-    const one = await tool("doc_edit", { doc: LT, message: "a second welding cell", edits: [{ op: "set", path: ["line", "stations", { id: "weld" }, "servers"], value: 2 }] });
+    const ready = await readyIntent("LifeTrac line");
+    const one = await tool("doc_edit", { doc: LT, intent: ready, message: "a second welding cell", edits: [{ op: "set", path: ["line", "stations", { id: "weld" }, "servers"], value: 2 }] });
     // (bun's toMatchObject writes an asymmetric matcher's match over the field it matched: the branch checked apart)
     expect(typeof one.variant).toBe("number");
     expect(one).toMatchObject({ changed: true, edits: 1, changes: 1 });
     // a faster laser on one part
-    const two = await tool("doc_edit", { doc: LT, variant: one.variant, message: "the floor cut faster", edits: [{ op: "set", path: ["parts", { id: "floor" }, "ops", 0, "s"], value: 10 }] });
+    const two = await tool("doc_edit", { doc: LT, intent: ready, variant: one.variant, message: "the floor cut faster", edits: [{ op: "set", path: ["parts", { id: "floor" }, "ops", 0, "s"], value: 10 }] });
     expect(two).toMatchObject({ variant: one.variant, edits: 2, changes: 2 });
     // a step that breaks the line is refused, and kept nowhere
-    const bad = await tool("doc_edit", { doc: LT, variant: one.variant, message: "an op at no station", edits: [{ op: "set", path: ["parts", { id: "floor" }, "ops", 0, "at"], value: "nowhere" }] });
+    const bad = await tool("doc_edit", { doc: LT, intent: ready, variant: one.variant, message: "an op at no station", edits: [{ op: "set", path: ["parts", { id: "floor" }, "ops", 0, "at"], value: "nowhere" }] });
     expect(bad.error).toContain("no station of the line");
-    expect((await tool("doc_edit", { doc: LT, variant: one.variant, message: "x", edits: [{ op: "set", path: ["parts", { id: "nope" }, "qty"], value: 1 }] })).error).toContain("no item nope");
-    const proposed = await tool("propose_doc_version", { doc: LT, variant: one.variant, note: "a second weld cell and a faster floor cut: about 41 a day" });
+    expect((await tool("doc_edit", { doc: LT, intent: ready, variant: one.variant, message: "x", edits: [{ op: "set", path: ["parts", { id: "nope" }, "qty"], value: 1 }] })).error).toContain("no item nope");
+    const proposed = await tool("propose_doc_version", { doc: LT, intent: ready, variant: one.variant, note: "a second weld cell and a faster floor cut: about 41 a day" });
     expect(proposed).toMatchObject({ doc: LT, number: 2, variant: one.variant, edits: 2, changes: 2 });
     // proposed, the draft takes no more steps
-    expect((await tool("doc_edit", { doc: LT, variant: one.variant, message: "late", edits: [{ op: "set", path: ["label"], value: "x" }] })).error).toContain("proposed already");
+    expect((await tool("doc_edit", { doc: LT, intent: ready, variant: one.variant, message: "late", edits: [{ op: "set", path: ["label"], value: "x" }] })).error).toContain("proposed already");
     // nothing changed is no proposal
     expect((await tool("propose_doc_version", { doc: LT, note: "same", edits: [{ op: "set", path: ["label"], value: "LifeTrac line" }] })).error).toContain("nothing changed");
 

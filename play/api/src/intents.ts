@@ -136,7 +136,7 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
             CASE WHEN i.work IS NULL THEN NULL ELSE json_build_object(
               'kind', i.work, 'status', CASE i.stage WHEN 'proposal' THEN 'proposal' WHEN 'accepted' THEN 'accepted' ELSE 'archived' END,
               'asset_id', i.asset_id, 'base', i.base, 'version', i.version, 'story_id', i.story_id, 'story_base', i.story_base, 'story_version', i.story_version,
-              'doc_id', i.doc_id, 'doc', split_part(i.doc_id, ':', 2), 'doc_variant', i.doc_variant,
+              'doc_id', iv0.doc_id, 'doc', split_part(iv0.doc_id, ':', 2), 'doc_variant', iv0.variant_id, 'docs', (SELECT count(*) FROM play.intent_variants x WHERE x.intent_id = i.id),
               'note', COALESCE(i.work_note, ''), 'author', pb.name, 'via', i.proposed_via, 'created', i.proposed_at, 'decided_by', de.name, 'decided_at', i.decided_at,
               'label', COALESCE(wa.label, sv.title, ${kind.label}),
               'grp', COALESCE(wa.grp, ${kind.group}),
@@ -144,7 +144,7 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
               'slug', wa.slug, 'version_label', wv.card->'card'->>'label',
               'number', CASE WHEN i.asset_id IS NOT NULL THEN COALESCE(wb.number, 0) + 1
                  WHEN i.story_id IS NOT NULL THEN COALESCE(sb.number, 0) + 1
-                 ELSE COALESCE(dbv.number, (SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = i.doc_id) + 1) END
+                 ELSE COALESCE(dbv.number, (SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = iv0.doc_id) + 1) END
             ) END AS work
        FROM play.intents i
        LEFT JOIN play.humans au ON au.id = i.author
@@ -157,7 +157,8 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
        LEFT JOIN play.asset_versions wb ON wb.id = i.base
        LEFT JOIN play.story_versions sv ON sv.id = i.story_version
        LEFT JOIN play.story_versions sb ON sb.id = i.story_base
-       LEFT JOIN play.doc_variants dbr ON dbr.id = i.doc_variant
+       LEFT JOIN LATERAL (SELECT x.doc_id, x.variant_id FROM play.intent_variants x WHERE x.intent_id = i.id ORDER BY x.position LIMIT 1) iv0 ON true
+       LEFT JOIN play.doc_variants dbr ON dbr.id = iv0.variant_id
        LEFT JOIN play.doc_versions dbv ON dbv.doc_id = dbr.doc_id AND dbv.number = dbr.version
       WHERE i.coop_id = $1 AND ${where}
       ORDER BY COALESCE(i.decided_at, i.proposed_at, i.created) DESC LIMIT 500`,

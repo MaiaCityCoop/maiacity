@@ -56,7 +56,9 @@ suite("migrate, twice at once", () => {
 // Migration 0032-versioned (play/SPEC.md "Version control"): a database made at 0031 holding work of every kind at
 // Proposal and accepted (an asset's, a story's, a factory's, a config's, a skill's), migrated: doc_variants and
 // doc_edits replace doc_branches and doc_updates, every intent's work names its doc_id and doc_variant and keeps its
-// stage, the columns per kind are gone, and every intent is still reviewed and decided.
+// stage, the columns per kind are gone, and every intent is still reviewed and decided. Then 202611070117-847c5d38-intent-variants
+// (intent 847c5d38): every intent's document and variant a row of play.intent_variants, the intent's own columns gone,
+// and an artifact kept before (its authors in order) its v1, read as a document like any other.
 const COOP = "12f8d4e7-701f-8727-a327-de9b240ea867";
 
 suite("migration 0032-versioned", () => {
@@ -176,11 +178,38 @@ suite("migration 0032-versioned", () => {
     for (const m of made) await db.query(`UPDATE play.doc_branches SET intent_id = $2 WHERE id = $1`, [m.branch, m.id]);
     const edits = Number((await q(`SELECT count(*) AS n FROM play.doc_updates`))[0].n);
 
-    // ---- 0032, then the rest: 0033-build and 0034-schemas with ensureSchemas, every schema a document of the meta-schema
+    // an artifact kept before artifacts were documents, its two authors in order
+    const art = crypto.randomUUID(), by = [crypto.randomUUID(), crypto.randomUUID()];
+    const agent = (await q(`SELECT id FROM play.agents LIMIT 1`))[0].id;
+    for (const [i, a] of by.entries()) await db.query(`INSERT INTO play.authors (id, coop_id, name, kind, agent_id) VALUES ($1, $2, $3, 'person', $4)`, [a, COOP, `Author ${i}`, agent]);
+    await db.query(
+      `INSERT INTO play.artifacts (id, coop_id, url, title, description, summary, kind, tags, agent_id, origin, operator_id) VALUES ($1, $2, 'https://example.org/old', 'An old page', 'Kept before.', '## What it is', 'page', '{old}', $3, 'human', $4)`,
+      [art, COOP, agent, ada],
+    );
+    for (const [i, a] of [by[1], by[0]].entries()) await db.query(`INSERT INTO play.artifact_authors (artifact_id, author_id, position) VALUES ($1, $2, $3)`, [art, a, i]);
+
+    // ---- 0032
     expect(await migrate(db, { until: "0032-versioned" })).toEqual(["0032-versioned"]);
-    // (every migration after 0032 runs, 0033-build and 0034-schemas among them, and any that come after them)
+    for (const [t, there] of [["doc_variants", true], ["doc_edits", true], ["doc_branches", false], ["doc_updates", false], ["proposal_ids", false]] as const)
+      expect(!!(await q(`SELECT to_regclass('play.${t}') AS t`))[0].t).toBe(there);
+    const cols = (await q(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'play' AND table_name = 'intents'`)).map((r) => r.column_name);
+    for (const gone of ["factory_id", "game_config_id", "skill_id", "doc_branch"]) expect(cols).not.toContain(gone);
+    for (const kept of ["doc_id", "doc_variant", "asset_id", "version", "base", "story_id", "story_version", "story_base"]) expect(cols).toContain(kept);
+    // every edit kept, each on a variant; one Main for each document, every edit not on an intent variant on it
+    expect(Number((await q(`SELECT count(*) AS n FROM play.doc_edits WHERE doc_id NOT LIKE 'schema:%'`))[0].n)).toBe(edits);
+    expect(await q(`SELECT doc_id FROM play.doc_variants WHERE type = 'main' GROUP BY doc_id HAVING count(*) <> 1`)).toEqual([]);
+    expect(Number((await q(`SELECT count(*) AS n FROM play.docs d WHERE NOT EXISTS (SELECT 1 FROM play.doc_variants v WHERE v.doc_id = d.id AND v.type = 'main')`))[0].n)).toBe(0);
+    // every intent's work names its document and variant, its stage as it was
+    for (const m of made)
+      expect((await q(`SELECT stage, work, doc_id, doc_variant::int AS v FROM play.intents WHERE id = $1`, [m.id]))[0]).toEqual({ stage: m.stage, work: m.kind, doc_id: m.doc, v: m.branch });
+    expect((await q(`SELECT type, intent_id FROM play.doc_variants WHERE id = $1`, [made[0].branch]))[0]).toEqual({ type: "intent", intent_id: made[0].id });
+    // what an intent's work names is one rule
+    await expect(db.query(`UPDATE play.intents SET doc_id = NULL WHERE id = $1`, [made[0].id])).rejects.toThrow(/intents_work_names_what/);
+
+    // then every migration after 0032 (0033-build and 0034-schemas among them, this intent's intent-variants after them)
     const rest = MIGRATIONS.map((m) => m.id).slice(MIGRATIONS.findIndex((m) => m.id === "0032-versioned") + 1);
     expect(rest.slice(0, 2)).toEqual(["0033-build", "0034-schemas"]);
+    expect(rest.some((id) => id.endsWith("-847c5d38-intent-variants"))).toBe(true);
     expect(await migrate(db)).toEqual(rest);
     // every schema a document, v1 from the seed; every document made before names its schema's UUID and version, and
     // is still valid against that schema as Postgres holds it (play/SPEC.md "Version control")
@@ -196,21 +225,13 @@ suite("migration 0032-versioned", () => {
     }
     expect(await migrate(db)).toEqual([]);
     expect(Number((await q(`SELECT count(*) AS n FROM play.docs WHERE id LIKE 'schema:%'`))[0].n)).toBe(schemas.length);
-    for (const [t, there] of [["doc_variants", true], ["doc_edits", true], ["doc_branches", false], ["doc_updates", false], ["proposal_ids", false]] as const)
-      expect(!!(await q(`SELECT to_regclass('play.${t}') AS t`))[0].t).toBe(there);
-    const cols = (await q(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'play' AND table_name = 'intents'`)).map((r) => r.column_name);
-    for (const gone of ["factory_id", "game_config_id", "skill_id", "doc_branch", "sandbox_change"]) expect(cols).not.toContain(gone);
-    for (const kept of ["doc_id", "doc_variant", "asset_id", "version", "base", "story_id", "story_version", "story_base"]) expect(cols).toContain(kept);
-    // every edit kept, each on a variant; one Main for each document, every edit not on an intent variant on it
-    expect(Number((await q(`SELECT count(*) AS n FROM play.doc_edits WHERE doc_id NOT LIKE 'schema:%'`))[0].n)).toBe(edits);
-    expect(await q(`SELECT doc_id FROM play.doc_variants WHERE type = 'main' GROUP BY doc_id HAVING count(*) <> 1`)).toEqual([]);
-    expect(Number((await q(`SELECT count(*) AS n FROM play.docs d WHERE NOT EXISTS (SELECT 1 FROM play.doc_variants v WHERE v.doc_id = d.id AND v.type = 'main')`))[0].n)).toBe(0);
-    // every intent's work names its document and variant, its stage as it was
-    for (const m of made)
-      expect((await q(`SELECT stage, work, doc_id, doc_variant::int AS v FROM play.intents WHERE id = $1`, [m.id]))[0]).toEqual({ stage: m.stage, work: m.kind, doc_id: m.doc, v: m.branch });
-    expect((await q(`SELECT type, intent_id FROM play.doc_variants WHERE id = $1`, [made[0].branch]))[0]).toEqual({ type: "intent", intent_id: made[0].id });
-    // what an intent's work names is one rule
-    await expect(db.query(`UPDATE play.intents SET doc_id = NULL WHERE id = $1`, [made[0].id])).rejects.toThrow(/intents_work_names_what/);
+
+    // ---- 847c5d38's migration: every intent's document and variant a row of play.intent_variants, in place of its own columns
+    const after = (await q(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'play' AND table_name = 'intents'`)).map((r) => r.column_name);
+    for (const gone of ["doc_id", "doc_variant", "sandbox_change"]) expect(after).not.toContain(gone);
+    for (const m of made) expect(await q(`SELECT doc_id, variant_id::int AS v FROM play.intent_variants WHERE intent_id = $1`, [m.id])).toEqual([{ doc_id: m.doc, v: m.branch }]);
+    expect((await q(`SELECT author_ids::text[] AS a FROM play.artifacts WHERE id = $1`, [art]))[0].a).toEqual([by[1], by[0]]);
+    expect(await q(`SELECT author_id::text AS a, position FROM play.artifact_authors WHERE artifact_id = $1 ORDER BY position`, [art])).toEqual([{ a: by[1], position: 0 }, { a: by[0], position: 1 }]);
 
     // and every one still reviewed and decided
     await initSessions(db);
@@ -227,6 +248,13 @@ suite("migration 0032-versioned", () => {
       const decided = await as("POST", `/api/intents/${m.id}/accept`);
       expect(decided.data).toMatchObject({ stage: "accepted", decision: { status: "accepted" } });
     }
+    // the artifact from before: its v1, as a document like any other; listed as it was
+    const ah = await as("GET", `/api/docs/${art}/history`);
+    expect(ah.status).toBe(200);
+    expect(ah.data).toMatchObject({ kind: "artifact", versions: [{ number: 1 }] });
+    const ad = await as("GET", `/api/docs/${art}`);
+    expect(ad.data.json).toMatchObject({ schema: "artifact/1", url: "https://example.org/old", title: "An old page", tags: ["old"], origin: "human", operator: ada, authors: [by[1], by[0]] });
+    expect((await as("GET", "/api/artifacts")).data.artifacts.map((a: any) => [a.id, a.authors.map((x: any) => x.id)])).toEqual([[art, [by[1], by[0]]]]);
     // their documents' histories read whole by today's store, each with its new version
     for (const doc of new Set(made.map((m) => m.doc))) {
       const h = await as("GET", `/api/docs/${doc.split(":")[1]}/history`);
@@ -302,7 +330,8 @@ suite("migration 202611070115-d2f50bf1-sandbox-layouts", () => {
     const wasPins = await q(`SELECT slot, version_id, variant, params FROM play.sandbox_pins WHERE sandbox_id = $1 ORDER BY slot`, [S2]);
 
     // ---- the migration, then ensureLayouts at the end of migrate()
-    expect(await migrate(db)).toEqual(["202611070115-d2f50bf1-sandbox-layouts"]);
+    // (and every migration after it: 847c5d38's intent-variants holds each intent's documents)
+    expect((await migrate(db))[0]).toEqual("202611070115-d2f50bf1-sandbox-layouts");
     expect(await q(`SELECT intent_id FROM play.sandbox_changes_kept WHERE NOT moved`)).toEqual([]);
     const cols = (await q(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'play' AND table_name = 'intents'`)).map((r) => r.column_name);
     for (const gone of ["sandbox_id", "sandbox_base", "sandbox_change", "sandbox_diff"]) expect(cols).not.toContain(gone);
@@ -314,11 +343,10 @@ suite("migration 202611070115-d2f50bf1-sandbox-layouts", () => {
     // every change an intent variant of it, each intent's stage kept
     const variants = new Map((await q(`SELECT id::int AS id, status, intent_id, review FROM play.doc_variants WHERE doc_id = $1 AND type = 'intent'`, [doc])).map((v) => [v.intent_id, v]));
     for (const [id, stage, status] of [[accepted, "accepted", "accepted"], [archived, "archived", "archived"], [waits, "proposal", "proposed"], [gone, "proposal", "proposed"]] as const) {
-      const i = (await q(`SELECT stage, work, doc_id, doc_variant::int AS v FROM play.intents WHERE id = $1`, [id]))[0];
+      const i = (await q(`SELECT i.stage, i.work, iv.doc_id, iv.variant_id::int AS v FROM play.intents i JOIN play.intent_variants iv ON iv.intent_id = i.id WHERE i.id = $1`, [id]))[0];
       expect(i).toEqual({ stage, work: "sandbox_version", doc_id: doc, v: variants.get(id).id });
       expect(variants.get(id)).toMatchObject({ status, review: expect.objectContaining({ edits: expect.any(Array) }) });
     }
-    await expect(db.query(`UPDATE play.intents SET doc_id = NULL WHERE id = $1`, [waits])).rejects.toThrow(/intents_work_names_what/);
 
     // reviewed and decided as every document's work is
     await initSessions(db);

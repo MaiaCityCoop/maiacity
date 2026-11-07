@@ -15,7 +15,7 @@ import { NotFound } from "./assets";
 import * as docs from "./docs";
 import { SCHEMA } from "./ids";
 import { applyEdits as applyDocEdits, jsonOf, newDoc, seed } from "./docs/core";
-import { closeWork, intentIdOf, settle } from "./work";
+import { closeWork, holdVariant, intentIdOf, settle } from "./work";
 import { resolveEdits, VersionError } from "./versioned";
 
 export class SandboxError extends Error {
@@ -533,7 +533,7 @@ export async function proposedState(db: Queryable, me: Me | null, sandbox: strin
   admin(me);
   const intent = await intentIdOf(db, id);
   if (!intent) throw new NotFound("There is no such intent.");
-  const { rows } = await db.query<{ stage: string; doc_variant: string | null }>(`SELECT stage, doc_variant FROM play.intents WHERE id = $1 AND doc_id = $2`, [intent, layoutDoc(sandbox)]);
+  const { rows } = await db.query<{ stage: string; doc_variant: string | null }>(`SELECT i.stage, iv.variant_id AS doc_variant FROM play.intents i JOIN play.intent_variants iv ON iv.intent_id = i.id WHERE i.id = $1 AND iv.doc_id = $2`, [intent, layoutDoc(sandbox)]);
   if (!rows[0]) throw new NotFound("There is no such intent's change of this sandbox.");
   if (rows[0].stage !== "proposal" || rows[0].doc_variant == null) return stateOf(db, sandbox);
   const merged = (await docs.previewMerge(db, layoutDoc(sandbox), Number(rows[0].doc_variant))).json;
@@ -591,7 +591,7 @@ export async function ensureLayouts(db: Db): Promise<number> {
                 proposed_at = COALESCE(proposed_at, $5), decided_by = $6, decided_at = $7 WHERE id = $1`,
         [v, status, JSON.stringify(review), i.id, i.proposed_at, i.stage === "proposal" ? null : i.decided_by, i.stage === "proposal" ? null : i.decided_at],
       );
-      await q.query(`UPDATE play.intents SET doc_variant = $2 WHERE id = $1`, [i.id, v]);
+      await holdVariant(q, null, i.id, docId, v);
       await q.query(`UPDATE play.sandbox_changes_kept SET moved = true WHERE intent_id = $1`, [i.id]);
     }
     return kept.length;

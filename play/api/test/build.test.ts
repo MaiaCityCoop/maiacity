@@ -135,7 +135,8 @@ suite("the stage Build (migration 0033-build)", () => {
 
     const before = await q(`SELECT * FROM play.intents ORDER BY id`);
     expect(before.filter((r) => r.stage === "prototype").map((r) => r.id).sort()).toEqual([...prototyped].sort());
-    expect(before.find((r) => r.id === withWork)).toMatchObject({ work: "skill_version", doc_id: `skill:${SKILL.avenmaia}` });
+    expect(before.find((r) => r.id === withWork)).toMatchObject({ work: "skill_version" });
+    expect(await q(`SELECT doc_id FROM play.intent_variants WHERE intent_id = $1`, [withWork])).toEqual([{ doc_id: `skill:${SKILL.avenmaia}` }]);
 
     expect(await migrate(db, { until: "0033-build" })).toEqual(["0033-build"]);
     expect(await migrate(db, { until: "0033-build" })).toEqual([]);
@@ -186,9 +187,12 @@ suite("the stage Build (migration 0033-build)", () => {
     // the move, drafted with doc_edit: the text under build, worded for Build, the prototype part gone
     const text = v1.json.stages.prototype.replace(/agents prototype in/g, "agents build in").replace(/At Prototype/g, "At Build");
     const { prototype: _, ...rest } = v1.json.stages;
-    const draft = await tool("doc_edit", { doc: SKILL.intents, message: "the Prototype part is the Build part", whole: { ...v1.json, stages: { ...rest, build: text } } });
+    // every edit is an intent's (intent 847c5d38): the move's own, in Build with its check passed
+    const move = await approvedToBuild("The stage Prototype is Build in the Intents skill");
+    await tool("check_intent", { intent: move, results: SPEC.checks.map((_, i) => ({ check: `c${i + 1}`, pass: true, evidence: "exit 0" })) });
+    const draft = await tool("doc_edit", { doc: SKILL.intents, intent: move, message: "the Prototype part is the Build part", whole: { ...v1.json, stages: { ...rest, build: text } } });
     expect(draft).toMatchObject({ changed: true, edits: 1 });
-    const proposed = await tool("propose_doc_version", { doc: SKILL.intents, variant: draft.variant, note: "The stage Prototype is Build (intent 60f4f75c-666a-4eca-9bb2-4a29311afa6c)" });
+    const proposed = await tool("propose_doc_version", { doc: SKILL.intents, intent: move, variant: draft.variant, note: "The stage Prototype is Build (intent 60f4f75c-666a-4eca-9bb2-4a29311afa6c)" });
     expect(proposed).toMatchObject({ stage: "proposal", doc: SKILL.intents, number: 2 });
     const review = (await call("ada", "GET", `/api/intents/${proposed.intent}`)).data.review;
     expect(review.changes.map((c: any) => c.path).sort()).toEqual(["$.stages.build", "$.stages.prototype"]);

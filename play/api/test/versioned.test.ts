@@ -48,7 +48,7 @@ const GADGET = {
     additionalProperties: false,
   },
 };
-const gadgetCheck = (doc: any) => (doc.cogs === 13 ? ["a gadget never has 13 cogs"] : []);
+const gadgetCheck = (doc: any) => [...(doc.cogs === 13 ? ["a gadget never has 13 cogs"] : []), ...(doc.colour && doc.colour === doc.label ? ["a gadget is never named its colour"] : [])];
 
 const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  // ${line}\n  return { meta: { id, v }, build: () => null };\n};\n`;
 const SPEC = {
@@ -141,11 +141,17 @@ suite("one version control", () => {
     expect((await call(null, "GET", `/api/docs/${G}`)).status).toBe(401);
     expect(await tool("doc_at", { doc: G })).toMatchObject({ id: G, kind: "gadget", number: 1, version: 1, json: { label: "A gadget", cogs: 3 } });
 
+    // no edit without an intent: refused, nothing kept; an intent still in Idea takes none either
+    expect((await tool("doc_edit", { doc: G, message: "no intent", edits: [{ op: "set", path: ["cogs"], value: 4 }] })).error).toContain("intent");
+    const idea = await tool("add_intent", { title: "A teal gadget" });
+    expect((await tool("doc_edit", { doc: G, intent: idea.id, message: "too early", edits: [{ op: "set", path: ["cogs"], value: 4 }] })).error).toContain("idea stage");
+    expect((await tool("doc_history", { doc: G })).variants).toHaveLength(1);
+    const ready = await readyIntent("A teal gadget, specified");
     // edited twice in an intent variant, each edit checked whole; a broken edit refused and kept nowhere
-    const one = await tool("doc_edit", { doc: G, message: "more cogs", edits: [{ op: "set", path: ["cogs"], value: 5 }] });
+    const one = await tool("doc_edit", { doc: G, intent: ready, message: "more cogs", edits: [{ op: "set", path: ["cogs"], value: 5 }] });
     expect(one).toMatchObject({ doc: G, kind: "gadget", changed: true, edits: 1, changes: 1 });
-    expect((await tool("doc_edit", { doc: G, variant: one.variant, message: "unlucky", edits: [{ op: "set", path: ["cogs"], value: 13 }] })).error).toContain("13 cogs");
-    const two = await tool("doc_edit", { doc: G, variant: one.variant, message: "a colour", edits: [{ op: "set", path: ["colour"], value: "teal" }] });
+    expect((await tool("doc_edit", { doc: G, intent: ready, variant: one.variant, message: "unlucky", edits: [{ op: "set", path: ["cogs"], value: 13 }] })).error).toContain("13 cogs");
+    const two = await tool("doc_edit", { doc: G, intent: ready, message: "a colour", edits: [{ op: "set", path: ["colour"], value: "teal" }] });
     expect(two).toMatchObject({ variant: one.variant, edits: 2, changes: 2 });
 
     // its history: Main's edits and versions, Main and the open intent variant, seeded from v1; one variant's own edits
@@ -153,7 +159,7 @@ suite("one version control", () => {
     expect(h.edits.map((e: any) => e.message)).toEqual(["v1: the first gadget"]);
     expect(h.variants).toEqual([
       expect.objectContaining({ type: "main", status: "open" }),
-      expect.objectContaining({ id: one.variant, type: "intent", status: "open", seed: 1, edits: 2, intent: null }),
+      expect.objectContaining({ id: one.variant, type: "intent", status: "open", seed: 1, edits: 2, intent: expect.objectContaining({ id: ready }) }),
     ]);
     const own = await tool("doc_history", { doc: G, variant: one.variant });
     expect(own.edits.map((e: any) => e.message)).toEqual(["more cogs", "a colour"]);
@@ -168,13 +174,12 @@ suite("one version control", () => {
     expect(changed.edits.map((e: any) => e.message)).toEqual(["more cogs", "a colour"]);
     expect((await call("ada", "GET", `/api/docs/${G}/history?variant=${one.variant}`)).data.edits).toHaveLength(2);
 
-    // proposed for an intent: refused before its checks pass, then the intent at Proposal with the work
-    const i = await tool("add_intent", { title: "A teal gadget" });
-    expect((await tool("propose_doc_version", { doc: G, variant: one.variant, note: "teal", intent: i.id })).error).toBeTruthy();
-    const ready = await readyIntent("A teal gadget, specified");
+    // proposed for an intent: refused for one not ready, and for any but the one it was made for; then the intent at Proposal with the work
+    expect((await tool("propose_doc_version", { doc: G, variant: one.variant, note: "teal", intent: idea.id })).error).toBeTruthy();
+    expect((await tool("propose_doc_version", { doc: G, variant: one.variant, note: "teal" })).error).toContain(ready);
     const p = await tool("propose_doc_version", { doc: G, variant: one.variant, note: "five teal cogs", intent: ready });
     expect(p).toMatchObject({ intent: ready, stage: "proposal", doc: G, kind: "gadget", number: 2, variant: one.variant, edits: 2, changes: 2 });
-    expect((await tool("doc_edit", { doc: G, variant: one.variant, message: "late", edits: [{ op: "set", path: ["cogs"], value: 6 }] })).error).toContain("proposed already");
+    expect((await tool("doc_edit", { doc: G, intent: ready, variant: one.variant, message: "late", edits: [{ op: "set", path: ["cogs"], value: 6 }] })).error).toContain("proposed already");
     // the board: its work named by its document and variant, reviewed field by field with its edits
     const listed = (await call("ada", "GET", "/api/intents?stage=proposal")).data.find((x: any) => x.id === ready);
     expect(listed.work).toMatchObject({ kind: "gadget_version", doc: G, doc_id: `gadget:${G}`, doc_variant: one.variant, grp: "gadgets", label: "A gadget", number: 2 });
@@ -313,15 +318,15 @@ suite("one version control", () => {
       expect(at).toMatchObject({ id, kind: k.kind });
       const was = at.number;
 
-      // two edits on one intent variant, Main as it was
-      const one = await tool("doc_edit", { doc: id, message: `${k.kind}: the first edit`, edits: k.first });
+      // two edits on one intent variant, for its intent, Main as it was
+      const intent = await readyIntent(`A ${k.kind} round trip`);
+      const one = await tool("doc_edit", { doc: id, intent, message: `${k.kind}: the first edit`, edits: k.first });
       expect(one).toMatchObject({ doc: id, kind: k.kind, changed: true, edits: 1 });
-      const two = await tool("doc_edit", { doc: id, variant: one.variant, message: `${k.kind}: the second edit`, edits: k.second });
+      const two = await tool("doc_edit", { doc: id, intent, variant: one.variant, message: `${k.kind}: the second edit`, edits: k.second });
       expect(two).toMatchObject({ variant: one.variant, edits: 2 });
       expect((await tool("doc_at", { doc: id })).json).toEqual(at.json);
 
-      // proposed for an intent, reviewed field by field with its edits, read as the intent's variant would make it
-      const intent = await readyIntent(`A ${k.kind} round trip`);
+      // proposed for its intent, reviewed field by field with its edits, read as the intent's variant would make it
       const p = await tool("propose_doc_version", { doc: id, variant: one.variant, note: `${k.kind}: two edits`, intent });
       expect(p).toMatchObject({ intent, stage: "proposal", doc: id, kind: k.kind, variant: one.variant, edits: k.kind === "asset" ? 3 : 2 });
       const review = (await call("ada", "GET", `/api/intents/${intent}`)).data.review;
@@ -361,4 +366,62 @@ suite("one version control", () => {
       }
       expect((await tool("doc_at", { doc: id })).number).toBe(was + 2);
     });
+
+  // ---- intent 847c5d38's c4: one intent, several documents
+
+  test("several documents: an intent holding variants of two is reviewed with both, accepted in one transaction, refused whole when one is invalid or clashes, archived whole", async () => {
+    const A = crypto.randomUUID(), B = crypto.randomUUID();
+    await seedDoc(db, "gadget", { id: A, json: { schema: "gadget/1", label: "Gadget A", cogs: 1 }, note: "A" });
+    await seedDoc(db, "gadget", { id: B, json: { schema: "gadget/1", label: "Gadget B", cogs: 1 }, note: "B" });
+    const number = async (id: string) => (await tool("doc_at", { doc: id })).number;
+    const variantOf = async (id: string, v: number) => (await tool("doc_history", { doc: id })).variants.find((x: any) => x.id === v);
+
+    // both edited for one intent and proposed naming it: one intent at Proposal holding both
+    const both = await readyIntent("Two gadgets, one change");
+    const ea = await tool("doc_edit", { doc: A, intent: both, message: "A: more cogs", edits: [{ op: "set", path: ["cogs"], value: 2 }] });
+    const eb = await tool("doc_edit", { doc: B, intent: both, message: "B: more cogs", edits: [{ op: "set", path: ["cogs"], value: 3 }] });
+    expect((await tool("propose_doc_version", { doc: A, variant: ea.variant, note: "A's cogs", intent: both })).intent).toBe(both);
+    expect((await tool("propose_doc_version", { doc: B, variant: eb.variant, note: "B's cogs", intent: both })).intent).toBe(both);
+    const listed = (await call("ada", "GET", "/api/intents?stage=proposal")).data.find((x: any) => x.id === both);
+    expect(listed.work).toMatchObject({ kind: "gadget_version", doc: A, docs: 2 });
+    const review = (await call("ada", "GET", `/api/intents/${both}`)).data.review;
+    expect(review.docs.map((d: any) => [d.doc.id, d.variant, d.changes.map((c: any) => c.to)])).toEqual([[A, ea.variant, [2]], [B, eb.variant, [3]]]);
+    // Main of neither moved before the Accept; then both in one decision
+    expect([await number(A), await number(B)]).toEqual([1, 1]);
+    const ok = (await call("ada", "POST", `/api/intents/${both}/accept`)).data;
+    expect(ok).toMatchObject({ stage: "accepted", decision: { status: "accepted", numbers: [2, 2] } });
+    expect([(await tool("doc_at", { doc: A })).json.cogs, (await tool("doc_at", { doc: B })).json.cogs]).toEqual([2, 3]);
+
+    // a clash on one: neither goes in, the intent archived whole (back to Build, its spec approved), both variants closed
+    const clash = await readyIntent("Two gadgets, one clashing");
+    const ca = await tool("propose_doc_version", { doc: A, note: "A: a colour", edits: [{ op: "set", path: ["colour"], value: "blue" }], intent: clash });
+    const cb = await tool("propose_doc_version", { doc: B, note: "B: more cogs", edits: [{ op: "set", path: ["cogs"], value: 7 }], intent: clash });
+    const first = await tool("propose_doc_version", { doc: B, note: "B: fewer cogs", edits: [{ op: "set", path: ["cogs"], value: 1 }] });
+    expect((await call("ada", "POST", `/api/intents/${first.intent}/accept`)).data.decision.status).toBe("accepted");
+    const refused = (await call("ada", "POST", `/api/intents/${clash}/accept`)).data;
+    expect(refused.decision.status).toBe("archived");
+    expect(refused.message).toContain("nothing of this intent went in");
+    expect(refused.stage).toBe("build");
+    expect([await number(A), (await tool("doc_at", { doc: A })).json.colour, (await tool("doc_at", { doc: B })).json.cogs]).toEqual([2, undefined, 1]);
+    expect([(await variantOf(A, ca.variant)).status, (await variantOf(B, cb.variant)).status]).toEqual(["archived", "archived"]);
+
+    // invalid once merged on one: neither goes in
+    const bad = await readyIntent("Two gadgets, one invalid");
+    await tool("propose_doc_version", { doc: A, note: "A: a name", edits: [{ op: "set", path: ["label"], value: "red" }], intent: bad });
+    await tool("propose_doc_version", { doc: B, note: "B: red", edits: [{ op: "set", path: ["colour"], value: "red" }], intent: bad });
+    const named = await tool("propose_doc_version", { doc: B, note: "B: named red", edits: [{ op: "set", path: ["label"], value: "red" }] });
+    expect((await call("ada", "POST", `/api/intents/${named.intent}/accept`)).data.decision.status).toBe("accepted");
+    const invalid = (await call("ada", "POST", `/api/intents/${bad}/accept`)).data;
+    expect(invalid.decision.status).toBe("archived");
+    expect(invalid.message).toContain("never named its colour");
+    expect((await tool("doc_at", { doc: A })).json.label).toBe("Gadget A");
+
+    // archived whole by an admin: both variants closed, Main as it was
+    const gone = await readyIntent("Two gadgets, archived");
+    const ga = await tool("propose_doc_version", { doc: A, note: "A: teal", edits: [{ op: "set", path: ["colour"], value: "teal" }], intent: gone });
+    const gb = await tool("propose_doc_version", { doc: B, note: "B: teal", edits: [{ op: "set", path: ["colour"], value: "teal" }], intent: gone });
+    expect((await call("ada", "POST", `/api/intents/${gone}/archive`)).data.decision.status).toBe("archived");
+    expect([(await variantOf(A, ga.variant)).status, (await variantOf(B, gb.variant)).status]).toEqual(["archived", "archived"]);
+    expect([await number(A), await number(B)]).toEqual([2, 4]);
+  });
 });

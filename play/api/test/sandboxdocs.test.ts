@@ -73,10 +73,19 @@ suite("a sandbox's layout as a document", () => {
   const rpc = async (method: string, params: unknown) =>
     (await (await api.fetch(new Request("http://play.test/api/mcp", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method, params }) }))).json()).result;
   /** a tool called over MCP by ada's token: its result as JSON, or its error's text */
-  const tool = async (name: string, args: Record<string, unknown>): Promise<any> => {
+  const raw = async (name: string, args: Record<string, unknown>): Promise<any> => {
     const res = await rpc("tools/call", { name, arguments: args });
     const text = res.content[0].text;
     return res.isError ? { error: text as string } : JSON.parse(text);
+  };
+  /** every edit is an intent's (intent 847c5d38): an edit this test makes without naming one is made for an intent of
+   * its own, in Build with its one check passed */
+  const tool = async (name: string, args: Record<string, unknown>): Promise<any> => {
+    if (name !== "doc_edit" || args.intent !== undefined) return raw(name, args);
+    const i = await raw("add_intent", { title: `An edit: ${args.message}` });
+    await raw("specify_intent", { intent: i.id, ...SPEC });
+    await call("ada", "POST", `/api/intents/${i.id}/approve`);
+    return raw(name, { ...args, intent: i.id });
   };
   const config = async (as = "cit", intent?: string) => (await call(as, "GET", `/api/sandboxes/${S2}/config${intent ? `?intent=${intent}` : ""}`)).data;
 
@@ -117,9 +126,9 @@ suite("a sandbox's layout as a document", () => {
     await tool("specify_intent", { intent, ...SPEC });
     await call("ada", "POST", `/api/intents/${intent}/approve`);
     await tool("check_intent", { intent, results: [{ check: "c1", pass: true, evidence: "exit 0" }] });
-    const e1 = await tool("doc_edit", { doc: S2, message: "the pawpaws on v2", edits: [{ op: "pin_latest", asset }] });
+    const e1 = await tool("doc_edit", { doc: S2, intent, message: "the pawpaws on v2", edits: [{ op: "pin_latest", asset }] });
     expect(e1).toMatchObject({ kind: "sandbox", changed: true, edits: 1 });
-    const e2 = await tool("doc_edit", { doc: S2, variant: e1.variant, message: "the grove's tree further out", edits: [{ op: "set", config: "grove", path: ["trees", 0, "at"], value: [4, 2] }, { op: "set", config: "grove", path: ["trees", 0, "weight"], value: 3 }] });
+    const e2 = await tool("doc_edit", { doc: S2, intent, variant: e1.variant, message: "the grove's tree further out", edits: [{ op: "set", config: "grove", path: ["trees", 0, "at"], value: [4, 2] }, { op: "set", config: "grove", path: ["trees", 0, "weight"], value: 3 }] });
     expect(e2).toMatchObject({ variant: e1.variant, edits: 2 });
     // nobody sees an intent variant as the layout until it is accepted
     expect(await config()).toEqual(before);

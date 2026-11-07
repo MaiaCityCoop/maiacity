@@ -88,12 +88,14 @@ const ASSET_FORMAT =
   "An asset is { schema: 'asset/1', label, note, source (its readable source, as text), engine, card (its version's record), defaultVariant?, variants?: [{ name, source? (where it differs from the asset's own), card }] }; " +
   "its reference sheet, data sheet and brief are its card's sheet, datasheet and brief (each a file's hash: add_story_frame, add_document).";
 
+const ARTIFACT_FORMAT =
+  "An artifact is { schema: 'artifact/1', url, title, description, summary, kind, tags, published, text_hash, origin, agent, operator, token, authors: its authors' ids in order }: change it with update_artifact, which holds every field to its form.";
 const SANDBOX_FORMAT =
   "A sandbox's layout is { schema: 'sandbox/1', title (only shown), pins: { <slot>: { version (an accepted asset version's hash), variant (a variant's name, null for the version's default), params ({ stage: '9' }, or null) } }, configs: { <name>: {…} } } " +
   "(Sandbox 1's `garden`: its layers of plantings, each { id, slot, stages, weight, … }, its spacing, drift and fields): anything in a config with a `slot` is drawn as that slot's pin, and every slot a config names is pinned. Its UUID is the sandbox's (list_sandboxes).";
 
 /** what each kind's document holds, for doc_at */
-const FORMATS = `${ASSET_FORMAT} ${STORY_FORMAT} ${FACTORY_FORMAT} ${LEVELS_FORMAT} ${SKILL_FORMAT} ${SANDBOX_FORMAT}`;
+const FORMATS = `${ASSET_FORMAT} ${STORY_FORMAT} ${FACTORY_FORMAT} ${LEVELS_FORMAT} ${SKILL_FORMAT} ${SANDBOX_FORMAT} ${ARTIFACT_FORMAT}`;
 
 /** the edits doc_edit and propose_doc_version take */
 const EDITS =
@@ -265,21 +267,22 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     {
       name: "doc_edit",
       description:
-        `One edit of an intent variant, kept with its message: work on a document edit by edit (each fix, each tuning its own edit, so the history shows how it was made), then propose the variant with propose_doc_version and its \`variant\`. Without \`variant\` it starts a new intent variant seeded from Main's newest version and gives back its number; pass that number to the next edits. Every edit is checked whole, and nobody sees an intent variant as the document until it is proposed and accepted. ${EDITS} Or give the whole document (\`whole\`, doc_at's \`json\` changed).`,
+        `One edit of an intent variant, for the intent it is made for (\`intent\`: no edit without one, and nothing reaches the document's Main but an admin's Accept of that intent at Proposal), kept with its message: work on a document edit by edit (each fix, each tuning its own edit, so the history shows how it was made), then propose the variant with propose_doc_version and its \`variant\`. Without \`variant\` it goes on the intent's open variant of this document, or starts a new one seeded from Main's newest version, and gives back its number. One intent may change several documents: edit each for it, and propose each naming it; they are accepted together or archived together. Every edit is checked whole, and nobody sees an intent variant as the document until it is proposed and accepted. ${EDITS} Or give the whole document (\`whole\`, doc_at's \`json\` changed).`,
       inputSchema: {
         type: "object",
         properties: {
           doc: { type: "string", description: "its UUID; left out with `kind` and `whole`, a new document of that kind" },
           kind: { type: "string", description: "a new document's kind (list_docs's kinds): a schema, or a kind that is a schema alone; its first state is `whole`" },
+          intent: { type: "string", description: "the intent this edit is made for, by its id (a UUID: add_intent makes one): in Build, or waiting at Proposal" },
           message: { type: "string", description: "what this edit does, as its history will say it" },
           variant: { type: "integer", minimum: 1, description: "the intent variant to add the edit to (doc_edit gives it); a new one seeded from Main's newest version if left out" },
           edits: { type: "array", items: { type: "object" }, description: "edits applied in order" },
           whole: { type: "object", description: "the whole new document (instead of edits)" },
         },
-        required: ["message"],
+        required: ["intent", "message"],
         additionalProperties: false,
       },
-      run: async ({ doc, kind, message, variant, edits, whole }, me) => docEdit({ db, store }, me, { doc, kind, message, edits, whole, ...(variant != null ? { variant: Number(variant) } : {}) }),
+      run: async ({ doc, kind, intent, message, variant, edits, whole }, me) => docEdit({ db, store }, me, { doc, kind, intent, message, edits, whole, ...(variant != null ? { variant: Number(variant) } : {}) }),
     },
     {
       name: "propose_doc_version",
@@ -609,7 +612,8 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         `description, the mini summary (1–2 sentences, one line, at most ${DESCRIPTION_MOST} characters, no Markdown: what it is and its main point); ` +
         `summary, a small report on the overall topic (Markdown, ${SUMMARY_WORDS.least}–${SUMMARY_WORDS.most} words, in the sections ## What it is (who made it, what kind of thing, when, from which angle), ## Key points (its claims, findings and numbers as bullets, as the artifact puts them), ## The topic (the wider subject: what it is, where this artifact stands in it, what else is known or disputed), and if you like ## For Maia City last (where it bears on our work); what the artifact says in the first two, what you know beyond it only in ## The topic). ` +
         "Authors: call list_authors first and name an author already kept by their id; add a new one { name, kind: person | organization, url? } only when none is them (two of one name stay two: never guess by a name). Where no person is named, its publisher (a site, a channel, a lab) is its author, as an organization. " +
-        "One link is one artifact: links are compared without their #fragment, utm_*, fbclid and gclid and a trailing slash, and a YouTube video is one link however it is written; a link already kept answers with that artifact and kept: true (correct it with update_artifact). " +
+        "One link is one artifact: links are compared without their #fragment, utm_*, fbclid and gclid and a trailing slash, and a YouTube video is one link however it is written; a link already kept answers with that artifact and kept: true (correct it with update_artifact), one an intent's work waits with answers with that intent. " +
+        "An artifact is a document like any other: adding one proposes its first version, as the work of the intent named (\`intent\`, held to its gate) or a new intent of its own at Proposal, and it is kept (listed, read) once an admin accepts that intent. " +
         "Give text, the page's readable text as you fetched it, to keep a copy: links rot and pages change.",
       inputSchema: {
         type: "object",
@@ -643,12 +647,12 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         required: ["url", "title", "description", "summary", "authors", "kind", "origin"],
         additionalProperties: false,
       },
-      run: async (args, me) => addArtifact(db, store, me, args),
+      run: async ({ intent, ...args }, me) => addArtifact(db, store, me, args, intent),
     },
     {
       name: "update_artifact",
       description:
-        "Correct a kept artifact: any of its link, title, description, summary, kind, tags, published date, authors (the whole list, in order, as in add_artifact) and text, each held to the same form as in add_artifact. Who corrected it and when are kept; its origin and who brought it never change.",
+        "Correct a kept artifact: any of its link, title, description, summary, kind, tags, published date, authors (the whole list, in order, as in add_artifact) and text, each held to the same form as in add_artifact. Its origin and who brought it never change. The correction is its next version proposed, as the work of the intent named (\`intent\`, held to its gate) or a new intent of its own at Proposal: the artifact stays as it is until an admin accepts it (doc_history shows every accepted change).",
       inputSchema: {
         type: "object",
         properties: {
@@ -666,7 +670,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         required: ["artifact"],
         additionalProperties: false,
       },
-      run: async ({ artifact, ...fields }, me) => updateArtifact(db, store, me, artifact, fields),
+      run: async ({ artifact, intent, ...fields }, me) => updateArtifact(db, store, me, artifact, fields, intent),
     },
     {
       name: "list_authors",
@@ -695,7 +699,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
   // first (its spec approved and every must check passed, ./intents.ts intentReady), and replaces any work it held; work
   // proposed without is a new intent of its own. Every propose tool gives back the intent (`intent`, at stage proposal)
   for (const t of tools) {
-    if (!t.name.startsWith("propose_")) continue;
+    if (!t.name.startsWith("propose_") && t.name !== "add_artifact" && t.name !== "update_artifact") continue;
     (t.inputSchema.properties as Record<string, unknown>).intent = {
       type: "string",
       description: "the intent this is the work of, by its id (a UUID: list_intents gives it): its spec approved and every must check passed (check_intent), or nothing is proposed; it moves to Proposal with this work, replacing any it held. Without it, this is a new intent at Proposal of its own, with no spec",

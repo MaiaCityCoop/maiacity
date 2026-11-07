@@ -56,7 +56,7 @@
 	// an intent's work, as the board lists it (play/api/src/intents.ts): what it changes, the version it would be, who
 	// proposed it and how, and its status (the intent's stage: waiting at Proposal, accepted, else archived)
 	// its kind is a versioned kind's work (<kind>_version, play/api/src/versioned.ts); `what` names it
-	type Work = { kind: string; what: string | null; doc: string | null; doc_variant: number | null; asset_id: string | null; label: string; grp: string; slug: string | null; version_label: string | null; number: number | null; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
+	type Work = { kind: string; what: string | null; doc: string | null; doc_variant: number | null; docs?: number; asset_id: string | null; label: string; grp: string; slug: string | null; version_label: string | null; number: number | null; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
 	// the work opened for review: the intent's id, with the intent's title, spec and results beside it
 	type P = Work & { id: string; intent_id: string; intent_title: string; intent_spec: Spec | null; intent_results: Results | null };
 	// an intent (play/api/src/intents.ts): its kind, title and note, its stage, its spec once specified (a goal, a scope and
@@ -225,7 +225,7 @@
 	// it is now, and the sandbox to open as it would be (play/api/src/sandboxes.ts)
 	type DocReview = {
 		doc: { id: string; kind: string; what: string; label: string; group?: string; open: string | null } | null; seedNumber: number | null; moved: boolean; changes: Change[]; edits: Edit[];
-		pins?: PinChange[]; holds?: boolean; why?: string | null; sandbox?: { title: string; route: string; open: string };
+		pins?: PinChange[]; holds?: boolean; why?: string | null; sandbox?: { title: string; route: string; open: string }; docs?: DocReview[];
 	};
 	type Review = DocReview & { id: string; source: string | null; recipe: string | null; baseVersion: { number: number; source: string | null } | null; builds: Build[] };
 	let open = $state<P | null>(null);
@@ -247,6 +247,8 @@
 	let storyReview = $state<StoryReview | null>(null);
 	// any other document's (a factory's, a config's, a skill's, a sandbox's layout, and every kind to come): field by field, opened as it would be
 	let docReview = $state<DocReview | null>(null);
+	// an intent may change several documents (play/SPEC.md "Version control"): every one's review, accepted together
+	let alsoDocs = $state<DocReview[]>([]);
 	/** what a proposal is of, its card's tag (Samuel 2026-11-05: the type, not how it came; that it came over MCP is in its title and its review) */
 	const GROUP_TYPE: Record<string, string> = { plants: 'Plant', things: 'Thing', machines: 'Machine', buildings: 'Building', actors: 'Actor', biomes: 'Biome', worlds: 'World', sandboxes: 'Sandbox' };
 	const typeOf = (p: { what?: string | null; grp: string | null }) => GROUP_TYPE[p.grp ?? ''] ?? (p.what ? p.what[0].toUpperCase() + p.what.slice(1) : (p.grp ?? ''));
@@ -259,6 +261,7 @@
 		review = null;
 		storyReview = null;
 		docReview = null;
+		alsoDocs = [];
 		code = '';
 		baseCode = null;
 		shown = '';
@@ -274,6 +277,7 @@
 			return;
 		}
 		if (open?.id !== p.id) return;
+		alsoDocs = (got.docs ?? []).slice(1);
 		if (got.story) return void (storyReview = got);
 		if (!got.builds) return void (docReview = got);
 		try {
@@ -376,6 +380,20 @@
 		else onclose?.();
 	};
 </script>
+
+{#snippet docChanges(r: DocReview, several: boolean, done: boolean)}
+	<div class="sandbox-review">
+		{#if several}<h3>{(r.doc?.what ?? 'document').replace(/^./, (c) => c.toUpperCase())}: {r.doc?.label}</h3>{/if}
+		{#if r.holds === false && !done}<p class="error">It no longer holds on {r.doc?.label ?? 'it'} as it is now: {r.why} Accepting it archives it.</p>{/if}
+		<p>
+			{#if r.sandbox && !done && r.holds !== false}<a class="btn small" href={r.sandbox.open} target="_blank" rel="noopener">Open {r.sandbox.title} as it would be</a>{/if}
+			{#if r.doc?.open}<a class="btn small" href={r.doc.open} target="_blank" rel="noopener">{r.sandbox ? `Its layout's history` : `Open ${r.doc.label} as it would be`}</a>{/if}
+			{#if r.doc?.group}<span class="muted small"> What every agent is taught ({r.doc.what}s / {r.doc.group}): accepted, it is taught from the next request on.</span>{/if}
+			{#if r.moved}<span class="muted small"> It was seeded from v{r.seedNumber}; the {r.doc?.what ?? 'document'} has a newer version since. Accepting merges it where the two touch different fields, and archives it where they touch the same.</span>{/if}
+		</p>
+		<Changes changes={r.changes} edits={r.edits} pins={r.pins ?? null} seed={r.seedNumber} heading={done ? 'What it changed' : 'What it changes'} />
+	</div>
+{/snippet}
 
 <svelte:window onkeydown={onKey} />
 
@@ -562,7 +580,7 @@
 						<li>
 							<button class="open" onclick={() => openCard(cardOf(i))}>
 								<span class="type" data-type={typeOf(w)}>{typeOf(w)}</span>
-								<span class="what">{w.label} <span class="muted">{titleOf(w)}</span></span>
+								<span class="what">{w.label} <span class="muted">{titleOf(w)}</span>{#if (w.docs ?? 1) > 1}<span class="muted">{' '}· and {w.docs! - 1} more {w.docs === 2 ? 'document' : 'documents'}, accepted together</span>{/if}</span>
 								<span class="pill">{w.status === 'proposal' ? 'waiting' : w.status}</span>
 								<span class="date muted">{shortWhen(w.created)}</span>
 							</button>
@@ -633,17 +651,9 @@
 					{#if reviewError}<p class="error">{reviewError}</p>{:else}<p class="muted">Reading it…</p>{/if}
 				</div>
 			{:else if docReview}
-				{@const r = docReview}
-				<div class="sandbox-review">
-					{#if r.holds === false && p.status === 'proposal'}<p class="error">It no longer holds on {r.doc?.label ?? 'it'} as it is now: {r.why} Accepting it archives it.</p>{/if}
-					<p>
-						{#if r.sandbox && p.status === 'proposal' && r.holds !== false}<a class="btn small" href={r.sandbox.open} target="_blank" rel="noopener">Open {r.sandbox.title} as it would be</a>{/if}
-						{#if r.doc?.open}<a class="btn small" href={r.doc.open} target="_blank" rel="noopener">{r.sandbox ? `Its layout's history` : `Open ${r.doc.label} as it would be`}</a>{/if}
-						{#if r.doc?.group}<span class="muted small"> What every agent is taught ({r.doc.what}s / {r.doc.group}): accepted, it is taught from the next request on.</span>{/if}
-						{#if r.moved}<span class="muted small"> It was seeded from v{r.seedNumber}; the {r.doc?.what ?? 'document'} has a newer version since. Accepting merges it where the two touch different fields, and archives it where they touch the same.</span>{/if}
-					</p>
-					<Changes changes={r.changes} edits={r.edits} pins={r.pins ?? null} seed={r.seedNumber} heading={p.status === 'accepted' ? 'What it changed' : 'What it changes'} />
-				</div>
+				{#each [docReview, ...alsoDocs] as r, i (i)}
+					{@render docChanges(r, alsoDocs.length > 0, p.status === 'accepted')}
+				{/each}
 			{:else if storyReview}
 				<div class="story-review">
 					{#if reviewError}<p class="error">{reviewError}</p>
@@ -700,6 +710,10 @@
 					</div>
 				{/if}
 			</div>
+			{/if}
+			{#if !docReview && alsoDocs.length}
+				<p class="muted small">This intent changes {alsoDocs.length + 1} documents: accepted together, or archived together.</p>
+				{#each alsoDocs as r, i (i)}{@render docChanges(r, true, p.status === 'accepted')}{/each}
 			{/if}
 			<!-- read only: what the work changes; only its intent is decided, in the intent's dialog (Samuel 2026-11-07) -->
 			{#if review}

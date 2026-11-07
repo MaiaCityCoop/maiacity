@@ -28,7 +28,7 @@ import { readableRefs } from "../import/plan";
 import { versionId } from "./versions";
 import { newId, UUID } from "./uuid";
 import { asVersionError, named, versionAt, VersionError, type Ctx, type Verdict } from "./versioned";
-import { closeWork, putAtProposal, settle, WORK_OF, WorkError } from "./work";
+import { closeWork, holdVariant, putAtProposal, settle, WORK_OF, WorkError } from "./work";
 import { SCHEMA } from "./ids";
 
 export const HISTORY = join(import.meta.dir, "../import/history");
@@ -181,7 +181,7 @@ export async function ensureAssetDoc(q: Queryable, store: BlobStore, asset: stri
     `SELECT i.id, CASE i.stage WHEN 'proposal' THEN 'proposal' ELSE 'archived' END AS status, b.number AS base_number, i.proposed_by AS author,
             i.proposed_via AS via, COALESCE(i.work_note, '') AS note, i.proposed_at AS created, i.version
        FROM play.intents i LEFT JOIN play.asset_versions b ON b.id = i.base
-      WHERE i.asset_id = $1 AND i.doc_variant IS NULL AND i.stage <> 'accepted' ORDER BY i.proposed_at`,
+      WHERE i.asset_id = $1 AND NOT EXISTS (SELECT 1 FROM play.intent_variants iv WHERE iv.intent_id = i.id) AND i.stage <> 'accepted' ORDER BY i.proposed_at`,
     [asset],
   );
   for (const p of ps) {
@@ -191,8 +191,7 @@ export async function ensureAssetDoc(q: Queryable, store: BlobStore, asset: stri
     await docs.commit(q, id, { variant: b, target: json, message: firstLine(p.note) || "proposed", author: { human: p.author, via: p.via === "mcp" ? "mcp" : "site" }, at: p.created });
     await docs.propose(q, id, b, { note: p.note, author: { human: p.author, via: p.via === "mcp" ? "mcp" : "site" } });
     if (p.status !== "proposal") await docs.close(q, id, b, { author: { human: null, via: "system" }, status: p.status as "archived" });
-    await q.query(`UPDATE play.intents SET doc_variant = $2, doc_id = $3 WHERE id = $1`, [p.id, b, id]);
-    await q.query(`UPDATE play.doc_variants SET intent_id = $1 WHERE id = $2`, [p.id, b]);
+    await holdVariant(q, null, p.id, id, Number(b));
   }
   return { id, made, variants: ps.length, kept: keptSteps };
 }
@@ -206,7 +205,7 @@ export async function assetDocFor(db: Db, store: BlobStore, asset: string): Prom
   const id = assetDocId(asset);
   const { rows } = await db.query<{ ready: boolean }>(
     `SELECT EXISTS (SELECT 1 FROM play.docs WHERE id = $1)
-            AND NOT EXISTS (SELECT 1 FROM play.intents i WHERE i.asset_id = $2 AND i.doc_variant IS NULL AND i.stage <> 'accepted') AS ready`,
+            AND NOT EXISTS (SELECT 1 FROM play.intents i WHERE i.asset_id = $2 AND NOT EXISTS (SELECT 1 FROM play.intent_variants iv WHERE iv.intent_id = i.id) AND i.stage <> 'accepted') AS ready`,
     [id, asset],
   );
   if (rows[0]?.ready) return { id };
@@ -233,7 +232,7 @@ export async function ensureAssetDocs(db: Db, store: BlobStore, dir = HISTORY): 
   const { rows } = await db.query<{ id: string; grp: string; slug: string }>(
     `SELECT a.id, a.grp, a.slug FROM play.assets a
       WHERE NOT EXISTS (SELECT 1 FROM play.docs d WHERE d.id = 'asset:' || a.id::text)
-         OR EXISTS (SELECT 1 FROM play.intents i WHERE i.asset_id = a.id AND i.doc_variant IS NULL AND i.stage <> 'accepted')
+         OR EXISTS (SELECT 1 FROM play.intents i WHERE i.asset_id = a.id AND NOT EXISTS (SELECT 1 FROM play.intent_variants iv WHERE iv.intent_id = i.id) AND i.stage <> 'accepted')
       ORDER BY a.grp, a.slug`,
   );
   for (const r of rows) {
@@ -297,7 +296,7 @@ export async function proposalVariant(q: Queryable, store: BlobStore, o: { asset
 export async function acceptVariant(q: Queryable, store: BlobStore, p: { id: string; asset_id: string; note: string }, me: Me, n: number): Promise<void> {
   await asAssetError(async () => {
     const { id } = await ensureAssetDoc(q, store, p.asset_id);
-    const { rows } = await q.query<{ doc_variant: string | null }>(`SELECT doc_variant FROM play.intents WHERE id = $1`, [p.id]);
+    const { rows } = await q.query<{ doc_variant: string | null }>(`SELECT variant_id AS doc_variant FROM play.intent_variants WHERE intent_id = $1 ORDER BY position LIMIT 1`, [p.id]);
     const v = rows[0]?.doc_variant;
     if (v == null) throw new AssetDocError(`intent ${p.id}'s work has no intent variant`, 500);
     const named_ = await docs.accept(q, id, Number(v), { author: authorOf(me, "site"), note: p.note });
@@ -363,7 +362,7 @@ function admin(me: Me | null): Me {
 /** the edit an asset is read at: the one named, or an intent's variant's last */
 async function editOf(db: Queryable, docId: string, at: { edit?: number; intent?: string }): Promise<number> {
   if (at.intent !== undefined) {
-    const { rows } = await db.query<{ doc_variant: string | null }>(`SELECT doc_variant FROM play.intents WHERE id::text = $1 AND doc_id = $2`, [`${at.intent}`.toLowerCase(), docId]);
+    const { rows } = await db.query<{ doc_variant: string | null }>(`SELECT variant_id AS doc_variant FROM play.intent_variants WHERE intent_id::text = $1 AND doc_id = $2`, [`${at.intent}`.toLowerCase(), docId]);
     if (!rows[0]?.doc_variant) throw new AssetDocError(`This asset has no variant of intent ${at.intent}.`, 404);
     const last = (await docs.history(db, docId, { variant: Number(rows[0].doc_variant) })).at(-1);
     if (!last) throw new AssetDocError(`Intent ${at.intent}'s variant holds no edit yet.`, 404);
