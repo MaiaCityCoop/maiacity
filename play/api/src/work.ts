@@ -17,6 +17,7 @@ import type { Queryable } from "./pg";
 import { UUID } from "./uuid";
 import { decisions, gate, IntentError, type By } from "./intents";
 import { SCHEMA } from "./ids";
+import { gistOf } from "./gist";
 
 /** what a piece of work names: its kind ("<kind>_version" of a versioned kind, ./versioned.ts) and its refs (play.intents' work columns, and its document's variant: play.intent_variants) */
 export type Work = {
@@ -118,6 +119,8 @@ export async function holdVariant(q: Queryable, me: Pick<Me, "id"> | null, inten
     );
   else if (given !== null) await q.query(`UPDATE play.intent_variants SET refs = ($4::text)::jsonb WHERE intent_id = $1 AND doc_id = $2 AND variant_id = $3`, [intent, docId, variant, given]);
   await q.query(`UPDATE play.doc_variants SET intent_id = $2 WHERE id = $1`, [variant, intent]);
+  // its brief made now, so the intent's detail lists it without reading it again (intent 2df30a21, ./gist.ts)
+  await gistOf(q, docId, variant);
 }
 
 /** every intent variant of a piece of work closed (archived), their edits kept on their own lines in the history */

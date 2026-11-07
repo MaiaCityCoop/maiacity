@@ -184,7 +184,7 @@ suite("breeds", () => {
     expect(p.error).toBeUndefined();
     const review = (await call("GET", `/api/intents/${p.intent}`)).data.review;
     expect(review.doc).toMatchObject({ id: papaya, breed: "male" });
-    expect(review.changes.map((c: any) => c.path)).toEqual(["$.source"]);
+    expect((await call("GET", `/api/intents/${p.intent}/docs/${papaya}`)).data.changes.map((c: any) => c.path)).toEqual(["$.source"]);
     // Main stays as it was until it is accepted
     expect((await breed("male")).source).not.toContain("stronger");
     expect((await accept(p.intent)).decision).toMatchObject({ status: "accepted", number: was.number + 1 });

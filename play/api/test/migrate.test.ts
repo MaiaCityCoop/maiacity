@@ -245,7 +245,7 @@ suite("migration 0032-versioned", () => {
       expect(got.status).toBe(200);
       expect(got.data).toMatchObject({ stage: m.stage, work: { kind: m.kind, doc_id: m.doc, doc_variant: m.branch } });
       expect(got.data.review.edits.length).toBeGreaterThanOrEqual(1);
-      expect(got.data.review.changes.length).toBeGreaterThanOrEqual(1);
+      expect((await as("GET", `/api/intents/${m.id}/docs/${got.data.review.doc.id}`)).data.changes.length).toBeGreaterThanOrEqual(1);
       if (m.stage !== "proposal") continue;
       expect(got.data.review.moved).toBe(false);
       const decided = await as("POST", `/api/intents/${m.id}/accept`);
@@ -360,7 +360,7 @@ suite("migration 202611070115-d2f50bf1-sandbox-layouts", () => {
     expect(old.review.pins).toEqual([{ slot: "gate", before: expect.objectContaining({ label: "Old pawpaw", number: 1 }), after: expect.objectContaining({ label: "Old pawpaw", number: 2 }) }]);
     const w = (await as("GET", `/api/intents/${waits}`)).data;
     expect(w.review).toMatchObject({ holds: true, moved: false, seedNumber: 1 });
-    expect(w.review.changes).toEqual([expect.objectContaining({ path: "$.configs.grove.trees[id=pawpaw].weight", from: 2, to: 5 })]);
+    expect((await as("GET", `/api/intents/${waits}/docs/${w.review.doc.id}`)).data.changes).toEqual([expect.objectContaining({ path: "$.configs.grove.trees[id=pawpaw].weight", from: 2, to: 5 })]);
     expect((await as("GET", `/api/intents/${gone}`)).data.review).toMatchObject({ holds: false });
     // its work no longer holds: archived by itself, so its intent (specified, as every one with work) goes back to Build
     expect((await as("POST", `/api/intents/${gone}/accept`)).data).toMatchObject({ stage: "build", decision: { status: "archived" } });

@@ -13,6 +13,8 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import Decision from './Decision.svelte';
+	import type { Verdict } from './decide';
+	import { summaryText, type Listed } from './opened';
 	import StoryPlayer from '$lib/stories/StoryPlayer.svelte';
 	import type { ComponentProps } from 'svelte';
 	import { INDEX, admitProposed, source as catalogSource } from '$lib/content/assets/catalog.js';
@@ -25,7 +27,7 @@
 		schemaNames = new Map(),
 		now = Date.now(),
 		error = '',
-		merging = false,
+		busy = null,
 		onclose,
 		ondecide,
 		onopenwork,
@@ -39,11 +41,12 @@
 		now?: number;
 		/** a refused decision's reason, at the foot */
 		error?: string;
-		/** an Accept that merges (Accept and ship): GitHub takes a few seconds */
-		merging?: boolean;
+		/** the decision on its way: its button says so (./Decision.svelte) */
+		busy?: Verdict | null;
 		onclose: () => void;
 		ondecide: (verdict: 'approve' | 'accept' | 'reject' | 'reopen') => void;
-		onopenwork: () => void;
+		/** its work's review opened over the board, on one of its documents where one is picked (as the detail lists it) */
+		onopenwork: (doc?: Listed) => void;
 		onopenintent: (id: string) => void;
 	} = $props();
 
@@ -79,7 +82,7 @@
 	 *  (the same review's `story`, play/api/src/stories.ts) played there in the Stories player (intent 668e9ffd) */
 	let review = $state<{ id: string; builds: { hash: string; variant: string | null; label: string; first: boolean }[] | null; story: ComponentProps<typeof StoryPlayer>['story'] | null; docs: ReviewedDoc[] } | null>(null);
 	/** each document its work changes (the review's docs, play/api/src/versioned.ts reviewDoc; intent 7c8986c5: any number) */
-	type ReviewedDoc = { doc: { id: string; kind: string; what?: string; label?: string; group?: string; breed?: string } | null; seedNumber: number | null; changes?: unknown[] };
+	type ReviewedDoc = Listed;
 	let drawn = $state<{ id: string; hash: string } | null>(null);
 	let viewer: Promise<any> | null = null;
 	let worldViewer: Promise<any> | null = null;
@@ -202,7 +205,7 @@
 				{:else if p.part === 'work'}
 					<p class="row"><span class="label">{p.label}</span>
 						{#if p.pr}<a href="{REPO_URL}/pull/{p.pr}" target="_blank" rel="noopener">{p.text}</a>
-						{:else if p.review}<button class="link" onclick={onopenwork}>{p.text}</button>
+						{:else if p.review}<button class="link" onclick={() => onopenwork()}>{p.text}</button>
 						{:else}<span class="muted">{p.text}</span>{/if}
 					</p>
 				{:else if p.part === 'reason'}<p class="reason" data-tone={p.tone}>{p.text}</p>
@@ -255,12 +258,12 @@
 								</div>
 							{:else}<p class="muted small">Drawing it…</p>{/if}
 						</div>
-						<button class="btn small ghost" onclick={onopenwork}>The whole review: versions, source, before and after</button>
+						<button class="btn small ghost" onclick={() => onopenwork()}>The whole review: versions, source, before and after</button>
 					{/if}
 					<!-- a story's version played right here, as its review plays it; what changed clip by clip a tap away -->
 					{#if review?.id === i.id && review.story}
 						<div class="inline-story"><StoryPlayer story={review.story} compact /></div>
-						<button class="btn small ghost" onclick={onopenwork}>The whole review: what changed, clip by clip</button>
+						<button class="btn small ghost" onclick={() => onopenwork()}>The whole review: what changed, clip by clip</button>
 					{/if}
 					{@const docs = review?.id === i.id ? review.docs : []}
 					<ul class="linked">
@@ -269,7 +272,7 @@
 							{#each docs as d, n (d.doc?.id ?? n)}
 								{@const type = d.doc ? (GROUP_TYPE[d.doc.group ?? ''] ?? (d.doc.what ? d.doc.what[0].toUpperCase() + d.doc.what.slice(1) : d.doc.kind)) : ''}
 								<li>
-									<button class="open" onclick={onopenwork}>
+									<button class="open" onclick={() => onopenwork(d)} title={summaryText(d)}>
 										<span class="type" data-type={type}>{type}</span>
 										<span class="what">{d.doc?.label ?? d.doc?.id} <span class="muted">{d.seedNumber == null ? 'new' : `v${d.seedNumber + 1}`}</span></span>
 										<span class="pill">{w.status === 'proposal' ? 'waiting' : w.status}</span>
@@ -278,7 +281,7 @@
 							{/each}
 						{:else}
 							<li>
-								<button class="open" onclick={onopenwork}>
+								<button class="open" onclick={() => onopenwork()}>
 									<span class="type" data-type={typeOf(w)}>{typeOf(w)}</span>
 									<span class="what">{w.label} <span class="muted">{titleOf(w)}</span>{#if (w.docs ?? 1) > 1}<span class="muted">{' '}· and {w.docs! - 1} more {w.docs === 2 ? 'document' : 'documents'}, accepted together</span>{/if}</span>
 									<span class="pill">{w.status === 'proposal' ? 'waiting' : w.status}</span>
@@ -378,7 +381,7 @@
 	<!-- a refused decision's reason at the foot, right above the buttons (Samuel 2026-11-06) -->
 	{#if refused}<p class="refused" role="alert">{refused}</p>{/if}
 	<!-- the decision at its foot, always in sight (./Decision.svelte, the same bar as on its work's review) -->
-	<Decision detail={d} {merging} {ondecide} />
+	<Decision detail={d} {busy} {ondecide} />
 </div>
 
 <style>

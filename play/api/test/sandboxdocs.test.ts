@@ -148,7 +148,7 @@ suite("a sandbox's layout as a document", () => {
       ["gate", "Pawpaw", 1, "Pawpaw", 2, "both"],
       ["grove/pawpaw", "Pawpaw", 1, "Pawpaw", 2, "both"],
     ]);
-    expect(review.changes.map((c: any) => c.path)).toEqual(expect.arrayContaining(["$.configs.grove.trees[id=pawpaw].at[0]", "$.configs.grove.trees[id=pawpaw].weight"]));
+    expect((await call("ada", "GET", `/api/intents/${intent}/docs/${S2}`)).data.changes.map((c: any) => c.path)).toEqual(expect.arrayContaining(["$.configs.grove.trees[id=pawpaw].at[0]", "$.configs.grove.trees[id=pawpaw].weight"]));
     expect(review.edits.map((e: any) => e.message)).toEqual(["the pawpaws on v2", "the grove's tree further out"]);
     expect(review).toMatchObject({ holds: true, moved: false, seedNumber: 1, doc: { id: S2, kind: "sandbox", open: `/sandboxes/${S2}/?intent=${intent}` }, sandbox: { route: "/sandbox-2/", open: `/sandbox-2/?layout=${encodeURIComponent(`${S2}/${intent}`)}` } });
 

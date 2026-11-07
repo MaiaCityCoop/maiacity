@@ -187,7 +187,7 @@ suite("one version control", () => {
     expect(listed.work).toMatchObject({ kind: "gadget_version", doc: G, doc_id: `gadget:${G}`, doc_variant: one.variant, grp: "gadgets", label: "A gadget", number: 2 });
     const review = (await call("ada", "GET", `/api/intents/${ready}`)).data.review;
     expect(review).toMatchObject({ doc: { id: G, kind: "gadget", label: "A gadget" }, seedNumber: 1, moved: false });
-    expect(review.changes.map((c: any) => c.path).sort()).toEqual(["$.cogs", "$.colour"]);
+    expect((await call("ada", "GET", `/api/intents/${ready}/docs/${G}`)).data.changes.map((c: any) => c.path).sort()).toEqual(["$.cogs", "$.colour"]);
     expect(review.edits.map((e: any) => e.message)).toEqual(["more cogs", "a colour"]);
     // read as the intent's variant would make it, Main as it was
     expect((await tool("doc_at", { doc: G, intent: ready })).json).toMatchObject({ cogs: 5, colour: "teal" });
@@ -337,7 +337,7 @@ suite("one version control", () => {
       expect(p).toMatchObject({ intent, stage: "proposal", doc: id, kind: k.kind, variant: one.variant, edits: k.kind === "asset" ? 3 : 2 });
       const review = (await call("ada", "GET", `/api/intents/${intent}`)).data.review;
       expect(review).toMatchObject({ doc: { id, kind: k.kind }, seedNumber: was, moved: false });
-      expect(review.changes.length).toBeGreaterThanOrEqual(2);
+      expect((await call("ada", "GET", `/api/intents/${intent}/docs/${id}`)).data.changes.length).toBeGreaterThanOrEqual(2);
       expect(review.edits.map((e: any) => e.message).slice(0, 2)).toEqual([`${k.kind}: the first edit`, `${k.kind}: the second edit`]);
       k.holds((await tool("doc_at", { doc: id, intent })).json);
       await k.read?.(id, intent);
@@ -393,7 +393,10 @@ suite("one version control", () => {
     const listed = (await call("ada", "GET", "/api/intents?stage=proposal")).data.find((x: any) => x.id === both);
     expect(listed.work).toMatchObject({ kind: "gadget_version", doc: A, docs: 2 });
     const review = (await call("ada", "GET", `/api/intents/${both}`)).data.review;
-    expect(review.docs.map((d: any) => [d.doc.id, d.variant, d.changes.map((c: any) => c.to)])).toEqual([[A, ea.variant, [2]], [B, eb.variant, [3]]]);
+    // listed in brief, each read whole when it is opened (intent 2df30a21)
+    expect(review.docs.map((d: any) => [d.doc.id, d.variant, d.summary.changes])).toEqual([[A, ea.variant, 1], [B, eb.variant, 1]]);
+    const opened = async (d: string) => (await call("ada", "GET", `/api/intents/${both}/docs/${d}`)).data;
+    expect([(await opened(A)).changes.map((c: any) => c.to), (await opened(B)).changes.map((c: any) => c.to)]).toEqual([[2], [3]]);
     // Main of neither moved before the Accept; then both in one decision
     expect([await number(A), await number(B)]).toEqual([1, 1]);
     const ok = (await call("ada", "POST", `/api/intents/${both}/accept`)).data;

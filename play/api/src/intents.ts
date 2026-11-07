@@ -281,6 +281,19 @@ export async function intentOf(db: Queryable, me: Me | null, id: string, reviewO
   return { ...intent, brief: held ? null : await briefOf(db, intent), review: intent.work ? await reviewOf(db, intent.id, intent.work) : null };
 }
 
+/**
+ * One document of an intent's work, read when it is opened (intent 2df30a21): what it changes, field by field, with its
+ * kind's extras (./versioned.ts reviewHeld), for whoever may open the intent; `variant` names one of a piece's versions.
+ */
+export async function intentDocOf(db: Queryable, me: Me | null, id: string, doc: string, variant: number | null, reviewHeld: (db: Queryable, id: string, doc: string, variant?: number | null) => Promise<unknown>) {
+  const who = admin(me, INTENT_ADMINS);
+  const intent = await getIntent(db, id);
+  if (!(await seesIntent(db, who, intent.id))) throw new IntentError("There is no such intent.", 404);
+  const r = await reviewHeld(db, intent.id, doc, variant);
+  if (!r) throw new IntentError("This intent changes no such document.", 404);
+  return r;
+}
+
 /** A new intent at the Idea stage, by an admin's agent over MCP (no one adds one by hand). */
 export async function addIntent(db: Db, me: Me | null, body: { kind?: unknown; title?: unknown; note?: unknown; depends_on?: unknown; work_kind?: unknown }) {
   const who = admin(me, INTENT_ADMINS);
