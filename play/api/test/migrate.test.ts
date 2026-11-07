@@ -199,8 +199,8 @@ suite("migration 0032-versioned", () => {
     for (const [t, there] of [["doc_variants", true], ["doc_edits", true], ["doc_branches", false], ["doc_updates", false], ["proposal_ids", false]] as const)
       expect(!!(await q(`SELECT to_regclass('play.${t}') AS t`))[0].t).toBe(there);
     const cols = (await q(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'play' AND table_name = 'intents'`)).map((r) => r.column_name);
-    for (const gone of ["factory_id", "game_config_id", "skill_id", "doc_branch"]) expect(cols).not.toContain(gone);
-    for (const kept of ["doc_id", "doc_variant", "asset_id", "version", "base", "story_id", "story_version", "story_base", "sandbox_change"]) expect(cols).toContain(kept);
+    for (const gone of ["factory_id", "game_config_id", "skill_id", "doc_branch", "sandbox_change"]) expect(cols).not.toContain(gone);
+    for (const kept of ["doc_id", "doc_variant", "asset_id", "version", "base", "story_id", "story_version", "story_base"]) expect(cols).toContain(kept);
     // every edit kept, each on a variant; one Main for each document, every edit not on an intent variant on it
     expect(Number((await q(`SELECT count(*) AS n FROM play.doc_edits WHERE doc_id NOT LIKE 'schema:%'`))[0].n)).toBe(edits);
     expect(await q(`SELECT doc_id FROM play.doc_variants WHERE type = 'main' GROUP BY doc_id HAVING count(*) <> 1`)).toEqual([]);
@@ -234,6 +234,109 @@ suite("migration 0032-versioned", () => {
       expect(h.data.versions.at(-1).number).toBe(3);
       expect(h.data.edits.at(-1).kind).toBe("merge");
     }
+  }, 60_000);
+});
+
+// Migration 202611070115-d2f50bf1-sandbox-layouts and ensureLayouts (play/SPEC.md §4.6): a database made at 0037 holding a sandbox's pins and configs and
+// its changes as the intents' sandbox_* columns kept them (one accepted, one archived, one at Proposal that still
+// holds, one that no longer does), migrated: the layout is sandbox:<uuid>, its v1 its pins and configs as they were;
+// every change an intent variant of it, each intent keeping its stage; the columns gone; and the one waiting reviewed
+// and accepted as the layout's v2, its rows written for the worlds.
+suite("migration 202611070115-d2f50bf1-sandbox-layouts", () => {
+  let admin: Bun.SQL, sql: Bun.SQL, name: string;
+  beforeAll(async () => {
+    name = `play_migrate33_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+    admin = new Bun.SQL(URL_!);
+    await admin.unsafe(`CREATE DATABASE ${name}`);
+    const u = new URL(URL_!);
+    u.pathname = `/${name}`;
+    sql = new Bun.SQL(u.toString());
+  });
+  afterAll(async () => {
+    await sql?.close();
+    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+    await admin?.close();
+  });
+
+  test("every layout its v1, every sandbox change an intent variant, each intent's stage kept, the waiting one still decided", async () => {
+    const db = fromBunSql(sql);
+    expect((await migrate(db, { until: "0037-intent-depends" })).at(-1)).toBe("0037-intent-depends");
+    const q = async (text: string, args: unknown[] = []) => (await db.query<any>(text, args)).rows;
+    const ada = (await createHuman(db, "ada")).id;
+    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [ada]);
+    const S2 = "7a7894a9-f37a-8181-9164-920389ee7675";
+
+    // a plant of two accepted versions; Sandbox 2 pins it at v2 (an accepted change moved its gate from v1)
+    const store = folderStore(mkdtempSync(join(tmpdir(), "play-blobs-")));
+    const asset = crypto.randomUUID();
+    await db.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, $2, 'plants', 'old-pawpaw', 'Old pawpaw')`, [asset, COOP]);
+    const version = async (n: number, parents: string[]) => {
+      const source = `module.exports.recipe = function (id, v) {\n  // ${n}\n  return { meta: { id, v } };\n};\n`, recipe = RECIPE_HEAD + source + recipeTail("old-pawpaw", n, null);
+      for (const t of [source, recipe]) {
+        await store.put(hashText(t), new TextEncoder().encode(t), "text/javascript");
+        await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, 'text/javascript', $3) ON CONFLICT DO NOTHING`, [hashText(t), t.length, `blobs/${hashText(t).slice(0, 2)}/${hashText(t)}`]);
+      }
+      const id = hashText(`old-pawpaw|${n}`);
+      await db.query(`INSERT INTO play.asset_versions (id, asset_id, parents, number, recipe_hash, source_hash, card, engine, note) VALUES ($1, $2, $3, $4, $5, $6, '{"card":{}}', 5, 'v')`, [id, asset, parents, n, hashText(recipe), hashText(source)]);
+      return id;
+    };
+    const v1 = await version(1, []), v2 = await version(2, [hashText("old-pawpaw|1")]);
+    await db.query(`UPDATE play.assets SET head = $2 WHERE id = $1`, [asset, v2]);
+    await db.query(`INSERT INTO play.sandbox_pins (sandbox_id, slot, version_id, params) VALUES ($1, 'grove/pawpaw', $2, '{"stage":"9"}'), ($1, 'gate', $2, NULL)`, [S2, v2]);
+    await db.query(`INSERT INTO play.sandbox_configs (sandbox_id, name, data) VALUES ($1, 'grove', '{"trees":[{"id":"pawpaw","v":2,"slot":"grove/pawpaw","weight":2}]}')`, [S2]);
+    const pin = (v: string) => ({ version: v, variant: null, params: null });
+    /** an intent holding a sandbox change, as 0016-0032 wrote it */
+    const change = async (stage: "proposal" | "accepted" | "archived", edits: unknown[], diff: unknown[] | null) => {
+      const id = crypto.randomUUID();
+      await db.query(
+        `INSERT INTO play.intents (id, coop_id, kind, title, stage, author, via, work, sandbox_id, sandbox_base, sandbox_change, sandbox_diff, work_note, proposed_by, proposed_via, proposed_at, decided_by, decided_at)
+         VALUES ($1, $2, 'improve', 'Sandbox 2: a change', $3, $4, 'mcp', 'sandbox_change', $5, 'base', ($6::text)::jsonb, ($7::text)::jsonb, 'the change', $4, 'mcp', now(), $8, $9)`,
+        [id, COOP, stage, ada, S2, JSON.stringify(edits), diff ? JSON.stringify(diff) : null, stage === "proposal" ? null : ada, stage === "proposal" ? null : new Date()],
+      );
+      return id;
+    };
+    const accepted = await change("accepted", [{ op: "pin_latest", asset }], [{ kind: "pin", slot: "gate", before: pin(v1), after: pin(v2) }]);
+    const archived = await change("archived", [{ op: "unpin", slot: "gate" }], [{ kind: "pin", slot: "gate", before: pin(v2), after: null }]);
+    const waits = await change("proposal", [{ op: "set", config: "grove", path: ["trees", 0, "weight"], value: 5 }], [{ kind: "config", config: "grove", path: ["trees", 0, "weight"], before: 2, after: 5 }]);
+    const gone = await change("proposal", [{ op: "unpin", slot: "nowhere" }], [{ kind: "pin", slot: "nowhere", before: pin(v1), after: null }]);
+    const wasPins = await q(`SELECT slot, version_id, variant, params FROM play.sandbox_pins WHERE sandbox_id = $1 ORDER BY slot`, [S2]);
+
+    // ---- the migration, then ensureLayouts at the end of migrate()
+    expect(await migrate(db)).toEqual(["202611070115-d2f50bf1-sandbox-layouts"]);
+    expect(await q(`SELECT intent_id FROM play.sandbox_changes_kept WHERE NOT moved`)).toEqual([]);
+    const cols = (await q(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'play' AND table_name = 'intents'`)).map((r) => r.column_name);
+    for (const gone of ["sandbox_id", "sandbox_base", "sandbox_change", "sandbox_diff"]) expect(cols).not.toContain(gone);
+    // the layout's v1: its pins and configs as they were; the rows as they were
+    const doc = `sandbox:${S2}`;
+    const v1doc = await q(`SELECT number, note FROM play.doc_versions WHERE doc_id = $1 ORDER BY number`, [doc]);
+    expect(v1doc.map((v) => v.number)).toEqual([1]);
+    expect(await q(`SELECT slot, version_id, variant, params FROM play.sandbox_pins WHERE sandbox_id = $1 ORDER BY slot`, [S2])).toEqual(wasPins);
+    // every change an intent variant of it, each intent's stage kept
+    const variants = new Map((await q(`SELECT id::int AS id, status, intent_id, review FROM play.doc_variants WHERE doc_id = $1 AND type = 'intent'`, [doc])).map((v) => [v.intent_id, v]));
+    for (const [id, stage, status] of [[accepted, "accepted", "accepted"], [archived, "archived", "archived"], [waits, "proposal", "proposed"], [gone, "proposal", "proposed"]] as const) {
+      const i = (await q(`SELECT stage, work, doc_id, doc_variant::int AS v FROM play.intents WHERE id = $1`, [id]))[0];
+      expect(i).toEqual({ stage, work: "sandbox_version", doc_id: doc, v: variants.get(id).id });
+      expect(variants.get(id)).toMatchObject({ status, review: expect.objectContaining({ edits: expect.any(Array) }) });
+    }
+    await expect(db.query(`UPDATE play.intents SET doc_id = NULL WHERE id = $1`, [waits])).rejects.toThrow(/intents_work_names_what/);
+
+    // reviewed and decided as every document's work is
+    await initSessions(db);
+    const api = app({ db, store, rate: new Rate(0) });
+    const as = (method: string, path: string) => api.fetch(new Request(`http://play.test${path}`, { method, headers: { cookie: `play_session=${tokenFor(ada)}` } })).then(async (r) => ({ status: r.status, data: await r.json() }));
+    const old = (await as("GET", `/api/intents/${accepted}`)).data;
+    expect(old).toMatchObject({ stage: "accepted", work: { kind: "sandbox_version", doc: S2 } });
+    expect(old.review.pins).toEqual([{ slot: "gate", before: expect.objectContaining({ label: "Old pawpaw", number: 1 }), after: expect.objectContaining({ label: "Old pawpaw", number: 2 }) }]);
+    const w = (await as("GET", `/api/intents/${waits}`)).data;
+    expect(w.review).toMatchObject({ holds: true, moved: false, seedNumber: 1 });
+    expect(w.review.changes).toEqual([expect.objectContaining({ path: "$.configs.grove.trees[id=pawpaw].weight", from: 2, to: 5 })]);
+    expect((await as("GET", `/api/intents/${gone}`)).data.review).toMatchObject({ holds: false });
+    expect((await as("POST", `/api/intents/${gone}/accept`)).data).toMatchObject({ stage: "archived", decision: { status: "archived" } });
+    expect((await as("POST", `/api/intents/${waits}/accept`)).data).toMatchObject({ stage: "accepted", decision: { status: "accepted", number: 2 } });
+    expect((await q(`SELECT data FROM play.sandbox_configs WHERE sandbox_id = $1 AND name = 'grove'`, [S2]))[0].data.trees[0].weight).toBe(5);
+    const h = (await as("GET", `/api/docs/${S2}/history`)).data;
+    expect(h.versions.map((v: any) => v.number)).toEqual([1, 2]);
+    expect(h.variants.filter((v: any) => v.type === "intent").map((v: any) => v.status).sort()).toEqual(["accepted", "accepted", "archived", "archived"]);
   }, 60_000);
 });
 

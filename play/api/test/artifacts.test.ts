@@ -24,7 +24,7 @@ const suite = URL_ ? describe : describe.skip;
 /** the tools play's MCP server had before the artifacts: every one must still be there */
 const TOOLS_BEFORE = [
   "list_assets", "get_asset", "get_file", "propose_asset", "list_docs", "doc_at", "doc_history", "doc_edit", "propose_doc_version",
-  "list_sandboxes", "get_sandbox", "propose_sandbox_change", "list_stories", "get_story", "propose_story",
+  "list_sandboxes", "get_sandbox", "list_stories", "get_story", "propose_story",
   "add_story_frame", "add_story_video", "add_document", "add_story_audio",
   "list_intents", "get_intent", "add_intent", "specify_intent", "check_intent", "archive_intent",
 ];

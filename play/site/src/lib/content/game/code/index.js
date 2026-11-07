@@ -9,20 +9,24 @@ const CONFIGS = new Map();
 const loading = new Map();
 
 /**
- * the intent whose change of sandbox `id` the page is opened with (`?layout=<id>/<intent>`, from the intents' board),
- * to walk the sandbox as its change would make it before an admin decides; else null
+ * the layout sandbox `id` is opened with, as its config's query: an intent's (`?layout=<id>/<intent>`, from the
+ * intents' board), to walk the sandbox as its change would make it before an admin decides; a version or an edit of
+ * its layout's history (`?layout=<id>/v3`, `?layout=<id>/e12`, from its History on /sandboxes/<id>/); else ''
  */
 function layoutOf(id) {
-	if (typeof location === 'undefined') return null;
+	if (typeof location === 'undefined') return '';
 	const l = new URLSearchParams(location.search).get('layout') ?? '';
-	return l.startsWith(`${id}/`) ? l.slice(id.length + 1) : null;
+	if (!l.startsWith(`${id}/`)) return '';
+	const at = l.slice(id.length + 1);
+	const m = /^([ve])(\d+)$/.exec(at);
+	if (m) return `?${m[1] === 'v' ? 'v' : 'edit'}=${m[2]}`;
+	return `?intent=${encodeURIComponent(at)}`;
 }
 
 /** the config of sandbox `id`, read once a page */
 export function loadConfig(id) {
 	if (!loading.has(id)) {
-		const intent = layoutOf(id);
-		const url = `/api/sandboxes/${encodeURIComponent(id)}/config${intent ? `?intent=${encodeURIComponent(intent)}` : ''}`;
+		const url = `/api/sandboxes/${encodeURIComponent(id)}/config${layoutOf(id)}`;
 		loading.set(
 			id,
 			fetch(url, { credentials: 'same-origin' }).then(async (res) => {
