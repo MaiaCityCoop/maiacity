@@ -62,7 +62,9 @@ const RECIPE_RULE =
   "with propose_doc_version, kind 'piece', whole { schema: 'piece/1', label, note, source }, a CommonJS module): a recipe names an accepted " +
   "version of one by the BLAKE3 hash of its source, `require('<64 hex>')` (list_docs gives each piece's versions and their hashes), and " +
   "the box reads it from play's files; a piece may require three.js and other pieces, at most 4 deep. A version keeps the pieces it was " +
-  "accepted with: a newer piece is a new version of the asset. play wraps it into the " +
+  "accepted with: a newer piece is a new version of the asset. Pieces may be proposed in the same intent as what uses them: a recipe or " +
+  "piece may require the hash of a piece version proposed in that intent, and one intent may carry several versions of one piece (each " +
+  "proposed in order, the next growing from the last); Accept keeps them first, in the order they require each other. play wraps it into the " +
   "recipe file itself (the asset box's header, then the source, then the line naming this asset and its new version). The code runs only " +
   "in the asset box, the sandboxed frame in the page, never on play's server. Start from the head's source (get_asset gives its hash, " +
   "get_file its text). Every version has one: an imported version's is legacy's own code its recipe file was bundled from (the asset's " +

@@ -481,8 +481,8 @@ export async function recipeAt(db: Db, store: BlobStore, me: Me | null, asset: s
     const json = (await docs.stateAt(db, docId, { edit: seq })) as AssetJson;
     const { n, exact } = await numberAt(db, docId, seq);
     // an edit of a breed's (on its own line, or on an intent variant changing or making it) builds that breed
-    const { rows: line } = await db.query<{ name: string | null }>(
-      `SELECT COALESCE(l.name, b.name, l.makes) AS name FROM play.doc_edits e JOIN play.doc_variants l ON l.id = e.variant LEFT JOIN play.doc_variants b ON b.id = l.breed
+    const { rows: line } = await db.query<{ name: string | null; intent_id: string | null }>(
+      `SELECT COALESCE(l.name, b.name, l.makes) AS name, l.intent_id FROM play.doc_edits e JOIN play.doc_variants l ON l.id = e.variant LEFT JOIN play.doc_variants b ON b.id = l.breed
         WHERE e.doc_id = $1 AND e.seq = $2`,
       [docId, seq],
     );
@@ -510,7 +510,8 @@ export async function recipeAt(db: Db, store: BlobStore, me: Me | null, asset: s
     const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, "text/javascript");
     // kept in its owner's library: a private asset's recipe files are its owner's alone
     await keepFile(db, { hash, size: bytes.length, media_type: "text/javascript", bucket_key: key }, { owner: (await assetOwner(db, asset))!.owner });
-    const pieces = (await piecesHeld(db, piecesOf(source)).catch(() => ({ all: piecesOf(source) }))).all;
+    // its pieces by the one resolver (intent 02e3a85f): accepted ones, or ones proposed in the intent the edit is of
+    const pieces = await piecesFor(db, piecesOf(source), line[0]?.intent_id ?? (at.intent !== undefined ? `${at.intent}`.toLowerCase() : null));
     const made = { ...record, manifest: { ...(record.manifest ?? {}), libs: libsOf(source), pieces }, card: { ...(record.card ?? {}), recipe: hash, version: n, v: n, ...(variant ? { variant } : {}) } };
     return { ...base, hash, size: bytes.length, record: made, version: null };
   });
@@ -592,13 +593,13 @@ function checkedCode(up: { source?: unknown; recipe?: unknown }, slug: string, n
 }
 
 /**
- * The pieces a source requires by hash (play/SPEC.md §4.5), each an accepted piece version's, with every piece beneath
- * them: what its manifest's `pieces` names. Refused, saying which, where one is no accepted piece's version or they go
- * more than four deep.
+ * The pieces a source requires by hash (play/SPEC.md §4.5), each an accepted piece version's or one proposed in the
+ * same intent (`intent`; intent 02e3a85f), with every piece beneath them: what its manifest's `pieces` names. Refused,
+ * saying which, where one is neither, they require each other in a circle, or they go more than four deep.
  */
-async function piecesFor(db: Queryable, pieces: string[]): Promise<string[]> {
+async function piecesFor(db: Queryable, pieces: string[], intent?: string | null): Promise<string[]> {
   try {
-    return (await piecesHeld(db, pieces)).all;
+    return (await piecesHeld(db, pieces, undefined, intent)).all;
   } catch (e) {
     throw e instanceof PieceError ? new VersionError(e.message) : e;
   }
@@ -829,7 +830,7 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
     files.push(c.source, c.recipe);
     recipe = c.recipe.hash;
     source = c.source.hash;
-    own = { libs: c.libs, source: c.source.hash, pieces: await piecesFor(db, c.pieces) };
+    own = { libs: c.libs, source: c.source.hash, pieces: await piecesFor(db, c.pieces, body.intent) };
     ownText = c.source.text;
   } else {
     for (const name of variantNames) {
@@ -839,7 +840,7 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
       variantTexts[name] = c.source.text;
       const from = a[0]?.variants?.[name] ?? a[0]?.card;
       const label = body.variants![name].label === undefined ? {} : { label: `${body.variants![name].label}`.trim().slice(0, 120) };
-      const record = heldRecord(over(inherited(body.variants![name].record, from), { ...set, ...label }), c.libs, c.source.hash, await piecesFor(db, c.pieces));
+      const record = heldRecord(over(inherited(body.variants![name].record, from), { ...set, ...label }), c.libs, c.source.hash, await piecesFor(db, c.pieces, body.intent));
       variants[name] = { recipe: c.recipe.hash, source: c.source.hash, card: recordOf(record, grp, slug, n, name, c.recipe.hash) };
     }
     defaultVariant = body.defaultVariant ?? variantNames[0];
