@@ -22,6 +22,8 @@
 	import { clipAt, clipsOf, clock, cueOf, LINK, linkedOf, moodLevel, sectionsOf, shotEdge, spansOf, type Links, type Notes, type Shot, type StoryBody, type Track, type Voice } from './timeline';
 	import { compose, feed, FRAME, seal, VENDOR } from './compose';
 	import { hashText } from '$lib/content/game/hash.js';
+	import { enginesOf, pathOf } from '$lib/kernel/engines.js';
+	import type { Live, LiveAsset } from './live';
 	import fontUrl from '../../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url';
 
 	let { story, compact = false, keys = true, list, head, side }: { story: StoryBody & { id?: string; title?: string; number?: number | null; version?: string; links?: Links | null }; compact?: boolean; keys?: boolean; list?: Snippet; head?: Snippet; side?: Snippet } = $props();
@@ -90,8 +92,26 @@
 		[VENDOR.runtime.hash]: () => import('../../../node_modules/@hyperframes/core/dist/hyperframe.runtime.iife.js?raw'),
 		[VENDOR.gsap.hash]: () => import('../../../node_modules/gsap/dist/gsap.min.js?raw')
 	};
+	/** a live shot's code the site serves (intent f270269e), held to its hash by feed: the frozen box engines, as every
+	 *  asset viewer loads them, and the live runtime, frozen beside them (scripts/live-runtime.ts --check rebuilds it) */
+	const ENGINES: Record<string, string> = { ...Object.fromEntries(enginesOf('box').map((e: { v: number; blake3: string }) => [e.blake3, pathOf('box', e.v)])), [VENDOR.live.hash]: '/live/live-runtime.js' };
 	const fileOf = (h: string): Promise<Blob> =>
-		CODE[h] ? CODE[h]().then((m) => new Blob([m.default])) : fetch(h === VENDOR.font.hash ? fontUrl : frameUrl(h), { credentials: 'same-origin' }).then((r) => (r.ok ? r.blob() : Promise.reject(new Error(`file ${h.slice(0, 10)}…: ${r.status}`))));
+		CODE[h] ? CODE[h]().then((m) => new Blob([m.default])) : fetch(h === VENDOR.font.hash ? fontUrl : ENGINES[h] ?? frameUrl(h), { credentials: 'same-origin' }).then((r) => (r.ok ? r.blob() : Promise.reject(new Error(`file ${h.slice(0, 10)}…: ${r.status}`))));
+	/** what play knows of each asset version a live shot draws (GET /api/assets/<its UUID>): its recipe, pieces and engine */
+	async function liveAssets(bodies: StoryBody[]): Promise<Record<string, LiveAsset>> {
+		const lives = bodies.flatMap((b) => clipsOf<Shot>(b, 'shots')).map((x) => x.live as Live | undefined).filter((l): l is Live => !!l && typeof l.asset === 'string');
+		const out: Record<string, LiveAsset> = {};
+		await Promise.all([...new Set(lives.map((l) => l.asset))].map(async (id) => {
+			const r = await fetch(`/api/assets/${encodeURIComponent(id)}`, { credentials: 'same-origin' }).catch(() => null);
+			if (!r?.ok) return;
+			const a = await r.json();
+			const pieces = (v: any) => (Array.isArray(v?.pieces) ? v.pieces.map((p: any) => (typeof p === 'string' ? p : p?.hash)).filter((p: unknown) => typeof p === 'string') : []);
+			for (const v of a.versions ?? [])
+				if (v.recipe || v.variants?.length)
+					out[v.id] = { asset: id, version: v.id, recipe: v.recipe ?? v.variants.find((x: any) => x.name === v.defaultVariant)?.recipe, pieces: pieces(v), engine: v.engine ?? 1, variants: Object.fromEntries((v.variants ?? []).map((x: any) => [x.name, { recipe: x.recipe, pieces: pieces(v) }])) };
+		}));
+		return out;
+	}
 	/** the playhead's last word from the player, and when it came: between two, t runs on by the clock; a word older than
 	 *  the last seek is not taken (the player answers a seek a moment later) */
 	let base = { t: 0, at: 0 };
@@ -134,10 +154,11 @@
 	async function make(s: typeof story, links: Links, key: string) {
 		const want = [...new Set([s, ...Object.values(links).map((l) => l.body)].filter(Boolean).flatMap((b) => clipsOf<Shot>(b, 'shots')).map((x) => x.composition).filter((h): h is string => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h)))];
 		const got = await Promise.all(want.map((h) => fetch(frameUrl(h)).then((r) => (r.ok ? r.text() : '')).then((text) => (hashText(text) === h ? [[h, text]] : [])).catch(() => [])));
+		const assets = await liveAssets([s, ...Object.values(links).map((l) => l.body)].filter(Boolean) as StoryBody[]);
 		if (made !== key) return;
 		film = 'loading';
 		try {
-			hf.setAttribute('srcdoc', seal(compose(s, links, Object.fromEntries(got.flat()))));
+			hf.setAttribute('srcdoc', seal(compose(s, links, Object.fromEntries(got.flat()), assets)));
 		} catch (e) {
 			film = 'failed';
 			failure = String((e as Error)?.message ?? e);
@@ -345,7 +366,8 @@
 		<div class="picture">
 			<!-- the film: HyperFrames' player in play's sealed frame (a tap on it lands in the frame, which plays or pauses) -->
 			<hyperframes-player bind:this={hf} sandbox-origin="opaque" no-load-timeout disable-click-to-play assets-loading-ui="none"></hyperframes-player>
-			{#if film !== 'ready'}<div class="wait">{film === 'failed' ? `The film could not be played: ${failure}` : 'Loading the film…'}</div>{/if}
+			<!-- until the film is ready (a live shot's asset building, intent f270269e), the shot's still: its poster -->
+			{#if film !== 'ready'}<div class="wait" class:poster={film !== 'failed' && !!shots[index]?.frame} style:background-image={film !== 'failed' && shots[index]?.frame ? `url(${frameUrl(shots[index].frame)})` : null}><span>{film === 'failed' ? `The film could not be played: ${failure}` : 'Loading the film…'}</span></div>{/if}
 			{#if !playing}<span class="play-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg></span>{/if}
 		</div>
 		{#if full}
@@ -504,6 +526,8 @@
 	/* HyperFrames' player, the film's picture and sound, filling the picture; a word over it until the film is in */
 	.picture hyperframes-player { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 	.wait { position: absolute; z-index: 5; inset: 0; display: grid; place-items: center; padding: 1rem; text-align: center; color: #cfc8b8; background: #15130f; font-size: 0.9rem; pointer-events: none; }
+	.wait.poster { place-items: end center; background-size: cover; background-position: center; }
+	.wait.poster span { margin-bottom: 1rem; padding: 0.25rem 0.6rem; border-radius: 999px; background: rgb(10 10 8 / 0.55); color: #f3eee2; font-size: 0.8rem; }
 	.play-mark { position: absolute; z-index: 4; left: 50%; top: 46%; width: clamp(2.6rem, 16cqw, 4.5rem); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; background: rgb(10 10 8 / 0.45); display: grid; place-items: center; pointer-events: none; }
 	.play-mark svg { width: 55%; height: 55%; fill: #fff; margin-left: 8%; }
 	.details { display: grid; gap: 0.6rem; align-content: start; min-width: 0; }

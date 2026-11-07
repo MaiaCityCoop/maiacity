@@ -955,6 +955,34 @@ suite("play API", () => {
     await call("ada", "POST", `/api/intents/${moving.out.intent}/archive`);
   });
 
+  test("a live shot (intent f270269e): a shot draws an accepted version of an asset, its values and camera over the shot; refused out of shape or for a version not accepted", async () => {
+    const head = (await tool("get_story", { story: S.seed })).out;
+    const shot = head.tracks.find((t: any) => t.id === "shots").clips[0];
+    const accepted = (await db.query<{ id: string }>(`SELECT id FROM play.asset_versions WHERE asset_id = $1 AND number IS NOT NULL ORDER BY number DESC LIMIT 1`, [ids.fern])).rows[0].id;
+    const camera = [{ at: 0, eye: [3, 1.2, 4], target: [0, 0.6, 0], fov: 40 }, { at: shot.duration, eye: [2, 2.5, 3], target: [0, 1, 0], fov: 45, ease: "linear" }];
+    const live = { asset: ids.fern, version: accepted, values: { stage: 2 }, keys: [{ at: 0, values: { stage: 2 } }, { at: shot.duration, values: { stage: 4 } }], camera, steps: 6 };
+    const edit = (l: unknown) => tool("propose_story_version", { story: S.seed, base: head.version, note: "the fern grows in its shot", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { live: l } }] });
+    const ok = await edit(live);
+    expect(ok.error).toBeNull();
+    const body = (await call("ada", "GET", `/api/intents/${ok.out.intent}`)).data.review.story;
+    // kept as given, the shot's still its poster
+    expect(body.tracks.find((t: any) => t.id === "shots").clips[0]).toMatchObject({ frame: shot.frame, live });
+    await call("ada", "POST", `/api/intents/${ok.out.intent}/archive`);
+    // a version that is not accepted, another asset's, or one play doesn't hold
+    const proposed = (await db.query<{ id: string }>(`SELECT id FROM play.asset_versions WHERE number IS NULL LIMIT 1`)).rows[0];
+    if (proposed) expect((await edit({ ...live, version: proposed.id, asset: (await db.query<{ a: string }>(`SELECT asset_id::text AS a FROM play.asset_versions WHERE id = $1`, [proposed.id])).rows[0].a })).error).toContain("not accepted");
+    expect((await edit({ ...live, asset: "00000000-0000-4000-8000-000000000000" })).error).toContain("has no version");
+    expect((await edit({ ...live, version: "f".repeat(64) })).error).toContain("has no version");
+    expect((await edit({ ...live, variant: "dwarf" })).error).toContain("no variant dwarf");
+    // out of shape: named for what is wrong
+    expect((await edit({ ...live, asset: "fern" })).error).toContain("asset's UUID");
+    expect((await edit({ ...live, camera: [] })).error).toContain("camera");
+    expect((await edit({ ...live, camera: [camera[1], camera[0]] })).error).toContain("time order");
+    expect((await edit({ ...live, keys: [{ at: shot.duration + 5, values: { stage: 1 } }] })).error).toContain("a time in the shot");
+    expect((await edit({ ...live, steps: 99 })).error).toContain("steps");
+    expect((await edit({ ...live, scene: "x" })).error).toContain("has no field scene");
+  });
+
   test("the Library: every image, video and recording play keeps, newest first, labelled, and where stories use it; admins only", async () => {
     const mp4 = Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from("ftypmp42"), Buffer.alloc(400, 9)]);
     const clip = await tool("add_story_video", { data: mp4.toString("base64"), media_type: "video/mp4", label: "Omni take 3 · the city to his smile" });
