@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
-import { compose, CSP, FRAME, filesOf, seal, VENDOR } from './compose';
+import { codeOf, compose, CSP, FRAME, filesOf, laid, seal, VENDOR } from './compose';
+import { buildsOf, cameraAt, liveProblem, stepAt, stepTimes, valuesAt, type Live, type LiveAsset } from './live';
+import { engineAt } from '../kernel/engines.js';
 import { DENIED, SANDBOX, frameCsp } from '../kernel/sandbox/policy.js';
 import { hashText } from '../content/game/hash.js';
 import type { Links, StoryBody } from './timeline';
@@ -171,5 +173,112 @@ describe('compose: sealed', () => {
 		expect(sealed).toContain(`<style data-play-file="${VENDOR.font.hash}" media="not all">`);
 		// the player sees the runtime is there, and injects none from a CDN
 		expect(sealed).toMatch(/hyperframe\.runtime\.iife\.js/);
+	});
+});
+
+// a live shot (intent f270269e, ./live.ts): the real asset drawn by the asset box's own frozen engine
+describe('compose: a live shot', () => {
+	const fixture = JSON.parse(readFileSync(new URL('./fixtures/king-coconut-live.json', import.meta.url), 'utf8'));
+	const assets = fixture.assets as Record<string, LiveAsset>;
+	const shotOf = (live: Live, frame: string | null = F1) => body(6, [{ id: 'shots', kind: 'shots', clips: [{ id: 'still', at: 0, duration: 2, frame: F2, transition: 'cut' }, { id: 'palm', at: 2, duration: 4, frame, transition: 'cut', live }] }]);
+	const palm: Live = fixture.story.tracks[0].clips[0].live;
+	const PIECE = H('9');
+	const withPiece = { [palm.version]: { ...assets[palm.version], pieces: [PIECE] } };
+	const out = compose(shotOf(palm), {}, {}, withPiece);
+	const engine = engineAt('box', 5) as { blake3: string };
+	const spec = JSON.parse(out.match(/playLive\.shot\(tl, "pl-s1", (\{.*\})\);/)?.[1] ?? 'null');
+
+	it('live: compiles to the same bytes every time, reading no clock or chance', () => {
+		const random = vi.spyOn(Math, 'random').mockImplementation(() => { throw new Error('read Math.random'); });
+		const now = vi.spyOn(Date, 'now').mockImplementation(() => { throw new Error('read the clock'); });
+		const a = compose(shotOf(palm), {}, {}, withPiece), b = compose(structuredClone(shotOf(palm)), {}, {}, structuredClone(withPiece));
+		random.mockRestore(), now.mockRestore();
+		expect(b).toBe(a);
+		expect(hashText(b)).toBe(hashText(a));
+		expect(compose(fixture.story, {}, {}, assets)).toBe(compose(JSON.parse(JSON.stringify(fixture.story)), {}, {}, assets));
+		for (const f of ['./live.ts', './live-runtime.ts']) expect(readFileSync(new URL(f, import.meta.url), 'utf8')).not.toMatch(/new Date|Date\.now|Math\.random|process\.env|navigator\.|location\./);
+	});
+	it('live: names by hash the frozen box engine, the recipe, its pieces and the live runtime, and keeps the still as its poster', () => {
+		expect(codeOf(out)).toEqual([engine.blake3, PIECE, assets[palm.version].recipe]);
+		for (const h of codeOf(out)) expect(out).toContain(`<script type="text/x-play-code" data-play-code="${h}"></script>`);
+		expect(spec).toMatchObject({ engine: { v: 5, hash: engine.blake3 }, recipe: assets[palm.version].recipe, pieces: [PIECE], at: 2, duration: 4, size: [1080, 1920] });
+		expect(out).toContain(`<script src="/api/files/${VENDOR.live.hash}" data-vendor="${VENDOR.live.name}"></script>`);
+		expect(VENDOR.live.hash).toMatch(/^[0-9a-f]{64}$/);
+		const shot = out.match(/<div id="pl-s1" class="clip shot live"[^>]*>(.*?)<\/div>/)?.[0] ?? '';
+		expect(shot).toContain(`data-asset="${palm.asset}"`);
+		expect(shot).toContain(`data-version="${palm.version}"`);
+		expect(shot).toContain(`<img class="poster" src="/api/files/${F1}" alt="">`);
+		expect(shot).toContain('<canvas width="1080" height="1920"></canvas>');
+		// the runtime loads after GSAP and before the story's script, which hands each shot its spec
+		expect(out.indexOf(VENDOR.live.hash)).toBeGreaterThan(out.indexOf(VENDOR.gsap.hash));
+		expect(out.indexOf(VENDOR.live.hash)).toBeLessThan(out.indexOf('playLive.shot('));
+		// no live shot, no runtime and no code
+		expect(compose(shotOf(palm), {}, {}, {})).not.toContain(VENDOR.live.hash);
+	});
+	it('live: each step\'s build named by its values, the camera\'s keys as given', () => {
+		expect(spec.times).toEqual([0, 0.857143, 1.714286, 2.571429, 3.428571, 4.285714, 5.142857, 6]);
+		expect(spec.builds[0]).toEqual({ detail: '1', fruit: '0', seed: 'maia', stage: '10' });
+		expect(spec.builds[7]).toEqual({ detail: '1', fruit: '0', seed: 'maia', stage: '11' });
+		expect(spec.builds.map((b: Record<string, string>) => Number(b.stage))).toEqual([10, 10.142857, 10.285714, 10.428572, 10.571429, 10.714286, 10.857143, 11]);
+		expect(spec.camera).toEqual(palm.camera);
+	});
+	it('live: makes no connection outside play\'s files, sealed or laid in', () => {
+		expect(CSP).toContain("connect-src 'none'");
+		expect(CSP).toContain('worker-src blob:');
+		for (const o of [out, seal(out)]) {
+			for (const [, url] of o.matchAll(/\s(?:src|href|poster)="([^"]*)"/g)) expect(url).toMatch(/^\/api\/files\/[0-9a-f]{64}$/);
+			expect([...o.matchAll(/https?:\/\/[^\s"'<>)]+/g)].map((m) => m[0]).filter((u) => !u.startsWith('http://www.w3.org/'))).toEqual([]);
+		}
+		// sealed: the engine, recipe and pieces are asked of the page as code (held to their hashes there) and laid in as text
+		const sealed = seal(out);
+		expect(sealed).toContain("document.querySelectorAll('script[data-play-code]')");
+		expect(sealed).toContain('(window.__playCode ??= {})[el.dataset.playCode] = f;');
+		expect(sealed).toContain(`<script type="text/x-play-code" data-play-code="${engine.blake3}"></script>`);
+		// the renderer's: laid in as a JavaScript string, its bytes as they were
+		const text = 'self.x = "</script><!--";   ok';
+		const done = laid(out, { [PIECE]: text });
+		const lit = done.match(new RegExp(`\\(window\\.__playCode \\?\\?= \\{\\}\\)\\["${PIECE}"\\] = (.*);</script>`))?.[1] ?? '';
+		expect(lit).not.toContain('</script');
+		expect(JSON.parse(lit)).toBe(text);
+		expect(codeOf(done)).toEqual([engine.blake3, assets[palm.version].recipe]);
+	});
+	it('live: without its version from play, or with an engine not frozen, the shot shows its still', () => {
+		for (const given of [{}, { [palm.version]: { ...assets[palm.version], engine: 99 } }, { [palm.version]: { ...assets[palm.version], asset: '00000000-0000-4000-8000-000000000000' } }]) {
+			const o = compose(shotOf(palm), {}, {}, given);
+			expect(o).toContain(`<img id="pl-s1" class="clip shot" data-start="2"`);
+			expect(codeOf(o)).toEqual([]);
+		}
+		// a variant draws the variant's recipe
+		const v = compose(shotOf({ ...palm, variant: 'dwarf' }), {}, {}, { [palm.version]: { ...assets[palm.version], variants: { dwarf: { recipe: H('7') } } } });
+		expect(codeOf(v)).toContain(H('7'));
+	});
+	it('live: the moment is the picture: steps, values and camera by t alone', () => {
+		const times = stepTimes(palm);
+		expect(stepAt(times, 0)).toBe(0);
+		expect(stepAt(times, 2)).toBe(2);
+		expect(stepAt(times, 2)).toBe(stepAt(times, 2.0));
+		expect(stepAt(times, 6)).toBe(7);
+		expect(stepAt(times, 99)).toBe(7);
+		expect(valuesAt(palm, 3)).toMatchObject({ stage: 10.5, seed: 'maia' });
+		expect(valuesAt({ values: { stage: 1, look: 'a' }, keys: [{ at: 2, values: { stage: 3, look: 'b' } }, { at: 4, values: { stage: 5 } }] }, 1)).toEqual({ stage: 1, look: 'a' });
+		expect(valuesAt({ keys: [{ at: 0, values: { look: 'a' } }, { at: 4, values: { look: 'b' } }] }, 3)).toEqual({ look: 'a' });
+		expect(stepTimes({})).toEqual([0]);
+		expect(buildsOf({ ...palm, keys: undefined })).toEqual([{ detail: '1', fruit: '0', seed: 'maia', stage: '10' }]);
+		const c0 = cameraAt(palm.camera, 0), c6 = cameraAt(palm.camera, 6), c3 = cameraAt(palm.camera, 3);
+		expect(c0).toEqual({ eye: palm.camera[0].eye, target: palm.camera[0].target, fov: palm.camera[0].fov });
+		expect(c6.eye).toEqual(palm.camera[1].eye);
+		expect(c3.eye[1]).toBeCloseTo((palm.camera[0].eye[1] + palm.camera[1].eye[1]) / 2, 9);
+		expect(cameraAt(palm.camera, 2)).toEqual(cameraAt(palm.camera, 2));
+		expect(cameraAt([{ ...palm.camera[0], at: 0 }, { ...palm.camera[1], ease: 'linear' }], 1.5).fov).toBeCloseTo(palm.camera[0].fov + (palm.camera[1].fov - palm.camera[0].fov) / 4, 9);
+	});
+	it('live: a live shot out of shape is named for what is wrong', () => {
+		expect(liveProblem(palm, 6)).toBeNull();
+		expect(liveProblem({ ...palm, asset: 'king-coconut' }, 6)).toMatch(/UUID/);
+		expect(liveProblem({ ...palm, version: 'v3' }, 6)).toMatch(/version/);
+		expect(liveProblem({ ...palm, camera: [] }, 6)).toMatch(/camera/);
+		expect(liveProblem({ ...palm, camera: [palm.camera[1], palm.camera[0]] }, 6)).toMatch(/time order/);
+		expect(liveProblem({ ...palm, keys: [{ at: 7, values: { stage: 1 } }] }, 6)).toMatch(/keys/);
+		expect(liveProblem({ ...palm, steps: 100 }, 6)).toMatch(/steps/);
+		expect(liveProblem({ ...palm, values: { stage: { x: 1 } } }, 6)).toMatch(/values/);
 	});
 });
