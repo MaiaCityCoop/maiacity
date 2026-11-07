@@ -476,12 +476,17 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   the intent added so), one it no longer stands by.
 - **Checks run in avenBOX, and again on main** (Samuel 2026-11-06; intent `8888e140-a6e4-4472-b1db-e78692db5c4a`).
   **avenBOX** (one word, `aven` lowercase and `BOX` in capitals) is the cloud environment the agents prototype in
-  (`env_01BqgqGckrzz4FdXd8SD4HHd`), and the box is built the same way wherever a check runs, by `play/avenbox/`:
+  (`env_011Zm65erarH7ffXio13u5pG`), and the box is built the same way wherever a check runs, by `play/avenbox/`:
   `setup.sh` (as root, once per container: PostgreSQL 17, CI's major, its cluster on 127.0.0.1:5432 with the
   `postgres` role's password `play`, every part's dependencies; idempotent, it never fails a session), `up.sh` (in
   every session, from the SessionStart hook in `.claude/settings.json`: Postgres started, `TEST_DATABASE_URL =
   postgres://postgres:play@127.0.0.1:5432/postgres` set, the dependencies brought up to their lockfiles) and `gate.sh`
-  (what CI runs, red when a play/api test is skipped). So every check is a command:
+  (what CI runs, red when a play/api test is skipped). **All work on play starts in an avenBOX session** (Samuel
+  2026-11-06; intent `7cd4c779-9d7a-4ba0-8060-6b2697545886`): an intent at any stage, its code and its checks are done
+  there, the only environment with play's MCP token and the box; a session elsewhere, without play's MCP (no
+  `PLAY_MCP_TOKEN`), starts a session on avenBOX with the work's brief and hands it over, building, pushing and
+  recording nothing itself (`up.sh` says so as it ends); one intent has one builder session. So every check is a
+  command:
   - each test and measure check carries its **`run`**, the exact command that decides it in avenBOX, from the
     repository's root, as written: a test passes when it exits 0, a measure prints its value and exits 0 only in its
     range. play refuses a test or measure check without one, and a `run` that holds a placeholder outside quotes

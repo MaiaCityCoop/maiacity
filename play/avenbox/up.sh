@@ -7,6 +7,7 @@
 #   - writes TEST_DATABASE_URL (the URL play-checks.yml uses) into $CLAUDE_ENV_FILE, where the hook has one, so every
 #     command of the session has it;
 #   - installs a part's dependencies (play/api, play/site, website) where they are missing or older than its bun.lock.
+#   - ends, where PLAY_MCP_TOKEN is not set, by telling the session it is not on avenBOX and must hand its work over.
 #
 # On a ready box it takes well under 10 s and leaves the running server alone. It exits 1 only when Postgres can't be
 # made to answer.
@@ -56,3 +57,9 @@ done
 
 version=$(PGPASSWORD=play psql -h 127.0.0.1 -p "$PORT" -U postgres -tAc 'show server_version' postgres 2> /dev/null | cut -d' ' -f1)
 say "PostgreSQL ${version:-?} on 127.0.0.1:$PORT; TEST_DATABASE_URL=$URL"
+
+# all work on play is done in an avenBOX session (play/SPEC.md §4.12): a session without play's MCP hands it over
+if [ -z "${PLAY_MCP_TOKEN:-}" ]; then
+  say "no PLAY_MCP_TOKEN: this session is not on avenBOX (env_011Zm65erarH7ffXio13u5pG) and has no play MCP. Build," \
+    "push and record nothing here: start a session on avenBOX with the work's brief and hand the work over to it."
+fi
