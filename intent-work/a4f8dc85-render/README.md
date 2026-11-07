@@ -35,3 +35,22 @@ now fades in over half an eye distance above the brows (the band across the fore
 sources' weighted mean at a texel counts as a shadow and steps back (the brown smudges under the cheekbones), while the
 beard, dark in every source, stays; and no front-on photo paints a surface facing well downward (the dark line under
 the beard). The fit is as it was.
+
+## c3: the bench film (`bench.sh`, after `run.sh` in the same work folder)
+
+```sh
+bash intent-work/a4f8dc85-render/run.sh ~/a4f8dc85-work      # the fit and the texture (as above), if not run yet
+bash intent-work/a4f8dc85-render/bench.sh ~/a4f8dc85-work
+```
+
+- It makes the Person head v2 and body v2 and v3 from v1 (fetched from play by hash) and this intent's diffs
+  (`intent-work/a4f8dc85/person-*.diff`), checks each against its hash, bakes Samuel's face into the head's own-face
+  inputs (`tools/character/bake.py`), makes his recipe from `samuel.template.js` (his look and clothes; no face in git),
+  and renders 20 s at 24 fps on Metal (`tools/character/bench-gpu.mjs`): idle, walk, a quarter turn, sit down on a
+  chair, sitting (smiling), stand up, wave (smiling), idle.
+- **Out:** `bench.mp4` (needs ffmpeg) and `bench/frames/` stay on the Mac, as his face is in them (play keeps a video
+  only in Maia City's Library). A contact sheet of 12 frames, `c3-bench.jpg`, goes to his personal library; the job
+  prints its hash. Send back that hash and what you see; nothing into git.
+- **Look for:** the garments (cream linen shirt, long sleeves, untucked; loose trousers to the ankle; sandals) moving
+  with the body and never through it; the face smiling where it should. Known: the head has no blink shape yet (joy and
+  friendly only), and "sit down" ends 0.23 m behind where "sitting" starts (a pop from the motion pieces, b9e6ad45's).
