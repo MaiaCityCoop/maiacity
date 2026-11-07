@@ -437,7 +437,7 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="player" class:compact class:framed={!!(list || side)} class:windowed={full && inWindow} style:--tl="min({6.3 + (shots.length ? 3.6 : 0) + soundTracks.length * 1.2 + (slots.length ? 1.8 : 0)}rem, 25vh, 13rem)">
+<div class="player" class:compact class:framed={!!(list || side)} class:windowed={full && inWindow} style:--tl="min({3.9 + (shots.length ? 2.15 : 0) + soundTracks.length * 1 + (slots.length ? 1.25 : 0)}rem, 16vh, 8.5rem)">
 	{#if list}<div class="p-list">{@render list()}</div>{/if}
 	{#if head}<div class="p-head">{@render head()}</div>{/if}
 	<!-- a tap on the picture plays and pauses it, as on any film player (Samuel 2026-11-04) -->
@@ -598,7 +598,7 @@
 	.p-head { grid-area: head; min-width: 0; }
 	/* the list and the rail fill the rows the title and the picture make and scroll inside them, never stretching them */
 	.framed .p-list, .framed .details { align-self: stretch; contain: size; overflow: auto; overscroll-behavior: contain; }
-	.framed .screen { justify-self: center; --h: min(var(--story-screen, clamp(15rem, calc(100vh - 13.4rem - var(--tl)), 760px)), calc((100cqw - 25.5rem) / var(--ratio))); }
+	.framed .screen { justify-self: center; --h: min(var(--story-screen, clamp(15rem, calc(100vh - 14.7rem - var(--tl)), 760px)), calc((100cqw - 25.5rem) / var(--ratio))); }
 	/* the rail's last lines fade out where it scrolls on, and scroll clear of the fade */
 	.framed .details { gap: 0.5rem; padding: 0 0.15rem 1.6rem 0; mask-image: linear-gradient(to bottom, #000 calc(100% - 1.6rem), transparent); }
 	.framed .field p { font-size: 0.84rem; line-height: 1.38; }
@@ -651,35 +651,35 @@
 	.controls .spacer { flex: 1; }
 	.btn.on { background: var(--ink); color: var(--paper); }
 	.timeline { display: grid; gap: 0.25rem; }
-	.sections { position: relative; height: 2.2rem; }
-	/* a section: its name, and under it the primary emotion it should leave the viewer with */
-	.section { position: absolute; top: 0; bottom: 0; display: flex; flex-direction: column; border-top: 3px solid; padding-top: 0.15rem; padding-left: 0.2rem; overflow: hidden; color: var(--ink-soft, #444); box-sizing: border-box; }
+	.sections { position: relative; height: 1.3rem; }
+	/* a section: its name, and beside it the primary emotion it should leave the viewer with, on one line */
+	.section { position: absolute; top: 0; bottom: 0; display: flex; align-items: baseline; gap: 0.3rem; border-top: 3px solid; padding-top: 0.1rem; padding-left: 0.2rem; overflow: hidden; color: var(--ink-soft, #444); box-sizing: border-box; }
 	.section b, .section em { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	.section b { font-size: 0.66rem; font-weight: 700; }
-	.section em { font-size: 0.7rem; font-style: italic; color: var(--terracotta, #c96f53); }
+	.section b { font-size: 0.62rem; font-weight: 700; flex: none; max-width: 100%; }
+	.section em { font-size: 0.64rem; font-style: italic; min-width: 0; color: var(--terracotta, #c96f53); }
 	.field .emotion { font-family: var(--font-display); font-size: 1.05rem; font-style: italic; color: var(--terracotta, #c96f53); }
 	/* the lanes under the mood line scroll up and down inside the timeline, its height at most --tl (Samuel 2026-11-07);
 	   no scrollbar, which would narrow them against the time; a fade says there is more */
-	.lanes { position: relative; cursor: pointer; touch-action: pan-y; user-select: none; padding-top: 2.6rem; }
-	.lanes-scroll { position: relative; display: grid; gap: 3px; max-height: calc(var(--tl, 13rem) - 5.05rem); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; touch-action: pan-y; }
+	.lanes { position: relative; cursor: pointer; touch-action: pan-y; user-select: none; padding-top: 1.35rem; }
+	.lanes-scroll { position: relative; display: grid; gap: 2px; max-height: calc(var(--tl, 8.5rem) - 2.9rem); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; touch-action: pan-y; }
 	.lanes-scroll::-webkit-scrollbar { display: none; }
 	.lanes-scroll.more-down { mask-image: linear-gradient(to bottom, #000 calc(100% - 1.2rem), transparent); }
 	.lanes-scroll.more-up { mask-image: linear-gradient(to top, #000 calc(100% - 1.2rem), transparent); }
 	.lanes-scroll.more-up.more-down { mask-image: linear-gradient(transparent, #000 1.2rem, #000 calc(100% - 1.2rem), transparent); }
-	.mood-line { position: absolute; left: 0; right: 0; top: 0; height: 2.4rem; width: 100%; pointer-events: none; }
+	.mood-line { position: absolute; left: 0; right: 0; top: 0; height: 1.2rem; width: 100%; pointer-events: none; }
 	.mood-line line { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
 	.mood-line path { fill: none; stroke: var(--terracotta, #c96f53); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
 	.lane { position: relative; border-radius: 6px; background: color-mix(in srgb, var(--line) 50%, transparent); }
-	.shots-lane { height: 3.4rem; }
-	.compact .shots-lane { height: 2.8rem; }
-	.voice-lane { height: 1.25rem; }
+	.shots-lane { height: 2rem; }
+	.compact .shots-lane { height: 1.8rem; }
+	.voice-lane { height: 1rem; }
 	.diag { position: absolute; top: 4px; left: 4px; right: 4px; z-index: 5; margin: 0; padding: 4px 6px; border-radius: 6px; background: rgb(0 0 0 / 0.6); color: #fff; font: 10px/1.35 ui-monospace, monospace; white-space: pre-wrap; pointer-events: none; }
 	.seg { position: absolute; top: 0; bottom: 0; background-size: cover; background-position: center 35%; border-top: 3px solid; border-left: 1px solid rgb(255 255 255 / 0.7); box-sizing: border-box; filter: saturate(0.85) brightness(0.92); }
 	.seg.on { filter: none; box-shadow: inset 0 0 0 2px var(--ink); }
-	.bar { position: absolute; top: 2px; bottom: 2px; border-radius: 4px; background: var(--sage-soft, #dfe8dc); border: 1px solid color-mix(in srgb, var(--sage, #8fae8b) 60%, transparent); font-size: 0.6rem; font-weight: 700; padding: 0 0.25rem; overflow: hidden; white-space: nowrap; box-sizing: border-box; line-height: 1rem; }
+	.bar { position: absolute; top: 2px; bottom: 2px; border-radius: 4px; background: var(--sage-soft, #dfe8dc); border: 1px solid color-mix(in srgb, var(--sage, #8fae8b) 60%, transparent); font-size: 0.6rem; font-weight: 700; padding: 0 0.25rem; overflow: hidden; white-space: nowrap; box-sizing: border-box; line-height: calc(1rem - 6px); }
 	.bar.recorded { border-style: solid; box-shadow: inset 3px 0 0 color-mix(in srgb, var(--sage, #8fae8b) 90%, black); }
-	.sound-lane { height: 1rem; }
-	.bar.sound { background: color-mix(in srgb, var(--sky, #7c9cb8) 30%, white); border-color: color-mix(in srgb, var(--sky, #7c9cb8) 70%, transparent); line-height: 0.8rem; font-size: 0.55rem; }
+	.sound-lane { height: 0.85rem; }
+	.bar.sound { top: 1px; bottom: 1px; background: color-mix(in srgb, var(--sky, #7c9cb8) 30%, white); border-color: color-mix(in srgb, var(--sky, #7c9cb8) 70%, transparent); line-height: calc(0.85rem - 4px); font-size: 0.52rem; }
 	.bar.sound.music, .bar.sound.score { background: color-mix(in srgb, #a98bb5 30%, white); border-color: #a98bb5; }
 	.bar.sound.sfx { background: color-mix(in srgb, #c96f53 25%, white); border-color: #c96f53; }
 	/* a cue still to be made: its note in a dashed outline, read before anything is recorded */
@@ -690,10 +690,10 @@
 	.bar.samuel { background: var(--mustard-soft, #f3e3b5); border-color: color-mix(in srgb, var(--mustard, #d9a441) 60%, transparent); }
 	.bar.on { background: var(--ink); color: var(--paper); }
 	.playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--terracotta, #c96f53); pointer-events: none; }
-	.playhead::before { content: ''; position: absolute; top: 2.3rem; left: -5px; border: 6px solid transparent; border-top-color: var(--terracotta, #c96f53); }
+	.playhead::before { content: ''; position: absolute; top: 1.1rem; left: -5px; border: 6px solid transparent; border-top-color: var(--terracotta, #c96f53); }
 	/* the links (Samuel 2026-11-04): a lane of blocks, each the story it plays, mustard as a picked version is; what a link
 	   lays in shows in its own lanes, lighter and dashed, so the film's own clips and the linked story's read apart */
-	.link-lane { height: 1.5rem; background: transparent; }
+	.link-lane { height: 1.1rem; background: transparent; }
 	.link { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; gap: 0.35rem; padding: 0 0.45rem; box-sizing: border-box; border-radius: 6px; overflow: hidden; white-space: nowrap; text-decoration: none; color: var(--ink, #2b2a26); background: var(--mustard-soft, #f3e3b5); border: 1.5px solid var(--mustard, #d9a441); font-size: 0.66rem; line-height: 1; cursor: pointer; }
 	.link b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
 	.link span { color: var(--ink-soft, #555); font-weight: 500; flex: none; }
@@ -704,7 +704,7 @@
 	.link.on { box-shadow: inset 0 0 0 1.5px var(--ink); }
 	.link.lost { background: transparent; border-style: dashed; border-color: var(--terracotta, #c96f53); color: var(--terracotta, #c96f53); }
 	/* the link's span, under every lane: a faint mustard wash between dashed edges */
-	.link-band { position: absolute; top: 2.6rem; bottom: -2px; border-left: 1.5px dashed var(--mustard, #d9a441); border-right: 1.5px dashed var(--mustard, #d9a441); background: color-mix(in srgb, var(--mustard, #d9a441) 13%, transparent); box-sizing: border-box; pointer-events: none; }
+	.link-band { position: absolute; top: 1.35rem; bottom: -2px; border-left: 1.5px dashed var(--mustard, #d9a441); border-right: 1.5px dashed var(--mustard, #d9a441); background: color-mix(in srgb, var(--mustard, #d9a441) 13%, transparent); box-sizing: border-box; pointer-events: none; }
 	/* a linked clip keeps its kind's colour (who speaks, which sound), hatched and dashed: laid in, not the story's own */
 	.seg.linked { border-top-style: dashed; border-bottom: 2px dashed var(--mustard, #d9a441); filter: saturate(0.7) brightness(0.98); }
 	.seg.linked.on { filter: none; }

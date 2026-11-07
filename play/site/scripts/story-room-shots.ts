@@ -61,6 +61,8 @@ for (const size of SIZES) {
 		const sc = document.querySelector('.lanes-scroll') as HTMLElement | null;
 		return { picture: h('.screen'), timeline: h('.timeline'), lanesContent: sc?.scrollHeight ?? h('.lanes'), lanesShown: sc?.clientHeight ?? h('.lanes'), pageScrolls: document.scrollingElement!.scrollHeight > innerHeight };
 	});
+	const over = await page.evaluate(() => [...document.querySelectorAll('*')].filter((e) => e.scrollHeight > e.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(e).overflowY) && !e.closest('.player')).map((e) => `${e.className || e.tagName}: ${e.scrollHeight - e.clientHeight}px more`));
+	console.log(`${LABEL} ${w}: scrolls ${over.join('; ') || 'nothing'}`);
 	console.log(`${LABEL} ${w}: picture ${m.picture}px, timeline ${m.timeline}px (lanes ${m.lanesShown}px shown of ${m.lanesContent}px)`);
 	// the timeline in sight (on a phone it is below the picture)
 	await page.locator('.timeline').evaluate((el) => el.scrollIntoView({ block: 'center' }));
