@@ -220,6 +220,18 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 				const corrX = (lift.x - dLift.x) * (1 - e) + (land.x - dLand.x) * e;
 				P[i] = { z: zs + corrZ, x: d.x + corrX, y: d.y + corrY, down: 0, Q: L[i].Q, u };
 			}
+			// the heel coming down: within 3 cm of the ground it is drawn to where it will rest once it lands (its place
+			// at the landing, the body still coming on to it), so it lands still, not skidding
+			const heelLand = sole.heel.clone().applyQuaternion(land.Q).add(new Vector3(land.x, land.y, land.z));
+			for (let r = n - 1; r >= len; r--) {
+				const i = (a + r) % n, A = P[i];
+				const heel = sole.heel.clone().applyQuaternion(A.Q).add(new Vector3(A.x, A.y, A.z));
+				const w = smooth(0.03 * s, 0.005 * s, heel.y);
+				if (w <= 0) break;
+				const ahead = ((n - r) * stride) / n;
+				A.x += (heelLand.x - heel.x) * w;
+				A.z += (heelLand.z + ahead - heel.z) * w;
+			}
 			out[side] = { P, land: a / n, lift: ((b + 1) % n) / n, stance: len / n };
 		}
 		return out;
@@ -279,7 +291,7 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 			const hip = sk.joint(pose, `${side}UpperLeg`);
 			const la = len[side][0], lb = len[side][1];
 			const d = hip.distanceTo(legs[side].p);
-			const most = (la + lb) * 0.995;
+			const most = (la + lb) * 0.975;
 			if (d > most) {
 				const dy = legs[side].p.y - hip.y;
 				const dxz = Math.hypot(legs[side].p.x - hip.x, legs[side].p.z - hip.z);

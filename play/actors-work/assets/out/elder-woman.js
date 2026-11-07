@@ -12,7 +12,7 @@
  */
 const THREE = require('three');
 const BODY = require('7f8cae20147242dbe6ee2eafe0203c1f59f0cd3925bca7135b70667137888cf2');
-const MOTION = require('58f779b5f3f321fa92e2441dcaffa262a5a3fe791c313445121f634b16ca2629');
+const MOTION = require('16dadf0099be9638315e10bf913916253a824c32f215ef6bfa7c5e3252fd2d3f');
 const GAIT = require('1fbd63db022a1366452d70ab19d24f6b65b58246a83c4a226da3acafd88f3c4a');
 const ACTIONS = require('5ce51f9e5126cb38ef44ddbe205b359e0917da6774d28ac1e7931797365004ce');
 

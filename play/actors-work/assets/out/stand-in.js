@@ -10,7 +10,7 @@
  * Taku Komura, 100STYLE (CC BY 4.0, doi:10.1145/3522618). CC0: Quaternius; MakeHuman.
  */
 const BODY = require('7f8cae20147242dbe6ee2eafe0203c1f59f0cd3925bca7135b70667137888cf2');
-const MOTION = require('58f779b5f3f321fa92e2441dcaffa262a5a3fe791c313445121f634b16ca2629');
+const MOTION = require('16dadf0099be9638315e10bf913916253a824c32f215ef6bfa7c5e3252fd2d3f');
 const GAIT = require('e1c0a220afd1949475d88210214ad813e17e6a054406f0a96a798964292e4831');
 const ACTIONS = require('5ce51f9e5126cb38ef44ddbe205b359e0917da6774d28ac1e7931797365004ce');
 
