@@ -10,8 +10,7 @@
  * A version from before the contract names no `lod` and is read as derived (play/api src/lod.ts `lodOf`), and is drawn
  * as it was: one that takes a `detail` (every plant until now) was drawn at the details Sandbox 4 drew its forest at,
  * and is read here as declaring them (`OLD_DETAILS`), so its look, its cost and its builds' cache keys stay as they were.
- * A world that drew such a plant at its own details (`details`, Sandbox 2's village) still does, until the worlds draw
- * by the one selector (intent 6295a650); a version that declares its levels draws them whatever a world asks.
+ * No world chooses them (intent 6295a650): every world draws every asset by its card's levels and the one selector.
  */
 
 /** the details a version from before the contract that takes a `detail` is built at for its levels, L0 first */
@@ -34,13 +33,12 @@ export function lodOf(card) {
 
 /**
  * The values each of a kind's built levels is built with, over the values it is asked with, L0 first: one entry (its
- * build) where its L1 and L2 are derived, or one for each level its recipe declares. `details`: a world's own details
- * for a version from before the contract (`OLD_DETAILS`' place), else nothing.
- * @param {ReturnType<typeof lodOf> | undefined} lod @param {number[]} [details]
+ * build) where its L1 and L2 are derived, or one for each level its recipe declares.
+ * @param {ReturnType<typeof lodOf> | undefined} lod
  * @returns {Record<string, string>[]}
  */
-export function levelValues(lod, details) {
+export function levelValues(lod) {
 	if (lod?.levels !== 'declared') return [{}];
-	if (lod.old) return (details ?? OLD_DETAILS).map((d) => ({ [OLD]: String(d) }));
+	if (lod.old) return OLD_DETAILS.map((d) => ({ [OLD]: String(d) }));
 	return [{}, ...lod.values.map((v) => Object.fromEntries(Object.entries(v).map(([k, x]) => [k, String(x)])))];
 }

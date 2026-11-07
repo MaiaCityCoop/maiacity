@@ -8,13 +8,12 @@
  * frame; nothing behind the eye), and that the shadows are drawn again when what casts them changed (`shadows`: or
  * the world is told, when it draws them only every so often).
  *
- * `createDrawn` for the library's Things and the biomes' cover, each copy at its finest shape however small (`force`,
- * as the sandboxes always drew what they baked); `createFlora` for a forest of our plants (./flora.js), each kind's
- * detail changing at the world's own distances.
+ * `createDrawn` for the library's Things and the biomes' cover; `createFlora` for a forest of our plants (./flora.js).
+ * Every kind is drawn by its card's levels and the renderer's one selector (assets/render/lod.js): no world here
+ * chooses a level, a detail or a distance of its own.
  */
 import * as THREE from 'three';
 import { createAssets } from '$lib/content/assets/render/index.js';
-import { DETAILS, VILLAGE } from './flora.js';
 
 /** a copy put away: drawn nowhere until it is wanted again */
 export const AWAY = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -22,14 +21,12 @@ export const AWAY = new THREE.Matrix4().makeScale(0, 0, 0);
 /**
  * A renderer of assets in `scene`, its copies kept for the next that wants one.
  * @param {{
- *   renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, boxes?: number,
- *   details?: number[], levels?: number[], force?: number, shadows?: () => void
- * }} o `boxes` how many build side by side; `details`, `levels` as the renderer's; `force`: every copy drawn at that
- *   level (0: as it was built); `shadows`: told when what casts a shadow changed, instead of the shadows drawn again
+ *   renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, boxes?: number, shadows?: () => void
+ * }} o `boxes` how many build side by side; `shadows`: told when what casts a shadow changed, instead of the shadows
+ *   drawn again
  */
 export function createDrawn(o) {
-	const assets = createAssets({ renderer: o.renderer, camera: o.camera, boxes: o.boxes, details: o.details, levels: o.levels, onShadows: o.shadows });
-	if (o.force !== undefined) assets.force(o.force);
+	const assets = createAssets({ renderer: o.renderer, camera: o.camera, boxes: o.boxes, onShadows: o.shadows });
 	o.scene.add(assets.group);
 	/** @type {Map<string, any[]>} the copies put away, by kind */
 	const free = new Map();
@@ -75,30 +72,21 @@ export function createDrawn(o) {
 const tanOf = (camera) => Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / (camera.zoom || 1);
 
 /**
- * The renderer a world's plants are drawn by (./flora.js), at its distances (`reach`: the village's, or nearer under a
- * dome's glass). Its boxes as many as the workers Sandbox 4 always grew its forest in.
- * @param {{ renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, reach?: import('./flora.js').Reaches, boxes?: number, shadows?: () => void }} o
+ * The renderer a world's plants are drawn by (./flora.js). Its boxes as many as the workers Sandbox 4 always grew its
+ * forest in.
+ * @param {{ renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, boxes?: number, shadows?: () => void }} o
  * @returns {import('./flora.js').FloraDrawn & ReturnType<typeof createDrawn>}
  */
 export function createFlora(o) {
-	const reach = o.reach ?? VILLAGE;
 	const boxes = o.boxes ?? Math.max(1, Math.min(6, (globalThis.navigator?.hardwareConcurrency || 4) - 1));
-	// what a level may cost is read off these (a tree 12 m round its middle, fine to 16 m and coarse to 40 m): no plant's
-	// shape at either detail is over its ceiling, so each is drawn as its recipe made it
-	const levels = VILLAGE.tree.map((d) => 6 / (d * tanOf(o.camera)));
-	const drawn = createDrawn({ renderer: o.renderer, camera: o.camera, scene: o.scene, boxes, details: DETAILS, levels, shadows: o.shadows });
+	const drawn = createDrawn({ renderer: o.renderer, camera: o.camera, scene: o.scene, boxes, shadows: o.shadows });
 	return {
 		...drawn,
-		reach,
 		/**
-		 * A kind, its detail changing at the distances of its reach: its finer shape to the first, its coarser to the
-		 * second, and a tree's picture beyond; a shrub or a small plant is left out past the second (`Forest.update`), so
-		 * it never comes to a picture.
-		 * @param {any} k a kind of the renderer's, its coarsest shape here @param {import('./flora.js').Reach} r
+		 * How far off a copy of kind k comes to its picture, by the selector (its last threshold, ./lod.js): a small
+		 * plant, which has none, is left out past it (`Forest.update`).
+		 * @param {any} k a kind of the renderer's
 		 */
-		tune(k, r) {
-			const [fine, coarse] = reach[r], t = tanOf(o.camera);
-			drawn.assets.tune(k, [k.radius / (fine * t), (k.radius / (coarse * t)) * (r === 'tree' ? 1 : 0.5)]);
-		}
+		far: (k) => k.radius / (k.thresholds[k.thresholds.length - 1] * tanOf(o.camera))
 	};
 }

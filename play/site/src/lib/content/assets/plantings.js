@@ -30,9 +30,6 @@ import { groundMaterial, rowsOf } from '$lib/content/biomes/surfaces.js';
 import { biomeOfCard } from '$lib/content/biomes/card.js';
 import { createCover } from '$lib/content/sandbox-2/interior/cover.js';
 
-/** the sizes on screen (of the view's height) a guest is drawn at each level down to, finest first (render/lod.js) */
-export const GUEST_LEVELS = [1.2, 0.4, 0.16];
-
 /** a node's name that plants a build: `use:` and the build */
 const USE = /^use:([0-9a-f]{64}(?:\?[A-Za-z0-9=&._%-]*)?)$/;
 
@@ -115,12 +112,11 @@ export function shownIn(o) {
 
 /**
  * The page's drawing of what the builds it shows plant, in `scene`: `show(root)` draws the root's plantings (and puts
- * away those of the build shown before), `update()` before every frame, `clear()`, `dispose()`. `levels` and `details`:
- * the sizes on screen a plant (a recipe that takes a detail) is drawn to and the details it is built at for each, finest
- * first (GUEST_LEVELS and render/index.js DETAILS when not given; a thing, built whole, keeps GUEST_LEVELS); `shadows`: told when what
+ * away those of the build shown before), `update()` before every frame, `clear()`, `dispose()`. Every guest is drawn
+ * by its card's levels and the one selector (render/lod.js), as everywhere; `shadows`: told when what
  * casts a shadow changed, for a world that draws its shadows again only every so often (render/index.js `onShadows`;
  * without it, the shadows are drawn again with the next frame).
- * @param {{ renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, boxes?: number, levels?: number[], details?: number[], shadows?: () => void }} o
+ * @param {{ renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, boxes?: number, shadows?: () => void }} o
  */
 export function createPlantings(o) {
 	/** @type {ReturnType<typeof createAssets> | null} made the first time a build plants something */
@@ -140,11 +136,7 @@ export function createPlantings(o) {
 	const renderer = () => {
 		if (assets) return assets;
 		const boxes = o.boxes ?? Math.max(1, Math.min(4, (globalThis.navigator?.hardwareConcurrency || 4) - 1));
-		// a build's guests stand close and many (a dome's forest: 2,500 plants within 40 m), so each steps to its
-		// coarser shape and its picture sooner than an asset on its own does (render/lod.js LEVELS: 1.2, 0.28, 0.11)
-		// (`levels` a world's own for its plants, built at its `details`; a thing, built whole, then at the guests' own,
-		// turning into its picture as far off as with the plants' levels: render/index.js `whole`)
-		assets = createAssets({ renderer: o.renderer, camera: o.camera, boxes, levels: o.levels ?? GUEST_LEVELS, whole: o.levels ? GUEST_LEVELS : undefined, details: o.details, onShadows: o.shadows });
+		assets = createAssets({ renderer: o.renderer, camera: o.camera, boxes, onShadows: o.shadows });
 		o.scene.add(assets.group);
 		return assets;
 	};

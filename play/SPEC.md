@@ -310,7 +310,10 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   migration. **Every level is made once a device:** each derived level and each picture is kept in the device's cache
   (`cache.js`, OPFS) under its key, the build's name (`<hash>?values`), the level, what it is made to and its maker's
   version (`simplify.js` and `impostors.js` `VERSION`; `render/levels.js`), so a second visit, or a second world on the
-  same device, simplifies and photographs nothing; a declared level is a build, kept as builds are.
+  same device, simplifies and photographs nothing; a declared level is a build, kept as builds are. **One selector
+  for every world** (intent 6295a650): no world chooses a level, a detail, a distance or a forced finest of its own
+  (the renderer takes no `levels`, `details` or `tune`); every world draws every asset by its card's levels and
+  `lod.js`'s thresholds, and only a film forces a level (`force`).
 
 ### 4.6 A sandbox's layout, a document (Samuel 2026-11-04 and 2026-11-06)
 
