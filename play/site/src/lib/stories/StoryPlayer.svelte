@@ -366,7 +366,8 @@
 		<div class="picture">
 			<!-- the film: HyperFrames' player in play's sealed frame (a tap on it lands in the frame, which plays or pauses) -->
 			<hyperframes-player bind:this={hf} sandbox-origin="opaque" no-load-timeout disable-click-to-play assets-loading-ui="none"></hyperframes-player>
-			{#if film !== 'ready'}<div class="wait">{film === 'failed' ? `The film could not be played: ${failure}` : 'Loading the film…'}</div>{/if}
+			<!-- until the film is ready (a live shot's asset building, intent f270269e), the shot's still: its poster -->
+			{#if film !== 'ready'}<div class="wait" class:poster={film !== 'failed' && !!shots[index]?.frame} style:background-image={film !== 'failed' && shots[index]?.frame ? `url(${frameUrl(shots[index].frame)})` : null}><span>{film === 'failed' ? `The film could not be played: ${failure}` : 'Loading the film…'}</span></div>{/if}
 			{#if !playing}<span class="play-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg></span>{/if}
 		</div>
 		{#if full}
@@ -525,6 +526,8 @@
 	/* HyperFrames' player, the film's picture and sound, filling the picture; a word over it until the film is in */
 	.picture hyperframes-player { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 	.wait { position: absolute; z-index: 5; inset: 0; display: grid; place-items: center; padding: 1rem; text-align: center; color: #cfc8b8; background: #15130f; font-size: 0.9rem; pointer-events: none; }
+	.wait.poster { place-items: end center; background-size: cover; background-position: center; }
+	.wait.poster span { margin-bottom: 1rem; padding: 0.25rem 0.6rem; border-radius: 999px; background: rgb(10 10 8 / 0.55); color: #f3eee2; font-size: 0.8rem; }
 	.play-mark { position: absolute; z-index: 4; left: 50%; top: 46%; width: clamp(2.6rem, 16cqw, 4.5rem); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; background: rgb(10 10 8 / 0.45); display: grid; place-items: center; pointer-events: none; }
 	.play-mark svg { width: 55%; height: 55%; fill: #fff; margin-left: 8%; }
 	.details { display: grid; gap: 0.6rem; align-content: start; min-width: 0; }
