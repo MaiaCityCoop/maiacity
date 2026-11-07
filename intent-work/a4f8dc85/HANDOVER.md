@@ -190,3 +190,12 @@ person is still v1's (checked byte for byte).
 - **A lesson:** a second version of a piece in one intent is seeded from the first's variant, so its edits must be made
   against that one; and a proposed variant is frozen (withdraw_doc, then propose again).
 - **Recorded:** c1, c2, c4, c5 pass. **Open:** c3, the bench film (run 2 at 2809f24 on the Mac); then mark PR #2157 ready.
+
+### 19:25: c3 passed (the Mac's run 2, `out/c3-run2/`, contact sheet `ea909b63…`)
+
+Clothes read as clothes (shirt with long sleeves, placket and untucked hem; loose trousers to the ankle; sandals),
+following the body through walk, turn, sit and stand without passing through; the eyes sit in their sockets; a clear
+warm smile in the close-up; morphs joy, friendly, blink. For Samuel's look at Proposal: the cloth reads padded rather
+than linen (no folds), a pinkish smear at the collar (the placket's paint), cheek blotches (the texture), the wave's
+close-up blocked by the hand, the mitten hands and the sit-down pop (motion pieces). bake.py now hands its arguments
+by environment (node -e and bun -e differ), so the Mac needs no node shim.
