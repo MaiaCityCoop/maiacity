@@ -15,7 +15,7 @@ import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameM
 import { listTables, readTable, TableError } from "./tables";
 import { proposedState, SandboxError } from "./sandboxes";
 import { decideAny, docAt, docChanges, docHistory, listDocs, reviewOf, VersionError } from "./versioned";
-import type { GitHub } from "./ship";
+import { runningCommit, type GitHub } from "./ship";
 import { WorkError } from "./work";
 import { intentOf, IntentError, intentReady, listIntents, type IntentVerdict } from "./intents";
 import { clientOf, perMinute, Rate, costly } from "./limits";
@@ -45,7 +45,7 @@ async function body(req: Request): Promise<any> {
   }
 }
 
-export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)), github = null }: { db: Db; store: BlobStore; rate?: Rate; github?: GitHub | null }) {
+export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)), github = null, commit = runningCommit() }: { db: Db; store: BlobStore; rate?: Rate; github?: GitHub | null; commit?: string | null }) {
   const routes: Route[] = [];
   const on = (method: string, path: string, handler: Handler) => {
     const keys: string[] = [];
@@ -63,6 +63,9 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     json({ id: h.id, name: h.name, ...(extra as object) }, { headers: { "Set-Cookie": sessionCookie(tokenFor(h.id)) } });
 
   on("GET", "/api/health", () => json({ ok: true }));
+  // the commit play runs (the image's PLAY_COMMIT, ./ship.ts runningCommit), public: what every code intent's stage is
+  // held to (./ship.ts reconcile), and what play/avenbox/live-audit.ts reads; null where it was built without one
+  on("GET", "/api/version", () => json({ commit }, { headers: { "Cache-Control": "no-store" } }));
   // how many build Maia City: the number alone, public, for the website's manifesto (maia.city, website/src/lib/FounderCounter.svelte)
   on("GET", "/api/founders", async () => {
     const { rows } = await db.query<{ n: string }>(`SELECT count(*) AS n FROM play.memberships WHERE coop_id = $1`, [COOP]);
@@ -180,7 +183,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   });
   on("POST", "/api/intents/:id/:verdict", async (req, p) => {
     if (!["approve", "accept", "archive", "reject", "reopen"].includes(p.verdict)) throw new NotFound("No such decision.");
-    return json(await decideAny({ db, store }, await me(req), p.id, p.verdict as IntentVerdict | "archive", github));
+    return json(await decideAny({ db, store }, await me(req), p.id, p.verdict as IntentVerdict | "archive", github, commit));
   });
 
   // one version control (./versioned.ts, play/SPEC.md "Version control"), admins only: every document play versions,

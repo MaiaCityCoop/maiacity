@@ -14,7 +14,8 @@ import { folderStore } from "../src/blobs";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
 import { Rate } from "../src/limits";
-import { ACCEPTED_CONTEXT, gitHub, shipGitHub, startShipWatcher, tailOf, watchShips, type Job, type Pull, type Run } from "../src/ship";
+import { readFileSync } from "node:fs";
+import { ACCEPTED_CONTEXT, gitHub, reconcile, runningCommit, shipGitHub, startShipWatcher, tailOf, watchShips, type Job, type Pull, type Run } from "../src/ship";
 import { fakeGitHub, green, iso, job, REPO, run, sha, TOKEN } from "./fixtures/github";
 
 const URL_ = process.env.TEST_DATABASE_URL;
@@ -251,7 +252,7 @@ suite("accept ships it", () => {
     expect(await readyOf(c.id)).toMatchObject({ note: "Queued · behind Second accepted" });
     // a goes all the way: Accepted, and in that same look b, next in line, merges; c waits behind it
     allGreen(a.merge, 7000);
-    await watchShips(db, gh.gh);
+    await watchShips(db, gh.gh, Date.now(), a.merge);
     expect((await intent(a.id)).stage).toBe("accepted");
     expect(writesSince(from).filter((w) => w.method === "PUT").map((w) => w.path)).toEqual([`/pulls/${a.pr}/merge`, `/pulls/${b.pr}/merge`]);
     expect(await shipOf(b.id)).toMatchObject({ merge: b.merge, pending: null });
@@ -429,7 +430,7 @@ suite("accept ships it", () => {
       job(4, "The website", "completed", "success"),
     ]);
     Object.assign(deploy, { status: "completed", conclusion: "success" });
-    const stop = startShipWatcher(db, again, 20);
+    const stop = startShipWatcher(db, again, 20, c.merge);
     for (let t = 0; t < 100 && (await intent(c.id)).stage === "ship"; t++) await Bun.sleep(20);
     stop();
     const done = await intent(c.id);
@@ -510,6 +511,164 @@ suite("accept ships it", () => {
     Object.assign(gh.pulls.get(o.pr)!, { state: "closed", merged: true, merge_commit_sha: sha(4242) });
     const hand = await call("ada", "POST", `/api/intents/${o.id}/accept`);
     expect(hand.data.error).toContain("merged already, and not by a ship of this intent");
+  });
+
+  // ---- the reconcile (intent 9876ef00): a code intent's stage agrees with the commit play runs
+
+  /** an intent at Proposal on its checks, no pull request named: a decision, or code by its trailer on main */
+  const decisionAtProposal = async (title: string) => {
+    const i = await tool("add_intent", { title, kind: "fix" });
+    await tool("specify_intent", { intent: i.id, ...SPEC });
+    await call("ada", "POST", `/api/intents/${i.id}/approve`);
+    expect(await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "ok" }, { check: "c2", pass: true, evidence: "1.0" }] })).toMatchObject({ stage: "proposal" });
+    return i.id as string;
+  };
+  /** play as it runs `commit` (its PLAY_COMMIT) */
+  const running = (commit: string | null) => app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0), github: gh.gh, commit });
+  /** a ship all the way green on GitHub, the watcher's look against `commit` */
+  const shipped = async (title: string, commit: (merge: string) => string | null, base: number) => {
+    await clearShips();
+    const c = await codeAtProposal(title);
+    expect((await call("ada", "POST", `/api/intents/${c.id}/accept`)).data.ship.merge).toBe(c.merge);
+    allGreen(c.merge, base);
+    await watchShips(db, gh.gh, Date.now(), commit(c.merge));
+    return c;
+  };
+
+  test("one place makes a code intent Accepted: the reconcile, after Ship's watcher and for an Accept on code by its trailer", async () => {
+    // in the code: the only write of stage 'accepted' in ship.ts is the reconcile's; intents.ts keeps one, decideIntent's
+    // accept, which is reached for a code intent no more (a pull request named is shipped, a trailer on main reconciled)
+    const shipTs = readFileSync(join(import.meta.dir, "../src/ship.ts"), "utf8");
+    const writes = (src: string) => [...src.matchAll(/SET (?:[^`]*?, )?stage\s*=\s*'accepted'/g)].map((m) => m.index!);
+    const body = shipTs.slice(shipTs.indexOf("export async function reconcile("), shipTs.indexOf("export async function acceptCode("));
+    expect(writes(shipTs).length).toBe(1);
+    expect(writes(body).length).toBe(1);
+    expect(shipTs).not.toMatch(/saveShip\([^)]*"accepted"/);
+    const intentsTs = readFileSync(join(import.meta.dir, "../src/intents.ts"), "utf8");
+    expect(writes(intentsTs).length).toBe(1);
+    expect(intentsTs.slice(intentsTs.indexOf("export async function decideIntent("))).toMatch(/stage\s*=\s*'accepted'/);
+    const versioned = readFileSync(join(import.meta.dir, "../src/versioned.ts"), "utf8");
+    expect(versioned).toMatch(/acceptAndShip\(db, gh, me, w\.id\)\) \?\? \(await acceptCode\(/);
+
+    // Ship's watcher, all green: ended in Ship, Accepted only by the reconcile, once play runs its merge
+    const before = gh.main.head;
+    const c = await shipped("Green, then reconciled", () => null, 9000);
+    expect(await intent(c.id)).toMatchObject({ stage: "ship", ship: { outcome: "green" } });
+    // ended, it holds no one up: the next ship merges
+    const next = await codeAtProposal("Ships behind a green one");
+    expect((await call("ada", "POST", `/api/intents/${next.id}/accept`)).data.ship.pending).toBeNull();
+    // play runs a commit before its merge: still in Ship, flagged not live
+    const was = await reconcile(db, gh.gh, before);
+    expect(was.flagged).toContain(c.id);
+    expect(await intent(c.id)).toMatchObject({ stage: "ship", ship: { live: false, commit: before } });
+    // play runs its merge: Accepted, by the reconcile, decided by the admin who accepted it
+    const r = await reconcile(db, gh.gh, c.merge);
+    expect(r.accepted).toContain(c.id);
+    const done = await intent(c.id);
+    expect(done).toMatchObject({ stage: "accepted", decided_by: "ada", ship: { live: true, commit: c.merge, outcome: "green" } });
+    expect(done.ship.note).toContain("Accepted by the reconcile");
+    await clearShips();
+
+    // an Accept on code named by its trailer on main, no pull request: the reconcile's, not a person's
+    const t = await decisionAtProposal("Code by its trailer");
+    const old = gh.main.head;
+    const on = gh.commit(sha(++commits), `A fix\n\nIntent: ${t}`);
+    const from = gh.calls.length;
+    const notYet = await call("ada", "POST", `/api/intents/${t}/accept`, undefined, () => running(old));
+    expect(notYet.status).toBe(409);
+    expect(notYet.data.error).toContain(`Its code is on main (${on.slice(0, 7)}), not yet in what play runs (${old.slice(0, 7)})`);
+    expect((await intent(t)).stage).toBe("proposal");
+    expect(writesSince(from)).toEqual([]);
+    const noCommit = await call("ada", "POST", `/api/intents/${t}/accept`, undefined, () => running(null));
+    expect(noCommit.data.error).toContain("PLAY_COMMIT");
+    const live = await call("ada", "POST", `/api/intents/${t}/accept`, undefined, () => running(on));
+    expect(live.data).toMatchObject({ stage: "accepted", decided_by: "ada", ship: { live: true, commit: on, merge: on } });
+    expect(live.data.ship.note).toContain("Accepted by the reconcile");
+    // a decision (no code anywhere) is accepted as before, straight
+    const d = await decisionAtProposal("A decision only");
+    expect((await call("ada", "POST", `/api/intents/${d}/accept`, undefined, () => running(on))).data).toMatchObject({ stage: "accepted", ship: null });
+  });
+
+  test("live intents are Accepted: merged and in what play runs, left at Proposal, Build or Archived, becomes Accepted with a note saying how", async () => {
+    // Proposal: a red step after the merge (the website, once play runs it)
+    await clearShips();
+    const red = await codeAtProposal("Red at the website, live");
+    await call("ada", "POST", `/api/intents/${red.id}/accept`);
+    gh.runs["main.yml"].push(run(9101, red.merge, { status: "completed", conclusion: "success" }));
+    gh.runs["release.yml"].push(run(9102, red.merge, { display_title: `release ${red.merge}`, status: "completed", conclusion: "success" }));
+    gh.runs["production.yml"].push(run(9103, red.merge, { event: "workflow_dispatch", status: "completed", conclusion: "failure" }));
+    gh.jobs.set(9103, [job(91, "The image", "completed", "success"), job(92, "The backup", "completed", "success"), job(93, "The server", "completed", "success"), job(94, "The website", "completed", "failure")]);
+    // the watcher's look against a play that does not run it yet: back to Proposal with the report
+    await watchShips(db, gh.gh, Date.now(), sha(1));
+    expect(await intent(red.id)).toMatchObject({ stage: "proposal", ship: { outcome: "red", report: { step: "The website" } } });
+
+    // Build: its pull request merged by hand on GitHub, its checks gone red since
+    const hand = await codeAtProposal("Merged by hand, in Build");
+    await tool("check_intent", { intent: hand.id, results: [{ check: "c1", pass: false, evidence: "a flake", commit: hand.head }] });
+    expect((await intent(hand.id)).stage).toBe("build");
+    const pr = gh.pulls.get(hand.pr)!;
+    const handMerge = gh.commit(sha(++commits), `Merge pull request #${hand.pr}`, [gh.main.head, hand.head]);
+    Object.assign(pr, { state: "closed", merged: true, merge_commit_sha: handMerge });
+
+    // Archived: shipped by hand, archived on the board
+    const arch = await codeAtProposal("Archived, yet live");
+    const archMerge = gh.commit(sha(++commits), `Merge pull request #${arch.pr}\n\nIntent: ${arch.id}`, [gh.main.head, arch.head]);
+    Object.assign(gh.pulls.get(arch.pr)!, { state: "closed", merged: true, merge_commit_sha: archMerge });
+    expect((await call("ada", "POST", `/api/intents/${arch.id}/reject`)).data.stage).toBe("archived");
+
+    // not merged: left as it is
+    const open = await codeAtProposal("Open still");
+
+    const r = await reconcile(db, gh.gh, gh.main.head);
+    expect(r.accepted).toEqual(expect.arrayContaining([red.id, hand.id, arch.id]));
+    expect(r.accepted).not.toContain(open.id);
+    for (const [id, merge] of [[red.id, red.merge], [hand.id, handMerge], [arch.id, archMerge]]) {
+      const i = await intent(id);
+      expect(i).toMatchObject({ stage: "accepted", ship: { live: true, commit: gh.main.head, merge } });
+      expect(i.ship.note).toBe(`Live at ${gh.main.head.slice(0, 7)}, its merge ${merge.slice(0, 7)} in what play runs: Accepted by the reconcile`);
+    }
+    // the red ship's steps and report kept; an Archived one is decided by no one now
+    expect((await intent(red.id)).ship.report.step).toBe("The website");
+    expect((await intent(arch.id)).decided_by).toBeNull();
+    expect((await intent(open.id)).stage).toBe("proposal");
+    // once more: nothing to do
+    const again = await reconcile(db, gh.gh, gh.main.head);
+    expect(again.accepted).toEqual([]);
+  });
+
+  test("Accepted but not live is flagged: rolled back or closed unmerged, its stage unchanged; once production includes it again the flag clears", async () => {
+    // Accepted by its ship, then production rolled back to the commit before its merge
+    const before = gh.main.head;
+    const c = await shipped("Rolled back", (m) => m, 9500);
+    expect((await intent(c.id)).stage).toBe("accepted");
+    // Accepted with its pull request closed unmerged (a decision made before ships, its code never in)
+    const closed = await decisionAtProposal("Closed unmerged");
+    await call("ada", "POST", `/api/intents/${closed}/accept`, undefined, () => running(null));
+    const pr = ++prs;
+    gh.pulls.set(pr, { number: pr, state: "closed", merged: false, merge_commit_sha: null, mergeable: null, base: { ref: "main" }, head: { sha: sha(++commits), ref: "x" }, html_url: `https://github.test/${REPO}/pull/${pr}`, title: "closed" });
+    await db.query(`UPDATE play.intents SET pull_request = $2 WHERE id = $1`, [closed, pr]);
+    expect((await intent(closed)).stage).toBe("accepted");
+
+    const back = await reconcile(db, gh.gh, before);
+    expect(back.flagged).toEqual(expect.arrayContaining([c.id, closed]));
+    expect(await intent(c.id)).toMatchObject({ stage: "accepted", decided_by: "ada", ship: { live: false, commit: before, merge: c.merge } });
+    expect(await intent(closed)).toMatchObject({ stage: "accepted", ship: { live: false, commit: before, pr, steps: [] } });
+    // flagged once for that commit: not again
+    expect((await reconcile(db, gh.gh, before)).flagged).not.toContain(c.id);
+    // the board's card says so
+    const listed = (await call("ada", "GET", "/api/intents?stage=accepted")).data.find((x: any) => x.id === c.id);
+    expect(listed.ship).toMatchObject({ live: false, commit: before });
+
+    // production includes it again: the flag clears; the closed one stays flagged
+    const fwd = await reconcile(db, gh.gh, gh.main.head);
+    expect(fwd.cleared).toContain(c.id);
+    expect(await intent(c.id)).toMatchObject({ stage: "accepted", ship: { live: true, commit: gh.main.head } });
+    expect(fwd.flagged).toContain(closed);
+    expect(await intent(closed)).toMatchObject({ stage: "accepted", ship: { live: false, commit: gh.main.head } });
+    // the commit play runs is its PLAY_COMMIT, a full sha
+    expect(runningCommit({ PLAY_COMMIT: ` ${c.merge.toUpperCase()} ` })).toBe(c.merge);
+    expect(runningCommit({ PLAY_COMMIT: "abc1234" })).toBeNull();
+    expect(runningCommit({})).toBeNull();
   });
 
   test("SHIP_TOKEN never leaves play's server: not in an answer, not in a log", async () => {

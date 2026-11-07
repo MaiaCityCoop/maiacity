@@ -33,7 +33,7 @@ import { UUID } from "./uuid";
 import { closeWork, putAtProposal, SANDBOX_WORK, settle, WORK_OF, workOf, WorkError } from "./work";
 import { decideSandbox, sandboxReview } from "./sandboxes";
 import { decideIntent, getIntent, gate, IntentError, type IntentVerdict } from "./intents";
-import { acceptAndShip, type GitHub } from "./ship";
+import { acceptAndShip, acceptCode, runningCommit, type GitHub } from "./ship";
 import { assetDocFor, assetEdits, assetReview, decideAsset, ensureAssetDoc, proposeAssetVariant } from "./assetdocs";
 import { decideStory, proposeStoryVariant, storyEdit, storyReview } from "./stories";
 import { ensureStoryDoc } from "./storydocs";
@@ -635,14 +635,15 @@ export async function decide(ctx: Ctx, me: Me | null, id: string, verdict: Verdi
  * An admin's decision on an intent, whatever its stage (the one place an intent is decided; play/SPEC.md §4.12): at
  * Proposal with work of play's, accepting applies it and archiving archives it (decide); anything else is the intent's
  * own decision (./intents.ts decideIntent), except that accepting an intent whose code is a pull request ships it
- * (./ship.ts acceptAndShip). Gives back the intent, with the decision's message where it has one.
+ * (./ship.ts acceptAndShip), and one whose code is on main by its trailer is the reconcile's (./ship.ts acceptCode,
+ * Accepted once play runs it). Gives back the intent, with the decision's message where it has one.
  */
-export async function decideAny(ctx: Ctx, me: Me | null, id: string, verdict: IntentVerdict | "archive", gh: GitHub | null = null) {
+export async function decideAny(ctx: Ctx, me: Me | null, id: string, verdict: IntentVerdict | "archive", gh: GitHub | null = null, commit = runningCommit()) {
   const db = ctx.db;
   const w = await workOf(db, id);
   if (!w) throw new IntentError("There is no such intent.", 404);
   if (verdict === "accept" && !w.kind) {
-    const shipped = await acceptAndShip(db, gh, me, w.id);
+    const shipped = (await acceptAndShip(db, gh, me, w.id)) ?? (await acceptCode(db, gh, me, w.id, commit));
     if (shipped) return shipped;
   }
   let decision: { status: string; number?: number; version?: string; merged?: boolean; message?: string } | undefined;
