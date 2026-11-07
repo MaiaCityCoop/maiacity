@@ -1,0 +1,68 @@
+--- a/Person body v2 (7d44562b…)
++++ b/Person body v3 (a4f8dc85: wear)
+@@ -12,6 +12,10 @@
+  * the crown, `v` the version of its head (10: every tooth coloured).
+  * v2 (intent a4f8dc85): on the Person head v2, so a look may carry a person's own face (`shape`, `colours`); every
+  * look without them is the same person as v1's.
++ * v3 (intent a4f8dc85): `look.wear`, a person's own clothes as data, measured for 1.80 m: `shirt` { sleeve: 'long',
++ * hem (m: an untucked shirt's hem, over the belt), placket (m: the open band collar's depth), ease (its girth) },
++ * `trousers` { ankle (m: where they end), ease }, `shoes` 'sandals' (two straps on the bare foot). Painted and eased on
++ * the one skin, so they move with it and never pass through it; without `wear` it is v2's person.
+  */
+ const three = require('three');
+ const three_addons_utils_BufferGeometryUtils_js = require('three/addons/utils/BufferGeometryUtils.js');
+@@ -466,6 +470,9 @@
+ 
+ /** the parts of a person of 1.80 m: geometry, colour and the bones that carry it */
+ function parts(k, v) {
++	const W = k.wear ?? {}, shirt = W.shirt ?? {}, trousers = W.trousers ?? {};
++	const longSleeves = shirt.sleeve === 'long', sandals = W.shoes === 'sandals';
++	const shirtEase = shirt.ease ?? 1, legEase = trousers.ease ?? 1;
+ 	const box = (w, h, d, r, at) => {
+ 		const g = new three_addons_geometries_RoundedBoxGeometry_js.RoundedBoxGeometry(w, h, d, 3, r);
+ 		g.translate(...at);
+@@ -490,8 +497,12 @@
+ 				{ y: 1.495, w: .3, d: .15, z: -.015 },
+ 				{ y: 1.53, w: .165, d: .13, z: -.016 },
+ 				{ y: 1.545, w: .02, d: .02, z: -.015 }
+-			], 44),
+-			color: (p) => (p.y < .985 ? k.trousers : p.y < 1.012 ? k.belt : k.shirt),
++			].map((r) => (shirtEase !== 1 && r.y > (shirt.hem ?? 1.012) && r.y < 1.465 ? { ...r, w: r.w * shirtEase, d: r.d * shirtEase } : r)), 44),
++			color: shirt.hem || shirt.placket ? (p) => {
++				// the open band collar: a narrow V of skin down the front, from the collar's top
++				if (shirt.placket && p.z > .02 && p.y > 1.495 - shirt.placket && Math.abs(p.x) < .022 * (p.y - (1.495 - shirt.placket)) / shirt.placket + .004) return k.skin;
++				return p.y < (shirt.hem ?? 1.012) ? (shirt.hem ? k.trousers : p.y < .985 ? k.trousers : k.belt) : k.shirt;
++			} : (p) => (p.y < .985 ? k.trousers : p.y < 1.012 ? k.belt : k.shirt),
+ 			weights: torsoWeights
+ 		},
+ 		...head
+@@ -500,8 +511,8 @@
+ 		const b = (n) => `${s}${n}`;
+ 		out.push(
+ 			// the upper arm, the sleeve over its top
+-			{ geo: limb([x * .185, 1.43, -.01], [x * .2, 1.17, -.02], .047, .04), color: (p) => (p.y > 1.32 ? k.shirt : k.skin), chain: { bones: [b('UpperArm'), b('LowerArm')], soft: .06 } },
+-			{ geo: limb([x * .2, 1.17, -.02], [x * .205, .915, 0], .041, .031), color: k.skin, chain: { bones: [b('LowerArm'), b('Hand')], soft: .05 } },
++			{ geo: limb([x * .185, 1.43, -.01], [x * .2, 1.17, -.02], .047 * shirtEase, .04 * shirtEase), color: longSleeves ? k.shirt : (p) => (p.y > 1.32 ? k.shirt : k.skin), chain: { bones: [b('UpperArm'), b('LowerArm')], soft: .06 } },
++			{ geo: limb([x * .2, 1.17, -.02], [x * .205, .915, 0], .041 * shirtEase, .031 * (longSleeves ? shirtEase : 1)), color: longSleeves ? (p) => (p.y > .93 ? k.shirt : k.skin) : k.skin, chain: { bones: [b('LowerArm'), b('Hand')], soft: .05 } },
+ 			// the palm, thin across, from the wrist to the knuckles
+ 			{ geo: limb([x * .205, .915, 0], [x * .207, .826, .002], .033, .03, { flat: .5 }), color: k.skin, chain: { bones: [b('Hand')], soft: .02, tip: [x * .207, .82, .002] } }
+ 		);
+@@ -514,12 +525,14 @@
+ 			}
+ 		}
+ 		out.push(
+-			{ geo: limb([x * .095, .96, 0], [x * .1, .5, .01], .088, .058), color: k.trousers, chain: { bones: [b('UpperLeg'), b('LowerLeg')], soft: .08 } },
+-			{ geo: limb([x * .1, .5, .01], [x * .1, .09, -.005], .056, .045), color: k.trousers, chain: { bones: [b('LowerLeg'), b('Foot')], soft: .06 } },
+-			// the trainer and its sole, bending at the ball of the foot
+-			{ geo: box(.1, .085, .27, .035, [x * .1, .05, .065]), color: k.shoes, chain: { bones: [b('Foot'), b('Toes')], soft: .03, tip: [x * .1, .03, .2] } },
++			{ geo: limb([x * .095, .96, 0], [x * .1, .5, .01], .088 * legEase, .058 * legEase), color: k.trousers, chain: { bones: [b('UpperLeg'), b('LowerLeg')], soft: .08 } },
++			{ geo: limb([x * .1, .5, .01], [x * .1, .09, -.005], .056 * legEase, .045 * legEase), color: trousers.ankle ? (p) => (p.y < trousers.ankle ? k.skin : k.trousers) : k.trousers, chain: { bones: [b('LowerLeg'), b('Foot')], soft: .06 } },
++			// the trainer and its sole, bending at the ball of the foot (or a sandal: the bare foot, two straps across it)
++			{ geo: box(.1, .085, .27, .035, [x * .1, .05, .065]), color: sandals ? k.skin : k.shoes, chain: { bones: [b('Foot'), b('Toes')], soft: .03, tip: [x * .1, .03, .2] } },
+ 			{ geo: box(.104, .018, .274, .008, [x * .1, .009, .065]), color: k.soles, chain: { bones: [b('Foot'), b('Toes')], soft: .03, tip: [x * .1, .009, .2] } }
+ 		);
++		// a sandal's two leather straps, wrapped over the bare foot (across the instep and the toes' root)
++		if (sandals) for (const z of [.025, .115]) out.push({ geo: box(.108, .094, .026, .01, [x * .1, .049, z]), color: k.shoes, chain: { bones: [b('Foot'), b('Toes')], soft: .03, tip: [x * .1, .03, .2] } });
+ 	}
+ 	return out;
+ }

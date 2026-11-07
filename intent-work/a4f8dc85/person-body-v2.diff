@@ -1,0 +1,18 @@
+--- a/Person body v1 (7f8cae20…)
++++ b/Person body v2 (a4f8dc85: on head v2)
+@@ -10,12 +10,14 @@
+  *
+  * `person(look, height, { v })`: { rig, poses, measure } — `look` the colours and words of LOOK, `height` metres to
+  * the crown, `v` the version of its head (10: every tooth coloured).
++ * v2 (intent a4f8dc85): on the Person head v2, so a look may carry a person's own face (`shape`, `colours`); every
++ * look without them is the same person as v1's.
+  */
+ const three = require('three');
+ const three_addons_utils_BufferGeometryUtils_js = require('three/addons/utils/BufferGeometryUtils.js');
+ const three_addons_geometries_RoundedBoxGeometry_js = require('three/addons/geometries/RoundedBoxGeometry.js');
+ const SK = require('c6bd60a52004748e86bd99d3a922057c155a76b2ef4ffdb3a41903dd7b60f129');
+-const HEAD = require('7f6d41491559a018391791976005e6b4285fb51b28c89da3dc0c327ee79aff83');
++const HEAD = require('29bcc48554ddbec417538187d50d45124f1ee6e15f4e2ae85f56a32333e71ef1');
+ const PARS = `
+ #ifdef USE_SKINNING
+ 	vec4 dqQuat( mat3 m ) {
