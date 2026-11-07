@@ -1,0 +1,107 @@
+/**
+ * One engine, measured (intent e53393e2's c8, play/SPEC.md §12): a story compiled once (src/lib/stories/compose.ts) is
+ * rendered by HyperFrames' pinned renderer (`hyperframes render`, the CLI at the player's own version) and played by
+ * HyperFrames' player in play's sealed frame (the Stories player's way: the composition sealed, its files handed in by
+ * the page); the two pictures are compared at each second asked for, by SSIM (ffmpeg's). It prints each and the lowest,
+ * and fails when the lowest is under --min-ssim. Needs Chrome (or playwright's Chromium) and ffmpeg; --serve only serves
+ * the harness, to look at it in a browser.
+ *
+ *   bun scripts/story-parity.ts src/lib/stories/fixtures/hex-village.json --at 1.0,3.6,7.2 --min-ssim 0.98 [--keep dir] [--serve]
+ */
+import { chromium } from 'playwright';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, copyFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { compose, filesOf, VENDOR } from '../src/lib/stories/compose';
+
+const args = process.argv.slice(2);
+const opt = (name: string) => {
+	const i = args.indexOf(name);
+	return i >= 0 ? args[i + 1] : undefined;
+};
+const fixture = args.find((a, i) => !a.startsWith('--') && !['--at', '--min-ssim', '--keep'].includes(args[i - 1]));
+if (!fixture) throw new Error('usage: bun scripts/story-parity.ts <fixture.json> --at 1.0,3.6,7.2 --min-ssim 0.98');
+const at = (opt('--at') ?? '1').split(',').map(Number);
+const least = Number(opt('--min-ssim') ?? 0.98);
+const SITE = resolve(import.meta.dir, '..');
+const work = opt('--keep') ? resolve(opt('--keep')!) : mkdtempSync(join(tmpdir(), 'story-parity-'));
+mkdirSync(work, { recursive: true });
+
+const { story, links, compositions, files: given = {} } = JSON.parse(readFileSync(fixture, 'utf8'));
+const html = compose(story, links, compositions);
+const [W, H] = [Number(html.match(/data-width="(\d+)"/)![1]), Number(html.match(/data-height="(\d+)"/)![1])];
+// the project the renderer reads: the composition, and every file it names where play serves it (/api/files/<hash>)
+const project = join(work, 'project');
+mkdirSync(join(project, 'api/files'), { recursive: true });
+writeFileSync(join(project, 'index.html'), html);
+const vendor: Record<string, string> = {
+	[VENDOR.runtime.hash]: join(SITE, 'node_modules/@hyperframes/core/dist/hyperframe.runtime.iife.js'),
+	[VENDOR.gsap.hash]: join(SITE, 'node_modules/gsap/dist/gsap.min.js'),
+	[VENDOR.font.hash]: join(SITE, 'node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2')
+};
+for (const h of filesOf(html)) {
+	const from = vendor[h] ?? (given[h] ? resolve(fixture, '..', given[h]) : null);
+	if (!from) throw new Error(`the fixture does not give file ${h.slice(0, 12)}…`);
+	copyFileSync(from, join(project, 'api/files', h));
+}
+const type = (h: string) => (h === VENDOR.font.hash ? 'font/woff2' : vendor[h] ? 'text/plain; charset=utf-8' : /\.mp4$/.test(given[h] ?? '') ? 'video/mp4' : /\.(png)$/.test(given[h] ?? '') ? 'image/png' : 'application/octet-stream');
+
+// the harness: HyperFrames' player as the Stories player sets it up, the page answering the frame's asks for files
+const bundle = await Bun.build({ entrypoints: [join(import.meta.dir, 'story-parity-page.ts')], target: 'browser', minify: false });
+if (!bundle.success) throw new Error(bundle.logs.join('\n'));
+const script = await bundle.outputs[0].text();
+const server = Bun.serve({
+	port: Number(opt('--port') ?? 0),
+	fetch(req) {
+		const u = new URL(req.url);
+		if (u.pathname === '/') return new Response(`<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:#000}hyperframes-player{display:block;width:${W}px;height:${H}px}</style><body><script type="module" src="/page.js"></script>`, { headers: { 'content-type': 'text/html' } });
+		if (u.pathname === '/page.js') return new Response(script, { headers: { 'content-type': 'text/javascript' } });
+		if (u.pathname === '/composition.html') return new Response(html, { headers: { 'content-type': 'text/plain; charset=utf-8' } });
+		const h = u.pathname.match(/^\/api\/files\/([0-9a-f]{64})$/)?.[1];
+		if (h) return new Response(Bun.file(join(project, 'api/files', h)), { headers: { 'content-type': type(h) } });
+		return new Response('not here', { status: 404 });
+	}
+});
+if (args.includes('--serve')) {
+	console.log(`the harness: http://localhost:${server.port}/ (window.player.seek(t))`);
+	await new Promise(() => {});
+}
+
+const run = (cmd: string[]) => {
+	const p = Bun.spawnSync(cmd, { stdout: 'pipe', stderr: 'pipe' });
+	if (p.exitCode !== 0) throw new Error(`${cmd[0]} ${cmd[1]}: ${p.stderr.toString().slice(-2000)}`);
+	return p.stdout.toString() + p.stderr.toString();
+};
+try {
+	// HyperFrames' render of it, and a still from it at each second
+	const film = join(work, 'render.mp4');
+	run(['bunx', 'hyperframes@0.9.20', 'render', project, '-o', film, '--quiet', '--workers', '1', '--quality', 'delivery', '--no-wait', '--no-experimental-fast-capture']);
+	for (const t of at) run(['ffmpeg', '-y', '-loglevel', 'error', '-i', film, '-vf', `select=eq(n\\,${Math.round(t * story.fps)})`, '-frames:v', '1', join(work, `render-${t}.png`)]);
+	// the player's picture at each second
+	// in Chrome (else the renderer's own headless shell), with the renderer's font and colour flags
+	const flags = { args: ['--font-render-hinting=none', '--force-color-profile=srgb'] };
+	const shell = [...new Bun.Glob('chrome-headless-shell/*/*/chrome-headless-shell').scanSync({ cwd: join(homedir(), '.cache/puppeteer'), absolute: true })].sort().pop();
+	const browser = await chromium.launch({ ...flags, channel: 'chrome' }).catch(() => chromium.launch({ ...flags, executablePath: shell }));
+	const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
+	page.on('console', (m) => m.type() === 'error' && console.error('player:', m.text()));
+	await page.goto(`http://localhost:${server.port}/`);
+	await page.waitForFunction(() => (window as any).ready === true, null, { timeout: 120_000 });
+	for (const t of at) {
+		await page.evaluate((s) => (window as any).at(s), t);
+		await page.screenshot({ path: join(work, `player-${t}.png`), clip: { x: 0, y: 0, width: W, height: H } });
+	}
+	await browser.close();
+	// how alike, by SSIM
+	const scores = at.map((t) => {
+		const out = run(['ffmpeg', '-loglevel', 'info', '-i', join(work, `render-${t}.png`), '-i', join(work, `player-${t}.png`), '-lavfi', 'ssim', '-f', 'null', '-']);
+		const s = Number(out.match(/All:([0-9.]+)/)?.[1]);
+		console.log(`${t.toFixed(2)} s: SSIM ${s.toFixed(4)}`);
+		return s;
+	});
+	const lowest = Math.min(...scores);
+	console.log(`lowest SSIM ${lowest.toFixed(4)} (at least ${least})${opt('--keep') ? `; the stills are in ${work}` : ''}`);
+	if (!(lowest >= least)) process.exitCode = 1;
+} finally {
+	server.stop(true);
+	if (!opt('--keep')) rmSync(work, { recursive: true, force: true });
+}
