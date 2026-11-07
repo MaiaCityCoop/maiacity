@@ -76,17 +76,20 @@ def split(v):
     return page("coconut-split", "Before and now", 3.5, v, body, """
       drop("#a", 0.15); drop("#b", 0.45); drop("#ha", 0.9); drop("#hb", 1.9);""")
 
-# the time-lapse: 12 renders, one per stage, at 2.4 a second (blended between); each stage's age (days) and height (to the frond tips, m)
+# the time-lapse: one render per stage shown (STAGES), each held 5/len s and blended into the next; each stage's age
+# (days) and height (to the frond tips, m), from the asset's note and data sheet
 DAYS = [0, 120, 240, 540, 1100, 2000, 2100, 2250, 2380, 2480, 3652, 8036]
 H = [0.05, 0.18, 0.25, 0.73, 1.71, 4.13, 5.87, 6.46, 7.0, 7.53, 7.79, 9.45]
+STAGES = [0, 1, 2, 3, 4, 5, 7, 9, 11]
 def timelapse(v):
     body = f"""      <div id="age" class="pill" style="left:40px;top:40px">{CLOCK}<span class="num" id="n-age">0.0</span><span class="unit">years</span></div>
       <div id="hgt" class="pill" style="right:40px;top:40px">{RULER}<span class="num" id="n-h">0.0</span><span class="unit">m</span></div>"""
-    keys = []
-    for i in range(len(DAYS) - 1):
-        t0, t1 = i / 2.4, (i + 1) / 2.4
-        keys.append(f'count("n-age", {DAYS[i]/365.25:.1f}, {DAYS[i+1]/365.25:.1f}, {t0+0.0:.3f}, {t1-t0:.3f}, 0.1);')
-        keys.append(f'count("n-h", {H[i]:.1f}, {H[i+1]:.1f}, {t0:.3f}, {t1-t0:.3f}, 0.1);')
+    keys, step = [], 5 / len(STAGES)
+    for k in range(len(STAGES) - 1):
+        a, b = STAGES[k], STAGES[k + 1]
+        t0 = k * step
+        keys.append(f'count("n-age", {DAYS[a]/365.25:.1f}, {DAYS[b]/365.25:.1f}, {t0:.3f}, {step:.3f}, 0.1);')
+        keys.append(f'count("n-h", {H[a]:.1f}, {H[b]:.1f}, {t0:.3f}, {step:.3f}, 0.1);')
     return page("coconut-timelapse", "Seed nut to grown palm", 5, v, body, '\n      drop("#age", 0); drop("#hgt", 0.1);\n      ' + "\n      ".join(keys))
 
 def water(v):

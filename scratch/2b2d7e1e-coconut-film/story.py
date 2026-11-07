@@ -4,7 +4,7 @@ import json, sys
 H = json.load(open(sys.argv[1])); C = json.load(open(sys.argv[2])); hooks = json.load(open(sys.argv[3]))
 SHOTS = [  # name, at, duration, label (stage and camera), transition
  ("01-hook-backlit-crown", 0, 3.5, "King coconut v3 · Grown palm (stage 11) · the crown from below, backlit by the 4 pm sun (az 38°, el −40°, 6 m) · slow push in", "from black 0.4, cut"),
- ("02-devlog-split", 3.5, 3.5, "King coconut v2 · Ripe (stage 9, 6.8 years) | v3 · Grown palm (stage 11, 22 years) · the same wide camera (az 38°, el 3°, 19 m) · split, slow push", "cut"),
+ ("02-devlog-split", 3.5, 3.5, "King coconut v3 · Ripe (stage 9, 6.8 years: where v2 ended, drawn as v2 drew it; framed to its height) | v3 · Grown palm (stage 11, 22 years; az 38°, el 3°, 19 m) · split, slow push", "cut"),
  ("03-devlog-timelapse", 7, 5, "King coconut v3 · Seed nut → Grown palm (stages 0 → 11 in quarter steps) · framed to its height, orbiting az 20° → 60° · time-lapse", "cut"),
  ("04-health-nuts-close", 12, 3.5, "King coconut v3 · Grown palm (stage 11) · the nut bunches close, backlit (az 38°, el −10°, 3 m) · push in", "cut"),
  ("05-health-nuts-side", 15.5, 3, "King coconut v3 · Grown palm (stage 11) · the bunches from the side, low (az 75°, el −18°, 3.6 m) · drift across", "cut"),
