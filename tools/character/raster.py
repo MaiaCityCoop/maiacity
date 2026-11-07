@@ -18,6 +18,8 @@ def sphere(c, r, nu=32, nv=24):
 def render(s):
     W, H = s["size"]; V = np.array(s["pos"]).reshape(-1, 3); T = np.array(s["tris"]).reshape(-1, 3); nT = len(T)
     col = np.tile([0.85, 0.72, 0.63], (nT, 1))
+    tex = np.asarray(Image.open(s["tex"]).convert("RGB")).astype(float) / 255 if s.get("tex") else None
+    uvt = np.array(s["uvt"]).reshape(-1, 3, 2) if s.get("uvt") else None  # per triangle corner
     for e in s.get("eyes", []):  # an eyeball, its iris facing forward: enough for MediaPipe to place the lids
         P, Te = sphere(np.array(e[:3]), e[3]); off = len(V); V = np.r_[V, P]; T = np.r_[T, Te + off]
         z = (P[Te].mean(1) - e[:3]) / e[3]; c = np.where((z[:, 2] > 0.88)[:, None], [0.42, 0.52, 0.58], [0.95, 0.94, 0.92]); c[z[:, 2] > 0.98] = [0.07, 0.07, 0.07]
@@ -42,7 +44,11 @@ def render(s):
         if not m.any(): continue
         z = l1 * sz[a] + l2 * sz[b] + l3 * sz[c]; zs = zb[y0:y1 + 1, x0:x1 + 1]; m &= z < zs
         zs[m] = z[m]; ids[y0:y1 + 1, x0:x1 + 1][m] = t + 1 if t < nT else 0; sh = l1 * vs[a] + l2 * vs[b] + l3 * vs[c]
-        img[y0:y1 + 1, x0:x1 + 1][m] = col[t] * (sh[m, None] if t < nT else 0.6 + 0.4 * shade[t])
+        if tex is not None and t < nT:  # affine in screen space: enough at a head's depth
+            u = l1 * uvt[t, 0, 0] + l2 * uvt[t, 1, 0] + l3 * uvt[t, 2, 0]; v = l1 * uvt[t, 0, 1] + l2 * uvt[t, 1, 1] + l3 * uvt[t, 2, 1]
+            th, tw_ = tex.shape[:2]; c_ = tex[np.clip(((1 - v) * th).astype(int), 0, th - 1), np.clip((u * tw_).astype(int), 0, tw_ - 1)]
+            img[y0:y1 + 1, x0:x1 + 1][m] = c_[m] * (0.55 + 0.45 * sh[m, None])
+        else: img[y0:y1 + 1, x0:x1 + 1][m] = col[t] * (sh[m, None] if t < nT else 0.6 + 0.4 * shade[t])
     return (img * 255).clip(0, 255).astype(np.uint8), ids, P, Vw
 if __name__ == "__main__":
     s = json.load(open(sys.argv[1])); out = sys.argv[2]
