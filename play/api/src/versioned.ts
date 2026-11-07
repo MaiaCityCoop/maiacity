@@ -32,7 +32,7 @@ import { NOTE_MOST } from "./notes";
 import { UUID } from "./uuid";
 import { closeWork, putAtProposal, settle, WORK_OF, workOf, WorkError } from "./work";
 import { decideLayout, ensureLayoutDoc, layoutReview, layoutShown, layoutView, layoutWrite, sandboxCheck } from "./sandboxes";
-import { decideIntent, getIntent, gate, IntentError, type IntentVerdict } from "./intents";
+import { decideIntent, getIntent, gate, IntentError, mustDecide, type IntentVerdict } from "./intents";
 import { acceptAndShip, acceptCode, runningCommit, type GitHub } from "./ship";
 import { assetDocFor, assetEdits, assetReview, decideAsset, ensureAssetDoc, proposeAssetVariant } from "./assetdocs";
 import { decideStory, proposeStoryVariant, storyEdit, storyReview } from "./stories";
@@ -770,6 +770,8 @@ export async function decide(ctx: Ctx, me: Me | null, id: string, verdict: Verdi
     // accepting is a forward move (./intents.ts mayMove: held while a dependency is not shipped); archiving goes back
     const no = verdict === "accept" ? await gate.mayMove(tx, p.id, "accept_work") : p.stage === "proposal" ? null : { why: `This intent is at the ${p.stage} stage: only one at Proposal is decided.` };
     if (no) throw new VersionError(no.why, 409);
+    // a person decides only a waiting intent (./substate.ts)
+    if (verdict === "accept") mustDecide(await getIntent(tx, p.id));
     let r: any;
     if (verdict === "archive" && p.author === me.id && me.level !== "admin") r = await archiveAsAuthor(tx, me, p);
     else {

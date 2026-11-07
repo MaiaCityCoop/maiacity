@@ -42,7 +42,7 @@ authority over what lands on main and goes to production. Once the change is don
 (ready, not a draft), record the intent's checks on its head and name it: `bun play/avenbox/intent.ts <the intent's
 UUID> --record --pr <its number>`. Once every must check passes, the intent moves to Proposal by itself: **stop there**.
 **Never merge** into `main` or `production` by hand, and open no pull request into `production`. An admin's Accept on
-play's intents' board puts the intent in **Ship** at once: there it waits its turn (one ship at a time, in the order
+play's intents' board takes **only a waiting intent** (play/SPEC.md §4.12 *Sub-states*: its pull request's head the checked one, mergeable, its required checks green; working or failed, Accept is refused with why) and puts it in **Ship** at once: there it waits its turn (one ship at a time, in the order
 accepted) and for GitHub (the pull request's checks green, its mergeability worked out), its reason shown live, and
 play then merges the pull request itself (it posts the commit status **`Intent accepted`** on its head first; main's
 ruleset requires it, with `play / API and site` and `website / build`); Ship shows live main's checks, the release and

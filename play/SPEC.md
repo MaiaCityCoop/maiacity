@@ -557,17 +557,18 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   - **Accept and ship** (admins, at Proposal, an intent whose work is code: its pull request named;
     `play/api/src/ship.ts` `acceptAndShip`). On the press, play reads the pull request with `SHIP_TOKEN` (a
     fine-grained token of Samuel's, the repository secret written into play's environment; deploy/README.md).
-    **Accept is refused at once**, nothing posted or merged, the intent left at Proposal and the dialog saying why,
-    only for what can never ship as the pull request stands: its head not the commit every must check with a `run`
-    last passed on, `play / API and site` or `website / build` red on that head, a conflict (`mergeable` false),
-    closed, not into main, or a draft. Anything else is only *not yet*, so **Accept goes straight to Ship**
-    (Samuel 2026-11-06: *"Accept proposal should directly go to ship and ship should self queue smartly"*; intent
-    `2f13976c-c85c-43fd-89eb-2e7651f657e1`): the intent is in **Ship** at once, decided by the admin, its first step
-    **Ready to merge** waiting with its reason, shown on its card and in its dialog:
+    **Accept takes only a waiting intent** (*Sub-states*, below; Samuel 2026-11-07, intent `2bf8af96`: *"if an
+    intent is still working / waiting on main merging we can't promote accept it"*): its head the commit every must
+    check with a `run` last passed on, `play / API and site` and `website / build` green on that head, `mergeable`
+    true, open into main, not a draft. Anything else is refused with its reason, nothing posted or merged, the intent
+    left at Proposal: failed (a conflict, a red check, closed, a draft) or working (its head moved, its checks running,
+    `mergeable` null). Taken, the intent is in **Ship** at once (Samuel 2026-11-06, intent `2f13976c`: *"ship should
+    self queue smartly"*), decided by the admin, its first step **Ready to merge** waiting with its reason, shown on its
+    card and in its dialog:
     - *Queued · behind \<title\>*: **one ship at a time, in the order accepted**. An intent waits behind every ship
       accepted before it until that one is Accepted or back at Proposal.
-    - *Waiting for #N's checks* (a required check still running) or *Waiting for GitHub to work out whether #N
-      merges* (`mergeable` null, which GitHub answers on a pull request's first read).
+    - *Waiting for #N's checks* or *Waiting for GitHub to work out whether #N merges*, where GitHub changed while it
+      waited its turn (read again then).
 
     When its turn comes and GitHub is ready (`startIfReady`, from Accept itself and from the watcher, one decision at
     a time under a lock), play posts the commit status **`Intent accepted`** on that head and merges the pull request
@@ -642,8 +643,9 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   the edge is dropped or it is reopened and shipped) it is **held**: `heldBy` (`play/api/src/intents.ts`) gives those,
   read live, never stored, direct ones only (each is held by its own).
   - **One forward gate**, `mayMove(intent, to)` (`play/api/src/intents.ts`), decides every forward move: approve
-    (Specify → Build), Build → Proposal on its checks (held, it stays in Build, its results kept, and
-    check_intent's answer says why in `refused`), work proposed for it (`intentReady`, `play/api/src/work.ts`
+    (Specify → Build; never held, Samuel 2026-11-07: an approved intent whose dependencies aren't shipped waits in
+    Build, idle, its brief null, check_intent refused with the held text, main's confirmations still taken), Build →
+    Proposal on its checks, work proposed for it (`intentReady`, `play/api/src/work.ts`
     `putAtProposal`), accept, its work accepted (`play/api/src/versioned.ts` `decide`), Accept and ship and Ship's turn
     (`play/api/src/ship.ts` `acceptAndShip`, `startIfReady`). Each move's stage rules, its must checks and *held* are
     rules inside it; no path tests the stage on its own, and every refusal names the intents it waits for (UUID, title,
@@ -657,6 +659,24 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     and `get_intent` give `depends_on` (each with its stage), `held_by` and `needed_by`. On the board, each card shows
     what it waits for and what waits on it (titles only shown, each opening that intent by its UUID), a held card
     striped and marked *Held*; the intent's dialog lists them with their stages.
+- **Sub-states** (Samuel 2026-11-07; intent `2bf8af96-5708-42d2-8556-da35f3f805ba`): every open intent is one of
+  failed, waiting, working or idle, with its reason (`sub: { state, why }` on `list_intents`, `get_intent`,
+  `GET /api/intents` and `/api/intents/<uuid>`; null once Accepted or Archived), said by one pure function,
+  `subStateOf` (`play/api/src/substate.ts`), first match wins. **failed** (a person is needed): Ship red (back at
+  Proposal with its report, until its checks are recorded again or another pull request is named), a must check whose
+  last result failed, its pull request in conflict with main, red, a draft, closed or not into main. **waiting** (a human
+  gate): at Specify a spec with its reduce step (*Approve spec*, held or not); at Proposal work of play's (*Accept*), or
+  code whose pull request's head is the one every must check with a run last passed on, mergeable, its required checks
+  green, not a draft, not held (*Accept and ship*). **working** (an agent, GitHub or Ship busy): in Build; code whose
+  head moved past the checked commit, whose required checks run, whose mergeability GitHub hasn't worked out, or whose
+  pull request was read more than 60 s ago (*reading #N on GitHub*); in Ship on its way. **idle** (nothing moves until
+  something else does): held by a dependency (*held: waits for …*), in Ship queued behind another, an Idea. What GitHub
+  says is read by Ship's watcher every 10 s into the intent's `pr_seen` (head, draft, mergeable, the required checks,
+  when), so the board's request asks GitHub nothing. **Only a waiting intent is decided**: Approve spec and Accept, on
+  the board and on the server (`decideIntent`, a work's `decide`, `acceptAndShip`, each 409 with the reason), the one
+  exception a red ship after its merge, which Accept ships again; Ship's turn reads GitHub again (`startIfReady`, the
+  same checks). The board groups each column's cards under the dividers Failed, Waiting, Working and Idle, in that
+  order, each with its count, empty ones left out, each card's reason its one status line.
 - **Work proposed without an intent is a new intent of its own**, at Proposal: titled by what it proposes (an asset's
   or a story's label and the version it would be, a sandbox's changes, a factory's or a config's label), its note and
   author the work's, with no spec; a new asset or story is its kind *idea* (Make), anything else *improve*.

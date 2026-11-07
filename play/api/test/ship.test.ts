@@ -180,40 +180,34 @@ suite("accept ships it", () => {
     expect(gh.calls.length).toBe(before);
   });
 
-  test("Accept answers at once with the intent in Ship when it is only not yet: GitHub working out whether it merges, its checks running, another ship ahead", async () => {
+  test("Accept takes only a waiting intent: GitHub working out whether it merges, or its checks running, refuse it with the reason; another ship ahead, it waits in Ship", async () => {
     await clearShips();
-    // GitHub hasn't worked it out yet (mergeable null on the first read)
+    // GitHub hasn't worked it out yet (mergeable null): working, Accept refused, nothing written (intent 2bf8af96)
     const g = await codeAtProposal("Waits for GitHub", { mergeable: null });
     let from = gh.calls.length;
     const r = await call("ada", "POST", `/api/intents/${g.id}/accept`);
-    expect(r.status).toBe(200);
-    expect(r.data).toMatchObject({ stage: "ship", decided_by: "ada", ship: { pending: { kind: "merge", head: g.head }, merge: "" } });
-    expect(r.data.ship.steps[0]).toMatchObject({ key: "ready", name: "Ready to merge", state: "running", note: `Waiting for GitHub to work out whether #${g.pr} merges` });
-    expect(r.data.ship.steps.slice(1).every((s: any) => s.state === "queued")).toBe(true);
+    expect(r.status).toBe(409);
+    expect(r.data.error).toContain(`Waiting for GitHub to work out whether #${g.pr} merges`);
+    expect((await intent(g.id)).stage).toBe("proposal");
     expect(writesSince(from)).toEqual([]);
-    // still not worked out: it waits, nothing written
-    await watchShips(db, gh.gh);
-    expect(writesSince(from)).toEqual([]);
-    // worked out: the watcher merges it
+    // worked out: the same Accept merges it
     gh.pulls.get(g.pr)!.mergeable = true;
-    await watchShips(db, gh.gh);
+    expect((await call("ada", "POST", `/api/intents/${g.id}/accept`)).data.stage).toBe("ship");
     expect(writesSince(from).map((w) => `${w.method} ${w.path}`)).toEqual([`POST /statuses/${g.head}`, `PUT /pulls/${g.pr}/merge`]);
     expect(await shipOf(g.id)).toMatchObject({ merge: g.merge, pending: null });
     expect(await stateOf(g.id)).toMatchObject({ ready: "green", merged: "green", main: "queued" });
     await clearShips();
 
-    // its checks still running (or not yet begun)
+    // its checks still running (or not yet begun): refused with them named, then taken once they are green
     const k = await codeAtProposal("Waits for its checks");
     gh.checks.set(k.head, [green("play / API and site"), { ...green("website / build"), status: "in_progress", conclusion: null }]);
     from = gh.calls.length;
-    expect((await call("ada", "POST", `/api/intents/${k.id}/accept`)).data.stage).toBe("ship");
-    expect(await readyOf(k.id)).toMatchObject({ state: "running", note: `Waiting for #${k.pr}'s checks (website / build)` });
+    expect((await call("ada", "POST", `/api/intents/${k.id}/accept`)).data.error).toContain(`Waiting for #${k.pr}'s checks (website / build)`);
     gh.checks.set(k.head, [green("play / API and site")]);
-    await watchShips(db, gh.gh);
-    expect(await readyOf(k.id)).toMatchObject({ note: `Waiting for #${k.pr}'s checks (website / build)` });
+    expect((await call("ada", "POST", `/api/intents/${k.id}/accept`)).data.error).toContain(`Waiting for #${k.pr}'s checks (website / build)`);
     expect(writesSince(from)).toEqual([]);
     gh.checks.set(k.head, [green("play / API and site"), green("website / build")]);
-    await watchShips(db, gh.gh);
+    expect((await call("ada", "POST", `/api/intents/${k.id}/accept`)).data.stage).toBe("ship");
     expect(await shipOf(k.id)).toMatchObject({ merge: k.merge, pending: null });
 
     // another ship ahead (k, merged and shipping): it waits behind it, nothing written
@@ -232,20 +226,16 @@ suite("accept ships it", () => {
     const a = await codeAtProposal("First accepted");
     const b = await codeAtProposal("Second accepted");
     const c = await codeAtProposal("Third accepted");
-    // a waits for its checks, first in line; b and c are ready, but behind it
-    gh.checks.set(a.head, [green("play / API and site")]);
+    // a first in line merges at once; b and c are ready, but behind it
     const from = gh.calls.length;
     await call("ada", "POST", `/api/intents/${a.id}/accept`);
     await Bun.sleep(5);
     await call("ada", "POST", `/api/intents/${b.id}/accept`);
     await Bun.sleep(5);
     await call("ada", "POST", `/api/intents/${c.id}/accept`);
-    expect(await readyOf(a.id)).toMatchObject({ note: `Waiting for #${a.pr}'s checks (website / build)` });
     expect(await readyOf(b.id)).toMatchObject({ note: "Queued · behind First accepted" });
     expect(await readyOf(c.id)).toMatchObject({ note: "Queued · behind Second accepted" });
-    expect(writesSince(from)).toEqual([]);
-    // a's checks green: a merges; b and c wait while it ships
-    gh.checks.set(a.head, [green("play / API and site"), green("website / build")]);
+    // a merged; b and c wait while it ships
     await watchShips(db, gh.gh);
     expect(writesSince(from).filter((w) => w.method === "PUT").map((w) => w.path)).toEqual([`/pulls/${a.pr}/merge`]);
     expect(await readyOf(b.id)).toMatchObject({ state: "running", note: "Queued · behind First accepted" });
@@ -309,11 +299,18 @@ suite("accept ships it", () => {
   });
 
   test("while it waits, a red check, a moved head, a conflict, GitHub refusing the merge or 30 minutes waiting takes it back to Proposal with the report, nothing merged", async () => {
+    // accepted while waiting (only a waiting intent is, intent 2bf8af96), behind another in Ship; that one gone, its
+    // turn comes with a check still to run
     const waiting = async (title: string) => {
       await clearShips();
+      const ahead = await codeAtProposal(`Ahead of ${title}`);
+      const pending = { pr: ahead.pr, head: ahead.head, merge: "", by: "ada", round: 1, started: new Date().toISOString(), steps: [{ key: "ready", name: "Ready to merge", state: "running" }], pending: { kind: "merge", head: ahead.head } };
+      await db.query(`UPDATE play.intents SET stage = 'ship', decided_at = now() - interval '1 minute', ship = ($2::text)::jsonb WHERE id = $1`, [ahead.id, JSON.stringify(pending)]);
       const w = await codeAtProposal(title);
-      gh.checks.set(w.head, [green("play / API and site")]);
       expect((await call("ada", "POST", `/api/intents/${w.id}/accept`)).data.stage).toBe("ship");
+      await db.query(`UPDATE play.intents SET stage = 'archived' WHERE id = $1`, [ahead.id]);
+      gh.checks.set(w.head, [green("play / API and site")]);
+      await watchShips(db, gh.gh);
       expect(await readyOf(w.id)).toMatchObject({ note: `Waiting for #${w.pr}'s checks (website / build)` });
       return { ...w, from: gh.calls.length };
     };

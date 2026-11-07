@@ -159,7 +159,7 @@ suite("intents depend on intents", () => {
     const refusal = (r: { status: number; data: any }) => (r.status === 200 ? null : r.data.error);
     const approve = refusal(await decide(atSpecify.id, "approve"));
     const checked = await passed(inBuild.id);
-    const proposal = checked.stage === "proposal" ? null : checked.refused;
+    const proposal = checked.stage === "proposal" ? null : checked.error;
     const work = await tool("propose_asset", { group: "plants", label: `Fern ${++k}`, source: SOURCE, note: "x", intent: forWork.id });
     const accept = refusal(await decide(toAccept.id, "accept"));
     const ship = refusal(await decide(toShip.id, "accept"));
@@ -171,11 +171,12 @@ suite("intents depend on intents", () => {
     const from = gh.calls.length;
     const dep = await add("A dependency");
     const g = await everyGate(dep.id);
-    for (const at of ["approve", "proposal", "work", "accept", "ship"] as const)
+    for (const at of ["proposal", "work", "accept", "ship"] as const)
       expect(g[at]).toBe(heldText((g.ids as any)[at], [{ id: dep.id, title: dep.title, stage: "idea" }]));
+    expect(g.approve).toBeNull();
     // nothing moved: each held where it was, its results kept
-    expect((await intent(g.ids.approve)).stage).toBe("specify");
-    expect(await intent(g.ids.proposal)).toMatchObject({ stage: "build", results: { c1: { pass: true } } });
+    expect((await intent(g.ids.approve)).stage).toBe("build");
+    expect(await intent(g.ids.proposal)).toMatchObject({ stage: "build", results: null });
     expect((await intent(g.ids.work)).work).toBeNull();
     expect((await intent(g.ids.accept)).stage).toBe("proposal");
     expect((await intent(g.ids.ship)).stage).toBe("proposal");
@@ -189,7 +190,11 @@ suite("intents depend on intents", () => {
     const toShip = await codeAtProposal();
     const withWork = await atProposal();
     expect((await tool("propose_asset", { group: "plants", label: `Fern ${++k}`, source: SOURCE, note: "x", intent: withWork.id })).error).toBeUndefined();
-    const waiting = await codeAtProposal({ mergeable: null }); // in Ship, waiting for GitHub: its turn is the gate too
+    // in Ship, waiting its turn behind another (only a waiting intent is accepted, intent 2bf8af96): its turn is the gate too
+    const ahead = await codeAtProposal();
+    const pending = { pr: ahead.pr, head: ahead.head, merge: "", by: "ada", round: 1, started: new Date().toISOString(), steps: [{ key: "ready", name: "Ready to merge", state: "running" }], pending: { kind: "merge", head: ahead.head } };
+    await db.query(`UPDATE play.intents SET stage = 'ship', decided_at = now() - interval '1 minute', ship = ($2::text)::jsonb WHERE id = $1`, [ahead.id, JSON.stringify(pending)]);
+    const waiting = await codeAtProposal();
     expect((await decide(waiting.id, "accept")).data.stage).toBe("ship");
     const real = gate.mayMove;
     const asked: string[] = [];
@@ -252,7 +257,8 @@ suite("intents depend on intents", () => {
       await setStage(dep.id, stage);
       const g = await everyGate(dep.id);
       const deps = [{ id: dep.id, title: dep.title, stage }];
-      for (const at of ["approve", "proposal", "work", "accept"] as const) expect(g[at]).toBe(heldText((g.ids as any)[at], deps));
+      for (const at of ["proposal", "work", "accept"] as const) expect(g[at]).toBe(heldText((g.ids as any)[at], deps));
+      expect(g.approve).toBeNull();
       // Accept and ship: a dependency in Ship is waited for there, so only one not in Ship refuses
       if (stage === "ship") expect(g.ship).toBeNull();
       else expect(g.ship).toBe(heldText(g.ids.ship, deps));
@@ -267,7 +273,8 @@ suite("intents depend on intents", () => {
     expect((await decide(dep.id, "reopen")).data.stage).toBe("specify");
     const later = await built();
     expect((await depend(later.id, dep.id)).held_by).toEqual([{ id: dep.id, title: dep.title, stage: "specify" }]);
-    expect(await passed(later.id)).toMatchObject({ stage: "build", refused: heldText(later.id, [{ id: dep.id, title: dep.title, stage: "specify" }]) });
+    expect(await passed(later.id)).toEqual({ error: heldText(later.id, [{ id: dep.id, title: dep.title, stage: "specify" }]) });
+    expect((await intent(later.id)).results).toBeNull();
     // shipped again: free, it moves on its checks
     await setStage(dep.id, "accepted");
     expect((await passed(later.id)).stage).toBe("proposal");
@@ -280,7 +287,7 @@ suite("intents depend on intents", () => {
     expect((await depend(s.id, dep.id)).error).toBeUndefined();
     expect((await tool("specify_intent", { intent: s.id, ...SPEC })).stage).toBe("specify");
     expect((await tool("specify_intent", { intent: s.id, ...SPEC })).stage).toBe("specify");
-    expect((await decide(s.id, "approve")).status).toBe(409);
+    expect(await decide(s.id, "approve")).toMatchObject({ status: 200, data: { stage: "build" } });
     // sent back to Specify, from Build and from Proposal
     const p = await built();
     await depend(p.id, dep.id);
