@@ -27,7 +27,7 @@ $PY "$T/apply.py" fit
 $PY "$T/texture.py" fit --size 4096 | tail -1
 SCENES=$($PY "$T/views.py" fit)
 if [ "${RENDERER:-gpu}" = cpu ]; then for s in $SCENES; do $PY "$T/raster.py" "$s" "${s%.json}"; done
-else node "$T/render-gpu.mjs" $SCENES; fi
+else bun "$T/render-gpu.mjs" $SCENES; fi
 $PY "$T/compose.py" fit c2-review.jpg photo-front.jpg photo-34.jpg --sheet sheet-front.png sheet-profile.png
 if [ "${UPLOAD:-1}" = 1 ]; then
   (cd "$REPO" && bun -e "
