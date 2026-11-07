@@ -10,9 +10,9 @@
  * Taku Komura, 100STYLE (CC BY 4.0, doi:10.1145/3522618). CC0: Quaternius; MakeHuman.
  */
 const BODY = require('bd01f7ace1a24e16af3195fe7c33fca6c28d416852d0314a73a620c9bc6da2e9');
-const MOTION = require('b95558f52baefdc4fc6fb266a5fa13d18a23a4d689ce63eb205da02b0490d1a4');
-const GAIT = require('7665670dd0254cd6967e19b5e7fa0e8b958d437b076569f6b116bd1daf6e3353');
-const ACTIONS = require('54d335dfb1779c359aa0b612fa28de73c326dd2e91b78534289679b8a77bc7f5');
+const MOTION = require('0756feee025033006826310c3662332a083e64cc08b7fa9378be5775e4275054');
+const GAIT = require('4b8c571ac7e163ebb75fb92d15e4e4cd4ceacf43f3811086c373fdf55cc6a7b5');
+const ACTIONS = require('6a252e13b7fa26071650e300d87eac43b29ce5caf4788ddd45a0b9fa84448aa0');
 
 const LOOK_LABELS = {
 	skin: 'Skin',

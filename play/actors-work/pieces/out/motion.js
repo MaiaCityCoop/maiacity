@@ -124,6 +124,9 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 
 	// ---- each clip's feet, frame by frame: where each ankle is and how each foot is turned in the world, and
 	//      whether it is on the ground; a cycle's grounded feet put back on its own stride ----
+	/** the heel's and each ball's place from the ankle, the foot at rest */
+	const soleOf = { heel: new Vector3(0, -by.leftFoot.at[1], -0.065 * s) };
+	for (const side of SIDES) soleOf[`${side}Ball`] = new Vector3(by[`${side}Toes`].at[0] - by[`${side}Foot`].at[0], by[`${side}Toes`].at[1] - by[`${side}Foot`].at[1] - 0.022 * s, by[`${side}Toes`].at[2] - by[`${side}Foot`].at[2]);
 	const feet = {};
 	for (const [key, c] of Object.entries(C)) {
 		if (key === 'hands') continue;
@@ -144,8 +147,22 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 				const v = Math.hypot(nx.x - pv.x, nx.z + back * 2 - pv.z) / 2;
 				f.down = f.p.y < lo + 0.025 * s && (c.kind === 'cycle' || v < 0.012 * s || i === 0 || i === L.length - 1);
 			});
+			// a stride's foot is down from the moment its sole first touches (its heel, landing) to when it last does
+			// (its ball, pushing off): within 1.5 cm of the lowest its sole comes
+			if (c.kind === 'cycle') {
+				const low = (f) => Math.min(f.p.y + soleOf.heel.clone().applyQuaternion(f.Q).y, f.p.y + soleOf[`${side}Ball`].clone().applyQuaternion(f.Q).y);
+				const floor = Math.min(...L.map(low));
+				L.forEach((f) => (f.down = low(f) < floor + 0.015 * s));
+			}
 		}
 		feet[key] = F;
+	}
+
+	/** where each sole's heel and ball are from its ankle, the foot at rest (model space) */
+	const sole = { heel: new Vector3(0, -by.leftFoot.at[1], -0.065 * s) };
+	for (const side of SIDES) {
+		const f = by[`${side}Foot`].at, t = by[`${side}Toes`].at;
+		sole[`${side}Ball`] = new Vector3(t[0] - f[0], t[1] - f[1] - 0.022 * s, t[2] - f[2]);
 	}
 
 	/**
@@ -175,22 +192,34 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 			zc /= len;
 			xc /= len;
 			const P = [];
-			for (let i = 0; i < n; i++) {
-				// how far past the landing, round the loop
-				const r = (i - a + n) % n;
-				if (r < len) P[i] = { z: zc - ((a + r - mid) * stride) / n, x: xc, y: ankleRest, down: 1, Q: L[i].Q };
-				else {
-					// in the air: the capture's swing, stretched to this stride, joined to where it lifts and lands
-					const u = (r - len + 1) / (n - len + 1);
-					const z0 = zc - ((len - 1 - (len - 1) / 2) * stride) / n; // where it lifted
-					const z1 = zc + (((len - 1) / 2) * stride) / n + 0; // where it lands, a stride on: in the body's frame, ahead
-					const zLift = L[(a + len - 1) % n].p.z, zLand = L[a].p.z;
-					const zd = L[i].p.z;
-					const zs = zLift + ((zd - zLift) * k);
-					const at0 = zLift, at1 = zLift + (zLand - zLift) * k;
-					const corr = z0 - at0 + (z1 - at1 - (z0 - at0)) * u;
-					P[i] = { z: zs + corr, x: L[i].p.x, y: L[i].p.y, down: 0, Q: L[i].Q, u };
-				}
+			// on the ground first: it rolls on what touches, the heel while it is lower than the ball, then the ball;
+			// both rest where the foot lies flat at the middle of its time down, the body moving on over them
+			const Qm = L[Math.round(mid) % n].Q;
+			for (let r = 0; r < len; r++) {
+				const i = (a + r) % n, Qi = L[i].Q;
+				const ankle = new Vector3(xc, ankleRest, zc - ((a + r - mid) * stride) / n);
+				const heelAt = ankle.clone().add(sole.heel.clone().applyQuaternion(Qm));
+				const ballAt = ankle.clone().add(sole[`${side}Ball`].clone().applyQuaternion(Qm));
+				const hi = sole.heel.clone().applyQuaternion(Qi), bi = sole[`${side}Ball`].clone().applyQuaternion(Qi);
+				const at = heelAt.sub(hi).lerp(ballAt.sub(bi), smooth(-0.008 * s, 0.008 * s, hi.y - bi.y));
+				P[i] = { z: at.z, x: at.x, y: at.y, down: 1, Q: Qi };
+			}
+			// in the air: the capture's swing, stretched to this stride, joined to where it lifted and where it lands
+			// (a stride on, ahead in the body's frame)
+			const lift = P[(a + len - 1) % n], land = P[a];
+			const dLift = L[(a + len - 1) % n].p, dLand = L[a].p;
+			for (let r = len; r < n; r++) {
+				const i = (a + r) % n;
+				const u = (r - len + 1) / (n - len + 1);
+				const d = L[i].p;
+				const zs = dLift.z + (d.z - dLift.z) * k, zEnd = dLift.z + (dLand.z - dLift.z) * k;
+				const z0 = lift.z, z1 = land.z;
+				// eased, so the foot leaves and meets the ground at the capture's own pace, not with a jolt
+				const e = smooth(0, 1, u);
+				const corrZ = (z0 - dLift.z) * (1 - e) + (z1 - zEnd) * e;
+				const corrY = (lift.y - dLift.y) * (1 - e) + (land.y - dLand.y) * e;
+				const corrX = (lift.x - dLift.x) * (1 - e) + (land.x - dLand.x) * e;
+				P[i] = { z: zs + corrZ, x: d.x + corrX, y: d.y + corrY, down: 0, Q: L[i].Q, u };
 			}
 			out[side] = { P, land: a / n, lift: ((b + 1) % n) / n, stance: len / n };
 		}
@@ -229,6 +258,19 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 	 *  lowered first as far as the farther leg needs */
 	const tv = new Vector3(), m4 = new Matrix4(), qw = new Quaternion();
 	function place(pose, legs) {
+		// each sole on the ground: a foot down set on the lowest of its heel and its ball, no foot ever through it
+		for (const side of SIDES) {
+			const L = legs[side];
+			const heel = sole.heel.clone().applyQuaternion(L.Q).add(L.p), ball = sole[`${side}Ball`].clone().applyQuaternion(L.Q).add(L.p);
+			const g = L.ground ?? ((z) => heightAt(z));
+			const low = Math.min(heel.y - g(heel.z), ball.y - g(ball.z));
+			const down = L.down ?? 0;
+			if (low < 0) L.p.y -= low;
+			else if (down > 0) L.p.y -= low * down;
+			// a foot carried clears the ground by 2 cm at least (a toe's clearance), never scuffing it
+			const clear = 0.02 * s;
+			if (down < 0.5 && L.swing && low < clear) L.p.y += (clear - Math.max(0, low)) * (1 - 2 * down);
+		}
 		let drop = 0;
 		for (const side of SIDES) {
 			const hip = sk.joint(pose, `${side}UpperLeg`);
@@ -278,7 +320,7 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 			const A = P[i], B = P[j];
 			const p = new Vector3(A.x + (B.x - A.x) * u, A.y + (B.y - A.y) * u, A.z + (B.z - A.z) * u);
 			const Q = A.Q.clone().slerp(B.Q, u);
-			out[side] = { p, Q, down: A.down * (1 - u) + B.down * u, T: T[side] };
+			out[side] = { p, Q, down: A.down * (1 - u) + B.down * u, T: T[side], side };
 		}
 		return out;
 	}
@@ -334,7 +376,8 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 			const ip = fi[side][ii].p.clone();
 			ip.y += heightAt(dist + ip.z);
 			const iQ = fi[side][ii].Q.clone().premultiply(tilt);
-			legs[side] = { p: ip.lerp(p, wGo), Q: iQ.slerp(Q, wGo) };
+			const down = (fi[side][ii].down ? 1 : 0) * (1 - wGo) + (lw[side].down * (1 - wRun) + lr[side].down * wRun) * wGo;
+			legs[side] = { p: ip.lerp(p, wGo), Q: iQ.slerp(Q, wGo), down, swing: wGo > 0.5, ground: (z) => heightAt(dist + z) };
 		}
 		return out(q, h, legs);
 	};
@@ -357,7 +400,7 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 			const held = heldAt(F[side], i, loop);
 			if (held && A.down) p.set(held.x, ankleRest, held.z);
 			p.y += heightAt(p.z);
-			legs[side] = { p, Q: A.Q.clone().slerp(B.Q, u).premultiply(tilt) };
+			legs[side] = { p, Q: A.Q.clone().slerp(B.Q, u).premultiply(tilt), down: A.down ? 1 : 0 };
 		}
 		return out(q, h, legs);
 	};
@@ -404,7 +447,7 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 			p.applyAxisAngle(new Vector3(0, 1, 0), 0).setLength(from.length());
 			p.y = ankleRest + 0.06 * s * Math.sin(Math.PI * clamp((u - a) / (b - a), 0, 1));
 			const Q = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), way * (Math.PI / 2) * k);
-			legs[side] = { p, Q };
+			legs[side] = { p, Q, down: u <= a || u >= b ? 1 : 0 };
 		}
 		return out(q, h, legs);
 	};
