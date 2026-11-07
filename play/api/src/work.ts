@@ -80,7 +80,7 @@ export async function variantsOf(q: Queryable, intent: string): Promise<{ doc_id
 }
 
 /** an intent variant closed (archived) while it is still open or proposed, its edits kept on their own line in the history */
-async function closeVariant(q: Queryable, me: Pick<Me, "id"> | null, docId: string, v: number) {
+export async function closeVariant(q: Queryable, me: Pick<Me, "id"> | null, docId: string, v: number) {
   const { rows } = await q.query<{ status: string }>(`SELECT status FROM play.doc_variants WHERE id = $1`, [v]);
   if (rows[0] && (rows[0].status === "open" || rows[0].status === "proposed"))
     await docs.close(q, docId, v, { author: { human: me?.id ?? null, via: "site" }, status: "archived" });
@@ -148,7 +148,7 @@ export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string 
   if (!o.work.doc_id || o.work.doc_variant == null) throw new WorkError("Work of play's is a document's version: name its document and its intent variant.", 500);
   const id: string = was.id;
   // variants of work decided before (archived, the intent back in Build) are no longer its work
-  await q.query(`DELETE FROM play.intent_variants iv USING play.doc_variants v WHERE iv.intent_id = $1 AND v.id = iv.variant_id AND v.status NOT IN ('open', 'proposed')`, [id]);
+  await unhold(q, id, null);
   const refs: Record<string, unknown> = { kind: o.work.kind };
   for (const k of REFS) if ((o.work as any)[k] != null) refs[k] = (o.work as any)[k];
   await holdVariant(q, who, id, o.work.doc_id, Number(o.work.doc_variant), refs);
@@ -172,12 +172,24 @@ async function ownColumns(q: Queryable, id: string) {
 
 /**
  * Document `docId` taken out of intent `intent`'s work (a story folded into another: its work moved to the timeline it
- * is now): its intent variant closed, kept in the history, the intent's own columns naming its first document again.
+ * is now; or withdrawn, proposed by mistake: ./withdraw.ts): its intent variant closed, kept in the history, the intent's own columns naming its first document again.
  */
 export async function dropDoc(q: Queryable, me: Pick<Me, "id"> | null, intent: string, docId: string) {
-  const { rows } = await q.query<{ variant_id: string }>(`DELETE FROM play.intent_variants WHERE intent_id = $1 AND doc_id = $2 RETURNING variant_id`, [intent, docId]);
-  for (const r of rows) await closeVariant(q, me, docId, Number(r.variant_id));
+  for (const v of await unhold(q, intent, docId)) await closeVariant(q, me, docId, v);
   await ownColumns(q, intent);
+}
+
+/**
+ * The one way variants leave an intent's work (intent ee0a7455): those of document `docId`, or, none named, every one
+ * decided already (archived or accepted). Gives back the variants taken out.
+ */
+async function unhold(q: Queryable, intent: string, docId: string | null): Promise<number[]> {
+  const { rows } = await q.query<{ variant_id: string }>(
+    `DELETE FROM play.intent_variants iv USING play.doc_variants v WHERE iv.intent_id = $1 AND v.id = iv.variant_id
+       AND (CASE WHEN $2::text IS NULL THEN v.status NOT IN ('open', 'proposed') ELSE iv.doc_id = $2 END) RETURNING iv.variant_id`,
+    [intent, docId],
+  );
+  return rows.map((r) => Number(r.variant_id));
 }
 
 /** an intent's documents with their refs, the first its work's own: each its document, its variant and what its version names */
