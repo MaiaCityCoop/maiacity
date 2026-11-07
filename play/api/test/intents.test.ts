@@ -107,6 +107,13 @@ suite("intents", () => {
     expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
     return i;
   };
+  /** no work without an intent (intent 706ed873): an intent at Proposal, every must check passed, ready to take work */
+  const readyIntent = async (title: string) => {
+    const i = await intentAt(title, "build");
+    const all = [{ check: "c1", pass: true, evidence: "built" }, { check: "c2", pass: true, evidence: "0.5 m" }];
+    expect((await tool("check_intent", { intent: i.id, results: all })).stage).toBe("proposal");
+    return i.id as string;
+  };
 
   test("only admins read the intents, and no one adds or edits one on the web", async () => {
     expect((await call(null, "GET", "/api/intents")).status).toBe(401);
@@ -435,7 +442,7 @@ suite("intents", () => {
     expect((await tool("check_intent", { intent: i.id, results: all })).error).toContain("no work of it waits there");
     // other work made on the same base goes in first: its work is archived by itself, and an intent with an approved
     // spec goes back to Build, its results cleared, to be built on the new head
-    const first = await tool("propose_version", { asset: made.asset, source: SOURCE + "// first\n", note: "first in" });
+    const first = await tool("propose_version", { asset: made.asset, source: SOURCE + "// first\n", note: "first in", intent: await readyIntent("First in") });
     expect((await call("ada", "POST", `/api/intents/${first.intent}/accept`)).data.stage).toBe("accepted");
     expect(await tool("get_intent", { intent: i.id })).toMatchObject({ stage: "build", results: null, decided_by: null, work: { status: "archived", version: made.version } });
     expect((await db.query<any>(`SELECT status FROM play.doc_variants WHERE id = $1`, [made.variant])).rows[0].status).toBe("archived");
@@ -462,30 +469,30 @@ suite("intents", () => {
     expect(await stage(unchecked)).toBe("build");
   });
 
-  test("work proposed without an intent is a new intent at Proposal of its own", async () => {
-    const plain = await tool("propose_asset", { group: "plants", label: "Plain fern", source: SOURCE, note: "no intent named\nmore lines" });
-    expect(plain.error).toBeUndefined();
-    expect(plain.intent).toMatch(UUID);
-    const own = await tool("get_intent", { intent: plain.intent });
-    expect(own).toMatchObject({ stage: "proposal", kind: "idea", title: "Plain fern v1", note: "no intent named\nmore lines", spec: null, author: "ada", via: "mcp" });
-    expect(own.work).toMatchObject({ kind: "asset_version", grp: "plants", status: "proposal", note: "no intent named\nmore lines", author: "ada", via: "mcp" });
-    // another version of it, on the same (still empty) head: an intent of its own too, a new thing while nothing is accepted
-    const next = await tool("propose_version", { asset: plain.asset, source: SOURCE + "// v2\n", note: "darker" });
-    const second = await tool("get_intent", { intent: next.intent });
-    expect(second).toMatchObject({ stage: "proposal", kind: "idea", title: "Plain fern v1", note: "darker" });
-    // accepted, it is; the other, made on the same base, is archived by itself
-    expect((await call("ada", "POST", `/api/intents/${plain.intent}/accept`)).data.stage).toBe("accepted");
-    expect((await tool("get_intent", { intent: second.id })).stage).toBe("archived");
-    expect((await tool("list_intents", { stage: "accepted" })).map((x: any) => x.id)).toContain(own.id);
-    expect((await tool("list_intents", { stage: "all", work: "asset_version" })).map((x: any) => x.id)).toEqual(expect.arrayContaining([own.id, second.id]));
-    // a version on the accepted head is an improvement
-    const v2 = await tool("propose_version", { asset: plain.asset, source: SOURCE + "// v2 again\n", note: "on v1" });
-    expect(await tool("get_intent", { intent: v2.intent })).toMatchObject({ kind: "improve", title: "Plain fern v2" });
+  test("work proposed without an intent is refused, naming add_intent: nothing is written", async () => {
+    const count = async () => (await db.query<any>(`SELECT (SELECT count(*) FROM play.intents) AS i, (SELECT count(*) FROM play.doc_variants) AS v, (SELECT count(*) FROM play.doc_edits) AS e, (SELECT count(*) FROM play.assets) AS a`)).rows[0];
+    const before = await count();
+    const plain = await tool("propose_asset", { group: "plants", label: "Plain fern", source: SOURCE, note: "no intent named" });
+    expect(plain.error).toContain("add_intent");
+    const web = await call("ada", "POST", "/api/intents", { new: { group: "plants", slug: "plain-fern", label: "Plain fern" }, source: SOURCE, note: "on the page" });
+    expect(web.status).toBe(400);
+    expect(web.data.error).toContain("add_intent");
+    expect(await count()).toEqual(before);
+    // named, it is that intent's work, at Proposal with its spec
+    const own = await readyIntent("A plain fern");
+    const made = await tool("propose_asset", { group: "plants", label: "Plain fern", source: SOURCE, note: "for its intent", intent: own });
+    expect(made.error).toBeUndefined();
+    expect(made.intent).toBe(own);
+    const got = await tool("get_intent", { intent: own });
+    expect(got).toMatchObject({ stage: "proposal", title: "A plain fern", work: { kind: "asset_version", grp: "plants", status: "proposal", author: "ada", via: "mcp" } });
+    expect(got.spec).toMatchObject({ goal: SPEC.goal });
+    expect((await call("ada", "POST", `/api/intents/${own}/accept`)).data.stage).toBe("accepted");
     // an agent archives its own at Proposal, made over MCP; not one proposed on the page
+    const v2 = await tool("propose_version", { asset: made.asset, source: SOURCE + "// v2\n", note: "on v1", intent: await readyIntent("Plain fern v2") });
     expect(await tool("archive_intent", { intent: v2.intent })).toMatchObject({ intent: v2.intent, stage: "archived" });
-    const web = await call("ada", "POST", "/api/intents", { asset: plain.asset, source: SOURCE + "// by the page\n", note: "on the page" });
-    expect(web.status).toBe(201);
-    expect((await tool("archive_intent", { intent: web.data.intent })).error).toContain("over MCP");
+    const page = await call("ada", "POST", "/api/intents", { asset: made.asset, source: SOURCE + "// by the page\n", note: "on the page", intent: await readyIntent("Plain fern by the page") });
+    expect(page.status).toBe(201);
+    expect((await tool("archive_intent", { intent: page.data.intent })).error).toContain("over MCP");
   });
   test("one stage back over MCP: to Specify from Build or Proposal, to Idea from Specify, always with a reason; refused elsewhere", async () => {
     const back = (intent: string, reason?: string) => tool("step_back_intent", { intent, ...(reason === undefined ? {} : { reason }) });
@@ -556,9 +563,9 @@ suite("intents", () => {
     };
     const accept = async (id: string) => (await call("ada", "POST", `/api/intents/${id}/accept`)).data;
     // the documents, each at Main's first version
-    const fern = await tool("propose_asset", { group: "plants", label: "Dialog fern", source: SOURCE, note: "its first version" });
+    const fern = await tool("propose_asset", { group: "plants", label: "Dialog fern", source: SOURCE, note: "its first version", intent: await ready("A dialog fern") });
     expect((await accept(fern.intent)).stage).toBe("accepted");
-    const film = await tool("propose_story", { title: "A dialog film", note: "its first version", body: { format: "9:16", fps: 30, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line: "One." }] }] } });
+    const film = await tool("propose_story", { title: "A dialog film", note: "its first version", intent: await ready("A dialog film"), body: { format: "9:16", fps: 30, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line: "One." }] }] } });
     expect((await accept(film.intent)).stage).toBe("accepted");
     const skill = crypto.randomUUID(), factory = crypto.randomUUID(), config = crypto.randomUUID();
     await seedDoc(db, "skill", { id: skill, json: { schema: "skill/1", label: "A dialog skill", group: "tests", system: "Say it once." }, note: "its first version" });
