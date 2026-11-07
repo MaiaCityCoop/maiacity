@@ -55,6 +55,10 @@ for d in play/api play/site website; do
     (cd "$dir" && bun install --frozen-lockfile > /dev/null 2>&1 && touch node_modules) && say "$d's dependencies installed" || say "could not install $d's dependencies"
   fi
 done
+# the site's $lib for `bun test` on its files (intent 67d5e185): SvelteKit's tsconfig, which a build writes too
+if [ -d "$ROOT/play/site/node_modules" ] && [ ! -f "$ROOT/play/site/.svelte-kit/tsconfig.json" ]; then
+  (cd "$ROOT/play/site" && bunx svelte-kit sync > /dev/null 2>&1) || say "could not sync play/site's SvelteKit types"
+fi
 
 version=$(PGPASSWORD=play psql -h 127.0.0.1 -p "$PORT" -U postgres -tAc 'show server_version' postgres 2> /dev/null | cut -d' ' -f1)
 say "PostgreSQL ${version:-?} on 127.0.0.1:$PORT; TEST_DATABASE_URL=$URL"

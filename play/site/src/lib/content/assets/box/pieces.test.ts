@@ -87,6 +87,35 @@ describe('a recipe names a piece by hash', () => {
 		await expect(piecesFor(needs(five.hash), all, { fileAt: async (h) => deep.get(h) ?? null })).rejects.toThrow(`its pieces go more than ${MOST_DEEP} deep`)
 	})
 
+	it("reads a level's pieces at once, each once: a person's seven pieces in two round trips, not seven (intent 67d5e185)", async () => {
+		// a person as the Stand-in stands: body, motion and two clips; the body on a skeleton, a head and the IK, the
+		// motion on the IK too (met again on another path, read once)
+		const skeleton = piece('module.exports = 1;\n'), head = piece('module.exports = 2;\n'), ik = piece('module.exports = 3;\n')
+		const body = piece(`module.exports = require("${skeleton.hash}") + require("${head.hash}") + require("${ik.hash}");\n`)
+		const motion = piece(`module.exports = require("${ik.hash}") * 10;\n`)
+		const gait = piece('module.exports = 100;\n'), actions = piece('module.exports = 1000;\n')
+		const all = [skeleton, head, ik, body, motion, gait, actions]
+		const store = new Map(all.map((p) => [p.hash, p.bytes]))
+		const reads: string[] = []
+		const slow = async (h: string) => {
+			reads.push(h)
+			await new Promise((ok) => setTimeout(ok, 100))
+			return store.get(h) ?? null
+		}
+		const code = recipeFile(`const a = require("${body.hash}"), b = require("${motion.hash}"), c = require("${gait.hash}"), d = require("${actions.hash}");\nmodule.exports.recipe = function () { return { meta: {}, build: () => a + b + c + d }; };\n`)
+		const t = performance.now()
+		const r = await resolved({ hash: hashText(code), code, pieces: all.map((p) => p.hash) }, { fileAt: slow })
+		const ms = performance.now() - t
+		expect(inEngine(r.code)).toBe(6 + 30 + 100 + 1000)
+		expect(reads.length).toBe(7)
+		expect(new Set(reads).size).toBe(7)
+		// one after another this took 7 × 100 ms; a level at a time, two
+		expect(ms).toBeLessThan(450)
+		// listed as they are first met, depth first, as before
+		const order = (await piecesFor(code, all.map((p) => p.hash), { fileAt: async (h) => store.get(h) ?? null })).map((p) => p.hash)
+		expect(order).toEqual([body, skeleton, head, ik, motion, gait, actions].map((p) => p.hash))
+	})
+
 	it("reads pieces from play's files alone: no request leaves for any other origin", async () => {
 		const asked: string[] = []
 		g.fetch = async (url: string, init?: any) => {

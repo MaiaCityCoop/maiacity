@@ -21,14 +21,16 @@ for (const dir of ['pieces', 'assets'])
 		if (dir === 'pieces') byHash.set(hash(code), code);
 	}
 const loaded = new Map();
-export function run(code, name = 'source') {
+/** `more`: pieces beside the mirror's, by hash (a baseline, a piece from play's files) */
+export function run(code, name = 'source', more = {}) {
 	const module = { exports: {} };
 	const require = (id) => {
 		if (id === 'three') return THREE;
 		if (addons[id]) return addons[id];
 		if (/^[0-9a-f]{64}$/.test(id)) {
-			if (!byHash.has(id)) throw new Error(`${name}: no piece ${id}`);
-			if (!loaded.has(id)) loaded.set(id, run(byHash.get(id), id));
+			const code = byHash.get(id) ?? more[id];
+			if (code === undefined) throw new Error(`${name}: no piece ${id}`);
+			if (!loaded.has(id)) loaded.set(id, run(code, id, more));
 			return loaded.get(id);
 		}
 		throw new Error(`${name}: may not require ${id}`);

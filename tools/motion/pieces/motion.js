@@ -22,7 +22,7 @@
 const three = require('three');
 const IK = require('87f6540d15a24f7164ff7080290b56bd1067a8e5e1a0357848f06b5314b41bdd');
 
-const { Quaternion, Vector3, Euler, Matrix4 } = three;
+const { Quaternion, Vector3, Matrix4 } = three;
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const smooth = (a, b, x) => {
 	const t = clamp((x - a) / (b - a), 0, 1);
@@ -80,6 +80,83 @@ function sample(c, x, q, h) {
 }
 const qb = new Quaternion();
 
+/** quaternion `a` (at index a*4 of A) slerped towards b (at B[b*4]) by t, in place: three's Quaternion.slerp by the
+ *  same sums, on numbers in arrays instead of objects (the box plays a move some 10,000 times) */
+function slerpAt(A, a, B, b, t) {
+	const i = a * 4, j = b * 4;
+	let x = B[j], y = B[j + 1], z = B[j + 2], w = B[j + 3];
+	let dot = A[i] * x + A[i + 1] * y + A[i + 2] * z + A[i + 3] * w;
+	if (dot < 0) (x = -x), (y = -y), (z = -z), (w = -w), (dot = -dot);
+	let s = 1 - t;
+	if (dot < 0.9995) {
+		// t 0 or 1: three's sums give A or B exactly (sin(0) / sin = 0, sin(theta) / sin = 1), so no sines are taken
+		if (t === 0) return;
+		if (t === 1) {
+			A[i] = A[i] * 0 + x;
+			A[i + 1] = A[i + 1] * 0 + y;
+			A[i + 2] = A[i + 2] * 0 + z;
+			A[i + 3] = A[i + 3] * 0 + w;
+			return;
+		}
+		const theta = Math.acos(dot), sin = Math.sin(theta);
+		s = Math.sin(s * theta) / sin;
+		t = Math.sin(t * theta) / sin;
+		A[i] = A[i] * s + x * t;
+		A[i + 1] = A[i + 1] * s + y * t;
+		A[i + 2] = A[i + 2] * s + z * t;
+		A[i + 3] = A[i + 3] * s + w * t;
+	} else {
+		A[i] = A[i] * s + x * t;
+		A[i + 1] = A[i + 1] * s + y * t;
+		A[i + 2] = A[i + 2] * s + z * t;
+		A[i + 3] = A[i + 3] * s + w * t;
+		let l = Math.sqrt(A[i] * A[i] + A[i + 1] * A[i + 1] + A[i + 2] * A[i + 2] + A[i + 3] * A[i + 3]);
+		if (l === 0) (A[i] = 0), (A[i + 1] = 0), (A[i + 2] = 0), (A[i + 3] = 1);
+		else (l = 1 / l), (A[i] *= l), (A[i + 1] *= l), (A[i + 2] *= l), (A[i + 3] *= l);
+	}
+}
+/** a clip at frame x as `sample` plays it, into Q (four numbers a bone, by the bone's index); with no Q its hips
+ *  alone */
+function sampleAt(c, x, Q) {
+	const n = c.n;
+	let i, u, j;
+	if (c.kind === 'once' || c.kind === 'pose') {
+		x = clamp(x, 0, n - 1);
+		i = Math.min(n - 1, Math.floor(x));
+		j = Math.min(n - 1, i + 1);
+		u = x - i;
+	} else {
+		x = frac(x / n) * n;
+		i = Math.floor(x) % n;
+		j = (i + 1) % n;
+		u = x - Math.floor(x);
+	}
+	const list = Q ? c.list : [];
+	for (let k = 0; k < list.length; k += 2) {
+		const b = list[k] * 4, T = list[k + 1];
+		Q[b] = T[i * 4];
+		Q[b + 1] = T[i * 4 + 1];
+		Q[b + 2] = T[i * 4 + 2];
+		Q[b + 3] = T[i * 4 + 3];
+		tmpQ[0] = T[j * 4];
+		tmpQ[1] = T[j * 4 + 1];
+		tmpQ[2] = T[j * 4 + 2];
+		tmpQ[3] = T[j * 4 + 3];
+		slerpAt(Q, list[k], tmpQ, 0, u);
+	}
+	const H = c.hips;
+	return [H[i * 3] + (H[j * 3] - H[i * 3]) * u, H[i * 3 + 1] + (H[j * 3 + 1] - H[i * 3 + 1]) * u, H[i * 3 + 2] + (H[j * 3 + 2] - H[i * 3 + 2]) * u];
+}
+const tmpQ = new Float64Array(4);
+/** bone b's four numbers of B into bone a's of A */
+function copy4(A, a, B, b) {
+	(a *= 4), (b *= 4);
+	A[a] = B[b];
+	A[a + 1] = B[b + 1];
+	A[a + 2] = B[b + 2];
+	A[a + 3] = B[b + 3];
+}
+
 /**
  * The cast's moves. `build`: the person (the piece "Person body"'s `person`), `gait`: its walk, run, idle, start and
  * stop (data), `actions`: the everyday actions (data), `gears`: the speeds its walk and run are played at (m/s),
@@ -95,6 +172,12 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 	const C = {};
 	for (const [k, c] of Object.entries(gait)) C[k] = decode(c, s);
 	for (const [k, c] of Object.entries(actions)) C[k] = decode(c, s);
+	const index = Object.fromEntries(names.map((n, i) => [n, i]));
+	const NB = names.length;
+	for (const c of Object.values(C)) {
+		c.list = [];
+		for (const [bone, T] of Object.entries(c.turns)) if (bone in index) c.list.push(index[bone], T);
+	}
 	const hands = {};
 	sample(C.hands, 0, hands, new Vector3());
 	for (const n of Object.keys(hands)) if (!/(Thumb|Index|Middle|Ring|Little)/.test(n)) delete hands[n];
@@ -253,19 +336,32 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 	const tilt = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), -Math.atan(slope));
 
 	// ---- one pose as the rig takes it ----
-	const e = new Euler();
+	/** a turn as x, y, z angles (XYZ): three's Euler.setFromQuaternion by the same sums, without its matrix */
+	const euler = (q) => eulerOf(q._x, q._y, q._z, q._w);
+	const eulerOf = (x, y, z, w) => {
+		const x2 = x + x, y2 = y + y, z2 = z + z;
+		const xx = x * x2, xy = x * y2, xz = x * z2, yy = y * y2, yz = y * z2, zz = z * z2;
+		const wx = w * x2, wy = w * y2, wz = w * z2;
+		const m11 = 1 - (yy + zz), m12 = xy - wz, m13 = xz + wy, m22 = 1 - (xx + zz), m23 = yz - wx, m32 = yz + wx, m33 = 1 - (xx + yy);
+		const ey = Math.asin(clamp(m13, -1, 1));
+		return Math.abs(m13) < 0.9999999 ? [Math.atan2(-m23, m33), ey, Math.atan2(-m12, m11)] : [Math.atan2(m32, m22), ey, 0];
+	};
 	function out(q, h, legs, flatFeet) {
+		// q: each bone's turn by its name, or (a move's) as numbers by its index in `names` ({ Q, has })
+		const N = q.Q, has = q.has;
 		const pose = {};
-		for (const n of names) {
+		for (let i = 0; i < names.length; i++) {
+			const n = names[i];
 			if (n === 'hips') continue;
+			if (N) {
+				if (has[i]) pose[n] = eulerOf(N[i * 4], N[i * 4 + 1], N[i * 4 + 2], N[i * 4 + 3]);
+				continue;
+			}
 			const x = q[n];
-			if (!x) continue;
-			e.setFromQuaternion(x);
-			pose[n] = [e.x, e.y, e.z];
+			if (x) pose[n] = euler(x);
 		}
-		const hq = q.hips ?? I;
-		e.setFromQuaternion(hq);
-		pose.hips = [e.x, e.y, e.z];
+		const hb = index.hips;
+		pose.hips = N ? (has[hb] ? eulerOf(N[hb * 4], N[hb * 4 + 1], N[hb * 4 + 2], N[hb * 4 + 3]) : euler(I)) : euler(q.hips ?? I);
 		pose.root = [h.x, h.y, h.z];
 		if (legs) place(pose, legs, flatFeet);
 		return pose;
@@ -273,12 +369,12 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 
 	/** each leg bent by reach so its ankle is at its target, and its foot turned as the world turn asks; the hips
 	 *  lowered first as far as the farther leg needs */
-	const tv = new Vector3(), m4 = new Matrix4(), qw = new Quaternion();
+	const tv = new Vector3(), m4 = new Matrix4(), qw = new Quaternion(), vHeel = new Vector3(), vBall = new Vector3();
 	function place(pose, legs) {
 		// each sole on the ground: a foot down set on the lowest of its heel and its ball, no foot ever through it
 		for (const side of SIDES) {
 			const L = legs[side];
-			const heel = sole.heel.clone().applyQuaternion(L.Q).add(L.p), ball = sole[`${side}Ball`].clone().applyQuaternion(L.Q).add(L.p);
+			const heel = vHeel.copy(sole.heel).applyQuaternion(L.Q).add(L.p), ball = vBall.copy(sole[`${side}Ball`]).applyQuaternion(L.Q).add(L.p);
 			const g = L.ground ?? ((z) => heightAt(z));
 			const low = Math.min(heel.y - g(heel.z), ball.y - g(ball.z));
 			const down = L.down ?? 0;
@@ -310,9 +406,7 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 			// the foot's turn in the world, made local under the bent shin
 			m4.copy(sk.frame(pose, `${side}LowerLeg`));
 			qw.setFromRotationMatrix(m4);
-			const local = qw.invert().multiply(L.Q);
-			e.setFromQuaternion(local);
-			pose[`${side}Foot`] = [e.x, e.y, e.z];
+			pose[`${side}Foot`] = euler(qw.invert().multiply(L.Q));
 		}
 	}
 	const len = {};
@@ -322,24 +416,64 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 	}
 
 	// ---- the moves ----
-	const qa = {}, qr = {}, qi = {}, ha = new Vector3(), hr = new Vector3(), hi = new Vector3();
-	const slerpInto = (A, B, w) => {
-		for (const n in B) {
-			if (!A[n]) A[n] = B[n].clone().slerp(I, 0);
-			A[n].slerp(B[n], w);
-		}
-		for (const n in A) if (!B[n]) A[n].slerp(I, w);
+	const ha = new Vector3(), hr = new Vector3(), hi = new Vector3(), hg = new Vector3(), qTilt = new Quaternion();
+	const handNames = Object.keys(hands);
+	// the moves' bones as numbers by index (sampleAt, blendInto), and which bones each clip turns
+	const Qi = new Float64Array(NB * 4), Qa = new Float64Array(NB * 4), Qr = new Float64Array(NB * 4);
+	const hasOf = (c) => {
+		const has = new Uint8Array(NB);
+		for (let k = 0; k < c.list.length; k += 2) has[c.list[k]] = 1;
+		return has;
 	};
+	const hasI = hasOf(C.idle), hasA = hasOf(C.walk), hasR = hasOf(C.run), hasQ = new Uint8Array(NB), hasGo = new Uint8Array(NB);
+	const handIdx = handNames.filter((n) => n in index).map((n) => index[n]);
+	for (const b of handIdx) hasI[b] = 1;
+	const handQ = new Float64Array(NB * 4);
+	for (const n of handNames) if (n in index) handQ.set([hands[n].x, hands[n].y, hands[n].z, hands[n].w], index[n] * 4);
+	/** slerpInto on numbers: every bone B has blended into A by w (one A lacks taken as B's), every bone only A has
+	 *  turned towards rest by w */
+	const REST = Float64Array.of(0, 0, 0, 1);
+	function blendInto(A, hasA_, B, hasB, w) {
+		for (let b = 0; b < NB; b++) {
+			if (hasB[b]) {
+				if (!hasA_[b]) {
+					copy4(A, b, B, b);
+					slerpAt(A, b, REST, 0, 0);
+					hasA_[b] = 1;
+				}
+				slerpAt(A, b, B, b, w);
+			} else if (hasA_[b]) slerpAt(A, b, REST, 0, w);
+		}
+	}
+	/** blendInto at w 1, the turns under it unread: every bone B has is B's, every other bone of A's at rest */
+	function takeAll(A, hasA_, B, hasB) {
+		for (let b = 0; b < NB; b++) {
+			if (hasB[b]) {
+				copy4(A, b, B, b);
+				hasA_[b] = 1;
+			} else if (hasA_[b]) copy4(A, b, REST, 0);
+		}
+	}
+	/** the turns of a move as `out` reads them: four numbers a bone by its index, and which bones have one */
+	const qView = { Q: Qi, has: hasQ };
+	// what one step of a move reuses, not made anew at every call (the box plays each move some 10,000 times)
+	const h = new Vector3(), Pw = new Vector3(), Qw = new Quaternion();
+	const legsOut = { left: { p: new Vector3(), Q: new Quaternion() }, right: { p: new Vector3(), Q: new Quaternion() } };
+	let distNow = 0;
+	const groundNow = (z) => heightAt(distNow + z);
 	/** a gait's legs at a phase: each ankle (model space, before the ground) and the foot's world turn, and the
 	 *  phases it landed and lifts, for the ground under it */
+	const legsPool = {};
 	function legsOf(g, phase, pos) {
-		const T = tracks[g], c = C[g], out = {};
+		const T = tracks[g], c = C[g];
+		const out = (legsPool[g] ??= { left: { p: new Vector3(), Q: new Quaternion(), side: 'left' }, right: { p: new Vector3(), Q: new Quaternion(), side: 'right' } });
 		for (const side of SIDES) {
 			const P = T[side].P, x = phase * c.n, i = Math.floor(x) % c.n, j = (i + 1) % c.n, u = x - Math.floor(x);
-			const A = P[i], B = P[j];
-			const p = new Vector3(A.x + (B.x - A.x) * u, A.y + (B.y - A.y) * u, A.z + (B.z - A.z) * u);
-			const Q = A.Q.clone().slerp(B.Q, u);
-			out[side] = { p, Q, down: A.down * (1 - u) + B.down * u, T: T[side], side };
+			const A = P[i], B = P[j], L = out[side];
+			L.p.set(A.x + (B.x - A.x) * u, A.y + (B.y - A.y) * u, A.z + (B.z - A.z) * u);
+			L.Q.copy(A.Q).slerp(B.Q, u);
+			L.down = A.down * (1 - u) + B.down * u;
+			L.T = T[side];
 		}
 		return out;
 	}
@@ -361,7 +495,7 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 		const zLand = dist + until * stride + P[Math.round(T.land * n) % n].z;
 		const gy = heightAt(zLift) + (heightAt(zLand) - heightAt(zLift)) * smooth(0, 1, u);
 		L.p.y += gy + (rise ? rise * 0.6 * Math.sin(Math.PI * u) : 0);
-		L.Q.premultiply(new Quaternion().slerp(tilt, Math.abs(0.5 - u) * 2));
+		L.Q.premultiply(qTilt.identity().slerp(tilt, Math.abs(0.5 - u) * 2));
 	}
 	/** walking or running, blended by speed, by the distance come */
 	const move = (gait) => (t, m) => {
@@ -369,45 +503,59 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 		const dist = m?.dist ?? v * t;
 		const wGo = smooth(0.05, 0.6, v), wRun = gait === 'run' ? 1 : 0;
 		const pw = frac(dist / (strides.walk * s)), pr = frac(dist / (strides.run * s));
-		const q = {};
-		const h = new Vector3();
-		sample(C.idle, t * C.idle.fps, qi, hi);
-		sample(C.walk, pw * C.walk.n, qa, ha);
-		sample(C.run, pr * C.run.n, qr, hr);
-		for (const n in qi) q[n] = qi[n].clone();
-		Object.assign(q, Object.fromEntries(Object.entries(hands).map(([n, x]) => [n, x.clone()])));
-		const go = {};
-		for (const n in qa) go[n] = qa[n].clone();
-		if (wRun > 0) slerpInto(go, qr, wRun);
-		if (wGo > 0) slerpInto(q, go, wGo);
-		for (const n of Object.keys(hands)) q[n] = hands[n].clone();
-		h.copy(hi).lerp(ha.clone().lerp(hr, wRun), wGo);
+		// each bone's turn as numbers (four a bone, by its index), and which bones each has: the idle and the hands,
+		// the walk, the run; the walk blended into the run, then the idle into both (a bone one lacks turns to rest)
+		// A clip blended in all the way (w 1) leaves of the one under it only its bones' places at rest, and turns that
+		// read the same (±q, the same angles): those turns are not sampled, only its hips
+		const Hi = sampleAt(C.idle, t * C.idle.fps, wGo === 1 ? null : Qi);
+		const Ha = sampleAt(C.walk, pw * C.walk.n, wRun === 1 ? null : Qa), Hr = sampleAt(C.run, pr * C.run.n, Qr);
+		hasGo.set(hasA);
+		if (wRun === 1) takeAll(Qa, hasGo, Qr, hasR);
+		else if (wRun > 0) blendInto(Qa, hasGo, Qr, hasR, wRun);
+		hasQ.set(hasI);
+		if (wGo === 1) takeAll(Qi, hasQ, Qa, hasGo);
+		else {
+			for (const b of handIdx) copy4(Qi, b, handQ, b);
+			if (wGo > 0) blendInto(Qi, hasQ, Qa, hasGo, wGo);
+		}
+		for (const b of handIdx) copy4(Qi, b, handQ, b);
+		const q = qView;
+		hi.set(Hi[0], Hi[1], Hi[2]);
+		ha.set(Ha[0], Ha[1], Ha[2]);
+		hr.set(Hr[0], Hr[1], Hr[2]);
+		h.copy(hi).lerp(hg.copy(ha).lerp(hr, wRun), wGo);
 		h.y += hipsGround(dist);
 		// the legs: standing feet as the idle has them, stepping feet as the stride puts them
-		const legs = {};
+		const legs = legsOut;
+		distNow = dist;
 		const lw = legsOf('walk', pw), lr = legsOf('run', pr);
 		const fi = feet.idle;
 		const ii = Math.floor(frac((t * C.idle.fps) / C.idle.n) * C.idle.n);
 		for (const side of SIDES) {
 			grounded(lw[side], 'walk', pw, dist);
 			grounded(lr[side], 'run', pr, dist);
-			const p = lw[side].p.clone().lerp(lr[side].p, wRun);
-			const Q = lw[side].Q.clone().slerp(lr[side].Q, wRun);
-			const ip = fi[side][ii].p.clone();
+			const p = Pw.copy(lw[side].p).lerp(lr[side].p, wRun);
+			const Q = Qw.copy(lw[side].Q).slerp(lr[side].Q, wRun);
+			const L = legs[side];
+			const ip = L.p.copy(fi[side][ii].p);
 			ip.y += heightAt(dist + ip.z);
-			const iQ = fi[side][ii].Q.clone().premultiply(tilt);
-			const down = (fi[side][ii].down ? 1 : 0) * (1 - wGo) + (lw[side].down * (1 - wRun) + lr[side].down * wRun) * wGo;
-			legs[side] = { p: ip.lerp(p, wGo), Q: iQ.slerp(Q, wGo), down, swing: wGo > 0.5, ground: (z) => heightAt(dist + z) };
+			const iQ = L.Q.copy(fi[side][ii].Q).premultiply(tilt);
+			L.down = (fi[side][ii].down ? 1 : 0) * (1 - wGo) + (lw[side].down * (1 - wRun) + lr[side].down * wRun) * wGo;
+			ip.lerp(p, wGo);
+			iQ.slerp(Q, wGo);
+			L.swing = wGo > 0.5;
+			L.ground = groundNow;
 		}
 		return out(q, h, legs);
 	};
+	const timedQ = {}, timedH = {};
 	/** a clip in time, its feet held where it has them */
 	const timed = (key, { loop = false } = {}) => (t) => {
 		const c = C[key];
 		const x = loop ? t * c.fps : clamp(t * c.fps, 0, c.n - 1);
-		const q = {}, h = new Vector3();
+		const q = (timedQ[key] ??= {}), h = (timedH[key] ??= new Vector3());
 		sample(c, x, q, h);
-		if (!Object.keys(c.turns).some((n) => /Index|Thumb/.test(n))) for (const n of Object.keys(hands)) q[n] = hands[n].clone();
+		if (!Object.keys(c.turns).some((n) => /Index|Thumb/.test(n))) for (const n of handNames) q[n] = (q[n] ??= new Quaternion()).copy(hands[n]);
 		h.y += hipsGround(0);
 		const F = feet[key];
 		const i = loop ? Math.floor(frac(x / c.n) * c.n) : Math.min(c.n - 1, Math.floor(x));
