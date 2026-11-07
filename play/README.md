@@ -1,7 +1,7 @@
 # play.maia.city
 
 Three stateless sandboxes and the asset library with its versions, on Postgres and object storage. Spec:
-[SPEC.md](SPEC.md). Legacy (maia.city, aven/api) is never changed; avenDB was retired on 2026-11-05 and nothing of play's reads it.
+[SPEC.md](SPEC.md). What came before is on the branch `SNAPSHOT_2611101`; nothing of play's reads it.
 
 ## The API and its data (`api/`)
 
@@ -18,8 +18,8 @@ The import adds only what play lacks from the repo (its site's media from `play/
 sources, the stories, factories, game configs and skills) and overrides nothing; a media file play's site names that
 play's files lack and `play/media` doesn't hold is an error naming its hash (SPEC.md §6).
 
-The legacy import's run, from avenDB's feed before it was retired (2026-11-02): 203 assets (plants 105, things 55, machines 12, buildings 12, actors 12,
-biomes 7), 264 versions, 145 variants, 340 files (18.1 MB), every file read back and hash-checked; 108 readable refs
+The legacy import's run, from legacy's feed before it was retired (2026-11-02): 203 assets (plants 105, things 55,
+machines 12, buildings 12, actors 12, biomes 7), 264 versions, 145 variants, 340 files (18.1 MB), every file read back and hash-checked; 108 readable refs
 between assets rewritten as hashes; 288 sandbox pins (Sandbox 1: 56 village, 109 garden, 105 plants; Sandbox 3: 18)
 and Sandbox 1's garden config; 11 media files (covers, sounds). Every asset is named by its hash (SPEC.md §4.5).
 

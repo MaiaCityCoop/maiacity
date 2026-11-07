@@ -1,9 +1,8 @@
 # play.maia.city — spec v0.4 (2026-11-02)
 
 A new, separate app with **three sandboxes and the asset library with its versions**, on Postgres and object storage
-instead of avenDB. Legacy (today's maia.city, avenDB, the current API, MaiaCity V1/V2) is not touched: nothing in it
-is changed, moved or deleted, and the new sandboxes drift apart from it from day one. avenDB was retired on 2026-11-05:
-nothing runs or serves it, and nothing of play's reads it (§6).
+instead of what came before, on the branch `SNAPSHOT_2611101` (legacy): nothing of play's reads it (§6), and the new
+sandboxes drift apart from it from day one.
 
 ## 1. Decisions
 
@@ -106,10 +105,10 @@ version.
 
 ### 4.3 The primitive
 
-A **version DAG**, the part of avenDB worth keeping, without signatures and without a CRDT:
+A **version DAG**, the part of legacy's store worth keeping, without signatures and without a CRDT:
 
 ```sql
-assets          (id UUID /*its identity: random for a new asset, derived from its avenDB entry (v5) for an imported one*/,
+assets          (id UUID /*its identity: random for a new asset, derived from its legacy entry (v5) for an imported one*/,
                  coop_id /*owner: the Maia City coop*/, grp, slug /*a name, shown; two assets may share it*/, label, head → asset_versions, created)
                  -- nothing refers to an asset by its group and slug (§4.7)
 asset_versions  (id /*BLAKE3 of canonical {asset, parents, recipe, default_variant, variants, card, engine}*/,
@@ -118,7 +117,7 @@ asset_versions  (id /*BLAKE3 of canonical {asset, parents, recipe, default_varia
                  recipe_hash → files      /*its own recipe; NULL for a kind of variants (actors, machines)*/,
                  default_variant          /*for a kind of variants: the one a ref without a variant names*/,
                  card jsonb, engine int, author → humans, approved_by → humans, note, created,
-                 imported jsonb           /*provenance: avenDB vault, entry, heads, edits, authors*/)
+                 imported jsonb           /*provenance: legacy vault, entry, heads, edits, authors*/)
                  -- immutable: a trigger refuses UPDATE and DELETE (only number/approver are set once, on accept)
 asset_variants  (version_id, name, recipe_hash → files, card jsonb)              -- immutable
 files           (hash PK /*BLAKE3 of the bytes*/, size, media_type, bucket_key, created)
@@ -132,7 +131,7 @@ intents         (… work 'asset_version', asset_id, base → asset_versions, ve
   the next number, moves the head, writes `approved_by`, and the intent is Accepted. If someone accepted another
   version first, its work is **archived** (and so is the intent, or, its spec approved, it goes back to Build):
   re-propose it on the new head.
-- Content addressing gives what avenDB gave: the same content has the same id, a file is checked by its hash wherever
+- Content addressing gives what legacy's store gave: the same content has the same id, a file is checked by its hash wherever
   it is read, and history can't be rewritten without every id changing.
 
 ### 4.4 Documents in Loro: every step kept (Samuel 2026-11-03)
@@ -215,7 +214,7 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
 ### 4.5 One source, every asset by its hash
 
 - **One source of truth:** Postgres (the catalog: assets, versions, variants, cards, the owner; the sandboxes' pins and
-  configs) and the bucket (every file under the BLAKE3 hash of its bytes). Nothing else is read: no avenDB, no repo
+  configs) and the bucket (every file under the BLAKE3 hash of its bytes). Nothing else is read: no legacy store, no repo
   fallback, no index of readable names in the site.
 - **A resilient store (Samuel 2026-11-05: "never run into this flaky store issue").** The bucket is reached only
   through `play/api/src/blobs.ts`, which holds it to never failing play for a slow moment:
@@ -1091,8 +1090,8 @@ keep naming a variant by it), beside Main.
 
 | New | Cloned from | What changes |
 |---|---|---|
-| **Sandbox 1** | Sandbox 4 (`maia/site/routes/app/games/sandbox-4`, `maia/content/sandbox-kit`, `maia/content/sandbox-2/interior`), its 56 asset pins | Recipes come from play's API instead of the avenDB device; pins become `group/id@v` |
-| **Sandbox 2** | Sandbox 7 (`maia/content/sandbox-7`), no avenDB dependency | Restyled in the light brand CI: cream/paper backgrounds, ink green text, mustard/sage/terracotta accents, Fraunces display and DM Sans body (tokens from `maia/site/app.css`) |
+| **Sandbox 1** | Sandbox 4 (`maia/site/routes/app/games/sandbox-4`, `maia/content/sandbox-kit`, `maia/content/sandbox-2/interior`), its 56 asset pins | Recipes come from play's API instead of legacy's device; pins become `group/id@v` |
+| **Sandbox 2** | Sandbox 7 (`maia/content/sandbox-7`), no legacy store's dependency | Restyled in the light brand CI: cream/paper backgrounds, ink green text, mustard/sage/terracotta accents, Fraunces display and DM Sans body (tokens from `maia/site/app.css`) |
 | **Sandbox 3** | MaiaCity V2's world (`maia/content/maiacity-v2`, engine `maia/content/game/maiacity-v2/engine.js`) | **Stripped:** coops, tokens and money (HEARTS, the MINDs, €uro, the pool, rents, mint, demurrage, dividends), MIPs/AIPs, seats, the ledger and the trailer/intro/tour/film. Also stripped for now: **planting a tree** (the seedlings in the backpack, planting, watering a planted tree). **Kept:** the land, the plots, the trees already there, the van, the things. **Stateless:** no server state, no seats |
 | **Sandbox 4** (Samuel 2026-11-05) | Nothing: new, `play/site/src/lib/sandbox-4` | The dome cassette joint: one cast cassette of the grand dome's (Ø 100 m) lowest rows seated from outside, keyed with sliding basalt keys, capped at its nodes and clamped by a ring cable, five steps on one clock, with the joint in section. No pins and no configs; a random UUID (migration `0021-sandbox-4`), in the light brand CI |
 | **Sandbox 5** (Samuel 2026-11-05) | Sandbox 1 (`play/site/src/lib/content/sandbox-2/interior/village.ts`, its `solo` option) | The forest dome (buildings, asset `cac16350-08a4-4d51-8cdf-3ade5f61836e`) alone in the middle of Sandbox 1's world, in place of its thirteen domes, at its newest accepted version (never pinned), with its own forest, things and floor drawn where it stands them (`plantings.js`) and walked on its own floors (`hero.js` walkOf); round it Sandbox 1's outdoor food forest (its garden config), stream, ponds, coops and animals, the cell's paths meeting its four gates. No pins and no configs; a random UUID (migration `0022-sandbox-5`) |
@@ -1103,12 +1102,12 @@ ranges its card allows. In all three sandboxes; in Sandbox 2 the character walks
 
 ## 6. Where the data comes from (one-time import, `play/import/`)
 
-Where the legacy import read its data from, in 2026-11, from avenDB's public feed (retired with avenDB on
-2026-11-05: the import reads it no more):
+Where the legacy import read its data from, in 2026-11, from legacy's public feed (`SNAPSHOT_2611101`; retired on
+2026-11-05, the import reads it no more):
 
 | Data | Source | Key needed? |
 |---|---|---|
-| 203 asset recipes (plants 105, things 55, machines 12, buildings 12, actors 12, biomes 7) and their cards | avenDB public feed `GET /feed/entries?seed=1&type=recipe` | No |
+| 203 asset recipes (plants 105, things 55, machines 12, buildings 12, actors 12, biomes 7) and their cards | legacy's public feed `GET /feed/entries?seed=1&type=recipe` | No |
 | Every version and variant with its own card (264 versions, 145 variants) | `GET /feed/entry/<vault>/<entry>`: its `brought` rows, one per version and variant | No |
 | 340 recipe files (18 MB) | `GET /feed/entry/<vault>/<entry>/file/<root>`; each BLAKE3-checked against its own card's `recipe` and its last line against its card's version and variant. History: a linear chain by version number | No |
 | Sandbox 1's pins (165: 56 village + 109 garden) | `maia/content/code/configs/sandbox-4/{assets,garden}`; `entry@heads` translated through `maia/content/assets/pins.fixture.json` | No |
@@ -1120,7 +1119,7 @@ No V2 game state is imported (Sandbox 3 is stateless). The master recovery key i
 
 **It ran once (Samuel 2026-11-03).** Postgres keeps that it ran (`play.imports`), and from then on **play's Postgres is
 the one source of truth** for its assets, members and sandboxes. **The feed is gone (intent 59af6109, 2026-11-07):**
-avenDB was retired on 2026-11-05, and the import's legacy path, which read its feed, went with it. What every deploy
+legacy's store was retired on 2026-11-05, and the import's legacy path, which read its feed, went with it. What every deploy
 still runs (`bun import/run.ts --report <file>`) writes none of the legacy import and overrides nothing play changed
 (a label, a head moved by accepting a version, a sound, a member's level, a member or pin removed); it only adds what
 play lacks from the repo: its site's media from `play/media`, the imported versions' readable sources where they have

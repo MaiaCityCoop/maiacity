@@ -82,7 +82,7 @@ pg("the deploy's import", () => {
     const mint = await put(recipe("mint-old", 1));
     const mintId = "8a1e2b44-0000-4000-8000-0000000000a1";
     await db.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, $2, 'plants', 'mint-old', 'Mint')`, [mintId, COOP]);
-    await db.query(`INSERT INTO play.asset_versions (id, asset_id, number, recipe_hash, default_variant, card, engine, imported) VALUES ($1, $2, 1, $3, NULL, '{"card":{}}', 5, '{"from":"avendb"}')`, [hashText("mint-old@1"), mintId, mint]);
+    await db.query(`INSERT INTO play.asset_versions (id, asset_id, number, recipe_hash, default_variant, card, engine, imported) VALUES ($1, $2, 1, $3, NULL, '{"card":{}}', 5, '{"from":"legacy"}')`, [hashText("mint-old@1"), mintId, mint]);
     const source = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v }, build: () => null };\n};\n";
     const src = hashText(source);
     const dir = mkdtempSync(join(tmpdir(), "play-sources-"));
@@ -126,7 +126,7 @@ pg("the deploy's import", () => {
     const sage = await put(recipe("sage-old", 1));
     const sageId = "8a1e2b44-0000-4000-8000-0000000000a2";
     await db.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, $2, 'plants', 'sage-old', 'Sage')`, [sageId, COOP]);
-    await db.query(`INSERT INTO play.asset_versions (id, asset_id, number, recipe_hash, default_variant, card, engine, imported) VALUES ($1, $2, 1, $3, NULL, '{"card":{}}', 5, '{"from":"avendb"}')`, [hashText("sage-old@1"), sageId, sage]);
+    await db.query(`INSERT INTO play.asset_versions (id, asset_id, number, recipe_hash, default_variant, card, engine, imported) VALUES ($1, $2, 1, $3, NULL, '{"card":{}}', 5, '{"from":"legacy"}')`, [hashText("sage-old@1"), sageId, sage]);
     index({ [mint]: { asset: "plants/mint-old", v: 1, variant: null, source: src, commit: "c" }, [sage]: { asset: "plants/sage-old", v: 2, variant: null, source: src, commit: "c" } });
     const fourth = await run();
     expect(fourth.ok).toBe(false);

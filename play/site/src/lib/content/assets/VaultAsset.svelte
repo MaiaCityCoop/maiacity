@@ -1,5 +1,5 @@
 <!--
-	ONE OF A VAULT'S ASSETS, SHOWN FROM THE VAULT ALONE — the avenDB app's Assets ($avendb/Assets.svelte): a build of
+	ONE OF A VAULT'S ASSETS, SHOWN FROM THE VAULT ALONE — as the asset library shows it: a build of
 	a recipe the Maia City vault keeps, its source its entry's file, read from the vault and held to its hash before
 	anything else (./sources/viewer.js `vaultBuild`), then this device's cache or the box, which runs it on the frozen
 	engine its entry names, checked either way, and shown on the asset stage (./stage.js, ./hero.js) as every asset
@@ -40,11 +40,11 @@
 	 * @type {{ source: typeof import('./catalog.js').source, hash: string, title?: string,
 	 *   note?: string, about?: import('svelte').Snippet, catalog?: any, picked?: string | null, solo?: boolean,
 	 *   compact?: boolean, fill?: boolean, named?: boolean, details?: HTMLElement | null, onStir?: (read: () => void) => (() => void) }}
-	 *   `source` the vault's recipes ($avendb/assets.js `vaultSource`), `hash` the recipe shown, `title` and `note`
+	 *   `source` the vault's recipes (the page's `vaultSource`), `hash` the recipe shown, `title` and `note`
 	 *   what its entry calls it and says of it, `about` what the page says of its entry, at the foot of the panel;
 	 *   `catalog` its parts as built (null where it lists none), `picked` the part picked, `solo` whether it is shown on
 	 *   its own; `compact`, its name, its moves and views and a short canvas alone, in a card with its own answers
-	 *   ($avendb/Hitl.svelte, an AIP's); `onStir` the page's watch of the device's sync ($avendb/stirs.svelte.js),
+	 *   (an intent's review); `onStir` the page's watch of the device's sync,
 	 *   so a file still arriving is read again as it moves; `fill`, the canvas as tall as the page's column; `named`,
 	 *   false where the page names it already (its aside), its name not repeated over the canvas; `details`, an element
 	 *   of the page (its aside) that what is said of the asset (the readout, then the panel) goes into instead of round
@@ -464,7 +464,7 @@
 	/** the part picked, as its catalog has it */
 	const part = $derived(catalog && picked ? (catalog.parts.find((p) => p.id === picked) ?? null) : null);
 	// a file still arriving is read again each time the device's sync moves, until it is here
-	// (the page passes onStir in: nothing of the assets imports avenDB, sources/avendb.test.js)
+	// (the page passes onStir in: nothing of the assets imports the page's store)
 	onMount(() => onStir?.(() => {
 		if (arriving && ready) untrack(() => show?.(hash, asked));
 	}));

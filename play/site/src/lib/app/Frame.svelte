@@ -1,6 +1,6 @@
 <!--
-	One layout for every avenDB view (Samuel 2026-10-18: "standardize this across all our avenDB views", the spark page
-	its model): on the left the view's own navigation, its lists, tabs and filters (`nav`); the view in the middle; on
+	One layout for every view of play's (Samuel 2026-10-18: one layout across all our views, the spark page its
+	model): on the left the view's own navigation, its lists, tabs and filters (`nav`); the view in the middle; on
 	the right the single source of truth of what it shows, its versions, variants, edit history and details (`aside`).
 	A view gives the sides it has. Each column scrolls on its own, the page never does. Narrower, the right side slides
 	in from a round button at the bottom right; narrower still, the left one from a round button at the bottom left,
@@ -22,7 +22,7 @@
 -->
 <script module>
 	/** the context key under which the page around a view gives the head over its middle column */
-	export const HEAD = Symbol('avendb head');
+	export const HEAD = Symbol('frame head');
 </script>
 
 <script>

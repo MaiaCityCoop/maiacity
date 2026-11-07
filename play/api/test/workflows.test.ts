@@ -237,3 +237,36 @@ describe("Intent named", async () => {
     expect(text(".github/workflows/intents.yml")).toContain("bun play/avenbox/intent.ts \"$id\" --record --where main");
   });
 });
+
+describe("the server's care", () => {
+  const server = () => yaml(".github/workflows/server.yml");
+  const step = () => server().jobs.care.steps.find((s: any) => s.name === "remove-dns");
+  /** the step's script, run with no token: it stops before it reaches any DNS API */
+  const run = (name: string) => {
+    const p = Bun.spawnSync(["bash", "-e", "-c", step().run], { env: { PATH: process.env.PATH!, ZONE: "maia.city", NAME: name, DNS_TOKEN: "", HCLOUD_TOKEN: "" } });
+    return { code: p.exitCode, out: p.stdout.toString() + p.stderr.toString() };
+  };
+
+  test("remove-dns: one name of maia.city, an input, through production.yml's Hetzner tokens; on its own, nothing on the server", () => {
+    const s = server();
+    expect(s.on.workflow_dispatch.inputs.mode.options).toEqual(["report", "clean", "remove-dns"]);
+    expect(s.on.workflow_dispatch.inputs.record.required).toBe(false);
+    expect(step().if).toBe("inputs.mode == 'remove-dns'");
+    expect(step().env).toMatchObject({ DNS_TOKEN: "${{ secrets.HETZNER_DNS_TOKEN }}", HCLOUD_TOKEN: "${{ secrets.HETZNER_API_KEY }}", ZONE: "maia.city", NAME: "${{ inputs.record }}" });
+    for (const other of s.jobs.care.steps.filter((x: any) => x.name !== "remove-dns")) expect(other.if).toBe("inputs.mode != 'remove-dns'");
+    // it names no record of its own
+    expect(step().run).not.toMatch(/avendb/i);
+  });
+
+  test("remove-dns refuses play, api, www and the apex, and what is not a name", () => {
+    for (const n of ["play", "API", "www", "www.maia.city", "@", "maia.city", "MAIA.CITY.", "", "a;b", "*", "x y"]) {
+      const r = run(n);
+      expect(r.code).not.toBe(0);
+      expect(r.out).toMatch(/never removed here|is not a name/);
+    }
+    // a name it takes goes on to find the zone (here no token reaches it)
+    const ok = run("old.maia.city");
+    expect(ok.code).not.toBe(0);
+    expect(ok.out).toContain("remove old.maia.city by hand");
+  });
+});

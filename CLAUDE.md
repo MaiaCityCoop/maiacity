@@ -4,12 +4,12 @@
 
 - `play/` is play.maia.city: the sandboxes and the asset library, its site (`play/site`) and its API (`play/api`, Bun on
   Postgres). Read `play/SPEC.md` first.
-- `website/` is maia.city: a plain prerendered SvelteKit site. No avenDB, nothing imported from beside it.
+- `website/` is maia.city: a plain prerendered SvelteKit site. Nothing imported from beside it.
 - `deploy/`, `docker-compose*.yml` and `.github/` are what the server and the deploys need.
 - **Every reference is a UUID or a hash** (Samuel 2026-11-04, play/SPEC.md §4.7): a coop, asset, story, sandbox,
   intent or human is named by its UUID; a file, recipe or version by its BLAKE3 hash. Titles, labels, slugs, groups
   and routes are only shown: never look anything up by them, never hard-code one as a reference.
-- Everything from before (avenDB, theOS, the old app, the blog, the universe) is on the branch `SNAPSHOT_2611101`.
+- Everything from before is on the branch `SNAPSHOT_2611101`.
   Nothing here may import from it; bring back what is needed as code of play or the website.
 
 ## How changes ship
