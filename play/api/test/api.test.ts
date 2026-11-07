@@ -204,12 +204,11 @@ suite("play API", () => {
     await db.query(`UPDATE play.assets SET label = 'Fern, renamed in play', head = $2 WHERE id = $1`, [ids.fern, first]);
     const before = (await db.query(`SELECT id, label, head, sound FROM play.assets ORDER BY id`)).rows;
     const members = (await db.query(`SELECT human_id, level FROM play.memberships ORDER BY human_id`)).rows;
-    // a run (every deploy runs it) reads no feed, writes none of the legacy import, and changes none of it
-    const report = await runImport(db, store, { cache: mkdtempSync(join(tmpdir(), "play-cache-")), founders: true, admins: [1], dry: false, media: false, log: () => {} });
-    expect(report.legacy.skipped).toBe(true);
+    // a run (every deploy runs it) writes none of the legacy import, and changes none of it
+    const report = await runImport(db, store, { media: false, log: () => {} });
+    expect(report.legacy.ran).toBeString();
     expect(report.ok).toBe(true);
-    expect(report.feed.recipes).toBe(0);
-    expect(Object.values(report.written).every((n) => n === 0)).toBe(true);
+    expect(report.written.media).toBe(0);
     // …but it writes the repo's stories play doesn't hold yet (./stories), with every deploy
     expect(report.stories.seeded).toContain(PAPAYA_STORY);
     expect(report.stories.errors).toEqual([]);

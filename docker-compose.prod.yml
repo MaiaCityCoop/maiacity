@@ -2,7 +2,7 @@
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 #   - api arrives as a finished image from the GitHub Container Registry
 #   - Postgres data lives on the Hetzner volume (PGDATA_PATH), not in a Docker volume
-#   - caddy serves the site (maia.city, from site/current) and terminates HTTPS for it, API_ADDRESS and AVENDB_ADDRESS
+#   - caddy serves the site (maia.city, from site/current) and terminates HTTPS for it and API_ADDRESS
 #     automatically; passkeys need a secure context, so there is no http variant of this
 #   - the api and db ports are closed to the outside; only Caddy talks to the api
 services:
@@ -17,35 +17,6 @@ services:
     ports: !reset []
     expose:
       - "3000"
-    environment:
-      # avenDB's feed of code, read inside the compose network (avendb.maia.city takes only
-      # post-quantum TLS)
-      AVENDB_FEED: http://avendb:3351/feed/code
-
-  # avenDB's server: its image from GHCR; UDP 7401 open to devices and UDP 7402 to browsers (WebTransport), its relay only
-  # through Caddy (avendb.maia.city).
-  # Its device's secret and its store live on the Hetzner volume, so a rebuilt server is still the same device.
-  avendb:
-    image: ${AVENDB_IMAGE:-ghcr.io/myavenceo/maiacity-avendb:latest}
-    build: !reset null
-    volumes:
-      - ${AVENDB_DATA_PATH:?set AVENDB_DATA_PATH in .env}:/data
-      # Caddy's certificates, read only: its WebTransport listener (UDP 7402) serves the same Let's Encrypt
-      # certificate as avendb.maia.city's HTTPS, as Safari on iOS 26 refuses a pinned one of its own; read again
-      # every hour for Caddy's renewals, and where it isn't there yet it pins one of its own as before
-      - caddy_data:/caddy:ro
-    environment:
-      AVENDB_WT_CERT: /caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${AVENDB_ADDRESS:-avendb.maia.city}/${AVENDB_ADDRESS:-avendb.maia.city}.crt
-      AVENDB_WT_KEY: /caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${AVENDB_ADDRESS:-avendb.maia.city}/${AVENDB_ADDRESS:-avendb.maia.city}.key
-      # it keeps a new vault only where Maia City welcomes it (a person's with the invite they claim, a coop or an aven
-      # an admin owns), and its relay lets in by a pass only the passkeys of vaults it keeps and newcomers with an
-      # open invite (Gate.lean, Admission.lean); the vaults it kept before stay kept
-      AVENDB_GATE: ${AVENDB_GATE:-on}
-      AVENDB_SIGNUP: ${AVENDB_SIGNUP:-invite}
-    expose:
-      - "3350"
-      # the Maia Universe's feed, behind Caddy at avendb.maia.city/feed/
-      - "3351"
 
   caddy:
     image: caddy:2-alpine
@@ -58,7 +29,6 @@ services:
       - "443:443"
     environment:
       API_ADDRESS: ${API_ADDRESS:?set API_ADDRESS in .env, e.g. api.maia.city}
-      AVENDB_ADDRESS: ${AVENDB_ADDRESS:-avendb.maia.city}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       # the site: every build in site/releases/<commit>, site/current the live one (the site workflow switches it)
