@@ -48,7 +48,7 @@ export type Heavy = { intent: string; pieces: { doc: string; label: string; hash
  * deep), each of the first `versions` of them in two versions, each with `kb` KB of data, then `hosts` assets requiring
  * the top ones. Once every must passes it is at Proposal, waiting.
  */
-export async function heavy(db: Db, store: BlobStore, author: string, o: { title: string; pieces: number; versions: number; hosts: number; kb: number }): Promise<Heavy> {
+export async function heavy(db: Db, store: BlobStore, author: string, o: { title: string; pieces: number; versions: number; hosts: number; kb: number; labels?: string[]; hostLabels?: string[] }): Promise<Heavy> {
   const ctx = { db, store };
   const me = () => meOf(db, author);
   const intent = await building(db, author, o.title);
@@ -56,7 +56,7 @@ export async function heavy(db: Db, store: BlobStore, author: string, o: { title
   // layers: a piece's depth is 1 + the deepest it requires; MOST_DEEP is 4 with the host, so pieces go 3 deep
   const depth: number[] = [];
   for (let i = 0; i < o.pieces; i++) {
-    const label = `Piece ${i + 1}`;
+    const label = o.labels?.[i] ?? `Piece ${i + 1}`;
     const d = i % 3; // 0, 1, 2: a piece on layer d requires one of the layer below
     const below = d === 0 ? [] : [out.pieces[i - 1].hashes.at(-1)!];
     depth.push(d + 1);
@@ -73,7 +73,7 @@ export async function heavy(db: Db, store: BlobStore, author: string, o: { title
   // the hosts require the pieces at the top of their layers (depth 3, or the deepest there is)
   const tops = out.pieces.filter((_, i) => i % 3 === 2 || i === out.pieces.length - 1);
   for (let h = 0; h < o.hosts; h++) {
-    const label = `Host ${h + 1}`;
+    const label = o.hostLabels?.[h] ?? `Host ${h + 1}`;
     const req = [tops[h % tops.length].hashes.at(-1)!];
     const a = await proposeAsset(db, store, await me(), { new: { group: "actors", label }, note: `${label}, a host`, source: hostSource(label, req, o.kb), intent });
     out.hosts.push({ asset: a.asset, label, version: a.version });

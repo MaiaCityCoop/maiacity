@@ -203,6 +203,8 @@
 	let work = $state<any>(null);
 	let listed = $state<Listed[]>([]);
 	let focused = $state<Listed | null>(null);
+	/** a piece's later version in this intent (intent 02e3a85f): its change is read against the one before it */
+	const laterVersion = (d: Listed) => listed.findIndex((x) => x.doc?.id === d.doc?.id) < listed.indexOf(d);
 	async function openCard(p: P, focus?: Listed) {
 		intent = null;
 		open = p;
@@ -446,6 +448,20 @@
 			{/if}
 			<!-- the work itself, the left pane on a wide screen -->
 			<div class="work-pane">
+			{#if listed.length > 1}
+				<!-- every document it changes, in brief; each opened here on its own, read when it is (intent 2df30a21) -->
+				<p class="muted small also-head">This intent changes {listed.length} documents: accepted together, or archived together. Open one to read its change.</p>
+				<ul class="also-docs">
+					{#each listed as d, n (`${d.doc?.id}:${d.variant ?? n}`)}
+						<li>
+							<button class="also" class:on={focused === d} aria-current={focused === d ? 'true' : undefined} onclick={() => showDoc(p, d)} title={summaryText(d)}>
+								<span class="what">{(d.doc?.what ?? d.doc?.kind ?? 'document').replace(/^./, (c) => c.toUpperCase())}: {d.doc?.label ?? d.doc?.id}</span>
+								<span class="muted small">{laterVersion(d) ? 'its next version here' : d.seedNumber == null ? 'new' : `v${d.seedNumber + 1}`} · {summaryText(d)}</span>
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
 			{#if !review && !storyReview && !docReview}
 				<div class="sandbox-review">
 					{#if reviewError}<p class="error">{reviewError}</p>{:else}<p class="muted">Reading it…</p>{/if}
@@ -511,20 +527,6 @@
 					</div>
 				{/if}
 			</div>
-			{/if}
-			{#if listed.length > 1}
-				<!-- every document it changes, in brief; each opened here on its own, read when it is (intent 2df30a21) -->
-				<p class="muted small">This intent changes {listed.length} documents: accepted together, or archived together.</p>
-				<ul class="also-docs">
-					{#each listed as d, n (`${d.doc?.id}:${d.variant ?? n}`)}
-						<li>
-							<button class="also" class:on={focused === d} aria-current={focused === d ? 'true' : undefined} onclick={() => showDoc(p, d)} title={summaryText(d)}>
-								<span class="what">{(d.doc?.what ?? d.doc?.kind ?? 'document').replace(/^./, (c) => c.toUpperCase())}: {d.doc?.label ?? d.doc?.id}</span>
-								<span class="muted small">{d.seedNumber == null ? 'new' : `v${d.seedNumber + 1}`} · {summaryText(d)}</span>
-							</button>
-						</li>
-					{/each}
-				</ul>
 			{/if}
 			</div>
 			<!-- the decision travels with the work (Samuel 2026-11-07): the same bar as the intent's detail, by detailOf, its
@@ -650,8 +652,9 @@
 	.story-diff h3 { margin: 0 0 0.5rem; font-size: 1rem; }
 	@media (max-width: 1000px) { .story-review { grid-template-columns: minmax(0, 1fr); } }
 	/* every document the work changes, each opened on its own */
-	.also-docs { list-style: none; margin: 0.2rem 0 0.6rem; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
-	.also { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.2rem 0.6rem; padding: 0.4rem 0.6rem; border-radius: 8px; border: 1px solid rgb(0 0 0 / 0.08); }
+	.also-head { flex: 0 0 auto; margin: 0; }
+	.also-docs { flex: 0 0 auto; list-style: none; margin: 0 0 0.3rem; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; max-height: 9.5rem; overflow-y: auto; }
+	.also { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0.1rem 0.6rem; padding: 0.3rem 0.6rem; border-radius: 8px; border: 1px solid rgb(0 0 0 / 0.08); }
 	.also:hover { background: rgb(0 0 0 / 0.03); }
 	.also.on { border-color: var(--forest, #2f5d46); background: color-mix(in srgb, var(--forest, #2f5d46) 8%, transparent); }
 	.also .what { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }

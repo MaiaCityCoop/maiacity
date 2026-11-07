@@ -83,6 +83,8 @@
 	let review = $state<{ id: string; builds: { hash: string; variant: string | null; label: string; first: boolean }[] | null; story: ComponentProps<typeof StoryPlayer>['story'] | null; docs: ReviewedDoc[] } | null>(null);
 	/** each document its work changes (the review's docs, play/api/src/versioned.ts reviewDoc; intent 7c8986c5: any number) */
 	type ReviewedDoc = Listed;
+	/** the documents its work changes, as the detail lists them, once read for this intent */
+	const docs = $derived(review?.id === i.id ? review.docs : []);
 	let drawn = $state<{ id: string; hash: string } | null>(null);
 	let viewer: Promise<any> | null = null;
 	let worldViewer: Promise<any> | null = null;
@@ -265,16 +267,15 @@
 						<div class="inline-story"><StoryPlayer story={review.story} compact /></div>
 						<button class="btn small ghost" onclick={() => onopenwork()}>The whole review: what changed, clip by clip</button>
 					{/if}
-					{@const docs = review?.id === i.id ? review.docs : []}
 					<ul class="linked">
 						{#if docs.length > 1}
 							<!-- every document it changes, side by side, accepted together (intent 7c8986c5) -->
-							{#each docs as d, n (d.doc?.id ?? n)}
+							{#each docs as d, n (`${d.doc?.id ?? n}:${d.variant ?? n}`)}
 								{@const type = d.doc ? (GROUP_TYPE[d.doc.group ?? ''] ?? (d.doc.what ? d.doc.what[0].toUpperCase() + d.doc.what.slice(1) : d.doc.kind)) : ''}
 								<li>
 									<button class="open" onclick={() => onopenwork(d)} title={summaryText(d)}>
 										<span class="type" data-type={type}>{type}</span>
-										<span class="what">{d.doc?.label ?? d.doc?.id} <span class="muted">{d.seedNumber == null ? 'new' : `v${d.seedNumber + 1}`}</span></span>
+										<span class="what">{d.doc?.label ?? d.doc?.id} <span class="muted">{docs.findIndex((x) => x.doc?.id === d.doc?.id) < n ? 'its next version here' : d.seedNumber == null ? 'new' : `v${d.seedNumber + 1}`}</span></span>
 										<span class="pill">{w.status === 'proposal' ? 'waiting' : w.status}</span>
 									</button>
 								</li>
