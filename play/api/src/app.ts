@@ -16,7 +16,7 @@ import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameM
 import { listTables, readTable, TableError } from "./tables";
 import { layoutAt, proposedState, SandboxError } from "./sandboxes";
 import { decideAny, docAt, docChanges, docHistory, listDocs, reviewOf, VersionError } from "./versioned";
-import { runningCommit, type GitHub } from "./ship";
+import { runningCommit, shipWork, type GitHub } from "./ship";
 import { NO_INTENT, WorkError } from "./work";
 import { INTENT_ADMINS, intentOf, IntentError, intentReady, listIntents, type IntentVerdict } from "./intents";
 import { clientOf, perMinute, Rate, costly } from "./limits";
@@ -48,6 +48,8 @@ async function body(req: Request): Promise<any> {
 }
 
 export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)), github = null, commit = runningCommit() }: { db: Db; store: BlobStore; rate?: Rate; github?: GitHub | null; commit?: string | null }) {
+  // play's work held beside a pull request is accepted by the reconcile once its code is live (./ship.ts)
+  shipWork.store = store;
   const routes: Route[] = [];
   const on = (method: string, path: string, handler: Handler) => {
     const keys: string[] = [];

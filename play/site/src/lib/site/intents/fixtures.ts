@@ -78,6 +78,28 @@ export const ASSETS = {
 	'proposal-machine': { asset: '53d1af5a-bbcf-4eba-9fe0-3a147baedd34', recipes: ['6585f835b903f6ba64f4c7db4e968cbb9160d41662449495d3ad648cbeab0ae5', 'bceb127662872272e93a6559b416f3dca69ea81ae77481c8e56a2f7350543cbd', 'a19aa4e7d1fe049b17188fc0c651e32a33ee559f7e282d11313f0710e4150ddd', '70e5a46a136e3923d31fcd6afb037b683dd8378d371deb574abf48429974d699'], source: '9c28860e6f7e86c90247bcc32e8fa6a3772dea609394026ec65ab2cd620f99e2', base: { number: 2, source: '803d400e84cb4b2747fbbf19343990a8bfc71ec3ec782b5a4e1360e8a4fb5017' } }
 } as const;
 
+/** a story at Proposal, played in its Changes tab (intent 668e9ffd): play's own accepted story 7436c87e v1, "How small
+ *  can a city start?" (1:1, 10 s), its frames and its video play's files, drawn by the shots from play */
+const HEX_VIDEO = 'fabc343a4b85408880e4cf66d07212d1b66a72725c81ed0ffd908ed1feb971de';
+const hexShot = (id: string, at: number, duration: number, frame: string) => ({ id, at, duration, frame, video: HEX_VIDEO, video_in: at, transition: 'cut' });
+export const STORIES = {
+	'proposal-story': {
+		story: {
+			id: '7436c87e-68e7-486d-a130-83d65f4b5349', title: 'How small can a city start?', schema: 'story/1' as const, format: '1:1', fps: 30, duration: 10, links: {},
+			tracks: [
+				{ id: 'shots', kind: 'shots', clips: [
+					hexShot('s1', 0, 2, 'ff3c3e6ed62d343a49a379144ba156821cb63a75aaa78516eda3e119772af162'),
+					hexShot('s2', 2, 3, '11a21cdc1c69a5f79ef38e072e5ef6eb17d46225d9fbc743f1cbd1efd5e29d1b'),
+					hexShot('s3', 5, 3.5, '9ad7cc27cfa3ed6a285a09ac6780db854b6c48ae9483e4963bf953b00ced5293'),
+					hexShot('s4', 8.5, 1.5, '98161d92027a0949425866b583af4f649c805fa61df15d0985ecb814d7386a3b')
+				] },
+				{ id: 'voice', kind: 'voice', clips: [{ id: 'v1', at: 0, duration: 10, who: 'subtitles', line: 'How small can a city start? One hex. Add six… 7 hexes = 1 village', cues: [{ at: 0.3, text: 'How small can a city start?' }, { at: 2.1, text: 'One hex.' }, { at: 5.1, text: 'Add six…' }, { at: 8.5, text: '7 hexes = 1 village', em: true }] }] },
+				{ id: 'notes', kind: 'notes', clips: [{ id: 'n1', at: 0, duration: 2, section: 'The question', mood: '↑' }, { id: 'n2', at: 2, duration: 3, section: 'One hex', mood: '↑' }, { id: 'n3', at: 5, duration: 3.5, section: 'Six join', mood: '↑↑' }, { id: 'n4', at: 8.5, duration: 1.5, section: 'A village', mood: '↕' }] }
+			]
+		}
+	}
+};
+
 export const FIXTURES: Record<string, Intent> = {
 	idea: base(1, { title: "The garden's paths show where people walk most", stage: 'idea', sub: { state: 'idle', tag: 'an idea', why: 'an idea: an agent specifies it next' } }),
 	specify: base(2, { stage: 'specify', ...specified, depends_on: [DEP], sub: { state: 'waiting', tag: 'Approve spec', why: 'waits for Approve spec' } }),
@@ -100,5 +122,14 @@ export const FIXTURES: Record<string, Intent> = {
 	}),
 	archived: base(11, { title: 'A second board for ideas only', stage: 'archived', ...specified, decided_by: 'Samuel', decided_at: at(12) }),
 	'proposal-plant': base(12, { stage: 'proposal', ...approved, spec: { ...SPEC, goal: 'The olive grows to the size measured Picual trees have at each age: 3.2 m high at eight years, not 2.6 m.' }, title: "The olive grows to its measured size sooner", results: res(['c1', 'c2', 'c3', 'c4', 'c5']), work: { ...WORK, label: 'Olive', grp: 'plants', number: 3, docs: 1, asset_id: '8323f07d-60c6-5d46-8c23-644e5b1efc20', doc: 'asset:8323f07d-60c6-5d46-8c23-644e5b1efc20', note: 'A sizing fix to v2: the scaffolds and branches grow out sooner, so an 8-year tree is 3.2 m high, as measured Picual trees are.' }, sub: { state: 'waiting', tag: 'Accept', why: 'waits for Accept' } }),
+	// an intent holding all its work (intent 7c8986c5): two assets side by side and a pull request, decided by Accept and ship
+	'proposal-all': base(14, { stage: 'proposal', ...approved, spec: { ...SPEC, goal: 'People move like people: the render bench\'s motion mode, and Stand-in and Elder woman walking on it.' }, title: 'Stand-in and Elder woman walk, with the render bench\'s motion mode', results: res(['c1', 'c2', 'c3', 'c4', 'c5']), pull_request: 2152, pr_seen: { pr: 2152, draft: false, state: 'open', mergeable: true }, work: { ...WORK, label: 'Stand-in', grp: 'actors', number: 2, docs: 2, asset_id: '6f1e2d3c-4b5a-4968-8776-a5b4c3d2e1f0', doc: 'asset:6f1e2d3c-4b5a-4968-8776-a5b4c3d2e1f0', note: 'Both people on the open skeleton, their feet planted.' }, sub: { state: 'waiting', tag: 'Accept and ship', why: 'waits for Accept and ship' } }),
+	'proposal-story': base(15, { stage: 'proposal', ...approved, spec: { ...SPEC, goal: 'Play holds a 10-second square story, "How small can a city start?": motion design in the look of the game screens with its four subtitles.' }, title: 'A 10 s square motion-graphics story: "How small can a city start?"', results: res(['c1', 'c2', 'c3', 'c4', 'c5']), work: { ...WORK, kind: 'story_version', what: 'story', grp: 'stories', label: 'How small can a city start?', number: 1, docs: 1, asset_id: null, doc: '7436c87e-68e7-486d-a130-83d65f4b5349', doc_variant: 1322, note: 'A 10 s square motion-graphics explainer: one hex is a settlement, seven make a village. Motion design and subtitles only.' }, sub: { state: 'waiting', tag: 'Accept', why: 'waits for Accept' } }),
 	'proposal-machine': base(13, { stage: 'proposal', ...approved, spec: { ...SPEC, goal: 'The delivery van looks as it did, every paint, but draws with 3 materials instead of 8, so a city jam stays smooth.' }, title: 'The delivery van draws with far fewer materials', results: res(['c1', 'c2', 'c3', 'c4', 'c5']), work: { ...WORK, label: 'Delivery van', grp: 'machines', number: 3, docs: 1, asset_id: '53d1af5a-bbcf-4eba-9fe0-3a147baedd34', doc: 'asset:53d1af5a-bbcf-4eba-9fe0-3a147baedd34', note: 'The same van and every paint, drawn with 3 materials instead of 8, so a jam of hundreds costs far fewer draw calls.' }, sub: { state: 'waiting', tag: 'Accept', why: 'waits for Accept' } })
 };
+
+/** the review play gives for 'proposal-all' (GET /api/intents/<id>'s review.docs): each document it changes */
+export const ALL_WORK_DOCS = [
+	{ doc: { id: '6f1e2d3c-4b5a-4968-8776-a5b4c3d2e1f0', kind: 'asset', what: 'asset', label: 'Stand-in', group: 'actors', open: null }, seedNumber: 1, moved: false, changes: [], edits: [] },
+	{ doc: { id: '0a9b8c7d-6e5f-4a3b-9c2d-1e0f9a8b7c6d', kind: 'asset', what: 'asset', label: 'Elder woman', group: 'actors', open: null }, seedNumber: 2, moved: false, changes: [], edits: [] }
+];

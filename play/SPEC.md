@@ -856,6 +856,17 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   cleared, to be built again on the new head). Whoever proposed
   work may archive their own. The answer is the intent, with what its work came to (`decision`: status, number,
   version, merged, the message where it was archived).
+- **Code and play's work together** (intent 7c8986c5, Samuel 2026-11-07): an intent's work is any number of documents
+  and a pull request (§4.15 *One intent holds all its work*). One that names its pull request and holds play's work is
+  decided like code, **Accept and ship**: Ship merges and deploys it as for code alone, its work waiting on it (shown
+  `proposal`) while it ships; play's work is accepted when its code is live, by the reconcile, in the same transaction
+  that marks it Accepted (`play/api/src/ship.ts` `acceptWorkLive`: every document at once, by whoever Accepted it, or
+  as the rule that did). A red step brings it back to Proposal with its report, its work still waiting, and Accept
+  ships it again. Where its work can no longer go in once its code is live (a document's Main moved on the same field),
+  its code stays Accepted and its work is closed, the ship's `work` note saying why: a new intent proposes it again.
+  Its work alone is never accepted while code goes with it (the gate's `accept_work` refuses it), and no auto-accept
+  rule decides an intent holding both (`play/api/src/rules.ts` `both`): a person does. The gates are as for code:
+  every must passed, its dependencies shipped, its pull request mergeable, Intent named.
 - **Proposals became intents** (migrations `0026-intents`, then `0029-one-record`). 0026 gave every proposal an
   intent (one of its own, at its stage, where it had none) and a trigger kept them in step. 0029 made them one record,
   losing nothing: an intent and its one proposal became one intent; an intent with several kept the newest live one
@@ -927,7 +938,7 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   check a card for a person, Samuel 2026-11-07: *"the audience is always a human, never a tech guy"*: its statement and
   its result in plain words, Passed, Not yet, or Failed with its reason in a line, and when; how it was checked, its how
   and by, its run, the tool's output and where it ran, folded behind *How it was checked*, closed at first; its two steps
-  headed *First, what it removes* and *Then, what it delivers*), **Changes** (its work and its pull request; an asset's upgrade drawn right there in the asset box once the tab is opened, Samuel 2026-11-07, its whole review, versions, source, before and after, a tap away), **Ship**
+  headed *First, what it removes* and *Then, what it delivers*), **Changes** (its work and its pull request; an asset's upgrade drawn right there in the asset box once the tab is opened, Samuel 2026-11-07, its whole review, versions, source, before and after, a tap away; a story's version played right there in the Stories player, intent 668e9ffd, what changed clip by clip a tap away), **Ship**
   (steps, report, log), **Dependencies**, **History** (who and when, steps back, auto decisions, its declared work),
   **Note** (whole), **For an agent** (the brief and Copy). Each stage opens on its own tab first (Idea For an agent,
   Specify Spec, Build Checks, Proposal Changes, Ship Ship, Accepted History).
@@ -1089,11 +1100,19 @@ registry and one module, shown by one History.
   Build or waiting at Proposal) and is refused without one; a variant made for an intent is proposed for that
   intent only. `play/api/test/nobypass.test.ts` calls every tool tools/list holds that is not a read, and every write
   route of `app.ts`, and finds every Main unchanged until the intent is accepted.
-- **Several documents, one intent**: a document's version proposed naming an intent goes in beside the documents it
-  holds (its variant of that same document replaced); an asset's, a story's or a sandbox layout's version (a kind that decides its own way) is the
-  intent's whole work. The board reviews each document; Accept merges them all in one transaction, or none where one
-  clashes (a field Main changed too) or is no longer valid merged: the intent is archived whole, as Archive closes
-  them all. There is no batch accept: an Accept decides one intent.
+- **One intent holds all its work** (intents 847c5d38 and 7c8986c5, Samuel 2026-11-06/07): an intent's work is **any
+  number of documents and a pull request**. Every document's version proposed naming an intent goes in beside the
+  documents it holds, whatever its kind (an asset's, a story's, a layout's or a schema's version among them), as a row
+  of `play.intent_variants` with its version's refs on it (`refs`: an asset's `asset_id`/`base`/`version`, a story's
+  `story_id`/`story_base`/`story_version`; `202611071200-7c8986c5-intent-variant-refs`); proposing a document again
+  replaces only that document's variant, never another's (`play/api/src/work.ts` `putAtProposal`, with no special case
+  for some kinds). The intent's own work columns name its first document's. The board reviews each document (the
+  review's `docs`, listed in the Changes tab); Accept decides them all in one transaction, each by its own kind
+  (`play/api/src/versioned.ts` `decideWork`), or none where one clashes (a field Main changed too), is no longer valid
+  merged or is refused by its kind (an asset whose head moved): the intent is archived whole, as Archive closes them
+  all. There is no batch accept: an Accept decides one intent. **With code beside it** (its pull request named), its
+  decision is Accept and ship (§4.12): play's work lands **when its code is live**, accepted by the reconcile in the
+  same step that marks the intent Accepted, so documents that need the new code never go in before it runs.
 - **MCP and HTTP, by a document's UUID**: `list_docs` (by kind), `doc_at` (a version, an edit or an intent's variant),
   `doc_history` (with `variant`), `doc_edit` (one edit of an intent variant, for its `intent`: the intent's open
   variant of the document, or a new one seeded from Main's newest version, if none is named) and `propose_doc_version` (`intent`, a `variant`, edits or the whole). `GET /api/docs`,

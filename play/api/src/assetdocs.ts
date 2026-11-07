@@ -347,11 +347,12 @@ export async function proposalVariant(q: Queryable, store: BlobStore, o: { asset
 }
 
 /** an intent's accepted work: its intent variant merged into the asset's Main and named its version `n` */
-export async function acceptVariant(q: Queryable, store: BlobStore, p: { id: string; asset_id: string; note: string }, me: Me, n: number): Promise<void> {
+export async function acceptVariant(q: Queryable, store: BlobStore, p: { id: string; asset_id: string; note: string; doc_variant?: number | string | null }, me: Me, n: number): Promise<void> {
   await asAssetError(async () => {
     const { id } = await ensureAssetDoc(q, store, p.asset_id);
-    const { rows } = await q.query<{ doc_variant: string | null }>(`SELECT variant_id AS doc_variant FROM play.intent_variants WHERE intent_id = $1 ORDER BY position LIMIT 1`, [p.id]);
-    const v = rows[0]?.doc_variant;
+    // its own intent variant on this asset's document (an intent may hold several assets: intent 7c8986c5)
+    const { rows } = await q.query<{ doc_variant: string | null }>(`SELECT variant_id AS doc_variant FROM play.intent_variants WHERE intent_id = $1 AND doc_id = $2`, [p.id, id]);
+    const v = rows[0]?.doc_variant ?? p.doc_variant;
     if (v == null) throw new AssetDocError(`intent ${p.id}'s work has no intent variant`, 500);
     const named_ = await docs.accept(q, id, Number(v), { author: authorOf(me, "site"), note: p.note });
     if (named_.number !== n) throw new Error(`asset ${p.asset_id} and its document disagree: version ${n} against ${named_.number}`);
@@ -975,7 +976,10 @@ export async function decideAsset(tx: Queryable, store: BlobStore, me: Me, p: an
     // the other intents' work made on the same head can go in no more: archived, to be built again on the new one
     const { rows: stale } = await tx.query<any>(
       `SELECT ${WORK_OF} FROM play.intents i
-        WHERE i.asset_id = $1 AND i.work = $4 AND i.stage IN ('build', 'proposal') AND i.id <> $2 AND i.base IS NOT DISTINCT FROM $3 FOR UPDATE`,
+        WHERE i.stage IN ('build', 'proposal') AND i.id <> $2
+          AND ((i.asset_id = $1 AND i.work = $4 AND i.base IS NOT DISTINCT FROM $3)
+            OR EXISTS (SELECT 1 FROM play.intent_variants sv WHERE sv.intent_id = i.id AND sv.refs->>'asset_id' = $1::text AND sv.refs->>'base' IS NOT DISTINCT FROM $3::text))
+        FOR UPDATE`,
       [p.asset_id, id, p.base, ASSET_WORK],
     );
     for (const s of stale) {

@@ -13,6 +13,8 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import Decision from './Decision.svelte';
+	import StoryPlayer from '$lib/stories/StoryPlayer.svelte';
+	import type { ComponentProps } from 'svelte';
 	import { INDEX, admitProposed, source as catalogSource } from '$lib/content/assets/catalog.js';
 	import { markdown } from '$lib/site/markdown/index.js';
 	import { detailOf, isCode, notLive, shipsAgain, STAGE_NAME, TABS, type Check, type Intent, type Kind, type Results, type ShipStep, type Stage, type TabId, type Work } from './detail';
@@ -73,8 +75,11 @@
 	/** what to tell an agent sent to it: play's (GET /api/intents/<id>'s brief, the Intents skill's part for its stage,
 	 *  play/api/src/skills.ts), never written here; null where there is nothing for an agent to do */
 	/** an asset upgrade's builds (the review's, play/api/src/versioned.ts reviewDoc), drawn inline in the Changes tab
-	 *  (Samuel 2026-11-07: "draw the asset right in the Changes tab"), only once that tab is opened */
-	let review = $state<{ id: string; builds: { hash: string; variant: string | null; label: string; first: boolean }[] | null } | null>(null);
+	 *  (Samuel 2026-11-07: "draw the asset right in the Changes tab"), only once that tab is opened; a story's version
+	 *  (the same review's `story`, play/api/src/stories.ts) played there in the Stories player (intent 668e9ffd) */
+	let review = $state<{ id: string; builds: { hash: string; variant: string | null; label: string; first: boolean }[] | null; story: ComponentProps<typeof StoryPlayer>['story'] | null; docs: ReviewedDoc[] } | null>(null);
+	/** each document its work changes (the review's docs, play/api/src/versioned.ts reviewDoc; intent 7c8986c5: any number) */
+	type ReviewedDoc = { doc: { id: string; kind: string; what?: string; label?: string; group?: string; breed?: string } | null; seedNumber: number | null; changes?: unknown[] };
 	let drawn = $state<{ id: string; hash: string } | null>(null);
 	let viewer: Promise<any> | null = null;
 	let worldViewer: Promise<any> | null = null;
@@ -100,7 +105,7 @@
 			.then((r) => {
 				if (i.id !== id) return;
 				brief = { id, stage, text: r.brief };
-				review = { id, builds: r.review?.builds ?? null };
+				review = { id, builds: r.review?.builds ?? null, story: r.review?.story ?? null, docs: r.review?.docs ?? [] };
 			})
 			.catch((e) => {
 				if (i.id === id) briefError = (e as Error).message;
@@ -229,8 +234,8 @@
 				{#if reduce.length}<h3>First, what it removes</h3>{@render checkList(reduce)}{/if}
 				{#if mvp.length}<h3>Then, what it delivers</h3>{@render checkList(mvp)}{/if}
 			{:else if current === 'changes'}
-				{#if !i.work && i.pull_request}<p class="small">Code: <a href="{REPO_URL}/pull/{i.pull_request}" target="_blank" rel="noopener">pull request #{i.pull_request}</a> <span class="muted">· {i.stage === 'proposal' ? 'Accept merges it into main and ships it' : i.stage === 'ship' ? (i.ship?.pending ? 'in Ship, merged in its turn' : 'merged, on its way to production') : i.stage === 'accepted' ? 'in production' : 'named by its agent'}</span></p>
-				{:else if i.work}
+				{#if i.pull_request}<p class="small">Code: <a href="{REPO_URL}/pull/{i.pull_request}" target="_blank" rel="noopener">pull request #{i.pull_request}</a> <span class="muted">· {i.stage === 'proposal' ? `Accept merges it into main and ships it${i.work ? ', its work of play’s accepted once it is live' : ''}` : i.stage === 'ship' ? (i.ship?.pending ? 'in Ship, merged in its turn' : 'merged, on its way to production') : i.stage === 'accepted' ? 'in production' : 'named by its agent'}</span></p>{/if}
+				{#if i.work}
 					{@const w = i.work}
 					<!-- an asset upgrade drawn right here, as the review draws it, in the asset box; the whole review (versions,
 					     source, before and after) a tap away on the row above -->
@@ -252,16 +257,37 @@
 						</div>
 						<button class="btn small ghost" onclick={onopenwork}>The whole review: versions, source, before and after</button>
 					{/if}
+					<!-- a story's version played right here, as its review plays it; what changed clip by clip a tap away -->
+					{#if review?.id === i.id && review.story}
+						<div class="inline-story"><StoryPlayer story={review.story} compact /></div>
+						<button class="btn small ghost" onclick={onopenwork}>The whole review: what changed, clip by clip</button>
+					{/if}
+					{@const docs = review?.id === i.id ? review.docs : []}
 					<ul class="linked">
-						<li>
-							<button class="open" onclick={onopenwork}>
-								<span class="type" data-type={typeOf(w)}>{typeOf(w)}</span>
-								<span class="what">{w.label} <span class="muted">{titleOf(w)}</span>{#if (w.docs ?? 1) > 1}<span class="muted">{' '}· and {w.docs! - 1} more {w.docs === 2 ? 'document' : 'documents'}, accepted together</span>{/if}</span>
-								<span class="pill">{w.status === 'proposal' ? 'waiting' : w.status}</span>
-								<span class="date muted">{shortWhen(w.created)}</span>
-							</button>
-						</li>
+						{#if docs.length > 1}
+							<!-- every document it changes, side by side, accepted together (intent 7c8986c5) -->
+							{#each docs as d, n (d.doc?.id ?? n)}
+								{@const type = d.doc ? (GROUP_TYPE[d.doc.group ?? ''] ?? (d.doc.what ? d.doc.what[0].toUpperCase() + d.doc.what.slice(1) : d.doc.kind)) : ''}
+								<li>
+									<button class="open" onclick={onopenwork}>
+										<span class="type" data-type={type}>{type}</span>
+										<span class="what">{d.doc?.label ?? d.doc?.id} <span class="muted">{d.seedNumber == null ? 'new' : `v${d.seedNumber + 1}`}</span></span>
+										<span class="pill">{w.status === 'proposal' ? 'waiting' : w.status}</span>
+									</button>
+								</li>
+							{/each}
+						{:else}
+							<li>
+								<button class="open" onclick={onopenwork}>
+									<span class="type" data-type={typeOf(w)}>{typeOf(w)}</span>
+									<span class="what">{w.label} <span class="muted">{titleOf(w)}</span>{#if (w.docs ?? 1) > 1}<span class="muted">{' '}· and {w.docs! - 1} more {w.docs === 2 ? 'document' : 'documents'}, accepted together</span>{/if}</span>
+									<span class="pill">{w.status === 'proposal' ? 'waiting' : w.status}</span>
+									<span class="date muted">{shortWhen(w.created)}</span>
+								</button>
+							</li>
+						{/if}
 					</ul>
+					{#if docs.length > 1}<p class="muted small">{docs.length} documents, accepted together{i.pull_request ? ', once its code is live' : ''}.</p>{/if}
 					{#if w.note}<p class="muted small">{w.note}</p>{/if}
 				{/if}
 				{#if i.came_with}<p class="muted small">Proposed for <button class="link" onclick={() => onopenintent(i.came_with!)}>{cameWith ?? 'another intent'}</button>, beside the work it kept.</p>{/if}
@@ -502,6 +528,7 @@
 	.linked .date { font-size: 0.76rem; white-space: nowrap; }
 	@media (max-width: 520px) { .linked .date { display: none; } }
 	.inline-build { margin: 0.2rem 0 0.6rem; display: flex; flex-direction: column; gap: 0.4rem; }
+	.inline-story { margin: 0.2rem 0 0.6rem; min-width: 0; container-type: inline-size; }
 	.variants { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 	.inline-build .stage { height: clamp(18rem, 48dvh, 30rem); display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; }
 	.inline-build .stage > :global(*) { flex: 1 1 auto; min-height: 0; }
