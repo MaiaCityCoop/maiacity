@@ -7,7 +7,8 @@ import { fromBunSql, type Db } from "../src/pg";
 import { COOP, SANDBOX } from "../src/ids";
 import { UUID, uuidOf } from "../src/uuid";
 import { storyVersionId } from "../src/versions";
-import { commit, createDoc, history, readDoc } from "../src/docs";
+import { history, readDoc } from "../src/docs";
+import { oldCommit, oldCreate } from "./fixtures/olddocs";
 
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;
@@ -62,9 +63,9 @@ suite("every reference a UUID (migration 0017)", () => {
     await db.query(`UPDATE play.stories SET head = $1 WHERE id = 'old-film'`, [v1]);
     await db.query(`UPDATE play.stories SET head = $1, folded_into = 'old-film' WHERE id = 'old-cut'`, [c1]);
     const author = { human: ada.id, via: "mcp" as const };
-    await createDoc(db, { id: "story:old-film", schema: "story/1", json: { title: "Old film", ...body("first") }, author, message: "v1", version: "one" });
-    await commit(db, "story:old-film", { edits: [{ op: "set", path: ["tracks", 0, "clips", 0, "who"], value: "SAMUEL" }], message: "the speaker", author });
-    const steps = (await history(db, "story:old-film")).length;
+    await oldCreate(db, { id: "story:old-film", schema: "story/1", json: { title: "Old film", ...body("first") }, author, message: "v1", version: "one" });
+    await oldCommit(db, "story:old-film", { edits: [{ op: "set", path: ["tracks", 0, "clips", 0, "who"], value: "SAMUEL" }], message: "the speaker", author });
+    const steps = Number((await db.query<{ n: string }>(`SELECT count(*) AS n FROM play.doc_updates`)).rows[0].n);
     const proposal = crypto.randomUUID(), change = crypto.randomUUID();
     await db.query(`INSERT INTO play.proposals (id, coop_id, kind, story_id, story_base, story_version, author, note, via) VALUES ($1, 'maia-city', 'story_version', 'old-film', $2, $3, $4, 'two', 'mcp')`, [proposal, v1, p2, ada.id]);
     await db.query(`INSERT INTO play.sandbox_configs (sandbox_id, name, data) VALUES ('sandbox-1', 'garden', '{"outside":{}}')`);
@@ -73,8 +74,8 @@ suite("every reference a UUID (migration 0017)", () => {
       [change, ada.id],
     );
 
-    // 0017 runs, then whatever came after it
-    expect((await migrate(db))[0]).toBe("0017-uuids");
+    // 0017 runs, then whatever came after it up to 0031 (the store's tables take their words at 0032, below)
+    expect((await migrate(db, { until: "0031-skills" }))[0]).toBe("0017-uuids");
 
     const film = uuidOf("story:old-film"), cut = uuidOf("story:old-cut");
     const q = async (text: string, args: unknown[] = []) => (await db.query<any>(text, args)).rows;
@@ -92,13 +93,16 @@ suite("every reference a UUID (migration 0017)", () => {
     expect((await q(`SELECT id, title FROM play.sandboxes ORDER BY title`)).map((r) => r.id)).toEqual([SANDBOX.factories, SANDBOX.one, SANDBOX.two, SANDBOX.three, SANDBOX.four, SANDBOX.five]);
     expect(await q(`SELECT coop_id FROM play.memberships`)).toEqual([{ coop_id: COOP }]);
     expect((await q(`SELECT DISTINCT coop_id FROM play.level_rules`)).map((r) => r.coop_id)).toEqual([COOP]);
-    // the story's document, renamed, its every step kept and still read back
+    // the story's document, renamed, its every step kept
     expect(await q(`SELECT id FROM play.docs`)).toEqual([{ id: `story:${film}` }]);
-    expect((await history(db, `story:${film}`)).length).toBe(steps);
-    expect((await readDoc(db, `story:${film}`)).json.tracks[0].clips[0].who).toBe("SAMUEL");
+    expect(Number((await q(`SELECT count(*) AS n FROM play.doc_updates WHERE doc_id = $1`, [`story:${film}`]))[0].n)).toBe(steps);
     // the history is append only again, and every foreign key holds
     await expect(db.query(`DELETE FROM play.doc_updates`)).rejects.toThrow(/append only/);
     await expect(db.query(`UPDATE play.intents SET story_id = $1 WHERE id = (SELECT intent_id FROM play.proposal_ids WHERE proposal_id = $2)`, [crypto.randomUUID(), proposal])).rejects.toThrow(/foreign key/);
+    // and on to today: its every edit read back by today's store
+    await migrate(db);
+    expect((await history(db, `story:${film}`)).length).toBe(steps);
+    expect((await readDoc(db, `story:${film}`)).json.tracks[0].clips[0].who).toBe("SAMUEL");
     await expect(db.query(`INSERT INTO play.docs (id, type, schema) VALUES ('story:old-film', 'story', 'story/1')`)).rejects.toThrow(/docs_id_check/);
     // a new story or sandbox gets a random UUID; two assets may share a group and slug
     expect((await q(`INSERT INTO play.stories (coop_id, title) VALUES ($1, 'New') RETURNING id`, [COOP]))[0].id).toMatch(UUID);

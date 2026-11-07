@@ -19,7 +19,7 @@ export type Linked = { id: string; title: string; number: number; version: strin
 export type Links = Record<string, Linked>;
 /** a story whose newest version links this one, and the number of this one's version it plays (GET /api/stories/:id) */
 export type LinkedBy = { id: string; title: string; number: number; version: string; plays: number | null };
-export type Story = StoryBody & { id: string; title: string; number?: number | null; version?: string; note?: string; links?: Links; linked_by?: LinkedBy[]; versions?: { number: number; id: string; note: string; created: string; author: string | null }[] };
+export type Story = StoryBody & { id: string; title: string; number?: number | null; version?: string; note?: string; links?: Links; linked_by?: LinkedBy[]; versions?: { number: number; id: string; note: string; created: string; author: string | null; approved_by?: string | null }[] };
 
 /** a shot: its still (frame), how it goes into the next (transition), and its moving picture if it has one (video, played
  *  muted from video_in seconds into it; the story's own sound plays under it) */

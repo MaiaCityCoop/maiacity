@@ -252,4 +252,6 @@ export function diff(a: unknown, b: unknown, path = "$", out: Change[] = []): Ch
   return out;
 }
 
-export const sameFrontiers = (a: Frontiers, b: Frontiers): boolean => canonical([...a].sort((x, y) => (x.peer < y.peer ? -1 : 1))) === canonical([...b].sort((x, y) => (x.peer < y.peer ? -1 : 1)));
+/** a frontier's key: its peers in order, canonical (two equal frontiers, one key) */
+export const frontiersKey = (f: Frontiers): string => canonical([...f].sort((x, y) => (x.peer < y.peer ? -1 : 1)));
+export const sameFrontiers = (a: Frontiers, b: Frontiers): boolean => frontiersKey(a) === frontiersKey(b);

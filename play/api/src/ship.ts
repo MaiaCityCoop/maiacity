@@ -253,7 +253,7 @@ function latestRuns(runs: any[]) {
  * SHIP_TOKEN, or no admin). Anything else puts it in Ship at once, its first step Ready to merge waiting with its
  * reason, and it starts at once if it may (startIfReady); its pull request merged already by an earlier ship of it,
  * it is shipped again the same way. Gives back the intent; null where the intent is no code intent at Proposal (it is
- * decided as before: ./intents.ts decideIntent, ./proposals.ts decide).
+ * decided as before: ./intents.ts decideIntent, ./versioned.ts decide).
  */
 export async function acceptAndShip(db: Db, gh: GitHub | null, me: Me | null, id: string) {
   if (!me) throw new Denied("Please sign in first.", 401);

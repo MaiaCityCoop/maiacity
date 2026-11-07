@@ -44,11 +44,11 @@
 	beforeNavigate(({ willUnload, to }) => {
 		if (updated.current && !willUnload && to?.url) location.href = to.url.href;
 	});
-	// the intents' board is a modal over the page (Samuel 2026-11-05): a link that names it (/intents/, or /proposals/
-	// from before) opens it here instead, and going anywhere else closes it
+	// the intents' board is a modal over the page (Samuel 2026-11-05): a link that names it (/intents/) opens it here
+	// instead, and going anywhere else closes it
 	beforeNavigate((nav) => {
 		if (nav.willUnload) return;
-		if (nav.type === 'link' && (nav.to?.url.pathname === '/intents/' || nav.to?.url.pathname === '/proposals/')) {
+		if (nav.type === 'link' && (nav.to?.url.pathname === '/intents/')) {
 			nav.cancel();
 			openIntents(nav.to.url.hash.slice(1));
 		} else closeIntents();
