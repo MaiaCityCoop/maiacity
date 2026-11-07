@@ -4,7 +4,12 @@
 import type { LoroDoc } from "loro-crdt";
 import type { Queryable } from "../../src/pg";
 import { applyEdits, contentHash, fromBytes, jsonOf, newDoc, patchTo, seed, type Edit, type Frontiers } from "../../src/docs/core";
-import { typeOf } from "../../src/docs/schema";
+import { seedType } from "../../src/docs/schemas";
+import { SCHEMA } from "../../src/ids";
+
+/** a type as play's code wrote it then, by its old name: the seed's v1 */
+const OLD: Record<string, string> = { "story/1": SCHEMA.story, "asset/1": SCHEMA.asset, "factory/1": SCHEMA.factory, "levels/1": SCHEMA.levels, "skill/1": SCHEMA.skill };
+const typeOf = (name: string) => seedType(OLD[name]);
 
 type Author = { human: string | null; via: string };
 const bytes = (b: unknown): Uint8Array => (b instanceof Uint8Array ? b : new Uint8Array(b as ArrayBuffer));

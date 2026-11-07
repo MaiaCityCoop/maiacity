@@ -19,6 +19,9 @@ import { Rate } from "../src/limits";
 import { RECIPE_HEAD, recipeTail } from "../src/recipes";
 import { storyVersionId } from "../src/versions";
 import { oldAccept, oldBranch, oldCommit, oldCreate, oldPropose } from "./fixtures/olddocs";
+import { problemsOf, readDoc, typeFor } from "../src/docs";
+import { SCHEMA } from "../src/ids";
+import "../src/versioned";
 
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;
@@ -173,15 +176,30 @@ suite("migration 0032-versioned", () => {
     for (const m of made) await db.query(`UPDATE play.doc_branches SET intent_id = $2 WHERE id = $1`, [m.branch, m.id]);
     const edits = Number((await q(`SELECT count(*) AS n FROM play.doc_updates`))[0].n);
 
-    // ---- 0032
+    // ---- 0032, then the rest: 0033-build and 0034-schemas with ensureSchemas, every schema a document of the meta-schema
     expect(await migrate(db, { until: "0032-versioned" })).toEqual(["0032-versioned"]);
+    expect(await migrate(db)).toEqual(["0033-build", "0034-schemas"]);
+    // every schema a document, v1 from the seed; every document made before names its schema's UUID and version, and
+    // is still valid against that schema as Postgres holds it (play/SPEC.md "Version control")
+    const schemas = await q(`SELECT d.id, d.schema_id, (SELECT max(number) FROM play.doc_versions v WHERE v.doc_id = d.id) AS n FROM play.docs d WHERE d.id LIKE 'schema:%' ORDER BY d.id`);
+    expect(schemas.map((r) => r.id.split(":")[1]).sort()).toEqual(Object.values(SCHEMA).sort());
+    for (const r of schemas) expect([r.schema_id, r.n]).toEqual([SCHEMA.meta, 1]);
+    const older = await q(`SELECT id, schema, schema_id, schema_version FROM play.docs WHERE id NOT LIKE 'schema:%' ORDER BY id`);
+    expect(older.length).toBeGreaterThanOrEqual(5);
+    const byName: Record<string, string> = { "story/1": SCHEMA.story, "asset/1": SCHEMA.asset, "factory/1": SCHEMA.factory, "levels/1": SCHEMA.levels, "skill/1": SCHEMA.skill };
+    for (const d of older) {
+      expect([d.id, d.schema_id, d.schema_version]).toEqual([d.id, byName[d.schema], 1]);
+      expect([d.id, problemsOf(await typeFor(db, d.schema_id), (await readDoc(db, d.id)).json)]).toEqual([d.id, []]);
+    }
+    expect(await migrate(db)).toEqual([]);
+    expect(Number((await q(`SELECT count(*) AS n FROM play.docs WHERE id LIKE 'schema:%'`))[0].n)).toBe(schemas.length);
     for (const [t, there] of [["doc_variants", true], ["doc_edits", true], ["doc_branches", false], ["doc_updates", false], ["proposal_ids", false]] as const)
       expect(!!(await q(`SELECT to_regclass('play.${t}') AS t`))[0].t).toBe(there);
     const cols = (await q(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'play' AND table_name = 'intents'`)).map((r) => r.column_name);
     for (const gone of ["factory_id", "game_config_id", "skill_id", "doc_branch"]) expect(cols).not.toContain(gone);
     for (const kept of ["doc_id", "doc_variant", "asset_id", "version", "base", "story_id", "story_version", "story_base", "sandbox_change"]) expect(cols).toContain(kept);
     // every edit kept, each on a variant; one Main for each document, every edit not on an intent variant on it
-    expect(Number((await q(`SELECT count(*) AS n FROM play.doc_edits`))[0].n)).toBe(edits);
+    expect(Number((await q(`SELECT count(*) AS n FROM play.doc_edits WHERE doc_id NOT LIKE 'schema:%'`))[0].n)).toBe(edits);
     expect(await q(`SELECT doc_id FROM play.doc_variants WHERE type = 'main' GROUP BY doc_id HAVING count(*) <> 1`)).toEqual([]);
     expect(Number((await q(`SELECT count(*) AS n FROM play.docs d WHERE NOT EXISTS (SELECT 1 FROM play.doc_variants v WHERE v.doc_id = d.id AND v.type = 'main')`))[0].n)).toBe(0);
     // every intent's work names its document and variant, its stage as it was
