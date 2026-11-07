@@ -1,9 +1,8 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * THE MAIA CITY VAULT'S ASSETS, BUILT FROM THE VAULT ALONE (V5 of the avenDB migration): a build of one of a vault's
- * recipes as a viewer of the vault shows it (the avenDB app's Assets, $avendb/Assets.svelte, with
- * ../VaultAsset.svelte), with no repo fallback (Samuel 2026-10-17): its entry's file, read from the vault and held to its
- * hash before anything else (./avendb.js `vaultRecipes`), then this device's cache or the box, checked either way
+ * THE MAIA CITY VAULT'S ASSETS, BUILT FROM THE VAULT ALONE : a build of one of a vault's
+ * recipes as a viewer of the vault shows it (../VaultAsset.svelte), with no repo fallback (Samuel 2026-10-17): its entry's file, read from the vault and held to its
+ * hash before anything else, then this device's cache or the box, checked either way
  * (`vaultBuild`); the list it is picked from is ./shelf.js's. Nothing here reads the repo's index or its libraries
  * (../recipes.js, ../load.js, the `virtual:asset-recipes` modules): the frozen engines, the box, the device's cache and
  * the renderer are the kernel, as they are for every page.

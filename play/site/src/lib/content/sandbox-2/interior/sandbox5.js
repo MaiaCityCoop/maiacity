@@ -7,8 +7,8 @@
  * Its garden is kept in the Maia City COOP's vault (A3, Samuel 2026-10-19), the repo's maia/content/code/configs/sandbox-4/garden its
  * seed: `sandbox5()` reads it there.
  *
- * Every plant is anchored to the version it was planted with: its pin, the plant's avenDB entry and the heads of that
- * version (`pin`, $content/assets/sources/avendb.js `PIN_REF`; Samuel 2026-10-20), or, in a garden not pinned yet, the
+ * Every plant is anchored to the version it was planted with: its pin, the plant's legacy entry and the heads of that
+ * version (`pin`; Samuel 2026-10-20), or, in a garden not pinned yet, the
  * version its card numbers (`v`). A plant changed later is a new version of its entry, and Sandbox 5 keeps growing the
  * one written here until it is planted again on purpose.
  */

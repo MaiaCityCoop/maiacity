@@ -142,7 +142,7 @@
 		stepHash = null;
 	});
 	const chainOf = (c: Chain): ChainVersion[] =>
-		c.versions.map((v) => ({ number: v.number, note: v.note, at: v.created, by: v.imported ? 'legacy avenDB' : (v.author ?? 'someone'), acceptedBy: v.approvedBy, label: v.cardLabel ?? c.label, v }));
+		c.versions.map((v) => ({ number: v.number, note: v.note, at: v.created, by: v.imported ? 'the legacy import' : (v.author ?? 'someone'), acceptedBy: v.approvedBy, label: v.cardLabel ?? c.label, v }));
 	async function picked_(p: Pick | null) {
 		if (!chain) return;
 		if (!p) {

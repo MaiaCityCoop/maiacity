@@ -1,5 +1,5 @@
-// Asset ids are UUIDs (play/SPEC.md §3): a new asset's random, an imported one's derived from the avenDB entry it came
-// from (RFC 4122 version 5, SHA-1 over play's namespace and "avendb:<entry>"), so the same import gives the same ids.
+// Asset ids are UUIDs (play/SPEC.md §3): a new asset's random; the legacy import derived an imported one's from the
+// entry it came from (RFC 4122 version 5, SHA-1 over play's namespace and the entry's name), so its ids stay as they were.
 import { createHash, randomUUID } from "node:crypto";
 
 /** play's namespace for name-based ids */
@@ -20,9 +20,6 @@ export function uuidv5(name: string, namespace = NAMESPACE): string {
 
 export const newId = () => randomUUID();
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-
-/** an imported asset's id: the UUID of the avenDB entry it was */
-export const assetIdOf = (entry: string) => uuidv5(`avendb:${entry}`);
 
 /**
  * The UUID a thing that was once named by a readable id is known by from then on (Samuel 2026-11-04: every reference

@@ -55,7 +55,7 @@ suite("assets as documents", () => {
       if (v.variants) {
         await db.query(
           `INSERT INTO play.asset_versions (id, asset_id, parents, number, default_variant, card, engine, note, author, imported, created) VALUES ($1, $2, $3, $4, $5, ($6::text)::jsonb, 5, $7, $8, $9, COALESCE($10::timestamptz, now()))`,
-          [vid, id, parent ? [parent] : [], v.n, Object.keys(v.variants)[0], JSON.stringify(card), `version ${v.n}`, v.author ?? null, v.imported === false ? null : JSON.stringify({ from: "avendb" }), v.created ?? null],
+          [vid, id, parent ? [parent] : [], v.n, Object.keys(v.variants)[0], JSON.stringify(card), `version ${v.n}`, v.author ?? null, v.imported === false ? null : JSON.stringify({ from: "legacy" }), v.created ?? null],
         );
         for (const [vn, vs] of Object.entries(v.variants)) {
           const s = await put(vs);
@@ -67,7 +67,7 @@ suite("assets as documents", () => {
         const recipe = await put(RECIPE_HEAD + v.source + recipeTail(slug, v.n, null));
         await db.query(
           `INSERT INTO play.asset_versions (id, asset_id, parents, number, recipe_hash, source_hash, card, engine, note, author, imported, created) VALUES ($1, $2, $3, $4, $5, $6, ($7::text)::jsonb, 5, $8, $9, $10, COALESCE($11::timestamptz, now()))`,
-          [vid, id, parent ? [parent] : [], v.n, recipe, sourceHash, JSON.stringify({ ...card, card: { ...card.card, recipe } }), `version ${v.n}`, v.author ?? null, v.imported === false ? null : JSON.stringify({ from: "avendb" }), v.created ?? null],
+          [vid, id, parent ? [parent] : [], v.n, recipe, sourceHash, JSON.stringify({ ...card, card: { ...card.card, recipe } }), `version ${v.n}`, v.author ?? null, v.imported === false ? null : JSON.stringify({ from: "legacy" }), v.created ?? null],
         );
         written[slug][v.n] = { id: vid, source: v.source, recipe };
       }

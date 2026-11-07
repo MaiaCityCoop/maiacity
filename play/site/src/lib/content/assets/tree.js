@@ -1,14 +1,14 @@
 // @ts-nocheck — plain JS
 /*
  * AN ASSET'S PARTS TREE, from its card's catalog alone (./schemas/card.v1.json `catalog`): what every viewer that lists
- * an asset's parts lists (./AssetViewer.svelte's panel, the avenDB app's Assets in its side, ./Parts.svelte). Its own
+ * an asset's parts lists (./AssetViewer.svelte's panel, an asset's view in its side, ./Parts.svelte). Its own
  * parts by assembly, then each whole asset it carries (a Power Cube on a pickup's bed, its `ref`) as one entry of its
  * own, that asset's parts by its assemblies under it.
  */
 
 /**
  * The tree of `catalog`'s parts: `own`, the asset's own by assembly; `units`, each whole asset it carries, by its ref,
- * named as its host's catalog writes it before its assemblies' ("Power Cube: Frame"), else as avenDB names what its ref
+ * named as its host's catalog writes it before its assemblies' ("Power Cube: Frame"), else as play names what its ref
  * names (`named`, `nameOf(ref)`: "Power Cube v3 · 1a2b3c4d…", the ref itself where nothing names it), with where its
  * own page is (`hrefOf(ref)`, null for none).
  * @param {any} catalog @param {string | undefined} own the asset's own ref (`machines/pickup@2`): a part of it is no unit

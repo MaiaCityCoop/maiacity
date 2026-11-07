@@ -11,8 +11,8 @@
  * - bounded: at most LIMITS.depth deep and LIMITS.bytes long as text, so a card can't be made to cost what its schema
  *   would allow a thousand times over.
  *
- * avenDB judges its own entries (an asset's entry, ./asset.v1.json) with its own engine; this checker is for what an
- * asset carries in its files, which avenDB stores as bytes and never reads.
+ * An asset's own record (./asset.v1.json) is play's to judge; this checker is for what an asset carries in its files,
+ * which play keeps as bytes by their hashes.
  */
 
 /** what any value may cost, whatever its schema allows */

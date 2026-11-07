@@ -1,5 +1,5 @@
 <!--
-	A line icon of avenDB's screens, drawn in the text's colour on a 24-unit grid (in the manner of Lucide's): the
+	A line icon of play's screens, drawn in the text's colour on a 24-unit grid (in the manner of Lucide's): the
 	nav's pages, a note's proposals and variants, the studio's tables, and the Library's kinds of file.
 -->
 <script>
