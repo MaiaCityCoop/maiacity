@@ -1,6 +1,6 @@
 // A character's bench film, on a real GPU only (the Mac, Metal): its recipe built in the page on its pieces (by hash,
 // from a local folder), then walk, a turn, sit down, sitting, stand up and wave played with its motion pieces, its
-// face friendly throughout and joyful where the schedule says, each frame written as a PNG (frames/0000.png …).
+// face friendly throughout, joyful where the schedule says and blinking every few seconds, each frame written as a PNG (frames/0000.png …).
 //   bun bench-gpu.mjs <recipe.js> <pieces-folder> <out-folder> [seconds=20] [fps=24]
 import { createRequire } from "node:module";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
@@ -56,7 +56,9 @@ for (let f = 0; f < N; f++) {
     obj.position.set(0, 0, walked); obj.rotation.y = t >= 8.1 ? Math.PI / 2 : 0;
     seat.position.set(-0.12, 0.48, walked); seat.visible = t >= 8.1;
     const j = Math.min(1, Math.max(0, joy * Math.min(1, local / 0.6)));
-    for (const o of skin) { const d = o.morphTargetDictionary; if ("friendly" in d) o.morphTargetInfluences[d.friendly] = 1 - j; if ("joy" in d) o.morphTargetInfluences[d.joy] = j; }
+    // a blink every few seconds: shut and open again over 0.18 s
+    const bl = Math.max(0, ...[1.4, 4.8, 9.3, 13.6, 17.1, 19.2].map((b0) => 1 - Math.abs(t - b0 - 0.09) / 0.09));
+    for (const o of skin) { const d = o.morphTargetDictionary; if ("friendly" in d) o.morphTargetInfluences[d.friendly] = 1 - j; if ("joy" in d) o.morphTargetInfluences[d.joy] = j; if ("blink" in d) o.morphTargetInfluences[d.blink] = bl; }
     const c = new T.Vector3(0, 1.0, walked * 0.85 + 0.6); cam.position.set(c.x + 3.6, 1.45, c.z + 4.2); cam.lookAt(c);
     ren.render(sc, cam); return ren.domElement.toDataURL("image/png");
   }, { t, S });

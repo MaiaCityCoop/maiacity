@@ -155,3 +155,14 @@ PR #2157 ready. Known looks to improve: faint doubled brows and the photos' smil
 - **Recorded:** c2 pass (2.14 / 2.05 px, 1.54 / 1.38 % of the eye distance; outline 1.24 / 1.35 px; review 9ff6d82a…),
   c5 pass. **Open:** c3 (the bench film), c1 and c4 (the private character on play: propose body v2, then v3, then
   `propose_asset` group characters, private, with his recipe).
+
+### 18:15: blink, and the hashes now
+
+- **Person head v2** now also has `blink` (MakeHuman's eye-closure units, the lids 10 mm, the lashes following),
+  carried through the smoothing beside `friendly`; a plain look's positions and colours are still v1's.
+- **The hashes now** (on play, variants 1458 and 1459, checked; v3 a diff on v2):
+  head v2 `aa7b49d6490e4f420b4c7069fad6d89124f120954accd7948fa85935135b560c`,
+  body v2 `fb02f7ce738a8cdcf34fdbe74d307fdb722a5460117b8a9fea428b54e0092fa9` (head inputs only, on body v1),
+  body v3 `900771ce3b105a6c7a3b2df28a08fccc371913ec47941d073b4c86d257881a82` (wear).
+- **Texture:** no run 4. Run 3's review `509efe8a…` keeps a lighter forehead strip, brownish patches under the
+  cheekbones and pale streaks under the beard: for Samuel at Proposal; the next step, if wanted, is a seam-aware blend.
