@@ -1,0 +1,1 @@
+{ "values": { "step": 0.15 }, "plan": [{ "clip": "walk", "seconds": 6, "speed": 1.0 }], "fps": 60 }

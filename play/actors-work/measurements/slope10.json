@@ -1,0 +1,1 @@
+{ "values": { "slope": 10 }, "plan": [{ "clip": "idle", "seconds": 3 }, { "clip": "walk", "seconds": 6, "speed": 1.4 }], "fps": 60 }
