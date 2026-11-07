@@ -37,7 +37,8 @@ jobs:
         run: bash .github/workflows/tested-tree.sh
       - name: Postgres
         if: steps.tested.outputs.skip != 'true'
-        run: docker run -d --name postgres -e POSTGRES_PASSWORD=play -p 5432:5432 postgres:17-alpine
+        # room for the tests in parallel (intent aa59f248): each test file's pool and each play-api a test starts take up to 20
+        run: docker run -d --name postgres -e POSTGRES_PASSWORD=play -p 5432:5432 postgres:17-alpine -c max_connections=500
       - uses: oven-sh/setup-bun@v2
         if: steps.tested.outputs.skip != 'true'
         with:
@@ -53,7 +54,8 @@ jobs:
           # over TCP: the image's first start (initdb) answers only on its socket until it is ready
           for i in $(seq 1 60); do docker exec postgres pg_isready -h 127.0.0.1 -U postgres > /dev/null && break; sleep 1; done
           docker exec postgres pg_isready -h 127.0.0.1 -U postgres
-          bun test
+          # the whole suite, every file, one worker per core (each file its own database; intent aa59f248)
+          bun test --parallel
       - name: The site
         if: steps.tested.outputs.skip != 'true'
         working-directory: play/site
