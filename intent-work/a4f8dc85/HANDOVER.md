@@ -76,3 +76,27 @@ Add `--dry-run` first to see `prompt.txt` and `request.json`. The plate's hash i
    fit vs image-to-3D on fal) was started in the old session; its sources are kept as Artifacts (`list_artifacts`), and
    its report goes to the Orchestrator.
 6. **When the 3D part is done:** the actor skill's "Your own character" part (c6), then mark PR #2157 ready.
+
+## 2026-11-07 afternoon: the sheet, then the face fit (builder session 2)
+
+- **The sheet:** Samuel's current plate is `0263b59cc6f44a0ee2cd8334d4b42b5df5ade40f13ca83629760876368887a90` (personal
+  library). Built from plate 1 (`a99dea5b…`) with redrawn cells pasted on, so the colour stays plate 1's. **No fal at all
+  without Samuel's own OK** (19 requests were made that day, far over the 2 he allowed); the sheet tools now refuse
+  without `--allow` (eb7024df).
+- **The intent was re-specified and approved (15:14); it is in Build.** c2 is a measured landmark fit with renders for
+  his review; his look is the Accept at Proposal.
+- **The face fit (c2), CPU, in `tools/character/`** (README there): MakeHuman's CC0 head (man, 37, muscle 0.75), 286
+  head and face targets fitted to MediaPipe's landmarks on his front and three-quarter photos (each photo its own
+  expression units and camera) and to the skull's outline on the sheet's front and profile head cells; his photos and
+  the sheet's cells projected onto the head's UVs. Mean landmark error, base head → fitted: front photo 6.48 → 2.14 px
+  (1.54 % of the eye distance), three-quarter 7.65 → 2.03 px (1.37 %); outline: front 1.07 px, profile 1.39 px.
+  MediaPipe finds no face on an exact profile, so the profile is checked by its outline.
+- **GPU only on Samuel's Mac** (Samuel 2026-11-07): c2's renders are the job `intent-work/a4f8dc85-render/` (run.sh,
+  README): it fetches his photos and sheet by hash, fits, renders on Metal, keeps the review image in his personal
+  library and prints its hash. Tested here end to end with `RENDERER=cpu UPLOAD=0`.
+- **Messages to the Orchestrator are refused** from this session (trusted device only); it reads this session's summary.
+
+**Next:** the Mac runs the job (c2's evidence); c4: confirm the face units' licence CC0 (MPFB 2.0.16, faceunits01) as an
+Artifact; c1: the character as data on 99b612ec's pieces (face shape = the fitted target weights, the texture by hash);
+garments (c3, its bench film again a Mac job); c5: the actor skill's "Your own character" part; then propose and mark
+PR #2157 ready. Known looks to improve: faint doubled brows and the photos' smile lines baked into the skin.
