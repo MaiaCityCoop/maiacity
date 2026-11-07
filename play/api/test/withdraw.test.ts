@@ -137,7 +137,7 @@ suite("withdraw a document from an intent's work", () => {
 
     // a document not in its work is refused, saying what it holds
     const not = await tool("withdraw_doc", { intent: id, doc: stray.story, reason: "again" });
-    expect(not.error).toContain("is not in intent");
+    expect(not.error).toContain("has no open or proposed variant");
     expect(not.error).toContain(`story:${film.story}`);
     // no reason, refused
     expect((await tool("withdraw_doc", { intent: id, doc: film.story, reason: "  " })).error).toContain("needs its reason");
@@ -183,6 +183,46 @@ suite("withdraw a document from an intent's work", () => {
     expect((await variants(id)).map((h) => h.doc_id)).toEqual([`story:${b2.story}`]);
     expect((await row(id)).steps.at(-1)).toMatchObject({ from: "build", to: "build", via: "site", doc: `story:${a.story}` });
     expect((await call("POST", `/api/intents/${id}/withdraw`, { doc: crypto.randomUUID(), reason: "none such" })).status).toBe(409);
+  });
+
+  test("withdraw a stale draft: an asset's open variant seeded below its head closed, kept; the next doc_edit seeds from Main and proposes", async () => {
+    const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
+    const first = await ready("A fern, its first version");
+    const fern = await tool("propose_asset", { group: "plants", label: "A draft fern", source: SOURCE, note: "v1", intent: first });
+    expect(fern.error).toBeUndefined();
+    expect((await call("POST", `/api/intents/${first}/accept`)).data.stage).toBe("accepted");
+    // in Build, its must not passed: a draft made on v1
+    const i = await tool("add_intent", { title: "The fern moves group", kind: "improve" });
+    await tool("specify_intent", { intent: i.id, ...SPEC });
+    expect((await call("POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
+    const drafts = async () =>
+      (await db.query<{ id: string; status: string; seed: string }>(`SELECT id, status, seed::text AS seed FROM play.doc_variants WHERE intent_id = $1 AND doc_id = $2 ORDER BY id`, [i.id, `asset:${fern.asset}`])).rows;
+    expect((await tool("doc_edit", { doc: fern.asset, intent: i.id, message: "a draft on v1", edits: [{ op: "set", path: ["source"], value: SOURCE + "// on v1\n" }] })).error).toBeUndefined();
+    const [stale] = await drafts();
+    expect(stale.status).toBe("open");
+    // Main moves on: v2, by another intent
+    const other = await ready("The fern, its second version");
+    expect((await tool("propose_doc_version", { doc: fern.asset, note: "v2", edits: [{ op: "set", path: ["source"], value: SOURCE + "// v2\n" }], intent: other })).error).toBeUndefined();
+    expect((await call("POST", `/api/intents/${other}/accept`)).data.stage).toBe("accepted");
+    // the draft withdrawn: closed, kept in the history; the intent still in Build
+    const r = await tool("withdraw_doc", { intent: i.id, doc: fern.asset, reason: "its draft was seeded on v1, Main is v2" });
+    expect(r.error).toBeUndefined();
+    expect(r.stage).toBe("build");
+    expect(await statusOf(stale.id)).toBe("archived");
+    expect((await row(i.id)).steps.at(-1)).toMatchObject({ from: "build", to: "build", doc: `asset:${fern.asset}` });
+    expect((await tool("doc_history", { doc: fern.asset })).variants.some((v: any) => `${v.id}` === stale.id)).toBe(true);
+    // the next doc_edit seeds a new variant from Main (v2), and proposes
+    expect((await tool("doc_edit", { doc: fern.asset, intent: i.id, message: "again, on v2", edits: [{ op: "set", path: ["label"], value: "A moved fern" }] })).error).toBeUndefined();
+    const now = await drafts();
+    expect(now.length).toBe(2);
+    expect(now[1].status).toBe("open");
+    expect(now[1].seed).not.toBe(stale.seed);
+    expect((await tool("doc_at", { doc: fern.asset, intent: i.id })).json.source).toContain("// v2");
+    const p = await tool("propose_doc_version", { doc: fern.asset, variant: Number(now[1].id), note: "the fern moved, on v2", intent: i.id });
+    expect(p.error).toBeUndefined();
+    // nothing left to withdraw twice
+    await tool("withdraw_doc", { intent: i.id, doc: fern.asset, reason: "the proposal too" });
+    expect((await tool("withdraw_doc", { intent: i.id, doc: fern.asset, reason: "again" })).error).toContain("has no open or proposed variant");
   });
 
   test("withdraw from another admin's agent whose owner is an admin no more: refused, nothing taken out", async () => {

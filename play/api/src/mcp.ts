@@ -599,8 +599,8 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     {
       name: "withdraw_doc",
       description:
-        "Take one document out of an intent's work before it is decided, always with its reason (a document proposed by mistake): its intent variant closed and kept in the history, the rest of the work as it was. " +
-        "Only while the intent is in Build or at Proposal; at Proposal it goes back to Build, its results kept, the reason kept in its history and shown on the board. Refused: no reason, a decided intent (Ship, Accepted, Archived) or one not built yet, a document not in its work.",
+        "Take one document out of an intent before it is decided, always with its reason (a document proposed by mistake, or a draft gone stale): the intent's open variant of it, proposed or a draft, closed and kept in the history, the rest of the work as it was; the next doc_edit of it for the intent seeds a new variant from Main. " +
+        "Only while the intent is in Build or at Proposal; at Proposal it goes back to Build, its results kept, the reason kept in its history and shown on the board. Refused: no reason, a decided intent (Ship, Accepted, Archived) or one not built yet, a document the intent has no open or proposed variant of.",
       inputSchema: {
         type: "object",
         properties: {

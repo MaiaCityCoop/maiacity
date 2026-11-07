@@ -80,7 +80,7 @@ export async function variantsOf(q: Queryable, intent: string): Promise<{ doc_id
 }
 
 /** an intent variant closed (archived) while it is still open or proposed, its edits kept on their own line in the history */
-async function closeVariant(q: Queryable, me: Pick<Me, "id"> | null, docId: string, v: number) {
+export async function closeVariant(q: Queryable, me: Pick<Me, "id"> | null, docId: string, v: number) {
   const { rows } = await q.query<{ status: string }>(`SELECT status FROM play.doc_variants WHERE id = $1`, [v]);
   if (rows[0] && (rows[0].status === "open" || rows[0].status === "proposed"))
     await docs.close(q, docId, v, { author: { human: me?.id ?? null, via: "site" }, status: "archived" });
