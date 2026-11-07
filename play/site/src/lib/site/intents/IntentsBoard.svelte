@@ -403,6 +403,7 @@
 		<!-- the title alone above the columns: no words about the board (Samuel 2026-11-06) -->
 		<header class="head">
 			<h1>Intents</h1>
+			<a class="btn small ghost delivery" href="/delivery/" title="Where the intents' time goes: each stage, CI, the budgets">Delivery</a>
 			{#if onclose}<button class="btn small ghost close" onclick={onclose} aria-label="Close the intents" title="Close (Esc)">Close</button>{/if}
 		</header>
 		{#if error}<p class="error">{error}</p>{/if}
@@ -584,6 +585,7 @@
 	.head { flex: 0 0 auto; display: flex; gap: 1rem; align-items: center; justify-content: space-between; margin-bottom: 0.7rem; }
 	.head h1 { margin: 0; font-size: clamp(1.6rem, 3.5vw, 2.2rem); }
 	.head .close { flex: 0 0 auto; }
+	.head .delivery { margin-left: auto; }
 	@media (max-width: 640px) { .head { margin-bottom: 0.6rem; } .intents { padding: 0.8rem 0.7rem 0.6rem; } }
 	.board { flex: 1 1 auto; min-height: 0; display: grid; grid-auto-flow: column; gap: 0.7rem; overflow-x: auto; align-items: stretch; }
 	.column { background: color-mix(in srgb, var(--paper, #f6f1e6) 70%, transparent); border-radius: 14px; padding: 0.7rem 0.6rem 0.5rem; display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; min-height: 0; }

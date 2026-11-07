@@ -20,6 +20,7 @@
 	import { INDEX, admitProposed, source as catalogSource } from '$lib/content/assets/catalog.js';
 	import { markdown } from '$lib/site/markdown/index.js';
 	import { detailOf, isCode, notLive, shipsAgain, STAGE_NAME, TABS, type Check, type Intent, type Kind, type Results, type ShipStep, type Stage, type TabId, type Work } from './detail';
+	import { took } from './took';
 
 	let {
 		intent: i,
@@ -63,13 +64,6 @@
 	const typeOf = (w: Work) => GROUP_TYPE[w.grp ?? ''] ?? (w.what ? w.what[0].toUpperCase() + w.what.slice(1) : (w.grp ?? ''));
 	const STEP_MARK: Record<ShipStep['state'], string> = { queued: '·', running: '●', green: '✓', red: '✗', skipped: '–' };
 	const STEP_WORD: Record<ShipStep['state'], string> = { queued: 'waiting', running: 'running', green: 'done', red: 'red', skipped: 'skipped' };
-	const tookOf = (s: ShipStep, at: number) => {
-		if (!s.started) return '';
-		const ms = (s.finished ? Date.parse(s.finished) : at) - Date.parse(s.started);
-		if (!(ms >= 0)) return '';
-		const sec = Math.round(ms / 1000);
-		return sec < 60 ? `${sec} s` : `${Math.floor(sec / 60)} min ${sec % 60} s`;
-	};
 	/** a log shown from its end, where it went red */
 	const toEnd = (el: HTMLElement) => {
 		el.scrollTop = el.scrollHeight;
@@ -337,7 +331,7 @@
 								<li data-state={st.state}>
 									<span class="mark" title={STEP_WORD[st.state]}>{STEP_MARK[st.state]}</span>
 									<span class="name">{st.name}</span>
-									<span class="muted small">{st.note ?? ''}{st.note && tookOf(st, now) ? ' · ' : ''}{tookOf(st, now)}</span>
+									<span class="muted small">{st.note ?? ''}{st.note && took(st, now) ? ' · ' : ''}{took(st, now)}</span>
 									{#if st.link}<a class="small" href={st.link} target="_blank" rel="noopener">GitHub</a>{/if}
 								</li>
 							{/each}

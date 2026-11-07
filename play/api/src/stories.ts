@@ -164,6 +164,11 @@ const KINDS: Record<string, (c: Record<string, unknown>, what: string) => Record
     } else if (c.composition === "") out.composition = null;
     // the real asset drawn in it (intent f270269e): a version of an asset, its parameters over the shot and a camera path
     if (c.live != null) out.live = liveOf(c.live, what, Number(c.duration));
+    // a whole world played in it (intent 65d04790): a world's version, its camera, hour, exposure and lights over the shot
+    if (c.world != null) {
+      if (c.live != null) throw new StoryError(`${what} draws a live asset or a world, not both.`);
+      out.world = worldOf(c.world, what, Number(c.duration));
+    }
     return out;
   },
   voice: (c, what) => ({ who: text(c.who, `${what}'s speaker`, 60), line: text(c.line, `${what}'s line`, 1000), ...cuesOf(c.cues, what, c.duration) }),
@@ -201,6 +206,30 @@ const vec3 = (v: unknown, what: string): [number, number, number] => {
   if (!Array.isArray(v) || v.length !== 3 || !v.every((x) => typeof x === "number" && Number.isFinite(x) && Math.abs(x) <= 100_000)) throw new StoryError(`${what} must be [x, y, z] in metres.`);
   return v.map((x) => Math.round(x * 1e6) / 1e6) as [number, number, number];
 };
+/** a time in a shot of `duration` seconds, rounded, or refused */
+const shotTime = (duration: number) => (at: unknown, what: string) => {
+  const n = typeof at === "number" ? at : NaN;
+  if (!Number.isFinite(n) || n < 0 || n > duration + 1e-6) throw new StoryError(`${what} must be a time in the shot, 0 to ${duration} s.`);
+  return round(n);
+};
+type InShot = ReturnType<typeof shotTime>;
+
+/** a shot's camera keyframes, a live shot's and a world shot's alike: [{ at, eye, target, fov, ease? }] in time order */
+function cameraKeys(v: unknown, w: string, inShot: InShot) {
+  if (!Array.isArray(v) || !v.length || v.length > 64) throw new StoryError(`${w}.camera must be 1 to 64 keyframes { at, eye, target, fov }.`);
+  let last = -1;
+  return v.map((c: any, i: number) => {
+    const cw = `${w}.camera[${i}]`;
+    if (!c || typeof c !== "object") throw new StoryError(`${cw} must be { at, eye, target, fov }.`);
+    const at = inShot(c.at, `${cw}.at`);
+    if (at <= last) throw new StoryError(`${w}.camera must be in time order, one per moment.`);
+    last = at;
+    if (typeof c.fov !== "number" || !(c.fov >= 5 && c.fov <= 120)) throw new StoryError(`${cw}.fov must be 5 to 120 degrees.`);
+    if (c.ease != null && c.ease !== "smooth" && c.ease !== "linear") throw new StoryError(`${cw}.ease is smooth or linear.`);
+    return { at, eye: vec3(c.eye, `${cw}.eye`), target: vec3(c.target, `${cw}.target`), fov: round(c.fov), ...(c.ease ? { ease: c.ease } : {}) };
+  });
+}
+
 function liveOf(v: unknown, what: string, duration: number) {
   const w = `${what}'s live`;
   if (!v || typeof v !== "object" || Array.isArray(v)) throw new StoryError(`${w} must be { asset, version, values?, keys?, camera }.`);
@@ -214,11 +243,7 @@ function liveOf(v: unknown, what: string, duration: number) {
     out.variant = l.variant;
   }
   if (l.values != null) out.values = liveValues(l.values, `${w}.values`);
-  const inShot = (at: unknown, what: string) => {
-    const n = typeof at === "number" ? at : NaN;
-    if (!Number.isFinite(n) || n < 0 || n > duration + 1e-6) throw new StoryError(`${what} must be a time in the shot, 0 to ${duration} s.`);
-    return round(n);
-  };
+  const inShot = shotTime(duration);
   if (l.keys != null) {
     if (!Array.isArray(l.keys) || l.keys.length > 64) throw new StoryError(`${w}.keys must be a list of at most 64 { at, values }.`);
     let last = -1;
@@ -230,21 +255,56 @@ function liveOf(v: unknown, what: string, duration: number) {
       return { at, values: liveValues(k.values, `${w}.keys[${i}].values`) };
     });
   }
-  if (!Array.isArray(l.camera) || !l.camera.length || l.camera.length > 64) throw new StoryError(`${w}.camera must be 1 to 64 keyframes { at, eye, target, fov }.`);
-  let last = -1;
-  out.camera = l.camera.map((c: any, i: number) => {
-    const cw = `${w}.camera[${i}]`;
-    if (!c || typeof c !== "object") throw new StoryError(`${cw} must be { at, eye, target, fov }.`);
-    const at = inShot(c.at, `${cw}.at`);
-    if (at <= last) throw new StoryError(`${w}.camera must be in time order, one per moment.`);
-    last = at;
-    if (typeof c.fov !== "number" || !(c.fov >= 5 && c.fov <= 120)) throw new StoryError(`${cw}.fov must be 5 to 120 degrees.`);
-    if (c.ease != null && c.ease !== "smooth" && c.ease !== "linear") throw new StoryError(`${cw}.ease is smooth or linear.`);
-    return { at, eye: vec3(c.eye, `${cw}.eye`), target: vec3(c.target, `${cw}.target`), fov: round(c.fov), ...(c.ease ? { ease: c.ease } : {}) };
-  });
+  out.camera = cameraKeys(l.camera, w, inShot);
   if (l.steps != null) {
     if (!Number.isInteger(l.steps) || (l.steps as number) < 2 || (l.steps as number) > MOST_LIVE_STEPS) throw new StoryError(`${w}.steps must be a whole number from 2 to ${MOST_LIVE_STEPS}.`);
     out.steps = l.steps;
+  }
+  return out;
+}
+
+// ---- a world shot (intent 65d04790; play/site/src/lib/stories/live.ts, which draws it): a whole world, an asset of the
+// group `worlds` (play/SPEC.md §4.11) by its UUID and an accepted version's id (a hash), played on the shot's clock from
+// its camera's keyframes, its hour (the sun's place), its exposure (stops) and its lights (multipliers over its mood),
+// each a number held over the shot or [[t, value], …] keys in time order (t in s into the shot).
+const WORLD_KEYS = new Set(["asset", "version", "camera", "hour", "exposure", "lights"]);
+export const WORLD_LIGHTS = ["sun", "sky", "lamps"];
+/** a value over a shot: a number held, or [[t, value], …] keys in time order, each value within [lo, hi] */
+function curveOf(v: unknown, what: string, lo: number, hi: number, inShot: InShot): number | [number, number][] {
+  const val = (x: unknown, w: string) => {
+    if (typeof x !== "number" || !Number.isFinite(x) || x < lo || x > hi) throw new StoryError(`${w} must be a number from ${lo} to ${hi}.`);
+    return round(x);
+  };
+  if (!Array.isArray(v)) return val(v, what);
+  if (!v.length || v.length > 64) throw new StoryError(`${what} is a number, or 1 to 64 keys [[t, value], …].`);
+  let last = -1;
+  return v.map((k: any, i: number) => {
+    if (!Array.isArray(k) || k.length !== 2) throw new StoryError(`${what}[${i}] must be [t, value].`);
+    const at = inShot(k[0], `${what}[${i}]'s t`);
+    if (at <= last) throw new StoryError(`${what} must be in time order, one per moment.`);
+    last = at;
+    return [at, val(k[1], `${what}[${i}]'s value`)] as [number, number];
+  });
+}
+function worldOf(v: unknown, what: string, duration: number) {
+  const w = `${what}'s world`;
+  if (!v || typeof v !== "object" || Array.isArray(v)) throw new StoryError(`${w} must be { asset, version, camera, hour?, exposure?, lights? }.`);
+  const l = v as Record<string, unknown>;
+  for (const k of Object.keys(l)) if (!WORLD_KEYS.has(k)) throw new StoryError(`${w} has no field ${k.slice(0, 40)} (it takes ${[...WORLD_KEYS].join(", ")}).`);
+  if (typeof l.asset !== "string" || !UUID.test(l.asset)) throw new StoryError(`${w}.asset must be the world's UUID (list_assets with group worlds gives it).`);
+  if (typeof l.version !== "string" || !HASH.test(l.version)) throw new StoryError(`${w}.version must be the id of one of its accepted versions (get_asset gives them).`);
+  const inShot = shotTime(duration);
+  const out: Record<string, unknown> = { asset: l.asset, version: l.version, camera: cameraKeys(l.camera, w, inShot) };
+  if (l.hour != null) out.hour = curveOf(l.hour, `${w}.hour`, 0, 24, inShot);
+  if (l.exposure != null) out.exposure = curveOf(l.exposure, `${w}.exposure`, -6, 6, inShot);
+  if (l.lights != null) {
+    if (typeof l.lights !== "object" || Array.isArray(l.lights)) throw new StoryError(`${w}.lights must be { ${WORLD_LIGHTS.join(", ")} }, each a multiplier or keys.`);
+    const lights: Record<string, unknown> = {};
+    for (const [k, x] of Object.entries(l.lights as object)) {
+      if (!WORLD_LIGHTS.includes(k)) throw new StoryError(`${w}.lights has no light ${k.slice(0, 40)} (it takes ${WORLD_LIGHTS.join(", ")}).`);
+      lights[k] = curveOf(x, `${w}.lights.${k}`, 0, 8, inShot);
+    }
+    out.lights = lights;
   }
   return out;
 }
@@ -265,6 +325,23 @@ async function checkLive(db: Queryable, tracks: Track[]) {
     if (v.number == null) throw new StoryError(`${what}: version ${l.version.slice(0, 12)} of asset ${l.asset.slice(0, 8)} is not accepted: a live shot draws an accepted version.`);
     if (l.variant != null && !(v.variants ?? []).includes(l.variant)) throw new StoryError(`${what}: version ${v.number} has no variant ${l.variant}${v.variants?.length ? ` (it has ${v.variants.join(", ")})` : ""}.`);
     if (l.variant == null && !v.recipe_hash && !v.default_variant) throw new StoryError(`${what}: version ${v.number} is a kind of variants: name one (${(v.variants ?? []).join(", ")}).`);
+  }
+}
+
+/** every world shot's version is an accepted version of that world, an asset of the group worlds */
+async function checkWorld(db: Queryable, tracks: Track[]) {
+  const worlds = tracks.filter((t) => t.kind === "shots").flatMap((t) => t.clips.filter((c) => c.world).map((c) => ({ c, t, l: c.world as { asset: string; version: string } })));
+  if (!worlds.length) return;
+  const rows = (await db.query<{ id: string; asset_id: string; number: number | null; grp: string }>(
+    `SELECT v.id, v.asset_id::text AS asset_id, v.number, a.grp FROM play.asset_versions v JOIN play.assets a ON a.id = v.asset_id WHERE v.id = ANY($1)`,
+    [[...new Set(worlds.map((x) => x.l.version))]])).rows;
+  const by = new Map(rows.map((r) => [r.id, r]));
+  for (const { c, t, l } of worlds) {
+    const what = `Clip ${c.id} of track ${t.id}'s world`;
+    const v = by.get(l.version);
+    if (!v || v.asset_id !== l.asset) throw new StoryError(`${what}: asset ${l.asset.slice(0, 8)} has no version ${l.version.slice(0, 12)} (get_asset lists its versions).`);
+    if (v.grp !== "worlds") throw new StoryError(`${what}: asset ${l.asset.slice(0, 8)} is of the group ${v.grp}, not a world: a world shot plays an asset of the group worlds (a live shot draws any other).`);
+    if (v.number == null) throw new StoryError(`${what}: version ${l.version.slice(0, 12)} of world ${l.asset.slice(0, 8)} is not accepted: a world shot plays an accepted version.`);
   }
 }
 
@@ -434,6 +511,7 @@ export async function checkBody(db: Queryable, given: any, self?: string): Promi
     if (missing.length) throw new StoryError(`No composition is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_composition first.`);
   }
   await checkLive(db, tracks);
+  await checkWorld(db, tracks);
   const duration = round(Math.max(0, ...tracks.flatMap((t) => t.clips.map((c) => c.at + c.duration))));
   if (!(duration > 0)) throw new StoryError("A story has at least one clip.");
   const body: StoryBody = { schema: SCHEMA, format, fps, duration, tracks };
