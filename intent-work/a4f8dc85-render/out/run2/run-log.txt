@@ -1,0 +1,78 @@
+
+ready: /Users/samuelandert/a4f8dc85-work
+base head ready: next `python raster.py s-base-front.json man-front`, then lm.py man-front.png and corr.py
+man-front.png: 478 pts, smile 0.00/0.00
+photo-front.jpg: 478 pts, smile 0.77/0.78
+photo-34.jpg: 478 pts, smile 0.82/0.81
+sheet-front.png: 478 pts, smile 0.28/0.24
+landmarks on mesh: 461 / 478; reprojection check px: 0.086
+base head: {"photo-front": {"mean_px": 6.48, "max_px": 40.36, "mean_iod_pct": 4.65}, "photo-34": {"mean_px": 7.65, "max_px": 25.37, "mean_iod_pct": 5.17}, "sheet-front": {"mean_px": 5.09, "max_px": 34.84, "mean_iod_pct": 2.72}}
+outline before: [('sheet-front.png', 3.62, 204), ('sheet-profile.png', 3.26, 200)]
+fitted: {"photo-front": {"mean_px": 2.14, "max_px": 20.98, "mean_iod_pct": 1.54}, "photo-34": {"mean_px": 2.05, "max_px": 17.43, "mean_iod_pct": 1.38}, "sheet-front": {"mean_px": 3.65, "max_px": 17.87, "mean_iod_pct": 1.95}}
+outline after: [{"view": "sheet-front.png", "mean_px": 1.24, "points": 170}, {"view": "sheet-profile.png", "mean_px": 1.35, "points": 309}]
+/Users/samuelandert/Documents/Development/sa4f8-char/tools/character/texture.py:60: RuntimeWarning: invalid value encountered in multiply
+  return img[y0, x0] * (1 - fx) * (1 - fy) + img[y0, x0 + 1] * fx * (1 - fy) + img[y0 + 1, x0] * (1 - fx) * fy + img[y0 + 1, x0 + 1] * fx * fy
+tex-fit.png 4096 px; 2962577 of 4521502 head texels painted
+renderer: ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)
+v-fit-neutral-front.png
+v-fit-neutral-three-quarter-left.png
+v-fit-neutral-profile-left.png
+v-fit-smiling-front.png
+v-fit-smiling-three-quarter-left.png
+v-fit-smiling-profile-left.png
+c2-review.jpg
+kept in his personal library: 9ff6d82a8d8042a28f9f8a2d13df2db2d0c14b355d39ee7f80d3c0db6a3c1b29
+{
+ "base": {
+  "photo-front": {
+   "mean_px": 6.48,
+   "max_px": 40.36,
+   "mean_iod_pct": 4.65
+  },
+  "photo-34": {
+   "mean_px": 7.65,
+   "max_px": 25.37,
+   "mean_iod_pct": 5.17
+  },
+  "sheet-front": {
+   "mean_px": 5.09,
+   "max_px": 34.84,
+   "mean_iod_pct": 2.72
+  }
+ },
+ "fitted": {
+  "photo-front": {
+   "mean_px": 2.14,
+   "max_px": 20.98,
+   "mean_iod_pct": 1.54
+  },
+  "photo-34": {
+   "mean_px": 2.05,
+   "max_px": 17.43,
+   "mean_iod_pct": 1.38
+  },
+  "sheet-front": {
+   "mean_px": 3.65,
+   "max_px": 17.87,
+   "mean_iod_pct": 1.95
+  }
+ },
+ "outline": [
+  {
+   "view": "sheet-front.png",
+   "mean_px": 1.24,
+   "points": 170
+  },
+  {
+   "view": "sheet-profile.png",
+   "mean_px": 1.35,
+   "points": 309
+  }
+ ],
+ "lambda": 0.02,
+ "views": [
+  "photo-front",
+  "photo-34",
+  "sheet-front"
+ ]
+}
