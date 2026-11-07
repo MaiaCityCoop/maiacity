@@ -78,25 +78,30 @@ suite("a sandbox's layout as a document", () => {
     const text = res.content[0].text;
     return res.isError ? { error: text as string } : JSON.parse(text);
   };
-  /** every edit is an intent's (intent 847c5d38): an edit this test makes without naming one is made for an intent of
-   * its own, in Build with its one check passed */
-  const tool = async (name: string, args: Record<string, unknown>): Promise<any> => {
-    if (name !== "doc_edit" || args.intent !== undefined) return raw(name, args);
-    const i = await raw("add_intent", { title: `An edit: ${args.message}` });
+  /** an intent in Build, its spec approved and its one check passed: ready to take work (no work without an intent) */
+  const ready = async (title: string) => {
+    const i = await raw("add_intent", { title });
     await raw("specify_intent", { intent: i.id, ...SPEC });
     await call("ada", "POST", `/api/intents/${i.id}/approve`);
-    return raw(name, { ...args, intent: i.id });
+    await raw("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] });
+    return i.id as string;
+  };
+  /** every edit and every piece of work is an intent's (intents 847c5d38, 706ed873): an edit or a propose this test
+   * makes without naming one is made for an intent of its own, ready to take it */
+  const tool = async (name: string, args: Record<string, unknown>): Promise<any> => {
+    if ((name !== "doc_edit" && name !== "propose_doc_version") || args.intent !== undefined) return raw(name, args);
+    return raw(name, { ...args, intent: await ready(`${name}: ${args.message ?? args.note}`) });
   };
   const config = async (as = "cit", intent?: string) => (await call(as, "GET", `/api/sandboxes/${S2}/config${intent ? `?intent=${intent}` : ""}`)).data;
 
   test("c1: edited in an intent variant with its helpers, proposed, reviewed pin by pin, accepted, its rows written from Main", async () => {
     // a plant of two versions, the second of variants, pinned in Sandbox 2 at v1 as the import writes pins
-    const p1 = await call("cit", "POST", "/api/intents", { new: { group: "plants", slug: "pawpaw-t", label: "Pawpaw" }, recipe: recipe("pawpaw-t", 1) });
+    const p1 = await call("ada", "POST", "/api/intents", { new: { group: "plants", slug: "pawpaw-t", label: "Pawpaw" }, recipe: recipe("pawpaw-t", 1), intent: await ready("A pawpaw") });
     await call("ada", "POST", `/api/intents/${p1.data.intent}/accept`);
     const asset = p1.data.asset, v1 = p1.data.version;
     await db.query(`INSERT INTO play.sandbox_pins (sandbox_id, slot, version_id, params) VALUES ($1, 'grove/pawpaw', $2, '{"stage":"9"}'), ($1, 'gate', $2, NULL)`, [S2, v1]);
     await db.query(`INSERT INTO play.sandbox_configs (sandbox_id, name, data) VALUES ($1, 'grove', '{"trees":[{"id":"pawpaw","v":1,"slot":"grove/pawpaw","weight":2,"at":[0,0]}]}')`, [S2]);
-    const p2 = await call("cit", "POST", "/api/intents", { asset, variants: { both: { recipe: recipe("pawpaw-t", 2, "both") }, male: { recipe: recipe("pawpaw-t", 2, "male") } }, defaultVariant: "both" });
+    const p2 = await call("ada", "POST", "/api/intents", { asset, variants: { both: { recipe: recipe("pawpaw-t", 2, "both") }, male: { recipe: recipe("pawpaw-t", 2, "male") } }, defaultVariant: "both", intent: await ready("A pawpaw of kinds") });
     await call("ada", "POST", `/api/intents/${p2.data.intent}/accept`);
     const v2 = (await db.query<any>(`SELECT recipe_hash FROM play.asset_variants WHERE version_id = $1 AND name = 'both'`, [p2.data.version])).rows[0].recipe_hash;
     const before = await config();
