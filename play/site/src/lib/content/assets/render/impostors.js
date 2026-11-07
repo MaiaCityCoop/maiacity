@@ -235,6 +235,19 @@ export function createImpostors(renderer, o = {}) {
 		async read(slot) {
 			const page = pages[slot.page];
 			if (!page || typeof renderer.readRenderTargetPixelsAsync !== 'function' || !renderer.capabilities.isWebGL2) return null;
+			// a kind's frames side by side in one row of its page (its first cell a multiple of FRAMES, a row a multiple
+			// of it): read back at once, one wait for the graphics card instead of eight, then cut into its frames
+			if ((slot.cell % cols) + FRAMES <= cols) {
+				const { x, y } = at(slot, 0);
+				const row = px * FRAMES * 4;
+				const all = new Uint8Array(row * px);
+				await renderer.readRenderTargetPixelsAsync(page.target, x, y, px * FRAMES, px, all);
+				return Array.from({ length: FRAMES }, (_, f) => {
+					const out = new Uint8Array(px * px * 4);
+					for (let r = 0; r < px; r++) out.set(all.subarray(r * row + f * px * 4, r * row + (f + 1) * px * 4), r * px * 4);
+					return out;
+				});
+			}
 			const out = [];
 			for (let f = 0; f < FRAMES; f++) {
 				const { x, y } = at(slot, f);

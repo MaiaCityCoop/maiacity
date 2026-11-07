@@ -947,6 +947,8 @@ export function createAssets(o) {
 			/** what was made and could not be kept on this device, and why (the last) */
 			unkept: kept.counted.unkept,
 			unkeptWhy: kept.counted.why,
+			/** what is still being kept on this device (pictures being read back, files waiting to be written) */
+			keeping: kept.counted.keeping,
 			same: list.reduce((a, k) => a + k.levels.filter((l) => l.state === 'ready' && l.as >= 0).length, 0)
 		};
 	}

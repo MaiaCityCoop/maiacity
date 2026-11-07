@@ -92,7 +92,7 @@ export function createKept(o) {
 	const of = o.of ?? levelOf;
 	const keep = o.keep !== false;
 	/** what was made here, and what was read from this device's cache instead */
-	const counted = { derived: 0, keptLevels: 0, taken: 0, keptPictures: 0, unkept: 0, why: '' };
+	const counted = { derived: 0, keptLevels: 0, taken: 0, keptPictures: 0, unkept: 0, why: '', keeping: 0 };
 	/** what was made and could not be kept (its picture not read back, its file not written): counted, its reason the last */
 	const lost = (why) => {
 		counted.unkept++;
@@ -106,6 +106,11 @@ export function createKept(o) {
 					.catch(() => false)
 					.then((ok) => (ok || lost('not written to the cache'), ok))
 			: Promise.resolve(false);
+	/** what is being kept now (read back, packed, written): counted until it is (`counted.keeping`) */
+	const keeping = (p) => {
+		counted.keeping++;
+		return p.finally(() => counted.keeping--);
+	};
 
 	return {
 		counted,
@@ -132,7 +137,7 @@ export function createKept(o) {
 				missing.forEach((i, n) => {
 					out[i] = of(source, made[n]);
 					counted.derived++;
-					put(keys[i], made[n]);
+					keeping(put(keys[i], made[n]));
 				});
 			}
 			return out;
@@ -158,9 +163,11 @@ export function createKept(o) {
 			const slot = pictures.add(level);
 			counted.taken++;
 			if (keep)
-				Promise.resolve(pictures.read?.(slot))
-					.then(async (f) => (f ? put(key, await packFrames(f)) : lost('no pictures read back')))
-					.catch(lost);
+				keeping(
+					Promise.resolve(pictures.read?.(slot))
+						.then(async (f) => (f ? put(key, await packFrames(f)) : lost('no pictures read back')))
+						.catch(lost)
+				);
 			return { slot, taken: true };
 		}
 	};
