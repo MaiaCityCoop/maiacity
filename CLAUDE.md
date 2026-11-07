@@ -23,6 +23,12 @@ side, then DNS, server, import, Caddy) and the website (its build into the serve
 (`.github/actions/main-green`) instead of running them again, and on the push to main those checks pass at once only on
 the very tree the pull request's run tested (`.github/workflows/tested-tree.sh`), else they run in full.
 
+**All work on play starts in an avenBOX session** (Samuel 2026-11-06; play/SPEC.md §4.12): an intent at any stage,
+its code and its checks are done in a cloud session on avenBOX, `env_011Zm65erarH7ffXio13u5pG`, the only environment
+with play's MCP token and the box. A session that finds itself elsewhere, without play's MCP (no `PLAY_MCP_TOKEN`; on a
+Mac, in the Default environment), starts a session on avenBOX with the work's brief and hands it over: it builds,
+pushes and records nothing itself. One intent has one builder session.
+
 Before you push, run the checks of what you touched, in **avenBOX** (the cloud environment the agents work in; play/SPEC.md
 §4.12): `bash play/avenbox/gate.sh` runs what CI runs (in `play/api` `bunx tsc --noEmit` and `bun test`, none skipped,
 against the box's Postgres 17; in `play/site` `bun run build`; in `website` `bun run check && bun run build`), `gate.sh
