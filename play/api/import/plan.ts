@@ -13,12 +13,14 @@ function eachString(v: unknown, f: (s: string) => void): void {
   else if (v && typeof v === "object") for (const x of Object.values(v)) eachString(x, f);
 }
 
-/** whether a JSON value names another asset than `self` by a readable ref (what a proposal may not bring) */
-export function readableRefs(v: unknown, self: string): string[] {
+/** whether a JSON value names another asset than itself (`self`, its own `group/id`, one or several) by a readable
+ * ref (what a proposal may not bring) */
+export function readableRefs(v: unknown, self: string | readonly string[]): string[] {
+  const own = typeof self === "string" ? [self] : self;
   const found: string[] = [];
   eachString(v, (s) => {
     const m = READABLE.exec(s);
-    if (m && m[1] !== self) found.push(s);
+    if (m && !own.includes(m[1])) found.push(s);
   });
   return found;
 }

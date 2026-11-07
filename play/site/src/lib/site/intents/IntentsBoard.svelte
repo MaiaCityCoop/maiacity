@@ -46,6 +46,7 @@
 	import IntentDetail from './IntentDetail.svelte';
 	import Decision from './Decision.svelte';
 	import { decidable, detailOf, isCode, notLive, shipsAgain, type Intent, type Kind, type Results, type Spec, type Stage, type Work } from './detail';
+	import { CLOSED, isClosed, loadOpen, loadPage, type ClosedStage, type Paged } from './board';
 
 	const viewer = import('$lib/content/assets/VaultAsset.svelte');
 	// a world is shown as the Worlds page shows it (one renderer let go of whole when it closes), not on the asset
@@ -91,24 +92,52 @@
 		try {
 			localStorage.setItem(FOLDED, JSON.stringify(folded));
 		} catch {}
+		// Accepted and Archived are fetched only once unfolded (intent 2cb70fb8)
+		if (!folded[s] && isClosed(s) && !paged[s]?.loaded) more(s);
 	}
 	const columnsTemplate = $derived(COLUMNS.map(([s]) => (folded[s] ? '2.6rem' : 'minmax(14rem, 1fr)')).join(' '));
 	let intents = $state<Intent[]>([]);
 	let loaded = $state(false);
 	let error = $state('');
+	// THE BOARD OPENS FAST (intent 2cb70fb8, ./board.ts): the open columns whole and every column's count in one
+	// request; Accepted and Archived only once unfolded, a page at a time
+	let counts = $state<Record<string, number>>({});
+	let paged = $state<Partial<Record<ClosedStage, Paged & { busy?: boolean }>>>({});
 	const load = async () => {
 		try {
-			intents = await api<Intent[]>('/intents');
+			const before = new Set(intents.filter((i) => !isClosed(i.stage)).map((i) => i.id));
+			const r = await loadOpen<Intent>(api, intents);
+			intents = r.cards;
+			counts = r.counts;
 			error = '';
+			// an open one gone from the open columns (shipped, decided elsewhere): the loaded closed columns' first pages again
+			const still = new Set(r.cards.filter((i) => !isClosed(i.stage)).map((i) => i.id));
+			if ([...before].some((id) => !still.has(id) && !intents.some((i) => i.id === id)))
+				for (const s of CLOSED) if (paged[s]?.loaded) await more(s, true);
 		} catch (e) {
 			error = (e as Error).message;
 		}
 		loaded = true;
 	};
+	/** a closed column's next page (its first, the first time; with `fresh`, its first again for what is new) */
+	async function more(s: ClosedStage, fresh = false) {
+		const was = paged[s] ?? null;
+		if (was?.busy) return;
+		paged = { ...paged, [s]: { loaded: false, next: null, ...was, busy: true } };
+		try {
+			const r = await loadPage<Intent>(api, intents, s, was, fresh);
+			intents = r.cards;
+			paged = { ...paged, [s]: r.paged };
+		} catch (e) {
+			error = (e as Error).message;
+			paged = { ...paged, [s]: was ?? undefined };
+		}
+	}
 	onMount(async () => {
 		if (!admin) return;
 		api<{ id: string; label: string }[]>('/docs?kind=schema').then((l) => (schemaNames = new Map(l.map((x) => [x.id, x.label]))), () => {});
 		await load();
+		for (const s of CLOSED) if (!folded[s]) more(s);
 		// opened on an intent (/intents/#<id>): play finds it, and it opens
 		const focus = intentsModal.focus;
 		intentsModal.focus = null;
@@ -268,6 +297,7 @@
 			error = r.message ?? '';
 			intents = intents.map((x) => (x.id === r.id ? r : x));
 			open = null;
+			load();
 		} catch (e) {
 			intentError = (e as Error).message;
 		} finally {
@@ -282,6 +312,7 @@
 			const r = await api<Intent & { message?: string }>(`/intents/${id}/${verdict}`, { method: 'POST' });
 			error = r.message ?? '';
 			intents = intents.map((x) => (x.id === r.id ? r : x));
+			load();
 			// shipped: the dialog stays, its way to production ticking
 			if (r.stage === 'ship') intent = r;
 			else closeIntent();
@@ -343,11 +374,12 @@
 				<section class="column" class:folded={folded[s]} data-status={s}>
 					<h2>
 						<button class="fold" onclick={() => fold(s)} aria-expanded={!folded[s]} title={folded[s] ? `Open ${name}` : `Fold ${name} away`}>
-							<span class="name">{name}</span> <span class="count">{cards.length}</span>
+							<span class="name">{name}</span> <span class="count">{isClosed(s) ? (counts[s] ?? cards.length) : cards.length}</span>
 						</button>
 					</h2>
 					{#if !folded[s]}
-						<div class="cards">
+						<!-- a closed column scrolled near its end loads its next page -->
+						<div class="cards" onscroll={isClosed(s) ? (e) => { const c = e.currentTarget; if (paged[s]?.next && !paged[s]?.busy && c.scrollTop + c.clientHeight > c.scrollHeight - 200) more(s); } : undefined}>
 							{#each grouped(cards) as g (g.k)}
 							{#if g.k}<h3 class="sub" data-sub={g.k}>{g.name} <span class="count">{g.cards.length}</span></h3>{/if}
 							{#each g.cards as i (i.id)}
@@ -371,8 +403,11 @@
 								</article>
 							{/each}
 							{:else}
-								<p class="empty muted">{!loaded ? '…' : s === 'idea' ? 'None. Agents add intents over MCP.' : s === 'specify' ? 'None. Agents specify an intent over MCP.' : s === 'build' ? 'None. An approved spec is built here.' : s === 'ship' ? 'None. Accepted code is shipped here.' : 'None'}</p>
+								<p class="empty muted">{!loaded || (isClosed(s) && !paged[s]?.loaded) ? '…' : s === 'idea' ? 'None. Agents add intents over MCP.' : s === 'specify' ? 'None. Agents specify an intent over MCP.' : s === 'build' ? 'None. An approved spec is built here.' : s === 'ship' ? 'None. Accepted code is shipped here.' : 'None'}</p>
 							{/each}
+							{#if isClosed(s) && paged[s]?.next}
+								<button class="more page" disabled={paged[s]?.busy} onclick={() => more(s)}>{paged[s]?.busy ? 'Loading…' : `More (${(counts[s] ?? 0) - cards.length} older)`}</button>
+							{/if}
 						</div>
 					{/if}
 				</section>
@@ -581,6 +616,7 @@
 	.note p { margin: 0; font-size: 0.88rem; white-space: pre-line; }
 	.note.folded p { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 	.note:not(.folded) { max-height: 30vh; overflow: auto; }
+	.more.page { margin: 0.3rem auto 0; }
 	.more { all: unset; flex: 0 0 auto; cursor: pointer; font-size: 0.8rem; font-weight: 600; text-decoration: underline; width: fit-content; }
 	.review-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.8rem; }
 	.review-body.split { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }

@@ -731,6 +731,8 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
     asset = newId();
   }
   const own_ = owner !== COOP;
+  // the group it is in now: a move (below) changes grp, and its card may still name itself by this one
+  const was = grp;
   const { rows: a } = await db.query<{ head: string | null; number: number | null; label: string; card: any; variants: Record<string, any> | null }>(
     `SELECT a.head, v.number, a.label, v.card,
             (SELECT json_object_agg(x.name, x.card) FROM play.asset_variants x WHERE x.version_id = v.id) AS variants
@@ -865,8 +867,9 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
   }
   for (const v of Object.values(variants)) v.card = withRefs(v.card, refs);
   const card = withRefs(recipe ? recordOf(heldRecord(over(inherited(body.record, a[0]?.card), set), own!.libs, own!.source, own!.pieces), grp, slug, n, null, recipe) : variants[defaultVariant!].card, refs);
-  // every other asset a version names, it names by hash (play/SPEC.md §4)
-  const readable = [card, ...Object.values(variants).map((x) => x.card)].flatMap((c) => readableRefs(c, `${grp}/${slug}`));
+  // every other asset a version names, it names by hash (play/SPEC.md §4); itself it may name by its group now or the
+  // one it moves to
+  const readable = [card, ...Object.values(variants).map((x) => x.card)].flatMap((c) => readableRefs(c, [`${was}/${slug}`, `${grp}/${slug}`]));
   if (readable.length) throw new VersionError(`Name other assets by their hash, not ${readable.slice(0, 3).join(", ")}.`);
   const engine = Number(card?.engine?.version ?? card?.card?.engine) || null;
   const content = { asset, parents: head ? [head] : [], recipe, defaultVariant, variants, card, engine };
