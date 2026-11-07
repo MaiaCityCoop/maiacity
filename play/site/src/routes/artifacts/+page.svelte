@@ -277,7 +277,7 @@
 							<h1>{view.title}</h1>
 							<p class="lede">{view.description}</p>
 							<div class="facts">
-								<p class="authors">
+								<p class="authors" hidden={!view.authors.length}>
 									By
 									{#each view.authors as a, i (a.id)}{#if i}, {/if}<a href="?author={a.id}" onclick={(e) => (e.preventDefault(), openAuthor(a.id))}>{a.name}</a>{/each}
 								</p>
@@ -333,6 +333,10 @@
 {/if}
 
 <style>
+	.propose {
+		font-size: 0.8rem;
+		padding: 0 0.25rem;
+	}
 	.waits {
 		font-size: 0.75rem;
 		padding: 0.1rem 0.45rem;

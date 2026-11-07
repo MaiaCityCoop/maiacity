@@ -56,7 +56,7 @@
 	// an intent's work, as the board lists it (play/api/src/intents.ts): what it changes, the version it would be, who
 	// proposed it and how, and its status (the intent's stage: waiting at Proposal, accepted, else archived)
 	// its kind is a versioned kind's work (<kind>_version, play/api/src/versioned.ts) or a sandbox's change; `what` names it
-	type Work = { kind: string; what: string | null; doc: string | null; doc_variant: number | null; asset_id: string | null; label: string; grp: string; slug: string | null; version_label: string | null; number: number | null; changes?: number; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
+	type Work = { kind: string; what: string | null; doc: string | null; doc_variant: number | null; docs?: number; asset_id: string | null; label: string; grp: string; slug: string | null; version_label: string | null; number: number | null; changes?: number; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
 	// the work opened for review: the intent's id, with the intent's title, spec and results beside it
 	type P = Work & { id: string; intent_id: string; intent_title: string; intent_spec: Spec | null; intent_results: Results | null };
 	// an intent (play/api/src/intents.ts): its kind, title and note, its stage, its spec once specified (a goal, a scope and
@@ -401,13 +401,13 @@
 
 {#snippet docChanges(r: DocReview, several: boolean, done: boolean)}
 	<div class="sandbox-review">
-		{#if several}<h3>{r.doc?.what ?? 'Document'}: {r.doc?.label}</h3>{/if}
+		{#if several}<h3>{(r.doc?.what ?? 'document').replace(/^./, (c) => c.toUpperCase())}: {r.doc?.label}</h3>{/if}
 		<p>
 			{#if r.doc?.open}<a class="btn small" href={r.doc.open} target="_blank" rel="noopener">Open {r.doc.label} as it would be</a>{/if}
 			{#if r.doc?.group}<span class="muted small"> What every agent is taught ({r.doc.what}s / {r.doc.group}): accepted, it is taught from the next request on.</span>{/if}
 			{#if r.moved}<span class="muted small"> It was seeded from v{r.seedNumber}; the {r.doc?.what ?? 'document'} has a newer version since. Accepting merges it where the two touch different fields, and archives it where they touch the same.</span>{/if}
 		</p>
-		<Changes changes={r.changes} edits={r.edits} seed={r.seedNumber} heading={several ? `${r.doc?.what ?? "It"}: ${done ? "what it changed" : "what it changes"}` : done ? "What it changed" : "What it changes"} />
+		<Changes changes={r.changes} edits={r.edits} seed={r.seedNumber} heading={done ? 'What it changed' : 'What it changes'} />
 	</div>
 {/snippet}
 
@@ -569,7 +569,7 @@
 						<li>
 							<button class="open" onclick={() => openCard(cardOf(i))}>
 								<span class="type" data-type={typeOf(w)}>{typeOf(w)}</span>
-								<span class="what">{w.label} <span class="muted">{titleOf(w)}</span></span>
+								<span class="what">{w.label} <span class="muted">{titleOf(w)}</span>{#if (w.docs ?? 1) > 1}<span class="muted">{' '}· and {w.docs! - 1} more {w.docs === 2 ? 'document' : 'documents'}, accepted together</span>{/if}</span>
 								<span class="pill">{w.status === 'proposal' ? 'waiting' : w.status}</span>
 								<span class="date muted">{shortWhen(w.created)}</span>
 							</button>
