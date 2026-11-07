@@ -55,6 +55,8 @@ export const SCHEMA = {
   /** the game's levelling (a game config) */
   levels: "856e2039-a608-4e9e-bd9d-ab77ae93db8e",
   skill: "82d9780a-d18d-4df5-995a-962fe63d2580",
+  /** a sandbox's layout (play/SPEC.md §4.6): its pins and configs */
+  sandbox: "0b202f27-0682-47b5-a819-4ac6bec07ff2",
   /** an artifact (../artifacts.ts): a link from the net Maia City keeps, its texts and its authors */
   artifact: "e09c47a2-e3eb-4d9c-89dd-0e95843b7c26",
 } as const;

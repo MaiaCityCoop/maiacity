@@ -10,6 +10,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Db } from "./pg";
 import { ensureSchemas } from "./docs/schemas";
+import { ensureLayouts } from "./sandboxes";
 
 export type Migration = { id: string; sql: string };
 
@@ -83,5 +84,8 @@ export async function migrate(db: Db, o: { until?: string; migrations?: Migratio
   // then the schemas, each a document of the meta-schema, made from the seed where absent (play/SPEC.md "Version
   // control"); a database built only up to an older migration stands as it stood then
   if (o.until === undefined) await ensureSchemas(db);
+  // then the sandboxes' layouts, each a document, and every sandbox change kept by 202611070115-d2f50bf1-sandbox-layouts
+  // an intent variant of its layout (play/SPEC.md §4.6): SQL can't write a Loro document
+  if (o.until === undefined) await ensureLayouts(db);
   return ran;
 }

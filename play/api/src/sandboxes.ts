@@ -1,17 +1,22 @@
-// A sandbox's layout, changed only by proposal (Samuel 2026-11-04): what it draws (its pins: each slot an asset's
-// accepted version, its variant and its values) and how it lays them out (its configs by name: Sandbox 1's garden, its
-// plantings, spacing, drifts and fields; where a thing stands), proposed over MCP as edits (`sandbox_change`), shown on
-// the intents' board as what each edit changes, before and after, and openable in the sandbox as it would be. An admin
-// accepts it there; nothing over MCP accepts. Accepting applies the edits to the sandbox as it is then, in one
-// transaction: an edit that no longer holds (its slot gone, its path gone) archives the intent's change instead (./work.ts settle).
+// A sandbox's layout (play/SPEC.md §4.6, Samuel 2026-11-04 and 2026-11-06): what it draws (its pins: each slot an
+// asset's accepted version, its variant and its values) and how it lays them out (its configs by name: Sandbox 1's
+// garden, its plantings, spacing, drifts and fields; where a thing stands) is a document, `sandbox:<uuid>` (type
+// sandbox/1, ./docs/schema.ts), versioned like every other through ./versioned.ts: changed by an intent variant
+// (doc_edit, propose_doc_version), its pin, pin_latest, unpin, set and delete the sandbox's own edit helpers; shown on
+// the intents' board with each pin before and after, by its asset's label and version, and openable in the sandbox as
+// it would be; accepted by an admin there. Accepting merges it into Main and writes Main's pins and configs to
+// play.sandbox_pins and play.sandbox_configs, which the worlds read (/api/sandboxes/<uuid>/config) as before.
 import type { Db, Queryable } from "./pg";
-import { COOP, Denied, must, type Me } from "./access";
-import { canonical, hashText } from "./hash";
-import { NOTE_MOST } from "./notes";
+import { Denied, must, type Me } from "./access";
+import { canonical } from "./hash";
 import { UUID } from "./uuid";
 import { readableRefs } from "../import/plan";
 import { NotFound } from "./assets";
-import { intentIdOf, putAtProposal, settle, WorkError } from "./work";
+import * as docs from "./docs";
+import { SCHEMA } from "./ids";
+import { applyEdits as applyDocEdits, jsonOf, newDoc, seed } from "./docs/core";
+import { closeWork, holdVariant, intentIdOf, settle } from "./work";
+import { resolveEdits, VersionError } from "./versioned";
 
 export class SandboxError extends Error {
   constructor(message: string, public status = 400) {
@@ -60,10 +65,9 @@ export async function stateOf(q: Queryable, sandbox: string): Promise<SandboxSta
     configs: Object.fromEntries(c.map((r) => [r.name, r.data])),
   };
 }
-const stateHash = (s: SandboxState) => hashText(canonical(s));
 
 /** every slot a config names (`{ slot }` anywhere in it), with where */
-function slotsNamed(configs: Record<string, unknown>) {
+export function slotsNamed(configs: Record<string, unknown>): { slot: string; config: string; path: Key[] }[] {
   const out: { slot: string; config: string; path: Key[] }[] = [];
   const walk = (o: unknown, config: string, path: Key[]) => {
     if (Array.isArray(o)) o.forEach((x, i) => walk(x, config, [...path, i]));
@@ -72,7 +76,29 @@ function slotsNamed(configs: Record<string, unknown>) {
       for (const [k, v] of Object.entries(o)) if (k !== "slot") walk(v, config, [...path, k]);
     }
   };
-  for (const [name, data] of Object.entries(configs)) walk(data, name, []);
+  for (const [name, data] of Object.entries(configs ?? {})) walk(data, name, []);
+  return out;
+}
+
+/**
+ * What the sandbox layout's schema (sandbox/1, migrations/schemas/sandbox.json) can't say, its hook: a pin's fields,
+ * variant and values; a slot's and a config's names; a config at most 1 MB; every slot a config names pinned.
+ */
+export function sandboxCheck(doc: any): string[] {
+  const out: string[] = [];
+  for (const [slot, p] of Object.entries<any>(doc?.pins ?? {})) {
+    if (!SLOT.test(slot)) out.push(`pins: ${slot} is not a slot's name`);
+    if (p?.variant !== undefined && p.variant !== null && (typeof p.variant !== "string" || !p.variant)) out.push(`pins.${slot}.variant: a variant's name, or null`);
+    if (p?.params !== undefined && p.params !== null) {
+      if (typeof p.params !== "object" || Array.isArray(p.params)) out.push(`pins.${slot}.params: an object of values, or null`);
+      else for (const [k, v] of Object.entries(p.params)) if (typeof v !== "string") out.push(`pins.${slot}.params.${k}: a value is kept as a string`);
+    }
+  }
+  for (const [name, data] of Object.entries(doc?.configs ?? {})) {
+    if (!CONFIG.test(name) || name === "assets") out.push(`configs: ${name} is not a config's name`);
+    if (Buffer.byteLength(JSON.stringify(data)) > MOST_CONFIG) out.push(`configs.${name}: larger than 1 MB`);
+  }
+  for (const s of slotsNamed(doc?.configs ?? {})) if (!doc?.pins?.[s.slot]) out.push(`configs.${s.config}${s.path.map((k) => (typeof k === "number" ? `[${k}]` : `.${k}`)).join("")} names slot ${s.slot}, which the sandbox does not pin`);
   return out;
 }
 
@@ -291,101 +317,283 @@ export async function listSandboxes(db: Queryable, me: Me | null) {
   return rows;
 }
 
-/** propose a change of a sandbox's layout: the edits, checked against it as it stands */
-export async function proposeSandbox(db: Db, me: Me | null, body: { sandbox?: string; note?: string; edits?: unknown; base?: string; intent?: string }, via: "web" | "mcp" = "mcp") {
-  const who = admin(me);
-  const sandbox = `${body?.sandbox ?? ""}`;
-  await sandboxRow(db, sandbox);
-  const note = `${body?.note ?? ""}`.trim().slice(0, NOTE_MOST);
-  if (!note) throw new SandboxError("Say what the change is and why, for the admins deciding (note).");
-  const from = await stateOf(db, sandbox);
-  const base = stateHash(from);
-  if (body.base !== undefined && body.base !== base) throw new SandboxError("The sandbox changed since you read it: read it again (get_sandbox) and make the change on it.", 409);
-  const { changes } = await applyEdits(db, from, body.edits);
-  if (!changes.length) throw new SandboxError("These edits change nothing.");
-  const intent = await db
-    .transaction((tx) => putAtProposal(tx, who, { intent: body.intent, work: { kind: "sandbox_change", sandbox_id: sandbox, sandbox_base: base, sandbox_change: body.edits, sandbox_diff: changes }, note, via }))
-    .catch((e) => {
-      throw e instanceof WorkError ? new SandboxError(e.message, e.status) : e;
-    });
-  return { intent, stage: "proposal" as const, sandbox, changes: await shown(db, changes) };
+// ---- the layout as a document (./versioned.ts's kind `sandbox`)
+
+/** a sandbox's layout document: sandbox:<its uuid> */
+export const layoutDoc = (sandbox: string) => `sandbox:${sandbox}`;
+
+/** a sandbox's layout as its rows hold it, as the document's state */
+export async function layoutOf(q: Queryable, sandbox: string) {
+  const s = await sandboxRow(q, sandbox);
+  const { pins, configs } = await stateOf(q, sandbox);
+  return { schema: "sandbox/1", title: s.title, pins, configs };
 }
 
-/** a sandbox change as people review it: what each edit changes, before and after */
-export async function sandboxReview(db: Queryable, p: any) {
-  const s = await sandboxRow(db, p.sandbox_id);
-  let changes: Change[] = p.sandbox_diff ?? [];
-  let holds = true;
-  let why: string | null = null;
-  // an open one: against the sandbox as it is now, as accepting would apply it
+/** A sandbox's layout document made where it is missing: its v1 the layout its rows hold. Gives back whether it was made. */
+export async function ensureLayoutDoc(q: Queryable, sandbox: string): Promise<boolean> {
+  const { rows } = await q.query(`SELECT 1 FROM play.docs WHERE id = $1`, [layoutDoc(sandbox)]);
+  if (rows.length) return false;
+  const note = "The layout as it stood when it became a document";
+  await docs.createDoc(q, { id: layoutDoc(sandbox), schema: SCHEMA.sandbox, json: await layoutOf(q, sandbox), author: { human: null, via: "system" }, message: `v1: ${note}`, version: note });
+  return true;
+}
+
+/** what a layout holds that play does not (a pin of a version that is no accepted version, or a variant it lacks): each problem said */
+export async function layoutProblems(q: Queryable, json: any): Promise<string[]> {
+  const pins = Object.entries<Pin>(json?.pins ?? {});
+  const info = await versionInfo(q, pins.map(([, p]) => p.version));
+  const out: string[] = [];
+  for (const [slot, p] of pins) {
+    const v = info.get(p.version);
+    if (!v || v.number == null) out.push(`${slot} pins ${p.version}, which is no accepted version of an asset`);
+    else if (p.variant != null && !v.variants.includes(p.variant)) out.push(`${slot}: ${v.grp}/${v.slug}@${v.number} has no variant ${p.variant}`);
+  }
+  for (const [name, data] of Object.entries(json?.configs ?? {})) {
+    const readable = readableRefs(data, "");
+    if (readable.length) out.push(`the config ${name} names an asset by ${readable[0]}: a config names one by a slot of the sandbox's pins ({ slot })`);
+  }
+  return out;
+}
+
+const HELPERS = new Set(["pin", "pin_latest", "unpin"]);
+/** one of the sandbox's own edit helpers (pin, pin_latest, unpin; set and delete of a config), not a document's edit */
+const isHelper = (e: any) => !!e && typeof e === "object" && (HELPERS.has(e.op) || ((e.op === "set" || e.op === "delete") && typeof e.config === "string"));
+
+/**
+ * An edit of a layout as the document's own: the sandbox's edit helpers applied to it as it stands (each pin checked
+ * against the asset's accepted versions and variants), a document's edits (set, insert, delete, move by path), or the
+ * whole layout; what it would hold that play does not is refused.
+ */
+export async function layoutWrite(q: Queryable, cur: any, input: { edits?: unknown; whole?: unknown }): Promise<docs.Write> {
+  try {
+    let target: any;
+    if (input.whole !== undefined) {
+      if (!input.whole || typeof input.whole !== "object" || Array.isArray(input.whole)) throw new VersionError("A whole layout is an object (doc_at's `json`).");
+      target = { ...(input.whole as object), schema: cur.schema };
+    } else if (Array.isArray(input.edits) && input.edits.length && input.edits.every(isHelper)) {
+      const { state } = await applyEdits(q, { pins: cur.pins ?? {}, configs: cur.configs ?? {} }, input.edits);
+      target = { ...cur, pins: state.pins, configs: state.configs };
+    } else {
+      if (Array.isArray(input.edits) && input.edits.some(isHelper)) throw new VersionError("Give the sandbox's edit helpers (pin, pin_latest, unpin, set and delete of a config) or a document's edits, not both in one edit.");
+      // a document's edits, applied to the layout as it stands to check what they make
+      const t = await docs.typeFor(q, SCHEMA.sandbox);
+      const d = newDoc();
+      seed(d, t, cur);
+      applyDocEdits(d, t, resolveEdits(cur, input.edits));
+      target = jsonOf(d);
+    }
+    const problems = await layoutProblems(q, target);
+    if (problems.length) throw new VersionError(problems[0]);
+    return { target };
+  } catch (e) {
+    throw e instanceof SandboxError ? new VersionError(e.message, e.status) : e;
+  }
+}
+
+/** each slot whose pin two layouts hold differently, before and after, its asset named by its label and version */
+async function pinChanges(q: Queryable, before: Record<string, Pin | null>, after: Record<string, Pin | null>) {
+  const slots = [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])].sort();
+  const changes: Change[] = [];
+  for (const slot of slots) {
+    const b = before?.[slot] ?? null, a = after?.[slot] ?? null;
+    if (canonical(b) !== canonical(a)) changes.push({ kind: "pin", slot, before: b, after: a });
+  }
+  return shownPins(q, changes);
+}
+async function shownPins(q: Queryable, changes: Change[]) {
+  const ids = changes.flatMap((c) => (c.kind === "pin" ? ([c.before?.version, c.after?.version].filter(Boolean) as string[]) : []));
+  const info = await versionInfo(q, ids);
+  const pin = (p: Pin | null) => {
+    if (!p) return null;
+    const v = info.get(p.version);
+    if (!v) return { asset: null, group: null, slug: null, label: null, number: null, version: p.version, variant: p.variant ?? null, usedVariant: p.variant ?? null, params: p.params ?? null };
+    return { asset: v.asset_id, group: v.grp, slug: v.slug, label: v.label, number: v.number, version: p.version, variant: p.variant ?? null, usedVariant: p.variant ?? v.default_variant, params: p.params ?? null };
+  };
+  return changes.filter((c) => c.kind === "pin").map((c: any) => ({ slot: c.slot, before: pin(c.before), after: pin(c.after) }));
+}
+
+/** a layout as a read shows it beside its `json`: each pin by its asset's label and version, and where its world is */
+export async function layoutView(q: Queryable, json: any, sandbox: string) {
+  const { route } = await sandboxRow(q, sandbox);
+  const pins = Object.entries<Pin>(json?.pins ?? {});
+  const info = await versionInfo(q, pins.map(([, p]) => p.version));
+  return {
+    route,
+    pins: pins.map(([slot, p]) => {
+      const v = info.get(p.version);
+      return { slot, asset: v?.asset_id ?? null, group: v?.grp ?? null, slug: v?.slug ?? null, label: v?.label ?? null, number: v?.number ?? null, variant: p.variant ?? null, usedVariant: p.variant ?? v?.default_variant ?? null, params: p.params ?? null };
+    }),
+  };
+}
+/** what a layout's change shows beside its field diff: each pin before and after, by its asset's label and version */
+export async function layoutShown(q: Queryable, before: any, after: any) {
+  return { pins: await pinChanges(q, before?.pins ?? {}, after?.pins ?? {}) };
+}
+
+/** a layout change kept from before layouts were documents (migration 0033): its edits and what they changed */
+type Kept = { edits: unknown; diff: Change[] | null; holds?: boolean; why?: string };
+
+/**
+ * A layout's intent variant as people review it, beside its changes field by field (./versioned.ts reviewDoc): each pin
+ * before and after by its asset's label and version, whether it still holds on the layout as it is now (accepting
+ * would merge it so), and the sandbox to open as it would be.
+ */
+export async function layoutReview(q: Queryable, p: any) {
+  const docId = p.doc_id as string, sandbox = docId.split(":")[1];
+  const s = await sandboxRow(q, sandbox);
+  const shown = { ...s, open: `${s.route}?layout=${encodeURIComponent(`${sandbox}/${p.id}`)}` };
+  if (p.doc_variant == null) return { sandbox: shown, pins: [], holds: true, why: null };
+  const v = Number(p.doc_variant);
+  const { rows } = await q.query<{ review: Kept | null }>(`SELECT review FROM play.doc_variants WHERE id = $1`, [v]);
+  const kept = rows[0]?.review ?? null;
+  if (kept && !(await docs.history(q, docId, { variant: v })).length) {
+    // a change made before the layout was a document: what it changed, as it was kept
+    const diff = kept.diff ?? [];
+    const path = (c: any) => `$.configs.${c.config}${(c.path ?? []).map((k: any) => (typeof k === "number" ? `[${k}]` : `.${k}`)).join("")}`;
+    const changes = [
+      ...diff.filter((c) => c.kind === "pin").map((c: any) => ({ path: `$.pins.${c.slot}`, kind: c.before == null ? "added" : c.after == null ? "removed" : "changed", from: c.before ?? undefined, to: c.after ?? undefined })),
+      ...diff.filter((c) => c.kind === "config").map((c: any) => ({ path: path(c), kind: c.before === undefined ? "added" : c.after === undefined ? "removed" : "changed", from: c.before, to: c.after })),
+    ];
+    return { sandbox: shown, pins: await shownPins(q, diff), changes, holds: kept.holds ?? true, why: kept.why ?? null, kept: { edits: kept.edits } };
+  }
+  const before = await docs.seedOf(q, docId, v);
+  const after = (await docs.readDoc(q, docId, { variant: v })).json;
+  const pins = await pinChanges(q, before?.pins ?? {}, after?.pins ?? {});
+  let holds = true, why: string | null = null;
   if (p.status === "proposal") {
-    const now = await stateOf(db, p.sandbox_id);
-    try {
-      changes = (await applyEdits(db, now, p.sandbox_change)).changes;
-    } catch (e) {
-      if (!(e instanceof SandboxError)) throw e;
-      holds = false;
-      why = e.message;
+    const merged = await docs.previewMerge(q, docId, v);
+    const problems = [...merged.problems, ...(await layoutProblems(q, merged.json))];
+    if (problems.length) (holds = false), (why = problems[0]);
+  }
+  return { sandbox: shown, pins, holds, why };
+}
+
+/** the rows the worlds read, written from a layout (in the caller's transaction) */
+async function writeRows(tx: Queryable, sandbox: string, json: any) {
+  const pins = Object.entries<Pin>(json.pins ?? {});
+  await tx.query(`DELETE FROM play.sandbox_pins WHERE sandbox_id = $1 AND NOT (slot = ANY($2))`, [sandbox, pins.map(([s]) => s)]);
+  for (const [slot, p] of pins)
+    await tx.query(
+      `INSERT INTO play.sandbox_pins (sandbox_id, slot, version_id, variant, params) VALUES ($1, $2, $3, $4, ($5::text)::jsonb)
+       ON CONFLICT (sandbox_id, slot) DO UPDATE SET version_id = EXCLUDED.version_id, variant = EXCLUDED.variant, params = EXCLUDED.params`,
+      [sandbox, slot, p.version, p.variant ?? null, p.params ? JSON.stringify(p.params) : null],
+    );
+  const configs = Object.entries<unknown>(json.configs ?? {});
+  await tx.query(`DELETE FROM play.sandbox_configs WHERE sandbox_id = $1 AND NOT (name = ANY($2))`, [sandbox, configs.map(([n]) => n)]);
+  for (const [name, data] of configs)
+    await tx.query(
+      `INSERT INTO play.sandbox_configs (sandbox_id, name, data) VALUES ($1, $2, ($3::text)::jsonb)
+       ON CONFLICT (sandbox_id, name) DO UPDATE SET data = EXCLUDED.data, updated = now() WHERE play.sandbox_configs.data IS DISTINCT FROM EXCLUDED.data`,
+      [sandbox, name, JSON.stringify(data)],
+    );
+}
+
+/**
+ * Accept or archive a layout's intent variant (`decide`: ./versioned.ts decideDoc, the one decide every kind shares):
+ * accepted, it is merged into Main and named the next version, and Main's pins and configs are written to the rows
+ * the worlds read, in this transaction. One that no longer holds on the layout as it is (a pin of a version or variant
+ * play no longer keeps; one kept from before layouts were documents that no longer held then) is archived instead.
+ */
+export async function decideLayout(tx: Queryable, me: Me, p: any, verdict: "accept" | "archive", decide: (tx: Queryable, me: Me, p: any, verdict: "accept" | "archive") => Promise<any>) {
+  admin(me);
+  const docId = p.doc_id as string, sandbox = docId.split(":")[1];
+  await tx.query(`SELECT 1 FROM play.sandboxes WHERE id = $1 FOR UPDATE`, [sandbox]);
+  if (verdict === "accept") {
+    const v = Number(p.doc_variant);
+    const empty = !(await docs.history(tx, docId, { variant: v })).length;
+    const problems = empty ? ["it no longer held on the layout when the layout became a document"] : await layoutProblems(tx, (await docs.previewMerge(tx, docId, v)).json);
+    if (problems.length) {
+      await settle(tx, p.id, "archived", null);
+      await closeWork(tx, me, p);
+      return { id: p.id as string, status: "archived" as const, message: `Merged into the layout as it is now, this no longer holds: ${problems[0]}. Propose it again on its newest version.` };
     }
   }
-  return { sandbox: s, edits: p.sandbox_change, changes: await shown(db, changes), holds, why, moved: p.status === "proposal" && stateHash(await stateOf(db, p.sandbox_id)) !== p.sandbox_base };
+  const r = await decide(tx, me, p, verdict);
+  if (r.status === "accepted") await writeRows(tx, sandbox, (await docs.readDoc(tx, docId)).json);
+  return r;
 }
 
-/** accept or archive a sandbox change: accepted, its edits applied to the sandbox as it is, in this transaction */
-export async function decideSandbox(tx: Queryable, me: Me, p: any, verdict: "accept" | "archive") {
+/** The sandbox at a version or an edit of its layout's history, to walk it so (admins; `?v=` or `?edit=` on its config). */
+export async function layoutAt(db: Queryable, me: Me | null, sandbox: string, at: { version: number } | { edit: number }): Promise<SandboxState> {
   admin(me);
-  if (verdict === "archive") {
-    await settle(tx, p.id, "archived", me.id);
-    return { id: p.id, status: "archived" };
-  }
-  await tx.query(`SELECT 1 FROM play.sandboxes WHERE id = $1 FOR UPDATE`, [p.sandbox_id]);
-  const now = await stateOf(tx, p.sandbox_id);
-  let applied: { state: SandboxState; changes: Change[] };
-  try {
-    applied = await applyEdits(tx, now, p.sandbox_change);
-  } catch (e) {
-    if (!(e instanceof SandboxError)) throw e;
-    // it no longer holds on the sandbox as it is: archived, to be proposed again
-    await settle(tx, p.id, "archived", null);
-    return { id: p.id, status: "archived", why: e.message };
-  }
-  const { state, changes } = applied;
-  for (const c of changes) {
-    if (c.kind !== "pin") continue;
-    if (!c.after) await tx.query(`DELETE FROM play.sandbox_pins WHERE sandbox_id = $1 AND slot = $2`, [p.sandbox_id, c.slot]);
-    else
-      await tx.query(
-        `INSERT INTO play.sandbox_pins (sandbox_id, slot, version_id, variant, params) VALUES ($1, $2, $3, $4, ($5::text)::jsonb)
-         ON CONFLICT (sandbox_id, slot) DO UPDATE SET version_id = EXCLUDED.version_id, variant = EXCLUDED.variant, params = EXCLUDED.params`,
-        [p.sandbox_id, c.slot, c.after.version, c.after.variant, c.after.params ? JSON.stringify(c.after.params) : null],
-      );
-  }
-  for (const name of new Set(changes.flatMap((c) => (c.kind === "config" ? [c.config] : [])))) {
-    if (state.configs[name] === undefined) await tx.query(`DELETE FROM play.sandbox_configs WHERE sandbox_id = $1 AND name = $2`, [p.sandbox_id, name]);
-    else
-      await tx.query(
-        `INSERT INTO play.sandbox_configs (sandbox_id, name, data) VALUES ($1, $2, ($3::text)::jsonb)
-         ON CONFLICT (sandbox_id, name) DO UPDATE SET data = EXCLUDED.data, updated = now()`,
-        [p.sandbox_id, name, JSON.stringify(state.configs[name])],
-      );
-  }
-  await settle(tx, p.id, "accepted", me.id, { sandbox_diff: changes });
-  return { id: p.id, status: "accepted" };
+  const n = "version" in at ? at.version : at.edit;
+  if (!Number.isInteger(n) || n < 1) throw new NotFound("A version or an edit is named by its number.");
+  await ensureLayoutDoc(db, sandbox);
+  const json = await docs.stateAt(db, layoutDoc(sandbox), at).catch((e) => {
+    throw e instanceof docs.DocError ? new NotFound(e.message) : e;
+  });
+  return { pins: json.pins ?? {}, configs: json.configs ?? {} };
 }
 
 /**
  * The sandbox as an intent's change at Proposal would make it, to open it so before deciding (admins; `?intent=` on its
- * config, or an old proposal's id, which finds its intent)
+ * config): its intent variant merged into the layout as it is now, as accepting would make it.
  */
 export async function proposedState(db: Queryable, me: Me | null, sandbox: string, id: string): Promise<SandboxState> {
   admin(me);
-  const intent = UUID.test(`${id}`.toLowerCase()) ? await intentIdOf(db, id) : null;
+  const intent = await intentIdOf(db, id);
   if (!intent) throw new NotFound("There is no such intent.");
-  const { rows } = await db.query<any>(`SELECT stage, sandbox_change FROM play.intents WHERE id = $1 AND work = 'sandbox_change' AND sandbox_id = $2`, [intent, sandbox]);
+  const { rows } = await db.query<{ stage: string; doc_variant: string | null }>(`SELECT i.stage, iv.variant_id AS doc_variant FROM play.intents i JOIN play.intent_variants iv ON iv.intent_id = i.id WHERE i.id = $1 AND iv.doc_id = $2`, [intent, layoutDoc(sandbox)]);
   if (!rows[0]) throw new NotFound("There is no such intent's change of this sandbox.");
-  const now = await stateOf(db, sandbox);
-  if (rows[0].stage !== "proposal") return now;
-  return (await applyEdits(db, now, rows[0].sandbox_change).catch((e) => {
-    throw e instanceof SandboxError ? new NotFound(`It no longer holds: ${e.message}`) : e;
-  })).state;
+  if (rows[0].stage !== "proposal" || rows[0].doc_variant == null) return stateOf(db, sandbox);
+  const merged = (await docs.previewMerge(db, layoutDoc(sandbox), Number(rows[0].doc_variant))).json;
+  if ((await layoutProblems(db, merged)).length) throw new NotFound("It no longer holds on the layout as it is now.");
+  return { pins: merged.pins ?? {}, configs: merged.configs ?? {} };
+}
+
+/**
+ * The end of migrate(), after ensureSchemas (migration 202611070115-d2f50bf1-sandbox-layouts kept what SQL can't
+ * write): every sandbox with pins, configs or a change kept gets its layout document, its v1 its pins and configs as
+ * they are, and every kept change (play.sandbox_changes_kept) becomes an intent variant of it, each intent keeping its
+ * stage. One at Proposal is its edits made again on v1 and proposed (kept, to be archived on Accept, where they no
+ * longer hold); an accepted or archived one a closed variant that keeps what it changed as its review. Each change is
+ * moved once, in its own transaction under one advisory lock (play-api and the import migrate at once on a deploy).
+ */
+export async function ensureLayouts(db: Db): Promise<number> {
+  const { rows: has } = await db.query(`SELECT to_regclass('play.sandbox_changes_kept') AS t`);
+  if (!(has[0] as any)?.t) return 0;
+  return db.transaction(async (q) => {
+    await q.query(`SELECT pg_advisory_xact_lock(4711031)`);
+    const { rows: sandboxes } = await q.query<{ id: string }>(
+      `SELECT s.id FROM play.sandboxes s
+        WHERE NOT EXISTS (SELECT 1 FROM play.docs d WHERE d.id = 'sandbox:' || s.id::text)
+          AND (EXISTS (SELECT 1 FROM play.sandbox_pins p WHERE p.sandbox_id = s.id) OR EXISTS (SELECT 1 FROM play.sandbox_configs c WHERE c.sandbox_id = s.id)
+               OR EXISTS (SELECT 1 FROM play.sandbox_changes_kept k WHERE k.sandbox_id = s.id AND NOT k.moved))
+        ORDER BY s.id`,
+    );
+    for (const s of sandboxes) await ensureLayoutDoc(q, s.id);
+    const { rows: kept } = await q.query<any>(
+      `SELECT k.intent_id AS id, k.sandbox_id, k.edits, k.diff, i.stage, COALESCE(i.work_note, '') AS note, i.proposed_by, i.proposed_via, i.proposed_at, i.decided_by, i.decided_at
+         FROM play.sandbox_changes_kept k JOIN play.intents i ON i.id = k.intent_id WHERE NOT k.moved ORDER BY i.proposed_at, k.intent_id`,
+    );
+    for (const i of kept) {
+      const docId = layoutDoc(i.sandbox_id);
+      const author: docs.Author = { human: i.proposed_by ?? null, via: i.proposed_via === "mcp" ? "mcp" : "site" };
+      const v = (await docs.variant(q, docId, { author, note: i.note })).id;
+      const review: Kept = { edits: i.edits, diff: i.diff ?? null };
+      const status = i.stage === "accepted" ? "accepted" : i.stage === "proposal" ? "proposed" : "archived";
+      if (i.stage === "proposal") {
+        try {
+          const cur = (await docs.readDoc(q, docId, { variant: v })).json;
+          const { state, changes } = await applyEdits(q, { pins: cur.pins, configs: cur.configs }, i.edits);
+          review.diff = changes;
+          const e = await docs.commit(q, docId, { variant: v, target: { ...cur, pins: state.pins, configs: state.configs }, message: i.note.split("\n")[0].slice(0, 500) || "the change", author });
+          if (e) await docs.propose(q, docId, v, { note: i.note, author });
+          else (review.holds = false), (review.why = "These edits change nothing on the layout as it is.");
+        } catch (e) {
+          if (!(e instanceof SandboxError)) throw e;
+          review.holds = false;
+          review.why = e.message;
+        }
+      }
+      await q.query(
+        `UPDATE play.doc_variants SET status = $2, review = ($3::text)::jsonb, intent_id = $4, created = COALESCE($5, created),
+                proposed_at = COALESCE(proposed_at, $5), decided_by = $6, decided_at = $7 WHERE id = $1`,
+        [v, status, JSON.stringify(review), i.id, i.proposed_at, i.stage === "proposal" ? null : i.decided_by, i.stage === "proposal" ? null : i.decided_at],
+      );
+      await holdVariant(q, null, i.id, docId, v);
+      await q.query(`UPDATE play.sandbox_changes_kept SET moved = true WHERE intent_id = $1`, [i.id]);
+    }
+    return kept.length;
+  });
 }

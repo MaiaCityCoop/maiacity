@@ -134,7 +134,7 @@ suite("schemas as documents", () => {
     expect(worse.error).toContain("does not compile");
     // the schemas are listed as every kind is, each with its documents' prefix
     const listed = await tool("list_docs", { kind: "schema" });
-    expect(listed.map((d: any) => d.type).sort()).toEqual(["artifact", "asset", "factory", "game", "schema", "skill", "story"]);
+    expect(listed.map((d: any) => d.type).sort()).toEqual(["artifact", "asset", "factory", "game", "sandbox", "schema", "skill", "story"]);
     // a document made now names its schema by its UUID, at the version in force
     const S = crypto.randomUUID();
     expect(await seedDoc(db, "skill", { id: S, json: { schema: "skill/1", label: "A test skill", group: "tests", system: "Be brief." }, note: "a test skill" })).toBe(true);

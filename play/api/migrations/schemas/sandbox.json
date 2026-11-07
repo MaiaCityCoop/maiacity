@@ -1,0 +1,50 @@
+{
+  "label": "Sandbox layout",
+  "type": "sandbox",
+  "name": "sandbox/1",
+  "note": "A sandbox's layout (play/SPEC.md §4.6): what it draws, its pins (each slot an accepted asset version by its hash, with its variant, null for the version's default, and its values), and how it lays them out, its configs by name; its title only shown. A pin's variant and params, a slot's and a config's names, a config's size and every slot a config names being pinned are checked by its hook (play/api/src/sandboxes.ts sandboxCheck).",
+  "node": {
+    "type": "object",
+    "required": [
+      "schema",
+      "title",
+      "pins",
+      "configs"
+    ],
+    "properties": {
+      "schema": {
+        "const": "sandbox/1"
+      },
+      "title": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "pins": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "required": [
+            "version"
+          ],
+          "properties": {
+            "version": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "variant": {},
+            "params": {}
+          },
+          "additionalProperties": false
+        }
+      },
+      "configs": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object"
+        }
+      }
+    },
+    "additionalProperties": false
+  }
+}

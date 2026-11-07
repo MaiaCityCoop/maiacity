@@ -569,23 +569,23 @@ suite("intents", () => {
     await db.query(`INSERT INTO play.sandbox_configs (sandbox_id, name, data) VALUES ($1, 'dialog', '{"trees":[{"id":"fern","at":[0,0]}]}') ON CONFLICT (sandbox_id, name) DO UPDATE SET data = EXCLUDED.data`, [SANDBOX.two]);
 
     // one intent of each kind's work, each decided by its Accept alone: its work applied, the intent Accepted
-    const KINDS: { kind: string; doc?: string; edits: unknown[]; holds: () => Promise<void> }[] = [
+    const KINDS: { kind: string; doc: string; edits: unknown[]; holds: () => Promise<void> }[] = [
       { kind: "asset", doc: fern.asset, edits: [{ op: "set", path: ["source"], value: SOURCE + "// from its dialog\n" }], holds: async () => expect((await tool("doc_at", { doc: fern.asset })).json.source).toContain("from its dialog") },
       { kind: "story", doc: film.story, edits: [{ op: "set_clip", track: "voice", clip: "v1", fields: { line: "One, from its dialog." } }], holds: async () => expect((await tool("get_story", { story: film.story })).tracks[0].clips[0].line).toBe("One, from its dialog.") },
       { kind: "skill", doc: skill, edits: [{ op: "set", path: ["note"], value: "from its dialog" }], holds: async () => expect((await tool("doc_at", { doc: skill })).json.note).toBe("from its dialog") },
       { kind: "factory", doc: factory, edits: [{ op: "set", path: ["line", "demand", "perDay"], value: 20 }], holds: async () => expect((await tool("doc_at", { doc: factory })).json.line.demand.perDay).toBe(20) },
       { kind: "game_config", doc: config, edits: [{ op: "set", path: ["villager", "euros"], value: 150 }], holds: async () => expect((await tool("doc_at", { doc: config })).json.villager.euros).toBe(150) },
-      { kind: "sandbox", edits: [{ op: "set", config: "dialog", path: ["trees", 0, "at"], value: [4, 2] }], holds: async () => expect((await call("ada", "GET", `/api/sandboxes/${SANDBOX.two}/config`)).data.dialog.trees[0].at).toEqual([4, 2]) },
+      { kind: "sandbox", doc: SANDBOX.two, edits: [{ op: "set", config: "dialog", path: ["trees", 0, "at"], value: [4, 2] }], holds: async () => expect((await call("ada", "GET", `/api/sandboxes/${SANDBOX.two}/config`)).data.dialog.trees[0].at).toEqual([4, 2]) },
     ];
     for (const k of KINDS) {
       const id = await ready(`A ${k.kind} accepted from its dialog`);
-      const was = k.doc ? (await tool("doc_at", { doc: k.doc })).number : null;
-      const p = k.doc ? await tool("propose_doc_version", { doc: k.doc, note: `${k.kind} from its dialog`, edits: k.edits, intent: id }) : await tool("propose_sandbox_change", { sandbox: SANDBOX.two, note: "from its dialog", edits: k.edits, intent: id });
+      const was = (await tool("doc_at", { doc: k.doc })).number;
+      const p = await tool("propose_doc_version", { doc: k.doc, note: `${k.kind} from its dialog`, edits: k.edits, intent: id });
       expect(p.error).toBeUndefined();
       expect(await tool("get_intent", { intent: id })).toMatchObject({ stage: "proposal", work: { status: "proposal" } });
       expect(await accept(id)).toMatchObject({ stage: "accepted", decided_by: "ada", decision: { status: "accepted" } });
       expect(await tool("get_intent", { intent: id })).toMatchObject({ stage: "accepted", work: { status: "accepted" } });
-      if (k.doc) expect((await tool("doc_at", { doc: k.doc })).number).toBe(was + 1);
+      expect((await tool("doc_at", { doc: k.doc })).number).toBe(was + 1);
       await k.holds();
     }
 

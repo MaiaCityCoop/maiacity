@@ -22,9 +22,10 @@ DROP INDEX IF EXISTS play.ix_intents_doc;
 DROP INDEX IF EXISTS play.ix_intents_doc_variant;
 ALTER TABLE play.intents DROP COLUMN doc_id, DROP COLUMN doc_variant;
 ALTER TABLE play.intents ADD CONSTRAINT intents_work_names_what CHECK (
-  (work IS NULL AND sandbox_id IS NULL AND asset_id IS NULL AND version IS NULL AND story_id IS NULL AND story_version IS NULL)
-  OR (work = 'sandbox_change' AND sandbox_id IS NOT NULL AND sandbox_change IS NOT NULL AND asset_id IS NULL AND story_id IS NULL)
-  OR (work <> 'sandbox_change' AND sandbox_id IS NULL));
+  (work IS NULL AND asset_id IS NULL AND version IS NULL AND story_id IS NULL AND story_version IS NULL)
+  OR work IS NOT NULL);
+-- (a sandbox's change kept from before its layout was a document has no variant yet: ensureLayouts, at the end of
+-- migrate(), makes it one and holds it here, from play.sandbox_changes_kept)
 
 -- artifacts as documents: the row only what is accepted
 ALTER TABLE play.artifacts ALTER COLUMN url DROP NOT NULL, ALTER COLUMN title DROP NOT NULL, ALTER COLUMN description DROP NOT NULL,

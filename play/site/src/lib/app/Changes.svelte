@@ -5,11 +5,15 @@
 	intent variant picked; every review on the intents' board shows it beside an asset's build or a story's player.
 
 	Given `changes` and `edits` (a review's), it shows them; given `doc` and an `edit` or a `variant`, it reads them
-	(GET /api/docs/<uuid>/changes).
+	(GET /api/docs/<uuid>/changes). A kind may show more of a change than its fields: a sandbox's layout, each pin before
+	and after by its asset's label and version (`pins`), instead of the version's hash.
 -->
 <script lang="ts" module>
 	export type Change = { path: string; kind: 'added' | 'removed' | 'changed'; from?: unknown; to?: unknown };
 	export type Edit = { seq: number; variant: number | null; kind: string; author: string | null; via: string; message: string; at: string; version: number | null };
+	/** a pin of a sandbox's layout as people read it: its asset's label and version, its variant and values */
+	export type PinShown = { label: string | null; number: number | null; variant: string | null; usedVariant: string | null; params: Record<string, string> | null } | null;
+	export type PinChange = { slot: string; before: PinShown; after: PinShown };
 </script>
 
 <script lang="ts">
@@ -19,6 +23,7 @@
 	let {
 		changes = $bindable(null),
 		edits = $bindable(null),
+		pins = $bindable(null),
 		doc = null,
 		edit = null,
 		variant = null,
@@ -28,6 +33,8 @@
 	}: {
 		changes?: Change[] | null;
 		edits?: Edit[] | null;
+		/** a sandbox's layout: each pin before and after, by its asset (its fields are then not shown again) */
+		pins?: PinChange[] | null;
 		/** the document's UUID, to read what `edit` or `variant` changes */
 		doc?: string | null;
 		edit?: number | null;
@@ -45,11 +52,12 @@
 		const q = edit != null ? `edit=${edit}` : `variant=${variant}`;
 		let gone = false;
 		failed = '';
-		api<{ changes: Change[]; edits: Edit[]; seed?: number | null }>(`/docs/${doc}/changes?${q}`).then(
+		api<{ changes: Change[]; edits: Edit[]; seed?: number | null; pins?: PinChange[] }>(`/docs/${doc}/changes?${q}`).then(
 			(r) => {
 				if (gone) return;
 				changes = r.changes;
 				edits = r.edits;
+				pins = r.pins ?? null;
 				if (r.seed !== undefined) seed = r.seed;
 			},
 			(e) => !gone && (failed = (e as Error).message)
@@ -64,7 +72,9 @@
 	const sentenced = (v: unknown) => (typeof v !== 'string' ? '' : v.includes('\n') ? v : v.replace(/([.!?]) (?=[A-Z`"(])/g, '$1\n'));
 	const textDiff = (c: Change) => changesOnly(lineDiff(c.kind === 'added' ? '' : sentenced(c.from), c.kind === 'removed' ? '' : sentenced(c.to)), 1);
 	const when = (iso: string) => new Date(iso).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-	const shown = $derived((changes ?? []).filter((c) => !skip.includes(c.path)));
+	const shown = $derived((changes ?? []).filter((c) => !skip.includes(c.path) && !(pins && c.path.startsWith('$.pins.'))));
+	const pinText = (x: PinShown) =>
+		x ? `${x.label ?? 'an asset'}${x.number != null ? ` v${x.number}` : ''}${x.usedVariant ? ` · ${x.usedVariant}${x.variant ? '' : ' (default)'}` : ''}${x.params ? ` · ${Object.entries(x.params).map(([k, v]) => `${k} ${v}`).join(', ')}` : ''}` : 'none';
 </script>
 
 <div class="changes-of">
@@ -72,9 +82,16 @@
 		<p class="error">{failed}</p>
 	{:else if changes}
 		<h4>{heading}{seed ? ` from v${seed}` : ''}</h4>
-		{#if !shown.length}
+		{#if pins?.length}
+			<ol class="fields pins">
+				{#each pins as c (c.slot)}
+					<li><span class="where">{c.slot}</span> <span class="was">{pinText(c.before)}</span> → <span class="now">{pinText(c.after)}</span></li>
+				{/each}
+			</ol>
+		{/if}
+		{#if !shown.length && !pins?.length}
 			<p class="soft small">{changes.length ? 'Nothing more than what is shown beside it.' : 'Nothing: it is the document as it was.'}</p>
-		{:else}
+		{:else if shown.length}
 			<ol class="fields">
 				{#each shown as c, i (i)}
 					<li>
@@ -115,6 +132,9 @@
 	.where { display: inline-block; font-weight: 600; margin: 0 0 0.2rem; overflow-wrap: anywhere; }
 	.vals { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.3rem; }
 	.vals pre, .src { margin: 0; padding: 0.4rem 0.5rem; border-radius: 8px; background: var(--paper, #f6f1e6); font-size: 0.74rem; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 18rem; overflow: auto; }
+	.pins { list-style: none; padding-left: 0; }
+	.pins .where { margin-right: 0.4rem; }
+	.pins .now { font-weight: 600; }
 	.was { color: var(--soft, #777); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--terracotta, #c96f53) 70%, transparent); }
 	.src .add { background: color-mix(in srgb, var(--sage, #8fae8b) 30%, transparent); display: block; }
 	.src .del { background: color-mix(in srgb, var(--terracotta, #c96f53) 25%, transparent); display: block; }

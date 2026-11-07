@@ -138,8 +138,8 @@ suite("the stage Build (migration 0033-build)", () => {
     expect(before.find((r) => r.id === withWork)).toMatchObject({ work: "skill_version" });
     expect(await q(`SELECT doc_id FROM play.intent_variants WHERE intent_id = $1`, [withWork])).toEqual([{ doc_id: `skill:${SKILL.avenmaia}` }]);
 
-    expect(await migrate(db)).toEqual(["0033-build"]);
-    expect(await migrate(db)).toEqual([]);
+    expect(await migrate(db, { until: "0033-build" })).toEqual(["0033-build"]);
+    expect(await migrate(db, { until: "0033-build" })).toEqual([]);
 
     const after = await q(`SELECT * FROM play.intents ORDER BY id`);
     expect(after.map((r) => r.id)).toEqual(before.map((r) => r.id));

@@ -131,7 +131,6 @@ suite("no write past an Accept", () => {
       propose_asset: { group: "plants", label: "A second fern", source: SOURCE("a second fern"), note: "a new asset" },
       doc_edit: { doc: F, intent: ready, message: "more demand", edits: [{ op: "set", path: ["line", "demand", "perDay"], value: 12 }] },
       propose_doc_version: { doc: L, note: "more euros", edits: [{ op: "set", path: ["villager", "euros"], value: 2 }] },
-      propose_sandbox_change: { sandbox: crypto.randomUUID(), note: "no such sandbox", edits: [{ op: "set", config: "garden", path: [], value: {} }] },
       propose_story: { title: "A second film", body, note: "a new story" },
       add_story_frame: { data: PNG, media_type: "image/png", label: "a pixel" },
       add_story_video: { data: Buffer.from("not a video").toString("base64"), media_type: "video/mp4" },
