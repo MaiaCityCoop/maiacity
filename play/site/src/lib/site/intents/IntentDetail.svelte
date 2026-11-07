@@ -280,6 +280,7 @@
 					</ol>
 				{/if}
 				{#if i.sub}<p class="muted small">Now: {i.sub.why}</p>{/if}
+				{#if !i.spec}<p class="muted small">{i.stage === 'idea' || i.stage === 'specify' ? 'Not specified yet: its spec (a goal, a scope and the checks that decide when it is done) is written over MCP before anything is built for it (the brief asks an agent to), and an admin approves it here.' : 'Not specified: it was decided before every intent had a spec. Reopened, it is specified first.'}</p>{/if}
 			{:else if current === 'note'}
 				<div class="md">{@html md(i.note)}</div>
 			{:else if current === 'agent' && briefText}
