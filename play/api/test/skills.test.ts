@@ -313,6 +313,8 @@ suite("skills: what play teaches its agents, kept once", () => {
   // ---- intent a90151df c4: every skill is a prompt
 
   test("every skill is a prompt: skill:<uuid> in prompts/list, its description, body and references' index from prompts/get", async () => {
+    // avenMAIA and Intents as the import seeds them (already, when the whole file runs)
+    expect((await seedSkills(db)).errors).toEqual([]);
     // the skill schema as production holds it (v3: description, body, references, uses, frontmatter), by proposal
     const node = JSON.parse(readFileSync(join(import.meta.dir, "fixtures/skill-schema-v3-node.json"), "utf8"));
     const s = await tool("propose_doc_version", { doc: SCHEMA.skill, intent: (await intentAt("The skill schema v3", "proposal")).id, note: "v3", edits: [{ op: "set", path: ["node"], value: node }] });
