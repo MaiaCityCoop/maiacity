@@ -35,8 +35,8 @@ const SITE = resolve(import.meta.dir, '..');
 const work = opt('--keep') ? resolve(opt('--keep')!) : mkdtempSync(join(tmpdir(), 'story-parity-'));
 mkdirSync(work, { recursive: true });
 
-const { story, links, compositions, assets, files: given = {} } = JSON.parse(readFileSync(fixture, 'utf8'));
-const html = compose(story, links, compositions, assets);
+const { story, links, compositions, assets, worlds, files: given = {} } = JSON.parse(readFileSync(fixture, 'utf8'));
+const html = compose(story, links, compositions, assets, worlds);
 const [W, H] = [Number(html.match(/data-width="(\d+)"/)![1]), Number(html.match(/data-height="(\d+)"/)![1])];
 // the project the renderer reads: the composition, and every file it names where play serves it (/api/files/<hash>)
 const project = join(work, 'project');
@@ -109,11 +109,13 @@ try {
 	// (--film: a render of this same composition made before, kept with --keep: a live shot's takes long without a GPU)
 	// --lossless: its frames as PNGs (HyperFrames' png-sequence), so what is measured is the engine, not the film's
 	// codec: a finely detailed shot (a palm's thousands of leaflets) loses SSIM to H.264 alone (0.96 against itself)
+	// --player-only: the player's pictures alone (a world shot's posters, intent 90de96fb), no render to measure against
+	const only = args.includes('--player-only');
 	const lossless = args.includes('--lossless');
 	const film = opt('--film') ? resolve(opt('--film')!) : join(work, lossless ? 'frames' : 'render.mp4');
-	if (!opt('--film')) run(['bunx', 'hyperframes@0.9.20', 'render', project, '-o', film, '--quiet', '--workers', '1', ...(lossless ? ['--format', 'png-sequence'] : ['--quality', 'delivery']), '--no-wait', '--no-experimental-fast-capture']);
+	if (!opt('--film') && !only) run(['bunx', 'hyperframes@0.9.20', 'render', project, '-o', film, '--quiet', '--workers', '1', ...(lossless ? ['--format', 'png-sequence'] : ['--quality', 'delivery']), '--no-wait', '--no-experimental-fast-capture']);
 	const pngs = lossless ? [...new Bun.Glob('*.png').scanSync({ cwd: film })].sort() : [];
-	for (const t of at)
+	for (const t of only ? [] : at)
 		if (lossless) run(['ffmpeg', '-y', '-loglevel', 'error', '-i', join(film, pngs[Math.round(t * story.fps)]), '-frames:v', '1', join(work, `render-${t}.png`)]);
 		else run(['ffmpeg', '-y', '-loglevel', 'error', '-i', film, '-vf', `select=eq(n\\,${Math.round(t * story.fps)})`, '-frames:v', '1', join(work, `render-${t}.png`)]);
 	// the player's picture at each second
@@ -139,6 +141,10 @@ try {
 		await page.screenshot({ path: join(work, `player-${t}.png`), clip: { x: 0, y: 0, width: W, height: H }, timeout: 300_000 });
 	}
 	await browser.close();
+	if (only) {
+		console.log(`the player's pictures: ${at.map((t) => join(work, `player-${t}.png`)).join(', ')}`);
+		process.exit(0);
+	}
 	// how alike, by SSIM
 	const scores = at.map((t) => {
 		const out = run(['ffmpeg', '-loglevel', 'info', '-i', join(work, `render-${t}.png`), '-i', join(work, `player-${t}.png`), '-lavfi', 'ssim', '-f', 'null', '-']);
