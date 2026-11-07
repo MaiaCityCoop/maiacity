@@ -76,5 +76,97 @@
  "vehicle": "55f6d606-94fd-4e10-b395-c8cd8ab84fcb",
  "powercube": "6403ac6d-1680-4d5f-bde8-7c53c9872d4b",
  "rig": "69ca5a15-cc90-4d5a-a4e6-bf9b8d93c850",
- "batterypack": "4f9ed2ff-ba76-4ed9-8b3f-1d4d8cb29f27"
+ "batterypack": "4f9ed2ff-ba76-4ed9-8b3f-1d4d8cb29f27",
+ "hosts": {
+  "hatchback": {
+   "doc": "1f1b10ad-96aa-40ab-bd57-7a95558a72aa",
+   "kind": "asset",
+   "intent": "873c6ef2-2bbe-49a3-9470-705cf1702b58",
+   "variant": 1300,
+   "edit": 2209,
+   "changed": true,
+   "edits": 1,
+   "changes": 2
+  },
+  "sedan": {
+   "doc": "41959841-c68b-4764-9a15-9c20a168b45c",
+   "kind": "asset",
+   "intent": "873c6ef2-2bbe-49a3-9470-705cf1702b58",
+   "variant": 1301,
+   "edit": 2210,
+   "changed": true,
+   "edits": 1,
+   "changes": 2
+  },
+  "suv": {
+   "doc": "ad5a3296-e07c-4ddc-a9a9-df41f919c8b8",
+   "kind": "asset",
+   "intent": "873c6ef2-2bbe-49a3-9470-705cf1702b58",
+   "variant": 1302,
+   "edit": 2211,
+   "changed": true,
+   "edits": 1,
+   "changes": 2
+  },
+  "taxi": {
+   "doc": "43f5e8aa-30d7-4236-9d82-0f38cff34a6c",
+   "kind": "asset",
+   "intent": "873c6ef2-2bbe-49a3-9470-705cf1702b58",
+   "variant": 1303,
+   "edit": 2212,
+   "changed": true,
+   "edits": 1,
+   "changes": 2
+  },
+  "police": {
+   "doc": "092f3aa5-43e2-4e4e-8532-dcee5a57d467",
+   "kind": "asset",
+   "intent": "873c6ef2-2bbe-49a3-9470-705cf1702b58",
+   "variant": 1304,
+   "edit": 2213,
+   "changed": true,
+   "edits": 1,
+   "changes": 2
+  },
+  "ambulance": {
+   "doc": "a2cb88a1-d476-4542-abff-0adf16f0875e",
+   "kind": "asset",
+   "intent": "873c6ef2-2bbe-49a3-9470-705cf1702b58",
+   "variant": 1305,
+   "edit": 2214,
+   "changed": true,
+   "edits": 1,
+   "changes": 2
+  },
+  "van": {
+   "doc": "53d1af5a-bbcf-4eba-9fe0-3a147baedd34",
+   "kind": "asset",
+   "intent": "873c6ef2-2bbe-49a3-9470-705cf1702b58",
+   "variant": 1306,
+   "edit": 2215,
+   "changed": true,
+   "edits": 1,
+   "changes": 2
+  },
+  "truck": {
+   "doc": "7fd2a0c5-76dc-588d-9cbd-4178d218bbd6",
+   "kind": "asset",
+   "intent": "873c6ef2-2bbe-49a3-9470-705cf1702b58",
+   "variant": 1307,
+   "edit": 2216,
+   "changed": true,
+   "edits": 1,
+   "changes": 2
+  },
+  "batterycube": {
+   "doc": "05e6be57-cffa-500a-9321-b67aa361b522",
+   "kind": "asset",
+   "intent": "873c6ef2-2bbe-49a3-9470-705cf1702b58",
+   "variant": 1308,
+   "edit": 2217,
+   "changed": true,
+   "edits": 1,
+   "changes": 2
+  }
+ }
 }
