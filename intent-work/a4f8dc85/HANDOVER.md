@@ -100,3 +100,22 @@ Add `--dry-run` first to see `prompt.txt` and `request.json`. The plate's hash i
 Artifact; c1: the character as data on 99b612ec's pieces (face shape = the fitted target weights, the texture by hash);
 garments (c3, its bench film again a Mac job); c5: the actor skill's "Your own character" part; then propose and mark
 PR #2157 ready. Known looks to improve: faint doubled brows and the photos' smile lines baked into the skin.
+
+### c4 and c1, 16:30
+
+- **c4, the licence:** two Artifacts, on this intent (waiting for its Accept): faceunits01
+  `f9bf2d22-d4bc-47db-810c-619e0f5e118e` (the pack's own `packs/faceunits01.json`: 52 of 52 units `"license": "CC0"`,
+  author Mika Suominen) and MakeHuman's LICENSE.md `ffce1880-6a0a-4420-b51c-f22b569b2c37` (assets, the base mesh, targets,
+  modifiers, expressions, CC0 1.0; every `.target` header says so). The fit uses MakeHuman's own expression units, CC0.
+- **c1, how a character's face reaches the shared head: a decision is needed.** The Person head piece
+  (`7f6d4149…`) takes only colours (`face`, `skin`, `lips`, `brows`, `hairColour`, `hair`); its positions are baked per
+  face (man, woman) and it is vertex-coloured, with no UVs and no hook for a shape or a texture. Its man's 5034 vertices
+  match MakeHuman's base head (similarity + nearest point) to 2.2 mm mean (p95 4 mm), 4250 distinct of 5034: not one to
+  one, so a face is carried over as a displacement field per piece vertex, and its photo texture baked to vertex colours.
+  The options:
+  1. **A new version of the head piece** with optional `look.shape` (a displacement per vertex, fetched by hash) and
+     `look.colours` (per smoothed vertex, by hash), and a new version of the body piece requiring it; the old versions
+     stay frozen, so every existing person is as it is. A character is then only data: the shape and colour files by
+     hash and its look. (Recommended: the next character is a new data set, no code.)
+  2. The character's own recipe applies the shape and colours to the head the body builds: no shared piece changes, but
+     every character carries that code (against c1's "data, not code").
