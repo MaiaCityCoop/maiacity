@@ -58,6 +58,7 @@ const server = Bun.serve({
 		const u = new URL(req.url);
 		if (u.pathname === '/') return new Response(`<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:#000}hyperframes-player{display:block;width:${W}px;height:${H}px}</style><body><script type="module" src="/page.js"></script>`, { headers: { 'content-type': 'text/html' } });
 		if (u.pathname === '/page.js') return new Response(script, { headers: { 'content-type': 'text/javascript' } });
+		if (u.pathname === '/favicon.ico') return new Response(null, { status: 204 });
 		if (u.pathname === '/composition.html') return new Response(html, { headers: { 'content-type': 'text/plain; charset=utf-8' } });
 		const h = u.pathname.match(/^\/api\/files\/([0-9a-f]{64})$/)?.[1];
 		if (h) return new Response(Bun.file(join(project, 'api/files', h)), { headers: { 'content-type': type(h) } });
