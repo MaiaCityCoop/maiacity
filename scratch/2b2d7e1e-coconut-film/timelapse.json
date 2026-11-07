@@ -1,0 +1,722 @@
+[
+{
+"name": "tl-000",
+"values": {
+"stage": 0.0
+},
+"camera": {
+"target": [
+0,
+0.024,
+0
+],
+"az": 20.0,
+"el": 8,
+"dist": 0.55
+}
+},
+{
+"name": "tl-001",
+"values": {
+"stage": 0.25
+},
+"camera": {
+"target": [
+0,
+0.04,
+0
+],
+"az": 20.91,
+"el": 8,
+"dist": 0.55
+}
+},
+{
+"name": "tl-002",
+"values": {
+"stage": 0.5
+},
+"camera": {
+"target": [
+0,
+0.055,
+0
+],
+"az": 21.82,
+"el": 8,
+"dist": 0.55
+}
+},
+{
+"name": "tl-003",
+"values": {
+"stage": 0.75
+},
+"camera": {
+"target": [
+0,
+0.071,
+0
+],
+"az": 22.73,
+"el": 8,
+"dist": 0.55
+}
+},
+{
+"name": "tl-004",
+"values": {
+"stage": 1.0
+},
+"camera": {
+"target": [
+0,
+0.086,
+0
+],
+"az": 23.64,
+"el": 8,
+"dist": 0.55
+}
+},
+{
+"name": "tl-005",
+"values": {
+"stage": 1.25
+},
+"camera": {
+"target": [
+0,
+0.095,
+0
+],
+"az": 24.55,
+"el": 8,
+"dist": 0.55
+}
+},
+{
+"name": "tl-006",
+"values": {
+"stage": 1.5
+},
+"camera": {
+"target": [
+0,
+0.103,
+0
+],
+"az": 25.45,
+"el": 8,
+"dist": 0.55
+}
+},
+{
+"name": "tl-007",
+"values": {
+"stage": 1.75
+},
+"camera": {
+"target": [
+0,
+0.112,
+0
+],
+"az": 26.36,
+"el": 8,
+"dist": 0.55
+}
+},
+{
+"name": "tl-008",
+"values": {
+"stage": 2.0
+},
+"camera": {
+"target": [
+0,
+0.12,
+0
+],
+"az": 27.27,
+"el": 8,
+"dist": 0.55
+}
+},
+{
+"name": "tl-009",
+"values": {
+"stage": 2.25
+},
+"camera": {
+"target": [
+0,
+0.178,
+0
+],
+"az": 28.18,
+"el": 8,
+"dist": 0.647
+}
+},
+{
+"name": "tl-010",
+"values": {
+"stage": 2.5
+},
+"camera": {
+"target": [
+0,
+0.235,
+0
+],
+"az": 29.09,
+"el": 8,
+"dist": 0.857
+}
+},
+{
+"name": "tl-011",
+"values": {
+"stage": 2.75
+},
+"camera": {
+"target": [
+0,
+0.293,
+0
+],
+"az": 30.0,
+"el": 8,
+"dist": 1.067
+}
+},
+{
+"name": "tl-012",
+"values": {
+"stage": 3.0
+},
+"camera": {
+"target": [
+0,
+0.35,
+0
+],
+"az": 30.91,
+"el": 8,
+"dist": 1.277
+}
+},
+{
+"name": "tl-013",
+"values": {
+"stage": 3.25
+},
+"camera": {
+"target": [
+0,
+0.468,
+0
+],
+"az": 31.82,
+"el": 8,
+"dist": 1.706
+}
+},
+{
+"name": "tl-014",
+"values": {
+"stage": 3.5
+},
+"camera": {
+"target": [
+0,
+0.586,
+0
+],
+"az": 32.73,
+"el": 8,
+"dist": 2.135
+}
+},
+{
+"name": "tl-015",
+"values": {
+"stage": 3.75
+},
+"camera": {
+"target": [
+0,
+0.703,
+0
+],
+"az": 33.64,
+"el": 8,
+"dist": 2.564
+}
+},
+{
+"name": "tl-016",
+"values": {
+"stage": 4.0
+},
+"camera": {
+"target": [
+0,
+0.821,
+0
+],
+"az": 34.55,
+"el": 8,
+"dist": 2.992
+}
+},
+{
+"name": "tl-017",
+"values": {
+"stage": 4.25
+},
+"camera": {
+"target": [
+0,
+1.111,
+0
+],
+"az": 35.45,
+"el": 8,
+"dist": 4.051
+}
+},
+{
+"name": "tl-018",
+"values": {
+"stage": 4.5
+},
+"camera": {
+"target": [
+0,
+1.402,
+0
+],
+"az": 36.36,
+"el": 8,
+"dist": 5.11
+}
+},
+{
+"name": "tl-019",
+"values": {
+"stage": 4.75
+},
+"camera": {
+"target": [
+0,
+1.692,
+0
+],
+"az": 37.27,
+"el": 8,
+"dist": 6.169
+}
+},
+{
+"name": "tl-020",
+"values": {
+"stage": 5.0
+},
+"camera": {
+"target": [
+0,
+1.982,
+0
+],
+"az": 38.18,
+"el": 8,
+"dist": 7.228
+}
+},
+{
+"name": "tl-021",
+"values": {
+"stage": 5.25
+},
+"camera": {
+"target": [
+0,
+2.191,
+0
+],
+"az": 39.09,
+"el": 8,
+"dist": 7.989
+}
+},
+{
+"name": "tl-022",
+"values": {
+"stage": 5.5
+},
+"camera": {
+"target": [
+0,
+2.4,
+0
+],
+"az": 40.0,
+"el": 8,
+"dist": 8.75
+}
+},
+{
+"name": "tl-023",
+"values": {
+"stage": 5.75
+},
+"camera": {
+"target": [
+0,
+2.609,
+0
+],
+"az": 40.91,
+"el": 8,
+"dist": 9.511
+}
+},
+{
+"name": "tl-024",
+"values": {
+"stage": 6.0
+},
+"camera": {
+"target": [
+0,
+2.818,
+0
+],
+"az": 41.82,
+"el": 8,
+"dist": 10.273
+}
+},
+{
+"name": "tl-025",
+"values": {
+"stage": 6.25
+},
+"camera": {
+"target": [
+0,
+2.888,
+0
+],
+"az": 42.73,
+"el": 8,
+"dist": 10.531
+}
+},
+{
+"name": "tl-026",
+"values": {
+"stage": 6.5
+},
+"camera": {
+"target": [
+0,
+2.959,
+0
+],
+"az": 43.64,
+"el": 8,
+"dist": 10.789
+}
+},
+{
+"name": "tl-027",
+"values": {
+"stage": 6.75
+},
+"camera": {
+"target": [
+0,
+3.03,
+0
+],
+"az": 44.55,
+"el": 8,
+"dist": 11.047
+}
+},
+{
+"name": "tl-028",
+"values": {
+"stage": 7.0
+},
+"camera": {
+"target": [
+0,
+3.101,
+0
+],
+"az": 45.45,
+"el": 8,
+"dist": 11.305
+}
+},
+{
+"name": "tl-029",
+"values": {
+"stage": 7.25
+},
+"camera": {
+"target": [
+0,
+3.166,
+0
+],
+"az": 46.36,
+"el": 8,
+"dist": 11.541
+}
+},
+{
+"name": "tl-030",
+"values": {
+"stage": 7.5
+},
+"camera": {
+"target": [
+0,
+3.23,
+0
+],
+"az": 47.27,
+"el": 8,
+"dist": 11.777
+}
+},
+{
+"name": "tl-031",
+"values": {
+"stage": 7.75
+},
+"camera": {
+"target": [
+0,
+3.295,
+0
+],
+"az": 48.18,
+"el": 8,
+"dist": 12.014
+}
+},
+{
+"name": "tl-032",
+"values": {
+"stage": 8.0
+},
+"camera": {
+"target": [
+0,
+3.36,
+0
+],
+"az": 49.09,
+"el": 8,
+"dist": 12.25
+}
+},
+{
+"name": "tl-033",
+"values": {
+"stage": 8.25
+},
+"camera": {
+"target": [
+0,
+3.424,
+0
+],
+"az": 50.0,
+"el": 8,
+"dist": 12.482
+}
+},
+{
+"name": "tl-034",
+"values": {
+"stage": 8.5
+},
+"camera": {
+"target": [
+0,
+3.487,
+0
+],
+"az": 50.91,
+"el": 8,
+"dist": 12.714
+}
+},
+{
+"name": "tl-035",
+"values": {
+"stage": 8.75
+},
+"camera": {
+"target": [
+0,
+3.551,
+0
+],
+"az": 51.82,
+"el": 8,
+"dist": 12.946
+}
+},
+{
+"name": "tl-036",
+"values": {
+"stage": 9.0
+},
+"camera": {
+"target": [
+0,
+3.614,
+0
+],
+"az": 52.73,
+"el": 8,
+"dist": 13.178
+}
+},
+{
+"name": "tl-037",
+"values": {
+"stage": 9.25
+},
+"camera": {
+"target": [
+0,
+3.646,
+0
+],
+"az": 53.64,
+"el": 8,
+"dist": 13.291
+}
+},
+{
+"name": "tl-038",
+"values": {
+"stage": 9.5
+},
+"camera": {
+"target": [
+0,
+3.677,
+0
+],
+"az": 54.55,
+"el": 8,
+"dist": 13.405
+}
+},
+{
+"name": "tl-039",
+"values": {
+"stage": 9.75
+},
+"camera": {
+"target": [
+0,
+3.708,
+0
+],
+"az": 55.45,
+"el": 8,
+"dist": 13.519
+}
+},
+{
+"name": "tl-040",
+"values": {
+"stage": 10.0
+},
+"camera": {
+"target": [
+0,
+3.739,
+0
+],
+"az": 56.36,
+"el": 8,
+"dist": 13.633
+}
+},
+{
+"name": "tl-041",
+"values": {
+"stage": 10.25
+},
+"camera": {
+"target": [
+0,
+3.938,
+0
+],
+"az": 57.27,
+"el": 8,
+"dist": 14.359
+}
+},
+{
+"name": "tl-042",
+"values": {
+"stage": 10.5
+},
+"camera": {
+"target": [
+0,
+4.138,
+0
+],
+"az": 58.18,
+"el": 8,
+"dist": 15.085
+}
+},
+{
+"name": "tl-043",
+"values": {
+"stage": 10.75
+},
+"camera": {
+"target": [
+0,
+4.337,
+0
+],
+"az": 59.09,
+"el": 8,
+"dist": 15.811
+}
+},
+{
+"name": "tl-044",
+"values": {
+"stage": 11.0
+},
+"camera": {
+"target": [
+0,
+4.536,
+0
+],
+"az": 60.0,
+"el": 8,
+"dist": 16.537
+}
+}
+]

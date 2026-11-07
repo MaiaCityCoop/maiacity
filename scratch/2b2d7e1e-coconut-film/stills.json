@@ -1,0 +1,9 @@
+[
+ {"name":"hook-backlit-crown","values":{"stage":11},"camera":{"target":[0,8.2,0],"az":38,"el":-40,"dist":6}},
+ {"name":"split-wide","values":{"stage":11},"camera":{"target":[0,4.6,0],"az":38,"el":3,"dist":19}},
+ {"name":"health-nuts-close","values":{"stage":11},"camera":{"target":[0,6.7,0],"az":38,"el":-10,"dist":3}},
+ {"name":"health-nuts-side","values":{"stage":11},"camera":{"target":[0,6.8,0],"az":75,"el":-18,"dist":3.6}},
+ {"name":"autarky-lowangle-trunk","values":{"stage":11},"camera":{"target":[0,5,0],"az":60,"el":-30,"dist":8}},
+ {"name":"sovereignty-hero-wide","values":{"stage":11},"camera":{"target":[0,5,0],"az":38,"el":2,"dist":17}},
+ {"name":"sovereignty-old-palm","values":{"stage":12},"camera":{"target":[0,7.5,0],"az":38,"el":1,"dist":24}}
+]
