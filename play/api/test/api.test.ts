@@ -901,6 +901,51 @@ suite("play API", () => {
     expect((await tool("propose_story_version", { story: S.seed, base: head.version, note: "no", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { video: "nope" } }] })).error).toContain("video's file hash");
   });
 
+  test("add_story_composition: a shot's motion design kept as readable HTML by its hash, served as plain text, refused minified or loading from outside play; a shot plays it", async () => {
+    const html = [
+      "<!doctype html>",
+      "<html>",
+      "<body>",
+      '<div id="root" data-composition-id="main" data-width="1080" data-height="1080">',
+      '  <div class="title">One hex.</div>',
+      "</div>",
+      "<script>",
+      "  const tl = gsap.timeline({ paused: true });",
+      '  tl.from(".title", { opacity: 0, duration: 0.6 }, 0.3);',
+      '  window.__timelines["main"] = tl;',
+      "</script>",
+      "</body>",
+      "</html>",
+      "",
+    ].join("\n");
+    const kept = await tool("add_story_composition", { html, label: "The title card" });
+    expect(kept.error).toBeNull();
+    expect(kept.out).toEqual({ hash: hashText(html), size: Buffer.byteLength(html), media_type: "text/html" });
+    expect((await tool("add_story_composition", { html })).out.hash).toBe(kept.out.hash);
+    // served as plain text, never as a page or a script play's origin could run
+    const served = await api.fetch(new Request(`http://play.test/api/files/${kept.out.hash}`, { headers: { cookie: who.ada.cookie } }));
+    expect(served.status).toBe(200);
+    expect(served.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(served.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(await served.text()).toBe(html);
+    // refused: minified, loading GSAP (or anything) from outside play, no composition in it
+    const minified = html.replace(/\n/g, " ") + "<!-- " + "x".repeat(1200) + " -->";
+    expect((await tool("add_story_composition", { html: minified })).error).toContain("minified");
+    const cdn = html.replace("<body>", '<body>\n<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>');
+    expect((await tool("add_story_composition", { html: cdn })).error).toContain("outside play");
+    expect((await tool("add_story_composition", { html: "<p>Just a page.</p>" })).error).toContain("data-composition-id");
+    // a shot plays it, its frame its still; a hash play holds as no composition, or none, is refused
+    const head = (await tool("get_story", { story: S.seed })).out;
+    const shot = head.tracks.find((t: any) => t.id === "shots").clips[0];
+    const moving = await tool("propose_story_version", { story: S.seed, base: head.version, note: "the first shot is motion design", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { composition: kept.out.hash } }] });
+    expect(moving.error).toBeNull();
+    const body = (await call("ada", "GET", `/api/intents/${moving.out.intent}`)).data.review.story;
+    expect(body.tracks.find((t: any) => t.id === "shots").clips[0]).toMatchObject({ frame: shot.frame, composition: kept.out.hash });
+    expect((await tool("propose_story_version", { story: S.seed, base: head.version, note: "no", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { composition: shot.frame } }] })).error).toContain("add_story_composition");
+    expect((await tool("propose_story_version", { story: S.seed, base: head.version, note: "no", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { composition: "nope" } }] })).error).toContain("composition's file hash");
+    await call("ada", "POST", `/api/intents/${moving.out.intent}/archive`);
+  });
+
   test("the Library: every image, video and recording play keeps, newest first, labelled, and where stories use it; admins only", async () => {
     const mp4 = Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from("ftypmp42"), Buffer.alloc(400, 9)]);
     const clip = await tool("add_story_video", { data: mp4.toString("base64"), media_type: "video/mp4", label: "Omni take 3 · the city to his smile" });

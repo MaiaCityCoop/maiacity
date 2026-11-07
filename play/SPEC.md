@@ -1322,9 +1322,9 @@ admins are its owners; Sandbox 3 has no tree planting for now; every sandbox get
 
 A **story** is one of our films as **one timeline**: admins play it through on `/stories/` (its storyboard frames
 beside the subtitles of its script, the notes for the edit, its sections and its mood rising and falling) to feel
-whether it works before anything is filmed or rendered. Admins only, reading and proposing. Later the same timeline
-becomes the film itself (motion design, three.js scenes per shot) and is **rendered into a video frame by frame**.
-The format and the player are made for that now.
+whether it works before anything is filmed or rendered. Admins only, reading and proposing. The same timeline is the
+film itself (stills, videos, motion design, 3D world shots as videos) and is **played and rendered by one engine**:
+each version compiled into one HyperFrames composition (below, *One engine*).
 
 **The format, `story/1`: tracks of clips.**
 
@@ -1335,7 +1335,7 @@ The format and the player are made for that now.
 
 | kind | a clip's fields | later |
 |---|---|---|
-| `shots` | `frame` (an image's file hash, a still of the storyboard), `transition` (how it goes into the next shot, read as code where it starts with one, below); `video` (a video's file hash: the shot's moving picture, an MP4 or WebM added with MCP `add_story_video`, ≤ 40 MB) played muted over the still from `video_in` (s) for the shot's length, the story's own sound under it (Samuel 2026-11-04) | `scene`: an asset ref by hash, its values (a plant's stage…), camera keyframes `[{ t, pos, look, fov }]`, replacing the still shot by shot |
+| `shots` | `frame` (an image's file hash, a still of the storyboard), `transition` (how it goes into the next shot, read as code where it starts with one, below); `video` (a video's file hash: the shot's moving picture, an MP4 or WebM added with MCP `add_story_video`, ≤ 40 MB) played muted over the still from `video_in` (s) for the shot's length, the story's own sound under it (Samuel 2026-11-04); `composition` (a composition's file hash: the shot's motion design, one HyperFrames composition as readable HTML added with MCP `add_story_composition`, played in the shot's place from its 0 at the shot's `at` for the shot's length; its `frame` stays its still; Samuel 2026-11-07) | `scene`: an asset ref by hash, its values (a plant's stage…), camera keyframes `[{ t, pos, look, fov }]`, replacing the still shot by shot |
 | `voice` | `who`, `line` (the narration; its subtitle, cut into lines of about 26 characters spoken evenly); `cues` its own subtitles where it sets them, `[{ at, text, em? }]` (`at` seconds into the clip, each until the next; `em` one set apart, alone and large: "100x" while "a hundred times" is said; Samuel 2026-11-04); its take as the clip's sound (below) | |
 | `notes` | `section`, `camera`, `retention`, `mood` (↑ ↑↑ ↑↑↑ ↓ ↓↓ ↕) | |
 | `music`, `sfx`, `ambience` | the score and cues, spot sounds and hits, beds; clips may overlap; nothing dips under the voice by itself (a track's `duck: true` asks for about 6 dB under it; Samuel 2026-11-04) | |
@@ -1346,9 +1346,12 @@ The format and the player are made for that now.
 type read from its bytes, ≤ 25 MB, kept among `files` and served as audio), `audio_in` the trim into it (s), `gain`
 (dB, −60…+24), `fade_in`/`fade_out` (s), `eq` (≤ 8 biquad bands `{ type, f, gain, q }`) and `keys` (gain automation,
 `[s, dB]`). A track may carry `gain` (dB) and `mute`. Every hash must be a recording play holds, as every frame must be
-an image. The player lays every sounding clip on one Web Audio clock (`play/site/src/lib/stories/sound.ts`, from the
-pure `soundsOf(story)` in `timeline.ts`, which an export's mix will lay the same way); while it plays, t follows that
-clock, and a seek lays the sound again from the new t.
+an image. Each sounding clip is compiled into a HyperFrames `<audio>` clip (below): its `audio_in` the clip's
+`data-media-start`, its `gain` its `data-volume`, its fades `data-fade-in`/`data-fade-out`, its `eq` an FX chain
+(`data-fx-chain`: peaking, shelf and pass filters), its `keys` a volume lane (`data-automation`), on its track's bus
+(`<hf-audio-group>`, the track's `gain`); a muted track is left out, and a `duck` track's lane dips under the voice.
+HyperFrames' player mixes it with Web Audio as it plays (the frame's own blobs are same-origin to it), and its renderer
+mixes the very same from the files.
 
 **One film, one timeline** (Samuel 2026-11-03). A film's rewrites are versions of its one story, never stories of their
 own: `propose_doc_version` on its head (§4.15). Stories proposed apart are brought together by `import/stories/folds.json`
@@ -1389,21 +1392,41 @@ its own, and each film links a version of it:
   accepted number, shown as "v5 available", never played). `get_story` leaves the bodies out unless asked
   (`links: true`). `GET /api/stories/:id` also gives `linked_by`: the stories whose newest version links it, and which
   version of it each plays.
-- **The player flattens them** (`flatten(story, links)` in `play/site/src/lib/stories/timeline.ts`): each link's
-  version laid in from its `at`, recursively, its clips tagged with the story they came from and their ids made unique
-  against the story's own; `renderAt` and `soundsOf` (so the Web Audio mix) run on that one timeline, so the linked
-  pictures, subtitles, notes and recordings play in their place. Where a linked clip and the story's own clip of a
-  kind shown one at a time (shots, voice, notes) both cover t, the one that started later shows; two that start
-  together, the story's own. The timeline draws a lane of links ("The trailer · v2", "v3 available" where its story has
-  a newer version), each opening that story at that version on the Stories page, and the clips they lay in hatched
-  and dashed in their own lanes, the link's span marked across them. Nothing of it is edited there.
+- **Compiled as nested compositions.** Each link's version is a sub-composition of the story's composition at the
+  link's `at` (`compose`, below), holding that version's own timeline from its 0, its links nested again in it (never
+  around a loop, at most 4 deep), the link's track `gain` and `mute` and its clip's `gain` carried onto its sound; its
+  pictures and subtitles play in front of the story's own shots while it runs. The timeline draws a lane of links
+  ("The trailer · v2", "v3 available" where its story has a newer version), each opening that story at that version on
+  the Stories page, the link's span marked across the lanes. Nothing of it is edited there.
 
-**One function shows it.** The player's picture is `renderAt(story, t)` (`play/site/src/lib/stories/timeline.ts`):
-from the timeline alone, the shot at second t, the one fading out under it and how far (a cut cuts, other
-transitions cross-fade over up to half a second), how bright it is (the fades from and to black), the
-subtitle and how much of it is spoken, the notes. Play and scrub only move t; nothing runs on a clock of its own. The
-same t gives the same picture every time, which is what a frame-by-frame export needs (WebCodecs in the browser, or a
-page a renderer seeks through): it comes later.
+**One engine** (Samuel 2026-11-07: "can our playback timeline also be merged together with hyperframes core? so we have
+SSOT DRY architecture"; intent e53393e2). story/1 stays the one source; a story's picture and sound are made only by
+HyperFrames (`@hyperframes/player`, pinned to an exact version), from a composition compiled out of it:
+
+- **`compose(story, links, compositions)`** (`play/site/src/lib/stories/compose.ts`) is pure: no clock, chance or
+  environment, so a version always gives the same bytes, kept by their hash. Each track's clips become clips with
+  `data-start`, `data-duration` and `data-track-index`: a shot its image, its video (muted, `data-media-start` its
+  `video_in`) or its composition (inlined as a sub-composition, its styles scoped to it, its scripts in a scope of their
+  own), held over a gap until the next shot; a voice clip's cues, or its line cut evenly and timed by its words (spoken
+  over the first 92% of the clip), caption clips (`em` alone and large); the sound as above; links as nested
+  sub-compositions. A shot's transition codes are GSAP tweens on the story's own timeline. HyperFrames' runtime, GSAP
+  and the one font (Inter, put first where a composition names only a generic family, as HyperFrames' renderer does)
+  are pinned by their BLAKE3 hash (`VENDOR`) and named as play's files, `/api/files/<hash>`: the player hands them in
+  from the site's own build, held to that hash, and a render lays them beside the composition. Never a CDN.
+- **The player** (`play/site/src/lib/stories/StoryPlayer.svelte`) plays it with `<hyperframes-player>` in play's sealed
+  frame: `sandbox-origin="opaque"`, the frame's `sandbox` exactly play's `SANDBOX` (`allow-scripts`, never
+  `allow-same-origin`), every device feature off but sound, and the composition carrying the frame policy `frameCsp`
+  makes (`connect-src 'none'`, no frame inside it). It is handed over as `srcdoc`, sealed (`seal`): the frame loads
+  nothing; it asks the page for the files it names, which the page fetches with its own session and hands in
+  (`feed`), every script's bytes held to its hash, and the frame makes its own blob URLs of them. Play, pause,
+  scrubbing, the shot buttons, speed, sound and full screen only play, pause and seek it; a tap on the picture lands in
+  the frame, which plays or pauses there and then, inside the tap, as a phone's sound needs. The lanes and the notes
+  read story/1 as before (`timeline.ts`: `clipsOf`, `cuesOf`, `spansOf`, `sectionsOf`, `moodLevel`, `linkedOf`,
+  `clock`, `shotEdge`).
+- **The render** is HyperFrames' renderer on the same composition: what is reviewed is what is delivered.
+  `play/site/scripts/story-parity.ts` renders a story with the pinned renderer and compares the player's frames with
+  it (SSIM; the hex-village fixture, `fixtures/hex-village.json`, at least 0.98). The delivery files (2e5e50bc) build
+  on it; the grade stays its own (10ef20cf); HyperFrames' Studio and colour grading are not used.
 
 **Full screen** (Samuel 2026-11-06): the player's Full screen button (or F) shows the picture alone on the whole screen,
 black around it and kept to the story's format (letterboxed, never cropped), its subtitles in it; a tap plays and pauses,
@@ -1413,7 +1436,7 @@ same mode fills the window (`play/site/src/lib/stories/StoryPlayer.svelte`).
 
 **A transition is code** (Samuel 2026-11-04: a fade is a transition like any other, set by a proposal like any other
 field). A shot's `transition` holds codes separated by commas (`;` and `·` too), each read from its start, with its
-seconds where it gives them (`transitionOf`): `cut` (and a hard, smash, match or jump cut, "cut to …") goes into the
+seconds where it gives them (read by `compose`): `cut` (and a hard, smash, match or jump cut, "cut to …") goes into the
 next shot at once; `dissolve` or `cross-fade` [s] fades the next shot in over it (0.5 s unless it says, at most half of
 either shot); `from black` or `fade in` [s] brings this shot up from black; `to black` or `fade out` [s] takes it down
 to black; `dip to black` [s] takes it down and brings the next up out of black. Anything else is prose about the
@@ -1455,7 +1478,10 @@ proposing over play's MCP server (§7, `play/api/src/mcp.ts`), versioned as ever
   `shift` (every clip from a time on moved by some seconds, to make room or close a gap) and `set` (format, fps, title).
   What is stored is the whole timeline, checked as a whole: its format, unique ids, times, no overlaps, every frame
   an image play holds;
-- `add_story_frame`: an image (JPEG, PNG or WebP, up to 4 MB) as base64, kept as a file; its hash for a shot's frame.
+- `add_story_frame`: an image (JPEG, PNG or WebP, up to 4 MB) as base64, kept as a file; its hash for a shot's frame;
+- `add_story_composition`: a shot's motion design, one HyperFrames composition as readable HTML (≤ 2 MB, never bundled
+  or minified, loading nothing from outside play), kept as a file by its hash and served as plain text like every code
+  file (§4.3); its hash for a shot's `composition`.
 
 The intents' board shows an intent's story work played in the Stories player, beside what changed against its base
 (the title and settings, and track by track the clips added, removed, moved and changed) and the edits it was made in.
