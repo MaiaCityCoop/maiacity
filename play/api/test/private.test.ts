@@ -248,9 +248,9 @@ suite("private to its owner", () => {
       const bi = await readyIntent(B, "Bo edits Ada");
       const e = await tool(B, "doc_edit", { doc: asset, intent: bi, message: "mine", edits: [{ op: "set", path: ["note"], value: "Bo's" }] });
       expect(e.error).toBe((await tool(B, "doc_edit", { doc: never, intent: bi, message: "mine", edits: [{ op: "set", path: ["note"], value: "Bo's" }] })).error?.replace(never, asset));
-      const p = await tool(B, "propose_asset", { asset, note: "mine", source: SOURCE("Bo's"), intent: bi });
-      expect(p.error).toBeDefined();
-      expect(p.error).toBe((await tool(B, "propose_asset", { asset: never, note: "mine", source: SOURCE("Bo's"), intent: bi })).error);
+      const p = await call(B, "POST", "/api/intents", { asset, note: "mine", source: SOURCE("Bo's"), intent: bi });
+      expect(p.status).toBe(404);
+      expect(p).toEqual(await call(B, "POST", "/api/intents", { asset: never, note: "mine", source: SOURCE("Bo's"), intent: bi }));
     });
 
     test("character: a sandbox can't pin a private character", async () => {
@@ -307,6 +307,19 @@ suite("private to its owner", () => {
         expect(r).toEqual(await call(B, "POST", `/api/intents/${never}/${verdict}`));
       }
       expect((await tool(B, "archive_intent", { intent })).error).toBe((await tool(B, "archive_intent", { intent: never })).error);
+      // nor may B record its checks, specify it or name it in work of B's
+      for (const [t, args] of [["check_intent", { results: [{ check: "c1", pass: false, evidence: "no" }] }], ["specify_intent", SPEC], ["step_back_intent", { to: "idea", why: "no" }]] as const)
+        expect((await tool(B, t, { intent, ...args })).error).toBe("There is no such intent.");
+      expect((await call(B, "POST", "/api/intents", { asset, note: "mine", source: SOURCE("Bo's"), intent })).status).toBe(404);
+      // nor see it, its work or its asset in the database window
+      for (const [table, key, id] of [["intents", "id", intent], ["assets", "id", asset], ["intent_variants", "intent_id", intent]] as const) {
+        const rows = async (who: Who) => ((await call(who, "GET", `/api/tables/${table}?limit=200`)).data.rows as any[]).map((r) => r[key]);
+        expect(await rows(A)).toContain(id);
+        expect(await rows(B)).not.toContain(id);
+      }
+      const docRows = async (who: Who) => ((await call(who, "GET", "/api/tables/doc_variants?limit=200")).data.rows as any[]).map((r) => r.doc_id);
+      expect(await docRows(A)).toContain(`asset:${asset}`);
+      expect(await docRows(B)).not.toContain(`asset:${asset}`);
       expect((await tool(A, "get_intent", { intent })).stage).toBe("proposal");
       // A accepts it, and the character stays private
       expect((await call(A, "POST", `/api/intents/${intent}/accept`)).data.decision).toMatchObject({ status: "accepted", number: 1 });

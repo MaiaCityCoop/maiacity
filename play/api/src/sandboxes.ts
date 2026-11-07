@@ -12,6 +12,7 @@ import { canonical } from "./hash";
 import { UUID } from "./uuid";
 import { readableRefs } from "../import/plan";
 import { NotFound } from "./assets";
+import { assetSeen } from "./owners";
 import * as docs from "./docs";
 import { SCHEMA } from "./ids";
 import { applyEdits as applyDocEdits, jsonOf, newDoc, seed } from "./docs/core";
@@ -98,11 +99,11 @@ export function sandboxCheck(doc: any): string[] {
   return out;
 }
 
-type VersionRow = { id: string; asset_id: string; grp: string; slug: string; label: string; number: number; default_variant: string | null; variants: string[]; params: any[] };
+type VersionRow = { id: string; asset_id: string; grp: string; slug: string; label: string; number: number; default_variant: string | null; variants: string[]; params: any[]; private: boolean };
 async function versionInfo(q: Queryable, ids: string[]): Promise<Map<string, VersionRow>> {
   if (!ids.length) return new Map();
   const { rows } = await q.query<VersionRow>(
-    `SELECT v.id, v.asset_id, a.grp, a.slug, a.label, v.number, v.default_variant,
+    `SELECT v.id, v.asset_id, a.grp, a.slug, a.label, v.number, v.default_variant, NOT ${assetSeen("a", "NULL")} AS private,
             COALESCE((SELECT array_agg(x.name ORDER BY x.name) FROM play.asset_variants x WHERE x.version_id = v.id), '{}') AS variants,
             COALESCE(v.card->'card'->'params', '[]') AS params
        FROM play.asset_versions v JOIN play.assets a ON a.id = v.asset_id WHERE v.id = ANY($1)`,
@@ -114,13 +115,14 @@ async function versionInfo(q: Queryable, ids: string[]): Promise<Map<string, Ver
 /** an asset's accepted version: by its number, or its head */
 async function acceptedVersion(q: Queryable, asset: string, number?: number) {
   if (!UUID.test(`${asset}`)) throw new SandboxError("Name the asset by its id (a UUID, from list_assets).");
+  // a private asset is pinned by no sandbox (worlds are shared: ./owners.ts), and is refused as one that never was
   const { rows } = await q.query<{ id: string; number: number }>(
     number == null
-      ? `SELECT v.id, v.number FROM play.assets a JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1 AND v.number IS NOT NULL`
-      : `SELECT v.id, v.number FROM play.asset_versions v WHERE v.asset_id = $1 AND v.number = $2`,
+      ? `SELECT v.id, v.number FROM play.assets a JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1 AND v.number IS NOT NULL AND ${assetSeen("a", "NULL")}`
+      : `SELECT v.id, v.number FROM play.asset_versions v JOIN play.assets a ON a.id = v.asset_id WHERE v.asset_id = $1 AND v.number = $2 AND ${assetSeen("a", "NULL")}`,
     number == null ? [asset] : [asset, number],
   );
-  if (!rows[0]) throw new SandboxError(number == null ? "There is no such asset, or it has no accepted version." : `The asset has no accepted version ${number}.`, 404);
+  if (!rows[0]) throw new SandboxError(`${number == null ? "There is no such asset, or it has no accepted version" : `The asset has no accepted version ${number}`} that a sandbox may pin (a private asset is pinned by none: worlds are shared).`, 404);
   return rows[0];
 }
 
@@ -341,7 +343,7 @@ export async function layoutProblems(q: Queryable, json: any): Promise<string[]>
   const out: string[] = [];
   for (const [slot, p] of pins) {
     const v = info.get(p.version);
-    if (!v || v.number == null) out.push(`${slot} pins ${p.version}, which is no accepted version of an asset`);
+    if (!v || v.number == null || v.private) out.push(`${slot} pins ${p.version}, which is no accepted version of an asset a sandbox may pin (a private asset is pinned by none: worlds are shared)`);
     else if (p.variant != null && !v.variants.includes(p.variant)) out.push(`${slot}: ${v.grp}/${v.slug}@${v.number} has no variant ${p.variant}`);
   }
   for (const [name, data] of Object.entries(json?.configs ?? {})) {

@@ -2,6 +2,7 @@
 // UUID, its work on the intent itself (./work.ts). Idea → Specify → Build → Proposal → (Ship →) Accepted (or Archived).
 // Agents add, specify and build it over MCP; an admin approves its spec and decides it at Proposal, where work of play's
 // is applied (./versioned.ts decide) and code is shipped (./ship.ts). Every move forward is one gate, mayMove.
+import { intentSeen, seesIntent } from "./owners";
 import { admin, Denied, COOP, meOf, type Me } from "./access";
 import type { BlobStore } from "./blobs";
 import type { Db, Queryable } from "./pg";
@@ -250,7 +251,8 @@ export async function listIntents(db: Queryable, me: Me | null, stages?: string[
   admin(me, INTENT_ADMINS);
   for (const s of stages ?? []) if (!INTENT_STAGES.includes(s as IntentStage)) throw new IntentError(`An intent's stage is ${INTENT_STAGES.join(", ")}.`);
   if (work !== undefined && !workKinds().includes(work)) throw new IntentError(`An intent's work is ${workKinds().join(", ")}.`);
-  return intentsWhere(db, `($2::text[] IS NULL OR i.stage = ANY($2::text[])) AND ($3::text IS NULL OR i.work = $3)`, [stages ?? null, work ?? null]);
+  // (an intent whose work is another's private asset is left out: ./owners.ts)
+  return intentsWhere(db, `($2::text[] IS NULL OR i.stage = ANY($2::text[])) AND ($3::text IS NULL OR i.work = $3) AND ${intentSeen("i", "$4")}`, [stages ?? null, work ?? null, me!.id]);
 }
 
 export async function intentRow(db: Queryable, id: string) {
@@ -270,8 +272,10 @@ export async function getIntent(db: Queryable, id: string) {
  * stage, the Intents skill's part for it (./skills.ts; null where it says nothing).
  */
 export async function intentOf(db: Queryable, me: Me | null, id: string, reviewOf: (db: Queryable, id: string, shown: any) => Promise<unknown>) {
-  admin(me, INTENT_ADMINS);
+  const who = admin(me, INTENT_ADMINS);
   const intent = await getIntent(db, id);
+  // one whose work is another's private asset is as one that never was (./owners.ts)
+  if (!(await seesIntent(db, who, intent.id))) throw new IntentError("There is no such intent.", 404);
   // held (approved, its dependencies not shipped): nothing to do yet, its sub-state says why
   const held = intent.held_by.length > 0 && (intent.stage === "build" || intent.stage === "proposal");
   return { ...intent, brief: held ? null : await briefOf(db, intent), review: intent.work ? await reviewOf(db, intent.id, intent.work) : null };
@@ -487,8 +491,9 @@ export async function mustMove(db: Queryable, intent: string | GateRow, to: Move
 
 /** The intent work is about to be proposed for, held to the gate (mayMove's work). Otherwise nothing is proposed and the agent is told why. */
 export async function intentReady(db: Queryable, me: Me | null, id: unknown) {
-  admin(me, INTENT_ADMINS);
+  const who = admin(me, INTENT_ADMINS);
   const intent = await intentRow(db, `${id ?? ""}`);
+  if (!(await seesIntent(db, who, intent.id))) throw new IntentError("There is no such intent.", 404);
   await mustMove(db, intent, "work");
   return intent;
 }

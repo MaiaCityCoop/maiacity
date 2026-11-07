@@ -34,6 +34,14 @@ import { AssetDocError, assetAt, proposeAsset } from "./assetdocs";
 import { GROUPS, isGroup } from "./groups";
 import { listSandboxes, sandboxOf, SandboxError } from "./sandboxes";
 import { LIBRARY_KINDS, listLibrary } from "./library";
+import { fileHidden, LIBRARIES, libraryOf, seesIntent } from "./owners";
+
+/** the library a file is added to: Maia City's (the default), or the operator's own personal one (./owners.ts) */
+const LIBRARY_ARG = {
+  type: "string",
+  enum: [...LIBRARIES],
+  description: "optional: the library it goes into: 'coop' (Maia City's, seen by every member; the default) or 'personal' (your operator's own, private to them: to anyone else it is as a file never kept), for their own character's photos and sheet",
+};
 import { addArtifact, AUTHOR_KINDS, authorOf, DESCRIPTION_MOST, listAuthors, listArtifacts, ORIGINS, ARTIFACT_KINDS, ArtifactError, artifactOf, SUMMARY_WORDS, TITLE_MOST as ARTIFACT_TITLE_MOST, updateArtifact } from "./artifacts";
 
 const PROTOCOL = "2025-06-18";
@@ -129,15 +137,15 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
   const tools: Tool[] = [
     {
       name: "list_assets",
-      description: "Maia City's assets: id (UUID), group, slug, label, head version and how many versions. Filter by group or by words in the label or slug.",
+      description: "Maia City's assets, and your own private ones: id (UUID), group, slug, label, head version and how many versions. Filter by group or by words in the label or slug.",
       inputSchema: {
         type: "object",
         properties: { group: { type: "string", enum: GROUPS }, query: { type: "string" } },
         additionalProperties: false,
       },
-      run: async ({ group, query }) => {
+      run: async ({ group, query }, me) => {
         if (group !== undefined && !isGroup(group)) throw new VersionError(`${group} is not an asset group (${GROUPS.join(", ")}).`);
-        const all = await listAssets(db, group);
+        const all = await listAssets(db, group, me);
         const q = `${query ?? ""}`.trim().toLowerCase();
         return all
           .filter((a: any) => !q || `${a.label} ${a.slug}`.toLowerCase().includes(q))
@@ -160,14 +168,16 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         additionalProperties: false,
       },
       run: async ({ asset, edit, intent }, me) =>
-        intent ? assetAt(db, store, me, `${asset}`, { intent: `${intent}` }) : edit != null ? assetAt(db, store, me, `${asset}`, { edit: Number(edit) }) : assetOf(db, `${asset}`),
+        intent ? assetAt(db, store, me, `${asset}`, { intent: `${intent}` }) : edit != null ? assetAt(db, store, me, `${asset}`, { edit: Number(edit) }) : assetOf(db, `${asset}`, me),
     },
     {
       name: "get_file",
       description: "A file's text by its BLAKE3 hash: a version's readable source or its recipe file (their hashes from get_asset).",
       inputSchema: { type: "object", properties: { hash: { type: "string", description: "64 hex characters" } }, required: ["hash"], additionalProperties: false },
-      run: async ({ hash }) => {
+      run: async ({ hash }, me) => {
         if (!HASH.test(`${hash}`)) throw new NotFound("That is not a file's hash.");
+        // another's private file is as one never kept (./owners.ts)
+        if (await fileHidden(db, me, `${hash}`)) throw new NotFound("There is no such file.");
         const bytes = await store.get(`${hash}`);
         if (!bytes) throw new NotFound("There is no such file.");
         return { hash, text: new TextDecoder().decode(bytes) };
@@ -176,10 +186,11 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     {
       name: "list_library",
       description:
-        "The Library (/library/): every image, video, recording and document play keeps among its files, newest first, as its admins see it. Find a file by a part of its label or its hash's first characters (`q`), of one kind or all, a page at a time; each comes with its hash, size, media type, time, label (only shown) and where it is used (a story's shot or clip; an asset version's reference sheet, data sheet or brief). A file is named by its hash: fetch its bytes with GET /api/files/<hash> on play, sending this token as `Authorization: Bearer`. Labels are renamed only on the page.",
+        "The Library (/library/): every image, video, recording and document of a library, newest first: Maia City's (the coop's, `library` 'coop', as its admins see it; the default) or your operator's own personal one (`library` 'personal', private to them). Find a file by a part of its label or its hash's first characters (`q`), of one kind or all, a page at a time; each comes with its hash, size, media type, time, label (only shown) and where it is used (a story's shot or clip; an asset version's reference sheet, data sheet or brief). A file is named by its hash: fetch its bytes with GET /api/files/<hash> on play, sending this token as `Authorization: Bearer`. Labels are renamed only on the page.",
       inputSchema: {
         type: "object",
         properties: {
+          library: { type: "string", enum: [...LIBRARIES], description: "optional: 'coop' (Maia City's, the default) or 'personal' (your operator's own, private to them)" },
           kind: { type: "string", enum: [...LIBRARY_KINDS], description: "optional: only files of this kind; every kind if left out" },
           q: { type: "string", description: "optional: a part of the label (any case) or the first characters of the hash" },
           offset: { type: "integer", minimum: 0, description: "optional: files to skip (0 by default)" },
@@ -187,7 +198,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         },
         additionalProperties: false,
       },
-      run: async ({ kind, q, offset, limit }, me) => listLibrary(db, me, { kind: kind ?? null, q: q ?? null, offset: offset ?? 0, limit: limit ?? 60 }),
+      run: async ({ kind, q, offset, limit, library }, me) => listLibrary(db, me, { kind: kind ?? null, q: q ?? null, offset: offset ?? 0, limit: limit ?? 60, library }),
     },
     {
       name: "propose_asset",
@@ -227,11 +238,12 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
           sheet: { type: ["string", "null"], description: "its reference sheet: the hash of an image play keeps (add it first with add_story_frame, with a label for the Library), a plant's plate of every stage and organ made for it; shown with the version in the asset library and, in the Library, beside the image, the plant it belongs to. Carried on from the head unless given; null takes it away" },
           datasheet: { type: ["string", "null"], description: "its data sheet: the hash of a document play keeps (add_document), the researched numbers with every source. Shown with the version and, in the Library, beside the document. Carried on from the head unless given; null takes it away" },
           brief: { type: ["string", "null"], description: "the brief its reference sheet was made from: the hash of a document play keeps (add_document). Carried on from the head unless given; null takes it away" },
+          private: { type: "boolean", description: "optional, group characters only: the asset is your operator's own, private to them (seen, read and decided by them alone, everywhere in play; no sandbox may pin it); its files and documents may be their personal library's. Everyone's (Maia City's) if left out" },
         },
         required: ["group", "label", "note"],
         additionalProperties: false,
       },
-      run: async ({ group, slug, label, source, note, variants, default_variant, params, sheet, datasheet, brief, intent }, me) => {
+      run: async ({ group, slug, label, source, note, variants, default_variant, params, sheet, datasheet, brief, intent, private: own }, me) => {
         const kinds = Array.isArray(variants) && variants.length ? variants : null;
         if (!source && !kinds) throw new VersionError("Give its source, or its variants.");
         // play runs no code: a recipe's declared params reach its record only from here (a build with values is refused without them)
@@ -244,7 +256,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
           store,
           me,
           {
-            new: { group, slug, label },
+            new: { group, slug, label, ...(own !== undefined ? { private: own } : {}) },
             ...(params !== undefined ? { card: { params } } : {}),
             ...(kinds
               ? { variants: Object.fromEntries(kinds.map((x: any) => [`${x.name}`, { source: `${x.source ?? source ?? ""}`, ...(x.label !== undefined ? { label: `${x.label}` } : {}) }])), ...(default_variant ? { defaultVariant: `${default_variant}` } : {}) }
@@ -407,11 +419,11 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
       description: `Add a storyboard image (a JPEG, PNG or WebP, at most ${MOST_FRAME / 1e6} MB) as base64. play keeps it among its files and gives back its BLAKE3 hash, to use as a shot's \`frame\` in propose_story or propose_doc_version. The same image always gives the same hash.`,
       inputSchema: {
         type: "object",
-        properties: { data: { type: "string", description: "the image's bytes as base64 (a data: URL's prefix is allowed)" }, media_type: { type: "string", enum: ["image/jpeg", "image/png", "image/webp"] }, label: { type: "string", description: "a short label for the Library (where it came from, what it shows); only shown, the file is named by its hash" } },
+        properties: { data: { type: "string", description: "the image's bytes as base64 (a data: URL's prefix is allowed)" }, media_type: { type: "string", enum: ["image/jpeg", "image/png", "image/webp"] }, label: { type: "string", description: "a short label for the Library (where it came from, what it shows); only shown, the file is named by its hash" }, library: LIBRARY_ARG },
         required: ["data", "media_type"],
         additionalProperties: false,
       },
-      run: async ({ data, media_type, label }, me) => (admin(me, STORY_ADMINS), putFrameBase64(db, store, data, media_type, label)),
+      run: async ({ data, media_type, label, library }, me) => (admin(me, STORY_ADMINS), putFrameBase64(db, store, data, media_type, label, libraryOf(me, library).owner)),
     },
     {
       name: "add_story_video",
@@ -429,11 +441,11 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
       description: `Add a document (Markdown text, at most ${MOST_DOCUMENT / 1e6} MB): a plant's data sheet (its researched numbers, every row with its source) or the brief its reference sheet was made from. play keeps it among its files, shown in the Library with its label, and gives back its BLAKE3 hash, to name as a version's \`datasheet\` or \`brief\` in propose_doc_version or propose_asset (play/SPEC.md §4.10). The same text always gives the same hash.`,
       inputSchema: {
         type: "object",
-        properties: { text: { type: "string", description: "the document as Markdown text" }, label: { type: "string", description: "a short label for the Library (\"Data sheet · Plum 'Hauszwetschge'\"); only shown, the file is named by its hash" } },
+        properties: { text: { type: "string", description: "the document as Markdown text" }, label: { type: "string", description: "a short label for the Library (\"Data sheet · Plum 'Hauszwetschge'\"); only shown, the file is named by its hash" }, library: LIBRARY_ARG },
         required: ["text"],
         additionalProperties: false,
       },
-      run: async ({ text, label }, me) => (admin(me, STORY_ADMINS), putDocument(db, store, text, label)),
+      run: async ({ text, label, library }, me) => (admin(me, STORY_ADMINS), putDocument(db, store, text, label, libraryOf(me, library).owner)),
     },
     {
       name: "add_story_audio",
@@ -825,6 +837,9 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         const tool = tools.find((t) => t.name === msg.params?.name);
         if (!tool) return fail(msg.id, -32602, `There is no tool ${msg.params?.name}.`);
         try {
+          // an intent whose work is another's private asset is as one that never was, whichever tool names it (./owners.ts)
+          const named = msg.params?.arguments?.intent;
+          if (typeof named === "string" && me && !(await seesIntent(db, me, named))) throw new IntentError("There is no such intent.", 404);
           const out = await tool.run(msg.params?.arguments ?? {}, me);
           return reply(msg.id, { content: [{ type: "text", text: JSON.stringify(out, null, 2) }], structuredContent: Array.isArray(out) ? { items: out } : out });
         } catch (e) {
