@@ -18,7 +18,7 @@
 
 <script lang="ts">
 	import { api } from '$lib/api';
-	import { changesOnly, lineDiff } from '$lib/diff';
+	import { changesOnly, lineDiff, sentences } from '$lib/diff';
 
 	let {
 		changes = $bindable(null),
@@ -68,9 +68,8 @@
 	/** a document path as people read it: $.line.stations[id=weld].servers → line › stations › weld › servers */
 	const pathText = (path: string) => path.replace(/^\$\.?/, '').replace(/\[id=([^\]]+)\]/g, '.$1').replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
 	const valueText = (v: unknown) => (v === undefined ? '(none)' : JSON.stringify(v, null, 1));
-	/** a text as the diff reads it: code line by line, prose one sentence a line */
-	const sentenced = (v: unknown) => (typeof v !== 'string' ? '' : v.includes('\n') ? v : v.replace(/([.!?]) (?=[A-Z`"(])/g, '$1\n'));
-	const textDiff = (c: Change) => changesOnly(lineDiff(c.kind === 'added' ? '' : sentenced(c.from), c.kind === 'removed' ? '' : sentenced(c.to)), 1);
+	/** a text as the diff reads it: line by line, then one sentence a line ($lib/diff's sentences) */
+	const textDiff = (c: Change) => changesOnly(lineDiff(c.kind === 'added' ? '' : sentences(c.from), c.kind === 'removed' ? '' : sentences(c.to)), 1);
 	const when = (iso: string) => new Date(iso).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 	const shown = $derived((changes ?? []).filter((c) => !skip.includes(c.path) && !(pins && c.path.startsWith('$.pins.'))));
 	const pinText = (x: PinShown) =>
