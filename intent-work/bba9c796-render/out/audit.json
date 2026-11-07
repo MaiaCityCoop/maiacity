@@ -561,5 +561,54 @@
    "png": "sandbox-3-walk15.png"
   }
  ],
- "wins": []
+ "wins": [
+  {
+   "world": "sandbox-1",
+   "rank": 1,
+   "saving_ms": 6.5,
+   "basis": "mid: GPU 26.6 ms, 16.8 at a quarter of the pixels, so fill is about (26.6-16.8)/0.75 = 13.1 ms and geometry and calls about 13.5 ms for 6.23M triangles; halving the triangles saves about half of that. Near: about 5 ms.",
+   "win": "Halve the triangles the village's forest draws near and mid (6.0-6.2M in about 1,800 MeshStandardMaterial calls): the plants' L0/L1 crowns held to lod.js's budgets, the levels switched as the contract says (6295a650's thread).",
+   "where": "play/site/src/lib/content/assets/render/lod.js (BUDGETS, LEVELS), play/site/src/lib/content/sandbox-2/interior/flora.js and village.ts (the forest's plants and their declared levels)"
+  },
+  {
+   "world": "sandbox-1",
+   "rank": 2,
+   "saving_ms": 4.7,
+   "basis": "fill at mid about 13.1 ms (above); a pixel ratio of 0.8 draws 0.64 of the pixels: 13.1 x 0.36 = 4.7 ms. Near: fill about 11.5 ms, about 4.1 ms.",
+   "win": "Let a GPU-bound frame drop below one pixel per CSS pixel: adaptiveResolution's floor from 1 to 0.8 for the village while its GPU ms is over the display's interval (a quality trade, held off while a film holds the size).",
+   "where": "play/site/src/lib/content/render/core.js (adaptiveResolution, its floor), play/site/src/lib/content/sandbox-2/interior/village.ts (stage.adapt)"
+  },
+  {
+   "world": "sandbox-1",
+   "rank": 3,
+   "saving_ms": 2.1,
+   "basis": "near: GPU 23.1 ms with the 209 blended draws, 21.0 without (the probe's noblend); mid about 0.",
+   "win": "The domes' blended glass, solar glass and water (MeshPhysicalMaterial with sheen, about 190 draws and 0.6-0.9M triangles, transparent and double-sided) drawn as MeshStandardMaterial and, where it is a thin sheet, alphaHash instead of blending.",
+   "where": "play/site/src/lib/content/sandbox-2/interior/interior.ts (solarGlass, glass, water, withSheen), play/site/src/lib/content/sandbox-2/interior/factory.ts (glassWall, fence, film)"
+  },
+  {
+   "world": "sandbox-3",
+   "rank": 1,
+   "saving_ms": 1.3,
+   "basis": "open: GPU 6.1 ms, 4.8 with no shadow-map draws (the probe's noshadow); walk5 1.2, walk15 1.1. Also about 650-790 of 835-1,058 draw calls: at about 3.9 us a call, about 2.5-3 ms of CPU.",
+   "win": "The sun's shadow map drawn only when something moved and only from what is near: its camera from a fixed 220 x 220 m box to one following the walker (about 80 m), casters only what reads as a shadow (not the grass clumps), shadowMap.autoUpdate off with needsUpdate when the walker, the van or the sun moves, as the sandbox kit's sky does.",
+   "where": "play/site/src/lib/content/maiacity-v2/world.js (sun.shadow.camera, castShadow on its trees and props), play/site/src/lib/content/maiacity-v2/drawn.js (cast on every loaded mesh), play/site/src/lib/content/sandbox-kit/sky.js (the pattern)"
+  },
+  {
+   "world": "sandbox-3",
+   "rank": 2,
+   "saving_ms": 1.0,
+   "basis": "open: GPU 6.1 ms, 4.2 at a quarter of the pixels, so fill is about 2.5 ms; the low walking camera looks through grass that fills most of the frame (sandbox-3-*.png). Estimated: about 40% of that fill is the grass's double-sided blades overlapping.",
+   "win": "Less overdraw from the grass in front of a low camera: the close clump and the tall grass single-sided, thinned near the eye by screen size, alpha-tested cards beyond a few metres.",
+   "where": "play/site/src/lib/content/maiacity-v2/world.js (clump, tallGrass, steppe)"
+  },
+  {
+   "world": "sandbox-3",
+   "rank": 3,
+   "saving_ms": 0.5,
+   "basis": "184-264 screen draws of MeshStandardMaterial at about 3.9 us each (CPU 3.2-4.1 ms for 835-1,058 calls); welding or instancing the static set to about 60 saves about 0.5-0.8 ms of CPU. The GPU barely changes.",
+   "win": "Weld or instance the land's static set (ground, highway, gravel, bushes, the props that never move) and set matrixAutoUpdate = false on it.",
+   "where": "play/site/src/lib/content/maiacity-v2/world.js (land, highway, gravel, bushes, things), play/site/src/lib/content/maiacity-v2/things.js"
+  }
+ ]
 }
