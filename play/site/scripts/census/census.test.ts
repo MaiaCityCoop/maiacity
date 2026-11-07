@@ -143,7 +143,7 @@ function census(args: string[]) {
 describe('sandbox-1 on the CPU', () => {
 	let got: any;
 	beforeAll(() => {
-		got = census(['--world', 'sandbox-1', '--view', 'all', '--inputs', join(HERE, 'run5')]);
+		got = census(['--world', 'sandbox-1', '--view', 'all']);
 	}, 300_000);
 
 	test('builds and is counted from near, mid and far: meshes, triangles, no graphics context', () => {

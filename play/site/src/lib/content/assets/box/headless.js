@@ -8,8 +8,8 @@
  */
 import { blake3 } from '@noble/hashes/blake3.js';
 
-/** a source's BLAKE3 hash, as play names files and pieces */
-export const hashOf = (text) => [...blake3(new TextEncoder().encode(text))].map((b) => b.toString(16).padStart(2, '0')).join('');
+/** a source's (or a file's bytes') BLAKE3 hash, as play names files and pieces */
+export const hashOf = (data) => [...blake3(typeof data === 'string' ? new TextEncoder().encode(data) : data)].map((b) => b.toString(16).padStart(2, '0')).join('');
 
 /**
  * A runner of readable sources: `run(code, name)` gives its module's exports.

@@ -5,15 +5,17 @@
  * that counts every draw three would send (./census/counting.js), and the Mac then measures only the frame time.
  *
  *   bun play/site/scripts/census.ts [--world sandbox-1|sandbox-3|worlds] [--view near|mid|far|open|all] [--at <commit>]
- *                                   [--asset <uuid>] [--inputs <dir>] [--record] [--json <file>] [--copies]
+ *                                   [--asset <uuid>] [--inputs <dir> | --live] [--record] [--json <file>] [--copies]
  *
  * --world         Sandbox 1 (the village: near, mid, far), Sandbox 3 (the old city) or the worlds view (a world asset:
  *                 --asset names it by its UUID, else the first world play lists), the last two as they open (`open`)
  *
  * --at <commit>   that commit's play/site, checked out in a worktree under the census's cache (this checkout's
  *                 node_modules and frozen engines), so an intent's base and head are counted alike
- * --inputs <dir>  play's routes as they were pinned there (./census/run5/: Sandbox 1's layout and the catalog of run 5);
- *                 none: read live from play.maia.city with PLAY_MCP_TOKEN. --record pins what is read live into it.
+ * --inputs <dir>  the world's inputs as pinned there: play's routes and files by hash (default ./census/inputs/, as
+ *                 6295a650's run 5 read them: Sandbox 1's layout and the catalog, and the files the worlds read).
+ *                 What is not pinned is read live with PLAY_MCP_TOKEN; --record pins what is read live into it.
+ * --live          read play live (play.maia.city with PLAY_MCP_TOKEN, the header to play only), nothing pinned
  * --json <file>   every view's census as JSON (each copy, each frame, the totals)
  * --copies        a table of each kind's copies drawn as shapes, the costliest first
  *
@@ -58,7 +60,10 @@ function treeAt(commit: string) {
 
 const tree = at ? treeAt(at) : null;
 const { setup } = await import('./census/setup');
-setup({ root: tree?.root, inputs: arg('--inputs') && resolve(arg('--inputs')!), record: argv.includes('--record'), cache: CACHE });
+// the world's inputs pinned (./census/inputs/) unless asked to read play live: a census needs no token, and counts the
+// same world today as when it was pinned
+const live = argv.includes('--live');
+setup({ root: tree?.root, inputs: live ? undefined : resolve(arg('--inputs') ?? join(SITE, 'scripts/census/inputs')), record: argv.includes('--record'), cache: CACHE });
 const { censusOf, VIEWS_OF } = await import('./census/run');
 const views = view === 'all' ? VIEWS_OF[world] : (view.split(',') as typeof VIEWS_OF[typeof world]);
 const t0 = performance.now();

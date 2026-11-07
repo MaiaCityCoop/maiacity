@@ -233,14 +233,21 @@ export function setup(o: Setup = {}) {
 			const route = url.pathname + url.search;
 			const file = /^\/api\/files\/([0-9a-f]{64})$/.exec(url.pathname)?.[1];
 			if (file) {
+				// a file is what its hash names: pinned with the inputs, else kept on disk, else read from play once
+				const pinned = done.inputs && join(done.inputs, 'files', `${file}.gz`);
+				let bytes: Uint8Array | null = pinned && existsSync(pinned) ? gunzipSync(readFileSync(pinned)) : null;
 				const at = join(filesDir, file);
-				if (!existsSync(at)) {
-					const r = await realFetch(PLAY + route, { headers: auth(token) });
+				if (!bytes && existsSync(at)) bytes = readFileSync(at);
+				if (!bytes) {
+					const r = await realFetch(PLAY + route, { headers: auth(token, route) });
 					if (!r.ok) return r;
-					writeFileSync(at, new Uint8Array(await r.arrayBuffer()));
+					bytes = new Uint8Array(await r.arrayBuffer());
+					writeFileSync(at, bytes);
 				}
+				if (hashOf(bytes) !== file) throw new Error(`census: the file ${file.slice(0, 12)}… is not what its hash names`);
+				if (done.record && pinned && !existsSync(pinned)) mkdirSync(join(done.inputs!, 'files'), { recursive: true }), writeFileSync(pinned, gzipSync(bytes, { level: 9 }));
 				fetched.files++;
-				return new Response(readFileSync(at), { status: 200, headers: { 'content-type': 'application/octet-stream' } });
+				return new Response(bytes, { status: 200, headers: { 'content-type': 'application/octet-stream' } });
 			}
 			const pinnedAt = done.inputs && join(done.inputs, `${createHash('sha256').update(route).digest('hex').slice(0, 20)}.json.gz`);
 			if (pinnedAt && existsSync(pinnedAt)) {
@@ -248,7 +255,7 @@ export function setup(o: Setup = {}) {
 				fetched.pinned.add(route);
 				return new Response(p.body, { status: p.status, headers: { 'content-type': p.type } });
 			}
-			const r = await realFetch(PLAY + route, { headers: auth(token) });
+			const r = await realFetch(PLAY + route, { headers: auth(token, route) });
 			fetched.live.add(route);
 			if (done.verbose) console.error('census: live', r.status, route);
 			const body = await r.text();
@@ -264,8 +271,8 @@ export function setup(o: Setup = {}) {
 	return done;
 }
 
-const auth = (token: string | undefined): Record<string, string> => {
-	if (!token) throw new Error('census: PLAY_MCP_TOKEN, the admin token play is read with, is not set');
+const auth = (token: string | undefined, route: string): Record<string, string> => {
+	if (!token) throw new Error(`census: ${route} is not pinned (census/inputs/; --record pins it) and PLAY_MCP_TOKEN, the admin token play is read with live, is not set`);
 	return { authorization: `Bearer ${token}`, accept: '*/*' };
 };
 
