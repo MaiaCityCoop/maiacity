@@ -1,0 +1,24 @@
+{
+ "n": 200,
+ "near": 20,
+ "max": 50,
+ "readyMs": 44,
+ "frames": 6,
+ "fps": 0.4,
+ "posingMsPerFrame": 1.87,
+ "rigged": 50,
+ "clips": [
+  "idle",
+  "walk",
+  "run",
+  "start",
+  "stop",
+  "turn left",
+  "turn right",
+  "sit down",
+  "sitting",
+  "stand up",
+  "wave",
+  "pick up"
+ ]
+}
