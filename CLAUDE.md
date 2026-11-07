@@ -122,8 +122,11 @@ version names its **reference sheet** (its card's `sheet`, set with `doc_edit`, 
 §4.10), shown with the version in the asset library and, in the Library, beside the image, the plant it belongs to, and
 its **data sheet** and its sheet's **brief** (`datasheet`, `brief`: Markdown kept with `add_document`), so a plant's whole
 dataset is in play. A
-version can be a kind of **variants** (the document's `variants`, or `propose_asset`'s: a plant's kinds, an animal's breeds), each its own
-recipe and a chip in the asset viewer. Everything Maia City wants made, fixed or improved is an **intent** (play/SPEC.md
+version can be a kind of **variants** (a plant's kinds, an animal's breeds), each its own
+recipe and a chip in the asset viewer: an asset's variants are **breeds** of its document (play/SPEC.md §4.15, Breeds), named variants beside Main
+that take every edit accepted on Main except on the fields they override (its `source`, its `card`); a breed changes by its own intent variant
+(`doc_edit`'s and `propose_doc_version`'s `breed`), a new one is made by one (`new_breed`), and every Accept, on Main or on a breed, is the asset's
+next frozen version with every breed built as its variant. Everything Maia City wants made, fixed or improved is an **intent** (play/SPEC.md
 §4.12; Samuel 2026-11-06), on the intents' board (a modal from the nav pill's star): **Idea → Specify → Build →
 Proposal → (Ship →) Accepted** (or Archived). **One record** (Samuel 2026-11-06: "not a proposal belongs to an intent: the intent
 has a state, proposal"): there is no proposal beside an intent; Proposal is the intent's stage, and the work it brings

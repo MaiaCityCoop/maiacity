@@ -173,8 +173,8 @@ to read, to time-travel through and to tell (a making-of is that history played 
 
 **Assets on documents** (Samuel 2026-11-03, `play/api/src/assetdocs.ts`). Every asset is an `asset/1` document,
 `asset:<uuid>`: its readable source as a text (diffed by lines when a whole source is sent), its label, note and engine,
-its card (the version's record), and for a kind of variants its default variant and each variant's card and, where it
-differs from the asset's own, its source. The §4.3 tables stay what the catalog, the pins and the box read: a version's
+its card (the version's record), and for a kind of variants its default variant; each variant is a **breed** of the
+document (§4.15, Breeds), beside Main, holding its own card and, where it differs from Main's, its source. The §4.3 tables stay what the catalog, the pins and the box read: a version's
 id, number, recipe file and source hash are exactly what they were, and nothing downstream reads the document.
 
 - **Its history, made once from its versions** (in the deploy's import, and the first time an asset is touched): each
@@ -192,8 +192,10 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   /api/me`, `/api/catalog`, `/api/files/<hash>`, `/api/sandboxes/<id>/config`, `/api/assets…`; `READ_BY_TOKEN` in
   `play/api/src/app.ts`), so an agent loads a sandbox in its own browser as its admin and films it (`window.__world`'s
   `fly` and `sun`) for a story's storyboard. Every other route still wants a session.
-- **Variants over MCP** (Samuel 2026-11-03): the document's `variants` (each a `name`, its card's `label`, its own
-  `source` where it differs; set with `doc_edit`, `propose_asset`'s for a new asset) make a version a kind of variants, as the animals are: each variant its own recipe file, the source
+- **Variants over MCP** (Samuel 2026-11-03; breeds since 2026-11-06, §4.15): an asset's breeds (each a `name`, its
+  card's `label`, its own `source` where it differs from Main's; changed with `doc_edit`'s and `propose_doc_version`'s
+  `breed`, made with `new_breed`, or given whole as `propose_asset`'s `variants` for a new asset) make each version a
+  kind of variants, as the animals are: each breed built as its variant, its own recipe file, the source
   called with its name (`module.exports.recipe(id, v, variant)`), its label shown as a chip in the asset viewer
   ("Papaya: Male" as Male), `default_variant` the one a ref without a variant names. `params` sets the card's
   parameters when the recipe declares new ones (its meta.params, in its build's order), on the version and every
@@ -821,6 +823,7 @@ registry and one module, shown by one History.
 | **Intent variant** | A variant that exists only inside an intent and goes through its stages. Accept merges it into the variant it came from; Archive closes it, kept in the history | draft, feature branch |
 | **Seed** | The version a variant grows from ("seeded from Main v3"). A document's first version is just v1 | base |
 | **Version** | A numbered state of Main, named on accept | version |
+| **Breed** | A named variant beside Main that tracks Main: it takes every edit accepted on Main, except on the fields it overrides (an asset's kinds and breeds) | an asset's variants |
 
 - **One registry, one module** (`play/api/src/versioned.ts`). Each versioned kind is one entry: its document prefix and
   its schema (a document, by its UUID: below), its row table, its label and group (only shown), and hooks only where it really differs (an
@@ -889,6 +892,37 @@ registry and one module, shown by one History.
   build or a story's player.
 - **No bypass**: every change waits at Proposal for a person's Accept; the intents' stages, gates and Ship are as they
   were (§4.12).
+
+#### Breeds (Samuel 2026-11-06; intent 7c8085db-ccdb-44cf-8d6c-0ff984d71f41)
+
+"Breeds are like variants under the hood but keep tracking their main so they live alongside main." An asset's
+variants (a plant's kinds, an animal's breeds) are **breeds** of its document: variants of type `breed` in
+`doc_variants` (migration `202611070120-7c8085db-breeds`), each named (its `name`, only shown; the frozen variant rows and the pins
+keep naming a variant by it), beside Main.
+
+- **What a breed holds is what it overrides**: the fields it changed from Main (`overrides`, paths into the document),
+  only ever within an asset's `source` and `card` (`play/api/src/docs/breeds.ts`). A breed that overrides nothing is
+  Main as it is.
+- **A breed tracks Main**: when an edit is accepted on Main it is merged into every breed (one `merge` edit on the
+  breed's line, "tracks Main vN"), and on every field the breed overrides the breed keeps its own value. A field both
+  Main and the breed changed (a clash) keeps the breed's.
+- **A breed changes by its own intent variant**, seeded from it (`doc_edit`'s or `propose_doc_version`'s `breed`, the
+  breed's number from `doc_history`); it may change only the breed's own fields. Accepting merges it into the breed,
+  and what it changed the breed overrides from then on. **A new breed is made by an intent too** (`new_breed`, its
+  name): seeded from Main, its Accept makes the breed.
+- **Every Accept, on Main or on a breed, is the asset's next frozen version**: `asset_versions` with one
+  `asset_variants` row per breed, each built from the breed as it then is (Main beneath it), the recipe made in the
+  box as before (`RECIPE_HEAD + source + recipeTail(slug, v, breed)`). An Accept on a breed leaves Main as it is and
+  names its next version all the same. `defaultVariant` (on Main) names the breed shown first.
+- **The migration**: every asset's variants became breeds of its document with the same sources and cards (in the
+  deploy's import, `breedsFromVariants` in `play/api/src/assetdocs.ts`: each breed built gives its variant's recipe
+  hash, byte for byte); Main holds no `variants` since. Every frozen version, its variant rows and every pin stayed as
+  they were. A version proposed with its `variants` given whole (`propose_asset`) makes them breeds on its Accept; an
+  asset of breeds is changed only through its document, so every breed is built from it.
+- **In the views**: the asset viewer's chips list the breeds (the frozen version's variants, as before), and its
+  History tab shows each breed as its own line beside Main (what it overrides; picking it builds the breed); an intent
+  variant says whether it changes Main, changes a breed or makes one. `doc_at`'s `breed` reads a breed as it is now,
+  `/api/docs/<uuid>?breed=` the same; `/changes?variant=` of a breed is what it overrides of Main.
 
 
 ## 5. The sandboxes

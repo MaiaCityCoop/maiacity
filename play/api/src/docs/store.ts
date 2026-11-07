@@ -11,6 +11,7 @@ import type { Db, Queryable } from "../pg";
 import { applyEdits, contentHash, fromBytes, jsonAt, jsonOf, newDoc, patchTo, sameFrontiers, seed, type Edit, type Frontiers } from "./core";
 import { typeFor } from "./schemas";
 import { problemsOf, SchemaError, type DocType } from "./validate";
+import { breedOn, changedFields, union, type Path } from "./breeds";
 
 export class DocError extends Error {
   constructor(message: string, public status = 400, public extra: Record<string, unknown> = {}) {
@@ -21,11 +22,11 @@ export class DocError extends Error {
 /** who writes: a human (or the agent acting under their name), and through what */
 export type Author = { human: string | null; via: "site" | "mcp" | "import" | "system" };
 type DocRow = { id: string; type: string; schema: string; schema_id: string | null; head: Frontiers; snapshot: Uint8Array | null; snapshot_seq: string; main: string };
-type VariantRow = { id: string; doc_id: string; type: "main" | "intent"; seed: Frontiers; head: Frontiers; status: string; note: string; created_by: string | null; created: Date; proposed_at: Date | null; decided_by: string | null; decided_at: Date | null; version: number | null; intent_id: string | null };
+type VariantRow = { id: string; doc_id: string; type: "main" | "intent" | "breed"; name: string | null; breed: string | null; makes: string | null; main_seed: Frontiers | null; overrides: Path[]; seed: Frontiers; head: Frontiers; status: string; note: string; created_by: string | null; created: Date; proposed_at: Date | null; decided_by: string | null; decided_at: Date | null; version: number | null; intent_id: string | null };
 /** one edit: its seq, its variant (null: made on Main), its kind, who, why, when, the frontiers after it */
 export type DocEdit = { seq: number; variant: number | null; kind: string; author: string | null; via: string; message: string; frontiers: Frontiers; created: Date; bytes: number };
 export type Version = { number: number; frontiers: Frontiers; contentHash: string; note: string; author: string | null; variant: number | null; created: Date };
-export type Variant = { id: number; type: "main" | "intent"; status: string; note: string; created_by: string | null; created: Date; intent_id: string | null; edits: number; seed: Frontiers };
+export type Variant = { id: number; type: "main" | "intent" | "breed"; name: string | null; breed: number | null; makes: string | null; overrides: Path[]; status: string; note: string; created_by: string | null; created: Date; intent_id: string | null; edits: number; seed: Frontiers; mainSeed: Frontiers | null };
 
 /** edits on Main after a snapshot before a new snapshot is written (it keeps the whole history: only loading gets faster) */
 export const COMPACT_AFTER = 32;
@@ -46,8 +47,8 @@ async function rowOf(q: Queryable, id: string): Promise<DocRow> {
   if (!rows[0]) throw new DocError(`no document ${id}`, 404);
   return rows[0];
 }
-async function variantRow(q: Queryable, docId: string, variant: number, forUpdate = false): Promise<VariantRow> {
-  const { rows } = await q.query<VariantRow>(`SELECT * FROM play.doc_variants WHERE id = $1 AND doc_id = $2 AND type = 'intent'${forUpdate ? " FOR UPDATE" : ""}`, [variant, docId]);
+async function variantRow(q: Queryable, docId: string, variant: number, forUpdate = false, types: string[] = ["intent"]): Promise<VariantRow> {
+  const { rows } = await q.query<VariantRow>(`SELECT * FROM play.doc_variants WHERE id = $1 AND doc_id = $2 AND type = ANY($3::text[])${forUpdate ? " FOR UPDATE" : ""}`, [variant, docId, types]);
   if (!rows[0]) throw new DocError(`${docId} has no variant ${variant}`, 404);
   return rows[0];
 }
@@ -57,10 +58,14 @@ async function loadMain(q: Queryable, row: DocRow): Promise<LoroDoc> {
   const { rows } = await q.query<{ bytes: Uint8Array }>(`SELECT bytes FROM play.doc_edits WHERE doc_id = $1 AND variant = $2 AND seq > $3 ORDER BY seq`, [row.id, row.main, row.snapshot_seq]);
   return fromBytes(row.snapshot ? toBytes(row.snapshot) : null, rows.map((r) => toBytes(r.bytes)));
 }
-/** an intent variant as it is now: Main at its seed, its own edits on top */
+/**
+ * A variant as it is now: what it grew from at its seed (Main; for an intent variant of a breed, that breed), its own
+ * edits on top. A breed's own edits include every edit of Main merged into it since (trackMain).
+ */
 async function loadVariant(q: Queryable, row: DocRow, v: VariantRow, main?: LoroDoc): Promise<LoroDoc> {
   const m = main ?? (await loadMain(q, row));
-  const d = m.forkAt(v.seed);
+  const from = v.breed !== null && v.breed !== undefined ? await loadVariant(q, row, await variantRow(q, row.id, Number(v.breed), false, ["breed"]), m) : m;
+  const d = from.forkAt(v.seed);
   d.setRecordTimestamp(true);
   d.setChangeMergeInterval(0);
   const { rows } = await q.query<{ bytes: Uint8Array }>(`SELECT bytes FROM play.doc_edits WHERE doc_id = $1 AND variant = $2 ORDER BY seq`, [row.id, v.id]);
@@ -172,7 +177,7 @@ export async function commit(db: Db | Queryable, id: string, w: Write & { messag
     const main = await loadMain(q, row);
     let d = main, line: string | number = row.main;
     if (w.variant !== undefined) {
-      const v = await variantRow(q, id, w.variant, true);
+      const v = await variantRow(q, id, w.variant, true, ["intent", "breed"]);
       if (v.status !== "open" && v.status !== "proposed") throw new DocError(`variant ${v.id} was ${v.status}: it takes no more edits`, 409);
       d = await loadVariant(q, row, v, main);
       line = Number(v.id);
@@ -183,6 +188,11 @@ export async function commit(db: Db | Queryable, id: string, w: Write & { messag
     else patchTo(d, t, w.target);
     const e = await edit(q, t, d, before, { doc: row, variant: line }, w.kind ?? "edit", w.message.trim(), w.author, w.at);
     if (e && line === row.main) await compact(q, row, d);
+    // an edit of a breed's own (the import's, from an asset's variants): what it changes, the breed overrides
+    if (e && w.variant !== undefined) {
+      const v = await variantRow(q, id, w.variant, false, ["intent", "breed"]);
+      if (v.type === "breed") await q.query(`UPDATE play.doc_variants SET overrides = ($2::text)::jsonb WHERE id = $1`, [v.id, JSON.stringify(union(v.overrides, changedFields(jsonAt(d, v.seed), jsonOf(d))))]);
+    }
     return e;
   });
 }
@@ -195,16 +205,73 @@ export async function nameVersion(db: Db | Queryable, id: string, o: { note: str
   });
 }
 
-/** a new intent variant, seeded at Main's head (or at `at`): where an intent's work is made, edit by edit */
-export async function variant(db: Db | Queryable, id: string, o: { author: Author; note?: string; at?: Frontiers }): Promise<{ id: number; seed: Frontiers }> {
+/**
+ * A new intent variant, where an intent's work is made, edit by edit: seeded at Main's head (or at `at`); with `breed`,
+ * at that breed's head, to change the breed; with `makes`, from Main, to make a new breed of that name. `main_seed` is
+ * Main's point it was made at, whatever it grows from.
+ */
+export async function variant(db: Db | Queryable, id: string, o: { author: Author; note?: string; at?: Frontiers; breed?: number; makes?: string }): Promise<{ id: number; seed: Frontiers }> {
   return inTx(db, async (q) => {
     const row = await lock(q, id);
-    const seedAt = o.at ?? row.head;
+    let seedAt = o.at ?? row.head;
+    if (o.breed !== undefined) {
+      const b = await variantRow(q, id, o.breed, false, ["breed"]);
+      if (b.status !== "open") throw new DocError(`breed ${b.name} was ${b.status}`, 409);
+      seedAt = b.head;
+    }
+    if (o.makes !== undefined) {
+      const { rows: taken } = await q.query(`SELECT 1 FROM play.doc_variants WHERE doc_id = $1 AND type = 'breed' AND name = $2`, [id, o.makes]);
+      if (taken.length) throw new DocError(`${id} has a breed ${o.makes} already: change that one`, 409);
+    }
     const { rows } = await q.query<{ id: string }>(
-      `INSERT INTO play.doc_variants (doc_id, type, seed, head, note, created_by) VALUES ($1, 'intent', ($2::text)::jsonb, ($2::text)::jsonb, $3, $4) RETURNING id`,
-      [id, JSON.stringify(seedAt), o.note ?? "", o.author.human],
+      `INSERT INTO play.doc_variants (doc_id, type, seed, head, note, created_by, breed, makes, main_seed) VALUES ($1, 'intent', ($2::text)::jsonb, ($2::text)::jsonb, $3, $4, $5, $6, ($7::text)::jsonb) RETURNING id`,
+      [id, JSON.stringify(seedAt), o.note ?? "", o.author.human, o.breed ?? null, o.makes ?? null, JSON.stringify(o.breed !== undefined ? row.head : seedAt)],
     );
     return { id: Number(rows[0].id), seed: seedAt };
+  });
+}
+
+/** a new breed of the document, grown from Main's head: the import's, from an asset's variants (else an intent's Accept makes one) */
+export async function breed(db: Db | Queryable, id: string, o: { name: string; author: Author; note?: string }): Promise<{ id: number; seed: Frontiers }> {
+  return inTx(db, async (q) => makeBreed(q, await lock(q, id), o));
+}
+async function makeBreed(q: Queryable, row: DocRow, o: { name: string; author: Author; note?: string; at?: Frontiers }): Promise<{ id: number; seed: Frontiers }> {
+  const seedAt = o.at ?? row.head;
+  const { rows: taken } = await q.query(`SELECT 1 FROM play.doc_variants WHERE doc_id = $1 AND type = 'breed' AND name = $2`, [row.id, o.name]);
+  if (taken.length) throw new DocError(`${row.id} has a breed ${o.name} already`, 409);
+  const { rows } = await q.query<{ id: string }>(
+    `INSERT INTO play.doc_variants (doc_id, type, name, seed, head, note, created_by) VALUES ($1, 'breed', $2, ($3::text)::jsonb, ($3::text)::jsonb, $4, $5) RETURNING id`,
+    [row.id, o.name, JSON.stringify(seedAt), o.note ?? "", o.author.human],
+  );
+  return { id: Number(rows[0].id), seed: seedAt };
+}
+
+/**
+ * Main merged into breed `b` (play/SPEC.md "Breeds"): every edit Main has that the breed lacks, taken in, and on every
+ * field the breed overrides its own value kept (a field both changed keeps the breed's). One edit of the breed's, a
+ * merge; none where the breed has all of Main already.
+ */
+async function trackMain(q: Queryable, row: DocRow, t: DocType, main: LoroDoc, b: VariantRow, message: string, a: Author): Promise<DocEdit | null> {
+  const d = await loadVariant(q, row, b, main);
+  d.setPeerId(await peerFor(q, row.id, b.id, { human: null, via: "system" }));
+  const before = d.version();
+  const own = jsonOf(d);
+  d.import(main.export({ mode: "update", from: d.oplogVersion() }));
+  const target = breedOn(jsonOf(d), own, b.overrides);
+  if (JSON.stringify(target) !== JSON.stringify(jsonOf(d))) patchTo(d, t, target);
+  if (sameFrontiers(d.frontiers(), d.vvToFrontiers(before))) return null;
+  return edit(q, t, d, before, { doc: row, variant: b.id }, "merge", message, a);
+}
+/** Main merged into every open breed of the document (after an Accept on Main) */
+async function trackMainAll(q: Queryable, row: DocRow, t: DocType, main: LoroDoc, message: string, a: Author): Promise<void> {
+  const { rows } = await q.query<VariantRow>(`SELECT * FROM play.doc_variants WHERE doc_id = $1 AND type = 'breed' AND status = 'open' ORDER BY id FOR UPDATE`, [row.id]);
+  for (const b of rows) await trackMain(q, row, t, main, b, message, a);
+}
+/** Main merged into every open breed of document `id` as it is now (the import's, after it turns an asset's variants into breeds) */
+export async function trackMainInBreeds(db: Db | Queryable, id: string, o: { message: string; author: Author }): Promise<void> {
+  await inTx(db, async (q) => {
+    const row = await lock(q, id);
+    await trackMainAll(q, row, await typeFor(q, row.schema_id), await loadMain(q, row), o.message, o.author);
   });
 }
 
@@ -225,6 +292,12 @@ export async function previewMerge(db: Queryable, id: string, v: number): Promis
   const row = await rowOf(db, id);
   const r = await variantRow(db, id, v);
   const main = await loadMain(db, row);
+  if (r.breed !== null || r.makes !== null) {
+    // into a breed (or as a new one): the breed as it would then be, Main as it is now beneath
+    const into = await intoBreed(db, row, r, main);
+    const json = breedOn(jsonOf(main), jsonOf(into.doc), into.overrides);
+    return { json, contentHash: contentHash(json), concurrent: into.concurrent, problems: problemsOf(await typeFor(db, row.schema_id), json) };
+  }
   const { rows } = await db.query<{ bytes: Uint8Array }>(`SELECT bytes FROM play.doc_edits WHERE doc_id = $1 AND variant = $2 ORDER BY seq`, [id, v]);
   if (rows.length) main.importBatch(rows.map((x) => toBytes(x.bytes)));
   const json = jsonOf(main);
@@ -243,6 +316,7 @@ export async function accept(db: Db | Queryable, id: string, v: number, o: { aut
     const t = await typeFor(q, row.schema_id);
     const r = await variantRow(q, id, v, true);
     if (r.status !== "proposed") throw new DocError(r.status === "open" ? `variant ${v} is not proposed yet` : `variant ${v} was ${r.status}`, 409);
+    if (r.breed !== null || r.makes !== null) return acceptIntoBreed(q, row, t, r, o);
     const main = await loadMain(q, row);
     const before = main.version();
     const { rows } = await q.query<{ bytes: Uint8Array }>(`SELECT bytes FROM play.doc_edits WHERE doc_id = $1 AND variant = $2 ORDER BY seq`, [id, v]);
@@ -266,8 +340,53 @@ export async function accept(db: Db | Queryable, id: string, v: number, o: { aut
     const named = await name(q, id, main, note, o.author, v);
     await q.query(`UPDATE play.doc_variants SET status = 'accepted', decided_by = $2, decided_at = now(), version = $3 WHERE id = $1`, [v, o.author.human, named.number]);
     await compact(q, row, main);
+    // what Main took in, every breed takes in too, keeping its own fields
+    await trackMainAll(q, row, t, main, `tracks Main v${named.number}`, o.author);
     return named;
   });
+}
+
+/** an intent variant of a breed (or one making a new breed): the breed's line with its edits taken in, and what the breed would then override */
+async function intoBreed(q: Queryable, row: DocRow, r: VariantRow, main: LoroDoc) {
+  const b = r.breed !== null ? await variantRow(q, row.id, Number(r.breed), true, ["breed"]) : null;
+  const doc = b ? await loadVariant(q, row, b, main) : main.forkAt(r.seed);
+  doc.setRecordTimestamp(true);
+  doc.setChangeMergeInterval(0);
+  const before = doc.version();
+  const was = jsonOf(doc);
+  const { rows } = await q.query<{ bytes: Uint8Array }>(`SELECT bytes FROM play.doc_edits WHERE doc_id = $1 AND variant = $2 ORDER BY seq`, [row.id, r.id]);
+  if (rows.length) doc.importBatch(rows.map((x) => toBytes(x.bytes)));
+  const overrides = union(b?.overrides ?? [], changedFields(was, jsonOf(doc)));
+  return { doc, before, overrides, concurrent: b ? !sameFrontiers(r.seed, b.head) : false, breed: b };
+}
+
+/**
+ * Accepts an intent variant of a breed into that breed (or, one that makes a breed, as the new breed): its edits merged
+ * into the breed's line, what they change the breed's own from then on, and Main merged in where it moved since. Main
+ * is unchanged; it is named the next version all the same, so every Accept, on Main or on a breed, is the next version.
+ */
+async function acceptIntoBreed(q: Queryable, row: DocRow, t: DocType, r: VariantRow, o: { author: Author; note?: string; mergedHash?: string }): Promise<Version> {
+  const main = await loadMain(q, row);
+  const into = await intoBreed(q, row, r, main);
+  const json = breedOn(jsonOf(main), jsonOf(into.doc), into.overrides);
+  const problems = problemsOf(t, json);
+  if (problems.length) throw new DocError(`merged into its breed as it is now, the intent variant is no longer a valid ${t.name}: ${problems.slice(0, 4).join("; ")}. Propose it again on the breed as it is now.`, 409, { problems });
+  if (t.build && into.concurrent && o.mergedHash !== contentHash(json))
+    throw new DocError(`The breed moved on since this was made: its merge is code nobody has seen run. Build and preview the merged result (${contentHash(json)}) in the box, then accept it with that hash.`, 409, { needsPreview: true, mergedHash: contentHash(json) });
+  const bid = into.breed ? Number(into.breed.id) : (await makeBreed(q, row, { name: r.makes!, author: o.author, note: o.note ?? r.note, at: r.seed })).id;
+  const note = o.note ?? r.note;
+  const merged = into.doc.export({ mode: "update", from: into.before });
+  const frontiers = into.doc.frontiers();
+  const name_ = into.breed?.name ?? r.makes;
+  await q.query(
+    `INSERT INTO play.doc_edits (doc_id, variant, kind, bytes, peer, author, via, message, frontiers) VALUES ($1, $2, 'merge', $3, NULL, $4, $5, $6, ($7::text)::jsonb)`,
+    [row.id, bid, merged, o.author.human, o.author.via, `merged variant ${r.id} into breed ${name_}${note ? `: ${note}` : ""}`, JSON.stringify(frontiers)],
+  );
+  await q.query(`UPDATE play.doc_variants SET head = ($2::text)::jsonb, overrides = ($3::text)::jsonb WHERE id = $1`, [bid, JSON.stringify(frontiers), JSON.stringify(into.overrides)]);
+  const named = await name(q, row.id, main, note, o.author, Number(r.id));
+  await q.query(`UPDATE play.doc_variants SET status = 'accepted', decided_by = $2, decided_at = now(), version = $3 WHERE id = $1`, [r.id, o.author.human, named.number]);
+  await trackMain(q, row, t, main, await variantRow(q, row.id, bid, true, ["breed"]), `tracks Main v${named.number}`, o.author);
+  return named;
 }
 
 /** archives an intent variant (an admin, its author, or a moved seed): its edits stay in the history, on their own line */
@@ -283,11 +402,25 @@ export async function close(db: Db | Queryable, id: string, v: number, o: { auth
 // ---- reading
 
 /** a document now, as JSON: its Main (or an intent variant), and its versions */
-export async function readDoc(db: Queryable, id: string, o: { variant?: number } = {}): Promise<{ id: string; type: string; schema: string; schemaId: string | null; json: any; head: Frontiers; versions: Version[] }> {
+export async function readDoc(db: Queryable, id: string, o: { variant?: number; breed?: number } = {}): Promise<{ id: string; type: string; schema: string; schemaId: string | null; json: any; head: Frontiers; versions: Version[] }> {
   const row = await rowOf(db, id);
   const main = await loadMain(db, row);
-  const d = o.variant !== undefined ? await loadVariant(db, row, await variantRow(db, id, o.variant), main) : main;
+  const d = o.breed !== undefined ? await loadVariant(db, row, await variantRow(db, id, o.breed, false, ["breed"]), main) : o.variant !== undefined ? await loadVariant(db, row, await variantRow(db, id, o.variant), main) : main;
   return { id, type: row.type, schema: row.schema, schemaId: row.schema_id, json: jsonOf(d), head: d.frontiers(), versions: await versionsOf(db, id) };
+}
+
+/** every open breed of a document as it is now: its id, name, JSON and the fields it overrides */
+export async function breedsOf(db: Queryable, id: string): Promise<{ id: number; name: string; json: any; overrides: Path[]; head: Frontiers }[]> {
+  const row = await rowOf(db, id);
+  const { rows } = await db.query<VariantRow>(`SELECT * FROM play.doc_variants WHERE doc_id = $1 AND type = 'breed' AND status = 'open' ORDER BY name`, [id]);
+  if (!rows.length) return [];
+  const main = await loadMain(db, row);
+  const out = [];
+  for (const b of rows) {
+    const d = await loadVariant(db, row, b, main);
+    out.push({ id: Number(b.id), name: b.name!, json: jsonOf(d), overrides: b.overrides, head: d.frontiers() });
+  }
+  return out;
 }
 
 export async function versionsOf(db: Queryable, id: string): Promise<Version[]> {
@@ -298,11 +431,11 @@ export async function versionsOf(db: Queryable, id: string): Promise<Version[]> 
 /** every variant of a document, Main first, each with how many edits it holds */
 export async function variantsOf(db: Queryable, id: string): Promise<Variant[]> {
   const { rows } = await db.query<any>(
-    `SELECT v.id, v.type, v.status, v.note, v.created_by, v.created, v.intent_id, v.seed, (SELECT count(*) FROM play.doc_edits e WHERE e.variant = v.id) AS edits
-       FROM play.doc_variants v WHERE v.doc_id = $1 ORDER BY (v.type = 'main') DESC, v.id`,
+    `SELECT v.id, v.type, v.name, v.breed, v.makes, v.overrides, v.main_seed, v.status, v.note, v.created_by, v.created, v.intent_id, v.seed, (SELECT count(*) FROM play.doc_edits e WHERE e.variant = v.id) AS edits
+       FROM play.doc_variants v WHERE v.doc_id = $1 ORDER BY (v.type = 'main') DESC, (v.type = 'breed') DESC, v.name, v.id`,
     [id],
   );
-  return rows.map((r) => ({ id: Number(r.id), type: r.type, status: r.status, note: r.note, created_by: r.created_by, created: r.created, intent_id: r.intent_id, edits: Number(r.edits), seed: r.seed }));
+  return rows.map((r) => ({ id: Number(r.id), type: r.type, name: r.name, breed: r.breed === null ? null : Number(r.breed), makes: r.makes, overrides: r.overrides ?? [], status: r.status, note: r.note, created_by: r.created_by, created: r.created, intent_id: r.intent_id, edits: Number(r.edits), seed: r.seed, mainSeed: r.main_seed }));
 }
 
 /**
@@ -314,7 +447,7 @@ export async function history(db: Queryable, id: string, o: { variant?: number }
   const { rows } = await db.query<any>(
     `SELECT u.seq, u.variant, v.type, u.kind, u.author, u.via, u.message, u.frontiers, u.created, length(u.bytes) AS bytes
        FROM play.doc_edits u JOIN play.doc_variants v ON v.id = u.variant
-      WHERE u.doc_id = $1 AND ${o.variant !== undefined ? "u.variant = $2" : "(v.type = 'main' OR v.status = 'accepted')"} ORDER BY u.seq`,
+      WHERE u.doc_id = $1 AND ${o.variant !== undefined ? "u.variant = $2" : "(v.type = 'main' OR (v.type = 'intent' AND v.status = 'accepted' AND v.breed IS NULL AND v.makes IS NULL))"} ORDER BY u.seq`,
     o.variant !== undefined ? [id, o.variant] : [id],
   );
   return rows.map((r) => ({ seq: Number(r.seq), variant: r.type === "main" ? null : Number(r.variant), kind: r.kind, author: r.author, via: r.via, message: r.message, frontiers: r.frontiers, created: r.created, bytes: Number(r.bytes) }));
@@ -328,25 +461,37 @@ export async function stateAt(db: Queryable, id: string, at: { edit: number } | 
     if (!rows[0]) throw new DocError(`${id} has no version ${at.version}`, 404);
     return jsonAt(await loadMain(db, row), rows[0].frontiers);
   }
-  const { rows } = await db.query<{ variant: string; frontiers: Frontiers; type: string; status: string }>(
-    `SELECT u.variant, u.frontiers, v.type, v.status FROM play.doc_edits u JOIN play.doc_variants v ON v.id = u.variant WHERE u.doc_id = $1 AND u.seq = $2`,
+  const { rows } = await db.query<{ variant: string; frontiers: Frontiers; type: string; status: string; breed: string | null; makes: string | null }>(
+    `SELECT u.variant, u.frontiers, v.type, v.status, v.breed, v.makes FROM play.doc_edits u JOIN play.doc_variants v ON v.id = u.variant WHERE u.doc_id = $1 AND u.seq = $2`,
     [id, at.edit],
   );
   if (!rows[0]) throw new DocError(`${id} has no edit ${at.edit}`, 404);
   const main = await loadMain(db, row);
-  // an edit on an intent variant not merged lives only on that variant
-  const d = rows[0].type === "intent" && rows[0].status !== "accepted" ? await loadVariant(db, row, await variantRow(db, id, Number(rows[0].variant)), main) : main;
+  // an edit of a breed's, or of an intent variant not merged into Main, lives only on that variant (a breed's own
+  // line holds the edits merged into it)
+  const e = rows[0];
+  const own = e.type === "breed" || (e.type === "intent" && (e.status !== "accepted" || e.breed !== null || e.makes !== null));
+  const line = e.type === "intent" && e.status === "accepted" && e.breed !== null ? await variantRow(db, id, Number(e.breed), false, ["breed"]) : own ? await variantRow(db, id, Number(e.variant), false, ["intent", "breed"]) : null;
+  if (line && line.type === "intent" && line.status === "accepted" && line.makes !== null) {
+    // a variant that made a breed: its edits live in that breed's line now
+    const { rows: b } = await db.query<VariantRow>(`SELECT * FROM play.doc_variants WHERE doc_id = $1 AND type = 'breed' AND name = $2`, [id, line.makes]);
+    if (b[0]) return jsonAt(await loadVariant(db, row, b[0], main), e.frontiers);
+  }
+  const d = line ? await loadVariant(db, row, line, main) : main;
   return jsonAt(d, rows[0].frontiers);
 }
 
 /** the document's JSON at intent variant `v`'s seed on Main: what its changes are read against */
 export async function seedOf(db: Queryable, id: string, v: number): Promise<any> {
   const row = await rowOf(db, id);
-  return jsonAt(await loadMain(db, row), (await variantRow(db, id, v)).seed);
+  const r = await variantRow(db, id, v, false, ["intent", "breed"]);
+  const main = await loadMain(db, row);
+  if (r.breed !== null) return jsonAt(await loadVariant(db, row, await variantRow(db, id, Number(r.breed), false, ["breed"]), main), r.seed);
+  return jsonAt(main, r.seed);
 }
 
 /** an intent variant's row: its seed, status, note and intent */
-export async function variantOf(db: Queryable, id: string, v: number) {
-  const r = await variantRow(db, id, v);
-  return { id: Number(r.id), seed: r.seed, status: r.status, note: r.note, intent_id: r.intent_id, created_by: r.created_by, created: r.created };
+export async function variantOf(db: Queryable, id: string, v: number, o: { breeds?: boolean } = {}) {
+  const r = await variantRow(db, id, v, false, o.breeds ? ["intent", "breed"] : ["intent"]);
+  return { id: Number(r.id), type: r.type, name: r.name, seed: r.seed, mainSeed: r.main_seed, breed: r.breed === null ? null : Number(r.breed), makes: r.makes, status: r.status, note: r.note, intent_id: r.intent_id, created_by: r.created_by, created: r.created };
 }

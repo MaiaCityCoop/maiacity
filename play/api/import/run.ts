@@ -177,7 +177,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
     factories: { seeded: [], present: [], errors: [] },
     gameConfigs: { seeded: [], present: [], errors: [] },
     skills: { seeded: [], present: [], errors: [] },
-    assetDocs: { made: 0, variants: 0, kept: 0, edits: 0, versions: 0, bytes: 0, errors: [] },
+    assetDocs: { made: 0, variants: 0, kept: 0, breeds: 0, edits: 0, versions: 0, bytes: 0, errors: [] },
     legacy: { ran: null, skipped: false },
     ok: false,
   };

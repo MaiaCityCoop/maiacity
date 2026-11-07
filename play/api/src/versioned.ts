@@ -90,6 +90,8 @@ export type Kind = {
   view?: (q: Queryable, json: any, id: string) => Promise<Record<string, unknown>>;
   /** what a change shows beside its field diff, from the state before it and after it (a sandbox's pins before and after) */
   shown?: (q: Queryable, before: any, after: any) => Promise<Record<string, unknown>>;
+  /** whether its documents have breeds (an asset's: play/SPEC.md "Breeds") */
+  breeds?: boolean;
 };
 
 const KINDS: Kind[] = [];
@@ -162,7 +164,8 @@ export async function named(db: Queryable, edits: docs.DocEdit[], versions: docs
 
 /** the version whose point of Main is `frontiers` (a variant's seed), or null */
 export const versionAt = (versions: docs.Version[], frontiers: docs.Frontiers): number | null =>
-  versions.find((v) => docs.frontiersKey(v.frontiers) === docs.frontiersKey(frontiers))?.number ?? null;
+  // the newest of those at that point: an Accept on a breed names Main's next version where Main stands
+  versions.findLast((v) => docs.frontiersKey(v.frontiers) === docs.frontiersKey(frontiers))?.number ?? null;
 
 /** do two sets of changed paths touch the same field (one the other's, or inside it)? */
 export function overlap(a: string[], b: string[]): string[] {
@@ -260,7 +263,7 @@ export async function listDocs(db: Queryable, me: Me | null, kind?: string) {
   return out;
 }
 
-export type DocAt = { version?: number; edit?: number; intent?: string };
+export type DocAt = { version?: number; edit?: number; intent?: string; breed?: number };
 
 /** One document, whole: at Main's newest version, at version `version`, at edit `edit`, or as intent `intent`'s variant would make it. With its versions. */
 export async function docAt(ctx: Ctx, me: Me | null, id: unknown, at: DocAt = {}) {
@@ -272,6 +275,11 @@ export async function docAt(ctx: Ctx, me: Me | null, id: unknown, at: DocAt = {}
     const number = versions.at(-1)?.number ?? 0;
     const base = { id: uuid, kind: kind.name, number, versions };
     const viewed = async <T extends { json: any }>(r: T) => (kind.view ? { ...r, ...(await kind.view(db, r.json, uuid)) } : r);
+    if (at.breed !== undefined && at.breed !== null) {
+      const b = (await docs.breedsOf(db, docId)).find((x) => x.id === at.breed);
+      if (!b) throw new VersionError(`${uuid} has no breed ${at.breed} (doc_history's variants).`, 404);
+      return { ...base, json: b.json, breed: { id: b.id, name: b.name, overrides: b.overrides.map((p) => p.join(".")) } };
+    }
     if (at.intent !== undefined && at.intent !== null) {
       const iv = await intentVariant(db, docId, at.intent);
       return viewed({ ...base, json: (await docs.readDoc(db, docId, { variant: iv.variant })).json, intent: { id: iv.id, stage: iv.stage, status: iv.status, note: iv.note, title: iv.title, variant: iv.variant } });
@@ -315,12 +323,15 @@ export async function docHistory(ctx: Ctx, me: Me | null, id: unknown, o: { vari
       variants: vs.map((v) => ({
         id: v.id,
         type: v.type,
+        ...(v.type === "breed" ? { name: v.name, overrides: v.overrides.map((p) => p.join(".")) } : {}),
+        ...(v.breed !== null ? { breed: v.breed, breedName: vs.find((b) => b.id === v.breed)?.name ?? null } : {}),
+        ...(v.makes !== null ? { makes: v.makes } : {}),
         status: v.status,
         note: v.note,
         at: iso(v.created),
         author: v.created_by ? names.get(v.created_by) ?? null : null,
         edits: v.edits,
-        seed: v.type === "main" ? null : versionAt(versions, v.seed),
+        seed: v.type === "main" ? null : versionAt(versions, v.mainSeed ?? v.seed),
         intent: v.intent_id ? { id: v.intent_id, stage: intents.get(v.intent_id)?.stage ?? null, title: intents.get(v.intent_id)?.title ?? null } : null,
       })),
     };
@@ -338,17 +349,22 @@ export async function docChanges(ctx: Ctx, me: Me | null, id: unknown, o: { edit
     const db = ctx.db;
     const versions = await docs.versionsOf(db, docId);
     if (o.variant !== undefined && o.variant !== null) {
-      const v = await docs.variantOf(db, docId, o.variant);
+      const v = await docs.variantOf(db, docId, o.variant, { breeds: true });
+      if (v.type === "breed") {
+        // a breed: what it overrides, against Main as it is now, and its own edits (Main's merged into it among them)
+        const now = (await docs.readDoc(db, docId, { breed: v.id })).json;
+        return { id: uuid, kind: kind.name, variant: v.id, breed: v.name, seed: null, changes: docs.diff((await docs.readDoc(db, docId)).json, now), edits: await named(db, await docs.history(db, docId, { variant: v.id }), versions) };
+      }
       const seed = await docs.seedOf(db, docId, o.variant);
       const now = (await docs.readDoc(db, docId, { variant: o.variant })).json;
       const extra = kind.shown ? await kind.shown(db, seed, now) : {};
-      return { id: uuid, kind: kind.name, variant: v.id, seed: versionAt(versions, v.seed), changes: docs.diff(seed, now), edits: await named(db, await docs.history(db, docId, { variant: o.variant }), versions), ...extra };
+      return { id: uuid, kind: kind.name, variant: v.id, seed: versionAt(versions, v.mainSeed ?? v.seed), changes: docs.diff(seed, now), edits: await named(db, await docs.history(db, docId, { variant: o.variant }), versions), ...extra };
     }
     if (o.edit === undefined || o.edit === null || !Number.isInteger(o.edit) || o.edit < 1) throw new VersionError("Name an edit (its seq) or an intent variant.", 404);
     const all = await docs.history(db, docId);
     const { rows } = await db.query<{ variant: string; type: string }>(`SELECT e.variant, v.type FROM play.doc_edits e JOIN play.doc_variants v ON v.id = e.variant WHERE e.doc_id = $1 AND e.seq = $2`, [docId, o.edit]);
     if (!rows[0]) throw new VersionError(`${uuid} has no edit ${o.edit}.`, 404);
-    const line = rows[0].type === "intent" && !all.some((e) => e.seq === o.edit) ? await docs.history(db, docId, { variant: Number(rows[0].variant) }) : all;
+    const line = rows[0].type !== "main" && !all.some((e) => e.seq === o.edit) ? await docs.history(db, docId, { variant: Number(rows[0].variant) }) : all;
     const i = line.findIndex((e) => e.seq === o.edit);
     const after = await docs.stateAt(db, docId, { edit: o.edit });
     const before = i > 0 ? await docs.stateAt(db, docId, { edit: line[i - 1].seq }) : line === all ? null : await docs.seedOf(db, docId, Number(rows[0].variant));
@@ -420,7 +436,7 @@ async function editingIntent(q: Queryable, intent: unknown): Promise<string> {
 }
 
 /** the variant an edit goes on: the one named (the intent's, or none's yet), else the intent's open one of this document, else a new one seeded from Main's newest version */
-async function variantFor(q: Queryable, docId: string, uuid: string, intent: string | null, v: unknown, author: docs.Author, note: string): Promise<number> {
+async function variantFor(q: Queryable, docId: string, uuid: string, intent: string | null, v: unknown, author: docs.Author, note: string, on: { kind: Kind; breed?: number | null; newBreed?: string | null }): Promise<number> {
   if (v != null) {
     const o = await openVariant(q, docId, uuid, v);
     if (o.intent && intent && o.intent !== intent) throw new VersionError(`Variant ${o.id} of ${uuid} is intent ${o.intent}'s, not ${intent}'s.`, 409);
@@ -429,12 +445,32 @@ async function variantFor(q: Queryable, docId: string, uuid: string, intent: str
     return o.id;
   }
   if (intent) {
-    const { rows } = await q.query<{ id: string }>(`SELECT max(id) AS id FROM play.doc_variants WHERE doc_id = $1 AND intent_id = $2 AND status = 'open'`, [docId, intent]);
+    // the intent's open variant of this document: of Main, of the breed named, or the one making the breed named
+    const { rows } = await q.query<{ id: string }>(
+      `SELECT max(id) AS id FROM play.doc_variants WHERE doc_id = $1 AND intent_id = $2 AND status = 'open'
+          AND breed IS NOT DISTINCT FROM $3::bigint AND makes IS NOT DISTINCT FROM $4::text`,
+      [docId, intent, on.breed ?? null, on.newBreed ?? null],
+    );
     if (rows[0]?.id) return Number(rows[0].id);
   }
-  const made = (await docs.variant(q, docId, { author, note })).id;
+  const made = await newVariant(q, on.kind, docId, uuid, on, author, note);
   if (intent) await q.query(`UPDATE play.doc_variants SET intent_id = $2 WHERE id = $1`, [made, intent]);
   return made;
+}
+
+const BREED_NAME = /^[a-z0-9][a-z0-9-]{0,79}$/;
+/** a new intent variant of document `docId`: of Main, of breed `breed` (to change it), or making breed `newBreed` (an asset's) */
+async function newVariant(tx: Queryable, k: Kind, docId: string, uuid: string, p: { breed?: number | null; newBreed?: string | null }, author: docs.Author, note: string): Promise<number> {
+  if (p.breed != null || p.newBreed != null) {
+    if (!k.breeds) throw new VersionError(`A ${k.label} has no breeds: only an asset has.`);
+    if (p.breed != null && p.newBreed != null) throw new VersionError("Change a breed or make a new one, not both.");
+    if (p.newBreed != null && !BREED_NAME.test(`${p.newBreed}`)) throw new VersionError(`${p.newBreed} is not a breed's name (lowercase words joined by '-').`);
+    if (p.breed != null) {
+      const { rows } = await tx.query<{ status: string }>(`SELECT status FROM play.doc_variants WHERE id = $1 AND doc_id = $2 AND type = 'breed'`, [Number(p.breed), docId]);
+      if (!rows[0]) throw new VersionError(`${uuid} has no breed ${p.breed} (doc_history's variants).`, 404);
+    }
+  }
+  return (await docs.variant(tx, docId, { author, note, ...(p.breed != null ? { breed: Number(p.breed) } : {}), ...(p.newBreed != null ? { makes: `${p.newBreed}` } : {}) })).id;
 }
 
 /**
@@ -455,7 +491,7 @@ async function newDocument(q: Queryable, who: Me, kindName: unknown, whole: unkn
   return uuid;
 }
 
-export type DocEditBody = { doc?: unknown; kind?: unknown; intent?: unknown; variant?: number | null; edits?: unknown; whole?: unknown; message?: unknown };
+export type DocEditBody = { doc?: unknown; kind?: unknown; intent?: unknown; variant?: number | null; breed?: number | null; newBreed?: string | null; edits?: unknown; whole?: unknown; message?: unknown };
 
 /**
  * One edit of an intent variant, as the admin `me`, for intent `intent` (no edit without one: Main is written only by an
@@ -474,7 +510,7 @@ export async function docEdit(ctx: Ctx, me: Me | null, p: DocEditBody, via: "web
       if (p.doc == null && p.kind != null) p = { ...p, doc: await newDocument(tx, who, p.kind, p.whole), variant: null };
       const { kind, uuid, docId } = await docRef(tx, ctx, p.doc);
       const author = authorOf(who, via);
-      const v = await variantFor(tx, docId, uuid, intent, p.variant, author, message);
+      const v = await variantFor(tx, docId, uuid, intent, p.variant, author, message, { kind, breed: p.breed, newBreed: p.newBreed });
       const cur = (await docs.readDoc(tx, docId, { variant: v })).json;
       const e = await docs.commit(tx, docId, { variant: v, ...(await writeOf(tx, kind, uuid, cur, p)), message, author });
       const changes = docs.diff(await docs.seedOf(tx, docId, v), (await docs.readDoc(tx, docId, { variant: v })).json);
@@ -483,7 +519,7 @@ export async function docEdit(ctx: Ctx, me: Me | null, p: DocEditBody, via: "web
   );
 }
 
-export type ProposeBody = { doc?: unknown; kind?: unknown; note?: unknown; variant?: number | null; edits?: unknown; whole?: unknown; intent?: string };
+export type ProposeBody = { doc?: unknown; kind?: unknown; note?: unknown; variant?: number | null; breed?: number | null; newBreed?: string | null; edits?: unknown; whole?: unknown; intent?: string };
 
 /** a variant made edit by edit is proposed for the intent it was made for, and only for it */
 async function proposedFor(q: Queryable, docId: string, uuid: string, v: number, intent: string | undefined) {
@@ -512,7 +548,7 @@ export async function proposeDocVersion(ctx: Ctx, me: Me | null, p: ProposeBody,
     let v = p.variant ?? null;
     if (v != null) await ctx.db.transaction((q) => proposedFor(q, docId, uuid, Number(v), p.intent));
     if (p.edits !== undefined || p.whole !== undefined) {
-      const e = await docEdit(ctx, who, { doc: uuid, intent: p.intent, variant: v, edits: p.edits, whole: p.whole, message: note.split("\n")[0].slice(0, 500) }, via, true);
+      const e = await docEdit(ctx, who, { doc: uuid, intent: p.intent, variant: v, breed: p.breed, newBreed: p.newBreed, edits: p.edits, whole: p.whole, message: note.split("\n")[0].slice(0, 500) }, via, true);
       if (!e.edits) throw new VersionError(`That is the ${kind.label} as it is: nothing changed.`);
       v = e.variant;
     }
@@ -531,7 +567,7 @@ export async function proposeDocVersion(ctx: Ctx, me: Me | null, p: ProposeBody,
 /** a document's next version proposed, in the caller's transaction (proposeDocVersion, proposeNewDoc) */
 async function proposeIn(tx: Queryable, who: Me, kind: Kind, uuid: string, docId: string, p: ProposeBody, note: string, via: "web" | "mcp") {
   const author = authorOf(who, via);
-  const v = p.variant == null ? (await docs.variant(tx, docId, { author, note })).id : (await proposedFor(tx, docId, uuid, p.variant, p.intent)).id;
+  const v = p.variant == null ? await newVariant(tx, kind, docId, uuid, p, author, note) : (await proposedFor(tx, docId, uuid, p.variant, p.intent)).id;
   if (p.edits !== undefined || p.whole !== undefined) {
     const cur = (await docs.readDoc(tx, docId, { variant: v })).json;
     await docs.commit(tx, docId, { variant: v, ...(await writeOf(tx, kind, uuid, cur, p)), message: note, author });
@@ -602,11 +638,13 @@ async function reviewVariant(db: Queryable, p: any, h: { doc_id: string; doc_var
   const row = await docs.variantOf(db, docId, v);
   const seed = await docs.seedOf(db, docId, v);
   const next = (await docs.readDoc(db, docId, { variant: v })).json;
-  const seedNumber = versionAt(versions, row.seed);
+  const seedNumber = versionAt(versions, row.mainSeed ?? row.seed);
   const moved = p.status === "proposal" && seedNumber !== null && seedNumber !== versions.at(-1)?.number;
   const edits = await named(db, await docs.history(db, docId, { variant: v }));
   const open = k.open ? k.open.replace("{id}", encodeURIComponent(uuid)).replace("{intent}", encodeURIComponent(p.id)) : null;
-  return { doc: { id: uuid, kind: k.name, what: k.label, label: next.label ?? next.title ?? k.label, ...(next.group ? { group: next.group } : {}), open }, variant: v, seedNumber, moved, changes: docs.diff(seed, next), edits };
+  // the breed it changes, or the one it makes (play/SPEC.md "Breeds")
+  const breed = row.breed !== null ? (await docs.variantsOf(db, docId)).find((b) => b.id === row.breed)?.name ?? null : row.makes;
+  return { doc: { id: uuid, kind: k.name, what: k.label, label: next.label ?? next.title ?? k.label, ...(next.group ? { group: next.group } : {}), open, ...(breed ? { breed, newBreed: row.makes !== null } : {}) }, variant: v, seedNumber, moved, changes: docs.diff(seed, next), edits };
 }
 
 /** an intent's work on its documents as people review it: its first document's review (with its kind's own extras: an asset's builds, a story's player), and every document's in `docs` */
@@ -845,7 +883,7 @@ function assetCheck(doc: any): string[] {
     if (names.has(v.name)) out.push(`variant ${v.name}: its name is taken twice`);
     names.add(v.name);
   }
-  if (doc.defaultVariant !== undefined && !names.has(doc.defaultVariant)) out.push(`its default variant ${doc.defaultVariant} is none of its variants`);
+  if (doc.defaultVariant !== undefined && doc.variants?.length && !names.has(doc.defaultVariant)) out.push(`its default variant ${doc.defaultVariant} is none of its variants`);
   return out;
 }
 /** a factory: its stations, parts and stock named once and named only where they are (an operation at a station of the line) */
@@ -889,7 +927,7 @@ function levelsCheck(doc: any): string[] {
 
 const ensureAsset = (q: Queryable, ctx: Ctx, id: string) => ensureAssetDoc(q, ctx.store, id).then(() => undefined);
 register({
-  name: "asset", prefix: "asset", schema: SCHEMA.asset, check: assetCheck, build: true, work: "asset_version", table: "play.assets", label: "asset", group: "assets",
+  name: "asset", prefix: "asset", schema: SCHEMA.asset, check: assetCheck, build: true, work: "asset_version", table: "play.assets", label: "asset", group: "assets", breeds: true,
   ensure: ensureAsset,
   write: async (_q, _id, cur, input) => (input.whole !== undefined ? { target: { ...(input.whole as object), schema: cur.schema } } : { edits: assetEdits(cur, input.edits) }),
   propose: (ctx, me, o, via) => proposeAssetVariant(ctx, me, o, via),
