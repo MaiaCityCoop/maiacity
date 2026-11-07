@@ -28,7 +28,8 @@ describe("the way to production", () => {
 
   test("release.yml: production moves fast-forward to the commit with GITHUB_TOKEN, and production.yml is started on it", () => {
     const steps = yaml(".github/workflows/release.yml").jobs.release.steps as any[];
-    expect(steps[0]).toEqual({ uses: "actions/checkout@v4", with: { "fetch-depth": 0 } });
+    // blobless: the commits and trees the ancestry checks read, no file's contents
+    expect(steps[0]).toEqual({ uses: "actions/checkout@v4", with: { "fetch-depth": 0, filter: "blob:none", "sparse-checkout": ".github/workflows/release.yml", "sparse-checkout-cone-mode": false } });
     const move = steps.find((s) => s.name?.startsWith("production moves"));
     expect(move.env.SHA).toBe("${{ github.event.workflow_run.head_sha || inputs.sha }}");
     expect(move.run).toContain(`git merge-base --is-ancestor "$SHA" origin/main`);
@@ -43,16 +44,21 @@ describe("the way to production", () => {
     expect(deploy.run).toBe(`gh workflow run production.yml --ref production --repo "$GITHUB_REPOSITORY"`);
   });
 
-  test("production.yml: started by workflow_dispatch, it reads main's checks on its own commit and writes SHIP_TOKEN into play.env", () => {
+  test("production.yml: started by workflow_dispatch, every job reads main's checks on its own commit, and it writes SHIP_TOKEN into play.env", () => {
     const p = yaml(".github/workflows/production.yml");
     expect(Object.keys(p.on)).toContain("workflow_dispatch");
     // the jobs play's ship watcher follows, by their names
     const names = Object.values(p.jobs).map((j: any) => j.name);
-    for (const n of ["Main is green", "The image", "The server", "The website"]) expect(names).toContain(n);
-    expect(p.jobs.server.steps.map((s: any) => s.name)).toContain("Back up play");
-    const green = p.jobs["main-green"].steps.find((s: any) => s.run?.includes("passed()"));
-    expect(green.env.EVENT).toBe("${{ github.event_name }}");
-    expect(green.run).toContain(`if [ -z "$sha" ] && [ "$EVENT" = workflow_dispatch ]; then sha=$(git rev-parse HEAD); fi`);
+    for (const n of ["The image", "The backup", "The server", "The website"]) expect(names).toContain(n);
+    expect(p.jobs.backup.steps.map((s: any) => s.name)).toContain("Back up play");
+    for (const job of Object.values(p.jobs) as any[]) {
+      const gate = job.steps.find((s: any) => s.uses === "./.github/actions/main-green");
+      expect(gate.with).toEqual({ token: "${{ github.token }}", sha: "${{ github.sha }}" });
+      expect(job.permissions.checks).toBe("read");
+    }
+    const green = yaml(".github/actions/main-green/action.yml");
+    expect(green.inputs.checks.default).toBe("play / API and site|website / build");
+    expect(green.runs.steps[0].run).toContain("passed()");
     const start = p.jobs.server.steps.find((s: any) => s.name === "Start play-api, import, and answer play.maia.city");
     expect(start.env.SHIP_TOKEN).toBe("${{ secrets.SHIP_TOKEN }}");
     expect(start.env.SHIP_REPO).toBe("${{ github.repository }}");

@@ -17,9 +17,11 @@
 Every change is an intent's (play/SPEC.md §4.12) and goes to `main` by pull request; `.github/workflows/main.yml` runs
 play's checks (`play-checks.yml`: the API's tests against Postgres, its types, the site's build) and the website's
 (`website-checks.yml`: its types and build). Once main is green for the merged commit, `.github/workflows/release.yml`
-moves `production` to it (fast-forward) and starts `production.yml`, which deploys play (backup, image, DNS, server,
-import, Caddy) and the website (its build into the server's `site/releases/<commit>`, `site/current` switched);
-`Main is green` reads main's checks for that commit instead of running them again.
+moves `production` to it (fast-forward) and starts `production.yml`, which deploys play (backup and image side by
+side, then DNS, server, import, Caddy) and the website (its build into the server's `site/releases/<commit>`,
+`site/current` switched); every job's first step after its checkout reads main's checks for that commit
+(`.github/actions/main-green`) instead of running them again, and on the push to main those checks pass at once only on
+the very tree the pull request's run tested (`.github/workflows/tested-tree.sh`), else they run in full.
 
 **All work on play starts in an avenBOX session** (Samuel 2026-11-06; play/SPEC.md §4.12): an intent at any stage,
 its code and its checks are done in a cloud session on avenBOX, `env_011Zm65erarH7ffXio13u5pG`, the only environment
