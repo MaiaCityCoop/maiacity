@@ -66,7 +66,7 @@
 	// its way to production, once an Accept merged its pull request (play/api/src/ship.ts): each step's state, when, its
 	// link; a red one's report
 	type ShipStep = { key: string; name: string; state: 'queued' | 'running' | 'green' | 'red' | 'skipped'; started?: string; finished?: string; link?: string; note?: string };
-	type Ship = { pr: number; head: string; merge: string; by: string; round: number; started: string; steps: ShipStep[]; report?: { step: string; why: string; link?: string; log: string; at: string } | null; ended?: string; outcome?: 'green' | 'red'; again?: 'main' | 'release'; pending?: { kind: 'merge' | 'main' | 'release'; head?: string } | null; accepted?: string };
+	type Ship = { pr: number; head: string; merge: string; by: string; round: number; started: string; steps: ShipStep[]; report?: { step: string; why: string; link?: string; log: string; at: string } | null; ended?: string; outcome?: 'green' | 'red'; again?: 'main' | 'release'; pending?: { kind: 'merge' | 'main' | 'release'; head?: string } | null; accepted?: string; live?: boolean; commit?: string; note?: string };
 	// run: the command that decides a check in avenBOX (test and measure checks since 2026-11-06; play/SPEC.md §4.12)
 	// step: a spec's two steps, reduce first, then the MVP (specs from before have none: mvp; play/SPEC.md §4.12)
 	type Check = { id: string; check: string; how: 'test' | 'measure' | 'look'; by: string; run?: string; must: boolean; step?: 'reduce' | 'mvp' };
@@ -168,9 +168,13 @@
 		const sec = Math.round(ms / 1000);
 		return sec < 60 ? `${sec} s` : `${Math.floor(sec / 60)} min ${sec % 60} s`;
 	};
-	/** a card's line in Ship (its current step) or at Proposal after a red ship */
+	/** the reconcile's flag (play/api/src/ship.ts reconcile): Accepted, or green in Ship, and its commit not in what play runs */
+	const notLive = (i: Intent) => (i.ship?.live === false && i.ship.commit ? `not live: production runs ${i.ship.commit.slice(0, 7)}` : '');
+	/** a card's line in Ship (its current step) or at Proposal after a red ship, or its flag */
 	const shipLine = (i: Intent) => {
 		if (!i.ship) return '';
+		if (notLive(i)) return notLive(i);
+		if (i.stage === 'ship' && i.ship.outcome === 'green') return 'green · Accepted once play runs it';
 		if (i.stage === 'ship') {
 			const n = shipNow(i.ship);
 			// still waiting to start: why (its turn, GitHub, its checks), as the first step says
@@ -403,7 +407,7 @@
 								<article class="card" class:item={!!i.spec || !i.work} class:held={!!i.held_by?.length} data-kind={i.kind}>
 									<button class="open" onclick={() => openIntentDialog(i)} title={i.note ? gist(i.note) : undefined}>
 										<span class="title">{i.title}</span>
-										{#if shipLine(i)}<span class="for ship" class:red={i.stage === 'proposal' || i.ship?.steps.some((x) => x.state === 'red')} class:running={i.stage === 'ship'}>{shipLine(i)}</span>
+										{#if shipLine(i)}<span class="for ship" class:red={i.stage === 'proposal' || !!notLive(i) || !!i.ship?.steps?.some((x) => x.state === 'red')} class:running={i.stage === 'ship'}>{shipLine(i)}</span>
 										{:else if progress}<span class="for" class:done={allMustPass(i)}>{progress}</span>
 										{:else if i.spec && s === 'specify'}<span class="for">{i.spec.checks.length} check{i.spec.checks.length === 1 ? '' : 's'} · to approve</span>
 										{:else if i.spec && i.work}<span class="for">{workText(i)}</span>{/if}
@@ -459,7 +463,11 @@
 					<p class="muted small">{shipsAgain(i) ? `Accept ships it again (${i.ship.again === 'main' ? "main's failed jobs run again" : 'the release of ' + i.ship.merge.slice(0, 7) + ' again'}); or an agent fixes it in a new pull request of the intent, its checks recorded on its head.` : 'Accept merges its newer pull request and ships it.'}</p>
 				</section>
 			{/if}
-			{#if i.ship && (i.stage === 'ship' || i.stage === 'accepted' || i.stage === 'proposal')}
+			{#if notLive(i)}
+				<!-- the reconcile's flag: its stage left as it is, its commit not in what play runs (rolled back, never merged) -->
+				<p class="not-live" role="status">{notLive(i)}{i.ship?.merge ? ` (its merge ${i.ship.merge.slice(0, 7)} is not in it)` : ''}</p>
+			{:else if i.ship?.note}<p class="muted small">{i.ship.note}</p>{/if}
+			{#if i.ship?.steps?.length && (i.stage === 'ship' || i.stage === 'accepted' || i.stage === 'proposal')}
 				{@const sh = i.ship}
 				<section class="ship" aria-label="Its way to production">
 					<h3>{i.stage === 'ship' ? 'Shipping' : i.stage === 'accepted' ? 'Shipped' : 'Its last ship'} <span class="muted small">#{sh.pr}{sh.merge ? ` as ${sh.merge.slice(0, 7)}` : ''} · accepted by {sh.by}{sh.round > 1 ? ` · round ${sh.round}` : ''}</span></h3>
@@ -763,6 +771,7 @@
 	.for { font-size: 0.76rem; color: var(--ink-soft, #4d5d51); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.for.done { color: var(--brand-green, #24452f); font-weight: 600; }
 	.for.ship { font-weight: 600; color: var(--brand-green, #24452f); }
+	.not-live { font-weight: 600; color: #9c3b22; margin: 0.4rem 0; }
 	.for.ship.running::before { content: '● '; color: var(--mustard, #efb54d); }
 	.for.ship.red { color: #9c3b22; }
 	.for.ship.red::before { content: '✗ '; }

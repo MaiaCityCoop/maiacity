@@ -5,6 +5,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { app } from "../src/app";
+import { runningCommit } from "../src/ship";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore, type BlobStore } from "../src/blobs";
 import { importSources } from "../import/sources";
@@ -83,6 +84,18 @@ suite("play API", () => {
   /** the intents at Proposal, each as its work (its kind, label, status, who proposed it, how), named by the intent's id */
   const waiting = async () => (await call("ada", "GET", "/api/intents?stage=proposal")).data.map((i: any) => ({ ...i.work, id: i.id, intent: i }));
 
+
+  test("knows its commit: GET /api/version answers the commit its image was built with (PLAY_COMMIT), to anyone; /api/health as it was", async () => {
+    const commit = "9876ef0070dd4b648badc43e7a33993b00000001";
+    const built = app({ db, store, rate: new Rate(0), commit: runningCommit({ PLAY_COMMIT: commit }) });
+    const r = await built.fetch(new Request("http://play.test/api/version"));
+    expect(r.status).toBe(200);
+    expect(r.headers.get("cache-control")).toBe("no-store");
+    expect(await r.json()).toEqual({ commit });
+    // built without one: null, said so
+    expect((await call(null, "GET", "/api/version")).data).toEqual({ commit: process.env.PLAY_COMMIT ? runningCommit() : null });
+    expect(await (await built.fetch(new Request("http://play.test/api/health"))).json()).toEqual({ ok: true });
+  });
 
   test("a visitor may do nothing but sign in", async () => {
     expect((await call(null, "GET", "/api/health")).status).toBe(200);

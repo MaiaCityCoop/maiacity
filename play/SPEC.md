@@ -484,7 +484,8 @@ intents (id UUID, coop_id, kind /*idea|fix|improve: shown as Make, Fix, Improve*
          -- its code (0030-ship): its pull request into main, and its way to production once an Accept merged it
          pull_request /*its number*/, ship jsonb /*{ pr, head, merge, by, round, started, steps: [{ key, name, state:
            queued|running|green|red|skipped, started, finished, link, note }], report: { step, why, link, log, at },
-           outcome: green|red, ended, again: main|release, main_run, release_run, deploy_run, past }*/)
+           outcome: green|red, ended, again: main|release, main_run, release_run, deploy_run, past,
+           live, commit, note /*the reconcile's: its merge in what play runs, that commit, how it was Accepted*/ }*/)
 doc_variants.intent_id → intents        -- the intent an intent variant was proposed as (kept when newer work replaces it)
 ```
 
@@ -574,8 +575,9 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     happens within Accept's own request. While it waits, a required check turning red, the head moving, a conflict,
     the pull request closed, GitHub refusing the merge (the status posted back as failed) or **30 minutes** first in
     line without GitHub or its checks ready takes it back to Proposal with the report, nothing merged; waiting its
-    turn has no limit. An intent of code with no pull request named (a decision, or code merged before ships) is
-    accepted on its checks, straight to Accepted, as play's own work is.
+    turn has no limit. An intent with no pull request named is accepted on its checks, straight to Accepted, as
+    play's own work is, unless its code is on main by its trailer: then the reconcile accepts it once play runs it
+    (below).
   - **The ship watcher** (in play-api, every 10 s, `startShipWatcher`; its state is the intent's `ship` in Postgres, so
     it goes on after a restart) reads GitHub's Actions for the merge commit: **main's checks** (main.yml's run for the
     push), the **release** (release.yml's run named `release <sha>`), and the **deploy** (production.yml's run on the
@@ -583,13 +585,37 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     website* beside them). Each step is kept on the intent as it changes: queued, running, green, red (skipped
     where a job did not run), when it started and finished, its link. A step whose run has not begun 15 minutes after
     the one before it is red.
-  - **All green: Accepted**, its steps and links kept. **Any red: back to Proposal** with the **ship report**: the
+  - **All green: ended in Ship**, its steps and links kept, until the reconcile finds it live (below; it holds no
+    ship behind it up). **Any red: back to Proposal** with the **ship report**: the
     failing step, why, its link and the last 60 lines of the failed job's log (fetched from where GitHub points,
     without the token). From there an agent fixes it (a new pull request of the intent, named with `pr`, its checks
     recorded on its head) and Accept ships that one; or, its pull request merged already by a ship of it, **Ship
     again** runs main's failed jobs again (a red on main) or the release of the commit last merged (a red release or
     deploy), waiting its turn like any ship (*Ready to run main's checks again*, *Ready to release again*), and it is
     in Ship again (`round` 2, 3 …), the earlier round's runs never this one's.
+  - **Accepted exactly when it is live: the reconcile** (Samuel 2026-11-07: *"ensure that our intents' state is always
+    coupled correctly to its shipped state"*; intent `9876ef00-70dd-4b64-8bad-c43e7a33993b`; `play/api/src/ship.ts`
+    `reconcile`). play knows the commit it runs: production.yml builds the image with it (`--build-arg
+    PLAY_COMMIT=$GITHUB_SHA`), and **`GET /api/version`** answers `{ commit }` to anyone (`/api/health` stays `{ ok:
+    true }`). The reconcile is **the one place a code intent becomes Accepted**: a code intent is one with no work of
+    play's that names a pull request, or whose trailer `Intent: <its UUID>` is on a commit of main; its merge commit is
+    its ship's, else GitHub's for its pull request (merged by hand), else its commits on main. Against the running
+    commit (main's and its history read with `SHIP_TOKEN`):
+    - its merge commit is in it (an ancestor, or itself) and it is at Build, Proposal, Archived, or ended in Ship →
+      **Accepted**, its `ship` saying how (`live: true`, the `commit`, the `note` "Live at …: Accepted by the
+      reconcile"); a ship still waiting or running is the watcher's;
+    - it is Accepted (or ended green in Ship) and its merge commit is not in it (rolled back, closed unmerged, never
+      deployed) → **flagged**, `ship.live: false` with the running commit, its stage left alone: no one's decision is
+      undone by a machine. The board says *not live: production runs \<commit\>* on its card and in its dialog. Once
+      play runs it again, the flag clears.
+
+    It runs once as play starts (a deploy, a rollback by `restore.yml`, a deploy by hand: each starts play anew) and
+    whenever a ship ends in the watcher's look. An admin's Accept on an intent with no pull request named whose code
+    is on main by its trailer is the reconcile's too (`acceptCode`): Accepted at once if play runs it, else refused,
+    saying it is Accepted by itself once production runs it; an intent with no code and no work of play's is accepted
+    as before (`decideIntent`), and play's own work straight to Accepted, its version applied in the same transaction.
+    **`bun play/avenbox/live-audit.ts`** checks the same from outside: the commit from `/api/version`, every intent over
+    MCP, main's history from git; it prints every mismatch and exits 0 only with none.
   - **production follows main** (`.github/workflows/release.yml`): once main.yml is green for a push to main, or by
     `workflow_dispatch` with a sha (Ship again, or by hand), it moves `production` to that commit, fast-forward only,
     with `GITHUB_TOKEN`, and starts `production.yml` on it (`workflow_dispatch`; a push by `GITHUB_TOKEN` starts no

@@ -61,7 +61,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push
         run: |
-          docker build -f play/Dockerfile -t "${{ steps.tag.outputs.image }}" .
+          docker build -f play/Dockerfile --build-arg PLAY_COMMIT="$GITHUB_SHA" -t "${{ steps.tag.outputs.image }}" .
           docker push "${{ steps.tag.outputs.image }}"
 
   # Before anything on the server changes: play's schema and a full copy of its files to the bucket, with the image that
