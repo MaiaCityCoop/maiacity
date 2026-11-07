@@ -12,6 +12,7 @@
 -->
 <script lang="ts">
 	import { api } from '$lib/api';
+	import { INDEX, admitProposed, source as catalogSource } from '$lib/content/assets/catalog.js';
 	import { markdown } from '$lib/site/markdown/index.js';
 	import { detailOf, isCode, notLive, shipsAgain, STAGE_NAME, TABS, type Check, type Intent, type Kind, type Results, type ShipStep, type Stage, type TabId, type Work } from './detail';
 
@@ -70,14 +71,35 @@
 
 	/** what to tell an agent sent to it: play's (GET /api/intents/<id>'s brief, the Intents skill's part for its stage,
 	 *  play/api/src/skills.ts), never written here; null where there is nothing for an agent to do */
+	/** an asset upgrade's builds (the review's, play/api/src/versioned.ts reviewDoc), drawn inline in the Changes tab
+	 *  (Samuel 2026-11-07: "draw the asset right in the Changes tab"), only once that tab is opened */
+	let review = $state<{ id: string; builds: { hash: string; variant: string | null; label: string; first: boolean }[] | null } | null>(null);
+	let drawn = $state<{ id: string; hash: string } | null>(null);
+	let viewer: Promise<any> | null = null;
+	let worldViewer: Promise<any> | null = null;
+	const viewerOf = () => (viewer ??= import('$lib/content/assets/VaultAsset.svelte'));
+	const worldViewerOf = () => (worldViewer ??= import('$lib/content/worlds/WorldStage.svelte'));
+	$effect(() => {
+		const r = review;
+		if (current !== 'changes' || !r?.builds?.length || r.id !== i.id || drawn?.id === i.id) return;
+		const id = i.id;
+		const builds = r.builds;
+		admitProposed(builds)
+			.then(() => {
+				if (i.id === id) drawn = { id, hash: (builds.find((b) => b.first) ?? builds[0]).hash };
+			})
+			.catch((e) => (briefError = (e as Error).message));
+	});
 	let brief = $state<{ id: string; stage: Stage; text: string | null } | null>(null);
 	let briefError = $state('');
 	$effect(() => {
 		const { id, stage } = i;
 		if (brief?.id === id && brief.stage === stage) return;
-		api<{ brief: string | null }>(`/intents/${id}`)
+		api<{ brief: string | null; review?: any }>(`/intents/${id}`)
 			.then((r) => {
-				if (i.id === id) brief = { id, stage, text: r.brief };
+				if (i.id !== id) return;
+				brief = { id, stage, text: r.brief };
+				review = { id, builds: r.review?.builds ?? null };
 			})
 			.catch((e) => {
 				if (i.id === id) briefError = (e as Error).message;
@@ -209,6 +231,26 @@
 				{#if !i.work && i.pull_request}<p class="small">Code: <a href="{REPO_URL}/pull/{i.pull_request}" target="_blank" rel="noopener">pull request #{i.pull_request}</a> <span class="muted">· {i.stage === 'proposal' ? 'Accept merges it into main and ships it' : i.stage === 'ship' ? (i.ship?.pending ? 'in Ship, merged in its turn' : 'merged, on its way to production') : i.stage === 'accepted' ? 'in production' : 'named by its agent'}</span></p>
 				{:else if i.work}
 					{@const w = i.work}
+					<!-- an asset upgrade drawn right here, as the review draws it, in the asset box; the whole review (versions,
+					     source, before and after) a tap away on the row above -->
+					{#if review?.id === i.id && review.builds?.length}
+						{@const builds = review.builds}
+						<div class="inline-build">
+							{#if drawn?.id === i.id}
+								{#if builds.length > 1}<div class="variants">{#each builds as b (b.hash)}<button class="btn small" class:ghost={drawn.hash !== b.hash} onclick={() => (drawn = { id: i.id, hash: b.hash })}>{b.variant ?? b.label}</button>{/each}</div>{/if}
+								<div class="stage">
+									{#key drawn.hash}
+										{#if w.grp === 'worlds'}
+											{#await worldViewerOf() then { default: WorldStage }}<WorldStage source={catalogSource} engine={INDEX.engine} hash={drawn.hash} />{/await}
+										{:else}
+											{#await viewerOf() then { default: VaultAsset }}<VaultAsset source={catalogSource} hash={drawn.hash} title="{w.label} {titleOf(w)} (proposed)" fill />{/await}
+										{/if}
+									{/key}
+								</div>
+							{:else}<p class="muted small">Drawing it…</p>{/if}
+						</div>
+						<button class="btn small ghost" onclick={onopenwork}>The whole review: versions, source, before and after</button>
+					{/if}
 					<ul class="linked">
 						<li>
 							<button class="open" onclick={onopenwork}>
@@ -343,8 +385,8 @@
 	   right above the decision, always in sight (Samuel 2026-11-07: "bottom align above the action button areas the
 	   tab section, so it's always like fixed to the bottom area") */
 	.item-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
-	.item-body > .top { flex: 0 1 auto; max-height: 55%; overflow-y: auto; overscroll-behavior: contain; }
-	.panel { flex: 1 1 auto; min-height: 5rem; overflow-y: auto; overscroll-behavior: contain; border-top: 1px solid var(--line, #dcd5c4); }
+	.item-body > .top { flex: 0 0 auto; max-height: 62%; overflow-y: auto; overscroll-behavior: contain; }
+	.panel { flex: 1 1 0; min-height: 6rem; overflow-y: auto; overscroll-behavior: contain; border-top: 1px solid var(--line, #dcd5c4); }
 
 	/* the top: the stage's parts, short lines, nothing an agent alone needs */
 	.top { display: flex; flex-direction: column; gap: 0.55rem; padding: 0.15rem 0 0.8rem; font-size: 0.95rem; line-height: 1.45; }
@@ -470,6 +512,10 @@
 	.linked .what { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 	.linked .date { font-size: 0.76rem; white-space: nowrap; }
 	@media (max-width: 520px) { .linked .date { display: none; } }
+	.inline-build { margin: 0.2rem 0 0.6rem; display: flex; flex-direction: column; gap: 0.4rem; }
+	.variants { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+	.inline-build .stage { height: clamp(18rem, 48dvh, 30rem); display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; }
+	.inline-build .stage > :global(*) { flex: 1 1 auto; min-height: 0; }
 	.brief { margin: 0 0 0.5rem; padding: 0.6rem 0.75rem; border-radius: 10px; background: var(--paper, #faf8f2); border: 1px solid var(--line, #dcd5c4); font-size: 0.8rem; line-height: 1.45; white-space: pre-wrap; word-break: break-word; user-select: all; }
 
 	/* the foot: a refused decision's reason, then Reject and the one decision, primary, its reason under it if it is

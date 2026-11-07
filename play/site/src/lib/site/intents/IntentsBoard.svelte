@@ -377,12 +377,9 @@
 					<p class="meta">{p.grp} · by {p.author ?? 'someone'}{#if p.via === 'mcp'}{' '}<span class="via" title="Proposed by an agent working for them over MCP">via MCP</span>{/if} · {when(p.created)}{p.decided_by ? ` · ${p.status} by ${p.decided_by}` : ''}{#if p.intent_id}{' · for '}<button class="link" onclick={() => openIntentOf(p.intent_id!)} title="The intent it was made for: its spec and checks">{p.intent_title}</button>{/if}</p>
 					{#if p.intent_spec}
 						{@const checks = p.intent_spec.checks}
-						<p class="gate small" title="The intent's checks, each as its last result: every must check passed before play took this">
-							{#each checks as c (c.id)}
-								{@const r = p.intent_results?.[c.id]}
-								<span class="chk" class:pass={r?.pass === true} class:fail={r?.pass === false} title="{c.id} {c.check}{c.must ? '' : ' (nice)'}{r ? ` — ${r.evidence}` : ''}">{r ? (r.pass ? '✓' : '✗') : '·'} {c.id}</span>
-							{/each}
-						</p>
+						{@const musts = checks.filter((c) => c.must)}
+						<!-- in plain words, as the intent's detail says it (Samuel 2026-11-07: the audience is a person) -->
+						<p class="gate small" title={checks.map((c) => `${c.id} ${c.check}`).join('\n')}>Checks passed: <strong>{musts.filter((c) => p.intent_results?.[c.id]?.pass === true).length} of {musts.length}</strong> required</p>
 					{/if}
 				</div>
 			</header>

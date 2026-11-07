@@ -37,6 +37,18 @@ const SIZES = [
 const ME = { id: '00000000-0000-4000-8000-000000000001', name: 'Samuel', level: 'admin', may: {}, founder: 1 };
 const all = Object.values(FIXTURES);
 
+/** drawn once its build is done and prepared for display: no "Building …" or "Preparing …" note left for 3 s, polled */
+async function quiet(page: import('playwright').Page, stage: string, width: number) {
+	await page.waitForTimeout(1500);
+	const busy = page.getByText(/^(Building|Preparing|Drawing) .*…$/);
+	for (let still = 0, t = Date.now(); still < 3 && Date.now() - t < 300000; ) {
+		await page.waitForTimeout(1000);
+		still = (await busy.count()) ? 0 : still + 1;
+	}
+	if (await busy.count()) console.log(`${stage} ${width}: still busy after 5 minutes: ${await busy.first().textContent()}`);
+	await page.waitForTimeout(2000);
+}
+
 const browser = await chromium.launch();
 for (const size of SIZES) {
 	const page = await browser.newPage({ viewport: size, deviceScaleFactor: 2 });
@@ -66,20 +78,14 @@ for (const size of SIZES) {
 		await page.locator('.card .open', { hasText: i.title }).click({ timeout: 60000 });
 		await page.locator('.item-review').waitFor();
 		await page.waitForTimeout(400);
+		// an asset upgrade opens on its Changes tab, the asset drawn inline: shot once it is drawn
+		if ((ASSETS as any)[stage]) await quiet(page, stage, size.width);
 		await page.screenshot({ path: `${OUT}/${stage}-${size.width}.png` });
 		if (!(ASSETS as any)[stage]) continue;
 		// its work opened from the Changes tab: the asset built in the asset box, as the board draws it
 		await page.locator('.linked .open').click();
 		await page.locator('.review:not(.item-review) canvas').first().waitFor({ timeout: 90000 });
-		// drawn once its build is done (a grown tree takes a while in a headless browser), then a breath for its light
-		await page.waitForTimeout(1500);
-		// built and prepared for display: no "Building …" or "Preparing …" note left, polled (it comes and goes)
-		const busy = page.getByText(/^(Building|Preparing) .*…$/);
-		for (let quiet = 0, t = Date.now(); quiet < 3 && Date.now() - t < 300000; ) {
-			await page.waitForTimeout(1000);
-			quiet = (await busy.count()) ? 0 : quiet + 1;
-		}
-		if (await busy.count()) console.log(`${stage} ${size.width}: still busy after 5 minutes: ${await busy.first().textContent()}`);
+		await quiet(page, stage, size.width);
 		await page.waitForTimeout(3000);
 		await page.screenshot({ path: `${OUT}/${stage}-review-${size.width}.png` });
 	}
