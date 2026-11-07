@@ -1,5 +1,5 @@
 <!--
-	AN ASSET'S PARTS, TO PICK FROM — the avenDB app's Assets lists them in its side ($avendb/Assets.svelte), beside
+	AN ASSET'S PARTS, TO PICK FROM — an asset's view lists them in its side, beside
 	the asset's history and versions: the card of the part picked (what it is, what moves it, its numbers, its build step
 	and its source), then its parts tree from its card's catalog (./tree.js): its own parts by assembly, each whole asset
 	it carries with its own parts under it, and the sources. A part picked here is the one the viewer shows on its own
@@ -15,7 +15,7 @@
 	 *   nameOf?: (ref: string) => string }}
 	 *   `catalog` the asset's parts as built, `own` its own ref, `picked` the part picked, `solo` whether it is shown on its
 	 *   own (else in its place), `hrefOf` where a whole asset it carries is shown, by its ref, and `nameOf` its name as
-	 *   avenDB gives it ("Power Cube v3 · 1a2b3c4d…")
+	 *   play gives it ("Power Cube v3 · 1a2b3c4d…")
 	 */
 	let { catalog, own, picked = $bindable(null), solo = $bindable(true), hrefOf = () => null, nameOf = (ref) => ref } = $props();
 

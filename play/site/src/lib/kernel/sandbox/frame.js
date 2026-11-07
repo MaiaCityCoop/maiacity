@@ -9,7 +9,7 @@ import { BUDGETS, DENY, SANDBOX, SHELL_SCRIPT, frameCsp } from './policy.js';
  * and the view host. Each runs a frozen engine of ours in the worker, and nothing else ever starts there.
  *
  * - The frame: sandbox="allow-scripts" and NOT allow-same-origin, so its origin is opaque ("null"): it reaches no
- *   cookie, storage, OPFS (avenDB), passkey or page of ours. A Permissions Policy turns every device feature off
+ *   cookie, storage, OPFS, passkey or page of ours. A Permissions Policy turns every device feature off
  *   (./policy.js, the one deny list).
  * - Its Content Security Policy, which the worker inherits (a worker from a blob: URL takes its maker's policy): no
  *   connection of any kind, no script but the frame's own and the worker's blob (and WebAssembly, for a host whose

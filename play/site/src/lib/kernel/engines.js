@@ -2,7 +2,7 @@
 /**
  * THE FROZEN ENGINES, READ — the one list of every engine a host of ours runs untrusted code on, by kind
  * (aven/kernel/sandbox/engines.json, which the API's image copies), read here so the page (aven/kernel/sandbox/engines.js,
- * which adds the floors) and the API (../../maia/content/game/code/sources/avendb.js) hold code to the same engines the same way.
+ * which adds the floors) and the API (play/api/src/engines.ts) hold code to the same engines the same way.
  */
 import MANIFEST from './sandbox/engines.json' with { type: 'json' };
 

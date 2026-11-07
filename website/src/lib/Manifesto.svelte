@@ -8,7 +8,7 @@
 	import samuelImage from '$lib/images/samuel.jpg';
 	import FounderCounter from '$lib/FounderCounter.svelte';
 	import { PLAY } from '$lib/play';
-	// Public page artwork ships with the site, independent of a local avenDB session.
+	// Public page artwork ships with the site, independent of any session.
 
 	// the banner is optional: without the illustration the headline simply
 	// stands on the page

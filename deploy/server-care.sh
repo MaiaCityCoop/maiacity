@@ -11,9 +11,6 @@
 #           next time it is made; first from the folders kept when play's files moved into the bucket. A file whose
 #           bytes are lost everywhere and that nothing in play's data names but its own row is forgotten (its row in
 #           play.files removed); one that anything names is kept and reported. Then reports again.
-#   retire-avendb  avenDB is no longer run (Samuel 2026-11-05): its container stopped and removed for good, its data
-#           kept as a legacy copy on the root disk (/var/lib/maia-city/avendb-legacy), compared file by file, and only
-#           then removed from the data volume (it held 8.2 GB of the 9.8 GB volume, which filled).
 # Access to the bucket for the mending comes from ../backup.env, as for deploy/backup.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -189,41 +186,8 @@ clean() {
   forget_lost
 }
 
-retire_avendb() {
-  # avenDB is no longer run (Samuel 2026-11-05): its container is stopped and removed for good, and its data kept as a
-  # legacy copy on the root disk, compared file by file with what it was; only then does the folder leave the volume
-  local KEEP=/var/lib/maia-city/avendb-legacy cur
-  cur=$(sed -n 's/^AVENDB_DATA_PATH=//p' .env | tail -1)
-  [ -n "$cur" ] || { echo "retire-avendb: .env names no AVENDB_DATA_PATH"; exit 1; }
-  local C="docker compose -f docker-compose.yml -f docker-compose.prod.yml -f play/docker-compose.play.yml"
-  # compose reads .env itself, exactly as written; only play.env is loaded, for play's compose file
-  set -a; [ -f play.env ] && . ./play.env; set +a
-  echo "retire-avendb: stopping and removing avenDB's container …"
-  $C rm -sf avendb </dev/null || docker rm -f maia-city-avendb >/dev/null 2>&1 || true
-  docker ps --format '{{.Names}}' | grep -qx maia-city-avendb && { echo "retire-avendb: avenDB is still running"; exit 1; }
-  if [ "$cur" = "$KEEP" ]; then echo "retire-avendb: its data is kept at $KEEP already"; return 0; fi
-  [ -d "$cur" ] || { echo "retire-avendb: $cur is not there"; exit 1; }
-  local need free
-  need=$(sudo du -sk "$cur" | cut -f1); free=$(df -Pk / | awk 'NR == 2 {print $4}')
-  [ "$free" -gt $((need * 2)) ] || { echo "retire-avendb: $((free / 1024)) MB free on /, avenDB's data is $((need / 1024)) MB"; exit 1; }
-  sudo mkdir -p "$KEEP"
-  # the copy the first move made (/var/lib/maia-city/avendb) is used where it is there, brought up to date
-  [ -d /var/lib/maia-city/avendb ] && [ ! -e "$KEEP/.kept" ] && sudo rmdir "$KEEP" && sudo mv /var/lib/maia-city/avendb "$KEEP"
-  echo "retire-avendb: keeping $cur ($((need / 1024)) MB) at $KEEP …"
-  if command -v rsync >/dev/null; then sudo rsync -aH --delete "$cur/" "$KEEP/"; else sudo cp -a "$cur/." "$KEEP/"; fi
-  if ! sudo diff -r --no-dereference "$cur" "$KEEP" >/dev/null; then
-    echo "retire-avendb: the copy differs from $cur: nothing removed (the copy is at $KEEP)"; exit 1
-  fi
-  sudo touch "$KEEP/.kept"
-  cp .env ".env.before-avendb-retired-$(date -u +%Y%m%dT%H%M%SZ)"
-  sed -i "s#^AVENDB_DATA_PATH=.*#AVENDB_DATA_PATH=$KEEP#" .env
-  echo "retire-avendb: the legacy copy is whole at $KEEP; removing the folder from the volume ($cur)"
-  sudo rm -rf "$cur"
-}
-
 case "$MODE" in
   report) report ;;
   clean) report; echo; clean; echo; echo "# After"; report ;;
-  retire-avendb) retire_avendb; echo; echo "# After"; report ;;
-  *) echo "server-care: report, clean or retire-avendb, not $MODE"; exit 1 ;;
+  *) echo "server-care: report or clean, not $MODE"; exit 1 ;;
 esac

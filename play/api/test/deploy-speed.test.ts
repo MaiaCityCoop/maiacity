@@ -82,7 +82,7 @@ pg("the deploy's import", () => {
     const mint = await put(recipe("mint-old", 1));
     const mintId = "8a1e2b44-0000-4000-8000-0000000000a1";
     await db.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, $2, 'plants', 'mint-old', 'Mint')`, [mintId, COOP]);
-    await db.query(`INSERT INTO play.asset_versions (id, asset_id, number, recipe_hash, default_variant, card, engine, imported) VALUES ($1, $2, 1, $3, NULL, '{"card":{}}', 5, '{"from":"avendb"}')`, [hashText("mint-old@1"), mintId, mint]);
+    await db.query(`INSERT INTO play.asset_versions (id, asset_id, number, recipe_hash, default_variant, card, engine, imported) VALUES ($1, $2, 1, $3, NULL, '{"card":{}}', 5, '{"from":"legacy"}')`, [hashText("mint-old@1"), mintId, mint]);
     const source = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v }, build: () => null };\n};\n";
     const src = hashText(source);
     const dir = mkdtempSync(join(tmpdir(), "play-sources-"));
@@ -93,7 +93,7 @@ pg("the deploy's import", () => {
     // the legacy import ran; the media play's site names are among play's files (their rows: play keeps a file first)
     await db.query(`INSERT INTO play.imports (name) VALUES ('legacy')`);
     for (const m of mediaNamed()) await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, 1, 'image/jpeg', $2) ON CONFLICT DO NOTHING`, [m.hash, `blobs/${m.hash.slice(0, 2)}/${m.hash}`]);
-    const run = () => runImport(db, store, { cache: mkdtempSync(join(tmpdir(), "play-cache-")), founders: false, admins: [], dry: false, sources: dir, log: () => {} });
+    const run = () => runImport(db, store, { sources: dir, log: () => {} });
 
     // the first run gives the version its source, seeds the repo's stories and makes the documents
     const first = await run();
@@ -105,7 +105,7 @@ pg("the deploy's import", () => {
     calls.length = 0;
     const second = await run();
     expect(second.ok).toBe(true);
-    expect(second.legacy.skipped).toBe(true);
+    expect(second.legacy.ran).toBeString();
     expect(second.sources).toMatchObject({ files: 0, attached: 0, errors: [] });
     expect(calls).toEqual([]);
 
@@ -126,12 +126,43 @@ pg("the deploy's import", () => {
     const sage = await put(recipe("sage-old", 1));
     const sageId = "8a1e2b44-0000-4000-8000-0000000000a2";
     await db.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, $2, 'plants', 'sage-old', 'Sage')`, [sageId, COOP]);
-    await db.query(`INSERT INTO play.asset_versions (id, asset_id, number, recipe_hash, default_variant, card, engine, imported) VALUES ($1, $2, 1, $3, NULL, '{"card":{}}', 5, '{"from":"avendb"}')`, [hashText("sage-old@1"), sageId, sage]);
+    await db.query(`INSERT INTO play.asset_versions (id, asset_id, number, recipe_hash, default_variant, card, engine, imported) VALUES ($1, $2, 1, $3, NULL, '{"card":{}}', 5, '{"from":"legacy"}')`, [hashText("sage-old@1"), sageId, sage]);
     index({ [mint]: { asset: "plants/mint-old", v: 1, variant: null, source: src, commit: "c" }, [sage]: { asset: "plants/sage-old", v: 2, variant: null, source: src, commit: "c" } });
     const fourth = await run();
     expect(fourth.ok).toBe(false);
     expect(fourth.sources.errors).toEqual([expect.stringMatching(/builds sage-old@1, not plants\/sage-old@2/)]);
     expect((await db.query(`SELECT source_hash FROM play.asset_versions WHERE asset_id = $1`, [sageId])).rows[0].source_hash).toBeNull();
+  }, 60_000);
+});
+
+pg("a media file play's files lack", () => {
+  test("is an import error naming its hash: no feed is asked, play mends its files from its second copy", async () => {
+    const t = await freshDb();
+    try {
+      const { store, calls } = counting(folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))));
+      const own = (m: { hash: string; ending: string }) => Bun.file(resolve(ROOT, "play/media", `${m.hash}.${m.ending}`)).exists();
+      const named = mediaNamed();
+      let lost: { hash: string; ending: string } | undefined;
+      for (const m of named) if (!lost && !(await own(m))) lost = m;
+      expect(lost).toBeDefined();
+      // every other one among play's files already
+      for (const m of named.filter((x) => x !== lost)) await t.db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, 1, 'image/jpeg', $2)`, [m.hash, `blobs/${m.hash.slice(0, 2)}/${m.hash}`]);
+      const fetched: string[] = [];
+      const real = globalThis.fetch;
+      globalThis.fetch = (async (u: any) => (fetched.push(String(u)), new Response("", { status: 599 }))) as typeof fetch;
+      let report;
+      try {
+        report = await runImport(t.db, store, { log: () => {} });
+      } finally {
+        globalThis.fetch = real;
+      }
+      expect(report.ok).toBe(false);
+      expect(report.verified.mediaErrors).toEqual([expect.stringContaining(`media ${lost!.hash}.${lost!.ending}: not among play's files`)]);
+      expect(fetched).toEqual([]);
+      expect(calls.filter((c) => c.startsWith("put ") && c.endsWith(lost!.hash))).toEqual([]);
+    } finally {
+      await t.drop();
+    }
   }, 60_000);
 });
 

@@ -1,7 +1,7 @@
 // @ts-nocheck — plain JS
 /*
  * THE ASSET VIEWER'S CORE — what every viewer that shows a build on the asset stage shares: the repo's own viewer
- * (./AssetViewer.svelte, the Buildings) and a vault's (./VaultAsset.svelte, the avenDB app's Assets), and in part an
+ * (./AssetViewer.svelte, the Buildings) and a vault's (./VaultAsset.svelte, the asset library's), and in part an
  * asset's own page (./AssetPage.svelte) and a plant's card in Sandbox 5 ($content/sandbox-2/interior/PlantLook.svelte),
  * which keep their own lights. Their bar, panel and readout are drawn by ./ViewerParts.svelte.
  *
