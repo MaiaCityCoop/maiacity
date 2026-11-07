@@ -38936,95 +38936,6 @@ ${each}
 ` + code;
   }
 
-  // src/lib/content/actors/dqs.ts
-  var PARS = `
-#ifdef USE_SKINNING
-	vec4 dqQuat( mat3 m ) {
-		float tr = m[0][0] + m[1][1] + m[2][2];
-		if ( tr > 0.0 ) {
-			float s = sqrt( tr + 1.0 ) * 2.0;
-			return vec4( ( m[1][2] - m[2][1] ) / s, ( m[2][0] - m[0][2] ) / s, ( m[0][1] - m[1][0] ) / s, 0.25 * s );
-		} else if ( m[0][0] > m[1][1] && m[0][0] > m[2][2] ) {
-			float s = sqrt( 1.0 + m[0][0] - m[1][1] - m[2][2] ) * 2.0;
-			return vec4( 0.25 * s, ( m[1][0] + m[0][1] ) / s, ( m[2][0] + m[0][2] ) / s, ( m[1][2] - m[2][1] ) / s );
-		} else if ( m[1][1] > m[2][2] ) {
-			float s = sqrt( 1.0 + m[1][1] - m[0][0] - m[2][2] ) * 2.0;
-			return vec4( ( m[1][0] + m[0][1] ) / s, 0.25 * s, ( m[2][1] + m[1][2] ) / s, ( m[2][0] - m[0][2] ) / s );
-		}
-		float s = sqrt( 1.0 + m[2][2] - m[0][0] - m[1][1] ) * 2.0;
-		return vec4( ( m[2][0] + m[0][2] ) / s, ( m[2][1] + m[1][2] ) / s, 0.25 * s, ( m[0][1] - m[1][0] ) / s );
-	}
-	// a bone's matrix into the blend: its rotation (real part), its translation (dual part), its size
-	void dqAdd( mat4 b, float w, vec4 first, inout vec4 real, inout vec4 dual, inout float size ) {
-		if ( w <= 0.0 ) return;
-		float s = length( b[0].xyz );
-		vec4 q = dqQuat( mat3( b[0].xyz / s, b[1].xyz / s, b[2].xyz / s ) );
-		vec3 t = b[3].xyz;
-		vec4 d = 0.5 * vec4( t * q.w + cross( t, q.xyz ), - dot( t, q.xyz ) );
-		float k = dot( q, first ) < 0.0 ? - w : w;
-		real += k * q;
-		dual += k * d;
-		size += w * s;
-	}
-	vec3 dqTurn( vec4 q, vec3 v ) { return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v ); }
-#endif
-`;
-  var BASE = `
-#ifdef USE_SKINNING
-	mat4 boneMatX = getBoneMatrix( skinIndex.x );
-	mat4 boneMatY = getBoneMatrix( skinIndex.y );
-	mat4 boneMatZ = getBoneMatrix( skinIndex.z );
-	mat4 boneMatW = getBoneMatrix( skinIndex.w );
-	vec4 dqReal = vec4( 0.0 ), dqDual = vec4( 0.0 );
-	float dqSize = 0.0;
-	{
-		mat4 bx = boneMatX;
-		float s0 = length( bx[0].xyz );
-		vec4 first = dqQuat( mat3( bx[0].xyz / s0, bx[1].xyz / s0, bx[2].xyz / s0 ) );
-		dqAdd( boneMatX, skinWeight.x, first, dqReal, dqDual, dqSize );
-		dqAdd( boneMatY, skinWeight.y, first, dqReal, dqDual, dqSize );
-		dqAdd( boneMatZ, skinWeight.z, first, dqReal, dqDual, dqSize );
-		dqAdd( boneMatW, skinWeight.w, first, dqReal, dqDual, dqSize );
-		float total = max( skinWeight.x + skinWeight.y + skinWeight.z + skinWeight.w, 1e-5 );
-		dqSize /= total;
-		float len = max( length( dqReal ), 1e-6 );
-		dqReal /= len;
-		dqDual /= len;
-	}
-	vec3 dqMove = 2.0 * ( dqReal.w * dqDual.xyz - dqDual.w * dqReal.xyz + cross( dqReal.xyz, dqDual.xyz ) );
-#endif
-`;
-  var NORMAL = `
-#ifdef USE_SKINNING
-	objectNormal = ( bindMatrixInverse * vec4( dqTurn( dqReal, ( bindMatrix * vec4( objectNormal, 0.0 ) ).xyz ), 0.0 ) ).xyz;
-	#ifdef USE_TANGENT
-		objectTangent = ( bindMatrixInverse * vec4( dqTurn( dqReal, ( bindMatrix * vec4( objectTangent, 0.0 ) ).xyz ), 0.0 ) ).xyz;
-	#endif
-#endif
-`;
-  var VERTEX = `
-#ifdef USE_SKINNING
-	vec3 skinVertex = ( bindMatrix * vec4( transformed, 1.0 ) ).xyz;
-	transformed = ( bindMatrixInverse * vec4( dqTurn( dqReal, skinVertex * dqSize ) + dqMove, 1.0 ) ).xyz;
-#endif
-`;
-  var installed = false;
-  function dualQuaternionSkinning() {
-    if (installed)
-      return;
-    installed = true;
-    const chunks = ShaderChunk;
-    chunks.skinning_pars_vertex = chunks.skinning_pars_vertex + PARS;
-    chunks.skinbase_vertex = BASE;
-    chunks.skinnormal_vertex = NORMAL;
-    chunks.skinning_vertex = VERTEX;
-  }
-
-  // src/lib/content/assets/box/serialize.js
-  var FORMAT = 4;
-  var LIGHTS = { PointLight: "point", SpotLight: "spot", DirectionalLight: "directional", AmbientLight: "ambient", HemisphereLight: "hemisphere" };
-  var MATERIALS = ["MeshStandardMaterial", "MeshPhysicalMaterial", "MeshBasicMaterial", "MeshLambertMaterial", "MeshPhongMaterial", "MeshToonMaterial", "LineBasicMaterial", "LineDashedMaterial", "PointsMaterial", "MeshMatcapMaterial", "ShadowMaterial"];
-
   // src/lib/content/assets/box/bake.js
   var MAT = 10;
   var LIGHT = 6;
@@ -39055,957 +38966,6 @@ ${each}
       l.decay = v[at + 5];
   }
 
-  // src/lib/content/assets/box/clips.js
-  var TAU = Math.PI * 2;
-
-  // src/lib/content/assets/box/view.js
-  var MOVE_SAMPLES = 49;
-
-  // src/lib/content/assets/box/rebuild.js
-  var BUDGET = { nodes: 20000, geometries: 20000, materials: 2000, textures: 2000, images: 64, texturePixels: 4096, tris: 2000000, vertices: 4000000, instances: 1e5, controls: 32, controlNumbers: 8000000, bones: 1024, lights: 64, clipNumbers: 8000000 };
-  var FORMATS = [0, 1, 2, 3, FORMAT];
-  var ARRAYS2 = [Float32Array, Uint8Array, Uint16Array, Uint32Array, Int8Array, Int16Array, Int32Array];
-  var fail = (why) => {
-    throw new Error(`refused: ${why}`);
-  };
-  var finite = (a, what) => {
-    for (let i = 0;i < a.length; i++)
-      if (!Number.isFinite(a[i]))
-        fail(`${what} has a value that is not a number`);
-  };
-  var int = (x, max, what) => Number.isInteger(x) && x >= 0 && x < max ? x : fail(`${what} out of range`);
-  var num = (x, what) => typeof x === "number" && Number.isFinite(x) ? x : fail(`${what} is not a number`);
-  var typed = (a, what) => ARRAYS2.some((T) => a instanceof T) ? a : fail(`${what} is not a typed array`);
-  function attribute(x, what) {
-    if (!x || typeof x !== "object")
-      fail(`${what} missing`);
-    const array = typed(x.array, what);
-    const itemSize = int(x.itemSize, 17, `${what} item size`) || fail(`${what} item size 0`);
-    if (array.length % itemSize)
-      fail(`${what} length`);
-    if (array instanceof Float32Array)
-      finite(array, what);
-    return new BufferAttribute(array, itemSize, !!x.normalized);
-  }
-  function geometry(x, i) {
-    const g = new BufferGeometry;
-    const pos = x.attributes?.position ?? fail(`geometry ${i} has no positions`);
-    for (const [name, a] of Object.entries(x.attributes)) {
-      if (!/^[a-zA-Z_][a-zA-Z0-9_]{0,31}$/.test(name))
-        fail(`geometry ${i}: attribute name`);
-      g.setAttribute(name, attribute(a, `geometry ${i} ${name}`));
-    }
-    const count = g.attributes.position.count;
-    for (const [name, a] of Object.entries(g.attributes))
-      if (a.count !== count)
-        fail(`geometry ${i}: ${name} has ${a.count} items, not ${count}`);
-    if (x.morph)
-      for (const [name, list] of Object.entries(x.morph)) {
-        if (!/^(position|normal|color)$/.test(name) || !Array.isArray(list) || !list.length)
-          continue;
-        g.morphAttributes[name] = list.slice(0, 64).map((a, k) => {
-          const at = attribute(a, `geometry ${i} morph ${name} ${k}`);
-          if (at.count !== count)
-            fail(`geometry ${i} morph ${name} ${k} has ${at.count} items, not ${count}`);
-          if (typeof a.name === "string")
-            at.name = a.name.slice(0, 40);
-          return at;
-        });
-      }
-    g.morphTargetsRelative = !!x.morphRelative;
-    if (x.index) {
-      const idx = typed(x.index, `geometry ${i} index`);
-      if (!(idx instanceof Uint16Array || idx instanceof Uint32Array))
-        fail(`geometry ${i} index kind`);
-      for (let k = 0;k < idx.length; k++)
-        if (idx[k] >= count)
-          fail(`geometry ${i} index past its vertices`);
-      g.setIndex(new BufferAttribute(idx, 1));
-    }
-    for (const gr of x.groups ?? [])
-      g.addGroup(int(gr.start, 1e9, "group start"), int(gr.count, 1e9, "group count"), int(gr.materialIndex, 1e4, "group material"));
-    return g;
-  }
-  function onCanvas(bitmap) {
-    const scale = Math.min(1, budget().texture / Math.max(bitmap.width, bitmap.height));
-    const width = Math.max(1, Math.round(bitmap.width * scale)), height = Math.max(1, Math.round(bitmap.height * scale));
-    const c = typeof OffscreenCanvas === "function" ? new OffscreenCanvas(width, height) : Object.assign(document.createElement("canvas"), { width, height });
-    c.getContext("2d").drawImage(bitmap, 0, 0, width, height);
-    return c;
-  }
-  function image(x, i) {
-    if (!x || typeof x !== "object")
-      fail(`picture ${i} missing`);
-    if (x.bitmap) {
-      if (!(x.bitmap instanceof ImageBitmap))
-        fail(`picture ${i} is not a picture`);
-      if (x.bitmap.width > BUDGET.texturePixels || x.bitmap.height > BUDGET.texturePixels)
-        fail(`picture ${i} larger than ${BUDGET.texturePixels} px`);
-      return { source: new Source(onCanvas(x.bitmap)), pixels: false };
-    }
-    if (x.pixels) {
-      const { data, width, height } = x.pixels;
-      int(width, BUDGET.texturePixels + 1, "picture width");
-      int(height, BUDGET.texturePixels + 1, "picture height");
-      if (!(data instanceof Uint8Array) || data.length !== width * height * 4)
-        fail(`picture ${i} pixels`);
-      return { source: new Source({ data, width, height }), pixels: true };
-    }
-    return null;
-  }
-  function texture(x, i, images) {
-    const img = x.image == null ? null : images[int(x.image, images.length, `texture ${i} picture`)];
-    let t;
-    if (img?.pixels) {
-      t = new DataTexture;
-      t.source = img.source;
-      t.magFilter = LinearFilter;
-      t.minFilter = LinearMipmapLinearFilter;
-      t.generateMipmaps = true;
-    } else if (img) {
-      t = new Texture;
-      t.source = img.source;
-    } else
-      t = new Texture;
-    t.wrapS = [RepeatWrapping, ClampToEdgeWrapping, MirroredRepeatWrapping].includes(x.wrapS) ? x.wrapS : ClampToEdgeWrapping;
-    t.wrapT = [RepeatWrapping, ClampToEdgeWrapping, MirroredRepeatWrapping].includes(x.wrapT) ? x.wrapT : ClampToEdgeWrapping;
-    if (Array.isArray(x.repeat))
-      t.repeat.set(num(x.repeat[0], "repeat"), num(x.repeat[1], "repeat"));
-    if (Array.isArray(x.offset))
-      t.offset.set(num(x.offset[0], "offset"), num(x.offset[1], "offset"));
-    t.rotation = typeof x.rotation === "number" ? num(x.rotation, "rotation") : 0;
-    t.colorSpace = x.colorSpace === SRGBColorSpace ? SRGBColorSpace : NoColorSpace;
-    t.flipY = x.flipY !== false && !img?.pixels;
-    t.anisotropy = Math.min(16, Math.max(1, Number(x.anisotropy) || 1));
-    t.needsUpdate = true;
-    return t;
-  }
-  var uploadKey = (t) => [t.colorSpace, t.flipY, t.wrapS, t.wrapT, t.minFilter, t.magFilter, t.generateMipmaps, t.format, t.type, t.anisotropy, t.premultiplyAlpha, t.unpackAlignment, t.internalFormat].join();
-  function letPicturesGo(images, tex) {
-    if (!budget().release)
-      return;
-    for (const img of images) {
-      if (!img)
-        continue;
-      const users = tex.filter((t) => t.source === img.source);
-      if (!users.length || users.some((t) => uploadKey(t) !== uploadKey(users[0])))
-        continue;
-      const go = () => {
-        const s = img.source;
-        if (s.letGo)
-          return;
-        s.letGo = true;
-        const d = s.data;
-        if (d && "getContext" in d)
-          d.width = 1, d.height = 1;
-        else
-          s.data = { data: new Uint8Array(4), width: 1, height: 1 };
-        released.any = true;
-      };
-      for (const t of users) {
-        const before = t.onUpdate;
-        t.onUpdate = (u) => {
-          before?.(u);
-          go();
-        };
-      }
-    }
-  }
-  function material(x, i, textures) {
-    if (!MATERIALS.includes(x.type))
-      fail(`material ${i}: no kind ${String(x.type).slice(0, 40)}`);
-    const m = new exports_three_module[x.type];
-    for (const [k, v] of Object.entries(x.params ?? {})) {
-      if (!(k in m) || typeof m[k] === "function")
-        continue;
-      if (m[k]?.isColor)
-        m[k].setHex(int(v, 16777216, `material ${i} ${k}`));
-      else if (m[k] === null || m[k]?.isTexture)
-        m[k] = textures[int(v, textures.length, `material ${i} ${k}`)];
-      else if (m[k]?.isVector2 && Array.isArray(v))
-        m[k].set(num(v[0], k), num(v[1], k));
-      else if (typeof m[k] === typeof v && (typeof v === "number" ? Number.isFinite(v) : typeof v === "boolean"))
-        m[k] = v;
-    }
-    m.name = String(x.name ?? "").slice(0, 80);
-    if (x.custom === true)
-      m.userData.custom = true;
-    if (x.custom === true && x.cap && typeof x.cap === "object")
-      m.userData.cap = { color: int(x.cap.color, 16777216, `material ${i} cap`), rough: Math.min(1, Math.max(0, num(x.cap.rough, "cap"))), metal: Math.min(1, Math.max(0, num(x.cap.metal, "cap"))) };
-    return m;
-  }
-  function rebuild(data) {
-    if (!data || !FORMATS.includes(data.format))
-      fail("not box data of a format we read");
-    const { nodes, geometries, materials, textures } = data;
-    if (![nodes, geometries, materials, textures].every(Array.isArray))
-      fail("missing lists");
-    const listed = data.format === 0 ? textures.map((t) => t?.bitmap || t?.pixels ? { bitmap: t.bitmap, pixels: t.pixels } : null) : data.images;
-    if (!Array.isArray(listed))
-      fail("missing lists");
-    const counts = { nodes: nodes.length, geometries: geometries.length, materials: materials.length, textures: textures.length, images: data.format === 0 ? textures.length : listed.length };
-    for (const [what, n] of Object.entries(counts))
-      if (n > BUDGET[what])
-        fail(`${n} ${what}, more than ${BUDGET[what]}`);
-    const images = listed.map((x, i) => data.format === 0 && x === null ? null : image(x, i));
-    const tex = textures.map((t, i) => texture(data.format === 0 ? { ...t, image: images[i] ? i : null } : t, i, images));
-    letPicturesGo(images, tex);
-    const mats = materials.map((x, i) => material(x, i, tex));
-    const geos = geometries.map(geometry);
-    let vertices = 0;
-    for (const g of geos)
-      vertices += g.attributes.position.count;
-    if (vertices > BUDGET.vertices)
-      fail(`${vertices} vertices, more than ${BUDGET.vertices}`);
-    let tris = 0, lights = 0;
-    const skins = [];
-    const objs = nodes.map((n, i) => {
-      let o;
-      if (n.mesh) {
-        const g = geos[int(n.mesh.geometry, geos.length, `node ${i} geometry`)];
-        const m = Array.isArray(n.mesh.material) ? n.mesh.material.map((k) => mats[int(k, mats.length, `node ${i} material`)]) : mats[int(n.mesh.material, mats.length, `node ${i} material`)];
-        const k = n.mesh.kind;
-        if (n.mesh.instances) {
-          const count = int(n.mesh.instances.count, BUDGET.instances + 1, "instances");
-          const im = typed(n.mesh.instances.matrices, "instance matrices");
-          if (!(im instanceof Float32Array) || im.length < count * 16)
-            fail("instance matrices");
-          finite(im, "instance matrices");
-          o = new InstancedMesh(g, m, count);
-          o.instanceMatrix.array.set(im.subarray(0, count * 16));
-          const ic = n.mesh.instances.colors;
-          if (ic && ic instanceof Float32Array && ic.length >= count * 3)
-            o.instanceColor = new InstancedBufferAttribute(ic.subarray(0, count * 3), 3);
-          tris += (g.index?.count ?? g.attributes.position.count) / 3 * count;
-        } else if (data.format >= 3 && n.mesh.skin && k === "mesh") {
-          o = new SkinnedMesh(g, m);
-          skins.push([o, n.mesh.skin, i]);
-          tris += (g.index?.count ?? g.attributes.position.count) / 3;
-        } else {
-          o = k === "points" ? new Points(g, m) : k === "lineSegments" ? new LineSegments(g, m) : k === "line" ? new Line(g, m) : new Mesh(g, m);
-          if (o.isMesh)
-            tris += (g.index?.count ?? g.attributes.position.count) / 3;
-        }
-        o.castShadow = !!n.mesh.castShadow;
-        o.receiveShadow = !!n.mesh.receiveShadow;
-        if (Array.isArray(n.mesh.morph) && o.isMesh) {
-          o.updateMorphTargets();
-          n.mesh.morph.slice(0, o.morphTargetInfluences?.length ?? 0).forEach((w, j) => o.morphTargetInfluences[j] = num(w, "morph weight"));
-        }
-      } else if (data.format >= 4 && n.light != null) {
-        if (++lights > BUDGET.lights)
-          fail(`more than ${BUDGET.lights} lights`);
-        o = lightOf(n.light, i);
-      } else
-        o = data.format >= 3 && n.bone === true ? new Bone : new Group;
-      o.name = String(n.name ?? "").slice(0, 120);
-      if (!Array.isArray(n.matrix) || n.matrix.length !== 16)
-        fail(`node ${i} matrix`);
-      n.matrix.forEach((v) => num(v, `node ${i} matrix`));
-      o.matrix.fromArray(n.matrix);
-      o.matrix.decompose(o.position, o.quaternion, o.scale);
-      o.visible = n.visible !== false;
-      return o;
-    });
-    if (tris > BUDGET.tris)
-      fail(`${Math.round(tris)} triangles, more than ${BUDGET.tris}`);
-    const parent = new Int32Array(nodes.length).fill(-1);
-    nodes.forEach((n, i) => {
-      if (!Array.isArray(n.children))
-        fail(`node ${i} children`);
-      for (const c of n.children) {
-        int(c, nodes.length, `node ${i} child`);
-        if (c === 0 || parent[c] !== -1 || c === i)
-          fail("nodes are not a tree");
-        parent[c] = i;
-        objs[i].add(objs[c]);
-      }
-    });
-    for (let i = 1;i < nodes.length; i++)
-      if (parent[i] === -1)
-        fail(`node ${i} hangs from nothing`);
-    const root = objs[0];
-    root.updateMatrixWorld(true);
-    for (const [mesh, skin, i] of skins)
-      bind(mesh, skin, i, objs);
-    root.userData.ref = typeof data.ref === "string" ? data.ref.slice(0, 200) : "";
-    root.userData.stats = { tris: Math.round(tris), vertices };
-    root.userData.controls = data.format >= 2 ? controlsOf(data.controls, objs, root) : [];
-    if (data.format >= 3 && data.view != null)
-      root.userData.view = viewOf(data.view, objs, data.controls?.length ? root.userData.controls : []);
-    return root;
-  }
-  function lightOf(x, i) {
-    const kinds = Object.values(LIGHTS);
-    if (!x || typeof x !== "object" || !kinds.includes(x.kind))
-      fail(`node ${i}: a light of no kind we know`);
-    const color = int(x.color, 16777216, `light ${i} colour`), intensity = Math.max(0, num(x.intensity, `light ${i} brightness`));
-    const reach = (k, or) => x[k] === undefined ? or : Math.max(0, num(x[k], `light ${i} ${k}`));
-    let o;
-    if (x.kind === "point")
-      o = new PointLight(color, intensity, reach("distance", 0), reach("decay", 2));
-    else if (x.kind === "spot")
-      o = new SpotLight(color, intensity, reach("distance", 0), Math.min(Math.PI / 2, reach("angle", Math.PI / 3)), Math.min(1, reach("penumbra", 0)), reach("decay", 2));
-    else if (x.kind === "directional")
-      o = new DirectionalLight(color, intensity);
-    else if (x.kind === "ambient")
-      o = new AmbientLight(color, intensity);
-    else
-      o = new HemisphereLight(color, int(x.ground ?? 0, 16777216, `light ${i} ground`), intensity);
-    o.castShadow = x.castShadow === true && (x.kind === "point" || x.kind === "spot" || x.kind === "directional");
-    if (o.target && x.target !== undefined) {
-      o.target.position.fromArray(point(x.target, `light ${i} target`));
-      o.add(o.target);
-    }
-    return o;
-  }
-  function bind(mesh, skin, i, objs) {
-    if (!skin || typeof skin !== "object" || !Array.isArray(skin.bones))
-      fail(`node ${i} skin`);
-    if (!skin.bones.length || skin.bones.length > BUDGET.bones)
-      fail(`node ${i} skin: ${skin.bones.length} bones`);
-    const bones = skin.bones.map((b) => {
-      const o = objs[int(b, objs.length, `node ${i} skin bone`)];
-      return o.isBone ? o : fail(`node ${i} skin: node ${b} is not a bone`);
-    });
-    const inv = typed(skin.inverses, `node ${i} skin inverses`);
-    if (!(inv instanceof Float32Array) || inv.length !== bones.length * 16)
-      fail(`node ${i} skin inverses`);
-    finite(inv, `node ${i} skin inverses`);
-    if (!Array.isArray(skin.bind) || skin.bind.length !== 16)
-      fail(`node ${i} bind matrix`);
-    skin.bind.forEach((v) => num(v, `node ${i} bind matrix`));
-    const idx = mesh.geometry.attributes.skinIndex, w = mesh.geometry.attributes.skinWeight;
-    if (!idx || !w || idx.itemSize !== 4 || w.itemSize !== 4)
-      fail(`node ${i} skin weights`);
-    for (let k = 0;k < idx.array.length; k++)
-      if (idx.array[k] >= bones.length)
-        fail(`node ${i} skin: a vertex rides a bone it does not have`);
-    const inverses = bones.map((_, k) => new Matrix4().fromArray(inv, k * 16));
-    mesh.bindMode = skin.mode === "detached" ? "detached" : "attached";
-    mesh.bind(new Skeleton(bones, inverses), new Matrix4().fromArray(skin.bind));
-    mesh.frustumCulled = false;
-    if (skin.dq === true) {
-      dualQuaternionSkinning();
-      mesh.userData.dq = true;
-    }
-  }
-  var isText = (x, most) => typeof x === "string" && x.length <= most;
-  var text = (x, most, what) => x === undefined ? undefined : isText(x, most) ? x : fail(`${what}: not text`);
-  var point = (a, what) => Array.isArray(a) && a.length === 3 ? a.map((v) => num(v, what)) : fail(`${what}: not a point`);
-  var keep = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
-  var plainData = (x, what, depth = 0, budget = { n: 4000 }) => {
-    if (--budget.n < 0 || depth > 6)
-      fail(`${what}: too much`);
-    if (x === null || typeof x === "boolean")
-      return x;
-    if (typeof x === "number")
-      return num(x, what);
-    if (typeof x === "string")
-      return x.length <= 4000 ? x : fail(`${what}: text too long`);
-    if (Array.isArray(x))
-      return x.map((v) => plainData(v, what, depth + 1, budget));
-    if (typeof x === "object" && Object.getPrototypeOf(x) === Object.prototype) {
-      const out = {};
-      for (const [k, v] of Object.entries(x)) {
-        if (k.length > 64 || k === "__proto__" || k === "constructor" || k === "prototype")
-          fail(`${what}: key`);
-        out[k] = plainData(v, what, depth + 1, budget);
-      }
-      return out;
-    }
-    fail(`${what}: not plain data`);
-  };
-  function viewOf(v, objs, _controls) {
-    if (typeof v !== "object" || Array.isArray(v))
-      fail("view");
-    const node = (k, what) => int(k, objs.length, `view ${what}`);
-    const out = {};
-    if (v.parts !== undefined) {
-      if (!Array.isArray(v.parts) || v.parts.length > 4096)
-        fail("view parts");
-      out.parts = v.parts.map((p, i) => {
-        const id = isText(p?.id, 80) && p.id ? p.id : fail(`view part ${i}: its id`);
-        const n = node(p.node, `part ${id}`);
-        let groups;
-        if (p.groups !== undefined) {
-          const count = objs[n].geometry?.groups?.length ?? 0;
-          if (!Array.isArray(p.groups) || p.groups.length > 1024)
-            fail(`view part ${id}: groups`);
-          groups = p.groups.map((g) => int(g, count, `view part ${id} group`));
-        }
-        return keep({ id, node: n, unit: p.unit === true ? true : undefined, groups });
-      });
-    }
-    if (v.labels !== undefined) {
-      if (!Array.isArray(v.labels) || v.labels.length > 256)
-        fail("view labels");
-      out.labels = v.labels.map((L, i) => keep({ node: node(L?.node, `label ${i}`), at: point(L.at, `view label ${i}`), text: text(L.text, 80, `view label ${i}`) ?? "", side: L.side === "left" || L.side === "right" ? L.side : undefined, live: L.live === true ? true : undefined }));
-    }
-    if (v.shells !== undefined) {
-      if (!Array.isArray(v.shells) || v.shells.length > 4096)
-        fail("view shells");
-      out.shells = v.shells.map((k) => node(k, "shell"));
-    }
-    if (v.cut !== undefined) {
-      const c = v.cut ?? fail("view cut");
-      out.cut = keep({ a: c.a && point(c.a, "view cut"), b: c.b && point(c.b, "view cut"), center: c.center && point(c.center, "view cut"), reach: c.reach === undefined ? undefined : num(c.reach, "view cut"), offset: c.offset === undefined ? undefined : num(c.offset, "view cut") });
-    }
-    if (v.size !== undefined)
-      out.size = num(v.size, "view size") > 0 ? v.size : fail("view size");
-    if (v.lab !== undefined) {
-      const L = v.lab ?? fail("view lab");
-      out.lab = keep({
-        hero: L.hero === undefined ? undefined : plainData(L.hero, "view lab hero"),
-        read: L.read === undefined ? undefined : plainData(L.read, "view lab reading"),
-        how: L.how === undefined ? undefined : plainData(L.how, "view lab how"),
-        breakIt: L.breakIt === undefined ? undefined : { label: text(L.breakIt?.label, 80, "view lab break") ?? "Break it" },
-        moves: L.moves === undefined ? undefined : movesOf(L.moves)
-      });
-    }
-    if (v.clips !== undefined) {
-      const c = v.clips ?? fail("view clips");
-      const names = (list, what) => Array.isArray(list) && list.length <= 64 ? list.map((k) => isText(k, 40) ? k : fail(`view ${what}`)) : fail(`view ${what}`);
-      out.clips = keep({
-        clips: names(c.clips ?? [], "clips"),
-        poses: names(c.poses ?? [], "poses"),
-        first: text(c.first, 40, "view first clip"),
-        held: c.held === undefined ? undefined : plainData(c.held, "view poses", 0, { n: 20000 }),
-        bones: c.bones === undefined ? undefined : Array.isArray(c.bones) && c.bones.length <= 512 ? c.bones.map((k) => isText(k, 40) ? k : fail("view bones")) : fail("view bones"),
-        motion: c.motion === undefined ? undefined : motionOf2(c.motion, Array.isArray(c.bones) ? c.bones.length : 0)
-      });
-    }
-    out.ticks = v.ticks === true;
-    if (v.roof !== undefined) {
-      if (!Array.isArray(v.roof) || v.roof.length > 256)
-        fail("view roof");
-      out.roof = v.roof.map((k) => node(k, "roof"));
-    }
-    if (v.walk !== undefined) {
-      const w = v.walk ?? fail("view walk");
-      const lamps = w.lamps === undefined ? [] : Array.isArray(w.lamps) && w.lamps.length <= 64 ? w.lamps.map((p) => point(p, "view walk lamp")) : fail("view walk lamps");
-      out.walk = { x: num(w.x, "view walk"), z: num(w.z, "view walk"), yaw: w.yaw === undefined ? 0 : num(w.yaw, "view walk"), lamps };
-    }
-    if (v.note !== undefined)
-      out.note = text(v.note, 200, "view note");
-    return out;
-  }
-  function motionOf2(m, nb) {
-    if (!m || typeof m !== "object" || Array.isArray(m))
-      fail("view motion");
-    if (m.bones !== nb || !nb)
-      fail("view motion: its bones");
-    if (!m.clips || typeof m.clips !== "object" || Array.isArray(m.clips))
-      fail("view motion clips");
-    const width = nb * 7 + 3;
-    let numbers = 0;
-    const floats = (a, n, what) => {
-      const x = typed(a, what);
-      if (!(x instanceof Float32Array) || x.length !== n)
-        fail(`${what}: its length`);
-      finite(x, what);
-      numbers += x.length;
-      return x;
-    };
-    const list = (a, most, what) => {
-      const x = typed(a, what);
-      if (!(x instanceof Uint16Array))
-        fail(what);
-      for (let i = 0;i < x.length; i++)
-        if (x[i] >= most)
-          fail(`${what}: names what is not there`);
-      return x;
-    };
-    const count = (x, most, what) => Number.isInteger(x) && x >= 1 && x <= most ? x : fail(`${what}: its count`);
-    const positive = (x, what) => num(x, what) > 0 ? x : fail(`${what}: not above 0`);
-    const out = {};
-    for (const [name, c] of Object.entries(m.clips).slice(0, 64)) {
-      const what = `view motion ${isText(name, 40) ? name : fail("view motion: a clip name")}`;
-      if (!c || typeof c !== "object")
-        fail(what);
-      const channels = list(c.channels, width, `${what} channels`);
-      const nch = channels.length || fail(`${what}: no channels`);
-      const base = typed(c.base, `${what} base`);
-      const rows = base.length / nch;
-      if (!Number.isInteger(rows) || rows < 1 || rows > 32)
-        fail(`${what}: its rows`);
-      floats(base, rows * nch, `${what} base`);
-      const axis = (A, what) => {
-        if (!A || typeof A !== "object")
-          fail(what);
-        const n = count(A.n, 2000000, what), mm = typed(A.list, `${what} list`).length;
-        return { n, rate: positive(A.rate, `${what} rate`), length: positive(A.length, `${what} length`), list: list(A.list, nch, `${what} list`), table: floats(A.table, rows * n * mm, `${what} table`), drift: floats(A.drift, rows * mm, `${what} drift`) };
-      };
-      if (!Array.isArray(c.t) || c.t.length > 4)
-        fail(`${what}: its times`);
-      const t = c.t.map((T, j) => {
-        const A = axis(T, `${what} time ${j}`);
-        const snap = typed(T.snap, `${what} time ${j} snap`);
-        if (!(snap instanceof Uint8Array) || snap.length !== A.list.length)
-          fail(`${what} time ${j} snap`);
-        return { ...A, snap };
-      });
-      const clip = { channels, base, t };
-      if (c.gear !== undefined) {
-        clip.gear = positive(c.gear, `${what} gear`);
-        if (!Array.isArray(c.paces) || c.paces.length !== rows)
-          fail(`${what}: its paces`);
-        clip.paces = c.paces.map((p, j) => num(p, `${what} pace`) >= 0 && (!j || p > c.paces[j - 1]) ? p : fail(`${what}: its paces in order`));
-        if (c.stride !== undefined)
-          clip.stride = positive(c.stride, `${what} stride`);
-        const D = axis(c.d, `${what} distance`);
-        clip.d = { ...D, k: floats(c.d.k, D.list.length, `${what} distance waves`) };
-        if (!Array.isArray(c.turns) || c.turns.length > 8)
-          fail(`${what}: its turns`);
-        clip.turns = c.turns.map((x) => num(x, `${what} turn`));
-        clip.rch = list(c.rch, nch, `${what} turned`);
-        clip.turn = floats(c.turn, clip.turns.length * D.n * clip.rch.length, `${what} turning`);
-      } else if (rows !== 1)
-        fail(`${what}: rows without a gait`);
-      if (numbers > BUDGET.clipNumbers)
-        fail(`clips hold more than ${BUDGET.clipNumbers} numbers`);
-      out[name] = clip;
-    }
-    return { bones: nb, clips: out };
-  }
-  function movesOf(moves) {
-    if (typeof moves !== "object" || moves === null || Array.isArray(moves))
-      fail("view moves");
-    const out = {};
-    for (const [id, m] of Object.entries(moves).slice(0, 16)) {
-      if (!/^[a-zA-Z][a-zA-Z0-9_-]{0,31}$/.test(id))
-        fail("view move: its name");
-      if (!Array.isArray(m?.ids) || m.ids.length > 16)
-        fail(`view move ${id}: its sliders`);
-      const ids = m.ids.map((k) => isText(k, 80) ? k : fail(`view move ${id}: a slider`));
-      const table = typed(m.table, `view move ${id}`);
-      if (!(table instanceof Float32Array) || table.length !== MOVE_SAMPLES * ids.length)
-        fail(`view move ${id}: its table`);
-      finite(table, `view move ${id}`);
-      out[id] = keep({ label: text(m.label, 80, `view move ${id}`) ?? id, seconds: num(m.seconds, `view move ${id}`) > 0 ? m.seconds : fail(`view move ${id}: seconds`), note: text(m.note, 200, `view move ${id}`), ids, table });
-    }
-    return out;
-  }
-  function controlsOf(list, objs, root) {
-    if (list == null)
-      return [];
-    if (!Array.isArray(list) || list.length > BUDGET.controls)
-      fail("controls");
-    const walked = new Map;
-    root.traverse((o) => walked.set(o, walked.size));
-    const seen = new Set;
-    let numbers = 0;
-    return list.map((c, i) => {
-      const id = typeof c?.id === "string" && /^[a-z][a-zA-Z0-9]{0,23}(\.[a-zA-Z0-9]{1,24})?$/.test(c.id) && !seen.has(c.id) ? c.id : fail(`control ${i}: its name`);
-      seen.add(id);
-      const S = int(c.samples, 130, `control ${id} samples`);
-      if (S < 2)
-        fail(`control ${id} samples`);
-      const from = num(c.from, `control ${id} from`), to = num(c.to, `control ${id} to`), rest = num(c.rest, `control ${id} rest`);
-      if (from === to || rest < Math.min(from, to) || rest > Math.max(from, to))
-        fail(`control ${id} range`);
-      const nodes = typed(c.nodes, `control ${id} nodes`);
-      if (!(nodes instanceof Uint32Array))
-        fail(`control ${id} nodes`);
-      const m = nodes.length;
-      const trs = typed(c.trs, `control ${id} places`);
-      if (!(trs instanceof Float32Array) || trs.length !== S * m * 10)
-        fail(`control ${id} places`);
-      finite(trs, `control ${id} places`);
-      const visible = typed(c.visible, `control ${id} showing`);
-      if (!(visible instanceof Uint8Array) || visible.length !== S * m)
-        fail(`control ${id} showing`);
-      numbers += trs.length + visible.length;
-      const node = (k, what) => objs[int(k, objs.length, `control ${id} ${what}`)];
-      const morph = (Array.isArray(c.morph) ? c.morph : []).map((x) => {
-        const o = node(x?.node, "blend shapes");
-        const w = typed(x.weights, `control ${id} blend shapes`);
-        const k = o.morphTargetInfluences?.length ?? 0;
-        if (!(w instanceof Float32Array) || !k || w.length !== S * k)
-          fail(`control ${id} blend shapes`);
-        finite(w, `control ${id} blend shapes`);
-        numbers += w.length;
-        return { node: walked.get(o), weights: w };
-      });
-      const instances = (Array.isArray(c.instances) ? c.instances : []).map((x) => {
-        const o = node(x?.node, "instances");
-        const a = typed(x.matrices, `control ${id} instances`);
-        if (!o.isInstancedMesh || !(a instanceof Float32Array) || a.length !== S * o.count * 16)
-          fail(`control ${id} instances`);
-        finite(a, `control ${id} instances`);
-        numbers += a.length;
-        return { node: walked.get(o), matrices: a };
-      });
-      const floats = (a, n, what) => {
-        const x = typed(a, `control ${id} ${what}`);
-        if (!(x instanceof Float32Array) || x.length !== n)
-          fail(`control ${id} ${what}`);
-        finite(x, `control ${id} ${what}`);
-        numbers += x.length;
-        return x;
-      };
-      const shapes = (Array.isArray(c.shapes) ? c.shapes : []).map((x) => {
-        const o = node(x?.node, "shapes");
-        const g = o.geometry, n = g?.attributes?.position?.count;
-        if (!o.isMesh || o.isInstancedMesh || !n)
-          fail(`control ${id} shapes: not a mesh`);
-        const normal = x.normal == null ? null : g.attributes.normal ? floats(x.normal, S * n * 3, "normals") : fail(`control ${id} normals: a mesh without`);
-        return { node: walked.get(o), position: floats(x.position, S * n * 3, "shapes"), normal };
-      });
-      const looks = (Array.isArray(c.looks) ? c.looks : []).map((x) => {
-        const o = node(x?.node, "looks");
-        const many = Array.isArray(o.material) ? o.material.length : o.material ? 1 : 0;
-        return { node: walked.get(o), slot: int(x.slot, many, `control ${id} looks slot`), values: floats(x.values, S * MAT, "looks") };
-      });
-      const lights = (Array.isArray(c.lights) ? c.lights : []).map((x) => {
-        const o = node(x?.node, "lights");
-        if (!o.isLight)
-          fail(`control ${id} lights: not a light`);
-        return { node: walked.get(o), values: floats(x.values, S * LIGHT, "lights") };
-      });
-      if (numbers > BUDGET.controlNumbers)
-        fail(`controls hold more than ${BUDGET.controlNumbers} numbers`);
-      return { id, from, to, rest, samples: S, choice: c.choice === true, nodes: Uint32Array.from(nodes, (k) => walked.get(node(k, "node"))), trs, visible, morph, instances, shapes, looks, lights };
-    });
-  }
-  // src/lib/content/assets/schemas/card.v2.json
-  var card_v2_default = {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    title: "Asset card, v2",
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      format: { const: "asset-card" },
-      v: { const: 1 },
-      ref: { $ref: "#/$defs/ref" },
-      recipe: { $ref: "#/$defs/hash" },
-      engine: { type: "integer", minimum: 1, maximum: 1e4 },
-      group: { enum: ["machines", "actors", "characters", "things", "plants", "buildings", "biomes", "worlds"] },
-      id: { $ref: "#/$defs/id" },
-      version: { type: "integer", minimum: 1, maximum: 1e5 },
-      variant: { $ref: "#/$defs/id" },
-      label: { $ref: "#/$defs/line" },
-      note: { $ref: "#/$defs/text" },
-      size: { $ref: "#/$defs/size" },
-      triangles: { type: "integer", minimum: 0, maximum: 2000000 },
-      skinned: { type: "boolean" },
-      catalog: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          assemblies: {
-            type: "array",
-            maxItems: 200,
-            items: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                id: { $ref: "#/$defs/id" },
-                label: { $ref: "#/$defs/line" },
-                note: { $ref: "#/$defs/text" },
-                out: { $ref: "#/$defs/v3" }
-              },
-              required: ["id", "label"]
-            }
-          },
-          parts: {
-            type: "array",
-            maxItems: 5000,
-            items: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                id: { $ref: "#/$defs/id" },
-                label: { $ref: "#/$defs/line" },
-                assembly: { $ref: "#/$defs/id" },
-                what: { $ref: "#/$defs/text" },
-                moves: { $ref: "#/$defs/text" },
-                drive: { $ref: "#/$defs/text" },
-                specs: {
-                  type: "array",
-                  maxItems: 60,
-                  items: { type: "array", prefixItems: [{ $ref: "#/$defs/line" }, { $ref: "#/$defs/line" }], minItems: 2, maxItems: 2 }
-                },
-                count: { type: "integer", minimum: 1, maximum: 1e5 },
-                step: { type: "integer", minimum: 0, maximum: 1000 },
-                source: { $ref: "#/$defs/line" },
-                unit: { $ref: "#/$defs/line" },
-                ref: { anyOf: [{ $ref: "#/$defs/ref" }, { $ref: "#/$defs/build" }] }
-              },
-              required: ["id", "label"]
-            }
-          },
-          steps: { type: "array", maxItems: 1000, items: { $ref: "#/$defs/text" } },
-          ranges: {
-            type: "array",
-            maxItems: 1000,
-            items: { type: "array", prefixItems: [{ type: "number", minimum: 0, maximum: 1 }, { type: "number", minimum: 0, maximum: 1 }], minItems: 2, maxItems: 2 }
-          },
-          play: { $ref: "#/$defs/line" },
-          seconds: { type: "number", minimum: 0, maximum: 3600 },
-          sources: {
-            type: "array",
-            maxItems: 200,
-            items: {
-              type: "object",
-              additionalProperties: false,
-              properties: { label: { $ref: "#/$defs/line" }, url: { type: "string", format: "link", maxLength: 500 } },
-              required: ["label"]
-            }
-          }
-        },
-        required: ["parts"]
-      },
-      params: {
-        type: "array",
-        maxItems: 20,
-        items: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            id: { $ref: "#/$defs/key" },
-            label: { $ref: "#/$defs/line" },
-            type: { enum: ["number", "integer", "string"] },
-            value: { anyOf: [{ type: "number" }, { type: "string", maxLength: 200 }] },
-            min: { type: "number" },
-            max: { type: "number" },
-            step: { type: "number", minimum: 0 },
-            names: { type: "array", maxItems: 100, items: { $ref: "#/$defs/line" } },
-            maxLength: { type: "integer", minimum: 1, maximum: 200 }
-          },
-          required: ["id", "label", "type", "value"]
-        }
-      },
-      controls: {
-        type: "array",
-        maxItems: 100,
-        items: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            id: { $ref: "#/$defs/key" },
-            label: { $ref: "#/$defs/line" },
-            min: { type: "number" },
-            max: { type: "number" },
-            value: { type: "number" },
-            step: { type: "number", minimum: 0 },
-            unit: { type: "string", maxLength: 20 },
-            digits: { type: "integer", minimum: 0, maximum: 10 },
-            ends: { type: "array", prefixItems: [{ $ref: "#/$defs/line" }, { $ref: "#/$defs/line" }], minItems: 2, maxItems: 2 }
-          },
-          required: ["id", "label", "min", "max", "value"]
-        }
-      },
-      measures: {
-        type: "object",
-        maxProperties: 200,
-        propertyNames: { $ref: "#/$defs/key" },
-        additionalProperties: { anyOf: [{ type: "number" }, { $ref: "#/$defs/v3" }] }
-      },
-      lods: {
-        type: "array",
-        maxItems: 4,
-        items: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            level: { type: "integer", minimum: 0, maximum: 3 },
-            file: { $ref: "#/$defs/file" },
-            triangles: { type: "integer", minimum: 0, maximum: 2000000 },
-            screen: { type: "number", minimum: 0, maximum: 1 }
-          },
-          required: ["level", "file", "triangles", "screen"]
-        }
-      },
-      impostor: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          file: { $ref: "#/$defs/file" },
-          views: { enum: [8, 16] },
-          pixels: { type: "integer", minimum: 16, maximum: 4096 },
-          screen: { type: "number", minimum: 0, maximum: 1 }
-        },
-        required: ["file", "views", "pixels", "screen"]
-      }
-    },
-    required: ["format", "v", "ref", "group", "id", "version", "label", "size", "triangles"],
-    $defs: {
-      id: { type: "string", maxLength: 80, pattern: "^[a-z0-9][a-z0-9-]*$" },
-      hash: { type: "string", maxLength: 64, pattern: "^[0-9a-f]{64}$" },
-      ref: { type: "string", maxLength: 300, pattern: "^[a-z]+/[a-z0-9-]+@[0-9]+(:[a-z0-9-]+)?(\\?[A-Za-z][A-Za-z0-9_.-]*=[A-Za-z0-9%+*._-]*(&[A-Za-z][A-Za-z0-9_.-]*=[A-Za-z0-9%+*._-]*)*)?$" },
-      build: { type: "string", maxLength: 300, pattern: "^[0-9a-f]{64}(\\?[A-Za-z][A-Za-z0-9_.-]*=[A-Za-z0-9%+*._-]*(&[A-Za-z][A-Za-z0-9_.-]*=[A-Za-z0-9%+*._-]*)*)?$" },
-      key: { type: "string", maxLength: 80, pattern: "^[A-Za-z][A-Za-z0-9_.-]*$" },
-      line: { type: "string", maxLength: 300 },
-      text: { type: "string", maxLength: 4000 },
-      file: { type: "string", maxLength: 120, pattern: "^[a-z0-9][a-z0-9.-]*$" },
-      v3: { type: "array", prefixItems: [{ type: "number" }, { type: "number" }, { type: "number" }], minItems: 3, maxItems: 3 },
-      size: { type: "array", prefixItems: [{ $ref: "#/$defs/metres" }, { $ref: "#/$defs/metres" }, { $ref: "#/$defs/metres" }], minItems: 3, maxItems: 3 },
-      metres: { type: "number", minimum: 0, maximum: 1e4 }
-    }
-  };
-
-  // src/lib/content/assets/schemas/check.js
-  var LIMITS = { depth: 12, bytes: 4000000 };
-  var FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);
-  var WAY_OUT = /:\/\/|^\s*(data|blob|javascript|file|about|ws|wss):/i;
-  function checkText(schema, text) {
-    if (typeof text !== "string")
-      return { ok: false, errors: ["not JSON text"] };
-    if (text.length > LIMITS.bytes)
-      return { ok: false, errors: [`${text.length} bytes, more than ${LIMITS.bytes}`] };
-    let value;
-    try {
-      value = JSON.parse(text);
-    } catch (err) {
-      return { ok: false, errors: [`not JSON: ${err.message}`] };
-    }
-    return check(schema, value);
-  }
-  function check(schema, value) {
-    const errors = [];
-    const plain = plainJson(value, "", 0, errors);
-    if (plain) {
-      const size = JSON.stringify(value).length;
-      if (size > LIMITS.bytes)
-        errors.push(`${size} bytes, more than ${LIMITS.bytes}`);
-      else
-        walk(schema, schema, value, "", errors);
-    }
-    return errors.length ? { ok: false, errors: errors.slice(0, 20) } : { ok: true, value };
-  }
-  function plainJson(v, at, depth, errors) {
-    const no = (why) => (errors.push(`${at || "it"} ${why}`), false);
-    if (depth > LIMITS.depth)
-      return no(`is more than ${LIMITS.depth} deep`);
-    if (v === null || typeof v === "string" || typeof v === "boolean")
-      return true;
-    if (typeof v === "number")
-      return Number.isFinite(v) || no("is not a finite number");
-    if (Array.isArray(v))
-      return v.every((x, i) => plainJson(x, `${at}[${i}]`, depth + 1, errors));
-    if (typeof v !== "object" || Object.getPrototypeOf(v) !== Object.prototype)
-      return no(`is not plain JSON (${typeof v})`);
-    if (Object.prototype.hasOwnProperty.call(v, "__proto__"))
-      return no("has the key __proto__");
-    for (const [k, x] of Object.entries(v)) {
-      if (FORBIDDEN_KEYS.has(k))
-        return no(`has the key ${k}`);
-      if (!plainJson(x, `${at}.${k}`, depth + 1, errors))
-        return false;
-    }
-    return true;
-  }
-  var typeOf = (v) => v === null ? "null" : Array.isArray(v) ? "array" : Number.isInteger(v) ? "integer" : typeof v;
-  function walk(root, s, v, at, errors) {
-    const here = at || "it";
-    if (s.$ref) {
-      const m = /^#\/\$defs\/([A-Za-z0-9_-]+)$/.exec(s.$ref);
-      const def = m && Object.prototype.hasOwnProperty.call(root.$defs ?? {}, m[1]) ? root.$defs[m[1]] : null;
-      if (!def)
-        return errors.push(`schema: no ${s.$ref}`);
-      return walk(root, def, v, at, errors);
-    }
-    if (s.anyOf) {
-      const ok = s.anyOf.some((x) => walk(root, x, v, at, []) === 0);
-      return ok ? 0 : errors.push(`${here} fits none of its kinds`);
-    }
-    const before = errors.length;
-    if ("const" in s && v !== s.const)
-      errors.push(`${here} is not ${JSON.stringify(s.const)}`);
-    if (s.enum && !s.enum.includes(v))
-      errors.push(`${here} is not one of ${s.enum.join(", ")}`);
-    if (s.type) {
-      const t = typeOf(v);
-      if (!(t === s.type || s.type === "number" && t === "integer"))
-        return errors.push(`${here} is ${t}, not ${s.type}`);
-    }
-    if (typeof v === "string") {
-      if (s.maxLength !== undefined && v.length > s.maxLength)
-        errors.push(`${here} is longer than ${s.maxLength}`);
-      if (s.pattern && !new RegExp(s.pattern).test(v))
-        errors.push(`${here} does not match ${s.pattern}`);
-      if (s.format === "link") {
-        if (!/^(https:\/\/[^\s<>"'`]+|\/(?!\/)[^\s<>"'`:]*)$/.test(v) || v.includes(".."))
-          errors.push(`${here} is not an https address or a path of ours`);
-      } else if (WAY_OUT.test(v))
-        errors.push(`${here} names a place to load from`);
-    }
-    if (typeof v === "number") {
-      if (s.minimum !== undefined && v < s.minimum)
-        errors.push(`${here} is below ${s.minimum}`);
-      if (s.maximum !== undefined && v > s.maximum)
-        errors.push(`${here} is above ${s.maximum}`);
-    }
-    if (Array.isArray(v)) {
-      if (s.minItems !== undefined && v.length < s.minItems)
-        errors.push(`${here} has fewer than ${s.minItems} items`);
-      if (s.maxItems !== undefined && v.length > s.maxItems)
-        return errors.push(`${here} has more than ${s.maxItems} items`);
-      v.forEach((x, i) => {
-        const item = s.prefixItems ? s.prefixItems[i] : s.items;
-        if (item)
-          walk(root, item, x, `${at}[${i}]`, errors);
-      });
-    }
-    if (v && typeof v === "object" && !Array.isArray(v)) {
-      const keys = Object.keys(v);
-      if (s.maxProperties !== undefined && keys.length > s.maxProperties)
-        return errors.push(`${here} has more than ${s.maxProperties} keys`);
-      for (const r of s.required ?? [])
-        if (!Object.prototype.hasOwnProperty.call(v, r))
-          errors.push(`${here} has no ${r}`);
-      for (const k of keys) {
-        const p = s.properties && Object.prototype.hasOwnProperty.call(s.properties, k) ? s.properties[k] : null;
-        if (s.propertyNames)
-          walk(root, s.propertyNames, k, `${at}.${k} (its name)`, errors);
-        if (p)
-          walk(root, p, v[k], `${at}.${k}`, errors);
-        else if (s.additionalProperties === false)
-          errors.push(`${here} has a key it may not have: ${k}`);
-        else if (s.additionalProperties && typeof s.additionalProperties === "object")
-          walk(root, s.additionalProperties, v[k], `${at}.${k}`, errors);
-      }
-    }
-    return errors.length - before;
-  }
-  // src/lib/content/assets/schemas/schemas.json
-  var schemas_default = {
-    schemas: [
-      {
-        name: "asset",
-        v: 1,
-        date: "2026-10-15",
-        blake3: "459af77f1a06c30d74bcccb91db6acf44910e3d60974177b26afe134f5c13fdd",
-        bytes: 1127,
-        title: "Asset, v1",
-        note: "An asset's record as the legacy store kept it: title, group, name, version, note, licence, its files by role, tags"
-      },
-      {
-        name: "card",
-        v: 1,
-        date: "2026-10-16",
-        blake3: "b2a4f99e22030df58d62c95f9daca043c3b39efabbbfa79ec3c46efabf703ab6",
-        bytes: 7297,
-        title: "Asset card, v1",
-        note: "What an asset's build says of it: its ref, recipe hash and engine, group, id, version, variant, label, real size, triangles, catalog of parts, declared parameters, solver sliders, measures, levels of detail and impostor; read by our checker (./check.js)"
-      },
-      {
-        name: "card",
-        v: 2,
-        date: "2026-11-05",
-        blake3: "8a89456bf6b046473883bf284e361ad26daa1746b53a141ac8977b5f4817bfe8",
-        bytes: 7527,
-        title: "Asset card, v2",
-        note: "v1 with one more group, worlds (play/SPEC.md §4.11), and a catalog part's ref by its build's hash (`<recipe hash>?values`, as play names every asset) as well as by a readable ref: every card v1 took, v2 takes"
-      }
-    ]
-  };
-
-  // src/lib/content/assets/schemas/index.js
-  var SCHEMAS = schemas_default.schemas;
-  var checkCard = (card) => typeof card === "string" ? checkText(card_v2_default, card) : check(card_v2_default, card);
-
   // src/lib/content/assets/controls.js
   var LABELS = { pitch: "Pitched", build: "Built", explode: "Drawn apart", open: "Open", tailgate: "Tailgate down", lit: "Lit", wet: "Wet" };
   var DOORS = { driver: "driver's", passenger: "passenger's", rearL: "rear left", rearR: "rear right" };
@@ -40017,13 +38977,13 @@ ${each}
       return `${DOORS[door[1]] ?? door[1]} door open`.replace(/^./, (c) => c.toUpperCase());
     return id;
   }
-  var walk2 = (root) => {
+  var walk = (root) => {
     const list = [];
     root.traverse((o) => list.push(o));
     return list;
   };
   function poserOf(root, controls = root.userData.controls ?? [], { own = false } = {}) {
-    const nodes = walk2(root);
+    const nodes = walk(root);
     const values = new Map(controls.map((c) => [c.id, c.rest]));
     const q = [0, 0, 0, 1];
     const look = new Float32Array(MAT), light = new Float32Array(LIGHT);
@@ -40169,6 +39129,12 @@ ${each}
       }
     };
   }
+
+  // src/lib/content/assets/box/clips.js
+  var TAU = Math.PI * 2;
+
+  // src/lib/content/assets/box/view.js
+  var MOVE_SAMPLES = 49;
 
   // node_modules/three/examples/jsm/shaders/HorizontalBlurShader.js
   var HorizontalBlurShader = {
@@ -40479,17 +39445,17 @@ ${each}
   // src/lib/content/assets/hero.js
   var STEP = 0.25;
   var STAGED = new Set(["explode", "build", "pitch"]);
-  var fail2 = (why) => {
+  var fail = (why) => {
     throw new Error(`refused: ${why}`);
   };
-  var finite2 = (a, what) => {
+  var finite = (a, what) => {
     for (let i = 0;i < a.length; i++)
       if (!Number.isFinite(a[i]))
-        fail2(`${what}: a value that is not a number`);
+        fail(`${what}: a value that is not a number`);
   };
   var EMPTY = { assemblies: [], parts: [], steps: [], sources: [], ranges: [], play: "Build it", seconds: 12 };
   function heroOf({ obj: root, card }, { start, exact = false } = {}) {
-    const nodes = walk2(root);
+    const nodes = walk(root);
     const view = root.userData.view ?? {};
     const catalog = card.catalog ?? EMPTY;
     const info = new Map((catalog.parts ?? []).map((p) => [p.id, p]));
@@ -40548,14 +39514,14 @@ ${each}
     function follow(r) {
       const n = r.nodes, N = nodes.length;
       if (!(n instanceof Uint32Array) || !(r.trs instanceof Float32Array) || !(r.visible instanceof Uint8Array))
-        fail2("a step: its lists");
+        fail("a step: its lists");
       if (r.trs.length !== n.length * 10 || r.visible.length !== n.length)
-        fail2("a step: its lengths");
-      finite2(r.trs, "a step");
+        fail("a step: its lengths");
+      finite(r.trs, "a step");
       if (fresh)
         fresh = false, poser.reset();
       for (let j = 0;j < n.length; j++) {
-        const o = nodes[n[j] < N ? n[j] : fail2("a step: a node there is not")];
+        const o = nodes[n[j] < N ? n[j] : fail("a step: a node there is not")];
         const T = r.trs, a = j * 10;
         o.position.set(T[a], T[a + 1], T[a + 2]);
         o.quaternion.set(T[a + 3], T[a + 4], T[a + 5], T[a + 6]).normalize();
@@ -40565,35 +39531,35 @@ ${each}
           o.updateMatrix();
       }
       for (const m of Array.isArray(r.morph) ? r.morph : []) {
-        const o = nodes[Number.isInteger(m?.node) && m.node < N ? m.node : fail2("a step: blend shapes")];
+        const o = nodes[Number.isInteger(m?.node) && m.node < N ? m.node : fail("a step: blend shapes")];
         const w = o.morphTargetInfluences;
         if (!w || !(m.weights instanceof Float32Array) || m.weights.length !== w.length)
-          fail2("a step: blend shapes");
-        finite2(m.weights, "a step");
+          fail("a step: blend shapes");
+        finite(m.weights, "a step");
         w.splice(0, w.length, ...m.weights);
       }
       for (const m of Array.isArray(r.instances) ? r.instances : []) {
-        const o = nodes[Number.isInteger(m?.node) && m.node < N ? m.node : fail2("a step: instances")];
+        const o = nodes[Number.isInteger(m?.node) && m.node < N ? m.node : fail("a step: instances")];
         if (!o.isInstancedMesh || !(m.matrices instanceof Float32Array) || m.matrices.length !== o.count * 16)
-          fail2("a step: instances");
-        finite2(m.matrices, "a step");
+          fail("a step: instances");
+        finite(m.matrices, "a step");
         o.instanceMatrix.array.set(m.matrices);
         o.instanceMatrix.needsUpdate = true;
         o.frustumCulled = false;
       }
       for (const m of Array.isArray(r.shapes) ? r.shapes : []) {
-        const o = nodes[Number.isInteger(m?.node) && m.node < N ? m.node : fail2("a step: shapes")];
+        const o = nodes[Number.isInteger(m?.node) && m.node < N ? m.node : fail("a step: shapes")];
         const g = o.geometry, p = g?.attributes?.position;
         if (!o.isMesh || !p || !(m.position instanceof Float32Array) || m.position.length !== p.count * 3)
-          fail2("a step: shapes");
-        finite2(m.position, "a step");
+          fail("a step: shapes");
+        finite(m.position, "a step");
         p.array.set(m.position);
         p.needsUpdate = true;
         const n = g.attributes.normal;
         if (m.normal != null) {
           if (!n || !(m.normal instanceof Float32Array) || m.normal.length !== n.count * 3)
-            fail2("a step: normals");
-          finite2(m.normal, "a step");
+            fail("a step: normals");
+          finite(m.normal, "a step");
           n.array.set(m.normal);
           n.needsUpdate = true;
         }
@@ -40601,18 +39567,18 @@ ${each}
         o.frustumCulled = false;
       }
       for (const m of Array.isArray(r.looks) ? r.looks : []) {
-        const o = nodes[Number.isInteger(m?.node) && m.node < N ? m.node : fail2("a step: looks")];
+        const o = nodes[Number.isInteger(m?.node) && m.node < N ? m.node : fail("a step: looks")];
         const mat = Array.isArray(o.material) ? o.material[m.slot] : m.slot === 0 ? o.material : null;
         if (!mat || !(m.values instanceof Float32Array) || m.values.length !== MAT)
-          fail2("a step: looks");
-        finite2(m.values, "a step");
+          fail("a step: looks");
+        finite(m.values, "a step");
         putLook(mat, m.values, 0);
       }
       for (const m of Array.isArray(r.lights) ? r.lights : []) {
-        const o = nodes[Number.isInteger(m?.node) && m.node < N ? m.node : fail2("a step: lights")];
+        const o = nodes[Number.isInteger(m?.node) && m.node < N ? m.node : fail("a step: lights")];
         if (!o.isLight || !(m.values instanceof Float32Array) || m.values.length !== LIGHT)
-          fail2("a step: lights");
-        finite2(m.values, "a step");
+          fail("a step: lights");
+        finite(m.values, "a step");
         putLight(o, m.values, 0);
       }
       if (lab && r.read && typeof r.read === "object") {
@@ -43946,6 +42912,1093 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
     };
   }
 
+  // src/lib/stories/live.ts
+  var finite2 = (v) => typeof v === "number" && Number.isFinite(v);
+  var lerp3 = (a, b, u) => a + (b - a) * u;
+  var smooth = (u) => u * u * (3 - 2 * u);
+  function between(keys, t) {
+    if (t <= keys[0].at)
+      return [keys[0], keys[0], 0];
+    for (let i = 1;i < keys.length; i++)
+      if (t <= keys[i].at)
+        return [keys[i - 1], keys[i], (t - keys[i - 1].at) / (keys[i].at - keys[i - 1].at)];
+    const end = keys[keys.length - 1];
+    return [end, end, 0];
+  }
+  function cameraAt(camera, t) {
+    const [a, b, u0] = between(camera, t);
+    const u = b.ease === "linear" ? u0 : smooth(u0);
+    return { eye: a.eye.map((x, i) => lerp3(x, b.eye[i], u)), target: a.target.map((x, i) => lerp3(x, b.target[i], u)), fov: lerp3(a.fov, b.fov, u) };
+  }
+  function stepAt(times, t) {
+    if (times.length < 2 || t <= times[0])
+      return 0;
+    if (t >= times[times.length - 1])
+      return times.length - 1;
+    const span = (times[times.length - 1] - times[0]) / (times.length - 1);
+    return Math.min(times.length - 1, Math.max(0, Math.round((t - times[0]) / span)));
+  }
+  function curveAt(c, t, or) {
+    if (c == null)
+      return or;
+    if (finite2(c))
+      return c;
+    if (!Array.isArray(c) || !c.length)
+      return or;
+    const [a, b, u] = between(c.map(([at, v]) => ({ at, v })), t);
+    return Math.round(lerp3(a.v, b.v, u) * 1e6) / 1e6;
+  }
+  var frameOf = (t, fps, frames) => Math.min(frames - 1, Math.max(0, Math.round(t * fps)));
+  function sunAt(hour) {
+    const h = (hour % 24 + 24) % 24;
+    const sun = Math.round(50 * Math.sin(Math.PI * (h - 6) / 12) * 1e4) / 1e4;
+    const az = Math.round(((90 + (h - 6) * 15) % 360 + 360) % 360 * 1e4) / 1e4;
+    return { sun, az };
+  }
+  function worldAt(w, t, fps, frames) {
+    return {
+      frame: frameOf(t, fps, frames),
+      camera: cameraAt(w.camera, t),
+      sun: w.hour == null ? null : sunAt(curveAt(w.hour, t, 12)),
+      exposure: curveAt(w.exposure, t, 0),
+      lights: { sun: curveAt(w.lights?.sun, t, 1), sky: curveAt(w.lights?.sky, t, 1), lamps: curveAt(w.lights?.lamps, t, 1) }
+    };
+  }
+
+  // src/lib/content/actors/dqs.ts
+  var PARS = `
+#ifdef USE_SKINNING
+	vec4 dqQuat( mat3 m ) {
+		float tr = m[0][0] + m[1][1] + m[2][2];
+		if ( tr > 0.0 ) {
+			float s = sqrt( tr + 1.0 ) * 2.0;
+			return vec4( ( m[1][2] - m[2][1] ) / s, ( m[2][0] - m[0][2] ) / s, ( m[0][1] - m[1][0] ) / s, 0.25 * s );
+		} else if ( m[0][0] > m[1][1] && m[0][0] > m[2][2] ) {
+			float s = sqrt( 1.0 + m[0][0] - m[1][1] - m[2][2] ) * 2.0;
+			return vec4( 0.25 * s, ( m[1][0] + m[0][1] ) / s, ( m[2][0] + m[0][2] ) / s, ( m[1][2] - m[2][1] ) / s );
+		} else if ( m[1][1] > m[2][2] ) {
+			float s = sqrt( 1.0 + m[1][1] - m[0][0] - m[2][2] ) * 2.0;
+			return vec4( ( m[1][0] + m[0][1] ) / s, 0.25 * s, ( m[2][1] + m[1][2] ) / s, ( m[2][0] - m[0][2] ) / s );
+		}
+		float s = sqrt( 1.0 + m[2][2] - m[0][0] - m[1][1] ) * 2.0;
+		return vec4( ( m[2][0] + m[0][2] ) / s, ( m[2][1] + m[1][2] ) / s, 0.25 * s, ( m[0][1] - m[1][0] ) / s );
+	}
+	// a bone's matrix into the blend: its rotation (real part), its translation (dual part), its size
+	void dqAdd( mat4 b, float w, vec4 first, inout vec4 real, inout vec4 dual, inout float size ) {
+		if ( w <= 0.0 ) return;
+		float s = length( b[0].xyz );
+		vec4 q = dqQuat( mat3( b[0].xyz / s, b[1].xyz / s, b[2].xyz / s ) );
+		vec3 t = b[3].xyz;
+		vec4 d = 0.5 * vec4( t * q.w + cross( t, q.xyz ), - dot( t, q.xyz ) );
+		float k = dot( q, first ) < 0.0 ? - w : w;
+		real += k * q;
+		dual += k * d;
+		size += w * s;
+	}
+	vec3 dqTurn( vec4 q, vec3 v ) { return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v ); }
+#endif
+`;
+  var BASE = `
+#ifdef USE_SKINNING
+	mat4 boneMatX = getBoneMatrix( skinIndex.x );
+	mat4 boneMatY = getBoneMatrix( skinIndex.y );
+	mat4 boneMatZ = getBoneMatrix( skinIndex.z );
+	mat4 boneMatW = getBoneMatrix( skinIndex.w );
+	vec4 dqReal = vec4( 0.0 ), dqDual = vec4( 0.0 );
+	float dqSize = 0.0;
+	{
+		mat4 bx = boneMatX;
+		float s0 = length( bx[0].xyz );
+		vec4 first = dqQuat( mat3( bx[0].xyz / s0, bx[1].xyz / s0, bx[2].xyz / s0 ) );
+		dqAdd( boneMatX, skinWeight.x, first, dqReal, dqDual, dqSize );
+		dqAdd( boneMatY, skinWeight.y, first, dqReal, dqDual, dqSize );
+		dqAdd( boneMatZ, skinWeight.z, first, dqReal, dqDual, dqSize );
+		dqAdd( boneMatW, skinWeight.w, first, dqReal, dqDual, dqSize );
+		float total = max( skinWeight.x + skinWeight.y + skinWeight.z + skinWeight.w, 1e-5 );
+		dqSize /= total;
+		float len = max( length( dqReal ), 1e-6 );
+		dqReal /= len;
+		dqDual /= len;
+	}
+	vec3 dqMove = 2.0 * ( dqReal.w * dqDual.xyz - dqDual.w * dqReal.xyz + cross( dqReal.xyz, dqDual.xyz ) );
+#endif
+`;
+  var NORMAL = `
+#ifdef USE_SKINNING
+	objectNormal = ( bindMatrixInverse * vec4( dqTurn( dqReal, ( bindMatrix * vec4( objectNormal, 0.0 ) ).xyz ), 0.0 ) ).xyz;
+	#ifdef USE_TANGENT
+		objectTangent = ( bindMatrixInverse * vec4( dqTurn( dqReal, ( bindMatrix * vec4( objectTangent, 0.0 ) ).xyz ), 0.0 ) ).xyz;
+	#endif
+#endif
+`;
+  var VERTEX = `
+#ifdef USE_SKINNING
+	vec3 skinVertex = ( bindMatrix * vec4( transformed, 1.0 ) ).xyz;
+	transformed = ( bindMatrixInverse * vec4( dqTurn( dqReal, skinVertex * dqSize ) + dqMove, 1.0 ) ).xyz;
+#endif
+`;
+  var installed = false;
+  function dualQuaternionSkinning() {
+    if (installed)
+      return;
+    installed = true;
+    const chunks = ShaderChunk;
+    chunks.skinning_pars_vertex = chunks.skinning_pars_vertex + PARS;
+    chunks.skinbase_vertex = BASE;
+    chunks.skinnormal_vertex = NORMAL;
+    chunks.skinning_vertex = VERTEX;
+  }
+
+  // src/lib/content/assets/box/serialize.js
+  var FORMAT = 4;
+  var LIGHTS = { PointLight: "point", SpotLight: "spot", DirectionalLight: "directional", AmbientLight: "ambient", HemisphereLight: "hemisphere" };
+  var MATERIALS = ["MeshStandardMaterial", "MeshPhysicalMaterial", "MeshBasicMaterial", "MeshLambertMaterial", "MeshPhongMaterial", "MeshToonMaterial", "LineBasicMaterial", "LineDashedMaterial", "PointsMaterial", "MeshMatcapMaterial", "ShadowMaterial"];
+
+  // src/lib/content/assets/box/rebuild.js
+  var BUDGET = { nodes: 20000, geometries: 20000, materials: 2000, textures: 2000, images: 64, texturePixels: 4096, tris: 2000000, vertices: 4000000, instances: 1e5, controls: 32, controlNumbers: 8000000, bones: 1024, lights: 64, clipNumbers: 8000000 };
+  var FORMATS = [0, 1, 2, 3, FORMAT];
+  var ARRAYS2 = [Float32Array, Uint8Array, Uint16Array, Uint32Array, Int8Array, Int16Array, Int32Array];
+  var fail2 = (why) => {
+    throw new Error(`refused: ${why}`);
+  };
+  var finite3 = (a, what) => {
+    for (let i = 0;i < a.length; i++)
+      if (!Number.isFinite(a[i]))
+        fail2(`${what} has a value that is not a number`);
+  };
+  var int = (x, max, what) => Number.isInteger(x) && x >= 0 && x < max ? x : fail2(`${what} out of range`);
+  var num = (x, what) => typeof x === "number" && Number.isFinite(x) ? x : fail2(`${what} is not a number`);
+  var typed = (a, what) => ARRAYS2.some((T) => a instanceof T) ? a : fail2(`${what} is not a typed array`);
+  function attribute(x, what) {
+    if (!x || typeof x !== "object")
+      fail2(`${what} missing`);
+    const array = typed(x.array, what);
+    const itemSize = int(x.itemSize, 17, `${what} item size`) || fail2(`${what} item size 0`);
+    if (array.length % itemSize)
+      fail2(`${what} length`);
+    if (array instanceof Float32Array)
+      finite3(array, what);
+    return new BufferAttribute(array, itemSize, !!x.normalized);
+  }
+  function geometry(x, i) {
+    const g = new BufferGeometry;
+    const pos = x.attributes?.position ?? fail2(`geometry ${i} has no positions`);
+    for (const [name, a] of Object.entries(x.attributes)) {
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]{0,31}$/.test(name))
+        fail2(`geometry ${i}: attribute name`);
+      g.setAttribute(name, attribute(a, `geometry ${i} ${name}`));
+    }
+    const count = g.attributes.position.count;
+    for (const [name, a] of Object.entries(g.attributes))
+      if (a.count !== count)
+        fail2(`geometry ${i}: ${name} has ${a.count} items, not ${count}`);
+    if (x.morph)
+      for (const [name, list] of Object.entries(x.morph)) {
+        if (!/^(position|normal|color)$/.test(name) || !Array.isArray(list) || !list.length)
+          continue;
+        g.morphAttributes[name] = list.slice(0, 64).map((a, k) => {
+          const at = attribute(a, `geometry ${i} morph ${name} ${k}`);
+          if (at.count !== count)
+            fail2(`geometry ${i} morph ${name} ${k} has ${at.count} items, not ${count}`);
+          if (typeof a.name === "string")
+            at.name = a.name.slice(0, 40);
+          return at;
+        });
+      }
+    g.morphTargetsRelative = !!x.morphRelative;
+    if (x.index) {
+      const idx = typed(x.index, `geometry ${i} index`);
+      if (!(idx instanceof Uint16Array || idx instanceof Uint32Array))
+        fail2(`geometry ${i} index kind`);
+      for (let k = 0;k < idx.length; k++)
+        if (idx[k] >= count)
+          fail2(`geometry ${i} index past its vertices`);
+      g.setIndex(new BufferAttribute(idx, 1));
+    }
+    for (const gr of x.groups ?? [])
+      g.addGroup(int(gr.start, 1e9, "group start"), int(gr.count, 1e9, "group count"), int(gr.materialIndex, 1e4, "group material"));
+    return g;
+  }
+  function onCanvas(bitmap) {
+    const scale = Math.min(1, budget().texture / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale)), height = Math.max(1, Math.round(bitmap.height * scale));
+    const c = typeof OffscreenCanvas === "function" ? new OffscreenCanvas(width, height) : Object.assign(document.createElement("canvas"), { width, height });
+    c.getContext("2d").drawImage(bitmap, 0, 0, width, height);
+    return c;
+  }
+  function image(x, i) {
+    if (!x || typeof x !== "object")
+      fail2(`picture ${i} missing`);
+    if (x.bitmap) {
+      if (!(x.bitmap instanceof ImageBitmap))
+        fail2(`picture ${i} is not a picture`);
+      if (x.bitmap.width > BUDGET.texturePixels || x.bitmap.height > BUDGET.texturePixels)
+        fail2(`picture ${i} larger than ${BUDGET.texturePixels} px`);
+      return { source: new Source(onCanvas(x.bitmap)), pixels: false };
+    }
+    if (x.pixels) {
+      const { data, width, height } = x.pixels;
+      int(width, BUDGET.texturePixels + 1, "picture width");
+      int(height, BUDGET.texturePixels + 1, "picture height");
+      if (!(data instanceof Uint8Array) || data.length !== width * height * 4)
+        fail2(`picture ${i} pixels`);
+      return { source: new Source({ data, width, height }), pixels: true };
+    }
+    return null;
+  }
+  function texture(x, i, images) {
+    const img = x.image == null ? null : images[int(x.image, images.length, `texture ${i} picture`)];
+    let t;
+    if (img?.pixels) {
+      t = new DataTexture;
+      t.source = img.source;
+      t.magFilter = LinearFilter;
+      t.minFilter = LinearMipmapLinearFilter;
+      t.generateMipmaps = true;
+    } else if (img) {
+      t = new Texture;
+      t.source = img.source;
+    } else
+      t = new Texture;
+    t.wrapS = [RepeatWrapping, ClampToEdgeWrapping, MirroredRepeatWrapping].includes(x.wrapS) ? x.wrapS : ClampToEdgeWrapping;
+    t.wrapT = [RepeatWrapping, ClampToEdgeWrapping, MirroredRepeatWrapping].includes(x.wrapT) ? x.wrapT : ClampToEdgeWrapping;
+    if (Array.isArray(x.repeat))
+      t.repeat.set(num(x.repeat[0], "repeat"), num(x.repeat[1], "repeat"));
+    if (Array.isArray(x.offset))
+      t.offset.set(num(x.offset[0], "offset"), num(x.offset[1], "offset"));
+    t.rotation = typeof x.rotation === "number" ? num(x.rotation, "rotation") : 0;
+    t.colorSpace = x.colorSpace === SRGBColorSpace ? SRGBColorSpace : NoColorSpace;
+    t.flipY = x.flipY !== false && !img?.pixels;
+    t.anisotropy = Math.min(16, Math.max(1, Number(x.anisotropy) || 1));
+    t.needsUpdate = true;
+    return t;
+  }
+  var uploadKey = (t) => [t.colorSpace, t.flipY, t.wrapS, t.wrapT, t.minFilter, t.magFilter, t.generateMipmaps, t.format, t.type, t.anisotropy, t.premultiplyAlpha, t.unpackAlignment, t.internalFormat].join();
+  function letPicturesGo(images, tex) {
+    if (!budget().release)
+      return;
+    for (const img of images) {
+      if (!img)
+        continue;
+      const users = tex.filter((t) => t.source === img.source);
+      if (!users.length || users.some((t) => uploadKey(t) !== uploadKey(users[0])))
+        continue;
+      const go = () => {
+        const s = img.source;
+        if (s.letGo)
+          return;
+        s.letGo = true;
+        const d = s.data;
+        if (d && "getContext" in d)
+          d.width = 1, d.height = 1;
+        else
+          s.data = { data: new Uint8Array(4), width: 1, height: 1 };
+        released.any = true;
+      };
+      for (const t of users) {
+        const before = t.onUpdate;
+        t.onUpdate = (u) => {
+          before?.(u);
+          go();
+        };
+      }
+    }
+  }
+  function material(x, i, textures) {
+    if (!MATERIALS.includes(x.type))
+      fail2(`material ${i}: no kind ${String(x.type).slice(0, 40)}`);
+    const m = new exports_three_module[x.type];
+    for (const [k, v] of Object.entries(x.params ?? {})) {
+      if (!(k in m) || typeof m[k] === "function")
+        continue;
+      if (m[k]?.isColor)
+        m[k].setHex(int(v, 16777216, `material ${i} ${k}`));
+      else if (m[k] === null || m[k]?.isTexture)
+        m[k] = textures[int(v, textures.length, `material ${i} ${k}`)];
+      else if (m[k]?.isVector2 && Array.isArray(v))
+        m[k].set(num(v[0], k), num(v[1], k));
+      else if (typeof m[k] === typeof v && (typeof v === "number" ? Number.isFinite(v) : typeof v === "boolean"))
+        m[k] = v;
+    }
+    m.name = String(x.name ?? "").slice(0, 80);
+    if (x.custom === true)
+      m.userData.custom = true;
+    if (x.custom === true && x.cap && typeof x.cap === "object")
+      m.userData.cap = { color: int(x.cap.color, 16777216, `material ${i} cap`), rough: Math.min(1, Math.max(0, num(x.cap.rough, "cap"))), metal: Math.min(1, Math.max(0, num(x.cap.metal, "cap"))) };
+    return m;
+  }
+  function rebuild(data) {
+    if (!data || !FORMATS.includes(data.format))
+      fail2("not box data of a format we read");
+    const { nodes, geometries, materials, textures } = data;
+    if (![nodes, geometries, materials, textures].every(Array.isArray))
+      fail2("missing lists");
+    const listed = data.format === 0 ? textures.map((t) => t?.bitmap || t?.pixels ? { bitmap: t.bitmap, pixels: t.pixels } : null) : data.images;
+    if (!Array.isArray(listed))
+      fail2("missing lists");
+    const counts = { nodes: nodes.length, geometries: geometries.length, materials: materials.length, textures: textures.length, images: data.format === 0 ? textures.length : listed.length };
+    for (const [what, n] of Object.entries(counts))
+      if (n > BUDGET[what])
+        fail2(`${n} ${what}, more than ${BUDGET[what]}`);
+    const images = listed.map((x, i) => data.format === 0 && x === null ? null : image(x, i));
+    const tex = textures.map((t, i) => texture(data.format === 0 ? { ...t, image: images[i] ? i : null } : t, i, images));
+    letPicturesGo(images, tex);
+    const mats = materials.map((x, i) => material(x, i, tex));
+    const geos = geometries.map(geometry);
+    let vertices = 0;
+    for (const g of geos)
+      vertices += g.attributes.position.count;
+    if (vertices > BUDGET.vertices)
+      fail2(`${vertices} vertices, more than ${BUDGET.vertices}`);
+    let tris = 0, lights = 0;
+    const skins = [];
+    const objs = nodes.map((n, i) => {
+      let o;
+      if (n.mesh) {
+        const g = geos[int(n.mesh.geometry, geos.length, `node ${i} geometry`)];
+        const m = Array.isArray(n.mesh.material) ? n.mesh.material.map((k) => mats[int(k, mats.length, `node ${i} material`)]) : mats[int(n.mesh.material, mats.length, `node ${i} material`)];
+        const k = n.mesh.kind;
+        if (n.mesh.instances) {
+          const count = int(n.mesh.instances.count, BUDGET.instances + 1, "instances");
+          const im = typed(n.mesh.instances.matrices, "instance matrices");
+          if (!(im instanceof Float32Array) || im.length < count * 16)
+            fail2("instance matrices");
+          finite3(im, "instance matrices");
+          o = new InstancedMesh(g, m, count);
+          o.instanceMatrix.array.set(im.subarray(0, count * 16));
+          const ic = n.mesh.instances.colors;
+          if (ic && ic instanceof Float32Array && ic.length >= count * 3)
+            o.instanceColor = new InstancedBufferAttribute(ic.subarray(0, count * 3), 3);
+          tris += (g.index?.count ?? g.attributes.position.count) / 3 * count;
+        } else if (data.format >= 3 && n.mesh.skin && k === "mesh") {
+          o = new SkinnedMesh(g, m);
+          skins.push([o, n.mesh.skin, i]);
+          tris += (g.index?.count ?? g.attributes.position.count) / 3;
+        } else {
+          o = k === "points" ? new Points(g, m) : k === "lineSegments" ? new LineSegments(g, m) : k === "line" ? new Line(g, m) : new Mesh(g, m);
+          if (o.isMesh)
+            tris += (g.index?.count ?? g.attributes.position.count) / 3;
+        }
+        o.castShadow = !!n.mesh.castShadow;
+        o.receiveShadow = !!n.mesh.receiveShadow;
+        if (Array.isArray(n.mesh.morph) && o.isMesh) {
+          o.updateMorphTargets();
+          n.mesh.morph.slice(0, o.morphTargetInfluences?.length ?? 0).forEach((w, j) => o.morphTargetInfluences[j] = num(w, "morph weight"));
+        }
+      } else if (data.format >= 4 && n.light != null) {
+        if (++lights > BUDGET.lights)
+          fail2(`more than ${BUDGET.lights} lights`);
+        o = lightOf(n.light, i);
+      } else
+        o = data.format >= 3 && n.bone === true ? new Bone : new Group;
+      o.name = String(n.name ?? "").slice(0, 120);
+      if (!Array.isArray(n.matrix) || n.matrix.length !== 16)
+        fail2(`node ${i} matrix`);
+      n.matrix.forEach((v) => num(v, `node ${i} matrix`));
+      o.matrix.fromArray(n.matrix);
+      o.matrix.decompose(o.position, o.quaternion, o.scale);
+      o.visible = n.visible !== false;
+      return o;
+    });
+    if (tris > BUDGET.tris)
+      fail2(`${Math.round(tris)} triangles, more than ${BUDGET.tris}`);
+    const parent = new Int32Array(nodes.length).fill(-1);
+    nodes.forEach((n, i) => {
+      if (!Array.isArray(n.children))
+        fail2(`node ${i} children`);
+      for (const c of n.children) {
+        int(c, nodes.length, `node ${i} child`);
+        if (c === 0 || parent[c] !== -1 || c === i)
+          fail2("nodes are not a tree");
+        parent[c] = i;
+        objs[i].add(objs[c]);
+      }
+    });
+    for (let i = 1;i < nodes.length; i++)
+      if (parent[i] === -1)
+        fail2(`node ${i} hangs from nothing`);
+    const root = objs[0];
+    root.updateMatrixWorld(true);
+    for (const [mesh, skin, i] of skins)
+      bind(mesh, skin, i, objs);
+    root.userData.ref = typeof data.ref === "string" ? data.ref.slice(0, 200) : "";
+    root.userData.stats = { tris: Math.round(tris), vertices };
+    root.userData.controls = data.format >= 2 ? controlsOf(data.controls, objs, root) : [];
+    if (data.format >= 3 && data.view != null)
+      root.userData.view = viewOf(data.view, objs, data.controls?.length ? root.userData.controls : []);
+    return root;
+  }
+  function lightOf(x, i) {
+    const kinds = Object.values(LIGHTS);
+    if (!x || typeof x !== "object" || !kinds.includes(x.kind))
+      fail2(`node ${i}: a light of no kind we know`);
+    const color = int(x.color, 16777216, `light ${i} colour`), intensity = Math.max(0, num(x.intensity, `light ${i} brightness`));
+    const reach = (k, or) => x[k] === undefined ? or : Math.max(0, num(x[k], `light ${i} ${k}`));
+    let o;
+    if (x.kind === "point")
+      o = new PointLight(color, intensity, reach("distance", 0), reach("decay", 2));
+    else if (x.kind === "spot")
+      o = new SpotLight(color, intensity, reach("distance", 0), Math.min(Math.PI / 2, reach("angle", Math.PI / 3)), Math.min(1, reach("penumbra", 0)), reach("decay", 2));
+    else if (x.kind === "directional")
+      o = new DirectionalLight(color, intensity);
+    else if (x.kind === "ambient")
+      o = new AmbientLight(color, intensity);
+    else
+      o = new HemisphereLight(color, int(x.ground ?? 0, 16777216, `light ${i} ground`), intensity);
+    o.castShadow = x.castShadow === true && (x.kind === "point" || x.kind === "spot" || x.kind === "directional");
+    if (o.target && x.target !== undefined) {
+      o.target.position.fromArray(point(x.target, `light ${i} target`));
+      o.add(o.target);
+    }
+    return o;
+  }
+  function bind(mesh, skin, i, objs) {
+    if (!skin || typeof skin !== "object" || !Array.isArray(skin.bones))
+      fail2(`node ${i} skin`);
+    if (!skin.bones.length || skin.bones.length > BUDGET.bones)
+      fail2(`node ${i} skin: ${skin.bones.length} bones`);
+    const bones = skin.bones.map((b) => {
+      const o = objs[int(b, objs.length, `node ${i} skin bone`)];
+      return o.isBone ? o : fail2(`node ${i} skin: node ${b} is not a bone`);
+    });
+    const inv = typed(skin.inverses, `node ${i} skin inverses`);
+    if (!(inv instanceof Float32Array) || inv.length !== bones.length * 16)
+      fail2(`node ${i} skin inverses`);
+    finite3(inv, `node ${i} skin inverses`);
+    if (!Array.isArray(skin.bind) || skin.bind.length !== 16)
+      fail2(`node ${i} bind matrix`);
+    skin.bind.forEach((v) => num(v, `node ${i} bind matrix`));
+    const idx = mesh.geometry.attributes.skinIndex, w = mesh.geometry.attributes.skinWeight;
+    if (!idx || !w || idx.itemSize !== 4 || w.itemSize !== 4)
+      fail2(`node ${i} skin weights`);
+    for (let k = 0;k < idx.array.length; k++)
+      if (idx.array[k] >= bones.length)
+        fail2(`node ${i} skin: a vertex rides a bone it does not have`);
+    const inverses = bones.map((_, k) => new Matrix4().fromArray(inv, k * 16));
+    mesh.bindMode = skin.mode === "detached" ? "detached" : "attached";
+    mesh.bind(new Skeleton(bones, inverses), new Matrix4().fromArray(skin.bind));
+    mesh.frustumCulled = false;
+    if (skin.dq === true) {
+      dualQuaternionSkinning();
+      mesh.userData.dq = true;
+    }
+  }
+  var isText = (x, most) => typeof x === "string" && x.length <= most;
+  var text = (x, most, what) => x === undefined ? undefined : isText(x, most) ? x : fail2(`${what}: not text`);
+  var point = (a, what) => Array.isArray(a) && a.length === 3 ? a.map((v) => num(v, what)) : fail2(`${what}: not a point`);
+  var keep = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
+  var plainData = (x, what, depth = 0, budget = { n: 4000 }) => {
+    if (--budget.n < 0 || depth > 6)
+      fail2(`${what}: too much`);
+    if (x === null || typeof x === "boolean")
+      return x;
+    if (typeof x === "number")
+      return num(x, what);
+    if (typeof x === "string")
+      return x.length <= 4000 ? x : fail2(`${what}: text too long`);
+    if (Array.isArray(x))
+      return x.map((v) => plainData(v, what, depth + 1, budget));
+    if (typeof x === "object" && Object.getPrototypeOf(x) === Object.prototype) {
+      const out = {};
+      for (const [k, v] of Object.entries(x)) {
+        if (k.length > 64 || k === "__proto__" || k === "constructor" || k === "prototype")
+          fail2(`${what}: key`);
+        out[k] = plainData(v, what, depth + 1, budget);
+      }
+      return out;
+    }
+    fail2(`${what}: not plain data`);
+  };
+  function viewOf(v, objs, _controls) {
+    if (typeof v !== "object" || Array.isArray(v))
+      fail2("view");
+    const node = (k, what) => int(k, objs.length, `view ${what}`);
+    const out = {};
+    if (v.parts !== undefined) {
+      if (!Array.isArray(v.parts) || v.parts.length > 4096)
+        fail2("view parts");
+      out.parts = v.parts.map((p, i) => {
+        const id = isText(p?.id, 80) && p.id ? p.id : fail2(`view part ${i}: its id`);
+        const n = node(p.node, `part ${id}`);
+        let groups;
+        if (p.groups !== undefined) {
+          const count = objs[n].geometry?.groups?.length ?? 0;
+          if (!Array.isArray(p.groups) || p.groups.length > 1024)
+            fail2(`view part ${id}: groups`);
+          groups = p.groups.map((g) => int(g, count, `view part ${id} group`));
+        }
+        return keep({ id, node: n, unit: p.unit === true ? true : undefined, groups });
+      });
+    }
+    if (v.labels !== undefined) {
+      if (!Array.isArray(v.labels) || v.labels.length > 256)
+        fail2("view labels");
+      out.labels = v.labels.map((L, i) => keep({ node: node(L?.node, `label ${i}`), at: point(L.at, `view label ${i}`), text: text(L.text, 80, `view label ${i}`) ?? "", side: L.side === "left" || L.side === "right" ? L.side : undefined, live: L.live === true ? true : undefined }));
+    }
+    if (v.shells !== undefined) {
+      if (!Array.isArray(v.shells) || v.shells.length > 4096)
+        fail2("view shells");
+      out.shells = v.shells.map((k) => node(k, "shell"));
+    }
+    if (v.cut !== undefined) {
+      const c = v.cut ?? fail2("view cut");
+      out.cut = keep({ a: c.a && point(c.a, "view cut"), b: c.b && point(c.b, "view cut"), center: c.center && point(c.center, "view cut"), reach: c.reach === undefined ? undefined : num(c.reach, "view cut"), offset: c.offset === undefined ? undefined : num(c.offset, "view cut") });
+    }
+    if (v.size !== undefined)
+      out.size = num(v.size, "view size") > 0 ? v.size : fail2("view size");
+    if (v.lab !== undefined) {
+      const L = v.lab ?? fail2("view lab");
+      out.lab = keep({
+        hero: L.hero === undefined ? undefined : plainData(L.hero, "view lab hero"),
+        read: L.read === undefined ? undefined : plainData(L.read, "view lab reading"),
+        how: L.how === undefined ? undefined : plainData(L.how, "view lab how"),
+        breakIt: L.breakIt === undefined ? undefined : { label: text(L.breakIt?.label, 80, "view lab break") ?? "Break it" },
+        moves: L.moves === undefined ? undefined : movesOf(L.moves)
+      });
+    }
+    if (v.clips !== undefined) {
+      const c = v.clips ?? fail2("view clips");
+      const names = (list, what) => Array.isArray(list) && list.length <= 64 ? list.map((k) => isText(k, 40) ? k : fail2(`view ${what}`)) : fail2(`view ${what}`);
+      out.clips = keep({
+        clips: names(c.clips ?? [], "clips"),
+        poses: names(c.poses ?? [], "poses"),
+        first: text(c.first, 40, "view first clip"),
+        held: c.held === undefined ? undefined : plainData(c.held, "view poses", 0, { n: 20000 }),
+        bones: c.bones === undefined ? undefined : Array.isArray(c.bones) && c.bones.length <= 512 ? c.bones.map((k) => isText(k, 40) ? k : fail2("view bones")) : fail2("view bones"),
+        motion: c.motion === undefined ? undefined : motionOf2(c.motion, Array.isArray(c.bones) ? c.bones.length : 0)
+      });
+    }
+    out.ticks = v.ticks === true;
+    if (v.roof !== undefined) {
+      if (!Array.isArray(v.roof) || v.roof.length > 256)
+        fail2("view roof");
+      out.roof = v.roof.map((k) => node(k, "roof"));
+    }
+    if (v.walk !== undefined) {
+      const w = v.walk ?? fail2("view walk");
+      const lamps = w.lamps === undefined ? [] : Array.isArray(w.lamps) && w.lamps.length <= 64 ? w.lamps.map((p) => point(p, "view walk lamp")) : fail2("view walk lamps");
+      out.walk = { x: num(w.x, "view walk"), z: num(w.z, "view walk"), yaw: w.yaw === undefined ? 0 : num(w.yaw, "view walk"), lamps };
+    }
+    if (v.note !== undefined)
+      out.note = text(v.note, 200, "view note");
+    return out;
+  }
+  function motionOf2(m, nb) {
+    if (!m || typeof m !== "object" || Array.isArray(m))
+      fail2("view motion");
+    if (m.bones !== nb || !nb)
+      fail2("view motion: its bones");
+    if (!m.clips || typeof m.clips !== "object" || Array.isArray(m.clips))
+      fail2("view motion clips");
+    const width = nb * 7 + 3;
+    let numbers = 0;
+    const floats = (a, n, what) => {
+      const x = typed(a, what);
+      if (!(x instanceof Float32Array) || x.length !== n)
+        fail2(`${what}: its length`);
+      finite3(x, what);
+      numbers += x.length;
+      return x;
+    };
+    const list = (a, most, what) => {
+      const x = typed(a, what);
+      if (!(x instanceof Uint16Array))
+        fail2(what);
+      for (let i = 0;i < x.length; i++)
+        if (x[i] >= most)
+          fail2(`${what}: names what is not there`);
+      return x;
+    };
+    const count = (x, most, what) => Number.isInteger(x) && x >= 1 && x <= most ? x : fail2(`${what}: its count`);
+    const positive = (x, what) => num(x, what) > 0 ? x : fail2(`${what}: not above 0`);
+    const out = {};
+    for (const [name, c] of Object.entries(m.clips).slice(0, 64)) {
+      const what = `view motion ${isText(name, 40) ? name : fail2("view motion: a clip name")}`;
+      if (!c || typeof c !== "object")
+        fail2(what);
+      const channels = list(c.channels, width, `${what} channels`);
+      const nch = channels.length || fail2(`${what}: no channels`);
+      const base = typed(c.base, `${what} base`);
+      const rows = base.length / nch;
+      if (!Number.isInteger(rows) || rows < 1 || rows > 32)
+        fail2(`${what}: its rows`);
+      floats(base, rows * nch, `${what} base`);
+      const axis = (A, what) => {
+        if (!A || typeof A !== "object")
+          fail2(what);
+        const n = count(A.n, 2000000, what), mm = typed(A.list, `${what} list`).length;
+        return { n, rate: positive(A.rate, `${what} rate`), length: positive(A.length, `${what} length`), list: list(A.list, nch, `${what} list`), table: floats(A.table, rows * n * mm, `${what} table`), drift: floats(A.drift, rows * mm, `${what} drift`) };
+      };
+      if (!Array.isArray(c.t) || c.t.length > 4)
+        fail2(`${what}: its times`);
+      const t = c.t.map((T, j) => {
+        const A = axis(T, `${what} time ${j}`);
+        const snap = typed(T.snap, `${what} time ${j} snap`);
+        if (!(snap instanceof Uint8Array) || snap.length !== A.list.length)
+          fail2(`${what} time ${j} snap`);
+        return { ...A, snap };
+      });
+      const clip = { channels, base, t };
+      if (c.gear !== undefined) {
+        clip.gear = positive(c.gear, `${what} gear`);
+        if (!Array.isArray(c.paces) || c.paces.length !== rows)
+          fail2(`${what}: its paces`);
+        clip.paces = c.paces.map((p, j) => num(p, `${what} pace`) >= 0 && (!j || p > c.paces[j - 1]) ? p : fail2(`${what}: its paces in order`));
+        if (c.stride !== undefined)
+          clip.stride = positive(c.stride, `${what} stride`);
+        const D = axis(c.d, `${what} distance`);
+        clip.d = { ...D, k: floats(c.d.k, D.list.length, `${what} distance waves`) };
+        if (!Array.isArray(c.turns) || c.turns.length > 8)
+          fail2(`${what}: its turns`);
+        clip.turns = c.turns.map((x) => num(x, `${what} turn`));
+        clip.rch = list(c.rch, nch, `${what} turned`);
+        clip.turn = floats(c.turn, clip.turns.length * D.n * clip.rch.length, `${what} turning`);
+      } else if (rows !== 1)
+        fail2(`${what}: rows without a gait`);
+      if (numbers > BUDGET.clipNumbers)
+        fail2(`clips hold more than ${BUDGET.clipNumbers} numbers`);
+      out[name] = clip;
+    }
+    return { bones: nb, clips: out };
+  }
+  function movesOf(moves) {
+    if (typeof moves !== "object" || moves === null || Array.isArray(moves))
+      fail2("view moves");
+    const out = {};
+    for (const [id, m] of Object.entries(moves).slice(0, 16)) {
+      if (!/^[a-zA-Z][a-zA-Z0-9_-]{0,31}$/.test(id))
+        fail2("view move: its name");
+      if (!Array.isArray(m?.ids) || m.ids.length > 16)
+        fail2(`view move ${id}: its sliders`);
+      const ids = m.ids.map((k) => isText(k, 80) ? k : fail2(`view move ${id}: a slider`));
+      const table = typed(m.table, `view move ${id}`);
+      if (!(table instanceof Float32Array) || table.length !== MOVE_SAMPLES * ids.length)
+        fail2(`view move ${id}: its table`);
+      finite3(table, `view move ${id}`);
+      out[id] = keep({ label: text(m.label, 80, `view move ${id}`) ?? id, seconds: num(m.seconds, `view move ${id}`) > 0 ? m.seconds : fail2(`view move ${id}: seconds`), note: text(m.note, 200, `view move ${id}`), ids, table });
+    }
+    return out;
+  }
+  function controlsOf(list, objs, root) {
+    if (list == null)
+      return [];
+    if (!Array.isArray(list) || list.length > BUDGET.controls)
+      fail2("controls");
+    const walked = new Map;
+    root.traverse((o) => walked.set(o, walked.size));
+    const seen = new Set;
+    let numbers = 0;
+    return list.map((c, i) => {
+      const id = typeof c?.id === "string" && /^[a-z][a-zA-Z0-9]{0,23}(\.[a-zA-Z0-9]{1,24})?$/.test(c.id) && !seen.has(c.id) ? c.id : fail2(`control ${i}: its name`);
+      seen.add(id);
+      const S = int(c.samples, 130, `control ${id} samples`);
+      if (S < 2)
+        fail2(`control ${id} samples`);
+      const from = num(c.from, `control ${id} from`), to = num(c.to, `control ${id} to`), rest = num(c.rest, `control ${id} rest`);
+      if (from === to || rest < Math.min(from, to) || rest > Math.max(from, to))
+        fail2(`control ${id} range`);
+      const nodes = typed(c.nodes, `control ${id} nodes`);
+      if (!(nodes instanceof Uint32Array))
+        fail2(`control ${id} nodes`);
+      const m = nodes.length;
+      const trs = typed(c.trs, `control ${id} places`);
+      if (!(trs instanceof Float32Array) || trs.length !== S * m * 10)
+        fail2(`control ${id} places`);
+      finite3(trs, `control ${id} places`);
+      const visible = typed(c.visible, `control ${id} showing`);
+      if (!(visible instanceof Uint8Array) || visible.length !== S * m)
+        fail2(`control ${id} showing`);
+      numbers += trs.length + visible.length;
+      const node = (k, what) => objs[int(k, objs.length, `control ${id} ${what}`)];
+      const morph = (Array.isArray(c.morph) ? c.morph : []).map((x) => {
+        const o = node(x?.node, "blend shapes");
+        const w = typed(x.weights, `control ${id} blend shapes`);
+        const k = o.morphTargetInfluences?.length ?? 0;
+        if (!(w instanceof Float32Array) || !k || w.length !== S * k)
+          fail2(`control ${id} blend shapes`);
+        finite3(w, `control ${id} blend shapes`);
+        numbers += w.length;
+        return { node: walked.get(o), weights: w };
+      });
+      const instances = (Array.isArray(c.instances) ? c.instances : []).map((x) => {
+        const o = node(x?.node, "instances");
+        const a = typed(x.matrices, `control ${id} instances`);
+        if (!o.isInstancedMesh || !(a instanceof Float32Array) || a.length !== S * o.count * 16)
+          fail2(`control ${id} instances`);
+        finite3(a, `control ${id} instances`);
+        numbers += a.length;
+        return { node: walked.get(o), matrices: a };
+      });
+      const floats = (a, n, what) => {
+        const x = typed(a, `control ${id} ${what}`);
+        if (!(x instanceof Float32Array) || x.length !== n)
+          fail2(`control ${id} ${what}`);
+        finite3(x, `control ${id} ${what}`);
+        numbers += x.length;
+        return x;
+      };
+      const shapes = (Array.isArray(c.shapes) ? c.shapes : []).map((x) => {
+        const o = node(x?.node, "shapes");
+        const g = o.geometry, n = g?.attributes?.position?.count;
+        if (!o.isMesh || o.isInstancedMesh || !n)
+          fail2(`control ${id} shapes: not a mesh`);
+        const normal = x.normal == null ? null : g.attributes.normal ? floats(x.normal, S * n * 3, "normals") : fail2(`control ${id} normals: a mesh without`);
+        return { node: walked.get(o), position: floats(x.position, S * n * 3, "shapes"), normal };
+      });
+      const looks = (Array.isArray(c.looks) ? c.looks : []).map((x) => {
+        const o = node(x?.node, "looks");
+        const many = Array.isArray(o.material) ? o.material.length : o.material ? 1 : 0;
+        return { node: walked.get(o), slot: int(x.slot, many, `control ${id} looks slot`), values: floats(x.values, S * MAT, "looks") };
+      });
+      const lights = (Array.isArray(c.lights) ? c.lights : []).map((x) => {
+        const o = node(x?.node, "lights");
+        if (!o.isLight)
+          fail2(`control ${id} lights: not a light`);
+        return { node: walked.get(o), values: floats(x.values, S * LIGHT, "lights") };
+      });
+      if (numbers > BUDGET.controlNumbers)
+        fail2(`controls hold more than ${BUDGET.controlNumbers} numbers`);
+      return { id, from, to, rest, samples: S, choice: c.choice === true, nodes: Uint32Array.from(nodes, (k) => walked.get(node(k, "node"))), trs, visible, morph, instances, shapes, looks, lights };
+    });
+  }
+  // src/lib/content/assets/schemas/card.v2.json
+  var card_v2_default = {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    title: "Asset card, v2",
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      format: { const: "asset-card" },
+      v: { const: 1 },
+      ref: { $ref: "#/$defs/ref" },
+      recipe: { $ref: "#/$defs/hash" },
+      engine: { type: "integer", minimum: 1, maximum: 1e4 },
+      group: { enum: ["machines", "actors", "characters", "things", "plants", "buildings", "biomes", "worlds"] },
+      id: { $ref: "#/$defs/id" },
+      version: { type: "integer", minimum: 1, maximum: 1e5 },
+      variant: { $ref: "#/$defs/id" },
+      label: { $ref: "#/$defs/line" },
+      note: { $ref: "#/$defs/text" },
+      size: { $ref: "#/$defs/size" },
+      triangles: { type: "integer", minimum: 0, maximum: 2000000 },
+      skinned: { type: "boolean" },
+      catalog: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          assemblies: {
+            type: "array",
+            maxItems: 200,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                id: { $ref: "#/$defs/id" },
+                label: { $ref: "#/$defs/line" },
+                note: { $ref: "#/$defs/text" },
+                out: { $ref: "#/$defs/v3" }
+              },
+              required: ["id", "label"]
+            }
+          },
+          parts: {
+            type: "array",
+            maxItems: 5000,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                id: { $ref: "#/$defs/id" },
+                label: { $ref: "#/$defs/line" },
+                assembly: { $ref: "#/$defs/id" },
+                what: { $ref: "#/$defs/text" },
+                moves: { $ref: "#/$defs/text" },
+                drive: { $ref: "#/$defs/text" },
+                specs: {
+                  type: "array",
+                  maxItems: 60,
+                  items: { type: "array", prefixItems: [{ $ref: "#/$defs/line" }, { $ref: "#/$defs/line" }], minItems: 2, maxItems: 2 }
+                },
+                count: { type: "integer", minimum: 1, maximum: 1e5 },
+                step: { type: "integer", minimum: 0, maximum: 1000 },
+                source: { $ref: "#/$defs/line" },
+                unit: { $ref: "#/$defs/line" },
+                ref: { anyOf: [{ $ref: "#/$defs/ref" }, { $ref: "#/$defs/build" }] }
+              },
+              required: ["id", "label"]
+            }
+          },
+          steps: { type: "array", maxItems: 1000, items: { $ref: "#/$defs/text" } },
+          ranges: {
+            type: "array",
+            maxItems: 1000,
+            items: { type: "array", prefixItems: [{ type: "number", minimum: 0, maximum: 1 }, { type: "number", minimum: 0, maximum: 1 }], minItems: 2, maxItems: 2 }
+          },
+          play: { $ref: "#/$defs/line" },
+          seconds: { type: "number", minimum: 0, maximum: 3600 },
+          sources: {
+            type: "array",
+            maxItems: 200,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              properties: { label: { $ref: "#/$defs/line" }, url: { type: "string", format: "link", maxLength: 500 } },
+              required: ["label"]
+            }
+          }
+        },
+        required: ["parts"]
+      },
+      params: {
+        type: "array",
+        maxItems: 20,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            id: { $ref: "#/$defs/key" },
+            label: { $ref: "#/$defs/line" },
+            type: { enum: ["number", "integer", "string"] },
+            value: { anyOf: [{ type: "number" }, { type: "string", maxLength: 200 }] },
+            min: { type: "number" },
+            max: { type: "number" },
+            step: { type: "number", minimum: 0 },
+            names: { type: "array", maxItems: 100, items: { $ref: "#/$defs/line" } },
+            maxLength: { type: "integer", minimum: 1, maximum: 200 }
+          },
+          required: ["id", "label", "type", "value"]
+        }
+      },
+      controls: {
+        type: "array",
+        maxItems: 100,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            id: { $ref: "#/$defs/key" },
+            label: { $ref: "#/$defs/line" },
+            min: { type: "number" },
+            max: { type: "number" },
+            value: { type: "number" },
+            step: { type: "number", minimum: 0 },
+            unit: { type: "string", maxLength: 20 },
+            digits: { type: "integer", minimum: 0, maximum: 10 },
+            ends: { type: "array", prefixItems: [{ $ref: "#/$defs/line" }, { $ref: "#/$defs/line" }], minItems: 2, maxItems: 2 }
+          },
+          required: ["id", "label", "min", "max", "value"]
+        }
+      },
+      measures: {
+        type: "object",
+        maxProperties: 200,
+        propertyNames: { $ref: "#/$defs/key" },
+        additionalProperties: { anyOf: [{ type: "number" }, { $ref: "#/$defs/v3" }] }
+      },
+      lods: {
+        type: "array",
+        maxItems: 4,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            level: { type: "integer", minimum: 0, maximum: 3 },
+            file: { $ref: "#/$defs/file" },
+            triangles: { type: "integer", minimum: 0, maximum: 2000000 },
+            screen: { type: "number", minimum: 0, maximum: 1 }
+          },
+          required: ["level", "file", "triangles", "screen"]
+        }
+      },
+      impostor: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          file: { $ref: "#/$defs/file" },
+          views: { enum: [8, 16] },
+          pixels: { type: "integer", minimum: 16, maximum: 4096 },
+          screen: { type: "number", minimum: 0, maximum: 1 }
+        },
+        required: ["file", "views", "pixels", "screen"]
+      }
+    },
+    required: ["format", "v", "ref", "group", "id", "version", "label", "size", "triangles"],
+    $defs: {
+      id: { type: "string", maxLength: 80, pattern: "^[a-z0-9][a-z0-9-]*$" },
+      hash: { type: "string", maxLength: 64, pattern: "^[0-9a-f]{64}$" },
+      ref: { type: "string", maxLength: 300, pattern: "^[a-z]+/[a-z0-9-]+@[0-9]+(:[a-z0-9-]+)?(\\?[A-Za-z][A-Za-z0-9_.-]*=[A-Za-z0-9%+*._-]*(&[A-Za-z][A-Za-z0-9_.-]*=[A-Za-z0-9%+*._-]*)*)?$" },
+      build: { type: "string", maxLength: 300, pattern: "^[0-9a-f]{64}(\\?[A-Za-z][A-Za-z0-9_.-]*=[A-Za-z0-9%+*._-]*(&[A-Za-z][A-Za-z0-9_.-]*=[A-Za-z0-9%+*._-]*)*)?$" },
+      key: { type: "string", maxLength: 80, pattern: "^[A-Za-z][A-Za-z0-9_.-]*$" },
+      line: { type: "string", maxLength: 300 },
+      text: { type: "string", maxLength: 4000 },
+      file: { type: "string", maxLength: 120, pattern: "^[a-z0-9][a-z0-9.-]*$" },
+      v3: { type: "array", prefixItems: [{ type: "number" }, { type: "number" }, { type: "number" }], minItems: 3, maxItems: 3 },
+      size: { type: "array", prefixItems: [{ $ref: "#/$defs/metres" }, { $ref: "#/$defs/metres" }, { $ref: "#/$defs/metres" }], minItems: 3, maxItems: 3 },
+      metres: { type: "number", minimum: 0, maximum: 1e4 }
+    }
+  };
+
+  // src/lib/content/assets/schemas/check.js
+  var LIMITS = { depth: 12, bytes: 4000000 };
+  var FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+  var WAY_OUT = /:\/\/|^\s*(data|blob|javascript|file|about|ws|wss):/i;
+  function checkText(schema, text) {
+    if (typeof text !== "string")
+      return { ok: false, errors: ["not JSON text"] };
+    if (text.length > LIMITS.bytes)
+      return { ok: false, errors: [`${text.length} bytes, more than ${LIMITS.bytes}`] };
+    let value;
+    try {
+      value = JSON.parse(text);
+    } catch (err) {
+      return { ok: false, errors: [`not JSON: ${err.message}`] };
+    }
+    return check(schema, value);
+  }
+  function check(schema, value) {
+    const errors = [];
+    const plain = plainJson(value, "", 0, errors);
+    if (plain) {
+      const size = JSON.stringify(value).length;
+      if (size > LIMITS.bytes)
+        errors.push(`${size} bytes, more than ${LIMITS.bytes}`);
+      else
+        walk2(schema, schema, value, "", errors);
+    }
+    return errors.length ? { ok: false, errors: errors.slice(0, 20) } : { ok: true, value };
+  }
+  function plainJson(v, at, depth, errors) {
+    const no = (why) => (errors.push(`${at || "it"} ${why}`), false);
+    if (depth > LIMITS.depth)
+      return no(`is more than ${LIMITS.depth} deep`);
+    if (v === null || typeof v === "string" || typeof v === "boolean")
+      return true;
+    if (typeof v === "number")
+      return Number.isFinite(v) || no("is not a finite number");
+    if (Array.isArray(v))
+      return v.every((x, i) => plainJson(x, `${at}[${i}]`, depth + 1, errors));
+    if (typeof v !== "object" || Object.getPrototypeOf(v) !== Object.prototype)
+      return no(`is not plain JSON (${typeof v})`);
+    if (Object.prototype.hasOwnProperty.call(v, "__proto__"))
+      return no("has the key __proto__");
+    for (const [k, x] of Object.entries(v)) {
+      if (FORBIDDEN_KEYS.has(k))
+        return no(`has the key ${k}`);
+      if (!plainJson(x, `${at}.${k}`, depth + 1, errors))
+        return false;
+    }
+    return true;
+  }
+  var typeOf = (v) => v === null ? "null" : Array.isArray(v) ? "array" : Number.isInteger(v) ? "integer" : typeof v;
+  function walk2(root, s, v, at, errors) {
+    const here = at || "it";
+    if (s.$ref) {
+      const m = /^#\/\$defs\/([A-Za-z0-9_-]+)$/.exec(s.$ref);
+      const def = m && Object.prototype.hasOwnProperty.call(root.$defs ?? {}, m[1]) ? root.$defs[m[1]] : null;
+      if (!def)
+        return errors.push(`schema: no ${s.$ref}`);
+      return walk2(root, def, v, at, errors);
+    }
+    if (s.anyOf) {
+      const ok = s.anyOf.some((x) => walk2(root, x, v, at, []) === 0);
+      return ok ? 0 : errors.push(`${here} fits none of its kinds`);
+    }
+    const before = errors.length;
+    if ("const" in s && v !== s.const)
+      errors.push(`${here} is not ${JSON.stringify(s.const)}`);
+    if (s.enum && !s.enum.includes(v))
+      errors.push(`${here} is not one of ${s.enum.join(", ")}`);
+    if (s.type) {
+      const t = typeOf(v);
+      if (!(t === s.type || s.type === "number" && t === "integer"))
+        return errors.push(`${here} is ${t}, not ${s.type}`);
+    }
+    if (typeof v === "string") {
+      if (s.maxLength !== undefined && v.length > s.maxLength)
+        errors.push(`${here} is longer than ${s.maxLength}`);
+      if (s.pattern && !new RegExp(s.pattern).test(v))
+        errors.push(`${here} does not match ${s.pattern}`);
+      if (s.format === "link") {
+        if (!/^(https:\/\/[^\s<>"'`]+|\/(?!\/)[^\s<>"'`:]*)$/.test(v) || v.includes(".."))
+          errors.push(`${here} is not an https address or a path of ours`);
+      } else if (WAY_OUT.test(v))
+        errors.push(`${here} names a place to load from`);
+    }
+    if (typeof v === "number") {
+      if (s.minimum !== undefined && v < s.minimum)
+        errors.push(`${here} is below ${s.minimum}`);
+      if (s.maximum !== undefined && v > s.maximum)
+        errors.push(`${here} is above ${s.maximum}`);
+    }
+    if (Array.isArray(v)) {
+      if (s.minItems !== undefined && v.length < s.minItems)
+        errors.push(`${here} has fewer than ${s.minItems} items`);
+      if (s.maxItems !== undefined && v.length > s.maxItems)
+        return errors.push(`${here} has more than ${s.maxItems} items`);
+      v.forEach((x, i) => {
+        const item = s.prefixItems ? s.prefixItems[i] : s.items;
+        if (item)
+          walk2(root, item, x, `${at}[${i}]`, errors);
+      });
+    }
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      const keys = Object.keys(v);
+      if (s.maxProperties !== undefined && keys.length > s.maxProperties)
+        return errors.push(`${here} has more than ${s.maxProperties} keys`);
+      for (const r of s.required ?? [])
+        if (!Object.prototype.hasOwnProperty.call(v, r))
+          errors.push(`${here} has no ${r}`);
+      for (const k of keys) {
+        const p = s.properties && Object.prototype.hasOwnProperty.call(s.properties, k) ? s.properties[k] : null;
+        if (s.propertyNames)
+          walk2(root, s.propertyNames, k, `${at}.${k} (its name)`, errors);
+        if (p)
+          walk2(root, p, v[k], `${at}.${k}`, errors);
+        else if (s.additionalProperties === false)
+          errors.push(`${here} has a key it may not have: ${k}`);
+        else if (s.additionalProperties && typeof s.additionalProperties === "object")
+          walk2(root, s.additionalProperties, v[k], `${at}.${k}`, errors);
+      }
+    }
+    return errors.length - before;
+  }
+  // src/lib/content/assets/schemas/schemas.json
+  var schemas_default = {
+    schemas: [
+      {
+        name: "asset",
+        v: 1,
+        date: "2026-10-15",
+        blake3: "459af77f1a06c30d74bcccb91db6acf44910e3d60974177b26afe134f5c13fdd",
+        bytes: 1127,
+        title: "Asset, v1",
+        note: "An asset's record as the legacy store kept it: title, group, name, version, note, licence, its files by role, tags"
+      },
+      {
+        name: "card",
+        v: 1,
+        date: "2026-10-16",
+        blake3: "b2a4f99e22030df58d62c95f9daca043c3b39efabbbfa79ec3c46efabf703ab6",
+        bytes: 7297,
+        title: "Asset card, v1",
+        note: "What an asset's build says of it: its ref, recipe hash and engine, group, id, version, variant, label, real size, triangles, catalog of parts, declared parameters, solver sliders, measures, levels of detail and impostor; read by our checker (./check.js)"
+      },
+      {
+        name: "card",
+        v: 2,
+        date: "2026-11-05",
+        blake3: "8a89456bf6b046473883bf284e361ad26daa1746b53a141ac8977b5f4817bfe8",
+        bytes: 7527,
+        title: "Asset card, v2",
+        note: "v1 with one more group, worlds (play/SPEC.md §4.11), and a catalog part's ref by its build's hash (`<recipe hash>?values`, as play names every asset) as well as by a readable ref: every card v1 took, v2 takes"
+      }
+    ]
+  };
+
+  // src/lib/content/assets/schemas/index.js
+  var SCHEMAS = schemas_default.schemas;
+  var checkCard = (card) => typeof card === "string" ? checkText(card_v2_default, card) : check(card_v2_default, card);
+
   // src/lib/content/worlds/contract.js
   var HASH = /^[0-9a-f]{64}$/;
   var MOODS = {
@@ -44038,58 +44091,209 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
     return true;
   }
 
-  // src/lib/stories/live.ts
-  var finite3 = (v) => typeof v === "number" && Number.isFinite(v);
-  var lerp3 = (a, b, u) => a + (b - a) * u;
-  var smooth = (u) => u * u * (3 - 2 * u);
-  function between(keys, t) {
-    if (t <= keys[0].at)
-      return [keys[0], keys[0], 0];
-    for (let i = 1;i < keys.length; i++)
-      if (t <= keys[i].at)
-        return [keys[i - 1], keys[i], (t - keys[i - 1].at) / (keys[i].at - keys[i - 1].at)];
-    const end = keys[keys.length - 1];
-    return [end, end, 0];
-  }
-  function cameraAt(camera, t) {
-    const [a, b, u0] = between(camera, t);
-    const u = b.ease === "linear" ? u0 : smooth(u0);
-    return { eye: a.eye.map((x, i) => lerp3(x, b.eye[i], u)), target: a.target.map((x, i) => lerp3(x, b.target[i], u)), fov: lerp3(a.fov, b.fov, u) };
-  }
-  function stepAt(times, t) {
-    if (times.length < 2 || t <= times[0])
-      return 0;
-    if (t >= times[times.length - 1])
-      return times.length - 1;
-    const span = (times[times.length - 1] - times[0]) / (times.length - 1);
-    return Math.min(times.length - 1, Math.max(0, Math.round((t - times[0]) / span)));
-  }
-  function curveAt(c, t, or) {
-    if (c == null)
-      return or;
-    if (finite3(c))
-      return c;
-    if (!Array.isArray(c) || !c.length)
-      return or;
-    const [a, b, u] = between(c.map(([at, v]) => ({ at, v })), t);
-    return Math.round(lerp3(a.v, b.v, u) * 1e6) / 1e6;
-  }
-  var frameOf = (t, fps, frames) => Math.min(frames - 1, Math.max(0, Math.round(t * fps)));
-  function sunAt(hour) {
-    const h = (hour % 24 + 24) % 24;
-    const sun = Math.round(50 * Math.sin(Math.PI * (h - 6) / 12) * 1e4) / 1e4;
-    const az = Math.round(((90 + (h - 6) * 15) % 360 + 360) % 360 * 1e4) / 1e4;
-    return { sun, az };
-  }
-  function worldAt(w, t, fps, frames) {
+  // src/lib/kernel/sandbox/policy.js
+  var DENIED = [
+    "camera",
+    "microphone",
+    "geolocation",
+    "display-capture",
+    "clipboard-read",
+    "clipboard-write",
+    "payment",
+    "usb",
+    "serial",
+    "hid",
+    "bluetooth",
+    "midi",
+    "publickey-credentials-get",
+    "publickey-credentials-create",
+    "storage-access",
+    "fullscreen",
+    "screen-wake-lock",
+    "idle-detection",
+    "local-fonts",
+    "otp-credentials",
+    "xr-spatial-tracking"
+  ];
+  var DENY = DENIED.map((f) => `${f} 'none'`).join("; ");
+  var BUDGETS = { job: 20000, logicJob: 1e4, mathJob: 6000, message: 4000 };
+
+  // src/lib/stories/world-build.ts
+  var FEW = 4;
+  function engineOf(recipe, engine, make, timeout = BUDGETS.job) {
+    const worker = make();
+    const asks = new Map;
+    let next = 1, dead = null;
+    const die = (e) => {
+      if (dead)
+        return;
+      dead = e;
+      for (const a of asks.values())
+        a.no(e);
+      asks.clear();
+      worker.terminate();
+    };
+    const ready = new Promise((ok, no) => {
+      const late = setTimeout(() => die(new Error(`the engine did not start within ${timeout / 1000} s`)), timeout);
+      worker.onerror = (e) => {
+        e.preventDefault?.();
+        die(new Error(`the engine for ${recipe.hash.slice(0, 8)} crashed: ${e.message ?? "no reason given"}`));
+        clearTimeout(late), no(dead);
+      };
+      worker.onmessage = (e) => {
+        const [m] = e.data ?? [];
+        if (m?.op === "ready")
+          return clearTimeout(late), ok();
+        const a = asks.get(m?.id);
+        if (a)
+          asks.delete(m.id), a.ok(m);
+      };
+      asks.set(0, { ok: () => {}, no: (e) => (clearTimeout(late), no(e)) });
+    });
+    ready.then(() => asks.delete(0), () => {});
+    const ask = async (op, payload) => {
+      await ready;
+      if (dead)
+        throw dead;
+      const id = next++;
+      const m = await new Promise((ok, no) => {
+        const late = setTimeout(() => die(new Error(`the ${op} of ${recipe.hash.slice(0, 8)} took longer than ${timeout / 1000} s`)), timeout);
+        asks.set(id, { ok: (m) => (clearTimeout(late), ok(m)), no: (e) => (clearTimeout(late), no(e)) });
+        worker.postMessage({ id, op, ...payload });
+      });
+      if (!m.ok)
+        throw new Error(`the ${op} of ${recipe.hash.slice(0, 8)} failed: ${m.error}`);
+      return m;
+    };
     return {
-      frame: frameOf(t, fps, frames),
-      camera: cameraAt(w.camera, t),
-      sun: w.hour == null ? null : sunAt(curveAt(w.hour, t, 12)),
-      exposure: curveAt(w.exposure, t, 0),
-      lights: { sun: curveAt(w.lights?.sun, t, 1), sky: curveAt(w.lights?.sky, t, 1), lamps: curveAt(w.lights?.lamps, t, 1) }
+      build: (given) => ask("build", { recipe, given, args: [], engine }),
+      start: async (given, nodes) => {
+        const { session } = await ask("live", { recipe, given, nodes });
+        return { tick: (a) => ask("tick", { session, ask: a }), breakIt: async () => {}, end: () => ask("end", { session }).catch(() => {}) };
+      },
+      end: () => die(new Error("ended"))
     };
   }
+  function built(m, recipe) {
+    const verdict = checkCard(m.card);
+    if (!verdict.ok)
+      throw new Error(`refused: its card does not fit: ${verdict.errors.slice(0, 3).join("; ")}`);
+    if (m.card.recipe !== recipe)
+      throw new Error("refused: its card names another recipe");
+    return { obj: rebuild(m.data), card: m.card, data: m.data };
+  }
+  var parseRef = (ref) => {
+    const [hash, q = ""] = ref.split("?");
+    const pairs = q.split("&").filter(Boolean).map((kv) => kv.split("=").map(decodeURIComponent));
+    return { hash, given: pairs.length ? Object.fromEntries(pairs) : undefined };
+  };
+  var shared = new Map;
+  async function made(spec, host) {
+    const say = host.progress ?? (() => {});
+    const recipeOf = (hash, pieces) => ({ hash, code: withPieces(host.code(hash), pieces.map((p) => ({ hash: p, code: host.code(p) }))) });
+    const world = recipeOf(spec.recipe, spec.pieces);
+    say({ step: "world", done: 0, of: 1, text: "Building the world" });
+    const engine = engineOf(world, spec.engine.v, host.worker, host.timeout);
+    let m;
+    try {
+      m = await engine.build(undefined);
+    } finally {
+      engine.end();
+    }
+    const first = built(m, spec.recipe);
+    const refs = [...new Set(plantingsOf(first.obj).map((u) => u.ref).filter((r) => Object.hasOwn(spec.guests, r.slice(0, 64))))].sort();
+    const byRecipe = new Map;
+    for (const r of refs)
+      byRecipe.set(r.slice(0, 64), [...byRecipe.get(r.slice(0, 64)) ?? [], r]);
+    const queue = [...byRecipe.entries()];
+    const guests = new Map;
+    let done = 0;
+    say({ step: "guests", done, of: refs.length, text: `Building its guests: 0 of ${refs.length}` });
+    await Promise.all(Array.from({ length: Math.min(host.few ?? FEW, queue.length) }, async () => {
+      for (let job;job = queue.shift(); ) {
+        const [hash, mine] = job;
+        const e = engineOf(recipeOf(hash, spec.guests[hash]), spec.engine.v, host.worker, host.timeout);
+        try {
+          for (const ref of mine) {
+            const g = built(await e.build(parseRef(ref).given), hash);
+            guests.set(ref, { obj: g.obj, group: g.card.group });
+            done++;
+            say({ step: "guests", done, of: refs.length, text: `Building its guests: ${done} of ${refs.length}` });
+          }
+        } finally {
+          e.end();
+        }
+      }
+    }));
+    return { world: m, guests };
+  }
+  async function buildWorld(spec, host) {
+    const say = host.progress ?? (() => {});
+    const key = JSON.stringify([spec.engine, spec.recipe, spec.pieces, spec.guests]);
+    if (!shared.has(key)) {
+      const p = made(spec, host);
+      shared.set(key, p);
+      p.catch(() => shared.delete(key));
+    }
+    const { world: m, guests } = await shared.get(key);
+    const got = built(m, spec.recipe);
+    const info = worldOf(got.obj);
+    const uses = plantingsOf(got.obj).filter((u) => guests.has(u.ref));
+    const copies = uses.map((u) => {
+      const c = guests.get(u.ref).obj.clone();
+      c.matrixAutoUpdate = false;
+      return c;
+    });
+    const world = { hash: spec.recipe, code: withPieces(host.code(spec.recipe), spec.pieces.map((p) => ({ hash: p, code: host.code(p) }))) };
+    let engine = null, broke = null;
+    const keep = (e) => (broke ??= e instanceof Error ? e : new Error(String(e)), Promise.reject(e));
+    const hero = info.moves ? heroOf(got, {
+      exact: true,
+      start: async (nodes) => {
+        engine = engineOf(world, spec.engine.v, host.worker, host.timeout);
+        const r = await engine.start(undefined, nodes).catch(keep);
+        return { ...r, tick: (a) => r.tick(a).catch(keep) };
+      }
+    }) : null;
+    try {
+      const settle = async () => {
+        for (let n = 0;hero && (hero.starting || hero.live && hero.busy); n++) {
+          hero.tick(0, {});
+          if (hero.pending)
+            await hero.pending;
+          else
+            await new Promise((r) => setTimeout(r, 4));
+          if (n > 1e5)
+            throw new Error("the world stopped answering");
+        }
+        if (hero && !hero.live)
+          throw new Error(`the world's run ${broke ? `failed: ${broke.message}` : "could not be started"}`);
+      };
+      const placesNow = () => {
+        got.obj.updateMatrixWorld(true);
+        const out = new Float32Array(uses.length * 16);
+        uses.forEach((u, i) => (shownIn(u.node) ? u.node.matrixWorld : AWAY).toArray(out, i * 16));
+        return out;
+      };
+      const frames = hero ? spec.frames : 1;
+      say({ step: "frames", done: 0, of: frames, text: `Running the world: frame 0 of ${frames}` });
+      await settle();
+      const places = [placesNow()];
+      for (let f = 1;f < frames; f++) {
+        hero.tick(1 / spec.fps, {});
+        await settle();
+        places.push(placesNow());
+        if (f % 12 === 0 || f === frames - 1)
+          say({ step: "frames", done: f + 1, of: frames, text: `Running the world: frame ${f + 1} of ${frames}` });
+      }
+      say({ step: "ready", done: 1, of: 1, text: "Ready" });
+      return { obj: got.obj, info, uses, copies, places, groups: uses.map((u) => guests.get(u.ref).group) };
+    } finally {
+      hero?.dispose();
+      engine?.end();
+    }
+  }
+  var AWAY = new Matrix4().makeScale(0, 0, 0);
 
   // src/lib/stories/live-runtime.ts
   var W = window;
@@ -44101,47 +44305,17 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       throw new Error(`refused: live: file ${hash.slice(0, 12)}… does not hash to its name`);
     return text;
   };
-  function engineOf(spec) {
-    const url = URL.createObjectURL(new Blob([code(spec.engine.hash)], { type: "text/javascript" }));
-    const worker = new Worker(url);
+  var worker = (hash) => () => {
+    const url = URL.createObjectURL(new Blob([code(hash)], { type: "text/javascript" }));
+    const w = new Worker(url);
     URL.revokeObjectURL(url);
-    const asks = new Map;
-    let next = 1;
-    const ready = new Promise((ok, no) => {
-      worker.onerror = (e) => no(new Error(`live: the engine failed: ${e.message}`));
-      worker.onmessage = (e) => {
-        const [m] = e.data ?? [];
-        if (m?.op === "ready")
-          return ok();
-        asks.get(m?.id)?.(m), asks.delete(m?.id);
-      };
-    });
-    const recipe = { hash: spec.recipe, code: withPieces(code(spec.recipe), spec.pieces.map((hash) => ({ hash, code: code(hash) }))) };
-    const ask = async (op, payload) => {
-      await ready;
-      const id = next++;
-      const m = await new Promise((ok) => (asks.set(id, ok), worker.postMessage({ id, op, ...payload })));
-      if (!m.ok)
-        throw new Error(`live: the ${op} failed: ${m.error}`);
-      return m;
-    };
-    return {
-      build: (given) => ask("build", { recipe, given, args: [], engine: spec.engine.v }),
-      start: async (given, nodes) => {
-        const { session } = await ask("live", { recipe, given, nodes });
-        return { tick: (a) => ask("tick", { session, ask: a }), breakIt: async () => {}, end: () => ask("end", { session }).catch(() => {}) };
-      },
-      end: () => worker.terminate()
-    };
-  }
-  function built(m, recipe) {
-    const verdict = checkCard(m.card);
-    if (!verdict.ok)
-      throw new Error(`refused: its card does not fit: ${verdict.errors.slice(0, 3).join("; ")}`);
-    if (m.card.recipe !== recipe)
-      throw new Error("refused: its card names another recipe");
-    return { obj: rebuild(m.data), card: m.card, data: m.data };
-  }
+    return w;
+  };
+  var tell = (m) => {
+    if (W.parent && W.parent !== W)
+      W.parent.postMessage({ play: 1, ...m }, "*");
+  };
+  var failed = (id, what) => (e) => (console.error(id, e), tell({ op: "failed", shot: id, error: `${what} could not be built: ${e?.message ?? e}` }));
   function shot(tl, id, spec) {
     const el = document.getElementById(id);
     const canvas = el.querySelector("canvas");
@@ -44173,11 +44347,12 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       stage.render();
     };
     const made = (async () => {
-      const engine = engineOf(spec);
+      const recipe = { hash: spec.recipe, code: withPieces(code(spec.recipe), spec.pieces.map((hash) => ({ hash, code: code(hash) }))) };
+      const engine = engineOf(recipe, spec.engine.v, worker(spec.engine.hash));
       try {
         const builds = [];
         for (const given of spec.builds) {
-          const got = built(await engine.build(given), spec.recipe);
+          const got = built(await engine.build(Object.keys(given ?? {}).length ? given : undefined), spec.recipe);
           builds.push({ obj: got.obj, hero: heroOf(got) });
         }
         const renderer = createRenderer({ canvas, pixelRatio: 1, shadows: "pcf", preserve: true });
@@ -44194,7 +44369,7 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
         engine.end();
       }
     })();
-    made.catch((e) => console.error(id, e));
+    made.catch(failed(id, "a live shot"));
     (W.__hf ??= {}).buildReady ??= {};
     W.__hf.buildReady[id] = made;
     const at = { set t(v) {
@@ -44205,10 +44380,6 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
     } };
     tl.fromTo(at, { t: 0 }, { t: spec.duration, duration: spec.duration, ease: "none", immediateRender: false }, spec.at);
   }
-  var parseRef = (ref) => {
-    const [hash, q = ""] = ref.split("?");
-    return { hash, given: Object.fromEntries(q.split("&").filter(Boolean).map((kv) => kv.split("=").map(decodeURIComponent))) };
-  };
   function world(tl, id, spec) {
     const el = document.getElementById(id);
     const canvas = el.querySelector("canvas");
@@ -44218,7 +44389,7 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
     let renderer, scene, camera, sky;
     let copies = [];
     let places = [];
-    let mood, base = { sun: 0, hemi: 0, exposure: 1 };
+    let mood;
     const lamps = [];
     const draw = () => {
       if (!ready || t === drawn)
@@ -44241,79 +44412,33 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       renderer.render(scene, camera);
     };
     const made = (async () => {
-      const engines = new Map;
-      const engineFor = (recipe, pieces) => {
-        if (!engines.has(recipe))
-          engines.set(recipe, engineOf({ engine: spec.engine, recipe, pieces }));
-        return engines.get(recipe);
-      };
-      try {
-        const got = built(await engineFor(spec.recipe, spec.pieces).build({}), spec.recipe);
-        const info = worldOf(got.obj);
-        mood = info.mood;
-        const hero = info.moves ? heroOf(got, { start: (nodes) => engineFor(spec.recipe, spec.pieces).start(undefined, nodes), exact: true }) : null;
-        scene = new Scene;
-        got.obj.traverse((x) => {
-          if (x.isMesh)
-            x.receiveShadow = x.castShadow = true;
-        });
-        scene.add(got.obj);
-        const uses = plantingsOf(got.obj).filter((u) => Object.hasOwn(spec.guests, u.ref.slice(0, 64)));
-        const kinds = new Map;
-        for (const ref of [...new Set(uses.map((u) => u.ref))].sort()) {
-          const { hash, given } = parseRef(ref);
-          kinds.set(ref, built(await engineFor(hash, spec.guests[hash]).build(given), hash).obj);
-        }
-        copies = uses.map((u) => {
-          const c = kinds.get(u.ref).clone();
-          c.matrixAutoUpdate = false;
-          scene.add(c);
-          return c;
-        });
-        const placesNow = () => {
-          got.obj.updateMatrixWorld(true);
-          const m = new Float32Array(uses.length * 16);
-          uses.forEach((u, i) => (shownIn(u.node) ? u.node.matrixWorld : AWAY).toArray(m, i * 16));
-          return m;
-        };
-        const settle = async () => {
-          for (let n = 0;hero && (hero.starting || hero.live && hero.busy); n++) {
-            hero.tick(0, {});
-            if (hero.pending)
-              await hero.pending;
-            else
-              await new Promise((r) => setTimeout(r, 4));
-            if (n > 1e5)
-              throw new Error("live: the world stopped answering");
-          }
-        };
-        await settle();
-        places = [placesNow()];
-        for (let f = 1;f < (hero ? spec.frames : 1); f++) {
-          hero.tick(1 / spec.fps, {});
-          await settle();
-          places.push(placesNow());
-        }
-        scene.traverse((x) => {
-          if (x.isLight && !x.isDirectionalLight && !x.isHemisphereLight)
-            lamps.push({ light: x, k: x.intensity });
-        });
-        renderer = createRenderer({ canvas, pixelRatio: 1, shadows: "pcf", preserve: true });
-        renderer.setSize(w, h, false);
-        camera = new PerspectiveCamera(40, w / h, 0.1, 20000);
-        sky = createSky(scene, renderer);
-        ready = true;
-        draw();
-        canvas.style.visibility = "visible";
-        if (poster)
-          poster.style.visibility = "hidden";
-        hero?.dispose();
-      } finally {
-        for (const e of engines.values())
-          e.end();
-      }
+      const got = await buildWorld(spec, { code, worker: worker(spec.engine.hash), progress: (p) => tell({ op: "progress", shot: id, ...p }) });
+      mood = got.info.mood;
+      scene = new Scene;
+      got.obj.traverse((x) => {
+        if (x.isMesh)
+          x.receiveShadow = x.castShadow = true;
+      });
+      scene.add(got.obj);
+      for (const c of got.copies)
+        scene.add(c);
+      copies = got.copies;
+      places = got.places;
+      scene.traverse((x) => {
+        if (x.isLight && !x.isDirectionalLight && !x.isHemisphereLight)
+          lamps.push({ light: x, k: x.intensity });
+      });
+      renderer = createRenderer({ canvas, pixelRatio: 1, shadows: "pcf", preserve: true });
+      renderer.setSize(w, h, false);
+      camera = new PerspectiveCamera(40, w / h, 0.1, 20000);
+      sky = createSky(scene, renderer);
+      ready = true;
+      draw();
+      canvas.style.visibility = "visible";
+      if (poster)
+        poster.style.visibility = "hidden";
     })();
-    made.catch((e) => console.error(id, e));
+    made.catch(failed(id, "a world shot"));
     (W.__hf ??= {}).buildReady ??= {};
     W.__hf.buildReady[id] = made;
     const at = { set t(v) {
@@ -44324,6 +44449,5 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
     } };
     tl.fromTo(at, { t: 0 }, { t: spec.duration, duration: spec.duration, ease: "none", immediateRender: false }, spec.at);
   }
-  var AWAY = new Matrix4().makeScale(0, 0, 0);
   W.playLive = { shot, world };
 })();

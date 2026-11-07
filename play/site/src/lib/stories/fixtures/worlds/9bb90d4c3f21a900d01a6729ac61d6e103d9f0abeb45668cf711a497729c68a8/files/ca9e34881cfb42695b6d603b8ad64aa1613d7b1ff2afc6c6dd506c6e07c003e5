@@ -1,0 +1,574 @@
+defineRecipe(function (require) {
+"use strict";
+var module = { exports: {} }, exports = module.exports;
+'use strict';
+/* BOX TRUCK, the old city's delivery lorry — one readable file: part 1 the heavy-vehicle kit, then the vehicle, then its recipe. */
+/* ============================================================================================================
+ * PART 1 · THE HEAVY-VEHICLE KIT — shared by the old world's lorries, buses and farm machines (the same in each).
+ *
+ * Built for traffic: hundreds of these are drawn at once, so a vehicle is a handful of meshes (everything of one
+ * material merged), a few thousand triangles, its wear laid on as vertex colours and one small grime picture in
+ * metres, never as geometry. What the page drives keeps its own node and its name:
+ *   light:head · light:tail · light:brake · light:indicator-l · light:indicator-r · light:beacon-amber
+ *     each one mesh (both lamps of a pair in it), its own material, lit by its emissiveIntensity (0 = off);
+ *   wheel:<axle>-<l|r>  a pivot at its hub, spun about x (userData.radius in metres);
+ *   trailer / boom-l / boom-r … articulations, each a pivot at its joint (named in the asset's note).
+ * 1 unit = 1 m, root on y 0, front toward +z, centred on x.
+ * ============================================================================================================ */
+const THREE = require('three');
+const { mergeGeometries } = require('three/addons/utils/BufferGeometryUtils.js');
+
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const smooth = (a, b, x) => {
+	const t = clamp((x - a) / (b - a));
+	return t * t * (3 - 2 * t);
+};
+const lerp = (a, b, t) => a + (b - a) * t;
+
+/** a repeatable chance from any keys: the same keys, the same numbers */
+function chance(...keys) {
+	let h = 2166136261;
+	for (const c of keys.join('·')) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+	return () => {
+		h = (h + 0x6d2b79f5) | 0;
+		let t = Math.imul(h ^ (h >>> 15), 1 | h);
+		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	};
+}
+
+/** smooth value noise in 3D (a lattice of hashed corners, blended), about −1 … 1 */
+function lattice(x, y, z, s) {
+	let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(z, 2147483647) + Math.imul(s, 1442695041)) | 0;
+	h = Math.imul(h ^ (h >>> 13), 1274126177);
+	return ((h ^ (h >>> 16)) >>> 0) / 2147483648 - 1;
+}
+function noise3(x, y, z, s = 0) {
+	const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+	const f = (t) => t * t * (3 - 2 * t);
+	const u = f(x - xi), v = f(y - yi), w = f(z - zi);
+	const c = (i, j, k) => lattice(xi + i, yi + j, zi + k, s);
+	return lerp(
+		lerp(lerp(c(0, 0, 0), c(1, 0, 0), u), lerp(c(0, 1, 0), c(1, 1, 0), u), v),
+		lerp(lerp(c(0, 0, 1), c(1, 0, 1), u), lerp(c(0, 1, 1), c(1, 1, 1), u), v),
+		w,
+	);
+}
+function fbm(x, y, z, octaves = 3, s = 0) {
+	let sum = 0, amp = 0.5, f = 1;
+	for (let i = 0; i < octaves; i++) (sum += amp * noise3(x * f, y * f, z * f, s + i)), (amp *= 0.5), (f *= 2.03);
+	return sum;
+}
+
+/** a small picture made here (nothing is loaded), mipmapped, tiling: `pixel(u, v)` gives linear [r, g, b] */
+function picture(size, pixel) {
+	const data = new Uint8Array(size * size * 4);
+	const srgb = (c) => (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
+	for (let y = 0; y < size; y++)
+		for (let x = 0; x < size; x++) {
+			const [r, g, b] = pixel(x / size, y / size);
+			const i = (y * size + x) * 4;
+			data[i] = Math.round(clamp(srgb(r)) * 255);
+			data[i + 1] = Math.round(clamp(srgb(g)) * 255);
+			data[i + 2] = Math.round(clamp(srgb(b)) * 255);
+			data[i + 3] = 255;
+		}
+	const t = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+	t.wrapS = t.wrapT = THREE.RepeatWrapping;
+	t.colorSpace = THREE.SRGBColorSpace;
+	t.generateMipmaps = true;
+	t.minFilter = THREE.LinearMipmapLinearFilter;
+	t.magFilter = THREE.LinearFilter;
+	t.anisotropy = 4;
+	t.needsUpdate = true;
+	return t;
+}
+
+/** noise that tiles over the unit square (on a torus), `fx` cycles across and `fy` along */
+function tiling(u, v, fx, fy, octaves, s) {
+	const a = u * Math.PI * 2, b = v * Math.PI * 2;
+	return fbm(Math.cos(a) * fx / 6.283, Math.sin(a) * fx / 6.283 + Math.cos(b) * fy / 6.283, Math.sin(b) * fy / 6.283, octaves, s);
+}
+
+/** metres of the world one tile of the grime picture covers */
+const GRIME_TILE = 3;
+
+/**
+ * Grime, as one picture that multiplies the paint, laid by UVs in metres (one tile every GRIME_TILE m): rain streaks
+ * running down from every edge (fine across, long along), blotches of road film and faded patches. v runs up.
+ */
+function grimePicture(seed) {
+	const s = Math.floor(chance('grime', seed)() * 1000);
+	return picture(256, (u, v) => {
+		const streak = tiling(u, v, 48, 2, 3, s); // fine across, long down, only here and there
+		const blotch = tiling(u, v, 6, 6, 4, s + 9);
+		const fade = tiling(u, v, 2.5, 2.5, 2, s + 17);
+		let k = 1 - 0.17 * smooth(0.15, 0.45, streak) - 0.1 * smooth(0.12, 0.45, blotch) + 0.04 * fade;
+		k = clamp(k, 0.55, 1.03);
+		return [k, k * 0.975, k * 0.94]; // the dirt is a little brown
+	});
+}
+
+/**
+ * Wear by where a vertex is (vehicle coordinates, before any articulation is taken out): road spray dark and brown up
+ * to about 1.4 m, heaviest on what faces back or down; dust on what faces up; a slow patchiness of fade; diesel soot
+ * where `soot` says (a stack's tip, an exhaust's lip).
+ */
+function wearAt(p, n, seed, o = {}) {
+	const s = o.s ?? 0;
+	// the wheels throw it up to about 1.9 m on the sides; the back, in the wake's swirl, is dirty to well over 2.5 m
+	const back = clamp(-n.z * 1.6 - 0.6);
+	const reach = lerp(1.9, 2.9, back);
+	const spray = smooth(reach, 0.9, p.y) * (0.75 + 0.2 * back + 0.05 * clamp(-n.y)) * (0.85 + 0.15 * noise3(p.x * 1.3, p.y * 0.4, p.z * 1.3, s + 3));
+	const patch = 0.86 + 0.1 * noise3(p.x * 0.6, p.y * 0.6, p.z * 0.6, s);
+	let r = patch, g = patch, b = patch;
+	const k = clamp((o.spray ?? 0.75) * spray);
+	r = lerp(r, 0.24, k), g = lerp(g, 0.215, k), b = lerp(b, 0.18, k);
+	if (n.y > 0.6) (r *= 0.9), (g *= 0.87), (b *= 0.8); // dust on the tops
+	if (o.soot) {
+		const q = o.soot(p);
+		(r = lerp(r, 0.08, q)), (g = lerp(g, 0.075, q)), (b = lerp(b, 0.07, q));
+	}
+	return [clamp(r), clamp(g), clamp(b)];
+}
+
+/* ------------------------------------------------------------------ shapes, each placed where it stands -------- */
+
+/** a box w (x) × h (y) × d (z) whose centre is at `at`, cut into `seg` rows up so its wear can grade with height */
+function box(w, h, d, at, o = {}) {
+	const g = new THREE.BoxGeometry(w, h, d, 1, o.seg ?? Math.max(1, Math.round(h / 0.6)), 1);
+	return place(g, at, o);
+}
+/** turn (o.rx/ry/rz, radians, in that order) then move */
+function place(g, at = [0, 0, 0], o = {}) {
+	if (o.rx) g.rotateX(o.rx);
+	if (o.ry) g.rotateY(o.ry);
+	if (o.rz) g.rotateZ(o.rz);
+	g.translate(at[0], at[1], at[2]);
+	return g;
+}
+/** a box from two corners [x0, y0, z0] … [x1, y1, z1] */
+function span(a, b, o = {}) {
+	return box(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]), Math.abs(b[2] - a[2]), [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2], o);
+}
+/** a body of a side profile: points [z, y] round its outline, pushed out across x from x0 to x1, its edges a little soft */
+function profile(points, x0, x1, bevel = 0.02) {
+	const shape = new THREE.Shape(points.map(([z, y]) => new THREE.Vector2(z, y)));
+	const w = x1 - x0 - 2 * bevel;
+	const g = new THREE.ExtrudeGeometry(shape, { depth: w, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 1, bevelOffset: -bevel, curveSegments: 4 });
+	// the shape's x is the vehicle's z; its depth runs along −x after the turn
+	g.rotateY(-Math.PI / 2);
+	g.translate(x1 - bevel, 0, 0);
+	return g;
+}
+/** a round bar (a tank, a pipe, an axle) of radius r from a to b, `seg` round */
+function rod(a, b, r, seg = 10, r2 = r) {
+	const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b);
+	const L = A.distanceTo(B);
+	const g = new THREE.CylinderGeometry(r2, r, L, seg, 1);
+	g.translate(0, L / 2, 0);
+	const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize());
+	g.applyQuaternion(q);
+	g.translate(A.x, A.y, A.z);
+	return g;
+}
+
+/* ------------------------------------------------------------------ materials ------------------------------- */
+
+/**
+ * The materials of a heavy vehicle, few so that a crowd of them is a few draw calls: one `body` for everything
+ * opaque (paint, chassis, plastics, steel, rubber, lenses, wheels, a load), each part's colour baked into its vertex
+ * colours by `tint` (the colour that part's own material had, × its wear), the grime picture over all of it; the
+ * `glass` its own; and each light its own (`lamps`, one per name for the whole vehicle, made as asked).
+ * `paints` names the asset's paints (`paint`, `paint2` …) and their colours.
+ */
+function materials(grime, paints) {
+	const tint = {
+		chassis: '#3a3631', plastic: '#383838', steel: '#8b8d8c', rubber: '#1a1a1a',
+		lensAmber: '#c07a1c', lensRed: '#7a1712', wheel: '#ffffff', ...paints,
+	};
+	return {
+		body: new THREE.MeshStandardMaterial({ name: 'body', color: '#ffffff', roughness: 0.72, metalness: 0.18, vertexColors: true, map: grime, side: THREE.DoubleSide }),
+		glass: new THREE.MeshStandardMaterial({ name: 'glass', color: '#3a454b', roughness: 0.12, metalness: 0.55, vertexColors: true }),
+		tint: Object.fromEntries(Object.entries(tint).map(([k, hex]) => [k, new THREE.Color(hex)])),
+		lamps: {},
+	};
+}
+
+/** each light its own material, so the page lights one without the others; `on` the brightness it is shown with */
+const LAMPS = {
+	'light:head': { lens: '#d8d6cc', glow: '#fff1d6', on: 0 },
+	'light:tail': { lens: '#6e1510', glow: '#ff2414', on: 0 },
+	'light:brake': { lens: '#7d1612', glow: '#ff1a0e', on: 0 },
+	'light:indicator-l': { lens: '#b9741a', glow: '#ff9a10', on: 0 },
+	'light:indicator-r': { lens: '#b9741a', glow: '#ff9a10', on: 0 },
+	'light:beacon-amber': { lens: '#c27a12', glow: '#ffa00a', on: 0 },
+};
+function lampMaterial(name) {
+	const L = LAMPS[name];
+	return new THREE.MeshStandardMaterial({ name, color: L.lens, emissive: L.glow, emissiveIntensity: L.on, roughness: 0.25, metalness: 0.0 });
+}
+
+/* ------------------------------------------------------------------ wheels ---------------------------------- */
+
+/**
+ * A wheel as one mesh about x through its hub: the tyre (its tread, shoulders and sidewalls as a lathe) and its steel
+ * disc rim, coloured by vertex (tyre near black, the rim its own colour, both browned by the road). `dual` sets two
+ * tyres side by side on one hub (a twin rear wheel), `out` +1 or −1 the side of the vehicle (the rim's dish faces out).
+ */
+function wheelGeometry({ D, W, rim, dual = false, gap = 0.03, rimColour = [0.55, 0.55, 0.53], out = 1, seg = 16, s = 0, lugs = 0 }) {
+	// a farm tyre's lugs stand out of its carcass: the carcass a lug's height smaller
+	const lug = lugs ? Math.min(0.05, D * 0.025) : 0;
+	const R = D / 2 - lug, r = rim / 2;
+	const tyre = (x0) => {
+		// the section, inside to outside: bead, sidewall bulge, shoulder, tread, shoulder, sidewall, bead
+		const h = R - r, w = W / 2;
+		const pts = [
+			[r + 0.01, -w * 0.82], [r + h * 0.45, -w], [R - h * 0.12, -w * 0.94], [R, -w * 0.72],
+			[R, w * 0.72], [R - h * 0.12, w * 0.94], [r + h * 0.45, w], [r + 0.01, w * 0.82],
+		].map(([a, b]) => new THREE.Vector2(a, b + x0));
+		return new THREE.LatheGeometry(pts, seg);
+	};
+	const disc = (x0) => {
+		// the steel rim: its flange, the well, the dished disc to the hub with its nuts' ring
+		const w = W / 2, d = out * 0.04;
+		const pts = [
+			[0.001, x0 + d + 0.02], [0.13, x0 + d + 0.02], [0.17, x0 + d], [r * 0.82, x0 + d * 0.5],
+			[r * 0.97, x0 + w * 0.8], [r + 0.012, x0 + w * 0.86],
+		].map(([a, b]) => new THREE.Vector2(a, b));
+		if (out < 0) pts.reverse();
+		return new THREE.LatheGeometry(pts, seg);
+	};
+	const parts = [];
+	const xs = dual ? [-(W + gap) / 2, (W + gap) / 2] : [0];
+	for (const x0 of xs) parts.push([tyre(x0), [0.075, 0.072, 0.07]]);
+	parts.push([disc(dual ? out * (W + gap) / 2 : 0), rimColour]);
+	// the lugs: two rows of bars across the tread, each leaning 25° from the axis, the rows half a pitch apart (a chevron)
+	for (const x0 of xs)
+		for (let i = 0; i < lugs; i++)
+			for (const side of [-1, 1]) parts.push([lugGeometry(R + lug * 0.3, lug, W, x0, side, ((i + (side > 0 ? 0.5 : 0)) / lugs) * Math.PI * 2), [0.075, 0.072, 0.07]]);
+	const merged = [];
+	for (const [g0, c] of parts) {
+		const g = g0.toNonIndexed();
+		g.rotateZ(-Math.PI / 2); // the lathe's axis y becomes x
+		const pos = g.attributes.position, col = new Float32Array(pos.count * 3);
+		for (let i = 0; i < pos.count; i++) {
+			const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+			// dull with dust all over, mud lowest where it was parked
+			const low = clamp(0.22 + smooth(R, -R, y) * 0.3 + 0.15 * noise3(x * 4, y * 4, z * 4, s));
+			col[i * 3] = clamp(lerp(c[0], 0.21, low)), col[i * 3 + 1] = clamp(lerp(c[1], 0.19, low)), col[i * 3 + 2] = clamp(lerp(c[2], 0.16, low));
+		}
+		g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+		// laid with the grime picture in metres, as the body is (the wheel shares its material)
+		const uv = new Float32Array(pos.count * 2);
+		for (let i = 0; i < pos.count; i++) (uv[i * 2] = pos.getZ(i) / GRIME_TILE), (uv[i * 2 + 1] = pos.getY(i) / GRIME_TILE);
+		g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+		merged.push(g);
+	}
+	return mergeGeometries(merged);
+}
+
+/** one lug in the lathe's frame (its axis y): a bar standing `h` out of the carcass at radius rho, across half the tread, leaning */
+function lugGeometry(rho, h, W, x0, side, a) {
+	const g = new THREE.BoxGeometry(h * 1.4, W * 0.5, 0.075); // radial (x) × across the tread (y) × round it (z)
+	g.rotateX(side * 0.44);
+	g.translate(rho, x0 + side * W * 0.25, 0);
+	g.rotateY(a);
+	return g;
+}
+
+/* ------------------------------------------------------------------ the body: everything merged per material - */
+
+/**
+ * One rigid body of a vehicle (the tractor, the trailer, a boom): its parts merged per material, its lights per name,
+ * its wheels each a pivot. `add` takes a shape in vehicle coordinates; the body becomes a group pivoting at `origin`.
+ */
+class Body {
+	constructor(name, seed, mats, o = {}) {
+		Object.assign(this, { name, seed, mats, wear: o.wear ?? {}, parts: new Map(), lights: new Map(), wheels: [], bodies: [] });
+	}
+	/** one shape of a material; its UVs remade in metres (laid on by the face's main direction) and its wear in its colours */
+	add(mat, geo, wear) {
+		const g = geo.index ? geo.toNonIndexed() : geo;
+		// glass stays glass; everything else is the one body material, its own colour baked in
+		const tint = mat === 'glass' ? new THREE.Color(1, 1, 1) : this.mats.tint[mat];
+		if (!tint) throw new Error(`no colour for ${mat}`);
+		mat = mat === 'glass' ? 'glass' : 'body';
+		const pos = g.attributes.position, nor = g.attributes.normal;
+		const uv = new Float32Array(pos.count * 2), col = new Float32Array(pos.count * 3);
+		const p = new THREE.Vector3(), n = new THREE.Vector3();
+		for (let i = 0; i < pos.count; i++) {
+			p.fromBufferAttribute(pos, i), n.fromBufferAttribute(nor, i);
+			const ax = Math.abs(n.x), ay = Math.abs(n.y), az = Math.abs(n.z);
+			const [a, b] = ax >= ay && ax >= az ? [p.z, p.y] : az >= ay ? [p.x, p.y] : [p.x, p.z];
+			uv[i * 2] = a / GRIME_TILE, uv[i * 2 + 1] = b / GRIME_TILE;
+			const c = wearAt(p, n, this.seed, { ...this.wear, ...(wear ?? {}) });
+			col.set([c[0] * tint.r, c[1] * tint.g, c[2] * tint.b], i * 3);
+		}
+		g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+		g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+		for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'color'].includes(k)) g.deleteAttribute(k);
+		if (!this.parts.has(mat)) this.parts.set(mat, []);
+		this.parts.get(mat).push(g);
+		return this;
+	}
+	/** a lamp's glass: every shape of one light's name goes into its one mesh */
+	lamp(name, geo) {
+		const g = geo.index ? geo.toNonIndexed() : geo;
+		for (const k of Object.keys(g.attributes)) if (!['position', 'normal'].includes(k)) g.deleteAttribute(k);
+		if (!this.lights.has(name)) this.lights.set(name, []);
+		this.lights.get(name).push(g);
+		return this;
+	}
+	/** a wheel standing at its hub `at`, named wheel:<id> */
+	wheel(id, at, spec) {
+		this.wheels.push({ id, at, spec });
+		return this;
+	}
+	/** a body hung on this one at its joint `origin` (vehicle coordinates): a trailer on its tractor, a boom on its frame */
+	carry(body, origin) {
+		this.bodies.push({ body, origin });
+		return this;
+	}
+	/** the group, pivoting at `origin` (vehicle coordinates); `parent` the origin of the body it hangs on */
+	build(origin = [0, 0, 0], parent = [0, 0, 0]) {
+		const grp = new THREE.Group();
+		grp.name = this.name;
+		grp.position.set(origin[0] - parent[0], origin[1] - parent[1], origin[2] - parent[2]);
+		const local = (g) => g.translate(-origin[0], -origin[1], -origin[2]);
+		for (const [mat, list] of this.parts) {
+			const mesh = new THREE.Mesh(local(mergeGeometries(list)), this.mats[mat]);
+			mesh.name = `${this.name}:${mat}`;
+			mesh.castShadow = true;
+			mesh.receiveShadow = true;
+			grp.add(mesh);
+		}
+		for (const [name, list] of this.lights) {
+			const mesh = new THREE.Mesh(local(mergeGeometries(list)), (this.mats.lamps[name] ??= lampMaterial(name)));
+			mesh.name = name;
+			grp.add(mesh);
+		}
+		this.wheels.forEach((w, i) => {
+			const pivot = new THREE.Group();
+			pivot.name = `wheel:${w.id}`;
+			pivot.position.set(w.at[0] - origin[0], w.at[1] - origin[1], w.at[2] - origin[2]);
+			pivot.userData.radius = w.spec.D / 2;
+			const mesh = new THREE.Mesh(wheelGeometry({ ...w.spec, out: Math.sign(w.at[0]) || 1, s: i }), this.mats.body);
+			mesh.name = `wheel:${w.id}:tyre`;
+			mesh.castShadow = true;
+			pivot.add(mesh);
+			grp.add(pivot);
+		});
+		for (const b of this.bodies) grp.add(b.body.build(b.origin, origin));
+		return grp;
+	}
+}
+
+/** both lamps of a pair at once: a box of w × h × d at [±x, y, z] */
+function pair(body, name, x, y, z, w, h, d) {
+	body.lamp(name, box(w, h, d, [x, y, z], { seg: 1 }));
+	body.lamp(name, box(w, h, d, [-x, y, z], { seg: 1 }));
+}
+
+/** triangles of an object, for the budget */
+function trianglesOf(root) {
+	let n = 0;
+	root.traverse((o) => {
+		if (o.isMesh) n += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3;
+	});
+	return Math.round(n);
+}
+
+/**
+ * A cab-over-engine cab, as European lorries have them: its side profile pushed across, a face raked back about 5°,
+ * the windscreen in its rubber, a sun visor, the grille and its slats, side windows, door seams and handles, mirrors
+ * on two arms, steps behind the front wheel, its mudguard, the bumper with headlights and indicators in its corners,
+ * side repeaters and roof markers. All of it in `b` (a Body), its face at z = zf.
+ *   o: { zf, depth, half (half its width), bottom, glass: [y0, y1], roof, deflector (its top, or 0), zFA, wheelR, bumper (its top) }
+ */
+function cabOver(b, o) {
+	const { zf, depth, half: W, bottom, roof, zFA, wheelR } = o;
+	const [g0, g1] = o.glass;
+	const zb = zf - depth, lean = 0.1 * (g1 - g0) / 0.98;
+	const zAt = (y) => zf - (lean * (y - g0)) / (g1 - g0);
+	const rake = -Math.atan2(lean, g1 - g0);
+	b.add('paint', profile([[zf - 0.02, bottom], [zf, g0], [zAt(g1 + 0.06), g1 + 0.06], [zf - 0.3, roof - 0.1], [zf - 0.55, roof], [zb, roof], [zb, bottom]], -W, W, 0.04));
+	if (o.deflector) b.add('paint', profile([[zf - 0.6, roof - 0.02], [zf - 1.2, roof + 0.6 * (o.deflector - roof)], [zb + 0.06, o.deflector], [zb + 0.06, roof - 0.02]], -(W - 0.13), W - 0.13, 0.02));
+	const gm = (g0 + g1) / 2, gh = g1 - g0;
+	b.add('rubber', box(2 * W - 0.19, gh + 0.08, 0.02, [0, gm, zAt(gm) + 0.006], { rx: rake, seg: 1 }));
+	b.add('glass', box(2 * W - 0.29, gh, 0.02, [0, gm, zAt(gm) + 0.014], { rx: rake, seg: 1 }));
+	b.add('plastic', box(2 * W - 0.15, 0.05, 0.26, [0, g1 + 0.1, zAt(g1 + 0.1) + 0.04], { rx: 0.25, seg: 1 }));
+	// the grille between the bumper and the glass
+	const gr0 = o.bumper + 0.12, gr1 = g0 - 0.2;
+	b.add('plastic', box(2 * W - 0.55, gr1 - gr0, 0.03, [0, (gr0 + gr1) / 2, zf], { seg: 1 }));
+	const n = Math.max(2, Math.round((gr1 - gr0) / 0.14));
+	for (let i = 0; i < n; i++) b.add('chassis', box(2 * W - 0.65, 0.05, 0.03, [0, gr0 + 0.08 + (i * (gr1 - gr0 - 0.16)) / (n - 1), zf + 0.018], { seg: 1 }));
+	for (const s of [1, -1]) {
+		const wz = Math.min(0.9, depth - 0.75);
+		b.add('glass', box(0.02, gh * 0.75, wz, [s * (W + 0.002), gm + 0.04, zf - 0.23 - wz / 2], { seg: 1 }));
+		b.add('chassis', box(0.012, roof - bottom - 0.4, 0.012, [s * (W + 0.004), (roof + bottom) / 2 - 0.1, zf - 1.2], { seg: 1 }));
+		b.add('plastic', box(0.03, 0.04, 0.2, [s * (W + 0.01), g0 + 0.05, zf - 1.05], { seg: 1 }));
+		// mirrors on their arms
+		b.add('steel', rod([s * W, g1 + 0.07, zf - 0.22], [s * (W + 0.18), g1 + 0.07, zf - 0.08], 0.018, 6));
+		b.add('steel', rod([s * W, g0 + 0.3, zf - 0.22], [s * (W + 0.18), g0 + 0.3, zf - 0.08], 0.018, 6));
+		b.add('plastic', box(0.07, 0.52, 0.24, [s * (W + 0.2), g1 - 0.28, zf - 0.08], { seg: 1 }));
+		// the steps behind the front wheel and the arch's mudguard
+		const zw = zFA - wheelR - 0.03;
+		b.add('plastic', span([s * (W - 0.24), 0.42, zb + 0.03], [s * (W - 0.04), 0.47, Math.min(zw, zb + 0.3)]));
+		b.add('plastic', span([s * (W - 0.24), 0.78, zb + 0.03], [s * (W - 0.04), 0.83, Math.min(zw, zb + 0.3)]));
+		b.add('rubber', span([s * (W - 0.4), 0.2, zw - 0.03], [s * W, bottom - 0.1, zw]));
+		b.add('plastic', span([s * (W - 0.42), bottom - 0.12, zw], [s * W, bottom + 0.01, zFA + wheelR * 0.75]));
+		b.lamp(s > 0 ? 'light:indicator-l' : 'light:indicator-r', box(0.02, 0.05, 0.1, [s * (W + 0.01), bottom + 0.16, zf - 0.55], { seg: 1 }));
+		b.add('lensAmber', box(0.08, 0.04, 0.05, [s * (W - 0.3), roof + 0.01, zf - 0.6], { seg: 1 }));
+	}
+	// the bumper, its headlights and indicators in its top corners, the air dam under it
+	const bt = o.bumper;
+	b.add('plastic', span([-(W - 0.01), 0.42, zf - 0.4], [W - 0.01, bt, zf + 0.04]));
+	b.add('chassis', span([-(W - 0.35), 0.3, zf - 0.35], [W - 0.35, 0.42, zf - 0.05]));
+	pair(b, 'light:head', W - 0.42, bt - 0.16, zf + 0.045, 0.4, 0.16, 0.02);
+	b.lamp('light:indicator-l', box(0.13, 0.13, 0.02, [W - 0.12, bt - 0.16, zf + 0.045], { seg: 1 }));
+	b.lamp('light:indicator-r', box(0.13, 0.13, 0.02, [-(W - 0.12), bt - 0.16, zf + 0.045], { seg: 1 }));
+	return zb;
+}
+
+/* ============================================================================================================
+ * PART 2 · THE BOX TRUCK — an 18 t 4×2 rigid lorry with a cab over its engine and a 7.3 m dry-freight box with a
+ * roller shutter, the delivery lorry of the old city's jammed streets: grey with road film, the box streaked from its
+ * roof, the shutter dented by years of loading docks.
+ *
+ * Measures (EU 96/53/EC and the trade's data of 18 t rigids; metres):
+ *   9.20 long over the bodies, 2.55 wide over the box (2.88 over the mirrors), 3.75 high;
+ *   front overhang 1.35, wheelbase 5.40, rear overhang 2.45; a day cab 1.80 deep, 2.42 wide, its roof 2.95 and a
+ *   spoiler to 3.45; the box 7.30 × 2.55 × 2.63 on a floor 1.12 up (2.48 inside); tyres 295/80 R22.5 (1.04 across),
+ *   twin at the rear; a tail lift folded under the floor at the back; side guards and a rear underrun guard.
+ *   Masses: about 7.5 t empty, 18 t laden; 18 pallets.
+ * ============================================================================================================ */
+
+const BT = {
+	CAB: 1.8, GAP: 0.1, BOX: 7.3, FO: 1.35, WB: 5.4,
+	half: 1.275, floor: 1.12, top: 3.75,
+	tyre: { D: 1.044, W: 0.295, rim: 0.5715 },
+};
+BT.L = BT.CAB + BT.GAP + BT.BOX;
+BT.zF = BT.L / 2;
+BT.zFA = BT.zF - BT.FO;
+BT.zRA = BT.zFA - BT.WB;
+BT.zB0 = BT.zF - BT.CAB - BT.GAP; // the box's front wall
+BT.zB1 = BT.zB0 - BT.BOX; // its shutter
+
+function boxTruck(m, seed) {
+	const T = BT, H = T.half, y0 = T.floor, y1 = T.top, zA = T.zB0, zR = T.zB1, R = T.tyre.D / 2;
+	const b = new Body('box-truck', seed, m, {
+		wear: { soot: (p) => smooth(0.75, 0.35, p.y) * smooth(0.5, 0.0, Math.hypot(p.x + 0.9, p.z - (T.zRA + 0.7))) },
+	});
+	const zb = cabOver(b, { zf: T.zF, depth: T.CAB, half: 1.21, bottom: 1.0, glass: [1.72, 2.55], roof: 2.95, deflector: 3.45, zFA: T.zFA, wheelR: R, bumper: 1.0 });
+
+	// the box: GRP sandwich on aluminium posts and rails, a roller shutter at its back
+	b.add('paint2', box(2 * H, y1 - y0, zA - zR, [0, (y0 + y1) / 2, (zA + zR) / 2], { seg: 5 }));
+	for (const s of [1, -1]) {
+		b.add('steel', span([s * (H - 0.02), y0, zR - 0.01], [s * (H + 0.012), y0 + 0.13, zA + 0.01]));
+		b.add('steel', span([s * (H - 0.02), y1 - 0.06, zR - 0.01], [s * (H + 0.012), y1 + 0.005, zA + 0.01]));
+		for (const z of [zR, zA]) b.add('steel', span([s * (H - 0.06), y0, z - 0.04], [s * (H + 0.014), y1, z + 0.04]));
+		for (let z = zR + 1.2; z < zA - 0.4; z += 2.4) b.add('lensAmber', box(0.02, 0.05, 0.1, [s * (H + 0.02), y0 + 0.065, z], { seg: 1 }));
+		b.lamp('light:tail', box(0.06, 0.06, 0.03, [s * (H - 0.08), y1 - 0.08, zR - 0.03], { seg: 1 }));
+	}
+	// the shutter: its slats, its guides, the handle and the step bar under it
+	b.add('steel', box(2 * H - 0.22, y1 - y0 - 0.2, 0.03, [0, (y0 + y1) / 2 - 0.02, zR - 0.02], { seg: 1 }));
+	for (let y = y0 + 0.2; y < y1 - 0.15; y += 0.115) b.add('chassis', box(2 * H - 0.24, 0.012, 0.012, [0, y, zR - 0.038], { seg: 1 }));
+	for (const s of [1, -1]) b.add('chassis', span([s * (H - 0.11), y0 + 0.05, zR - 0.05], [s * (H - 0.05), y1 - 0.08, zR]));
+	b.add('chassis', box(0.3, 0.05, 0.05, [0, y0 + 0.2, zR - 0.06], { seg: 1 }));
+
+	// the chassis: two rails from the bumper to the back, axles, the propshaft, the engine and gearbox under the cab
+	for (const s of [1, -1]) b.add('chassis', span([s * 0.36, 0.72, zR + 0.3], [s * 0.45, 1.0, T.zF - 0.38]));
+	for (let z = zR + 0.4; z < zA; z += 0.9) b.add('chassis', span([-H + 0.05, 0.98, z - 0.04], [H - 0.05, y0, z + 0.04]));
+	b.add('chassis', rod([-0.95, R, T.zFA], [0.95, R, T.zFA], 0.07, 8));
+	b.add('chassis', rod([-0.98, R, T.zRA], [0.98, R, T.zRA], 0.09, 8));
+	b.add('chassis', box(0.42, 0.42, 0.38, [0, R + 0.02, T.zRA], { seg: 1 }));
+	b.add('chassis', rod([0, 0.6, T.zRA + 0.2], [0, 0.72, T.zFA - 0.9], 0.05, 6));
+	b.add('chassis', span([-0.5, 0.6, T.zFA - 1.3], [0.5, 1.0, zb + 0.15]));
+	// the fuel tank on the left, batteries and air tanks on the right, the silencer and its tailpipe out to the side
+	b.add('steel', rod([0.9, 0.7, T.zRA + 1.4], [0.9, 0.7, T.zRA + 2.5], 0.26, 12));
+	b.add('chassis', span([-1.15, 0.45, T.zRA + 1.4], [-0.55, 0.9, T.zRA + 2.0]));
+	b.add('steel', rod([-0.8, 0.6, T.zRA + 2.1], [-0.8, 0.6, T.zRA + 2.8], 0.11, 8));
+	b.add('steel', rod([-0.8, 0.5, T.zRA + 0.9], [-1.08, 0.45, T.zRA + 0.75], 0.045, 6));
+	// the side guards between the wheels
+	const zG0 = T.zRA + R + 0.15, zG1 = T.zFA - R - 0.2;
+	for (const s of [1, -1]) {
+		for (const y of [0.48, 0.78]) b.add('steel', span([s * (H - 0.08), y, zG0], [s * (H - 0.02), y + 0.1, zG1]));
+		for (let z = zG0 + 0.3; z < zG1; z += 1.6) b.add('chassis', span([s * 0.45, 0.5, z - 0.03], [s * (H - 0.08), y0, z + 0.03]));
+		// the mudguard over the twin wheels and its flap
+		b.add('plastic', span([s * 0.6, y0 - 0.06, T.zRA - 0.6], [s * (H - 0.02), y0 - 0.01, T.zRA + 0.6]));
+		b.add('rubber', span([s * 0.6, 0.25, T.zRA - 0.64], [s * (H - 0.04), y0 - 0.06, T.zRA - 0.61]));
+	}
+	// the tail lift folded under the floor, the rear underrun guard, the lamp bar
+	b.add('steel', span([-1.05, 0.62, zR + 0.05], [1.05, 0.95, zR + 0.75]));
+	b.add('steel', span([-1.1, 0.42, zR + 0.0], [1.1, 0.58, zR + 0.12]));
+	b.add('chassis', span([-1.22, 0.88, zR - 0.02], [1.22, 1.08, zR + 0.1]));
+	pair(b, 'light:tail', 0.68, 0.98, zR - 0.025, 0.15, 0.13, 0.02);
+	pair(b, 'light:brake', 0.84, 0.98, zR - 0.025, 0.15, 0.13, 0.02);
+	b.lamp('light:indicator-l', box(0.15, 0.13, 0.02, [1.0, 0.98, zR - 0.025], { seg: 1 }));
+	b.lamp('light:indicator-r', box(0.15, 0.13, 0.02, [-1.0, 0.98, zR - 0.025], { seg: 1 }));
+	b.add('lensRed', box(0.45, 0.06, 0.012, [0.6, 0.5, zR - 0.006], { seg: 1 }));
+	b.add('lensRed', box(0.45, 0.06, 0.012, [-0.6, 0.5, zR - 0.006], { seg: 1 }));
+
+	const rim = [0.44, 0.44, 0.42];
+	b.wheel('1-l', [1.0, R, T.zFA], { ...T.tyre, rimColour: rim });
+	b.wheel('1-r', [-1.0, R, T.zFA], { ...T.tyre, rimColour: rim });
+	b.wheel('2-l', [0.9, R, T.zRA], { ...T.tyre, dual: true, rimColour: rim });
+	b.wheel('2-r', [-0.9, R, T.zRA], { ...T.tyre, dual: true, rimColour: rim });
+	return b;
+}
+
+/* ============================================================================================================
+ * PART 3 · THE RECIPE
+ * ============================================================================================================ */
+
+const VARIANTS = {
+	white: { label: 'Faded white', cab: '#b8b3a4', box: '#c4bfae' },
+	grey: { label: 'Fleet grey', cab: '#5f6261', box: '#9a9b96' },
+	blue: { label: 'Faded blue', cab: '#3e5470', box: '#bfbcb0' },
+	ochre: { label: 'Faded ochre', cab: '#94804f', box: '#b8ad8f' },
+};
+
+const FACTS = {
+	length: 9.2, width: { body: 2.55, mirrors: 2.88 }, height: 3.75, unit: 'm',
+	wheelbase: BT.WB, frontOverhang: BT.FO, rearOverhang: 2.45,
+	cab: { depth: BT.CAB, width: 2.42, roof: 2.95, spoiler: 3.45 },
+	box: { length: BT.BOX, width: 2.55, height: 2.63, floor: BT.floor, inside: [7.15, 2.45, 2.48], door: 'roller shutter', pallets: 18 },
+	tyres: '295/80 R22.5, twin at the rear',
+	mass: { empty: 7500, laden: 18000, unit: 'kg' },
+	engine: 'diesel six, about 7 L, 210–240 kW',
+	sources: 'Directive 96/53/EC (2.55 m, 18 t two-axle rigid); ETRTO tyre sizes; UN R58 / R73 guards; trade data of 18 t 4×2 distribution rigids with 7.3 m boxes',
+};
+
+function build(variant = 'white') {
+	const V = VARIANTS[variant] ?? VARIANTS.white;
+	const m = materials(grimePicture(variant), { paint: V.cab, paint2: V.box });
+	const root = boxTruck(m, variant).build([0, 0, 0]);
+	root.name = 'box-truck';
+	return root;
+}
+
+module.exports.recipe = function (id, v, variant) {
+	const name = variant ?? 'white';
+	if (!VARIANTS[name]) throw new Error(`no variant ${name} of machines/${id}@${v}`);
+	return {
+		meta: {
+			group: 'machines',
+			id,
+			version: v,
+			variant: name,
+			label: `Box truck: ${VARIANTS[name].label}`,
+			note: 'A worn 18 t rigid lorry with a 7.3 m box and a roller shutter, 9.2 × 2.55 × 3.75 m, delivering in the old city. Lights named for the page (light:head, tail, brake, indicator-l, indicator-r), wheels as pivots (wheel:<axle>-<l|r>).',
+			from: 'Old City: the streets',
+			facts: JSON.parse(JSON.stringify(FACTS)),
+			params: [],
+		},
+		build: () => build(name),
+	};
+};
+module.exports.variants = Object.keys(VARIANTS);
+module.exports.build = build;
+
+return module.exports.recipe("box-truck", 3, "grey");
+});
