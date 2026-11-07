@@ -880,8 +880,11 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   from the board (`IntentsBoard.svelte`), and what it shows at each stage is one pure, tested function's, `detailOf`
   (`detail.ts`, `detail.test.ts`): **on top** only what a person needs at that moment, never a run command, a hash, a
   check's evidence or the brief; at the foot **one primary decision**, always in sight, its reason under it while it may
-  not be taken, Reject beside it where an intent may be rejected; between them **tabs**, sticky under the header and
-  scrolling sideways on a phone, in the aside's style (§4.15 *One aside*), holding everything else whole:
+  not be taken, Reject beside it where an intent may be rejected; right above it the **tabs**, docked to the bottom and
+  always in sight at every width (Samuel 2026-11-07: *"bottom align above the action button areas the tab section, so
+  it's always like fixed to the bottom area"*; it replaces the spec's "sticky under the header"), scrolling sideways on a
+  phone, in the aside's style (§4.15 *One aside*), the top staying where it is and the open tab's content scrolling
+  between them, holding everything else whole:
 
   | Stage | On top | Decision |
   |---|---|---|
@@ -893,7 +896,10 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   | **Accepted / Archived** | what shipped (the version, or the pull request merged and in production) and when, or why it ended | Reopen |
 
   The tabs, in this order, a tab with nothing in it not shown: **Spec** (goal, scope, reduce and MVP), **Checks** (each
-  with its run, result, evidence, where and when), **Changes** (its work and its review, its pull request), **Ship**
+  check a card for a person, Samuel 2026-11-07: *"the audience is always a human, never a tech guy"*: its statement and
+  its result in plain words, Passed, Not yet, or Failed with its reason in a line, and when; how it was checked, its how
+  and by, its run, the tool's output and where it ran, folded behind *How it was checked*, closed at first; its two steps
+  headed *First, what it removes* and *Then, what it delivers*), **Changes** (its work and its review, its pull request), **Ship**
   (steps, report, log), **Dependencies**, **History** (who and when, steps back, auto decisions, its declared work),
   **Note** (whole), **For an agent** (the brief and Copy). Each stage opens on its own tab first (Idea For an agent,
   Specify Spec, Build Checks, Proposal Changes, Ship Ship, Accepted History).

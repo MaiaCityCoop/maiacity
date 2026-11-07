@@ -51,7 +51,7 @@ export const notLive = (i: Intent) => (i.ship?.live === false && i.ship.commit ?
 // ---- what goes on top
 
 /** a check as a chip: its id and its last result, nothing else */
-export type Chip = { id: string; must: boolean; state: 'pass' | 'fail' | 'none' };
+export type Chip = { id: string; must: boolean; state: 'pass' | 'fail' | 'none'; text: string };
 /** one part of the top, drawn by ./IntentDetail.svelte in the order given */
 export type Part =
 	/** what is wanted (Idea): the note's first lines */
@@ -130,7 +130,7 @@ const wantOf = (note: string) => {
 	return first ? clip(plain(first), 280) : '';
 };
 
-const chipsOf = (i: Intent): Chip[] => (i.spec?.checks ?? []).map((c) => ({ id: c.id, must: c.must, state: i.results?.[c.id] ? (i.results[c.id].pass ? 'pass' : 'fail') : 'none' }));
+const chipsOf = (i: Intent): Chip[] => (i.spec?.checks ?? []).map((c) => ({ id: c.id, must: c.must, text: headline(c.check), state: i.results?.[c.id] ? (i.results[c.id].pass ? 'pass' : 'fail') : 'none' }));
 const progressOf = (i: Intent, label: string): Part | null => {
 	const musts = i.spec?.checks.filter((c) => c.must) ?? [];
 	if (!i.spec?.checks.length) return null;
@@ -185,13 +185,13 @@ export function detailOf(i: Intent, opts: { brief?: string | null } = {}): Detai
 			break;
 		}
 		case 'build':
-			top.push(progressOf(i, 'Musts passed'), workOf(i, 'Built in') ?? { part: 'work', label: 'Built in', text: 'no pull request or work of play’s yet' }, held, failed);
+			top.push(progressOf(i, 'Checks passed'), workOf(i, 'Built in') ?? { part: 'work', label: 'Built in', text: 'no pull request or work of play’s yet' }, held, failed);
 			reject = true;
 			tab = 'checks';
 			break;
 		case 'proposal': {
 			const rep = i.ship?.outcome === 'red' ? i.ship.report : null;
-			top.push(goalOf(i), progressOf(i, 'Every must passed'), workOf(i, 'What changes'), rep ? { part: 'reason', tone: 'failed', text: `Not shipped: red at ${rep.step}. ${rep.why}` } : failed, rep ? null : held);
+			top.push(goalOf(i), progressOf(i, 'Checks passed'), workOf(i, 'What changes'), rep ? { part: 'reason', tone: 'failed', text: `Not shipped: red at ${rep.step}. ${rep.why}` } : failed, rep ? null : held);
 			const label = isCode(i) ? (shipsAgain(i) ? 'Ship again' : 'Accept and ship') : 'Accept';
 			const ok = decidable(i);
 			decision = {

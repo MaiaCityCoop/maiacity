@@ -3,14 +3,33 @@
  * intent at each stage (src/lib/site/intents/fixtures.ts), play's API answered by the fixtures, at 390×844 and 1440×900.
  *
  *   bun run dev &                                  # the dev server, http://localhost:5173
- *   bun scripts/intent-shots.ts [out dir]          # 14 PNGs, <stage>-<width>.png
+ *   bun scripts/intent-shots.ts [out dir]          # <stage>-<width>.png, and each asset upgrade's review drawn
+ *
+ * The asset upgrades (fixtures.ts ASSETS) are drawn from play's own files: the catalog and the files are read from
+ * play.maia.city with PLAY_MCP_TOKEN (its read-only routes, the header sent to play only).
  */
 import { chromium } from 'playwright';
-import { BRIEF, FIXTURES } from '../src/lib/site/intents/fixtures';
+import { ASSETS, BRIEF, FIXTURES } from '../src/lib/site/intents/fixtures';
 
 const BASE = process.env.SITE ?? 'http://localhost:5173';
 const OUT = process.argv[2] ?? '../shots/bb3b0773-detail';
-const STAGES = ['idea', 'specify', 'build', 'proposal-code', 'proposal-work', 'ship', 'accepted'];
+const ONLY = process.env.ONLY;
+const STAGES = ['idea', 'specify', 'build', 'proposal-code', 'proposal-work', 'ship', 'accepted', ...Object.keys(ASSETS)];
+const PLAY = 'https://play.maia.city';
+const TOKEN = process.env.PLAY_MCP_TOKEN;
+const fromPlay = async (path: string) => {
+	if (!TOKEN) throw new Error('PLAY_MCP_TOKEN is not set: the asset upgrades are drawn from play');
+	return fetch(`${PLAY}/api${path}`, { headers: { authorization: `Bearer ${TOKEN}` } });
+};
+const catalogRows: any[] = await (await fromPlay('/catalog')).json();
+const rowsOf = (hashes: readonly string[]) => hashes.map((h, n) => ({ ...catalogRows.find((r) => r.hash === h), first: n === 0 }));
+/** an asset upgrade's review as play's /api/intents/<id> gives it: its builds, its source and its base's */
+const reviewOf = (stage: string) => {
+	const a = (ASSETS as any)[stage];
+	if (!a) return null;
+	const w = FIXTURES[stage].work!;
+	return { doc: { id: a.asset, kind: 'asset', what: 'asset', label: w.label, open: null }, seedNumber: a.base.number, moved: false, changes: [], edits: [], id: FIXTURES[stage].id, source: a.source, recipe: a.recipes[0], baseVersion: a.base, builds: rowsOf(a.recipes) };
+};
 const SIZES = [
 	{ width: 390, height: 844 },
 	{ width: 1440, height: 900 }
@@ -22,20 +41,25 @@ const browser = await chromium.launch();
 for (const size of SIZES) {
 	const page = await browser.newPage({ viewport: size, deviceScaleFactor: 2 });
 	await page.addInitScript(() => localStorage.setItem('play:intents:folded', '{}'));
-	await page.route('**/api/**', (route) => {
+	await page.route('**/api/**', async (route) => {
 		const path = new URL(route.request().url()).pathname.replace(/^\/api/, '');
 		const one = path.match(/^\/intents\/([0-9a-f-]{36})$/);
 		const json = (body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 		if (path === '/me') return json(ME);
+		if (path === '/catalog') return json(catalogRows);
+		if (/^\/files\/[0-9a-f]{64}$/.test(path)) {
+			const r = await fromPlay(path);
+			return route.fulfill({ status: r.status, contentType: r.headers.get('content-type') ?? 'application/octet-stream', body: Buffer.from(await r.arrayBuffer()) });
+		}
 		if (path === '/intents') return json(all);
 		if (one) {
 			const i = all.find((x) => x.id === one[1]);
-			return i ? json({ ...i, brief: ['accepted', 'archived', 'ship'].includes(i.stage) ? null : BRIEF, review: null }) : json({ error: 'not found' }, 404);
+			return i ? json({ ...i, brief: ['accepted', 'archived', 'ship'].includes(i.stage) ? null : BRIEF, review: reviewOf(Object.keys(FIXTURES).find((k) => FIXTURES[k].id === i.id)!) }) : json({ error: 'not found' }, 404);
 		}
 		if (path.startsWith('/docs')) return json([]);
 		return json({ error: 'not in the fixtures' }, 404);
 	});
-	for (const stage of STAGES) {
+	for (const stage of STAGES.filter((x) => !ONLY || x === ONLY)) {
 		const i = FIXTURES[stage];
 		// the board opened, every column open, the intent's card tapped
 		await page.goto(`${BASE}/intents/`);
@@ -43,6 +67,21 @@ for (const size of SIZES) {
 		await page.locator('.item-review').waitFor();
 		await page.waitForTimeout(400);
 		await page.screenshot({ path: `${OUT}/${stage}-${size.width}.png` });
+		if (!(ASSETS as any)[stage]) continue;
+		// its work opened from the Changes tab: the asset built in the asset box, as the board draws it
+		await page.locator('.linked .open').click();
+		await page.locator('.review:not(.item-review) canvas').first().waitFor({ timeout: 90000 });
+		// drawn once its build is done (a grown tree takes a while in a headless browser), then a breath for its light
+		await page.waitForTimeout(1500);
+		// built and prepared for display: no "Building …" or "Preparing …" note left, polled (it comes and goes)
+		const busy = page.getByText(/^(Building|Preparing) .*…$/);
+		for (let quiet = 0, t = Date.now(); quiet < 3 && Date.now() - t < 300000; ) {
+			await page.waitForTimeout(1000);
+			quiet = (await busy.count()) ? 0 : quiet + 1;
+		}
+		if (await busy.count()) console.log(`${stage} ${size.width}: still busy after 5 minutes: ${await busy.first().textContent()}`);
+		await page.waitForTimeout(3000);
+		await page.screenshot({ path: `${OUT}/${stage}-review-${size.width}.png` });
 	}
 	await page.close();
 }

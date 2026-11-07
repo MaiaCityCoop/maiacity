@@ -71,6 +71,13 @@ const STEPS = (red = false) => [
 ];
 const WORK = { kind: 'asset_version', what: 'asset', doc: 'asset:44444444-5555-4666-8777-888888888888', doc_variant: 3, docs: 2, asset_id: '44444444-5555-4666-8777-888888888888', label: 'Olive tree', grp: 'plants', slug: null, version_label: null, number: 4, status: 'proposal', note: 'Its bark furrows with age.', author: 'Samuel', decided_by: null, created: at(11), via: 'mcp' as const };
 
+/** asset upgrades at Proposal, on real accepted versions of play's (their recipes drawn by the shots from play's files):
+ *  the olive's v3 on its v2, and the delivery van's v3 (four paints) on its v2 */
+export const ASSETS = {
+	'proposal-plant': { asset: '8323f07d-60c6-5d46-8c23-644e5b1efc20', recipes: ['23ee39d5f005a5ef6630780ecee536368b0c37aa58e9ef87b48901a6fb53306c'], source: '4044d0ea3add20bf29131f84bb7743b535665f89bfb2fc430e41139eb2a01f1d', base: { number: 2, source: 'fdbfead840506022ac0e9d636d9bea9a7da602309fa201b9df5892acd42ffcde' } },
+	'proposal-machine': { asset: '53d1af5a-bbcf-4eba-9fe0-3a147baedd34', recipes: ['6585f835b903f6ba64f4c7db4e968cbb9160d41662449495d3ad648cbeab0ae5', 'bceb127662872272e93a6559b416f3dca69ea81ae77481c8e56a2f7350543cbd', 'a19aa4e7d1fe049b17188fc0c651e32a33ee559f7e282d11313f0710e4150ddd', '70e5a46a136e3923d31fcd6afb037b683dd8378d371deb574abf48429974d699'], source: '9c28860e6f7e86c90247bcc32e8fa6a3772dea609394026ec65ab2cd620f99e2', base: { number: 2, source: '803d400e84cb4b2747fbbf19343990a8bfc71ec3ec782b5a4e1360e8a4fb5017' } }
+} as const;
+
 export const FIXTURES: Record<string, Intent> = {
 	idea: base(1, { title: "The garden's paths show where people walk most", stage: 'idea', sub: { state: 'idle', tag: 'an idea', why: 'an idea: an agent specifies it next' } }),
 	specify: base(2, { stage: 'specify', ...specified, depends_on: [DEP], sub: { state: 'waiting', tag: 'Approve spec', why: 'waits for Approve spec' } }),
@@ -78,7 +85,7 @@ export const FIXTURES: Record<string, Intent> = {
 	'build-held': base(4, { title: "Sandbox 2's pond fills with rain over a season", stage: 'build', ...approved, depends_on: [DEP], held_by: [DEP], sub: { state: 'idle', tag: 'held', why: `held: waits for ${DEP.title}` } }),
 	'build-failed': base(5, { title: 'The Library finds a file by its label', stage: 'build', ...approved, results: res(['c2'], ['c1']), pull_request: 2150, pr_seen: { pr: 2150, draft: false, state: 'open' }, sub: { state: 'failed', tag: 'c1 failed', why: 'c1 failed on its last run' } }),
 	'proposal-code': base(6, { title: 'Members invite a friend with one link', stage: 'proposal', ...approved, results: res(['c1', 'c2', 'c3', 'c4', 'c5']), pull_request: 2150, pr_seen: { pr: 2150, draft: false, state: 'open', mergeable: true }, sub: { state: 'waiting', tag: 'Accept and ship', why: 'waits for Accept and ship' } }),
-	'proposal-work': base(7, { stage: 'proposal', ...approved, title: 'The olive tree\'s bark furrows with age', results: res(['c1', 'c2', 'c3', 'c4', 'c5']), work: WORK, sub: { state: 'waiting', tag: 'Accept', why: 'waits for Accept' } }),
+	'proposal-work': base(7, { stage: 'proposal', ...approved, spec: { ...SPEC, goal: 'The olive tree\'s bark furrows and twists with age, as old Picual trunks in Jaén do.' }, title: 'The olive tree\'s bark furrows with age', results: res(['c1', 'c2', 'c3', 'c4', 'c5']), work: WORK, sub: { state: 'waiting', tag: 'Accept', why: 'waits for Accept' } }),
 	'proposal-red': base(8, { title: 'Ship merges main into every open pull request',
 		stage: 'proposal', ...approved, results: res(['c1', 'c2', 'c3', 'c4', 'c5']), pull_request: 2150, decided_by: 'Samuel', decided_at: at(12),
 		ship: { pr: 2150, head: HEAD, merge: MERGE, by: 'Samuel', round: 1, started: at(12), steps: STEPS(true), report: { step: 'Release', why: 'production did not fast-forward to the merge', link: 'https://github.com/MyAvenCEO/maiacity/actions/runs/2', log: `error: ${MERGE} is not a descendant of production\n##[error]Process completed with exit code 1.`, at: at(12) }, outcome: 'red', again: 'release' },
@@ -91,5 +98,7 @@ export const FIXTURES: Record<string, Intent> = {
 		steps: [{ at: at(11), by: 'Samuel', via: 'mcp', from: 'build', to: 'specify', reason: 'the spec named the wrong file' }],
 		auto: {}
 	}),
-	archived: base(11, { title: 'A second board for ideas only', stage: 'archived', ...specified, decided_by: 'Samuel', decided_at: at(12) })
+	archived: base(11, { title: 'A second board for ideas only', stage: 'archived', ...specified, decided_by: 'Samuel', decided_at: at(12) }),
+	'proposal-plant': base(12, { stage: 'proposal', ...approved, spec: { ...SPEC, goal: 'The olive grows to the size measured Picual trees have at each age: 3.2 m high at eight years, not 2.6 m.' }, title: "The olive grows to its measured size sooner", results: res(['c1', 'c2', 'c3', 'c4', 'c5']), work: { ...WORK, label: 'Olive', grp: 'plants', number: 3, docs: 1, asset_id: '8323f07d-60c6-5d46-8c23-644e5b1efc20', doc: 'asset:8323f07d-60c6-5d46-8c23-644e5b1efc20', note: 'A sizing fix to v2: the scaffolds and branches grow out sooner, so an 8-year tree is 3.2 m high, as measured Picual trees are.' }, sub: { state: 'waiting', tag: 'Accept', why: 'waits for Accept' } }),
+	'proposal-machine': base(13, { stage: 'proposal', ...approved, spec: { ...SPEC, goal: 'The delivery van looks as it did, every paint, but draws with 3 materials instead of 8, so a city jam stays smooth.' }, title: 'The delivery van draws with far fewer materials', results: res(['c1', 'c2', 'c3', 'c4', 'c5']), work: { ...WORK, label: 'Delivery van', grp: 'machines', number: 3, docs: 1, asset_id: '53d1af5a-bbcf-4eba-9fe0-3a147baedd34', doc: 'asset:53d1af5a-bbcf-4eba-9fe0-3a147baedd34', note: 'The same van and every paint, drawn with 3 materials instead of 8, so a jam of hundreds costs far fewer draw calls.' }, sub: { state: 'waiting', tag: 'Accept', why: 'waits for Accept' } })
 };

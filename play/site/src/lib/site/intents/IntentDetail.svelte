@@ -108,24 +108,39 @@
 			copyError = 'The brief could not be copied here: select it and copy it by hand.';
 		}
 	}
+	/** a failed check's reason in one line: the first line of its evidence that is not a command, plainly */
+	const failLine = (e: string) => {
+		const line = (e ?? '').replace(/\u001b\[[0-9;]*m/g, '').split('\n').map((l) => l.trim()).find((l) => l && !l.startsWith('$') && !/^exit \d/.test(l)) ?? '';
+		return line.length > 140 ? `${line.slice(0, 140)}…` : line;
+	};
 	const refused = $derived(error || copyError || briefError);
 </script>
 
-{#snippet chips(list: { id: string; must: boolean; state: 'pass' | 'fail' | 'none' }[])}
-	<span class="chips">{#each list as c (c.id)}<span class="chk" class:pass={c.state === 'pass'} class:fail={c.state === 'fail'} class:nice={!c.must} title={c.must ? 'must' : 'nice to have'}>{c.state === 'pass' ? '✓' : c.state === 'fail' ? '✗' : '·'} {c.id}</span>{/each}</span>
+{#snippet chips(list: { id: string; must: boolean; state: 'pass' | 'fail' | 'none'; text?: string }[])}
+	<span class="chips">{#each list as c (c.id)}<span class="chk" class:pass={c.state === 'pass'} class:fail={c.state === 'fail'} class:nice={!c.must} title="{c.text ?? c.id}: {c.state === 'pass' ? 'passed' : c.state === 'fail' ? 'failed' : 'not yet'}{c.must ? '' : ' (nice to have)'}">{c.state === 'pass' ? '✓' : c.state === 'fail' ? '✗' : '·'} {c.id}</span>{/each}</span>
 {/snippet}
 
+<!-- a check, for a person (Samuel 2026-11-07: "the audience is always a human, never a tech guy"): its statement and its
+     result in plain words; how it was checked (its how and by, its run, the tool's output, where it ran) folded away -->
 {#snippet checkList(list: Check[])}
 	<ol class="checks">
 		{#each list as c (c.id)}
 			{@const r = i.results?.[c.id]}
 			<li class:pass={r?.pass === true} class:fail={r?.pass === false}>
-				<span class="mark" title={r ? (r.pass ? 'Passed' : 'Failed') : 'No result yet'}>{r ? (r.pass ? '✓' : '✗') : '·'}</span>
+				<span class="mark" aria-hidden="true">{r ? (r.pass ? '✓' : '✗') : '·'}</span>
 				<div class="what">
-					<p><span class="cid">{c.id}</span> {c.check}{#if !c.must}{' '}<span class="pill nice" title="Nice to have: it does not hold the proposal back">nice</span>{/if}</p>
-					<p class="muted small"><span class="how">{c.how}</span> · {c.by}</p>
-					{#if c.run}<code class="run" title="Its run: the command that decides it in avenBOX, and on main once merged">{c.run}</code>{/if}
-					{#if r}<p class="evidence small"><span class="where" class:main={r.where === 'main'} title={r.where === 'main' ? 'Run on main after the merge' : 'Run in avenBOX'}>{whereOf(r)}</span>{' '}{r.evidence}{#if r.by}{' '}<span class="muted">· {r.by}, {shortWhen(r.at)}</span>{/if}</p>{/if}
+					<p class="statement">{c.check}</p>
+					<p class="result">
+						{#if !r}<strong>Not yet</strong>{:else if r.pass}<strong>Passed</strong>{:else}<strong>Failed</strong>{#if failLine(r.evidence)}: {failLine(r.evidence)}{/if}{/if}
+						{#if r}<span class="muted"> · {shortWhen(r.at)}</span>{/if}
+						<span class="muted"> · {c.must ? 'must pass' : 'nice to have'}</span>
+					</p>
+					<details class="how-checked">
+						<summary>How it was checked</summary>
+						<p class="small"><span class="cid">{c.id}</span> <span class="how">{c.how}</span> · {c.by}</p>
+						{#if c.run}<code class="run" title="Its run: the command that decides it in avenBOX, and on main once merged">{c.run}</code>{/if}
+						{#if r}<p class="evidence small"><span class="where" class:main={r.where === 'main'} title={r.where === 'main' ? 'Run on main after the merge' : 'Run in avenBOX'}>{whereOf(r)}</span>{' '}{r.evidence}{#if r.by}{' '}<span class="muted">· {r.by}, {shortWhen(r.at)}</span>{/if}</p>{/if}
+					</details>
 				</div>
 			</li>
 		{/each}
@@ -155,7 +170,7 @@
 				{:else if p.part === 'deps'}
 					<p class="row"><span class="label">Depends on</span> {#each p.deps as dep, j (dep.id)}{j ? ', ' : ''}<button class="link" onclick={() => onopenintent(dep.id)}>{dep.title}</button> <span class="muted">({STAGE_NAME[dep.stage]})</span>{/each}{#if p.held}{' '}<span class="held-tag">Held</span>{/if}</p>
 				{:else if p.part === 'progress'}
-					<p class="row"><span class="label">{p.label}</span> <strong>{p.passed} of {p.of}</strong> {@render chips(p.chips)}</p>
+					<p class="row"><span class="label">{p.label}</span> <strong>{p.passed} of {p.of}</strong> required {@render chips(p.chips)}</p>
 				{:else if p.part === 'work'}
 					<p class="row"><span class="label">{p.label}</span>
 						{#if p.pr}<a href="{REPO_URL}/pull/{p.pr}" target="_blank" rel="noopener">{p.text}</a>
@@ -170,14 +185,6 @@
 			{/each}
 		</section>
 
-		<!-- the rest, kept whole in tabs; a tab with nothing in it is not shown -->
-		<div class="band">
-			<div class="tabs" role="tablist" aria-label="More of it">
-				{#each d.tabs as t (t)}
-					<button role="tab" aria-selected={current === t} class:on={current === t} onclick={() => (tab = t)}>{TAB_NAME[t]}</button>
-				{/each}
-			</div>
-		</div>
 
 		<div class="panel" role="tabpanel" aria-label={TAB_NAME[current]}>
 			{#if current === 'spec' && i.spec}
@@ -186,18 +193,18 @@
 				<div class="md">{@html md(i.spec.goal)}</div>
 				<h3>Scope</h3>
 				<div class="md">{@html md(i.spec.scope)}</div>
-				<h3>Reduce <span class="muted small">what it removes, simplifies or compacts first</span></h3>
+				<h3>First, what it removes</h3>
 				{#if i.spec.checks.some((c) => c.step === 'reduce')}<p class="small">{i.spec.checks.filter((c) => c.step === 'reduce').map((c) => c.id).join(', ')}: in Checks.</p>
 				{:else if i.spec.nothing_to_reduce}<p class="small"><span class="muted">Nothing to reduce:</span> {i.spec.nothing_to_reduce}</p>
 				{:else}<p class="muted small">Specified before the reduce step: none named.</p>{/if}
-				<h3>MVP</h3>
+				<h3>Then, what it delivers</h3>
 				<p class="small">{i.spec.checks.filter((c) => c.step !== 'reduce').map((c) => c.id).join(', ') || 'No checks.'}{i.spec.checks.some((c) => c.step !== 'reduce') ? ': in Checks.' : ''}</p>
 			{:else if current === 'checks' && i.spec}
 				{@const reduce = i.spec.checks.filter((c) => c.step === 'reduce')}
 				{@const mvp = i.spec.checks.filter((c) => c.step !== 'reduce')}
 				<p class="muted small">{i.stage === 'specify' ? 'What will be checked, once approved.' : 'Once every must check passes, it moves to Proposal by itself.'}</p>
-				{#if reduce.length}<h3>Reduce</h3>{@render checkList(reduce)}{/if}
-				{#if mvp.length}<h3>MVP</h3>{@render checkList(mvp)}{/if}
+				{#if reduce.length}<h3>First, what it removes</h3>{@render checkList(reduce)}{/if}
+				{#if mvp.length}<h3>Then, what it delivers</h3>{@render checkList(mvp)}{/if}
 			{:else if current === 'changes'}
 				{#if !i.work && i.pull_request}<p class="small">Code: <a href="{REPO_URL}/pull/{i.pull_request}" target="_blank" rel="noopener">pull request #{i.pull_request}</a> <span class="muted">· {i.stage === 'proposal' ? 'Accept merges it into main and ships it' : i.stage === 'ship' ? (i.ship?.pending ? 'in Ship, merged in its turn' : 'merged, on its way to production') : i.stage === 'accepted' ? 'in production' : 'named by its agent'}</span></p>
 				{:else if i.work}
@@ -289,6 +296,14 @@
 				<button class="btn small ghost" onclick={() => copyBrief(briefText)}>{copied ? 'Copied' : 'Copy the brief'}</button>
 			{/if}
 		</div>
+		<!-- the rest, kept whole in tabs; a tab with nothing in it is not shown -->
+		<div class="band">
+			<div class="tabs" role="tablist" aria-label="More of it">
+				{#each d.tabs as t (t)}
+					<button role="tab" aria-selected={current === t} class:on={current === t} onclick={() => (tab = t)}>{TAB_NAME[t]}</button>
+				{/each}
+			</div>
+		</div>
 	</div>
 
 	<!-- a refused decision's reason at the foot, right above the buttons (Samuel 2026-11-06) -->
@@ -313,7 +328,7 @@
 	/* an intent opened: a panel in the middle of the screen over a scrim; its header and its decision stay, what is
 	   between them scrolls, the tabs sticky at its top */
 	.scrim { all: unset; position: absolute; inset: 0; z-index: 9; border-radius: inherit; background: rgb(38 56 44 / 0.28); }
-	.review { position: absolute; z-index: 10; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(48rem, calc(100% - 1rem)); max-height: calc(100% - 1rem); box-sizing: border-box; background: var(--bg, #fbf8f2); border-radius: 16px; box-shadow: 0 20px 60px rgb(0 0 0 / 0.25); display: flex; flex-direction: column; gap: 0.5rem; padding: 1rem 1.1rem 0.8rem; overflow: hidden; }
+	.review { position: absolute; z-index: 10; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(48rem, calc(100% - 1rem)); height: min(46rem, calc(100% - 1rem)); box-sizing: border-box; background: var(--bg, #fbf8f2); border-radius: 16px; box-shadow: 0 20px 60px rgb(0 0 0 / 0.25); display: flex; flex-direction: column; gap: 0.5rem; padding: 1rem 1.1rem 0.8rem; overflow: hidden; }
 	@media (max-width: 520px) { .review { padding: 0.8rem 0.8rem 0.7rem; height: calc(100% - 1rem); } }
 	.review-head { flex: 0 0 auto; min-width: 0; }
 	.review-head h2 { margin: 0; font-size: 1.3rem; line-height: 1.25; }
@@ -324,7 +339,12 @@
 	.tags { margin: 0 0 0.3rem; display: flex; gap: 0.35rem; align-items: center; white-space: nowrap; min-width: 0; }
 	.tags [data-sub] { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 	.tags [data-sub]::first-letter { text-transform: uppercase; }
-	.item-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+	/* between the header and the foot: the top stays, the tab's content scrolls, and the tabs are docked at the bottom
+	   right above the decision, always in sight (Samuel 2026-11-07: "bottom align above the action button areas the
+	   tab section, so it's always like fixed to the bottom area") */
+	.item-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+	.item-body > .top { flex: 0 1 auto; max-height: 55%; overflow-y: auto; overscroll-behavior: contain; }
+	.panel { flex: 1 1 auto; min-height: 5rem; overflow-y: auto; overscroll-behavior: contain; border-top: 1px solid var(--line, #dcd5c4); }
 
 	/* the top: the stage's parts, short lines, nothing an agent alone needs */
 	.top { display: flex; flex-direction: column; gap: 0.55rem; padding: 0.15rem 0 0.8rem; font-size: 0.95rem; line-height: 1.45; }
@@ -353,13 +373,13 @@
 
 	/* the tabs' band, sticky at the top of what scrolls, in the aside's style (play/SPEC.md §4.15 One aside); on a
 	   narrow screen it scrolls sideways */
-	.band { position: sticky; top: 0; z-index: 1; margin: 0 -0.2rem; padding: 0.3rem 0.2rem 0.45rem; background: var(--bg, #fbf8f2); overflow-x: auto; scrollbar-width: none; text-align: center; }
+	.band { flex: 0 0 auto; margin: 0 -0.2rem; padding: 0.45rem 0.2rem 0.1rem; background: var(--bg, #fbf8f2); overflow-x: auto; scrollbar-width: none; text-align: center; }
 	.band::-webkit-scrollbar { display: none; }
 	.tabs { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: rgb(0 0 0 / 0.06); white-space: nowrap; }
 	.tabs button { font: inherit; color: inherit; border: 0; cursor: pointer; flex: 0 0 auto; padding: 0.32rem 0.9rem; border-radius: 999px; background: none; font-size: 0.8rem; font-weight: 600; }
 	.tabs button.on { background: var(--paper, #fff); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
 	.tabs button:focus-visible { outline: 2px solid var(--ink, #222); outline-offset: -2px; }
-	.panel { padding: 0.4rem 0 0.6rem; font-size: 0.9rem; }
+	.panel { padding: 0.6rem 0 0.6rem; font-size: 0.9rem; }
 	.panel h3 { margin: 0.8rem 0 0.35rem; font-size: 0.95rem; }
 	.panel h3:first-child { margin-top: 0.2rem; }
 	.panel > p { margin: 0 0 0.4rem; }
@@ -429,6 +449,14 @@
 	.checks .what { min-width: 0; flex: 1 1 auto; }
 	.checks .what p { margin: 0; font-size: 0.88rem; overflow-wrap: anywhere; }
 	.checks .what p + p { margin-top: 0.15rem; }
+	.checks .statement { font-size: 0.92rem; line-height: 1.4; }
+	.checks .result { font-size: 0.84rem; }
+	.checks li.pass .result strong { color: var(--brand-green, #24452f); }
+	.checks li.fail .result strong { color: #9c3b22; }
+	.how-checked { margin-top: 0.3rem; font-size: 0.8rem; }
+	.how-checked summary { cursor: pointer; width: fit-content; color: var(--ink-soft, #4d5d51); font-weight: 600; min-height: 1.6rem; display: flex; align-items: center; }
+	.how-checked[open] { padding: 0.4rem 0.5rem; margin-inline: -0.5rem; border-radius: 8px; background: var(--paper, #f6f1e6); }
+	.how-checked p { margin: 0.2rem 0 0; }
 	.cid { font-family: ui-monospace, monospace; font-size: 0.76rem; color: var(--muted, #777); margin-right: 0.15rem; }
 	.how { font-weight: 600; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.04em; }
 	.evidence { white-space: pre-line; color: var(--ink-soft, #4d5d51); }
@@ -447,7 +475,7 @@
 	/* the foot: a refused decision's reason, then Reject and the one decision, primary, its reason under it if it is
 	   disabled */
 	.refused { flex: 0 0 auto; margin: 0; padding: 0.45rem 0.7rem; border-radius: 10px; font-size: 0.85rem; line-height: 1.4; max-height: 5.6em; overflow-y: auto; overflow-wrap: anywhere; color: #9c3b22; background: color-mix(in srgb, var(--terracotta, #c8744f) 12%, var(--card, #fff)); border: 1px solid color-mix(in srgb, var(--terracotta, #c8744f) 45%, transparent); }
-	.decide { flex: 0 0 auto; padding: 0.6rem 0 0.1rem; border-top: 1px solid var(--line, #dcd5c4); }
+	.decide { flex: 0 0 auto; padding: 0.5rem 0 0.1rem; }
 	.buttons { display: flex; justify-content: flex-end; align-items: center; gap: 0.5rem; }
 	.decide .btn { min-height: 44px; justify-content: center; }
 	.btn.primary { flex: 0 1 15rem; }
