@@ -21,7 +21,7 @@
  const FRIENDLY = {
  	units: {
  		"eye-left-slit": .25,
-@@ -2585,10 +2592,15 @@
+@@ -2585,10 +2592,27 @@
  
  const BUILT = {};
  
@@ -30,15 +30,36 @@
  	const who = HEAD_PEOPLE[KEY[face]];
  	const raw = i16(who.pos), n = HEAD_MESH.n;
  	const pos = Float32Array.from(raw, (x, k) => x * HEAD_Q + HEAD_MID[k % 3]);
++	let eyes = who.eyes;
 +	if (own) {
-+		// a person's own face: their offsets on the base head, before it is smoothed
++		// a person's own face: their offsets on the base head, before it is smoothed; each eye moved with the skin
++		// round it (the mean offset within 22 mm), so it sits in its own socket
 +		const d = i16(Array.isArray(own) ? own.join("") : own);
++		const moved = (e) => {
++			const s = [0, 0, 0];
++			let c = 0;
++			for (let i = 0; i < n; i++) if (Math.hypot(pos[3 * i] - e.at[0], pos[3 * i + 1] - e.at[1], pos[3 * i + 2] - e.at[2]) < .022) {
++				for (let k = 0; k < 3; k++) s[k] += d[3 * i + k] * HEAD_Q;
++				c++;
++			}
++			return { ...e, at: e.at.map((x, k) => x + (c ? s[k] / c : 0)) };
++		};
++		eyes = { l: moved(who.eyes.l), r: moved(who.eyes.r) };
 +		for (let k = 0; k < pos.length; k++) pos[k] += d[k] * HEAD_Q;
 +	}
  	const region = bytes(HEAD_REGION);
  	/** a shape's offsets: its units' added up, and the cheeks lifted (up and forward round each cheek's apple, under
  	*  the eye and out from the nose's wing, on the face's front only)
-@@ -2614,16 +2626,17 @@
+@@ -2603,7 +2627,7 @@
+ 		}
+ 		const ch = recipe.cheeks;
+ 		if (ch) {
+-			const [ex, ey, ez] = who.eyes.l.at;
++			const [ex, ey, ez] = eyes.l.at;
+ 			for (let i = 0; i < n; i++) {
+ 				if (region[i] !== 0) continue;
+ 				const x = pos[i * 3], y = pos[i * 3 + 1], z = pos[i * 3 + 2];
+@@ -2614,19 +2638,20 @@
  		}
  		return d3;
  	};
@@ -62,8 +83,12 @@
 +	const blink = Float32Array.from({ length: skin.n * 3 }, (_, k) => carried[(k / 3 | 0) * 9 + 6 + k % 3]);
  	const inside = mark(0), socket = mark(1), ears = mark(2);
  	const P = skin.geo.attributes.position, N = skin.geo.attributes.normal, m = skin.n;
- 	const eyes = who.eyes, E = {
-@@ -2784,6 +2797,7 @@
+-	const eyes = who.eyes, E = {
++	const E = {
+ 		x: eyes.l.at[0],
+ 		y: eyes.l.at[1],
+ 		z: eyes.l.at[2],
+@@ -2784,6 +2809,7 @@
  	return {
  		skin,
  		friendly,
@@ -71,7 +96,7 @@
  		hollow,
  		dist,
  		inside,
-@@ -2805,7 +2819,7 @@
+@@ -2805,7 +2831,7 @@
  	};
  }
  
@@ -80,7 +105,7 @@
  
  const crownOf = (face = "man") => HEAD_PEOPLE[KEY[face]].crown;
  
-@@ -2859,7 +2873,7 @@
+@@ -2859,7 +2885,7 @@
  }
  
  function headPieces(k, ver = 10) {
@@ -89,7 +114,7 @@
  	const weights = (p) => headWeights(p, ver);
  	const kind = ver >= 9;
  	const { skin, E } = h;
-@@ -2890,6 +2904,11 @@
+@@ -2890,6 +2916,11 @@
  		c.multiplyScalar(1 - Math.min(.5, Math.max(0, h.hollow[i] * 2.4)));
  		return c;
  	});
@@ -101,7 +126,7 @@
  	/** @type {Piece[]} */
  	const out = [{
  		geo: skin.geo.clone(),
-@@ -2897,7 +2916,8 @@
+@@ -2897,7 +2928,8 @@
  		weights,
  		morph: kind ? {
  			joy: skin.joy,
@@ -111,7 +136,7 @@
  		} : { joy: skin.joy }
  	}];
  	const iris = new three.Color(k.iris), rim = iris.clone().multiplyScalar(.5), inner = iris.clone().lerp(new three.Color("#c9a25a"), .25);
-@@ -3015,7 +3035,7 @@
+@@ -3015,7 +3047,7 @@
  const rng = (seed) => () => ((seed = seed * 16807 % 2147483647) - 1) / 2147483646;
  
  function lashes(h, kind = false) {
@@ -120,7 +145,7 @@
  	const rand = rng(5);
  	for (const side of ["l", "r"]) {
  		const e = h.eyes[side], R = e.r, [cx, cy, cz] = e.at, sx = Math.sign(cx);
-@@ -3043,6 +3063,7 @@
+@@ -3043,6 +3075,7 @@
  			const count = strand(pos, idx, edge.p.clone().add(new three.Vector3(0, 1e-4, 1e-4)), dir, curl, face, len, 11e-5 + 4e-5 * rand(), 5);
  			joy.push(...follow(h.skin.joy, edge.tri, edge.bary, count));
  			gaze.push(...follow(h.friendly, edge.tri, edge.bary, count));
@@ -128,7 +153,7 @@
  		}
  	}
  	const g = new three.BufferGeometry();
-@@ -3056,7 +3077,8 @@
+@@ -3056,7 +3089,8 @@
  		mat: 2,
  		morph: kind ? {
  			joy: new Float32Array(joy),
@@ -138,7 +163,7 @@
  		} : { joy: new Float32Array(joy) }
  	}];
  }
-@@ -3066,7 +3088,7 @@
+@@ -3066,7 +3100,7 @@
  	const out = [];
  	for (const sx of [-1, 1]) {
  		const rand = rng(sx > 0 ? 7 : 11);
@@ -147,7 +172,7 @@
  		for (let s = 0; s < 240; s++) {
  			const u = Math.pow(rand(), .8);
  			const x = sx * (E.x * .4 + E.x * 1.3 * u);
-@@ -3083,6 +3105,7 @@
+@@ -3083,6 +3117,7 @@
  			const count = strand(pos, idx, at.p.clone().addScaledVector(at.n, 25e-5), dir.clone().addScaledVector(at.n, .25).normalize(), curl, at.n, len, 2e-4);
  			joy.push(...follow(h.skin.joy, at.tri, at.bary, count));
  			gaze.push(...follow(h.friendly, at.tri, at.bary, count));
@@ -155,7 +180,7 @@
  		}
  		const g = new three.BufferGeometry();
  		g.setAttribute("position", new three.Float32BufferAttribute(pos, 3));
-@@ -3096,7 +3119,8 @@
+@@ -3096,7 +3131,8 @@
  			mat: 2,
  			morph: kind ? {
  				joy: new Float32Array(joy),

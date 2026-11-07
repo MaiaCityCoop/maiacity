@@ -54,3 +54,11 @@ bash intent-work/a4f8dc85-render/bench.sh ~/a4f8dc85-work
 - **Blink:** every few seconds (the head v2's new `blink`).
 - **Look for:** the garments (cream linen shirt, long sleeves, untucked; loose trousers to the ankle; sandals) moving
   with the body and never through it; the face smiling where it should. Known: "sit down" ends 0.23 m behind where "sitting" starts (a pop from the motion pieces, b9e6ad45's).
+
+**c3 run 2** (after the first bench film, `out/c3/`, contact sheet `525356ea…`): the Mac's import map for `three` is in
+bench-gpu.mjs and bake.py runs on bun where there is no node; the garments are cloth of their own now (the Person body
+v3's shirt shell with a flared untucked hem and a band collar, loose sleeves, the trousers' seat and loose legs, all
+skinned to the same bones as the body), the eyes sit in their own sockets (the Person head v2 moves each eye with the
+skin round it), the throat under the beard is his cheek skin (no dark V at the collar), the chair has legs and a back,
+and the camera cuts to a medium close-up on his face while he sits smiling and while he waves. Known still: the fists
+and the 0.23 m pop at "sit down" (the motion pieces, b9e6ad45).

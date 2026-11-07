@@ -166,3 +166,13 @@ PR #2157 ready. Known looks to improve: faint doubled brows and the photos' smil
   body v3 `900771ce3b105a6c7a3b2df28a08fccc371913ec47941d073b4c86d257881a82` (wear).
 - **Texture:** no run 4. Run 3's review `509efe8a…` keeps a lighter forehead strip, brownish patches under the
   cheekbones and pale streaks under the beard: for Samuel at Proposal; the next step, if wanted, is a seam-aware blend.
+
+### 18:45: c3's first film read, and fixed
+
+The Mac's c3 run (`out/c3/NOTES.md`, sheet `525356ea…`): the garments read as a painted body suit, the eyes bulged
+(Samuel's eye region sits 14 mm deeper than the base head's and the eyeballs stayed), the face too small to read, a dark
+V at the throat, a floating seat, two job bugs. All fixed (see the render README's "c3 run 2"). **The hashes now** (on
+play, variants 1458, 1459, checked): head v2 `04ff652935a0b510c224beb4f369c65a8407b4ce53f73bf3eea63ffb08e884b9`, body v2
+`2f0ecb1327aef23afafcd12fcb04685e2dcdff979259390f22bdb4a54605eed1` (head inputs only, on body v1), body v3
+`7c173d07ac8888ce91d1d95f7cd5e8afd4340b2666eaec8d4c5354cd0c47e4f5` (wear, a diff on v2). Without a face or wear, every
+person is still v1's (checked byte for byte).
