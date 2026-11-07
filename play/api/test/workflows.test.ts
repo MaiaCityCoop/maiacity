@@ -254,8 +254,8 @@ describe("the server's care", () => {
     expect(step().if).toBe("inputs.mode == 'remove-dns'");
     expect(step().env).toMatchObject({ DNS_TOKEN: "${{ secrets.HETZNER_DNS_TOKEN }}", HCLOUD_TOKEN: "${{ secrets.HETZNER_API_KEY }}", ZONE: "maia.city", NAME: "${{ inputs.record }}" });
     for (const other of s.jobs.care.steps.filter((x: any) => x.name !== "remove-dns")) expect(other.if).toBe("inputs.mode != 'remove-dns'");
-    // it names no record of its own
-    expect(step().run).not.toMatch(/avendb/i);
+    // it names no record of its own: the name comes only from the input
+    expect(step().run.match(/^NAME=.*$/gm)).toEqual([expect.stringMatching(/^NAME=\$\(tr 'A-Z' 'a-z' <<< "\$NAME"\)/)]);
   });
 
   test("remove-dns refuses play, api, www and the apex, and what is not a name", () => {
