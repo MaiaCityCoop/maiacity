@@ -188,7 +188,7 @@ suite("withdraw a document from an intent's work", () => {
   test("withdraw a stale draft: an asset's open variant seeded below its head closed, kept; the next doc_edit seeds from Main and proposes", async () => {
     const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
     const first = await ready("A fern, its first version");
-    const fern = await tool("propose_asset", { group: "plants", label: "A draft fern", source: SOURCE, note: "v1", intent: first });
+    const fern = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "A draft fern", source: SOURCE, note: "v1", intent: first });
     expect(fern.error).toBeUndefined();
     expect((await call("POST", `/api/intents/${first}/accept`)).data.stage).toBe("accepted");
     // in Build, its must not passed: a draft made on v1

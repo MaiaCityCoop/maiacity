@@ -83,7 +83,7 @@ suite("private to its owner", () => {
   /** a private character of A's, proposed and, where `accept`, accepted by A */
   const character = async (label: string, accept = true) => {
     const intent = await readyIntent(A, label);
-    const made = await tool(A, "propose_asset", { group: "characters", label, note: "its first version", source: SOURCE(label), intent, private: true });
+    const made = await tool(A, "propose_asset", { lod: { levels: "derived" }, group: "characters", label, note: "its first version", source: SOURCE(label), intent, private: true });
     expect(made.error).toBeUndefined();
     if (accept) expect((await call(A, "POST", `/api/intents/${intent}/accept`)).data.decision).toMatchObject({ status: "accepted", number: 1 });
     return { asset: made.asset as string, intent };
@@ -273,7 +273,7 @@ suite("private to its owner", () => {
 
     test("character: only group characters may be private", async () => {
       const intent = await readyIntent(A, "A private goat");
-      const made = await tool(A, "propose_asset", { group: "actors", label: "A private goat", note: "no", source: SOURCE("a goat"), intent, private: true });
+      const made = await tool(A, "propose_asset", { lod: { levels: "derived" }, group: "actors", label: "A private goat", note: "no", source: SOURCE("a goat"), intent, private: true });
       expect(made.error).toMatch(/characters/);
       // nor may a private character move to another group
       const { asset } = await character("Ada, moving");
@@ -286,7 +286,7 @@ suite("private to its owner", () => {
 
     test("character: a character not made private is everyone's, as before", async () => {
       const intent = await readyIntent(A, "A settler");
-      const made = await tool(A, "propose_asset", { group: "characters", label: "A settler", note: "public", source: SOURCE("a settler"), intent });
+      const made = await tool(A, "propose_asset", { lod: { levels: "derived" }, group: "characters", label: "A settler", note: "public", source: SOURCE("a settler"), intent });
       expect((await call(A, "POST", `/api/intents/${intent}/accept`)).data.decision).toMatchObject({ status: "accepted" });
       expect((await call(B, "GET", `/api/assets/${made.asset}`)).status).toBe(200);
       expect((await call(T, "GET", "/api/catalog")).data.map((c: any) => c.asset)).toContain(made.asset);
@@ -362,7 +362,7 @@ suite("private to its owner", () => {
     test("board: where a file is used never names another's private asset", async () => {
       const sheet = (await tool(A, "add_story_frame", { data: image(), media_type: "image/png", label: "A coop sheet" })).hash as string;
       const intent = await readyIntent(A, "Ada, with a coop sheet");
-      const made = await tool(A, "propose_asset", { group: "characters", label: "Ada, sheet", note: "v1", source: SOURCE("ada sheet"), intent, private: true, sheet });
+      const made = await tool(A, "propose_asset", { lod: { levels: "derived" }, group: "characters", label: "Ada, sheet", note: "v1", source: SOURCE("ada sheet"), intent, private: true, sheet });
       expect(made.error).toBeUndefined();
       const uses = async (who: Who) => ((await call(who, "GET", `/api/library?q=${sheet.slice(0, 16)}`)).data.files.find((f: any) => f.hash === sheet)?.used ?? []).map((u: any) => u.asset);
       expect(await uses(A)).toContain(made.asset);

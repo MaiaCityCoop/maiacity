@@ -19,7 +19,7 @@ import { decideAny, docAt, docChanges, docHistory, listDocs, reviewOf, VersionEr
 import { runningCommit, shipWork, type GitHub } from "./ship";
 import { NO_INTENT, WorkError } from "./work";
 import { withdrawDoc } from "./withdraw";
-import { INTENT_ADMINS, intentOf, IntentError, intentReady, listIntents, type IntentVerdict } from "./intents";
+import { INTENT_ADMINS, intentCounts, intentOf, IntentError, intentReady, listIntents, pageIntents, type IntentVerdict } from "./intents";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 import { listStories, storyAt, storyOf, StoryError } from "./stories";
 import { labelFile, listLibrary } from "./library";
@@ -181,8 +181,15 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     const q = new URL(req.url).searchParams;
     const s = q.get("stage");
     const m = await me(req);
+    const stages = s ? s.split(",") : undefined;
+    const work = q.get("work") ?? undefined;
     // (an edge to an intent another's private work keeps is shown as "a private intent": ./owners.ts)
-    return json(await maskEdges(db, m, await listIntents(db, m, s ? s.split(",") : undefined, q.get("work") ?? undefined)));
+    // the board's way (intent 2cb70fb8): a page (limit, before) and every stage's count, in one answer
+    if (q.has("limit") || q.has("before") || q.has("counts")) {
+      const page = await pageIntents(db, m, stages, work, { limit: q.get("limit"), before: q.get("before") });
+      return json({ intents: await maskEdges(db, m, page.intents), next: page.next, ...(q.has("counts") ? { counts: await intentCounts(db, m) } : {}) });
+    }
+    return json(await maskEdges(db, m, await listIntents(db, m, stages, work)));
   });
   on("GET", "/api/intents/:id", async (req, p) => {
     const m = await me(req);
