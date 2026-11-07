@@ -7,7 +7,7 @@
  * Bald, a full trimmed reddish-brown beard (in his face's colours), light blue-grey eyes, 1.69 m; cream linen (the
  * Person body v3's `wear`).
  */
-const BODY = require('900771ce3b105a6c7a3b2df28a08fccc371913ec47941d073b4c86d257881a82');
+const BODY = require('7c173d07ac8888ce91d1d95f7cd5e8afd4340b2666eaec8d4c5354cd0c47e4f5');
 const MOTION = require('16dadf0099be9638315e10bf913916253a824c32f215ef6bfa7c5e3252fd2d3f');
 const GAIT = require('e1c0a220afd1949475d88210214ad813e17e6a054406f0a96a798964292e4831');
 const ACTIONS = require('5ce51f9e5126cb38ef44ddbe205b359e0917da6774d28ac1e7931797365004ce');
