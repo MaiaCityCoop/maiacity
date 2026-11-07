@@ -574,15 +574,16 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     requests*): the intent's checks in avenBOX on GitHub (`play/avenbox/setup.sh`, PostgreSQL 17, bun 1.4.4) on the
     pull request's head, recorded on the intent with that head, the run's link and `pr` (so it becomes the active pull
     request). Every must green: the intent moves to Proposal. Any must red: it stays in (or goes back to) Build with
-    the failures, and the run turns the pull request back into a draft. Each new push to a ready pull request runs and
-    records again on the new head, so Accept merges only a head every must passed on (`ship.ts`, unchanged). Looks are
-    still judged and recorded by hand (`check_intent`).
+    the failures, failed on the board, its pull request as it is: fix and push. Each new push to a ready pull request
+    (play's main-merge included) runs and records again on the new head, so Accept merges only a head every must
+    passed on (`ship.ts`, unchanged); the older head's run is cancelled (`concurrency`) and its record skipped
+    (`!cancelled()`): it records nothing and is not red. Looks are still judged and recorded by hand (`check_intent`).
   - **Only the box's run is evidence.** intents-pr.yml runs on `pull_request_target`, for heads in this repository
     only, in three jobs: **spec** (main's `pr-intent.ts --id` and `intent.ts <uuid> --spec-out`, with avenBOX's token),
     **run** (the head checked out with `persist-credentials: false`, no secret and a read-only `GITHUB_TOKEN`; main's
     intent.ts, handed over by spec, runs the spec's checks with `--from <spec> --results-out <file> --root <head>`) and
     **record** (main's `intent.ts <uuid> --record-from <results> --pr <n> --head <sha>`, with avenBOX's token, refusing
-    results of another intent or another commit; a red run's pull request turned back into a draft). The workflow and
+    results of another intent or another commit; `contents: read` only, skipped when the run is cancelled). The workflow and
     the intent.ts that hold a token are always main's. **avenBOX's token** is an admin's access token marked so on
     play's profile page (`play.api_tokens.avenbox`, migration `202611070145-4ea6b2ed-avenbox-token`; `POST /api/tokens/<id>/avenbox`), the repository
     secret `PLAY_MCP_TOKEN` that intents-pr.yml, intent-named.yml and intents.yml hold. From any other token
