@@ -658,6 +658,27 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     as before (`decideIntent`), and play's own work straight to Accepted, its version applied in the same transaction.
     **`bun play/avenbox/live-audit.ts`** checks the same from outside: the commit from `/api/version`, every intent over
     MCP, main's history from git; it prints every mismatch and exits 0 only with none.
+  - **Main merged into open pull requests by play** (Samuel 2026-11-07: *"This merging main conflicts steps should be
+    also automated right?"*; intent `f28822d9-6ef1-49d9-aa2c-e52f1897ee89`; `play/api/src/mainmerge.ts`). No one merges
+    main into an intent's branch by hand: a pull request behind main is play's to update, only a real conflict is a
+    person's or its builder's. Each tick of the watcher, after it has read the open intents' pull requests, it reads
+    main's head and looks at every intent in Build or at Proposal whose named pull request is open into main:
+    - **mergeable and behind** (GitHub's compare: main's head not in the branch): play calls GitHub's
+      **`update-branch`** (`PUT /pulls/<n>/update-branch`, `expected_head_sha` the head it read), once per head and main's
+      head, under the intent's row (an Accept pressed meanwhile waits and finds it moved). It is a push made with
+      `SHIP_TOKEN`, so GitHub runs the required checks and the box's run (`intents-pr.yml` on `synchronize`) records the
+      intent's checks on the new head: **working**, *main merged in: its checks run on \<head\>*, until every must is
+      recorded on it, then **waiting** again. A builder's push in between makes GitHub refuse it (422): nothing is done,
+      the next tick reads the new head first. Kept on `pr_seen` (`main_merged`).
+    - **in conflict** (`mergeable` false): **failed**, *conflicts with main: \<files\>*, the files changed both on the
+      branch (`GET /pulls/<n>/files`) and on main since their merge base (`GET /compare/<base>...main`), in Build too.
+      play posts the commit status **`Merges with main`** (`failure`, that line, the intent's link) on its head, once per
+      head and line, and `success` once it merges again; not a required check. A builder session subscribed to its
+      pull request (`subscribe_pr_activity`) is woken by that status as a PR event.
+
+    Never an intent in Ship, Accepted or Archived, never a pull request into another branch or naming no intent, never a
+    merge into main or production. Ship itself (its queue, steps and re-read at its turn), the reconcile and how checks
+    are recorded stay as they are.
   - **production follows main** (`.github/workflows/release.yml`): once main.yml is green for a push to main, or by
     `workflow_dispatch` with a sha (Ship again, or by hand), it moves `production` to that commit, fast-forward only,
     with `GITHUB_TOKEN`, and starts `production.yml` on it (`workflow_dispatch`; a push by `GITHUB_TOKEN` starts no
@@ -705,11 +726,12 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   `GET /api/intents` and `/api/intents/<uuid>`; null once Accepted or Archived), said by one pure function,
   `subStateOf` (`play/api/src/substate.ts`), first match wins. **failed** (a person is needed): Ship red (back at
   Proposal with its report, until its checks are recorded again or another pull request is named), a must check whose
-  last result failed, its pull request in conflict with main, red, a draft, closed or not into main. **waiting** (a human
+  last result failed, its pull request in conflict with main (*conflicts with main: \<files\>*, in Build too: *Main
+  merged into open pull requests by play*, above), red, a draft, closed or not into main. **waiting** (a human
   gate): at Specify a spec with its reduce step (*Approve spec*, held or not); at Proposal work of play's (*Accept*), or
   code whose pull request's head is the one every must check with a run last passed on, mergeable, its required checks
-  green, not a draft, not held (*Accept and ship*). **working** (an agent, GitHub or Ship busy): in Build; code whose
-  head moved past the checked commit, whose required checks run, whose mergeability GitHub hasn't worked out, or whose
+  green, not a draft, not held (*Accept and ship*). **working** (an agent, GitHub or Ship busy): in Build; code with
+  main merged in by play whose checks run on its new head (*main merged in*); code whose head moved past the checked commit, whose required checks run, whose mergeability GitHub hasn't worked out, or whose
   pull request was read more than 60 s ago (*reading #N on GitHub*); in Ship on its way. **idle** (nothing moves until
   something else does): held by a dependency (*held: waits for …*), in Ship queued behind another, an Idea. What GitHub
   says is read by Ship's watcher every 10 s into the intent's `pr_seen` (head, draft, mergeable, the required checks,

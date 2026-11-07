@@ -13,7 +13,15 @@ export type SubState = "failed" | "waiting" | "working" | "idle";
 export type Sub = { state: SubState; why: string };
 export type CheckState = "queued" | "running" | "success" | "failure";
 /** a pull request as Ship's watcher (or an Accept) last read it */
-export type PrSeen = { pr: number; head: string; draft: boolean; mergeable: boolean | null; state: string; merged: boolean; base: string; checks: Record<string, CheckState>; at: string };
+export type PrSeen = {
+  pr: number; head: string; draft: boolean; mergeable: boolean | null; state: string; merged: boolean; base: string; checks: Record<string, CheckState>; at: string;
+  /** play merged main into the branch (./mainmerge.ts, GitHub's update-branch): from the head `from`, main at `main`, the head GitHub made of it `to` */
+  main_merged?: { from: string; main: string; at: string; to?: string };
+  /** in conflict at `head` with main at `main`: the files both sides changed since their merge base */
+  conflicts?: { head: string; main: string; files: string[] };
+  /** the status 'Merges with main' play last posted, on `head` */
+  merges?: { head: string; state: "success" | "failure"; description: string };
+};
 
 type Res = { pass: boolean; at?: string; commit?: string };
 type Row = {
@@ -61,17 +69,30 @@ export function prBlock(intent: Pick<Row, "spec" | "results">, seen: PrSeen, hea
   if (seen.base !== "main") return failed(`${n} goes into ${seen.base}: an intent's code goes into main`);
   if (seen.draft) return failed(head ? `${n} was made a draft${w}` : `${n} is a draft: it is marked ready (main's checks run then) before it is merged`);
   if (head && seen.head !== head) return failed(`${n}'s head moved from ${short(head)} to ${short(seen.head)}${w}: its checks are recorded on the new head, then Accept again`);
+  if (seen.mergeable === false) return failed(conflictWhy(seen) + (head ? `: ${n} no longer merges into main${w}` : ""));
+  const merged = seen.main_merged;
+  if (!head && merged?.from === seen.head) return { state: "working", why: `main merged in: its checks run on ${n}'s new head once GitHub makes it` };
   const stale = unmetOn(intent, seen.head);
+  if (stale.length && !head && merged?.to === seen.head)
+    return { state: "working", why: `main merged in: its checks run on ${short(seen.head)} (${stale.join("; ")})` };
   if (stale.length)
     return { state: "working", why: `${n}'s head moved past the checked commit: every must check with a run passes on ${n}'s head ${short(seen.head)} first (its run in avenBOX on GitHub records them on it: mark the pull request ready, or push to it): ${stale.join("; ")}` };
-  if (seen.mergeable === false)
-    return failed(`conflicts with main: ${n} ${head ? "no longer merges into main" : "does not merge into main as it is"}; main is merged into its branch, its checks run again${head ? ", then Accept again" : ""}`);
   const red = REQUIRED_CHECKS.find((c) => seen.checks[c] === "failure");
   if (red) return failed(`'${red}' is failure on ${n}'s head ${short(seen.head)}`);
   const running = REQUIRED_CHECKS.filter((c) => seen.checks[c] !== "success");
   if (running.length) return { state: "working", why: `Waiting for ${n}'s checks (${running.join(", ")})` };
   if (seen.mergeable === null) return { state: "working", why: `Waiting for GitHub to work out whether ${n} merges` };
   return null;
+}
+
+/**
+ * A conflict with main as people read it: "conflicts with main: " and the files both sides changed (./mainmerge.ts
+ * works them out), or, until it has, that the pull request does not merge into main. A person's or its builder's to
+ * resolve: a pull request merely behind main is play's to update.
+ */
+export function conflictWhy(seen: PrSeen) {
+  const files = seen.conflicts?.head === seen.head ? seen.conflicts.files : null;
+  return `conflicts with main: ${files?.length ? files.join(", ") : `#${seen.pr} does not merge into main as it is`}`;
 }
 
 /** a ship's step now: the first not yet green or skipped */
@@ -117,7 +138,11 @@ export function subStateOf(intent: Row, seen: PrSeen | null | undefined = intent
   // code at Proposal waits in Ship for a dependency there (./intents.ts mayMove), so only one elsewhere holds it
   const holds = at === "proposal" && pr && !intent.work ? held.filter((d) => d.stage !== "ship") : held;
   if (holds.length) return { state: "idle", why: heldWhy(holds) };
-  if (at === "build") return { state: "working", why: "being built: its checks are recorded as they pass" };
+  if (at === "build") {
+    // a conflict with main is failed in Build too: its builder resolves it (woken by the status 'Merges with main')
+    if (pr && seen && seen.pr === pr && seen.state === "open" && seen.mergeable === false && now - Date.parse(seen.at) <= SEEN_MOST_MS) return { state: "failed", why: conflictWhy(seen) };
+    return { state: "working", why: "being built: its checks are recorded as they pass" };
+  }
 
   // Proposal
   if (intent.work) return { state: "waiting", why: "Accept" };

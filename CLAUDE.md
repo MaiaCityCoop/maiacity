@@ -58,7 +58,12 @@ ruleset requires it, with `play / API and site` and `website / build`); Ship sho
 the deploy (backup, image, server, website); it is Accepted exactly when play runs its merge commit (the reconcile, `play/api/src/ship.ts`, against the commit `GET /api/version` names; an Accepted one not live is flagged); a red step brings it back to Proposal with the report: fix it in a new pull request of the intent (its
 run records its checks on its head as it is marked ready), and Accept ships it again. After the merge,
 `.github/workflows/intents.yml` runs the intent's checks again on main in the same box and records them as main's, a
-confirmation. Say what you opened and that it waits for Accept; report a failing check instead of going past it.
+confirmation. **Main is merged in by play** (intent f28822d9, `play/api/src/mainmerge.ts`): whenever main moves, Ship's
+watcher merges main into every open intent pull request (Build or Proposal) that merges cleanly with GitHub's
+`update-branch`, its checks then run and recorded again on the new head by the box's run (working until then); never
+merge main into your branch by hand for that. A real conflict shows the intent failed, "conflicts with main: <files>",
+and play posts the commit status **`Merges with main`** (failure) on its head, which wakes you as a PR event: resolve
+it, push, and it turns success. Say what you opened and that it waits for Accept; report a failing check instead of going past it.
 
 ## Backups
 
