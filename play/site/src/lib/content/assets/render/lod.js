@@ -20,7 +20,9 @@
 export const LEVELS = [1.2, 0.56, 0.22];
 /**
  * a shape this heavy (triangles) or more takes the picture at the last threshold; a lighter one keeps its shape until
- * it looks smaller, down to PICTURE (a chair of a thousand triangles costs nothing drawn whole, and looks crisper)
+ * it looks smaller, down to PICTURE (a chair of a thousand triangles costs nothing drawn whole, and looks crisper).
+ * Not a plant drawn far off as its picture: its levels its recipe's own, it takes the picture at the last threshold
+ * however light, as a forest always did (./index.js `retune`, intent 6295a650)
  */
 export const HEAVY = 20000;
 export const PICTURE = 0.04;

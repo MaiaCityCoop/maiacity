@@ -282,6 +282,12 @@ export function createAssets(o) {
 
 	/** A kind's thresholds by its coarsest shape: as it came, or, while it is being made, by what it may cost (./lod.js) */
 	function retune(k) {
+		// a kind whose levels are its recipe's own (a plant's) and that is drawn far off as its picture takes it at its
+		// last threshold, however light its coarsest shape: as a forest always did (a tree 12 m across a picture past
+		// 40 m: the village's own, measured on a Mac's Metal in intent 6295a650, whose light trees kept their shapes to
+		// ~60 m and cost its far view 46 % more triangles). One made by simplifying, or never a picture (a small plant,
+		// left out where its shape would end), keeps a light shape further, down to PICTURE (./lod.js HEAVY).
+		if (k.names.length > 1 && k.picture) return void (k.thresholds = thresholdsOf(k.levels.length));
 		const last = k.levels.length - 1;
 		const tris = k.levels[last].level?.tris ?? budgetOf(last, k.levels[k.base].level.tris);
 		k.thresholds = thresholdsOf(k.levels.length, tris);

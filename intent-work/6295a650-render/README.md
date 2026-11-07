@@ -3,6 +3,29 @@
 Intent 6295a650-69ac-4b66-8fe7-7939dad156c9, pull request #2151, branch `intent/6295a650-one-selector`. The baseline is
 main at **6d0d7ac**, as the spec says. The change to measure is the branch's newest head.
 
+## Fourth run (after the third Mac run)
+
+**Run 3** was base 6d0d7ac against head 658a50eaa, at noon. It is in `out/run3/` on the branch `intent-work/6295a650-render`.
+- **Near:** the head passed (4.25M against 5.95M triangles).
+- **Mid:** within noise (6.50M against 6.23M; 36.0 against 35.3 ms).
+- **Far:** the head failed, with 3.71M against 2.55M triangles and a p95 of 33.4 against 16.8 ms.
+
+**The cause:** the far forest (`assets.out`) drew the same number of shapes on both sides (387 against 384) and the
+same number of pictures (6,149 against 6,174), but the head's shapes cost 5.9k triangles each against the base's 2.5k.
+- The head's shapes include light trees that the base drew as pictures.
+- `lod.js` lowers a light shape's picture threshold (`HEAVY`: under 20,000 triangles, down to `PICTURE`), so a fruit
+  tree at detail 0.1 kept its shape to ~60 m.
+- The village had always set its trees' thresholds itself (the old `tune`), so they became pictures at 40 m whatever
+  their weight.
+
+**The fix** (in the commit after 658a50eaa): a kind whose levels are its recipe's own (a plant's) and that has a
+picture takes the picture at its last threshold, however light, as the forest always did.
+- Things made by simplifying keep the `HEAVY` rule.
+- So do small plants, which have no picture: where their shape ends, the forest leaves them out, and that stays as in
+  run 3.
+
+Run 4: the same command at the branch's newest head, with the hour still at noon.
+
 ## Third run (after the second Mac run)
 
 **Run 2** was base 6d0d7ac against head 8103cb29d, at noon. It is in `out/run2/` on the branch `intent-work/6295a650-render`.
