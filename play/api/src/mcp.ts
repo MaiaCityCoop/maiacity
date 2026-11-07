@@ -28,6 +28,7 @@ import { NO_INTENT, WorkError } from "./work";
 import { addIntent, autoMove, CHECK_HOWS, CHECKS_MOST, dependIntent, getIntent, intentOf, IntentError, intentReady, INTENT_KINDS, INTENT_STAGES, LINE_MOST, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES } from "./intents";
 import { stepBack } from "./stepback";
 import { withdrawDoc } from "./withdraw";
+import { retireDoc } from "./retire";
 import { instructionsOf, promptOf, promptsOf, SkillError } from "./skills";
 import { adminByToken } from "./tokens";
 import { STORY_ADMINS, AUDIO_TYPES, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, MOST_COMPOSITION, proposeStory, putAudioBase64, putComposition, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAt, storyOf, StoryError, VIDEO_TYPES } from "./stories";
@@ -634,6 +635,24 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         additionalProperties: false,
       },
       run: async ({ intent, doc, reason }, me) => withdrawDoc(db, me, `${intent ?? ""}`, doc, reason, "mcp"),
+    },
+    {
+      name: "retire_doc",
+      description:
+        "Propose retiring an accepted document as an intent's work, always with its reason (a stray copy, one no longer wanted): an admin's Accept takes it off every list (list_docs, list_stories, Stories, the Library's uses), Main's content as it was, no new version; " +
+        "its history stays, read by its UUID (doc_history, doc_at, get_story say `retired`: when, by which intent), and nothing that names it by hash changes (its files, its frozen versions, a story linking one). Archive leaves it as it was. " +
+        "Only for an intent in Build or at Proposal, as any work. Refused: no reason, a document never accepted (withdraw_doc takes one out of an intent before its Accept), one retired already.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          intent: { type: "string", description: "the intent's id (a UUID: list_intents gives it)" },
+          doc: { type: "string", description: "the document to retire: its UUID (list_docs), or <kind>:<uuid>" },
+          reason: { type: "string", maxLength: LINE_MOST, description: "why it goes, in one line" },
+        },
+        required: ["intent", "doc", "reason"],
+        additionalProperties: false,
+      },
+      run: async ({ intent, doc, reason }, me) => retireDoc({ db, store }, me, `${intent ?? ""}`, doc, reason, "mcp"),
     },
     {
       name: "check_intent",

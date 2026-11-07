@@ -19,6 +19,7 @@ import { decideAny, docAt, docChanges, docHistory, listDocs, reviewHeld, reviewO
 import { runningCommit, shipWork, type GitHub } from "./ship";
 import { NO_INTENT, WorkError } from "./work";
 import { withdrawDoc } from "./withdraw";
+import { retireDoc } from "./retire";
 import { INTENT_ADMINS, intentCounts, intentDocOf, intentOf, IntentError, intentReady, listIntents, pageIntents, type IntentVerdict } from "./intents";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 import { listStories, storyAt, storyOf, StoryError } from "./stories";
@@ -218,6 +219,12 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     const b = await body(req);
     const m = await me(req);
     return json(await maskEdges(db, m, await withdrawDoc(db, m, p.id, b?.doc, b?.reason, "site")));
+  });
+  // an accepted document proposed retired as the intent's work, with its reason (./retire.ts, intent 08566782)
+  on("POST", "/api/intents/:id/retire", async (req, p) => {
+    const b = await body(req);
+    const m = await me(req);
+    return json(await maskEdges(db, m, await retireDoc({ db, store }, m, p.id, b?.doc, b?.reason, "web")));
   });
   on("POST", "/api/intents/:id/:verdict", async (req, p) => {
     if (!["approve", "accept", "archive", "reject", "reopen"].includes(p.verdict)) throw new NotFound("No such decision.");
