@@ -13,6 +13,8 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import Decision from './Decision.svelte';
+	import StoryPlayer from '$lib/stories/StoryPlayer.svelte';
+	import type { ComponentProps } from 'svelte';
 	import { INDEX, admitProposed, source as catalogSource } from '$lib/content/assets/catalog.js';
 	import { markdown } from '$lib/site/markdown/index.js';
 	import { detailOf, isCode, notLive, shipsAgain, STAGE_NAME, TABS, type Check, type Intent, type Kind, type Results, type ShipStep, type Stage, type TabId, type Work } from './detail';
@@ -73,8 +75,9 @@
 	/** what to tell an agent sent to it: play's (GET /api/intents/<id>'s brief, the Intents skill's part for its stage,
 	 *  play/api/src/skills.ts), never written here; null where there is nothing for an agent to do */
 	/** an asset upgrade's builds (the review's, play/api/src/versioned.ts reviewDoc), drawn inline in the Changes tab
-	 *  (Samuel 2026-11-07: "draw the asset right in the Changes tab"), only once that tab is opened */
-	let review = $state<{ id: string; builds: { hash: string; variant: string | null; label: string; first: boolean }[] | null } | null>(null);
+	 *  (Samuel 2026-11-07: "draw the asset right in the Changes tab"), only once that tab is opened; a story's version
+	 *  (the same review's `story`, play/api/src/stories.ts) played there in the Stories player (intent 668e9ffd) */
+	let review = $state<{ id: string; builds: { hash: string; variant: string | null; label: string; first: boolean }[] | null; story: ComponentProps<typeof StoryPlayer>['story'] | null } | null>(null);
 	let drawn = $state<{ id: string; hash: string } | null>(null);
 	let viewer: Promise<any> | null = null;
 	let worldViewer: Promise<any> | null = null;
@@ -100,7 +103,7 @@
 			.then((r) => {
 				if (i.id !== id) return;
 				brief = { id, stage, text: r.brief };
-				review = { id, builds: r.review?.builds ?? null };
+				review = { id, builds: r.review?.builds ?? null, story: r.review?.story ?? null };
 			})
 			.catch((e) => {
 				if (i.id === id) briefError = (e as Error).message;
@@ -251,6 +254,11 @@
 							{:else}<p class="muted small">Drawing it…</p>{/if}
 						</div>
 						<button class="btn small ghost" onclick={onopenwork}>The whole review: versions, source, before and after</button>
+					{/if}
+					<!-- a story's version played right here, as its review plays it; what changed clip by clip a tap away -->
+					{#if review?.id === i.id && review.story}
+						<div class="inline-story"><StoryPlayer story={review.story} compact /></div>
+						<button class="btn small ghost" onclick={onopenwork}>The whole review: what changed, clip by clip</button>
 					{/if}
 					<ul class="linked">
 						<li>
@@ -502,6 +510,7 @@
 	.linked .date { font-size: 0.76rem; white-space: nowrap; }
 	@media (max-width: 520px) { .linked .date { display: none; } }
 	.inline-build { margin: 0.2rem 0 0.6rem; display: flex; flex-direction: column; gap: 0.4rem; }
+	.inline-story { margin: 0.2rem 0 0.6rem; min-width: 0; container-type: inline-size; }
 	.variants { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 	.inline-build .stage { height: clamp(18rem, 48dvh, 30rem); display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; }
 	.inline-build .stage > :global(*) { flex: 1 1 auto; min-height: 0; }
