@@ -1,19 +1,14 @@
 /*
  * THE ASSET SCHEMAS — one place that names them:
  *
- * - `asset` (./asset.v1.json): an asset as an avenDB entry, the one thing of it avenDB reads. It is in avenDB's own
- *   schema subset, and a test runs it through avenDB's own schema parser (aven/db/crates/avendb/tests/all/assets.rs). On the
- *   day assets move in, the Maia City COOP vault creates it as a `schema` entry, and its records are written under it;
- *   a later version comes with an avenDB lens from this one. An asset's versions are its entry's history, its variants
- *   avenDB variants (their own entries, linked to the version they came from), a change someone suggests a proposal.
+ * - `asset` (./asset.v1.json): an asset's record (title, group, name, version, note, licence, its files by role, tags),
+ *   as the legacy store kept it. An asset's versions are its history, its variants its kinds.
  * - `card` (./card.v2.json, v1 with the group `worlds`): what an asset's pack says of it (its size, parts, sliders, levels of detail). A file of the
- *   entry, which avenDB keeps as bytes; our checker (./check.js) reads it, avenDB never does.
+ *   version, which play keeps as bytes by its hash; our checker (./check.js) reads it.
  *
  * Each is frozen by its version and the BLAKE3 hash of its bytes (./schemas.json, as the engines are in
  * ../engines.json): `<name>.v<n>.json` is never changed or taken out (./schemas.test.js refuses it), and a change is a
- * new version beside it, with a lens from the one before where avenDB reads it. The hash is the name avenDB gives the
- * same bytes: the blob its `create` of a `schema` entry answers, so the Maia City COOP's schema entries will be named
- * by these hashes.
+ * new version beside it. The hash names the bytes wherever they are kept.
  */
 import ASSET from './asset.v1.json';
 /* the card checked against its newest version: v2 takes every card v1 took, and a world's (group `worlds`) */

@@ -21,7 +21,7 @@
 // A schema with no hooks needs no code (Samuel 2026-11-06): every accepted schema whose documents no entry here holds is
 // a kind of its own (syncKinds), its rows in play.records, so a new type is a schema document and the intent that
 // accepts it. A schema's new version is accepted only while every document on Main still validates against it.
-import { Denied, type Me } from "./access";
+import { admin, Denied, type Me } from "./access";
 import type { BlobStore } from "./blobs";
 import * as docs from "./docs";
 import { randomUUID } from "node:crypto";
@@ -190,11 +190,7 @@ export async function asVersionError<R>(run: () => Promise<R>): Promise<R> {
   }
 }
 
-function admin(me: Me | null): Me {
-  if (!me) throw new Denied("Please sign in first.", 401);
-  if (me.level !== "admin") throw new Denied("A document's versions, edits and variants are for Maia City's admins, for now.");
-  return me;
-}
+const DOC_ADMINS = "A document's versions, edits and variants are for Maia City's admins, for now.";
 function text(v: unknown, what: string, most: number): string {
   if (typeof v !== "string" || !v.trim()) throw new VersionError(`${what} is missing.`);
   if (v.length > most) throw new VersionError(`${what} is longer than ${most} characters.`);
@@ -248,7 +244,7 @@ async function intentVariant(db: Queryable, docId: string, intent: unknown) {
 
 /** every document of kind `kind` (every kind's where none is named): its UUID, kind, label, newest version, how many versions */
 export async function listDocs(db: Queryable, me: Me | null, kind?: string) {
-  admin(me);
+  admin(me, DOC_ADMINS);
   await syncKinds(db);
   const ks = kind === undefined || kind === null || kind === "" ? KINDS : [kindNamed(`${kind}`)].filter((k): k is Kind => !!k);
   if (!ks.length) throw new VersionError(`A kind is one of ${KINDS.map((k) => k.name).join(", ")}.`);
@@ -275,7 +271,7 @@ export type DocAt = { version?: number; edit?: number; intent?: string; breed?: 
 
 /** One document, whole: at Main's newest version, at version `version`, at edit `edit`, or as intent `intent`'s variant would make it. With its versions. */
 export async function docAt(ctx: Ctx, me: Me | null, id: unknown, at: DocAt = {}) {
-  admin(me);
+  admin(me, DOC_ADMINS);
   return asVersionError(async () => {
     const { kind, uuid, docId } = await (ctx.db as Db).transaction((q) => docRef(q, ctx, id));
     const db = ctx.db;
@@ -310,7 +306,7 @@ export async function docAt(ctx: Ctx, me: Me | null, id: unknown, at: DocAt = {}
  * seed and how many edits it holds).
  */
 export async function docHistory(ctx: Ctx, me: Me | null, id: unknown, o: { variant?: number } = {}) {
-  admin(me);
+  admin(me, DOC_ADMINS);
   return asVersionError(async () => {
     const { kind, uuid, docId } = await (ctx.db as Db).transaction((q) => docRef(q, ctx, id));
     const db = ctx.db;
@@ -351,7 +347,7 @@ export async function docHistory(ctx: Ctx, me: Me | null, id: unknown, o: { vari
  * after it; with `variant`, its seed and where it stands now. The changes field by field, and the edits that made them.
  */
 export async function docChanges(ctx: Ctx, me: Me | null, id: unknown, o: { edit?: number; variant?: number }) {
-  admin(me);
+  admin(me, DOC_ADMINS);
   return asVersionError(async () => {
     const { kind, uuid, docId } = await (ctx.db as Db).transaction((q) => docRef(q, ctx, id));
     const db = ctx.db;
@@ -507,7 +503,7 @@ export type DocEditBody = { doc?: unknown; kind?: unknown; intent?: unknown; var
  * newest version; with `kind` and no `doc`, a new document of that kind, its whole first state the variant's first edit.
  */
 export async function docEdit(ctx: Ctx, me: Me | null, p: DocEditBody, via: "web" | "mcp" = "mcp") {
-  const who = admin(me);
+  const who = admin(me, DOC_ADMINS);
   const message = text(p?.message, "The edit's message (what it does)", 500);
   if ((p.edits === undefined) === (p.whole === undefined)) throw new VersionError("An edit is edits or the whole document, one of them.");
   return asVersionError(() =>
@@ -541,7 +537,7 @@ async function proposedFor(q: Queryable, docId: string, uuid: string, v: number,
  * intent named (beside the other documents it changes): no work without an intent.
  */
 export async function proposeDocVersion(ctx: Ctx, me: Me | null, p: ProposeBody, via: "web" | "mcp" = "mcp") {
-  const who = admin(me);
+  const who = admin(me, DOC_ADMINS);
   const note = text(p?.note, "The note (what changes and why)", NOTE_MOST);
   if (p.variant == null && (p.edits === undefined) === (p.whole === undefined)) throw new VersionError("Propose an intent variant (its number), edits, or the whole document.");
   if (p.edits !== undefined && p.whole !== undefined) throw new VersionError("Give edits or the whole document, not both.");
@@ -598,7 +594,7 @@ async function proposeIn(tx: Queryable, who: Me, kind: Kind, uuid: string, docId
  * the intent named (no work without an intent). Nothing of it is Main's until it is accepted.
  */
 export async function proposeNewDoc(ctx: Ctx, me: Me | null, kindName: string, o: { whole: Record<string, unknown>; note: string; intent?: string }, via: "web" | "mcp" = "mcp") {
-  const who = admin(me);
+  const who = admin(me, DOC_ADMINS);
   const kind = kindNamed(kindName);
   if (!kind) throw new VersionError(`There is no kind ${kindName}.`, 500);
   const note = text(o.note, "The note (what it is and why)", NOTE_MOST);
@@ -974,8 +970,8 @@ register({
   item: (json) => ({ note: json.note ?? "", schema: json.schema }),
 });
 register({
-  name: "skill", prefix: "skill", schema: SCHEMA.skill, work: "skill_version", table: "play.skills", label: "skill", group: "skills", open: "/skills/?skill={id}&intent={intent}",
-  row: { grp: (json) => json.group, updated: () => new Date() },
+  name: "skill", prefix: "skill", schema: SCHEMA.skill, work: "skill_version", table: "play.records", where: "r.kind = 'skill'", label: "skill", group: "skills", open: "/skills/?skill={id}&intent={intent}",
+  row: { kind: () => "skill", updated: () => new Date() },
   item: (json) => ({ note: json.note ?? "", group: json.group, stages: SKILL_STAGES.filter((s) => `${json.stages?.[s] ?? ""}`.trim()) }),
 });
 register({

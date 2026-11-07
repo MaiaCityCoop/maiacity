@@ -5,7 +5,7 @@ import type { BlobStore } from "./blobs";
 import { HASH } from "./hash";
 import { UUID } from "./uuid";
 import type { Db } from "./pg";
-import { COOP, Denied, meOf, must } from "./access";
+import { admin, COOP, Denied, meOf, must } from "./access";
 import { SANDBOX } from "./ids";
 import { assetOf, catalogOf, configOf, fileOf, listAssets, NotFound, versionOf } from "./assets";
 import { mcp } from "./mcp";
@@ -17,7 +17,7 @@ import { layoutAt, proposedState, SandboxError } from "./sandboxes";
 import { decideAny, docAt, docChanges, docHistory, listDocs, reviewOf, VersionError } from "./versioned";
 import { runningCommit, type GitHub } from "./ship";
 import { NO_INTENT, WorkError } from "./work";
-import { admin as intentsAdmin, intentOf, IntentError, intentReady, listIntents, type IntentVerdict } from "./intents";
+import { INTENT_ADMINS, intentOf, IntentError, intentReady, listIntents, type IntentVerdict } from "./intents";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 import { listStories, storyAt, storyOf, StoryError } from "./stories";
 import { labelFile, listLibrary } from "./library";
@@ -32,11 +32,12 @@ const json = (body: unknown, init: ResponseInit = {}) => Response.json(body, ini
 
 /**
  * The read-only routes an admin's MCP token also opens (Samuel 2026-11-03), so an agent can load a sandbox in its own
- * browser and film it: who it is, the catalog, the files, a sandbox's config and the assets — what a traveler may read,
- * nothing more. Every other route (members, tokens, intents, stories, the database, anything that writes) still wants
- * a session; the MCP server takes the token as before.
+ * browser and film it: who it is, the catalog, the files, a sandbox's config and the assets — what a traveler may read —
+ * and the Library (Samuel 2026-11-07), where it finds a file by its label, still for admins only. Every other route
+ * (members, tokens, intents, stories, the database, a Library label, anything that writes) still wants a session; the
+ * MCP server takes the token as before.
  */
-const READ_BY_TOKEN = [/^\/api\/me$/, /^\/api\/catalog$/, /^\/api\/files\/[0-9a-f]{64}$/, /^\/api\/sandboxes\/[0-9a-f-]{36}\/config$/, /^\/api\/assets(\/[^/]+){0,4}$/];
+const READ_BY_TOKEN = [/^\/api\/me$/, /^\/api\/catalog$/, /^\/api\/files\/[0-9a-f]{64}$/, /^\/api\/sandboxes\/[0-9a-f-]{36}\/config$/, /^\/api\/assets(\/[^/]+){0,4}$/, /^\/api\/library$/];
 async function body(req: Request): Promise<any> {
   try {
     return await req.json();
@@ -183,7 +184,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     const m = await me(req);
     // (who may propose first, then what: an admin's, for an intent)
     if (b?.intent === undefined || b?.intent === null || b?.intent === "") {
-      intentsAdmin(m);
+      admin(m, INTENT_ADMINS);
       throw new IntentError(NO_INTENT, 400);
     }
     b.intent = (await intentReady(db, m, b.intent)).id;
@@ -234,15 +235,10 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("GET", "/api/mcp", (req) => mcpServer(req));
 
   // the admins' window into play's Postgres, read only, secrets hidden (./tables.ts)
-  const admin = async (req: Request) => {
-    const m = await me(req);
-    if (!m) throw new Denied("Please sign in first.", 401);
-    if (m.level !== "admin") throw new Denied("Only Maia City's admins may look into the database.");
-    return m;
-  };
-  on("GET", "/api/tables", async (req) => (await admin(req), json(await listTables(db))));
+  const tablesAdmin = async (req: Request) => admin(await me(req), "Only Maia City's admins may look into the database.");
+  on("GET", "/api/tables", async (req) => (await tablesAdmin(req), json(await listTables(db))));
   on("GET", "/api/tables/:name", async (req, p) => {
-    await admin(req);
+    await tablesAdmin(req);
     const q = new URL(req.url).searchParams;
     return json(await readTable(db, p.name, Number(q.get("offset") ?? 0), Number(q.get("limit") ?? 50)));
   });

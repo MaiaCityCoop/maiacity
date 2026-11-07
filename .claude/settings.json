@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ \"$CLAUDE_CODE_REMOTE\" = true ] && { bash \"${CLAUDE_PROJECT_DIR:-.}/play/avenbox/up.sh\"; [ -n \"${PLAY_MCP_TOKEN:-}\" ] || echo \"avenBOX: no PLAY_MCP_TOKEN: this session is not on avenBOX (env_011Zm65erarH7ffXio13u5pG) and has no play MCP. Build, push and record nothing here: start a session on avenBOX with the work's brief and hand the work over to it.\"; } || true",
+            "command": "[ \"$CLAUDE_CODE_REMOTE\" = true ] && { bash \"${CLAUDE_PROJECT_DIR:-.}/play/avenbox/up.sh\"; \"$HOME/.bun/bin/bun\" \"${CLAUDE_PROJECT_DIR:-.}/play/avenbox/skills.ts\"; [ -n \"${PLAY_MCP_TOKEN:-}\" ] || echo \"avenBOX: no PLAY_MCP_TOKEN: this session is not on avenBOX (env_011Zm65erarH7ffXio13u5pG) and has no play MCP. Build, push and record nothing here: start a session on avenBOX with the work's brief and hand the work over to it.\"; } || true",
             "timeout": 600
           }
         ]

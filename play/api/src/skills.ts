@@ -4,7 +4,8 @@
 // agent connected over MCP gets (initialize's instructions are the system skills' parts, ./ids.ts SKILL, read on each
 // request), and the Intents skill's `stages`, what to do at each of an intent's stages (an intent's `brief`,
 // get_intent and the intents' board; MCP's prompts). What is here is only what is a skill's own: what it teaches, from
-// Main. `play.skills` holds each skill's id, label and group, both only shown: a skill is named by its id.
+// Main. Its row is play.records' (kind 'skill', as a schema's and a piece's), its label only shown: a skill is named by
+// its id, and a new one is made over MCP as any document of a kind that is a schema alone.
 import type { Queryable } from "./pg";
 import * as docs from "./docs";
 import { SKILL } from "./ids";
@@ -25,7 +26,7 @@ export const SYSTEM_SKILLS = [SKILL.avenmaia, SKILL.intents];
 
 /** a skill as accepted (its document's main line), or null where play holds none of that id */
 async function accepted(db: Queryable, id: string): Promise<any | null> {
-  const { rows } = await db.query(`SELECT 1 FROM play.skills WHERE id = $1`, [id]);
+  const { rows } = await db.query(`SELECT 1 FROM play.records WHERE id = $1 AND kind = 'skill'`, [id]);
   return rows.length ? (await docs.readDoc(db, docIdOf(id))).json : null;
 }
 
@@ -50,20 +51,48 @@ export async function briefOf(db: Queryable, i: { id: string; title: string; sta
 }
 
 const STAGE_PROMPT = /^intent_([a-z]+)$/;
+const SKILL_PROMPT = /^skill:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
 
-/** MCP's prompts: one for each of an intent's stages the Intents skill says something for, its argument the intent's id */
+/** a skill's whole text as one prompt: its description, its body (or its system part and stages, avenMAIA's and the
+ *  Intents skill's), and the index of its references, each read whole with doc_at (a file by its hash from play's files) */
+export function skillText(id: string, s: any): string {
+  const body = `${s.body ?? ""}`.trim() || [`${s.system ?? ""}`.trim(), ...SKILL_STAGES.filter((st) => `${s.stages?.[st] ?? ""}`.trim()).map((st) => `## At ${st}\n\n${`${s.stages[st]}`.trim()}`)].filter(Boolean).join("\n\n");
+  const refs = (s.references ?? []).map((r: any) => `- ${r.path}: ${typeof r.text === "string" ? `text, ${r.text.length} characters` : `file ${r.file}${r.type ? ` (${r.type})` : ""}`}`);
+  const parts = [`# ${s.label}`, `${s.description ?? s.note ?? ""}`.trim(), body];
+  if (refs.length) parts.push(`## References\n\nSkill ${id}'s references, each whole in doc_at's json.references (a file by its hash from play's files):\n\n${refs.join("\n")}`);
+  if (s.uses?.length) parts.push(`Uses the skills ${s.uses.map((u: string) => `skill:${u}`).join(", ")}.`);
+  return parts.filter(Boolean).join("\n\n");
+}
+
+/** MCP's prompts: one for each of an intent's stages the Intents skill says something for, its argument the intent's
+ *  id; then every skill, named `skill:<its UUID>`, its whole text */
 export async function promptsOf(db: Queryable) {
   const s = await accepted(db, SKILL.intents);
-  return SKILL_STAGES.filter((st) => `${s?.stages?.[st] ?? ""}`.trim()).map((st) => ({
+  const stages = SKILL_STAGES.filter((st) => `${s?.stages?.[st] ?? ""}`.trim()).map((st) => ({
     name: `intent_${st}`,
     title: `An intent at ${st[0].toUpperCase()}${st.slice(1)}`,
     description: `What to do with an intent at the ${st} stage (the Intents skill's ${st} part, ${SKILL.intents}), for the intent named by its id.`,
     arguments: [{ name: "intent", description: "the intent's id (a UUID: list_intents gives it)", required: true }],
   }));
+  const { rows } = await db.query(`SELECT id FROM play.records WHERE kind = 'skill' ORDER BY created, id`);
+  const skills = [];
+  for (const { id } of rows as { id: string }[]) {
+    const k = await accepted(db, id);
+    if (!k) continue;
+    skills.push({ name: `skill:${id}`, title: `${k.label}`, description: `${k.description ?? k.note ?? k.label}`.trim() || `${k.label}`, arguments: [] });
+  }
+  return [...stages, ...skills];
 }
 
-/** One prompt, for intent `intent`: the Intents skill's text for its stage, filled (`intentRow` reads the intent as the board does). */
+/** One prompt: a skill's whole text (`skill:<id>`), or for intent `intent` the Intents skill's text for its stage,
+ *  filled (`intentRow` reads the intent as the board does). */
 export async function promptOf(db: Queryable, name: unknown, args: any, intentRow: (db: Queryable, id: string) => Promise<{ id: string; title: string; stage: string }>) {
+  const k = SKILL_PROMPT.exec(`${name ?? ""}`);
+  if (k) {
+    const s = await accepted(db, k[1]);
+    if (!s) throw new SkillError(`There is no prompt ${name} (prompts/list).`, 404);
+    return { description: `The skill ${s.label} (${k[1]})`, messages: [{ role: "user", content: { type: "text", text: skillText(k[1], s) } }] };
+  }
   const m = STAGE_PROMPT.exec(`${name ?? ""}`);
   if (!m || !SKILL_STAGES.includes(m[1] as SkillStage)) throw new SkillError(`There is no prompt ${name} (prompts/list).`, 404);
   const i = await intentRow(db, `${args?.intent ?? ""}`);

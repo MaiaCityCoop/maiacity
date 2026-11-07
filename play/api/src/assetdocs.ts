@@ -17,7 +17,7 @@
 import { byOf } from "./intents";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { COOP, Denied, must, type Me } from "./access";
+import { admin, COOP, must, type Me } from "./access";
 import { keyOf, type BlobStore } from "./blobs";
 import * as docs from "./docs";
 import { HASH, hashText } from "./hash";
@@ -405,11 +405,7 @@ export function assetEdits(cur: AssetJson, edits: unknown): docs.Edit[] {
 
 // ---- an asset at an edit, or as an intent's variant would make it
 
-function admin(me: Me | null): Me {
-  if (!me) throw new Denied("Please sign in first.", 401);
-  if (me.level !== "admin") throw new Denied("An asset's history, edit by edit, is for Maia City's admins.");
-  return me;
-}
+const HISTORY_ADMINS = "An asset's history, edit by edit, is for Maia City's admins.";
 
 /** the edit an asset is read at: the one named, or an intent's variant's last */
 async function editOf(db: Queryable, docId: string, at: { edit?: number; intent?: string }): Promise<number> {
@@ -426,7 +422,7 @@ async function editOf(db: Queryable, docId: string, at: { edit?: number; intent?
 
 /** asset `asset` as it was at edit `edit` of its history, or as intent `intent`'s variant would make it: its whole state, its source as text */
 export async function assetAt(db: Db, store: BlobStore, me: Me | null, asset: string, at: { edit?: number; intent?: string }) {
-  admin(me);
+  admin(me, HISTORY_ADMINS);
   return asAssetError(async () => {
     const { id: docId } = await assetDocFor(db, store, asset);
     const edit = await editOf(db, docId, at);
@@ -471,7 +467,7 @@ async function numberAt(q: Queryable, docId: string, seq: number): Promise<{ n: 
  * the line naming the asset and the version the edit leads to), kept among play's files by its hash. Admins only.
  */
 export async function recipeAt(db: Db, store: BlobStore, me: Me | null, asset: string, at: { edit?: number; intent?: string }) {
-  admin(me);
+  admin(me, HISTORY_ADMINS);
   return asAssetError(async () => {
     const { id: docId } = await assetDocFor(db, store, asset);
     const seq = await editOf(db, docId, at);

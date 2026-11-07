@@ -2,7 +2,7 @@
  * THE LIBRARY'S THINGS IN THE VILLAGE — what Sandbox 3 and 4 put down that is a Thing of the library ($content/models):
  * the playgrounds between the domes, in Sandbox 4 the coops and hutches round the squares, mini domes, and in every
  * master dome the workshops round its ground floor (the dome rooms', $content/models/domerooms.js). Each is built in the
- * asset box from its recipe at the version the village's config pins (its avenDB entry, `THINGS`) and drawn by the
+ * asset box from its recipe at the version the village's config pins (its legacy entry, `THINGS`) and drawn by the
  * renderer (./drawn.js) as a copy of it, at its finest shape, casting its shadow as the village's baked ones did.
  *
  * A Thing is built as the library has it, so every copy of one is the same: the village no longer gives each its own
@@ -18,7 +18,7 @@ import { SANDBOX } from '$lib/content/assets/sandboxes.js';
 import { coopsAround } from './spaces';
 
 /**
- * An asset of the village, by the key its config pins it under (maia/content/code/configs/sandbox-4/assets: its avenDB entry and
+ * An asset of the village, by the key its config pins it under (maia/content/code/configs/sandbox-4/assets: its legacy entry and
  * the heads of its version, $content/assets/vault.js `WORLD_PIN`), with the values it is built with.
  * @param {string} key @param {string} [query]
  */

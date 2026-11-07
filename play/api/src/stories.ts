@@ -28,7 +28,7 @@
 // the intent it puts at Proposal on the intents' board (./versioned.ts `decide`). Admins only, reading and proposing.
 import { byOf } from "./intents";
 import { randomUUID } from "node:crypto";
-import { COOP, Denied, type Me } from "./access";
+import { admin, COOP, Denied, type Me } from "./access";
 import { keyOf, type BlobStore } from "./blobs";
 import { canonical, HASH, hashBytes } from "./hash";
 import type { Db, Queryable } from "./pg";
@@ -118,11 +118,7 @@ const round = (n: number) => Math.round(n * 1000) / 1000;
 /** a story brought into another (foldStories) takes no proposal: its versions are that story's now */
 const folded = (id: string, into: string) => new StoryError(`Story ${id} is part of story ${into} now, its versions that story's: propose there.`, 409);
 
-export function admin(me: Me | null): Me {
-  if (!me) throw new Denied("Please sign in first.", 401);
-  if (me.level !== "admin") throw new Denied("Only Maia City's admins may open the Stories.");
-  return me;
-}
+export const STORY_ADMINS = "Only Maia City's admins may open the Stories.";
 
 // ---- the format, checked
 
@@ -587,7 +583,7 @@ export function diffStories(from: { title: string; body: StoryBody } | null, to:
 // ---- reading
 
 export async function listStories(db: Queryable, me: Me | null): Promise<StoryItem[]> {
-  admin(me);
+  admin(me, STORY_ADMINS);
   const { rows } = await db.query<{ id: string; title: string; body: StoryBody; number: number; updated: Date; versions: string }>(
     `SELECT s.id, s.title, v.body, v.number, s.updated,
             (SELECT count(*) FROM play.story_versions x WHERE x.story_id = s.id AND x.number IS NOT NULL) AS versions
@@ -616,7 +612,7 @@ type VersionRow = { id: string; story_id: string; number: number | null; title: 
 /** story `id` at its head, or at accepted version `number`, with the versions it links (`links`) and the stories whose
  *  newest version links it (`linked_by`) */
 export async function storyOf(db: Queryable, me: Me | null, id: string, number?: number): Promise<Story> {
-  admin(me);
+  admin(me, STORY_ADMINS);
   if (!STORY_ID.test(id)) throw new StoryError("A story is named by its id, a UUID (list_stories).", 404);
   if (number !== undefined && !(Number.isInteger(number) && number >= 1)) throw new StoryError(`${number} is not a version.`, 404);
   const { rows } = await db.query<VersionRow>(
@@ -706,7 +702,7 @@ export async function proposeStoryVariant(db: Db, me: Me, o: { id: string; varia
 
 /** Propose a new story (`fresh`) or a new version of one, as the admin `me`, via `via`: an intent put at Proposal with it, for an admin to decide. */
 export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fresh: boolean, via: "web" | "mcp" = "mcp") {
-  const who = admin(me);
+  const who = admin(me, STORY_ADMINS);
   // a new story gets a UUID of its own; a version names its story by its UUID
   if (fresh && p?.story !== undefined) throw new StoryError("A new story gets its id when it is proposed: give its title, not an id.");
   const id = fresh ? randomUUID() : `${p?.story ?? ""}`;
@@ -973,7 +969,7 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
 
 /** story `id` as it was at edit `edit` of its history, or as intent `intent`'s variant would make it, with the versions it links */
 export async function storyAt(db: Db, me: Me | null, id: string, at: { edit?: number; intent?: string }) {
-  admin(me);
+  admin(me, STORY_ADMINS);
   if (!STORY_ID.test(id)) throw new StoryError("A story is named by its id, a UUID.", 404);
   return asStoryError(async () => {
     const docId = await db.transaction((q) => ensureStoryDoc(q, id));

@@ -20,11 +20,11 @@
 	`full` gives the canvas the whole screen (a walk inside a model, as a dome is walked): the list folds away and only the
 	bar stays, over it.
 
-	`inline` keeps it in its place on a page that has its own list and its own screen round it (the avenDB app's Assets,
+	`inline` keeps it in its place on a page that has its own list and its own screen round it (the asset library,
 	$content/assets/VaultAsset.svelte): no list, a block in the page's column, by the room the column gives it rather than the
 	screen's — the deck over the canvas where the column is wide, under it where it is not. Its `head` (its name and the
 	bar's chips) stands above the canvas and stays at the top of the column while the rest of it scrolls by. `compact`, in
-	a card that has its own answers under it (an AIP's, $avendb/Hitl.svelte), keeps only the head and a short canvas.
+	a card that has its own answers under it (an intent's review), keeps only the head and a short canvas.
 -->
 <script>
 	import PickList from './PickList.svelte';
@@ -385,7 +385,7 @@
 		flex: none;
 	}
 
-	/* the shared look of a chip and a heading, held against the page's own (the avenDB app has a chip of its own) */
+	/* the shared look of a chip and a heading, held against the page's own (a page may have a chip of its own) */
 	.turntable.inline :global(.chip) {
 		display: inline-block;
 		padding: 0.3rem 0.65rem;
