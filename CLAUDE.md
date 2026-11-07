@@ -153,7 +153,11 @@ stops for an admin's approval; in Build it builds it, tests itself (`bun play/av
 UUID>`) and marks its draft pull request ready, whose run in avenBOX on GitHub records the checks, until it moves to Proposal by itself, where an admin decides it; work of play's it proposes
 naming the intent, code it ships by pull request (*Accept ships it*, above). **No work without an intent** (intent
 706ed873): every propose path (`propose_*`, `add_artifact`, `update_artifact`, `doc_edit`, `POST /api/intents`) needs
-`intent`, one in Build or at Proposal, so every intent at Proposal has a spec. No tool approves, accepts or rejects an
+`intent`, one in Build or at Proposal, so every intent at Proposal has a spec. **Auto-accept rules** (play/SPEC.md §4.12, intent
+de24f1c5): one versioned rule set, `rules:<uuid>`, may let a matching intent pass Approve spec or Accept with no person,
+by a person's own path and recorded as the rule's; today only an artifact added or corrected over MCP (`add_artifact`
+or `update_artifact` without `intent` makes its own intent, kept at once); the rules themselves are always a person's:
+no rule decides an intent that changes them. No tool approves, accepts or rejects an
 intent; an agent archives only its own intents at Proposal put there over MCP (`archive_intent`: one it no longer
 stands by; Samuel 2026-11-04). An intent is named by its own UUID (the old proposals' ids went with migration 0032). **Every agent connected over MCP is avenMAIA** (play/SPEC.md
 §4.13; Samuel 2026-11-06), whatever its client or token, working for the admin whose token connected it, and it keeps

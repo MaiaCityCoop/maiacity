@@ -644,7 +644,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         `summary, a small report on the overall topic (Markdown, ${SUMMARY_WORDS.least}–${SUMMARY_WORDS.most} words, in the sections ## What it is (who made it, what kind of thing, when, from which angle), ## Key points (its claims, findings and numbers as bullets, as the artifact puts them), ## The topic (the wider subject: what it is, where this artifact stands in it, what else is known or disputed), and if you like ## For Maia City last (where it bears on our work); what the artifact says in the first two, what you know beyond it only in ## The topic). ` +
         "Authors: call list_authors first and name an author already kept by their id; add a new one { name, kind: person | organization, url? } only when none is them (two of one name stay two: never guess by a name). Where no person is named, its publisher (a site, a channel, a lab) is its author, as an organization. " +
         "One link is one artifact: links are compared without their #fragment, utm_*, fbclid and gclid and a trailing slash, and a YouTube video is one link however it is written; a link already kept answers with that artifact and kept: true (correct it with update_artifact), one an intent's work waits with answers with that intent. " +
-        "An artifact is a document like any other: adding one proposes its first version, as the work of the intent named (\`intent\`, held to its gate: no work without an intent), and it is kept (listed, read) once an admin accepts that intent. " +
+        "An artifact is a document like any other: adding one proposes its first version as an intent's work. Named (\`intent\`, held to its gate), it is that intent's, kept once an admin accepts it; left out, play makes the artifact's own intent, declaring the artifact, which the auto-accept rules decide in the same call (the first rule, artifacts need no tap: kept at once, the answer at stage accepted). " +
         "Give text, the page's readable text as you fetched it, to keep a copy: links rot and pages change.",
       inputSchema: {
         type: "object",
@@ -683,7 +683,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     {
       name: "update_artifact",
       description:
-        "Correct a kept artifact: any of its link, title, description, summary, kind, tags, published date, authors (the whole list, in order, as in add_artifact) and text, each held to the same form as in add_artifact. Its origin and who brought it never change. The correction is its next version proposed, as the work of the intent named (\`intent\`, held to its gate: no work without an intent): the artifact stays as it is until an admin accepts it (doc_history shows every accepted change).",
+        "Correct a kept artifact: any of its link, title, description, summary, kind, tags, published date, authors (the whole list, in order, as in add_artifact) and text, each held to the same form as in add_artifact. Its origin and who brought it never change. The correction is its next version proposed as an intent's work: named (\`intent\`, held to its gate), the artifact stays as it is until an admin accepts that intent; left out, play makes its own intent, which the auto-accept rules decide in the same call (the first rule: corrected at once). doc_history shows every accepted change.",
       inputSchema: {
         type: "object",
         properties: {
