@@ -97,9 +97,12 @@
 
 {#snippet body()}
 	{#if d}
-		<div class="tabs" role="tablist">
-			<button role="tab" aria-selected={tab === 'info'} class:on={tab === 'info'} onclick={() => (tab = 'info')}>Info</button>
-			<button role="tab" aria-selected={tab === 'history'} class:on={tab === 'history'} onclick={() => (tab = 'history')}>History</button>
+		<!-- the tabs' band: sticky, the panel's whole width in the side's own colour, so nothing scrolls on beside or under them -->
+		<div class="band">
+			<div class="tabs" role="tablist">
+				<button role="tab" aria-selected={tab === 'info'} class:on={tab === 'info'} onclick={() => (tab = 'info')}>Info</button>
+				<button role="tab" aria-selected={tab === 'history'} class:on={tab === 'history'} onclick={() => (tab = 'history')}>History</button>
+			</div>
 		</div>
 		<div role="tabpanel" hidden={tab !== 'info'} class="info">
 			<header>
@@ -148,7 +151,8 @@
 {/if}
 
 <style>
-	.tabs { position: sticky; top: -0.4rem; z-index: 1; display: flex; justify-content: center; gap: 2px; width: max-content; margin: 0 auto 0.7rem; padding: 3px; border-radius: 999px; background: rgb(0 0 0 / 0.06); }
+	.band { --pad: var(--side-pad-top, 0.4rem); position: sticky; top: calc(-1 * var(--pad)); z-index: 1; margin: calc(-1 * var(--pad)) -1rem 0.35rem; padding: var(--pad) 1rem 0.35rem; background: var(--side-bg); text-align: center; }
+	.tabs { display: inline-flex; vertical-align: top; gap: 2px; padding: 3px; border-radius: 999px; background: rgb(0 0 0 / 0.06); }
 	.tabs button, .chips button, .asif button { font: inherit; color: inherit; border: 0; cursor: pointer; }
 	.tabs button { padding: 0.28rem 1rem; border-radius: 999px; background: none; font-size: 0.8rem; font-weight: 600; }
 	.tabs button.on { background: var(--paper, #fff); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }

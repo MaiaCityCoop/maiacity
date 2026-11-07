@@ -145,13 +145,16 @@
 
 	.side {
 		/* the nav pill floats over the page: a side's last row scrolls clear of it */
-		padding: 0.4rem 0.8rem calc(var(--nav-room, 5rem) + 0.5rem);
+		/* its top padding, a token: Aside's tabs' band reaches up through it */
+		--side-pad-top: 0.4rem;
+		padding: var(--side-pad-top) 0.8rem calc(var(--nav-room, 5rem) + 0.5rem);
 		background: #efebe3;
 	}
 
 	/* under a head of the page's own, the notch is the head's to clear */
 	.bare .side {
-		padding-top: 1.2rem;
+		--side-pad-top: 1.2rem;
+		padding-top: var(--side-pad-top);
 	}
 
 	.side.left {
@@ -161,7 +164,9 @@
 	.side.right {
 		padding-inline: 1rem;
 		border-left: 1px solid var(--edge);
-		background: #f7f4ee;
+		/* the side's colour, one token: Aside's tabs' band reads it */
+		--side-bg: #f7f4ee;
+		background: var(--side-bg);
 	}
 
 	/* the left side's rows, one look in every view */
@@ -301,6 +306,10 @@
 	.shut {
 		place-items: center;
 		float: right;
+		/* over the tabs' band (Aside), pinned with it */
+		position: sticky;
+		top: -0.3rem;
+		z-index: 2;
 		width: 2rem;
 		height: 2rem;
 		margin: -0.3rem -0.3rem 0 0.3rem;
@@ -334,7 +343,8 @@
 	}
 
 	.sliding.bare .side.right {
-		padding-top: calc(1.2rem + env(safe-area-inset-top, 0px));
+		--side-pad-top: calc(1.2rem + env(safe-area-inset-top, 0px));
+		padding-top: var(--side-pad-top);
 	}
 
 	.sliding .side.right.open {
