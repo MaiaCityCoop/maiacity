@@ -4,17 +4,15 @@
 # --record). Marking it ready for review runs the intent's checks in the box (play/avenbox/setup.sh, PostgreSQL 17,
 # bun 1.4.4) on the pull request's head and records them on the intent with that head, this run's link and the pull
 # request (which becomes the intent's active one): every must green, the intent moves to Proposal; any must red, it
-# stays in (or goes back to) Build with the failures, and this run turns the pull request back into a draft. Each
-# new push to a ready pull request runs and records again on the new head, so Accept merges only a head every must
-# passed on (play/api/src/ship.ts).
+# stays in (or goes back to) Build, failed on the board, its pull request as it is. A new head (a push, play's
+# main-merge) cancels the older head's run, which records nothing (play/api/src/ship.ts).
 #
 # Only the box's run is evidence: on pull_request_target this file is main's, and so is the intent.ts that holds a
 # token. Three jobs:
 #   spec    main's pr-intent.ts and intent.ts, with avenBOX's token (PLAY_MCP_TOKEN): which intent, and its spec
 #   run     the pull request's head, checked out without credentials, no secret, a read-only GITHUB_TOKEN: main's
 #           intent.ts (handed over by spec) runs the spec's checks there and writes their results
-#   record  main's intent.ts, with avenBOX's token: records the results (only if they ran on the head), and turns a
-#           red run's pull request back into a draft
+#   record  main's intent.ts, with avenBOX's token: records the results (only if they ran on the head), skipped if cancelled
 # Heads in this repository only: a fork's pull request runs nothing here.
 name: intents on pull requests
 
@@ -101,12 +99,11 @@ jobs:
   record:
     name: recorded on the intent
     needs: [spec, run]
-    if: always() && needs.spec.result == 'success'
+    if: "!cancelled() && needs.spec.result == 'success'"
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
-      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -131,11 +128,3 @@ jobs:
         run: |
           [ -f "$RUNNER_TEMP/results/results.json" ] || { echo "::error::The checks did not run to the end: nothing recorded"; exit 1; }
           bun play/avenbox/intent.ts "$INTENT" --record-from "$RUNNER_TEMP/results/results.json" --pr "$PR" --head "$HEAD"
-      - name: A red run turns the pull request back into a draft
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          NODE: ${{ github.event.pull_request.node_id }}
-        run: |
-          gh api graphql -f query='mutation($id: ID!) { convertPullRequestToDraft(input: { pullRequestId: $id }) { pullRequest { isDraft } } }' -f id="$NODE"
-          echo "::error::A must check failed in avenBOX: the pull request is a draft again, the intent in Build. Fix it, push, and mark it ready."
