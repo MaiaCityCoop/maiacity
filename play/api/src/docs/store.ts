@@ -308,9 +308,10 @@ export async function previewMerge(db: Queryable, id: string, v: number): Promis
  * Accepts proposed intent variant `v`: its edits merged into Main (a CRDT merge: if Main moved on since the variant's
  * seed, both sets of edits stand), the result checked against the type and named the next version. A type whose
  * content is code (`build`) whose merge met other edits is accepted only with `mergedHash`, the hash of the merged
- * result as it was built and previewed in the box (previewMerge): never code nobody has seen run.
+ * result as it was built and previewed in the box (previewMerge): never code nobody has seen run. With `whole`, Main
+ * becomes the variant exactly as it stands (no merge: a piece's version is named by its source's hash).
  */
-export async function accept(db: Db | Queryable, id: string, v: number, o: { author: Author; note?: string; mergedHash?: string }): Promise<Version> {
+export async function accept(db: Db | Queryable, id: string, v: number, o: { author: Author; note?: string; mergedHash?: string; whole?: boolean }): Promise<Version> {
   return inTx(db, async (q) => {
     const row = await lock(q, id);
     const t = await typeFor(q, row.schema_id);
@@ -319,12 +320,19 @@ export async function accept(db: Db | Queryable, id: string, v: number, o: { aut
     if (r.breed !== null || r.makes !== null) return acceptIntoBreed(q, row, t, r, o);
     const main = await loadMain(q, row);
     const before = main.version();
-    const { rows } = await q.query<{ bytes: Uint8Array }>(`SELECT bytes FROM play.doc_edits WHERE doc_id = $1 AND variant = $2 ORDER BY seq`, [id, v]);
-    main.importBatch(rows.map((x) => toBytes(x.bytes)));
+    if (o.whole) {
+      // kept whole (a piece's version, named by its hash: intent 02e3a85f): Main becomes the variant exactly as it stands
+      const mine = jsonOf(await loadVariant(q, row, r, await loadMain(q, row)));
+      main.setPeerId(await peerFor(q, id, row.main, o.author));
+      patchTo(main, t, mine);
+    } else {
+      const { rows } = await q.query<{ bytes: Uint8Array }>(`SELECT bytes FROM play.doc_edits WHERE doc_id = $1 AND variant = $2 ORDER BY seq`, [id, v]);
+      main.importBatch(rows.map((x) => toBytes(x.bytes)));
+    }
     const json = jsonOf(main), hash = contentHash(json);
     const problems = problemsOf(t, json);
     if (problems.length) throw new DocError(`merged into Main as it is now, the intent variant is no longer a valid ${t.name}: ${problems.slice(0, 4).join("; ")}. Propose it again on Main's newest version.`, 409, { problems });
-    const concurrent = !sameFrontiers(r.seed, row.head);
+    const concurrent = !o.whole && !sameFrontiers(r.seed, row.head);
     if (t.build && concurrent && o.mergedHash !== hash)
       throw new DocError(`Main moved on since this was made: its merge with Main's newest version is code nobody has seen run. Build and preview the merged result (${hash}) in the box, then accept it with that hash.`, 409, { needsPreview: true, mergedHash: hash });
     const note = o.note ?? r.note;

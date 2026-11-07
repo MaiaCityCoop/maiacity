@@ -92,25 +92,31 @@ const OWN_REFS = `(SELECT jsonb_strip_nulls(jsonb_build_object('kind', w.work, '
 
 /**
  * An intent variant made the intent's work on its document, in place of any it held there before (that one closed),
- * beside every other document it holds. `refs` is what its version names beyond its document (its kind, an asset's or
+ * beside every other document it holds; a piece's goes in after any it holds of that piece, its next version (intent
+ * 02e3a85f). `refs` is what its version names beyond its document (its kind, an asset's or
  * story's version and the one it was made on); none given, a variant already held keeps its own, and an intent's first
  * takes the intent's own columns (a variant made for work kept from before).
  */
 export async function holdVariant(q: Queryable, me: Pick<Me, "id"> | null, intent: string, docId: string, variant: number, refs?: Record<string, unknown>) {
-  const { rows } = await q.query<{ variant_id: string }>(`SELECT variant_id FROM play.intent_variants WHERE intent_id = $1 AND doc_id = $2`, [intent, docId]);
-  if (rows[0] && Number(rows[0].variant_id) !== variant) await closeVariant(q, me, docId, Number(rows[0].variant_id));
   const given = refs === undefined ? null : JSON.stringify(refs);
+  // a piece may be held in several versions, in order (intent 02e3a85f): each variant goes in after the others
+  const piece = docId.startsWith("piece:");
+  const { rows } = await q.query<{ variant_id: string }>(
+    `SELECT variant_id FROM play.intent_variants WHERE intent_id = $1 AND doc_id = $2${piece ? " AND variant_id = $3" : ""}`,
+    piece ? [intent, docId, variant] : [intent, docId],
+  );
+  if (rows[0] && Number(rows[0].variant_id) !== variant) await closeVariant(q, me, docId, Number(rows[0].variant_id));
   if (!rows[0] || Number(rows[0].variant_id) !== variant)
     await q.query(
       `INSERT INTO play.intent_variants (intent_id, doc_id, variant_id, seed, position, refs)
          SELECT $1, $2, v.id, v.seed, COALESCE((SELECT max(position) + 1 FROM play.intent_variants WHERE intent_id = $1), 0),
                 COALESCE(($4::text)::jsonb, CASE WHEN NOT EXISTS (SELECT 1 FROM play.intent_variants WHERE intent_id = $1) THEN ${OWN_REFS} END, '{}'::jsonb)
            FROM play.doc_variants v WHERE v.id = $3
-       ON CONFLICT (intent_id, doc_id) DO UPDATE SET variant_id = EXCLUDED.variant_id, seed = EXCLUDED.seed,
-         refs = CASE WHEN $4::text IS NULL THEN play.intent_variants.refs ELSE EXCLUDED.refs END`,
+       ${piece ? "" : `ON CONFLICT (intent_id, doc_id) WHERE doc_id NOT LIKE 'piece:%' DO UPDATE SET variant_id = EXCLUDED.variant_id, seed = EXCLUDED.seed,
+         refs = CASE WHEN $4::text IS NULL THEN play.intent_variants.refs ELSE EXCLUDED.refs END`}`,
       [intent, docId, variant, given],
     );
-  else if (given !== null) await q.query(`UPDATE play.intent_variants SET refs = ($3::text)::jsonb WHERE intent_id = $1 AND doc_id = $2`, [intent, docId, given]);
+  else if (given !== null) await q.query(`UPDATE play.intent_variants SET refs = ($4::text)::jsonb WHERE intent_id = $1 AND doc_id = $2 AND variant_id = $3`, [intent, docId, variant, given]);
   await q.query(`UPDATE play.doc_variants SET intent_id = $2 WHERE id = $1`, [variant, intent]);
 }
 
