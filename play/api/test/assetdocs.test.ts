@@ -14,6 +14,7 @@ import { catalogOf, pinsOf } from "../src/assets";
 import { assetDocId, ensureAssetDocs, HISTORY, proposeAsset, recipeAt } from "../src/assetdocs";
 import * as docs from "../src/docs";
 import { hashText } from "../src/hash";
+import { readSource } from "../import/sources";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
 import { decide as decideWith, docEdit, docHistory, proposeDocVersion, reviewOf } from "../src/versioned";
@@ -147,7 +148,7 @@ suite("assets as documents", () => {
   });
 
   test("the papaya's nine kept rounds stand between v1 and v2, by Maia over MCP, and lead to v2 byte for byte", async () => {
-    const v1 = readFileSync(join(import.meta.dir, "../import/legacy/sources/plants/papaya@963cc9dfc684.js"), "utf8");
+    const v1 = readSource("plants/papaya@963cc9dfc684.js");
     const v2 = readFileSync(join(HISTORY, PAPAYA, "v2.js"), "utf8");
     await writeAsset("plants", "papaya", [{ n: 1, source: v1, created: "2026-11-02T11:03:54Z" }, { n: 2, source: v2, author: who.ada.id, imported: false, created: "2026-11-03T08:52:33Z" }], PAPAYA);
     const r = await ensureAssetDocs(db, store);

@@ -1,0 +1,3 @@
+//#piece 859ab9bd93d85543bee3299452e59a8692c41e8f5e364995c3c1cec7b18173c0
+	const W = CUBE.W / 2, Lh = LEN / 2, H = CUBE.H, B = CUBE.base;
+//#piece 658f359073f73326efca05cf05250c2cf8147686b6ac9d24b4849ed5de6a49da

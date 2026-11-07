@@ -39,3 +39,16 @@ library).
 
 A few legacy libraries hold a line longer than play lets a proposal have (1000 characters: the stand-in's and the elder
 woman's inlined tables, three machines): a version proposed from one wraps them.
+
+## Kept as pieces (intent 5a15e468)
+
+Legacy's bundler inlined each module whole into every asset that used it (`plants/grow.js` into 105 plants,
+`assets/recipe.js` into 204 sources), so the files here held the same code over and over: 13,665,925 bytes. Each part
+two or more of them share is now kept once, in `pieces/<hash>.js`, named by the BLAKE3 hash of its text and listed in
+`index.json` (`pieces`); in a source, or in a piece, a line `//#piece <hash>` stands for that piece. The import, the
+tests and anything else that reads a source put the pieces back first (`../../sources.ts`, `readSource`), each held to
+its hash, so every source is still byte for byte the code it was, its hash the one listed.
+
+`bun import/legacy-pieces.ts` (in `play/api`) cuts the directory again from the sources as they rebuild: every source
+is its lines, the two parts found next to each other most often over all the sources are joined into one again and
+again, and a part is a piece only where naming it (a line of 74 bytes) is smaller than keeping it in each place it goes.

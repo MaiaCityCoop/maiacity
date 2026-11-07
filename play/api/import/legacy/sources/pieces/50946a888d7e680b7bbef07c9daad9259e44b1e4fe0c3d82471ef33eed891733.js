@@ -1,0 +1,4 @@
+//#piece 8a299491aa47821fee8d78539ccd31a135e09cb2101e57c97c14bdb6529a1fca
+function birdHead(b, pose, target, look) {
+//#piece a0e411203501445d86244328c7d3f616d7a00dc30b524efc6cd736449ce5af10
+//#piece d2ff0ded19b2da6c344cd5d01b948982cdf7104031d24f56e7307daf9c053909

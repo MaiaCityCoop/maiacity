@@ -1,0 +1,8 @@
+//#piece 0ee50ffcbf24e20c53bf9bfb75c39610e72e9ace75475d8cbea6f1c5996a4764
+//#piece 040c9df90cb666730e31c2e23f3462549a213c193a3958826fdbbcd5397fde21
+three_addons_utils_BufferGeometryUtils_js = __toESM(three_addons_utils_BufferGeometryUtils_js, 1);
+//#piece 36c9bb3b06b65c1c7d492984c80a6ee02ee6e1e76c8796314369d089c5dedd98
+
+//#piece 980f9c4401ab1127f2dc61af465af4d4c529f6b41daf49b3a97216df42a8ef59
+//#piece 92a1ea845f464a20be7d6256c46d77f4f7770c6fae3ad58f19e044bc98713726
+	}

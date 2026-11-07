@@ -1,357 +1,7 @@
-Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
-//#region \0rolldown/runtime.js
-var __create = Object.create;
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __copyProps = (to, from, except, desc) => {
-	if (from && typeof from === "object" || typeof from === "function") {
-		for (var keys = __getOwnPropNames(from), i = 0, n = keys.length, key; i < n; i++) {
-			key = keys[i];
-			if (!__hasOwnProp.call(to, key) && key !== except) {
-				__defProp(to, key, {
-					get: ((k) => from[k]).bind(null, key),
-					enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
-				});
-			}
-		}
-	}
-	return to;
-};
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(isNodeMode || !mod || !mod.__esModule || !__hasOwnProp.call(mod, "default") ? __defProp(target, "default", {
-	value: mod,
-	enumerable: true
-}) : target, mod));
-
-//#endregion
-let three = require("three");
-three = __toESM(three, 1);
-let three_addons_utils_BufferGeometryUtils_js = require("three/addons/utils/BufferGeometryUtils.js");
-let three_addons_geometries_RoundedBoxGeometry_js = require("three/addons/geometries/RoundedBoxGeometry.js");
-
-//#region src/lib/actors/dqs.ts
-const PARS = `
-#ifdef USE_SKINNING
-	vec4 dqQuat( mat3 m ) {
-		float tr = m[0][0] + m[1][1] + m[2][2];
-		if ( tr > 0.0 ) {
-			float s = sqrt( tr + 1.0 ) * 2.0;
-			return vec4( ( m[1][2] - m[2][1] ) / s, ( m[2][0] - m[0][2] ) / s, ( m[0][1] - m[1][0] ) / s, 0.25 * s );
-		} else if ( m[0][0] > m[1][1] && m[0][0] > m[2][2] ) {
-			float s = sqrt( 1.0 + m[0][0] - m[1][1] - m[2][2] ) * 2.0;
-			return vec4( 0.25 * s, ( m[1][0] + m[0][1] ) / s, ( m[2][0] + m[0][2] ) / s, ( m[1][2] - m[2][1] ) / s );
-		} else if ( m[1][1] > m[2][2] ) {
-			float s = sqrt( 1.0 + m[1][1] - m[0][0] - m[2][2] ) * 2.0;
-			return vec4( ( m[1][0] + m[0][1] ) / s, 0.25 * s, ( m[2][1] + m[1][2] ) / s, ( m[2][0] - m[0][2] ) / s );
-		}
-		float s = sqrt( 1.0 + m[2][2] - m[0][0] - m[1][1] ) * 2.0;
-		return vec4( ( m[2][0] + m[0][2] ) / s, ( m[2][1] + m[1][2] ) / s, 0.25 * s, ( m[0][1] - m[1][0] ) / s );
-	}
-	// a bone's matrix into the blend: its rotation (real part), its translation (dual part), its size
-	void dqAdd( mat4 b, float w, vec4 first, inout vec4 real, inout vec4 dual, inout float size ) {
-		if ( w <= 0.0 ) return;
-		float s = length( b[0].xyz );
-		vec4 q = dqQuat( mat3( b[0].xyz / s, b[1].xyz / s, b[2].xyz / s ) );
-		vec3 t = b[3].xyz;
-		vec4 d = 0.5 * vec4( t * q.w + cross( t, q.xyz ), - dot( t, q.xyz ) );
-		float k = dot( q, first ) < 0.0 ? - w : w;
-		real += k * q;
-		dual += k * d;
-		size += w * s;
-	}
-	vec3 dqTurn( vec4 q, vec3 v ) { return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v ); }
-#endif
-`;
-const BASE = `
-#ifdef USE_SKINNING
-	mat4 boneMatX = getBoneMatrix( skinIndex.x );
-	mat4 boneMatY = getBoneMatrix( skinIndex.y );
-	mat4 boneMatZ = getBoneMatrix( skinIndex.z );
-	mat4 boneMatW = getBoneMatrix( skinIndex.w );
-	vec4 dqReal = vec4( 0.0 ), dqDual = vec4( 0.0 );
-	float dqSize = 0.0;
-	{
-		mat4 bx = boneMatX;
-		float s0 = length( bx[0].xyz );
-		vec4 first = dqQuat( mat3( bx[0].xyz / s0, bx[1].xyz / s0, bx[2].xyz / s0 ) );
-		dqAdd( boneMatX, skinWeight.x, first, dqReal, dqDual, dqSize );
-		dqAdd( boneMatY, skinWeight.y, first, dqReal, dqDual, dqSize );
-		dqAdd( boneMatZ, skinWeight.z, first, dqReal, dqDual, dqSize );
-		dqAdd( boneMatW, skinWeight.w, first, dqReal, dqDual, dqSize );
-		float total = max( skinWeight.x + skinWeight.y + skinWeight.z + skinWeight.w, 1e-5 );
-		dqSize /= total;
-		float len = max( length( dqReal ), 1e-6 );
-		dqReal /= len;
-		dqDual /= len;
-	}
-	vec3 dqMove = 2.0 * ( dqReal.w * dqDual.xyz - dqDual.w * dqReal.xyz + cross( dqReal.xyz, dqDual.xyz ) );
-#endif
-`;
-const NORMAL = `
-#ifdef USE_SKINNING
-	objectNormal = ( bindMatrixInverse * vec4( dqTurn( dqReal, ( bindMatrix * vec4( objectNormal, 0.0 ) ).xyz ), 0.0 ) ).xyz;
-	#ifdef USE_TANGENT
-		objectTangent = ( bindMatrixInverse * vec4( dqTurn( dqReal, ( bindMatrix * vec4( objectTangent, 0.0 ) ).xyz ), 0.0 ) ).xyz;
-	#endif
-#endif
-`;
-const VERTEX = `
-#ifdef USE_SKINNING
-	vec3 skinVertex = ( bindMatrix * vec4( transformed, 1.0 ) ).xyz;
-	transformed = ( bindMatrixInverse * vec4( dqTurn( dqReal, skinVertex * dqSize ) + dqMove, 1.0 ) ).xyz;
-#endif
-`;
-let installed = false;
-/** Every skinned mesh from here on skins by dual quaternions. */
-function dualQuaternionSkinning() {
-	if (installed) return;
-	installed = true;
-	const chunks = three.ShaderChunk;
-	chunks.skinning_pars_vertex = chunks.skinning_pars_vertex + PARS;
-	chunks.skinbase_vertex = BASE;
-	chunks.skinnormal_vertex = NORMAL;
-	chunks.skinning_vertex = VERTEX;
-}
-
-//#endregion
-//#region src/lib/actors/rig.ts
-function rig(bones, parts, materials) {
-	dualQuaternionSkinning();
-	const byName = {};
-	const at = {};
-	const parent = {};
-	const list = [];
-	for (const b of bones) {
-		const bone = new three.Bone();
-		bone.name = b.name;
-		at[b.name] = new three.Vector3(...b.at);
-		parent[b.name] = b.parent;
-		if (b.parent) {
-			bone.position.copy(at[b.name]).sub(at[b.parent]);
-			byName[b.parent].add(bone);
-		} else bone.position.copy(at[b.name]);
-		byName[b.name] = bone;
-		list.push(bone);
-	}
-	const index = new Map(list.map((b, i) => [b.name, i]));
-	const v = new three.Vector3(), d = new three.Vector3(), q = new three.Vector3();
-	const weigh = (p, out) => {
-		out.clear();
-		if (p.weights) {
-			for (const [name, x] of p.weights(v)) out.set(name, (out.get(name) ?? 0) + x);
-			return;
-		}
-		if (!p.chain) return void out.set(p.bone, 1);
-		const { bones: names, soft = .05, tip } = p.chain;
-		const ends = names.map((n, i) => {
-			if (i < names.length - 1) return at[names[i + 1]];
-			if (tip) return new three.Vector3(...tip);
-			const prev = i > 0 ? at[names[i - 1]] : at[parent[n]] ?? at[n].clone().add(new three.Vector3(0, -.1, 0));
-			return at[n].clone().multiplyScalar(2).sub(prev);
-		});
-		let best = 0, bestD = Infinity, bestS = 0, bestLen = 1;
-		names.forEach((n, i) => {
-			const a = at[n], b = ends[i];
-			d.subVectors(b, a);
-			const len = Math.max(1e-6, d.length());
-			const s = three.MathUtils.clamp(q.subVectors(v, a).dot(d) / len, 0, len);
-			const dist = q.copy(a).addScaledVector(d, s / len).distanceTo(v);
-			if (dist < bestD - 1e-9) [best, bestD, bestS, bestLen] = [
-				i,
-				dist,
-				s,
-				len
-			];
-		});
-		const own = names[best];
-		const k = Math.min(soft, bestLen / 2);
-		const back = best > 0 ? names[best - 1] : parent[own];
-		const next = names[best + 1];
-		const wBack = back && bestS < k ? .5 - .5 * bestS / k : 0;
-		const wNext = next && bestLen - bestS < k ? .5 - .5 * (bestLen - bestS) / k : 0;
-		out.set(own, 1 - wBack - wNext);
-		if (wBack) out.set(back, (out.get(back) ?? 0) + wBack);
-		if (wNext) out.set(next, (out.get(next) ?? 0) + wNext);
-	};
-	const w = /* @__PURE__ */ new Map(), c = new three.Color();
-	const geoOf = (p) => "skin" in p ? p.skin.geo : p.geo;
-	if (DETAIL < 1) {
-		const size = (p) => {
-			const g = geoOf(p);
-			return (g.boundingSphere ?? (g.computeBoundingSphere(), g.boundingSphere)).radius;
-		};
-		const largest = Math.max(...parts.map(size));
-		parts = parts.filter((p) => size(p) >= largest * .12);
-	}
-	const geos = parts.map((p) => {
-		if ("skin" in p) {
-			const g = p.skin.geo.clone(), n = g.attributes.position.count;
-			const si = new Uint16Array(n * 4);
-			const ids = p.skin.bones.map((name) => {
-				if (!index.has(name)) throw new Error(`skin: no bone ${name}`);
-				return index.get(name);
-			});
-			for (let i = 0; i < n * 4; i++) si[i] = ids[p.skin.index[i]] ?? 0;
-			g.setAttribute("skinIndex", new three.Uint16BufferAttribute(si, 4));
-			g.setAttribute("skinWeight", new three.Float32BufferAttribute(p.skin.weight.slice(), 4));
-			return g;
-		}
-		const g = p.geo.clone();
-		if (!g.index) g.setIndex(Array.from({ length: g.attributes.position.count }, (_, i) => i));
-		for (const name of Object.keys(g.attributes)) if (name !== "position" && name !== "normal") g.deleteAttribute(name);
-		if (!g.attributes.normal) g.computeVertexNormals();
-		const pos = g.attributes.position, n = pos.count;
-		const color = new Float32Array(n * 3), si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
-		for (let i = 0; i < n; i++) {
-			v.fromBufferAttribute(pos, i);
-			c.set(typeof p.color === "string" ? p.color : p.color(v, i));
-			color[i * 3] = c.r;
-			color[i * 3 + 1] = c.g;
-			color[i * 3 + 2] = c.b;
-			weigh(p, w);
-			const top = [...w].sort((x, y) => y[1] - x[1]).slice(0, 4);
-			const sum = top.reduce((s, [, x]) => s + x, 0) || 1;
-			top.forEach(([name, x], k) => {
-				si[i * 4 + k] = index.get(name) ?? 0;
-				sw[i * 4 + k] = x / sum;
-			});
-		}
-		g.setAttribute("color", new three.BufferAttribute(color, 3));
-		g.setAttribute("skinIndex", new three.Uint16BufferAttribute(si, 4));
-		g.setAttribute("skinWeight", new three.Float32BufferAttribute(sw, 4));
-		return g;
-	});
-	const morphs = [...new Set(parts.flatMap((p) => "morph" in p && p.morph ? Object.keys(p.morph) : []))];
-	if (morphs.length) geos.forEach((g, i) => {
-		const p = parts[i], n = g.attributes.position.count;
-		g.morphAttributes.position = morphs.map((name) => {
-			const d = "morph" in p ? p.morph?.[name] : void 0;
-			const a = new three.Float32BufferAttribute(d && d.length === n * 3 ? d : new Float32Array(n * 3), 3);
-			a.name = name;
-			return a;
-		});
-		g.morphTargetsRelative = true;
-	});
-	const geometry = (0, three_addons_utils_BufferGeometryUtils_js.mergeGeometries)(geos, true);
-	geometry.groups.forEach((grp, i) => grp.materialIndex = parts[i].mat ?? 0);
-	if (morphs.length) {
-		geometry.morphTargetsRelative = true;
-		geometry.morphAttributes.position.forEach((a, i) => a.name = morphs[i]);
-	}
-	const mesh = new three.SkinnedMesh(geometry, materials);
-	mesh.add(list[0]);
-	mesh.updateMatrixWorld(true);
-	mesh.bind(new three.Skeleton(list));
-	mesh.castShadow = mesh.receiveShadow = true;
-	mesh.frustumCulled = false;
-	return {
-		object: mesh,
-		bones: byName,
-		names: list.map((b) => b.name),
-		pose: poser(list),
-		parts: parts.map((p) => "skin" in p ? void 0 : p.part)
-	};
-}
-/** How to pose these bones (a rig's, or a clone's): from where they rest now, each turned as a pose says. */
-function poser(list) {
-	const byName = Object.fromEntries(list.map((b) => [b.name, b]));
-	const rest = list.map((b) => b.position.clone());
-	const move = new three.Vector3();
-	return (p) => {
-		list.forEach((b, i) => {
-			b.position.copy(rest[i]);
-			b.rotation.set(0, 0, 0);
-			b.scale.setScalar(1);
-		});
-		for (const name in p) {
-			const t = p[name];
-			if (!t) continue;
-			if (name === "root") list[0].position.add(move.set(t[0], t[1], t[2]));
-			else {
-				const b = byName[name];
-				if (!b) continue;
-				b.rotation.set(t[0], t[1], t[2]);
-				if (t.length >= 4) b.scale.setScalar(t[3]);
-				if (t.length === 7) b.position.add(move.set(t[4], t[5], t[6]));
-			}
-		}
-	};
-}
-/** How finely shapes are made: 1 as built; lower for actors seen from afar (`lowDetail`). */
-let DETAIL = 1;
-const fine = (n, least) => Math.max(least, Math.round(n * DETAIL));
-/**
-* A limb from a to b: rounded at both ends, `r0` thick at a and `r1` at b, in rings enough to bend; `flat` squashes
-* it across (a hand: 0.5), `turn` turns that squash about the limb's axis.
-*/
-function limb(a, b, r0, r1, { flat = 1, turn = 0, seg = 12 } = {}) {
-	const A = new three.Vector3(...a), B = new three.Vector3(...b);
-	const len = A.distanceTo(B);
-	const pts = [];
-	const cap = fine(5, 2), body = fine(Math.max(4, Math.round(len / .03)), 2);
-	for (let i = 0; i <= cap; i++) {
-		const t = i / cap * (Math.PI / 2);
-		pts.push(new three.Vector2(Math.max(1e-4, Math.sin(t) * r1), -Math.cos(t) * r1));
-	}
-	for (let i = 1; i < body; i++) {
-		const t = i / body;
-		pts.push(new three.Vector2(r1 + (r0 - r1) * t, len * t));
-	}
-	for (let i = 0; i <= cap; i++) {
-		const t = i / cap * (Math.PI / 2);
-		pts.push(new three.Vector2(Math.max(1e-4, Math.cos(t) * r0), len + Math.sin(t) * r0));
-	}
-	const g = new three.LatheGeometry(pts, fine(seg, 5));
-	g.applyMatrix4(new three.Matrix4().makeRotationY(turn));
-	g.applyMatrix4(new three.Matrix4().makeScale(flat, 1, 1));
-	g.applyMatrix4(new three.Matrix4().makeRotationY(-turn));
-	g.applyMatrix4(new three.Matrix4().compose(B, new three.Quaternion().setFromUnitVectors(new three.Vector3(0, 1, 0), A.clone().sub(B).normalize()), new three.Vector3(1, 1, 1)));
-	return g;
-}
-/** A material for an actor: its colours in its vertices. */
-const skin = (roughness = .8, more = {}) => new three.MeshStandardMaterial({
-	vertexColors: true,
-	roughness,
-	...more
-});
-/** A loop over `period` seconds: 0…1. */
-const loop = (t, period) => (t / period % 1 + 1) % 1;
-
-//#endregion
-//#region src/lib/actors/excavator-rig.js
-/** a box w × h × len from a to b, turned along the line */
-/** @param {V3} a @param {V3} b @param {number} w @param {number} h @param {number} [r] */
-function beam(a, b, w, h, r = .02) {
-	const A = new three.Vector3(...a), B = new three.Vector3(...b);
-	const g = new three_addons_geometries_RoundedBoxGeometry_js.RoundedBoxGeometry(w, h, A.distanceTo(B), 2, Math.min(r, w / 2, h / 2));
-	g.applyMatrix4(new three.Matrix4().compose(A.clone().add(B).multiplyScalar(.5), new three.Quaternion().setFromUnitVectors(new three.Vector3(0, 0, 1), B.clone().sub(A).normalize()), new three.Vector3(1, 1, 1)));
-	return g;
-}
-/** a box at a place */
-/** @param {number} w @param {number} h @param {number} d @param {V3} at @param {number} [r] */
-function block(w, h, d, at, r = .02) {
-	const g = new three_addons_geometries_RoundedBoxGeometry_js.RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2, h / 2, d / 2));
-	g.translate(...at);
-	return g;
-}
-/** a wheel turning about x: radius r, width w, at */
-/** @param {number} r @param {number} w @param {V3} at @param {number} [seg] */
-function wheel(r, w, at, seg = 18) {
-	const g = new three.CylinderGeometry(r, r, w, seg);
-	g.rotateZ(Math.PI / 2);
-	g.translate(...at);
-	return g;
-}
-/** smoothly from 0 to 1 @param {number} x */
-const ease = (x) => x * x * (3 - 2 * x);
-
-//#endregion
-//#region src/lib/actors/pallet.js
-/** @typedef {import('./rig').V3} V3 */
-/** @typedef {(geo: THREE.BufferGeometry, color: string, bone: string, mat?: number) => void} Add */
-/** a Euro pallet's length, width and height; the forks' openings: their middles across it (x), bottom and top */
+//#piece 8b09f5bb2de61f82762268b682cbf1d947f2baf56fcbad747c26a1c14fc0649d
+//#piece 1efe152e2d3f4c882dfd19692fd25dce72658f88aac3d155256189629921fc58
+//#piece 3d8e5a77b519fbff6ef447b7ebf8fc0d3bbe59ccb60a9126d638967d582581f5
+//#piece d15fad60f9cf053c6b2f2e409017e2b69c3c18d4db8f541817e46462caa90257
 const PL$2 = 1.2;
 const PW$2 = .8;
 const PH$2 = .144;
@@ -361,21 +11,9 @@ const WOOD2$2 = "#b8955f";
 const CRATE$5 = "#b98d55";
 const CRATE2$4 = "#a87f4c";
 const WRAP$2 = "#dfe3e2";
-/**
-* A Euro pallet standing at `at` (the middle of its underside), turned `yaw` about y from lying along x, on `bone`;
-* loaded with cartons to `stack` (m from the floor; 0: empty). The wrap is the actor's material 1 (its glass).
-* @param {Add} add @param {V3} at @param {number} yaw @param {string} bone @param {{ stack?: number }} [o]
+//#piece da73ef62b5355cbd3bed34b13dca0efdd04184218b10d8650eea07f7495afd14
 */
-function euroPallet(add, at, yaw, bone, { stack = 1.6 } = {}) {
-	const place = new three.Matrix4().makeTranslation(...at).multiply(new three.Matrix4().makeRotationY(yaw));
-	/** @type {Add} */
-	const put = (geo, color, b, mat) => add(geo.applyMatrix4(place), color, b, mat);
-	for (const [bz, w] of [
-		[-.3275, .145],
-		[-.16, .1],
-		[0, .145],
-		[.16, .1],
-		[.3275, .145]
+//#piece 5d3c7f2483ee45e995be4b7bce4db3441819e0acedef3a20a615bd7c04f56240
 	]) put(block(PL$2, .022, w, [
 		0,
 		.13299999999999998,
@@ -425,12 +63,7 @@ function euroPallet(add, at, yaw, bone, { stack = 1.6 } = {}) {
 }
 
 //#endregion
-//#region src/lib/actors/forklift.js
-/** @typedef {import('./rig').V3} V3 */
-/** @typedef {import('./rig').Pose} Pose */
-/** @typedef {import('./rig').Cast} Cast */
-/** @typedef {import('./rig').BoneSpec} BoneSpec */
-/** @typedef {(geo: THREE.BufferGeometry, color: string, bone: string, mat?: number) => void} Add */
+//#piece 3d7e8a924021b294fac4ba3e314de552178989d0623a8195aa73c7b8bda77f0d
 const BODY$5 = "#f1f0eb";
 const BAND$5 = "#2f6f68";
 const DARK$5 = "#2a2c2e";
@@ -438,76 +71,15 @@ const STEEL$4 = "#8f9498";
 const TYRE$1 = "#1d1e20";
 const GREEN = "#4fd18b";
 const RED$5 = "#e0302a";
-/** how far below and behind it its far bones pivot (m) */
-const FAR = 2e3;
-/** the drive wheels: radius, their x and z; the forks' length and how high they ride above the ground at rest */
-const WR = .1;
+//#piece 55b316802a1c3001dcb59786ab8475b4676e94d7bbfdc5869c79143d2d3ae5d0
 const WX$1 = .4;
 const WZ$1 = -.22;
 const FORK = .8;
 const TINE_Y = .03;
-/** where a point of the forklift built at the origin facing +z lands at `heel`, turned `yaw` @param {V3} heel @param {number} yaw */
-const placer = (heel, yaw) => new three.Matrix4().makeTranslation(...heel).multiply(new three.Matrix4().makeRotationY(yaw));
-/**
-* Add a forklift to a rig: its bones (to `bones`, under `parent`) and its pieces (through `add`), its heel at `heel`,
-* turned `yaw` about y (0 faces +z, π/2 faces +x). Its bones are named after it: `name` (it drives on it, pivoted far
-* below), `nameBody`, `nameWheels`, `nameLift` (pivoted far behind) and `nameForks` (the forks and their carriage, so a
-* size of 0 there and on the body and the wheels hides the forklift).
-* @param {Add} add @param {BoneSpec[]} bones
-* @param {{ name: string, parent?: string, heel: V3, yaw?: number }} o
-*/
-function forkliftParts(add, bones, { name, parent, heel, yaw = 0 }) {
-	const m = placer(heel, yaw);
-	/** @param {V3} p @returns {V3} */
-	const to = (p) => new three.Vector3(...p).applyMatrix4(m).toArray();
-	bones.push({
-		name,
-		...parent ? { parent } : {},
-		at: to([
-			0,
-			-2e3,
-			0
-		])
-	}, {
-		name: `${name}Body`,
-		parent: name,
-		at: to([
-			0,
-			.3,
-			-.5
-		])
-	}, {
-		name: `${name}Wheels`,
-		parent: name,
-		at: to([
-			0,
+//#piece 62287eb876bc978fe98a4b5b403830ca3ba5cd2fd0450add5c72ec217f601c5b
 			WR,
 			WZ$1
-		])
-	}, {
-		name: `${name}Lift`,
-		parent: name,
-		at: to([
-			0,
-			TINE_Y,
-			-2e3
-		])
-	}, {
-		name: `${name}Forks`,
-		parent: `${name}Lift`,
-		at: to([
-			0,
-			TINE_Y,
-			0
-		])
-	});
-	/** @type {Add} */
-	const put = (geo, color, bone, mat) => add(geo.applyMatrix4(m), color, bone, mat);
-	const body = `${name}Body`, forks = `${name}Forks`;
-	put(block(.76, .36, .86, [
-		0,
-		.29,
-		-.52
+//#piece 5e0b507b3a502f6941b1c46522d9bc2c6f5957adfeba4aea334d00cddc4d6bff
 	], .08), BODY$5, body);
 	put(block(.764, .05, .864, [
 		0,
@@ -529,15 +101,7 @@ function forkliftParts(add, bones, { name, parent, heel, yaw = 0 }) {
 		.22,
 		-.084
 	], .005), DARK$5, body);
-	put(block(.08, .02, .08, [
-		.26,
-		.475,
-		-.3
-	], .008), GREEN, body);
-	for (const sx of [-1, 1]) put(block(.14, .05, .012, [
-		sx * .26,
-		.37,
-		-.953
+//#piece 18f0d856c15c7141d31c523d7cc23ee551076d6e4f1c8607c6394ec8ccc2b606
 	], .006), RED$5, body);
 	for (const sx of [-1, 1]) {
 		put(wheel(.055, .05, [
@@ -589,40 +153,7 @@ function forkliftParts(add, bones, { name, parent, heel, yaw = 0 }) {
 			.0475,
 			FORK / 2
 		], .008), STEEL$4, forks);
-	}
-}
-const Y = /* @__PURE__ */ (() => new three.Vector3(0, 1, 0))();
-const axis = /* @__PURE__ */ (() => new three.Vector3())();
-const q = /* @__PURE__ */ (() => new three.Quaternion())();
-const e = /* @__PURE__ */ (() => new three.Euler())();
-/** the turn (x, y, z) of `angle` about `dir` @param {THREE.Vector3} dir @param {number} angle @returns {V3} */
-const turn = (dir, angle) => {
-	e.setFromQuaternion(q.setFromAxisAngle(dir, angle), "XYZ");
-	return [
-		e.x,
-		e.y,
-		e.z
-	];
-};
-/**
-* Pose a forklift added by `forkliftParts` (turned `yaw`) into `p`: driven `move` metres forward (back if negative)
-* from where it was built, its forks lifted `lift` metres, shown or hidden.
-* @param {Pose} p @param {string} name @param {number} yaw
-* @param {{ move?: number, lift?: number, show?: boolean }} s
-*/
-function forkliftPose(p, name, yaw, { move = 0, lift = 0, show = true }) {
-	const f = new three.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
-	p[name] = turn(axis.crossVectors(Y, f).normalize(), Math.asin(move / FAR));
-	p[`${name}Lift`] = turn(axis.crossVectors(f, Y).normalize(), Math.asin(lift / FAR));
-	p[`${name}Wheels`] = [...turn(axis.crossVectors(Y, f).normalize(), move / WR), show ? 1 : 0];
-	const size = show ? 1 : 0;
-	p[`${name}Body`] = [
-		0,
-		0,
-		0,
-		size
-	];
-	p[`${name}Forks`] = [
+//#piece 1532a67b82a597ee04d719c21605620db9759ea9b89db664af7ce20745a2c050
 		0,
 		0,
 		0,
@@ -632,12 +163,7 @@ function forkliftPose(p, name, yaw, { move = 0, lift = 0, show = true }) {
 
 //#endregion
 //#region src/lib/actors/pod.js
-/** @typedef {import('./rig').V3} V3 */
-/** @typedef {import('./rig').Piece} Piece */
-/** @typedef {import('./rig').Pose} Pose */
-/** @typedef {import('./rig').Cast} Cast */
-/** @typedef {'people' | 'goods'} Kind */
-/** @typedef {(geo: THREE.BufferGeometry, color: string, bone: string, mat?: number) => void} Add */
+//#piece 0cd254f23a8de8b4ebc0abe2b80f75399361952bdbb16bffbb82479fe14bf265
 const BODY$4 = "#f1f0eb";
 const BAND$4 = "#2f6f68";
 const DARK$4 = "#2a2c2e";
@@ -658,7 +184,7 @@ const ROUND$1 = .1;
 const R$4 = .2;
 const GX$3 = 1.435 / 2;
 const AZ$3 = 1.7;
-/** between the axles: half the length of the room there; the bay under the cabin (y from–to); the cabin floor */
+//#piece de2df7bef5eaac6133e7b1251893e54f4c64be9205cab417c7ff9d35f4eb8b90
 const MID$3 = 1.38;
 const BAY_Y$4 = [.14, .52];
 const CABIN$4 = .58;
@@ -768,8 +294,7 @@ function chassis$4(add) {
 		sz * 1.9
 	], ROUND$1), BODY$4, "base");
 }
-/** the bay between the axles under the people mover's floor: its floor, its ends, a flap each side, crates in it */
-/** @param {Add} add */
+//#piece 375a8b3a6351f90f4c5a2e6a5dd6e85168e31abc5a7529625d8c550509ab0488
 function bay$3(add) {
 	add(block(HW$4 * 2 - .04, .04, MID$3 * 2, [
 		0,
@@ -839,11 +364,7 @@ function bay$3(add) {
 	]) add(block(w, h, d, [
 		x,
 		BAY_Y$4[0] + h / 2,
-		z
-	], .02), c, "base");
-}
-/** the people mover: two compartments of twenty seats over the bay */
-/** @param {Add} add */
+//#piece cc218a3ccfc57f98f00d303a73035210d6143a6996adf045769b228edd4d5057
 function people$4(add) {
 	bay$3(add);
 	add(block(HW$4 * 2 - .04, .06, 3.96, [
@@ -853,19 +374,11 @@ function people$4(add) {
 	], .01), FLOOR$4, "base");
 	const top = 2.4099999999999997;
 	for (const [s, sx] of SIDES$3) {
-		const x = sx * 1.195;
-		/** @type {[number, number][]} the stretches of wall along z between the doors and the ends */
-		const walls = [
+//#piece 7ab6fc380ec7eb8163eaf14b61b2595fa19235b22178a923dacf0d8e3a8a4e62
 			[-1.9, -.975 - DOOR_W$3 / 2],
 			[-.575, DOOR_Z$3 - DOOR_W$3 / 2],
 			[1.375, 1.9]
-		];
-		for (const [z0, z1] of walls) {
-			const len = z1 - z0, mid = (z0 + z1) / 2;
-			add(block(.05, .5100000000000001, len, [
-				x,
-				(1.63 - .04) / 2,
-				mid
+//#piece 7ab43014a5cfebc4a0b645fe1380446b92eac7685330c32e784d71616f06a950
 			], .02), BODY$4, "base");
 			add(block(.052, .07, len, [
 				x,
@@ -915,14 +428,7 @@ function people$4(add) {
 				3.41 / 2,
 				mid
 			]), GLASS$4, bone, 1);
-			add(limb([
-				sx * 1.24,
-				1,
-				mid - sz * .3
-			], [
-				sx * 1.24,
-				1.4,
-				mid - sz * .3
+//#piece c38f87904d5ba8881b18614fb0c85d9ad50410a59599204ae97b0a52f0675667
 			], .014, .014), HUB$4, bone);
 		}
 	}
@@ -947,14 +453,7 @@ function people$4(add) {
 			2.3499999999999996,
 			sz * 1.99
 		], .01), DARK$4, "base");
-		for (const [back, face] of [[1.93, -1], [.06, 1]]) {
-			const bz = sz * back, f = sz * face;
-			for (let i = 0; i < 5; i++) {
-				const x = -.9 + i * .45;
-				add(block(.42, .1, .44, [
-					x,
-					1,
-					bz + f * .27
+//#piece 4cd38b9a646eb30d185dd4af95a7eaaed7a143ab82bc4bdc16bca11b7e10e5d7
 				], .04), SEAT$4, "base");
 				add(block(.42, .62, .08, [
 					x,
@@ -1033,11 +532,7 @@ function goods$4(add) {
 	for (const [s, sx] of SIDES$3) {
 		const x = sx * 1.195;
 		for (const [e, sz] of ENDS$4) {
-			const bone = `rack${s}${e}`, w = .5000000000000001, mz = sz * (1.9 - w / 2);
-			add(block(.04, 1.7899999999999996, w, [
-				x,
-				2.9499999999999997 / 2,
-				mz
+//#piece 6d3c03eb417dd2e89625e4c61fa221e088b3430fd72dd869f139d6a3cd5490b9
 			], .015), BODY$4, bone);
 			add(block(.044, .07, w, [
 				x,
@@ -1113,11 +608,7 @@ function goods$4(add) {
 			y0 + h * .35,
 			sz * 1.67
 		], .02), CRATE2$3, "base");
-	}
-}
-/**
-* The pod at a moment: where it is along z (driving), which way it leads, its doors (0 shut … 1 open), its bay's
-* flaps, how far the goods pod's pallets are out of their doors (0 in … 1 out on the platform beside it), and its
+//#piece a9ff27a29b663ebb2a7091239dfa5c0b8a3bbab7b01c669d2f1968282123de56
 * racks' doors (one number for all, or one each by name: `LN` is the left one at the north end); how high the pallets
 * are lifted off the floor (0 … 1: as a forklift lifts them), and the forklifts: where their heels are (x, out from the
 * middle) and how high their forks (none: hidden).
@@ -1138,30 +629,11 @@ function at$4(kind, { z = 0, lead = 0, doors = 0, flaps = 0, out = 0, up = 0, ra
 			0,
 			0
 		];
-		p[`light${e}`] = [
-			0,
-			0,
-			0,
-			lead === -sz ? 0 : 1
-		];
-		p[`tail${e}`] = [
-			0,
-			0,
-			0,
-			lead === -sz ? 1 : 0
-		];
+//#piece 8c09fa285d821b2b9815472e8d3974caa3e5c411888af74ff271548b91d60cb5
 	}
 	for (const [s, sx] of SIDES$3) if (kind === "people") {
 		for (const [e, sz] of ENDS$4) p[`door${s}${e}`] = [
-			0,
-			-sx * sz * 1.5 * doors,
-			0
-		];
-		p[`flap${s}`] = [
-			0,
-			0,
-			sx * 1.55 * flaps
-		];
+//#piece 3bc495e932d47f54ae69bf3bd68636d077fbbb18b69bd3cd5250bbb1589f70fe
 	} else for (const [e, sz] of ENDS$4) {
 		p[`door${s}${e}`] = [
 			0,
@@ -1183,26 +655,11 @@ function at$4(kind, { z = 0, lead = 0, doors = 0, flaps = 0, out = 0, up = 0, ra
 			move: FK_REST - fk.x,
 			lift: fk.lift
 		} : { show: false });
-		p[`rack${s}${e}`] = [
-			0,
-			-sx * sz * 1.7 * (typeof racks === "number" ? racks : racks(`${s}${e}`)),
-			0
-		];
-	}
-	return p;
-}
-/** from 0 to 1 over [a, b] of the cycle, eased @param {number} u @param {number} a @param {number} b */
+//#piece 0f9f96f49b6306e1a274cac3b9ffd34887ab7184cbb228c663c20cd66aa3d661
 const ramp$4 = (u, a, b) => ease(Math.min(1, Math.max(0, (u - a) / (b - a))));
 /** Build a pod and its moves. @param {Kind} kind @returns {Cast} */
 function pod$4(kind) {
-	/** @type {import('./rig').BoneSpec[]} */
-	const bones = [{
-		name: "base",
-		at: [
-			0,
-			.5,
-			0
-		]
+//#piece 52a108852e60be1bbd44aa056d699e283ddb3240072c18e07352460d8221ea85
 	}, ...ENDS$4.flatMap(([e, sz]) => [
 		{
 			name: `axle${e}`,
@@ -1290,14 +747,7 @@ function pod$4(kind) {
 		});
 	}
 	/** @type {Piece[]} */
-	const parts = [];
-	/** @type {Add} */
-	const add = (geo, color, bone, mat) => void parts.push({
-		geo,
-		color,
-		bone,
-		...mat ? { mat } : {}
-	});
+//#piece 95f197484f7ea4c20f90f40fd5e70297e0d8e4fdb4edc5d04eba4346fcb8bcf8
 	chassis$4(add);
 	(kind === "people" ? people$4 : goods$4)(add);
 	if (kind === "goods") for (const [s, sx] of SIDES$3) for (const [e, sz] of ENDS$4) forkliftParts(add, bones, {
@@ -1310,37 +760,13 @@ function pod$4(kind) {
 		],
 		yaw: -sx * Math.PI / 2
 	});
-	const r = rig(bones, parts, [skin(.45, { side: three.DoubleSide }), skin(.06, {
-		transparent: true,
-		opacity: .3,
-		depthWrite: false
-	})]);
-	r.object.name = kind === "people" ? "pod (people)" : "pod (goods)";
-	/** @param {Parameters<typeof at>[1]} s */
+//#piece 519050f82c9fad128a2e93e3030c2871e7f9d34144708f2f56800b3eb168a221
 	const m = (s) => at$4(kind, s);
-	const run = 3, period = kind === "people" ? 18 : 14;
-	/** @type {Record<string, import('./rig').Clip>} */
-	const clips = {
-		shuttle: (t) => {
-			const u = loop(t, period), h = .5;
+//#piece 343698e9a640f027151586b1353c7f166ebad0d7b62e4dee69b0f915881e351f
 			const there = ramp$4(u, 0, .18), back = ramp$4(u, h, .6799999999999999);
-			const z = -3 / 2 + run * there - run * back;
-			const lead = u < .18 ? 1 : u >= h && u < .6799999999999999 ? -1 : 0;
+//#piece a17da48bc27924c6d503ac8694b0a34523594c1ed0e4ef8c731ac7e614873a8e
 			const open = (a) => ramp$4(u, a, a + .06) - ramp$4(u, a + .2, a + .26);
-			const k = Math.max(open(.2), open(.7));
-			if (kind === "goods") return m({
-				z,
-				lead,
-				doors: k
-			});
-			return m({
-				z,
-				lead,
-				doors: u < h ? k : 0,
-				flaps: u < h ? 0 : k
-			});
-		},
-		open: (t) => {
+//#piece 4b03e5152783550252f6daffc97d6772911bc8fda321b42c5ddab196064b9d93
 			const k = ramp$4(loop(t, 5), .08, .4);
 			return m({
 				doors: k,
@@ -1385,39 +811,9 @@ function pod$4(kind) {
 					x,
 					lift
 				}
-			});
-		};
-		const ORDER = [
-			"LN",
-			"LS",
-			"RS",
-			"RN"
-		];
-		clips.racks = (t) => {
-			const u = loop(t, 12) * ORDER.length;
-			return m({ racks: (name) => {
-				const v = u - ORDER.indexOf(name);
+//#piece 059990e813778ad4f1698e989d7c30fbe9a5a515fefdf48155cad3e213ed0535
 				return v < 0 || v > 2.5 ? 0 : ramp$4(v, 0, .5) - ramp$4(v, 2, 2.5);
-			} });
-		};
-	}
-	return {
-		rig: r,
-		clips,
-		poses: kind === "people" ? {
-			closed: m({}),
-			"doors open": m({ doors: 1 }),
-			"bay open": m({ flaps: 1 }),
-			"all open": m({
-				doors: 1,
-				flaps: 1
-			})
-		} : {
-			closed: m({}),
-			"doors open": m({ doors: 1 }),
-			"racks open": m({ racks: 1 }),
-			unloaded: m({
-				doors: 1,
+//#piece f427aa5bc8fd44d0c84fa48c319b71da1faff8b21aee09cbc0272a863dfec0a7
 				out: 1,
 				fk: {
 					x: FK_OFF,
@@ -1431,11 +827,7 @@ function pod$4(kind) {
 
 //#endregion
 //#region src/lib/actors/pod.v1.js
-/** @typedef {import('./rig').V3} V3 */
-/** @typedef {import('./rig').Piece} Piece */
-/** @typedef {import('./rig').Pose} Pose */
-/** @typedef {import('./rig').Cast} Cast */
-/** @typedef {'people' | 'goods'} Kind */
+//#piece 5045db7c7bbfc980708ee4efa95c412a2245a92c12dc0ab14de623eaf62848d0
 const BODY$3 = "#f1f0eb";
 const BAND$3 = "#2f6f68";
 const DARK$3 = "#2a2c2e";
@@ -1851,17 +1243,7 @@ function goods$3(add) {
 			y,
 			z
 		], .01), CAGE$1, "base");
-		for (const [cx, cz] of [
-			[-.38, -.32],
-			[.38, -.32],
-			[-.38, .32],
-			[.38, .32]
-		]) add(limb([
-			x + cx,
-			y,
-			z + cz
-		], [
-			x + cx,
+//#piece 3052508183d1e62ffd0d910d8cf04b7cb4063a027907f424e7edf5acd205d695
 			2.2199999999999998,
 			z + cz
 		], .012, .012), CAGE$1, "base");
@@ -1904,18 +1286,7 @@ function at$3(kind, { z = 0, lead = 0, doors = 0, hatches = 0, steer = 0 }) {
 		];
 	}
 	for (const [e, sz] of ENDS$3) {
-		p[`light${e}`] = [
-			0,
-			0,
-			0,
-			lead === -sz ? 0 : 1
-		];
-		p[`tail${e}`] = [
-			0,
-			0,
-			0,
-			lead === -sz ? 1 : 0
-		];
+//#piece 8c09fa285d821b2b9815472e8d3974caa3e5c411888af74ff271548b91d60cb5
 	}
 	if (kind === "people") {
 		const a = 1.45 * doors;
@@ -2057,13 +1428,7 @@ function pod$3(kind) {
 	});
 	chassis$3(kind, add);
 	(kind === "people" ? people$3 : goods$3)(add);
-	const r = rig(bones, parts, [skin(.45, { side: three.DoubleSide }), skin(.06, {
-		transparent: true,
-		opacity: .3,
-		depthWrite: false
-	})]);
-	r.object.name = kind === "people" ? "pod (people)" : "pod (goods)";
-	/** @param {Parameters<typeof at>[1]} s */
+//#piece 519050f82c9fad128a2e93e3030c2871e7f9d34144708f2f56800b3eb168a221
 	const m = (s) => at$3(kind, s);
 	const run = 3, period = kind === "people" ? 18 : 14;
 	return {
@@ -2075,16 +1440,7 @@ function pod$3(kind) {
 				const z = -3 / 2 + run * there - run * back;
 				const lead = u < .18 ? 1 : u >= h && u < .6799999999999999 ? -1 : 0;
 				const open = (a) => ramp$3(u, a, a + .06) - ramp$3(u, a + .2, a + .26);
-				const k = Math.max(open(.2), open(.7));
-				if (kind === "goods") return m({
-					z,
-					lead,
-					doors: k
-				});
-				return m({
-					z,
-					lead,
-					doors: u < h ? k : 0,
+//#piece 6e73fc021318b3f2b534f386d9cf2268e6100f9d5ab44728e0009e0047178bb7
 					hatches: u < h ? 0 : k
 				});
 			},
@@ -2117,12 +1473,7 @@ function pod$3(kind) {
 
 //#endregion
 //#region src/lib/actors/pod.v2.js
-/** @typedef {import('./rig').V3} V3 */
-/** @typedef {import('./rig').Piece} Piece */
-/** @typedef {import('./rig').Pose} Pose */
-/** @typedef {import('./rig').Cast} Cast */
-/** @typedef {'people' | 'goods'} Kind */
-/** @typedef {(geo: THREE.BufferGeometry, color: string, bone: string, mat?: number) => void} Add */
+//#piece 0cd254f23a8de8b4ebc0abe2b80f75399361952bdbb16bffbb82479fe14bf265
 const BODY$2 = "#f1f0eb";
 const BAND$2 = "#2f6f68";
 const DARK$2 = "#2a2c2e";
@@ -2143,7 +1494,7 @@ const HW$2 = 1.22;
 const R$2 = .2;
 const GX$2 = 1.435 / 2;
 const AZ$2 = 1.7;
-/** between the axles: half the length of the room there; the bay under the cabin (y from–to); the cabin floor */
+//#piece de2df7bef5eaac6133e7b1251893e54f4c64be9205cab417c7ff9d35f4eb8b90
 const MID$2 = 1.38;
 const BAY_Y$2 = [.14, .52];
 const CABIN$2 = .58;
@@ -2223,11 +1574,7 @@ function chassis$2(add) {
 	], .06), BODY$2, "base");
 	for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
 		add(new three.CylinderGeometry(.07, .08, .07, 20).translate(sx * 1.08, 2.5250000000000004, sz * 1.8599999999999999), DARK$2, "base");
-		add(new three.CylinderGeometry(.06, .06, .03, 20).translate(sx * 1.08, 2.575, sz * 1.8599999999999999), "#4b4f53", "base");
-	}
-}
-/** the bay between the axles under the people mover's floor: its floor, its ends, a flap each side, crates in it */
-/** @param {Add} add */
+//#piece f9a6fd8a2639652bc8b7a1ef6a5096ebbffc999b97286d20b40d4dc24b7504dc
 function bay$2(add) {
 	add(block(HW$2 * 2 - .04, .04, MID$2 * 2, [
 		0,
@@ -2297,11 +1644,7 @@ function bay$2(add) {
 	]) add(block(w, h, d, [
 		x,
 		BAY_Y$2[0] + h / 2,
-		z
-	], .02), c, "base");
-}
-/** the people mover: two compartments of twenty seats over the bay */
-/** @param {Add} add */
+//#piece cc218a3ccfc57f98f00d303a73035210d6143a6996adf045769b228edd4d5057
 function people$2(add) {
 	bay$2(add);
 	add(block(HW$2 * 2 - .04, .06, 3.96, [
@@ -2311,19 +1654,11 @@ function people$2(add) {
 	], .01), FLOOR$2, "base");
 	const top = 2.31;
 	for (const [s, sx] of SIDES$2) {
-		const x = sx * 1.195;
-		/** @type {[number, number][]} the stretches of wall along z between the doors and the ends */
-		const walls = [
+//#piece 7ab6fc380ec7eb8163eaf14b61b2595fa19235b22178a923dacf0d8e3a8a4e62
 			[-2, -.975 - DOOR_W$2 / 2],
 			[-.575, DOOR_Z$2 - DOOR_W$2 / 2],
 			[1.375, HL$2]
-		];
-		for (const [z0, z1] of walls) {
-			const len = z1 - z0, mid = (z0 + z1) / 2;
-			add(block(.05, .5100000000000001, len, [
-				x,
-				(1.63 - .04) / 2,
-				mid
+//#piece 7ab43014a5cfebc4a0b645fe1380446b92eac7685330c32e784d71616f06a950
 			], .02), BODY$2, "base");
 			add(block(.052, .07, len, [
 				x,
@@ -2373,14 +1708,7 @@ function people$2(add) {
 				3.3100000000000005 / 2,
 				mid
 			]), GLASS$2, bone, 1);
-			add(limb([
-				sx * 1.24,
-				1,
-				mid - sz * .3
-			], [
-				sx * 1.24,
-				1.4,
-				mid - sz * .3
+//#piece c38f87904d5ba8881b18614fb0c85d9ad50410a59599204ae97b0a52f0675667
 			], .014, .014), HUB$2, bone);
 		}
 	}
@@ -2415,14 +1743,7 @@ function people$2(add) {
 			2.89 / 2,
 			sz * 1.95
 		], .04), BODY$2, "base");
-		for (const [back, face] of [[1.93, -1], [.06, 1]]) {
-			const bz = sz * back, f = sz * face;
-			for (let i = 0; i < 5; i++) {
-				const x = -.9 + i * .45;
-				add(block(.42, .1, .44, [
-					x,
-					1,
-					bz + f * .27
+//#piece 4cd38b9a646eb30d185dd4af95a7eaaed7a143ab82bc4bdc16bca11b7e10e5d7
 				], .04), SEAT$2, "base");
 				add(block(.42, .62, .08, [
 					x,
@@ -2537,17 +1858,7 @@ function goods$2(add) {
 			y,
 			z
 		], .01), CAGE, "base");
-		for (const [cx, cz] of [
-			[-.38, -.32],
-			[.38, -.32],
-			[-.38, .32],
-			[.38, .32]
-		]) add(limb([
-			x + cx,
-			y,
-			z + cz
-		], [
-			x + cx,
+//#piece 3052508183d1e62ffd0d910d8cf04b7cb4063a027907f424e7edf5acd205d695
 			1.94,
 			z + cz
 		], .012, .012), CAGE, "base");
@@ -2583,30 +1894,11 @@ function at$2(kind, { z = 0, lead = 0, doors = 0, flaps = 0 }) {
 			0,
 			0
 		];
-		p[`light${e}`] = [
-			0,
-			0,
-			0,
-			lead === -sz ? 0 : 1
-		];
-		p[`tail${e}`] = [
-			0,
-			0,
-			0,
-			lead === -sz ? 1 : 0
-		];
+//#piece 8c09fa285d821b2b9815472e8d3974caa3e5c411888af74ff271548b91d60cb5
 	}
 	for (const [s, sx] of SIDES$2) if (kind === "people") {
 		for (const [e, sz] of ENDS$2) p[`door${s}${e}`] = [
-			0,
-			-sx * sz * 1.5 * doors,
-			0
-		];
-		p[`flap${s}`] = [
-			0,
-			0,
-			sx * 1.55 * flaps
-		];
+//#piece 3bc495e932d47f54ae69bf3bd68636d077fbbb18b69bd3cd5250bbb1589f70fe
 	} else p[`wing${s}`] = [
 		0,
 		0,
@@ -2618,14 +1910,7 @@ function at$2(kind, { z = 0, lead = 0, doors = 0, flaps = 0 }) {
 const ramp$2 = (u, a, b) => ease(Math.min(1, Math.max(0, (u - a) / (b - a))));
 /** Build a pod and its moves. @param {Kind} kind @returns {Cast} */
 function pod$2(kind) {
-	/** @type {import('./rig').BoneSpec[]} */
-	const bones = [{
-		name: "base",
-		at: [
-			0,
-			.5,
-			0
-		]
+//#piece 52a108852e60be1bbd44aa056d699e283ddb3240072c18e07352460d8221ea85
 	}, ...ENDS$2.flatMap(([e, sz]) => [
 		{
 			name: `axle${e}`,
@@ -2684,23 +1969,10 @@ function pod$2(kind) {
 		]
 	});
 	/** @type {Piece[]} */
-	const parts = [];
-	/** @type {Add} */
-	const add = (geo, color, bone, mat) => void parts.push({
-		geo,
-		color,
-		bone,
-		...mat ? { mat } : {}
-	});
+//#piece 95f197484f7ea4c20f90f40fd5e70297e0d8e4fdb4edc5d04eba4346fcb8bcf8
 	chassis$2(add);
 	(kind === "people" ? people$2 : goods$2)(add);
-	const r = rig(bones, parts, [skin(.45, { side: three.DoubleSide }), skin(.06, {
-		transparent: true,
-		opacity: .3,
-		depthWrite: false
-	})]);
-	r.object.name = kind === "people" ? "pod (people)" : "pod (goods)";
-	/** @param {Parameters<typeof at>[1]} s */
+//#piece 519050f82c9fad128a2e93e3030c2871e7f9d34144708f2f56800b3eb168a221
 	const m = (s) => at$2(kind, s);
 	const run = 3, period = kind === "people" ? 18 : 14;
 	return {
@@ -2712,16 +1984,7 @@ function pod$2(kind) {
 				const z = -3 / 2 + run * there - run * back;
 				const lead = u < .18 ? 1 : u >= h && u < .6799999999999999 ? -1 : 0;
 				const open = (a) => ramp$2(u, a, a + .06) - ramp$2(u, a + .2, a + .26);
-				const k = Math.max(open(.2), open(.7));
-				if (kind === "goods") return m({
-					z,
-					lead,
-					doors: k
-				});
-				return m({
-					z,
-					lead,
-					doors: u < h ? k : 0,
+//#piece 6e73fc021318b3f2b534f386d9cf2268e6100f9d5ab44728e0009e0047178bb7
 					flaps: u < h ? 0 : k
 				});
 			},
@@ -2735,15 +1998,7 @@ function pod$2(kind) {
 			},
 			idle: () => m({})
 		},
-		poses: kind === "people" ? {
-			closed: m({}),
-			"doors open": m({ doors: 1 }),
-			"bay open": m({ flaps: 1 }),
-			"all open": m({
-				doors: 1,
-				flaps: 1
-			})
-		} : {
+//#piece d73d60b11cd84569b062ffb8fbacc835f31f5202721d9598d7c8343ba871c0a3
 			closed: m({}),
 			"wings open": m({ doors: 1 })
 		},
@@ -2753,12 +2008,7 @@ function pod$2(kind) {
 
 //#endregion
 //#region src/lib/actors/pod.v3.js
-/** @typedef {import('./rig').V3} V3 */
-/** @typedef {import('./rig').Piece} Piece */
-/** @typedef {import('./rig').Pose} Pose */
-/** @typedef {import('./rig').Cast} Cast */
-/** @typedef {'people' | 'goods'} Kind */
-/** @typedef {(geo: THREE.BufferGeometry, color: string, bone: string, mat?: number) => void} Add */
+//#piece 0cd254f23a8de8b4ebc0abe2b80f75399361952bdbb16bffbb82479fe14bf265
 const BODY$1 = "#f1f0eb";
 const BAND$1 = "#2f6f68";
 const DARK$1 = "#2a2c2e";
@@ -2778,7 +2028,7 @@ const HW$1 = 1.22;
 const R$1 = .2;
 const GX$1 = 1.435 / 2;
 const AZ$1 = 1.7;
-/** between the axles: half the length of the room there; the bay under the cabin (y from–to); the cabin floor */
+//#piece de2df7bef5eaac6133e7b1251893e54f4c64be9205cab417c7ff9d35f4eb8b90
 const MID$1 = 1.38;
 const BAY_Y$1 = [.14, .52];
 const CABIN$1 = .58;
@@ -2870,11 +2120,7 @@ function chassis$1(add) {
 	], .06), BODY$1, "base");
 	for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
 		add(new three.CylinderGeometry(.07, .08, .07, 20).translate(sx * 1.08, 2.5250000000000004, sz * 1.8599999999999999), DARK$1, "base");
-		add(new three.CylinderGeometry(.06, .06, .03, 20).translate(sx * 1.08, 2.575, sz * 1.8599999999999999), "#4b4f53", "base");
-	}
-}
-/** the bay between the axles under the people mover's floor: its floor, its ends, a flap each side, crates in it */
-/** @param {Add} add */
+//#piece f9a6fd8a2639652bc8b7a1ef6a5096ebbffc999b97286d20b40d4dc24b7504dc
 function bay$1(add) {
 	add(block(HW$1 * 2 - .04, .04, MID$1 * 2, [
 		0,
@@ -2944,11 +2190,7 @@ function bay$1(add) {
 	]) add(block(w, h, d, [
 		x,
 		BAY_Y$1[0] + h / 2,
-		z
-	], .02), c, "base");
-}
-/** the people mover: two compartments of twenty seats over the bay */
-/** @param {Add} add */
+//#piece cc218a3ccfc57f98f00d303a73035210d6143a6996adf045769b228edd4d5057
 function people$1(add) {
 	bay$1(add);
 	add(block(HW$1 * 2 - .04, .06, 3.96, [
@@ -2958,19 +2200,11 @@ function people$1(add) {
 	], .01), FLOOR$1, "base");
 	const top = 2.31;
 	for (const [s, sx] of SIDES$1) {
-		const x = sx * 1.195;
-		/** @type {[number, number][]} the stretches of wall along z between the doors and the ends */
-		const walls = [
+//#piece 7ab6fc380ec7eb8163eaf14b61b2595fa19235b22178a923dacf0d8e3a8a4e62
 			[-2, -.975 - DOOR_W$1 / 2],
 			[-.575, DOOR_Z$1 - DOOR_W$1 / 2],
 			[1.375, HL$1]
-		];
-		for (const [z0, z1] of walls) {
-			const len = z1 - z0, mid = (z0 + z1) / 2;
-			add(block(.05, .5100000000000001, len, [
-				x,
-				(1.63 - .04) / 2,
-				mid
+//#piece 7ab43014a5cfebc4a0b645fe1380446b92eac7685330c32e784d71616f06a950
 			], .02), BODY$1, "base");
 			add(block(.052, .07, len, [
 				x,
@@ -3020,14 +2254,7 @@ function people$1(add) {
 				3.3100000000000005 / 2,
 				mid
 			]), GLASS$1, bone, 1);
-			add(limb([
-				sx * 1.24,
-				1,
-				mid - sz * .3
-			], [
-				sx * 1.24,
-				1.4,
-				mid - sz * .3
+//#piece c38f87904d5ba8881b18614fb0c85d9ad50410a59599204ae97b0a52f0675667
 			], .014, .014), HUB$1, bone);
 		}
 	}
@@ -3062,14 +2289,7 @@ function people$1(add) {
 			2.89 / 2,
 			sz * 1.95
 		], .04), BODY$1, "base");
-		for (const [back, face] of [[1.93, -1], [.06, 1]]) {
-			const bz = sz * back, f = sz * face;
-			for (let i = 0; i < 5; i++) {
-				const x = -.9 + i * .45;
-				add(block(.42, .1, .44, [
-					x,
-					1,
-					bz + f * .27
+//#piece 4cd38b9a646eb30d185dd4af95a7eaaed7a143ab82bc4bdc16bca11b7e10e5d7
 				], .04), SEAT$1, "base");
 				add(block(.42, .62, .08, [
 					x,
@@ -3102,13 +2322,7 @@ function people$1(add) {
 		0,
 		2.27,
 		sz * DOOR_Z$1
-	], .02), "#fbf7ea", "base");
-}
-/**
-* A Euro pallet on the floor at (x, y, z), its length along z: five top boards along it, three cross boards under
-* them, nine blocks, three bottom boards; and its load, cartons stacked to `STACK`, wrapped in film.
-* @param {Add} add @param {number} x @param {number} y @param {number} z @param {string} bone
-*/
+//#piece 07db9bce8fd04a61fdfdfdcf5576368edbfb4f09364b6662eab51abe41dcf930
 function pallet$1(add, x, y, z, bone) {
 	for (const [bx, w] of [
 		[-.3275, .145],
@@ -3280,30 +2494,11 @@ function at$1(kind, { z = 0, lead = 0, doors = 0, flaps = 0, out = 0 }) {
 			0,
 			0
 		];
-		p[`light${e}`] = [
-			0,
-			0,
-			0,
-			lead === -sz ? 0 : 1
-		];
-		p[`tail${e}`] = [
-			0,
-			0,
-			0,
-			lead === -sz ? 1 : 0
-		];
+//#piece 8c09fa285d821b2b9815472e8d3974caa3e5c411888af74ff271548b91d60cb5
 	}
 	for (const [s, sx] of SIDES$1) if (kind === "people") {
 		for (const [e, sz] of ENDS$1) p[`door${s}${e}`] = [
-			0,
-			-sx * sz * 1.5 * doors,
-			0
-		];
-		p[`flap${s}`] = [
-			0,
-			0,
-			sx * 1.55 * flaps
-		];
+//#piece 3bc495e932d47f54ae69bf3bd68636d077fbbb18b69bd3cd5250bbb1589f70fe
 	} else for (const [e, sz] of ENDS$1) {
 		p[`door${s}${e}`] = [
 			0,
@@ -3322,14 +2517,7 @@ function at$1(kind, { z = 0, lead = 0, doors = 0, flaps = 0, out = 0 }) {
 const ramp$1 = (u, a, b) => ease(Math.min(1, Math.max(0, (u - a) / (b - a))));
 /** Build a pod and its moves. @param {Kind} kind @returns {Cast} */
 function pod$1(kind) {
-	/** @type {import('./rig').BoneSpec[]} */
-	const bones = [{
-		name: "base",
-		at: [
-			0,
-			.5,
-			0
-		]
+//#piece 52a108852e60be1bbd44aa056d699e283ddb3240072c18e07352460d8221ea85
 	}, ...ENDS$1.flatMap(([e, sz]) => [
 		{
 			name: `axle${e}`,
@@ -3399,47 +2587,16 @@ function pod$1(kind) {
 		});
 	}
 	/** @type {Piece[]} */
-	const parts = [];
-	/** @type {Add} */
-	const add = (geo, color, bone, mat) => void parts.push({
-		geo,
-		color,
-		bone,
-		...mat ? { mat } : {}
-	});
+//#piece 95f197484f7ea4c20f90f40fd5e70297e0d8e4fdb4edc5d04eba4346fcb8bcf8
 	chassis$1(add);
 	(kind === "people" ? people$1 : goods$1)(add);
-	const r = rig(bones, parts, [skin(.45, { side: three.DoubleSide }), skin(.06, {
-		transparent: true,
-		opacity: .3,
-		depthWrite: false
-	})]);
-	r.object.name = kind === "people" ? "pod (people)" : "pod (goods)";
-	/** @param {Parameters<typeof at>[1]} s */
+//#piece 519050f82c9fad128a2e93e3030c2871e7f9d34144708f2f56800b3eb168a221
 	const m = (s) => at$1(kind, s);
-	const run = 3, period = kind === "people" ? 18 : 14;
-	/** @type {Record<string, import('./rig').Clip>} */
-	const clips = {
-		shuttle: (t) => {
-			const u = loop(t, period), h = .5;
+//#piece 343698e9a640f027151586b1353c7f166ebad0d7b62e4dee69b0f915881e351f
 			const there = ramp$1(u, 0, .18), back = ramp$1(u, h, .6799999999999999);
-			const z = -3 / 2 + run * there - run * back;
-			const lead = u < .18 ? 1 : u >= h && u < .6799999999999999 ? -1 : 0;
+//#piece a17da48bc27924c6d503ac8694b0a34523594c1ed0e4ef8c731ac7e614873a8e
 			const open = (a) => ramp$1(u, a, a + .06) - ramp$1(u, a + .2, a + .26);
-			const k = Math.max(open(.2), open(.7));
-			if (kind === "goods") return m({
-				z,
-				lead,
-				doors: k
-			});
-			return m({
-				z,
-				lead,
-				doors: u < h ? k : 0,
-				flaps: u < h ? 0 : k
-			});
-		},
-		open: (t) => {
+//#piece 4b03e5152783550252f6daffc97d6772911bc8fda321b42c5ddab196064b9d93
 			const k = ramp$1(loop(t, 5), .08, .4);
 			return m({
 				doors: k,
@@ -3471,20 +2628,7 @@ function pod$1(kind) {
 			});
 		};
 	}
-	return {
-		rig: r,
-		clips,
-		poses: kind === "people" ? {
-			closed: m({}),
-			"doors open": m({ doors: 1 }),
-			"bay open": m({ flaps: 1 }),
-			"all open": m({
-				doors: 1,
-				flaps: 1
-			})
-		} : {
-			closed: m({}),
-			"doors open": m({ doors: 1 }),
+//#piece bdbf4427e4d06c9ffe397039e889c88f5435e2219f58e7018cb57dcd8cb0d5a1
 			unloaded: m({
 				doors: 1,
 				out: 1
@@ -3496,12 +2640,7 @@ function pod$1(kind) {
 
 //#endregion
 //#region src/lib/actors/pod.v4.js
-/** @typedef {import('./rig').V3} V3 */
-/** @typedef {import('./rig').Piece} Piece */
-/** @typedef {import('./rig').Pose} Pose */
-/** @typedef {import('./rig').Cast} Cast */
-/** @typedef {'people' | 'goods'} Kind */
-/** @typedef {(geo: THREE.BufferGeometry, color: string, bone: string, mat?: number) => void} Add */
+//#piece 0cd254f23a8de8b4ebc0abe2b80f75399361952bdbb16bffbb82479fe14bf265
 const BODY = "#f1f0eb";
 const BAND = "#2f6f68";
 const DARK = "#2a2c2e";
@@ -3522,7 +2661,7 @@ const ROUND = .1;
 const R = .2;
 const GX = 1.435 / 2;
 const AZ = 1.7;
-/** between the axles: half the length of the room there; the bay under the cabin (y from–to); the cabin floor */
+//#piece de2df7bef5eaac6133e7b1251893e54f4c64be9205cab417c7ff9d35f4eb8b90
 const MID = 1.38;
 const BAY_Y = [.14, .52];
 const CABIN = .58;
@@ -3631,8 +2770,7 @@ function chassis(add) {
 		sz * 1.9
 	], ROUND), BODY, "base");
 }
-/** the bay between the axles under the people mover's floor: its floor, its ends, a flap each side, crates in it */
-/** @param {Add} add */
+//#piece 375a8b3a6351f90f4c5a2e6a5dd6e85168e31abc5a7529625d8c550509ab0488
 function bay(add) {
 	add(block(HW * 2 - .04, .04, MID * 2, [
 		0,
@@ -3702,11 +2840,7 @@ function bay(add) {
 	]) add(block(w, h, d, [
 		x,
 		BAY_Y[0] + h / 2,
-		z
-	], .02), c, "base");
-}
-/** the people mover: two compartments of twenty seats over the bay */
-/** @param {Add} add */
+//#piece cc218a3ccfc57f98f00d303a73035210d6143a6996adf045769b228edd4d5057
 function people(add) {
 	bay(add);
 	add(block(HW * 2 - .04, .06, 3.96, [
@@ -3716,19 +2850,11 @@ function people(add) {
 	], .01), FLOOR, "base");
 	const top = 2.4099999999999997;
 	for (const [s, sx] of SIDES) {
-		const x = sx * 1.195;
-		/** @type {[number, number][]} the stretches of wall along z between the doors and the ends */
-		const walls = [
+//#piece 7ab6fc380ec7eb8163eaf14b61b2595fa19235b22178a923dacf0d8e3a8a4e62
 			[-1.9, -.975 - DOOR_W / 2],
 			[-.575, DOOR_Z - DOOR_W / 2],
 			[1.375, 1.9]
-		];
-		for (const [z0, z1] of walls) {
-			const len = z1 - z0, mid = (z0 + z1) / 2;
-			add(block(.05, .5100000000000001, len, [
-				x,
-				(1.63 - .04) / 2,
-				mid
+//#piece 7ab43014a5cfebc4a0b645fe1380446b92eac7685330c32e784d71616f06a950
 			], .02), BODY, "base");
 			add(block(.052, .07, len, [
 				x,
@@ -3778,14 +2904,7 @@ function people(add) {
 				3.41 / 2,
 				mid
 			]), GLASS, bone, 1);
-			add(limb([
-				sx * 1.24,
-				1,
-				mid - sz * .3
-			], [
-				sx * 1.24,
-				1.4,
-				mid - sz * .3
+//#piece c38f87904d5ba8881b18614fb0c85d9ad50410a59599204ae97b0a52f0675667
 			], .014, .014), HUB, bone);
 		}
 	}
@@ -3810,14 +2929,7 @@ function people(add) {
 			2.3499999999999996,
 			sz * 1.99
 		], .01), DARK, "base");
-		for (const [back, face] of [[1.93, -1], [.06, 1]]) {
-			const bz = sz * back, f = sz * face;
-			for (let i = 0; i < 5; i++) {
-				const x = -.9 + i * .45;
-				add(block(.42, .1, .44, [
-					x,
-					1,
-					bz + f * .27
+//#piece 4cd38b9a646eb30d185dd4af95a7eaaed7a143ab82bc4bdc16bca11b7e10e5d7
 				], .04), SEAT, "base");
 				add(block(.42, .62, .08, [
 					x,
@@ -3850,13 +2962,7 @@ function people(add) {
 		0,
 		2.3699999999999997,
 		sz * DOOR_Z
-	], .02), "#fbf7ea", "base");
-}
-/**
-* A Euro pallet on the floor at (x, y, z), its length along z: five top boards along it, three cross boards under
-* them, nine blocks, three bottom boards; and its load, cartons stacked to `STACK`, wrapped in film.
-* @param {Add} add @param {number} x @param {number} y @param {number} z @param {string} bone
-*/
+//#piece 07db9bce8fd04a61fdfdfdcf5576368edbfb4f09364b6662eab51abe41dcf930
 function pallet(add, x, y, z, bone) {
 	for (const [bx, w] of [
 		[-.3275, .145],
@@ -3954,11 +3060,7 @@ function goods(add) {
 	for (const [s, sx] of SIDES) {
 		const x = sx * 1.195;
 		for (const [e, sz] of ENDS) {
-			const bone = `rack${s}${e}`, w = .5000000000000001, mz = sz * (1.9 - w / 2);
-			add(block(.04, 1.7899999999999996, w, [
-				x,
-				2.9499999999999997 / 2,
-				mz
+//#piece 6d3c03eb417dd2e89625e4c61fa221e088b3430fd72dd869f139d6a3cd5490b9
 			], .015), BODY, bone);
 			add(block(.044, .07, w, [
 				x,
@@ -4030,11 +3132,7 @@ function goods(add) {
 			y0 + h * .35,
 			sz * 1.67
 		], .02), CRATE2, "base");
-	}
-}
-/**
-* The pod at a moment: where it is along z (driving), which way it leads, its doors (0 shut … 1 open), its bay's
-* flaps, how far the goods pod's pallets are out of their doors (0 in … 1 out on the platform beside it), and its
+//#piece a9ff27a29b663ebb2a7091239dfa5c0b8a3bbab7b01c669d2f1968282123de56
 * racks' doors (one number for all, or one each by name: `LN` is the left one at the north end).
 * @param {Kind} kind
 * @param {{ z?: number, lead?: -1 | 0 | 1, doors?: number, flaps?: number, out?: number, racks?: number | ((name: string) => number) }} s
@@ -4053,30 +3151,11 @@ function at(kind, { z = 0, lead = 0, doors = 0, flaps = 0, out = 0, racks = 0 })
 			0,
 			0
 		];
-		p[`light${e}`] = [
-			0,
-			0,
-			0,
-			lead === -sz ? 0 : 1
-		];
-		p[`tail${e}`] = [
-			0,
-			0,
-			0,
-			lead === -sz ? 1 : 0
-		];
+//#piece 8c09fa285d821b2b9815472e8d3974caa3e5c411888af74ff271548b91d60cb5
 	}
 	for (const [s, sx] of SIDES) if (kind === "people") {
 		for (const [e, sz] of ENDS) p[`door${s}${e}`] = [
-			0,
-			-sx * sz * 1.5 * doors,
-			0
-		];
-		p[`flap${s}`] = [
-			0,
-			0,
-			sx * 1.55 * flaps
-		];
+//#piece 3bc495e932d47f54ae69bf3bd68636d077fbbb18b69bd3cd5250bbb1589f70fe
 	} else for (const [e, sz] of ENDS) {
 		p[`door${s}${e}`] = [
 			0,
@@ -4088,26 +3167,11 @@ function at(kind, { z = 0, lead = 0, doors = 0, flaps = 0, out = 0, racks = 0 })
 			0,
 			-Math.asin(sx * OUT * out / PIVOT)
 		];
-		p[`rack${s}${e}`] = [
-			0,
-			-sx * sz * 1.7 * (typeof racks === "number" ? racks : racks(`${s}${e}`)),
-			0
-		];
-	}
-	return p;
-}
-/** from 0 to 1 over [a, b] of the cycle, eased @param {number} u @param {number} a @param {number} b */
+//#piece 0f9f96f49b6306e1a274cac3b9ffd34887ab7184cbb228c663c20cd66aa3d661
 const ramp = (u, a, b) => ease(Math.min(1, Math.max(0, (u - a) / (b - a))));
 /** Build a pod and its moves. @param {Kind} kind @returns {Cast} */
 function pod(kind) {
-	/** @type {import('./rig').BoneSpec[]} */
-	const bones = [{
-		name: "base",
-		at: [
-			0,
-			.5,
-			0
-		]
+//#piece 52a108852e60be1bbd44aa056d699e283ddb3240072c18e07352460d8221ea85
 	}, ...ENDS.flatMap(([e, sz]) => [
 		{
 			name: `axle${e}`,
@@ -4186,47 +3250,16 @@ function pod(kind) {
 		});
 	}
 	/** @type {Piece[]} */
-	const parts = [];
-	/** @type {Add} */
-	const add = (geo, color, bone, mat) => void parts.push({
-		geo,
-		color,
-		bone,
-		...mat ? { mat } : {}
-	});
+//#piece 95f197484f7ea4c20f90f40fd5e70297e0d8e4fdb4edc5d04eba4346fcb8bcf8
 	chassis(add);
 	(kind === "people" ? people : goods)(add);
-	const r = rig(bones, parts, [skin(.45, { side: three.DoubleSide }), skin(.06, {
-		transparent: true,
-		opacity: .3,
-		depthWrite: false
-	})]);
-	r.object.name = kind === "people" ? "pod (people)" : "pod (goods)";
-	/** @param {Parameters<typeof at>[1]} s */
+//#piece 519050f82c9fad128a2e93e3030c2871e7f9d34144708f2f56800b3eb168a221
 	const m = (s) => at(kind, s);
-	const run = 3, period = kind === "people" ? 18 : 14;
-	/** @type {Record<string, import('./rig').Clip>} */
-	const clips = {
-		shuttle: (t) => {
-			const u = loop(t, period), h = .5;
+//#piece 343698e9a640f027151586b1353c7f166ebad0d7b62e4dee69b0f915881e351f
 			const there = ramp(u, 0, .18), back = ramp(u, h, .6799999999999999);
-			const z = -3 / 2 + run * there - run * back;
-			const lead = u < .18 ? 1 : u >= h && u < .6799999999999999 ? -1 : 0;
+//#piece a17da48bc27924c6d503ac8694b0a34523594c1ed0e4ef8c731ac7e614873a8e
 			const open = (a) => ramp(u, a, a + .06) - ramp(u, a + .2, a + .26);
-			const k = Math.max(open(.2), open(.7));
-			if (kind === "goods") return m({
-				z,
-				lead,
-				doors: k
-			});
-			return m({
-				z,
-				lead,
-				doors: u < h ? k : 0,
-				flaps: u < h ? 0 : k
-			});
-		},
-		open: (t) => {
+//#piece 4b03e5152783550252f6daffc97d6772911bc8fda321b42c5ddab196064b9d93
 			const k = ramp(loop(t, 5), .08, .4);
 			return m({
 				doors: k,
@@ -4257,39 +3290,9 @@ function pod(kind) {
 			return m({
 				doors: ramp(u, .04, .16) - ramp(u, .55, .67),
 				out: ramp(u, .2, .5)
-			});
-		};
-		const ORDER = [
-			"LN",
-			"LS",
-			"RS",
-			"RN"
-		];
-		clips.racks = (t) => {
-			const u = loop(t, 12) * ORDER.length;
-			return m({ racks: (name) => {
-				const v = u - ORDER.indexOf(name);
+//#piece 059990e813778ad4f1698e989d7c30fbe9a5a515fefdf48155cad3e213ed0535
 				return v < 0 || v > 2.5 ? 0 : ramp(v, 0, .5) - ramp(v, 2, 2.5);
-			} });
-		};
-	}
-	return {
-		rig: r,
-		clips,
-		poses: kind === "people" ? {
-			closed: m({}),
-			"doors open": m({ doors: 1 }),
-			"bay open": m({ flaps: 1 }),
-			"all open": m({
-				doors: 1,
-				flaps: 1
-			})
-		} : {
-			closed: m({}),
-			"doors open": m({ doors: 1 }),
-			"racks open": m({ racks: 1 }),
-			unloaded: m({
-				doors: 1,
+//#piece f427aa5bc8fd44d0c84fa48c319b71da1faff8b21aee09cbc0272a863dfec0a7
 				out: 1
 			})
 		},
@@ -4298,66 +3301,7 @@ function pod(kind) {
 }
 
 //#endregion
-//#region src/lib/app/versions.js
-/** @typedef {{ v: number, date: string, note: string }} Change one version: its number, when, what changed */
-/**
-* @template B
-* @typedef {Change & { build: B, kept: boolean }} Version a version and what builds it; `kept`: its own builder (the
-*   latest's, or a frozen one), not the latest's standing in for one that was not kept
-*/
-/** The first version of everything: what every asset was when versions began. */
-const FIRST = {
-	v: 1,
-	date: "2026-10-05",
-	note: "First version"
-};
-/**
-* An asset's versions, oldest first: its history, the latest built by `current`. A history lists every version; the
-* ones before the latest bring their own (frozen) builders. With no history the asset is at v1.
-* @template B
-* @param {B} current the asset's builder today
-* @param {(Change & { build?: B })[]} [history]
-* @returns {Version<B>[]}
-*/
-function versionsOf(current, history = [FIRST]) {
-	const sorted = [...history].sort((a, b) => a.v - b.v);
-	return sorted.map((c, i) => {
-		const latest = i === sorted.length - 1;
-		return {
-			v: c.v,
-			date: c.date,
-			note: c.note,
-			build: latest ? current : c.build ?? current,
-			kept: latest || c.build !== void 0
-		};
-	});
-}
-/** The latest version number. @param {{ v: number }[]} versions */
-const latestOf = (versions) => versions[versions.length - 1]?.v ?? 1;
-/**
-* Every item of a list with its versions: `versions` from its `HISTORY` entry (by id) and its builder (`key`), and
-* `version` its latest number.
-* @template {{ id: string }} T
-* @param {T[]} items @param {keyof T} key @param {Record<string, (Change & { build?: any })[]>} [history]
-* @returns {(T & { versions: Version<any>[], version: number })[]}
-*/
-function versioned(items, key, history = {}) {
-	return items.map((it) => {
-		const versions = versionsOf(it[key], history[it.id]);
-		return {
-			...it,
-			versions,
-			version: latestOf(versions)
-		};
-	});
-}
-
-//#endregion
-//#region src/lib/machines/index.js
-/** @typedef {import('$lib/actors').Actor} Actor */
-/** @typedef {import('$lib/actors').Family} Family */
-/** the kinds' older versions, by id, each with its frozen variants (the rest are at v1)
-* @type {Record<string, (import('$lib/app/versions.js').Change & { build?: Actor[] })[]>} */
+//#piece 3532b0d665f0eafc01676fed7d204bcc39878ec23b8713471ddbe88f6ab93fb2
 const HISTORY = /* @__PURE__ */ (() => ({ pod: [
 	{
 		...FIRST,
@@ -4444,99 +3388,4 @@ const LIST = [{
 		label: "Goods",
 		note: "four Euro pallets (1200 × 800 mm) in two rows lengthwise, carried in and out by four forklifts, each row behind two doors on its side that swing open left and right; a hold 2.2 m high; over the axles, racks of five compartments at different heights, each rack behind one tall door",
 		make: () => pod$4("goods")
-	}]
-}];
-/** @type {Family[]} */
-const MACHINES = /* @__PURE__ */ (() => versioned(LIST, "variants", HISTORY))();
-
-//#endregion
-//#region src/lib/assets/refs.js
-/**
-* The asset `id` at version `v` (its latest when not given), and a kind's variant (the one asked for, or its first), in a
-* group's list: its item, its version and its builder. Undefined if there is no such asset, version or variant.
-* @param {Item[]} list @param {string} id @param {number} [v] @param {string} [variant]
-* @returns {{ item: Item, version: AnyVersion, build: any, kept: boolean } | undefined}
-*/
-function pick(list, id, v, variant) {
-	const item = list.find((x) => x.id === id);
-	const version = item && (v === void 0 ? item.versions[item.versions.length - 1] : item.versions.find((x) => x.v === v));
-	if (!item || !version) return void 0;
-	let build = version.build;
-	if (Array.isArray(build) && build.every((x) => typeof x?.make === "function")) {
-		build = (variant ? build.find((x) => x.id === variant) : build[0])?.make;
-		if (!build) return void 0;
-	} else if (variant) return void 0;
-	return {
-		item,
-		version,
-		build,
-		kept: version.kept
-	};
-}
-
-//#endregion
-//#region src/lib/assets/recipe.js
-/** @typedef {import('./groups.js').Item} Item @typedef {import('./groups.js').AnyVersion} AnyVersion */
-/** @typedef {import('./card.js').Meta} Meta */
-/** the keys of `o` that are set, as a fresh plain object */
-const set = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== void 0));
-/**
-* What a recipe says of the asset it builds: a kind's variant named (the one asked for, or its first), its label
-* with the variant's, its note the variant's or the version's.
-* @param {string} group @param {Item} item @param {AnyVersion} version @param {string} [variant]
-* @returns {Meta}
-*/
-function metaOf(group, item, version, variant) {
-	const v = Array.isArray(version.build) ? version.build.find((x) => x.id === (variant ?? version.build[0]?.id)) : null;
-	return set({
-		group,
-		id: item.id,
-		version: version.v,
-		variant: variant ?? v?.id,
-		label: v?.label ? `${item.label}: ${v.label}` : item.label,
-		note: v?.note ?? version.note,
-		params: item.params?.length ? JSON.parse(JSON.stringify(item.params)) : void 0
-	});
-}
-/**
-* The recipe of one asset in a group's list: what its file gives the engine. Throws when it has no builder of its own.
-* @param {string} group @param {Item[]} list @param {string} id @param {number} v @param {string | null} [variant]
-* @returns {{ meta: Meta, build: (...args: any[]) => any }}
-*/
-function recipeIn(group, list, id, v, variant) {
-	const got = pick(list, id, v, variant ?? void 0);
-	if (!got) throw new Error(`no asset ${group}/${id}@${v}${variant ? `:${variant}` : ""}`);
-	if (!got.kept || typeof got.build !== "function") throw new Error(`${group}/${id}@${v}: no builder of its own`);
-	return {
-		meta: metaOf(group, got.item, got.version, variant ?? void 0),
-		build: got.build
-	};
-}
-/**
-* Every recipe a group's list holds: each version that kept its builder, each variant of it.
-* @param {Item[]} list @returns {{ id: string, v: number, variant: string | null }[]}
-*/
-function recipesIn(list) {
-	/** @type {{ id: string, v: number, variant: string | null }[]} */
-	const out = [];
-	for (const item of list) for (const version of item.versions.filter((x) => x.kept)) if (Array.isArray(version.build)) for (const b of version.build) out.push({
-		id: item.id,
-		v: version.v,
-		variant: b.id
-	});
-	else out.push({
-		id: item.id,
-		v: version.v,
-		variant: null
-	});
-	return out;
-}
-
-//#endregion
-//#region \0entry
-const recipe = (id, v, variant) => recipeIn("machines", MACHINES, id, v, variant);
-const list = () => recipesIn(MACHINES);
-
-//#endregion
-exports.list = list;
-exports.recipe = recipe;
+//#piece 20511e453deb92755bacd120421d0eb6ad8a5a0f798a0e64253b61fe9748854f

@@ -1,0 +1,9 @@
+//#piece a36436662c865289ff6d85d917935518b90e69ab93e984949afb70b99a9b7768
+//#piece 686fdf4acaf61271e9509c424186b4ad2195cb700e3627222df6abac6abfc66e
+//#region \0entry
+const recipe = (id, v, variant) => recipeIn("plants", PLANTS, id, v, variant);
+const list = () => recipesIn(PLANTS);
+
+//#endregion
+exports.list = list;
+exports.recipe = recipe;

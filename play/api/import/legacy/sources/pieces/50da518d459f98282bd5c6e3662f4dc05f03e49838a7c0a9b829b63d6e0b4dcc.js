@@ -1,0 +1,40 @@
+const STEP_6 = {
+	tray: 1,
+	terminals: 1,
+	"release-left": 1,
+	"release-right": 1,
+	front: 2,
+	base: 2,
+	charge: 2,
+	handles: 2,
+	"catch-left": 2,
+	"catch-right": 2,
+	"lock-pawls": 2,
+	"lock-springs": 2,
+	"lock-pivots": 2,
+	"lock-cables": 2,
+	"lock-trigger": 2,
+	"plates-bottom": 3,
+	"holder-bottom": 3,
+	cells: 3,
+	"holder-top": 4,
+	"plates-top": 4,
+	clamp: 4,
+	bms: 5,
+	"inner-plug": 5
+};
+const GROUP_6 = {
+	tray: "shell",
+	terminals: "shell",
+	"release-left": "shell",
+	"release-right": "shell",
+	front: "drawer",
+	base: "drawer",
+	charge: "drawer",
+	handles: "drawer",
+	clamp: "drawer",
+	"catch-left": "drawer",
+	"catch-right": "drawer",
+//#piece 1fe05e212e885c1776e0d02e51cff502b23e49c779c19377820a157e62719c62
+	"inner-plug": "electronics"
+};

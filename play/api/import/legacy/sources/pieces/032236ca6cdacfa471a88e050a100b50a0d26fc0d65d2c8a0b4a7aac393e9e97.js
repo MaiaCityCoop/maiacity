@@ -1,0 +1,7 @@
+//#piece 928128b72cddd82a3a389d635f0df238a24b91a0c40f5631b3c941f8b231cb2c
+//#piece c866d17ffe734a62e3f19543c61df75cf254c7d9eff724af026c0e8ac3b715f9
+//#piece b64446af92b30d928e84d34748387a9ed7ed039c9ec770732f906239142669f5
+//#piece 2a6ad0386ff69cdbb548c456e3f68c48286274961d0c609bace6b370ea05f5de
+//#region src/lib/plants/wald-canopy.js
+//#piece a82999158b30fb3a0ed82921acc6a52ffefd907f320d529c20896aaa58977963
+const TAU = /* @__PURE__ */ (() => Math.PI * 2)();

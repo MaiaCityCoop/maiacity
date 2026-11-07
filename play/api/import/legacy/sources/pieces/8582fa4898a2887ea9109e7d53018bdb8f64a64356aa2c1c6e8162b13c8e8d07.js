@@ -1,0 +1,3 @@
+//#piece dcbf96dddb66aa38fd96ad90ce7a877a27359df179de3c34334377c79d7b37fc
+//#region src/lib/plants/crown.js
+//#piece 70a0517662afdde796671019673a382b60f0491cf973ce93d50c2953d8f19467

@@ -1,0 +1,24 @@
+//#piece 6ff4ef0a834a1621455b298f7b7c6d6f43ebb51f34a92495a03eb4a976351400
+//#piece 58c58167ade2ca1481d3c254b32479fe40e011f2450a48216cac22e1d13bae7e
+//#piece eae5bfb765658699093a2621fbbdac212c6518742657c0775beb7d6fdc3ce57f
+//#piece 4413d18459b5b2ad5025aa6ee7331e38a1b5617a1283593d0b42c7ab8a3c38d2
+//#piece 5ea765a0295e46e86982bdfbe4f8f4ce4600e0aa378eebe48161c9c745421f12
+//#piece 55dc41372a7dcaec6e490eedae0d79242ec2cf1859ba5e13a86f508e0bdf6e9f
+*/
+//#piece edb4ceb9c18e7d6fbbf629eeb69eda9c955eafe40f78466af0be23d8c955114e
+//#piece 1631ae30ee2504e8cfe2e7ad62e517aa301dc9d2e92c5250e4d3abf2d9b91270
+//#piece 5642dfecdc664996a8e73c5ba8a710fd1e5e7ec228bde14fbf2e7ab1aacdf18f
+//#piece 1bdf5e1d0de0e32e46d03e5827a8c50deb575f7f434a7e8695395519d6b52caf
+//#piece c7d2ea1292a2f1e119149acba361105546fe3f3163f1c685dfd695c76a3db11c
+//#piece f208a58e3432150cd18c2dab038f52d22892512a669f4b5287b1014a89ae8cb3
+//#piece 021c6d36042576e8828e3df5184dd302d70e3eaea5e1f1ea4e0eef2a55fa1c9b
+//#piece 54fc30ca8a959d2dfd3c07a74b0041edbbebd16b8f7e6d1ef22b347342ee467b
+}))();
+
+//#endregion
+//#piece fb10ce2bde67f6075f83f86430f2191be7c630529abacae1e7d63859864d93c7
+//#piece 778d70d6c9cc6313f972af6754e9e6f2f639855d6939159d56a854ace66f3cd0
+//#region src/lib/actors/index.ts
+/** the kinds' older versions, by id, each with its frozen variants (the rest are at v1) */
+const HISTORY = /* @__PURE__ */ (() => ({}))();
+//#piece 70082f8e713dbec65519cb470259f5e30010da770b255dc43174ceba71216ae1

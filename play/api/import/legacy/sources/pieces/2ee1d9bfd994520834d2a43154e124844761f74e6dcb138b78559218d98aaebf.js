@@ -1,0 +1,3 @@
+//#piece 19bf8135eac4ed51d8370866b4040928b7287c81c41f4c740ae758c023cf7768
+//#piece d5345433ab5819195e1f7cc4e8ee9913062171bcde555418fd66fd6ade735684
+//#region src/lib/actors/excavator-rig.js

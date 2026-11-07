@@ -1,526 +1,6 @@
-Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
-//#region \0rolldown/runtime.js
-var __create = Object.create;
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __copyProps = (to, from, except, desc) => {
-	if (from && typeof from === "object" || typeof from === "function") {
-		for (var keys = __getOwnPropNames(from), i = 0, n = keys.length, key; i < n; i++) {
-			key = keys[i];
-			if (!__hasOwnProp.call(to, key) && key !== except) {
-				__defProp(to, key, {
-					get: ((k) => from[k]).bind(null, key),
-					enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
-				});
-			}
-		}
-	}
-	return to;
-};
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(isNodeMode || !mod || !mod.__esModule || !__hasOwnProp.call(mod, "default") ? __defProp(target, "default", {
-	value: mod,
-	enumerable: true
-}) : target, mod));
-
-//#endregion
-let three = require("three");
-three = __toESM(three, 1);
-let three_addons_utils_BufferGeometryUtils_js = require("three/addons/utils/BufferGeometryUtils.js");
-let three_addons_geometries_RoundedBoxGeometry_js = require("three/addons/geometries/RoundedBoxGeometry.js");
-
-//#region src/lib/actors/dqs.ts
-const PARS = `
-#ifdef USE_SKINNING
-	vec4 dqQuat( mat3 m ) {
-		float tr = m[0][0] + m[1][1] + m[2][2];
-		if ( tr > 0.0 ) {
-			float s = sqrt( tr + 1.0 ) * 2.0;
-			return vec4( ( m[1][2] - m[2][1] ) / s, ( m[2][0] - m[0][2] ) / s, ( m[0][1] - m[1][0] ) / s, 0.25 * s );
-		} else if ( m[0][0] > m[1][1] && m[0][0] > m[2][2] ) {
-			float s = sqrt( 1.0 + m[0][0] - m[1][1] - m[2][2] ) * 2.0;
-			return vec4( 0.25 * s, ( m[1][0] + m[0][1] ) / s, ( m[2][0] + m[0][2] ) / s, ( m[1][2] - m[2][1] ) / s );
-		} else if ( m[1][1] > m[2][2] ) {
-			float s = sqrt( 1.0 + m[1][1] - m[0][0] - m[2][2] ) * 2.0;
-			return vec4( ( m[1][0] + m[0][1] ) / s, 0.25 * s, ( m[2][1] + m[1][2] ) / s, ( m[2][0] - m[0][2] ) / s );
-		}
-		float s = sqrt( 1.0 + m[2][2] - m[0][0] - m[1][1] ) * 2.0;
-		return vec4( ( m[2][0] + m[0][2] ) / s, ( m[2][1] + m[1][2] ) / s, 0.25 * s, ( m[0][1] - m[1][0] ) / s );
-	}
-	// a bone's matrix into the blend: its rotation (real part), its translation (dual part), its size
-	void dqAdd( mat4 b, float w, vec4 first, inout vec4 real, inout vec4 dual, inout float size ) {
-		if ( w <= 0.0 ) return;
-		float s = length( b[0].xyz );
-		vec4 q = dqQuat( mat3( b[0].xyz / s, b[1].xyz / s, b[2].xyz / s ) );
-		vec3 t = b[3].xyz;
-		vec4 d = 0.5 * vec4( t * q.w + cross( t, q.xyz ), - dot( t, q.xyz ) );
-		float k = dot( q, first ) < 0.0 ? - w : w;
-		real += k * q;
-		dual += k * d;
-		size += w * s;
-	}
-	vec3 dqTurn( vec4 q, vec3 v ) { return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v ); }
-#endif
-`;
-const BASE = `
-#ifdef USE_SKINNING
-	mat4 boneMatX = getBoneMatrix( skinIndex.x );
-	mat4 boneMatY = getBoneMatrix( skinIndex.y );
-	mat4 boneMatZ = getBoneMatrix( skinIndex.z );
-	mat4 boneMatW = getBoneMatrix( skinIndex.w );
-	vec4 dqReal = vec4( 0.0 ), dqDual = vec4( 0.0 );
-	float dqSize = 0.0;
-	{
-		mat4 bx = boneMatX;
-		float s0 = length( bx[0].xyz );
-		vec4 first = dqQuat( mat3( bx[0].xyz / s0, bx[1].xyz / s0, bx[2].xyz / s0 ) );
-		dqAdd( boneMatX, skinWeight.x, first, dqReal, dqDual, dqSize );
-		dqAdd( boneMatY, skinWeight.y, first, dqReal, dqDual, dqSize );
-		dqAdd( boneMatZ, skinWeight.z, first, dqReal, dqDual, dqSize );
-		dqAdd( boneMatW, skinWeight.w, first, dqReal, dqDual, dqSize );
-		float total = max( skinWeight.x + skinWeight.y + skinWeight.z + skinWeight.w, 1e-5 );
-		dqSize /= total;
-		float len = max( length( dqReal ), 1e-6 );
-		dqReal /= len;
-		dqDual /= len;
-	}
-	vec3 dqMove = 2.0 * ( dqReal.w * dqDual.xyz - dqDual.w * dqReal.xyz + cross( dqReal.xyz, dqDual.xyz ) );
-#endif
-`;
-const NORMAL = `
-#ifdef USE_SKINNING
-	objectNormal = ( bindMatrixInverse * vec4( dqTurn( dqReal, ( bindMatrix * vec4( objectNormal, 0.0 ) ).xyz ), 0.0 ) ).xyz;
-	#ifdef USE_TANGENT
-		objectTangent = ( bindMatrixInverse * vec4( dqTurn( dqReal, ( bindMatrix * vec4( objectTangent, 0.0 ) ).xyz ), 0.0 ) ).xyz;
-	#endif
-#endif
-`;
-const VERTEX = `
-#ifdef USE_SKINNING
-	vec3 skinVertex = ( bindMatrix * vec4( transformed, 1.0 ) ).xyz;
-	transformed = ( bindMatrixInverse * vec4( dqTurn( dqReal, skinVertex * dqSize ) + dqMove, 1.0 ) ).xyz;
-#endif
-`;
-let installed = false;
-/** Every skinned mesh from here on skins by dual quaternions. */
-function dualQuaternionSkinning() {
-	if (installed) return;
-	installed = true;
-	const chunks = three.ShaderChunk;
-	chunks.skinning_pars_vertex = chunks.skinning_pars_vertex + PARS;
-	chunks.skinbase_vertex = BASE;
-	chunks.skinnormal_vertex = NORMAL;
-	chunks.skinning_vertex = VERTEX;
-}
-
-//#endregion
-//#region src/lib/actors/rig.ts
-function rig(bones, parts, materials) {
-	dualQuaternionSkinning();
-	const byName = {};
-	const at = {};
-	const parent = {};
-	const list = [];
-	for (const b of bones) {
-		const bone = new three.Bone();
-		bone.name = b.name;
-		at[b.name] = new three.Vector3(...b.at);
-		parent[b.name] = b.parent;
-		if (b.parent) {
-			bone.position.copy(at[b.name]).sub(at[b.parent]);
-			byName[b.parent].add(bone);
-		} else bone.position.copy(at[b.name]);
-		byName[b.name] = bone;
-		list.push(bone);
-	}
-	const index = new Map(list.map((b, i) => [b.name, i]));
-	const v = new three.Vector3(), d = new three.Vector3(), q = new three.Vector3();
-	const weigh = (p, out) => {
-		out.clear();
-		if (p.weights) {
-			for (const [name, x] of p.weights(v)) out.set(name, (out.get(name) ?? 0) + x);
-			return;
-		}
-		if (!p.chain) return void out.set(p.bone, 1);
-		const { bones: names, soft = .05, tip } = p.chain;
-		const ends = names.map((n, i) => {
-			if (i < names.length - 1) return at[names[i + 1]];
-			if (tip) return new three.Vector3(...tip);
-			const prev = i > 0 ? at[names[i - 1]] : at[parent[n]] ?? at[n].clone().add(new three.Vector3(0, -.1, 0));
-			return at[n].clone().multiplyScalar(2).sub(prev);
-		});
-		let best = 0, bestD = Infinity, bestS = 0, bestLen = 1;
-		names.forEach((n, i) => {
-			const a = at[n], b = ends[i];
-			d.subVectors(b, a);
-			const len = Math.max(1e-6, d.length());
-			const s = three.MathUtils.clamp(q.subVectors(v, a).dot(d) / len, 0, len);
-			const dist = q.copy(a).addScaledVector(d, s / len).distanceTo(v);
-			if (dist < bestD - 1e-9) [best, bestD, bestS, bestLen] = [
-				i,
-				dist,
-				s,
-				len
-			];
-		});
-		const own = names[best];
-		const k = Math.min(soft, bestLen / 2);
-		const back = best > 0 ? names[best - 1] : parent[own];
-		const next = names[best + 1];
-		const wBack = back && bestS < k ? .5 - .5 * bestS / k : 0;
-		const wNext = next && bestLen - bestS < k ? .5 - .5 * (bestLen - bestS) / k : 0;
-		out.set(own, 1 - wBack - wNext);
-		if (wBack) out.set(back, (out.get(back) ?? 0) + wBack);
-		if (wNext) out.set(next, (out.get(next) ?? 0) + wNext);
-	};
-	const w = /* @__PURE__ */ new Map(), c = new three.Color();
-	const geoOf = (p) => "skin" in p ? p.skin.geo : p.geo;
-	if (DETAIL < 1) {
-		const size = (p) => {
-			const g = geoOf(p);
-			return (g.boundingSphere ?? (g.computeBoundingSphere(), g.boundingSphere)).radius;
-		};
-		const largest = Math.max(...parts.map(size));
-		parts = parts.filter((p) => size(p) >= largest * .12);
-	}
-	const geos = parts.map((p) => {
-		if ("skin" in p) {
-			const g = p.skin.geo.clone(), n = g.attributes.position.count;
-			const si = new Uint16Array(n * 4);
-			const ids = p.skin.bones.map((name) => {
-				if (!index.has(name)) throw new Error(`skin: no bone ${name}`);
-				return index.get(name);
-			});
-			for (let i = 0; i < n * 4; i++) si[i] = ids[p.skin.index[i]] ?? 0;
-			g.setAttribute("skinIndex", new three.Uint16BufferAttribute(si, 4));
-			g.setAttribute("skinWeight", new three.Float32BufferAttribute(p.skin.weight.slice(), 4));
-			return g;
-		}
-		const g = p.geo.clone();
-		if (!g.index) g.setIndex(Array.from({ length: g.attributes.position.count }, (_, i) => i));
-		for (const name of Object.keys(g.attributes)) if (name !== "position" && name !== "normal") g.deleteAttribute(name);
-		if (!g.attributes.normal) g.computeVertexNormals();
-		const pos = g.attributes.position, n = pos.count;
-		const color = new Float32Array(n * 3), si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
-		for (let i = 0; i < n; i++) {
-			v.fromBufferAttribute(pos, i);
-			c.set(typeof p.color === "string" ? p.color : p.color(v, i));
-			color[i * 3] = c.r;
-			color[i * 3 + 1] = c.g;
-			color[i * 3 + 2] = c.b;
-			weigh(p, w);
-			const top = [...w].sort((x, y) => y[1] - x[1]).slice(0, 4);
-			const sum = top.reduce((s, [, x]) => s + x, 0) || 1;
-			top.forEach(([name, x], k) => {
-				si[i * 4 + k] = index.get(name) ?? 0;
-				sw[i * 4 + k] = x / sum;
-			});
-		}
-		g.setAttribute("color", new three.BufferAttribute(color, 3));
-		g.setAttribute("skinIndex", new three.Uint16BufferAttribute(si, 4));
-		g.setAttribute("skinWeight", new three.Float32BufferAttribute(sw, 4));
-		return g;
-	});
-	const morphs = [...new Set(parts.flatMap((p) => "morph" in p && p.morph ? Object.keys(p.morph) : []))];
-	if (morphs.length) geos.forEach((g, i) => {
-		const p = parts[i], n = g.attributes.position.count;
-		g.morphAttributes.position = morphs.map((name) => {
-			const d = "morph" in p ? p.morph?.[name] : void 0;
-			const a = new three.Float32BufferAttribute(d && d.length === n * 3 ? d : new Float32Array(n * 3), 3);
-			a.name = name;
-			return a;
-		});
-		g.morphTargetsRelative = true;
-	});
-	const geometry = (0, three_addons_utils_BufferGeometryUtils_js.mergeGeometries)(geos, true);
-	geometry.groups.forEach((grp, i) => grp.materialIndex = parts[i].mat ?? 0);
-	if (morphs.length) {
-		geometry.morphTargetsRelative = true;
-		geometry.morphAttributes.position.forEach((a, i) => a.name = morphs[i]);
-	}
-	const mesh = new three.SkinnedMesh(geometry, materials);
-	mesh.add(list[0]);
-	mesh.updateMatrixWorld(true);
-	mesh.bind(new three.Skeleton(list));
-	mesh.castShadow = mesh.receiveShadow = true;
-	mesh.frustumCulled = false;
-	return {
-		object: mesh,
-		bones: byName,
-		names: list.map((b) => b.name),
-		pose: poser(list),
-		parts: parts.map((p) => "skin" in p ? void 0 : p.part)
-	};
-}
-/** How to pose these bones (a rig's, or a clone's): from where they rest now, each turned as a pose says. */
-function poser(list) {
-	const byName = Object.fromEntries(list.map((b) => [b.name, b]));
-	const rest = list.map((b) => b.position.clone());
-	const move = new three.Vector3();
-	return (p) => {
-		list.forEach((b, i) => {
-			b.position.copy(rest[i]);
-			b.rotation.set(0, 0, 0);
-			b.scale.setScalar(1);
-		});
-		for (const name in p) {
-			const t = p[name];
-			if (!t) continue;
-			if (name === "root") list[0].position.add(move.set(t[0], t[1], t[2]));
-			else {
-				const b = byName[name];
-				if (!b) continue;
-				b.rotation.set(t[0], t[1], t[2]);
-				if (t.length >= 4) b.scale.setScalar(t[3]);
-				if (t.length === 7) b.position.add(move.set(t[4], t[5], t[6]));
-			}
-		}
-	};
-}
-/** How finely shapes are made: 1 as built; lower for actors seen from afar (`lowDetail`). */
-let DETAIL = 1;
-/** A material for an actor: its colours in its vertices. */
-const skin = (roughness = .8, more = {}) => new three.MeshStandardMaterial({
-	vertexColors: true,
-	roughness,
-	...more
-});
-/** A loop over `period` seconds: 0…1. */
-const loop = (t, period) => (t / period % 1 + 1) % 1;
-
-//#endregion
-//#region src/lib/actors/excavator-rig.js
-/** a box w × h × len from a to b, turned along the line */
-/** @param {V3} a @param {V3} b @param {number} w @param {number} h @param {number} [r] */
-function beam(a, b, w, h, r = .02) {
-	const A = new three.Vector3(...a), B = new three.Vector3(...b);
-	const g = new three_addons_geometries_RoundedBoxGeometry_js.RoundedBoxGeometry(w, h, A.distanceTo(B), 2, Math.min(r, w / 2, h / 2));
-	g.applyMatrix4(new three.Matrix4().compose(A.clone().add(B).multiplyScalar(.5), new three.Quaternion().setFromUnitVectors(new three.Vector3(0, 0, 1), B.clone().sub(A).normalize()), new three.Vector3(1, 1, 1)));
-	return g;
-}
-/** a box at a place */
-/** @param {number} w @param {number} h @param {number} d @param {V3} at @param {number} [r] */
-function block(w, h, d, at, r = .02) {
-	const g = new three_addons_geometries_RoundedBoxGeometry_js.RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2, h / 2, d / 2));
-	g.translate(...at);
-	return g;
-}
-/** smoothly from 0 to 1 @param {number} x */
-const ease = (x) => x * x * (3 - 2 * x);
-
-//#endregion
-//#region src/lib/actors/parts.js
-/** @typedef {import('./rig').V3} V3 */
-/** @typedef {import('./rig').Pose} Pose */
-/** @typedef {import('./rig').Piece} Piece */
-/** @typedef {import('./rig').BoneSpec} BoneSpec */
-/**
-* @typedef {object} Assembly a group of parts that is built and works together (the frame, a wheel module, the power cube)
-* @property {string} id
-* @property {string} label
-* @property {string} note what it is and does, in a sentence or two
-* @property {V3} out which way it is drawn out of the machine in the exploded view (m)
-*/
-/**
-* @typedef {object} PartInfo one part's card
-* @property {string} id
-* @property {string} label
-* @property {string} assembly its assembly's id
-* @property {string} what what it is and what it is for
-* @property {string} [moves] how it moves (a part that does not move has none)
-* @property {string} [drive] what moves it, or what it drives
-* @property {[string, string][]} [specs] its numbers, as label and value
-* @property {number} [count] how many of it the machine has, where one card stands for several alike
-* @property {number} step the build step it goes on at (1 first)
-* @property {string} [source] where its numbers come from (a source's label in the catalog)
-* @property {string} [unit] a unit it comes in with, already built (the Power Cube in the LifeTrac): in the build,
-*   all of a unit's parts arrive together, as one
-* @property {string} [ref] the asset it came with, at its version, when it was carried in from another
-*   (`machines/powercube@3`, $lib/assets)
-*/
-/**
-* @typedef {object} Catalog a machine's parts: its assemblies, its parts' cards, its build steps and its sources
-* @property {Assembly[]} assemblies
-* @property {PartInfo[]} parts
-* @property {string[]} steps the build steps, in order: what each does
-* @property {{ label: string, url: string }[]} sources
-*/
-/**
-* A kit to build a machine of parts.
-* @param {Assembly[]} assemblies
-*/
-function machineKit(assemblies) {
-	/** @type {PartInfo[]} */
-	const infos = [];
-	/** @type {Map<string, { info: PartInfo, joint: string, pieces: { geo: THREE.BufferGeometry, color: string, mat?: number }[] }>} */
-	const byId = /* @__PURE__ */ new Map();
-	const out = Object.fromEntries(assemblies.map((a) => [a.id, a.out]));
-	return {
-		/**
-		* A part: its card, the joint it moves with, and its pieces (made by `make`, through `put`).
-		* @param {Omit<PartInfo, 'step'> & { step: number }} info
-		* @param {string} joint
-		* @param {(put: (geo: THREE.BufferGeometry, color: string, mat?: number) => void) => void} make
-		*/
-		part(info, joint, make) {
-			if (byId.has(info.id)) throw new Error(`part ${info.id} twice`);
-			if (!(info.assembly in out)) throw new Error(`part ${info.id}: no assembly ${info.assembly}`);
-			/** @type {{ geo: THREE.BufferGeometry, color: string, mat?: number }[]} */
-			const pieces = [];
-			make((geo, color, mat) => void pieces.push({
-				geo,
-				color,
-				...mat ? { mat } : {}
-			}));
-			byId.set(info.id, {
-				info,
-				joint,
-				pieces
-			});
-			infos.push(info);
-		},
-		/**
-		* The parts' bones (to go after the joints they hang from) and pieces, and how to pose them.
-		* @returns {{ bones: BoneSpec[], pieces: Piece[], catalogParts: PartInfo[], centre: Record<string, V3> }}
-		*/
-		build() {
-			/** @type {BoneSpec[]} */
-			const bones = [];
-			/** @type {Piece[]} */
-			const pieces = [];
-			/** @type {Record<string, V3>} */
-			const centre = {};
-			const box = new three.Box3(), b = new three.Box3(), c = new three.Vector3();
-			for (const [id, { joint, pieces: ps }] of byId) {
-				box.makeEmpty();
-				for (const p of ps) {
-					p.geo.computeBoundingBox();
-					box.union(b.copy(p.geo.boundingBox));
-				}
-				const at = box.getCenter(c).toArray();
-				centre[id] = at;
-				const bone = `p.${id}`;
-				bones.push({
-					name: bone,
-					parent: joint,
-					at
-				});
-				for (const p of ps) pieces.push({
-					geo: p.geo,
-					color: p.color,
-					bone,
-					part: id,
-					...p.mat ? { mat: p.mat } : {}
-				});
-			}
-			return {
-				bones,
-				pieces,
-				catalogParts: infos,
-				centre
-			};
-		},
-		/**
-		* Every part drawn out of the machine by `k` (0: in place, 1: the exploded view): its assembly's way out, and
-		* apart from the assembly's middle a little, so the parts of one assembly stand clear of each other too.
-		* @param {Record<string, V3>} centre @param {number} k @param {Pose} [into]
-		*/
-		explode(centre, k, into = {}) {
-			/** @type {Record<string, THREE.Vector3>} */
-			const mid = {};
-			/** @type {Record<string, number>} */
-			const n = {};
-			for (const { info } of byId.values()) {
-				const a = info.assembly;
-				(mid[a] ??= new three.Vector3()).add(pc.set(...centre[info.id]));
-				n[a] = (n[a] ?? 0) + 1;
-			}
-			for (const a in mid) mid[a].divideScalar(n[a]);
-			for (const { info } of byId.values()) {
-				const o = out[info.assembly], m = mid[info.assembly];
-				const [x, y, z] = centre[info.id];
-				into[`p.${info.id}`] = [
-					0,
-					0,
-					0,
-					1,
-					k * (o[0] + (x - m.x) * .45),
-					k * (o[1] + (y - m.y) * .45),
-					k * (o[2] + (z - m.z) * .45)
-				];
-			}
-			return into;
-		},
-		/**
-		* The machine being built, `u` of the way (0…1) through its steps: the parts of each step fly in from above
-		* their place, one after another, and the parts of the steps to come are not there yet.
-		* @param {Record<string, V3>} centre @param {number} u @param {number} steps @param {Pose} [into]
-		*/
-		assemble(centre, u, steps, into = {}) {
-			const key = (info) => info.unit ?? info.id;
-			/** @type {Record<number, string[]>} */
-			const per = {};
-			for (const info of infos) {
-				const list = per[info.step] ??= [];
-				if (!list.includes(key(info))) list.push(key(info));
-			}
-			for (const info of infos) {
-				const list = per[info.step], i = list.indexOf(key(info));
-				const s0 = (info.step - 1) / steps, s1 = info.step / steps;
-				const t0 = s0 + (s1 - s0) * .66 * i / Math.max(1, list.length);
-				const t1 = t0 + (info.unit ? (s1 - s0) * .5 : Math.min(.03, (s1 - s0) * .5));
-				const k = Math.min(1, Math.max(0, (u - t0) / (t1 - t0)));
-				const e = k * k * (3 - 2 * k);
-				const o = out[info.assembly];
-				const far = 1 - e;
-				into[`p.${info.id}`] = u < t0 ? [
-					0,
-					0,
-					0,
-					0
-				] : [
-					0,
-					0,
-					0,
-					1,
-					far * o[0] * .6,
-					far * (1.6 + Math.abs(o[1])),
-					far * o[2] * .6
-				];
-			}
-			return into;
-		}
-	};
-}
-const pc = /* @__PURE__ */ (() => new three.Vector3())();
-
-//#endregion
-//#region src/lib/actors/powercube.js
-/** @typedef {import('./rig').V3} V3 */
-/** @typedef {import('./rig').Pose} Pose */
-/** @typedef {import('./rig').Cast} Cast */
-/** @typedef {import('./rig').BoneSpec} BoneSpec */
-/** @typedef {[number, number, number]} MM a point of the cube: x across, y forward, z up (mm) */
-/** @typedef {string} Group an assembly of a cube: frame, engine, hydraulics, controls, or a cube's own */
+//#piece 29499b36d2bb63e85fe4ed56e041e6ba0b081c8eca2c41ac36ae39d087d43ee5
 const S$1 = .001;
-/** the cube's size: 27" each way (W across, L along, H high), the 4×4 base's height */
-const CUBE = {
-	W: 686,
-	L: 660,
-	H: 686,
-	base: 101.6
-};
-/** the crank's height and the shaft's line (x 0), the flywheel's y, the coupling's, the cooler fan's place */
-const CRANK = 235;
-const FLY = 262;
-const CPL = -168;
-const FAN = [
-	360,
-	-40,
-	230
-];
+//#piece 095d5228117769f013da7e1e8af2d2aa47fab94435790852e2b5cbee5d474ccd
 const RED$1 = "#c8372d";
 const FRAME = "#c8372d";
 const STEEL$1 = "#8d9396";
@@ -532,57 +12,9 @@ const HOSE$1 = "#202224";
 const BRASS = "#c9a03a";
 const YELLOW$1 = "#f0c419";
 const GREEN$1 = "#2c7a4a";
-const POWERCUBE_SOURCES = [
-	{
-		label: "Power Cube VII (OSE wiki)",
-		url: "https://wiki.opensourceecology.org/wiki/Power_Cube_VII"
-	},
-	{
-		label: "Power Cube 7s (OSE wiki)",
-		url: "https://wiki.opensourceecology.org/wiki/Power_Cube_7s"
-	},
-	{
-		label: "Power Cube v15.6 (OSE wiki)",
-		url: "https://wiki.opensourceecology.org/wiki/Power_Cube_v15.6"
-	},
-	{
-		label: "Power Cube Genealogy (OSE wiki)",
-		url: "https://wiki.opensourceecology.org/wiki/Power_Cube_Genealogy"
-	},
-	{
-		label: "Power Cube (OSE wiki)",
-		url: "https://wiki.opensourceecology.org/wiki/Power_Cube"
-	},
-	{
-		label: "Power Cube (OSE portfolio)",
-		url: "https://www.opensourceecology.org/portfolio/power-cube/"
-	},
-	{
-		label: "Power Cube fabrication manual (v4)",
-		url: "https://commons.wikimedia.org/wiki/File:Open_Source_Ecology_-_Powercube_-_Fabricaion_Manual.pdf"
-	}
-];
+//#piece 439d2b6ca37b6b61dee46779f19265e117d3901b1a53f9d6e9c4f5bf4dd6bdf5
 const SRC$1 = {
-	vii: "Power Cube VII (OSE wiki)",
-	s7: "Power Cube 7s (OSE wiki)",
-	v156: "Power Cube v15.6 (OSE wiki)",
-	port: "Power Cube (OSE portfolio)",
-	man: "Power Cube fabrication manual (v4)"
-};
-/**
-* Add a Power Cube's parts to a machine's kit, its foot's middle at `at` (actor metres), its front towards +z.
-* Its moving parts ride the joints named in `joints` (flywheel, coupling, fan: bones the caller makes at the points
-* `powerCubeJoints` gives); every other part rides `base`. With `unit`, the cube goes into the machine's build already
-* built, all its parts at once.
-* @param {ReturnType<typeof machineKit>} kit
-* Another cube on the same frame gives its own `insides` in place of the hydraulics, its own length (`len`, mm), and
-* leaves out the engine or the fuel and controls it has none of.
-* @param {{ at: V3, base: string, joints: { flywheel: string, coupling: string, fan: string }, assembly: (g: Group) => string, step: (g: Group) => number, prefix?: string, unit?: string, len?: number, engine?: boolean, controls?: boolean, insides?: Insides }} o
-*/
-function powerCubeParts(kit, { at, base, joints, assembly, step, prefix = "pc-", unit, len = CUBE.L, engine = true, controls = true, insides }) {
-	const m = new three.Matrix4().makeTranslation(...at);
-	/** a point of the cube (mm) in the actor @param {number} x @param {number} y @param {number} z @returns {V3} */
-	const L = (x, y, z) => [
+//#piece ae28cb4b29418b8aa3acb441546b8272795f58160c4006b20cbcbdbb1775826b
 		x * S$1,
 		z * S$1,
 		y * S$1
@@ -590,127 +22,19 @@ function powerCubeParts(kit, { at, base, joints, assembly, step, prefix = "pc-",
 	const T = (g) => g.applyMatrix4(m);
 	const box = (x, y, z, w, l, h, r = 2) => T(block(w * S$1, h * S$1, l * S$1, L(x, y, z), r * S$1));
 	const bar = (a, b, w, h, r = 2) => T(beam(L(...a), L(...b), w * S$1, h * S$1, r * S$1));
-	/** @param {MM} a @param {MM} b @param {number} r @param {number} [seg] @param {number} [r1] */
-	const cyl = (a, b, r, seg = 18, r1 = r) => {
-		const A = new three.Vector3(...L(...a)), B = new three.Vector3(...L(...b));
+//#piece d2ca4bab6a379ab60cac7c1a914826ca5766b5a220a624f17057025bb684ee21
 		const g = new three.CylinderGeometry(r1 * S$1, r * S$1, A.distanceTo(B), seg);
-		g.applyMatrix4(new three.Matrix4().compose(A.clone().add(B).multiplyScalar(.5), new three.Quaternion().setFromUnitVectors(new three.Vector3(0, 1, 0), B.clone().sub(A).normalize()), new three.Vector3(1, 1, 1)));
-		return T(g);
-	};
+//#piece 393c6a3327995c6fa5cbd4541daa35e045a6b13413ecf8c8f58fc6166e60c809
 	const hose = (pts, r = 9.5) => T(new three.TubeGeometry(new three.CatmullRomCurve3(pts.map((p) => new three.Vector3(...L(...p)))), 24, r * S$1, 8, false));
-	/** an angle (L) along a line, its legs `leg` mm, turned so its outside corner is at `corner` (±x, ±y) */
-	const angle = (a, b, sx, sy, leg = 50.8, t = 6.35) => {
-		const out = [];
-		if (a[0] === b[0] && a[1] === b[1]) {
-			out.push(bar([
-				a[0] - sx * (leg / 2 - leg / 2),
-				a[1] - sy * (leg / 2),
-				a[2]
-			], [
-				b[0],
-				b[1] - sy * (leg / 2),
-				b[2]
+//#piece b30e53550ff5a0e79d8036ccc899e40e62d826ee3e9da8cbe8bd595f33082c6d
 			], t, leg).translate(sx * (-t / 2) * S$1, 0, 0));
-			out.push(box(a[0] - sx * (leg / 2), a[1] - sy * (t / 2), (a[2] + b[2]) / 2, leg, t, b[2] - a[2], 1));
-		} else out.push(bar(a, b, t, leg, 1), bar([
-			a[0],
-			a[1],
-			a[2] - leg / 2 + t / 2
-		], [
-			b[0],
-			b[1],
-			b[2] - leg / 2 + t / 2
-		], leg, t, 1));
-		return out;
-	};
-	const LEN = len;
-	const W = CUBE.W / 2, Lh = LEN / 2, H = CUBE.H, B = CUBE.base;
-	const id = (s) => `${prefix}${s}`;
-	/** @param {Group} g @param {Omit<import('./parts.js').PartInfo, 'assembly' | 'step'>} info @param {string} joint @param {(put: (geo: THREE.BufferGeometry, color: string, mat?: number) => void) => void} make */
-	const part = (g, info, joint, make) => kit.part({
-		...info,
-		id: id(info.id),
-		assembly: assembly(g),
-		step: step(g),
-		...unit ? { unit } : {}
-	}, joint, make);
-	part("frame", {
-		id: "skids",
-		label: "Power Cube base skids (4×4 tube)",
-		count: 2,
+//#piece c7c07b0d3db6db9bb939e818be14847647e54105bf70acfc6cc84ecaa8199a9f
 		source: SRC$1.s7,
-		what: "Two 4×4 steel tubes front to back under the cube: the “strong structural frame” of 7s that the engine, pump and tanks bolt to, and that takes the forks, the lifting pins or another cube stacked on it.",
-		specs: [
-			["Stock", "4\" × 4\" square tube (101.6 mm)"],
-			["Length", "660 mm [inferred: the 27\" cube]"],
-			["Version", "7s / v15.6 (VII: 2×2 angle)"]
-		]
-	}, base, (put) => {
-		for (const sx of [-1, 1]) put(box(sx * (W - 50.8), 0, B / 2, 101.6, LEN, 101.6, 6), FRAME);
-		for (const y of [-Lh + 40, Lh - 40]) put(box(0, y, B / 2, CUBE.W - 203, 50.8, 50.8, 3), FRAME);
-	});
-	part("frame", {
-		id: "cage",
-		label: "Power Cube posts and top rails (2×2 angle)",
-		count: 8,
-		source: SRC$1.vii,
-		what: "Four corner posts and four top rails of 1/4\" × 2\" × 2\" angle make the cube’s cage: they guard the engine, carry the fuel tank and give hand-holds to lift it by. OSE’s frame page cuts its members 29\", 27\" and 24\" long.",
-		specs: [
-			["Stock", "1/4\" × 2\" × 2\" angle (6.35 × 50.8 × 50.8 mm)"],
-			["Members", "29\", 27\" and 24\" pieces"],
-			["Envelope", "27\" (686 mm) cube"]
-		]
-	}, base, (put) => {
-		for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const g of angle([
-			sx * (W - 3),
-			sy * (Lh - 3),
-			B
-		], [
-			sx * (W - 3),
-			sy * (Lh - 3),
-			H
-		], sx, sy)) put(g, FRAME);
-		for (const sx of [-1, 1]) for (const g of angle([
-			sx * (W - 3),
-			-Lh,
-			H - 3
-		], [
-			sx * (W - 3),
-			Lh,
-			H - 3
-		], sx, 0)) put(g, FRAME);
-		for (const sy of [-1, 1]) for (const g of angle([
-			-W,
-			sy * (Lh - 3),
-			H - 3
-		], [
-			W,
-			sy * (Lh - 3),
-			H - 3
-		], 0, sy)) put(g, FRAME);
-	});
-	part("frame", {
-		id: "quick-attach",
-		label: "Power Cube quick-attach plate",
-		source: SRC$1.man,
-		what: "How the cube is coupled to a machine: plates across its back with a 4×8 receiver tube between them, so it slides onto the machine’s mount and is pinned, and comes off again in minutes for the next machine. Several cubes can be strung together for more power.",
-		specs: [
-			["Plates", "2 × 3/8\" × 4\" × 27\"; 2 × 1/4\" × 4\" × 8\""],
-			["Receiver tube", "4\" × 8\" × 14½\""],
-			["Strap", "1/4\" × 2\" × 24\""],
-			["Source", "v4 fabrication manual"]
-		]
-	}, base, (put) => {
+//#piece 406f405bb31b10cce72716cdbec045202d0975ddf5a29595062b7977a6af7de8
+//#piece 2217aee41ce5e8f06f7efaaff7bfb0992966e0b30bdc433ec4c2a1120a840a93
 		for (const z of [B + 60, B + 220]) put(box(0, -Lh - 5, z, CUBE.W - 40, 9.5, 101.6, 2), STEEL$1);
 		put(box(0, -Lh - 40, B + 140, 203, 70, 101.6, 6), STEEL$1);
-		for (const sx of [-1, 1]) put(cyl([
-			sx * 120,
-			-Lh - 30,
-			B + 270
-		], [
-			sx * 120,
-			-Lh - 30,
-			B + 330
+//#piece 013389d202031c0ed7e77eff5a6c712f1352bd5e84b26aeeb973228ebbb29171
 		], 12, 10), STEEL$1);
 	});
 	part("frame", {
@@ -718,10 +42,7 @@ function powerCubeParts(kit, { at, base, joints, assembly, step, prefix = "pc-",
 		label: "Power Cube lifting eyes",
 		count: 2,
 		source: SRC$1.vii,
-		what: "Two eyes on the top rails: at about 181 kg the cube is lifted on and off a machine by the loader, a hoist or two people with a bar.",
-		specs: [["Cube mass", "~400 lb (181 kg)"]]
-	}, base, (put) => {
-		for (const sx of [-1, 1]) {
+//#piece c5aed0d35966a27c40607db36a490d8374677e561a5207bf36ad4000ab97e2ae
 			const g = new three.TorusGeometry(26 * S$1, 7 * S$1, 8, 16);
 			put(T(g.translate(...L(sx * 180, 0, H + 26))), STEEL$1);
 		}
@@ -731,96 +52,26 @@ function powerCubeParts(kit, { at, base, joints, assembly, step, prefix = "pc-",
 			id: "engine-plate",
 			label: "Engine mount plate",
 			source: SRC$1.vii,
-			what: "The plate the engine’s base bolts to, itself bolted across the skids: it holds the engine’s shaft exactly in line with the pump’s.",
-			specs: [["VII engine module plate", "8\" × 15½\" (203 × 394 mm)"], ["Generic mounts", "1/4\" × 8\" × 9\" and × 12\", welded at 90°"]]
+//#piece ce3bfe5a325a3c8c41c3a689a2b7aadcc2df21afffc17aa89e076a5b514f1d48
 		}, base, (put) => put(box(0, 40, B + 6, CUBE.W - 140, 394, 12, 2), STEEL$1));
 		part("engine", {
 			id: "crankcase",
 			label: "Engine crankcase",
 			source: SRC$1.vii,
-			what: "The 28 hp Briggs & Stratton V-twin’s crankcase: crankshaft, camshaft, the oil sump and the governor that holds it at its speed. The crankshaft runs fore and aft: the flywheel at the front, the pump at the back.",
-			moves: "The crankshaft inside turns at engine speed.",
-			drive: "Petrol and air; electric start",
-			specs: [
-				["Engine", "Briggs & Stratton 28 hp (20.9 kW) V-twin, air-cooled"],
-				["Displacement", "~810 cc [inferred: B&S 28 hp class]"],
-				["Speed", "3,600 rpm governed"],
-				["Start", "Electric"],
-				["Older cubes", "27 hp (v12.11), 18 hp (Prototypes I–II)"]
-			]
-		}, base, (put) => {
-			put(box(0, 30, 225, 250, 300, 240, 26), ENGINE);
+//#piece a530624cf4fd07a9100dc70c172be1a2b7c891262b3e80c44d0f1b8fc6cbde78
 			put(box(0, 30, B + 22, 300, 290, 20, 6), DARK$1);
-			for (const sx of [-1, 1]) for (const y of [-90, 150]) put(cyl([
-				sx * 170,
-				y,
-				B + 12
-			], [
-				sx * 170,
-				y,
-				B + 24
+//#piece 1fb4910de87b4a99938abdbbb9307d926b1f3ec73c9095ffbfb1208b4c932dde
 			], 11, 6), STEEL$1);
-		});
-		for (const [sx, side] of [[1, "left"], [-1, "right"]]) part("engine", {
-			id: `cyl-${side}`,
-			label: `Engine cylinder and head, ${side}`,
+//#piece b460e40425b29eef29bdf65d7a0720d3a9c3b2cdd382864da335d18c192729de
 			source: SRC$1.vii,
-			what: "One bank of the 90° V-twin: a finned air-cooled cylinder and its overhead-valve head. The flywheel’s fan pushes air through the shroud and over these fins.",
-			moves: "Its piston runs up and down inside, twice per two turns of the crank.",
-			drive: "Burning petrol and air",
-			specs: [["Layout", "90° V-twin, OHV"], ["Cooling", "Air, by the flywheel fan"]]
-		}, base, (put) => {
-			const d = [sx * Math.SQRT1_2, Math.SQRT1_2];
-			const at = (k) => [
-				d[0] * k,
-				30,
-				235 + d[1] * k
-			];
+//#piece 3e43033db7f67d2746caffaa547c7d34e25e52e9fc9df121ba26e48c5bba239a
 			put(cyl(at(100), at(250), 50, 18), DARK$1);
-			for (let k = 112; k < 250; k += 13) put(cyl(at(k), at(k + 4), 70, 18), ENGINE);
-			put(cyl(at(250), at(305), 68, 16), ENGINE);
-			const g = block(.12, .04, .15, [
-				0,
-				0,
-				0
-			], .012);
-			g.rotateZ(-sx * Math.PI / 4);
-			g.translate(...L(...at(320)));
+//#piece f9a3a5b714d8c2e012749ce64039daaacb486289f1d4814208a3aa709c2a0238
 			put(T(g), BLACK$1);
-		});
-		part("engine", {
-			id: "blower",
-			label: "Blower housing",
-			source: SRC$1.vii,
-			what: "The shroud over the flywheel, ducting its fan’s air back over both cylinders.",
-			specs: [["Material", "Pressed steel"]]
-		}, base, (put) => put(box(0, 230, 265, 420, 60, 330, 28), "#3a3d40"));
-		part("engine", {
-			id: "flywheel",
-			label: "Flywheel and fan screen",
-			source: SRC$1.vii,
-			what: "The flywheel at the crank’s front: its weight smooths the twin’s firing, its magnets fire the plugs and charge the battery, its vanes are the cooling fan.",
-			moves: "Turns with the crankshaft (shown slowed: really 60 turns a second).",
-			drive: "The crankshaft",
-			specs: [["Speed", "3,600 rpm"], ["Charging", "Flywheel alternator"]]
-		}, joints.flywheel, (put) => {
-			put(cyl([
-				0,
-				258,
-				235
-			], [
-				0,
-				272,
-				235
+//#piece ee6540af9166e8075a788be504af91b31659f50bf41ba779798d6f5bdc953150
+//#piece 6ad68aea937d52eaf8505a4388f84f06e9422bff96f53f50335d559c92114c94
 			], 115, 32), DARK$1);
-			for (let k = 0; k < 6; k++) {
-				const g = block(.22, .012, .006, [
-					0,
-					0,
-					0
-				], .002);
-				g.rotateZ(k / 6 * Math.PI);
-				g.translate(...L(0, 275, 235));
+//#piece 5096957fc6337e94cd6d7df1790eb103afc23b4a1b3fc591588b5a29d37a1e16
 				put(T(g), STEEL$1);
 			}
 			put(cyl([
@@ -837,63 +88,18 @@ function powerCubeParts(kit, { at, base, joints, assembly, step, prefix = "pc-",
 			id: "air-cleaner",
 			label: "Air cleaner",
 			source: SRC$1.vii,
-			what: "The paper element in the V between the cylinders: every litre of air the engine breathes is cleaned here first.",
-			specs: [["Element", "Paper, foam pre-cleaner"]]
-		}, base, (put) => {
+//#piece 1bb529116ee8c31863e4f74ec02c590bda967b8b5dd8084fa88976f7b01468d3
 			put(box(0, 50, 520, 210, 190, 56, 14), BLACK$1);
-			put(cyl([
-				0,
-				50,
-				548
-			], [
-				0,
-				50,
-				572
-			], 76, 24), "#3a3d40");
-		});
-		part("engine", {
-			id: "muffler",
-			label: "Muffler",
+//#piece 55de19435d2cda7d1c10f798615fcae3a089d678ecf6b833bb6badbd241c6731
 			source: SRC$1.vii,
-			what: "The Briggs & Stratton muffler behind the cylinders, collecting both exhausts into one can and blowing out to the side.",
-			specs: [["Type", "B&S twin-inlet muffler"]]
-		}, base, (put) => {
-			put(cyl([
-				-150,
-				-110,
-				470
-			], [
-				150,
-				-110,
-				470
-			], 45, 18), "#505457");
-			for (const sx of [-1, 1]) put(cyl([
-				sx * 190,
-				30,
-				430
-			], [
-				sx * 110,
-				-110,
-				470
+//#piece 3ed0a32ad242746d6b64db4b68aa145e7c5366fc7ae0c484b2270f0c3cc0f51f
 			], 9, 8), DARK$1);
 		});
 		part("engine", {
 			id: "starter",
 			label: "Electric starter",
 			source: SRC$1.vii,
-			what: "The 12 V starter whose pinion meshes with the flywheel’s ring gear while the key is held to START.",
-			moves: "Spins only while starting.",
-			drive: "The battery, through its solenoid",
-			specs: [["Voltage", "12 V"]]
-		}, base, (put) => {
-			put(cyl([
-				-150,
-				120,
-				150
-			], [
-				-150,
-				230,
-				150
+//#piece b34de5c28d065fde8031a0eba5b982f5a10acb5c1f7d088c3dbb941f120fa95a
 			], 36, 16), DARK$1);
 			put(cyl([
 				-150,
@@ -904,74 +110,18 @@ function powerCubeParts(kit, { at, base, joints, assembly, step, prefix = "pc-",
 				248,
 				150
 			], 20, 12), STEEL$1);
-		});
-	}
-	if (insides) insides(part, {
-		box,
-		bar,
-		cyl,
-		hose,
-		T,
-		L,
-		P: (x, y, z) => L(x, y, z).map((v, i) => v + at[i]),
-		kit,
-		W,
-		Lh,
-		H,
-		B,
-		joints,
-		base
-	});
-	else hydraulics();
-	function hydraulics() {
-		part("hydraulics", {
-			id: "coupling",
-			label: "Shaft coupling",
+//#piece 65094ef272daff27bd6151415638fb06aabb0e9b7f850210924364ba494cb0ea
 			source: SRC$1.port,
-			what: "Not a bought jaw coupling: OSE cut two coupling halves and welded them into one sleeve, keyed and set-screwed to the engine’s shaft, splined onto the pump’s 3/4\" shaft.",
-			moves: "Turns with the engine (shown slowed).",
-			drive: "The crankshaft; it drives the pump",
-			specs: [
-				["Engine side", "Keyed, set screws"],
-				["Pump side", "3/4\" spline (11-tooth typical)"],
-				["Made", "Two halves cut and welded"]
-			]
-		}, joints.coupling, (put) => {
-			put(cyl([
-				0,
-				-208,
-				235
-			], [
-				0,
-				-128,
-				235
+//#piece 44084eb9cc30527815172f50ca1351e62a2421e3cbe6d01a3362e82625b88c65
 			], 34, 18), STEEL$1);
-			put(cyl([
-				0,
-				-171,
-				235
-			], [
-				0,
-				-165,
-				235
-			], 38, 18), "#c9b37a");
-			for (const yy of [-190, -146]) put(cyl([
-				0,
-				yy,
-				267
-			], [
-				0,
-				yy,
-				277
+//#piece 98375b2e97625d9b37f81e42d020d8097daa0e6a9652b41ced3da7a412d533b1
 			], 6, 6), DARK$1);
 		});
 		part("hydraulics", {
 			id: "pump-mount",
 			label: "Pump mount",
 			source: SRC$1.vii,
-			what: "A plate on the engine plate holding the pump’s SAE-A flange square to the engine, its two bolts on 4.19\" centres, so the shafts stay in line.",
-			specs: [["Flange", "SAE A: Ø3.25\" pilot, 2 × 3/8-16 on 4.19\""]]
-		}, base, (put) => {
+//#piece 1fdd287076eec01f75dbf32e51a1c6d532ccb5019bac01ed824842aad29896cd
 			put(box(0, -215, 185, 200, 12.7, 230, 4), STEEL$1);
 			put(box(0, -170, B + 30, 200, 100, 12, 2), STEEL$1);
 		});
@@ -979,26 +129,7 @@ function powerCubeParts(kit, { at, base, joints, assembly, step, prefix = "pc-",
 			id: "pump",
 			label: "Hydraulic gear pump",
 			source: SRC$1.port,
-			what: "A fixed-displacement gear pump: two gears mesh and carry oil from the suction port round to the pressure port — about a cubic inch every turn, 15 gallons a minute at engine speed. This flow is everything the machine it is coupled to can do.",
-			moves: "Its gears turn with the engine.",
-			drive: "The engine, through the coupling",
-			specs: [
-				["Displacement", "~1 in³/rev (v4: 0.976 in³, 16.0 cm³)"],
-				["Flow", "15.2 gpm (57.5 L/min) at 3,600 rpm"],
-				["Pressure", "3,000 psi (207 bar) max"],
-				["Shaft", "3/4\" spline"],
-				["Earlier", "Hydreco pump (VI)"]
-			]
-		}, base, (put) => {
-			put(box(0, -275, 235, 105, 100, 120, 10), "#3b4a5a");
-			put(cyl([
-				-52,
-				-275,
-				235
-			], [
-				-80,
-				-275,
-				235
+//#piece 7746babe974b08080c7b584be7b26ecf7c35522bf216cc9d1ecfea79b7985296
 			], 20, 12), STEEL$1);
 			put(cyl([
 				52,
@@ -1014,47 +145,15 @@ function powerCubeParts(kit, { at, base, joints, assembly, step, prefix = "pc-",
 			id: "reservoir",
 			label: "Hydraulic reservoir (7 gal)",
 			source: SRC$1.vii,
-			what: "The oil tank across the back of the cube, removable for cleaning. The pump draws through a strainer at its bottom; returns come back in at its top, where the oil settles and lets go of its air. Earlier cubes used their tanks as members of the frame.",
-			specs: [
-				["Volume", "7 gal (26.5 L)"],
-				["Oil", "Hydraulic AW oil"],
-				["Removable", "Yes"]
-			]
-		}, base, (put) => {
-			put(box(0, -Lh + 120, 450, CUBE.W - 40, 180, 200, 10), "#3d4447");
-			put(box(-200, -Lh + 29, 440, 26, 4, 140, 3), "#9fd7ff");
-		});
-		part("hydraulics", {
-			id: "strainer",
-			label: "Suction strainer and line",
+//#piece 3d39244be16a3236dab2807b18d78f0558b5d273c98c6d8ebcd07b780d8dbc3b
 			source: SRC$1.vii,
-			what: "A mesh strainer inside the reservoir’s outlet and the wide soft line down to the pump’s inlet: wide so the pump never starves and cavitates.",
-			specs: [["Hose", "1\" suction"], ["Sight gauge", "Above the strainer"]]
-		}, base, (put) => put(hose([
-			[
-				-150,
-				-Lh + 170,
-				360
-			],
-			[
-				-140,
-				-260,
-				300
-			],
-			[
-				-82,
-				-275,
-				235
-			]
+//#piece 1a953042d992dd4e3d17c64b539b077289575a99583baa930dc9302b5ff3a010
 		], 15), HOSE$1));
 		part("hydraulics", {
 			id: "relief",
 			label: "Relief valve",
 			source: SRC$1.v156,
-			what: "Added to the cube in October 2014: a spring-loaded valve that dumps the pump’s flow back to the tank when the pressure reaches its setting, so nothing bursts when a cylinder bottoms out or a wheel stalls.",
-			moves: "Its poppet lifts only at its setting.",
-			specs: [["Setting", "≤3,000 psi"], ["Added", "October 2014 (v15.6)"]]
-		}, base, (put) => {
+//#piece aca5483b9274132d2da31198ccc0a1565ac990d55d3a873ce2d9f46ee3a17e88
 			put(box(110, -300, 325, 60, 50, 60, 4), ALU$1);
 			put(cyl([
 				110,
@@ -1079,43 +178,11 @@ function powerCubeParts(kit, { at, base, joints, assembly, step, prefix = "pc-",
 			id: "gauge",
 			label: "Pressure gauge",
 			source: SRC$1.v156,
-			what: "A liquid-filled gauge on the pressure line, added in April 2015: the operator sees at a glance how hard the cube is working.",
-			specs: [["Range", "0–5,000 psi"], ["Added", "April 2015 (v15.6)"]]
-		}, base, (put) => {
-			put(cyl([
-				170,
-				-Lh + 4,
-				495
-			], [
-				170,
-				-Lh - 22,
-				495
+//#piece 9d9d3ce80bec69f7e4ed06fb42b646619660a9f0c47cbb7b00fc30868a79ab35
 			], 32, 24), STEEL$1);
-			put(cyl([
-				170,
-				-Lh - 22,
-				495
-			], [
-				170,
-				-Lh - 25,
-				495
-			], 28, 24), "#f4f4ee");
-		});
-		part("hydraulics", {
-			id: "cooler",
-			label: "Oil cooler (six tubes)",
+//#piece e9424773840b3e8abad15f255b5c7b46c2e0597f9b02783d7a847540e6e8f82f
 			source: SRC$1.v156,
-			what: "v15.6’s cooler on the cube’s side: the returning oil runs through six finned tubes before the filter, giving the heat of every relief and orifice to the air.",
-			specs: [["Type", "6-tube, fan-cooled"], ["Added", "v15.6"]]
-		}, base, (put) => {
-			for (let k = 0; k < 6; k++) put(cyl([
-				W - 30,
-				-200,
-				140 + k * 36
-			], [
-				W - 30,
-				120,
-				140 + k * 36
+//#piece 30c7e58831370db87918532080b2daca79ae554342dba882f73b17a0c0077223
 			], 9, 10), ALU$1);
 			for (let y = -190; y <= 110; y += 14) put(box(W - 30, y, 230, 26, 2, 200, .5), "#8e9496");
 			put(box(W - 10, -40, 230, 8, 330, 230, 4), DARK$1);
@@ -1124,19 +191,7 @@ function powerCubeParts(kit, { at, base, joints, assembly, step, prefix = "pc-",
 			id: "cooler-fan",
 			label: "Cooler fan",
 			source: SRC$1.v156,
-			what: "The 12 V fan pulling air through the cooler’s tubes.",
-			moves: "Turns while the engine runs (shown slowed).",
-			drive: "12 V from the battery",
-			specs: [["Voltage", "12 V"]]
-		}, joints.fan, (put) => {
-			for (let k = 0; k < 5; k++) {
-				const g = block(.006, .03, .09, [
-					0,
-					0,
-					.05
-				], .004);
-				g.rotateX(k / 5 * Math.PI * 2);
-				g.translate(...L(...FAN));
+//#piece 1e7c082fb5e701db394fa5135440bd2b04ea43bf3b67e2a94eb7fb60e29bdb14
 				put(T(g), BLACK$1);
 			}
 			put(cyl([
@@ -1148,48 +203,11 @@ function powerCubeParts(kit, { at, base, joints, assembly, step, prefix = "pc-",
 				FAN[1],
 				FAN[2]
 			], 24, 14), DARK$1);
-		});
-		part("hydraulics", {
-			id: "filter",
-			label: "Return filter",
-			source: SRC$1.man,
-			what: "A spin-on filter on the return line where it enters the reservoir: everything that comes back from the machine passes through it.",
-			specs: [["Flow", "20 gpm (v4 BOM)"]]
-		}, base, (put) => {
-			put(cyl([
-				150,
-				-Lh + 120,
-				550
-			], [
-				150,
-				-Lh + 120,
-				570
+//#piece bdb61fe43bdae5cb21d72292d3575839b1b265f7ef52b05cd607dd5237ca2729
 			], 44, 18), STEEL$1);
-			put(cyl([
-				150,
-				-Lh + 120,
-				570
-			], [
-				150,
-				-Lh + 120,
-				680
-			], 46, 20), "#c33b2e");
-		});
-		part("hydraulics", {
-			id: "breather",
-			label: "Filler and breather cap",
+//#piece f152ade0a728f91ebfc20b60a9aebb95ada854d805b9dbcdc8ba1dac0aba1b01
 			source: SRC$1.vii,
-			what: "Where the reservoir is filled, and how it breathes as the machine’s cylinders draw oil out and give it back.",
-			specs: [["Filter", "Air breather"]]
-		}, base, (put) => {
-			put(cyl([
-				-60,
-				-Lh + 120,
-				550
-			], [
-				-60,
-				-Lh + 120,
-				575
+//#piece 1e90126f8c551013199abb68e61de32a8634c797a2774684bcd17038cc124f0d
 			], 20, 14), STEEL$1);
 			put(cyl([
 				-60,
@@ -1206,48 +224,9 @@ function powerCubeParts(kit, { at, base, joints, assembly, step, prefix = "pc-",
 			label: "Quick couplers (pressure and return)",
 			count: 2,
 			source: SRC$1.man,
-			what: "The cube’s whole connection to a machine: a pressure coupler and a return coupler on its back. Push the machine’s hoses on and the cube drives it; pull them off and it is free for the next one.",
-			specs: [
-				["Size", "3/4\" (v4 BOM)"],
-				["Type", "Standard quick connect (ISO-A class) [inferred]"],
-				["Hoses inside", "1/2\", 3/4\" and 1\" (VI)"]
-			]
-		}, base, (put) => {
+//#piece e145384f1fc4a9cdc13ab2c17a59321033a1ba758575de89835a3184798cd5f6
 			for (const [x, c] of [[230, RED$1], [290, "#2f6fb5"]]) {
-				put(cyl([
-					x,
-					-Lh + 30,
-					B + 150
-				], [
-					x,
-					-Lh - 40,
-					B + 150
-				], 17, 14), BRASS);
-				put(cyl([
-					x,
-					-Lh - 30,
-					B + 150
-				], [
-					x,
-					-Lh - 36,
-					B + 150
-				], 20, 14), c);
-			}
-			put(hose([
-				[
-					110,
-					-300,
-					375
-				],
-				[
-					200,
-					-Lh + 50,
-					B + 200
-				],
-				[
-					230,
-					-Lh + 30,
-					B + 150
+//#piece 1f4aecce6fde539edad9a2184fdbe01d51adbb20e61738e6358b990db19ecf0c
 				]
 			], 9), HOSE$1);
 			put(hose([
@@ -1291,13 +270,7 @@ function powerCubeParts(kit, { at, base, joints, assembly, step, prefix = "pc-",
 			id: "fuel-tank",
 			label: "Fuel tank (7 gal)",
 			source: SRC$1.vii,
-			what: "The removable petrol tank on top of the cube, over the engine: lift it off to fill it away from the machine.",
-			specs: [
-				["Volume", "7 gal (26.5 L)"],
-				["Fuel", "Petrol (gasoline)"],
-				["Removable", "Yes"]
-			]
-		}, base, (put) => {
+//#piece ac4788cd6b5896ae16e587dacbe7d14d31f3925a5b4742735781a07b9f52c0ba
 			put(box(0, 90, 630, CUBE.W - 70, 400, 95, 14), RED$1);
 			put(cyl([
 				200,
@@ -1308,54 +281,17 @@ function powerCubeParts(kit, { at, base, joints, assembly, step, prefix = "pc-",
 				200,
 				700
 			], 22, 14), BLACK$1);
-			put(hose([
-				[
-					-200,
-					260,
-					590
-				],
-				[
-					-220,
-					250,
-					400
-				],
-				[
-					-130,
-					150,
-					330
-				]
+//#piece 0f8b62fb1a1d98493986ffb3af1f95cca2ef1db4bda374f50671c9311ac5ff27
 			], 4), BLACK$1);
 		});
 		part("controls", {
 			id: "battery",
 			label: "12 V battery",
 			source: SRC$1.vii,
-			what: "The cube’s own 12 V battery beside the engine: it cranks the starter, runs the cooler fan and the machine’s valves; the flywheel alternator charges it.",
-			specs: [["Voltage", "12 V"], ["Charged by", "Flywheel alternator"]]
-		}, base, (put) => {
+//#piece 80022709a8fa2758a55502c6b20a6b6b8c25498d21468cf3f54b09466dd96313
 			put(box(-260, 70, 205, 125, 240, 190, 6), BLACK$1);
 			for (const [y, c] of [[-10, RED$1], [150, BLACK$1]]) put(cyl([
-				-260,
-				y,
-				300
-			], [
-				-260,
-				y,
-				316
-			], 9, 10), c);
-		});
-		part("controls", {
-			id: "panel",
-			label: "Control panel",
-			source: SRC$1.vii,
-			what: "On the front corner post: the key switch (off, run, start), the choke and the throttle. The cube is started here and left running; the machine’s valves do the rest.",
-			moves: "Key, choke and throttle are worked by hand.",
-			specs: [
-				["Key", "Off / run / start"],
-				["Choke", "Pull knob"],
-				["Throttle", "Lever"]
-			]
-		}, base, (put) => {
+//#piece 5fa1f7c6bcdf3f474958e78e177a7cea0c183ace242c547a4b79ab39caa6b122
 			put(box(W - 60, Lh - 3, 470, 110, 6, 170, 4), DARK$1);
 			put(cyl([
 				W - 85,
@@ -1376,37 +312,16 @@ function powerCubeParts(kit, { at, base, joints, assembly, step, prefix = "pc-",
 				520
 			], 9, 10), YELLOW$1);
 			put(box(W - 60, Lh + 12, 420, 60, 20, 14, 3), GREEN$1);
-		});
-	}
-}
-/** @typedef {(geo: THREE.BufferGeometry, color: string, mat?: number) => void} Put */
-/** @typedef {{ box: (x: number, y: number, z: number, w: number, l: number, h: number, r?: number) => THREE.BufferGeometry, bar: (a: MM, b: MM, w: number, h: number, r?: number) => THREE.BufferGeometry, cyl: (a: MM, b: MM, r: number, seg?: number, r1?: number) => THREE.BufferGeometry, hose: (pts: MM[], r?: number) => THREE.BufferGeometry, T: (g: THREE.BufferGeometry) => THREE.BufferGeometry, L: (x: number, y: number, z: number) => V3, P: (x: number, y: number, z: number) => V3, kit: ReturnType<typeof machineKit>, W: number, Lh: number, H: number, B: number, joints: { flywheel: string, coupling: string, fan: string }, base: string }} Tools what a cube's insides are drawn with: mm in the cube's frame */
-/** @typedef {(part: (g: Group, info: any, joint: string, make: (put: Put) => void) => void, tools: Tools) => void} Insides */
-/** where a Power Cube's moving joints are, its foot's middle at `at` @param {V3} at @returns {{ flywheel: V3, coupling: V3, fan: V3 }} */
-function powerCubeJoints(at) {
-	const L = (x, y, z) => [
+//#piece 32f01050855f6d44fc58dae728851b4371fb1384c7155ae17885605c645e5fd8
 		at[0] + x * S$1,
 		at[1] + z * S$1,
 		at[2] + y * S$1
-	];
-	return {
-		flywheel: L(0, 262, 235),
-		coupling: L(0, CPL, 235),
-		fan: L(...FAN)
-	};
-}
-/** the turns of a running cube's joints at time t (s): the engine (slowed to be seen) and the cooler's fan @param {number} t */
-const powerCubeTurns = (t) => ({
-	engine: t * 2 * Math.PI * 2.2,
-	fan: t * 2 * Math.PI * 1.6
+//#piece 4cdbb4c593c8acd273abd3f4987486866bdc944fdb72a537aba2b7ca666d532b
 });
 
 //#endregion
 //#region src/lib/actors/lifetrac.js
-/** @typedef {import('./rig').V3} V3 */
-/** @typedef {import('./rig').Pose} Pose */
-/** @typedef {import('./rig').Cast} Cast */
-/** @typedef {import('./rig').BoneSpec} BoneSpec */
+//#piece e368c3cf737e66fb341ff68232c75ece16dabd7fcae4088f78597ab1d59ccf31
 /** @typedef {[number, number, number]} MM a point in OSE's coordinates, mm */
 const GREEN = "#1f5e50";
 const ARM = "#45b58f";
@@ -3978,69 +2893,7 @@ function turnAbout(c, p, a) {
 /** the slope of the line from a to b (rad, up positive) @param {[number, number]} a @param {[number, number]} b */
 function ang(a, b) {
 	return Math.atan2(b[1] - a[1], b[0] - a[0]);
-}
-
-//#endregion
-//#region src/lib/app/versions.js
-/** @typedef {{ v: number, date: string, note: string }} Change one version: its number, when, what changed */
-/**
-* @template B
-* @typedef {Change & { build: B, kept: boolean }} Version a version and what builds it; `kept`: its own builder (the
-*   latest's, or a frozen one), not the latest's standing in for one that was not kept
-*/
-/** The first version of everything: what every asset was when versions began. */
-const FIRST = {
-	v: 1,
-	date: "2026-10-05",
-	note: "First version"
-};
-/**
-* An asset's versions, oldest first: its history, the latest built by `current`. A history lists every version; the
-* ones before the latest bring their own (frozen) builders. With no history the asset is at v1.
-* @template B
-* @param {B} current the asset's builder today
-* @param {(Change & { build?: B })[]} [history]
-* @returns {Version<B>[]}
-*/
-function versionsOf(current, history = [FIRST]) {
-	const sorted = [...history].sort((a, b) => a.v - b.v);
-	return sorted.map((c, i) => {
-		const latest = i === sorted.length - 1;
-		return {
-			v: c.v,
-			date: c.date,
-			note: c.note,
-			build: latest ? current : c.build ?? current,
-			kept: latest || c.build !== void 0
-		};
-	});
-}
-/** The latest version number. @param {{ v: number }[]} versions */
-const latestOf = (versions) => versions[versions.length - 1]?.v ?? 1;
-/**
-* Every item of a list with its versions: `versions` from its `HISTORY` entry (by id) and its builder (`key`), and
-* `version` its latest number.
-* @template {{ id: string }} T
-* @param {T[]} items @param {keyof T} key @param {Record<string, (Change & { build?: any })[]>} [history]
-* @returns {(T & { versions: Version<any>[], version: number })[]}
-*/
-function versioned(items, key, history = {}) {
-	return items.map((it) => {
-		const versions = versionsOf(it[key], history[it.id]);
-		return {
-			...it,
-			versions,
-			version: latestOf(versions)
-		};
-	});
-}
-
-//#endregion
-//#region src/lib/machines/index.js
-/** @typedef {import('$lib/actors').Actor} Actor */
-/** @typedef {import('$lib/actors').Family} Family */
-/** the kinds' older versions, by id, each with its frozen variants (the rest are at v1)
-* @type {Record<string, (import('$lib/app/versions.js').Change & { build?: Actor[] })[]>} */
+//#piece 9c49aa51370d3c74fd7e9daa77beca41ebc91fafe2c8980c3d13d2daac4ce689
 const HISTORY = /* @__PURE__ */ (() => ({ lifetrac: [{
 	...FIRST,
 	date: "2026-10-13"
@@ -4056,99 +2909,4 @@ const LIST = [{
 		label: "v25",
 		note: "LifeTrac v25 (2025–26): bolted plate frame, four direct-drive hydraulic wheels, loader arms, LoRa remote control, a Power Cube for its heart",
 		make: () => lifetrac()
-	}]
-}];
-/** @type {Family[]} */
-const MACHINES = /* @__PURE__ */ (() => versioned(LIST, "variants", HISTORY))();
-
-//#endregion
-//#region src/lib/assets/refs.js
-/**
-* The asset `id` at version `v` (its latest when not given), and a kind's variant (the one asked for, or its first), in a
-* group's list: its item, its version and its builder. Undefined if there is no such asset, version or variant.
-* @param {Item[]} list @param {string} id @param {number} [v] @param {string} [variant]
-* @returns {{ item: Item, version: AnyVersion, build: any, kept: boolean } | undefined}
-*/
-function pick(list, id, v, variant) {
-	const item = list.find((x) => x.id === id);
-	const version = item && (v === void 0 ? item.versions[item.versions.length - 1] : item.versions.find((x) => x.v === v));
-	if (!item || !version) return void 0;
-	let build = version.build;
-	if (Array.isArray(build) && build.every((x) => typeof x?.make === "function")) {
-		build = (variant ? build.find((x) => x.id === variant) : build[0])?.make;
-		if (!build) return void 0;
-	} else if (variant) return void 0;
-	return {
-		item,
-		version,
-		build,
-		kept: version.kept
-	};
-}
-
-//#endregion
-//#region src/lib/assets/recipe.js
-/** @typedef {import('./groups.js').Item} Item @typedef {import('./groups.js').AnyVersion} AnyVersion */
-/** @typedef {import('./card.js').Meta} Meta */
-/** the keys of `o` that are set, as a fresh plain object */
-const set = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== void 0));
-/**
-* What a recipe says of the asset it builds: a kind's variant named (the one asked for, or its first), its label
-* with the variant's, its note the variant's or the version's.
-* @param {string} group @param {Item} item @param {AnyVersion} version @param {string} [variant]
-* @returns {Meta}
-*/
-function metaOf(group, item, version, variant) {
-	const v = Array.isArray(version.build) ? version.build.find((x) => x.id === (variant ?? version.build[0]?.id)) : null;
-	return set({
-		group,
-		id: item.id,
-		version: version.v,
-		variant: variant ?? v?.id,
-		label: v?.label ? `${item.label}: ${v.label}` : item.label,
-		note: v?.note ?? version.note,
-		params: item.params?.length ? JSON.parse(JSON.stringify(item.params)) : void 0
-	});
-}
-/**
-* The recipe of one asset in a group's list: what its file gives the engine. Throws when it has no builder of its own.
-* @param {string} group @param {Item[]} list @param {string} id @param {number} v @param {string | null} [variant]
-* @returns {{ meta: Meta, build: (...args: any[]) => any }}
-*/
-function recipeIn(group, list, id, v, variant) {
-	const got = pick(list, id, v, variant ?? void 0);
-	if (!got) throw new Error(`no asset ${group}/${id}@${v}${variant ? `:${variant}` : ""}`);
-	if (!got.kept || typeof got.build !== "function") throw new Error(`${group}/${id}@${v}: no builder of its own`);
-	return {
-		meta: metaOf(group, got.item, got.version, variant ?? void 0),
-		build: got.build
-	};
-}
-/**
-* Every recipe a group's list holds: each version that kept its builder, each variant of it.
-* @param {Item[]} list @returns {{ id: string, v: number, variant: string | null }[]}
-*/
-function recipesIn(list) {
-	/** @type {{ id: string, v: number, variant: string | null }[]} */
-	const out = [];
-	for (const item of list) for (const version of item.versions.filter((x) => x.kept)) if (Array.isArray(version.build)) for (const b of version.build) out.push({
-		id: item.id,
-		v: version.v,
-		variant: b.id
-	});
-	else out.push({
-		id: item.id,
-		v: version.v,
-		variant: null
-	});
-	return out;
-}
-
-//#endregion
-//#region \0entry
-const recipe = (id, v, variant) => recipeIn("machines", MACHINES, id, v, variant);
-const list = () => recipesIn(MACHINES);
-
-//#endregion
-exports.list = list;
-exports.recipe = recipe;
+//#piece 20511e453deb92755bacd120421d0eb6ad8a5a0f798a0e64253b61fe9748854f
