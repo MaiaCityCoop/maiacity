@@ -24,7 +24,7 @@
  * `Copy`), and each kind's copies when asked.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const argv = process.argv.slice(2);
@@ -42,15 +42,27 @@ const CACHE = resolve(process.env.CENSUS_CACHE ?? join(process.env.HOME ?? '/tmp
 
 /** a commit's tree, checked out once under the cache (detached), with this checkout's node_modules */
 function treeAt(commit: string) {
-	const sha = execFileSync('git', ['-C', REPO, 'rev-parse', '--verify', `${commit}^{commit}`], { encoding: 'utf8' }).trim();
+	const git = (...a: string[]) => execFileSync('git', ['-C', REPO, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+	// a commit not in this clone (a shallow one, as CI's) is fetched by its whole hash, the one way a server hands it out
+	const has = (c: string) => {
+		try {
+			return git('rev-parse', '--verify', '--quiet', `${c}^{commit}`);
+		} catch {
+			return '';
+		}
+	};
+	// a short hash of a commit the census keeps a reference for (./census/run5.json) is that commit
+	const pinned = Object.values(JSON.parse(readFileSync(join(SITE, 'scripts/census/run5.json'), 'utf8')).sites as Record<string, { at: string }>).map((s) => s.at);
+	if (/^[0-9a-f]{7,39}$/.test(commit)) commit = pinned.find((p) => p.startsWith(commit)) ?? commit;
+	let sha = has(commit);
+	if (!sha && /^[0-9a-f]{40}$/.test(commit)) {
+		git('fetch', '--quiet', '--depth=1', 'origin', commit);
+		sha = has(commit);
+	}
+	if (!sha) throw new Error(`census: no commit ${commit} here (a shallow clone fetches a commit only by its whole 40-character hash)`);
 	const dir = join(CACHE, 'trees', sha);
 	if (!existsSync(join(dir, 'play/site/src'))) {
 		mkdirSync(join(CACHE, 'trees'), { recursive: true });
-		try {
-			execFileSync('git', ['-C', REPO, 'cat-file', '-e', sha]);
-		} catch {
-			execFileSync('git', ['-C', REPO, 'fetch', '--quiet', 'origin', sha]);
-		}
 		execFileSync('git', ['-C', REPO, 'worktree', 'add', '--force', '--detach', dir, sha], { stdio: 'ignore' });
 	}
 	const nm = join(dir, 'play/site/node_modules');

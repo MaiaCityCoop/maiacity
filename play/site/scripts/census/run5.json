@@ -10,7 +10,7 @@
 	},
 	"sites": {
 		"base": {
-			"at": "6d0d7ac",
+			"at": "6d0d7ac202d8ff5749a24ba8b887e0ecee467158",
 			"hook": "base-census-hook.diff (the census applies it: setup.ts STATS_AND_KINDS)",
 			"tris": 1844669,
 			"shapeTris": 114378,
@@ -19,7 +19,7 @@
 			"ghostTris": { "out": 413748, "in": 1222, "library": 61232 }
 		},
 		"head": {
-			"at": "8e9a45210",
+			"at": "8e9a45210db70dbf3a7ecc343cf665c3fd575cce",
 			"tris": 2635042,
 			"shapeTris": 959932,
 			"renderers": { "out": { "tris": 1259582, "calls": 108 }, "in": { "tris": 1222, "calls": 1 }, "library": { "tris": 69191, "calls": 109 } },
