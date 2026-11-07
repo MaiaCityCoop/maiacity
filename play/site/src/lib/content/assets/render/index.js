@@ -34,7 +34,7 @@ import { canonical, loadAsset } from '../load.js';
 import { INDEX, buildOf, hashOf, heldAt, paramsOf, parseBuild } from '../catalog.js';
 import { createImpostors } from './impostors.js';
 import { budget, dropOnUpload } from '../../render/budget.js';
-import { LEVELS, SMALLEST, budgetOf, choose, errorOf, sizeOn, smallestOf, thresholdsOf } from './lod.js';
+import { LEVELS, SMALLEST, budgetOf, choose, errorOf, heldTo, sizeOn, smallestOf, thresholdsOf } from './lod.js';
 import { createLowering } from './lower.js';
 import { createKept } from './levels.js';
 import { levelValues } from '../lodcard.js';
@@ -226,6 +226,8 @@ export function createAssets(o) {
 			radius: 1,
 			center: new THREE.Vector3(),
 			thresholds: thresholdsOf(declared ? names.length : LEVELS.length),
+			/** each level's triangles, as each came (./lod.js `heldTo`) */
+			tris: [],
 			shadows: opts?.shadows,
 			receive: opts?.receive !== false,
 			picture: opts?.picture !== false,
@@ -287,10 +289,10 @@ export function createAssets(o) {
 		// 40 m: the village's own, measured on a Mac's Metal in intent 6295a650, whose light trees kept their shapes to
 		// ~60 m and cost its far view 46 % more triangles). One made by simplifying, or never a picture (a small plant,
 		// left out where its shape would end), keeps a light shape further, down to PICTURE (./lod.js HEAVY).
-		if (k.names.length > 1 && k.picture) return void (k.thresholds = thresholdsOf(k.levels.length));
+		// And every level hands over no later than DENSITY lets it, by its own triangles (./lod.js `heldTo`)
 		const last = k.levels.length - 1;
 		const tris = k.levels[last].level?.tris ?? budgetOf(last, k.levels[k.base].level.tris);
-		k.thresholds = thresholdsOf(k.levels.length, tris);
+		k.thresholds = heldTo(k.names.length > 1 && k.picture ? thresholdsOf(k.levels.length) : thresholdsOf(k.levels.length, tris), k.tris);
 	}
 
 	/** pictures taken of builds read from this device's cache (`stats`) */
@@ -412,6 +414,11 @@ export function createAssets(o) {
 			if (!k.slot) k.slot = slot;
 		}
 		lv.state = 'ready';
+		// its triangles known: the kind's thresholds held to them (./lod.js DENSITY)
+		if (k.tris[L] !== lv.level?.tris) {
+			k.tris[L] = lv.level?.tris;
+			if (k.ok) retune(k);
+		}
 		dirty = shadows = true;
 	}
 

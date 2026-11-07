@@ -3,6 +3,39 @@
 Intent 6295a650-69ac-4b66-8fe7-7939dad156c9, pull request #2151, branch `intent/6295a650-one-selector`. The baseline is
 main at **6d0d7ac**, as the spec says. The change to measure is the branch's newest head.
 
+## Sixth run (after the fifth, the census)
+
+**Run 5's census** (`out/run5/` on the branch `intent-work/6295a650-render`) confirmed the cause:
+- **Base:** at the far view it draws no tree as a shape.
+- **Head 8e9a45210:** it draws 21 big trees as shapes, about 960k triangles, out to 90 m. Eight pecans (r 15 m, 63k
+  triangles each at detail 0.1) are over half of that.
+- **Why:** the selector turns a tree into its picture at about 6.7 × r m, while the base did it at 40 m whatever the
+  size.
+
+**The fix** (in the commit after 8e9a45210): every level hands over no later than one triangle per five pixels of the
+square it fills (`lod.js` DENSITY 0.2, `heldTo`, applied to each kind's thresholds as its levels' triangles become
+known).
+- A tree's triangles grow with the square of its size, so a big tree now becomes its picture where a small one does.
+  A pecan does at ~43 m, a 12 m fruit tree at 40 m.
+- The rule only ever makes a level coarser sooner, so near and mid cannot cost more.
+
+**Replayed on the CPU** from run 5's census (`run5-sim/sim.py`, output in `run5-sim/out.txt`), triangles in shapes at
+the far view:
+
+| | triangles in shapes | tree shapes |
+|---|---|---|
+| base 6d0d7ac | 528,122 | 0 |
+| head 8e9a45210 | 1,316,447 | 21 |
+| head held to DENSITY 0.2 | 391,719 | 0 |
+
+**Run 6:** the full job (near, mid, far and Sandbox 3) at the branch's newest head, with the hour at noon, and the
+census at far. The base still needs the census hook from run 5.
+
+```sh
+PLAY_MCP_TOKEN=play_… node scripts/selector-shots.mjs --site base=http://localhost:5181 --site head=http://localhost:5182 --out ../../../s6295-shots/run6
+PLAY_MCP_TOKEN=play_… node scripts/selector-shots.mjs --site base=http://localhost:5181 --site head=http://localhost:5182 --census far --out ../../../s6295-shots/run6-census
+```
+
 ## Fifth run: the census only (after the fourth Mac run)
 
 **Run 4** was base 6d0d7ac against head 129cc30c0, in `out/run4/`.

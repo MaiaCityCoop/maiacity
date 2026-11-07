@@ -95,6 +95,28 @@ export const smallestOf = (L, radius, all = LEVELS) => (L <= 0 ? 0 : (2 * radius
 export const sizeOn = (radius, distance, tanHalf) => radius / (Math.max(distance, 1e-3) * tanHalf);
 
 /**
+ * At most this many triangles for every pixel of the square a level fills on SCREEN where it is drawn smallest (its
+ * threshold): a heavier level hands over sooner, at the size where it would (`heldTo`). A tree's triangles grow with the
+ * square of its size, so this turns a big tree into its picture about where a small one does: Sandbox 1's forest, its
+ * trees measured on a Mac's Metal (intent 6295a650, intent-work/6295a650-render run 5), a pecan 30 m across (63k
+ * triangles at detail 0.1) at 43 m, a 12 m fruit tree (8k) at 40 m, where the village always made every tree a picture.
+ * It only ever draws a level coarser sooner, never finer.
+ */
+export const DENSITY = 0.2;
+
+/**
+ * A kind's thresholds held to DENSITY by its levels' triangles (those known; none: as they are), each no lower than the
+ * next coarser one's.
+ * @param {number[]} thresholds @param {(number | null | undefined)[]} tris its levels' triangles, finest first
+ */
+export function heldTo(thresholds, tris) {
+	const out = thresholds.slice();
+	for (let i = 0; i < out.length; i++) if (tris[i]) out[i] = Math.max(out[i], Math.sqrt(tris[i] / DENSITY) / SCREEN);
+	for (let i = out.length - 2; i >= 0; i--) out[i] = Math.max(out[i], out[i + 1]);
+	return out;
+}
+
+/**
  * The thresholds of a kind with `levels` levels of its shape: the coarsest ones of LEVELS, as many as it has; the last
  * (where its picture takes over) lower for a light coarsest shape (`tris` triangles), see HEAVY.
  * @param {number} levels @param {number} [tris] @param {number[]} [all]
