@@ -18,6 +18,7 @@ import { layoutAt, proposedState, SandboxError } from "./sandboxes";
 import { decideAny, docAt, docChanges, docHistory, listDocs, reviewOf, VersionError } from "./versioned";
 import { runningCommit, shipWork, type GitHub } from "./ship";
 import { NO_INTENT, WorkError } from "./work";
+import { withdrawDoc } from "./withdraw";
 import { INTENT_ADMINS, intentCounts, intentOf, IntentError, intentReady, listIntents, pageIntents, type IntentVerdict } from "./intents";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 import { listStories, storyAt, storyOf, StoryError } from "./stories";
@@ -205,6 +206,12 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     }
     b.intent = (await intentReady(db, m, b.intent)).id;
     return json(await proposeAsset(db, store, m, b), { status: 201 });
+  });
+  // one document taken out of its work by an admin on the board's review, with its reason (./withdraw.ts, intent ee0a7455)
+  on("POST", "/api/intents/:id/withdraw", async (req, p) => {
+    const b = await body(req);
+    const m = await me(req);
+    return json(await maskEdges(db, m, await withdrawDoc(db, m, p.id, b?.doc, b?.reason, "site")));
   });
   on("POST", "/api/intents/:id/:verdict", async (req, p) => {
     if (!["approve", "accept", "archive", "reject", "reopen"].includes(p.verdict)) throw new NotFound("No such decision.");
