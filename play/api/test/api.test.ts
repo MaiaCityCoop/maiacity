@@ -561,6 +561,31 @@ suite("play API", () => {
     expect(engine.data.error).toContain("not one of the frozen engines");
   });
 
+  test("a version that keeps its accepted source isn't judged unreadable again; a changed one still is", async () => {
+    // an asset whose accepted source holds a long line of data (base64 mesh, as Stand-in's does), as the import wrote it
+    const put = async (text: string) => {
+      const h = hashText(text);
+      const key = await store.put(h, new TextEncoder().encode(text), "text/javascript");
+      await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, 'text/javascript', $3) ON CONFLICT DO NOTHING`, [h, text.length, key]);
+      return h;
+    };
+    const data = `module.exports.recipe = function (id, v) {\n\tconst skin = ${JSON.stringify("AAAB".repeat(1500))};\n\treturn { meta: { id, v, skin: skin.length } };\n};\n`;
+    const id = "8a1e2b44-0000-4000-8000-000000000044", version = hashText("data-head@1");
+    await db.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, '12f8d4e7-701f-8727-a327-de9b240ea867', 'actors', 'data-head', 'Data head')`, [id]);
+    await db.query(`INSERT INTO play.asset_versions (id, asset_id, number, recipe_hash, source_hash, default_variant, card, engine, imported) VALUES ($1, $2, 1, $3, $4, NULL, '{"card":{}}', 5, '{"from":"legacy"}')`, [
+      version, id, await put(recipe("data-head", 1)), await put(data),
+    ]);
+    await db.query(`UPDATE play.assets SET head = $1 WHERE id = $2`, [version, id]);
+    // the very source again, with a card edit: read and decided on already, so it passes
+    const kept = await propose("ada", { asset: id, source: data, card: { params: [] } });
+    expect(kept.data.error).toBeUndefined();
+    expect(kept.status).toBeLessThan(400);
+    // a source that changes is read again, and its long line refused as before
+    const changed = await propose("ada", { asset: id, source: data + "// changed\n" });
+    expect(changed.status).toBe(400);
+    expect(changed.data.error).toContain("not readable");
+  });
+
   test("admins run the members, and one admin always stays", async () => {
     expect((await call("cit", "GET", "/api/members")).status).toBe(403);
     expect((await call("ada", "GET", "/api/members")).data.length).toBe(6);

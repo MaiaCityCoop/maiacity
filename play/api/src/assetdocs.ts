@@ -560,7 +560,7 @@ export function unreadable(source: string): string | null {
  * A version's code as proposed, the readable source or a recipe file wrapping it: its source and the recipe file made
  * from it for this asset, this version and this variant (the same file the box builds, RECIPE_HEAD + source + its tail).
  */
-function checkedCode(up: { source?: unknown; recipe?: unknown }, slug: string, n: number, variant: string | null) {
+function checkedCode(up: { source?: unknown; recipe?: unknown }, slug: string, n: number, variant: string | null, kept: ReadonlySet<string> = new Set()) {
   let source: string;
   if (typeof up.source === "string" && up.source) {
     if (up.recipe) throw new VersionError("Give the readable source or the recipe file, not both.");
@@ -576,7 +576,9 @@ function checkedCode(up: { source?: unknown; recipe?: unknown }, slug: string, n
   if (Buffer.byteLength(source) > MOST_FILE) throw new VersionError("The source is larger than 16 MB.");
   if (!/module\.exports\.recipe\s*=|exports\.recipe\s*=/.test(source))
     throw new VersionError("The source sets no module.exports.recipe = function (id, v, variant) { … }: the recipe its file calls.");
-  const why = unreadable(source);
+  // a source the asset's head already holds was read and decided on when it was accepted: a version that keeps it (a
+  // card edit, a move to another group) isn't judged again; a source that changes is (intent 440d4b49)
+  const why = kept.has(hashText(source)) ? null : unreadable(source);
   if (why) throw new VersionError(`The source is not readable: ${why}.`);
   const recipe = RECIPE_HEAD + source + recipeTail(slug, n, variant);
   return { source: { text: source, hash: hashText(source) }, recipe: { text: recipe, hash: hashText(recipe) }, libs: libsOf(source), pieces: piecesOf(source) };
@@ -712,9 +714,10 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
     if (!SLUG.test(slug)) throw new VersionError("A new asset's slug is lowercase words joined by '-' (or give a label to make it from).");
     asset = newId();
   }
-  const { rows: a } = await db.query<{ head: string | null; number: number | null; label: string; card: any; variants: Record<string, any> | null }>(
+  const { rows: a } = await db.query<{ head: string | null; number: number | null; label: string; card: any; variants: Record<string, any> | null; sources: string[] | null }>(
     `SELECT a.head, v.number, a.label, v.card,
-            (SELECT json_object_agg(x.name, x.card) FROM play.asset_variants x WHERE x.version_id = v.id) AS variants
+            (SELECT json_object_agg(x.name, x.card) FROM play.asset_variants x WHERE x.version_id = v.id) AS variants,
+            (SELECT array_remove(array_agg(x.source_hash), NULL) FROM play.asset_variants x WHERE x.version_id = v.id) || array_remove(ARRAY[v.source_hash], NULL) AS sources
        FROM play.assets a LEFT JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1`, [asset],
   );
   // a proposal that brings no record of its own takes its head's (the engine it runs on, its label, its parameters),
@@ -788,6 +791,8 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
   }
 
   const variantNames = Object.keys(body.variants ?? {});
+  /** the sources the head holds (its own, its variants'), each read and decided on already */
+  const kept = new Set<string>(a[0]?.sources ?? []);
   if (!!(body.recipe || body.source) === !!variantNames.length) throw new VersionError("Give either the version's source (or recipe file) or its variants, not both.");
   const files: { text: string; hash: string }[] = [];
   let recipe: string | null = null;
@@ -799,7 +804,7 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
   let ownText = "";
   const variantTexts: Record<string, string> = {};
   if (body.recipe || body.source) {
-    const c = checkedCode(body, slug, n, null);
+    const c = checkedCode(body, slug, n, null, kept);
     files.push(c.source, c.recipe);
     recipe = c.recipe.hash;
     source = c.source.hash;
@@ -808,7 +813,7 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
   } else {
     for (const name of variantNames) {
       if (!VARIANT.test(name)) throw new VersionError(`${name} is not a variant's name.`);
-      const c = checkedCode(body.variants![name], slug, n, name);
+      const c = checkedCode(body.variants![name], slug, n, name, kept);
       files.push(c.source, c.recipe);
       variantTexts[name] = c.source.text;
       const from = a[0]?.variants?.[name] ?? a[0]?.card;

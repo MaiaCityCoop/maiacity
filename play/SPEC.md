@@ -73,7 +73,7 @@ never edited after it has shipped, only followed by another.
 ### 4.1 What is versioned
 
 **Readable source, the box, the host (Samuel 2026-11-02).** Every proposed version brings its **readable source**: a
-CommonJS module that sets `module.exports.recipe`, as written (play refuses minified code), kept as a file of its own
+CommonJS module that sets `module.exports.recipe`, as written (play refuses minified code; a version that keeps a source its asset's head already holds, a card edit or a move to another group, isn't judged again, intent 440d4b49), kept as a file of its own
 (`source_hash`). play makes the recipe file from it (`RECIPE_HEAD + source + recipeTail(slug, v, variant)`), so the
 file the box runs is exactly the source people read. Proposed code never runs on play's server (it only measures,
 labels and hashes text), and in the page only in the **asset box**: a frame with `sandbox="allow-scripts"` and no
