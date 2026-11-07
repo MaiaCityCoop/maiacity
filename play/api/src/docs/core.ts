@@ -1,10 +1,10 @@
 // A document in Loro, without the database (play/SPEC.md §4.4): its JSON written into Loro containers as its type's
-// hints say (./schema.ts), edits applied as Loro operations, a whole new state turned into the few operations that
+// hints say (./validate.ts; its schema a document, ./schemas.ts), edits applied as Loro operations, a whole new state turned into the few operations that
 // make it (so a proposal that sends its whole body still lands as small steps), the state read back as plain JSON at
 // any point of its history, and two states compared field by field.
 import { LoroDoc, LoroList, LoroMap, LoroMovableList, LoroText } from "loro-crdt";
 import { canonical, hashText } from "../hash";
-import { nodeAt, problemsOf, SchemaError, type DocType, type Node } from "./schema";
+import { nodeAt, problemsOf, SchemaError, type DocType, type Node } from "./validate";
 
 /** the one root container every document lives under */
 export const ROOT = "doc";

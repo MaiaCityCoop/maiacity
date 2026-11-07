@@ -1,4 +1,4 @@
-// The levelling worked out (the Game editor, Samuel 2026-11-04): from a levels/1 config (play/api/src/docs/schema.ts)
+// The levelling worked out (the Game editor, Samuel 2026-11-04): from a levels/1 config (its schema a document, play/api/migrations/schemas/levels.json its v1)
 // every level's new villagers and what they bring, the minds a mind costs and each villager gets, the investor's ticket
 // and its minds and share, the minds minted, what the level costs, and the treasury after it: euros raised and left after
 // building, hearts held, minds minted in all and how much of them investors own. Pure: the page and its test read it.

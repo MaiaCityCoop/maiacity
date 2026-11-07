@@ -8,7 +8,7 @@
 //   Specify → Idea: its spec dropped, its whole text kept with the step in the intent's history.
 //
 // Refused at Idea, at Proposal while work of play's waits there (it is decided first), and in Ship, Accepted and
-// Archived. Each step is kept on the intent (`steps`, migration 0034): when, who (over MCP), from which stage to which,
+// Archived. Each step is kept on the intent (`steps`, migration 0036): when, who (over MCP), from which stage to which,
 // its reason, and the spec it dropped; the board shows them under the intent's note.
 import type { Me } from "./access";
 import type { Queryable } from "./pg";

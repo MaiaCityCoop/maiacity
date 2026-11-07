@@ -155,7 +155,7 @@ export function specOf(body: { goal?: unknown; scope?: unknown; checks?: unknown
 async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
   // a document's label and group, by its kind, from ./versioned.ts's registry
   const kind = workSql();
-  // its steps back (./stepback.ts) by to_jsonb: a database migrated short of 0034 (a migration's test) reads too
+  // its steps back (./stepback.ts) by to_jsonb: a database migrated short of 0036 (a migration's test) reads too
   const { rows } = await db.query<any>(
     `SELECT i.id, i.kind, i.title, i.note, i.stage, i.via, i.created, i.spec, i.results, i.specified_at, i.approved_at, i.decided_at, i.came_with,
             i.pull_request, i.ship, COALESCE(to_jsonb(i)->'steps', '[]') AS steps,

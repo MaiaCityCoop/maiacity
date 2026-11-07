@@ -1114,10 +1114,31 @@ export const MIGRATIONS: Migration[] = [
     `,
   },
   {
+    // Schemas as documents (play/SPEC.md "Version control", Samuel 2026-11-06): every schema a document schema:<uuid>
+    // of the meta-schema, made by ensureSchemas (src/docs/schemas.ts) at the end of migrate(); here only what it needs.
+    id: "0034-schemas",
+    sql: `
+      -- every document names the schema it was written against, by its UUID, and that schema's version
+      ALTER TABLE play.docs ADD COLUMN schema_id UUID, ADD COLUMN schema_version INT;
+      COMMENT ON COLUMN play.docs.schema IS 'the schema''s old name (story/1 …): only shown; a document names its schema by schema_id';
+      CREATE INDEX ix_docs_schema ON play.docs (schema_id);
+      -- the rows of the kinds no table of their own holds: the schemas, and every kind that is a schema alone
+      CREATE TABLE play.records (
+        id      UUID PRIMARY KEY,
+        coop_id UUID NOT NULL REFERENCES play.coops(id),
+        kind    TEXT NOT NULL CHECK (kind ~ '^[a-z][a-z_]{0,31}$'),
+        label   TEXT NOT NULL,
+        created TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX ix_records_kind ON play.records (kind);
+    `,
+  },
+  {
     // An agent sends an intent one stage back over MCP, with its reason (intent 5a78e0b7-c221-4f3f-9148-590727d1e154,
     // Samuel 2026-11-07): ./src/stepback.ts. Each step back is kept on the intent, in order: when, who, from which stage
     // to which, its reason, and, back to Idea, the spec it dropped. No admin's Back to Specify is left.
-    id: "0034-step-backs",
+    id: "0036-step-backs",
     sql: `
       ALTER TABLE play.intents ADD COLUMN steps JSONB NOT NULL DEFAULT '[]'::jsonb;
     `,
