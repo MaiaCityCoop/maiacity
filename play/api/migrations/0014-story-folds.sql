@@ -1,0 +1,1 @@
+ALTER TABLE play.stories ADD COLUMN folded_into TEXT REFERENCES play.stories(id);

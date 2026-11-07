@@ -141,6 +141,8 @@ suite("no write past an Accept", () => {
       specify_intent: { intent: fresh, ...SPEC },
       check_intent: { intent: checked, results: [{ check: "c1", pass: true, evidence: "exit 0" }] },
       archive_intent: { intent: own.intent },
+      depend_intent: { intent: fresh, on: checked },
+      step_back_intent: { intent: checked, reason: "back to Specify, for a test" },
       add_artifact: ARTIFACT("https://nobypass.example/new"),
       update_artifact: { artifact: art.id, title: "A page, corrected" },
     };

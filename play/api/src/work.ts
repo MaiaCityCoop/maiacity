@@ -14,6 +14,7 @@ import { COOP } from "./access";
 import * as docs from "./docs";
 import type { Queryable } from "./pg";
 import { newId, UUID } from "./uuid";
+import { gate, IntentError } from "./intents";
 
 /** the work an intent holds that is no document's: a sandbox's change, until sandbox layouts are documents too */
 export const SANDBOX_WORK = "sandbox_change";
@@ -128,7 +129,8 @@ export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string 
   if (o.intent) {
     const was = await workOf(q, o.intent, true);
     if (!was) throw new WorkError("There is no such intent.", 404);
-    if (was.stage !== "build" && was.stage !== "proposal") throw new WorkError(`Intent ${was.id} is at the ${was.stage} stage: it takes no work now.`, 409);
+    const no = await gate.mayMove(q, was.id, "work").catch((e) => (e instanceof IntentError ? { why: e.message } : Promise.reject(e)));
+    if (no) throw new WorkError(no.why, 409);
     id = was.id;
     // variants of work decided before (archived, the intent back in Build) are no longer its work
     await q.query(`DELETE FROM play.intent_variants iv USING play.doc_variants v WHERE iv.intent_id = $1 AND v.id = iv.variant_id AND v.status NOT IN ('open', 'proposed')`, [id]);

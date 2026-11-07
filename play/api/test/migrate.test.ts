@@ -6,9 +6,9 @@
 // finds nothing to run.
 //
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { MIGRATIONS, migrate } from "../src/migrations";
+import { MIGRATIONS, MIGRATIONS_DIR, badId, loadMigrations, migrate } from "../src/migrations";
 import { fromBunSql } from "../src/pg";
-import { mkdtempSync } from "node:fs";
+import { copyFileSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { app } from "../src/app";
@@ -56,7 +56,7 @@ suite("migrate, twice at once", () => {
 // Migration 0032-versioned (play/SPEC.md "Version control"): a database made at 0031 holding work of every kind at
 // Proposal and accepted (an asset's, a story's, a factory's, a config's, a skill's), migrated: doc_variants and
 // doc_edits replace doc_branches and doc_updates, every intent's work names its doc_id and doc_variant and keeps its
-// stage, the columns per kind are gone, and every intent is still reviewed and decided. Then 0033-intent-variants
+// stage, the columns per kind are gone, and every intent is still reviewed and decided. Then 202611070117-847c5d38-intent-variants
 // (intent 847c5d38): every intent's document and variant a row of play.intent_variants, the intent's own columns gone,
 // and an artifact kept before (its authors in order) its v1, read as a document like any other.
 const COOP = "12f8d4e7-701f-8727-a327-de9b240ea867";
@@ -206,8 +206,11 @@ suite("migration 0032-versioned", () => {
     // what an intent's work names is one rule
     await expect(db.query(`UPDATE play.intents SET doc_id = NULL WHERE id = $1`, [made[0].id])).rejects.toThrow(/intents_work_names_what/);
 
-    // then the rest: 0033-build, 0034-schemas with ensureSchemas (every schema a document of the meta-schema) and 0035-intent-variants
-    expect(await migrate(db)).toEqual(["0033-build", "0034-schemas", "0035-intent-variants"]);
+    // then every migration after 0032 (0033-build and 0034-schemas among them, this intent's intent-variants after them)
+    const rest = MIGRATIONS.map((m) => m.id).slice(MIGRATIONS.findIndex((m) => m.id === "0032-versioned") + 1);
+    expect(rest.slice(0, 2)).toEqual(["0033-build", "0034-schemas"]);
+    expect(rest.some((id) => id.endsWith("-847c5d38-intent-variants"))).toBe(true);
+    expect(await migrate(db)).toEqual(rest);
     // every schema a document, v1 from the seed; every document made before names its schema's UUID and version, and
     // is still valid against that schema as Postgres holds it (play/SPEC.md "Version control")
     const schemas = await q(`SELECT d.id, d.schema_id, (SELECT max(number) FROM play.doc_versions v WHERE v.doc_id = d.id) AS n FROM play.docs d WHERE d.id LIKE 'schema:%' ORDER BY d.id`);
@@ -223,7 +226,7 @@ suite("migration 0032-versioned", () => {
     expect(await migrate(db)).toEqual([]);
     expect(Number((await q(`SELECT count(*) AS n FROM play.docs WHERE id LIKE 'schema:%'`))[0].n)).toBe(schemas.length);
 
-    // ---- 0035: every intent's document and variant a row of play.intent_variants, in place of its own columns
+    // ---- 847c5d38's migration: every intent's document and variant a row of play.intent_variants, in place of its own columns
     const after = (await q(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'play' AND table_name = 'intents'`)).map((r) => r.column_name);
     for (const gone of ["doc_id", "doc_variant"]) expect(after).not.toContain(gone);
     for (const m of made) expect(await q(`SELECT doc_id, variant_id::int AS v FROM play.intent_variants WHERE intent_id = $1`, [m.id])).toEqual([{ doc_id: m.doc, v: m.branch }]);
@@ -260,4 +263,97 @@ suite("migration 0032-versioned", () => {
       expect(h.data.edits.at(-1).kind).toBe("merge");
     }
   }, 60_000);
+});
+
+// One file per migration (play/SPEC.md "Migrations"): every shipped migration a file `<id>.sql` of
+// play/api/migrations, its SQL byte for byte as it ran (the SHA-256 list frozen from main's array at b5d019e,
+// ./fixtures/migrations.sha256.json); the runner reads the folder, runs each file once in name order, and refuses a
+// duplicate or malformed id, naming the file.
+describe("migrations, one file each", () => {
+  const frozen: Record<string, string> = JSON.parse(readFileSync(join(import.meta.dir, "fixtures", "migrations.sha256.json"), "utf8"));
+  const sha = (s: string) => new Bun.CryptoHasher("sha256").update(s).digest("hex");
+
+  test("shipped migrations unchanged", () => {
+    expect(Object.keys(frozen).length).toBe(34);
+    const files = new Set(readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")));
+    for (const [id, h] of Object.entries(frozen)) {
+      expect(files.has(`${id}.sql`)).toBe(true);
+      expect(sha(readFileSync(join(MIGRATIONS_DIR, `${id}.sql`), "utf8"))).toBe(h);
+      expect(sha(MIGRATIONS.find((m) => m.id === id)!.sql)).toBe(h);
+    }
+    // every other migration is well named (0036-step-backs and 0037-intent-depends, numbered in the old array before it went, or a dated one)
+    for (const m of MIGRATIONS) if (!(m.id in frozen)) expect(badId(m.id)).toBeNull();
+    expect(MIGRATIONS.map((m) => m.id)).toEqual(MIGRATIONS.map((m) => m.id).sort());
+  });
+
+  /** a scratch folder holding every migration of play's and the files given */
+  function folderWith(extra: Record<string, string>): string {
+    const dir = mkdtempSync(join(tmpdir(), "play-migrations-"));
+    for (const f of readdirSync(MIGRATIONS_DIR)) if (f.endsWith(".sql")) copyFileSync(join(MIGRATIONS_DIR, f), join(dir, f));
+    for (const [f, sql] of Object.entries(extra)) writeFileSync(join(dir, f), sql);
+    return dir;
+  }
+
+  test("refuses a duplicate or malformed id", () => {
+    const bad = [
+      "0038-late",                 // numbered after the last hand-numbered one (0037)
+      "2026110712-e9afc2d5-short", // the time without its minutes
+      "202611071200-e9afc2d-files", // seven hex
+      "202611071200-E9AFC2D5-files", // upper case
+      "202611071200-e9afc2d5-Files",
+      "202611071200-e9afc2d5",      // no slug
+      "202613071200-e9afc2d5-files", // no 13th month
+      "files",
+    ];
+    for (const id of bad) {
+      const dir = folderWith({ [`${id}.sql`]: "SELECT 1;" });
+      expect(() => loadMigrations(dir)).toThrow(`${id}.sql`);
+    }
+    // a second file under a shipped number
+    expect(() => loadMigrations(folderWith({ "0034-other.sql": "SELECT 1;" }))).toThrow("0034-other.sql");
+    expect(() => loadMigrations(folderWith({ "0034-other.sql": "SELECT 1;" }))).toThrow("duplicate");
+    // a well-formed new one loads, after 0034-schemas
+    const ok = loadMigrations(folderWith({ "202611071200-e9afc2d5-files.sql": "SELECT 1;" }));
+    expect(ok.at(-1)!.id).toBe("202611071200-e9afc2d5-files");
+  });
+
+  const suiteDb = URL_ ? test : test.skip;
+  suiteDb("runs each file once, in name order", async () => {
+    const admin = new Bun.SQL(URL_!);
+    const names = [1, 2].map(() => `play_migfiles_${Date.now()}_${Math.floor(Math.random() * 1e6)}`);
+    const conns: Bun.SQL[] = [];
+    try {
+      for (const n of names) await admin.unsafe(`CREATE DATABASE ${n}`);
+      const at = (n: string) => { const u = new URL(URL_!); u.pathname = `/${n}`; const s = new Bun.SQL(u.toString()); conns.push(s); return fromBunSql(s); };
+      const extra = {
+        "202611071200-e9afc2d5-files.sql": "CREATE TABLE play.mig_probe (n INT); INSERT INTO play.mig_probe VALUES (1);",
+        "202611071201-0badc0de-second.sql": "INSERT INTO play.mig_probe VALUES (2);",
+      };
+      const all = loadMigrations(folderWith(extra));
+      const shipped = Object.keys(frozen);
+
+      // as production stands: 0001–0034 applied; migrating with only the shipped ones runs nothing
+      const prod = at(names[0]);
+      expect(await migrate(prod, { migrations: MIGRATIONS.filter((m) => m.id in frozen) })).toEqual(shipped);
+      expect(await migrate(prod, { migrations: MIGRATIONS.filter((m) => m.id in frozen) })).toEqual([]);
+      // the rest then run (the ones landed since b5d019e and the new files), each once, in name order
+      expect(await migrate(prod, { migrations: all })).toEqual(all.map((m) => m.id).filter((id) => !(id in frozen)));
+      expect(await migrate(prod, { migrations: all })).toEqual([]);
+
+      // a fresh one runs every file in name order, the new-style ids after 0034-schemas
+      const fresh = at(names[1]);
+      const ran = await migrate(fresh, { migrations: all });
+      expect(ran).toEqual(all.map((m) => m.id));
+      expect(ran).toEqual([...ran].sort());
+      expect(ran.indexOf("202611071200-e9afc2d5-files")).toBeGreaterThan(ran.indexOf("0034-schemas"));
+      expect(ran.slice(-2)).toEqual(Object.keys(extra).map((f) => f.slice(0, -4)));
+      const { rows } = await fresh.query<{ n: number }>("SELECT n FROM play.mig_probe ORDER BY n");
+      expect(rows.map((r) => r.n)).toEqual([1, 2]);
+      expect(await migrate(fresh, { migrations: all })).toEqual([]);
+    } finally {
+      for (const c of conns) await c.close();
+      for (const n of names) await admin.unsafe(`DROP DATABASE IF EXISTS ${n} WITH (FORCE)`);
+      await admin.close();
+    }
+  }, 120_000);
 });
