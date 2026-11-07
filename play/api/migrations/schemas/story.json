@@ -1,0 +1,117 @@
+{
+  "label": "Story",
+  "type": "story",
+  "name": "story/1",
+  "note": "A film as one timeline of tracks and clips (play/SPEC.md §12).",
+  "node": {
+    "type": "object",
+    "required": [
+      "schema",
+      "title",
+      "format",
+      "fps",
+      "duration",
+      "tracks"
+    ],
+    "properties": {
+      "schema": {
+        "const": "story/1"
+      },
+      "title": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      },
+      "format": {
+        "type": "string",
+        "enum": [
+          "9:16",
+          "16:9",
+          "1:1",
+          "4:5"
+        ]
+      },
+      "fps": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 120
+      },
+      "duration": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 36000
+      },
+      "tracks": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "type": "object",
+          "required": [
+            "id",
+            "kind",
+            "clips"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]{0,31}$"
+            },
+            "kind": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]{0,31}$"
+            },
+            "clips": {
+              "type": "array",
+              "maxItems": 4000,
+              "items": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "at",
+                  "duration"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$"
+                  },
+                  "at": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "duration": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "transition": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "x-loro": "text"
+                  },
+                  "line": {
+                    "type": "string",
+                    "maxLength": 4000,
+                    "x-loro": "text"
+                  },
+                  "camera": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "x-loro": "text"
+                  },
+                  "retention": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "x-loro": "text"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          },
+          "additionalProperties": true
+        }
+      }
+    },
+    "additionalProperties": true
+  }
+}

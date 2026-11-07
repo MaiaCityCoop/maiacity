@@ -1,0 +1,77 @@
+{
+  "label": "Asset",
+  "type": "asset",
+  "name": "asset/1",
+  "note": "An asset's readable source, its card and its variants (play/SPEC.md §4.4).",
+  "node": {
+    "type": "object",
+    "required": [
+      "schema",
+      "label",
+      "source"
+    ],
+    "properties": {
+      "schema": {
+        "const": "asset/1"
+      },
+      "label": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 20000,
+        "x-loro": "text"
+      },
+      "source": {
+        "type": "string",
+        "maxLength": 16000000,
+        "x-loro": "text"
+      },
+      "engine": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "card": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "defaultVariant": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]{0,79}$"
+      },
+      "variants": {
+        "type": "array",
+        "maxItems": 256,
+        "items": {
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]{0,79}$"
+            },
+            "source": {
+              "type": "string",
+              "maxLength": 16000000,
+              "x-loro": "text"
+            },
+            "card": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "values": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        }
+      }
+    },
+    "additionalProperties": true
+  }
+}

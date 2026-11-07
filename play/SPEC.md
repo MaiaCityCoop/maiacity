@@ -127,7 +127,7 @@ versions kept as well: how a story or an asset got from one version to the next,
 to read, to time-travel through and to tell (a making-of is that history played back). So documents are kept in
 **Loro** (loro-crdt, a CRDT with its own history), one document per thing, while every guarantee of §4.3 stays.
 
-- **One Loro document per document**, typed by a schema (`play/api/src/docs/schema.ts`: a JSON Schema with Loro hints):
+- **One Loro document per document**, typed by a schema (a document itself since 2026-11-06, §4.15: a JSON Schema with Loro hints):
   `story/1` now, `asset/1` next (its readable source a text, its card, its variants), later others (a world's layout,
   shared params). An object is a Loro map, an array a movable list, a string marked `x-loro: text` a Loro text, edited
   and kept character by character. A document is always read back as plain JSON; the browser never needs Loro.
@@ -255,7 +255,7 @@ is only shown: nothing is looked up by it, no row refers to it, and two things m
 ### 4.8 The Factories on Loro (the `factory_version` work, Samuel 2026-11-04)
 
 Every production line play shows is a Loro document, `factory:<uuid>` (a factory is its UUID, §4.7; the first,
-the LifeTrac line, `uuidOf('factory:lifetrac-line')`, `play/api/src/ids.ts` `FACTORY`; type `factory/1`, `play/api/src/docs/schema.ts`;
+the LifeTrac line, `uuidOf('factory:lifetrac-line')`, `play/api/src/ids.ts` `FACTORY`; type `factory/1`, a schema document, §4.15;
 one kind of `play/api/src/versioned.ts`, §4.15): its **line** as AirSup's factory runtime reads it (the product, the demand, the calendar,
 every station with its machine, cycle variation, buffer, spare floor, breakdowns, yield and what it joins, the stages'
 looks, the floor's layout) and its **bill of process** (every part of what it builds with its raw stock and every
@@ -280,7 +280,7 @@ its History tab. Admins only, as the Factories are.
 
 ### 4.9 The Game editor (the `game_config_version` work, Samuel 2026-11-04)
 
-The game's configs are Loro documents too, `game:<uuid>` (type by kind: `levels/1` first, `play/api/src/docs/schema.ts`;
+The game's configs are Loro documents too, `game:<uuid>` (type by kind: `levels/1` first, a schema document, §4.15;
 one kind of `play/api/src/versioned.ts`, §4.15), listed in `play.game_configs` (migration `0019`) and shown on the
 **Game editor** (`/game-editor/`, a tile of the coop's own on the dashboard; admins only): on the left the configs, in
 the middle the config worked out, on the right its History tab. The first, the **levelling**
@@ -485,7 +485,8 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   2026-11-06; intent `7cd4c779-9d7a-4ba0-8060-6b2697545886`): an intent at any stage, its code and its checks are done
   there, the only environment with play's MCP token and the box; a session elsewhere, without play's MCP (no
   `PLAY_MCP_TOKEN`), starts a session on avenBOX with the work's brief and hands it over, building, pushing and
-  recording nothing itself (`up.sh` says so as it ends); one intent has one builder session. So every check is a
+  recording nothing itself (the SessionStart hook says so as such a session starts, after `up.sh`; never `up.sh`
+  itself, which every check run calls); one intent has one builder session. So every check is a
   command:
   - each test and measure check carries its **`run`**, the exact command that decides it in avenBOX, from the
     repository's root, as written: a test passes when it exits 0, a measure prints its value and exits 0 only in its
@@ -540,7 +541,7 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     **record** (main's `intent.ts <uuid> --record-from <results> --pr <n> --head <sha>`, with avenBOX's token, refusing
     results of another intent or another commit; a red run's pull request turned back into a draft). The workflow and
     the intent.ts that hold a token are always main's. **avenBOX's token** is an admin's access token marked so on
-    play's profile page (`play.api_tokens.avenbox`, migration 0034; `POST /api/tokens/<id>/avenbox`), the repository
+    play's profile page (`play.api_tokens.avenbox`, migration 0035; `POST /api/tokens/<id>/avenbox`), the repository
     secret `PLAY_MCP_TOKEN` that intents-pr.yml, intent-named.yml and intents.yml hold. From any other token
     `check_intent` refuses a pull request named and every test or measure result that could decide a code intent (on a
     commit, on main, or once its pull request is named), saying the pull request's run records them; a result recorded
@@ -750,9 +751,9 @@ intents (…, work 'skill_version', skill_id → skills, doc_branch)            
 
 ### 4.15 Version control (Samuel 2026-11-06)
 
-**One version control for everything play versions**: assets, stories, factories, the game's configs and skills (and,
-each by its own intent, schemas, breeds and sandbox layouts next), in one vocabulary, by one registry and one module,
-shown by one History.
+**One version control for everything play versions**: assets, stories, factories, the game's configs, skills and the
+schemas themselves (and, each by its own intent, breeds and sandbox layouts next), in one vocabulary, by one registry
+and one module, shown by one History.
 
 | Word | Meaning | Was |
 |---|---|---|
@@ -764,7 +765,7 @@ shown by one History.
 | **Version** | A numbered state of Main, named on accept | version |
 
 - **One registry, one module** (`play/api/src/versioned.ts`). Each versioned kind is one entry: its document prefix and
-  type (`docs/schema.ts`), its row table, its label and group (only shown), and hooks only where it really differs (an
+  its schema (a document, by its UUID: below), its row table, its label and group (only shown), and hooks only where it really differs (an
   asset's `replace` edit and its recipe built on propose; a story's timeline edits and its frozen `story_versions` row;
   an asset's and a story's own decide; the fields its row keeps of an accepted version; its list item's extra fields).
   The module does the rest for every entry: list, read (at a version, an edit, an intent's variant), history (edits,
@@ -785,6 +786,25 @@ shown by one History.
   `/api/docs/<uuid>/changes` (`?edit=` or `?variant=`, against what it grew from). Each kind's own reads and creates
   stay where they hold more than the document: `get_asset` (its recipe files; `edit`, `intent`), `get_story` (its
   links; `edit`, `intent`), `propose_asset`, `propose_story`, and `propose_sandbox_change`.
+- **Schemas as documents** (migration `0034-schemas`, `play/api/src/docs/schemas.ts`; Samuel 2026-11-06). Every schema
+  is itself a versioned document, `schema:<uuid>`, of the **meta-schema** (`schema:<SCHEMA.meta>`), which describes
+  every schema, itself included: its `label` (only shown), `type` (its documents' id prefix), `name` (its old name,
+  `story/1` …, only shown) and `node`, the JSON Schema subset `docs/validate.ts` checks (with Loro's `x-loro: text`).
+  The fixed UUIDs are `play/api/src/ids.ts` `SCHEMA`. **Bootstrap:** `migrate()` ends with **`ensureSchemas()`**: it
+  makes each schema's v1 from the seed (`play/api/migrations/schemas/*.json`, today's definitions as code wrote them
+  before), only where absent, its row in `play.records`, and names every existing document's schema by its old
+  `schema` name (`play.docs.schema_id`, `schema_version` 1). From then on Postgres is the source: every commit, merge
+  and preview validates against the schema's Main (cached by the schema document's head), and a document records the
+  version of its schema it was last written against (`schema_version`). What a schema can't say stays code, keyed by
+  the schema's UUID in `versioned.ts`'s entries: a story's clips inside its duration, an asset's variant names and that
+  it is code (`build`), a factory's stations named where they are, the levelling's rising villagers, a node's own words
+  (the meta-schema's). **Changing a schema** is an intent variant like any document's (`doc_edit`,
+  `propose_doc_version`); its Accept is **refused while any document on Main fails the new version**, naming them, and
+  a schema's documents keep their prefix. **A new type needs no code**: `propose_doc_version` with `kind: "schema"` and
+  the `whole` schema; once accepted it is a kind of its own (its rows in `play.records`), and its documents are proposed
+  new the same way (`kind`, `whole`: Main born empty, the first version an intent variant's until a person accepts it).
+  Admins see them on **`/schemas/`**: each schema's node field by field, the documents written against it, and its
+  History in the right aside. No bypass: every change waits at Proposal for a person's Accept.
 - **One History** (`play/site`'s `lib/app/History.svelte`), always on the right, in Frame's aside, in its own **History
   tab**, in every view of a versioned thing: the asset viewer (every group, beside Parts), Worlds, Stories (the top of
   its player's rail), Factories (beside the bill of process), the Game editor and Skills (`/skills/`). At its top the
