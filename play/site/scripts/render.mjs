@@ -41,6 +41,15 @@
  *                     "mode": "orbit" | "walk" | "drive" }. Without --shots: the whole, then 10 s on, then each view
  *                     it names. A world's `values` are given by --values '{"cars": 40}'
  *
+ *   --motion          a JSON plan of clips (a rigged build's: `{ "values": {…}, "plan": [{ "clip": "walk", "seconds": 10,
+ *                     "speed": 1.4 }, …], "fps": 30 }`) played as the page plays them (RenderBench.svelte `motion`):
+ *                     writes <out>/<file>-motion.json, every frame's feet and hips as their bones' world matrices
+ *   --crowd           a JSON crowd ({ "n": 200, "clip": "walk", "speed": 1.4, "seconds": 6, "near": 20, "max": 50 }): the
+ *                     recipe handed to the page's catalog and drawn as a world's crowd (render/crowd.js), timed: how
+ *                     long until it is built, what posing it costs a frame, frames a second (<out>/<file>-crowd.json)
+ *   --film            the same plan drawn frame by frame, the camera following (`"camera": { "offset": [x, y, z] }`):
+ *                     <out>/<file>-film/<frame>.png, and <file>-film.mp4 where ffmpeg is installed
+ *
  * Out: one PNG per shot and file (<out>/<file>-<shot>.png), a contact sheet (<out>/sheet.png) with every shot's
  * values, triangles and build time under it, and shots.json of what was shown. Needs Playwright with a Chromium
  * (npx playwright install chromium where none is installed); WebGL runs on SwiftShader when there is no GPU.
@@ -63,10 +72,14 @@ function args(argv) {
 		else if (k === '--id') (o.recipes.at(-1).id = v), i++;
 		else if (k === '--v') (o.recipes.at(-1).v = Number(v)), i++;
 		else if (k === '--label') (o.recipes.at(-1).label = v), i++;
+		else if (k === '--variant') (o.recipes.at(-1).variant = v), i++;
 		else if (k === '--shots') (o.shots = v), i++;
 		else if (k === '--guests') (o.guests = v), i++;
 		else if (k === '--pieces') (o.pieces = v), i++;
 		else if (k === '--slack') (o.slack = Number(v)), i++;
+		else if (k === '--motion') (o.motion = v), i++;
+		else if (k === '--film') (o.film = v), i++;
+		else if (k === '--crowd') (o.crowd = v), i++;
 		else if (k === '--world') o.world = true;
 		else if (k === '--play') o.play = true;
 		else if (k === '--values') (o.values = JSON.parse(v)), i++;
@@ -183,6 +196,47 @@ try {
 		}
 		const loaded = await page.evaluate((x) => window.__render.load(x), { code, id: r.id, v: r.v, label: r.label });
 		console.log(`  ${loaded.card.label} (${loaded.hash.slice(0, 12)}…)`);
+		if (o.crowd) {
+			const plan = JSON.parse(readFileSync(o.crowd, 'utf8'));
+			const g = await page.evaluate(([b, x]) => window[b].guest(x), ['__render', { code, id: r.id, v: r.v, variant: r.variant ?? null }]);
+			const got = await page.evaluate((x) => window.__render.crowd(x), { ...plan, hash: g.hash });
+			writeFileSync(resolve(o.out, `${name}-crowd.json`), JSON.stringify(got, null, 1));
+			console.log(`  crowd of ${got.n}: built in ${got.readyMs} ms, ${got.rigged} rigged, posing ${got.posingMsPerFrame} ms a frame, ${got.fps} frames a second`);
+			await page.close();
+			continue;
+		}
+		if (o.motion) {
+			const plan = JSON.parse(readFileSync(o.motion, 'utf8'));
+			const t0 = Date.now();
+			const got = await page.evaluate((x) => window.__render.motion(x), plan);
+			const file = resolve(o.out, `${name}-motion.json`);
+			writeFileSync(file, JSON.stringify({ plan, ...got }));
+			console.log(`  ${got.frames.length} frames of ${got.clips.length} clips (${got.clips.join(', ')}) in ${Date.now() - t0} ms: ${file}`);
+			await page.close();
+			continue;
+		}
+		if (o.film) {
+			const plan = JSON.parse(readFileSync(o.film, 'utf8'));
+			const dir = resolve(o.out, `${name}-film`);
+			mkdirSync(dir, { recursive: true });
+			const { frames } = await page.evaluate((x) => window.__render.filmStart(x), plan);
+			const canvas = page.locator('canvas').first();
+			for (let i = 0; i < frames; i++) {
+				await page.evaluate((k) => window.__render.filmAt(k), i);
+				const box = await canvas.boundingBox();
+				await page.screenshot({ path: resolve(dir, `${String(i).padStart(5, '0')}.png`), clip: box ?? undefined, timeout: 120_000 });
+				if (i % 50 === 0) console.log(`  frame ${i} of ${frames}`);
+			}
+			try {
+				const { execFileSync } = await import('node:child_process');
+				execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(plan.fps ?? 30), '-i', resolve(dir, '%05d.png'), '-pix_fmt', 'yuv420p', '-c:v', 'libx264', '-crf', '20', resolve(o.out, `${name}-film.mp4`)]);
+				console.log(`  ${resolve(o.out, `${name}-film.mp4`)}`);
+			} catch {
+				console.log(`  ${frames} frames in ${dir} (no ffmpeg here to join them)`);
+			}
+			await page.close();
+			continue;
+		}
 		const stage = loaded.params.find((p) => p.id === 'stage' && Array.isArray(p.names));
 		const shots = o.shots ? JSON.parse(readFileSync(o.shots, 'utf8')) : stage ? stage.names.map((n, i) => ({ name: `${String(i).padStart(2, '0')}-${n.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, values: { stage: stage.min + i } })) : [{ name: 'default' }];
 		const canvas = page.locator('canvas').first();

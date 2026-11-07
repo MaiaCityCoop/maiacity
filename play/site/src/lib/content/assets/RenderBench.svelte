@@ -22,6 +22,13 @@
 	                                            `target` [x, y, z] and `dist` m), and settled (what it plants built
 	                                            too): then the caller takes its picture of the canvas; gives what was
 	                                            shown (size, triangles, ms, what it plants)
+	  motion({ values?, plan, fps? })           a rigged build moving: its clips as the box wrote them down, played by
+	                                            the page's own player (./clips.js, as crowds play them) along `plan`
+	                                            ([{ clip, seconds, speed?, speedTo?, turn?, carry?, blend?, hold? }],
+	                                            each blended into the next; `carry`: a clip that travels by itself
+	                                            hands its place on) on a copy carried on at each one's speed: every frame's feet
+	                                            and hips (their bones' world matrices), for measuring a foot's slide
+	  filmStart({ … as motion, camera? })       the same, drawn frame by frame (filmAt(i)), the camera following
 	Only in development (../../../routes/render/+page.svelte).
 
 	Opened by a person: `/render/?load=<manifest.json>` loads a recipe and the assets it names by itself, for walking it
@@ -140,7 +147,183 @@
 		}
 	});
 
+	/**
+	 * A rigged build moving as a world moves it: its clips as the box wrote them down, played back by the page's own
+	 * player (./clips.js, as a crowd plays them, none of the asset's code) on a copy of its skinned mesh, along a plan
+	 * of clips, each blended into the next; the copy carried on by how fast each goes, turned when a quarter turn ends.
+	 */
+	let moving = null;
+	async function movingOf({ values = {}, plan, fps = 30, blendFor = 0.35, camera: cam = null }) {
+		const view = await viewer();
+		for (const [k, x] of Object.entries(values)) view.set(k, x);
+		await tick();
+		await settled(view, view.wanted);
+		const THREE = await import('three');
+		const { clone } = await import('three/addons/utils/SkeletonUtils.js');
+		const { playerOf, blend, poser } = await import('./clips.js');
+		const hero = view.hero;
+		const clips = hero?.view?.clips;
+		if (!clips?.motion) throw new Error('this build has no clips written down');
+		let mesh = null;
+		hero.root.traverse((o) => (mesh ??= o.isSkinnedMesh ? o : null));
+		if (!mesh) throw new Error('this build has no skinned mesh');
+		const copy = clone(hero.root);
+		let skinned = null;
+		copy.traverse((o) => (skinned ??= o.isSkinnedMesh ? o : null));
+		const bones = skinned.skeleton.bones;
+		const pose = poser(bones);
+		const actor = new THREE.Group();
+		actor.add(copy);
+		moving?.actor.removeFromParent();
+		hero.root.visible = false;
+		view.stage.scene.add(actor);
+		// the plan, second by second: which clip, its own time, how far it has come and how fast, the heading
+		const frames = [];
+		let t = 0, dist = 0, heading = 0, x = 0, z = 0;
+		const segs = plan.map((s) => ({ ...s }));
+		const play = playerOf(clips.motion, clips.bones ?? []);
+		let start = 0;
+		for (const s of segs) (s.at = start), (start += s.seconds);
+		const total = start;
+		for (let i = 0; i <= Math.round(total * fps); i++) {
+			t = i / fps;
+			let k = segs.findIndex((s) => t < s.at + s.seconds);
+			if (k < 0) k = segs.length - 1;
+			const s = segs[k];
+			const u = Math.min(1, (t - s.at) / s.seconds);
+			const speed = (s.speed ?? 0) + ((s.speedTo ?? s.speed ?? 0) - (s.speed ?? 0)) * u;
+			frames.push({ t, k, local: t - s.at, speed, dist, heading, x, z });
+			const dt = 1 / fps;
+			dist += speed * dt;
+			x += Math.sin(heading) * speed * dt;
+			z += Math.cos(heading) * speed * dt;
+			if (t + dt >= s.at + s.seconds && t < s.at + s.seconds) {
+				// a clip that travels by itself (a start, a stop) hands where it got to on to the next
+				if (s.carry) {
+					const r = play[s.clip]?.(s.seconds, { dist, speed: 0, turn: 0 })?.root ?? [0, 0, 0];
+					s.carried = r;
+					x += Math.cos(heading) * r[0] + Math.sin(heading) * r[2];
+					z += -Math.sin(heading) * r[0] + Math.cos(heading) * r[2];
+				}
+				// a quarter turn's heading is the actor's once it ends
+				if (s.turn) heading += s.turn;
+			}
+		}
+		const poseAt = (i) => {
+			const f = frames[i], s = segs[f.k];
+			const at = (seg, local) => {
+				const clip = play[seg.clip];
+				if (!clip) throw new Error(`no clip ${seg.clip}`);
+				return clip(seg.hold ? Math.min(local, seg.hold) : local, { dist: f.dist, speed: f.speed, turn: 0 });
+			};
+			let p = at(s, f.local);
+			// blended in from the one before (its own travel taken off, the actor carries it now)
+			const prev = segs[f.k - 1];
+			const into = s.blend ?? blendFor;
+			if (prev && f.local < into) {
+				const q = at(prev, f.t - prev.at);
+				if (prev.carried && q.root) q.root = q.root.map((v, c) => (c === 1 ? v : v - prev.carried[c]));
+				p = blend(q, p, f.local / into);
+			}
+			return p;
+		};
+		moving = { actor, copy, bones, pose, frames, segs, poseAt, fps, total, THREE, cam, view };
+		return moving;
+	}
+	function movingAt(i) {
+		const m = moving, f = m.frames[i];
+		m.pose(m.poseAt(i));
+		m.actor.position.set(f.x, 0, f.z);
+		m.actor.rotation.y = f.heading;
+		m.actor.updateMatrixWorld(true);
+		const by = Object.fromEntries(m.bones.map((b) => [b.name, b]));
+		const feet = {};
+		for (const n of ['leftFoot', 'rightFoot', 'leftToes', 'rightToes', 'hips']) if (by[n]) feet[n] = by[n].matrixWorld.toArray().map((v) => +v.toFixed(5));
+		return { t: +f.t.toFixed(4), clip: m.segs[f.k].clip, speed: +f.speed.toFixed(3), dist: +f.dist.toFixed(4), heading: f.heading, at: [f.x, f.z], bones: feet };
+	}
+
 	window.__render = {
+		/** a plan of clips played as the page plays them, measured: every frame's feet (their bones' world matrices) */
+		async motion(o) {
+			const m = await movingOf(o);
+			const out = [];
+			for (let i = 0; i < m.frames.length; i++) out.push(movingAt(i));
+			return { frames: out, clips: Object.keys(m.view.hero.view.clips.motion.clips) };
+		},
+		/**
+		 * A crowd of one build, as a world draws one (./render/crowd.js): `n` of them in a grid `spacing` m apart,
+		 * walking on at `speed` (each its own time), the nearest `max` within `near` m rigged, the rest drawn from afar;
+		 * timed: how long until their builds and clips are here, what posing them costs a frame, the frames a second.
+		 */
+		async crowd({ hash, n = 200, clip = 'walk', speed = 1.4, seconds = 6, near = 20, max = 50, spacing = 1.6, eye = [0, 1.7, -6], at = [0, 1, 12] }) {
+			const view = await viewer();
+			const THREE = await import('three');
+			const { crowd: make, settled: built } = await import('./render/crowd.js');
+			const c = make([hash], [n], { near, max });
+			if (view.hero) view.hero.root.visible = false;
+			moving?.actor.removeFromParent();
+			view.stage.scene.add(c.object);
+			const { camera, controls } = view;
+			camera.position.set(...eye);
+			controls.target.set(...at);
+			camera.lookAt(controls.target);
+			controls.update();
+			const cols = Math.ceil(Math.sqrt(n)), span = cols * spacing;
+			let posing = 0, count = 0;
+			const put = (t) => {
+				const p0 = performance.now();
+				c.begin();
+				for (let i = 0; i < n; i++) {
+					const x = ((i % cols) - cols / 2) * spacing, d = speed * t + (i * 0.37) % 1;
+					const z = (Math.floor(i / cols) * spacing + d) % span;
+					const d2 = (x - eye[0]) ** 2 + (z - eye[2]) ** 2;
+					c.put(0, x, 0, z, 0, d2, () => c.clips[0]?.[clip]?.(t + i * 0.37, { dist: d, speed, turn: 0 }) ?? {});
+				}
+				c.end();
+				posing += performance.now() - p0;
+			};
+			// built: their coarse build and their rigged one, and the box's tables of their clips
+			const t0 = performance.now();
+			put(0);
+			c.want([{ x: eye[0], z: eye[2] }]);
+			await built();
+			for (let k = 0; k < 600 && !c.clips[0]; k++) await sleep(50);
+			const ready = performance.now() - t0;
+			if (!c.clips[0]) throw new Error('the crowd\'s rigged build never came');
+			put(0);
+			await frames(10);
+			// played: each frame posed and drawn, for `seconds`
+			posing = 0;
+			const start = performance.now();
+			while (performance.now() - start < seconds * 1000) {
+				put((performance.now() - start) / 1000);
+				count++;
+				await frames(1);
+			}
+			const ms = performance.now() - start;
+			let rigged = 0;
+			c.object.traverse((o) => o.isSkinnedMesh && o.visible && o.parent?.visible !== false && rigged++);
+			return { n, near, max, readyMs: Math.round(ready), frames: count, fps: +((count * 1000) / ms).toFixed(1), posingMsPerFrame: +(posing / count).toFixed(2), rigged, clips: Object.keys(c.clips[0]) };
+		},
+		/** the same, one frame at a time, drawn: the camera following (`camera`: its offset from the hips, m) */
+		async filmStart(o) {
+			const m = await movingOf(o);
+			return { frames: m.frames.length };
+		},
+		async filmAt(i) {
+			const m = moving;
+			const got = movingAt(i);
+			const { camera, controls } = m.view;
+			const hips = new m.THREE.Vector3().setFromMatrixPosition(new m.THREE.Matrix4().fromArray(got.bones.hips));
+			const off = new m.THREE.Vector3(...(m.cam?.offset ?? [2.6, 1.1, 3.2]));
+			const look = new m.THREE.Vector3(hips.x, (m.cam?.lookY ?? 0.95), hips.z);
+			controls.target.copy(look);
+			camera.position.copy(look).add(off);
+			camera.lookAt(look);
+			controls.update();
+			await frames(2);
+			return got;
+		},
 		piece({ code }) {
 			return { hash: handPiece(code) };
 		},
