@@ -14,7 +14,7 @@
  * renderer's project has the code laid in (compose.ts `laid`), the player's frame has it handed in by the page.
  */
 import { chromium } from 'playwright';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, copyFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { codeOf, compose, filesOf, laid, VENDOR } from '../src/lib/stories/compose';
@@ -112,7 +112,8 @@ try {
 	// the player's picture at each second
 	// in Chrome (else the renderer's own headless shell), with the renderer's font and colour flags
 	const flags = { args: ['--font-render-hinting=none', '--force-color-profile=srgb'] };
-	const shell = [...new Bun.Glob('chrome-headless-shell/*/*/chrome-headless-shell').scanSync({ cwd: join(homedir(), '.cache/puppeteer'), absolute: true })].sort().pop();
+	const cache = join(homedir(), '.cache/puppeteer');
+	const shell = existsSync(cache) ? [...new Bun.Glob('chrome-headless-shell/*/*/chrome-headless-shell').scanSync({ cwd: cache, absolute: true })].sort().pop() : undefined;
 	const browser = await chromium.launch({ ...flags, channel: 'chrome' }).catch(() => chromium.launch({ ...flags, executablePath: shell }));
 	const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
 	page.on('console', (m) => m.type() === 'error' && console.error('player:', m.text()));

@@ -25,6 +25,7 @@ const PAPAYA_STORY = "7adaf0b3-01a9-8bb9-b250-d2bee7016c4c";
 import { Rate } from "../src/limits";
 import { COOP } from "../src/access";
 import { randomUUID } from "node:crypto";
+import { leveled } from "./fixtures/lod";
 
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;
@@ -94,7 +95,7 @@ suite("play API", () => {
     return id;
   };
   /** an asset's version proposed over HTTP (POST /api/intents) by admin `as`, for an intent of its own made ready for it */
-  const propose = async (as: string, body: Record<string, unknown>) => call(as, "POST", "/api/intents", { intent: await ready(as), ...body });
+  const propose = async (as: string, body: Record<string, unknown>) => call(as, "POST", "/api/intents", { intent: await ready(as), ...leveled(body) });
   /** an intent's work decided by an admin: what the work came to (its status, number, version, merged, message), or the refusal */
   const decided = async (intent: string, verdict: "accept" | "archive") => {
     const r = await call("ada", "POST", `/api/intents/${intent}/${verdict}`);
@@ -390,7 +391,7 @@ suite("play API", () => {
     expect(listed.data.result.isError).toBeUndefined();
     const proposed = await rpc(made.data.token, "tools/call", {
       name: "propose_asset",
-      arguments: { intent: await ready(), group: "plants", slug: "mcp-fern", label: "MCP fern", source: "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n", note: "proposed by an agent" },
+      arguments: { intent: await ready(), group: "plants", slug: "mcp-fern", label: "MCP fern", source: "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n", note: "proposed by an agent", lod: { levels: "derived" } },
     });
     expect(proposed.data.result.isError).toBeUndefined();
     const open = (await waiting()).find((p: any) => p.slug === "mcp-fern");
@@ -417,7 +418,7 @@ suite("play API", () => {
     expect(worlds.data.result.isError).toBeUndefined();
     const world = await rpc(made.data.token, "tools/call", {
       name: "propose_asset",
-      arguments: { intent: await ready(), group: "worlds", slug: "mcp-test-world", label: "Test world", source: "module.exports.recipe = function (id, v) {\n  return { meta: { group: 'worlds', id, v } };\n};\n", note: "a stand-in world" },
+      arguments: { intent: await ready(), group: "worlds", slug: "mcp-test-world", label: "Test world", source: "module.exports.recipe = function (id, v) {\n  return { meta: { group: 'worlds', id, v } };\n};\n", note: "a stand-in world", lod: { levels: "derived" } },
     });
     expect(world.data.result.isError).toBeUndefined();
     const worldOpen = (await waiting()).find((p: any) => p.slug === "mcp-test-world");
@@ -426,7 +427,7 @@ suite("play API", () => {
     // a new asset with its variants at once (a truck's kinds), each its own recipe
     const kinds = await rpc(made.data.token, "tools/call", {
       name: "propose_asset",
-      arguments: { intent: await ready(), group: "machines", slug: "mcp-truck", label: "Truck", source: "module.exports.recipe = function (id, v, variant) {\n  return { meta: { id, v, variant } };\n};\n", variants: [{ name: "box" }, { name: "tanker", label: "Truck: Tanker" }], default_variant: "tanker", note: "two kinds" },
+      arguments: { lod: { levels: "derived" }, intent: await ready(), group: "machines", slug: "mcp-truck", label: "Truck", source: "module.exports.recipe = function (id, v, variant) {\n  return { meta: { id, v, variant } };\n};\n", variants: [{ name: "box" }, { name: "tanker", label: "Truck: Tanker" }], default_variant: "tanker", note: "two kinds" },
     });
     expect(kinds.data.result.isError).toBeUndefined();
     const kindsOpen = (await waiting()).find((p: any) => p.slug === "mcp-truck");
@@ -435,16 +436,16 @@ suite("play API", () => {
     // a recipe that declares params is refused without them, and records them when given
     const PARAMS = [{ id: "kind", label: "Kind", type: "integer", min: 0, max: 1, value: 0 }];
     const withParams = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v, params: PARAMS } };\n};\nconst PARAMS = [];\n";
-    const noParams = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { intent: await ready(), group: "things", slug: "mcp-lamp", label: "Lamp", source: withParams, note: "params left out" } });
+    const noParams = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { lod: { levels: "derived" }, intent: await ready(), group: "things", slug: "mcp-lamp", label: "Lamp", source: withParams, note: "params left out" } });
     expect(noParams.data.result.isError).toBe(true);
     expect(noParams.data.result.content[0].text).toContain("params");
-    const given = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { intent: await ready(), group: "things", slug: "mcp-lamp", label: "Lamp", source: withParams, params: PARAMS, note: "params given" } });
+    const given = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { lod: { levels: "derived" }, intent: await ready(), group: "things", slug: "mcp-lamp", label: "Lamp", source: withParams, params: PARAMS, note: "params given" } });
     expect(given.data.result.isError).toBeUndefined();
     const lampOpen = (await waiting()).find((p: any) => p.slug === "mcp-lamp");
     const lamp = (await call("ada", "GET", `/api/intents/${lampOpen.id}`)).data.review;
     expect(JSON.stringify(lamp)).toContain('"kind"');
     expect((await archive(lampOpen.id)).data.result.isError).toBeUndefined();
-    const none = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { intent: await ready(), group: "machines", label: "Nothing", note: "no source" } });
+    const none = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { lod: { levels: "derived" }, intent: await ready(), group: "machines", label: "Nothing", note: "no source" } });
     expect(none.data.result.isError).toBe(true);
     for (const id of [byPage.data.intent, theirsOpen.data.intent]) await call("ada", "POST", `/api/intents/${id}/archive`);
     const wrong = await rpc(made.data.token, "tools/call", {
@@ -453,7 +454,7 @@ suite("play API", () => {
     });
     expect(wrong.data.result.isError).toBe(true);
     expect(wrong.data.result.content[0].text).toContain("not readable");
-    const bundled = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { intent: await ready(), group: "plants", slug: "mcp-moss", label: "Moss", recipe: recipe("mcp-moss", 1), note: "no source" } });
+    const bundled = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { lod: { levels: "derived" }, intent: await ready(), group: "plants", slug: "mcp-moss", label: "Moss", recipe: recipe("mcp-moss", 1), note: "no source" } });
     expect(bundled.data.result.isError).toBe(true);
     expect((await call("ada", "DELETE", `/api/tokens/${made.data.id}`)).data.revoked).toBe(true);
     expect((await rpc(made.data.token, "tools/list")).status).toBe(401);
@@ -615,14 +616,18 @@ suite("play API", () => {
     expect(humans.total).toBeGreaterThanOrEqual(3);
     expect((await call("ada", "GET", "/api/tables/pg_user")).status).toBe(404);
     expect((await call("ada", "GET", `/api/tables/${encodeURIComponent('humans"; DROP TABLE play.humans; --')}`)).status).toBe(404);
-  });
+    // (its own time: /api/tables counts every table's rows, past bun's 5 s on a loaded box)
+  }, 30_000);
 
 
   // ---- Stories: films as timelines, versioned like the assets, changed only by proposal over MCP
   const frameOf = (n: string) => readFileSync(join(STORIES, "papaya-v2-devlog", "frames", n));
   let storyToken = "";
   let m = 1000;
+  /** the stories' agent: its token made by the first story test that asks (each runs alone too, picked with -t) */
+  const storyAgent = async () => (storyToken ||= (await call("ada", "POST", "/api/tokens", { name: "stories" })).data.token);
   const rawTool = async (name: string, args: Record<string, unknown>, token = storyToken) => {
+    token ||= await storyAgent();
     // no work without an intent: every propose names one, made ready for it, unless the test names its own
     if ((name.startsWith("propose_") || name === "add_artifact" || name === "update_artifact") && args.intent === undefined) args = { ...args, intent: await ready() };
     const r = await api.fetch(new Request("http://play.test/api/mcp", {
@@ -935,14 +940,17 @@ suite("play API", () => {
     expect((await tool("add_story_composition", { html: cdn })).error).toContain("outside play");
     expect((await tool("add_story_composition", { html: "<p>Just a page.</p>" })).error).toContain("data-composition-id");
     // a shot plays it, its frame its still; a hash play holds as no composition, or none, is refused
-    const head = (await tool("get_story", { story: S.seed })).out;
+    const still = await tool("add_story_frame", { data: frameOf("02.jpg").toString("base64"), media_type: "image/jpeg" });
+    const card = await tool("propose_story", { title: "A title card", note: "a story for a composition shot", body: { format: "9:16", fps: 30, tracks: tracks(still.out.hash) } });
+    expect((await call("ada", "POST", `/api/intents/${card.out.intent}/accept`)).data.decision.status).toBe("accepted");
+    const head = (await tool("get_story", { story: card.out.story })).out;
     const shot = head.tracks.find((t: any) => t.id === "shots").clips[0];
-    const moving = await tool("propose_story_version", { story: S.seed, base: head.version, note: "the first shot is motion design", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { composition: kept.out.hash } }] });
+    const moving = await tool("propose_story_version", { story: card.out.story, base: head.version, note: "the first shot is motion design", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { composition: kept.out.hash } }] });
     expect(moving.error).toBeNull();
     const body = (await call("ada", "GET", `/api/intents/${moving.out.intent}`)).data.review.story;
     expect(body.tracks.find((t: any) => t.id === "shots").clips[0]).toMatchObject({ frame: shot.frame, composition: kept.out.hash });
-    expect((await tool("propose_story_version", { story: S.seed, base: head.version, note: "no", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { composition: shot.frame } }] })).error).toContain("add_story_composition");
-    expect((await tool("propose_story_version", { story: S.seed, base: head.version, note: "no", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { composition: "nope" } }] })).error).toContain("composition's file hash");
+    expect((await tool("propose_story_version", { story: card.out.story, base: head.version, note: "no", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { composition: shot.frame } }] })).error).toContain("add_story_composition");
+    expect((await tool("propose_story_version", { story: card.out.story, base: head.version, note: "no", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { composition: "nope" } }] })).error).toContain("composition's file hash");
     await call("ada", "POST", `/api/intents/${moving.out.intent}/archive`);
   });
 
@@ -1018,7 +1026,7 @@ suite("play API", () => {
     expect(story.error).toBeNull();
     expect((await call("ada", "POST", `/api/intents/${story.out.intent}/accept`)).data.decision.status).toBe("accepted");
     const src = "// a small red car, held to its sheet\nmodule.exports.recipe = function (id, v) {\n  return { meta: { id, v }, build: () => null };\n};\n";
-    const car = await rawTool("propose_asset", { group: "things", label: "Fiat 500 F", source: src, note: "built from its sheet", sheet: hash }, token);
+    const car = await rawTool("propose_asset", { lod: { levels: "derived" }, group: "things", label: "Fiat 500 F", source: src, note: "built from its sheet", sheet: hash }, token);
     expect(car.error).toBeNull();
     return { token, hash, label, story: story.out.story as string, car: car.out as { intent: string; asset: string } };
   };

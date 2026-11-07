@@ -143,7 +143,7 @@ suite("readable", () => {
 
       test("a card-only change (its group) proposes cleanly and is accepted", async () => {
         const intent = await readyIntent(`Move ${shape}`);
-        const e = await tool("doc_edit", { doc: asset, intent, message: "to the characters", edits: [{ op: "set", path: ["card", "card", "group"], value: "characters" }] });
+        const e = await tool("doc_edit", { doc: asset, intent, message: "to the characters", edits: [{ op: "set", path: ["card", "card", "group"], value: "characters" }, { op: "set", path: ["card", "card", "lod"], value: { levels: "derived" } }] });
         expect(e.error).toBeUndefined();
         expect(e.changed).toBe(true);
         const p = await tool("propose_doc_version", { doc: asset, intent, variant: e.variant, note: "A person: to the characters." });
@@ -163,9 +163,9 @@ suite("readable", () => {
   }
 
   test("a new asset with a long line is refused", async () => {
-    const made = await tool("propose_asset", { group: "characters", label: "A new person", note: "new", source: LONG("new"), intent: await readyIntent("A new person") });
+    const made = await tool("propose_asset", { lod: { levels: "derived" }, group: "characters", label: "A new person", note: "new", source: LONG("new"), intent: await readyIntent("A new person") });
     expect(made.error).toMatch(LONG_REFUSED);
-    const ok = await tool("propose_asset", { group: "characters", label: "A readable person", note: "new", source: READABLE("new"), intent: await readyIntent("A readable person") });
+    const ok = await tool("propose_asset", { lod: { levels: "derived" }, group: "characters", label: "A readable person", note: "new", source: READABLE("new"), intent: await readyIntent("A readable person") });
     expect(ok.error).toBeUndefined();
   });
 });

@@ -90,7 +90,7 @@ suite("characters", () => {
 
     // a person and a goat, both filed among the actors, as Stand-in and Elder woman were
     for (const [label, set] of [["A person", (id: string) => (person = id)], ["A goat", (id: string) => (goat = id)]] as const) {
-      const made = await tool("propose_asset", { group: "actors", label, note: "its first version", source: SOURCE(label), intent: await readyIntent(label) });
+      const made = await tool("propose_asset", { lod: { levels: "derived" }, group: "actors", label, note: "its first version", source: SOURCE(label), intent: await readyIntent(label) });
       expect(made.error).toBeUndefined();
       expect((await accept(made.intent)).decision).toMatchObject({ status: "accepted", number: 1 });
       set(made.asset);
@@ -114,7 +114,7 @@ suite("characters", () => {
   });
 
   test("a new asset can be proposed in characters and lists there", async () => {
-    const made = await tool("propose_asset", { group: "characters", label: "A settler", note: "its first version", source: SOURCE("a settler"), intent: await readyIntent("A settler") });
+    const made = await tool("propose_asset", { lod: { levels: "derived" }, group: "characters", label: "A settler", note: "its first version", source: SOURCE("a settler"), intent: await readyIntent("A settler") });
     expect(made.error).toBeUndefined();
     expect((await accept(made.intent)).decision).toMatchObject({ status: "accepted", number: 1 });
     expect(await ids("characters")).toContain(made.asset);
@@ -152,9 +152,39 @@ suite("characters", () => {
     expect(await groupOf(goat)).toEqual({ grp: "actors", card: "actors" });
   });
 
+  // intent dc3c0b3e: a card may name its asset itself in readable form (a preset, `actors/<slug>@n:…`, as the Stand-in's
+  // and Elder woman's do); moved to another group, it still names itself, while another asset's readable ref stays refused
+  test("an asset whose card names itself by its old group moves to characters; another asset's readable ref is still refused", async () => {
+    const made = await tool("propose_asset", { lod: { levels: "derived" }, group: "actors", label: "A sitter", note: "its first version", source: SOURCE("a sitter"), intent: await readyIntent("A sitter") });
+    expect(made.error).toBeUndefined();
+    expect((await accept(made.intent)).decision).toMatchObject({ status: "accepted", number: 1 });
+    const sitter = made.asset as string;
+    const self = "actors/a-sitter@2:a-sitter?belt=1";
+    // its card names itself, among the actors
+    const named = await readyIntent("The sitter names itself");
+    const e1 = await tool("doc_edit", { doc: sitter, intent: named, message: "a preset of itself", edits: [{ op: "set", path: ["card", "card", "preset"], value: self }] });
+    expect(e1.error).toBeUndefined();
+    expect((await tool("propose_doc_version", { doc: sitter, intent: named, variant: e1.variant, note: "A preset of itself." })).error).toBeUndefined();
+    expect((await accept(named)).decision).toMatchObject({ status: "accepted", number: 2 });
+    expect((await tool("doc_at", { doc: sitter })).json.card.card.preset).toBe(self);
+    // moved with a readable ref to another asset beside it: refused
+    const other = await readyIntent("The sitter names the goat");
+    const e2 = await tool("doc_edit", { doc: sitter, intent: other, message: "to the characters, naming the goat", edits: [{ op: "set", path: ["card", "card", "group"], value: "characters" }, { op: "set", path: ["card", "card", "with"], value: "actors/a-goat@1" }] });
+    expect(e2.error).toBeUndefined();
+    expect((await tool("propose_doc_version", { doc: sitter, intent: other, variant: e2.variant, note: "Naming the goat." })).error).toMatch(/hash, not actors\/a-goat@1/);
+    // moved, its card's own ref unchanged: accepted, among the characters
+    const move = await readyIntent("The sitter among the characters");
+    const e3 = await tool("doc_edit", { doc: sitter, intent: move, message: "to the characters", edits: [{ op: "set", path: ["card", "card", "group"], value: "characters" }] });
+    expect(e3.error).toBeUndefined();
+    expect((await tool("propose_doc_version", { doc: sitter, intent: move, variant: e3.variant, note: "The sitter moves to the characters." })).error).toBeUndefined();
+    expect((await accept(move)).decision).toMatchObject({ status: "accepted", number: 3 });
+    expect(await groupOf(sitter)).toEqual({ grp: "characters", card: "characters" });
+    expect((await tool("doc_at", { doc: sitter })).json.card.card.preset).toBe(self);
+  });
+
   test("an unknown group is still refused", async () => {
     expect((await tool("list_assets", { group: "monsters" })).error).toBeDefined();
-    const made = await tool("propose_asset", { group: "monsters", label: "A monster", note: "no", source: SOURCE("a monster"), intent: await readyIntent("A monster") });
+    const made = await tool("propose_asset", { lod: { levels: "derived" }, group: "monsters", label: "A monster", note: "no", source: SOURCE("a monster"), intent: await readyIntent("A monster") });
     expect(made.error).toBeDefined();
     const intent = await readyIntent("The goat among the monsters");
     const e = await tool("doc_edit", { doc: goat, intent, message: "to no group", edits: [{ op: "set", path: ["card", "card", "group"], value: "monsters" }] });
