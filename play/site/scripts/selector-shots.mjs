@@ -7,6 +7,13 @@
  * city) photographed as it opens. Run on a real GPU (a Mac's Metal): software rendering's frame times say nothing.
  *
  *   node scripts/selector-shots.mjs --site base=http://localhost:5181 --site head=http://localhost:5182 [--out shots]
+ *        [--census far]
+ *
+ * --census <view>: that view alone, and with it the census of every copy the renderers hold there (`__assets.kinds()`:
+ * Sandbox 1's outdoor forest `out`, the domes' `in`, the library): each copy's distance from the eye, its size on screen,
+ * the level the selector chose for it (a shape's index, or `picture`) and that level's triangles, in
+ * <out>/<site>-census.json, and a table on stdout of each site's kinds by what they cost there. Level choice and
+ * triangle counts are the page's own numbers; the census adds no drawing of its own.
  *
  * Each --site is a dev server (bun run dev) of one tree, its API pointed at the read-only proxy this script starts
  * on 127.0.0.1:3911 (PLAY_API=http://localhost:3911 bunx vite dev --port …): GET and HEAD of /api/… only, sent to
@@ -23,11 +30,14 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 const argv = process.argv.slice(2);
 const sites = [];
 let out = 'shots';
+/** the view whose copies are counted, alone (`--census`) */
+let census = null;
 for (let i = 0; i < argv.length; i++) {
 	if (argv[i] === '--site') {
 		const [name, url] = argv[++i].split('=');
 		sites.push({ name, url: url.replace(/\/$/, '') });
 	} else if (argv[i] === '--out') out = argv[++i];
+	else if (argv[i] === '--census') census = argv[++i];
 }
 if (!sites.length) throw new Error('give at least one --site name=url');
 const TOKEN = process.env.PLAY_MCP_TOKEN;
@@ -94,6 +104,46 @@ const browser = await chromium.launch(process.platform === 'darwin' ? { channel:
 	await p.close();
 }
 const results = [];
+
+/**
+ * Every copy the page's renderers hold at view v, as the selector drew it last (`k.was`), and each kind's cost there.
+ * @param {any} page @param {{ name: string }} site @param {{ name: string, x: number, z: number }} v
+ */
+async function takeCensus(page, site, v) {
+	const got = await page.evaluate((v) => {
+		const all = window.__assets.kinds?.();
+		if (!all) throw new Error('this tree has no __assets.kinds(): apply the census hook (intent-work/6295a650-render/README.md)');
+		const tan = Math.tan((68 * Math.PI) / 360);
+		const out = {};
+		for (const [renderer, list] of Object.entries(all)) {
+			if (!list) continue;
+			out[renderer] = list.filter((k) => k.ok).map((k) => {
+				const copies = [];
+				for (let i = 0; i < k.n; i++) {
+					if (!k.alive[i]) continue;
+					const x = k.M[i * 16 + 12], z = k.M[i * 16 + 14], d = Math.hypot(x - v.x, z - v.z), L = k.was[i];
+					const tris = L < 0 ? 0 : L >= k.levels.length ? 2 : (k.levels[L].level?.tris ?? null);
+					copies.push({ d: +d.toFixed(1), size: +((k.radius * k.S[i]) / (Math.max(d, 1e-3) * tan)).toFixed(4), level: L < 0 ? 'unseen' : L >= k.levels.length ? 'picture' : L, tris });
+				}
+				return { label: k.label, key: k.key, radius: +k.radius.toFixed(2), picture: k.picture, thresholds: k.thresholds.map((t) => +t.toFixed(4)), levels: k.levels.map((l) => l.level?.tris ?? null), copies };
+			});
+		}
+		return out;
+	}, v);
+	writeFileSync(`${out}/${site.name}-census.json`, JSON.stringify(got));
+	const rows = [];
+	for (const [renderer, kinds] of Object.entries(got))
+		for (const k of kinds) {
+			const shapes = k.copies.filter((c) => typeof c.level === 'number');
+			const tris = shapes.reduce((a, c) => a + (c.tris ?? 0), 0);
+			if (!shapes.length && renderer !== 'out') continue;
+			const far = shapes.length ? Math.max(...shapes.map((c) => c.d)) : 0;
+			rows.push({ renderer, kind: (k.label ?? k.key).slice(0, 40), radius: k.radius, thresholds: k.thresholds.join('/'), shapes: shapes.length, pictures: k.copies.filter((c) => c.level === 'picture').length, tris, farthestShape: +far.toFixed(0) });
+		}
+	rows.sort((a, b) => b.tris - a.tris);
+	console.log(`${site.name} census at ${v.name}: ${rows.reduce((a, r) => a + r.tris, 0).toLocaleString('en')} triangles in shapes, the costliest kinds:`);
+	console.table(rows.slice(0, 40));
+}
 const building = (page) => page.evaluate(() => { const s = window.__assets?.stats?.(); return s ? ['out', 'in', 'library'].reduce((a, k) => a + (s[k]?.building ?? 0), 0) : null; }).catch(() => null);
 const settle = async (page, ms) => {
 	for (const end = Date.now() + ms; Date.now() < end; await page.waitForTimeout(2000)) if ((await building(page)) === 0) return true;
@@ -108,7 +158,7 @@ for (const site of sites) {
 	await page.waitForFunction(() => window.__walker && window.__assets, null, { timeout: 10 * 60e3 });
 	const settled = await settle(page, 10 * 60e3);
 	console.log(`${site.name}: Sandbox 1 up and ${settled ? 'settled' : 'still building'} after ${Math.round((Date.now() - t0) / 1000)} s`);
-	for (const v of VIEWS) {
+	for (const v of census ? VIEWS.filter((v) => v.name === census) : VIEWS) {
 		await page.evaluate((v) => window.__walker.place(v.x, v.z, v.yaw, v.pitch), v);
 		await page.waitForTimeout(1500);
 		const ok = await settle(page, 3 * 60e3);
@@ -124,9 +174,11 @@ for (const site of sites) {
 		const png = `${out}/${site.name}-sandbox-1-${v.name}.png`;
 		await page.screenshot({ path: png });
 		results.push({ site: site.name, world: 'sandbox-1', view: v.name, settled: ok, ...m, png });
+		if (census) await takeCensus(page, site, v);
 		console.log(`${site.name} sandbox-1 ${v.name}: ${m.frameMs} ms/frame (p95 ${m.frameP95?.toFixed?.(1)}), ${m.tris.toLocaleString('en')} tris drawn (max ${m.trisMax.toLocaleString('en')})${ok ? '' : ', still building'}`);
 	}
 	await ctx.close();
+	if (census) continue;
 	// Sandbox 3, the old city, as it opens (c5: the same things there, nothing missing far off)
 	const ctx3 = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 	const p3 = await ctx3.newPage();

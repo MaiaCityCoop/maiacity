@@ -1530,8 +1530,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	sky.follow(camera.position.x, camera.position.z)
 	// what the library's assets are built from, there before the first frame
 	await library.ready()
-	// for a look from the console at what the renderers draw and hold: __assets.stats()
-	;(window as unknown as { __assets?: unknown }).__assets = { stats: () => ({ out: plantsOut?.assets.stats(), in: plantsIn?.assets.stats(), library: library.assets.stats() }) }
+	// for a look from the console at what the renderers draw and hold: __assets.stats(), and each kind (__assets.kinds())
+	;(window as unknown as { __assets?: unknown }).__assets = { stats: () => ({ out: plantsOut?.assets.stats(), in: plantsIn?.assets.stats(), library: library.assets.stats() }), kinds: () => ({ out: plantsOut?.assets.kinds(), in: plantsIn?.assets.kinds(), library: library.assets.kinds() }) }
 	// Sandbox 5: the plants near where you stand at their finer shapes before the first frame, as they always were
 	if (plantsOut) {
 		onProgress('Growing the forest: the plants near you')

@@ -3,6 +3,49 @@
 Intent 6295a650-69ac-4b66-8fe7-7939dad156c9, pull request #2151, branch `intent/6295a650-one-selector`. The baseline is
 main at **6d0d7ac**, as the spec says. The change to measure is the branch's newest head.
 
+## Fifth run: the census only (after the fourth Mac run)
+
+**Run 4** was base 6d0d7ac against head 129cc30c0, in `out/run4/`.
+- **Near and mid:** the head passed.
+- **Far:** the head still failed, with 3.60M against 2.55M triangles. Its outdoor forest drew about as many shapes as
+  the base (361 against 384) and as many pictures (6,163 against 6,174), but at 6.0k triangles a shape against the
+  base's 2.5k.
+
+Before any change, this run counts what each side draws at the far view, copy by copy, on the CPU.
+
+**The suspected cause, which the census is to confirm or refute:**
+- The base made every tree a picture past 40 m, whatever its size (the old `tune`: distances in metres).
+- The selector goes by size on screen: a tree whose ball is r metres across turns into its picture at about
+  6.7 × r m.
+- So the big trees (a walnut or a linden, r around 10 m, 18–24k triangles at detail 0.1) stay shapes to 60–80 m.
+
+**The run:**
+
+1. Set up the two worktrees and dev servers as below, at the branch's newest head.
+2. The base needs the census hook the head has (`__assets.kinds()`). Add it in the base worktree; it reads, and draws
+   nothing:
+
+   ```sh
+   cd ../s6295-base/play/site
+   sed -i '' 's/library: library.assets.stats() }) }$/library: library.assets.stats() }), kinds: () => ({ out: plantsOut?.assets.kinds(), in: plantsIn?.assets.kinds(), library: library.assets.kinds() }) }/' src/lib/content/sandbox-2/interior/village.ts
+   grep -c "kinds: () =>" src/lib/content/sandbox-2/interior/village.ts   # 1
+   ```
+
+3. Run the far view alone, with the census:
+
+   ```sh
+   cd ../s6295-head/play/site
+   PLAY_MCP_TOKEN=play_… node scripts/selector-shots.mjs --site base=http://localhost:5181 --site head=http://localhost:5182 --census far --out ../../../s6295-shots/run5
+   ```
+
+**The output:**
+- `base-census.json` and `head-census.json`: each kind's radius, thresholds and level triangles, and each copy's
+  distance, size on screen, chosen level and triangles.
+- A table per site of its costliest kinds: shapes, pictures, triangles, and the farthest copy still drawn as a shape.
+- The far view's timings and PNG, as before.
+
+Push `out/run5/` with both JSON files and stdout.
+
 ## Fourth run (after the third Mac run)
 
 **Run 3** was base 6d0d7ac against head 658a50eaa, at noon. It is in `out/run3/` on the branch `intent-work/6295a650-render`.
