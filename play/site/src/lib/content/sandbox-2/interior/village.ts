@@ -31,7 +31,7 @@ import { createObstacles } from '$lib/content/sandbox-kit/obstacles.js'
 import { connectFilm, filmDraws, filmHoldsSize, filmPlays, worldTime } from '$lib/content/sandbox-kit/film.js'
 import { createStream, type View } from '$lib/content/sandbox-kit/stream.js'
 import { ambience, levelsAt } from './ambience'
-import { createForest, type Forest } from './flora.js'
+import { createForest, STREAMS, type Forest } from './flora.js'
 import { createDrawn, createFlora } from './drawn.js'
 import { createCover } from './cover.js'
 import { FLOORS, THINGS, coopsOf, putThings } from './things.js'
@@ -193,7 +193,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	/** Sandbox 5: our plants drawn by the universal renderer (./drawn.js, $content/assets/render), each kind built in the asset
 	 *  box: the cell's, and the domes' insides' */
 	const plantsOut = flora ? createFlora({ renderer, camera, scene, shadows: staleShadows }) : null
-	const plantsIn = flora ? createFlora({ renderer, camera, scene, boxes: 2, shadows: staleShadows }) : null
+	const plantsIn = flora ? createFlora({ renderer, camera, scene, boxes: 2, shadows: staleShadows, streams: STREAMS.inside }) : null
 	/** Sandbox 5: the cell's forest of our plants (./flora.js), planted below with the food forest; the stand-in plants of
 	 *  Sandbox 4's squares traded for its plants too (./legacy.js) */
 	const forest: Forest | null = plantsOut ? createForest({ flora: plantsOut }) : null

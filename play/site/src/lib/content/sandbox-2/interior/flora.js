@@ -7,8 +7,9 @@
  * data, checked, and the renderer draws it.
  *
  * What the world decides, here: where every plant stands, and that a tree is drawn however far off (as its picture)
- * while a small plant is put down only near enough to be drawn as a shape (`FloraDrawn.far`, by the selector), the ones
- * within it put down as copies as the eye walks. What the renderer decides, by its one selector (assets/render/lod.js):
+ * while a small plant is put down only as far off as the forest streams it (`STREAMS`, as stream.js streams the biomes'
+ * cover: how many copies stand, not how finely each is drawn) and never past where the selector would draw its picture
+ * (`FloraDrawn.far`), the ones within it put down as copies as the eye walks. What the renderer decides, by its one selector (assets/render/lod.js):
  * the level each copy is drawn at, frame by frame, the coarser fading in under the finer, and that nothing behind the
  * eye is drawn.
  *
@@ -38,10 +39,17 @@ import { NotInCatalog } from '../../assets/catalog.js';
  *   use: (ref: string, shadows?: boolean, picture?: boolean) => any,
  *   take: (k: any, at: { x: number, y: number, z: number, turn: number, scale: number }) => any,
  *   give: (c: any) => void,
- *   far: (k: any) => number,
+ *   far: (k: any, r: 'shrub' | 'cover') => number,
  *   assets: { stats: () => { tris: number } }
  * }} FloraDrawn the renderer a forest's plants are drawn by (./drawn.js `createFlora`)
  */
+
+/** @typedef {{ shrub: number, cover: number }} Streams how far off (m) a forest puts its small plants down */
+/**
+ * How far the village has always put its small plants down (Sandbox 4's: shrubs to 26 m, the cover to 13 m; under a
+ * dome's glass, nearer the eye, 40 m and 22 m). A stream's reach, not a level: how finely each is drawn is the selector's.
+ */
+export const STREAMS = /** @type {{ village: Streams, inside: Streams }} */ ({ village: { shrub: 26, cover: 13 }, inside: { shrub: 40, cover: 22 } });
 
 /** A plant's key, for a forest to know it by. @param {Kind} k */
 export const keyOf = (k) => `${k.id}@${k.v}:${k.stage}:${k.seed}`;
@@ -241,7 +249,7 @@ export function createForest(o) {
 		last.z = z;
 		for (const st of stands.values()) {
 			if (!st.cells || !st.k) continue;
-			const far = flora.far(st.k);
+			const far = flora.far(st.k, /** @type {'shrub' | 'cover'} */ (st.reach));
 			const X = /** @type {Float32Array} */ (st.x), Z = /** @type {Float32Array} */ (st.z), placed = /** @type {number[]} */ (st.placed);
 			if (mark.length < st.n) mark = new Uint32Array(Math.max(st.n, mark.length * 2));
 			const now = ++epoch;

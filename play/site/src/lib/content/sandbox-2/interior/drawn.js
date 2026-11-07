@@ -14,6 +14,7 @@
  */
 import * as THREE from 'three';
 import { createAssets } from '$lib/content/assets/render/index.js';
+import { STREAMS } from './flora.js';
 
 /** a copy put away: drawn nowhere until it is wanted again */
 export const AWAY = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -74,19 +75,22 @@ const tanOf = (camera) => Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / (
 /**
  * The renderer a world's plants are drawn by (./flora.js). Its boxes as many as the workers Sandbox 4 always grew its
  * forest in.
- * @param {{ renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, boxes?: number, shadows?: () => void }} o
+ * `streams`: how far off its small plants are put down at all (./flora.js STREAMS: the village's, or under a dome's glass).
+ * @param {{ renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, boxes?: number, shadows?: () => void, streams?: import('./flora.js').Streams }} o
  * @returns {import('./flora.js').FloraDrawn & ReturnType<typeof createDrawn>}
  */
 export function createFlora(o) {
+	const streams = o.streams ?? STREAMS.village;
 	const boxes = o.boxes ?? Math.max(1, Math.min(6, (globalThis.navigator?.hardwareConcurrency || 4) - 1));
 	const drawn = createDrawn({ renderer: o.renderer, camera: o.camera, scene: o.scene, boxes, shadows: o.shadows });
 	return {
 		...drawn,
 		/**
-		 * How far off a copy of kind k comes to its picture, by the selector (its last threshold, ./lod.js): a small
+		 * How far off a small plant of kind k (a shrub or the cover, `r`) is put down: as far as the forest streams its
+		 * kind, and never past where the selector (its last threshold, ./lod.js) would draw its picture: a small
 		 * plant, which has none, is left out past it (`Forest.update`).
 		 * @param {any} k a kind of the renderer's
 		 */
-		far: (k) => k.radius / (k.thresholds[k.thresholds.length - 1] * tanOf(o.camera))
+		far: (k, r) => Math.min(streams[r], k.radius / (k.thresholds[k.thresholds.length - 1] * tanOf(o.camera)))
 	};
 }

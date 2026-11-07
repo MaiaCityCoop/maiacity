@@ -3,6 +3,30 @@
 Intent 6295a650-69ac-4b66-8fe7-7939dad156c9, pull request #2151, branch `intent/6295a650-one-selector`. The baseline is
 main at **6d0d7ac**, as the spec says. The change to measure is the branch's newest head.
 
+## Third run (after the second Mac run)
+
+**Run 2** was base 6d0d7ac against head 8103cb29d, at noon. It is in `out/run2/` on the branch `intent-work/6295a650-render`.
+- **Near:** the head passed, with 26 % fewer triangles.
+- **Mid and far:** the head failed, with 48 % and 53 % more triangles and about 9 ms more per frame.
+
+The per-level counts of the outdoor forest (`assets.out`) show the two causes:
+- **Mid:** 5 trees were drawn whole at **detail 1**, about 0.7M triangles each. The village never drew detail 1; its
+  forest was always built at details 0.25 and 0.1. A version from before the contract was read (a2935147,
+  `lodcard.js` OLD_DETAILS) as declaring 1, 0.25 and 0.1.
+- **Far:** about 540 more shrubs and ground-cover plants were put down. The base put shrubs down to 26 m and the cover
+  to 13 m. The head put them down until the selector would draw their picture, which is ~40 m for a large shrub,
+  because a light shape keeps its shape longer (`thresholdsOf`).
+
+**The fix** (in the commit after 8103cb29d):
+- **Detail 1:** `OLD_DETAILS` is now [0.25, 0.1], the forest's two details. A version built at two levels is drawn at
+  the selector's two coarsest thresholds (0.56 and 0.22: a 12 m tree finer to 16 m, coarser to 40 m, a picture beyond),
+  exactly as the village drew it.
+- **Small plants:** the forest puts them down only as far as it always streamed them (`flora.js` STREAMS: 26 m and 13 m
+  in the village, 40 m and 22 m under the glass), and never past where the selector would draw their picture. That is
+  a stream's reach, like `biomes/stream.js`: how many copies stand, not how finely each is drawn.
+
+Run 3: the same command at the branch's newest head, with the hour still at noon.
+
 ## Second run (after the first Mac run)
 
 The first run is in the branch `intent-work/6295a650-render`, `out/`. It had two problems:

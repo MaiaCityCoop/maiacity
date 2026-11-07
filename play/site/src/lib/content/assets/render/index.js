@@ -216,15 +216,16 @@ export function createAssets(o) {
 			key,
 			label: at.label,
 			names,
-			// each level of its shape: built from its recipe (`name`), or made from the coarsest one built (none)
-			levels: LEVELS.map((_, L) => ({ state: 'idle', level: null, meshes: null, name: names[L] ?? null, as: -1 })),
+			// each level of its shape: built from its recipe (`name`), or made from the coarsest one built (none); a
+			// recipe that declares fewer levels than the selector has is drawn at as many, the selector's coarsest
+			levels: (declared ? names : LEVELS).map((_, L) => ({ state: 'idle', level: null, meshes: null, name: names[L] ?? null, as: -1 })),
 			/** the coarsest level built: its measure is the kind's, and its picture is taken from it */
 			base: names.length - 1,
 			ok: false,
 			error: null,
 			radius: 1,
 			center: new THREE.Vector3(),
-			thresholds: thresholdsOf(LEVELS.length),
+			thresholds: thresholdsOf(declared ? names.length : LEVELS.length),
 			shadows: opts?.shadows,
 			receive: opts?.receive !== false,
 			picture: opts?.picture !== false,
