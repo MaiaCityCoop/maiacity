@@ -1,11 +1,6 @@
-// An intent's work (play/SPEC.md §4.12; Samuel 2026-11-06: "not a proposal belongs to an intent: the intent has a state,
-// proposal"). One record, the intent: what it changes is on it (the kind of work, the document it changes and its
-// intent variant of that document, ./versioned.ts; an asset's or story's frozen version and the one it was made on; a
-// sandbox's change), with what the work says of itself, who proposed it, how and when. Proposal is only a stage: its work done and checked, waiting for
-// the decision. To propose is to put an intent at Proposal: the intent named (its gate held before, ./intents.ts
-// intentReady) takes the work, any it held before replaced (that one's intent variant closed, kept in the history), or, with no
-// intent named, a new intent is made at Proposal, its title what it proposes. Deciding settles it: accepted, or archived
-// (a moved base archives it too; one with an approved spec then goes back to Build, to be built on the new head).
+// An intent's work (play/SPEC.md §4.12): one record, the intent, holds what it changes (a document's intent variant,
+// ./versioned.ts, an asset's or story's version, a sandbox's change) and who proposed it, how and when. To propose is
+// to put an intent at Proposal (past the gate, ./intents.ts mayMove), or a new one of its own; deciding settles it.
 import type { Me } from "./access";
 import { COOP } from "./access";
 import * as docs from "./docs";

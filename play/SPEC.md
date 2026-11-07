@@ -569,7 +569,7 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
 - **Intents depend on intents** (Samuel 2026-11-06: *"this intent can only be started or continued if that other
   intent is shipped … fully generically"*; intent `420ee348-132f-4b04-a67d-082ae8b72efc`). An intent may name the
   intents it **depends on**, each by its UUID, of any kind and any work: one relation, `play.intent_depends (intent_id,
-  depends_on, by, at)` (migration `0033-intent-depends`). No edge to itself and no cycle: an edge that would close one
+  depends_on, by, at)` (migration `0034-intent-depends`). No edge to itself and no cycle: an edge that would close one
   (the chain from the one depended on walked back) is refused, so chains and diamonds of any depth hold. While any
   intent it depends on is not **shipped** (at the stage Accepted: in Ship is not yet, and an archived one holds until
   the edge is dropped or it is reopened and shipped) it is **held**: `heldBy` (`play/api/src/intents.ts`) gives those,
