@@ -76,7 +76,12 @@ suite("intents", () => {
     return (await r.json()).result;
   };
   /** a tool called over MCP by ada's token: its result as JSON, or its error's text */
-  const tool = async (name: string, args: Record<string, unknown>) => {
+  const tool = async (name: string, args: Record<string, any>): Promise<any> => {
+    // an asset's next version: its source edited on an intent variant and proposed (propose_doc_version)
+    if (name === "propose_version") {
+      const { asset, source, note, intent } = args;
+      return tool("propose_doc_version", { doc: asset, note, edits: [{ op: "set", path: ["source"], value: source }], ...(intent ? { intent } : {}) });
+    }
     const res = await rpc("tools/call", { name, arguments: args });
     const text = res.content[0].text;
     return res.isError ? { error: text as string } : JSON.parse(text);
@@ -227,21 +232,21 @@ suite("intents", () => {
     expect((await fern(i.id)).error).toContain("accepted: it takes no more work");
   });
 
-  test("archived at Proposal, an intent ends archived; its work replaced, the earlier work's branch is closed; brought back, to Specify", async () => {
+  test("archived at Proposal, an intent ends archived; its work replaced, the earlier work's intent variant is closed; brought back, to Specify", async () => {
     const i = await intentAt("A taller fern", "build");
     await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "built" }, { check: "c2", pass: true, evidence: "0.5 m" }] });
     const made = await tool("propose_asset", { group: "plants", label: "Taller fern", source: SOURCE, note: "x", intent: i.id });
     expect((await tool("get_intent", { intent: i.id })).stage).toBe("proposal");
-    // proposed again for the same intent: the new work replaces it, the earlier one's branch closed, kept in the history
+    // proposed again for the same intent: the new work replaces it, the earlier one's intent variant closed, kept in the history
     const again = await tool("propose_version", { asset: made.asset, source: SOURCE + "// taller\n", note: "taller still", intent: i.id });
     expect(again).toMatchObject({ intent: i.id, stage: "proposal" });
     const held = await tool("get_intent", { intent: i.id });
     expect(held.work).toMatchObject({ version: again.version, note: "taller still" });
-    expect((await db.query<any>(`SELECT status, intent_id FROM play.doc_branches WHERE id = $1`, [made.branch])).rows[0]).toEqual({ status: "archived", intent_id: i.id });
+    expect((await db.query<any>(`SELECT status, intent_id FROM play.doc_variants WHERE id = $1`, [made.variant])).rows[0]).toEqual({ status: "archived", intent_id: i.id });
     expect((await call("ada", "GET", "/api/intents")).data.filter((x: any) => x.title === i.title)).toHaveLength(1);
-    // archived at Proposal: the intent is archived, its work's branch closed
+    // archived at Proposal: the intent is archived, its work's intent variant closed
     expect((await call("ada", "POST", `/api/intents/${i.id}/archive`)).data).toMatchObject({ stage: "archived", decision: { status: "archived" } });
-    expect((await db.query<any>(`SELECT status FROM play.doc_branches WHERE id = $1`, [again.branch])).rows[0].status).toBe("archived");
+    expect((await db.query<any>(`SELECT status FROM play.doc_variants WHERE id = $1`, [again.variant])).rows[0].status).toBe("archived");
     expect((await tool("propose_asset", { group: "plants", label: "Taller fern", source: SOURCE, note: "again", intent: i.id })).error).toContain("archived: it takes no more work");
     // brought back, to Specify with its spec; approved, built and proposed anew
     expect((await call("ada", "POST", `/api/intents/${i.id}/reopen`)).data.stage).toBe("specify");
@@ -355,8 +360,8 @@ suite("intents", () => {
     expect(check.inputSchema.properties.pr.description).toContain("Accept merges");
     expect(check.inputSchema.required).toEqual(["intent"]);
     // nothing they taught is lost: what to do at each stage is the Intents skill's (play/SPEC.md §4.14)
-    for (const says of ["get_intent", "brief", "get_skill"]) expect(of("list_intents").description).toContain(says);
-    const skill = (await tool("get_skill", { skill: SKILL.intents })).json;
+    for (const says of ["get_intent", "brief", "doc_at"]) expect(of("list_intents").description).toContain(says);
+    const skill = (await tool("doc_at", { doc: SKILL.intents })).json;
     const taught = [skill.system, ...Object.values(skill.stages)].join("\n");
     for (const says of [
       "avenBOX", "play/avenbox/intent.ts", "--record", "--pr", "Intent: ", ".github/workflows/intents.yml", "never merge", "Ship",
@@ -432,12 +437,12 @@ suite("intents", () => {
     const first = await tool("propose_version", { asset: made.asset, source: SOURCE + "// first\n", note: "first in" });
     expect((await call("ada", "POST", `/api/intents/${first.intent}/accept`)).data.stage).toBe("accepted");
     expect(await tool("get_intent", { intent: i.id })).toMatchObject({ stage: "build", results: null, decided_by: null, work: { status: "archived", version: made.version } });
-    expect((await db.query<any>(`SELECT status FROM play.doc_branches WHERE id = $1`, [made.branch])).rows[0].status).toBe("archived");
+    expect((await db.query<any>(`SELECT status FROM play.doc_variants WHERE id = $1`, [made.variant])).rows[0].status).toBe("archived");
     expect((await tool("check_intent", { intent: i.id, results: all })).stage).toBe("proposal");
     expect((await call("ada", "POST", `/api/intents/${i.id}/reject`)).data).toMatchObject({ stage: "archived", decided_by: "ada" });
   });
 
-  test("migration 0028's rule (the stage named Build since 0032) moves an intent already in Build with every must check passed to Proposal", async () => {
+  test("migration 0028's rule (the stage named Build since 0033) moves an intent already in Build with every must check passed to Proposal", async () => {
     const m = MIGRATIONS.find((x) => x.id === "0028-intents-ready-propose")!;
     const sql = m.sql.replaceAll("'prototype'", "'build'");
     const at = async (title: string, results: Record<string, boolean>) => {

@@ -4,11 +4,13 @@
 	a real discrete event simulation — AirSup's factory skill (.claude/skills/factory-skill), its runtime as legacy ported
 	it, its HUD theirs (hud.css, scoped to its host): the day's output against the target, every station's busy, blocked,
 	down and starved, the bottleneck, an inspector with the sizing rule and the what-ifs. On the right, ours: what the line
-	is, its versions, and its bill of process, every part of what it builds with what it is made from and every operation
+	is; its History tab ($lib/app/History.svelte, the one History of every view: its versions, every edit it was made in,
+	its open intent variants, any of them opened as the line); and its bill of process, every part of what it builds with what it is made from and every operation
 	it goes through, at which station and for how long; a part picked lights up its route through the factory, and a
 	station picked lists what it does for one unit.
 
-	A factory is a Loro document in play's Postgres (play/SPEC.md §4.7, play/api/src/factories.ts), read from the API and
+	A factory is a Loro document in play's Postgres (play/SPEC.md §4.7, "Version control"; play/api/src/versioned.ts), read
+	from the API (/api/docs) and
 	turned into the runtime's line by $lib/content/factories (every station's cycle time the sum of its operations); it
 	changes only by proposal. `?factory=<id>` picks a line, `&v=<n>` one of its versions, `&intent=<id>` the line as an
 	intent's work at Proposal would make it (the intents' board opens it so). What a line builds is our own asset, by its slot of the
@@ -22,6 +24,7 @@
 	import { session } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
+	import History, { type Pick } from '$lib/app/History.svelte';
 	import { lineOf } from '$lib/content/factories/index.js';
 	import '$lib/content/factories/hud.css';
 
@@ -30,7 +33,7 @@
 	type App = { dispose: () => void; select: (id: string | null) => void; showRoute: (ids: string[] | null) => void; camTo: (v: object, s?: number) => void; stationCenter: (id: string) => unknown };
 	type Item = { id: string; label: string; note: string; number: number; versions: number };
 	type Version = { number: number; note: string; at: string; acceptedBy: string | null };
-	type Factory = { id: string; json: any; number: number; version?: number; versions: Version[]; intent?: { id: string; status: string; note: string } };
+	type Factory = { id: string; json: any; number: number; version?: number; edit?: number; versions: Version[]; intent?: { id: string; status: string; note: string } };
 
 	let host = $state<HTMLDivElement>();
 	let error = $state('');
@@ -48,17 +51,16 @@
 	const params = $derived(page.url.searchParams);
 	const id = $derived(params.get('factory') ?? list[0]?.id ?? '');
 	const wantV = $derived(params.get('v'));
-	// `proposal`: its name before an intent and its proposal were one record (play finds the intent by the old id)
-	const wantIntent = $derived(params.get('intent') ?? params.get('proposal'));
+	const wantIntent = $derived(params.get('intent'));
 	$effect(() => {
 		if (!admin) return;
-		api<Item[]>('/factories').then((l) => (list = l), (e) => (error = e.message));
+		api<Item[]>('/docs?kind=factory').then((l) => (list = l), (e) => (error = e.message));
 	});
 	$effect(() => {
 		if (!admin || !id) return;
 		const q = wantIntent ? `?intent=${encodeURIComponent(wantIntent)}` : wantV ? `?v=${encodeURIComponent(wantV)}` : '';
 		let gone = false;
-		api<Factory>(`/factories/${id}${q}`).then(
+		api<Factory>(`/docs/${id}${q}`).then(
 			(f) => !gone && (factory = f),
 			(e) => !gone && ((error = e.message), (phase = ''))
 		);
@@ -68,6 +70,13 @@
 	const label = $derived(factory?.json.label ?? list.find((f) => f.id === id)?.label ?? 'Factories');
 	const stationOf = $derived(new Map<string, any>((L?.spec.stations ?? []).map((s: any) => [s.id, s])));
 	const at = (f: string, v?: number) => goto(`?factory=${f}${v ? `&v=${v}` : ''}`, { keepFocus: true, noScroll: true });
+	/** its History: a version picked is that version's line; an edit picked, the line as it stood at it */
+	async function picked_(p: Pick | null) {
+		if (!factory) return;
+		if (!p) return void (await api<Factory>(`/docs/${factory.id}${wantIntent ? `?intent=${encodeURIComponent(wantIntent)}` : wantV ? `?v=${encodeURIComponent(wantV)}` : ''}`).then((f) => (factory = f)));
+		if ('version' in p) return void at(factory.id, p.version === factory.number ? undefined : p.version);
+		factory = await api<Factory>(`/docs/${factory.id}?edit=${p.edit.seq}`);
+	}
 
 	/** the bill of process: the filter, the part whose route is shown, the station picked in the factory */
 	let q = $state('');
@@ -159,13 +168,15 @@
 	{/each}
 {/snippet}
 
-{#snippet about()}
+{#snippet head()}
 	{#if factory && L}
 		<header class="about-head">
 			<small>Factory · owned by Maia City</small>
 			<h3>{factory.json.label}</h3>
 			{#if factory.intent}
 				<p class="asif">As its intent's work would make it{factory.intent.status === 'proposal' ? '' : ` (${factory.intent.status})`}: “{factory.intent.note}” <a href="/intents/">Back to the intents</a> · <a href="?factory={factory.id}" onclick={(e) => (e.preventDefault(), at(factory!.id))}>its newest version</a></p>
+			{:else if factory.edit}
+				<p class="asif">As it stood at an edit of its history: <a href="?factory={factory.id}" onclick={(e) => (e.preventDefault(), at(factory!.id))}>its newest version</a></p>
 			{:else if factory.version !== factory.number}
 				<p class="asif">Version {factory.version}, not its newest: <a href="?factory={factory.id}" onclick={(e) => (e.preventDefault(), at(factory!.id))}>v{factory.number}</a></p>
 			{/if}
@@ -175,17 +186,18 @@
 				<p class="missing">Drawn with the line’s own model of what it builds: {[...new Set(missing.map((m) => m.why))].join('; ')}</p>
 			{/if}
 		</header>
-		<h4 class="side-head">Versions</h4>
-		<ol class="chain">
-			{#each [...factory.versions].reverse() as v (v.number)}
-				<li class:on={!factory.intent && v.number === factory.version}>
-					<a href="?factory={factory.id}&v={v.number}" onclick={(e) => (e.preventDefault(), at(factory!.id, v.number === factory!.number ? undefined : v.number))}><b>v{v.number}</b></a>
-					<span class="from">{new Date(v.at).toLocaleDateString('en-GB')}{v.acceptedBy ? ` · accepted by ${v.acceptedBy}` : ''}</span>
-					<p class="note">{v.note}</p>
-				</li>
-			{/each}
-		</ol>
-		<p class="soft propose">Propose v{factory.number + 1} over MCP (factory_edit, propose_factory_version); it is decided in <a href="/intents/">Intents</a>.</p>
+	{/if}
+{/snippet}
+
+{#snippet history()}
+	{#if factory}
+		<History doc={factory.id} shown={wantV ? Number(wantV) : factory.number} label="the line" intent={factory.intent?.id ?? null} onPick={picked_} />
+		<p class="soft propose">Propose v{factory.number + 1} over MCP (doc_edit, propose_doc_version); it is decided in <a href="/intents/">Intents</a>.</p>
+	{/if}
+{/snippet}
+
+{#snippet bill()}
+	{#if factory && L}
 		{#if L.parts.length}
 			<section class="parts" aria-label="Every part of what it builds and how it is made">
 				<h4 class="side-head">Bill of process</h4>
@@ -229,9 +241,9 @@
 
 {#if admin}
 	<div class="factories">
-		<Frame nav={list.length ? shelf : undefined} aside={factory ? about : undefined} navLabel="Maia City's factories" asideLabel="The factory, its versions and its bill of process" navIcon="board" flush>
+		<Frame nav={list.length ? shelf : undefined} asideHead={factory ? head : undefined} history={factory ? history : undefined} aside={factory && L?.parts.length ? bill : undefined} asideName="Bill of process" navLabel="Maia City's factories" asideLabel="The factory, its history and its bill of process" navIcon="board" flush>
 			<div class="stage">
-				{#key `${factory?.id}:${factory?.version}:${factory?.intent?.id}`}<div class="factory" bind:this={host}></div>{/key}
+				{#key `${factory?.id}:${factory?.version}:${factory?.edit}:${factory?.intent?.id}`}<div class="factory" bind:this={host}></div>{/key}
 				{#if phase && !error}<p class="phase">{phase}</p>{/if}
 				{#if error}<p class="bad">The factory could not be built: {error}</p>{/if}
 			</div>
@@ -261,14 +273,8 @@
 	.note { margin: 0.1rem 0 0; font-size: 0.8rem; line-height: 1.4; color: var(--ink-soft); }
 	.from { margin: 0.3rem 0 0; font-size: 0.74rem; color: var(--soft); }
 	.side-head { margin: 0 0 0.5rem 0.35rem; color: var(--soft); font-family: var(--font-body); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
-	.chain { list-style: none; padding: 0; margin: 0 0 1.2rem 0.4rem; border-left: 2px solid var(--line); }
-	.chain li { position: relative; display: block; padding: 0.35rem 0 0.6rem 0.9rem; border: 0; font-size: 0.9rem; }
-	.chain li::before { content: ''; position: absolute; left: -7px; top: 0.75rem; width: 10px; height: 10px; border-radius: 50%; background: var(--paper); border: 2px solid var(--sage); }
-	.chain li.on::before { background: var(--mustard); border-color: var(--mustard); }
-	.chain .note { font-size: 0.76rem; }
-	.chain a { color: inherit; text-decoration: none; }
 	.asif { margin: 0.4rem 0 0.5rem; padding: 0.45rem 0.6rem; border-radius: 8px; background: var(--mustard-soft, rgb(232 178 60 / 0.18)); font-size: 0.78rem; line-height: 1.4; }
-	.propose { margin: -0.6rem 0 1.2rem 0.35rem; font-size: 0.76rem; }
+	.propose { margin: 0 0 1.2rem 0.35rem; font-size: 0.76rem; }
 	.parts { margin: 0 0 0 0.35rem; color: #24262a; }
 	.sum { margin: 0 0 8px; font-size: 0.78rem; line-height: 1.4; color: #5d5a52; }
 	input { width: 100%; height: 32px; padding: 0 10px; border: 1px solid rgb(36 38 42 / 0.16); border-radius: 8px; background: #fff; font: inherit; font-size: 0.82rem; }

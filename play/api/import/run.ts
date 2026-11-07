@@ -175,7 +175,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
     factories: { seeded: [], present: [], errors: [] },
     gameConfigs: { seeded: [], present: [], errors: [] },
     skills: { seeded: [], present: [], errors: [] },
-    assetDocs: { made: 0, branches: 0, kept: 0, steps: 0, versions: 0, bytes: 0, errors: [] },
+    assetDocs: { made: 0, variants: 0, kept: 0, edits: 0, versions: 0, bytes: 0, errors: [] },
     legacy: { ran: null, skipped: false },
     ok: false,
   };
@@ -472,7 +472,7 @@ export function reportText(r: Report): string {
     `| Animals with their sound | ${r.assets.sounds} |`,
     `| Readable sources (legacy's code, checked against the recipe files) | ${r.sources.files} written, ${r.sources.attached} versions and variants given theirs now, ${r.sources.errors.length} failed |`,
     `| Stories from the repo (written once, then play's own) | ${r.stories.seeded.length ? `${r.stories.seeded.join(", ")} written` : "none written"}; ${r.stories.present.length} already in play; ${r.stories.errors.length} failed; ${r.stories.documents?.length ?? 0} documents made from their history; ${r.stories.folds?.folded.length ? `${r.stories.folds.folded.join(", ")} brought into one timeline` : "none folded"} |`,
-    `| Assets as Loro documents (their history, step by step) | ${r.assetDocs.made} made now from their history (${r.assetDocs.kept} kept steps between versions put in), ${r.assetDocs.branches} proposals given their branch; in all ${r.assetDocs.docs ?? 0} documents, ${r.assetDocs.versions} versions, ${r.assetDocs.steps} steps, ${(r.assetDocs.bytes / 1e6).toFixed(2)} MB of steps; ${r.assetDocs.errors.length} failed |`,
+    `| Assets as Loro documents (their history, edit by edit) | ${r.assetDocs.made} made now from their history (${r.assetDocs.kept} kept edits between versions put in), ${r.assetDocs.variants} intents given their intent variant; in all ${r.assetDocs.docs ?? 0} documents, ${r.assetDocs.versions} versions, ${r.assetDocs.edits} edits, ${(r.assetDocs.bytes / 1e6).toFixed(2)} MB of edits; ${r.assetDocs.errors.length} failed |`,
   ];
   const errs = [...r.assets.failed, ...r.verified.fileErrors, ...r.verified.pinErrors, ...r.verified.mediaErrors, ...r.sources.errors, ...r.stories.errors, ...r.assetDocs.errors];
   if (errs.length) lines.push(``, `## Errors`, ``, ...errs.map((e) => `- ${e}`));

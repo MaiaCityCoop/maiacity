@@ -11,6 +11,10 @@
 	`nav-group` (a small-capital heading over a group of rows) and `nav-item` (a row: an icon, its label, a count in a
 	`<small>` at its end; `on` where it is the one picked, with `aria-current` or `aria-pressed`).
 
+	A view of a versioned thing gives its `history` too (play/SPEC.md "Version control"): the right side then holds it in
+	its own History tab, the one History of every view ($lib/app/History.svelte), beside the view's own `aside` (named by
+	`asideName`: its parts, its bill of process, its details), with `asideHead` (the thing's name) over both.
+
 	Over the middle column stands the head of the page the view is on, as the page around it gives it (./Shell.svelte's
 	`HEAD`): the vault it is in, the view's name and who the person acts as. A view on the whole screen, as a spark is,
 	gives `bare` and has a head of its own; a view that lays out its middle edge to edge, as a canvas or a player does,
@@ -28,12 +32,17 @@
 	/** @typedef {import('svelte').ComponentProps<typeof Icon>['name']} IconName */
 	/**
 	 * @type {{ nav?: import('svelte').Snippet, aside?: import('svelte').Snippet, children?: import('svelte').Snippet,
-	 *   navLabel?: string, asideLabel?: string, navIcon?: IconName, asideIcon?: IconName, bare?: boolean,
-	 *   flush?: boolean, open?: '' | 'nav' | 'aside' }}
+	 *   history?: import('svelte').Snippet, asideHead?: import('svelte').Snippet, asideName?: string,
+	 *   tab?: 'history' | 'aside', navLabel?: string, asideLabel?: string, navIcon?: IconName, asideIcon?: IconName,
+	 *   bare?: boolean, flush?: boolean, open?: '' | 'nav' | 'aside' }}
 	 */
 	let {
 		nav,
 		aside,
+		history,
+		asideHead,
+		asideName = 'Details',
+		tab = $bindable('history'),
 		children,
 		navLabel = 'Pick what it shows',
 		asideLabel = 'Versions, history and details',
@@ -57,7 +66,7 @@
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && (open = '')} onhashchange={() => (open = '')} />
 
-<div class="frame" class:bare class:has-nav={!!nav} class:has-aside={!!aside}>
+<div class="frame" class:bare class:has-nav={!!nav} class:has-aside={!!aside || !!history}>
 	{#if open}
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 		<div class="scrim" onclick={() => (open = '')}></div>
@@ -76,10 +85,21 @@
 		{@render children?.()}
 	</section>
 
-	{#if aside}
+	{#if aside || history}
 		<aside class="side right" class:open={open === 'aside'} aria-label={asideLabel}>
 			<button class="shut" aria-label="Close" onclick={() => (open = '')}><Icon name="close" size={16} /></button>
-			{@render aside()}
+			{#if asideHead}{@render asideHead()}{/if}
+			{#if history}
+				<div class="aside-tabs" role="tablist">
+					<button role="tab" aria-selected={tab === 'history' || !aside} class:on={tab === 'history' || !aside} onclick={() => (tab = 'history')}>History</button>
+					{#if aside}<button role="tab" aria-selected={tab === 'aside'} class:on={tab === 'aside'} onclick={() => (tab = 'aside')}>{asideName}</button>{/if}
+				</div>
+				<div role="tabpanel">
+					{#if tab === 'history' || !aside}{@render history()}{:else}{@render aside()}{/if}
+				</div>
+			{:else if aside}
+				{@render aside()}
+			{/if}
 		</aside>
 	{/if}
 
@@ -89,7 +109,7 @@
 			><Icon name={navIcon} size={20} /></button
 		>
 	{/if}
-	{#if aside}
+	{#if aside || history}
 		<button class="drawer right" aria-pressed={open === 'aside'} aria-label={asideLabel} onclick={() => (open = open === 'aside' ? '' : 'aside')}
 			><Icon name={asideIcon} size={20} /></button
 		>
@@ -115,6 +135,30 @@
 
 	.frame.has-nav.has-aside {
 		grid-template-columns: 15.5rem minmax(0, 1fr) 21rem;
+	}
+
+	/* the right side's tabs: History, and the view's own */
+	.aside-tabs {
+		display: flex;
+		gap: 4px;
+		margin: 0 0 0.8rem 0.35rem;
+	}
+
+	.aside-tabs button {
+		font: inherit;
+		font-size: 0.82rem;
+		padding: 0.35rem 0.8rem;
+		border-radius: 999px;
+		border: 1px solid var(--line, #e5e1d8);
+		background: var(--paper, #fff);
+		color: inherit;
+		cursor: pointer;
+	}
+
+	.aside-tabs button.on {
+		background: var(--ink, #1f2b23);
+		color: var(--paper, #fff);
+		border-color: var(--ink, #1f2b23);
 	}
 
 	.side,

@@ -1,8 +1,8 @@
-// Migration 0032-build (intent 60f4f75c-666a-4eca-9bb2-4a29311afa6c, Samuel 2026-11-06): the intents' third stage,
-// Prototype, is Build. A database as production has it (migrated below 0032-build, intents at 'prototype' in each kind
+// Migration 0033-build (intent 60f4f75c-666a-4eca-9bb2-4a29311afa6c, Samuel 2026-11-06): the intents' third stage,
+// Prototype, is Build. A database as production has it (migrated below 0033-build, intents at 'prototype' in each kind
 // of state, the Intents skill's v1 still speaking to `stages.prototype`) is migrated and read back: every intent that
 // was at Prototype is at Build with nothing else changed, the stage 'prototype' is refused, and the skill's text moves
-// to `stages.build` by proposal (skill_edit, propose_skill_version, accepted), after which an intent at Build has it
+// to `stages.build` by proposal (doc_edit, propose_doc_version, accepted), after which an intent at Build has it
 // as its brief. Checks c2 and c4.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtempSync } from "node:fs";
@@ -16,7 +16,7 @@ import { fromBunSql, type Db } from "../src/pg";
 import { Rate } from "../src/limits";
 import { SKILL as SKILL_DOC, SKILL_STAGES } from "../src/docs/schema";
 import { SKILL } from "../src/ids";
-import { seedSkill } from "../src/skills";
+import { seedDoc } from "../src/versioned";
 import { avenmaia, intents } from "../import/skills";
 
 const URL_ = process.env.TEST_DATABASE_URL;
@@ -29,7 +29,7 @@ const productionV1 = () => {
   return { ...s, stages: { ...rest, prototype: build.replace(/agents build in/g, "agents prototype in").replace(/At Build/g, "At Prototype") } };
 };
 
-suite("the stage Build (migration 0032-build)", () => {
+suite("the stage Build (migration 0033-build)", () => {
   let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
   let api: ReturnType<typeof app>;
   const who: Record<string, { id: string; cookie: string }> = {};
@@ -44,9 +44,9 @@ suite("the stage Build (migration 0032-build)", () => {
     u.pathname = `/${name}`;
     sql = new Bun.SQL(u.toString());
     db = fromBunSql(sql);
-    // production's database: every migration below 0032-build
+    // production's database: every migration below 0033-build
     await db.exec(`CREATE SCHEMA IF NOT EXISTS play; CREATE TABLE IF NOT EXISTS play.migrations (id TEXT PRIMARY KEY, ran TIMESTAMPTZ NOT NULL DEFAULT now());`);
-    for (const m of MIGRATIONS.filter((m) => m.id < "0032-build"))
+    for (const m of MIGRATIONS.filter((m) => m.id < "0033-build"))
       await db.transaction(async (tx) => (await tx.query(m.sql), await tx.query(`INSERT INTO play.migrations (id) VALUES ($1)`, [m.id])));
     await initSessions(db);
     api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
@@ -58,11 +58,11 @@ suite("the stage Build (migration 0032-build)", () => {
     token = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data.token;
     // the skills as production holds them: the Intents skill's v1 written under the schema it was written under, when
     // a stage was named prototype (the schema takes it for this one write, and is as the code has it again after)
-    await seedSkill(db, { id: SKILL.avenmaia, json: avenmaia(), note: "First version" });
+    await seedDoc(db, "skill", { id: SKILL.avenmaia, json: avenmaia(), note: "First version" });
     const stages = (SKILL_DOC.schema as any).properties.stages.properties;
     stages.prototype = stages.build;
     try {
-      await seedSkill(db, { id: SKILL.intents, json: productionV1(), note: "First version" });
+      await seedDoc(db, "skill", { id: SKILL.intents, json: productionV1(), note: "First version" });
     } finally {
       delete stages.prototype;
     }
@@ -125,7 +125,7 @@ suite("the stage Build (migration 0032-build)", () => {
     const approved = await inPrototype("Just approved");
     const partly = await inPrototype("Partly checked, its pull request named", { results: { c1: result(true), c2: result(false) }, pull_request: 2107 });
     // back in Prototype with its work archived, as a moved base leaves it (./work.ts settle)
-    const p = await tool("propose_skill_version", { skill: SKILL.avenmaia, note: "a new label", edits: [{ op: "set", path: ["label"], value: "Maia" }] });
+    const p = await tool("propose_doc_version", { doc: SKILL.avenmaia, note: "a new label", edits: [{ op: "set", path: ["label"], value: "Maia" }] });
     expect(p.stage).toBe("proposal");
     await db.query(`UPDATE play.intents SET stage = 'prototype', spec = ($2::text)::jsonb, approved_by = $3, approved_at = now() WHERE id = $1`, [
       p.intent,
@@ -141,9 +141,9 @@ suite("the stage Build (migration 0032-build)", () => {
 
     const before = await q(`SELECT * FROM play.intents ORDER BY id`);
     expect(before.filter((r) => r.stage === "prototype").map((r) => r.id).sort()).toEqual([...prototyped].sort());
-    expect(before.find((r) => r.id === withWork)).toMatchObject({ work: "skill_version", skill_id: SKILL.avenmaia });
+    expect(before.find((r) => r.id === withWork)).toMatchObject({ work: "skill_version", doc_id: `skill:${SKILL.avenmaia}` });
 
-    expect(await migrate(db)).toEqual(["0032-build"]);
+    expect(await migrate(db)).toEqual(["0033-build"]);
     expect(await migrate(db)).toEqual([]);
 
     const after = await q(`SELECT * FROM play.intents ORDER BY id`);
@@ -181,7 +181,7 @@ suite("the stage Build (migration 0032-build)", () => {
 
     const at = await approvedToBuild("A brief at Build");
     // before the move: the skill as production holds it, nothing for build
-    const v1 = await tool("get_skill", { skill: SKILL.intents });
+    const v1 = await tool("doc_at", { doc: SKILL.intents });
     expect(v1.json.stages.prototype).toBe(productionV1().stages.prototype);
     expect(v1.json.stages.build).toBeUndefined();
     expect((await tool("get_intent", { intent: at })).brief).toBeNull();
@@ -189,19 +189,19 @@ suite("the stage Build (migration 0032-build)", () => {
     expect(prompts.map((p: any) => p.name)).toEqual(["intent_idea", "intent_specify", "intent_proposal", "intent_ship"]);
     expect((await rpc("prompts/get", { name: "intent_prototype", arguments: { intent: at } })).error.message).toContain("no prompt");
 
-    // the move, drafted with skill_edit: the text under build, worded for Build, the prototype part gone
+    // the move, drafted with doc_edit: the text under build, worded for Build, the prototype part gone
     const text = v1.json.stages.prototype.replace(/agents prototype in/g, "agents build in").replace(/At Prototype/g, "At Build");
     const { prototype: _, ...rest } = v1.json.stages;
-    const draft = await tool("skill_edit", { skill: SKILL.intents, message: "the Prototype part is the Build part", whole: { ...v1.json, stages: { ...rest, build: text } } });
-    expect(draft).toMatchObject({ changed: true, steps: 1 });
-    const proposed = await tool("propose_skill_version", { skill: SKILL.intents, branch: draft.branch, note: "The stage Prototype is Build (intent 60f4f75c-666a-4eca-9bb2-4a29311afa6c)" });
-    expect(proposed).toMatchObject({ stage: "proposal", skill: SKILL.intents, number: 2 });
+    const draft = await tool("doc_edit", { doc: SKILL.intents, message: "the Prototype part is the Build part", whole: { ...v1.json, stages: { ...rest, build: text } } });
+    expect(draft).toMatchObject({ changed: true, edits: 1 });
+    const proposed = await tool("propose_doc_version", { doc: SKILL.intents, variant: draft.variant, note: "The stage Prototype is Build (intent 60f4f75c-666a-4eca-9bb2-4a29311afa6c)" });
+    expect(proposed).toMatchObject({ stage: "proposal", doc: SKILL.intents, number: 2 });
     const review = (await call("ada", "GET", `/api/intents/${proposed.intent}`)).data.review;
     expect(review.changes.map((c: any) => c.path).sort()).toEqual(["$.stages.build", "$.stages.prototype"]);
     expect((await call("ada", "POST", `/api/intents/${proposed.intent}/accept`)).data).toMatchObject({ stage: "accepted", decision: { status: "accepted", number: 2 } });
 
     // after: build has the text, prototype none, and an intent at build gets it as its brief
-    const v2 = await tool("get_skill", { skill: SKILL.intents });
+    const v2 = await tool("doc_at", { doc: SKILL.intents });
     expect(v2).toMatchObject({ number: 2 });
     expect(v2.json.stages.build).toBe(text);
     expect(v2.json.stages.prototype).toBeUndefined();

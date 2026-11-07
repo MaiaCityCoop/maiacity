@@ -64,56 +64,66 @@ access token on play's profile page (`play_…`, shown once, kept hashed, revoca
 `Authorization: Bearer`. The agent reads assets, versions, sources and recipe files and proposes new versions or assets as **readable
 source** (play refuses minified code and wraps the source into the recipe file itself); to propose is to put an intent
 at Proposal with that work, on the intents' board under the admin's name, marked MCP, where people read the source and see it built in the asset box (the sandboxed
-frame; proposed code never runs on the server or on play's origin) before they decide. The agent also reads and proposes
-**stories** (`list_stories`, `get_story`, `propose_story`, `propose_story_version`, `add_story_frame`, `add_story_audio`, `add_story_video`, `story_edit`,
-`story_history`; play/SPEC.md §12): a film as one timeline of tracks and clips (storyboard shots, each a still and, once made, its video; voice, notes, and
+frame; proposed code never runs on the server or on play's origin) before they decide. **One version control**
+(play/SPEC.md §4.15, `play/api/src/versioned.ts`; Samuel 2026-11-06) versions everything play keeps (assets, stories,
+factories, the game's configs, skills), in one vocabulary: an **Edit** is one change, kept with its author, message and
+time; a **Variant** a line of edits of one document; **Main** the default variant, what is accepted; an **Intent
+variant** one that exists only inside an intent (Accept merges it into Main, Archive closes it, kept in the history); a
+**Seed** the version a variant grows from; a **Version** a numbered state of Main, named on accept. One set of tools
+for every kind, by a document's UUID: `list_docs`, `doc_at` (a version, an edit or an intent's variant), `doc_history`
+(edits, versions, variants), `doc_edit` (one edit of an intent variant, a new one seeded from Main if none is named)
+and `propose_doc_version` (its `variant`, or edits or the whole at once, with `intent`); each kind's own reads and
+creates stay where they hold more (`get_asset`, `get_story`, `propose_asset`, `propose_story`). Every view of a
+versioned thing shows its History in its own **History tab** on the right (`play/site/src/lib/app/History.svelte`), and
+every review on the intents' board its changes through `Changes.svelte`. The agent also reads and proposes
+**stories** (`list_stories`, `get_story`, `propose_story`, `add_story_frame`, `add_story_audio`, `add_story_video`, and
+the doc tools; play/SPEC.md §12): a film as one timeline of tracks and clips (storyboard shots, each a still and, once made, its video; voice, notes, and
 the sound: voice takes, music, sfx and beds, each a recording on its clip, played in the Stories player),
 versioned like the assets (one film, one story: its rewrites are its next versions, never stories of their own), every field of every clip editable only this way, shown on the intents' board played in the
 Stories player beside what changed. Every image, video and recording it adds is kept among play's files and shown in
 the admins' **Library** (`/library/`), each with the `label` it was given (only shown; a file is named by its hash)
 and where the stories use it. A story may link an accepted version of another (a track of kind `story`, its clip
 naming that story's UUID and the version's hash: the trailer its own story, played in every film), and a film moves to a
-newer trailer only by its own proposal (play/SPEC.md §12). Every story is also a Loro document (play/SPEC.md §4.4): every step kept with its
-author, message and time, an intent's work a branch of it; an agent drafts a change step by step with `story_edit` and
-proposes the draft with `propose_story_version`'s `branch`. So is every **asset** (play/SPEC.md §4.4): its source,
-card and variants, its history made from its versions (and the work kept between them, `play/api/import/history`);
-an agent drafts an asset step by step with `asset_edit` (a replace by its text, a range, a card field, each step with
-its message), reads it with `asset_history` and `get_asset`'s `step`, and proposes the draft with `propose_version`'s
-`branch`, its steps shown on the intents' board; admins play an asset's making in the asset viewer's history bar. A
+newer trailer only by its own proposal (play/SPEC.md §12). Every story is also a Loro document (play/SPEC.md §4.4): every edit kept with its
+author, message and time, an intent's work an intent variant of it, made edit by edit with `doc_edit` (the timeline's
+ops: `set_clip`, `shift` …) and proposed with `propose_doc_version`. So is every **asset** (play/SPEC.md §4.4): its
+source, card and variants, its history made from its versions (and the work kept between them,
+`play/api/import/history`); an agent makes an asset's change edit by edit with `doc_edit` (a replace by its text, a
+range, a card field, each edit with its message), reads it with `doc_history` and `get_asset`'s `edit` or `intent`, and
+proposes it with `propose_doc_version`, its edits shown on the intents' board; admins play an asset's making in its
+History tab. A
 **sandbox's layout** (which asset version and variant each slot draws, and any field of its configs: Sandbox 1's garden,
 where a thing stands) changes only by proposal too: `get_sandbox` reads it, `propose_sandbox_change` proposes edits
 (`pin`, `pin_latest`, `unpin`, `set`, `delete`; play/SPEC.md §4.6), shown on the intents' board before and after and
 openable in the sandbox as it would be; never by a migration. A
 **factory** (a production line on the Factories page: its line and its bill of process) is a Loro document too
-(play/SPEC.md §4.7): `list_factories`, `get_factory`, `factory_history` read it, `factory_edit` drafts a change step by
-step (a station's machines, buffer or breakdowns, a part's operation and its seconds, the demand), and
-`propose_factory_version` proposes it, shown on the intents' board field by field and openable as the factory would be,
-its simulation running; never by a migration. The **game's configs** (the Game editor, first the levelling: how a
-village grows level by level) are Loro documents the same way (play/SPEC.md §4.9): `list_game_configs`,
-`get_game_config`, `game_config_history`, `game_config_edit`, `propose_game_config_version`. A plant
-version names its **reference sheet** (`propose_version`'s `sheet`: the hash of the plate kept with `add_story_frame`; play/SPEC.md
+(play/SPEC.md §4.8), changed edit by edit with the doc tools (a station's machines, buffer or breakdowns, a part's
+operation and its seconds, the demand), shown on the intents' board field by field and openable as the factory would
+be, its simulation running; never by a migration. The **game's configs** (the Game editor, first the levelling: how a
+village grows level by level) are Loro documents the same way (play/SPEC.md §4.9). A plant
+version names its **reference sheet** (its card's `sheet`, set with `doc_edit`, or `propose_asset`'s: the hash of the plate kept with `add_story_frame`; play/SPEC.md
 §4.10), shown with the version in the asset library and, in the Library, beside the image, the plant it belongs to, and
 its **data sheet** and its sheet's **brief** (`datasheet`, `brief`: Markdown kept with `add_document`), so a plant's whole
 dataset is in play. A
-version can be a kind of **variants** (`propose_version`'s `variants`: a plant's kinds, an animal's breeds), each its own
+version can be a kind of **variants** (the document's `variants`, or `propose_asset`'s: a plant's kinds, an animal's breeds), each its own
 recipe and a chip in the asset viewer. Everything Maia City wants made, fixed or improved is an **intent** (play/SPEC.md
 §4.12; Samuel 2026-11-06), on the intents' board (a modal from the nav pill's star): **Idea → Specify → Build →
 Proposal → (Ship →) Accepted** (or Archived). **One record** (Samuel 2026-11-06: "not a proposal belongs to an intent: the intent
 has a state, proposal"): there is no proposal beside an intent; Proposal is the intent's stage, and the work it brings
-(an asset's or story's version, a sandbox's change, a factory's or config's version) is on the intent itself
+(a document's version, named by its `doc_id` and `doc_variant`, or a sandbox's change) is on the intent itself
 (`play/api/src/work.ts`). An agent adds one (`add_intent`, over MCP only: nothing is
 typed in by hand), reads them (`list_intents`, `get_intent`) and does what the intent's **brief** says for the stage it
 is at (`get_intent`'s `brief`): the **Intents skill**'s text for that stage. What play teaches its agents (avenMAIA's
 system prompt, the intents' lifecycle, each stage's instructions) is kept once, as **skills** in play's Postgres
-(`list_skills`, `get_skill`, `skill_history`; play/SPEC.md §4.14), never in the code or on the board, and changes only
-by proposal (`skill_edit`, `propose_skill_version`), served from Postgres on each request (`initialize`, the brief, MCP's
+(`list_docs`, `doc_at`, `doc_history`; `/skills/`; play/SPEC.md §4.14), never in the code or on the board, and changes
+only by proposal (`doc_edit`, `propose_doc_version`), served from Postgres on each request (`initialize`, the brief, MCP's
 prompts). In short: at Idea it specifies the intent (every test and measure check with its `run` in **avenBOX**) and
 stops for an admin's approval; in Build it builds it and records every check (`bun play/avenbox/intent.ts <the
 intent's UUID> --record`) until it moves to Proposal by itself, where an admin decides it; work of play's it proposes
 naming the intent, code it ships by pull request (*Accept ships it*, above). Work
 proposed without `intent` is a new intent at Proposal of its own, with no spec. No tool approves, accepts or rejects an
 intent; an agent archives only its own intents at Proposal put there over MCP (`archive_intent`: one it no longer
-stands by; Samuel 2026-11-04). An old proposal's id still finds its intent (`play.proposal_ids`, migration 0029). **Every agent connected over MCP is avenMAIA** (play/SPEC.md
+stands by; Samuel 2026-11-04). An intent is named by its own UUID (the old proposals' ids went with migration 0032). **Every agent connected over MCP is avenMAIA** (play/SPEC.md
 §4.13; Samuel 2026-11-06), whatever its client or token, working for the admin whose token connected it, and it keeps
 Maia City's **Artifacts** (`/artifacts/`, admins): every link from the net we keep, once each, with a very compact title (at
 most 70 characters), a description (1–2 sentences, at most 280 characters) and a summary (a small report on the topic,

@@ -209,7 +209,7 @@ export const ASSET: DocType = {
 };
 
 /**
- * A factory as a document (../factories.ts, Samuel 2026-11-04): a production line as AirSup's factory runtime reads it
+ * A factory as a document (one kind of ../versioned.ts, Samuel 2026-11-04): a production line as AirSup's factory runtime reads it
  * (`line`: the product, the demand, the calendar, every station with its machine, its buffers, its breakdowns and what
  * it feeds, the stages' looks, the floor's layout), and its bill of process: every part of what it builds (`parts`, each
  * with what it is made from and every operation it goes through, at which station and for how many seconds), the raw
@@ -318,7 +318,7 @@ export const FACTORY: DocType = {
 };
 
 /**
- * A game config's levelling (../gameconfigs.ts, Samuel 2026-11-04): how a village grows. Each level is reached at a
+ * A game config's levelling (one kind of ../versioned.ts, Samuel 2026-11-04): how a village grows. Each level is reached at a
  * number of villagers (Fibonacci counts: 1, 2, 3, 5, 8 …) and unlocks what the village builds next (a tent, a
  * container, a dome, an energy plant), each with its cost in euros; every new villager brings `villager.euros` and
  * `villager.hearts`, and an investor adds `investor` times what the level's new villagers brought in euros. Minds are

@@ -1,7 +1,7 @@
 // Intents (play/SPEC.md §4.12, Samuel 2026-11-06): everything on the board is an intent, something Maia City wants made,
 // fixed or improved, named by its UUID, its title only shown. One record: an intent and its proposal are the same thing
 // ("not a proposal belongs to an intent: the intent has a state, proposal"), so the work it brings (an asset's or a
-// story's version, a sandbox's change, a factory's or a config's version: ./work.ts) is on the intent itself. It goes
+// story's, factory's, config's or skill's version, ./versioned.ts, or a sandbox's change: ./work.ts) is on the intent itself. It goes
 //
 //   Idea → Specify → Build → Proposal → (Ship →) Accepted (or Archived)
 //
@@ -12,7 +12,7 @@
 // check's result with its evidence, its work perhaps in progress (a draft branch). Proposal: the moment every must check
 // has passed, the intent moves there by itself (Samuel 2026-11-06), and proposing its work (every propose tool's
 // `intent`) puts it there with that work, play taking it only once every must check has passed; so after the spec there
-// is one gate with a person in it, the decision at Proposal: accepting applies its work (./proposals.ts decide), or, for
+// is one gate with a person in it, the decision at Proposal: accepting applies its work (./versioned.ts decide), or, for
 // work that is no work of play's (code, its pull request named with check_intent's `pr`), Accept ships it (./ship.ts,
 // Samuel 2026-11-06): play merges the pull request into main that moment and the intent is in Ship, where play follows
 // it to production step by step; all green, it is Accepted; any red, it is back at Proposal with the report. Work
@@ -30,7 +30,8 @@ import type { Queryable } from "./pg";
 import { NOTE_MOST } from "./notes";
 import { briefOf } from "./skills";
 import { newId, UUID } from "./uuid";
-import { intentIdOf, WORK_KINDS, type WorkKind } from "./work";
+import { intentIdOf } from "./work";
+import { workKinds, workSql } from "./versioned";
 
 export class IntentError extends Error {
   constructor(message: string, public status = 400) {
@@ -147,11 +148,13 @@ export function specOf(body: { goal?: unknown; scope?: unknown; checks?: unknown
 
 /**
  * The intents with who wrote, specified, approved and decided them, and each one's work (null where it has none): its
- * kind, what it is of (an asset's group, slug and label, a story's, sandbox's, factory's or config's title), the version
+ * kind, what it is of (an asset's group, slug and label, a story's or sandbox's title, a document's label), the version
  * it would be, how many changes a sandbox's makes, its note, who proposed it, how and when, and its status (its
  * intent's stage: waiting at Proposal, accepted, else archived).
  */
 async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
+  // a document's label and group, by its kind, from ./versioned.ts's registry
+  const kind = workSql();
   const { rows } = await db.query<any>(
     `SELECT i.id, i.kind, i.title, i.note, i.stage, i.via, i.created, i.spec, i.results, i.specified_at, i.approved_at, i.decided_at, i.came_with,
             i.pull_request, i.ship,
@@ -159,17 +162,17 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
             CASE WHEN i.work IS NULL THEN NULL ELSE json_build_object(
               'kind', i.work, 'status', CASE i.stage WHEN 'proposal' THEN 'proposal' WHEN 'accepted' THEN 'accepted' ELSE 'archived' END,
               'asset_id', i.asset_id, 'base', i.base, 'version', i.version, 'story_id', i.story_id, 'story_base', i.story_base, 'story_version', i.story_version,
-              'sandbox_id', i.sandbox_id, 'factory_id', i.factory_id, 'game_config_id', i.game_config_id, 'skill_id', i.skill_id, 'doc_branch', i.doc_branch,
+              'sandbox_id', i.sandbox_id, 'doc_id', i.doc_id, 'doc', split_part(i.doc_id, ':', 2), 'doc_variant', i.doc_variant,
               'changes', jsonb_array_length(COALESCE(i.sandbox_diff, '[]'::jsonb)),
               'note', COALESCE(i.work_note, ''), 'author', pb.name, 'via', i.proposed_via, 'created', i.proposed_at, 'decided_by', de.name, 'decided_at', i.decided_at,
-              'label', COALESCE(wa.label, sv.title, sx.title, fx.label, gc.label, sk.label),
-              'grp', COALESCE(wa.grp, CASE i.work WHEN 'story_version' THEN 'stories' WHEN 'sandbox_change' THEN 'sandboxes' WHEN 'factory_version' THEN 'factories' WHEN 'game_config_version' THEN 'game' WHEN 'skill_version' THEN 'skills' END),
+              'label', COALESCE(wa.label, sv.title, sx.title, ${kind.label}),
+              'grp', COALESCE(wa.grp, CASE WHEN i.sandbox_id IS NOT NULL THEN 'sandboxes' END, ${kind.group}),
+              'what', CASE WHEN i.sandbox_id IS NOT NULL THEN 'sandbox' ELSE ${kind.what} END,
               'slug', wa.slug, 'version_label', wv.card->'card'->>'label',
-              'number', CASE i.work WHEN 'story_version' THEN COALESCE(sb.number, 0) + 1 WHEN 'sandbox_change' THEN NULL
-                 WHEN 'factory_version' THEN COALESCE(dbv.number, (SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = 'factory:' || i.factory_id) + 1)
-                 WHEN 'game_config_version' THEN COALESCE(dbv.number, (SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = 'game:' || i.game_config_id) + 1)
-                 WHEN 'skill_version' THEN COALESCE(dbv.number, (SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = 'skill:' || i.skill_id) + 1)
-                 ELSE COALESCE(wb.number, 0) + 1 END
+              'number', CASE WHEN i.sandbox_id IS NOT NULL THEN NULL
+                 WHEN i.asset_id IS NOT NULL THEN COALESCE(wb.number, 0) + 1
+                 WHEN i.story_id IS NOT NULL THEN COALESCE(sb.number, 0) + 1
+                 ELSE COALESCE(dbv.number, (SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = i.doc_id) + 1) END
             ) END AS work
        FROM play.intents i
        LEFT JOIN play.humans au ON au.id = i.author
@@ -183,10 +186,7 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
        LEFT JOIN play.story_versions sv ON sv.id = i.story_version
        LEFT JOIN play.story_versions sb ON sb.id = i.story_base
        LEFT JOIN play.sandboxes sx ON sx.id = i.sandbox_id
-       LEFT JOIN play.factories fx ON fx.id = i.factory_id
-       LEFT JOIN play.game_configs gc ON gc.id = i.game_config_id
-       LEFT JOIN play.skills sk ON sk.id = i.skill_id
-       LEFT JOIN play.doc_branches dbr ON dbr.id = i.doc_branch AND i.work IN ('factory_version', 'game_config_version', 'skill_version')
+       LEFT JOIN play.doc_variants dbr ON dbr.id = i.doc_variant
        LEFT JOIN play.doc_versions dbv ON dbv.doc_id = dbr.doc_id AND dbv.number = dbr.version
       WHERE i.coop_id = $1 AND ${where}
       ORDER BY COALESCE(i.decided_at, i.proposed_at, i.created) DESC LIMIT 500`,
@@ -199,7 +199,7 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
 export async function listIntents(db: Queryable, me: Me | null, stages?: string[], work?: string) {
   admin(me);
   for (const s of stages ?? []) if (!INTENT_STAGES.includes(s as IntentStage)) throw new IntentError(`An intent's stage is ${INTENT_STAGES.join(", ")}.`);
-  if (work !== undefined && !WORK_KINDS.includes(work as WorkKind)) throw new IntentError(`An intent's work is ${WORK_KINDS.join(", ")}.`);
+  if (work !== undefined && !workKinds().includes(work)) throw new IntentError(`An intent's work is ${workKinds().join(", ")}.`);
   return intentsWhere(db, `($2::text[] IS NULL OR i.stage = ANY($2::text[])) AND ($3::text IS NULL OR i.work = $3)`, [stages ?? null, work ?? null]);
 }
 
@@ -209,16 +209,15 @@ async function intentRow(db: Queryable, id: string) {
   return intent;
 }
 
-/** One intent as the board lists it (admins), by its id or an old proposal's (play.proposal_ids). */
+/** One intent as the board lists it (admins), by its id. */
 export async function getIntent(db: Queryable, id: string) {
   return intentRow(db, (await intentIdOf(db, idOf(id))) ?? id);
 }
 
 /**
  * One intent, whole: as the board lists it, its work's review where it holds work (`review`: what it changes, as
- * people read it before they decide, ./proposals.ts reviewOf), and its `brief`: what an agent sent to it does at its
- * stage, the Intents skill's part for it (./skills.ts; null where it says nothing). An old proposal's id finds the
- * intent it is now.
+ * people read it before they decide, ./versioned.ts reviewOf), and its `brief`: what an agent sent to it does at its
+ * stage, the Intents skill's part for it (./skills.ts; null where it says nothing).
  */
 export async function intentOf(db: Queryable, me: Me | null, id: string, reviewOf: (db: Queryable, id: string, shown: any) => Promise<unknown>) {
   admin(me);
@@ -259,7 +258,7 @@ export async function specifyIntent(db: Queryable, me: Me | null, id: string, bo
   return intentRow(db, intent.id);
 }
 
-/** whether the intent's work waits for a decision at Proposal: then accepting applies it (./proposals.ts decide) */
+/** whether the intent's work waits for a decision at Proposal: then accepting applies it (./versioned.ts decide) */
 const waiting = (intent: { stage: string; work: unknown }) => intent.stage === "proposal" && !!intent.work;
 
 /** an intent's pull request into main, by its number (check_intent's `pr`), or undefined where none is given */
@@ -381,7 +380,7 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
       if (intent.stage === "build")
         refuse("An intent in Build is not accepted: it moves to Proposal by itself once every must check passes, and is decided there.");
       if (intent.stage !== "proposal") refuse(`An intent at the ${intent.stage} stage is decided already, or not yet built.`);
-      if (waiting(intent)) refuse("Its work waits for a decision: accepting applies it (./proposals.ts decide).");
+      if (waiting(intent)) refuse("Its work waits for a decision: accepting applies it (./versioned.ts decide).");
       if (intent.pull_request) refuse(`Its code is pull request #${intent.pull_request}: Accept ships it (./ship.ts), merging it into main.`);
       const missing = unmet(intent);
       if (missing.length) refuse(`Every must check passes before an intent is accepted: ${missing.join("; ")}.`);

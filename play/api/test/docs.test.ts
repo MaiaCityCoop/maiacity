@@ -1,5 +1,5 @@
 // play's documents in Loro (src/docs, play/SPEC.md §4.4) against a real Postgres: set TEST_DATABASE_URL, as for
-// api.test.ts. Every step kept with who, why and when; any step read back exactly; proposals as branches merged on
+// api.test.ts. Every edit kept with who, why and when; any edit read back exactly; intent variants merged into Main on
 // accept; versions named with the hash of their content and never changed; code merged with other edits accepted only
 // once its merged result was previewed.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -10,8 +10,8 @@ import { canonical } from "../src/hash";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
 import {
-  accept, branch, close, commit, COMPACT_AFTER, contentHash, createDoc, diffBetween, DocError, history, nameVersion,
-  previewMerge, propose, readDoc, SchemaError, sizeOf, stateAt, versionsOf, type Author,
+  accept, close, commit, COMPACT_AFTER, contentHash, createDoc, diff, DocError, history, nameVersion,
+  previewMerge, propose, readDoc, SchemaError, stateAt, variant, versionsOf, type Author,
 } from "../src/docs";
 import { EditError } from "../src/docs/core";
 
@@ -96,7 +96,7 @@ suite("documents in Loro", () => {
     expect(h.map((s) => s.message)).toEqual(["seeded", "retime b", "reword b", "tidy b", "add d", "d first", "drop d, new note"]);
     expect(h[1].via).toBe("mcp");
     expect(h.at(-1)!.via).toBe("site");
-    for (let i = 0; i < h.length; i++) same(await stateAt(db, DOC, { step: h[i].seq }), want[i]);
+    for (let i = 0; i < h.length; i++) same(await stateAt(db, DOC, { edit: h[i].seq }), want[i]);
     // a whole body sent at once lands as the few edits it differs by
     const target = clone(want.at(-1)); target.tracks[1].clips[0].mood = "↓"; target.title = "Test story, cut 2";
     const s = await commit(db, DOC, { target, message: "a whole body", author: mcp });
@@ -105,7 +105,7 @@ suite("documents in Loro", () => {
     expect(s!.bytes).toBeLessThan(twoEdits * 2);
     expect(s!.bytes).toBeLessThan(h[0].bytes / 2);
     same((await readDoc(db, DOC)).json, target);
-    const changes = await diffBetween(db, DOC, { version: 1 }, { step: s!.seq });
+    const changes = diff(await stateAt(db, DOC, { version: 1 }), await stateAt(db, DOC, { edit: s!.seq }));
     expect(changes.map((c) => c.path).sort()).toEqual(["$.note", "$.title", "$.tracks[id=notes].clips[id=n1].mood", "$.tracks[id=voice].clips[id=b].duration", "$.tracks[id=voice].clips[id=b].line"]);
     // the same body again changes nothing and is no step
     expect(await commit(db, DOC, { target, message: "nothing", author: mcp })).toBeNull();
@@ -122,14 +122,14 @@ suite("documents in Loro", () => {
     expect((await history(db, DOC)).length).toBe(before);
   });
 
-  test("a proposal is a branch: its own steps, merged and named the next version on accept", async () => {
-    const b = await branch(db, DOC, { author: mcp });
-    await commit(db, DOC, { branch: b.id, edits: [{ op: "set", path: ["tracks", 0, "clips", 0, "who"], value: "SAMUEL (VO)" }], message: "who is speaking", author: mcp });
-    const s2 = await commit(db, DOC, { branch: b.id, edits: [{ op: "text", path: ["tracks", 0, "clips", 2, "line"], index: 0, delete: 0, insert: "Every colour, converted twice. " }], message: "the cause first", author: mcp });
-    expect((await history(db, DOC, { branch: b.id })).map((s) => s.message)).toEqual(["who is speaking", "the cause first"]);
+  test("an intent variant: its own edits, merged into Main and named the next version on accept", async () => {
+    const b = await variant(db, DOC, { author: mcp });
+    await commit(db, DOC, { variant: b.id, edits: [{ op: "set", path: ["tracks", 0, "clips", 0, "who"], value: "SAMUEL (VO)" }], message: "who is speaking", author: mcp });
+    const s2 = await commit(db, DOC, { variant: b.id, edits: [{ op: "text", path: ["tracks", 0, "clips", 2, "line"], index: 0, delete: 0, insert: "Every colour, converted twice. " }], message: "the cause first", author: mcp });
+    expect((await history(db, DOC, { variant: b.id })).map((s) => s.message)).toEqual(["who is speaking", "the cause first"]);
     // the main line hasn't moved
     expect((await readDoc(db, DOC)).json.tracks[0].clips[0].who).toBe("SAMUEL");
-    expect((await readDoc(db, DOC, { branch: b.id })).json.tracks[0].clips[0].who).toBe("SAMUEL (VO)");
+    expect((await readDoc(db, DOC, { variant: b.id })).json.tracks[0].clips[0].who).toBe("SAMUEL (VO)");
     await expect(accept(db, DOC, b.id, { author: ada })).rejects.toThrow(/not proposed yet/);
     await propose(db, DOC, b.id, { note: "tighter hook", author: mcp });
     const v = await accept(db, DOC, b.id, { author: ada });
@@ -142,16 +142,16 @@ suite("documents in Loro", () => {
     const h = await history(db, DOC);
     expect(h.map((s) => s.message)).toContain("the cause first");
     expect(h.at(-1)!.kind).toBe("merge");
-    expect((await stateAt(db, DOC, { step: s2!.seq })).tracks[0].clips[2].line).toBe(now.tracks[0].clips[2].line);
+    expect((await stateAt(db, DOC, { edit: s2!.seq })).tracks[0].clips[2].line).toBe(now.tracks[0].clips[2].line);
     // a decided branch takes no more steps
-    await expect(commit(db, DOC, { branch: b.id, edits: [{ op: "set", path: ["title"], value: "late" }], message: "late", author: mcp })).rejects.toThrow(/accepted/);
+    await expect(commit(db, DOC, { variant: b.id, edits: [{ op: "set", path: ["title"], value: "late" }], message: "late", author: mcp })).rejects.toThrow(/accepted/);
   });
 
   test("two proposals on the same base both go in: their edits merge as a CRDT, the result checked", async () => {
-    const a = await branch(db, DOC, { author: mcp }), b = await branch(db, DOC, { author: cit });
-    expect(a.base).toEqual(b.base);
-    await commit(db, DOC, { branch: a.id, edits: [{ op: "set", path: ["tracks", 1, "clips", 0, "section"], value: "INTRO" }], message: "rename the section", author: mcp });
-    await commit(db, DOC, { branch: b.id, edits: [{ op: "text", path: ["tracks", 0, "clips", 1, "line"], index: 0, delete: 1, insert: "— " }], message: "a dash", author: cit });
+    const a = await variant(db, DOC, { author: mcp }), b = await variant(db, DOC, { author: cit });
+    expect(a.seed).toEqual(b.seed);
+    await commit(db, DOC, { variant: a.id, edits: [{ op: "set", path: ["tracks", 1, "clips", 0, "section"], value: "INTRO" }], message: "rename the section", author: mcp });
+    await commit(db, DOC, { variant: b.id, edits: [{ op: "text", path: ["tracks", 0, "clips", 1, "line"], index: 0, delete: 1, insert: "— " }], message: "a dash", author: cit });
     await propose(db, DOC, a.id, { note: "section", author: mcp });
     await propose(db, DOC, b.id, { note: "dash", author: cit });
     expect((await previewMerge(db, DOC, b.id)).concurrent).toBe(false);
@@ -165,34 +165,34 @@ suite("documents in Loro", () => {
     expect(now.tracks[1].clips[0].section).toBe("INTRO");
     expect(now.tracks[0].clips[1].line.startsWith("— ")).toBe(true);
     // two branches never write as the same Loro peer
-    const { rows } = await db.query<{ n: string }>(`SELECT count(DISTINCT peer) AS n FROM play.doc_peers WHERE doc_id = '${DOC}' AND branch IS NOT NULL`);
+    const { rows } = await db.query<{ n: string }>(`SELECT count(DISTINCT p.peer) AS n FROM play.doc_peers p JOIN play.doc_variants v ON v.id = p.variant WHERE p.doc_id = '${DOC}' AND v.type = 'intent'`);
     expect(Number(rows[0].n)).toBeGreaterThanOrEqual(3);
   });
 
   test("an archived proposal stays on its side line: out of the main history, its steps still readable", async () => {
-    const b = await branch(db, DOC, { author: mcp });
-    const s = await commit(db, DOC, { branch: b.id, edits: [{ op: "set", path: ["title"], value: "A worse title" }], message: "worse", author: mcp });
+    const b = await variant(db, DOC, { author: mcp });
+    const s = await commit(db, DOC, { variant: b.id, edits: [{ op: "set", path: ["title"], value: "A worse title" }], message: "worse", author: mcp });
     await propose(db, DOC, b.id, { note: "try", author: mcp });
     await close(db, DOC, b.id, { author: ada, status: "archived" });
     expect((await history(db, DOC)).map((x) => x.message)).not.toContain("worse");
-    expect((await stateAt(db, DOC, { step: s!.seq })).title).toBe("A worse title");
+    expect((await stateAt(db, DOC, { edit: s!.seq })).title).toBe("A worse title");
     expect((await readDoc(db, DOC)).json.title).toBe("Test story, cut 2");
     await expect(accept(db, DOC, b.id, { author: ada })).rejects.toThrow(/archived/);
   });
 
   test("named versions and steps are never changed, and each version's hash is its content's", async () => {
     await expect(db.query(`UPDATE play.doc_versions SET note = 'x' WHERE doc_id = '${DOC}'`)).rejects.toThrow(/append only/);
-    await expect(db.query(`DELETE FROM play.doc_updates WHERE doc_id = '${DOC}'`)).rejects.toThrow(/append only/);
+    await expect(db.query(`DELETE FROM play.doc_edits WHERE doc_id = '${DOC}'`)).rejects.toThrow(/append only/);
     for (const v of await versionsOf(db, DOC)) expect(contentHash(await stateAt(db, DOC, { version: v.number }))).toBe(v.contentHash);
   });
 
   test("code (an asset's source) merged with other edits is accepted only once its merged result was previewed", async () => {
     const source = readFileSync(join(import.meta.dir, "../import/legacy/sources/plants/papaya@963cc9dfc684.js"), "utf8");
     await createDoc(db, { id: PAPAYA, schema: "asset/1", json: { schema: "asset/1", label: "Papaya", source, card: { triangles: 1 } }, author: { human: null, via: "import" }, message: "v1 from legacy", version: "v1" });
-    const a = await branch(db, PAPAYA, { author: mcp }), b = await branch(db, PAPAYA, { author: cit });
-    await commit(db, PAPAYA, { branch: a.id, edits: [{ op: "text", path: ["source"], index: 0, insert: "// a: leaf lobes\n" }], message: "a", author: mcp });
+    const a = await variant(db, PAPAYA, { author: mcp }), b = await variant(db, PAPAYA, { author: cit });
+    await commit(db, PAPAYA, { variant: a.id, edits: [{ op: "text", path: ["source"], index: 0, insert: "// a: leaf lobes\n" }], message: "a", author: mcp });
     const tail = source.length;
-    await commit(db, PAPAYA, { branch: b.id, edits: [{ op: "text", path: ["source"], index: tail, insert: "\n// b: trunk scars\n" }], message: "b", author: cit });
+    await commit(db, PAPAYA, { variant: b.id, edits: [{ op: "text", path: ["source"], index: tail, insert: "\n// b: trunk scars\n" }], message: "b", author: cit });
     await propose(db, PAPAYA, a.id, { note: "lobes", author: mcp });
     await propose(db, PAPAYA, b.id, { note: "scars", author: cit });
     await accept(db, PAPAYA, a.id, { author: ada });
@@ -227,10 +227,10 @@ suite("documents in Loro", () => {
     expect(rows[0].snapshot).not.toBeNull();
     expect(Number(rows[0].snapshot_seq)).toBeGreaterThan(0);
     expect((await readDoc(db, id)).json.source).toBe(src);
-    const size = await sizeOf(db, id);
-    // the whole history of ~40 steps of a 100 kB source in far less than 40 copies of it
-    expect(size.full).toBeLessThan(src.length * 2);
+    const { rows: size } = await db.query<{ n: string; full: number }>(`SELECT (SELECT count(*) FROM play.doc_edits WHERE doc_id = $1) AS n, length(snapshot) AS full FROM play.docs WHERE id = $1`, [id]);
+    // the whole history of ~40 edits of a 100 kB source in far less than 40 copies of it
+    expect(size[0].full).toBeLessThan(src.length * 2);
     expect(ms / (COMPACT_AFTER + 2)).toBeLessThan(1000);
-    console.log(`asset:papaya: ${size.steps} steps, source ${(src.length / 1024).toFixed(0)} kB, full snapshot ${(size.full / 1024).toFixed(1)} kB, state alone ${(size.shallow / 1024).toFixed(1)} kB, ${(ms / (COMPACT_AFTER + 2)).toFixed(0)} ms a step`);
+    console.log(`asset:papaya: ${size[0].n} edits, source ${(src.length / 1024).toFixed(0)} kB, full snapshot ${(size[0].full / 1024).toFixed(1)} kB, ${(ms / (COMPACT_AFTER + 2)).toFixed(0)} ms an edit`);
   });
 });
