@@ -38,7 +38,7 @@ import { NOTE_MOST } from "./notes";
 import * as docs from "./docs";
 import { asDoc, asStory, authorOf, docIdOf, ensureStoryDoc, storyDocAt, versionAtFrontiers } from "./storydocs";
 import { overlap } from "./versioned";
-import { closeWork, putAtProposal, settle, WORK_OF, workOf, WorkError } from "./work";
+import { closeWork, putAtProposal, settle, stageAfter, WORK_OF, workOf, WorkError } from "./work";
 
 export class StoryError extends Error {
   constructor(message: string, public status = 400) {
@@ -772,7 +772,7 @@ export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fres
         throw e instanceof WorkError ? new StoryError(e.message, e.status) : e;
       });
       const edits = (await docs.history(tx, docIdOf(id), { variant: variantId })).length;
-      return { intent, stage: "proposal" as const, story: id, version, number: (s[0]?.number ?? 0) + 1, base, duration: body.duration, variant: variantId, edits };
+      return { intent, stage: await stageAfter(tx, intent), story: id, version, number: (s[0]?.number ?? 0) + 1, base, duration: body.duration, variant: variantId, edits };
     }),
   );
 }
@@ -826,7 +826,7 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
     (
       await db.query(
         `SELECT 1 FROM play.story_versions v WHERE v.story_id = $1 AND v.title = $2 AND v.body = ($3::text)::jsonb
-            AND (${accepted ? "v.number IS NOT NULL" : "EXISTS (SELECT 1 FROM play.intents i WHERE i.story_version = v.id AND i.stage = 'proposal')"})`,
+            AND (${accepted ? "v.number IS NOT NULL" : "EXISTS (SELECT 1 FROM play.intents i WHERE i.story_version = v.id AND i.stage IN ('build', 'proposal'))"})`,
         [into, title, JSON.stringify(body)],
       )
     ).rows.length > 0;
@@ -859,7 +859,7 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
         // closes its intent variant on this story); where it is there already, the intent is archived
         const { rows: open } = await db.query<any>(
           `SELECT ${WORK_OF}, v.title, v.body FROM play.intents i JOIN play.story_versions v ON v.id = i.story_version
-            WHERE i.story_id = $1 AND i.work = $2 AND i.stage = 'proposal' ORDER BY i.proposed_at`,
+            WHERE i.story_id = $1 AND i.work = $2 AND i.stage IN ('build', 'proposal') ORDER BY i.proposed_at`,
           [from, STORY_WORK],
         );
         for (const p of open) {

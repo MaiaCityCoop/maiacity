@@ -146,6 +146,11 @@ export function subStateOf(intent: Row, seen: PrSeen | null | undefined = intent
   if (at === "build") {
     // a conflict with main is failed in Build too: its builder resolves it (woken by the status 'Merges with main')
     if (pr && seen && seen.pr === pr && seen.state === "open" && seen.mergeable === false && now - Date.parse(seen.at) <= SEEN_MOST_MS) return S("failed", "conflicts with main", conflictWhy(seen));
+    // work of play's proposed in Build waits on it, not decidable: it moves to Proposal with it when its last must passes (intent 94061718)
+    if ((intent.work as any)?.status === "proposal") {
+      const n = Number((intent.work as any).docs) || 1;
+      return S("working", "work proposed", `${n} document${n === 1 ? "" : "s"} proposed, its checks to pass`);
+    }
     return S("working", "being built", "being built: its checks are recorded as they pass");
   }
 

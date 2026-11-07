@@ -522,12 +522,18 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   Build the agent builds it, runs each check as its spec says and records every result with its evidence
   (`check_intent`: a failure as a failure), until every must check passes: then the intent moves to **Proposal by
   itself**. Checked again at Proposal (only while no work of it waits there), a must that fails takes it back to
-  Build. **To propose is to put an intent at Proposal**: work of play's (an asset or story version, a sandbox
-  change, a factory, a config) is proposed with every propose tool's `intent`, the intent's UUID; play takes it only
-  for an intent in Build or Proposal whose must checks all pass (`intentReady`), refusing it otherwise and saying
-  which checks are not met, and the intent moves to Proposal holding that work. **New work for the same intent replaces
+  Build. **Work of play's is proposed in Build and waits there** (intent `94061718-2412-4356-9c72-f82a7ac75479`,
+  Samuel 2026-11-07: 33266de8 was accepted holding 1 of its 23 documents): work of play's (an asset or story version,
+  a sandbox change, a factory, a config, a skill) is proposed with every propose tool's `intent`, the intent's UUID;
+  play takes it for an intent in Build or at Proposal (`intentReady`; at Idea or Specify it is refused), whatever its
+  checks. Work proposed in Build waits on the intent: it stays in Build, working ("n documents proposed, its checks to
+  pass") and not decidable, and **moves to Proposal with all of it at once when its last must check passes**, so an
+  Accept always takes every document its builder proposed; one whose musts all pass already moves to Proposal with it
+  at once. A builder proposes everything first and records its checks last. Rejected in Build, its work is archived
+  with it. **New work for the same intent replaces
   its work**: the earlier one's branch is closed, its steps kept as a side line, its version kept unnumbered in the
-  DAG (`play/api/src/work.ts` `putAtProposal`). Every propose tool gives back the intent (`intent`, at `proposal`).
+  DAG (`play/api/src/work.ts` `putAtProposal`). Every propose tool gives back the intent (`intent`, and its `stage`:
+  `build` while its work waits there, else `proposal`).
   Other work (code) holds none of play's: its work is its pull request into main, which the agent opens and names
   (`check_intent`'s `pr`, `intent.ts --pr`) and **never merges**: an admin's Accept merges it (*Accept ships it*,
   below). `list_intents` (the open stages, or one stage, or all; `work`, one kind of work) and `get_intent` (one whole,
