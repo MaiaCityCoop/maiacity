@@ -12,6 +12,7 @@
 -->
 <script lang="ts">
 	import { api } from '$lib/api';
+	import Decision from './Decision.svelte';
 	import { INDEX, admitProposed, source as catalogSource } from '$lib/content/assets/catalog.js';
 	import { markdown } from '$lib/site/markdown/index.js';
 	import { detailOf, isCode, notLive, shipsAgain, STAGE_NAME, TABS, type Check, type Intent, type Kind, type Results, type ShipStep, type Stage, type TabId, type Work } from './detail';
@@ -350,20 +351,8 @@
 
 	<!-- a refused decision's reason at the foot, right above the buttons (Samuel 2026-11-06) -->
 	{#if refused}<p class="refused" role="alert">{refused}</p>{/if}
-	<!-- the decision at its foot, always in sight: Reject (it ends archived) on the left, the stage's one decision on the
-	     right, primary, its reason under it while it may not be taken. No Close: Back, Escape or the scrim close it. -->
-	{#if d.decision || d.reject}
-		<footer class="decide">
-			<div class="buttons">
-				{#if d.reject}<button class="btn reject" onclick={() => ondecide('reject')} title="Not to be done: it ends archived">Reject</button>{/if}
-				{#if d.decision}
-					{@const dec = d.decision}
-					<button class="btn primary" class:ghost={dec.verdict === 'reopen'} onclick={() => ondecide(dec.verdict)} disabled={!dec.enabled || merging} title={dec.why}>{merging ? 'Accepting…' : dec.label}</button>
-				{/if}
-			</div>
-			{#if d.decision && !d.decision.enabled && d.decision.why}<p class="why-not">{d.decision.why}</p>{/if}
-		</footer>
-	{/if}
+	<!-- the decision at its foot, always in sight (./Decision.svelte, the same bar as on its work's review) -->
+	<Decision detail={d} {merging} {ondecide} />
 </div>
 
 <style>
@@ -521,12 +510,33 @@
 	/* the foot: a refused decision's reason, then Reject and the one decision, primary, its reason under it if it is
 	   disabled */
 	.refused { flex: 0 0 auto; margin: 0; padding: 0.45rem 0.7rem; border-radius: 10px; font-size: 0.85rem; line-height: 1.4; max-height: 5.6em; overflow-y: auto; overflow-wrap: anywhere; color: #9c3b22; background: color-mix(in srgb, var(--terracotta, #c8744f) 12%, var(--card, #fff)); border: 1px solid color-mix(in srgb, var(--terracotta, #c8744f) 45%, transparent); }
-	.decide { flex: 0 0 auto; padding: 0.5rem 0 0.1rem; }
-	.buttons { display: flex; justify-content: flex-end; align-items: center; gap: 0.5rem; }
-	.decide .btn { min-height: 44px; justify-content: center; }
-	.btn.primary { flex: 0 1 15rem; }
-	.btn.reject { margin-right: auto; background: color-mix(in srgb, var(--terracotta, #c8744f) 14%, transparent); color: #9c3b22; border-color: color-mix(in srgb, var(--terracotta, #c8744f) 55%, transparent); }
-	.btn.reject:hover { background: color-mix(in srgb, var(--terracotta, #c8744f) 26%, transparent); filter: none; }
-	.why-not { margin: 0.35rem 0 0; text-align: right; font-size: 0.78rem; color: var(--ink-soft, #4d5d51); overflow-wrap: anywhere; }
-	@media (max-width: 520px) { .btn.primary { flex: 1 1 auto; } .why-not { text-align: left; } }
+
+	/* a tablet held wide and a desktop (Samuel 2026-11-07: "on large screens … the layout is a bit weird"): two panes, as
+	   every versioned thing on play reads (play/SPEC.md §4.15 One aside): on the left and large the open tab's content
+	   (the asset drawn, the work, the spec …); on the right an aside with the header, the top, the tabs and the decision
+	   docked at its foot */
+	@media (min-width: 900px) {
+		.review {
+			width: min(76rem, calc(100% - 2rem));
+			/* as tall as what it holds, up to the screen: no empty band (a drawn asset makes it tall) */
+			height: auto;
+			max-height: min(54rem, calc(100% - 2rem));
+			min-height: min(24rem, calc(100% - 2rem));
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) minmax(20rem, 25rem);
+			grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+			column-gap: 1.4rem;
+			row-gap: 0.5rem;
+			padding: 1.1rem 1.2rem 0.9rem;
+		}
+		.item-body { display: contents; }
+		.panel { grid-column: 1; grid-row: 1 / -1; min-height: 0; border-top: 0; padding: 0.2rem 0.4rem 0.6rem 0; }
+		.review-head { grid-column: 2; grid-row: 1; }
+		.item-body > .top { grid-column: 2; grid-row: 2; max-height: none; padding-bottom: 0.4rem; }
+		.band { grid-column: 2; grid-row: 3; text-align: left; overflow: visible; margin: 0; padding: 0.4rem 0 0; border-top: 1px solid var(--line, #dcd5c4); }
+		.tabs { flex-wrap: wrap; white-space: normal; border-radius: 16px; }
+		.refused { grid-column: 2; grid-row: 4; }
+		.review > :global(.decide) { grid-column: 2; grid-row: 5; }
+		.inline-build .stage { height: clamp(22rem, 62vh, 40rem); }
+	}
 </style>

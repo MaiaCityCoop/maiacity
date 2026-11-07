@@ -44,7 +44,8 @@
 	import StoryChanges, { type StoryDiff } from '$lib/stories/StoryChanges.svelte';
 	import type { Story } from '$lib/stories/timeline';
 	import IntentDetail from './IntentDetail.svelte';
-	import { decidable, isCode, notLive, shipsAgain, type Intent, type Kind, type Results, type Spec, type Stage, type Work } from './detail';
+	import Decision from './Decision.svelte';
+	import { decidable, detailOf, isCode, notLive, shipsAgain, type Intent, type Kind, type Results, type Spec, type Stage, type Work } from './detail';
 
 	const viewer = import('$lib/content/assets/VaultAsset.svelte');
 	// a world is shown as the Worlds page shows it (one renderer let go of whole when it closes), not on the asset
@@ -257,6 +258,22 @@
 	};
 	/** an Accept that merges (Accept and ship): GitHub takes a few seconds */
 	let merging = $state(false);
+	/** a decision taken on the work's review: the intent's own, and the review closes once it is taken */
+	async function decideWork(id: string, verdict: 'approve' | 'accept' | 'reject' | 'reopen') {
+		const of = intents.find((x) => x.id === id);
+		merging = verdict === 'accept' && !!of && isCode(of);
+		intentError = '';
+		try {
+			const r = await api<Intent & { message?: string }>(`/intents/${id}/${verdict}`, { method: 'POST' });
+			error = r.message ?? '';
+			intents = intents.map((x) => (x.id === r.id ? r : x));
+			open = null;
+		} catch (e) {
+			intentError = (e as Error).message;
+		} finally {
+			merging = false;
+		}
+	}
 	async function decideIntent(id: string, verdict: 'approve' | 'accept' | 'reject' | 'reopen') {
 		merging = verdict === 'accept' && !!intent && isCode(intent);
 		intentError = '';
@@ -369,6 +386,7 @@
 
 	{#if open}
 		{@const p = open}
+		{@const of = intents.find((x) => x.id === p.intent_id)}
 		<div class="review" role="dialog" aria-modal="true" aria-label="{p.label} {titleOf(p)}">
 			<header class="review-head">
 				<div class="who">
@@ -389,6 +407,8 @@
 				</div>
 				<button class="more" onclick={() => (noteOpen = !noteOpen)}>{noteOpen ? 'Less' : 'More'}</button>
 			{/if}
+			<!-- the work itself, the left pane on a wide screen -->
+			<div class="work-pane">
 			{#if !review && !storyReview && !docReview}
 				<div class="sandbox-review">
 					{#if reviewError}<p class="error">{reviewError}</p>{:else}<p class="muted">Reading it…</p>{/if}
@@ -461,12 +481,15 @@
 				<p class="muted small">This intent changes {alsoDocs.length + 1} documents: accepted together, or archived together.</p>
 				{#each alsoDocs as r, i (i)}{@render docChanges(r, true, p.status === 'accepted')}{/each}
 			{/if}
-			<!-- read only: what the work changes; only its intent is decided, in the intent's dialog (Samuel 2026-11-07) -->
-			{#if review}
-			<footer class="decide">
-				<button class="btn small ghost" class:on={showSource} onclick={() => (showSource = !showSource)}>{showSource ? 'Hide source' : review.source ? 'Source' : 'Recipe file'}</button>
-			</footer>
-			{/if}
+			</div>
+			<!-- the decision travels with the work (Samuel 2026-11-07): the same bar as the intent's detail, by detailOf, its
+			     source a quiet button beside it -->
+			{#if intentError}<p class="refused" role="alert">{intentError}</p>{/if}
+			<Decision detail={of ? detailOf(of) : { decision: null, reject: false }} {merging} ondecide={(v) => decideWork(p.intent_id, v)}>
+				{#snippet extra()}
+					{#if review}<button class="btn small ghost" class:on={showSource} onclick={() => (showSource = !showSource)}>{showSource ? 'Hide source' : review.source ? 'Source' : 'Recipe file'}</button>{/if}
+				{/snippet}
+			</Decision>
 		</div>
 	{/if}
 {/if}
@@ -553,9 +576,6 @@
 	.to-board:focus-visible { outline: 2px solid var(--ink, #222); outline-offset: -2px; }
 	.review-head h2 { margin: 0; font-size: 1.3rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 	.review-head .meta { margin: 0.15rem 0 0; }
-	.decide { flex: 0 0 auto; display: flex; justify-content: center; align-items: center; gap: 0.5rem; flex-wrap: wrap; padding: 0.6rem 0 0.1rem; border-top: 1px solid var(--line, #dcd5c4); }
-	.decide .btn { min-width: 6.2rem; justify-content: center; }
-	@media (max-width: 520px) { .decide { flex-wrap: nowrap; gap: 0.35rem; } .decide .btn { min-width: 0; flex: 1 1 0; padding-inline: 0.4em; } }
 	.btn.on { background: var(--ink, #222); color: var(--bg, #fff); }
 	.note { flex: 0 0 auto; }
 	.note p { margin: 0; font-size: 0.88rem; white-space: pre-line; }
@@ -586,4 +606,19 @@
 	@media (max-width: 1000px) { .story-review { grid-template-columns: minmax(0, 1fr); } }
 	/* a document's review: what it changes, field by field (./Changes.svelte) */
 	.sandbox-review { flex: 1 1 auto; min-height: 0; overflow: auto; }
+	.refused { flex: 0 0 auto; margin: 0; padding: 0.45rem 0.7rem; border-radius: 10px; font-size: 0.85rem; line-height: 1.4; max-height: 5.6em; overflow-y: auto; overflow-wrap: anywhere; color: #9c3b22; background: color-mix(in srgb, var(--terracotta, #c8744f) 12%, var(--card, #fff)); border: 1px solid color-mix(in srgb, var(--terracotta, #c8744f) 45%, transparent); }
+	.work-pane { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 0.4rem; overflow: hidden; }
+	/* a wide screen: the work large on the left, what it is (its header, its note) and the decision in an aside on the
+	   right, as the intent's detail and every versioned thing on play (play/SPEC.md §4.15 One aside) */
+	@media (min-width: 900px) {
+		.review:not(:global(.item-review)) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem); grid-template-rows: auto auto auto minmax(0, 1fr) auto auto; column-gap: 1.4rem; align-content: stretch; }
+		.work-pane { grid-column: 1; grid-row: 1 / -1; }
+		.review > .review-head, .review > .note, .review > .more, .review > .refused, .review > :global(.decide) { grid-column: 2; }
+		.review > .review-head { grid-row: 1; }
+		.review > .note { grid-row: 2; }
+		.review > .more { grid-row: 3; align-self: start; }
+		.review > .refused { grid-row: 5; }
+		.review > :global(.decide) { grid-row: 6; }
+		.review .note:not(.folded) { max-height: none; }
+	}
 </style>

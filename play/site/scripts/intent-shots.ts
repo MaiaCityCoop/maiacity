@@ -1,6 +1,6 @@
 /**
  * The intent's detail, stage by stage, as screenshots (intent bb3b0773's c4): the dev server's board opened on a fixture
- * intent at each stage (src/lib/site/intents/fixtures.ts), play's API answered by the fixtures, at 390×844 and 1440×900.
+ * intent at each stage (src/lib/site/intents/fixtures.ts), play's API answered by the fixtures, at 390×844, 820×1180 (a tablet) and 1440×900.
  *
  *   bun run dev &                                  # the dev server, http://localhost:5173
  *   bun scripts/intent-shots.ts [out dir]          # <stage>-<width>.png, and each asset upgrade's review drawn
@@ -32,6 +32,7 @@ const reviewOf = (stage: string) => {
 };
 const SIZES = [
 	{ width: 390, height: 844 },
+	{ width: 820, height: 1180 },
 	{ width: 1440, height: 900 }
 ];
 const ME = { id: '00000000-0000-4000-8000-000000000001', name: 'Samuel', level: 'admin', may: {}, founder: 1 };
@@ -50,7 +51,7 @@ async function quiet(page: import('playwright').Page, stage: string, width: numb
 }
 
 const browser = await chromium.launch();
-for (const size of SIZES) {
+for (const size of SIZES.filter((x) => !process.env.WIDTH || x.width === +process.env.WIDTH)) {
 	const page = await browser.newPage({ viewport: size, deviceScaleFactor: 2 });
 	await page.addInitScript(() => localStorage.setItem('play:intents:folded', '{}'));
 	await page.route('**/api/**', async (route) => {
