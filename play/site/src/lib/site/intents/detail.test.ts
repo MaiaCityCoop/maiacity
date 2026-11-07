@@ -117,7 +117,7 @@ describe('detailOf: the top and the decision, stage by stage', () => {
 	});
 	it('Accepted: what shipped and when; Reopen', () => {
 		const d = detailOf(FIXTURES.accepted);
-		expect(d.top[0]).toMatchObject({ part: 'outcome', text: 'Pull request #2150 merged and in production by Samuel.' });
+		expect(d.top[0]).toMatchObject({ part: 'outcome', text: 'Pull request #2150 merged and in production, accepted by Samuel.' });
 		expect(d.decision).toMatchObject({ verdict: 'reopen', label: 'Reopen' });
 		expect(d.reject).toBe(false);
 	});

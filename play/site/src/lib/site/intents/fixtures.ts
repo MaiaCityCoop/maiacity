@@ -31,7 +31,7 @@ const res = (ids: string[], fail: string[] = []): Results =>
 	Object.fromEntries([...ids.map((id) => [id, { pass: true, evidence: `${EVIDENCE} (${id})`, by: 'avenMAIA', at: at(11), where: 'avenBOX' as const, commit: HEAD }]), ...fail.map((id) => [id, { pass: false, evidence: `${id}: 2 failed, expected 68098 > 70847`, by: 'avenMAIA', at: at(11), where: 'avenBOX' as const, commit: HEAD }])]);
 
 const base = (n: number, over: Partial<Intent>): Intent => ({
-	id: `0000000${n}-b4f4-4128-bcc1-b076674e353${n}`,
+	id: `${String(n).padStart(8, '0')}-b4f4-4128-bcc1-${String(n).padStart(12, '0')}`,
 	kind: 'improve',
 	title: 'An intent\'s detail shows the decision its stage asks for, clean on top',
 	note: NOTE,
@@ -72,24 +72,24 @@ const STEPS = (red = false) => [
 const WORK = { kind: 'asset_version', what: 'asset', doc: 'asset:44444444-5555-4666-8777-888888888888', doc_variant: 3, docs: 2, asset_id: '44444444-5555-4666-8777-888888888888', label: 'Olive tree', grp: 'plants', slug: null, version_label: null, number: 4, status: 'proposal', note: 'Its bark furrows with age.', author: 'Samuel', decided_by: null, created: at(11), via: 'mcp' as const };
 
 export const FIXTURES: Record<string, Intent> = {
-	idea: base(1, { stage: 'idea', sub: { state: 'idle', tag: 'an idea', why: 'an idea: an agent specifies it next' } }),
+	idea: base(1, { title: "The garden's paths show where people walk most", stage: 'idea', sub: { state: 'idle', tag: 'an idea', why: 'an idea: an agent specifies it next' } }),
 	specify: base(2, { stage: 'specify', ...specified, depends_on: [DEP], sub: { state: 'waiting', tag: 'Approve spec', why: 'waits for Approve spec' } }),
-	build: base(3, { stage: 'build', ...approved, results: res(['c1', 'c2']), pull_request: 2150, pr_seen: { pr: 2150, draft: true, state: 'open' }, sub: { state: 'working', tag: 'being built', why: 'being built: its checks are recorded as they pass' } }),
-	'build-held': base(4, { stage: 'build', ...approved, depends_on: [DEP], held_by: [DEP], sub: { state: 'idle', tag: 'held', why: `held: waits for ${DEP.title}` } }),
-	'build-failed': base(5, { stage: 'build', ...approved, results: res(['c2'], ['c1']), pull_request: 2150, pr_seen: { pr: 2150, draft: false, state: 'open' }, sub: { state: 'failed', tag: 'c1 failed', why: 'c1 failed on its last run' } }),
-	'proposal-code': base(6, { stage: 'proposal', ...approved, results: res(['c1', 'c2', 'c3', 'c4', 'c5']), pull_request: 2150, pr_seen: { pr: 2150, draft: false, state: 'open', mergeable: true }, sub: { state: 'waiting', tag: 'Accept and ship', why: 'waits for Accept and ship' } }),
+	build: base(3, { title: 'Factories show their bottleneck live on the line', stage: 'build', ...approved, results: res(['c1', 'c2']), pull_request: 2150, pr_seen: { pr: 2150, draft: true, state: 'open' }, sub: { state: 'working', tag: 'being built', why: 'being built: its checks are recorded as they pass' } }),
+	'build-held': base(4, { title: "Sandbox 2's pond fills with rain over a season", stage: 'build', ...approved, depends_on: [DEP], held_by: [DEP], sub: { state: 'idle', tag: 'held', why: `held: waits for ${DEP.title}` } }),
+	'build-failed': base(5, { title: 'The Library finds a file by its label', stage: 'build', ...approved, results: res(['c2'], ['c1']), pull_request: 2150, pr_seen: { pr: 2150, draft: false, state: 'open' }, sub: { state: 'failed', tag: 'c1 failed', why: 'c1 failed on its last run' } }),
+	'proposal-code': base(6, { title: 'Members invite a friend with one link', stage: 'proposal', ...approved, results: res(['c1', 'c2', 'c3', 'c4', 'c5']), pull_request: 2150, pr_seen: { pr: 2150, draft: false, state: 'open', mergeable: true }, sub: { state: 'waiting', tag: 'Accept and ship', why: 'waits for Accept and ship' } }),
 	'proposal-work': base(7, { stage: 'proposal', ...approved, title: 'The olive tree\'s bark furrows with age', results: res(['c1', 'c2', 'c3', 'c4', 'c5']), work: WORK, sub: { state: 'waiting', tag: 'Accept', why: 'waits for Accept' } }),
-	'proposal-red': base(8, {
+	'proposal-red': base(8, { title: 'Ship merges main into every open pull request',
 		stage: 'proposal', ...approved, results: res(['c1', 'c2', 'c3', 'c4', 'c5']), pull_request: 2150, decided_by: 'Samuel', decided_at: at(12),
 		ship: { pr: 2150, head: HEAD, merge: MERGE, by: 'Samuel', round: 1, started: at(12), steps: STEPS(true), report: { step: 'Release', why: 'production did not fast-forward to the merge', link: 'https://github.com/MyAvenCEO/maiacity/actions/runs/2', log: `error: ${MERGE} is not a descendant of production\n##[error]Process completed with exit code 1.`, at: at(12) }, outcome: 'red', again: 'release' },
 		sub: { state: 'failed', tag: 'Ship red', why: 'Ship red at Release: Accept ships it again' }
 	}),
-	ship: base(9, { stage: 'ship', ...approved, results: res(['c1', 'c2', 'c3', 'c4', 'c5']), pull_request: 2150, decided_by: 'Samuel', decided_at: at(12), ship: { pr: 2150, head: HEAD, merge: MERGE, by: 'Samuel', round: 1, started: at(12), steps: STEPS() }, sub: { state: 'working', tag: 'shipping', why: 'shipping: the backup runs' } }),
-	accepted: base(10, {
+	ship: base(9, { title: 'Every deploy backs play up first, like Time Machine', stage: 'ship', ...approved, results: res(['c1', 'c2', 'c3', 'c4', 'c5']), pull_request: 2150, decided_by: 'Samuel', decided_at: at(12), ship: { pr: 2150, head: HEAD, merge: MERGE, by: 'Samuel', round: 1, started: at(12), steps: STEPS() }, sub: { state: 'working', tag: 'shipping', why: 'shipping: the backup runs' } }),
+	accepted: base(10, { title: 'Stories play their trailer before every film',
 		stage: 'accepted', ...approved, results: res(['c1', 'c2', 'c3', 'c4', 'c5']), pull_request: 2150, decided_by: 'Samuel', decided_at: at(12),
 		ship: { pr: 2150, head: HEAD, merge: MERGE, by: 'Samuel', round: 1, started: at(12), steps: STEPS().map((s) => ({ ...s, state: 'green' as const, started: at(12), finished: at(13) })), outcome: 'green', accepted: at(13), live: true, commit: MERGE },
 		steps: [{ at: at(11), by: 'Samuel', via: 'mcp', from: 'build', to: 'specify', reason: 'the spec named the wrong file' }],
 		auto: {}
 	}),
-	archived: base(11, { stage: 'archived', ...specified, decided_by: 'Samuel', decided_at: at(12) })
+	archived: base(11, { title: 'A second board for ideas only', stage: 'archived', ...specified, decided_by: 'Samuel', decided_at: at(12) })
 };

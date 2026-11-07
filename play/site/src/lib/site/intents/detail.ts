@@ -165,7 +165,8 @@ export function detailOf(i: Intent, opts: { brief?: string | null } = {}): Detai
 		case 'idea':
 			top.push(wantOf(i.note) ? { part: 'want', text: wantOf(i.note) } : null, { part: 'next', text: 'An agent specifies it next.' });
 			reject = true;
-			tab = 'note';
+			// the note is on top already: the brief that sends an agent to specify it
+			tab = 'agent';
 			break;
 		case 'specify': {
 			const reduce = i.spec?.checks.filter((c) => c.step === 'reduce') ?? [];
@@ -217,7 +218,7 @@ export function detailOf(i: Intent, opts: { brief?: string | null } = {}): Detai
 				const back = i.steps?.length ? i.steps[i.steps.length - 1] : null;
 				text = i.decided_by ? `Rejected${by}: it ended archived.` : back ? `Archived: ${back.reason}` : 'Archived.';
 			} else if (i.work) text = `${i.work.label} ${i.work.number == null ? 'changed' : `v${i.work.number}`}, accepted${by}.`;
-			else if (i.ship?.merge) text = `Pull request #${i.ship.pr} merged and in production${by}.`;
+			else if (i.ship?.merge) text = `Pull request #${i.ship.pr} merged and in production${by ? `, accepted${by}` : ''}.`;
 			else text = `Accepted${by}${i.auto?.accept ? ` (by rule ${i.auto.accept.label})` : ''}.`;
 			top.push({ part: 'outcome', text, at }, live ? { part: 'reason', tone: 'failed', text: 'Not live: production runs another commit (the Ship tab says which).' } : null);
 			decision = { verdict: 'reopen', label: 'Reopen', enabled: true, why: `Open again: back to ${i.spec ? 'Specify' : 'Idea'}.` };

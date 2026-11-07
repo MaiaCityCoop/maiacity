@@ -330,7 +330,9 @@
 	.top p { margin: 0; overflow-wrap: anywhere; }
 	.want, .goal { font-size: 1rem; }
 	.next { color: var(--ink-soft, #4d5d51); font-size: 0.88rem; }
-	.row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.45rem; }
+	.row { line-height: 1.7; }
+	.row .label { display: inline-block; margin-right: 0.45rem; }
+	.row .chips { vertical-align: 1px; margin-left: 0.2rem; }
 	.label, .lines h4 { flex: 0 0 auto; margin: 0; color: var(--accent, #2f6b4f); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
 	.lines ul { list-style: none; margin: 0.2rem 0 0; padding: 0; display: grid; gap: 0.2rem; }
 	.lines li { display: flex; gap: 0.4rem; align-items: baseline; font-size: 0.9rem; }
