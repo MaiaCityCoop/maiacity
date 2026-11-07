@@ -68,10 +68,12 @@ for i, v in enumerate(views):
     P2, z, R = proj(Vi, c); Pt, zt, _ = proj(at(Vi), c); zb = zbuffer(P2, z, FV, img.shape[1], img.shape[0])
     vis = zt >= sample(zb[..., None], Pt)[:, 0] - 0.02
     from matplotlib.path import Path
-    poly = Path(L[OVAL, :2]); inside = poly.contains_points(Pt) & (Pt[:, 1] > L[9, 1] - 0.15 * np.linalg.norm(L[33, :2] - L[263, :2]))
+    # the photo's part: inside the face oval, fading in from above the brows over half an eye distance (no band)
+    io = np.linalg.norm(L[33, :2] - L[263, :2]); top = L[9, 1] - 0.15 * io
+    poly = Path(L[OVAL, :2]); inside = poly.contains_points(Pt) * np.clip((Pt[:, 1] - (top - 0.25 * io)) / (0.5 * io), 0, 1)
     m = np.zeros(img.shape[:2], bool); yy, xx = np.mgrid[:img.shape[0], :img.shape[1]]
     m = poly.contains_points(np.c_[xx.ravel() + .5, yy.ravel() + .5]).reshape(img.shape[:2]); soft = np.clip(ndimage.distance_transform_edt(m) / 25.0, 0, 1)
-    facing = np.clip((NT @ R.T)[:, 2], 0, 1) ** 3
+    facing = np.clip((NT @ R.T)[:, 2], 0, 1) ** 3 * np.clip((NT[:, 1] + 0.55) / 0.3, 0, 1)  # not the jaw's underside: in shadow from the front
     if v.startswith("sheet"): ref_skin = skin_mean(img, L)
     sources.append(dict(name=v, img=img, P=Pt, w=facing * vis * inside * sample(soft[..., None], Pt)[:, 0] * (1.0 if v.startswith("photo") else 0.25), skin=skin_mean(img, L)))
 for k, (path, side) in enumerate(SIL):  # the sheet's outline cells: scalp, ears, back; the profile mirrored for the other side
@@ -85,11 +87,18 @@ for k, (path, side) in enumerate(SIL):  # the sheet's outline cells: scalp, ears
         vis = zt >= sample(zb[..., None], Pt)[:, 0] - 0.02
         facing = np.clip((NT @ R.T)[:, 2], 0, 1) ** 3
         sources.append(dict(name=f"{path}{' mirrored' if mirror else ''}", img=im, P=Pt, w=facing * vis * 0.6 * sample(inner[..., None], Pt)[:, 0], skin=None))
-acc = np.zeros((len(tk), 3)); wsum = np.zeros(len(tk))
+cols, ws = [], []
 for s in sources:
     col = sample(s["img"], s["P"])
     if s["skin"] is not None and ref_skin is not None: col = col * (ref_skin / s["skin"])  # each photo's light matched to the sheet's skin
-    acc += col * s["w"][:, None]; wsum += s["w"]; print(f"{s['name']}: {int((s['w'] > 0.05).sum())} texels")
+    cols.append(col); ws.append(s["w"].copy()); print(f"{s['name']}: {int((s['w'] > 0.05).sum())} texels")
+cols, ws = np.stack(cols), np.stack(ws)
+# shadows out: a source well darker than the sources' weighted mean at this texel is a shadow (a cheek under its bone,
+# the jaw's underside), not the skin; where every source is dark (the beard) all stay
+lum = cols @ [0.299, 0.587, 0.114]; seen = ws > 0.05
+mean = (lum * ws).sum(0) / np.maximum(ws.sum(0), 1e-6)
+ws *= np.where(seen, np.clip((lum / np.maximum(mean, 1) - 0.6) / 0.2, 0, 1), 1.0)
+acc = (cols * ws[..., None]).sum(0); wsum = ws.sum(0)
 tex = np.zeros((S, S, 3)); have = np.zeros((S, S), bool)
 ok = wsum > 1e-3; tex[ty[ok], tx[ok]] = acc[ok] / wsum[ok, None]; have[ty[ok], tx[ok]] = True
 # the rest of the head's texels: the nearest painted colour (and a margin round every island against seams)
