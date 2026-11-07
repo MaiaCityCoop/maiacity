@@ -4,7 +4,8 @@
 // agent connected over MCP gets (initialize's instructions are the system skills' parts, ./ids.ts SKILL, read on each
 // request), and the Intents skill's `stages`, what to do at each of an intent's stages (an intent's `brief`,
 // get_intent and the intents' board; MCP's prompts). What is here is only what is a skill's own: what it teaches, from
-// Main. `play.skills` holds each skill's id, label and group, both only shown: a skill is named by its id.
+// Main. Its row is play.records' (kind 'skill', as a schema's and a piece's), its label only shown: a skill is named by
+// its id, and a new one is made over MCP as any document of a kind that is a schema alone.
 import type { Queryable } from "./pg";
 import * as docs from "./docs";
 import { SKILL } from "./ids";
@@ -25,7 +26,7 @@ export const SYSTEM_SKILLS = [SKILL.avenmaia, SKILL.intents];
 
 /** a skill as accepted (its document's main line), or null where play holds none of that id */
 async function accepted(db: Queryable, id: string): Promise<any | null> {
-  const { rows } = await db.query(`SELECT 1 FROM play.skills WHERE id = $1`, [id]);
+  const { rows } = await db.query(`SELECT 1 FROM play.records WHERE id = $1 AND kind = 'skill'`, [id]);
   return rows.length ? (await docs.readDoc(db, docIdOf(id))).json : null;
 }
 

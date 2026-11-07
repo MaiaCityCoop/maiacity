@@ -268,4 +268,45 @@ suite("skills: what play teaches its agents, kept once", () => {
     // the stage named Prototype before (0033-build) has no prompt
     expect((await rpc("prompts/get", { name: "intent_prototype", arguments: { intent: i.id } })).error.message).toContain("no prompt");
   });
+
+  // ---- a new skill (intent 1d9995c3): its row play.records', made over MCP as any schema-alone document
+
+  test("a new skill is made like any document: doc_edit with kind skill and its whole, proposed, accepted as v1", async () => {
+    // the skill schema as the seed holds it (v1; production's later versions add description, body and references)
+    const whole = { schema: "skill/1", label: "Iroh", group: "engineering", system: "Store, sync and serve media by BLAKE3 hash.", note: "When work touches iroh." };
+    // avenMAIA and Intents as the import seeds them (already, when the whole file runs)
+    expect((await seedSkills(db)).errors).toEqual([]);
+    const i = await intentAt("The engineering skills live in play", "build");
+    // made over MCP edit by edit: its first state an intent variant's, Main born empty
+    const made = await tool("doc_edit", { kind: "skill", whole, intent: i.id, message: "the iroh skill, its first state" });
+    expect(made.error).toBeUndefined();
+    expect(made).toMatchObject({ kind: "skill", intent: i.id, changed: true, edits: 1 });
+    const id = made.doc as string;
+    expect((await db.query(`SELECT kind, label FROM play.records WHERE id = $1`, [id])).rows).toEqual([{ kind: "skill", label: "Iroh" }]);
+    expect((await tool("doc_at", { doc: id, intent: i.id })).json).toEqual(whole);
+    const more = await tool("doc_edit", { doc: id, intent: i.id, variant: made.variant, message: "its note says more", edits: [{ op: "set", path: ["note"], value: "When work touches iroh or iroh-blobs." }] });
+    expect(more).toMatchObject({ variant: made.variant, edits: 2 });
+    // a skill the schema refuses is refused, and nothing of it is kept
+    const before = Number((await db.query(`SELECT count(*) AS n FROM play.records WHERE kind = 'skill'`)).rows[0].n);
+    expect((await tool("doc_edit", { kind: "skill", whole: { schema: "skill/1", label: "No group" }, intent: i.id, message: "no group" })).error).toBeTruthy();
+    expect(Number((await db.query(`SELECT count(*) AS n FROM play.records WHERE kind = 'skill'`)).rows[0].n)).toBe(before);
+
+    // proposed once its must checks pass, accepted by an admin as its v1
+    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] })).stage).toBe("proposal");
+    const proposed = await tool("propose_doc_version", { doc: id, variant: made.variant, note: "the iroh skill", intent: i.id });
+    expect(proposed).toMatchObject({ intent: i.id, stage: "proposal", doc: id, kind: "skill", number: 1, edits: 2 });
+    const review = (await call("ada", "GET", `/api/intents/${i.id}`)).data.review;
+    expect(review).toMatchObject({ doc: { id, kind: "skill", label: "Iroh", group: "engineering" } });
+    expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data).toMatchObject({ stage: "accepted", decision: { status: "accepted", number: 1 } });
+    const now = await tool("doc_at", { doc: id });
+    expect(now).toMatchObject({ kind: "skill", number: 1 });
+    expect(now.json).toEqual({ ...whole, note: "When work touches iroh or iroh-blobs." });
+    const listed = await tool("list_docs", { kind: "skill" });
+    expect(listed.find((x: any) => x.id === id)).toMatchObject({ kind: "skill", label: "Iroh", group: "engineering", number: 1 });
+    // avenMAIA and Intents are served as before, beside it
+    expect(listed.map((x: any) => x.id)).toEqual(expect.arrayContaining([SKILL.avenmaia, SKILL.intents, id]));
+    const served = (await tool("doc_at", { doc: SKILL.avenmaia })).json.system.trim();
+    expect((await initialize()).instructions).toStartWith(served);
+    expect((await tool("get_intent", { intent: (await intentAt("A brief beside a new skill", "build")).id })).brief).toContain("Build Maia City's intent");
+  });
 });
