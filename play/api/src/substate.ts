@@ -20,6 +20,8 @@ export type PrSeen = {
   pr: number; head: string; draft: boolean; mergeable: boolean | null; state: string; merged: boolean; base: string; checks: Record<string, CheckState>; at: string;
   /** play merged main into the branch (./mainmerge.ts, GitHub's update-branch): from the head `from`, main at `main`, the head GitHub made of it `to` */
   main_merged?: { from: string; main: string; at: string; to?: string };
+  /** how many times play merged main into it, its checks run again each time (./delivery.ts) */
+  main_merges?: number;
   /** in conflict at `head` with main at `main`: the files both sides changed since their merge base */
   conflicts?: { head: string; main: string; files: string[] };
   /** the status 'Merges with main' play last posted, on `head` */

@@ -20,6 +20,7 @@ import { runningCommit, shipWork, type GitHub } from "./ship";
 import { NO_INTENT, WorkError } from "./work";
 import { withdrawDoc } from "./withdraw";
 import { retireDoc } from "./retire";
+import { delivery } from "./delivery";
 import { INTENT_ADMINS, intentCounts, intentDocOf, intentOf, IntentError, intentReady, listIntents, pageIntents, type IntentVerdict } from "./intents";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 import { listStories, storyAt, storyOf, StoryError } from "./stories";
@@ -191,6 +192,11 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       return json({ intents: await maskEdges(db, m, page.intents), next: page.next, ...(q.has("counts") ? { counts: await intentCounts(db, m) } : {}) });
     }
     return json(await maskEdges(db, m, await listIntents(db, m, stages, work)));
+  });
+  // where intents' time goes (./delivery.ts, intent 2f19fe30): admins only, read-only; ?ci=1 reads GitHub too
+  on("GET", "/api/delivery", async (req) => {
+    const q = new URL(req.url).searchParams;
+    return json(await delivery(db, await me(req), github, { days: q.get("days"), ci: q.get("ci") }));
   });
   on("GET", "/api/intents/:id", async (req, p) => {
     const m = await me(req);

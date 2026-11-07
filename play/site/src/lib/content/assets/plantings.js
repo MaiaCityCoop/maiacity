@@ -25,13 +25,12 @@
  */
 import * as THREE from 'three';
 import { createAssets } from './render/index.js';
+import { plantingsOf, shownIn } from './uses.js';
+export { plantingsOf, shownIn };
 import { cardOf } from './catalog.js';
 import { groundMaterial, rowsOf } from '$lib/content/biomes/surfaces.js';
 import { biomeOfCard } from '$lib/content/biomes/card.js';
 import { createCover } from '$lib/content/sandbox-2/interior/cover.js';
-
-/** a node's name that plants a build: `use:` and the build */
-const USE = /^use:([0-9a-f]{64}(?:\?[A-Za-z0-9=&._%-]*)?)$/;
 
 /** a mesh's name that lays a biome's floor on it: `biome:` and the biome's recipe hash */
 const FLOOR = /^biome:([0-9a-f]{64})/;
@@ -88,27 +87,6 @@ export function floorGrid(meshes, cell = 0.25) {
 
 /** a copy put away: drawn nowhere until it is wanted again */
 const AWAY = new THREE.Matrix4().makeScale(0, 0, 0);
-
-/**
- * Every build a build plants, with where: its nodes named `use:<build>`, each its build's name and its matrix in the
- * world (the build as it stands in the scene).
- * @param {THREE.Object3D} root @returns {{ ref: string, matrix: THREE.Matrix4 }[]}
- */
-export function plantingsOf(root) {
-	const out = [];
-	root.updateMatrixWorld(true);
-	root.traverse((o) => {
-		const m = USE.exec(o.name ?? '');
-		if (m) out.push({ ref: m[1], matrix: o.matrixWorld.clone(), node: o });
-	});
-	return out;
-}
-
-/** whether a node is drawn: it and every node above it visible */
-export function shownIn(o) {
-	for (let x = o; x; x = x.parent) if (!x.visible) return false;
-	return true;
-}
 
 /**
  * The page's drawing of what the builds it shows plant, in `scene`: `show(root)` draws the root's plantings (and puts
