@@ -14,8 +14,8 @@ await initSessions(db);
 // Accept ships it (./ship.ts): with SHIP_TOKEN, an admin's Accept puts an intent in Ship, and the ship watcher (every
 // 10 s) merges its pull request when its turn comes and GitHub is ready, and follows it to production; without it, Accept on a code intent is refused and says why
 const github = shipGitHub();
-if (github) startShipWatcher(db, github);
-else console.log("ship: no SHIP_TOKEN: code intents are not shipped from here");
+const stopWatcher = github ? startShipWatcher(db, github) : null;
+if (!github) console.log("ship: no SHIP_TOKEN: code intents are not shipped from here");
 const { fetch } = app({ db, store: blobStore(), github });
 // the site too, where PLAY_SITE names its build (the image's /app/site): everything outside /api
 const site = process.env.PLAY_SITE ? siteHandler(process.env.PLAY_SITE) : null;
@@ -39,3 +39,29 @@ const server = Bun.serve({
   fetch: (req, srv) => (site && !new URL(req.url).pathname.startsWith("/api/") ? site(req) : api(req, srv)),
 });
 console.log(`play-api on :${server.port}`);
+
+// Stopped gracefully on SIGTERM (docker stop, the deploy's recreate) and SIGINT (intent 5ab64b8e): no new connection
+// taken, the requests in flight answered, the pool closed, exit 0 — in about a second, not Docker's 10 s wait and its
+// SIGKILL, which cut every request in flight at each deploy. One that hangs past STOP_MS is cut then.
+const STOP_MS = 8000;
+let stopping = false;
+const stop = async (signal: string) => {
+  if (stopping) return;
+  stopping = true;
+  console.log(`play-api: ${signal}: stopping (the requests in flight answered first)`);
+  stopWatcher?.();
+  const cut = setTimeout(() => {
+    console.warn(`play-api: requests still open after ${STOP_MS} ms: cut`);
+    server.stop(true);
+  }, STOP_MS);
+  try {
+    await server.stop();
+    clearTimeout(cut);
+    await db.close?.();
+  } catch (e) {
+    console.warn(`play-api: stopping: ${(e as Error).message}`);
+  }
+  process.exit(0);
+};
+process.on("SIGTERM", () => void stop("SIGTERM"));
+process.on("SIGINT", () => void stop("SIGINT"));

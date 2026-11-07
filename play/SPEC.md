@@ -500,7 +500,7 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     merged, **`.github/workflows/intents.yml`** (*intents on main*; also by hand, an intent's UUID, on main's head)
     builds the same box on GitHub's runner (`sudo bash play/avenbox/setup.sh`) and runs `intent.ts <intent> --record
     --where main` on the merged commit, with the repository secret `PLAY_MCP_TOKEN` (an admin's access token). It
-    records and never blocks: production's *Main is green* reads only main.yml's checks. main's results are a
+    records and never blocks: production's jobs read only main.yml's checks (`.github/actions/main-green`). main's results are a
     **confirmation**, taken in any stage once the spec is approved: in Build or at Proposal they move the intent as
     any result does, in Ship, Accepted or Archived they are kept and move nothing. Intents whose work is play's keep
     their gate (`intentReady`).
@@ -533,8 +533,8 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   - **The ship watcher** (in play-api, every 10 s, `startShipWatcher`; its state is the intent's `ship` in Postgres, so
     it goes on after a restart) reads GitHub's Actions for the merge commit: **main's checks** (main.yml's run for the
     push), the **release** (release.yml's run named `release <sha>`), and the **deploy** (production.yml's run on the
-    commit and its jobs *Main is green*, *The image*, the **backup** (the step *Back up play*) inside *The server*,
-    *The server*, *The website*). Each step is kept on the intent as it changes: queued, running, green, red (skipped
+    commit and its jobs *The image* and the **backup** (*The backup*) side by side, then *The server*, with *The
+    website* beside them). Each step is kept on the intent as it changes: queued, running, green, red (skipped
     where a job did not run), when it started and finished, its link. A step whose run has not begun 15 minutes after
     the one before it is red.
   - **All green: Accepted**, its steps and links kept. **Any red: back to Proposal** with the **ship report**: the
@@ -548,8 +548,13 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     `workflow_dispatch` with a sha (Ship again, or by hand), it moves `production` to that commit, fast-forward only,
     with `GITHUB_TOKEN`, and starts `production.yml` on it (`workflow_dispatch`; a push by `GITHUB_TOKEN` starts no
     workflow). One release at a time (`concurrency: release`). It reports nothing to play: the watcher reads it.
-    *Main is green*, started so, reads main's checks for production's own commit. A pull request to production is no
-    longer how play is released.
+    Every job of production.yml reads main's checks for production's own commit as its first step after the checkout
+    (one shared action, `.github/actions/main-green`), so *The image*, *The backup* and *The website* start together,
+    and *The server* needs the image and the backup: nothing on the server changes before play is backed up (intent
+    `5ab64b8e-f0b6-4688-9621-b38b0e665585`: merge to live in at most 90 s). production moves only by this fast-forward;
+    no pull request into production is taken. On that push, main's checks pass without running again only when the
+    pushed tree is the very tree the merged pull request's run of main.yml tested (`.github/workflows/tested-tree.sh`,
+    from GitHub's API); anything else runs them in full.
   - **GitHub requires it**: one repository ruleset on main, with no bypass: a pull request (0 approvals), the status
     checks `play / API and site`, `website / build` and **`Intent accepted`** (only play posts it, on Accept), no
     force pushes, no deletion. Agents open the pull request and **never merge**, into main or production.
