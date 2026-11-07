@@ -12,7 +12,7 @@
  const three_addons_geometries_RoundedBoxGeometry_js = require('three/addons/geometries/RoundedBoxGeometry.js');
  const SK = require('c6bd60a52004748e86bd99d3a922057c155a76b2ef4ffdb3a41903dd7b60f129');
 -const HEAD = require('7f6d41491559a018391791976005e6b4285fb51b28c89da3dc0c327ee79aff83');
-+const HEAD = require('29bcc48554ddbec417538187d50d45124f1ee6e15f4e2ae85f56a32333e71ef1');
++const HEAD = require('aa7b49d6490e4f420b4c7069fad6d89124f120954accd7948fa85935135b560c');
  const PARS = `
  #ifdef USE_SKINNING
  	vec4 dqQuat( mat3 m ) {

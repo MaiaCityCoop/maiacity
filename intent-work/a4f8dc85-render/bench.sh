@@ -14,8 +14,8 @@ cd "$W"; PY=./venv/bin/python; $PY -c "import blake3" 2>/dev/null || ./venv/bin/
 mkdir -p pieces
 get() { [ -s "pieces/$1.js" ] || curl -sSf -H "Authorization: Bearer $PLAY_MCP_TOKEN" -o "pieces/$1.js" "https://play.maia.city/api/files/$1"; }
 HEAD1=7f6d41491559a018391791976005e6b4285fb51b28c89da3dc0c327ee79aff83; BODY1=7f8cae20147242dbe6ee2eafe0203c1f59f0cd3925bca7135b70667137888cf2
-HEAD2=29bcc48554ddbec417538187d50d45124f1ee6e15f4e2ae85f56a32333e71ef1; BODY2=7d44562b7b8e110f6641758a9019741bb797c5d71531a6a978e6e943bc6efb95
-BODY3=d9a46c9bef4be1ae8679c144ef4fcad5cd1b5f01882d4ddc306b8aa51bd35927
+HEAD2=aa7b49d6490e4f420b4c7069fad6d89124f120954accd7948fa85935135b560c; BODY2=fb02f7ce738a8cdcf34fdbe74d307fdb722a5460117b8a9fea428b54e0092fa9
+BODY3=900771ce3b105a6c7a3b2df28a08fccc371913ec47941d073b4c86d257881a82
 for h in $HEAD1 $BODY1 c6bd60a52004748e86bd99d3a922057c155a76b2ef4ffdb3a41903dd7b60f129 16dadf0099be9638315e10bf913916253a824c32f215ef6bfa7c5e3252fd2d3f \
   87f6540d15a24f7164ff7080290b56bd1067a8e5e1a0357848f06b5314b41bdd e1c0a220afd1949475d88210214ad813e17e6a054406f0a96a798964292e4831 5ce51f9e5126cb38ef44ddbe205b359e0917da6774d28ac1e7931797365004ce; do get $h; done
 # this intent's versions: v1 and the diffs, each checked against its hash

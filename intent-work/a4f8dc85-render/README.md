@@ -51,6 +51,6 @@ bash intent-work/a4f8dc85-render/bench.sh ~/a4f8dc85-work
 - **Out:** `bench.mp4` (needs ffmpeg) and `bench/frames/` stay on the Mac, as his face is in them (play keeps a video
   only in Maia City's Library). A contact sheet of 12 frames, `c3-bench.jpg`, goes to his personal library; the job
   prints its hash. Send back that hash and what you see; nothing into git.
+- **Blink:** every few seconds (the head v2's new `blink`).
 - **Look for:** the garments (cream linen shirt, long sleeves, untucked; loose trousers to the ankle; sandals) moving
-  with the body and never through it; the face smiling where it should. Known: the head has no blink shape yet (joy and
-  friendly only), and "sit down" ends 0.23 m behind where "sitting" starts (a pop from the motion pieces, b9e6ad45's).
+  with the body and never through it; the face smiling where it should. Known: "sit down" ends 0.23 m behind where "sitting" starts (a pop from the motion pieces, b9e6ad45's).
