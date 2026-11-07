@@ -14,6 +14,7 @@ import { buildOf, hashText, parseBuild } from './builds.js';
 import * as cache from './cache.js';
 import { LATEST } from './engines.js';
 import { queryOf } from './params.js';
+import { handedPieces } from './box/pieces.js';
 
 export { buildOf, checked, hashText, parseBuild } from './builds.js';
 
@@ -174,7 +175,8 @@ export const declaredOf = (hash) => {
 export async function recipeAt(hash) {
 	// the pieces its manifest names go with it: the box reads them from play's files (./box/pieces.js)
 	const pieces = records.get(hash)?.manifest?.pieces ?? [];
-	if (handed.has(hash)) return { hash, code: handed.get(hash), pieces };
+	// a recipe handed in by hand (the benches) takes every piece handed in beside it
+	if (handed.has(hash)) return { hash, code: handed.get(hash), pieces: pieces.length ? pieces : handedPieces() };
 	await loadRecipes();
 	heldAt(hash);
 	if ((sizes.get(hash) ?? 0) > MOST) throw new NotInCatalog(`${nameOf(hash)}: its file is larger than a page reads`);

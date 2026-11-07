@@ -14,7 +14,7 @@
  * Refused, saying which: a piece not in the manifest, one play's files don't hold, one whose bytes are not its hash,
  * a piece requiring itself (a cycle), and a chain of pieces more than MOST_DEEP deep.
  */
-import { holds } from '../../game/hash.js';
+import { hashBytes, holds } from '../../game/hash.js';
 import * as cache from '../cache.js';
 
 /** a piece's name: its BLAKE3 hash */
@@ -29,11 +29,25 @@ export const piecesOf = (code) => requiresOf(code).filter((n) => PIECE.test(n));
 
 const short = (h) => `${h.slice(0, 12)}…`;
 
+/** pieces handed to the page by hand, by their hashes (the render bench's, in development: ../RenderBench.svelte) */
+const handed = new Map();
+/** a piece's readable source handed to the page (the render bench): gives the hash a recipe requires it by @param {string} code */
+export function handPiece(code) {
+	const bytes = new TextEncoder().encode(code);
+	const hash = hashBytes(bytes);
+	handed.set(hash, bytes);
+	return hash;
+}
+/** every piece handed to the page, by hash */
+export const handedPieces = () => [...handed.keys()];
+
 /**
- * A file of play's by its hash, held to it: this device's copy, else `/api/files/<hash>` on play's own origin (never
- * another). Null when play doesn't hold it. @param {string} hash @returns {Promise<Uint8Array | null>}
+ * A file of play's by its hash, held to it: one handed to the page (the bench), this device's copy, else
+ * `/api/files/<hash>` on play's own origin (never another). Null when play doesn't hold it.
+ * @param {string} hash @returns {Promise<Uint8Array | null>}
  */
 export async function playFile(hash) {
+	if (handed.has(hash)) return handed.get(hash);
 	let bytes;
 	try {
 		bytes = await cache.fileAt(hash);
