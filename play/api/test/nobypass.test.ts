@@ -127,6 +127,9 @@ suite("no write past an Accept", () => {
     // no work without an intent: each call below that brings work names one ready for it
     const forWork: Record<string, string> = {};
     for (const k of ["propose_asset", "propose_doc_version", "propose_story", "add_artifact", "update_artifact", "page", "board"]) forWork[k] = await readyIntent(`Work of ${k}`);
+    // two documents proposed on one intent, to be withdrawn: one over MCP, one on the board's route (intent ee0a7455)
+    const withdrawing = await readyIntent("Two to withdraw");
+    for (const d of [K, L]) await tool("propose_doc_version", { doc: d, note: "proposed by mistake", edits: [{ op: "set", path: ["label"], value: "mistaken" }], intent: withdrawing });
     let S0 = await mains();
     expect([...S0.keys()].filter((id) => !id.startsWith("schema:") && !id.startsWith("rules:")).length).toBe(6);
 
@@ -147,6 +150,7 @@ suite("no write past an Accept", () => {
       archive_intent: { intent: own.intent },
       depend_intent: { intent: fresh, on: checked },
       step_back_intent: { intent: checked, reason: "back to Specify, for a test" },
+      withdraw_doc: { intent: withdrawing, doc: K, reason: "proposed by mistake" },
       // no tap for an artifact (intent de24f1c5): with no intent named, each makes its own, which the first rule accepts
       add_artifact: { ...ARTIFACT("https://nobypass.example/new") },
       update_artifact: { artifact: art.id, title: "A page, corrected" },
@@ -194,6 +198,7 @@ suite("no write past an Accept", () => {
         await call("ada", "POST", `/api/intents/${no.intent}/archive`);
         await call("cit", "POST", `/api/intents/${waiting[0]}/accept`);
       },
+      "POST /api/intents/:id/withdraw": () => call("ada", "POST", `/api/intents/${withdrawing}/withdraw`, { doc: L, reason: "proposed by mistake" }),
       "POST /api/members/:id/level": () => call("ada", "POST", `/api/members/${who.cit.id}/level`, { level: "citizen" }),
       "POST /api/me/name": () => call("ada", "POST", "/api/me/name", { name: "Ada" }),
       "POST /api/members/:id/name": () => call("ada", "POST", `/api/members/${who.cit.id}/name`, { name: "Cit" }),

@@ -21,7 +21,8 @@ export type Spec = { goal: string; scope: string; checks: Check[]; nothing_to_re
 /** where: in avenBOX (the agent's), or on main after the merge (.github/workflows/intents.yml), on which commit */
 export type Results = Record<string, { pass: boolean; evidence: string; by: string | null; at: string; where?: 'avenBOX' | 'main'; commit?: string }>;
 /** one step back an agent took over MCP, with its reason (play/api/src/stepback.ts) */
-export type StepBack = { at: string; by: string | null; via: 'mcp'; from: Stage; to: Stage; reason: string };
+/** a step back, or a document withdrawn from its work (`doc`, play/api/src/withdraw.ts) */
+export type StepBack = { at: string; by: string | null; via: 'mcp' | 'site'; from: Stage; to: Stage; reason: string; doc?: string };
 /** a decision a rule made (play/SPEC.md §4.12 "Auto-accept rules"): the rule, the rule set's version, its reason */
 export type AutoEntry = { rule: string; label: string; rules: string; reason: string; at: string };
 /** an intent it depends on, or one that depends on it (play/api/src/intents.ts heldBy), by its UUID */
@@ -224,7 +225,7 @@ export function detailOf(i: Intent, opts: { brief?: string | null } = {}): Detai
 			const by = i.decided_by ? ` by ${i.decided_by}` : '';
 			let text: string;
 			if (i.stage === 'archived') {
-				const back = i.steps?.length ? i.steps[i.steps.length - 1] : null;
+				const back = i.steps?.filter((s) => !s.doc).at(-1) ?? null;
 				text = i.decided_by ? `Rejected${by}: it ended archived.` : back ? `Archived: ${back.reason}` : 'Archived.';
 			} else if (i.work && i.ship?.merge) text = `${i.work.label} ${i.work.number == null ? 'changed' : `v${i.work.number}`}${(i.work.docs ?? 1) > 1 ? ` and ${i.work.docs! - 1} more` : ''}, with pull request #${i.ship.pr} merged and in production, accepted${by}.`;
 			else if (i.work) text = `${i.work.label} ${i.work.number == null ? 'changed' : `v${i.work.number}`}, accepted${by}.`;
