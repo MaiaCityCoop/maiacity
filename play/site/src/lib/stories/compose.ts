@@ -187,7 +187,7 @@ function lay(body: StoryBody, id: string, ctx: Ctx, out: Out, sound: { db: numbe
 	for (const t of body.tracks.filter((x) => x.kind === LINK)) {
 		for (const c of t.clips) {
 			const l = linkedOf(c, ctx.links);
-			if (!l || ctx.path.length > MOST_LINK_DEPTH || ctx.path.includes(l.id)) continue;
+			if (!l?.body || ctx.path.length > MOST_LINK_DEPTH || ctx.path.includes(l.id)) continue;
 			const lid = `${id}-l-${String(t.id).replace(/[^\w-]/g, '_')}-${String(c.id).replace(/[^\w-]/g, '_')}`, dur = Math.min(num(c.duration), num(l.duration, num(c.duration)));
 			const inner: Out = { html: [], script: [] };
 			lay(l.body, lid, { ...ctx, path: [...ctx.path, l.id] }, inner, { db: sound.db + num(t.gain) + num(c.gain), mute: sound.mute || !!t.mute });

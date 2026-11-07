@@ -41,10 +41,12 @@ const vendor: Record<string, string> = {
 };
 for (const h of filesOf(html)) {
 	const from = vendor[h] ?? (given[h] ? resolve(fixture, '..', given[h]) : null);
-	if (!from) throw new Error(`the fixture does not give file ${h.slice(0, 12)}…`);
-	copyFileSync(from, join(project, 'api/files', h));
+	// a file the fixture does not give: from STORY_FILES (a play to read it from, e.g. a local stand-in), if named
+	if (!from && process.env.STORY_FILES) writeFileSync(join(project, 'api/files', h), new Uint8Array(await (await fetch(`${process.env.STORY_FILES}/api/files/${h}`)).arrayBuffer()));
+	else if (!from) throw new Error(`the fixture does not give file ${h.slice(0, 12)}…`);
+	else copyFileSync(from, join(project, 'api/files', h));
 }
-const type = (h: string) => (h === VENDOR.font.hash ? 'font/woff2' : vendor[h] ? 'text/plain; charset=utf-8' : /\.mp4$/.test(given[h] ?? '') ? 'video/mp4' : /\.(png)$/.test(given[h] ?? '') ? 'image/png' : 'application/octet-stream');
+const type = (h: string) => (h === VENDOR.font.hash ? 'font/woff2' : vendor[h] ? 'text/plain; charset=utf-8' : 'application/octet-stream');
 
 // the harness: HyperFrames' player as the Stories player sets it up, the page answering the frame's asks for files
 const bundle = await Bun.build({ entrypoints: [join(import.meta.dir, 'story-parity-page.ts')], target: 'browser', minify: false });
