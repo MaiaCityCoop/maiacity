@@ -874,6 +874,45 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   and its Close. `/intents/` (and `/proposals/` from before; a link, a new tab; `#<id>` opens that intent) opens it over the dashboard, and a link
   to it from a page opens it over that page (`play/site/src/lib/site/intents`).
 
+- **The detail, by stage** (Samuel 2026-11-07, intent `bb3b0773-b4f4-4128-bcc1-b076674e3531`: *"the clear point of
+  decision … reduced to the actual essence of decision point, while keeping overall the information that the agents
+  need for their work intact"*). An intent opened is `IntentDetail.svelte` (`play/site/src/lib/site/intents`), apart
+  from the board (`IntentsBoard.svelte`), and what it shows at each stage is one pure, tested function's, `detailOf`
+  (`detail.ts`, `detail.test.ts`): **on top** only what a person needs at that moment, never a run command, a hash, a
+  check's evidence or the brief; at the foot **one primary decision**, always in sight, its reason under it while it may
+  not be taken, Reject beside it where an intent may be rejected; right above it the **tabs**, docked to the bottom and
+  always in sight at every width (Samuel 2026-11-07: *"bottom align above the action button areas the tab section, so
+  it's always like fixed to the bottom area"*; it replaces the spec's "sticky under the header"), scrolling sideways on a
+  phone, in the aside's style (§4.15 *One aside*), the top staying where it is and the open tab's content scrolling
+  between them, holding everything else whole:
+
+  | Stage | On top | Decision |
+  |---|---|---|
+  | **Idea** | what is wanted (the note's first lines); "an agent specifies it next" | Reject only |
+  | **Specify** | the goal in a sentence; what it removes first (the reduce checks, one line each); its checks one line each (statement and must or nice, no run); what it depends on | **Approve spec** |
+  | **Build** | musts passed n of m, the checks as chips; who builds it (its pull request, draft or ready, or play's work); what holds it; a failure's reason in a line | none, Reject only |
+  | **Proposal** | the goal; every must passed, the checks as chips; what changes in one line (the pull request, or the documents and their version, its review a tap away); a red ship's step and reason | **Accept**, **Accept and ship** for code, or **Ship again** |
+  | **Ship** | the live steps to production, compact | none |
+  | **Accepted / Archived** | what shipped (the version, or the pull request merged and in production) and when, or why it ended | Reopen |
+
+  The tabs, in this order, a tab with nothing in it not shown: **Spec** (goal, scope, reduce and MVP), **Checks** (each
+  check a card for a person, Samuel 2026-11-07: *"the audience is always a human, never a tech guy"*: its statement and
+  its result in plain words, Passed, Not yet, or Failed with its reason in a line, and when; how it was checked, its how
+  and by, its run, the tool's output and where it ran, folded behind *How it was checked*, closed at first; its two steps
+  headed *First, what it removes* and *Then, what it delivers*), **Changes** (its work and its pull request; an asset's upgrade drawn right there in the asset box once the tab is opened, Samuel 2026-11-07, its whole review, versions, source, before and after, a tap away), **Ship**
+  (steps, report, log), **Dependencies**, **History** (who and when, steps back, auto decisions, its declared work),
+  **Note** (whole), **For an agent** (the brief and Copy). Each stage opens on its own tab first (Idea For an agent,
+  Specify Spec, Build Checks, Proposal Changes, Ship Ship, Accepted History).
+
+  **The decision travels with the work** (Samuel 2026-11-07): the bar is one component, `Decision.svelte`, by
+  `detailOf`'s decision, docked at the foot of the detail and of its work's review opened from it alike (an asset's, a
+  story's, a sandbox's), its secondary actions (Source …) quiet beside it, never in its place. **On a wide screen**
+  (900 px and up: a tablet held wide, a desktop) the detail is two panes, as every versioned thing on play: the open
+  tab's content large on the left (the asset drawn, the spec, the checks …), and on the right an aside with the header,
+  the top, the tabs and the decision at its foot, Reject and the primary button side by side; the dialog as tall as
+  what it holds, up to the screen. The work's review is the same: the work on the left, what it is and the decision on
+  the right. Under 900 px, one column, the tabs and the decision docked at the bottom.
+
 ### 4.13 Artifacts (Samuel 2026-11-06; first called Sources)
 
 Every link from the net Maia City keeps is an **artifact**: a web page, an article, a paper, a video, a social post, a
