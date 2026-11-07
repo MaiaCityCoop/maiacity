@@ -1,0 +1,39 @@
+
+ready: /Users/samuelandert/a4f8dc85-work
+base head ready: next `python raster.py s-base-front.json man-front`, then lm.py man-front.png and corr.py
+man-front.png: 478 pts, smile 0.00/0.00
+photo-front.jpg: 478 pts, smile 0.77/0.78
+photo-34.jpg: 478 pts, smile 0.82/0.81
+sheet-front.png: 478 pts, smile 0.28/0.24
+landmarks on mesh: 461 / 478; reprojection check px: 0.086
+base head: {"photo-front": {"mean_px": 6.48, "max_px": 40.36, "mean_iod_pct": 4.65}, "photo-34": {"mean_px": 7.65, "max_px": 25.37, "mean_iod_pct": 5.17}, "sheet-front": {"mean_px": 5.09, "max_px": 34.84, "mean_iod_pct": 2.72}}
+outline before: [('sheet-front.png', 3.62, 204), ('sheet-profile.png', 3.26, 200)]
+fitted: {"photo-front": {"mean_px": 2.14, "max_px": 20.98, "mean_iod_pct": 1.54}, "photo-34": {"mean_px": 2.05, "max_px": 17.43, "mean_iod_pct": 1.38}, "sheet-front": {"mean_px": 3.65, "max_px": 17.87, "mean_iod_pct": 1.95}}
+outline after: [{"view": "sheet-front.png", "mean_px": 1.24, "points": 170}, {"view": "sheet-profile.png", "mean_px": 1.35, "points": 309}]
+tex-fit.png 4096 px; 2659738 of 3474657 head texels painted
+error: Unexpected ,
+
+Bun v1.4.2 (macOS arm64)
+renderer: ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)
+ENOENT: no such file or directory, open 'v-fit-neutral-front.json
+v-fit-neutral-three-quarter-left.json
+v-fit-neutral-profile-left.json
+v-fit-smiling-front.json
+v-fit-smiling-three-quarter-left.json
+v-fit-smiling-profile-left.json'
+
+
+Bun v1.4.2 (macOS arm64)
+renderer: ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)
+v-fit-neutral-front.png
+v-fit-neutral-three-quarter-left.png
+v-fit-neutral-profile-left.png
+v-fit-smiling-front.png
+v-fit-smiling-three-quarter-left.png
+v-fit-smiling-profile-left.png
+
+real	0m6.177s
+user	0m5.144s
+sys	0m1.442s
+c2-review.jpg
+-rw-r--r--@ 1 samuelandert  staff  281642 Nov  7 17:30 c2-review.jpg
