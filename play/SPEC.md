@@ -1010,10 +1010,17 @@ registry and one module, shown by one History.
   new the same way (`kind`, `whole`: Main born empty, the first version an intent variant's until a person accepts it).
   Admins see them on **`/schemas/`**: each schema's node field by field, the documents written against it, and its
   History in the right aside. No bypass: every change waits at Proposal for a person's Accept.
-- **One History** (`play/site`'s `lib/app/History.svelte`), always on the right, in Frame's aside, in its own **History
-  tab**, in every view of a versioned thing: the asset viewer (every group, beside Parts), Worlds, Stories (the top of
-  its player's rail), Factories (beside the bill of process), the Game editor, Skills (`/skills/`) and a sandbox's layout
-  (`/sandboxes/<uuid>/`). At its top the
+- **One aside, Info and History** (Samuel 2026-11-07; `play/site`'s `lib/app/Aside.svelte`, the only user of
+  `lib/app/History.svelte`): every view of a versioned document shows on the right, in Frame's aside, one aside with two
+  tabs centred at its top, the same on a phone (the round button at the bottom right opens it): the asset viewer (every
+  group), Artifacts, Factories, the Game editor, Rules, a sandbox's layout (`/sandboxes/<uuid>/`), Schemas, Skills,
+  Stories, Worlds, and the five sandbox worlds (`/sandbox-1/` to `/sandbox-5/`, each its layout's, an admin's: a pick
+  opens the world at it, `?layout=<uuid>/v3`, `/e12`, `/<intent>`). A view gives the document as /api/docs gives it and
+  its pick; no view keeps an aside or History of its own. **Info**: where it lives, its name and note, its kind, the
+  version shown with who wrote and accepted it and when, the version's note, the view's own fields (an asset's
+  details, reference sheet and parts, a factory's bill of process, a story's format, an artifact's link and authors), a
+  picker of its latest versions and of its breeds, and how it changes. **History**, compact (a version one line over its
+  note in at most two lines, whole on a tap or under the pointer): at its top the
   scrubber over every edit of Main, versions marked, MCP and merge edits marked; ▶ Play its making, Back to vN and the
   arrow keys; under it Main's versions with their edits folded beneath, and the open intent variants with their
   intents. Picking an edit or an intent variant shows what it changes (`lib/app/Changes.svelte`: the field diff, texts

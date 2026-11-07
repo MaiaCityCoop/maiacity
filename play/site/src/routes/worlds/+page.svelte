@@ -1,8 +1,8 @@
 <!--
 	WORLDS (Samuel 2026-11-05, play/SPEC.md §4.11): the asset group `worlds`, a world being the other assets composed
 	into one place. On the left Maia City's worlds; in the middle the one picked, big, everything it names drawn where it
-	stands, alive if it moves (its traffic, its signals, its sirens), under its own sky; on the right, in its History tab
-	($lib/app/History.svelte, the one History of every view), its versions and, for admins, every edit it was made in. Its
+	stands, alive if it moves (its traffic, its signals, its sirens), under its own sky; on the right the one aside
+	($lib/app/Aside.svelte): its Info, and its History (its versions and, for admins, every edit it was made in). Its
 	address is `#<asset id>` (its UUID), a version of it `#<asset id>/<recipe hash>`.
 
 	Its film page, `/worlds/?film&asset=<asset id>&recipe=<recipe hash>` (play/SPEC.md §4.11): the world alone, whole
@@ -12,7 +12,7 @@
 	import { onMount } from 'svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
-	import History, { type ChainVersion, type Pick } from '$lib/app/History.svelte';
+	import Aside, { type ChainVersion, type Pick } from '$lib/app/Aside.svelte';
 	import { api } from '$lib/api';
 	import { catalogReady } from '$lib/recipes';
 	import { INDEX, admitProposed, source } from '$lib/content/assets/catalog.js';
@@ -109,24 +109,10 @@
 	{/each}
 {/snippet}
 
-{#snippet head()}
-	{#if chain && shownVersion}
-		<header class="about-head">
-			<small>Worlds · owned by Maia City</small>
-			<h3>{chain.label}</h3>
-			<p class="soft">v{shownVersion.number} · {chain.versions.length} version{chain.versions.length === 1 ? '' : 's'}</p>
-		</header>
-	{/if}
-{/snippet}
-
-{#snippet history()}
-	{#if chain && shownVersion}
-		<History doc={chain.id} shown={shownVersion.number} label="the world" versions={chainOf(chain)} onPick={picked} />
-		<dl>
-			<dt>Id</dt><dd class="mono" title={shownVersion.id}>{short(shownVersion.id)}</dd>
-			<dt>Recipe</dt><dd class="mono" title={shownHash ?? ''}>BLAKE3 {short(shownHash)}</dd>
-		</dl>
-	{/if}
+{#snippet side()}
+	<Aside doc={{ id: chain!.id, kind: 'world', number: chain!.versions[0]?.number }} where="Worlds" label={chain!.label} shown={shownVersion!.number} versions={chainOf(chain!)} onPick={picked}>
+		{#snippet info()}<p class="mono soft" title={shownHash ?? ''}>Recipe BLAKE3 {short(shownHash)}</p>{/snippet}
+	</Aside>
 {/snippet}
 
 {#if film}
@@ -141,7 +127,7 @@
 	</div>
 {:else}
 <div class="worlds">
-	<Frame nav={ready ? shelf : undefined} asideHead={chain && shownVersion ? head : undefined} history={chain && shownVersion ? history : undefined} navLabel="Maia City's worlds" asideLabel="The world's history" navIcon="asset" flush>
+	<Frame nav={ready ? shelf : undefined} aside={chain && shownVersion ? side : undefined} navLabel="Maia City's worlds" asideLabel="The world's history" navIcon="asset" flush>
 		{#if failed}
 			<p class="error">{failed}</p>
 		{:else if !ready}
@@ -164,17 +150,9 @@
 	.worlds {
 		height: 100%;
 	}
-	dl {
-		display: grid;
-		grid-template-columns: auto 1fr;
-		gap: 4px 10px;
-		font-size: 13px;
-	}
-	dd {
-		margin: 0;
-	}
 	.mono {
-		font-family: ui-monospace, monospace;
+		font: 0.72rem ui-monospace, monospace;
+		overflow-wrap: anywhere;
 	}
 	.error {
 		color: #a11;

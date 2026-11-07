@@ -4,20 +4,19 @@
 	left the schemas (the meta-schema first: it describes every schema, itself too); in the middle the one picked: what
 	its documents are (their id's prefix, its old name, only shown), its node field by field (the JSON Schema subset play
 	checks every edit against, "text" where a field is kept character by character), and the documents written against
-	it, each with the version of the schema it was last written against; on the right its History tab
-	($lib/app/History.svelte, the one History of every view). A schema changes only by proposal, over MCP (doc_edit,
+	it, each with the version of the schema it was last written against; on the right the one aside
+	($lib/app/Aside.svelte: its Info and History). A schema changes only by proposal, over MCP (doc_edit,
 	propose_doc_version), and its Accept is refused while any document on Main fails the new version. `?schema=<id>`
 	picks one, `&v=<n>` one of its versions, `&intent=<id>` the schema as an intent's work would make it. Admins only.
 -->
 <script lang="ts">
-	import IntentAsIf from '$lib/app/IntentAsIf.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { session } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
-	import History, { type Pick } from '$lib/app/History.svelte';
+	import Aside, { type Pick } from '$lib/app/Aside.svelte';
 
 	type Node = { type?: string; const?: unknown; enum?: unknown[]; properties?: Record<string, Node>; required?: string[]; additionalProperties?: boolean | Node; items?: Node; minItems?: number; maxItems?: number; minimum?: number; maximum?: number; minLength?: number; maxLength?: number; pattern?: string; 'x-loro'?: string };
 	type Written = { id: string; kind: string | null; schemaVersion: number | null };
@@ -99,27 +98,8 @@
 	{/each}
 {/snippet}
 
-{#snippet head()}
-	{#if schema}
-		<header class="about-head">
-			<small>Schemas · {schema.json.name} · owned by Maia City</small>
-			<h3>{schema.json.label}</h3>
-			{#if schema.intent}
-				<IntentAsIf intent={schema.intent}><a href="/intents/">Back to the intents</a> · <a href="?schema={schema.id}" onclick={(e) => (e.preventDefault(), at(schema!.id))}>its newest version</a></IntentAsIf>
-			{:else if schema.edit}
-				<p class="asif">As it stood at an edit of its history: <a href="?schema={schema.id}" onclick={(e) => (e.preventDefault(), at(schema!.id))}>its newest version</a></p>
-			{:else if schema.version !== schema.number}
-				<p class="asif">Version {schema.version}, not its newest: <a href="?schema={schema.id}" onclick={(e) => (e.preventDefault(), at(schema!.id))}>v{schema.number}</a></p>
-			{/if}
-		</header>
-	{/if}
-{/snippet}
-
-{#snippet history()}
-	{#if schema}
-		<History doc={schema.id} shown={wantV ? Number(wantV) : schema.number} label="the schema" intent={schema.intent?.id ?? null} onPick={picked} />
-		<p class="soft propose">Propose v{schema.number + 1} over MCP (doc_edit, propose_doc_version); it is decided in <a href="/intents/">Intents</a>, and accepted only while every document on Main still validates against it.</p>
-	{/if}
+{#snippet side()}
+	<Aside doc={schema!} where="Schemas · {schema!.json.name}" label={schema!.json.label} shown={wantV ? Number(wantV) : null} propose="Propose v{schema!.number + 1} over MCP (doc_edit, propose_doc_version): accepted only while every document on Main still validates against it." onPick={picked} />
 {/snippet}
 
 {#snippet tree(n: Node, depth: number)}
@@ -141,7 +121,7 @@
 
 {#if admin}
 	<div class="schemas">
-		<Frame nav={list.length ? shelf : undefined} asideHead={schema ? head : undefined} history={schema ? history : undefined} navLabel="Every type of document" asideLabel="The schema's history" navIcon="board">
+		<Frame nav={list.length ? shelf : undefined} aside={schema ? side : undefined} navLabel="Every type of document" asideLabel="The schema's history" navIcon="board">
 			<article class="body">
 				{#if error}<p class="bad">{error}</p>{/if}
 				{#if schema}
@@ -207,9 +187,4 @@
 	.ver { margin-left: auto; font-size: 0.78rem; }
 	.bad { color: var(--terracotta, #c23a22); }
 	.none { padding: 0.4rem 0.6rem; font-size: 0.84rem; }
-	.about-head { margin: 0 0 0.9rem 0.35rem; }
-	.about-head small { color: var(--accent); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
-	.about-head h3 { margin: 0.15rem 0 0.3rem; font-size: 1.15rem; font-family: var(--font-body); font-weight: 600; }
-	.asif { margin: 0.4rem 0 0.5rem; padding: 0.45rem 0.6rem; border-radius: 8px; background: var(--mustard-soft, rgb(232 178 60 / 0.18)); font-size: 0.78rem; line-height: 1.4; }
-	.propose { margin: 0 0 1.2rem 0.35rem; font-size: 0.76rem; }
 </style>

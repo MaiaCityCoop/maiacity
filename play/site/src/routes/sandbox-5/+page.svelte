@@ -7,6 +7,8 @@
 	plant of the outdoor forest: a card beside the world tells what it is and where it is in its life.
 -->
 <script lang="ts">
+	import Aside from '$lib/app/Aside.svelte';
+	import { SANDBOX } from '$lib/content/assets/sandboxes.js';
 	import { asset } from '$lib/site/media/url';
 	import type { PickedPlant, VillageHandle } from '$lib/content/sandbox-2/interior/village';
 	import { base } from '$app/paths';
@@ -113,6 +115,9 @@
 		</aside>
 	{/if}
 </WorldPage>
+
+<!-- its layout's one aside (Info and History), an admin's: a round button at the bottom right -->
+<Aside doc={SANDBOX.five} float />
 
 <style>
 	/* the picked plant's card: a panel down the whole right side of the world, over its bar, the plant itself turning

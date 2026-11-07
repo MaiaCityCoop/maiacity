@@ -3,22 +3,21 @@
 	the configs to pick from (first the levelling: how a village grows, level by level); in the middle the one picked,
 	worked out (./levels.ts): every level with the villagers that reach it, what it unlocks and costs, what a mind costs,
 	the minds each new villager gets for their euros and hearts, the investor's ticket with its minds and share, the minds
-	minted, and the treasury after it in euros, hearts and minds. On the right its History tab ($lib/app/History.svelte,
-	the one History of every view): its versions, every edit it was made in, its open intent variants.
+	minted, and the treasury after it in euros, hearts and minds. On the right the one aside ($lib/app/Aside.svelte):
+	its Info, and its History (its versions, every edit it was made in, its open intent variants).
 
 	A config is a Loro document in play's Postgres (play/SPEC.md "Version control", play/api/src/versioned.ts), read from
 	the API (/api/docs); it changes only by proposal (over MCP: doc_edit, propose_doc_version), decided on the intents' board. `?config=<id>`
 	picks one, `&v=<n>` one of its versions, `&intent=<id>` the config as an intent's work at Proposal would make it. Admins only.
 -->
 <script lang="ts">
-	import IntentAsIf from '$lib/app/IntentAsIf.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { session } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
-	import History, { type Pick } from '$lib/app/History.svelte';
+	import Aside, { type Pick } from '$lib/app/Aside.svelte';
 	import { euros, ledger, pct, short, whole, type Levelling, type Row } from './levels';
 
 	type Item = { id: string; label: string; schema: string; note: string; number: number; versions: number };
@@ -82,32 +81,13 @@
 	<p class="soon">More configs come here as the game grows: the buildings, the resources, the coops.</p>
 {/snippet}
 
-{#snippet head()}
-	{#if config}
-		<header class="about-head">
-			<small>Game config · owned by Maia City</small>
-			<h3>{config.json.label}</h3>
-			{#if config.intent}
-				<IntentAsIf intent={config.intent}><a href="/intents/">Back to the intents</a> · <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>its newest version</a></IntentAsIf>
-			{:else if config.edit}
-				<p class="asif">As it stood at an edit of its history: <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>its newest version</a></p>
-			{:else if config.version !== config.number}
-				<p class="asif">Version {config.version}, not its newest: <a href="?config={config.id}" onclick={(e) => (e.preventDefault(), at(config!.id))}>v{config.number}</a></p>
-			{/if}
-		</header>
-	{/if}
-{/snippet}
-
-{#snippet history()}
-	{#if config}
-		<History doc={config.id} shown={wantV ? Number(wantV) : config.number} label="the config" intent={config.intent?.id ?? null} onPick={picked_} />
-		<p class="soft propose">Propose v{config.number + 1} over MCP (doc_edit, propose_doc_version); it is decided in <a href="/intents/">Intents</a>.</p>
-	{/if}
+{#snippet side()}
+	<Aside doc={config!} where="Game config" label={config!.json.label} shown={wantV ? Number(wantV) : null} propose="Propose v{config!.number + 1} over MCP (doc_edit, propose_doc_version)." onPick={picked_} />
 {/snippet}
 
 {#if admin}
 	<div class="editor">
-		<Frame nav={shelf} asideHead={config ? head : undefined} history={config ? history : undefined} navLabel="The game's configs" asideLabel="The config's history" navIcon="board">
+		<Frame nav={shelf} aside={config ? side : undefined} navLabel="The game's configs" asideLabel="The config's history" navIcon="board">
 			<div class="body">
 				{#if error}<p class="bad">{error}</p>{/if}
 				{#if levelling && last}
@@ -212,9 +192,4 @@
 	.foot { max-width: 60rem; margin: 0.8rem 0 0; font-size: 0.76rem; color: var(--muted); line-height: 1.5; }
 	.bad { color: #c23a22; }
 	.soon { margin: 0.8rem 0.35rem; font-size: 0.76rem; color: var(--soft); }
-	.about-head { margin: 0 0 0.9rem 0.35rem; }
-	.about-head small { color: var(--accent); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
-	.about-head h3 { margin: 0.15rem 0 0.3rem; font-size: 1.15rem; font-family: var(--font-body); font-weight: 600; }
-	.asif { margin: 0.4rem 0 0.5rem; padding: 0.45rem 0.6rem; border-radius: 8px; background: var(--mustard-soft); font-size: 0.78rem; line-height: 1.4; }
-	.propose { margin: 0 0 1.2rem 0.35rem; font-size: 0.76rem; }
 </style>
