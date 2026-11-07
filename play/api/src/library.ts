@@ -5,7 +5,7 @@
 // rename it here.
 
 import type { Queryable } from "./pg";
-import { Denied, type Me } from "./access";
+import { admin, type Me } from "./access";
 import { HASH } from "./hash";
 import { fileLabel, StoryError, type StoryBody } from "./stories";
 
@@ -19,11 +19,7 @@ export type SheetUse = { asset: string; label: string; group: string; number: nu
 export type Use = StoryUse | SheetUse;
 export type LibraryFile = { hash: string; size: number; media_type: string; created: string; label: string | null; used: Use[] };
 
-function admin(me: Me | null): Me {
-  if (!me) throw new Denied("Please sign in first.", 401);
-  if (me.level !== "admin") throw new Denied("Only Maia City's admins open the Library.");
-  return me;
-}
+const LIBRARY_ADMINS = "Only Maia City's admins open the Library.";
 
 /** where the newest version of every story uses each file: a shot's frame or video, any clip's recording */
 async function usesOf(db: Queryable): Promise<Map<string, Use[]>> {
@@ -65,7 +61,7 @@ async function usesOf(db: Queryable): Promise<Map<string, Use[]>> {
 
 /** The Library's files, newest first: of one kind or every kind, those whose label or hash holds `q`, a page at a time */
 export async function listLibrary(db: Queryable, me: Me | null, o: { kind?: string | null; q?: string | null; offset?: number; limit?: number } = {}) {
-  admin(me);
+  admin(me, LIBRARY_ADMINS);
   const kinds: Kind[] = o.kind ? [o.kind as Kind] : [...LIBRARY_KINDS];
   if (!kinds.every((k) => (LIBRARY_KINDS as readonly string[]).includes(k))) throw new StoryError(`A kind is one of ${LIBRARY_KINDS.join(", ")}.`);
   const limit = Math.max(1, Math.min(200, Math.floor(o.limit ?? 60)));
@@ -95,7 +91,7 @@ export async function listLibrary(db: Queryable, me: Me | null, o: { kind?: stri
 
 /** Rename a file in the Library (its label only; the file stays named by its hash). An empty label removes it. */
 export async function labelFile(db: Queryable, me: Me | null, hash: string, label: unknown) {
-  admin(me);
+  admin(me, LIBRARY_ADMINS);
   if (!HASH.test(hash)) throw new StoryError("A file is named by its hash.");
   const l = fileLabel(label) ?? null;
   const { rows } = await db.query<{ hash: string; label: string | null }>(`UPDATE play.files SET label = $2 WHERE hash = $1 RETURNING hash, label`, [hash, l]);

@@ -929,6 +929,98 @@ suite("play API", () => {
     expect((await call(null, "GET", "/api/library")).status).toBe(401);
   });
 
+  /**
+   * The Library as an agent reads it (intent 140fdce6): its own token, a plate of its own (a PNG made here, so its hash is
+   * new each run), used by a story's first shot (accepted) and named as a new asset's reference sheet (proposed). Each
+   * test makes it afresh, so either runs alone (`bun test -t`).
+   */
+  const libraryFixture = async () => {
+    const token = (await call("ada", "POST", "/api/tokens", { name: "library" })).data.token as string;
+    const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from(randomUUID()), Buffer.alloc(64, 7)]);
+    const label = `Reference sheet · Fiat 500 F, Rosso Corallo · ${randomUUID().slice(0, 8)}`;
+    const sheet = await rawTool("add_story_frame", { data: png.toString("base64"), media_type: "image/png", label }, token);
+    expect(sheet.error).toBeNull();
+    const hash = sheet.out.hash as string;
+    const story = await rawTool("propose_story", { title: "The little red car", note: "its plate in the first shot", body: { format: "16:9", fps: 30, tracks: tracks(hash) } }, token);
+    expect(story.error).toBeNull();
+    expect((await call("ada", "POST", `/api/intents/${story.out.intent}/accept`)).data.decision.status).toBe("accepted");
+    const src = "// a small red car, held to its sheet\nmodule.exports.recipe = function (id, v) {\n  return { meta: { id, v }, build: () => null };\n};\n";
+    const car = await rawTool("propose_asset", { group: "things", label: "Fiat 500 F", source: src, note: "built from its sheet", sheet: hash }, token);
+    expect(car.error).toBeNull();
+    return { token, hash, label, story: story.out.story as string, car: car.out as { intent: string; asset: string } };
+  };
+
+  test("an admin's token reads the Library, and writes nothing there", async () => {
+    const { token, hash, label, story, car } = await libraryFixture();
+    const by = async (method: string, path: string, t = token, body?: unknown) => {
+      const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers: { authorization: `Bearer ${t}`, "content-type": "application/json" }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }));
+      return { status: r.status, data: await r.json().catch(() => null) };
+    };
+    // it reads the Library as its admin does: the file, its label and where it is used
+    const read = await by("GET", `/api/library?q=${hash.slice(0, 12)}`);
+    expect(read.status).toBe(200);
+    expect(read.data).toEqual((await call("ada", "GET", `/api/library?q=${hash.slice(0, 12)}`)).data);
+    expect(read.data.files).toHaveLength(1);
+    expect(read.data.files[0]).toMatchObject({ hash, media_type: "image/png", label });
+    expect(read.data.files[0].used).toEqual(expect.arrayContaining([expect.objectContaining({ story, track: "shots", clip: "s1", as: "frame" }), expect.objectContaining({ asset: car.asset, as: "sheet", accepted: false })]));
+    expect((await by("GET", "/api/library?kind=image")).status).toBe(200);
+    // it writes no label: that still wants a session, and nothing changes
+    expect((await by("POST", `/api/library/${hash}/label`, token, { label: "Renamed by a token" })).status).toBe(401);
+    expect((await call("ada", "GET", `/api/library?q=${hash.slice(0, 12)}`)).data.files[0].label).toBe(label);
+    // the guards' messages are as they were
+    expect((await call("cit", "GET", "/api/library")).data.error).toBe("Only Maia City's admins open the Library.");
+    expect((await call(null, "GET", "/api/library")).data.error).toBe("Please sign in first.");
+    expect((await call("cit", "GET", "/api/intents")).data.error).toBe("Only Maia City's admins keep the intents.");
+    expect((await call("cit", "POST", "/api/tokens", { name: "x" })).data.error).toBe("Only Maia City's admins may make access tokens, for now.");
+    // a token whose owner is no longer an admin opens nothing; a revoked one neither
+    // (an admin of this test's own, so no other test's demotion reaches it)
+    const h = await createHuman(db, `librarian-${randomUUID().slice(0, 8)}`);
+    who.librarian = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
+    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
+    const theirs = (await call("librarian", "POST", "/api/tokens", { name: "their library" })).data;
+    expect(theirs.token).toMatch(/^play_/);
+    expect((await by("GET", "/api/library", theirs.token)).status).toBe(200);
+    await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [h.id]);
+    expect((await by("GET", "/api/library", theirs.token)).status).toBe(401);
+    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
+    expect((await by("GET", "/api/library", theirs.token)).status).toBe(200);
+    expect((await call("librarian", "DELETE", `/api/tokens/${theirs.id}`)).status).toBeLessThan(300);
+    expect((await by("GET", "/api/library", theirs.token)).status).toBe(401);
+    await call("ada", "POST", `/api/intents/${car.intent}/archive`);
+  });
+
+  test("list_library finds a file by its label or hash, with where it is used", async () => {
+    const { token, hash, label, story, car } = await libraryFixture();
+    const names = (await (await api.fetch(new Request("http://play.test/api/mcp", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) }))).json()).result.tools;
+    expect(names.find((t: any) => t.name === "list_library").description).toContain("/api/files/<hash>");
+    // by a part of its label, any case, and by its hash's first characters: as GET /api/library gives it
+    const byLabel = await rawTool("list_library", { q: label.slice(-8).toUpperCase() }, token);
+    expect(byLabel.error).toBeNull();
+    expect(byLabel.out.files.map((f: any) => f.hash)).toEqual([hash]);
+    const byHash = await rawTool("list_library", { q: hash.slice(0, 10), kind: "image" }, token);
+    expect(byHash.out).toEqual((await call("ada", "GET", `/api/library?kind=image&q=${hash.slice(0, 10)}`)).data);
+    const file = byHash.out.files[0];
+    expect(file).toMatchObject({ hash, media_type: "image/png", label });
+    expect(typeof file.size).toBe("number");
+    expect(file.used).toEqual(expect.arrayContaining([expect.objectContaining({ story, track: "shots", clip: "s1", as: "frame" }), expect.objectContaining({ asset: car.asset, label: "Fiat 500 F", as: "sheet", accepted: false })]));
+    // of one kind only: not among the videos
+    expect((await rawTool("list_library", { q: hash.slice(0, 10), kind: "video" }, token)).out.files).toHaveLength(0);
+    expect((await rawTool("list_library", { kind: "text" }, token)).error).toBeString();
+    // a page at a time
+    const page = await rawTool("list_library", { kind: "image", limit: 1 }, token);
+    expect(page.out).toMatchObject({ limit: 1, offset: 0 });
+    expect(page.out.files).toHaveLength(1);
+    expect(page.out.total).toBeGreaterThanOrEqual(1);
+    const next = await rawTool("list_library", { kind: "image", limit: 1, offset: 1 }, token);
+    expect(next.out.offset).toBe(1);
+    if (page.out.total > 1) expect(next.out.files[0].hash).not.toBe(page.out.files[0].hash);
+    // its bytes by its hash, with the same token
+    const bytes = await api.fetch(new Request(`http://play.test/api/files/${hash}`, { headers: { authorization: `Bearer ${token}` } }));
+    expect(bytes.status).toBe(200);
+    expect(bytes.headers.get("content-type")).toBe("image/png");
+    await call("ada", "POST", `/api/intents/${car.intent}/archive`);
+  });
+
   test("a story sounds: an agent adds recordings, and any clip of any track plays one, with its trim, gain, fades, EQ and keys", async () => {
     // a tenth of a second of silence as a WAV, and an MP3's first bytes
     const wav = (n = 4800) => {

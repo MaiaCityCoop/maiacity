@@ -2,7 +2,7 @@
 // UUID, its work on the intent itself (./work.ts). Idea → Specify → Build → Proposal → (Ship →) Accepted (or Archived).
 // Agents add, specify and build it over MCP; an admin approves its spec and decides it at Proposal, where work of play's
 // is applied (./versioned.ts decide) and code is shipped (./ship.ts). Every move forward is one gate, mayMove.
-import { Denied, COOP, meOf, type Me } from "./access";
+import { admin, Denied, COOP, meOf, type Me } from "./access";
 import type { BlobStore } from "./blobs";
 import type { Db, Queryable } from "./pg";
 import { factsOf, matchRule, ruleSetOf, type AutoBy } from "./rules";
@@ -54,11 +54,7 @@ export type IntentVerdict = "approve" | "accept" | "reject" | "reopen";
 const NO_REDUCE = "Its reduce step comes first: at least one check with step reduce (what it removes, simplifies or compacts), or nothing_to_reduce saying why nothing is.";
 
 /** only Maia City's admins keep the intents, as they decide them */
-export function admin(me: Me | null): Me {
-  if (!me) throw new Denied("Please sign in first.", 401);
-  if (me.level !== "admin") throw new Denied("Only Maia City's admins keep the intents.");
-  return me;
-}
+export const INTENT_ADMINS = "Only Maia City's admins keep the intents.";
 
 const kindOf = (v: unknown): IntentKind => {
   if (v === undefined || v === null || v === "") return "idea";
@@ -212,7 +208,7 @@ async function addEdges(q: Queryable, who: Me, id: string, on: string[], drop = 
 
 /** One edge added, or dropped, by an admin's agent over MCP: intent `id` depends on intent `on`. */
 export async function dependIntent(db: Db, me: Me | null, id: string, on: unknown, drop?: unknown) {
-  const who = admin(me);
+  const who = admin(me, INTENT_ADMINS);
   const { id: i } = await intentRow(db, id);
   await db.transaction((tx) => addEdges(tx, who, i, [idOf(on)], drop === true));
   return intentRow(db, i);
@@ -251,7 +247,7 @@ const depsOf = (v: unknown) => {
 
 /** The intents at the given stages (every stage where none is given), the latest first; with `work`, only those holding work of that kind. */
 export async function listIntents(db: Queryable, me: Me | null, stages?: string[], work?: string) {
-  admin(me);
+  admin(me, INTENT_ADMINS);
   for (const s of stages ?? []) if (!INTENT_STAGES.includes(s as IntentStage)) throw new IntentError(`An intent's stage is ${INTENT_STAGES.join(", ")}.`);
   if (work !== undefined && !workKinds().includes(work)) throw new IntentError(`An intent's work is ${workKinds().join(", ")}.`);
   return intentsWhere(db, `($2::text[] IS NULL OR i.stage = ANY($2::text[])) AND ($3::text IS NULL OR i.work = $3)`, [stages ?? null, work ?? null]);
@@ -274,7 +270,7 @@ export async function getIntent(db: Queryable, id: string) {
  * stage, the Intents skill's part for it (./skills.ts; null where it says nothing).
  */
 export async function intentOf(db: Queryable, me: Me | null, id: string, reviewOf: (db: Queryable, id: string, shown: any) => Promise<unknown>) {
-  admin(me);
+  admin(me, INTENT_ADMINS);
   const intent = await getIntent(db, id);
   // held (approved, its dependencies not shipped): nothing to do yet, its sub-state says why
   const held = intent.held_by.length > 0 && (intent.stage === "build" || intent.stage === "proposal");
@@ -283,7 +279,7 @@ export async function intentOf(db: Queryable, me: Me | null, id: string, reviewO
 
 /** A new intent at the Idea stage, by an admin's agent over MCP (no one adds one by hand). */
 export async function addIntent(db: Db, me: Me | null, body: { kind?: unknown; title?: unknown; note?: unknown; depends_on?: unknown; work_kind?: unknown }) {
-  const who = admin(me);
+  const who = admin(me, INTENT_ADMINS);
   const id = newId();
   const deps = depsOf(body?.depends_on);
   const declared = (await workKindOf(db, body?.work_kind)) ?? null;
@@ -302,7 +298,7 @@ export async function addIntent(db: Db, me: Me | null, body: { kind?: unknown; t
  * is sent back to Specify first, by its agent (step_back_intent, ./stepback.ts).
  */
 export async function specifyIntent(db: Db, me: Me | null, id: string, body: { goal?: unknown; scope?: unknown; checks?: unknown; nothing_to_reduce?: unknown; title?: unknown; kind?: unknown; note?: unknown; depends_on?: unknown; work_kind?: unknown }) {
-  const who = admin(me);
+  const who = admin(me, INTENT_ADMINS);
   const intent = await intentRow(db, id);
   if (intent.stage !== "idea" && intent.stage !== "specify")
     throw new IntentError(`Intent ${intent.id} is at the ${intent.stage} stage: it is specified at Idea or Specify (step_back_intent sends it back).`, 409);
@@ -351,7 +347,7 @@ const prOf = (v: unknown) => {
  * moving nothing. `pr` names its pull request into main, which Accept merges (./ship.ts).
  */
 export async function recordChecks(db: Queryable, me: Me | null, id: string, given: unknown, pr?: unknown) {
-  const who = admin(me);
+  const who = admin(me, INTENT_ADMINS);
   const intent = await intentRow(db, id);
   const named = prOf(pr);
   const list = given === undefined || given === null ? [] : given;
@@ -493,7 +489,7 @@ export async function mustMove(db: Queryable, intent: string | GateRow, to: Move
 
 /** The intent work is about to be proposed for, held to the gate (mayMove's work). Otherwise nothing is proposed and the agent is told why. */
 export async function intentReady(db: Queryable, me: Me | null, id: unknown) {
-  admin(me);
+  admin(me, INTENT_ADMINS);
   const intent = await intentRow(db, `${id ?? ""}`);
   await mustMove(db, intent, "work");
   return intent;
@@ -522,7 +518,7 @@ export function mustDecide(intent: any) {
  * (to Specify with its spec, else to Idea). Steps back are an agent's (./stepback.ts).
  */
 export async function decideIntent(db: Queryable, me: Me | null, id: string, verdict: IntentVerdict) {
-  const who = admin(me);
+  const who = admin(me, INTENT_ADMINS);
   const intent = await intentRow(db, id);
   const refuse = (why: string) => {
     throw new IntentError(why, 409);

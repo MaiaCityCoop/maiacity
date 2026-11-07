@@ -114,7 +114,8 @@ the sound: voice takes, music, sfx and beds, each a recording on its clip, playe
 versioned like the assets (one film, one story: its rewrites are its next versions, never stories of their own), every field of every clip editable only this way, shown on the intents' board played in the
 Stories player beside what changed. Every image, video and recording it adds is kept among play's files and shown in
 the admins' **Library** (`/library/`), each with the `label` it was given (only shown; a file is named by its hash)
-and where the stories use it. A story may link an accepted version of another (a track of kind `story`, its clip
+and where the stories use it; an agent finds one by its label or hash prefix with `list_library` (or `GET
+/api/library` with its token) and fetches it with `GET /api/files/<hash>`. A story may link an accepted version of another (a track of kind `story`, its clip
 naming that story's UUID and the version's hash: the trailer its own story, played in every film), and a film moves to a
 newer trailer only by its own proposal (play/SPEC.md §12). Every story is also a Loro document (play/SPEC.md §4.4): every edit kept with its
 author, message and time, an intent's work an intent variant of it, made edit by edit with `doc_edit` (the timeline's

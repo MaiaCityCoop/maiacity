@@ -189,9 +189,10 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   (`propose_doc_version` with its `variant`), its edits going with it. Accepting merges it and names the document's
   version the asset's new number.
 - **An agent's camera** (Samuel 2026-11-03): an admin's MCP token also opens the world's read-only routes (`GET
-  /api/me`, `/api/catalog`, `/api/files/<hash>`, `/api/sandboxes/<id>/config`, `/api/assets…`; `READ_BY_TOKEN` in
+  /api/me`, `/api/catalog`, `/api/files/<hash>`, `/api/sandboxes/<id>/config`, `/api/assets…`, `/api/library`; `READ_BY_TOKEN` in
   `play/api/src/app.ts`), so an agent loads a sandbox in its own browser as its admin and films it (`window.__world`'s
-  `fly` and `sun`) for a story's storyboard. Every other route still wants a session.
+  `fly` and `sun`) for a story's storyboard, and finds a file in the Library (§8; Samuel 2026-11-07, intent
+  140fdce6). Every other route still wants a session, a Library label's rename among them.
 - **Variants over MCP** (Samuel 2026-11-03; breeds since 2026-11-06, §4.15): an asset's breeds (each a `name`, its
   card's `label`, its own `source` where it differs from Main's; changed with `doc_edit`'s and `propose_doc_version`'s
   `breed`, made with `new_breed`, or given whole as `propose_asset`'s `variants` for a new asset) make each version a
@@ -1166,7 +1167,11 @@ every story uses it: a shot's still or video, or a clip's recording. A label is 
 file is named by its hash. An agent gives one with `add_story_frame`, `add_story_video` or `add_story_audio`'s
 `label`, where a new label replaces the old one and none keeps it. An admin renames it in the Library
 (`POST /api/library/:hash/label`). `GET /api/library?kind=image|video|audio&q=…&offset=…&limit=…` lists them, `q`
-matching a label or the start of a hash, with the count of each kind.
+matching a label or the start of a hash, with the count of each kind; an admin's token reads it too (§4.4 *An
+agent's camera*), and over MCP `list_library` (`kind`, `q`, `offset`, `limit`) gives the same answer, so an agent finds
+a file by its label or hash prefix with where it is used and fetches its bytes with `GET /api/files/<hash>`. Only
+admins pass it (`admin(me, why)` in `play/api/src/access.ts`, the one admin guard every route's check calls with its
+own message).
 
 ## 9. Deploy
 
