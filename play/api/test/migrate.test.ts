@@ -191,7 +191,8 @@ suite("migration 0032-versioned", () => {
     // what an intent's work names is one rule
     await expect(db.query(`UPDATE play.intents SET doc_id = NULL WHERE id = $1`, [made[0].id])).rejects.toThrow(/intents_work_names_what/);
 
-    // and every one still reviewed and decided
+    // and every one still reviewed and decided, by today's code on today's schema (the migrations after 0032 too)
+    await migrate(db);
     await initSessions(db);
     const api = app({ db, store, rate: new Rate(0) });
     const as = (method: string, path: string) => api.fetch(new Request(`http://play.test${path}`, { method, headers: { cookie: `play_session=${tokenFor(ada)}` } })).then(async (r) => ({ status: r.status, data: await r.json() }));

@@ -44,9 +44,10 @@ suite("the stage Build (migration 0033-build)", () => {
     u.pathname = `/${name}`;
     sql = new Bun.SQL(u.toString());
     db = fromBunSql(sql);
-    // production's database: every migration below 0033-build
+    // production's database: every migration but 0033-build (those after it touch no stage, and today's code, which
+    // writes the intents below, needs them: 0034-breeds' columns of doc_variants)
     await db.exec(`CREATE SCHEMA IF NOT EXISTS play; CREATE TABLE IF NOT EXISTS play.migrations (id TEXT PRIMARY KEY, ran TIMESTAMPTZ NOT NULL DEFAULT now());`);
-    for (const m of MIGRATIONS.filter((m) => m.id < "0033-build"))
+    for (const m of MIGRATIONS.filter((m) => m.id !== "0033-build"))
       await db.transaction(async (tx) => (await tx.query(m.sql), await tx.query(`INSERT INTO play.migrations (id) VALUES ($1)`, [m.id])));
     await initSessions(db);
     api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
