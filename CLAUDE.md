@@ -157,7 +157,10 @@ is at (`get_intent`'s `brief`): the **Intents skill**'s text for that stage. Wha
 system prompt, the intents' lifecycle, each stage's instructions) is kept once, as **skills** in play's Postgres
 (`list_docs`, `doc_at`, `doc_history`; `/skills/`; play/SPEC.md §4.14), never in the code or on the board, and changes
 only by proposal (`doc_edit`, `propose_doc_version`), served from Postgres on each request (`initialize`, the brief, MCP's
-prompts). In short: at Idea it specifies the intent (every test and measure check with its `run` in **avenBOX**) and
+prompts). **Play's database is the one source of every skill** (intent a90151df): each is also an MCP prompt,
+`skill:<uuid>`, and `.claude/skills` is only a mirror, written from play at each avenBOX session's start by
+`play/avenbox/skills.ts` and never committed (`.gitignore`); change a skill on play by proposal, never in that folder.
+The code skills name lives in `tools/` (`tools/security-auditor/`, `tools/plant/`, `tools/sheet/`). In short: at Idea it specifies the intent (every test and measure check with its `run` in **avenBOX**) and
 stops for an admin's approval; in Build it builds it, tests itself (`bun play/avenbox/intent.ts <the intent's
 UUID>`) and marks its draft pull request ready, whose run in avenBOX on GitHub records the checks, until it moves to Proposal by itself, where an admin decides it; work of play's it proposes
 naming the intent, code it ships by pull request (*Accept ships it*, above). **No work without an intent** (intent

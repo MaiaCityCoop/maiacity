@@ -1,0 +1,153 @@
+{
+ "additionalProperties": false,
+ "properties": {
+  "body": {
+   "maxLength": 200000,
+   "type": "string",
+   "x-loro": "text"
+  },
+  "description": {
+   "maxLength": 1024,
+   "minLength": 1,
+   "type": "string"
+  },
+  "frontmatter": {
+   "additionalProperties": false,
+   "properties": {
+    "allowed-tools": {
+     "items": {
+      "maxLength": 200,
+      "minLength": 1,
+      "type": "string"
+     },
+     "maxItems": 100,
+     "type": "array"
+    },
+    "effort": {
+     "enum": [
+      "low",
+      "medium",
+      "high"
+     ],
+     "type": "string"
+    },
+    "type": {
+     "maxLength": 40,
+     "minLength": 1,
+     "type": "string"
+    }
+   },
+   "type": "object"
+  },
+  "group": {
+   "maxLength": 100,
+   "minLength": 1,
+   "type": "string"
+  },
+  "label": {
+   "maxLength": 200,
+   "minLength": 1,
+   "type": "string"
+  },
+  "note": {
+   "maxLength": 20000,
+   "type": "string",
+   "x-loro": "text"
+  },
+  "references": {
+   "items": {
+    "additionalProperties": false,
+    "properties": {
+     "file": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+     },
+     "path": {
+      "maxLength": 300,
+      "pattern": "^(?!SKILL\\.md$)[A-Za-z0-9_][A-Za-z0-9._-]{0,99}(/[A-Za-z0-9_][A-Za-z0-9._-]{0,99}){0,7}$",
+      "type": "string"
+     },
+     "text": {
+      "maxLength": 200000,
+      "type": "string",
+      "x-loro": "text"
+     },
+     "type": {
+      "maxLength": 100,
+      "pattern": "^[a-z]+/[a-z0-9][a-z0-9.+-]*$",
+      "type": "string"
+     }
+    },
+    "required": [
+     "path"
+    ],
+    "type": "object"
+   },
+   "maxItems": 500,
+   "type": "array"
+  },
+  "schema": {
+   "const": "skill/1"
+  },
+  "stages": {
+   "additionalProperties": false,
+   "properties": {
+    "accepted": {
+     "maxLength": 20000,
+     "type": "string",
+     "x-loro": "text"
+    },
+    "archived": {
+     "maxLength": 20000,
+     "type": "string",
+     "x-loro": "text"
+    },
+    "build": {
+     "maxLength": 20000,
+     "type": "string",
+     "x-loro": "text"
+    },
+    "idea": {
+     "maxLength": 20000,
+     "type": "string",
+     "x-loro": "text"
+    },
+    "proposal": {
+     "maxLength": 20000,
+     "type": "string",
+     "x-loro": "text"
+    },
+    "ship": {
+     "maxLength": 20000,
+     "type": "string",
+     "x-loro": "text"
+    },
+    "specify": {
+     "maxLength": 20000,
+     "type": "string",
+     "x-loro": "text"
+    }
+   },
+   "type": "object"
+  },
+  "system": {
+   "maxLength": 50000,
+   "type": "string",
+   "x-loro": "text"
+  },
+  "uses": {
+   "items": {
+    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    "type": "string"
+   },
+   "maxItems": 100,
+   "type": "array"
+  }
+ },
+ "required": [
+  "schema",
+  "label",
+  "group"
+ ],
+ "type": "object"
+}
