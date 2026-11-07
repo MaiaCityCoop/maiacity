@@ -591,15 +591,16 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     requests*): the intent's checks in avenBOX on GitHub (`play/avenbox/setup.sh`, PostgreSQL 17, bun 1.4.4) on the
     pull request's head, recorded on the intent with that head, the run's link and `pr` (so it becomes the active pull
     request). Every must green: the intent moves to Proposal. Any must red: it stays in (or goes back to) Build with
-    the failures, and the run turns the pull request back into a draft. Each new push to a ready pull request runs and
-    records again on the new head, so Accept merges only a head every must passed on (`ship.ts`, unchanged). Looks are
-    still judged and recorded by hand (`check_intent`).
+    the failures, failed on the board, its pull request as it is: fix and push. Each new push to a ready pull request
+    (play's main-merge included) runs and records again on the new head, so Accept merges only a head every must
+    passed on (`ship.ts`, unchanged); the older head's run is cancelled (`concurrency`) and its record skipped
+    (`!cancelled()`): it records nothing and is not red. Looks are still judged and recorded by hand (`check_intent`).
   - **Only the box's run is evidence.** intents-pr.yml runs on `pull_request_target`, for heads in this repository
     only, in three jobs: **spec** (main's `pr-intent.ts --id` and `intent.ts <uuid> --spec-out`, with avenBOX's token),
     **run** (the head checked out with `persist-credentials: false`, no secret and a read-only `GITHUB_TOKEN`; main's
     intent.ts, handed over by spec, runs the spec's checks with `--from <spec> --results-out <file> --root <head>`) and
     **record** (main's `intent.ts <uuid> --record-from <results> --pr <n> --head <sha>`, with avenBOX's token, refusing
-    results of another intent or another commit; a red run's pull request turned back into a draft). The workflow and
+    results of another intent or another commit; `contents: read` only, skipped when the run is cancelled). The workflow and
     the intent.ts that hold a token are always main's. **avenBOX's token** is an admin's access token marked so on
     play's profile page (`play.api_tokens.avenbox`, migration `202611070145-4ea6b2ed-avenbox-token`; `POST /api/tokens/<id>/avenbox`), the repository
     secret `PLAY_MCP_TOKEN` that intents-pr.yml, intent-named.yml and intents.yml hold. From any other token
@@ -1027,10 +1028,17 @@ registry and one module, shown by one History.
   new the same way (`kind`, `whole`: Main born empty, the first version an intent variant's until a person accepts it).
   Admins see them on **`/schemas/`**: each schema's node field by field, the documents written against it, and its
   History in the right aside. No bypass: every change waits at Proposal for a person's Accept.
-- **One History** (`play/site`'s `lib/app/History.svelte`), always on the right, in Frame's aside, in its own **History
-  tab**, in every view of a versioned thing: the asset viewer (every group, beside Parts), Worlds, Stories (the top of
-  its player's rail), Factories (beside the bill of process), the Game editor, Skills (`/skills/`) and a sandbox's layout
-  (`/sandboxes/<uuid>/`). At its top the
+- **One aside, Info and History** (Samuel 2026-11-07; `play/site`'s `lib/app/Aside.svelte`, the only user of
+  `lib/app/History.svelte`): every view of a versioned document shows on the right, in Frame's aside, one aside with two
+  tabs centred at its top, the same on a phone (the round button at the bottom right opens it): the asset viewer (every
+  group), Artifacts, Factories, the Game editor, Rules, a sandbox's layout (`/sandboxes/<uuid>/`), Schemas, Skills,
+  Stories, Worlds, and the five sandbox worlds (`/sandbox-1/` to `/sandbox-5/`, each its layout's, an admin's: a pick
+  opens the world at it, `?layout=<uuid>/v3`, `/e12`, `/<intent>`). A view gives the document as /api/docs gives it and
+  its pick; no view keeps an aside or History of its own. **Info**: where it lives, its name and note, its kind, the
+  version shown with who wrote and accepted it and when, the version's note, the view's own fields (an asset's
+  details, reference sheet and parts, a factory's bill of process, a story's format, an artifact's link and authors), a
+  picker of its latest versions and of its breeds, and how it changes. **History**, compact (a version one line over its
+  note in at most two lines, whole on a tap or under the pointer): at its top the
   scrubber over every edit of Main, versions marked, MCP and merge edits marked; ▶ Play its making, Back to vN and the
   arrow keys; under it Main's versions with their edits folded beneath, and the open intent variants with their
   intents. Picking an edit or an intent variant shows what it changes (`lib/app/Changes.svelte`: the field diff, texts

@@ -1,7 +1,6 @@
 <!--
-	One History, the same in every view of a versioned thing (play/SPEC.md "Version control"; Samuel 2026-11-06), always
-	in Frame's right aside, in its own History tab: the asset viewer (every group), Worlds, Stories, Factories, the Game
-	editor and Skills. Its words are play's: an Edit is one change, kept with its author, message and time; a Variant a
+	One History, the same in every view of a versioned thing (play/SPEC.md "Version control"; Samuel 2026-11-06), in the
+	one aside's History tab (./Aside.svelte, its only user, which reads the history and hands it here). Its words are play's: an Edit is one change, kept with its author, message and time; a Variant a
 	line of edits; Main the default variant, what is accepted; an Intent variant one that lives inside an intent; a Seed
 	the version a variant grows from; a Version a numbered state of Main.
 
@@ -13,8 +12,10 @@
 	(./Changes.svelte) and hands it to the view (`onPick`), which shows the thing as it stood there: its state is the
 	view's to draw (an asset built in the box, a factory's line, a story's timeline).
 
-	The edits and variants are an admin's (GET /api/docs/<uuid>/history); the chain of versions is everyone's: a view
+	The edits and variants are an admin's (GET /api/docs/<uuid>/history, `h`); the chain of versions is everyone's: a view
 	may give its own (`versions`, as its own read lists them, each drawn with the view's `version` snippet beside it).
+	Compact (Samuel 2026-11-07): a version is one line (its number, who, when, its edits) over its note in two lines at
+	most, the whole note on a tap or under the pointer.
 -->
 <script lang="ts" module>
 	import type { Edit } from './Changes.svelte';
@@ -56,6 +57,8 @@
 		versions = null,
 		version,
 		intent = null,
+		h = null,
+		failed = '',
 		onPick
 	}: {
 		/** the document's UUID (the asset's, the story's, the factory's …) */
@@ -70,15 +73,17 @@
 		version?: Snippet<[ChainVersion]>;
 		/** an intent whose variant the view shows (opened from the intents' board) */
 		intent?: string | null;
+		/** its history, as GET /api/docs/<uuid>/history gives it (an admin's), and why it could not be read */
+		h?: { edits: Edit[]; versions: Version[]; variants: Variant[] } | null;
+		failed?: string;
 		onPick: (p: Pick | null) => void | Promise<void>;
 	} = $props();
 
 	type Version = { number: number; note: string; at: string; acceptedBy?: string | null };
 	const admin = $derived(session.me?.level === 'admin');
-	let edits = $state<Edit[]>([]);
-	let mainVersions = $state<Version[]>([]);
-	let variants = $state<Variant[]>([]);
-	let failed = $state('');
+	const edits = $derived(h?.edits ?? []);
+	const mainVersions = $derived(h?.versions ?? []);
+	const variants = $derived(h?.variants ?? []);
 	let at = $state<Edit | null>(null);
 	let onVariant = $state<Variant | null>(null);
 	let playing = $state(false);
@@ -86,30 +91,9 @@
 	let unfolded = $state<number[]>([]);
 	let asked = 0;
 
+	// another document, or another version shown by the view: back to it, the edit let go
 	$effect(() => {
-		const id = doc;
-		edits = [];
-		variants = [];
-		mainVersions = [];
-		at = null;
-		onVariant = null;
-		playing = false;
-		failed = '';
-		if (!id || !admin) return;
-		let gone = false;
-		api<{ edits: Edit[]; versions: Version[]; variants: Variant[] }>(`/docs/${id}/history`).then(
-			(h) => {
-				if (gone) return;
-				edits = h.edits;
-				mainVersions = h.versions;
-				variants = h.variants;
-			},
-			(e) => !gone && (failed = (e as Error).message)
-		);
-		return () => (gone = true);
-	});
-	// another version shown by the view: back to it, the edit let go
-	$effect(() => {
+		void doc;
 		void shown;
 		untrack(() => {
 			at = null;
@@ -117,7 +101,6 @@
 			playing = false;
 		});
 	});
-
 	const when = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
 	const day = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString('en-GB') : '');
 	const index = $derived(at ? edits.findIndex((e) => e.seq === at!.seq) : -1);
@@ -267,14 +250,14 @@
 		{#each chain as v (v.number)}
 			{@const led = ledTo.get(v.number) ?? []}
 			<li class:on={!at && !intentVariant && v.number === (shown ?? newest)}>
-				<button class="ver" onclick={() => toVersion(v.number)}><b>v{v.number}</b>{#if v.label}<span>{v.label}</span>{/if}</button>
-				<p class="soft by">{v.by ? `By ${v.by}` : ''}{v.by && v.acceptedBy ? ' · ' : ''}{v.acceptedBy ? `accepted by ${v.acceptedBy}` : ''}{(v.by || v.acceptedBy) && v.at ? ' · ' : ''}{day(v.at)}</p>
-				{#if v.note}<p class="note" class:more={unfolded.includes(-v.number)}>{v.note}</p>
-					{#if v.note.length > 110}<button class="fold" aria-expanded={unfolded.includes(-v.number)} onclick={() => fold(-v.number)}>{unfolded.includes(-v.number) ? 'Show less' : 'Show more'}</button>{/if}
-				{/if}
+				<div class="row">
+					<button class="ver" onclick={() => toVersion(v.number)}><b>v{v.number}</b>{#if v.label}<span>{v.label}</span>{/if}</button>
+					<span class="soft by" title="{v.by ? `By ${v.by}` : ''}{v.acceptedBy ? ` · accepted by ${v.acceptedBy}` : ''}">{v.acceptedBy ?? v.by ?? ''}{(v.by || v.acceptedBy) && v.at ? ' · ' : ''}{day(v.at)}</span>
+					{#if admin && led.length}<button class="fold edits-fold" aria-expanded={unfolded.includes(v.number)} onclick={() => fold(v.number)}>{led.length}</button>{/if}
+				</div>
+				{#if v.note}<button class="note" class:more={unfolded.includes(-v.number)} title={v.note} aria-expanded={unfolded.includes(-v.number)} onclick={() => fold(-v.number)}>{v.note}</button>{/if}
 				{@render version?.(v)}
 				{#if admin && led.length}
-					<button class="fold edits-fold" aria-expanded={unfolded.includes(v.number)} onclick={() => fold(v.number)}>{led.length} edit{led.length === 1 ? '' : 's'}</button>
 					{#if unfolded.includes(v.number)}
 						<ol class="edits">
 							{#each led as e (e.seq)}
@@ -318,7 +301,7 @@
 </section>
 
 <style>
-	.history { display: grid; gap: 0.3rem; margin: 0 0 0.9rem 0.35rem; min-width: 0; }
+	.history { display: grid; gap: 0.25rem; margin: 0 0 0.9rem 0.35rem; min-width: 0; }
 	.head { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 	h4 { margin: 0 auto 0 0; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--soft, rgb(38 56 44 / 0.6)); }
 	h4 small { text-transform: none; letter-spacing: 0; font-weight: 500; }
@@ -340,17 +323,18 @@
 	.caption { margin: 0; font-size: 0.74rem; line-height: 1.35; }
 	/* Main's versions as a chain, each its edits folded beneath */
 	.chain { list-style: none; padding: 0; margin: 0 0 0.6rem 0.4rem; border-left: 2px solid var(--line, #e5e1d8); }
-	.chain > li { position: relative; padding: 0.35rem 0 0.6rem 0.9rem; min-width: 0; }
-	.chain > li::before { content: ''; position: absolute; left: -7px; top: 0.75rem; width: 10px; height: 10px; border-radius: 50%; background: var(--paper, #fff); border: 2px solid var(--sage, #8fae8b); }
+	.chain > li { position: relative; padding: 0.15rem 0 0.3rem 0.75rem; min-width: 0; }
+	.chain > li::before { content: ''; position: absolute; left: -6px; top: 0.4rem; width: 8px; height: 8px; border-radius: 50%; background: var(--paper, #fff); border: 2px solid var(--sage, #8fae8b); }
 	.chain > li.on::before { background: var(--mustard, #efb54d); border-color: var(--mustard, #efb54d); }
-	.ver { all: unset; cursor: pointer; font-size: 0.9rem; display: inline-flex; gap: 0.35rem; }
+	.row { display: flex; align-items: baseline; gap: 0.4rem; min-width: 0; font-size: 0.74rem; }
+	.by { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.ver { all: unset; cursor: pointer; font-size: 0.8rem; display: inline-flex; gap: 0.3rem; min-width: 0; }
 	.ver:hover span, .ver:focus-visible span { text-decoration: underline; }
-	.chain p { margin: 0.1rem 0 0; font-size: 0.76rem; }
-	.note { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; white-space: pre-line; color: var(--ink-soft, #3b4a40); }
+	.note { all: unset; cursor: pointer; margin-top: 0.05rem; font-size: 0.72rem; line-height: 1.3; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; white-space: pre-line; color: var(--ink-soft, #3b4a40); }
 	.note.more { display: block; -webkit-line-clamp: unset; line-clamp: unset; }
-	.fold { all: unset; display: inline-block; margin-top: 0.15rem; font-size: 0.72rem; font-weight: 600; color: var(--soft, #777); cursor: pointer; }
+	.fold { all: unset; display: inline-block; font-size: 0.7rem; font-weight: 600; color: var(--soft, #777); cursor: pointer; }
 	.fold:hover, .fold:focus-visible { color: inherit; text-decoration: underline; }
-	.edits-fold { display: block; width: max-content; }
+	.edits-fold { flex: none; }
 	.edits-fold::after { content: ''; display: inline-block; margin-left: 0.3rem; vertical-align: 0.05rem; border-left: 4px solid currentColor; border-block: 3px solid transparent; transition: transform 0.15s; }
 	.edits-fold[aria-expanded='true']::after { transform: rotate(90deg); }
 	.edits { margin: 0.25rem 0 0; padding-left: 1.1rem; display: grid; gap: 0.15rem; font-size: 0.74rem; }

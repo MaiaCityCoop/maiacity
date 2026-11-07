@@ -5,6 +5,8 @@
 	someone new every visit ($lib/character.ts, cast in seat A).
 -->
 <script lang="ts">
+	import Aside from '$lib/app/Aside.svelte';
+	import { SANDBOX } from '$lib/content/assets/sandboxes.js';
 	import { onMount } from 'svelte';
 	import TouchStick from '$lib/site/touch/TouchStick.svelte';
 	import { CAST } from '$lib/content/maiacity-v2/cast.js';
@@ -92,6 +94,9 @@
 	{#if phase === 'loading'}<p class="status card">Laying out the land…</p>{/if}
 	{#if phase === 'failed'}<p class="status card error">The world could not open: {error}</p>{/if}
 </div>
+
+<!-- its layout's one aside (Info and History), an admin's: a round button at the bottom right -->
+<Aside doc={SANDBOX.three} float />
 
 <style>
 	.world { position: fixed; inset: 0; background: #d8e2e2; }

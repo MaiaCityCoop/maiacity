@@ -192,7 +192,7 @@ describe("Intent named", async () => {
     expect(text(".github/workflows/intent-named.yml")).not.toContain("head.sha");
   });
 
-  test("intents-pr.yml: ready runs the checks on the head in the box; spec and record are main's and alone see the box's token; a red run is a draft again", () => {
+  test("intents-pr.yml: ready runs the checks on the head in the box; spec and record are main's and alone see the box's token; a cancelled run records nothing and no run makes a draft", () => {
     const src = text(".github/workflows/intents-pr.yml");
     const w = yaml(".github/workflows/intents-pr.yml");
     expect(Object.keys(w.on)).toEqual(["pull_request_target"]);
@@ -223,14 +223,16 @@ describe("Intent named", async () => {
     expect(box.run).toContain('bun "$RUNNER_TEMP/box/intent.ts" --from "$RUNNER_TEMP/box/spec.json" --results-out');
     expect(run.steps.find((s: any) => s.name?.startsWith("avenBOX")).run).toBe('sudo env "PATH=$PATH" bash play/avenbox/setup.sh');
     expect(run.steps.find((s: any) => s.uses === "oven-sh/setup-bun@v2").with["bun-version"]).toBe("1.4.4");
-    // record: --record-from with --pr and the head; a red run turns the pull request back into a draft
+    // a newer head cancels the older head's run, whose record is then skipped (not red, nothing recorded)
+    expect(w.concurrency).toEqual({ group: "intents-pr-${{ github.event.pull_request.number }}", "cancel-in-progress": true });
+    expect(record.if).toBe("!cancelled() && needs.spec.result == 'success'");
+    // record: --record-from with --pr and the head; a red must leaves the pull request as it is (failed on the board)
     const rec = record.steps.find((s: any) => s.id === "recorded");
     expect(rec.run).toContain('bun play/avenbox/intent.ts "$INTENT" --record-from "$RUNNER_TEMP/results/results.json" --pr "$PR" --head "$HEAD"');
     expect(rec.env.HEAD).toBe("${{ github.event.pull_request.head.sha }}");
-    expect(record.permissions).toEqual({ contents: "read", "pull-requests": "write" });
-    const draft = record.steps.find((s: any) => s.name === "A red run turns the pull request back into a draft");
-    expect(draft.if).toBe("failure()");
-    expect(draft.run).toContain("convertPullRequestToDraft");
+    expect(record.permissions).toEqual({ contents: "read" });
+    expect(src).not.toContain("convertPullRequestToDraft");
+    expect(src).not.toContain("pull-requests: write");
     // what stays as it is: main's run after the merge
     expect(text(".github/workflows/intents.yml")).toContain("bun play/avenbox/intent.ts \"$id\" --record --where main");
   });

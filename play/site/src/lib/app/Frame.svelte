@@ -11,9 +11,9 @@
 	`nav-group` (a small-capital heading over a group of rows) and `nav-item` (a row: an icon, its label, a count in a
 	`<small>` at its end; `on` where it is the one picked, with `aria-current` or `aria-pressed`).
 
-	A view of a versioned thing gives its `history` too (play/SPEC.md "Version control"): the right side then holds it in
-	its own History tab, the one History of every view ($lib/app/History.svelte), beside the view's own `aside` (named by
-	`asideName`: its parts, its bill of process, its details), with `asideHead` (the thing's name) over both.
+	A view of a versioned thing gives as its `aside` the one aside ($lib/app/Aside.svelte: its Info and History tabs);
+	Frame keeps only the layout and the drawer. Given no middle (a sandbox world, under its own page), the right side is
+	a drawer at every width.
 
 	Over the middle column stands the head of the page the view is on, as the page around it gives it (./Shell.svelte's
 	`HEAD`): the vault it is in, the view's name and who the person acts as. A view on the whole screen, as a spark is,
@@ -32,20 +32,15 @@
 	/** @typedef {import('svelte').ComponentProps<typeof Icon>['name']} IconName */
 	/**
 	 * @type {{ nav?: import('svelte').Snippet, aside?: import('svelte').Snippet, children?: import('svelte').Snippet,
-	 *   history?: import('svelte').Snippet, asideHead?: import('svelte').Snippet, asideName?: string,
-	 *   tab?: 'history' | 'aside', navLabel?: string, asideLabel?: string, navIcon?: IconName, asideIcon?: IconName,
+	 *   navLabel?: string, asideLabel?: string, navIcon?: IconName, asideIcon?: IconName,
 	 *   bare?: boolean, flush?: boolean, open?: '' | 'nav' | 'aside' }}
 	 */
 	let {
 		nav,
 		aside,
-		history,
-		asideHead,
-		asideName = 'Details',
-		tab = $bindable('history'),
 		children,
 		navLabel = 'Pick what it shows',
-		asideLabel = 'Versions, history and details',
+		asideLabel = 'Its info and history',
 		navIcon = 'board',
 		asideIcon = 'history',
 		bare = false,
@@ -56,6 +51,9 @@
 	/** @type {{ head: import('svelte').Snippet | null } | undefined} */
 	const page = getContext(HEAD);
 	const head = $derived(bare ? null : (page?.head ?? null));
+	// narrower than the three columns (or no middle at all): the right side slides in from its button
+	let w = $state(1440);
+	const sliding = $derived(!children || w <= 1100);
 
 	/** On a phone: a link or a picking button in the left side closes it. @param {MouseEvent} e */
 	function picked(e) {
@@ -64,9 +62,9 @@
 	}
 </script>
 
-<svelte:window onkeydown={(e) => e.key === 'Escape' && (open = '')} onhashchange={() => (open = '')} />
+<svelte:window bind:innerWidth={w} onkeydown={(e) => e.key === 'Escape' && (open = '')} onhashchange={() => (open = '')} />
 
-<div class="frame" class:bare class:has-nav={!!nav} class:has-aside={!!aside || !!history}>
+<div class="frame" class:bare class:has-nav={!!nav} class:has-aside={!!aside && !sliding} class:sliding class:float={!children}>
 	{#if open}
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 		<div class="scrim" onclick={() => (open = '')}></div>
@@ -80,26 +78,17 @@
 		</nav>
 	{/if}
 
-	<section class="middle" class:flush>
-		{#if head}{@render head()}{/if}
-		{@render children?.()}
-	</section>
+	{#if children}
+		<section class="middle" class:flush>
+			{#if head}{@render head()}{/if}
+			{@render children()}
+		</section>
+	{/if}
 
-	{#if aside || history}
+	{#if aside}
 		<aside class="side right" class:open={open === 'aside'} aria-label={asideLabel}>
 			<button class="shut" aria-label="Close" onclick={() => (open = '')}><Icon name="close" size={16} /></button>
-			{#if asideHead}{@render asideHead()}{/if}
-			{#if history}
-				<div class="aside-tabs" role="tablist">
-					<button role="tab" aria-selected={tab === 'history' || !aside} class:on={tab === 'history' || !aside} onclick={() => (tab = 'history')}>History</button>
-					{#if aside}<button role="tab" aria-selected={tab === 'aside'} class:on={tab === 'aside'} onclick={() => (tab = 'aside')}>{asideName}</button>{/if}
-				</div>
-				<div role="tabpanel">
-					{#if tab === 'history' || !aside}{@render history()}{:else}{@render aside()}{/if}
-				</div>
-			{:else if aside}
-				{@render aside()}
-			{/if}
+			{@render aside()}
 		</aside>
 	{/if}
 
@@ -109,7 +98,7 @@
 			><Icon name={navIcon} size={20} /></button
 		>
 	{/if}
-	{#if aside || history}
+	{#if aside}
 		<button class="drawer right" aria-pressed={open === 'aside'} aria-label={asideLabel} onclick={() => (open = open === 'aside' ? '' : 'aside')}
 			><Icon name={asideIcon} size={20} /></button
 		>
@@ -137,30 +126,6 @@
 		grid-template-columns: 15.5rem minmax(0, 1fr) 21rem;
 	}
 
-	/* the right side's tabs: History, and the view's own */
-	.aside-tabs {
-		display: flex;
-		gap: 4px;
-		margin: 0 0 0.8rem 0.35rem;
-	}
-
-	.aside-tabs button {
-		font: inherit;
-		font-size: 0.82rem;
-		padding: 0.35rem 0.8rem;
-		border-radius: 999px;
-		border: 1px solid var(--line, #e5e1d8);
-		background: var(--paper, #fff);
-		color: inherit;
-		cursor: pointer;
-	}
-
-	.aside-tabs button.on {
-		background: var(--ink, #1f2b23);
-		color: var(--paper, #fff);
-		border-color: var(--ink, #1f2b23);
-	}
-
 	.side,
 	.middle {
 		min-width: 0;
@@ -180,13 +145,16 @@
 
 	.side {
 		/* the nav pill floats over the page: a side's last row scrolls clear of it */
-		padding: 0.4rem 0.8rem calc(var(--nav-room, 5rem) + 0.5rem);
+		/* its top padding, a token: Aside's tabs' band reaches up through it */
+		--side-pad-top: 0.4rem;
+		padding: var(--side-pad-top) 0.8rem calc(var(--nav-room, 5rem) + 0.5rem);
 		background: #efebe3;
 	}
 
 	/* under a head of the page's own, the notch is the head's to clear */
 	.bare .side {
-		padding-top: 1.2rem;
+		--side-pad-top: 1.2rem;
+		padding-top: var(--side-pad-top);
 	}
 
 	.side.left {
@@ -196,7 +164,9 @@
 	.side.right {
 		padding-inline: 1rem;
 		border-left: 1px solid var(--edge);
-		background: #f7f4ee;
+		/* the side's colour, one token: Aside's tabs' band reads it */
+		--side-bg: #f7f4ee;
+		background: var(--side-bg);
 	}
 
 	/* the left side's rows, one look in every view */
@@ -336,6 +306,10 @@
 	.shut {
 		place-items: center;
 		float: right;
+		/* over the tabs' band (Aside), pinned with it */
+		position: sticky;
+		top: -0.3rem;
+		z-index: 2;
 		width: 2rem;
 		height: 2rem;
 		margin: -0.3rem -0.3rem 0 0.3rem;
@@ -347,50 +321,42 @@
 		cursor: pointer;
 	}
 
+	.frame.float {
+		display: contents;
+	}
+
 	/* narrower: the right side slides in from the right */
-	@media (max-width: 1100px) {
-		.frame.has-aside {
-			grid-template-columns: minmax(0, 1fr);
-		}
+	.sliding .side.right {
+		position: fixed;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 41;
+		width: min(22rem, 86vw);
+		border-left: 0;
+		box-shadow: 0 0 40px rgb(0 0 0 / 0.18);
+		visibility: hidden;
+		transform: translateX(100%);
+		transition:
+			transform 240ms ease,
+			visibility 0s linear 240ms;
+	}
 
-		.frame.has-nav.has-aside {
-			grid-template-columns: 15.5rem minmax(0, 1fr);
-		}
+	.sliding.bare .side.right {
+		--side-pad-top: calc(1.2rem + env(safe-area-inset-top, 0px));
+		padding-top: var(--side-pad-top);
+	}
 
-		.side.right {
-			position: fixed;
-			top: 0;
-			right: 0;
-			bottom: 0;
-			z-index: 41;
-			width: min(22rem, 86vw);
-			border-left: 0;
-			box-shadow: 0 0 40px rgb(0 0 0 / 0.18);
-			visibility: hidden;
-			transform: translateX(100%);
-			transition:
-				transform 240ms ease,
-				visibility 0s linear 240ms;
-		}
+	.sliding .side.right.open {
+		visibility: visible;
+		transform: none;
+		transition: transform 240ms ease;
+	}
 
-		.bare .side.right {
-			padding-top: calc(1.2rem + env(safe-area-inset-top, 0px));
-		}
-
-		.side.right.open {
-			visibility: visible;
-			transform: none;
-			transition: transform 240ms ease;
-		}
-
-		.drawer.right,
-		.right .shut {
-			display: grid;
-		}
-
-		.scrim {
-			display: block;
-		}
+	.sliding .drawer.right,
+	.sliding .right .shut,
+	.sliding .scrim {
+		display: grid;
 	}
 
 	/* a phone: the left side slides in from the left too */

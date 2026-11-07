@@ -140,7 +140,7 @@ suite("the Factories on Loro", () => {
     ]);
     const asIf = (await call("ada", "GET", `/api/docs/${LT}?intent=${proposed.intent}`)).data;
     expect(asIf.json.line.stations[weld].servers).toBe(2);
-    expect(asIf.intent).toMatchObject({ id: proposed.intent, status: "proposal" });
+    expect(asIf.intent).toMatchObject({ id: proposed.intent, status: "proposed" });
     // the factory itself is as it was until it is accepted
     expect((await call("ada", "GET", `/api/docs/${LT}`)).data.json.line.stations[weld].servers).toBeUndefined();
 

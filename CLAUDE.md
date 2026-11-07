@@ -48,8 +48,8 @@ nothing). Once the change is done, **mark it ready for review**: `.github/workfl
 checks in avenBOX on GitHub on its head and records them with the head, the run's link and the pull request (**only
 the box's run is evidence**: play takes a code intent's test and measure results from avenBOX's token alone; looks you
 still record by hand with check_intent). Every must green, the intent moves to Proposal by itself: **stop there**; any
-red, the run turns it back into a draft: fix, push, mark it ready again. Each push to a ready pull request is run and
-recorded again.
+red, the intent stays in Build, failed on the board, its pull request as it is: fix and push. Each push to a ready pull
+request is run and recorded again (a newer head cancels the older head's run, which records nothing).
 **Never merge** into `main` or `production` by hand, and open no pull request into `production`. An admin's Accept on
 play's intents' board takes **only a waiting intent** (play/SPEC.md §4.12 *Sub-states*: its pull request's head the checked one, mergeable, its required checks green; working or failed, Accept is refused with why) and puts it in **Ship** at once: there it waits its turn (one ship at a time, in the order
 accepted) and for GitHub (the pull request's checks green, its mergeability worked out), its reason shown live, and
@@ -100,7 +100,7 @@ for every kind, by a document's UUID: `list_docs`, `doc_at` (a version, an edit 
 (edits, versions, variants), `doc_edit` (one edit of an intent variant, a new one seeded from Main if none is named)
 and `propose_doc_version` (its `variant`, or edits or the whole at once, with `intent`); each kind's own reads and
 creates stay where they hold more (`get_asset`, `get_story`, `propose_asset`, `propose_story`). Every view of a
-versioned thing shows its History in its own **History tab** on the right (`play/site/src/lib/app/History.svelte`), and
+versioned thing shows one aside on the right with its **Info and History** tabs centred on top, the same on a phone (`play/site/src/lib/app/Aside.svelte`, play/SPEC.md §4.15 *One aside*), and
 every review on the intents' board its changes through `Changes.svelte`. **A schema is a document** too (play/SPEC.md
 §4.15, `play/api/src/docs/schemas.ts`; Samuel 2026-11-06): every type of document is a versioned document `schema:<uuid>`
 of the meta-schema (its UUIDs `play/api/src/ids.ts` `SCHEMA`), never a type written in code; every document names the

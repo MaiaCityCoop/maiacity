@@ -240,7 +240,7 @@ describe("avenBOX's runner: its modes", () => {
     expect(other.code).toBe(1);
     expect(other.out).toContain("not recorded: the results are of intent");
     expect(calls).toEqual([]);
-    // a red must: recorded, and it exits 1 (the run then turns the pull request back into a draft)
+    // a red must: recorded, and it exits 1 (the intent then failed in Build, its pull request as it is)
     const red = JSON.parse(readFileSync(results, "utf8"));
     red.results[0].pass = false;
     writeFileSync(join(dir, "red.json"), JSON.stringify(red));
