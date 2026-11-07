@@ -1,0 +1,23 @@
+GPU: ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)
+base: Sandbox 1 up and settled after 58 s
+base sandbox-1 near: 34.3 ms/frame (p95 49.9), 5,946,533 tris drawn (max 5,946,533)
+base sandbox-1 mid: 35.3 ms/frame (p95 50.0), 6,228,173 tris drawn (max 6,228,173)
+base sandbox-1 far: 16.8 ms/frame (p95 16.8), 2,549,110 tris drawn (max 2,549,110)
+base sandbox-3 open: 753,562 tris drawn
+head: Sandbox 1 up and settled after 53 s
+head sandbox-1 near: 25.7 ms/frame (p95 33.4), 4,252,635 tris drawn (max 4,252,635)
+head sandbox-1 mid: 36 ms/frame (p95 50.0), 6,495,195 tris drawn (max 6,495,195)
+head sandbox-1 far: 21.2 ms/frame (p95 33.4), 3,712,983 tris drawn (max 3,712,983)
+head sandbox-3 open: 701,252 tris drawn
+┌───┬──────┬───────────┬──────┬───────────┬────────────────────┬─────────┬───────────┐
+│   │ site │ world     │ view │ frameMs   │ frameP95           │ tris    │ trisMax   │
+├───┼──────┼───────────┼──────┼───────────┼────────────────────┼─────────┼───────────┤
+│ 0 │ base │ sandbox-1 │ near │ 34.3      │ 49.90000000000873  │ 5946533 │ 5946533   │
+│ 1 │ base │ sandbox-1 │ mid  │ 35.3      │ 50                 │ 6228173 │ 6228173   │
+│ 2 │ base │ sandbox-1 │ far  │ 16.8      │ 16.79999999998836  │ 2549110 │ 2549110   │
+│ 3 │ base │ sandbox-3 │ open │ undefined │ undefined          │ 753562  │ undefined │
+│ 4 │ head │ sandbox-1 │ near │ 25.7      │ 33.400000000001455 │ 4252635 │ 4252635   │
+│ 5 │ head │ sandbox-1 │ mid  │ 36        │ 50                 │ 6495195 │ 6495195   │
+│ 6 │ head │ sandbox-1 │ far  │ 21.2      │ 33.39999999999418  │ 3712983 │ 3712983   │
+│ 7 │ head │ sandbox-3 │ open │ undefined │ undefined          │ 701252  │ undefined │
+└───┴──────┴───────────┴──────┴───────────┴────────────────────┴─────────┴───────────┘
