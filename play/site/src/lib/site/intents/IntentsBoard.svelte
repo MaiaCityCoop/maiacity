@@ -322,6 +322,7 @@
 	}
 	const stageName = (s: Stage) => COLUMNS.find(([x]) => x === s)?.[1] ?? s;
 	/** the intent's own dialog (its spec, checks and work), even where it is only its work */
+	const depsTitle = (i: Intent) => [i.depends_on?.length ? `Waits for: ${i.depends_on.map((d) => d.title).join(', ')}.` : '', i.needed_by?.length ? `Needed by: ${i.needed_by.map((d) => d.title).join(', ')}.` : ''].filter(Boolean).join(' ')
 	async function openIntentDialog(i: Intent) {
 		open = null;
 		intent = i;
@@ -436,13 +437,9 @@
 											<span class="date">{shortWhen(i.decided_at ?? i.created)}</span>
 										</span>
 									</button>
-									<!-- intents depend on intents: what it waits for (held while any is not shipped) and what waits on it, each opening that intent -->
+									<!-- intents depend on intents: one line, Held and counts; hover names them, the dialog lists them -->
 									{#if i.depends_on?.length || i.needed_by?.length}
-										<div class="deps">
-											{#if i.held_by?.length}<span class="held-tag" title="Held: not started nor taken further until every intent it depends on is shipped (Accepted)">Held</span>{/if}
-											{#if i.depends_on?.length}<span class="dep-line"><span class="muted">Waits for</span> {#each i.depends_on as d, j (d.id)}{j ? ' · ' : ''}<button class="link dep" class:shipped={d.stage === 'accepted'} onclick={() => openIntentOf(d.id)} title="{d.title} · {stageName(d.stage)}">{d.title}</button>{/each}</span>{/if}
-											{#if i.needed_by?.length}<span class="dep-line"><span class="muted">Needed by</span> {#each i.needed_by as d, j (d.id)}{j ? ' · ' : ''}<button class="link dep" onclick={() => openIntentOf(d.id)} title="{d.title} · {stageName(d.stage)}">{d.title}</button>{/each}</span>{/if}
-										</div>
+										<button class="deps" onclick={() => openIntentDialog(i)} title={depsTitle(i)}>{#if i.held_by?.length}<span class="held-tag">Held</span>{/if}<span>{[i.depends_on?.length ? `waits for ${i.depends_on.length}` : '', i.needed_by?.length ? `needed by ${i.needed_by.length}` : ''].filter(Boolean).join(' · ')}</span></button>
 									{/if}
 								</article>
 							{:else}
@@ -776,11 +773,9 @@
 	.card.item { border-left: 4px solid var(--kind); }
 	/* intents depend on intents: a held card dimmed and marked, its links to what it waits for and what waits on it */
 	.card.held { background: repeating-linear-gradient(135deg, transparent 0 8px, color-mix(in srgb, var(--muted, #777) 7%, transparent) 8px 16px), var(--card, #fff); }
-	.deps { display: grid; gap: 0.15rem; padding: 0 0.65rem 0.5rem; font-size: 0.74rem; line-height: 1.35; }
-	.dep-line { overflow-wrap: anywhere; }
-	.link.dep { font-weight: 500; }
-	.link.dep.shipped { text-decoration-style: dotted; color: var(--muted, #777); }
-	.held-tag { justify-self: start; display: inline-block; padding: 0 0.5em; border-radius: 999px; background: color-mix(in srgb, #9c3b22 15%, transparent); color: #9c3b22; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em; }
+	.deps { all: unset; box-sizing: border-box; display: block; width: 100%; cursor: pointer; padding: 0 0.65rem 0.5rem; font-size: 0.74rem; line-height: 1.35; color: var(--muted, #777); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.deps .held-tag { margin-right: 0.4em; }
+	.held-tag { display: inline-block; padding: 0 0.5em; border-radius: 999px; background: color-mix(in srgb, #9c3b22 15%, transparent); color: #9c3b22; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em; }
 	.dep-list { margin: 0.2rem 0; padding-left: 1.1rem; font-size: 0.85rem; }
 	.for { font-size: 0.76rem; color: var(--ink-soft, #4d5d51); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.for.done { color: var(--brand-green, #24452f); font-weight: 600; }
