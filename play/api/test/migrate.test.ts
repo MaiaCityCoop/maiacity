@@ -174,7 +174,7 @@ suite("migration 0032-versioned", () => {
     const edits = Number((await q(`SELECT count(*) AS n FROM play.doc_updates`))[0].n);
 
     // ---- 0032
-    expect(await migrate(db)).toEqual(["0032-versioned", "0033-breeds"]);
+    expect(await migrate(db, { until: "0032-versioned" })).toEqual(["0032-versioned"]);
     for (const [t, there] of [["doc_variants", true], ["doc_edits", true], ["doc_branches", false], ["doc_updates", false], ["proposal_ids", false]] as const)
       expect(!!(await q(`SELECT to_regclass('play.${t}') AS t`))[0].t).toBe(there);
     const cols = (await q(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'play' AND table_name = 'intents'`)).map((r) => r.column_name);
@@ -216,16 +216,16 @@ suite("migration 0032-versioned", () => {
   }, 60_000);
 });
 
-// Migration 0033-breeds and the import after it (play/SPEC.md "Breeds"; intent 7c8085db, its check c3): a database made
+// Migration 0034-breeds and the import after it (play/SPEC.md "Breeds"; intent 7c8085db, its check c3): a database made
 // at 0032 holding assets of variants (a plant's kinds, each its own recipe in every frozen version), one with its
 // document made already (its variants in Main) and one without, and a sandbox pinning a variant by its name. Migrated
 // and imported: every asset's variants are breeds of its document with the same sources and cards (each breed built
 // gives its variant's recipe hash of the newest version, byte for byte), Main holds none, and every frozen version, its
 // variants' rows and the pin are as they were.
-suite("migration 0033-breeds", () => {
+suite("migration 0034-breeds", () => {
   let admin: Bun.SQL, sql: Bun.SQL, name: string;
   beforeAll(async () => {
-    name = `play_migrate33_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+    name = `play_migrate34_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
     admin = new Bun.SQL(URL_!);
     await admin.unsafe(`CREATE DATABASE ${name}`);
     const u = new URL(URL_!);
@@ -289,8 +289,8 @@ suite("migration 0033-breeds", () => {
     ];
     const before = await frozen();
 
-    // ---- 0033, and the import's breeds
-    expect(await migrate(db)).toEqual(["0033-breeds"]);
+    // ---- 0033 and 0034, and the import's breeds
+    expect(await migrate(db)).toEqual(["0033-build", "0034-breeds"]);
     const { ensureAssetDocs } = await import("../src/assetdocs");
     const docs = await import("../src/docs");
     const report = await ensureAssetDocs(db, store, mkdtempSync(join(tmpdir(), "play-history-")));

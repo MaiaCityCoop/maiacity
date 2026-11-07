@@ -1101,13 +1101,26 @@ export const MIGRATIONS: Migration[] = [
     `,
   },
   {
+    // The intents' third stage is Build (intent 60f4f75c-666a-4eca-9bb2-4a29311afa6c, Samuel 2026-11-06): what is
+    // made there is the real change, built and checked in avenBOX. Every intent at 'prototype' moves to 'build' as it
+    // is (its spec, approval, results, pull request and work), and the stage 'prototype' is no more; no alias is kept.
+    // The Intents skill's text for the stage moves by its own proposal (play/SPEC.md §4.14), never here.
+    id: "0033-build",
+    sql: `
+      ALTER TABLE play.intents DROP CONSTRAINT intents_stage_check;
+      UPDATE play.intents SET stage = 'build' WHERE stage = 'prototype';
+      ALTER TABLE play.intents ADD CONSTRAINT intents_stage_check
+        CHECK (stage IN ('idea', 'specify', 'build', 'proposal', 'ship', 'accepted', 'archived'));
+    `,
+  },
+  {
     // Breeds (play/SPEC.md "Breeds", intent 7c8085db-ccdb-44cf-8d6c-0ff984d71f41, Samuel 2026-11-06): an asset's
     // variants become breeds, variants of its document beside Main (type 'breed', each with its name, only shown) that
     // keep tracking Main on every field they do not override (`overrides`, its paths). An intent variant grows from Main or from a breed
     // (`breed`), or makes a new breed (`makes`, its name); `main_seed` is Main's point it was made at, so a variant
     // grown from a breed still knows the version it was seeded from. The asset's frozen versions and their variants'
-    // rows stay as they are; each document's variants are turned into breeds by the import (../src/breeds.ts).
-    id: "0033-breeds",
+    // rows stay as they are; each document's variants are turned into breeds by the import (../src/assetdocs.ts breedsFromVariants).
+    id: "0034-breeds",
     sql: `
       ALTER TABLE play.doc_variants DROP CONSTRAINT doc_variants_type_check;
       ALTER TABLE play.doc_variants ADD CONSTRAINT doc_variants_type_check CHECK (type IN ('main', 'intent', 'breed'));

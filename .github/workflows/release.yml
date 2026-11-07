@@ -37,9 +37,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
+      # blobless (intent 5ab64b8e): the commits and trees the ancestry checks read, and no file's contents (17 s with
+      # them); the work tree only this file, so the checkout fetches no other blob either
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          filter: blob:none
+          sparse-checkout: .github/workflows/release.yml
+          sparse-checkout-cone-mode: false
       - name: production moves to the commit, fast-forward only
         env:
           SHA: ${{ github.event.workflow_run.head_sha || inputs.sha }}

@@ -1,12 +1,14 @@
 #!/bin/bash
 # avenBOX in a session (play/SPEC.md §4.12, "Checks run in avenBOX"): makes the box ready for every check a spec runs.
-# The SessionStart hook (.claude/settings.json) runs it as a cloud session starts; run it by hand any time. It
+# The SessionStart hook (.claude/settings.json) runs it as a cloud session starts; run it yourself any time. It
 #
 #   - starts PostgreSQL on 127.0.0.1:5432 if it is down (setup.sh first, if there is no cluster on that port), and
 #     waits until it answers;
 #   - writes TEST_DATABASE_URL (the URL play-checks.yml uses) into $CLAUDE_ENV_FILE, where the hook has one, so every
 #     command of the session has it;
 #   - installs a part's dependencies (play/api, play/site, website) where they are missing or older than its bun.lock.
+#
+# It is only the box: gate.sh and every check run call it too, so it says nothing about where it runs.
 #
 # On a ready box it takes well under 10 s and leaves the running server alone. It exits 1 only when Postgres can't be
 # made to answer.
