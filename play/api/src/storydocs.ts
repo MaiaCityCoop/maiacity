@@ -10,6 +10,7 @@ import type { Db, Queryable } from "./pg";
 import * as docs from "./docs";
 import type { StoryBody } from "./stories";
 import { versionAt } from "./versioned";
+import { SCHEMA } from "./ids";
 
 export const docIdOf = (story: string) => `story:${story}`;
 export const asDoc = (title: string, body: StoryBody) => ({ ...body, schema: "story/1", title });
@@ -44,10 +45,10 @@ export async function ensureStoryDoc(q: Queryable, story: string): Promise<strin
       `SELECT id, number, title, body, note, author, approved_by, created FROM play.story_versions WHERE story_id = $1 AND number IS NOT NULL ORDER BY number`,
       [story],
     );
-    if (!vs.length) await docs.createDoc(q, { id, schema: "story/1", json: BLANK(s[0].title), author: { human: null, via: "system" }, message: "a new story, not yet accepted" });
+    if (!vs.length) await docs.createDoc(q, { id, schema: SCHEMA.story, json: BLANK(s[0].title), author: { human: null, via: "system" }, message: "a new story, not yet accepted" });
     for (const v of vs) {
       const json = asDoc(v.title, v.body), author: docs.Author = { human: v.author, via: "import" };
-      if (v.number === 1) await docs.createDoc(q, { id, schema: "story/1", json, author, message: `v1: ${v.note || "the first version"}`, at: v.created, version: v.note });
+      if (v.number === 1) await docs.createDoc(q, { id, schema: SCHEMA.story, json, author, message: `v1: ${v.note || "the first version"}`, at: v.created, version: v.note });
       else {
         await docs.commit(q, id, { target: json, message: `v${v.number}: ${v.note || "a new version"}`, author, kind: "import", at: v.created });
         await docs.nameVersion(q, id, { note: v.note, author: { human: v.approved_by, via: "import" }, at: v.created });

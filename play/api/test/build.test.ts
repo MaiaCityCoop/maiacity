@@ -14,7 +14,7 @@ import { folderStore } from "../src/blobs";
 import { MIGRATIONS, migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
 import { Rate } from "../src/limits";
-import { SKILL as SKILL_DOC, SKILL_STAGES } from "../src/docs/schema";
+import { SKILL_STAGES } from "../src/skills";
 import { SKILL } from "../src/ids";
 import { seedDoc } from "../src/versioned";
 import { avenmaia, intents } from "../import/skills";
@@ -44,8 +44,7 @@ suite("the stage Build (migration 0033-build)", () => {
     u.pathname = `/${name}`;
     sql = new Bun.SQL(u.toString());
     db = fromBunSql(sql);
-    // production's database: every migration but 0033-build (those after it, such as 0034-intent-depends, only add
-    // tables beside it, which today's code reads)
+    // production's database: every migration but 0033-build (those after it too, so today's store writes its documents)
     await db.exec(`CREATE SCHEMA IF NOT EXISTS play; CREATE TABLE IF NOT EXISTS play.migrations (id TEXT PRIMARY KEY, ran TIMESTAMPTZ NOT NULL DEFAULT now());`);
     for (const m of MIGRATIONS.filter((m) => m.id !== "0033-build"))
       await db.transaction(async (tx) => (await tx.query(m.sql), await tx.query(`INSERT INTO play.migrations (id) VALUES ($1)`, [m.id])));
@@ -57,16 +56,10 @@ suite("the stage Build (migration 0033-build)", () => {
     }
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
     token = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data.token;
-    // the skills as production holds them: the Intents skill's v1 written under the schema it was written under, when
-    // a stage was named prototype (the schema takes it for this one write, and is as the code has it again after)
+    // the skills as production holds them: the Intents skill's v1 written when a stage was named prototype (the skill
+    // schema's v1 still takes that part, migrations/schemas/skill.json)
     await seedDoc(db, "skill", { id: SKILL.avenmaia, json: avenmaia(), note: "First version" });
-    const stages = (SKILL_DOC.schema as any).properties.stages.properties;
-    stages.prototype = stages.build;
-    try {
-      await seedDoc(db, "skill", { id: SKILL.intents, json: productionV1(), note: "First version" });
-    } finally {
-      delete stages.prototype;
-    }
+    await seedDoc(db, "skill", { id: SKILL.intents, json: productionV1(), note: "First version" });
   });
 
   afterAll(async () => {

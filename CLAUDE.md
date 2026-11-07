@@ -27,7 +27,8 @@ the very tree the pull request's run tested (`.github/workflows/tested-tree.sh`)
 its code and its checks are done in a cloud session on avenBOX, `env_011Zm65erarH7ffXio13u5pG`, the only environment
 with play's MCP token and the box. A session that finds itself elsewhere, without play's MCP (no `PLAY_MCP_TOKEN`; on a
 Mac, in the Default environment), starts a session on avenBOX with the work's brief and hands it over: it builds,
-pushes and records nothing itself. One intent has one builder session.
+pushes and records nothing itself (the SessionStart hook says so as such a session starts; no check run prints it).
+One intent has one builder session.
 
 Before you push, run the checks of what you touched, in **avenBOX** (the cloud environment the agents work in; play/SPEC.md
 §4.12): `bash play/avenbox/gate.sh` runs what CI runs (in `play/api` `bunx tsc --noEmit` and `bun test`, none skipped,
@@ -83,7 +84,13 @@ for every kind, by a document's UUID: `list_docs`, `doc_at` (a version, an edit 
 and `propose_doc_version` (its `variant`, or edits or the whole at once, with `intent`); each kind's own reads and
 creates stay where they hold more (`get_asset`, `get_story`, `propose_asset`, `propose_story`). Every view of a
 versioned thing shows its History in its own **History tab** on the right (`play/site/src/lib/app/History.svelte`), and
-every review on the intents' board its changes through `Changes.svelte`. The agent also reads and proposes
+every review on the intents' board its changes through `Changes.svelte`. **A schema is a document** too (play/SPEC.md
+§4.15, `play/api/src/docs/schemas.ts`; Samuel 2026-11-06): every type of document is a versioned document `schema:<uuid>`
+of the meta-schema (its UUIDs `play/api/src/ids.ts` `SCHEMA`), never a type written in code; every document names the
+schema's UUID and version it was written against, and every edit is checked against the schema's Main. A schema
+changes by an intent variant like any document, and its Accept is refused while any document on Main fails it; a new
+type is a schema document and its intent (`propose_doc_version`'s `kind: "schema"`), no code; admins see them on
+`/schemas/`. Never by a migration. The agent also reads and proposes
 **stories** (`list_stories`, `get_story`, `propose_story`, `add_story_frame`, `add_story_audio`, `add_story_video`, and
 the doc tools; play/SPEC.md §12): a film as one timeline of tracks and clips (storyboard shots, each a still and, once made, its video; voice, notes, and
 the sound: voice takes, music, sfx and beds, each a recording on its clip, played in the Stories player),

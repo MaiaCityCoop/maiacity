@@ -1114,10 +1114,31 @@ export const MIGRATIONS: Migration[] = [
     `,
   },
   {
+    // Schemas as documents (play/SPEC.md "Version control", Samuel 2026-11-06): every schema a document schema:<uuid>
+    // of the meta-schema, made by ensureSchemas (src/docs/schemas.ts) at the end of migrate(); here only what it needs.
+    id: "0034-schemas",
+    sql: `
+      -- every document names the schema it was written against, by its UUID, and that schema's version
+      ALTER TABLE play.docs ADD COLUMN schema_id UUID, ADD COLUMN schema_version INT;
+      COMMENT ON COLUMN play.docs.schema IS 'the schema''s old name (story/1 …): only shown; a document names its schema by schema_id';
+      CREATE INDEX ix_docs_schema ON play.docs (schema_id);
+      -- the rows of the kinds no table of their own holds: the schemas, and every kind that is a schema alone
+      CREATE TABLE play.records (
+        id      UUID PRIMARY KEY,
+        coop_id UUID NOT NULL REFERENCES play.coops(id),
+        kind    TEXT NOT NULL CHECK (kind ~ '^[a-z][a-z_]{0,31}$'),
+        label   TEXT NOT NULL,
+        created TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX ix_records_kind ON play.records (kind);
+    `,
+  },
+  {
     // intents depend on intents (play/SPEC.md §4.12, Samuel 2026-11-06): one edge per pair, the intent held at every
     // forward gate while the one it depends on is not shipped (src/intents.ts mayMove); no edge to itself, no cycle
     // (refused when an edge is added)
-    id: "0034-intent-depends",
+    id: "0035-intent-depends",
     sql: `
       CREATE TABLE play.intent_depends (
         intent_id  UUID NOT NULL REFERENCES play.intents(id) ON DELETE CASCADE,
