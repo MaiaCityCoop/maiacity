@@ -3,7 +3,7 @@
  * key and no network; every request a run makes is logged, so "before any network call" is the log being empty.
  */
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -19,7 +19,11 @@ function run(tool: "sheet.ts" | "sheet-edit.ts", args: string[], env: Record<str
   const base = tool === "sheet.ts"
     ? ["--kind", "plant", "--brief", brief, "--out", join(tmp, "out"), "--no-upload"]
     : ["--sheet", sheet, "--fix", fix, "--out", join(tmp, "out", "sheet-3"), "--no-upload"];
-  const clean = { ...process.env } as Record<string, string>;
+  // ImageMagick stubbed too (a runner may not have it): `convert <in> … <out>` copies in to out
+  const bin = join(tmp, "bin");
+  mkdirSync(bin);
+  writeFileSync(join(bin, "convert"), '#!/bin/sh\nfor last; do :; done\ncp "$1" "$last"\n', { mode: 0o755 });
+  const clean = { ...process.env, PATH: `${bin}:${process.env.PATH}` } as Record<string, string>;
   delete clean.FAL_KEY; delete clean.FAL_API_KEY; delete clean.PLAY_MCP_TOKEN;
   const p = Bun.spawnSync(["bun", "--preload", join(dir, "test", "stub-fal.ts"), join(dir, tool), ...base, ...args], {
     env: { ...clean, STUB_LOG: log, ...env },
