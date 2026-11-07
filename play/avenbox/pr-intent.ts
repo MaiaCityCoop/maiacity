@@ -7,7 +7,7 @@
 //   bun play/avenbox/pr-intent.ts <pull request number>          the check: green, or red saying why (exit 1)
 //   bun play/avenbox/pr-intent.ts <pull request number> --id     prints the one intent's UUID, or fails as the check
 //
-// It is red when the pull request names no intent or more than one; names one that is not at Prototype, Proposal or
+// It is red when the pull request names no intent or more than one; names one that is not at Build, Proposal or
 // Ship (or none play knows); or is not the intent's active pull request while that one is open, saying which to
 // consolidate into, or to close this one. It reads GitHub (GITHUB_API_URL, GITHUB_REPOSITORY, GITHUB_TOKEN: read only)
 // and play (get_intent over its MCP: PLAY_MCP_URL, PLAY_MCP_TOKEN). It runs from main, in
@@ -15,7 +15,7 @@
 
 export const UUID_IN = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const LINE = /^\s*Intent:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s*$/gim;
-const LIVE = ["prototype", "proposal", "ship"];
+const LIVE = ["build", "proposal", "ship"];
 
 /** the intents a text names on its `Intent: <uuid>` lines, lower case */
 export const intentsIn = (text: string | null | undefined) => [...`${text ?? ""}`.matchAll(LINE)].map((m) => m[1].toLowerCase());
@@ -60,7 +60,7 @@ export async function judge(n: number, env: Env): Promise<Verdict> {
   if (!res || res.isError) return { ok: false, intent, why: `#${n} names intent ${intent}, which play does not know: ${res?.content?.[0]?.text ?? "no answer"}.`, notes };
   const it = JSON.parse(res.content[0].text);
   if (!LIVE.includes(it.stage))
-    return { ok: false, intent, why: `#${n} names intent ${intent}, which is at the ${it.stage} stage: a pull request is the work of an intent at Prototype, Proposal or Ship.`, notes };
+    return { ok: false, intent, why: `#${n} names intent ${intent}, which is at the ${it.stage} stage: a pull request is the work of an intent at Build, Proposal or Ship.`, notes };
   const active = it.pull_request as number | null;
   if (active && active !== n) {
     const other = await getJson(`${base}/pulls/${active}`, gh).catch(() => null);

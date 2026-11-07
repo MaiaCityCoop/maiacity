@@ -1,6 +1,6 @@
 #!/bin/bash
 # avenBOX's setup (play/SPEC.md §4.12, "Checks run in avenBOX"). avenBOX is the cloud environment our agents work on
-# play in (env_01BqgqGckrzz4FdXd8SD4HHd); its own setup script only finds this file, wherever the repository is cloned,
+# play in (env_011Zm65erarH7ffXio13u5pG); its own setup script only finds this file, wherever the repository is cloned,
 # and runs it as root when a container is built fresh, before the session starts. It
 #
 #   - installs PostgreSQL 17, the major CI runs (postgres:17-alpine in .github/workflows/play-checks.yml), from

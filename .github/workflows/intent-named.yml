@@ -1,7 +1,7 @@
 # Intent named (play/SPEC.md §4.12, "Every pull request names its one intent"; Samuel 2026-11-06): a required check of
 # main's ruleset. Every pull request into main is the work of exactly one intent, named by its full UUID on a line
 # `Intent: <uuid>` in its body and its commits (its title shows the first 8 characters, only shown); the intent at
-# Prototype, Proposal or Ship; and the intent's one active pull request while that one is open. The logic is
+# Build, Proposal or Ship; and the intent's one active pull request while that one is open. The logic is
 # play/avenbox/pr-intent.ts, main's own: on pull_request_target this workflow and that file are always main's, and the
 # pull request is only read through GitHub's API, never checked out. It reads play with avenBOX's token
 # (PLAY_MCP_TOKEN), never handed to anything of the pull request's.

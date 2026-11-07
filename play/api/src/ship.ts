@@ -20,7 +20,7 @@
 // While an intent is in Ship, the ship watcher (every 10 s, in play-api; its state is the intent's `ship` in Postgres,
 // so it resumes after a restart) reads GitHub's Actions for the merge commit: main.yml's run (main's checks), then
 // release.yml's (.github/workflows/release.yml: production moved to the commit once main is green), then production.yml's
-// and its jobs (Main is green, The image, the backup inside The server, The server, The website). Each step is kept on the
+// and its jobs (The image and The backup side by side, then The server; The website beside them). Each step is kept on the
 // intent as it changes (queued, running, green, red; when; its link). All green: Accepted. Any red: back to Proposal,
 // with the report (the step, its link, the failed job's last log lines), from where Accept ships it again: a newer
 // pull request of it merged, or, its pull request merged already, main's failed jobs run again (a red on main) or the
@@ -87,13 +87,13 @@ export const STEPS: { key: string; name: string; job?: string; step?: string }[]
   { key: "merged", name: "Merged into main" },
   { key: "main", name: "main's checks" },
   { key: "release", name: "Release" },
-  { key: "main-green", name: "Main is green", job: "Main is green" },
   { key: "image", name: "The image", job: "The image" },
-  { key: "backup", name: "Backup", job: "The server", step: "Back up play" },
+  { key: "backup", name: "Backup", job: "The backup" },
   { key: "server", name: "The server", job: "The server" },
   { key: "website", name: "The website", job: "The website" },
 ];
 const DEPLOY = STEPS.filter((s) => s.job);
+const KEYS = new Set(STEPS.map((s) => s.key));
 
 // ---- GitHub, through its REST API with SHIP_TOKEN
 
@@ -542,7 +542,8 @@ export async function advance(gh: GitHub, was: Ship, at = Date.now()): Promise<S
     ship.outcome = "red";
     ship.ended = new Date(at).toISOString();
     ship.again = failed.key === "main" ? "main" : "release";
-  } else if (ship.steps.every((s) => done(s.state))) {
+  } else if (ship.steps.every((s) => done(s.state) || !KEYS.has(s.key))) {
+    // a step the way no longer has (a ship begun before it changed: Main is green, intent 5ab64b8e) waits for nothing
     ship.outcome = "green";
     ship.ended = new Date(at).toISOString();
   }

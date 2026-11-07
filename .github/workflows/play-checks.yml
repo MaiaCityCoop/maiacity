@@ -1,5 +1,10 @@
-# play's checks, called by main.yml and production.yml: the API's tests against a real Postgres (play/api/test), its
-# types, and the site's build (play/site), which also holds the copied modules to resolving.
+# play's checks, called by main.yml: the API's tests against a real Postgres (play/api/test), its types, and the site's
+# build (play/site), which also holds the copied modules to resolving.
+#
+# On a pull request they always run in full, and end by noting the tree they tested ("Tested tree"). On a push to main
+# (intent 5ab64b8e) they pass without running again only when the pushed tree is that very tree, for the pull request
+# merged as the commit (./tested-tree.sh asks GitHub's API); anything else, or any doubt, runs them in full. Postgres is
+# started only when they run.
 name: play checks
 
 on:
@@ -13,29 +18,48 @@ jobs:
     name: API and site
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_PASSWORD: play
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 20
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
+      - name: The tested tree
+        id: tested
+        if: github.event_name == 'push'
+        env:
+          EVENT: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          CHECK: play / API and site
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/workflows/tested-tree.sh
+      - name: Postgres
+        if: steps.tested.outputs.skip != 'true'
+        run: docker run -d --name postgres -e POSTGRES_PASSWORD=play -p 5432:5432 postgres:17-alpine
       - uses: oven-sh/setup-bun@v2
+        if: steps.tested.outputs.skip != 'true'
         with:
           bun-version: 1.4.4
       - name: The API
+        if: steps.tested.outputs.skip != 'true'
         working-directory: play/api
         env:
           TEST_DATABASE_URL: postgres://postgres:play@localhost:5432/postgres
         run: |
           bun install --frozen-lockfile
           bunx tsc --noEmit -p .
+          # over TCP: the image's first start (initdb) answers only on its socket until it is ready
+          for i in $(seq 1 60); do docker exec postgres pg_isready -h 127.0.0.1 -U postgres > /dev/null && break; sleep 1; done
+          docker exec postgres pg_isready -h 127.0.0.1 -U postgres
           bun test
       - name: The site
+        if: steps.tested.outputs.skip != 'true'
         working-directory: play/site
         run: |
           bun install --frozen-lockfile
           bun run build
+      - name: Tested tree
+        if: steps.tested.outputs.skip != 'true'
+        run: echo "::notice title=Tested tree::$(git rev-parse 'HEAD^{tree}')"

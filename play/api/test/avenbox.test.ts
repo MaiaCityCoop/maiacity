@@ -90,7 +90,7 @@ suite("avenBOX's runner", () => {
     // before its spec is approved it runs, but nothing is recorded
     const early = await runner(i.id, "--record");
     expect(early.out).toContain("not recorded");
-    expect(early.out).toContain("prototyped");
+    expect(early.out).toContain("being built");
     await fetch(`${server.url}api/intents/${i.id}/approve`, { method: "POST", headers: { cookie: ada.cookie } });
 
     const dry = await runner(i.id);
@@ -169,7 +169,7 @@ describe("avenBOX's runner: its modes", () => {
     async fetch(req) {
       const { params } = (await req.json()) as any;
       calls.push({ name: params.name, args: params.arguments, auth: req.headers.get("authorization") ?? "" });
-      const out = params.name === "get_intent" ? { id: ID, stage: "prototype", title: "The box", spec: SPEC } : { id: ID, stage: "prototype" };
+      const out = params.name === "get_intent" ? { id: ID, stage: "build", title: "The box", spec: SPEC } : { id: ID, stage: "build" };
       return Response.json({ jsonrpc: "2.0", id: 1, result: { content: [{ type: "text", text: JSON.stringify(out) }] } });
     },
   });
@@ -197,7 +197,7 @@ describe("avenBOX's runner: its modes", () => {
     calls.length = 0;
     const r = await run([ID, "--spec-out", join(dir, "spec.json")]);
     expect(r.code).toBe(0);
-    expect(JSON.parse(readFileSync(join(dir, "spec.json"), "utf8"))).toEqual({ intent: { id: ID, stage: "prototype", title: "The box" }, checks: SPEC.checks });
+    expect(JSON.parse(readFileSync(join(dir, "spec.json"), "utf8"))).toEqual({ intent: { id: ID, stage: "build", title: "The box" }, checks: SPEC.checks });
     expect(calls.map((c) => c.name)).toEqual(["get_intent"]);
   });
 

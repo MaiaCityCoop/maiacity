@@ -498,9 +498,13 @@ suite("play API", () => {
     await expect(db.query(`UPDATE play.asset_versions SET note = 'x' WHERE asset_id = $1`, [thyme])).rejects.toThrow(/frozen/);
     await expect(db.query(`UPDATE play.asset_variants SET source_hash = NULL WHERE recipe_hash = $1`, [hen])).rejects.toThrow(/never changed/);
     await expect(db.query(`UPDATE play.asset_variants SET card = '{}' WHERE recipe_hash = $1`, [hen])).rejects.toThrow(/never changed/);
-    // an index that says the wrong version, or a source that is not its hash, is refused
-    index({ [own]: { asset: "plants/thyme-old", v: 2, variant: null, source: src, commit: "c" } });
-    expect((await importSources(db, store, dir)).errors[0]).toMatch(/builds thyme-old@1, not plants\/thyme-old@2/);
+    // an index that says the wrong version, for a version that lacks its source, or a source that is not its hash, is refused
+    const sage = await put(recipe("sage-old", 1)), sageId = "8a1e2b44-0000-4000-8000-000000000003";
+    await db.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, '12f8d4e7-701f-8727-a327-de9b240ea867', 'plants', 'sage-old', 'Sage')`, [sageId]);
+    await db.query(`INSERT INTO play.asset_versions (id, asset_id, number, recipe_hash, default_variant, card, engine, imported) VALUES ($1, $2, 1, $3, NULL, '{"card":{}}', 5, '{"from":"avendb"}')`, [hashText("sage-old@1"), sageId, sage]);
+    index({ [sage]: { asset: "plants/sage-old", v: 2, variant: null, source: src, commit: "c" } });
+    expect((await importSources(db, store, dir)).errors[0]).toMatch(/builds sage-old@1, not plants\/sage-old@2/);
+    expect((await db.query(`SELECT source_hash FROM play.asset_versions WHERE asset_id = $1`, [sageId])).rows[0].source_hash).toBeNull();
     index({}, legacy + "// changed\n");
     expect((await importSources(db, store, dir)).errors[0]).toMatch(/its text is not/);
   });

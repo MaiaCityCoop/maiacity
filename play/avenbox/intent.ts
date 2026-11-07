@@ -2,7 +2,7 @@
 // An intent's checks, run in avenBOX (play/SPEC.md §4.12, "Only the box's run is evidence"; Samuel 2026-11-06):
 //
 //   bun play/avenbox/intent.ts <intent-uuid> [--only c1,c3] [--no-up] [--timeout <seconds>]
-//       runs the checks and prints them, recording nothing: how an agent tests itself while prototyping, anywhere.
+//       runs the checks and prints them, recording nothing: how an agent tests itself while building, anywhere.
 //   bun play/avenbox/intent.ts <intent-uuid> --spec-out <file>
 //       writes the intent's spec (its checks) to a file, running nothing: intents-pr.yml's spec job, main's own code.
 //   bun play/avenbox/intent.ts --from <spec file> --results-out <file> [--root <dir>] [--where avenBOX|main]

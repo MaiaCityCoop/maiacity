@@ -1,10 +1,10 @@
-# An intent's checks on its pull request, in avenBOX on GitHub (play/SPEC.md §4.12, "Prototype is fast and untrusted;
-# ready promotes to Proposal", "Only the box's run is evidence"; Samuel 2026-11-06). While the intent is prototyped its
+# An intent's checks on its pull request, in avenBOX on GitHub (play/SPEC.md §4.12, "Build is fast and untrusted;
+# ready promotes to Proposal", "Only the box's run is evidence"; Samuel 2026-11-06). While the intent is in Build its
 # pull request is a draft, and nothing runs here: the agent tests itself, anywhere (play/avenbox/intent.ts without
 # --record). Marking it ready for review runs the intent's checks in the box (play/avenbox/setup.sh, PostgreSQL 17,
 # bun 1.4.4) on the pull request's head and records them on the intent with that head, this run's link and the pull
 # request (which becomes the intent's active one): every must green, the intent moves to Proposal; any must red, it
-# stays in (or goes back to) Prototype with the failures, and this run turns the pull request back into a draft. Each
+# stays in (or goes back to) Build with the failures, and this run turns the pull request back into a draft. Each
 # new push to a ready pull request runs and records again on the new head, so Accept merges only a head every must
 # passed on (play/api/src/ship.ts).
 #
@@ -138,4 +138,4 @@ jobs:
           NODE: ${{ github.event.pull_request.node_id }}
         run: |
           gh api graphql -f query='mutation($id: ID!) { convertPullRequestToDraft(input: { pullRequestId: $id }) { pullRequest { isDraft } } }' -f id="$NODE"
-          echo "::error::A must check failed in avenBOX: the pull request is a draft again, the intent in Prototype. Fix it, push, and mark it ready."
+          echo "::error::A must check failed in avenBOX: the pull request is a draft again, the intent in Build. Fix it, push, and mark it ready."
