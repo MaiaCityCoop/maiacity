@@ -14,7 +14,8 @@ import { COOP } from "./access";
 import * as docs from "./docs";
 import type { Queryable } from "./pg";
 import { UUID } from "./uuid";
-import { gate, IntentError } from "./intents";
+import { decisions, gate, IntentError, type By } from "./intents";
+import { SCHEMA } from "./ids";
 
 /** what a piece of work names: its kind ("<kind>_version" of a versioned kind, ./versioned.ts) and its refs (play.intents' work columns, and its document's variant: play.intent_variants) */
 export type Work = {
@@ -116,7 +117,11 @@ export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string 
   if (!o.intent) throw new WorkError(NO_INTENT, 400);
   const was = await workOf(q, o.intent, true);
   if (!was) throw new WorkError("There is no such intent.", 404);
-  const no = await gate.mayMove(q, was.id, "work").catch((e) => (e instanceof IntentError ? { why: e.message } : Promise.reject(e)));
+  // the kind of work it is (an intent that declares its kinds takes only those): its document's schema
+  const schema = o.work.doc_id
+    ? (await q.query<{ schema_id: string | null }>(`SELECT schema_id FROM play.docs WHERE id = $1`, [o.work.doc_id])).rows[0]?.schema_id ?? null
+    : o.work.story_id ? SCHEMA.story : o.work.asset_id ? SCHEMA.asset : null;
+  const no = await gate.mayMove(q, was.id, "work", { schema }).catch((e) => (e instanceof IntentError ? { why: e.message } : Promise.reject(e)));
   if (no) throw new WorkError(no.why, 409);
   const id: string = was.id;
   // variants of work decided before (archived, the intent back in Build) are no longer its work
@@ -129,7 +134,7 @@ export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string 
     await q.query(`UPDATE play.intents SET work = $${n}, ${set} WHERE id = $1`, [id, ...cols, o.work.kind]);
   }
   await q.query(
-    `UPDATE play.intents SET work_note = $2, proposed_by = $3, proposed_via = $4, proposed_at = now(), stage = 'proposal', decided_by = NULL, decided_at = NULL WHERE id = $1`,
+    `UPDATE play.intents SET work_note = $2, proposed_by = $3, proposed_via = $4, proposed_at = now(), stage = 'proposal', decided_by = NULL, decided_at = NULL, auto = auto - 'accept' WHERE id = $1`,
     [id, o.note, who.id, o.via],
   );
   if (o.work.doc_id && o.work.doc_variant != null) await holdVariant(q, who, id, o.work.doc_id, Number(o.work.doc_variant));
@@ -142,13 +147,20 @@ export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string 
  * intent with work has an approved spec), its results cleared, to be built again on the new head. Its stage is what it
  * settled to.
  */
-export async function settle(q: Queryable, id: string, outcome: "accepted" | "archived", by: string | null): Promise<string> {
+export async function settle(q: Queryable, id: string, outcome: "accepted" | "archived", by: By | null): Promise<string> {
+  // accepted: the one decision path (./intents.ts decided), a person's or a rule's
+  if (outcome === "accepted") {
+    await decisions.decided(q, id, "accept_work", by ?? "");
+    return "accepted";
+  }
+  if (by !== null && typeof by !== "string") throw new WorkError("A rule only accepts: archiving is a person's, or the work's own.", 500);
   const { rows } = await q.query<{ stage: string }>(
     `UPDATE play.intents SET
         stage = CASE WHEN $2 = 'accepted' THEN 'accepted' WHEN $3::text IS NULL THEN 'build' ELSE 'archived' END,
         results = CASE WHEN $2 = 'archived' AND $3::text IS NULL THEN NULL ELSE results END,
         decided_by = CASE WHEN $2 = 'archived' AND $3::text IS NULL THEN NULL ELSE $3 END,
-        decided_at = CASE WHEN $2 = 'archived' AND $3::text IS NULL THEN NULL ELSE now() END
+        decided_at = CASE WHEN $2 = 'archived' AND $3::text IS NULL THEN NULL ELSE now() END,
+        auto = auto - 'accept'
       WHERE id = $1 RETURNING stage`,
     [id, outcome, by],
   );

@@ -18,6 +18,7 @@ import { Rate } from "../src/limits";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
 import { seedDoc } from "../src/versioned";
+import { RULE, SCHEMA } from "../src/ids";
 
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;
@@ -126,8 +127,8 @@ suite("no write past an Accept", () => {
     // no work without an intent: each call below that brings work names one ready for it
     const forWork: Record<string, string> = {};
     for (const k of ["propose_asset", "propose_doc_version", "propose_story", "add_artifact", "update_artifact", "page", "board"]) forWork[k] = await readyIntent(`Work of ${k}`);
-    const S0 = await mains();
-    expect([...S0.keys()].filter((id) => !id.startsWith("schema:")).length).toBe(6);
+    let S0 = await mains();
+    expect([...S0.keys()].filter((id) => !id.startsWith("schema:") && !id.startsWith("rules:")).length).toBe(6);
 
     // every tool that is not a read, called with work it takes
     const CALLS: Record<string, Record<string, unknown>> = {
@@ -145,14 +146,23 @@ suite("no write past an Accept", () => {
       archive_intent: { intent: own.intent },
       depend_intent: { intent: fresh, on: checked },
       step_back_intent: { intent: checked, reason: "back to Specify, for a test" },
-      add_artifact: { ...ARTIFACT("https://nobypass.example/new"), intent: forWork.add_artifact },
-      update_artifact: { artifact: art.id, title: "A page, corrected", intent: forWork.update_artifact },
+      // no tap for an artifact (intent de24f1c5): with no intent named, each makes its own, which the first rule accepts
+      add_artifact: { ...ARTIFACT("https://nobypass.example/new") },
+      update_artifact: { artifact: art.id, title: "A page, corrected" },
     };
     const names: string[] = (await rpc("tools/list")).tools.map((t: any) => t.name);
     expect(names.filter((x) => !READS.includes(x)).sort()).toEqual(Object.keys(CALLS).sort());
     const waiting: string[] = [];
     for (const [name, args] of Object.entries(CALLS)) {
       const r = await tool(name, args);
+      if (name === "add_artifact" || name === "update_artifact") {
+        // Main written only by its own intent's Accept, by the first rule
+        const i = await tool("get_intent", { intent: r.intent });
+        expect([name, i.stage, i.auto?.accept?.rule, i.decided_by, i.work_kind]).toEqual([name, "accepted", RULE.artifacts, null, [SCHEMA.artifact]]);
+        expect([name, moved(S0, await mains())]).toEqual([name, [`artifact:${r.id}`]]);
+        S0 = await mains();
+        continue;
+      }
       expect([name, moved(S0, await mains())]).toEqual([name, []]);
       if (r?.intent && r.stage === "proposal") waiting.push(r.intent);
     }
@@ -205,7 +215,8 @@ suite("no write past an Accept", () => {
     }
 
     // then each waiting intent accepted, one at a time: only its Accept moves Main, of the documents it holds
-    expect(waiting.length).toBeGreaterThanOrEqual(6);
+    // (the two artifacts accepted by the first rule above wait for no one)
+    expect(waiting.length).toBeGreaterThanOrEqual(4);
     let was = await mains();
     for (const id of [...new Set(waiting)]) {
       const review = (await call("ada", "GET", `/api/intents/${id}`)).data.review;

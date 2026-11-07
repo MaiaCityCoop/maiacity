@@ -59,4 +59,16 @@ export const SCHEMA = {
   sandbox: "0b202f27-0682-47b5-a819-4ac6bec07ff2",
   /** an artifact (../artifacts.ts): a link from the net Maia City keeps, its texts and its authors */
   artifact: "e09c47a2-e3eb-4d9c-89dd-0e95843b7c26",
+  /** the auto-accept rules (../rules.ts, play/SPEC.md §4.12 "Auto-accept rules"): which intents pass Approve spec or Accept with no person */
+  rules: "d07ab5fe-26e6-486e-b6f3-8a1cc383dfee",
+} as const;
+
+/** the one rule set, `rules:<RULES>` (play/SPEC.md §4.12 "Auto-accept rules", intent de24f1c5): its Main is the rules in
+ *  force, its v1 made at migrate's end where absent (../rules.ts ensureRules), every later version a person's Accept */
+export const RULES = "04af594a-fcfb-4770-b208-35e224e00d2a";
+
+/** the rules play's code names (each only as the rule set's v1 holds it; Main is what is in force) */
+export const RULE = {
+  /** the first rule (Samuel 2026-11-07): an artifact added or corrected over MCP needs no tap */
+  artifacts: "0f05a3ee-1aa8-43a2-a3e8-958456f04128",
 } as const;

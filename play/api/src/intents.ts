@@ -2,13 +2,16 @@
 // UUID, its work on the intent itself (./work.ts). Idea → Specify → Build → Proposal → (Ship →) Accepted (or Archived).
 // Agents add, specify and build it over MCP; an admin approves its spec and decides it at Proposal, where work of play's
 // is applied (./versioned.ts decide) and code is shipped (./ship.ts). Every move forward is one gate, mayMove.
-import { Denied, COOP, type Me } from "./access";
+import { Denied, COOP, meOf, type Me } from "./access";
+import type { BlobStore } from "./blobs";
 import type { Db, Queryable } from "./pg";
+import { factsOf, matchRule, ruleSetOf, type AutoBy } from "./rules";
+import type { GitHub } from "./ship";
 import { NOTE_MOST } from "./notes";
 import { briefOf } from "./skills";
 import { newId, UUID } from "./uuid";
 import { intentIdOf } from "./work";
-import { workKinds, workSql } from "./versioned";
+import { decideAny, workKinds, workSql } from "./versioned";
 import { decidable, sub, unmetOn } from "./substate";
 
 export { unmetOn };
@@ -138,6 +141,7 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
   const { rows } = await db.query<any>(
     `SELECT i.id, i.kind, i.title, i.note, i.stage, i.via, i.created, i.spec, i.results, i.specified_at, i.approved_at, i.decided_at, i.came_with,
             i.pull_request, i.ship, COALESCE(to_jsonb(i)->'steps', '[]') AS steps, to_jsonb(i)->'pr_seen' AS pr_seen,
+            to_jsonb(i)->'work_kind' AS work_kind, COALESCE(to_jsonb(i)->'auto', '{}'::jsonb) AS auto,
             ${EDGES("d.intent_id = i.id", "d.depends_on")} AS depends_on, ${EDGES("d.depends_on = i.id", "d.intent_id")} AS needed_by,
             au.name AS author, sp.name AS specified_by, ap.name AS approved_by, de.name AS decided_by,
             CASE WHEN i.work IS NULL THEN NULL ELSE json_build_object(
@@ -214,6 +218,30 @@ export async function dependIntent(db: Db, me: Me | null, id: string, on: unknow
   return intentRow(db, i);
 }
 
+/** the kind of work that is code, beside the schemas' UUIDs, in an intent's work_kind */
+export const CODE = "code";
+/**
+ * work_kind as given (add_intent, specify_intent): the kinds of work the intent will bring, each a schema's UUID (an
+ * artifact, an asset, a story …: ./ids.ts SCHEMA, or one accepted since) or `code`; undefined where not given (left as
+ * it is), null for an empty list (it declares nothing: any kind, as before).
+ */
+async function workKindOf(q: Queryable, v: unknown): Promise<string[] | null | undefined> {
+  if (v === undefined) return undefined;
+  if (v === null) return null;
+  if (!Array.isArray(v)) throw new IntentError("work_kind is a list: the kinds of work the intent will bring, each a schema's UUID (list_docs gives them) or code.");
+  const out: string[] = [];
+  for (const k of v) {
+    const s = `${k ?? ""}`.toLowerCase();
+    if (s !== CODE && !UUID.test(s)) throw new IntentError(`work_kind ${k}: each kind of work is a schema's UUID or code.`);
+    if (s !== CODE && !(await q.query(`SELECT 1 FROM play.docs WHERE id = $1 AND EXISTS (SELECT 1 FROM play.doc_versions v WHERE v.doc_id = play.docs.id)`, [`schema:${s}`])).rows.length)
+      throw new IntentError(`work_kind ${s}: play keeps no accepted schema of that UUID (list_docs kind schema).`, 404);
+    if (!out.includes(s)) out.push(s);
+  }
+  return out.length ? out : null;
+}
+/** the kinds of work an intent declares, as people read them */
+export const declaredText = (kinds: string[]) => kinds.join(", ");
+
 /** depends_on as given: UUIDs, or undefined (left as it is) */
 const depsOf = (v: unknown) => {
   if (v == null) return undefined;
@@ -254,13 +282,14 @@ export async function intentOf(db: Queryable, me: Me | null, id: string, reviewO
 }
 
 /** A new intent at the Idea stage, by an admin's agent over MCP (no one adds one by hand). */
-export async function addIntent(db: Db, me: Me | null, body: { kind?: unknown; title?: unknown; note?: unknown; depends_on?: unknown }) {
+export async function addIntent(db: Db, me: Me | null, body: { kind?: unknown; title?: unknown; note?: unknown; depends_on?: unknown; work_kind?: unknown }) {
   const who = admin(me);
   const id = newId();
   const deps = depsOf(body?.depends_on);
+  const declared = (await workKindOf(db, body?.work_kind)) ?? null;
   await db.transaction(async (tx) => {
-    await tx.query(`INSERT INTO play.intents (id, coop_id, kind, title, note, stage, author, via) VALUES ($1, $2, $3, $4, $5, 'idea', $6, 'mcp')`, [
-      id, COOP, kindOf(body?.kind), titleOf(body?.title), textOf(body?.note, "note", NOTE_MOST), who.id,
+    await tx.query(`INSERT INTO play.intents (id, coop_id, kind, title, note, stage, author, via, work_kind) VALUES ($1, $2, $3, $4, $5, 'idea', $6, 'mcp', $7)`, [
+      id, COOP, kindOf(body?.kind), titleOf(body?.title), textOf(body?.note, "note", NOTE_MOST), who.id, declared,
     ]);
     if (deps?.length) await addEdges(tx, who, id, deps);
   });
@@ -272,13 +301,17 @@ export async function addIntent(db: Db, me: Me | null, body: { kind?: unknown; t
  * Specify, where an admin approves it before it is built; specified again, its spec is replaced. One already approved
  * is sent back to Specify first, by its agent (step_back_intent, ./stepback.ts).
  */
-export async function specifyIntent(db: Db, me: Me | null, id: string, body: { goal?: unknown; scope?: unknown; checks?: unknown; nothing_to_reduce?: unknown; title?: unknown; kind?: unknown; note?: unknown; depends_on?: unknown }) {
+export async function specifyIntent(db: Db, me: Me | null, id: string, body: { goal?: unknown; scope?: unknown; checks?: unknown; nothing_to_reduce?: unknown; title?: unknown; kind?: unknown; note?: unknown; depends_on?: unknown; work_kind?: unknown }) {
   const who = admin(me);
   const intent = await intentRow(db, id);
   if (intent.stage !== "idea" && intent.stage !== "specify")
     throw new IntentError(`Intent ${intent.id} is at the ${intent.stage} stage: it is specified at Idea or Specify (step_back_intent sends it back).`, 409);
   const spec = specOf(body);
   const deps = depsOf(body?.depends_on);
+  // its declared work changes only while it holds none
+  const declared = await workKindOf(db, body?.work_kind);
+  if (declared !== undefined && JSON.stringify(declared) !== JSON.stringify(intent.work_kind ?? null) && (intent.work || (await db.query(`SELECT 1 FROM play.intent_variants WHERE intent_id = $1`, [intent.id])).rows.length))
+    throw new IntentError(`Intent ${intent.id} holds work already: its declared kinds of work (work_kind) change only while it holds none.`, 409);
   await db.transaction(async (tx) => {
     // depends_on given: the intents it depends on, replacing those before (specifying is never held)
     if (deps) {
@@ -286,12 +319,14 @@ export async function specifyIntent(db: Db, me: Me | null, id: string, body: { g
       await addEdges(tx, who, intent.id, deps);
     }
     await tx.query(
-      `UPDATE play.intents SET stage = 'specify', spec = ($2::text)::jsonb, results = NULL, specified_by = $3, specified_at = now(), kind = $4, title = $5, note = $6 WHERE id = $1`,
+      `UPDATE play.intents SET stage = 'specify', spec = ($2::text)::jsonb, results = NULL, specified_by = $3, specified_at = now(), kind = $4, title = $5, note = $6,
+              work_kind = CASE WHEN $7::boolean THEN $8::text[] ELSE work_kind END WHERE id = $1`,
       [
         intent.id, JSON.stringify(spec), who.id,
         body?.kind === undefined ? intent.kind : kindOf(body.kind),
         body?.title === undefined ? intent.title : titleOf(body.title),
         body?.note === undefined ? intent.note : textOf(body.note, "note", NOTE_MOST),
+        declared !== undefined, declared ?? null,
       ],
     );
   });
@@ -331,6 +366,9 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
   // held: nothing is recorded until every intent it depends on is shipped (main's confirmations are still taken)
   if (moves && !confirms && intent.held_by.length) throw new IntentError(heldText(intent.id, intent.held_by), 409);
   if (named !== undefined && intent.work) throw new IntentError(`Intent ${intent.id} holds work of play's: it is accepted in play, with no pull request.`, 409);
+  // work of another kind than declared is refused: a pull request is code
+  const undeclared = named !== undefined ? notDeclared(intent, { code: true }) : "";
+  if (undeclared) throw new IntentError(undeclared, 409);
   // only the box's run is evidence (play/SPEC.md §4.12, Samuel 2026-11-06): what can decide a code intent (its pull
   // request named, a test or measure result on a commit or on main, or any once its pull request is named) is taken
   // from avenBOX's token alone; a look is still judged and recorded by hand
@@ -379,7 +417,21 @@ export function unmet(intent: { spec: Spec | null; results: Record<string, Resul
 export type Move = "build" | "proposal" | "work" | "accept" | "accept_work" | "ship" | "merge";
 /** why a move is refused; `wait` where only a dependency still in Ship refuses it (Ship's turn waits for it) */
 export type Refusal = { why: string; wait?: boolean };
-type GateRow = { id: string; stage: string; spec: Spec | null; results: Record<string, Result> | null; work?: unknown; pull_request?: number | null; approved_at?: unknown; held_by?: Dep[] };
+type GateRow = { id: string; stage: string; spec: Spec | null; results: Record<string, Result> | null; work?: unknown; pull_request?: number | null; approved_at?: unknown; held_by?: Dep[]; work_kind?: string[] | null };
+/** the kind of work a move brings (mayMove's work): a document's schema (its UUID), or code */
+export type WorkWhat = { schema?: string | null; code?: boolean };
+
+/**
+ * Why work of kind `what` is not the intent's to take, or "" where it is: an intent that declares its kinds of work
+ * (work_kind) takes only those; one that declares nothing takes any.
+ */
+export function notDeclared(i: { id: string; work_kind?: string[] | null }, what: WorkWhat): string {
+  const kinds = i.work_kind ?? [];
+  if (!kinds.length) return "";
+  const k = what.code ? CODE : what.schema ?? null;
+  if (!k || kinds.includes(k)) return "";
+  return `Intent ${i.id} declares its work as ${declaredText(kinds)} (work_kind): ${what.code ? "code (a pull request)" : `a document of schema ${k}`} is none of them. Its declared kinds change only by specify_intent, while it holds no work.`;
+}
 const NOT_IN_BUILD = "An intent in Build is not accepted: it moves to Proposal by itself once every must check passes, and is decided there.";
 
 /**
@@ -387,7 +439,7 @@ const NOT_IN_BUILD = "An intent in Build is not accepted: it moves to Proposal b
  * not. Each move's stage rules, its must checks, and held while any intent it depends on is not shipped. Every forward
  * path calls it (as gate.mayMove) and none tests the stage on its own; going back never does.
  */
-async function mayMove(db: Queryable, intent: string | GateRow, to: Move): Promise<Refusal | null> {
+async function mayMove(db: Queryable, intent: string | GateRow, to: Move, what?: WorkWhat): Promise<Refusal | null> {
   const i: GateRow = typeof intent === "string" ? await intentRow(db, intent) : intent;
   const at = i.stage;
   const no = (why: string): Refusal => ({ why });
@@ -414,6 +466,9 @@ async function mayMove(db: Queryable, intent: string | GateRow, to: Move): Promi
   };
   const bad = stage();
   if (bad) return no(bad);
+  // work of another kind than the intent declares is refused
+  const undeclared = to === "work" && what ? notDeclared(i, what) : "";
+  if (undeclared) return no(undeclared);
   // approving a spec is never held (Samuel 2026-11-07): it waits in Build, idle, until its dependencies are shipped
   // Accept into Ship waits there for a dependency ahead of it in Ship; one anywhere else refuses, before its checks
   const held = to === "build" ? [] : (i.held_by ?? (await heldBy(db, i.id))).filter((d) => to !== "ship" || d.stage !== "ship");
@@ -431,8 +486,8 @@ async function mayMove(db: Queryable, intent: string | GateRow, to: Move): Promi
 /** the gate as every path calls it (a test may stand a stub in its place) */
 export const gate = { mayMove };
 /** the move's refusal thrown, if any */
-export async function mustMove(db: Queryable, intent: string | GateRow, to: Move) {
-  const r = await gate.mayMove(db, intent, to);
+export async function mustMove(db: Queryable, intent: string | GateRow, to: Move, what?: WorkWhat) {
+  const r = await gate.mayMove(db, intent, to, what);
   if (r) throw new IntentError(r.why, 409);
 }
 
@@ -443,6 +498,17 @@ export async function intentReady(db: Queryable, me: Me | null, id: unknown) {
   await mustMove(db, intent, "work");
   return intent;
 }
+
+// ---- the one decision path: every forward decision, a person's or a rule's, is written here
+
+/** who decides: a person (a human's UUID) or a rule (./rules.ts) */
+export type By = string | AutoBy;
+/** who decides in `me`'s request: the rule it carries where a rule decides (autoMove), else `me` */
+export const byOf = (me: Pick<Me, "id" | "auto">): By => me.auto ?? me.id;
+/** the decisions written: a spec approved (Specify → Build), an intent accepted, its work accepted, Accept into Ship */
+export type Decision = "approve" | "accept" | "accept_work" | "ship";
+
+
 
 /** a person decides only a waiting intent (./substate.ts): refused with its sub-state's reason otherwise */
 export function mustDecide(intent: any) {
@@ -465,17 +531,18 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
     case "approve":
       await mustMove(db, intent, "build");
       mustDecide(intent);
-      await db.query(`UPDATE play.intents SET stage = 'build', approved_by = $2, approved_at = now(), results = NULL WHERE id = $1`, [intent.id, who.id]);
+      await decisions.decided(db, intent.id, "approve", byOf(who));
       break;
     case "accept":
       await mustMove(db, intent, "accept");
       mustDecide(intent);
-      await db.query(`UPDATE play.intents SET stage = 'accepted', decided_by = $2, decided_at = now() WHERE id = $1`, [intent.id, who.id]);
+      await decisions.decided(db, intent.id, "accept", byOf(who));
       break;
     case "reject":
       if (intent.stage === "proposal" && waiting(intent)) refuse("Its work waits for a decision: archiving it archives the intent.");
       if (!["idea", "specify", "build", "proposal"].includes(intent.stage)) refuse(`An intent at the ${intent.stage} stage is decided already.`);
-      await db.query(`UPDATE play.intents SET stage = 'archived', decided_by = $2, decided_at = now() WHERE id = $1`, [intent.id, who.id]);
+      // a reject undoes what a rule decided before it
+      await db.query(`UPDATE play.intents SET stage = 'archived', decided_by = $2, decided_at = now(), auto = '{}'::jsonb WHERE id = $1`, [intent.id, who.id]);
       break;
     case "reopen":
       if (intent.stage !== "accepted" && intent.stage !== "archived") refuse(`This intent is at the ${intent.stage} stage already.`);
@@ -483,7 +550,7 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
       if (intent.stage === "accepted" && intent.work) refuse("Its work is in (accepted): what is wanted now is an intent of its own.");
       await db.query(
         `UPDATE play.intents SET stage = CASE WHEN spec IS NULL OR jsonb_array_length(spec->'checks') = 0 THEN 'idea' ELSE 'specify' END,
-                approved_by = NULL, approved_at = NULL, results = NULL, decided_by = NULL, decided_at = NULL WHERE id = $1`,
+                approved_by = NULL, approved_at = NULL, results = NULL, decided_by = NULL, decided_at = NULL, auto = '{}'::jsonb WHERE id = $1`,
         [intent.id],
       );
       break;
@@ -491,4 +558,68 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
       throw new IntentError("No such decision.", 404);
   }
   return intentRow(db, intent.id);
+}
+
+/**
+ * The decision `move` on intent `id`, by `by`, written in the caller's transaction (the one place it is): approve takes
+ * it to Build (approved_by, approved_at, its results cleared), accept and accept_work to Accepted (decided_by,
+ * decided_at), ship into Ship with its ship (`o.ship`). A person is its approved_by or decided_by; a rule leaves those
+ * null and is kept in `auto` (its approve or accept entry: the rule's UUID and label, the rule set's version hash, its
+ * reason, when). The gate (mayMove) and who may decide are the caller's, asked before.
+ */
+async function decided(q: Queryable, id: string, move: Decision, by: By, o: { ship?: unknown } = {}): Promise<void> {
+  const human = typeof by === "string" ? by : null;
+  const rule = typeof by === "string" ? null : JSON.stringify({ rule: by.rule, label: by.label, rules: by.rules, reason: by.reason, at: new Date().toISOString() });
+  // its auto entry for the gate: the rule's, or none (a person's)
+  const entry = (key: string) => `auto = (auto - '${key}') || CASE WHEN $3::text IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('${key}', ($3::text)::jsonb) END`;
+  if (move === "approve")
+    await q.query(`UPDATE play.intents SET stage = 'build', approved_by = $2, approved_at = now(), results = NULL, ${entry("approve")} WHERE id = $1`, [id, human, rule]);
+  else if (move === "ship")
+    await q.query(`UPDATE play.intents SET stage = 'ship', ship = ($4::text)::jsonb, decided_by = $2, decided_at = now(), ${entry("accept")} WHERE id = $1`, [id, human, rule, JSON.stringify(o.ship ?? null)]);
+  else await q.query(`UPDATE play.intents SET stage = 'accepted', decided_by = $2, decided_at = now(), ${entry("accept")} WHERE id = $1`, [id, human, rule]);
+}
+/** the one decision path as every path calls it (a test may stand a stub in its place) */
+export const decisions = { decided };
+
+// ---- auto-accept rules (play/SPEC.md §4.12 "Auto-accept rules", ./rules.ts): a rule takes the move a person would
+
+/** what autoMove did: the gate a rule decided at and the rule, or why the move it matched was refused */
+export type AutoMoved = { gate: "approve" | "accept"; rule: string; refused?: string };
+
+/**
+ * Intent `id` decided by a rule where one matches: at Specify its spec approved (Approve spec), at Proposal accepted
+ * (its work accepted and applied, its code into Ship, else Accepted), exactly by a person's path (./versioned.ts
+ * decideAny) with the rule as who decided. Only where the gate (mayMove) allows the move (its stage, its reduce step,
+ * its must checks, held by its dependencies) and matchRule gives a rule; a refusal on that path (a pull request not
+ * ready) leaves it where it is, saying why. Accepted, the intents it held are asked again. `me` is the admin whose
+ * request it is (else the intent's author, an admin); `gh` Ship's GitHub for code. Null where no rule decides.
+ */
+export async function autoMove(ctx: { db: Db; store?: BlobStore }, id: string, o: { me?: Me | null; gh?: GitHub | null; commit?: string | null } = {}): Promise<AutoMoved | null> {
+  const db = ctx.db;
+  const intent = await intentRow(db, id);
+  const at = intent.stage === "specify" ? ("approve" as const) : intent.stage === "proposal" ? ("accept" as const) : null;
+  if (!at) return null;
+  const move: Move = at === "approve" ? "build" : intent.work ? "accept_work" : intent.pull_request ? "ship" : "accept";
+  if (await gate.mayMove(db, intent, move)) return null;
+  const set = await ruleSetOf(db);
+  const facts = await factsOf(db, intent.id);
+  const rule = matchRule(facts, at, set);
+  if (!rule || !set) return null;
+  const actor = o.me?.level === "admin" ? o.me : await meOf(db, facts.author);
+  if (actor?.level !== "admin") return null;
+  const by: AutoBy = { rule: rule.id, label: rule.label, rules: set.hash, reason: rule.reason };
+  try {
+    await decideAny({ db, store: ctx.store as BlobStore }, actor, intent.id, at, o.gh ?? null, o.commit === undefined ? undefined : o.commit, by);
+  } catch (e) {
+    if (e instanceof Denied || (e as any)?.status) return { gate: at, rule: rule.id, refused: (e as Error).message };
+    throw e;
+  }
+  if ((await intentRow(db, intent.id)).stage === "accepted") await autoAfter(ctx, intent.id, o);
+  return { gate: at, rule: rule.id };
+}
+
+/** once intent `id` is Accepted, every intent it held is asked again (autoMove): a rule may move it now */
+export async function autoAfter(ctx: { db: Db; store?: BlobStore }, id: string, o: { me?: Me | null; gh?: GitHub | null; commit?: string | null } = {}) {
+  const { rows } = await ctx.db.query<{ intent_id: string }>(`SELECT intent_id FROM play.intent_depends WHERE depends_on = $1 ORDER BY at, intent_id`, [id]);
+  for (const r of rows) await autoMove(ctx, r.intent_id, o).catch((e) => console.warn(`auto: intent ${r.intent_id} not looked at: ${(e as Error).message}`));
 }

@@ -5,7 +5,8 @@
 // one artifact (urlOf). An artifact is a document like any other (artifact:<uuid>, ./versioned.ts): every change of it
 // waits at Proposal as an intent's work, and its row is what its accepted version says. Admins only.
 import { COOP, Denied, type Me } from "./access";
-import { AVENMAIA } from "./ids";
+import { AVENMAIA, SCHEMA } from "./ids";
+import { addIntent, autoMove, intentRow, recordChecks, specifyIntent } from "./intents";
 import { keyOf, type BlobStore } from "./blobs";
 import { hashBytes } from "./hash";
 import type { Db, Queryable } from "./pg";
@@ -404,8 +405,52 @@ export type ArtifactGiven = {
   kind?: unknown; tags?: unknown; published?: unknown; origin?: unknown; text?: unknown;
 };
 
-/** Keep an artifact (its first version proposed); a link kept already answers with it (`kept`), one waiting with its intent. */
+// ---- no tap for an artifact (play/SPEC.md §4.12 "Auto-accept rules", intent de24f1c5): added or corrected with no
+// intent named, it makes its own through the intent flow's own functions, in one transaction, and the rules decide it
+
+/** the caller's transaction as a Db: every transaction asked of it is that one (the whole request is one) */
+const flat = (tx: Queryable): Db => ({ query: (t, p) => tx.query(t, p), exec: async (t) => void (await tx.query(t)), transaction: (fn) => fn(tx) });
+
+/** the intent an artifact's change made for itself: what it is, and its spec, play's own */
+type Own = { kind: "idea" | "improve"; title: string; goal: string; evidence: string };
+/** its one check: a look play records as passed, with the form checks just made as its evidence */
+const OWN_CHECK = { check: "The artifact holds to the artifacts' form (three texts, authors, one link)", how: "look", by: "the form checks add_artifact and update_artifact make: its link, title, description, summary and authors", must: true };
+
+/**
+ * An intent of the artifact's own (author the admin, via mcp, declaring the artifact schema), specified with play's
+ * spec and asked of the rules (Approve spec); in Build, its check recorded (it is at Proposal) and its work proposed
+ * (`propose`, naming it), then asked of the rules again (Accept). Where no rule decides, it waits for a person, at
+ * Specify (nothing proposed yet) or at Proposal. Gives back the intent's id and stage and what `propose` gave.
+ */
+async function ownIntent<R>(db: Db, store: BlobStore, who: Me, o: Own, propose: (intent: string) => Promise<R>): Promise<{ intent: string; stage: string; auto: unknown; proposed: R | null }> {
+  const i = await addIntent(db, who, { kind: o.kind, title: o.title, note: "Made by play for the artifact's change, with no intent named (play/SPEC.md §4.12, Auto-accept rules).", work_kind: [SCHEMA.artifact] });
+  await specifyIntent(db, who, i.id, { goal: o.goal, scope: "One artifact (a link Maia City keeps) and its texts and authors; nothing else changes.", nothing_to_reduce: "a link kept or corrected removes nothing", checks: [OWN_CHECK] });
+  await autoMove({ db, store }, i.id, { me: who });
+  if ((await intentRow(db, i.id)).stage !== "build") return { intent: i.id, ...(await stageOf(db, i.id)), proposed: null };
+  await recordChecks(db, who, i.id, [{ check: "c1", pass: true, evidence: o.evidence }]);
+  const proposed = await propose(i.id);
+  await autoMove({ db, store }, i.id, { me: who });
+  return { intent: i.id, ...(await stageOf(db, i.id)), proposed };
+}
+const stageOf = async (db: Db, id: string) => {
+  const r = await intentRow(db, id);
+  return { stage: r.stage as string, auto: r.auto };
+};
+/** the form checks just made, as the evidence of its look */
+const formEvidence = (j: any) =>
+  `play's form checks passed: one link (${j.url}), a title of ${j.title.length} characters, a description of ${j.description.length}, a summary of ${j.summary.trim().split(/\s+/).length} words in its sections, ${j.authors.length} author${j.authors.length === 1 ? "" : "s"} by id.`;
+
+/**
+ * Keep an artifact (its first version proposed); a link kept already answers with it (`kept`), one waiting with its
+ * intent. With no intent named it makes its own (ownIntent), in one transaction: kept at once where the rules accept it.
+ */
 export async function addArtifact(db: Db, store: BlobStore, me: Me | null, b: ArtifactGiven, intent?: string) {
+  if (intent) return addIn(db, store, me, b, intent);
+  admin(me);
+  return db.transaction((tx) => addIn(flat(tx), store, me, b));
+}
+
+async function addIn(db: Db, store: BlobStore, me: Me | null, b: ArtifactGiven, intent?: string) {
   const who = admin(me);
   const url = urlOf(b?.url);
   const held = await linkHeld(db, url);
@@ -419,12 +464,27 @@ export async function addArtifact(db: Db, store: BlobStore, me: Me | null, b: Ar
   };
   const given = authorsGiven(b?.authors);
   json.authors = await db.transaction((tx) => authorIds(tx, who, given));
-  const r = await proposeNewDoc({ db, store }, who, "artifact", { whole: json, note: `Keep the artifact ${title} (${url})`, intent });
+  const note = `Keep the artifact ${title} (${url})`;
+  if (!intent) {
+    const own = await ownIntent(db, store, who, { kind: "idea", title: `Keep ${title}`, goal: `Maia City keeps the artifact ${title} (${url}).`, evidence: formEvidence(json) }, (i) =>
+      proposeNewDoc({ db, store }, who, "artifact", { whole: json, note, intent: i }),
+    );
+    if (!own.proposed) return { url, title, kept: false, waiting: true, intent: own.intent, stage: own.stage };
+    if (own.stage === "accepted") return { ...(await artifactRow(db, own.proposed.doc)), kept: false, waiting: false, intent: own.intent, stage: own.stage, auto: own.auto };
+    return { id: own.proposed.doc, url, title, kept: false, waiting: true, intent: own.intent, stage: own.stage };
+  }
+  const r = await proposeNewDoc({ db, store }, who, "artifact", { whole: json, note, intent });
   return { id: r.doc, url, title, kept: false, waiting: true, intent: r.intent, stage: r.stage };
 }
 
-/** Correct a kept artifact (its next version proposed): any field but who brought it, each held to its form. */
+/** Correct a kept artifact (its next version proposed): any field but who brought it, each held to its form. With no intent named it makes its own, as addArtifact. */
 export async function updateArtifact(db: Db, store: BlobStore, me: Me | null, artifact: unknown, b: ArtifactGiven, intent?: string) {
+  if (intent) return updateIn(db, store, me, artifact, b, intent);
+  admin(me);
+  return db.transaction((tx) => updateIn(flat(tx), store, me, artifact, b));
+}
+
+async function updateIn(db: Db, store: BlobStore, me: Me | null, artifact: unknown, b: ArtifactGiven, intent?: string) {
   const who = admin(me);
   const id = idOf(artifact, "artifact");
   const now = await artifactRow(db, id);
@@ -449,6 +509,16 @@ export async function updateArtifact(db: Db, store: BlobStore, me: Me | null, ar
     next.authors = await db.transaction((tx) => authorIds(tx, who, given));
   }
   if (!Object.keys(b ?? {}).some((k) => k !== "origin" && (b as any)[k] !== undefined)) throw new ArtifactError("Nothing to change: give the fields to correct.");
-  const r = await proposeDocVersion({ db, store }, who, { doc: id, whole: next, note: `Correct the artifact ${next.title}: ${Object.keys(b).filter((k) => k !== "origin").join(", ")}`, intent });
+  const fields = Object.keys(b).filter((k) => k !== "origin").join(", ");
+  const note = `Correct the artifact ${next.title}: ${fields}`;
+  if (!intent) {
+    const own = await ownIntent(db, store, who, { kind: "improve", title: `Correct ${now.title}`, goal: `Maia City keeps the artifact ${next.title} (${next.url}) corrected: ${fields}.`, evidence: formEvidence(next) }, (i) =>
+      proposeDocVersion({ db, store }, who, { doc: id, whole: next, note, intent: i }),
+    );
+    const r: any = own.proposed;
+    if (own.stage === "accepted") return { ...(await artifactRow(db, id)), waiting: false, intent: own.intent, stage: own.stage, auto: own.auto, ...(r ? { number: r.number, changes: r.changes } : {}) };
+    return { ...now, waiting: true, intent: own.intent, stage: own.stage, ...(r ? { number: r.number, changes: r.changes } : {}) };
+  }
+  const r = await proposeDocVersion({ db, store }, who, { doc: id, whole: next, note, intent });
   return { ...now, waiting: true, intent: r.intent, stage: r.stage, number: (r as any).number, changes: (r as any).changes };
 }
