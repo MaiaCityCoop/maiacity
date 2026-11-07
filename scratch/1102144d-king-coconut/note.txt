@@ -1,0 +1,19 @@
+King coconut v3: it grows on past its first harvest into the tall palm, every size by its age in days.
+
+WHAT WAS WRONG (v2, source 895c9c1b…)
+Its stages ended at Ripe, day 2480 (6.8 years), its first harvest, and the stage parameter's default was that stage, so every world drew a 7-year-old palm 7.5 m to its frond tips on a 2.2 m trunk. Its trunk, fronds and roots grew by tables keyed by the stage's index (H = table(g, [[3.8, 0] … [9, 2.2]])): v1 raced to 13.4 m in 480 days that way, and any stage added would have made it jump again.
+
+THE CHANGE
+- Age, not index (c1): the palm's age in days is its stage's `day` (dayAt), and every growing size is a curve by age (KING: trunk, girth, fronds made and held, frond length, roots, the seed nut's rot), bunches open by the day (one with each new frond once bearing, cut once ripe after the first crop). The young curves are v2's own values moved onto their days, so Seed nut to Ripe draw as they did (heights within 1%).
+- Three stages after Ripe (c3): Bearing palm (10 years, day 3652), Grown palm (22 years, day 8036) and Old palm (50 years, day 18262). The stage parameter runs to 12 and defaults to 11, the grown palm; the card's line is "Palm · 50 years".
+- The grown look: a slender ringed grey trunk curving up, slimmed to the measured girth (71 cm round at 1.5 m) over its bole, its leaf-scar rings closer where it grew slowly; new fronds 4.8 m at ten years and 4.3 m from twenty, opening out and arching into a round crown of thirty (26 when old); about 15 fronds and bunches a year.
+- Every leaf's tip gets a normal (nan-check clean at every stage; v2 had normals of no length from Juvenile on).
+
+MEASURED (seed 'maia': bare trunk / to the frond tips / crown across)
+Ripe 2.29 / 7.53 / 9.71 m (v2 7.55) · Bearing palm 3.12 / 7.79 / 10.15 · Grown palm 6.55 / 9.45 / 7.91 · Old palm 11.54 / 14.19 / 7.20. About 400k triangles grown, built in ~0.5 s in node.
+
+REAL (data sheet acce31e0…, 11 Artifacts)
+The king coconut is an intermediate palm: about 12 m grown (Liyanage 1958, CRI, who named var. aurantiaca), fronds 4.3 m at ten years, girth 71 cm, 15.6 bunches a year of about 10 nuts (Perera et al. 2015), bearing to about 40 years. No source measures its height by age: the curve is an estimate from talls' and dwarfs' measured growth (≈ 0.35 m a year young, 0.1 after 40), marked [EST]. The grown palm lies within it (9.1–10.1 m on 5.6–6.8 m at 22 years), the old palm too (14–15 m on 10.5–12 m at 50).
+
+JUDGED
+v2's young palm is taller than the estimates (its fronds 5.4 m against the measured 4.3 m, its trunk 2.2 m at 6.8 years against ≈ 1 m). The spec keeps it (c4), so the bearing palm (7.8 m) stands above its estimate (5–6 m): it cannot be shorter than the Ripe palm it grows from. The crown of the grown palm (7.9 m) is a little over the king coconut's estimated 6–7 m and within a tall coconut's 8–9 m. No reference sheet yet: this session had no image-model key; it follows when one is given.

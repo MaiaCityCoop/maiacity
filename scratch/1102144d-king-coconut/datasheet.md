@@ -10,23 +10,23 @@ Tags: **[OWN]** the variety's own measurement · **[TALL]** / **[DWARF]** the ta
 
 | | Source | Artifact |
 |---|---|---|
-| S1 | Liyanage, D.V. (CRI Ceylon), *Varieties and forms of the coconut palm grown in Ceylon*, Ceylon Coconut Quarterly 9:1–10, 1958 | {S1} |
-| S3 | Ekanayake, Perera, Dassanayake & Everard, *Varietal classification of new coconut forms from Southern Sri Lanka*, COCOS 19, 2010 | {S3} |
-| S4 | Perera, Ekanayake & Herath, *Tender nut potential of diverse coconut varieties in Sri Lanka*, CORD 31(1), 2015 | {S4} |
-| S5 | Bandaranayake & Fernando (CRI), *Genetic improvement of King coconut*, PGR Newsletter 118, FAO/IPGRI, 1999 | {S5} |
-| S6 | Manthriratna (CRI), *The performance of dwarfs as a plantation crop in Ceylon*, Ceylon Coconut Quarterly 23, 1972 | {S6} |
-| S7 | Chan & Elevitch, *Cocos nucifera (coconut)*, Species Profiles for Pacific Island Agroforestry, 2006 | {S7} |
-| S8 | Santos et al. (eds), *Manual on Standardized Research Techniques in Coconut Breeding*, IPGRI/COGENT, 1996 | {S8} |
-| S9 | Ohler & Magat, *Cocos nucifera*, PROSEA 14, 2001 | {S9} |
-| S10 | Bourdeix (CIRAD), *Tall-type coconut varieties from the Pacific region*, 2017 | {S10} |
-| S11 | Arancon (APCC), *Focus on coconut wood*, FAO APFSOS/WP/23, 1997 | {S11} |
-| S12 | TNAU Agritech Portal, *Coconut – Botany*, 2014 | {S12} |
+| S1 | Liyanage, D.V. (CRI Ceylon), *Varieties and forms of the coconut palm grown in Ceylon*, Ceylon Coconut Quarterly 9:1–10, 1958 | `db0f0fe9-3777-4765-b536-a852dd815eb4` |
+| S3 | Ekanayake, Perera, Dassanayake & Everard, *Varietal classification of new coconut forms from Southern Sri Lanka*, COCOS 19, 2010 | `08271b8f-6176-4338-b006-d9aa1ea8acda` |
+| S4 | Perera, Ekanayake & Herath, *Tender nut potential of diverse coconut varieties in Sri Lanka*, CORD 31(1), 2015 | `ff139da6-907c-4874-97bb-f8650148f204` |
+| S5 | Bandaranayake & Fernando (CRI), *Genetic improvement of King coconut*, PGR Newsletter 118, FAO/IPGRI, 1999 | `839ce826-419b-4155-9cb1-494a4b63444a` |
+| S6 | Manthriratna (CRI), *The performance of dwarfs as a plantation crop in Ceylon*, Ceylon Coconut Quarterly 23, 1972 | `cc6d9b1b-89ea-4e84-adcf-95e96fb124e7` |
+| S7 | Chan & Elevitch, *Cocos nucifera (coconut)*, Species Profiles for Pacific Island Agroforestry, 2006 | `4129ca3a-46d4-4c0c-993a-aa93949d92b3` |
+| S8 | Santos et al. (eds), *Manual on Standardized Research Techniques in Coconut Breeding*, IPGRI/COGENT, 1996 | `fb035309-9f52-4a9f-9be6-60616e2b1a25` |
+| S9 | Ohler & Magat, *Cocos nucifera*, PROSEA 14, 2001 | `b8b77eab-949d-44e1-8096-98ce8eeb8f32` |
+| S10 | Bourdeix (CIRAD), *Tall-type coconut varieties from the Pacific region*, 2017 | `c0dcd4ca-3062-41ac-b372-545cf4031773` |
+| S11 | Arancon (APCC), *Focus on coconut wood*, FAO APFSOS/WP/23, 1997 | `7d0de303-60ea-4933-9e00-ada2c9f0fb1b` |
+| S12 | TNAU Agritech Portal, *Coconut – Botany*, 2014 | `fd54f484-a329-41cc-b9fe-7c06c00b30da` |
 
 ## Stature
 
 | Row | Value | Tag | Source |
 |---|---|---|---|
-| Class | Intermediate (semi-tall): between the tall (*typica*) and the dwarf (*nana*); predominantly self-pollinating; root bole present | [OWN] | S1, S3, S4 |
+| Class | Intermediate (semi-tall): between the tall (*typica*) and the dwarf (*nana*); predominantly self-pollinating; root bole present. (PROSEA lists Sri Lanka's 'King' among the medium-sized dwarfs; the Sri Lankan sources, which measured it, make it the semi-tall variety *aurantiaca*, and that is followed here.) | [OWN] | S1, S3, S4, S9 |
 | Height when grown | "attains a height of about 40 feet"; diagnosis "Arbor, 12 m alta" (≈ 12 m). For comparison, in the same paper: *typica* about 60 ft (18 m), *nana* about 35 ft (10.7 m) | [OWN] | S1 |
 | Tall coconut's height by age | 20–22 m at 40 years, 35–40 m at 80 years; talls 20–30 m, dwarfs 10–15 m | [TALL] | S7, S8, S9 |
 | Heights at 17 years, Sri Lanka | Sri Lanka Tall 6.7 m to the base of the crown; the three dwarfs 2.6–3.2 m | [TALL] [DWARF] | S6 |
@@ -90,6 +90,7 @@ No source measures the king coconut's height at a given age. The table is an est
 | Bearing years | "Economic production period not more than 40 years" (*typica* to 60) | [OWN] | S1 |
 | Lifespan | Not recorded; talls up to ≈ 100 years (yield falling after 40), dwarfs ≈ 70. Assumed 60–80 years | [TALL] [DWARF] [EST] | S7, S9 |
 | Bunches a year | 15.6 (≈ 30 palms over one year); ≈ 18 | [OWN] | S4, S5 |
+| Fronds and bunches in v3 | 15.5 a year after Ripe; the crown holds 30 fronds to 40 years, 26 at 50 | [EST] from the above | S4, S9 |
 | Nuts a bunch | 10.0 (8–15; 20–40 on one estate) | [OWN] | S4, S5 |
 | Nuts a palm a year | ≈ 156 (Sri Lanka Tall 91.8) | [OWN] | S4 |
 | Nut | Bright orange, 8.2 × 5.3 in (≈ 21 × 13.5 cm), 1,394 cc; husked 14 oz (398 g); a button at its tip; 352 mL of water at 7–8 months | [OWN] | S1, S4, S5 |
@@ -98,6 +99,20 @@ No source measures the king coconut's height at a given age. The table is an est
 
 | Stage | Day | Age | Bare trunk (m) | To the frond tips (m) | Crown (m) | Within the estimate? |
 |---|---|---|---|---|---|---|
-{MEASURED}
+| Seed nut | 0 | 0 | — | 0.05 | 0.16 | v2's |
+| Germination | 120 | 4 months | — | 0.18 | 0.20 | v2's |
+| Seedling | 240 | 8 months | — | 0.25 | 0.43 | v2's |
+| Young palm | 540 | 1.5 years | — | 0.73 | 1.35 | v2's |
+| Juvenile | 1100 | 3 years | 0.03 | 1.71 | 2.37 | v2's |
+| Flowering | 2000 | 5.5 years | 1.04 | 4.13 | 4.06 | v2's (taller than the estimate) |
+| Fruit set | 2100 | 5.75 years | 1.35 | 5.87 | 6.32 | v2's (taller than the estimate) |
+| Young nuts | 2250 | 6.2 years | 1.66 | 6.46 | 8.12 | v2's (taller than the estimate) |
+| Maturing | 2380 | 6.5 years | 1.98 | 7.00 | 9.13 | v2's (taller than the estimate) |
+| Ripe | 2480 | 6.8 years | 2.29 | 7.53 | 9.71 | v2's (taller than the estimate: 4.5–5 m, trunk ≈ 1 m) |
+| Bearing palm | 3652 | 10 years | 3.12 | 7.79 | 10.15 | above the estimate (5–6 m, trunk 1.8–2.5 m): it cannot be lower than the Ripe palm it grows from |
+| **Grown palm** (default) | 8036 | 22 years | 6.55 | 9.45 | 7.91 | yes: 9.1–10.1 m on 5.6–6.8 m; crown in the tall's 8–9 m, a little over the king coconut's estimated 6–7 m |
+| Old palm | 18262 | 50 years | 11.54 | 14.19 | 7.20 | yes: 14–15 m on 10.5–12 m |
+
+The crown is measured as the widest extent of the crown's fronds along either horizontal axis. The trunk is shown with the seed's vigour (seed 'maia': × 1.04); sister seeds vary by ± 8 %.
 
 Seed nut to Ripe are v2's young palm, kept as they were (c4). That palm is taller for its age than the estimate above, because its fronds are 5.4 m against the measured 4.3 m and its trunk 2.2 m at 6.8 years against an estimated ≈ 1 m. After Ripe the palm grows on slowly (≈ 0.25 m a year to 22 years, 0.2 to 40, 0.1 after), its new fronds 4.8 m at ten years and 4.3 m from twenty, to reach the measured grown palm.

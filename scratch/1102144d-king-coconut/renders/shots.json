@@ -1,0 +1,600 @@
+[
+	{
+		"recipe": "v2",
+		"label": "King coconut",
+		"shot": "00-seed-nut",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v2-00-seed-nut.png",
+		"values": {
+			"stage": 0,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 223,
+		"triangles": 1004,
+		"size": [
+			0.239,
+			0.178,
+			0.176
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v2",
+		"label": "King coconut",
+		"shot": "01-germination",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v2-01-germination.png",
+		"values": {
+			"stage": 1,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 5626,
+		"triangles": 1234,
+		"size": [
+			0.262,
+			0.386,
+			0.176
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v2",
+		"label": "King coconut",
+		"shot": "02-seedling",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v2-02-seedling.png",
+		"values": {
+			"stage": 2,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 4747,
+		"triangles": 3294,
+		"size": [
+			0.822,
+			0.675,
+			0.456
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v2",
+		"label": "King coconut",
+		"shot": "03-young-palm",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v2-03-young-palm.png",
+		"values": {
+			"stage": 3,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 5860,
+		"triangles": 7574,
+		"size": [
+			1.716,
+			2.043,
+			1.433
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v2",
+		"label": "King coconut",
+		"shot": "04-juvenile",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v2-04-juvenile.png",
+		"values": {
+			"stage": 4,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 5573,
+		"triangles": 19360,
+		"size": [
+			2.537,
+			3.826,
+			2.517
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v2",
+		"label": "King coconut",
+		"shot": "05-flowering",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v2-05-flowering.png",
+		"values": {
+			"stage": 5,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 5844,
+		"triangles": 59182,
+		"size": [
+			3.987,
+			6.271,
+			4.061
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v2",
+		"label": "King coconut",
+		"shot": "06-fruit-set",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v2-06-fruit-set.png",
+		"values": {
+			"stage": 6,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 6113,
+		"triangles": 126342,
+		"size": [
+			5.917,
+			8.122,
+			6.319
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v2",
+		"label": "King coconut",
+		"shot": "07-young-nuts",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v2-07-young-nuts.png",
+		"values": {
+			"stage": 7,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 6800,
+		"triangles": 178800,
+		"size": [
+			7.663,
+			8.668,
+			8.119
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v2",
+		"label": "King coconut",
+		"shot": "08-maturing",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v2-08-maturing.png",
+		"values": {
+			"stage": 8,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 7757,
+		"triangles": 176488,
+		"size": [
+			8.904,
+			9.215,
+			9.077
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v2",
+		"label": "King coconut",
+		"shot": "09-ripe",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v2-09-ripe.png",
+		"values": {
+			"stage": 9,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 8976,
+		"triangles": 184434,
+		"size": [
+			9.477,
+			9.796,
+			9.73
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "00-seed-nut",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v3-00-seed-nut.png",
+		"values": {
+			"stage": 0,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 2746,
+		"triangles": 1004,
+		"size": [
+			0.239,
+			0.178,
+			0.176
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "01-germination",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v3-01-germination.png",
+		"values": {
+			"stage": 1,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 6060,
+		"triangles": 1160,
+		"size": [
+			0.258,
+			0.349,
+			0.176
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "02-seedling",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v3-02-seedling.png",
+		"values": {
+			"stage": 2,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 5748,
+		"triangles": 2528,
+		"size": [
+			0.674,
+			0.539,
+			0.372
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "03-young-palm",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v3-03-young-palm.png",
+		"values": {
+			"stage": 3,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 5109,
+		"triangles": 6408,
+		"size": [
+			1.342,
+			1.671,
+			1.349
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "04-juvenile",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v3-04-juvenile.png",
+		"values": {
+			"stage": 4,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 7110,
+		"triangles": 18070,
+		"size": [
+			2.537,
+			3.826,
+			2.314
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "05-flowering",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v3-05-flowering.png",
+		"values": {
+			"stage": 5,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 6575,
+		"triangles": 64216,
+		"size": [
+			3.987,
+			6.38,
+			4.061
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "06-fruit-set",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v3-06-fruit-set.png",
+		"values": {
+			"stage": 6,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 6870,
+		"triangles": 130956,
+		"size": [
+			5.917,
+			8.122,
+			6.319
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "07-young-nuts",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v3-07-young-nuts.png",
+		"values": {
+			"stage": 7,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 8475,
+		"triangles": 178172,
+		"size": [
+			7.663,
+			8.712,
+			8.119
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "08-maturing",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v3-08-maturing.png",
+		"values": {
+			"stage": 8,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 11425,
+		"triangles": 178088,
+		"size": [
+			8.949,
+			9.243,
+			9.13
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "09-ripe",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v3-09-ripe.png",
+		"values": {
+			"stage": 9,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 8986,
+		"triangles": 188018,
+		"size": [
+			9.421,
+			9.781,
+			9.713
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "10-bearing-palm",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v3-10-bearing-palm.png",
+		"values": {
+			"stage": 10,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 7266,
+		"triangles": 382444,
+		"size": [
+			9.646,
+			10.036,
+			10.153
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "11-grown-palm",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v3-11-grown-palm.png",
+		"values": {
+			"stage": 11,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 13485,
+		"triangles": 398040,
+		"size": [
+			7.725,
+			11.694,
+			7.909
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "12-old-palm",
+		"png": "/tmp/claude-0/-home-user-maiacity/b5c0e503-a9af-5d25-b40d-bbefc5449b7a/scratchpad/kc/r2/v3-12-old-palm.png",
+		"values": {
+			"stage": 12,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 10251,
+		"triangles": 408064,
+		"size": [
+			7.155,
+			16.443,
+			7.198
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	}
+]
