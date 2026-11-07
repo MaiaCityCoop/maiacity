@@ -303,6 +303,9 @@ export function createAssets(o) {
 		k.thresholds = thresholdsOf(k.levels.length, tris, k.sizes);
 	}
 
+	/** pictures taken of builds read from this device's cache (`stats`) */
+	let retaken = 0;
+
 	/** what level L of a kind made from `from` (a level of it, or the source of several) is made to: ./lod.js */
 	const planOf = (k, L, from) => ({ budget: budgetOf(L, from.tris, k.sizes), most: budgetOf(L, Infinity, k.sizes), error: errorOf(L, from.radius, k.sizes), smallest: smallestOf(L, from.radius, k.sizes) });
 
@@ -412,7 +415,10 @@ export function createAssets(o) {
 		// its picture taken as soon as its coarsest built shape is here, while the world loads, not by a frame that
 		// wants it: a copy whose picture is missing draws that whole shape in its place
 		if (base && !k.slot && k.picture) {
+			const before = kept.counted.taken;
 			const slot = await kept.picture(k.names[k.base], lv.level, pictures);
+			// photographed for a build this device's cache handed over: one it should have kept the picture of too
+			if (kept.counted.taken > before && lv.from === 'cache') retaken++;
 			if (gone) return;
 			if (!k.slot) k.slot = slot;
 		}
@@ -936,6 +942,9 @@ export function createAssets(o) {
 			keptLevels: kept.counted.keptLevels,
 			taken: kept.counted.taken,
 			keptPictures: kept.counted.keptPictures,
+			/** the builds built in the boxes now (not read from this device's cache), and the pictures taken of builds that were */
+			boxed: list.reduce((a, k) => a + k.levels.filter((l) => l.state === 'ready' && l.from === 'box').length, 0),
+			retaken,
 			same: list.reduce((a, k) => a + k.levels.filter((l) => l.state === 'ready' && l.as >= 0).length, 0)
 		};
 	}
