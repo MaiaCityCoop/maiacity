@@ -4,7 +4,8 @@
 // the order accepted), then play reads GitHub again, posts 'Intent accepted' on the head and merges it (startIfReady).
 // The ship watcher (every 10 s; its state the intent's `ship` in Postgres) follows main's checks, the release and the
 // deploy's jobs as steps; any red, back to Proposal with the report; ended either way, it asks the reconcile. It also
-// reads every open intent's pull request into its `pr_seen` (watchPulls), so the board asks GitHub nothing. The reconcile (intent 9876ef00) is the one place a code intent becomes Accepted: play knows the commit
+// reads every open intent's pull request into its `pr_seen` (watchPulls), so the board asks GitHub nothing, and merges
+// main into those behind it, a conflict shown failed (./mainmerge.ts, intent f28822d9). The reconcile (intent 9876ef00) is the one place a code intent becomes Accepted: play knows the commit
 // it runs (PLAY_COMMIT, built into its image), and a code intent is Accepted exactly when its merge commit is in it; an
 // Accepted one whose commit is not is flagged (ship.live false), its stage left alone. It runs once when play starts
 // (every deploy, a rollback, a deploy by hand restarts play) and as each ship ends.
@@ -12,6 +13,7 @@
 import { COOP, type Me } from "./access";
 import type { Db } from "./pg";
 import { admin, gate, getIntent, IntentError, mustMove } from "./intents";
+import { carrySeen, mainMergeState, mergeMain, type MainMergeState } from "./mainmerge";
 import { checksSeen, decidable, prBlock, sub, type PrSeen } from "./substate";
 
 export { REQUIRED_CHECKS } from "./substate";
@@ -118,6 +120,8 @@ export type Job = {
   steps?: { name: string; status: string; conclusion: string | null; started_at?: string | null; completed_at?: string | null }[];
 };
 
+export type Compare = { status: string; ahead_by: number; behind_by: number; merge_base_commit: { sha: string }; files?: { filename: string; previous_filename?: string }[] };
+
 export type Commit = { sha: string; commit: { message: string }; parents: { sha: string }[] };
 
 export class GitHubError extends Error {
@@ -164,8 +168,25 @@ export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.git
     repo,
     pull: (n: number) => json<Pull>("GET", `/pulls/${n}`),
     checkRuns: async (sha: string) => (await json<{ check_runs: any[] }>("GET", `/commits/${sha}/check-runs?per_page=100`)).check_runs,
-    status: (sha: string, s: { state: "success" | "failure" | "error" | "pending"; description: string; target_url?: string }) =>
-      json("POST", `/statuses/${sha}`, { ...s, context: ACCEPTED_CONTEXT }),
+    /** a commit status on `sha`, 'Intent accepted' unless `context` names another ('Merges with main', ./mainmerge.ts) */
+    status: (sha: string, { context = ACCEPTED_CONTEXT, ...s }: { state: "success" | "failure" | "error" | "pending"; description: string; target_url?: string; context?: string }) =>
+      json("POST", `/statuses/${sha}`, { ...s, context }),
+    /** a branch's head commit */
+    branchHead: async (branch: string) => (await json<{ object: { sha: string } }>("GET", `/git/ref/heads/${branch}`)).object.sha,
+    /** `head` against `base` (three dots): how far each is past their merge base, and the files `head` changed since it */
+    compare: (base: string, head: string) => json<Compare>("GET", `/compare/${base}...${head}`),
+    /** the paths a pull request changes (up to 3,000, GitHub's most) */
+    pullFiles: async (n: number) => {
+      const out: string[] = [];
+      for (let page = 1; page <= 30; page++) {
+        const got = await json<{ filename: string; previous_filename?: string }[]>("GET", `/pulls/${n}/files?${q({ per_page: 100, page })}`);
+        for (const f of got) out.push(f.filename, ...(f.previous_filename ? [f.previous_filename] : []));
+        if (got.length < 100) break;
+      }
+      return out;
+    },
+    /** main merged into a pull request's branch (GitHub's update-branch), refused (422) where its head is no longer `head` */
+    updateBranch: (n: number, head: string) => json<{ message?: string }>("PUT", `/pulls/${n}/update-branch`, { expected_head_sha: head }),
     merge: (n: number, sha: string, commit_title: string, commit_message: string) =>
       json<{ sha: string; merged: boolean }>("PUT", `/pulls/${n}/merge`, { merge_method: "merge", sha, commit_title, commit_message }),
     runs: async (workflow: string, filter: { head_sha?: string; event?: string; created?: string }) =>
@@ -203,7 +224,7 @@ function refuse(why: string): never {
 }
 const now = () => new Date().toISOString();
 /** the intent on play's board, where the status 'Intent accepted' links to */
-const intentLink = (id: string) => `https://play.maia.city/intents/#${id}`;
+export const intentLink = (id: string) => `https://play.maia.city/intents/#${id}`;
 /** one start at a time: the queue's order is read and its head started under this lock */
 const QUEUE_LOCK = 4_711_030;
 /** the first step's name, by what it waits to do */
@@ -267,7 +288,10 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
   if (first.work || !first.pull_request) return null;
   await mustMove(db, first, "ship");
   if (!gh) refuse("play holds no SHIP_TOKEN, so it cannot merge: set the repository secret SHIP_TOKEN and deploy (deploy/README.md).");
-  const { pr, seen } = await readPull(gh!, first.pull_request).catch((e) => refuse(`Pull request #${first.pull_request} could not be read: ${(e as Error).message}.`));
+  const read = await readPull(gh!, first.pull_request).catch((e) => refuse(`Pull request #${first.pull_request} could not be read: ${(e as Error).message}.`));
+  const pr = read.pr;
+  // what play keeps of its main merge goes on (./mainmerge.ts): main merged in and GitHub not done yet is working
+  const seen = carrySeen((first as any).pr_seen, read.seen);
   await keepSeen(db, first.id, seen);
   await db.transaction(async (tx) => {
     // one Accept at a time: a second press waits here, then finds it in Ship
@@ -573,23 +597,30 @@ export async function watchShips(db: Db, gh: GitHub, at = Date.now(), commit: st
  * board's sub-state (./substate.ts) is told of GitHub, so GET /api/intents asks GitHub nothing.
  */
 export async function watchPulls(db: Db, gh: GitHub, at = Date.now()) {
-  const { rows } = await db.query<{ id: string; pull_request: number }>(
-    `SELECT id, pull_request FROM play.intents WHERE coop_id = $1 AND stage IN ('build', 'proposal') AND pull_request IS NOT NULL AND work IS NULL ORDER BY created, id`,
+  const { rows } = await db.query<{ id: string; pull_request: number; pr_seen: PrSeen | null }>(
+    `SELECT id, pull_request, pr_seen FROM play.intents WHERE coop_id = $1 AND stage IN ('build', 'proposal') AND pull_request IS NOT NULL AND work IS NULL ORDER BY created, id`,
     [COOP],
   );
-  for (const { id, pull_request } of rows) {
+  for (const { id, pull_request, pr_seen } of rows) {
     try {
-      await keepSeen(db, id, (await readPull(gh, pull_request, at)).seen);
+      await keepSeen(db, id, carrySeen(pr_seen, (await readPull(gh, pull_request, at)).seen));
     } catch (e) {
       console.warn(`ship: #${pull_request} of intent ${id} not read: ${(e as Error).message}`);
     }
   }
 }
 
-/** One tick of the watcher: the ships, then the open intents' pull requests. */
-export async function watchTick(db: Db, gh: GitHub, at = Date.now(), commit: string | null = runningCommit()) {
+/** the watcher's own main merge state, kept while play-api runs */
+const MAIN_MERGE = mainMergeState();
+
+/**
+ * One tick of the watcher: the ships, then the open intents' pull requests read, then main merged into those behind it
+ * and conflicts shown (./mainmerge.ts).
+ */
+export async function watchTick(db: Db, gh: GitHub, at = Date.now(), commit: string | null = runningCommit(), merging: MainMergeState = MAIN_MERGE) {
   await watchShips(db, gh, at, commit);
   await watchPulls(db, gh, at);
+  await mergeMain(db, gh, merging, at).catch((e) => console.warn(`ship: main not merged into the open pull requests: ${(e as Error).message}`));
 }
 
 /** The ship watcher, every `every` ms while play-api runs (one look at a time), against the commit play runs. */
