@@ -1,36 +1,38 @@
 # b9e6ad45: people move as recorded (handover)
 
-Stage: **Specify**, waiting for Samuel to approve the spec (2026-11-07). Nothing is built yet.
+Stage: **Build**; Samuel approved the spec at 17:03 UTC on 2026-11-07.
 
-## The diagnosis (CPU, forward kinematics)
+## Done
 
-These scripts run from `play/actors-work` on the branch `intent/99b612ec-people-move`: copy them there. They need
-`/tmp/claude-0/data` laid out as follows:
-- ACCAD: `Female1_bvh.zip` and `Male2_bvh.zip` from accad.osu.edu, unzipped into `accad/`.
-- 100STYLE: the `.bvh` files range-read from zenodo record 8127870 with that branch's `rangezip.py`, into `style/`.
+- `tools/motion/`: the one retargeter, the clips made again, a mirror of the proposed pieces and assets held to their
+  hashes, and `check.ts` (c3–c10 on the CPU). Draft PR #2164.
+- Proposed on play, naming the intent:
+  - the clip pieces' v2: Motion: a man's gait `20edab62`, Motion: an elder's gait `2ec46fc8`, Motion: everyday actions
+    `93003c82`;
+  - Stand-in v14 `8ff16823` and Elder woman v5 `682d0d05`.
+- The Mac render job for c11: `intent-work/b9e6ad45-render/` (README.md, run.sh).
+- Person body and Person motion are unchanged. The skin check passes without them, so nothing here touches a4f8dc85's
+  piece.
 
-What each script measured:
+## What was really wrong (it corrects the spec's first diagnosis)
 
-- `dircheck.mjs`: `retarget()` against the source's FK, bone by bone. Every direction is within 0.0°; the head is 5.7°, a constant.
-- `clipcheck.mjs`: the published clip data through the target's FK. The posture is right (Stand-in idle 2°; the wave's hand
-  32 cm above the shoulder).
-- `rtcheck.mjs`: the clips as the asset plays them (`cast.clips[name](t, m)`). Same numbers.
-- `pagecheck.mjs`: the box's tables (`box/clips.js` motionOf) played back by the page (`clips.js` playerOf). Within 4 cm.
-- `skincheck.mjs`: the box's skin, dual quaternions on the CPU as the shader does. It follows its bones.
-- `pagepath.ts` (bun --preload ./pagepath-lib.ts): the box's scene `serialize` → `rebuild`, then the TRS put on it as
-  hero.js follow() does, then skinned. Identical to the box's skin (0.00 cm).
-- `twist.mjs`: **the fault**. A knee or elbow bends 14–59° off its bone's own across axis, and a mid-finger joint 90° off.
-  The retarget lines limbs, feet, head and fingers up by direction only (`setFromUnitVectors`), so their roll is arbitrary.
+The spec's 14–59° and 90° hinge figures were measured against the wrong bone and axis. Measured right, v1's faults are:
+- **Its line-up came from the capture's zero pose.** That isn't a pose: ACCAD's leans its back 54° and lays its hips
+  across z.
+- **Its limbs were lined up by direction alone.** So the Stand-in's upper arms were rolled half a turn (elbows bent
+  172–180° the wrong way round against them).
+- **Trunk and head:** his head was turned 32° and his hips' forward tipped 24° up.
+- **The Elder** stooped 30°, her knees passed 9 cm apart and a foot crossed 4 cm.
 
-## The fix (Build, once the spec is approved)
+The new retargeter lines up from the performer standing, each hinge by the axis it bends about in the take.
 
-- Line every bone up by a full frame at rest: its direction, plus the body's forward (or up, for the feet).
-- This is one path for every source, with no `@pos` path.
-- Retarget all clips again. The Elder takes 100STYLE Old captures, her idle eased toward upright (3–10°).
-- Put the tool and the checks in `tools/motion/` (see the spec's checks c1–c10).
-- Propose the new clip pieces and Stand-in v14 and Elder woman v5.
-- A Mac render job goes in `intent-work/b9e6ad45-render/`.
-- Person body changes only if c9 (skin) still fails. If it does, sequence with a4f8dc85.
+## Open: three bounds that the captures themselves fail
 
-The viewer: `hero.js` advances `state.t` even while the box is not yet running. A once-clip (wave) can therefore be over
-before the box first answers, and it then holds its last frame, arm down. This is not in this intent's scope; noted.
+- **c3 (≤ 3°):** two loop seams, 3.38° (the Stand-in's run, ACCAD Male2_C3) and 3.22° (the Elder's walk, ACCAD
+  Female1_B14). A loop's seam is at best half the gap between the stride's two ends; these takes hold one or two
+  strides. Every other bone of every clip is within 2.7°.
+- **c4 (≤ 10°):** knees pass (0.0°). Elbows bend 19.6–24.6° off one fixed axis and fingers 42°. That is the recorded
+  joints' own spread about their mean axis (the line-up uses that mean); forcing a strict hinge would move the forearm
+  about 8° off its recorded direction and fail c3.
+- **c7 (≤ 1 cm past the line):** the Stand-in's run lands a foot 1.6–1.8 cm past the line under his hips. Every window
+  of ACCAD's run does this (≥ 1 cm): runners land near the line. The Elder and all walks pass.

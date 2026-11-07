@@ -3,7 +3,7 @@
 // the source's own forward kinematics, turned as the clip is), what check.ts holds the clips to.
 //   node tools/motion/convert.mjs [set]   (the captures under $MOCAP, /tmp/claude-0/data by default: README.md)
 import { readBVH, readGLB, THREE } from './mocap.mjs';
-import { retarget, targetFK, T, TARGET } from './retarget.mjs';
+import { retarget, targetFK, T, TARGET, MAPS } from './retarget.mjs';
 import { writeFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { execSync } from 'node:child_process';
@@ -36,12 +36,13 @@ export function cut(kind, file, t0, t1, anim, fps = 30) {
 		const x = (t0 + i / fps) * src.fps - a;
 		const k = Math.max(0, Math.min(r.frames.length - 2, Math.floor(x))), u = Math.max(0, Math.min(1, x - k));
 		const f0 = r.frames[k], f1 = r.frames[k + 1];
-		const q = {}, dir = {};
+		const q = {}, dir = {}, pts = {};
 		for (const bn of r.bones) {
 			q[bn] = f0.q[bn].clone().slerp(f1.q[bn], u);
 			dir[bn] = f0.dir[bn].clone().lerp(f1.dir[bn], u).normalize();
 		}
-		out.push({ q, dir, hips: f0.hips.clone().lerp(f1.hips, u) });
+		for (const j in f0.pts) pts[j] = f0.pts[j].clone().lerp(f1.pts[j], u);
+		out.push({ q, dir, pts, hips: f0.hips.clone().lerp(f1.hips, u) });
 	}
 	return { frames: out, bones: r.bones, fps };
 }
@@ -58,6 +59,8 @@ export function settle(c, { cycle = false } = {}) {
 	for (let i = 0; i < n; i++) {
 		F[i].q.hips = turn.clone().multiply(F[i].q.hips);
 		for (const bn in F[i].dir) F[i].dir[bn].applyQuaternion(turn);
+		const shift = o.clone().add(step.clone().multiplyScalar(i));
+		for (const j in F[i].pts) F[i].pts[j].sub(shift).applyQuaternion(turn);
 		const p = F[i].hips.clone().sub(o).sub(step.clone().multiplyScalar(i)).applyQuaternion(turn);
 		F[i].hips = new Vector3(p.x, F[i].hips.y, p.z);
 	}
@@ -206,7 +209,13 @@ if (process.argv[1] === new URL(import.meta.url).pathname)
 			const from = `${BY[kind]}, ${kind === 'ual' ? file : `${file}.bvh`}, ${t0.toFixed(2)}–${t1.toFixed(2)} s${o.ease ? `, its back eased ${Math.round(o.ease * 100)}% of the way upright` : ''}`;
 			const meta = { kind: o.kind, from, licence: LIC[kind], ...(o.kind === 'cycle' ? { stride: +c.stride.toFixed(3) } : {}) };
 			parts.push(write(name, c, meta));
-			sources[name] = { from, eased: c.eased ?? [], bones: c.bones, dirs: c.frames.map((f) => c.bones.flatMap((b) => f.dir[b].toArray().map((x) => Math.round(x * 1e4)))) };
+			const joints = Object.keys(c.frames[0].pts);
+			sources[name] = {
+				from, eased: c.eased ?? [], bones: c.bones, dirs: c.frames.map((f) => c.bones.flatMap((b) => f.dir[b].toArray().map((x) => Math.round(x * 1e4)))),
+				// the source's own skeleton, to be drawn beside the person: its joints (m, at the person's size of 1.80 m,
+				// settled as the clip is: facing +z, its march taken out), and its bones as [from, to] joints
+				joints, lines: c.bones.map((b) => MAPS[kind][b].slice(1)), pos: c.frames.map((f) => joints.flatMap((j) => f.pts[j].toArray().map((x) => Math.round(x * 1000))))
+			};
 			console.log(set, name, c.frames.length, 'frames', meta.stride ? `stride ${meta.stride} m` : '');
 		}
 		const text = `/*

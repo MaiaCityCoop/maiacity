@@ -152,7 +152,9 @@ export function retarget(src, kind, { frames: range, stand } = {}) {
 		const at = (j) => pos(o, j).clone().multiplyScalar(scale);
 		// the source's own line for each bone, what the clip is held to
 		const dir = Object.fromEntries(bones.map((n) => [n, pos(o, map[n][2]).clone().sub(pos(o, map[n][1])).normalize()]));
-		out.push({ q, dir, hips: o.p[hipsJ].clone().multiplyScalar(scale), feet: { left: at(map.leftFoot[0]), right: at(map.rightFoot[0]), leftToe: at(map.leftToes[0]), rightToe: at(map.rightToes[0]) } });
+		// and where its joints are (m, at the target's size), to draw it beside the person
+		const pts = Object.fromEntries(bones.flatMap((n) => map[n].slice(1)).map((j) => [j, at(j)]));
+		out.push({ q, dir, pts, hips: o.p[hipsJ].clone().multiplyScalar(scale), feet: { left: at(map.leftFoot[0]), right: at(map.rightFoot[0]), leftToe: at(map.leftToes[0]), rightToe: at(map.rightToes[0]) } });
 	}
 	return { frames: out, fps: src.fps, scale, bones };
 }
