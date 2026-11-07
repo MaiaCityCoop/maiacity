@@ -20,4 +20,4 @@ A pull request to `main` runs play's and the website's checks (`.github/workflow
 Sign-up is by invite only: an admin's invite link (play's members page) lets one person in, as a traveler; an admin
 makes a citizen.
 
-Everything that was here before (avenDB, theOS, the old app, the blog) is on the branch `SNAPSHOT_2611101`.
+Everything that was here before is on the branch `SNAPSHOT_2611101`.

@@ -4,9 +4,9 @@
  * page can be looked at as, listed in the You menu (V1: you, the other player, each COOP). A page calls `pillCenter`
  * or `pillAccounts` while it shows them, and calls what it gets back once they are gone; the last one wins.
  *
- * The You item is the person's vault switcher too (Samuel 2026-10-18): a context (`pillContext`) lists their avenDB
+ * The You item is the person's vault switcher too (Samuel 2026-10-18): a context (`pillContext`) lists their
  * vaults, their own (their profile) first, in its menu, and the item shows the one picked. The app lists them on every
- * page once avenDB is open, as its `base`; avenDB's page lists them as it looks at them, with what waits in each, in
+ * page once they are known, as its `base`; a page lists them as it looks at them, with what waits in each, in
  * its place while it shows.
  */
 import { untrack } from 'svelte';

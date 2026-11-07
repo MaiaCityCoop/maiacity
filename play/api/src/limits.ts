@@ -1,6 +1,6 @@
 // How often one address may ask play's costly routes: the passkey ceremonies (/api/passkey/*) and proposals' uploads
 // (POST /api/intents, an intent put at Proposal with its work). Copied from aven/api/src/limits.js. A token bucket for each address, filled at `API_RATE` asks a minute (30 by
-// default, 0 for no limit), as avenDB's own feed limits its signed routes (avendb-server feed.rs `Rate`). The address is
+// default, 0 for no limit), as a feed limits its signed routes. The address is
 // the last the proxy in front names in `X-Forwarded-For` (Caddy sets it), else the socket's.
 
 /** The addresses a rate remembers at most: past it, it forgets the one heard from longest ago. */
