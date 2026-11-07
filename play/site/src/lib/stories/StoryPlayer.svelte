@@ -90,12 +90,11 @@
 	 *  the font come with the site, the rest are play's files */
 	const CODE: Record<string, () => Promise<{ default: string }>> = {
 		[VENDOR.runtime.hash]: () => import('../../../node_modules/@hyperframes/core/dist/hyperframe.runtime.iife.js?raw'),
-		[VENDOR.gsap.hash]: () => import('../../../node_modules/gsap/dist/gsap.min.js?raw'),
-		// a live shot's runtime (intent f270269e): frozen beside the site (scripts/live-runtime.ts --check rebuilds it)
-		[VENDOR.live.hash]: () => import('../../../vendor/live-runtime.js?raw')
+		[VENDOR.gsap.hash]: () => import('../../../node_modules/gsap/dist/gsap.min.js?raw')
 	};
-	/** the frozen box engines a live shot builds with: the site's own files, as every asset viewer's (held to their hash) */
-	const ENGINES: Record<string, string> = Object.fromEntries(enginesOf('box').map((e: { v: number; blake3: string }) => [e.blake3, pathOf('box', e.v)]));
+	/** a live shot's code the site serves (intent f270269e), held to its hash by feed: the frozen box engines, as every
+	 *  asset viewer loads them, and the live runtime, frozen beside them (scripts/live-runtime.ts --check rebuilds it) */
+	const ENGINES: Record<string, string> = { ...Object.fromEntries(enginesOf('box').map((e: { v: number; blake3: string }) => [e.blake3, pathOf('box', e.v)])), [VENDOR.live.hash]: '/live/live-runtime.js' };
 	const fileOf = (h: string): Promise<Blob> =>
 		CODE[h] ? CODE[h]().then((m) => new Blob([m.default])) : fetch(h === VENDOR.font.hash ? fontUrl : ENGINES[h] ?? frameUrl(h), { credentials: 'same-origin' }).then((r) => (r.ok ? r.blob() : Promise.reject(new Error(`file ${h.slice(0, 10)}…: ${r.status}`))));
 	/** what play knows of each asset version a live shot draws (GET /api/assets/<its UUID>): its recipe, pieces and engine */

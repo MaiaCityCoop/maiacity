@@ -5,8 +5,8 @@
  * by the frozen box engine, which is not in it. The same sources give the same bytes, so the hash pinned in compose.ts
  * is checked here.
  *
- * It is kept frozen beside the site, play/site/vendor/live-runtime.js (the Stories player hands it to the frame, as it
- * does HyperFrames' runtime and GSAP): --pin writes it there and its hash into compose.ts; --check builds it again and
+ * It is kept frozen beside the site, play/site/static/live/live-runtime.js (served by the site as its box engines are, and
+ * handed by the Stories player to the frame, held to its hash): --pin writes it there and its hash into compose.ts; --check builds it again and
  * holds both to the hash compose.ts pins.
  *
  *   bun scripts/live-runtime.ts [--out file] [--check | --pin]
@@ -48,7 +48,7 @@ if (import.meta.main) {
 	const out = args[args.indexOf('--out') + 1];
 	if (args.includes('--out') && out) writeFileSync(out, text);
 	console.log(`live runtime ${hash} (${text.length} bytes)`);
-	const KEPT = resolve(SITE, 'vendor/live-runtime.js');
+	const KEPT = resolve(SITE, 'static/live/live-runtime.js');
 	if (args.includes('--pin')) {
 		writeFileSync(KEPT, text);
 		const at = resolve(SITE, 'src/lib/stories/compose.ts');
@@ -62,7 +62,7 @@ if (import.meta.main) {
 		}
 		const kept = hashText(readFileSync(KEPT, 'utf8'));
 		if (kept !== hash) {
-			console.error(`vendor/live-runtime.js hashes to ${kept}, not ${hash}: pin it again`);
+			console.error(`static/live/live-runtime.js hashes to ${kept}, not ${hash}: pin it again`);
 			process.exit(1);
 		}
 	}
