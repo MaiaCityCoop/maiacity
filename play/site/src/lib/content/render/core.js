@@ -23,8 +23,8 @@ import { reopenOnRestore } from './budget.js';
 
 /** tone mappings by name */
 export const TONE = /** @type {const} */ ({ none: THREE.NoToneMapping, aces: THREE.ACESFilmicToneMapping, neutral: THREE.NeutralToneMapping });
-/** shadow map kinds by name (`true` keeps three's default, PCF) */
-export const SHADOWS = /** @type {const} */ ({ pcf: THREE.PCFShadowMap, soft: THREE.PCFSoftShadowMap, basic: THREE.BasicShadowMap, vsm: THREE.VSMShadowMap });
+/** shadow map kinds by name (`true` keeps three's default, PCF; three r186 has no PCF-soft: asked for, it drew PCF) */
+export const SHADOWS = /** @type {const} */ ({ pcf: THREE.PCFShadowMap, basic: THREE.BasicShadowMap, vsm: THREE.VSMShadowMap });
 
 /**
  * @typedef {object} RendererOptions

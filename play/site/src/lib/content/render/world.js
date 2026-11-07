@@ -27,7 +27,7 @@ import { createRenderer, disposeObject, disposeRenderer, fitTo, placeSeenOnly } 
  * @param {import('./core.js').RendererOptions} [o]
  */
 export function worldRenderer(o = {}) {
-	return createRenderer({ maxPixelRatio: 1.25, toneMapping: 'aces', shadows: 'soft', ...o });
+	return createRenderer({ maxPixelRatio: 1.25, toneMapping: 'aces', shadows: 'pcf', ...o });
 }
 
 /**
@@ -40,7 +40,7 @@ export function worldRenderer(o = {}) {
 export function createWorldRenderer(container, options = {}) {
 	const { fov = 68, near = 0.1, far = 2400, maxPixelRatio = 1.25 } = options;
 	const top = () => Math.min(maxPixelRatio, window.devicePixelRatio);
-	const renderer = createRenderer({ pixelRatio: top(), toneMapping: 'aces', exposure: 0.42, shadows: 'soft' });
+	const renderer = createRenderer({ pixelRatio: top(), toneMapping: 'aces', exposure: 0.42, shadows: 'pcf' });
 	renderer.setSize(container.clientWidth, container.clientHeight);
 	container.appendChild(renderer.domElement);
 	const scene = new THREE.Scene();

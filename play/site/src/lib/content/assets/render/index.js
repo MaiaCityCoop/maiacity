@@ -79,10 +79,6 @@ function resolve(ref) {
 export function createAssets(o) {
 	const { renderer, camera } = o;
 	renderer.localClippingEnabled = true;
-	// three turns a PCFSoftShadowMap (gone from it) into a PCFShadowMap at its first shadow pass; a shader made before
-	// that samples its shadow plainly and is never drawn (GL_INVALID_OPERATION). Ours are made early, while a world
-	// loads, so it is turned here first: the shadows three draws are the same
-	if (renderer.shadowMap.type === THREE.PCFSoftShadowMap) renderer.shadowMap.type = THREE.PCFShadowMap;
 	const group = new THREE.Group();
 	group.name = 'assets';
 	const presets = createPresets();
@@ -486,10 +482,6 @@ export function createAssets(o) {
 	 */
 	async function compiled(lv, studio) {
 		const scene = worldOf();
-		// three draws a soft (PCF-soft) shadow as PCF from its first shadow pass on, and a shader made before that pass
-		// would read the shadow as a plain texture: WebGL then refuses every draw of it (a world's near plants left out
-		// until its lights next change). Made as it will be drawn.
-		if (renderer.shadowMap.type === THREE.PCFSoftShadowMap) renderer.shadowMap.type = THREE.PCFShadowMap;
 		compiling++;
 		try {
 			if (scene) await Promise.all(lv.meshes.map(({ mesh }) => renderer.compileAsync(mesh, camera, scene)));
