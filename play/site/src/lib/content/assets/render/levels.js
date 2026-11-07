@@ -5,7 +5,8 @@
  *
  * - a level derived by simplifying (./simplify.js, beside the page: ./lower.js), kept as what the simplifier made of
  *   each of the build's drawings (plain arrays), and a level again (./lower.js `levelOf`) on the build it came from;
- * - a picture (./impostors.js), kept as its eight frames' pixels, laid on a page again with nothing photographed.
+ * - a picture (./impostors.js), kept as its eight frames' pixels (deflated, lossless: `packFrames`), laid on a page
+ *   again with nothing photographed.
  *
  * Each under its key (../cache.js `levelKeyOf`): the build's name (`<recipe hash>?values`, which holds its recipe, its
  * engine and its values), the level (or 'picture'), what it is made to (its plan: its budget, how far it may stray …;
@@ -28,6 +29,38 @@ export const DERIVER = { simplify: SIMPLIFIER, picture: PHOTOGRAPHER };
 export const levelKey = (build, L, plan, deriver = DERIVER.simplify) => cache.levelKeyOf({ build, level: L, plan, deriver });
 /** the key a build's picture, `px` pixels a side, is kept by @param {string} build @param {number} px */
 export const pictureKey = (build, px, deriver = DERIVER.picture) => cache.levelKeyOf({ build, level: 'picture', plan: { px }, deriver });
+
+/**
+ * A picture's eight frames as kept: one run of their pixels, deflated where this browser can (CompressionStream: what
+ * is not the thing is see-through and empty, so a picture keeps a fraction of its 8 × px² × 4 bytes), lossless.
+ * @param {Uint8Array[]} frames @returns {Promise<{ frames: number, bytes: number, deflated: boolean, data: Uint8Array }>}
+ */
+export async function packFrames(frames) {
+	const bytes = frames.reduce((n, f) => n + f.length, 0);
+	const all = new Uint8Array(bytes);
+	let at = 0;
+	for (const f of frames) all.set(f, at), (at += f.length);
+	if (typeof CompressionStream !== 'function') return { frames: frames.length, bytes, deflated: false, data: all };
+	const data = new Uint8Array(await new Response(new Blob([all]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer());
+	return { frames: frames.length, bytes, deflated: true, data };
+}
+
+/** the other way: the frames again, or undefined for what doesn't read as kept pictures */
+export async function unpackFrames(kept) {
+	if (!kept || typeof kept !== 'object' || !(kept.data instanceof Uint8Array) || !Number.isInteger(kept.frames) || kept.frames < 1 || !Number.isInteger(kept.bytes) || kept.bytes % kept.frames) return undefined;
+	let all = kept.data;
+	if (kept.deflated) {
+		if (typeof DecompressionStream !== 'function') return undefined;
+		try {
+			all = new Uint8Array(await new Response(new Blob([kept.data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+		} catch {
+			return undefined;
+		}
+	}
+	if (all.length !== kept.bytes) return undefined;
+	const each = kept.bytes / kept.frames;
+	return Array.from({ length: kept.frames }, (_, f) => all.slice(f * each, (f + 1) * each));
+}
 
 /** whether what the simplifier made, kept, fits the build it was made from: one entry for each of its drawings */
 function fits(source, made) {
@@ -101,7 +134,7 @@ export function createKept(o) {
 		 */
 		async picture(build, level, pictures) {
 			const key = pictureKey(build, pictures.px);
-			const frames = await read(key);
+			const frames = await unpackFrames(await read(key));
 			if (frames !== undefined) {
 				try {
 					const slot = pictures.put(level, frames);
@@ -115,7 +148,7 @@ export function createKept(o) {
 			counted.taken++;
 			if (keep)
 				Promise.resolve(pictures.read?.(slot))
-					.then((f) => f && put(key, f))
+					.then(async (f) => f && put(key, await packFrames(f)))
 					.catch(() => {});
 			return slot;
 		}

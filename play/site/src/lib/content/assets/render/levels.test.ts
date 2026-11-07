@@ -3,7 +3,7 @@
 // build makes no level again, each read from the device's cache by its key (./levels.js, ../cache.js `levelKeyOf`).
 import { describe, expect, it } from 'vitest'
 import * as THREE from 'three'
-import { createKept, levelKey, pictureKey } from './levels.js'
+import { createKept, levelKey, pictureKey, unpackFrames } from './levels.js'
 import { createLowering } from './lower.js'
 import { prepare } from './prepare.js'
 import { LEVELS, budgetOf, errorOf, smallestOf } from './lod.js'
@@ -118,10 +118,15 @@ describe('every asset has its levels', () => {
 		const made = await a.lower(name, source, plansOf(source))
 		const pa = fakePictures()
 		await a.picture(name, source, pa as any)
-		await new Promise((ok) => setTimeout(ok, 0))
+		// (the picture is kept once it is read back and deflated)
+		for (let i = 0; i < 100 && store.kept.size < 3; i++) await new Promise((ok) => setTimeout(ok, 10))
 		expect(store.kept.size).toBe(3)
 		for (const { L, plan } of plansOf(source)) expect(store.kept.has(levelKey(name, L, plan))).toBe(true)
-		expect(store.kept.has(pictureKey(name, pa.px))).toBe(true)
+		const picture = store.kept.get(pictureKey(name, pa.px)) as any
+		expect(picture).toMatchObject({ frames: FRAMES, bytes: FRAMES * pa.px * pa.px * 4 })
+		// kept deflated, smaller than its pixels, and read back the same, bit for bit
+		expect(picture.data.length).toBeLessThan(picture.bytes)
+		expect(await unpackFrames(picture)).toEqual(await pa.read())
 
 		// the second (another visit, another world on this device): the same build again, nothing simplified, nothing photographed
 		const second = counting()
