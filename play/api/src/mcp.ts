@@ -233,16 +233,17 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           version: { type: "integer", minimum: 1, description: "an accepted version's number; Main's newest if left out" },
           edit: { type: "integer", minimum: 1, description: "an edit of its history (doc_history's `seq`), instead of a version" },
           intent: { type: "string", description: "an intent's id: the document as its intent variant would make it" },
+          breed: { type: "integer", minimum: 1, description: "an asset's breed (doc_history's variants of type breed, by number): the breed as it is now, Main beneath it on every field it does not override" },
         },
         required: ["doc"],
         additionalProperties: false,
       },
-      run: async ({ doc, version, edit, intent }, me) => docAt({ db, store }, me, doc, { version, edit, intent }),
+      run: async ({ doc, version, edit, intent, breed }, me) => docAt({ db, store }, me, doc, { version, edit, intent, ...(breed != null ? { breed: Number(breed) } : {}) }),
     },
     {
       name: "doc_history",
       description:
-        "A document's history: its edits, oldest first (each with its seq, its variant, who made it and whether over MCP, its message, its time, and the version it was named, if one; Main's edits, with each accepted intent variant's where it was made, a merge where one went in), its versions, and its variants (Main, then each intent variant with its status, its seed, its intent and how many edits it holds). With `variant`, one intent variant's own edits. Read any edit's state with doc_at's `edit`.",
+        "A document's history: its edits, oldest first (each with its seq, its variant, who made it and whether over MCP, its message, its time, and the version it was named, if one; Main's edits, with each accepted intent variant's where it was made, a merge where one went in), its versions, and its variants (Main; an asset's breeds, each with its name and the fields it overrides; then each intent variant with its status, its seed, the breed it changes or makes, its intent and how many edits it holds). With `variant`, one variant's own edits (a breed's: its own and every edit of Main merged into it). Read any edit's state with doc_at's `edit`.",
       inputSchema: {
         type: "object",
         properties: { doc: { type: "string", description: "its UUID" }, variant: { type: "integer", minimum: 1, description: "an intent variant's number, for its own edits" } },
@@ -261,31 +262,37 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           doc: { type: "string", description: "its UUID" },
           message: { type: "string", description: "what this edit does, as its history will say it" },
           variant: { type: "integer", minimum: 1, description: "the intent variant to add the edit to (doc_edit gives it); a new one seeded from Main's newest version if left out" },
+          breed: { type: "integer", minimum: 1, description: "with no `variant`: start the intent variant from this breed of the asset's (its number), to change the breed; it changes only the breed's `source` and `card`" },
+          new_breed: { type: "string", description: "with no `variant`: start an intent variant that makes a new breed of the asset's, of this name (lowercase words joined by '-'), seeded from Main" },
           edits: { type: "array", items: { type: "object" }, description: "edits applied in order" },
           whole: { type: "object", description: "the whole new document (instead of edits)" },
         },
         required: ["doc", "message"],
         additionalProperties: false,
       },
-      run: async ({ doc, message, variant, edits, whole }, me) => docEdit({ db, store }, me, { doc, message, edits, whole, ...(variant != null ? { variant: Number(variant) } : {}) }),
+      run: async ({ doc, message, variant, breed, new_breed, edits, whole }, me) =>
+        docEdit({ db, store }, me, { doc, message, edits, whole, ...(variant != null ? { variant: Number(variant) } : {}), ...(breed != null ? { breed: Number(breed) } : {}), ...(new_breed != null ? { newBreed: `${new_breed}` } : {}) }),
     },
     {
       name: "propose_doc_version",
       description:
-        `Propose a document's next version: an intent variant made edit by edit with doc_edit (its \`variant\`; its edits go with it), or edits applied at once to Main's newest version, or the whole document. ${EDITS} It puts an intent at Proposal with it (via MCP), for Maia City's admins, who see what changed field by field on the intents' board (an asset built in the asset box, a story played in the Stories player, a factory opened with its simulation running) and accept or archive it. An asset's version is checked as readable source when it is proposed: ${RECIPE_RULE} If Main gets a newer version first, it still goes in where the two changes touch different fields, and is archived where they touch the same (an asset's, whenever its head moved).`,
+        `Propose a document's next version: an intent variant made edit by edit with doc_edit (its \`variant\`; its edits go with it), or edits applied at once to Main's newest version, or the whole document. ${EDITS} It puts an intent at Proposal with it (via MCP), for Maia City's admins, who see what changed field by field on the intents' board (an asset built in the asset box, a story played in the Stories player, a factory opened with its simulation running) and accept or archive it. An asset's version is checked as readable source when it is proposed: ${RECIPE_RULE} If Main gets a newer version first, it still goes in where the two changes touch different fields, and is archived where they touch the same (an asset's, whenever its head moved). An asset's breeds (doc_history) live beside Main and take every change accepted on Main except on the fields they override: change one with \`breed\` (an intent variant seeded from it), make one with \`new_breed\`; either Accept makes the asset's next version, every breed built as its variant.`,
       inputSchema: {
         type: "object",
         properties: {
           doc: { type: "string", description: "its UUID" },
           note: { type: "string", description: "what changes and why, for the admins deciding" },
           variant: { type: "integer", minimum: 1, description: "an intent variant to propose (doc_edit gives it)" },
+          breed: { type: "integer", minimum: 1, description: "with no `variant`: the edits change this breed of the asset's (its number), not Main" },
+          new_breed: { type: "string", description: "with no `variant`: the edits make a new breed of the asset's, of this name" },
           edits: { type: "array", items: { type: "object" }, description: "edits applied in order (to the intent variant, if one is named)" },
           whole: { type: "object", description: "the whole new document (instead of edits)" },
         },
         required: ["doc", "note"],
         additionalProperties: false,
       },
-      run: async ({ doc, note, variant, edits, whole, intent }, me) => proposeDocVersion({ db, store }, me, { doc, note, edits, whole, intent, ...(variant != null ? { variant: Number(variant) } : {}) }),
+      run: async ({ doc, note, variant, breed, new_breed, edits, whole, intent }, me) =>
+        proposeDocVersion({ db, store }, me, { doc, note, edits, whole, intent, ...(variant != null ? { variant: Number(variant) } : {}), ...(breed != null ? { breed: Number(breed) } : {}), ...(new_breed != null ? { newBreed: `${new_breed}` } : {}) }),
     },
     // ---- sandboxes: what each draws (its pins) and how it lays them out (its configs), changed only by proposal (./sandboxes.ts)
     {

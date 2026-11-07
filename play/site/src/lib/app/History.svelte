@@ -7,8 +7,9 @@
 
 	At its top the scrubber over every edit of Main (versions marked, MCP and merge edits marked): drag along it, or use
 	the arrow keys, to see the thing as it stood at any edit; ▶ Play its making runs through them; Back to vN returns to
-	the version shown. Under it Main's versions, newest first, each with the edits that led to it folded beneath; then
-	the open intent variants, each with its intent. Picking an edit or an intent variant shows what it changes
+	the version shown. Under it Main's versions, newest first, each with the edits that led to it folded beneath; then an
+	asset's breeds (play/SPEC.md "Breeds"), each its own line beside Main that takes every edit accepted on Main except
+	on the fields it overrides; then the open intent variants, each with its intent (and the breed it changes or makes). Picking an edit or an intent variant shows what it changes
 	(./Changes.svelte) and hands it to the view (`onPick`), which shows the thing as it stood there: its state is the
 	view's to draw (an asset built in the box, a factory's line, a story's timeline).
 
@@ -18,7 +19,24 @@
 <script lang="ts" module>
 	import type { Edit } from './Changes.svelte';
 	export type { Edit };
-	export type Variant = { id: number; type: 'main' | 'intent'; status: string; note: string; at: string; author: string | null; edits: number; seed: number | null; intent: { id: string; stage: string | null; title: string | null } | null };
+	export type Variant = {
+		id: number;
+		type: 'main' | 'intent' | 'breed';
+		/** a breed's: its name (only shown) and the fields it overrides */
+		name?: string;
+		overrides?: string[];
+		/** an intent variant's: the breed it changes, or the one it makes */
+		breed?: number;
+		breedName?: string | null;
+		makes?: string;
+		status: string;
+		note: string;
+		at: string;
+		author: string | null;
+		edits: number;
+		seed: number | null;
+		intent: { id: string; stage: string | null; title: string | null } | null;
+	};
 	/** a version as the chain lists it: its number, and whatever else the view knows of it */
 	export type ChainVersion = { number: number; note?: string | null; at?: string | null; by?: string | null; acceptedBy?: string | null; label?: string | null; [more: string]: unknown };
 	/** what is picked: an edit (of Main, or an intent variant's last), or a version of Main; null, back to the version shown */
@@ -122,6 +140,9 @@
 		return out;
 	});
 	const open = $derived(variants.filter((v) => v.type === 'intent' && (v.status === 'open' || v.status === 'proposed')));
+	const breeds = $derived(variants.filter((v) => v.type === 'breed' && v.status === 'open'));
+	/** what an intent variant works on: Main, a breed, or a breed it makes */
+	const onWhat = (v: Variant) => (v.makes ? `makes breed ${v.makes}` : v.breedName ? `changes breed ${v.breedName}` : 'changes Main');
 	const intentVariant = $derived(intent ? variants.find((v) => v.intent?.id === intent) ?? null : null);
 
 	async function pick(e: Edit, variant: Variant | null = null) {
@@ -231,6 +252,7 @@
 		</div>
 		<p class="soft caption" aria-live="polite">
 			{#if picking}{picking}
+			{:else if at && onVariant?.type === 'breed'}Breed {onVariant.name}, as it is now: Main beneath it on every field it does not override{onVariant.overrides?.length ? ` (it overrides ${onVariant.overrides.join(', ')})` : ''} · its last edit, “{at.message}” · {when(at.at)}
 			{:else if at && onVariant}Intent variant {onVariant.id}{onVariant.intent?.title ? ` (“${onVariant.intent.title}”)` : ''}, seeded from v{onVariant.seed ?? '?'}: its last edit, “{at.message}” · {at.author ?? 'play'}{at.via === 'mcp' ? ' via MCP' : ''} · {when(at.at)}
 			{:else if at}Edit {index + 1} of {edits.length}: “{at.message}” · {at.author ?? 'play'}{at.via === 'mcp' ? ' via MCP' : at.via === 'import' ? ' (imported)' : ''}{at.kind === 'merge' ? ' (a merge)' : ''} · {when(at.at)}
 			{:else if intentVariant}Shown as intent “{intentVariant.intent?.title ?? intent}” would make it: its variant {intentVariant.id}, seeded from v{intentVariant.seed ?? '?'}
@@ -265,13 +287,25 @@
 		{/each}
 	</ol>
 
+	{#if admin && breeds.length}
+		<h4 class="sub">Breeds <small>{breeds.length} beside Main, tracking it</small></h4>
+		<ol class="variants breeds">
+			{#each breeds as v (v.id)}
+				<li class:on={onVariant?.id === v.id}>
+					<button onclick={() => pickVariant(v)}>{v.name}</button>
+					<p class="soft">{v.overrides?.length ? `overrides ${v.overrides.join(', ')}` : 'overrides nothing: Main as it is'} · {v.edits} edit{v.edits === 1 ? '' : 's'}</p>
+				</li>
+			{/each}
+		</ol>
+	{/if}
+
 	{#if admin && open.length}
 		<h4 class="sub">Intent variants <small>{open.length} open</small></h4>
 		<ol class="variants">
 			{#each open as v (v.id)}
 				<li class:on={onVariant?.id === v.id || intentVariant?.id === v.id}>
 					<button onclick={() => pickVariant(v)}>{v.intent?.title ?? (v.note || `Variant ${v.id}`)}</button>
-					<p class="soft">{v.status === 'proposed' ? 'at Proposal' : 'being made'} · seeded from v{v.seed ?? '?'} · {v.edits} edit{v.edits === 1 ? '' : 's'}{v.author ? ` · ${v.author}` : ''}</p>
+					<p class="soft">{v.status === 'proposed' ? 'at Proposal' : 'being made'}{breeds.length || v.breedName || v.makes ? ` · ${onWhat(v)}` : ''} · seeded from v{v.seed ?? '?'} · {v.edits} edit{v.edits === 1 ? '' : 's'}{v.author ? ` · ${v.author}` : ''}</p>
 					{#if v.intent}<a class="soft" href="/intents/#{v.intent.id}">Its intent</a>{/if}
 				</li>
 			{/each}
@@ -279,7 +313,7 @@
 	{/if}
 
 	{#if admin && (at || onVariant || intentVariant)}
-		<Changes {doc} edit={onVariant || !at ? null : at.seq} variant={onVariant?.id ?? (!at ? intentVariant?.id ?? null : null)} heading={onVariant || (!at && intentVariant) ? 'What the intent variant changes' : 'What this edit changes'} />
+		<Changes {doc} edit={onVariant || !at ? null : at.seq} variant={onVariant?.id ?? (!at ? intentVariant?.id ?? null : null)} heading={onVariant?.type === 'breed' ? `What breed ${onVariant.name} overrides of Main` : onVariant || (!at && intentVariant) ? 'What the intent variant changes' : 'What this edit changes'} />
 	{/if}
 </section>
 

@@ -203,7 +203,7 @@ export const ASSET: DocType = {
       if (names.has(v.name)) out.push(`variant ${v.name}: its name is taken twice`);
       names.add(v.name);
     }
-    if (doc.defaultVariant !== undefined && !names.has(doc.defaultVariant)) out.push(`its default variant ${doc.defaultVariant} is none of its variants`);
+    if (doc.defaultVariant !== undefined && doc.variants?.length && !names.has(doc.defaultVariant)) out.push(`its default variant ${doc.defaultVariant} is none of its variants`);
     return out;
   },
 };

@@ -191,7 +191,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("GET", "/api/docs/:id", async (req, p) => {
     const q = new URL(req.url).searchParams;
     const num = (k: string) => (q.get(k) == null ? undefined : Number(q.get(k)));
-    return json(await docAt({ db, store }, await me(req), p.id, { version: num("v"), edit: num("edit"), intent: q.get("intent") ?? undefined }));
+    return json(await docAt({ db, store }, await me(req), p.id, { version: num("v"), edit: num("edit"), intent: q.get("intent") ?? undefined, breed: num("breed") }));
   });
   on("GET", "/api/docs/:id/history", async (req, p) => {
     const v = new URL(req.url).searchParams.get("variant");
