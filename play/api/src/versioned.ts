@@ -25,7 +25,7 @@ import { NOTE_MOST } from "./notes";
 import { UUID } from "./uuid";
 import { closeWork, putAtProposal, SANDBOX_WORK, settle, WORK_OF, workOf, WorkError } from "./work";
 import { decideSandbox, sandboxReview } from "./sandboxes";
-import { decideIntent, getIntent, IntentError, type IntentVerdict } from "./intents";
+import { decideIntent, getIntent, gate, IntentError, type IntentVerdict } from "./intents";
 import { acceptAndShip, type GitHub } from "./ship";
 import { assetDocFor, assetEdits, assetReview, decideAsset, ensureAssetDoc, proposeAssetVariant } from "./assetdocs";
 import { decideStory, proposeStoryVariant, storyEdit, storyReview } from "./stories";
@@ -549,7 +549,9 @@ export async function decide(ctx: Ctx, me: Me | null, id: string, verdict: Verdi
     const p = await workOf(tx, id, true);
     if (!p) throw new VersionError("There is no such intent.", 404);
     if (!p.kind) throw new VersionError(`Intent ${p.id} holds no work of play's to decide.`, 409);
-    if (p.stage !== "proposal") throw new VersionError(`This intent is at the ${p.stage} stage: only one at Proposal is decided.`, 409);
+    // accepting is a forward move (./intents.ts mayMove: held while a dependency is not shipped); archiving goes back
+    const no = verdict === "accept" ? await gate.mayMove(tx, p.id, "accept_work") : p.stage === "proposal" ? null : { why: `This intent is at the ${p.stage} stage: only one at Proposal is decided.` };
+    if (no) throw new VersionError(no.why, 409);
     let r: any;
     if (verdict === "archive" && p.author === me.id && me.level !== "admin") r = await archiveAsAuthor(tx, me, p);
     else if (p.kind === SANDBOX_WORK) r = await decideSandbox(tx, me, p, verdict);

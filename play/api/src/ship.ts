@@ -30,7 +30,7 @@
 // api.github.com only, never answered by a route, never written to a log.
 import { COOP, Denied, type Me } from "./access";
 import type { Db } from "./pg";
-import { getIntent, IntentError, unmet, unmetOn } from "./intents";
+import { gate, getIntent, IntentError, mustMove, unmetOn } from "./intents";
 
 /** the checks main.yml runs on a pull request, required green on its head before Accept merges it */
 export const REQUIRED_CHECKS = ["play / API and site", "website / build"];
@@ -259,15 +259,13 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, me: Me | null, id
   if (!me) throw new Denied("Please sign in first.", 401);
   if (me.level !== "admin") throw new Denied("Only Maia City's admins keep the intents.");
   const first = await getIntent(db, id);
-  if (first.stage !== "proposal" || first.work || !first.pull_request) return null;
+  if (first.work || !first.pull_request) return null;
   await db.transaction(async (tx) => {
     // one Accept at a time: a second press waits here, then finds it in Ship
     await tx.query(`SELECT 1 FROM play.intents WHERE id = $1 FOR UPDATE`, [first.id]);
     const intent = await getIntent(tx, first.id);
-    if (intent.stage !== "proposal") refuse(`Intent ${intent.id} is at the ${intent.stage} stage now.`);
+    await mustMove(tx, intent, "ship");
     if (!gh) refuse("play holds no SHIP_TOKEN, so it cannot merge: set the repository secret SHIP_TOKEN and deploy (deploy/README.md).");
-    const missing = unmet(intent);
-    if (missing.length) refuse(`Every must check passes before an intent is accepted: ${missing.join("; ")}.`);
     const pr = await gh!.pull(intent.pull_request).catch((e) => refuse(`Pull request #${intent.pull_request} could not be read: ${(e as Error).message}.`));
     const was: Ship | null = intent.ship ?? null;
     const at = now();
@@ -361,6 +359,10 @@ export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now
       Object.assign(ready, { state: "running", note: why });
       if (stable(ship) !== stable(was)) await save("ship");
     };
+
+    // the gate (./intents.ts mayMove): a dependency ahead of it in Ship is waited for; one gone back takes it back too
+    const no = await gate.mayMove(tx, id, "merge");
+    if (no) return no.wait ? wait(no.why, false) : red(no.why);
 
     // its turn: no ship running, none waiting ahead of it
     const { rows: others } = await tx.query<any>(`SELECT id, title, ship, decided_at FROM play.intents WHERE stage = 'ship' AND id <> $1 AND coop_id = $2`, [id, COOP]);
