@@ -115,7 +115,7 @@ its **data sheet** and its sheet's **brief** (`datasheet`, `brief`: Markdown kep
 dataset is in play. A
 version can be a kind of **variants** (the document's `variants`, or `propose_asset`'s: a plant's kinds, an animal's breeds), each its own
 recipe and a chip in the asset viewer. Everything Maia City wants made, fixed or improved is an **intent** (play/SPEC.md
-§4.12; Samuel 2026-11-06), on the intents' board (a modal from the nav pill's star): **Idea → Specify → Prototype →
+§4.12; Samuel 2026-11-06), on the intents' board (a modal from the nav pill's star): **Idea → Specify → Build →
 Proposal → (Ship →) Accepted** (or Archived). **One record** (Samuel 2026-11-06: "not a proposal belongs to an intent: the intent
 has a state, proposal"): there is no proposal beside an intent; Proposal is the intent's stage, and the work it brings
 (a document's version, named by its `doc_id` and `doc_variant`, or a sandbox's change) is on the intent itself
@@ -126,7 +126,7 @@ system prompt, the intents' lifecycle, each stage's instructions) is kept once, 
 (`list_docs`, `doc_at`, `doc_history`; `/skills/`; play/SPEC.md §4.14), never in the code or on the board, and changes
 only by proposal (`doc_edit`, `propose_doc_version`), served from Postgres on each request (`initialize`, the brief, MCP's
 prompts). In short: at Idea it specifies the intent (every test and measure check with its `run` in **avenBOX**) and
-stops for an admin's approval; in Prototype it builds it and records every check (`bun play/avenbox/intent.ts <the
+stops for an admin's approval; in Build it builds it and records every check (`bun play/avenbox/intent.ts <the
 intent's UUID> --record`) until it moves to Proposal by itself, where an admin decides it; work of play's it proposes
 naming the intent, code it ships by pull request (*Accept ships it*, above). Work
 proposed without `intent` is a new intent at Proposal of its own, with no spec. No tool approves, accepts or rejects an

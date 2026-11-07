@@ -5,7 +5,7 @@
 	page has a bar or a back button of its own, and everything else — the games, the worlds, the admin's tools — is a tile
 	on the dashboard. The intents (Samuel 2026-11-05, the proposals then) are a star, the AI's mark, in place of Home (Back goes up to the
 	dashboard anyway): it opens the board of the intents (Samuel 2026-11-06: everything Maia City wants made, fixed or
-	improved, from its idea through its spec and prototype to its proposal and the decision), in a modal over the page ($lib/site/intents), and is greyed out for everyone but Maia City's admins. You is the person's vault switcher too (Samuel 2026-10-18): their avenDB vaults, their own first, which
+	improved, from its idea through its spec and build to its proposal and the decision), in a modal over the page ($lib/site/intents), and is greyed out for everyone but Maia City's admins. You is the person's vault switcher too (Samuel 2026-10-18): their avenDB vaults, their own first, which
 	is their profile (their name lives there alone), and the one picked shown on the item, with how many changes wait
 	in the others; then the public site and signing out. Invites live in avenDB's Vaults app alone ($avendb/Vaults.svelte,
 	Samuel 2026-10-20), beside the roles they give. A page may add a
