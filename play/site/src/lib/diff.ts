@@ -3,6 +3,16 @@
 // back to the whole new text, all added, rather than hold up the page.
 export type Line = { op: 'same' | 'add' | 'del'; text: string };
 
+/** a text as a review diffs it: line by line, then each line one sentence a line (a `.`, `!` or `?` before a space and a
+ * capital, a backtick, a quote or a parenthesis), empty lines kept, so a changed sentence in a paragraph is that sentence */
+export function sentences(text: unknown): string {
+	if (typeof text !== 'string') return '';
+	return text
+		.split('\n')
+		.map((line) => line.replace(/([.!?]) (?=[A-Z`"(])/g, '$1\n'))
+		.join('\n');
+}
+
 export function lineDiff(before: string, after: string, most = 4000): Line[] {
 	const a = before.split('\n');
 	const b = after.split('\n');
