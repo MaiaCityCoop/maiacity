@@ -97,7 +97,7 @@ for every kind, by a document's UUID: `list_docs`, `doc_at` (a version, an edit 
 (edits, versions, variants), `doc_edit` (one edit of an intent variant, a new one seeded from Main if none is named)
 and `propose_doc_version` (its `variant`, or edits or the whole at once, with `intent`); each kind's own reads and
 creates stay where they hold more (`get_asset`, `get_story`, `propose_asset`, `propose_story`). Every view of a
-versioned thing shows its History in its own **History tab** on the right (`play/site/src/lib/app/History.svelte`), and
+versioned thing shows one aside on the right with its **Info and History** tabs centred on top, the same on a phone (`play/site/src/lib/app/Aside.svelte`, play/SPEC.md §4.15 *One aside*), and
 every review on the intents' board its changes through `Changes.svelte`. **A schema is a document** too (play/SPEC.md
 §4.15, `play/api/src/docs/schemas.ts`; Samuel 2026-11-06): every type of document is a versioned document `schema:<uuid>`
 of the meta-schema (its UUIDs `play/api/src/ids.ts` `SCHEMA`), never a type written in code; every document names the

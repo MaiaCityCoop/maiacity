@@ -2,9 +2,9 @@
 	The asset library, in the layout legacy's Assets had (aven/db/page/Assets.svelte, its Frame): on the left Maia City's
 	assets by group, a search, each leading to its newest version; in the middle the one picked, built in the box from
 	its own file and shown on the asset stage ($lib/content/assets/VaultAsset.svelte), in its turntable with its moves
-	and views; on the right, in its History tab ($lib/app/History.svelte, the same in every view), its versions as a chain
-	(who wrote each and who accepted it) and, for admins, every edit it was made in; the version's details; and, in its
-	Parts tab, its parts. Everything is play's: the catalog by hash, the chain from play's database. An asset's address is
+	and views; on the right the one aside ($lib/app/Aside.svelte): in Info the version's details, its reference sheet,
+	its breeds to pick and its parts; in History its versions as a chain (who wrote each and who accepted it) and, for
+	admins, every edit it was made in. Everything is play's: the catalog by hash, the chain from play's database. An asset's address is
 	`#<asset id>` (its UUID), a version or variant of it `#<asset id>/<hash>`.
 
 	Each group is its own app on the dashboard (Samuel 2026-11-04: /plants/, /things/, /machines/, /buildings/,
@@ -16,9 +16,8 @@
 	import { playCall, stopCall, unlock } from '$lib/call';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
-	import History, { type ChainVersion, type Pick } from '$lib/app/History.svelte';
+	import Aside, { type ChainVersion, type Pick } from './Aside.svelte';
 	import { api, may } from '$lib/api';
-	import { session } from '$lib/session.svelte';
 	import { catalogReady } from '$lib/recipes';
 	import { admitProposed, recipeInfo, source } from '$lib/content/assets/catalog.js';
 
@@ -44,7 +43,7 @@
 	let catalog = $state.raw<any>(null);
 	let picked = $state<string | null>(null);
 	let solo = $state(true);
-	let tab = $state<'history' | 'aside'>('history');
+	let tab = $state<'info' | 'history'>('info');
 	// where the viewer puts what it says of the asset (its readout and panel): the aside, under the name
 	let details = $state<HTMLElement | null>(null);
 
@@ -98,7 +97,7 @@
 	const ownOf = (v: Version) => v.recipe ?? v.variants.find((x) => x.name === v.defaultVariant)?.recipe ?? v.variants[0]?.recipe ?? null;
 	const shownHash = $derived(chain?.id === assetId ? (wanted || (chain.versions[0] ? ownOf(chain.versions[0]) : null)) : null);
 	const shownVersion = $derived(chain?.versions.find((v) => v.recipe === shownHash || v.variants.some((x) => x.recipe === shownHash)) ?? null);
-	const info = $derived(shownHash ? recipeInfo(shownHash) : undefined);
+	const rinfo = $derived(shownHash ? recipeInfo(shownHash) : undefined);
 
 	const found = $derived.by(() => {
 		const q = query.trim().toLowerCase();
@@ -115,7 +114,6 @@
 		hash = h;
 		picked = null;
 		catalog = null;
-		tab = 'history';
 	};
 	const short = (h: string | null) => (h ? `${h.slice(0, 10)}…` : '—');
 	// a whole asset another carries (a pickup's Power Cube), by the hash its card names
@@ -129,7 +127,7 @@
 		return at ? `${at.label} v${at.v}` : String(ref);
 	};
 	$effect(() => {
-		if (picked) tab = 'aside';
+		if (picked) tab = 'info';
 	});
 
 	// ---- its History (the asset's Loro document, play/SPEC.md "Version control"): an edit picked there is built in the
@@ -183,84 +181,40 @@
 	{/each}
 {/snippet}
 
-{#snippet head()}
-	{#if chain && shownVersion}
-		<header class="about-head">
-			<small>{GROUPS[chain.grp] ?? chain.grp} · owned by Maia City</small>
-			<h3>{chain.label}</h3>
-			<p class="soft">v{shownVersion.number}{info?.variant ? ` · ${info.label.split(': ').at(-1)}` : ''} · {chain.versions.length} version{chain.versions.length === 1 ? '' : 's'}</p>
-			{#if chain.sound}
-				<button class="chip call" class:on={calling} onclick={() => (calling ? hush() : chain && call(chain))} aria-pressed={calling}>{calling ? '■ Stop its call' : '▶ Hear its call'}</button>
-			{/if}
-		</header>
-		<div bind:this={details}></div>
-	{/if}
-{/snippet}
-
-{#snippet history()}
-	{#if chain && shownVersion}
-			<History doc={chain.id} shown={shownVersion.number} label="the asset" versions={chainOf(chain)} onPick={picked_}>
-				{#snippet version(c)}
-					{@const v = c.v as Version}
-					{#if v.sheet}
-						<!-- its reference sheet (a plant's plate of every stage and organ, kept in the Library): opened whole -->
-						<a class="sheet" href="/api/files/{v.sheet}" target="_blank" rel="noopener" title="Its reference sheet, whole (it is kept in the Library)">
-							<img src="/api/files/{v.sheet}" alt="v{v.number}'s reference sheet" loading="lazy" />
-							<span>Reference sheet</span>
-						</a>
-					{/if}
-					{#if v.datasheet || v.brief}
-						<!-- its data sheet (the researched numbers, every source) and its sheet's brief, kept in the Library -->
-						<p class="docs">
-							{#if v.datasheet}<a href="/library/?kind=document&q={v.datasheet}">Data sheet</a>{/if}
-							{#if v.brief}<a href="/library/?kind=document&q={v.brief}">Sheet brief</a>{/if}
-						</p>
-					{/if}
-					{#if v.variants.length > 1 || (v.variants.length && v.recipe)}
-						<div class="variants">
-							{#each v.variants as x (x.name)}
-								<a class="chip" class:accent={x.recipe === shownHash} href="#{chain!.id}/{x.recipe}" onclick={(e) => (e.preventDefault(), go(`${chain!.id}/${x.recipe}`))}>{x.label?.split(': ').at(-1) ?? x.name}</a>
-							{/each}
-						</div>
-					{/if}
-				{/snippet}
-			</History>
-			<h4 class="side-head">This version</h4>
+{#snippet side()}
+	{@const v = shownVersion!}
+	<Aside doc={{ id: chain!.id, kind: 'asset', number: chain!.versions[0]?.number, edit: atEdit?.seq }} where="{GROUPS[chain!.grp] ?? chain!.grp} · owned by Maia City" label="{chain!.label}{rinfo?.variant ? ` · ${rinfo.label.split(': ').at(-1)}` : ''}" shown={v.number} versions={chainOf(chain!)} breeds={v.variants.length > 1 || (v.variants.length && v.recipe) ? v.variants.map((x) => ({ label: x.label?.split(': ').at(-1) ?? x.name, on: x.recipe === shownHash, pick: () => go(`${chain!.id}/${x.recipe}`) })) : []} propose="Propose v{(chain!.versions[0]?.number ?? 0) + 1} over MCP (doc_edit, propose_doc_version)." onPick={picked_} bind:tab>
+		{#snippet info()}
+			{#if chain!.sound}<button class="chip call" class:on={calling} onclick={() => (calling ? hush() : call(chain!))} aria-pressed={calling}>{calling ? '■ Stop its call' : '▶ Hear its call'}</button>{/if}
 			<dl>
-				<dt>Version</dt><dd>v{shownVersion.number}{shownVersion.parents.length ? `, after ${short(shownVersion.parents[0])}` : ', its first'}</dd>
-				<dt>Id</dt><dd class="mono" title={shownVersion.id}>{short(shownVersion.id)}</dd>
+				<dt>After</dt><dd>{v.parents.length ? short(v.parents[0]) : 'its first'}</dd>
 				<dt>Recipe</dt><dd class="mono" title={shownHash ?? ''}>BLAKE3 {short(shownHash)}</dd>
-				{#if shownVersion.triangles}<dt>Triangles</dt><dd>{shownVersion.triangles.toLocaleString('en-GB')}{shownVersion.skinned ? ', skinned' : ''}</dd>{/if}
-				{#if shownVersion.size}<dt>Size</dt><dd>{shownVersion.size.map((n) => n.toFixed(2)).join(' × ')} m</dd>{/if}
+				{#if v.triangles}<dt>Triangles</dt><dd>{v.triangles.toLocaleString('en-GB')}{v.skinned ? ', skinned' : ''}</dd>{/if}
+				{#if v.size}<dt>Size</dt><dd>{v.size.map((n) => n.toFixed(2)).join(' × ')} m</dd>{/if}
 			</dl>
-			{#if session.me?.level === 'admin'}
-				<p class="soft propose">Propose v{(chain.versions[0]?.number ?? 0) + 1} over MCP (doc_edit, propose_doc_version); it is decided in <a href="/intents/">Intents</a>.</p>
-			{/if}
-	{/if}
-{/snippet}
-
-{#snippet parts_()}
-	{#if catalog}
-		{#await partsList then { default: Parts }}
-			<Parts {catalog} own={shownHash ?? undefined} bind:picked bind:solo hrefOf={unitHref} nameOf={unitName} />
-		{/await}
-	{/if}
+			<!-- its reference sheet (a plant's plate of every stage and organ), its data sheet and the sheet's brief, kept in the Library -->
+			{#if v.sheet}<a class="sheet" href="/api/files/{v.sheet}" target="_blank" rel="noopener"><img src="/api/files/{v.sheet}" alt="v{v.number}'s reference sheet" loading="lazy" /><span>Reference sheet</span></a>{/if}
+			{#if v.datasheet || v.brief}<p class="docs">{#if v.datasheet}<a href="/library/?kind=document&q={v.datasheet}">Data sheet</a>{/if}{#if v.brief}<a href="/library/?kind=document&q={v.brief}">Sheet brief</a>{/if}</p>{/if}
+			<div bind:this={details}></div>
+			{#if catalog}{#await partsList then { default: Parts }}<h4 class="side-head">Parts {catalog.parts.length}</h4><Parts {catalog} own={shownHash ?? undefined} bind:picked bind:solo hrefOf={unitHref} nameOf={unitName} />{/await}{/if}
+		{/snippet}
+	</Aside>
 {/snippet}
 
 <div class="assets">
-	<Frame nav={ready ? shelf : undefined} asideHead={chain && shownVersion ? head : undefined} history={chain && shownVersion ? history : undefined} aside={chain && shownVersion && catalog ? parts_ : undefined} asideName="Parts {catalog?.parts.length ?? ''}" bind:tab navLabel="Maia City's {title.toLowerCase()}" asideLabel="The asset's history and parts" navIcon="asset" flush>
+	<Frame nav={ready ? shelf : undefined} aside={chain && shownVersion ? side : undefined} navLabel="Maia City's {title.toLowerCase()}" asideLabel="The asset's info and history" navIcon="asset" flush>
 		{#if failed}
 			<p class="error">{failed}</p>
 		{:else if !ready}
 			<p class="soft">Reading Maia City's assets…</p>
-		{:else if shownHash && info}
+		{:else if shownHash && rinfo}
 			<svelte:boundary onerror={(e) => console.error(e)}>
 				{#await viewer}
 					<p class="soft">Opening the stage…</p>
 				{:then { default: VaultAsset }}
 					<div class="viewer">
 						{#key shownHash}
-							<VaultAsset {source} hash={viewerHash ?? shownHash} title="{(viewerInfo ?? info).label} v{(viewerInfo ?? info).v}{atEdit ? ' · an edit' : ''}" note={atEdit ? atEdit.message : (shownVersion?.note ?? '')} bind:catalog bind:picked {solo} fill named={false} {details} />
+							<VaultAsset {source} hash={viewerHash ?? shownHash} title="{(viewerInfo ?? rinfo).label} v{(viewerInfo ?? rinfo).v}{atEdit ? ' · an edit' : ''}" note={atEdit?.message ?? ''} bind:catalog bind:picked {solo} fill named={false} {details} />
 						{/key}
 					</div>
 				{/await}
@@ -290,7 +244,6 @@
 	}
 	.assets :global(.soft) { color: var(--soft); }
 	.assets :global(.chip) { display: inline-flex; align-items: center; padding: 0.08rem 0.55rem; border-radius: 999px; background: rgb(0 0 0 / 0.06); font-size: 0.74rem; font-weight: 500; text-decoration: none; color: inherit; }
-	.assets :global(.chip.accent) { background: var(--mustard-soft); }
 	.assets :global(.mono) { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.8em; }
 	/* the stage as tall and as wide as the middle column, edge to edge */
 	.viewer { height: 100%; }
@@ -298,21 +251,14 @@
 	/* the middle's notes when nothing is shown, kept off its edges */
 	.assets :global(.middle > p) { margin: 1rem clamp(1rem, 3vw, 2.4rem); }
 	.none { padding: 0.4rem 0.6rem; font-size: 0.84rem; }
-	.about-head { margin: 0 0 0.9rem 0.35rem; }
-	.call { margin-top: 0.5rem; border: 0; cursor: pointer; font: inherit; font-size: 0.78rem; }
+	.call { margin: 0 0 0.5rem; border: 0; cursor: pointer; font: inherit; font-size: 0.78rem; }
 	.call.on { background: var(--ink); color: var(--paper); }
-	.about-head small { color: var(--accent); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
-	.about-head h3 { margin: 0.15rem 0 0; font-size: 1.15rem; font-family: var(--font-body); font-weight: 600; }
-	.about-head p { margin: 0.1rem 0 0; font-size: 0.8rem; }
-	.sheet { display: flex; align-items: center; gap: 0.5rem; margin: 0.35rem 0 0.1rem; font-size: 0.78rem; color: inherit; text-decoration: none; }
+	.sheet { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0 0; font-size: 0.78rem; color: inherit; text-decoration: none; }
 	.sheet img { width: 5.5rem; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 0.35rem; border: 1px solid var(--line, #e5e1d8); background: #fff; }
-	.sheet:hover span { text-decoration: underline; }
 	.docs { display: flex; gap: 0.75rem; margin: 0.2rem 0 0; font-size: 0.78rem; }
-	.variants { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 0.35rem; }
-	.side-head { margin: 0 0 0.5rem 0.35rem; color: var(--soft); font-family: var(--font-body); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
-	dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.3rem 0.8rem; margin: 0 0 0 0.35rem; font-size: 0.8rem; }
+	.side-head { margin: 0.9rem 0 0.4rem; color: var(--soft); font-family: var(--font-body); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+	dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.2rem 0.8rem; margin: 0.2rem 0 0; }
 	dt { opacity: 0.6; }
 	dd { margin: 0; overflow-wrap: anywhere; }
-	.propose { font-size: 0.8rem; margin: 1rem 0 0 0.35rem; }
 	.empty { padding: 1rem; border: 1px dashed var(--line); border-radius: 12px; color: var(--soft); }
 </style>

@@ -7,15 +7,15 @@
 	(?artifact=<uuid>): its summary, a small report on its topic, as Markdown, and its authors; an author opens to their
 	artifacts (?author=<uuid>). Read only: nothing here adds or changes one. Maia City's admins alone (the API says so too).
 	An artifact is a document like any other (play/SPEC.md "Version control"): every change of it waits at Proposal as an
-	intent's work, marked on its card until it is decided; the opened artifact has the History tab every document has
-	($lib/app/History.svelte), and opens as an intent would make it (?intent=<uuid>, from the intents' board).
+	intent's work, marked on its card until it is decided; the opened artifact has the one aside every document has
+	($lib/app/Aside.svelte: Info and History), and opens as an intent would make it (?intent=<uuid>, from the intents' board).
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
-	import History, { type Pick } from '$lib/app/History.svelte';
+	import Aside, { type Pick } from '$lib/app/Aside.svelte';
 	import { api } from '$lib/api';
 	import { session } from '$lib/session.svelte';
 	import { markdown } from '$lib/site/markdown/index.js';
@@ -234,11 +234,12 @@
 	{/if}
 {/snippet}
 
-{#snippet historyTab()}
-	{#if opened}
-		<History doc={opened.id} shown={shownV} label="the artifact" intent={intentId || null} onPick={picked} />
-		<p class="soft propose">Corrected over MCP (update_artifact): each change waits at Proposal, decided in <a href="/intents/">Intents</a>.</p>
-	{/if}
+{#snippet aside_()}
+	<Aside doc={{ id: opened!.id, kind: 'artifact', ...(asOf ?? {}) }} where="Artifacts · {ONE[opened!.kind] ?? opened!.kind}" label={view?.title ?? opened!.title} shown={shownV} propose="Corrected over MCP (update_artifact): each change waits at Proposal." onPick={picked}>
+		{#snippet info()}
+			<p class="side-facts"><a href={opened!.url} target="_blank" rel="noopener noreferrer">{host(opened!.url)} ↗</a>{#if view?.authors.length} · by {names(view.authors)}{/if} · {opened!.by}</p>
+		{/snippet}
+	</Aside>
 {/snippet}
 
 {#snippet card(s: Artifact)}
@@ -262,7 +263,7 @@
 
 {#if admin}
 	<div class="pg">
-		<Frame nav={loaded ? shelf : undefined} history={artifactId && opened ? historyTab : undefined} bind:open={side} navLabel="Find and filter the artifacts" asideLabel="The artifact's history" navIcon="search" flush>
+		<Frame nav={loaded ? shelf : undefined} aside={artifactId && opened ? aside_ : undefined} bind:open={side} navLabel="Find and filter the artifacts" asideLabel="The artifact's history" navIcon="search" flush>
 			{#if !loaded}
 				<p class="note soft">Opening the Artifacts…</p>
 			{:else if artifactId}
@@ -333,10 +334,7 @@
 {/if}
 
 <style>
-	.propose {
-		font-size: 0.8rem;
-		padding: 0 0.25rem;
-	}
+	.side-facts { margin: 0.5rem 0 0; font-size: 0.78rem; overflow-wrap: anywhere; }
 	.waits {
 		font-size: 0.75rem;
 		padding: 0.1rem 0.45rem;
