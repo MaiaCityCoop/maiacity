@@ -338,26 +338,26 @@
   },
   "truck": {
    "head": 252957,
-   "next": 166537,
+   "next": 166564,
    "copies": 87186,
-   "shrink": 86420,
+   "shrink": 86393,
    "requires": 3,
-   "overhead": 766,
+   "overhead": 793,
    "pieces": [
     "2e17ebde03995c8624aa6d4e45aabf54df6b23089c309586330793b8c4a15e70",
     "ccd99107fc32069ed80f956c2274b339fdb3758a8a535ea32f6cce97eac9a569",
     "ae16075b4e9197b3028c7862c399bbf18e7b04dcdc14d20113bd9186bbe366eb"
    ],
    "headBytes": 253528,
-   "nextBytes": 167070
+   "nextBytes": 167097
   },
   "pickup": {
    "head": 298372,
-   "next": 67817,
+   "next": 67835,
    "copies": 231365,
-   "shrink": 230555,
+   "shrink": 230537,
    "requires": 4,
-   "overhead": 810,
+   "overhead": 828,
    "pieces": [
     "f17f8358fd4bca21830facf59f17092bc9250f126123f848212da085a3789833",
     "ccd99107fc32069ed80f956c2274b339fdb3758a8a535ea32f6cce97eac9a569",
@@ -365,7 +365,7 @@
     "5c7ac999d7434d04e4dea7109f6f810baf783a3a3d17f1da078c1fee3b37fcae"
    ],
    "headBytes": 298891,
-   "nextBytes": 67973
+   "nextBytes": 67991
   },
   "powercube": {
    "head": 185450,
@@ -399,11 +399,11 @@
   },
   "batterypack": {
    "head": 208918,
-   "next": 136928,
+   "next": 136952,
    "copies": 72555,
-   "shrink": 71990,
+   "shrink": 71966,
    "requires": 6,
-   "overhead": 565,
+   "overhead": 589,
    "pieces": [
     "9f6f2e4842963b34da42997cc436da6cf336d5d82acb9a19c8d8d6081b496782",
     "06afbb415f4a3461ffb38847b5a4e190fa9d1cb3529baa070370f2130b25eb20",
@@ -413,7 +413,7 @@
     "eae625068b48f664355052af810ff9ca4e2c469324eff822e0a166ffdb85f645"
    ],
    "headBytes": 209604,
-   "nextBytes": 137389
+   "nextBytes": 137413
   }
  }
 }

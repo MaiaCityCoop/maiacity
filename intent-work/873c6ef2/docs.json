@@ -153,9 +153,9 @@
    "kind": "asset",
    "intent": "873c6ef2-2bbe-49a3-9470-705cf1702b58",
    "variant": 1307,
-   "edit": 2216,
+   "edit": 2379,
    "changed": true,
-   "edits": 1,
+   "edits": 2,
    "changes": 2
   },
   "batterycube": {
@@ -164,6 +164,16 @@
    "intent": "873c6ef2-2bbe-49a3-9470-705cf1702b58",
    "variant": 1308,
    "edit": 2217,
+   "changed": true,
+   "edits": 1,
+   "changes": 2
+  },
+  "fiat": {
+   "doc": "33e29d24-08b9-40f7-b098-1ce81d37ef23",
+   "kind": "asset",
+   "intent": "873c6ef2-2bbe-49a3-9470-705cf1702b58",
+   "variant": 1426,
+   "edit": 2403,
    "changed": true,
    "edits": 1,
    "changes": 2
