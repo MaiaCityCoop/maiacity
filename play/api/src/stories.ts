@@ -334,8 +334,7 @@ export async function checkBody(db: Queryable, given: any, self?: string): Promi
   }
   const comps = [...new Set(tracks.filter((t) => t.kind === "shots").flatMap((t) => t.clips.map((c) => c.composition)).filter((v): v is string => typeof v === "string"))];
   if (comps.length) {
-    const { rows } = await db.query<{ hash: string }>(`SELECT hash FROM play.files WHERE hash = ANY($1) AND media_type = $2`, [comps, COMPOSITION_TYPE]);
-    const held = new Set(rows.map((r) => r.hash));
+    const held = new Set([...(await fileTypes(db, comps))].filter(([, t]) => t === COMPOSITION_TYPE).map(([h]) => h));
     const missing = comps.filter((v) => !held.has(v));
     if (missing.length) throw new StoryError(`No composition is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_composition first.`);
   }
