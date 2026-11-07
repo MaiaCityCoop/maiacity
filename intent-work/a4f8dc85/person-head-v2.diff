@@ -1,0 +1,59 @@
+--- a/Person head v1 (7f6d4149…)
++++ b/Person head v2 (a4f8dc85)
+@@ -8,6 +8,9 @@
+  * only its long data lines are wrapped. `headPieces(look, v)`: the parts, as a rig takes them; `crownOf(face)`: the
+  * top of the head (m) in the 1.80 m it is measured for; `skin(roughness)`: the skin's material; `CATCHLIGHT()`: the
+  * eyes' glint's.
++ * A person's own face (v2 of this piece, intent a4f8dc85): `look.shape`, offsets of the base head's vertices (Int16 in
++ * 1e-5 m, base64; from a fit to their photos), and `look.colours`, the smoothed skin's colours (sRGB bytes, base64);
++ * both optional, so every look without them is built exactly as before.
+  */
+ const three = require('three');
+ 
+@@ -2585,10 +2588,15 @@
+ 
+ const BUILT = {};
+ 
+-function build(face, smile) {
++function build(face, smile, own) {
+ 	const who = HEAD_PEOPLE[KEY[face]];
+ 	const raw = i16(who.pos), n = HEAD_MESH.n;
+ 	const pos = Float32Array.from(raw, (x, k) => x * HEAD_Q + HEAD_MID[k % 3]);
++	if (own) {
++		// a person's own face: their offsets on the base head, before it is smoothed
++		const d = i16(Array.isArray(own) ? own.join("") : own);
++		for (let k = 0; k < pos.length; k++) pos[k] += d[k] * HEAD_Q;
++	}
+ 	const region = bytes(HEAD_REGION);
+ 	/** a shape's offsets: its units' added up, and the cheeks lifted (up and forward round each cheek's apple, under
+ 	*  the eye and out from the nose's wing, on the face's front only)
+@@ -2805,7 +2813,7 @@
+ 	};
+ }
+ 
+-const headOf = (face = "man", v = 10) => BUILT[`${face}:${smileOf(v)}`] ??= build(face, smileOf(v));
++const headOf = (face = "man", v = 10, shape) => BUILT[`${face}:${smileOf(v)}${shape ? `:${Array.isArray(shape) ? shape.join("") : shape}` : ""}`] ??= build(face, smileOf(v), shape);
+ 
+ const crownOf = (face = "man") => HEAD_PEOPLE[KEY[face]].crown;
+ 
+@@ -2859,7 +2867,7 @@
+ }
+ 
+ function headPieces(k, ver = 10) {
+-	const h = headOf(k.face ?? "man", ver);
++	const h = headOf(k.face ?? "man", ver, k.shape);
+ 	const weights = (p) => headWeights(p, ver);
+ 	const kind = ver >= 9;
+ 	const { skin, E } = h;
+@@ -2890,6 +2898,11 @@
+ 		c.multiplyScalar(1 - Math.min(.5, Math.max(0, h.hollow[i] * 2.4)));
+ 		return c;
+ 	});
++	if (k.colours) {
++		// a person's own skin, baked from their photos onto the smoothed head (sRGB bytes, one per vertex)
++		const c8 = bytes(Array.isArray(k.colours) ? k.colours.join("") : k.colours);
++		for (let i = 0; i < m && 3 * i + 2 < c8.length; i++) colours[i] = new three.Color().setRGB(c8[3 * i] / 255, c8[3 * i + 1] / 255, c8[3 * i + 2] / 255, three.SRGBColorSpace);
++	}
+ 	/** @type {Piece[]} */
+ 	const out = [{
+ 		geo: skin.geo.clone(),
