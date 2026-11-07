@@ -25,6 +25,8 @@ export type Work = {
   doc_id?: string | null; doc_variant?: number | null;
   asset_id?: string; base?: string | null; version?: string;
   story_id?: string; story_base?: string | null; story_version?: string;
+  /** a retire (./retire.ts): its reason; the variant changes nothing, its Accept takes the document off every list */
+  retire?: string;
 };
 const REFS = ["asset_id", "base", "version", "story_id", "story_base", "story_version"] as const;
 
@@ -154,6 +156,7 @@ export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string 
   await unhold(q, id, null);
   const refs: Record<string, unknown> = { kind: o.work.kind };
   for (const k of REFS) if ((o.work as any)[k] != null) refs[k] = (o.work as any)[k];
+  if (o.work.retire) refs.retire = o.work.retire;
   await holdVariant(q, who, id, o.work.doc_id, Number(o.work.doc_variant), refs);
   await ownColumns(q, id);
   // in Build, the work waits on the intent until its last must passes (intent 94061718): it then moves to Proposal with

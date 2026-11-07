@@ -10,6 +10,7 @@
 import type { Queryable } from "./pg";
 import { admin, Denied, type Me } from "./access";
 import { HASH } from "./hash";
+import { storyListed } from "./listed";
 import { fileLabel, StoryError, type StoryBody } from "./stories";
 import { assetSeen, libraryOf, libraryPage, relabel } from "./owners";
 
@@ -38,7 +39,7 @@ function opener(me: Me | null, library: "coop" | "personal"): Me {
  * versions of the assets `me` sees name it */
 async function usesOf(db: Queryable, me: Me): Promise<Map<string, Use[]>> {
   const { rows } = await db.query<{ id: string; title: string; number: number | null; body: StoryBody }>(
-    `SELECT s.id, s.title, v.number, v.body FROM play.stories s JOIN play.story_versions v ON v.id = s.head WHERE s.folded_into IS NULL`,
+    `SELECT s.id, s.title, v.number, v.body FROM play.stories s JOIN play.story_versions v ON v.id = s.head WHERE ${storyListed("s")}`,
   );
   const out = new Map<string, Use[]>();
   const add = (hash: unknown, use: Use) => {
