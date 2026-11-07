@@ -43798,7 +43798,7 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
 
   // src/lib/content/render/core.js
   var TONE = { none: NoToneMapping, aces: ACESFilmicToneMapping, neutral: NeutralToneMapping };
-  var SHADOWS = { pcf: PCFShadowMap, soft: PCFSoftShadowMap, basic: BasicShadowMap, vsm: VSMShadowMap };
+  var SHADOWS = { pcf: PCFShadowMap, basic: BasicShadowMap, vsm: VSMShadowMap };
   function createRenderer(o = {}) {
     const renderer = new WebGLRenderer({ canvas: o.canvas, antialias: o.antialias ?? true, alpha: o.alpha, powerPreference: o.power, preserveDrawingBuffer: o.preserve });
     renderer.setPixelRatio(o.pixelRatio ?? Math.min(o.maxPixelRatio ?? 2, window.devicePixelRatio || 1));
@@ -43827,7 +43827,219 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
     return renderer;
   }
 
+  // src/lib/content/worlds/sky.js
+  var lin = (hex) => new Color(`#${hex}`).convertSRGBToLinear();
+  function createSky(scene, renderer) {
+    const uniforms = {
+      uZenith: { value: new Color },
+      uHorizon: { value: new Color },
+      uHaze: { value: new Color },
+      uSunC: { value: new Color },
+      uSun: { value: new Vector3(0, 1, 0) },
+      uSmog: { value: 0.5 }
+    };
+    const dome = new Mesh(new SphereGeometry(1, 48, 24), new ShaderMaterial({
+      uniforms,
+      side: BackSide,
+      depthWrite: false,
+      depthTest: false,
+      fog: false,
+      toneMapped: false,
+      vertexShader: `
+				varying vec3 vDir;
+				void main() {
+					vDir = normalize(position);
+					vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+					gl_Position = p.xyww;
+				}`,
+      fragmentShader: `
+				varying vec3 vDir;
+				uniform vec3 uZenith, uHorizon, uHaze, uSunC, uSun;
+				uniform float uSmog;
+				float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+				float noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+					return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y); }
+				void main() {
+					vec3 d = normalize(vDir);
+					float h = d.y;
+					// the lid: from the haze low down to the zenith (the horizon's colour only in its band, below)
+					vec3 c = mix(uHaze, uZenith, pow(clamp(h, 0.0, 1.0), 0.5));
+					// the smog's lid: slow, heavy banks of cloud, darker in their bellies
+					vec2 q = d.xz / max(0.08, h + 0.12) * 1.6;
+					float n = noise(q) * 0.6 + noise(q * 2.3) * 0.3 + noise(q * 5.1) * 0.1;
+					c *= mix(1.0, 0.78 + 0.35 * n, uSmog * smoothstep(0.02, 0.35, h));
+					// the sun behind it: a smear of warm light low in the haze, no disc
+					float s = max(0.0, dot(d, normalize(uSun)));
+					c += uSunC * (pow(s, 6.0) * 0.35 + pow(s, 40.0) * 0.5) * (1.0 - 0.6 * uSmog);
+					// the band of haze where the land meets the sky, and the land's colour below it
+					// the cold grey haze over the lower sky, the sick yellow-brown only in a thin band at the horizon
+					c = mix(c, uHaze, smoothstep(0.3, 0.04, h) * 0.75);
+					c = mix(c, uHorizon, smoothstep(0.05, 0.0, abs(h)) * 0.55);
+					if (h < 0.0) c = uHaze;
+					// not tone mapped: three lays fog on after tone mapping, so the land fades into exactly this colour
+					gl_FragColor = vec4(c, 1.0);
+					#include <colorspace_fragment>
+				}`
+    }));
+    dome.name = "sky";
+    dome.frustumCulled = false;
+    dome.renderOrder = -1000;
+    scene.add(dome);
+    const hemi = new HemisphereLight(16777215, 4473924, 1);
+    const sun = new DirectionalLight(16777215, 1);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.bias = -0.0004;
+    sun.shadow.normalBias = 0.03;
+    const s = sun.shadow.camera;
+    s.left = s.bottom = -90;
+    s.right = s.top = 90;
+    s.near = 1;
+    s.far = 700;
+    scene.add(hemi, sun, sun.target);
+    scene.fog = new FogExp2(16777215, 0.003);
+    let mood = null;
+    return {
+      dome,
+      sun,
+      hemi,
+      get mood() {
+        return mood;
+      },
+      apply(m) {
+        mood = m;
+        dome.visible = !m.indoor;
+        scene.background = m.indoor ? lin(m.haze) : null;
+        uniforms.uZenith.value.copy(lin(m.zenith));
+        uniforms.uHorizon.value.copy(lin(m.horizon));
+        uniforms.uHaze.value.copy(lin(m.haze));
+        uniforms.uSunC.value.copy(lin(m.sunColor));
+        const a = MathUtils.degToRad(m.az), e = MathUtils.degToRad(Math.max(m.sun, 2));
+        uniforms.uSun.value.set(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e));
+        uniforms.uSmog.value = m.preset === "smog-dusk" || m.preset === "overcast" ? 1 : 0.15;
+        scene.fog.color.copy(lin(m.haze));
+        scene.fog.density = m.fog;
+        hemi.color.copy(lin(m.zenith)).lerp(new Color(1, 1, 1), 0.6);
+        hemi.groundColor.copy(lin(m.haze)).multiplyScalar(0.7);
+        hemi.intensity = 3.2 * m.light;
+        sun.color.copy(lin(m.sunColor));
+        sun.castShadow = m.shadows;
+        sun.intensity = m.indoor ? 0 : m.sun > 0 ? 3.2 * m.light * Math.min(1, 0.45 + m.sun / 25) : 0.15;
+        renderer.toneMappingExposure = 1 + 0.2 * m.light;
+      },
+      place(camera, focus) {
+        if (mood)
+          scene.fog.density = mood.fog * (1 - 0.65 * MathUtils.smoothstep(camera.position.y, 15, 300));
+        dome.position.copy(camera.position);
+        dome.scale.setScalar(camera.far * 0.95);
+        const f = focus ?? camera.position;
+        sun.target.position.copy(f);
+        sun.position.copy(f).addScaledVector(uniforms.uSun.value, 300);
+      },
+      dispose() {
+        dome.geometry.dispose();
+        dome.material.dispose();
+        scene.remove(dome, hemi, sun, sun.target);
+        sun.shadow.map?.dispose();
+        scene.fog = null;
+      }
+    };
+  }
+
+  // src/lib/content/worlds/contract.js
+  var HASH = /^[0-9a-f]{64}$/;
+  var MOODS = {
+    "smog-dusk": { sun: 6, az: 250, fog: 0.0026, haze: "8e9396", lamps: 1, shadows: 0, zenith: "5d636b", horizon: "b0a682", sunColor: "d8b088", light: 0.85 },
+    overcast: { sun: 30, az: 200, fog: 0.003, haze: "a7a9a8", lamps: 0, shadows: 0, zenith: "7d8389", horizon: "b9bbb8", sunColor: "e6e3dc", light: 0.9 },
+    "clear-day": { sun: 40, az: 220, fog: 0.0012, haze: "d4e0ea", lamps: 0, shadows: 1, zenith: "5a8ccc", horizon: "dde7ee", sunColor: "fff1d6", light: 1.2 },
+    night: { sun: -12, az: 250, fog: 0.004, haze: "20232a", lamps: 1, shadows: 0, zenith: "07080c", horizon: "1d2028", sunColor: "8090b0", light: 0.12 },
+    indoor: { sun: -90, az: 0, fog: 0, haze: "d8d8d4", lamps: 1, shadows: 0, zenith: "e8e8e4", horizon: "d8d8d4", sunColor: "ffffff", light: 0.9, indoor: 1 }
+  };
+  var DEFAULT_MOOD = "overcast";
+  var BY_MOOD = new Set(["head", "tail", "lamp", "window"]);
+  var ALWAYS = new Set(["sign"]);
+  function query(q) {
+    const out = {};
+    for (const part of String(q ?? "").split("&")) {
+      if (!part)
+        continue;
+      const i = part.indexOf("=");
+      const k = decodeURIComponent(i < 0 ? part : part.slice(0, i));
+      if (/^[a-z][a-z0-9-]{0,23}$/.test(k))
+        out[k] = decodeURIComponent(i < 0 ? "" : part.slice(i + 1)).slice(0, 40);
+    }
+    return out;
+  }
+  var num2 = (v, lo, hi, d) => {
+    const x = Number(v);
+    return v !== undefined && v !== "" && Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d;
+  };
+  var hex = (v, d) => /^[0-9a-f]{6}$/i.test(String(v ?? "")) ? String(v).toLowerCase() : d;
+  function moodOf(name) {
+    const m = /^mood:([a-z-]{1,24})(?:\?(.*))?$/.exec(String(name ?? ""));
+    const preset = m && Object.hasOwn(MOODS, m[1]) ? m[1] : DEFAULT_MOOD;
+    const base = MOODS[preset];
+    const q = m ? query(m[2]) : {};
+    return {
+      preset,
+      sun: num2(q.sun, -30, 90, base.sun),
+      az: num2(q.az, -360, 360, base.az),
+      fog: num2(q.fog, 0, 0.05, base.fog),
+      haze: hex(q.haze, base.haze),
+      lamps: num2(q.lamps, 0, 1, base.lamps) >= 0.5,
+      shadows: num2(q.shadows, 0, 1, base.shadows) >= 0.5,
+      zenith: hex(q.zenith, base.zenith),
+      horizon: hex(q.horizon, base.horizon),
+      sunColor: base.sunColor,
+      light: base.light,
+      indoor: base.indoor === 1
+    };
+  }
+  function soundOf(name) {
+    const m = /^sound:([0-9a-f]{64})(?:\?(.*))?$/.exec(String(name ?? ""));
+    if (!m)
+      return null;
+    const q = query(m[2]);
+    const what = /^[a-z][a-z0-9-]{0,23}$/.test(q.for ?? "") ? q.for : "bed";
+    return { hash: m[1], for: what, gain: num2(q.gain, 0, 2, 1), once: what === "horn" || q.once === "1" };
+  }
+  function worldOf(root) {
+    let mood = null;
+    const sounds = [];
+    root.traverse((o) => {
+      const n = o.name ?? "";
+      if (!mood && n.startsWith("mood:"))
+        mood = moodOf(n);
+      else if (n.startsWith("sound:")) {
+        const s = soundOf(n);
+        if (s && HASH.test(s.hash) && sounds.length < 32)
+          sounds.push(s);
+      }
+    });
+    return { mood: mood ?? moodOf(""), sounds, moves: root.userData?.view?.ticks === true };
+  }
+
+  // src/lib/content/assets/uses.js
+  var USE = /^use:([0-9a-f]{64}(?:\?[A-Za-z0-9=&._%-]*)?)$/;
+  function plantingsOf(root) {
+    const out = [];
+    root.updateMatrixWorld(true);
+    root.traverse((o) => {
+      const m = USE.exec(o.name ?? "");
+      if (m)
+        out.push({ ref: m[1], matrix: o.matrixWorld.clone(), node: o });
+    });
+    return out;
+  }
+  function shownIn(o) {
+    for (let x = o;x; x = x.parent)
+      if (!x.visible)
+        return false;
+    return true;
+  }
+
   // src/lib/stories/live.ts
+  var finite3 = (v) => typeof v === "number" && Number.isFinite(v);
   var lerp3 = (a, b, u) => a + (b - a) * u;
   var smooth = (u) => u * u * (3 - 2 * u);
   function between(keys, t) {
@@ -43851,6 +44063,32 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       return times.length - 1;
     const span = (times[times.length - 1] - times[0]) / (times.length - 1);
     return Math.min(times.length - 1, Math.max(0, Math.round((t - times[0]) / span)));
+  }
+  function curveAt(c, t, or) {
+    if (c == null)
+      return or;
+    if (finite3(c))
+      return c;
+    if (!Array.isArray(c) || !c.length)
+      return or;
+    const [a, b, u] = between(c.map(([at, v]) => ({ at, v })), t);
+    return Math.round(lerp3(a.v, b.v, u) * 1e6) / 1e6;
+  }
+  var frameOf = (t, fps, frames) => Math.min(frames - 1, Math.max(0, Math.round(t * fps)));
+  function sunAt(hour) {
+    const h = (hour % 24 + 24) % 24;
+    const sun = Math.round(50 * Math.sin(Math.PI * (h - 6) / 12) * 1e4) / 1e4;
+    const az = Math.round(((90 + (h - 6) * 15) % 360 + 360) % 360 * 1e4) / 1e4;
+    return { sun, az };
+  }
+  function worldAt(w, t, fps, frames) {
+    return {
+      frame: frameOf(t, fps, frames),
+      camera: cameraAt(w.camera, t),
+      sun: w.hour == null ? null : sunAt(curveAt(w.hour, t, 12)),
+      exposure: curveAt(w.exposure, t, 0),
+      lights: { sun: curveAt(w.lights?.sun, t, 1), sky: curveAt(w.lights?.sky, t, 1), lamps: curveAt(w.lights?.lamps, t, 1) }
+    };
   }
 
   // src/lib/stories/live-runtime.ts
@@ -43879,17 +44117,30 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       };
     });
     const recipe = { hash: spec.recipe, code: withPieces(code(spec.recipe), spec.pieces.map((hash) => ({ hash, code: code(hash) }))) };
+    const ask = async (op, payload) => {
+      await ready;
+      const id = next++;
+      const m = await new Promise((ok) => (asks.set(id, ok), worker.postMessage({ id, op, ...payload })));
+      if (!m.ok)
+        throw new Error(`live: the ${op} failed: ${m.error}`);
+      return m;
+    };
     return {
-      build: async (given) => {
-        await ready;
-        const id = next++;
-        const m = await new Promise((ok) => (asks.set(id, ok), worker.postMessage({ id, op: "build", recipe, given, args: [], engine: spec.engine.v })));
-        if (!m.ok)
-          throw new Error(`live: the build failed: ${m.error}`);
-        return m;
+      build: (given) => ask("build", { recipe, given, args: [], engine: spec.engine.v }),
+      start: async (given, nodes) => {
+        const { session } = await ask("live", { recipe, given, nodes });
+        return { tick: (a) => ask("tick", { session, ask: a }), breakIt: async () => {}, end: () => ask("end", { session }).catch(() => {}) };
       },
       end: () => worker.terminate()
     };
+  }
+  function built(m, recipe) {
+    const verdict = checkCard(m.card);
+    if (!verdict.ok)
+      throw new Error(`refused: its card does not fit: ${verdict.errors.slice(0, 3).join("; ")}`);
+    if (m.card.recipe !== recipe)
+      throw new Error("refused: its card names another recipe");
+    return { obj: rebuild(m.data), card: m.card, data: m.data };
   }
   function shot(tl, id, spec) {
     const el = document.getElementById(id);
@@ -43926,16 +44177,10 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       try {
         const builds = [];
         for (const given of spec.builds) {
-          const m = await engine.build(given);
-          const verdict = checkCard(m.card);
-          if (!verdict.ok)
-            throw new Error(`refused: its card does not fit: ${verdict.errors.slice(0, 3).join("; ")}`);
-          if (m.card.recipe !== spec.recipe)
-            throw new Error("refused: its card names another recipe");
-          const got = { obj: rebuild(m.data), card: m.card };
+          const got = built(await engine.build(given), spec.recipe);
           builds.push({ obj: got.obj, hero: heroOf(got) });
         }
-        const renderer = createRenderer({ canvas, pixelRatio: 1, shadows: "soft", preserve: true });
+        const renderer = createRenderer({ canvas, pixelRatio: 1, shadows: "pcf", preserve: true });
         renderer.setSize(w, h, false);
         camera = new PerspectiveCamera(40, w / h, 0.05, 2000);
         stage = new Stage(renderer, camera, { sky: true });
@@ -43960,5 +44205,125 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
     } };
     tl.fromTo(at, { t: 0 }, { t: spec.duration, duration: spec.duration, ease: "none", immediateRender: false }, spec.at);
   }
-  W.playLive = { shot };
+  var parseRef = (ref) => {
+    const [hash, q = ""] = ref.split("?");
+    return { hash, given: Object.fromEntries(q.split("&").filter(Boolean).map((kv) => kv.split("=").map(decodeURIComponent))) };
+  };
+  function world(tl, id, spec) {
+    const el = document.getElementById(id);
+    const canvas = el.querySelector("canvas");
+    const poster = el.querySelector("img");
+    const [w, h] = spec.size;
+    let ready = false, t = 0, drawn = NaN;
+    let renderer, scene, camera, sky;
+    let copies = [];
+    let places = [];
+    let mood, base = { sun: 0, hemi: 0, exposure: 1 };
+    const lamps = [];
+    const draw = () => {
+      if (!ready || t === drawn)
+        return;
+      drawn = t;
+      const at = worldAt(spec, t, spec.fps, spec.frames);
+      const m = places[Math.min(at.frame, places.length - 1)];
+      copies.forEach((c, i) => c.matrix.fromArray(m, i * 16));
+      sky.apply(at.sun ? { ...mood, sun: at.sun.sun, az: at.sun.az } : mood);
+      sky.sun.intensity *= at.lights.sun;
+      sky.hemi.intensity *= at.lights.sky;
+      for (const l of lamps)
+        l.light.intensity = l.k * at.lights.lamps;
+      renderer.toneMappingExposure *= 2 ** at.exposure;
+      camera.position.set(...at.camera.eye);
+      camera.fov = at.camera.fov;
+      camera.updateProjectionMatrix();
+      camera.lookAt(...at.camera.target);
+      sky.place(camera, new Vector3(...at.camera.target));
+      renderer.render(scene, camera);
+    };
+    const made = (async () => {
+      const engines = new Map;
+      const engineFor = (recipe, pieces) => {
+        if (!engines.has(recipe))
+          engines.set(recipe, engineOf({ engine: spec.engine, recipe, pieces }));
+        return engines.get(recipe);
+      };
+      try {
+        const got = built(await engineFor(spec.recipe, spec.pieces).build({}), spec.recipe);
+        const info = worldOf(got.obj);
+        mood = info.mood;
+        const hero = info.moves ? heroOf(got, { start: (nodes) => engineFor(spec.recipe, spec.pieces).start(undefined, nodes), exact: true }) : null;
+        scene = new Scene;
+        got.obj.traverse((x) => {
+          if (x.isMesh)
+            x.receiveShadow = x.castShadow = true;
+        });
+        scene.add(got.obj);
+        const uses = plantingsOf(got.obj).filter((u) => Object.hasOwn(spec.guests, u.ref.slice(0, 64)));
+        const kinds = new Map;
+        for (const ref of [...new Set(uses.map((u) => u.ref))].sort()) {
+          const { hash, given } = parseRef(ref);
+          kinds.set(ref, built(await engineFor(hash, spec.guests[hash]).build(given), hash).obj);
+        }
+        copies = uses.map((u) => {
+          const c = kinds.get(u.ref).clone();
+          c.matrixAutoUpdate = false;
+          scene.add(c);
+          return c;
+        });
+        const placesNow = () => {
+          got.obj.updateMatrixWorld(true);
+          const m = new Float32Array(uses.length * 16);
+          uses.forEach((u, i) => (shownIn(u.node) ? u.node.matrixWorld : AWAY).toArray(m, i * 16));
+          return m;
+        };
+        const settle = async () => {
+          for (let n = 0;hero && (hero.starting || hero.live && hero.busy); n++) {
+            hero.tick(0, {});
+            if (hero.pending)
+              await hero.pending;
+            else
+              await new Promise((r) => setTimeout(r, 4));
+            if (n > 1e5)
+              throw new Error("live: the world stopped answering");
+          }
+        };
+        await settle();
+        places = [placesNow()];
+        for (let f = 1;f < (hero ? spec.frames : 1); f++) {
+          hero.tick(1 / spec.fps, {});
+          await settle();
+          places.push(placesNow());
+        }
+        scene.traverse((x) => {
+          if (x.isLight && !x.isDirectionalLight && !x.isHemisphereLight)
+            lamps.push({ light: x, k: x.intensity });
+        });
+        renderer = createRenderer({ canvas, pixelRatio: 1, shadows: "pcf", preserve: true });
+        renderer.setSize(w, h, false);
+        camera = new PerspectiveCamera(40, w / h, 0.1, 20000);
+        sky = createSky(scene, renderer);
+        ready = true;
+        draw();
+        canvas.style.visibility = "visible";
+        if (poster)
+          poster.style.visibility = "hidden";
+        hero?.dispose();
+      } finally {
+        for (const e of engines.values())
+          e.end();
+      }
+    })();
+    made.catch((e) => console.error(id, e));
+    (W.__hf ??= {}).buildReady ??= {};
+    W.__hf.buildReady[id] = made;
+    const at = { set t(v) {
+      t = v;
+      draw();
+    }, get t() {
+      return t;
+    } };
+    tl.fromTo(at, { t: 0 }, { t: spec.duration, duration: spec.duration, ease: "none", immediateRender: false }, spec.at);
+  }
+  var AWAY = new Matrix4().makeScale(0, 0, 0);
+  W.playLive = { shot, world };
 })();

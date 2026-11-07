@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { codeOf, compose, CSP, FRAME, filesOf, laid, seal, VENDOR } from './compose';
-import { buildsOf, cameraAt, liveProblem, stepAt, stepTimes, valuesAt, type Live, type LiveAsset } from './live';
+import { buildsOf, cameraAt, stepAt, stepTimes, valuesAt, type Live, type LiveAsset } from './live';
 import { engineAt } from '../kernel/engines.js';
 import { DENIED, SANDBOX, frameCsp } from '../kernel/sandbox/policy.js';
 import { hashText } from '../content/game/hash.js';
@@ -271,14 +271,5 @@ describe('compose: a live shot', () => {
 		expect(cameraAt(palm.camera, 2)).toEqual(cameraAt(palm.camera, 2));
 		expect(cameraAt([{ ...palm.camera[0], at: 0 }, { ...palm.camera[1], ease: 'linear' }], 1.5).fov).toBeCloseTo(palm.camera[0].fov + (palm.camera[1].fov - palm.camera[0].fov) / 4, 9);
 	});
-	it('live: a live shot out of shape is named for what is wrong', () => {
-		expect(liveProblem(palm, 6)).toBeNull();
-		expect(liveProblem({ ...palm, asset: 'king-coconut' }, 6)).toMatch(/UUID/);
-		expect(liveProblem({ ...palm, version: 'v3' }, 6)).toMatch(/version/);
-		expect(liveProblem({ ...palm, camera: [] }, 6)).toMatch(/camera/);
-		expect(liveProblem({ ...palm, camera: [palm.camera[1], palm.camera[0]] }, 6)).toMatch(/time order/);
-		expect(liveProblem({ ...palm, keys: [{ at: 7, values: { stage: 1 } }] }, 6)).toMatch(/keys/);
-		expect(liveProblem({ ...palm, steps: 100 }, 6)).toMatch(/steps/);
-		expect(liveProblem({ ...palm, values: { stage: { x: 1 } } }, 6)).toMatch(/values/);
-	});
+
 });

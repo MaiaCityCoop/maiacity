@@ -23,7 +23,7 @@
 	import { compose, feed, FRAME, seal, VENDOR } from './compose';
 	import { hashText } from '$lib/content/game/hash.js';
 	import { enginesOf, pathOf } from '$lib/kernel/engines.js';
-	import type { Live, LiveAsset } from './live';
+	import type { Live, LiveAsset, World, WorldAsset } from './live';
 	import fontUrl from '../../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url';
 
 	let { story, compact = false, keys = true, list, head, side }: { story: StoryBody & { id?: string; title?: string; number?: number | null; version?: string; links?: Links | null }; compact?: boolean; keys?: boolean; list?: Snippet; head?: Snippet; side?: Snippet } = $props();
@@ -112,6 +112,40 @@
 		}));
 		return out;
 	}
+	/** a file of play's as text, held to its hash */
+	const fileText = (h: string) => fetch(frameUrl(h), { credentials: 'same-origin' }).then((r) => (r.ok ? r.text() : Promise.reject(new Error(`file ${h.slice(0, 10)}…: ${r.status}`)))).then((text) => (hashText(text) === h ? text : Promise.reject(new Error(`file ${h.slice(0, 10)}… does not hash to its name`))));
+	/** every piece a recipe's code requires, to any depth (../content/assets/box/pieces.js MOST_DEEP) */
+	async function piecesDeep(code: string, depth = 0, seen = new Set<string>()): Promise<string[]> {
+		const { piecesOf, MOST_DEEP } = await import('$lib/content/assets/box/pieces.js');
+		if (depth >= MOST_DEEP) return [...seen];
+		for (const h of piecesOf(code) as string[]) if (!seen.has(h)) seen.add(h), await piecesDeep(await fileText(h), depth + 1, seen);
+		return [...seen];
+	}
+	/** what play knows of each world version a world shot plays (intent 65d04790; GET /api/assets/<its UUID>): its recipe,
+	 *  pieces and engine, and the guests it plants, read off its build made once here in the page's own box */
+	async function worldAssets(bodies: StoryBody[]): Promise<Record<string, WorldAsset>> {
+		const worlds = bodies.flatMap((b) => clipsOf<Shot>(b, 'shots')).map((x) => x.world as World | undefined).filter((w): w is World => !!w && typeof w.asset === 'string' && typeof w.version === 'string');
+		const out: Record<string, WorldAsset> = {};
+		const once = new Map(worlds.map((w) => [w.version, w]));
+		await Promise.all([...once.values()].map(async (w) => {
+			try {
+				const r = await fetch(`/api/assets/${encodeURIComponent(w.asset)}`, { credentials: 'same-origin' });
+				if (!r.ok) return;
+				const v = ((await r.json()).versions ?? []).find((x: any) => x.id === w.version);
+				if (!v?.recipe) return;
+				const code = await fileText(v.recipe), pieces = await piecesDeep(code), engine = v.engine ?? 1;
+				const [{ boxOf }, { rebuild }, { plantingsOf }] = await Promise.all([import('$lib/content/assets/load.js'), import('$lib/content/assets/box/rebuild.js'), import('$lib/content/assets/uses.js')]);
+				const m = await boxOf(engine).build({ hash: v.recipe, code, pieces }, {});
+				const guests: Record<string, string[]> = {};
+				for (const g of [...new Set(plantingsOf(rebuild(m.data)).map((u: { ref: string }) => u.ref.slice(0, 64)))] as string[])
+					guests[g] = await piecesDeep(await fileText(g)).catch(() => []);
+				out[w.version] = { asset: w.asset, version: w.version, recipe: v.recipe, pieces, engine, guests };
+			} catch (e) {
+				console.warn(`world ${w.asset.slice(0, 8)}: ${(e as Error)?.message ?? e}`);
+			}
+		}));
+		return out;
+	}
 	/** the playhead's last word from the player, and when it came: between two, t runs on by the clock; a word older than
 	 *  the last seek is not taken (the player answers a seek a moment later) */
 	let base = { t: 0, at: 0 };
@@ -154,11 +188,12 @@
 	async function make(s: typeof story, links: Links, key: string) {
 		const want = [...new Set([s, ...Object.values(links).map((l) => l.body)].filter(Boolean).flatMap((b) => clipsOf<Shot>(b, 'shots')).map((x) => x.composition).filter((h): h is string => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h)))];
 		const got = await Promise.all(want.map((h) => fetch(frameUrl(h)).then((r) => (r.ok ? r.text() : '')).then((text) => (hashText(text) === h ? [[h, text]] : [])).catch(() => [])));
-		const assets = await liveAssets([s, ...Object.values(links).map((l) => l.body)].filter(Boolean) as StoryBody[]);
+		const bodies = [s, ...Object.values(links).map((l) => l.body)].filter(Boolean) as StoryBody[];
+		const [assets, worlds] = await Promise.all([liveAssets(bodies), worldAssets(bodies)]);
 		if (made !== key) return;
 		film = 'loading';
 		try {
-			hf.setAttribute('srcdoc', seal(compose(s, links, Object.fromEntries(got.flat()), assets)));
+			hf.setAttribute('srcdoc', seal(compose(s, links, Object.fromEntries(got.flat()), assets, worlds)));
 		} catch (e) {
 			film = 'failed';
 			failure = String((e as Error)?.message ?? e);

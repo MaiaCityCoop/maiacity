@@ -22,43 +22,7 @@ export type LiveAsset = { asset: string; version: string; recipe: string; pieces
 
 export const MOST_STEPS = 24;
 export const STEPS = 8;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const HASH = /^[0-9a-f]{64}$/;
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
-const vec = (v: unknown): v is [number, number, number] => Array.isArray(v) && v.length === 3 && v.every(finite);
-const value = (v: unknown) => finite(v) || typeof v === 'string' || typeof v === 'boolean';
-const valuesOk = (v: unknown): v is Values => !!v && typeof v === 'object' && !Array.isArray(v) && Object.entries(v as object).every(([k, x]) => /^[A-Za-z][A-Za-z0-9_.-]{0,79}$/.test(k) && value(x));
-
-/** why a shot's `live` is out of shape, or null: its asset and version named by id, its keys and camera in time order
- *  and within the shot @param {unknown} live @param {number} duration the shot's */
-export function liveProblem(live: unknown, duration: number): string | null {
-	if (!live || typeof live !== 'object' || Array.isArray(live)) return 'live must be an object';
-	const l = live as Record<string, unknown>;
-	if (typeof l.asset !== 'string' || !UUID.test(l.asset)) return "live.asset must be the asset's UUID";
-	if (typeof l.version !== 'string' || !HASH.test(l.version)) return "live.version must be the version's id (its hash)";
-	if (l.variant !== undefined && (typeof l.variant !== 'string' || !l.variant || l.variant.length > 80)) return "live.variant must be a variant's name";
-	if (l.values !== undefined && !valuesOk(l.values)) return 'live.values must be { parameter: number | text | true/false }';
-	if (l.steps !== undefined && !(Number.isInteger(l.steps) && (l.steps as number) >= 2 && (l.steps as number) <= MOST_STEPS)) return `live.steps must be a whole number 2 … ${MOST_STEPS}`;
-	const inShot = (at: unknown) => finite(at) && at >= 0 && at <= duration + 1e-9;
-	if (l.keys !== undefined) {
-		if (!Array.isArray(l.keys) || l.keys.length > 64) return 'live.keys must be a list of at most 64 { at, values }';
-		let last = -1;
-		for (const k of l.keys) {
-			if (!k || !inShot(k.at) || !valuesOk(k.values)) return "each of live.keys must be { at: seconds into the shot, values }";
-			if (k.at <= last) return 'live.keys must be in time order, one per moment';
-			last = k.at;
-		}
-	}
-	if (!Array.isArray(l.camera) || !l.camera.length || l.camera.length > 64) return 'live.camera must be 1 … 64 keyframes { at, eye, target, fov }';
-	let last = -1;
-	for (const c of l.camera) {
-		if (!c || !inShot(c.at) || !vec(c.eye) || !vec(c.target) || !finite(c.fov) || c.fov < 5 || c.fov > 120) return 'each of live.camera must be { at: seconds into the shot, eye: [x, y, z], target: [x, y, z] in metres, fov: 5 … 120 degrees }';
-		if (c.ease !== undefined && c.ease !== 'smooth' && c.ease !== 'linear') return "a camera key's ease is 'smooth' or 'linear'";
-		if (c.at <= last) return 'live.camera must be in time order, one per moment';
-		last = c.at;
-	}
-	return null;
-}
 
 const lerp = (a: number, b: number, u: number) => a + (b - a) * u;
 const smooth = (u: number) => u * u * (3 - 2 * u);
@@ -118,4 +82,56 @@ export function stepAt(times: number[], t: number): number {
  *  asset library names one) */
 export function buildsOf(live: Live): Record<string, string>[] {
 	return stepTimes(live).map((t) => Object.fromEntries(Object.entries(valuesAt(live, t)).sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, v]) => [k, String(v)])));
+}
+
+// ---- A WORLD SHOT (intent 65d04790): a whole world, an asset of the group `worlds` (play/SPEC.md §4.11), played in the
+// shot. Its camera is a live shot's; its hour, exposure and lights are each a number held over the shot or [[t, v], …]
+// keys (t in s into the shot, linear between, the ends held). Checked by play (play/api/src/stories.ts `worldOf`).
+//
+//   world: { asset: <its UUID>, version: <its version's id>, camera: CameraKey[],
+//            hour?: Curve (0 … 24: the sun's place, over the world's mood), exposure?: Curve (stops over the mood),
+//            lights?: { sun?, sky?, lamps?: Curve } (multipliers over the mood) }
+//
+// A world that moves (its own tick, seeded) is stepped through every frame of the shot before the shot is ready, each
+// frame's places kept; a moment t shows frame frameOf(t): the same t, the same picture.
+
+export type Curve = number | [number, number][];
+export type World = { asset: string; version: string; camera: CameraKey[]; hour?: Curve; exposure?: Curve; lights?: { sun?: Curve; sky?: Curve; lamps?: Curve } };
+/** what play knows of a world's version, for compose: its recipe file, pieces and engine, and every guest it plants
+ *  (`use:` nodes) by its recipe's hash, with that recipe's pieces */
+export type WorldAsset = { asset: string; version: string; recipe: string; pieces?: string[]; engine: number; guests: Record<string, string[]> };
+
+/** a curve's value at t: its number, or its keys' (linear between, the ends held); `or` where it has none */
+export function curveAt(c: Curve | undefined, t: number, or: number): number {
+	if (c == null) return or;
+	if (finite(c)) return c;
+	if (!Array.isArray(c) || !c.length) return or;
+	const [a, b, u] = between(c.map(([at, v]) => ({ at, v })), t);
+	return Math.round(lerp(a.v, b.v, u) * 1e6) / 1e6;
+}
+
+/** how many frames a shot of `duration` s holds at `fps`: its first and its last both drawn */
+export const framesOf = (duration: number, fps: number) => Math.max(1, Math.round(duration * fps) + 1);
+/** the frame a moment shows: t's nearest, within the shot */
+export const frameOf = (t: number, fps: number, frames: number) => Math.min(frames - 1, Math.max(0, Math.round(t * fps)));
+
+/** the sun at an hour (0 … 24) on a day's arc: up at 6 in the east (az 90°), highest at noon (50° in the south, 180°),
+ *  down at 18 in the west (270°), under the horizon at night; degrees, as a world's mood names them (`sun`, `az`) */
+export function sunAt(hour: number): { sun: number; az: number } {
+	const h = ((hour % 24) + 24) % 24;
+	const sun = Math.round(50 * Math.sin((Math.PI * (h - 6)) / 12) * 1e4) / 1e4;
+	const az = Math.round((((90 + (h - 6) * 15) % 360) + 360) % 360 * 1e4) / 1e4;
+	return { sun, az };
+}
+
+/** everything a world shot shows at t seconds into it, by t alone: its frame, its camera, the sun (null: the mood's),
+ *  its exposure in stops and its lights' multipliers */
+export function worldAt(w: Pick<World, 'camera' | 'hour' | 'exposure' | 'lights'>, t: number, fps: number, frames: number) {
+	return {
+		frame: frameOf(t, fps, frames),
+		camera: cameraAt(w.camera, t),
+		sun: w.hour == null ? null : sunAt(curveAt(w.hour, t, 12)),
+		exposure: curveAt(w.exposure, t, 0),
+		lights: { sun: curveAt(w.lights?.sun, t, 1), sky: curveAt(w.lights?.sky, t, 1), lamps: curveAt(w.lights?.lamps, t, 1) }
+	};
 }
