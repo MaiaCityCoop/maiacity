@@ -9,16 +9,26 @@
 // - sound: every clip's recording an <audio> clip with its gain, fades, EQ (data-fx-chain) and gain keys (data-automation),
 //   on its track's bus (<hf-audio-group>, the track's gain); a `duck` track dips under the voice in its automation
 // - links: each linked version a nested sub-composition at its link's place, its sound carrying the link's gain and mute
+// - live shots (intent f270269e, ./live.ts): the real asset drawn in the shot by the asset box's own frozen engine, its
+//   recipe and pieces laid in by hash, built before the composition is ready (its still the poster until then) and
+//   drawn at every seek from the shot's camera and keyed values (./live-runtime.ts, VENDOR.live)
 import { frameCsp, SANDBOX, DENY } from '../kernel/sandbox/policy.js';
 import { hashBytes } from '../content/game/hash.js';
+import { engineAt } from '../kernel/engines.js';
+import { buildsOf, stepTimes, type Live, type LiveAsset } from './live';
 import { clipsOf, cuesOf, linkedOf, setCuesOf, LINK, MOST_LINK_DEPTH, type Clip, type Links, type Shot, type StoryBody, type Voice } from './timeline';
 
+/** the live runtime's hash: what scripts/live-runtime.ts builds, held to it (`bun scripts/live-runtime.ts --check`) */
+const LIVE_HASH = 'ecc21579d6c8ca04b503e0d9998ec2677b8f20dd33f6771cdd7a8879debc756a';
 /** HyperFrames' runtime, GSAP and the one font (Inter, where a composition names only a generic family, as HyperFrames'
  *  renderer puts it first), pinned by their BLAKE3 hash: among play's files, never from a CDN */
 export const VENDOR = {
 	runtime: { hash: '2a2d643f32b99f433c4fd1812fb83de451e2e12b90cbe23ad876e994f815e93b', name: 'hyperframe.runtime.iife.js @hyperframes/core 0.9.20' },
 	gsap: { hash: '0a705954bbbe95f3a0c82d91f20af16b181e87a5f427e54d9be67d9dcec5231f', name: 'gsap.min.js gsap 3.15.0' },
-	font: { hash: '194fdc7f41a1a3e29bcd521e088c7a6b9f0fbb6b621cf513fb01451fc44797d3', name: 'inter-latin-wght-normal.woff2 @fontsource-variable/inter 5.3.0' }
+	font: { hash: '194fdc7f41a1a3e29bcd521e088c7a6b9f0fbb6b621cf513fb01451fc44797d3', name: 'inter-latin-wght-normal.woff2 @fontsource-variable/inter 5.3.0' },
+	/** a live shot's runtime (./live-runtime.ts, bundled by scripts/live-runtime.ts): the asset library's rebuild and
+	 *  stage, and the site's three.js they draw with; the asset is built by the frozen box engine, laid in by its hash */
+	live: { hash: LIVE_HASH, name: 'live-runtime.js play/site src/lib/stories/live-runtime.ts' }
 };
 const FONT = '"PlayInter"';
 const GENERIC = /^\s*(sans-serif|serif|monospace|cursive|fantasy|system-ui|ui-sans-serif|ui-serif|ui-monospace|-apple-system|blinkmacsystemfont)\s*(,|$)/i;
@@ -29,6 +39,13 @@ export const fileUrl = (hash: string) => `/api/files/${hash}`;
 const FILE = /\/api\/files\/([0-9a-f]{64})/g;
 /** every file a composition names, once each, in order */
 export const filesOf = (html: string) => [...new Set([...html.matchAll(FILE)].map((m) => m[1]))];
+const CODE = /<script type="text\/x-play-code" data-play-code="([0-9a-f]{64})"><\/script>/g;
+/** every code file a composition's live shots run (the frozen box engine, recipes, pieces), laid in as text, not loaded */
+export const codeOf = (html: string) => [...new Set([...html.matchAll(CODE)].map((m) => m[1]))];
+/** a composition with its code files laid in (the renderer's way: the page's is the sealed frame's bridge), each a
+ *  JavaScript string, so its bytes come out as they went in; `code` by hash, each held to it by the live runtime */
+export const laid = (html: string, code: Record<string, string>) =>
+	html.replace(CODE, (m, h) => (typeof code[h] === 'string' ? `<script>(window.__playCode ??= {})[${JSON.stringify(h)}] = ${JSON.stringify(code[h]).replace(/<\//g, '<\\/').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029')};</script>` : m));
 /** the frame's policy: scripts inline (and play's files where it is not sealed: a renderer's), media from play's files or
  *  the frame's own blobs, no connection of any kind */
 export const CSP = frameCsp({ script: "'self' 'unsafe-inline' blob:", open: { 'img-src': "'self' blob: data:", 'media-src': "'self' blob:", 'style-src': "'unsafe-inline'", 'font-src': "'self' blob: data:" } });
@@ -113,7 +130,7 @@ function inline(html: string, id: string, at: number, duration: number, z: numbe
 
 // ---- one story's timeline, the story's own or a linked version's, laid into the composition at `id`
 type Out = { html: string[]; script: string[] };
-type Ctx = { links: Links; compositions: Record<string, string>; size: [number, number]; path: string[] };
+type Ctx = { links: Links; compositions: Record<string, string>; assets: Record<string, LiveAsset>; size: [number, number]; path: string[]; code: Set<string> };
 const BUS = (track: string, id: string) => `${id}-g-${track.replace(/[^\w-]/g, '_')}`;
 
 function voiceSpans(body: StoryBody) {
@@ -152,6 +169,20 @@ function chain(c: Clip) {
 }
 const attr = (name: string, v: unknown) => (v == null ? '' : ` ${name}='${esc(typeof v === 'string' ? v : JSON.stringify(v))}'`);
 
+/** a shot's live asset as the composition draws it, or null where it has none or play gave nothing for its version (it
+ *  then shows its still, as before): its engine, recipe and pieces by hash, its builds' values and their moments */
+function liveOf(s: Shot, ctx: Ctx) {
+	const l = s.live as Live | undefined;
+	if (!l || typeof l !== 'object' || !Array.isArray(l.camera) || !l.camera.length) return null;
+	const a = ctx.assets[l.version];
+	if (!a || a.asset !== l.asset) return null;
+	const v = l.variant ? a.variants?.[l.variant] : a;
+	const engine = engineAt('box', a.engine) as { v: number; blake3: string } | undefined;
+	if (!v || !engine) return null;
+	const camera = l.camera.map((c) => ({ at: c.at, eye: c.eye, target: c.target, fov: c.fov, ...(c.ease ? { ease: c.ease } : {}) }));
+	return { asset: l.asset, version: l.version, engine: { v: engine.v, hash: engine.blake3 }, recipe: v.recipe, pieces: [...(v.pieces ?? [])], builds: buildsOf(l), times: stepTimes(l), camera };
+}
+
 function lay(body: StoryBody, id: string, ctx: Ctx, out: Out, sound: { db: number; mute: boolean }) {
 	const [w, h] = ctx.size, D = num(body.duration);
 	const shots = clipsOf<Shot>(body, 'shots');
@@ -169,7 +200,14 @@ function lay(body: StoryBody, id: string, ctx: Ctx, out: Out, sound: { db: numbe
 		const t = track++, z = i + 1, dur = end - s.at;
 		const comp = typeof s.composition === 'string' ? ctx.compositions[s.composition] : undefined;
 		const time = `data-start="${n(s.at)}" data-duration="${n(dur)}" data-track-index="${t}" style="z-index:${z}"`;
-		if (comp) {
+		const live = liveOf(s, ctx);
+		if (live) {
+			// the asset drawn: its poster (the shot's still) until it is built, then its canvas
+			const [lw, lh] = ctx.size;
+			for (const h of [live.engine.hash, ...live.pieces, live.recipe]) ctx.code.add(h);
+			out.html.push(`<div id="${sid}" class="clip shot live" ${time} data-asset="${esc(live.asset)}" data-version="${esc(live.version)}">${s.frame ? `<img class="poster" src="${fileUrl(s.frame)}" alt="">` : ''}<canvas width="${lw}" height="${lh}"></canvas></div>`);
+			out.script.push(`playLive.shot(tl, ${JSON.stringify(sid)}, ${JSON.stringify({ engine: live.engine, recipe: live.recipe, pieces: live.pieces, builds: live.builds, times: live.times, camera: live.camera, size: ctx.size, at: s.at, duration: dur })});`);
+		} else if (comp) {
 			const c = inline(comp, sid, s.at, dur, z, t, ctx.size);
 			out.html.push(c.html), out.script.push(c.script);
 		} else if (typeof s.video === 'string' && s.video) out.html.push(`<video id="${sid}" class="clip shot" ${time} data-media-start="${n(num(s.video_in))}" muted playsinline src="${fileUrl(s.video)}"></video>`);
@@ -231,6 +269,8 @@ html, body { width: ${w}px; height: ${h}px; overflow: hidden; background: #000; 
 .shot, .layer { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .shot.empty { display: grid; place-items: center; color: #cfc8b8; background: #24211b; font: ${n(w * 0.03)}px sans-serif; }
 .veil { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; }
+.live, .live canvas, .live .poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.live canvas { visibility: hidden; }
 .cue { position: absolute; left: 3%; right: 3%; bottom: 9%; display: grid; gap: ${n(w * 0.008)}px; justify-items: center; text-align: center; font-family: ${FONT}, sans-serif; }
 .cue .who { font-size: ${n(w * 0.028)}px; font-weight: 700; letter-spacing: 0.08em; color: #ffe6a8; text-shadow: 0 1px 3px rgb(0 0 0 / 0.85); }
 .cue .line { font-size: ${n(w * 0.056)}px; font-weight: 700; line-height: 1.2; color: #fff; text-wrap: balance; background: rgb(10 10 8 / 0.5); padding: 0.18em 0.45em; border-radius: 0.3em; text-shadow: 0 1px 4px rgb(0 0 0 / 0.7); }
@@ -252,10 +292,12 @@ function shots(tl, veil, list) {
  * version it links (by the version's id, as play reads it), `compositions` every composition its shots name (readable
  * HTML by its hash). What it can't read (a link not in `links`, a composition not given) it leaves out.
  */
-export function compose(story: StoryBody & { id?: string; title?: string; number?: number | null; version?: string }, links: Links = {}, compositions: Record<string, string> = {}): string {
+export function compose(story: StoryBody & { id?: string; title?: string; number?: number | null; version?: string }, links: Links = {}, compositions: Record<string, string> = {}, assets: Record<string, LiveAsset> = {}): string {
 	const size = sizeOf(story.format), [w, h] = size, D = num(story.duration);
 	const out: Out = { html: [], script: [] };
-	lay(story, 'pl', { links: links ?? {}, compositions, size, path: [story.id ?? ''] }, out, { db: 0, mute: false });
+	const code = new Set<string>();
+	lay(story, 'pl', { links: links ?? {}, compositions, assets: assets ?? {}, size, path: [story.id ?? ''], code }, out, { db: 0, mute: false });
+	const live = code.size ? `\n<script src="${fileUrl(VENDOR.live.hash)}" data-vendor="${VENDOR.live.name}"></script>\n${[...code].map((h) => `<script type="text/x-play-code" data-play-code="${h}"></script>`).join('\n')}` : '';
 	return `<!doctype html>
 <html lang="en">
 <head>
@@ -265,7 +307,7 @@ export function compose(story: StoryBody & { id?: string; title?: string; number
 <title>${esc(story.title ?? 'A story')}</title>
 <!-- play's story ${esc(story.id ?? '')}${story.number ? ` v${story.number}` : ''}${story.version ? ` (${esc(story.version)})` : ''}, compiled from story/1 by play's compose -->
 <script src="${fileUrl(VENDOR.runtime.hash)}" data-vendor="${VENDOR.runtime.name}"></script>
-<script src="${fileUrl(VENDOR.gsap.hash)}" data-vendor="${VENDOR.gsap.name}"></script>
+<script src="${fileUrl(VENDOR.gsap.hash)}" data-vendor="${VENDOR.gsap.name}"></script>${live}
 <style data-play-font="true">@font-face { font-family: ${FONT}; src: url(${fileUrl(VENDOR.font.hash)}) format("woff2"); font-weight: 100 900; font-style: normal; font-display: block; }</style>
 <style data-hyperframes-text-rendering="true">html,body,*{text-rendering:geometricPrecision}</style>
 <style>${STYLE(w, h)}
@@ -296,10 +338,14 @@ const BRIDGE = `(() => {
 	const urls = {};
 	const post = (m) => parent.postMessage(Object.assign({ play: 1 }, m), '*');
 	const all = (q) => [...new Set([...document.querySelectorAll(q)].map((e) => e.dataset.playFile))];
-	addEventListener('DOMContentLoaded', () => post({ op: 'need', code: all('script[data-play-file]'), media: all('img[data-play-file], video[data-play-file], audio[data-play-file], style[data-play-file]') }));
+	addEventListener('DOMContentLoaded', () => post({ op: 'need', code: [...all('script[data-play-file]'), ...[...new Set([...document.querySelectorAll('script[data-play-code]')].map((e) => e.dataset.playCode))]], media: all('img[data-play-file], video[data-play-file], audio[data-play-file], style[data-play-file]') }));
 	addEventListener('message', (e) => {
 		const m = e.data;
 		if (e.source !== parent || !m || m.play !== 1 || m.op !== 'files') return;
+		for (const el of document.querySelectorAll('script[data-play-code]')) {
+			const f = m.files[el.dataset.playCode];
+			if (typeof f === 'string') (window.__playCode ??= {})[el.dataset.playCode] = f;
+		}
 		for (const el of document.querySelectorAll('img[data-play-file], video[data-play-file], audio[data-play-file]')) {
 			const f = m.files[el.dataset.playFile];
 			if (f instanceof Blob) el.src = urls[el.dataset.playFile] ??= URL.createObjectURL(f);
