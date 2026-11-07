@@ -1,7 +1,7 @@
 // Intents (src/intents.ts, play/SPEC.md §4.12) against a real Postgres: set TEST_DATABASE_URL, as for ./api.test.ts.
-// Everything on the board is an intent, Idea → Specify → Prototype → Proposal → Accepted or Archived: added and specified
+// Everything on the board is an intent, Idea → Specify → Build → Proposal → Accepted or Archived: added and specified
 // over MCP only, its spec (a goal, a scope, checks: test, measure or look, must or nice) approved by an admin before it
-// is built, its checks' results recorded while it is prototyped, and a proposal for it taken only once every must check
+// is built, its checks' results recorded while it is being built, and a proposal for it taken only once every must check
 // passes. Every proposal is an intent's: one made without an intent gets one of its own, and the intent follows its
 // proposals as they are decided.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -99,12 +99,12 @@ suite("intents", () => {
       { check: "Its silhouette matches the reference sheet", how: "look", by: "the reference sheet, side by side at 1 m", must: false },
     ],
   };
-  const intentAt = async (title: string, stage: "idea" | "specify" | "prototype") => {
+  const intentAt = async (title: string, stage: "idea" | "specify" | "build") => {
     const i = await tool("add_intent", { title, kind: "improve" });
     if (stage === "idea") return i;
     await tool("specify_intent", { intent: i.id, ...SPEC });
     if (stage === "specify") return i;
-    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("prototype");
+    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
     return i;
   };
 
@@ -179,7 +179,7 @@ suite("intents", () => {
   test("a spec from before runs existed keeps its checks without one, and its intent still proposes", async () => {
     const i = await tool("add_intent", { title: "An old fern" });
     const old = { goal: "x", scope: "y", checks: [{ id: "c1", check: "It builds", how: "test", by: "bun run scripts/render.mjs --asset <its id>", must: true }] };
-    await db.query(`UPDATE play.intents SET stage = 'prototype', spec = ($2::text)::jsonb, approved_by = $3, approved_at = now() WHERE id = $1`, [i.id, JSON.stringify(old), who.ada.id]);
+    await db.query(`UPDATE play.intents SET stage = 'build', spec = ($2::text)::jsonb, approved_by = $3, approved_at = now() WHERE id = $1`, [i.id, JSON.stringify(old), who.ada.id]);
     expect((await tool("get_intent", { intent: i.id })).spec.checks[0].run).toBeUndefined();
     await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "built" }] });
     const made = await tool("propose_asset", { group: "plants", label: "Old fern", source: SOURCE, note: "x", intent: i.id });
@@ -195,11 +195,11 @@ suite("intents", () => {
     expect((await fern(crypto.randomUUID())).error).toContain("no such intent");
     await tool("specify_intent", { intent: i.id, ...SPEC });
     expect((await fern(i.id)).error).toContain("approved by an admin");
-    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "built" }] })).error).toContain("prototyped");
-    // the admin approves the spec: Specify → Prototype
+    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "built" }] })).error).toContain("being built");
+    // the admin approves the spec: Specify → Build
     expect((await call("cit", "POST", `/api/intents/${i.id}/approve`)).status).toBe(403);
     const approved = (await call("ada", "POST", `/api/intents/${i.id}/approve`)).data;
-    expect(approved).toMatchObject({ stage: "prototype", approved_by: "ada" });
+    expect(approved).toMatchObject({ stage: "build", approved_by: "ada" });
     expect((await tool("specify_intent", { intent: i.id, ...SPEC })).error).toContain("its spec is approved");
     // no results yet: refused, each missing must named
     const none = (await fern(i.id)).error;
@@ -209,7 +209,7 @@ suite("intents", () => {
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c9", pass: true, evidence: "x" }] })).error).toContain("not one of this intent's checks");
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: " " }] })).error).toContain("evidence");
     const partly = await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "render.mjs: built in 1.2 s" }, { check: "c2", pass: false, evidence: "measured 0.72 m" }] });
-    expect(partly.stage).toBe("prototype");
+    expect(partly.stage).toBe("build");
     expect((await fern(i.id)).error).toContain("c2 (Its height is 0.4–0.6 m): failed");
     expect((await call("ada", "GET", "/api/intents")).data.length).toBe(before);
     // every must passes (the nice one need not): the intent moves to Proposal by itself, and the proposal is taken
@@ -234,7 +234,7 @@ suite("intents", () => {
   });
 
   test("archived at Proposal, an intent ends archived; its work replaced, the earlier work's intent variant is closed; brought back, to Specify", async () => {
-    const i = await intentAt("A taller fern", "prototype");
+    const i = await intentAt("A taller fern", "build");
     await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "built" }, { check: "c2", pass: true, evidence: "0.5 m" }] });
     const made = await tool("propose_asset", { group: "plants", label: "Taller fern", source: SOURCE, note: "x", intent: i.id });
     expect((await tool("get_intent", { intent: i.id })).stage).toBe("proposal");
@@ -249,9 +249,9 @@ suite("intents", () => {
     expect((await call("ada", "POST", `/api/intents/${i.id}/archive`)).data).toMatchObject({ stage: "archived", decision: { status: "archived" } });
     expect((await db.query<any>(`SELECT status FROM play.doc_variants WHERE id = $1`, [again.variant])).rows[0].status).toBe("archived");
     expect((await tool("propose_asset", { group: "plants", label: "Taller fern", source: SOURCE, note: "again", intent: i.id })).error).toContain("archived: it takes no more work");
-    // brought back, to Specify with its spec; approved, prototyped and proposed anew
+    // brought back, to Specify with its spec; approved, built and proposed anew
     expect((await call("ada", "POST", `/api/intents/${i.id}/reopen`)).data.stage).toBe("specify");
-    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("prototype");
+    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
     expect((await tool("propose_asset", { group: "plants", label: "Taller fern", source: SOURCE, note: "again", intent: i.id })).error).toContain("no result yet");
     // sent back to Specify, its approval and results go; rejected, it is archived
     expect((await call("ada", "POST", `/api/intents/${i.id}/respecify`)).data).toMatchObject({ stage: "specify", approved_at: null });
@@ -259,7 +259,7 @@ suite("intents", () => {
   });
 
   test("code: an intent moves to Proposal on its checks and names its pull request; its Accept no longer waits for main's results", async () => {
-    const i = await intentAt("Sources on play", "prototype");
+    const i = await intentAt("Sources on play", "build");
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.error).toContain("moves to Proposal by itself");
     const sha = "0123456789abcdef0123456789abcdef01234567";
     // where a result ran: avenBOX by default, or main; a commit is a whole git hash; a pull request is its number
@@ -279,7 +279,7 @@ suite("intents", () => {
     expect(refused.data.error).toContain("SHIP_TOKEN");
     expect((await call("ada", "GET", `/api/intents/${i.id}`)).data.stage).toBe("proposal");
     // with none (an intent that is a decision, or code merged before ships), Accept takes its checks, as they passed in avenBOX
-    const j = await intentAt("No pull request", "prototype");
+    const j = await intentAt("No pull request", "build");
     await tool("check_intent", { intent: j.id, results: [{ check: "c1", pass: true, evidence: "built" }, { check: "c2", pass: true, evidence: "0.5" }] });
     expect((await call("ada", "POST", `/api/intents/${j.id}/accept`)).data).toMatchObject({ stage: "accepted", decided_by: "ada" });
   });
@@ -290,7 +290,7 @@ suite("intents", () => {
     const cols = (await db.query<any>(`SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'play' AND table_name = 'intents' AND column_name IN ('pull_request', 'ship') ORDER BY 1`)).rows;
     expect(cols).toEqual([{ column_name: "pull_request", data_type: "integer" }, { column_name: "ship", data_type: "jsonb" }]);
     // only code ships: an intent holding work of play's is never in Ship
-    const i = await intentAt("In Ship", "prototype");
+    const i = await intentAt("In Ship", "build");
     const all = [{ check: "c1", pass: true, evidence: "built" }, { check: "c2", pass: true, evidence: "0.5" }];
     await tool("check_intent", { intent: i.id, pr: 21, results: all });
     const ship = { pr: 21, head: "a".repeat(40), merge: "b".repeat(40), by: "ada", round: 1, started: new Date().toISOString(), steps: [{ key: "merged", name: "Merged into main", state: "green" }] };
@@ -310,7 +310,7 @@ suite("intents", () => {
     await db.query(`UPDATE play.intents SET stage = 'accepted' WHERE id = $1`, [i.id]);
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5 on main", where: "main" }] })).stage).toBe("accepted");
     // the database holds it: work of play's in Ship is refused
-    const w = await intentAt("Work in Ship", "prototype");
+    const w = await intentAt("Work in Ship", "build");
     await tool("check_intent", { intent: w.id, results: all });
     expect((await tool("propose_asset", { group: "plants", label: "Never shipped", source: SOURCE, note: "x", intent: w.id })).error).toBeUndefined();
     await expect(db.query(`UPDATE play.intents SET stage = 'ship' WHERE id = $1`, [w.id])).rejects.toThrow();
@@ -319,11 +319,11 @@ suite("intents", () => {
     expect((await tool("check_intent", { intent: idea.id, results: [{ check: "c1", pass: true, evidence: "main", where: "main" }] })).error).toContain("specify stage");
   });
 
-  test("an intent moves to Proposal by itself once every must check passes, and is accepted there, never from Prototype", async () => {
-    const i = await intentAt("Artifacts on play", "prototype");
+  test("an intent moves to Proposal by itself once every must check passes, and is accepted there, never from Build", async () => {
+    const i = await intentAt("Artifacts on play", "build");
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.error).toContain("moves to Proposal by itself");
     const half = await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "PR #1 merged, tests green", where: "main" }, { check: "c2", pass: false, evidence: "0.7", where: "main" }] });
-    expect(half.stage).toBe("prototype");
+    expect(half.stage).toBe("build");
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).status).toBe(409);
     // the last must passes: Proposal, by itself (the nice check has no result and need not)
     const ready = await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5", where: "main" }] });
@@ -370,7 +370,7 @@ suite("intents", () => {
       "exits 0 only in its range", "a failure as a failure", "record a look by hand", "main runs them again", "an admin approves the spec",
     ])
       expect(taught).toContain(says);
-    expect(of("list_intents").inputSchema.properties.stage.enum).toEqual(["idea", "specify", "prototype", "proposal", "ship", "accepted", "archived", "all"]);
+    expect(of("list_intents").inputSchema.properties.stage.enum).toEqual(["idea", "specify", "build", "proposal", "ship", "accepted", "archived", "all"]);
     const { instructions } = await rpc("initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1" } });
     for (const says of ["avenBOX", "play/avenbox/intent.ts", "Intent: ", "never merge", "Accept merges it", "Ship"]) expect(instructions).toContain(says);
   });
@@ -400,7 +400,7 @@ suite("intents", () => {
     expect((await tool("specify_intent", { intent: i.id, ...MVP, checks: [{ ...REDUCE, must: true }, ...MVP.checks] })).spec.checks[0].must).toBe(true);
   });
 
-  test("approve refuses a spec without its reduce step (one from before); one already in Prototype still moves on its checks", async () => {
+  test("approve refuses a spec without its reduce step (one from before); one already in Build still moves on its checks", async () => {
     const old = { goal: "x", scope: "y", checks: [{ id: "c1", check: "It builds", how: "test", by: "true", run: "true", must: true }] };
     const i = await tool("add_intent", { title: "Specified before" });
     await db.query(`UPDATE play.intents SET stage = 'specify', spec = ($2::text)::jsonb WHERE id = $1`, [i.id, JSON.stringify(old)]);
@@ -410,23 +410,23 @@ suite("intents", () => {
     expect((await tool("get_intent", { intent: i.id })).stage).toBe("specify");
     // specified again with its reduce step, it is approved
     await tool("specify_intent", { intent: i.id, ...MVP, checks: [REDUCE, ...MVP.checks] });
-    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("prototype");
-    // in Prototype already with a spec from before: not held to the new step
-    const p = await tool("add_intent", { title: "Prototyped before" });
-    await db.query(`UPDATE play.intents SET stage = 'prototype', spec = ($2::text)::jsonb, approved_by = $3, approved_at = now() WHERE id = $1`, [p.id, JSON.stringify(old), who.ada.id]);
+    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
+    // in Build already with a spec from before: not held to the new step
+    const p = await tool("add_intent", { title: "Built before" });
+    await db.query(`UPDATE play.intents SET stage = 'build', spec = ($2::text)::jsonb, approved_by = $3, approved_at = now() WHERE id = $1`, [p.id, JSON.stringify(old), who.ada.id]);
     expect((await tool("check_intent", { intent: p.id, results: [{ check: "c1", pass: true, evidence: "true: exit 0" }] })).stage).toBe("proposal");
   });
 
   test("at Proposal: checked again, a failing must takes it back; it is rejected or sent back to Specify there; a waiting proposal decides it", async () => {
-    const i = await intentAt("A fern at Proposal", "prototype");
+    const i = await intentAt("A fern at Proposal", "build");
     const all = [{ check: "c1", pass: true, evidence: "built" }, { check: "c2", pass: true, evidence: "0.5 m" }];
     expect((await tool("check_intent", { intent: i.id, results: all })).stage).toBe("proposal");
-    // checked again while none of its proposals waits: a must that fails takes it back to Prototype, and passing again to Proposal
-    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: false, evidence: "0.8 m after the change" }] })).stage).toBe("prototype");
+    // checked again while none of its proposals waits: a must that fails takes it back to Build, and passing again to Proposal
+    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: false, evidence: "0.8 m after the change" }] })).stage).toBe("build");
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5 m again" }] })).stage).toBe("proposal");
     // sent back to Specify from Proposal, its approval and results go
     expect((await call("ada", "POST", `/api/intents/${i.id}/respecify`)).data).toMatchObject({ stage: "specify", approved_at: null, results: null });
-    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("prototype");
+    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
     expect((await tool("check_intent", { intent: i.id, results: all })).stage).toBe("proposal");
     // with its work waiting, deciding it decides the work: it is neither sent back nor checked again
     const made = await tool("propose_asset", { group: "plants", label: "Fern at Proposal", source: SOURCE, note: "x", intent: i.id });
@@ -434,31 +434,32 @@ suite("intents", () => {
     expect((await call("ada", "POST", `/api/intents/${i.id}/respecify`)).data.error).toContain("waits for a decision");
     expect((await tool("check_intent", { intent: i.id, results: all })).error).toContain("no work of it waits there");
     // other work made on the same base goes in first: its work is archived by itself, and an intent with an approved
-    // spec goes back to Prototype, its results cleared, to be built on the new head
+    // spec goes back to Build, its results cleared, to be built on the new head
     const first = await tool("propose_version", { asset: made.asset, source: SOURCE + "// first\n", note: "first in" });
     expect((await call("ada", "POST", `/api/intents/${first.intent}/accept`)).data.stage).toBe("accepted");
-    expect(await tool("get_intent", { intent: i.id })).toMatchObject({ stage: "prototype", results: null, decided_by: null, work: { status: "archived", version: made.version } });
+    expect(await tool("get_intent", { intent: i.id })).toMatchObject({ stage: "build", results: null, decided_by: null, work: { status: "archived", version: made.version } });
     expect((await db.query<any>(`SELECT status FROM play.doc_variants WHERE id = $1`, [made.variant])).rows[0].status).toBe("archived");
     expect((await tool("check_intent", { intent: i.id, results: all })).stage).toBe("proposal");
     expect((await call("ada", "POST", `/api/intents/${i.id}/reject`)).data).toMatchObject({ stage: "archived", decided_by: "ada" });
   });
 
-  test("migration 0028 moves an intent already in Prototype with every must check passed to Proposal", async () => {
+  test("migration 0028's rule (the stage named Build since 0033) moves an intent already in Build with every must check passed to Proposal", async () => {
     const m = MIGRATIONS.find((x) => x.id === "0028-intents-ready-propose")!;
+    const sql = m.sql.replaceAll("'prototype'", "'build'");
     const at = async (title: string, results: Record<string, boolean>) => {
-      const i = await intentAt(title, "prototype");
+      const i = await intentAt(title, "build");
       const r = Object.fromEntries(Object.entries(results).map(([k, pass]) => [k, { pass, evidence: "x", by: "ada", at: new Date().toISOString() }]));
-      await db.query(`UPDATE play.intents SET results = ($2::text)::jsonb, stage = 'prototype' WHERE id = $1`, [i.id, JSON.stringify(r)]);
+      await db.query(`UPDATE play.intents SET results = ($2::text)::jsonb, stage = 'build' WHERE id = $1`, [i.id, JSON.stringify(r)]);
       return i.id;
     };
     const ready = await at("Ready before 0028", { c1: true, c2: true });
     const failing = await at("A must failing before 0028", { c1: true, c2: false });
     const unchecked = await at("A must unchecked before 0028", { c1: true });
-    await db.query(m.sql);
+    await db.query(sql);
     const stage = async (id: string) => (await tool("get_intent", { intent: id })).stage;
     expect(await stage(ready)).toBe("proposal");
-    expect(await stage(failing)).toBe("prototype");
-    expect(await stage(unchecked)).toBe("prototype");
+    expect(await stage(failing)).toBe("build");
+    expect(await stage(unchecked)).toBe("build");
   });
 
   test("work proposed without an intent is a new intent at Proposal of its own", async () => {
@@ -490,7 +491,7 @@ suite("intents", () => {
     const all = [{ check: "c1", pass: true, evidence: "built" }, { check: "c2", pass: true, evidence: "0.5 m" }];
     /** an intent at Proposal, every must check passed, ready to take work */
     const ready = async (title: string) => {
-      const i = await intentAt(title, "prototype");
+      const i = await intentAt(title, "build");
       expect((await tool("check_intent", { intent: i.id, results: all })).stage).toBe("proposal");
       return i.id as string;
     };

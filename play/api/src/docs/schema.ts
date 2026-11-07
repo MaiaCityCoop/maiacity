@@ -394,7 +394,7 @@ export const LEVELS: DocType = {
 };
 
 /** an intent's stages, each a part of the Intents skill (../intents.ts INTENT_STAGES, the same list) */
-export const SKILL_STAGES = ["idea", "specify", "prototype", "proposal", "ship", "accepted", "archived"] as const;
+export const SKILL_STAGES = ["idea", "specify", "build", "proposal", "ship", "accepted", "archived"] as const;
 const skillText = (most: number): Node => ({ type: "string", maxLength: most, "x-loro": "text" });
 
 /**

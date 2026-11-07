@@ -1100,4 +1100,17 @@ export const MIGRATIONS: Migration[] = [
       DROP TABLE play.proposal_ids;
     `,
   },
+  {
+    // The intents' third stage is Build (intent 60f4f75c-666a-4eca-9bb2-4a29311afa6c, Samuel 2026-11-06): what is
+    // made there is the real change, built and checked in avenBOX. Every intent at 'prototype' moves to 'build' as it
+    // is (its spec, approval, results, pull request and work), and the stage 'prototype' is no more; no alias is kept.
+    // The Intents skill's text for the stage moves by its own proposal (play/SPEC.md §4.14), never here.
+    id: "0033-build",
+    sql: `
+      ALTER TABLE play.intents DROP CONSTRAINT intents_stage_check;
+      UPDATE play.intents SET stage = 'build' WHERE stage = 'prototype';
+      ALTER TABLE play.intents ADD CONSTRAINT intents_stage_check
+        CHECK (stage IN ('idea', 'specify', 'build', 'proposal', 'ship', 'accepted', 'archived'));
+    `,
+  },
 ];
