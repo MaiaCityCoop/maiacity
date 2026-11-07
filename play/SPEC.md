@@ -1485,6 +1485,19 @@ HyperFrames (`@hyperframes/player`, pinned to an exact version), from a composit
   `play/site/scripts/story-parity.ts` renders a story with the pinned renderer and compares the player's frames with
   it (SSIM; the hex-village fixture, `fixtures/hex-village.json`, at least 0.98). The delivery files (2e5e50bc) build
   on it; the grade stays its own (10ef20cf); HyperFrames' Studio and colour grading are not used.
+- **A world shot** (intent 65d04790; Samuel 2026-11-07: "upgrade the Stories player from stills to real 3D worlds, played
+  live and not rendered"). A `shots` clip may carry `world` instead of `live`: `{ asset, version, camera, hour?, exposure?,
+  lights? }`. `asset` is a world (an asset of the group `worlds`, §4.11) by its UUID and `version` an accepted version's
+  id. `camera` is a live shot's keyframes; `hour` (0–24: the sun's place on a day's arc, up at 6 in the east, at 50° at
+  noon, down at 18 in the west, over the world's mood), `exposure` (stops, −6…+6) and `lights` (`sun`, `sky`, `lamps`:
+  multipliers 0–8 over the mood) are each a number held over the shot or `[[t, value], …]` keys. play checks it
+  (`play/api/src/stories.ts` `worldOf` and `checkWorld`, one `cameraKeys` for live and world shots alike). The Stories
+  page builds the world once in its own box to list the guests it plants (`use:` nodes); compose lays in the frozen
+  engine, the world's recipe, its guests' recipes and every piece by hash. The one live runtime then builds them in the
+  frame, one worker per recipe, steps a moving world through every frame of the shot at the story's fps before it is
+  ready (its poster shown till then) and draws each moment t from frame `round(t × fps)`, t's camera, sun, exposure and
+  lights (`live.ts` `worldAt`): the same t, the same picture. Not yet: biome floors drawn (a floor shows its build's own
+  stand-in), cues on the shot's clock, recording a move, sets, and a sandbox's own world.
 
 **Full screen** (Samuel 2026-11-06): the player's Full screen button (or F) shows the picture alone on the whole screen,
 black around it and kept to the story's format (letterboxed, never cropped), its subtitles in it; a tap plays and pauses,

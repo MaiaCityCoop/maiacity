@@ -12,14 +12,17 @@
 // - live shots (intent f270269e, ./live.ts): the real asset drawn in the shot by the asset box's own frozen engine, its
 //   recipe and pieces laid in by hash, built before the composition is ready (its still the poster until then) and
 //   drawn at every seek from the shot's camera and keyed values (./live-runtime.ts, VENDOR.live)
+// - world shots (intent 65d04790, ./live.ts): a whole world (an asset of the group worlds) played in the shot by the same
+//   runtime, its recipe, its guests' recipes and their pieces laid in by hash; a moving world stepped through every frame
+//   of the shot before it is ready, each moment drawn from its frame, its camera, the hour's sun, its exposure and lights
 import { frameCsp, SANDBOX, DENY } from '../kernel/sandbox/policy.js';
 import { hashBytes } from '../content/game/hash.js';
 import { engineAt } from '../kernel/engines.js';
-import { buildsOf, stepTimes, type Live, type LiveAsset } from './live';
+import { buildsOf, framesOf, stepTimes, type Live, type LiveAsset, type World, type WorldAsset } from './live';
 import { clipsOf, cuesOf, linkedOf, setCuesOf, LINK, MOST_LINK_DEPTH, type Clip, type Links, type Shot, type StoryBody, type Voice } from './timeline';
 
 /** the live runtime's hash: what scripts/live-runtime.ts builds, held to it (`bun scripts/live-runtime.ts --check`) */
-const LIVE_HASH = 'ecc21579d6c8ca04b503e0d9998ec2677b8f20dd33f6771cdd7a8879debc756a';
+const LIVE_HASH = '49e1834d529be93b7e47a3740beabe33a16828806025336be7f6cc853ffa2e2a';
 /** HyperFrames' runtime, GSAP and the one font (Inter, where a composition names only a generic family, as HyperFrames'
  *  renderer puts it first), pinned by their BLAKE3 hash: among play's files, never from a CDN */
 export const VENDOR = {
@@ -130,7 +133,7 @@ function inline(html: string, id: string, at: number, duration: number, z: numbe
 
 // ---- one story's timeline, the story's own or a linked version's, laid into the composition at `id`
 type Out = { html: string[]; script: string[] };
-type Ctx = { links: Links; compositions: Record<string, string>; assets: Record<string, LiveAsset>; size: [number, number]; path: string[]; code: Set<string> };
+type Ctx = { links: Links; compositions: Record<string, string>; assets: Record<string, LiveAsset>; worlds: Record<string, WorldAsset>; fps: number; size: [number, number]; path: string[]; code: Set<string> };
 const BUS = (track: string, id: string) => `${id}-g-${track.replace(/[^\w-]/g, '_')}`;
 
 function voiceSpans(body: StoryBody) {
@@ -183,6 +186,23 @@ function liveOf(s: Shot, ctx: Ctx) {
 	return { asset: l.asset, version: l.version, engine: { v: engine.v, hash: engine.blake3 }, recipe: v.recipe, pieces: [...(v.pieces ?? [])], builds: buildsOf(l), times: stepTimes(l), camera };
 }
 
+/** a shot's world as the composition plays it, or null where it has none or play gave nothing for its version (it then
+ *  shows its still): its engine, recipe, pieces and guests by hash, its camera, hour, exposure and lights as given */
+function worldOf(s: Shot, ctx: Ctx) {
+	const w = s.world as World | undefined;
+	if (!w || typeof w !== 'object' || s.live || !Array.isArray(w.camera) || !w.camera.length) return null;
+	const a = ctx.worlds[w.version];
+	if (!a || a.asset !== w.asset) return null;
+	const engine = engineAt('box', a.engine) as { v: number; blake3: string } | undefined;
+	if (!engine) return null;
+	const camera = w.camera.map((c) => ({ at: c.at, eye: c.eye, target: c.target, fov: c.fov, ...(c.ease ? { ease: c.ease } : {}) }));
+	const guests = Object.fromEntries(Object.keys(a.guests ?? {}).sort().map((h) => [h, [...a.guests[h]]]));
+	return {
+		asset: w.asset, version: w.version, engine: { v: engine.v, hash: engine.blake3 }, recipe: a.recipe, pieces: [...(a.pieces ?? [])], guests, camera,
+		...(w.hour != null ? { hour: w.hour } : {}), ...(w.exposure != null ? { exposure: w.exposure } : {}), ...(w.lights ? { lights: w.lights } : {})
+	};
+}
+
 function lay(body: StoryBody, id: string, ctx: Ctx, out: Out, sound: { db: number; mute: boolean }) {
 	const [w, h] = ctx.size, D = num(body.duration);
 	const shots = clipsOf<Shot>(body, 'shots');
@@ -201,7 +221,15 @@ function lay(body: StoryBody, id: string, ctx: Ctx, out: Out, sound: { db: numbe
 		const comp = typeof s.composition === 'string' ? ctx.compositions[s.composition] : undefined;
 		const time = `data-start="${n(s.at)}" data-duration="${n(dur)}" data-track-index="${t}" style="z-index:${z}"`;
 		const live = liveOf(s, ctx);
-		if (live) {
+		const world = live ? null : worldOf(s, ctx);
+		if (world) {
+			// the world played: its poster (the shot's still) until every frame of it is ready, then its canvas
+			const [lw, lh] = ctx.size;
+			for (const h of [world.engine.hash, ...world.pieces, world.recipe, ...Object.entries(world.guests).flatMap(([g, p]) => [...p, g])]) ctx.code.add(h);
+			const { asset: _a, version: _v, ...spec } = world;
+			out.html.push(`<div id="${sid}" class="clip shot live world" ${time} data-asset="${esc(world.asset)}" data-version="${esc(world.version)}">${s.frame ? `<img class="poster" src="${fileUrl(s.frame)}" alt="">` : ''}<canvas width="${lw}" height="${lh}"></canvas></div>`);
+			out.script.push(`playLive.world(tl, ${JSON.stringify(sid)}, ${JSON.stringify({ ...spec, fps: ctx.fps, frames: framesOf(dur, ctx.fps), size: ctx.size, at: s.at, duration: dur })});`);
+		} else if (live) {
 			// the asset drawn: its poster (the shot's still) until it is built, then its canvas
 			const [lw, lh] = ctx.size;
 			for (const h of [live.engine.hash, ...live.pieces, live.recipe]) ctx.code.add(h);
@@ -293,11 +321,11 @@ function shots(tl, veil, list) {
  * version it links (by the version's id, as play reads it), `compositions` every composition its shots name (readable
  * HTML by its hash). What it can't read (a link not in `links`, a composition not given) it leaves out.
  */
-export function compose(story: StoryBody & { id?: string; title?: string; number?: number | null; version?: string }, links: Links = {}, compositions: Record<string, string> = {}, assets: Record<string, LiveAsset> = {}): string {
+export function compose(story: StoryBody & { id?: string; title?: string; number?: number | null; version?: string }, links: Links = {}, compositions: Record<string, string> = {}, assets: Record<string, LiveAsset> = {}, worlds: Record<string, WorldAsset> = {}): string {
 	const size = sizeOf(story.format), [w, h] = size, D = num(story.duration);
 	const out: Out = { html: [], script: [] };
 	const code = new Set<string>();
-	lay(story, 'pl', { links: links ?? {}, compositions, assets: assets ?? {}, size, path: [story.id ?? ''], code }, out, { db: 0, mute: false });
+	lay(story, 'pl', { links: links ?? {}, compositions, assets: assets ?? {}, worlds: worlds ?? {}, fps: num(story.fps, 30), size, path: [story.id ?? ''], code }, out, { db: 0, mute: false });
 	const live = code.size ? `\n<script src="${fileUrl(VENDOR.live.hash)}" data-vendor="${VENDOR.live.name}"></script>\n${[...code].map((h) => `<script type="text/x-play-code" data-play-code="${h}"></script>`).join('\n')}` : '';
 	return `<!doctype html>
 <html lang="en">

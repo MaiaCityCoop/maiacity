@@ -20,7 +20,10 @@ import { checkCard } from '../content/assets/schemas/index.js';
 import { heroOf } from '../content/assets/hero.js';
 import { Stage } from '../content/assets/stage.js';
 import { createRenderer } from '../content/render/core.js';
-import { cameraAt, stepAt, type CameraKey } from './live';
+import { createSky } from '../content/worlds/sky.js';
+import { worldOf as worldInfo } from '../content/worlds/contract.js';
+import { plantingsOf, shownIn } from '../content/assets/uses.js';
+import { cameraAt, stepAt, worldAt, type CameraKey, type World } from './live';
 
 /** what compose.ts hands a live shot: its engine, recipe and pieces by hash, a build's values per step, its camera */
 type Spec = { engine: { v: number; hash: string }; recipe: string; pieces: string[]; builds: Record<string, string>[]; times: number[]; camera: CameraKey[]; size: [number, number]; at: number; duration: number };
@@ -35,8 +38,9 @@ const code = (hash: string): string => {
 	return text;
 };
 
-/** the frozen engine as a worker of this frame, its builds asked one after another */
-function engineOf(spec: Spec) {
+/** the frozen engine as a worker of this frame, for one recipe (its pieces joined in): its builds asked one after
+ *  another, and a build kept running (a world that moves: `live`, then a `tick` a step) */
+function engineOf(spec: { engine: { v: number; hash: string }; recipe: string; pieces: string[] }) {
 	const url = URL.createObjectURL(new Blob([code(spec.engine.hash)], { type: 'text/javascript' }));
 	const worker = new Worker(url);
 	URL.revokeObjectURL(url);
@@ -51,16 +55,30 @@ function engineOf(spec: Spec) {
 		};
 	});
 	const recipe = { hash: spec.recipe, code: withPieces(code(spec.recipe), spec.pieces.map((hash) => ({ hash, code: code(hash) }))) };
+	const ask = async (op: string, payload: Record<string, unknown>) => {
+		await ready;
+		const id = next++;
+		const m: any = await new Promise((ok) => (asks.set(id, ok), worker.postMessage({ id, op, ...payload })));
+		if (!m.ok) throw new Error(`live: the ${op} failed: ${m.error}`);
+		return m;
+	};
 	return {
-		build: async (given: Record<string, string>) => {
-			await ready;
-			const id = next++;
-			const m: any = await new Promise((ok) => (asks.set(id, ok), worker.postMessage({ id, op: 'build', recipe, given, args: [], engine: spec.engine.v })));
-			if (!m.ok) throw new Error(`live: the build failed: ${m.error}`);
-			return m;
+		build: (given: Record<string, string>) => ask('build', { recipe, given, args: [], engine: spec.engine.v }),
+		/** kept running, as ../content/assets/hero.js `runner` starts it in the page's box */
+		start: async (given: Record<string, string> | undefined, nodes: number) => {
+			const { session } = await ask('live', { recipe, given, nodes });
+			return { tick: (a: unknown) => ask('tick', { session, ask: a }), breakIt: async () => {}, end: () => ask('end', { session }).catch(() => {}) };
 		},
 		end: () => worker.terminate()
 	};
+}
+
+/** a build from the box, checked and made into three.js objects by the asset library's own code */
+function built(m: any, recipe: string) {
+	const verdict = checkCard(m.card);
+	if (!verdict.ok) throw new Error(`refused: its card does not fit: ${verdict.errors.slice(0, 3).join('; ')}`);
+	if (m.card.recipe !== recipe) throw new Error('refused: its card names another recipe');
+	return { obj: rebuild(m.data), card: m.card, data: m.data };
 }
 
 /** one live shot on the story's timeline `tl`: its element `id` (a poster and a canvas in it) */
@@ -105,11 +123,7 @@ function shot(tl: any, id: string, spec: Spec) {
 		try {
 			const builds: Shown[] = [];
 			for (const given of spec.builds) {
-				const m = await engine.build(given);
-				const verdict = checkCard(m.card);
-				if (!verdict.ok) throw new Error(`refused: its card does not fit: ${verdict.errors.slice(0, 3).join('; ')}`);
-				if (m.card.recipe !== spec.recipe) throw new Error('refused: its card names another recipe');
-				const got = { obj: rebuild(m.data), card: m.card };
+				const got = built(await engine.build(given), spec.recipe);
 				builds.push({ obj: got.obj, hero: heroOf(got) });
 			}
 			const renderer = createRenderer({ canvas, pixelRatio: 1, shadows: 'pcf', preserve: true });
@@ -133,4 +147,126 @@ function shot(tl: any, id: string, spec: Spec) {
 	tl.fromTo(at, { t: 0 }, { t: spec.duration, duration: spec.duration, ease: 'none', immediateRender: false }, spec.at);
 }
 
-W.playLive = { shot };
+/** what compose.ts hands a world shot: its engine, the world's recipe and pieces, its guests' recipes and pieces by
+ *  hash, its camera, hour, exposure and lights (./live.ts World), its frames at the story's fps */
+type WorldSpec = Pick<World, 'camera' | 'hour' | 'exposure' | 'lights'> & { engine: { v: number; hash: string }; recipe: string; pieces: string[]; guests: Record<string, string[]>; fps: number; frames: number; size: [number, number]; at: number; duration: number };
+
+/** a build's name, `<recipe hash>?its=values`, as the recipe and its values */
+const parseRef = (ref: string) => {
+	const [hash, q = ''] = ref.split('?');
+	return { hash, given: Object.fromEntries(q.split('&').filter(Boolean).map((kv) => kv.split('=').map(decodeURIComponent) as [string, string])) };
+};
+
+/** one world shot on the story's timeline `tl`: its element `id` (a poster and a canvas in it) */
+function world(tl: any, id: string, spec: WorldSpec) {
+	const el = document.getElementById(id)!;
+	const canvas = el.querySelector('canvas') as HTMLCanvasElement;
+	const poster = el.querySelector('img');
+	const [w, h] = spec.size;
+	let ready = false, t = 0, drawn = NaN;
+	let renderer: any, scene: THREE.Scene, camera: THREE.PerspectiveCamera, sky: ReturnType<typeof createSky>;
+	/** the guests' copies, and every frame's places for them: 16 numbers each, a scale of 0 where one is not shown */
+	let copies: THREE.Object3D[] = [];
+	let places: Float32Array[] = [];
+	let mood: any, base = { sun: 0, hemi: 0, exposure: 1 };
+	const lamps: { light: THREE.Light; k: number }[] = [];
+
+	const draw = () => {
+		if (!ready || t === drawn) return;
+		drawn = t;
+		const at = worldAt(spec, t, spec.fps, spec.frames);
+		const m = places[Math.min(at.frame, places.length - 1)];
+		copies.forEach((c, i) => c.matrix.fromArray(m, i * 16));
+		// the hour's sun over the world's mood, then each light scaled by the shot and the exposure in stops
+		sky.apply(at.sun ? { ...mood, sun: at.sun.sun, az: at.sun.az } : mood);
+		sky.sun.intensity *= at.lights.sun;
+		sky.hemi.intensity *= at.lights.sky;
+		for (const l of lamps) l.light.intensity = l.k * at.lights.lamps;
+		renderer.toneMappingExposure *= 2 ** at.exposure;
+		camera.position.set(...at.camera.eye);
+		camera.fov = at.camera.fov;
+		camera.updateProjectionMatrix();
+		camera.lookAt(...at.camera.target);
+		sky.place(camera, new THREE.Vector3(...at.camera.target));
+		renderer.render(scene, camera);
+	};
+
+	const made = (async () => {
+		const engines = new Map<string, ReturnType<typeof engineOf>>();
+		const engineFor = (recipe: string, pieces: string[]) => {
+			if (!engines.has(recipe)) engines.set(recipe, engineOf({ engine: spec.engine, recipe, pieces }));
+			return engines.get(recipe)!;
+		};
+		try {
+			// the world, built and, where it moves, kept running in its own worker
+			const got = built(await engineFor(spec.recipe, spec.pieces).build({}), spec.recipe);
+			const info = worldInfo(got.obj);
+			mood = info.mood;
+			const hero = info.moves ? heroOf(got, { start: (nodes: number) => engineFor(spec.recipe, spec.pieces).start(undefined, nodes), exact: true }) : null;
+			scene = new THREE.Scene();
+			got.obj.traverse((x: any) => {
+				if (x.isMesh) x.receiveShadow = x.castShadow = true;
+			});
+			scene.add(got.obj);
+			// its guests: each build it names made once, in its recipe's own worker, and copied where each stands
+			const uses = plantingsOf(got.obj).filter((u) => Object.hasOwn(spec.guests, u.ref.slice(0, 64)));
+			const kinds = new Map<string, THREE.Object3D>();
+			for (const ref of [...new Set(uses.map((u) => u.ref))].sort()) {
+				const { hash, given } = parseRef(ref);
+				kinds.set(ref, built(await engineFor(hash, spec.guests[hash]).build(given), hash).obj);
+			}
+			copies = uses.map((u) => {
+				const c = kinds.get(u.ref)!.clone();
+				c.matrixAutoUpdate = false;
+				scene.add(c);
+				return c;
+			});
+			// every frame's places, the world brought to each frame's moment in turn (its own seeded steps)
+			const placesNow = () => {
+				got.obj.updateMatrixWorld(true);
+				const m = new Float32Array(uses.length * 16);
+				uses.forEach((u, i) => (shownIn(u.node) ? u.node.matrixWorld : AWAY).toArray(m, i * 16));
+				return m;
+			};
+			const settle = async () => {
+				for (let n = 0; hero && (hero.starting || (hero.live && hero.busy)); n++) {
+					hero.tick(0, {});
+					if (hero.pending) await hero.pending;
+					else await new Promise((r) => setTimeout(r, 4));
+					if (n > 100_000) throw new Error('live: the world stopped answering');
+				}
+			};
+			await settle();
+			places = [placesNow()];
+			for (let f = 1; f < (hero ? spec.frames : 1); f++) {
+				hero!.tick(1 / spec.fps, {});
+				await settle();
+				places.push(placesNow());
+			}
+			scene.traverse((x: any) => {
+				if (x.isLight && !x.isDirectionalLight && !x.isHemisphereLight) lamps.push({ light: x, k: x.intensity });
+			});
+			renderer = createRenderer({ canvas, pixelRatio: 1, shadows: 'pcf', preserve: true });
+			renderer.setSize(w, h, false);
+			camera = new THREE.PerspectiveCamera(40, w / h, 0.1, 20000);
+			sky = createSky(scene, renderer);
+			ready = true;
+			draw();
+			canvas.style.visibility = 'visible';
+			if (poster) poster.style.visibility = 'hidden';
+			hero?.dispose();
+		} finally {
+			for (const e of engines.values()) e.end();
+		}
+	})();
+	made.catch((e) => console.error(id, e));
+	(W.__hf ??= {}).buildReady ??= {};
+	W.__hf.buildReady[id] = made;
+	const at = { set t(v: number) { t = v; draw(); }, get t() { return t; } };
+	tl.fromTo(at, { t: 0 }, { t: spec.duration, duration: spec.duration, ease: 'none', immediateRender: false }, spec.at);
+}
+
+/** where a guest not shown is put: nowhere */
+const AWAY = new THREE.Matrix4().makeScale(0, 0, 0);
+
+W.playLive = { shot, world };
