@@ -29,6 +29,7 @@ import { versionId } from "./versions";
 import { newId, UUID } from "./uuid";
 import { asVersionError, named, versionAt, VersionError, type Ctx, type Verdict } from "./versioned";
 import { closeWork, putAtProposal, settle, WORK_OF, WorkError } from "./work";
+import { SCHEMA } from "./ids";
 
 export const HISTORY = join(import.meta.dir, "../import/history");
 export const assetDocId = (asset: string) => `asset:${asset}`;
@@ -151,7 +152,7 @@ export async function ensureAssetDoc(q: Queryable, store: BlobStore, asset: stri
     made = true;
     const { rows: vs } = await q.query<VersionRow>(`${VERSIONS} WHERE v.asset_id = $1 AND v.number IS NOT NULL ORDER BY v.number`, [asset]);
     // an asset not accepted yet stands on an empty source: its first intent variant fills it
-    if (!vs.length) await docs.createDoc(q, { id, schema: "asset/1", json: { schema: "asset/1", label, source: "" }, author: { human: null, via: "system" }, message: "a new asset, not yet accepted" });
+    if (!vs.length) await docs.createDoc(q, { id, schema: SCHEMA.asset, json: { schema: "asset/1", label, source: "" }, author: { human: null, via: "system" }, message: "a new asset, not yet accepted" });
     const kept = keptFor(asset, dir);
     let prev: AssetJson | null = null;
     for (const [i, v] of vs.entries()) {
@@ -167,7 +168,7 @@ export async function ensureAssetDoc(q: Queryable, store: BlobStore, asset: stri
         if (kept.final && keptText(kept, kept.final.file, kept.final.hash) !== json.source) throw new AssetDocError(`${kept.asset}: the kept edits do not lead to v${v.number}'s source`, 500);
       }
       const message = `v${v.number}: ${firstLine(v.note) || (i === 0 ? "its first version" : "a new version")}`;
-      if (i === 0) await docs.createDoc(q, { id, schema: "asset/1", json, author: { human: v.author, via }, message, at: v.created, version: v.note ?? "", number: v.number! });
+      if (i === 0) await docs.createDoc(q, { id, schema: SCHEMA.asset, json, author: { human: v.author, via }, message, at: v.created, version: v.note ?? "", number: v.number! });
       else {
         await docs.commit(q, id, { target: json, message, author: { human: v.author, via }, kind: "import", at: v.created });
         await docs.nameVersion(q, id, { note: v.note ?? "", author: { human: v.approved_by, via: v.imported ? "import" : "site" }, at: v.created, number: v.number! });

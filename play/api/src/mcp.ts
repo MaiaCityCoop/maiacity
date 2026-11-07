@@ -22,9 +22,10 @@ import type { BlobStore } from "./blobs";
 import type { Db } from "./pg";
 import type { Me } from "./access";
 import { assetOf, listAssets, NotFound } from "./assets";
-import { archiveOwn, docAt, docEdit, docHistory, kinds, listDocs, proposeDocVersion, reviewOf, VersionError, workKinds } from "./versioned";
+import { archiveOwn, docAt, docEdit, docHistory, kinds, listDocs, proposeDocVersion, reviewOf, syncKinds, VersionError, workKinds } from "./versioned";
 import { WorkError } from "./work";
-import { addIntent, CHECK_HOWS, CHECKS_MOST, getIntent, intentOf, IntentError, intentReady, INTENT_KINDS, INTENT_STAGES, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES } from "./intents";
+import { addIntent, CHECK_HOWS, CHECKS_MOST, dependIntent, getIntent, intentOf, IntentError, intentReady, INTENT_KINDS, INTENT_STAGES, LINE_MOST, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES } from "./intents";
+import { stepBack } from "./stepback";
 import { instructionsOf, promptOf, promptsOf, SkillError } from "./skills";
 import { adminByToken } from "./tokens";
 import { admin, AUDIO_TYPES, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, proposeStory, putAudioBase64, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAt, storyOf, StoryError, VIDEO_TYPES } from "./stories";
@@ -219,8 +220,11 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     // ---- one version control (./versioned.ts, play/SPEC.md "Version control"): every versioned kind, by its document's UUID
     {
       name: "list_docs",
-      description: `Every document play versions, of one kind or all: an asset, a story, a factory, a game config (the levelling), a skill. Each with its UUID (what names it everywhere), its kind, its label (only shown), its newest version's number and how many versions; a factory also its stations and parts, a skill its group and the stages it speaks to.`,
-      inputSchema: { type: "object", properties: { kind: { type: "string", enum: kinds().map((k) => k.name), description: "one kind only" } }, additionalProperties: false },
+      description: `Every document play versions, of one kind or all: an asset, a story, a factory, a game config (the levelling), a skill, a schema (every schema is a document of the meta-schema), and every kind that is a schema alone. Each with its UUID (what names it everywhere), its kind, its label (only shown), its newest version's number and how many versions; a factory also its stations and parts, a skill its group and the stages it speaks to, a schema the prefix of its documents.`,
+      // the kinds as play holds them when the tools are listed: a schema accepted since is a kind too
+      get inputSchema() {
+        return { type: "object", properties: { kind: { type: "string", enum: kinds().map((k) => k.name), description: "one kind only" } }, additionalProperties: false };
+      },
       run: async ({ kind }, me) => listDocs(db, me, kind),
     },
     {
@@ -259,7 +263,8 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
       inputSchema: {
         type: "object",
         properties: {
-          doc: { type: "string", description: "its UUID" },
+          doc: { type: "string", description: "its UUID; left out with `kind` and `whole`, a new document of that kind" },
+          kind: { type: "string", description: "a new document's kind (list_docs's kinds): a schema, or a kind that is a schema alone; its first state is `whole`" },
           message: { type: "string", description: "what this edit does, as its history will say it" },
           variant: { type: "integer", minimum: 1, description: "the intent variant to add the edit to (doc_edit gives it); a new one seeded from Main's newest version if left out" },
           breed: { type: "integer", minimum: 1, description: "with no `variant`: start the intent variant from this breed of the asset's (its number), to change the breed; it changes only the breed's `source` and `card`" },
@@ -267,20 +272,21 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           edits: { type: "array", items: { type: "object" }, description: "edits applied in order" },
           whole: { type: "object", description: "the whole new document (instead of edits)" },
         },
-        required: ["doc", "message"],
+        required: ["message"],
         additionalProperties: false,
       },
-      run: async ({ doc, message, variant, breed, new_breed, edits, whole }, me) =>
-        docEdit({ db, store }, me, { doc, message, edits, whole, ...(variant != null ? { variant: Number(variant) } : {}), ...(breed != null ? { breed: Number(breed) } : {}), ...(new_breed != null ? { newBreed: `${new_breed}` } : {}) }),
+      run: async ({ doc, kind, message, variant, breed, new_breed, edits, whole }, me) =>
+        docEdit({ db, store }, me, { doc, kind, message, edits, whole, ...(variant != null ? { variant: Number(variant) } : {}), ...(breed != null ? { breed: Number(breed) } : {}), ...(new_breed != null ? { newBreed: `${new_breed}` } : {}) }),
     },
     {
       name: "propose_doc_version",
       description:
-        `Propose a document's next version: an intent variant made edit by edit with doc_edit (its \`variant\`; its edits go with it), or edits applied at once to Main's newest version, or the whole document. ${EDITS} It puts an intent at Proposal with it (via MCP), for Maia City's admins, who see what changed field by field on the intents' board (an asset built in the asset box, a story played in the Stories player, a factory opened with its simulation running) and accept or archive it. An asset's version is checked as readable source when it is proposed: ${RECIPE_RULE} If Main gets a newer version first, it still goes in where the two changes touch different fields, and is archived where they touch the same (an asset's, whenever its head moved). An asset's breeds (doc_history) live beside Main and take every change accepted on Main except on the fields they override: change one with \`breed\` (an intent variant seeded from it), make one with \`new_breed\`; either Accept makes the asset's next version, every breed built as its variant.`,
+        `Propose a document's next version: an intent variant made edit by edit with doc_edit (its \`variant\`; its edits go with it), or edits applied at once to Main's newest version, or the whole document. ${EDITS} It puts an intent at Proposal with it (via MCP), for Maia City's admins, who see what changed field by field on the intents' board (an asset built in the asset box, a story played in the Stories player, a factory opened with its simulation running) and accept or archive it. An asset's version is checked as readable source when it is proposed: ${RECIPE_RULE} If Main gets a newer version first, it still goes in where the two changes touch different fields, and is archived where they touch the same (an asset's, whenever its head moved). With \`kind\` and \`whole\` and no \`doc\`, a new document: a schema (every schema is a document of the meta-schema: \`label\`, \`type\` its documents' prefix, \`name\`, \`node\` the JSON Schema it holds them to; once accepted, its documents are a kind of their own, listed, read, edited and proposed with these same tools), or a document of a kind that is a schema alone. A schema's new version is accepted only while every document on Main still validates against it: the Accept names those that would not. An asset's breeds (doc_history) live beside Main and take every change accepted on Main except on the fields they override: change one with \`breed\` (an intent variant seeded from it), make one with \`new_breed\`; either Accept makes the asset's next version, every breed built as its variant.`,
       inputSchema: {
         type: "object",
         properties: {
-          doc: { type: "string", description: "its UUID" },
+          doc: { type: "string", description: "its UUID; left out with `kind` and `whole`, a new document of that kind, its first version" },
+          kind: { type: "string", description: "a new document's kind (list_docs's kinds): a schema (a new type of document, its documents' prefix its `type`), or a kind that is a schema alone" },
           note: { type: "string", description: "what changes and why, for the admins deciding" },
           variant: { type: "integer", minimum: 1, description: "an intent variant to propose (doc_edit gives it)" },
           breed: { type: "integer", minimum: 1, description: "with no `variant`: the edits change this breed of the asset's (its number), not Main" },
@@ -288,11 +294,11 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           edits: { type: "array", items: { type: "object" }, description: "edits applied in order (to the intent variant, if one is named)" },
           whole: { type: "object", description: "the whole new document (instead of edits)" },
         },
-        required: ["doc", "note"],
+        required: ["note"],
         additionalProperties: false,
       },
-      run: async ({ doc, note, variant, breed, new_breed, edits, whole, intent }, me) =>
-        proposeDocVersion({ db, store }, me, { doc, note, edits, whole, intent, ...(variant != null ? { variant: Number(variant) } : {}), ...(breed != null ? { breed: Number(breed) } : {}), ...(new_breed != null ? { newBreed: `${new_breed}` } : {}) }),
+      run: async ({ doc, kind, note, variant, breed, new_breed, edits, whole, intent }, me) =>
+        proposeDocVersion({ db, store }, me, { doc, kind, note, edits, whole, intent, ...(variant != null ? { variant: Number(variant) } : {}), ...(breed != null ? { breed: Number(breed) } : {}), ...(new_breed != null ? { newBreed: `${new_breed}` } : {}) }),
     },
     // ---- sandboxes: what each draws (its pins) and how it lays them out (its configs), changed only by proposal (./sandboxes.ts)
     {
@@ -420,7 +426,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     {
       name: "list_intents",
       description:
-        "Maia City's intents, the latest first: everything on the board, each something wanted made, fixed or improved, going Idea → Specify → Build → Proposal → Accepted (or Archived), code through Ship between Proposal and Accepted. Each has its id (a UUID), kind (idea, fix, improve), title, note, stage, who wrote it, its spec (goal, scope, checks) once specified, its checks' results while being built, and its work once proposed (`work`: what it changes, the version it would be, who proposed it and how, its status). One record: an intent at Proposal is the proposal, its work waiting for the decision. " +
+        "Maia City's intents, the latest first: everything on the board, each something wanted made, fixed or improved, going Idea → Specify → Build → Proposal → Accepted (or Archived), code through Ship between Proposal and Accepted. Each has its id (a UUID), kind (idea, fix, improve), title, note, stage, who wrote it, its spec (goal, scope, checks) once specified, its checks' results while being built, its work once proposed (`work`: what it changes, the version it would be, who proposed it and how, its status), and its dependencies (`depends_on`, each with its stage; `held_by`, those not shipped yet, which hold it; `needed_by`, the intents waiting on it). One record: an intent at Proposal is the proposal, its work waiting for the decision. " +
         "Sent to work on an intent: read it with get_intent, whose `brief` says what to do at the stage it is at (the Intents skill's part for that stage: doc_at on the Intents skill).",
       inputSchema: {
         type: "object",
@@ -434,7 +440,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     },
     {
       name: "get_intent",
-      description: "One intent, whole: its kind, title, note, stage, who wrote, specified and approved it, its spec (goal, scope, checks: each its id, statement, how it is checked, must or nice), its checks' latest results with their evidence, its `brief` (what to do now, at the stage it is at: the Intents skill's part for that stage, filled for it; null where there is nothing to do), and its work (`work`) with its review (`review`: what it changes, as the board shows it before it is decided). An old proposal's id finds the intent it is now.",
+      description: "One intent, whole: its kind, title, note, stage, who wrote, specified and approved it, its spec (goal, scope, checks: each its id, statement, how it is checked, must or nice), its checks' latest results with their evidence, its `brief` (what to do now, at the stage it is at: the Intents skill's part for that stage, filled for it; null where there is nothing to do), its work (`work`) with its review (`review`: what it changes, as the board shows it before it is decided), and its dependencies (`depends_on` each with its stage, `held_by` those not shipped yet, `needed_by` those waiting on it). An old proposal's id finds the intent it is now.",
       inputSchema: {
         type: "object",
         properties: { intent: { type: "string", description: "the intent's id (a UUID: list_intents gives it)" } },
@@ -454,11 +460,29 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           title: { type: "string", maxLength: TITLE_MOST, description: "what is to be made, fixed or improved, in a line" },
           note: { type: "string", description: "the rest: where, what and why (Markdown)" },
           kind: { type: "string", enum: [...INTENT_KINDS], description: "idea (something new), fix (something wrong) or improve (something there, made better); idea if left out" },
+          depends_on: { type: "array", items: { type: "string" }, description: "the intents it depends on, each by its id (a UUID): while any of them is not shipped (Accepted) it is held at every forward gate (approve, Proposal, accept, Ship); no edge to itself, none closing a cycle" },
         },
         required: ["title"],
         additionalProperties: false,
       },
-      run: async ({ title, note, kind }, me) => addIntent(db, me, { title, note, kind }),
+      run: async ({ title, note, kind, depends_on }, me) => addIntent(db, me, { title, note, kind, depends_on }),
+    },
+    {
+      name: "depend_intent",
+      description:
+        "Add, or drop (drop: true), one dependency: intent `intent` depends on intent `on`, each by its id. While any intent it depends on is not shipped (Accepted; in Ship is not yet, archived holds until the edge is dropped or it is reopened and shipped), it is held: not approved, not moved to Proposal, given no work, not accepted, not shipped; going back is never held. " +
+        "Refused: an edge to itself, one closing a cycle. Gives back the intent with depends_on, held_by and needed_by.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          intent: { type: "string", description: "the intent that waits, by its id (a UUID)" },
+          on: { type: "string", description: "the intent it depends on, by its id (a UUID)" },
+          drop: { type: "boolean", description: "true drops the edge" },
+        },
+        required: ["intent", "on"],
+        additionalProperties: false,
+      },
+      run: async ({ intent, on, drop }, me) => dependIntent(db, me, `${intent ?? ""}`, on, drop),
     },
     {
       name: "specify_intent",
@@ -497,11 +521,28 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           title: { type: "string", maxLength: TITLE_MOST, description: "a sharper title, if it needs one" },
           kind: { type: "string", enum: [...INTENT_KINDS] },
           note: { type: "string", description: "a new note, if it needs one" },
+          depends_on: { type: "array", items: { type: "string (given, it replaces those before; left out, they stay)" }, description: "the intents it depends on, each by its id (a UUID): while any of them is not shipped (Accepted) it is held at every forward gate (approve, Proposal, accept, Ship); no edge to itself, none closing a cycle (given, it replaces those before; left out, they stay)" },
         },
         required: ["intent", "goal", "scope", "checks"],
         additionalProperties: false,
       },
-      run: async ({ intent, goal, scope, checks, nothing_to_reduce, title, kind, note }, me) => specifyIntent(db, me, `${intent ?? ""}`, { goal, scope, checks, nothing_to_reduce, title, kind, note }),
+      run: async ({ intent, goal, scope, checks, nothing_to_reduce, title, kind, note, depends_on }, me) => specifyIntent(db, me, `${intent ?? ""}`, { goal, scope, checks, nothing_to_reduce, title, kind, note, depends_on }),
+    },
+    {
+      name: "step_back_intent",
+      description:
+        "Send an intent one stage back, always with its reason (kept with the step in its history and shown on the board under its note): from Build, or Proposal with no work of play's waiting, to Specify (its spec kept, its approval and results cleared: specify it again with specify_intent), or from Specify to Idea (its spec dropped, its whole text kept in the history). " +
+        "Only an admin's Approve spec moves it forward again: until then no check is recorded and nothing is proposed for it. Refused: no reason, at Idea, at Proposal while work of play's waits there (decided first), in Ship, Accepted and Archived.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          intent: { type: "string", description: "the intent's id (a UUID: list_intents gives it)" },
+          reason: { type: "string", maxLength: LINE_MOST, description: "why it goes back, in one line" },
+        },
+        required: ["intent", "reason"],
+        additionalProperties: false,
+      },
+      run: async ({ intent, reason }, me) => stepBack(db, me, `${intent ?? ""}`, reason),
     },
     {
       name: "check_intent",
@@ -728,6 +769,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           throw e;
         }
       case "tools/list":
+        await syncKinds(db);
         return reply(msg.id, { tools: tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })) });
       case "tools/call": {
         const tool = tools.find((t) => t.name === msg.params?.name);

@@ -13,7 +13,7 @@ import { folderStore } from "../src/blobs";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
 import { Rate } from "../src/limits";
-import { SKILL_STAGES } from "../src/docs/schema";
+import { SKILL_STAGES } from "../src/skills";
 import { INTENT_STAGES } from "../src/intents";
 import { SKILL } from "../src/ids";
 import { avenmaia, intents, seedSkills } from "../import/skills";

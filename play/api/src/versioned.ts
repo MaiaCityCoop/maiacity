@@ -11,21 +11,28 @@
 //   Seed            the version a variant grows from ("seeded from Main v3"); a document's first version is just v1
 //   Version         a numbered state of Main, named on accept
 //
-// An entry holds its document prefix and type (./docs/schema.ts, until schemas are documents), its row table, label and
-// group (only shown), and hooks only where the kind really differs: edit helpers, a whole-document check, its own
+// An entry holds its document prefix and its schema (a document of the meta-schema, named by its UUID: ./docs/schemas.ts),
+// its row table, label and group (only shown), and hooks only where the kind really differs: edit helpers, what its
+// schema can't say (a whole-document check, that it is code), its own
 // propose (an asset's recipe built, a story's frozen row), its own decide, the fields its row keeps of an accepted
 // version, its list item's extra fields. A kind is named by its document's UUID everywhere (MCP's list_docs, doc_at,
 // doc_history, doc_edit, propose_doc_version; HTTP's /api/docs/<uuid>, /history, /changes; the board's review).
+//
+// A schema with no hooks needs no code (Samuel 2026-11-06): every accepted schema whose documents no entry here holds is
+// a kind of its own (syncKinds), its rows in play.records, so a new type is a schema document and the intent that
+// accepts it. A schema's new version is accepted only while every document on Main still validates against it.
 import { Denied, type Me } from "./access";
 import type { BlobStore } from "./blobs";
 import * as docs from "./docs";
-import { ASSET, FACTORY, LEVELS, SKILL, SKILL_STAGES, STORY, TYPES, type DocType } from "./docs/schema";
+import { randomUUID } from "node:crypto";
+import { SCHEMA } from "./ids";
+import { SKILL_STAGES } from "./skills";
 import type { Db, Queryable } from "./pg";
 import { NOTE_MOST } from "./notes";
 import { UUID } from "./uuid";
 import { closeWork, putAtProposal, SANDBOX_WORK, settle, WORK_OF, workOf, WorkError } from "./work";
 import { decideSandbox, sandboxReview } from "./sandboxes";
-import { decideIntent, getIntent, IntentError, type IntentVerdict } from "./intents";
+import { decideIntent, getIntent, gate, IntentError, type IntentVerdict } from "./intents";
 import { acceptAndShip, type GitHub } from "./ship";
 import { assetDocFor, assetEdits, assetReview, decideAsset, ensureAssetDoc, proposeAssetVariant } from "./assetdocs";
 import { decideStory, proposeStoryVariant, storyEdit, storyReview } from "./stories";
@@ -47,8 +54,13 @@ export type Kind = {
   name: string;
   /** its documents' id prefix: <prefix>:<uuid> */
   prefix: string;
-  /** its document type (./docs/schema.ts) */
-  type: DocType;
+  /** its schema: a document of the meta-schema, by its UUID (./ids.ts SCHEMA, or a schema accepted since) */
+  schema: string;
+  /** what its schema can't say: a whole-document check, and that its content is code (built and previewed before it is accepted) */
+  check?: (doc: any) => string[];
+  build?: boolean;
+  /** its rows among the table's, where the table holds other kinds' too (play.records) */
+  where?: string;
   /** the work an intent holding one of its versions names: <name>_version */
   work: string;
   /** the table of its rows (each its UUID and its label), the column its label is in, and a filter of the listed */
@@ -71,29 +83,53 @@ export type Kind = {
   review?: (q: Queryable, p: any) => Promise<Record<string, unknown>>;
   /** the kind's own decide (an asset accepted only on the head it was made on; a story's frozen rows) */
   decide?: (tx: Queryable, ctx: Ctx, me: Me, p: any, verdict: Verdict) => Promise<any>;
-  /** its list item's extra fields */
+  /** its list item's extra fields, from its document, and from the database */
   item?: (json: any) => Record<string, unknown>;
+  more?: (q: Queryable, uuid: string) => Promise<Record<string, unknown>>;
   /** whether its documents have breeds (an asset's: play/SPEC.md "Breeds") */
   breeds?: boolean;
 };
 
 const KINDS: Kind[] = [];
+/** the kinds that are a schema alone (syncKinds), by their name */
+const SCHEMA_KINDS = new Set<string>();
 
-/** a kind registered: its document type known to the store, its entry to the module */
+/** a kind registered: its hooks known to the store by its schema's UUID, its entry to the module */
 export function register(k: Kind): Kind {
   if (!/^[a-z][a-z_]{0,31}$/.test(k.name) || !/^[a-z][a-z_]{0,31}$/.test(k.prefix)) throw new Error(`a kind's name and prefix are lowercase words: ${k.name}, ${k.prefix}`);
-  if (k.type.type !== k.prefix) throw new Error(`kind ${k.name}: its type's documents are ${k.type.type}:, not ${k.prefix}:`);
+  if (!UUID.test(k.schema)) throw new Error(`kind ${k.name}: its schema is named by its UUID`);
   if (k.work !== `${k.name}_version`) throw new Error(`kind ${k.name}: its work is ${k.name}_version`);
   const at = KINDS.findIndex((x) => x.name === k.name);
   if (at >= 0) KINDS.splice(at, 1);
   KINDS.push(k);
-  TYPES[k.type.name] = k.type;
+  SCHEMA_KINDS.delete(k.name);
+  docs.hook(k.schema, { check: k.check, build: k.build });
   return k;
 }
 /** a kind taken out of the registry again (a test's own kind, once its test is done) */
 export function unregister(name: string): void {
   const at = KINDS.findIndex((x) => x.name === name);
-  if (at >= 0) delete TYPES[KINDS.splice(at, 1)[0].type.name];
+  if (at >= 0) docs.hook(KINDS.splice(at, 1)[0].schema, {});
+  SCHEMA_KINDS.delete(name);
+}
+
+/**
+ * Every accepted schema whose documents no kind holds becomes a kind of its own: its name and prefix its `type`, its
+ * label its schema's, its rows in play.records. Read again before every lookup, so a schema accepted in one process is a
+ * kind in every other; a kind registered in code stays as its code says.
+ */
+export async function syncKinds(q: Queryable): Promise<void> {
+  const schemas = await docs.schemasOf(q);
+  // a kind whose schema is no accepted one (its Accept rolled back) is no kind
+  for (const name of [...SCHEMA_KINDS]) if (!schemas.some((s) => s.id === kindNamed(name)?.schema)) unregister(name);
+  for (const s of schemas) {
+    const type = s.json.type;
+    if (KINDS.some((k) => k.schema === s.id || (k.prefix === type && !SCHEMA_KINDS.has(k.name)))) continue;
+    if (!/^[a-z][a-z_]{0,31}$/.test(type)) continue;
+    const label = `${s.json.label}`.toLowerCase();
+    register({ name: type, prefix: type, schema: s.id, work: `${type}_version`, table: "play.records", where: `r.kind = '${type}'`, row: { kind: () => type, updated: () => new Date() }, label, group: label });
+    SCHEMA_KINDS.add(type);
+  }
 }
 export const kinds = (): readonly Kind[] => KINDS;
 export const kindNamed = (name: string) => KINDS.find((k) => k.name === name) ?? null;
@@ -160,8 +196,9 @@ const qi = (s: string) => s.replace(/[^a-z0-9_.]/g, "");
 export async function docRef(q: Queryable, ctx: Ctx | null, id: unknown): Promise<{ kind: Kind; uuid: string; docId: string }> {
   const uuid = `${id ?? ""}`.toLowerCase();
   if (!UUID.test(uuid)) throw new VersionError("Name the document by its UUID (list_docs).", 404);
+  await syncKinds(q);
   if (!KINDS.length) throw new VersionError("play keeps no versioned kind.", 500);
-  const { rows } = await q.query<{ k: string }>(KINDS.map((k, i) => `SELECT '${k.name}' AS k, ${i} AS o FROM ${qi(k.table)} WHERE id::text = $1`).join(" UNION ALL ") + " ORDER BY o LIMIT 1", [uuid]);
+  const { rows } = await q.query<{ k: string }>(KINDS.map((k, i) => `SELECT '${k.name}' AS k, ${i} AS o FROM ${qi(k.table)} r WHERE r.id::text = $1${k.where ? ` AND ${k.where}` : ""}`).join(" UNION ALL ") + " ORDER BY o LIMIT 1", [uuid]);
   const kind = rows[0] ? kindNamed(rows[0].k) : null;
   if (!kind) throw new VersionError(`play keeps no document ${uuid} (list_docs).`, 404);
   const docId = `${kind.prefix}:${uuid}`;
@@ -198,6 +235,7 @@ async function intentVariant(db: Queryable, docId: string, intent: unknown) {
 /** every document of kind `kind` (every kind's where none is named): its UUID, kind, label, newest version, how many versions */
 export async function listDocs(db: Queryable, me: Me | null, kind?: string) {
   admin(me);
+  await syncKinds(db);
   const ks = kind === undefined || kind === null || kind === "" ? KINDS : [kindNamed(`${kind}`)].filter((k): k is Kind => !!k);
   if (!ks.length) throw new VersionError(`A kind is one of ${KINDS.map((k) => k.name).join(", ")}.`);
   const out: Record<string, unknown>[] = [];
@@ -208,11 +246,12 @@ export async function listDocs(db: Queryable, me: Me | null, kind?: string) {
               (SELECT count(*) FROM play.doc_versions v WHERE v.doc_id = '${k.prefix}:' || r.id::text) AS versions,
               (SELECT max(created) FROM play.doc_versions v WHERE v.doc_id = '${k.prefix}:' || r.id::text) AS updated
          FROM ${qi(k.table)} r LEFT JOIN play.docs d ON d.id = '${k.prefix}:' || r.id::text
-        ${k.listed ? `WHERE ${k.listed}` : ""} ORDER BY r.created, r.id`,
+        ${k.listed || k.where ? `WHERE ${[k.where, k.listed].filter(Boolean).join(" AND ")}` : ""} ORDER BY r.created, r.id`,
     );
     for (const r of rows) {
-      const extra = k.item && r.doc ? k.item((await docs.readDoc(db, r.doc)).json) : {};
-      out.push({ id: r.id, kind: k.name, label: r.label, number: r.number ?? 0, versions: Number(r.versions), updated: r.updated ? iso(r.updated) : null, ...extra });
+      const extra = k.item && r.doc && r.number ? k.item((await docs.readDoc(db, r.doc)).json) : {};
+      const more = k.more ? await k.more(db, r.id) : {};
+      out.push({ id: r.id, kind: k.name, label: r.label, number: r.number ?? 0, versions: Number(r.versions), updated: r.updated ? iso(r.updated) : null, ...extra, ...more });
     }
   }
   return out;
@@ -360,7 +399,7 @@ async function writeOf(q: Queryable, k: Kind, uuid: string, cur: any, input: Inp
   if (k.write) return k.write(q, uuid, cur, input);
   if (input.whole !== undefined) {
     if (!input.whole || typeof input.whole !== "object" || Array.isArray(input.whole)) throw new VersionError(`A whole ${k.label} is an object (doc_at's \`json\`).`);
-    return { target: { ...(input.whole as object), schema: cur.schema } };
+    return { target: { ...(input.whole as object), ...(cur && cur.schema !== undefined ? { schema: cur.schema } : {}) } };
   }
   return { edits: resolveEdits(cur, input.edits) };
 }
@@ -374,8 +413,6 @@ async function openVariant(q: Queryable, docId: string, uuid: string, v: unknown
   if (rows[0].status !== "open") throw new VersionError(`Variant ${n} of ${uuid} was ${rows[0].status === "proposed" ? "proposed already: it is decided as it was proposed. Start a new variant" : rows[0].status}.`, 409);
   return { id: n, seed: rows[0].seed };
 }
-
-export type DocEditBody = { doc: unknown; variant?: number | null; breed?: number | null; newBreed?: string | null; edits?: unknown; whole?: unknown; message?: unknown };
 
 const BREED_NAME = /^[a-z0-9][a-z0-9-]{0,79}$/;
 /** a new intent variant of document `docId`: of Main, of breed `breed` (to change it), or making breed `newBreed` (an asset's) */
@@ -392,13 +429,38 @@ async function newVariant(tx: Queryable, k: Kind, docId: string, uuid: string, p
   return (await docs.variant(tx, docId, { author, note, ...(p.breed != null ? { breed: Number(p.breed) } : {}), ...(p.newBreed != null ? { makes: `${p.newBreed}` } : {}) })).id;
 }
 
-/** One edit of an intent variant, as the admin `me`: on variant `variant`, or on a new one seeded from Main's newest version. */
+/**
+ * A new document of a kind that is a schema alone, or of a schema (`kind`), from its whole first state: its row, and its
+ * Main born empty; its first state is an intent variant's, Main's only once a person accepts it (no bypass). A kind with a
+ * table of its own makes its documents its own way (propose_asset, propose_story).
+ */
+async function newDocument(q: Queryable, who: Me, kindName: unknown, whole: unknown): Promise<string> {
+  await syncKinds(q);
+  const k = kindNamed(`${kindName ?? ""}`);
+  if (!k) throw new VersionError(`A kind is one of ${KINDS.map((x) => x.name).join(", ")}.`);
+  if (k.table !== "play.records") throw new VersionError(`A new ${k.label} is made its own way (propose_asset, propose_story), not by propose_doc_version.`);
+  if (!whole || typeof whole !== "object" || Array.isArray(whole)) throw new VersionError(`A new ${k.label} is its whole first state (\`whole\`).`);
+  const uuid = randomUUID();
+  const label = `${(whole as any).label ?? (whole as any).title ?? k.label}`.slice(0, 200) || k.label;
+  await q.query(`INSERT INTO play.records (id, coop_id, kind, label) VALUES ($1, $2, $3, $4)`, [uuid, COOP, k.name, label]);
+  await docs.createDoc(q, { id: `${k.prefix}:${uuid}`, schema: k.schema, empty: true, author: authorOf(who, "mcp"), message: `a new ${k.label}, not yet accepted` });
+  return uuid;
+}
+
+export type DocEditBody = { doc?: unknown; kind?: unknown; variant?: number | null; breed?: number | null; newBreed?: string | null; edits?: unknown; whole?: unknown; message?: unknown };
+
+/**
+ * One edit of an intent variant, as the admin `me`: on variant `variant`, or on a new one seeded from Main's newest
+ * version; with `kind` and no `doc`, a new document of that kind, its whole first state the variant's first edit.
+ */
 export async function docEdit(ctx: Ctx, me: Me | null, p: DocEditBody, via: "web" | "mcp" = "mcp") {
   const who = admin(me);
   const message = text(p?.message, "The edit's message (what it does)", 500);
   if ((p.edits === undefined) === (p.whole === undefined)) throw new VersionError("An edit is edits or the whole document, one of them.");
   return asVersionError(() =>
     ctx.db.transaction(async (tx) => {
+      // a new document and its first edit, one transaction: nothing of it is kept if the edit is refused
+      if (p.doc == null && p.kind != null) p = { ...p, doc: await newDocument(tx, who, p.kind, p.whole), variant: null };
       const { kind, uuid, docId } = await docRef(tx, ctx, p.doc);
       const author = authorOf(who, via);
       const v = p.variant == null ? await newVariant(tx, kind, docId, uuid, p, author, message) : (await openVariant(tx, docId, uuid, p.variant)).id;
@@ -410,7 +472,7 @@ export async function docEdit(ctx: Ctx, me: Me | null, p: DocEditBody, via: "web
   );
 }
 
-export type ProposeBody = { doc: unknown; note?: unknown; variant?: number | null; breed?: number | null; newBreed?: string | null; edits?: unknown; whole?: unknown; intent?: string };
+export type ProposeBody = { doc?: unknown; kind?: unknown; note?: unknown; variant?: number | null; breed?: number | null; newBreed?: string | null; edits?: unknown; whole?: unknown; intent?: string };
 
 /**
  * Propose the document's next version, as the admin `me`: an intent variant made edit by edit (its `variant`, perhaps
@@ -422,9 +484,12 @@ export async function proposeDocVersion(ctx: Ctx, me: Me | null, p: ProposeBody,
   const note = text(p?.note, "The note (what changes and why)", NOTE_MOST);
   if (p.variant == null && (p.edits === undefined) === (p.whole === undefined)) throw new VersionError("Propose an intent variant (its number), edits, or the whole document.");
   if (p.edits !== undefined && p.whole !== undefined) throw new VersionError("Give edits or the whole document, not both.");
-  const ref = await (ctx.db as Db).transaction((q) => docRef(q, ctx, p.doc));
-  const { kind, uuid, docId } = ref;
-  if (kind.propose) {
+  // a new document (`kind`, no `doc`: a kind of play.records' alone, which proposes no way of its own) is made in the
+  // proposal's own transaction, so nothing of it is kept if the proposal is refused
+  const fresh = p.doc == null && p.kind != null;
+  const ref = fresh ? null : await (ctx.db as Db).transaction((q) => docRef(q, ctx, p.doc));
+  if (ref?.kind.propose) {
+    const { kind, uuid, docId } = ref;
     // the kind's own propose (an asset's recipe files, a story's frozen row), on its intent variant as it stands
     let v = p.variant ?? null;
     if (p.edits !== undefined || p.whole !== undefined) {
@@ -439,7 +504,8 @@ export async function proposeDocVersion(ctx: Ctx, me: Me | null, p: ProposeBody,
   return asVersionError(() =>
     ctx.db.transaction(async (tx) => {
       const author = authorOf(who, via);
-      const v = p.variant == null ? await newVariant(tx, kind, docId, uuid, p, author, note) : (await openVariant(tx, docId, uuid, p.variant)).id;
+      const { kind, uuid, docId } = ref ?? (await docRef(tx, ctx, await newDocument(tx, who, p.kind, p.whole)));
+      const v = p.variant == null || fresh ? (fresh ? (await docs.variant(tx, docId, { author, note })).id : await newVariant(tx, kind, docId, uuid, p, author, note)) : (await openVariant(tx, docId, uuid, p.variant)).id;
       if (p.edits !== undefined || p.whole !== undefined) {
         const cur = (await docs.readDoc(tx, docId, { variant: v })).json;
         await docs.commit(tx, docId, { variant: v, ...(await writeOf(tx, kind, uuid, cur, p)), message: note, author });
@@ -468,7 +534,7 @@ export async function seedDoc(db: Db, kindName: string, o: { id: string; json: a
     const cols = { [k.labelColumn ?? "label"]: o.json.label, ...Object.fromEntries(Object.entries(k.row ?? {}).map(([c, f]) => [c, f(o.json)])) };
     const names = Object.keys(cols).map(qi);
     await q.query(`INSERT INTO ${qi(k.table)} (id, coop_id, ${names.join(", ")}) VALUES ($1, $2, ${names.map((_, i) => `$${i + 3}`).join(", ")})`, [o.id, COOP, ...Object.values(cols)]);
-    await docs.createDoc(q, { id: `${k.prefix}:${o.id}`, schema: o.json.schema ?? k.type.name, json: o.json, author: { human: null, via: "import" }, message: `v1: ${o.note}`, ...(o.at ? { at: o.at } : {}), version: o.note });
+    await docs.createDoc(q, { id: `${k.prefix}:${o.id}`, schema: k.schema, json: o.json, author: { human: null, via: "import" }, message: `v1: ${o.note}`, ...(o.at ? { at: o.at } : {}), version: o.note });
     return true;
   });
 }
@@ -584,7 +650,9 @@ export async function decide(ctx: Ctx, me: Me | null, id: string, verdict: Verdi
     const p = await workOf(tx, id, true);
     if (!p) throw new VersionError("There is no such intent.", 404);
     if (!p.kind) throw new VersionError(`Intent ${p.id} holds no work of play's to decide.`, 409);
-    if (p.stage !== "proposal") throw new VersionError(`This intent is at the ${p.stage} stage: only one at Proposal is decided.`, 409);
+    // accepting is a forward move (./intents.ts mayMove: held while a dependency is not shipped); archiving goes back
+    const no = verdict === "accept" ? await gate.mayMove(tx, p.id, "accept_work") : p.stage === "proposal" ? null : { why: `This intent is at the ${p.stage} stage: only one at Proposal is decided.` };
+    if (no) throw new VersionError(no.why, 409);
     let r: any;
     if (verdict === "archive" && p.author === me.id && me.level !== "admin") r = await archiveAsAuthor(tx, me, p);
     else if (p.kind === SANDBOX_WORK) r = await decideSandbox(tx, me, p, verdict);
@@ -634,11 +702,77 @@ export function workSql() {
   return { label, group, what };
 }
 
-// ---- the kinds
+// ---- the kinds, each named by its schema's UUID, with what its schema can't say
+
+/** a story: its tracks' and clips' ids each once, every clip inside the story's duration */
+function storyCheck(doc: any): string[] {
+  const out: string[] = [];
+  const tracks = new Set<string>();
+  for (const t of doc.tracks ?? []) {
+    if (tracks.has(t.id)) out.push(`track ${t.id}: its id is taken twice`);
+    tracks.add(t.id);
+    const clips = new Set<string>();
+    for (const c of t.clips ?? []) {
+      if (clips.has(c.id)) out.push(`track ${t.id}, clip ${c.id}: its id is taken twice`);
+      clips.add(c.id);
+      if (c.at + c.duration > doc.duration + 1e-6) out.push(`track ${t.id}, clip ${c.id}: ends at ${+(c.at + c.duration).toFixed(3)} s, after the story's ${doc.duration} s`);
+    }
+  }
+  return out;
+}
+/** an asset: its variants' names each once, its default variant one of them */
+function assetCheck(doc: any): string[] {
+  const out: string[] = [];
+  const names = new Set<string>();
+  for (const v of doc.variants ?? []) {
+    if (names.has(v.name)) out.push(`variant ${v.name}: its name is taken twice`);
+    names.add(v.name);
+  }
+  if (doc.defaultVariant !== undefined && doc.variants?.length && !names.has(doc.defaultVariant)) out.push(`its default variant ${doc.defaultVariant} is none of its variants`);
+  return out;
+}
+/** a factory: its stations, parts and stock named once and named only where they are (an operation at a station of the line) */
+function factoryCheck(doc: any): string[] {
+  const out: string[] = [];
+  const stations = new Set<string>();
+  for (const s of doc.line?.stations ?? []) {
+    if (stations.has(s.id)) out.push(`station ${s.id}: its id is taken twice`);
+    stations.add(s.id);
+  }
+  for (const s of doc.line?.stations ?? []) for (const a of s.after ?? []) if (!stations.has(a)) out.push(`station ${s.id}: it comes after ${a}, which is no station of the line`);
+  for (const r of doc.line?.layout?.ring ?? []) if (typeof r === "string" && !stations.has(r)) out.push(`the layout's ring names ${r}, which is no station of the line`);
+  const assemblies = new Set((doc.assemblies ?? []).map((a: any) => a.id));
+  const parts = new Set<string>();
+  for (const p of doc.parts ?? []) {
+    if (parts.has(p.id)) out.push(`part ${p.id}: its id is taken twice`);
+    parts.add(p.id);
+    if (p.assembly !== undefined && assemblies.size && !assemblies.has(p.assembly)) out.push(`part ${p.id}: its assembly ${p.assembly} is none of the factory's`);
+    for (const k of [p.raw?.stock, ...(p.raw?.also ?? [])]) if (k !== undefined && !doc.stock?.[k]) out.push(`part ${p.id}: it is made from ${k}, which is no stock the factory buys`);
+    for (const o of p.ops ?? []) if (!stations.has(o.at)) out.push(`part ${p.id}: an operation at ${o.at}, which is no station of the line`);
+  }
+  for (const [st, ops] of Object.entries<any[]>(doc.handling ?? {})) {
+    if (!stations.has(st)) out.push(`handling at ${st}, which is no station of the line`);
+    for (const o of ops) if (o.at !== st) out.push(`handling at ${st}: an operation names ${o.at}`);
+  }
+  return out;
+}
+/** the levelling: its levels' ids each once, each level more villagers than the one before */
+function levelsCheck(doc: any): string[] {
+  const out: string[] = [];
+  const ids = new Set<string>();
+  let last = 0;
+  for (const l of doc.levels ?? []) {
+    if (ids.has(l.id)) out.push(`level ${l.id}: its id is taken twice`);
+    ids.add(l.id);
+    if (l.villagers <= last) out.push(`level ${l.id}: ${l.villagers} villagers, not more than the level before (${last})`);
+    last = l.villagers;
+  }
+  return out;
+}
 
 const ensureAsset = (q: Queryable, ctx: Ctx, id: string) => ensureAssetDoc(q, ctx.store, id).then(() => undefined);
 register({
-  name: "asset", prefix: "asset", type: ASSET, work: "asset_version", table: "play.assets", label: "asset", group: "assets", breeds: true,
+  name: "asset", prefix: "asset", schema: SCHEMA.asset, check: assetCheck, build: true, work: "asset_version", table: "play.assets", label: "asset", group: "assets", breeds: true,
   ensure: ensureAsset,
   write: async (_q, _id, cur, input) => (input.whole !== undefined ? { target: { ...(input.whole as object), schema: cur.schema } } : { edits: assetEdits(cur, input.edits) }),
   propose: (ctx, me, o, via) => proposeAssetVariant(ctx, me, o, via),
@@ -646,7 +780,7 @@ register({
   decide: (tx, ctx, me, p, verdict) => decideAsset(tx, ctx.store, me, p, verdict),
 });
 register({
-  name: "story", prefix: "story", type: STORY, work: "story_version", table: "play.stories", labelColumn: "title", listed: "r.folded_into IS NULL", label: "story", group: "stories",
+  name: "story", prefix: "story", schema: SCHEMA.story, check: storyCheck, work: "story_version", table: "play.stories", labelColumn: "title", listed: "r.folded_into IS NULL", label: "story", group: "stories",
   ensure: (q, _ctx, id) => ensureStoryDoc(q, id).then(() => undefined),
   write: (q, id, cur, input) => storyEdit(q, id, cur, input),
   propose: (ctx, me, o, via) => proposeStoryVariant(ctx.db, me, o, via),
@@ -654,19 +788,61 @@ register({
   decide: (tx, _ctx, me, p, verdict) => decideStory(tx, me, p, verdict),
 });
 register({
-  name: "factory", prefix: "factory", type: FACTORY, work: "factory_version", table: "play.factories", label: "factory", group: "factories", open: "/factories/?factory={id}&intent={intent}",
+  name: "factory", prefix: "factory", schema: SCHEMA.factory, check: factoryCheck, work: "factory_version", table: "play.factories", label: "factory", group: "factories", open: "/factories/?factory={id}&intent={intent}",
   row: { updated: () => new Date() },
   item: (json) => ({ note: json.note ?? "", stations: json.line?.stations?.length ?? 0, parts: json.parts?.length ?? 0 }),
 });
 register({
-  name: "game_config", prefix: "game", type: LEVELS, work: "game_config_version", table: "play.game_configs", label: "config", group: "game", open: "/game-editor/?config={id}&intent={intent}",
+  name: "game_config", prefix: "game", schema: SCHEMA.levels, check: levelsCheck, work: "game_config_version", table: "play.game_configs", label: "config", group: "game", open: "/game-editor/?config={id}&intent={intent}",
   row: { updated: () => new Date() },
   item: (json) => ({ note: json.note ?? "", schema: json.schema }),
 });
 register({
-  name: "skill", prefix: "skill", type: SKILL, work: "skill_version", table: "play.skills", label: "skill", group: "skills", open: "/skills/?skill={id}&intent={intent}",
+  name: "skill", prefix: "skill", schema: SCHEMA.skill, work: "skill_version", table: "play.skills", label: "skill", group: "skills", open: "/skills/?skill={id}&intent={intent}",
   row: { grp: (json) => json.group, updated: () => new Date() },
   item: (json) => ({ note: json.note ?? "", group: json.group, stages: SKILL_STAGES.filter((s) => `${json.stages?.[s] ?? ""}`.trim()) }),
+});
+
+/**
+ * A schema's new version accepted (Samuel 2026-11-06): refused while any document on Main fails it, naming them; a
+ * schema's documents keep their prefix (its `type` never changes), and a new schema's prefix is no other kind's. Then
+ * accepted as every document is, and every process's kinds read again.
+ */
+async function decideSchema(tx: Queryable, me: Me, p: any, verdict: Verdict) {
+  if (verdict !== "accept") return decideDoc(tx, me, p, verdict);
+  const docId = p.doc_id as string, uuid = docId.split(":")[1];
+  const preview = await asVersionError(() => docs.previewMerge(tx, docId, Number(p.doc_variant)));
+  if (!preview.problems.length) {
+    const next = preview.json as docs.SchemaJson;
+    const had = (await docs.versionsOf(tx, docId)).length > 0;
+    if (had) {
+      const was = (await docs.readDoc(tx, docId)).json as docs.SchemaJson;
+      if (was.type !== next.type) throw new VersionError(`A schema's documents keep their prefix: this one's are ${was.type}:, not ${next.type}:.`, 409);
+    } else if (KINDS.some((k) => k.prefix === next.type) || (await docs.schemasOf(tx)).some((x) => x.json.type === next.type)) {
+      throw new VersionError(`The prefix ${next.type}: is another kind's: a new schema names its own.`, 409);
+    }
+    const type = { schema: next.node, check: docs.hooksOf(uuid).check };
+    const { rows } = await tx.query<{ id: string }>(`SELECT d.id FROM play.docs d WHERE d.schema_id = $1 AND EXISTS (SELECT 1 FROM play.doc_versions v WHERE v.doc_id = d.id) ORDER BY d.id`, [uuid]);
+    const failing: string[] = [];
+    for (const r of rows) {
+      const problems = docs.problemsOf(type, (await docs.readDoc(tx, r.id)).json);
+      if (problems.length) failing.push(`${r.id.split(":")[1]} (${problems.slice(0, 2).join("; ")})`);
+    }
+    if (failing.length) throw new VersionError(`This version of the schema fails ${failing.length} document${failing.length > 1 ? "s" : ""} on Main: ${failing.slice(0, 10).join(", ")}${failing.length > 10 ? " …" : ""}. Change them first, or the schema so they still validate.`, 409);
+  }
+  const r = await decideDoc(tx, me, p, verdict);
+  if (r.status === "accepted") await syncKinds(tx);
+  return r;
+}
+register({
+  name: "schema", prefix: "schema", schema: SCHEMA.meta, check: (doc) => docs.nodeProblems(doc?.node), work: "schema_version", table: "play.records", where: "r.kind = 'schema'", label: "schema", group: "schemas", open: "/schemas/?schema={id}&intent={intent}",
+  row: { kind: () => "schema", updated: () => new Date() },
+  item: (json) => ({ note: json.note ?? "", type: json.type, name: json.name }),
+  // the documents written against it: each its UUID, its kind, and the version of the schema it was last written against
+  more: async (q, uuid) => ({
+    documents: (await q.query<{ id: string; v: number | null }>(`SELECT id, schema_version AS v FROM play.docs WHERE schema_id = $1 AND id <> 'schema:' || $1::text ORDER BY created, id`, [uuid])).rows.map((r) => ({ id: r.id.split(":")[1], kind: kindOfDoc(r.id)?.name ?? null, schemaVersion: r.v })),
+  }),
+  decide: (tx, _ctx, me, p, verdict) => decideSchema(tx, me, p, verdict),
 });
 
 export { assetDocFor };
