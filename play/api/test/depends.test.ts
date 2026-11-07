@@ -99,14 +99,14 @@ suite("intents depend on intents", () => {
     expect((await tool("specify_intent", { intent: i.id, ...SPEC })).stage).toBe("specify");
     return i;
   };
-  const prototyped = async () => {
+  const built = async () => {
     const i = await specified();
-    expect((await decide(i.id, "approve")).data.stage).toBe("prototype");
+    expect((await decide(i.id, "approve")).data.stage).toBe("build");
     return i;
   };
   const passed = (id: string, more: Record<string, unknown> = {}) => tool("check_intent", { intent: id, results: [{ check: "c1", pass: true, evidence: "bun test: 0 fail", ...more }] });
   const atProposal = async () => {
-    const i = await prototyped();
+    const i = await built();
     expect((await passed(i.id)).stage).toBe("proposal");
     return i;
   };
@@ -114,7 +114,7 @@ suite("intents depend on intents", () => {
   let commits = 5000;
   /** an intent of code at Proposal, its pull request open, mergeable, its checks green on its head */
   const codeAtProposal = async (more: Partial<Pull> = {}) => {
-    const i = await prototyped();
+    const i = await built();
     const pr = ++prs;
     const head = sha(++commits);
     expect((await tool("check_intent", { intent: i.id, pr, results: [{ check: "c1", pass: true, evidence: "0 fail", commit: head }] })).stage).toBe("proposal");
@@ -150,21 +150,21 @@ suite("intents depend on intents", () => {
    */
   const everyGate = async (dep: string) => {
     const atSpecify = await specified();
-    const inPrototype = await prototyped();
-    const forWork = await prototyped();
+    const inBuild = await built();
+    const forWork = await built();
     expect((await passed(forWork.id)).stage).toBe("proposal");
     const toAccept = await atProposal();
     const toShip = await codeAtProposal();
-    for (const i of [atSpecify, inPrototype, forWork, toAccept, toShip]) expect((await depend(i.id, dep)).error).toBeUndefined();
+    for (const i of [atSpecify, inBuild, forWork, toAccept, toShip]) expect((await depend(i.id, dep)).error).toBeUndefined();
     const refusal = (r: { status: number; data: any }) => (r.status === 200 ? null : r.data.error);
     const approve = refusal(await decide(atSpecify.id, "approve"));
-    const checked = await passed(inPrototype.id);
+    const checked = await passed(inBuild.id);
     const proposal = checked.stage === "proposal" ? null : checked.refused;
     const work = await tool("propose_asset", { group: "plants", label: `Fern ${++k}`, source: SOURCE, note: "x", intent: forWork.id });
     const accept = refusal(await decide(toAccept.id, "accept"));
     const ship = refusal(await decide(toShip.id, "accept"));
     await clearShips();
-    return { ids: { approve: atSpecify.id, proposal: inPrototype.id, work: forWork.id, accept: toAccept.id, ship: toShip.id }, approve, proposal, work: work.error ?? null, accept, ship };
+    return { ids: { approve: atSpecify.id, proposal: inBuild.id, work: forWork.id, accept: toAccept.id, ship: toShip.id }, approve, proposal, work: work.error ?? null, accept, ship };
   };
 
   test("one forward gate: every forward path asks mayMove, a held intent refused with its text, a stub refusing everything refusing every path", async () => {
@@ -175,7 +175,7 @@ suite("intents depend on intents", () => {
       expect(g[at]).toBe(heldText((g.ids as any)[at], [{ id: dep.id, title: dep.title, stage: "idea" }]));
     // nothing moved: each held where it was, its results kept
     expect((await intent(g.ids.approve)).stage).toBe("specify");
-    expect(await intent(g.ids.proposal)).toMatchObject({ stage: "prototype", results: { c1: { pass: true } } });
+    expect(await intent(g.ids.proposal)).toMatchObject({ stage: "build", results: { c1: { pass: true } } });
     expect((await intent(g.ids.work)).work).toBeNull();
     expect((await intent(g.ids.accept)).stage).toBe("proposal");
     expect((await intent(g.ids.ship)).stage).toBe("proposal");
@@ -183,7 +183,7 @@ suite("intents depend on intents", () => {
 
     // a stub of mayMove refusing everything: every forward path refuses, none testing the stage on its own
     const atSpecify = await specified();
-    const inPrototype = await prototyped();
+    const inBuild = await built();
     const forWork = await atProposal();
     const toAccept = await atProposal();
     const toShip = await codeAtProposal();
@@ -197,7 +197,7 @@ suite("intents depend on intents", () => {
     try {
       gh.pulls.get(waiting.pr)!.mergeable = true;
       expect(await decide(atSpecify.id, "approve")).toMatchObject({ status: 409, data: { error: "The stub refuses every move." } });
-      expect(await passed(inPrototype.id)).toMatchObject({ stage: "prototype", refused: "The stub refuses every move." });
+      expect(await passed(inBuild.id)).toMatchObject({ stage: "build", refused: "The stub refuses every move." });
       expect((await tool("propose_asset", { group: "plants", label: `Fern ${++k}`, source: SOURCE, note: "x", intent: forWork.id })).error).toBe("The stub refuses every move.");
       expect(await decide(toAccept.id, "accept")).toMatchObject({ status: 409, data: { error: "The stub refuses every move." } });
       expect(await decide(toShip.id, "accept")).toMatchObject({ status: 409, data: { error: "The stub refuses every move." } });
@@ -206,11 +206,11 @@ suite("intents depend on intents", () => {
       expect(await intent(waiting.id)).toMatchObject({ stage: "proposal", ship: { report: { why: "The stub refuses every move." } } });
       // going back asks it nothing
       const before = asked.length;
-      expect((await decide(inPrototype.id, "respecify")).data.stage).toBe("specify");
+      expect((await decide(inBuild.id, "respecify")).data.stage).toBe("specify");
       expect((await decide(toAccept.id, "reject")).data.stage).toBe("archived");
       expect((await decide(toAccept.id, "reopen")).data.stage).toBe("specify");
       expect(asked.length).toBe(before);
-      expect(new Set(asked)).toEqual(new Set(["prototype", "proposal", "work", "accept", "ship", "accept_work", "merge"]));
+      expect(new Set(asked)).toEqual(new Set(["build", "proposal", "work", "accept", "ship", "accept_work", "merge"]));
     } finally {
       gate.mayMove = real;
     }
@@ -247,7 +247,7 @@ suite("intents depend on intents", () => {
   });
 
   test("held until shipped: at any stage but accepted (Ship and archived too) every gate refuses, naming it; accepted, they go through; reopened, held again", async () => {
-    for (const stage of ["specify", "prototype", "proposal", "ship", "archived"]) {
+    for (const stage of ["specify", "build", "proposal", "ship", "archived"]) {
       const dep = await specified(`Dep at ${stage}`);
       await setStage(dep.id, stage);
       const g = await everyGate(dep.id);
@@ -265,9 +265,9 @@ suite("intents depend on intents", () => {
     expect((await intent(g.ids.approve)).held_by).toEqual([]);
     // reopened (to Specify): held again at once
     expect((await decide(dep.id, "reopen")).data.stage).toBe("specify");
-    const later = await prototyped();
+    const later = await built();
     expect((await depend(later.id, dep.id)).held_by).toEqual([{ id: dep.id, title: dep.title, stage: "specify" }]);
-    expect(await passed(later.id)).toMatchObject({ stage: "prototype", refused: heldText(later.id, [{ id: dep.id, title: dep.title, stage: "specify" }]) });
+    expect(await passed(later.id)).toMatchObject({ stage: "build", refused: heldText(later.id, [{ id: dep.id, title: dep.title, stage: "specify" }]) });
     // shipped again: free, it moves on its checks
     await setStage(dep.id, "accepted");
     expect((await passed(later.id)).stage).toBe("proposal");
@@ -281,15 +281,15 @@ suite("intents depend on intents", () => {
     expect((await tool("specify_intent", { intent: s.id, ...SPEC })).stage).toBe("specify");
     expect((await tool("specify_intent", { intent: s.id, ...SPEC })).stage).toBe("specify");
     expect((await decide(s.id, "approve")).status).toBe(409);
-    // sent back to Specify, from Prototype and from Proposal
-    const p = await prototyped();
+    // sent back to Specify, from Build and from Proposal
+    const p = await built();
     await depend(p.id, dep.id);
     expect((await decide(p.id, "respecify")).data.stage).toBe("specify");
     const q = await atProposal();
     await depend(q.id, dep.id);
     expect((await decide(q.id, "respecify")).data.stage).toBe("specify");
     // rejected, and reopened
-    const r = await prototyped();
+    const r = await built();
     await depend(r.id, dep.id);
     expect((await decide(r.id, "reject")).data.stage).toBe("archived");
     expect((await decide(r.id, "reopen")).data.stage).toBe("specify");

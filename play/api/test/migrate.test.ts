@@ -174,6 +174,7 @@ suite("migration 0032-versioned", () => {
     const edits = Number((await q(`SELECT count(*) AS n FROM play.doc_updates`))[0].n);
 
     // ---- 0032
+    // 0032 first, then the migrations after it (today's code reads their tables too)
     expect((await migrate(db))[0]).toBe("0032-versioned");
     for (const [t, there] of [["doc_variants", true], ["doc_edits", true], ["doc_branches", false], ["doc_updates", false], ["proposal_ids", false]] as const)
       expect(!!(await q(`SELECT to_regclass('play.${t}') AS t`))[0].t).toBe(there);

@@ -8,17 +8,17 @@
 	(./IntentsModal.svelte), the way back closing first what is open on it (a review, an intent), then the board.
 
 	INTENTS (Samuel 2026-11-06, play/SPEC.md §4.12): every card is an intent, something Maia City wants made, fixed or
-	improved, in its stage's column: Idea → Specify → Prototype → Proposal → Ship → Accepted (or Archived), Accepted and
+	improved, in its stage's column: Idea → Specify → Build → Proposal → Ship → Accepted (or Archived), Accepted and
 	Archived folded at first. Agents add and specify intents over MCP (never typed in here): a spec is a goal, a scope and checks,
 	each one statement that passes or fails, checked by a test, a measure or a look, must or nice. Here an admin approves
-	a spec (Specify → Prototype), and an agent builds it, recording each check's result, until every must check passes:
+	a spec (Specify → Build), and an agent builds it, recording each check's result, until every must check passes:
 	then it moves to Proposal by itself (Samuel 2026-11-06), the one gate after the spec, where an admin decides it.
 
 	ONE RECORD (Samuel 2026-11-06: "not a proposal belongs to an intent: the intent has a state, proposal"): an intent's
 	work (an asset's or story's version, a sandbox's change, a factory's or config's version) is on the intent itself, and
 	Proposal is only its stage. Its work is reviewed from the intent and decided there: accepting applies it, archiving
 	archives the intent. Work proposed without an intent is an intent of its own, with no spec, opened straight into its
-	review. Nothing is accepted from Prototype.
+	review. Nothing is accepted from Build.
 
 	ACCEPT SHIPS IT (Samuel 2026-11-06, play/api/src/ship.ts): an intent whose work is code names its pull request, and
 	its Accept ("Accept and ship") puts it in Ship at once: its first step, Ready to merge, waits with its reason for its
@@ -60,9 +60,9 @@
 	// the work opened for review: the intent's id, with the intent's title, spec and results beside it
 	type P = Work & { id: string; intent_id: string; intent_title: string; intent_spec: Spec | null; intent_results: Results | null };
 	// an intent (play/api/src/intents.ts): its kind, title and note, its stage, its spec once specified (a goal, a scope and
-	// its checks), its checks' latest results while prototyped, and its work once proposed
+	// its checks), its checks' latest results while being built, and its work once proposed
 	type Kind = 'idea' | 'fix' | 'improve';
-	type Stage = 'idea' | 'specify' | 'prototype' | 'proposal' | 'ship' | 'accepted' | 'archived';
+	type Stage = 'idea' | 'specify' | 'build' | 'proposal' | 'ship' | 'accepted' | 'archived';
 	// its way to production, once an Accept merged its pull request (play/api/src/ship.ts): each step's state, when, its
 	// link; a red one's report
 	type ShipStep = { key: string; name: string; state: 'queued' | 'running' | 'green' | 'red' | 'skipped'; started?: string; finished?: string; link?: string; note?: string };
@@ -86,13 +86,13 @@
 	const COLUMNS = [
 		['idea', 'Idea'],
 		['specify', 'Specify'],
-		['prototype', 'Prototype'],
+		['build', 'Build'],
 		['proposal', 'Proposal'],
 		['ship', 'Ship'],
 		['accepted', 'Accepted'],
 		['archived', 'Archived']
 	] as const;
-	const STAGE_NAME: Record<Stage, string> = { idea: 'Idea', specify: 'Specify', prototype: 'Prototype', proposal: 'Proposal', ship: 'Ship', accepted: 'Accepted', archived: 'Archived' };
+	const STAGE_NAME: Record<Stage, string> = { idea: 'Idea', specify: 'Specify', build: 'Build', proposal: 'Proposal', ship: 'Ship', accepted: 'Accepted', archived: 'Archived' };
 	type Column = (typeof COLUMNS)[number][0];
 	// a column folded away or open, each viewer's own (kept in this browser): Accepted and Archived folded at first
 	// (Samuel 2026-11-05; the key named for the intents' columns, Samuel 2026-11-06)
@@ -423,7 +423,7 @@
 					{#if !folded[s]}
 						<div class="cards">
 							{#each cards as i (i.id)}
-								{@const progress = s === 'prototype' ? checksDone(i) : ''}
+								{@const progress = s === 'build' ? checksDone(i) : ''}
 								<!-- an intent: its title, how far its checks or its work got, who it is by, its type and its date -->
 								<article class="card" class:item={!!i.spec || !i.work} class:held={!!i.held_by?.length} data-kind={i.kind}>
 									<button class="open" onclick={() => openIntent(i)} title={i.note ? gist(i.note) : undefined}>
@@ -449,7 +449,7 @@
 									{/if}
 								</article>
 							{:else}
-								<p class="empty muted">{!loaded ? '…' : s === 'idea' ? 'None. Agents add intents over MCP.' : s === 'specify' ? 'None. Agents specify an intent over MCP.' : s === 'prototype' ? 'None. An approved spec is built here.' : s === 'ship' ? 'None. Accepted code is shipped here.' : 'None'}</p>
+								<p class="empty muted">{!loaded ? '…' : s === 'idea' ? 'None. Agents add intents over MCP.' : s === 'specify' ? 'None. Agents specify an intent over MCP.' : s === 'build' ? 'None. An approved spec is built here.' : s === 'ship' ? 'None. Accepted code is shipped here.' : 'None'}</p>
 							{/each}
 						</div>
 					{/if}
@@ -470,7 +470,7 @@
 				<div class="who">
 					<!-- the way back to the board, seen at once on a phone too, where the nav pill's arrow has no word (Samuel 2026-11-06) -->
 					<button class="to-board" onclick={closeIntent} title="Back to the intents (Esc)">‹ Intents</button>
-					<p class="tags"><span class="type" data-kind={i.kind}>{kindName(i.kind)}</span> <span class="pill" class:shipping={i.stage === 'ship'}>{STAGE_NAME[i.stage]}{#if i.stage === 'ship' && i.ship}{@const n = shipNow(i.ship)}{n ? ` · ${n.name}` : ''}{/if}</span>{#if (i.stage === 'prototype' || i.stage === 'proposal') && musts.length}{' '}<span class="pill" class:pass={allMustPass(i)}>{checksDone(i)}</span>{/if}</p>
+					<p class="tags"><span class="type" data-kind={i.kind}>{kindName(i.kind)}</span> <span class="pill" class:shipping={i.stage === 'ship'}>{STAGE_NAME[i.stage]}{#if i.stage === 'ship' && i.ship}{@const n = shipNow(i.ship)}{n ? ` · ${n.name}` : ''}{/if}</span>{#if (i.stage === 'build' || i.stage === 'proposal') && musts.length}{' '}<span class="pill" class:pass={allMustPass(i)}>{checksDone(i)}</span>{/if}</p>
 					<h2>{i.title}</h2>
 					<p class="meta">by {i.author ?? 'someone'}{#if i.via === 'mcp'}{' '}<span class="via" title="Added by an agent working for them over MCP">via MCP</span>{/if} · {when(i.created)}{i.specified_by && i.specified_at ? ` · specified by ${i.specified_by}, ${when(i.specified_at)}` : ''}{i.approved_by && i.approved_at ? ` · spec approved by ${i.approved_by}` : ''}{i.decided_by && i.decided_at ? ` · ${i.stage === 'ship' ? 'accepted' : i.stage} by ${i.decided_by}, ${when(i.decided_at)}` : ''}</p>
 				</div>
@@ -565,7 +565,7 @@
 			<section>
 				<h3>Its work</h3>
 				{#if !i.work && i.pull_request}<p class="small">Code: <a href="{REPO_URL}/pull/{i.pull_request}" target="_blank" rel="noopener">pull request #{i.pull_request}</a> <span class="muted">· {i.stage === 'proposal' ? 'Accept merges it into main and ships it' : i.stage === 'ship' ? (i.ship?.pending ? 'in Ship, merged when its turn comes and GitHub is ready' : 'merged, on its way to production') : i.stage === 'accepted' ? 'in production' : 'named by its agent'}</span></p>
-				{:else if !i.work}<p class="muted small">Nothing yet.{i.stage === 'idea' || i.stage === 'specify' || i.stage === 'prototype' ? ' Send an agent to it with the brief below.' : ''}</p>
+				{:else if !i.work}<p class="muted small">Nothing yet.{i.stage === 'idea' || i.stage === 'specify' || i.stage === 'build' ? ' Send an agent to it with the brief below.' : ''}</p>
 				{:else}
 					{@const w = i.work}
 					<ul class="linked">
@@ -600,10 +600,10 @@
 			     where no work of it waits: then its work's review, opened from it, is where it is decided -->
 			{#if !(i.stage === 'proposal' && waits) && i.stage !== 'ship'}
 			<footer class="decide">
-				{#if i.stage === 'idea' || i.stage === 'specify' || i.stage === 'prototype' || (i.stage === 'proposal' && !waits)}
+				{#if i.stage === 'idea' || i.stage === 'specify' || i.stage === 'build' || (i.stage === 'proposal' && !waits)}
 					<button class="btn small reject" onclick={() => decideIntent(i.id, 'reject')} title="Not to be done: it ends archived">Reject</button>
 				{/if}
-				{#if i.stage === 'prototype' || (i.stage === 'proposal' && i.approved_at && !waits)}
+				{#if i.stage === 'build' || (i.stage === 'proposal' && i.approved_at && !waits)}
 					<button class="btn small ghost" onclick={() => decideIntent(i.id, 'respecify')} title="Its spec is to change: back to Specify, its approval and results cleared">Back to Specify</button>
 				{:else if i.stage === 'accepted' || i.stage === 'archived'}
 					<button class="btn small ghost" onclick={() => decideIntent(i.id, 'reopen')} title="Open again: back to {i.spec ? 'Specify' : 'Idea'}">Reopen</button>

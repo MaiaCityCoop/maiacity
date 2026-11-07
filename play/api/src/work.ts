@@ -5,7 +5,7 @@
 // the decision. To propose is to put an intent at Proposal: the intent named (its gate held before, ./intents.ts
 // intentReady) takes the work, any it held before replaced (that one's intent variant closed, kept in the history), or, with no
 // intent named, a new intent is made at Proposal, its title what it proposes. Deciding settles it: accepted, or archived
-// (a moved base archives it too; one with an approved spec then goes back to Prototype, to be built on the new head).
+// (a moved base archives it too; one with an approved spec then goes back to Build, to be built on the new head).
 import type { Me } from "./access";
 import { COOP } from "./access";
 import * as docs from "./docs";
@@ -117,13 +117,13 @@ export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string 
 /**
  * Settles an intent's work (in the decision's transaction): accepted, or archived. Archived by a person (`by`), it ends
  * archived; archived by itself (no `by`: its base moved and it no longer holds there), one whose spec was approved goes
- * back to Prototype, its results cleared, to be built again on the new head. Its stage is what it settled to.
+ * back to Build, its results cleared, to be built again on the new head. Its stage is what it settled to.
  */
 export async function settle(q: Queryable, id: string, outcome: "accepted" | "archived", by: string | null, extra: { sandbox_diff?: unknown } = {}): Promise<string> {
   const diff = extra.sandbox_diff === undefined ? null : JSON.stringify(extra.sandbox_diff);
   const { rows } = await q.query<{ stage: string }>(
     `UPDATE play.intents SET
-        stage = CASE WHEN $2 = 'accepted' THEN 'accepted' WHEN $3::text IS NULL AND approved_at IS NOT NULL THEN 'prototype' ELSE 'archived' END,
+        stage = CASE WHEN $2 = 'accepted' THEN 'accepted' WHEN $3::text IS NULL AND approved_at IS NOT NULL THEN 'build' ELSE 'archived' END,
         results = CASE WHEN $2 = 'archived' AND $3::text IS NULL AND approved_at IS NOT NULL THEN NULL ELSE results END,
         decided_by = CASE WHEN $2 = 'archived' AND $3::text IS NULL AND approved_at IS NOT NULL THEN NULL ELSE $3 END,
         decided_at = CASE WHEN $2 = 'archived' AND $3::text IS NULL AND approved_at IS NOT NULL THEN NULL ELSE now() END,
