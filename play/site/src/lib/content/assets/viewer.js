@@ -78,7 +78,7 @@ export async function openStage(box, { onLost, hold } = {}) {
 	/** @type {any} */
 	let view, stage;
 	try {
-		view = createStageRenderer(box, { pixelRatio: topPixelRatio(low), shadows: 'soft', onLost, fov: 40, turntable: true, fit, onResize: (w, h) => stage?.resize(w, h) });
+		view = createStageRenderer(box, { pixelRatio: topPixelRatio(low), shadows: 'pcf', onLost, fov: 40, turntable: true, fit, onResize: (w, h) => stage?.resize(w, h) });
 		stage = new Stage(view.renderer, view.camera, { low, sky: true });
 	} catch (e) {
 		view?.dispose?.();

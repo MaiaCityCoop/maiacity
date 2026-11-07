@@ -112,7 +112,7 @@ function shot(tl: any, id: string, spec: Spec) {
 				const got = { obj: rebuild(m.data), card: m.card };
 				builds.push({ obj: got.obj, hero: heroOf(got) });
 			}
-			const renderer = createRenderer({ canvas, pixelRatio: 1, shadows: 'soft', preserve: true });
+			const renderer = createRenderer({ canvas, pixelRatio: 1, shadows: 'pcf', preserve: true });
 			renderer.setSize(w, h, false);
 			camera = new THREE.PerspectiveCamera(40, w / h, 0.05, 2000);
 			stage = new Stage(renderer, camera, { sky: true });

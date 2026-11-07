@@ -42,14 +42,16 @@
  *                     it names. A world's `values` are given by --values '{"cars": 40}'
  *
  * Out: one PNG per shot and file (<out>/<file>-<shot>.png), a contact sheet (<out>/sheet.png) with every shot's
- * values, triangles and build time under it, and shots.json of what was shown. Needs Playwright with a Chromium
- * (npx playwright install chromium where none is installed); WebGL runs on SwiftShader when there is no GPU.
+ * values, triangles and build time under it (a world's: each shot's draw calls, triangles, frame, CPU and GPU ms and
+ * what bounds it, a second of its frames as src/lib/content/render/meter.js samples them), and shots.json of what was
+ * shown. Needs Playwright with a Chromium (npx playwright install chromium where none is installed); WebGL runs on SwiftShader when there is no GPU.
  */
 import { spawn } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { meterLine } from '../src/lib/content/render/meter.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const site = resolve(here, '..');
@@ -176,7 +178,7 @@ try {
 				await page.screenshot({ path: png, clip: box ?? undefined, timeout: 120_000 });
 				if (got.cut) console.log(`    drawings: world ${got.cut.world}, guests ${got.cut.guests} (${got.cut.kinds} kinds; most: ${got.cut.top.map(([k, n]) => `${k} ${n}`).join(', ')}), lights ${got.cut.lights}, other ${got.cut.other}`);
 				results.push({ recipe: name, label: loaded.label, shot: s.name, png, values: { t: got.t, guests: got.guests, lit: got.lit }, ...got });
-				console.log(`  ${s.name}: t ${got.t} s · ${got.guests} guests of ${got.kinds} kinds${got.missing ? ` (${got.missing} missing)` : ''} · ${got.lit} lit (${got.faces ?? 0} face drawings, ${got.glows ?? 0} glows) · ${got.live ? 'alive' : 'still'} · ${got.triangles.toLocaleString('en')} triangles, ${got.calls} calls · ${got.ms} ms`);
+				console.log(`  ${s.name}: t ${got.t} s · ${got.guests} guests of ${got.kinds} kinds${got.missing ? ` (${got.missing} missing)` : ''} · ${got.lit} lit (${got.faces ?? 0} face drawings, ${got.glows ?? 0} glows) · ${got.live ? 'alive' : 'still'} · ${meterLine(got)} · ${got.ms} ms`);
 			}
 			await page.close();
 			continue;
