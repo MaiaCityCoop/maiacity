@@ -10,6 +10,7 @@ import type { Db, Queryable } from "./pg";
 import * as docs from "./docs";
 import type { StoryBody } from "./stories";
 import { versionAt } from "./versioned";
+import { holdVariant } from "./work";
 import { SCHEMA } from "./ids";
 
 export const docIdOf = (story: string) => `story:${story}`;
@@ -59,7 +60,7 @@ export async function ensureStoryDoc(q: Queryable, story: string): Promise<strin
   const { rows: open } = await q.query<{ id: string; author: string | null; via: string | null; note: string; base_number: number | null; title: string; body: StoryBody; created: Date }>(
     `SELECT i.id, i.proposed_by AS author, i.proposed_via AS via, COALESCE(i.work_note, '') AS note, b.number AS base_number, v.title, v.body, i.proposed_at AS created
        FROM play.intents i JOIN play.story_versions v ON v.id = i.story_version LEFT JOIN play.story_versions b ON b.id = i.story_base
-      WHERE i.story_id = $1 AND i.stage = 'proposal' AND i.doc_variant IS NULL ORDER BY i.proposed_at`,
+      WHERE i.story_id = $1 AND i.stage = 'proposal' AND NOT EXISTS (SELECT 1 FROM play.intent_variants iv WHERE iv.intent_id = i.id) ORDER BY i.proposed_at`,
     [story],
   );
   for (const p of open) {
@@ -69,8 +70,7 @@ export async function ensureStoryDoc(q: Queryable, story: string): Promise<strin
     const b = await docs.variant(q, id, { author, note: p.note, ...(at ? { at } : {}) });
     await docs.commit(q, id, { variant: b.id, target: asDoc(p.title, p.body), message: p.note || "proposed", author, at: p.created });
     await docs.propose(q, id, b.id, { note: p.note, author });
-    await q.query(`UPDATE play.intents SET doc_variant = $2, doc_id = $3 WHERE id = $1`, [p.id, b.id, id]);
-    await q.query(`UPDATE play.doc_variants SET intent_id = $1 WHERE id = $2`, [p.id, b.id]);
+    await holdVariant(q, null, p.id, id, Number(b.id));
   }
   return id;
 }
@@ -79,7 +79,7 @@ export async function ensureStoryDoc(q: Queryable, story: string): Promise<strin
 export async function ensureStoryDocs(db: Db): Promise<string[]> {
   const { rows } = await db.query<{ id: string }>(
     `SELECT s.id FROM play.stories s WHERE NOT EXISTS (SELECT 1 FROM play.docs d WHERE d.id = 'story:' || s.id)
-        OR EXISTS (SELECT 1 FROM play.intents i WHERE i.story_id = s.id AND i.stage = 'proposal' AND i.doc_variant IS NULL) ORDER BY s.id`,
+        OR EXISTS (SELECT 1 FROM play.intents i WHERE i.story_id = s.id AND i.stage = 'proposal' AND NOT EXISTS (SELECT 1 FROM play.intent_variants iv WHERE iv.intent_id = i.id)) ORDER BY s.id`,
   );
   for (const r of rows) await db.transaction((q) => ensureStoryDoc(q, r.id));
   return rows.map((r) => r.id);

@@ -24,6 +24,10 @@ COPY play/site/src /app/play/site/src
 COPY play/media /app/play/media
 COPY --from=site /src/play/site/build /app/site
 ENV PORT=3000 PLAY_SITE=/app/site PLAY_REPO=/app
+# the commit this image is built from (production.yml: --build-arg PLAY_COMMIT=$GITHUB_SHA): GET /api/version answers
+# it, and the reconcile (src/ship.ts) holds every code intent's stage to it; last, so no layer above is built again
+ARG PLAY_COMMIT=
+ENV PLAY_COMMIT=$PLAY_COMMIT
 EXPOSE 3000
 USER bun
 CMD ["bun", "src/index.ts"]

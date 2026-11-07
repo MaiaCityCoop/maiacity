@@ -15,7 +15,7 @@
 	then it moves to Proposal by itself (Samuel 2026-11-06), the one gate after the spec, where an admin decides it.
 
 	ONE RECORD (Samuel 2026-11-06: "not a proposal belongs to an intent: the intent has a state, proposal"): an intent's
-	work (an asset's or story's version, a sandbox's change, a factory's or config's version) is on the intent itself, and
+	work (an asset's, story's, factory's, config's, skill's or sandbox layout's version) is on the intent itself, and
 	Proposal is only its stage. Only a whole intent is decided, in its dialog (Samuel 2026-11-07): its Accept applies all its work,
 	its Reject archives it; its work's review, opened from it, is read only. Work proposed without an intent is an intent
 	of its own, with no spec. Nothing is accepted from Build.
@@ -37,7 +37,7 @@
 	import { markdown } from '$lib/site/markdown/index.js';
 	import { INDEX, admitProposed, source as catalogSource } from '$lib/content/assets/catalog.js';
 	import { changesOnly, lineDiff } from '$lib/diff';
-	import Changes, { type Change, type Edit } from '$lib/app/Changes.svelte';
+	import Changes, { type Change, type Edit, type PinChange } from '$lib/app/Changes.svelte';
 	import StoryPlayer from '$lib/stories/StoryPlayer.svelte';
 	import StoryChanges, { type StoryDiff } from '$lib/stories/StoryChanges.svelte';
 	import type { Story } from '$lib/stories/timeline';
@@ -55,8 +55,8 @@
 
 	// an intent's work, as the board lists it (play/api/src/intents.ts): what it changes, the version it would be, who
 	// proposed it and how, and its status (the intent's stage: waiting at Proposal, accepted, else archived)
-	// its kind is a versioned kind's work (<kind>_version, play/api/src/versioned.ts) or a sandbox's change; `what` names it
-	type Work = { kind: string; what: string | null; doc: string | null; doc_variant: number | null; asset_id: string | null; label: string; grp: string; slug: string | null; version_label: string | null; number: number | null; changes?: number; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
+	// its kind is a versioned kind's work (<kind>_version, play/api/src/versioned.ts); `what` names it
+	type Work = { kind: string; what: string | null; doc: string | null; doc_variant: number | null; docs?: number; asset_id: string | null; label: string; grp: string; slug: string | null; version_label: string | null; number: number | null; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
 	// the work opened for review: the intent's id, with the intent's title, spec and results beside it
 	type P = Work & { id: string; intent_id: string; intent_title: string; intent_spec: Spec | null; intent_results: Results | null };
 	// an intent (play/api/src/intents.ts): its kind, title and note, its stage, its spec once specified (a goal, a scope and
@@ -66,14 +66,18 @@
 	// its way to production, once an Accept merged its pull request (play/api/src/ship.ts): each step's state, when, its
 	// link; a red one's report
 	type ShipStep = { key: string; name: string; state: 'queued' | 'running' | 'green' | 'red' | 'skipped'; started?: string; finished?: string; link?: string; note?: string };
-	type Ship = { pr: number; head: string; merge: string; by: string; round: number; started: string; steps: ShipStep[]; report?: { step: string; why: string; link?: string; log: string; at: string } | null; ended?: string; outcome?: 'green' | 'red'; again?: 'main' | 'release'; pending?: { kind: 'merge' | 'main' | 'release'; head?: string } | null; accepted?: string };
+	type Ship = { pr: number; head: string; merge: string; by: string; round: number; started: string; steps: ShipStep[]; report?: { step: string; why: string; link?: string; log: string; at: string } | null; ended?: string; outcome?: 'green' | 'red'; again?: 'main' | 'release'; pending?: { kind: 'merge' | 'main' | 'release'; head?: string } | null; accepted?: string; live?: boolean; commit?: string; note?: string };
 	// run: the command that decides a check in avenBOX (test and measure checks since 2026-11-06; play/SPEC.md §4.12)
 	// step: a spec's two steps, reduce first, then the MVP (specs from before have none: mvp; play/SPEC.md §4.12)
 	type Check = { id: string; check: string; how: 'test' | 'measure' | 'look'; by: string; run?: string; must: boolean; step?: 'reduce' | 'mvp' };
 	type Spec = { goal: string; scope: string; checks: Check[]; nothing_to_reduce?: string };
 	// where: in avenBOX (the agent's), or on main after the merge (.github/workflows/intents.yml), on which commit
 	type Results = Record<string, { pass: boolean; evidence: string; by: string | null; at: string; where?: 'avenBOX' | 'main'; commit?: string }>;
-	type Intent = { id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null; spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null; decided_at: string | null; decided_by: string | null; came_with: string | null; work: Work | null; pull_request: number | null; ship: Ship | null };
+	/** one step back an agent took over MCP, with its reason (play/api/src/stepback.ts) */
+	type StepBack = { at: string; by: string | null; via: 'mcp'; from: Stage; to: Stage; reason: string };
+	type Intent = { id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null; spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null; decided_at: string | null; decided_by: string | null; came_with: string | null; work: Work | null; pull_request: number | null; ship: Ship | null; steps?: StepBack[]; depends_on?: Dep[]; held_by?: Dep[]; needed_by?: Dep[] };
+	// an intent it depends on, or one that depends on it (play/api/src/intents.ts heldBy): found by its UUID, its title only shown
+	type Dep = { id: string; title: string; stage: Stage };
 	// an intent's kind, shown as what it asks (the kind 'idea' as Make, the stage Idea being its own; Samuel 2026-11-06)
 	const KINDS: [Kind, string][] = [
 		['idea', 'Make'],
@@ -164,9 +168,13 @@
 		const sec = Math.round(ms / 1000);
 		return sec < 60 ? `${sec} s` : `${Math.floor(sec / 60)} min ${sec % 60} s`;
 	};
-	/** a card's line in Ship (its current step) or at Proposal after a red ship */
+	/** the reconcile's flag (play/api/src/ship.ts reconcile): Accepted, or green in Ship, and its commit not in what play runs */
+	const notLive = (i: Intent) => (i.ship?.live === false && i.ship.commit ? `not live: production runs ${i.ship.commit.slice(0, 7)}` : '');
+	/** a card's line in Ship (its current step) or at Proposal after a red ship, or its flag */
 	const shipLine = (i: Intent) => {
 		if (!i.ship) return '';
+		if (notLive(i)) return notLive(i);
+		if (i.stage === 'ship' && i.ship.outcome === 'green') return 'green · Accepted once play runs it';
 		if (i.stage === 'ship') {
 			const n = shipNow(i.ship);
 			// still waiting to start: why (its turn, GitHub, its checks), as the first step says
@@ -213,7 +221,12 @@
 	/** every review of a document's version (play/api/src/versioned.ts reviewDoc): its document, what it changes field by
 	 *  field against its seed, the edits that made it, whether Main moved since; an asset's adds its builds, a story's its
 	 *  timelines */
-	type DocReview = { doc: { id: string; kind: string; what: string; label: string; group?: string; open: string | null } | null; seedNumber: number | null; moved: boolean; changes: Change[]; edits: Edit[] };
+	// a sandbox's layout also says each pin before and after by its asset (pins), whether it still holds on the layout as
+	// it is now, and the sandbox to open as it would be (play/api/src/sandboxes.ts)
+	type DocReview = {
+		doc: { id: string; kind: string; what: string; label: string; group?: string; open: string | null } | null; seedNumber: number | null; moved: boolean; changes: Change[]; edits: Edit[];
+		pins?: PinChange[]; holds?: boolean; why?: string | null; sandbox?: { title: string; route: string; open: string }; docs?: DocReview[];
+	};
 	type Review = DocReview & { id: string; source: string | null; recipe: string | null; baseVersion: { number: number; source: string | null } | null; builds: Build[] };
 	let open = $state<P | null>(null);
 	let review = $state<Review | null>(null);
@@ -232,39 +245,30 @@
 	// a story's (play/api/src/stories.ts): its timeline played in the Stories player, beside what changed clip by clip
 	type StoryReview = DocReview & { story: Story; baseStory: (Story & { number: number }) | null; diff: StoryDiff };
 	let storyReview = $state<StoryReview | null>(null);
-	// a sandbox's change (play/api/src/sandboxes.ts): what each edit changes, before and after, and the sandbox as it would be
-	type PinShown = { label: string; group: string; slug: string; number: number; variant: string | null; usedVariant: string | null; params: Record<string, string> | null } | null;
-	type SandboxChange =
-		| { kind: 'pin'; slot: string; before: PinShown; after: PinShown }
-		| { kind: 'config'; config: string; path: (string | number)[]; before: unknown; after: unknown };
-	type SandboxReview = { sandbox: { id: string; title: string; route: string }; changes: SandboxChange[]; holds: boolean; why: string | null; moved: boolean };
-	let sandboxReview = $state<SandboxReview | null>(null);
-	// any other document's (a factory's, a config's, a skill's, and every kind to come): field by field, opened as it would be
+	// any other document's (a factory's, a config's, a skill's, a sandbox's layout, and every kind to come): field by field, opened as it would be
 	let docReview = $state<DocReview | null>(null);
-	const pinText = (x: PinShown) =>
-		x ? `${x.label} v${x.number}${x.usedVariant ? ` · ${x.usedVariant}${x.variant ? '' : ' (default)'}` : ''}${x.params ? ` · ${Object.entries(x.params).map(([k, v]) => `${k} ${v}`).join(', ')}` : ''}` : 'none';
-	const valueText = (v: unknown) => (v === undefined ? '(none)' : JSON.stringify(v, null, 1));
-	/** a title for a card: an asset's or story's version, or a sandbox's change */
+	// an intent may change several documents (play/SPEC.md "Version control"): every one's review, accepted together
+	let alsoDocs = $state<DocReview[]>([]);
 	/** what a proposal is of, its card's tag (Samuel 2026-11-05: the type, not how it came; that it came over MCP is in its title and its review) */
-	const GROUP_TYPE: Record<string, string> = { plants: 'Plant', things: 'Thing', machines: 'Machine', buildings: 'Building', actors: 'Actor', biomes: 'Biome', worlds: 'World' };
+	const GROUP_TYPE: Record<string, string> = { plants: 'Plant', things: 'Thing', machines: 'Machine', buildings: 'Building', actors: 'Actor', biomes: 'Biome', worlds: 'World', sandboxes: 'Sandbox' };
 	const typeOf = (p: { what?: string | null; grp: string | null }) => GROUP_TYPE[p.grp ?? ''] ?? (p.what ? p.what[0].toUpperCase() + p.what.slice(1) : (p.grp ?? ''));
 	/** an intent's tag: what its work is (a plant, a story …) where it has some, else its kind */
 	const tagOf = (i: Intent) => (i.work ? typeOf(i.work) : kindName(i.kind));
-	const titleOf = (p: Work) => (p.number == null ? `${p.changes ?? 0} change${p.changes === 1 ? '' : 's'}` : `v${p.number}`);
+	const titleOf = (p: Work) => (p.number == null ? 'a change' : `v${p.number}`);
 	async function openCard(p: P) {
 		intent = null;
 		open = p;
 		review = null;
 		storyReview = null;
-		sandboxReview = null;
 		docReview = null;
+		alsoDocs = [];
 		code = '';
 		baseCode = null;
 		shown = '';
 		showSource = false;
 		noteOpen = false;
 		reviewError = '';
-		// one review for every kind: a sandbox's change, an asset's build, a story's timelines, or any document's fields
+		// one review for every kind: an asset's build, a story's timelines, or any document's fields (a sandbox's layout's too)
 		let got: any;
 		try {
 			got = (await api<{ review: any }>(`/intents/${p.id}`)).review;
@@ -273,7 +277,7 @@
 			return;
 		}
 		if (open?.id !== p.id) return;
-		if (got.sandbox) return void (sandboxReview = got);
+		alsoDocs = (got.docs ?? []).slice(1);
 		if (got.story) return void (storyReview = got);
 		if (!got.builds) return void (docReview = got);
 		try {
@@ -312,11 +316,13 @@
 			});
 	});
 	/** the intent a proposal was made for, from its review */
-	function openIntentOf(id: string) {
-		const i = intents.find((x) => x.id === id);
+	async function openIntentOf(id: string) {
+		const i = intents.find((x) => x.id === id) ?? (await api<Intent>(`/intents/${id}`).catch(() => null));
 		if (i) openIntentDialog(i);
 	}
+	const stageName = (s: Stage) => COLUMNS.find(([x]) => x === s)?.[1] ?? s;
 	/** the intent's own dialog (its spec, checks and work), even where it is only its work */
+	const depsTitle = (i: Intent) => [i.depends_on?.length ? `Waits for: ${i.depends_on.map((d) => d.title).join(', ')}.` : '', i.needed_by?.length ? `Needed by: ${i.needed_by.map((d) => d.title).join(', ')}.` : ''].filter(Boolean).join(' ')
 	async function openIntentDialog(i: Intent) {
 		open = null;
 		intent = i;
@@ -329,7 +335,7 @@
 	};
 	/** an Accept that merges (Accept and ship): GitHub takes a few seconds */
 	let merging = $state(false);
-	async function decideIntent(id: string, verdict: 'approve' | 'respecify' | 'accept' | 'reject' | 'reopen') {
+	async function decideIntent(id: string, verdict: 'approve' | 'accept' | 'reject' | 'reopen') {
 		merging = verdict === 'accept' && !!intent && isCode(intent);
 		intentError = '';
 		try {
@@ -376,6 +382,20 @@
 	};
 </script>
 
+{#snippet docChanges(r: DocReview, several: boolean, done: boolean)}
+	<div class="sandbox-review">
+		{#if several}<h3>{(r.doc?.what ?? 'document').replace(/^./, (c) => c.toUpperCase())}: {r.doc?.label}</h3>{/if}
+		{#if r.holds === false && !done}<p class="error">It no longer holds on {r.doc?.label ?? 'it'} as it is now: {r.why} Accepting it archives it.</p>{/if}
+		<p>
+			{#if r.sandbox && !done && r.holds !== false}<a class="btn small" href={r.sandbox.open} target="_blank" rel="noopener">Open {r.sandbox.title} as it would be</a>{/if}
+			{#if r.doc?.open}<a class="btn small" href={r.doc.open} target="_blank" rel="noopener">{r.sandbox ? `Its layout's history` : `Open ${r.doc.label} as it would be`}</a>{/if}
+			{#if r.doc?.group}<span class="muted small"> What every agent is taught ({r.doc.what}s / {r.doc.group}): accepted, it is taught from the next request on.</span>{/if}
+			{#if r.moved}<span class="muted small"> It was seeded from v{r.seedNumber}; the {r.doc?.what ?? 'document'} has a newer version since. Accepting merges it where the two touch different fields, and archives it where they touch the same.</span>{/if}
+		</p>
+		<Changes changes={r.changes} edits={r.edits} pins={r.pins ?? null} seed={r.seedNumber} heading={done ? 'What it changed' : 'What it changes'} />
+	</div>
+{/snippet}
+
 <svelte:window onkeydown={onKey} />
 
 <div class="intents">
@@ -403,10 +423,10 @@
 							{#each cards as i (i.id)}
 								{@const progress = s === 'build' ? checksDone(i) : ''}
 								<!-- an intent: its title, how far its checks or its work got, who it is by, its type and its date -->
-								<article class="card" class:item={!!i.spec || !i.work} data-kind={i.kind}>
+								<article class="card" class:item={!!i.spec || !i.work} class:held={!!i.held_by?.length} data-kind={i.kind}>
 									<button class="open" onclick={() => openIntentDialog(i)} title={i.note ? gist(i.note) : undefined}>
 										<span class="title">{i.title}</span>
-										{#if shipLine(i)}<span class="for ship" class:red={i.stage === 'proposal' || i.ship?.steps.some((x) => x.state === 'red')} class:running={i.stage === 'ship'}>{shipLine(i)}</span>
+										{#if shipLine(i)}<span class="for ship" class:red={i.stage === 'proposal' || !!notLive(i) || !!i.ship?.steps?.some((x) => x.state === 'red')} class:running={i.stage === 'ship'}>{shipLine(i)}</span>
 										{:else if progress}<span class="for" class:done={allMustPass(i)}>{progress}</span>
 										{:else if i.spec && s === 'specify'}<span class="for">{i.spec.checks.length} check{i.spec.checks.length === 1 ? '' : 's'} · to approve</span>
 										{:else if i.spec && i.work}<span class="for">{workText(i)}</span>{/if}
@@ -417,6 +437,10 @@
 											<span class="date">{shortWhen(i.decided_at ?? i.created)}</span>
 										</span>
 									</button>
+									<!-- intents depend on intents: one line, Held and counts; hover names them, the dialog lists them -->
+									{#if i.depends_on?.length || i.needed_by?.length}
+										<button class="deps" onclick={() => openIntentDialog(i)} title={depsTitle(i)}>{#if i.held_by?.length}<span class="held-tag">Held</span>{/if}<span>{[i.depends_on?.length ? `waits for ${i.depends_on.length}` : '', i.needed_by?.length ? `needed by ${i.needed_by.length}` : ''].filter(Boolean).join(' · ')}</span></button>
+									{/if}
 								</article>
 							{:else}
 								<p class="empty muted">{!loaded ? '…' : s === 'idea' ? 'None. Agents add intents over MCP.' : s === 'specify' ? 'None. Agents specify an intent over MCP.' : s === 'build' ? 'None. An approved spec is built here.' : s === 'ship' ? 'None. Accepted code is shipped here.' : 'None'}</p>
@@ -454,7 +478,11 @@
 					<p class="muted small">{shipsAgain(i) ? `Accept ships it again (${i.ship.again === 'main' ? "main's failed jobs run again" : 'the release of ' + i.ship.merge.slice(0, 7) + ' again'}); or an agent fixes it in a new pull request of the intent, its checks recorded on its head.` : 'Accept merges its newer pull request and ships it.'}</p>
 				</section>
 			{/if}
-			{#if i.ship && (i.stage === 'ship' || i.stage === 'accepted' || i.stage === 'proposal')}
+			{#if notLive(i)}
+				<!-- the reconcile's flag: its stage left as it is, its commit not in what play runs (rolled back, never merged) -->
+				<p class="not-live" role="status">{notLive(i)}{i.ship?.merge ? ` (its merge ${i.ship.merge.slice(0, 7)} is not in it)` : ''}</p>
+			{:else if i.ship?.note}<p class="muted small">{i.ship.note}</p>{/if}
+			{#if i.ship?.steps?.length && (i.stage === 'ship' || i.stage === 'accepted' || i.stage === 'proposal')}
 				{@const sh = i.ship}
 				<section class="ship" aria-label="Its way to production">
 					<h3>{i.stage === 'ship' ? 'Shipping' : i.stage === 'accepted' ? 'Shipped' : 'Its last ship'} <span class="muted small">#{sh.pr}{sh.merge ? ` as ${sh.merge.slice(0, 7)}` : ''} · accepted by {sh.by}{sh.round > 1 ? ` · round ${sh.round}` : ''}</span></h3>
@@ -471,6 +499,15 @@
 				</section>
 			{/if}
 			{#if i.note}<div class="md">{@html md(i.note)}</div>{/if}
+			<!-- its steps back, each with its reason: an agent sends an intent back over MCP itself (step_back_intent), no
+			     button here; only Approve spec moves it forward again (intent 5a78e0b7, Samuel 2026-11-07) -->
+			{#if i.steps?.length}
+				<ol class="steps-back" aria-label="Steps back">
+					{#each i.steps as s, n (n)}
+						<li><span class="meta">Back from {STAGE_NAME[s.from] ?? s.from} to {STAGE_NAME[s.to] ?? s.to} by {s.by ?? 'someone'} <span class="via">via MCP</span> · {when(s.at)}</span><span class="why">{s.reason}</span></li>
+					{/each}
+				</ol>
+			{/if}
 			<section class="spec" class:none={!i.spec}>
 				{#if i.spec}
 					{@const reduce = i.spec.checks.filter((c) => c.step === 'reduce')}
@@ -522,6 +559,14 @@
 					{/if}
 				{/if}
 			</section>
+			{#if i.depends_on?.length || i.needed_by?.length}
+				<section>
+					<h3>Depends on{#if i.held_by?.length}{' '}<span class="held-tag">Held</span>{/if}</h3>
+					{#if i.held_by?.length}<p class="muted small">Held: not started nor taken further until every intent it depends on is shipped (Accepted). It waits for {i.held_by.map((d) => d.title).join(', ')}.</p>{/if}
+					{#if i.depends_on?.length}<ul class="dep-list">{#each i.depends_on as d (d.id)}<li><button class="link" onclick={() => openIntentOf(d.id)}>{d.title}</button> <span class="muted small">· {stageName(d.stage)}{d.stage === 'accepted' ? ' · shipped' : ''}</span></li>{/each}</ul>{:else}<p class="muted small">Nothing.</p>{/if}
+					{#if i.needed_by?.length}<p class="small"><span class="muted">Needed by</span> {#each i.needed_by as d, j (d.id)}{j ? ' · ' : ''}<button class="link" onclick={() => openIntentOf(d.id)}>{d.title}</button> <span class="muted">({stageName(d.stage)})</span>{/each}</p>{/if}
+				</section>
+			{/if}
 			<section>
 				<h3>Its work</h3>
 				{#if !i.work && i.pull_request}<p class="small">Code: <a href="{REPO_URL}/pull/{i.pull_request}" target="_blank" rel="noopener">pull request #{i.pull_request}</a> <span class="muted">· {i.stage === 'proposal' ? 'Accept merges it into main and ships it' : i.stage === 'ship' ? (i.ship?.pending ? 'in Ship, merged when its turn comes and GitHub is ready' : 'merged, on its way to production') : i.stage === 'accepted' ? 'in production' : 'named by its agent'}</span></p>
@@ -532,7 +577,7 @@
 						<li>
 							<button class="open" onclick={() => openCard(cardOf(i))}>
 								<span class="type" data-type={typeOf(w)}>{typeOf(w)}</span>
-								<span class="what">{w.label} <span class="muted">{titleOf(w)}</span></span>
+								<span class="what">{w.label} <span class="muted">{titleOf(w)}</span>{#if (w.docs ?? 1) > 1}<span class="muted">{' '}· and {w.docs! - 1} more {w.docs === 2 ? 'document' : 'documents'}, accepted together</span>{/if}</span>
 								<span class="pill">{w.status === 'proposal' ? 'waiting' : w.status}</span>
 								<span class="date muted">{shortWhen(w.created)}</span>
 							</button>
@@ -563,9 +608,7 @@
 				{#if i.stage === 'idea' || i.stage === 'specify' || i.stage === 'build' || i.stage === 'proposal'}
 					<button class="btn small reject" onclick={() => decideIntent(i.id, 'reject')} title="Not to be done: it ends archived">Reject</button>
 				{/if}
-				{#if i.stage === 'build' || (i.stage === 'proposal' && i.approved_at && i.work?.status !== 'proposal')}
-					<button class="btn small ghost" onclick={() => decideIntent(i.id, 'respecify')} title="Its spec is to change: back to Specify, its approval and results cleared">Back to Specify</button>
-				{:else if i.stage === 'accepted' || i.stage === 'archived'}
+				{#if i.stage === 'accepted' || i.stage === 'archived'}
 					<button class="btn small ghost" onclick={() => decideIntent(i.id, 'reopen')} title="Open again: back to {i.spec ? 'Specify' : 'Idea'}">Reopen</button>
 				{/if}
 				{#if i.stage === 'specify' && i.spec}<button class="btn small" onclick={() => decideIntent(i.id, 'approve')} title="The spec is right: an agent may build it">Approve spec</button>
@@ -600,47 +643,14 @@
 				</div>
 				<button class="more" onclick={() => (noteOpen = !noteOpen)}>{noteOpen ? 'Less' : 'More'}</button>
 			{/if}
-			{#if sandboxReview || (!review && !storyReview && !docReview)}
+			{#if !review && !storyReview && !docReview}
 				<div class="sandbox-review">
-					{#if reviewError}<p class="error">{reviewError}</p>
-					{:else if !sandboxReview}<p class="muted">Reading it…</p>
-					{:else}
-						{@const r = sandboxReview}
-						{#if p.status === 'proposal'}
-							{#if !r.holds}<p class="error">It no longer holds on {r.sandbox.title} as it is now: {r.why} Accepting it archives it.</p>
-							{:else}
-								<p>
-									<a class="btn small" href="{r.sandbox.route}?layout={encodeURIComponent(`${r.sandbox.id}/${p.id}`)}" target="_blank" rel="noopener">Open {r.sandbox.title} as it would be</a>
-									{#if r.moved}<span class="muted small"> {r.sandbox.title} changed since it was proposed: shown as accepting would apply it now.</span>{/if}
-								</p>
-							{/if}
-						{/if}
-						<h3>{p.status === 'accepted' ? 'What it changed' : 'What it changes'}</h3>
-						<ol class="changes">
-							{#each r.changes as c, i (i)}
-								<li>
-									{#if c.kind === 'pin'}
-										<span class="where">{c.slot}</span>
-										<span class="was">{pinText(c.before)}</span> → <span class="now">{pinText(c.after)}</span>
-									{:else}
-										<span class="where">{c.config}{#each c.path as k}<span class="muted"> › </span>{k}{/each}</span>
-										<div class="vals"><pre class="was">{valueText(c.before)}</pre><pre class="now">{valueText(c.after)}</pre></div>
-									{/if}
-								</li>
-							{/each}
-						</ol>
-					{/if}
+					{#if reviewError}<p class="error">{reviewError}</p>{:else}<p class="muted">Reading it…</p>{/if}
 				</div>
 			{:else if docReview}
-				{@const r = docReview}
-				<div class="sandbox-review">
-					<p>
-						{#if r.doc?.open}<a class="btn small" href={r.doc.open} target="_blank" rel="noopener">Open {r.doc.label} as it would be</a>{/if}
-						{#if r.doc?.group}<span class="muted small"> What every agent is taught ({r.doc.what}s / {r.doc.group}): accepted, it is taught from the next request on.</span>{/if}
-						{#if r.moved}<span class="muted small"> It was seeded from v{r.seedNumber}; the {r.doc?.what ?? 'document'} has a newer version since. Accepting merges it where the two touch different fields, and archives it where they touch the same.</span>{/if}
-					</p>
-					<Changes changes={r.changes} edits={r.edits} seed={r.seedNumber} heading={p.status === 'accepted' ? 'What it changed' : 'What it changes'} />
-				</div>
+				{#each [docReview, ...alsoDocs] as r, i (i)}
+					{@render docChanges(r, alsoDocs.length > 0, p.status === 'accepted')}
+				{/each}
 			{:else if storyReview}
 				<div class="story-review">
 					{#if reviewError}<p class="error">{reviewError}</p>
@@ -697,6 +707,10 @@
 					</div>
 				{/if}
 			</div>
+			{/if}
+			{#if !docReview && alsoDocs.length}
+				<p class="muted small">This intent changes {alsoDocs.length + 1} documents: accepted together, or archived together.</p>
+				{#each alsoDocs as r, i (i)}{@render docChanges(r, true, p.status === 'accepted')}{/each}
 			{/if}
 			<!-- read only: what the work changes; only its intent is decided, in the intent's dialog (Samuel 2026-11-07) -->
 			{#if review}
@@ -757,9 +771,16 @@
 	[data-kind='improve'] { --kind: var(--sage, #a8b88a); }
 	.type[data-kind] { background: color-mix(in srgb, var(--kind) 35%, transparent); }
 	.card.item { border-left: 4px solid var(--kind); }
+	/* intents depend on intents: a held card dimmed and marked, its links to what it waits for and what waits on it */
+	.card.held { background: repeating-linear-gradient(135deg, transparent 0 8px, color-mix(in srgb, var(--muted, #777) 7%, transparent) 8px 16px), var(--card, #fff); }
+	.deps { all: unset; box-sizing: border-box; display: block; width: 100%; cursor: pointer; padding: 0 0.65rem 0.5rem; font-size: 0.74rem; line-height: 1.35; color: var(--muted, #777); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.deps .held-tag { margin-right: 0.4em; }
+	.held-tag { display: inline-block; padding: 0 0.5em; border-radius: 999px; background: color-mix(in srgb, #9c3b22 15%, transparent); color: #9c3b22; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em; }
+	.dep-list { margin: 0.2rem 0; padding-left: 1.1rem; font-size: 0.85rem; }
 	.for { font-size: 0.76rem; color: var(--ink-soft, #4d5d51); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.for.done { color: var(--brand-green, #24452f); font-weight: 600; }
 	.for.ship { font-weight: 600; color: var(--brand-green, #24452f); }
+	.not-live { font-weight: 600; color: #9c3b22; margin: 0.4rem 0; }
 	.for.ship.running::before { content: '● '; color: var(--mustard, #efb54d); }
 	.for.ship.red { color: #9c3b22; }
 	.for.ship.red::before { content: '✗ '; }
@@ -788,6 +809,9 @@
 	.item-review .tags { margin: 0 0 0.3rem; display: flex; gap: 0.35rem; align-items: center; }
 	.item-review .review-head h2 { font-size: 1.35rem; }
 	/* an intent's note and its spec, as Markdown */
+	.steps-back { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+	.steps-back li { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.4rem 0.6rem; border-left: 3px solid var(--muted, #999); background: var(--paper, #faf8f2); border-radius: 0 8px 8px 0; }
+	.steps-back .why { font-size: 0.88rem; overflow-wrap: anywhere; }
 	.md { font-size: 0.92rem; line-height: 1.5; overflow-wrap: anywhere; }
 	.md :global(:first-child) { margin-top: 0; }
 	.md :global(:last-child) { margin-bottom: 0; }
@@ -882,15 +906,6 @@
 	.story-diff { min-width: 0; }
 	.story-diff h3 { margin: 0 0 0.5rem; font-size: 1rem; }
 	@media (max-width: 1000px) { .story-review { grid-template-columns: minmax(0, 1fr); } }
-	/* a sandbox's change: each edit, before and after */
+	/* a document's review: what it changes, field by field (./Changes.svelte) */
 	.sandbox-review { flex: 1 1 auto; min-height: 0; overflow: auto; }
-	.sandbox-review h3 { margin: 0.4rem 0 0.5rem; font-size: 1rem; }
-	.changes { margin: 0; padding-left: 1.4rem; display: grid; gap: 0.55rem; font-size: 0.88rem; }
-	.changes .where { font-weight: 600; margin-right: 0.5rem; }
-	.changes .was { color: var(--muted, #777); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--terracotta, #c96f53) 70%, transparent); }
-	.changes .now { font-weight: 600; }
-	.vals { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0.4rem; margin-top: 0.25rem; }
-	.vals pre { margin: 0; padding: 0.45rem 0.6rem; border-radius: 8px; background: var(--paper, #f6f1e6); font-size: 0.76rem; white-space: pre-wrap; max-height: 14rem; overflow: auto; }
-	.vals pre.was { text-decoration: none; background: color-mix(in srgb, var(--terracotta, #c96f53) 14%, transparent); }
-	.vals pre.now { font-weight: 400; background: color-mix(in srgb, var(--sage, #8fae8b) 22%, transparent); }
 </style>

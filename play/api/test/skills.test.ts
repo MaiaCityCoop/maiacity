@@ -159,18 +159,19 @@ suite("skills: what play teaches its agents, kept once", () => {
   // ---- c3: changed only by proposal
 
   test("c3: drafted step by step, refused before its intent's checks pass, proposed, reviewed field by field, accepted as v2", async () => {
-    const one = await tool("doc_edit", { doc: SKILL.intents, message: "the build part names the gate", edits: [{ op: "text", path: ["stages", "build"], index: 0, insert: "Run bash play/avenbox/gate.sh before you push. " }] });
+    const i = await intentAt("The Intents skill names the gate", "build");
+    expect((await tool("doc_edit", { doc: SKILL.intents, message: "no intent", edits: [{ op: "set", path: ["note"], value: "x" }] })).error).toContain("intent");
+    const one = await tool("doc_edit", { doc: SKILL.intents, intent: i.id, message: "the build part names the gate", edits: [{ op: "text", path: ["stages", "build"], index: 0, insert: "Run bash play/avenbox/gate.sh before you push. " }] });
     expect(typeof one.variant).toBe("number");
     expect(one).toMatchObject({ changed: true, edits: 1, changes: 1 });
-    const bad = await tool("doc_edit", { doc: SKILL.intents, variant: one.variant, message: "a stage that is none", edits: [{ op: "set", path: ["stages", "done"], value: "x" }] });
+    const bad = await tool("doc_edit", { doc: SKILL.intents, intent: i.id, variant: one.variant, message: "a stage that is none", edits: [{ op: "set", path: ["stages", "done"], value: "x" }] });
     expect(bad.error).toBeTruthy();
-    const two = await tool("doc_edit", { doc: SKILL.intents, variant: one.variant, message: "the system part says skills", edits: [{ op: "text", path: ["system"], index: intents().system.length, insert: " Skills change by proposal too." }] });
+    const two = await tool("doc_edit", { doc: SKILL.intents, intent: i.id, variant: one.variant, message: "the system part says skills", edits: [{ op: "text", path: ["system"], index: intents().system.length, insert: " Skills change by proposal too." }] });
     expect(two).toMatchObject({ variant: one.variant, edits: 2, changes: 2 });
     const history = await tool("doc_history", { doc: SKILL.intents, variant: one.variant });
     expect(history.edits.map((s: any) => s.message)).toEqual(["the build part names the gate", "the system part says skills"]);
 
-    // for an intent, only once its must checks pass
-    const i = await intentAt("The Intents skill names the gate", "build");
+    // for its intent, only once its must checks pass
     expect((await tool("propose_doc_version", { doc: SKILL.intents, variant: one.variant, note: "the gate", intent: i.id })).error).toBeTruthy();
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] })).stage).toBe("proposal");
     const proposed = await tool("propose_doc_version", { doc: SKILL.intents, variant: one.variant, note: "the gate, and skills by proposal", intent: i.id });

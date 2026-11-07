@@ -50,6 +50,24 @@ invites      (code, coop_id, level /*citizen*/, made_by, expires_at, used_by, us
 sessions     -- as today's API (signed cookie)
 ```
 
+### 3.1 Migrations (Samuel 2026-11-07)
+
+Every migration is a file of its own, `play/api/migrations/<id>.sql`, its whole SQL as it ran; there is no list of
+them in code. `play/api/src/migrations.ts` lists the folder and runs every `<id>.sql` not yet in `play.migrations`, in
+name order, each once, in its own transaction under one advisory lock (play-api and the import migrate at once on a
+deploy), then `ensureSchemas` and `ensureLayouts` (§4.6); `until` stops after one (a test builds a database as it stood then). A migration is
+never edited after it has shipped, only followed by another.
+
+- **To add one**, write one new file and touch nothing else: `<UTC time YYYYMMDDHHMM>-<the intent's first 8
+  hex>-<slug>.sql` (lowercase), e.g. `202611071200-e9afc2d5-files.sql`, the time when it is written. It sorts after
+  every shipped one, and two intents can't pick the same name, so intents built in parallel never conflict over their
+  migrations (`play/api/test/migrations-merge.sh`).
+- **The shipped ones** `0001-ownership` … `0034-schemas` keep their numbered ids and their SQL byte for byte,
+  because `play.migrations` names them; their SHA-256 are frozen in `play/api/test/fixtures/migrations.sha256.json`
+  (`migrate.test.ts`, "shipped migrations unchanged"). `0036-step-backs` and `0037-intent-depends`, numbered in
+  the old array while this change was built, follow them; `0037` is the last numbered id: none comes after it.
+- The runner refuses to start, naming the file, on a malformed id or a duplicate (two files under one number).
+
 ## 4. Asset version control, from first principles
 
 ### 4.1 What is versioned
@@ -214,20 +232,35 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
 - **One loader** (play/site's `content/assets/catalog.js`): hash → its record from `/api/catalog` → its file from
   `/api/files/<hash>`, held to the hash → the frozen box engine builds it. Media (covers, sounds) are play's files too.
 
-### 4.6 A sandbox's layout (the `sandbox_change` work, Samuel 2026-11-04)
+### 4.6 A sandbox's layout, a document (Samuel 2026-11-04 and 2026-11-06)
 
-`sandbox_pins (sandbox_id, slot, version_id, variant, params)`: which version a sandbox draws; `sandbox_configs
-(sandbox_id, name, data)`: how it lays them out (Sandbox 1's `garden`: its plantings, spacing, drifts and fields; where a
-thing stands), anything in one with a `slot` drawn as that slot's pin. Both change **only by proposal**, never by a
-migration or by hand: an agent reads a sandbox over MCP (`list_sandboxes`, `get_sandbox`: each pin's asset, version, the
-asset's newest, its variant and values, and where a config names it) and proposes edits (`propose_sandbox_change`):
-`pin` (a slot to an accepted version, variant and values; a new slot too), `pin_latest` (every slot of an asset to its
-newest version), `unpin`, and `set`/`delete` of any value at a path of a config ("update Sandbox 1's papayas to v4",
-"move the hens", "weight the apples 5"). Each is checked as a whole: only accepted versions, variants they have, no
-readable refs, every slot a config names pinned. The intents' board shows each change before and after and opens the
-sandbox as it would be (`/sandbox-1/?layout=<sandbox's uuid>/<intent>`, its config read with `?intent=`, admins only); an
-admin accepts the intent there, which applies the edits to the sandbox as it is then, in one transaction (one that no
-longer holds is archived). Admins only for now (`play/api/src/sandboxes.ts`).
+A sandbox's layout is a document, **`sandbox:<uuid>`** (its UUID the sandbox's) of the schema `sandbox/1`
+(`schema:<SCHEMA.sandbox>`, seeded from `play/api/migrations/schemas/sandbox.json`; what it can't say is its hook
+`sandboxCheck`), versioned like every other ("Version control", `play/api/src/versioned.ts`): its `pins`
+(each slot an accepted asset version by its hash, its `variant`, null for the version's default, and its `params`) and
+its `configs` by name (Sandbox 1's `garden`: its plantings, spacing, drifts and fields; where a thing stands), anything in
+a config with a `slot` drawn as that slot's pin; its `title` only shown. It changes **only by proposal**, never by a
+migration or by hand: an agent reads it (`list_sandboxes`, `get_sandbox`: each pin's asset, version, the asset's newest,
+its variant and values, and where a config names it; `doc_at` and `doc_history`, each version and edit with its pins by
+their assets) and changes it by an intent variant, `doc_edit` and `propose_doc_version`, with the sandbox's own edit
+helpers: `pin` (a slot to an accepted version, variant and values; a new slot too), `pin_latest` (every slot of an asset
+to its newest version), `unpin`, and `set`/`delete` of any value at a path of a config ("update Sandbox 1's papayas to
+v4", "move the hens", "weight the apples 5"), or a document's own edits by path. Each edit is checked whole: only
+accepted versions, variants they have, no readable refs, every slot a config names pinned. The intents' board reviews it
+through `Changes.svelte`: each pin before and after by its asset's label and version, the configs field by field, its
+edits, and the sandbox to open as it would be (`/sandbox-1/?layout=<sandbox's uuid>/<intent>`, its config read with
+`?intent=`, admins only). An admin's Accept merges it into Main as the layout's next version (an overlapping change
+since its seed, or a pin play no longer keeps, archives it instead) and writes Main's pins and configs to
+`sandbox_pins (sandbox_id, slot, version_id, variant, params)` and `sandbox_configs (sandbox_id, name, data)`, in one
+transaction: the worlds read those (`/api/sandboxes/<uuid>/config`) as before. A sandbox's page has no Frame, so its
+layout's **History** is at `/sandboxes/<uuid>/` (admins): its pins and configs at any version or edit, and the world
+opened so (`?layout=<uuid>/v<n>` or `/e<seq>`, its config read with `?v=` or `?edit=`). Migration
+`202611070115-d2f50bf1-sandbox-layouts` with `ensureLayouts` (`play/api/src/sandboxes.ts`, run at the end of
+`migrate()` after `ensureSchemas`, since SQL can't write a Loro document; the changes kept meanwhile in
+`play.sandbox_changes_kept`) made every layout its v1 (its pins and configs as they were) and every intent's sandbox change
+(`sandbox_id`, `sandbox_base`, `sandbox_change`, `sandbox_diff`, now gone) an intent variant of it, each intent keeping
+its stage, an accepted or archived one keeping what it changed as its variant's `review`. The import writes a
+sandbox's pins and garden only while it has no layout document. Admins only for now (`play/api/src/sandboxes.ts`).
 
 ### 4.7 Every reference a UUID or a hash (Samuel 2026-11-04)
 
@@ -441,10 +474,9 @@ intents (id UUID, coop_id, kind /*idea|fix|improve: shown as Make, Fix, Improve*
          approved_by, approved_at /*the spec approved: Build and on need it, unless it came with its work*/,
          results jsonb /*each check's last result in Build: { "c1": { pass, evidence, by, at, where: avenBOX|main, commit } }*/, decided_by, decided_at,
          -- its work (0029-one-record): none, or one kind of work and the refs of that kind (intents_work_names_what)
-         work /*asset_version|story_version|sandbox_change|factory_version|game_config_version*/,
+         work /*<kind>_version of a versioned kind: asset, story, factory, game_config, skill, sandbox*/,
          asset_id, base → asset_versions, version → asset_versions,            -- an asset's version
          story_id, story_base → story_versions, story_version → story_versions, -- a story's version
-         sandbox_id, sandbox_base /*BLAKE3 of the layout it was made on*/, sandbox_change jsonb, sandbox_diff jsonb,
          factory_id, game_config_id,                                          -- a factory's, a config's version
          doc_branch → doc_branches /*its branch of the document it changes*/,
          work_note, proposed_by → humans, proposed_via /*web|mcp*/, proposed_at,
@@ -452,13 +484,22 @@ intents (id UUID, coop_id, kind /*idea|fix|improve: shown as Make, Fix, Improve*
          -- its code (0030-ship): its pull request into main, and its way to production once an Accept merged it
          pull_request /*its number*/, ship jsonb /*{ pr, head, merge, by, round, started, steps: [{ key, name, state:
            queued|running|green|red|skipped, started, finished, link, note }], report: { step, why, link, log, at },
-           outcome: green|red, ended, again: main|release, main_run, release_run, deploy_run, past }*/)
+           outcome: green|red, ended, again: main|release, main_run, release_run, deploy_run, past,
+           live, commit, note /*the reconcile's: its merge in what play runs, that commit, how it was Accepted*/ }*/)
 doc_variants.intent_id → intents        -- the intent an intent variant was proposed as (kept when newer work replaces it)
 ```
 
 - **Agents, over MCP only** (`play/api/src/intents.ts`): nothing is typed in by hand. An admin's agent adds an intent
   (`add_intent`, at Idea) and specifies it (`specify_intent`: its goal, scope and checks; to Specify, its spec replaced
-  if specified again, only at Idea or Specify), then stops: **an admin approves the spec** (Specify → Build). In
+  if specified again, only at Idea or Specify), then stops: **an admin approves the spec** (Specify → Build). An agent
+  that finds a spec wrong sends the intent **one stage back** itself, always with its reason (`step_back_intent`,
+  `play/api/src/stepback.ts`; intent 5a78e0b7, Samuel 2026-11-07: "never a manual button, to self-serve"): from Build,
+  or Proposal with no work of play's waiting, to Specify (its spec kept, its approval and results cleared), or from
+  Specify to Idea (its spec dropped, its whole text kept in the history); refused at Idea, at Proposal while work of
+  play's waits, in Ship, Accepted and Archived. Each step back is kept on the intent (`steps`, migration
+  `0036-step-backs`: when, who, from which stage to which, the reason, the spec it dropped) and shown on the board
+  under its note. Only an admin's Approve spec moves it forward again: until then no check is recorded, nothing is
+  proposed for it. In
   Build the agent builds it, runs each check as its spec says and records every result with its evidence
   (`check_intent`: a failure as a failure), until every must check passes: then the intent moves to **Proposal by
   itself**. Checked again at Proposal (only while no work of it waits there), a must that fails takes it back to
@@ -541,7 +582,7 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     **record** (main's `intent.ts <uuid> --record-from <results> --pr <n> --head <sha>`, with avenBOX's token, refusing
     results of another intent or another commit; a red run's pull request turned back into a draft). The workflow and
     the intent.ts that hold a token are always main's. **avenBOX's token** is an admin's access token marked so on
-    play's profile page (`play.api_tokens.avenbox`, migration 0035; `POST /api/tokens/<id>/avenbox`), the repository
+    play's profile page (`play.api_tokens.avenbox`, migration `202611070145-4ea6b2ed-avenbox-token`; `POST /api/tokens/<id>/avenbox`), the repository
     secret `PLAY_MCP_TOKEN` that intents-pr.yml, intent-named.yml and intents.yml hold. From any other token
     `check_intent` refuses a pull request named and every test or measure result that could decide a code intent (on a
     commit, on main, or once its pull request is named), saying the pull request's run records them; a result recorded
@@ -573,8 +614,9 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     happens within Accept's own request. While it waits, a required check turning red, the head moving, a conflict,
     the pull request closed, GitHub refusing the merge (the status posted back as failed) or **30 minutes** first in
     line without GitHub or its checks ready takes it back to Proposal with the report, nothing merged; waiting its
-    turn has no limit. An intent of code with no pull request named (a decision, or code merged before ships) is
-    accepted on its checks, straight to Accepted, as play's own work is.
+    turn has no limit. An intent with no pull request named is accepted on its checks, straight to Accepted, as
+    play's own work is, unless its code is on main by its trailer: then the reconcile accepts it once play runs it
+    (below).
   - **The ship watcher** (in play-api, every 10 s, `startShipWatcher`; its state is the intent's `ship` in Postgres, so
     it goes on after a restart) reads GitHub's Actions for the merge commit: **main's checks** (main.yml's run for the
     push), the **release** (release.yml's run named `release <sha>`), and the **deploy** (production.yml's run on the
@@ -582,13 +624,37 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     website* beside them). Each step is kept on the intent as it changes: queued, running, green, red (skipped
     where a job did not run), when it started and finished, its link. A step whose run has not begun 15 minutes after
     the one before it is red.
-  - **All green: Accepted**, its steps and links kept. **Any red: back to Proposal** with the **ship report**: the
+  - **All green: ended in Ship**, its steps and links kept, until the reconcile finds it live (below; it holds no
+    ship behind it up). **Any red: back to Proposal** with the **ship report**: the
     failing step, why, its link and the last 60 lines of the failed job's log (fetched from where GitHub points,
     without the token). From there an agent fixes it (a new pull request of the intent, named with `pr`, its checks
     recorded on its head) and Accept ships that one; or, its pull request merged already by a ship of it, **Ship
     again** runs main's failed jobs again (a red on main) or the release of the commit last merged (a red release or
     deploy), waiting its turn like any ship (*Ready to run main's checks again*, *Ready to release again*), and it is
     in Ship again (`round` 2, 3 …), the earlier round's runs never this one's.
+  - **Accepted exactly when it is live: the reconcile** (Samuel 2026-11-07: *"ensure that our intents' state is always
+    coupled correctly to its shipped state"*; intent `9876ef00-70dd-4b64-8bad-c43e7a33993b`; `play/api/src/ship.ts`
+    `reconcile`). play knows the commit it runs: production.yml builds the image with it (`--build-arg
+    PLAY_COMMIT=$GITHUB_SHA`), and **`GET /api/version`** answers `{ commit }` to anyone (`/api/health` stays `{ ok:
+    true }`). The reconcile is **the one place a code intent becomes Accepted**: a code intent is one with no work of
+    play's that names a pull request, or whose trailer `Intent: <its UUID>` is on a commit of main; its merge commit is
+    its ship's, else GitHub's for its pull request (merged by hand), else its commits on main. Against the running
+    commit (main's and its history read with `SHIP_TOKEN`):
+    - its merge commit is in it (an ancestor, or itself) and it is at Build, Proposal, Archived, or ended in Ship →
+      **Accepted**, its `ship` saying how (`live: true`, the `commit`, the `note` "Live at …: Accepted by the
+      reconcile"); a ship still waiting or running is the watcher's;
+    - it is Accepted (or ended green in Ship) and its merge commit is not in it (rolled back, closed unmerged, never
+      deployed) → **flagged**, `ship.live: false` with the running commit, its stage left alone: no one's decision is
+      undone by a machine. The board says *not live: production runs \<commit\>* on its card and in its dialog. Once
+      play runs it again, the flag clears.
+
+    It runs once as play starts (a deploy, a rollback by `restore.yml`, a deploy by hand: each starts play anew) and
+    whenever a ship ends in the watcher's look. An admin's Accept on an intent with no pull request named whose code
+    is on main by its trailer is the reconcile's too (`acceptCode`): Accepted at once if play runs it, else refused,
+    saying it is Accepted by itself once production runs it; an intent with no code and no work of play's is accepted
+    as before (`decideIntent`), and play's own work straight to Accepted, its version applied in the same transaction.
+    **`bun play/avenbox/live-audit.ts`** checks the same from outside: the commit from `/api/version`, every intent over
+    MCP, main's history from git; it prints every mismatch and exits 0 only with none.
   - **production follows main** (`.github/workflows/release.yml`): once main.yml is green for a push to main, or by
     `workflow_dispatch` with a sha (Ship again, or by hand), it moves `production` to that commit, fast-forward only,
     with `GITHUB_TOKEN`, and starts `production.yml` on it (`workflow_dispatch`; a push by `GITHUB_TOKEN` starts no
@@ -606,10 +672,34 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   - What it does not stop: someone acting as Samuel on GitHub on purpose (agents act as him there). It stops every
     change landing without his Accept by mistake. `SHIP_TOKEN` never leaves play's server: no route answers with it,
     no page holds it, no log names it; play only calls GitHub's API, no proposed code runs on its server.
+- **Intents depend on intents** (Samuel 2026-11-06: *"this intent can only be started or continued if that other
+  intent is shipped … fully generically"*; intent `420ee348-132f-4b04-a67d-082ae8b72efc`). An intent may name the
+  intents it **depends on**, each by its UUID, of any kind and any work: one relation, `play.intent_depends (intent_id,
+  depends_on, by, at)` (migration `0037-intent-depends`). No edge to itself and no cycle: an edge that would close one
+  (the chain from the one depended on walked back) is refused, so chains and diamonds of any depth hold. While any
+  intent it depends on is not **shipped** (at the stage Accepted: in Ship is not yet, and an archived one holds until
+  the edge is dropped or it is reopened and shipped) it is **held**: `heldBy` (`play/api/src/intents.ts`) gives those,
+  read live, never stored, direct ones only (each is held by its own).
+  - **One forward gate**, `mayMove(intent, to)` (`play/api/src/intents.ts`), decides every forward move: approve
+    (Specify → Build), Build → Proposal on its checks (held, it stays in Build, its results kept, and
+    check_intent's answer says why in `refused`), work proposed for it (`intentReady`, `play/api/src/work.ts`
+    `putAtProposal`), accept, its work accepted (`play/api/src/versioned.ts` `decide`), Accept and ship and Ship's turn
+    (`play/api/src/ship.ts` `acceptAndShip`, `startIfReady`). Each move's stage rules, its must checks and *held* are
+    rules inside it; no path tests the stage on its own, and every refusal names the intents it waits for (UUID, title,
+    stage). Going back (`step_back_intent`, reject, reopen, `archive_intent`) and specifying are never held, so a whole chain is
+    specified up front.
+  - **Ship's queue**: Accept refuses an intent whose dependency is not in Ship; one whose dependency is ahead of it in
+    Ship waits (its first step says it waits for that one to ship) and merges only once that one is Accepted; that one
+    going back to Proposal takes it back too, its report naming it.
+  - **MCP**: `add_intent` and `specify_intent` take `depends_on` (UUIDs; specify's replaces those before),
+    `depend_intent { intent, on, drop? }` adds or drops one edge (an admin's agent's only, as every tool); `list_intents`
+    and `get_intent` give `depends_on` (each with its stage), `held_by` and `needed_by`. On the board, each card shows
+    what it waits for and what waits on it (titles only shown, each opening that intent by its UUID), a held card
+    striped and marked *Held*; the intent's dialog lists them with their stages.
 - **Work proposed without an intent is a new intent of its own**, at Proposal: titled by what it proposes (an asset's
   or a story's label and the version it would be, a sandbox's changes, a factory's or a config's label), its note and
   author the work's, with no spec; a new asset or story is its kind *idea* (Make), anything else *improve*.
-- **Deciding settles the intent** (`POST /api/intents/:id/{accept,archive}`, `play/api/src/proposals.ts` `decideAny`),
+- **Deciding settles the intent** (`POST /api/intents/:id/{accept,archive}`, `play/api/src/versioned.ts` `decideAny`),
   in one transaction. At Proposal with work of play's, **accepting applies it** as its kind says (§4.3 an asset's head,
   §12 a story's head, §4.6 a sandbox's pins and configs, §4.8 a factory's, §4.9 a config's next version) and the intent
   is Accepted; made on a base that has moved, the kind's own rule decides: merged where the two changes touch different
@@ -638,8 +728,8 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   it (at Idea: specify it and stop; in Build: build it and record every check, so that it moves to Proposal by
   itself, and propose its work with `intent` if it is play's, or open its pull request, name it and stop if it is
   code). The brief is play's, never the board's: the Intents skill's text for the intent's stage (§4.14), the same
-  `brief` `get_intent` gives an agent. An admin **approves the spec** (Specify → Build), sends it **back to Specify** (from Build or
-  Proposal: its approval and results cleared), **accepts** it only at Proposal (what it asked is in; nothing is
+  `brief` `get_intent` gives an agent. An admin **approves the spec** (Specify → Build; no admin sends it back: its agent does, over
+  MCP, `step_back_intent`), **accepts** it only at Proposal (what it asked is in; nothing is
   accepted from Build; an intent of code **Accept and ship**, or **Ship again** after a red ship, a refused one
   saying why), nothing in Ship (its card says its current step, its dialog the steps ticking with their links, the
   board read again every 3 s while any intent ships; a red ship's report at the top of its dialog back at Proposal), **rejects** it (from Idea, Specify, Build or Proposal; it ends archived) or
@@ -648,12 +738,12 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   sent back or checked again. Migration `0028-intents-ready-propose` moved the intents already in Build with every
   must check passed to Proposal. `GET /api/intents` (`?stage=idea,specify`, `?work=story_version`), `GET
   /api/intents/:id` (with `review`), `POST /api/intents` (an asset's version proposed on the web: an intent at
-  Proposal), `POST /api/intents/:id/{approve,respecify,accept,archive,reject,reopen}`.
+  Proposal), `POST /api/intents/:id/{approve,accept,archive,reject,reopen}`.
 - The review of an intent's work shows the intent's checks as a strip of marks; an intent is named by its UUID only.
 - **The decision sits at the foot** of what is open (a work's review, an intent), in the middle, where a thumb
   reaches it on a pad: **Reject** on the left, reddish (an intent rejected ends archived: its work ends accepted or
   archived), **Accept** (an intent's **Approve spec** in Specify) on the right, the rest between (Source,
-  Back to Specify, Reopen); no Close there: the nav pill's Back (or Escape) closes what is open, and the star the
+  Reopen); no Close there: the nav pill's Back (or Escape) closes what is open, and the star the
   board (Samuel 2026-11-06). An asset's work's
   build keeps a height of its own (at least about half the screen) and its steps scroll below it.
 - **The board is a modal** (Samuel 2026-11-05), not a page or a tile among the apps: the nav pill's **star** (the AI's
@@ -692,21 +782,28 @@ Admins only for now, every row the Maia City coop's (`play/api/src/artifacts.ts`
 - **One link, one artifact.** A link is kept normalised: http(s) only, its scheme and host lower-cased, its `#fragment`,
   `utm_*`, `fbclid` and `gclid` dropped, a trailing slash dropped, a YouTube video one link however it is written
   (`youtu.be/<id>`, `/shorts/`, `/embed/`, `m.youtube.com` → `https://www.youtube.com/watch?v=<id>`); unique in the coop.
-  Adding a link already kept answers with that artifact (`kept: true`); `update_artifact` corrects one. An artifact is still
-  named by its UUID: its link is only data.
+  Adding a link already kept answers with that artifact (`kept: true`), one an intent's work waits with answers with
+  that intent; `update_artifact` corrects one. An artifact is still named by its UUID: its link is only data.
 - **The page as it was**: `add_artifact` may take the page's readable text as fetched, kept among play's files by its hash
   (`text/plain`, not shown in the Library), since links rot and pages change.
-- **Not a proposal**, and nothing typed in by hand: an artifact is kept directly over MCP, like a Library label.
-  Citing (stories, asset versions and intents naming the artifacts they rest on) comes later.
+- **A document like any other** (intent 847c5d38, Samuel 2026-11-06: "an artifact will go the same way as any other
+  intent, just that we can promote it directly to proposal"; §4.15): every artifact is `artifact:<uuid>`, each kept
+  before its v1. `add_artifact` proposes its first version and `update_artifact` its next, as every propose tool does:
+  named with `intent`, the work of that intent, held to its gate; without, a new intent of its own at Proposal with no
+  spec. Each is decided by the one Accept, one intent at a time, as any other; until then nothing of it is kept (the
+  Artifacts page and `list_artifacts` show an artifact once accepted, marking a change of it that waits). Its row is
+  what its accepted version says, written only by that Accept; it has the History tab every document has. Nothing is
+  typed in by hand. Citing (stories, asset versions and intents naming the artifacts they rest on) comes later.
 
 ```sql
 agents         (id UUID, coop_id, name /*only shown*/, created)            -- avenMAIA, seeded by 0027-artifacts
 artifacts        (id UUID, coop_id, url /*normalised, unique per coop*/, title /*≤ 70*/, description /*≤ 280*/,
                 summary /*Markdown, 500–1,500 words*/, kind /*page|article|paper|video|post|book|podcast|code|other*/,
                 tags text[], published date, text_hash → files, agent_id → agents, origin /*human|agent*/,
-                operator_id → humans, token_id → api_tokens, created, updated_by → humans, updated_at)
+                operator_id → humans, token_id → api_tokens, author_ids uuid[] /*in order*/, created, updated_by, updated_at)
+                -- what its accepted version says (202611070117-847c5d38-intent-variants): a row not yet accepted holds only its id
 authors        (id UUID, coop_id, name /*only shown*/, kind /*person|organization*/, url, note, agent_id, operator_id, created)
-artifact_authors (artifact_id → artifacts, author_id → authors, position)    -- n:m, in order
+artifact_authors (artifact_id, author_id, position)    -- a view of artifacts.author_ids: n:m, in order
 ```
 
 Over MCP: `add_artifact`, `update_artifact`, `list_artifacts` (`q` in a title, description, summary, link or an author's name;
@@ -751,9 +848,9 @@ intents (…, work 'skill_version', skill_id → skills, doc_branch)            
 
 ### 4.15 Version control (Samuel 2026-11-06)
 
-**One version control for everything play versions**: assets, stories, factories, the game's configs, skills and the
-schemas themselves (and, each by its own intent, breeds and sandbox layouts next), in one vocabulary, by one registry
-and one module, shown by one History.
+**One version control for everything play versions**: assets, stories, factories, the game's configs, skills,
+sandboxes' layouts (§4.6) and the schemas themselves (and, by its own intent, breeds next), in one vocabulary, by one
+registry and one module, shown by one History.
 
 | Word | Meaning | Was |
 |---|---|---|
@@ -767,7 +864,8 @@ and one module, shown by one History.
 - **One registry, one module** (`play/api/src/versioned.ts`). Each versioned kind is one entry: its document prefix and
   its schema (a document, by its UUID: below), its row table, its label and group (only shown), and hooks only where it really differs (an
   asset's `replace` edit and its recipe built on propose; a story's timeline edits and its frozen `story_versions` row;
-  an asset's and a story's own decide; the fields its row keeps of an accepted version; its list item's extra fields).
+  an asset's and a story's own decide; a sandbox's layout's edit helpers and its rows written on accept; the fields its
+  row keeps of an accepted version; its list item's extra fields; what a read or a change shows beside its fields).
   The module does the rest for every entry: list, read (at a version, an edit, an intent's variant), history (edits,
   versions, variants), edit, propose, review (what changed field by field against the seed, its edits, whether Main
   moved) and decide (merge; an overlapping-field clash or an invalid whole archived; archive). A kind registered there
@@ -777,15 +875,28 @@ and one module, shown by one History.
 - **The store** (migration `0032-versioned`): `doc_variants` (each document's Main, type `main`, and its intent
   variants, type `intent`, each with its `seed`, the frontiers it grew from, and its intent), `doc_edits` (every edit,
   append only, on its variant), `doc_versions`, `doc_peers`. An intent's work names its document and variant
-  (`doc_id`, `doc_variant`); an asset's frozen `version`/`base` and a story's `story_version`/`story_base` stay, and a
-  sandbox's change until its own intent.
+  (`doc_id`, `doc_variant`); an asset's frozen `version`/`base` and a story's `story_version`/`story_base` stay (a
+  sandbox's change became its layout's intent variant in `202611070115-d2f50bf1-sandbox-layouts`, §4.6). Since `202611070117-847c5d38-intent-variants` the documents an intent changes are rows of
+  **`play.intent_variants`** (intent, document, variant, seed, position: the first its work's own), in place of the
+  intent's one `doc_id` and `doc_variant`.
+- **Every change an intent variant** (intent 847c5d38, Samuel 2026-11-06): no MCP tool, HTTP route or token writes a
+  document's Main but an admin's Accept of the intent holding the change, at Proposal (and a document's v1 by the
+  import, or made from its kind's own history the first time it is read). `doc_edit` names its intent (`intent`, one in
+  Build or waiting at Proposal) and is refused without one; a variant made for an intent is proposed for that
+  intent only. `play/api/test/nobypass.test.ts` calls every tool tools/list holds that is not a read, and every write
+  route of `app.ts`, and finds every Main unchanged until the intent is accepted.
+- **Several documents, one intent**: a document's version proposed naming an intent goes in beside the documents it
+  holds (its variant of that same document replaced); an asset's, a story's or a sandbox layout's version (a kind that decides its own way) is the
+  intent's whole work. The board reviews each document; Accept merges them all in one transaction, or none where one
+  clashes (a field Main changed too) or is no longer valid merged: the intent is archived whole, as Archive closes
+  them all. There is no batch accept: an Accept decides one intent.
 - **MCP and HTTP, by a document's UUID**: `list_docs` (by kind), `doc_at` (a version, an edit or an intent's variant),
-  `doc_history` (with `variant`), `doc_edit` (one edit of an intent variant, a new one seeded from Main's newest version
-  if none is named) and `propose_doc_version` (`intent`, a `variant`, edits or the whole). `GET /api/docs`,
+  `doc_history` (with `variant`), `doc_edit` (one edit of an intent variant, for its `intent`: the intent's open
+  variant of the document, or a new one seeded from Main's newest version, if none is named) and `propose_doc_version` (`intent`, a `variant`, edits or the whole). `GET /api/docs`,
   `/api/docs/<uuid>` (`?v=`, `?edit=`, `?intent=`), `/api/docs/<uuid>/history` (`?variant=`) and
   `/api/docs/<uuid>/changes` (`?edit=` or `?variant=`, against what it grew from). Each kind's own reads and creates
   stay where they hold more than the document: `get_asset` (its recipe files; `edit`, `intent`), `get_story` (its
-  links; `edit`, `intent`), `propose_asset`, `propose_story`, and `propose_sandbox_change`.
+  links; `edit`, `intent`), `propose_asset`, `propose_story`, and `get_sandbox` (a layout's pins by their assets).
 - **Schemas as documents** (migration `0034-schemas`, `play/api/src/docs/schemas.ts`; Samuel 2026-11-06). Every schema
   is itself a versioned document, `schema:<uuid>`, of the **meta-schema** (`schema:<SCHEMA.meta>`), which describes
   every schema, itself included: its `label` (only shown), `type` (its documents' id prefix), `name` (its old name,
@@ -807,7 +918,8 @@ and one module, shown by one History.
   History in the right aside. No bypass: every change waits at Proposal for a person's Accept.
 - **One History** (`play/site`'s `lib/app/History.svelte`), always on the right, in Frame's aside, in its own **History
   tab**, in every view of a versioned thing: the asset viewer (every group, beside Parts), Worlds, Stories (the top of
-  its player's rail), Factories (beside the bill of process), the Game editor and Skills (`/skills/`). At its top the
+  its player's rail), Factories (beside the bill of process), the Game editor, Skills (`/skills/`) and a sandbox's layout
+  (`/sandboxes/<uuid>/`). At its top the
   scrubber over every edit of Main, versions marked, MCP and merge edits marked; ▶ Play its making, Back to vN and the
   arrow keys; under it Main's versions with their edits folded beneath, and the open intent variants with their
   intents. Picking an edit or an intent variant shows what it changes (`lib/app/Changes.svelte`: the field diff, texts
@@ -873,9 +985,10 @@ still only adds what is missing and changes nothing that is there.
 - Sandboxes (traveler+): `GET /api/sandboxes/:id/pins`.
 - Intents, the one record (§4.12): `POST /api/intents` (citizen+: a new asset version, card + recipe file upload: an
   intent put at Proposal with it, the one named by `intent` held to its gate, else a new one), `GET /api/intents`
-  (admin; `?stage=…&work=…`), `GET /api/intents/:id` (admin; with its work's `review`), `POST /api/intents/:id/{approve,respecify,accept,archive,reject,reopen}` (admin; whoever proposed work
+  (admin; `?stage=…&work=…`), `GET /api/intents/:id` (admin; with its work's `review`), `POST /api/intents/:id/{approve,accept,archive,reject,reopen}` (admin; whoever proposed work
   archives their own). Intents are added, specified and checked over MCP only; over MCP an agent archives only its own
-  intents at Proposal put there over MCP (`archive_intent`, Samuel 2026-11-04); no tool accepts.
+  intents at Proposal put there over MCP (`archive_intent`, Samuel 2026-11-04) and sends one a stage back with its reason
+  (`step_back_intent`); no tool accepts.
 - Artifacts (admin): `GET /api/artifacts` (`?q=&author=&tag=&kind=&origin=human|agent&offset=&limit=`, with the count and
   the counts by origin, kind and tag), `GET /api/artifacts/:id`, `GET /api/authors` (`?q=`), `GET /api/authors/:id` (with
   their artifacts); artifacts are kept over MCP only, by avenMAIA (§4.13).

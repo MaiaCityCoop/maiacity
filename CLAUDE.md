@@ -55,7 +55,7 @@ play's intents' board puts the intent in **Ship** at once: there it waits its tu
 accepted) and for GitHub (the pull request's checks green, its mergeability worked out), its reason shown live, and
 play then merges the pull request itself (it posts the commit status **`Intent accepted`** on its head first; main's
 ruleset requires it, with `play / API and site` and `website / build`); Ship shows live main's checks, the release and
-the deploy (backup, image, server, website); all green, it is Accepted; a red step brings it back to Proposal with the report: fix it in a new pull request of the intent (its
+the deploy (backup, image, server, website); it is Accepted exactly when play runs its merge commit (the reconcile, `play/api/src/ship.ts`, against the commit `GET /api/version` names; an Accepted one not live is flagged); a red step brings it back to Proposal with the report: fix it in a new pull request of the intent (its
 run records its checks on its head as it is marked ready), and Accept ships it again. After the merge,
 `.github/workflows/intents.yml` runs the intent's checks again on main in the same box and records them as main's, a
 confirmation. Say what you opened and that it waits for Accept; report a failing check instead of going past it.
@@ -117,9 +117,11 @@ range, a card field, each edit with its message), reads it with `doc_history` an
 proposes it with `propose_doc_version`, its edits shown on the intents' board; admins play an asset's making in its
 History tab. A
 **sandbox's layout** (which asset version and variant each slot draws, and any field of its configs: Sandbox 1's garden,
-where a thing stands) changes only by proposal too: `get_sandbox` reads it, `propose_sandbox_change` proposes edits
-(`pin`, `pin_latest`, `unpin`, `set`, `delete`; play/SPEC.md §4.6), shown on the intents' board before and after and
-openable in the sandbox as it would be; never by a migration. A
+where a thing stands) is a document too, `sandbox:<uuid>` (play/SPEC.md §4.6): `get_sandbox` reads it, `doc_edit`
+drafts a change in an intent variant with its helpers (`pin`, `pin_latest`, `unpin`, `set`, `delete`) and
+`propose_doc_version` proposes it, shown on the intents' board pin by pin before and after and openable in the sandbox
+as it would be; accepted, its pins and configs are written for the worlds; its History is at `/sandboxes/<uuid>/`;
+never by a migration. A
 **factory** (a production line on the Factories page: its line and its bill of process) is a Loro document too
 (play/SPEC.md §4.8), changed edit by edit with the doc tools (a station's machines, buffer or breakdowns, a part's
 operation and its seconds, the demand), shown on the intents' board field by field and openable as the factory would
@@ -134,8 +136,10 @@ recipe and a chip in the asset viewer. Everything Maia City wants made, fixed or
 §4.12; Samuel 2026-11-06), on the intents' board (a modal from the nav pill's star): **Idea → Specify → Build →
 Proposal → (Ship →) Accepted** (or Archived). **One record** (Samuel 2026-11-06: "not a proposal belongs to an intent: the intent
 has a state, proposal"): there is no proposal beside an intent; Proposal is the intent's stage, and the work it brings
-(a document's version, named by its `doc_id` and `doc_variant`, or a sandbox's change) is on the intent itself
-(`play/api/src/work.ts`). An agent adds one (`add_intent`, over MCP only: nothing is
+(its documents' versions, each an intent variant, a row of `play.intent_variants`, or a sandbox's change) is on the
+intent itself (`play/api/src/work.ts`). **No edit without an intent** (intent 847c5d38): `doc_edit` names its `intent`,
+nothing reaches a document's Main but an admin's Accept of the intent at Proposal, and one intent may change several
+documents, each proposed naming it, accepted together in one transaction or archived together. An agent adds one (`add_intent`, over MCP only: nothing is
 typed in by hand), reads them (`list_intents`, `get_intent`) and does what the intent's **brief** says for the stage it
 is at (`get_intent`'s `brief`): the **Intents skill**'s text for that stage. What play teaches its agents (avenMAIA's
 system prompt, the intents' lifecycle, each stage's instructions) is kept once, as **skills** in play's Postgres
@@ -154,7 +158,10 @@ most 70 characters), a description (1–2 sentences, at most 280 characters) and
 500–1,500 words: `## What it is`, `## Key points`, `## The topic`), and its authors, each a row of its own named by its
 UUID (`list_authors` first). Every link its operator pastes it adds with `add_artifact`'s `origin: 'human'` (shown "Added
 by" the operator), every artifact it finds and uses in its own research with `origin: 'agent'` (shown "Sourced by
-avenMAIA"); `list_artifacts`, `get_artifact`, `update_artifact`, `get_author` read and correct them. The same token also opens play's **read-only world routes** (`GET /api/me`, `/api/catalog`,
+avenMAIA"); `list_artifacts`, `get_artifact`, `update_artifact`, `get_author` read and correct them. An artifact is a
+document like any other (`artifact:<uuid>`): `add_artifact` and `update_artifact` propose its next version as an
+intent's work (named with `intent`, held to its gate, or a new intent of its own at Proposal), decided by the same
+Accept, one intent at a time; it is kept once accepted, its History in its History tab. The same token also opens play's **read-only world routes** (`GET /api/me`, `/api/catalog`,
 `/api/files/<hash>`, `/api/sandboxes/<id>/config`, `/api/assets…`) as its admin, so an agent can load a sandbox in its own
 browser (sending the header to play only) and film it for a storyboard; nothing else, and nothing that writes. Admins
 only for now: a token opens nothing once its owner is no admin.
