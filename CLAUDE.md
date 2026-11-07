@@ -110,8 +110,10 @@ recipe and a chip in the asset viewer. Everything Maia City wants made, fixed or
 §4.12; Samuel 2026-11-06), on the intents' board (a modal from the nav pill's star): **Idea → Specify → Prototype →
 Proposal → (Ship →) Accepted** (or Archived). **One record** (Samuel 2026-11-06: "not a proposal belongs to an intent: the intent
 has a state, proposal"): there is no proposal beside an intent; Proposal is the intent's stage, and the work it brings
-(a document's version, named by its `doc_id` and `doc_variant`, or a sandbox's change) is on the intent itself
-(`play/api/src/work.ts`). An agent adds one (`add_intent`, over MCP only: nothing is
+(its documents' versions, each an intent variant, a row of `play.intent_variants`, or a sandbox's change) is on the
+intent itself (`play/api/src/work.ts`). **No edit without an intent** (intent 847c5d38): `doc_edit` names its `intent`,
+nothing reaches a document's Main but an admin's Accept of the intent at Proposal, and one intent may change several
+documents, each proposed naming it, accepted together in one transaction or archived together. An agent adds one (`add_intent`, over MCP only: nothing is
 typed in by hand), reads them (`list_intents`, `get_intent`) and does what the intent's **brief** says for the stage it
 is at (`get_intent`'s `brief`): the **Intents skill**'s text for that stage. What play teaches its agents (avenMAIA's
 system prompt, the intents' lifecycle, each stage's instructions) is kept once, as **skills** in play's Postgres
@@ -130,7 +132,10 @@ most 70 characters), a description (1–2 sentences, at most 280 characters) and
 500–1,500 words: `## What it is`, `## Key points`, `## The topic`), and its authors, each a row of its own named by its
 UUID (`list_authors` first). Every link its operator pastes it adds with `add_artifact`'s `origin: 'human'` (shown "Added
 by" the operator), every artifact it finds and uses in its own research with `origin: 'agent'` (shown "Sourced by
-avenMAIA"); `list_artifacts`, `get_artifact`, `update_artifact`, `get_author` read and correct them. The same token also opens play's **read-only world routes** (`GET /api/me`, `/api/catalog`,
+avenMAIA"); `list_artifacts`, `get_artifact`, `update_artifact`, `get_author` read and correct them. An artifact is a
+document like any other (`artifact:<uuid>`): `add_artifact` and `update_artifact` propose its next version as an
+intent's work (named with `intent`, held to its gate, or a new intent of its own at Proposal), decided by the same
+Accept, one intent at a time; it is kept once accepted, its History in its History tab. The same token also opens play's **read-only world routes** (`GET /api/me`, `/api/catalog`,
 `/api/files/<hash>`, `/api/sandboxes/<id>/config`, `/api/assets…`) as its admin, so an agent can load a sandbox in its own
 browser (sending the header to play only) and film it for a storyboard; nothing else, and nothing that writes. Admins
 only for now: a token opens nothing once its owner is no admin.

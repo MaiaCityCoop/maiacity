@@ -116,9 +116,9 @@ suite("assets as documents", () => {
     const rr = await put(RECIPE_HEAD + src("a rejected fern") + recipeTail("fern", 5, null));
     await db.query(`INSERT INTO play.asset_versions (id, asset_id, parents, recipe_hash, source_hash, card, engine, author, note) VALUES ($1, $2, $3, $4, $5, '{"card":{}}', 5, $6, 'not this')`, [rejected, ids.fern, [written.fern[4].id], rr, rs, who.cit.id]);
     await db.query(
-      `INSERT INTO play.intents (id, coop_id, kind, title, stage, author, via, work, doc_id, asset_id, base, version, work_note, proposed_by, proposed_via, proposed_at)
-       VALUES ($1, $2, 'improve', 'Fern v5', 'archived', $6, 'web', 'asset_version', $7, $3, $4, $5, 'not this', $6, 'web', now())`,
-      [crypto.randomUUID(), COOP, ids.fern, written.fern[4].id, rejected, who.cit.id, `asset:${ids.fern}`],
+      `INSERT INTO play.intents (id, coop_id, kind, title, stage, author, via, work, asset_id, base, version, work_note, proposed_by, proposed_via, proposed_at)
+       VALUES ($1, $2, 'improve', 'Fern v5', 'archived', $6, 'web', 'asset_version', $3, $4, $5, 'not this', $6, 'web', now())`,
+      [crypto.randomUUID(), COOP, ids.fern, written.fern[4].id, rejected, who.cit.id],
     );
 
     const before = { catalog: await catalogOf(db), pins: await pinsOf(db, "ec08b07d-6ec0-8f65-92b2-3efe7d91df5d"), versions: (await db.query(`SELECT id, number, recipe_hash, source_hash FROM play.asset_versions ORDER BY id`)).rows };
@@ -139,7 +139,7 @@ suite("assets as documents", () => {
     expect(lamp1.variants.map((x: any) => [x.name, x.source ?? null])).toEqual([["off", null], ["on", src("lamp, lit")]]);
     expect((await docs.stateAt(db, assetDocId(ids.lamp), { version: 2 })).source).toBe(src("one lamp"));
     // the rejected work: an intent variant seeded at v4, closed, naming its intent
-    const { rows: br } = await db.query<any>(`SELECT b.status FROM play.intents i JOIN play.doc_variants b ON b.id = i.doc_variant AND b.intent_id = i.id WHERE i.version = $1`, [rejected]);
+    const { rows: br } = await db.query<any>(`SELECT b.status FROM play.intents i JOIN play.intent_variants iv ON iv.intent_id = i.id JOIN play.doc_variants b ON b.id = iv.variant_id AND b.intent_id = i.id WHERE i.version = $1`, [rejected]);
     expect(br[0].status).toBe("archived");
     // run again, nothing new
     const again = await ensureAssetDocs(db, store);
@@ -180,17 +180,26 @@ suite("assets as documents", () => {
     expect(ok.status).toBe(200);
   });
 
+  /** an intent in Prototype, its spec approved: what an edit is made for (every edit is an intent's) */
+  const building = async (title: string) => {
+    const id = crypto.randomUUID();
+    await db.query(`INSERT INTO play.intents (id, coop_id, kind, title, stage, author, via, approved_at) VALUES ($1, $2, 'improve', $3, 'prototype', $4, 'mcp', now())`, [id, COOP, title, who.ada.id]);
+    return id;
+  };
+
   test("an intent variant made edit by edit with doc_edit is proposed with its edits and accepted as the version", async () => {
     const ada = (await me("ada"))!;
-    const s1 = await docEdit(ctx(), ada, { doc: ids.fern, message: "a longer frond", edits: [{ op: "replace", find: "legacy skipped a number", replace: "a longer frond" }] });
+    const intent = await building("A curled frond");
+    await expect(docEdit(ctx(), ada, { doc: ids.fern, message: "no intent", edits: [{ op: "replace", find: "legacy skipped a number", replace: "x" }] })).rejects.toThrow(/intent/);
+    const s1 = await docEdit(ctx(), ada, { doc: ids.fern, intent, message: "a longer frond", edits: [{ op: "replace", find: "legacy skipped a number", replace: "a longer frond" }] });
     expect(s1.changed).toBe(true);
-    const s2 = await docEdit(ctx(), ada, { doc: ids.fern, variant: s1.variant, message: "and a curl", edits: [{ op: "replace", find: "a longer frond", replace: "a longer frond, curled at its tip" }] });
+    const s2 = await docEdit(ctx(), ada, { doc: ids.fern, intent, variant: s1.variant, message: "and a curl", edits: [{ op: "replace", find: "a longer frond", replace: "a longer frond, curled at its tip" }] });
     expect(s2.edits).toBe(2);
     // a find that stands twice, or nowhere, is refused
-    await expect(docEdit(ctx(), ada, { doc: ids.fern, variant: s1.variant, message: "x", edits: [{ op: "replace", find: "nowhere at all", replace: "y" }] })).rejects.toThrow(/not in the source/);
+    await expect(docEdit(ctx(), ada, { doc: ids.fern, intent, variant: s1.variant, message: "x", edits: [{ op: "replace", find: "nowhere at all", replace: "y" }] })).rejects.toThrow(/not in the source/);
     // Main is untouched by an intent variant
     expect((await docs.readDoc(db, assetDocId(ids.fern))).json.source).toBe(written.fern[4].source);
-    const p: any = await proposeDocVersion(ctx(), ada, { doc: ids.fern, note: "a curled frond", variant: s1.variant }, "mcp");
+    const p: any = await proposeDocVersion(ctx(), ada, { doc: ids.fern, note: "a curled frond", variant: s1.variant, intent }, "mcp");
     expect(p.variant).toBe(s1.variant);
     expect(p.number).toBe(5);
     expect(p.edits).toBeGreaterThanOrEqual(3);
@@ -213,11 +222,12 @@ suite("assets as documents", () => {
 
   test("an intent variant seeded from an older head is refused when proposed; work proposed over the web gets an intent variant, archived by its author it is closed", async () => {
     const ada = (await me("ada"))!, cit = (await me("cit"))!;
-    const old = await docEdit(ctx(), ada, { doc: ids.lamp, message: "brighter", edits: [{ op: "replace", find: "one lamp", replace: "one bright lamp" }] });
+    const intent = await building("A brighter lamp");
+    const old = await docEdit(ctx(), ada, { doc: ids.lamp, intent, message: "brighter", edits: [{ op: "replace", find: "one lamp", replace: "one bright lamp" }] });
     const web = await propose(db, store, cit, { asset: ids.lamp, note: "a dimmer lamp", source: src("one dim lamp") });
     expect(web.variant).toBeGreaterThan(0);
     await decide(db, store, ada, web.intent, "accept");
-    await expect(proposeDocVersion(ctx(), ada, { doc: ids.lamp, note: "brighter", variant: old.variant }, "mcp")).rejects.toThrow(/newer version/);
+    await expect(proposeDocVersion(ctx(), ada, { doc: ids.lamp, note: "brighter", variant: old.variant, intent }, "mcp")).rejects.toThrow(/newer version/);
     const again = await propose(db, store, cit, { asset: ids.lamp, note: "warmer", source: src("one warm lamp") });
     await decide(db, store, cit, again.intent, "archive");
     const { rows } = await db.query<any>(`SELECT status FROM play.doc_variants WHERE id = $1`, [again.variant]);
@@ -259,17 +269,19 @@ suite("assets as documents", () => {
     const names = list.result.tools.map((t: any) => t.name);
     expect(names).toEqual(expect.arrayContaining(["doc_edit", "doc_history", "get_asset", "propose_doc_version"]));
     expect(names).not.toContain("asset_edit");
-    const e = await call("doc_edit", { doc: ids.papaya, message: "a taller trunk", edits: [{ op: "set", path: ["note"], value: "taller" }] });
+    const intent = await building("A taller papaya");
+    expect((await call("doc_edit", { doc: ids.papaya, message: "a taller trunk", edits: [{ op: "set", path: ["note"], value: "taller" }] })).isError).toBe(true);
+    const e = await call("doc_edit", { doc: ids.papaya, intent, message: "a taller trunk", edits: [{ op: "set", path: ["note"], value: "taller" }] });
     expect(e.isError).toBeFalsy();
     expect(e.structuredContent.variant).toBeGreaterThan(0);
     const h = await call("doc_history", { doc: ids.papaya });
     expect(h.structuredContent.edits.length).toBe(11);
-    expect(h.structuredContent.variants.find((v: any) => v.id === e.structuredContent.variant)).toMatchObject({ type: "intent", status: "open", seed: 2, edits: 1 });
+    expect(h.structuredContent.variants.find((v: any) => v.id === e.structuredContent.variant)).toMatchObject({ type: "intent", status: "open", seed: 2, edits: 1, intent: { id: intent } });
     const at = await call("get_asset", { asset: ids.papaya, edit: h.structuredContent.edits[3].seq });
     expect(hashText(at.structuredContent.source)).toBe(at.structuredContent.sourceHash);
     const mine = await call("get_asset", { asset: ids.papaya, intent: "00000000-0000-4000-8000-000000000000" });
     expect(mine.isError).toBe(true);
-    const bad = await call("doc_edit", { doc: ids.papaya, message: "x", edits: [{ op: "set", path: ["schema"], value: "asset/2" }] });
+    const bad = await call("doc_edit", { doc: ids.papaya, intent, message: "x", edits: [{ op: "set", path: ["schema"], value: "asset/2" }] });
     expect(bad.isError).toBe(true);
   });
 });

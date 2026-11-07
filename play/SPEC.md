@@ -642,21 +642,28 @@ Admins only for now, every row the Maia City coop's (`play/api/src/artifacts.ts`
 - **One link, one artifact.** A link is kept normalised: http(s) only, its scheme and host lower-cased, its `#fragment`,
   `utm_*`, `fbclid` and `gclid` dropped, a trailing slash dropped, a YouTube video one link however it is written
   (`youtu.be/<id>`, `/shorts/`, `/embed/`, `m.youtube.com` → `https://www.youtube.com/watch?v=<id>`); unique in the coop.
-  Adding a link already kept answers with that artifact (`kept: true`); `update_artifact` corrects one. An artifact is still
-  named by its UUID: its link is only data.
+  Adding a link already kept answers with that artifact (`kept: true`), one an intent's work waits with answers with
+  that intent; `update_artifact` corrects one. An artifact is still named by its UUID: its link is only data.
 - **The page as it was**: `add_artifact` may take the page's readable text as fetched, kept among play's files by its hash
   (`text/plain`, not shown in the Library), since links rot and pages change.
-- **Not a proposal**, and nothing typed in by hand: an artifact is kept directly over MCP, like a Library label.
-  Citing (stories, asset versions and intents naming the artifacts they rest on) comes later.
+- **A document like any other** (intent 847c5d38, Samuel 2026-11-06: "an artifact will go the same way as any other
+  intent, just that we can promote it directly to proposal"; §4.15): every artifact is `artifact:<uuid>`, each kept
+  before its v1. `add_artifact` proposes its first version and `update_artifact` its next, as every propose tool does:
+  named with `intent`, the work of that intent, held to its gate; without, a new intent of its own at Proposal with no
+  spec. Each is decided by the one Accept, one intent at a time, as any other; until then nothing of it is kept (the
+  Artifacts page and `list_artifacts` show an artifact once accepted, marking a change of it that waits). Its row is
+  what its accepted version says, written only by that Accept; it has the History tab every document has. Nothing is
+  typed in by hand. Citing (stories, asset versions and intents naming the artifacts they rest on) comes later.
 
 ```sql
 agents         (id UUID, coop_id, name /*only shown*/, created)            -- avenMAIA, seeded by 0027-artifacts
 artifacts        (id UUID, coop_id, url /*normalised, unique per coop*/, title /*≤ 70*/, description /*≤ 280*/,
                 summary /*Markdown, 500–1,500 words*/, kind /*page|article|paper|video|post|book|podcast|code|other*/,
                 tags text[], published date, text_hash → files, agent_id → agents, origin /*human|agent*/,
-                operator_id → humans, token_id → api_tokens, created, updated_by → humans, updated_at)
+                operator_id → humans, token_id → api_tokens, author_ids uuid[] /*in order*/, created, updated_by, updated_at)
+                -- what its accepted version says (0033-intent-variants): a row not yet accepted holds only its id
 authors        (id UUID, coop_id, name /*only shown*/, kind /*person|organization*/, url, note, agent_id, operator_id, created)
-artifact_authors (artifact_id → artifacts, author_id → authors, position)    -- n:m, in order
+artifact_authors (artifact_id, author_id, position)    -- a view of artifacts.author_ids: n:m, in order
 ```
 
 Over MCP: `add_artifact`, `update_artifact`, `list_artifacts` (`q` in a title, description, summary, link or an author's name;
@@ -728,10 +735,23 @@ shown by one History.
   variants, type `intent`, each with its `seed`, the frontiers it grew from, and its intent), `doc_edits` (every edit,
   append only, on its variant), `doc_versions`, `doc_peers`. An intent's work names its document and variant
   (`doc_id`, `doc_variant`); an asset's frozen `version`/`base` and a story's `story_version`/`story_base` stay, and a
-  sandbox's change until its own intent.
+  sandbox's change until its own intent. Since `0033-intent-variants` the documents an intent changes are rows of
+  **`play.intent_variants`** (intent, document, variant, seed, position: the first its work's own), in place of the
+  intent's one `doc_id` and `doc_variant`.
+- **Every change an intent variant** (intent 847c5d38, Samuel 2026-11-06): no MCP tool, HTTP route or token writes a
+  document's Main but an admin's Accept of the intent holding the change, at Proposal (and a document's v1 by the
+  import, or made from its kind's own history the first time it is read). `doc_edit` names its intent (`intent`, one in
+  Prototype or waiting at Proposal) and is refused without one; a variant made for an intent is proposed for that
+  intent only. `play/api/test/nobypass.test.ts` calls every tool tools/list holds that is not a read, and every write
+  route of `app.ts`, and finds every Main unchanged until the intent is accepted.
+- **Several documents, one intent**: a document's version proposed naming an intent goes in beside the documents it
+  holds (its variant of that same document replaced); an asset's or a story's version or a sandbox's change is the
+  intent's whole work. The board reviews each document; Accept merges them all in one transaction, or none where one
+  clashes (a field Main changed too) or is no longer valid merged: the intent is archived whole, as Archive closes
+  them all. There is no batch accept: an Accept decides one intent.
 - **MCP and HTTP, by a document's UUID**: `list_docs` (by kind), `doc_at` (a version, an edit or an intent's variant),
-  `doc_history` (with `variant`), `doc_edit` (one edit of an intent variant, a new one seeded from Main's newest version
-  if none is named) and `propose_doc_version` (`intent`, a `variant`, edits or the whole). `GET /api/docs`,
+  `doc_history` (with `variant`), `doc_edit` (one edit of an intent variant, for its `intent`: the intent's open
+  variant of the document, or a new one seeded from Main's newest version, if none is named) and `propose_doc_version` (`intent`, a `variant`, edits or the whole). `GET /api/docs`,
   `/api/docs/<uuid>` (`?v=`, `?edit=`, `?intent=`), `/api/docs/<uuid>/history` (`?variant=`) and
   `/api/docs/<uuid>/changes` (`?edit=` or `?variant=`, against what it grew from). Each kind's own reads and creates
   stay where they hold more than the document: `get_asset` (its recipe files; `edit`, `intent`), `get_story` (its

@@ -19,10 +19,10 @@
 import { Denied, type Me } from "./access";
 import type { BlobStore } from "./blobs";
 import * as docs from "./docs";
-import { ASSET, FACTORY, LEVELS, SKILL, SKILL_STAGES, STORY, TYPES, type DocType } from "./docs/schema";
+import { ARTIFACT, ASSET, FACTORY, LEVELS, SKILL, SKILL_STAGES, STORY, TYPES, type DocType } from "./docs/schema";
 import type { Db, Queryable } from "./pg";
 import { NOTE_MOST } from "./notes";
-import { UUID } from "./uuid";
+import { newId, UUID } from "./uuid";
 import { closeWork, putAtProposal, SANDBOX_WORK, settle, WORK_OF, workOf, WorkError } from "./work";
 import { decideSandbox, sandboxReview } from "./sandboxes";
 import { decideIntent, getIntent, IntentError, type IntentVerdict } from "./intents";
@@ -177,12 +177,14 @@ async function versionsNamed(db: Queryable, docId: string) {
   return versions.map((v) => ({ number: v.number, note: v.note, at: iso(v.created), acceptedBy: v.author ? names.get(v.author) ?? null : null, contentHash: v.contentHash }));
 }
 
-/** an intent's variant of document `docId`, by the intent's id */
+/** an intent's variant of document `docId`, by the intent's id: the one it holds as its work, else the one it is making */
 async function intentVariant(db: Queryable, docId: string, intent: unknown) {
   const s = `${intent ?? ""}`.toLowerCase();
   if (!UUID.test(s)) throw new VersionError("Name the intent by its id (a UUID).", 404);
   const { rows } = await db.query<{ id: string; doc_variant: string | null; stage: string; note: string; title: string }>(
-    `SELECT id, doc_variant, stage, COALESCE(work_note, '') AS note, title FROM play.intents WHERE id = $1 AND coop_id = $2 AND doc_id = $3`,
+    `SELECT i.id, COALESCE((SELECT iv.variant_id FROM play.intent_variants iv WHERE iv.intent_id = i.id AND iv.doc_id = $3),
+                           (SELECT max(v.id) FROM play.doc_variants v WHERE v.intent_id = i.id AND v.doc_id = $3)) AS doc_variant,
+            i.stage, COALESCE(i.work_note, '') AS note, i.title FROM play.intents i WHERE i.id = $1 AND i.coop_id = $2`,
     [s, COOP, docId],
   );
   if (!rows[0]?.doc_variant) throw new VersionError(`${docId} has no variant of intent ${s}.`, 404);
@@ -349,42 +351,84 @@ async function writeOf(q: Queryable, k: Kind, uuid: string, cur: any, input: Inp
   return { edits: resolveEdits(cur, input.edits) };
 }
 
-/** an intent variant of the document still open for edits */
-async function openVariant(q: Queryable, docId: string, uuid: string, v: unknown): Promise<{ id: number; seed: docs.Frontiers }> {
+/** an intent variant of the document still open for edits, and the intent it is the work of (null: none yet) */
+async function openVariant(q: Queryable, docId: string, uuid: string, v: unknown): Promise<{ id: number; seed: docs.Frontiers; intent: string | null }> {
   const n = Number(v);
   if (!Number.isInteger(n) || n < 1) throw new VersionError("An intent variant is named by its number (doc_edit gives it).");
-  const { rows } = await q.query<{ status: string; seed: docs.Frontiers; type: string }>(`SELECT status, seed, type FROM play.doc_variants WHERE id = $1 AND doc_id = $2`, [n, docId]);
+  const { rows } = await q.query<{ status: string; seed: docs.Frontiers; type: string; intent_id: string | null }>(`SELECT status, seed, type, intent_id FROM play.doc_variants WHERE id = $1 AND doc_id = $2`, [n, docId]);
   if (!rows[0] || rows[0].type !== "intent") throw new VersionError(`${uuid} has no intent variant ${n}.`, 404);
   if (rows[0].status !== "open") throw new VersionError(`Variant ${n} of ${uuid} was ${rows[0].status === "proposed" ? "proposed already: it is decided as it was proposed. Start a new variant" : rows[0].status}.`, 409);
-  return { id: n, seed: rows[0].seed };
+  return { id: n, seed: rows[0].seed, intent: rows[0].intent_id };
 }
 
-export type DocEditBody = { doc: unknown; variant?: number | null; edits?: unknown; whole?: unknown; message?: unknown };
+/** the intent an edit is made for (no edit without one): one that is being built or waits at Proposal */
+async function editingIntent(q: Queryable, intent: unknown): Promise<string> {
+  const s = `${intent ?? ""}`.toLowerCase();
+  if (!s) throw new VersionError("Every edit is an intent's: name the intent it is made for (`intent`, its id: add_intent makes one).");
+  if (!UUID.test(s)) throw new VersionError("Name the intent by its id (a UUID: list_intents gives it).", 404);
+  const { rows } = await q.query<{ stage: string }>(`SELECT stage FROM play.intents WHERE id = $1 AND coop_id = $2`, [s, COOP]);
+  if (!rows[0]) throw new VersionError(`There is no intent ${s}.`, 404);
+  if (rows[0].stage !== "prototype" && rows[0].stage !== "proposal")
+    throw new VersionError(`Intent ${s} is at the ${rows[0].stage} stage: it is edited for once its spec is approved (Prototype), or while it waits at Proposal.`, 409);
+  return s;
+}
 
-/** One edit of an intent variant, as the admin `me`: on variant `variant`, or on a new one seeded from Main's newest version. */
-export async function docEdit(ctx: Ctx, me: Me | null, p: DocEditBody, via: "web" | "mcp" = "mcp") {
+/** the variant an edit goes on: the one named (the intent's, or none's yet), else the intent's open one of this document, else a new one seeded from Main's newest version */
+async function variantFor(q: Queryable, docId: string, uuid: string, intent: string | null, v: unknown, author: docs.Author, note: string): Promise<number> {
+  if (v != null) {
+    const o = await openVariant(q, docId, uuid, v);
+    if (o.intent && intent && o.intent !== intent) throw new VersionError(`Variant ${o.id} of ${uuid} is intent ${o.intent}'s, not ${intent}'s.`, 409);
+    if (o.intent && !intent) throw new VersionError(`Variant ${o.id} of ${uuid} is intent ${o.intent}'s: name it (\`intent\`).`, 409);
+    if (intent && !o.intent) await q.query(`UPDATE play.doc_variants SET intent_id = $2 WHERE id = $1`, [o.id, intent]);
+    return o.id;
+  }
+  if (intent) {
+    const { rows } = await q.query<{ id: string }>(`SELECT max(id) AS id FROM play.doc_variants WHERE doc_id = $1 AND intent_id = $2 AND status = 'open'`, [docId, intent]);
+    if (rows[0]?.id) return Number(rows[0].id);
+  }
+  const made = (await docs.variant(q, docId, { author, note })).id;
+  if (intent) await q.query(`UPDATE play.doc_variants SET intent_id = $2 WHERE id = $1`, [made, intent]);
+  return made;
+}
+
+export type DocEditBody = { doc: unknown; intent?: unknown; variant?: number | null; edits?: unknown; whole?: unknown; message?: unknown };
+
+/**
+ * One edit of an intent variant, as the admin `me`, for intent `intent` (no edit without one: Main is written only by an
+ * Accept): on variant `variant`, else on the intent's open variant of the document, else on a new one seeded from Main's
+ * newest version. (`unnamed`: an edit a propose makes on its way to a new intent of its own.)
+ */
+export async function docEdit(ctx: Ctx, me: Me | null, p: DocEditBody, via: "web" | "mcp" = "mcp", unnamed = false) {
   const who = admin(me);
   const message = text(p?.message, "The edit's message (what it does)", 500);
   if ((p.edits === undefined) === (p.whole === undefined)) throw new VersionError("An edit is edits or the whole document, one of them.");
   return asVersionError(() =>
     ctx.db.transaction(async (tx) => {
+      const intent = unnamed && (p.intent === undefined || p.intent === null || p.intent === "") ? null : await editingIntent(tx, p.intent);
       const { kind, uuid, docId } = await docRef(tx, ctx, p.doc);
       const author = authorOf(who, via);
-      const v = p.variant == null ? (await docs.variant(tx, docId, { author, note: message })).id : (await openVariant(tx, docId, uuid, p.variant)).id;
+      const v = await variantFor(tx, docId, uuid, intent, p.variant, author, message);
       const cur = (await docs.readDoc(tx, docId, { variant: v })).json;
       const e = await docs.commit(tx, docId, { variant: v, ...(await writeOf(tx, kind, uuid, cur, p)), message, author });
       const changes = docs.diff(await docs.seedOf(tx, docId, v), (await docs.readDoc(tx, docId, { variant: v })).json);
-      return { doc: uuid, kind: kind.name, variant: v, edit: e?.seq ?? null, changed: !!e, edits: (await docs.history(tx, docId, { variant: v })).length, changes: changes.length };
+      return { doc: uuid, kind: kind.name, intent, variant: v, edit: e?.seq ?? null, changed: !!e, edits: (await docs.history(tx, docId, { variant: v })).length, changes: changes.length };
     }),
   );
 }
 
 export type ProposeBody = { doc: unknown; note?: unknown; variant?: number | null; edits?: unknown; whole?: unknown; intent?: string };
 
+/** a variant made edit by edit is proposed for the intent it was made for, and only for it */
+async function proposedFor(q: Queryable, docId: string, uuid: string, v: number, intent: string | undefined) {
+  const o = await openVariant(q, docId, uuid, v);
+  if (o.intent && o.intent !== intent) throw new VersionError(`Variant ${v} of ${uuid} is intent ${o.intent}'s: propose it naming that intent (\`intent\`).`, 409);
+  return o;
+}
+
 /**
  * Propose the document's next version, as the admin `me`: an intent variant made edit by edit (its `variant`, perhaps
  * with one more edit), or edits (or the whole) at once. To propose is to put an intent at Proposal with the work: the
- * intent named, or a new one of its own.
+ * intent named (beside the other documents it changes), or a new one of its own.
  */
 export async function proposeDocVersion(ctx: Ctx, me: Me | null, p: ProposeBody, via: "web" | "mcp" = "mcp") {
   const who = admin(me);
@@ -396,32 +440,55 @@ export async function proposeDocVersion(ctx: Ctx, me: Me | null, p: ProposeBody,
   if (kind.propose) {
     // the kind's own propose (an asset's recipe files, a story's frozen row), on its intent variant as it stands
     let v = p.variant ?? null;
+    if (v != null) await ctx.db.transaction((q) => proposedFor(q, docId, uuid, Number(v), p.intent));
     if (p.edits !== undefined || p.whole !== undefined) {
-      const e = await docEdit(ctx, who, { doc: uuid, variant: v, edits: p.edits, whole: p.whole, message: note.split("\n")[0].slice(0, 500) }, via);
+      const e = await docEdit(ctx, who, { doc: uuid, intent: p.intent, variant: v, edits: p.edits, whole: p.whole, message: note.split("\n")[0].slice(0, 500) }, via, true);
       if (!e.edits) throw new VersionError(`That is the ${kind.label} as it is: nothing changed.`);
       v = e.variant;
-    } else if (v != null) await ctx.db.transaction((q) => openVariant(q, docId, uuid, v));
+    }
     const out = await asVersionError(() => kind.propose!(ctx, who, { id: uuid, variant: Number(v), note, intent: p.intent }, via));
     const edits = (await docs.history(ctx.db, docId, { variant: Number(v) })).length;
     return { ...out, stage: "proposal" as const, doc: uuid, kind: kind.name, variant: Number(v), edits };
   }
+  return asVersionError(() => ctx.db.transaction((tx) => proposeIn(tx, ctx, who, kind, uuid, docId, p, note, via)));
+}
+
+/** a document's next version proposed, in the caller's transaction (./versioned.ts proposeDocVersion, proposeNewDoc) */
+async function proposeIn(tx: Queryable, ctx: Ctx, who: Me, kind: Kind, uuid: string, docId: string, p: ProposeBody, note: string, via: "web" | "mcp") {
+  const author = authorOf(who, via);
+  const v = p.variant == null ? (await docs.variant(tx, docId, { author, note })).id : (await proposedFor(tx, docId, uuid, p.variant, p.intent)).id;
+  if (p.edits !== undefined || p.whole !== undefined) {
+    const cur = (await docs.readDoc(tx, docId, { variant: v })).json;
+    await docs.commit(tx, docId, { variant: v, ...(await writeOf(tx, kind, uuid, cur, p)), message: note, author });
+  }
+  const now = (await docs.readDoc(tx, docId, { variant: v })).json;
+  const changes = docs.diff(await docs.seedOf(tx, docId, v), now);
+  if (!changes.length) throw new VersionError(`That is the ${kind.label} as it is: nothing changed.`);
+  await docs.propose(tx, docId, v, { note, author });
+  const intent = await putAtProposal(tx, who, { intent: p.intent, work: { kind: kind.work, doc_id: docId, doc_variant: v }, note, via: via === "mcp" ? "mcp" : "web", title: `${now.label ?? now.title ?? kind.label}` }).catch((e) => {
+    throw e instanceof WorkError ? new VersionError(e.message, e.status) : e;
+  });
+  const number = ((await docs.versionsOf(tx, docId)).at(-1)?.number ?? 0) + 1;
+  return { intent, stage: "proposal" as const, doc: uuid, kind: kind.name, number, variant: v, edits: (await docs.history(tx, docId, { variant: v })).length, changes: changes.length };
+}
+
+/**
+ * A new document of kind `kindName` proposed (an artifact kept for the first time): its row holding only its id until
+ * an Accept writes it, its Main only its schema (no version yet), its first state an intent variant proposed for the
+ * intent named, or a new one of its own. Nothing of it is Main's until it is accepted.
+ */
+export async function proposeNewDoc(ctx: Ctx, me: Me | null, kindName: string, o: { whole: Record<string, unknown>; note: string; intent?: string }, via: "web" | "mcp" = "mcp") {
+  const who = admin(me);
+  const kind = kindNamed(kindName);
+  if (!kind) throw new VersionError(`There is no kind ${kindName}.`, 500);
+  const note = text(o.note, "The note (what it is and why)", NOTE_MOST);
+  const uuid = newId();
+  const docId = `${kind.prefix}:${uuid}`;
   return asVersionError(() =>
     ctx.db.transaction(async (tx) => {
-      const author = authorOf(who, via);
-      const v = p.variant == null ? (await docs.variant(tx, docId, { author, note })).id : (await openVariant(tx, docId, uuid, p.variant)).id;
-      if (p.edits !== undefined || p.whole !== undefined) {
-        const cur = (await docs.readDoc(tx, docId, { variant: v })).json;
-        await docs.commit(tx, docId, { variant: v, ...(await writeOf(tx, kind, uuid, cur, p)), message: note, author });
-      }
-      const now = (await docs.readDoc(tx, docId, { variant: v })).json;
-      const changes = docs.diff(await docs.seedOf(tx, docId, v), now);
-      if (!changes.length) throw new VersionError(`That is the ${kind.label} as it is: nothing changed.`);
-      await docs.propose(tx, docId, v, { note, author });
-      const intent = await putAtProposal(tx, who, { intent: p.intent, work: { kind: kind.work, doc_id: docId, doc_variant: v }, note, via: via === "mcp" ? "mcp" : "web", title: `${now.label ?? now.title ?? kind.label}` }).catch((e) => {
-        throw e instanceof WorkError ? new VersionError(e.message, e.status) : e;
-      });
-      const number = ((await docs.versionsOf(tx, docId)).at(-1)?.number ?? 0) + 1;
-      return { intent, stage: "proposal" as const, doc: uuid, kind: kind.name, number, variant: v, edits: (await docs.history(tx, docId, { variant: v })).length, changes: changes.length };
+      await tx.query(`INSERT INTO ${qi(kind.table)} (id, coop_id) VALUES ($1, $2)`, [uuid, COOP]);
+      await docs.createDoc(tx, { id: docId, schema: kind.type.name, json: { schema: kind.type.name }, author: { human: who.id, via: "system" }, message: `a new ${kind.label}, not yet accepted` });
+      return proposeIn(tx, ctx, who, kind, uuid, docId, { doc: uuid, whole: o.whole, intent: o.intent }, note, via);
     }),
   );
 }
@@ -444,13 +511,17 @@ export async function seedDoc(db: Db, kindName: string, o: { id: string; json: a
 
 // ---- reviewing and deciding
 
-/** an intent's work on a document as people review it: what changed, field by field, against its seed, the edits that made it, whether Main moved since */
-export async function reviewDoc(db: Queryable, p: any) {
-  const k = kindOfWork(p.kind)!;
-  const docId = p.doc_id as string;
-  const extra = k.review ? await k.review(db, p) : {};
-  if (p.doc_variant == null) return { doc: { id: docId.split(":")[1], kind: k.name }, seedNumber: null, moved: false, changes: [], edits: [], ...extra };
-  const v = Number(p.doc_variant);
+/** the documents an intent's work holds, each its document and its variant, the first its work's own */
+const heldOf = (p: any): { doc_id: string; doc_variant: number | null }[] =>
+  p.variants?.length ? p.variants : p.doc_id ? [{ doc_id: p.doc_id, doc_variant: p.doc_variant == null ? null : Number(p.doc_variant) }] : [];
+
+/** one document's intent variant as people review it: what changed, field by field, against its seed, the edits that made it, whether Main moved since */
+async function reviewVariant(db: Queryable, p: any, h: { doc_id: string; doc_variant: number | null }) {
+  const k = kindOfDoc(h.doc_id) ?? kindOfWork(p.kind)!;
+  const docId = h.doc_id;
+  const uuid = docId.split(":")[1];
+  if (h.doc_variant == null) return { doc: { id: uuid, kind: k.name }, seedNumber: null, moved: false, changes: [], edits: [] };
+  const v = Number(h.doc_variant);
   const versions = await docs.versionsOf(db, docId);
   const row = await docs.variantOf(db, docId, v);
   const seed = await docs.seedOf(db, docId, v);
@@ -458,43 +529,80 @@ export async function reviewDoc(db: Queryable, p: any) {
   const seedNumber = versionAt(versions, row.seed);
   const moved = p.status === "proposal" && seedNumber !== null && seedNumber !== versions.at(-1)?.number;
   const edits = await named(db, await docs.history(db, docId, { variant: v }));
-  const uuid = docId.split(":")[1];
   const open = k.open ? k.open.replace("{id}", encodeURIComponent(uuid)).replace("{intent}", encodeURIComponent(p.id)) : null;
-  return { doc: { id: uuid, kind: k.name, what: k.label, label: next.label ?? next.title ?? k.label, ...(next.group ? { group: next.group } : {}), open }, seedNumber, moved, changes: docs.diff(seed, next), edits, ...extra };
+  return { doc: { id: uuid, kind: k.name, what: k.label, label: next.label ?? next.title ?? k.label, ...(next.group ? { group: next.group } : {}), open }, variant: v, seedNumber, moved, changes: docs.diff(seed, next), edits };
+}
+
+/** an intent's work on its documents as people review it: its first document's review (with its kind's own extras: an asset's builds, a story's player), and every document's in `docs` */
+export async function reviewDoc(db: Queryable, p: any) {
+  const k = kindOfWork(p.kind)!;
+  const extra = k.review ? await k.review(db, p) : {};
+  const each = [];
+  for (const h of heldOf(p)) each.push(await reviewVariant(db, p, h));
+  const first = each[0] ?? { doc: null, seedNumber: null, moved: false, changes: [], edits: [] };
+  return { ...first, ...extra, docs: each };
 }
 
 /**
- * Accept or archive a document's intent variant (`p`, its intent locked by the caller's transaction), as admin `me`.
- * Accepted, it is merged into Main and named the next version, its row keeping the version's label (and group);
- * seeded from a version that is no longer Main's newest, it still goes in where the two changes touch different
- * fields, and is archived where they touch the same, or where the merged whole is no longer valid.
+ * Accept or archive an intent's work on its documents (`p`, its intent locked by the caller's transaction), as admin
+ * `me`: every one of them in this one transaction, or none. Accepted, each intent variant is merged into its Main and
+ * named its next version, its row keeping what the version says; seeded from a version that is no longer Main's
+ * newest, it still goes in where the two changes touch different fields. Where one clashes (the same field changed) or
+ * is no longer valid merged, none goes in: the intent is archived whole. A kind with its own decide (an asset's, a
+ * story's frozen rows) decides its own document, the first, once every other one has been found to go in.
  */
-export async function decideDoc(tx: Queryable, me: Me, p: any, verdict: Verdict) {
-  const k = kindOfWork(p.kind)!;
-  if (me.level !== "admin") throw new Denied(`Only Maia City's admins decide on ${k.group}.`);
+export async function decideDoc(tx: Queryable, ctx: Ctx, me: Me, p: any, verdict: Verdict) {
+  const own = kindOfWork(p.kind)!;
+  if (me.level !== "admin") throw new Denied(`Only Maia City's admins decide on ${own.group}.`);
   return asVersionError(async () => {
-    const docId = p.doc_id as string, v = Number(p.doc_variant);
     const author = authorOf(me, "web");
+    const held = heldOf(p).filter((h) => h.doc_variant != null) as { doc_id: string; doc_variant: number }[];
     const archive = async (message?: string) => {
       await settle(tx, p.id, "archived", verdict === "archive" ? me.id : null);
       await closeWork(tx, me, p);
       return { id: p.id as string, status: "archived" as const, ...(message ? { message } : {}) };
     };
-    if (verdict === "archive") return archive();
-    const preview = await docs.previewMerge(tx, docId, v);
-    if (preview.concurrent) {
-      const was = await docs.seedOf(tx, docId, v);
-      const now = (await docs.readDoc(tx, docId)).json, mine = (await docs.readDoc(tx, docId, { variant: v })).json;
-      const clash = overlap(docs.diff(was, now).map((c) => c.path), docs.diff(was, mine).map((c) => c.path));
-      if (clash.length) return archive(`The ${k.label} has a newer version than the one this was seeded from, and it changes what that changed too (${clash.slice(0, 3).map((c) => c.replace(/^\$\./, "")).join(", ")}). Propose the change again on its newest version.`);
+    const hooked = own.decide ? held[0] : undefined;
+    if (verdict === "archive") {
+      if (!hooked) return archive();
+      const r = await own.decide!(tx, ctx, me, { ...p, doc_id: hooked.doc_id, doc_variant: hooked.doc_variant }, verdict);
+      await closeWork(tx, me, p);
+      return r;
     }
-    if (preview.problems.length) return archive(`Merged into the ${k.label} as it is now, this is no longer a valid ${k.label}: ${preview.problems.slice(0, 3).join("; ")}. Propose it again on its newest version.`);
-    const named_ = await docs.accept(tx, docId, v, { author, note: p.note });
-    const cols = { [k.labelColumn ?? "label"]: preview.json.label ?? preview.json.title, ...Object.fromEntries(Object.entries(k.row ?? {}).map(([c, f]) => [c, f(preview.json)])) };
-    const names = Object.keys(cols).map(qi);
-    await tx.query(`UPDATE ${qi(k.table)} SET ${names.map((c, i) => `${c} = $${i + 2}`).join(", ")} WHERE id = $1`, [docId.split(":")[1], ...Object.values(cols)]);
+    // every document's merge worked out first: one that would not go in archives them all
+    const merges: { h: { doc_id: string; doc_variant: number }; k: Kind; preview: Awaited<ReturnType<typeof docs.previewMerge>> }[] = [];
+    for (const h of held.filter((x) => x !== hooked)) {
+      const k = kindOfDoc(h.doc_id)!;
+      const several = held.length > 1 ? ` (${k.label} ${h.doc_id.split(":")[1]}: nothing of this intent went in)` : "";
+      const preview = await docs.previewMerge(tx, h.doc_id, h.doc_variant);
+      if (preview.concurrent) {
+        const was = await docs.seedOf(tx, h.doc_id, h.doc_variant);
+        const now = (await docs.readDoc(tx, h.doc_id)).json, mine = (await docs.readDoc(tx, h.doc_id, { variant: h.doc_variant })).json;
+        const clash = overlap(docs.diff(was, now).map((c) => c.path), docs.diff(was, mine).map((c) => c.path));
+        if (clash.length) return archive(`The ${k.label} has a newer version than the one this was seeded from, and it changes what that changed too (${clash.slice(0, 3).map((c) => c.replace(/^\$\./, "")).join(", ")})${several}. Propose the change again on its newest version.`);
+      }
+      if (preview.problems.length) return archive(`Merged into the ${k.label} as it is now, this is no longer a valid ${k.label}: ${preview.problems.slice(0, 3).join("; ")}${several}. Propose it again on its newest version.`);
+      merges.push({ h, k, preview });
+    }
+    let first: any = null;
+    if (hooked) {
+      first = await own.decide!(tx, ctx, me, { ...p, doc_id: hooked.doc_id, doc_variant: hooked.doc_variant }, verdict);
+      if (first?.status !== "accepted") {
+        await closeWork(tx, me, p);
+        return first;
+      }
+    }
+    const numbers: number[] = [];
+    for (const { h, k, preview } of merges) {
+      const v = await docs.accept(tx, h.doc_id, h.doc_variant, { author, note: p.note });
+      const cols = { [k.labelColumn ?? "label"]: preview.json.label ?? preview.json.title, ...Object.fromEntries(Object.entries(k.row ?? {}).map(([c, f]) => [c, f(preview.json)])) };
+      const names = Object.keys(cols).map(qi);
+      await tx.query(`UPDATE ${qi(k.table)} SET ${names.map((c, i) => `${c} = $${i + 2}`).join(", ")} WHERE id = $1`, [h.doc_id.split(":")[1], ...Object.values(cols)]);
+      numbers.push(v.number);
+    }
+    if (first) return { ...first, ...(numbers.length ? { numbers } : {}) };
     await settle(tx, p.id, "accepted", me.id);
-    return { id: p.id as string, status: "accepted" as const, number: named_.number, ...(preview.concurrent ? { merged: true } : {}) };
+    return { id: p.id as string, status: "accepted" as const, number: numbers[0], ...(numbers.length > 1 ? { numbers } : {}), ...(merges[0]?.preview.concurrent ? { merged: true } : {}) };
   });
 }
 
@@ -556,7 +664,7 @@ export async function decide(ctx: Ctx, me: Me | null, id: string, verdict: Verdi
     else {
       const k = kindOfWork(p.kind);
       if (!k) throw new VersionError(`play keeps no kind for ${p.kind}.`, 500);
-      r = k.decide ? await k.decide(tx, ctx, me, p, verdict) : await decideDoc(tx, me, p, verdict);
+      r = await decideDoc(tx, ctx, me, p, verdict);
     }
     const { rows } = await tx.query<{ stage: string }>(`SELECT stage FROM play.intents WHERE id = $1`, [p.id]);
     return { ...r, intent: p.id as string, stage: rows[0]?.stage };
@@ -592,10 +700,10 @@ export async function decideAny(ctx: Ctx, me: Me | null, id: string, verdict: In
 /** the SQL of a work's label and group, by its document's kind (`i` the intent) */
 export function workSql() {
   const label = KINDS.length
-    ? `CASE split_part(i.doc_id, ':', 1) ${KINDS.map((k) => `WHEN '${k.prefix}' THEN (SELECT r.${qi(k.labelColumn ?? "label")} FROM ${qi(k.table)} r WHERE r.id::text = split_part(i.doc_id, ':', 2))`).join(" ")} END`
+    ? `CASE split_part(iv0.doc_id, ':', 1) ${KINDS.map((k) => `WHEN '${k.prefix}' THEN (SELECT r.${qi(k.labelColumn ?? "label")} FROM ${qi(k.table)} r WHERE r.id::text = split_part(iv0.doc_id, ':', 2))`).join(" ")} END`
     : "NULL";
-  const group = KINDS.length ? `CASE split_part(i.doc_id, ':', 1) ${KINDS.map((k) => `WHEN '${k.prefix}' THEN '${k.group}'`).join(" ")} END` : "NULL";
-  const what = KINDS.length ? `CASE split_part(i.doc_id, ':', 1) ${KINDS.map((k) => `WHEN '${k.prefix}' THEN '${k.label}'`).join(" ")} END` : "NULL";
+  const group = KINDS.length ? `CASE split_part(iv0.doc_id, ':', 1) ${KINDS.map((k) => `WHEN '${k.prefix}' THEN '${k.group}'`).join(" ")} END` : "NULL";
+  const what = KINDS.length ? `CASE split_part(iv0.doc_id, ':', 1) ${KINDS.map((k) => `WHEN '${k.prefix}' THEN '${k.label}'`).join(" ")} END` : "NULL";
   return { label, group, what };
 }
 
@@ -632,6 +740,27 @@ register({
   name: "skill", prefix: "skill", type: SKILL, work: "skill_version", table: "play.skills", label: "skill", group: "skills", open: "/skills/?skill={id}&intent={intent}",
   row: { grp: (json) => json.group, updated: () => new Date() },
   item: (json) => ({ note: json.note ?? "", group: json.group, stages: SKILL_STAGES.filter((s) => `${json.stages?.[s] ?? ""}`.trim()) }),
+});
+
+// an artifact (./artifacts.ts): its row is what its accepted version says; one kept before artifacts were documents
+// gets its document made from its row, as its v1, the first time it is read
+const ARTIFACT_ROW = `url, title, description, summary, kind, tags, to_char(published, 'YYYY-MM-DD') AS published, text_hash, origin, agent_id AS agent, operator_id AS operator, token_id AS token, author_ids AS authors`;
+async function ensureArtifactDoc(q: Queryable, id: string) {
+  const { rows } = await q.query<any>(`SELECT ${ARTIFACT_ROW}, created FROM play.artifacts WHERE id = $1`, [id]);
+  const { created, ...r } = rows[0] ?? {};
+  if (!r.title) return;
+  const note = "kept before artifacts were documents";
+  await docs.createDoc(q, { id: `artifact:${id}`, schema: ARTIFACT.name, json: { schema: ARTIFACT.name, ...r, tags: r.tags ?? [], authors: r.authors ?? [] }, author: { human: r.operator, via: "import" }, message: `v1: ${note}`, at: created, version: note });
+}
+const field = (f: string) => (json: any) => json[f] ?? null;
+register({
+  name: "artifact", prefix: "artifact", type: ARTIFACT, work: "artifact_version", table: "play.artifacts", labelColumn: "title", listed: "r.title IS NOT NULL", label: "artifact", group: "artifacts", open: "/artifacts/?artifact={id}&intent={intent}",
+  ensure: (q, _ctx, id) => ensureArtifactDoc(q, id),
+  row: {
+    ...Object.fromEntries(["url", "description", "summary", "kind", "published", "text_hash", "origin"].map((f) => [f, field(f)])),
+    tags: (j) => j.tags ?? [], author_ids: (j) => j.authors ?? [], agent_id: field("agent"), operator_id: field("operator"), token_id: field("token"),
+  },
+  item: (json) => ({ url: json.url ?? null }),
 });
 
 export { assetDocFor };

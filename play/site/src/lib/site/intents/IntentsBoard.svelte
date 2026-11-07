@@ -227,7 +227,7 @@
 	/** every review of a document's version (play/api/src/versioned.ts reviewDoc): its document, what it changes field by
 	 *  field against its seed, the edits that made it, whether Main moved since; an asset's adds its builds, a story's its
 	 *  timelines */
-	type DocReview = { doc: { id: string; kind: string; what: string; label: string; group?: string; open: string | null } | null; seedNumber: number | null; moved: boolean; changes: Change[]; edits: Edit[] };
+	type DocReview = { doc: { id: string; kind: string; what: string; label: string; group?: string; open: string | null } | null; seedNumber: number | null; moved: boolean; changes: Change[]; edits: Edit[]; docs?: DocReview[] };
 	type Review = DocReview & { id: string; source: string | null; recipe: string | null; baseVersion: { number: number; source: string | null } | null; builds: Build[] };
 	let open = $state<P | null>(null);
 	let review = $state<Review | null>(null);
@@ -255,6 +255,8 @@
 	let sandboxReview = $state<SandboxReview | null>(null);
 	// any other document's (a factory's, a config's, a skill's, and every kind to come): field by field, opened as it would be
 	let docReview = $state<DocReview | null>(null);
+	// an intent may change several documents (play/SPEC.md "Version control"): every one's review, accepted together
+	let alsoDocs = $state<DocReview[]>([]);
 	const pinText = (x: PinShown) =>
 		x ? `${x.label} v${x.number}${x.usedVariant ? ` · ${x.usedVariant}${x.variant ? '' : ' (default)'}` : ''}${x.params ? ` · ${Object.entries(x.params).map(([k, v]) => `${k} ${v}`).join(', ')}` : ''}` : 'none';
 	const valueText = (v: unknown) => (v === undefined ? '(none)' : JSON.stringify(v, null, 1));
@@ -272,6 +274,7 @@
 		storyReview = null;
 		sandboxReview = null;
 		docReview = null;
+		alsoDocs = [];
 		code = '';
 		baseCode = null;
 		shown = '';
@@ -287,6 +290,7 @@
 			return;
 		}
 		if (open?.id !== p.id) return;
+		alsoDocs = (got.docs ?? []).slice(1);
 		if (got.sandbox) return void (sandboxReview = got);
 		if (got.story) return void (storyReview = got);
 		if (!got.builds) return void (docReview = got);
@@ -394,6 +398,18 @@
 		else onclose?.();
 	};
 </script>
+
+{#snippet docChanges(r: DocReview, several: boolean, done: boolean)}
+	<div class="sandbox-review">
+		{#if several}<h3>{r.doc?.what ?? 'Document'}: {r.doc?.label}</h3>{/if}
+		<p>
+			{#if r.doc?.open}<a class="btn small" href={r.doc.open} target="_blank" rel="noopener">Open {r.doc.label} as it would be</a>{/if}
+			{#if r.doc?.group}<span class="muted small"> What every agent is taught ({r.doc.what}s / {r.doc.group}): accepted, it is taught from the next request on.</span>{/if}
+			{#if r.moved}<span class="muted small"> It was seeded from v{r.seedNumber}; the {r.doc?.what ?? 'document'} has a newer version since. Accepting merges it where the two touch different fields, and archives it where they touch the same.</span>{/if}
+		</p>
+		<Changes changes={r.changes} edits={r.edits} seed={r.seedNumber} heading={several ? `${r.doc?.what ?? "It"}: ${done ? "what it changed" : "what it changes"}` : done ? "What it changed" : "What it changes"} />
+	</div>
+{/snippet}
 
 <svelte:window onkeydown={onKey} />
 
@@ -653,15 +669,9 @@
 					{/if}
 				</div>
 			{:else if docReview}
-				{@const r = docReview}
-				<div class="sandbox-review">
-					<p>
-						{#if r.doc?.open}<a class="btn small" href={r.doc.open} target="_blank" rel="noopener">Open {r.doc.label} as it would be</a>{/if}
-						{#if r.doc?.group}<span class="muted small"> What every agent is taught ({r.doc.what}s / {r.doc.group}): accepted, it is taught from the next request on.</span>{/if}
-						{#if r.moved}<span class="muted small"> It was seeded from v{r.seedNumber}; the {r.doc?.what ?? 'document'} has a newer version since. Accepting merges it where the two touch different fields, and archives it where they touch the same.</span>{/if}
-					</p>
-					<Changes changes={r.changes} edits={r.edits} seed={r.seedNumber} heading={p.status === 'accepted' ? 'What it changed' : 'What it changes'} />
-				</div>
+				{#each [docReview, ...alsoDocs] as r, i (i)}
+					{@render docChanges(r, alsoDocs.length > 0, p.status === 'accepted')}
+				{/each}
 			{:else if storyReview}
 				<div class="story-review">
 					{#if reviewError}<p class="error">{reviewError}</p>
@@ -718,6 +728,10 @@
 					</div>
 				{/if}
 			</div>
+			{/if}
+			{#if !docReview && alsoDocs.length}
+				<p class="muted small">This intent changes {alsoDocs.length + 1} documents: accepted together, or archived together.</p>
+				{#each alsoDocs as r, i (i)}{@render docChanges(r, true, p.status === 'accepted')}{/each}
 			{/if}
 			<!-- the decision at its foot, in the middle, where a thumb reaches it on a pad (Samuel 2026-11-05): Reject on the
 			     left (it ends archived: a proposal ends accepted or archived), Accept on the right, the rest between -->

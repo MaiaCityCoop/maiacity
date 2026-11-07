@@ -72,6 +72,15 @@ suite("the Game editor's configs on Loro", () => {
     return res.isError ? { error: text as string } : JSON.parse(text);
   };
 
+  /** an intent in Prototype, its spec approved, its one must check passed (at Proposal by itself): every edit is an intent's */
+  const readyIntent = async (title: string) => {
+    const i = await tool("add_intent", { title });
+    await tool("specify_intent", { intent: i.id, goal: "It changes.", nothing_to_reduce: "A test fixture: nothing to reduce.", scope: "One document.", checks: [{ check: "It holds", how: "test", by: "true", run: "true" }] });
+    await call("ada", "POST", `/api/intents/${i.id}/approve`);
+    await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] });
+    return i.id as string;
+  };
+
   test("the levelling is seeded once as its v1, and a valid levels/1", async () => {
     const doc = levelling();
     expect(doc.levels).toHaveLength(16);
@@ -94,15 +103,16 @@ suite("the Game editor's configs on Loro", () => {
 
   test("an agent drafts a change step by step, each step checked whole, proposes it, and it is accepted as v2", async () => {
     expect((await tool("list_docs", { kind: "game_config" }))[0].id).toBe(LV);
-    const one = await tool("doc_edit", { doc: LV, message: "a bigger investor at level 16", edits: [{ op: "set", path: ["levels", { id: "l16" }, "investor"], value: 10 }] });
+    const ready = await readyIntent("Levelling");
+    const one = await tool("doc_edit", { doc: LV, intent: ready, message: "a bigger investor at level 16", edits: [{ op: "set", path: ["levels", { id: "l16" }, "investor"], value: 10 }] });
     expect(typeof one.variant).toBe("number");
     expect(one).toMatchObject({ changed: true, edits: 1, changes: 1 });
     // levels must climb in villagers
-    const bad = await tool("doc_edit", { doc: LV, variant: one.variant, message: "out of order", edits: [{ op: "set", path: ["levels", { id: "l3" }, "villagers"], value: 2 }] });
+    const bad = await tool("doc_edit", { doc: LV, intent: ready, variant: one.variant, message: "out of order", edits: [{ op: "set", path: ["levels", { id: "l3" }, "villagers"], value: 2 }] });
     expect(bad.error).toContain("not more than the level before");
-    const two = await tool("doc_edit", { doc: LV, variant: one.variant, message: "the tent costs more", edits: [{ op: "set", path: ["levels", { id: "l1" }, "unlocks", 0, "cost"], value: 3000 }] });
+    const two = await tool("doc_edit", { doc: LV, intent: ready, variant: one.variant, message: "the tent costs more", edits: [{ op: "set", path: ["levels", { id: "l1" }, "unlocks", 0, "cost"], value: 3000 }] });
     expect(two).toMatchObject({ variant: one.variant, edits: 2, changes: 2 });
-    const proposed = await tool("propose_doc_version", { doc: LV, variant: one.variant, note: "a richer last investor, a dearer tent" });
+    const proposed = await tool("propose_doc_version", { doc: LV, intent: ready, variant: one.variant, note: "a richer last investor, a dearer tent" });
     expect(proposed).toMatchObject({ doc: LV, number: 2, edits: 2, changes: 2 });
 
     const listed = (await call("ada", "GET", "/api/intents?stage=proposal")).data.find((i: any) => i.id === proposed.intent);

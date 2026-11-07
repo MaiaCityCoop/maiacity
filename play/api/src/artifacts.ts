@@ -1,23 +1,17 @@
-// Artifacts (play/SPEC.md §4.13, Samuel 2026-11-06; first called Sources): every link from the net Maia City keeps, a
-// library of what we read, quote and point to: all of them artifacts. An artifact is kept over MCP by avenMAIA, the one identity of every agent connected to play's MCP,
-// for the admin whose token connected it (its operator), and says where it came from: the operator pasted it (origin
-// 'human', shown "Added by <the operator>") or avenMAIA found it in its own research (origin 'agent', shown "Sourced by
-// avenMAIA"). Each keeps three texts avenMAIA writes from the artifact itself, held to their form here:
-//
-//   title        very compact: one line, at most 70 characters;
-//   description  the mini summary: one line, at most 280 characters, no Markdown (one or two sentences);
-//   summary      a small report on the overall topic: Markdown, 500–1,500 words, in the sections
-//                ## What it is, ## Key points (as bullets), ## The topic, and if it likes ## For Maia City.
-//
-// Its authors are rows of their own (play.authors), n:m with the artifacts in their order: named by their UUIDs, never
-// looked up or merged by a name (two of one name stay two). One link, one artifact: a link is kept normalised (urlOf),
-// and adding one already kept answers with that artifact. Admins only, the coop's own; nothing here is typed in by hand.
+// Artifacts (play/SPEC.md §4.13): every link from the net Maia City keeps, kept over MCP by avenMAIA for the admin whose
+// token connected it, pasted by them (origin 'human', "Added by") or found in its research (origin 'agent', "Sourced by
+// avenMAIA"), with three texts held to their form here (a title of at most 70 characters, a description of at most
+// 280, a summary of 500–1,500 words in its sections) and its authors (play.authors, by their UUIDs, in order). One link,
+// one artifact (urlOf). An artifact is a document like any other (artifact:<uuid>, ./versioned.ts): every change of it
+// waits at Proposal as an intent's work, and its row is what its accepted version says. Admins only.
 import { COOP, Denied, type Me } from "./access";
 import { AVENMAIA } from "./ids";
 import { keyOf, type BlobStore } from "./blobs";
 import { hashBytes } from "./hash";
 import type { Db, Queryable } from "./pg";
 import { newId, UUID } from "./uuid";
+import * as docs from "./docs";
+import { docAt, proposeDocVersion, proposeNewDoc } from "./versioned";
 
 export class ArtifactError extends Error {
   constructor(message: string, public status = 400) {
@@ -43,9 +37,6 @@ export const TAGS_MOST = 12;
 export const TEXT_MOST = 2_000_000;
 const SUMMARY_CHARS_MOST = 20_000;
 const URL_MOST = 2000;
-
-// The rule every agent is taught about the Artifacts is avenMAIA's skill's now (../import/skills/avenmaia.ts, ./skills.ts),
-// add_artifact's description its contract.
 
 // ---- who may
 
@@ -253,11 +244,14 @@ async function keepText(db: Queryable, store: BlobStore, text: unknown, title: s
 // ---- reading
 
 const ARTIFACT_COLUMNS = `s.id, s.url, s.title, s.description, s.kind, s.tags, to_char(s.published, 'YYYY-MM-DD') AS published, s.origin,
-  s.created, s.updated_at, s.text_hash, s.agent_id, ag.name AS agent, s.operator_id, op.name AS operator, up.name AS updated_by,
+  s.created, COALESCE(up.at, s.updated_at) AS updated_at, s.text_hash, s.agent_id, ag.name AS agent, s.operator_id, op.name AS operator, COALESCE(up.name, uo.name) AS updated_by,
   COALESCE((SELECT json_agg(json_build_object('id', a.id, 'name', a.name, 'kind', a.kind, 'url', a.url) ORDER BY sa.position)
-              FROM play.artifact_authors sa JOIN play.authors a ON a.id = sa.author_id WHERE sa.artifact_id = s.id), '[]'::json) AS authors`;
-const ARTIFACT_FROM = `play.artifacts s JOIN play.agents ag ON ag.id = s.agent_id
-  LEFT JOIN play.humans op ON op.id = s.operator_id LEFT JOIN play.humans up ON up.id = s.updated_by`;
+              FROM play.artifact_authors sa JOIN play.authors a ON a.id = sa.author_id WHERE sa.artifact_id = s.id), '[]'::json) AS authors,
+  (SELECT iv.intent_id FROM play.intent_variants iv JOIN play.intents i ON i.id = iv.intent_id WHERE iv.doc_id = 'artifact:' || s.id::text AND i.stage IN ('prototype', 'proposal') LIMIT 1) AS open_intent`;
+const ARTIFACT_FROM = `play.artifacts s LEFT JOIN play.agents ag ON ag.id = s.agent_id
+  LEFT JOIN play.humans op ON op.id = s.operator_id LEFT JOIN play.humans uo ON uo.id = s.updated_by
+  LEFT JOIN LATERAL (SELECT h.name, v.decided_at AS at FROM play.doc_variants v JOIN play.intents i ON i.id = v.intent_id JOIN play.humans h ON h.id = i.proposed_by
+    WHERE v.doc_id = 'artifact:' || s.id::text AND v.version > 1 ORDER BY v.version DESC LIMIT 1) up ON true`;
 
 /** who brought an artifact, as it is shown */
 const byOf = (origin: Origin, operator: string | null, agent: string) =>
@@ -278,6 +272,7 @@ const shape = (r: any, whole = false) => ({
   operator: r.operator_id ? { id: r.operator_id, name: r.operator } : null,
   authors: r.authors ?? [],
   created: new Date(r.created).toISOString(),
+  intent: r.open_intent ?? null,
   ...(whole ? { text_hash: r.text_hash ?? null, updated_by: r.updated_by ?? null, updated_at: r.updated_at ? new Date(r.updated_at).toISOString() : null } : {}),
 });
 
@@ -288,7 +283,7 @@ const idOf = (v: unknown, what: string) => {
 };
 
 async function artifactRow(db: Queryable, id: string) {
-  const { rows } = await db.query(`SELECT ${ARTIFACT_COLUMNS}, s.summary FROM ${ARTIFACT_FROM} WHERE s.coop_id = $1 AND s.id = $2`, [COOP, id]);
+  const { rows } = await db.query(`SELECT ${ARTIFACT_COLUMNS}, s.summary FROM ${ARTIFACT_FROM} WHERE s.coop_id = $1 AND s.id = $2 AND s.title IS NOT NULL`, [COOP, id]);
   if (!rows[0]) throw new ArtifactError("No artifact is kept by that id.", 404);
   return shape(rows[0], true);
 }
@@ -307,7 +302,7 @@ export type ArtifactQuery = { q?: string | null; author?: string | null; tag?: s
  */
 export async function listArtifacts(db: Queryable, me: Me | null, o: ArtifactQuery = {}) {
   admin(me);
-  const where = ["s.coop_id = $1"];
+  const where = ["s.coop_id = $1", "s.title IS NOT NULL"];
   const args: unknown[] = [COOP];
   const arg = (v: unknown) => (args.push(v), `$${args.length}`);
   const q = `${o.q ?? ""}`.trim().toLowerCase();
@@ -326,8 +321,8 @@ export async function listArtifacts(db: Queryable, me: Me | null, o: ArtifactQue
   const total = (await db.query<{ n: string }>(`SELECT count(*) AS n FROM play.artifacts s WHERE ${w}`, args)).rows[0];
   const { rows } = await db.query(`SELECT ${ARTIFACT_COLUMNS} FROM ${ARTIFACT_FROM} WHERE ${w} ORDER BY s.created DESC, s.id LIMIT ${arg(limit)} OFFSET ${arg(offset)}`, args);
   // every artifact in the coop, by origin and by kind, and its tags, most used first: the page's filters
-  const tags = await db.query<{ tag: string; n: string }>(`SELECT t AS tag, count(*) AS n FROM play.artifacts, unnest(tags) t WHERE coop_id = $1 GROUP BY t ORDER BY count(*) DESC, t LIMIT 100`, [COOP]);
-  const by = await db.query<{ origin: Origin; kind: ArtifactKind; n: string }>(`SELECT origin, kind, count(*) AS n FROM play.artifacts WHERE coop_id = $1 GROUP BY origin, kind`, [COOP]);
+  const tags = await db.query<{ tag: string; n: string }>(`SELECT t AS tag, count(*) AS n FROM play.artifacts, unnest(tags) t WHERE coop_id = $1 AND title IS NOT NULL GROUP BY t ORDER BY count(*) DESC, t LIMIT 100`, [COOP]);
+  const by = await db.query<{ origin: Origin; kind: ArtifactKind; n: string }>(`SELECT origin, kind, count(*) AS n FROM play.artifacts WHERE coop_id = $1 AND title IS NOT NULL GROUP BY origin, kind`, [COOP]);
   const counts = { all: 0, origin: Object.fromEntries(ORIGINS.map((o) => [o, 0])) as Record<Origin, number>, kind: Object.fromEntries(ARTIFACT_KINDS.map((k) => [k, 0])) as Record<ArtifactKind, number> };
   for (const r of by.rows) {
     const k = Number(r.n);
@@ -364,14 +359,14 @@ export async function authorOf(db: Queryable, me: Me | null, id: unknown) {
   const a: any = rows[0];
   if (!a) throw new ArtifactError("No author is kept by that id.", 404);
   const { rows: artifacts } = await db.query(
-    `SELECT ${ARTIFACT_COLUMNS} FROM ${ARTIFACT_FROM} WHERE s.coop_id = $1 AND EXISTS (SELECT 1 FROM play.artifact_authors sa WHERE sa.artifact_id = s.id AND sa.author_id = $2)
+    `SELECT ${ARTIFACT_COLUMNS} FROM ${ARTIFACT_FROM} WHERE s.coop_id = $1 AND s.title IS NOT NULL AND EXISTS (SELECT 1 FROM play.artifact_authors sa WHERE sa.artifact_id = s.id AND sa.author_id = $2)
       ORDER BY s.created DESC, s.id`,
     [COOP, aid],
   );
   return { id: a.id, name: a.name, kind: a.kind, url: a.url, note: a.note, created: new Date(a.created).toISOString(), agent: a.agent, operator: a.operator, artifacts: artifacts.map((r) => shape(r)) };
 }
 
-// ---- writing (over MCP only: avenMAIA, for the admin whose token connected it)
+// ---- changing: its next version proposed, for the intent named (held to its gate) or a new one of its own
 
 /** the authors given, in their order: an existing one by its id (the coop's), a new one made with a random UUID */
 async function authorIds(tx: Queryable, me: Me, given: AuthorGiven[]): Promise<string[]> {
@@ -392,10 +387,16 @@ async function authorIds(tx: Queryable, me: Me, given: AuthorGiven[]): Promise<s
   return out;
 }
 
-async function setAuthors(tx: Queryable, artifact: string, ids: string[]) {
-  await tx.query(`DELETE FROM play.artifact_authors WHERE artifact_id = $1`, [artifact]);
-  for (const [position, author] of ids.entries())
-    await tx.query(`INSERT INTO play.artifact_authors (artifact_id, author_id, position) VALUES ($1, $2, $3)`, [artifact, author, position]);
+/** the artifact a link is kept as (accepted), or the intent whose work keeps it already (waiting) */
+async function linkHeld(db: Queryable, url: string): Promise<{ kept?: string; waiting?: string }> {
+  const { rows } = await db.query<{ id: string }>(`SELECT id FROM play.artifacts WHERE coop_id = $1 AND url = $2`, [COOP, url]);
+  if (rows[0]) return { kept: rows[0].id };
+  const { rows: open } = await db.query<{ intent_id: string; doc_id: string; variant_id: string }>(
+    `SELECT iv.intent_id, iv.doc_id, iv.variant_id FROM play.intent_variants iv JOIN play.intents i ON i.id = iv.intent_id
+      WHERE iv.doc_id LIKE 'artifact:%' AND i.stage IN ('prototype', 'proposal')`,
+  );
+  for (const o of open) if ((await docs.readDoc(db, o.doc_id, { variant: Number(o.variant_id) })).json.url === url) return { waiting: o.intent_id };
+  return {};
 }
 
 export type ArtifactGiven = {
@@ -403,78 +404,51 @@ export type ArtifactGiven = {
   kind?: unknown; tags?: unknown; published?: unknown; origin?: unknown; text?: unknown;
 };
 
-/**
- * Keep an artifact, as avenMAIA's for the admin whose token connected it. A link already kept is not kept again: the answer
- * is that artifact, `kept: true` (correct it with updateArtifact).
- */
-export async function addArtifact(db: Db, store: BlobStore, me: Me | null, b: ArtifactGiven) {
+/** Keep an artifact (its first version proposed); a link kept already answers with it (`kept`), one waiting with its intent. */
+export async function addArtifact(db: Db, store: BlobStore, me: Me | null, b: ArtifactGiven, intent?: string) {
   const who = admin(me);
   const url = urlOf(b?.url);
-  const kept = await db.query<{ id: string }>(`SELECT id FROM play.artifacts WHERE coop_id = $1 AND url = $2`, [COOP, url]);
-  if (kept.rows[0]) return { ...(await artifactRow(db, kept.rows[0].id)), kept: true };
+  const held = await linkHeld(db, url);
+  if (held.kept) return { ...(await artifactRow(db, held.kept)), kept: true };
+  if (held.waiting) return { url, kept: false, waiting: true, intent: held.waiting, stage: "proposal" };
   const title = titleOf(b?.title);
-  const description = descriptionOf(b?.description);
-  const summary = summaryOf(b?.summary);
-  const kind = kindOf(b?.kind);
-  const origin = originOf(b?.origin);
-  const tags = tagsOf(b?.tags);
-  const published = publishedOf(b?.published);
-  const authors = authorsGiven(b?.authors);
-  const text = await keepText(db, store, b?.text, title);
-  const id = newId();
-  const made = await db.transaction(async (tx) => {
-    const { rows } = await tx.query<{ id: string }>(
-      `INSERT INTO play.artifacts (id, coop_id, url, title, description, summary, kind, tags, published, text_hash, agent_id, origin, operator_id, token_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) ON CONFLICT (coop_id, url) DO NOTHING RETURNING id`,
-      [id, COOP, url, title, description, summary, kind, tags, published, text, AVENMAIA, origin, who.id, who.token ?? null],
-    );
-    if (!rows[0]) return false;
-    await setAuthors(tx, id, await authorIds(tx, who, authors));
-    return true;
-  });
-  if (!made) {
-    // kept a moment ago by another agent
-    const { rows } = await db.query<{ id: string }>(`SELECT id FROM play.artifacts WHERE coop_id = $1 AND url = $2`, [COOP, url]);
-    return { ...(await artifactRow(db, rows[0].id)), kept: true };
-  }
-  return { ...(await artifactRow(db, id)), kept: false };
+  const json = {
+    schema: "artifact/1", url, title, description: descriptionOf(b?.description), summary: summaryOf(b?.summary), kind: kindOf(b?.kind), tags: tagsOf(b?.tags),
+    published: publishedOf(b?.published), text_hash: await keepText(db, store, b?.text, title), origin: originOf(b?.origin), agent: AVENMAIA,
+    operator: who.id, token: who.token ?? null, authors: [] as string[],
+  };
+  const given = authorsGiven(b?.authors);
+  json.authors = await db.transaction((tx) => authorIds(tx, who, given));
+  const r = await proposeNewDoc({ db, store }, who, "artifact", { whole: json, note: `Keep the artifact ${title} (${url})`, intent });
+  return { id: r.doc, url, title, kept: false, waiting: true, intent: r.intent, stage: r.stage };
 }
 
-/**
- * Correct a kept artifact: any of its texts, link, kind, tags, date, authors (the whole list, in order) and text, each
- * held to the same form; who changed it and when are kept. Its origin, agent and operator never change.
- */
-export async function updateArtifact(db: Db, store: BlobStore, me: Me | null, artifact: unknown, b: ArtifactGiven) {
+/** Correct a kept artifact (its next version proposed): any field but who brought it, each held to its form. */
+export async function updateArtifact(db: Db, store: BlobStore, me: Me | null, artifact: unknown, b: ArtifactGiven, intent?: string) {
   const who = admin(me);
   const id = idOf(artifact, "artifact");
   const now = await artifactRow(db, id);
   if (b && "origin" in b && b.origin !== undefined && b.origin !== now.origin)
     throw new ArtifactError("An artifact's origin is kept as it came: who brought it never changes.");
-  const set: string[] = [];
-  const args: unknown[] = [id];
-  const put = (col: string, v: unknown) => (args.push(v), set.push(`${col} = $${args.length}`));
+  const cur = (await docAt({ db, store }, who, id)).json;
+  const next: any = { ...cur };
   if (b?.url !== undefined) {
-    const url = urlOf(b.url);
-    if (url !== now.url) {
-      const { rows } = await db.query<{ id: string }>(`SELECT id FROM play.artifacts WHERE coop_id = $1 AND url = $2`, [COOP, url]);
-      if (rows[0]) throw new ArtifactError(`That link is kept already, as artifact ${rows[0].id}.`, 409);
-      put("url", url);
-    }
+    next.url = urlOf(b.url);
+    const held = next.url === now.url ? {} : await linkHeld(db, next.url);
+    if (held.kept || held.waiting) throw new ArtifactError(`That link is kept already, as ${held.kept ? `artifact ${held.kept}` : `intent ${held.waiting}'s work`}.`, 409);
   }
-  if (b?.title !== undefined) put("title", titleOf(b.title));
-  if (b?.description !== undefined) put("description", descriptionOf(b.description));
-  if (b?.summary !== undefined) put("summary", summaryOf(b.summary));
-  if (b?.kind !== undefined) put("kind", kindOf(b.kind));
-  if (b?.tags !== undefined) put("tags", tagsOf(b.tags));
-  if (b?.published !== undefined) put("published", publishedOf(b.published));
-  const authors = b?.authors !== undefined ? authorsGiven(b.authors) : null;
-  if (b?.text !== undefined) put("text_hash", await keepText(db, store, b.text, `${b?.title ?? now.title}`));
-  if (!set.length && !authors) throw new ArtifactError("Nothing to change: give the fields to correct.");
-  await db.transaction(async (tx) => {
-    args.push(who.id);
-    set.push(`updated_by = $${args.length}`, "updated_at = now()");
-    await tx.query(`UPDATE play.artifacts SET ${set.join(", ")} WHERE id = $1`, args);
-    if (authors) await setAuthors(tx, id, await authorIds(tx, who, authors));
-  });
-  return artifactRow(db, id);
+  if (b?.title !== undefined) next.title = titleOf(b.title);
+  if (b?.description !== undefined) next.description = descriptionOf(b.description);
+  if (b?.summary !== undefined) next.summary = summaryOf(b.summary);
+  if (b?.kind !== undefined) next.kind = kindOf(b.kind);
+  if (b?.tags !== undefined) next.tags = tagsOf(b.tags);
+  if (b?.published !== undefined) next.published = publishedOf(b.published);
+  if (b?.text !== undefined) next.text_hash = await keepText(db, store, b.text, `${b?.title ?? now.title}`);
+  if (b?.authors !== undefined) {
+    const given = authorsGiven(b.authors);
+    next.authors = await db.transaction((tx) => authorIds(tx, who, given));
+  }
+  if (!Object.keys(b ?? {}).some((k) => k !== "origin" && (b as any)[k] !== undefined)) throw new ArtifactError("Nothing to change: give the fields to correct.");
+  const r = await proposeDocVersion({ db, store }, who, { doc: id, whole: next, note: `Correct the artifact ${next.title}: ${Object.keys(b).filter((k) => k !== "origin").join(", ")}`, intent });
+  return { ...now, waiting: true, intent: r.intent, stage: r.stage, number: (r as any).number, changes: (r as any).changes };
 }

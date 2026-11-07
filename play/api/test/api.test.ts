@@ -587,16 +587,29 @@ suite("play API", () => {
    * The story tools as a test calls them: a story's version proposed with its edits (a title among them), its whole
    * timeline, or an intent variant made edit by edit (doc_edit, propose_doc_version, ../src/versioned.ts).
    */
+  /** every edit is an intent's: each variant a test drafts is made for an intent of its own, ready to propose */
+  const variantIntent = new Map<number, string>();
+  const readyIntent = async (title: string, token = storyToken) => {
+    const i = (await rawTool("add_intent", { title }, token)).out;
+    await rawTool("specify_intent", { intent: i.id, goal: "It changes.", nothing_to_reduce: "A test fixture: nothing to reduce.", scope: "One story.", checks: [{ check: "It holds", how: "test", by: "true", run: "true" }] }, token);
+    await call("ada", "POST", `/api/intents/${i.id}/approve`);
+    await rawTool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] }, token);
+    return i.id as string;
+  };
   const tool = async (name: string, args: Record<string, any>, token = storyToken) => {
     const editsOf = (a: Record<string, any>) => (a.title !== undefined ? [...(a.edits ?? []), { op: "set", fields: { title: a.title } }] : a.edits);
     if (name === "propose_story_version") {
-      const { story, note, body, variant, intent } = args;
+      const { story, note, body, variant } = args;
+      const intent = args.intent ?? (variant != null ? variantIntent.get(Number(variant)) : undefined);
       if (body !== undefined && args.edits !== undefined) return { error: "Give edits or the whole document, not both.", out: null };
       return rawTool("propose_doc_version", { doc: story, note, ...(variant != null ? { variant } : {}), ...(intent ? { intent } : {}), ...(body !== undefined ? { whole: { ...(args.title !== undefined ? { title: args.title } : {}), ...body } } : editsOf(args) !== undefined ? { edits: editsOf(args) } : {}) }, token);
     }
     if (name === "story_edit") {
       const { story, message, body, variant } = args;
-      return rawTool("doc_edit", { doc: story, message, ...(variant != null ? { variant } : {}), ...(body !== undefined ? { whole: { ...(args.title !== undefined ? { title: args.title } : {}), ...body } } : { edits: editsOf(args) ?? [] }) }, token);
+      const intent = args.intent ?? (variant != null ? variantIntent.get(Number(variant)) : undefined) ?? (await readyIntent(`An edit of ${story}`, token));
+      const r = await rawTool("doc_edit", { doc: story, intent, message, ...(variant != null ? { variant } : {}), ...(body !== undefined ? { whole: { ...(args.title !== undefined ? { title: args.title } : {}), ...body } } : { edits: editsOf(args) ?? [] }) }, token);
+      if (r.out?.variant != null) variantIntent.set(Number(r.out.variant), intent);
+      return r;
     }
     if (name === "propose_version") {
       // an asset's version: its source, its kinds, the params its recipe declares and its documents, each a field of
@@ -1056,8 +1069,8 @@ suite("play API", () => {
     const pid = crypto.randomUUID();
     // an intent at Proposal whose work was proposed before the documents: it has no intent variant yet
     await db.query(
-      `INSERT INTO play.intents (id, coop_id, kind, title, stage, author, via, work, doc_id, story_id, story_base, story_version, work_note, proposed_by, proposed_via, proposed_at)
-       VALUES ($1, '12f8d4e7-701f-8727-a327-de9b240ea867', 'improve', 'Old v3', 'proposal', $4, 'mcp', 'story_version', 'story:${OLD}', '${OLD}', $2, $3, 'three', $4, 'mcp', now())`,
+      `INSERT INTO play.intents (id, coop_id, kind, title, stage, author, via, work, story_id, story_base, story_version, work_note, proposed_by, proposed_via, proposed_at)
+       VALUES ($1, '12f8d4e7-701f-8727-a327-de9b240ea867', 'improve', 'Old v3', 'proposal', $4, 'mcp', 'story_version', '${OLD}', $2, $3, 'three', $4, 'mcp', now())`,
       [pid, v2, p3, who.ada.id],
     );
     const h = (await call("ada", "GET", `/api/docs/${OLD}/history`)).data;

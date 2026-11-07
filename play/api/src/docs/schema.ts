@@ -420,7 +420,41 @@ export const SKILL: DocType = {
   },
 };
 
-export const TYPES: Record<string, DocType> = { [STORY.name]: STORY, [ASSET.name]: ASSET, [FACTORY.name]: FACTORY, [LEVELS.name]: LEVELS, [SKILL.name]: SKILL };
+/**
+ * An artifact (../artifacts.ts, play/SPEC.md §4.13): a link from the net Maia City keeps, its three texts and its
+ * authors (their ids, in order), who brought it and how. Its forms (a title's length, a summary's sections and words)
+ * are held by ../artifacts.ts when it is proposed; a new artifact's Main is only its schema until it is accepted.
+ */
+const ARTIFACT_FIELDS = ["url", "title", "description", "summary", "kind", "origin", "agent", "authors"];
+const uuidList: Node = { type: "array", maxItems: 20, items: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" } };
+export const ARTIFACT: DocType = {
+  name: "artifact/1",
+  type: "artifact",
+  schema: {
+    type: "object",
+    required: ["schema"],
+    properties: {
+      schema: { const: "artifact/1" },
+      url: { type: "string", minLength: 8, maxLength: 2000, pattern: "^https?://" },
+      title: { type: "string", minLength: 1, maxLength: 70 },
+      description: { type: "string", minLength: 1, maxLength: 280 },
+      summary: { type: "string", minLength: 1, maxLength: 20000, "x-loro": "text" },
+      kind: { type: "string", enum: ["page", "article", "paper", "video", "post", "book", "podcast", "code", "other"] },
+      tags: { type: "array", maxItems: 12, items: { type: "string", maxLength: 40 } },
+      published: {},
+      text_hash: {},
+      origin: { type: "string", enum: ["human", "agent"] },
+      agent: { type: "string" },
+      operator: {},
+      token: {},
+      authors: uuidList,
+    },
+    additionalProperties: false,
+  },
+  check: (doc) => (Object.keys(doc).length > 1 ? ARTIFACT_FIELDS.filter((f) => doc[f] === undefined).map((f) => `$.${f}: an artifact has its ${f}`) : []),
+};
+
+export const TYPES: Record<string, DocType> = { [STORY.name]: STORY, [ASSET.name]: ASSET, [FACTORY.name]: FACTORY, [LEVELS.name]: LEVELS, [SKILL.name]: SKILL, [ARTIFACT.name]: ARTIFACT };
 
 /** the type a schema name names, or a SchemaError */
 export function typeOf(name: string): DocType {
