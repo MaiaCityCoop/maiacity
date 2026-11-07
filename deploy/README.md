@@ -37,8 +37,8 @@ Accept there ships it again.
 
 ## Backups (Samuel 2026-11-02)
 
-- **When:** before every deploy, and only then. The production workflow's step *Back up play* runs `backup.sh`
-  before play-api changes; the deploy stops if the backup fails. Nothing runs on a schedule.
+- **When:** before every deploy, and only then. The production workflow's job *The backup* (its step *Back up play*) runs
+  `backup.sh` beside *The image*, and *The server* waits for both, so the backup is taken before play-api changes; the deploy stops if the backup fails. Nothing runs on a schedule.
 - **What, always together: a snapshot, like Time Machine's** (Samuel 2026-11-05). Every snapshot holds a **full**
   dump of play's schema in Postgres (`pg_dump -n play`), `files.txt` (every file the dump names: its hash and size)
   and `manifest.json` naming the commit and the play image that ran with them. The **files** are kept once each, under

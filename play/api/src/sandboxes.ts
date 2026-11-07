@@ -505,7 +505,7 @@ export async function proposedState(db: Queryable, me: Me | null, sandbox: strin
 }
 
 /**
- * Migration 0033-sandbox-layouts: every sandbox's layout a document, its v1 its pins and configs as they are, and every
+ * Migration 0034-sandbox-layouts: every sandbox's layout a document, its v1 its pins and configs as they are, and every
  * intent's sandbox change (the columns sandbox_id, sandbox_base, sandbox_change and sandbox_diff) an intent variant of
  * it, each intent keeping its stage. One at Proposal is its edits made again on v1, proposed (kept, to be archived on
  * Accept, where they no longer hold); an accepted or archived one a closed variant that keeps what it changed as its

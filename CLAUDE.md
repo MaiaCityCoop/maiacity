@@ -17,9 +17,17 @@
 Every change is an intent's (play/SPEC.md §4.12) and goes to `main` by pull request; `.github/workflows/main.yml` runs
 play's checks (`play-checks.yml`: the API's tests against Postgres, its types, the site's build) and the website's
 (`website-checks.yml`: its types and build). Once main is green for the merged commit, `.github/workflows/release.yml`
-moves `production` to it (fast-forward) and starts `production.yml`, which deploys play (backup, image, DNS, server,
-import, Caddy) and the website (its build into the server's `site/releases/<commit>`, `site/current` switched);
-`Main is green` reads main's checks for that commit instead of running them again.
+moves `production` to it (fast-forward) and starts `production.yml`, which deploys play (backup and image side by
+side, then DNS, server, import, Caddy) and the website (its build into the server's `site/releases/<commit>`,
+`site/current` switched); every job's first step after its checkout reads main's checks for that commit
+(`.github/actions/main-green`) instead of running them again, and on the push to main those checks pass at once only on
+the very tree the pull request's run tested (`.github/workflows/tested-tree.sh`), else they run in full.
+
+**All work on play starts in an avenBOX session** (Samuel 2026-11-06; play/SPEC.md §4.12): an intent at any stage,
+its code and its checks are done in a cloud session on avenBOX, `env_011Zm65erarH7ffXio13u5pG`, the only environment
+with play's MCP token and the box. A session that finds itself elsewhere, without play's MCP (no `PLAY_MCP_TOKEN`; on a
+Mac, in the Default environment), starts a session on avenBOX with the work's brief and hands it over: it builds,
+pushes and records nothing itself. One intent has one builder session.
 
 Before you push, run the checks of what you touched, in **avenBOX** (the cloud environment the agents work in; play/SPEC.md
 §4.12): `bash play/avenbox/gate.sh` runs what CI runs (in `play/api` `bunx tsc --noEmit` and `bun test`, none skipped,
@@ -109,7 +117,7 @@ its **data sheet** and its sheet's **brief** (`datasheet`, `brief`: Markdown kep
 dataset is in play. A
 version can be a kind of **variants** (the document's `variants`, or `propose_asset`'s: a plant's kinds, an animal's breeds), each its own
 recipe and a chip in the asset viewer. Everything Maia City wants made, fixed or improved is an **intent** (play/SPEC.md
-§4.12; Samuel 2026-11-06), on the intents' board (a modal from the nav pill's star): **Idea → Specify → Prototype →
+§4.12; Samuel 2026-11-06), on the intents' board (a modal from the nav pill's star): **Idea → Specify → Build →
 Proposal → (Ship →) Accepted** (or Archived). **One record** (Samuel 2026-11-06: "not a proposal belongs to an intent: the intent
 has a state, proposal"): there is no proposal beside an intent; Proposal is the intent's stage, and the work it brings
 (a document's version, named by its `doc_id` and `doc_variant`, or a sandbox's change) is on the intent itself
@@ -120,7 +128,7 @@ system prompt, the intents' lifecycle, each stage's instructions) is kept once, 
 (`list_docs`, `doc_at`, `doc_history`; `/skills/`; play/SPEC.md §4.14), never in the code or on the board, and changes
 only by proposal (`doc_edit`, `propose_doc_version`), served from Postgres on each request (`initialize`, the brief, MCP's
 prompts). In short: at Idea it specifies the intent (every test and measure check with its `run` in **avenBOX**) and
-stops for an admin's approval; in Prototype it builds it and records every check (`bun play/avenbox/intent.ts <the
+stops for an admin's approval; in Build it builds it and records every check (`bun play/avenbox/intent.ts <the
 intent's UUID> --record`) until it moves to Proposal by itself, where an admin decides it; work of play's it proposes
 naming the intent, code it ships by pull request (*Accept ships it*, above). Work
 proposed without `intent` is a new intent at Proposal of its own, with no spec. No tool approves, accepts or rejects an

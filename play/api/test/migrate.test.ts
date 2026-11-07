@@ -216,12 +216,12 @@ suite("migration 0032-versioned", () => {
   }, 60_000);
 });
 
-// Migration 0033-sandbox-layouts (play/SPEC.md §4.6): a database made at 0032 holding a sandbox's pins and configs and
+// Migration 0034-sandbox-layouts (play/SPEC.md §4.6): a database made at 0033 holding a sandbox's pins and configs and
 // its changes as the intents' sandbox_* columns kept them (one accepted, one archived, one at Proposal that still
 // holds, one that no longer does), migrated: the layout is sandbox:<uuid>, its v1 its pins and configs as they were;
 // every change an intent variant of it, each intent keeping its stage; the columns gone; and the one waiting reviewed
 // and accepted as the layout's v2, its rows written for the worlds.
-suite("migration 0033-sandbox-layouts", () => {
+suite("migration 0034-sandbox-layouts", () => {
   let admin: Bun.SQL, sql: Bun.SQL, name: string;
   beforeAll(async () => {
     name = `play_migrate33_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
@@ -239,7 +239,7 @@ suite("migration 0033-sandbox-layouts", () => {
 
   test("every layout its v1, every sandbox change an intent variant, each intent's stage kept, the waiting one still decided", async () => {
     const db = fromBunSql(sql);
-    expect((await migrate(db, { until: "0032-versioned" })).at(-1)).toBe("0032-versioned");
+    expect((await migrate(db, { until: "0033-build" })).at(-1)).toBe("0033-build");
     const q = async (text: string, args: unknown[] = []) => (await db.query<any>(text, args)).rows;
     const ada = (await createHuman(db, "ada")).id;
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [ada]);
@@ -280,8 +280,8 @@ suite("migration 0033-sandbox-layouts", () => {
     const gone = await change("proposal", [{ op: "unpin", slot: "nowhere" }], [{ kind: "pin", slot: "nowhere", before: pin(v1), after: null }]);
     const wasPins = await q(`SELECT slot, version_id, variant, params FROM play.sandbox_pins WHERE sandbox_id = $1 ORDER BY slot`, [S2]);
 
-    // ---- 0033
-    expect(await migrate(db)).toEqual(["0033-sandbox-layouts"]);
+    // ---- 0034
+    expect(await migrate(db)).toEqual(["0034-sandbox-layouts"]);
     const cols = (await q(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'play' AND table_name = 'intents'`)).map((r) => r.column_name);
     for (const gone of ["sandbox_id", "sandbox_base", "sandbox_change", "sandbox_diff"]) expect(cols).not.toContain(gone);
     // the layout's v1: its pins and configs as they were; the rows as they were

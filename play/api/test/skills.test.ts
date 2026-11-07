@@ -92,15 +92,15 @@ suite("skills: what play teaches its agents, kept once", () => {
     goal: "A skill says more.",
     nothing_to_reduce: "A test fixture: nothing to reduce.",
     scope: "The Intents skill. Nothing else changes.",
-    checks: [{ check: "Its prototype part names avenBOX", how: "test", by: "grep", run: "true" }],
+    checks: [{ check: "Its build part names avenBOX", how: "test", by: "grep", run: "true" }],
   };
-  async function intentAt(title: string, stage: "idea" | "specify" | "prototype" | "proposal") {
+  async function intentAt(title: string, stage: "idea" | "specify" | "build" | "proposal") {
     const i = await tool("add_intent", { title });
     if (stage === "idea") return i;
     await tool("specify_intent", { intent: i.id, ...SPEC });
     if (stage === "specify") return i;
-    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("prototype");
-    if (stage === "prototype") return i;
+    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
+    if (stage === "build") return i;
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] })).stage).toBe("proposal");
     return i;
   }
@@ -114,7 +114,7 @@ suite("skills: what play teaches its agents, kept once", () => {
     const list = await tool("list_docs", { kind: "skill" });
     expect(list).toEqual([
       expect.objectContaining({ id: SKILL.avenmaia, label: "avenMAIA", group: "agents", number: 1, versions: 1, stages: [] }),
-      expect.objectContaining({ id: SKILL.intents, label: "Intents", group: "intents", number: 1, versions: 1, stages: ["idea", "specify", "prototype", "proposal", "ship"] }),
+      expect.objectContaining({ id: SKILL.intents, label: "Intents", group: "intents", number: 1, versions: 1, stages: ["idea", "specify", "build", "proposal", "ship"] }),
     ]);
     const s = await tool("doc_at", { doc: SKILL.intents });
     expect(s).toMatchObject({ id: SKILL.intents, number: 1, version: 1 });
@@ -135,10 +135,12 @@ suite("skills: what play teaches its agents, kept once", () => {
 
   test("c2: every sentence of what main taught before is in the seeded skills", async () => {
     const taught = norm([avenmaia().system, intents().system, ...Object.values(intents().stages)].join("\n\n"));
+    // the texts as main taught them before, with the stage Prototype named Build since (migration 0033-build)
+    const before = (f: string) => readFileSync(join(BEFORE, f), "utf8").replace(/Prototype/g, "Build").replace(/prototype/g, "build");
     const files = ["initialize.txt", "list_intents.txt", "brief-prototype.txt", "brief-specify.txt"];
     let counted = 0;
     for (const f of files) {
-      const was = readFileSync(join(BEFORE, f), "utf8");
+      const was = before(f);
       expect(was.length).toBeGreaterThan(500);
       for (const s of sentences(was)) {
         counted++;
@@ -147,8 +149,8 @@ suite("skills: what play teaches its agents, kept once", () => {
     }
     expect(counted).toBeGreaterThan(25);
     // the briefs whole, as the board gave them
-    expect(norm(intents().stages.prototype)).toContain(norm(readFileSync(join(BEFORE, "brief-prototype.txt"), "utf8")));
-    expect(norm(intents().stages.idea)).toContain(norm(readFileSync(join(BEFORE, "brief-specify.txt"), "utf8")));
+    expect(norm(intents().stages.build)).toContain(norm(before("brief-prototype.txt")));
+    expect(norm(intents().stages.idea)).toContain(norm(before("brief-specify.txt")));
     // Ship (intent d29933ff-3636-4148-8df7-c183c6065216)
     for (const says of ["never merge it, into main or production", "Accept here merges it and ships it to production, followed live in Ship", "back at Proposal with the report if one is red"])
       expect(taught).toContain(says);
@@ -157,7 +159,7 @@ suite("skills: what play teaches its agents, kept once", () => {
   // ---- c3: changed only by proposal
 
   test("c3: drafted step by step, refused before its intent's checks pass, proposed, reviewed field by field, accepted as v2", async () => {
-    const one = await tool("doc_edit", { doc: SKILL.intents, message: "the prototype part names the gate", edits: [{ op: "text", path: ["stages", "prototype"], index: 0, insert: "Run bash play/avenbox/gate.sh before you push. " }] });
+    const one = await tool("doc_edit", { doc: SKILL.intents, message: "the build part names the gate", edits: [{ op: "text", path: ["stages", "build"], index: 0, insert: "Run bash play/avenbox/gate.sh before you push. " }] });
     expect(typeof one.variant).toBe("number");
     expect(one).toMatchObject({ changed: true, edits: 1, changes: 1 });
     const bad = await tool("doc_edit", { doc: SKILL.intents, variant: one.variant, message: "a stage that is none", edits: [{ op: "set", path: ["stages", "done"], value: "x" }] });
@@ -165,10 +167,10 @@ suite("skills: what play teaches its agents, kept once", () => {
     const two = await tool("doc_edit", { doc: SKILL.intents, variant: one.variant, message: "the system part says skills", edits: [{ op: "text", path: ["system"], index: intents().system.length, insert: " Skills change by proposal too." }] });
     expect(two).toMatchObject({ variant: one.variant, edits: 2, changes: 2 });
     const history = await tool("doc_history", { doc: SKILL.intents, variant: one.variant });
-    expect(history.edits.map((s: any) => s.message)).toEqual(["the prototype part names the gate", "the system part says skills"]);
+    expect(history.edits.map((s: any) => s.message)).toEqual(["the build part names the gate", "the system part says skills"]);
 
     // for an intent, only once its must checks pass
-    const i = await intentAt("The Intents skill names the gate", "prototype");
+    const i = await intentAt("The Intents skill names the gate", "build");
     expect((await tool("propose_doc_version", { doc: SKILL.intents, variant: one.variant, note: "the gate", intent: i.id })).error).toBeTruthy();
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] })).stage).toBe("proposal");
     const proposed = await tool("propose_doc_version", { doc: SKILL.intents, variant: one.variant, note: "the gate, and skills by proposal", intent: i.id });
@@ -178,17 +180,17 @@ suite("skills: what play teaches its agents, kept once", () => {
     expect(listed).toMatchObject({ stage: "proposal", work: { kind: "skill_version", grp: "skills", label: "Intents", number: 2, via: "mcp" } });
     const review = (await call("ada", "GET", `/api/intents/${i.id}`)).data.review;
     expect(review).toMatchObject({ doc: { id: SKILL.intents, kind: "skill", label: "Intents", group: "intents" }, seedNumber: 1, moved: false });
-    expect(review.changes.map((c: any) => c.path).sort()).toEqual(["$.stages.prototype", "$.system"]);
+    expect(review.changes.map((c: any) => c.path).sort()).toEqual(["$.stages.build", "$.system"]);
     expect(review.changes.find((c: any) => c.path === "$.system")).toMatchObject({ kind: "changed", from: intents().system, to: intents().system + " Skills change by proposal too." });
     expect(review.edits).toHaveLength(2);
     // still v1 until it is accepted
-    expect((await tool("doc_at", { doc: SKILL.intents })).json.stages.prototype).toBe(intents().stages.prototype);
-    expect((await tool("doc_at", { doc: SKILL.intents, intent: i.id })).json.stages.prototype).toStartWith("Run bash play/avenbox/gate.sh");
+    expect((await tool("doc_at", { doc: SKILL.intents })).json.stages.build).toBe(intents().stages.build);
+    expect((await tool("doc_at", { doc: SKILL.intents, intent: i.id })).json.stages.build).toStartWith("Run bash play/avenbox/gate.sh");
 
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data).toMatchObject({ stage: "accepted", decision: { status: "accepted", number: 2 } });
     const now = await tool("doc_at", { doc: SKILL.intents });
     expect(now).toMatchObject({ number: 2, version: 2 });
-    expect(now.json.stages.prototype).toStartWith("Run bash play/avenbox/gate.sh before you push. Build Maia City's intent {intent}");
+    expect(now.json.stages.build).toStartWith("Run bash play/avenbox/gate.sh before you push. Build Maia City's intent {intent}");
     expect((await tool("doc_at", { doc: SKILL.intents, version: 1 })).json).toEqual(intents());
 
     // archived, the skill stays as it was
@@ -208,7 +210,7 @@ suite("skills: what play teaches its agents, kept once", () => {
     // accepted in c3 a moment ago, no restart between
     expect(init.instructions).toEndWith("Skills change by proposal too.");
 
-    const i = await intentAt("avenMAIA says hello", "prototype");
+    const i = await intentAt("avenMAIA says hello", "build");
     await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] });
     await tool("propose_doc_version", { doc: SKILL.avenmaia, note: "a greeting", intent: i.id, edits: [{ op: "text", path: ["system"], index: 0, insert: "Hello. " }] });
     expect((await initialize()).instructions).toStartWith("You are avenMAIA");
@@ -221,7 +223,7 @@ suite("skills: what play teaches its agents, kept once", () => {
   test("c5: get_intent and GET /api/intents/<id> carry its brief: the Intents skill's text for its stage, filled; none once it is done", async () => {
     const skillNow = (await tool("doc_at", { doc: SKILL.intents })).json;
     const at: Record<string, any> = {};
-    for (const s of ["idea", "specify", "prototype", "proposal"] as const) at[s] = await intentAt(`A brief at ${s}`, s);
+    for (const s of ["idea", "specify", "build", "proposal"] as const) at[s] = await intentAt(`A brief at ${s}`, s);
     // Ship and after, as an Accept would leave them (./ship.test.ts takes one there for real)
     for (const [stage, title] of [["ship", "A brief in Ship"], ["accepted", "A brief once accepted"], ["archived", "A brief once archived"]]) {
       at[stage] = await intentAt(title, "proposal");
@@ -244,7 +246,7 @@ suite("skills: what play teaches its agents, kept once", () => {
       expect(viaMcp.brief).not.toContain("{intent}");
       expect(viaMcp.brief).not.toContain("{title}");
     }
-    expect(at.prototype && (await tool("get_intent", { intent: at.prototype.id })).brief).toContain(`bun play/avenbox/intent.ts ${at.prototype.id} --record`);
+    expect(at.build && (await tool("get_intent", { intent: at.build.id })).brief).toContain(`bun play/avenbox/intent.ts ${at.build.id} --record`);
     expect((await tool("get_intent", { intent: at.idea.id })).brief).toContain(`Specify Maia City's intent ${at.idea.id} on play ("A brief at idea")`);
     expect((await call("cit", "GET", `/api/intents/${at.idea.id}`)).status).toBe(403);
   });
@@ -254,13 +256,15 @@ suite("skills: what play teaches its agents, kept once", () => {
   test("c6: prompts: one for each stage the Intents skill speaks to, each the same brief get_intent gives", async () => {
     expect((await initialize()).capabilities.prompts).toEqual({});
     const { prompts } = await rpc("prompts/list");
-    expect(prompts.map((p: any) => p.name)).toEqual(["intent_idea", "intent_specify", "intent_prototype", "intent_proposal", "intent_ship"]);
+    expect(prompts.map((p: any) => p.name)).toEqual(["intent_idea", "intent_specify", "intent_build", "intent_proposal", "intent_ship"]);
     for (const p of prompts) expect(p.arguments).toEqual([expect.objectContaining({ name: "intent", required: true })]);
-    const i = await intentAt("A prompt at Prototype", "prototype");
-    const got = await rpc("prompts/get", { name: "intent_prototype", arguments: { intent: i.id } });
+    const i = await intentAt("A prompt at Build", "build");
+    const got = await rpc("prompts/get", { name: "intent_build", arguments: { intent: i.id } });
     expect(got.messages).toEqual([{ role: "user", content: { type: "text", text: (await tool("get_intent", { intent: i.id })).brief } }]);
     expect((await rpc("prompts/get", { name: "intent_accepted", arguments: { intent: i.id } })).error.message).toContain("says nothing");
     expect((await rpc("prompts/get", { name: "nope", arguments: { intent: i.id } })).error.message).toContain("no prompt");
-    expect((await rpc("prompts/get", { name: "intent_prototype", arguments: { intent: "Intents" } })).error).toBeTruthy();
+    expect((await rpc("prompts/get", { name: "intent_build", arguments: { intent: "Intents" } })).error).toBeTruthy();
+    // the stage named Prototype before (0033-build) has no prompt
+    expect((await rpc("prompts/get", { name: "intent_prototype", arguments: { intent: i.id } })).error.message).toContain("no prompt");
   });
 });
