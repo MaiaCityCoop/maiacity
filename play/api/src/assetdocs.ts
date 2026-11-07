@@ -14,6 +14,7 @@
 // head archives it), so the merged result is the proposed version itself, the one the board built and showed in the
 // asset box; the document's own rule (a code merge that met other edits needs the hash of its previewed result) stands
 // behind it.
+import { byOf } from "./intents";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { COOP, Denied, must, type Me } from "./access";
@@ -932,7 +933,7 @@ export async function decideAsset(tx: Queryable, store: BlobStore, me: Me, p: an
     const n = (a[0]?.number ?? 0) + 1;
     await tx.query(`UPDATE play.asset_versions SET number = $2, approved_by = $3 WHERE id = $1`, [p.version, n, me.id]);
     await tx.query(`UPDATE play.assets SET head = $2 WHERE id = $1`, [p.asset_id, p.version]);
-    await settle(tx, id, "accepted", me.id);
+    await settle(tx, id, "accepted", byOf(me));
     await acceptVariant(tx, store, p, me, n);
     // a version proposed with its variants given whole: they are the asset's breeds from now on
     await asAssetError(() => breedsFromVariants(tx, assetDocId(p.asset_id)));

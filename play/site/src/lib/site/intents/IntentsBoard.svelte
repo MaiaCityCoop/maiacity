@@ -75,7 +75,9 @@
 	type Results = Record<string, { pass: boolean; evidence: string; by: string | null; at: string; where?: 'avenBOX' | 'main'; commit?: string }>;
 	/** one step back an agent took over MCP, with its reason (play/api/src/stepback.ts) */
 	type StepBack = { at: string; by: string | null; via: 'mcp'; from: Stage; to: Stage; reason: string };
-	type Intent = { id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null; spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null; decided_at: string | null; decided_by: string | null; came_with: string | null; work: Work | null; pull_request: number | null; ship: Ship | null; sub: Sub | null; steps?: StepBack[]; depends_on?: Dep[]; held_by?: Dep[]; needed_by?: Dep[] };
+	/** a decision a rule made (play/SPEC.md §4.12 "Auto-accept rules"): the rule, the rule set's version (its content hash), its reason */
+	type AutoEntry = { rule: string; label: string; rules: string; reason: string; at: string };
+	type Intent = { auto?: { approve?: AutoEntry; accept?: AutoEntry }; work_kind?: string[] | null; id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null; spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null; decided_at: string | null; decided_by: string | null; came_with: string | null; work: Work | null; pull_request: number | null; ship: Ship | null; sub: Sub | null; steps?: StepBack[]; depends_on?: Dep[]; held_by?: Dep[]; needed_by?: Dep[] };
 	// an intent it depends on, or one that depends on it (play/api/src/intents.ts heldBy): found by its UUID, its title only shown
 	type Dep = { id: string; title: string; stage: Stage };
 	// its sub-state (play/api/src/substate.ts): a person needed (failed, waiting) or not (working, idle), and why
@@ -128,6 +130,7 @@
 	};
 	onMount(async () => {
 		if (!admin) return;
+		api<{ id: string; label: string }[]>('/docs?kind=schema').then((l) => (schemaNames = new Map(l.map((x) => [x.id, x.label]))), () => {});
 		await load();
 		// opened on an intent (/intents/#<id>): play finds it, and it opens
 		const focus = intentsModal.focus;
@@ -243,6 +246,12 @@
 	const typeOf = (p: { what?: string | null; grp: string | null }) => GROUP_TYPE[p.grp ?? ''] ?? (p.what ? p.what[0].toUpperCase() + p.what.slice(1) : (p.grp ?? ''));
 	/** an intent's tag: what its work is (a plant, a story …) where it has some, else its kind */
 	const tagOf = (i: Intent) => (i.work ? typeOf(i.work) : kindName(i.kind));
+	/** the schemas' labels by their UUIDs, to name an intent's declared work (only shown) */
+	let schemaNames = $state<Map<string, string>>(new Map());
+	const workKindName = (k: string) => (k === 'code' ? 'code' : (schemaNames.get(k) ?? k));
+	/** what a rule decided of an intent, in a line (its card's Auto mark) */
+	const autoTitle = (i: Intent) =>
+		[i.auto?.approve ? `Spec approved by rule ${i.auto.approve.label}` : '', i.auto?.accept ? `Accepted by rule ${i.auto.accept.label}` : ''].filter(Boolean).join(' · ');
 	const titleOf = (p: Work) => (p.number == null ? 'a change' : `v${p.number}`);
 	async function openCard(p: P) {
 		intent = null;
@@ -421,6 +430,7 @@
 											<span class="avatar" aria-hidden="true">{initialsOf(i.author)}</span>
 											<span class="author">{i.author ?? 'someone'}</span>
 											<span class="type" data-type={tagOf(i)} data-kind={i.work ? undefined : i.kind} title={i.via === 'mcp' ? `${tagOf(i)} · by an agent working for them over MCP` : tagOf(i)}>{tagOf(i)}</span>
+											{#if i.auto?.approve || i.auto?.accept}<span class="auto" title={autoTitle(i)}>Auto</span>{/if}
 											<span class="date">{shortWhen(i.decided_at ?? i.created)}</span>
 										</span>
 									</button>
@@ -453,6 +463,14 @@
 					<p class="tags"><span class="type" data-kind={i.kind}>{kindName(i.kind)}</span> <span class="pill" class:shipping={i.stage === 'ship'}>{STAGE_NAME[i.stage]}</span>{#if (i.stage === 'build' || i.stage === 'proposal') && musts.length}{' '}<span class="pill">{checksDone(i)}</span>{/if}{#if i.sub}{' '}<span class="pill" data-sub={i.sub.state}>{i.sub.why}</span>{/if}</p>
 					<h2>{i.title}</h2>
 					<p class="meta">by {i.author ?? 'someone'}{#if i.via === 'mcp'}{' '}<span class="via" title="Added by an agent working for them over MCP">via MCP</span>{/if} · {when(i.created)}{i.specified_by && i.specified_at ? ` · specified by ${i.specified_by}, ${when(i.specified_at)}` : ''}{i.approved_by && i.approved_at ? ` · spec approved by ${i.approved_by}` : ''}{i.decided_by && i.decided_at ? ` · ${i.stage === 'ship' ? 'accepted' : i.stage} by ${i.decided_by}, ${when(i.decided_at)}` : ''}</p>
+					{#if i.work_kind?.length}<p class="meta">Declares its work: {i.work_kind.map(workKindName).join(', ')}</p>{/if}
+					<!-- decided by a rule, not a person: which rule, the rule set's version it was decided by, and its reason -->
+					{#each [['approve', 'Spec approved by rule'], ['accept', i.stage === 'ship' ? 'Accepted into Ship by rule' : 'Accepted by rule']] as [g, said] (g)}
+						{@const a = i.auto?.[g as 'approve' | 'accept']}
+						{#if a}
+							<p class="auto-line"><span class="auto">Auto</span> {said} <a href="/rules/?rules={a.rules}&rule={a.rule}">{a.label}</a> <span class="muted">· the rules at {a.rules.slice(0, 12)} · {when(a.at)}</span><span class="why">{a.reason}</span></p>
+						{/if}
+					{/each}
 				</div>
 			</header>
 			<div class="item-body">
@@ -752,6 +770,10 @@
 	.type[data-type='Building'], .type[data-type='World'], .type[data-type='Sandbox'] { background: color-mix(in srgb, var(--terracotta, #c4673f) 22%, transparent); }
 	.type[data-type='Plant'], .type[data-type='Biome'] { background: color-mix(in srgb, var(--sage, #8fa67a) 30%, transparent); }
 	.type[data-type='Story'] { background: color-mix(in srgb, var(--ink, #1f3a2c) 14%, transparent); }
+	/* decided by a rule, not a person (play/SPEC.md §4.12 "Auto-accept rules") */
+	.auto { display: inline-block; padding: 0 0.45em; border-radius: 999px; background: color-mix(in srgb, var(--brand-green, #26382c) 18%, transparent); color: var(--ink); font-size: 0.72rem; font-weight: 600; }
+	.auto-line { margin: 0.3rem 0 0; font-size: 0.82rem; }
+	.auto-line .why { display: block; margin-top: 0.1rem; color: var(--ink-soft); font-size: 0.78rem; }
 	.via { display: inline-block; padding: 0 0.45em; border-radius: 999px; background: var(--mustard-soft); color: var(--ink); font-size: 0.72rem; font-weight: 600; }
 	/* an intent's kind its colour, the card of one added over MCP (not only a proposal's) marked with it down its left edge */
 	[data-kind='idea'] { --kind: var(--mustard, #efb54d); }

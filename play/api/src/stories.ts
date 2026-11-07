@@ -26,6 +26,7 @@
 // head its newest accepted version) and change only by proposal: an admin's agent proposes a new story or a new
 // version over MCP (./mcp.ts), as the whole timeline or as edits applied to the head, and an admin accepts or archives
 // the intent it puts at Proposal on the intents' board (./versioned.ts `decide`). Admins only, reading and proposing.
+import { byOf } from "./intents";
 import { randomUUID } from "node:crypto";
 import { COOP, Denied, type Me } from "./access";
 import { keyOf, type BlobStore } from "./blobs";
@@ -927,7 +928,7 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
       const v = await docs.accept(tx, docId, variant, { author, note: p.note });
       if (v.number !== n) throw new Error(`story ${p.story_id} and its document disagree: version ${n} against ${v.number}`);
       await tx.query(`UPDATE play.stories SET head = $2, title = (SELECT title FROM play.story_versions WHERE id = $2), updated = now() WHERE id = $1`, [p.story_id, version]);
-      await settle(tx, p.id, "accepted", me.id);
+      await settle(tx, p.id, "accepted", byOf(me));
     };
     if (head === (p.story_base ?? null)) {
       await tx.query(`UPDATE play.story_versions SET number = $2, approved_by = $3 WHERE id = $1`, [p.story_version, n, me.id]);

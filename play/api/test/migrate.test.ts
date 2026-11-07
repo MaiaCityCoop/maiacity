@@ -221,7 +221,7 @@ suite("migration 0032-versioned", () => {
     for (const r of schemas) expect([r.schema_id, r.n]).toEqual([SCHEMA.meta, 1]);
     const older = await q(`SELECT id, schema, schema_id, schema_version FROM play.docs WHERE id NOT LIKE 'schema:%' ORDER BY id`);
     expect(older.length).toBeGreaterThanOrEqual(5);
-    const byName: Record<string, string> = { "story/1": SCHEMA.story, "asset/1": SCHEMA.asset, "factory/1": SCHEMA.factory, "levels/1": SCHEMA.levels, "skill/1": SCHEMA.skill };
+    const byName: Record<string, string> = { "story/1": SCHEMA.story, "asset/1": SCHEMA.asset, "factory/1": SCHEMA.factory, "levels/1": SCHEMA.levels, "skill/1": SCHEMA.skill, "rules/1": SCHEMA.rules };
     for (const d of older) {
       expect([d.id, d.schema_id, d.schema_version]).toEqual([d.id, byName[d.schema], 1]);
       expect([d.id, problemsOf(await typeFor(db, d.schema_id), (await readDoc(db, d.id)).json)]).toEqual([d.id, []]);

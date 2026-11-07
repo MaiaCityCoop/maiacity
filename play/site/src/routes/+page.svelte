@@ -48,6 +48,8 @@
 		{ href: '/skills/', label: 'Skills', note: 'What play teaches its agents, and its history', icon: 'journal' },
 		// every schema a document of the meta-schema, its documents and its history (routes/schemas, play/SPEC.md "Version control")
 		{ href: '/schemas/', label: 'Schemas', note: 'Every type of document, itself a document', icon: 'ledger' },
+		// the auto-accept rules, one document: which intents pass a gate with no person (routes/rules, play/SPEC.md §4.12)
+		{ href: '/rules/', label: 'Rules', note: 'Which intents pass Approve spec or Accept with no person', icon: 'check' },
 		{ href: '/admin/', label: 'Members', note: 'Who holds which level', icon: 'coops' },
 		{ href: '/admin/#invites', label: 'Invites', note: 'Make a citizen', icon: 'key' },
 		// the admins' window into play's Postgres, read only (routes/postgres): the coop's own (Samuel 2026-11-03)
