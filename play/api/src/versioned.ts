@@ -37,6 +37,7 @@ import { autoAfter, byOf, decideIntent, getIntent, gate, IntentError, mustDecide
 import type { AutoBy } from "./rules";
 import { acceptAndShip, acceptCode, runningCommit, type GitHub } from "./ship";
 import { assetDocFor, assetEdits, assetReview, decideAsset, ensureAssetDoc, proposeAssetVariant, unreadable } from "./assetdocs";
+import { gistOf } from "./gist";
 import { intentPieces, keepPiece, PieceError, pieceProblems, piecesHeld, piecesOf } from "./pieces";
 import { decideStory, proposeStoryVariant, storyEdit, storyReview } from "./stories";
 import { ensureStoryDoc } from "./storydocs";
@@ -696,47 +697,103 @@ async function reviewVariant(db: Queryable, p: any, h: { doc_id: string; doc_var
   return { doc: { id: uuid, kind: k.name, what: k.label, label: next.label ?? next.title ?? k.label, ...(next.group ? { group: next.group } : {}), open, ...(breed ? { breed, newBreed: row.makes !== null } : {}) }, variant: v, seedNumber, moved, changes: docs.diff(seed, next), edits };
 }
 
-/** an intent's work on its documents as people review it: its first document's review (with its kind's own extras: an asset's builds, a story's player), and every document's in `docs` */
+/**
+ * One document's intent variant as an intent's detail lists it (intent 2df30a21): its document, the version it grew
+ * from, whether Main moved since, its status and what it changes in brief (how many fields, which), never its content:
+ * that is read when the document is opened (reviewHeld). Its brief is kept on the variant (./gist.ts).
+ */
+async function listedVariant(db: Queryable, p: any, h: { doc_id: string; doc_variant: number | null }) {
+  const k = kindOfDoc(h.doc_id) ?? kindOfWork(p.kind)!;
+  const uuid = h.doc_id.split(":")[1];
+  if (h.doc_variant == null) return { doc: { id: uuid, kind: k.name, what: k.label, label: k.label, open: null }, variant: null, seedNumber: null, moved: false, status: null, summary: { changes: 0, fields: [] } };
+  const v = Number(h.doc_variant);
+  const versions = await docs.versionsOf(db, h.doc_id);
+  const row = await docs.variantOf(db, h.doc_id, v);
+  const g = await gistOf(db, h.doc_id, v);
+  const seedNumber = versionAt(versions, row.mainSeed ?? row.seed);
+  const moved = p.status === "proposal" && seedNumber !== null && seedNumber !== versions.at(-1)?.number;
+  const open = k.open ? k.open.replace("{id}", encodeURIComponent(uuid)).replace("{intent}", encodeURIComponent(p.id)) : null;
+  const breed = row.breed !== null ? (await docs.variantsOf(db, h.doc_id)).find((b) => b.id === row.breed)?.name ?? null : row.makes;
+  return {
+    doc: { id: uuid, kind: k.name, what: k.label, label: g.label ?? k.label, ...(g.group ? { group: g.group } : {}), open, ...(breed ? { breed, newBreed: row.makes !== null } : {}) },
+    variant: v, seedNumber, moved, status: row.status, summary: { changes: g.changes, fields: g.fields },
+  };
+}
+
+/**
+ * An intent's work on its documents as its detail shows it (intent 2df30a21: opened in about a second, whatever it
+ * holds): its first document's kind's own extras (an asset's builds, a story's player, a layout's pins) and the edits
+ * that made it, every document it changes listed in `docs` (listedVariant: in brief, without its content), and its
+ * pieces. What one document changes, field by field, is read when it is opened: reviewHeld.
+ */
 export async function reviewDoc(db: Queryable, p: any) {
   const k = kindOfWork(p.kind)!;
   const extra = k.review ? await k.review(db, p) : {};
   const held = heldOf(p);
   const each: any[] = [];
-  for (const [n, h] of held.entries()) {
-    const r: any = await reviewVariant(db, p, h);
-    // a document after the first with a kind's own review (an asset's builds, a story's player) carries it on its own entry
-    const hk = kindOfDoc(h.doc_id);
-    if (n > 0 && hk?.review && h.doc_variant != null) r.extra = await hk.review(db, asOne(p, h, hk)).catch(() => ({}));
-    each.push(r);
-  }
-  const first = each[0] ?? { doc: null, seedNumber: null, moved: false, changes: [], edits: [] };
+  for (const h of held) each.push(await listedVariant(db, p, h));
+  const first = each[0] ?? { doc: null, variant: null, seedNumber: null, moved: false };
+  const edits = held[0]?.doc_variant != null ? await named(db, await docs.history(db, held[0].doc_id, { variant: Number(held[0].doc_variant) })) : [];
   const pieces = p.id && UUID.test(`${p.id}`) ? await piecesReviewed(db, p.id, held) : [];
-  return { ...first, ...extra, docs: each, ...(pieces.length ? { pieces } : {}) };
+  return { doc: first.doc, variant: first.variant, seedNumber: first.seedNumber, moved: first.moved, edits, ...extra, docs: each, ...(pieces.length ? { pieces } : {}) };
+}
+
+/**
+ * One document of an intent's work as people review it, read when it is opened (intent 2df30a21; GET
+ * /api/intents/:id/docs/:doc): what it changes field by field against its seed, the edits that made it, whether Main
+ * moved since, and its kind's own extras (an asset's builds, a story's player, a layout's pins). `doc` is its document's
+ * UUID; a piece held in several versions is named by its `variant` too, its newest otherwise. Null where the intent
+ * holds no such document.
+ */
+export async function reviewHeld(db: Queryable, id: string, doc: string, variant?: number | null) {
+  const p = await workOf(db, id);
+  if (!p?.kind || !kindOfWork(p.kind)) return null;
+  const held = heldOf(p).filter((h) => h.doc_id.split(":")[1] === `${doc}`.toLowerCase() && (variant == null || h.doc_variant === Number(variant)));
+  const h = held.at(-1);
+  if (!h) return null;
+  const r: any = await reviewVariant(db, p, h);
+  // a piece's later version in the same intent is read against the one before it (intent 02e3a85f: it grows from it)
+  const all = heldOf(p).filter((x) => x.doc_id === h.doc_id);
+  const before = all[all.indexOf(h) - 1];
+  if (before?.doc_variant != null && h.doc_variant != null) {
+    r.changes = docs.diff((await docs.readDoc(db, h.doc_id, { variant: Number(before.doc_variant) })).json, (await docs.readDoc(db, h.doc_id, { variant: Number(h.doc_variant) })).json);
+    r.growsFrom = { variant: Number(before.doc_variant) };
+  }
+  // a new document is one change of the whole: shown as the fields it brings, each as people read it
+  const whole = r.changes.length === 1 && r.changes[0].path === "$" ? r.changes[0].to : null;
+  if (whole && typeof whole === "object" && !Array.isArray(whole)) r.changes = Object.keys(whole).map((k) => ({ path: `$.${k}`, kind: "added", to: whole[k] }));
+  const hk = kindOfDoc(h.doc_id);
+  const extra = hk?.review && h.doc_variant != null ? await hk.review(db, asOne(p, h, hk)) : {};
+  return { intent: p.id as string, status: p.status as string, ...r, ...extra, doc: r.doc, variant: r.variant };
 }
 
 /**
  * The pieces an intent proposes as the board lists them (intent 02e3a85f): each its piece, label, variant, hash and the
- * version it is to be, which of the intent's pieces it requires and which of its documents require it.
+ * version it is to be, which of the intent's pieces it requires and which of its documents require it; read from each
+ * variant's brief (./gist.ts), not from the documents again.
  */
 async function piecesReviewed(db: Queryable, intent: string, held: { doc_id: string; doc_variant: number | null }[]) {
-  const own = await intentPieces(db, intent);
-  if (!own.length) return [];
+  const { rows } = await db.query<{ doc_id: string; variant_id: string }>(
+    `SELECT iv.doc_id, iv.variant_id FROM play.intent_variants iv JOIN play.doc_variants dv ON dv.id = iv.variant_id
+      WHERE iv.intent_id = $1 AND iv.doc_id LIKE 'piece:%' AND dv.status = 'proposed' ORDER BY iv.position`,
+    [intent],
+  );
+  if (!rows.length) return [];
   // what every document the intent holds requires by hash (a piece's or a recipe's source, a breed's among them)
   const requires: { doc: string; variant: number; hashes: string[] }[] = [];
-  for (const h of held) {
-    if (h.doc_variant == null) continue;
-    const json = (await docs.readDoc(db, h.doc_id, { variant: Number(h.doc_variant) })).json;
-    const sources = [json?.source, ...(Array.isArray(json?.variants) ? json.variants.map((x: any) => x?.source) : [])].filter((x): x is string => typeof x === "string");
-    requires.push({ doc: h.doc_id, variant: Number(h.doc_variant), hashes: [...new Set(sources.flatMap(piecesOf))] });
+  for (const h of held) if (h.doc_variant != null) requires.push({ doc: h.doc_id, variant: Number(h.doc_variant), hashes: (await gistOf(db, h.doc_id, Number(h.doc_variant))).requires });
+  const own: { doc_id: string; variant: number; hash: string; label: string | null; requires: string[] }[] = [];
+  for (const r of rows) {
+    const g = await gistOf(db, r.doc_id, Number(r.variant_id));
+    own.push({ doc_id: r.doc_id, variant: Number(r.variant_id), hash: g.hash ?? hashText(""), label: g.label, requires: g.requires });
   }
   const before = new Map<string, number>();
   const out = [];
   for (const x of own) {
     const n = before.get(x.doc_id) ?? (await docs.versionsOf(db, x.doc_id)).length;
     before.set(x.doc_id, n + 1);
-    const json = (await docs.readDoc(db, x.doc_id, { variant: x.variant })).json;
     out.push({
-      piece: x.doc_id.split(":")[1], label: `${json?.label ?? "A piece"}`, variant: x.variant, hash: x.hash, version: n + 1,
+      piece: x.doc_id.split(":")[1], label: `${x.label ?? "A piece"}`, variant: x.variant, hash: x.hash, version: n + 1,
       requires: x.requires.filter((r) => own.some((y) => y.hash === r)),
       requiredBy: requires.filter((r) => r.hashes.includes(x.hash)).map((r) => ({ doc: r.doc.split(":")[1], kind: kindOfDoc(r.doc)?.name ?? null, variant: r.variant })),
     });
@@ -838,7 +895,7 @@ export async function decideWork(tx: Queryable, ctx: Ctx, me: Me, p: any, verdic
     const numbers: number[] = [];
     for (const { h, json } of ordered) {
       const k = kindOf(h);
-      const v = await docs.accept(tx, h.doc_id, h.doc_variant, { author, note: p.note, whole: true });
+      const v = await docs.accept(tx, h.doc_id, h.doc_variant, { author, note: p.note, whole: { json } });
       if (k.accepted) await k.accepted(tx, ctx, h.doc_id, v.number, json, p.id);
       const cols = { [k.labelColumn ?? "label"]: json.label ?? json.title, ...Object.fromEntries(Object.entries(k.row ?? {}).map(([c, f]) => [c, f(json)])) };
       await tx.query(`UPDATE ${qi(k.table)} SET ${Object.keys(cols).map((c, i) => `${qi(c)} = $${i + 2}`).join(", ")} WHERE id = $1`, [h.doc_id.split(":")[1], ...Object.values(cols)]);

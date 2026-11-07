@@ -195,7 +195,7 @@ suite("the stage Build (migration 0033-build)", () => {
     const proposed = await tool("propose_doc_version", { doc: SKILL.intents, intent: move, variant: draft.variant, note: "The stage Prototype is Build (intent 60f4f75c-666a-4eca-9bb2-4a29311afa6c)" });
     expect(proposed).toMatchObject({ stage: "proposal", doc: SKILL.intents, number: 2 });
     const review = (await call("ada", "GET", `/api/intents/${proposed.intent}`)).data.review;
-    expect(review.changes.map((c: any) => c.path).sort()).toEqual(["$.stages.build", "$.stages.prototype"]);
+    expect((await call("ada", "GET", `/api/intents/${proposed.intent}/docs/${review.doc.id}`)).data.changes.map((c: any) => c.path).sort()).toEqual(["$.stages.build", "$.stages.prototype"]);
     expect((await call("ada", "POST", `/api/intents/${proposed.intent}/accept`)).data).toMatchObject({ stage: "accepted", decision: { status: "accepted", number: 2 } });
 
     // after: build has the text, prototype none, and an intent at build gets it as its brief

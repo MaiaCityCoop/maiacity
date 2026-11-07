@@ -542,7 +542,9 @@ suite("artifacts", () => {
     expect((await tool("get_artifact", { artifact: r.id })).title).toBe("A page as a document");
     expect((await listed()).map((a: any) => a.intent)).toEqual([c.intent]);
     const review = (await call("Samuel", "GET", `/api/intents/${c.intent}`)).data.review;
-    expect(review).toMatchObject({ doc: { id: r.id, kind: "artifact", label: "A page, corrected" }, seedNumber: 1, changes: [{ path: "$.title", kind: "changed", from: "A page as a document", to: "A page, corrected" }] });
+    expect(review).toMatchObject({ doc: { id: r.id, kind: "artifact", label: "A page, corrected" }, seedNumber: 1 });
+    // what it changes, read when the document is opened (intent 2df30a21)
+    expect((await call("Samuel", "GET", `/api/intents/${c.intent}/docs/${r.id}`)).data).toMatchObject({ doc: { id: r.id }, changes: [{ path: "$.title", kind: "changed", from: "A page as a document", to: "A page, corrected" }] });
     expect((await call("Samuel", "POST", `/api/intents/${c.intent}/accept`)).data.decision).toMatchObject({ status: "accepted", number: 2 });
     expect(await tool("get_artifact", { artifact: r.id })).toMatchObject({ title: "A page, corrected", updated_by: "Bea", intent: null });
     expect((await tool("doc_history", { doc: r.id })).versions.map((v: any) => v.number)).toEqual([1, 2]);

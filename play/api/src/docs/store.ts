@@ -311,7 +311,7 @@ export async function previewMerge(db: Queryable, id: string, v: number): Promis
  * result as it was built and previewed in the box (previewMerge): never code nobody has seen run. With `whole`, Main
  * becomes the variant exactly as it stands (no merge: a piece's version is named by its source's hash).
  */
-export async function accept(db: Db | Queryable, id: string, v: number, o: { author: Author; note?: string; mergedHash?: string; whole?: boolean }): Promise<Version> {
+export async function accept(db: Db | Queryable, id: string, v: number, o: { author: Author; note?: string; mergedHash?: string; whole?: boolean | { json: any } }): Promise<Version> {
   return inTx(db, async (q) => {
     const row = await lock(q, id);
     const t = await typeFor(q, row.schema_id);
@@ -322,7 +322,9 @@ export async function accept(db: Db | Queryable, id: string, v: number, o: { aut
     const before = main.version();
     if (o.whole) {
       // kept whole (a piece's version, named by its hash: intent 02e3a85f): Main becomes the variant exactly as it stands
-      const mine = jsonOf(await loadVariant(q, row, r, await loadMain(q, row)));
+      // (its state as the caller read it in this transaction where it gives it, else read now on Main as loaded: a
+      // variant is a fork at its seed, so loading it leaves Main as it is; intent 2df30a21: an Accept of many pieces)
+      const mine = typeof o.whole === "object" ? o.whole.json : jsonOf(await loadVariant(q, row, r, main));
       main.setPeerId(await peerFor(q, id, row.main, o.author));
       patchTo(main, t, mine);
     } else {

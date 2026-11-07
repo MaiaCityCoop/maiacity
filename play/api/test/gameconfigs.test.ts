@@ -119,7 +119,7 @@ suite("the Game editor's configs on Loro", () => {
     expect(listed).toMatchObject({ stage: "proposal", work: { kind: "game_config_version", grp: "game", label: "Levelling", number: 2, via: "mcp" } });
     const review = (await call("ada", "GET", `/api/intents/${proposed.intent}`)).data.review;
     expect(review).toMatchObject({ doc: { id: LV, kind: "game_config", label: "Levelling" }, seedNumber: 1, moved: false });
-    expect(review.changes).toEqual([
+    expect((await call("ada", "GET", `/api/intents/${proposed.intent}/docs/${LV}`)).data.changes).toEqual([
       { path: "$.levels[id=l1].unlocks[0].cost", kind: "changed", from: 2000, to: 3000 },
       { path: "$.levels[id=l16].investor", kind: "changed", from: 8, to: 10 },
     ]);

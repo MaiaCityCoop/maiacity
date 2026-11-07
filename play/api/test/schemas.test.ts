@@ -152,7 +152,7 @@ suite("schemas as documents", () => {
     const p = await tool("propose_doc_version", { doc: SCHEMA.skill, note: "a skill's system part is short", edits: [{ op: "set", path: ["node", "properties", "system", "maxLength"], value: 20 }] });
     expect(p).toMatchObject({ stage: "proposal", kind: "schema", number: 2 });
     const review = (await call("ada", "GET", `/api/intents/${p.intent}`)).data;
-    expect(JSON.stringify(review)).toContain("maxLength");
+    expect(JSON.stringify((await call("ada", "GET", `/api/intents/${p.intent}/docs/${review.review.doc.id}`)).data)).toContain("maxLength");
     // refused while the wordy skill fails it (and any other skill that would), naming it; the intent stays at Proposal
     const no = await accept(p.intent);
     expect(no.status).toBe(409);
