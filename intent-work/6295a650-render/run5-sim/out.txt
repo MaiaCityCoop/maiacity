@@ -1,0 +1,21 @@
+base 6d0d7ac: 528,122 triangles in shapes (out 413,744, in 0, library 114,378)
+    Redcurrant (r 1.07 m, out): 15 shapes, 72,870
+    Elder (r 4.58 m, out): 6 shapes, 56,784
+    Redcurrant (r 1.07 m, out): 7 shapes, 34,006
+    Blackcurrant (r 1.28 m, out): 5 shapes, 22,900
+    Blackcurrant (r 1.28 m, out): 5 shapes, 22,900
+    Raspberry (r 0.64 m, out): 12 shapes, 21,696
+head 8e9a45210: 1,316,447 triangles in shapes (out 1,247,256, in 0, library 69,191)
+    Pecan (r 15.14 m, out): 8 shapes, 507,600
+    Small-leaved lime (r 13.84 m, out): 2 shapes, 150,020
+    Turkish tree hazel (r 11.66 m, out): 2 shapes, 78,556
+    Korean pine (r 13.33 m, out): 2 shapes, 77,916
+    Small-leaved lime (r 11.3 m, out): 1 shapes, 61,880
+    Elder (r 4.58 m, out): 6 shapes, 56,784
+head held to DENSITY 0.2: 391,719 triangles in shapes (out 322,528, in 0, library 69,191)
+    Elder (r 4.58 m, out): 6 shapes, 56,784
+    Redcurrant (r 1.07 m, out): 10 shapes, 48,580
+    Black alder (r 9.56 m, out): 4 shapes, 35,204
+    Sea buckthorn (r 3.35 m, out): 2 shapes, 19,152
+    Haskap (r 1.36 m, out): 11 shapes, 18,920
+    Blackcurrant (r 1.28 m, out): 4 shapes, 18,320

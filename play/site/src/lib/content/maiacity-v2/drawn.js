@@ -4,8 +4,8 @@
  * this device's cache) and never by calling a builder, put in the world one of two ways:
  *
  * - `follow`: drawn by the universal renderer ($content/assets/render), one copy standing wherever an anchor of the world's
- *   stands (a plain group the story moves, parents and hides as it moved the builder's object), at its finest shape
- *   only (a world this small always drew all of it: no coarser shapes and no pictures are made), casting its shadow. A box the size of the copy in the anchor, unseen,
+ *   stands (a plain group the story moves, parents and hides as it moved the builder's object), at the level the one
+ *   selector picks (render/lod.js; no picture: its coarsest shape far off), casting its shadow. A box the size of the copy in the anchor, unseen,
  *   carries the name a tap finds it by.
  *   What the story moves part by part (a tailgate let down, a door opened) is moved by its controls (`pose`): the
  *   renderer draws that copy as its own tree, its parts where the numbers the box wrote down put them
@@ -69,9 +69,8 @@ export function createDrawn({ renderer, camera, scene }) {
 	const waiting = [];
 	const up = modules().then((m) => {
 		if (gone) return m;
-		// one shape a kind, its finest, and no picture: nothing made smaller for far off
-		assets = m.createAssets({ renderer, camera, levels: [1], boxes: boxes() });
-		assets.force(0);
+		// every kind drawn by its card's levels and the one selector (render/lod.js), as in every world
+		assets = m.createAssets({ renderer, camera, boxes: boxes() });
 		scene.add(assets.group);
 		for (const go of waiting.splice(0)) go();
 		return m;

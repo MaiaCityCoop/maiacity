@@ -19,7 +19,6 @@ import { cafes, coops, coopsAround, henPatches, rabbitPatches, squaresAround, ty
 import { water } from './textures'
 import { groundMaterial } from '$lib/content/biomes'
 import { biomeOr } from '$lib/content/assets/sources/biome.js'
-import { LEVELS } from '$lib/content/assets/render/lod.js'
 import { songbirds } from './birds.js'
 import { appleTree, banana, berryBush, canopyTree, climber, clover, coconutPalm, comfrey, fruitTree, ginger, herb, papaya, passionVine, seeded, smallFruitTree, squash, strawberries, tropicalShrub, forestFloor, FLOOR_KINDS, floorPick, grassTuft, type Plant } from './plants'
 import { antHills, apiary, fishes, herd } from './animals'
@@ -32,7 +31,7 @@ import { createObstacles } from '$lib/content/sandbox-kit/obstacles.js'
 import { connectFilm, filmDraws, filmHoldsSize, filmPlays, worldTime } from '$lib/content/sandbox-kit/film.js'
 import { createStream, type View } from '$lib/content/sandbox-kit/stream.js'
 import { ambience, levelsAt } from './ambience'
-import { createForest, INSIDE, type Forest } from './flora.js'
+import { createForest, STREAMS, type Forest } from './flora.js'
 import { createDrawn, createFlora } from './drawn.js'
 import { createCover } from './cover.js'
 import { FLOORS, THINGS, coopsOf, putThings } from './things.js'
@@ -142,12 +141,9 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		const { obj } = await loadAsset(await newestOf(solo.asset))
 		obj.updateMatrixWorld(true)
 		scene.add(obj)
-		// its forest and things drawn as the cell's are: their shadows drawn again with the cell's (every 400 ms at most,
-		// not with every frame a copy changes its level), its plants at the cell's forest's details and no finer (0.25
-		// near, 0.1 further, a picture far: as Sandbox 1 draws its domes' insides; a tree filling the view at its full
-		// detail is half a million triangles), switching where the guests' last two levels do (plantings.js GUEST_LEVELS);
-		// its things, built whole, at all three of the guests' levels (full, 30 %, 8 %), as before
-		const plantings = createPlantings({ renderer, camera, scene, levels: [0.4, 0.16], details: [0.25, 0.1], shadows: staleShadows })
+		// its forest and things drawn by their cards' levels and the one selector, their shadows drawn again with the
+		// cell's (every 400 ms at most, not with every frame a copy changes its level)
+		const plantings = createPlantings({ renderer, camera, scene, shadows: staleShadows })
 		plantings.show(obj)
 		// the building stands still: walked in by its triangles filed by the ground's squares (the same floors and walls,
 		// each ray testing a few hundred triangles, not a million), its many marker nodes (where each plant and thing
@@ -195,17 +191,16 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	/** what the cell keeps clear: every dome with its terrace, or Sandbox 5's building with its paths */
 	const foots: { x: number; z: number; R: number; ext: number }[] = solo ? [soloFoot] : domes
 	/** Sandbox 5: our plants drawn by the universal renderer (./drawn.js, $content/assets/render), each kind built in the asset
-	 *  box: the cell's at the village's distances, and the domes' insides' at the nearer ones under their glass */
+	 *  box: the cell's, and the domes' insides' */
 	const plantsOut = flora ? createFlora({ renderer, camera, scene, shadows: staleShadows }) : null
-	const plantsIn = flora ? createFlora({ renderer, camera, scene, reach: INSIDE, boxes: 2, shadows: staleShadows }) : null
+	const plantsIn = flora ? createFlora({ renderer, camera, scene, boxes: 2, shadows: staleShadows, streams: STREAMS.inside }) : null
 	/** Sandbox 5: the cell's forest of our plants (./flora.js), planted below with the food forest; the stand-in plants of
 	 *  Sandbox 4's squares traded for its plants too (./legacy.js) */
-	// its trees in full near you, coarser to 40 m, and beyond that each a picture of itself
 	const forest: Forest | null = plantsOut ? createForest({ flora: plantsOut }) : null
-	/** the library's assets the village puts down, each built in the asset box and drawn at its finest however far off,
-	 *  as the village always drew what it baked (./drawn.js): its playgrounds, the master dome's workshops, Sandbox 5's
+	/** the library's assets the village puts down, each built in the asset box and drawn by the one selector
+	 *  (./drawn.js): its playgrounds, the master dome's workshops, Sandbox 5's
 	 *  coops and hutches, and Sandbox 5's floor cover, outside and in the domes */
-	const library = createDrawn({ renderer, camera, scene, boxes: 1, levels: [LEVELS[0]!], force: 0, shadows: staleShadows })
+	const library = createDrawn({ renderer, camera, scene, boxes: 1, shadows: staleShadows })
 	const swapR = seeded(707)
 	const swap = (root: THREE.Object3D) => {
 		if (forest && flora) swapLegacy(root, scene, forest, { warm: false, seed: flora.seed, r: swapR })
@@ -1535,8 +1530,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	sky.follow(camera.position.x, camera.position.z)
 	// what the library's assets are built from, there before the first frame
 	await library.ready()
-	// for a look from the console at what the renderers draw and hold: __assets.stats()
-	;(window as unknown as { __assets?: unknown }).__assets = { stats: () => ({ out: plantsOut?.assets.stats(), in: plantsIn?.assets.stats(), library: library.assets.stats() }) }
+	// for a look from the console at what the renderers draw and hold: __assets.stats(), and each kind (__assets.kinds())
+	;(window as unknown as { __assets?: unknown }).__assets = { stats: () => ({ out: plantsOut?.assets.stats(), in: plantsIn?.assets.stats(), library: library.assets.stats() }), kinds: () => ({ out: plantsOut?.assets.kinds(), in: plantsIn?.assets.kinds(), library: library.assets.kinds() }) }
 	// Sandbox 5: the plants near where you stand at their finer shapes before the first frame, as they always were
 	if (plantsOut) {
 		onProgress('Growing the forest: the plants near you')

@@ -8,18 +8,21 @@
  * its threshold; a coarser one fades in under it (the dither of ./presets.js) over the last stretch before, so when it
  * takes over it is already there.
  *
- * The thresholds are the ones Sandbox 4's forest draws its trees by (maia/content/sandbox-2/interior/flora.js: its near
- * shape to 32 m, its middle one to 80 m, a picture beyond, for a tree 12 m across), as shares of the view, so every
- * asset gets the same; the whole shape, which Sandbox 4 never draws, only when it fills the view. A picture
- * (128 pixels a side) then never shows bigger than it was taken on a screen 720 pixels high, and little bigger on one
- * twice that.
+ * The thresholds are the ones the village's forest drew its trees by while it chose its own (Sandbox 1, sandbox-2/interior
+ * before intent 6295a650: a tree 12 m across at its finer shape to 16 m, its coarser to 40 m, a picture beyond, under
+ * the world's 68° view), as shares of the view, so every world draws every asset the same and the densest costs what it
+ * did; the whole shape, which the village never drew, only when it fills the view. Measured on a Mac's Metal (intent
+ * 6295a650, intent-work/6295a650-render): the selector's earlier [1.2, 0.28, 0.11] (a tree's picture past 85 m) drew
+ * 3.3 times the village's triangles in its far view.
  */
 
 /** the sizes on screen down to which each level of a shape is drawn, finest first; smaller than the last, its picture */
-export const LEVELS = [1.2, 0.28, 0.11];
+export const LEVELS = [1.2, 0.56, 0.22];
 /**
  * a shape this heavy (triangles) or more takes the picture at the last threshold; a lighter one keeps its shape until
- * it looks smaller, down to PICTURE (a chair of a thousand triangles costs nothing drawn whole, and looks crisper)
+ * it looks smaller, down to PICTURE (a chair of a thousand triangles costs nothing drawn whole, and looks crisper).
+ * Not a plant drawn far off as its picture: its levels its recipe's own, it takes the picture at the last threshold
+ * however light, as a forest always did (./index.js `retune`, intent 6295a650)
  */
 export const HEAVY = 20000;
 export const PICTURE = 0.04;
@@ -37,18 +40,18 @@ export const SCREEN = 1080;
  * What each level of a shape may cost, finest first, and how far one made by simplifying may stray from the finest:
  *
  * - level 0, the build as its recipe made it: held only by the box's own budgets (../box/rebuild.js);
- * - level 1, drawn from 1.2 down to 0.28 of the view: at most 0.3 of level 0's triangles, about what the plants'
+ * - level 1, drawn from 1.2 down to 0.56 of the view: at most 0.3 of level 0's triangles, about what the plants'
  *   recipes keep at detail 0.25 (measured at stage 9: hazel 27 %, walnut 25 %, apple 24 %, redcurrant 18 %, rhubarb
  *   12 %, strawberry 10 %);
- * - level 2, from 0.28 down to its picture: at most 0.08, as the plants keep at detail 0.1 (2.5 to 7 %).
+ * - level 2, from 0.56 down to its picture: at most 0.08, as the plants keep at detail 0.1 (2.5 to 7 %).
  *
  * A level made by simplifying never has more triangles than the pixels of the square it fills where it hands over to
- * the next, at its threshold on SCREEN ((LEVELS[L] × SCREEN)²: 91,445 for level 1, 14,113 for level 2): a triangle
+ * the next, at its threshold on SCREEN ((LEVELS[L] × SCREEN)²: 365,783 for level 1, 56,454 for level 2): a triangle
  * smaller than a pixel there is never seen, and nearer, where it would be, the finer level is drawn. Nor is it made
  * lighter than `floor`: a few hundred triangles cost little more than the draw call that holds them, and a chair of a
- * thousand is cheap whole. A plant's levels are its recipe's own, held to their share by it; one over its ceiling (a
- * big tree's crown at detail 0.1: a walnut's 18,328, a linden's 20,358, a Korean pine's 24,010) is brought under it by
- * simplifying, every leaf and needle of it kept (a thinned crown reads worse at its distance than the triangles cost),
+ * thousand is cheap whole. A plant's levels are its recipe's own, held to their share by it; one over its ceiling (none
+ * of today's: a big tree's crown at detail 0.1 is a walnut's 18,328, a linden's 20,358, a Korean pine's 24,010) would be
+ * brought under it by simplifying, every leaf and needle of it kept (a thinned crown reads worse at its distance than the triangles cost),
  * and its thresholds stay its recipe's.
  *
  * A level made by simplifying keeps within `px` pixels on SCREEN of the finest where it is drawn biggest (at the
@@ -90,6 +93,28 @@ export const smallestOf = (L, radius, all = LEVELS) => (L <= 0 ? 0 : (2 * radius
  * @param {number} radius @param {number} distance @param {number} tanHalf tan of half the camera's vertical field of view
  */
 export const sizeOn = (radius, distance, tanHalf) => radius / (Math.max(distance, 1e-3) * tanHalf);
+
+/**
+ * At most this many triangles for every pixel of the square a level fills on SCREEN where it is drawn smallest (its
+ * threshold): a heavier level hands over sooner, at the size where it would (`heldTo`). A tree's triangles grow with the
+ * square of its size, so this turns a big tree into its picture about where a small one does: Sandbox 1's forest, its
+ * trees measured on a Mac's Metal (intent 6295a650, intent-work/6295a650-render run 5), a pecan 30 m across (63k
+ * triangles at detail 0.1) at 43 m, a 12 m fruit tree (8k) at 40 m, where the village always made every tree a picture.
+ * It only ever draws a level coarser sooner, never finer.
+ */
+export const DENSITY = 0.2;
+
+/**
+ * A kind's thresholds held to DENSITY by its levels' triangles (those known; none: as they are), each no lower than the
+ * next coarser one's.
+ * @param {number[]} thresholds @param {(number | null | undefined)[]} tris its levels' triangles, finest first
+ */
+export function heldTo(thresholds, tris) {
+	const out = thresholds.slice();
+	for (let i = 0; i < out.length; i++) if (tris[i]) out[i] = Math.max(out[i], Math.sqrt(tris[i] / DENSITY) / SCREEN);
+	for (let i = out.length - 2; i >= 0; i--) out[i] = Math.max(out[i], out[i + 1]);
+	return out;
+}
 
 /**
  * The thresholds of a kind with `levels` levels of its shape: the coarsest ones of LEVELS, as many as it has; the last

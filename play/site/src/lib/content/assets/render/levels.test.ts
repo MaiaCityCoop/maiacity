@@ -97,15 +97,13 @@ describe('every asset has its levels', () => {
 		const lod = lodOf({ params: [{ id: 'detail', type: 'number', value: 1 }, { id: 'stage', type: 'number', value: 9 }], lod: { levels: 'declared', values: [{ detail: 0.25 }, { detail: 0.1, stage: 9 }] } })
 		expect(lod.levels).toBe('declared')
 		expect(levelValues(lod)).toEqual([{}, { detail: '0.25' }, { detail: '0.1', stage: '9' }])
-		// a world's own details are for versions from before the contract only
-		expect(levelValues(lod, [0.25, 0.1])).toEqual([{}, { detail: '0.25' }, { detail: '0.1', stage: '9' }])
 		// one that names derived levels is built once
 		expect(levelValues(lodOf({ lod: { levels: 'derived' } }))).toEqual([{}])
 		// a version from before the contract that took a detail is read as it drew: declared at Sandbox 4's details
 		const old = lodOf({ params: [{ id: 'detail', type: 'number', value: 1 }] })
 		expect(old).toMatchObject({ levels: 'declared', old: true })
-		expect(levelValues(old)).toEqual([{ detail: '1' }, { detail: '0.25' }, { detail: '0.1' }])
-		expect(levelValues(old, [0.25, 0.1])).toEqual([{ detail: '0.25' }, { detail: '0.1' }])
+		// at the forest's two details, never the whole plant (intent 6295a650)
+		expect(levelValues(old)).toEqual([{ detail: '0.25' }, { detail: '0.1' }])
 	})
 
 	it('a second load of the same build makes no level again: each comes from the device cache by its key', async () => {
