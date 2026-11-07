@@ -623,7 +623,10 @@ suite("play API", () => {
   const frameOf = (n: string) => readFileSync(join(STORIES, "papaya-v2-devlog", "frames", n));
   let storyToken = "";
   let m = 1000;
+  /** the stories' agent: its token made by the first story test that asks (each runs alone too, picked with -t) */
+  const storyAgent = async () => (storyToken ||= (await call("ada", "POST", "/api/tokens", { name: "stories" })).data.token);
   const rawTool = async (name: string, args: Record<string, unknown>, token = storyToken) => {
+    token ||= await storyAgent();
     // no work without an intent: every propose names one, made ready for it, unless the test names its own
     if ((name.startsWith("propose_") || name === "add_artifact" || name === "update_artifact") && args.intent === undefined) args = { ...args, intent: await ready() };
     const r = await api.fetch(new Request("http://play.test/api/mcp", {
@@ -936,14 +939,17 @@ suite("play API", () => {
     expect((await tool("add_story_composition", { html: cdn })).error).toContain("outside play");
     expect((await tool("add_story_composition", { html: "<p>Just a page.</p>" })).error).toContain("data-composition-id");
     // a shot plays it, its frame its still; a hash play holds as no composition, or none, is refused
-    const head = (await tool("get_story", { story: S.seed })).out;
+    const still = await tool("add_story_frame", { data: frameOf("02.jpg").toString("base64"), media_type: "image/jpeg" });
+    const card = await tool("propose_story", { title: "A title card", note: "a story for a composition shot", body: { format: "9:16", fps: 30, tracks: tracks(still.out.hash) } });
+    expect((await call("ada", "POST", `/api/intents/${card.out.intent}/accept`)).data.decision.status).toBe("accepted");
+    const head = (await tool("get_story", { story: card.out.story })).out;
     const shot = head.tracks.find((t: any) => t.id === "shots").clips[0];
-    const moving = await tool("propose_story_version", { story: S.seed, base: head.version, note: "the first shot is motion design", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { composition: kept.out.hash } }] });
+    const moving = await tool("propose_story_version", { story: card.out.story, base: head.version, note: "the first shot is motion design", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { composition: kept.out.hash } }] });
     expect(moving.error).toBeNull();
     const body = (await call("ada", "GET", `/api/intents/${moving.out.intent}`)).data.review.story;
     expect(body.tracks.find((t: any) => t.id === "shots").clips[0]).toMatchObject({ frame: shot.frame, composition: kept.out.hash });
-    expect((await tool("propose_story_version", { story: S.seed, base: head.version, note: "no", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { composition: shot.frame } }] })).error).toContain("add_story_composition");
-    expect((await tool("propose_story_version", { story: S.seed, base: head.version, note: "no", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { composition: "nope" } }] })).error).toContain("composition's file hash");
+    expect((await tool("propose_story_version", { story: card.out.story, base: head.version, note: "no", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { composition: shot.frame } }] })).error).toContain("add_story_composition");
+    expect((await tool("propose_story_version", { story: card.out.story, base: head.version, note: "no", edits: [{ op: "set_clip", track: "shots", clip: shot.id, fields: { composition: "nope" } }] })).error).toContain("composition's file hash");
     await call("ada", "POST", `/api/intents/${moving.out.intent}/archive`);
   });
 
