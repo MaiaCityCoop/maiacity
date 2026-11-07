@@ -1134,4 +1134,13 @@ export const MIGRATIONS: Migration[] = [
       CREATE INDEX ix_records_kind ON play.records (kind);
     `,
   },
+  {
+    // An agent sends an intent one stage back over MCP, with its reason (intent 5a78e0b7-c221-4f3f-9148-590727d1e154,
+    // Samuel 2026-11-07): ./src/stepback.ts. Each step back is kept on the intent, in order: when, who, from which stage
+    // to which, its reason, and, back to Idea, the spec it dropped. No admin's Back to Specify is left.
+    id: "0036-step-backs",
+    sql: `
+      ALTER TABLE play.intents ADD COLUMN steps JSONB NOT NULL DEFAULT '[]'::jsonb;
+    `,
+  },
 ];
