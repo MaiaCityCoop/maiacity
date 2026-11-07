@@ -1,7 +1,7 @@
 // The one selector (./lod.js): a level chosen by size on screen, never by distance, held HOLD past each threshold
 // (play/SPEC.md §4.5, intent a2935147 c2).
 import { describe, expect, it } from 'vitest'
-import { HOLD, LEVELS, choose, sizeOn, thresholdsOf } from './lod.js'
+import { DENSITY, HOLD, LEVELS, SCREEN, choose, heldTo, sizeOn, thresholdsOf } from './lod.js'
 
 /** the levels a thing is drawn at as its size on screen walks through `sizes`, each step remembering the last */
 function walk(sizes: number[], thresholds: number[]) {
@@ -55,5 +55,23 @@ describe('the selector', () => {
 		// and walked through the same sizes, the same levels at every step
 		const dCup = Array.from({ length: 60 }, (_, i) => 0.02 * 1.12 ** i)
 		expect(walk(dCup.map((d) => sizeOn(tree, (d * tree) / cup, tanHalf)), T)).toEqual(walk(dCup.map((d) => sizeOn(cup, d, tanHalf)), T))
+	})
+})
+
+describe('a heavy level hands over sooner (intent 6295a650)', () => {
+	it('holds each level to DENSITY by its triangles, never finer, each no lower than the next', () => {
+		const T = thresholdsOf(2) // [0.56, 0.22]
+		// a light tree keeps the selector's own thresholds
+		expect(heldTo(T, [20000, 8000])).toEqual(T)
+		// a pecan 30 m across (Sandbox 1, run 5): 211k and 63k triangles
+		const held = heldTo(T, [211206, 63450])
+		expect(held[1]).toBeCloseTo(Math.sqrt(63450 / DENSITY) / SCREEN, 6)
+		expect(held[0]).toBeGreaterThan(held[1])
+		// its picture by about 43 m under Sandbox 1's 68° view, where the village made every tree one past 40 m
+		const tan = Math.tan((68 * Math.PI) / 360)
+		expect(15.14 / (held[1] * tan)).toBeLessThan(45)
+		// unknown triangles change nothing; a level never comes finer
+		expect(heldTo(T, [])).toEqual(T)
+		for (const t of [[1e6, 1e3], [10, 10]]) heldTo(T, t).forEach((x, i) => expect(x).toBeGreaterThanOrEqual(T[i]!))
 	})
 })

@@ -586,11 +586,10 @@ export type InteriorHandle = {
 export type InteriorOptions = {
 	entry?: number; onLeave?: (door: number) => void; host?: DomeHost; cancelled?: () => boolean; hurry?: () => boolean; background?: () => boolean
 	/** Sandbox 5: the food forest inside grown from our plants ($content/plants, ./flora.js), from this garden (./sandbox5.js),
-	 *  drawn by the host's renderer of plants (`flora`, ./drawn.js `createFlora`, at the distances under the glass:
-	 *  ./flora.js `INSIDE`), and its floor's cover by the host's renderer of the library (`drawn`, ./drawn.js
-	 *  `createDrawn`, every copy at its finest), both of which the host updates every frame */
+	 *  drawn by the host's renderer of plants (`flora`, ./drawn.js `createFlora`), and its floor's cover by the host's
+	 *  renderer of the library (`drawn`, ./drawn.js `createDrawn`), both of which the host updates every frame */
 	flora?: { garden: Garden; seed: string; flora: FloraDrawn; drawn: Parameters<typeof createCover>[0]['drawn'] }
-	/** the host's renderer of the library's Things (./drawn.js `createDrawn`, every copy at its finest), which the host
+	/** the host's renderer of the library's Things (./drawn.js `createDrawn`), which the host
 	 *  updates every frame: what of the dome is a Thing of the library (the master dome's workshops, ./things.js) is put
 	 *  down in it. Without one (standing alone) the dome draws them with a renderer of its own. */
 	library?: Drawn
@@ -992,8 +991,8 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 	const library = async () => {
 		if (opts.library) return opts.library
 		if (!ownLibrary) {
-			const [{ createDrawn }, { LEVELS }] = await Promise.all([import('./drawn.js'), import('$lib/content/assets/render/lod.js')])
-			ownLibrary ??= createDrawn({ renderer, camera, scene, boxes: 1, levels: [LEVELS[0]!], force: 0 })
+			const { createDrawn } = await import('./drawn.js')
+			ownLibrary ??= createDrawn({ renderer, camera, scene, boxes: 1 })
 		}
 		return ownLibrary
 	}

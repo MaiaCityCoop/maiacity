@@ -34,7 +34,7 @@ import { canonical, loadAsset } from '../load.js';
 import { INDEX, buildOf, hashOf, heldAt, paramsOf, parseBuild } from '../catalog.js';
 import { createImpostors } from './impostors.js';
 import { budget, dropOnUpload } from '../../render/budget.js';
-import { LEVELS, SMALLEST, budgetOf, choose, errorOf, sizeOn, smallestOf, thresholdsOf } from './lod.js';
+import { LEVELS, SMALLEST, budgetOf, choose, errorOf, heldTo, sizeOn, smallestOf, thresholdsOf } from './lod.js';
 import { createLowering } from './lower.js';
 import { createKept } from './levels.js';
 import { levelValues } from '../lodcard.js';
@@ -68,21 +68,16 @@ function resolve(ref) {
 /**
  * A renderer of assets for one scene.
  * @param {{
- *   renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, boxes?: number, details?: number[],
- *   levels?: number[], whole?: number[], px?: number, cache?: boolean, onShadows?: () => void
- * }} o `boxes` how many build side by side; `levels` the sizes on screen a kind's built levels are drawn to (./lod.js),
- *   `details` a world's own details for a version from before the contract that took them (../lodcard.js
- *   `levelValues`); `whole` the sizes on screen of a kind built once, at its finest (its lower levels derived: a
- *   thing), its lower levels made from it, its picture taking over where its second shape's triangles put
- *   it (`levels` when not given, its picture where its coarsest shape's put it); `px` each picture's pixels a side;
+ *   renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, boxes?: number,
+ *   px?: number, cache?: boolean, onShadows?: () => void
+ * }} o `boxes` how many build side by side; `px` each picture's pixels a side. No world chooses a kind's levels: each
+ *   is drawn by its card's levels (../lodcard.js) at the sizes on screen of the one selector (./lod.js LEVELS);
  *   `cache: false` builds everything afresh;
  *   `onShadows` told when what casts a shadow changed, for a world that draws its shadows again only every so often
  *   (else they are drawn again with the next frame)
  */
 export function createAssets(o) {
 	const { renderer, camera } = o;
-	const levels = o.levels ?? LEVELS;
-	const whole = o.whole ?? levels;
 	renderer.localClippingEnabled = true;
 	const group = new THREE.Group();
 	group.name = 'assets';
@@ -206,31 +201,29 @@ export function createAssets(o) {
 		const { hash, params } = resolve(ref);
 		const at = heldAt(hash);
 		// its built levels, as its card declares them (../lodcard.js): its build alone, or its recipe's own levels too
-		const values = levelValues(at.lod, o.details);
+		const values = levelValues(at.lod);
 		const declared = values.length > 1;
 		// each named as it is kept, its own values filled in, so two refs of one build are one kind
-		const names = values.slice(0, declared ? levels.length : 1).map((v) => canonical(buildOf(hash, { ...params, ...v })).name);
+		const names = values.slice(0, declared ? LEVELS.length : 1).map((v) => canonical(buildOf(hash, { ...params, ...v })).name);
 		const key = names[0];
 		let k = kinds.get(key);
 		if (k) return k;
-		// the sizes on screen its levels are drawn to: a recipe's own, or one built whole and lowered from it
-		const sizes = declared ? levels : whole;
 		k = {
 			key,
 			label: at.label,
 			names,
-			sizes,
-			// each level of its shape: built from its recipe (`name`), or made from the coarsest one built (none)
-			levels: sizes.map((_, L) => ({ state: 'idle', level: null, meshes: null, name: names[L] ?? null, as: -1 })),
+			// each level of its shape: built from its recipe (`name`), or made from the coarsest one built (none); a
+			// recipe that declares fewer levels than the selector has is drawn at as many, the selector's coarsest
+			levels: (declared ? names : LEVELS).map((_, L) => ({ state: 'idle', level: null, meshes: null, name: names[L] ?? null, as: -1 })),
 			/** the coarsest level built: its measure is the kind's, and its picture is taken from it */
 			base: names.length - 1,
 			ok: false,
 			error: null,
 			radius: 1,
 			center: new THREE.Vector3(),
-			thresholds: thresholdsOf(sizes.length, undefined, sizes),
-			/** its thresholds the world's own (`tune`), not its shape's */
-			tuned: false,
+			thresholds: thresholdsOf(declared ? names.length : LEVELS.length),
+			/** each level's triangles, as each came (./lod.js `heldTo`) */
+			tris: [],
 			shadows: opts?.shadows,
 			receive: opts?.receive !== false,
 			picture: opts?.picture !== false,
@@ -285,25 +278,24 @@ export function createAssets(o) {
 		);
 	}
 
-	/**
-	 * A kind's thresholds by its coarsest shape: as it came, or, while it is being made, by what it may cost. A kind built
-	 * whole at a world's own `whole` sizes (a thing among a build's guests, its plants at coarser levels) turns into its
-	 * picture where its second shape (30 %) would have it, not its coarsest (8 %): as far off as with the plants' two
-	 * levels, so a room of furniture is still mostly pictures from across the dome, and only near is drawn finer.
-	 */
+	/** A kind's thresholds by its coarsest shape: as it came, or, while it is being made, by what it may cost (./lod.js) */
 	function retune(k) {
-		if (k.tuned) return;
+		// a kind whose levels are its recipe's own (a plant's) and that is drawn far off as its picture takes it at its
+		// last threshold, however light its coarsest shape: as a forest always did (a tree 12 m across a picture past
+		// 40 m: the village's own, measured on a Mac's Metal in intent 6295a650, whose light trees kept their shapes to
+		// ~60 m and cost its far view 46 % more triangles). One made by simplifying, or never a picture (a small plant,
+		// left out where its shape would end), keeps a light shape further, down to PICTURE (./lod.js HEAVY).
+		// And every level hands over no later than DENSITY lets it, by its own triangles (./lod.js `heldTo`)
 		const last = k.levels.length - 1;
-		const by = o.whole && k.sizes === whole && !k.names[1] ? Math.min(1, last) : last;
-		const tris = k.levels[by].level?.tris ?? budgetOf(by, k.levels[k.base].level.tris, k.sizes);
-		k.thresholds = thresholdsOf(k.levels.length, tris, k.sizes);
+		const tris = k.levels[last].level?.tris ?? budgetOf(last, k.levels[k.base].level.tris);
+		k.thresholds = heldTo(k.names.length > 1 && k.picture ? thresholdsOf(k.levels.length) : thresholdsOf(k.levels.length, tris), k.tris);
 	}
 
 	/** pictures taken of builds read from this device's cache (`stats`) */
 	let retaken = 0;
 
 	/** what level L of a kind made from `from` (a level of it, or the source of several) is made to: ./lod.js */
-	const planOf = (k, L, from) => ({ budget: budgetOf(L, from.tris, k.sizes), most: budgetOf(L, Infinity, k.sizes), error: errorOf(L, from.radius, k.sizes), smallest: smallestOf(L, from.radius, k.sizes) });
+	const planOf = (k, L, from) => ({ budget: budgetOf(L, from.tris), most: budgetOf(L, Infinity), error: errorOf(L, from.radius), smallest: smallestOf(L, from.radius) });
 
 	/** a level of a kind asked for, once; its drawings made when it comes */
 	function want(k, L, first = false) {
@@ -325,7 +317,7 @@ export function createAssets(o) {
 				// a build with controls is kept whole as well: a copy moved by them is a tree copied from it
 				if (got.obj.userData.controls?.length) lv.obj = got.obj;
 				await show(k, L);
-				if (L > 0 && lv.level.tris > budgetOf(L, Infinity, k.sizes)) lighten(k, L);
+				if (L > 0 && lv.level.tris > budgetOf(L, Infinity)) lighten(k, L);
 				else letGo(k, L);
 			},
 			(err) => {
@@ -381,7 +373,7 @@ export function createAssets(o) {
 	 */
 	function lighten(k, L) {
 		const lv = k.levels[L], from = lv.level;
-		const most = budgetOf(L, Infinity, k.sizes);
+		const most = budgetOf(L, Infinity);
 		kept.lower(k.names[L], from, [{ L, plan: { ...planOf(k, L, from), budget: most, most, every: true } }], true).then(
 			async ([made]) => {
 				if (gone || lv.level !== from) return;
@@ -418,6 +410,11 @@ export function createAssets(o) {
 			if (!k.slot) k.slot = slot;
 		}
 		lv.state = 'ready';
+		// its triangles known: the kind's thresholds held to them (./lod.js DENSITY)
+		if (k.tris[L] !== lv.level?.tris) {
+			k.tris[L] = lv.level?.tris;
+			if (k.ok) retune(k);
+		}
 		dirty = shadows = true;
 	}
 
@@ -985,20 +982,8 @@ export function createAssets(o) {
 		/** asks again, the next frame, what to draw (after something changed that the renderer cannot see) */
 		touch: () => (dirty = true),
 		/**
-		 * A kind's levels drawn down to these sizes on screen (one for each of its shapes, finest first; smaller than the
-		 * last, its picture): a world that changes a kind's detail where it always has, not where its shape would. Null:
-		 * by its shape again.
-		 * @param {any} k @param {number[] | null} thresholds
-		 */
-		tune(k, thresholds) {
-			k.tuned = !!thresholds;
-			if (thresholds) k.thresholds = thresholds.slice();
-			else if (k.ok) retune(k);
-			dirty = shadows = true;
-		},
-		/**
 		 * Draws every copy at level L whatever its size (0 its finest shape, as a film wants; past its shapes, its
-		 * picture), or each at the level its size calls for again (null).
+		 * picture), or each at the level its size calls for again (null). A film's alone: a world draws by the selector.
 		 * @param {number | null} L
 		 */
 		force(L) {

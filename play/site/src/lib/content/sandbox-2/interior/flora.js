@@ -2,18 +2,16 @@
  * FLORA — a world's forest of our own plants ($content/plants), as many thousands of them as a dome cell holds, drawn by the
  * universal renderer ($content/assets/render, through ./drawn.js `createFlora`): every kind of plant (a plant at its
  * version, stage and seed: an apple tree in flower, a ripe pumpkin) built in the asset box,
- * `plants/<id>@<v>?stage=<s>&seed=<seed>`, at the two details Sandbox 4 has always drawn its plants at (0.25 near you,
- * 0.1 further off: `DETAILS`, ./sandbox5.js `TIERS`), and further still as a picture of itself; every plant of a kind one
- * more copy of it, all of them drawn in a handful of draw calls. Nothing of a plant runs here: what the box made is
+ * `plants/<id>@<v>?stage=<s>&seed=<seed>`, at the levels its card names, and far off as a picture of itself; every
+ * plant of a kind one more copy of it, all of them drawn in a handful of draw calls. Nothing of a plant runs here: what the box made is
  * data, checked, and the renderer draws it.
  *
- * What the world decides, here: where every plant stands; how far off each reach of plants is drawn at all (a tree
- * always, a shrub to the middle distance, the small plants only near you), the ones within it put down as copies as the
- * eye walks; and where each kind changes its detail. The renderer draws a kind by how big it looks; Sandbox 4 has always
- * changed a plant's detail at its own distances for each reach (`VILLAGE`, and nearer under the glass, `INSIDE`), so
- * each kind is told the sizes it looks at there (`Flora.tune`) and changes where it always did. What the renderer
- * decides: the level each copy is drawn at, frame by frame, the coarser fading in under the finer, and that nothing
- * behind the eye is drawn.
+ * What the world decides, here: where every plant stands, and that a tree is drawn however far off (as its picture)
+ * while a small plant is put down only as far off as the forest streams it (`STREAMS`, as stream.js streams the biomes'
+ * cover: how many copies stand, not how finely each is drawn) and never past where the selector would draw its picture
+ * (`FloraDrawn.far`), the ones within it put down as copies as the eye walks. What the renderer decides, by its one selector (assets/render/lod.js):
+ * the level each copy is drawn at, frame by frame, the coarser fading in under the finer, and that nothing behind the
+ * eye is drawn.
  *
  * A forest is a list of plants put somewhere (`add`); `grown` waits for their kinds (each its coarsest shape first) and
  * puts the trees down; `update` keeps the small plants round the eye; the renderer's own update (`Flora.update`, the
@@ -25,14 +23,12 @@
  */
 import * as THREE from 'three';
 import { NotInCatalog } from '../../assets/catalog.js';
-import { TIERS } from './sandbox5.js';
 
 /** @typedef {import('./sandbox5.js').Kind} Kind */
 /**
  * @typedef {'tree' | 'shrub' | 'cover'} Reach how far off a plant is still drawn: a tree always (far off as its picture),
- *   a shrub to the middle distance, the cover (herbs, vegetables, the ground layer) only near you
+ *   a shrub or the cover (herbs, vegetables, the ground layer) until it would be a picture
  */
-/** @typedef {Record<Reach, [number, number]>} Reaches for each reach: to how far (m) it is drawn finely, and coarsely */
 /**
  * @typedef {{ height: number, reach: number, foot: number, leaf: [number, number, number] }} Shape a kind's measure, off
  *   its build: how tall it stands, how far it reaches out over the ground, how thick it is at its foot (its trunk or its
@@ -40,21 +36,20 @@ import { TIERS } from './sandbox5.js';
  */
 /**
  * @typedef {{
- *   reach: Reaches,
  *   use: (ref: string, shadows?: boolean, picture?: boolean) => any,
  *   take: (k: any, at: { x: number, y: number, z: number, turn: number, scale: number }) => any,
  *   give: (c: any) => void,
- *   tune: (k: any, r: Reach) => void,
+ *   far: (k: any, r: 'shrub' | 'cover') => number,
  *   assets: { stats: () => { tris: number } }
- * }} FloraDrawn the renderer a forest's plants are drawn by (./drawn.js `createFlora`), at its distances
+ * }} FloraDrawn the renderer a forest's plants are drawn by (./drawn.js `createFlora`)
  */
 
-/** the details a plant is built at for a world: as Sandbox 4 has always grown its near and its far plants */
-export const DETAILS = [TIERS.near.level, TIERS.mid.level];
-/** the village's own distances (Sandbox 4's flora: its trees fine to 16 m, coarse to 40 m, a picture beyond) */
-export const VILLAGE = /** @type {Reaches} */ ({ tree: [16, 40], shrub: [10, 26], cover: [6, 13] });
-/** under a dome's glass, nearer and so finer */
-export const INSIDE = /** @type {Reaches} */ ({ tree: [28, 75], shrub: [16, 40], cover: [9, 22] });
+/** @typedef {{ shrub: number, cover: number }} Streams how far off (m) a forest puts its small plants down */
+/**
+ * How far the village has always put its small plants down (Sandbox 4's: shrubs to 26 m, the cover to 13 m; under a
+ * dome's glass, nearer the eye, 40 m and 22 m). A stream's reach, not a level: how finely each is drawn is the selector's.
+ */
+export const STREAMS = /** @type {{ village: Streams, inside: Streams }} */ ({ village: { shrub: 26, cover: 13 }, inside: { shrub: 40, cover: 22 } });
 
 /** A plant's key, for a forest to know it by. @param {Kind} k */
 export const keyOf = (k) => `${k.id}@${k.v}:${k.stage}:${k.seed}`;
@@ -199,7 +194,6 @@ export function createForest(o) {
 				}
 				st.k = k;
 				st.shape = measure(k.levels[k.base].level);
-				flora.tune(k, st.reach);
 				// where each stands, packed; and the small ones filed by their cell of the ground
 				const n = st.n, a = st.add;
 				st.x = new Float32Array(n);
@@ -255,7 +249,7 @@ export function createForest(o) {
 		last.z = z;
 		for (const st of stands.values()) {
 			if (!st.cells || !st.k) continue;
-			const far = flora.reach[st.reach][1];
+			const far = flora.far(st.k, /** @type {'shrub' | 'cover'} */ (st.reach));
 			const X = /** @type {Float32Array} */ (st.x), Z = /** @type {Float32Array} */ (st.z), placed = /** @type {number[]} */ (st.placed);
 			if (mark.length < st.n) mark = new Uint32Array(Math.max(st.n, mark.length * 2));
 			const now = ++epoch;
