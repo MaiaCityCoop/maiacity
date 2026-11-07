@@ -1,20 +1,20 @@
 // Accept ships it (play/SPEC.md §4.12 says it all; Samuel 2026-11-06). A code intent names its pull request into main;
-// an admin's Accept at Proposal refuses at once only what can never ship as the pull request stands (its head not the
-// checked one, a red required check, a conflict, closed, not into main, a draft), else puts it in Ship, where it waits
-// its turn (one ship at a time, in the order accepted) and for GitHub, then play posts 'Intent accepted' on the head and
-// merges it (startIfReady). The ship watcher (every 10 s; its state the intent's `ship` in Postgres) follows main's
-// checks, the release and the deploy's jobs as steps; any red, back to Proposal with the report; ended either way, it asks
-// the reconcile. The reconcile (intent 9876ef00) is the one place a code intent becomes Accepted: play knows the commit
+// an admin's Accept at Proposal takes only a waiting intent (./substate.ts: the pull request as read then, its head the
+// checked one, mergeable, its required checks green), puts it in Ship, where it waits its turn (one ship at a time, in
+// the order accepted), then play reads GitHub again, posts 'Intent accepted' on the head and merges it (startIfReady).
+// The ship watcher (every 10 s; its state the intent's `ship` in Postgres) follows main's checks, the release and the
+// deploy's jobs as steps; any red, back to Proposal with the report; ended either way, it asks the reconcile. It also
+// reads every open intent's pull request into its `pr_seen` (watchPulls), so the board asks GitHub nothing. The reconcile (intent 9876ef00) is the one place a code intent becomes Accepted: play knows the commit
 // it runs (PLAY_COMMIT, built into its image), and a code intent is Accepted exactly when its merge commit is in it; an
 // Accepted one whose commit is not is flagged (ship.live false), its stage left alone. It runs once when play starts
 // (every deploy, a rollback, a deploy by hand restarts play) and as each ship ends.
 // play only calls GitHub's API with SHIP_TOKEN, which never leaves this server.
 import { COOP, type Me } from "./access";
 import type { Db } from "./pg";
-import { admin, gate, getIntent, IntentError, mustMove, unmetOn } from "./intents";
+import { admin, gate, getIntent, IntentError, mustMove } from "./intents";
+import { checksSeen, decidable, prBlock, sub, type PrSeen } from "./substate";
 
-/** the checks main.yml runs on a pull request, required green on its head before Accept merges it */
-export const REQUIRED_CHECKS = ["play / API and site", "website / build"];
+export { REQUIRED_CHECKS } from "./substate";
 /** the commit status play posts on the head it merges; main's ruleset requires it */
 export const ACCEPTED_CONTEXT = "Intent accepted";
 /** how long a step may wait for its run to appear before the ship is red */
@@ -239,26 +239,43 @@ function latestRuns(runs: any[]) {
   return by;
 }
 
+/** a pull request as GitHub has it now, kept as the intent's pr_seen: its head's checks read where it is open */
+export async function readPull(gh: GitHub, n: number, at = Date.now()): Promise<{ pr: Pull; seen: PrSeen; runs: Map<string, any> }> {
+  const pr = await gh.pull(n);
+  const open = pr.state === "open" && !pr.merged;
+  const all = open ? await gh.checkRuns(pr.head.sha) : [];
+  const seen: PrSeen = {
+    pr: pr.number, head: pr.head.sha, draft: !!pr.draft, mergeable: pr.mergeable, state: pr.merged ? "merged" : pr.state, merged: !!pr.merged,
+    base: pr.base.ref, checks: checksSeen(all), at: new Date(at).toISOString(),
+  };
+  return { pr, seen, runs: latestRuns(all) };
+}
+const keepSeen = (q: Pick<Db, "query">, id: string, seen: PrSeen) => q.query(`UPDATE play.intents SET pr_seen = ($2::text)::jsonb WHERE id = $1`, [id, JSON.stringify(seen)]);
+
 /**
- * An admin's Accept on an intent at Proposal whose work is code (it names its pull request). Refused at once, nothing
- * posted or merged, only for what can never ship as the pull request stands: its head not the commit every must check
- * with a run last passed on, a required check red there, a conflict, closed, not into main or a draft (or no
- * SHIP_TOKEN, or no admin). Anything else puts it in Ship at once, its first step Ready to merge waiting with its
- * reason, and it starts at once if it may (startIfReady); its pull request merged already by an earlier ship of it,
- * it is shipped again the same way. Gives back the intent; null where the intent is no code intent at Proposal (it is
- * decided as before: ./intents.ts decideIntent, ./versioned.ts decide).
+ * An admin's Accept on an intent at Proposal whose work is code (it names its pull request). Its pull request is read
+ * first (kept as its pr_seen), and only a waiting intent is taken (./substate.ts: open into main, not a draft, its head
+ * the commit every must check with a run last passed on, mergeable, the required checks green; or red after its merge,
+ * shipped again), else refused with why, nothing posted or merged (or no SHIP_TOKEN, or no admin). Taken, it is in Ship
+ * at once, its first step Ready to merge, and starts at once if its turn has come (startIfReady); its pull request
+ * merged already by an earlier ship of it, it is shipped again the same way. Gives back the intent; null where the
+ * intent is no code intent at Proposal (it is decided as before: ./intents.ts decideIntent, ./versioned.ts decide).
  */
 export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, id: string) {
   const me = admin(who);
   const first = await getIntent(db, id);
   if (first.work || !first.pull_request) return null;
+  await mustMove(db, first, "ship");
+  if (!gh) refuse("play holds no SHIP_TOKEN, so it cannot merge: set the repository secret SHIP_TOKEN and deploy (deploy/README.md).");
+  const { pr, seen } = await readPull(gh!, first.pull_request).catch((e) => refuse(`Pull request #${first.pull_request} could not be read: ${(e as Error).message}.`));
+  await keepSeen(db, first.id, seen);
   await db.transaction(async (tx) => {
     // one Accept at a time: a second press waits here, then finds it in Ship
     await tx.query(`SELECT 1 FROM play.intents WHERE id = $1 FOR UPDATE`, [first.id]);
     const intent = await getIntent(tx, first.id);
     await mustMove(tx, intent, "ship");
-    if (!gh) refuse("play holds no SHIP_TOKEN, so it cannot merge: set the repository secret SHIP_TOKEN and deploy (deploy/README.md).");
-    const pr = await gh!.pull(intent.pull_request).catch((e) => refuse(`Pull request #${intent.pull_request} could not be read: ${(e as Error).message}.`));
+    const s = sub.of({ ...intent, pr_seen: seen }, seen);
+    if (!decidable(intent, s)) refuse(s ? `${s.why}.` : `Intent ${intent.id} is at the ${intent.stage} stage now.`);
     const was: Ship | null = intent.ship ?? null;
     const at = now();
     let ship: Ship;
@@ -286,25 +303,13 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
         deploy_run: undefined,
       };
     } else {
-      if (pr.state !== "open") refuse(`Pull request #${pr.number} is ${pr.state}: name the intent's open pull request (check_intent's pr).`);
-      if (pr.base.ref !== "main") refuse(`Pull request #${pr.number} goes into ${pr.base.ref}: an intent's code goes into main.`);
-      if (pr.draft) refuse(`Pull request #${pr.number} is a draft: it is marked ready (main's checks run then) before it is merged.`);
       const head = pr.head.sha;
-      const stale = unmetOn(intent, head);
-      if (stale.length)
-        refuse(`What is merged is what was checked: every must check with a run passes on #${pr.number}'s head ${head.slice(0, 7)} first (its run in avenBOX on GitHub records them on it: mark the pull request ready, or push to it): ${stale.join("; ")}.`);
-      if (pr.mergeable === false) refuse(`#${pr.number} does not merge into main as it is (a conflict): main is merged into its branch, and its checks run again on the new head.`);
-      const runs = latestRuns(await gh!.checkRuns(head).catch((e) => refuse(`#${pr.number}'s checks could not be read: ${(e as Error).message}.`)));
-      for (const name of REQUIRED_CHECKS) {
-        const r = runs.get(name);
-        if (r?.status === "completed" && r.conclusion !== "success") refuse(`'${name}' is ${r.conclusion} on #${pr.number}'s head ${head.slice(0, 7)}: it is green before it is merged.`);
-      }
       ship = { pr: pr.number, head, merge: "", by: me.name, round: (was?.round ?? 0) + 1, accepted: at, started: at, steps: stepsFor(at, [], "merge"), report: null, pending: { kind: "merge", head } };
     }
     await tx.query(`UPDATE play.intents SET stage = 'ship', ship = ($2::text)::jsonb, decided_by = $3, decided_at = now() WHERE id = $1`, [intent.id, JSON.stringify(ship), me.id]);
     console.log(`ship: intent ${intent.id} accepted by ${me.name}: in Ship (#${ship.pr}, ${ship.pending!.kind})`);
   });
-  // its turn at once, where no ship is ahead of it and GitHub is ready; else the watcher starts it
+  // its turn at once, where no ship is ahead of it; else the watcher starts it
   await startIfReady(db, gh!, first.id).catch((e) => console.warn(`ship: intent ${first.id} not started yet: ${(e as Error).message}`));
   return getIntent(db, first.id);
 }
@@ -321,7 +326,7 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
 export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now()) {
   return db.transaction(async (tx) => {
     await tx.query(`SELECT pg_advisory_xact_lock(${QUEUE_LOCK})`);
-    const { rows: [row] } = await tx.query<any>(`SELECT id, title, ship, decided_at FROM play.intents WHERE id = $1 AND stage = 'ship' FOR UPDATE`, [id]);
+    const { rows: [row] } = await tx.query<any>(`SELECT id, title, ship, decided_at, spec, results FROM play.intents WHERE id = $1 AND stage = 'ship' FOR UPDATE`, [id]);
     const was: Ship | undefined = row?.ship;
     if (!was?.pending) return;
     const ship: Ship = { ...was, steps: was.steps.map((s) => ({ ...s })) };
@@ -377,23 +382,12 @@ export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now
       return;
     }
 
-    // a merge: GitHub ready, the head as checked, its checks green
-    const pr = await gh.pull(ship.pr);
-    if (pr.merged) return red(`#${pr.number} was merged while it waited, not by this ship`, pr.html_url);
-    if (pr.state !== "open") return red(`#${pr.number} was closed while it waited`, pr.html_url);
-    if (pr.draft) return red(`#${pr.number} was made a draft while it waited`, pr.html_url);
-    if (pr.head.sha !== pending.head)
-      return red(`#${pr.number}'s head moved from ${pending.head.slice(0, 7)} to ${pr.head.sha.slice(0, 7)} while it waited: its checks are recorded on the new head, then Accept again`, pr.html_url);
-    if (pr.mergeable === false) return red(`#${pr.number} no longer merges into main (a conflict): main is merged into its branch, its checks run again, then Accept again`, pr.html_url);
-    const runs = latestRuns(await gh.checkRuns(pending.head));
-    const notYet: string[] = [];
-    for (const name of REQUIRED_CHECKS) {
-      const r = runs.get(name);
-      if (r?.status === "completed" && r.conclusion !== "success") return red(`'${name}' is ${r.conclusion} on #${pr.number}'s head ${pending.head.slice(0, 7)}`, r.html_url);
-      if (r?.status !== "completed") notYet.push(name);
-    }
-    if (notYet.length) return wait(`Waiting for #${pr.number}'s checks (${notYet.join(", ")})`, true);
-    if (pr.mergeable === null) return wait(`Waiting for GitHub to work out whether #${pr.number} merges`, true);
+    // a merge: GitHub ready, the head as checked, its checks green (./substate.ts prBlock, at the head it was accepted on)
+    const { pr, seen, runs } = await readPull(gh, ship.pr, at);
+    await keepSeen(tx, id, seen);
+    const block = prBlock(row, seen, pending.head);
+    if (block?.state === "failed") return red(block.why, (block.why.startsWith("'") && runs.get(block.why.split("'")[1])?.html_url) || pr.html_url);
+    if (block) return wait(block.why, true);
 
     const by = ship.by;
     try {
@@ -574,6 +568,30 @@ export async function watchShips(db: Db, gh: GitHub, at = Date.now(), commit: st
   }
 }
 
+/**
+ * Every open intent's named pull request (Build or Proposal) read as GitHub has it now, kept as its pr_seen: what the
+ * board's sub-state (./substate.ts) is told of GitHub, so GET /api/intents asks GitHub nothing.
+ */
+export async function watchPulls(db: Db, gh: GitHub, at = Date.now()) {
+  const { rows } = await db.query<{ id: string; pull_request: number }>(
+    `SELECT id, pull_request FROM play.intents WHERE coop_id = $1 AND stage IN ('build', 'proposal') AND pull_request IS NOT NULL AND work IS NULL ORDER BY created, id`,
+    [COOP],
+  );
+  for (const { id, pull_request } of rows) {
+    try {
+      await keepSeen(db, id, (await readPull(gh, pull_request, at)).seen);
+    } catch (e) {
+      console.warn(`ship: #${pull_request} of intent ${id} not read: ${(e as Error).message}`);
+    }
+  }
+}
+
+/** One tick of the watcher: the ships, then the open intents' pull requests. */
+export async function watchTick(db: Db, gh: GitHub, at = Date.now(), commit: string | null = runningCommit()) {
+  await watchShips(db, gh, at, commit);
+  await watchPulls(db, gh, at);
+}
+
 /** The ship watcher, every `every` ms while play-api runs (one look at a time), against the commit play runs. */
 export function startShipWatcher(db: Db, gh: GitHub, every = 10_000, commit: string | null = runningCommit()) {
   let busy = false;
@@ -581,7 +599,7 @@ export function startShipWatcher(db: Db, gh: GitHub, every = 10_000, commit: str
     if (busy) return;
     busy = true;
     try {
-      await watchShips(db, gh, Date.now(), commit);
+      await watchTick(db, gh, Date.now(), commit);
     } catch (e) {
       console.warn(`ship: the watcher missed a look: ${(e as Error).message}`);
     } finally {

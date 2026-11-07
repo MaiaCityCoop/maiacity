@@ -9,6 +9,9 @@ import { briefOf } from "./skills";
 import { newId, UUID } from "./uuid";
 import { intentIdOf } from "./work";
 import { workKinds, workSql } from "./versioned";
+import { decidable, sub, unmetOn } from "./substate";
+
+export { unmetOn };
 
 export class IntentError extends Error {
   constructor(message: string, public status = 400) {
@@ -134,7 +137,7 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
   // its steps back (./stepback.ts) by to_jsonb: a database migrated short of 0036 (a migration's test) reads too
   const { rows } = await db.query<any>(
     `SELECT i.id, i.kind, i.title, i.note, i.stage, i.via, i.created, i.spec, i.results, i.specified_at, i.approved_at, i.decided_at, i.came_with,
-            i.pull_request, i.ship, COALESCE(to_jsonb(i)->'steps', '[]') AS steps,
+            i.pull_request, i.ship, COALESCE(to_jsonb(i)->'steps', '[]') AS steps, to_jsonb(i)->'pr_seen' AS pr_seen,
             ${EDGES("d.intent_id = i.id", "d.depends_on")} AS depends_on, ${EDGES("d.depends_on = i.id", "d.intent_id")} AS needed_by,
             au.name AS author, sp.name AS specified_by, ap.name AS approved_by, de.name AS decided_by,
             CASE WHEN i.work IS NULL THEN NULL ELSE json_build_object(
@@ -168,7 +171,11 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
       ORDER BY COALESCE(i.decided_at, i.proposed_at, i.created) DESC LIMIT 500`,
     [COOP, ...args],
   );
-  return rows.map((r) => ({ ...r, held_by: r.depends_on.filter((d: Dep) => d.stage !== "accepted") }));
+  // its sub-state (./substate.ts), from what play keeps: the board asks GitHub nothing
+  return rows.map((r) => {
+    const row = { ...r, held_by: r.depends_on.filter((d: Dep) => d.stage !== "accepted") };
+    return { ...row, sub: sub.of(row) };
+  });
 }
 
 // ---- dependencies: held at every forward gate (mayMove) while any intent it depends on is not shipped (Accepted)
@@ -183,6 +190,8 @@ const EDGES = (where: string, o: string) =>
 /** The intents `id` depends on directly that are not shipped, read live: what holds it. */
 export const heldBy = async (db: Queryable, id: string): Promise<Dep[]> => (await intentRow(db, id)).held_by;
 const named = (ds: Dep[]) => ds.map((d) => `${d.id} (${d.title}, at ${d.stage})`).join("; ");
+/** the refusal of a held intent's forward move */
+const heldText = (id: string, held: Dep[]) => `Intent ${id} is held: it depends on intents not shipped yet: ${named(held)}.`;
 
 /** Edges from `id` to each of `on` added (or dropped), in the caller's transaction: none to itself, none closing a cycle. */
 async function addEdges(q: Queryable, who: Me, id: string, on: string[], drop = false) {
@@ -239,7 +248,9 @@ export async function getIntent(db: Queryable, id: string) {
 export async function intentOf(db: Queryable, me: Me | null, id: string, reviewOf: (db: Queryable, id: string, shown: any) => Promise<unknown>) {
   admin(me);
   const intent = await getIntent(db, id);
-  return { ...intent, brief: await briefOf(db, intent), review: intent.work ? await reviewOf(db, intent.id, intent.work) : null };
+  // held (approved, its dependencies not shipped): nothing to do yet, its sub-state says why
+  const held = intent.held_by.length > 0 && (intent.stage === "build" || intent.stage === "proposal");
+  return { ...intent, brief: held ? null : await briefOf(db, intent), review: intent.work ? await reviewOf(db, intent.id, intent.work) : null };
 }
 
 /** A new intent at the Idea stage, by an admin's agent over MCP (no one adds one by hand). */
@@ -317,6 +328,8 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
       `Intent ${intent.id} is at the ${intent.stage} stage: checks are recorded while it is being built (its spec approved)${intent.stage === "proposal" ? ", or at Proposal while no work of it waits there" : ""}; main's results (where main) in any stage once its spec is approved.`,
       409,
     );
+  // held: nothing is recorded until every intent it depends on is shipped (main's confirmations are still taken)
+  if (moves && !confirms && intent.held_by.length) throw new IntentError(heldText(intent.id, intent.held_by), 409);
   if (named !== undefined && intent.work) throw new IntentError(`Intent ${intent.id} holds work of play's: it is accepted in play, with no pull request.`, 409);
   // only the box's run is evidence (play/SPEC.md §4.12, Samuel 2026-11-06): what can decide a code intent (its pull
   // request named, a test or measure result on a commit or on main, or any once its pull request is named) is taken
@@ -362,20 +375,6 @@ export function unmet(intent: { spec: Spec | null; results: Record<string, Resul
     .map((c) => `${c.id} (${c.check}): ${intent.results?.[c.id] ? "failed" : "no result yet"}`);
 }
 
-/**
- * The gate a code intent's Accept adds (./ship.ts): every must check with a `run` last passed on `head`, its pull
- * request's head commit, so what is merged is what was checked; as people read them, or none.
- */
-export function unmetOn(intent: { spec: Spec | null; results: Record<string, Result> | null }, head: string) {
-  return (intent.spec?.checks ?? [])
-    .filter((c) => c.must && c.run)
-    .flatMap((c) => {
-      const r = intent.results?.[c.id];
-      if (r?.pass === true && r.commit === head) return [];
-      return [`${c.id} (${c.check}): ${!r ? "no result yet" : !r.pass ? "failed" : r.commit ? `passed on ${r.commit.slice(0, 7)}, not on the head ${head.slice(0, 7)}` : "passed on no named commit"}`];
-    });
-}
-
 /** every forward move: approve (to Build), to Proposal on its checks, work proposed, accept, its work accepted, Accept into Ship, Ship's turn */
 export type Move = "build" | "proposal" | "work" | "accept" | "accept_work" | "ship" | "merge";
 /** why a move is refused; `wait` where only a dependency still in Ship refuses it (Ship's turn waits for it) */
@@ -415,16 +414,19 @@ async function mayMove(db: Queryable, intent: string | GateRow, to: Move): Promi
   };
   const bad = stage();
   if (bad) return no(bad);
+  // approving a spec is never held (Samuel 2026-11-07): it waits in Build, idle, until its dependencies are shipped
+  // Accept into Ship waits there for a dependency ahead of it in Ship; one anywhere else refuses, before its checks
+  const held = to === "build" ? [] : (i.held_by ?? (await heldBy(db, i.id))).filter((d) => to !== "ship" || d.stage !== "ship");
+  if (held.length) {
+    if (to === "merge" && held.every((d) => d.stage === "ship")) return { why: `Waits for ${named(held)} to ship first`, wait: true };
+    return no(heldText(i.id, held));
+  }
   const missing = to === "accept_work" || to === "merge" || to === "build" ? [] : unmet(i);
   if (missing.length)
     return no(to === "work"
       ? `Intent ${i.id} is not ready to propose: every must check passes first (record them with check_intent). ${missing.join("; ")}.`
       : `Every must check passes before an intent is ${to === "proposal" ? "at Proposal" : "accepted"}: ${missing.join("; ")}.`);
-  // Accept into Ship waits there for a dependency ahead of it in Ship; one anywhere else refuses
-  const held = (i.held_by ?? (await heldBy(db, i.id))).filter((d) => to !== "ship" || d.stage !== "ship");
-  if (!held.length) return null;
-  if (to === "merge" && held.every((d) => d.stage === "ship")) return { why: `Waits for ${named(held)} to ship first`, wait: true };
-  return no(`Intent ${i.id} is held: it depends on intents not shipped yet: ${named(held)}.`);
+  return null;
 }
 /** the gate as every path calls it (a test may stand a stub in its place) */
 export const gate = { mayMove };
@@ -442,6 +444,12 @@ export async function intentReady(db: Queryable, me: Me | null, id: unknown) {
   return intent;
 }
 
+/** a person decides only a waiting intent (./substate.ts): refused with its sub-state's reason otherwise */
+export function mustDecide(intent: any) {
+  const s = sub.of(intent);
+  if (!decidable(intent, s)) throw new IntentError(s ? `${s.why}.` : `Intent ${intent.id} is at the ${intent.stage} stage.`, 409);
+}
+
 /**
  * An admin's decision on the board: approve a spec (Specify → Build), accept an intent at Proposal with no work of
  * play's and no pull request (one with a pull request is shipped, ./ship.ts), reject it, or bring a decided one back
@@ -456,10 +464,12 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
   switch (verdict) {
     case "approve":
       await mustMove(db, intent, "build");
+      mustDecide(intent);
       await db.query(`UPDATE play.intents SET stage = 'build', approved_by = $2, approved_at = now(), results = NULL WHERE id = $1`, [intent.id, who.id]);
       break;
     case "accept":
       await mustMove(db, intent, "accept");
+      mustDecide(intent);
       await db.query(`UPDATE play.intents SET stage = 'accepted', decided_by = $2, decided_at = now() WHERE id = $1`, [intent.id, who.id]);
       break;
     case "reject":

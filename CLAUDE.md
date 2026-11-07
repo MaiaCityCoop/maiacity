@@ -51,7 +51,7 @@ still record by hand with check_intent). Every must green, the intent moves to P
 red, the run turns it back into a draft: fix, push, mark it ready again. Each push to a ready pull request is run and
 recorded again.
 **Never merge** into `main` or `production` by hand, and open no pull request into `production`. An admin's Accept on
-play's intents' board puts the intent in **Ship** at once: there it waits its turn (one ship at a time, in the order
+play's intents' board takes **only a waiting intent** (play/SPEC.md §4.12 *Sub-states*: its pull request's head the checked one, mergeable, its required checks green; working or failed, Accept is refused with why) and puts it in **Ship** at once: there it waits its turn (one ship at a time, in the order
 accepted) and for GitHub (the pull request's checks green, its mergeability worked out), its reason shown live, and
 play then merges the pull request itself (it posts the commit status **`Intent accepted`** on its head first; main's
 ruleset requires it, with `play / API and site` and `website / build`); Ship shows live main's checks, the release and

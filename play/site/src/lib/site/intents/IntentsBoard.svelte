@@ -20,13 +20,13 @@
 	its Reject archives it; its work's review, opened from it, is read only. No work without an intent (intent 706ed873):
 	every intent with work has an approved spec, so every intent opens its dialog. Nothing is accepted from Build.
 
-	ACCEPT SHIPS IT (Samuel 2026-11-06, play/api/src/ship.ts): an intent whose work is code names its pull request, and
-	its Accept ("Accept and ship") puts it in Ship at once: its first step, Ready to merge, waits with its reason for its
-	turn (one ship at a time, in the order accepted: its card says "Queued · behind …") and for GitHub ("Waiting for #N's
-	checks", "Waiting for GitHub"), then play merges it by itself, and its way to production shows live (merged, main's
-	checks, the release, the deploy's backup, image, server and website, each with its link), the board read again every
-	3 s while any intent ships. All green, it is Accepted; a red step brings it back to Proposal with
-	the report at the top of its dialog (the step, its link, the log's last lines), and Accept there ships it again.
+	SUB-STATES (Samuel 2026-11-07, play/api/src/substate.ts): every open card is failed, waiting, working or idle, its
+	reason its one status line, each column grouped under those dividers; Approve spec and Accept only on a waiting one.
+
+	ACCEPT SHIPS IT (Samuel 2026-11-06, play/api/src/ship.ts): code's Accept ("Accept and ship") puts it in Ship, where
+	it waits its turn, then play merges it and its way to production shows live (merged, main's checks, the release, the
+	deploy's jobs, each with its link), read again every 3 s while any ships. All green, it is Accepted; a red step
+	brings it back to Proposal with the report atop its dialog, and Accept there ships it again.
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
@@ -75,9 +75,12 @@
 	type Results = Record<string, { pass: boolean; evidence: string; by: string | null; at: string; where?: 'avenBOX' | 'main'; commit?: string }>;
 	/** one step back an agent took over MCP, with its reason (play/api/src/stepback.ts) */
 	type StepBack = { at: string; by: string | null; via: 'mcp'; from: Stage; to: Stage; reason: string };
-	type Intent = { id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null; spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null; decided_at: string | null; decided_by: string | null; came_with: string | null; work: Work | null; pull_request: number | null; ship: Ship | null; steps?: StepBack[]; depends_on?: Dep[]; held_by?: Dep[]; needed_by?: Dep[] };
+	type Intent = { id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null; spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null; decided_at: string | null; decided_by: string | null; came_with: string | null; work: Work | null; pull_request: number | null; ship: Ship | null; sub: Sub | null; steps?: StepBack[]; depends_on?: Dep[]; held_by?: Dep[]; needed_by?: Dep[] };
 	// an intent it depends on, or one that depends on it (play/api/src/intents.ts heldBy): found by its UUID, its title only shown
 	type Dep = { id: string; title: string; stage: Stage };
+	// its sub-state (play/api/src/substate.ts): a person needed (failed, waiting) or not (working, idle), and why
+	type Sub = { state: 'failed' | 'waiting' | 'working' | 'idle'; why: string };
+	const SUBS = [['failed', 'Failed'], ['waiting', 'Waiting'], ['working', 'Working'], ['idle', 'Idle']] as const;
 	// an intent's kind, shown as what it asks (the kind 'idea' as Make, the stage Idea being its own; Samuel 2026-11-06)
 	const KINDS: [Kind, string][] = [
 		['idea', 'Make'],
@@ -148,7 +151,10 @@
 		const musts = i.spec?.checks.filter((c) => c.must) ?? [];
 		return musts.length ? `${musts.filter((c) => i.results?.[c.id]?.pass === true).length}/${musts.length} checks` : '';
 	};
-	const allMustPass = (i: { spec: Spec | null; results: Results | null }) => !!i.spec && i.spec.checks.filter((c) => c.must).every((c) => i.results?.[c.id]?.pass === true);
+	/** a column's cards under its dividers, Failed, Waiting, Working, Idle (none for Accepted and Archived), empty ones left out */
+	const grouped = (cards: Intent[]) => [...SUBS.map(([k, name]) => ({ k, name, cards: cards.filter((i) => i.sub?.state === k) })), { k: '', name: '', cards: cards.filter((i) => !i.sub) }].filter((g) => g.cards.length);
+	/** a person may decide it now (the API refuses the rest): waiting, or red after its merge (Accept ships it again) */
+	const decidable = (i: Intent) => i.sub?.state === 'waiting' || shipsAgain(i);
 	// ---- Accept ships it (play/api/src/ship.ts): an intent of code, its pull request named, merged by its Accept
 	const REPO_URL = 'https://github.com/MyAvenCEO/maiacity';
 	/** whether an intent's Accept ships it: its work is code, its pull request named */
@@ -156,8 +162,6 @@
 	/** its pull request merged by an earlier ship that went red: Accept ships that again */
 	const shipsAgain = (i: Intent) => isCode(i) && !!i.ship?.merge && i.ship.pr === i.pull_request && i.ship.outcome === 'red';
 	const doneStep = (s: ShipStep) => s.state === 'green' || s.state === 'skipped';
-	/** where a ship is now: its red step, else the first not yet done */
-	const shipNow = (sh: Ship) => sh.steps.find((s) => s.state === 'red') ?? sh.steps.find((s) => !doneStep(s));
 	const STEP_MARK: Record<ShipStep['state'], string> = { queued: '·', running: '●', green: '✓', red: '✗', skipped: '–' };
 	const STEP_WORD: Record<ShipStep['state'], string> = { queued: 'waiting', running: 'running', green: 'done', red: 'red', skipped: 'skipped' };
 	/** a step's time: how long it took, or has run so far */
@@ -170,20 +174,6 @@
 	};
 	/** the reconcile's flag (play/api/src/ship.ts reconcile): Accepted, or green in Ship, and its commit not in what play runs */
 	const notLive = (i: Intent) => (i.ship?.live === false && i.ship.commit ? `not live: production runs ${i.ship.commit.slice(0, 7)}` : '');
-	/** a card's line in Ship (its current step) or at Proposal after a red ship, or its flag */
-	const shipLine = (i: Intent) => {
-		if (!i.ship) return '';
-		if (notLive(i)) return notLive(i);
-		if (i.stage === 'ship' && i.ship.outcome === 'green') return 'green · Accepted once play runs it';
-		if (i.stage === 'ship') {
-			const n = shipNow(i.ship);
-			// still waiting to start: why (its turn, GitHub, its checks), as the first step says
-			if (n?.key === 'ready' && n.note) return n.note;
-			return n ? `${n.name} · ${STEP_WORD[n.state]}` : 'in production';
-		}
-		if (i.stage === 'proposal' && i.ship.outcome === 'red' && i.ship.report) return `red at ${i.ship.report.step}`;
-		return '';
-	};
 	/** a log shown from its end, where it went red */
 	const toEnd = (el: HTMLElement) => {
 		el.scrollTop = el.scrollHeight;
@@ -204,7 +194,6 @@
 	/** where a result ran, as its mark says: avenBOX, or main and its commit */
 	const whereOf = (r: Results[string]) => (r.where === 'main' ? `main${r.commit ? ` @ ${r.commit.slice(0, 7)}` : ''}` : 'avenBOX');
 	/** what an intent's work is, on its card: "v3 · waiting", "2 changes · accepted" */
-	const workText = (i: Intent) => (i.work ? `${titleOf(i.work)} · ${i.work.status === 'proposal' ? 'waiting' : i.work.status}` : '');
 	/** the work of intent `i`, opened for review */
 	const cardOf = (i: Intent): P => ({ ...i.work!, id: i.id, intent_id: i.id, intent_title: i.title, intent_spec: i.spec, intent_results: i.results });
 	const when = (s: string) => new Date(s).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -420,16 +409,14 @@
 					</h2>
 					{#if !folded[s]}
 						<div class="cards">
-							{#each cards as i (i.id)}
-								{@const progress = s === 'build' ? checksDone(i) : ''}
-								<!-- an intent: its title, how far its checks or its work got, who it is by, its type and its date -->
+							{#each grouped(cards) as g (g.k)}
+							{#if g.k}<h3 class="sub" data-sub={g.k}>{g.name} <span class="count">{g.cards.length}</span></h3>{/if}
+							{#each g.cards as i (i.id)}
+								<!-- an intent: its title, its sub-state and why, who it is by, its type and its date -->
 								<article class="card item" class:held={!!i.held_by?.length} data-kind={i.kind}>
 									<button class="open" onclick={() => openIntentDialog(i)} title={i.note ? gist(i.note) : undefined}>
 										<span class="title">{i.title}</span>
-										{#if shipLine(i)}<span class="for ship" class:red={i.stage === 'proposal' || !!notLive(i) || !!i.ship?.steps?.some((x) => x.state === 'red')} class:running={i.stage === 'ship'}>{shipLine(i)}</span>
-										{:else if progress}<span class="for" class:done={allMustPass(i)}>{progress}</span>
-										{:else if i.spec && s === 'specify'}<span class="for">{i.spec.checks.length} check{i.spec.checks.length === 1 ? '' : 's'} · to approve</span>
-										{:else if i.spec && i.work}<span class="for">{workText(i)}</span>{/if}
+										{#if notLive(i) || i.sub}<span class="for" data-sub={notLive(i) ? 'failed' : i.sub?.state} title={notLive(i) || i.sub?.why}>{notLive(i) || i.sub?.why}</span>{/if}
 										<span class="meta">
 											<span class="avatar" aria-hidden="true">{initialsOf(i.author)}</span>
 											<span class="author">{i.author ?? 'someone'}</span>
@@ -442,6 +429,7 @@
 										<button class="deps" onclick={() => openIntentDialog(i)} title={depsTitle(i)}>{#if i.held_by?.length}<span class="held-tag">Held</span>{/if}<span>{[i.depends_on?.length ? `waits for ${i.depends_on.length}` : '', i.needed_by?.length ? `needed by ${i.needed_by.length}` : ''].filter(Boolean).join(' · ')}</span></button>
 									{/if}
 								</article>
+							{/each}
 							{:else}
 								<p class="empty muted">{!loaded ? '…' : s === 'idea' ? 'None. Agents add intents over MCP.' : s === 'specify' ? 'None. Agents specify an intent over MCP.' : s === 'build' ? 'None. An approved spec is built here.' : s === 'ship' ? 'None. Accepted code is shipped here.' : 'None'}</p>
 							{/each}
@@ -462,7 +450,7 @@
 				<div class="who">
 					<!-- the way back to the board, seen at once on a phone too, where the nav pill's arrow has no word (Samuel 2026-11-06) -->
 					<button class="to-board" onclick={closeIntent} title="Back to the intents (Esc)">‹ Intents</button>
-					<p class="tags"><span class="type" data-kind={i.kind}>{kindName(i.kind)}</span> <span class="pill" class:shipping={i.stage === 'ship'}>{STAGE_NAME[i.stage]}{#if i.stage === 'ship' && i.ship}{@const n = shipNow(i.ship)}{n ? ` · ${n.name}` : ''}{/if}</span>{#if (i.stage === 'build' || i.stage === 'proposal') && musts.length}{' '}<span class="pill" class:pass={allMustPass(i)}>{checksDone(i)}</span>{/if}</p>
+					<p class="tags"><span class="type" data-kind={i.kind}>{kindName(i.kind)}</span> <span class="pill" class:shipping={i.stage === 'ship'}>{STAGE_NAME[i.stage]}</span>{#if (i.stage === 'build' || i.stage === 'proposal') && musts.length}{' '}<span class="pill">{checksDone(i)}</span>{/if}{#if i.sub}{' '}<span class="pill" data-sub={i.sub.state}>{i.sub.why}</span>{/if}</p>
 					<h2>{i.title}</h2>
 					<p class="meta">by {i.author ?? 'someone'}{#if i.via === 'mcp'}{' '}<span class="via" title="Added by an agent working for them over MCP">via MCP</span>{/if} · {when(i.created)}{i.specified_by && i.specified_at ? ` · specified by ${i.specified_by}, ${when(i.specified_at)}` : ''}{i.approved_by && i.approved_at ? ` · spec approved by ${i.approved_by}` : ''}{i.decided_by && i.decided_at ? ` · ${i.stage === 'ship' ? 'accepted' : i.stage} by ${i.decided_by}, ${when(i.decided_at)}` : ''}</p>
 				</div>
@@ -562,14 +550,14 @@
 			{#if i.depends_on?.length || i.needed_by?.length}
 				<section>
 					<h3>Depends on{#if i.held_by?.length}{' '}<span class="held-tag">Held</span>{/if}</h3>
-					{#if i.held_by?.length}<p class="muted small">Held: not started nor taken further until every intent it depends on is shipped (Accepted). It waits for {i.held_by.map((d) => d.title).join(', ')}.</p>{/if}
+					{#if i.held_by?.length}<p class="muted small">Held until every intent it depends on is shipped: it waits for {i.held_by.map((d) => d.title).join(', ')}.</p>{/if}
 					{#if i.depends_on?.length}<ul class="dep-list">{#each i.depends_on as d (d.id)}<li><button class="link" onclick={() => openIntentOf(d.id)}>{d.title}</button> <span class="muted small">· {stageName(d.stage)}{d.stage === 'accepted' ? ' · shipped' : ''}</span></li>{/each}</ul>{:else}<p class="muted small">Nothing.</p>{/if}
 					{#if i.needed_by?.length}<p class="small"><span class="muted">Needed by</span> {#each i.needed_by as d, j (d.id)}{j ? ' · ' : ''}<button class="link" onclick={() => openIntentOf(d.id)}>{d.title}</button> <span class="muted">({stageName(d.stage)})</span>{/each}</p>{/if}
 				</section>
 			{/if}
 			<section>
 				<h3>Its work</h3>
-				{#if !i.work && i.pull_request}<p class="small">Code: <a href="{REPO_URL}/pull/{i.pull_request}" target="_blank" rel="noopener">pull request #{i.pull_request}</a> <span class="muted">· {i.stage === 'proposal' ? 'Accept merges it into main and ships it' : i.stage === 'ship' ? (i.ship?.pending ? 'in Ship, merged when its turn comes and GitHub is ready' : 'merged, on its way to production') : i.stage === 'accepted' ? 'in production' : 'named by its agent'}</span></p>
+				{#if !i.work && i.pull_request}<p class="small">Code: <a href="{REPO_URL}/pull/{i.pull_request}" target="_blank" rel="noopener">pull request #{i.pull_request}</a> <span class="muted">· {i.stage === 'proposal' ? 'Accept merges it into main and ships it' : i.stage === 'ship' ? (i.ship?.pending ? 'in Ship, merged in its turn' : 'merged, on its way to production') : i.stage === 'accepted' ? 'in production' : 'named by its agent'}</span></p>
 				{:else if !i.work}<p class="muted small">Nothing yet.{i.stage === 'idea' || i.stage === 'specify' || i.stage === 'build' ? ' Send an agent to it with the brief below.' : ''}</p>
 				{:else}
 					{@const w = i.work}
@@ -611,8 +599,8 @@
 				{#if i.stage === 'accepted' || i.stage === 'archived'}
 					<button class="btn small ghost" onclick={() => decideIntent(i.id, 'reopen')} title="Open again: back to {i.spec ? 'Specify' : 'Idea'}">Reopen</button>
 				{/if}
-				{#if i.stage === 'specify' && i.spec}<button class="btn small" onclick={() => decideIntent(i.id, 'approve')} title="The spec is right: an agent may build it">Approve spec</button>
-				{:else if i.stage === 'proposal'}<button class="btn small" onclick={() => decideIntent(i.id, 'accept')} disabled={!allMustPass(i) || merging} title={!allMustPass(i) ? 'Every must check passes first' : isCode(i) ? (shipsAgain(i) ? 'Ship it again: its pull request is merged; the release (or main\'s failed jobs) runs again' : `Ship pull request #${i.pull_request}: in Ship at once, merged into main when its turn comes and GitHub is ready, then to production`) : i.work ? 'Applies its work: what it asked is in' : 'What it asked is in'}>{merging ? 'Accepting…' : isCode(i) ? (shipsAgain(i) ? 'Ship again' : 'Accept and ship') : 'Accept'}</button>{/if}
+				{#if i.stage === 'specify' && i.spec}<button class="btn small" onclick={() => decideIntent(i.id, 'approve')} disabled={!decidable(i)} title={decidable(i) ? 'The spec is right: an agent may build it' : i.sub?.why}>Approve spec</button>
+				{:else if i.stage === 'proposal'}<button class="btn small" onclick={() => decideIntent(i.id, 'accept')} disabled={!decidable(i) || merging} title={!decidable(i) ? i.sub?.why : isCode(i) ? (shipsAgain(i) ? 'Ship it again: the release (or main\'s failed jobs) runs again' : `Ship #${i.pull_request}: merged into main in its turn, then to production`) : i.work ? 'Applies its work: what it asked is in' : 'What it asked is in'}>{merging ? 'Accepting…' : isCode(i) ? (shipsAgain(i) ? 'Ship again' : 'Accept and ship') : 'Accept'}</button>{/if}
 			</footer>
 			{/if}
 		</div>
@@ -778,12 +766,15 @@
 	.held-tag { display: inline-block; padding: 0 0.5em; border-radius: 999px; background: color-mix(in srgb, #9c3b22 15%, transparent); color: #9c3b22; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em; }
 	.dep-list { margin: 0.2rem 0; padding-left: 1.1rem; font-size: 0.85rem; }
 	.for { font-size: 0.76rem; color: var(--ink-soft, #4d5d51); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	.for.done { color: var(--brand-green, #24452f); font-weight: 600; }
-	.for.ship { font-weight: 600; color: var(--brand-green, #24452f); }
 	.not-live { font-weight: 600; color: #9c3b22; margin: 0.4rem 0; }
-	.for.ship.running::before { content: '● '; color: var(--mustard, #efb54d); }
-	.for.ship.red { color: #9c3b22; }
-	.for.ship.red::before { content: '✗ '; }
+	/* the sub-states: a divider over each group of a column's cards, and each card's reason in its colour */
+	.sub { margin: 0.3rem 0.2rem 0; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--sub); }
+	[data-sub] { --sub: var(--ink-soft, #4d5d51); }
+	[data-sub='failed'] { --sub: #9c3b22; }
+	[data-sub='waiting'] { --sub: var(--brand-green, #24452f); }
+	.for[data-sub] { color: var(--sub); font-weight: 600; }
+	.for[data-sub='failed']::before { content: '✗ '; }
+	.for[data-sub='working']::before { content: '● '; color: var(--mustard, #efb54d); }
 	/* Ship: its way to production, step by step, live; a red ship's report */
 	.pill.shipping { background: color-mix(in srgb, var(--mustard, #efb54d) 35%, transparent); }
 	.ship, .ship-report { padding: 0.7rem 0.9rem; border-radius: 12px; border: 1px solid var(--line, #dcd5c4); background: var(--card, #fff); }
