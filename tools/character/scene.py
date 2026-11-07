@@ -7,7 +7,7 @@ def head_scene(V, tris, view="front", size=(1024, 1024), fov=12, ids=False, uv=N
     keep = V[:, 1] > lo[1] - 0.6 * (hi[1] - lo[1])
     t = tris[keep[tris].all(1)]
     c = np.array([0.0, (lo[1] + hi[1]) / 2 - 0.08 * (hi[1] - lo[1]), (lo[2] + hi[2]) / 2]); d = (hi[1] - lo[1]) * 1.25 / (2 * math.tan(math.radians(fov / 2)))
-    ang = {"front": 0, "three-quarter": 35, "profile": 90}[view] if isinstance(view, str) else view
+    ang = {"front": 0, "three-quarter": 35, "profile": 90, "three-quarter-left": -35, "profile-left": -90}[view] if isinstance(view, str) else view
     a = math.radians(ang)
     pos = c + d * np.array([math.sin(a), 0.0, math.cos(a)])
     s = {"pos": V.ravel().round(5).tolist(), "tris": t.ravel().tolist(), "cam": {"fov": fov, "pos": pos.tolist(), "target": c.tolist()}, "size": list(size), "ids": ids}
@@ -15,3 +15,10 @@ def head_scene(V, tris, view="front", size=(1024, 1024), fov=12, ids=False, uv=N
     if uv is not None: s["uv"] = uv.ravel().tolist()
     if tex is not None: s["tex"] = tex
     json.dump(s, open(out, "w")); return t
+
+def textured_scene(V, view, tex, out, eyes=None, size=(1024, 1024), fov=12, expr=None):
+    """The head with its photo texture (uv.npz from texture.py): per-corner UVs."""
+    z = np.load("uv.npz"); fv, ft, vt = z["fv"], z["ft"], z["vt"]
+    t = head_scene(V, fv, view, size=size, fov=fov, out=out, eyes=eyes)
+    s = json.load(open(out)); s["tris"] = fv.ravel().tolist(); s["uvt"] = vt[ft].ravel().round(6).tolist(); s["tex"] = tex
+    json.dump(s, open(out, "w"))
