@@ -43,3 +43,10 @@ export function must(me: Me | null, action: Action, what: string): Me {
   if (!may(me, action, what)) throw new Denied(`A ${me.level} may not ${action} ${what.replace(/_/g, " ")}.`);
   return me;
 }
+
+/** `me`, if they are one of Maia City's admins; else throws: 401 for a visitor, 403 with `why` for anyone else */
+export function admin(me: Me | null, why: string): Me {
+  if (!me) throw new Denied("Please sign in first.", 401);
+  if (me.level !== "admin") throw new Denied(why);
+  return me;
+}

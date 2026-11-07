@@ -24,7 +24,7 @@ const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;
 
 /** the tools that only read: everything else tools/list holds is called below */
-const READS = ["list_assets", "get_asset", "get_file", "list_docs", "doc_at", "doc_history", "doc_changes", "list_sandboxes", "get_sandbox", "list_stories", "get_story", "list_intents", "get_intent", "list_artifacts", "get_artifact", "list_authors", "get_author"];
+const READS = ["list_assets", "get_asset", "get_file", "list_docs", "doc_at", "doc_history", "doc_changes", "list_sandboxes", "get_sandbox", "list_stories", "get_story", "list_intents", "get_intent", "list_artifacts", "get_artifact", "list_authors", "get_author", "list_library"];
 
 const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  // ${line}\n  return { meta: { id, v }, build: () => null };\n};\n`;
 const SPEC = {
