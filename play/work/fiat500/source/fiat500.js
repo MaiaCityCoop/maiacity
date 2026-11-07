@@ -5290,7 +5290,8 @@ const F5 = {
 		archR: -.891,
 		xF: 1.121 / 2,
 		xR: 1.135 / 2,
-		y: .25
+		/** the hubs' height: the tyre's 257 mm radius, 2 mm squashed under the car's weight [inferred] */
+		y: .255
 	},
 	/** the wheel wells' inner walls (x) */
 	well: { front: .37, rear: .45 },
@@ -5363,10 +5364,11 @@ function materials5() {
 		chrome: MAT.chrome(),
 		/** the wheels' silver paint (aluminium 690) */
 		silver: MAT.paint({ color: [.55, .56, .57], metalness: .55, roughness: .38, clearcoat: .5 }),
-		glass: MAT.glass({ color: [.93, .96, .95] }),
-		lens: MAT.glass({ color: [.95, .95, .95], roughness: .08 }),
-		amber: MAT.glass({ color: [1, .42, .02], roughness: .1, transmission: .6, emissive: [.08, .03, 0] }),
-		red: MAT.glass({ color: [.75, .02, .02], roughness: .1, transmission: .55, emissive: [.05, 0, 0] }),
+		// glass without a transmission pass (three draws the scene twice for one): clear, reflecting, see-through by its opacity
+		glass: MAT.glass({ color: [.16, .19, .19], transmission: 0, opacity: .28, roughness: .02, envMapIntensity: 1.4 }),
+		lens: MAT.glass({ color: [.85, .87, .88], transmission: 0, opacity: .45, roughness: .05 }),
+		amber: MAT.glass({ color: [1, .38, .02], transmission: 0, opacity: .88, roughness: .12, emissive: [.12, .04, 0] }),
+		red: MAT.glass({ color: [.6, .015, .015], transmission: 0, opacity: .9, roughness: .12, emissive: [.06, 0, 0] }),
 		reflector: MAT.chrome({ roughness: .18 }),
 		rubber: MAT.rubber(),
 		gap: MAT.satin({ color: [.012, .008, .008], roughness: .9 }),
@@ -5536,7 +5538,7 @@ function endZ5(x, y, dir) {
 		const s = section5(z);
 		return y <= s.top && y >= s.lip && Math.abs(x) <= s.side(y);
 	};
-	let lo = dir > 0 ? F5.nose : F5.tail, hi = dir > 0 ? F5.nose - .6 : F5.tail + .6;
+	let lo = dir > 0 ? F5.nose : F5.tail, hi = dir > 0 ? .2 : -.4;
 	if (!inside(hi)) return hi;
 	for (let k = 0; k < 40; k++) {
 		const m = (lo + hi) / 2;
@@ -5801,11 +5803,11 @@ const KMH5 = 1 / 3.6;
 /**
  * The Fiat 500 F: a root at its real size, every part its own, vehicle.js's solver driving it.
  * @param {{ speed?: number, grade?: number, load?: number, doors?: number, roof?: number, lid?: number }} [o] the speed
- *   asked (km/h), the grade (%), the load in it (kg: the driver is 75), the doors open (0 shut … 1 open), the rolltop
+ *   asked (km/h), the grade (%), the load in it (kg, beside its 520: a driver is 75), the doors open (0 shut … 1 open), the rolltop
  *   folded back (0 … 1), the engine lid up (0 … 1)
  * @returns {THREE.Group}
  */
-function fiat500({ speed = 60, grade = 0, load = 75, doors = 0, roof = 0, lid = 0 } = {}) {
+function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0 } = {}) {
 	const root = new three.Group();
 	root.name = "Fiat 500 F";
 	const M = materials5(), R = vehicleMaterials(), E = engineMaterials();
@@ -5957,7 +5959,11 @@ function fiat500({ speed = 60, grade = 0, load = 75, doors = 0, roof = 0, lid = 
 		const r = F5.roof;
 		const rail = geoOf5(band5(skin, "roof", -.016, -.002), .002);
 		// the canvas's height: the sheet's top over the opening, crowned across, tucked down at its sides
-		const yAt = (z, x) => traced(TRACE.top, TRACE.z0, TRACE.dz, clamp(z, r.z0 + .02, r.z1 - .02)) + .0018 - .016 * (x / r.x) ** 2 - .034 * Math.max(0, Math.abs(x) / r.x - .93) / .07 - .03 * Math.max(0, 1 - Math.min(z - r.z0, r.z1 - z) / .02);
+		// the cited height (1,325 mm) is the canvas's crown: the traced top lifted to it over the opening's middle
+		let peak = 0;
+		for (let z = r.z0; z <= r.z1; z += .01) peak = Math.max(peak, traced(TRACE.top, TRACE.z0, TRACE.dz, z));
+		const lift = F5.H - peak;
+		const yAt = (z, x) => traced(TRACE.top, TRACE.z0, TRACE.dz, clamp(z, r.z0 + .02, r.z1 - .02)) + lift * (1 - (x / r.x) ** 2) * Math.min(1, Math.min(z - r.z0, r.z1 - z) / .08) - .016 * (x / r.x) ** 2 - .034 * Math.max(0, Math.abs(x) / r.x - .93) / .07 - .03 * Math.max(0, 1 - Math.min(z - r.z0, r.z1 - z) / .02);
 		const NZ = 40, NX = 16, pleats = 6;
 		/** the canvas with its front edge `k` of the way back: the cloth bunched into pleats behind it */
 		const build = (k) => {
@@ -6132,7 +6138,7 @@ function fiat500({ speed = 60, grade = 0, load = 75, doors = 0, roof = 0, lid = 
 	}
 	/* —— the louvres: the intake band over the engine lid and the lid's two banks —— */
 	{
-		const slots = [], lips = [];
+		const slots = [], lips = [], slotsLid = [];
 		for (let k = 0; k < 40; k++) {
 			const x = -.36 + .72 * k / 39;
 			const s = onEnd5(x, .912, -1);
@@ -6150,7 +6156,8 @@ function fiat500({ speed = 60, grade = 0, load = 75, doors = 0, roof = 0, lid = 
 			const y = .755 + .075 * k / 8;
 			const s = onEnd5(sx * .245, y, -1);
 			const p = [s.p[0] - lidPivot[0], s.p[1] - lidPivot[1], s.p[2] - lidPivot[2]];
-			lips.push(laid5(box(.225, .006, .008, .002), [p[0], p[1] - .002, p[2] + .002], s.n), laid5(box(.225, .004, .01, .002), [p[0], p[1] + .003, p[2] - .002], s.n));
+			slotsLid.push(laid5(box(.22, .0035, .004, .0012), [p[0], p[1], p[2] - .0005], s.n));
+			lips.push(laid5(cyl([-.112, 0, 0], [.112, 0, 0], .0042, 10).scale(1, 1, .8), [p[0], p[1] + .0042, p[2] + .0012], s.n));
 		}
 		const lidStuff = [];
 		const hd = onEnd5(0, .81, -1);
@@ -6158,7 +6165,7 @@ function fiat500({ speed = 60, grade = 0, load = 75, doors = 0, roof = 0, lid = 
 		const pl = onEnd5(0, .662, -1);
 		lidStuff.push(laid5(new three.SphereGeometry(1, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2).rotateX(Math.PI / 2).scale(.13, .032, .03), [pl.p[0] - lidPivot[0], pl.p[1] - lidPivot[1], pl.p[2] - lidPivot[2]], pl.n));
 		const lidGroup = engineLid.pivot.children[0];
-		lidGroup.add(m(GEO.merge(lips), M.gap), m(GEO.merge(lidStuff), M.chrome));
+		lidGroup.add(m(GEO.merge(slotsLid), M.gap), m(GEO.merge(lips), M.paint), m(GEO.merge(lidStuff), M.chrome));
 	}
 	/* —— the handles —— */
 	for (const [k, h] of doorHinges.entries()) {
