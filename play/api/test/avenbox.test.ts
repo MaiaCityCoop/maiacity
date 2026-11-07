@@ -4,7 +4,8 @@
 // exits 1 while a must check fails, and with --record records the test and measure checks it ran, where they ran and
 // on which commit; a look it leaves to be judged, and no run sees the token.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { hashBytes } from "../src/hash";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { app } from "../src/app";
@@ -280,5 +281,105 @@ describe("avenBOX's runner: its modes", () => {
     expect(dirty.out).toContain("the work tree was dirty: ");
     // and in this repository itself, the file is ignored
     expect(Bun.spawnSync(["git", "check-ignore", "-q", ".claude/settings.local.json"], { cwd: resolve(import.meta.dir, "../../..") }).exitCode).toBe(0);
+  });
+});
+
+// The skills mirror (play/avenbox/skills.ts, play/SPEC.md §4.14): .claude/skills written from play's database, here from
+// a fake MCP server holding two skills, one with a text and a file reference.
+describe("the skills mirror", () => {
+  const MIRROR = resolve(import.meta.dir, "../../avenbox/skills.ts");
+  const png = new TextEncoder().encode("\x89PNG not really, but bytes");
+  const PNG = hashBytes(png);
+  const A = "11111111-1111-4111-8111-111111111111";
+  const B = "22222222-2222-4222-8222-222222222222";
+  let skills: Record<string, any>;
+  let served: Uint8Array<ArrayBuffer>;
+  let server: ReturnType<typeof Bun.serve>;
+  const base = () => ({
+    [A]: {
+      schema: "skill/1", label: "Plant skill", group: "asset", uses: [B],
+      description: "How to build a plant: one cultivar, its numbers, its sheet.",
+      frontmatter: { effort: "medium", "allowed-tools": ["Bash", "Read", "Grep"] },
+      body: "# Plant skill\n\nGrow it from its sheet.",
+      references: [{ path: "references/numbers.md", text: "# Numbers\n" }, { path: "sheets/avocado.png", file: PNG, type: "image/png" }],
+    },
+    [B]: { schema: "skill/1", label: "Intents", group: "intents", note: "The lifecycle.", system: "Everything is an intent.", stages: { build: "Build {intent}.", idea: "Specify {intent}." } },
+  });
+
+  beforeAll(() => {
+    server = Bun.serve({
+      port: 0,
+      hostname: "127.0.0.1",
+      async fetch(req) {
+        const u = new URL(req.url);
+        if (req.headers.get("authorization") !== "Bearer play_test") return new Response("no", { status: 401 });
+        if (u.pathname === `/api/files/${PNG}`) return new Response(served);
+        if (u.pathname !== "/api/mcp") return new Response("none", { status: 404 });
+        const m = (await req.json()) as any;
+        const { name, arguments: a } = m.params;
+        const result =
+          name === "list_docs" ? Object.entries(skills).map(([id, s]) => ({ id, kind: "skill", label: s.label }))
+          : name === "doc_at" ? { id: a.doc, kind: "skill", number: 3, json: skills[a.doc] }
+          : null;
+        return Response.json({ jsonrpc: "2.0", id: m.id, result: { content: [{ type: "text", text: JSON.stringify(result) }] } });
+      },
+    });
+  });
+  afterAll(() => server?.stop(true));
+
+  const mirror = async (out: string, token = "play_test") => {
+    const p = Bun.spawn([process.execPath, MIRROR, "--out", out], { env: { ...process.env, PLAY_MCP_URL: `${server.url}api/mcp`, PLAY_MCP_TOKEN: token }, stdout: "pipe", stderr: "pipe" });
+    const text = (await new Response(p.stdout).text()) + (await new Response(p.stderr).text());
+    return { code: await p.exited, out: text };
+  };
+  const read = (p: string) => readFileSync(p, "utf8");
+
+  test("the skills mirror writes each skill's SKILL.md and its references, files fetched by hash and checked", async () => {
+    skills = base();
+    served = png;
+    const out = join(mkdtempSync(join(tmpdir(), "skills-")), "skills");
+    mkdirSync(join(out, "gone"), { recursive: true });
+    const r = await mirror(out);
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("2 skills written");
+    const md = read(join(out, "plant-skill", "SKILL.md"));
+    expect(md.startsWith("---\nname: plant-skill\ndescription: \"How to build a plant: one cultivar, its numbers, its sheet.\"\neffort: medium\nallowed-tools: Bash Read Grep\n---\n\n# Plant skill\n\nGrow it from its sheet.\n")).toBe(true);
+    expect(md).toContain(`play skill ${A} v3`);
+    expect(md).toContain("Uses: intents.");
+    expect(read(join(out, "plant-skill", "references", "numbers.md"))).toBe("# Numbers\n");
+    expect(new Uint8Array(readFileSync(join(out, "plant-skill", "sheets", "avocado.png")))).toEqual(png);
+    // a skill with no body: its system, then its stages in their order
+    const intents = read(join(out, "intents", "SKILL.md"));
+    expect(intents).toContain("description: The lifecycle.");
+    expect(intents).toMatch(/# Intents\n\nEverything is an intent\.\n\n## At idea\n\nSpecify \{intent\}\.\n\n## At build\n\nBuild \{intent\}\./);
+    // the folder is replaced whole: nothing else is left in it
+    expect(readdirSync(out).sort()).toEqual(["intents", "plant-skill"]);
+  });
+
+  test("the skills mirror refuses a reference with both a text and a file, or neither, and a file not its hash", async () => {
+    const out = join(mkdtempSync(join(tmpdir(), "skills-")), "skills");
+    for (const bad of [{ path: "x.md", text: "x", file: PNG }, { path: "x.md" }, { path: "../x.md", text: "x" }]) {
+      skills = base();
+      served = png;
+      skills[A].references = [bad];
+      const r = await mirror(out);
+      expect(r.code).toBe(1);
+      expect(r.out).toContain(`refused Plant skill (${A})`);
+      expect(readdirSync(out)).toEqual(["intents"]);
+    }
+    skills = base();
+    served = new TextEncoder().encode("other bytes");
+    const r = await mirror(out);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain(`file ${PNG}: its bytes hash to`);
+  });
+
+  test("the skills mirror writes nothing without PLAY_MCP_TOKEN, and exits 0", async () => {
+    skills = base();
+    const out = join(mkdtempSync(join(tmpdir(), "skills-")), "skills");
+    const r = await mirror(out, "");
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("no PLAY_MCP_TOKEN");
+    expect(existsSync(out)).toBe(false);
   });
 });

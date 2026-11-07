@@ -955,6 +955,18 @@ two briefs were four copies of one thing, each edited by hand (intent c9113886-0
   `GET /api/intents/<uuid>`, and so the board's *For an agent*) is the Intents skill's text for its stage, filled, or
   null; and MCP's **prompts** (`prompts/list`, `prompts/get`) are one for each stage it speaks to (`intent_<stage>`, its
   argument the intent's UUID). A tool's description says only what it takes, gives back and refuses.
+- **Every skill is in play, and only there** (intent a90151df, Samuel 2026-11-07): the 41 skills `.claude/skills` held
+  (the asset, film, security and engineering families), beside avenMAIA and Intents, are skill documents of `skill/1`
+  (`description`, `body`, `references` each a text or a file by hash, `uses`, `frontmatter`). The repository keeps no
+  skill text, only the code skills name (`tools/security-auditor/`, `tools/plant/`, `tools/sheet/`). Every skill is an
+  MCP **prompt** too, `skill:<uuid>` (`prompts/get`: its description, body and its references' index), beside the stage
+  prompts. Claude Code's Skill tool reads only `.claude/skills`, so **a mirror** is written from play at each avenBOX
+  session's start (`.claude/settings.json`, after `up.sh`): `play/avenbox/skills.ts` reads every skill over MCP
+  (`list_docs`, `doc_at`) and writes one folder a skill (its label's slug, only shown), SKILL.md (`name`,
+  `description`, the skill's `frontmatter` as it came, `allowed-tools` space-separated, then its `body`) and each
+  reference at its path, a file fetched by its hash from play's files and held to it; a reference with both a text and
+  a file, or neither, is refused. It replaces the folder whole, writes nothing without `PLAY_MCP_TOKEN`, and
+  `.claude/skills/` is in `.gitignore`: never committed, so there is no second source to drift.
 
 ```sql
 records (id UUID, coop_id, kind 'skill', label /*only shown*/, created, updated)  -- its document: docs 'skill:<id>';

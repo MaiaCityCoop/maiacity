@@ -15,7 +15,7 @@ import { fromBunSql, type Db } from "../src/pg";
 import { Rate } from "../src/limits";
 import { SKILL_STAGES } from "../src/skills";
 import { INTENT_STAGES } from "../src/intents";
-import { SKILL } from "../src/ids";
+import { SCHEMA, SKILL } from "../src/ids";
 import { avenmaia, intents, seedSkills } from "../import/skills";
 
 const URL_ = process.env.TEST_DATABASE_URL;
@@ -256,7 +256,7 @@ suite("skills: what play teaches its agents, kept once", () => {
 
   test("c6: prompts: one for each stage the Intents skill speaks to, each the same brief get_intent gives", async () => {
     expect((await initialize()).capabilities.prompts).toEqual({});
-    const { prompts } = await rpc("prompts/list");
+    const prompts = (await rpc("prompts/list")).prompts.filter((p: any) => p.name.startsWith("intent_"));
     expect(prompts.map((p: any) => p.name)).toEqual(["intent_idea", "intent_specify", "intent_build", "intent_proposal", "intent_ship"]);
     for (const p of prompts) expect(p.arguments).toEqual([expect.objectContaining({ name: "intent", required: true })]);
     const i = await intentAt("A prompt at Build", "build");
@@ -308,5 +308,48 @@ suite("skills: what play teaches its agents, kept once", () => {
     const served = (await tool("doc_at", { doc: SKILL.avenmaia })).json.system.trim();
     expect((await initialize()).instructions).toStartWith(served);
     expect((await tool("get_intent", { intent: (await intentAt("A brief beside a new skill", "build")).id })).brief).toContain("Build Maia City's intent");
+  });
+
+  // ---- intent a90151df c4: every skill is a prompt
+
+  test("every skill is a prompt: skill:<uuid> in prompts/list, its description, body and references' index from prompts/get", async () => {
+    // the skill schema as production holds it (v3: description, body, references, uses, frontmatter), by proposal
+    const node = JSON.parse(readFileSync(join(import.meta.dir, "fixtures/skill-schema-v3-node.json"), "utf8"));
+    const s = await tool("propose_doc_version", { doc: SCHEMA.skill, intent: (await intentAt("The skill schema v3", "proposal")).id, note: "v3", edits: [{ op: "set", path: ["node"], value: node }] });
+    expect(s.error).toBeUndefined();
+    expect((await call("ada", "POST", `/api/intents/${s.intent}/accept`)).data.stage).toBe("accepted");
+    const i = await intentAt("A new skill", "proposal");
+    const whole = {
+      schema: "skill/1", label: "Plant skill", group: "asset", uses: [SKILL.intents],
+      description: "How to build a plant from its reference sheet.",
+      body: "# Plant skill\n\nGrow it organ by organ.",
+      frontmatter: { effort: "low" },
+      references: [{ path: "references/numbers.md", text: "# Numbers\n" }, { path: "sheets/avocado.png", file: "a".repeat(64), type: "image/png" }],
+    };
+    const made = await tool("propose_doc_version", { kind: "skill", intent: i.id, note: "a new skill", whole });
+    expect(made.error).toBeUndefined();
+    expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data.stage).toBe("accepted");
+    const id = made.doc;
+
+    const { prompts } = await rpc("prompts/list");
+    const names = prompts.map((p: any) => p.name);
+    // the stage prompts first, unchanged; then every skill by its UUID
+    expect(names.slice(0, 5)).toEqual(["intent_idea", "intent_specify", "intent_build", "intent_proposal", "intent_ship"]);
+    expect(names).toEqual(expect.arrayContaining([`skill:${SKILL.avenmaia}`, `skill:${SKILL.intents}`, `skill:${id}`]));
+    expect(names.filter((n: string) => n.startsWith("skill:"))).toHaveLength((await tool("list_docs", { kind: "skill" })).length);
+    expect(prompts.find((p: any) => p.name === `skill:${id}`)).toMatchObject({ title: "Plant skill", description: whole.description, arguments: [] });
+
+    const got = await rpc("prompts/get", { name: `skill:${id}` });
+    const text = got.messages[0].content.text as string;
+    expect(got.messages).toHaveLength(1);
+    expect(text).toStartWith("# Plant skill\n\nHow to build a plant from its reference sheet.\n\n# Plant skill\n\nGrow it organ by organ.");
+    expect(text).toContain("- references/numbers.md: text, 10 characters");
+    expect(text).toContain(`- sheets/avocado.png: file ${"a".repeat(64)} (image/png)`);
+    expect(text).toContain(`Uses the skills skill:${SKILL.intents}.`);
+    // a skill with no body: its system part (and the Intents skill's stages)
+    const sys = (await rpc("prompts/get", { name: `skill:${SKILL.avenmaia}` })).messages[0].content.text;
+    expect(norm(sys)).toContain(norm(avenmaia().system));
+    expect((await rpc("prompts/get", { name: `skill:${SKILL.intents}` })).messages[0].content.text).toContain("## At build");
+    expect((await rpc("prompts/get", { name: `skill:${crypto.randomUUID()}` })).error.message).toContain("no prompt");
   });
 });
