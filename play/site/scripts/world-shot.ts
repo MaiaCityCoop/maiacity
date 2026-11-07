@@ -11,7 +11,7 @@
  * --within: ready (the world, every guest build and every frame) within that many seconds; --most-workers: never more
  * engine workers alive at once; --moving t1,t2: built twice, the vehicles (guests of the group machines) stand in at
  * least 10 other places at story time t2 than at t1, and the two builds give the same places at both, to the byte.
- * --story: the story (as the intent's variant makes it, if one is named; over play's MCP) has at least n world shots,
+ * --story: the story (as the intent's variant makes it, if one is named: doc_at; else its head: get_story; over play's MCP) has at least n world shots,
  * each its own camera path, each but the last going into the next with a cut.
  *
  * Play's files and the story are read with PLAY_MCP_TOKEN (avenBOX's), sent to play only.
@@ -164,7 +164,8 @@ async function tool(name: string, a: Record<string, unknown>) {
 
 async function checkStory() {
 	const story = opt('--story')!, intent = opt('--intent'), want = Number(opt('--world-shots') ?? 1);
-	const s = await tool('get_story', { story, ...(intent ? { intent } : {}) });
+	// as the intent's variant makes it (open or proposed: doc_at reads both), else its head
+	const s = intent ? (await tool('doc_at', { doc: story, intent })).json : await tool('get_story', { story });
 	const shots = (s.tracks ?? []).filter((t: any) => t.kind === 'shots').flatMap((t: any) => t.clips).sort((a: any, b: any) => a.at - b.at);
 	const worlds = shots.filter((c: any) => c.world && typeof c.world.asset === 'string');
 	console.log(`story ${story.slice(0, 8)}${intent ? ` (intent ${intent.slice(0, 8)})` : ''}: ${shots.length} shots, ${worlds.length} world shots`);
