@@ -4,23 +4,30 @@
  * is held to, made by Google's image model (Nano Banana Pro on fal) from its brief and data sheet, and kept on play
  * among its files by its BLAKE3 hash. One tool for every kind; only the plate's prompt differs: a plant's is a
  * botanical plate of specimens (plant-skill, "The reference sheet"), a machine's a studio turnaround with close-ups
- * (machine-skill).
+ * (machine-skill), a character's a casting turnaround of one real person from their own photos (actor-skill, "Your own
+ * character").
  *
- *   bun tools/sheet/sheet.ts --kind plant|machine --brief <brief.md> --out <dir> [--datasheet <datasheet.md>]
- *       [--label "Lemon 'Femminello Santa Teresa'"] [--model fal-ai/nano-banana-pro] [--resolution 4K] [--aspect 16:9]
- *       [--n 1] [--search] [--no-upload]
- *   bun tools/sheet/sheet.ts --upload <file.jpg> --label <label>
+ *   bun tools/sheet/sheet.ts --kind plant|machine|character --brief <brief.md> --out <dir> [--datasheet <datasheet.md>]
+ *       [--ref <photo>]… [--library coop|personal] [--label "Lemon 'Femminello Santa Teresa'"]
+ *       [--model fal-ai/nano-banana-pro] [--resolution 4K] [--aspect 16:9] [--n 1] [--search] [--no-upload] [--dry-run]
+ *   bun tools/sheet/sheet.ts --upload <file.jpg> --label <label> [--library coop|personal]
  *
  * The brief is the thing and the plate's layout, row by row (the sub skill's rows); the data sheet, when given, goes
- * to the model as context. Each image is written as sheet-<k>.png (as made) and sheet-<k>.jpg (for play: at most
- * 4 MB), with prompt.txt and result.json beside them, and kept at once in play's Library (MCP add_story_frame, the
- * session's PLAY_MCP_TOKEN), labelled "Reference sheet · <label> · <k>" (--label, else the brief's first line), its
- * hash printed and written to sheet-<k>.hash: the one the user gives the go for is named on the asset's card as
- * `sheet`. --no-upload keeps them only here; --upload keeps one more (the same image is the same hash, its label replaced).
+ * to the model as context. Reference images (--ref, repeated; image 1, 2 … in the order given, the brief saying what
+ * each is the truth for) send the plate to the edit model (fal-ai/nano-banana-pro/edit) with them as its images; a
+ * character is always made from the person's own photos. Each image is written as sheet-<k>.png (as made) and
+ * sheet-<k>.jpg (for play: at most 4 MB), with prompt.txt and result.json beside them, and kept at once on play (MCP
+ * add_story_frame, the session's PLAY_MCP_TOKEN), labelled "Reference sheet · <label> · <k>" (--label, else the
+ * brief's first line), its hash printed and written to sheet-<k>.hash: the one the user gives the go for is named on
+ * the asset's card as `sheet`. It goes to Maia City's Library, or with --library personal to the operator's own,
+ * private to them; a character's sheet only ever to the personal one (--library coop is refused). Keep a person's
+ * photos, brief and sheet out of the repository (it is public): --out a scratch folder. --no-upload keeps them only
+ * here; --dry-run writes prompt.txt and request.json and calls nothing; --upload keeps one more (the same image is the
+ * same hash, its label replaced).
  */
-import { $ } from "bun";
 import { mkdirSync, readFileSync, writeFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { all, dataUrl, fal, library, toJpeg, upload } from "./fal.ts";
 
 const arg = (name: string, fallback?: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -28,24 +35,8 @@ const arg = (name: string, fallback?: string) => {
 };
 const flag = (name: string) => process.argv.includes(`--${name}`);
 
-// --- keep one image on play -------------------------------------------------------------------------------------
-async function upload(file: string, label?: string) {
-  const token = process.env.PLAY_MCP_TOKEN;
-  if (!token) throw new Error("PLAY_MCP_TOKEN is not set.");
-  if (statSync(file).size > 4e6) throw new Error(`${file} is over 4 MB: play keeps images up to 4 MB.`);
-  const data = readFileSync(file).toString("base64");
-  const res = await fetch("https://play.maia.city/api/mcp", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "add_story_frame", arguments: { data, media_type: "image/jpeg", ...(label ? { label: label.slice(0, 200) } : {}) } } }),
-  });
-  const out: any = await res.json();
-  if (out.error || out.result?.isError) throw new Error(JSON.stringify(out.error ?? out.result));
-  return out.result.structuredContent ?? JSON.parse(out.result.content[0].text);
-}
-
 if (arg("upload")) {
-  console.log(JSON.stringify(await upload(arg("upload")!, arg("label")), null, 2));
+  console.log(JSON.stringify(await upload(arg("upload")!, arg("label"), library(arg("library"), arg("kind"))), null, 2));
   process.exit(0);
 }
 
@@ -69,6 +60,16 @@ ${brief}
 LIGHT AND CAMERA: ${LIGHT}; large overhead softboxes, soft and even, only a faint contact shadow under the tyres, no hard reflections of the studio. The turnaround views (side, front, rear, top) are straight-on orthographic views with a very long lens, no perspective, all at ONE scale, standing on one shared ground line, so their sizes compare. True colours as the paint, chrome, glass, rubber and fabric really look in daylight, nothing saturated or stylised. Ultra-detailed and photographic: panel gaps, chrome reflections, rubber seals, the texture of the canvas, the tread of the tyres, the louvres, the lamp lenses' optics readable.
 
 DO NOT: drawings, sketches, blueprints, cartoons, painterly or CGI looks; people, hands, props, scenery, number plates with text, badges or brand lettering (leave every badge and script off, plates blank); any other model, version or modern replica; modern wheels or modifications; overlapping cells; decorative borders; text other than the labels.`,
+  character: (brief) => `A character reference sheet of ONE real living person, as a film's costume and casting department photographs an actor for the 3D artists who will build their digital double: one large photograph laid out as a clean grid of views and close-ups of exactly this person, every one a real photograph of a real person, not an illustration, not a 3D render, not a doll.
+
+THE REFERENCE PHOTOS given with this prompt are of this person. The FACE is theirs: keep their identity exactly (the shape of the skull, brow, eyes and their colour, eyelids, nose, cheekbones, mouth, jaw, chin and ears, their skin and how they smile), as in the photos the brief names as the truth for the face; where a photo is named only for the clothes or the mood, take nothing from its face. Do not beautify, de-age, slim, idealise or change the ethnicity; where the brief describes hair or beard, it is as the brief says, not as in an older photo.
+
+THE PERSON, THEIR CLOTHES, and the LAYOUT of the plate, row by row, ${CELLS}:
+${brief}
+
+LIGHT AND CAMERA: ${LIGHT}; large overhead softboxes, soft and even, only a faint contact shadow under the feet. The turnaround (front, side, back, three-quarter) is full-length, straight-on orthographic views with a very long lens, no perspective, all at ONE scale, standing on ONE shared ground line in the same relaxed A-pose (arms slightly away from the body, feet hip-width), beside a vertical height scale in centimetres reaching their real height, so the views compare and measure. The head close-ups are at eye level, the face filling the cell. True colours of skin, beard, eyes and cloth in daylight, nothing saturated or stylised. Ultra-detailed and photographic: skin pores and fine lines, single beard hairs, the weave and creases of the cloth, the stitching of the seams, the nails readable.
+
+DO NOT: drawings, sketches, cartoons, anime, painterly or CGI looks; a different face in any cell, or a face that drifts between cells; makeup, jewellery, logos, text or prints on the clothes unless the brief names them; props, scenery, other people; overlapping cells; decorative borders; text other than the labels and the scale's numbers.`,
 };
 
 const kind = arg("kind");
@@ -82,48 +83,46 @@ const brief = readFileSync(briefFile, "utf8").trim();
 const datasheet = arg("datasheet") ? readFileSync(arg("datasheet")!, "utf8") : "";
 const PLATE = PLATES[kind](brief);
 mkdirSync(out, { recursive: true });
-writeFileSync(join(out, "prompt.txt"), PLATE + (datasheet ? `\n\n--- context: the data sheet ---\n${datasheet}` : ""));
 
 // --- the model --------------------------------------------------------------------------------------------------
-const model = arg("model", "fal-ai/nano-banana-pro")!;
-const key = process.env.FAL_API_KEY ?? process.env.FAL_KEY;
-if (!key) throw new Error("FAL_API_KEY is not set.");
+// Reference photos (--ref, in order: image 1, 2 … as the brief names them) go to the edit model as its images; a
+// character's plate is always made from them.
+const refs = all("ref");
+if (kind === "character" && !refs.length) throw new Error("A character's sheet is made from the person's own photos: give them with --ref <photo> (repeated).");
+const lib = library(arg("library"), kind, refs.length);
+const model = arg("model", refs.length ? "fal-ai/nano-banana-pro/edit" : "fal-ai/nano-banana-pro")!;
+const refsNote = refs.length ? `\n\nTHE REFERENCE IMAGES, in the order given: ${refs.map((_, i) => `image ${i + 1}`).join(", ")}; the brief says what each is the truth for.` : "";
+writeFileSync(join(out, "prompt.txt"), PLATE + refsNote + (datasheet ? `\n\n--- context: the data sheet ---\n${datasheet}` : ""));
 const input: Record<string, unknown> = {
-  prompt: PLATE,
+  prompt: PLATE + refsNote,
   aspect_ratio: arg("aspect", "16:9"),
   resolution: arg("resolution", "4K"),
   output_format: "png",
   num_images: Number(arg("n", "1")),
+  ...(refs.length ? { image_urls: await Promise.all(refs.map((r) => dataUrl(r))) } : {}),
   ...(flag("search") ? { enable_web_search: true } : {}),
-  ...(datasheet && model.includes("nano-banana-pro") ? { context: [{ type: "text", text: `The ${kind}'s data sheet, the numbers every view keeps to:\n${datasheet}` }] } : {}),
+  ...(datasheet && model === "fal-ai/nano-banana-pro" ? { context: [{ type: "text", text: `The ${kind}'s data sheet, the numbers every view keeps to:\n${datasheet}` }] } : {}),
 };
-const headers = { Authorization: `Key ${key}`, "Content-Type": "application/json" };
-const submit: any = await (await fetch(`https://queue.fal.run/${model}`, { method: "POST", headers, body: JSON.stringify(input) })).json();
-if (!submit.status_url) throw new Error(JSON.stringify(submit));
-console.error(`${model}: ${submit.request_id}`);
-for (;;) {
-  const st: any = await (await fetch(submit.status_url, { headers })).json();
-  if (st.status === "COMPLETED") break;
-  if (st.status !== "IN_QUEUE" && st.status !== "IN_PROGRESS") throw new Error(JSON.stringify(st));
-  await Bun.sleep(4000);
+const shown = { ...input, prompt: "(prompt.txt)", context: input.context ? "(data sheet)" : undefined, image_urls: refs.length ? refs.map((r) => `(${r})`) : undefined };
+if (flag("dry-run")) {
+  // everything but the paid call: the prompt is in prompt.txt, the request beside it
+  writeFileSync(join(out, "request.json"), JSON.stringify({ model, library: lib, input: shown }, null, 2));
+  console.log(`dry run: ${join(out, "prompt.txt")}, ${join(out, "request.json")} (${model}, ${refs.length} reference images, library ${lib})`);
+  process.exit(0);
 }
-const result: any = await (await fetch(submit.response_url, { headers })).json();
-if (!result.images?.length) throw new Error(JSON.stringify(result));
-writeFileSync(join(out, "result.json"), JSON.stringify({ model, input: { ...input, prompt: "(prompt.txt)", context: input.context ? "(data sheet)" : undefined }, result }, null, 2));
+const result = await fal(model, input);
+writeFileSync(join(out, "result.json"), JSON.stringify({ model, input: shown, result }, null, 2));
 for (const [k, img] of result.images.entries()) {
   const png = join(out, `sheet-${k + 1}.png`);
   writeFileSync(png, new Uint8Array(await (await fetch(img.url)).arrayBuffer()));
   // play keeps images up to 4 MB: the plate as a JPEG, full size, at the highest quality that fits
   const jpg = join(out, `sheet-${k + 1}.jpg`);
-  for (const q of [92, 88, 84, 80, 75]) {
-    await $`convert ${png} -quality ${q} ${jpg}`.quiet();
-    if (statSync(jpg).size <= 3.9e6) break;
-  }
+  await toJpeg(png, jpg);
   console.log(`${png}  ${img.width}×${img.height}  →  ${jpg} (${(statSync(jpg).size / 1e6).toFixed(2)} MB)`);
   if (!flag("no-upload")) {
     const name = arg("label") ?? brief.split("\n")[0].replace(/[*_#`]/g, "").trim().slice(0, 120);
-    const kept: any = await upload(jpg, `Reference sheet · ${name} · ${k + 1}`);
+    const kept: any = await upload(jpg, `Reference sheet · ${name} · ${k + 1}`, lib);
     writeFileSync(join(out, `sheet-${k + 1}.hash`), kept.hash);
-    console.log(`  kept in play's Library: ${kept.hash}`);
+    console.log(`  kept in play's ${lib === "personal" ? "personal library" : "Library"}: ${kept.hash}`);
   }
 }
