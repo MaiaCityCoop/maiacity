@@ -532,7 +532,7 @@ const VEHICLE5 = /* @__PURE__ */ (() => ({
 	kerb: 520,
 	payload: 320,
 	Crr: .015,
-	CdA: .38 * 1.4,
+	CdA: .38 * 1.37,
 	r: TYRE5.r * .97,
 	eta: .88,
 	gears: [37 / 10, 31 / 15, 26 / 20, 21 / 24],
@@ -607,7 +607,7 @@ function fiat500({ speed = 60, grade = 0, load = 75, doors = 0, roof = 0, lid = 
 			assembly: "body",
 			source: SRC5.look,
 			what: "The 500’s load-bearing steel body, pressed and welded in one: its sides with the wheel arches and sills, the roof with its rolltop’s opening, the scuttle, the wings, the nose and the tail with its louvred intake. Its outline is its reference sheet’s, traced view by view and lofted station by station; the doors and lids sit in it behind 4 mm gaps.",
-			specs: [["Length (body)", "2,860 mm; 2,970 over the bumpers"], ["Width", "1,320 mm"], ["Height", "1,325 mm to the rolltop"], ["Paint", "Rosso Corallo, Fiat 102, #b1372f"], ["Panel gaps", "4.4 mm"]]
+			specs: [["Length", "2,970 mm over the bumpers (e5efff81-8de1-45b3-9de1-2fd3e521bd53)"], ["Width", "1,320 mm (e5efff81…)"], ["Height", "1,325 mm to the rolltop (e5efff81…)"], ["Wheelbase", "1,840 mm (e5efff81…)"], ["Tracks", "1,121 mm front, 1,135 mm rear (e5efff81…)"], ["Mass", "520 kg in running order (e5efff81…)"], ["Drag", "Cd 0.38 (cfa16bdf-268d-4e7b-b3ba-44e86656edf2) × 1.37 m² frontal area, measured off its front view"], ["Paint", "Rosso Corallo, Fiat 102 (1968–72), #b1372f (344cf860-1a7d-4bf7-86e3-ac16638425a4, d317c2f0-cfa5-4faa-b502-157ac3e44b52)"], ["Reference sheet", "fda28639be522b6601a7b84076cf07817ea8678ed022de1eb52ce070b469338a"], ["Panel gaps", "4.4 mm"]]
 		}, [m(geoOf5(paint), M.paint), m(GEO.merge(gaps), M.gap)], { xray: "shell" });
 		part({
 			id: "underbody",
@@ -1032,7 +1032,7 @@ function fiat500({ speed = 60, grade = 0, load = 75, doors = 0, roof = 0, lid = 
 		const { y, r } = ENG;
 		const caseG = [at(box(.25, .19, .3, .03), 0, y - .02, -1.11), latheZ([[0, 0], [.13, 0], [.12, .05], [.09, .07], [0, .07]], 40).translate(0, y, -.96), at(box(.2, .03, .26, .01), 0, y - .125, -1.11)];
 		for (let k = 0; k < 7; k++) caseG.push(at(slab(.004, .02, .24), -.09 + k * .03, y - .145, -1.11));
-		part({ id: "crankcase", label: "Crankcase and sump", assembly: "engine", source: SRC5.mech, what: "The cast light-alloy crankcase carrying the crankshaft on its two main bearings, the camshaft below it driven by a chain, the oil in its finned sump; the gear pump and the centrifugal filter on the crank’s nose clean the oil.", specs: [["Oil", "2.25 L [inferred]"]] }, [m(GEO.merge(caseG), M.alloy)], { xray: "shell", parent: eng }, eng);
+		part({ id: "crankcase", label: "Crankcase and sump", assembly: "engine", source: SRC5.mech, what: "The cast light-alloy crankcase carrying the crankshaft on its two main bearings, the camshaft below it driven by a chain, the oil in its finned sump; the gear pump and the centrifugal filter on the crank’s nose clean the oil.", specs: [["Displacement", "499.5 cc (e5efff81-8de1-45b3-9de1-2fd3e521bd53)"], ["Bore × stroke", "67.4 × 70 mm (e5efff81…)"], ["Power", "18 hp (13.2 kW) at 4,600 rpm (e5efff81…)"], ["Torque", "31 N·m at 3,000 rpm (e5efff81…)"], ["Oil", "2.25 L [inferred]"]] }, [m(GEO.merge(caseG), M.alloy)], { xray: "shell", parent: eng }, eng);
 		for (const zc of [ENG.z1, ENG.z2]) {
 			const fins = [GEO.tube(.043, .0337, ENG.top - (y + .06), 40, y + .06)];
 			for (let k = 0; k < 13; k++) fins.push(GEO.tube(.064, .042, .003, 40, y + .075 + k * .0095));
@@ -1104,7 +1104,7 @@ function fiat500({ speed = 60, grade = 0, load = 75, doors = 0, roof = 0, lid = 
 	{
 		const z = F5.axle.rear;
 		const box5 = [latheX([[0, -.13], [.07, -.13], [.1, -.08], [.1, .08], [.07, .13], [0, .13]], 40).translate(0, .26, z), at(box(.16, .14, .3, .03), 0, .27, z + .22), latheZ([[0, 0], [.11, 0], [.12, .06], [0, .06]], 36).translate(0, .29, z - .14)];
-		part({ id: "gearbox", label: "Gearbox and final drive", assembly: "drivetrain", source: SRC5.mech, what: "The light-alloy casing bolted to the engine: the clutch, the crown wheel and pinion (8/41) and the differential at the rear axle’s line, the four-speed gearbox ahead of them (3.70, 2.067, 1.30, 0.875; II–IV dog-engaged), its selector rod running forward in the tunnel to the lever.", moves: "Its gears turn with the engine.", drive: "The engine, through the clutch", specs: [["Gears", "37/10, 31/15, 26/20, 21/24 (3b5332c8…)"], ["Final drive", "8/41 = 5.125"]] }, [m(GEO.merge(box5), M.alloy), m(cyl([0, .3, z + .37], [0, .3, .1], .006, 8), R.zinc)], { xray: "shell" });
+		part({ id: "gearbox", label: "Gearbox and final drive", assembly: "drivetrain", source: SRC5.mech, what: "The light-alloy casing bolted to the engine: the clutch, the crown wheel and pinion (8/41) and the differential at the rear axle’s line, the four-speed gearbox ahead of them (3.70, 2.067, 1.30, 0.875; II–IV dog-engaged), its selector rod running forward in the tunnel to the lever.", moves: "Its gears turn with the engine.", drive: "The engine, through the clutch", specs: [["Gears", "3.700, 2.067, 1.300, 0.875; teeth 37/10, 31/15, 26/20, 21/24 (3b5332c8-1083-4e85-bad5-156a90148b09)"], ["Final drive", "8/41 = 5.125 (3b5332c8…)"], ["Top speed", "95 km/h (ecc4134c-a8af-4d8d-8094-e8bc9c2d0a68)"]] }, [m(GEO.merge(box5), M.alloy), m(cyl([0, .3, z + .37], [0, .3, .1], .006, 8), R.zinc)], { xray: "shell" });
 		for (const sx of [1, -1]) {
 			const sh = new three.Group();
 			sh.add(m(unitBar(.013, 12), R.forged));
@@ -1263,7 +1263,7 @@ function fiat500({ speed = 60, grade = 0, load = 75, doors = 0, roof = 0, lid = 
 		how: {
 			text: "A driver holds the speed asked: the road takes a force to roll the tyres, to lift the car up the grade and to push the air aside, and holding the speed takes that force times the speed at the wheels, more through the gearbox’s and the final drive’s losses at the engine. The driver picks the highest of the four gears that gives that push without the engine running too slow, and opens the throttle for it. Flat out on the level, the twin’s full-load curve in fourth meets the road’s load: that is its top speed. Where first gear gives less than a hill takes, the speed falls, the engine lugs and stalls. Shown slowed: the wheels 10 times, the engine 40 times.",
 			eqs: [
-				"F = m g Crr cos θ + m g sin θ + ½ ρ Cd A v²      m = 520 kg + load, Crr = 0.015, Cd = 0.38, A = 1.40 m²",
+				"F = m g Crr cos θ + m g sin θ + ½ ρ Cd A v²      m = 520 kg + load, Crr = 0.015, Cd = 0.38, A = 1.37 m²",
 				"P_wheels = F v        P_engine = P_wheels / η      η = 0.88",
 				"n = (v / r) · i_gear · i_axle      r = 0.249 m, i = 3.700, 2.067, 1.300, 0.875, i_axle = 41/8 = 5.125",
 				"T_engine ≤ T_full(n)      31 N·m at 3,000 rpm, 27.9 N·m (13.2 kW) at 4,600",
