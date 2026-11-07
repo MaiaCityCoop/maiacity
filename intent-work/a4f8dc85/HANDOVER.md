@@ -138,3 +138,20 @@ PR #2157 ready. Known looks to improve: faint doubled brows and the photos' smil
 - **Left:** c3 garments (cream linen shirt and trousers, sandals) on the body as data, its bench film (a Mac job); c5
   the actor skill's part; the character's renders on the body (a Mac job; his face can't go into git, so the job will
   fetch the character's source from play once it is proposed, or bake it on the Mac from his photos as run.sh does).
+
+### c3, c5 and the checks, 17:35
+
+- **Person body v3** (`d9a46c9bef4be1ae8679c144ef4fcad5cd1b5f01882d4ddc306b8aa51bd35927`, `person-body-v3.diff`, on body
+  v2): optional `look.wear`: shirt { sleeve: 'long', hem, placket, ease }, trousers { ankle, ease }, shoes 'sandals' (two
+  strap parts on the foot's bones); without it, v1's person byte for byte (positions, colours, skin indices, weights). Not
+  yet on play: the body's intent variant (1459) holds v2 (head inputs only, so b9e6ad45 can sequence its own); v3 is to be
+  proposed after v2, the next growing from the last.
+- **Samuel's recipe** (`intent-work/a4f8dc85-render/samuel.template.js` + his baked face, `make-recipe.py`): body v3,
+  `wear` a cream linen long-sleeved open-collar shirt untucked to the upper hip, loose trousers to the ankle, sandals.
+  Builds in node: 50,365 vertices, 1.694 m, 12 clips; the bench schedule plays (hips 0.91 → 0.54 sitting → 0.89).
+- **c3's bench film:** `bench.sh` (Mac). Known gaps: no blink shape in the head (joy, friendly only); "sit down" ends
+  0.23 m behind "sitting"'s start (motion pieces).
+- **c5:** the actor skill's "Your own character" part, variant 1467.
+- **Recorded:** c2 pass (2.14 / 2.05 px, 1.54 / 1.38 % of the eye distance; outline 1.24 / 1.35 px; review 9ff6d82a…),
+  c5 pass. **Open:** c3 (the bench film), c1 and c4 (the private character on play: propose body v2, then v3, then
+  `propose_asset` group characters, private, with his recipe).
