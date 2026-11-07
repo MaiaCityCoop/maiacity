@@ -21,12 +21,18 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { enginesOf } from '../src/lib/kernel/engines.js';
-import { hashBytes, hashText } from '../src/lib/content/game/hash.js';
-import { piecesOf } from '../src/lib/content/assets/box/pieces.js';
-import { plantingsOf } from '../src/lib/content/assets/uses.js';
-import { frameOf, framesOf } from '../src/lib/stories/live';
-import { buildWorld, built, engineOf, forgetBuilds, type WorkerLike } from '../src/lib/stories/world-build';
+import type { WorkerLike } from '../src/lib/stories/world-build';
+
+// the site's own `$lib/` imports, resolved here as SvelteKit's alias does, so it runs on a fresh checkout (no
+// `svelte-kit sync` before it, as an intent's checks run it); the site's modules are imported only once it is in
+const LIB = resolve(import.meta.dir, '../src/lib') + '/';
+Bun.plugin({ name: 'lib', setup: (b) => void b.onResolve({ filter: /^\$lib\// }, (a) => ({ path: Bun.resolveSync('./' + a.path.slice(5), LIB) })) });
+const { enginesOf } = await import('../src/lib/kernel/engines.js');
+const { hashBytes, hashText } = await import('../src/lib/content/game/hash.js');
+const { piecesOf } = await import('../src/lib/content/assets/box/pieces.js');
+const { plantingsOf } = await import('../src/lib/content/assets/uses.js');
+const { frameOf, framesOf } = await import('../src/lib/stories/live');
+const { buildWorld, built, engineOf, forgetBuilds } = await import('../src/lib/stories/world-build');
 
 const args = process.argv.slice(2);
 const opt = (name: string) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
