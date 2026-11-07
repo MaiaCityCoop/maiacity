@@ -23,7 +23,7 @@ import type { Db } from "./pg";
 import type { Me } from "./access";
 import { assetOf, listAssets, NotFound } from "./assets";
 import { archiveOwn, docAt, docEdit, docHistory, kinds, listDocs, proposeDocVersion, reviewOf, syncKinds, VersionError, workKinds } from "./versioned";
-import { WorkError } from "./work";
+import { NO_INTENT, WorkError } from "./work";
 import { addIntent, CHECK_HOWS, CHECKS_MOST, dependIntent, getIntent, intentOf, IntentError, intentReady, INTENT_KINDS, INTENT_STAGES, LINE_MOST, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES } from "./intents";
 import { stepBack } from "./stepback";
 import { instructionsOf, promptOf, promptsOf, SkillError } from "./skills";
@@ -613,7 +613,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         `summary, a small report on the overall topic (Markdown, ${SUMMARY_WORDS.least}–${SUMMARY_WORDS.most} words, in the sections ## What it is (who made it, what kind of thing, when, from which angle), ## Key points (its claims, findings and numbers as bullets, as the artifact puts them), ## The topic (the wider subject: what it is, where this artifact stands in it, what else is known or disputed), and if you like ## For Maia City last (where it bears on our work); what the artifact says in the first two, what you know beyond it only in ## The topic). ` +
         "Authors: call list_authors first and name an author already kept by their id; add a new one { name, kind: person | organization, url? } only when none is them (two of one name stay two: never guess by a name). Where no person is named, its publisher (a site, a channel, a lab) is its author, as an organization. " +
         "One link is one artifact: links are compared without their #fragment, utm_*, fbclid and gclid and a trailing slash, and a YouTube video is one link however it is written; a link already kept answers with that artifact and kept: true (correct it with update_artifact), one an intent's work waits with answers with that intent. " +
-        "An artifact is a document like any other: adding one proposes its first version, as the work of the intent named (\`intent\`, held to its gate) or a new intent of its own at Proposal, and it is kept (listed, read) once an admin accepts that intent. " +
+        "An artifact is a document like any other: adding one proposes its first version, as the work of the intent named (\`intent\`, held to its gate: no work without an intent), and it is kept (listed, read) once an admin accepts that intent. " +
         "Give text, the page's readable text as you fetched it, to keep a copy: links rot and pages change.",
       inputSchema: {
         type: "object",
@@ -652,7 +652,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     {
       name: "update_artifact",
       description:
-        "Correct a kept artifact: any of its link, title, description, summary, kind, tags, published date, authors (the whole list, in order, as in add_artifact) and text, each held to the same form as in add_artifact. Its origin and who brought it never change. The correction is its next version proposed, as the work of the intent named (\`intent\`, held to its gate) or a new intent of its own at Proposal: the artifact stays as it is until an admin accepts it (doc_history shows every accepted change).",
+        "Correct a kept artifact: any of its link, title, description, summary, kind, tags, published date, authors (the whole list, in order, as in add_artifact) and text, each held to the same form as in add_artifact. Its origin and who brought it never change. The correction is its next version proposed, as the work of the intent named (\`intent\`, held to its gate: no work without an intent): the artifact stays as it is until an admin accepts it (doc_history shows every accepted change).",
       inputSchema: {
         type: "object",
         properties: {
@@ -695,18 +695,20 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     },
   ];
 
-  // to propose is to put an intent at Proposal (play/SPEC.md §4.12): work proposed for an intent names it, held to its gate
-  // first (its spec approved and every must check passed, ./intents.ts intentReady), and replaces any work it held; work
-  // proposed without is a new intent of its own. Every propose tool gives back the intent (`intent`, at stage proposal)
+  // to propose is to put an intent at Proposal (play/SPEC.md §4.12): no work without an intent. Work names its intent,
+  // held to its gate first (its spec approved and every must check passed, ./intents.ts intentReady), and replaces any
+  // work it held; without one nothing is taken. Every propose tool gives back the intent (`intent`, at stage proposal)
   for (const t of tools) {
     if (!t.name.startsWith("propose_") && t.name !== "add_artifact" && t.name !== "update_artifact") continue;
     (t.inputSchema.properties as Record<string, unknown>).intent = {
       type: "string",
-      description: "the intent this is the work of, by its id (a UUID: list_intents gives it): its spec approved and every must check passed (check_intent), or nothing is proposed; it moves to Proposal with this work, replacing any it held. Without it, this is a new intent at Proposal of its own, with no spec",
+      description: "the intent this is the work of, by its id (a UUID: list_intents gives it), in Build or at Proposal: its spec approved and every must check passed (check_intent), or nothing is proposed; it moves to Proposal with this work, replacing any it held. No work without an intent: add_intent adds one, specify_intent specifies it",
     };
+    const req = (t.inputSchema.required ??= []) as string[];
+    if (!req.includes("intent")) req.push("intent");
     const run = t.run;
     t.run = async ({ intent, ...args }, me) => {
-      if (intent === undefined || intent === null || intent === "") return run(args, me);
+      if (intent === undefined || intent === null || intent === "") throw new WorkError(NO_INTENT, 400);
       const ready = await intentReady(db, me, intent);
       return run({ ...args, intent: ready.id }, me);
     };

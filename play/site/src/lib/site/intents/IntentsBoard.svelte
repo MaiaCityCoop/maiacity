@@ -17,8 +17,8 @@
 	ONE RECORD (Samuel 2026-11-06: "not a proposal belongs to an intent: the intent has a state, proposal"): an intent's
 	work (an asset's, story's, factory's, config's, skill's or sandbox layout's version) is on the intent itself, and
 	Proposal is only its stage. Only a whole intent is decided, in its dialog (Samuel 2026-11-07): its Accept applies all its work,
-	its Reject archives it; its work's review, opened from it, is read only. Work proposed without an intent is an intent
-	of its own, with no spec. Nothing is accepted from Build.
+	its Reject archives it; its work's review, opened from it, is read only. No work without an intent (intent 706ed873):
+	every intent with work has an approved spec, so every intent opens its dialog. Nothing is accepted from Build.
 
 	ACCEPT SHIPS IT (Samuel 2026-11-06, play/api/src/ship.ts): an intent whose work is code names its pull request, and
 	its Accept ("Accept and ship") puts it in Ship at once: its first step, Ready to merge, waits with its reason for its
@@ -295,7 +295,7 @@
 	const diff = $derived(baseCode !== null && code ? changesOnly(lineDiff(baseCode, code)) : null);
 
 	// ---- an intent opened: its spec and checks, its work a click away, the brief that sends an agent to it, and the
-	// admin's decision; one with no spec and a single proposal (one made without an intent) opens straight into its review
+	// admin's decision
 	let intent = $state<Intent | null>(null);
 	let intentError = $state('');
 	let copied = $state(false);
@@ -423,7 +423,7 @@
 							{#each cards as i (i.id)}
 								{@const progress = s === 'build' ? checksDone(i) : ''}
 								<!-- an intent: its title, how far its checks or its work got, who it is by, its type and its date -->
-								<article class="card" class:item={!!i.spec || !i.work} class:held={!!i.held_by?.length} data-kind={i.kind}>
+								<article class="card item" class:held={!!i.held_by?.length} data-kind={i.kind}>
 									<button class="open" onclick={() => openIntentDialog(i)} title={i.note ? gist(i.note) : undefined}>
 										<span class="title">{i.title}</span>
 										{#if shipLine(i)}<span class="for ship" class:red={i.stage === 'proposal' || !!notLive(i) || !!i.ship?.steps?.some((x) => x.state === 'red')} class:running={i.stage === 'ship'}>{shipLine(i)}</span>
@@ -554,8 +554,8 @@
 						<h3>Not specified yet</h3>
 						<p class="muted small">Its spec (a goal, a scope and the checks that decide when it is done) is written over MCP before anything is built for it: the brief below asks an agent to do that, and an admin approves it here.</p>
 					{:else}
-						<h3>Without a spec</h3>
-						<p class="muted small">It was proposed without a spec: what is proposed for it is judged by its review alone.{i.stage === 'accepted' || i.stage === 'archived' ? ' Reopened, it is specified first.' : ''}</p>
+						<h3>Not specified</h3>
+						<p class="muted small">It was decided before every intent had a spec. Reopened, it is specified first.</p>
 					{/if}
 				{/if}
 			</section>

@@ -477,7 +477,7 @@ export type ProposalBody = {
   sheet?: string | null; // its reference sheet: an image play keeps, by its hash (a plant's plate of every stage and organ); null takes the head's away
   datasheet?: string | null; // its data sheet: a Markdown document play keeps, by its hash; null takes the head's away
   brief?: string | null; // the brief its reference sheet was made from: a Markdown document play keeps, by its hash
-  intent?: string; // the intent it is the work of, by its UUID, held to its gate before (./intents.ts intentReady); none, and it is a new intent of its own
+  intent?: string; // the intent it is the work of, by its UUID, held to its gate before (./intents.ts intentReady): no work without an intent
 };
 
 /**

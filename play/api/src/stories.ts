@@ -644,7 +644,7 @@ export type StoryProposal = {
   edits?: unknown; // or edits applied to the head's
   base?: string | null; // the head version's id it was made from, as the proposer saw it
   variant?: number; // an intent variant made edit by edit (doc_edit), proposed as it stands
-  intent?: string; // the intent it is the work of, by its UUID, held to its gate before (./intents.ts); none, and it is a new intent of its own
+  intent?: string; // the intent it is the work of, by its UUID, held to its gate before (./intents.ts): no work without an intent
 };
 
 // a story version's id is content-addressed as an asset version's is (./versions.ts, play/SPEC.md §4.3): the same story,

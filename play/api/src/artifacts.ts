@@ -366,7 +366,7 @@ export async function authorOf(db: Queryable, me: Me | null, id: unknown) {
   return { id: a.id, name: a.name, kind: a.kind, url: a.url, note: a.note, created: new Date(a.created).toISOString(), agent: a.agent, operator: a.operator, artifacts: artifacts.map((r) => shape(r)) };
 }
 
-// ---- changing: its next version proposed, for the intent named (held to its gate) or a new one of its own
+// ---- changing: its next version proposed, for the intent named (held to its gate): no work without an intent
 
 /** the authors given, in their order: an existing one by its id (the coop's), a new one made with a random UUID */
 async function authorIds(tx: Queryable, me: Me, given: AuthorGiven[]): Promise<string[]> {

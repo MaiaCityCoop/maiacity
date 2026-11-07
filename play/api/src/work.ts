@@ -13,7 +13,7 @@ import type { Me } from "./access";
 import { COOP } from "./access";
 import * as docs from "./docs";
 import type { Queryable } from "./pg";
-import { newId, UUID } from "./uuid";
+import { UUID } from "./uuid";
 import { gate, IntentError } from "./intents";
 
 /** what a piece of work names: its kind ("<kind>_version" of a versioned kind, ./versioned.ts) and its refs (play.intents' work columns, and its document's variant: play.intent_variants) */
@@ -41,6 +41,10 @@ export const WORK_OF = `i.id, i.coop_id, i.work AS kind, ${DOC_OF} AS doc_id, ${
   COALESCE(i.work_note, '') AS note, i.proposed_by AS author, i.proposed_via AS via, i.proposed_at AS created,
   i.stage, CASE i.stage WHEN 'proposal' THEN 'proposal' WHEN 'accepted' THEN 'accepted' ELSE 'archived' END AS status,
   i.decided_by, i.decided_at, i.spec, i.approved_at, i.title AS intent_title`;
+
+/** no work without an intent (play/SPEC.md §4.12): what a propose without one is told */
+export const NO_INTENT =
+  "No work without an intent: name the intent this is the work of (`intent`, its id), one in Build or at Proposal. add_intent adds one and specify_intent specifies it; once its spec is approved it is in Build.";
 
 export class WorkError extends Error {
   constructor(message: string, public status = 400) {
@@ -98,74 +102,53 @@ export async function closeWork(q: Queryable, me: Pick<Me, "id"> | null, w: { id
   for (const h of held) await closeVariant(q, me, h.doc_id, h.doc_variant);
 }
 
-// a new intent's title: what its work proposes (an asset's or story's label and the version it would be), else the
-// title its proposer gives (a document's label)
-const TITLED = `UPDATE play.intents i SET title = left(COALESCE(NULLIF(btrim(CASE
-    WHEN i.asset_id IS NOT NULL THEN (SELECT a.label || ' v' || COALESCE(v.number, COALESCE(b.number, 0) + 1) FROM play.assets a
-                                 LEFT JOIN play.asset_versions v ON v.id = i.version LEFT JOIN play.asset_versions b ON b.id = i.base WHERE a.id = i.asset_id)
-    WHEN i.story_id IS NOT NULL THEN (SELECT sv.title || ' v' || COALESCE(sv.number, COALESCE(sb.number, 0) + 1) FROM play.story_versions sv
-                                 LEFT JOIN play.story_versions sb ON sb.id = i.story_base WHERE sv.id = i.story_version)
-    ELSE $2 END), ''), 'A proposal'), 200)
-  WHERE i.id = $1`;
-
 /**
- * Puts an intent at Proposal with its work (in the caller's transaction): intent `intent` (its gate held by the caller,
- * ./intents.ts intentReady), or, with none named, a new intent of its own. A document's version alone goes in beside
- * the documents the intent holds; anything else replaces its work. Gives back its id.
+ * Puts an intent at Proposal with its work (in the caller's transaction): intent `intent`, in Build or at Proposal (its
+ * gate, ./intents.ts mayMove's work). No work without an intent: none named, nothing is taken. A document's version
+ * alone goes in beside the documents the intent holds; anything else replaces its work. Gives back its id.
  */
-export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string | null; work: Work; note: string; via: "web" | "mcp"; title?: string; whole?: boolean }): Promise<string> {
+export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string | null; work: Work; note: string; via: "web" | "mcp"; whole?: boolean }): Promise<string> {
   const cols = REFS.map((k) => (o.work as any)[k] ?? null).map((v, i) => (JSON_REFS.has(REFS[i]) && v !== null ? JSON.stringify(v) : v));
   const set = REFS.map((k, i) => `${k} = ${JSON_REFS.has(k) ? `($${i + 2}::text)::jsonb` : `$${i + 2}`}`).join(", ");
   const n = REFS.length + 2;
   // (`whole`: a document whose kind decides its own way, a schema's version, is its intent's whole work too)
   const alone = !o.whole && !!o.work.doc_id && REFS.every((k) => (o.work as any)[k] == null);
-  let id: string;
-  if (o.intent) {
-    const was = await workOf(q, o.intent, true);
-    if (!was) throw new WorkError("There is no such intent.", 404);
-    const no = await gate.mayMove(q, was.id, "work").catch((e) => (e instanceof IntentError ? { why: e.message } : Promise.reject(e)));
-    if (no) throw new WorkError(no.why, 409);
-    id = was.id;
-    // variants of work decided before (archived, the intent back in Build) are no longer its work
-    await q.query(`DELETE FROM play.intent_variants iv USING play.doc_variants v WHERE iv.intent_id = $1 AND v.id = iv.variant_id AND v.status NOT IN ('open', 'proposed')`, [id]);
-    if (!(alone && was.kind)) {
-      // the work it held before is replaced: its intent variants closed (but the one proposed now), kept in the history
-      const keep = o.work.doc_variant == null ? null : Number(o.work.doc_variant);
-      for (const h of await variantsOf(q, id)) if (h.doc_variant !== keep) await closeVariant(q, who, h.doc_id, h.doc_variant);
-      await q.query(`DELETE FROM play.intent_variants WHERE intent_id = $1 AND variant_id IS DISTINCT FROM $2::bigint`, [id, keep]);
-      await q.query(`UPDATE play.intents SET work = $${n}, ${set} WHERE id = $1`, [id, ...cols, o.work.kind]);
-    }
-    await q.query(
-      `UPDATE play.intents SET work_note = $2, proposed_by = $3, proposed_via = $4, proposed_at = now(), stage = 'proposal', decided_by = NULL, decided_at = NULL WHERE id = $1`,
-      [id, o.note, who.id, o.via],
-    );
-  } else {
-    id = newId();
-    // what it is: a new asset or story is something to make; anything else improves what there is
-    const kind = (o.work.asset_id && !o.work.base) || (o.work.story_id && !o.work.story_base) ? "idea" : "improve";
-    await q.query(
-      `INSERT INTO play.intents (id, coop_id, kind, title, note, stage, author, via, work, ${REFS.join(", ")}, work_note, proposed_by, proposed_via, proposed_at)
-       VALUES ($1, $${n + 4}, $${n + 5}, 'A proposal', $${n + 1}, 'proposal', $${n + 2}, $${n + 3}, $${n}, ${REFS.map((k, i) => (JSON_REFS.has(k) ? `($${i + 2}::text)::jsonb` : `$${i + 2}`)).join(", ")}, $${n + 1}, $${n + 2}, $${n + 3}, now())`,
-      [id, ...cols, o.work.kind, o.note, who.id, o.via, COOP, kind],
-    );
-    await q.query(TITLED, [id, o.title ?? null]);
+  if (!o.intent) throw new WorkError(NO_INTENT, 400);
+  const was = await workOf(q, o.intent, true);
+  if (!was) throw new WorkError("There is no such intent.", 404);
+  const no = await gate.mayMove(q, was.id, "work").catch((e) => (e instanceof IntentError ? { why: e.message } : Promise.reject(e)));
+  if (no) throw new WorkError(no.why, 409);
+  const id: string = was.id;
+  // variants of work decided before (archived, the intent back in Build) are no longer its work
+  await q.query(`DELETE FROM play.intent_variants iv USING play.doc_variants v WHERE iv.intent_id = $1 AND v.id = iv.variant_id AND v.status NOT IN ('open', 'proposed')`, [id]);
+  if (!(alone && was.kind)) {
+    // the work it held before is replaced: its intent variants closed (but the one proposed now), kept in the history
+    const keep = o.work.doc_variant == null ? null : Number(o.work.doc_variant);
+    for (const h of await variantsOf(q, id)) if (h.doc_variant !== keep) await closeVariant(q, who, h.doc_id, h.doc_variant);
+    await q.query(`DELETE FROM play.intent_variants WHERE intent_id = $1 AND variant_id IS DISTINCT FROM $2::bigint`, [id, keep]);
+    await q.query(`UPDATE play.intents SET work = $${n}, ${set} WHERE id = $1`, [id, ...cols, o.work.kind]);
   }
+  await q.query(
+    `UPDATE play.intents SET work_note = $2, proposed_by = $3, proposed_via = $4, proposed_at = now(), stage = 'proposal', decided_by = NULL, decided_at = NULL WHERE id = $1`,
+    [id, o.note, who.id, o.via],
+  );
   if (o.work.doc_id && o.work.doc_variant != null) await holdVariant(q, who, id, o.work.doc_id, Number(o.work.doc_variant));
   return id;
 }
 
 /**
  * Settles an intent's work (in the decision's transaction): accepted, or archived. Archived by a person (`by`), it ends
- * archived; archived by itself (no `by`: its base moved and it no longer holds there), one whose spec was approved goes
- * back to Build, its results cleared, to be built again on the new head. Its stage is what it settled to.
+ * archived; archived by itself (no `by`: its base moved and it no longer holds there), it goes back to Build (every
+ * intent with work has an approved spec), its results cleared, to be built again on the new head. Its stage is what it
+ * settled to.
  */
 export async function settle(q: Queryable, id: string, outcome: "accepted" | "archived", by: string | null): Promise<string> {
   const { rows } = await q.query<{ stage: string }>(
     `UPDATE play.intents SET
-        stage = CASE WHEN $2 = 'accepted' THEN 'accepted' WHEN $3::text IS NULL AND approved_at IS NOT NULL THEN 'build' ELSE 'archived' END,
-        results = CASE WHEN $2 = 'archived' AND $3::text IS NULL AND approved_at IS NOT NULL THEN NULL ELSE results END,
-        decided_by = CASE WHEN $2 = 'archived' AND $3::text IS NULL AND approved_at IS NOT NULL THEN NULL ELSE $3 END,
-        decided_at = CASE WHEN $2 = 'archived' AND $3::text IS NULL AND approved_at IS NOT NULL THEN NULL ELSE now() END
+        stage = CASE WHEN $2 = 'accepted' THEN 'accepted' WHEN $3::text IS NULL THEN 'build' ELSE 'archived' END,
+        results = CASE WHEN $2 = 'archived' AND $3::text IS NULL THEN NULL ELSE results END,
+        decided_by = CASE WHEN $2 = 'archived' AND $3::text IS NULL THEN NULL ELSE $3 END,
+        decided_at = CASE WHEN $2 = 'archived' AND $3::text IS NULL THEN NULL ELSE now() END
       WHERE id = $1 RETURNING stage`,
     [id, outcome, by],
   );

@@ -16,8 +16,8 @@ import { listTables, readTable, TableError } from "./tables";
 import { layoutAt, proposedState, SandboxError } from "./sandboxes";
 import { decideAny, docAt, docChanges, docHistory, listDocs, reviewOf, VersionError } from "./versioned";
 import { runningCommit, type GitHub } from "./ship";
-import { WorkError } from "./work";
-import { intentOf, IntentError, intentReady, listIntents, type IntentVerdict } from "./intents";
+import { NO_INTENT, WorkError } from "./work";
+import { admin as intentsAdmin, intentOf, IntentError, intentReady, listIntents, type IntentVerdict } from "./intents";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 import { listStories, storyAt, storyOf, StoryError } from "./stories";
 import { labelFile, listLibrary } from "./library";
@@ -177,11 +177,16 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await listIntents(db, await me(req), s ? s.split(",") : undefined, q.get("work") ?? undefined));
   });
   on("GET", "/api/intents/:id", async (req, p) => json(await intentOf(db, await me(req), p.id, reviewOf)));
-  // to propose is to put an intent at Proposal: the one named (held to its gate), or a new one of its own
+  // to propose is to put an intent at Proposal: the one named, held to its gate (no work without an intent)
   on("POST", "/api/intents", async (req) => {
     const b = await body(req);
     const m = await me(req);
-    if (b?.intent !== undefined && b?.intent !== null && b?.intent !== "") b.intent = (await intentReady(db, m, b.intent)).id;
+    // (who may propose first, then what: an admin's, for an intent)
+    if (b?.intent === undefined || b?.intent === null || b?.intent === "") {
+      intentsAdmin(m);
+      throw new IntentError(NO_INTENT, 400);
+    }
+    b.intent = (await intentReady(db, m, b.intent)).id;
     return json(await proposeAsset(db, store, m, b), { status: 201 });
   });
   on("POST", "/api/intents/:id/:verdict", async (req, p) => {
