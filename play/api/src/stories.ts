@@ -905,7 +905,8 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
   if (me.level !== "admin") throw new Denied("Only Maia City's admins decide on stories.");
   return asStoryError(async () => {
     const docId = await ensureStoryDoc(tx, p.story_id);
-    const variant = Number((await tx.query<{ doc_variant: string | null }>(`SELECT variant_id AS doc_variant FROM play.intent_variants WHERE intent_id = $1 ORDER BY position LIMIT 1`, [p.id])).rows[0]?.doc_variant);
+    // its own intent variant on this story's document (an intent may hold several documents: intent 7c8986c5)
+    const variant = Number((await tx.query<{ doc_variant: string | null }>(`SELECT variant_id AS doc_variant FROM play.intent_variants WHERE intent_id = $1 AND doc_id = $2`, [p.id, docId])).rows[0]?.doc_variant ?? p.doc_variant);
     const author = authorOf(me, "site");
     const closeBranch = async (status: "archived") => {
       const { rows } = await tx.query<{ status: string }>(`SELECT status FROM play.doc_variants WHERE id = $1`, [variant]);

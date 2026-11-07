@@ -580,8 +580,8 @@ async function proposeIn(tx: Queryable, who: Me, kind: Kind, uuid: string, docId
   if (!changes.length) throw new VersionError(`That is the ${kind.label} as it is: nothing changed.`);
   if (kind.ready) await kind.ready(tx, now);
   await docs.propose(tx, docId, v, { note, author });
-  // a kind that decides its own way (a schema's version) is its intent's whole work; any other goes in beside
-  const intent = await putAtProposal(tx, who, { intent: p.intent, work: { kind: kind.work, doc_id: docId, doc_variant: v }, note, via: via === "mcp" ? "mcp" : "web", whole: !!kind.decide }).catch((e) => {
+  // every document goes in beside the others the intent holds (intent 7c8986c5)
+  const intent = await putAtProposal(tx, who, { intent: p.intent, work: { kind: kind.work, doc_id: docId, doc_variant: v }, note, via: via === "mcp" ? "mcp" : "web" }).catch((e) => {
     throw e instanceof WorkError ? new VersionError(e.message, e.status) : e;
   });
   const number = ((await docs.versionsOf(tx, docId)).at(-1)?.number ?? 0) + 1;
@@ -627,9 +627,17 @@ export async function seedDoc(db: Db, kindName: string, o: { id: string; json: a
 
 // ---- reviewing and deciding
 
-/** the documents an intent's work holds, each its document and its variant, the first its work's own */
-const heldOf = (p: any): { doc_id: string; doc_variant: number | null }[] =>
+/** the documents an intent's work holds, each its document, its variant and what its version names (its refs), the first its work's own */
+const heldOf = (p: any): ({ doc_id: string; doc_variant: number | null } & Record<string, any>)[] =>
   p.variants?.length ? p.variants : p.doc_id ? [{ doc_id: p.doc_id, doc_variant: p.doc_variant == null ? null : Number(p.doc_variant) }] : [];
+
+/** the work `p` as one of its documents (`h`) is decided or reviewed by its own kind: its kind of work, its document and variant, its version's refs */
+const asOne = (p: any, h: { doc_id: string; doc_variant: number | null } & Record<string, any>, k: Kind) => {
+  const out: any = { ...p, kind: k.work, doc_id: h.doc_id, doc_variant: h.doc_variant };
+  const isFirst = h.doc_id === (p.variants?.[0]?.doc_id ?? p.doc_id);
+  for (const r of ["asset_id", "base", "version", "story_id", "story_base", "story_version"]) out[r] = h[r] ?? (isFirst ? p[r] : null) ?? null;
+  return out;
+};
 
 /** one document's intent variant as people review it: what changed, field by field, against its seed, the edits that made it, whether Main moved since */
 async function reviewVariant(db: Queryable, p: any, h: { doc_id: string; doc_variant: number | null }) {
@@ -655,8 +663,15 @@ async function reviewVariant(db: Queryable, p: any, h: { doc_id: string; doc_var
 export async function reviewDoc(db: Queryable, p: any) {
   const k = kindOfWork(p.kind)!;
   const extra = k.review ? await k.review(db, p) : {};
-  const each = [];
-  for (const h of heldOf(p)) each.push(await reviewVariant(db, p, h));
+  const held = heldOf(p);
+  const each: any[] = [];
+  for (const [n, h] of held.entries()) {
+    const r: any = await reviewVariant(db, p, h);
+    // a document after the first with a kind's own review (an asset's builds, a story's player) carries it on its own entry
+    const hk = kindOfDoc(h.doc_id);
+    if (n > 0 && hk?.review && h.doc_variant != null) r.extra = await hk.review(db, asOne(p, h, hk)).catch(() => ({}));
+    each.push(r);
+  }
   const first = each[0] ?? { doc: null, seedNumber: null, moved: false, changes: [], edits: [] };
   return { ...first, ...extra, docs: each };
 }
@@ -698,54 +713,71 @@ export async function decideDoc(tx: Queryable, me: Me, p: any, verdict: Verdict)
 
 /**
  * Accept or archive an intent's work on its documents (`p`, its intent locked by the caller's transaction), as admin
- * `me`: every one of them in this one transaction, or none. Accepted, each intent variant is merged into its Main and
- * named its next version, its row keeping what the version says; seeded from a version that is no longer Main's
- * newest, it still goes in where the two changes touch different fields. Where one clashes (the same field changed) or
- * is no longer valid merged, none goes in: the intent is archived whole. A kind with its own decide (an asset's, a
- * story's frozen rows) decides its own document, the first, once every other one has been found to go in.
+ * `me`: every one of them in this one transaction, or none (intent 7c8986c5: any number, whatever their kind). Accepted,
+ * each intent variant is merged into its Main and named its next version, its row keeping what the version says;
+ * seeded from a version that is no longer Main's newest, it still goes in where the two changes touch different fields.
+ * A kind with its own decide (an asset's, a story's frozen rows, a layout's, a schema's) decides its own documents, each
+ * with its own refs, once every other one has been found to go in. Where one clashes (the same field changed), is no
+ * longer valid merged, or its kind's decide does not take it, none goes in: the intent is archived whole (back to Build).
  */
 export async function decideWork(tx: Queryable, ctx: Ctx, me: Me, p: any, verdict: Verdict) {
   const own = kindOfWork(p.kind)!;
   if (me.level !== "admin") throw new Denied(`Only Maia City's admins decide on ${own.group}.`);
   return asVersionError(async () => {
     const author = authorOf(me, "web");
-    const held = heldOf(p).filter((h) => h.doc_variant != null) as { doc_id: string; doc_variant: number }[];
+    const held = heldOf(p).filter((h) => h.doc_variant != null) as ({ doc_id: string; doc_variant: number } & Record<string, any>)[];
+    const several = held.length > 1;
     const archive = async (message?: string) => {
       await settle(tx, p.id, "archived", verdict === "archive" ? me.id : null);
       await closeWork(tx, me, p);
       return { id: p.id as string, status: "archived" as const, ...(message ? { message } : {}) };
     };
-    const hooked = own.decide ? held[0] : undefined;
+    const kindOf = (h: { doc_id: string }) => kindOfDoc(h.doc_id) ?? own;
+    const hooked = held.filter((h) => !!kindOf(h).decide);
     if (verdict === "archive") {
-      if (!hooked) return archive();
-      const r = await own.decide!(tx, ctx, me, { ...p, doc_id: hooked.doc_id, doc_variant: hooked.doc_variant }, verdict);
+      if (!hooked.length) return archive();
+      let first: any = null;
+      for (const h of hooked) {
+        const r = await kindOf(h).decide!(tx, ctx, me, asOne(p, h, kindOf(h)), verdict);
+        first ??= r;
+      }
       await closeWork(tx, me, p);
-      return r;
+      return first;
     }
     // every document's merge worked out first: one that would not go in archives them all
     const merges: { h: { doc_id: string; doc_variant: number }; k: Kind; preview: Awaited<ReturnType<typeof docs.previewMerge>> }[] = [];
-    for (const h of held.filter((x) => x !== hooked)) {
-      const k = kindOfDoc(h.doc_id)!;
-      const several = held.length > 1 ? ` (${k.label} ${h.doc_id.split(":")[1]}: nothing of this intent went in)` : "";
+    for (const h of held.filter((x) => !hooked.includes(x))) {
+      const k = kindOf(h);
+      const which = several ? ` (${k.label} ${h.doc_id.split(":")[1]}: nothing of this intent went in)` : "";
       const preview = await docs.previewMerge(tx, h.doc_id, h.doc_variant);
       if (preview.concurrent) {
         const was = await docs.seedOf(tx, h.doc_id, h.doc_variant);
         const now = (await docs.readDoc(tx, h.doc_id)).json, mine = (await docs.readDoc(tx, h.doc_id, { variant: h.doc_variant })).json;
         const clash = overlap(docs.diff(was, now).map((c) => c.path), docs.diff(was, mine).map((c) => c.path));
-        if (clash.length) return archive(`The ${k.label} has a newer version than the one this was seeded from, and it changes what that changed too (${clash.slice(0, 3).map((c) => c.replace(/^\$\./, "")).join(", ")})${several}. Propose the change again on its newest version.`);
+        if (clash.length) return archive(`The ${k.label} has a newer version than the one this was seeded from, and it changes what that changed too (${clash.slice(0, 3).map((c) => c.replace(/^\$\./, "")).join(", ")})${which}. Propose the change again on its newest version.`);
       }
-      if (preview.problems.length) return archive(`Merged into the ${k.label} as it is now, this is no longer a valid ${k.label}: ${preview.problems.slice(0, 3).join("; ")}${several}. Propose it again on its newest version.`);
+      if (preview.problems.length) return archive(`Merged into the ${k.label} as it is now, this is no longer a valid ${k.label}: ${preview.problems.slice(0, 3).join("; ")}${which}. Propose it again on its newest version.`);
       merges.push({ h, k, preview });
     }
+    // the kinds' own decides, each document with its own refs: one that does not take its document undoes them all
+    if (several) await tx.query(`SAVEPOINT all_work`);
     let first: any = null;
-    if (hooked) {
-      first = await own.decide!(tx, ctx, me, { ...p, doc_id: hooked.doc_id, doc_variant: hooked.doc_variant }, verdict);
-      if (first?.status !== "accepted") {
-        await closeWork(tx, me, p);
-        return first;
-      }
-    }
     const numbers: number[] = [];
+    for (const h of hooked) {
+      const k = kindOf(h);
+      const r = await k.decide!(tx, ctx, me, asOne(p, h, k), verdict);
+      if (r?.status !== "accepted") {
+        if (!several) {
+          await closeWork(tx, me, p);
+          return r;
+        }
+        await tx.query(`ROLLBACK TO SAVEPOINT all_work`);
+        return archive(`${r?.message ?? `The ${k.label} ${h.doc_id.split(":")[1]} did not go in.`} (${k.label} ${h.doc_id.split(":")[1]}: nothing of this intent went in)`);
+      }
+      first ??= r;
+      if (first !== r && typeof r.number === "number") numbers.push(r.number);
+    }
+    if (several) await tx.query(`RELEASE SAVEPOINT all_work`);
     for (const { h, k, preview } of merges) {
       const v = await docs.accept(tx, h.doc_id, h.doc_variant, { author, note: p.note });
       if (k.accepted) await k.accepted(tx, ctx, h.doc_id, v.number, preview.json);
@@ -848,7 +880,8 @@ export async function decideAny(ctx: Ctx, me: Me | null, id: string, verdict: In
 
 async function decideOne(ctx: Ctx, me: Me | null, w: any, verdict: IntentVerdict | "archive", gh: GitHub | null, commit: string | null) {
   const db = ctx.db;
-  if (verdict === "accept" && !w.kind) {
+  // code ships, with the work of play's it holds beside it accepted once it is live (intent 7c8986c5)
+  if (verdict === "accept" && (!w.kind || w.pull_request)) {
     const shipped = (await acceptAndShip(db, gh, me, w.id)) ?? (await acceptCode(db, gh, me, w.id, commit));
     if (shipped) return shipped;
   }

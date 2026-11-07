@@ -4,11 +4,12 @@
 // was made on), with what the work says of itself, who proposed it, how and when. Proposal is only a
 // stage: its work done and checked, waiting for the decision. To propose is to put an intent at Proposal: the intent
 // named (its gate held before, ./intents.ts intentReady) takes the work; no work without an intent (intent 706ed873):
-// with none named, nothing is taken. An intent may change several documents at once (intent 847c5d38, Samuel
-// 2026-11-06): a document's version goes in beside what the intent holds (its variant of that same document replaced),
-// and they are all accepted in one transaction or archived together; an asset's or story's version (or a kind's that decides its own way)
-// is the intent's whole work, in place of what it held. Deciding settles it: accepted, or archived (a moved base
-// archives it too; its intent then goes back to Build, to be built on the new head).
+// with none named, nothing is taken. An intent holds all its work (intents 847c5d38 and 7c8986c5, Samuel 2026-11-06/07):
+// any number of documents, whatever their kind (an asset's or story's version among them, its refs on its own intent
+// variant), each going in beside the others (its variant of that same document replaced), and a pull request beside
+// them; they are all accepted in one transaction or archived together, and with code, once its code is live
+// (./ship.ts reconcile). Deciding settles it: accepted, or archived (a moved base archives it too; its intent then goes
+// back to Build, to be built on the new head).
 import type { Me } from "./access";
 import { COOP } from "./access";
 import * as docs from "./docs";
@@ -25,10 +26,9 @@ export type Work = {
   story_id?: string; story_base?: string | null; story_version?: string;
 };
 const REFS = ["asset_id", "base", "version", "story_id", "story_base", "story_version"] as const;
-const JSON_REFS = new Set<string>();
 
-/** the SQL of the status of an intent's (`i`) work: proposed while it waits on the intent, at Proposal or in Build holding a proposed variant (intent 94061718; one archived by itself, its intent back in Build, is not), accepted, else archived */
-export const WORK_STATUS = `CASE WHEN i.stage = 'proposal' OR (i.stage = 'build' AND EXISTS (SELECT 1 FROM play.intent_variants wv JOIN play.doc_variants dv ON dv.id = wv.variant_id
+/** the SQL of the status of an intent's (`i`) work: proposed while it waits on the intent, at Proposal or in Ship (its code on its way) or in Build holding a proposed variant (intent 94061718; one archived by itself, its intent back in Build, is not), accepted, else archived */
+export const WORK_STATUS = `CASE WHEN i.stage IN ('proposal', 'ship') OR (i.stage = 'build' AND EXISTS (SELECT 1 FROM play.intent_variants wv JOIN play.doc_variants dv ON dv.id = wv.variant_id
   WHERE wv.intent_id = i.id AND dv.status = 'proposed')) THEN 'proposal' WHEN i.stage = 'accepted' THEN 'accepted' ELSE 'archived' END`;
 
 /** the SQL of an intent's (`i`) first document and its variant: its work's own */
@@ -41,10 +41,10 @@ export const VARIANT_OF = `(SELECT iv.variant_id FROM play.intent_variants iv WH
  * (waiting at Proposal, accepted, else archived).
  */
 export const WORK_OF = `i.id, i.coop_id, i.work AS kind, ${DOC_OF} AS doc_id, ${VARIANT_OF} AS doc_variant,
-  COALESCE((SELECT json_agg(json_build_object('doc_id', iv.doc_id, 'doc_variant', iv.variant_id) ORDER BY iv.position) FROM play.intent_variants iv WHERE iv.intent_id = i.id), '[]'::json) AS variants,
+  COALESCE((SELECT json_agg(json_build_object('doc_id', iv.doc_id, 'doc_variant', iv.variant_id, 'refs', iv.refs) ORDER BY iv.position) FROM play.intent_variants iv WHERE iv.intent_id = i.id), '[]'::json) AS variants,
   i.asset_id, i.base, i.version, i.story_id, i.story_base, i.story_version,
   COALESCE(i.work_note, '') AS note, i.proposed_by AS author, i.proposed_via AS via, i.proposed_at AS created,
-  i.stage, ${WORK_STATUS} AS status,
+  i.stage, ${WORK_STATUS} AS status, i.pull_request,
   i.decided_by, i.decided_at, i.spec, i.approved_at, i.title AS intent_title`;
 
 /** no work without an intent (play/SPEC.md §4.12): what a propose without one is told */
@@ -61,7 +61,7 @@ export class WorkError extends Error {
 export async function workOf(q: Queryable, id: string, lock = false): Promise<any | null> {
   if (!UUID.test(`${id}`)) return null;
   const { rows } = await q.query<any>(`SELECT ${WORK_OF} FROM play.intents i WHERE i.id = $1 AND i.coop_id = $2${lock ? " FOR UPDATE" : ""}`, [id, COOP]);
-  if (rows[0]) rows[0].variants = (rows[0].variants ?? []).map((v: any) => ({ doc_id: v.doc_id, doc_variant: Number(v.doc_variant) }));
+  if (rows[0]) rows[0].variants = (rows[0].variants ?? []).map((v: any) => ({ ...(v.refs ?? {}), doc_id: v.doc_id, doc_variant: Number(v.doc_variant) }));
   return rows[0] ?? null;
 }
 
@@ -86,17 +86,31 @@ async function closeVariant(q: Queryable, me: Pick<Me, "id"> | null, docId: stri
     await docs.close(q, docId, v, { author: { human: me?.id ?? null, via: "site" }, status: "archived" });
 }
 
-/** an intent variant made the intent's work on its document, in place of any it held there before (that one closed) */
-export async function holdVariant(q: Queryable, me: Pick<Me, "id"> | null, intent: string, docId: string, variant: number) {
+/** the SQL of an intent's (`$1`) own refs, as its first variant keeps them (play.intent_variants' refs) */
+const OWN_REFS = `(SELECT jsonb_strip_nulls(jsonb_build_object('kind', w.work, 'asset_id', w.asset_id, 'base', w.base, 'version', w.version,
+  'story_id', w.story_id, 'story_base', w.story_base, 'story_version', w.story_version)) FROM play.intents w WHERE w.id = $1 AND w.work IS NOT NULL)`;
+
+/**
+ * An intent variant made the intent's work on its document, in place of any it held there before (that one closed),
+ * beside every other document it holds. `refs` is what its version names beyond its document (its kind, an asset's or
+ * story's version and the one it was made on); none given, a variant already held keeps its own, and an intent's first
+ * takes the intent's own columns (a variant made for work kept from before).
+ */
+export async function holdVariant(q: Queryable, me: Pick<Me, "id"> | null, intent: string, docId: string, variant: number, refs?: Record<string, unknown>) {
   const { rows } = await q.query<{ variant_id: string }>(`SELECT variant_id FROM play.intent_variants WHERE intent_id = $1 AND doc_id = $2`, [intent, docId]);
   if (rows[0] && Number(rows[0].variant_id) !== variant) await closeVariant(q, me, docId, Number(rows[0].variant_id));
+  const given = refs === undefined ? null : JSON.stringify(refs);
   if (!rows[0] || Number(rows[0].variant_id) !== variant)
     await q.query(
-      `INSERT INTO play.intent_variants (intent_id, doc_id, variant_id, seed, position)
-         SELECT $1, $2, v.id, v.seed, COALESCE((SELECT max(position) + 1 FROM play.intent_variants WHERE intent_id = $1), 0) FROM play.doc_variants v WHERE v.id = $3
-       ON CONFLICT (intent_id, doc_id) DO UPDATE SET variant_id = EXCLUDED.variant_id, seed = EXCLUDED.seed`,
-      [intent, docId, variant],
+      `INSERT INTO play.intent_variants (intent_id, doc_id, variant_id, seed, position, refs)
+         SELECT $1, $2, v.id, v.seed, COALESCE((SELECT max(position) + 1 FROM play.intent_variants WHERE intent_id = $1), 0),
+                COALESCE(($4::text)::jsonb, CASE WHEN NOT EXISTS (SELECT 1 FROM play.intent_variants WHERE intent_id = $1) THEN ${OWN_REFS} END, '{}'::jsonb)
+           FROM play.doc_variants v WHERE v.id = $3
+       ON CONFLICT (intent_id, doc_id) DO UPDATE SET variant_id = EXCLUDED.variant_id, seed = EXCLUDED.seed,
+         refs = CASE WHEN $4::text IS NULL THEN play.intent_variants.refs ELSE EXCLUDED.refs END`,
+      [intent, docId, variant, given],
     );
+  else if (given !== null) await q.query(`UPDATE play.intent_variants SET refs = ($3::text)::jsonb WHERE intent_id = $1 AND doc_id = $2`, [intent, docId, given]);
   await q.query(`UPDATE play.doc_variants SET intent_id = $2 WHERE id = $1`, [variant, intent]);
 }
 
@@ -110,15 +124,12 @@ export async function closeWork(q: Queryable, me: Pick<Me, "id"> | null, w: { id
 /**
  * Puts work on an intent (in the caller's transaction): intent `intent`, in Build or at Proposal (its gate,
  * ./intents.ts mayMove's work). At Proposal it stays there; in Build it moves to Proposal with it only where every must
- * passes already, else the work waits on it in Build and goes to Proposal with it when its last must passes. No work without an intent: none named, nothing is taken. A document's version
- * alone goes in beside the documents the intent holds; anything else replaces its work. Gives back its id.
+ * passes already, else the work waits on it in Build and goes to Proposal with it when its last must passes. No work
+ * without an intent: none named, nothing is taken. One way to hold work (intent 7c8986c5): every document goes in
+ * beside the others the intent holds, whatever its kind, its version's refs on its own intent variant; proposing a
+ * document again replaces only that document's variant. The intent's own columns name its first document's. Gives back its id.
  */
-export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string | null; work: Work; note: string; via: "web" | "mcp"; whole?: boolean }): Promise<string> {
-  const cols = REFS.map((k) => (o.work as any)[k] ?? null).map((v, i) => (JSON_REFS.has(REFS[i]) && v !== null ? JSON.stringify(v) : v));
-  const set = REFS.map((k, i) => `${k} = ${JSON_REFS.has(k) ? `($${i + 2}::text)::jsonb` : `$${i + 2}`}`).join(", ");
-  const n = REFS.length + 2;
-  // (`whole`: a document whose kind decides its own way, a schema's version, is its intent's whole work too)
-  const alone = !o.whole && !!o.work.doc_id && REFS.every((k) => (o.work as any)[k] == null);
+export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string | null; work: Work; note: string; via: "web" | "mcp" }): Promise<string> {
   if (!o.intent) throw new WorkError(NO_INTENT, 400);
   const was = await workOf(q, o.intent, true);
   if (!was) throw new WorkError("There is no such intent.", 404);
@@ -128,16 +139,14 @@ export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string 
     : o.work.story_id ? SCHEMA.story : o.work.asset_id ? SCHEMA.asset : null;
   const no = await gate.mayMove(q, was.id, "work", { schema }).catch((e) => (e instanceof IntentError ? { why: e.message } : Promise.reject(e)));
   if (no) throw new WorkError(no.why, 409);
+  if (!o.work.doc_id || o.work.doc_variant == null) throw new WorkError("Work of play's is a document's version: name its document and its intent variant.", 500);
   const id: string = was.id;
   // variants of work decided before (archived, the intent back in Build) are no longer its work
   await q.query(`DELETE FROM play.intent_variants iv USING play.doc_variants v WHERE iv.intent_id = $1 AND v.id = iv.variant_id AND v.status NOT IN ('open', 'proposed')`, [id]);
-  if (!(alone && was.kind)) {
-    // the work it held before is replaced: its intent variants closed (but the one proposed now), kept in the history
-    const keep = o.work.doc_variant == null ? null : Number(o.work.doc_variant);
-    for (const h of await variantsOf(q, id)) if (h.doc_variant !== keep) await closeVariant(q, who, h.doc_id, h.doc_variant);
-    await q.query(`DELETE FROM play.intent_variants WHERE intent_id = $1 AND variant_id IS DISTINCT FROM $2::bigint`, [id, keep]);
-    await q.query(`UPDATE play.intents SET work = $${n}, ${set} WHERE id = $1`, [id, ...cols, o.work.kind]);
-  }
+  const refs: Record<string, unknown> = { kind: o.work.kind };
+  for (const k of REFS) if ((o.work as any)[k] != null) refs[k] = (o.work as any)[k];
+  await holdVariant(q, who, id, o.work.doc_id, Number(o.work.doc_variant), refs);
+  await ownColumns(q, id);
   // in Build, the work waits on the intent until its last must passes (intent 94061718): it then moves to Proposal with
   // all of it (./intents.ts recordChecks); one whose musts pass already moves now
   const moves = !(await gate.mayMove(q, id, "proposal"));
@@ -145,8 +154,20 @@ export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string 
     `UPDATE play.intents SET work_note = $2, proposed_by = $3, proposed_via = $4, proposed_at = now(), stage = CASE WHEN $5 THEN 'proposal' ELSE stage END, decided_by = NULL, decided_at = NULL, auto = auto - 'accept' WHERE id = $1`,
     [id, o.note, who.id, o.via, moves],
   );
-  if (o.work.doc_id && o.work.doc_variant != null) await holdVariant(q, who, id, o.work.doc_id, Number(o.work.doc_variant));
   return id;
+}
+
+/** the intent's own work columns (its kind of work and refs) set from its first document's intent variant */
+async function ownColumns(q: Queryable, id: string) {
+  const first = (await q.query<{ refs: any }>(`SELECT refs FROM play.intent_variants WHERE intent_id = $1 ORDER BY position LIMIT 1`, [id])).rows[0]?.refs;
+  if (!first?.kind) return;
+  await q.query(`UPDATE play.intents SET work = $2, ${REFS.map((k, i) => `${k} = $${i + 3}`).join(", ")} WHERE id = $1`, [id, first.kind, ...REFS.map((k) => first[k] ?? null)]);
+}
+
+/** an intent's documents with their refs, the first its work's own: each its document, its variant and what its version names */
+export async function heldWith(q: Queryable, intent: string): Promise<({ doc_id: string; doc_variant: number } & Record<string, any>)[]> {
+  const { rows } = await q.query<{ doc_id: string; variant_id: string; refs: any }>(`SELECT doc_id, variant_id, refs FROM play.intent_variants WHERE intent_id = $1 ORDER BY position`, [intent]);
+  return rows.map((r) => ({ ...(r.refs ?? {}), doc_id: r.doc_id, doc_variant: Number(r.variant_id) }));
 }
 
 /** the stage intent `id` is at after its work is put on it: at Proposal, or still in Build, its work waiting on it */
