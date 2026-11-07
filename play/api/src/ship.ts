@@ -791,9 +791,8 @@ async function acceptWorkLive(tx: Queryable, id: string) {
   await tx.query(`SAVEPOINT work_live`);
   const out: any = await decideWork(tx, { db: tx as any, store: shipWork.store }, me, p, "accept").catch((e) => ({ status: "failed", message: (e as Error).message }));
   if (out?.status === "accepted") {
+    // its decision left it Accepted by whoever decided it; the reconcile's own note stands on its ship
     await tx.query(`RELEASE SAVEPOINT work_live`);
-    // the work's decision left it Accepted by whoever decided it; the reconcile's own note stands on its ship
-    await tx.query(`UPDATE play.intents SET stage = 'accepted' WHERE id = $1`, [id]);
     return;
   }
   await tx.query(`ROLLBACK TO SAVEPOINT work_live`);

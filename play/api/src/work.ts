@@ -41,7 +41,7 @@ export const VARIANT_OF = `(SELECT iv.variant_id FROM play.intent_variants iv WH
  * (waiting at Proposal, accepted, else archived).
  */
 export const WORK_OF = `i.id, i.coop_id, i.work AS kind, ${DOC_OF} AS doc_id, ${VARIANT_OF} AS doc_variant,
-  COALESCE((SELECT json_agg(json_build_object('doc_id', iv.doc_id, 'doc_variant', iv.variant_id, 'refs', iv.refs) ORDER BY iv.position) FROM play.intent_variants iv WHERE iv.intent_id = i.id), '[]'::json) AS variants,
+  COALESCE((SELECT json_agg(json_build_object('doc_id', iv.doc_id, 'doc_variant', iv.variant_id, 'refs', to_jsonb(iv)->'refs') ORDER BY iv.position) FROM play.intent_variants iv WHERE iv.intent_id = i.id), '[]'::json) AS variants,
   i.asset_id, i.base, i.version, i.story_id, i.story_base, i.story_version,
   COALESCE(i.work_note, '') AS note, i.proposed_by AS author, i.proposed_via AS via, i.proposed_at AS created,
   i.stage, ${WORK_STATUS} AS status, i.pull_request,
@@ -162,6 +162,16 @@ async function ownColumns(q: Queryable, id: string) {
   const first = (await q.query<{ refs: any }>(`SELECT refs FROM play.intent_variants WHERE intent_id = $1 ORDER BY position LIMIT 1`, [id])).rows[0]?.refs;
   if (!first?.kind) return;
   await q.query(`UPDATE play.intents SET work = $2, ${REFS.map((k, i) => `${k} = $${i + 3}`).join(", ")} WHERE id = $1`, [id, first.kind, ...REFS.map((k) => first[k] ?? null)]);
+}
+
+/**
+ * Document `docId` taken out of intent `intent`'s work (a story folded into another: its work moved to the timeline it
+ * is now): its intent variant closed, kept in the history, the intent's own columns naming its first document again.
+ */
+export async function dropDoc(q: Queryable, me: Pick<Me, "id"> | null, intent: string, docId: string) {
+  const { rows } = await q.query<{ variant_id: string }>(`DELETE FROM play.intent_variants WHERE intent_id = $1 AND doc_id = $2 RETURNING variant_id`, [intent, docId]);
+  for (const r of rows) await closeVariant(q, me, docId, Number(r.variant_id));
+  await ownColumns(q, intent);
 }
 
 /** an intent's documents with their refs, the first its work's own: each its document, its variant and what its version names */
