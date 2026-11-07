@@ -904,6 +904,15 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   **Note** (whole), **For an agent** (the brief and Copy). Each stage opens on its own tab first (Idea For an agent,
   Specify Spec, Build Checks, Proposal Changes, Ship Ship, Accepted History).
 
+  **The decision travels with the work** (Samuel 2026-11-07): the bar is one component, `Decision.svelte`, by
+  `detailOf`'s decision, docked at the foot of the detail and of its work's review opened from it alike (an asset's, a
+  story's, a sandbox's), its secondary actions (Source …) quiet beside it, never in its place. **On a wide screen**
+  (900 px and up: a tablet held wide, a desktop) the detail is two panes, as every versioned thing on play: the open
+  tab's content large on the left (the asset drawn, the spec, the checks …), and on the right an aside with the header,
+  the top, the tabs and the decision at its foot, Reject and the primary button side by side; the dialog as tall as
+  what it holds, up to the screen. The work's review is the same: the work on the left, what it is and the decision on
+  the right. Under 900 px, one column, the tabs and the decision docked at the bottom.
+
 ### 4.13 Artifacts (Samuel 2026-11-06; first called Sources)
 
 Every link from the net Maia City keeps is an **artifact**: a web page, an article, a paper, a video, a social post, a
