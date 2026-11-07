@@ -68,7 +68,7 @@ export async function mergeMain(db: Db, gh: GitHub, state: MainMergeState, at = 
     state.main = main;
   }
   const { rows } = await db.query<{ id: string; pull_request: number; pr_seen: PrSeen | null }>(
-    `SELECT id, pull_request, pr_seen FROM play.intents WHERE coop_id = $1 AND stage IN ('build', 'proposal') AND pull_request IS NOT NULL AND work IS NULL ORDER BY created, id`,
+    `SELECT id, pull_request, pr_seen FROM play.intents WHERE coop_id = $1 AND stage IN ('build', 'proposal') AND pull_request IS NOT NULL ORDER BY created, id`,
     [COOP],
   );
   for (const { id, pull_request, pr_seen } of rows) {

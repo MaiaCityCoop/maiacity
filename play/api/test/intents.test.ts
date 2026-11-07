@@ -325,11 +325,13 @@ suite("intents", () => {
     // Accepted, the same
     await db.query(`UPDATE play.intents SET stage = 'accepted' WHERE id = $1`, [i.id]);
     expect((await box("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5 on main", where: "main" }] })).stage).toBe("accepted");
-    // the database holds it: work of play's in Ship is refused
+    // work of play's beside code ships with it (intent 7c8986c5): the database takes an intent holding work in Ship,
+    // its work waiting there (test/allwork.test.ts)
     const w = await intentAt("Work in Ship", "build");
     await box("check_intent", { intent: w.id, results: all });
-    expect((await tool("propose_asset", { group: "plants", label: "Never shipped", source: SOURCE, note: "x", intent: w.id })).error).toBeUndefined();
-    await expect(db.query(`UPDATE play.intents SET stage = 'ship' WHERE id = $1`, [w.id])).rejects.toThrow();
+    expect((await tool("propose_asset", { group: "plants", label: "Shipped with its code", source: SOURCE, note: "x", intent: w.id })).error).toBeUndefined();
+    await db.query(`UPDATE play.intents SET stage = 'ship' WHERE id = $1`, [w.id]);
+    expect((await tool("get_intent", { intent: w.id })).work.status).toBe("proposal");
     // not yet approved: main's results are not taken either
     const idea = await intentAt("Not approved", "specify");
     expect((await box("check_intent", { intent: idea.id, results: [{ check: "c1", pass: true, evidence: "main", where: "main" }] })).error).toContain("specify stage");

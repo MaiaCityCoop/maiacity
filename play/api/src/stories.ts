@@ -38,7 +38,7 @@ import { NOTE_MOST } from "./notes";
 import * as docs from "./docs";
 import { asDoc, asStory, authorOf, docIdOf, ensureStoryDoc, storyDocAt, versionAtFrontiers } from "./storydocs";
 import { overlap } from "./versioned";
-import { closeWork, putAtProposal, settle, stageAfter, WORK_OF, workOf, WorkError } from "./work";
+import { closeWork, dropDoc, putAtProposal, settle, stageAfter, WORK_OF, workOf, WorkError } from "./work";
 
 export class StoryError extends Error {
   constructor(message: string, public status = 400) {
@@ -864,6 +864,8 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
             const said = `(Moved from story “${src.title}”, where it was proposed on ${iso(p.created).slice(0, 10)}: the film is one timeline now.)`;
             const note = `${`${p.note ?? ""}`.slice(0, NOTE_MOST - said.length - 2)}\n\n${said}`.trim();
             await proposeStory(db, author, { story: f.into, title: p.title, body: p.body, note, intent: p.id }, false, p.via === "web" ? "web" : "mcp");
+            // its work on the folded story is no longer its own (an intent holds every document beside the others: intent 7c8986c5)
+            await db.transaction((tx) => dropDoc(tx, author, p.id, docIdOf(from)));
           } else
             await db.transaction(async (tx) => {
               await settle(tx, p.id, "archived", null);
@@ -905,7 +907,8 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
   if (me.level !== "admin") throw new Denied("Only Maia City's admins decide on stories.");
   return asStoryError(async () => {
     const docId = await ensureStoryDoc(tx, p.story_id);
-    const variant = Number((await tx.query<{ doc_variant: string | null }>(`SELECT variant_id AS doc_variant FROM play.intent_variants WHERE intent_id = $1 ORDER BY position LIMIT 1`, [p.id])).rows[0]?.doc_variant);
+    // its own intent variant on this story's document (an intent may hold several documents: intent 7c8986c5)
+    const variant = Number((await tx.query<{ doc_variant: string | null }>(`SELECT variant_id AS doc_variant FROM play.intent_variants WHERE intent_id = $1 AND doc_id = $2`, [p.id, docId])).rows[0]?.doc_variant ?? p.doc_variant);
     const author = authorOf(me, "site");
     const closeBranch = async (status: "archived") => {
       const { rows } = await tx.query<{ status: string }>(`SELECT status FROM play.doc_variants WHERE id = $1`, [variant]);

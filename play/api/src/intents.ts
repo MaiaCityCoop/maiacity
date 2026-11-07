@@ -352,7 +352,8 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
   const named = prOf(pr);
   const list = given === undefined || given === null ? [] : given;
   if (!Array.isArray(list) || (!list.length && named === undefined)) throw new IntentError("Give each check's result: { check: 'c1', pass: true | false, evidence }.");
-  const moves = intent.stage === "build" || (intent.stage === "proposal" && intent.approved_at && !waiting(intent));
+  // (code beside play's work, intent 7c8986c5: its run records its checks at Proposal too, its work waiting with it)
+  const moves = intent.stage === "build" || (intent.stage === "proposal" && intent.approved_at && (!waiting(intent) || !!intent.pull_request));
   const confirms = list.length > 0 && named === undefined && !!intent.approved_at && list.every((r: any) => r?.where === "main");
   if (!moves && !confirms)
     throw new IntentError(
@@ -361,7 +362,6 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
     );
   // held: nothing is recorded until every intent it depends on is shipped (main's confirmations are still taken)
   if (moves && !confirms && intent.held_by.length) throw new IntentError(heldText(intent.id, intent.held_by), 409);
-  if (named !== undefined && intent.work) throw new IntentError(`Intent ${intent.id} holds work of play's: it is accepted in play, with no pull request.`, 409);
   // work of another kind than declared is refused: a pull request is code
   const undeclared = named !== undefined ? notDeclared(intent, { code: true }) : "";
   if (undeclared) throw new IntentError(undeclared, 409);
@@ -453,7 +453,9 @@ async function mayMove(db: Queryable, intent: string | GateRow, to: Move, what?:
         if (i.work) return "Its work waits for a decision: accepting applies it (./versioned.ts decide).";
         return i.pull_request ? `Its code is pull request #${i.pull_request}: Accept ships it (./ship.ts), merging it into main.` : "";
       case "accept_work":
-        return at === "proposal" ? "" : `This intent is at the ${at} stage: only one at Proposal is decided.`;
+        if (at !== "proposal") return `This intent is at the ${at} stage: only one at Proposal is decided.`;
+        // play's work beside code is accepted once its code is live (intent 7c8986c5): Accept and ship takes both
+        return i.pull_request ? `Its code is pull request #${i.pull_request}: Accept and ship ships it, and its work of play's is accepted once the code is live (./ship.ts).` : "";
       case "ship":
         return at === "proposal" ? "" : at === "build" ? NOT_IN_BUILD : `Intent ${i.id} is at the ${at} stage now.`;
       case "merge":
@@ -595,7 +597,7 @@ export async function autoMove(ctx: { db: Db; store?: BlobStore }, id: string, o
   const intent = await intentRow(db, id);
   const at = intent.stage === "specify" ? ("approve" as const) : intent.stage === "proposal" ? ("accept" as const) : null;
   if (!at) return null;
-  const move: Move = at === "approve" ? "build" : intent.work ? "accept_work" : intent.pull_request ? "ship" : "accept";
+  const move: Move = at === "approve" ? "build" : intent.pull_request ? "ship" : intent.work ? "accept_work" : "accept";
   if (await gate.mayMove(db, intent, move)) return null;
   const set = await ruleSetOf(db);
   const facts = await factsOf(db, intent.id);

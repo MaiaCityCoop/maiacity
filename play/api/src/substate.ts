@@ -143,7 +143,7 @@ export function subStateOf(intent: Row, seen: PrSeen | null | undefined = intent
     return S("working", "shipping", s ? `${s.name}${s.note ? ` · ${s.note}` : ""}` : "on its way");
   }
   // code at Proposal waits in Ship for a dependency there (./intents.ts mayMove), so only one elsewhere holds it
-  const holds = at === "proposal" && pr && !intent.work ? held.filter((d) => d.stage !== "ship") : held;
+  const holds = at === "proposal" && pr ? held.filter((d) => d.stage !== "ship") : held;
   if (holds.length) return S("idle", "held", heldWhy(holds));
   if (at === "build") {
     // a conflict with main is failed in Build too: its builder resolves it (woken by the status 'Merges with main')
@@ -157,7 +157,8 @@ export function subStateOf(intent: Row, seen: PrSeen | null | undefined = intent
   }
 
   // Proposal
-  if (intent.work || !pr) return S("waiting", "Accept", "Accept");
+  // code, with play's work beside it or not (intent 7c8986c5), is Accept and ship
+  if (!pr) return S("waiting", "Accept", "Accept");
   if (!seen || seen.pr !== pr || now - Date.parse(seen.at) > SEEN_MOST_MS) return S("working", "reading GitHub", `reading #${pr} on GitHub`);
   return prBlock(intent, seen) ?? S("waiting", "Accept and ship", "Accept and ship");
 }

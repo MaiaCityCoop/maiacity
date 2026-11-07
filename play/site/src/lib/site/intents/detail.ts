@@ -39,8 +39,8 @@ export type Intent = {
 
 export const STAGE_NAME: Record<Stage, string> = { idea: 'Idea', specify: 'Specify', build: 'Build', proposal: 'Proposal', ship: 'Ship', accepted: 'Accepted', archived: 'Archived' };
 
-/** whether an intent's Accept ships it: its work is code, its pull request named */
-export const isCode = (i: Intent) => !i.work && !!i.pull_request;
+/** whether an intent's Accept ships it: it names its pull request (with play's work beside it or not: intent 7c8986c5) */
+export const isCode = (i: Intent) => !!i.pull_request;
 /** its pull request merged by an earlier ship that went red: Accept ships that again */
 export const shipsAgain = (i: Intent) => isCode(i) && !!i.ship?.merge && i.ship.pr === i.pull_request && i.ship.outcome === 'red';
 /** a person may decide it now (the API refuses the rest): waiting, or red after its merge (Accept ships it again) */
@@ -138,18 +138,21 @@ const progressOf = (i: Intent, label: string): Part | null => {
 };
 const depsOf = (i: Intent): Part | null => (i.depends_on?.length ? { part: 'deps', deps: i.depends_on, held: !!i.held_by?.length } : null);
 const goalOf = (i: Intent): Part | null => (i.spec?.goal ? { part: 'goal', text: firstSentence(i.spec.goal) } : null);
-/** its work in a line: play's (a version of a document, and how many more) or its pull request (draft or ready) */
+/** its pull request in words: its number and how GitHub last saw it (draft, ready, merged, closed) */
+const prText = (i: Intent) => {
+	const seen = i.pr_seen && i.pr_seen.pr === i.pull_request ? i.pr_seen : null;
+	const state = seen ? (seen.merged ? ', merged' : seen.state === 'closed' ? ', closed' : seen.draft ? ', a draft' : ', ready') : '';
+	return `pull request #${i.pull_request}${state}`;
+};
+/** its work in a line: play's (a version of a document, and how many more), its pull request (draft or ready), or both (intent 7c8986c5) */
 const workOf = (i: Intent, label: string): Part | null => {
 	const w = i.work;
 	if (w) {
 		const more = (w.docs ?? 1) > 1 ? `, and ${w.docs! - 1} more ${w.docs === 2 ? 'document' : 'documents'}` : '';
-		return { part: 'work', label, text: `play's work: ${w.label} ${w.number == null ? 'a change' : `v${w.number}`}${more}`, review: true };
+		const code = i.pull_request ? `; ${prText(i)}` : '';
+		return { part: 'work', label, text: `play's work: ${w.label} ${w.number == null ? 'a change' : `v${w.number}`}${more}${code}`, review: true };
 	}
-	if (i.pull_request) {
-		const seen = i.pr_seen && i.pr_seen.pr === i.pull_request ? i.pr_seen : null;
-		const state = seen ? (seen.merged ? ', merged' : seen.state === 'closed' ? ', closed' : seen.draft ? ', a draft' : ', ready') : '';
-		return { part: 'work', label, text: `pull request #${i.pull_request}${state}`, pr: i.pull_request };
-	}
+	if (i.pull_request) return { part: 'work', label, text: prText(i), pr: i.pull_request };
 	return null;
 };
 
@@ -198,7 +201,13 @@ export function detailOf(i: Intent, opts: { brief?: string | null } = {}): Detai
 				verdict: 'accept',
 				label,
 				enabled: ok,
-				why: !ok ? (i.sub?.why ?? '') : isCode(i) ? (shipsAgain(i) ? 'The release (or main’s failed jobs) runs again.' : `Merged into main in its turn, then to production.`) : i.work ? 'Applies its work: what it asked is in.' : 'What it asked is in.'
+				why: !ok
+					? (i.sub?.why ?? '')
+					: isCode(i)
+						? (shipsAgain(i) ? 'The release (or main’s failed jobs) runs again.' : `Merged into main in its turn, then to production.`) + (i.work ? ' Its work of play’s is accepted once its code is live.' : '')
+						: i.work
+							? 'Applies its work: what it asked is in.'
+							: 'What it asked is in.'
 			};
 			reject = true;
 			tab = i.work || i.pull_request ? 'changes' : 'checks';
@@ -217,7 +226,8 @@ export function detailOf(i: Intent, opts: { brief?: string | null } = {}): Detai
 			if (i.stage === 'archived') {
 				const back = i.steps?.length ? i.steps[i.steps.length - 1] : null;
 				text = i.decided_by ? `Rejected${by}: it ended archived.` : back ? `Archived: ${back.reason}` : 'Archived.';
-			} else if (i.work) text = `${i.work.label} ${i.work.number == null ? 'changed' : `v${i.work.number}`}, accepted${by}.`;
+			} else if (i.work && i.ship?.merge) text = `${i.work.label} ${i.work.number == null ? 'changed' : `v${i.work.number}`}${(i.work.docs ?? 1) > 1 ? ` and ${i.work.docs! - 1} more` : ''}, with pull request #${i.ship.pr} merged and in production, accepted${by}.`;
+			else if (i.work) text = `${i.work.label} ${i.work.number == null ? 'changed' : `v${i.work.number}`}, accepted${by}.`;
 			else if (i.ship?.merge) text = `Pull request #${i.ship.pr} merged and in production${by ? `, accepted${by}` : ''}.`;
 			else text = `Accepted${by}${i.auto?.accept ? ` (by rule ${i.auto.accept.label})` : ''}.`;
 			top.push({ part: 'outcome', text, at }, live ? { part: 'reason', tone: 'failed', text: 'Not live: production runs another commit (the Ship tab says which).' } : null);
