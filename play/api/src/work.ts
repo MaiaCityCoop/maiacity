@@ -8,7 +8,7 @@
 // 2026-11-06): a document's version goes in beside what the intent holds (its variant of that same document replaced),
 // and they are all accepted in one transaction or archived together; an asset's or story's version or a sandbox's
 // change is the intent's whole work, in place of what it held. Deciding settles it: accepted, or archived (a moved base
-// archives it too; one with an approved spec then goes back to Prototype, to be built on the new head).
+// archives it too; one with an approved spec then goes back to Build, to be built on the new head).
 import type { Me } from "./access";
 import { COOP } from "./access";
 import * as docs from "./docs";
@@ -118,18 +118,19 @@ const TITLED = `UPDATE play.intents i SET title = left(COALESCE(NULLIF(btrim(CAS
  * ./intents.ts intentReady), or, with none named, a new intent of its own. A document's version alone goes in beside
  * the documents the intent holds; anything else replaces its work. Gives back its id.
  */
-export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string | null; work: Work; note: string; via: "web" | "mcp"; title?: string }): Promise<string> {
+export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string | null; work: Work; note: string; via: "web" | "mcp"; title?: string; whole?: boolean }): Promise<string> {
   const cols = REFS.map((k) => (o.work as any)[k] ?? null).map((v, i) => (JSON_REFS.has(REFS[i]) && v !== null ? JSON.stringify(v) : v));
   const set = REFS.map((k, i) => `${k} = ${JSON_REFS.has(k) ? `($${i + 2}::text)::jsonb` : `$${i + 2}`}`).join(", ");
   const n = REFS.length + 2;
-  const alone = !!o.work.doc_id && REFS.every((k) => (o.work as any)[k] == null);
+  // (`whole`: a document whose kind decides its own way, a schema's version, is its intent's whole work too)
+  const alone = !o.whole && !!o.work.doc_id && REFS.every((k) => (o.work as any)[k] == null);
   let id: string;
   if (o.intent) {
     const was = await workOf(q, o.intent, true);
     if (!was) throw new WorkError("There is no such intent.", 404);
-    if (was.stage !== "prototype" && was.stage !== "proposal") throw new WorkError(`Intent ${was.id} is at the ${was.stage} stage: it takes no work now.`, 409);
+    if (was.stage !== "build" && was.stage !== "proposal") throw new WorkError(`Intent ${was.id} is at the ${was.stage} stage: it takes no work now.`, 409);
     id = was.id;
-    // variants of work decided before (archived, the intent back in Prototype) are no longer its work
+    // variants of work decided before (archived, the intent back in Build) are no longer its work
     await q.query(`DELETE FROM play.intent_variants iv USING play.doc_variants v WHERE iv.intent_id = $1 AND v.id = iv.variant_id AND v.status NOT IN ('open', 'proposed')`, [id]);
     if (!(alone && was.kind && was.kind !== SANDBOX_WORK)) {
       // the work it held before is replaced: its intent variants closed (but the one proposed now), kept in the history
@@ -160,13 +161,13 @@ export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string 
 /**
  * Settles an intent's work (in the decision's transaction): accepted, or archived. Archived by a person (`by`), it ends
  * archived; archived by itself (no `by`: its base moved and it no longer holds there), one whose spec was approved goes
- * back to Prototype, its results cleared, to be built again on the new head. Its stage is what it settled to.
+ * back to Build, its results cleared, to be built again on the new head. Its stage is what it settled to.
  */
 export async function settle(q: Queryable, id: string, outcome: "accepted" | "archived", by: string | null, extra: { sandbox_diff?: unknown } = {}): Promise<string> {
   const diff = extra.sandbox_diff === undefined ? null : JSON.stringify(extra.sandbox_diff);
   const { rows } = await q.query<{ stage: string }>(
     `UPDATE play.intents SET
-        stage = CASE WHEN $2 = 'accepted' THEN 'accepted' WHEN $3::text IS NULL AND approved_at IS NOT NULL THEN 'prototype' ELSE 'archived' END,
+        stage = CASE WHEN $2 = 'accepted' THEN 'accepted' WHEN $3::text IS NULL AND approved_at IS NOT NULL THEN 'build' ELSE 'archived' END,
         results = CASE WHEN $2 = 'archived' AND $3::text IS NULL AND approved_at IS NOT NULL THEN NULL ELSE results END,
         decided_by = CASE WHEN $2 = 'archived' AND $3::text IS NULL AND approved_at IS NOT NULL THEN NULL ELSE $3 END,
         decided_at = CASE WHEN $2 = 'archived' AND $3::text IS NULL AND approved_at IS NOT NULL THEN NULL ELSE now() END,

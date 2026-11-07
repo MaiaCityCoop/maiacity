@@ -90,7 +90,7 @@ suite("avenBOX's runner", () => {
     // before its spec is approved it runs, but nothing is recorded
     const early = await runner(i.id, "--record");
     expect(early.out).toContain("not recorded");
-    expect(early.out).toContain("prototyped");
+    expect(early.out).toContain("being built");
     await fetch(`${server.url}api/intents/${i.id}/approve`, { method: "POST", headers: { cookie: ada.cookie } });
 
     const dry = await runner(i.id);

@@ -183,7 +183,7 @@ suite("assets as documents", () => {
   /** an intent in Prototype, its spec approved: what an edit is made for (every edit is an intent's) */
   const building = async (title: string) => {
     const id = crypto.randomUUID();
-    await db.query(`INSERT INTO play.intents (id, coop_id, kind, title, stage, author, via, approved_at) VALUES ($1, $2, 'improve', $3, 'prototype', $4, 'mcp', now())`, [id, COOP, title, who.ada.id]);
+    await db.query(`INSERT INTO play.intents (id, coop_id, kind, title, stage, author, via, approved_at) VALUES ($1, $2, 'improve', $3, 'build', $4, 'mcp', now())`, [id, COOP, title, who.ada.id]);
     return id;
   };
 

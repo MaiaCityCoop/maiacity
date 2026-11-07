@@ -24,7 +24,7 @@
 		{ href: '/sandbox-4/', label: 'Sandbox 4', note: 'The cassette joint: a cast cassette of the 100 m dome seated, keyed, capped and clamped', cover: 'd308f061bd5498775faa69da06ae54aef9a39c784b714c5c3605382e18540aca.jpg' },
 		{ href: '/sandbox-5/', label: 'Sandbox 5', note: 'The forest dome alone in its own food forest, outside and under the glass', cover: '80ee079deb5be54066d2fd230d11fa74ee59aa8f13c6ce3b9b7aa27fb30c8892.jpg' }
 	];
-	type Tile = { href: string; label: string; note: string; icon: (typeof GROUP_APPS)[number]['icon'] | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio' | 'gear' | 'media' | 'link' | 'journal'; admins?: boolean };
+	type Tile = { href: string; label: string; note: string; icon: (typeof GROUP_APPS)[number]['icon'] | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio' | 'gear' | 'media' | 'link' | 'journal' | 'ledger'; admins?: boolean };
 	const APPS: Tile[] = [
 		// the asset library, a tile per group, each the same viewer (Samuel 2026-11-04)
 		...GROUP_APPS.map(({ href, label, note, icon }) => ({ href, label, note, icon })),
@@ -46,6 +46,8 @@
 		{ href: '/game-editor/', label: 'Game editor', note: 'The game\'s configs: how a village grows', icon: 'gear' },
 		// what play teaches its agents, each skill a Loro document (routes/skills, play/SPEC.md §4.14)
 		{ href: '/skills/', label: 'Skills', note: 'What play teaches its agents, and its history', icon: 'journal' },
+		// every schema a document of the meta-schema, its documents and its history (routes/schemas, play/SPEC.md "Version control")
+		{ href: '/schemas/', label: 'Schemas', note: 'Every type of document, itself a document', icon: 'ledger' },
 		{ href: '/admin/', label: 'Members', note: 'Who holds which level', icon: 'coops' },
 		{ href: '/admin/#invites', label: 'Invites', note: 'Make a citizen', icon: 'key' },
 		// the admins' window into play's Postgres, read only (routes/postgres): the coop's own (Samuel 2026-11-03)

@@ -9,8 +9,12 @@ on:
   push:
     branches: [main]
 
+# the called checks read, on a push, which tree the merged pull request's run tested (./tested-tree.sh)
 permissions:
   contents: read
+  actions: read
+  checks: read
+  pull-requests: read
 
 concurrency:
   group: main-${{ github.ref }}

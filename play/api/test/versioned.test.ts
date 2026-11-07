@@ -18,7 +18,8 @@ import { join } from "node:path";
 import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
-import type { DocType } from "../src/docs/schema";
+import { createDoc } from "../src/docs";
+import { COOP, SCHEMA } from "../src/ids";
 import { Rate } from "../src/limits";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
@@ -28,10 +29,13 @@ const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;
 
 /** the test's own kind: a gadget, a label, a count of cogs and a note */
-const GADGET: DocType = {
+/** the gadget's schema: a document of the meta-schema like every schema, made here as its test's setup */
+const GADGET_SCHEMA = "9ad9e7c0-0000-4000-8000-00000000ca75";
+const GADGET = {
+  label: "Gadget",
   name: "gadget/1",
   type: "gadget",
-  schema: {
+  node: {
     type: "object",
     required: ["schema", "label", "cogs"],
     properties: {
@@ -43,8 +47,8 @@ const GADGET: DocType = {
     },
     additionalProperties: false,
   },
-  check: (doc) => [...(doc.cogs === 13 ? ["a gadget never has 13 cogs"] : []), ...(doc.colour && doc.colour === doc.label ? ["a gadget is never named its colour"] : [])],
 };
+const gadgetCheck = (doc: any) => [...(doc.cogs === 13 ? ["a gadget never has 13 cogs"] : []), ...(doc.colour && doc.colour === doc.label ? ["a gadget is never named its colour"] : [])];
 
 const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  // ${line}\n  return { meta: { id, v }, build: () => null };\n};\n`;
 const SPEC = {
@@ -72,7 +76,9 @@ suite("one version control", () => {
     await initSessions(db);
     // c1's kind: its row table and its entry, here and nowhere else
     await db.query(`CREATE TABLE play.gadgets (id UUID PRIMARY KEY, coop_id UUID NOT NULL REFERENCES play.coops(id), label TEXT NOT NULL, created TIMESTAMPTZ NOT NULL DEFAULT now())`);
-    register({ name: "gadget", prefix: "gadget", type: GADGET, work: "gadget_version", table: "play.gadgets", label: "gadget", group: "gadgets", item: (j) => ({ cogs: j.cogs }) });
+    await db.query(`INSERT INTO play.records (id, coop_id, kind, label) VALUES ($1, $2, 'schema', 'Gadget')`, [GADGET_SCHEMA, COOP]);
+    await createDoc(db, { id: `schema:${GADGET_SCHEMA}`, schema: SCHEMA.meta, json: GADGET, author: { human: null, via: "import" }, version: "v1" });
+    register({ name: "gadget", prefix: "gadget", schema: GADGET_SCHEMA, check: gadgetCheck, work: "gadget_version", table: "play.gadgets", label: "gadget", group: "gadgets", item: (j) => ({ cogs: j.cogs }) });
     api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
     for (const n of ["ada", "cit"]) {
       const h = await createHuman(db, n);
@@ -110,11 +116,11 @@ suite("one version control", () => {
     const text = res.content[0].text;
     return res.isError ? { error: text as string } : JSON.parse(text);
   };
-  /** an intent in Prototype, its spec approved, its one must check passed: ready to take work */
+  /** an intent in Build, its spec approved, its one must check passed: ready to take work */
   const readyIntent = async (title: string) => {
     const i = await tool("add_intent", { title });
     await tool("specify_intent", { intent: i.id, ...SPEC });
-    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("prototype");
+    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] })).stage).toBe("proposal");
     return i.id as string;
   };
@@ -386,7 +392,7 @@ suite("one version control", () => {
     expect(ok).toMatchObject({ stage: "accepted", decision: { status: "accepted", numbers: [2, 2] } });
     expect([(await tool("doc_at", { doc: A })).json.cogs, (await tool("doc_at", { doc: B })).json.cogs]).toEqual([2, 3]);
 
-    // a clash on one: neither goes in, the intent archived whole (back to Prototype, its spec approved), both variants closed
+    // a clash on one: neither goes in, the intent archived whole (back to Build, its spec approved), both variants closed
     const clash = await readyIntent("Two gadgets, one clashing");
     const ca = await tool("propose_doc_version", { doc: A, note: "A: a colour", edits: [{ op: "set", path: ["colour"], value: "blue" }], intent: clash });
     const cb = await tool("propose_doc_version", { doc: B, note: "B: more cogs", edits: [{ op: "set", path: ["cogs"], value: 7 }], intent: clash });
@@ -395,7 +401,7 @@ suite("one version control", () => {
     const refused = (await call("ada", "POST", `/api/intents/${clash}/accept`)).data;
     expect(refused.decision.status).toBe("archived");
     expect(refused.message).toContain("nothing of this intent went in");
-    expect(refused.stage).toBe("prototype");
+    expect(refused.stage).toBe("build");
     expect([await number(A), (await tool("doc_at", { doc: A })).json.colour, (await tool("doc_at", { doc: B })).json.cogs]).toEqual([2, undefined, 1]);
     expect([(await variantOf(A, ca.variant)).status, (await variantOf(B, cb.variant)).status]).toEqual(["archived", "archived"]);
 

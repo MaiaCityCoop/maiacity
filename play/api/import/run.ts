@@ -162,7 +162,7 @@ async function writeFounders(tx: Queryable, admins: number[], w: Report["written
   if (missing.length) throw new Error(`no founder numbered ${missing.join(", ")}`);
 }
 
-export async function runImport(db: Db, store: BlobStore, opts: { cache: string; founders: boolean; admins: number[]; dry: boolean; again?: boolean; media?: boolean; log?: (s: string) => void }): Promise<Report> {
+export async function runImport(db: Db, store: BlobStore, opts: { cache: string; founders: boolean; admins: number[]; dry: boolean; again?: boolean; media?: boolean; sources?: string; log?: (s: string) => void }): Promise<Report> {
   const log = opts.log ?? ((s: string) => console.error(s));
   const report: Report = {
     at: new Date().toISOString(),
@@ -188,13 +188,15 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
       report.legacy.skipped = true;
       log(`the legacy import ran on ${report.legacy.ran}: Postgres is the source of truth, none of it is written again`);
       if (opts.media !== false) await importMedia(db, store, report);
-      report.sources = await importSources(db, store);
+      report.sources = await importSources(db, store, opts.sources);
       report.stories = await seedStories(db, store);
       report.factories = await seedFactories(db);
       report.gameConfigs = await seedGameConfigs(db);
       report.skills = await seedSkills(db);
       report.assetDocs = await ensureAssetDocs(db, store);
-      await verifyFiles(db, store, report);
+      // no sweep of the store here (intent 5ab64b8e): the deploy's file check is the backup's, one listing of the store
+      // before anything changes (deploy/backup.sh stops the deploy if a file is missing), and play mends a file its
+      // bucket lacks from that second copy on read (blobs.ts mirroredStore). Reading every file again is server.yml's.
       report.verified.groupsMatch = true; // the feed is not read
       report.ok = !report.verified.fileErrors.length && !report.verified.mediaErrors.length && !report.sources.errors.length && !report.stories.errors.length && !report.factories.errors.length && !report.gameConfigs.errors.length && !report.skills.errors.length && !report.assetDocs.errors.length;
       return report;
@@ -311,7 +313,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
   await importMedia(db, store, report);
   await importSounds(db, report);
   log("giving the imported versions their readable sources…");
-  report.sources = await importSources(db, store);
+  report.sources = await importSources(db, store, opts.sources);
   report.stories = await seedStories(db, store);
   report.factories = await seedFactories(db);
   report.gameConfigs = await seedGameConfigs(db);
@@ -374,7 +376,7 @@ async function verifyFiles(db: Db, store: BlobStore, report: Report) {
 const MEDIA_TYPES: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", mp4: "video/mp4", mp3: "audio/mpeg" };
 
 /** every media file play's site names by its hash (`<hash>.<ending>` in play/site/src: the sandboxes' covers, their sounds) */
-function mediaNamed(): { hash: string; ending: string }[] {
+export function mediaNamed(): { hash: string; ending: string }[] {
   const dir = join(ROOT, "play/site/src");
   const out = new Map<string, string>();
   try {
@@ -430,8 +432,8 @@ async function importMedia(db: Db, store: BlobStore, report: Report) {
   }
   for (const { hash, ending } of named) {
     try {
-      const known = (await db.query(`SELECT 1 FROM play.files WHERE hash = $1`, [hash])).rows.length > 0;
-      if (known && (await store.has(hash))) continue;
+      // a file with its row is present: play keeps a file before its row (and the backup's listing checks the store)
+      if ((await db.query(`SELECT 1 FROM play.files WHERE hash = $1`, [hash])).rows.length > 0) continue;
       // play's own media (the covers it made: play/media/<hash>.<ending>), else legacy's public media
       const own = Bun.file(join(ROOT, "play/media", `${hash}.${ending}`));
       let bytes: Uint8Array;

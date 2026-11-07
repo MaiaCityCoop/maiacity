@@ -1101,13 +1101,47 @@ export const MIGRATIONS: Migration[] = [
     `,
   },
   {
+    // The intents' third stage is Build (intent 60f4f75c-666a-4eca-9bb2-4a29311afa6c, Samuel 2026-11-06): what is
+    // made there is the real change, built and checked in avenBOX. Every intent at 'prototype' moves to 'build' as it
+    // is (its spec, approval, results, pull request and work), and the stage 'prototype' is no more; no alias is kept.
+    // The Intents skill's text for the stage moves by its own proposal (play/SPEC.md §4.14), never here.
+    id: "0033-build",
+    sql: `
+      ALTER TABLE play.intents DROP CONSTRAINT intents_stage_check;
+      UPDATE play.intents SET stage = 'build' WHERE stage = 'prototype';
+      ALTER TABLE play.intents ADD CONSTRAINT intents_stage_check
+        CHECK (stage IN ('idea', 'specify', 'build', 'proposal', 'ship', 'accepted', 'archived'));
+    `,
+  },
+  {
+    // Schemas as documents (play/SPEC.md "Version control", Samuel 2026-11-06): every schema a document schema:<uuid>
+    // of the meta-schema, made by ensureSchemas (src/docs/schemas.ts) at the end of migrate(); here only what it needs.
+    id: "0034-schemas",
+    sql: `
+      -- every document names the schema it was written against, by its UUID, and that schema's version
+      ALTER TABLE play.docs ADD COLUMN schema_id UUID, ADD COLUMN schema_version INT;
+      COMMENT ON COLUMN play.docs.schema IS 'the schema''s old name (story/1 …): only shown; a document names its schema by schema_id';
+      CREATE INDEX ix_docs_schema ON play.docs (schema_id);
+      -- the rows of the kinds no table of their own holds: the schemas, and every kind that is a schema alone
+      CREATE TABLE play.records (
+        id      UUID PRIMARY KEY,
+        coop_id UUID NOT NULL REFERENCES play.coops(id),
+        kind    TEXT NOT NULL CHECK (kind ~ '^[a-z][a-z_]{0,31}$'),
+        label   TEXT NOT NULL,
+        created TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX ix_records_kind ON play.records (kind);
+    `,
+  },
+  {
     // Every change an intent variant (play/SPEC.md "Version control"; intent 847c5d38, Samuel 2026-11-06): an intent may
     // change several documents at once, each by an intent variant of its own, accepted together in one transaction or
     // archived together. play.intent_variants holds them, in place of the intent's one doc_id and doc_variant.
     // Artifacts become documents like any other (artifact:<uuid>, each kept one its v1, made from its row the first
     // time it is read): their row is what Main's newest version says, written only by an Accept, so a row whose
     // artifact is not yet accepted holds nothing but its id; its authors are a list on it, in their order.
-    id: "0033-intent-variants",
+    id: "0035-intent-variants",
     sql: `
       CREATE TABLE play.intent_variants (
         intent_id  UUID NOT NULL REFERENCES play.intents(id) ON DELETE CASCADE,

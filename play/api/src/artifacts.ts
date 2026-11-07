@@ -247,7 +247,7 @@ const ARTIFACT_COLUMNS = `s.id, s.url, s.title, s.description, s.kind, s.tags, t
   s.created, COALESCE(up.at, s.updated_at) AS updated_at, s.text_hash, s.agent_id, ag.name AS agent, s.operator_id, op.name AS operator, COALESCE(up.name, uo.name) AS updated_by,
   COALESCE((SELECT json_agg(json_build_object('id', a.id, 'name', a.name, 'kind', a.kind, 'url', a.url) ORDER BY sa.position)
               FROM play.artifact_authors sa JOIN play.authors a ON a.id = sa.author_id WHERE sa.artifact_id = s.id), '[]'::json) AS authors,
-  (SELECT iv.intent_id FROM play.intent_variants iv JOIN play.intents i ON i.id = iv.intent_id WHERE iv.doc_id = 'artifact:' || s.id::text AND i.stage IN ('prototype', 'proposal') LIMIT 1) AS open_intent`;
+  (SELECT iv.intent_id FROM play.intent_variants iv JOIN play.intents i ON i.id = iv.intent_id WHERE iv.doc_id = 'artifact:' || s.id::text AND i.stage IN ('build', 'proposal') LIMIT 1) AS open_intent`;
 const ARTIFACT_FROM = `play.artifacts s LEFT JOIN play.agents ag ON ag.id = s.agent_id
   LEFT JOIN play.humans op ON op.id = s.operator_id LEFT JOIN play.humans uo ON uo.id = s.updated_by
   LEFT JOIN LATERAL (SELECT h.name, v.decided_at AS at FROM play.doc_variants v JOIN play.intents i ON i.id = v.intent_id JOIN play.humans h ON h.id = i.proposed_by
@@ -393,7 +393,7 @@ async function linkHeld(db: Queryable, url: string): Promise<{ kept?: string; wa
   if (rows[0]) return { kept: rows[0].id };
   const { rows: open } = await db.query<{ intent_id: string; doc_id: string; variant_id: string }>(
     `SELECT iv.intent_id, iv.doc_id, iv.variant_id FROM play.intent_variants iv JOIN play.intents i ON i.id = iv.intent_id
-      WHERE iv.doc_id LIKE 'artifact:%' AND i.stage IN ('prototype', 'proposal')`,
+      WHERE iv.doc_id LIKE 'artifact:%' AND i.stage IN ('build', 'proposal')`,
   );
   for (const o of open) if ((await docs.readDoc(db, o.doc_id, { variant: Number(o.variant_id) })).json.url === url) return { waiting: o.intent_id };
   return {};

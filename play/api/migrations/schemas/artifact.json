@@ -1,0 +1,84 @@
+{
+  "label": "Artifact",
+  "type": "artifact",
+  "name": "artifact/1",
+  "note": "A link from the net Maia City keeps (play/SPEC.md \u00a74.13): its three texts, its kind, tags and date, who brought it and how, and its authors' ids in order. Their forms (a summary's sections and words) are held by play/api/src/artifacts.ts when it is proposed; a new artifact's Main is only its schema until it is accepted (intent 847c5d38).",
+  "node": {
+    "type": "object",
+    "required": [
+      "schema"
+    ],
+    "properties": {
+      "schema": {
+        "const": "artifact/1"
+      },
+      "url": {
+        "type": "string",
+        "minLength": 8,
+        "maxLength": 2000,
+        "pattern": "^https?://"
+      },
+      "title": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 70
+      },
+      "description": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 280
+      },
+      "summary": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 20000,
+        "x-loro": "text"
+      },
+      "kind": {
+        "type": "string",
+        "enum": [
+          "page",
+          "article",
+          "paper",
+          "video",
+          "post",
+          "book",
+          "podcast",
+          "code",
+          "other"
+        ]
+      },
+      "tags": {
+        "type": "array",
+        "maxItems": 12,
+        "items": {
+          "type": "string",
+          "maxLength": 40
+        }
+      },
+      "published": {},
+      "text_hash": {},
+      "origin": {
+        "type": "string",
+        "enum": [
+          "human",
+          "agent"
+        ]
+      },
+      "agent": {
+        "type": "string"
+      },
+      "operator": {},
+      "token": {},
+      "authors": {
+        "type": "array",
+        "maxItems": 20,
+        "items": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        }
+      }
+    },
+    "additionalProperties": false
+  }
+}

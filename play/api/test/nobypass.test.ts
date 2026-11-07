@@ -124,7 +124,7 @@ suite("no write past an Accept", () => {
     await tool("specify_intent", { intent: checked, ...SPEC });
     await call("ada", "POST", `/api/intents/${checked}/approve`);
     const S0 = await mains();
-    expect(S0.size).toBe(6);
+    expect([...S0.keys()].filter((id) => !id.startsWith("schema:")).length).toBe(6);
 
     // every tool that is not a read, called with work it takes
     const CALLS: Record<string, Record<string, unknown>> = {
