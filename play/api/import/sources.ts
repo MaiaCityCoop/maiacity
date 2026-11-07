@@ -30,13 +30,24 @@ export type SourcesReport = { files: number; attached: number; recipesAbsent: nu
 export async function importSources(db: Db, store: BlobStore, dir = SOURCES): Promise<SourcesReport> {
   const out: SourcesReport = { files: 0, attached: 0, recipesAbsent: 0, errors: [] };
   const index: SourceIndex = JSON.parse(readFileSync(join(dir, "index.json"), "utf8"));
-  // each source, checked against its own hash
+  // each source, checked against its own hash (the repo's files: no call to the store)
   const texts = new Map<string, string>();
   for (const [hash, file] of Object.entries(index.sources)) {
     const text = readFileSync(join(dir, file), "utf8");
     if (hashText(text) !== hash) out.errors.push(`${file}: its text is not ${hash}`);
     else texts.set(hash, text);
   }
+  // in one query, which of the index's recipe files play holds, and whether a version or variant of it lacks its source:
+  // only those are fetched and checked, so a deploy where every one has its source asks the store nothing
+  const recipes = Object.keys(index.recipes);
+  const { rows } = await db.query<{ recipe: string; lacking: boolean }>(
+    `SELECT recipe_hash AS recipe, bool_or(source_hash IS NULL) AS lacking FROM (
+        SELECT recipe_hash, source_hash FROM play.asset_versions WHERE recipe_hash = ANY($1::text[])
+        UNION ALL SELECT recipe_hash, source_hash FROM play.asset_variants WHERE recipe_hash = ANY($1::text[])) r
+      GROUP BY recipe_hash`,
+    [recipes],
+  );
+  const held = new Map(rows.map((r) => [r.recipe, r.lacking]));
   const kept = new Set<string>();
   for (const [recipe, r] of Object.entries(index.recipes)) {
     const text = texts.get(r.source);
@@ -44,14 +55,11 @@ export async function importSources(db: Db, store: BlobStore, dir = SOURCES): Pr
       if (!index.sources[r.source]) out.errors.push(`${recipe}: its source ${r.source} is not listed`);
       continue;
     }
-    const { rows } = await db.query<{ n: string }>(
-      `SELECT (SELECT count(*) FROM play.asset_versions WHERE recipe_hash = $1) + (SELECT count(*) FROM play.asset_variants WHERE recipe_hash = $1) AS n`,
-      [recipe],
-    );
-    if (Number(rows[0].n) === 0) {
+    if (!held.has(recipe)) {
       out.recipesAbsent++;
       continue;
     }
+    if (!held.get(recipe)) continue; // every version and variant of it has its source
     // the recipe file must build what the index says the source was checked for
     const bytes = await store.get(recipe);
     const label = bytes ? labelOf(new TextDecoder().decode(bytes)) : null;

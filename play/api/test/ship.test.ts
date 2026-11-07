@@ -207,9 +207,9 @@ suite("accept ships it", () => {
     gh.runs["release.yml"].push(run(base + 2, merge, { display_title: `release ${merge}`, event: "workflow_run", status: "completed", conclusion: "success" }));
     gh.runs["production.yml"].push(run(base + 3, merge, { event: "workflow_dispatch", status: "completed", conclusion: "success" }));
     gh.jobs.set(base + 3, [
-      job(base + 31, "Main is green", "completed", "success"),
       job(base + 32, "The image", "completed", "success"),
-      job(base + 33, "The server", "completed", "success", [{ name: "Back up play", status: "completed", conclusion: "success" }]),
+      job(base + 31, "The backup", "completed", "success"),
+      job(base + 33, "The server", "completed", "success"),
       job(base + 34, "The website", "completed", "success"),
     ]);
   };
@@ -225,7 +225,7 @@ suite("accept ships it", () => {
     expect(ready).toMatchObject({ key: "ready", name: "Ready to merge", state: "green" });
     expect(merged).toMatchObject({ key: "merged", state: "green", link: `https://github.test/${REPO}/pull/${c.pr}` });
     expect(rest.map((s: any) => [s.key, s.state])).toEqual([
-      ["main", "queued"], ["release", "queued"], ["main-green", "queued"], ["image", "queued"], ["backup", "queued"], ["server", "queued"], ["website", "queued"],
+      ["main", "queued"], ["release", "queued"], ["image", "queued"], ["backup", "queued"], ["server", "queued"], ["website", "queued"],
     ]);
     // the status on the head, then the merge of that head, each with SHIP_TOKEN as Bearer
     const writes = writesSince(from);
@@ -463,35 +463,43 @@ suite("accept ships it", () => {
     const release = run(1201, sha(999), { display_title: `release ${c.merge}`, event: "workflow_run", status: "in_progress" });
     gh.runs["release.yml"].push(run(1200, sha(998), { display_title: `release ${sha(5)}`, status: "completed", conclusion: "failure" }), release);
     await watchShips(db, again);
-    expect(await steps()).toMatchObject({ main: "green", release: "running", "main-green": "queued" });
+    expect(await steps()).toMatchObject({ main: "green", release: "running", image: "queued" });
     Object.assign(release, { status: "completed", conclusion: "success" });
     // the deploy: production.yml dispatched on production at the merge commit, its jobs
     const deploy = run(1301, c.merge, { event: "workflow_dispatch", status: "in_progress" });
     gh.runs["production.yml"].push(deploy);
-    const backup = { name: "Back up play", status: "queued", conclusion: null };
+    // the image, the backup and the website start together; the server waits for the image and the backup
     gh.jobs.set(1301, [
-      job(1, "Main is green", "completed", "success"),
       job(2, "The image", "in_progress", null),
-      job(3, "The server", "queued", null, [{ name: "Copy play's files", status: "queued", conclusion: null }, backup]),
+      job(1, "The backup", "queued", null),
+      job(3, "The server", "queued", null),
       job(4, "The website", "completed", "success"),
     ]);
     await watchShips(db, again);
-    expect(await steps()).toEqual({ ready: "green", merged: "green", main: "green", release: "green", "main-green": "green", image: "running", backup: "queued", server: "queued", website: "green" });
+    expect(await steps()).toEqual({ ready: "green", merged: "green", main: "green", release: "green", image: "running", backup: "queued", server: "queued", website: "green" });
     expect((await intent(c.id)).stage).toBe("ship");
-    // the image is built, the server backs up and starts play
+    // the image is built while play is backed up; then the server starts play
     gh.jobs.set(1301, [
-      job(1, "Main is green", "completed", "success"),
       job(2, "The image", "completed", "success"),
-      job(3, "The server", "in_progress", null, [{ name: "Back up play", status: "in_progress", conclusion: null, started_at: iso(Date.now()) }]),
+      job(1, "The backup", "in_progress", null),
+      job(3, "The server", "queued", null),
       job(4, "The website", "completed", "success"),
     ]);
     await watchShips(db, again);
-    expect(await steps()).toMatchObject({ image: "green", backup: "running", server: "running" });
+    expect(await steps()).toMatchObject({ image: "green", backup: "running", server: "queued" });
+    gh.jobs.set(1301, [
+      job(2, "The image", "completed", "success"),
+      job(1, "The backup", "completed", "success"),
+      job(3, "The server", "in_progress", null),
+      job(4, "The website", "completed", "success"),
+    ]);
+    await watchShips(db, again);
+    expect(await steps()).toMatchObject({ image: "green", backup: "green", server: "running" });
     // the background watcher takes the last look itself
     gh.jobs.set(1301, [
-      job(1, "Main is green", "completed", "success"),
       job(2, "The image", "completed", "success"),
-      job(3, "The server", "completed", "success", [{ name: "Back up play", status: "completed", conclusion: "success" }]),
+      job(1, "The backup", "completed", "success"),
+      job(3, "The server", "completed", "success"),
       job(4, "The website", "completed", "success"),
     ]);
     Object.assign(deploy, { status: "completed", conclusion: "success" });
@@ -512,9 +520,9 @@ suite("accept ships it", () => {
     gh.runs["release.yml"].push(run(2201, c.merge, { display_title: `release ${c.merge}`, status: "completed", conclusion: "success" }));
     gh.runs["production.yml"].push(run(2301, c.merge, { event: "workflow_dispatch", status: "completed", conclusion: "failure" }));
     gh.jobs.set(2301, [
-      job(21, "Main is green", "completed", "success"),
       job(22, "The image", "completed", "success"),
-      job(23, "The server", "completed", "failure", [{ name: "Back up play", status: "completed", conclusion: "failure" }, { name: "Start play-api, import, and answer play.maia.city", status: "completed", conclusion: "skipped" }]),
+      job(23, "The backup", "completed", "failure", [{ name: "Back up play", status: "completed", conclusion: "failure" }]),
+      job(21, "The server", "completed", "skipped"),
       job(24, "The website", "completed", "success"),
     ]);
     gh.logs.set(23, Array.from({ length: 100 }, (_, i) => `2026-11-06T12:00:${String(i % 60).padStart(2, "0")}.1234567Z line ${i + 1}`).join("\n") + "\n");
@@ -528,7 +536,7 @@ suite("accept ships it", () => {
     expect(lines[59]).toBe("line 100");
     // the log is fetched from where GitHub points, without the token
     expect(gh.calls.find((x) => x.path === "/23")!.auth).toBeNull();
-    expect(Object.fromEntries(red.ship.steps.map((s: any) => [s.key, s.state]))).toMatchObject({ backup: "red", server: "red", image: "green", website: "green" });
+    expect(Object.fromEntries(red.ship.steps.map((s: any) => [s.key, s.state]))).toMatchObject({ backup: "red", server: "skipped", image: "green", website: "green" });
 
     // its pull request is merged: Accept runs the release again for that commit, first in line, at once
     let from = gh.calls.length;
@@ -536,7 +544,7 @@ suite("accept ships it", () => {
     expect(writesSince(from)).toEqual([expect.objectContaining({ method: "POST", path: "/actions/workflows/release.yml/dispatches", body: { ref: "main", inputs: { sha: c.merge } } })]);
     expect(again).toMatchObject({ stage: "ship", ship: { round: 2, merge: c.merge, report: null, pending: null } });
     expect(again.ship.steps[0]).toMatchObject({ name: "Ready to release again", state: "green" });
-    expect(again.ship.steps.map((s: any) => s.state)).toEqual(["green", "green", "green", "queued", "queued", "queued", "queued", "queued", "queued"]);
+    expect(again.ship.steps.map((s: any) => s.state)).toEqual(["green", "green", "green", "queued", "queued", "queued", "queued", "queued"]);
     // the earlier round's runs are not this one's: nothing moves until a new release runs
     await watchShips(db, gh.gh);
     expect((await shipOf(c.id)).steps[3].state).toBe("queued");
