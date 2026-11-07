@@ -101,6 +101,21 @@
 			})
 			.catch((e) => (briefError = (e as Error).message));
 	});
+	/** one document taken out of its work, with its reason, before it is decided (intent ee0a7455; play/api/src/withdraw.ts):
+	 *  in Build or at Proposal only; at Proposal the intent goes back to Build, its results kept */
+	const withdrawable = $derived(i.stage === 'build' || i.stage === 'proposal');
+	let withdrawError = $state('');
+	async function withdraw(doc: { id: string; label?: string }) {
+		const reason = prompt(`Withdraw ${doc.label ?? doc.id} from this intent's work? Why, in a line:`)?.trim();
+		if (!reason) return;
+		withdrawError = '';
+		try {
+			await api(`/intents/${i.id}/withdraw`, { json: { doc: doc.id, reason } });
+			brief = null;
+		} catch (e) {
+			withdrawError = (e as Error).message;
+		}
+	}
 	let brief = $state<{ id: string; stage: Stage; text: string | null } | null>(null);
 	let briefError = $state('');
 	$effect(() => {
@@ -278,6 +293,7 @@
 										<span class="what">{d.doc?.label ?? d.doc?.id} <span class="muted">{docs.findIndex((x) => x.doc?.id === d.doc?.id) < n ? 'its next version here' : d.seedNumber == null ? 'new' : `v${d.seedNumber + 1}`}</span></span>
 										<span class="pill">{w.status === 'proposal' ? 'waiting' : w.status}</span>
 									</button>
+									{#if withdrawable && d.doc}<button class="btn small ghost withdraw" onclick={() => withdraw(d.doc!)}>Withdraw</button>{/if}
 								</li>
 							{/each}
 						{:else}
@@ -288,9 +304,11 @@
 									<span class="pill">{w.status === 'proposal' ? 'waiting' : w.status}</span>
 									<span class="date muted">{shortWhen(w.created)}</span>
 								</button>
+								{#if withdrawable && docs[0]?.doc}<button class="btn small ghost withdraw" onclick={() => withdraw(docs[0].doc!)}>Withdraw</button>{/if}
 							</li>
 						{/if}
 					</ul>
+					{#if withdrawError}<p class="withdraw-error small" role="alert">{withdrawError}</p>{/if}
 					{#if docs.length > 1}<p class="muted small">{docs.length} documents, accepted together{i.pull_request ? ', once its code is live' : ''}.</p>{/if}
 					{#if w.note}<p class="muted small">{w.note}</p>{/if}
 				{/if}
@@ -355,7 +373,7 @@
 					<h3>Steps back</h3>
 					<ol class="steps-back" aria-label="Steps back">
 						{#each i.steps as s, n (n)}
-							<li><span class="meta">Back from {STAGE_NAME[s.from] ?? s.from} to {STAGE_NAME[s.to] ?? s.to} by {s.by ?? 'someone'} <span class="via">via MCP</span> · {when(s.at)}</span><span class="why">{s.reason}</span></li>
+							<li><span class="meta">{#if s.doc}Withdrew {s.doc}{s.from !== s.to ? `, back from ${STAGE_NAME[s.from] ?? s.from} to ${STAGE_NAME[s.to] ?? s.to},` : ''}{:else}Back from {STAGE_NAME[s.from] ?? s.from} to {STAGE_NAME[s.to] ?? s.to}{/if} by {s.by ?? 'someone'} <span class="via">via {s.via === 'site' ? 'the board' : 'MCP'}</span> · {when(s.at)}</span><span class="why">{s.reason}</span></li>
 						{/each}
 					</ol>
 				{/if}
@@ -530,6 +548,9 @@
 	.linked .open { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.4rem 0.55rem; border-radius: 10px; background: var(--paper, #faf8f2); border: 1px solid var(--line, #dcd5c4); font-size: 0.88rem; }
 	.linked .what { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 	.linked .date { font-size: 0.76rem; white-space: nowrap; }
+	.linked li:has(.withdraw) { display: flex; align-items: center; gap: 0.4rem; }
+	.linked .withdraw { flex: 0 0 auto; }
+	.withdraw-error { margin: 0 0 0.4rem; color: #9c3b22; overflow-wrap: anywhere; }
 	@media (max-width: 520px) { .linked .date { display: none; } }
 	.inline-build { margin: 0.2rem 0 0.6rem; display: flex; flex-direction: column; gap: 0.4rem; }
 	.inline-story { margin: 0.2rem 0 0.6rem; min-width: 0; container-type: inline-size; }

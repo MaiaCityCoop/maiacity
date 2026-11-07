@@ -4,6 +4,7 @@
 import type { Queryable } from "./pg";
 import type { Me } from "./access";
 import { piecesShown } from "./pieces";
+import { lodOf } from "./lod";
 import { assetSeen } from "./owners";
 
 /** who asks: their id, for ./owners.ts's rule (null: no one, who sees the coop's alone) */
@@ -31,6 +32,8 @@ export const summary = (record: any, parent?: any) => {
     sheet: typeof record?.sheet === "string" ? record.sheet : null,
     datasheet: typeof record?.datasheet === "string" ? record.datasheet : null,
     brief: typeof record?.brief === "string" ? record.brief : null,
+    // its levels of detail (./lod.ts): a version from before the contract names none, and is read as derived
+    lod: lodOf(c),
   };
 };
 

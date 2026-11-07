@@ -39,6 +39,7 @@ import * as docs from "./docs";
 import { asDoc, asStory, authorOf, docIdOf, ensureStoryDoc, storyDocAt, versionAtFrontiers } from "./storydocs";
 import { overlap } from "./versioned";
 import { fileTypes, keepFile as keepOwned } from "./owners";
+import { unreadable } from "./assetdocs";
 import { closeWork, dropDoc, putAtProposal, settle, stageAfter, WORK_OF, workOf, WorkError } from "./work";
 
 export class StoryError extends Error {
@@ -154,6 +155,12 @@ const KINDS: Record<string, (c: Record<string, unknown>, what: string) => Record
       out.video = video;
       if (c.video_in != null) out.video_in = seconds(c.video_in, `${what}'s video_in`, 0, 36_000);
     } else if (c.video === "") out.video = null;
+    // its motion design, if it has one: a composition's hash, played in its place from its 0 at the shot's at
+    if (c.composition != null && c.composition !== "") {
+      const comp = text(c.composition, `${what}'s composition`, 64);
+      if (!HASH.test(comp)) throw new StoryError(`${what}'s composition must be a composition's file hash (add_story_composition gives one).`);
+      out.composition = comp;
+    } else if (c.composition === "") out.composition = null;
     return out;
   },
   voice: (c, what) => ({ who: text(c.who, `${what}'s speaker`, 60), line: text(c.line, `${what}'s line`, 1000), ...cuesOf(c.cues, what, c.duration) }),
@@ -324,6 +331,12 @@ export async function checkBody(db: Queryable, given: any, self?: string): Promi
     const held = new Set([...(await fileTypes(db, videos))].filter(([, t]) => t.startsWith("video/")).map(([h]) => h));
     const missing = videos.filter((v) => !held.has(v));
     if (missing.length) throw new StoryError(`No video is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_video first.`);
+  }
+  const comps = [...new Set(tracks.filter((t) => t.kind === "shots").flatMap((t) => t.clips.map((c) => c.composition)).filter((v): v is string => typeof v === "string"))];
+  if (comps.length) {
+    const held = new Set([...(await fileTypes(db, comps))].filter(([, t]) => t === COMPOSITION_TYPE).map(([h]) => h));
+    const missing = comps.filter((v) => !held.has(v));
+    if (missing.length) throw new StoryError(`No composition is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_composition first.`);
   }
   const duration = round(Math.max(0, ...tracks.flatMap((t) => t.clips.map((c) => c.at + c.duration))));
   if (!(duration > 0)) throw new StoryError("A story has at least one clip.");
@@ -1067,6 +1080,35 @@ export async function putDocument(db: Queryable, store: BlobStore, text: unknown
   const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, DOCUMENT_TYPE);
   await keepFile(db, hash, bytes.length, DOCUMENT_TYPE, key, fileLabel(label), owner);
   return { hash, size: bytes.length, media_type: DOCUMENT_TYPE };
+}
+
+// ---- compositions: a shot's motion design, one HyperFrames composition (play/SPEC.md §12)
+
+/** a composition is readable HTML of at most this many bytes */
+export const MOST_COMPOSITION = 2_000_000;
+/** the media type play keeps a composition as (served as plain text, like every code file) */
+export const COMPOSITION_TYPE = "text/html";
+
+/**
+ * Keep one composition among play's files; its hash. It is one HyperFrames composition as written: readable (not bundled
+ * or minified), a root naming its data-composition-id, its timeline registered on window.__timelines, and loading nothing
+ * from outside play (GSAP and HyperFrames' runtime come from play, by their hash). It runs only in the Stories player's
+ * sealed frame and in HyperFrames' renderer, never on play's server or origin.
+ */
+export async function putComposition(db: Queryable, store: BlobStore, html: unknown, label?: unknown, owner?: string): Promise<{ hash: string; size: number; media_type: string }> {
+  if (typeof html !== "string" || !html.trim()) throw new StoryError("Give the composition as its HTML (html).");
+  if (/\u0000/.test(html)) throw new StoryError("A composition is text: no NUL characters.");
+  const bytes = new TextEncoder().encode(html);
+  if (bytes.length > MOST_COMPOSITION) throw new StoryError(`A composition is at most ${MOST_COMPOSITION / 1e6} MB.`, 413);
+  const why = unreadable(html);
+  if (why) throw new StoryError(`A composition is read before it plays, so ${why}.`);
+  if (!/\bdata-composition-id=["'][^"']+["']/.test(html) || !/__timelines\[/.test(html)) throw new StoryError("A composition is one HyperFrames composition: a root with its data-composition-id, its timeline registered on window.__timelines.");
+  const outside = [...html.matchAll(/https?:\/\/[^\s"'<>)]+/gi)].map((m) => m[0]).find((u) => !/^http:\/\/www\.w3\.org\//i.test(u)) ?? html.match(/\b(?:src|href)\s*=\s*["']\/\/[^"']*/i)?.[0];
+  if (outside) throw new StoryError(`A composition loads nothing from outside play (GSAP and HyperFrames' runtime come from play: leave out the scripts that load them), not ${outside.slice(0, 80)}.`);
+  const hash = hashBytes(bytes);
+  const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, COMPOSITION_TYPE);
+  await keepFile(db, hash, bytes.length, COMPOSITION_TYPE, key, fileLabel(label), owner);
+  return { hash, size: bytes.length, media_type: COMPOSITION_TYPE };
 }
 
 // ---- videos

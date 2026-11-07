@@ -130,13 +130,18 @@ export function specOf(body: { goal?: unknown; scope?: unknown; checks?: unknown
   return spec;
 }
 
+/** each row's place in the board's order (CURSOR), by the row intentsWhere returned */
+const cursors = new WeakMap<object, string>();
+
 /** The intents as the board lists them: who wrote, specified, approved and decided each, its dependencies both ways, and its work (null where none). */
-async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
+async function intentsWhere(db: Queryable, where: string, args: unknown[], limit?: number) {
   // a document's label and group, by its kind, from ./versioned.ts's registry
   const kind = workSql();
   // its steps back (./stepback.ts) by to_jsonb: a database migrated short of 0036 (a migration's test) reads too
+  // the cards picked first, ordered and cut to the page, then built: each row's joins and subqueries only for those
   const { rows } = await db.query<any>(
-    `SELECT i.id, i.kind, i.title, i.note, i.stage, i.via, i.created, i.spec, i.results, i.specified_at, i.approved_at, i.decided_at, i.came_with,
+    `WITH pick AS (SELECT i.id, ${WHEN} AS at FROM play.intents i WHERE i.coop_id = $1 AND ${where} ORDER BY at DESC, i.id DESC${limit ? ` LIMIT ${limit}` : ""})
+     SELECT i.id, i.kind, i.title, i.note, i.stage, i.via, i.created, i.spec, i.results, i.specified_at, i.approved_at, i.decided_at, i.came_with,
             i.pull_request, i.ship, COALESCE(to_jsonb(i)->'steps', '[]') AS steps, to_jsonb(i)->'pr_seen' AS pr_seen,
             to_jsonb(i)->'work_kind' AS work_kind, COALESCE(to_jsonb(i)->'auto', '{}'::jsonb) AS auto,
             ${EDGES("d.intent_id = i.id", "d.depends_on")} AS depends_on, ${EDGES("d.depends_on = i.id", "d.intent_id")} AS needed_by,
@@ -153,8 +158,9 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
               'number', CASE WHEN i.asset_id IS NOT NULL THEN COALESCE(wb.number, 0) + 1
                  WHEN i.story_id IS NOT NULL THEN COALESCE(sb.number, 0) + 1
                  ELSE COALESCE(dbv.number, (SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = iv0.doc_id) + 1) END
-            ) END AS work
-       FROM play.intents i
+            ) END AS work,
+            ${CURSOR} AS cursor
+       FROM pick JOIN play.intents i ON i.id = pick.id
        LEFT JOIN play.humans au ON au.id = i.author
        LEFT JOIN play.humans sp ON sp.id = i.specified_by
        LEFT JOIN play.humans ap ON ap.id = i.approved_by
@@ -168,14 +174,16 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
        LEFT JOIN LATERAL (SELECT x.doc_id, x.variant_id FROM play.intent_variants x WHERE x.intent_id = i.id ORDER BY x.position LIMIT 1) iv0 ON true
        LEFT JOIN play.doc_variants dbr ON dbr.id = iv0.variant_id
        LEFT JOIN play.doc_versions dbv ON dbv.doc_id = dbr.doc_id AND dbv.number = dbr.version
-      WHERE i.coop_id = $1 AND ${where}
-      ORDER BY COALESCE(i.decided_at, i.proposed_at, i.created) DESC LIMIT 500`,
+      ORDER BY pick.at DESC, i.id DESC`,
     [COOP, ...args],
   );
   // its sub-state (./substate.ts), from what play keeps: the board asks GitHub nothing
-  return rows.map((r) => {
+  return rows.map(({ cursor, ...r }) => {
     const row = { ...r, held_by: r.depends_on.filter((d: Dep) => d.stage !== "accepted") };
-    return { ...row, sub: sub.of(row) };
+    const out = { ...row, sub: sub.of(row) };
+    // its place in the order, a page's cursor (pageIntents), kept beside the row, not in it
+    cursors.set(out, cursor);
+    return out;
   });
 }
 
@@ -248,11 +256,65 @@ const depsOf = (v: unknown) => {
 
 /** The intents at the given stages (every stage where none is given), the latest first; with `work`, only those holding work of that kind. */
 export async function listIntents(db: Queryable, me: Me | null, stages?: string[], work?: string) {
+  return (await pageIntents(db, me, stages, work)).intents;
+}
+
+/** the order of the board's cards, the latest first (those decided by when they were), ties by id */
+const WHEN = `COALESCE(i.decided_at, i.proposed_at, i.created)`;
+/** an intent's place in that order, a page's cursor: its time in microseconds since the epoch and its id */
+const CURSOR = `floor(extract(epoch FROM ${WHEN}) * 1000000)::bigint::text || '_' || i.id`;
+/** the most intents a page holds */
+export const PAGE_MOST = 200;
+/** A page asked for: how many (1–200) and after which card (a cursor, `next` of the page before). */
+export type IntentPage = { limit?: unknown; before?: unknown };
+const pageOf = (p: IntentPage | undefined) => {
+  let limit: number | undefined;
+  if (p?.limit !== undefined && p.limit !== null && p.limit !== "") {
+    limit = Number(p.limit);
+    if (!Number.isInteger(limit) || limit < 1 || limit > PAGE_MOST) throw new IntentError(`A page of intents holds 1 to ${PAGE_MOST} (limit).`);
+  }
+  let before: [string, string] | null = null;
+  if (p?.before !== undefined && p.before !== null && p.before !== "") {
+    const m = /^(\d{1,19})_([0-9a-f-]{36})$/i.exec(`${p.before}`);
+    if (!m || !UUID.test(m[2])) throw new IntentError("before is a page's cursor: the `next` of the page before.");
+    before = [m[1], m[2].toLowerCase()];
+  }
+  return { limit, before };
+};
+
+/**
+ * The intents at the given stages (every stage where none is given), the latest first; with `work`, only those
+ * holding work of that kind. Whole where no limit is asked (no cap cuts across the board: intent 2cb70fb8); a page of
+ * `limit` where one is, after the cursor `before`, with `next`, the cursor of the page after (null at the end).
+ */
+export async function pageIntents(db: Queryable, me: Me | null, stages?: string[], work?: string, page?: IntentPage) {
   admin(me, INTENT_ADMINS);
   for (const s of stages ?? []) if (!INTENT_STAGES.includes(s as IntentStage)) throw new IntentError(`An intent's stage is ${INTENT_STAGES.join(", ")}.`);
   if (work !== undefined && !workKinds().includes(work)) throw new IntentError(`An intent's work is ${workKinds().join(", ")}.`);
+  const { limit, before } = pageOf(page);
   // (an intent whose work is another's private asset is left out: ./owners.ts)
-  return intentsWhere(db, `($2::text[] IS NULL OR i.stage = ANY($2::text[])) AND ($3::text IS NULL OR i.work = $3) AND ${intentSeen("i", "$4")}`, [stages ?? null, work ?? null, me!.id]);
+  const rows = await intentsWhere(
+    db,
+    `($2::text[] IS NULL OR i.stage = ANY($2::text[])) AND ($3::text IS NULL OR i.work = $3) AND ${intentSeen("i", "$4")}
+       AND ($5::bigint IS NULL OR (floor(extract(epoch FROM ${WHEN}) * 1000000)::bigint, i.id) < ($5::bigint, $6::uuid))`,
+    [stages ?? null, work ?? null, me!.id, before?.[0] ?? null, before?.[1] ?? null],
+    limit === undefined ? undefined : limit + 1,
+  );
+  if (limit === undefined || rows.length <= limit) return { intents: rows, next: null as string | null };
+  const intents = rows.slice(0, limit);
+  return { intents, next: cursors.get(intents[limit - 1]) ?? null };
+}
+
+/** How many intents each stage holds, as the board's columns count them (those another's private work keeps left out). */
+export async function intentCounts(db: Queryable, me: Me | null): Promise<Record<IntentStage, number>> {
+  admin(me, INTENT_ADMINS);
+  const { rows } = await db.query<{ stage: IntentStage; n: number }>(
+    `SELECT i.stage, count(*)::int AS n FROM play.intents i WHERE i.coop_id = $1 AND ${intentSeen("i", "$2")} GROUP BY i.stage`,
+    [COOP, me!.id],
+  );
+  const out = Object.fromEntries(INTENT_STAGES.map((s) => [s, 0])) as Record<IntentStage, number>;
+  for (const r of rows) out[r.stage] = Number(r.n);
+  return out;
 }
 
 export async function intentRow(db: Queryable, id: string) {

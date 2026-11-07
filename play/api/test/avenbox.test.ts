@@ -218,7 +218,7 @@ describe("avenBOX's runner: its modes", () => {
     expect(r.out).toContain("· c4 look (must): judge it by eye: by eye");
   });
 
-  test("--record-from sends check_intent with where avenBOX, the commit, the run's link and pr; only of the intent named, on the head", async () => {
+  test("--record-from sends check_intent with where avenBOX, the commit, the run's address and pr; only of the intent named, on the head", async () => {
     calls.length = 0;
     const results = join(dir, "results.json");
     const r = await run([ID, "--record-from", results, "--pr", "2110", "--head", sha]);

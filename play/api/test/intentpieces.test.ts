@@ -69,7 +69,7 @@ function fixture(tag: string) {
   };
   /** a new asset proposed in intent `intent` on `source` */
   const host = async (intent: string, label: string, source: string) =>
-    proposeAsset(f.db, f.store, await me(), { new: { group: "machines", label }, note: `${label}, a host`, source, intent });
+    proposeAsset(f.db, f.store, await me(), { card: { lod: { levels: "derived" } }, new: { group: "machines", label }, note: `${label}, a host`, source, intent });
   const versionsOf = async (doc: string) =>
     (await f.db.query<{ number: number; hash: string }>(`SELECT number, hash FROM play.piece_versions WHERE piece_id = $1 ORDER BY number`, [doc])).rows;
   const manifest = async (version: string) => (await f.db.query<any>(`SELECT card FROM play.asset_versions WHERE id = $1`, [version])).rows[0].card.manifest;

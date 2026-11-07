@@ -27,9 +27,10 @@ import { archiveOwn, docAt, docEdit, docHistory, kinds, listDocs, proposeDocVers
 import { NO_INTENT, WorkError } from "./work";
 import { addIntent, autoMove, CHECK_HOWS, CHECKS_MOST, dependIntent, getIntent, intentOf, IntentError, intentReady, INTENT_KINDS, INTENT_STAGES, LINE_MOST, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES } from "./intents";
 import { stepBack } from "./stepback";
+import { withdrawDoc } from "./withdraw";
 import { instructionsOf, promptOf, promptsOf, SkillError } from "./skills";
 import { adminByToken } from "./tokens";
-import { STORY_ADMINS, AUDIO_TYPES, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, proposeStory, putAudioBase64, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAt, storyOf, StoryError, VIDEO_TYPES } from "./stories";
+import { STORY_ADMINS, AUDIO_TYPES, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, MOST_COMPOSITION, proposeStory, putAudioBase64, putComposition, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAt, storyOf, StoryError, VIDEO_TYPES } from "./stories";
 import { AssetDocError, assetAt, proposeAsset } from "./assetdocs";
 import { GROUPS, isGroup } from "./groups";
 import { listSandboxes, sandboxOf, SandboxError } from "./sandboxes";
@@ -68,12 +69,15 @@ const RECIPE_RULE =
   "recipe file itself (the asset box's header, then the source, then the line naming this asset and its new version). The code runs only " +
   "in the asset box, the sandboxed frame in the page, never on play's server. Start from the head's source (get_asset gives its hash, " +
   "get_file its text). Every version has one: an imported version's is legacy's own code its recipe file was bundled from (the asset's " +
-  "library, each module marked by the file it came from), made again and checked against that file byte for byte.";
+  "library, each module marked by the file it came from), made again and checked against that file byte for byte. " +
+  "Every new version names its levels of detail on its card, `lod: { levels: 'declared' | 'derived' }` (propose_asset's `lod`; doc_edit's card " +
+  "field `card.lod`, carried on from the head where it has one): 'declared' where its source exports its own L1 and L2 as a plain literal, " +
+  "`module.exports.levels = [{ values: { … } }, …]`, each the same recipe built with those values (its params), else 'derived'; L0 is its build, L3 its picture.";
 
 const STORY_FORMAT =
   "A story is a film as one timeline (format story/1): { schema: 'story/1', format: '9:16' | '16:9' | '1:1' | '4:5', fps: 24 | 25 | 30 | 48 | 50 | 60, duration, tracks }. " +
   "Each track is { id, kind, clips } and each clip { id, at, duration } in seconds (at may be left out to follow the clip before it), plus its kind's fields: " +
-  "kind 'shots' { frame: an image's hash from add_story_frame (the shot's still), video?: a video's hash from add_story_video (its moving picture, played muted, the story's own sound under it), video_in?: where in the video the shot starts (s), transition: how it goes into the next shot, as code where it starts with one: 'cut', 'dissolve 0.5', 'from black 0.7', 'to black 1', 'dip to black 0.4', several joined by commas ('from black 0.7, cut'), else prose }; " +
+  "kind 'shots' { frame: an image's hash from add_story_frame (the shot's still), video?: a video's hash from add_story_video (its moving picture, played muted, the story's own sound under it), video_in?: where in the video the shot starts (s), composition?: a composition's hash from add_story_composition (its motion design, one HyperFrames composition played in the shot's place from its 0 at the shot's at, for its length; the frame stays its still), transition: how it goes into the next shot, as code where it starts with one: 'cut', 'dissolve 0.5', 'from black 0.7', 'to black 1', 'dip to black 0.4', several joined by commas ('from black 0.7, cut'), else prose }; " +
   "kind 'voice' { who, line, cues? } (the narration, shown as the subtitle, cut evenly; or its own subtitles cues: [{ at: seconds into the clip, text, em?: true }], each until the next, em setting one apart, alone and large, such as '100x' while 'a hundred times' is said); " +
   "kind 'notes' { section, emotion (the one primary emotion the section should leave the viewer with, shown under its name on the timeline), camera, retention, mood } (mood as arrows: ↑ ↑↑ ↑↑↑ ↓ ↓↓ ↕). " +
   "Any clip of any track may sound: { audio: a recording's hash from add_story_audio, audio_in: where in the recording it starts (s), gain (dB), fade_in, fade_out (s) }, played from the clip's at for its duration; " +
@@ -237,6 +241,14 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
               "the parameters its recipe declares (its meta.params: { id, label, type: 'number' | 'integer' | 'string', value, min?, max?, step?, names?, maxLength? }), in the order its build takes them. play runs no code, so it knows them only from here: a recipe that declares params and is proposed without them is refused",
             items: { type: "object" },
           },
+          lod: {
+            type: "object",
+            description:
+              "its levels of detail (required: every new version names them): { levels: 'declared' } where its recipe declares its own L1 and L2 (module.exports.levels = [{ values: { detail: 0.25 } }, { values: { detail: 0.1 } }], a plain literal, each the same recipe built with those values, which its params declare), else { levels: 'derived' } (L1 and L2 simplified from its build within the renderer's budgets); L0 is its build, L3 its picture. Optional `budgets`: the triangle counts it is held to, L0 first",
+            properties: { levels: { type: "string", enum: ["declared", "derived"] }, budgets: { type: "array", items: { type: "integer", minimum: 1 }, maxItems: 4 } },
+            required: ["levels"],
+            additionalProperties: false,
+          },
           sheet: { type: ["string", "null"], description: "its reference sheet: the hash of an image play keeps (add it first with add_story_frame, with a label for the Library), a plant's plate of every stage and organ made for it; shown with the version in the asset library and, in the Library, beside the image, the plant it belongs to. Carried on from the head unless given; null takes it away" },
           datasheet: { type: ["string", "null"], description: "its data sheet: the hash of a document play keeps (add_document), the researched numbers with every source. Shown with the version and, in the Library, beside the document. Carried on from the head unless given; null takes it away" },
           brief: { type: ["string", "null"], description: "the brief its reference sheet was made from: the hash of a document play keeps (add_document). Carried on from the head unless given; null takes it away" },
@@ -245,7 +257,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         required: ["group", "label", "note"],
         additionalProperties: false,
       },
-      run: async ({ group, slug, label, source, note, variants, default_variant, params, sheet, datasheet, brief, intent, private: own }, me) => {
+      run: async ({ group, slug, label, source, note, variants, default_variant, params, sheet, datasheet, brief, intent, private: own, lod }, me) => {
         const kinds = Array.isArray(variants) && variants.length ? variants : null;
         if (!source && !kinds) throw new VersionError("Give its source, or its variants.");
         // play runs no code: a recipe's declared params reach its record only from here (a build with values is refused without them)
@@ -259,7 +271,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
           me,
           {
             new: { group, slug, label, ...(own !== undefined ? { private: own } : {}) },
-            ...(params !== undefined ? { card: { params } } : {}),
+            ...(params !== undefined || lod !== undefined ? { card: { ...(params !== undefined ? { params } : {}), ...(lod !== undefined ? { lod } : {}) } } : {}),
             ...(kinds
               ? { variants: Object.fromEntries(kinds.map((x: any) => [`${x.name}`, { source: `${x.source ?? source ?? ""}`, ...(x.label !== undefined ? { label: `${x.label}` } : {}) }])), ...(default_variant ? { defaultVariant: `${default_variant}` } : {}) }
               : { source: `${source}` }),
@@ -439,6 +451,17 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
       run: async ({ data, media_type, label }, me) => (admin(me, STORY_ADMINS), putVideoBase64(db, store, data, media_type, label)),
     },
     {
+      name: "add_story_composition",
+      description: `Add a composition (readable HTML, at most ${MOST_COMPOSITION / 1e6} MB): a shot's motion design as one HyperFrames composition, a root with its data-composition-id and its GSAP timeline registered on window.__timelines, as written (never bundled or minified). It loads nothing from outside play: GSAP and HyperFrames' runtime come from play, so leave out the scripts that load them. play keeps it among its files, served as plain text like every code file, and gives back its BLAKE3 hash, to use as a shot's \`composition\` in propose_story, doc_edit or propose_doc_version: the story is compiled into one composition (play/SPEC.md §12) where it plays in the shot's place, from its 0 at the shot's at, for the shot's length, in the Stories player's sealed frame and in HyperFrames' render alike. The same HTML always gives the same hash.`,
+      inputSchema: {
+        type: "object",
+        properties: { html: { type: "string", description: "the composition's HTML, as written" }, label: { type: "string", description: "a short label for the Library (what it shows); only shown, the file is named by its hash" }, library: LIBRARY_ARG },
+        required: ["html"],
+        additionalProperties: false,
+      },
+      run: async ({ html, label, library }, me) => (admin(me, STORY_ADMINS), putComposition(db, store, html, label, libraryOf(me, library).owner)),
+    },
+    {
       name: "add_document",
       description: `Add a document (Markdown text, at most ${MOST_DOCUMENT / 1e6} MB): a plant's data sheet (its researched numbers, every row with its source) or the brief its reference sheet was made from. play keeps it among its files, shown in the Library with its label, and gives back its BLAKE3 hash, to name as a version's \`datasheet\` or \`brief\` in propose_doc_version or propose_asset (play/SPEC.md §4.10). The same text always gives the same hash.`,
       inputSchema: {
@@ -594,6 +617,23 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         additionalProperties: false,
       },
       run: async ({ intent, reason }, me) => stepBack(db, me, `${intent ?? ""}`, reason),
+    },
+    {
+      name: "withdraw_doc",
+      description:
+        "Take one document out of an intent before it is decided, always with its reason (a document proposed by mistake, or a draft gone stale): the intent's open variant of it, proposed or a draft, closed and kept in the history, the rest of the work as it was; the next doc_edit of it for the intent seeds a new variant from Main. " +
+        "Only while the intent is in Build or at Proposal; at Proposal it goes back to Build, its results kept, the reason kept in its history and shown on the board. Refused: no reason, a decided intent (Ship, Accepted, Archived) or one not built yet, a document the intent has no open or proposed variant of.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          intent: { type: "string", description: "the intent's id (a UUID: list_intents gives it)" },
+          doc: { type: "string", description: "the document to take out: its UUID (get_intent's review.docs[].doc.id), or <kind>:<uuid>" },
+          reason: { type: "string", maxLength: LINE_MOST, description: "why it goes, in one line" },
+        },
+        required: ["intent", "doc", "reason"],
+        additionalProperties: false,
+      },
+      run: async ({ intent, doc, reason }, me) => withdrawDoc(db, me, `${intent ?? ""}`, doc, reason, "mcp"),
     },
     {
       name: "check_intent",

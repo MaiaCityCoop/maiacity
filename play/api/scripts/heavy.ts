@@ -75,7 +75,7 @@ export async function heavy(db: Db, store: BlobStore, author: string, o: { title
   for (let h = 0; h < o.hosts; h++) {
     const label = o.hostLabels?.[h] ?? `Host ${h + 1}`;
     const req = [tops[h % tops.length].hashes.at(-1)!];
-    const a = await proposeAsset(db, store, await me(), { new: { group: "actors", label }, note: `${label}, a host`, source: hostSource(label, req, o.kb), intent });
+    const a = await proposeAsset(db, store, await me(), { card: { lod: { levels: "derived" } }, new: { group: "actors", label }, note: `${label}, a host`, source: hostSource(label, req, o.kb), intent });
     out.hosts.push({ asset: a.asset, label, version: a.version });
   }
   return out;

@@ -111,7 +111,7 @@ suite("no write past an Accept", () => {
     await seedDoc(db, "factory", { id: F, json: { schema: "factory/1", label: "A line", line, parts: [] }, note: "v1" });
     await seedDoc(db, "game_config", { id: L, json: { schema: "levels/1", label: "Levels", villager: { euros: 1, hearts: 1 }, minds: { heartsPerMind: 1, step: 1, heartsPerEuro: 1 }, levels: [{ id: "l1", villagers: 1, phase: "tents", investor: 0, unlocks: [] }] }, note: "v1" });
     await seedDoc(db, "skill", { id: K, json: { schema: "skill/1", label: "A skill", group: "tests", system: "Say it." }, note: "v1" });
-    const asset = await tool("propose_asset", { group: "plants", label: "A fern", source: SOURCE("a fern"), note: "v1", intent: await readyIntent("A fern") });
+    const asset = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "A fern", source: SOURCE("a fern"), note: "v1", intent: await readyIntent("A fern") });
     await call("ada", "POST", `/api/intents/${asset.intent}/accept`);
     const body = { format: "9:16", fps: 30, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line: "One." }] }] };
     const story = await tool("propose_story", { title: "A film", body, note: "v1", intent: await readyIntent("A film") });
@@ -127,12 +127,15 @@ suite("no write past an Accept", () => {
     // no work without an intent: each call below that brings work names one ready for it
     const forWork: Record<string, string> = {};
     for (const k of ["propose_asset", "propose_doc_version", "propose_story", "add_artifact", "update_artifact", "page", "board"]) forWork[k] = await readyIntent(`Work of ${k}`);
+    // two documents proposed on one intent, to be withdrawn: one over MCP, one on the board's route (intent ee0a7455)
+    const withdrawing = await readyIntent("Two to withdraw");
+    for (const d of [K, L]) await tool("propose_doc_version", { doc: d, note: "proposed by mistake", edits: [{ op: "set", path: ["label"], value: "mistaken" }], intent: withdrawing });
     let S0 = await mains();
     expect([...S0.keys()].filter((id) => !id.startsWith("schema:") && !id.startsWith("rules:")).length).toBe(6);
 
     // every tool that is not a read, called with work it takes
     const CALLS: Record<string, Record<string, unknown>> = {
-      propose_asset: { group: "plants", label: "A second fern", source: SOURCE("a second fern"), note: "a new asset", intent: forWork.propose_asset },
+      propose_asset: { lod: { levels: "derived" }, group: "plants", label: "A second fern", source: SOURCE("a second fern"), note: "a new asset", intent: forWork.propose_asset },
       doc_edit: { doc: F, intent: ready, message: "more demand", edits: [{ op: "set", path: ["line", "demand", "perDay"], value: 12 }] },
       propose_doc_version: { doc: L, note: "more euros", edits: [{ op: "set", path: ["villager", "euros"], value: 2 }], intent: forWork.propose_doc_version },
       propose_story: { title: "A second film", body, note: "a new story", intent: forWork.propose_story },
@@ -140,12 +143,14 @@ suite("no write past an Accept", () => {
       add_story_video: { data: Buffer.from("not a video").toString("base64"), media_type: "video/mp4" },
       add_story_audio: { data: Buffer.from("not a recording").toString("base64"), media_type: "audio/mpeg" },
       add_document: { text: "# A data sheet\n\nIts numbers.", label: "a data sheet" },
+      add_story_composition: { html: '<div id="root" data-composition-id="main"></div>\n<script>\n  window.__timelines["main"] = gsap.timeline({ paused: true });\n</script>\n', label: "a composition" },
       add_intent: { title: "Added here" },
       specify_intent: { intent: fresh, ...SPEC },
       check_intent: { intent: checked, results: [{ check: "c1", pass: true, evidence: "exit 0" }] },
       archive_intent: { intent: own.intent },
       depend_intent: { intent: fresh, on: checked },
       step_back_intent: { intent: checked, reason: "back to Specify, for a test" },
+      withdraw_doc: { intent: withdrawing, doc: K, reason: "proposed by mistake" },
       // no tap for an artifact (intent de24f1c5): with no intent named, each makes its own, which the first rule accepts
       add_artifact: { ...ARTIFACT("https://nobypass.example/new") },
       update_artifact: { artifact: art.id, title: "A page, corrected" },
@@ -193,6 +198,7 @@ suite("no write past an Accept", () => {
         await call("ada", "POST", `/api/intents/${no.intent}/archive`);
         await call("cit", "POST", `/api/intents/${waiting[0]}/accept`);
       },
+      "POST /api/intents/:id/withdraw": () => call("ada", "POST", `/api/intents/${withdrawing}/withdraw`, { doc: L, reason: "proposed by mistake" }),
       "POST /api/members/:id/level": () => call("ada", "POST", `/api/members/${who.cit.id}/level`, { level: "citizen" }),
       "POST /api/me/name": () => call("ada", "POST", "/api/me/name", { name: "Ada" }),
       "POST /api/members/:id/name": () => call("ada", "POST", `/api/members/${who.cit.id}/name`, { name: "Cit" }),

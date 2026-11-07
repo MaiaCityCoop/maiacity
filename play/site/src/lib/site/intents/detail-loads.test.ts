@@ -93,7 +93,8 @@ describe('detail loads', () => {
 	});
 
 	test('detail loads: an error returned by the API is shown where the button is', async () => {
-		const d = createDecider({ post: vi.fn(async () => Promise.reject(new ApiError('This intent is at the build stage: only one at Proposal is decided.', 409))), read: vi.fn() });
+		const refuse = async (): Promise<Decidable> => Promise.reject(new ApiError('This intent is at the build stage: only one at Proposal is decided.', 409));
+		const d = createDecider<Decidable>({ post: vi.fn(refuse), read: vi.fn(async () => waiting) });
 		await expect(d.decide(waiting, 'accept')).rejects.toThrow('only one at Proposal is decided');
 		expect(d.busy).toBeNull();
 		// drawn right above the decision's buttons in the intent's detail

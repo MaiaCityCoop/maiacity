@@ -21,6 +21,7 @@ const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
   return i > 0 ? process.argv[i + 1] : undefined;
 };
+(await import("./allow.ts")).allow(1); // paid: only with --allow <n> (or --dry-run), before any call
 const sheet = arg("sheet"), fix = arg("fix"), out = arg("out"), label = arg("label");
 if (!sheet || !fix || !out) {
   console.error("Give --sheet <sheet.jpg> --fix <fix.txt> --out <dir/name> [--label <label>].");
