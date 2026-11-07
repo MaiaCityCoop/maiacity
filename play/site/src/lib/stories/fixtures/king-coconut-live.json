@@ -1,7 +1,7 @@
 {
-"note": "A live shot (intent f270269e): King coconut v3 (asset e43e66c1, version 0461a5e9…) grows from Bearing palm (stage 10, ten years) to Grown palm (stage 11, 22 years) over 6 s while the camera rises up its trunk into the crown, drawn by the frozen box engine 5 from its recipe by hash. Its files are play's (story-parity fetches what it doesn't hold from play's read-only routes with PLAY_MCP_TOKEN).",
+"note": "A live shot (intent f270269e): King coconut v3 (asset e43e66c1, version 0461a5e9…) grows from Bearing palm (stage 10, ten years) to Grown palm (stage 11, 22 years) over 6 s while the camera rises up its trunk into the crown, drawn by the frozen box engine 5 from its recipe by hash; its still (the poster, shown while it builds) is its own first frame. Its files are play's (story-parity fetches what it doesn't hold from play's read-only routes with PLAY_MCP_TOKEN).",
 "story": {"id":"f270269e-0000-4000-8000-00000000c0c0","title":"A king coconut grows","number":1,"schema":"story/1","format":"9:16","fps":30,"duration":6,"tracks":[
- {"id":"shots","kind":"shots","clips":[{"id":"palm","at":0,"duration":6,"transition":"cut","live":{
+ {"id":"shots","kind":"shots","clips":[{"id":"palm","at":0,"duration":6,"frame":"8e3166008a685dbfbf142cca5a0057a0cfda4b1f37102438d2271d430da33b8d","transition":"cut","live":{
   "asset":"e43e66c1-963d-5d63-987d-ceed30f8f2dd","version":"0461a5e94a6b6dfb418fab980cc4ede66d9d8a169b91b23372e2a00e444a3f18",
   "values":{"stage":10,"seed":"maia","detail":1,"fruit":0},
   "keys":[{"at":0,"values":{"stage":10}},{"at":6,"values":{"stage":11}}],
@@ -9,5 +9,6 @@
   "camera":[{"at":0,"eye":[8.5,1.3,11.5],"target":[0,3.4,0],"fov":42},{"at":6,"eye":[5.6,9.4,7.6],"target":[0,7.6,0],"fov":48}]}}]},
  {"id":"voice","kind":"voice","clips":[{"id":"v","at":0,"duration":6,"who":"KING COCONUT","line":"Ten years. Twenty-two.","cues":[{"at":0.4,"text":"Ten years"},{"at":3.4,"text":"Twenty-two"}]}]}
 ]},
+"files": {"8e3166008a685dbfbf142cca5a0057a0cfda4b1f37102438d2271d430da33b8d": "king-coconut-poster.jpg"},
 "assets": {"0461a5e94a6b6dfb418fab980cc4ede66d9d8a169b91b23372e2a00e444a3f18": {"asset":"e43e66c1-963d-5d63-987d-ceed30f8f2dd","version":"0461a5e94a6b6dfb418fab980cc4ede66d9d8a169b91b23372e2a00e444a3f18","recipe":"dc34747867844258b12d0e14ed94a842e7f711414d8c2a1460c0f98a36ce9107","pieces":[],"engine":5}}
 }

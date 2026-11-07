@@ -43907,6 +43907,7 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
         stage.clear();
         stage.show(shown[k].obj, { asset: shown[k].hero, keep: on >= 0, ground: 0 });
         stage.built = 1;
+        stage._gloss();
         on = k;
       }
       shown[k].hero.pose?.(0, 1);

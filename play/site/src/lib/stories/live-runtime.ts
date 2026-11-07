@@ -82,6 +82,9 @@ function shot(tl: any, id: string, spec: Spec) {
 			// on its ground at 0, as a world plants it (a plant's roots under the floor)
 			stage.show(shown[k].obj, { asset: shown[k].hero, keep: on >= 0, ground: 0 });
 			stage.built = 1;
+			// its materials glossed now, not on the stage's own count of frames: a moment never depends on what was
+			// drawn before it
+			(stage as any)._gloss();
 			on = k;
 		}
 		shown[k].hero.pose?.(0, 1);
