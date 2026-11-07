@@ -73,7 +73,9 @@
 	type Spec = { goal: string; scope: string; checks: Check[]; nothing_to_reduce?: string };
 	// where: in avenBOX (the agent's), or on main after the merge (.github/workflows/intents.yml), on which commit
 	type Results = Record<string, { pass: boolean; evidence: string; by: string | null; at: string; where?: 'avenBOX' | 'main'; commit?: string }>;
-	type Intent = { id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null; spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null; decided_at: string | null; decided_by: string | null; came_with: string | null; work: Work | null; pull_request: number | null; ship: Ship | null };
+	/** one step back an agent took over MCP, with its reason (play/api/src/stepback.ts) */
+	type StepBack = { at: string; by: string | null; via: 'mcp'; from: Stage; to: Stage; reason: string };
+	type Intent = { id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null; spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null; decided_at: string | null; decided_by: string | null; came_with: string | null; work: Work | null; pull_request: number | null; ship: Ship | null; steps?: StepBack[] };
 	// an intent's kind, shown as what it asks (the kind 'idea' as Make, the stage Idea being its own; Samuel 2026-11-06)
 	const KINDS: [Kind, string][] = [
 		['idea', 'Make'],
@@ -329,7 +331,7 @@
 	};
 	/** an Accept that merges (Accept and ship): GitHub takes a few seconds */
 	let merging = $state(false);
-	async function decideIntent(id: string, verdict: 'approve' | 'respecify' | 'accept' | 'reject' | 'reopen') {
+	async function decideIntent(id: string, verdict: 'approve' | 'accept' | 'reject' | 'reopen') {
 		merging = verdict === 'accept' && !!intent && isCode(intent);
 		intentError = '';
 		try {
@@ -471,6 +473,15 @@
 				</section>
 			{/if}
 			{#if i.note}<div class="md">{@html md(i.note)}</div>{/if}
+			<!-- its steps back, each with its reason: an agent sends an intent back over MCP itself (step_back_intent), no
+			     button here; only Approve spec moves it forward again (intent 5a78e0b7, Samuel 2026-11-07) -->
+			{#if i.steps?.length}
+				<ol class="steps-back" aria-label="Steps back">
+					{#each i.steps as s, n (n)}
+						<li><span class="meta">Back from {STAGE_NAME[s.from] ?? s.from} to {STAGE_NAME[s.to] ?? s.to} by {s.by ?? 'someone'} <span class="via">via MCP</span> · {when(s.at)}</span><span class="why">{s.reason}</span></li>
+					{/each}
+				</ol>
+			{/if}
 			<section class="spec" class:none={!i.spec}>
 				{#if i.spec}
 					{@const reduce = i.spec.checks.filter((c) => c.step === 'reduce')}
@@ -563,9 +574,7 @@
 				{#if i.stage === 'idea' || i.stage === 'specify' || i.stage === 'build' || i.stage === 'proposal'}
 					<button class="btn small reject" onclick={() => decideIntent(i.id, 'reject')} title="Not to be done: it ends archived">Reject</button>
 				{/if}
-				{#if i.stage === 'build' || (i.stage === 'proposal' && i.approved_at && i.work?.status !== 'proposal')}
-					<button class="btn small ghost" onclick={() => decideIntent(i.id, 'respecify')} title="Its spec is to change: back to Specify, its approval and results cleared">Back to Specify</button>
-				{:else if i.stage === 'accepted' || i.stage === 'archived'}
+				{#if i.stage === 'accepted' || i.stage === 'archived'}
 					<button class="btn small ghost" onclick={() => decideIntent(i.id, 'reopen')} title="Open again: back to {i.spec ? 'Specify' : 'Idea'}">Reopen</button>
 				{/if}
 				{#if i.stage === 'specify' && i.spec}<button class="btn small" onclick={() => decideIntent(i.id, 'approve')} title="The spec is right: an agent may build it">Approve spec</button>
@@ -788,6 +797,9 @@
 	.item-review .tags { margin: 0 0 0.3rem; display: flex; gap: 0.35rem; align-items: center; }
 	.item-review .review-head h2 { font-size: 1.35rem; }
 	/* an intent's note and its spec, as Markdown */
+	.steps-back { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+	.steps-back li { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.4rem 0.6rem; border-left: 3px solid var(--muted, #999); background: var(--paper, #faf8f2); border-radius: 0 8px 8px 0; }
+	.steps-back .why { font-size: 0.88rem; overflow-wrap: anywhere; }
 	.md { font-size: 0.92rem; line-height: 1.5; overflow-wrap: anywhere; }
 	.md :global(:first-child) { margin-top: 0; }
 	.md :global(:last-child) { margin-bottom: 0; }

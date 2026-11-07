@@ -178,7 +178,10 @@ suite("migration 0032-versioned", () => {
 
     // ---- 0032, then the rest: 0033-build and 0034-schemas with ensureSchemas, every schema a document of the meta-schema
     expect(await migrate(db, { until: "0032-versioned" })).toEqual(["0032-versioned"]);
-    expect(await migrate(db)).toEqual(["0033-build", "0034-schemas"]);
+    // (every migration after 0032 runs, 0033-build and 0034-schemas among them, and any that come after them)
+    const rest = MIGRATIONS.map((m) => m.id).slice(MIGRATIONS.findIndex((m) => m.id === "0032-versioned") + 1);
+    expect(rest.slice(0, 2)).toEqual(["0033-build", "0034-schemas"]);
+    expect(await migrate(db)).toEqual(rest);
     // every schema a document, v1 from the seed; every document made before names its schema's UUID and version, and
     // is still valid against that schema as Postgres holds it (play/SPEC.md "Version control")
     const schemas = await q(`SELECT d.id, d.schema_id, (SELECT max(number) FROM play.doc_versions v WHERE v.doc_id = d.id) AS n FROM play.docs d WHERE d.id LIKE 'schema:%' ORDER BY d.id`);
@@ -250,7 +253,7 @@ describe("migrations, one file each", () => {
       expect(sha(readFileSync(join(MIGRATIONS_DIR, `${id}.sql`), "utf8"))).toBe(h);
       expect(sha(MIGRATIONS.find((m) => m.id === id)!.sql)).toBe(h);
     }
-    // every other migration is a new one, dated, after the shipped ones
+    // every other migration is well named (0036-step-backs, numbered in the old array before it went, or a dated one)
     for (const m of MIGRATIONS) if (!(m.id in frozen)) expect(badId(m.id)).toBeNull();
     expect(MIGRATIONS.map((m) => m.id)).toEqual(MIGRATIONS.map((m) => m.id).sort());
   });
@@ -265,7 +268,7 @@ describe("migrations, one file each", () => {
 
   test("refuses a duplicate or malformed id", () => {
     const bad = [
-      "0035-late",                 // numbered after the shipped ones
+      "0037-late",                 // numbered after the last hand-numbered one (0036)
       "2026110712-e9afc2d5-short", // the time without its minutes
       "202611071200-e9afc2d-files", // seven hex
       "202611071200-E9AFC2D5-files", // upper case
@@ -305,8 +308,8 @@ describe("migrations, one file each", () => {
       const prod = at(names[0]);
       expect(await migrate(prod, { migrations: MIGRATIONS.filter((m) => m.id in frozen) })).toEqual(shipped);
       expect(await migrate(prod, { migrations: MIGRATIONS.filter((m) => m.id in frozen) })).toEqual([]);
-      // the new files then run, each once, in name order
-      expect(await migrate(prod, { migrations: all })).toEqual(Object.keys(extra).map((f) => f.slice(0, -4)));
+      // the rest then run (the ones landed since b5d019e and the new files), each once, in name order
+      expect(await migrate(prod, { migrations: all })).toEqual(all.map((m) => m.id).filter((id) => !(id in frozen)));
       expect(await migrate(prod, { migrations: all })).toEqual([]);
 
       // a fresh one runs every file in name order, the new-style ids after 0034-schemas
@@ -314,7 +317,8 @@ describe("migrations, one file each", () => {
       const ran = await migrate(fresh, { migrations: all });
       expect(ran).toEqual(all.map((m) => m.id));
       expect(ran).toEqual([...ran].sort());
-      expect(ran.indexOf("202611071200-e9afc2d5-files")).toBe(ran.indexOf("0034-schemas") + 1);
+      expect(ran.indexOf("202611071200-e9afc2d5-files")).toBeGreaterThan(ran.indexOf("0034-schemas"));
+      expect(ran.slice(-2)).toEqual(Object.keys(extra).map((f) => f.slice(0, -4)));
       const { rows } = await fresh.query<{ n: number }>("SELECT n FROM play.mig_probe ORDER BY n");
       expect(rows.map((r) => r.n)).toEqual([1, 2]);
       expect(await migrate(fresh, { migrations: all })).toEqual([]);
