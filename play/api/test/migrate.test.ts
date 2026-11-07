@@ -6,9 +6,9 @@
 // finds nothing to run.
 //
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { MIGRATIONS, migrate } from "../src/migrations";
+import { MIGRATIONS, MIGRATIONS_DIR, badId, loadMigrations, migrate } from "../src/migrations";
 import { fromBunSql } from "../src/pg";
-import { mkdtempSync } from "node:fs";
+import { copyFileSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { app } from "../src/app";
@@ -235,4 +235,97 @@ suite("migration 0032-versioned", () => {
       expect(h.data.edits.at(-1).kind).toBe("merge");
     }
   }, 60_000);
+});
+
+// One file per migration (play/SPEC.md "Migrations"): every shipped migration a file `<id>.sql` of
+// play/api/migrations, its SQL byte for byte as it ran (the SHA-256 list frozen from main's array at b5d019e,
+// ./fixtures/migrations.sha256.json); the runner reads the folder, runs each file once in name order, and refuses a
+// duplicate or malformed id, naming the file.
+describe("migrations, one file each", () => {
+  const frozen: Record<string, string> = JSON.parse(readFileSync(join(import.meta.dir, "fixtures", "migrations.sha256.json"), "utf8"));
+  const sha = (s: string) => new Bun.CryptoHasher("sha256").update(s).digest("hex");
+
+  test("shipped migrations unchanged", () => {
+    expect(Object.keys(frozen).length).toBe(34);
+    const files = new Set(readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")));
+    for (const [id, h] of Object.entries(frozen)) {
+      expect(files.has(`${id}.sql`)).toBe(true);
+      expect(sha(readFileSync(join(MIGRATIONS_DIR, `${id}.sql`), "utf8"))).toBe(h);
+      expect(sha(MIGRATIONS.find((m) => m.id === id)!.sql)).toBe(h);
+    }
+    // every other migration is well named (0036-step-backs and 0037-intent-depends, numbered in the old array before it went, or a dated one)
+    for (const m of MIGRATIONS) if (!(m.id in frozen)) expect(badId(m.id)).toBeNull();
+    expect(MIGRATIONS.map((m) => m.id)).toEqual(MIGRATIONS.map((m) => m.id).sort());
+  });
+
+  /** a scratch folder holding every migration of play's and the files given */
+  function folderWith(extra: Record<string, string>): string {
+    const dir = mkdtempSync(join(tmpdir(), "play-migrations-"));
+    for (const f of readdirSync(MIGRATIONS_DIR)) if (f.endsWith(".sql")) copyFileSync(join(MIGRATIONS_DIR, f), join(dir, f));
+    for (const [f, sql] of Object.entries(extra)) writeFileSync(join(dir, f), sql);
+    return dir;
+  }
+
+  test("refuses a duplicate or malformed id", () => {
+    const bad = [
+      "0038-late",                 // numbered after the last hand-numbered one (0037)
+      "2026110712-e9afc2d5-short", // the time without its minutes
+      "202611071200-e9afc2d-files", // seven hex
+      "202611071200-E9AFC2D5-files", // upper case
+      "202611071200-e9afc2d5-Files",
+      "202611071200-e9afc2d5",      // no slug
+      "202613071200-e9afc2d5-files", // no 13th month
+      "files",
+    ];
+    for (const id of bad) {
+      const dir = folderWith({ [`${id}.sql`]: "SELECT 1;" });
+      expect(() => loadMigrations(dir)).toThrow(`${id}.sql`);
+    }
+    // a second file under a shipped number
+    expect(() => loadMigrations(folderWith({ "0034-other.sql": "SELECT 1;" }))).toThrow("0034-other.sql");
+    expect(() => loadMigrations(folderWith({ "0034-other.sql": "SELECT 1;" }))).toThrow("duplicate");
+    // a well-formed new one loads, after 0034-schemas
+    const ok = loadMigrations(folderWith({ "202611071200-e9afc2d5-files.sql": "SELECT 1;" }));
+    expect(ok.at(-1)!.id).toBe("202611071200-e9afc2d5-files");
+  });
+
+  const suiteDb = URL_ ? test : test.skip;
+  suiteDb("runs each file once, in name order", async () => {
+    const admin = new Bun.SQL(URL_!);
+    const names = [1, 2].map(() => `play_migfiles_${Date.now()}_${Math.floor(Math.random() * 1e6)}`);
+    const conns: Bun.SQL[] = [];
+    try {
+      for (const n of names) await admin.unsafe(`CREATE DATABASE ${n}`);
+      const at = (n: string) => { const u = new URL(URL_!); u.pathname = `/${n}`; const s = new Bun.SQL(u.toString()); conns.push(s); return fromBunSql(s); };
+      const extra = {
+        "202611071200-e9afc2d5-files.sql": "CREATE TABLE play.mig_probe (n INT); INSERT INTO play.mig_probe VALUES (1);",
+        "202611071201-0badc0de-second.sql": "INSERT INTO play.mig_probe VALUES (2);",
+      };
+      const all = loadMigrations(folderWith(extra));
+      const shipped = Object.keys(frozen);
+
+      // as production stands: 0001–0034 applied; migrating with only the shipped ones runs nothing
+      const prod = at(names[0]);
+      expect(await migrate(prod, { migrations: MIGRATIONS.filter((m) => m.id in frozen) })).toEqual(shipped);
+      expect(await migrate(prod, { migrations: MIGRATIONS.filter((m) => m.id in frozen) })).toEqual([]);
+      // the rest then run (the ones landed since b5d019e and the new files), each once, in name order
+      expect(await migrate(prod, { migrations: all })).toEqual(all.map((m) => m.id).filter((id) => !(id in frozen)));
+      expect(await migrate(prod, { migrations: all })).toEqual([]);
+
+      // a fresh one runs every file in name order, the new-style ids after 0034-schemas
+      const fresh = at(names[1]);
+      const ran = await migrate(fresh, { migrations: all });
+      expect(ran).toEqual(all.map((m) => m.id));
+      expect(ran).toEqual([...ran].sort());
+      expect(ran.indexOf("202611071200-e9afc2d5-files")).toBeGreaterThan(ran.indexOf("0034-schemas"));
+      expect(ran.slice(-2)).toEqual(Object.keys(extra).map((f) => f.slice(0, -4)));
+      const { rows } = await fresh.query<{ n: number }>("SELECT n FROM play.mig_probe ORDER BY n");
+      expect(rows.map((r) => r.n)).toEqual([1, 2]);
+      expect(await migrate(fresh, { migrations: all })).toEqual([]);
+    } finally {
+      for (const c of conns) await c.close();
+      for (const n of names) await admin.unsafe(`DROP DATABASE IF EXISTS ${n} WITH (FORCE)`);
+      await admin.close();
+    }
+  }, 120_000);
 });
