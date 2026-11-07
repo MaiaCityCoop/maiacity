@@ -151,8 +151,9 @@ only by proposal (`doc_edit`, `propose_doc_version`), served from Postgres on ea
 prompts). In short: at Idea it specifies the intent (every test and measure check with its `run` in **avenBOX**) and
 stops for an admin's approval; in Build it builds it, tests itself (`bun play/avenbox/intent.ts <the intent's
 UUID>`) and marks its draft pull request ready, whose run in avenBOX on GitHub records the checks, until it moves to Proposal by itself, where an admin decides it; work of play's it proposes
-naming the intent, code it ships by pull request (*Accept ships it*, above). Work
-proposed without `intent` is a new intent at Proposal of its own, with no spec. No tool approves, accepts or rejects an
+naming the intent, code it ships by pull request (*Accept ships it*, above). **No work without an intent** (intent
+706ed873): every propose path (`propose_*`, `add_artifact`, `update_artifact`, `doc_edit`, `POST /api/intents`) needs
+`intent`, one in Build or at Proposal, so every intent at Proposal has a spec. No tool approves, accepts or rejects an
 intent; an agent archives only its own intents at Proposal put there over MCP (`archive_intent`: one it no longer
 stands by; Samuel 2026-11-04). An intent is named by its own UUID (the old proposals' ids went with migration 0032). **Every agent connected over MCP is avenMAIA** (play/SPEC.md
 §4.13; Samuel 2026-11-06), whatever its client or token, working for the admin whose token connected it, and it keeps
@@ -163,7 +164,7 @@ UUID (`list_authors` first). Every link its operator pastes it adds with `add_ar
 by" the operator), every artifact it finds and uses in its own research with `origin: 'agent'` (shown "Sourced by
 avenMAIA"); `list_artifacts`, `get_artifact`, `update_artifact`, `get_author` read and correct them. An artifact is a
 document like any other (`artifact:<uuid>`): `add_artifact` and `update_artifact` propose its next version as an
-intent's work (named with `intent`, held to its gate, or a new intent of its own at Proposal), decided by the same
+intent's work (named with `intent`, held to its gate), decided by the same
 Accept, one intent at a time; it is kept once accepted, its History in its History tab. The same token also opens play's **read-only world routes** (`GET /api/me`, `/api/catalog`,
 `/api/files/<hash>`, `/api/sandboxes/<id>/config`, `/api/assets…`) as its admin, so an agent can load a sandbox in its own
 browser (sending the header to play only) and film it for a storyboard; nothing else, and nothing that writes. Admins

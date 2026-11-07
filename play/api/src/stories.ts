@@ -644,7 +644,7 @@ export type StoryProposal = {
   edits?: unknown; // or edits applied to the head's
   base?: string | null; // the head version's id it was made from, as the proposer saw it
   variant?: number; // an intent variant made edit by edit (doc_edit), proposed as it stands
-  intent?: string; // the intent it is the work of, by its UUID, held to its gate before (./intents.ts); none, and it is a new intent of its own
+  intent?: string; // the intent it is the work of, by its UUID, held to its gate before (./intents.ts): no work without an intent
 };
 
 // a story version's id is content-addressed as an asset version's is (./versions.ts, play/SPEC.md §4.3): the same story,
@@ -782,6 +782,32 @@ export type Fold = { into: string; from: string[] };
 export type FoldReport = { folded: string[]; present: string[]; errors: string[] };
 
 /**
+ * One accepted version of a folded story written as the next of the story it is brought into (foldStories): an
+ * import, as seedStory is, not work proposed, so it takes no intent (no work without an intent is about work proposed):
+ * its document's Main moves by the variant it is written on, accepted at once, and the story's head with it.
+ */
+async function foldVersion(tx: Queryable, id: string, v: { title: string; body: StoryBody; note: string }, author: docs.Author, by: string, approver: string) {
+  const { rows } = await tx.query<{ head: string | null; number: number | null }>(
+    `SELECT s.head, h.number FROM play.stories s LEFT JOIN play.story_versions h ON h.id = s.head WHERE s.id = $1 FOR UPDATE OF s`, [id],
+  );
+  const head = rows[0]?.head ?? null, n = (rows[0]?.number ?? 0) + 1;
+  const body = await checkBody(tx, v.body, id);
+  const docId = await ensureStoryDoc(tx, id);
+  const variant = (await docs.variant(tx, docId, { author, note: v.note })).id;
+  await docs.commit(tx, docId, { variant, target: asDoc(v.title, body), message: v.note, author });
+  await docs.propose(tx, docId, variant, { note: v.note, author });
+  const parents = head ? [head] : [];
+  const version = versionIdOf(id, parents, v.title, body);
+  await tx.query(
+    `INSERT INTO play.story_versions (id, story_id, number, parents, title, body, note, author, approved_by) VALUES ($1, $2, $3, $4, $5, ($6::text)::jsonb, $7, $8, $9) ON CONFLICT (id) DO NOTHING`,
+    [version, id, n, parents, v.title, JSON.stringify(body), v.note, by, approver],
+  );
+  const d = await docs.accept(tx, docId, variant, { author, note: v.note });
+  if (d.number !== n) throw new Error(`story ${id} and its document disagree: version ${n} against ${d.number}`);
+  await tx.query(`UPDATE play.stories SET head = $2, title = $3, updated = now() WHERE id = $1`, [id, version, v.title]);
+}
+
+/**
  * Brings stories into one timeline: each story of `from`, in order, has its accepted versions proposed on `into` and
  * accepted there, one after the other, as that story's next versions (each by its own author and approver, its note
  * saying where it came from), and the work of its intents at Proposal proposed again on `into`'s new head, for the same
@@ -825,10 +851,8 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
           const said = `(Brought from story “${src.title}”, its v${v.number} of ${iso(v.created).slice(0, 10)}, so the film is one timeline.)`;
           const note = `${`${v.note ?? ""}`.slice(0, NOTE_MOST - said.length - 2)}\n\n${said}`.trim();
           const author = await as(v.author ?? v.approved_by);
-          const made = await proposeStory(db, author, { story: f.into, title: v.title, body: v.body, note }, false, v.via === "web" ? "web" : "mcp");
           const decider = await as(v.approved_by ?? v.author);
-          const res = await db.transaction(async (tx) => decideStory(tx, decider, await workOf(tx, made.intent, true), "accept"));
-          if (res.status !== "accepted") throw new Error(`${from} v${v.number} did not go in: ${(res as any).message ?? res.status}`);
+          await db.transaction((tx) => foldVersion(tx, f.into, { title: v.title, body: v.body, note }, authorOf(author, v.via === "web" ? "site" : "mcp"), author.id, decider.id));
         }
         // the work of its intents at Proposal, proposed again on the timeline's new head for the same intent (which
         // closes its intent variant on this story); where it is there already, the intent is archived

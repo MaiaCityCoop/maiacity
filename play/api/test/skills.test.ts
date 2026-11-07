@@ -195,7 +195,7 @@ suite("skills: what play teaches its agents, kept once", () => {
     expect((await tool("doc_at", { doc: SKILL.intents, version: 1 })).json).toEqual(intents());
 
     // archived, the skill stays as it was
-    const p = await tool("propose_doc_version", { doc: SKILL.avenmaia, note: "a new label", edits: [{ op: "set", path: ["label"], value: "Maia" }] });
+    const p = await tool("propose_doc_version", { doc: SKILL.avenmaia, intent: (await intentAt("avenMAIA renamed", "proposal")).id, note: "a new label", edits: [{ op: "set", path: ["label"], value: "Maia" }] });
     expect((await call("ada", "POST", `/api/intents/${p.intent}/reject`)).data.stage).toBe("archived");
     expect((await tool("doc_at", { doc: SKILL.avenmaia })).json).toEqual(avenmaia());
     expect((await tool("doc_history", { doc: SKILL.avenmaia })).variants.find((v: any) => v.intent?.id === p.intent).status).toBe("archived");

@@ -124,7 +124,7 @@ suite("the Factories on Loro", () => {
     // proposed, the draft takes no more steps
     expect((await tool("doc_edit", { doc: LT, intent: ready, variant: one.variant, message: "late", edits: [{ op: "set", path: ["label"], value: "x" }] })).error).toContain("proposed already");
     // nothing changed is no proposal
-    expect((await tool("propose_doc_version", { doc: LT, note: "same", edits: [{ op: "set", path: ["label"], value: "LifeTrac line" }] })).error).toContain("nothing changed");
+    expect((await tool("propose_doc_version", { doc: LT, intent: await readyIntent("Nothing changed"), note: "same", edits: [{ op: "set", path: ["label"], value: "LifeTrac line" }] })).error).toContain("nothing changed");
 
     // the intents' board: an intent at Proposal holding the factory's work, reviewed field by field, opened as it would be
     const listed = (await call("ada", "GET", "/api/intents?stage=proposal")).data.find((i: any) => i.id === proposed.intent);
@@ -158,14 +158,15 @@ suite("the Factories on Loro", () => {
   });
 
   test("made on an older version: merged where it touches other fields, archived where the same", async () => {
-    const a = await tool("propose_doc_version", { doc: LT, note: "more demand", edits: [{ op: "set", path: ["line", "demand", "perDay"], value: 30 }] });
-    const b = await tool("propose_doc_version", { doc: LT, note: "a bigger weld buffer", edits: [{ op: "set", path: ["line", "stations", { id: "weld" }, "buffer"], value: 4 }] });
-    const c = await tool("propose_doc_version", { doc: LT, note: "even more demand", edits: [{ op: "set", path: ["line", "demand", "perDay"], value: 40 }] });
+    const a = await tool("propose_doc_version", { doc: LT, intent: await readyIntent("More demand"), note: "more demand", edits: [{ op: "set", path: ["line", "demand", "perDay"], value: 30 }] });
+    const b = await tool("propose_doc_version", { doc: LT, intent: await readyIntent("A bigger weld buffer"), note: "a bigger weld buffer", edits: [{ op: "set", path: ["line", "stations", { id: "weld" }, "buffer"], value: 4 }] });
+    const c = await tool("propose_doc_version", { doc: LT, intent: await readyIntent("Even more demand"), note: "even more demand", edits: [{ op: "set", path: ["line", "demand", "perDay"], value: 40 }] });
     expect((await call("ada", "POST", `/api/intents/${a.intent}/accept`)).data.decision).toMatchObject({ status: "accepted", number: 3 });
     expect((await call("ada", "GET", `/api/intents/${b.intent}`)).data.review.moved).toBe(true);
     expect((await call("ada", "POST", `/api/intents/${b.intent}/accept`)).data.decision).toMatchObject({ status: "accepted", number: 4, merged: true });
     const clash = (await call("ada", "POST", `/api/intents/${c.intent}/accept`)).data;
-    expect(clash.stage).toBe("archived");
+    // its work archived by itself: the intent, specified, goes back to Build to be built again on the new head
+    expect(clash.stage).toBe("build");
     expect(clash.message).toContain("line.demand.perDay");
     const now = (await call("ada", "GET", `/api/docs/${LT}`)).data.json;
     expect(now.line.demand.perDay).toBe(30);
@@ -173,7 +174,7 @@ suite("the Factories on Loro", () => {
   });
 
   test("an agent archives its own intent at Proposal; a citizen sees none of them", async () => {
-    const p = await tool("propose_doc_version", { doc: LT, note: "a new label", edits: [{ op: "set", path: ["label"], value: "The LifeTrac line" }] });
+    const p = await tool("propose_doc_version", { doc: LT, intent: await readyIntent("A new label"), note: "a new label", edits: [{ op: "set", path: ["label"], value: "The LifeTrac line" }] });
     expect((await call("cit", "GET", `/api/intents/${p.intent}`)).status).toBe(403);
     expect((await call("cit", "GET", "/api/intents")).status).toBe(403);
     expect(await tool("archive_intent", { intent: p.intent })).toMatchObject({ intent: p.intent, stage: "archived" });

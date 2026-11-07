@@ -119,14 +119,13 @@ suite("the stage Build (migration 0033-build)", () => {
     // each kind of state an intent in Prototype is in
     const approved = await inPrototype("Just approved");
     const partly = await inPrototype("Partly checked, its pull request named", { results: { c1: result(true), c2: result(false) }, pull_request: 2107 });
-    // back in Prototype with its work archived, as a moved base leaves it (./work.ts settle)
-    const p = await tool("propose_doc_version", { doc: SKILL.avenmaia, note: "a new label", edits: [{ op: "set", path: ["label"], value: "Maia" }] });
-    expect(p.stage).toBe("proposal");
-    await db.query(`UPDATE play.intents SET stage = 'prototype', spec = ($2::text)::jsonb, approved_by = $3, approved_at = now() WHERE id = $1`, [
-      p.intent,
-      JSON.stringify((await tool("get_intent", { intent: approved })).spec),
-      who.ada.id,
-    ]);
+    // back in Prototype with its work archived, as a moved base leaves it (./work.ts settle): its work proposed for it
+    // (no work without an intent, 706ed873) while it waited at Proposal, every must passed
+    const worked = await inPrototype("Its work proposed, then back in Prototype", { results: { c1: result(true), c2: result(true) } });
+    await db.query(`UPDATE play.intents SET stage = 'proposal' WHERE id = $1`, [worked]);
+    const p = await tool("propose_doc_version", { doc: SKILL.avenmaia, intent: worked, note: "a new label", edits: [{ op: "set", path: ["label"], value: "Maia" }] });
+    expect(p).toMatchObject({ stage: "proposal", intent: worked });
+    await db.query(`UPDATE play.intents SET stage = 'prototype' WHERE id = $1`, [p.intent]);
     const withWork = p.intent as string;
     // and intents at other stages, untouched
     const idea = (await tool("add_intent", { title: "Still an idea" })).id;

@@ -181,8 +181,9 @@ suite("one record: the intent (migration 0029)", () => {
     await expect(db.query(`UPDATE play.intents SET story_id = $2 WHERE id = $1`, [two, story])).rejects.toThrow(/intents_work_names_what/);
 
     // on to today (0032: the old proposals' ids go, an intent is named by its own), and through the API: the board
-    // lists the work on each intent; an old proposal's address answers no more
-    await migrate(db);
+    // lists the work on each intent; an old proposal's address answers no more. (Up to the migration before no work
+    // without an intent, 706ed873, which archives the spec-less ones still waiting: below.)
+    await migrate(db, { until: MIGRATIONS[MIGRATIONS.findIndex((m) => m.id.includes("-706ed873-intents-specified")) - 1].id });
     expect((await q(`SELECT to_regclass('play.proposal_ids') AS t`))[0].t).toBeNull();
     await initSessions(db);
     const api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
@@ -196,5 +197,13 @@ suite("one record: the intent (migration 0029)", () => {
     // one intent for each proposal, and the one back in Build (0033) that kept none
     expect(board.length).toBe(all.length + 1);
     expect(board.find((i: any) => i.id === two).work).toMatchObject({ kind: "asset_version", status: "proposal", label: "Fern", number: 2, author: "cit" });
+
+    // then no work without an intent (706ed873): the story's intent, waiting with no spec, ends archived, its variant
+    // archived and kept; the specified one waiting stays at Proposal with its work
+    await migrate(db);
+    expect(await intent(storyIntent)).toMatchObject({ stage: "archived", spec: null, work: "story_version" });
+    expect((await intent(storyIntent)).note).toContain("no work without an intent");
+    expect((await q(`SELECT status FROM play.doc_variants WHERE id = $1`, [branch]))[0].status).toBe("archived");
+    expect(await intent(two)).toMatchObject({ stage: "proposal", work: "asset_version", spec });
   });
 });
