@@ -79,6 +79,7 @@ if (!kind || !PLATES[kind] || !briefFile || !out) {
   process.exit(1);
 }
 const brief = readFileSync(briefFile, "utf8").trim();
+(await import("./allow.ts")).allow(Number(arg("n", "1"))); // paid: only with --allow <n> (or --dry-run), before any call
 const datasheet = arg("datasheet") ? readFileSync(arg("datasheet")!, "utf8") : "";
 const PLATE = PLATES[kind](brief);
 mkdirSync(out, { recursive: true });
