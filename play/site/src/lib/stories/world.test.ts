@@ -132,11 +132,12 @@ describe('a world shot: the clock', () => {
 		expect(worldAt({ camera: world.camera }, 3, 30, 181)).toMatchObject({ sun: null, exposure: 0, lights: { sun: 1, sky: 1, lamps: 1 } });
 	});
 	it('clock: the maths and the runtime read no clock, chance or environment', () => {
-		for (const f of ['./live.ts', './live-runtime.ts']) expect(readFileSync(new URL(f, import.meta.url), 'utf8')).not.toMatch(/new Date|Date\.now|Math\.random|performance\.now|requestAnimationFrame|navigator\.|location\./);
+		for (const f of ['./live.ts', './live-runtime.ts', './world-build.ts']) expect(readFileSync(new URL(f, import.meta.url), 'utf8')).not.toMatch(/new Date|Date\.now|Math\.random|performance\.now|requestAnimationFrame|navigator\.|location\./);
 		// a moving world is stepped through every one of the shot's frames before it is ready, at the story's rate
+		const build = readFileSync(new URL('./world-build.ts', import.meta.url), 'utf8');
+		expect(build).toContain('const frames = hero ? spec.frames : 1;');
+		expect(build).toContain('hero!.tick(1 / spec.fps, {});');
 		const runtime = readFileSync(new URL('./live-runtime.ts', import.meta.url), 'utf8');
-		expect(runtime).toContain('for (let f = 1; f < (hero ? spec.frames : 1); f++)');
-		expect(runtime).toContain('hero!.tick(1 / spec.fps, {});');
 		expect(runtime).toContain('const m = places[Math.min(at.frame, places.length - 1)];');
 	});
 });

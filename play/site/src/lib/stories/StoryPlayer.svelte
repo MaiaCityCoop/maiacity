@@ -36,6 +36,10 @@
 	/** the film: being made, its files coming in, ready, or not to be had (and why) */
 	let film = $state<'making' | 'loading' | 'ready' | 'failed'>('making');
 	let failure = $state('');
+	/** what the film is doing while it loads (intent 90de96fb): the page's own steps, then each world shot's build in the
+	 *  frame, told by the live runtime */
+	let loading = $state('');
+	const loadingText = $derived(loading ? `Loading the film… ${loading}` : 'Loading the film…');
 	const SPEEDS = [1, 1.25, 1.5];
 
 	const shots = $derived(clipsOf<Shot>(story, 'shots'));
@@ -129,6 +133,7 @@
 		const once = new Map(worlds.map((w) => [w.version, w]));
 		await Promise.all([...once.values()].map(async (w) => {
 			try {
+				loading = 'Reading the world';
 				const r = await fetch(`/api/assets/${encodeURIComponent(w.asset)}`, { credentials: 'same-origin' });
 				if (!r.ok) return;
 				const v = ((await r.json()).versions ?? []).find((x: any) => x.id === w.version);
@@ -137,8 +142,12 @@
 				const [{ boxOf }, { rebuild }, { plantingsOf }] = await Promise.all([import('$lib/content/assets/load.js'), import('$lib/content/assets/box/rebuild.js'), import('$lib/content/assets/uses.js')]);
 				const m = await boxOf(engine).build({ hash: v.recipe, code, pieces }, {});
 				const guests: Record<string, string[]> = {};
-				for (const g of [...new Set(plantingsOf(rebuild(m.data)).map((u: { ref: string }) => u.ref.slice(0, 64)))] as string[])
+				const kinds = [...new Set(plantingsOf(rebuild(m.data)).map((u: { ref: string }) => u.ref.slice(0, 64)))] as string[];
+				let read = 0;
+				await Promise.all(kinds.map(async (g) => {
 					guests[g] = await piecesDeep(await fileText(g)).catch(() => []);
+					loading = `Reading its guests: ${++read} of ${kinds.length}`;
+				}));
 				out[w.version] = { asset: w.asset, version: w.version, recipe: v.recipe, pieces, engine, guests };
 			} catch (e) {
 				console.warn(`world ${w.asset.slice(0, 8)}: ${(e as Error)?.message ?? e}`);
@@ -182,6 +191,7 @@
 			t = 0;
 			playing = false;
 			film = 'making';
+			loading = '';
 			make(s, links, key);
 		});
 	});
@@ -205,6 +215,9 @@
 		if (!frame || e.source !== frame.contentWindow || e.data?.play !== 1) return;
 		const m = e.data;
 		if (m.op === 'need') feed(frame.contentWindow!, m, fileOf).catch((x) => ((film = 'failed'), (failure = String(x?.message ?? x))));
+		// a world shot's build, told by the live runtime: how far it is, or why it failed (never "Loading" for ever)
+		else if (m.op === 'progress') film !== 'ready' && film !== 'failed' && (loading = String(m.text ?? '').slice(0, 120));
+		else if (m.op === 'failed') film !== 'failed' && ((film = 'failed'), (failure = String(m.error ?? 'a shot could not be built').slice(0, 400)));
 		else if (m.op === 'tap') stir();
 		else if (m.op === 'key' && !m.meta) onKey({ key: m.key, target: null, metaKey: false, ctrlKey: false, altKey: false, preventDefault() {} } as unknown as KeyboardEvent);
 	}
@@ -402,7 +415,7 @@
 			<!-- the film: HyperFrames' player in play's sealed frame (a tap on it lands in the frame, which plays or pauses) -->
 			<hyperframes-player bind:this={hf} sandbox-origin="opaque" no-load-timeout disable-click-to-play assets-loading-ui="none"></hyperframes-player>
 			<!-- until the film is ready (a live shot's asset building, intent f270269e), the shot's still: its poster -->
-			{#if film !== 'ready'}<div class="wait" class:poster={film !== 'failed' && !!shots[index]?.frame} style:background-image={film !== 'failed' && shots[index]?.frame ? `url(${frameUrl(shots[index].frame)})` : null}><span>{film === 'failed' ? `The film could not be played: ${failure}` : 'Loading the film…'}</span></div>{/if}
+			{#if film !== 'ready'}<div class="wait" class:poster={film !== 'failed' && !!shots[index]?.frame} style:background-image={film !== 'failed' && shots[index]?.frame ? `url(${frameUrl(shots[index].frame)})` : null}><span>{#if film === 'failed'}{`The film could not be played: ${failure}`}{:else}{loadingText}{/if}</span></div>{/if}
 			{#if !playing}<span class="play-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg></span>{/if}
 		</div>
 		{#if full}
