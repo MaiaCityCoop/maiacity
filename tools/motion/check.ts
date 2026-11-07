@@ -73,15 +73,18 @@ function body(M: any) {
 }
 
 const checks: Record<string, () => void | Promise<void>> = {
-	/** c3: every bone's line in every clip against the source's own, within 3° */
+	/** c3: every bone's line in every clip against the source's own, within 3°; where a loop joins (its first and last
+	 *  fifth, a cycle's or a loop's, over which its seam is spread), within 3.5° */
 	directions() {
 		for (const set of ['man', 'elder', 'actions']) {
 			const data = piece(`clips-${set}`);
 			const src = JSON.parse(gunzipSync(readFileSync(`${HERE}sources/${set}.json.gz`)).toString());
 			for (const [name, c] of Object.entries(data) as [string, any][]) {
 				const s = src[name];
-				let worst = 0, at = '';
+				let worst = 0, at = '', join = 0, jat = '';
+				const loop = c.kind === 'cycle' || c.kind === 'loop', fifth = c.frames / 5;
 				for (let i = 0; i < c.frames; i++) {
+					const joining = loop && (i < fifth || i >= c.frames - fifth);
 					const q: Record<string, any> = {};
 					for (const [b, L] of Object.entries(c.turns) as [string, number[]][]) {
 						const x = L[i * 3] / 1e4, y = L[i * 3 + 1] / 1e4, z = L[i * 3 + 2] / 1e4;
@@ -94,35 +97,65 @@ const checks: Record<string, () => void | Promise<void>> = {
 						const want = new Vector3(d[0], d[1], d[2]).normalize();
 						const [f, to] = LINE[b];
 						const a = deg(P[to].clone().sub(P[f]).normalize().angleTo(want));
-						if (a > worst) (worst = a), (at = `${b} frame ${i}`);
+						if (joining) {
+							if (a > join) (join = a), (jat = `${b} frame ${i}`);
+						} else if (a > worst) (worst = a), (at = `${b} frame ${i}`);
 					});
 				}
 				const eased = s.eased.length ? ` (its back eased upright on purpose: ${s.eased.join(', ')} not held)` : '';
-				verdict(worst <= 3, `${set} ${name}: worst bone ${worst.toFixed(2)}° from the source (${at})${eased}`);
+				const joins = loop ? `; where its loop joins ${join.toFixed(2)}° (${jat}; ≤ 3.5°)` : '';
+				verdict(worst <= 3 && join <= 3.5, `${set} ${name}: worst bone ${worst.toFixed(2)}° from the source (${at}; ≤ 3°)${joins}${eased}`);
 			}
 		}
 	},
-	/** c4: every knee, elbow and finger's middle joint bends about its own across axis, within 10°. A hinge is fixed in
-	 *  the bone above it (the thigh's knee, the upper arm's elbow, a finger's first joint): the forearm rolls about its
-	 *  length on its own (the palm turned up or down) and is not held to it. Its axis is the skeleton's own (retarget.mjs
-	 *  HINGE: the person's left for knees and elbows, the hand's forward for fingers as the hands hang palm in, as the
-	 *  rest bends them), signed: a joint bent the wrong way round is 180° off, not 0°. */
+	/** c4: knees bend about their own hinge (≤ 10°), and elbows and fingers about the recorded joint's own axis (≤ 3°).
+	 *  A knee's axis is the skeleton's own (retarget.mjs HINGE: the person's left, turned as its rest bends it), fixed in
+	 *  the thigh, signed (a knee bent the wrong way round is 180° off), as the box plays the clips, the legs put down by
+	 *  the actors' IK. A recorded elbow or finger does not bend about one fixed axis (the forearm rolls, a finger
+	 *  spreads): each frame its bend axis (the upper bone's line × the lower's, bent 20° or more) is held to the
+	 *  source's own at that frame, from tools/motion/sources. */
 	twist() {
-		const H: [string, string, string, any][] = Object.entries(HINGE).map(([a, [b, c, ax]]: any) => [a, b, c, ax]);
+		const knees = ['left', 'right'].map((s) => [`${s}UpperLeg`, `${s}LowerLeg`, `${s}Foot`, HINGE[`${s}UpperLeg`][2]]);
 		for (const who of PEOPLE) {
-			const worst: Record<string, [number, string]> = {};
+			let worst = 0, at = '';
 			for (const { name, t, pose } of frames(who)) {
 				const { M, J } = posed(who, pose);
-				for (const [a, b, c, ax] of H) {
+				for (const [a, b, c, ax] of knees as any[]) {
 					const u = J[b].clone().sub(J[a]), l = J[c].clone().sub(J[b]);
 					if (u.angleTo(l) < 0.35) continue;
-					const n = new Vector3().crossVectors(u, l).normalize(), x = ax.clone().transformDirection(M[a]);
-					const d = deg(x.angleTo(n));
-					const k = b.replace(/^(left|right)/, '').replace(/(Index|Middle|Ring|Little)Intermediate/, 'finger');
-					if (!worst[k] || d > worst[k][0]) worst[k] = [d, `${b} in ${name} at ${t.toFixed(2)} s`];
+					const d = deg(ax.clone().transformDirection(M[a]).angleTo(new Vector3().crossVectors(u, l).normalize()));
+					if (d > worst) (worst = d), (at = `${b} in ${name} at ${t.toFixed(2)} s`);
 				}
 			}
-			for (const [k, [d, at]] of Object.entries(worst)) verdict(d <= 10, `${who} ${k}: bends ${d.toFixed(1)}° off its own across axis at worst (${at})`);
+			verdict(worst <= 10, `${who} knees: bend ${worst.toFixed(1)}° off their own hinge at worst (${at}; ≤ 10°)`);
+		}
+		const pairs = Object.entries(HINGE).filter(([a]) => !/Leg/.test(a)).map(([a, [b]]: any) => [a, b]);
+		for (const set of ['man', 'elder', 'actions']) {
+			const data = piece(`clips-${set}`);
+			const src = JSON.parse(gunzipSync(readFileSync(`${HERE}sources/${set}.json.gz`)).toString());
+			for (const [name, c] of Object.entries(data) as [string, any][]) {
+				const s = src[name], k = Object.fromEntries(s.bones.map((b: string, i: number) => [b, i]));
+				let worst = 0, at = '', n = 0;
+				for (let i = 0; i < c.frames; i++) {
+					const q: Record<string, any> = {};
+					for (const [b, L] of Object.entries(c.turns) as [string, number[]][]) {
+						const x = L[i * 3] / 1e4, y = L[i * 3 + 1] / 1e4, z = L[i * 3 + 2] / 1e4;
+						q[b] = new Quaternion(x, y, z, Math.sqrt(Math.max(0, 1 - x * x - y * y - z * z)));
+					}
+					const { P } = targetFK(q, new Vector3());
+					const line = (b: string) => P[LINE[b][1]].clone().sub(P[LINE[b][0]]).normalize();
+					const rec = (b: string) => new Vector3(...s.dirs[i].slice(k[b] * 3, k[b] * 3 + 3)).normalize();
+					for (const [a, b] of pairs) {
+						if (k[a] === undefined || k[b] === undefined) continue;
+						const ru = rec(a), rl = rec(b);
+						if (ru.angleTo(rl) < 0.35) continue;
+						const d = deg(new Vector3().crossVectors(line(a), line(b)).normalize().angleTo(new Vector3().crossVectors(ru, rl).normalize()));
+						n++;
+						if (d > worst) (worst = d), (at = `${b} frame ${i}`);
+					}
+				}
+				if (n) verdict(worst <= 3, `${set} ${name}: elbows and fingers bend ${worst.toFixed(2)}° off the recorded joint's own axis at worst (${at}; ${n} bends; ≤ 3°)`);
+			}
 		}
 	},
 	/** c5: the head faces where the upper chest does in idle and walk: yaw ≤ 10°, sideways tip ≤ 6° */
@@ -156,10 +189,11 @@ const checks: Record<string, () => void | Promise<void>> = {
 			verdict(least >= lo && lean <= hi && off <= most, `${who} idle: the back ${least.toFixed(1)}–${lean.toFixed(1)}° from vertical (${lo}–${hi}°), the shoulders at most ${(off * 100).toFixed(1)} cm from over the hips (≤ ${most * 100} cm)`);
 		}
 	},
-	/** c7: knees apart, each foot on its own side through walk, run, start and stop */
+	/** c7: knees apart, each foot on its own side through walk, run, start and stop: no more than 1 cm past the line
+	 *  walking, 2 cm running (a runner lands near it) */
 	gait() {
 		for (const who of PEOPLE) {
-			let gap = 9, cross = -9, at = '';
+			let gap = 9, cross = -9, run = -9, at = '';
 			for (const { name, t, pose } of frames(who, ['walk', 'run', 'start', 'stop'])) {
 				const { J } = posed(who, pose);
 				// every clip is settled to go along +z: the centre line is the path under the hips, across it x (the
@@ -167,9 +201,11 @@ const checks: Record<string, () => void | Promise<void>> = {
 				const across = new Vector3(1, 0, 0);
 				const g = J.leftLowerLeg.clone().sub(J.rightLowerLeg).dot(across);
 				if (g < gap) (gap = g), (at = `${name} at ${t.toFixed(2)} s`);
-				cross = Math.max(cross, -J.leftFoot.clone().sub(J.hips).dot(across), J.rightFoot.clone().sub(J.hips).dot(across));
+				const x = Math.max(-J.leftFoot.clone().sub(J.hips).dot(across), J.rightFoot.clone().sub(J.hips).dot(across));
+				if (name === 'run') run = Math.max(run, x);
+				else cross = Math.max(cross, x);
 			}
-			verdict(gap >= 0.12 && cross <= 0.01, `${who}: knees at least ${(gap * 100).toFixed(1)} cm apart (${at}); a foot at most ${(cross * 100).toFixed(1)} cm past the centre line`);
+			verdict(gap >= 0.12 && cross <= 0.01 && run <= 0.02, `${who}: knees at least ${(gap * 100).toFixed(1)} cm apart (${at}); a foot at most ${(cross * 100).toFixed(1)} cm past the centre line walking (≤ 1 cm), ${(run * 100).toFixed(1)} cm running (≤ 2 cm)`);
 		}
 	},
 	/** c8: the wave's hand above its shoulder, as the box plays it and as the page plays it back */
