@@ -29,7 +29,7 @@ import { addIntent, autoMove, CHECK_HOWS, CHECKS_MOST, dependIntent, getIntent, 
 import { stepBack } from "./stepback";
 import { instructionsOf, promptOf, promptsOf, SkillError } from "./skills";
 import { adminByToken } from "./tokens";
-import { STORY_ADMINS, AUDIO_TYPES, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, proposeStory, putAudioBase64, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAt, storyOf, StoryError, VIDEO_TYPES } from "./stories";
+import { STORY_ADMINS, AUDIO_TYPES, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, MOST_COMPOSITION, proposeStory, putAudioBase64, putComposition, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAt, storyOf, StoryError, VIDEO_TYPES } from "./stories";
 import { AssetDocError, assetAt, proposeAsset } from "./assetdocs";
 import { GROUPS, isGroup } from "./groups";
 import { listSandboxes, sandboxOf, SandboxError } from "./sandboxes";
@@ -76,7 +76,7 @@ const RECIPE_RULE =
 const STORY_FORMAT =
   "A story is a film as one timeline (format story/1): { schema: 'story/1', format: '9:16' | '16:9' | '1:1' | '4:5', fps: 24 | 25 | 30 | 48 | 50 | 60, duration, tracks }. " +
   "Each track is { id, kind, clips } and each clip { id, at, duration } in seconds (at may be left out to follow the clip before it), plus its kind's fields: " +
-  "kind 'shots' { frame: an image's hash from add_story_frame (the shot's still), video?: a video's hash from add_story_video (its moving picture, played muted, the story's own sound under it), video_in?: where in the video the shot starts (s), transition: how it goes into the next shot, as code where it starts with one: 'cut', 'dissolve 0.5', 'from black 0.7', 'to black 1', 'dip to black 0.4', several joined by commas ('from black 0.7, cut'), else prose }; " +
+  "kind 'shots' { frame: an image's hash from add_story_frame (the shot's still), video?: a video's hash from add_story_video (its moving picture, played muted, the story's own sound under it), video_in?: where in the video the shot starts (s), composition?: a composition's hash from add_story_composition (its motion design, one HyperFrames composition played in the shot's place from its 0 at the shot's at, for its length; the frame stays its still), transition: how it goes into the next shot, as code where it starts with one: 'cut', 'dissolve 0.5', 'from black 0.7', 'to black 1', 'dip to black 0.4', several joined by commas ('from black 0.7, cut'), else prose }; " +
   "kind 'voice' { who, line, cues? } (the narration, shown as the subtitle, cut evenly; or its own subtitles cues: [{ at: seconds into the clip, text, em?: true }], each until the next, em setting one apart, alone and large, such as '100x' while 'a hundred times' is said); " +
   "kind 'notes' { section, emotion (the one primary emotion the section should leave the viewer with, shown under its name on the timeline), camera, retention, mood } (mood as arrows: ↑ ↑↑ ↑↑↑ ↓ ↓↓ ↕). " +
   "Any clip of any track may sound: { audio: a recording's hash from add_story_audio, audio_in: where in the recording it starts (s), gain (dB), fade_in, fade_out (s) }, played from the clip's at for its duration; " +
@@ -448,6 +448,17 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         additionalProperties: false,
       },
       run: async ({ data, media_type, label }, me) => (admin(me, STORY_ADMINS), putVideoBase64(db, store, data, media_type, label)),
+    },
+    {
+      name: "add_story_composition",
+      description: `Add a composition (readable HTML, at most ${MOST_COMPOSITION / 1e6} MB): a shot's motion design as one HyperFrames composition, a root with its data-composition-id and its GSAP timeline registered on window.__timelines, as written (never bundled or minified). It loads nothing from outside play: GSAP and HyperFrames' runtime come from play, so leave out the scripts that load them. play keeps it among its files, served as plain text like every code file, and gives back its BLAKE3 hash, to use as a shot's \`composition\` in propose_story, doc_edit or propose_doc_version: the story is compiled into one composition (play/SPEC.md §12) where it plays in the shot's place, from its 0 at the shot's at, for the shot's length, in the Stories player's sealed frame and in HyperFrames' render alike. The same HTML always gives the same hash.`,
+      inputSchema: {
+        type: "object",
+        properties: { html: { type: "string", description: "the composition's HTML, as written" }, label: { type: "string", description: "a short label for the Library (what it shows); only shown, the file is named by its hash" }, library: LIBRARY_ARG },
+        required: ["html"],
+        additionalProperties: false,
+      },
+      run: async ({ html, label, library }, me) => (admin(me, STORY_ADMINS), putComposition(db, store, html, label, libraryOf(me, library).owner)),
     },
     {
       name: "add_document",
