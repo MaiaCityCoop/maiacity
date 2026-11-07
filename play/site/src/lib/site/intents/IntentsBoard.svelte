@@ -73,7 +73,11 @@
 	type Spec = { goal: string; scope: string; checks: Check[]; nothing_to_reduce?: string };
 	// where: in avenBOX (the agent's), or on main after the merge (.github/workflows/intents.yml), on which commit
 	type Results = Record<string, { pass: boolean; evidence: string; by: string | null; at: string; where?: 'avenBOX' | 'main'; commit?: string }>;
-	type Intent = { id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null; spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null; decided_at: string | null; decided_by: string | null; came_with: string | null; work: Work | null; pull_request: number | null; ship: Ship | null };
+	/** one step back an agent took over MCP, with its reason (play/api/src/stepback.ts) */
+	type StepBack = { at: string; by: string | null; via: 'mcp'; from: Stage; to: Stage; reason: string };
+	type Intent = { id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null; spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null; decided_at: string | null; decided_by: string | null; came_with: string | null; work: Work | null; pull_request: number | null; ship: Ship | null; steps?: StepBack[]; depends_on?: Dep[]; held_by?: Dep[]; needed_by?: Dep[] };
+	// an intent it depends on, or one that depends on it (play/api/src/intents.ts heldBy): found by its UUID, its title only shown
+	type Dep = { id: string; title: string; stage: Stage };
 	// an intent's kind, shown as what it asks (the kind 'idea' as Make, the stage Idea being its own; Samuel 2026-11-06)
 	const KINDS: [Kind, string][] = [
 		['idea', 'Make'],
@@ -304,10 +308,11 @@
 			});
 	});
 	/** the intent a proposal was made for, from its review */
-	function openIntentOf(id: string) {
-		const i = intents.find((x) => x.id === id);
+	async function openIntentOf(id: string) {
+		const i = intents.find((x) => x.id === id) ?? (await api<Intent>(`/intents/${id}`).catch(() => null));
 		if (i) openIntentDialog(i);
 	}
+	const stageName = (s: Stage) => COLUMNS.find(([x]) => x === s)?.[1] ?? s;
 	/** the intent's own dialog (its spec, checks and work), even where it is only its work */
 	async function openIntentDialog(i: Intent) {
 		open = null;
@@ -321,7 +326,7 @@
 	};
 	/** an Accept that merges (Accept and ship): GitHub takes a few seconds */
 	let merging = $state(false);
-	async function decideIntent(id: string, verdict: 'approve' | 'respecify' | 'accept' | 'reject' | 'reopen') {
+	async function decideIntent(id: string, verdict: 'approve' | 'accept' | 'reject' | 'reopen') {
 		merging = verdict === 'accept' && !!intent && isCode(intent);
 		intentError = '';
 		try {
@@ -395,7 +400,7 @@
 							{#each cards as i (i.id)}
 								{@const progress = s === 'build' ? checksDone(i) : ''}
 								<!-- an intent: its title, how far its checks or its work got, who it is by, its type and its date -->
-								<article class="card" class:item={!!i.spec || !i.work} data-kind={i.kind}>
+								<article class="card" class:item={!!i.spec || !i.work} class:held={!!i.held_by?.length} data-kind={i.kind}>
 									<button class="open" onclick={() => openIntentDialog(i)} title={i.note ? gist(i.note) : undefined}>
 										<span class="title">{i.title}</span>
 										{#if shipLine(i)}<span class="for ship" class:red={i.stage === 'proposal' || i.ship?.steps.some((x) => x.state === 'red')} class:running={i.stage === 'ship'}>{shipLine(i)}</span>
@@ -409,6 +414,14 @@
 											<span class="date">{shortWhen(i.decided_at ?? i.created)}</span>
 										</span>
 									</button>
+									<!-- intents depend on intents: what it waits for (held while any is not shipped) and what waits on it, each opening that intent -->
+									{#if i.depends_on?.length || i.needed_by?.length}
+										<div class="deps">
+											{#if i.held_by?.length}<span class="held-tag" title="Held: not started nor taken further until every intent it depends on is shipped (Accepted)">Held</span>{/if}
+											{#if i.depends_on?.length}<span class="dep-line"><span class="muted">Waits for</span> {#each i.depends_on as d, j (d.id)}{j ? ' · ' : ''}<button class="link dep" class:shipped={d.stage === 'accepted'} onclick={() => openIntentOf(d.id)} title="{d.title} · {stageName(d.stage)}">{d.title}</button>{/each}</span>{/if}
+											{#if i.needed_by?.length}<span class="dep-line"><span class="muted">Needed by</span> {#each i.needed_by as d, j (d.id)}{j ? ' · ' : ''}<button class="link dep" onclick={() => openIntentOf(d.id)} title="{d.title} · {stageName(d.stage)}">{d.title}</button>{/each}</span>{/if}
+										</div>
+									{/if}
 								</article>
 							{:else}
 								<p class="empty muted">{!loaded ? '…' : s === 'idea' ? 'None. Agents add intents over MCP.' : s === 'specify' ? 'None. Agents specify an intent over MCP.' : s === 'build' ? 'None. An approved spec is built here.' : s === 'ship' ? 'None. Accepted code is shipped here.' : 'None'}</p>
@@ -463,6 +476,15 @@
 				</section>
 			{/if}
 			{#if i.note}<div class="md">{@html md(i.note)}</div>{/if}
+			<!-- its steps back, each with its reason: an agent sends an intent back over MCP itself (step_back_intent), no
+			     button here; only Approve spec moves it forward again (intent 5a78e0b7, Samuel 2026-11-07) -->
+			{#if i.steps?.length}
+				<ol class="steps-back" aria-label="Steps back">
+					{#each i.steps as s, n (n)}
+						<li><span class="meta">Back from {STAGE_NAME[s.from] ?? s.from} to {STAGE_NAME[s.to] ?? s.to} by {s.by ?? 'someone'} <span class="via">via MCP</span> · {when(s.at)}</span><span class="why">{s.reason}</span></li>
+					{/each}
+				</ol>
+			{/if}
 			<section class="spec" class:none={!i.spec}>
 				{#if i.spec}
 					{@const reduce = i.spec.checks.filter((c) => c.step === 'reduce')}
@@ -514,6 +536,14 @@
 					{/if}
 				{/if}
 			</section>
+			{#if i.depends_on?.length || i.needed_by?.length}
+				<section>
+					<h3>Depends on{#if i.held_by?.length}{' '}<span class="held-tag">Held</span>{/if}</h3>
+					{#if i.held_by?.length}<p class="muted small">Held: not started nor taken further until every intent it depends on is shipped (Accepted). It waits for {i.held_by.map((d) => d.title).join(', ')}.</p>{/if}
+					{#if i.depends_on?.length}<ul class="dep-list">{#each i.depends_on as d (d.id)}<li><button class="link" onclick={() => openIntentOf(d.id)}>{d.title}</button> <span class="muted small">· {stageName(d.stage)}{d.stage === 'accepted' ? ' · shipped' : ''}</span></li>{/each}</ul>{:else}<p class="muted small">Nothing.</p>{/if}
+					{#if i.needed_by?.length}<p class="small"><span class="muted">Needed by</span> {#each i.needed_by as d, j (d.id)}{j ? ' · ' : ''}<button class="link" onclick={() => openIntentOf(d.id)}>{d.title}</button> <span class="muted">({stageName(d.stage)})</span>{/each}</p>{/if}
+				</section>
+			{/if}
 			<section>
 				<h3>Its work</h3>
 				{#if !i.work && i.pull_request}<p class="small">Code: <a href="{REPO_URL}/pull/{i.pull_request}" target="_blank" rel="noopener">pull request #{i.pull_request}</a> <span class="muted">· {i.stage === 'proposal' ? 'Accept merges it into main and ships it' : i.stage === 'ship' ? (i.ship?.pending ? 'in Ship, merged when its turn comes and GitHub is ready' : 'merged, on its way to production') : i.stage === 'accepted' ? 'in production' : 'named by its agent'}</span></p>
@@ -555,9 +585,7 @@
 				{#if i.stage === 'idea' || i.stage === 'specify' || i.stage === 'build' || i.stage === 'proposal'}
 					<button class="btn small reject" onclick={() => decideIntent(i.id, 'reject')} title="Not to be done: it ends archived">Reject</button>
 				{/if}
-				{#if i.stage === 'build' || (i.stage === 'proposal' && i.approved_at && i.work?.status !== 'proposal')}
-					<button class="btn small ghost" onclick={() => decideIntent(i.id, 'respecify')} title="Its spec is to change: back to Specify, its approval and results cleared">Back to Specify</button>
-				{:else if i.stage === 'accepted' || i.stage === 'archived'}
+				{#if i.stage === 'accepted' || i.stage === 'archived'}
 					<button class="btn small ghost" onclick={() => decideIntent(i.id, 'reopen')} title="Open again: back to {i.spec ? 'Specify' : 'Idea'}">Reopen</button>
 				{/if}
 				{#if i.stage === 'specify' && i.spec}<button class="btn small" onclick={() => decideIntent(i.id, 'approve')} title="The spec is right: an agent may build it">Approve spec</button>
@@ -724,6 +752,14 @@
 	[data-kind='improve'] { --kind: var(--sage, #a8b88a); }
 	.type[data-kind] { background: color-mix(in srgb, var(--kind) 35%, transparent); }
 	.card.item { border-left: 4px solid var(--kind); }
+	/* intents depend on intents: a held card dimmed and marked, its links to what it waits for and what waits on it */
+	.card.held { background: repeating-linear-gradient(135deg, transparent 0 8px, color-mix(in srgb, var(--muted, #777) 7%, transparent) 8px 16px), var(--card, #fff); }
+	.deps { display: grid; gap: 0.15rem; padding: 0 0.65rem 0.5rem; font-size: 0.74rem; line-height: 1.35; }
+	.dep-line { overflow-wrap: anywhere; }
+	.link.dep { font-weight: 500; }
+	.link.dep.shipped { text-decoration-style: dotted; color: var(--muted, #777); }
+	.held-tag { justify-self: start; display: inline-block; padding: 0 0.5em; border-radius: 999px; background: color-mix(in srgb, #9c3b22 15%, transparent); color: #9c3b22; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em; }
+	.dep-list { margin: 0.2rem 0; padding-left: 1.1rem; font-size: 0.85rem; }
 	.for { font-size: 0.76rem; color: var(--ink-soft, #4d5d51); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.for.done { color: var(--brand-green, #24452f); font-weight: 600; }
 	.for.ship { font-weight: 600; color: var(--brand-green, #24452f); }
@@ -755,6 +791,9 @@
 	.item-review .tags { margin: 0 0 0.3rem; display: flex; gap: 0.35rem; align-items: center; }
 	.item-review .review-head h2 { font-size: 1.35rem; }
 	/* an intent's note and its spec, as Markdown */
+	.steps-back { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+	.steps-back li { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.4rem 0.6rem; border-left: 3px solid var(--muted, #999); background: var(--paper, #faf8f2); border-radius: 0 8px 8px 0; }
+	.steps-back .why { font-size: 0.88rem; overflow-wrap: anywhere; }
 	.md { font-size: 0.92rem; line-height: 1.5; overflow-wrap: anywhere; }
 	.md :global(:first-child) { margin-top: 0; }
 	.md :global(:last-child) { margin-bottom: 0; }

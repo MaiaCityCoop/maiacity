@@ -182,7 +182,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await proposeAsset(db, store, m, b), { status: 201 });
   });
   on("POST", "/api/intents/:id/:verdict", async (req, p) => {
-    if (!["approve", "respecify", "accept", "archive", "reject", "reopen"].includes(p.verdict)) throw new NotFound("No such decision.");
+    if (!["approve", "accept", "archive", "reject", "reopen"].includes(p.verdict)) throw new NotFound("No such decision.");
     return json(await decideAny({ db, store }, await me(req), p.id, p.verdict as IntentVerdict | "archive", github));
   });
 

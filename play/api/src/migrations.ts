@@ -1,15 +1,60 @@
-// Runs play's migrations (../migrations: the schema's history, every migration's SQL as it ran, kept outside the live
-// code). `until` stops after that migration (a test builds a database as it stood then).
+// Runs play's migrations (../migrations: the schema's history, one file `<id>.sql` per migration, its SQL as it ran,
+// kept outside the live code; play/SPEC.md "Migrations"). They run in name order, each once, in one transaction; a
+// migration is never edited after it has shipped, only followed by another. `until` stops after that migration (a test
+// builds a database as it stood then).
+//
+// A new migration's id is `<UTC time YYYYMMDDHHMM>-<the intent's first 8 hex>-<slug>` (202611071200-e9afc2d5-files):
+// it sorts after every numbered one, and two intents never pick the same, so adding one touches only its own new file.
+// The numbered ids (0001-ownership … up to LAST_NUMBERED) are the ones shipped before, kept as play.migrations names them.
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { Db } from "./pg";
-import { MIGRATIONS } from "../migrations";
 import { ensureSchemas } from "./docs/schemas";
-export { MIGRATIONS, type Migration } from "../migrations";
+import { ensureLayouts } from "./sandboxes";
 
-/** Runs every migration not yet run, each in its own transaction. */
+export type Migration = { id: string; sql: string };
+
+/** the folder the migrations are read from */
+export const MIGRATIONS_DIR = join(import.meta.dir, "..", "migrations");
+/** the last hand-numbered migration (0037-intent-depends, landed in the old array beside this change): none after it */
+const LAST_NUMBERED = 37;
+const NUMBERED = /^(\d{4})-[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const DATED = /^(\d{4})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])([01]\d|2[0-3])([0-5]\d)-[0-9a-f]{8}-[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/** Why a migration's id can't be, or null: a numbered one up to LAST_NUMBERED, else <YYYYMMDDHHMM>-<8 hex>-<slug>. */
+export function badId(id: string): string | null {
+  const n = NUMBERED.exec(id);
+  if (n) return Number(n[1]) >= 1 && Number(n[1]) <= LAST_NUMBERED ? null : `a numbered id after ${String(LAST_NUMBERED).padStart(4, "0")}: a new migration is <YYYYMMDDHHMM>-<the intent's first 8 hex>-<slug>`;
+  return DATED.test(id) ? null : "not <YYYYMMDDHHMM>-<the intent's first 8 hex>-<slug> (lowercase, e.g. 202611071200-e9afc2d5-files)";
+}
+
+/** Every migration in the folder, in name order; throws, naming the file, on a malformed or duplicate id. */
+export function loadMigrations(dir = MIGRATIONS_DIR): Migration[] {
+  const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
+  const seen = new Map<string, string>();
+  return files.map((f) => {
+    const id = f.slice(0, -4);
+    const why = badId(id);
+    if (why) throw new Error(`migration ${join(dir, f)}: ${why}`);
+    // a numbered id's number, a dated one's whole id: each names one migration only (case folded, as macOS would)
+    const key = NUMBERED.test(id) ? id.slice(0, 4) : id.toLowerCase();
+    if (seen.has(key)) throw new Error(`migration ${join(dir, f)}: a duplicate id, as ${seen.get(key)}`);
+    seen.set(key, f);
+    return { id, sql: readFileSync(join(dir, f), "utf8") };
+  });
+}
+
+/** play's migrations, as the folder holds them */
+export const MIGRATIONS: Migration[] = loadMigrations();
+
 /** The advisory lock every migration step holds: play-api and the import start together on a deploy, and both migrate. */
 const MIGRATION_LOCK = 4_711_029;
 
-export async function migrate(db: Db, o: { until?: string } = {}): Promise<string[]> {
+/** Runs every migration not yet run, each in its own transaction. */
+export async function migrate(db: Db, o: { until?: string; migrations?: Migration[] } = {}): Promise<string[]> {
+  const all = o.migrations ?? MIGRATIONS;
+  const last = o.until === undefined ? all.length - 1 : all.findIndex((x) => x.id === o.until);
+  if (last < 0 && o.until !== undefined) throw new Error(`migrate: no migration ${o.until}`);
   // Two processes migrate the same database at once on a deploy (play-api as it starts, and the import beside it;
   // 2026-11-06 the second ran 0029 again after the first had, and failed on its ALTER). So every step takes one
   // advisory lock for its transaction and looks again whether its migration has run, under the lock.
@@ -25,14 +70,12 @@ export async function migrate(db: Db, o: { until?: string } = {}): Promise<strin
   const { rows } = await db.query<{ id: string }>("SELECT id FROM play.migrations");
   const done = new Set(rows.map((r) => r.id));
   const ran: string[] = [];
-  for (const m of MIGRATIONS) {
+  for (const m of all.slice(0, last + 1)) {
     if (done.has(m.id)) continue;
-    if (o.until !== undefined && MIGRATIONS.indexOf(m) > MIGRATIONS.findIndex((x) => x.id === o.until)) break;
     const did = await db.transaction(async (tx) => {
       await tx.query(`SELECT pg_advisory_xact_lock(${MIGRATION_LOCK})`);
       if ((await tx.query("SELECT 1 FROM play.migrations WHERE id = $1", [m.id])).rows.length) return false;
       await tx.query(m.sql);
-      if (m.run) await m.run(tx);
       await tx.query("INSERT INTO play.migrations (id) VALUES ($1)", [m.id]);
       return true;
     });
@@ -41,5 +84,8 @@ export async function migrate(db: Db, o: { until?: string } = {}): Promise<strin
   // then the schemas, each a document of the meta-schema, made from the seed where absent (play/SPEC.md "Version
   // control"); a database built only up to an older migration stands as it stood then
   if (o.until === undefined) await ensureSchemas(db);
+  // then the sandboxes' layouts, each a document, and every sandbox change kept by 202611070115-d2f50bf1-sandbox-layouts
+  // an intent variant of its layout (play/SPEC.md §4.6): SQL can't write a Loro document
+  if (o.until === undefined) await ensureLayouts(db);
   return ran;
 }

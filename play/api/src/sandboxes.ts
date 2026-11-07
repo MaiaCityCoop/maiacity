@@ -6,7 +6,7 @@
 // the intents' board with each pin before and after, by its asset's label and version, and openable in the sandbox as
 // it would be; accepted by an admin there. Accepting merges it into Main and writes Main's pins and configs to
 // play.sandbox_pins and play.sandbox_configs, which the worlds read (/api/sandboxes/<uuid>/config) as before.
-import type { Queryable } from "./pg";
+import type { Db, Queryable } from "./pg";
 import { Denied, must, type Me } from "./access";
 import { canonical } from "./hash";
 import { UUID } from "./uuid";
@@ -542,49 +542,58 @@ export async function proposedState(db: Queryable, me: Me | null, sandbox: strin
 }
 
 /**
- * Migration 0035-sandbox-layouts: every sandbox's layout a document, its v1 its pins and configs as they are, and every
- * intent's sandbox change (the columns sandbox_id, sandbox_base, sandbox_change and sandbox_diff) an intent variant of
- * it, each intent keeping its stage. One at Proposal is its edits made again on v1, proposed (kept, to be archived on
- * Accept, where they no longer hold); an accepted or archived one a closed variant that keeps what it changed as its
- * review. Runs in the migration's transaction.
+ * The end of migrate(), after ensureSchemas (migration 202611070115-d2f50bf1-sandbox-layouts kept what SQL can't
+ * write): every sandbox with pins, configs or a change kept gets its layout document, its v1 its pins and configs as
+ * they are, and every kept change (play.sandbox_changes_kept) becomes an intent variant of it, each intent keeping its
+ * stage. One at Proposal is its edits made again on v1 and proposed (kept, to be archived on Accept, where they no
+ * longer hold); an accepted or archived one a closed variant that keeps what it changed as its review. Each change is
+ * moved once, in its own transaction under one advisory lock (play-api and the import migrate at once on a deploy).
  */
-export async function migrateLayouts(q: Queryable): Promise<void> {
-  const { rows: sandboxes } = await q.query<{ id: string }>(
-    `SELECT s.id FROM play.sandboxes s
-      WHERE EXISTS (SELECT 1 FROM play.sandbox_pins p WHERE p.sandbox_id = s.id) OR EXISTS (SELECT 1 FROM play.sandbox_configs c WHERE c.sandbox_id = s.id)
-         OR EXISTS (SELECT 1 FROM play.intents i WHERE i.sandbox_id = s.id)
-      ORDER BY s.id`,
-  );
-  for (const s of sandboxes) await ensureLayoutDoc(q, s.id);
-  const { rows: intents } = await q.query<any>(
-    `SELECT id, stage, sandbox_id, sandbox_change, sandbox_diff, COALESCE(work_note, '') AS note, proposed_by, proposed_via, proposed_at, decided_by, decided_at
-       FROM play.intents WHERE work = 'sandbox_change' ORDER BY proposed_at, id`,
-  );
-  for (const i of intents) {
-    const docId = layoutDoc(i.sandbox_id);
-    const author: docs.Author = { human: i.proposed_by ?? null, via: i.proposed_via === "mcp" ? "mcp" : "site" };
-    const v = (await docs.variant(q, docId, { author, note: i.note })).id;
-    const kept: Kept = { edits: i.sandbox_change, diff: i.sandbox_diff ?? null };
-    let status = i.stage === "accepted" ? "accepted" : i.stage === "proposal" ? "proposed" : "archived";
-    if (i.stage === "proposal") {
-      try {
-        const cur = (await docs.readDoc(q, docId, { variant: v })).json;
-        const { state, changes } = await applyEdits(q, { pins: cur.pins, configs: cur.configs }, i.sandbox_change);
-        kept.diff = changes;
-        const e = await docs.commit(q, docId, { variant: v, target: { ...cur, pins: state.pins, configs: state.configs }, message: i.note.split("\n")[0].slice(0, 500) || "the change", author });
-        if (e) await docs.propose(q, docId, v, { note: i.note, author });
-        else (kept.holds = false), (kept.why = "These edits change nothing on the layout as it is.");
-      } catch (e) {
-        if (!(e instanceof SandboxError)) throw e;
-        kept.holds = false;
-        kept.why = e.message;
-      }
-    }
-    await q.query(
-      `UPDATE play.doc_variants SET status = $2, review = ($3::text)::jsonb, intent_id = $4, created = COALESCE($5, created),
-              proposed_at = COALESCE(proposed_at, $5), decided_by = $6, decided_at = $7 WHERE id = $1`,
-      [v, status, JSON.stringify(kept), i.id, i.proposed_at, i.stage === "proposal" ? null : i.decided_by, i.stage === "proposal" ? null : i.decided_at],
+export async function ensureLayouts(db: Db): Promise<number> {
+  const { rows: has } = await db.query(`SELECT to_regclass('play.sandbox_changes_kept') AS t`);
+  if (!(has[0] as any)?.t) return 0;
+  return db.transaction(async (q) => {
+    await q.query(`SELECT pg_advisory_xact_lock(4711031)`);
+    const { rows: sandboxes } = await q.query<{ id: string }>(
+      `SELECT s.id FROM play.sandboxes s
+        WHERE NOT EXISTS (SELECT 1 FROM play.docs d WHERE d.id = 'sandbox:' || s.id::text)
+          AND (EXISTS (SELECT 1 FROM play.sandbox_pins p WHERE p.sandbox_id = s.id) OR EXISTS (SELECT 1 FROM play.sandbox_configs c WHERE c.sandbox_id = s.id)
+               OR EXISTS (SELECT 1 FROM play.sandbox_changes_kept k WHERE k.sandbox_id = s.id AND NOT k.moved))
+        ORDER BY s.id`,
     );
-    await q.query(`UPDATE play.intents SET work = 'sandbox_version', doc_id = $2, doc_variant = $3 WHERE id = $1`, [i.id, docId, v]);
-  }
+    for (const s of sandboxes) await ensureLayoutDoc(q, s.id);
+    const { rows: kept } = await q.query<any>(
+      `SELECT k.intent_id AS id, k.sandbox_id, k.edits, k.diff, i.stage, COALESCE(i.work_note, '') AS note, i.proposed_by, i.proposed_via, i.proposed_at, i.decided_by, i.decided_at
+         FROM play.sandbox_changes_kept k JOIN play.intents i ON i.id = k.intent_id WHERE NOT k.moved ORDER BY i.proposed_at, k.intent_id`,
+    );
+    for (const i of kept) {
+      const docId = layoutDoc(i.sandbox_id);
+      const author: docs.Author = { human: i.proposed_by ?? null, via: i.proposed_via === "mcp" ? "mcp" : "site" };
+      const v = (await docs.variant(q, docId, { author, note: i.note })).id;
+      const review: Kept = { edits: i.edits, diff: i.diff ?? null };
+      const status = i.stage === "accepted" ? "accepted" : i.stage === "proposal" ? "proposed" : "archived";
+      if (i.stage === "proposal") {
+        try {
+          const cur = (await docs.readDoc(q, docId, { variant: v })).json;
+          const { state, changes } = await applyEdits(q, { pins: cur.pins, configs: cur.configs }, i.edits);
+          review.diff = changes;
+          const e = await docs.commit(q, docId, { variant: v, target: { ...cur, pins: state.pins, configs: state.configs }, message: i.note.split("\n")[0].slice(0, 500) || "the change", author });
+          if (e) await docs.propose(q, docId, v, { note: i.note, author });
+          else (review.holds = false), (review.why = "These edits change nothing on the layout as it is.");
+        } catch (e) {
+          if (!(e instanceof SandboxError)) throw e;
+          review.holds = false;
+          review.why = e.message;
+        }
+      }
+      await q.query(
+        `UPDATE play.doc_variants SET status = $2, review = ($3::text)::jsonb, intent_id = $4, created = COALESCE($5, created),
+                proposed_at = COALESCE(proposed_at, $5), decided_by = $6, decided_at = $7 WHERE id = $1`,
+        [v, status, JSON.stringify(review), i.id, i.proposed_at, i.stage === "proposal" ? null : i.decided_by, i.stage === "proposal" ? null : i.decided_at],
+      );
+      await q.query(`UPDATE play.intents SET doc_variant = $2 WHERE id = $1`, [i.id, v]);
+      await q.query(`UPDATE play.sandbox_changes_kept SET moved = true WHERE intent_id = $1`, [i.id]);
+    }
+    return kept.length;
+  });
 }
