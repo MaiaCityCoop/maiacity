@@ -16,7 +16,7 @@ export class SkillError extends Error {
 }
 
 /** an intent's stages, each a part of the Intents skill (./intents.ts INTENT_STAGES, the same list; the skill schema names them) */
-export const SKILL_STAGES = ["idea", "specify", "prototype", "proposal", "ship", "accepted", "archived"] as const;
+export const SKILL_STAGES = ["idea", "specify", "build", "proposal", "ship", "accepted", "archived"] as const;
 export type SkillStage = (typeof SKILL_STAGES)[number];
 export const docIdOf = (skill: string) => `skill:${skill}`;
 /** the skills whose `system` makes the system prompt, in this order: who the agent is, then the intents */

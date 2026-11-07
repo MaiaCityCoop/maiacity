@@ -12,6 +12,8 @@ export interface Queryable {
 export interface Db extends Queryable {
   exec(text: string): Promise<void>;
   transaction<R>(fn: (tx: Queryable) => Promise<R>): Promise<R>;
+  /** the pool closed, its connections ended (play-api's stop on SIGTERM) */
+  close?(): Promise<void>;
 }
 
 function wrap(run: SQL): Queryable {
@@ -33,6 +35,9 @@ export function fromBunSql(sql: SQL): Db {
     },
     transaction(fn) {
       return sql.begin((tx: SQL) => fn(wrap(tx))) as any;
+    },
+    async close() {
+      await sql.close();
     },
   };
 }

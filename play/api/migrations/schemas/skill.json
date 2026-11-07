@@ -2,7 +2,7 @@
   "label": "Skill",
   "type": "skill",
   "name": "skill/1",
-  "note": "What play teaches its agents (play/SPEC.md §4.14).",
+  "note": "What play teaches its agents (play/SPEC.md §4.14). Its v1 still takes a stage's part under `prototype`, the Build stage's old name (2026-11-06), as production's Intents skill holds it until its own proposal moves it to `build`; a later version drops it once no skill holds it.",
   "node": {
     "type": "object",
     "required": [
@@ -44,6 +44,11 @@
             "x-loro": "text"
           },
           "specify": {
+            "type": "string",
+            "maxLength": 20000,
+            "x-loro": "text"
+          },
+          "build": {
             "type": "string",
             "maxLength": 20000,
             "x-loro": "text"

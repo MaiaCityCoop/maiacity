@@ -116,11 +116,11 @@ suite("one version control", () => {
     const text = res.content[0].text;
     return res.isError ? { error: text as string } : JSON.parse(text);
   };
-  /** an intent in Prototype, its spec approved, its one must check passed: ready to take work */
+  /** an intent in Build, its spec approved, its one must check passed: ready to take work */
   const readyIntent = async (title: string) => {
     const i = await tool("add_intent", { title });
     await tool("specify_intent", { intent: i.id, ...SPEC });
-    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("prototype");
+    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] })).stage).toBe("proposal");
     return i.id as string;
   };

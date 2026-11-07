@@ -193,7 +193,7 @@ suite("one record: the intent (migration 0029)", () => {
     expect(byOwn.review.diff).toBeDefined();
     expect(byOwn.review.edits.map((e: any) => e.message)).toEqual(["two"]);
     const board = await (await get(`/api/intents`)).json();
-    // one intent for each proposal, and the one back in Prototype that kept none
+    // one intent for each proposal, and the one back in Build (0033) that kept none
     expect(board.length).toBe(all.length + 1);
     expect(board.find((i: any) => i.id === two).work).toMatchObject({ kind: "asset_version", status: "proposal", label: "Fern", number: 2, author: "cit" });
   });
