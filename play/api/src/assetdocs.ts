@@ -481,8 +481,8 @@ export async function recipeAt(db: Db, store: BlobStore, me: Me | null, asset: s
     const json = (await docs.stateAt(db, docId, { edit: seq })) as AssetJson;
     const { n, exact } = await numberAt(db, docId, seq);
     // an edit of a breed's (on its own line, or on an intent variant changing or making it) builds that breed
-    const { rows: line } = await db.query<{ name: string | null }>(
-      `SELECT COALESCE(l.name, b.name, l.makes) AS name FROM play.doc_edits e JOIN play.doc_variants l ON l.id = e.variant LEFT JOIN play.doc_variants b ON b.id = l.breed
+    const { rows: line } = await db.query<{ name: string | null; intent_id: string | null }>(
+      `SELECT COALESCE(l.name, b.name, l.makes) AS name, l.intent_id FROM play.doc_edits e JOIN play.doc_variants l ON l.id = e.variant LEFT JOIN play.doc_variants b ON b.id = l.breed
         WHERE e.doc_id = $1 AND e.seq = $2`,
       [docId, seq],
     );
@@ -510,7 +510,8 @@ export async function recipeAt(db: Db, store: BlobStore, me: Me | null, asset: s
     const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, "text/javascript");
     // kept in its owner's library: a private asset's recipe files are its owner's alone
     await keepFile(db, { hash, size: bytes.length, media_type: "text/javascript", bucket_key: key }, { owner: (await assetOwner(db, asset))!.owner });
-    const pieces = (await piecesHeld(db, piecesOf(source)).catch(() => ({ all: piecesOf(source) }))).all;
+    // its pieces by the one resolver (intent 02e3a85f): accepted ones, or ones proposed in the intent the edit is of
+    const pieces = await piecesFor(db, piecesOf(source), line[0]?.intent_id ?? (at.intent !== undefined ? `${at.intent}`.toLowerCase() : null));
     const made = { ...record, manifest: { ...(record.manifest ?? {}), libs: libsOf(source), pieces }, card: { ...(record.card ?? {}), recipe: hash, version: n, v: n, ...(variant ? { variant } : {}) } };
     return { ...base, hash, size: bytes.length, record: made, version: null };
   });
@@ -564,8 +565,11 @@ export function unreadable(source: string): string | null {
 /**
  * A version's code as proposed, the readable source or a recipe file wrapping it: its source and the recipe file made
  * from it for this asset, this version and this variant (the same file the box builds, RECIPE_HEAD + source + its tail).
+ * A source that is exactly one its head was accepted with (`accepted`: the head's sources by hash, its own and its
+ * variants') was read and accepted already: it is not judged unreadable again (intent 80bbed15), so a card-only change
+ * of an asset whose accepted source carries long lines (the legacy people's embedded meshes) can be proposed.
  */
-function checkedCode(up: { source?: unknown; recipe?: unknown }, slug: string, n: number, variant: string | null) {
+function checkedCode(up: { source?: unknown; recipe?: unknown }, slug: string, n: number, variant: string | null, accepted: ReadonlySet<string> = new Set()) {
   let source: string;
   if (typeof up.source === "string" && up.source) {
     if (up.recipe) throw new VersionError("Give the readable source or the recipe file, not both.");
@@ -581,20 +585,21 @@ function checkedCode(up: { source?: unknown; recipe?: unknown }, slug: string, n
   if (Buffer.byteLength(source) > MOST_FILE) throw new VersionError("The source is larger than 16 MB.");
   if (!/module\.exports\.recipe\s*=|exports\.recipe\s*=/.test(source))
     throw new VersionError("The source sets no module.exports.recipe = function (id, v, variant) { … }: the recipe its file calls.");
-  const why = unreadable(source);
+  const hash = hashText(source);
+  const why = accepted.has(hash) ? null : unreadable(source);
   if (why) throw new VersionError(`The source is not readable: ${why}.`);
   const recipe = RECIPE_HEAD + source + recipeTail(slug, n, variant);
-  return { source: { text: source, hash: hashText(source) }, recipe: { text: recipe, hash: hashText(recipe) }, libs: libsOf(source), pieces: piecesOf(source) };
+  return { source: { text: source, hash }, recipe: { text: recipe, hash: hashText(recipe) }, libs: libsOf(source), pieces: piecesOf(source) };
 }
 
 /**
- * The pieces a source requires by hash (play/SPEC.md §4.5), each an accepted piece version's, with every piece beneath
- * them: what its manifest's `pieces` names. Refused, saying which, where one is no accepted piece's version or they go
- * more than four deep.
+ * The pieces a source requires by hash (play/SPEC.md §4.5), each an accepted piece version's or one proposed in the
+ * same intent (`intent`; intent 02e3a85f), with every piece beneath them: what its manifest's `pieces` names. Refused,
+ * saying which, where one is neither, they require each other in a circle, or they go more than four deep.
  */
-async function piecesFor(db: Queryable, pieces: string[]): Promise<string[]> {
+async function piecesFor(db: Queryable, pieces: string[], intent?: string | null): Promise<string[]> {
   try {
-    return (await piecesHeld(db, pieces)).all;
+    return (await piecesHeld(db, pieces, undefined, intent)).all;
   } catch (e) {
     throw e instanceof PieceError ? new VersionError(e.message) : e;
   }
@@ -731,6 +736,13 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
             (SELECT json_object_agg(x.name, x.card) FROM play.asset_variants x WHERE x.version_id = v.id) AS variants
        FROM play.assets a LEFT JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1`, [asset],
   );
+  // the sources its head was accepted with, by hash (its own and its variants'): kept as they are, they are not judged again
+  const { rows: kept } = await db.query<{ hash: string }>(
+    `SELECT v.source_hash AS hash FROM play.assets a JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1 AND v.source_hash IS NOT NULL
+     UNION SELECT x.source_hash FROM play.assets a JOIN play.asset_variants x ON x.version_id = a.head WHERE a.id = $1 AND x.source_hash IS NOT NULL`,
+    [asset],
+  );
+  const accepted = new Set(kept.map((r) => r.hash));
   // a proposal that brings no record of its own takes its head's (the engine it runs on, its label, its parameters),
   // with its own recipe and version written in: an upload of the recipe file alone makes a version the site can build
   // but never what was measured on the head's recipe (its size, triangles, whether it is skinned): this is another one
@@ -814,21 +826,21 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
   let ownText = "";
   const variantTexts: Record<string, string> = {};
   if (body.recipe || body.source) {
-    const c = checkedCode(body, slug, n, null);
+    const c = checkedCode(body, slug, n, null, accepted);
     files.push(c.source, c.recipe);
     recipe = c.recipe.hash;
     source = c.source.hash;
-    own = { libs: c.libs, source: c.source.hash, pieces: await piecesFor(db, c.pieces) };
+    own = { libs: c.libs, source: c.source.hash, pieces: await piecesFor(db, c.pieces, body.intent) };
     ownText = c.source.text;
   } else {
     for (const name of variantNames) {
       if (!VARIANT.test(name)) throw new VersionError(`${name} is not a variant's name.`);
-      const c = checkedCode(body.variants![name], slug, n, name);
+      const c = checkedCode(body.variants![name], slug, n, name, accepted);
       files.push(c.source, c.recipe);
       variantTexts[name] = c.source.text;
       const from = a[0]?.variants?.[name] ?? a[0]?.card;
       const label = body.variants![name].label === undefined ? {} : { label: `${body.variants![name].label}`.trim().slice(0, 120) };
-      const record = heldRecord(over(inherited(body.variants![name].record, from), { ...set, ...label }), c.libs, c.source.hash, await piecesFor(db, c.pieces));
+      const record = heldRecord(over(inherited(body.variants![name].record, from), { ...set, ...label }), c.libs, c.source.hash, await piecesFor(db, c.pieces, body.intent));
       variants[name] = { recipe: c.recipe.hash, source: c.source.hash, card: recordOf(record, grp, slug, n, name, c.recipe.hash) };
     }
     defaultVariant = body.defaultVariant ?? variantNames[0];

@@ -420,8 +420,8 @@ describe("migrations, one file each", () => {
     expect(() => loadMigrations(folderWith({ "0034-other.sql": "SELECT 1;" }))).toThrow("0034-other.sql");
     expect(() => loadMigrations(folderWith({ "0034-other.sql": "SELECT 1;" }))).toThrow("duplicate");
     // a well-formed new one loads, after 0034-schemas
-    const ok = loadMigrations(folderWith({ "202611071200-e9afc2d5-files.sql": "SELECT 1;" }));
-    expect(ok.at(-1)!.id).toBe("202611071200-e9afc2d5-files");
+    const ok = loadMigrations(folderWith({ "209901010000-e9afc2d5-files.sql": "SELECT 1;" }));
+    expect(ok.at(-1)!.id).toBe("209901010000-e9afc2d5-files");
   });
 
   const suiteDb = URL_ ? test : test.skip;
@@ -433,8 +433,8 @@ describe("migrations, one file each", () => {
       for (const n of names) await admin.unsafe(`CREATE DATABASE ${n}`);
       const at = (n: string) => { const u = new URL(URL_!); u.pathname = `/${n}`; const s = new Bun.SQL(u.toString()); conns.push(s); return fromBunSql(s); };
       const extra = {
-        "202611071200-e9afc2d5-files.sql": "CREATE TABLE play.mig_probe (n INT); INSERT INTO play.mig_probe VALUES (1);",
-        "202611071201-0badc0de-second.sql": "INSERT INTO play.mig_probe VALUES (2);",
+        "209901010000-e9afc2d5-files.sql": "CREATE TABLE play.mig_probe (n INT); INSERT INTO play.mig_probe VALUES (1);",
+        "209901010001-0badc0de-second.sql": "INSERT INTO play.mig_probe VALUES (2);",
       };
       const all = loadMigrations(folderWith(extra));
       const shipped = Object.keys(frozen);
@@ -452,7 +452,7 @@ describe("migrations, one file each", () => {
       const ran = await migrate(fresh, { migrations: all });
       expect(ran).toEqual(all.map((m) => m.id));
       expect(ran).toEqual([...ran].sort());
-      expect(ran.indexOf("202611071200-e9afc2d5-files")).toBeGreaterThan(ran.indexOf("0034-schemas"));
+      expect(ran.indexOf("209901010000-e9afc2d5-files")).toBeGreaterThan(ran.indexOf("0034-schemas"));
       expect(ran.slice(-2)).toEqual(Object.keys(extra).map((f) => f.slice(0, -4)));
       const { rows } = await fresh.query<{ n: number }>("SELECT n FROM play.mig_probe ORDER BY n");
       expect(rows.map((r) => r.n)).toEqual([1, 2]);

@@ -101,8 +101,11 @@ which assets a person sees, and which intents.
 ### 4.1 What is versioned
 
 **Readable source, the box, the host (Samuel 2026-11-02).** Every proposed version brings its **readable source**: a
-CommonJS module that sets `module.exports.recipe`, as written (play refuses minified code), kept as a file of its own
-(`source_hash`). play makes the recipe file from it (`RECIPE_HEAD + source + recipeTail(slug, v, variant)`), so the
+CommonJS module that sets `module.exports.recipe`, as written (play refuses minified code: a line over 1,000
+characters), kept as a file of its own (`source_hash`). A source that is exactly one its head was accepted with (by
+hash, its own or a variant's) is not judged again (intent 80bbed15): a card-only change of an asset whose accepted
+source carries long lines (the legacy people's embedded meshes) proposes; a changed or new source is still held to the
+rule. play makes the recipe file from it (`RECIPE_HEAD + source + recipeTail(slug, v, variant)`), so the
 file the box runs is exactly the source people read. Proposed code never runs on play's server (it only measures,
 labels and hashes text), and in the page only in the **asset box**: a frame with `sandbox="allow-scripts"` and no
 origin, its own CSP with no connection, the frozen engine (held to its hash) in a worker. A proposal's record may name
@@ -270,7 +273,20 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   only three.js, three's addons and other pieces, at most 4 deep counted from the recipe, with no cycle. Each accepted
   version's source is kept among play's files by its BLAKE3 hash and listed in `play.piece_versions` (what it requires,
   how deep; frozen). A recipe requires it by that hash, `require('<64 hex>')`, and its manifest's `pieces` names it and
-  every piece beneath it; `propose_asset` and `propose_doc_version` refuse a hash that is no accepted piece version's.
+  every piece beneath it; `propose_asset` and `propose_doc_version` refuse a hash that is no accepted piece version's
+  nor one proposed in the same intent.
+- **Pieces proposed in the same intent** as what uses them (intent 02e3a85f, Samuel 2026-11-07). A set of pieces and the
+  recipes that use them are proposed in one intent and accepted together: a recipe or a piece may require the hash of
+  a piece version proposed in the same intent, beside the accepted ones. One resolver finds a source's pieces at
+  propose, at preview and at Accept (`play/api/src/pieces.ts` `piecesHeld`), with no fallback: a hash in neither place
+  is refused, saying which; pieces requiring each other in a circle are refused; the 4-deep limit counts the intent's
+  own pieces. One intent may carry **several versions of one piece** (v1 and v2, each pinned by different recipes):
+  `play.intent_variants` holds one variant of every other document per intent, a piece's in order, each a variant of
+  its own, a new one growing from the intent's last. **Accept** keeps them in its one transaction in the order they
+  require each other: the pieces first, each exactly as proposed (its hash is what recipes pin), after the pieces it
+  requires and its own earlier versions, each its piece's next version number; then the recipes and every other
+  document. If any of it fails, nothing is kept; Archive closes them all. The intents' board lists the intent's pieces,
+  the version each is to be and which recipe or piece requires which.
   Since the recipe names a hash, a frozen version always builds the piece it was accepted with, and a newer piece
   version is a new version of the asset. **The box resolves it** (`play/site`'s `content/assets/box/pieces.js`,
   `load.js`): before the build, from play's files alone (`/api/files/<hash>`, held to its hash, cached as every file
