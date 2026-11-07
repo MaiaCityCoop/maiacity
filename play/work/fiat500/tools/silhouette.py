@@ -23,7 +23,7 @@ def canvas(view):
     if view in ('front', 'rear'): return (-0.8, 0.8, -0.05, 1.45)
     return (-1.6, 1.6, -0.05, 1.45)
 # what the spec leaves off the car (its door mirror): the sheet's outline there is not compared, (u0, u1, v0, v1) m
-SKIP = {'front': [(.6, .82, .8, 1.06)], 'rear': [(-.82, -.6, .8, 1.06)], 'top': [(.45, .75, -.82, -.6)], 'side': []}
+SKIP = {'front': [(.55, .82, .76, 1.06)], 'rear': [(-.82, -.55, .76, 1.06)], 'top': [(.45, .8, -.85, -.6)], 'side': []}
 report = {}
 for name, V in VIEWS.items():
     u0, u1, v0, v1 = canvas(name)
@@ -41,9 +41,8 @@ for name, V in VIEWS.items():
     S = ndimage.binary_opening(S, iterations=1)
     lab, n = ndimage.label(S); sizes = ndimage.sum(S, lab, range(1, n + 1)); S = lab == (1 + int(np.argmax(sizes)))
     S = ndimage.binary_fill_holes(S)
-    for (a, b, c, e) in SKIP[name]:
-        S[(U >= a) & (U <= b) & (Vv >= c) & (Vv <= e)] = False
-    lab, n = ndimage.label(S); sizes = ndimage.sum(S, lab, range(1, n + 1)); S = lab == (1 + int(np.argmax(sizes)))
+    skip = np.zeros_like(S)
+    for (a, b, c, e) in SKIP[name]: skip |= (U >= a) & (U <= b) & (Vv >= c) & (Vv <= e)
     # the model's mask: every triangle drawn
     img = Image.new('1', (W, H), 0); d = ImageDraw.Draw(img)
     u, v = V['m'](tri)
@@ -52,11 +51,27 @@ for name, V in VIEWS.items():
     Mk = ndimage.binary_fill_holes(np.asarray(img))
     # outlines and their distances (mm), both ways
     edge = lambda A: A & ~ndimage.binary_erosion(A)
-    eS, eM = edge(S), edge(Mk)
-    dS = ndimage.distance_transform_edt(~eS) * MM; dM = ndimage.distance_transform_edt(~eM) * MM
+    eS, eM = edge(S) & ~skip, edge(Mk) & ~skip
+    dS = ndimage.distance_transform_edt(~edge(S)) * MM; dM = ndimage.distance_transform_edt(~edge(Mk)) * MM
     m2s = dS[eM]; s2m = dM[eS]
+    # the body's outline alone: leaving out the tyres (the sheet's are 8 % over the cited 514 mm) and the underside
+    # below the sills (exhaust, sump), each zone named here
+    if name == 'side': under = (np.hypot(U - .99, Vv - .278) < .3) | (np.hypot(U + .905, Vv - .278) < .3) | (Vv < .2)
+    elif name in ('front', 'rear'): under = (Vv < .27)
+    else: under = np.zeros_like(Vv, bool)
+    bm2s = dS[eM & ~under]; bs2m = dM[eS & ~under]
+    body = np.concatenate([bm2s, bs2m])
+    badm = eM & ~under & (dS > 20); bads = eS & ~under & (dM > 20)
+    lab2, n2 = ndimage.label(ndimage.binary_dilation(badm | bads, iterations=3))
+    where = []
+    for k in range(1, n2 + 1):
+        sel = (lab2 == k) & (badm | bads)
+        if sel.sum() < 3: continue
+        vals = np.concatenate([dS[sel & badm], dM[sel & bads]])
+        where.append(dict(u=round(float(U[sel].mean()), 3), v=round(float(Vv[sel].mean()), 3), n=int(sel.sum()), max=round(float(vals.max()), 1), side='model out' if (sel & badm).sum() >= (sel & bads).sum() else 'sheet out'))
+    print(name, sorted(where, key=lambda w: -w['n'])[:12], file=sys.stderr)
     area = float(Mk.sum()) * (MM / 1000) ** 2
-    report[name] = dict(area_m2=area, model_to_sheet_max=float(m2s.max()), model_to_sheet_p95=float(np.percentile(m2s, 95)), sheet_to_model_max=float(s2m.max()), sheet_to_model_p95=float(np.percentile(s2m, 95)), mean=float(np.concatenate([m2s, s2m]).mean()), within20=float((np.concatenate([m2s, s2m]) <= 20).mean()))
+    report[name] = dict(area_m2=area, model_to_sheet_max=float(m2s.max()), model_to_sheet_p95=float(np.percentile(m2s, 95)), sheet_to_model_max=float(s2m.max()), sheet_to_model_p95=float(np.percentile(s2m, 95)), mean=float(np.concatenate([m2s, s2m]).mean()), within20=float((np.concatenate([m2s, s2m]) <= 20).mean()), body_max=float(body.max()), body_p99=float(np.percentile(body, 99)), body_mean=float(body.mean()), body_within20=float((body <= 20).mean()))
     # a picture: sheet outline red, model outline blue, where they part by more than 20 mm yellow
     pic = np.full((H, W, 3), 255, np.uint8)
     pic[S] = (235, 225, 225); pic[Mk & ~S] = (210, 220, 245)

@@ -6028,6 +6028,9 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 		};
 		const path = (dir, y) => {
 			const half = plan[dir].map(([z, x]) => [x, y, z]);
+			// each end turned in towards the wing, as the sheet's top view has it
+			const [ex, , ez] = half[half.length - 1];
+			half.push([ex - .012, y, ez - dir * .022], [ex - .035, y, ez - dir * .032]);
 			const tip = [0, y, dir * 1.485];
 			return [...half.slice().reverse().map(([x, yy, z]) => [-x, yy, z]), tip, ...half];
 		};
@@ -6055,7 +6058,7 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 			// a headlamp: its chrome rim, the fluted lens, the reflector behind
 			const h = onEnd5(sx * .455, .575, 1);
 			const aim = h.n.clone().multiplyScalar(.45).add(new three.Vector3(0, 0, .55)).normalize();
-			const p = [h.p[0], h.p[1], h.p[2] + .004];
+			const p = [h.p[0], h.p[1], h.p[2] + .016];
 			chrome.push(laid5(latheZ([[.066, -.02], [.083, -.01], [.086, .004], [.08, .016], [.07, .014], [.066, .004]], 64), p, aim));
 			lens.push(laid5(latheZ([[0, .02], [.03, .019], [.055, .014], [.068, .006], [.068, -.004], [0, -.004]], 48), p, aim));
 			for (const rr of [.018, .034, .05]) chrome.push(laid5(new three.TorusGeometry(rr, .0008, 4, 40).translate(0, 0, .0205 - rr * rr * 1.4), p, aim));
@@ -6084,9 +6087,9 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 			const t = onEnd5(sx * .48, .525, -1);
 			t.n.multiplyScalar(.4).add(new three.Vector3(0, 0, -.6)).normalize();
 			const p = [t.p[0], t.p[1], t.p[2] - .004];
-			tc.push(laid5(box(.092, .198, .03, .012), p, t.n));
-			ta.push(laid5(box(.074, .055, .022, .006).translate(0, .066, .009), p, t.n));
-			tr.push(laid5(GEO.merge([box(.074, .058, .022, .006).translate(0, .003, .009), box(.074, .052, .022, .006).translate(0, -.064, .009)]), p, t.n));
+			tc.push(laid5(box(.092, .198, .05, .012).translate(0, 0, .008), p, t.n));
+			ta.push(laid5(box(.074, .055, .022, .006).translate(0, .066, .03), p, t.n));
+			tr.push(laid5(GEO.merge([box(.074, .058, .022, .006).translate(0, .003, .03), box(.074, .052, .022, .006).translate(0, -.064, .03)]), p, t.n));
 		}
 		part({
 			id: "tail-lights",
@@ -6181,9 +6184,9 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 	/* —— the handles —— */
 	for (const [k, h] of doorHinges.entries()) {
 		const sx = k === 0 ? 1 : -1;
-		const s = onSide5(-.225, .8, sx);
+		const s = onSide5(-.25, .8, sx);
 		const p = [s.p[0] - h.pivot.position.x, s.p[1] - h.pivot.position.y, s.p[2] - h.pivot.position.z];
-		const g = [laid5(box(.13, .018, .012, .006).translate(0, 0, .016), p, s.n), laid5(box(.022, .02, .02, .004).translate(-.06, 0, .006), p, s.n), laid5(box(.022, .02, .02, .004).translate(.05, 0, .006), p, s.n), laid5(latheZ([[0, .02], [.008, .02], [.008, .004], [0, .004]], 16).translate(-.06, 0, 0), p, s.n)];
+		const g = [laid5(box(.13, .018, .012, .006).translate(0, 0, .026), p, s.n), laid5(box(.022, .02, .032, .004).translate(-.06, 0, .012), p, s.n), laid5(box(.022, .02, .032, .004).translate(.05, 0, .012), p, s.n), laid5(latheZ([[0, .02], [.008, .02], [.008, .004], [0, .004]], 16).translate(-.06, 0, 0), p, s.n)];
 		h.pivot.children[0].add(m(GEO.merge(g), M.chrome));
 	}
 
@@ -6245,7 +6248,7 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 		const sw = steeringWheelGeometry({ R: .19, column: .5 });
 		const wheelGroup = new three.Group();
 		wheelGroup.position.set(...F5.wheel);
-		wheelGroup.rotation.x = -.42;
+		wheelGroup.rotation.x = .42;
 		const spin = new three.Group();
 		spin.add(m(sw.rim, M.ivory), m(sw.hub, M.ivory));
 		wheelGroup.add(spin, m(sw.column, M.black));
@@ -6347,7 +6350,7 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 		const filter = [latheY([[0, 0], [.13, 0], [.135, .02], [.13, .055], [.11, .062], [0, .064]], 56).translate(-.03, .63, -1.11)];
 		part({ id: "carburettor", label: "Carburettor and air filter", assembly: "engine", source: SRC5.mech, what: "One Weber 26 IMB single-choke downdraught carburettor (21 mm choke, 1.12 mm main jet) on the head’s inlet, the mechanical pump feeding it; the large round air filter of the F over it.", specs: [["Carburettor", "Weber 26 IMB 4 / IMB 10"], ["Choke", "21 mm"]] }, [m(GEO.merge(carb), M.alloy), m(GEO.merge(filter), M.black)], {}, eng);
 		const ex = [hose([[.07, ENG.top - .01, -1.045], [.11, .4, -1.06], [.12, .28, -1.2], [.06, .25, -1.3]], .014, 10), hose([[.07, ENG.top - .01, -1.155], [.1, .4, -1.17], [.06, .27, -1.3]], .014, 10)];
-		const sil = [at(box(.42, .085, .14, .03), -.02, .245, -1.32), hose([[.17, .245, -1.33], [.28, .24, -1.36], [.3, .238, -1.425]], .015, 10)];
+		const sil = [at(box(.42, .085, .14, .03), -.02, .275, -1.3), hose([[.17, .27, -1.31], [.28, .262, -1.36], [.3, .258, -1.43]], .015, 10)];
 		part({ id: "exhaust", label: "Exhaust and silencer", assembly: "engine", source: SRC5.trim, what: "The two exhaust pipes from the head down to the silencer across the tail, its shells overlapping (from 1966), the tailpipe out under the right of the bumper.", specs: [["Silencer", "pressed shells"]] }, [m(GEO.merge([...ex, ...sil]), M.exhaust)], {}, eng);
 	}
 	/* —— the gearbox and final drive in one casing ahead of the engine, the half-shafts —— */
