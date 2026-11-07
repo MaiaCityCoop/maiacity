@@ -89,7 +89,9 @@ def sil_cams(w, scams, iters=3):
                 # both ways (rim to outline and outline to rim), so the head can't shrink onto one pixel
                 P2 = proj(V[vid], np.r_[c[:3], cc]); d1 = tree.query(P2)[0]; d2 = cKDTree(P2).query(tg)[0]
                 return np.r_[np.minimum(d1, 40.0), np.minimum(d2, 40.0)]
-            scams[k] = np.r_[c[:3], least_squares(r, c[3:], x_scale="jac").x]
+            s0 = scams_scale0[k]  # the scale stays within 30 % of the sheet front's: it can't collapse
+            lo_, hi_ = [0.7 * s0, -1e5, -1e5, -1], [1.3 * s0, 1e5, 1e5, 1]
+            scams[k] = np.r_[c[:3], least_squares(r, np.clip(c[3:], lo_, hi_), bounds=(lo_, hi_), x_scale="jac").x]
     return scams
 def cam_step(p):
     w, e, cams = unpack(p); X = shapes(w, e)
@@ -117,7 +119,14 @@ def shape_step(p):
 p = cam_step(p0.copy()); base = report(p, "base head:")
 if SIL:
     c0 = unpack(p)[2][sheet_cam()]
-    scams = [np.r_[Rot.from_rotvec([0, yaw[side], 0]).as_rotvec(), c0[3:]] for _, side in SIL]
+    scams = []
+    for k, (_, side) in enumerate(SIL):
+        # start centred: the head's projected box on the outline's box (above the shoulders), at the sheet front's scale
+        c = np.r_[Rot.from_rotvec([0, yaw[side], 0]).as_rotvec(), c0[3:]].copy(); c[4:6] = 0
+        Ph = proj(full_shape(unpack(p)[0])[HM], c); tg = sil_targets[k]; tg = tg[tg[:, 1] < np.percentile(tg[:, 1], 70)]
+        c[4] = (tg[:, 0].min() + tg[:, 0].max()) / 2 - (Ph[:, 0].min() + Ph[:, 0].max()) / 2; c[5] = tg[:, 1].min() - Ph[:, 1].min()
+        scams.append(c)
+    scams_scale0 = [c[3] for c in scams]
     scams = sil_cams(unpack(p)[0], scams)
     print("outline before:", [(i[0], round(i[1], 2), i[2]) for i in sil_rows(unpack(p)[0], scams)[2]])
 for it in range(12):
