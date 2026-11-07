@@ -41,6 +41,7 @@ import { intentPieces, keepPiece, PieceError, pieceProblems, piecesHeld, piecesO
 import { decideStory, proposeStoryVariant, storyEdit, storyReview } from "./stories";
 import { ensureStoryDoc } from "./storydocs";
 import { COOP } from "./access";
+import { seesIntent } from "./owners";
 
 export class VersionError extends Error {
   constructor(message: string, public status = 400) {
@@ -93,6 +94,8 @@ export type Kind = {
   view?: (q: Queryable, json: any, id: string) => Promise<Record<string, unknown>>;
   /** what a change shows beside its field diff, from the state before it and after it (a sandbox's pins before and after) */
   shown?: (q: Queryable, before: any, after: any) => Promise<Record<string, unknown>>;
+  /** its row's owner column (an asset's: ./owners.ts), where a document may be a person's own, private to them: to anyone else it is as one that never was */
+  owned?: string;
   /** whether its documents have breeds (an asset's: play/SPEC.md "Breeds") */
   breeds?: boolean;
   /** what its schema and check can't say without the database, held as its version is proposed for intent `intent` (a piece's pieces: each an accepted one or one proposed in the same intent); throws why not */
@@ -199,13 +202,22 @@ function text(v: unknown, what: string, most: number): string {
 }
 const qi = (s: string) => s.replace(/[^a-z0-9_.]/g, "");
 
-/** a document named by its UUID: its kind and id, its document made where its kind makes it from its own history */
-export async function docRef(q: Queryable, ctx: Ctx | null, id: unknown): Promise<{ kind: Kind; uuid: string; docId: string }> {
+/** the SQL of a kind's rows `r` that `p` sees: a document that may be a person's own is theirs or the coop's (./owners.ts) */
+const seen = (k: Kind, p: string) => (k.owned ? `(r.${qi(k.owned)} = '${COOP}' OR r.${qi(k.owned)} = ${p}::uuid)` : "");
+
+/**
+ * A document named by its UUID, as `me` sees it (another's private one is as one that never was): its kind and id, its
+ * document made where its kind makes it from its own history
+ */
+export async function docRef(q: Queryable, ctx: Ctx | null, id: unknown, me: Pick<Me, "id"> | null): Promise<{ kind: Kind; uuid: string; docId: string }> {
   const uuid = `${id ?? ""}`.toLowerCase();
   if (!UUID.test(uuid)) throw new VersionError("Name the document by its UUID (list_docs).", 404);
   await syncKinds(q);
   if (!KINDS.length) throw new VersionError("play keeps no versioned kind.", 500);
-  const { rows } = await q.query<{ k: string }>(KINDS.map((k, i) => `SELECT '${k.name}' AS k, ${i} AS o FROM ${qi(k.table)} r WHERE r.id::text = $1${k.where ? ` AND ${k.where}` : ""}`).join(" UNION ALL ") + " ORDER BY o LIMIT 1", [uuid]);
+  const { rows } = await q.query<{ k: string }>(
+    KINDS.map((k, i) => `SELECT '${k.name}' AS k, ${i} AS o FROM ${qi(k.table)} r WHERE r.id::text = $1${[k.where, seen(k, "$2")].filter(Boolean).map((w) => ` AND ${w}`).join("")}`).join(" UNION ALL ") + " ORDER BY o LIMIT 1",
+    KINDS.some((k) => k.owned) ? [uuid, me?.id ?? null] : [uuid],
+  );
   const kind = rows[0] ? kindNamed(rows[0].k) : null;
   if (!kind) throw new VersionError(`play keeps no document ${uuid} (list_docs).`, 404);
   const docId = `${kind.prefix}:${uuid}`;
@@ -245,7 +257,7 @@ async function intentVariant(db: Queryable, docId: string, intent: unknown) {
 
 /** every document of kind `kind` (every kind's where none is named): its UUID, kind, label, newest version, how many versions */
 export async function listDocs(db: Queryable, me: Me | null, kind?: string) {
-  admin(me, DOC_ADMINS);
+  const who = admin(me, DOC_ADMINS);
   await syncKinds(db);
   const ks = kind === undefined || kind === null || kind === "" ? KINDS : [kindNamed(`${kind}`)].filter((k): k is Kind => !!k);
   if (!ks.length) throw new VersionError(`A kind is one of ${KINDS.map((k) => k.name).join(", ")}.`);
@@ -257,7 +269,8 @@ export async function listDocs(db: Queryable, me: Me | null, kind?: string) {
               (SELECT count(*) FROM play.doc_versions v WHERE v.doc_id = '${k.prefix}:' || r.id::text) AS versions,
               (SELECT max(created) FROM play.doc_versions v WHERE v.doc_id = '${k.prefix}:' || r.id::text) AS updated
          FROM ${qi(k.table)} r LEFT JOIN play.docs d ON d.id = '${k.prefix}:' || r.id::text
-        ${k.listed || k.where ? `WHERE ${[k.where, k.listed].filter(Boolean).join(" AND ")}` : ""} ORDER BY r.created, r.id`,
+        ${k.listed || k.where || k.owned ? `WHERE ${[k.where, k.listed, seen(k, "$1")].filter(Boolean).join(" AND ")}` : ""} ORDER BY r.created, r.id`,
+      k.owned ? [who.id] : [],
     );
     for (const r of rows) {
       const extra = k.item && r.doc && r.number ? k.item((await docs.readDoc(db, r.doc)).json) : {};
@@ -274,7 +287,7 @@ export type DocAt = { version?: number; edit?: number; intent?: string; breed?: 
 export async function docAt(ctx: Ctx, me: Me | null, id: unknown, at: DocAt = {}) {
   admin(me, DOC_ADMINS);
   return asVersionError(async () => {
-    const { kind, uuid, docId } = await (ctx.db as Db).transaction((q) => docRef(q, ctx, id));
+    const { kind, uuid, docId } = await (ctx.db as Db).transaction((q) => docRef(q, ctx, id, me));
     const db = ctx.db;
     const versions = await versionsNamed(db, docId);
     const number = versions.at(-1)?.number ?? 0;
@@ -309,7 +322,7 @@ export async function docAt(ctx: Ctx, me: Me | null, id: unknown, at: DocAt = {}
 export async function docHistory(ctx: Ctx, me: Me | null, id: unknown, o: { variant?: number } = {}) {
   admin(me, DOC_ADMINS);
   return asVersionError(async () => {
-    const { kind, uuid, docId } = await (ctx.db as Db).transaction((q) => docRef(q, ctx, id));
+    const { kind, uuid, docId } = await (ctx.db as Db).transaction((q) => docRef(q, ctx, id, me));
     const db = ctx.db;
     const versions = await docs.versionsOf(db, docId);
     if (o.variant !== undefined && !(Number.isInteger(o.variant) && o.variant >= 1)) throw new VersionError("A variant is named by its number (doc_history gives them).", 404);
@@ -350,7 +363,7 @@ export async function docHistory(ctx: Ctx, me: Me | null, id: unknown, o: { vari
 export async function docChanges(ctx: Ctx, me: Me | null, id: unknown, o: { edit?: number; variant?: number }) {
   admin(me, DOC_ADMINS);
   return asVersionError(async () => {
-    const { kind, uuid, docId } = await (ctx.db as Db).transaction((q) => docRef(q, ctx, id));
+    const { kind, uuid, docId } = await (ctx.db as Db).transaction((q) => docRef(q, ctx, id, me));
     const db = ctx.db;
     const versions = await docs.versionsOf(db, docId);
     if (o.variant !== undefined && o.variant !== null) {
@@ -531,7 +544,7 @@ export async function docEdit(ctx: Ctx, me: Me | null, p: DocEditBody, via: "web
       const intent = await editingIntent(tx, p.intent);
       // a new document and its first edit, one transaction: nothing of it is kept if the edit is refused
       if (p.doc == null && p.kind != null) p = { ...p, doc: await newDocument(tx, who, p.kind, p.whole), variant: null };
-      const { kind, uuid, docId } = await docRef(tx, ctx, p.doc);
+      const { kind, uuid, docId } = await docRef(tx, ctx, p.doc, who);
       const author = authorOf(who, via);
       const v = await variantFor(tx, docId, uuid, intent, p.variant, author, message, { kind, breed: p.breed, newBreed: p.newBreed });
       const cur = (await docs.readDoc(tx, docId, { variant: v })).json;
@@ -564,7 +577,7 @@ export async function proposeDocVersion(ctx: Ctx, me: Me | null, p: ProposeBody,
   // a new document (`kind`, no `doc`: a kind of play.records' alone, which proposes no way of its own) is made in the
   // proposal's own transaction, so nothing of it is kept if the proposal is refused
   const fresh = p.doc == null && p.kind != null;
-  const ref = fresh ? null : await (ctx.db as Db).transaction((q) => docRef(q, ctx, p.doc));
+  const ref = fresh ? null : await (ctx.db as Db).transaction((q) => docRef(q, ctx, p.doc, who));
   if (ref?.kind.propose) {
     const { kind, uuid, docId } = ref;
     // the kind's own propose (an asset's recipe files, a story's frozen row), on its intent variant as it stands
@@ -581,7 +594,7 @@ export async function proposeDocVersion(ctx: Ctx, me: Me | null, p: ProposeBody,
   }
   return asVersionError(() =>
     ctx.db.transaction(async (tx) => {
-      const { kind, uuid, docId } = ref ?? (await docRef(tx, ctx, await newDocument(tx, who, p.kind, p.whole)));
+      const { kind, uuid, docId } = ref ?? (await docRef(tx, ctx, await newDocument(tx, who, p.kind, p.whole), who));
       return proposeIn(tx, who, kind, uuid, docId, fresh ? { ...p, variant: null } : p, note, via);
     }),
   );
@@ -915,7 +928,8 @@ export async function archiveOwn(db: Db, me: Me | null, id: string) {
   return db.transaction(async (tx) => {
     const { rows } = await tx.query<any>(`SELECT ${WORK_OF}, i.author AS intent_author, i.via AS intent_via FROM play.intents i WHERE i.id = $1 AND i.coop_id = $2 FOR UPDATE`, [id, COOP]);
     const p = rows[0];
-    if (!p) throw new VersionError("There is no such intent.", 404);
+    // (an intent whose work is another's private asset is as one that never was: ./owners.ts)
+    if (!p || !(await seesIntent(tx, me, p.id))) throw new VersionError("There is no such intent.", 404);
     const [by, via] = p.kind ? [p.author, p.via] : [p.intent_author, p.intent_via];
     if (by !== me.id || via !== "mcp") throw new VersionError("Only an intent you put at Proposal over MCP is yours to archive; the rest are decided on the intents' board.", 403);
     if (p.stage !== "proposal") throw new VersionError(`This intent is at the ${p.stage} stage: only one at Proposal is archived so.`, 409);
@@ -960,7 +974,8 @@ export async function decide(ctx: Ctx, me: Me | null, id: string, verdict: Verdi
 export async function decideAny(ctx: Ctx, me: Me | null, id: string, verdict: IntentVerdict | "archive", gh: GitHub | null = null, commit = runningCommit(), by?: AutoBy) {
   const db = ctx.db;
   const w = await workOf(db, id);
-  if (!w) throw new IntentError("There is no such intent.", 404);
+  // an intent whose work is another's private asset is decided by its owner alone, and to anyone else is as one that never was (./owners.ts)
+  if (!w || (me && !(await seesIntent(db, me, w.id)))) throw new IntentError("There is no such intent.", 404);
   // a rule decides (./intents.ts autoMove): a person's path, the rule written as who decided
   if (by && me) me = { ...me, auto: by };
   const out = await decideOne(ctx, me, w, verdict, gh, commit);
@@ -1068,7 +1083,7 @@ function levelsCheck(doc: any): string[] {
 
 const ensureAsset = (q: Queryable, ctx: Ctx, id: string) => ensureAssetDoc(q, ctx.store, id).then(() => undefined);
 register({
-  name: "asset", prefix: "asset", schema: SCHEMA.asset, check: assetCheck, build: true, work: "asset_version", table: "play.assets", label: "asset", group: "assets", breeds: true,
+  name: "asset", prefix: "asset", schema: SCHEMA.asset, check: assetCheck, build: true, work: "asset_version", table: "play.assets", owned: "owner", label: "asset", group: "assets", breeds: true,
   ensure: ensureAsset,
   write: async (_q, _id, cur, input) => (input.whole !== undefined ? { target: { ...(input.whole as object), schema: cur.schema } } : { edits: assetEdits(cur, input.edits) }),
   propose: (ctx, me, o, via) => proposeAssetVariant(ctx, me, o, via),

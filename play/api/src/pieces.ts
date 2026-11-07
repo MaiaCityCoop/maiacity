@@ -8,6 +8,7 @@
 // A piece is a CommonJS module as written (no minified lines: ./assetdocs.ts `unreadable`), requiring only three.js,
 // three's addons and other pieces by hash, at most MOST_DEEP deep counted from the recipe (its own piece the first),
 // with no cycle. The box resolves them from play's files (play/site's content/assets/box/pieces.js).
+import { keepFile } from "./owners";
 import type { BlobStore } from "./blobs";
 import { keyOf } from "./blobs";
 import { hashText } from "./hash";
@@ -152,7 +153,7 @@ export async function keepPiece(tx: Queryable, store: BlobStore, docId: string, 
   const hash = hashText(source);
   const bytes = new TextEncoder().encode(source);
   const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, "text/javascript");
-  await tx.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, 'text/javascript', $3) ON CONFLICT (hash) DO NOTHING`, [hash, bytes.length, key]);
+  await keepFile(tx, { hash, size: bytes.length, media_type: "text/javascript", bucket_key: key });
   await tx.query(`INSERT INTO play.piece_versions (hash, piece_id, number, requires, depth) VALUES ($1, $2, $3, $4, $5)`, [hash, docId.split(":")[1], number, own, depth + 1]);
   return hash;
 }

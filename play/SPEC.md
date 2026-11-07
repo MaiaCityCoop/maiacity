@@ -68,6 +68,34 @@ never edited after it has shipped, only followed by another.
   the old array while this change was built, follow them; `0037` is the last numbered id: none comes after it.
 - The runner refuses to start, naming the file, on a malformed id or a duplicate (two files under one number).
 
+### 3.2 Owners: personal accounts own things (Samuel 2026-11-07; intent 732d8a38, the first slice of Ownership 8fc46819)
+
+Every asset and every file belongs to an **account**: a person's own (their human's UUID) or the Maia City coop's
+(`COOP`, `play/api/src/ids.ts`). Everything there was stays the coop's (migration `202611071200-732d8a38-owners`:
+`assets.owner`, and `file_owners (hash, owner, label, created)`, one row per library holding a file). What a person owns
+is **private to its owner**: to anyone else, another admin included, it answers exactly as what never was (404 with the
+same words, left out of every list) on every path that hands things out, site, API and MCP. One module says so,
+`play/api/src/owners.ts`, the only one that reads `play.files` for people: whose library a file is in and who sees it,
+which assets a person sees, and which intents.
+
+- **A personal library.** A file goes into its owner's **personal library** when it is added for them: over the
+  token of the human it belongs to, `add_story_frame` or `add_document` with `library: "personal"`. It is served and
+  listed for them alone (`/api/files/<hash>`, `get_file`, `GET /api/library?library=personal`, `list_library`'s
+  `library`), each library with its own label. The same bytes may be in several libraries; a file is everyone's while
+  the coop's library holds it (or no library row names it, as every file was).
+- **Private characters.** A new asset in group `characters` may be made private by its proposer, made with
+  `propose_asset`'s `private: true` (the one way a new asset is made): its owner is the token's human, and it, its versions, documents (`asset:<uuid>`) and recipe files
+  are theirs alone (the catalog, `/api/assets…`, `list_assets`, `get_asset`, `list_docs`, `doc_at`, `doc_history`,
+  `doc_edit`, the admins' database window). Only group `characters` may be private for now, and a private asset never
+  moves out of it. A sandbox can't pin one: worlds are shared. Its sheet and documents may be its owner's own files; a
+  public asset's and a story's files are everyone's.
+- **On the board.** An intent whose work is another's private asset is not listed, not found, refused to any tool
+  naming it, and decided (accepted, archived) by its owner alone; a dependency edge to it on anyone else's intent shows
+  "a private intent", with no id and no title (its sub-state's reason too).
+- **The Library follows "Act as"** (§8): acting as yourself, your personal library; acting as Maia City, the coop's.
+- **Not yet:** making personal things public, moving them between accounts, personal stories, factories or other kinds:
+  8fc46819 widens this to them.
+
 ## 4. Asset version control, from first principles
 
 ### 4.1 What is versioned
@@ -1271,7 +1299,12 @@ matching a label or the start of a hash, with the count of each kind; an admin's
 agent's camera*), and over MCP `list_library` (`kind`, `q`, `offset`, `limit`) gives the same answer, so an agent finds
 a file by its label or hash prefix with where it is used and fetches its bytes with `GET /api/files/<hash>`. Only
 admins pass it (`admin(me, why)` in `play/api/src/access.ts`, the one admin guard every route's check calls with its
-own message).
+own message). **One Library app for every account** (intent 732d8a38, §3.2): `/library/` shows the library of whoever
+the person acts as (the You menu's "Act as", `play/site/src/lib/acting.svelte.ts`): yourself, your **personal
+library**, private to you; Maia City, the coop's, as before; its owner named on top. `GET /api/library` takes
+`library=coop|personal` (the coop's by default) and names its `owner`. Nothing is uploaded on the page: files come in
+over MCP. It stays an admin's app for now; opening it to every member, each their own library, is one flag
+(`LIBRARY_OPEN_TO` in `play/api/src/library.ts`).
 
 ## 9. Deploy
 
