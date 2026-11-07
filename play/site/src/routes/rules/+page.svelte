@@ -72,7 +72,7 @@
 		return Array.isArray(v) ? v.map(name).join(' or ') : typeof v === 'boolean' ? (v ? 'yes' : 'no') : name(v);
 	}
 	const FIELD: Record<string, string> = {
-		kind: 'its kind', via: 'it came', author: 'its author', work_kind: 'every kind of work it declares', proposed_by: 'its work proposed by', proposed_via: 'its work proposed', schemas: 'every document it changes of', code: 'its work is code', new_only: 'it only makes new documents', max_documents: 'documents at most', max_edits: 'edits at most'
+		kind: 'its kind', via: 'it came via', author: 'its author', work_kind: 'every kind of work it declares', proposed_by: 'its work proposed by', proposed_via: 'its work proposed via', schemas: 'every document it changes of', code: 'its work is code', new_only: 'it only makes new documents', max_documents: 'documents at most', max_edits: 'edits at most'
 	};
 	const GATE: Record<string, string> = { approve: 'Approve spec', accept: 'Accept' };
 </script>
