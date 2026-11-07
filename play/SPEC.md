@@ -493,7 +493,8 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   2026-11-06; intent `7cd4c779-9d7a-4ba0-8060-6b2697545886`): an intent at any stage, its code and its checks are done
   there, the only environment with play's MCP token and the box; a session elsewhere, without play's MCP (no
   `PLAY_MCP_TOKEN`), starts a session on avenBOX with the work's brief and hands it over, building, pushing and
-  recording nothing itself (`up.sh` says so as it ends); one intent has one builder session. So every check is a
+  recording nothing itself (the SessionStart hook says so as such a session starts, after `up.sh`; never `up.sh`
+  itself, which every check run calls); one intent has one builder session. So every check is a
   command:
   - each test and measure check carries its **`run`**, the exact command that decides it in avenBOX, from the
     repository's root, as written: a test passes when it exits 0, a measure prints its value and exits 0 only in its
