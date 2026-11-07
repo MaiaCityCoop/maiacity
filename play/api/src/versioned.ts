@@ -26,6 +26,7 @@ import type { BlobStore } from "./blobs";
 import * as docs from "./docs";
 import { randomUUID } from "node:crypto";
 import { SCHEMA } from "./ids";
+import { hashText } from "./hash";
 import { SKILL_STAGES } from "./skills";
 import type { Db, Queryable } from "./pg";
 import { NOTE_MOST } from "./notes";
@@ -36,7 +37,7 @@ import { autoAfter, byOf, decideIntent, getIntent, gate, IntentError, mustDecide
 import type { AutoBy } from "./rules";
 import { acceptAndShip, acceptCode, runningCommit, type GitHub } from "./ship";
 import { assetDocFor, assetEdits, assetReview, decideAsset, ensureAssetDoc, proposeAssetVariant, unreadable } from "./assetdocs";
-import { keepPiece, PieceError, pieceProblems, piecesHeld, piecesOf } from "./pieces";
+import { intentPieces, keepPiece, PieceError, pieceProblems, piecesHeld, piecesOf } from "./pieces";
 import { decideStory, proposeStoryVariant, storyEdit, storyReview } from "./stories";
 import { ensureStoryDoc } from "./storydocs";
 import { COOP } from "./access";
@@ -97,10 +98,10 @@ export type Kind = {
   owned?: string;
   /** whether its documents have breeds (an asset's: play/SPEC.md "Breeds") */
   breeds?: boolean;
-  /** what its schema and check can't say without the database, held as its version is proposed (a piece's pieces: each an accepted one); throws why not */
-  ready?: (q: Queryable, json: any) => Promise<void>;
+  /** what its schema and check can't say without the database, held as its version is proposed for intent `intent` (a piece's pieces: each an accepted one or one proposed in the same intent); throws why not */
+  ready?: (q: Queryable, json: any, intent?: string | null) => Promise<void>;
   /** what an accepted version keeps beside its row, in the Accept's transaction (a piece's source among play's files) */
-  accepted?: (tx: Queryable, ctx: Ctx, docId: string, number: number, json: any) => Promise<void>;
+  accepted?: (tx: Queryable, ctx: Ctx, docId: string, number: number, json: any, intent?: string | null) => Promise<void>;
 };
 
 const KINDS: Kind[] = [];
@@ -241,7 +242,7 @@ async function intentVariant(db: Queryable, docId: string, intent: unknown) {
   if (!UUID.test(s)) throw new VersionError("Name the intent by its id (a UUID).", 404);
   const { rows } = await db.query<{ id: string; doc_variant: string | null; status: string | null; stage: string; note: string; title: string }>(
     `SELECT w.id, w.doc_variant, dv.status, w.stage, w.note, w.title
-       FROM (SELECT i.id, COALESCE((SELECT iv.variant_id FROM play.intent_variants iv WHERE iv.intent_id = i.id AND iv.doc_id = $3),
+       FROM (SELECT i.id, COALESCE((SELECT iv.variant_id FROM play.intent_variants iv WHERE iv.intent_id = i.id AND iv.doc_id = $3 ORDER BY iv.position DESC LIMIT 1),
                                    (SELECT max(v.id) FROM play.doc_variants v WHERE v.intent_id = i.id AND v.doc_id = $3)) AS doc_variant,
                     i.stage, COALESCE(i.work_note, '') AS note, i.title FROM play.intents i WHERE i.id = $1 AND i.coop_id = $2) w
        LEFT JOIN play.doc_variants dv ON dv.id = w.doc_variant AND dv.doc_id = $3`,
@@ -471,8 +472,27 @@ async function variantFor(q: Queryable, docId: string, uuid: string, intent: str
     if (rows[0]?.id) return Number(rows[0].id);
   }
   const made = await newVariant(q, on.kind, docId, uuid, on, author, note);
-  if (intent) await q.query(`UPDATE play.doc_variants SET intent_id = $2 WHERE id = $1`, [made, intent]);
+  if (intent) {
+    await q.query(`UPDATE play.doc_variants SET intent_id = $2 WHERE id = $1`, [made, intent]);
+    await growFromHeld(q, on.kind, docId, made, intent, author);
+  }
   return made;
+}
+
+/**
+ * A new piece variant of an intent that holds a version of that piece already (intent 02e3a85f): it grows from the
+ * intent's last one, its first edit that version's state, so it is that version's next; else it grows from Main.
+ */
+async function growFromHeld(q: Queryable, k: Kind, docId: string, v: number, intent: string, author: docs.Author) {
+  if (k.name !== "piece") return;
+  const { rows } = await q.query<{ variant_id: string }>(
+    `SELECT iv.variant_id FROM play.intent_variants iv JOIN play.doc_variants dv ON dv.id = iv.variant_id
+      WHERE iv.intent_id = $1 AND iv.doc_id = $2 AND iv.variant_id <> $3 AND dv.status = 'proposed' ORDER BY iv.position DESC LIMIT 1`,
+    [intent, docId, v],
+  );
+  if (!rows[0]) return;
+  const before = (await docs.readDoc(q, docId, { variant: Number(rows[0].variant_id) })).json;
+  await docs.commit(q, docId, { variant: v, target: before, message: `grows from variant ${rows[0].variant_id}, the version this intent proposed before`, author });
 }
 
 const BREED_NAME = /^[a-z0-9][a-z0-9-]{0,79}$/;
@@ -583,7 +603,11 @@ export async function proposeDocVersion(ctx: Ctx, me: Me | null, p: ProposeBody,
 /** a document's next version proposed, in the caller's transaction (proposeDocVersion, proposeNewDoc) */
 async function proposeIn(tx: Queryable, who: Me, kind: Kind, uuid: string, docId: string, p: ProposeBody, note: string, via: "web" | "mcp") {
   const author = authorOf(who, via);
-  const v = p.variant == null ? await newVariant(tx, kind, docId, uuid, p, author, note) : (await proposedFor(tx, docId, uuid, p.variant, p.intent)).id;
+  let v: number;
+  if (p.variant == null) {
+    v = await newVariant(tx, kind, docId, uuid, p, author, note);
+    if (p.intent && UUID.test(`${p.intent}`.toLowerCase())) await growFromHeld(tx, kind, docId, v, `${p.intent}`.toLowerCase(), author);
+  } else v = (await proposedFor(tx, docId, uuid, p.variant, p.intent)).id;
   if (p.edits !== undefined || p.whole !== undefined) {
     const cur = (await docs.readDoc(tx, docId, { variant: v })).json;
     await docs.commit(tx, docId, { variant: v, ...(await writeOf(tx, kind, uuid, cur, p)), message: note, author });
@@ -591,7 +615,7 @@ async function proposeIn(tx: Queryable, who: Me, kind: Kind, uuid: string, docId
   const now = (await docs.readDoc(tx, docId, { variant: v })).json;
   const changes = docs.diff(await docs.seedOf(tx, docId, v), now);
   if (!changes.length) throw new VersionError(`That is the ${kind.label} as it is: nothing changed.`);
-  if (kind.ready) await kind.ready(tx, now);
+  if (kind.ready) await kind.ready(tx, now, p.intent ?? null);
   await docs.propose(tx, docId, v, { note, author });
   // every document goes in beside the others the intent holds (intent 7c8986c5)
   const intent = await putAtProposal(tx, who, { intent: p.intent, work: { kind: kind.work, doc_id: docId, doc_variant: v }, note, via: via === "mcp" ? "mcp" : "web" }).catch((e) => {
@@ -686,7 +710,38 @@ export async function reviewDoc(db: Queryable, p: any) {
     each.push(r);
   }
   const first = each[0] ?? { doc: null, seedNumber: null, moved: false, changes: [], edits: [] };
-  return { ...first, ...extra, docs: each };
+  const pieces = p.id && UUID.test(`${p.id}`) ? await piecesReviewed(db, p.id, held) : [];
+  return { ...first, ...extra, docs: each, ...(pieces.length ? { pieces } : {}) };
+}
+
+/**
+ * The pieces an intent proposes as the board lists them (intent 02e3a85f): each its piece, label, variant, hash and the
+ * version it is to be, which of the intent's pieces it requires and which of its documents require it.
+ */
+async function piecesReviewed(db: Queryable, intent: string, held: { doc_id: string; doc_variant: number | null }[]) {
+  const own = await intentPieces(db, intent);
+  if (!own.length) return [];
+  // what every document the intent holds requires by hash (a piece's or a recipe's source, a breed's among them)
+  const requires: { doc: string; variant: number; hashes: string[] }[] = [];
+  for (const h of held) {
+    if (h.doc_variant == null) continue;
+    const json = (await docs.readDoc(db, h.doc_id, { variant: Number(h.doc_variant) })).json;
+    const sources = [json?.source, ...(Array.isArray(json?.variants) ? json.variants.map((x: any) => x?.source) : [])].filter((x): x is string => typeof x === "string");
+    requires.push({ doc: h.doc_id, variant: Number(h.doc_variant), hashes: [...new Set(sources.flatMap(piecesOf))] });
+  }
+  const before = new Map<string, number>();
+  const out = [];
+  for (const x of own) {
+    const n = before.get(x.doc_id) ?? (await docs.versionsOf(db, x.doc_id)).length;
+    before.set(x.doc_id, n + 1);
+    const json = (await docs.readDoc(db, x.doc_id, { variant: x.variant })).json;
+    out.push({
+      piece: x.doc_id.split(":")[1], label: `${json?.label ?? "A piece"}`, variant: x.variant, hash: x.hash, version: n + 1,
+      requires: x.requires.filter((r) => own.some((y) => y.hash === r)),
+      requiredBy: requires.filter((r) => r.hashes.includes(x.hash)).map((r) => ({ doc: r.doc.split(":")[1], kind: kindOfDoc(r.doc)?.name ?? null, variant: r.variant })),
+    });
+  }
+  return out;
 }
 
 /**
@@ -747,6 +802,8 @@ export async function decideWork(tx: Queryable, ctx: Ctx, me: Me, p: any, verdic
     };
     const kindOf = (h: { doc_id: string }) => kindOfDoc(h.doc_id) ?? own;
     const hooked = held.filter((h) => !!kindOf(h).decide);
+    // its pieces (intent 02e3a85f): kept first, in the order they require each other, each exactly as proposed
+    const pieces = held.filter((h) => !hooked.includes(h) && kindOf(h).name === "piece");
     if (verdict === "archive") {
       if (!hooked.length) return archive();
       let first: any = null;
@@ -759,7 +816,7 @@ export async function decideWork(tx: Queryable, ctx: Ctx, me: Me, p: any, verdic
     }
     // every document's merge worked out first: one that would not go in archives them all
     const merges: { h: { doc_id: string; doc_variant: number }; k: Kind; preview: Awaited<ReturnType<typeof docs.previewMerge>> }[] = [];
-    for (const h of held.filter((x) => !hooked.includes(x))) {
+    for (const h of held.filter((x) => !hooked.includes(x) && !pieces.includes(x))) {
       const k = kindOf(h);
       const which = several ? ` (${k.label} ${h.doc_id.split(":")[1]}: nothing of this intent went in)` : "";
       const preview = await docs.previewMerge(tx, h.doc_id, h.doc_variant);
@@ -772,10 +829,21 @@ export async function decideWork(tx: Queryable, ctx: Ctx, me: Me, p: any, verdic
       if (preview.problems.length) return archive(`Merged into the ${k.label} as it is now, this is no longer a valid ${k.label}: ${preview.problems.slice(0, 3).join("; ")}${which}. Propose it again on its newest version.`);
       merges.push({ h, k, preview });
     }
+    // the order its pieces go in: each after the pieces of the intent it requires, and after its piece's earlier versions
+    const ordered = await piecesInOrder(tx, pieces);
+    if (typeof ordered === "string") return archive(ordered);
     // the kinds' own decides, each document with its own refs: one that does not take its document undoes them all
     if (several) await tx.query(`SAVEPOINT all_work`);
     let first: any = null;
     const numbers: number[] = [];
+    for (const { h, json } of ordered) {
+      const k = kindOf(h);
+      const v = await docs.accept(tx, h.doc_id, h.doc_variant, { author, note: p.note, whole: true });
+      if (k.accepted) await k.accepted(tx, ctx, h.doc_id, v.number, json, p.id);
+      const cols = { [k.labelColumn ?? "label"]: json.label ?? json.title, ...Object.fromEntries(Object.entries(k.row ?? {}).map(([c, f]) => [c, f(json)])) };
+      await tx.query(`UPDATE ${qi(k.table)} SET ${Object.keys(cols).map((c, i) => `${qi(c)} = $${i + 2}`).join(", ")} WHERE id = $1`, [h.doc_id.split(":")[1], ...Object.values(cols)]);
+      numbers.push(v.number);
+    }
     for (const h of hooked) {
       const k = kindOf(h);
       const r = await k.decide!(tx, ctx, me, asOne(p, h, k), verdict);
@@ -803,6 +871,29 @@ export async function decideWork(tx: Queryable, ctx: Ctx, me: Me, p: any, verdic
     await settle(tx, p.id, "accepted", byOf(me));
     return { id: p.id as string, status: "accepted" as const, number: numbers[0], ...(numbers.length > 1 ? { numbers } : {}), ...(merges[0]?.preview.concurrent ? { merged: true } : {}) };
   });
+}
+
+/**
+ * An intent's pieces in the order an Accept keeps them (intent 02e3a85f): each after the pieces of the intent its
+ * source requires and after the earlier versions of its own piece the intent holds, else in the intent's order. Each
+ * with its state as proposed. Pieces that require each other in a circle give why, to archive it.
+ */
+async function piecesInOrder(q: Queryable, pieces: { doc_id: string; doc_variant: number }[]): Promise<{ h: { doc_id: string; doc_variant: number }; json: any }[] | string> {
+  const all = [];
+  for (const h of pieces) {
+    const json = (await docs.readDoc(q, h.doc_id, { variant: h.doc_variant })).json;
+    const source = `${json?.source ?? ""}`;
+    all.push({ h, json, hash: hashText(source), requires: piecesOf(source) });
+  }
+  const out: typeof all = [];
+  const left = [...all];
+  while (left.length) {
+    const i = left.findIndex((x, n) =>
+      !x.requires.some((r) => left.some((y) => y !== x && y.hash === r)) && !left.slice(0, n).some((y) => y.h.doc_id === x.h.doc_id));
+    if (i < 0) return `Its pieces require each other in a circle (${left.map((x) => `${x.hash.slice(0, 12)}…`).join(", ")}): nothing of this intent went in.`;
+    out.push(...left.splice(i, 1));
+  }
+  return out.map(({ h, json }) => ({ h, json }));
 }
 
 export type Verdict = "accept" | "archive";
@@ -1117,8 +1208,14 @@ register({
   name: "piece", prefix: "piece", schema: SCHEMA.piece, check: PIECE_CHECK, work: "piece_version", table: "play.records", where: "r.kind = 'piece'", label: "piece", group: "pieces",
   row: { kind: () => "piece", updated: () => new Date() },
   item: (json) => ({ note: json.note ?? "", bytes: Buffer.byteLength(`${json.source ?? ""}`) }),
-  ready: (q, json) => asPieceError(() => piecesHeld(q, piecesOf(`${json?.source ?? ""}`), 3)),
-  accepted: (tx, ctx, docId, number, json) => asPieceError(() => keepPiece(tx, ctx.store, docId, number, json)),
+  ready: (q, json, intent) =>
+    asPieceError(async () => {
+      const source = `${json?.source ?? ""}`;
+      // one version of a piece's source per intent: a second the same is no new version
+      if (intent && (await intentPieces(q, intent)).some((x) => x.hash === hashText(source))) throw new PieceError("This intent proposes that piece's source already: a version of a piece is new source.");
+      await piecesHeld(q, piecesOf(source), 3, intent);
+    }),
+  accepted: (tx, ctx, docId, number, json, intent) => asPieceError(() => keepPiece(tx, ctx.store, docId, number, json, intent)),
   more: async (q, uuid) => ({
     versions: (await q.query<{ number: number; hash: string; requires: string[]; depth: number }>(`SELECT number, hash, requires, depth FROM play.piece_versions WHERE piece_id = $1 ORDER BY number`, [uuid])).rows,
   }),
