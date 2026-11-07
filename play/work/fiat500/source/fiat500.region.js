@@ -417,6 +417,77 @@ function shift5(s, o) {
 	return { pos, nor: s.nor, uv: s.uv };
 }
 
+/* —— the Fiat's own shapes, beside the base's: a profile swept along a path, a point on its ends —— */
+
+/**
+ * A closed profile swept along a path: at each point the profile's (out, up) laid across the path, `up` the world's
+ * up (or the given vector) squared to the path, `out` beside it; `scale` thins it along the way (0…1 → factor). Its
+ * ends capped.
+ * @param {V3[]} path @param {V2[]} prof @param {{ up?: V3, scale?: (t: number) => number, flip?: boolean }} [o]
+ */
+function sweep5(path, prof, { up = [0, 1, 0], scale = () => 1, flip = false } = {}) {
+	const n = path.length, k = prof.length;
+	const pos = [], idx = [], uv = [];
+	const U = new three.Vector3(...up);
+	for (let i = 0; i < n; i++) {
+		const a = new three.Vector3(...path[Math.max(0, i - 1)]), b = new three.Vector3(...path[Math.min(n - 1, i + 1)]);
+		const t = b.sub(a).normalize();
+		const u = U.clone().sub(t.clone().multiplyScalar(U.dot(t))).normalize();
+		const o = new three.Vector3().crossVectors(t, u).multiplyScalar(flip ? -1 : 1);
+		const s = scale(i / (n - 1));
+		for (let j = 0; j < k; j++) {
+			const p = new three.Vector3(...path[i]).addScaledVector(o, prof[j][0] * s).addScaledVector(u, prof[j][1] * s);
+			pos.push(p.x, p.y, p.z);
+			uv.push(i / (n - 1), j / k);
+		}
+	}
+	for (let i = 0; i < n - 1; i++) for (let j = 0; j < k; j++) {
+		const a = i * k + j, b = i * k + (j + 1) % k, c = (i + 1) * k + j, d = (i + 1) * k + (j + 1) % k;
+		idx.push(a, c, b, b, c, d);
+	}
+	const g = new three.BufferGeometry();
+	g.setAttribute("position", new three.Float32BufferAttribute(pos, 3));
+	g.setAttribute("uv", new three.Float32BufferAttribute(uv, 2));
+	g.setIndex(idx);
+	g.computeVertexNormals();
+	const caps = [0, n - 1].map((i) => {
+		const pts = prof.map((_, j) => new three.Vector3(pos[(i * k + j) * 3], pos[(i * k + j) * 3 + 1], pos[(i * k + j) * 3 + 2]));
+		const c = pts.reduce((s, p) => s.add(p), new three.Vector3()).divideScalar(k);
+		const cp = [], cu = [];
+		for (let j = 0; j < k; j++) {
+			const A = pts[j], B = pts[(j + 1) % k];
+			const tri = i === 0 ? [c, B, A] : [c, A, B];
+			for (const v of tri) cp.push(v.x, v.y, v.z), cu.push(0, 0);
+		}
+		const cg = new three.BufferGeometry();
+		cg.setAttribute("position", new three.Float32BufferAttribute(cp, 3));
+		cg.setAttribute("uv", new three.Float32BufferAttribute(cu, 2));
+		cg.computeVertexNormals();
+		return cg;
+	});
+	return GEO.merge([g, ...caps]);
+}
+/** a point on the nose (dir 1) or tail (−1) at (x, y), its outward normal, and a frame to stand a lamp in there @param {number} x @param {number} y @param {1 | -1} dir */
+function onEnd5(x, y, dir) {
+	const f = (u, v) => [u, v, endZ5(u, v, dir)];
+	const n = normalOf5(f, x, y);
+	if (n.z * dir < 0) n.negate();
+	return { p: f(x, y), n };
+}
+/** a point on the side (sx) at (z, y) and its outward normal @param {number} z @param {number} y @param {1 | -1} sx */
+function onSide5(z, y, sx) {
+	const f = (u, v) => sideAt5(u, v, sx);
+	const n = normalOf5(f, z, y);
+	if (n.x * sx < 0) n.negate();
+	return { p: f(z, y), n };
+}
+/** a geometry built facing +z laid on a point, facing `dir` @param {THREE.BufferGeometry} g @param {V3} p @param {THREE.Vector3} dir @param {number} [roll] */
+function laid5(g, p, dir, roll = 0) {
+	const q = new three.Quaternion().setFromUnitVectors(new three.Vector3(0, 0, 1), dir.clone().normalize());
+	if (roll) g.rotateZ(roll);
+	return g.applyQuaternion(q).translate(...p);
+}
+
 /* —— where the shell is cut: its seams and openings, each a field positive inside (m) —— */
 
 /** a rounded intersection of two fields, its corner of radius R @param {number} a @param {number} b @param {number} R */
@@ -518,6 +589,8 @@ function fiat500({ speed = 60, grade = 0, load = 75, doors = 0, roof = 0, lid = 
 	};
 	const { axle } = F5;
 	const sim = vehicleSolver(VEHICLE5);
+	/** what moves with the solver or a slider each tick, beside the wheels, doors and lid */
+	const ticks = [];
 	const kmh = () => sim.s.v * 3.6;
 
 	/* —— the shell —— */
@@ -644,6 +717,503 @@ function fiat500({ speed = 60, grade = 0, load = 75, doors = 0, roof = 0, lid = 
 		c.wheel.add(m(cap, M.chrome), m(face, M.silver));
 	}
 
+	/* —— the rolltop: its canvas over the roof's opening, folding back in pleats —— */
+	const roofMesh = m(new three.BufferGeometry(), M.canvas);
+	const bow = new three.Group();
+	{
+		const r = F5.roof;
+		const rail = geoOf5(band5(skin, "roof", -.016, -.002), .002);
+		// the canvas's height: the sheet's top over the opening, crowned across, tucked down at its sides
+		const yAt = (z, x) => traced(TRACE.top, TRACE.z0, TRACE.dz, clamp(z, r.z0 + .02, r.z1 - .02)) + .0018 - .016 * (x / r.x) ** 2 - .034 * Math.max(0, Math.abs(x) / r.x - .93) / .07 - .03 * Math.max(0, 1 - Math.min(z - r.z0, r.z1 - z) / .02);
+		const NZ = 40, NX = 16, pleats = 6;
+		/** the canvas with its front edge `k` of the way back: the cloth bunched into pleats behind it */
+		const build = (k) => {
+			const zf = r.z1 - .002 - k * (r.z1 - r.z0 - .16), z0 = r.z0 + .002;
+			const pos = [], uv = [], idx = [];
+			for (let i = 0; i <= NZ; i++) {
+				const u = i / NZ, z = z0 + (zf - z0) * u;
+				const lift = .055 * k * Math.abs(Math.sin(u * pleats * Math.PI)) * (u < .98 ? 1 : 0);
+				for (let j = 0; j <= NX; j++) {
+					const x = -r.x + .004 + (2 * r.x - .008) * j / NX;
+					pos.push(x, yAt(z, x) + lift, z);
+					uv.push(x * 3, z * 3);
+				}
+			}
+			for (let i = 0; i < NZ; i++) for (let j = 0; j < NX; j++) {
+				const a = i * (NX + 1) + j, b = a + 1, c = a + NX + 1, d = c + 1;
+				idx.push(a, b, c, b, d, c);
+			}
+			const g = new three.BufferGeometry();
+			g.setAttribute("position", new three.Float32BufferAttribute(pos, 3));
+			g.setAttribute("uv", new three.Float32BufferAttribute(uv, 2));
+			g.setIndex(idx);
+			g.computeVertexNormals();
+			roofMesh.geometry.dispose();
+			roofMesh.geometry = g;
+			bow.position.set(0, yAt(zf, 0) + .006, zf);
+		};
+		build(clamp(roof));
+		let shown = clamp(roof);
+		ticks.push(() => {
+			const k = clamp(ctl.roof.value);
+			if (Math.abs(k - shown) > 1e-3) build(shown = k);
+		});
+		bow.add(m(at(box(2 * r.x + .01, .016, .03, .006), 0, 0, 0), M.black), m(at(box(.07, .012, .03, .004), 0, .012, -.02), M.black));
+		part({
+			id: "rolltop",
+			label: "Rolltop",
+			assembly: "body",
+			source: SRC5.trim,
+			what: "The half-length canvas roof of the F: black cloth on a frame of bows, its front bow closing on the windscreen’s header with one central hook; undone, it folds back in pleats over the rear seat. Its rail round the opening is black rubber.",
+			moves: "Folds back and closes, its front bow sliding on the rails.",
+			drive: "A hand",
+			specs: [["Opening", "690 × 770 mm"], ["Hook", "1, central (from 1965)"]]
+		}, [roofMesh, bow, m(rail, M.rubber)]);
+	}
+
+	/* —— the bumpers: chrome blades wrapping round the ends —— */
+	{
+		const blade = [[-.006, -.034], [.012, -.036], [.024, -.028], [.03, -.012], [.031, 0], [.03, .014], [.024, .03], [.012, .038], [-.006, .036]];
+		// the blades' outer faces in plan (z, x), traced off the sheet's top view: round the nose and the tail to the wings
+		const plan = {
+			"1": [[1.482, .093], [1.473, .2], [1.463, .267], [1.45, .343], [1.44, .384], [1.431, .42], [1.42, .458], [1.41, .483], [1.4, .504], [1.39, .52], [1.38, .534], [1.363, .556], [1.342, .571], [1.323, .58], [1.305, .583]],
+			"-1": [[-1.478, .172], [-1.467, .278], [-1.458, .333], [-1.448, .377], [-1.439, .41], [-1.429, .442], [-1.42, .465], [-1.41, .485], [-1.4, .505], [-1.39, .519], [-1.38, .53], [-1.36, .551], [-1.34, .567], [-1.32, .58], [-1.3, .588], [-1.275, .59]]
+		};
+		const path = (dir, y) => {
+			const half = plan[dir].map(([z, x]) => [x, y, z]);
+			const tip = [0, y, dir * 1.485];
+			return [...half.slice().reverse().map(([x, yy, z]) => [-x, yy, z]), tip, ...half];
+		};
+		const face = blade.map(([o, u]) => [o - .031, u]);
+		const geo = [sweep5(path(1, .352), face), sweep5(path(-1, .372), face, { flip: true })];
+		const brackets = [];
+		for (const [dir, y] of [[1, .352], [-1, .372]]) for (const sx of [-1, 1]) {
+			const x = sx * .3, z = endZ5(x, y, dir);
+			brackets.push(cyl([x, y, z - dir * .04], [x, y, dir * 1.44], .009, 10));
+		}
+		part({
+			id: "bumpers",
+			label: "Bumpers",
+			assembly: "trim",
+			source: SRC5.look,
+			what: "Thin chrome-plated steel blades across the nose and the tail, wrapping round the corners, each on two brackets through the panel; no overriders, as on the F.",
+			specs: [["Section", "70 × 30 mm"], ["Over them", "2,970 mm"]]
+		}, [m(GEO.merge(geo), M.chrome), m(GEO.merge(brackets), R.zinc)], { explode: [0, 0, 0] });
+	}
+
+	/* —— the lamps: round headlamps and indicators in the nose, side repeaters, rectangular tail lamps —— */
+	{
+		const chrome = [], lens = [], refl = [], amber = [], red = [];
+		for (const sx of [1, -1]) {
+			// a headlamp: its chrome rim, the fluted lens, the reflector behind
+			const h = onEnd5(sx * .455, .575, 1);
+			const aim = h.n.clone().multiplyScalar(.45).add(new three.Vector3(0, 0, .55)).normalize();
+			const p = [h.p[0], h.p[1], h.p[2] + .004];
+			chrome.push(laid5(latheZ([[.066, -.02], [.083, -.01], [.086, .004], [.08, .016], [.07, .014], [.066, .004]], 64), p, aim));
+			lens.push(laid5(latheZ([[0, .02], [.03, .019], [.055, .014], [.068, .006], [.068, -.004], [0, -.004]], 48), p, aim));
+			refl.push(laid5(latheZ([[.068, -.004], [.05, -.03], [.02, -.048], [.012, -.05], [.012, -.044], [.02, -.042], [.05, -.024], [.064, -.004]], 40), p, aim));
+			// the indicator under it, a clear round lens in a chrome base
+			const i = onEnd5(sx * .52, .43, 1);
+			const ai = i.n.clone().multiplyScalar(.6).add(new three.Vector3(0, 0, .4)).normalize();
+			chrome.push(laid5(latheZ([[.036, -.01], [.047, -.004], [.048, .006], [.042, .008]], 40), i.p, ai));
+			lens.push(laid5(latheZ([[0, .03], [.02, .027], [.036, .016], [.042, .006], [.042, 0], [0, 0]], 36), i.p, ai));
+			// the side repeater on the wing
+			const r = onSide5(1.26, .635, sx);
+			chrome.push(laid5(latheZ([[.016, -.004], [.022, 0], [.021, .004], [.017, .004]], 24), r.p, r.n));
+			amber.push(laid5(latheZ([[0, .01], [.012, .008], [.018, .003], [.018, 0], [0, 0]], 20), r.p, r.n));
+		}
+		part({
+			id: "lights",
+			label: "Headlamps, indicators and repeaters",
+			assembly: "trim",
+			source: SRC5.trim,
+			what: "Two round headlamps set into the nose, their rims chromed on the F, asymmetric dipped beams behind fluted lenses; under each a round clear indicator; on each wing a small round amber repeater.",
+			specs: [["Headlamps", "Ø 170 mm, 12 V 45/40 W [inferred]"], ["Indicators", "Ø 84 mm"]]
+		}, [m(GEO.merge(chrome), M.chrome), m(GEO.merge(lens), M.lens), m(GEO.merge(refl), M.reflector), m(GEO.merge(amber), M.amber)]);
+		const tc = [], ta = [], tr = [];
+		for (const sx of [1, -1]) {
+			const t = onEnd5(sx * .48, .525, -1);
+			const p = [t.p[0], t.p[1], t.p[2] - .006];
+			tc.push(laid5(box(.092, .198, .03, .012), p, t.n));
+			ta.push(laid5(box(.074, .055, .022, .006).translate(0, .066, .009), p, t.n));
+			tr.push(laid5(GEO.merge([box(.074, .058, .022, .006).translate(0, .003, .009), box(.074, .052, .022, .006).translate(0, -.064, .009)]), p, t.n));
+		}
+		part({
+			id: "tail-lights",
+			label: "Tail lamps",
+			assembly: "trim",
+			source: SRC5.trim,
+			what: "The F’s larger rectangular tail lamps on the rear corners, without the D’s aluminium base: an amber indicator over the red tail and stop lamp and the red reflector, in a chrome frame.",
+			specs: [["Size", "92 × 198 mm"]]
+		}, [m(GEO.merge(tc), M.chrome), m(GEO.merge(ta), M.amber), m(GEO.merge(tr), M.red)]);
+	}
+	/* —— the whiskers and horn cover, the handles, the wipers —— */
+	{
+		const n = onEnd5(0, .54, 1);
+		const shield = new three.Shape();
+		shield.moveTo(-.058, .028);
+		shield.quadraticCurveTo(0, .05, .058, .028);
+		shield.lineTo(.066, 0);
+		shield.quadraticCurveTo(.05, -.04, 0, -.05);
+		shield.quadraticCurveTo(-.05, -.04, -.066, 0);
+		shield.closePath();
+		const cover = laid5(GEO.extrude(shield, .016, .006), [n.p[0], n.p[1], n.p[2] - .004], new three.Vector3(0, 0, 1));
+		const grille = [];
+		for (let k = -3; k <= 3; k++) grille.push(laid5(slab(.1, .004, .004).translate(0, k * .011, .022), [n.p[0], n.p[1], n.p[2] - .004], new three.Vector3(0, 0, 1)));
+		const bars = [];
+		for (const sx of [1, -1]) {
+			const pts = [];
+			for (let k = 0; k <= 16; k++) {
+				const x = sx * (.068 + .215 * k / 16), y = .546 - .006 * (k / 16) ** 2;
+				pts.push([x, y, endZ5(x, y, 1) + .005]);
+			}
+			bars.push(sweep5(pts, [[-.003, -.0045], [.004, -.004], [.006, 0], [.004, .004], [-.003, .0045]], { up: [0, 1, 0], scale: (t) => 1 - .55 * t, flip: sx < 0 }));
+		}
+		part({
+			id: "whiskers",
+			label: "Whiskers and horn cover",
+			assembly: "trim",
+			source: SRC5.trim,
+			what: "The 500’s ‘moustache’: on the F one moulded piece, a chromed shield over the horn in the middle of the nose, its grille letting the horn’s sound out, and two chrome bars tapering out towards the headlamps. No badge or lettering here.",
+			specs: [["Span", "570 mm"]]
+		}, [m(GEO.merge([cover, ...bars]), M.chrome), m(GEO.merge(grille), M.black)]);
+		const wipers = [];
+		for (const xp of [-.1, .29]) {
+			const arm = [], blade = [];
+			for (let k = 0; k <= 8; k++) {
+				const x = xp - .34 * k / 8, y = .945 + .012 * k / 8;
+				const o = onEnd5(x, y, 1);
+				arm.push(new three.Vector3(...o.p).addScaledVector(o.n, .012).toArray());
+				blade.push(new three.Vector3(...o.p).addScaledVector(o.n, .005).toArray());
+			}
+			wipers.push(sweep5(arm, [[-.004, -.003], [.004, -.003], [.004, .003], [-.004, .003]]), sweep5(blade.slice(1, 8), [[-.003, -.004], [.003, -.004], [.003, .004], [-.003, .004]]), latheY([[0, -.012], [.012, -.012], [.012, .004], [0, .004]], 16).translate(...arm[0]));
+		}
+		part({
+			id: "wipers",
+			label: "Windscreen wipers",
+			assembly: "trim",
+			source: SRC5.look,
+			what: "Two wiper arms parked along the windscreen’s foot, their spindles through the scuttle, their rubber blades on chromed arms.",
+			specs: [["Arms", "340 mm"]]
+		}, [m(GEO.merge(wipers), M.chrome)]);
+	}
+	/* —— the louvres: the intake band over the engine lid and the lid's two banks —— */
+	{
+		const slots = [], lips = [];
+		for (let k = 0; k < 40; k++) {
+			const x = -.36 + .72 * k / 39;
+			const s = onEnd5(x, .912, -1);
+			slots.push(laid5(box(.008, .052, .01, .003), [s.p[0], s.p[1], s.p[2] + .003], s.n));
+		}
+		part({
+			id: "intake",
+			label: "Cooling-air intake",
+			assembly: "body",
+			source: SRC5.look,
+			what: "The band of forty slots across the tail under the back window, where the engine’s fan draws its cooling air in.",
+			specs: [["Slots", "40"]]
+		}, [m(GEO.merge(slots), M.gap)]);
+		for (const sx of [1, -1]) for (let k = 0; k < 9; k++) {
+			const y = .755 + .075 * k / 8;
+			const s = onEnd5(sx * .245, y, -1);
+			const p = [s.p[0] - lidPivot[0], s.p[1] - lidPivot[1], s.p[2] - lidPivot[2]];
+			lips.push(laid5(box(.225, .006, .008, .002), [p[0], p[1] - .002, p[2] + .002], s.n), laid5(box(.225, .004, .01, .002), [p[0], p[1] + .003, p[2] - .002], s.n));
+		}
+		const lidStuff = [];
+		const hd = onEnd5(0, .81, -1);
+		lidStuff.push(laid5(box(.016, .05, .014, .006), [hd.p[0] - lidPivot[0], hd.p[1] - lidPivot[1], hd.p[2] - lidPivot[2] - .006], hd.n));
+		const pl = onEnd5(0, .662, -1);
+		lidStuff.push(laid5(new three.SphereGeometry(1, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2).rotateX(Math.PI / 2).scale(.13, .032, .03), [pl.p[0] - lidPivot[0], pl.p[1] - lidPivot[1], pl.p[2] - lidPivot[2]], pl.n));
+		const lidGroup = engineLid.pivot.children[0];
+		lidGroup.add(m(GEO.merge(lips), M.gap), m(GEO.merge(lidStuff), M.chrome));
+	}
+	/* —— the handles —— */
+	for (const [k, h] of doorHinges.entries()) {
+		const sx = k === 0 ? 1 : -1;
+		const s = onSide5(-.225, .8, sx);
+		const p = [s.p[0] - h.pivot.position.x, s.p[1] - h.pivot.position.y, s.p[2] - h.pivot.position.z];
+		const g = [laid5(box(.13, .018, .012, .006).translate(0, 0, .016), p, s.n), laid5(box(.022, .02, .02, .004).translate(-.06, 0, .006), p, s.n), laid5(box(.022, .02, .02, .004).translate(.05, 0, .006), p, s.n), laid5(latheZ([[0, .02], [.008, .02], [.008, .004], [0, .004]], 16).translate(-.06, 0, 0), p, s.n)];
+		h.pivot.children[0].add(m(GEO.merge(g), M.chrome));
+	}
+
+	/* —— the interior —— */
+	{
+		const floor = [at(box(1.08, .012, 1.36, .004), 0, .232, -.06)];
+		const tunnel = [at(box(.15, .07, 1.25, .02), 0, .27, -.03)];
+		part({
+			id: "floor",
+			label: "Floor, tunnel and mats",
+			assembly: "cab",
+			source: SRC5.trim,
+			what: "The floor pan inside, its central tunnel carrying the gear linkage and the cables, all covered in striped black rubber on the F.",
+			specs: [["Covering", "striped rubber"]]
+		}, [m(GEO.merge([...floor, ...tunnel]), M.mat)]);
+		const front = [];
+		const base = [];
+		for (const sx of [1, -1]) {
+			const s = seatGeometry({ w: .44, d: .46, h: .3, back: .56, rake: .2, head: false });
+			front.push(s.fabric.translate(sx * .265, .238, F5.driver.z));
+			base.push(s.base.translate(sx * .265, .238, F5.driver.z));
+		}
+		part({
+			id: "front-seats",
+			label: "Front seats",
+			count: 2,
+			assembly: "cab",
+			source: SRC5.trim,
+			what: "Two bucket seats in pleated black vinyl on tubular frames, sliding on their runners; their backs tip forward to reach the rear bench.",
+			specs: [["Covering", "vinyl, one colour from 10/68"]]
+		}, [m(GEO.merge(front), M.vinyl), m(GEO.merge(base), R.chassis)]);
+		const rb = seatGeometry({ w: .86, d: .44, h: .27, back: .48, rake: .32, head: false });
+		part({
+			id: "rear-bench",
+			label: "Rear bench",
+			assembly: "cab",
+			source: SRC5.trim,
+			what: "The rear bench for two between the wheel arches, its back against the bulkhead to the engine bay; its back folds forward for luggage.",
+			specs: [["Seats", "2"]]
+		}, [m(rb.fabric.translate(0, .238, -.64), M.vinyl), m(rb.base.translate(0, .238, -.64), R.chassis)]);
+		// the dashboard: a painted shelf under the windscreen, its padded lip, the single instrument in front of the driver
+		const dash = [at(box(1.08, .05, .1, .012), 0, .83, .6), at(box(1.08, .1, .012, .004), 0, .79, .552)];
+		const pad = [at(box(1.06, .022, .03, .01), 0, .748, .552)];
+		const knobs = [];
+		for (const x of [.13, .085, .04, -.005]) knobs.push(cyl([x, .81, .55], [x, .81, .535], .006, 10));
+		const gauges = cluster(kit, { dials: [{ x: 0, y: 0, r: .045, max: 120, ticks: 13 }], face: M.dial, tick: M.tick, needle: M.needle, bezel: M.chrome, housing: M.paint });
+		gauges.group.position.set(F5.driver.x, .835, .54);
+		const mirror = [at(box(.18, .05, .012, .01), 0, 1.165, .43), cyl([0, 1.2, .44], [0, 1.18, .435], .004, 8)];
+		part({
+			id: "dashboard",
+			label: "Dashboard and instrument",
+			assembly: "cab",
+			source: SRC5.trim,
+			what: "The 500’s dashboard: a painted steel shelf across the car under the windscreen, a padded black lip below it; in front of the driver one round instrument, the speedometer to 120 km/h with the warning lights beside it; the switches in a row; the rear-view mirror on the windscreen’s header.",
+			specs: [["Speedometer", "0–120 km/h"]]
+		}, [m(GEO.merge(dash), M.paint), m(GEO.merge(pad), M.vinyl), m(GEO.merge(knobs), M.black), m(GEO.merge(mirror), M.chrome), gauges.group]);
+		ticks.push(() => gauges.set([kmh()]));
+		// the steering wheel: ivory, on its column down to the box behind the front axle
+		const sw = steeringWheelGeometry({ R: .19, column: .5 });
+		const wheelGroup = new three.Group();
+		wheelGroup.position.set(...F5.wheel);
+		wheelGroup.rotation.x = -.42;
+		const spin = new three.Group();
+		spin.add(m(sw.rim, M.ivory), m(sw.hub, M.ivory));
+		wheelGroup.add(spin, m(sw.column, M.black));
+		ticks.push(() => (spin.rotation.z = -ctl.steer.value * Math.PI / 180 * 13));
+		part({
+			id: "steering-wheel",
+			label: "Steering wheel and column",
+			assembly: "cab",
+			source: SRC5.trim,
+			what: "The thin-rimmed ivory steering wheel on its column, which runs down through the front bulkhead to the worm of the steering box.",
+			moves: "Turns with the steering.",
+			drive: "The driver’s hands",
+			specs: [["Diameter", "380 mm [inferred]"], ["Turns to the wheels", "about 13 : 1 [inferred]"]]
+		}, [wheelGroup]);
+		const pedals = [];
+		for (const [x, w] of [[.36, .05], [.27, .06], [.2, .05]]) pedals.push(at(box(w, .07, .012, .004), x, .33, .6), bar([x, .36, .6], [x, .52, .62], .006, 8));
+		const lever = [bar([0, .3, .18], [0, .5, .12], .006, 8), latheY([[0, -.016], [.016, -.012], [.017, 0], [.014, .012], [0, .016]], 18).translate(0, .51, .118), at(box(.02, .03, .2, .005), 0, .32, .02)];
+		part({
+			id: "pedals",
+			label: "Pedals, gear lever and hand brake",
+			assembly: "cab",
+			source: SRC5.mech,
+			what: "Clutch, brake and throttle pedals hung from the bulkhead; the long gear lever on the tunnel for the four gears (II–IV dog-engaged, no synchromesh: double-declutch); the hand brake lever behind it, working the rear drums.",
+			specs: [["Gears", "4 + reverse"]]
+		}, [m(GEO.merge(pedals), M.black), m(GEO.merge(lever), M.black)]);
+	}
+
+	/* —— the engine: the air-cooled vertical twin behind the rear axle, its crank along the car —— */
+	const ENG = { z1: -1.045, z2: -1.155, y: .315, x: 0, r: .035, l: .118, top: .505 };
+	const eng = new three.Group();
+	eng.name = "engine";
+	body.add(eng);
+	const crank = new three.Group(), pistons = [], rods = [];
+	{
+		const { y, r } = ENG;
+		const caseG = [at(box(.25, .19, .3, .03), 0, y - .02, -1.11), latheZ([[0, 0], [.13, 0], [.12, .05], [.09, .07], [0, .07]], 40).translate(0, y, -.96), at(box(.2, .03, .26, .01), 0, y - .125, -1.11)];
+		for (let k = 0; k < 7; k++) caseG.push(at(slab(.004, .02, .24), -.09 + k * .03, y - .145, -1.11));
+		part({ id: "crankcase", label: "Crankcase and sump", assembly: "engine", source: SRC5.mech, what: "The cast light-alloy crankcase carrying the crankshaft on its two main bearings, the camshaft below it driven by a chain, the oil in its finned sump; the gear pump and the centrifugal filter on the crank’s nose clean the oil.", specs: [["Oil", "2.25 L [inferred]"]] }, [m(GEO.merge(caseG), M.alloy)], { xray: "shell", parent: eng }, eng);
+		for (const zc of [ENG.z1, ENG.z2]) {
+			const fins = [GEO.tube(.043, .0337, ENG.top - (y + .06), 40, y + .06)];
+			for (let k = 0; k < 13; k++) fins.push(GEO.tube(.064, .042, .003, 40, y + .075 + k * .0095));
+			part({ id: `barrel-${zc === ENG.z1 ? 1 : 2}`, label: `Cylinder barrel, ${zc === ENG.z1 ? "front" : "rear"}`, assembly: "engine", source: SRC5.mech, what: "A finned cast-iron barrel, 67.4 mm bore: the fan’s air, led round it by the shroud, carries the heat away from its fins.", specs: [["Bore", "67.4 mm"], ["Fins", "13"]] }, [m(GEO.merge(fins).translate(0, 0, zc), M.iron)], { xray: "shell" }, eng);
+			const pg = new three.Group();
+			pg.add(m(GEO.merge([latheY([[0, -.032], [.0335, -.032], [.0335, .022], [.031, .028], [0, .028]], 40), GEO.tube(.0338, .03, .003, 40, .012), GEO.tube(.0338, .03, .003, 40, .002)]), E.piston));
+			pg.position.z = zc;
+			eng.add(pg);
+			pistons.push(pg);
+			const rg = new three.Group();
+			rg.add(m(GEO.merge([at(box(.016, ENG.l, .02, .004), 0, ENG.l / 2, 0), latheZ([[.016, -.012], [.026, -.012], [.026, .012], [.016, .012]], 24), latheZ([[.008, -.012], [.014, -.012], [.014, .012], [.008, .012]], 20).translate(0, ENG.l, 0)]), E.rod));
+			rg.position.z = zc;
+			eng.add(rg);
+			rods.push(rg);
+		}
+		kit.part(new three.Group().add(...pistons.map((p) => p), ...rods), { id: "pistons", label: "Pistons and connecting rods", count: 2, assembly: "engine", source: SRC5.mech, what: "Two light-alloy pistons and their forged rods. The crank’s two throws are in line (360°): both pistons rise and fall together and the cylinders fire one turn apart, evenly.", moves: "Slide up and down in their barrels, 70 mm.", drive: "The crankshaft", specs: [["Stroke", "70 mm"], ["Compression", "7.1 : 1"], ["Rods", "118 mm [inferred]"]] }, { xray: "shell" }, eng);
+		const cr = [cyl([0, 0, -.93], [0, 0, -1.3], .016, 20)];
+		for (const zc of [ENG.z1, ENG.z2]) cr.push(at(box(.07, .1, .018, .008), 0, r / 2, zc + .025), at(box(.07, .1, .018, .008), 0, r / 2, zc - .025), cyl([0, r, zc + .03], [0, r, zc - .03], .016, 16));
+		cr.push(latheZ([[.016, 0], [.12, 0], [.12, .028], [.016, .028]], 48).translate(0, 0, -.95), latheZ([[.016, -.012], [.056, -.012], [.056, -.008], [.05, 0], [.056, .008], [.056, .012], [.016, .012]], 40).translate(0, 0, -1.3));
+		crank.add(m(GEO.merge(cr), E.crank));
+		crank.position.set(0, y, 0);
+		eng.add(crank);
+		kit.part(crank, { id: "crankshaft", label: "Crankshaft, flywheel and pulley", assembly: "engine", source: SRC5.mech, what: "The forged crank with its two throws side by side, the flywheel and clutch on its front end towards the gearbox, the belt pulley on its back end driving the dynamo and the fan.", moves: "Turns (shown 40 times slower).", drive: "The pistons, by their rods", specs: [["Throws", "2, at 360°"]] }, { xray: "shell" }, eng);
+		ticks.push((dt, s) => {
+			const th = s.engAng;
+			crank.rotation.z = th;
+			for (let k = 0; k < 2; k++) {
+				const zc = k ? ENG.z2 : ENG.z1;
+				const pin = [-r * Math.sin(th), y + r * Math.cos(th), zc];
+				const hy = pin[1] + Math.sqrt(ENG.l ** 2 - pin[0] ** 2);
+				pistons[k].position.set(0, hy, zc);
+				aim(rods[k], pin, [0, hy, zc]);
+			}
+		});
+		// the head over both barrels, its fins, the rocker cover and the pushrods' tubes
+		const head = [at(box(.15, .045, .24, .015), 0, ENG.top + .02, -1.1)];
+		for (let k = 0; k < 8; k++) head.push(at(slab(.003, .04, .24), -.07 + k * .02, ENG.top + .02, -1.1));
+		const cover = [at(box(.11, .035, .22, .012), 0, ENG.top + .062, -1.1)];
+		const rodsT = [cyl([.055, .26, -1.05], [.055, ENG.top, -1.05], .007, 10), cyl([.055, .26, -1.15], [.055, ENG.top, -1.15], .007, 10)];
+		part({ id: "head", label: "Cylinder head and valve gear", assembly: "engine", source: SRC5.mech, what: "One light-alloy head over both barrels, finned, with two overhead valves to each cylinder worked by pushrods and rockers from the camshaft in the crankcase; inlet opens 25° before top dead centre and closes 51° after bottom, exhaust opens 64° before bottom and closes 12° after top.", specs: [["Valves", "2 per cylinder, pushrod OHV"], ["Timing", "IO 25° BTDC, IC 51° ABDC, EO 64° BBDC, EC 12° ATDC"]] }, [m(GEO.merge(head), M.alloy), m(GEO.merge(cover), M.black), m(GEO.merge(rodsT), R.zinc)], { xray: "shell" }, eng);
+	}
+	{
+		// the fan in its volute on the dynamo's shaft, the shroud leading its air over the barrels, the belt
+		const fanAt = [.13, .44, -1.275];
+		const shroud = [at(box(.32, .21, .28, .03), .02, .43, -1.1), latheZ([[.0, -.035], [.115, -.035], [.115, .035], [.0, .035]], 48).translate(...fanAt)];
+		const fan = new three.Group();
+		fan.position.set(...fanAt);
+		const blades = [];
+		for (let k = 0; k < 10; k++) blades.push(box(.012, .06, .03, .004).translate(0, .06, 0).rotateY(.5).rotateZ(k * Math.PI / 5));
+		fan.add(m(GEO.merge([...blades, latheZ([[0, -.02], [.034, -.02], [.034, .02], [0, .02]], 30)]), M.fan));
+		eng.add(fan);
+		const dyn = [cyl([fanAt[0], fanAt[1], -1.25], [fanAt[0], fanAt[1], -1.06], .045, 28)];
+		const belt = beltGeometry([[0, ENG.y, .056], [fanAt[0], fanAt[1], .036]], .006, .01).translate(0, 0, -1.3);
+		const pulley = latheZ([[.01, -.008], [.036, -.008], [.036, .008], [.01, .008]], 30).translate(fanAt[0], fanAt[1], -1.3);
+		part({ id: "shroud", label: "Fan shroud", assembly: "engine", source: SRC5.mech, what: "The black sheet-steel shroud round the barrels and the head: it leads the air the fan blows over their fins and out under the car, a thermostat’s flap closing it till the engine is warm.", specs: [["Cooling", "forced air, thermostat"]] }, [m(GEO.merge(shroud), M.shroud)], { xray: "shell" }, eng);
+		kit.part(fan, { id: "fan", label: "Cooling fan", assembly: "engine", source: SRC5.mech, what: "A centrifugal fan on the dynamo’s shaft, in its volute in the shroud: it draws air in through the louvres under the back window and drives it over the cylinders.", moves: "Turns with the dynamo, faster than the crank.", drive: "The belt from the crank’s pulley", specs: [["Blades", "10"]] }, {}, eng);
+		part({ id: "dynamo", label: "Dynamo and belt", assembly: "engine", source: SRC5.mech, what: "The 230 W dynamo above the crank, its pulley driven by a V-belt from the crank’s; the fan rides on its shaft.", specs: [["Dynamo", "12 V, 230 W"]] }, [m(GEO.merge(dyn), M.black), m(belt, E.belt), m(pulley, R.zinc)], {}, eng);
+		ticks.push((dt, s) => (fan.rotation.z = s.engAng * 1.55));
+		// the carburettor and its air filter on top, the exhaust's pipes to the silencer under the tail
+		const carb = [at(box(.05, .06, .045, .008), -.085, ENG.top + .02, -1.1), cyl([-.085, ENG.top + .05, -1.1], [-.085, .63, -1.1], .018, 16), at(box(.05, .035, .05, .01), -.09, ENG.top - .03, -1.06)];
+		const filter = [latheY([[0, 0], [.13, 0], [.135, .02], [.13, .055], [.11, .062], [0, .064]], 56).translate(-.03, .63, -1.11)];
+		part({ id: "carburettor", label: "Carburettor and air filter", assembly: "engine", source: SRC5.mech, what: "One Weber 26 IMB single-choke downdraught carburettor (21 mm choke, 1.12 mm main jet) on the head’s inlet, the mechanical pump feeding it; the large round air filter of the F over it.", specs: [["Carburettor", "Weber 26 IMB 4 / IMB 10"], ["Choke", "21 mm"]] }, [m(GEO.merge(carb), M.alloy), m(GEO.merge(filter), M.black)], {}, eng);
+		const ex = [hose([[.07, ENG.top - .01, -1.045], [.11, .4, -1.06], [.12, .28, -1.2], [.06, .25, -1.3]], .014, 10), hose([[.07, ENG.top - .01, -1.155], [.1, .4, -1.17], [.06, .27, -1.3]], .014, 10)];
+		const sil = [at(box(.42, .085, .14, .03), -.02, .245, -1.32), hose([[.17, .245, -1.33], [.28, .24, -1.36], [.3, .238, -1.425]], .015, 10)];
+		part({ id: "exhaust", label: "Exhaust and silencer", assembly: "engine", source: SRC5.trim, what: "The two exhaust pipes from the head down to the silencer across the tail, its shells overlapping (from 1966), the tailpipe out under the right of the bumper.", specs: [["Silencer", "pressed shells"]] }, [m(GEO.merge([...ex, ...sil]), M.exhaust)], {}, eng);
+	}
+	/* —— the gearbox and final drive in one casing ahead of the engine, the half-shafts —— */
+	const shafts = [];
+	{
+		const z = F5.axle.rear;
+		const box5 = [latheX([[0, -.13], [.07, -.13], [.1, -.08], [.1, .08], [.07, .13], [0, .13]], 40).translate(0, .26, z), at(box(.16, .14, .3, .03), 0, .27, z + .22), latheZ([[0, 0], [.11, 0], [.12, .06], [0, .06]], 36).translate(0, .29, z - .14)];
+		part({ id: "gearbox", label: "Gearbox and final drive", assembly: "drivetrain", source: SRC5.mech, what: "The light-alloy casing bolted to the engine: the clutch, the crown wheel and pinion (8/41) and the differential at the rear axle’s line, the four-speed gearbox ahead of them (3.70, 2.067, 1.30, 0.875; II–IV dog-engaged), its selector rod running forward in the tunnel to the lever.", moves: "Its gears turn with the engine.", drive: "The engine, through the clutch", specs: [["Gears", "37/10, 31/15, 26/20, 21/24 (3b5332c8…)"], ["Final drive", "8/41 = 5.125"]] }, [m(GEO.merge(box5), M.alloy), m(cyl([0, .3, z + .37], [0, .3, .1], .006, 8), R.zinc)], { xray: "shell" });
+		for (const sx of [1, -1]) {
+			const sh = new three.Group();
+			sh.add(m(unitBar(.013, 12), R.forged));
+			root.add(sh);
+			const joint = new three.Group();
+			joint.add(m(new three.TorusGeometry(.03, .014, 10, 24).rotateY(Math.PI / 2), R.bush));
+			root.add(joint);
+			shafts.push({ sx, sh, joint });
+		}
+		kit.part(new three.Group().add(...shafts.map((s) => s.sh), ...shafts.map((s) => s.joint)), { id: "half-shafts", label: "Half-shafts", count: 2, assembly: "drivetrain", source: SRC5.mech, what: "Two half-shafts from the differential to the rear wheels: a sliding joint at the differential, a flexible rubber joint at the wheel, so the swinging arms may rise and fall.", moves: "Turn with the wheels; swing with the arms.", drive: "The differential", specs: [["Joints", "sliding inboard, flexible rubber outboard"]] }, {}, root);
+	}
+	/* —— the rear suspension: swinging arms on coil springs and dampers —— */
+	const rearLegs = [];
+	{
+		const z = F5.axle.rear;
+		const arms = [];
+		for (const sx of [1, -1]) {
+			const piv = [sx * .2, .27, z + .3], piv2 = [sx * .5, .27, z + .28];
+			const hub = [sx * (F5.axle.xR - .07), F5.axle.y, z];
+			const s = new three.Shape();
+			const P = [[piv[0], piv[2]], [piv2[0], piv2[2]], [hub[0], hub[2] + .06], [hub[0], hub[2] - .06]];
+			s.moveTo(P[0][0], P[0][1]);
+			for (const p of P.slice(1)) s.lineTo(p[0], p[1]);
+			s.closePath();
+			arms.push(plate(s, .05, 4).rotateX(Math.PI / 2).translate(0, .27 + .025, 0), cyl([piv[0], .27, piv[2]], [piv2[0], .27, piv2[2]], .014, 12), latheX([[0, -.05], [.06, -.05], [.06, .05], [0, .05]], 24).translate(hub[0] - sx * .02, F5.axle.y, z));
+			const leg = telescope({ body: .17, rod: .14, rBody: .02, coil: { R: .042, wire: .0085, turns: 6, seat: .05 }, M: R, mesh: (g, mt) => kit.mesh(g, mt) });
+			body.add(leg.group);
+			rearLegs.push({ leg, top: [sx * .43, .6, z - .02], low: [sx * .43, .29, z - .03] });
+		}
+		part({ id: "rear-arms", label: "Rear swinging arms", count: 2, assembly: "chassis", source: SRC5.mech, what: "A pressed-steel arm each side, pivoting on a slanted axis on the body ahead of the wheel (semi-trailing): each rear wheel rises and falls on its own, its hub bearing on the arm’s end.", moves: "Swings up and down with the road.", drive: "The road, against its spring", specs: [["Type", "semi-trailing [inferred from ‘swinging arms’]"]] }, [m(GEO.merge(arms), R.chassis)]);
+		kit.part(new three.Group().add(...rearLegs.map((l) => l.leg.group)), { id: "rear-springs", label: "Rear coil springs and dampers", count: 2, assembly: "chassis", source: SRC5.mech, what: "A coil spring round a double-acting telescopic damper on each arm, against the body over the wheel.", moves: "Squeezed as the load and the road push the wheel up.", drive: "The arm", specs: [["Rate", "14 kN/m at the wheel [inferred]"]] }, {}, body);
+	}
+	/* —— the front suspension: a transverse leaf spring, upper links and dampers; the steering —— */
+	const frontLegs = [];
+	{
+		const z = F5.axle.front;
+		const lp = leafPack({ L: 1.0, w: .045, t: .006, n: 5, camber: .035 });
+		const leaf = new three.Group();
+		leaf.add(m(lp.geo, R.spring), ...lp.eyes.map((e) => {
+			const mm = m(lp.eye, R.bush);
+			e.add(mm);
+			return e;
+		}));
+		leaf.rotation.y = Math.PI / 2;
+		leaf.position.set(0, .2, z);
+		const clamps = [at(box(.12, .05, .07, .01), 0, .23, z), at(box(.9, .06, .08, .015), 0, .29, z)];
+		part({ id: "front-leaf", label: "Front leaf spring and crossmember", assembly: "chassis", source: SRC5.mech, what: "A transverse semi-elliptic leaf spring of five leaves clamped under the front crossmember: its ends carry the wheels’ lower kingpin joints, so it is both their spring and their lower link.", moves: "Its ends flex up as the wheels rise.", drive: "The road", specs: [["Leaves", "5 [inferred]"], ["Rate", "9 kN/m at the wheel [inferred]"]] }, [leaf, m(GEO.merge(clamps), R.chassis)]);
+		const links = [];
+		for (const sx of [1, -1]) {
+			const c = corners[sx > 0 ? "fl" : "fr"];
+			const up = c.joints.upper;
+			links.push(bar([sx * .28, .42, z + .08], up, .011, 10), bar([sx * .28, .42, z - .08], up, .011, 10));
+			const leg = telescope({ body: .16, rod: .12, rBody: .018, M: R, mesh: (g, mt) => kit.mesh(g, mt) });
+			body.add(leg.group);
+			frontLegs.push({ leg, top: [sx * .33, .55, z + .02], low: [sx * .42, .23, z] });
+		}
+		part({ id: "front-links", label: "Front upper links", count: 2, assembly: "chassis", source: SRC5.mech, what: "An upper wishbone each side, from the body to the kingpin’s top joint, locating the wheel over the leaf spring’s end.", moves: "Swing with the wheel.", drive: "The kingpin", specs: [["Type", "wishbone [inferred]"]] }, [m(GEO.merge(links), R.forged)]);
+		kit.part(new three.Group().add(...frontLegs.map((l) => l.leg.group)), { id: "front-dampers", label: "Front dampers", count: 2, assembly: "chassis", source: SRC5.mech, what: "Double-acting telescopic dampers between the body and the leaf spring’s ends.", moves: "Slide as the wheels ride.", drive: "The wheel", specs: [["Type", "hydraulic, double-acting"]] }, {}, body);
+		// the steering: a worm-and-sector box by the driver's side, its drop arm, a relay arm, the centre link and a track rod to each wheel
+		const boxAt = [.26, .33, z - .16];
+		const sbox = [latheX([[0, -.05], [.045, -.05], [.045, .05], [0, .05]], 24).translate(...boxAt), at(box(.06, .09, .08, .015), boxAt[0], boxAt[1] - .03, boxAt[2])];
+		const linkage = new three.Group();
+		const rods = [];
+		const centre = [[.24, .25, z - .2], [-.24, .25, z - .2]];
+		rods.push(bar(centre[0], centre[1], .009, 8), bar([.26, .29, z - .16], centre[0], .01, 8), bar([-.26, .29, z - .16], centre[1], .01, 8));
+		const track = [];
+		for (const sx of [1, -1]) {
+			const t = corners[sx > 0 ? "fl" : "fr"].joints.tie;
+			const tr = new three.Group();
+			tr.add(m(unitBar(.008, 8), R.forged));
+			body.add(tr);
+			track.push({ tr, from: centre[sx > 0 ? 0 : 1], to: t });
+		}
+		linkage.add(m(GEO.merge(rods), R.forged));
+		const column = [cyl(boxAt, [F5.wheel[0], F5.wheel[1] - .17, F5.wheel[2] + .22], .012, 10)];
+		part({ id: "steering", label: "Steering box and linkage", assembly: "chassis", source: SRC5.mech, what: "A worm and helical sector in a box by the driver’s feet: the column turns the worm, the sector swings the drop arm, which moves a centre link pivoted on a relay arm opposite; a track rod from it to each wheel’s steering arm, behind the axle. Turning circle 8.6 m.", moves: "The links swing as the wheel is turned.", drive: "The steering wheel", specs: [["Type", "worm and helical sector"], ["Turning circle", "8.60 m (3b5332c8…)"]] }, [m(GEO.merge(sbox), R.castIron), linkage, m(GEO.merge(column), M.black)]);
+		kit.part(new three.Group().add(...track.map((t) => t.tr)), { id: "track-rods", label: "Track rods", count: 2, assembly: "chassis", source: SRC5.mech, what: "A track rod from the centre link to each wheel’s steering arm, adjustable for toe.", moves: "Push and pull the steering arms.", drive: "The centre link", specs: [["Ends", "ball joints"]] }, {}, body);
+		ticks.push((dt, s) => {
+			const a = ctl.steer.value * Math.PI / 180;
+			linkage.position.x = -a * .09;
+			for (const t of track) aim(t.tr, [t.from[0] - a * .09, t.from[1], t.from[2]], t.to, true);
+		});
+	}
+	/* —— the front compartment: the fuel tank and the spare wheel —— */
+	{
+		const tank = [latheX([[0, -.25], [.115, -.25], [.12, -.24], [.12, .24], [.115, .25], [0, .25]], 40).translate(0, .6, .74), cyl([.18, .7, .74], [.22, .82, .74], .018, 12)];
+		part({ id: "fuel-tank", label: "Fuel tank", assembly: "front", source: SRC5.trim, what: "The F’s cylindrical tank of 22 litres, across the car under the front lid against the scuttle, its filler neck by the right wing; the mechanical pump draws from it to the carburettor at the back.", specs: [["Capacity", "22 L (1b98fcfa…)"], ["Shape", "cylindrical, Ø 240 × 500 mm"]] }, [m(GEO.merge(tank), R.zinc)], { xray: "shell" });
+		const spare = new three.Group();
+		spare.add(m(tyreGeometry({ size: TYRE5, rimW: wheelOpts.rimW, pattern: "highway", pitches: 16 }), R.tyre), m(steelRimGeometry({ rim: TYRE5.rim, rimW: wheelOpts.rimW, et: wheelOpts.et, studs: 4, pcd: .19 }), M.silver));
+		spare.position.set(0, .5, 1.13);
+		spare.rotation.set(0, Math.PI / 2, 0);
+		spare.rotateOnWorldAxis(new three.Vector3(1, 0, 0), -.32);
+		part({ id: "spare-wheel", label: "Spare wheel", assembly: "front", source: SRC5.tyre, what: "A fifth 125 SR 12 wheel standing in the nose behind the front panel, leaning back under the lid.", specs: [["Tyre", "125 SR 12"]] }, [spare]);
+	}
+	// the half-shafts, the rear legs, the front dampers: kept between the body and the wheels as they move
+	ticks.push((dt, s) => {
+		body.updateMatrix();
+		const zR = F5.axle.rear;
+		for (const { sx, sh, joint } of shafts) {
+			const inner = inFrame(body, [sx * .13, .26, zR]);
+			const outer = [sx * (F5.axle.xR - .085), F5.axle.y, zR];
+			aim(sh, inner, outer, true);
+			joint.position.set(...outer);
+			sh.rotation.y = s.wheelAng;
+		}
+		for (const l of rearLegs) l.leg.set(l.top, l.low);
+		for (const l of frontLegs) l.leg.set(l.top, l.low);
+	});
+
 	/* —— the drive, the controls and the lab —— */
 	const ctl = {
 		speed: { label: "Speed asked", min: 0, max: 110, value: speed, step: 1, unit: "km/h", ends: ["Standing", "110 km/h"] },
@@ -651,7 +1221,8 @@ function fiat500({ speed = 60, grade = 0, load = 75, doors = 0, roof = 0, lid = 
 		load: { label: "Load inside (people and bags)", min: 0, max: VEHICLE5.payload, value: load, step: 5, unit: "kg", ends: ["Empty", "Four aboard"] },
 		doors: { label: "Doors open", min: 0, max: 1, value: doors, step: .01, digits: 2, ends: ["Shut", "Open"] },
 		roof: { label: "Rolltop folded back", min: 0, max: 1, value: roof, step: .01, digits: 2, ends: ["Closed", "Open"] },
-		lid: { label: "Engine lid up", min: 0, max: 1, value: lid, step: .01, digits: 2, ends: ["Shut", "Up"] }
+		lid: { label: "Engine lid up", min: 0, max: 1, value: lid, step: .01, digits: 2, ends: ["Shut", "Up"] },
+		steer: { label: "Steering", min: -30, max: 30, value: 0, step: 1, unit: "°", ends: ["Right lock", "Left lock"] }
 	};
 	const input = (env) => ({
 		vSet: ctl.speed.value * KMH5,
@@ -659,7 +1230,6 @@ function fiat500({ speed = 60, grade = 0, load = 75, doors = 0, roof = 0, lid = 
 		load: env.broken ? VEHICLE5.payload * 1.6 : ctl.load.value
 	});
 	sim.settle(input({ broken: false }));
-	const ticks = [];
 	kit.onTick((dt, env) => {
 		const inp = input(env);
 		sim.step(dt, inp);
@@ -668,7 +1238,8 @@ function fiat500({ speed = 60, grade = 0, load = 75, doors = 0, roof = 0, lid = 
 		body.rotation.x = al;
 		body.position.y = -s.sagF + al * axle.front;
 		body.updateMatrix();
-		for (const c of Object.values(corners)) c.set(s.wheelAng);
+		const st = ctl.steer.value * Math.PI / 180;
+		for (const [id, c] of Object.entries(corners)) c.set(s.wheelAng, id[0] === "f" ? st : 0);
 		for (const d of doorHinges) d.set(clamp(ctl.doors.value));
 		engineLid.set(clamp(ctl.lid.value));
 		for (const f of ticks) f(dt, s);

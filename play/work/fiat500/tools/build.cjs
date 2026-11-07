@@ -25,3 +25,22 @@ o.traverse((x) => { if (x.isMesh && x.visible !== false) { meshes++; const g = x
 const s = box.getSize(new THREE.Vector3());
 console.log(JSON.stringify({ label: r.meta && r.meta.label, ms: Math.round(ms), meshes, tris: Math.round(tris), min: box.min.toArray().map((v) => +v.toFixed(4)), max: box.max.toArray().map((v) => +v.toFixed(4)), size: s.toArray().map((v) => +v.toFixed(4)) }));
 module.exports = { o, THREE };
+// with DUMP=<file>: every visible mesh's triangles in the root's frame, float32 x y z × 3 per triangle
+if (process.env.DUMP) {
+	const out = [];
+	const v = new THREE.Vector3();
+	o.traverse((x) => {
+		if (!x.isMesh) return;
+		let vis = true;
+		for (let p = x; p; p = p.parent) if (p.visible === false) vis = false;
+		if (!vis) return;
+		const g = x.geometry, P = g.attributes.position, I = g.index;
+		const n = I ? I.count : P.count;
+		for (let i = 0; i < n; i++) {
+			v.fromBufferAttribute(P, I ? I.getX(i) : i).applyMatrix4(x.matrixWorld);
+			out.push(v.x, v.y, v.z);
+		}
+	});
+	require('fs').writeFileSync(process.env.DUMP, Buffer.from(new Float32Array(out).buffer));
+	console.log(`dumped ${out.length / 9} triangles to ${process.env.DUMP}`);
+}
