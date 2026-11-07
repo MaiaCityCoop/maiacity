@@ -928,7 +928,9 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   it is an intent of its own). While its work waits at Proposal, its review is where it is decided: the intent is not
   sent back or checked again. Migration `0028-intents-ready-propose` moved the intents already in Build with every
   must check passed to Proposal. `GET /api/intents` (`?stage=idea,specify`, `?work=story_version`), `GET
-  /api/intents/:id` (with `review`), `POST /api/intents` (an asset's version proposed on the web: an intent at
+  /api/intents/:id` (with `review`: every document its work changes listed in brief, its content never inline; intent
+  2df30a21), `GET /api/intents/:id/docs/:doc[?variant=]` (one document's change, field by field with its kind's
+  extras, read when it is opened), `POST /api/intents` (an asset's version proposed on the web: an intent at
   Proposal), `POST /api/intents/:id/{approve,accept,archive,reject,reopen}`.
 - The review of an intent's work shows the intent's checks as a strip of marks; an intent is named by its UUID only.
 - **The decision sits at the foot** of what is open (a work's review, an intent), in the middle, where a thumb
@@ -1278,7 +1280,7 @@ feed. Every file's bytes are read back only by the server workflow's report, by 
 - Sandboxes (traveler+): `GET /api/sandboxes/:id/pins`.
 - Intents, the one record (§4.12): `POST /api/intents` (citizen+: a new asset version, card + recipe file upload: an
   intent put at Proposal with it, the one named by `intent` held to its gate, else a new one), `GET /api/intents`
-  (admin; `?stage=…&work=…`), `GET /api/intents/:id` (admin; with its work's `review`), `POST /api/intents/:id/{approve,accept,archive,reject,reopen}` (admin; whoever proposed work
+  (admin; `?stage=…&work=…`), `GET /api/intents/:id` (admin; with its work's `review`, its documents in brief), `GET /api/intents/:id/docs/:doc` (admin; one document's change, opened alone), `POST /api/intents/:id/{approve,accept,archive,reject,reopen}` (admin; whoever proposed work
   archives their own). Intents are added, specified and checked over MCP only; over MCP an agent archives only its own
   intents at Proposal put there over MCP (`archive_intent`, Samuel 2026-11-04) and sends one a stage back with its reason
   (`step_back_intent`); no tool accepts.

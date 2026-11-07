@@ -181,8 +181,9 @@ suite("skills: what play teaches its agents, kept once", () => {
     expect(listed).toMatchObject({ stage: "proposal", work: { kind: "skill_version", grp: "skills", label: "Intents", number: 2, via: "mcp" } });
     const review = (await call("ada", "GET", `/api/intents/${i.id}`)).data.review;
     expect(review).toMatchObject({ doc: { id: SKILL.intents, kind: "skill", label: "Intents", group: "intents" }, seedNumber: 1, moved: false });
-    expect(review.changes.map((c: any) => c.path).sort()).toEqual(["$.stages.build", "$.system"]);
-    expect(review.changes.find((c: any) => c.path === "$.system")).toMatchObject({ kind: "changed", from: intents().system, to: intents().system + " Skills change by proposal too." });
+    const opened = (await call("ada", "GET", `/api/intents/${i.id}/docs/${SKILL.intents}`)).data;
+    expect(opened.changes.map((c: any) => c.path).sort()).toEqual(["$.stages.build", "$.system"]);
+    expect(opened.changes.find((c: any) => c.path === "$.system")).toMatchObject({ kind: "changed", from: intents().system, to: intents().system + " Skills change by proposal too." });
     expect(review.edits).toHaveLength(2);
     // still v1 until it is accepted
     expect((await tool("doc_at", { doc: SKILL.intents })).json.stages.build).toBe(intents().stages.build);
