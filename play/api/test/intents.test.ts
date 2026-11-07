@@ -17,7 +17,8 @@ import { Rate } from "../src/limits";
 import { UUID } from "../src/uuid";
 import { placeholderIn } from "../src/intents";
 import { seedSkills } from "../import/skills";
-import { SKILL } from "../src/ids";
+import { SANDBOX, SKILL } from "../src/ids";
+import { seedDoc } from "../src/versioned";
 
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;
@@ -485,5 +486,57 @@ suite("intents", () => {
     const web = await call("ada", "POST", "/api/intents", { asset: plain.asset, source: SOURCE + "// by the page\n", note: "on the page" });
     expect(web.status).toBe(201);
     expect((await tool("archive_intent", { intent: web.data.intent })).error).toContain("over MCP");
+  });
+  test("accepted from its dialog: an intent at Proposal is decided whole by its one Accept, whatever its work; its Reject archives it and its work", async () => {
+    const all = [{ check: "c1", pass: true, evidence: "built" }, { check: "c2", pass: true, evidence: "0.5 m" }];
+    /** an intent at Proposal, every must check passed, ready to take work */
+    const ready = async (title: string) => {
+      const i = await intentAt(title, "build");
+      expect((await tool("check_intent", { intent: i.id, results: all })).stage).toBe("proposal");
+      return i.id as string;
+    };
+    const accept = async (id: string) => (await call("ada", "POST", `/api/intents/${id}/accept`)).data;
+    // the documents, each at Main's first version
+    const fern = await tool("propose_asset", { group: "plants", label: "Dialog fern", source: SOURCE, note: "its first version" });
+    expect((await accept(fern.intent)).stage).toBe("accepted");
+    const film = await tool("propose_story", { title: "A dialog film", note: "its first version", body: { format: "9:16", fps: 30, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line: "One." }] }] } });
+    expect((await accept(film.intent)).stage).toBe("accepted");
+    const skill = crypto.randomUUID(), factory = crypto.randomUUID(), config = crypto.randomUUID();
+    await seedDoc(db, "skill", { id: skill, json: { schema: "skill/1", label: "A dialog skill", group: "tests", system: "Say it once." }, note: "its first version" });
+    const line = { product: { name: "a cog" }, demand: { perDay: 10 }, calendar: {}, stations: [{ id: "cut", name: "Cut", machine: "laser" }] };
+    await seedDoc(db, "factory", { id: factory, json: { schema: "factory/1", label: "A dialog line", line, parts: [{ id: "plate", label: "Plate", qty: 1, ops: [{ at: "cut", s: 30 }] }] }, note: "its first version" });
+    const levels = { schema: "levels/1", label: "Dialog levels", villager: { euros: 100, hearts: 10 }, minds: { heartsPerMind: 10, step: 1, heartsPerEuro: 4 }, levels: [{ id: "l1", villagers: 1, phase: "tents", investor: 0, unlocks: [] }] };
+    await seedDoc(db, "game_config", { id: config, json: levels, note: "its first version" });
+    await db.query(`INSERT INTO play.sandbox_configs (sandbox_id, name, data) VALUES ($1, 'dialog', '{"trees":[{"id":"fern","at":[0,0]}]}') ON CONFLICT (sandbox_id, name) DO UPDATE SET data = EXCLUDED.data`, [SANDBOX.two]);
+
+    // one intent of each kind's work, each decided by its Accept alone: its work applied, the intent Accepted
+    const KINDS: { kind: string; doc?: string; edits: unknown[]; holds: () => Promise<void> }[] = [
+      { kind: "asset", doc: fern.asset, edits: [{ op: "set", path: ["source"], value: SOURCE + "// from its dialog\n" }], holds: async () => expect((await tool("doc_at", { doc: fern.asset })).json.source).toContain("from its dialog") },
+      { kind: "story", doc: film.story, edits: [{ op: "set_clip", track: "voice", clip: "v1", fields: { line: "One, from its dialog." } }], holds: async () => expect((await tool("get_story", { story: film.story })).tracks[0].clips[0].line).toBe("One, from its dialog.") },
+      { kind: "skill", doc: skill, edits: [{ op: "set", path: ["note"], value: "from its dialog" }], holds: async () => expect((await tool("doc_at", { doc: skill })).json.note).toBe("from its dialog") },
+      { kind: "factory", doc: factory, edits: [{ op: "set", path: ["line", "demand", "perDay"], value: 20 }], holds: async () => expect((await tool("doc_at", { doc: factory })).json.line.demand.perDay).toBe(20) },
+      { kind: "game_config", doc: config, edits: [{ op: "set", path: ["villager", "euros"], value: 150 }], holds: async () => expect((await tool("doc_at", { doc: config })).json.villager.euros).toBe(150) },
+      { kind: "sandbox", edits: [{ op: "set", config: "dialog", path: ["trees", 0, "at"], value: [4, 2] }], holds: async () => expect((await call("ada", "GET", `/api/sandboxes/${SANDBOX.two}/config`)).data.dialog.trees[0].at).toEqual([4, 2]) },
+    ];
+    for (const k of KINDS) {
+      const id = await ready(`A ${k.kind} accepted from its dialog`);
+      const was = k.doc ? (await tool("doc_at", { doc: k.doc })).number : null;
+      const p = k.doc ? await tool("propose_doc_version", { doc: k.doc, note: `${k.kind} from its dialog`, edits: k.edits, intent: id }) : await tool("propose_sandbox_change", { sandbox: SANDBOX.two, note: "from its dialog", edits: k.edits, intent: id });
+      expect(p.error).toBeUndefined();
+      expect(await tool("get_intent", { intent: id })).toMatchObject({ stage: "proposal", work: { status: "proposal" } });
+      expect(await accept(id)).toMatchObject({ stage: "accepted", decided_by: "ada", decision: { status: "accepted" } });
+      expect(await tool("get_intent", { intent: id })).toMatchObject({ stage: "accepted", work: { status: "accepted" } });
+      if (k.doc) expect((await tool("doc_at", { doc: k.doc })).number).toBe(was + 1);
+      await k.holds();
+    }
+
+    // Reject on another: the intent archived and its work with it, Main as it was
+    const id = await ready("A skill rejected from its dialog");
+    const p = await tool("propose_doc_version", { doc: skill, note: "not this", edits: [{ op: "set", path: ["note"], value: "not this" }], intent: id });
+    expect(p.error).toBeUndefined();
+    expect((await call("ada", "POST", `/api/intents/${id}/reject`)).data).toMatchObject({ stage: "archived", decided_by: "ada" });
+    expect(await tool("get_intent", { intent: id })).toMatchObject({ stage: "archived", work: { status: "archived" } });
+    expect((await tool("doc_at", { doc: skill })).json.note).toBe("from its dialog");
+    expect((await db.query<any>(`SELECT status FROM play.doc_variants WHERE id = $1`, [p.variant])).rows[0].status).toBe("archived");
   });
 });
