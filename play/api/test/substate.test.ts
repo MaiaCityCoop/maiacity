@@ -15,7 +15,7 @@ import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
 import { Rate } from "../src/limits";
 import { watchTick, type Pull } from "../src/ship";
-import { sub, subStateOf, type PrSeen } from "../src/substate";
+import { checksSeen, sub, subStateOf, type PrSeen } from "../src/substate";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";
 
 const URL_ = process.env.TEST_DATABASE_URL;
@@ -43,6 +43,23 @@ describe("subStateOf", () => {
   const passed = { c1: { pass: true, at: "2026-11-07T11:00:00Z", commit: HEAD } };
   const row = (more: Record<string, unknown> = {}) => ({ stage: "proposal", spec: { checks: CHECKS, nothing_to_reduce: "x" }, results: passed, work: null, pull_request: 7, ship: null, held_by: [], pr_seen: seen(), ...more }) as any;
   const of = (r: any) => subStateOf(r, r.pr_seen, now);
+
+  test("a skipped check reads as skipped", () => {
+    const run = (name: string, conclusion: string | null, status = "completed", started_at = "2026-11-07T10:00:00Z", id = 1) => ({ name, status, conclusion, started_at, id });
+    expect(checksSeen([
+      run("play", "skipped"), run("website", "skipped"), run("lint", "neutral"), run("old", "cancelled"),
+      run("tests", "failure"), run("timed", "timed_out"), run("ok", "success"), run("busy", null, "in_progress"), run("next", null, "queued"),
+    ])).toEqual({ play: "skipped", website: "skipped", lint: "success", old: "cancelled", tests: "failure", timed: "failure", ok: "success", busy: "running", next: "queued" });
+    // the newest of a name decides: a ready run's success after a draft's skip, and the other way round
+    expect(checksSeen([run("play", "skipped", "completed", "2026-11-07T10:00:00Z"), run("play", "success", "completed", "2026-11-07T10:00:02Z")])).toEqual({ play: "success" });
+    expect(checksSeen([run("play", "success", "completed", "2026-11-07T10:00:00Z"), run("play", "skipped", "completed", "2026-11-07T10:00:02Z")])).toEqual({ play: "skipped" });
+    // the required checks still decide Ship's gate: a skipped one waits, a cancelled one is red, others' states decide nothing
+    const gate = (checks: PrSeen["checks"]) => of(row({ pr_seen: seen({ checks }) }));
+    const green = { "play / API and site": "success", "website / build": "success" } as const;
+    expect(gate({ ...green, play: "skipped", website: "skipped" })).toMatchObject({ state: "waiting", tag: "Accept and ship" });
+    expect(gate({ ...green, "play / API and site": "skipped" })).toMatchObject({ state: "working", tag: "checks running" });
+    expect(gate({ ...green, "website / build": "cancelled" })).toMatchObject({ state: "failed", tag: "check red", why: expect.stringContaining("'website / build' is cancelled") });
+  });
 
   test("four sub-states: each stage, held or not, a failed must, a red ship, and code whose head moved, whose checks run, whose mergeable is null, false or true, or whose pr_seen is stale", () => {
     const dep = [{ id: "d", title: "The engine", stage: "build" }];
