@@ -11,12 +11,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 a = argparse.ArgumentParser(); a.add_argument("tag"); a.add_argument("piece"); a.add_argument("--face", default="man"); o = a.parse_args()
 V0 = np.load("V0.npy"); V = np.load(f"V-{o.tag}.npy"); top = V0[:, 1].max()
 # the piece's base head, decoded as the piece decodes it (HEAD_PEOPLE[face].pos: Int16 × HEAD_Q + HEAD_MID)
-js = """const fs=require('fs');const src=fs.readFileSync(process.argv[1],'utf8');const m={exports:{}};
+js = """const fs=require('fs');const src=fs.readFileSync(process.env.PIECE,'utf8');const m={exports:{}};
 new Function('require','module','exports',src+';module.exports.__={HEAD_PEOPLE,HEAD_Q,HEAD_MID,KEY};')(()=>new Proxy({}, {get:()=>class{}}),m,m.exports);
-const {HEAD_PEOPLE,HEAD_Q,HEAD_MID,KEY}=m.exports.__;const p=HEAD_PEOPLE[KEY[process.argv[2]]].pos;const b=Buffer.from(Array.isArray(p)?p.join(''):p,'base64');
+const {HEAD_PEOPLE,HEAD_Q,HEAD_MID,KEY}=m.exports.__;const p=HEAD_PEOPLE[KEY[process.env.FACE]].pos;const b=Buffer.from(Array.isArray(p)?p.join(''):p,'base64');
 const a=new Int16Array(b.buffer,b.byteOffset,b.length/2);process.stdout.write(JSON.stringify(Array.from(a,(x,i)=>x*HEAD_Q+HEAD_MID[i%3])));"""
 NODE = shutil.which("node") or shutil.which("bun")  # the Mac has bun only
-P = np.array(json.loads(subprocess.check_output([NODE, "-e", js, o.piece, o.face]))).reshape(-1, 3)
+# the piece and the face by environment: node -e and bun -e hand their arguments on differently
+P = np.array(json.loads(subprocess.check_output([NODE, "-e", js], env={**os.environ, "PIECE": o.piece, "FACE": o.face}))).reshape(-1, 3)
 # a similarity from MakeHuman's head (dm) to the piece's (m): ICP on the nearest vertex
 idx = np.where(V0[:, 1] > top - 3.2)[0]; Q0 = V0[idx] * 0.1
 s, R, t = 1.0, np.eye(3), np.array([0, P[:, 1].max() - Q0[:, 1].max(), P[:, 2].mean() - Q0[:, 2].mean()])
