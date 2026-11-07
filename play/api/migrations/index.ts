@@ -1135,10 +1135,19 @@ export const MIGRATIONS: Migration[] = [
     `,
   },
   {
+    // An agent sends an intent one stage back over MCP, with its reason (intent 5a78e0b7-c221-4f3f-9148-590727d1e154,
+    // Samuel 2026-11-07): ./src/stepback.ts. Each step back is kept on the intent, in order: when, who, from which stage
+    // to which, its reason, and, back to Idea, the spec it dropped. No admin's Back to Specify is left.
+    id: "0036-step-backs",
+    sql: `
+      ALTER TABLE play.intents ADD COLUMN steps JSONB NOT NULL DEFAULT '[]'::jsonb;
+    `,
+  },
+  {
     // intents depend on intents (play/SPEC.md §4.12, Samuel 2026-11-06): one edge per pair, the intent held at every
     // forward gate while the one it depends on is not shipped (src/intents.ts mayMove); no edge to itself, no cycle
     // (refused when an edge is added)
-    id: "0035-intent-depends",
+    id: "0037-intent-depends",
     sql: `
       CREATE TABLE play.intent_depends (
         intent_id  UUID NOT NULL REFERENCES play.intents(id) ON DELETE CASCADE,

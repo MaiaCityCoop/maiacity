@@ -176,9 +176,12 @@ suite("migration 0032-versioned", () => {
     for (const m of made) await db.query(`UPDATE play.doc_branches SET intent_id = $2 WHERE id = $1`, [m.branch, m.id]);
     const edits = Number((await q(`SELECT count(*) AS n FROM play.doc_updates`))[0].n);
 
-    // ---- 0032, then the rest: 0033-build and 0034-schemas with ensureSchemas, and 0035-intent-depends, every schema a document of the meta-schema
+    // ---- 0032, then the rest: 0033-build and 0034-schemas with ensureSchemas, every schema a document of the meta-schema
     expect(await migrate(db, { until: "0032-versioned" })).toEqual(["0032-versioned"]);
-    expect(await migrate(db)).toEqual(["0033-build", "0034-schemas", "0035-intent-depends"]);
+    // (every migration after 0032 runs, 0033-build and 0034-schemas among them, and any that come after them)
+    const rest = MIGRATIONS.map((m) => m.id).slice(MIGRATIONS.findIndex((m) => m.id === "0032-versioned") + 1);
+    expect(rest.slice(0, 2)).toEqual(["0033-build", "0034-schemas"]);
+    expect(await migrate(db)).toEqual(rest);
     // every schema a document, v1 from the seed; every document made before names its schema's UUID and version, and
     // is still valid against that schema as Postgres holds it (play/SPEC.md "Version control")
     const schemas = await q(`SELECT d.id, d.schema_id, (SELECT max(number) FROM play.doc_versions v WHERE v.doc_id = d.id) AS n FROM play.docs d WHERE d.id LIKE 'schema:%' ORDER BY d.id`);

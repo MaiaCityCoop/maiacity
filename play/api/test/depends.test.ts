@@ -206,7 +206,7 @@ suite("intents depend on intents", () => {
       expect(await intent(waiting.id)).toMatchObject({ stage: "proposal", ship: { report: { why: "The stub refuses every move." } } });
       // going back asks it nothing
       const before = asked.length;
-      expect((await decide(inBuild.id, "respecify")).data.stage).toBe("specify");
+      expect((await tool("step_back_intent", { intent: inBuild.id, reason: "its spec is unbuildable as written" })).stage).toBe("specify");
       expect((await decide(toAccept.id, "reject")).data.stage).toBe("archived");
       expect((await decide(toAccept.id, "reopen")).data.stage).toBe("specify");
       expect(asked.length).toBe(before);
@@ -284,10 +284,10 @@ suite("intents depend on intents", () => {
     // sent back to Specify, from Build and from Proposal
     const p = await built();
     await depend(p.id, dep.id);
-    expect((await decide(p.id, "respecify")).data.stage).toBe("specify");
+    expect((await tool("step_back_intent", { intent: p.id, reason: "its spec is unbuildable as written" })).stage).toBe("specify");
     const q = await atProposal();
     await depend(q.id, dep.id);
-    expect((await decide(q.id, "respecify")).data.stage).toBe("specify");
+    expect((await tool("step_back_intent", { intent: q.id, reason: "its spec is unbuildable as written" })).stage).toBe("specify");
     // rejected, and reopened
     const r = await built();
     await depend(r.id, dep.id);
