@@ -63,7 +63,7 @@ export function prBlock(intent: Pick<Row, "spec" | "results">, seen: PrSeen, hea
   if (head && seen.head !== head) return failed(`${n}'s head moved from ${short(head)} to ${short(seen.head)}${w}: its checks are recorded on the new head, then Accept again`);
   const stale = unmetOn(intent, seen.head);
   if (stale.length)
-    return { state: "working", why: `${n}'s head moved past the checked commit: every must check with a run passes on ${n}'s head ${short(seen.head)} first (record them on it): ${stale.join("; ")}` };
+    return { state: "working", why: `${n}'s head moved past the checked commit: every must check with a run passes on ${n}'s head ${short(seen.head)} first (its run in avenBOX on GitHub records them on it: mark the pull request ready, or push to it): ${stale.join("; ")}` };
   if (seen.mergeable === false)
     return failed(`conflicts with main: ${n} ${head ? "no longer merges into main" : "does not merge into main as it is"}; main is merged into its branch, its checks run again${head ? ", then Accept again" : ""}`);
   const red = REQUIRED_CHECKS.find((c) => seen.checks[c] === "failure");

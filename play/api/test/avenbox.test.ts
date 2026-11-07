@@ -4,7 +4,7 @@
 // exits 1 while a must check fails, and with --record records the test and measure checks it ran, where they ran and
 // on which commit; a look it leaves to be judged, and no run sees the token.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { app } from "../src/app";
@@ -60,7 +60,7 @@ suite("avenBOX's runner", () => {
   };
   /** intent.ts as main's runner runs it: its token, GitHub's token and the Actions run in its environment (the same here
    *  as on GitHub's own runner, where these are GitHub's) */
-  const ACTIONS = { GITHUB_SERVER_URL: "https://github.example", GITHUB_REPOSITORY: "maia/city", GITHUB_RUN_ID: "7" };
+  const ACTIONS = { GITHUB_ACTIONS: "true", GITHUB_SERVER_URL: "https://github.example", GITHUB_REPOSITORY: "maia/city", GITHUB_RUN_ID: "7" };
   const runner = async (...args: string[]) => {
     const p = Bun.spawn([process.execPath, RUNNER, ...args, "--no-up"], {
       env: { ...process.env, ...ACTIONS, PLAY_MCP_URL: `${server.url}api/mcp`, PLAY_MCP_TOKEN: token, GITHUB_TOKEN: "ghs_not_for_runs" },
@@ -104,12 +104,18 @@ suite("avenBOX's runner", () => {
     expect(dry.out).toContain("3 passed, 1 failed, 1 to judge by eye");
     expect((await tool("get_intent", { intent: i.id })).results).toBeNull();
 
+    // results on a commit are taken from avenBOX's token alone (the GitHub runs'): any other is refused
+    const refused = await runner(i.id, "--record", "--where", "main");
+    expect(refused.code).toBe(1);
+    expect(refused.out).toContain("the pull request's run records them");
+    const box = await fetch(`${server.url}api/tokens`, { headers: { cookie: ada.cookie } }).then((r) => r.json() as Promise<any[]>);
+    await fetch(`${server.url}api/tokens/${box[0].id}/avenbox`, { method: "POST", headers: { cookie: ada.cookie, "content-type": "application/json" }, body: JSON.stringify({ avenbox: true }) });
     const recorded = await runner(i.id, "--record", "--where", "main");
     expect(recorded.code).toBe(1);
-    expect(recorded.out).toContain(`recorded c1, c2, c3, c4 on intent ${i.id} (where main)`);
+    expect(recorded.out).toContain(`recorded c1, c2, c3, c4 on intent ${i.id} (where main, commit `);
     const { results } = await tool("get_intent", { intent: i.id });
     expect(Object.keys(results).sort()).toEqual(["c1", "c2", "c3", "c4"]);
-    expect(results.c1).toMatchObject({ pass: true, where: "main" });
+    expect(results.c1).toMatchObject({ pass: true, where: "main", box: true, link: "https://github.example/maia/city/actions/runs/7" });
     expect(results.c2).toMatchObject({ pass: false, where: "main" });
     expect(results.c3).toMatchObject({ pass: true, where: "main" });
     expect(results.c4).toMatchObject({ pass: true, where: "main" });
@@ -136,5 +142,143 @@ suite("avenBOX's runner", () => {
     const unknown = await runner(crypto.randomUUID());
     expect(unknown.code).toBe(2);
     expect(unknown.out).toContain("no such intent");
+  });
+});
+
+// intent.ts's modes (play/SPEC.md §4.12, "Only the box's run is evidence"; Samuel 2026-11-06), against a fake MCP
+// server: no Postgres of play's needed. --spec-out writes the spec (intents-pr.yml's spec job), --from runs it with no
+// token and writes the results (its run job, on the head), --record-from records them (its record job); without
+// --record it runs, prints and records nothing; --record outside the GitHub run refuses. A per-user file never marks a
+// run dirty; a dirty run names its files.
+describe("avenBOX's runner: its modes", () => {
+  const ID = "4ea6b2ed-f96a-4bf6-83fd-4d165a793194";
+  const calls: { name: string; args: any; auth: string }[] = [];
+  const SPEC = {
+    goal: "g",
+    scope: "s",
+    checks: [
+      { id: "c1", check: "it passes", how: "test", by: "true", run: "true", must: true },
+      { id: "c2", check: "no token", how: "test", by: "empty", run: `test -z "$PLAY_MCP_TOKEN" && test -z "$GITHUB_TOKEN" && echo clean`, must: true },
+      { id: "c3", check: "it fails", how: "measure", by: "false", run: "false", must: false },
+      { id: "c4", check: "it looks right", how: "look", by: "by eye", must: true },
+    ],
+  };
+  const mcp = Bun.serve({
+    port: 0,
+    hostname: "127.0.0.1",
+    async fetch(req) {
+      const { params } = (await req.json()) as any;
+      calls.push({ name: params.name, args: params.arguments, auth: req.headers.get("authorization") ?? "" });
+      const out = params.name === "get_intent" ? { id: ID, stage: "build", title: "The box", spec: SPEC } : { id: ID, stage: "build" };
+      return Response.json({ jsonrpc: "2.0", id: 1, result: { content: [{ type: "text", text: JSON.stringify(out) }] } });
+    },
+  });
+  afterAll(() => mcp.stop(true));
+  // a repository of its own to run in, its .gitignore the real one's
+  const root = mkdtempSync(join(tmpdir(), "avenbox-root-"));
+  const git = (...args: string[]) => Bun.spawnSync(["git", "-c", "user.email=box@maia.city", "-c", "user.name=box", ...args], { cwd: root, stdout: "pipe" });
+  copyFileSync(resolve(import.meta.dir, "../../../.gitignore"), join(root, ".gitignore"));
+  git("init", "-q");
+  git("add", ".");
+  git("commit", "-qm", "one");
+  const sha = `${git("rev-parse", "HEAD").stdout}`.trim();
+  const dir = mkdtempSync(join(tmpdir(), "avenbox-files-"));
+  const run = async (args: string[], env: Record<string, string | undefined> = {}) => {
+    const p = Bun.spawn([process.execPath, RUNNER, ...args, "--no-up"], {
+      env: { ...process.env, PLAY_MCP_URL: `${mcp.url}api/mcp`, PLAY_MCP_TOKEN: "play_box_token_000000000000", GITHUB_TOKEN: "ghs_not_for_runs", GITHUB_ACTIONS: "", ...env },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const out = (await new Response(p.stdout).text()) + (await new Response(p.stderr).text());
+    return { code: await p.exited, out };
+  };
+
+  test("--spec-out writes the spec, running nothing", async () => {
+    calls.length = 0;
+    const r = await run([ID, "--spec-out", join(dir, "spec.json")]);
+    expect(r.code).toBe(0);
+    expect(JSON.parse(readFileSync(join(dir, "spec.json"), "utf8"))).toEqual({ intent: { id: ID, stage: "build", title: "The box" }, checks: SPEC.checks });
+    expect(calls.map((c) => c.name)).toEqual(["get_intent"]);
+  });
+
+  test("--from runs it with no token and writes each result with the head's sha and PostgreSQL's version", async () => {
+    calls.length = 0;
+    const r = await run(["--from", join(dir, "spec.json"), "--results-out", join(dir, "results.json"), "--root", root], {
+      PLAY_MCP_TOKEN: undefined, GITHUB_ACTIONS: "true", GITHUB_SERVER_URL: "https://github.example", GITHUB_REPOSITORY: "maia/city", GITHUB_RUN_ID: "42",
+    });
+    expect(r.code).toBe(0); // c3 fails, but it is nice
+    expect(calls).toEqual([]);
+    const file = JSON.parse(readFileSync(join(dir, "results.json"), "utf8"));
+    expect(file).toMatchObject({ intent: ID, where: "avenBOX", commit: sha, dirty: [], link: "https://github.example/maia/city/actions/runs/42" });
+    expect(file.postgres).toMatch(/^\d+(\.\d+)?$/);
+    expect(file.results.map((x: any) => [x.check, x.pass])).toEqual([["c1", true], ["c2", true], ["c3", false]]);
+    expect(file.results[1].evidence).toContain(`avenBOX (https://github.example/maia/city/actions/runs/42) · commit ${sha} · PostgreSQL ${file.postgres}`);
+    expect(file.results[1].evidence).toMatch(/\nclean$/);
+    expect(r.out).toContain("· c4 look (must): judge it by eye: by eye");
+  });
+
+  test("--record-from sends check_intent with where avenBOX, the commit, the run's link and pr; only of the intent named, on the head", async () => {
+    calls.length = 0;
+    const results = join(dir, "results.json");
+    const r = await run([ID, "--record-from", results, "--pr", "2110", "--head", sha]);
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("every must check with a run passed");
+    expect(calls).toHaveLength(1);
+    const [c] = calls;
+    expect(c.name).toBe("check_intent");
+    expect(c.auth).toBe("Bearer play_box_token_000000000000");
+    expect(c.args.intent).toBe(ID);
+    expect(c.args.pr).toBe(2110);
+    expect(c.args.results).toHaveLength(3);
+    for (const x of c.args.results) expect(x).toMatchObject({ where: "avenBOX", commit: sha, link: "https://github.example/maia/city/actions/runs/42" });
+    // another head, or another intent: not recorded
+    calls.length = 0;
+    const late = await run([ID, "--record-from", results, "--pr", "2110", "--head", "f".repeat(40)]);
+    expect(late.code).toBe(1);
+    expect(late.out).toContain(`not on the pull request's head ${"f".repeat(40)}`);
+    const other = await run([crypto.randomUUID(), "--record-from", results, "--pr", "2110"]);
+    expect(other.code).toBe(1);
+    expect(other.out).toContain("not recorded: the results are of intent");
+    expect(calls).toEqual([]);
+    // a red must: recorded, and it exits 1 (the run then turns the pull request back into a draft)
+    const red = JSON.parse(readFileSync(results, "utf8"));
+    red.results[0].pass = false;
+    writeFileSync(join(dir, "red.json"), JSON.stringify(red));
+    const r2 = await run([ID, "--record-from", join(dir, "red.json"), "--pr", "2110", "--head", sha]);
+    expect(r2.code).toBe(1);
+    expect(r2.out).toContain("must checks failed: c1");
+    expect(calls.map((x) => x.name)).toEqual(["check_intent"]);
+  });
+
+  test("without --record it runs and prints and records nothing; --record outside the GitHub run refuses", async () => {
+    calls.length = 0;
+    const dry = await run([ID, "--root", root]);
+    expect(dry.code).toBe(0);
+    expect(dry.out).toContain("✓ c1 test (must)");
+    expect(dry.out).toContain("✗ c3 measure (nice)");
+    expect(calls.map((c) => c.name)).toEqual(["get_intent"]);
+    calls.length = 0;
+    const refused = await run([ID, "--record", "--root", root]);
+    expect(refused.code).toBe(2);
+    expect(refused.out).toContain("--record runs only in the GitHub run: the pull request's run records them");
+    expect(calls).toEqual([]);
+  });
+
+  test("a per-user file never marks a run dirty; a dirty run names its files", async () => {
+    mkdirSync(join(root, ".claude"), { recursive: true });
+    writeFileSync(join(root, ".claude/settings.local.json"), "{}");
+    const clean = await run(["--from", join(dir, "spec.json"), "--results-out", join(dir, "clean.json"), "--root", root, "--only", "c1"]);
+    expect(clean.code).toBe(0);
+    expect(JSON.parse(readFileSync(join(dir, "clean.json"), "utf8")).dirty).toEqual([]);
+    expect(clean.out).not.toContain("+dirty");
+    writeFileSync(join(root, "stray.txt"), "x");
+    writeFileSync(join(root, ".gitignore"), readFileSync(join(root, ".gitignore"), "utf8") + "\n# changed\n");
+    const dirty = await run(["--from", join(dir, "spec.json"), "--results-out", join(dir, "dirty.json"), "--root", root, "--only", "c1"]);
+    const file = JSON.parse(readFileSync(join(dir, "dirty.json"), "utf8"));
+    expect(file.dirty.sort()).toEqual([".gitignore", "stray.txt"]);
+    expect(file.results[0].evidence).toContain(`commit ${sha}+dirty (`);
+    expect(dirty.out).toContain("the work tree was dirty: ");
+    // and in this repository itself, the file is ignored
+    expect(Bun.spawnSync(["git", "check-ignore", "-q", ".claude/settings.local.json"], { cwd: resolve(import.meta.dir, "../../..") }).exitCode).toBe(0);
   });
 });

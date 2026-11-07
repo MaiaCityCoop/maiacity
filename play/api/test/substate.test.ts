@@ -108,7 +108,10 @@ suite("sub-states on the board", () => {
     const h = await createHuman(db, "ada");
     who.ada = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
-    token = (await call("POST", "/api/tokens", { name: "agent" })).data.token;
+    const made = (await call("POST", "/api/tokens", { name: "agent" })).data;
+    token = made.token;
+    // avenBOX's token (play/SPEC.md §4.12): a code intent's results on a commit, and its pull request, are taken from it alone
+    await call("POST", `/api/tokens/${made.id}/avenbox`, { avenbox: true });
   });
 
   afterAll(async () => {

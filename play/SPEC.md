@@ -173,8 +173,8 @@ to read, to time-travel through and to tell (a making-of is that history played 
 
 **Assets on documents** (Samuel 2026-11-03, `play/api/src/assetdocs.ts`). Every asset is an `asset/1` document,
 `asset:<uuid>`: its readable source as a text (diffed by lines when a whole source is sent), its label, note and engine,
-its card (the version's record), and for a kind of variants its default variant and each variant's card and, where it
-differs from the asset's own, its source. The §4.3 tables stay what the catalog, the pins and the box read: a version's
+its card (the version's record), and for a kind of variants its default variant; each variant is a **breed** of the
+document (§4.15, Breeds), beside Main, holding its own card and, where it differs from Main's, its source. The §4.3 tables stay what the catalog, the pins and the box read: a version's
 id, number, recipe file and source hash are exactly what they were, and nothing downstream reads the document.
 
 - **Its history, made once from its versions** (in the deploy's import, and the first time an asset is touched): each
@@ -192,8 +192,10 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   /api/me`, `/api/catalog`, `/api/files/<hash>`, `/api/sandboxes/<id>/config`, `/api/assets…`; `READ_BY_TOKEN` in
   `play/api/src/app.ts`), so an agent loads a sandbox in its own browser as its admin and films it (`window.__world`'s
   `fly` and `sun`) for a story's storyboard. Every other route still wants a session.
-- **Variants over MCP** (Samuel 2026-11-03): the document's `variants` (each a `name`, its card's `label`, its own
-  `source` where it differs; set with `doc_edit`, `propose_asset`'s for a new asset) make a version a kind of variants, as the animals are: each variant its own recipe file, the source
+- **Variants over MCP** (Samuel 2026-11-03; breeds since 2026-11-06, §4.15): an asset's breeds (each a `name`, its
+  card's `label`, its own `source` where it differs from Main's; changed with `doc_edit`'s and `propose_doc_version`'s
+  `breed`, made with `new_breed`, or given whole as `propose_asset`'s `variants` for a new asset) make each version a
+  kind of variants, as the animals are: each breed built as its variant, its own recipe file, the source
   called with its name (`module.exports.recipe(id, v, variant)`), its label shown as a chip in the asset viewer
   ("Papaya: Male" as Male), `default_variant` the one a ref without a variant names. `params` sets the card's
   parameters when the recipe declares new ones (its meta.params, in its build's order), on the version and every
@@ -542,8 +544,8 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     at, where, commit }`), shown by its mark on the board (*avenBOX*, *main @ 1a2b3c4*), each check's `run` as code
     under its `by`.
   - **what is merged is what was checked.** Code goes by pull request into main, its commits naming the intent (the
-    trailer `Intent: <UUID>`), its checks recorded on the pull request's head (`intent.ts <intent> --record --pr <its
-    number>`): an Accept merges it only when every must check with a `run` last passed on that head (`unmetOn`). Once
+    trailer `Intent: <UUID>`), its checks recorded on the pull request's head by its run in avenBOX on GitHub
+    (`.github/workflows/intents-pr.yml`, below): an Accept merges it only when every must check with a `run` last passed on that head (`unmetOn`). Once
     merged, **`.github/workflows/intents.yml`** (*intents on main*; also by hand, an intent's UUID, on main's head)
     builds the same box on GitHub's runner (`sudo bash play/avenbox/setup.sh`) and runs `intent.ts <intent> --record
     --where main` on the merged commit, with the repository secret `PLAY_MCP_TOKEN` (an admin's access token). It
@@ -551,6 +553,45 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     **confirmation**, taken in any stage once the spec is approved: in Build or at Proposal they move the intent as
     any result does, in Ship, Accepted or Archived they are kept and move nothing. Intents whose work is play's keep
     their gate (`intentReady`).
+- **Every pull request names its one intent; only the box's run is evidence** (Samuel 2026-11-06; intent
+  `4ea6b2ed-f96a-4bf6-83fd-4d165a793194`). Intent `c9113886` was decided on checks run on a Mac (Postgres 15, a bun
+  fetched by hand) recorded as avenBOX's, and marked `+dirty` only by a per-user file; so every result an admin decides
+  a code intent on now comes from avenBOX itself, on the pull request's head, before Accept, whatever machine the agent
+  works on.
+  - **One intent, one active pull request.** Every pull request into main is the work of exactly one intent: its title
+    shows the intent's first 8 characters, `[c9113886] …` (only shown), its body and its commits carry the full UUID on
+    the line `Intent: <uuid>`, which is what everything reads (`.github/pull_request_template.md`). An intent has
+    **one active pull request**: the one named on it (`pull_request`). The required check **Intent named**
+    (`.github/workflows/intent-named.yml`, `play/avenbox/pr-intent.ts`, main's own on `pull_request_target`, the pull
+    request only read through GitHub's API) is red when a pull request names no intent or more than one, names one not
+    at Build, Proposal or Ship, or is not the intent's active one while that one is open, saying which to
+    consolidate into, or to close this one. main's ruleset requires it beside `play / API and site`, `website / build`
+    and `Intent accepted`.
+  - **A draft while building; ready promotes to Proposal.** While the intent is in Build its pull request is a
+    **draft**, and the agent tests itself anywhere, untrusted: `bash play/avenbox/gate.sh`, and `bun
+    play/avenbox/intent.ts <uuid>`, which runs and prints the checks and records nothing (`--record` refuses outside a
+    GitHub run). **Marking it ready for review** runs **`.github/workflows/intents-pr.yml`** (*intents on pull
+    requests*): the intent's checks in avenBOX on GitHub (`play/avenbox/setup.sh`, PostgreSQL 17, bun 1.4.4) on the
+    pull request's head, recorded on the intent with that head, the run's link and `pr` (so it becomes the active pull
+    request). Every must green: the intent moves to Proposal. Any must red: it stays in (or goes back to) Build with
+    the failures, and the run turns the pull request back into a draft. Each new push to a ready pull request runs and
+    records again on the new head, so Accept merges only a head every must passed on (`ship.ts`, unchanged). Looks are
+    still judged and recorded by hand (`check_intent`).
+  - **Only the box's run is evidence.** intents-pr.yml runs on `pull_request_target`, for heads in this repository
+    only, in three jobs: **spec** (main's `pr-intent.ts --id` and `intent.ts <uuid> --spec-out`, with avenBOX's token),
+    **run** (the head checked out with `persist-credentials: false`, no secret and a read-only `GITHUB_TOKEN`; main's
+    intent.ts, handed over by spec, runs the spec's checks with `--from <spec> --results-out <file> --root <head>`) and
+    **record** (main's `intent.ts <uuid> --record-from <results> --pr <n> --head <sha>`, with avenBOX's token, refusing
+    results of another intent or another commit; a red run's pull request turned back into a draft). The workflow and
+    the intent.ts that hold a token are always main's. **avenBOX's token** is an admin's access token marked so on
+    play's profile page (`play.api_tokens.avenbox`, migration `202611070145-4ea6b2ed-avenbox-token`; `POST /api/tokens/<id>/avenbox`), the repository
+    secret `PLAY_MCP_TOKEN` that intents-pr.yml, intent-named.yml and intents.yml hold. From any other token
+    `check_intent` refuses a pull request named and every test or measure result that could decide a code intent (on a
+    commit, on main, or once its pull request is named), saying the pull request's run records them; a result recorded
+    by the box is marked `box` with its run's `link`. Work of play's own (no pull request, no commit) records as before.
+  - **Dirty.** `.gitignore` ignores `.claude/settings.local.json`, the per-user file the Claude app writes; a dirty run
+    names the files that made it dirty (`commit 1a2b…+dirty (a.ts, b.ts)`).
+  - Later: work of play's own, proposed with `intent`, would dispatch the same box run on main's head.
 - **Accept ships it** (Samuel 2026-11-06: *"only the manual accept should directly trigger the flow … it should
   instantly start the merge into main and prod"*; intent `d29933ff-3636-4148-8df7-c183c6065216`). The intent flow is the
   one authority over what lands on main and goes to production, and GitHub requires it.
@@ -841,6 +882,7 @@ registry and one module, shown by one History.
 | **Intent variant** | A variant that exists only inside an intent and goes through its stages. Accept merges it into the variant it came from; Archive closes it, kept in the history | draft, feature branch |
 | **Seed** | The version a variant grows from ("seeded from Main v3"). A document's first version is just v1 | base |
 | **Version** | A numbered state of Main, named on accept | version |
+| **Breed** | A named variant beside Main that tracks Main: it takes every edit accepted on Main, except on the fields it overrides (an asset's kinds and breeds) | an asset's variants |
 
 - **One registry, one module** (`play/api/src/versioned.ts`). Each versioned kind is one entry: its document prefix and
   its schema (a document, by its UUID: below), its row table, its label and group (only shown), and hooks only where it really differs (an
@@ -909,6 +951,37 @@ registry and one module, shown by one History.
   build or a story's player.
 - **No bypass**: every change waits at Proposal for a person's Accept; the intents' stages, gates and Ship are as they
   were (§4.12).
+
+#### Breeds (Samuel 2026-11-06; intent 7c8085db-ccdb-44cf-8d6c-0ff984d71f41)
+
+"Breeds are like variants under the hood but keep tracking their main so they live alongside main." An asset's
+variants (a plant's kinds, an animal's breeds) are **breeds** of its document: variants of type `breed` in
+`doc_variants` (migration `202611070120-7c8085db-breeds`), each named (its `name`, only shown; the frozen variant rows and the pins
+keep naming a variant by it), beside Main.
+
+- **What a breed holds is what it overrides**: the fields it changed from Main (`overrides`, paths into the document),
+  only ever within an asset's `source` and `card` (`play/api/src/docs/breeds.ts`). A breed that overrides nothing is
+  Main as it is.
+- **A breed tracks Main**: when an edit is accepted on Main it is merged into every breed (one `merge` edit on the
+  breed's line, "tracks Main vN"), and on every field the breed overrides the breed keeps its own value. A field both
+  Main and the breed changed (a clash) keeps the breed's.
+- **A breed changes by its own intent variant**, seeded from it (`doc_edit`'s or `propose_doc_version`'s `breed`, the
+  breed's number from `doc_history`); it may change only the breed's own fields. Accepting merges it into the breed,
+  and what it changed the breed overrides from then on. **A new breed is made by an intent too** (`new_breed`, its
+  name): seeded from Main, its Accept makes the breed.
+- **Every Accept, on Main or on a breed, is the asset's next frozen version**: `asset_versions` with one
+  `asset_variants` row per breed, each built from the breed as it then is (Main beneath it), the recipe made in the
+  box as before (`RECIPE_HEAD + source + recipeTail(slug, v, breed)`). An Accept on a breed leaves Main as it is and
+  names its next version all the same. `defaultVariant` (on Main) names the breed shown first.
+- **The migration**: every asset's variants became breeds of its document with the same sources and cards (in the
+  deploy's import, `breedsFromVariants` in `play/api/src/assetdocs.ts`: each breed built gives its variant's recipe
+  hash, byte for byte); Main holds no `variants` since. Every frozen version, its variant rows and every pin stayed as
+  they were. A version proposed with its `variants` given whole (`propose_asset`) makes them breeds on its Accept; an
+  asset of breeds is changed only through its document, so every breed is built from it.
+- **In the views**: the asset viewer's chips list the breeds (the frozen version's variants, as before), and its
+  History tab shows each breed as its own line beside Main (what it overrides; picking it builds the breed); an intent
+  variant says whether it changes Main, changes a breed or makes one. `doc_at`'s `breed` reads a breed as it is now,
+  `/api/docs/<uuid>?breed=` the same; `/changes?variant=` of a breed is what it overrides of Main.
 
 
 ## 5. The sandboxes
