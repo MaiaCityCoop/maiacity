@@ -1,0 +1,12 @@
+GET /api/intents 200
+GET /api/intents/0960708e-be31-496f-b2b2-af455ef864a7 200
+GET /api/intents/0960708e-be31-496f-b2b2-af455ef864a7 200
+detail open after 883 ms (page load included)
+GET /api/intents/0960708e-be31-496f-b2b2-af455ef864a7 200
+GET /api/intents/0960708e-be31-496f-b2b2-af455ef864a7/docs/c229ce5c-518f-414e-aa2b-dfb5351cd665?variant=13 200
+Person skeleton's review shown after 203 ms
+GET /api/intents/0960708e-be31-496f-b2b2-af455ef864a7/docs/c229ce5c-518f-414e-aa2b-dfb5351cd665?variant=14 200
+button while it runs: "Accepting…", disabled=true
+POST /api/intents/0960708e-be31-496f-b2b2-af455ef864a7/accept 200
+Accept answered after ~1459 ms
+the intent now: accepted
