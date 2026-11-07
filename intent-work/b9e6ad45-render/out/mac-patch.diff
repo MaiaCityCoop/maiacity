@@ -1,0 +1,40 @@
+diff --git a/intent-work/b9e6ad45-render/render.mjs b/intent-work/b9e6ad45-render/render.mjs
+index 4ca7a79d5..012af961c 100644
+--- a/intent-work/b9e6ad45-render/render.mjs
++++ b/intent-work/b9e6ad45-render/render.mjs
+@@ -10,7 +10,7 @@ const ROOT = resolve(new URL('../..', import.meta.url).pathname);
+ const OUT = resolve(process.argv[2] ?? 'out');
+ const req = createRequire(import.meta.url);
+ let playwright;
+-for (const p of ['playwright', join(ROOT, 'play/site/node_modules/playwright'), join(ROOT, 'play/site/node_modules/@playwright/test')]) {
++for (const p of [join(ROOT, 'play/site/node_modules/playwright'), join(ROOT, 'play/site/node_modules/@playwright/test'), 'playwright']) {
+ 	try { playwright = req(p); break; } catch {}
+ }
+ if (!playwright) throw new Error('Playwright is needed (npm i -g playwright && npx playwright install chromium)');
+@@ -18,11 +18,11 @@ const TYPES = { '.js': 'text/javascript', '.mjs': 'text/javascript', '.html': 't
+ const server = createServer(async (q, r) => {
+ 	const path = join(ROOT, decodeURIComponent(new URL(q.url, 'http://x').pathname));
+ 	if (!path.startsWith(ROOT)) return void r.writeHead(403).end();
+-	try { r.writeHead(200, { 'Content-Type': TYPES[extname(path)] ?? 'application/octet-stream' }).end(await readFile(path)); } catch { r.writeHead(404).end(); }
++	let body; try { body = await readFile(path); } catch { console.error('  404', path.slice(ROOT.length)); return void r.writeHead(404).end(); } r.writeHead(200, { 'Content-Type': TYPES[extname(path)] ?? 'application/octet-stream' }).end(body);
+ }).listen(0, '127.0.0.1');
+ await new Promise((ok) => server.once('listening', ok));
+ const url = `http://127.0.0.1:${server.address().port}/intent-work/b9e6ad45-render/page.html`;
+-const browser = await playwright.chromium.launch({ headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
++const browser = await playwright.chromium.launch({ channel: 'chromium', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
+ const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+ page.on('pageerror', (e) => console.error('page:', e.message));
+ await page.goto(url);
+diff --git a/intent-work/b9e6ad45-render/run.sh b/intent-work/b9e6ad45-render/run.sh
+index f449695c8..9906a4e1c 100755
+--- a/intent-work/b9e6ad45-render/run.sh
++++ b/intent-work/b9e6ad45-render/run.sh
+@@ -6,7 +6,7 @@ set -euo pipefail
+ REPO="$(cd "$(dirname "$0")/../.." && pwd)"; J="$REPO/intent-work/b9e6ad45-render"; OUT="$J/out"; W="${WORK:-$HOME/b9e6ad45-work}"
+ cd "$REPO/play/site" && bun install >/dev/null && cd "$REPO"
+ rm -rf "$W" && mkdir -p "$W" "$OUT"
+-node "$J/render.mjs" "$W" 2>&1 | tee "$OUT/run-log.txt"
++bun "$J/render.mjs" "$W" 2>&1 | tee "$OUT/run-log.txt"
+ # a film of each person (every clip in turn) and a sheet of four moments of each clip, kept small for git
+ for who in stand-in elder-woman; do
+   list="$W/$who.txt"; : > "$list"

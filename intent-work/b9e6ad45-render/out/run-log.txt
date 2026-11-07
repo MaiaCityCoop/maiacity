@@ -1,0 +1,28 @@
+  404 /favicon.ico
+stand-in 1.71 m idle, walk, run, start, stop, turn left, turn right, sit down, sitting, stand up, wave, pick up
+renderer: ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)
+  idle 183 frames
+  walk 49 frames
+  run 49 frames
+  start 61 frames
+  stop 79 frames
+  turn left 49 frames
+  turn right 49 frames
+  sit down 49 frames
+  sitting 50 frames
+  stand up 49 frames
+  wave 61 frames
+  pick up 109 frames
+elder-woman 1.66 m idle, walk, run, start, stop, turn left, turn right, sit down, sitting, stand up, wave, pick up
+  idle 179 frames
+  walk 49 frames
+  run 49 frames
+  start 61 frames
+  stop 79 frames
+  turn left 49 frames
+  turn right 49 frames
+  sit down 49 frames
+  sitting 50 frames
+  stand up 49 frames
+  wave 61 frames
+  pick up 109 frames
