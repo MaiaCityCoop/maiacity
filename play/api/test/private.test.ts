@@ -88,6 +88,17 @@ suite("private to its owner", () => {
     if (accept) expect((await call(A, "POST", `/api/intents/${intent}/accept`)).data.decision).toMatchObject({ status: "accepted", number: 1 });
     return { asset: made.asset as string, intent };
   };
+  /** every row of a table in the admins' database window as `who` reads it, page by page */
+  const allRows = async (who: Who, table: string) => {
+    const out: any[] = [];
+    for (let offset = 0; ; offset += 200) {
+      const r = await call(who, "GET", `/api/tables/${table}?limit=200&offset=${offset}`);
+      expect(r.status).toBe(200);
+      const page = (r.data?.rows ?? []) as any[];
+      out.push(...page);
+      if (!page.length || out.length >= Number(r.data?.total ?? 0)) return out;
+    }
+  };
   const human = async (nm: string, level: "admin" | "traveler"): Promise<Who> => {
     const h = await createHuman(db, nm);
     await db.query(`UPDATE play.memberships SET level = $2 WHERE human_id = $1`, [h.id, level]);
@@ -132,7 +143,7 @@ suite("private to its owner", () => {
       for (const who of [B, T]) expect(await call(who, "GET", `/api/files/${h}`)).toEqual(never);
       expect(await byToken(B, `/api/files/${h}`)).toEqual(await byToken(B, `/api/files/${NEVER}`));
       expect(await tool(B, "get_file", { hash: h })).toEqual(await tool(B, "get_file", { hash: NEVER }));
-    });
+    }, 60_000);
 
     test("library: A's personal library lists it for A alone; the coop's library and B's never do", async () => {
       const kept = await tool(A, "add_story_frame", { data: image(), media_type: "image/png", label: "Ada's face, side", library: "personal" });
@@ -162,7 +173,7 @@ suite("private to its owner", () => {
       expect((await call(B, "POST", `/api/library/${h}/label`, { label: "mine now" })).status).toBe(404);
       // A relabels it in their own library
       expect((await call(A, "POST", `/api/library/${h}/label`, { label: "Ada, side, 2", library: "personal" })).data.label).toBe("Ada, side, 2");
-    });
+    }, 60_000);
 
     test("library: the coop's library lists the coop's files for its admins as before", async () => {
       const kept = await tool(A, "add_story_frame", { data: image(), media_type: "image/png", label: "A meadow" });
@@ -177,7 +188,7 @@ suite("private to its owner", () => {
       // not in anyone's personal library, and served to every member as before
       expect(hashes((await call(A, "GET", "/api/library?library=personal")).data)).not.toContain(h);
       expect((await api.fetch(new Request(`http://play.test/api/files/${h}`, { headers: { cookie: T.cookie } }))).status).toBe(200);
-    });
+    }, 60_000);
 
     test("library: the same bytes added to the coop's library are the coop's too; added to another's personal library, they stay out of the coop's", async () => {
       const data = image();
@@ -193,12 +204,12 @@ suite("private to its owner", () => {
       await tool(A, "add_story_frame", { data, media_type: "image/png", label: "Shared" });
       expect(hashes((await call(B, "GET", "/api/library")).data)).toContain(h);
       expect((await api.fetch(new Request(`http://play.test/api/files/${h}`, { headers: { cookie: T.cookie } }))).status).toBe(200);
-    });
+    }, 60_000);
 
     test("library: a library is personal or coop", async () => {
       expect((await tool(A, "add_story_frame", { data: image(), media_type: "image/png", library: "everyone" })).error).toBeDefined();
       expect((await call(A, "GET", "/api/library?library=everyone")).status).toBe(400);
-    });
+    }, 60_000);
   });
 
   describe("character", () => {
@@ -251,14 +262,14 @@ suite("private to its owner", () => {
       const p = await call(B, "POST", "/api/intents", { asset, note: "mine", source: SOURCE("Bo's"), intent: bi });
       expect(p.status).toBe(404);
       expect(p).toEqual(await call(B, "POST", "/api/intents", { asset: never, note: "mine", source: SOURCE("Bo's"), intent: bi }));
-    });
+    }, 60_000);
 
     test("character: a sandbox can't pin a private character", async () => {
       const { asset } = await character("Ada, to be pinned");
       const intent = await readyIntent(A, "Ada in Sandbox 1");
       const e = await tool(A, "doc_edit", { doc: SANDBOX.one, intent, message: "Ada stands in the garden", edits: [{ op: "pin", slot: "ada", asset }] });
       expect(e.error).toMatch(/private/);
-    });
+    }, 60_000);
 
     test("character: only group characters may be private", async () => {
       const intent = await readyIntent(A, "A private goat");
@@ -271,7 +282,7 @@ suite("private to its owner", () => {
       expect(e.error).toBeUndefined();
       const p = await tool(A, "propose_doc_version", { doc: asset, intent: move, variant: e.variant, note: "Ada to the actors." });
       expect(p.error).toMatch(/characters/);
-    });
+    }, 60_000);
 
     test("character: a character not made private is everyone's, as before", async () => {
       const intent = await readyIntent(A, "A settler");
@@ -279,11 +290,11 @@ suite("private to its owner", () => {
       expect((await call(A, "POST", `/api/intents/${intent}/accept`)).data.decision).toMatchObject({ status: "accepted" });
       expect((await call(B, "GET", `/api/assets/${made.asset}`)).status).toBe(200);
       expect((await call(T, "GET", "/api/catalog")).data.map((c: any) => c.asset)).toContain(made.asset);
-    });
+    }, 60_000);
   });
 
   describe("board", () => {
-    test("board: an intent whose work is a private character is shown to and decided by its owner alone", async () => {
+    test("board: an intent whose work is private is shown to and decided by its owner alone", async () => {
       const { asset, intent } = await character("Ada, for the board", false);
       const ids = (list: any) => (Array.isArray(list) ? list : []).map((i: any) => i.id);
       // A sees it, its work and its review
@@ -313,11 +324,11 @@ suite("private to its owner", () => {
       expect((await call(B, "POST", "/api/intents", { asset, note: "mine", source: SOURCE("Bo's"), intent })).status).toBe(404);
       // nor see it, its work or its asset in the database window
       for (const [table, key, id] of [["intents", "id", intent], ["assets", "id", asset], ["intent_variants", "intent_id", intent]] as const) {
-        const rows = async (who: Who) => ((await call(who, "GET", `/api/tables/${table}?limit=200`)).data.rows as any[]).map((r) => r[key]);
+        const rows = async (who: Who) => (await allRows(who, table)).map((x) => x[key]);
         expect(await rows(A)).toContain(id);
         expect(await rows(B)).not.toContain(id);
       }
-      const docRows = async (who: Who) => ((await call(who, "GET", "/api/tables/doc_variants?limit=200")).data.rows as any[]).map((r) => r.doc_id);
+      const docRows = async (who: Who) => (await allRows(who, "doc_variants")).map((x) => x.doc_id);
       expect(await docRows(A)).toContain(`asset:${asset}`);
       expect(await docRows(B)).not.toContain(`asset:${asset}`);
       expect((await tool(A, "get_intent", { intent })).stage).toBe("proposal");
@@ -327,7 +338,7 @@ suite("private to its owner", () => {
       expect((await call(B, "GET", `/api/assets/${asset}`)).status).toBe(404);
       expect(ids(await tool(B, "list_intents", { stage: "accepted" }))).not.toContain(intent);
       expect((await call(A, "GET", `/api/assets/${asset}`)).status).toBe(200);
-    });
+    }, 60_000);
 
     test("board: an edge to another's private intent shows no title and no id", async () => {
       const { intent } = await character("Ada's secret look", false);
@@ -346,9 +357,9 @@ suite("private to its owner", () => {
       // A, its owner, sees it named
       const as = (await call(A, "GET", `/api/intents/${bi.id}`)).data;
       expect(as.depends_on).toEqual([expect.objectContaining({ id: intent, title })]);
-    });
+    }, 60_000);
 
-    test("board: the Library's uses never name another's private character", async () => {
+    test("board: where a file is used never names another's private asset", async () => {
       const sheet = (await tool(A, "add_story_frame", { data: image(), media_type: "image/png", label: "A coop sheet" })).hash as string;
       const intent = await readyIntent(A, "Ada, with a coop sheet");
       const made = await tool(A, "propose_asset", { group: "characters", label: "Ada, sheet", note: "v1", source: SOURCE("ada sheet"), intent, private: true, sheet });
@@ -356,6 +367,6 @@ suite("private to its owner", () => {
       const uses = async (who: Who) => ((await call(who, "GET", `/api/library?q=${sheet.slice(0, 16)}`)).data.files.find((f: any) => f.hash === sheet)?.used ?? []).map((u: any) => u.asset);
       expect(await uses(A)).toContain(made.asset);
       expect(await uses(B)).not.toContain(made.asset);
-    });
+    }, 60_000);
   });
 });

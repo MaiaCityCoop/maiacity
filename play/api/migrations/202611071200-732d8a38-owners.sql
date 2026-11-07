@@ -19,3 +19,6 @@ CREATE TABLE play.file_owners (
 );
 CREATE INDEX ix_file_owners_owner ON play.file_owners (owner, created DESC);
 INSERT INTO play.file_owners (hash, owner, created) SELECT hash, '12f8d4e7-701f-8727-a327-de9b240ea867', created FROM play.files;
+
+-- the board asks, for every intent it shows, whether any of its work is another's private asset (its intent variants)
+CREATE INDEX ix_doc_variants_intent ON play.doc_variants (intent_id) WHERE intent_id IS NOT NULL;
