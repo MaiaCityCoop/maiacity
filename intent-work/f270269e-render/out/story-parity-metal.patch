@@ -1,0 +1,26 @@
+diff --git a/play/site/scripts/story-parity.ts b/play/site/scripts/story-parity.ts
+index 8b9faffb3..c8bb06c23 100644
+--- a/play/site/scripts/story-parity.ts
++++ b/play/site/scripts/story-parity.ts
+@@ -111,18 +111,19 @@ try {
+ 	// codec: a finely detailed shot (a palm's thousands of leaflets) loses SSIM to H.264 alone (0.96 against itself)
+ 	const lossless = args.includes('--lossless');
+ 	const film = opt('--film') ? resolve(opt('--film')!) : join(work, lossless ? 'frames' : 'render.mp4');
+-	if (!opt('--film')) run(['bunx', 'hyperframes@0.9.20', 'render', project, '-o', film, '--quiet', '--workers', '1', ...(lossless ? ['--format', 'png-sequence'] : ['--quality', 'delivery']), '--no-wait', '--no-experimental-fast-capture']);
++	if (!opt('--film')) run(['bunx', 'hyperframes@0.9.20', 'render', project, '-o', film, '--quiet', '--workers', '1', ...(lossless ? ['--format', 'png-sequence'] : ['--quality', 'delivery']), '--no-wait', '--no-experimental-fast-capture', '--browser-gpu']);
+ 	const pngs = lossless ? [...new Bun.Glob('*.png').scanSync({ cwd: film })].sort() : [];
+ 	for (const t of at)
+ 		if (lossless) run(['ffmpeg', '-y', '-loglevel', 'error', '-i', join(film, pngs[Math.round(t * story.fps)]), '-frames:v', '1', join(work, `render-${t}.png`)]);
+ 		else run(['ffmpeg', '-y', '-loglevel', 'error', '-i', film, '-vf', `select=eq(n\\,${Math.round(t * story.fps)})`, '-frames:v', '1', join(work, `render-${t}.png`)]);
+ 	// the player's picture at each second
+ 	// in Chrome (else the renderer's own headless shell), with the renderer's font and colour flags
+-	const flags = { args: ['--font-render-hinting=none', '--force-color-profile=srgb'] };
++	const flags = { args: ['--font-render-hinting=none', '--force-color-profile=srgb', '--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] };
+ 	const cache = join(homedir(), '.cache/puppeteer');
+ 	const shell = existsSync(cache) ? [...new Bun.Glob('chrome-headless-shell/*/*/chrome-headless-shell').scanSync({ cwd: cache, absolute: true })].sort().pop() : undefined;
+ 	const browser = await chromium.launch({ ...flags, channel: 'chrome' }).catch(() => chromium.launch({ ...flags, executablePath: shell }));
+ 	const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
++	console.log('player GPU:', browser.version(), await page.evaluate(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g!.getExtension('WEBGL_debug_renderer_info'); return g!.getParameter(e!.UNMASKED_RENDERER_WEBGL); }));
+ 	page.on('console', (m) => m.type() === 'error' && console.error('player:', m.text()));
+ 	await page.goto(`http://localhost:${server.port}/`);
+ 	await page.waitForFunction(() => (window as any).ready === true, null, { timeout: 120_000 });

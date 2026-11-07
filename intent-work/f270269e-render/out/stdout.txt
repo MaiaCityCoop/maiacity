@@ -1,0 +1,5 @@
+player GPU: 156.0.8078.80 ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)
+1.00 s: SSIM 0.9967
+3.00 s: SSIM 0.9971
+5.00 s: SSIM 0.9961
+lowest SSIM 0.9961 (at least 0.98); the stills are in /tmp/f270269e-c4
