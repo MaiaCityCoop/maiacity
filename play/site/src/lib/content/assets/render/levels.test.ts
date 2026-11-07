@@ -87,9 +87,9 @@ describe('every asset has its levels', () => {
 		expect(l2.tris).toBeLessThan(l1.tris)
 		expect(l1.tris).toBeGreaterThan(0)
 		const pictures = fakePictures()
-		await kept.picture(`${HASH}?size=1`, source, pictures as any)
+		expect((await kept.picture(`${HASH}?size=1`, source, pictures as any)).taken).toBe(true)
 		expect(pictures.done.taken).toBe(1)
-		expect(kept.counted).toMatchObject({ derived: 2, keptLevels: 0, taken: 1, keptPictures: 0 })
+		expect(kept.counted).toMatchObject({ derived: 2, keptLevels: 0, taken: 1, keptPictures: 0, unkept: 0 })
 	})
 
 	it('one declaring `levels` gets its own: each its recipe built with its values, nothing derived', () => {
@@ -134,7 +134,7 @@ describe('every asset has its levels', () => {
 		const again = built()
 		const read = await b.lower(name, again, plansOf(again))
 		const pb = fakePictures()
-		await b.picture(name, again, pb as any)
+		expect((await b.picture(name, again, pb as any)).taken).toBe(false)
 		expect(second.n.calls).toBe(0)
 		expect(pb.done).toEqual({ taken: 0, laid: 1 })
 		expect(b.counted).toMatchObject({ derived: 0, keptLevels: 2, taken: 0, keptPictures: 1 })

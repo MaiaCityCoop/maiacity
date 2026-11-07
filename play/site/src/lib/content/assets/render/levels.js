@@ -92,10 +92,20 @@ export function createKept(o) {
 	const of = o.of ?? levelOf;
 	const keep = o.keep !== false;
 	/** what was made here, and what was read from this device's cache instead */
-	const counted = { derived: 0, keptLevels: 0, taken: 0, keptPictures: 0 };
+	const counted = { derived: 0, keptLevels: 0, taken: 0, keptPictures: 0, unkept: 0, why: '' };
+	/** what was made and could not be kept (its picture not read back, its file not written): counted, its reason the last */
+	const lost = (why) => {
+		counted.unkept++;
+		counted.why = String(why?.message ?? why).slice(0, 200);
+	};
 
 	const read = async (key) => (keep ? await Promise.resolve(store.getLevel(key)).catch(() => undefined) : undefined);
-	const put = (key, value) => (keep ? Promise.resolve(store.putLevel(key, value)).catch(() => false) : Promise.resolve(false));
+	const put = (key, value) =>
+		keep
+			? Promise.resolve(store.putLevel(key, value))
+					.catch(() => false)
+					.then((ok) => (ok || lost('not written to the cache'), ok))
+			: Promise.resolve(false);
 
 	return {
 		counted,
@@ -129,7 +139,8 @@ export function createKept(o) {
 		},
 		/**
 		 * A build's picture: laid on a page from this device's cache by its key, else taken (`take`) and, once read back
-		 * off the graphics card (`frames`), kept. `pictures` the renderer's (./impostors.js).
+		 * off the graphics card (`frames`), kept. `pictures` the renderer's (./impostors.js). Gives its slot, and
+		 * whether it was photographed now (`taken`).
 		 * @param {string} build @param {import('./prepare.js').Level} level @param {ReturnType<import('./impostors.js').createImpostors>} pictures
 		 */
 		async picture(build, level, pictures) {
@@ -139,7 +150,7 @@ export function createKept(o) {
 				try {
 					const slot = pictures.put(level, frames);
 					counted.keptPictures++;
-					return slot;
+					return { slot, taken: false };
 				} catch {
 					// (of another size, or spoiled: taken again)
 				}
@@ -148,9 +159,9 @@ export function createKept(o) {
 			counted.taken++;
 			if (keep)
 				Promise.resolve(pictures.read?.(slot))
-					.then(async (f) => f && put(key, await packFrames(f)))
-					.catch(() => {});
-			return slot;
+					.then(async (f) => (f ? put(key, await packFrames(f)) : lost('no pictures read back')))
+					.catch(lost);
+			return { slot, taken: true };
 		}
 	};
 }

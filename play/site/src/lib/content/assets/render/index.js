@@ -415,10 +415,9 @@ export function createAssets(o) {
 		// its picture taken as soon as its coarsest built shape is here, while the world loads, not by a frame that
 		// wants it: a copy whose picture is missing draws that whole shape in its place
 		if (base && !k.slot && k.picture) {
-			const before = kept.counted.taken;
-			const slot = await kept.picture(k.names[k.base], lv.level, pictures);
+			const { slot, taken } = await kept.picture(k.names[k.base], lv.level, pictures);
 			// photographed for a build this device's cache handed over: one it should have kept the picture of too
-			if (kept.counted.taken > before && lv.from === 'cache') retaken++;
+			if (taken && lv.from === 'cache') retaken++;
 			if (gone) return;
 			if (!k.slot) k.slot = slot;
 		}
@@ -945,6 +944,9 @@ export function createAssets(o) {
 			/** the builds built in the boxes now (not read from this device's cache), and the pictures taken of builds that were */
 			boxed: list.reduce((a, k) => a + k.levels.filter((l) => l.state === 'ready' && l.from === 'box').length, 0),
 			retaken,
+			/** what was made and could not be kept on this device, and why (the last) */
+			unkept: kept.counted.unkept,
+			unkeptWhy: kept.counted.why,
 			same: list.reduce((a, k) => a + k.levels.filter((l) => l.state === 'ready' && l.as >= 0).length, 0)
 		};
 	}
