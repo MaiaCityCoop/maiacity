@@ -18,7 +18,7 @@ import { hashText } from "../src/hash";
 import { readSource } from "../import/sources";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
-import { decide as decideWith, docEdit, docHistory, proposeDocVersion, reviewOf } from "../src/versioned";
+import { decide as decideWith, docEdit, docHistory, proposeDocVersion, reviewHeld, reviewOf } from "../src/versioned";
 import { RECIPE_HEAD, recipeTail } from "../src/recipes";
 import { Rate } from "../src/limits";
 import { makeToken } from "../src/tokens";
@@ -215,7 +215,7 @@ suite("assets as documents", () => {
     expect(p.edits).toBeGreaterThanOrEqual(3);
     const review: any = await reviewOf(db, p.intent, {});
     expect(review.edits.map((s: any) => s.message).slice(0, 2)).toEqual(["a longer frond", "and a curl"]);
-    expect(review.changes.map((c: any) => c.path)).toContain("$.source");
+    expect((await reviewHeld(db, p.intent, ids.fern))!.changes.map((c: any) => c.path)).toContain("$.source");
     const d = await decide(db, store, ada, p.intent, "accept");
     expect(d).toMatchObject({ status: "accepted", number: 5, intent: p.intent, stage: "accepted" });
     const vs = await docs.versionsOf(db, assetDocId(ids.fern));

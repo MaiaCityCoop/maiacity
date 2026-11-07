@@ -8,34 +8,38 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { Detail } from './detail';
+	import type { Verdict } from './decide';
 
 	let {
 		detail,
-		merging = false,
+		busy = null,
 		ondecide,
 		extra
 	}: {
 		detail: Pick<Detail, 'decision' | 'reject'>;
-		/** an Accept that merges (Accept and ship): GitHub takes a few seconds */
-		merging?: boolean;
+		/** the decision on its way (intent 2df30a21: a press always shows it's working): its button says so, and neither
+		 *  button can be pressed again until it answers */
+		busy?: Verdict | null;
 		ondecide: (verdict: 'approve' | 'accept' | 'reject' | 'reopen') => void;
 		/** quiet secondary actions, before the decision */
 		extra?: Snippet;
 	} = $props();
 	const dec = $derived(detail.decision);
+	const WORKING: Record<Verdict, string> = { approve: 'Approving…', accept: 'Accepting…', reject: 'Rejecting…', reopen: 'Reopening…' };
 </script>
 
 {#if dec || detail.reject || extra}
 	<!-- No Close: Back, Escape or the scrim close what it is the foot of -->
-	<footer class="decide">
+	<footer class="decide" aria-busy={busy ? 'true' : undefined}>
 		<div class="buttons">
 			{#if extra}<span class="extra">{@render extra()}</span>{/if}
-			{#if detail.reject}<button class="btn reject" onclick={() => ondecide('reject')} title="Not to be done: it ends archived">Reject</button>{/if}
+			{#if detail.reject}<button class="btn reject" onclick={() => ondecide('reject')} disabled={!!busy} title="Not to be done: it ends archived">{busy === 'reject' ? WORKING.reject : 'Reject'}</button>{/if}
 			{#if dec}
-				<button class="btn primary" class:ghost={dec.verdict === 'reopen'} onclick={() => ondecide(dec.verdict)} disabled={!dec.enabled || merging} title={dec.why}>{merging ? 'Accepting…' : dec.label}</button>
+				<button class="btn primary" class:ghost={dec.verdict === 'reopen'} onclick={() => ondecide(dec.verdict)} disabled={!dec.enabled || !!busy} title={dec.why}>{busy && busy !== 'reject' ? WORKING[busy] : dec.label}</button>
 			{/if}
 		</div>
-		{#if dec && !dec.enabled && dec.why}<p class="why-not">{dec.why}</p>{/if}
+		{#if busy}<p class="working" role="status">{busy === 'accept' ? 'Accepting it: an intent of many documents takes a while.' : 'Working on it…'}</p>
+		{:else if dec && !dec.enabled && dec.why}<p class="why-not">{dec.why}</p>{/if}
 	</footer>
 {/if}
 
@@ -48,6 +52,7 @@
 	.btn.primary { flex: 0 1 15rem; }
 	.btn.reject { flex: 0 0 auto; background: color-mix(in srgb, var(--terracotta, #c8744f) 14%, transparent); color: #9c3b22; border-color: color-mix(in srgb, var(--terracotta, #c8744f) 55%, transparent); }
 	.btn.reject:hover { background: color-mix(in srgb, var(--terracotta, #c8744f) 26%, transparent); filter: none; }
+	.working { margin: 0.35rem 0 0; text-align: right; font-size: 0.78rem; color: var(--ink-soft, #4d5d51); }
 	.why-not { margin: 0.35rem 0 0; text-align: right; font-size: 0.78rem; color: var(--ink-soft, #4d5d51); overflow-wrap: anywhere; }
 	@media (max-width: 520px) {
 		.btn.reject { flex: 1 1 0; }

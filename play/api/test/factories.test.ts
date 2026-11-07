@@ -134,7 +134,7 @@ suite("the Factories on Loro", () => {
     expect(review.moved).toBe(false);
     expect(review.edits.map((s: any) => s.message)).toEqual(["a second welding cell", "the floor cut faster"]);
     const weld = lifetracLine().line.stations.findIndex((s: any) => s.id === "weld");
-    expect(review.changes).toEqual([
+    expect((await call("ada", "GET", `/api/intents/${proposed.intent}/docs/${review.doc.id}`)).data.changes).toEqual([
       { path: "$.line.stations[id=weld].servers", kind: "added", to: 2 },
       { path: "$.parts[id=floor].ops[0].s", kind: "changed", from: 111.2, to: 10 },
     ]);

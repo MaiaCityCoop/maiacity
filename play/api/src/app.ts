@@ -15,11 +15,11 @@ import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, re
 import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameMember, renameSelf, setLevel } from "./members";
 import { listTables, readTable, TableError } from "./tables";
 import { layoutAt, proposedState, SandboxError } from "./sandboxes";
-import { decideAny, docAt, docChanges, docHistory, listDocs, reviewOf, VersionError } from "./versioned";
+import { decideAny, docAt, docChanges, docHistory, listDocs, reviewHeld, reviewOf, VersionError } from "./versioned";
 import { runningCommit, shipWork, type GitHub } from "./ship";
 import { NO_INTENT, WorkError } from "./work";
 import { withdrawDoc } from "./withdraw";
-import { INTENT_ADMINS, intentCounts, intentOf, IntentError, intentReady, listIntents, pageIntents, type IntentVerdict } from "./intents";
+import { INTENT_ADMINS, intentCounts, intentDocOf, intentOf, IntentError, intentReady, listIntents, pageIntents, type IntentVerdict } from "./intents";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 import { listStories, storyAt, storyOf, StoryError } from "./stories";
 import { labelFile, listLibrary } from "./library";
@@ -194,6 +194,12 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("GET", "/api/intents/:id", async (req, p) => {
     const m = await me(req);
     return json(await maskEdges(db, m, await intentOf(db, m, p.id, reviewOf)));
+  });
+  // one document of its work, read when it is opened (intent 2df30a21: the detail lists them in brief); ?variant= names
+  // one of a piece's versions
+  on("GET", "/api/intents/:id/docs/:doc", async (req, p) => {
+    const v = new URL(req.url).searchParams.get("variant");
+    return json(await intentDocOf(db, await me(req), p.id, p.doc, v == null || v === "" ? null : Number(v), reviewHeld));
   });
   // to propose is to put an intent at Proposal: the one named, held to its gate (no work without an intent)
   on("POST", "/api/intents", async (req) => {

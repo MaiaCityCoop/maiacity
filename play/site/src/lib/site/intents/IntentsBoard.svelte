@@ -45,6 +45,8 @@
 	import type { Story } from '$lib/stories/timeline';
 	import IntentDetail from './IntentDetail.svelte';
 	import Decision from './Decision.svelte';
+	import { createDecider, type Verdict } from './decide';
+	import { createOpened, summaryText, type Listed } from './opened';
 	import { decidable, detailOf, isCode, notLive, shipsAgain, type Intent, type Kind, type Results, type Spec, type Stage, type Work } from './detail';
 	import { CLOSED, isClosed, loadOpen, loadPage, type ClosedStage, type Paged } from './board';
 
@@ -213,8 +215,6 @@
 	let storyReview = $state<StoryReview | null>(null);
 	// any other document's (a factory's, a config's, a skill's, a layout's): field by field, opened as it would be
 	let docReview = $state<DocReview | null>(null);
-	// an intent may change several documents: every one's review, accepted together
-	let alsoDocs = $state<DocReview[]>([]);
 	/** what a proposal is of, its card's tag (Samuel 2026-11-05: the type, not how it came) */
 	const GROUP_TYPE: Record<string, string> = { plants: 'Plant', things: 'Thing', machines: 'Machine', buildings: 'Building', actors: 'Actor', characters: 'Character', biomes: 'Biome', worlds: 'World', sandboxes: 'Sandbox' };
 	const typeOf = (p: { what?: string | null; grp: string | null }) => GROUP_TYPE[p.grp ?? ''] ?? (p.what ? p.what[0].toUpperCase() + p.what.slice(1) : (p.grp ?? ''));
@@ -226,19 +226,21 @@
 	const autoTitle = (i: Intent) =>
 		[i.auto?.approve ? `Spec approved by rule ${i.auto.approve.label}` : '', i.auto?.accept ? `Accepted by rule ${i.auto.accept.label}` : ''].filter(Boolean).join(' · ');
 	const titleOf = (p: Work) => (p.number == null ? 'a change' : `v${p.number}`);
-	async function openCard(p: P) {
+	// every document its work changes, as the detail lists them (in brief), and the one opened: each document's change is
+	// read only when it is opened, once (intent 2df30a21: ./opened.ts)
+	const opened = createOpened((path) => api<any>(path));
+	let work = $state<any>(null);
+	let listed = $state<Listed[]>([]);
+	let focused = $state<Listed | null>(null);
+	/** a piece's later version in this intent (intent 02e3a85f): its change is read against the one before it */
+	const laterVersion = (d: Listed) => listed.findIndex((x) => x.doc?.id === d.doc?.id) < listed.indexOf(d);
+	async function openCard(p: P, focus?: Listed) {
 		intent = null;
 		open = p;
-		review = null;
-		storyReview = null;
-		docReview = null;
-		alsoDocs = [];
-		code = '';
-		baseCode = null;
-		shown = '';
-		showSource = false;
+		work = null;
+		listed = [];
 		noteOpen = false;
-		reviewError = '';
+		reset();
 		// one review for every kind: an asset's build, a story's timelines, or any document's fields
 		let got: any;
 		try {
@@ -248,12 +250,41 @@
 			return;
 		}
 		if (open?.id !== p.id) return;
-		alsoDocs = (got.docs ?? []).slice(1);
+		work = got;
+		listed = got?.docs ?? [];
+		await showDoc(p, (focus && listed.find((d) => d.doc?.id === focus.doc?.id && d.variant === focus.variant)) ?? listed[0] ?? null);
+	}
+	function reset() {
+		review = null;
+		storyReview = null;
+		docReview = null;
+		code = '';
+		baseCode = null;
+		shown = '';
+		showSource = false;
+		reviewError = '';
+	}
+	/** one document of the work opened: read alone, then shown as its kind is (an asset built, a story played, fields) */
+	async function showDoc(p: P, d: Listed | null) {
+		focused = d;
+		reset();
+		let got: any = work ?? {};
+		if (d?.doc) {
+			try {
+				// the intent's pieces, as the work lists them, beside a host's own
+				got = { ...(await opened.read(p.id, d)), ...(work?.pieces ? { pieces: work.pieces } : {}) };
+			} catch (e) {
+				if (open?.id === p.id && focused === d) reviewError = (e as Error).message;
+				return;
+			}
+		}
+		if (open?.id !== p.id || focused !== d) return;
 		if (got.story) return void (storyReview = got);
 		if (!got.builds) return void (docReview = got);
 		try {
 			const r = got as Review;
 			await admitProposed(r.builds);
+			if (focused !== d) return;
 			review = r;
 			shown = (r.builds.find((b) => b.first) ?? r.builds[0])?.hash ?? '';
 			code = r.source ? await text(r.source) : r.recipe ? await text(r.recipe) : '';
@@ -285,41 +316,49 @@
 		intent = null;
 		intentError = '';
 	};
-	/** an Accept that merges (Accept and ship): GitHub takes a few seconds */
-	let merging = $state(false);
+	/** the decision on its way (intent 2df30a21): one at a time, its button saying so for every intent, its answer or the
+	 *  reason it failed said where the button is; where play gives no answer, the intent read again until it is decided */
+	let busy = $state<{ id: string; verdict: Verdict } | null>(null);
+	const decider = createDecider<Intent>({
+		post: (id, verdict) => api<Intent & { message?: string }>(`/intents/${id}/${verdict}`, { method: 'POST' }),
+		read: (id) => api<Intent>(`/intents/${id}`),
+		onchange: (b) => (busy = b)
+	});
+	const busyOn = (id: string | undefined) => (busy && busy.id === id ? busy.verdict : null);
 	/** a decision taken on the work's review: the intent's own, and the review closes once it is taken */
-	async function decideWork(id: string, verdict: 'approve' | 'accept' | 'reject' | 'reopen') {
-		const of = intents.find((x) => x.id === id);
-		merging = verdict === 'accept' && !!of && isCode(of);
+	async function decideWork(id: string, verdict: Verdict) {
+		const was = intents.find((x) => x.id === id) ?? (await api<Intent>(`/intents/${id}`).catch(() => null));
+		if (!was) return;
 		intentError = '';
 		try {
-			const r = await api<Intent & { message?: string }>(`/intents/${id}/${verdict}`, { method: 'POST' });
-			error = r.message ?? '';
-			intents = intents.map((x) => (x.id === r.id ? r : x));
-			open = null;
+			const r = await decider.decide(was, verdict);
+			if (!r) return;
+			error = r.message;
+			intents = intents.map((x) => (x.id === r.intent.id ? r.intent : x));
+			if (open?.intent_id === id) open = null;
 			load();
 		} catch (e) {
 			intentError = (e as Error).message;
-		} finally {
-			merging = false;
 		}
 	}
-	async function decideIntent(id: string, verdict: 'approve' | 'accept' | 'reject' | 'reopen') {
-		merging = verdict === 'accept' && !!intent && isCode(intent);
+	async function decideIntent(id: string, verdict: Verdict) {
+		const was = intent?.id === id ? intent : (intents.find((x) => x.id === id) ?? (await api<Intent>(`/intents/${id}`).catch(() => null)));
+		if (!was) return;
 		intentError = '';
 		try {
 			// accepted, its work is applied (or archived, where its base moved and the two touch the same field: why, here)
-			const r = await api<Intent & { message?: string }>(`/intents/${id}/${verdict}`, { method: 'POST' });
-			error = r.message ?? '';
-			intents = intents.map((x) => (x.id === r.id ? r : x));
+			const r = await decider.decide(was, verdict);
+			if (!r) return;
+			error = r.message;
+			intents = intents.map((x) => (x.id === r.intent.id ? r.intent : x));
 			load();
+			if (intent?.id !== id) return;
 			// shipped: the dialog stays, its way to production ticking
-			if (r.stage === 'ship') intent = r;
+			if (r.intent.stage === 'ship') intent = r.intent;
 			else closeIntent();
 		} catch (e) {
-			intentError = (e as Error).message;
-		} finally {
-			merging = false;
+			if (intent?.id === id) intentError = (e as Error).message;
+			else error = (e as Error).message;
 		}
 	}
 
@@ -416,7 +455,7 @@
 
 	{#if intent}
 		<!-- an intent opened: on top what its stage asks of a person, the rest in tabs (./IntentDetail.svelte, ./detail.ts) -->
-		<IntentDetail intent={intent} cameWith={intent.came_with ? (intents.find((x) => x.id === intent!.came_with)?.title ?? null) : null} {schemaNames} {now} error={intentError} {merging} onclose={closeIntent} ondecide={(v) => decideIntent(intent!.id, v)} onopenwork={() => openCard(cardOf(intent!))} onopenintent={openIntentOf} />
+		<IntentDetail intent={intent} cameWith={intent.came_with ? (intents.find((x) => x.id === intent!.came_with)?.title ?? null) : null} {schemaNames} {now} error={intentError} busy={busyOn(intent.id)} onclose={closeIntent} ondecide={(v) => decideIntent(intent!.id, v)} onopenwork={(d) => openCard(cardOf(intent!), d)} onopenintent={openIntentOf} />
 	{/if}
 
 	{#if open}
@@ -444,14 +483,26 @@
 			{/if}
 			<!-- the work itself, the left pane on a wide screen -->
 			<div class="work-pane">
+			{#if listed.length > 1}
+				<!-- every document it changes, in brief; each opened here on its own, read when it is (intent 2df30a21) -->
+				<p class="muted small also-head">This intent changes {listed.length} documents: accepted together, or archived together. Open one to read its change.</p>
+				<ul class="also-docs">
+					{#each listed as d, n (`${d.doc?.id}:${d.variant ?? n}`)}
+						<li>
+							<button class="also" class:on={focused === d} aria-current={focused === d ? 'true' : undefined} onclick={() => showDoc(p, d)} title={summaryText(d)}>
+								<span class="what">{(d.doc?.what ?? d.doc?.kind ?? 'document').replace(/^./, (c) => c.toUpperCase())}: {d.doc?.label ?? d.doc?.id}</span>
+								<span class="muted small">{laterVersion(d) ? 'its next version here' : d.seedNumber == null ? 'new' : `v${d.seedNumber + 1}`} · {summaryText(d)}</span>
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
 			{#if !review && !storyReview && !docReview}
 				<div class="sandbox-review">
 					{#if reviewError}<p class="error">{reviewError}</p>{:else}<p class="muted">Reading it…</p>{/if}
 				</div>
 			{:else if docReview}
-				{#each [docReview, ...alsoDocs] as r, i (i)}
-					{@render docChanges(r, alsoDocs.length > 0, p.status === 'accepted')}
-				{/each}
+				{@render docChanges(docReview, listed.length > 1, p.status === 'accepted')}
 			{:else if storyReview}
 				<div class="story-review">
 					{#if reviewError}<p class="error">{reviewError}</p>
@@ -512,15 +563,11 @@
 				{/if}
 			</div>
 			{/if}
-			{#if !docReview && alsoDocs.length}
-				<p class="muted small">This intent changes {alsoDocs.length + 1} documents: accepted together, or archived together.</p>
-				{#each alsoDocs as r, i (i)}{@render docChanges(r, true, p.status === 'accepted')}{/each}
-			{/if}
 			</div>
 			<!-- the decision travels with the work (Samuel 2026-11-07): the same bar as the intent's detail, by detailOf, its
 			     source a quiet button beside it -->
 			{#if intentError}<p class="refused" role="alert">{intentError}</p>{/if}
-			<Decision detail={of ? detailOf(of) : { decision: null, reject: false }} {merging} ondecide={(v) => decideWork(p.intent_id, v)}>
+			<Decision detail={of ? detailOf(of) : { decision: null, reject: false }} busy={busyOn(p.intent_id)} ondecide={(v) => decideWork(p.intent_id, v)}>
 				{#snippet extra()}
 					{#if review}<button class="btn small ghost" class:on={showSource} onclick={() => (showSource = !showSource)}>{showSource ? 'Hide source' : review.source ? 'Source' : 'Recipe file'}</button>{/if}
 				{/snippet}
@@ -640,6 +687,13 @@
 	.story-diff { min-width: 0; }
 	.story-diff h3 { margin: 0 0 0.5rem; font-size: 1rem; }
 	@media (max-width: 1000px) { .story-review { grid-template-columns: minmax(0, 1fr); } }
+	/* every document the work changes, each opened on its own */
+	.also-head { flex: 0 0 auto; margin: 0; }
+	.also-docs { flex: 0 0 auto; list-style: none; margin: 0 0 0.3rem; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; max-height: 9.5rem; overflow-y: auto; }
+	.also { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0.1rem 0.6rem; padding: 0.3rem 0.6rem; border-radius: 8px; border: 1px solid rgb(0 0 0 / 0.08); }
+	.also:hover { background: rgb(0 0 0 / 0.03); }
+	.also.on { border-color: var(--forest, #2f5d46); background: color-mix(in srgb, var(--forest, #2f5d46) 8%, transparent); }
+	.also .what { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
 	/* a document's review: what it changes, field by field (./Changes.svelte) */
 	.sandbox-review { flex: 1 1 auto; min-height: 0; overflow: auto; }
 	.refused { flex: 0 0 auto; margin: 0; padding: 0.45rem 0.7rem; border-radius: 10px; font-size: 0.85rem; line-height: 1.4; max-height: 5.6em; overflow-y: auto; overflow-wrap: anywhere; color: #9c3b22; background: color-mix(in srgb, var(--terracotta, #c8744f) 12%, var(--card, #fff)); border: 1px solid color-mix(in srgb, var(--terracotta, #c8744f) 45%, transparent); }
