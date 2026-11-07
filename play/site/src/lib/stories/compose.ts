@@ -262,7 +262,8 @@ function lay(body: StoryBody, id: string, ctx: Ctx, out: Out, sound: { db: numbe
 	}
 }
 
-const STYLE = (w: number, h: number) => `
+/** the captions' unit: the frame's shorter side, so a caption is the same size in every format (intent fad7a8e6) */
+const STYLE = (w: number, h: number, u = Math.min(w, h)) => `
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { width: ${w}px; height: ${h}px; overflow: hidden; background: #000; }
 #story, .link { position: absolute; inset: 0; width: ${w}px; height: ${h}px; overflow: hidden; }
@@ -271,10 +272,10 @@ html, body { width: ${w}px; height: ${h}px; overflow: hidden; background: #000; 
 .veil { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; }
 .live, .live canvas, .live .poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .live canvas { visibility: hidden; }
-.cue { position: absolute; left: 3%; right: 3%; bottom: 9%; display: grid; gap: ${n(w * 0.008)}px; justify-items: center; text-align: center; font-family: ${FONT}, sans-serif; }
-.cue .who { font-size: ${n(w * 0.028)}px; font-weight: 700; letter-spacing: 0.08em; color: #ffe6a8; text-shadow: 0 1px 3px rgb(0 0 0 / 0.85); }
-.cue .line { font-size: ${n(w * 0.056)}px; font-weight: 700; line-height: 1.2; color: #fff; text-wrap: balance; background: rgb(10 10 8 / 0.5); padding: 0.18em 0.45em; border-radius: 0.3em; text-shadow: 0 1px 4px rgb(0 0 0 / 0.7); }
-.cue .line.em { font-size: ${n(w * 0.14)}px; font-weight: 800; letter-spacing: 0.02em; line-height: 1; color: #ffd76a; background: none; padding: 0; text-shadow: 0 2px 10px rgb(0 0 0 / 0.75), 0 0 2px rgb(0 0 0 / 0.9); }`;
+.cue { position: absolute; left: 3%; right: 3%; bottom: 6%; display: grid; gap: ${n(u * 0.006)}px; justify-items: center; text-align: center; font-family: ${FONT}, sans-serif; }
+.cue .who { font-size: ${n(u * 0.018)}px; font-weight: 700; letter-spacing: 0.08em; color: #ffe6a8; text-shadow: 0 1px 3px rgb(0 0 0 / 0.85); }
+.cue .line { font-size: ${n(u * 0.036)}px; font-weight: 700; line-height: 1.2; color: #fff; text-wrap: balance; background: rgb(10 10 8 / 0.5); padding: 0.18em 0.45em; border-radius: 0.3em; text-shadow: 0 1px 4px rgb(0 0 0 / 0.7); }
+.cue .line.em { font-size: ${n(u * 0.09)}px; font-weight: 800; letter-spacing: 0.02em; line-height: 1; color: #ffd76a; background: none; padding: 0; text-shadow: 0 2px 10px rgb(0 0 0 / 0.75), 0 0 2px rgb(0 0 0 / 0.9); }`;
 
 /** each shot's transitions on a timeline: its dissolve in, and the black it comes up from or goes down to (smoothstep) */
 const SHOTS = `const smooth = (x) => x * x * (3 - 2 * x);
