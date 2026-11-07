@@ -1,5 +1,5 @@
 // Drives page.js in Chromium on the Mac's GPU: every clip of both people beside its recording, front and side.
-//   node intent-work/b9e6ad45-render/render.mjs <out folder>      (from the repository's root; run.sh calls it)
+//   bun intent-work/b9e6ad45-render/render.mjs <out folder>      (from the repository's root; run.sh calls it)
 // Out: <out>/frames/<who>/<clip>/NNNN.jpg (30 a second), and <out>/sheets/<who>-<clip>.jpg (four moments of each).
 // It stops unless the GPU is the Mac's (Metal), never SwiftShader: SETUP_ONLY=1 builds both people and draws nothing.
 import { createServer } from 'node:http';
@@ -10,7 +10,7 @@ const ROOT = resolve(new URL('../..', import.meta.url).pathname);
 const OUT = resolve(process.argv[2] ?? 'out');
 const req = createRequire(import.meta.url);
 let playwright;
-for (const p of ['playwright', join(ROOT, 'play/site/node_modules/playwright'), join(ROOT, 'play/site/node_modules/@playwright/test')]) {
+for (const p of [join(ROOT, 'play/site/node_modules/playwright'), join(ROOT, 'play/site/node_modules/@playwright/test'), 'playwright']) {
 	try { playwright = req(p); break; } catch {}
 }
 if (!playwright) throw new Error('Playwright is needed (npm i -g playwright && npx playwright install chromium)');
@@ -18,11 +18,13 @@ const TYPES = { '.js': 'text/javascript', '.mjs': 'text/javascript', '.html': 't
 const server = createServer(async (q, r) => {
 	const path = join(ROOT, decodeURIComponent(new URL(q.url, 'http://x').pathname));
 	if (!path.startsWith(ROOT)) return void r.writeHead(403).end();
-	try { r.writeHead(200, { 'Content-Type': TYPES[extname(path)] ?? 'application/octet-stream' }).end(await readFile(path)); } catch { r.writeHead(404).end(); }
+	let body;
+	try { body = await readFile(path); } catch { return void r.writeHead(404).end(); }
+	r.writeHead(200, { 'Content-Type': TYPES[extname(path)] ?? 'application/octet-stream' }).end(body);
 }).listen(0, '127.0.0.1');
 await new Promise((ok) => server.once('listening', ok));
 const url = `http://127.0.0.1:${server.address().port}/intent-work/b9e6ad45-render/page.html`;
-const browser = await playwright.chromium.launch({ headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
+const browser = await playwright.chromium.launch({ channel: 'chromium', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
 page.on('pageerror', (e) => console.error('page:', e.message));
 await page.goto(url);

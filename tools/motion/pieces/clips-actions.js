@@ -1270,97 +1270,97 @@ module.exports = {
 	},
 	"hands": {
 		kind: "pose",
-		from: "Quaternius' Universal Animation Library (Standard), Idle_Loop, 0.00–0.00 s",
+		from: "Quaternius' Universal Animation Library (Standard), Sitting_Idle_Loop, 0.00–0.00 s",
 		licence: "CC0 1.0",
 		fps: 30,
 		frames: 1,
 		hips: [
-			0,-37,0,
+			0,-404,0,
 		],
 		turns: {
 			hips: [
-				802,0,0,
+				1266,0,0,
 			],
 			spine: [
 				-572,0,0,
 			],
 			chest: [
-				154,0,2,
+				160,0,2,
 			],
 			upperChest: [
-				868,0,2,
+				874,0,2,
 			],
 			neck: [
-				-587,0,-3,
+				-593,0,-2,
 			],
 			head: [
-				481,-1,-26,
+				-212,-5,-27,
 			],
 			leftShoulder: [
 				-344,2320,-278,
 			],
 			leftUpperArm: [
-				44,-1773,1711,
+				-220,-2568,708,
 			],
 			leftLowerArm: [
-				-2209,-401,-344,
+				-5472,-65,-734,
 			],
 			leftHand: [
-				-1245,189,-537,
+				-2059,-4040,255,
 			],
 			leftThumbMetacarpal: [
-				2675,841,-2681,
+				1719,1213,-2709,
 			],
 			leftThumbProximal: [
-				1304,-18,1283,
+				-567,-139,100,
 			],
 			leftThumbDistal: [
-				4907,3345,3679,
+				666,3105,-399,
 			],
 			leftIndexProximal: [
-				752,-1043,-6083,
+				243,1988,-488,
 			],
 			leftIndexIntermediate: [
-				102,215,-6234,
+				89,-2614,-752,
 			],
 			leftIndexDistal: [
-				-1686,-2469,-6103,
+				-347,-3289,-874,
 			],
 			leftMiddleProximal: [
-				742,-740,-6087,
+				41,1788,243,
 			],
 			leftMiddleIntermediate: [
-				222,279,-6229,
+				263,-2425,-775,
 			],
 			leftMiddleDistal: [
-				-1450,-2384,-6062,
+				11,-3057,-3,
 			],
 			leftRingProximal: [
-				602,-708,-6101,
+				-215,1838,218,
 			],
 			leftRingIntermediate: [
-				333,375,-6225,
+				115,-2468,-29,
 			],
 			leftRingDistal: [
-				-1476,-2434,-6056,
+				10,-3121,-3,
 			],
 			leftLittleProximal: [
-				44,-270,-6516,
+				-129,2124,98,
 			],
 			leftLittleIntermediate: [
-				611,659,-6205,
+				300,-2545,-74,
 			],
 			leftLittleDistal: [
-				-1330,-2560,-6090,
+				-142,-3253,-271,
 			],
 			leftUpperLeg: [
-				-2334,294,1004,
+				-7536,111,1170,
 			],
 			leftLowerLeg: [
-				1518,-402,-384,
+				6332,-273,-1538,
 			],
 			leftFoot: [
-				616,671,-619,
+				910,465,92,
 			],
 			leftToes: [
 				-707,49,4,
@@ -1369,67 +1369,67 @@ module.exports = {
 				-328,-3307,240,
 			],
 			rightUpperArm: [
-				484,2989,-1845,
+				-881,4850,-1418,
 			],
 			rightLowerArm: [
-				-3139,52,536,
+				-4963,17,776,
 			],
 			rightHand: [
-				-1297,-385,803,
+				-3143,4282,-1387,
 			],
 			rightThumbMetacarpal: [
-				2897,-1077,2745,
+				1086,-1559,3193,
 			],
 			rightThumbProximal: [
-				1184,40,-1487,
+				682,-496,-253,
 			],
 			rightThumbDistal: [
-				4764,-3040,-3920,
+				1149,-1753,317,
 			],
 			rightIndexProximal: [
-				903,1223,6050,
+				1370,-2127,1691,
 			],
 			rightIndexIntermediate: [
-				151,-276,6233,
+				637,2677,1429,
 			],
 			rightIndexDistal: [
-				-1910,2861,6050,
+				-379,3848,1434,
 			],
 			rightMiddleProximal: [
-				893,921,6055,
+				729,-2020,438,
 			],
 			rightMiddleIntermediate: [
-				268,-336,6228,
+				583,2640,1169,
 			],
 			rightMiddleDistal: [
-				-1679,2772,6003,
+				-183,3625,1305,
 			],
 			rightRingProximal: [
-				754,888,6072,
+				353,1995,-320,
 			],
 			rightRingIntermediate: [
-				379,-433,6222,
+				396,-1232,2368,
 			],
 			rightRingDistal: [
-				-1704,2822,5996,
+				-269,3507,1135,
 			],
 			rightLittleProximal: [
-				204,444,6500,
+				778,-2331,-397,
 			],
 			rightLittleIntermediate: [
-				615,-663,6205,
+				842,2490,804,
 			],
 			rightLittleDistal: [
-				-1611,2907,6022,
+				-11,3611,909,
 			],
 			rightUpperLeg: [
-				-327,-2778,-983,
+				-7400,903,-1620,
 			],
 			rightLowerLeg: [
-				817,2816,543,
+				5684,2104,3086,
 			],
 			rightFoot: [
-				-654,-2426,453,
+				603,-3571,737,
 			],
 			rightToes: [
 				-701,-188,-14,

@@ -59,7 +59,7 @@ export function settle(c, { cycle = false } = {}) {
 	for (let i = 0; i < n; i++) {
 		F[i].q.hips = turn.clone().multiply(F[i].q.hips);
 		for (const bn in F[i].dir) F[i].dir[bn].applyQuaternion(turn);
-		const shift = o.clone().add(step.clone().multiplyScalar(i));
+		const shift = o.clone().add(step.clone().multiplyScalar(i)).setY(0);
 		for (const j in F[i].pts) F[i].pts[j].sub(shift).applyQuaternion(turn);
 		const p = F[i].hips.clone().sub(o).sub(step.clone().multiplyScalar(i)).applyQuaternion(turn);
 		F[i].hips = new Vector3(p.x, F[i].hips.y, p.z);
@@ -120,6 +120,27 @@ export function eased(c, k) {
 	return c;
 }
 
+/** a clip's legs eased k of the way to standing straight (an old person's capture that stands with its knees well bent):
+ *  each thigh and shin turned k of the way to hanging straight down in the world, each foot k of the way flat on the
+ *  ground; its legs' bones are not held to its source's directions there */
+export function straightened(c, k) {
+	for (const f of c.frames) {
+		const { Q } = targetFK(f.q);
+		for (const s of ['left', 'right']) {
+			const up = new Quaternion().slerp(Q[`${s}UpperLeg`], 1 - k), low = new Quaternion().slerp(Q[`${s}LowerLeg`], 1 - k);
+			f.q[`${s}UpperLeg`] = Q.hips.clone().invert().multiply(up);
+			f.q[`${s}LowerLeg`] = up.clone().invert().multiply(low);
+			// the foot flat on the ground, k of the way: its heading kept, its tilt taken out
+			const ahead = new Vector3(0, 0, 1).applyQuaternion(Q[`${s}Foot`]).setY(0).normalize();
+			const flat = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.atan2(ahead.x, ahead.z));
+			f.q[`${s}Foot`] = low.clone().invert().multiply(Q[`${s}Foot`].clone().slerp(flat, k));
+			f.q[`${s}Toes`] = new Quaternion().slerp(f.q[`${s}Toes`] ?? new Quaternion(), 1 - k);
+		}
+	}
+	c.eased = [...(c.eased ?? []), ...['left', 'right'].flatMap((s) => [`${s}UpperLeg`, `${s}LowerLeg`, `${s}Foot`, `${s}Toes`])];
+	return c;
+}
+
 /** the floor under it: where its ankles are lowest, as the target's ankle stands at rest */
 function floorOf(c) {
 	let lo = Infinity;
@@ -175,7 +196,7 @@ export const CLIPS = {
 	elder: [
 		['walk', 'accad', 'Female1_B14_WalkTurnRight135', 214 / 30, 250 / 30, { kind: 'cycle' }],
 		['run', 'style', 'Old_FR', 869 / 60, 915 / 60, { kind: 'cycle', ease: 0.5 }],
-		['idle', 'style', 'Old_ID', 22.5, 28.5, { kind: 'loop', fps: 15, ease: 1 }],
+		['idle', 'style', 'Old_ID', 22.5, 28.5, { kind: 'loop', fps: 15, ease: 1, legs: 0.9 }],
 		['start', 'accad', 'Male2_B1_StandToWalk', 0.4, 2.4, { kind: 'once' }],
 		['stop', 'accad', 'Female1_B02_WalkToStandT2', 0.8, 3.4, { kind: 'once' }]
 	],
@@ -183,7 +204,7 @@ export const CLIPS = {
 		['sit down', 'ual', 'Sitting_Enter', 0, 1.3, { kind: 'once' }],
 		['sitting', 'ual', 'Sitting_Idle_Loop', 0, 1.6667, { kind: 'loop' }],
 		['stand up', 'ual', 'Sitting_Exit', 0, 1.0333, { kind: 'once' }],
-		['hands', 'ual', 'Idle_Loop', 0, 0, { kind: 'pose' }],
+		['hands', 'ual', 'Sitting_Idle_Loop', 0, 0, { kind: 'pose' }],
 		['wave', 'accad', 'Female1_D1_Urban', 0.7, 2.7, { kind: 'once' }],
 		['pick up', 'accad', 'Male2_A5_PickUpBox', 1.2, 4.8, { kind: 'once' }]
 	]
@@ -198,6 +219,7 @@ export function make(kind, file, t0, t1, o) {
 	settle(c, { cycle: o.kind === 'cycle' });
 	if ((o.kind === 'cycle' || o.kind === 'loop') && !process.env.NOCLOSE) close(c);
 	if (o.ease) eased(c, o.ease);
+	if (o.legs) straightened(c, o.legs);
 	return c;
 }
 if (process.argv[1] === new URL(import.meta.url).pathname)
@@ -206,7 +228,7 @@ if (process.argv[1] === new URL(import.meta.url).pathname)
 		const parts = [], sources = {};
 		for (const [name, kind, file, t0, t1, o] of list) {
 			const c = make(kind, file, t0, t1, o);
-			const from = `${BY[kind]}, ${kind === 'ual' ? file : `${file}.bvh`}, ${t0.toFixed(2)}–${t1.toFixed(2)} s${o.ease ? `, its back eased ${Math.round(o.ease * 100)}% of the way upright` : ''}`;
+			const from = `${BY[kind]}, ${kind === 'ual' ? file : `${file}.bvh`}, ${t0.toFixed(2)}–${t1.toFixed(2)} s${o.ease ? `, its back eased ${Math.round(o.ease * 100)}% of the way upright` : ''}${o.legs ? `, its legs ${Math.round(o.legs * 100)}% of the way straight` : ''}`;
 			const meta = { kind: o.kind, from, licence: LIC[kind], ...(o.kind === 'cycle' ? { stride: +c.stride.toFixed(3) } : {}) };
 			parts.push(write(name, c, meta));
 			const joints = Object.keys(c.frames[0].pts);

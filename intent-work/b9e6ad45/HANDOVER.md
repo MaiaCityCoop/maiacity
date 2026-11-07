@@ -36,3 +36,20 @@ The new retargeter lines up from the performer standing, each hinge by the axis 
   about 8° off its recorded direction and fail c3.
 - **c7 (≤ 1 cm past the line):** the Stand-in's run lands a foot 1.6–1.8 cm past the line under his hips. Every window
   of ACCAD's run does this (≥ 1 cm): runners land near the line. The Elder and all walks pass.
+
+## After the Mac render (run 1, c39255d61 on `intent-work/b9e6ad45-render`)
+
+- **Claw hands:** Quaternius' walks and idles hold fists (77° a finger joint). The hands at rest now take its sitting
+  idle's relaxed, slightly open hand (5–10°), and so does the wave.
+- **The Elder's half squat:** Person motion v2. A leg now reaches 99.7% of its length, not 97.5% (which bent every
+  standing knee 26°). Her idle's legs are eased 90% straight and her feet laid flat: her knees are at 11°, her pelvis over
+  her feet.
+- **Catwalk feet:** c7 was right; the page plays the recordings' own narrow step (the Female1 walker sets her feet almost
+  on one line). Person motion v2 takes `width`: the Elder steps 3 cm wider each side, the Stand-in 1.5 cm. c7 is now
+  measured as the box plays the clips and as the page plays them back.
+- **The job:** the recorded skeleton is no longer drawn half a body low (settle no longer takes the hips' height off its
+  joints). render.mjs reads a file before answering 200, takes Playwright from play/site and launches `channel:
+  'chromium'`; run.sh runs bun.
+- **On play:** the clip pieces' v2 (man 1462, elder 1477, actions 1478), Person motion v2 (1474), Stand-in v14 (1475)
+  and Elder woman v5 (1476).
+- **Next:** the Mac's run 2, then mark PR #2164 ready.

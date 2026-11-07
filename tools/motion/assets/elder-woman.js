@@ -3,19 +3,21 @@
  * a friendly gaze, her skin's fine lines; built on the shared pieces every person stands on (the VRM humanoid
  * skeleton under one skin, MakeHuman's CC0 head) and moving by motion capture with an elder's gait: a woman's walk
  * and stop from ACCAD's Open Motion Project (CC BY 3.0) at an older woman's step and pace (about 0.55 m a step,
- * 0.95 m/s: slower and shorter than the stand-in's 0.75 m and 1.4 m/s), as captured, and ACCAD's start; her idle is
- * 100STYLE's "Old" style (CC BY 4.0) with its back straightened at the spine to a slight stoop, as an upright older
- * woman stands (about 8° where the capture leans 30°), and her hurried shuffle its run eased half way upright. Her sit,
- * wave and pick up are everyone's. Each foot is put down by the actors' one IK and held there.
+ * 0.95 m/s: slower and shorter than the stand-in's 0.75 m and 1.4 m/s), each foot set 3 cm wider than the capture's
+ * (an older woman's wider step), and ACCAD's start; her idle is 100STYLE's "Old" style (CC BY 4.0) made to stand as an
+ * upright older woman does: its back straightened at the spine to a slight stoop (about 8° where the capture leans
+ * 30°), its knees nearly straight and its pelvis over its feet (the capture stands half squatting); her hurried
+ * shuffle its run eased half way upright. Her sit, wave and pick up are everyone's, her hands relaxed and slightly
+ * open. Each foot is put down by the actors' one IK and held there.
  *
  * Credits (CC BY): ACCAD, The Ohio State University, Open Motion Project (CC BY 3.0); Ian Mason, Sebastian Starke,
  * Taku Komura, 100STYLE (CC BY 4.0, doi:10.1145/3522618). CC0: Quaternius; MakeHuman.
  */
 const THREE = require('three');
 const BODY = require('7f8cae20147242dbe6ee2eafe0203c1f59f0cd3925bca7135b70667137888cf2');
-const MOTION = require('16dadf0099be9638315e10bf913916253a824c32f215ef6bfa7c5e3252fd2d3f');
-const GAIT = require('b5f511d8b74a1e7f7e461abf682671d44c3e54c22dbce4eb121150104eeddcd1');
-const ACTIONS = require('8f6564249bb308df8a828ae6c58ffa1dc940d75418d47ea09e51e3027f73b60a');
+const MOTION = require('462564f4eb4928b4c8aa6021d12d250999460b02011809632025e25611cae72c');
+const GAIT = require('41c22c3007d86a1bcefc7a4d6abdca5ca75af998af99fc733ef4427600d354e8');
+const ACTIONS = require('bbb2a2a8cded2f0cddf4899f5bae709d812f2c553cb4c4d71dca6c383c95ce20');
 
 /** how she looks (v2's) */
 const LOOK = {
@@ -85,7 +87,7 @@ function elderWoman(detail = 1, slope = 0, step = 0) {
 	lines(build.rig.object);
 	hair(build.rig.object);
 	build.rig.object.name = 'elder-woman';
-	const m = MOTION.moves(build, { gait: GAIT, actions: ACTIONS, gears: { walk: 0.95, run: 1.5 }, strides: { walk: 1.1, run: 1.3 }, ground: { slope: Number(slope), step: Number(step) } });
+	const m = MOTION.moves(build, { gait: GAIT, actions: ACTIONS, gears: { walk: 0.95, run: 1.5 }, strides: { walk: 1.1, run: 1.3 }, width: 0.03, ground: { slope: Number(slope), step: Number(step) } });
 	return { rig: build.rig, clips: m.clips, gears: m.gears, poses: build.poses, first: 'idle' };
 }
 

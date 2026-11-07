@@ -102,7 +102,7 @@ const checks: Record<string, () => void | Promise<void>> = {
 						} else if (a > worst) (worst = a), (at = `${b} frame ${i}`);
 					});
 				}
-				const eased = s.eased.length ? ` (its back eased upright on purpose: ${s.eased.join(', ')} not held)` : '';
+				const eased = s.eased.length ? ` (eased on purpose, an old person's capture made to stand upright: ${s.eased.join(', ')} not held)` : '';
 				const joins = loop ? `; where its loop joins ${join.toFixed(2)}° (${jat}; ≤ 3.5°)` : '';
 				verdict(worst <= 3 && join <= 3.5, `${set} ${name}: worst bone ${worst.toFixed(2)}° from the source (${at}; ≤ 3°)${joins}${eased}`);
 			}
@@ -190,22 +190,29 @@ const checks: Record<string, () => void | Promise<void>> = {
 		}
 	},
 	/** c7: knees apart, each foot on its own side through walk, run, start and stop: no more than 1 cm past the line
-	 *  walking, 2 cm running (a runner lands near it) */
-	gait() {
+	 *  walking, 2 cm running (a runner lands near it); as the box plays the clips and as the page plays them back */
+	async gait() {
+		const { motionOf } = await import(`${SITE}content/assets/box/clips.js`);
+		const { playerOf } = await import(`${SITE}content/assets/clips.js`);
 		for (const who of PEOPLE) {
-			let gap = 9, cross = -9, run = -9, at = '';
-			for (const { name, t, pose } of frames(who, ['walk', 'run', 'start', 'stop'])) {
-				const { J } = posed(who, pose);
-				// every clip is settled to go along +z: the centre line is the path under the hips, across it x (the
-				// pelvis' own yaw, a few degrees each step, is not the path's)
-				const across = new Vector3(1, 0, 0);
-				const g = J.leftLowerLeg.clone().sub(J.rightLowerLeg).dot(across);
-				if (g < gap) (gap = g), (at = `${name} at ${t.toFixed(2)} s`);
-				const x = Math.max(-J.leftFoot.clone().sub(J.hips).dot(across), J.rightFoot.clone().sub(J.hips).dot(across));
-				if (name === 'run') run = Math.max(run, x);
-				else cross = Math.max(cross, x);
+			const cast = casts[who];
+			const page = playerOf(motionOf(cast, 1.7), cast.rig.names);
+			for (const [where, play] of [['box', (n: string, t: number, m: any) => cast.clips[n](t, m)], ['page', (n: string, t: number, m: any) => page[n](t, m)]] as const) {
+				let gap = 9, cross = -9, run = -9, at = '';
+				for (const { name, t } of frames(who, ['walk', 'run', 'start', 'stop'])) {
+					const P = plan(who)[name];
+					const { J } = posed(who, play(name, t, { dist: P.speed * t, speed: P.speed }));
+					// every clip is settled to go along +z: the centre line is the path under the hips, across it x (the
+					// pelvis' own yaw, a few degrees each step, is not the path's)
+					const across = new Vector3(1, 0, 0);
+					const g = J.leftLowerLeg.clone().sub(J.rightLowerLeg).dot(across);
+					if (g < gap) (gap = g), (at = `${name} at ${t.toFixed(2)} s`);
+					const x = Math.max(-J.leftFoot.clone().sub(J.hips).dot(across), J.rightFoot.clone().sub(J.hips).dot(across));
+					if (name === 'run') run = Math.max(run, x);
+					else cross = Math.max(cross, x);
+				}
+				verdict(gap >= 0.12 && cross <= 0.01 && run <= 0.02, `${who} (${where}): knees at least ${(gap * 100).toFixed(1)} cm apart (${at}); a foot at most ${(cross * 100).toFixed(1)} cm past the centre line walking (≤ 1 cm), ${(run * 100).toFixed(1)} cm running (≤ 2 cm)`);
 			}
-			verdict(gap >= 0.12 && cross <= 0.01 && run <= 0.02, `${who}: knees at least ${(gap * 100).toFixed(1)} cm apart (${at}); a foot at most ${(cross * 100).toFixed(1)} cm past the centre line walking (≤ 1 cm), ${(run * 100).toFixed(1)} cm running (≤ 2 cm)`);
 		}
 	},
 	/** c8: the wave's hand above its shoulder, as the box plays it and as the page plays it back */

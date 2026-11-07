@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # c11's look for intent b9e6ad45, on Samuel's Mac (Metal): both people beside the motion capture they were made from.
 #   bash intent-work/b9e6ad45-render/run.sh          (from the repository's root, on the branch intent/b9e6ad45-motion)
-# Needs node, bun, Playwright with its Chromium, ffmpeg. No token, no fal, nothing paid: everything it draws is in git.
+# Needs bun, Playwright with its Chromium, ffmpeg. No token, no fal, nothing paid: everything it draws is in git.
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"; J="$REPO/intent-work/b9e6ad45-render"; OUT="$J/out"; W="${WORK:-$HOME/b9e6ad45-work}"
 cd "$REPO/play/site" && bun install >/dev/null && cd "$REPO"
 rm -rf "$W" && mkdir -p "$W" "$OUT"
-node "$J/render.mjs" "$W" 2>&1 | tee "$OUT/run-log.txt"
+bun "$J/render.mjs" "$W" 2>&1 | tee "$OUT/run-log.txt"
 # a film of each person (every clip in turn) and a sheet of four moments of each clip, kept small for git
 for who in stand-in elder-woman; do
   list="$W/$who.txt"; : > "$list"

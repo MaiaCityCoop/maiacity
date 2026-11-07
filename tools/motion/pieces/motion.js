@@ -83,9 +83,10 @@ const qb = new Quaternion();
 /**
  * The cast's moves. `build`: the person (the piece "Person body"'s `person`), `gait`: its walk, run, idle, start and
  * stop (data), `actions`: the everyday actions (data), `gears`: the speeds its walk and run are played at (m/s),
- * `strides`: its own stride (m, two steps) walking and running, `ground`: { slope, step } under it, for checking it on a slope or up stairs.
+ * `strides`: its own stride (m, two steps) walking and running, `width`: how much further out each foot is set walking and
+ * running than the capture sets it (m, at 1.80 m: a wider step), `ground`: { slope, step } under it, for checking it on a slope or up stairs.
  */
-function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = { walk: 1.5, run: 2.3 }, ground = {} }) {
+function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = { walk: 1.5, run: 2.3 }, width = 0, ground = {} }) {
 	const M = build.measure, s = M.s;
 	const bones = M.bones;
 	const by = Object.fromEntries(bones.map((b) => [b.name, b]));
@@ -189,7 +190,8 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 			let zc = 0, xc = 0;
 			for (let i = a; i <= b; i++) (zc += L[i % n].p.z + ((i - mid) * stride) / n), (xc += L[i % n].p.x);
 			zc /= len;
-			xc /= len;
+			// set `width` further out to its own side than the capture puts it (a wider step), swing and all
+			xc = xc / len + (side === 'left' ? 1 : -1) * width * s;
 			const P = [];
 			// on the ground first: it rolls on what touches, the heel while it is lower than the ball, then the ball;
 			// both rest where the foot lies flat at the middle of its time down, the body moving on over them
@@ -291,7 +293,9 @@ function moves(build, { gait, actions, gears = { walk: 1.4, run: 3 }, strides = 
 			const hip = sk.joint(pose, `${side}UpperLeg`);
 			const la = len[side][0], lb = len[side][1];
 			const d = hip.distanceTo(legs[side].p);
-			const most = (la + lb) * 0.975;
+			// a leg reaches 99.7% of its length at most (a knee bent about 9°, as a person stands): 97.5% bent every
+			// standing knee 26°, a half squat (intent b9e6ad45)
+			const most = (la + lb) * 0.997;
 			if (d > most) {
 				const dy = legs[side].p.y - hip.y;
 				const dxz = Math.hypot(legs[side].p.x - hip.x, legs[side].p.z - hip.z);

@@ -10,9 +10,9 @@
  * Taku Komura, 100STYLE (CC BY 4.0, doi:10.1145/3522618). CC0: Quaternius; MakeHuman.
  */
 const BODY = require('7f8cae20147242dbe6ee2eafe0203c1f59f0cd3925bca7135b70667137888cf2');
-const MOTION = require('16dadf0099be9638315e10bf913916253a824c32f215ef6bfa7c5e3252fd2d3f');
+const MOTION = require('462564f4eb4928b4c8aa6021d12d250999460b02011809632025e25611cae72c');
 const GAIT = require('204651c6926e693b0e0ad370050f353fcf0f3b2b18142eca22797937457b1219');
-const ACTIONS = require('8f6564249bb308df8a828ae6c58ffa1dc940d75418d47ea09e51e3027f73b60a');
+const ACTIONS = require('bbb2a2a8cded2f0cddf4899f5bae709d812f2c553cb4c4d71dca6c383c95ce20');
 
 const LOOK_LABELS = {
 	skin: 'Skin',
@@ -80,7 +80,7 @@ function standIn(height = 1.7, ...rest) {
 	const make = () => BODY.person(look, height, { v: 10 });
 	const build = detail < 1 ? BODY.lowDetail(make, Math.max(0.05, detail)) : make();
 	build.rig.object.name = 'stand-in';
-	const m = MOTION.moves(build, { gait: GAIT, actions: ACTIONS, gears: { walk: 1.4, run: 3 }, strides: { walk: 1.5, run: 2.3 }, ground: { slope, step } });
+	const m = MOTION.moves(build, { gait: GAIT, actions: ACTIONS, gears: { walk: 1.4, run: 3 }, strides: { walk: 1.5, run: 2.3 }, width: 0.015, ground: { slope, step } });
 	const ground = groundOf(require('three'), slope, step, m.stairs);
 	if (ground) build.rig.object.add(ground);
 	return { rig: build.rig, clips: m.clips, gears: m.gears, poses: build.poses, first: 'idle' };
