@@ -1,0 +1,281 @@
+{
+	"schema": "story/1",
+	"tracks": [
+		{
+			"id": "shots",
+			"clips": [
+				{
+					"world": {
+						"camera": [
+							{
+								"fov": 40,
+								"at": 0,
+								"eye": [
+									-17.5,
+									1.5,
+									-420
+								],
+								"target": [
+									-5,
+									2.5,
+									-60
+								]
+							},
+							{
+								"fov": 36,
+								"at": 4,
+								"eye": [
+									-16.2,
+									1.9,
+									-388
+								],
+								"target": [
+									-5,
+									2.5,
+									-60
+								]
+							}
+						],
+						"hour": [
+							[
+								0,
+								17.6
+							],
+							[
+								4,
+								17.68
+							]
+						],
+						"exposure": 0,
+						"lights": {
+							"lamps": 1.5
+						},
+						"version": "9bb90d4c3f21a900d01a6729ac61d6e103d9f0abeb45668cf711a497729c68a8",
+						"asset": "43420c0b-675b-4e50-98b5-c461b9432fc0"
+					},
+					"frame": "eb935b6be44f665bc4c9f5dff2d80ccf5d652e2c40562c1a5742c5ebd4a2579e",
+					"transition": "cut",
+					"at": 0,
+					"id": "jam",
+					"duration": 4
+				},
+				{
+					"world": {
+						"camera": [
+							{
+								"fov": 38,
+								"at": 0,
+								"eye": [
+									9,
+									9,
+									-560
+								],
+								"target": [
+									-9,
+									2,
+									-330
+								]
+							},
+							{
+								"fov": 38,
+								"at": 3.5,
+								"eye": [
+									5,
+									8.2,
+									-528
+								],
+								"target": [
+									-9,
+									2,
+									-315
+								]
+							}
+						],
+						"hour": [
+							[
+								0,
+								17.68
+							],
+							[
+								3.5,
+								17.75
+							]
+						],
+						"exposure": 0,
+						"lights": {
+							"lamps": 1.5
+						},
+						"version": "9bb90d4c3f21a900d01a6729ac61d6e103d9f0abeb45668cf711a497729c68a8",
+						"asset": "43420c0b-675b-4e50-98b5-c461b9432fc0"
+					},
+					"frame": null,
+					"transition": "cut",
+					"at": 4,
+					"id": "lorries",
+					"duration": 3.5
+				},
+				{
+					"world": {
+						"camera": [
+							{
+								"fov": 35,
+								"at": 0,
+								"eye": [
+									1.8,
+									3.2,
+									-330
+								],
+								"target": [
+									-5,
+									1.5,
+									-160
+								]
+							},
+							{
+								"fov": 32,
+								"at": 3.5,
+								"eye": [
+									1.4,
+									2.9,
+									-306
+								],
+								"target": [
+									-5,
+									1.5,
+									-150
+								]
+							}
+						],
+						"hour": [
+							[
+								0,
+								17.75
+							],
+							[
+								3.5,
+								17.82
+							]
+						],
+						"exposure": 0,
+						"lights": {
+							"lamps": 1.5
+						},
+						"version": "9bb90d4c3f21a900d01a6729ac61d6e103d9f0abeb45668cf711a497729c68a8",
+						"asset": "43420c0b-675b-4e50-98b5-c461b9432fc0"
+					},
+					"frame": null,
+					"transition": "cut",
+					"at": 7.5,
+					"id": "ambulance",
+					"duration": 3.5
+				},
+				{
+					"world": {
+						"camera": [
+							{
+								"fov": 45,
+								"at": 0,
+								"eye": [
+									170,
+									175,
+									-230
+								],
+								"target": [
+									-15,
+									0,
+									190
+								]
+							},
+							{
+								"fov": 40,
+								"at": 5,
+								"eye": [
+									150,
+									160,
+									-196
+								],
+								"target": [
+									-15,
+									0,
+									190
+								]
+							}
+						],
+						"hour": [
+							[
+								0,
+								17.82
+							],
+							[
+								5,
+								17.9
+							]
+						],
+						"exposure": 0,
+						"lights": {
+							"lamps": 1.5
+						},
+						"version": "9bb90d4c3f21a900d01a6729ac61d6e103d9f0abeb45668cf711a497729c68a8",
+						"asset": "43420c0b-675b-4e50-98b5-c461b9432fc0"
+					},
+					"frame": null,
+					"transition": "to black 0.8",
+					"at": 11,
+					"id": "above",
+					"duration": 5
+				}
+			],
+			"kind": "shots"
+		},
+		{
+			"id": "notes",
+			"clips": [
+				{
+					"emotion": "weariness",
+					"id": "n1",
+					"mood": "↓",
+					"camera": "slow push up the jam, eye at a driver's height, lens tightening 40° → 36°",
+					"section": "THE OLD WAY",
+					"at": 0,
+					"retention": "the traffic moves while the camera creeps: the jam is alive",
+					"duration": 4
+				},
+				{
+					"emotion": "weight",
+					"id": "n2",
+					"mood": "↓",
+					"camera": "high over the outbound lanes, drifting in toward the lorries hauling food into the city",
+					"section": "THE HAUL",
+					"at": 4,
+					"retention": "a cut to height: the jam goes on as far as the eye can see",
+					"duration": 3.5
+				},
+				{
+					"emotion": "tension",
+					"id": "n3",
+					"mood": "↕",
+					"camera": "low over the median, creeping after the ambulance through the rescue lane, lens tightening",
+					"section": "THE RESCUE LANE",
+					"at": 7.5,
+					"retention": "the one thing moving with urgency in a stuck world",
+					"duration": 3.5
+				},
+				{
+					"emotion": "weariness",
+					"id": "n4",
+					"mood": "↓↓",
+					"camera": "wide and high over the towers, a slow descent toward the grid as the sun goes",
+					"section": "THE CITY",
+					"at": 11,
+					"retention": "the whole of it at once: this is the old way",
+					"duration": 5
+				}
+			],
+			"kind": "notes"
+		}
+	],
+	"fps": 24,
+	"format": "16:9",
+	"title": "Old City · the jam at dusk (a world shot)",
+	"duration": 16
+}

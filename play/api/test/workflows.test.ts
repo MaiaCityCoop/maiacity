@@ -270,3 +270,36 @@ describe("the server's care", () => {
     expect(ok.out).toContain("remove old.maia.city by hand");
   });
 });
+
+// intent aa59f248: the gate before a push may run only the tests a change touched (play/avenbox/gate.sh); CI and main
+// never do. Every place the suite runs whole runs every file, in parallel, with room in Postgres for it.
+describe("the whole suite on every pull request and on main", () => {
+  /** every `bun test` command line in a workflow's run steps */
+  const bunTests = (path: string) =>
+    Object.values(yaml(path).jobs ?? {}).flatMap((j: any) => (j.steps ?? []).flatMap((s: any) => String(s.run ?? "").split("\n")))
+      .map((l: string) => l.trim()).filter((l: string) => /\bbun test\b/.test(l));
+  test("play-checks.yml runs `bun test --parallel`, every file, nothing narrowed, Postgres with room for it", () => {
+    const p = yaml(".github/workflows/play-checks.yml");
+    const api = p.jobs.checks.steps.find((s: any) => s.name === "The API");
+    expect(api["working-directory"]).toBe("play/api");
+    expect(bunTests(".github/workflows/play-checks.yml")).toEqual(["bun test --parallel"]);
+    expect(api.run).not.toMatch(/--changed|\s-t\s|--test-name-pattern|GATE_CHANGED|\.test\.ts/);
+    expect(JSON.stringify(api.env ?? {})).not.toContain("GATE_CHANGED");
+    const pg = p.jobs.checks.steps.find((s: any) => s.name === "Postgres");
+    expect(pg.run).toContain("-c max_connections=500");
+  });
+  test("intents.yml and intents-pr.yml run no narrowed suite", () => {
+    for (const f of [".github/workflows/intents.yml", ".github/workflows/intents-pr.yml"]) {
+      expect([f, text(f)]).not.toEqual([f, expect.stringMatching(/--changed|GATE_CHANGED/)]);
+      for (const l of bunTests(f)) expect(l).toBe("bun test --parallel");
+    }
+  });
+  test("gate.sh --all and CI run the same whole suite: `bun test --parallel` with no file list", () => {
+    const gate = text("play/avenbox/gate.sh");
+    expect(gate).toContain('out=$(bun test --parallel "$@" 2>&1)');
+    const plan = Bun.spawnSync(["bash", resolve(ROOT, "play/avenbox/gate.sh"), "--all", "--plan"], { cwd: ROOT, stdout: "pipe" }).stdout.toString();
+    // every file: select.ts names none, so api_tests is called with no file list
+    expect(plan).toContain("step api-tests: every file");
+    expect(plan).not.toMatch(/^ {4}test\//m);
+  });
+});

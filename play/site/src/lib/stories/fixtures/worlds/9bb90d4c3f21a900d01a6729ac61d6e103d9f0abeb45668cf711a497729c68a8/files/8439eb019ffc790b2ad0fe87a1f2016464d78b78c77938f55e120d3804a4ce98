@@ -1,0 +1,1191 @@
+defineRecipe(function (require) {
+"use strict";
+var module = { exports: {} }, exports = module.exports;
+/*
+ * OLD CITY — a world (group `worlds`, play/SPEC.md §4.11): the sad, dark old way the films set Maia City against.
+ *
+ * A small section of an old city (a 4 × 4 grid of concrete blocks: panel slabs, point towers, an office tower, shops
+ * under flats, a multi-storey car park; its avenue and streets, crossings and signals; a discount supermarket and its
+ * car park) at the end of a long highway (2 × 3 lanes, 2 km, a concrete median barrier, guardrails, twin light masts,
+ * sign gantries, an exit) that comes from the horizon across barren monoculture land: bare tilled soil, stubble and one
+ * crop to the horizon, no trees, no hedges. Lorries haul the food in; the lanes into the city are jammed and honk; an
+ * ambulance and a police car push through the rescue lane; a crop sprayer works one field; power lines stride across
+ * the fields; a smoggy dusk.
+ *
+ * Real size: 1 unit = 1 m, root on y 0. x east, y up, z south. The city stands at z 0 … 400 round x = 0; the highway
+ * comes in from z = -2000 (north) along x = 0. Traffic drives on the right: into the city (+z) at x < 0, out at x > 0.
+ *
+ * Its own meshes are the land: fields, roads and markings, kerbs and pavements, yards. Everything else is named by its
+ * build hash (`use:<recipe hash>?values`, drawn by the page); only accepted versions are named.
+ *
+ * It moves (world contract v1): the box calls `root.userData.tick(t)` with the world's total time t (s); the world
+ * brings itself to t in counted steps of 0.1 s, seeded, so a film shot at time t is the same every time; what moves is
+ * drawn between where its last two steps put it, so it moves smoothly at any frame rate. Its traffic is
+ * its own code below: lanes as polylines, car following by the intelligent driver model, stop lines at red, signals on
+ * their cycles, a rescue lane, the ambulance and the police car on a fixed timetable, horns from the queue. About 380
+ * guests move; the far end of the jam and the parked cars stand still.
+ */
+const THREE = require('three');
+const { mergeGeometries } = require('three/addons/utils/BufferGeometryUtils.js');
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * 1. What it names: the accepted builds by recipe hash, the recordings by file hash.
+ * ---------------------------------------------------------------------------------------------------------------- */
+/** the cars' paints: each paint its own recipe (a kind of variants), named by its hash */
+const HB = { black: '60eacd3083c2dfc6d9440489d89a235231778250df61b08624ea00ac52adb994', blue: '4ae7c0a26c870612cc89c8bd76538915588c8640071639bb4eb219a8501c0655', grey: 'd06a082cf19ef8f3ef70901cddf231ee2bf36f5e917aacb8b96854999589bb68', red: 'b8eb4de6eedc4a93c9ebe45a150c0bdad5d7f8c6836bfec40781fd1f3f09289e', silver: 'a27b4deef1c1edd4f0d93b6a80a1fb204273b08bba2729435a72e4eb44325226', white: '7e632f2857659042e893c2d64d53c0f7506a27b2b3a69d4ac7fe30103487fa4c' };
+const SD = { black: '17b4d8b70cdbf5a56eccc8f1503731ca8b810c2d9aa49e44d8330e8f3bf8c4e6', blue: '74f3de0ece9525615ae8106da1f7c9015f1fcc8c359e16f3db32e97d380bb07e', graphite: '96ee462e48a721d68b0e1e26ceb370029ef681a71d385c1eaf01f36c9cb15805', maroon: '5c2ea021f6eccc9d04c3f71563d0413848c2c92c40620da0757c825997ab4bac', silver: 'f36c7c18f53aa31dad1241794c5d3290c62af4086b4bea5794f25a9f49587015', white: '22b23af317c6dd77f1af60ba83b6ad27dd60238c13d8de913a0f6707746d4453' };
+const SV = { black: 'cd74103622c8168eaf927902bc4c9b47541980ea94bef0c0417d495046af4a62', green: 'afdfdb9088ad987f3faeea325b015ed5368708df625b3b279bb3f24f494becbc', grey: 'c5ad739daea33e671f64081c5822c2c5e10443e8ff8efbdb034531a0530a03b8', silver: '8a9ae3df3472a7b64691555ed470a1a56a48ac2adae9bdd1dd32dd7eb2410d53', white: 'ae1457809e6cfeedcd8e49bdfb2af1cd74100a451aae037f541a3bf7e33a07ed' };
+const TX = { black: '273f09454f5aa562959fff2e02216d12e1431acb50a3fc53671a4bf79cf12859', cream: '907768cf4c64c7dbdcb5fe70015a180b467727d30d3ed63277be7cd5498d4420', yellow: 'fdc76d7b290c6a1c9d7633c8ed8ff2d26a4b9e10c3189bc5da043bd86a637462' };
+const PO = { silver: 'b6b363f76a391593a39565e0daed9e0f9019201127b66f55683bc69c05ec70eb', white: '950a2b91b0ffd4a83e5f618d5d1b0e4340cff6c990793d322f36fefbad953d04' };
+const AM = { white: 'b8d84a04d865b377d378f16ce2c9c20d2310e0762f1379b3cecfaf1640b99ab1', yellow: '7cee7fc5a289ef6c3b20b26fc7dc5fc2db6c8c5d06a236c6782b08f7af178f8f' };
+const DV = { beige: '70e5a46a136e3923d31fcd6afb037b683dd8378d371deb574abf48429974d699', grey: 'bceb127662872272e93a6559b416f3dca69ea81ae77481c8e56a2f7350543cbd', red: 'a19aa4e7d1fe049b17188fc0c651e32a33ee559f7e282d11313f0710e4150ddd', white: '6585f835b903f6ba64f4c7db4e968cbb9160d41662449495d3ad648cbeab0ae5' };
+
+const H = {
+	hatchback: [HB.grey, HB.grey, HB.silver, HB.silver, HB.white, HB.white, HB.black, HB.black, HB.blue, HB.red],
+	sedan: [SD.graphite, SD.graphite, SD.silver, SD.silver, SD.white, SD.white, SD.black, SD.black, SD.blue, SD.maroon],
+	suv: [SV.black, SV.black, SV.grey, SV.grey, SV.silver, SV.silver, SV.white, SV.white, SV.green],
+	taxi: [TX.yellow, TX.yellow, TX.cream, TX.black],
+	police: [PO.white],
+	ambulance: [AM.white],
+	deliveryVan: [DV.white, DV.white, DV.grey, DV.grey, DV.beige, DV.red],
+	pickup: ['efbab6b9c12df15b834dd135acf3b79fc5271520ec7b5dc9b446c9d050315e29'],
+	travelVan: ['9e1d6d990751fe3cbff0d27c89d76daa57161c9e5ee83961b44449e6a1b3b077'],
+	// the reefer semis haul the food in: white most of them
+	semi: ['db2c7e882d5ff9d2a0a18abb27f3e63d55ec5e7ce5dcde54c27c40bc14f63dff', 'db2c7e882d5ff9d2a0a18abb27f3e63d55ec5e7ce5dcde54c27c40bc14f63dff', 'e523059467dcc471f27e5a534900cd036852337c9675756361c435d50bb55f6d', '1d203df2db54355b0b137d20e2a35d751763aafefea95e847dd1e81d6548d89a', '38081d34b2a48520b1df117e15d4f34e63b222b2c9964ad8aa3ee1f2b010be9d'],
+	boxTruck: ['a6e4389cb0bddcedcc9db107d1d82ef4d5c829a264ceb1b3945d2771200afc28', 'ca9e34881cfb42695b6d603b8ad64aa1613d7b1ff2afc6c6dd506c6e07c003e5', 'd158f85ba02267541d0dde26aa646778e2ff9e649cca145a87403f95785809ce', '9158a269ec64f2bc2272935a0246920e5fd2a65e3c7abf261f05903a1bb37ec7'],
+	bus: ['07a822976a0070f62169baad24cfad8c57566535b7301bf2e6875b39c6057498', '0c2e0188b1135e46fd004f1331667507785e6fbef2ede9254ffd16c0350adaee'],
+	tipper: ['01078474643de86a8d02a8e51afc5a6b6a6b4fc359f447e6d62f59196c9d4fe2', '8b3a6474ff8b9854e4d361b264cbfdbb8de2ccf87e39456d26427f42d7ac5855', '92ba692feaab56c7f0665399c7d43f6dc1648220d9784c118d885dee2ec07edd'],
+	tractorField: 'e51dd6163e7c5a1f6693c3f2a1b10f019bda14098cce612704959eff2b05dc1b',
+	// street things (each takes `seed`; the lamp's `kind` 0 city, 2 highway twin; the signal's 0 pole, 1 mast arm)
+	signal: '0e6ad0606130ecfadc775dc52182883027bd41cb8b266404fcb0561def3b4fa0',
+	lamp: '20f76bbd47c4cd11e27ec753c237799eab56dbae02f5e72d445642840554d39f',
+	jersey: '530a543babc188a59ed4f74659ec973992b195b438d7f24940582d0d4211fb71',
+	guardrail: 'e17ae6e75a6aab31428c801a7f49ce780f2ba3acee6d52fc1c99b04b7142bca2',
+	gantry: '5033bce59d5d06f48946af2d098d5ddfb497fe36ded7057cd1d88b6097fcb6f6',
+	billboard: 'f5108d5a43a02e1f2b0e5ffd31cc48c8427c4758cb025c0eee7ecf07b52cf9b4',
+	bollard: 'db71f04acb30bb805c36bdae2eeb47909d3f139c97bce50c033746de9cb67a24',
+	pylon: '2117c0fe45d8999b60788224ed23630c9bf823e9c38da9285163a9a67371846c',
+	// buildings (values: floors, length / axes / bays, seed)
+	slab: '2a39a99816a0b01e2dc1ffced10b31d525d754ca768732dfe407f311028cbf7d',
+	tower: '19f6d97bb01027f01897dec8c353c63e6eb77d0597fe3d0c1b7a03d48f96c5f0',
+	office: '0e4b28ee84be5e29df7c2b93fdb521485680a2c4c1eba455f2700971df013a4c',
+	shops: 'dff09d517adce56d5649d4ca335b77b9c582e415cf5e6468cb940bbbdedd1cc4',
+	supermarket: 'aad9b823c8afe8559a63e50c646cf197a9c4a1d7f4ba0398e8241895291cec90',
+	carpark: 'a50fe4ef06307c07542098b933ce06a7ffe7a135f7763ec4baa8232745511029',
+	gasStation: '155253efcc89d8ccdd94313694b850cab2335d9f8e48c945c71029e5f795125e',
+	busStop: '320043b07521f5beedf3c90af5650314473e2163d17004f9f8b1f256622ea649',
+	oldShed: '894a4a2b1459f51ffcc3819221f5675d585e56b728c91535c6781e63a4ef4564'
+};
+
+/** the vehicles: their builds and length (m; each centred on its length, its front +z) */
+const KINDS = {
+	hatchback: { h: H.hatchback, L: 4.05 },
+	sedan: { h: H.sedan, L: 4.75 },
+	suv: { h: H.suv, L: 4.6 },
+	taxi: { h: H.taxi, L: 4.75 },
+	police: { h: H.police, L: 4.75 },
+	ambulance: { h: H.ambulance, L: 6.2 },
+	deliveryVan: { h: H.deliveryVan, L: 5.5 },
+	pickup: { h: H.pickup, L: 5.37 },
+	travelVan: { h: H.travelVan, L: 5.31 },
+	semi: { h: H.semi, L: 16.68, truck: true },
+	boxTruck: { h: H.boxTruck, L: 9.36, truck: true },
+	bus: { h: H.bus, L: 12.41, truck: true },
+	tipper: { h: H.tipper, L: 9.39, truck: true }
+};
+/** the mix of the traffic (weights): the cars, and the lorries that bring the food */
+const MIX_CARS = [['hatchback', 26], ['sedan', 20], ['suv', 16], ['taxi', 6], ['deliveryVan', 9], ['pickup', 3], ['travelVan', 2]];
+const MIX_TRUCKS = [['semi', 50], ['boxTruck', 38], ['tipper', 6], ['bus', 6]];
+
+/** the film's recordings (play files; story 60f6da00-979d-89e4-b1e5-53667ba41fe4): file, what for, gain */
+const SOUND = [
+	['9e2ea493f7f3ab729af296e56a999cb601ff8396c0e6b4717650b6cb219a5c7d', 'bed', 0.55],
+	['1b52448443cd06b9d74cc784d19f155bd14524833b923ddd5446bdabbb366cf6', 'horn', 0.8],
+	['b058632eae2c81bed4b39bb4bf39e51502fe8898056b58ef0e8f969de458afb1', 'siren', 0.9],
+	['2dbdaaa5419dfd9b683c822bc4617121c60c40ea3728d954b9544e220dbf94a6', 'engine', 0.6],
+	['42cbce715bde262206cea77655a2fa91cbbfbf793e081806b35d21fe3dbd5d6d', 'spray', 0.7]
+];
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * 2. Chance: by keys (the layout), and one seeded stream (the traffic, drawn in a fixed order every step).
+ * ---------------------------------------------------------------------------------------------------------------- */
+function hashOf(s) {
+	let h = 2166136261;
+	for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+	return h >>> 0;
+}
+/** a number in [0, 1) for these keys */
+function chance(seed, ...keys) {
+	let t = (hashOf(seed + '|' + keys.join('|')) + 0x6d2b79f5) >>> 0;
+	t = Math.imul(t ^ (t >>> 15), t | 1);
+	t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+	return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+const between = (seed, a, b, ...keys) => a + (b - a) * chance(seed, ...keys);
+const pickOf = (seed, list, ...keys) => list[Math.floor(chance(seed, ...keys) * list.length) % list.length];
+const weighted = (seed, list, ...keys) => {
+	let r = chance(seed, ...keys) * list.reduce((a, [, w]) => a + w, 0);
+	for (const [k, w] of list) if ((r -= w) < 0) return k;
+	return list[0][0];
+};
+/** a seeded stream */
+function stream(seed) {
+	let s = hashOf(seed) >>> 0;
+	return () => {
+		s = (s + 0x6d2b79f5) >>> 0;
+		let t = Math.imul(s ^ (s >>> 15), s | 1);
+		t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	};
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * 3. The plan: every measure of the land, in metres.
+ * ---------------------------------------------------------------------------------------------------------------- */
+const HW = { from: -2000, to: -20, lane: 3.5, lanes: 3, median: 1.2, inner: 1.0, outer: 2.5, verge: 9.0 };
+/** a highway lane's middle, from the highway's middle: 3.35, 6.85, 10.35 */
+const hwLaneX = (i) => HW.median / 2 + HW.inner + HW.lane * (i + 0.5);
+const HW_EDGE = HW.median / 2 + HW.inner + HW.lane * HW.lanes + HW.outer; // 14.6
+const AV = { lane: 3.25, median: 2, kerb: 11 };
+/** an avenue lane's middle: 2.625, 5.875, 9.125 */
+const avLaneX = (i) => AV.median / 2 + AV.lane * (i + 0.5);
+
+const CITY = {
+	avenue: 30, // the avenue: carriageway and its sidewalks
+	street: 20, // a street, sidewalks included
+	sidewalk: 4,
+	cols: [-205, -105, 0, 105, 205], // the north-south streets' middles (0 the avenue)
+	rows: [0, 100, 200, 300, 400] // the east-west streets' middles
+};
+const widthOfCol = (x) => (x === 0 ? CITY.avenue : CITY.street);
+const carriageHalf = (x) => (x === 0 ? AV.kerb : 6);
+/** a street lane's middle from the street's middle (two lanes each way) */
+const stLaneOff = (i) => 1.6 + 3 * i;
+
+/** the exit, the frontage road along the edge land, into the supermarket's side lane */
+const EXIT = { from: -760, bend: -560, x: -62 };
+/** the edge land west of the highway's last 820 m: no fields there */
+const EDGE = { x0: -240, z0: -820 };
+/** the discount supermarket's plot (90 × 90 m, its lot on +z) */
+const SHOP = { x: -140, z: -80 };
+/** where the crop sprayer works */
+const SPRAY = { x: -430, z: -1150 };
+/** where the jam stands still (from its tail) and where it starts to move (its front), on the lanes into the city */
+const JAM = { tail: -1270, front: -330 };
+/** out from here the highway's barrier and guardrails are the world's own sweep; nearer the city the accepted builds */
+const NEAR = -900;
+const FURROW = 0.75;
+/** the field biomes by recipe hash: each field a mesh `biome:<hash> rows:<deg>` (0 rows along x, 90 along z) */
+const BIOMES = {
+	tilled: '62d28e7d0e57991c8a7ee8791902e1d098084efbf40fedf2dd56de8bcce44992', // tilled soil
+	stubble: 'b38fdc0d5936b83257909c96b4ea9884074dbf2d1c78bff4e4081116ed376e65', // cereal stubble
+	crop: '1c205f28b2e0ac5124648666d8da67f4b9f5b5f1ec0f3818fe8ff4d284d48d65', // a field of oats
+	verge: '78d56b7d666ab7096c7b5f769d6d372ea9b89f69a7e7e06ed19cbb91d393a971' // the roadside verge: the highway's banks
+};
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * 4. Pictures made here: furrows, stubble, a crop's rows, asphalt.
+ * ---------------------------------------------------------------------------------------------------------------- */
+function dataTexture(w, h, paint) {
+	const data = new Uint8Array(w * h * 4);
+	for (let y = 0; y < h; y++)
+		for (let x = 0; x < w; x++) {
+			const [r, g, b] = paint(x, y);
+			data.set([r, g, b, 255], (y * w + x) * 4);
+		}
+	const t = new THREE.DataTexture(data, w, h, THREE.RGBAFormat);
+	t.wrapS = t.wrapT = THREE.RepeatWrapping;
+	t.colorSpace = THREE.SRGBColorSpace;
+	t.anisotropy = 4;
+	t.needsUpdate = true;
+	return t;
+}
+const grain = (x, y, s) => chance('grain', s, x, y);
+/** bare tilled soil: ridges and furrows (64 px = 8 furrows), clods */
+const soilTexture = () =>
+	dataTexture(16, 64, (x, y) => {
+		const ridge = 0.5 + 0.5 * Math.cos(((y % 8) / 8) * Math.PI * 2);
+		const c = 0.7 + 0.18 * ridge + 0.1 * (grain(x, y, 's') - 0.5);
+		return [112 * c, 92 * c, 74 * c];
+	});
+/** stubble: pale dead straw in rows on grey-brown soil */
+const stubbleTexture = () =>
+	dataTexture(16, 64, (x, y) => {
+		const n = grain(x, y, 'b');
+		if (y % 8 < 3 && n > 0.35) return [170 * (0.85 + 0.2 * n), 156 * (0.85 + 0.2 * n), 118 * (0.85 + 0.2 * n)];
+		const c = 0.75 + 0.2 * n;
+		return [118 * c, 104 * c, 86 * c];
+	});
+/** one crop in rows, a dull grey-green over the soil showing between them */
+const cropTexture = () =>
+	dataTexture(16, 64, (x, y) => {
+		const n = grain(x, y, 'c');
+		if (y % 8 === 7) return [96 * (0.8 + 0.2 * n), 86 * (0.8 + 0.2 * n), 70];
+		const c = 0.8 + 0.25 * n;
+		return [96 * c, 104 * c, 78 * c];
+	});
+const asphaltTexture = () =>
+	dataTexture(64, 64, (x, y) => {
+		const c = 62 + 14 * grain(x, y, 'a') + 10 * grain(Math.floor(x / 8), Math.floor(y / 8), 'am');
+		return [c, c, c * 1.02];
+	});
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * 5. The bag: the land's geometry gathered by material and merged, a handful of draw calls.
+ * ---------------------------------------------------------------------------------------------------------------- */
+class Bag {
+	constructor() {
+		this.parts = new Map();
+	}
+	add(key, geo, color) {
+		const g = geo.index ? geo.toNonIndexed() : geo;
+		if (!g.attributes.normal) g.computeVertexNormals();
+		if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+		const c = new THREE.Color(color ?? '#ffffff');
+		const n = g.attributes.position.count;
+		const col = new Float32Array(n * 3);
+		for (let i = 0; i < n; i++) col.set([c.r, c.g, c.b], i * 3);
+		g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+		for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'color'].includes(k)) g.deleteAttribute(k);
+		if (!this.parts.has(key)) this.parts.set(key, []);
+		this.parts.get(key).push(g);
+	}
+	box(key, w, h, d, x, y, z, color, yaw = 0) {
+		const g = new THREE.BoxGeometry(w, h, d);
+		if (yaw) g.rotateY(yaw);
+		g.translate(x, y, z);
+		this.add(key, g, color);
+	}
+	meshes(materials) {
+		const flat = ['soil', 'stubble', 'crop', 'dirt', 'gravel', 'asphalt', 'paint', 'yellow'];
+		return [...this.parts].map(([key, list]) => {
+			const m = new THREE.Mesh(mergeGeometries(list, false), materials[key]);
+			m.name = key;
+			m.receiveShadow = true;
+			m.castShadow = !flat.includes(key);
+			return m;
+		});
+	}
+}
+/** a flat quad on the ground from (x0, z0) to (x1, z1) at height y, its uv in metres / `tile`: its rows along x, or along z when turned */
+function groundQuad(x0, z0, x1, z1, y = 0, tile = 1, turn = false) {
+	const g = new THREE.BufferGeometry();
+	const uv = (x, z) => (turn ? [z / tile, x / tile] : [x / tile, z / tile]);
+	g.setAttribute('position', new THREE.Float32BufferAttribute([x0, y, z0, x0, y, z1, x1, y, z1, x0, y, z0, x1, y, z1, x1, y, z0], 3));
+	g.setAttribute('uv', new THREE.Float32BufferAttribute([...uv(x0, z0), ...uv(x0, z1), ...uv(x1, z1), ...uv(x0, z0), ...uv(x1, z1), ...uv(x1, z0)], 2));
+	g.computeVertexNormals();
+	if (g.attributes.normal.getY(0) < 0) return groundQuad(x1, z0, x0, z1, y, tile, turn);
+	return g;
+}
+/** a ribbon on the ground along a polyline of [x, z], `w` wide, at height y, `off` to its side; its uv in metres */
+function ribbon(points, w, y = 0, off = 0) {
+	const p = [], t = [];
+	let along = 0;
+	const side = (i) => {
+		const a = points[Math.max(0, i - 1)], b = points[Math.min(points.length - 1, i + 1)];
+		const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1;
+		return [dz / l, -dx / l];
+	};
+	for (let i = 0; i < points.length - 1; i++) {
+		const [a, b] = [points[i], points[i + 1]];
+		const [na, nb] = [side(i), side(i + 1)];
+		const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+		const L = (q, n, s) => [q[0] + n[0] * (off + s), y, q[1] + n[1] * (off + s)];
+		const a0 = L(a, na, -w / 2), a1 = L(a, na, w / 2), b0 = L(b, nb, -w / 2), b1 = L(b, nb, w / 2);
+		p.push(...a0, ...b0, ...b1, ...a0, ...b1, ...a1);
+		t.push(0, along, 0, along + len, w, along + len, 0, along, w, along + len, w, along);
+		along += len;
+	}
+	const g = new THREE.BufferGeometry();
+	g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+	g.setAttribute('uv', new THREE.Float32BufferAttribute(t, 2));
+	g.computeVertexNormals();
+	// drawn from its far end it faces down: turn every triangle over
+	if (g.attributes.normal.getY(0) < 0) {
+		for (let i = 0; i < p.length; i += 9) for (let k = 0; k < 3; k++) [p[i + 3 + k], p[i + 6 + k]] = [p[i + 6 + k], p[i + 3 + k]];
+		g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+		g.computeVertexNormals();
+	}
+	return g;
+}
+/** a cross-section ([x, y] points) swept along z from z0 to z1 at x, mirrored by `sx` */
+function sweepZ(profile, x, z0, z1, sx = 1) {
+	const p = [];
+	for (let i = 0; i < profile.length - 1; i++) {
+		const [a, b] = [profile[i], profile[i + 1]];
+		const A0 = [x + sx * a[0], a[1], z0], B0 = [x + sx * b[0], b[1], z0], A1 = [x + sx * a[0], a[1], z1], B1 = [x + sx * b[0], b[1], z1];
+		if (sx > 0) p.push(...A0, ...A1, ...B1, ...A0, ...B1, ...B0);
+		else p.push(...A0, ...B1, ...A1, ...A0, ...B0, ...B1);
+	}
+	const g = new THREE.BufferGeometry();
+	g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+	g.computeVertexNormals();
+	return g;
+}
+/** a grey of its own: `lo` … `hi` × white */
+const tint = (seed, ...k) => {
+	const hi = k.pop(), lo = k.pop();
+	const v = lo + (hi - lo) * chance(seed, ...k);
+	return new THREE.Color(v, v, v * 0.99);
+};
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * 6. Guests and markers: a node named for a build, with its state nodes (each on while visible); named empties.
+ * ---------------------------------------------------------------------------------------------------------------- */
+function useNode(parent, hash, values, x, y, z, yaw, states = []) {
+	const n = new THREE.Group();
+	n.name = `use:${hash}${values ? `?${values}` : ''}`;
+	n.position.set(x, y, z);
+	n.rotation.y = yaw;
+	const st = {};
+	for (const s of states) {
+		const o = new THREE.Object3D();
+		o.name = `state:${s}`;
+		o.visible = false;
+		n.add(o);
+		st[s] = o;
+	}
+	parent.add(n);
+	return { node: n, st };
+}
+/** a named empty: the mood, a sound, a view, a camera seat */
+function marker(parent, name, x = 0, y = 0, z = 0) {
+	const o = new THREE.Object3D();
+	o.name = name;
+	o.position.set(x, y, z);
+	parent.add(o);
+	return o;
+}
+/** a view: the eye at `eye`, looking at `at` (a node looks along its +z) */
+function view(root, name, eye, at) {
+	marker(root, `view:${name}`, ...eye).lookAt(new THREE.Vector3(...at));
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * 7. The lanes: polylines of [x, z] in the way they are driven, their stop lines.
+ * ---------------------------------------------------------------------------------------------------------------- */
+class Lane {
+	constructor(id, pts, o = {}) {
+		Object.assign(this, { id, pts, speed: 13.9, stops: [], off: null, ...o });
+		this.cum = [0];
+		for (let i = 1; i < pts.length; i++) this.cum.push(this.cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+		this.length = this.cum.at(-1);
+		this.cars = [];
+	}
+	/** where it is `s` m along: x, z and the heading (rotation.y; a guest's front is its +z) */
+	at(s) {
+		let i = 0;
+		while (i < this.pts.length - 2 && this.cum[i + 1] < s) i++;
+		const [a, b] = [this.pts[i], this.pts[i + 1]];
+		const u = Math.min(1, Math.max(0, (s - this.cum[i]) / (this.cum[i + 1] - this.cum[i] || 1)));
+		let x = a[0] + (b[0] - a[0]) * u;
+		const z = a[1] + (b[1] - a[1]) * u;
+		if (this.off) x += this.off(z);
+		return { x, z, yaw: Math.atan2(b[0] - a[0], b[1] - a[1]) };
+	}
+	/** how far along it is where it reaches z (axis 1) or x (axis 0); null if it never does */
+	sAt(v, axis = 1) {
+		for (let i = 0; i < this.pts.length - 1; i++) {
+			const [a, b] = [this.pts[i][axis], this.pts[i + 1][axis]];
+			if ((v - a) * (v - b) <= 0 && a !== b) return this.cum[i] + ((v - a) / (b - a)) * (this.cum[i + 1] - this.cum[i]);
+		}
+		return null;
+	}
+}
+/** the rescue lane: in the jam the left lane edges toward the median and the others away (m, + toward the median) */
+const RESCUE = { hw: [0.95, -0.9, -0.9], av: [0.6, -0.9, -0.6], x: [-(HW.median / 2 + HW.inner + HW.lane) - 0.03, -(AV.median / 2 + AV.lane) - 0.15] };
+const blend = (z, hw, av) => (z < -80 ? hw : z > -20 ? av : hw + (av - hw) * ((z + 80) / 60));
+
+function lanesOf() {
+	const L = {};
+	const end = CITY.rows.at(-1) + 25;
+	for (let i = 0; i < HW.lanes; i++) {
+		// into the city: the highway and the avenue as one lane, the rescue lane's offset on it
+		L[`in-${i}`] = new Lane(`in-${i}`, [[-hwLaneX(i), HW.from], [-hwLaneX(i), -80], [-avLaneX(i), HW.to], [-avLaneX(i), end]], { speed: 25, off: (z) => blend(z, RESCUE.hw[i], RESCUE.av[i]), axis: 'ns' });
+		L[`out-${i}`] = new Lane(`out-${i}`, [[avLaneX(i), end], [avLaneX(i), HW.to], [hwLaneX(i), -80], [hwLaneX(i), HW.from]], { speed: 25, axis: 'ns' });
+	}
+	L.rescue = new Lane('rescue', [[RESCUE.x[0], HW.from], [RESCUE.x[0], -80], [RESCUE.x[1], HW.to], [RESCUE.x[1], end]], { speed: 12 });
+	L.exit = new Lane('exit', exitPath(), { speed: 15 });
+	// the streets: two lanes each way; eastbound on the south side (+z), westbound on the north
+	for (const z of CITY.rows)
+		for (let i = 0; i < 2; i++) {
+			L[`row-${z}-e-${i}`] = new Lane(`row-${z}-e-${i}`, [[-228, z + stLaneOff(i)], [228, z + stLaneOff(i)]], { speed: 12.5, axis: 'ew' });
+			L[`row-${z}-w-${i}`] = new Lane(`row-${z}-w-${i}`, [[228, z - stLaneOff(i)], [-228, z - stLaneOff(i)]], { speed: 12.5, axis: 'ew' });
+		}
+	// southbound on the west side of a street, northbound on the east
+	for (const x of CITY.cols.filter((c) => c !== 0))
+		for (let i = 0; i < 2; i++) {
+			L[`col-${x}-s-${i}`] = new Lane(`col-${x}-s-${i}`, [[x - stLaneOff(i), -18], [x - stLaneOff(i), 425]], { speed: 12.5, axis: 'ns' });
+			L[`col-${x}-n-${i}`] = new Lane(`col-${x}-n-${i}`, [[x + stLaneOff(i), 425], [x + stLaneOff(i), -18]], { speed: 12.5, axis: 'ns' });
+		}
+	// a stop line before every junction a lane crosses, 4.5 m behind the near kerb of the street it crosses
+	for (const lane of Object.values(L)) {
+		if (!lane.axis) continue;
+		const alongZ = lane.axis === 'ns';
+		const k = alongZ ? 1 : 0;
+		const heading = Math.sign(lane.pts.at(-1)[k] - lane.pts[0][k]);
+		const near = (list, v) => list.reduce((a, c) => (Math.abs(c - v) < Math.abs(a - v) ? c : a));
+		const fixed = alongZ ? near(CITY.cols, lane.pts.at(-1)[0]) : near(CITY.rows, lane.pts[0][1]);
+		for (const c of alongZ ? CITY.rows : CITY.cols) {
+			const half = alongZ ? CITY.street / 2 : widthOfCol(c) / 2;
+			const s = lane.sAt(c - heading * (half + 4.5), k);
+			if (s !== null) lane.stops.push({ s, junction: alongZ ? `${fixed}:${c}` : `${c}:${fixed}`, axis: lane.axis });
+		}
+		lane.stops.sort((a, b) => a.s - b.s);
+	}
+	return L;
+}
+/** the exit's line [x, z]: off the hard shoulder, curving out to the frontage road, along it to the supermarket */
+function exitPath() {
+	const pts = [];
+	const x0 = -HW_EDGE + 0.4;
+	for (let i = 0; i <= 12; i++) {
+		const u = i / 12, s = u * u * (3 - 2 * u);
+		pts.push([x0 + (EXIT.x - x0) * s, EXIT.from + (EXIT.bend - EXIT.from) * u]);
+	}
+	pts.push([EXIT.x, -150], [EXIT.x - 14, -128], [SHOP.x + 40, -128]);
+	return pts;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * 8. The signals: every junction on one cycle (s) from an offset of its own; the north-south greens the longer.
+ * ---------------------------------------------------------------------------------------------------------------- */
+const CYCLE = [['ns', 'green', 32], ['ns', 'amber', 3], ['all', 'red', 2], ['ew', 'green', 22], ['ew', 'amber', 3], ['all', 'red', 2]];
+const PERIOD = CYCLE.reduce((a, c) => a + c[2], 0);
+/** a junction's colour for an axis at time t */
+function lightAt(offset, axis, t) {
+	let p = (((t + offset) % PERIOD) + PERIOD) % PERIOD;
+	for (const [ax, colour, d] of CYCLE) {
+		if (p < d) return ax === axis ? colour : 'red';
+		p -= d;
+	}
+	return 'red';
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * 9. The land's materials: tired, desaturated, dull.
+ * ---------------------------------------------------------------------------------------------------------------- */
+function materialsOf() {
+	const M = (o) => new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0, vertexColors: true, ...o });
+	return {
+		concrete: M({ color: '#8c8b86' }),
+		roof: M({ color: '#5d5d5a' }),
+		asphalt: M({ map: asphaltTexture(), color: '#8a8580' }),
+		sidewalk: M({ color: '#7f7c76' }),
+		paint: M({ color: '#d8d6c8', roughness: 0.7 }),
+		yellow: M({ color: '#c8a640', roughness: 0.7 }),
+		steel: M({ color: '#8a8f93', metalness: 0.6, roughness: 0.55 }),
+		rust: M({ color: '#6b5a4c', metalness: 0.3, roughness: 0.8 }),
+		soil: M({ map: soilTexture() }),
+		stubble: M({ map: stubbleTexture() }),
+		crop: M({ map: cropTexture() }),
+		dirt: M({ color: '#6e6151' }),
+		gravel: M({ color: '#6f6a61' }),
+		mist: new THREE.MeshStandardMaterial({ color: '#d9dcd2', transparent: true, opacity: 0.3, depthWrite: false, roughness: 1 })
+	};
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * 10. The land: fields to the horizon (no trees, no hedges), field tracks, the edge land.
+ * ---------------------------------------------------------------------------------------------------------------- */
+function buildFields(seed, bag, root, fieldMats) {
+	const KIND = ['tilled', 'stubble', 'crop', 'tilled', 'stubble', 'tilled'];
+	const out = [];
+	const parcels = (xa, xb, side) => {
+		const xs = [xa];
+		let x = xa, k = 0;
+		while (Math.abs(x - xa) < Math.abs(xb - xa)) {
+			x += side * between(seed, 300, 620, 'px', side, k++);
+			xs.push(side > 0 ? Math.min(x, xb) : Math.max(x, xb));
+		}
+		for (let i = 0; i < xs.length - 1; i++) {
+			let z = -3200, j = 0;
+			while (z < -60) {
+				const z1 = Math.min(-60, z + between(seed, 380, 760, 'pz', side, i, j));
+				const [x0, x1] = [Math.min(xs[i], xs[i + 1]), Math.max(xs[i], xs[i + 1])];
+				const spray = SPRAY.x > x0 && SPRAY.x < x1 && SPRAY.z > z && SPRAY.z < z1;
+				const kind = spray ? 'crop' : pickOf(seed, KIND, 'pk', side, i, j);
+				// beside the highway's last stretch the fields give way to the edge land
+				const edge = side < 0 && i === 0 && z1 > EDGE.z0;
+				const xr = edge ? Math.min(x1, EDGE.x0) : x1;
+				if (xr - x0 > 60) out.push({ x0: x0 + 2, x1: xr - 2, z0: z + 2, z1: z1 - 2, kind, spray });
+				if (edge && x1 > EDGE.x0 && EDGE.z0 - z > 60) out.push({ x0: EDGE.x0 + 2, x1: x1 - 2, z0: z + 2, z1: EDGE.z0 - 2, kind });
+				z = z1;
+				j++;
+			}
+		}
+	};
+	parcels(-HW_EDGE - HW.verge - 2, -3200, -1);
+	parcels(HW_EDGE + HW.verge + 2, 3200, 1);
+	// the land round the city: more of the same, the city's edge left out
+	for (const [x0, x1] of [[-3200, -660], [660, 3200]]) {
+		let z = -60, j = 0;
+		while (z < 1600) {
+			const z1 = Math.min(1600, z + between(seed, 400, 700, 'bz', x0, j));
+			out.push({ x0: x0 + 2, x1: x1 - 2, z0: z + 2, z1: z1 - 2, kind: pickOf(seed, KIND, 'bk', x0, j) });
+			z = z1;
+			j++;
+		}
+	}
+	// each field its own mesh named for its biome, its rows along its long side (the sprayer's along its tramlines, z)
+	for (const f of out) {
+		const along = f.spray ? false : f.x1 - f.x0 >= f.z1 - f.z0;
+		const g = groundQuad(f.x0, f.z0, f.x1, f.z1, 0, FURROW * 8, !along);
+		const c = f.kind === 'tilled' ? tint(seed, 'f', f.x0, f.z0, 0.88, 1.06) : new THREE.Color('#ffffff');
+		g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 3).map((_, k) => [c.r, c.g, c.b][k % 3]), 3));
+		const m = new THREE.Mesh(g, fieldMats[f.kind]);
+		m.name = BIOMES[f.kind] ? `biome:${BIOMES[f.kind]} rows:${along ? 0 : 90}` : `field:${f.kind}`;
+		m.receiveShadow = true;
+		root.add(m);
+	}
+	// the tracks between the fields: the bare ground under everything
+	bag.add('dirt', groundQuad(-3300, -3300, 3300, 1700, -0.04, 50));
+	// the edge land where the fields stop: dry weedy ground and its litter (the roadside verge), the yards on it
+	const eg = groundQuad(EDGE.x0, EDGE.z0, -HW_EDGE - HW.verge, -12, 0.005, 6);
+	eg.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(eg.attributes.position.count * 3).fill(0.95), 3));
+	const edge = new THREE.Mesh(eg, fieldMats.verge);
+	edge.name = `biome:${BIOMES.verge} rows:90`;
+	edge.receiveShadow = true;
+	root.add(edge);
+	// tramlines in the sprayer's field every 24 m (its boom), where its wheels run
+	const sf = out.find((f) => f.spray);
+	if (sf) for (let x = sf.x0 + 12; x < sf.x1 - 6; x += 24) for (const dx of [-0.95, 0.95]) bag.add('dirt', groundQuad(x + dx - 0.25, sf.z0, x + dx + 0.25, sf.z1, 0.02, 4), '#c8c0b0');
+	return sf;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * 11. The highway: carriageways, markings, the median barrier, guardrails, twin masts, gantries, billboards, the exit.
+ * ---------------------------------------------------------------------------------------------------------------- */
+const GANTRIES = [-1640, -1020, -880, -360];
+function buildHighway(seed, bag, root, inst, vergeMat) {
+	const { from, to } = HW;
+	for (const s of [-1, 1]) {
+		bag.add('asphalt', groundQuad(Math.min(s * 0.3, s * HW_EDGE), from, Math.max(s * 0.3, s * HW_EDGE), to + 2, 0.05, 8));
+		// the banks: the roadside verge, its rows along the road
+		const vg = groundQuad(Math.min(s * HW_EDGE, s * (HW_EDGE + HW.verge)), from, Math.max(s * HW_EDGE, s * (HW_EDGE + HW.verge)), to, 0.0, 4);
+		vg.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(vg.attributes.position.count * 3).fill(0.8), 3));
+		const verge = new THREE.Mesh(vg, vergeMat);
+		verge.name = `biome:${BIOMES.verge} rows:90`;
+		verge.receiveShadow = true;
+		root.add(verge);
+		// edge lines, and the dashed lane lines (6 m dash, 12 m gap)
+		for (const x of [HW.median / 2 + HW.inner - 0.075, HW.median / 2 + HW.inner + HW.lane * HW.lanes + 0.075]) bag.add('paint', groundQuad(s * x - 0.075, from, s * x + 0.075, to, 0.06));
+		for (let i = 1; i < HW.lanes; i++) for (let z = from; z < to - 6; z += 18) inst.dash.push([s * (HW.median / 2 + HW.inner + HW.lane * i), 0.061, z + 3, 0.15, 6]);
+	}
+	bag.add('asphalt', groundQuad(-0.6, from, 0.6, to, 0.05, 8));
+	// the median barrier: the accepted 4 m segments near the city (a gap at each gantry's leg), the same profile beyond
+	const leg = (z) => GANTRIES.some((g) => Math.abs(z - g) < 3 || Math.abs(z - g - 60) < 3);
+	for (let z = NEAR + 2; z < to - 2; z += 4) if (!leg(z)) useNode(root, H.jersey, 'seed=old', 0, 0, z, Math.PI / 2);
+	const jersey = [[0, 0.81], [0.075, 0.81], [0.1, 0.33], [0.3, 0.08], [0.305, 0]];
+	for (const s of [-1, 1]) bag.add('concrete', sweepZ(jersey, 0, from, NEAR, s), '#9a9890');
+	// guardrails on the outer edges, the traffic side to the road; a gap where the exit leaves
+	for (const s of [-1, 1]) {
+		const x = s * (HW_EDGE + 0.45);
+		const exitGap = (z) => s < 0 && z > EXIT.from - 6 && z < EXIT.from + 150;
+		for (let z = NEAR + 2; z < to - 2; z += 4) if (!exitGap(z)) useNode(root, H.guardrail, 'seed=old', x, 0, z, s < 0 ? Math.PI / 2 : -Math.PI / 2);
+		const beam = [[0, 0.55], [0.05, 0.6], [0, 0.66], [0.05, 0.72], [0, 0.77]];
+		for (let z = from; z < NEAR; z += 40) {
+			bag.add('steel', sweepZ(beam, x, z, Math.min(NEAR, z + 40), -s));
+			for (let zz = z; zz < Math.min(NEAR, z + 40); zz += 2) inst.post.push([x + s * 0.1, 0.375, zz]);
+		}
+	}
+	// twin light masts on the median every 50 m, their arms over both carriageways
+	for (let z = from + 25; z < to; z += 50) if (!leg(z)) useNode(root, H.lamp, 'kind=2&seed=old', 0, 0, z, Math.PI / 2);
+	// sign gantries over each carriageway (one leg in the median, one on the verge), the signs to the oncoming traffic
+	for (const z of GANTRIES) {
+		useNode(root, H.gantry, `seed=g${GANTRIES.indexOf(z) & 1}`, -11, 0, z, Math.PI);
+		useNode(root, H.gantry, `seed=g${(GANTRIES.indexOf(z) + 1) & 1}`, 11, 0, z + 60, 0);
+	}
+	// billboards on the way in, faded posters to the traffic into the city
+	for (const [x, z, k] of [[-31, -1180, 0], [32, -620, 1], [-32, -470, 2], [31, -250, 3]]) useNode(root, H.billboard, `lit=1&seed=old${k % 2}`, x, 0, z, x < 0 ? Math.PI * 0.92 : Math.PI * 1.08);
+	// the exit: its carriageway and edge line, the frontage road
+	const ep = exitPath();
+	bag.add('asphalt', ribbon(ep, 7, 0.05));
+	bag.add('paint', ribbon(ep.slice(0, 13), 0.15, 0.06, 3.3));
+	for (let z = EXIT.bend; z < -170; z += 12) inst.dash.push([EXIT.x, 0.061, z + 1.5, 0.12, 3]);
+	bag.add('asphalt', groundQuad(EXIT.x - 4, -160, EXIT.x + 4, -6, 0.05, 8));
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * 12. The city: streets, sidewalks, crossings, signals, lamps, the blocks, the supermarket, the edge land.
+ * ---------------------------------------------------------------------------------------------------------------- */
+/** a block's buildings in its 80 × 80 m lot: [kind, dx, dz, yaw, values], each front (+z) to a street */
+const BLOCK_PLANS = [
+	[['slab', 0, 30, 0, 'length=60'], ['tower', -26, -12, Math.PI, ''], ['shops', 15, -32, Math.PI, '']],
+	[['office', 0, 22, 0, ''], ['shops', 0, -30, Math.PI, '']],
+	[['tower', -18, 14, 0, ''], ['tower', 18, -14, Math.PI, ''], ['slab', 18, 30, 0, 'length=36'], ['slab', -18, -30, Math.PI, 'length=36']],
+	[['carpark', 0, 20, 0, ''], ['slab', 0, -28, Math.PI, 'length=60']],
+	[['shops', 0, 32, 0, ''], ['slab', 0, -28, Math.PI, 'length=72'], ['tower', -26, 6, -Math.PI / 2, 'axes=5']]
+];
+function buildCity(seed, bag, root, inst, signals) {
+	const [X0, X1, Z0, Z1] = [-230, 230, -12, 425];
+	bag.add('asphalt', groundQuad(X0, Z0, X1, Z1, 0.05, 8));
+	bag.box('concrete', AV.median, 0.18, Z1 - Z0 - 24, 0, 0.09, (Z0 + Z1) / 2 + 12, '#8a8780');
+	let b = 0;
+	for (let i = 0; i < CITY.cols.length - 1; i++)
+		for (let j = 0; j < CITY.rows.length - 1; j++, b++) {
+			const xa = CITY.cols[i] + widthOfCol(CITY.cols[i]) / 2 - CITY.sidewalk, xb = CITY.cols[i + 1] - widthOfCol(CITY.cols[i + 1]) / 2 + CITY.sidewalk;
+			const za = CITY.rows[j] + CITY.street / 2 - CITY.sidewalk, zb = CITY.rows[j + 1] - CITY.street / 2 + CITY.sidewalk;
+			const [cx, cz] = [(xa + xb) / 2, (za + zb) / 2];
+			// the sidewalks and the lot as one raised slab; the lot worn paving
+			bag.box('sidewalk', xb - xa, 0.15, zb - za, cx, 0.125, cz, tint(seed, 'sw', i, j, 0.9, 1.02));
+			bag.box('gravel', xb - xa - 2 * CITY.sidewalk, 0.02, zb - za - 2 * CITY.sidewalk, cx, 0.21, cz, tint(seed, 'lot', i, j, 0.55, 0.7));
+			// street lamps along its sidewalks every 30 m, the bracket over the road
+			for (let x = xa + 10; x < xb - 8; x += 30) for (const [z, f] of [[za + 0.7, Math.PI], [zb - 0.7, 0]]) useNode(root, H.lamp, `kind=0&seed=c${Math.abs(x | 0) & 1}`, x, 0.2, z, f);
+			for (let z = za + 10; z < zb - 8; z += 30) for (const [x, f] of [[xa + 0.7, -Math.PI / 2], [xb - 0.7, Math.PI / 2]]) useNode(root, H.lamp, `kind=0&seed=c${Math.abs(z | 0) & 1}`, x, 0.2, z, f);
+			// its buildings by a plan the seed picks, the plan turned so no two blocks read alike
+			const plan = BLOCK_PLANS[Math.floor(chance(seed, 'plan', i, j) * BLOCK_PLANS.length)];
+			const turn = Math.floor(chance(seed, 'turn', i, j) * 4) * (Math.PI / 2);
+			const c = Math.cos(turn), s = Math.sin(turn);
+			plan.forEach(([kind, dx, dz, yaw, vals], k) => {
+				const x = cx + dx * c + dz * s, z = cz - dx * s + dz * c;
+				// one of three variants of its kind, the skyline's own (the same heights and seeds): a few builds shared by every
+				// block, not one of its own for each building (123 builds were more than a phone holds)
+				const v = Math.floor(chance(seed, 'fl', b, k) * 3);
+				const floors = kind === 'slab' || kind === 'office' ? `floors=${[7, 10, 14][v]}` : kind === 'tower' ? `floors=${[14, 20, 26][v]}` : '';
+				useNode(root, H[kind], [vals, floors, `seed=o${v}`].filter(Boolean).join('&'), x, 0.23, z, yaw + turn);
+			});
+		}
+	// the markings: a double yellow down each street, lane dashes, stop lines and zebras at every corner
+	for (const x of CITY.cols) {
+		if (x !== 0) bag.add('yellow', groundQuad(x - 0.2, Z0, x + 0.2, Z1, 0.06));
+		const each = x === 0 ? 3 : 2, lw = x === 0 ? AV.lane : 3, mid = x === 0 ? AV.median / 2 : 0.1;
+		for (const s of [-1, 1]) for (let k = 1; k < each; k++) for (let z = Z0; z < Z1; z += 9) if (!nearRow(z + 1.5)) inst.dash.push([x + s * (mid + lw * k), 0.061, z + 1.5, 0.12, 3]);
+	}
+	for (const z of CITY.rows) {
+		bag.add('yellow', groundQuad(X0, z - 0.2, X1, z + 0.2, 0.06));
+		for (const s of [-1, 1]) for (let x = X0; x < X1; x += 9) if (!nearCol(x + 1.5)) inst.dashX.push([x + 1.5, 0.061, z + s * 3.1, 3, 0.12]);
+	}
+	for (const x of CITY.cols)
+		for (const z of CITY.rows) {
+			const wx = widthOfCol(x), wz = CITY.street, cw = carriageHalf(x);
+			for (const s of [-1, 1]) {
+				const zc = z + s * (wz / 2 + 2);
+				for (let k = -cw + 0.5; k < cw; k += 1.0) inst.zebra.push([x + k, 0.062, zc, 0.5, 3]);
+				bag.add('paint', groundQuad(Math.min(x, x - s * cw), zc + s * 2.1, Math.max(x, x - s * cw), zc + s * 2.5, 0.062));
+				const xc = x + s * (wx / 2 + 2);
+				for (let k = -5.5; k < 6; k += 1.0) inst.zebra.push([xc, 0.062, z + k, 3, 0.5]);
+				bag.add('paint', groundQuad(Math.min(xc + s * 2.1, xc + s * 2.5), Math.min(z, z + s * 6), Math.max(xc + s * 2.1, xc + s * 2.5), Math.max(z, z + s * 6), 0.062));
+			}
+			// a signal for each approach at its right kerb by the stop line, facing the traffic that comes to it
+			const kind = x === 0 ? 1 : 0;
+			for (const [axis, px, pz, yaw, k] of [
+				['ns', x - cw - 0.7, z - wz / 2 - 3, Math.PI, kind],
+				['ns', x + cw + 0.7, z + wz / 2 + 3, 0, kind],
+				['ew', x - wx / 2 - 3, z + 6.7, -Math.PI / 2, 0],
+				['ew', x + wx / 2 + 3, z - 6.7, Math.PI / 2, 0]
+			]) {
+				const g = useNode(root, H.signal, `kind=${k}&seed=old`, px, 0.2, pz, yaw, ['red', 'amber', 'green']);
+				signals.push({ junction: `${x}:${z}`, axis, st: g.st });
+			}
+		}
+	// the city beyond what is built: its grid goes on, streets and lots under slabs, towers and offices to the skyline
+	const OUT = { cols: [-555, -455, -355, 355, 455, 555], rows: [0, 100, 200, 300, 400, 500, 600, 700, 800, 900] };
+	bag.add('asphalt', groundQuad(-600, -10, -230, 900, 0.04, 8), '#b8b4ae');
+	bag.add('asphalt', groundQuad(230, -10, 600, 900, 0.04, 8), '#b8b4ae');
+	bag.add('asphalt', groundQuad(-230, 425, 230, 900, 0.04, 8), '#b8b4ae');
+	const outBlock = (cx, cz, k) => {
+		bag.box('sidewalk', 88, 0.15, 88, cx, 0.115, cz, tint(seed, 'osw', k, 0.85, 1.0));
+		bag.box('gravel', 80, 0.02, 80, cx, 0.2, cz, tint(seed, 'olot', k, 0.55, 0.7));
+		// a few kinds only (each kind is drawn and pictured once, however many stand): the far city repeats unseen
+		const kind = pickOf(seed, ['slab', 'slab', 'tower', 'tower', 'office'], 'sk', k);
+		const v = Math.floor(chance(seed, 'sv', k) * 3);
+		const fl = kind === 'tower' ? [14, 20, 26][v] : [7, 10, 14][v];
+		useNode(root, H[kind], `floors=${fl}&seed=o${v}`, cx, 0.22, cz, Math.floor(chance(seed, 'sy', k) * 4) * (Math.PI / 2));
+	};
+	let k = 0;
+	// beside the grid, east and west, from the city's first street to its last and beyond
+	for (const side of [-1, 1]) for (const x of [-300, -400, -500]) for (let z = 50; z < 900; z += 100) outBlock(side * -x, z, k++);
+	// behind it, south of its last street
+	for (const x of [-155, -55, 55, 155]) for (let z = 475; z < 900; z += 100) outBlock(x, z, k++);
+	for (const [x0, x1, z0, z1] of [[-660, -600, -60, 920], [600, 660, -60, 920], [-600, 600, 900, 920], [-600, -230, -60, -10], [230, 600, -60, -10]]) bag.add('gravel', groundQuad(x0, z0, x1, z1, 0.01, 6), '#a09a90');
+	// the discount supermarket on the city's edge, its lot to the street; the abandoned gas station; the bus stop
+	useNode(root, H.supermarket, 'rows=4&seed=old-city', SHOP.x, 0, SHOP.z, 0);
+	useNode(root, H.gasStation, '', EXIT.x - 26, 0, -330, Math.PI / 2);
+	bag.add('asphalt', groundQuad(EXIT.x - 44, -350, EXIT.x - 4, -310, 0.04, 8), '#b0aca4');
+	useNode(root, H.busStop, '', -13.2, 0.2, 150, -Math.PI / 2);
+	for (let k = 0; k < 6; k++) useNode(root, H.bollard, `kind=0&seed=p${k}`, SHOP.x - 36 + k * 1.4, 0, SHOP.z + 9.5, 0);
+	buildEdgeLand(seed, bag, root);
+}
+const nearRow = (z) => CITY.rows.some((r) => Math.abs(z - r) < CITY.street / 2 + 4.5);
+const nearCol = (x) => CITY.cols.some((c) => Math.abs(x - c) < widthOfCol(c) / 2 + 4.5);
+/** the edge land along the frontage road: sheds in fenced yards, nothing green */
+function buildEdgeLand(seed, bag, root) {
+	[[-150, -720], [-160, -620], [-150, -500], [-165, -420], [-150, -250]].forEach(([x, z], k) => {
+		const [w, h, d] = chance(seed, 'wy', k) < 0.5 ? [44, 9, 30] : [30, 8, 44];
+		bag.box('concrete', w, h, d, x, h / 2, z, tint(seed, 'wh', k, 0.6, 0.85));
+		bag.box('roof', w + 0.6, 0.4, d + 0.6, x, h + 0.2, z);
+		bag.box('rust', 0.2, 5, 5, x + w / 2 + 0.05, 2.5, z, '#8a8a86');
+		const [yx0, yx1, yz0, yz1] = [x - 34, x + 34, z - 30, z + 30];
+		bag.add('sidewalk', groundQuad(yx0, yz0, yx1, yz1, 0.03, 4), '#a09c94');
+		for (const [ax, az, bx, bz] of [[yx0, yz0, yx1, yz0], [yx0, yz1, yx1, yz1], [yx0, yz0, yx0, yz1]]) bag.box('steel', 0.04, 2.0, Math.hypot(bx - ax, bz - az), (ax + bx) / 2, 1.0, (az + bz) / 2, '#5a5d5f', Math.atan2(bx - ax, bz - az));
+	});
+	for (const [x, z, yaw] of [[-262, -900, 0.3], [330, -1460, -0.2], [-610, -1720, 1.4], [-110, -790, 0]]) useNode(root, H.oldShed, '', x, 0, z, yaw);
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * 13. Power lines: the accepted pylons every ~340 m, the conductors sagging between their clamps.
+ * ---------------------------------------------------------------------------------------------------------------- */
+/** where the pylon's six conductors and two earth wires hang, in its own frame (its lines run along its ±z) */
+const CLAMPS = [[-5.6, 19.291], [-10.8, 19.281], [-7, 29.282], [5.6, 19.291], [10.8, 19.281], [7, 29.282], [-3.2, 41.15], [3.2, 41.15]];
+function buildPowerLines(root) {
+	const wires = [];
+	for (const [a, b] of [[[300, -3000], [300, -60]], [[-2600, -1300], [2600, -1300]], [[-2400, -440], [-640, -110]]]) {
+		const n = Math.max(1, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / 340));
+		const yaw = Math.atan2(b[0] - a[0], b[1] - a[1]);
+		const c = Math.cos(yaw), s = Math.sin(yaw);
+		const tops = [];
+		for (let i = 0; i <= n; i++) {
+			const x = a[0] + ((b[0] - a[0]) * i) / n, z = a[1] + ((b[1] - a[1]) * i) / n;
+			// never on the highway or in the city: the line spans over them
+			if (Math.abs(x) < HW_EDGE + HW.verge + 6 || (x > -240 && x < 240 && z > -30)) {
+				tops.push(tops.length && tops.at(-1) === null ? null : 'span');
+				continue;
+			}
+			useNode(root, H.pylon, '', x, 0, z, yaw);
+			tops.push(CLAMPS.map(([cx, cy]) => [x + cx * c, cy, z - cx * s]));
+		}
+		// string each pylon to the next one standing
+		const standing = tops.filter((p) => Array.isArray(p));
+		for (let i = 0; i < standing.length - 1; i++)
+			for (let k = 0; k < CLAMPS.length; k++) {
+				const [p, q] = [standing[i][k], standing[i + 1][k]];
+				const sag = Math.hypot(q[0] - p[0], q[2] - p[2]) * (k > 5 ? 0.028 : 0.036);
+				const P = (u) => [p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u - 4 * sag * u * (1 - u), p[2] + (q[2] - p[2]) * u];
+				for (let t = 0; t < 16; t++) wires.push(...P(t / 16), ...P((t + 1) / 16));
+			}
+	}
+	const g = new THREE.BufferGeometry();
+	g.setAttribute('position', new THREE.Float32BufferAttribute(wires, 3));
+	const m = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: '#2f3133' }));
+	m.name = 'power-lines';
+	root.add(m);
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * 14. The traffic.
+ * ---------------------------------------------------------------------------------------------------------------- */
+/** the intelligent driver model: minimum gap (m), time headway (s), comfortable acceleration and braking (m/s²) */
+const IDM = { s0: 2.0, T: 1.3, a: 1.4, b: 2.2 };
+const accel = (v, wish, gap, dv) => {
+	const sStar = IDM.s0 + Math.max(0, v * IDM.T + (v * dv) / (2 * Math.sqrt(IDM.a * IDM.b)));
+	return IDM.a * (1 - (v / wish) ** 4 - (sStar / Math.max(0.1, gap)) ** 2);
+};
+/** how many run: the loop into and out of the city, the streets' lanes, the far flow, the exit's lorries */
+const COUNT = { main: 290, perRow: 2, perCol: 1, far: 9, exit: 3 };
+/** the ambulance and the police car on their timetable: every `period` s from `from` up the rescue lane, `gap` m apart */
+const BLUE = { period: 150, from: -1150, phase: 131, gap: 26 };
+
+function makeVehicle(root, seed, key, kindName, states) {
+	const kind = KINDS[kindName];
+	const g = useNode(root, pickOf(seed, kind.h, 'paint', key), '', 0, 0.05, 0, 0, states);
+	return { ...g, kind: kindName, L: kind.L, truck: !!kind.truck, v: 0, s: 0, lane: null, wish: 13.9, queued: 0, honk: 0, wait: 0, k: 0 };
+}
+const show = (m, on) => (m.node.visible = on);
+function place(m) {
+	const p = m.lane.at(m.s);
+	m.node.position.set(p.x, 0.05, p.z);
+	m.node.rotation.y = p.yaw;
+}
+
+function buildTraffic(seed, root, lanes, signals, field, mats) {
+	const rnd = stream(`${seed}:traffic`);
+	const offsetOf = {};
+	for (const x of CITY.cols) for (const z of CITY.rows) offsetOf[`${x}:${z}`] = Math.floor(chance(seed, 'jo', x, z) * PERIOD);
+	const movers = [];
+	const pick = (key) => (chance(seed, 'truck?', key) < 0.24 ? weighted(seed, MIX_TRUCKS, 'tk', key) : weighted(seed, MIX_CARS, 'ck', key));
+	const states = (k) => ['head', 'tail', 'brake', 'horn', ...(KINDS[k].truck ? ['engine'] : [])];
+
+	// the far end of the jam: standing still from 1.27 km out to 330 m, brake lights on, the rescue lane open
+	for (let i = 0; i < HW.lanes; i++) {
+		const lane = lanes[`in-${i}`];
+		let s = lane.sAt(JAM.tail), n = 0;
+		const end = lane.sAt(JAM.front);
+		for (;;) {
+			const truck = i > 0 && chance(seed, 'jt', i, n) < (i === 2 ? 0.42 : 0.25);
+			const kind = truck ? weighted(seed, MIX_TRUCKS, 'jk', i, n) : weighted(seed, MIX_CARS, 'jc', i, n);
+			const L = KINDS[kind].L;
+			if (s + L > end) break;
+			const m = makeVehicle(root, seed, `jam${i}-${n}`, kind, ['brake', ...(truck ? ['engine'] : [])]);
+			m.st.brake.visible = true;
+			if (m.st.engine) m.st.engine.visible = true;
+			m.lane = lane;
+			m.s = s + L / 2;
+			place(m);
+			s += L + between(seed, 1.6, 3.4, 'jg', i, n);
+			n++;
+		}
+	}
+	// the cars parked in the supermarket's lot: its 2.5 × 5 m spaces in four rows, most taken
+	[[15.5, Math.PI], [26.5, 0], [31.5, Math.PI], [42.5, 0]].forEach(([lz, yaw], r) => {
+		for (let k = 0; k < 34; k++) {
+			if (chance(seed, 'park', r, k) > 0.72) continue;
+			const m = makeVehicle(root, seed, `park${r}-${k}`, weighted(seed, MIX_CARS.filter(([n]) => n !== 'taxi'), 'pk', r, k), []);
+			m.node.position.set(SHOP.x - 41.75 + k * 2.5, 0.05, SHOP.z + lz);
+			m.node.rotation.y = yaw + (chance(seed, 'py', r, k) - 0.5) * 0.06;
+		}
+	});
+
+	// the loop: in along the highway and the avenue, a U-turn out of sight, out again, back in at the jam's front
+	const main = [];
+	for (let k = 0; k < COUNT.main; k++) {
+		const kind = pick(`m${k}`);
+		const i = KINDS[kind].truck ? 1 + Math.floor(chance(seed, 'tl', k) * 2) : Math.floor(chance(seed, 'cl', k) * 3);
+		const m = makeVehicle(root, seed, `m${k}`, kind, states(kind));
+		Object.assign(m, { group: 'main', i, wish: (KINDS[kind].truck ? 22 : 26) * (0.9 + 0.15 * chance(seed, 'w', k)) });
+		m.st.head.visible = m.st.tail.visible = true;
+		if (m.st.engine) m.st.engine.visible = true;
+		movers.push(m);
+		main.push(m);
+	}
+	// spread along the loop at the start: most in the moving jam and the avenue's queues, a fifth outbound
+	[0, 1, 2].forEach((i) => {
+		const list = main.filter((m) => m.i === i);
+		const lin = lanes[`in-${i}`], lout = lanes[`out-${i}`];
+		const outbound = Math.floor(list.length * 0.22);
+		let s = lin.sAt(JAM.front) + 1;
+		for (const m of list.slice(outbound)) {
+			if (s + m.L > lin.length - 2) {
+				Object.assign(m, { state: 'wait', wait: 1 });
+				show(m, false);
+				continue;
+			}
+			Object.assign(m, { lane: lin, s: s + m.L / 2, state: 'in' });
+			s += m.L + 2.5 + 4 * chance(seed, 'sp', i, s | 0);
+		}
+		let so = 10;
+		for (const m of list.slice(0, outbound)) {
+			if (so > lout.sAt(-1000) - 20) {
+				Object.assign(m, { state: 'wait', wait: 1 });
+				show(m, false);
+				continue;
+			}
+			Object.assign(m, { lane: lout, s: so, v: 12, state: 'out' });
+			so += 25 + 30 * chance(seed, 'so', i, so | 0);
+		}
+	});
+	// the streets: a car or two on each lane, round and round
+	for (const lane of Object.values(lanes).filter((l) => l.id.startsWith('row-') || l.id.startsWith('col-'))) {
+		const n = lane.id.startsWith('row-') ? COUNT.perRow : COUNT.perCol;
+		for (let k = 0; k < n; k++) {
+			const kind = chance(seed, 'st', lane.id, k) < 0.15 ? 'taxi' : chance(seed, 'st2', lane.id, k) < 0.08 ? 'boxTruck' : weighted(seed, MIX_CARS, 'sc', lane.id, k);
+			const m = makeVehicle(root, seed, `${lane.id}-${k}`, kind, states(kind));
+			Object.assign(m, { group: 'street', lane, s: ((k + chance(seed, 'ss', lane.id)) / n) * lane.length * 0.9, wish: 12.5, state: 'in' });
+			m.st.head.visible = m.st.tail.visible = true;
+			if (m.st.engine) m.st.engine.visible = true;
+			movers.push(m);
+		}
+	}
+	// the far flow: out of the haze toward the jam's tail, where it stops (and, standing a while, is swallowed)
+	for (let k = 0; k < COUNT.far; k++) {
+		const i = k % 3, kind = i === 2 && k % 2 ? 'semi' : pick(`f${k}`);
+		const m = makeVehicle(root, seed, `f${k}`, kind, states(kind));
+		Object.assign(m, { group: 'far', i, lane: lanes[`in-${i}`], s: 60 + k * 70, v: 20, wish: 24, state: 'in' });
+		m.st.head.visible = m.st.tail.visible = true;
+		if (m.st.engine) m.st.engine.visible = true;
+		movers.push(m);
+	}
+	// lorries taking the exit to the supermarket
+	for (let k = 0; k < COUNT.exit; k++) {
+		const kind = k === 1 ? 'boxTruck' : 'semi';
+		const m = makeVehicle(root, seed, `x${k}`, kind, states(kind));
+		Object.assign(m, { group: 'exit', lane: lanes.exit, s: 20 + k * 150, v: 10, wish: 14, state: 'in' });
+		m.st.head.visible = m.st.tail.visible = m.st.engine.visible = true;
+		movers.push(m);
+	}
+	for (const m of movers) if (m.state === 'in' || m.state === 'out') place(m);
+	// the ambulance and the police car, on their timetable up the rescue lane and the avenue
+	const amb = makeVehicle(root, seed, 'amb', 'ambulance', ['head', 'tail', 'beacon', 'siren']);
+	const pol = makeVehicle(root, seed, 'pol', 'police', ['head', 'tail', 'beacon', 'siren']);
+	for (const m of [amb, pol]) m.st.head.visible = m.st.tail.visible = m.st.beacon.visible = m.st.siren.visible = true;
+	// the crop sprayer, its booms open, up and down its tramlines at 10 km/h; the drift under its booms
+	const tractor = useNode(root, H.tractorField, '', SPRAY.x, 0, SPRAY.z, 0, ['head', 'engine', 'spray']);
+	tractor.st.engine.visible = tractor.st.head.visible = true;
+	const mist = [];
+	for (let k = 0; k < 6; k++) {
+		const veil = new THREE.Mesh(new THREE.PlaneGeometry(25 + k * 2.5, 1.0 + k * 0.5), mats.mist);
+		veil.position.set(0, 0.6 + k * 0.28, -4.2 - k * 2.4);
+		veil.rotation.x = -0.25;
+		veil.name = 'spray-mist';
+		tractor.node.add(veil);
+		mist.push(veil);
+	}
+
+	// camera seats for film: a driver in the jam, the ambulance's driver and a chase behind it, a food lorry's cab
+	const seat = (m, name, x, y, z, tilt = 0) => (marker(m.node, `frame:${name}`, x, y, z).rotation.x = tilt);
+	const jamCar = main.find((m) => m.state === 'in' && m.i === 1 && !m.truck && m.lane.at(m.s).z > -280);
+	if (jamCar) seat(jamCar, 'driver', 0.38, 1.15, -0.2);
+	seat(amb, 'ambulance-driver', 0.5, 1.9, 1.9);
+	seat(amb, 'chase', 0, 4.6, -17, 0.14);
+	const lorry = main.find((m) => m.state === 'in' && m.kind === 'semi');
+	if (lorry) seat(lorry, 'lorry-cab', 0.6, 2.6, 6.9);
+	seat(tractor, 'sprayer-cab', 0.2, 2.6, 0.6);
+
+	/* -------- one step of everything -------- */
+	let t = 0;
+	/** where the ambulance is (z), and whether a junction of the avenue is holding its cross traffic for it */
+	let blueZ = -1e9;
+	const holding = (j) => j.startsWith('0:') && Number(j.slice(2)) - blueZ < 110 && Number(j.slice(2)) - blueZ > -20;
+	const colourAt = (j, axis) => (holding(j) ? (axis === 'ns' ? 'green' : 'red') : lightAt(offsetOf[j], axis, t));
+	const all = Object.values(lanes);
+	const sortLanes = () => {
+		for (const l of all) l.cars.length = 0;
+		for (const m of movers) if (m.state === 'in' || m.state === 'out') m.lane.cars.push(m);
+		for (const l of all) {
+			l.cars.sort((a, b) => a.s - b.s);
+			l.cars.forEach((m, k) => (m.k = k));
+		}
+	};
+	/** room at `s` on a lane for a vehicle `L` long */
+	const clear = (lane, s, L) => lane.cars.every((o) => !o.node.visible || Math.abs(o.s - s) > (o.L + L) / 2 + 3);
+	const tailS = [0, 1, 2].map((i) => lanes[`in-${i}`].sAt(JAM.tail));
+	const frontS = [0, 1, 2].map((i) => lanes[`in-${i}`].sAt(JAM.front));
+	const outEnd = lanes['out-0'].sAt(-1000);
+
+	function follow(m, dt) {
+		const lane = m.lane;
+		const ahead = lane.cars[m.k + 1];
+		let gap = 1e9, dv = 0;
+		if (ahead) (gap = ahead.s - m.s - (ahead.L + m.L) / 2), (dv = m.v - ahead.v);
+		// the far flow meets the standing jam's tail
+		if (m.group === 'far' && tailS[m.i] - m.s - m.L / 2 - 1 < gap) (gap = tailS[m.i] - m.s - m.L / 2 - 1), (dv = m.v);
+		// a red (or an amber it can stop for) at the next stop line is a car standing on the line
+		for (const st of lane.stops) {
+			const d = st.s - m.s - m.L / 2;
+			if (d < -0.5) continue;
+			if (d < gap && d < 160 && colourAt(st.junction, st.axis) !== 'green' && d > (m.v * m.v) / (2 * IDM.b * 2.5) - 0.5) (gap = Math.max(0.1, d)), (dv = m.v);
+			break;
+		}
+		const wish = Math.min(m.wish, lane.speed * (m.group === 'main' && lane.at(m.s).z > -40 ? 0.56 : 1));
+		const acc = accel(m.v, wish, gap, dv);
+		m.v = Math.max(0, m.v + acc * dt);
+		let next = m.s + m.v * dt;
+		if (ahead && ahead.node.visible) next = Math.min(next, ahead.s - (ahead.L + m.L) / 2 - 0.4);
+		if (next < m.s) m.v = 0;
+		m.s = Math.max(m.s, next);
+		m.st.brake.visible = acc < -0.6 || m.v < 0.4;
+		// standing long in the queue, now and then a horn
+		m.queued = m.v < 0.5 ? m.queued + dt : 0;
+		if (m.honk > 0) m.honk -= dt;
+		else if (m.queued > 6 && rnd() < dt * 0.035) m.honk = 0.35 + rnd() * 0.5;
+		m.st.horn.visible = m.honk > 0;
+	}
+	function advance(m, dt) {
+		if (m.state === 'in' || m.state === 'out') {
+			follow(m, dt);
+			const end = m.group === 'main' && m.state === 'out' ? outEnd : m.lane.length;
+			if (m.s >= end - m.L / 2) {
+				show(m, false);
+				if (m.group === 'main') Object.assign(m, m.state === 'in' ? { state: 'uturn', wait: 6 } : { state: 'wait', wait: 4 });
+				else Object.assign(m, { state: 'wait', wait: m.group === 'exit' ? 25 : 3 });
+				return;
+			}
+			if (m.group === 'far' && m.v < 0.2 && m.queued > 14) {
+				show(m, false);
+				Object.assign(m, { state: 'wait', wait: 5 });
+				return;
+			}
+			place(m);
+			return;
+		}
+		// put away: waiting to come back where there is room
+		m.wait -= dt;
+		if (m.wait > 0) return;
+		let to = null;
+		if (m.group === 'main') to = m.state === 'uturn' ? { lane: lanes[`out-${m.i}`], s: m.L / 2 + 1, v: 4, state: 'out' } : { lane: lanes[`in-${m.i}`], s: frontS[m.i] + m.L / 2 + 0.5, v: 0, state: 'in' };
+		else to = { lane: m.lane, s: m.L / 2, v: m.group === 'far' ? 18 : m.group === 'exit' ? 12 : 6, state: 'in' };
+		if (!clear(to.lane, to.s, m.L)) return;
+		Object.assign(m, to, { queued: 0, honk: 0 });
+		show(m, true);
+		m.lane.cars.push(m);
+		m.lane.cars.sort((a, b) => a.s - b.s);
+		m.lane.cars.forEach((o, k) => (o.k = k));
+		place(m);
+	}
+	// the sprayer's run: up a tramline, a turn on the headland, down the next; across the field and back
+	const runs = field ? Math.floor((field.x1 - field.x0 - 18) / 24) : 0;
+	const span = field ? field.z1 - field.z0 - 30 : 0;
+	const leg = span + Math.PI * 12;
+	function sprayer() {
+		if (!runs) return;
+		let d = (t * 2.8 + 400) % (2 * runs * leg);
+		const back = d > runs * leg;
+		if (back) d = 2 * runs * leg - d;
+		const n = Math.min(runs - 1, Math.floor(d / leg)), r = d - n * leg;
+		const x0 = field.x0 + 12 + n * 24, up = n % 2 === 0;
+		let x, z, yaw;
+		if (r < span) {
+			x = x0;
+			z = up ? field.z1 - 15 - r : field.z0 + 15 + r;
+			yaw = up ? Math.PI : 0;
+		} else {
+			const a = ((r - span) / (Math.PI * 12)) * Math.PI;
+			x = x0 + 12 - 12 * Math.cos(a);
+			z = up ? field.z0 + 15 - 12 * Math.sin(a) : field.z1 - 15 + 12 * Math.sin(a);
+			yaw = up ? Math.PI - a : a;
+		}
+		if (back) yaw += Math.PI;
+		tractor.node.position.set(x, 0, z);
+		tractor.node.rotation.y = yaw;
+		const spraying = r < span;
+		tractor.st.spray.visible = spraying;
+		for (const v of mist) v.visible = spraying;
+	}
+	function emergency() {
+		const lane = lanes.rescue;
+		const cyc = (((t + BLUE.phase) % BLUE.period) + BLUE.period) % BLUE.period;
+		const start = lane.sAt(BLUE.from), end = lane.length - 8;
+		const sa = start + cyc * lane.speed;
+		for (const [m, s] of [[amb, sa], [pol, sa - BLUE.gap]]) {
+			const on = s > start && s < end;
+			show(m, on);
+			if (!on) continue;
+			m.lane = lane;
+			m.s = s;
+			place(m);
+		}
+		blueZ = sa < end ? lane.at(sa).z : -1e9;
+	}
+	const lights = signals.map((g) => ({ ...g }));
+	function step(dt) {
+		t += dt;
+		emergency();
+		sortLanes();
+		// every mover in the order it was made: one fixed order, the same world every time
+		for (const m of movers) advance(m, dt);
+		for (const g of lights) {
+			const c = colourAt(g.junction, g.axis);
+			g.st.red.visible = c === 'red';
+			g.st.amber.visible = c === 'amber';
+			g.st.green.visible = c === 'green';
+		}
+		sprayer();
+	}
+	return {
+		step,
+		moving: movers.length + 3,
+		sprayerAt: () => ({ x: tractor.node.position.x, z: tractor.node.position.z, yaw: tractor.node.rotation.y }),
+		/** every node a step moves: the movers, the ambulance, the police car, the sprayer */
+		nodes: [...movers.map((m) => m.node), amb.node, pol.node, tractor.node]
+	};
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * 15. The world.
+ * ---------------------------------------------------------------------------------------------------------------- */
+function build(seed = 'old-city') {
+	seed = String(seed || 'old-city');
+	const root = new THREE.Group();
+	root.name = 'old-city';
+	const mats = materialsOf();
+	const bag = new Bag();
+	const inst = { dash: [], dashX: [], zebra: [], post: [] };
+	const field = buildFields(seed, bag, root, { tilled: mats.soil, stubble: mats.stubble, crop: mats.crop, verge: mats.gravel });
+	buildHighway(seed, bag, root, inst, mats.gravel);
+	const signals = [];
+	buildCity(seed, bag, root, inst, signals);
+	buildPowerLines(root);
+	for (const m of bag.meshes(mats)) root.add(m);
+	const instanced = (name, geo, mat, list, at) => {
+		if (!list.length) return;
+		const im = new THREE.InstancedMesh(geo, mat, list.length);
+		im.name = name;
+		const m = new THREE.Matrix4();
+		list.forEach((a, i) => im.setMatrixAt(i, at(m, a)));
+		im.receiveShadow = true;
+		root.add(im);
+	};
+	const flat = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+	const S = (m, [x, y, z, sx, sz]) => m.compose(new THREE.Vector3(x, y, z), new THREE.Quaternion(), new THREE.Vector3(sx, 1, sz));
+	instanced('markings', flat, mats.paint, inst.dash, S);
+	instanced('markings-x', flat, mats.paint, inst.dashX, S);
+	instanced('crossings', flat, mats.paint, inst.zebra, S);
+	instanced('guardrail-posts', new THREE.BoxGeometry(0.15, 0.75, 0.1), mats.steel, inst.post, (m, [x, y, z]) => m.makeTranslation(x, y, z));
+
+	// the mood, the sound, the views
+	marker(root, 'mood:smog-dusk');
+	for (const [h, k, g] of SOUND) marker(root, `sound:${h}?for=${k}&gain=${g}`);
+	view(root, 'highway-jam', [-17.5, 1.5, -420], [-5, 2.5, -60]);
+	view(root, 'lorries', [9, 9, -560], [-9, 2, -330]);
+	view(root, 'ambulance', [1.8, 3.2, -330], [-5, 1.5, -160]);
+	view(root, 'junction', [-7, 14, 42], [0, 0, 100]);
+	view(root, 'street', [-13.5, 1.6, 168], [-4, 3, 245]);
+	view(root, 'towers', [-140, 150, -160], [40, 25, 210]);
+	view(root, 'supermarket', [-60, 22, -10], [SHOP.x, 0, SHOP.z]);
+	view(root, 'above', [170, 175, -230], [-15, 0, 190]);
+
+	// the traffic, settled for a minute and a half before t = 0
+	const traffic = buildTraffic(seed, root, lanesOf(), signals, field, mats);
+	for (let i = 0; i < 900; i++) traffic.step(0.1);
+	// the fields' view: over the crop beside where the sprayer is when the world opens, looking down its run
+	const tr = traffic.sprayerAt();
+	const ahead = new THREE.Vector3(Math.sin(tr.yaw), 0, Math.cos(tr.yaw));
+	view(root, 'fields', [tr.x + ahead.x * 60 + 30, 9, tr.z + ahead.z * 60], [tr.x, 1, tr.z]);
+	// the world at time t (s, its total since its run began), brought there in counted steps of 0.1 s, one step ahead of
+	// t; everything that moves is drawn between where the last two steps put it (a film at 24 fps sees it move every
+	// frame, not every 0.1 s), and is the same at the same t however it got there
+	const moving = traffic.nodes;
+	const pose = () => moving.map((o) => ({ p: o.position.clone(), r: o.rotation.y, v: o.visible }));
+	const keep = (to) => moving.forEach((o, i) => {
+		to[i].p.copy(o.position);
+		to[i].r = o.rotation.y;
+		to[i].v = o.visible;
+	});
+	const was = pose(), now = pose();
+	let n = 0;
+	root.userData.tick = (t) => {
+		const to = Math.max(0, Number(t) || 0);
+		const want = Math.floor(to / 0.1 + 1e-9) + 1;
+		if (n < want) {
+			// first back to where the last step truly put everything (a step reads who is shown), then on
+			moving.forEach((o, i) => {
+				o.position.copy(now[i].p);
+				o.rotation.y = now[i].r;
+				o.visible = now[i].v;
+			});
+			while (n < want) {
+				keep(was);
+				traffic.step(0.1);
+				n++;
+			}
+			keep(now);
+		}
+		const f = Math.min(1, Math.max(0, to / 0.1 - (n - 1)));
+		moving.forEach((o, i) => {
+			const a = was[i], b = now[i];
+			o.visible = b.v;
+			// a jump (shown again, put back at its start) is no move: drawn where it is
+			if (!a.v || !b.v || a.p.distanceToSquared(b.p) > 16) {
+				o.position.copy(b.p);
+				o.rotation.y = b.r;
+				return;
+			}
+			o.position.lerpVectors(a.p, b.p, f);
+			const d = b.r - a.r - Math.round((b.r - a.r) / (2 * Math.PI)) * 2 * Math.PI;
+			o.rotation.y = b.r - d * (1 - f);
+		});
+	};
+	return root;
+}
+
+const PARAMS = [{ id: 'seed', label: 'Seed', type: 'string', value: 'old-city', maxLength: 40 }];
+
+module.exports.recipe = function (id, v, variant) {
+	return {
+		meta: {
+			group: 'worlds',
+			id: id ?? 'old-city',
+			version: v ?? 1,
+			variant: variant ?? undefined,
+			label: 'Old City',
+			note: 'The old way: a small grid of tired concrete blocks at the end of a jammed 2 × 3-lane highway across barren monoculture land, food lorries hauling in, an ambulance and a police car pushing through the rescue lane, a crop sprayer, power lines, a smoggy dusk. 1 unit = 1 m.',
+			params: JSON.parse(JSON.stringify(PARAMS))
+		},
+		build
+	};
+};
+module.exports.lanesOf = lanesOf;
+module.exports.lightAt = lightAt;
+
+return module.exports.recipe("old-city", 8, null);
+});

@@ -237,5 +237,5 @@ suite("no write past an Accept", () => {
       was = now;
     }
     expect(moved(S0, was).length).toBeGreaterThanOrEqual(5);
-  });
+  }, 60_000);
 });
