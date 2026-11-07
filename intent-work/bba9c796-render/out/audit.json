@@ -1,0 +1,565 @@
+{
+ "intent": "bba9c796-5126-4175-8ea5-466c84372459",
+ "commit": "8b5b4a7fed0241b3d3108fa26d56bf7592a43dea",
+ "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+ "viewport": [
+  1440,
+  900
+ ],
+ "sample_s": 3,
+ "at": "2026-11-07T18:28:12.826Z",
+ "views": [
+  {
+   "world": "sandbox-1",
+   "view": "near",
+   "settled": true,
+   "at": [
+    0,
+    95,
+    0,
+    -0.05
+   ],
+   "frames": 98,
+   "frame_ms": 31.8,
+   "frame_p95": 50,
+   "cpu_ms": 13.4,
+   "gpu_ms": 23.1,
+   "calls": 2104,
+   "bound": "gpu",
+   "tris": 5946579,
+   "timed": true,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 209,
+     "tris": 62382
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 1895,
+     "tris": 5884197
+    }
+   },
+   "shaders": [
+    [
+     "MeshStandardMaterial",
+     1782,
+     4806985
+    ],
+    [
+     "MeshPhysicalMaterial",
+     195,
+     943672
+    ],
+    [
+     "MeshPhysicalMaterial:papaya petal",
+     7,
+     126706
+    ],
+    [
+     "MeshStandardMaterial:papaya leaf leaf upper",
+     12,
+     32136
+    ],
+    [
+     "MeshStandardMaterial:papaya leaf leaf under",
+     12,
+     32112
+    ],
+    [
+     "MeshStandardMaterial:papaya bark",
+     6,
+     2492
+    ],
+    [
+     "MeshBasicMaterial",
+     88,
+     2464
+    ],
+    [
+     "ShaderMaterial:UniverseSky",
+     1,
+     12
+    ],
+    [
+     "ShaderMaterial:Stars",
+     1,
+     0
+    ]
+   ],
+   "texture_mib": 263,
+   "experiments": {
+    "noshadow": {
+     "frame_ms": 31.4,
+     "cpu_ms": 13.5,
+     "gpu_ms": 22.8,
+     "calls": 2104,
+     "tris": 5946579
+    },
+    "noblend": {
+     "frame_ms": 28.7,
+     "cpu_ms": 13.1,
+     "gpu_ms": 21,
+     "calls": 1895,
+     "tris": 5884197
+    },
+    "half": {
+     "frame_ms": 22.9,
+     "cpu_ms": 12.5,
+     "gpu_ms": 14.5,
+     "calls": 2104,
+     "tris": 5946579
+    }
+   },
+   "png": "sandbox-1-near.png"
+  },
+  {
+   "world": "sandbox-1",
+   "view": "mid",
+   "settled": true,
+   "at": [
+    0,
+    235,
+    0,
+    -0.05
+   ],
+   "frames": 85,
+   "frame_ms": 36.1,
+   "frame_p95": 50,
+   "cpu_ms": 15.2,
+   "gpu_ms": 26.6,
+   "calls": 2080,
+   "bound": "gpu",
+   "tris": 6229969,
+   "timed": true,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 220,
+     "tris": 71695
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 1860,
+     "tris": 6158274
+    }
+   },
+   "shaders": [
+    [
+     "MeshStandardMaterial",
+     1807,
+     5564550
+    ],
+    [
+     "MeshPhysicalMaterial",
+     190,
+     637019
+    ],
+    [
+     "MeshPhysicalMaterial:papaya petal",
+     2,
+     20940
+    ],
+    [
+     "MeshStandardMaterial:papaya leaf leaf upper",
+     2,
+     2576
+    ],
+    [
+     "MeshStandardMaterial:papaya leaf leaf under",
+     2,
+     2576
+    ],
+    [
+     "MeshBasicMaterial",
+     74,
+     2072
+    ],
+    [
+     "MeshStandardMaterial:papaya bark",
+     1,
+     224
+    ],
+    [
+     "ShaderMaterial:UniverseSky",
+     1,
+     12
+    ],
+    [
+     "ShaderMaterial:Stars",
+     1,
+     0
+    ]
+   ],
+   "texture_mib": 265,
+   "experiments": {
+    "noshadow": {
+     "frame_ms": 37.8,
+     "cpu_ms": 18.7,
+     "gpu_ms": 27,
+     "calls": 2080,
+     "tris": 6229969
+    },
+    "noblend": {
+     "frame_ms": 41.3,
+     "cpu_ms": 26.2,
+     "gpu_ms": 27.6,
+     "calls": 1860,
+     "tris": 6158274
+    },
+    "half": {
+     "frame_ms": 25.1,
+     "cpu_ms": 13.9,
+     "gpu_ms": 16.8,
+     "calls": 2080,
+     "tris": 6229969
+    }
+   },
+   "png": "sandbox-1-mid.png"
+  },
+  {
+   "world": "sandbox-1",
+   "view": "far",
+   "settled": true,
+   "at": [
+    0,
+    370,
+    0,
+    -0.12
+   ],
+   "frames": 181,
+   "frame_ms": 16.7,
+   "frame_p95": 16.7,
+   "cpu_ms": 7.3,
+   "gpu_ms": 9.7,
+   "calls": 1087,
+   "bound": "vsync",
+   "tris": 2551158,
+   "timed": true,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 110,
+     "tris": 64936
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 977,
+     "tris": 2486222
+    }
+   },
+   "shaders": [
+    [
+     "MeshStandardMaterial",
+     969,
+     2115800
+    ],
+    [
+     "MeshPhysicalMaterial",
+     115,
+     430186
+    ],
+    [
+     "MeshPhysicalMaterial:papaya petal",
+     1,
+     5160
+    ],
+    [
+     "ShaderMaterial:UniverseSky",
+     1,
+     12
+    ],
+    [
+     "ShaderMaterial:Stars",
+     1,
+     0
+    ]
+   ],
+   "texture_mib": 265,
+   "experiments": {
+    "noshadow": {
+     "frame_ms": 16.7,
+     "cpu_ms": 8.2,
+     "gpu_ms": 9.5,
+     "calls": 1087,
+     "tris": 2551158
+    },
+    "noblend": {
+     "frame_ms": 16.7,
+     "cpu_ms": 8.1,
+     "gpu_ms": 9.2,
+     "calls": 977,
+     "tris": 2486222
+    },
+    "half": {
+     "frame_ms": 16.7,
+     "cpu_ms": 6.4,
+     "gpu_ms": 8.4,
+     "calls": 1087,
+     "tris": 2551158
+    }
+   },
+   "png": "sandbox-1-far.png"
+  },
+  {
+   "world": "sandbox-3",
+   "view": "open",
+   "frames": 181,
+   "frame_ms": 16.7,
+   "frame_p95": 16.7,
+   "cpu_ms": 4.1,
+   "gpu_ms": 6.1,
+   "calls": 1058,
+   "bound": "vsync",
+   "tris": 755686,
+   "timed": true,
+   "buckets": {
+    "shadow": {
+     "calls": 788,
+     "tris": 277200
+    },
+    "blend": {
+     "calls": 6,
+     "tris": 68
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 264,
+     "tris": 478418
+    }
+   },
+   "shaders": [
+    [
+     "MeshStandardMaterial",
+     266,
+     478426
+    ],
+    [
+     "MeshDepthMaterial",
+     788,
+     277200
+    ],
+    [
+     "MeshPhysicalMaterial",
+     2,
+     60
+    ],
+    [
+     "LineDashedMaterial",
+     1,
+     0
+    ],
+    [
+     "LineBasicMaterial",
+     1,
+     0
+    ]
+   ],
+   "texture_mib": 43,
+   "experiments": {
+    "noshadow": {
+     "frame_ms": 16.7,
+     "cpu_ms": 4.7,
+     "gpu_ms": 4.8,
+     "calls": 270,
+     "tris": 478486
+    },
+    "noblend": {
+     "frame_ms": 16.7,
+     "cpu_ms": 3.9,
+     "gpu_ms": 6,
+     "calls": 1052,
+     "tris": 755618
+    },
+    "half": {
+     "frame_ms": 16.7,
+     "cpu_ms": 4.1,
+     "gpu_ms": 4.2,
+     "calls": 1058,
+     "tris": 755686
+    }
+   },
+   "png": "sandbox-3-open.png"
+  },
+  {
+   "world": "sandbox-3",
+   "view": "walk5",
+   "walked_s": 5,
+   "frames": 181,
+   "frame_ms": 16.7,
+   "frame_p95": 16.7,
+   "cpu_ms": 3.3,
+   "gpu_ms": 5.6,
+   "calls": 919,
+   "bound": "vsync",
+   "tris": 658084,
+   "timed": true,
+   "buckets": {
+    "shadow": {
+     "calls": 716,
+     "tris": 229560
+    },
+    "blend": {
+     "calls": 2,
+     "tris": 0
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 201,
+     "tris": 428524
+    }
+   },
+   "shaders": [
+    [
+     "MeshStandardMaterial",
+     201,
+     428524
+    ],
+    [
+     "MeshDepthMaterial",
+     716,
+     229560
+    ],
+    [
+     "LineDashedMaterial",
+     1,
+     0
+    ],
+    [
+     "LineBasicMaterial",
+     1,
+     0
+    ]
+   ],
+   "texture_mib": 43,
+   "experiments": {
+    "noshadow": {
+     "frame_ms": 16.7,
+     "cpu_ms": 3.7,
+     "gpu_ms": 4.4,
+     "calls": 203,
+     "tris": 428524
+    },
+    "noblend": {
+     "frame_ms": 16.7,
+     "cpu_ms": 4.1,
+     "gpu_ms": 5.6,
+     "calls": 917,
+     "tris": 658084
+    },
+    "half": {
+     "frame_ms": 16.7,
+     "cpu_ms": 4,
+     "gpu_ms": 3.8,
+     "calls": 919,
+     "tris": 658084
+    }
+   },
+   "png": "sandbox-3-walk5.png"
+  },
+  {
+   "world": "sandbox-3",
+   "view": "walk15",
+   "walked_s": 15,
+   "frames": 181,
+   "frame_ms": 16.7,
+   "frame_p95": 16.7,
+   "cpu_ms": 3.2,
+   "gpu_ms": 5.4,
+   "calls": 835,
+   "bound": "vsync",
+   "tris": 656376,
+   "timed": true,
+   "buckets": {
+    "shadow": {
+     "calls": 649,
+     "tris": 228220
+    },
+    "blend": {
+     "calls": 2,
+     "tris": 0
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 184,
+     "tris": 428156
+    }
+   },
+   "shaders": [
+    [
+     "MeshStandardMaterial",
+     184,
+     428156
+    ],
+    [
+     "MeshDepthMaterial",
+     649,
+     228220
+    ],
+    [
+     "LineDashedMaterial",
+     1,
+     0
+    ],
+    [
+     "LineBasicMaterial",
+     1,
+     0
+    ]
+   ],
+   "texture_mib": 43,
+   "experiments": {
+    "noshadow": {
+     "frame_ms": 16.7,
+     "cpu_ms": 3.3,
+     "gpu_ms": 4.3,
+     "calls": 186,
+     "tris": 428156
+    },
+    "noblend": {
+     "frame_ms": 16.7,
+     "cpu_ms": 2.9,
+     "gpu_ms": 5.4,
+     "calls": 833,
+     "tris": 656376
+    },
+    "half": {
+     "frame_ms": 16.7,
+     "cpu_ms": 2.8,
+     "gpu_ms": 3.6,
+     "calls": 835,
+     "tris": 656376
+    }
+   },
+   "png": "sandbox-3-walk15.png"
+  }
+ ],
+ "wins": []
+}

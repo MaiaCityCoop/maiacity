@@ -1,0 +1,27 @@
+GPU: ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version) · GPU timer offered
+sandbox-1 up, settled after 58 s
+sandbox-1 near: frame 31.8 (p95 50.0) · cpu 13.4 · gpu 23.1 · 2104 calls · 5,946,579 tris · bound gpu
+    split: shadow 0 calls/0 tris · blend 209 calls/62,382 tris · offscreen 0 calls/0 tris · screen 1895 calls/5,884,197 tris · textures ~263 MiB
+    no shadow draws: gpu 22.8 · no blended: gpu 21.0 · half size: gpu 14.5
+    materials: MeshStandardMaterial 1782/4,806,985, MeshPhysicalMaterial 195/943,672, MeshPhysicalMaterial:papaya petal 7/126,706, MeshStandardMaterial:papaya leaf leaf upper 12/32,136, MeshStandardMaterial:papaya leaf leaf under 12/32,112, MeshStandardMaterial:papaya bark 6/2,492
+sandbox-1 mid: frame 36.1 (p95 50.0) · cpu 15.2 · gpu 26.6 · 2080 calls · 6,229,969 tris · bound gpu
+    split: shadow 0 calls/0 tris · blend 220 calls/71,695 tris · offscreen 0 calls/0 tris · screen 1860 calls/6,158,274 tris · textures ~265 MiB
+    no shadow draws: gpu 27.0 · no blended: gpu 27.6 · half size: gpu 16.8
+    materials: MeshStandardMaterial 1807/5,564,550, MeshPhysicalMaterial 190/637,019, MeshPhysicalMaterial:papaya petal 2/20,940, MeshStandardMaterial:papaya leaf leaf upper 2/2,576, MeshStandardMaterial:papaya leaf leaf under 2/2,576, MeshBasicMaterial 74/2,072
+sandbox-1 far: frame 16.7 (p95 16.7) · cpu 7.3 · gpu 9.7 · 1087 calls · 2,551,158 tris · bound vsync
+    split: shadow 0 calls/0 tris · blend 110 calls/64,936 tris · offscreen 0 calls/0 tris · screen 977 calls/2,486,222 tris · textures ~265 MiB
+    no shadow draws: gpu 9.5 · no blended: gpu 9.2 · half size: gpu 8.4
+    materials: MeshStandardMaterial 969/2,115,800, MeshPhysicalMaterial 115/430,186, MeshPhysicalMaterial:papaya petal 1/5,160, ShaderMaterial:UniverseSky 1/12, ShaderMaterial:Stars 1/0
+sandbox-3 open: frame 16.7 (p95 16.7) · cpu 4.1 · gpu 6.1 · 1058 calls · 755,686 tris · bound vsync
+    split: shadow 788 calls/277,200 tris · blend 6 calls/68 tris · offscreen 0 calls/0 tris · screen 264 calls/478,418 tris · textures ~43 MiB
+    no shadow draws: gpu 4.8 · no blended: gpu 6.0 · half size: gpu 4.2
+    materials: MeshStandardMaterial 266/478,426, MeshDepthMaterial 788/277,200, MeshPhysicalMaterial 2/60, LineDashedMaterial 1/0, LineBasicMaterial 1/0
+sandbox-3 walk5: frame 16.7 (p95 16.7) · cpu 3.3 · gpu 5.6 · 919 calls · 658,084 tris · bound vsync
+    split: shadow 716 calls/229,560 tris · blend 2 calls/0 tris · offscreen 0 calls/0 tris · screen 201 calls/428,524 tris · textures ~43 MiB
+    no shadow draws: gpu 4.4 · no blended: gpu 5.6 · half size: gpu 3.8
+    materials: MeshStandardMaterial 201/428,524, MeshDepthMaterial 716/229,560, LineDashedMaterial 1/0, LineBasicMaterial 1/0
+sandbox-3 walk15: frame 16.7 (p95 16.7) · cpu 3.2 · gpu 5.4 · 835 calls · 656,376 tris · bound vsync
+    split: shadow 649 calls/228,220 tris · blend 2 calls/0 tris · offscreen 0 calls/0 tris · screen 184 calls/428,156 tris · textures ~43 MiB
+    no shadow draws: gpu 4.3 · no blended: gpu 5.4 · half size: gpu 3.6
+    materials: MeshStandardMaterial 184/428,156, MeshDepthMaterial 649/228,220, LineDashedMaterial 1/0, LineBasicMaterial 1/0
+done in 302 s: /Users/samuelandert/Documents/Development/sbba9-render/intent-work/bba9c796-render/out/audit.json
