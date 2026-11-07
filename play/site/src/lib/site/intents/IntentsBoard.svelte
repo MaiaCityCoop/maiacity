@@ -15,7 +15,7 @@
 	then it moves to Proposal by itself (Samuel 2026-11-06), the one gate after the spec, where an admin decides it.
 
 	ONE RECORD (Samuel 2026-11-06: "not a proposal belongs to an intent: the intent has a state, proposal"): an intent's
-	work (an asset's or story's version, a sandbox's change, a factory's or config's version) is on the intent itself, and
+	work (an asset's, story's, factory's, config's, skill's or sandbox layout's version) is on the intent itself, and
 	Proposal is only its stage. Only a whole intent is decided, in its dialog (Samuel 2026-11-07): its Accept applies all its work,
 	its Reject archives it; its work's review, opened from it, is read only. Work proposed without an intent is an intent
 	of its own, with no spec. Nothing is accepted from Build.
@@ -37,7 +37,7 @@
 	import { markdown } from '$lib/site/markdown/index.js';
 	import { INDEX, admitProposed, source as catalogSource } from '$lib/content/assets/catalog.js';
 	import { changesOnly, lineDiff } from '$lib/diff';
-	import Changes, { type Change, type Edit } from '$lib/app/Changes.svelte';
+	import Changes, { type Change, type Edit, type PinChange } from '$lib/app/Changes.svelte';
 	import StoryPlayer from '$lib/stories/StoryPlayer.svelte';
 	import StoryChanges, { type StoryDiff } from '$lib/stories/StoryChanges.svelte';
 	import type { Story } from '$lib/stories/timeline';
@@ -55,8 +55,8 @@
 
 	// an intent's work, as the board lists it (play/api/src/intents.ts): what it changes, the version it would be, who
 	// proposed it and how, and its status (the intent's stage: waiting at Proposal, accepted, else archived)
-	// its kind is a versioned kind's work (<kind>_version, play/api/src/versioned.ts) or a sandbox's change; `what` names it
-	type Work = { kind: string; what: string | null; doc: string | null; doc_variant: number | null; asset_id: string | null; label: string; grp: string; slug: string | null; version_label: string | null; number: number | null; changes?: number; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
+	// its kind is a versioned kind's work (<kind>_version, play/api/src/versioned.ts); `what` names it
+	type Work = { kind: string; what: string | null; doc: string | null; doc_variant: number | null; asset_id: string | null; label: string; grp: string; slug: string | null; version_label: string | null; number: number | null; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
 	// the work opened for review: the intent's id, with the intent's title, spec and results beside it
 	type P = Work & { id: string; intent_id: string; intent_title: string; intent_spec: Spec | null; intent_results: Results | null };
 	// an intent (play/api/src/intents.ts): its kind, title and note, its stage, its spec once specified (a goal, a scope and
@@ -221,7 +221,12 @@
 	/** every review of a document's version (play/api/src/versioned.ts reviewDoc): its document, what it changes field by
 	 *  field against its seed, the edits that made it, whether Main moved since; an asset's adds its builds, a story's its
 	 *  timelines */
-	type DocReview = { doc: { id: string; kind: string; what: string; label: string; group?: string; open: string | null } | null; seedNumber: number | null; moved: boolean; changes: Change[]; edits: Edit[] };
+	// a sandbox's layout also says each pin before and after by its asset (pins), whether it still holds on the layout as
+	// it is now, and the sandbox to open as it would be (play/api/src/sandboxes.ts)
+	type DocReview = {
+		doc: { id: string; kind: string; what: string; label: string; group?: string; open: string | null } | null; seedNumber: number | null; moved: boolean; changes: Change[]; edits: Edit[];
+		pins?: PinChange[]; holds?: boolean; why?: string | null; sandbox?: { title: string; route: string; open: string };
+	};
 	type Review = DocReview & { id: string; source: string | null; recipe: string | null; baseVersion: { number: number; source: string | null } | null; builds: Build[] };
 	let open = $state<P | null>(null);
 	let review = $state<Review | null>(null);
@@ -240,31 +245,19 @@
 	// a story's (play/api/src/stories.ts): its timeline played in the Stories player, beside what changed clip by clip
 	type StoryReview = DocReview & { story: Story; baseStory: (Story & { number: number }) | null; diff: StoryDiff };
 	let storyReview = $state<StoryReview | null>(null);
-	// a sandbox's change (play/api/src/sandboxes.ts): what each edit changes, before and after, and the sandbox as it would be
-	type PinShown = { label: string; group: string; slug: string; number: number; variant: string | null; usedVariant: string | null; params: Record<string, string> | null } | null;
-	type SandboxChange =
-		| { kind: 'pin'; slot: string; before: PinShown; after: PinShown }
-		| { kind: 'config'; config: string; path: (string | number)[]; before: unknown; after: unknown };
-	type SandboxReview = { sandbox: { id: string; title: string; route: string }; changes: SandboxChange[]; holds: boolean; why: string | null; moved: boolean };
-	let sandboxReview = $state<SandboxReview | null>(null);
-	// any other document's (a factory's, a config's, a skill's, and every kind to come): field by field, opened as it would be
+	// any other document's (a factory's, a config's, a skill's, a sandbox's layout, and every kind to come): field by field, opened as it would be
 	let docReview = $state<DocReview | null>(null);
-	const pinText = (x: PinShown) =>
-		x ? `${x.label} v${x.number}${x.usedVariant ? ` · ${x.usedVariant}${x.variant ? '' : ' (default)'}` : ''}${x.params ? ` · ${Object.entries(x.params).map(([k, v]) => `${k} ${v}`).join(', ')}` : ''}` : 'none';
-	const valueText = (v: unknown) => (v === undefined ? '(none)' : JSON.stringify(v, null, 1));
-	/** a title for a card: an asset's or story's version, or a sandbox's change */
 	/** what a proposal is of, its card's tag (Samuel 2026-11-05: the type, not how it came; that it came over MCP is in its title and its review) */
-	const GROUP_TYPE: Record<string, string> = { plants: 'Plant', things: 'Thing', machines: 'Machine', buildings: 'Building', actors: 'Actor', biomes: 'Biome', worlds: 'World' };
+	const GROUP_TYPE: Record<string, string> = { plants: 'Plant', things: 'Thing', machines: 'Machine', buildings: 'Building', actors: 'Actor', biomes: 'Biome', worlds: 'World', sandboxes: 'Sandbox' };
 	const typeOf = (p: { what?: string | null; grp: string | null }) => GROUP_TYPE[p.grp ?? ''] ?? (p.what ? p.what[0].toUpperCase() + p.what.slice(1) : (p.grp ?? ''));
 	/** an intent's tag: what its work is (a plant, a story …) where it has some, else its kind */
 	const tagOf = (i: Intent) => (i.work ? typeOf(i.work) : kindName(i.kind));
-	const titleOf = (p: Work) => (p.number == null ? `${p.changes ?? 0} change${p.changes === 1 ? '' : 's'}` : `v${p.number}`);
+	const titleOf = (p: Work) => (p.number == null ? 'a change' : `v${p.number}`);
 	async function openCard(p: P) {
 		intent = null;
 		open = p;
 		review = null;
 		storyReview = null;
-		sandboxReview = null;
 		docReview = null;
 		code = '';
 		baseCode = null;
@@ -272,7 +265,7 @@
 		showSource = false;
 		noteOpen = false;
 		reviewError = '';
-		// one review for every kind: a sandbox's change, an asset's build, a story's timelines, or any document's fields
+		// one review for every kind: an asset's build, a story's timelines, or any document's fields (a sandbox's layout's too)
 		let got: any;
 		try {
 			got = (await api<{ review: any }>(`/intents/${p.id}`)).review;
@@ -281,7 +274,6 @@
 			return;
 		}
 		if (open?.id !== p.id) return;
-		if (got.sandbox) return void (sandboxReview = got);
 		if (got.story) return void (storyReview = got);
 		if (!got.builds) return void (docReview = got);
 		try {
@@ -636,46 +628,21 @@
 				</div>
 				<button class="more" onclick={() => (noteOpen = !noteOpen)}>{noteOpen ? 'Less' : 'More'}</button>
 			{/if}
-			{#if sandboxReview || (!review && !storyReview && !docReview)}
+			{#if !review && !storyReview && !docReview}
 				<div class="sandbox-review">
-					{#if reviewError}<p class="error">{reviewError}</p>
-					{:else if !sandboxReview}<p class="muted">Reading it…</p>
-					{:else}
-						{@const r = sandboxReview}
-						{#if p.status === 'proposal'}
-							{#if !r.holds}<p class="error">It no longer holds on {r.sandbox.title} as it is now: {r.why} Accepting it archives it.</p>
-							{:else}
-								<p>
-									<a class="btn small" href="{r.sandbox.route}?layout={encodeURIComponent(`${r.sandbox.id}/${p.id}`)}" target="_blank" rel="noopener">Open {r.sandbox.title} as it would be</a>
-									{#if r.moved}<span class="muted small"> {r.sandbox.title} changed since it was proposed: shown as accepting would apply it now.</span>{/if}
-								</p>
-							{/if}
-						{/if}
-						<h3>{p.status === 'accepted' ? 'What it changed' : 'What it changes'}</h3>
-						<ol class="changes">
-							{#each r.changes as c, i (i)}
-								<li>
-									{#if c.kind === 'pin'}
-										<span class="where">{c.slot}</span>
-										<span class="was">{pinText(c.before)}</span> → <span class="now">{pinText(c.after)}</span>
-									{:else}
-										<span class="where">{c.config}{#each c.path as k}<span class="muted"> › </span>{k}{/each}</span>
-										<div class="vals"><pre class="was">{valueText(c.before)}</pre><pre class="now">{valueText(c.after)}</pre></div>
-									{/if}
-								</li>
-							{/each}
-						</ol>
-					{/if}
+					{#if reviewError}<p class="error">{reviewError}</p>{:else}<p class="muted">Reading it…</p>{/if}
 				</div>
 			{:else if docReview}
 				{@const r = docReview}
 				<div class="sandbox-review">
+					{#if r.holds === false && p.status === 'proposal'}<p class="error">It no longer holds on {r.doc?.label ?? 'it'} as it is now: {r.why} Accepting it archives it.</p>{/if}
 					<p>
-						{#if r.doc?.open}<a class="btn small" href={r.doc.open} target="_blank" rel="noopener">Open {r.doc.label} as it would be</a>{/if}
+						{#if r.sandbox && p.status === 'proposal' && r.holds !== false}<a class="btn small" href={r.sandbox.open} target="_blank" rel="noopener">Open {r.sandbox.title} as it would be</a>{/if}
+						{#if r.doc?.open}<a class="btn small" href={r.doc.open} target="_blank" rel="noopener">{r.sandbox ? `Its layout's history` : `Open ${r.doc.label} as it would be`}</a>{/if}
 						{#if r.doc?.group}<span class="muted small"> What every agent is taught ({r.doc.what}s / {r.doc.group}): accepted, it is taught from the next request on.</span>{/if}
 						{#if r.moved}<span class="muted small"> It was seeded from v{r.seedNumber}; the {r.doc?.what ?? 'document'} has a newer version since. Accepting merges it where the two touch different fields, and archives it where they touch the same.</span>{/if}
 					</p>
-					<Changes changes={r.changes} edits={r.edits} seed={r.seedNumber} heading={p.status === 'accepted' ? 'What it changed' : 'What it changes'} />
+					<Changes changes={r.changes} edits={r.edits} pins={r.pins ?? null} seed={r.seedNumber} heading={p.status === 'accepted' ? 'What it changed' : 'What it changes'} />
 				</div>
 			{:else if storyReview}
 				<div class="story-review">
@@ -930,15 +897,6 @@
 	.story-diff { min-width: 0; }
 	.story-diff h3 { margin: 0 0 0.5rem; font-size: 1rem; }
 	@media (max-width: 1000px) { .story-review { grid-template-columns: minmax(0, 1fr); } }
-	/* a sandbox's change: each edit, before and after */
+	/* a document's review: what it changes, field by field (./Changes.svelte) */
 	.sandbox-review { flex: 1 1 auto; min-height: 0; overflow: auto; }
-	.sandbox-review h3 { margin: 0.4rem 0 0.5rem; font-size: 1rem; }
-	.changes { margin: 0; padding-left: 1.4rem; display: grid; gap: 0.55rem; font-size: 0.88rem; }
-	.changes .where { font-weight: 600; margin-right: 0.5rem; }
-	.changes .was { color: var(--muted, #777); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--terracotta, #c96f53) 70%, transparent); }
-	.changes .now { font-weight: 600; }
-	.vals { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0.4rem; margin-top: 0.25rem; }
-	.vals pre { margin: 0; padding: 0.45rem 0.6rem; border-radius: 8px; background: var(--paper, #f6f1e6); font-size: 0.76rem; white-space: pre-wrap; max-height: 14rem; overflow: auto; }
-	.vals pre.was { text-decoration: none; background: color-mix(in srgb, var(--terracotta, #c96f53) 14%, transparent); }
-	.vals pre.now { font-weight: 400; background: color-mix(in srgb, var(--sage, #8fae8b) 22%, transparent); }
 </style>
