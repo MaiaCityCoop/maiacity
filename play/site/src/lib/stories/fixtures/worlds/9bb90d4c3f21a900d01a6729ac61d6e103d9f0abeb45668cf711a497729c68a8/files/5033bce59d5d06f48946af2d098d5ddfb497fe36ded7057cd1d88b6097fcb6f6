@@ -1,0 +1,636 @@
+defineRecipe(function (require) {
+"use strict";
+var module = { exports: {} }, exports = module.exports;
+/*
+ * ============================================================================================================
+ * PART 1 · THE STREET KIT — shared by the street and road things (traffic signal, lamps, barrier, guardrail,
+ * gantry, billboard, bollards, pylon), carried in each recipe as it is.
+ *
+ * - 1 unit = 1 m, never scaled; the thing stands on y = 0, its front toward +z, lying along x where it is long.
+ * - Built in named parts (`Bag.add(part, material, geometry, colour)`): every part's pieces are merged per material,
+ *   so a thing is a handful of meshes and draw calls, and the world can stand it hundreds of times.
+ * - Weathered as the old city is: each piece's colour is darkened by grime by its place (noise, run-off streaks,
+ *   road splash near the ground), so two lamps a kilometre apart are not the same dirty, but one seed is always the
+ *   same lamp.
+ * - Lights are named for the page to drive (THE WORLD CONTRACT v1): a signal head's lenses `lamp:red`,
+ *   `lamp:amber`, `lamp:green`, a lamp's glowing bowl `light:lamp`; each its own mesh and its own material.
+ * ============================================================================================================
+ */
+const THREE = require('three');
+const { mergeGeometries } = require('three/addons/utils/BufferGeometryUtils.js');
+
+/** a stream of chance from a text: the same text, the same numbers */
+function chance(...keys) {
+	let h = 2166136261 >>> 0;
+	for (const c of keys.join('|')) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
+	return () => {
+		h = (h + 0x6d2b79f5) >>> 0;
+		let t = h;
+		t = Math.imul(t ^ (t >>> 15), t | 1);
+		t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	};
+}
+
+/** value noise in 3D, 0..1, smooth, the same everywhere for a given offset */
+function lattice(i, j, k) {
+	let h = Math.imul(i, 374761393) + Math.imul(j, 668265263) + Math.imul(k, 1274126177);
+	h = Math.imul(h ^ (h >>> 13), 1274126177);
+	return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function noise3(x, y, z) {
+	const i = Math.floor(x), j = Math.floor(y), k = Math.floor(z);
+	const fx = x - i, fy = y - j, fz = z - k;
+	const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy), w = fz * fz * (3 - 2 * fz);
+	const L = (a, b, t) => a + (b - a) * t;
+	return L(
+		L(L(lattice(i, j, k), lattice(i + 1, j, k), u), L(lattice(i, j + 1, k), lattice(i + 1, j + 1, k), u), v),
+		L(L(lattice(i, j, k + 1), lattice(i + 1, j, k + 1), u), L(lattice(i, j + 1, k + 1), lattice(i + 1, j + 1, k + 1), u), v),
+		w,
+	);
+}
+function fbm(x, y, z, octaves = 3) {
+	let s = 0, a = 0.5, f = 1;
+	for (let o = 0; o < octaves; o++) (s += a * noise3(x * f, y * f, z * f)), (a *= 0.5), (f *= 2.03);
+	return s / (1 - Math.pow(0.5, octaves));
+}
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const smooth = (a, b, x) => {
+	const t = clamp((x - a) / (b - a));
+	return t * t * (3 - 2 * t);
+};
+
+/** the materials the street is made of: how each looks in daylight (its colour comes from the pieces) */
+const LOOKS = {
+	concrete: { roughness: 0.95, metalness: 0 },
+	galvanised: { roughness: 0.7, metalness: 0.45 }, // weathered zinc: dull, little mirror left
+	paint: { roughness: 0.62, metalness: 0.15 },
+	plastic: { roughness: 0.5, metalness: 0 },
+	rubber: { roughness: 0.9, metalness: 0 },
+	glass: { roughness: 0.25, metalness: 0 },
+	paper: { roughness: 0.92, metalness: 0 },
+	// a thin open shell seen from both sides (a signal's visor, a lamp's canopy)
+	shell: { roughness: 0.62, metalness: 0.15, side: THREE.DoubleSide },
+};
+
+/**
+ * A piece placed: moved to `at` and turned by `rot` (radians about x, y, z, in that order).
+ * @param {THREE.BufferGeometry} g @param {number[]} [at] @param {number[]} [rot]
+ */
+function place(g, at = [0, 0, 0], rot) {
+	if (rot) g.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rot[0] || 0, rot[1] || 0, rot[2] || 0)));
+	g.translate(at[0], at[1], at[2]);
+	return g;
+}
+/** a box w × h × d, its middle at `at` */
+const box = (w, h, d, at, rot) => place(new THREE.BoxGeometry(w, h, d), at, rot);
+/** an upright cylinder (radius at its top and foot, height), its foot at `at`; `open` without its end caps */
+function cyl(rTop, rFoot, h, seg, at = [0, 0, 0], rot, open = false) {
+	const g = new THREE.CylinderGeometry(rTop, rFoot, h, seg, 1, open);
+	g.translate(0, h / 2, 0);
+	return place(g, at, rot);
+}
+/** a round rod from point a to point b (radius at a and at b) */
+function rod(a, b, ra, rb = ra, seg = 8, open = false) {
+	const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b);
+	const len = A.distanceTo(B);
+	const g = new THREE.CylinderGeometry(rb, ra, len, seg, 1, open);
+	g.translate(0, len / 2, 0);
+	g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize()));
+	g.translate(A.x, A.y, A.z);
+	return g;
+}
+/** a square bar from a to b, `w` across, its four sides only (a steel angle seen from afar), turned `roll` about it */
+function bar(a, b, w, roll = 0) {
+	const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b);
+	const len = A.distanceTo(B);
+	const g = new THREE.CylinderGeometry(w * 0.7071, w * 0.7071, len, 4, 1, true);
+	g.rotateY(Math.PI / 4 + roll);
+	g.translate(0, len / 2, 0);
+	g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize()));
+	g.translate(A.x, A.y, A.z);
+	return g;
+}
+/** a flat disc of radius r facing +z, its middle at `at` */
+const disc = (r, seg, at, rot) => place(new THREE.CircleGeometry(r, seg), at, rot);
+/** a flat rectangle w × h facing +z, its middle at `at`; its uv 0..1 */
+const plate = (w, h, at, rot) => place(new THREE.PlaneGeometry(w, h), at, rot);
+
+/**
+ * A profile swept straight along x from x0 to x1: `profile` its points [z, y] in order round it (a point given twice is
+ * a sharp corner), closed; with its two end faces when `caps`; cut every `step` metres along x (so the grime, painted
+ * on its points, can vary along it). UVs in metres (u along x, v round the profile).
+ */
+function sweepX(profile, x0, x1, caps = true, step = 0) {
+	const n = profile.length;
+	const at = [0];
+	for (let i = 1; i <= n; i++) {
+		const [z0, y0] = profile[i - 1], [z1, y1] = profile[i % n];
+		at.push(at[i - 1] + Math.hypot(z1 - z0, y1 - y0));
+	}
+	const cuts = step > 0 ? Math.max(1, Math.round((x1 - x0) / step)) : 1;
+	const parts = [];
+	for (let c = 0; c < cuts; c++) parts.push(smoothedAlong(profile, x0 + ((x1 - x0) * c) / cuts, x0 + ((x1 - x0) * (c + 1)) / cuts, at, x0));
+	if (caps) {
+		// the end faces: the profile without its doubled corners, each triangle turned to face out
+		const ring = profile.filter((p, i) => i === 0 || Math.hypot(p[0] - profile[i - 1][0], p[1] - profile[i - 1][1]) > 1e-9);
+		const tris = THREE.ShapeUtils.triangulateShape(ring.map(([z, y]) => new THREE.Vector2(z, y)), []);
+		for (const [x, s] of [[x0, -1], [x1, 1]]) {
+			const p = [], u = [], nn = [];
+			for (const t of tris) {
+				const [a, b, c] = t.map((k) => ring[k]);
+				// the triangle's turn in (z, y): seen from +x, counter-clockwise faces +x
+				const turn = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+				// seen from +x, z runs to the left: a counter-clockwise turn in (z, y) faces -x
+				const order = (turn < 0) === s > 0 ? [a, b, c] : [a, c, b];
+				for (const [z, y] of order) p.push(x, y, z), u.push(z, y), nn.push(s, 0, 0);
+			}
+			const cap = new THREE.BufferGeometry();
+			cap.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+			cap.setAttribute('normal', new THREE.Float32BufferAttribute(nn, 3));
+			cap.setAttribute('uv', new THREE.Float32BufferAttribute(u, 2));
+			parts.push(cap);
+		}
+	}
+	return mergeGeometries(parts);
+}
+/** the sweep's sides with normals smoothed round the profile except where a point is given twice */
+function smoothedAlong(profile, x0, x1, at, u0 = x0) {
+	const n = profile.length;
+	const same = (a, b) => Math.abs(a[0] - b[0]) < 1e-9 && Math.abs(a[1] - b[1]) < 1e-9;
+	// each edge's outward normal in (z, y)
+	const edgeN = [];
+	for (let i = 0; i < n; i++) {
+		const [z0, y0] = profile[i], [z1, y1] = profile[(i + 1) % n];
+		const l = Math.hypot(z1 - z0, y1 - y0) || 1;
+		edgeN.push([(y1 - y0) / l, -(z1 - z0) / l]);
+	}
+	const area = profile.reduce((s, [z, y], i) => s + z * profile[(i + 1) % n][1] - profile[(i + 1) % n][0] * y, 0);
+	const flip = area > 0 ? 1 : -1;
+	const pos = [], nor = [], uv = [];
+	for (let i = 0; i < n; i++) {
+		const j = (i + 1) % n;
+		const pa = profile[i], pb = profile[j];
+		if (same(pa, pb)) continue;
+		const prev = edgeN[(i - 1 + n) % n], next = edgeN[(j) % n], here = edgeN[i];
+		const sharpA = same(profile[(i - 1 + n) % n], pa), sharpB = same(pb, profile[(j + 1) % n]);
+		const na = sharpA ? here : norm2([here[0] + prev[0], here[1] + prev[1]]);
+		const nb = sharpB ? here : norm2([here[0] + next[0], here[1] + next[1]]);
+		const quad = [
+			[x0, pa, na, at[i]],
+			[x0, pb, nb, at[i + 1]],
+			[x1, pa, na, at[i]],
+			[x1, pb, nb, at[i + 1]],
+		];
+		const order = flip > 0 ? [0, 2, 1, 1, 2, 3] : [0, 1, 2, 1, 3, 2];
+		for (const k of order) {
+			const [x, p, nn, v] = quad[k];
+			pos.push(x, p[1], p[0]);
+			nor.push(0, nn[1] * flip, nn[0] * flip);
+			uv.push(x - u0, v);
+		}
+	}
+	const g = new THREE.BufferGeometry();
+	g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+	g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+	g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+	return g;
+}
+const norm2 = ([a, b]) => {
+	const l = Math.hypot(a, b) || 1;
+	return [a / l, b / l];
+};
+
+/**
+ * The grime of the old city on a colour at a place: soot and dust by noise, run-off streaks down from the top,
+ * road splash near the ground. `dirt` 0 clean .. 1 very dirty; `seed` shifts the pattern per thing.
+ */
+function grimed(color, x, y, z, dirt, seed) {
+	if (!dirt) return color;
+	const o = seed * 17.31;
+	const soot = fbm(x * 1.3 + o, y * 1.3, z * 1.3);
+	const streak = noise3(x * 6 + o, y * 0.35, z * 6) * smooth(0.45, 0.8, noise3(x * 2.1 + o, 3.3, z * 2.1));
+	const splash = smooth(0.9, 0, y) * (0.6 + 0.4 * noise3(x * 4 + o, y * 8, z * 4));
+	const dark = clamp(dirt * (0.28 * soot + 0.35 * streak + 0.3 * splash));
+	const c = color.clone().multiplyScalar(1 - dark);
+	// soot is a warm grey: pull the colour a little toward it
+	const grey = (c.r + c.g + c.b) / 3;
+	return c.lerp(new THREE.Color(grey * 1.02, grey, grey * 0.96), clamp(dirt * 0.35));
+}
+
+/**
+ * Everything a thing is built of, by part and by material: each piece painted with its colour (weathered), then each
+ * part's pieces merged per material into one mesh. A part of one material is one mesh, named as the part.
+ */
+class Bag {
+	constructor(seed = 'maia', dirt = 0.6) {
+		this.parts = new Map();
+		this.seed = chance(seed, 'grime')();
+		this.dirt = dirt;
+	}
+	/**
+	 * Add a piece to a part, of a material, in a colour; `dirt` overrides the thing's own for this piece; `tint(x, y, z)`
+	 * multiplies its colour at each point (a thing's own stains: tyre scuffs, rust, fading).
+	 */
+	add(part, material, geo, color, dirt, tint) {
+		const g = geo.index ? geo.toNonIndexed() : geo;
+		if (geo.index) geo.dispose();
+		if (!g.getAttribute('normal')) g.computeVertexNormals();
+		if (!g.getAttribute('uv')) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.getAttribute('position').count * 2), 2));
+		const base = new THREE.Color(color);
+		const p = g.getAttribute('position');
+		const cols = new Float32Array(p.count * 3);
+		const d = dirt ?? this.dirt;
+		for (let i = 0; i < p.count; i++) {
+			const c = grimed(base, p.getX(i), p.getY(i), p.getZ(i), d, this.seed);
+			if (tint) c.multiplyScalar(tint(p.getX(i), p.getY(i), p.getZ(i)));
+			cols.set([c.r, c.g, c.b], i * 3);
+		}
+		g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+		for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'color'].includes(k)) g.deleteAttribute(k);
+		if (!this.parts.has(part)) this.parts.set(part, new Map());
+		const byMat = this.parts.get(part);
+		if (!byMat.has(material)) byMat.set(material, []);
+		byMat.get(material).push(g);
+		return this;
+	}
+	/**
+	 * The thing: a group named `name`, a child per part. A part keyed `group/part` goes into a group of that name (a
+	 * signal's `head:1/lamp:red`), so a name the page drives (`lamp:red`) can stand once in each head. `special` makes
+	 * a part's own material (a lens, a sign face), by the part's key or by the material's name.
+	 */
+	build(name, special = {}) {
+		const root = new THREE.Group();
+		root.name = name;
+		const shared = new Map();
+		const look = (m) => {
+			if (!shared.has(m)) shared.set(m, new THREE.MeshStandardMaterial({ vertexColors: true, ...(LOOKS[m] ?? LOOKS.paint), name: m }));
+			return shared.get(m);
+		};
+		const groups = new Map();
+		const into = (key) => {
+			const at = key.lastIndexOf('/');
+			if (at < 0) return root;
+			const gname = key.slice(0, at);
+			if (!groups.has(gname)) {
+				const g = new THREE.Group();
+				g.name = gname;
+				root.add(g);
+				groups.set(gname, g);
+			}
+			return groups.get(gname);
+		};
+		for (const [key, byMat] of this.parts) {
+			const part = key.slice(key.lastIndexOf('/') + 1);
+			const meshes = [];
+			for (const [m, list] of byMat) {
+				const geo = list.length === 1 ? list[0] : mergeGeometries(list);
+				if (list.length > 1) for (const g of list) g.dispose();
+				const mat = special[key]?.(m) ?? special[part]?.(m) ?? special[m]?.(m) ?? look(m);
+				const mesh = new THREE.Mesh(geo, mat);
+				mesh.castShadow = mesh.receiveShadow = true;
+				mesh.name = byMat.size === 1 ? part : `${part}/${m}`;
+				meshes.push(mesh);
+			}
+			const parent = into(key);
+			if (meshes.length === 1) parent.add(meshes[0]);
+			else {
+				const g = new THREE.Group();
+				g.name = part;
+				for (const m of meshes) g.add(m);
+				parent.add(g);
+			}
+		}
+		return root;
+	}
+}
+
+/** how many triangles a built thing has */
+function trianglesOf(o) {
+	let n = 0;
+	o.traverse((m) => {
+		if (m.isMesh) n += (m.geometry.index ? m.geometry.index.count : m.geometry.getAttribute('position').count) / 3;
+	});
+	return Math.round(n);
+}
+
+/*
+ * ------------------------------------------------------------------------------------------------------------
+ * PART 1b · SIGN FACES — words and arrows painted into pictures made here (DataTextures: nothing is loaded): a
+ * stroke font of capitals and digits drawn on a 4 × 6 grid, its strokes laid on with soft edges, arrows as filled
+ * polygons, the ground faded and dirtied by noise (run-off streaks, a dirty foot). Generic words only.
+ * ------------------------------------------------------------------------------------------------------------
+ */
+
+/** the stroke font: each glyph its polylines on a grid 4 wide and 6 high (y up); `w` its advance where narrower */
+const GLYPHS = {
+	A: [[[0, 0], [2, 6], [4, 0]], [[0.7, 2], [3.3, 2]]],
+	B: [[[0, 0], [0, 6], [3, 6], [4, 5], [4, 4], [3, 3], [0, 3]], [[3, 3], [4, 2], [4, 1], [3, 0], [0, 0]]],
+	C: [[[4, 5], [3, 6], [1, 6], [0, 5], [0, 1], [1, 0], [3, 0], [4, 1]]],
+	D: [[[0, 0], [0, 6], [2.5, 6], [4, 4.5], [4, 1.5], [2.5, 0], [0, 0]]],
+	E: [[[4, 6], [0, 6], [0, 0], [4, 0]], [[0, 3], [3, 3]]],
+	F: [[[4, 6], [0, 6], [0, 0]], [[0, 3], [3, 3]]],
+	G: [[[4, 5], [3, 6], [1, 6], [0, 5], [0, 1], [1, 0], [3, 0], [4, 1], [4, 3], [2.2, 3]]],
+	H: [[[0, 0], [0, 6]], [[4, 0], [4, 6]], [[0, 3], [4, 3]]],
+	I: { w: 1.4, s: [[[0.7, 0], [0.7, 6]]] },
+	K: [[[0, 0], [0, 6]], [[4, 6], [0, 2]], [[1.3, 3.3], [4, 0]]],
+	L: [[[0, 6], [0, 0], [4, 0]]],
+	M: { w: 4.6, s: [[[0, 0], [0, 6], [2.3, 2.4], [4.6, 6], [4.6, 0]]] },
+	N: [[[0, 0], [0, 6], [4, 0], [4, 6]]],
+	O: [[[1, 0], [0, 1], [0, 5], [1, 6], [3, 6], [4, 5], [4, 1], [3, 0], [1, 0]]],
+	P: [[[0, 0], [0, 6], [3, 6], [4, 5], [4, 4], [3, 3], [0, 3]]],
+	R: [[[0, 0], [0, 6], [3, 6], [4, 5], [4, 4], [3, 3], [0, 3]], [[2, 3], [4, 0]]],
+	S: [[[4, 5], [3, 6], [1, 6], [0, 5], [0, 4], [1, 3], [3, 3], [4, 2], [4, 1], [3, 0], [1, 0], [0, 1]]],
+	T: [[[0, 6], [4, 6]], [[2, 6], [2, 0]]],
+	U: [[[0, 6], [0, 1], [1, 0], [3, 0], [4, 1], [4, 6]]],
+	V: [[[0, 6], [2, 0], [4, 6]]],
+	W: { w: 5, s: [[[0, 6], [1.2, 0], [2.5, 4], [3.8, 0], [5, 6]]] },
+	X: [[[0, 0], [4, 6]], [[0, 6], [4, 0]]],
+	Y: [[[0, 6], [2, 3], [4, 6]], [[2, 3], [2, 0]]],
+	Z: [[[0, 6], [4, 6], [0, 0], [4, 0]]],
+	0: [[[1, 0], [0, 1], [0, 5], [1, 6], [3, 6], [4, 5], [4, 1], [3, 0], [1, 0]]],
+	1: { w: 3, s: [[[0.5, 5], [1.8, 6], [1.8, 0]]] },
+	2: [[[0, 5], [1, 6], [3, 6], [4, 5], [4, 4], [0, 0], [4, 0]]],
+	3: [[[0, 5], [1, 6], [3, 6], [4, 5], [4, 4], [3, 3], [1.5, 3]], [[3, 3], [4, 2], [4, 1], [3, 0], [1, 0], [0, 1]]],
+	4: [[[3, 0], [3, 6], [0, 2], [4, 2]]],
+	5: [[[4, 6], [0, 6], [0, 3.3], [3, 3.5], [4, 2.5], [4, 1], [3, 0], [1, 0], [0, 1]]],
+	6: [[[4, 5], [3, 6], [1, 6], [0, 5], [0, 1], [1, 0], [3, 0], [4, 1], [4, 2.5], [3, 3.5], [1, 3.5], [0, 2.5]]],
+	7: [[[0, 6], [4, 6], [1.5, 0]]],
+	8: [[[1, 3], [0, 4], [0, 5], [1, 6], [3, 6], [4, 5], [4, 4], [3, 3], [1, 3], [0, 2], [0, 1], [1, 0], [3, 0], [4, 1], [4, 2], [3, 3]]],
+	9: [[[4, 3.5], [3, 2.5], [1, 2.5], [0, 3.5], [0, 5], [1, 6], [3, 6], [4, 5], [4, 1], [3, 0], [1, 0], [0, 1]]],
+	k: { w: 3, s: [[[0, 0], [0, 6]], [[3, 4], [0, 1.5]], [[1, 2.2], [3, 0]]] },
+	m: { w: 4.4, s: [[[0, 0], [0, 4]], [[0, 3], [1, 4], [2.2, 3], [2.2, 0]], [[2.2, 3], [3.4, 4], [4.4, 3], [4.4, 0]]] },
+	'.': { w: 1.2, s: [[[0.6, 0.2], [0.6, 0.25]]] },
+	'-': { w: 3, s: [[[0.3, 3], [2.7, 3]]] },
+	' ': { w: 2.4, s: [] },
+};
+const glyph = (c) => {
+	const g = GLYPHS[c] ?? GLYPHS[c.toUpperCase()] ?? GLYPHS[' '];
+	return Array.isArray(g) ? { w: 4, s: g } : g;
+};
+
+/** a picture to paint on: w × h pixels, RGBA, row 0 at the bottom (as a DataTexture lays it) */
+class Picture {
+	constructor(w, h, ground) {
+		this.w = w;
+		this.h = h;
+		this.px = new Float32Array(w * h * 3);
+		const c = new THREE.Color(ground);
+		for (let i = 0; i < w * h; i++) this.px.set([c.r, c.g, c.b], i * 3);
+	}
+	/** lay colour `c` at pixel (x, y) by cover k (0..1) */
+	lay(x, y, c, k) {
+		if (x < 0 || y < 0 || x >= this.w || y >= this.h || k <= 0) return;
+		const i = (y * this.w + x) * 3;
+		for (let j = 0; j < 3; j++) this.px[i + j] += (c[j] - this.px[i + j]) * Math.min(1, k);
+	}
+	/** a polyline `pts` (pixels) of width `wd`, its edges soft over one pixel */
+	stroke(pts, wd, color) {
+		const c = new THREE.Color(color).toArray();
+		const r = wd / 2;
+		for (let i = 1; i < pts.length; i++) {
+			const [ax, ay] = pts[i - 1], [bx, by] = pts[i];
+			const x0 = Math.floor(Math.min(ax, bx) - r - 1), x1 = Math.ceil(Math.max(ax, bx) + r + 1);
+			const y0 = Math.floor(Math.min(ay, by) - r - 1), y1 = Math.ceil(Math.max(ay, by) + r + 1);
+			const dx = bx - ax, dy = by - ay, ll = dx * dx + dy * dy || 1e-9;
+			for (let y = y0; y <= y1; y++)
+				for (let x = x0; x <= x1; x++) {
+					const t = clamp(((x + 0.5 - ax) * dx + (y + 0.5 - ay) * dy) / ll);
+					const d = Math.hypot(ax + t * dx - x - 0.5, ay + t * dy - y - 0.5);
+					this.lay(x, y, c, clamp(r + 0.5 - d));
+				}
+		}
+	}
+	/** a filled polygon `pts` (pixels) */
+	fill(pts, color) {
+		const c = new THREE.Color(color).toArray();
+		const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+		for (let y = Math.floor(Math.min(...ys)); y <= Math.ceil(Math.max(...ys)); y++)
+			for (let x = Math.floor(Math.min(...xs)); x <= Math.ceil(Math.max(...xs)); x++) {
+				// four samples a pixel for soft edges
+				let k = 0;
+				for (const [sx, sy] of [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]]) if (inside(pts, x + sx, y + sy)) k += 0.25;
+				this.lay(x, y, c, k);
+			}
+	}
+	/** a line of text, its cap height `cap` pixels, its middle at (cx, by): its baseline at by */
+	text(s, cx, by, cap, color, weight = 0.15) {
+		const u = cap / 6;
+		const gap = 1.3;
+		const width = [...s].reduce((sum, ch) => sum + glyph(ch).w + gap, -gap) * u;
+		let x = cx - width / 2;
+		for (const ch of s) {
+			const g = glyph(ch);
+			for (const line of g.s) this.stroke(line.map(([gx, gy]) => [x + gx * u, by + gy * u]), cap * weight, color);
+			x += (g.w + gap) * u;
+		}
+		return width;
+	}
+	/** a border of width `b` pixels, `inset` in from the edge, round corners of radius `rr` */
+	border(b, inset, rr, color) {
+		const x0 = inset, y0 = inset, x1 = this.w - 1 - inset, y1 = this.h - 1 - inset;
+		const pts = [];
+		const corner = (cx, cy, a0) => {
+			for (let i = 0; i <= 4; i++) {
+				const a = a0 + (i / 4) * (Math.PI / 2);
+				pts.push([cx + rr * Math.cos(a), cy + rr * Math.sin(a)]);
+			}
+		};
+		corner(x1 - rr, y0 + rr, -Math.PI / 2);
+		corner(x1 - rr, y1 - rr, 0);
+		corner(x0 + rr, y1 - rr, Math.PI / 2);
+		corner(x0 + rr, y0 + rr, Math.PI);
+		pts.push(pts[0]);
+		this.stroke(pts, b, color);
+	}
+	/** age it: the colour faded toward grey, dark streaks running down from the top, a dirty foot, by the seed */
+	age(seed, fade = 0.25, dirt = 0.35) {
+		const o = chance(seed, 'sign')() * 100;
+		for (let y = 0; y < this.h; y++)
+			for (let x = 0; x < this.w; x++) {
+				const i = (y * this.w + x) * 3;
+				const v = y / this.h, u = x / this.w;
+				const streak = smooth(0.55, 0.9, noise3(u * 40 + o, v * 2.5, 0.5)) * smooth(0.1, 0.6, v);
+				const foot = smooth(0.25, 0, v) * (0.6 + 0.4 * noise3(u * 25 + o, v * 12, 3.1));
+				const blot = fbm(u * 8 + o, v * 4, 7.7) - 0.5;
+				const dark = clamp(dirt * (0.45 * streak + 0.6 * foot + 0.3 * blot));
+				const grey = (this.px[i] + this.px[i + 1] + this.px[i + 2]) / 3;
+				for (let j = 0; j < 3; j++) this.px[i + j] = (this.px[i + j] + (grey * 0.95 + 0.04 - this.px[i + j]) * fade) * (1 - dark);
+			}
+		return this;
+	}
+	/** the picture as a texture (sRGB, mipmapped) */
+	texture() {
+		const data = new Uint8Array(this.w * this.h * 4);
+		// the pixels are linear colours (as THREE.Color holds them), stored as sRGB
+		const srgb = (x) => Math.round(255 * clamp(x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055));
+		for (let i = 0; i < this.w * this.h; i++) data.set([srgb(this.px[i * 3]), srgb(this.px[i * 3 + 1]), srgb(this.px[i * 3 + 2]), 255], i * 4);
+		const t = new THREE.DataTexture(data, this.w, this.h, THREE.RGBAFormat);
+		t.colorSpace = THREE.SRGBColorSpace;
+		t.magFilter = THREE.LinearFilter;
+		t.minFilter = THREE.LinearMipmapLinearFilter;
+		t.generateMipmaps = true;
+		t.anisotropy = 4;
+		t.needsUpdate = true;
+		return t;
+	}
+}
+/** is (x, y) inside the polygon (even-odd) */
+function inside(pts, x, y) {
+	let c = false;
+	for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+		const [xi, yi] = pts[i], [xj, yj] = pts[j];
+		if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c;
+	}
+	return c;
+}
+/** an arrow, `len` long and pointing at `angle` (radians, 0 = up), its middle at (cx, cy), in pixels */
+function arrow(len, angle, cx, cy) {
+	const s = len / 10;
+	const shape = [[-1, -5], [1, -5], [1, 1], [3, 1], [0, 5], [-3, 1], [-1, 1]];
+	const c = Math.cos(angle), n = Math.sin(angle);
+	return shape.map(([x, y]) => [cx + (x * c + y * n) * s, cy + (-x * n + y * c) * s]);
+}
+
+/*
+ * ============================================================================================================
+ * PART 2 · THE SIGN GANTRY — an overhead sign gantry over a motorway of four lanes (3.75 m each) and its hard
+ * shoulders: a welded box truss of four tubular chords, 1.2 m square, spanning 22 m between two legs of twin
+ * columns braced as ladders, each on a crash plinth of concrete behind the barrier. Three direction signs hang off
+ * its front (+z, toward the traffic): their foot 5.5 m over the road (EU clearance 4.7–5.5 m; it is kept high),
+ * blue faces faded and streaked, white words and arrows of no real place: "CENTRE / RING ROAD" over the two left
+ * lanes, "PORT / INDUSTRY" over the third, "EXIT 14 / 1000 m" over the right lane with its arrow out to the right.
+ * The road's middle is x = 0; the lanes run along z; drivers coming toward −z read the signs.
+ * ============================================================================================================
+ */
+
+/** the measures, in metres */
+const GT = {
+	lanes: [-5.625, -1.875, 1.875, 5.625], // the four lanes' middles (x), 3.75 m wide
+	legs: 11.0, // the legs stand at x ±11
+	truss: { y: 7.25, side: 1.2, bay: 1.375, chord: 0.084, web: 0.042 }, // its middle's height, its square, a bay; tube radii
+	column: { r: 0.17, z: 0.6 }, // each leg's two columns (Ø 340 mm), at z ±0.6
+	plinth: { h: 1.0, w: 1.0, d: 2.0 }, // the crash plinth under each leg
+	clear: 5.5, // the signs' foot over the road
+	ppm: 64, // the sign pictures' pixels a metre
+};
+const GT_C = { steel: '#9b9e99', concrete: '#a29d92', back: '#8d908b', blue: '#1f4e8c', white: '#ece9dc', post: '#7f827d' };
+
+/** the signs: where each hangs (x of its middle), its size, its lines of words and arrows */
+const SIGNS = [
+	{ x: -3.75, w: 6.8, h: 3.2, lines: ['CENTRE', 'RING ROAD'], arrows: [{ x: -5.625, a: Math.PI }, { x: -1.875, a: Math.PI }] },
+	{ x: 1.875, w: 3.4, h: 3.2, lines: ['PORT', 'INDUSTRY'], arrows: [{ x: 1.875, a: Math.PI }] },
+	{ x: 5.9, w: 3.8, h: 3.2, lines: ['EXIT 14', '1000 m'], arrows: [{ x: 5.9, a: Math.PI / 4 }] },
+];
+
+/** a sign's face: the blue ground, its white border, its words and its arrows */
+function signFace(S, seed) {
+	const P = GT.ppm;
+	const pic = new Picture(Math.round(S.w * P), Math.round(S.h * P), GT_C.blue);
+	pic.border(0.06 * P, 0.07 * P, 0.15 * P, GT_C.white);
+	const cap = 0.4 * P; // 400 mm capitals (motorway direction signs: 300–450 mm)
+	const textX = pic.w / 2;
+	pic.text(S.lines[0], textX, pic.h - 0.35 * P - cap, cap, GT_C.white, 0.17);
+	pic.text(S.lines[1], textX, pic.h - 0.35 * P - cap - 0.65 * P, cap, GT_C.white, 0.17);
+	for (const a of S.arrows) {
+		const cx = (a.x - (S.x - S.w / 2)) * P;
+		pic.fill(arrow(0.95 * P, a.a, cx, 0.62 * P), GT_C.white);
+	}
+	return pic.age(`${seed}:${S.x}`, 0.38, 0.55).texture();
+}
+
+function gantry(bag) {
+	const T = GT.truss, half = T.side / 2;
+	const L = GT.legs;
+	// the truss: four chords, and in each bay verticals and diagonals on all four faces
+	const ys = [T.y - half, T.y + half], zs = [-half, half];
+	for (const y of ys) for (const z of zs) bag.add('truss', 'galvanised', rod([-L, y, z], [L, y, z], T.chord, T.chord, 8), GT_C.steel);
+	const bays = Math.round((2 * L) / T.bay);
+	for (let i = 0; i <= bays; i++) {
+		const x = -L + (2 * L * i) / bays;
+		// a square frame at each panel point
+		for (const z of zs) bag.add('truss', 'galvanised', rod([x, ys[0], z], [x, ys[1], z], T.web, T.web, 5), GT_C.steel);
+		for (const y of ys) bag.add('truss', 'galvanised', rod([x, y, zs[0]], [x, y, zs[1]], T.web, T.web, 5), GT_C.steel);
+		if (i === bays) break;
+		const x2 = -L + (2 * L * (i + 1)) / bays;
+		// diagonals, turned each bay, on the front, back, top and bottom faces
+		const flip = i % 2 ? 1 : 0;
+		for (const z of zs) bag.add('truss', 'galvanised', rod([x, ys[flip], z], [x2, ys[1 - flip], z], T.web, T.web, 5), GT_C.steel);
+		for (const y of ys) bag.add('truss', 'galvanised', rod([x, y, zs[flip]], [x2, y, zs[1 - flip]], T.web, T.web, 5), GT_C.steel);
+	}
+	// the legs: two columns each, braced as a ladder, on a base plate on the plinth
+	const C = GT.column, Pl = GT.plinth;
+	for (const s of [-1, 1]) {
+		const x = s * L;
+		bag.add('legs', 'concrete', box(Pl.w, Pl.h, Pl.d, [x, Pl.h / 2, 0]), GT_C.concrete, 0.9);
+		const top = T.y + half + 0.1;
+		for (const z of [-C.z, C.z]) {
+			bag.add('legs', 'galvanised', box(0.5, 0.03, 0.5, [x, Pl.h + 0.015, z]), GT_C.steel);
+			bag.add('legs', 'galvanised', cyl(C.r, C.r, top - Pl.h, 12, [x, Pl.h, z]), GT_C.steel);
+			bag.add('legs', 'galvanised', cyl(0.01, C.r + 0.01, 0.05, 12, [x, top, z]), GT_C.steel);
+		}
+		let y0 = Pl.h + 0.4, up = 0;
+		const step = 1.2;
+		while (y0 < T.y - half - 0.3) {
+			const y1 = Math.min(y0 + step, T.y - half);
+			bag.add('legs', 'galvanised', rod([x, y0, -C.z], [x, y0, C.z], 0.05, 0.05, 6), GT_C.steel);
+			bag.add('legs', 'galvanised', rod([x, y0, up ? -C.z : C.z], [x, y1, up ? C.z : -C.z], 0.04, 0.04, 6), GT_C.steel);
+			(y0 = y1), (up = 1 - up);
+		}
+		// the truss's seat on the columns
+		bag.add('legs', 'galvanised', box(0.5, 0.06, 2 * C.z + 0.5, [x, T.y - half - 0.12, 0]), GT_C.steel);
+	}
+	// the signs: each a panel of aluminium on Z-section posts clamped to the truss's front chords
+	const faces = [];
+	SIGNS.forEach((S, k) => {
+		const y0 = GT.clear, zf = half + 0.32;
+		const yMid = y0 + S.h / 2;
+		bag.add(`sign:${k + 1}/panel`, 'galvanised', box(S.w, S.h, 0.04, [S.x, yMid, zf - 0.02]), GT_C.back, 0.7);
+		// stiffening rails across the back, and the posts up to the top chord
+		for (const yy of [y0 + 0.5, y0 + S.h - 0.5]) bag.add(`sign:${k + 1}/panel`, 'galvanised', box(S.w - 0.1, 0.1, 0.06, [S.x, yy, zf - 0.07]), GT_C.post, 0.8);
+		const posts = Math.max(2, Math.round(S.w / 1.8));
+		for (let i = 0; i < posts; i++) {
+			const px = S.x - S.w / 2 + 0.4 + ((S.w - 0.8) * i) / (posts - 1);
+			bag.add(`sign:${k + 1}/panel`, 'galvanised', box(0.1, Math.max(S.h, T.y + half - y0) + 0.1, 0.08, [px, y0 + Math.max(S.h, T.y + half - y0) / 2, zf - 0.14]), GT_C.post, 0.8);
+			for (const y of ys) bag.add(`sign:${k + 1}/panel`, 'galvanised', box(0.12, 0.16, zf - 0.18 - half + 0.1, [px, y, half + (zf - 0.18 - half) / 2]), GT_C.post, 0.8);
+		}
+		bag.add(`sign:${k + 1}/face`, 'paint', plate(S.w, S.h, [S.x, yMid, zf + 0.001]), '#ffffff', 0);
+		faces.push(S);
+	});
+	return faces;
+}
+
+/* ------------------------------------------------------------------------------------------------------------
+ * PART 3 · THE RECIPE
+ * ------------------------------------------------------------------------------------------------------------ */
+
+const PARAMS = [{ id: 'seed', label: 'Seed', type: 'string', value: 'maia', maxLength: 40 }];
+const NOTE =
+	'An overhead sign gantry over a motorway of four lanes (3.75 m) and its shoulders: a welded box truss of four tubular chords (Ø 168 mm), 1.2 m square, its middle 7.25 m up, spanning 22 m between two legs of twin Ø 340 mm columns braced as ladders, each on a 1 m concrete crash plinth (behind the barrier, at x ±11). ' +
+	'Three direction signs hang off its front toward +z, their foot 5.5 m over the road (EU clearance 4.7–5.5 m): aluminium panels 3.2 m tall on Z posts, blue faces faded and streaked, 400 mm white capitals of a stroke font drawn here, and arrows. No real place: CENTRE / RING ROAD over the two left lanes, PORT / INDUSTRY over the third, EXIT 14 / 1000 m over the right lane, its arrow pointing out to the right. ' +
+	'The road\'s middle is x = 0, the lanes run along z (their middles at x −5.625, −1.875, 1.875, 5.625); drivers going toward −z read the signs (right-hand traffic: the exit on +x). The sign faces are pictures made by the recipe (DataTextures), aged by its seed.';
+
+function build(seed) {
+	const sd = `${seed ?? 'maia'}`;
+	const bag = new Bag(sd, 0.5);
+	gantry(bag);
+	const special = {};
+	SIGNS.forEach((S, k) => {
+		special[`sign:${k + 1}/face`] = () => new THREE.MeshStandardMaterial({ name: `sign:${k + 1}`, map: signFace(S, sd), roughness: 0.55, metalness: 0 });
+	});
+	const root = bag.build('sign-gantry', special);
+	root.userData.gantry = { lanes: GT.lanes, clear: GT.clear, legs: [-GT.legs, GT.legs], faces: '+z' };
+	return root;
+}
+
+module.exports.recipe = function (id, v, variant) {
+	if (variant) throw new Error(`no asset things/${id}@${v}:${variant} in this file`);
+	return {
+		meta: { group: 'things', id, version: v, label: 'Sign gantry', note: NOTE, params: JSON.parse(JSON.stringify(PARAMS)), world: { faces: '+z', lanes: GT.lanes, laneWidth: 3.75, clear: GT.clear, legs: [-GT.legs, GT.legs] } },
+		build,
+	};
+};
+module.exports.parts = { GT, SIGNS, signFace, gantry, Picture, GLYPHS, Bag, trianglesOf };
+
+return module.exports.recipe("sign-gantry", 2, null);
+});

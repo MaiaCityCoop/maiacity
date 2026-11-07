@@ -1,0 +1,516 @@
+defineRecipe(function (require) {
+"use strict";
+var module = { exports: {} }, exports = module.exports;
+/*
+ * ============================================================================================================
+ * PART 1 · THE STREET KIT — shared by the street and road things (traffic signal, lamps, barrier, guardrail,
+ * gantry, billboard, bollards, pylon), carried in each recipe as it is.
+ *
+ * - 1 unit = 1 m, never scaled; the thing stands on y = 0, its front toward +z, lying along x where it is long.
+ * - Built in named parts (`Bag.add(part, material, geometry, colour)`): every part's pieces are merged per material,
+ *   so a thing is a handful of meshes and draw calls, and the world can stand it hundreds of times.
+ * - Weathered as the old city is: each piece's colour is darkened by grime by its place (noise, run-off streaks,
+ *   road splash near the ground), so two lamps a kilometre apart are not the same dirty, but one seed is always the
+ *   same lamp.
+ * - Lights are named for the page to drive (THE WORLD CONTRACT v1): a signal head's lenses `lamp:red`,
+ *   `lamp:amber`, `lamp:green`, a lamp's glowing bowl `light:lamp`; each its own mesh and its own material.
+ * ============================================================================================================
+ */
+const THREE = require('three');
+const { mergeGeometries } = require('three/addons/utils/BufferGeometryUtils.js');
+
+/** a stream of chance from a text: the same text, the same numbers */
+function chance(...keys) {
+	let h = 2166136261 >>> 0;
+	for (const c of keys.join('|')) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
+	return () => {
+		h = (h + 0x6d2b79f5) >>> 0;
+		let t = h;
+		t = Math.imul(t ^ (t >>> 15), t | 1);
+		t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	};
+}
+
+/** value noise in 3D, 0..1, smooth, the same everywhere for a given offset */
+function lattice(i, j, k) {
+	let h = Math.imul(i, 374761393) + Math.imul(j, 668265263) + Math.imul(k, 1274126177);
+	h = Math.imul(h ^ (h >>> 13), 1274126177);
+	return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function noise3(x, y, z) {
+	const i = Math.floor(x), j = Math.floor(y), k = Math.floor(z);
+	const fx = x - i, fy = y - j, fz = z - k;
+	const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy), w = fz * fz * (3 - 2 * fz);
+	const L = (a, b, t) => a + (b - a) * t;
+	return L(
+		L(L(lattice(i, j, k), lattice(i + 1, j, k), u), L(lattice(i, j + 1, k), lattice(i + 1, j + 1, k), u), v),
+		L(L(lattice(i, j, k + 1), lattice(i + 1, j, k + 1), u), L(lattice(i, j + 1, k + 1), lattice(i + 1, j + 1, k + 1), u), v),
+		w,
+	);
+}
+function fbm(x, y, z, octaves = 3) {
+	let s = 0, a = 0.5, f = 1;
+	for (let o = 0; o < octaves; o++) (s += a * noise3(x * f, y * f, z * f)), (a *= 0.5), (f *= 2.03);
+	return s / (1 - Math.pow(0.5, octaves));
+}
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const smooth = (a, b, x) => {
+	const t = clamp((x - a) / (b - a));
+	return t * t * (3 - 2 * t);
+};
+
+/** the materials the street is made of: how each looks in daylight (its colour comes from the pieces) */
+const LOOKS = {
+	concrete: { roughness: 0.95, metalness: 0 },
+	galvanised: { roughness: 0.7, metalness: 0.45 }, // weathered zinc: dull, little mirror left
+	paint: { roughness: 0.62, metalness: 0.15 },
+	plastic: { roughness: 0.5, metalness: 0 },
+	rubber: { roughness: 0.9, metalness: 0 },
+	glass: { roughness: 0.25, metalness: 0 },
+	paper: { roughness: 0.92, metalness: 0 },
+	// a thin open shell seen from both sides (a signal's visor, a lamp's canopy)
+	shell: { roughness: 0.62, metalness: 0.15, side: THREE.DoubleSide },
+};
+
+/**
+ * A piece placed: moved to `at` and turned by `rot` (radians about x, y, z, in that order).
+ * @param {THREE.BufferGeometry} g @param {number[]} [at] @param {number[]} [rot]
+ */
+function place(g, at = [0, 0, 0], rot) {
+	if (rot) g.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rot[0] || 0, rot[1] || 0, rot[2] || 0)));
+	g.translate(at[0], at[1], at[2]);
+	return g;
+}
+/** a box w × h × d, its middle at `at` */
+const box = (w, h, d, at, rot) => place(new THREE.BoxGeometry(w, h, d), at, rot);
+/** an upright cylinder (radius at its top and foot, height), its foot at `at`; `open` without its end caps */
+function cyl(rTop, rFoot, h, seg, at = [0, 0, 0], rot, open = false) {
+	const g = new THREE.CylinderGeometry(rTop, rFoot, h, seg, 1, open);
+	g.translate(0, h / 2, 0);
+	return place(g, at, rot);
+}
+/** a round rod from point a to point b (radius at a and at b) */
+function rod(a, b, ra, rb = ra, seg = 8, open = false) {
+	const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b);
+	const len = A.distanceTo(B);
+	const g = new THREE.CylinderGeometry(rb, ra, len, seg, 1, open);
+	g.translate(0, len / 2, 0);
+	g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize()));
+	g.translate(A.x, A.y, A.z);
+	return g;
+}
+/** a square bar from a to b, `w` across, its four sides only (a steel angle seen from afar), turned `roll` about it */
+function bar(a, b, w, roll = 0) {
+	const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b);
+	const len = A.distanceTo(B);
+	const g = new THREE.CylinderGeometry(w * 0.7071, w * 0.7071, len, 4, 1, true);
+	g.rotateY(Math.PI / 4 + roll);
+	g.translate(0, len / 2, 0);
+	g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize()));
+	g.translate(A.x, A.y, A.z);
+	return g;
+}
+/** a flat disc of radius r facing +z, its middle at `at` */
+const disc = (r, seg, at, rot) => place(new THREE.CircleGeometry(r, seg), at, rot);
+/** a flat rectangle w × h facing +z, its middle at `at`; its uv 0..1 */
+const plate = (w, h, at, rot) => place(new THREE.PlaneGeometry(w, h), at, rot);
+
+/**
+ * A profile swept straight along x from x0 to x1: `profile` its points [z, y] in order round it (a point given twice is
+ * a sharp corner), closed; with its two end faces when `caps`; cut every `step` metres along x (so the grime, painted
+ * on its points, can vary along it). UVs in metres (u along x, v round the profile).
+ */
+function sweepX(profile, x0, x1, caps = true, step = 0) {
+	const n = profile.length;
+	const at = [0];
+	for (let i = 1; i <= n; i++) {
+		const [z0, y0] = profile[i - 1], [z1, y1] = profile[i % n];
+		at.push(at[i - 1] + Math.hypot(z1 - z0, y1 - y0));
+	}
+	const cuts = step > 0 ? Math.max(1, Math.round((x1 - x0) / step)) : 1;
+	const parts = [];
+	for (let c = 0; c < cuts; c++) parts.push(smoothedAlong(profile, x0 + ((x1 - x0) * c) / cuts, x0 + ((x1 - x0) * (c + 1)) / cuts, at, x0));
+	if (caps) {
+		// the end faces: the profile without its doubled corners, each triangle turned to face out
+		const ring = profile.filter((p, i) => i === 0 || Math.hypot(p[0] - profile[i - 1][0], p[1] - profile[i - 1][1]) > 1e-9);
+		const tris = THREE.ShapeUtils.triangulateShape(ring.map(([z, y]) => new THREE.Vector2(z, y)), []);
+		for (const [x, s] of [[x0, -1], [x1, 1]]) {
+			const p = [], u = [], nn = [];
+			for (const t of tris) {
+				const [a, b, c] = t.map((k) => ring[k]);
+				// the triangle's turn in (z, y): seen from +x, counter-clockwise faces +x
+				const turn = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+				// seen from +x, z runs to the left: a counter-clockwise turn in (z, y) faces -x
+				const order = (turn < 0) === s > 0 ? [a, b, c] : [a, c, b];
+				for (const [z, y] of order) p.push(x, y, z), u.push(z, y), nn.push(s, 0, 0);
+			}
+			const cap = new THREE.BufferGeometry();
+			cap.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+			cap.setAttribute('normal', new THREE.Float32BufferAttribute(nn, 3));
+			cap.setAttribute('uv', new THREE.Float32BufferAttribute(u, 2));
+			parts.push(cap);
+		}
+	}
+	return mergeGeometries(parts);
+}
+/** the sweep's sides with normals smoothed round the profile except where a point is given twice */
+function smoothedAlong(profile, x0, x1, at, u0 = x0) {
+	const n = profile.length;
+	const same = (a, b) => Math.abs(a[0] - b[0]) < 1e-9 && Math.abs(a[1] - b[1]) < 1e-9;
+	// each edge's outward normal in (z, y)
+	const edgeN = [];
+	for (let i = 0; i < n; i++) {
+		const [z0, y0] = profile[i], [z1, y1] = profile[(i + 1) % n];
+		const l = Math.hypot(z1 - z0, y1 - y0) || 1;
+		edgeN.push([(y1 - y0) / l, -(z1 - z0) / l]);
+	}
+	const area = profile.reduce((s, [z, y], i) => s + z * profile[(i + 1) % n][1] - profile[(i + 1) % n][0] * y, 0);
+	const flip = area > 0 ? 1 : -1;
+	const pos = [], nor = [], uv = [];
+	for (let i = 0; i < n; i++) {
+		const j = (i + 1) % n;
+		const pa = profile[i], pb = profile[j];
+		if (same(pa, pb)) continue;
+		const prev = edgeN[(i - 1 + n) % n], next = edgeN[(j) % n], here = edgeN[i];
+		const sharpA = same(profile[(i - 1 + n) % n], pa), sharpB = same(pb, profile[(j + 1) % n]);
+		const na = sharpA ? here : norm2([here[0] + prev[0], here[1] + prev[1]]);
+		const nb = sharpB ? here : norm2([here[0] + next[0], here[1] + next[1]]);
+		const quad = [
+			[x0, pa, na, at[i]],
+			[x0, pb, nb, at[i + 1]],
+			[x1, pa, na, at[i]],
+			[x1, pb, nb, at[i + 1]],
+		];
+		const order = flip > 0 ? [0, 2, 1, 1, 2, 3] : [0, 1, 2, 1, 3, 2];
+		for (const k of order) {
+			const [x, p, nn, v] = quad[k];
+			pos.push(x, p[1], p[0]);
+			nor.push(0, nn[1] * flip, nn[0] * flip);
+			uv.push(x - u0, v);
+		}
+	}
+	const g = new THREE.BufferGeometry();
+	g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+	g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+	g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+	return g;
+}
+const norm2 = ([a, b]) => {
+	const l = Math.hypot(a, b) || 1;
+	return [a / l, b / l];
+};
+
+/**
+ * The grime of the old city on a colour at a place: soot and dust by noise, run-off streaks down from the top,
+ * road splash near the ground. `dirt` 0 clean .. 1 very dirty; `seed` shifts the pattern per thing.
+ */
+function grimed(color, x, y, z, dirt, seed) {
+	if (!dirt) return color;
+	const o = seed * 17.31;
+	const soot = fbm(x * 1.3 + o, y * 1.3, z * 1.3);
+	const streak = noise3(x * 6 + o, y * 0.35, z * 6) * smooth(0.45, 0.8, noise3(x * 2.1 + o, 3.3, z * 2.1));
+	const splash = smooth(0.9, 0, y) * (0.6 + 0.4 * noise3(x * 4 + o, y * 8, z * 4));
+	const dark = clamp(dirt * (0.28 * soot + 0.35 * streak + 0.3 * splash));
+	const c = color.clone().multiplyScalar(1 - dark);
+	// soot is a warm grey: pull the colour a little toward it
+	const grey = (c.r + c.g + c.b) / 3;
+	return c.lerp(new THREE.Color(grey * 1.02, grey, grey * 0.96), clamp(dirt * 0.35));
+}
+
+/**
+ * Everything a thing is built of, by part and by material: each piece painted with its colour (weathered), then each
+ * part's pieces merged per material into one mesh. A part of one material is one mesh, named as the part.
+ */
+class Bag {
+	constructor(seed = 'maia', dirt = 0.6) {
+		this.parts = new Map();
+		this.seed = chance(seed, 'grime')();
+		this.dirt = dirt;
+	}
+	/**
+	 * Add a piece to a part, of a material, in a colour; `dirt` overrides the thing's own for this piece; `tint(x, y, z)`
+	 * multiplies its colour at each point (a thing's own stains: tyre scuffs, rust, fading).
+	 */
+	add(part, material, geo, color, dirt, tint) {
+		const g = geo.index ? geo.toNonIndexed() : geo;
+		if (geo.index) geo.dispose();
+		if (!g.getAttribute('normal')) g.computeVertexNormals();
+		if (!g.getAttribute('uv')) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.getAttribute('position').count * 2), 2));
+		const base = new THREE.Color(color);
+		const p = g.getAttribute('position');
+		const cols = new Float32Array(p.count * 3);
+		const d = dirt ?? this.dirt;
+		for (let i = 0; i < p.count; i++) {
+			const c = grimed(base, p.getX(i), p.getY(i), p.getZ(i), d, this.seed);
+			if (tint) c.multiplyScalar(tint(p.getX(i), p.getY(i), p.getZ(i)));
+			cols.set([c.r, c.g, c.b], i * 3);
+		}
+		g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+		for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'color'].includes(k)) g.deleteAttribute(k);
+		if (!this.parts.has(part)) this.parts.set(part, new Map());
+		const byMat = this.parts.get(part);
+		if (!byMat.has(material)) byMat.set(material, []);
+		byMat.get(material).push(g);
+		return this;
+	}
+	/**
+	 * The thing: a group named `name`, a child per part. A part keyed `group/part` goes into a group of that name (a
+	 * signal's `head:1/lamp:red`), so a name the page drives (`lamp:red`) can stand once in each head. `special` makes
+	 * a part's own material (a lens, a sign face), by the part's key or by the material's name.
+	 */
+	build(name, special = {}) {
+		const root = new THREE.Group();
+		root.name = name;
+		const shared = new Map();
+		const look = (m) => {
+			if (!shared.has(m)) shared.set(m, new THREE.MeshStandardMaterial({ vertexColors: true, ...(LOOKS[m] ?? LOOKS.paint), name: m }));
+			return shared.get(m);
+		};
+		const groups = new Map();
+		const into = (key) => {
+			const at = key.lastIndexOf('/');
+			if (at < 0) return root;
+			const gname = key.slice(0, at);
+			if (!groups.has(gname)) {
+				const g = new THREE.Group();
+				g.name = gname;
+				root.add(g);
+				groups.set(gname, g);
+			}
+			return groups.get(gname);
+		};
+		for (const [key, byMat] of this.parts) {
+			const part = key.slice(key.lastIndexOf('/') + 1);
+			const meshes = [];
+			for (const [m, list] of byMat) {
+				const geo = list.length === 1 ? list[0] : mergeGeometries(list);
+				if (list.length > 1) for (const g of list) g.dispose();
+				const mat = special[key]?.(m) ?? special[part]?.(m) ?? special[m]?.(m) ?? look(m);
+				const mesh = new THREE.Mesh(geo, mat);
+				mesh.castShadow = mesh.receiveShadow = true;
+				mesh.name = byMat.size === 1 ? part : `${part}/${m}`;
+				meshes.push(mesh);
+			}
+			const parent = into(key);
+			if (meshes.length === 1) parent.add(meshes[0]);
+			else {
+				const g = new THREE.Group();
+				g.name = part;
+				for (const m of meshes) g.add(m);
+				parent.add(g);
+			}
+		}
+		return root;
+	}
+}
+
+/** how many triangles a built thing has */
+function trianglesOf(o) {
+	let n = 0;
+	o.traverse((m) => {
+		if (m.isMesh) n += (m.geometry.index ? m.geometry.index.count : m.geometry.getAttribute('position').count) / 3;
+	});
+	return Math.round(n);
+}
+
+/*
+ * ============================================================================================================
+ * PART 2 · THE PYLON — a high-voltage lattice suspension tower of the "Danube" form that carries the 380/400 kV
+ * lines across the fields: two circuits, three phases each, on two crossarms (the lower one wider, two phases a
+ * side; the upper, one a side), and an earth-wire peak, 42 m to its top. Galvanised steel angles bolted in a
+ * square body that tapers from 8.4 m at its feet to 2.4 m at its waist, X-braced panel by panel, on four concrete
+ * footings; I-strings of glass cap-and-pin insulators 4.2 m long (their 20 caps drawn as 6 sheds) hang from the arm tips. The crossarms lie along x,
+ * so the lines run along z; `userData.attach` gives every conductor's and earth wire's point for the world to
+ * string the spans from (380 kV spans run 300–450 m).
+ * ============================================================================================================
+ */
+
+/** the measures, in metres (a 380 kV Danube suspension tower, as built across Central Europe) */
+const PY = {
+	base: 8.4, // the body's width at its feet (leg to leg)
+	waist: { y: 23.5, w: 2.4 }, // where the lower arm sits, and the body's width there
+	top: { y: 40.0, w: 1.4 }, // the top of the body
+	peak: 42.0, // the earth-wire peak
+	levels: [0.3, 4.6, 8.8, 12.5, 15.8, 18.6, 21.2, 23.5, 26.0, 28.5, 31.2, 33.5, 36.0, 38.0, 40.0], // panel points up the body
+	lowArm: { y: 23.5, depth: 2.5, half: 11.5, phases: [5.6, 10.8] }, // lower crossarm: its foot, its depth at the body, its half span, the phases' x
+	upArm: { y: 33.5, depth: 2.5, half: 7.6, phases: [7.0] },
+	earth: { y: 40.0, half: 3.2 }, // the earth-wire arm on the peak
+	string: 4.2, // an I-string of insulators, 380 kV: about 20 caps of 146 mm, with its fittings
+	leg: [0.2, 0.12], // a leg angle's width at the foot and at the top
+	member: 0.08, // a bracing angle's width
+};
+const PY_C = { steel: '#8b8f8a', concrete: '#9e998e', glass: '#6f8c86', fitting: '#7c7f7a', sign: '#d9b13a' };
+
+/** the body's width at height y */
+function bodyW(y) {
+	if (y <= PY.waist.y) return PY.base + ((PY.waist.w - PY.base) * y) / PY.waist.y;
+	return PY.waist.w + ((PY.top.w - PY.waist.w) * (y - PY.waist.y)) / (PY.top.y - PY.waist.y);
+}
+/** the four corners of the body at height y: [x, y, z] */
+const corners = (y) => {
+	const h = bodyW(y) / 2;
+	return [[-h, y, -h], [h, y, -h], [h, y, h], [-h, y, h]];
+};
+/** a bracing member from a to b */
+const member = (bag, a, b, w = PY.member) => bag.add('lattice', 'galvanised', bar(a, b, w), PY_C.steel, 0.35);
+
+function body(bag) {
+	const L = PY.levels;
+	// the four legs, thick at the foot and thinner up the body
+	for (let i = 1; i < L.length; i++) {
+		const a = corners(L[i - 1]), b = corners(L[i]);
+		const w = PY.leg[0] + ((PY.leg[1] - PY.leg[0]) * L[i]) / PY.top.y;
+		for (let c = 0; c < 4; c++) bag.add('legs', 'galvanised', bar(a[c], b[c], w), PY_C.steel, 0.35);
+	}
+	// each panel: a horizontal ring at its foot, and an X on each of its four faces
+	for (let i = 1; i < L.length; i++) {
+		const a = corners(L[i - 1]), b = corners(L[i]);
+		for (let f = 0; f < 4; f++) {
+			const g = (f + 1) % 4;
+			member(bag, a[f], b[g]);
+			member(bag, a[g], b[f]);
+			if (i > 1) member(bag, a[f], a[g]);
+		}
+		// a plan brace across the body at the arm seats and every other level
+		if (L[i - 1] === PY.waist.y || L[i - 1] === PY.upArm.y || i % 3 === 0) {
+			member(bag, a[0], a[2]);
+			member(bag, a[1], a[3]);
+		}
+	}
+	const t = corners(PY.top.y);
+	for (let f = 0; f < 4; f++) member(bag, t[f], t[(f + 1) % 4]);
+	// the peak: four members from the body's top to the earth-wire arm
+	for (const c of t) member(bag, c, [Math.sign(c[0]) * 0.3, PY.peak, Math.sign(c[2]) * 0.3]);
+	// the footings, one under each leg, and the anti-climbing guard at 3.5 m
+	for (const [x, , z] of corners(0)) bag.add('footings', 'concrete', cyl(0.55, 0.6, 0.45, 12, [x, 0, z]), PY_C.concrete, 0.95);
+	const g = corners(3.5), g2 = corners(4.0);
+	for (let f = 0; f < 4; f++) {
+		member(bag, g[f], g[(f + 1) % 4], 0.05);
+		member(bag, g2[f], g2[(f + 1) % 4], 0.03);
+	}
+	// the danger plate on a leg, facing +z
+	bag.add('lattice', 'paint', box(0.3, 0.4, 0.01, [bodyW(2.6) / 2, 2.6, bodyW(2.6) / 2 + 0.12]), PY_C.sign, 0.5);
+}
+
+/** a crossarm out to ±half from the body at foot height y, `depth` deep at the body tapering to 0.6 m at its tip */
+function crossarm(bag, A) {
+	const y0 = A.y, n = Math.max(3, Math.round(A.half / 2.3));
+	for (const s of [-1, 1]) {
+		const w0 = bodyW(y0) / 2;
+		// its four chords: two on the bottom (front and back), two on the top meeting the body at y0 + depth
+		const at = (k) => {
+			const t = k / n;
+			const x = s * (w0 + (A.half - w0) * t);
+			const halfZ = w0 + (0.3 - w0) * t;
+			const yb = y0, yt = y0 + A.depth + (0.6 - A.depth) * t;
+			return { b: [[x, yb, -halfZ], [x, yb, halfZ]], t: [[x, yt, -halfZ * 0.6], [x, yt, halfZ * 0.6]] };
+		};
+		for (let k = 1; k <= n; k++) {
+			const p = at(k - 1), q = at(k);
+			for (let j = 0; j < 2; j++) {
+				bag.add('arms', 'galvanised', bar(p.b[j], q.b[j], 0.1), PY_C.steel, 0.35);
+				bag.add('arms', 'galvanised', bar(p.t[j], q.t[j], 0.09), PY_C.steel, 0.35);
+				// the side faces: a vertical and a diagonal per panel
+				member(bag, q.b[j], q.t[j]);
+				member(bag, k % 2 ? p.b[j] : p.t[j], k % 2 ? q.t[j] : q.b[j]);
+			}
+			// the bottom face's zig-zag and the top's ties
+			member(bag, k % 2 ? p.b[0] : p.b[1], k % 2 ? q.b[1] : q.b[0]);
+			member(bag, q.b[0], q.b[1]);
+			member(bag, q.t[0], q.t[1]);
+		}
+	}
+}
+
+/** one I-string of insulators hanging from (x, y) to its conductor clamp `PY.string` lower: caps of glass on a rod */
+function insulator(bag, k, x, y) {
+	const len = PY.string;
+	bag.add('insulators', 'galvanised', rod([x, y, 0], [x, y - 0.35, 0], 0.03, 0.03, 6), PY_C.fitting, 0.3);
+	// the string: a lathe of 6 sheds standing for its 20 caps (seen from the fields, not counted), five-sided
+	const caps = 6, top = y - 0.35, bottom = y - len + 0.45, pitch = (top - bottom) / caps;
+	const pts = [[0.02, 0]];
+	for (let i = 0; i < caps; i++) {
+		const b = i * pitch;
+		pts.push([0.04, b + pitch * 0.1], [0.14, b + pitch * 0.45], [0.04, b + pitch * 0.8]);
+	}
+	pts.push([0.02, caps * pitch]);
+	const g = new THREE.LatheGeometry(pts.map(([r, yy]) => new THREE.Vector2(r, yy)), 5);
+	g.translate(x, bottom, 0);
+	bag.add('insulators', 'glass', g, PY_C.glass, 0.25);
+	// the yoke and the conductor clamp under it: a four-bundle spacer 450 mm square
+	bag.add('insulators', 'galvanised', rod([x, bottom, 0], [x, y - len + 0.1, 0], 0.03, 0.03, 6), PY_C.fitting, 0.3);
+	bag.add('insulators', 'galvanised', box(0.06, 0.06, 0.5, [x, y - len + 0.08, 0]), PY_C.fitting, 0.3);
+	return [x, Math.round((y - len) * 1000) / 1000, 0];
+}
+
+function pylon(bag) {
+	body(bag);
+	crossarm(bag, PY.lowArm);
+	crossarm(bag, PY.upArm);
+	// the earth-wire arm across the peak
+	const E = PY.earth;
+	for (const s of [-1, 1]) {
+		bag.add('arms', 'galvanised', bar([s * 0.3, PY.peak, -0.3], [s * E.half, PY.peak - 0.6, 0], 0.08), PY_C.steel, 0.35);
+		bag.add('arms', 'galvanised', bar([s * 0.3, PY.peak, 0.3], [s * E.half, PY.peak - 0.6, 0], 0.08), PY_C.steel, 0.35);
+		bag.add('arms', 'galvanised', bar([s * PY.top.w / 2, PY.top.y, 0], [s * E.half, PY.peak - 0.6, 0], 0.07), PY_C.steel, 0.35);
+	}
+	// the phases: two a side on the lower arm, one a side on the upper; their clamps where the conductors hang
+	const attach = { conductors: [], earth: [] };
+	let k = 0;
+	for (const A of [PY.lowArm, PY.upArm])
+		for (const s of [-1, 1])
+			for (const px of A.phases) {
+				const t = (px - bodyW(A.y) / 2) / (A.half - bodyW(A.y) / 2);
+				const yArm = A.y; // hung from the arm's bottom chords
+				attach.conductors.push({ circuit: s < 0 ? 1 : 2, at: insulator(bag, ++k, s * px, yArm - 0.02 * t), bundle: 4, spacing: 0.45 });
+			}
+	for (const s of [-1, 1]) {
+		bag.add('insulators', 'galvanised', box(0.12, 0.25, 0.12, [s * E.half, PY.peak - 0.75, 0]), PY_C.fitting, 0.3);
+		attach.earth.push({ at: [s * E.half, PY.peak - 0.85, 0] });
+	}
+	return attach;
+}
+
+/* ------------------------------------------------------------------------------------------------------------
+ * PART 3 · THE RECIPE
+ * ------------------------------------------------------------------------------------------------------------ */
+
+const PARAMS = [{ id: 'seed', label: 'Seed', type: 'string', value: 'maia', maxLength: 40 }];
+const NOTE =
+	'A high-voltage lattice suspension tower of the Danube form, the kind that carries the 380/400 kV lines across the fields: two circuits of three phases on two crossarms (the lower 23 m wide, two phases a side; the upper 15 m, one a side) and an earth-wire arm on its peak, 42 m to its top. ' +
+	'Galvanised steel angles in a square body tapering from 8.4 m at its feet to 2.4 m at the waist, X-braced panel by panel, plan-braced at the arm seats, on four concrete footings, with an anti-climbing guard at 3.5 m and a yellow danger plate. ' +
+	'I-strings of glass cap-and-pin insulators 4.2 m long (their 20 caps drawn as 6 sheds) hang from the arms, each with a yoke for a four-conductor bundle (450 mm). The crossarms lie along x, so the lines run along ±z; userData.attach (and meta.world.attach) gives every conductor clamp (x, y, z) by circuit and both earth-wire points, for the world to string the spans from (380 kV spans run 300–450 m, sagging 10–15 m mid-span). Weathered zinc by its seed.';
+
+function build(seed) {
+	const bag = new Bag(`${seed ?? 'maia'}`, 0.35);
+	const attach = pylon(bag);
+	const root = bag.build('pylon');
+	root.userData.attach = attach;
+	return root;
+}
+
+/** where the lines hang, without building it */
+function attachPoints() {
+	const out = { conductors: [], earth: [] };
+	for (const A of [PY.lowArm, PY.upArm])
+		for (const s of [-1, 1])
+			for (const px of A.phases) {
+				const t = (px - bodyW(A.y) / 2) / (A.half - bodyW(A.y) / 2);
+				out.conductors.push({ circuit: s < 0 ? 1 : 2, at: [s * px, Math.round((A.y - 0.02 * t - PY.string) * 1000) / 1000, 0] });
+			}
+	for (const s of [-1, 1]) out.earth.push({ at: [s * PY.earth.half, PY.peak - 0.85, 0] });
+	return out;
+}
+
+module.exports.recipe = function (id, v, variant) {
+	if (variant) throw new Error(`no asset things/${id}@${v}:${variant} in this file`);
+	return {
+		meta: { group: 'things', id, version: v, label: 'Power pylon', note: NOTE, params: JSON.parse(JSON.stringify(PARAMS)), world: { lines: '±z', span: [300, 450], attach: attachPoints() } },
+		build,
+	};
+};
+module.exports.parts = { PY, bodyW, pylon, attachPoints, Bag, trianglesOf };
+
+return module.exports.recipe("pylon", 2, null);
+});
