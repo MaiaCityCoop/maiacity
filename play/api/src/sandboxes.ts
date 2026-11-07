@@ -7,7 +7,7 @@
 // it would be; accepted by an admin there. Accepting merges it into Main and writes Main's pins and configs to
 // play.sandbox_pins and play.sandbox_configs, which the worlds read (/api/sandboxes/<uuid>/config) as before.
 import type { Db, Queryable } from "./pg";
-import { Denied, must, type Me } from "./access";
+import { admin, must, type Me } from "./access";
 import { canonical } from "./hash";
 import { UUID } from "./uuid";
 import { readableRefs } from "../import/plan";
@@ -41,11 +41,7 @@ export type SandboxEdit =
   | { op: "delete"; config: string; path?: Key[] };
 
 /** only Maia City's admins change a sandbox, for now */
-function admin(me: Me | null): Me {
-  if (!me) throw new Denied("Please sign in first.", 401);
-  if (me.level !== "admin") throw new Denied("Only Maia City's admins change a sandbox's layout, for now.");
-  return me;
-}
+const SANDBOX_ADMINS = "Only Maia City's admins change a sandbox's layout, for now.";
 
 async function sandboxRow(q: Queryable, sandbox: string) {
   if (!UUID.test(sandbox)) throw new SandboxError("A sandbox is named by its id, a UUID (list_sandboxes).", 404);
@@ -495,7 +491,7 @@ async function writeRows(tx: Queryable, sandbox: string, json: any) {
  * play no longer keeps; one kept from before layouts were documents that no longer held then) is archived instead.
  */
 export async function decideLayout(tx: Queryable, me: Me, p: any, verdict: "accept" | "archive", decide: (tx: Queryable, me: Me, p: any, verdict: "accept" | "archive") => Promise<any>) {
-  admin(me);
+  admin(me, SANDBOX_ADMINS);
   const docId = p.doc_id as string, sandbox = docId.split(":")[1];
   await tx.query(`SELECT 1 FROM play.sandboxes WHERE id = $1 FOR UPDATE`, [sandbox]);
   if (verdict === "accept") {
@@ -515,7 +511,7 @@ export async function decideLayout(tx: Queryable, me: Me, p: any, verdict: "acce
 
 /** The sandbox at a version or an edit of its layout's history, to walk it so (admins; `?v=` or `?edit=` on its config). */
 export async function layoutAt(db: Queryable, me: Me | null, sandbox: string, at: { version: number } | { edit: number }): Promise<SandboxState> {
-  admin(me);
+  admin(me, SANDBOX_ADMINS);
   const n = "version" in at ? at.version : at.edit;
   if (!Number.isInteger(n) || n < 1) throw new NotFound("A version or an edit is named by its number.");
   await ensureLayoutDoc(db, sandbox);
@@ -530,7 +526,7 @@ export async function layoutAt(db: Queryable, me: Me | null, sandbox: string, at
  * config): its intent variant merged into the layout as it is now, as accepting would make it.
  */
 export async function proposedState(db: Queryable, me: Me | null, sandbox: string, id: string): Promise<SandboxState> {
-  admin(me);
+  admin(me, SANDBOX_ADMINS);
   const intent = await intentIdOf(db, id);
   if (!intent) throw new NotFound("There is no such intent.");
   const { rows } = await db.query<{ stage: string; doc_variant: string | null }>(`SELECT i.stage, iv.variant_id AS doc_variant FROM play.intents i JOIN play.intent_variants iv ON iv.intent_id = i.id WHERE i.id = $1 AND iv.doc_id = $2`, [intent, layoutDoc(sandbox)]);
