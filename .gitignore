@@ -11,7 +11,7 @@ play/api/blobs
 __pycache__
 # the flyover camera's films (play/site/scripts/flyover), made on the machine that renders them
 play/site/film/
-# the Rust build cache the cloud environment's setup script unpacks at the root (avenDB's, from before)
+# the Rust build cache the cloud environment's setup script unpacks at the root (from before)
 /target/
 # a per-user file the Claude app writes into the work tree: it never marks a run dirty (play/avenbox/intent.ts)
 .claude/settings.local.json

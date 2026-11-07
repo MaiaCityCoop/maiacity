@@ -5,10 +5,10 @@
 	page has a bar or a back button of its own, and everything else — the games, the worlds, the admin's tools — is a tile
 	on the dashboard. The intents (Samuel 2026-11-05, the proposals then) are a star, the AI's mark, in place of Home (Back goes up to the
 	dashboard anyway): it opens the board of the intents (Samuel 2026-11-06: everything Maia City wants made, fixed or
-	improved, from its idea through its spec and build to its proposal and the decision), in a modal over the page ($lib/site/intents), and is greyed out for everyone but Maia City's admins. You is the person's vault switcher too (Samuel 2026-10-18): their avenDB vaults, their own first, which
+	improved, from its idea through its spec and build to its proposal and the decision), in a modal over the page ($lib/site/intents), and is greyed out for everyone but Maia City's admins. You is the person's vault switcher too (Samuel 2026-10-18): their vaults, their own first, which
 	is their profile (their name lives there alone), and the one picked shown on the item, with how many changes wait
-	in the others; then the public site and signing out. Invites live in avenDB's Vaults app alone ($avendb/Vaults.svelte,
-	Samuel 2026-10-20), beside the roles they give. A page may add a
+	in the others; then the public site and signing out. Invites live on the members page (an admin's link), beside
+	the levels they give. A page may add a
 	green "+" between the intents and You that opens its main sheet, and the accounts it can be looked at as, listed in the You
 	menu ($lib/app/pill.svelte.js: MaiaCity V1's wallet and its COOPs).
 
@@ -40,12 +40,12 @@
 	let menu = $state();
 	/** the vault picked, as the You item shows it: the person's own until they pick another */
 	const here = $derived(pill.context ? (pill.context.list.find((a) => a.id === pill.context?.current) ?? null) : null);
-	/** what waits in the context's other entries (avenDB: the changes waiting for each other vault's yes) */
+	/** what waits in the context's other entries (the changes waiting in each other context) */
 	const elsewhere = $derived(
 		pill.context?.list.reduce((n, a) => n + (a.id === pill.context?.current ? 0 : (a.badge ?? 0)), 0) ?? 0
 	);
 	const path = $derived(page.url.pathname);
-	// the dashboard's address names avenDB's view on it in its hash (`/app/#sparks`), which a link sets with no
+	// the dashboard's address names a view on it in its hash (`/app/#sparks`), which a link sets with no
 	// navigation of the router's: read after each of either
 	let hash = $state(typeof location === 'undefined' ? '' : location.hash);
 	afterNavigate(() => (hash = location.hash));

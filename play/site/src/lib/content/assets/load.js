@@ -5,7 +5,7 @@
  * (./box/host.js), which runs the recipe on the frozen engine it was made for. Either way it is checked (its card
  * against the card's schema, its data by ./box/rebuild.js) and built into three.js objects by our own code. The recipe
  * is the only truth, and it is the Maia City vault's (./vault.js): its index names the hash, Maia City's own signed edits
- * prove it (./vault.js `provenAt`), and its entry's file, read off avenDB's feed and held to that hash, is what the box
+ * prove it (./vault.js `provenAt`), and its entry's file, read from play's files and held to that hash, is what the box
  * runs. A build waits for that proof, from the box or the cache alike. What it made stays on this device, so a page
  * that finds it in the cache reads no recipe's file and starts no box.
  *
@@ -54,7 +54,7 @@ export function engineOf(hash) {
 	return e;
 }
 
-/** the checks the page runs on every build of every recipe (./sources/avendb.js `recipeEntryOf`) */
+/** the checks the page runs on every build of every recipe (as play's files are held to their hashes) */
 export const CHECKS = {
 	hash: 'its file hashes to the name its card gives it',
 	card: 'its card fits the card schema and names that recipe',

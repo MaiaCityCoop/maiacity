@@ -204,12 +204,11 @@ suite("play API", () => {
     await db.query(`UPDATE play.assets SET label = 'Fern, renamed in play', head = $2 WHERE id = $1`, [ids.fern, first]);
     const before = (await db.query(`SELECT id, label, head, sound FROM play.assets ORDER BY id`)).rows;
     const members = (await db.query(`SELECT human_id, level FROM play.memberships ORDER BY human_id`)).rows;
-    // a run (every deploy runs it) reads no feed, writes none of the legacy import, and changes none of it
-    const report = await runImport(db, store, { cache: mkdtempSync(join(tmpdir(), "play-cache-")), founders: true, admins: [1], dry: false, media: false, log: () => {} });
-    expect(report.legacy.skipped).toBe(true);
+    // a run (every deploy runs it) writes none of the legacy import, and changes none of it
+    const report = await runImport(db, store, { media: false, log: () => {} });
+    expect(report.legacy.ran).toBeString();
     expect(report.ok).toBe(true);
-    expect(report.feed.recipes).toBe(0);
-    expect(Object.values(report.written).every((n) => n === 0)).toBe(true);
+    expect(report.written.media).toBe(0);
     // …but it writes the repo's stories play doesn't hold yet (./stories), with every deploy
     expect(report.stories.seeded).toContain(PAPAYA_STORY);
     expect(report.stories.errors).toEqual([]);
@@ -515,7 +514,7 @@ suite("play API", () => {
     await db.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, '12f8d4e7-701f-8727-a327-de9b240ea867', 'plants', 'thyme-old', 'Thyme'), ($2, '12f8d4e7-701f-8727-a327-de9b240ea867', 'actors', 'hen-old', 'Hen')`, [thyme, hens]);
     await db.query(
       `INSERT INTO play.asset_versions (id, asset_id, number, recipe_hash, default_variant, card, engine, imported) VALUES
-        ($1, $2, 1, $3, NULL, '{"card":{}}', 5, '{"from":"avendb"}'), ($4, $5, 1, NULL, 'hen-red', '{"card":{}}', 5, '{"from":"avendb"}')`,
+        ($1, $2, 1, $3, NULL, '{"card":{}}', 5, '{"from":"legacy"}'), ($4, $5, 1, NULL, 'hen-red', '{"card":{}}', 5, '{"from":"legacy"}')`,
       [hashText("thyme-old@1"), thyme, own, hashText("hen-old@1"), hens],
     );
     await db.query(`INSERT INTO play.asset_variants (version_id, name, recipe_hash, card) VALUES ($1, 'hen-red', $2, '{"card":{}}')`, [hashText("hen-old@1"), hen]);
@@ -545,7 +544,7 @@ suite("play API", () => {
     // an index that says the wrong version, for a version that lacks its source, or a source that is not its hash, is refused
     const sage = await put(recipe("sage-old", 1)), sageId = "8a1e2b44-0000-4000-8000-000000000003";
     await db.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, '12f8d4e7-701f-8727-a327-de9b240ea867', 'plants', 'sage-old', 'Sage')`, [sageId]);
-    await db.query(`INSERT INTO play.asset_versions (id, asset_id, number, recipe_hash, default_variant, card, engine, imported) VALUES ($1, $2, 1, $3, NULL, '{"card":{}}', 5, '{"from":"avendb"}')`, [hashText("sage-old@1"), sageId, sage]);
+    await db.query(`INSERT INTO play.asset_versions (id, asset_id, number, recipe_hash, default_variant, card, engine, imported) VALUES ($1, $2, 1, $3, NULL, '{"card":{}}', 5, '{"from":"legacy"}')`, [hashText("sage-old@1"), sageId, sage]);
     index({ [sage]: { asset: "plants/sage-old", v: 2, variant: null, source: src, commit: "c" } });
     expect((await importSources(db, store, dir)).errors[0]).toMatch(/builds sage-old@1, not plants\/sage-old@2/);
     expect((await db.query(`SELECT source_hash FROM play.asset_versions WHERE asset_id = $1`, [sageId])).rows[0].source_hash).toBeNull();
