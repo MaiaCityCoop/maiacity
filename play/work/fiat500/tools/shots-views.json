@@ -1,14 +1,254 @@
-[{"name":"1-side","camera":{"target":[0,0.62,0],"az":-90,"el":0,"dist":3.3}},
- {"name":"2-front","camera":{"target":[0,0.64,0],"az":0,"el":0,"dist":3.1}},
- {"name":"3-rear","camera":{"target":[0,0.64,0],"az":180,"el":0,"dist":3.1}},
- {"name":"4-top","camera":{"target":[0,0.6,0],"az":-90,"el":89,"dist":3.4}},
- {"name":"5-front34L","camera":{"target":[0,0.58,0.1],"az":-42,"el":9,"dist":3.4}},
- {"name":"6-rear34L","camera":{"target":[0,0.58,-0.1],"az":-140,"el":10,"dist":3.4}},
- {"name":"7-front34R-open","values":{"roof":1},"camera":{"target":[0,0.58,0.1],"az":42,"el":9,"dist":3.4}},
- {"name":"c1-headlamp","values":{"roof":0},"camera":{"target":[-0.47,0.55,1.4],"az":-28,"el":4,"dist":0.75}},
- {"name":"c2-whiskers","camera":{"target":[0,0.55,1.43],"az":-12,"el":6,"dist":0.75}},
- {"name":"c3-wheel","camera":{"target":[-0.6,0.27,0.96],"az":-80,"el":4,"dist":0.95}},
- {"name":"c4-louvres","camera":{"target":[-0.22,0.82,-1.32],"az":-165,"el":12,"dist":0.85}},
- {"name":"c5-taillamp","camera":{"target":[-0.48,0.53,-1.4],"az":-150,"el":6,"dist":0.7}},
- {"name":"c6-interior","values":{"doors":1},"camera":{"target":[-0.15,0.8,0.25],"az":-62,"el":12,"dist":1.7}},
- {"name":"c7-enginebay","values":{"doors":0,"lid":1},"camera":{"target":[0,0.55,-1.15],"az":180,"el":38,"dist":1.5}}]
+[
+ {
+  "name": "1-side",
+  "camera": {
+   "target": [
+    0,
+    0.62,
+    0
+   ],
+   "az": -90,
+   "el": 0,
+   "dist": 3.3
+  },
+  "values": {
+   "doors": 0,
+   "roof": 0,
+   "lid": 0
+  }
+ },
+ {
+  "name": "2-front",
+  "camera": {
+   "target": [
+    0,
+    0.64,
+    0
+   ],
+   "az": 0,
+   "el": 0,
+   "dist": 3.1
+  },
+  "values": {
+   "doors": 0,
+   "roof": 0,
+   "lid": 0
+  }
+ },
+ {
+  "name": "3-rear",
+  "camera": {
+   "target": [
+    0,
+    0.64,
+    0
+   ],
+   "az": 180,
+   "el": 0,
+   "dist": 3.1
+  },
+  "values": {
+   "doors": 0,
+   "roof": 0,
+   "lid": 0
+  }
+ },
+ {
+  "name": "4-top",
+  "camera": {
+   "target": [
+    0,
+    0.6,
+    0
+   ],
+   "az": -90,
+   "el": 89,
+   "dist": 3.4
+  },
+  "values": {
+   "doors": 0,
+   "roof": 0,
+   "lid": 0
+  }
+ },
+ {
+  "name": "5-front34L",
+  "camera": {
+   "target": [
+    0,
+    0.58,
+    0.1
+   ],
+   "az": -42,
+   "el": 9,
+   "dist": 3.4
+  },
+  "values": {
+   "doors": 0,
+   "roof": 0,
+   "lid": 0
+  }
+ },
+ {
+  "name": "6-rear34L",
+  "camera": {
+   "target": [
+    0,
+    0.58,
+    -0.1
+   ],
+   "az": -140,
+   "el": 10,
+   "dist": 3.4
+  },
+  "values": {
+   "doors": 0,
+   "roof": 0,
+   "lid": 0
+  }
+ },
+ {
+  "name": "7-front34R-open",
+  "values": {
+   "doors": 0,
+   "roof": 1,
+   "lid": 0
+  },
+  "camera": {
+   "target": [
+    0,
+    0.58,
+    0.1
+   ],
+   "az": 42,
+   "el": 9,
+   "dist": 3.4
+  }
+ },
+ {
+  "name": "c1-headlamp",
+  "values": {
+   "doors": 0,
+   "roof": 0,
+   "lid": 0
+  },
+  "camera": {
+   "target": [
+    -0.47,
+    0.55,
+    1.4
+   ],
+   "az": -28,
+   "el": 4,
+   "dist": 0.75
+  }
+ },
+ {
+  "name": "c2-whiskers",
+  "camera": {
+   "target": [
+    0,
+    0.55,
+    1.43
+   ],
+   "az": -12,
+   "el": 6,
+   "dist": 0.75
+  },
+  "values": {
+   "doors": 0,
+   "roof": 0,
+   "lid": 0
+  }
+ },
+ {
+  "name": "c3-wheel",
+  "camera": {
+   "target": [
+    -0.6,
+    0.27,
+    0.96
+   ],
+   "az": -80,
+   "el": 4,
+   "dist": 0.95
+  },
+  "values": {
+   "doors": 0,
+   "roof": 0,
+   "lid": 0
+  }
+ },
+ {
+  "name": "c4-louvres",
+  "camera": {
+   "target": [
+    -0.22,
+    0.82,
+    -1.32
+   ],
+   "az": -165,
+   "el": 12,
+   "dist": 0.85
+  },
+  "values": {
+   "doors": 0,
+   "roof": 0,
+   "lid": 0
+  }
+ },
+ {
+  "name": "c5-taillamp",
+  "camera": {
+   "target": [
+    -0.48,
+    0.53,
+    -1.4
+   ],
+   "az": -150,
+   "el": 6,
+   "dist": 0.7
+  },
+  "values": {
+   "doors": 0,
+   "roof": 0,
+   "lid": 0
+  }
+ },
+ {
+  "name": "c6-interior",
+  "values": {
+   "doors": 1,
+   "roof": 0,
+   "lid": 0
+  },
+  "camera": {
+   "target": [
+    -0.15,
+    0.8,
+    0.25
+   ],
+   "az": -62,
+   "el": 12,
+   "dist": 1.7
+  }
+ },
+ {
+  "name": "c7-enginebay",
+  "values": {
+   "doors": 0,
+   "roof": 0,
+   "lid": 1
+  },
+  "camera": {
+   "target": [
+    0,
+    0.55,
+    -1.15
+   ],
+   "az": 180,
+   "el": 38,
+   "dist": 1.5
+  }
+ }
+]

@@ -5363,13 +5363,15 @@ function materials5() {
 		paintIn: MAT.paint({ color: lin5("#a8352d"), roughness: .5, clearcoat: .3, clearcoatRoughness: .4 }),
 		chrome: MAT.chrome(),
 		/** the wheels' silver paint (aluminium 690) */
-		silver: MAT.paint({ color: [.55, .56, .57], metalness: .55, roughness: .38, clearcoat: .5 }),
+		silver: MAT.paint({ color: [.68, .69, .7], metalness: .5, roughness: .34, clearcoat: .5 }),
 		// glass without a transmission pass (three draws the scene twice for one): clear, reflecting, see-through by its opacity
 		glass: MAT.glass({ color: [.16, .19, .19], transmission: 0, opacity: .28, roughness: .02, envMapIntensity: 1.4 }),
-		lens: MAT.glass({ color: [.85, .87, .88], transmission: 0, opacity: .45, roughness: .05 }),
+		lens: MAT.glass({ color: [.8, .82, .84], transmission: 0, opacity: .38, roughness: .04 }),
+		/** the hub caps' pressed steel, chromed and a little dulled */
+		cap: MAT.chrome({ roughness: .2 }),
 		amber: MAT.glass({ color: [1, .38, .02], transmission: 0, opacity: .88, roughness: .12, emissive: [.12, .04, 0] }),
 		red: MAT.glass({ color: [.6, .015, .015], transmission: 0, opacity: .9, roughness: .12, emissive: [.06, 0, 0] }),
-		reflector: MAT.chrome({ roughness: .18 }),
+		reflector: MAT.chrome({ roughness: .1, color: [.85, .86, .86] }),
 		rubber: MAT.rubber(),
 		gap: MAT.satin({ color: [.012, .008, .008], roughness: .9 }),
 		canvas: MAT.satin({ color: [.022, .022, .024], roughness: .95, finish: "cast", rep: [40, 40] }),
@@ -5538,9 +5540,15 @@ function endZ5(x, y, dir) {
 		const s = section5(z);
 		return y <= s.top && y >= s.lip && Math.abs(x) <= s.side(y);
 	};
-	let lo = dir > 0 ? F5.nose : F5.tail, hi = dir > 0 ? .2 : -.4;
-	if (!inside(hi)) return hi;
-	for (let k = 0; k < 40; k++) {
+	// in from the tip in 5 mm steps to the first station that holds it (the arches break the shell's ends), then halved down
+	let lo = dir > 0 ? F5.nose : F5.tail, hi = lo;
+	const end = dir > 0 ? .2 : -.4;
+	while (dir * (hi - end) > 0 && !inside(hi)) {
+		lo = hi;
+		hi -= dir * .005;
+	}
+	if (!inside(hi)) return end;
+	for (let k = 0; k < 20; k++) {
 		const m = (lo + hi) / 2;
 		if (inside(m)) hi = m;
 		else lo = m;
@@ -5946,10 +5954,10 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 	};
 	// the domed hub cap and the rim's painted face, on each wheel
 	for (const c of Object.values(corners)) {
-		const x0 = wheelOpts.et + .006;
-		const cap = latheX([[0, x0 + .046], [.03, x0 + .045], [.07, x0 + .037], [.1, x0 + .022], [.118, x0 + .006], [.121, x0], [0, x0]], 56);
-		const face = latheX([[.112, x0 - .006], [.152, x0 - .014], [.152, x0 - .008], [.115, x0 + .001]], 56);
-		c.wheel.add(m(cap, M.chrome), m(face, M.silver));
+		const x0 = wheelOpts.et + .02;
+		const cap = latheX([[0, x0 + .036], [.012, x0 + .036], [.016, x0 + .033], [.03, x0 + .031], [.07, x0 + .025], [.1, x0 + .015], [.116, x0 + .005], [.119, x0], [0, x0]], 56);
+		const face = latheX([[.105, x0 - .004], [.15, x0 - .012], [.153, x0 - .004], [.15, x0 + .002], [.112, x0 + .004]], 56);
+		c.wheel.add(m(cap, M.cap), m(face, M.silver));
 	}
 
 	/* —— the rolltop: its canvas over the roof's opening, folding back in pleats —— */
@@ -6050,6 +6058,8 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 			const p = [h.p[0], h.p[1], h.p[2] + .004];
 			chrome.push(laid5(latheZ([[.066, -.02], [.083, -.01], [.086, .004], [.08, .016], [.07, .014], [.066, .004]], 64), p, aim));
 			lens.push(laid5(latheZ([[0, .02], [.03, .019], [.055, .014], [.068, .006], [.068, -.004], [0, -.004]], 48), p, aim));
+			for (const rr of [.018, .034, .05]) chrome.push(laid5(new three.TorusGeometry(rr, .0008, 4, 40).translate(0, 0, .0205 - rr * rr * 1.4), p, aim));
+			refl.push(laid5(latheZ([[0, -.008], [.014, -.008], [.016, .002], [.01, .008], [0, .009]], 20), p, aim));
 			refl.push(laid5(latheZ([[.068, -.004], [.05, -.03], [.02, -.048], [.012, -.05], [.012, -.044], [.02, -.042], [.05, -.024], [.064, -.004]], 40), p, aim));
 			// the indicator under it, a clear round lens in a chrome base
 			const i = onEnd5(sx * .52, .43, 1);
@@ -6072,7 +6082,8 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 		const tc = [], ta = [], tr = [];
 		for (const sx of [1, -1]) {
 			const t = onEnd5(sx * .48, .525, -1);
-			const p = [t.p[0], t.p[1], t.p[2] - .006];
+			t.n.multiplyScalar(.4).add(new three.Vector3(0, 0, -.6)).normalize();
+			const p = [t.p[0], t.p[1], t.p[2] - .004];
 			tc.push(laid5(box(.092, .198, .03, .012), p, t.n));
 			ta.push(laid5(box(.074, .055, .022, .006).translate(0, .066, .009), p, t.n));
 			tr.push(laid5(GEO.merge([box(.074, .058, .022, .006).translate(0, .003, .009), box(.074, .052, .022, .006).translate(0, -.064, .009)]), p, t.n));
@@ -6115,7 +6126,7 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 			source: SRC5.trim,
 			what: "The 500’s ‘moustache’: on the F one moulded piece, a chromed shield over the horn in the middle of the nose, its grille letting the horn’s sound out, and two chrome bars tapering out towards the headlamps. No badge or lettering here.",
 			specs: [["Span", "570 mm"]]
-		}, [m(GEO.merge([cover, ...bars]), M.chrome), m(GEO.merge(grille), M.black)]);
+		}, [m(GEO.merge([cover, ...bars]), M.chrome), m(GEO.merge(grille), M.cap)]);
 		const wipers = [];
 		for (const xp of [-.1, .29]) {
 			const arm = [], blade = [];
@@ -6588,16 +6599,15 @@ const LIST = [{
 	label: "Fiat 500 F",
 	note: "the Nuova 500 as built 1965–72, in Rosso Corallo 102, true to its reference sheet: its own body lofted from the sheet’s traced views, its glass, gaps, rolltop, lamps and chrome, its interior, and its own air-cooled twin, transaxle, leaf-sprung front and coil-sprung swinging arms behind, on the shared vehicle machinery; vehicle.js’s solver drives it",
 	from: "Samuel 2026-11-07: a red Fiat 500 in the machines",
+	params: [
+		{ id: "doors", label: "Doors open", type: "number", value: 0, min: 0, max: 1, step: .05 },
+		{ id: "roof", label: "Rolltop folded back", type: "number", value: 0, min: 0, max: 1, step: .05 },
+		{ id: "lid", label: "Engine lid up", type: "number", value: 0, min: 0, max: 1, step: .05 }
+	],
 	variants: [{
 		id: "fiat500",
-		label: "Roof closed",
 		note: "2,970 × 1,320 × 1,325 mm, wheelbase 1,840, tracks 1,121 and 1,135, 520 kg (e5efff81-8de1-45b3-9de1-2fd3e521bd53); a 499.5 cc air-cooled twin, 67.4 × 70 mm, 18 hp at 4,600 rpm, 31 N·m at 3,000 (e5efff81-8de1-45b3-9de1-2fd3e521bd53); gears 3.700, 2.067, 1.300, 0.875, final drive 8/41 = 5.125 (3b5332c8-1083-4e85-bad5-156a90148b09); 125 SR 12 tyres, 514 mm across (e12362b0-2cf5-4b87-95da-e0f36b801404); top speed 95 km/h (ecc4134c-a8af-4d8d-8094-e8bc9c2d0a68); Cd 0.38 (cfa16bdf-268d-4e7b-b3ba-44e86656edf2); Rosso Corallo, Fiat 102, #b1372f (344cf860-1a7d-4bf7-86e3-ac16638425a4, d317c2f0-cfa5-4faa-b502-157ac3e44b52); its reference sheet fda28639be522b6601a7b84076cf07817ea8678ed022de1eb52ce070b469338a",
-		make: () => castOf(fiat500())
-	}, {
-		id: "fiat500-open",
-		label: "Roof open",
-		note: "the same car, its rolltop folded back as the sheet’s front three-quarter right shows it",
-		make: () => castOf(fiat500({ roof: 1 }))
+		make: (doors = 0, roof = 0, lid = 0) => castOf(fiat500({ doors, roof, lid }))
 	}]
 }];
 /** @type {Family[]} */

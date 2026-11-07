@@ -130,13 +130,15 @@ function materials5() {
 		paintIn: MAT.paint({ color: lin5("#a8352d"), roughness: .5, clearcoat: .3, clearcoatRoughness: .4 }),
 		chrome: MAT.chrome(),
 		/** the wheels' silver paint (aluminium 690) */
-		silver: MAT.paint({ color: [.55, .56, .57], metalness: .55, roughness: .38, clearcoat: .5 }),
+		silver: MAT.paint({ color: [.68, .69, .7], metalness: .5, roughness: .34, clearcoat: .5 }),
 		// glass without a transmission pass (three draws the scene twice for one): clear, reflecting, see-through by its opacity
 		glass: MAT.glass({ color: [.16, .19, .19], transmission: 0, opacity: .28, roughness: .02, envMapIntensity: 1.4 }),
-		lens: MAT.glass({ color: [.85, .87, .88], transmission: 0, opacity: .45, roughness: .05 }),
+		lens: MAT.glass({ color: [.8, .82, .84], transmission: 0, opacity: .38, roughness: .04 }),
+		/** the hub caps' pressed steel, chromed and a little dulled */
+		cap: MAT.chrome({ roughness: .2 }),
 		amber: MAT.glass({ color: [1, .38, .02], transmission: 0, opacity: .88, roughness: .12, emissive: [.12, .04, 0] }),
 		red: MAT.glass({ color: [.6, .015, .015], transmission: 0, opacity: .9, roughness: .12, emissive: [.06, 0, 0] }),
-		reflector: MAT.chrome({ roughness: .18 }),
+		reflector: MAT.chrome({ roughness: .1, color: [.85, .86, .86] }),
 		rubber: MAT.rubber(),
 		gap: MAT.satin({ color: [.012, .008, .008], roughness: .9 }),
 		canvas: MAT.satin({ color: [.022, .022, .024], roughness: .95, finish: "cast", rep: [40, 40] }),
@@ -305,9 +307,15 @@ function endZ5(x, y, dir) {
 		const s = section5(z);
 		return y <= s.top && y >= s.lip && Math.abs(x) <= s.side(y);
 	};
-	let lo = dir > 0 ? F5.nose : F5.tail, hi = dir > 0 ? .2 : -.4;
-	if (!inside(hi)) return hi;
-	for (let k = 0; k < 40; k++) {
+	// in from the tip in 5 mm steps to the first station that holds it (the arches break the shell's ends), then halved down
+	let lo = dir > 0 ? F5.nose : F5.tail, hi = lo;
+	const end = dir > 0 ? .2 : -.4;
+	while (dir * (hi - end) > 0 && !inside(hi)) {
+		lo = hi;
+		hi -= dir * .005;
+	}
+	if (!inside(hi)) return end;
+	for (let k = 0; k < 20; k++) {
 		const m = (lo + hi) / 2;
 		if (inside(m)) hi = m;
 		else lo = m;
@@ -713,10 +721,10 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 	};
 	// the domed hub cap and the rim's painted face, on each wheel
 	for (const c of Object.values(corners)) {
-		const x0 = wheelOpts.et + .006;
-		const cap = latheX([[0, x0 + .046], [.03, x0 + .045], [.07, x0 + .037], [.1, x0 + .022], [.118, x0 + .006], [.121, x0], [0, x0]], 56);
-		const face = latheX([[.112, x0 - .006], [.152, x0 - .014], [.152, x0 - .008], [.115, x0 + .001]], 56);
-		c.wheel.add(m(cap, M.chrome), m(face, M.silver));
+		const x0 = wheelOpts.et + .02;
+		const cap = latheX([[0, x0 + .036], [.012, x0 + .036], [.016, x0 + .033], [.03, x0 + .031], [.07, x0 + .025], [.1, x0 + .015], [.116, x0 + .005], [.119, x0], [0, x0]], 56);
+		const face = latheX([[.105, x0 - .004], [.15, x0 - .012], [.153, x0 - .004], [.15, x0 + .002], [.112, x0 + .004]], 56);
+		c.wheel.add(m(cap, M.cap), m(face, M.silver));
 	}
 
 	/* —— the rolltop: its canvas over the roof's opening, folding back in pleats —— */
@@ -817,6 +825,8 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 			const p = [h.p[0], h.p[1], h.p[2] + .004];
 			chrome.push(laid5(latheZ([[.066, -.02], [.083, -.01], [.086, .004], [.08, .016], [.07, .014], [.066, .004]], 64), p, aim));
 			lens.push(laid5(latheZ([[0, .02], [.03, .019], [.055, .014], [.068, .006], [.068, -.004], [0, -.004]], 48), p, aim));
+			for (const rr of [.018, .034, .05]) chrome.push(laid5(new three.TorusGeometry(rr, .0008, 4, 40).translate(0, 0, .0205 - rr * rr * 1.4), p, aim));
+			refl.push(laid5(latheZ([[0, -.008], [.014, -.008], [.016, .002], [.01, .008], [0, .009]], 20), p, aim));
 			refl.push(laid5(latheZ([[.068, -.004], [.05, -.03], [.02, -.048], [.012, -.05], [.012, -.044], [.02, -.042], [.05, -.024], [.064, -.004]], 40), p, aim));
 			// the indicator under it, a clear round lens in a chrome base
 			const i = onEnd5(sx * .52, .43, 1);
@@ -839,7 +849,8 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 		const tc = [], ta = [], tr = [];
 		for (const sx of [1, -1]) {
 			const t = onEnd5(sx * .48, .525, -1);
-			const p = [t.p[0], t.p[1], t.p[2] - .006];
+			t.n.multiplyScalar(.4).add(new three.Vector3(0, 0, -.6)).normalize();
+			const p = [t.p[0], t.p[1], t.p[2] - .004];
 			tc.push(laid5(box(.092, .198, .03, .012), p, t.n));
 			ta.push(laid5(box(.074, .055, .022, .006).translate(0, .066, .009), p, t.n));
 			tr.push(laid5(GEO.merge([box(.074, .058, .022, .006).translate(0, .003, .009), box(.074, .052, .022, .006).translate(0, -.064, .009)]), p, t.n));
@@ -882,7 +893,7 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 			source: SRC5.trim,
 			what: "The 500’s ‘moustache’: on the F one moulded piece, a chromed shield over the horn in the middle of the nose, its grille letting the horn’s sound out, and two chrome bars tapering out towards the headlamps. No badge or lettering here.",
 			specs: [["Span", "570 mm"]]
-		}, [m(GEO.merge([cover, ...bars]), M.chrome), m(GEO.merge(grille), M.black)]);
+		}, [m(GEO.merge([cover, ...bars]), M.chrome), m(GEO.merge(grille), M.cap)]);
 		const wipers = [];
 		for (const xp of [-.1, .29]) {
 			const arm = [], blade = [];
