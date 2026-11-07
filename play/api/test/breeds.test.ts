@@ -97,7 +97,7 @@ suite("breeds", () => {
 
     // a papaya of two kinds, proposed as a version of variants and accepted: its variants are its breeds from then on
     const made = await tool("propose_asset", {
-      group: "plants", label: "Papaya", note: "its first version", default_variant: "female",
+      group: "plants", label: "Papaya", note: "its first version", default_variant: "female", intent: await readyIntent("A papaya of two kinds"),
       variants: [
         { name: "female", label: "Papaya: Female", source: SOURCE("a female papaya") },
         { name: "male", label: "Papaya: Male", source: SOURCE("a male papaya") },
@@ -130,7 +130,7 @@ suite("breeds", () => {
     // Main's source is its default breed's (female overrides no source; male does), its card female's
     expect(main.source).toContain("a female papaya");
     const p = await tool("propose_doc_version", {
-      doc: papaya, note: "taller, and noted",
+      doc: papaya, note: "taller, and noted", intent: await readyIntent("A taller papaya"),
       edits: [
         { op: "replace", find: "a female papaya", replace: "a taller papaya" },
         { op: "set", path: ["note"], value: "grown taller" },
@@ -172,7 +172,7 @@ suite("breeds", () => {
     const male = (await breedsOf()).find((x: any) => x.name === "male");
     const was = await head();
     // a breed changes only its own fields
-    const wrong = await tool("propose_doc_version", { doc: papaya, breed: male.id, note: "a male's note", edits: [{ op: "set", path: ["note"], value: "only the male" }] });
+    const wrong = await tool("propose_doc_version", { doc: papaya, breed: male.id, intent: await readyIntent("A male's note"), note: "a male's note", edits: [{ op: "set", path: ["note"], value: "only the male" }] });
     expect(wrong.error).toContain("A breed changes only its own source and card");
     // edited in an intent variant seeded from the breed, edit by edit, then proposed
     const stronger = await readyIntent("A stronger male papaya");
@@ -206,7 +206,7 @@ suite("breeds", () => {
   test("c2: a new breed is made by an intent too, and tracks Main from then on", async () => {
     const was = await head();
     const p = await tool("propose_doc_version", {
-      doc: papaya, new_breed: "hermaphrodite", note: "a third kind",
+      doc: papaya, new_breed: "hermaphrodite", note: "a third kind", intent: await readyIntent("A third kind"),
       edits: [{ op: "set", path: ["card", "card", "label"], value: "Papaya: Hermaphrodite" }],
     });
     expect(p.error).toBeUndefined();
@@ -218,7 +218,7 @@ suite("breeds", () => {
     // a name a breed has is taken
     expect((await tool("doc_edit", { doc: papaya, intent: await readyIntent("A second male"), new_breed: "male", message: "again", edits: [{ op: "set", path: ["card", "card", "label"], value: "x" }] })).error).toContain("breed male already");
     // Main moves: the new breed takes it, keeping its own label
-    const q = await tool("propose_doc_version", { doc: papaya, note: "taller still", edits: [{ op: "replace", find: "a taller papaya", replace: "a tallest papaya" }] });
+    const q = await tool("propose_doc_version", { doc: papaya, intent: await readyIntent("Taller still"), note: "taller still", edits: [{ op: "replace", find: "a taller papaya", replace: "a tallest papaya" }] });
     expect((await accept(q.intent)).decision.status).toBe("accepted");
     const h = await breed("hermaphrodite");
     expect(h.source).toContain("a tallest papaya");
@@ -229,7 +229,7 @@ suite("breeds", () => {
   });
 
   test("an asset of breeds is changed through its document, so every breed is built from it", async () => {
-    const r = await call("POST", "/api/intents", { asset: papaya, source: SOURCE("a whole new papaya"), note: "over every breed" });
+    const r = await call("POST", "/api/intents", { asset: papaya, intent: await readyIntent("A whole new papaya"), source: SOURCE("a whole new papaya"), note: "over every breed" });
     expect(r.status).toBe(409);
     expect(r.data.error).toContain("This asset has breeds");
   });
