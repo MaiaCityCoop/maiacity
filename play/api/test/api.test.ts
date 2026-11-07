@@ -615,7 +615,8 @@ suite("play API", () => {
     expect(humans.total).toBeGreaterThanOrEqual(3);
     expect((await call("ada", "GET", "/api/tables/pg_user")).status).toBe(404);
     expect((await call("ada", "GET", `/api/tables/${encodeURIComponent('humans"; DROP TABLE play.humans; --')}`)).status).toBe(404);
-  });
+    // (its own time: /api/tables counts every table's rows, past bun's 5 s on a loaded box)
+  }, 30_000);
 
 
   // ---- Stories: films as timelines, versioned like the assets, changed only by proposal over MCP
