@@ -98,7 +98,7 @@ suite("one intent holds all its work", () => {
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "seen" }] })).stage).toBe("proposal");
     return i.id as string;
   };
-  const asset = (label: string, intent: string) => tool("propose_asset", { group: "plants", label, source: SOURCE, note: `${label}, its first version`, intent });
+  const asset = (label: string, intent: string) => tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label, source: SOURCE, note: `${label}, its first version`, intent });
   const story = (title: string, intent: string) =>
     tool("propose_story", { title, note: "its first cut", intent, body: { format: "9:16", fps: 30, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line: "One." }] }] } });
   const variants = async (intent: string) =>
@@ -138,7 +138,7 @@ suite("one intent holds all its work", () => {
     expect(now[3].variant_id).not.toBe(held[3].variant_id);
     expect(await statusOf(held[3].variant_id)).toBe("archived");
     // an asset proposed again too: only that asset's variant is replaced
-    const elder2 = await tool("propose_doc_version", { doc: elder.asset, note: "Elder woman, again", edits: [{ op: "set", path: ["source"], value: SOURCE + "// her second\n" }], intent: id });
+    const elder2 = await tool("propose_doc_version", { doc: elder.asset, note: "Elder woman, again", edits: [{ op: "set", path: ["source"], value: SOURCE + "// her second\n" }, { op: "set", path: ["card"], value: { card: { lod: { levels: "derived" } } } }], intent: id });
     expect(elder2.error).toBeUndefined();
     const after = await variants(id);
     expect(after.length).toBe(4);
