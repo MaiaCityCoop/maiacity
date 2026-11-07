@@ -5,16 +5,10 @@
 # and switches a link). Hashed chunks keep their original URLs for at least 30 days, independently of the five
 # rollback releases, so an open page can still navigate without losing its unlocked device. www goes to the bare name.
 #
-# The API (api.maia.city):
-#   /vault/files/<hash>    the site's media (maia/site/lib/media/url.ts): Maia City's public files from avenDB's feed
-#                          (/feed/media/<hash>, with Range), by the BLAKE3 hash the old media vault named them by (that
-#                          vault and its gateway retired 2026-10-20, #1112)
-#   everything else        the API
+# The API (api.maia.city): the API.
 #
-# A browser can't set headers on a WebSocket, so avenDB's relay pass (avendb::sign::RelayPass, ~23 KB, or ~31 KB for
-# a pass in each signature suite during the key move) rides in the URL of avendb.maia.city/relay (?token=), and a
-# device off the browser sends it as a header as long. Since 2.11, Caddy turns requests that long away (431) unless
-# told to read more.
+# A header may be long (a relay's pass rides in a URL or a header): since 2.11, Caddy turns requests that long away
+# (431) unless told to read more.
 #
 # HTTP/3 is off: it rides on UDP 443, which neither the compose file publishes nor the firewall opens. Caddy would
 # still offer it in every answer (Alt-Svc), and a browser that takes the offer waits on QUIC that never answers before
@@ -87,51 +81,8 @@ www.{$SITE_ADDRESS:maia.city} {
 	redir https://{$SITE_ADDRESS:maia.city}{uri} permanent
 }
 
-# avenDB's relay (avendb.maia.city): the iroh relay inside avendb-server, on a host name of its own, as iroh's relay path
-# is /relay and api.maia.city/relay is the media vault's. It holds only ciphertext and lets in only the devices the
-# server knows, or a passkey's pass. Its TLS agrees keys by X25519MLKEM768 alone, as avenDB's own links do: a browser
-# without it can't reach avenDB.
-#   /feed/*        the Maia Universe's feed: the posts the server keeps that everyone may read, as JSON (any page)
-#   everything else the relay
-{$AVENDB_ADDRESS:avendb.maia.city} {
-	tls {
-		curves x25519mlkem768
-	}
-	import walls
-	handle /feed/* {
-		encode zstd gzip
-		reverse_proxy avendb:3351
-	}
-	handle {
-		reverse_proxy avendb:3350
-	}
-}
-
 {$API_ADDRESS} {
 	import walls
-	# what a browser asks before it reads one of the site's media by Range (its CORS preflight), answered here, as
-	# avenDB's feed answers no OPTIONS
-	@media_preflight {
-		method OPTIONS
-		path_regexp ^/vault/files/[0-9a-f]{64}(\.[a-z0-9]+)?$
-	}
-	handle @media_preflight {
-		header Access-Control-Allow-Origin *
-		header Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
-		header Access-Control-Allow-Headers Range
-		header Access-Control-Max-Age 86400
-		respond 204
-	}
-	# the site's media, from avenDB: no key goes on to it, as everyone may read them. Every answer lets any page read
-	# it, a refusal too, so a page sees why a file did not load
-	@media path_regexp media ^/vault/files/([0-9a-f]{64}(\.[a-z0-9]+)?)$
-	handle @media {
-		header ?Access-Control-Allow-Origin *
-		reverse_proxy avendb:3351 {
-			rewrite /feed/media/{re.media.1}
-			header_up -Authorization
-		}
-	}
 	handle {
 		encode zstd gzip
 		reverse_proxy api:3000
@@ -139,7 +90,7 @@ www.{$SITE_ADDRESS:maia.city} {
 }
 
 # >>> aven.maia.city
-# The new avenDB's Aven Peer (aven/DB2/PRODUCTION.md, Part B). .github/workflows/avendeploy.yml puts this block, from
+# The Aven Peer (aven/DB2/PRODUCTION.md, Part B). Its own deploy puts this block, from
 # the line above to the line below, into the server's Caddyfile in place of its last copy, and leaves every other line
 # as it is. The Aven Peer runs in its own compose project (/opt/aven), on this Caddy's network, its relay's HTTP port
 # reachable only there:

@@ -3,7 +3,7 @@
  * THE DEVICE'S ASSET CACHE — what the box built (./box), kept on this device, so a page shows an asset it showed before
  * without running its recipe again. Never synced and never the truth: the recipe is (any device builds it again), so
  * this may be emptied at any time, and a page that finds nothing builds. Kept in the origin private file system (OPFS),
- * where avenDB keeps its store too, in a folder of its own (DIR): each build a file named by the key `keyOf` names, the
+ * in a folder of its own (DIR): each build a file named by the key `keyOf` names, the
  * box's plain data and the card as they came out (`packed`); what is read back goes through the same checks as what
  * comes out of a box (../load.js: the card's schema, ./box/rebuild.js), so an entry spoiled by anyone is refused like a
  * box that lies, dropped and built again. Bounded: past LIMIT bytes the entries used longest ago go first.

@@ -2,7 +2,8 @@
 // UUID, its work on the intent itself (./work.ts). Idea → Specify → Build → Proposal → (Ship →) Accepted (or Archived).
 // Agents add, specify and build it over MCP; an admin approves its spec and decides it at Proposal, where work of play's
 // is applied (./versioned.ts decide) and code is shipped (./ship.ts). Every move forward is one gate, mayMove.
-import { Denied, COOP, meOf, type Me } from "./access";
+import { intentSeen, seesIntent } from "./owners";
+import { admin, Denied, COOP, meOf, type Me } from "./access";
 import type { BlobStore } from "./blobs";
 import type { Db, Queryable } from "./pg";
 import { factsOf, matchRule, ruleSetOf, type AutoBy } from "./rules";
@@ -10,7 +11,7 @@ import type { GitHub } from "./ship";
 import { NOTE_MOST } from "./notes";
 import { briefOf } from "./skills";
 import { newId, UUID } from "./uuid";
-import { intentIdOf } from "./work";
+import { closeWork, intentIdOf, WORK_STATUS } from "./work";
 import { decideAny, workKinds, workSql } from "./versioned";
 import { decidable, sub, unmetOn } from "./substate";
 
@@ -54,11 +55,7 @@ export type IntentVerdict = "approve" | "accept" | "reject" | "reopen";
 const NO_REDUCE = "Its reduce step comes first: at least one check with step reduce (what it removes, simplifies or compacts), or nothing_to_reduce saying why nothing is.";
 
 /** only Maia City's admins keep the intents, as they decide them */
-export function admin(me: Me | null): Me {
-  if (!me) throw new Denied("Please sign in first.", 401);
-  if (me.level !== "admin") throw new Denied("Only Maia City's admins keep the intents.");
-  return me;
-}
+export const INTENT_ADMINS = "Only Maia City's admins keep the intents.";
 
 const kindOf = (v: unknown): IntentKind => {
   if (v === undefined || v === null || v === "") return "idea";
@@ -145,7 +142,7 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
             ${EDGES("d.intent_id = i.id", "d.depends_on")} AS depends_on, ${EDGES("d.depends_on = i.id", "d.intent_id")} AS needed_by,
             au.name AS author, sp.name AS specified_by, ap.name AS approved_by, de.name AS decided_by,
             CASE WHEN i.work IS NULL THEN NULL ELSE json_build_object(
-              'kind', i.work, 'status', CASE i.stage WHEN 'proposal' THEN 'proposal' WHEN 'accepted' THEN 'accepted' ELSE 'archived' END,
+              'kind', i.work, 'status', ${WORK_STATUS},
               'asset_id', i.asset_id, 'base', i.base, 'version', i.version, 'story_id', i.story_id, 'story_base', i.story_base, 'story_version', i.story_version,
               'doc_id', iv0.doc_id, 'doc', split_part(iv0.doc_id, ':', 2), 'doc_variant', iv0.variant_id, 'docs', (SELECT count(*) FROM play.intent_variants x WHERE x.intent_id = i.id),
               'note', COALESCE(i.work_note, ''), 'author', pb.name, 'via', i.proposed_via, 'created', i.proposed_at, 'decided_by', de.name, 'decided_at', i.decided_at,
@@ -212,7 +209,7 @@ async function addEdges(q: Queryable, who: Me, id: string, on: string[], drop = 
 
 /** One edge added, or dropped, by an admin's agent over MCP: intent `id` depends on intent `on`. */
 export async function dependIntent(db: Db, me: Me | null, id: string, on: unknown, drop?: unknown) {
-  const who = admin(me);
+  const who = admin(me, INTENT_ADMINS);
   const { id: i } = await intentRow(db, id);
   await db.transaction((tx) => addEdges(tx, who, i, [idOf(on)], drop === true));
   return intentRow(db, i);
@@ -251,10 +248,11 @@ const depsOf = (v: unknown) => {
 
 /** The intents at the given stages (every stage where none is given), the latest first; with `work`, only those holding work of that kind. */
 export async function listIntents(db: Queryable, me: Me | null, stages?: string[], work?: string) {
-  admin(me);
+  admin(me, INTENT_ADMINS);
   for (const s of stages ?? []) if (!INTENT_STAGES.includes(s as IntentStage)) throw new IntentError(`An intent's stage is ${INTENT_STAGES.join(", ")}.`);
   if (work !== undefined && !workKinds().includes(work)) throw new IntentError(`An intent's work is ${workKinds().join(", ")}.`);
-  return intentsWhere(db, `($2::text[] IS NULL OR i.stage = ANY($2::text[])) AND ($3::text IS NULL OR i.work = $3)`, [stages ?? null, work ?? null]);
+  // (an intent whose work is another's private asset is left out: ./owners.ts)
+  return intentsWhere(db, `($2::text[] IS NULL OR i.stage = ANY($2::text[])) AND ($3::text IS NULL OR i.work = $3) AND ${intentSeen("i", "$4")}`, [stages ?? null, work ?? null, me!.id]);
 }
 
 export async function intentRow(db: Queryable, id: string) {
@@ -274,8 +272,10 @@ export async function getIntent(db: Queryable, id: string) {
  * stage, the Intents skill's part for it (./skills.ts; null where it says nothing).
  */
 export async function intentOf(db: Queryable, me: Me | null, id: string, reviewOf: (db: Queryable, id: string, shown: any) => Promise<unknown>) {
-  admin(me);
+  const who = admin(me, INTENT_ADMINS);
   const intent = await getIntent(db, id);
+  // one whose work is another's private asset is as one that never was (./owners.ts)
+  if (!(await seesIntent(db, who, intent.id))) throw new IntentError("There is no such intent.", 404);
   // held (approved, its dependencies not shipped): nothing to do yet, its sub-state says why
   const held = intent.held_by.length > 0 && (intent.stage === "build" || intent.stage === "proposal");
   return { ...intent, brief: held ? null : await briefOf(db, intent), review: intent.work ? await reviewOf(db, intent.id, intent.work) : null };
@@ -283,7 +283,7 @@ export async function intentOf(db: Queryable, me: Me | null, id: string, reviewO
 
 /** A new intent at the Idea stage, by an admin's agent over MCP (no one adds one by hand). */
 export async function addIntent(db: Db, me: Me | null, body: { kind?: unknown; title?: unknown; note?: unknown; depends_on?: unknown; work_kind?: unknown }) {
-  const who = admin(me);
+  const who = admin(me, INTENT_ADMINS);
   const id = newId();
   const deps = depsOf(body?.depends_on);
   const declared = (await workKindOf(db, body?.work_kind)) ?? null;
@@ -302,7 +302,7 @@ export async function addIntent(db: Db, me: Me | null, body: { kind?: unknown; t
  * is sent back to Specify first, by its agent (step_back_intent, ./stepback.ts).
  */
 export async function specifyIntent(db: Db, me: Me | null, id: string, body: { goal?: unknown; scope?: unknown; checks?: unknown; nothing_to_reduce?: unknown; title?: unknown; kind?: unknown; note?: unknown; depends_on?: unknown; work_kind?: unknown }) {
-  const who = admin(me);
+  const who = admin(me, INTENT_ADMINS);
   const intent = await intentRow(db, id);
   if (intent.stage !== "idea" && intent.stage !== "specify")
     throw new IntentError(`Intent ${intent.id} is at the ${intent.stage} stage: it is specified at Idea or Specify (step_back_intent sends it back).`, 409);
@@ -351,12 +351,13 @@ const prOf = (v: unknown) => {
  * moving nothing. `pr` names its pull request into main, which Accept merges (./ship.ts).
  */
 export async function recordChecks(db: Queryable, me: Me | null, id: string, given: unknown, pr?: unknown) {
-  const who = admin(me);
+  const who = admin(me, INTENT_ADMINS);
   const intent = await intentRow(db, id);
   const named = prOf(pr);
   const list = given === undefined || given === null ? [] : given;
   if (!Array.isArray(list) || (!list.length && named === undefined)) throw new IntentError("Give each check's result: { check: 'c1', pass: true | false, evidence }.");
-  const moves = intent.stage === "build" || (intent.stage === "proposal" && intent.approved_at && !waiting(intent));
+  // (code beside play's work, intent 7c8986c5: its run records its checks at Proposal too, its work waiting with it)
+  const moves = intent.stage === "build" || (intent.stage === "proposal" && intent.approved_at && (!waiting(intent) || !!intent.pull_request));
   const confirms = list.length > 0 && named === undefined && !!intent.approved_at && list.every((r: any) => r?.where === "main");
   if (!moves && !confirms)
     throw new IntentError(
@@ -365,7 +366,6 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
     );
   // held: nothing is recorded until every intent it depends on is shipped (main's confirmations are still taken)
   if (moves && !confirms && intent.held_by.length) throw new IntentError(heldText(intent.id, intent.held_by), 409);
-  if (named !== undefined && intent.work) throw new IntentError(`Intent ${intent.id} holds work of play's: it is accepted in play, with no pull request.`, 409);
   // work of another kind than declared is refused: a pull request is code
   const undeclared = named !== undefined ? notDeclared(intent, { code: true }) : "";
   if (undeclared) throw new IntentError(undeclared, 409);
@@ -457,7 +457,9 @@ async function mayMove(db: Queryable, intent: string | GateRow, to: Move, what?:
         if (i.work) return "Its work waits for a decision: accepting applies it (./versioned.ts decide).";
         return i.pull_request ? `Its code is pull request #${i.pull_request}: Accept ships it (./ship.ts), merging it into main.` : "";
       case "accept_work":
-        return at === "proposal" ? "" : `This intent is at the ${at} stage: only one at Proposal is decided.`;
+        if (at !== "proposal") return `This intent is at the ${at} stage: only one at Proposal is decided.`;
+        // play's work beside code is accepted once its code is live (intent 7c8986c5): Accept and ship takes both
+        return i.pull_request ? `Its code is pull request #${i.pull_request}: Accept and ship ships it, and its work of play's is accepted once the code is live (./ship.ts).` : "";
       case "ship":
         return at === "proposal" ? "" : at === "build" ? NOT_IN_BUILD : `Intent ${i.id} is at the ${at} stage now.`;
       case "merge":
@@ -476,11 +478,9 @@ async function mayMove(db: Queryable, intent: string | GateRow, to: Move, what?:
     if (to === "merge" && held.every((d) => d.stage === "ship")) return { why: `Waits for ${named(held)} to ship first`, wait: true };
     return no(heldText(i.id, held));
   }
-  const missing = to === "accept_work" || to === "merge" || to === "build" ? [] : unmet(i);
-  if (missing.length)
-    return no(to === "work"
-      ? `Intent ${i.id} is not ready to propose: every must check passes first (record them with check_intent). ${missing.join("; ")}.`
-      : `Every must check passes before an intent is ${to === "proposal" ? "at Proposal" : "accepted"}: ${missing.join("; ")}.`);
+  // work proposed in Build waits on the intent (intent 94061718): the move to Proposal alone waits for every must
+  const missing = to === "accept_work" || to === "merge" || to === "build" || to === "work" ? [] : unmet(i);
+  if (missing.length) return no(`Every must check passes before an intent is ${to === "proposal" ? "at Proposal" : "accepted"}: ${missing.join("; ")}.`);
   return null;
 }
 /** the gate as every path calls it (a test may stand a stub in its place) */
@@ -493,8 +493,9 @@ export async function mustMove(db: Queryable, intent: string | GateRow, to: Move
 
 /** The intent work is about to be proposed for, held to the gate (mayMove's work). Otherwise nothing is proposed and the agent is told why. */
 export async function intentReady(db: Queryable, me: Me | null, id: unknown) {
-  admin(me);
+  const who = admin(me, INTENT_ADMINS);
   const intent = await intentRow(db, `${id ?? ""}`);
+  if (!(await seesIntent(db, who, intent.id))) throw new IntentError("There is no such intent.", 404);
   await mustMove(db, intent, "work");
   return intent;
 }
@@ -522,7 +523,7 @@ export function mustDecide(intent: any) {
  * (to Specify with its spec, else to Idea). Steps back are an agent's (./stepback.ts).
  */
 export async function decideIntent(db: Queryable, me: Me | null, id: string, verdict: IntentVerdict) {
-  const who = admin(me);
+  const who = admin(me, INTENT_ADMINS);
   const intent = await intentRow(db, id);
   const refuse = (why: string) => {
     throw new IntentError(why, 409);
@@ -543,6 +544,8 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
       if (!["idea", "specify", "build", "proposal"].includes(intent.stage)) refuse(`An intent at the ${intent.stage} stage is decided already.`);
       // a reject undoes what a rule decided before it
       await db.query(`UPDATE play.intents SET stage = 'archived', decided_by = $2, decided_at = now(), auto = '{}'::jsonb WHERE id = $1`, [intent.id, who.id]);
+      // work proposed in Build that waited on it is archived with it, kept in the history
+      if (intent.work) await closeWork(db, who, { id: intent.id });
       break;
     case "reopen":
       if (intent.stage !== "accepted" && intent.stage !== "archived") refuse(`This intent is at the ${intent.stage} stage already.`);
@@ -599,7 +602,7 @@ export async function autoMove(ctx: { db: Db; store?: BlobStore }, id: string, o
   const intent = await intentRow(db, id);
   const at = intent.stage === "specify" ? ("approve" as const) : intent.stage === "proposal" ? ("accept" as const) : null;
   if (!at) return null;
-  const move: Move = at === "approve" ? "build" : intent.work ? "accept_work" : intent.pull_request ? "ship" : "accept";
+  const move: Move = at === "approve" ? "build" : intent.pull_request ? "ship" : intent.work ? "accept_work" : "accept";
   if (await gate.mayMove(db, intent, move)) return null;
   const set = await ruleSetOf(db);
   const facts = await factsOf(db, intent.id);

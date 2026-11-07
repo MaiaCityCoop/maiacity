@@ -1,7 +1,7 @@
 # play.maia.city: one image, the site and its API (play/SPEC.md §2). Built from the repo root:
 #   docker build -f play/Dockerfile -t maia-city-play .
 # The site is built in the first stage; the API serves it beside /api (PLAY_SITE). The import (bun import/run.ts)
-# runs from the same image, once, against legacy's public feed and Postgres (play/deploy/README.md).
+# runs from the same image with every deploy, against play's Postgres and store (play/deploy/README.md).
 FROM oven/bun:1.4.4-alpine AS site
 WORKDIR /src/play/site
 COPY play/site/package.json play/site/bun.lock ./
@@ -17,9 +17,7 @@ RUN --mount=type=secret,id=ca,required=false NODE_EXTRA_CA_CERTS=/run/secrets/ca
 COPY play/api/src ./src
 COPY play/api/migrations ./migrations
 COPY play/api/import ./import
-# the import reads legacy Sandbox 4's configs and the table of avenDB pins it kept (import/run.ts), from the repo's place
-COPY play/api/import/legacy /app/play/api/import/legacy
-# …and the media play's site names by hash (its covers and sounds), found in its sources
+# the media play's site names by hash (its covers and sounds), found in its sources, at the repo's place
 COPY play/site/src /app/play/site/src
 COPY play/media /app/play/media
 COPY --from=site /src/play/site/build /app/site

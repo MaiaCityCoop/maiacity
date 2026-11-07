@@ -181,7 +181,7 @@ suite("the stage Build (migration 0033-build)", () => {
     expect(v1.json.stages.build).toBeUndefined();
     expect((await tool("get_intent", { intent: at })).brief).toBeNull();
     let { prompts } = await rpc("prompts/list");
-    expect(prompts.map((p: any) => p.name)).toEqual(["intent_idea", "intent_specify", "intent_proposal", "intent_ship"]);
+    expect(prompts.map((p: any) => p.name).filter((n: string) => n.startsWith("intent_"))).toEqual(["intent_idea", "intent_specify", "intent_proposal", "intent_ship"]);
     expect((await rpc("prompts/get", { name: "intent_prototype", arguments: { intent: at } })).error.message).toContain("no prompt");
 
     // the move, drafted with doc_edit: the text under build, worded for Build, the prototype part gone
@@ -207,7 +207,7 @@ suite("the stage Build (migration 0033-build)", () => {
     expect(brief).toBe(text.trim().replace(/\{intent\}/g, at).replace(/\{title\}/g, "A brief at Build"));
     expect(brief).toContain(`bun play/avenbox/intent.ts ${at} --record`);
     ({ prompts } = await rpc("prompts/list"));
-    expect(prompts.map((p: any) => p.name)).toEqual(["intent_idea", "intent_specify", "intent_build", "intent_proposal", "intent_ship"]);
+    expect(prompts.map((p: any) => p.name).filter((n: string) => n.startsWith("intent_"))).toEqual(["intent_idea", "intent_specify", "intent_build", "intent_proposal", "intent_ship"]);
     const got = await rpc("prompts/get", { name: "intent_build", arguments: { intent: at } });
     expect(got.messages).toEqual([{ role: "user", content: { type: "text", text: brief } }]);
   });

@@ -7,11 +7,12 @@
 // it would be; accepted by an admin there. Accepting merges it into Main and writes Main's pins and configs to
 // play.sandbox_pins and play.sandbox_configs, which the worlds read (/api/sandboxes/<uuid>/config) as before.
 import type { Db, Queryable } from "./pg";
-import { Denied, must, type Me } from "./access";
+import { admin, must, type Me } from "./access";
 import { canonical } from "./hash";
 import { UUID } from "./uuid";
 import { readableRefs } from "../import/plan";
 import { NotFound } from "./assets";
+import { assetSeen } from "./owners";
 import * as docs from "./docs";
 import { SCHEMA } from "./ids";
 import { applyEdits as applyDocEdits, jsonOf, newDoc, seed } from "./docs/core";
@@ -41,11 +42,7 @@ export type SandboxEdit =
   | { op: "delete"; config: string; path?: Key[] };
 
 /** only Maia City's admins change a sandbox, for now */
-function admin(me: Me | null): Me {
-  if (!me) throw new Denied("Please sign in first.", 401);
-  if (me.level !== "admin") throw new Denied("Only Maia City's admins change a sandbox's layout, for now.");
-  return me;
-}
+const SANDBOX_ADMINS = "Only Maia City's admins change a sandbox's layout, for now.";
 
 async function sandboxRow(q: Queryable, sandbox: string) {
   if (!UUID.test(sandbox)) throw new SandboxError("A sandbox is named by its id, a UUID (list_sandboxes).", 404);
@@ -102,11 +99,11 @@ export function sandboxCheck(doc: any): string[] {
   return out;
 }
 
-type VersionRow = { id: string; asset_id: string; grp: string; slug: string; label: string; number: number; default_variant: string | null; variants: string[]; params: any[] };
+type VersionRow = { id: string; asset_id: string; grp: string; slug: string; label: string; number: number; default_variant: string | null; variants: string[]; params: any[]; private: boolean };
 async function versionInfo(q: Queryable, ids: string[]): Promise<Map<string, VersionRow>> {
   if (!ids.length) return new Map();
   const { rows } = await q.query<VersionRow>(
-    `SELECT v.id, v.asset_id, a.grp, a.slug, a.label, v.number, v.default_variant,
+    `SELECT v.id, v.asset_id, a.grp, a.slug, a.label, v.number, v.default_variant, NOT ${assetSeen("a", "NULL")} AS private,
             COALESCE((SELECT array_agg(x.name ORDER BY x.name) FROM play.asset_variants x WHERE x.version_id = v.id), '{}') AS variants,
             COALESCE(v.card->'card'->'params', '[]') AS params
        FROM play.asset_versions v JOIN play.assets a ON a.id = v.asset_id WHERE v.id = ANY($1)`,
@@ -118,13 +115,14 @@ async function versionInfo(q: Queryable, ids: string[]): Promise<Map<string, Ver
 /** an asset's accepted version: by its number, or its head */
 async function acceptedVersion(q: Queryable, asset: string, number?: number) {
   if (!UUID.test(`${asset}`)) throw new SandboxError("Name the asset by its id (a UUID, from list_assets).");
+  // a private asset is pinned by no sandbox (worlds are shared: ./owners.ts), and is refused as one that never was
   const { rows } = await q.query<{ id: string; number: number }>(
     number == null
-      ? `SELECT v.id, v.number FROM play.assets a JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1 AND v.number IS NOT NULL`
-      : `SELECT v.id, v.number FROM play.asset_versions v WHERE v.asset_id = $1 AND v.number = $2`,
+      ? `SELECT v.id, v.number FROM play.assets a JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1 AND v.number IS NOT NULL AND ${assetSeen("a", "NULL")}`
+      : `SELECT v.id, v.number FROM play.asset_versions v JOIN play.assets a ON a.id = v.asset_id WHERE v.asset_id = $1 AND v.number = $2 AND ${assetSeen("a", "NULL")}`,
     number == null ? [asset] : [asset, number],
   );
-  if (!rows[0]) throw new SandboxError(number == null ? "There is no such asset, or it has no accepted version." : `The asset has no accepted version ${number}.`, 404);
+  if (!rows[0]) throw new SandboxError(`${number == null ? "There is no such asset, or it has no accepted version" : `The asset has no accepted version ${number}`} that a sandbox may pin (a private asset is pinned by none: worlds are shared).`, 404);
   return rows[0];
 }
 
@@ -345,7 +343,7 @@ export async function layoutProblems(q: Queryable, json: any): Promise<string[]>
   const out: string[] = [];
   for (const [slot, p] of pins) {
     const v = info.get(p.version);
-    if (!v || v.number == null) out.push(`${slot} pins ${p.version}, which is no accepted version of an asset`);
+    if (!v || v.number == null || v.private) out.push(`${slot} pins ${p.version}, which is no accepted version of an asset a sandbox may pin (a private asset is pinned by none: worlds are shared)`);
     else if (p.variant != null && !v.variants.includes(p.variant)) out.push(`${slot}: ${v.grp}/${v.slug}@${v.number} has no variant ${p.variant}`);
   }
   for (const [name, data] of Object.entries(json?.configs ?? {})) {
@@ -495,7 +493,7 @@ async function writeRows(tx: Queryable, sandbox: string, json: any) {
  * play no longer keeps; one kept from before layouts were documents that no longer held then) is archived instead.
  */
 export async function decideLayout(tx: Queryable, me: Me, p: any, verdict: "accept" | "archive", decide: (tx: Queryable, me: Me, p: any, verdict: "accept" | "archive") => Promise<any>) {
-  admin(me);
+  admin(me, SANDBOX_ADMINS);
   const docId = p.doc_id as string, sandbox = docId.split(":")[1];
   await tx.query(`SELECT 1 FROM play.sandboxes WHERE id = $1 FOR UPDATE`, [sandbox]);
   if (verdict === "accept") {
@@ -515,7 +513,7 @@ export async function decideLayout(tx: Queryable, me: Me, p: any, verdict: "acce
 
 /** The sandbox at a version or an edit of its layout's history, to walk it so (admins; `?v=` or `?edit=` on its config). */
 export async function layoutAt(db: Queryable, me: Me | null, sandbox: string, at: { version: number } | { edit: number }): Promise<SandboxState> {
-  admin(me);
+  admin(me, SANDBOX_ADMINS);
   const n = "version" in at ? at.version : at.edit;
   if (!Number.isInteger(n) || n < 1) throw new NotFound("A version or an edit is named by its number.");
   await ensureLayoutDoc(db, sandbox);
@@ -530,12 +528,12 @@ export async function layoutAt(db: Queryable, me: Me | null, sandbox: string, at
  * config): its intent variant merged into the layout as it is now, as accepting would make it.
  */
 export async function proposedState(db: Queryable, me: Me | null, sandbox: string, id: string): Promise<SandboxState> {
-  admin(me);
+  admin(me, SANDBOX_ADMINS);
   const intent = await intentIdOf(db, id);
   if (!intent) throw new NotFound("There is no such intent.");
   const { rows } = await db.query<{ stage: string; doc_variant: string | null }>(`SELECT i.stage, iv.variant_id AS doc_variant FROM play.intents i JOIN play.intent_variants iv ON iv.intent_id = i.id WHERE i.id = $1 AND iv.doc_id = $2`, [intent, layoutDoc(sandbox)]);
   if (!rows[0]) throw new NotFound("There is no such intent's change of this sandbox.");
-  if (rows[0].stage !== "proposal" || rows[0].doc_variant == null) return stateOf(db, sandbox);
+  if ((rows[0].stage !== "proposal" && rows[0].stage !== "build") || rows[0].doc_variant == null) return stateOf(db, sandbox);
   const merged = (await docs.previewMerge(db, layoutDoc(sandbox), Number(rows[0].doc_variant))).json;
   if ((await layoutProblems(db, merged)).length) throw new NotFound("It no longer holds on the layout as it is now.");
   return { pins: merged.pins ?? {}, configs: merged.configs ?? {} };

@@ -5,7 +5,7 @@ Only /_app/immutable is shared between releases. Its URLs are immutable: a
 collision with different bytes aborts before switching current. The current and
 four previous releases remain available for rollback. Assets remain at the same
 public URLs for at least 30 days after their last retained-release reference, so
-frequent deploys do not evict an open page. No account or avenDB storage is read.
+frequent deploys do not evict an open page. No account storage is read.
 """
 import argparse
 import fcntl

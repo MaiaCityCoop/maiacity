@@ -1,9 +1,8 @@
 // @ts-nocheck — plain JS
 /*
  * The walls every sandboxed frame of ours shares (the asset box, the view frames): one list, so a feature turned off
- * for one is off for all. Part of the kernel: changing it changes every box at once. With them, the one script each
- * kind of frame runs, and the page's own policy, which names those scripts by their hash: vite.config.ts hands it to
- * SvelteKit for every page, and the Mac app's (theos/app/tauri.conf.json) is held to it (./policy.test.js).
+ * for one is off for all. Part of the kernel: changing it changes every box at once. With them, the one script every
+ * shell runs.
  */
 
 /** Every powerful browser feature, off: no device, no passkey, no clipboard, no payment, no full screen. */
@@ -89,57 +88,3 @@ addEventListener('message', (e) => {
 	}
 	w.postMessage(m.job);
 });`;
-
-/**
- * The script of every view's frame (./view-host.js `bootDoc`), the same text in each: it takes our view engine (and
- * the port it speaks over) from the page, once, and only with the key its own document carries, and starts it from a
- * blob: URL.
- */
-export const VIEW_SCRIPT = `addEventListener('message', function boot(e) {
-	const m = e.data;
-	if (e.source !== parent || !m || m.maiaView !== document.documentElement.dataset.key || !e.ports[0]) return;
-	removeEventListener('message', boot);
-	self.__maiaPort = e.ports[0];
-	const s = document.createElement('script');
-	s.src = URL.createObjectURL(new Blob([m.code], { type: 'text/javascript' }));
-	document.head.append(s);
-});`;
-
-/**
- * THE PAGE'S OWN POLICY — the scripts our pages may run: our own files, and inline only what a hash names (SvelteKit
- * adds each page's own start script's). A frame written into the page (srcdoc: the box, the logic host, a view) keeps
- * the page's policy beside its own, so this one names what those frames run as well: their one script each, by its
- * hash, the blob: URLs they start their engine and the code they are handed from (a recipe, a view's script), and
- * WebAssembly (avenDB's device in the page, QuickJS in the logic host). Nothing else, and no eval.
- *
- * Everything else starts from our own origin (default-src), and the page talks only to our own servers (CONNECT): the
- * API, avenDB's feed and relay, plus the exact Cloudflare speed-test host for explicit diagnostics, and in theOS its own bridge and the `aven:` files. Pictures and films may come from
- * any https host (a link's preview, a video's still), as they cannot run; frames only from us, a blob: (a PDF) and
- * Bunny's player; no form posts anywhere. The same pages run in theOS (theos/app/tauri.conf.json), so its schemes are
- * named here too: they lead nowhere in a browser. A dev server's page also reaches this machine (`dev`): its API, its
- * avenDB, Vite's own socket. As SvelteKit's directives: its keywords unquoted.
- * @param {(text: string) => string} sha256 a script's SHA-256 hash, in base64
- * @param {{ dev?: boolean }} [o] `dev` for a dev server's pages
- * @returns {NonNullable<import('@sveltejs/kit').KitConfig['csp']>['directives']}
- */
-export const pageCsp = (sha256, { dev = false } = {}) => ({
-	'default-src': ['self'],
-	'script-src': ['self', 'wasm-unsafe-eval', 'blob:', `sha256-${sha256(SHELL_SCRIPT)}`, `sha256-${sha256(VIEW_SCRIPT)}`],
-	'worker-src': ['self', 'blob:'],
-	'connect-src': [...CONNECT, 'https://speed.cloudflare.com', ...(dev ? LOCAL : [])],
-	// Svelte writes style attributes into each prerendered page, and SvelteKit hashes no inline style when this is here
-	'style-src': ['self', 'unsafe-inline'],
-	'img-src': ['self', 'data:', 'blob:', 'https:', 'aven:', ...(dev ? LOCAL : [])],
-	'media-src': ['self', 'data:', 'blob:', 'https:', 'aven:', ...(dev ? LOCAL : [])],
-	'font-src': ['self', 'data:'],
-	'frame-src': ['self', 'blob:', 'https://iframe.mediadelivery.net'],
-	'object-src': ['none'],
-	'base-uri': ['self'],
-	'form-action': ['none']
-});
-
-/** Where the page may connect: us, our API (and its media, /vault/files), avenDB's feed and relay, theOS's bridge. */
-export const CONNECT = ['self', 'blob:', 'data:', 'https://api.maia.city', 'https://avendb.maia.city', 'wss://avendb.maia.city', 'ipc:', 'http://ipc.localhost', 'aven:'];
-
-/** This machine, for a dev server's pages only. */
-const LOCAL = ['http://localhost:*', 'ws://localhost:*', 'http://127.0.0.1:*', 'ws://127.0.0.1:*'];

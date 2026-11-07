@@ -28,7 +28,7 @@
 // the intent it puts at Proposal on the intents' board (./versioned.ts `decide`). Admins only, reading and proposing.
 import { byOf } from "./intents";
 import { randomUUID } from "node:crypto";
-import { COOP, Denied, type Me } from "./access";
+import { admin, COOP, Denied, type Me } from "./access";
 import { keyOf, type BlobStore } from "./blobs";
 import { canonical, HASH, hashBytes } from "./hash";
 import type { Db, Queryable } from "./pg";
@@ -38,7 +38,8 @@ import { NOTE_MOST } from "./notes";
 import * as docs from "./docs";
 import { asDoc, asStory, authorOf, docIdOf, ensureStoryDoc, storyDocAt, versionAtFrontiers } from "./storydocs";
 import { overlap } from "./versioned";
-import { closeWork, putAtProposal, settle, WORK_OF, workOf, WorkError } from "./work";
+import { fileTypes, keepFile as keepOwned } from "./owners";
+import { closeWork, dropDoc, putAtProposal, settle, stageAfter, WORK_OF, workOf, WorkError } from "./work";
 
 export class StoryError extends Error {
   constructor(message: string, public status = 400) {
@@ -118,11 +119,7 @@ const round = (n: number) => Math.round(n * 1000) / 1000;
 /** a story brought into another (foldStories) takes no proposal: its versions are that story's now */
 const folded = (id: string, into: string) => new StoryError(`Story ${id} is part of story ${into} now, its versions that story's: propose there.`, 409);
 
-export function admin(me: Me | null): Me {
-  if (!me) throw new Denied("Please sign in first.", 401);
-  if (me.level !== "admin") throw new Denied("Only Maia City's admins may open the Stories.");
-  return me;
-}
+export const STORY_ADMINS = "Only Maia City's admins may open the Stories.";
 
 // ---- the format, checked
 
@@ -312,22 +309,19 @@ export async function checkBody(db: Queryable, given: any, self?: string): Promi
   });
   const sounds = [...new Set(tracks.flatMap((t) => t.clips.map((c) => c.audio)).filter((a): a is string => typeof a === "string"))];
   if (sounds.length) {
-    const { rows } = await db.query<{ hash: string }>(`SELECT hash FROM play.files WHERE hash = ANY($1) AND media_type LIKE 'audio/%'`, [sounds]);
-    const held = new Set(rows.map((r) => r.hash));
+    const held = new Set([...(await fileTypes(db, sounds))].filter(([, t]) => t.startsWith("audio/")).map(([h]) => h));
     const missing = sounds.filter((f) => !held.has(f));
     if (missing.length) throw new StoryError(`No recording is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_audio first.`);
   }
   const frames = [...new Set(tracks.filter((t) => t.kind === "shots").flatMap((t) => t.clips.map((c) => c.frame)).filter((f): f is string => typeof f === "string"))];
   if (frames.length) {
-    const { rows } = await db.query<{ hash: string }>(`SELECT hash FROM play.files WHERE hash = ANY($1) AND media_type LIKE 'image/%'`, [frames]);
-    const held = new Set(rows.map((r) => r.hash));
+    const held = new Set([...(await fileTypes(db, frames))].filter(([, t]) => t.startsWith("image/")).map(([h]) => h));
     const missing = frames.filter((f) => !held.has(f));
     if (missing.length) throw new StoryError(`No image is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_frame first.`);
   }
   const videos = [...new Set(tracks.filter((t) => t.kind === "shots").flatMap((t) => t.clips.map((c) => c.video)).filter((v): v is string => typeof v === "string"))];
   if (videos.length) {
-    const { rows } = await db.query<{ hash: string }>(`SELECT hash FROM play.files WHERE hash = ANY($1) AND media_type LIKE 'video/%'`, [videos]);
-    const held = new Set(rows.map((r) => r.hash));
+    const held = new Set([...(await fileTypes(db, videos))].filter(([, t]) => t.startsWith("video/")).map(([h]) => h));
     const missing = videos.filter((v) => !held.has(v));
     if (missing.length) throw new StoryError(`No video is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_video first.`);
   }
@@ -587,7 +581,7 @@ export function diffStories(from: { title: string; body: StoryBody } | null, to:
 // ---- reading
 
 export async function listStories(db: Queryable, me: Me | null): Promise<StoryItem[]> {
-  admin(me);
+  admin(me, STORY_ADMINS);
   const { rows } = await db.query<{ id: string; title: string; body: StoryBody; number: number; updated: Date; versions: string }>(
     `SELECT s.id, s.title, v.body, v.number, s.updated,
             (SELECT count(*) FROM play.story_versions x WHERE x.story_id = s.id AND x.number IS NOT NULL) AS versions
@@ -616,7 +610,7 @@ type VersionRow = { id: string; story_id: string; number: number | null; title: 
 /** story `id` at its head, or at accepted version `number`, with the versions it links (`links`) and the stories whose
  *  newest version links it (`linked_by`) */
 export async function storyOf(db: Queryable, me: Me | null, id: string, number?: number): Promise<Story> {
-  admin(me);
+  admin(me, STORY_ADMINS);
   if (!STORY_ID.test(id)) throw new StoryError("A story is named by its id, a UUID (list_stories).", 404);
   if (number !== undefined && !(Number.isInteger(number) && number >= 1)) throw new StoryError(`${number} is not a version.`, 404);
   const { rows } = await db.query<VersionRow>(
@@ -706,7 +700,7 @@ export async function proposeStoryVariant(db: Db, me: Me, o: { id: string; varia
 
 /** Propose a new story (`fresh`) or a new version of one, as the admin `me`, via `via`: an intent put at Proposal with it, for an admin to decide. */
 export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fresh: boolean, via: "web" | "mcp" = "mcp") {
-  const who = admin(me);
+  const who = admin(me, STORY_ADMINS);
   // a new story gets a UUID of its own; a version names its story by its UUID
   if (fresh && p?.story !== undefined) throw new StoryError("A new story gets its id when it is proposed: give its title, not an id.");
   const id = fresh ? randomUUID() : `${p?.story ?? ""}`;
@@ -772,7 +766,7 @@ export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fres
         throw e instanceof WorkError ? new StoryError(e.message, e.status) : e;
       });
       const edits = (await docs.history(tx, docIdOf(id), { variant: variantId })).length;
-      return { intent, stage: "proposal" as const, story: id, version, number: (s[0]?.number ?? 0) + 1, base, duration: body.duration, variant: variantId, edits };
+      return { intent, stage: await stageAfter(tx, intent), story: id, version, number: (s[0]?.number ?? 0) + 1, base, duration: body.duration, variant: variantId, edits };
     }),
   );
 }
@@ -826,7 +820,7 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
     (
       await db.query(
         `SELECT 1 FROM play.story_versions v WHERE v.story_id = $1 AND v.title = $2 AND v.body = ($3::text)::jsonb
-            AND (${accepted ? "v.number IS NOT NULL" : "EXISTS (SELECT 1 FROM play.intents i WHERE i.story_version = v.id AND i.stage = 'proposal')"})`,
+            AND (${accepted ? "v.number IS NOT NULL" : "EXISTS (SELECT 1 FROM play.intents i WHERE i.story_version = v.id AND i.stage IN ('build', 'proposal'))"})`,
         [into, title, JSON.stringify(body)],
       )
     ).rows.length > 0;
@@ -859,7 +853,7 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
         // closes its intent variant on this story); where it is there already, the intent is archived
         const { rows: open } = await db.query<any>(
           `SELECT ${WORK_OF}, v.title, v.body FROM play.intents i JOIN play.story_versions v ON v.id = i.story_version
-            WHERE i.story_id = $1 AND i.work = $2 AND i.stage = 'proposal' ORDER BY i.proposed_at`,
+            WHERE i.story_id = $1 AND i.work = $2 AND i.stage IN ('build', 'proposal') ORDER BY i.proposed_at`,
           [from, STORY_WORK],
         );
         for (const p of open) {
@@ -868,6 +862,8 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
             const said = `(Moved from story “${src.title}”, where it was proposed on ${iso(p.created).slice(0, 10)}: the film is one timeline now.)`;
             const note = `${`${p.note ?? ""}`.slice(0, NOTE_MOST - said.length - 2)}\n\n${said}`.trim();
             await proposeStory(db, author, { story: f.into, title: p.title, body: p.body, note, intent: p.id }, false, p.via === "web" ? "web" : "mcp");
+            // its work on the folded story is no longer its own (an intent holds every document beside the others: intent 7c8986c5)
+            await db.transaction((tx) => dropDoc(tx, author, p.id, docIdOf(from)));
           } else
             await db.transaction(async (tx) => {
               await settle(tx, p.id, "archived", null);
@@ -909,7 +905,8 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
   if (me.level !== "admin") throw new Denied("Only Maia City's admins decide on stories.");
   return asStoryError(async () => {
     const docId = await ensureStoryDoc(tx, p.story_id);
-    const variant = Number((await tx.query<{ doc_variant: string | null }>(`SELECT variant_id AS doc_variant FROM play.intent_variants WHERE intent_id = $1 ORDER BY position LIMIT 1`, [p.id])).rows[0]?.doc_variant);
+    // its own intent variant on this story's document (an intent may hold several documents: intent 7c8986c5)
+    const variant = Number((await tx.query<{ doc_variant: string | null }>(`SELECT variant_id AS doc_variant FROM play.intent_variants WHERE intent_id = $1 AND doc_id = $2`, [p.id, docId])).rows[0]?.doc_variant ?? p.doc_variant);
     const author = authorOf(me, "site");
     const closeBranch = async (status: "archived") => {
       const { rows } = await tx.query<{ status: string }>(`SELECT status FROM play.doc_variants WHERE id = $1`, [variant]);
@@ -973,7 +970,7 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
 
 /** story `id` as it was at edit `edit` of its history, or as intent `intent`'s variant would make it, with the versions it links */
 export async function storyAt(db: Db, me: Me | null, id: string, at: { edit?: number; intent?: string }) {
-  admin(me);
+  admin(me, STORY_ADMINS);
   if (!STORY_ID.test(id)) throw new StoryError("A story is named by its id, a UUID.", 404);
   return asStoryError(async () => {
     const docId = await db.transaction((q) => ensureStoryDoc(q, id));
@@ -1049,14 +1046,9 @@ export function fileLabel(v: unknown): string | undefined {
   return t || undefined;
 }
 
-/** Keep a file's row: a new label replaces the old one, none keeps it */
-async function keepFile(db: Queryable, hash: string, size: number, type: string, key: string, label?: string) {
-  await db.query(
-    `INSERT INTO play.files (hash, size, media_type, bucket_key, label) VALUES ($1, $2, $3, $4, $5)
-     ON CONFLICT (hash) DO UPDATE SET label = COALESCE(EXCLUDED.label, play.files.label)`,
-    [hash, size, type, key, label ?? null],
-  );
-}
+/** Keep a file's row, in `owner`'s library (the coop's where none is named; ./owners.ts): a new label replaces the old one, none keeps it */
+const keepFile = (db: Queryable, hash: string, size: number, type: string, key: string, label?: string, owner?: string) =>
+  keepOwned(db, { hash, size, media_type: type, bucket_key: key, label }, { owner, relabel: true });
 
 // ---- documents: a plant's data sheet and its sheet's brief, as Markdown (play/SPEC.md §4.10)
 
@@ -1066,14 +1058,14 @@ export const MOST_DOCUMENT = 2_000_000;
 export const DOCUMENT_TYPE = "text/markdown";
 
 /** Keep one document (Markdown text, at most MOST_DOCUMENT bytes) among play's files; its hash. */
-export async function putDocument(db: Queryable, store: BlobStore, text: unknown, label?: unknown): Promise<{ hash: string; size: number; media_type: string }> {
+export async function putDocument(db: Queryable, store: BlobStore, text: unknown, label?: unknown, owner?: string): Promise<{ hash: string; size: number; media_type: string }> {
   if (typeof text !== "string" || !text.trim()) throw new StoryError("Give the document as Markdown text (text).");
   if (/\u0000/.test(text)) throw new StoryError("A document is text: no NUL characters.");
   const bytes = new TextEncoder().encode(text);
   if (bytes.length > MOST_DOCUMENT) throw new StoryError(`A document is at most ${MOST_DOCUMENT / 1e6} MB.`, 413);
   const hash = hashBytes(bytes);
   const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, DOCUMENT_TYPE);
-  await keepFile(db, hash, bytes.length, DOCUMENT_TYPE, key, fileLabel(label));
+  await keepFile(db, hash, bytes.length, DOCUMENT_TYPE, key, fileLabel(label), owner);
   return { hash, size: bytes.length, media_type: DOCUMENT_TYPE };
 }
 
@@ -1110,7 +1102,7 @@ export async function putVideoBase64(db: Queryable, store: BlobStore, data: unkn
 export const imageType = (bytes: Uint8Array): string | null => IMAGES.find((i) => i.is(bytes))?.type ?? null;
 
 /** Keep one frame (an image, at most MOST_FRAME bytes) among play's files; its hash. */
-export async function putFrame(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string): Promise<{ hash: string; size: number; media_type: string }> {
+export async function putFrame(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string, owner?: string): Promise<{ hash: string; size: number; media_type: string }> {
   if (!bytes.length) throw new StoryError("The frame is empty.");
   if (bytes.length > MOST_FRAME) throw new StoryError(`A frame is at most ${MOST_FRAME / 1e6} MB.`, 413);
   const type = imageType(bytes);
@@ -1118,15 +1110,15 @@ export async function putFrame(db: Queryable, store: BlobStore, bytes: Uint8Arra
   if (said && said !== type) throw new StoryError(`Those bytes are ${type}, not ${said}.`, 415);
   const hash = hashBytes(bytes);
   const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, type);
-  await keepFile(db, hash, bytes.length, type, key, label);
+  await keepFile(db, hash, bytes.length, type, key, label, owner);
   return { hash, size: bytes.length, media_type: type };
 }
 
 /** A frame given as base64 (an agent's), checked and kept */
-export async function putFrameBase64(db: Queryable, store: BlobStore, data: unknown, mediaType: unknown, label?: unknown) {
+export async function putFrameBase64(db: Queryable, store: BlobStore, data: unknown, mediaType: unknown, label?: unknown, owner?: string) {
   if (typeof data !== "string" || !data) throw new StoryError("Give the image as base64 text (data).");
   const clean = data.replace(/^data:[^,]*,/, "").replace(/\s+/g, "");
   if (clean.length > Math.ceil((MOST_FRAME * 4) / 3) + 8) throw new StoryError(`A frame is at most ${MOST_FRAME / 1e6} MB.`, 413);
   if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean)) throw new StoryError("That is not base64.");
-  return putFrame(db, store, new Uint8Array(Buffer.from(clean, "base64")), typeof mediaType === "string" ? mediaType : undefined, fileLabel(label));
+  return putFrame(db, store, new Uint8Array(Buffer.from(clean, "base64")), typeof mediaType === "string" ? mediaType : undefined, fileLabel(label), owner);
 }

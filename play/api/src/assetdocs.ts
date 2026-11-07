@@ -17,7 +17,7 @@
 import { byOf } from "./intents";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { COOP, Denied, must, type Me } from "./access";
+import { admin, COOP, must, type Me } from "./access";
 import { keyOf, type BlobStore } from "./blobs";
 import * as docs from "./docs";
 import { HASH, hashText } from "./hash";
@@ -30,8 +30,10 @@ import { readableRefs } from "../import/plan";
 import { versionId } from "./versions";
 import { newId, UUID } from "./uuid";
 import { asVersionError, named, versionAt, VersionError, type Ctx, type Verdict } from "./versioned";
-import { closeWork, holdVariant, putAtProposal, settle, WORK_OF, WorkError } from "./work";
+import { closeWork, holdVariant, putAtProposal, settle, stageAfter, WORK_OF, WorkError } from "./work";
 import { SCHEMA } from "./ids";
+import { GROUPS, isGroup } from "./groups";
+import { assetOwner, assetSeen, fileTypes, keepFile, newAssetOwner, OwnerError, PRIVATE_GROUPS, seesAsset } from "./owners";
 import { heldLod, lodGiven, LodError } from "./lod";
 
 export const HISTORY = join(import.meta.dir, "../import/history");
@@ -346,11 +348,12 @@ export async function proposalVariant(q: Queryable, store: BlobStore, o: { asset
 }
 
 /** an intent's accepted work: its intent variant merged into the asset's Main and named its version `n` */
-export async function acceptVariant(q: Queryable, store: BlobStore, p: { id: string; asset_id: string; note: string }, me: Me, n: number): Promise<void> {
+export async function acceptVariant(q: Queryable, store: BlobStore, p: { id: string; asset_id: string; note: string; doc_variant?: number | string | null }, me: Me, n: number): Promise<void> {
   await asAssetError(async () => {
     const { id } = await ensureAssetDoc(q, store, p.asset_id);
-    const { rows } = await q.query<{ doc_variant: string | null }>(`SELECT variant_id AS doc_variant FROM play.intent_variants WHERE intent_id = $1 ORDER BY position LIMIT 1`, [p.id]);
-    const v = rows[0]?.doc_variant;
+    // its own intent variant on this asset's document (an intent may hold several assets: intent 7c8986c5)
+    const { rows } = await q.query<{ doc_variant: string | null }>(`SELECT variant_id AS doc_variant FROM play.intent_variants WHERE intent_id = $1 AND doc_id = $2`, [p.id, id]);
+    const v = rows[0]?.doc_variant ?? p.doc_variant;
     if (v == null) throw new AssetDocError(`intent ${p.id}'s work has no intent variant`, 500);
     const named_ = await docs.accept(q, id, Number(v), { author: authorOf(me, "site"), note: p.note });
     if (named_.number !== n) throw new Error(`asset ${p.asset_id} and its document disagree: version ${n} against ${named_.number}`);
@@ -406,11 +409,7 @@ export function assetEdits(cur: AssetJson, edits: unknown): docs.Edit[] {
 
 // ---- an asset at an edit, or as an intent's variant would make it
 
-function admin(me: Me | null): Me {
-  if (!me) throw new Denied("Please sign in first.", 401);
-  if (me.level !== "admin") throw new Denied("An asset's history, edit by edit, is for Maia City's admins.");
-  return me;
-}
+const HISTORY_ADMINS = "An asset's history, edit by edit, is for Maia City's admins.";
 
 /** the edit an asset is read at: the one named, or an intent's variant's last */
 async function editOf(db: Queryable, docId: string, at: { edit?: number; intent?: string }): Promise<number> {
@@ -427,8 +426,10 @@ async function editOf(db: Queryable, docId: string, at: { edit?: number; intent?
 
 /** asset `asset` as it was at edit `edit` of its history, or as intent `intent`'s variant would make it: its whole state, its source as text */
 export async function assetAt(db: Db, store: BlobStore, me: Me | null, asset: string, at: { edit?: number; intent?: string }) {
-  admin(me);
+  admin(me, HISTORY_ADMINS);
   return asAssetError(async () => {
+    // another's private asset is as one that never was (./owners.ts)
+    if (!(await seesAsset(db, me, asset))) throw new AssetDocError(`there is no asset ${asset}`, 404);
     const { id: docId } = await assetDocFor(db, store, asset);
     const edit = await editOf(db, docId, at);
     const json = (await docs.stateAt(db, docId, { edit })) as AssetJson;
@@ -472,16 +473,17 @@ async function numberAt(q: Queryable, docId: string, seq: number): Promise<{ n: 
  * the line naming the asset and the version the edit leads to), kept among play's files by its hash. Admins only.
  */
 export async function recipeAt(db: Db, store: BlobStore, me: Me | null, asset: string, at: { edit?: number; intent?: string }) {
-  admin(me);
+  admin(me, HISTORY_ADMINS);
   return asAssetError(async () => {
+    if (!(await seesAsset(db, me, asset))) throw new AssetDocError(`there is no asset ${asset}`, 404);
     const { id: docId } = await assetDocFor(db, store, asset);
     const seq = await editOf(db, docId, at);
     const { rows: a } = await db.query<{ grp: string; slug: string; label: string }>(`SELECT grp, slug, label FROM play.assets WHERE id = $1`, [asset]);
     const json = (await docs.stateAt(db, docId, { edit: seq })) as AssetJson;
     const { n, exact } = await numberAt(db, docId, seq);
     // an edit of a breed's (on its own line, or on an intent variant changing or making it) builds that breed
-    const { rows: line } = await db.query<{ name: string | null }>(
-      `SELECT COALESCE(l.name, b.name, l.makes) AS name FROM play.doc_edits e JOIN play.doc_variants l ON l.id = e.variant LEFT JOIN play.doc_variants b ON b.id = l.breed
+    const { rows: line } = await db.query<{ name: string | null; intent_id: string | null }>(
+      `SELECT COALESCE(l.name, b.name, l.makes) AS name, l.intent_id FROM play.doc_edits e JOIN play.doc_variants l ON l.id = e.variant LEFT JOIN play.doc_variants b ON b.id = l.breed
         WHERE e.doc_id = $1 AND e.seq = $2`,
       [docId, seq],
     );
@@ -507,8 +509,10 @@ export async function recipeAt(db: Db, store: BlobStore, me: Me | null, asset: s
     const hash = hashText(text);
     const bytes = new TextEncoder().encode(text);
     const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, "text/javascript");
-    await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, 'text/javascript', $3) ON CONFLICT (hash) DO NOTHING`, [hash, bytes.length, key]);
-    const pieces = (await piecesHeld(db, piecesOf(source)).catch(() => ({ all: piecesOf(source) }))).all;
+    // kept in its owner's library: a private asset's recipe files are its owner's alone
+    await keepFile(db, { hash, size: bytes.length, media_type: "text/javascript", bucket_key: key }, { owner: (await assetOwner(db, asset))!.owner });
+    // its pieces by the one resolver (intent 02e3a85f): accepted ones, or ones proposed in the intent the edit is of
+    const pieces = await piecesFor(db, piecesOf(source), line[0]?.intent_id ?? (at.intent !== undefined ? `${at.intent}`.toLowerCase() : null));
     const made = { ...record, manifest: { ...(record.manifest ?? {}), libs: libsOf(source), pieces }, card: { ...(record.card ?? {}), recipe: hash, version: n, v: n, ...(variant ? { variant } : {}) } };
     return { ...base, hash, size: bytes.length, record: made, version: null };
   });
@@ -519,7 +523,6 @@ export async function recipeAt(db: Db, store: BlobStore, me: Me | null, asset: s
 /** the work an asset's version is */
 const ASSET_WORK = "asset_version";
 
-const GROUP = /^(plants|things|machines|buildings|actors|biomes|worlds)$/;
 const SLUG = /^[a-z0-9][a-z0-9-]{0,79}$/;
 /** a label as a slug: its letters and digits, lowercase, joined by '-' */
 const slugOf = (label: string) =>
@@ -531,7 +534,7 @@ const MEDIA = "text/javascript";
 type Upload = { source?: string; recipe?: string; record?: any; label?: string };
 export type ProposalBody = {
   asset?: string; // an existing asset, by its UUID
-  new?: { group: string; slug?: string; label: string }; // or a new one: its group and label (its slug made from the label if none)
+  new?: { group: string; slug?: string; label: string; private?: unknown }; // or a new one: its group and label (its slug made from the label if none); private: its proposer's own (./owners.ts)
   label?: string;
   note?: string;
   base?: string | null; // the head it was made from, as the proposer saw it
@@ -563,8 +566,11 @@ export function unreadable(source: string): string | null {
 /**
  * A version's code as proposed, the readable source or a recipe file wrapping it: its source and the recipe file made
  * from it for this asset, this version and this variant (the same file the box builds, RECIPE_HEAD + source + its tail).
+ * A source that is exactly one its head was accepted with (`accepted`: the head's sources by hash, its own and its
+ * variants') was read and accepted already: it is not judged unreadable again (intent 80bbed15), so a card-only change
+ * of an asset whose accepted source carries long lines (the legacy people's embedded meshes) can be proposed.
  */
-function checkedCode(up: { source?: unknown; recipe?: unknown }, slug: string, n: number, variant: string | null) {
+function checkedCode(up: { source?: unknown; recipe?: unknown }, slug: string, n: number, variant: string | null, accepted: ReadonlySet<string> = new Set()) {
   let source: string;
   if (typeof up.source === "string" && up.source) {
     if (up.recipe) throw new VersionError("Give the readable source or the recipe file, not both.");
@@ -580,20 +586,21 @@ function checkedCode(up: { source?: unknown; recipe?: unknown }, slug: string, n
   if (Buffer.byteLength(source) > MOST_FILE) throw new VersionError("The source is larger than 16 MB.");
   if (!/module\.exports\.recipe\s*=|exports\.recipe\s*=/.test(source))
     throw new VersionError("The source sets no module.exports.recipe = function (id, v, variant) { … }: the recipe its file calls.");
-  const why = unreadable(source);
+  const hash = hashText(source);
+  const why = accepted.has(hash) ? null : unreadable(source);
   if (why) throw new VersionError(`The source is not readable: ${why}.`);
   const recipe = RECIPE_HEAD + source + recipeTail(slug, n, variant);
-  return { source: { text: source, hash: hashText(source) }, recipe: { text: recipe, hash: hashText(recipe) }, libs: libsOf(source), pieces: piecesOf(source) };
+  return { source: { text: source, hash }, recipe: { text: recipe, hash: hashText(recipe) }, libs: libsOf(source), pieces: piecesOf(source) };
 }
 
 /**
- * The pieces a source requires by hash (play/SPEC.md §4.5), each an accepted piece version's, with every piece beneath
- * them: what its manifest's `pieces` names. Refused, saying which, where one is no accepted piece's version or they go
- * more than four deep.
+ * The pieces a source requires by hash (play/SPEC.md §4.5), each an accepted piece version's or one proposed in the
+ * same intent (`intent`; intent 02e3a85f), with every piece beneath them: what its manifest's `pieces` names. Refused,
+ * saying which, where one is neither, they require each other in a circle, or they go more than four deep.
  */
-async function piecesFor(db: Queryable, pieces: string[]): Promise<string[]> {
+async function piecesFor(db: Queryable, pieces: string[], intent?: string | null): Promise<string[]> {
   try {
-    return (await piecesHeld(db, pieces)).all;
+    return (await piecesHeld(db, pieces, undefined, intent)).all;
   } catch (e) {
     throw e instanceof PieceError ? new VersionError(e.message) : e;
   }
@@ -710,26 +717,42 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
   let asset: string;
   let grp: string;
   let slug: string;
+  // its owner (./owners.ts): the coop's, or a person's own (a private character), whose files are then theirs alone
+  let owner: string;
   if (body?.asset !== undefined) {
     if (!UUID.test(`${body.asset}`)) throw new VersionError("Name the asset by its id (a UUID).");
-    const { rows } = await db.query<{ grp: string; slug: string }>(`SELECT grp, slug FROM play.assets WHERE id = $1`, [body.asset]);
+    // (another's private asset is as one that never was)
+    const { rows } = await db.query<{ grp: string; slug: string; owner: string }>(`SELECT a.grp, a.slug, a.owner::text FROM play.assets a WHERE a.id = $1 AND ${assetSeen("a", "$2")}`, [body.asset, who.id]);
     if (!rows[0]) throw new VersionError("There is no such asset.", 404);
-    ({ grp, slug } = rows[0]);
+    ({ grp, slug, owner } = rows[0]);
     asset = body.asset;
   } else {
     // a new asset is its new UUID; its group, label and slug are only shown (the slug, the name its recipe is called
     // with, made from the label where none is given), and another asset may share them
     grp = `${body?.new?.group ?? ""}`;
     slug = body?.new?.slug == null || body.new.slug === "" ? slugOf(`${body?.new?.label ?? ""}`) : `${body.new.slug}`;
-    if (!GROUP.test(grp)) throw new VersionError("A new asset needs its group (plants, things, machines, buildings, actors, biomes, worlds).");
+    if (!isGroup(grp)) throw new VersionError(`A new asset needs its group (${GROUPS.join(", ")}).`);
     if (!SLUG.test(slug)) throw new VersionError("A new asset's slug is lowercase words joined by '-' (or give a label to make it from).");
+    try {
+      owner = newAssetOwner(who, grp, body.new?.private);
+    } catch (e) {
+      throw e instanceof OwnerError ? new VersionError(e.message, e.status) : e;
+    }
     asset = newId();
   }
+  const own_ = owner !== COOP;
   const { rows: a } = await db.query<{ head: string | null; number: number | null; label: string; card: any; variants: Record<string, any> | null }>(
     `SELECT a.head, v.number, a.label, v.card,
             (SELECT json_object_agg(x.name, x.card) FROM play.asset_variants x WHERE x.version_id = v.id) AS variants
        FROM play.assets a LEFT JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1`, [asset],
   );
+  // the sources its head was accepted with, by hash (its own and its variants'): kept as they are, they are not judged again
+  const { rows: kept } = await db.query<{ hash: string }>(
+    `SELECT v.source_hash AS hash FROM play.assets a JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1 AND v.source_hash IS NOT NULL
+     UNION SELECT x.source_hash FROM play.assets a JOIN play.asset_variants x ON x.version_id = a.head WHERE a.id = $1 AND x.source_hash IS NOT NULL`,
+    [asset],
+  );
+  const accepted = new Set(kept.map((r) => r.hash));
   // a proposal that brings no record of its own takes its head's (the engine it runs on, its label, its parameters),
   // with its own recipe and version written in: an upload of the recipe file alone makes a version the site can build
   // but never what was measured on the head's recipe (its size, triangles, whether it is skinned): this is another one
@@ -763,7 +786,7 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
       .transaction(async (q) => {
         await ensureAssetDoc(q, store, asset);
         const dr = await openVariantOf(q, asset, body.variant);
-        return { ...dr, json: await variantState(q, asset, dr.id) };
+        return { ...dr, json: await variantState(q, asset, dr.id), seed: await docs.seedOf(q, assetDocId(asset), dr.id) };
       })
       .catch((e) => {
         throw e instanceof AssetDocError ? new VersionError(e.message, e.status) : e;
@@ -771,6 +794,14 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
     if ((d.base ?? null) !== (a[0]?.number ?? null)) throw new VersionError(`This asset has a newer version than the one variant ${d.id} was seeded from: start a variant again on its head.`, 409);
     draft = d.id;
     draftLod = d.json.card?.card?.lod;
+    // a move to another group (intent 89f3ad37): an edit of the asset's own document, its card's group, changed from
+    // what it was at the variant's seed; the version is then of that group, and its Accept moves the asset there
+    const to = d.json.card?.card?.group;
+    if (to !== undefined && to !== grp && to !== d.seed?.card?.card?.group) {
+      if (!isGroup(to)) throw new VersionError(`${to} is not an asset group (${GROUPS.join(", ")}).`);
+      if (own_ && !(PRIVATE_GROUPS as readonly string[]).includes(to)) throw new VersionError(`A private asset stays in ${PRIVATE_GROUPS.join(", ")}: only those may be private, for now.`);
+      grp = to;
+    }
     // an asset of breeds (play/SPEC.md "Breeds"): the version is Main as it would then be, with every breed built from
     // it as its variant (the breed the intent variant changes, or makes, as it changes it)
     const bred = await db.transaction((q) => breedsFor(q, asset, d.id, d.json)).catch((e) => {
@@ -808,21 +839,21 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
   let ownText = "";
   const variantTexts: Record<string, string> = {};
   if (body.recipe || body.source) {
-    const c = checkedCode(body, slug, n, null);
+    const c = checkedCode(body, slug, n, null, accepted);
     files.push(c.source, c.recipe);
     recipe = c.recipe.hash;
     source = c.source.hash;
-    own = { libs: c.libs, source: c.source.hash, pieces: await piecesFor(db, c.pieces) };
+    own = { libs: c.libs, source: c.source.hash, pieces: await piecesFor(db, c.pieces, body.intent) };
     ownText = c.source.text;
   } else {
     for (const name of variantNames) {
       if (!VARIANT.test(name)) throw new VersionError(`${name} is not a variant's name.`);
-      const c = checkedCode(body.variants![name], slug, n, name);
+      const c = checkedCode(body.variants![name], slug, n, name, accepted);
       files.push(c.source, c.recipe);
       variantTexts[name] = c.source.text;
       const from = a[0]?.variants?.[name] ?? a[0]?.card;
       const label = body.variants![name].label === undefined ? {} : { label: `${body.variants![name].label}`.trim().slice(0, 120) };
-      const record = heldRecord(over(inherited(body.variants![name].record, from), { ...set, ...label }), c.libs, c.source.hash, await piecesFor(db, c.pieces));
+      const record = heldRecord(over(inherited(body.variants![name].record, from), { ...set, ...label }), c.libs, c.source.hash, await piecesFor(db, c.pieces, body.intent));
       variants[name] = { recipe: c.recipe.hash, source: c.source.hash, card: recordOf(record, grp, slug, n, name, c.recipe.hash) };
     }
     defaultVariant = body.defaultVariant ?? variantNames[0];
@@ -838,9 +869,10 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
     const h = given === null || given === "" ? null : `${given}`;
     if (h !== null) {
       if (!HASH.test(h)) throw new VersionError(`A ${k} is named by its BLAKE3 hash (64 hex characters).`);
-      const { rows: f } = await db.query<{ media_type: string }>(`SELECT media_type FROM play.files WHERE hash = $1`, [h]);
-      if (!f[0]) throw new VersionError(`play keeps no file by that hash: add the ${k} first (MCP ${REFS[k].add}).`);
-      if (!REFS[k].is(f[0].media_type)) throw new VersionError(`${REFS[k].what}.`);
+      // a file its readers may open: everyone's for an asset everyone reads; its owner's own too for a private one
+      const type = (await fileTypes(db, [h], own_ ? who : null)).get(h);
+      if (!type) throw new VersionError(`play keeps no file by that hash${own_ ? "" : " in Maia City's library"}: add the ${k} first (MCP ${REFS[k].add}).`);
+      if (!REFS[k].is(type)) throw new VersionError(`${REFS[k].what}.`);
     }
     refs[k] = h;
   }
@@ -871,11 +903,8 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
   for (const f of files) await store.put(f.hash, new TextEncoder().encode(f.text), MEDIA);
   let intent = "", variantId = 0, edits = 0;
   await db.transaction(async (tx) => {
-    for (const f of files)
-      await tx.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, [
-        f.hash, Buffer.byteLength(f.text), MEDIA, `blobs/${f.hash.slice(0, 2)}/${f.hash}`,
-      ]);
-    await tx.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING`, [asset, COOP, grp, slug, label]);
+    for (const f of files) await keepFile(tx, { hash: f.hash, size: Buffer.byteLength(f.text), media_type: MEDIA, bucket_key: `blobs/${f.hash.slice(0, 2)}/${f.hash}` }, { owner });
+    await tx.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label, owner) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING`, [asset, COOP, grp, slug, label, owner]);
     await tx.query(
       `INSERT INTO play.asset_versions (id, asset_id, parents, recipe_hash, source_hash, default_variant, card, engine, author, note)
        VALUES ($1, $2, $3, $4, $5, $6, ($7::text)::jsonb, $8, $9, $10) ON CONFLICT (id) DO NOTHING`,
@@ -900,7 +929,7 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
     edits = (await docs.history(tx, assetDocId(asset), { variant: v })).length;
     variantId = v;
   });
-  return { intent, stage: "proposal" as const, asset, version: id, number: n, base: head, variant: variantId, edits };
+  return { intent, stage: await stageAfter(db, intent), asset, version: id, number: n, base: head, variant: variantId, edits };
 }
 
 /** an asset's intent variant proposed as it stands (./versioned.ts propose_doc_version): its recipe files made, its frozen version written */
@@ -976,7 +1005,10 @@ export async function decideAsset(tx: Queryable, store: BlobStore, me: Me, p: an
     });
     const n = (a[0]?.number ?? 0) + 1;
     await tx.query(`UPDATE play.asset_versions SET number = $2, approved_by = $3 WHERE id = $1`, [p.version, n, me.id]);
-    await tx.query(`UPDATE play.assets SET head = $2 WHERE id = $1`, [p.asset_id, p.version]);
+    // the asset stands in the group its accepted version names (a move by its document, intent 89f3ad37)
+    const { rows: g } = await tx.query<{ grp: string | null }>(`SELECT card->'card'->>'group' AS grp FROM play.asset_versions WHERE id = $1`, [p.version]);
+    const grp = isGroup(g[0]?.grp) ? g[0].grp : null;
+    await tx.query(`UPDATE play.assets SET head = $2, grp = COALESCE($3, grp) WHERE id = $1`, [p.asset_id, p.version, grp]);
     await settle(tx, id, "accepted", byOf(me));
     await acceptVariant(tx, store, p, me, n);
     // a version proposed with its variants given whole: they are the asset's breeds from now on
@@ -984,7 +1016,10 @@ export async function decideAsset(tx: Queryable, store: BlobStore, me: Me, p: an
     // the other intents' work made on the same head can go in no more: archived, to be built again on the new one
     const { rows: stale } = await tx.query<any>(
       `SELECT ${WORK_OF} FROM play.intents i
-        WHERE i.asset_id = $1 AND i.work = $4 AND i.stage = 'proposal' AND i.id <> $2 AND i.base IS NOT DISTINCT FROM $3 FOR UPDATE`,
+        WHERE i.stage IN ('build', 'proposal') AND i.id <> $2
+          AND ((i.asset_id = $1 AND i.work = $4 AND i.base IS NOT DISTINCT FROM $3)
+            OR EXISTS (SELECT 1 FROM play.intent_variants sv WHERE sv.intent_id = i.id AND sv.refs->>'asset_id' = $1::text AND sv.refs->>'base' IS NOT DISTINCT FROM $3::text))
+        FOR UPDATE`,
       [p.asset_id, id, p.base, ASSET_WORK],
     );
     for (const s of stale) {

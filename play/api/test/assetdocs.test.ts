@@ -56,7 +56,7 @@ suite("assets as documents", () => {
       if (v.variants) {
         await db.query(
           `INSERT INTO play.asset_versions (id, asset_id, parents, number, default_variant, card, engine, note, author, imported, created) VALUES ($1, $2, $3, $4, $5, ($6::text)::jsonb, 5, $7, $8, $9, COALESCE($10::timestamptz, now()))`,
-          [vid, id, parent ? [parent] : [], v.n, Object.keys(v.variants)[0], JSON.stringify(card), `version ${v.n}`, v.author ?? null, v.imported === false ? null : JSON.stringify({ from: "avendb" }), v.created ?? null],
+          [vid, id, parent ? [parent] : [], v.n, Object.keys(v.variants)[0], JSON.stringify(card), `version ${v.n}`, v.author ?? null, v.imported === false ? null : JSON.stringify({ from: "legacy" }), v.created ?? null],
         );
         for (const [vn, vs] of Object.entries(v.variants)) {
           const s = await put(vs);
@@ -68,7 +68,7 @@ suite("assets as documents", () => {
         const recipe = await put(RECIPE_HEAD + v.source + recipeTail(slug, v.n, null));
         await db.query(
           `INSERT INTO play.asset_versions (id, asset_id, parents, number, recipe_hash, source_hash, card, engine, note, author, imported, created) VALUES ($1, $2, $3, $4, $5, $6, ($7::text)::jsonb, 5, $8, $9, $10, COALESCE($11::timestamptz, now()))`,
-          [vid, id, parent ? [parent] : [], v.n, recipe, sourceHash, JSON.stringify({ ...card, card: { ...card.card, recipe } }), `version ${v.n}`, v.author ?? null, v.imported === false ? null : JSON.stringify({ from: "avendb" }), v.created ?? null],
+          [vid, id, parent ? [parent] : [], v.n, recipe, sourceHash, JSON.stringify({ ...card, card: { ...card.card, recipe } }), `version ${v.n}`, v.author ?? null, v.imported === false ? null : JSON.stringify({ from: "legacy" }), v.created ?? null],
         );
         written[slug][v.n] = { id: vid, source: v.source, recipe };
       }
@@ -123,14 +123,14 @@ suite("assets as documents", () => {
       [crypto.randomUUID(), COOP, ids.fern, written.fern[4].id, rejected, who.cit.id],
     );
 
-    const before = { catalog: await catalogOf(db), pins: await pinsOf(db, "ec08b07d-6ec0-8f65-92b2-3efe7d91df5d"), versions: (await db.query(`SELECT id, number, recipe_hash, source_hash FROM play.asset_versions ORDER BY id`)).rows };
+    const before = { catalog: await catalogOf(db, null), pins: await pinsOf(db, "ec08b07d-6ec0-8f65-92b2-3efe7d91df5d"), versions: (await db.query(`SELECT id, number, recipe_hash, source_hash FROM play.asset_versions ORDER BY id`)).rows };
     const r = await ensureAssetDocs(db, store);
     expect(r.errors).toEqual([]);
     expect(r.made).toBe(2);
     expect(r.variants).toBe(1);
     // the versions, the catalog and the pins are exactly as they were
     expect((await db.query(`SELECT id, number, recipe_hash, source_hash FROM play.asset_versions ORDER BY id`)).rows).toEqual(before.versions);
-    expect(await catalogOf(db)).toEqual(before.catalog);
+    expect(await catalogOf(db, null)).toEqual(before.catalog);
     expect(await pinsOf(db, "ec08b07d-6ec0-8f65-92b2-3efe7d91df5d")).toEqual(before.pins);
     // each version's step holds its source byte for byte, under its own number (a gap kept)
     const fern = await docs.versionsOf(db, assetDocId(ids.fern));
@@ -302,7 +302,7 @@ suite("assets as documents", () => {
     const next = await proposeAsset(db, store, ada, { asset: a.asset, note: "a taller stool", source: src("a taller stool"), intent: await building("A taller stool") });
     expect((await db.query<any>(`SELECT card FROM play.asset_versions WHERE id = $1`, [next.version])).rows[0].card.card.lod).toEqual({ levels: "derived", budgets: [4000, 1200, 320] });
     // an existing version, from before the contract, names none and is read as derived
-    const old = await assetOf(db, await writeAsset("plants", "old-shrub", [{ n: 1, source: src("an old shrub") }, { n: 2, source: src("an old shrub, taller") }]));
+    const old = await assetOf(db, await writeAsset("plants", "old-shrub", [{ n: 1, source: src("an old shrub") }, { n: 2, source: src("an old shrub, taller") }]), null);
     expect(old.versions.map((v: any) => v.lod)).toEqual([{ levels: "derived" }, { levels: "derived" }]);
   });
 

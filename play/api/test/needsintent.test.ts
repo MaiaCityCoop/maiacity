@@ -150,8 +150,8 @@ suite("no work without an intent", () => {
     expect(story).toBeString();
   });
 
-  test("only an intent in Build or at Proposal takes work: Idea, Specify, Ship, Accepted, Archived refused; Build with every must passed taken", async () => {
-    // an intent at each stage that takes no work (and one in Build whose checks have not passed)
+  test("only an intent in Build or at Proposal takes work: Idea, Specify, Ship, Accepted, Archived refused; Build taken, waiting there until every must passes", async () => {
+    // an intent at each stage that takes no work
     const idea = (await tool("add_intent", { title: "At Idea" })).id;
     const specify = (await tool("add_intent", { title: "At Specify" })).id;
     await tool("specify_intent", { intent: specify, ...SPEC });
@@ -161,9 +161,6 @@ suite("no work without an intent", () => {
       return i;
     };
     const stages: Record<string, string> = { idea, specify, ship: await at("ship"), accepted: await at("accepted"), archived: await at("archived") };
-    const unchecked = (await tool("add_intent", { title: "In Build, not checked" })).id;
-    await tool("specify_intent", { intent: unchecked, ...SPEC });
-    await call("ada", "POST", `/api/intents/${unchecked}/approve`);
     for (const [stage, id] of Object.entries(stages))
       expect([stage, (await db.query<{ stage: string }>(`SELECT stage FROM play.intents WHERE id = $1`, [id])).rows[0].stage]).toEqual([stage, stage]);
 
@@ -176,12 +173,18 @@ suite("no work without an intent", () => {
         if (path === "POST /api/intents") expect(r.status).toBe(409);
         expect([path, stage, await written()]).toEqual([path, stage, before]);
       }
-      // a propose (not an edit) waits for every must check
-      if (path !== "doc_edit") {
-        const r = await run(unchecked);
-        expect([path, r.error]).toEqual([path, expect.any(String)]);
-        expect([path, await written()]).toEqual([path, before]);
-      }
+    }
+    // in Build before its must checks pass: taken, the work waiting on the intent in Build (intent 94061718)
+    for (const [path, run] of Object.entries(PATHS)) {
+      if (path === "doc_edit") continue;
+      const waits = (await tool("add_intent", { title: `Waits for ${path}` })).id;
+      await tool("specify_intent", { intent: waits, ...SPEC });
+      await call("ada", "POST", `/api/intents/${waits}/approve`);
+      const r = await run(waits);
+      expect([path, r.error]).toEqual([path, undefined]);
+      const i = await tool("get_intent", { intent: waits });
+      expect([path, i.stage, !!i.work, i.sub?.state]).toEqual([path, "build", true, "working"]);
+      await call("ada", "POST", `/api/intents/${waits}/reject`);
     }
 
     // in Build with every must check passed: taken, the intent at Proposal with that work and its spec

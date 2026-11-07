@@ -136,7 +136,7 @@ jobs:
           [[ -n "$mount" && "$ipv4" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::no dataMount or ipv4 in the Pulumi state"; exit 1; }
           echo "data_mount=$mount" >> "$GITHUB_OUTPUT"
           echo "ipv4=$ipv4" >> "$GITHUB_OUTPUT"
-      # play.maia.city's A record to the server, as legacy's deploy kept its names (.github/workflows-avendb/avendeploy.yml):
+      # play.maia.city's A record to the server, as legacy's deploy kept its names:
       # Hetzner's DNS Console API (HETZNER_DNS_TOKEN) or the Cloud API's zones (HETZNER_DNS_TOKEN or HETZNER_API_KEY);
       # read first, written only when it differs
       - name: DNS
@@ -245,12 +245,12 @@ jobs:
             sudo mv "$DATA_MOUNT/play/blobs" "\$KEPT"
             echo "play's files are in the bucket; the folder they were in is kept at \$KEPT"
           fi
-          # play's role and schema, and its read of the legacy founders for the import
+          # play's role and schema
           \$C exec -T db psql -v ON_ERROR_STOP=1 -U maiacity -d maiacity -v pw="'\$PW'" < play/deploy/setup.sql
           \$C up -d --no-deps play-api
-          # the import, from avenDB's feed inside the compose network; it writes only what is missing
+          # the import: it writes only what play lacks from the repo (its site's media, readable sources, stories, …)
           # -T and </dev/null: this script reaches the server on stdin (bash -s), and a run that reads stdin eats the rest
-          \$C run --rm -T --no-deps -e AVENDB_PUBLIC_FEED=http://avendb:3351/feed play-api bun import/run.ts --cache /data/import-cache --founders --admin 1 --report /data/import-report.md </dev/null
+          \$C run --rm -T --no-deps play-api bun import/run.ts --report /data/import-report.md </dev/null
           \$C exec -T db psql -v ON_ERROR_STOP=1 -U maiacity -d maiacity < play/deploy/after-import.sql
           # Caddy answers play.maia.city: its block added once, the file's inode kept (it is bind-mounted)
           grep -q '>>> play.maia.city' deploy/Caddyfile || cat play/deploy/Caddyfile.play >> deploy/Caddyfile

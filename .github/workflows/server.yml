@@ -2,21 +2,22 @@
 #   report  what fills its disks, what Docker holds, and which of play's files are broken
 #   clean   frees what nothing uses (unused images, build cache, the journal, leftovers of backups) and mends play's
 #           broken files from the backups in the bucket; then reports again
-#   retire-avendb  avenDB stopped for good, its data kept as a legacy copy on the root disk (compared file by file), and
-#           only then removed from the data volume; type RETIRE to confirm
+#   remove-dns  removes every record of one name of the maia.city zone (`record`, e.g. a host no longer served): read
+#           first, only what is there removed, through the same Hetzner tokens as production.yml's DNS step. It
+#           refuses play, api (the deploy's host), www and the apex.
 name: server
 
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "report (changes nothing), clean, or retire-avendb"
+        description: "report (changes nothing), clean, or remove-dns"
         required: true
         type: choice
-        options: [report, clean, retire-avendb]
+        options: [report, clean, remove-dns]
         default: report
-      confirm:
-        description: "For retire-avendb: type RETIRE"
+      record:
+        description: "For remove-dns: the name in maia.city whose records go (e.g. old for old.maia.city)"
         required: false
         default: ""
 
@@ -42,16 +43,54 @@ jobs:
     timeout-minutes: 45
     environment: production
     steps:
-      - name: Confirmed
-        if: inputs.mode == 'retire-avendb' && inputs.confirm != 'RETIRE'
-        run: echo "::error::retire-avendb stops avenDB for good and moves its data off the volume; type RETIRE in confirm to run it."; exit 1
+      - name: remove-dns
+        if: inputs.mode == 'remove-dns'
+        env:
+          DNS_TOKEN: ${{ secrets.HETZNER_DNS_TOKEN }}
+          HCLOUD_TOKEN: ${{ secrets.HETZNER_API_KEY }}
+          ZONE: maia.city
+          NAME: ${{ inputs.record }}
+          CLOUD: https://api.hetzner.cloud/v1
+        run: |
+          NAME=$(tr 'A-Z' 'a-z' <<< "$NAME"); NAME=${NAME%.maia.city}; NAME=${NAME%.}
+          [[ "$NAME" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$ ]] || { echo "::error::remove-dns: '$NAME' is not a name in $ZONE"; exit 1; }
+          case "$NAME" in
+            play|api|www|@|maia.city) echo "::error::remove-dns: $NAME.$ZONE is served (play, api, www and the apex are never removed here)"; exit 1 ;;
+          esac
+          api=
+          if [ -n "$DNS_TOKEN" ]; then
+            zone=$(curl -fsS -H "Auth-API-Token: $DNS_TOKEN" "https://dns.hetzner.com/api/v1/zones?name=$ZONE" 2> /dev/null | jq -r '.zones[0].id // empty' || true)
+            [ -n "$zone" ] && api=dns
+          fi
+          if [ -z "$api" ]; then
+            for token in "$DNS_TOKEN" "$HCLOUD_TOKEN"; do
+              [ -n "$token" ] || continue
+              if curl -fsS -o /dev/null -H "Authorization: Bearer $token" "$CLOUD/zones/$ZONE" 2> /dev/null; then api=cloud; CLOUD_DNS=$token; break; fi
+            done
+          fi
+          [ -n "$api" ] || { echo "::error::No token reaches the zone $ZONE: remove $NAME.$ZONE by hand"; exit 1; }
+          if [ "$api" = dns ]; then
+            H="Auth-API-Token: $DNS_TOKEN"
+            records=$(curl -fsS -H "$H" "https://dns.hetzner.com/api/v1/records?zone_id=$zone" | jq -c --arg n "$NAME" '[.records[] | select(.name == $n)]')
+            echo "$NAME.$ZONE now: $(jq -r 'map("\(.type) \(.value)") | join(", ") | if . == "" then "none" else . end' <<< "$records")"
+            for id in $(jq -r '.[].id' <<< "$records"); do curl -fsS -X DELETE -H "$H" "https://dns.hetzner.com/api/v1/records/$id" > /dev/null; done
+          else
+            H="Authorization: Bearer $CLOUD_DNS"
+            sets=$(curl -fsS -H "$H" "$CLOUD/zones/$ZONE/rrsets?name=$NAME&per_page=100" | jq -c --arg n "$NAME" '[.rrsets[] | select(.name == $n)]')
+            echo "$NAME.$ZONE now: $(jq -r 'map("\(.type) \(.records | map(.value) | join(" "))") | join(", ") | if . == "" then "none" else . end' <<< "$sets")"
+            for type in $(jq -r '.[].type' <<< "$sets"); do curl -fsS -X DELETE -H "$H" "$CLOUD/zones/$ZONE/rrsets/$NAME/$type" > /dev/null; done
+          fi
+          echo "$NAME.$ZONE: no record left"
       - uses: actions/checkout@v4
+        if: inputs.mode != 'remove-dns'
       - uses: ./.github/actions/prod-ssh
+        if: inputs.mode != 'remove-dns'
         with:
           host: ${{ env.HOST }}
           ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
           known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
       - name: Copy the script and the bucket's access
+        if: inputs.mode != 'remove-dns'
         env:
           S3_ACCESS_KEY: ${{ secrets.HETZNER_S3_ACCESS_KEY }}
           S3_SECRET_KEY: ${{ secrets.HETZNER_S3_SECRET_KEY }}
@@ -64,6 +103,7 @@ jobs:
               | ssh prod "umask 077; cat > $APP_DIR/backup.env"
           fi
       - name: ${{ inputs.mode }}
+        if: inputs.mode != 'remove-dns'
         env:
           MODE: ${{ inputs.mode }}
         run: ssh prod "cd $APP_DIR && timeout 2400 bash deploy/server-care.sh '$MODE'"

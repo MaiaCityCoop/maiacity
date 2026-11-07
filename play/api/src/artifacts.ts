@@ -4,7 +4,8 @@
 // 280, a summary of 500–1,500 words in its sections) and its authors (play.authors, by their UUIDs, in order). One link,
 // one artifact (urlOf). An artifact is a document like any other (artifact:<uuid>, ./versioned.ts): every change of it
 // waits at Proposal as an intent's work, and its row is what its accepted version says. Admins only.
-import { COOP, Denied, type Me } from "./access";
+import { keepFile } from "./owners";
+import { admin, COOP, type Me } from "./access";
 import { AVENMAIA, SCHEMA } from "./ids";
 import { addIntent, autoMove, intentRow, recordChecks, specifyIntent } from "./intents";
 import { keyOf, type BlobStore } from "./blobs";
@@ -41,11 +42,7 @@ const URL_MOST = 2000;
 
 // ---- who may
 
-function admin(me: Me | null): Me {
-  if (!me) throw new Denied("Please sign in first.", 401);
-  if (me.level !== "admin") throw new Denied("Only Maia City's admins open the Artifacts.");
-  return me;
-}
+const ARTIFACT_ADMINS = "Only Maia City's admins open the Artifacts.";
 
 // ---- a link, made one
 
@@ -234,11 +231,7 @@ async function keepText(db: Queryable, store: BlobStore, text: unknown, title: s
   if (bytes.length > TEXT_MOST) throw new ArtifactError(`An artifact's text is at most ${TEXT_MOST / 1e6} MB.`, 413);
   const hash = hashBytes(bytes);
   const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, TEXT_TYPE);
-  await db.query(
-    `INSERT INTO play.files (hash, size, media_type, bucket_key, label) VALUES ($1, $2, $3, $4, $5)
-     ON CONFLICT (hash) DO NOTHING`,
-    [hash, bytes.length, TEXT_TYPE, key, `Text of ${title}`.slice(0, 120)],
-  );
+  await keepFile(db, { hash, size: bytes.length, media_type: TEXT_TYPE, bucket_key: key, label: `Text of ${title}`.slice(0, 120) });
   return hash;
 }
 
@@ -291,7 +284,7 @@ async function artifactRow(db: Queryable, id: string) {
 
 /** One artifact, whole: its three texts, kind, tags, date, link, who brought it, its authors in order, and its text's hash. */
 export async function artifactOf(db: Queryable, me: Me | null, id: unknown) {
-  admin(me);
+  admin(me, ARTIFACT_ADMINS);
   return artifactRow(db, idOf(id, "artifact"));
 }
 
@@ -302,7 +295,7 @@ export type ArtifactQuery = { q?: string | null; author?: string | null; tag?: s
  * author's name; an author (their id), a tag, a kind and an origin narrow them. Each without its summary (get_artifact).
  */
 export async function listArtifacts(db: Queryable, me: Me | null, o: ArtifactQuery = {}) {
-  admin(me);
+  admin(me, ARTIFACT_ADMINS);
   const where = ["s.coop_id = $1", "s.title IS NOT NULL"];
   const args: unknown[] = [COOP];
   const arg = (v: unknown) => (args.push(v), `$${args.length}`);
@@ -336,7 +329,7 @@ export async function listArtifacts(db: Queryable, me: Me | null, o: ArtifactQue
 
 /** The authors, by name, those whose name holds `q`: each with how many artifacts name them. */
 export async function listAuthors(db: Queryable, me: Me | null, o: { q?: string | null } = {}) {
-  admin(me);
+  admin(me, ARTIFACT_ADMINS);
   const q = `${o.q ?? ""}`.trim().toLowerCase();
   const { rows } = await db.query(
     `SELECT a.id, a.name, a.kind, a.url, a.note, a.created, (SELECT count(*) FROM play.artifact_authors sa WHERE sa.author_id = a.id) AS artifacts
@@ -349,7 +342,7 @@ export async function listAuthors(db: Queryable, me: Me | null, o: { q?: string 
 
 /** One author, with every artifact that names them, newest first. */
 export async function authorOf(db: Queryable, me: Me | null, id: unknown) {
-  admin(me);
+  admin(me, ARTIFACT_ADMINS);
   const aid = idOf(id, "author");
   const { rows } = await db.query(
     `SELECT a.id, a.name, a.kind, a.url, a.note, a.created, ag.name AS agent, op.name AS operator
@@ -446,12 +439,12 @@ const formEvidence = (j: any) =>
  */
 export async function addArtifact(db: Db, store: BlobStore, me: Me | null, b: ArtifactGiven, intent?: string) {
   if (intent) return addIn(db, store, me, b, intent);
-  admin(me);
+  admin(me, ARTIFACT_ADMINS);
   return db.transaction((tx) => addIn(flat(tx), store, me, b));
 }
 
 async function addIn(db: Db, store: BlobStore, me: Me | null, b: ArtifactGiven, intent?: string) {
-  const who = admin(me);
+  const who = admin(me, ARTIFACT_ADMINS);
   const url = urlOf(b?.url);
   const held = await linkHeld(db, url);
   if (held.kept) return { ...(await artifactRow(db, held.kept)), kept: true };
@@ -480,12 +473,12 @@ async function addIn(db: Db, store: BlobStore, me: Me | null, b: ArtifactGiven, 
 /** Correct a kept artifact (its next version proposed): any field but who brought it, each held to its form. With no intent named it makes its own, as addArtifact. */
 export async function updateArtifact(db: Db, store: BlobStore, me: Me | null, artifact: unknown, b: ArtifactGiven, intent?: string) {
   if (intent) return updateIn(db, store, me, artifact, b, intent);
-  admin(me);
+  admin(me, ARTIFACT_ADMINS);
   return db.transaction((tx) => updateIn(flat(tx), store, me, artifact, b));
 }
 
 async function updateIn(db: Db, store: BlobStore, me: Me | null, artifact: unknown, b: ArtifactGiven, intent?: string) {
-  const who = admin(me);
+  const who = admin(me, ARTIFACT_ADMINS);
   const id = idOf(artifact, "artifact");
   const now = await artifactRow(db, id);
   if (b && "origin" in b && b.origin !== undefined && b.origin !== now.origin)

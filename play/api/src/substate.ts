@@ -13,7 +13,8 @@ export type SubState = "failed" | "waiting" | "working" | "idle";
 /** `tag`: what it is, in at most 32 characters (the dialog's chip, "<State> · <tag>"); `why`: its reason, checks named by id only */
 export type Sub = { state: SubState; tag: string; why: string };
 const S = (state: SubState, tag: string, why: string): Sub => ({ state, tag, why });
-export type CheckState = "queued" | "running" | "success" | "failure";
+/** a check as GitHub concluded it: neutral reads as success, skipped and cancelled as themselves, every other end as failure */
+export type CheckState = "queued" | "running" | "success" | "failure" | "skipped" | "cancelled";
 /** a pull request as Ship's watcher (or an Accept) last read it */
 export type PrSeen = {
   pr: number; head: string; draft: boolean; mergeable: boolean | null; state: string; merged: boolean; base: string; checks: Record<string, CheckState>; at: string;
@@ -82,8 +83,9 @@ export function prBlock(intent: Pick<Row, "spec" | "results">, seen: PrSeen, hea
     return S("working", "main merged in", `main merged in: its checks run on ${short(seen.head)} (${stale.join("; ")})`);
   if (stale.length)
     return S("working", "head moved", `${n}'s head moved past the checked commit (${stale.join("; ")}): every must check with a run passes on ${n}'s head ${short(seen.head)} first (mark it ready, or push to it)`);
-  const red = REQUIRED_CHECKS.find((c) => seen.checks[c] === "failure");
-  if (red) return failed("check red", `'${red}' is failure on ${n}'s head ${short(seen.head)}`);
+  // a cancelled required check blocks GitHub's merge as a red one does; a skipped one (a draft's run) is not green yet
+  const red = REQUIRED_CHECKS.find((c) => seen.checks[c] === "failure" || seen.checks[c] === "cancelled");
+  if (red) return failed("check red", `'${red}' is ${seen.checks[red]} on ${n}'s head ${short(seen.head)}`);
   const running = REQUIRED_CHECKS.filter((c) => seen.checks[c] !== "success");
   if (running.length) return S("working", "checks running", `Waiting for ${n}'s checks (${running.join(", ")})`);
   if (seen.mergeable === null) return S("working", "reading GitHub", `Waiting for GitHub to work out whether ${n} merges`);
@@ -141,16 +143,22 @@ export function subStateOf(intent: Row, seen: PrSeen | null | undefined = intent
     return S("working", "shipping", s ? `${s.name}${s.note ? ` · ${s.note}` : ""}` : "on its way");
   }
   // code at Proposal waits in Ship for a dependency there (./intents.ts mayMove), so only one elsewhere holds it
-  const holds = at === "proposal" && pr && !intent.work ? held.filter((d) => d.stage !== "ship") : held;
+  const holds = at === "proposal" && pr ? held.filter((d) => d.stage !== "ship") : held;
   if (holds.length) return S("idle", "held", heldWhy(holds));
   if (at === "build") {
     // a conflict with main is failed in Build too: its builder resolves it (woken by the status 'Merges with main')
     if (pr && seen && seen.pr === pr && seen.state === "open" && seen.mergeable === false && now - Date.parse(seen.at) <= SEEN_MOST_MS) return S("failed", "conflicts with main", conflictWhy(seen));
+    // work of play's proposed in Build waits on it, not decidable: it moves to Proposal with it when its last must passes (intent 94061718)
+    if ((intent.work as any)?.status === "proposal") {
+      const n = Number((intent.work as any).docs) || 1;
+      return S("working", "work proposed", `${n} document${n === 1 ? "" : "s"} proposed, its checks to pass`);
+    }
     return S("working", "being built", "being built: its checks are recorded as they pass");
   }
 
   // Proposal
-  if (intent.work || !pr) return S("waiting", "Accept", "Accept");
+  // code, with play's work beside it or not (intent 7c8986c5), is Accept and ship
+  if (!pr) return S("waiting", "Accept", "Accept");
   if (!seen || seen.pr !== pr || now - Date.parse(seen.at) > SEEN_MOST_MS) return S("working", "reading GitHub", `reading #${pr} on GitHub`);
   return prBlock(intent, seen) ?? S("waiting", "Accept and ship", "Accept and ship");
 }
@@ -171,6 +179,13 @@ export function checksSeen(runs: any[]): Record<string, CheckState> {
   }
   const out: Record<string, CheckState> = {};
   for (const [name, r] of by)
-    out[name] = r.status !== "completed" ? (r.status === "in_progress" ? "running" : "queued") : r.conclusion === "success" ? "success" : "failure";
+    out[name] = r.status !== "completed" ? (r.status === "in_progress" ? "running" : "queued") : concluded(r.conclusion);
   return out;
+}
+
+/** a completed check's conclusion as pr_seen keeps it: a skipped check (a draft's job) is never shown as failed */
+function concluded(conclusion: string | null): CheckState {
+  if (conclusion === "success" || conclusion === "neutral") return "success";
+  if (conclusion === "skipped" || conclusion === "cancelled") return conclusion;
+  return "failure";
 }

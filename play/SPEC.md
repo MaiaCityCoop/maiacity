@@ -1,8 +1,8 @@
 # play.maia.city — spec v0.4 (2026-11-02)
 
 A new, separate app with **three sandboxes and the asset library with its versions**, on Postgres and object storage
-instead of avenDB. Legacy (today's maia.city, avenDB, the current API, MaiaCity V1/V2) is not touched: nothing in it
-is changed, moved or deleted, and the new sandboxes drift apart from it from day one.
+instead of what came before, on the branch `SNAPSHOT_2611101` (legacy): nothing of play's reads it (§6), and the new
+sandboxes drift apart from it from day one.
 
 ## 1. Decisions
 
@@ -68,13 +68,44 @@ never edited after it has shipped, only followed by another.
   the old array while this change was built, follow them; `0037` is the last numbered id: none comes after it.
 - The runner refuses to start, naming the file, on a malformed id or a duplicate (two files under one number).
 
+### 3.2 Owners: personal accounts own things (Samuel 2026-11-07; intent 732d8a38, the first slice of Ownership 8fc46819)
+
+Every asset and every file belongs to an **account**: a person's own (their human's UUID) or the Maia City coop's
+(`COOP`, `play/api/src/ids.ts`). Everything there was stays the coop's (migration `202611071200-732d8a38-owners`:
+`assets.owner`, and `file_owners (hash, owner, label, created)`, one row per library holding a file). What a person owns
+is **private to its owner**: to anyone else, another admin included, it answers exactly as what never was (404 with the
+same words, left out of every list) on every path that hands things out, site, API and MCP. One module says so,
+`play/api/src/owners.ts`, the only one that reads `play.files` for people: whose library a file is in and who sees it,
+which assets a person sees, and which intents.
+
+- **A personal library.** A file goes into its owner's **personal library** when it is added for them: over the
+  token of the human it belongs to, `add_story_frame` or `add_document` with `library: "personal"`. It is served and
+  listed for them alone (`/api/files/<hash>`, `get_file`, `GET /api/library?library=personal`, `list_library`'s
+  `library`), each library with its own label. The same bytes may be in several libraries; a file is everyone's while
+  the coop's library holds it (or no library row names it, as every file was).
+- **Private characters.** A new asset in group `characters` may be made private by its proposer, made with
+  `propose_asset`'s `private: true` (the one way a new asset is made): its owner is the token's human, and it, its versions, documents (`asset:<uuid>`) and recipe files
+  are theirs alone (the catalog, `/api/assets…`, `list_assets`, `get_asset`, `list_docs`, `doc_at`, `doc_history`,
+  `doc_edit`, the admins' database window). Only group `characters` may be private for now, and a private asset never
+  moves out of it. A sandbox can't pin one: worlds are shared. Its sheet and documents may be its owner's own files; a
+  public asset's and a story's files are everyone's.
+- **On the board.** An intent whose work is another's private asset is not listed, not found, refused to any tool
+  naming it, and decided (accepted, archived) by its owner alone; a dependency edge to it on anyone else's intent shows
+  "a private intent", with no id and no title (its sub-state's reason too).
+- **The Library follows "Act as"** (§8): acting as yourself, your personal library; acting as Maia City, the coop's.
+- **Not yet:** making personal things public, moving them between accounts, personal stories, factories or other kinds:
+  8fc46819 widens this to them.
+
 ## 4. Asset version control, from first principles
 
 ### 4.1 What is versioned
 
 **Readable source, the box, the host (Samuel 2026-11-02).** Every proposed version brings its **readable source**: a
-CommonJS module that sets `module.exports.recipe`, as written (play refuses minified code), kept as a file of its own
-(`source_hash`). play makes the recipe file from it (`RECIPE_HEAD + source + recipeTail(slug, v, variant)`), so the
+CommonJS module that sets `module.exports.recipe`, as written (play refuses minified code: a line over 1,000
+characters), kept as a file of its own (`source_hash`). A source that is exactly one its head was accepted with (by
+hash, its own or a variant's) is not judged again (intent 80bbed15): a card-only change of an asset whose accepted
+source carries long lines (the legacy people's embedded meshes) proposes; a changed or new source is still held to the
+rule. play makes the recipe file from it (`RECIPE_HEAD + source + recipeTail(slug, v, variant)`), so the
 file the box runs is exactly the source people read. Proposed code never runs on play's server (it only measures,
 labels and hashes text), and in the page only in the **asset box**: a frame with `sandbox="allow-scripts"` and no
 origin, its own CSP with no connection, the frozen engine (held to its hash) in a worker. A proposal's record may name
@@ -105,10 +136,10 @@ version.
 
 ### 4.3 The primitive
 
-A **version DAG**, the part of avenDB worth keeping, without signatures and without a CRDT:
+A **version DAG**, the part of legacy's store worth keeping, without signatures and without a CRDT:
 
 ```sql
-assets          (id UUID /*its identity: random for a new asset, derived from its avenDB entry (v5) for an imported one*/,
+assets          (id UUID /*its identity: random for a new asset, derived from its legacy entry (v5) for an imported one*/,
                  coop_id /*owner: the Maia City coop*/, grp, slug /*a name, shown; two assets may share it*/, label, head → asset_versions, created)
                  -- nothing refers to an asset by its group and slug (§4.7)
 asset_versions  (id /*BLAKE3 of canonical {asset, parents, recipe, default_variant, variants, card, engine}*/,
@@ -117,7 +148,7 @@ asset_versions  (id /*BLAKE3 of canonical {asset, parents, recipe, default_varia
                  recipe_hash → files      /*its own recipe; NULL for a kind of variants (actors, machines)*/,
                  default_variant          /*for a kind of variants: the one a ref without a variant names*/,
                  card jsonb, engine int, author → humans, approved_by → humans, note, created,
-                 imported jsonb           /*provenance: avenDB vault, entry, heads, edits, authors*/)
+                 imported jsonb           /*provenance: legacy vault, entry, heads, edits, authors*/)
                  -- immutable: a trigger refuses UPDATE and DELETE (only number/approver are set once, on accept)
 asset_variants  (version_id, name, recipe_hash → files, card jsonb)              -- immutable
 files           (hash PK /*BLAKE3 of the bytes*/, size, media_type, bucket_key, created)
@@ -131,7 +162,7 @@ intents         (… work 'asset_version', asset_id, base → asset_versions, ve
   the next number, moves the head, writes `approved_by`, and the intent is Accepted. If someone accepted another
   version first, its work is **archived** (and so is the intent, or, its spec approved, it goes back to Build):
   re-propose it on the new head.
-- Content addressing gives what avenDB gave: the same content has the same id, a file is checked by its hash wherever
+- Content addressing gives what legacy's store gave: the same content has the same id, a file is checked by its hash wherever
   it is read, and history can't be rewritten without every id changing.
 
 ### 4.4 Documents in Loro: every step kept (Samuel 2026-11-03)
@@ -189,9 +220,10 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   (`propose_doc_version` with its `variant`), its edits going with it. Accepting merges it and names the document's
   version the asset's new number.
 - **An agent's camera** (Samuel 2026-11-03): an admin's MCP token also opens the world's read-only routes (`GET
-  /api/me`, `/api/catalog`, `/api/files/<hash>`, `/api/sandboxes/<id>/config`, `/api/assets…`; `READ_BY_TOKEN` in
+  /api/me`, `/api/catalog`, `/api/files/<hash>`, `/api/sandboxes/<id>/config`, `/api/assets…`, `/api/library`; `READ_BY_TOKEN` in
   `play/api/src/app.ts`), so an agent loads a sandbox in its own browser as its admin and films it (`window.__world`'s
-  `fly` and `sun`) for a story's storyboard. Every other route still wants a session.
+  `fly` and `sun`) for a story's storyboard, and finds a file in the Library (§8; Samuel 2026-11-07, intent
+  140fdce6). Every other route still wants a session, a Library label's rename among them.
 - **Variants over MCP** (Samuel 2026-11-03; breeds since 2026-11-06, §4.15): an asset's breeds (each a `name`, its
   card's `label`, its own `source` where it differs from Main's; changed with `doc_edit`'s and `propose_doc_version`'s
   `breed`, made with `new_breed`, or given whole as `propose_asset`'s `variants` for a new asset) make each version a
@@ -214,7 +246,7 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
 ### 4.5 One source, every asset by its hash
 
 - **One source of truth:** Postgres (the catalog: assets, versions, variants, cards, the owner; the sandboxes' pins and
-  configs) and the bucket (every file under the BLAKE3 hash of its bytes). Nothing else is read: no avenDB, no repo
+  configs) and the bucket (every file under the BLAKE3 hash of its bytes). Nothing else is read: no legacy store, no repo
   fallback, no index of readable names in the site.
 - **A resilient store (Samuel 2026-11-05: "never run into this flaky store issue").** The bucket is reached only
   through `play/api/src/blobs.ts`, which holds it to never failing play for a slow moment:
@@ -241,7 +273,20 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   only three.js, three's addons and other pieces, at most 4 deep counted from the recipe, with no cycle. Each accepted
   version's source is kept among play's files by its BLAKE3 hash and listed in `play.piece_versions` (what it requires,
   how deep; frozen). A recipe requires it by that hash, `require('<64 hex>')`, and its manifest's `pieces` names it and
-  every piece beneath it; `propose_asset` and `propose_doc_version` refuse a hash that is no accepted piece version's.
+  every piece beneath it; `propose_asset` and `propose_doc_version` refuse a hash that is no accepted piece version's
+  nor one proposed in the same intent.
+- **Pieces proposed in the same intent** as what uses them (intent 02e3a85f, Samuel 2026-11-07). A set of pieces and the
+  recipes that use them are proposed in one intent and accepted together: a recipe or a piece may require the hash of
+  a piece version proposed in the same intent, beside the accepted ones. One resolver finds a source's pieces at
+  propose, at preview and at Accept (`play/api/src/pieces.ts` `piecesHeld`), with no fallback: a hash in neither place
+  is refused, saying which; pieces requiring each other in a circle are refused; the 4-deep limit counts the intent's
+  own pieces. One intent may carry **several versions of one piece** (v1 and v2, each pinned by different recipes):
+  `play.intent_variants` holds one variant of every other document per intent, a piece's in order, each a variant of
+  its own, a new one growing from the intent's last. **Accept** keeps them in its one transaction in the order they
+  require each other: the pieces first, each exactly as proposed (its hash is what recipes pin), after the pieces it
+  requires and its own earlier versions, each its piece's next version number; then the recipes and every other
+  document. If any of it fails, nothing is kept; Archive closes them all. The intents' board lists the intent's pieces,
+  the version each is to be and which recipe or piece requires which.
   Since the recipe names a hash, a frozen version always builds the piece it was accepted with, and a newer piece
   version is a new version of the asset. **The box resolves it** (`play/site`'s `content/assets/box/pieces.js`,
   `load.js`): before the build, from play's files alone (`/api/files/<hash>`, held to its hash, cached as every file
@@ -538,12 +583,18 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   Build the agent builds it, runs each check as its spec says and records every result with its evidence
   (`check_intent`: a failure as a failure), until every must check passes: then the intent moves to **Proposal by
   itself**. Checked again at Proposal (only while no work of it waits there), a must that fails takes it back to
-  Build. **To propose is to put an intent at Proposal**: work of play's (an asset or story version, a sandbox
-  change, a factory, a config) is proposed with every propose tool's `intent`, the intent's UUID; play takes it only
-  for an intent in Build or Proposal whose must checks all pass (`intentReady`), refusing it otherwise and saying
-  which checks are not met, and the intent moves to Proposal holding that work. **New work for the same intent replaces
+  Build. **Work of play's is proposed in Build and waits there** (intent `94061718-2412-4356-9c72-f82a7ac75479`,
+  Samuel 2026-11-07: 33266de8 was accepted holding 1 of its 23 documents): work of play's (an asset or story version,
+  a sandbox change, a factory, a config, a skill) is proposed with every propose tool's `intent`, the intent's UUID;
+  play takes it for an intent in Build or at Proposal (`intentReady`; at Idea or Specify it is refused), whatever its
+  checks. Work proposed in Build waits on the intent: it stays in Build, working ("n documents proposed, its checks to
+  pass") and not decidable, and **moves to Proposal with all of it at once when its last must check passes**, so an
+  Accept always takes every document its builder proposed; one whose musts all pass already moves to Proposal with it
+  at once. A builder proposes everything first and records its checks last. Rejected in Build, its work is archived
+  with it. **New work for the same intent replaces
   its work**: the earlier one's branch is closed, its steps kept as a side line, its version kept unnumbered in the
-  DAG (`play/api/src/work.ts` `putAtProposal`). Every propose tool gives back the intent (`intent`, at `proposal`).
+  DAG (`play/api/src/work.ts` `putAtProposal`). Every propose tool gives back the intent (`intent`, and its `stage`:
+  `build` while its work waits there, else `proposal`).
   Other work (code) holds none of play's: its work is its pull request into main, which the agent opens and names
   (`check_intent`'s `pr`, `intent.ts --pr`) and **never merges**: an admin's Accept merges it (*Accept ships it*,
   below). `list_intents` (the open stages, or one stage, or all; `work`, one kind of work) and `get_intent` (one whole,
@@ -837,6 +888,17 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   cleared, to be built again on the new head). Whoever proposed
   work may archive their own. The answer is the intent, with what its work came to (`decision`: status, number,
   version, merged, the message where it was archived).
+- **Code and play's work together** (intent 7c8986c5, Samuel 2026-11-07): an intent's work is any number of documents
+  and a pull request (§4.15 *One intent holds all its work*). One that names its pull request and holds play's work is
+  decided like code, **Accept and ship**: Ship merges and deploys it as for code alone, its work waiting on it (shown
+  `proposal`) while it ships; play's work is accepted when its code is live, by the reconcile, in the same transaction
+  that marks it Accepted (`play/api/src/ship.ts` `acceptWorkLive`: every document at once, by whoever Accepted it, or
+  as the rule that did). A red step brings it back to Proposal with its report, its work still waiting, and Accept
+  ships it again. Where its work can no longer go in once its code is live (a document's Main moved on the same field),
+  its code stays Accepted and its work is closed, the ship's `work` note saying why: a new intent proposes it again.
+  Its work alone is never accepted while code goes with it (the gate's `accept_work` refuses it), and no auto-accept
+  rule decides an intent holding both (`play/api/src/rules.ts` `both`): a person does. The gates are as for code:
+  every must passed, its dependencies shipped, its pull request mergeable, Intent named.
 - **Proposals became intents** (migrations `0026-intents`, then `0029-one-record`). 0026 gave every proposal an
   intent (one of its own, at its stage, where it had none) and a trigger kept them in step. 0029 made them one record,
   losing nothing: an intent and its one proposal became one intent; an intent with several kept the newest live one
@@ -882,6 +944,45 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   back to), its mark alone with no word under it. Back closes what is open on it (a review, an intent), then the board; so do the star, Escape
   and its Close. `/intents/` (and `/proposals/` from before; a link, a new tab; `#<id>` opens that intent) opens it over the dashboard, and a link
   to it from a page opens it over that page (`play/site/src/lib/site/intents`).
+
+- **The detail, by stage** (Samuel 2026-11-07, intent `bb3b0773-b4f4-4128-bcc1-b076674e3531`: *"the clear point of
+  decision … reduced to the actual essence of decision point, while keeping overall the information that the agents
+  need for their work intact"*). An intent opened is `IntentDetail.svelte` (`play/site/src/lib/site/intents`), apart
+  from the board (`IntentsBoard.svelte`), and what it shows at each stage is one pure, tested function's, `detailOf`
+  (`detail.ts`, `detail.test.ts`): **on top** only what a person needs at that moment, never a run command, a hash, a
+  check's evidence or the brief; at the foot **one primary decision**, always in sight, its reason under it while it may
+  not be taken, Reject beside it where an intent may be rejected; right above it the **tabs**, docked to the bottom and
+  always in sight at every width (Samuel 2026-11-07: *"bottom align above the action button areas the tab section, so
+  it's always like fixed to the bottom area"*; it replaces the spec's "sticky under the header"), scrolling sideways on a
+  phone, in the aside's style (§4.15 *One aside*), the top staying where it is and the open tab's content scrolling
+  between them, holding everything else whole:
+
+  | Stage | On top | Decision |
+  |---|---|---|
+  | **Idea** | what is wanted (the note's first lines); "an agent specifies it next" | Reject only |
+  | **Specify** | the goal in a sentence; what it removes first (the reduce checks, one line each); its checks one line each (statement and must or nice, no run); what it depends on | **Approve spec** |
+  | **Build** | musts passed n of m, the checks as chips; who builds it (its pull request, draft or ready, or play's work); what holds it; a failure's reason in a line | none, Reject only |
+  | **Proposal** | the goal; every must passed, the checks as chips; what changes in one line (the pull request, or the documents and their version, its review a tap away); a red ship's step and reason | **Accept**, **Accept and ship** for code, or **Ship again** |
+  | **Ship** | the live steps to production, compact | none |
+  | **Accepted / Archived** | what shipped (the version, or the pull request merged and in production) and when, or why it ended | Reopen |
+
+  The tabs, in this order, a tab with nothing in it not shown: **Spec** (goal, scope, reduce and MVP), **Checks** (each
+  check a card for a person, Samuel 2026-11-07: *"the audience is always a human, never a tech guy"*: its statement and
+  its result in plain words, Passed, Not yet, or Failed with its reason in a line, and when; how it was checked, its how
+  and by, its run, the tool's output and where it ran, folded behind *How it was checked*, closed at first; its two steps
+  headed *First, what it removes* and *Then, what it delivers*), **Changes** (its work and its pull request; an asset's upgrade drawn right there in the asset box once the tab is opened, Samuel 2026-11-07, its whole review, versions, source, before and after, a tap away; a story's version played right there in the Stories player, intent 668e9ffd, what changed clip by clip a tap away), **Ship**
+  (steps, report, log), **Dependencies**, **History** (who and when, steps back, auto decisions, its declared work),
+  **Note** (whole), **For an agent** (the brief and Copy). Each stage opens on its own tab first (Idea For an agent,
+  Specify Spec, Build Checks, Proposal Changes, Ship Ship, Accepted History).
+
+  **The decision travels with the work** (Samuel 2026-11-07): the bar is one component, `Decision.svelte`, by
+  `detailOf`'s decision, docked at the foot of the detail and of its work's review opened from it alike (an asset's, a
+  story's, a sandbox's), its secondary actions (Source …) quiet beside it, never in its place. **On a wide screen**
+  (900 px and up: a tablet held wide, a desktop) the detail is two panes, as every versioned thing on play: the open
+  tab's content large on the left (the asset drawn, the spec, the checks …), and on the right an aside with the header,
+  the top, the tabs and the decision at its foot, Reject and the primary button side by side; the dialog as tall as
+  what it holds, up to the screen. The work's review is the same: the work on the left, what it is and the decision on
+  the right. Under 900 px, one column, the tabs and the decision docked at the bottom.
 
 ### 4.13 Artifacts (Samuel 2026-11-06; first called Sources)
 
@@ -953,6 +1054,7 @@ two briefs were four copies of one thing, each edited by hand (intent c9113886-0
   `specify`, `build`, `proposal`, `ship`, `accepted`, `archived`; empty where an agent has nothing to do), in which
   `{intent}` and `{title}` are the intent's UUID and title, filled where it is served; and its `note`. Its `label` and
   `group` are only shown (*skills / intents*): a skill is named by its UUID (§4.7), `SKILL` in `play/api/src/ids.ts`.
+  Its row is `play.records`' (kind `skill`), as a schema's and a piece's are (intent 1d9995c3, Samuel 2026-11-07).
 - **Two skills** so far: **avenMAIA** (group *agents*: who every MCP agent is, what it does on play, the Artifacts'
   rule, §4.13) and the **Intents** skill (group *intents*: the lifecycle, and each stage's instructions, Ship
   included). Their v1 is the deploy's import (`play/api/import/skills.ts`), only where play holds none of that id:
@@ -960,7 +1062,9 @@ two briefs were four copies of one thing, each edited by hand (intent c9113886-0
 - **Changed only by proposal** (§4.15): `doc_edit` makes a change edit by edit (a field's text, a range of it, each
   edit with its message), `propose_doc_version` proposes it (with `intent`, held to its gate), the `skill_version` work
   on the intent, shown on the board field by field, each text sentence by sentence before and after; accepting merges
-  it and names its next version. Never by a migration. `list_docs`, `doc_at` (a version, an edit, an intent's variant)
+  it and names its next version. Never by a migration. **A new skill** is made over MCP as any document of a kind that
+  is a schema alone: `doc_edit` with `kind: "skill"` and its `whole` on an intent variant (Main born empty), then
+  `propose_doc_version` naming the intent; its v1 is an admin's Accept. `list_docs`, `doc_at` (a version, an edit, an intent's variant)
   and `doc_history` read them; `/skills/` shows them, each in its History tab (`GET /api/docs?kind=skill`,
   `/api/docs/<uuid>`). Admins only.
 - **Served from Postgres, on each request**, so an accepted version teaches the next agent with no deploy:
@@ -968,10 +1072,23 @@ two briefs were four copies of one thing, each edited by hand (intent c9113886-0
   `GET /api/intents/<uuid>`, and so the board's *For an agent*) is the Intents skill's text for its stage, filled, or
   null; and MCP's **prompts** (`prompts/list`, `prompts/get`) are one for each stage it speaks to (`intent_<stage>`, its
   argument the intent's UUID). A tool's description says only what it takes, gives back and refuses.
+- **Every skill is in play, and only there** (intent a90151df, Samuel 2026-11-07): the 41 skills `.claude/skills` held
+  (the asset, film, security and engineering families), beside avenMAIA and Intents, are skill documents of `skill/1`
+  (`description`, `body`, `references` each a text or a file by hash, `uses`, `frontmatter`). The repository keeps no
+  skill text, only the code skills name (`tools/security-auditor/`, `tools/plant/`, `tools/sheet/`). Every skill is an
+  MCP **prompt** too, `skill:<uuid>` (`prompts/get`: its description, body and its references' index), beside the stage
+  prompts. Claude Code's Skill tool reads only `.claude/skills`, so **a mirror** is written from play at each avenBOX
+  session's start (`.claude/settings.json`, after `up.sh`): `play/avenbox/skills.ts` reads every skill over MCP
+  (`list_docs`, `doc_at`) and writes one folder a skill (its label's slug, only shown), SKILL.md (`name`,
+  `description`, the skill's `frontmatter` as it came, `allowed-tools` space-separated, then its `body`) and each
+  reference at its path, a file fetched by its hash from play's files and held to it; a reference with both a text and
+  a file, or neither, is refused. It replaces the folder whole, writes nothing without `PLAY_MCP_TOKEN`, and
+  `.claude/skills/` is in `.gitignore`: never committed, so there is no second source to drift.
 
 ```sql
-skills  (id UUID, coop_id, label /*only shown*/, grp /*only shown*/, created, updated)   -- its document: docs 'skill:<id>'
-intents (…, work 'skill_version', skill_id → skills, doc_branch)                          -- 0031-skills; doc_id, doc_variant since 0032
+records (id UUID, coop_id, kind 'skill', label /*only shown*/, created, updated)  -- its document: docs 'skill:<id>';
+                                                                                  -- play.skills (0031) moved here and gone (202611070945-1d9995c3-skills-records)
+intents (…, work 'skill_version')                                                 -- its document and variant: intent_variants
 ```
 
 ### 4.15 Version control (Samuel 2026-11-06)
@@ -1015,11 +1132,19 @@ registry and one module, shown by one History.
   Build or waiting at Proposal) and is refused without one; a variant made for an intent is proposed for that
   intent only. `play/api/test/nobypass.test.ts` calls every tool tools/list holds that is not a read, and every write
   route of `app.ts`, and finds every Main unchanged until the intent is accepted.
-- **Several documents, one intent**: a document's version proposed naming an intent goes in beside the documents it
-  holds (its variant of that same document replaced); an asset's, a story's or a sandbox layout's version (a kind that decides its own way) is the
-  intent's whole work. The board reviews each document; Accept merges them all in one transaction, or none where one
-  clashes (a field Main changed too) or is no longer valid merged: the intent is archived whole, as Archive closes
-  them all. There is no batch accept: an Accept decides one intent.
+- **One intent holds all its work** (intents 847c5d38 and 7c8986c5, Samuel 2026-11-06/07): an intent's work is **any
+  number of documents and a pull request**. Every document's version proposed naming an intent goes in beside the
+  documents it holds, whatever its kind (an asset's, a story's, a layout's or a schema's version among them), as a row
+  of `play.intent_variants` with its version's refs on it (`refs`: an asset's `asset_id`/`base`/`version`, a story's
+  `story_id`/`story_base`/`story_version`; `202611071200-7c8986c5-intent-variant-refs`); proposing a document again
+  replaces only that document's variant, never another's (`play/api/src/work.ts` `putAtProposal`, with no special case
+  for some kinds). The intent's own work columns name its first document's. The board reviews each document (the
+  review's `docs`, listed in the Changes tab); Accept decides them all in one transaction, each by its own kind
+  (`play/api/src/versioned.ts` `decideWork`), or none where one clashes (a field Main changed too), is no longer valid
+  merged or is refused by its kind (an asset whose head moved): the intent is archived whole, as Archive closes them
+  all. There is no batch accept: an Accept decides one intent. **With code beside it** (its pull request named), its
+  decision is Accept and ship (§4.12): play's work lands **when its code is live**, accepted by the reconcile in the
+  same step that marks the intent Accepted, so documents that need the new code never go in before it runs.
 - **MCP and HTTP, by a document's UUID**: `list_docs` (by kind), `doc_at` (a version, an edit or an intent's variant),
   `doc_history` (with `variant`), `doc_edit` (one edit of an intent variant, for its `intent`: the intent's open
   variant of the document, or a new one seeded from Main's newest version, if none is named) and `propose_doc_version` (`intent`, a `variant`, edits or the whole). `GET /api/docs`,
@@ -1102,8 +1227,8 @@ keep naming a variant by it), beside Main.
 
 | New | Cloned from | What changes |
 |---|---|---|
-| **Sandbox 1** | Sandbox 4 (`maia/site/routes/app/games/sandbox-4`, `maia/content/sandbox-kit`, `maia/content/sandbox-2/interior`), its 56 asset pins | Recipes come from play's API instead of the avenDB device; pins become `group/id@v` |
-| **Sandbox 2** | Sandbox 7 (`maia/content/sandbox-7`), no avenDB dependency | Restyled in the light brand CI: cream/paper backgrounds, ink green text, mustard/sage/terracotta accents, Fraunces display and DM Sans body (tokens from `maia/site/app.css`) |
+| **Sandbox 1** | Sandbox 4 (`maia/site/routes/app/games/sandbox-4`, `maia/content/sandbox-kit`, `maia/content/sandbox-2/interior`), its 56 asset pins | Recipes come from play's API instead of legacy's device; pins become `group/id@v` |
+| **Sandbox 2** | Sandbox 7 (`maia/content/sandbox-7`), no legacy store's dependency | Restyled in the light brand CI: cream/paper backgrounds, ink green text, mustard/sage/terracotta accents, Fraunces display and DM Sans body (tokens from `maia/site/app.css`) |
 | **Sandbox 3** | MaiaCity V2's world (`maia/content/maiacity-v2`, engine `maia/content/game/maiacity-v2/engine.js`) | **Stripped:** coops, tokens and money (HEARTS, the MINDs, €uro, the pool, rents, mint, demurrage, dividends), MIPs/AIPs, seats, the ledger and the trailer/intro/tour/film. Also stripped for now: **planting a tree** (the seedlings in the backpack, planting, watering a planted tree). **Kept:** the land, the plots, the trees already there, the van, the things. **Stateless:** no server state, no seats |
 | **Sandbox 4** (Samuel 2026-11-05) | Nothing: new, `play/site/src/lib/sandbox-4` | The dome cassette joint: one cast cassette of the grand dome's (Ø 100 m) lowest rows seated from outside, keyed with sliding basalt keys, capped at its nodes and clamped by a ring cable, five steps on one clock, with the joint in section. No pins and no configs; a random UUID (migration `0021-sandbox-4`), in the light brand CI |
 | **Sandbox 5** (Samuel 2026-11-05) | Sandbox 1 (`play/site/src/lib/content/sandbox-2/interior/village.ts`, its `solo` option) | The forest dome (buildings, asset `cac16350-08a4-4d51-8cdf-3ade5f61836e`) alone in the middle of Sandbox 1's world, in place of its thirteen domes, at its newest accepted version (never pinned), with its own forest, things and floor drawn where it stands them (`plantings.js`) and walked on its own floors (`hero.js` walkOf); round it Sandbox 1's outdoor food forest (its garden config), stream, ponds, coops and animals, the cell's paths meeting its four gates. No pins and no configs; a random UUID (migration `0022-sandbox-5`) |
@@ -1114,9 +1239,12 @@ ranges its card allows. In all three sandboxes; in Sandbox 2 the character walks
 
 ## 6. Where the data comes from (one-time import, `play/import/`)
 
+Where the legacy import read its data from, in 2026-11, from legacy's public feed (`SNAPSHOT_2611101`; retired on
+2026-11-05, the import reads it no more):
+
 | Data | Source | Key needed? |
 |---|---|---|
-| 203 asset recipes (plants 105, things 55, machines 12, buildings 12, actors 12, biomes 7) and their cards | avenDB public feed `GET /feed/entries?seed=1&type=recipe` | No |
+| 203 asset recipes (plants 105, things 55, machines 12, buildings 12, actors 12, biomes 7) and their cards | legacy's public feed `GET /feed/entries?seed=1&type=recipe` | No |
 | Every version and variant with its own card (264 versions, 145 variants) | `GET /feed/entry/<vault>/<entry>`: its `brought` rows, one per version and variant | No |
 | 340 recipe files (18 MB) | `GET /feed/entry/<vault>/<entry>/file/<root>`; each BLAKE3-checked against its own card's `recipe` and its last line against its card's version and variant. History: a linear chain by version number | No |
 | Sandbox 1's pins (165: 56 village + 109 garden) | `maia/content/code/configs/sandbox-4/{assets,garden}`; `entry@heads` translated through `maia/content/assets/pins.fixture.json` | No |
@@ -1124,21 +1252,18 @@ ranges its card allows. In all three sandboxes; in Sandbox 2 the character walks
 | Humans + passkeys | `public.founders`, `public.passkeys` (read once) | No |
 | Owners/admins | Samuel names them; everyone else starts as a traveler | No |
 
-No V2 game state is imported (Sandbox 3 is stateless). The master recovery key is not needed. The avenDB feed takes
-only post-quantum TLS: the import runs on Bun (OpenSSL 3.5).
+No V2 game state is imported (Sandbox 3 is stateless). The master recovery key is not needed.
 
-The import verifies before it reports success: every file in the store at its size (its bytes were checked against
-its BLAKE3 when it was written, and it never changes; one at another size is read and checked against its hash, and
-its row set right if the bytes are whole; one the bucket lacks is put back from its second copy), every pin resolving,
-the counts per group against the feed. Reading every file's bytes back is the server workflow's report, by hand: a
-deploy no longer reads 2,300 files (videos and all), where one slow answer from the bucket failed it.
-
-**It runs once (Samuel 2026-11-03).** Postgres keeps that it ran (`play.imports`), and from then on **play's Postgres is
-the one source of truth** for its assets, members and sandboxes: a later run (every deploy runs it) writes none of the
-legacy import again, so nothing play changed (a label, a head moved by accepting a version, a sound, a member's level, a
-member or pin removed) is ever overridden or brought back. A later run only adds play's own site media missing from its
-files and the imported versions' readable sources where they have none (§4.1). Forced to run again (`--again`), it
-still only adds what is missing and changes nothing that is there.
+**It ran once (Samuel 2026-11-03).** Postgres keeps that it ran (`play.imports`), and from then on **play's Postgres is
+the one source of truth** for its assets, members and sandboxes. **The feed is gone (intent 59af6109, 2026-11-07):**
+legacy's store was retired on 2026-11-05, and the import's legacy path, which read its feed, went with it. What every deploy
+still runs (`bun import/run.ts --report <file>`) writes none of the legacy import and overrides nothing play changed
+(a label, a head moved by accepting a version, a sound, a member's level, a member or pin removed); it only adds what
+play lacks from the repo: its site's media from `play/media`, the imported versions' readable sources where they have
+none (§4.1), the stories, factories, game configs and skills kept in the repo, and every asset's document. A media file
+play's site names that is neither among play's files nor in `play/media` is an import error naming its hash: play
+mends a file from its second copy (§4.5), and a database is restored from the backups (`restore.yml`), never from a
+feed. Every file's bytes are read back only by the server workflow's report, by hand.
 
 ## 7. API (`play/api`, Bun)
 
@@ -1171,6 +1296,17 @@ Every route checks the caller's level against `level_rules`; a visitor gets 401 
 a chain, its variants, a viewer) · the intents (a modal from the nav pill's star, not a page: Idea, Specify, Build, Proposal, Ship, Accepted, Archived; §4.12) · `/game/` (placeholder; claim an invite to become a citizen) ·
 `/admin/` (members, invites) · `/artifacts/` (admins: every link we keep, §4.13).
 
+**The asset groups, each its own app** (Samuel 2026-11-04; `play/site/src/lib/app/groups.ts`): plants (`/plants/`),
+**characters** (`/characters/`), actors shown as Animals (`/animals/`), things, machines, buildings, biomes and worlds,
+each the asset library (`AssetLibrary.svelte`) given its group. The API names the groups once (`play/api/src/groups.ts`
+`GROUPS`: list_assets' and propose_asset's enum, a new asset's group and a move checked against it); the site's card and
+asset schemas list the same. **Characters** (intent 89f3ad37) are the people of Maia City (the Stand-in, the Elder
+woman), apart from the animals: the group `characters`, an app for admins only (its tile `admins: true`; its page sends
+anyone else back to `/`, as `/library/`). Who may read an asset is unchanged. **An asset moves to another group by its
+own document**, never by a migration: an intent variant's edit of its card's group (`doc_edit`, the path
+`["card", "card", "group"]`), proposed naming the intent (`propose_doc_version`), its version then of that group, and its
+Accept moves the asset there (`play.assets.grp`; `play/api/src/assetdocs.ts`); an unknown group is refused.
+
 **The Library** (`/library/`, Samuel 2026-11-04; `play/api/src/library.ts`): every image, video and recording play
 keeps among its `files` (§4.3), newest first, for Maia City's admins only. Each shows its preview (a video plays,
 a recording sounds), its media type, size and when it was kept, its **label**, and where the newest version of
@@ -1178,7 +1314,16 @@ every story uses it: a shot's still or video, or a clip's recording. A label is 
 file is named by its hash. An agent gives one with `add_story_frame`, `add_story_video` or `add_story_audio`'s
 `label`, where a new label replaces the old one and none keeps it. An admin renames it in the Library
 (`POST /api/library/:hash/label`). `GET /api/library?kind=image|video|audio&q=…&offset=…&limit=…` lists them, `q`
-matching a label or the start of a hash, with the count of each kind.
+matching a label or the start of a hash, with the count of each kind; an admin's token reads it too (§4.4 *An
+agent's camera*), and over MCP `list_library` (`kind`, `q`, `offset`, `limit`) gives the same answer, so an agent finds
+a file by its label or hash prefix with where it is used and fetches its bytes with `GET /api/files/<hash>`. Only
+admins pass it (`admin(me, why)` in `play/api/src/access.ts`, the one admin guard every route's check calls with its
+own message). **One Library app for every account** (intent 732d8a38, §3.2): `/library/` shows the library of whoever
+the person acts as (the You menu's "Act as", `play/site/src/lib/acting.svelte.ts`): yourself, your **personal
+library**, private to you; Maia City, the coop's, as before; its owner named on top. `GET /api/library` takes
+`library=coop|personal` (the coop's by default) and names its `owner`. Nothing is uploaded on the page: files come in
+over MCP. It stays an admin's app for now; opening it to every member, each their own library, is one flag
+(`LIBRARY_OPEN_TO` in `play/api/src/library.ts`).
 
 ## 9. Deploy
 

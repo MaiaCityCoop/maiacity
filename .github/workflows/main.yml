@@ -16,8 +16,10 @@ permissions:
   checks: read
   pull-requests: read
 
+# one group per pull request and its draft state: a draft's run (its jobs skipped) never cancels the ready one, and two
+# ready pushes still do (intent 28d9f33b)
 concurrency:
-  group: main-${{ github.ref }}
+  group: main-${{ github.ref }}-${{ github.event.pull_request.draft && 'draft' || 'ready' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:

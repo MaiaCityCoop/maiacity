@@ -8,13 +8,23 @@
 // main into those behind it, a conflict shown failed (./mainmerge.ts, intent f28822d9). The reconcile (intent 9876ef00) is the one place a code intent becomes Accepted: play knows the commit
 // it runs (PLAY_COMMIT, built into its image), and a code intent is Accepted exactly when its merge commit is in it; an
 // Accepted one whose commit is not is flagged (ship.live false), its stage left alone. It runs once when play starts
-// (every deploy, a rollback, a deploy by hand restarts play) and as each ship ends.
+// (every deploy, a rollback, a deploy by hand restarts play) and as each ship ends. An intent holding play's work beside
+// its pull request (intent 7c8986c5) ships the same way, its work waiting while it does: the reconcile accepts its work
+// (./versioned.ts decideWork, every document in one transaction) in the very step that marks it Accepted, so documents
+// that need the new code land only once it runs; a red step brings it back to Proposal with its work still waiting.
 // play only calls GitHub's API with SHIP_TOKEN, which never leaves this server.
-import { COOP, type Me } from "./access";
-import type { Db } from "./pg";
-import { admin, autoMove, byOf, decisions, gate, getIntent, IntentError, mustMove } from "./intents";
+import { admin, COOP, type Me } from "./access";
+import type { Db, Queryable } from "./pg";
+import { INTENT_ADMINS, autoMove, byOf, decisions, gate, getIntent, IntentError, mustMove } from "./intents";
 import { carrySeen, mainMergeState, mergeMain, type MainMergeState } from "./mainmerge";
 import { checksSeen, decidable, prBlock, sub, type PrSeen } from "./substate";
+import type { BlobStore } from "./blobs";
+import { meOf } from "./access";
+import { decideWork } from "./versioned";
+import { closeWork, workOf } from "./work";
+
+/** the store play's work is accepted with when the reconcile sees its code live (set by ./app.ts) */
+export const shipWork: { store?: BlobStore } = {};
 
 export { REQUIRED_CHECKS } from "./substate";
 /** the commit status play posts on the head it merges; main's ruleset requires it */
@@ -284,11 +294,12 @@ const keepSeen = (q: Pick<Db, "query">, id: string, seen: PrSeen) => q.query(`UP
  * intent is no code intent at Proposal (it is decided as before: ./intents.ts decideIntent, ./versioned.ts decide).
  */
 export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, id: string) {
-  const me = admin(who);
+  // (one holding play's work beside its pull request too, intent 7c8986c5: its work waits on it in Ship, ./work.ts WORK_STATUS)
+  const me = admin(who, INTENT_ADMINS);
   // who Accepted, as the ship shows it: a person, or a rule (./rules.ts)
   const who_ = me.auto ? `rule ${me.auto.label}` : me.name;
   const first = await getIntent(db, id);
-  if (first.work || !first.pull_request) return null;
+  if (!first.pull_request) return null;
   await mustMove(db, first, "ship");
   if (!gh) refuse("play holds no SHIP_TOKEN, so it cannot merge: set the repository secret SHIP_TOKEN and deploy (deploy/README.md).");
   const read = await readPull(gh!, first.pull_request).catch((e) => refuse(`Pull request #${first.pull_request} could not be read: ${(e as Error).message}.`));
@@ -602,7 +613,7 @@ export async function watchShips(db: Db, gh: GitHub, at = Date.now(), commit: st
  */
 export async function watchPulls(db: Db, gh: GitHub, at = Date.now()) {
   const { rows } = await db.query<{ id: string; pull_request: number; pr_seen: PrSeen | null }>(
-    `SELECT id, pull_request, pr_seen FROM play.intents WHERE coop_id = $1 AND stage IN ('build', 'proposal') AND pull_request IS NOT NULL AND work IS NULL ORDER BY created, id`,
+    `SELECT id, pull_request, pr_seen FROM play.intents WHERE coop_id = $1 AND stage IN ('build', 'proposal') AND pull_request IS NOT NULL ORDER BY created, id`,
     [COOP],
   );
   for (const { id, pull_request, pr_seen } of rows) {
@@ -681,11 +692,12 @@ function trailersOf(main: Map<string, string>) {
 export type Reconciled = { commit: string; accepted: string[]; flagged: string[]; cleared: string[] };
 
 /**
- * The one place a code intent becomes Accepted. A code intent is one with no work of play's that names a pull request,
- * or whose trailer `Intent: <its UUID>` is on a commit of main; its merge commit is its pull request's (the ship's, or
+ * The one place a code intent becomes Accepted. A code intent is one that names a pull request (with play's work beside
+ * it or not, intent 7c8986c5), or one with no work of play's whose trailer `Intent: <its UUID>` is on a commit of main; its merge commit is its pull request's (the ship's, or
  * GitHub's for one merged by hand), else its commits on main. Against `commit`, the commit play runs:
  * - its merge commit in it (an ancestor, or itself) and it at Build, Proposal, Archived, or in Ship with its ship ended
- *   → **Accepted**, its ship saying how (live at the commit, by the reconcile);
+ *   → **Accepted**, its ship saying how (live at the commit, by the reconcile), and the work of play's it holds accepted
+ *   in that same transaction (acceptWorkLive);
  * - Accepted (or ended in Ship) and its merge commit not in it (rolled back, closed unmerged, never deployed) → flagged,
  *   `ship.live` false with the running commit, its stage left alone; once play runs it again the flag clears.
  * A ship still on its way (waiting or running) is the watcher's, and asks the reconcile as it ends.
@@ -695,8 +707,8 @@ export async function reconcile(db: Db, gh: GitHub, commit: string): Promise<Rec
   const trailers = trailersOf(await history(gh, "main"));
   const { rows } = await db.query<{ id: string; stage: string; pull_request: number | null; ship: Ship | null }>(
     `SELECT id, stage, pull_request, ship FROM play.intents
-      WHERE coop_id = $1 AND work IS NULL AND stage IN ('build', 'proposal', 'ship', 'archived', 'accepted')
-        AND (pull_request IS NOT NULL OR id = ANY($2::uuid[])) ORDER BY created, id`,
+      WHERE coop_id = $1 AND stage IN ('build', 'proposal', 'ship', 'archived', 'accepted')
+        AND (pull_request IS NOT NULL OR (work IS NULL AND id = ANY($2::uuid[]))) ORDER BY created, id`,
     [COOP, [...trailers.keys()]],
   );
   const out: Reconciled = { commit, accepted: [], flagged: [], cleared: [] };
@@ -721,12 +733,16 @@ export async function reconcile(db: Db, gh: GitHub, commit: string): Promise<Rec
     const patch = (p: Partial<Ship>) => JSON.stringify({ ...p, merge: i.ship?.merge || merge || "" });
     if (isLive && i.stage !== "accepted") {
       const note = `Live at ${short(commit)}, ${merges.length > 1 ? `its ${merges.length} commits on main` : `its merge ${short(merge!)}`} in what play runs: Accepted by the reconcile`;
-      const { rows: done } = await db.query(
-        `UPDATE play.intents SET stage = 'accepted', decided_at = now(), decided_by = CASE WHEN stage = 'ship' THEN decided_by END,
-                ship = COALESCE(ship, jsonb_build_object('pr', pull_request, 'steps', '[]'::jsonb)) || ($3::text)::jsonb
-          WHERE id = $1 AND stage = $2 RETURNING id`,
-        [i.id, i.stage, patch({ live: true, commit, note })],
-      );
+      const done = await db.transaction(async (tx) => {
+        const { rows: done } = await tx.query(
+          `UPDATE play.intents SET stage = 'accepted', decided_at = now(), decided_by = CASE WHEN stage = 'ship' THEN decided_by END,
+                  ship = COALESCE(ship, jsonb_build_object('pr', pull_request, 'steps', '[]'::jsonb)) || ($3::text)::jsonb
+            WHERE id = $1 AND stage = $2 RETURNING id`,
+          [i.id, i.stage, patch({ live: true, commit, note })],
+        );
+        if (done.length) await acceptWorkLive(tx, i.id);
+        return done;
+      });
       if (done.length) {
         out.accepted.push(i.id);
         console.log(`reconcile: intent ${i.id} (${i.stage}) is live at ${short(commit)}: accepted`);
@@ -748,13 +764,49 @@ export async function reconcile(db: Db, gh: GitHub, commit: string): Promise<Rec
 }
 
 /**
+ * The work of play's intent `id` holds, accepted in the reconcile's transaction as its code is seen live (intent
+ * 7c8986c5): every document in one step (./versioned.ts decideWork), by whoever Accepted it (its decided_by, else the
+ * rule kept in its auto, as its author). Where it does not go in (a document's Main moved on and clashes, no admin to
+ * decide it, no store), its code stays Accepted, live as it is, and its work is closed, kept in the history, the ship's
+ * note saying why: a new intent proposes it again.
+ */
+async function acceptWorkLive(tx: Queryable, id: string) {
+  const p = await workOf(tx, id, true);
+  if (!p?.kind || !p.variants?.some((v: any) => v.doc_variant != null)) return;
+  const { rows: open } = await tx.query(`SELECT 1 FROM play.intent_variants iv JOIN play.doc_variants v ON v.id = iv.variant_id WHERE iv.intent_id = $1 AND v.status IN ('open', 'proposed')`, [id]);
+  if (!open.length) return;
+  const { rows: [r] } = await tx.query<{ decided_by: string | null; author: string | null; proposed_by: string | null; auto: any }>(
+    `SELECT decided_by, author, proposed_by, COALESCE(to_jsonb(i)->'auto', '{}'::jsonb) AS auto FROM play.intents i WHERE id = $1`, [id],
+  );
+  const rule = r?.auto?.accept ?? null;
+  let me = await meOf(tx, r?.decided_by ?? r?.author ?? r?.proposed_by ?? null);
+  if (me && !r?.decided_by && rule) me = { ...me, auto: { rule: rule.rule, label: rule.label, rules: rule.rules, reason: rule.reason } };
+  const why = async (text: string) => {
+    await closeWork(tx, me, { id });
+    await tx.query(`UPDATE play.intents SET ship = COALESCE(ship, '{}'::jsonb) || jsonb_build_object('work', ($2::text)) WHERE id = $1`, [id, text]);
+    console.warn(`reconcile: intent ${id}'s work of play's not accepted: ${text}`);
+  };
+  if (me?.level !== "admin") return why("no admin to accept its work of play's: its code is live, propose its work again in an intent of its own");
+  if (!shipWork.store) return why("play holds no store to accept its work with");
+  await tx.query(`SAVEPOINT work_live`);
+  const out: any = await decideWork(tx, { db: tx as any, store: shipWork.store }, me, p, "accept").catch((e) => ({ status: "failed", message: (e as Error).message }));
+  if (out?.status === "accepted") {
+    // its decision left it Accepted by whoever decided it; the reconcile's own note stands on its ship
+    await tx.query(`RELEASE SAVEPOINT work_live`);
+    return;
+  }
+  await tx.query(`ROLLBACK TO SAVEPOINT work_live`);
+  await why(`its work of play's did not go in: ${out?.message ?? "refused"}`);
+}
+
+/**
  * An admin's Accept on an intent at Proposal with no work of play's and no pull request named: one whose code is on
  * main (its trailer on a commit of main) is no decision of a person's but the reconcile's, Accepted once play runs it,
  * else refused with why; null where it names no code (./intents.ts decideIntent accepts it as before). Without GitHub
  * (no SHIP_TOKEN) play cannot tell code from a decision: null too.
  */
 export async function acceptCode(db: Db, gh: GitHub | null, who: Me | null, id: string, commit: string | null = runningCommit()) {
-  const me = admin(who);
+  const me = admin(who, INTENT_ADMINS);
   const intent = await getIntent(db, id);
   if (intent.work || intent.pull_request || !gh) return null;
   await mustMove(db, intent, "accept");

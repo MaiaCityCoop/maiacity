@@ -420,8 +420,8 @@ describe("migrations, one file each", () => {
     expect(() => loadMigrations(folderWith({ "0034-other.sql": "SELECT 1;" }))).toThrow("0034-other.sql");
     expect(() => loadMigrations(folderWith({ "0034-other.sql": "SELECT 1;" }))).toThrow("duplicate");
     // a well-formed new one loads, after 0034-schemas
-    const ok = loadMigrations(folderWith({ "202611071200-e9afc2d5-files.sql": "SELECT 1;" }));
-    expect(ok.at(-1)!.id).toBe("202611071200-e9afc2d5-files");
+    const ok = loadMigrations(folderWith({ "209901010000-e9afc2d5-files.sql": "SELECT 1;" }));
+    expect(ok.at(-1)!.id).toBe("209901010000-e9afc2d5-files");
   });
 
   const suiteDb = URL_ ? test : test.skip;
@@ -433,8 +433,8 @@ describe("migrations, one file each", () => {
       for (const n of names) await admin.unsafe(`CREATE DATABASE ${n}`);
       const at = (n: string) => { const u = new URL(URL_!); u.pathname = `/${n}`; const s = new Bun.SQL(u.toString()); conns.push(s); return fromBunSql(s); };
       const extra = {
-        "202611071200-e9afc2d5-files.sql": "CREATE TABLE play.mig_probe (n INT); INSERT INTO play.mig_probe VALUES (1);",
-        "202611071201-0badc0de-second.sql": "INSERT INTO play.mig_probe VALUES (2);",
+        "209901010000-e9afc2d5-files.sql": "CREATE TABLE play.mig_probe (n INT); INSERT INTO play.mig_probe VALUES (1);",
+        "209901010001-0badc0de-second.sql": "INSERT INTO play.mig_probe VALUES (2);",
       };
       const all = loadMigrations(folderWith(extra));
       const shipped = Object.keys(frozen);
@@ -452,7 +452,7 @@ describe("migrations, one file each", () => {
       const ran = await migrate(fresh, { migrations: all });
       expect(ran).toEqual(all.map((m) => m.id));
       expect(ran).toEqual([...ran].sort());
-      expect(ran.indexOf("202611071200-e9afc2d5-files")).toBeGreaterThan(ran.indexOf("0034-schemas"));
+      expect(ran.indexOf("209901010000-e9afc2d5-files")).toBeGreaterThan(ran.indexOf("0034-schemas"));
       expect(ran.slice(-2)).toEqual(Object.keys(extra).map((f) => f.slice(0, -4)));
       const { rows } = await fresh.query<{ n: number }>("SELECT n FROM play.mig_probe ORDER BY n");
       expect(rows.map((r) => r.n)).toEqual([1, 2]);
@@ -573,5 +573,68 @@ suite("migration 202611070120-7c8085db-breeds", () => {
     expect((await ensureAssetDocs(db, store, mkdtempSync(join(tmpdir(), "play-history-")))).breeds).toBe(0);
     // every frozen version, its variants' rows and the pin as they were
     expect(await frozen()).toEqual(before);
+  }, 60_000);
+});
+
+// Migration 202611070945-1d9995c3-skills-records (intent 1d9995c3): a skill's row is play.records' (kind 'skill'), as
+// a schema's and a piece's are, so a new skill is made over MCP as any schema-alone document. Every play.skills row
+// moves with its id, label and times; the table goes; avenMAIA and the Intents skill keep their documents, versions
+// and history, and are served as before.
+const SKILLS_RECORDS = "202611070945-1d9995c3-skills-records";
+suite(`migration ${SKILLS_RECORDS}`, () => {
+  let admin: Bun.SQL, sql: Bun.SQL, name: string;
+  beforeAll(async () => {
+    name = `play_migrate_skills_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+    admin = new Bun.SQL(URL_!);
+    await admin.unsafe(`CREATE DATABASE ${name}`);
+    const u = new URL(URL_!);
+    u.pathname = `/${name}`;
+    sql = new Bun.SQL(u.toString());
+  });
+  afterAll(async () => {
+    await sql?.close();
+    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+    await admin?.close();
+  });
+
+  test("skills become records: every row moves with its id, label and times, play.skills goes, avenMAIA and Intents served as before", async () => {
+    const db = fromBunSql(sql);
+    const q = async (text: string, args: unknown[] = []) => (await db.query<any>(text, args)).rows;
+    // the database as it stands before: every migration before it, the schemas as documents, the two skills as the
+    // import wrote them then (each its play.skills row and its document's v1)
+    const before_ = MIGRATIONS[MIGRATIONS.findIndex((m) => m.id === SKILLS_RECORDS) - 1].id;
+    expect((await migrate(db, { until: before_ })).at(-1)).toBe(before_);
+    await (await import("../src/docs/schemas")).ensureSchemas(db);
+    const docs = await import("../src/docs");
+    const { SKILL } = await import("../src/ids");
+    const { avenmaia, intents } = await import("../import/skills");
+    const seeded = [
+      { id: SKILL.avenmaia, json: avenmaia(), at: "2026-11-06T12:00:00Z" },
+      { id: SKILL.intents, json: intents(), at: "2026-11-06T12:00:01Z" },
+    ];
+    for (const s of seeded) {
+      await db.query(`INSERT INTO play.skills (id, coop_id, label, grp, created, updated) VALUES ($1, $2, $3, $4, $5, $5)`, [s.id, COOP, s.json.label, s.json.group, s.at]);
+      await docs.createDoc(db, { id: `skill:${s.id}`, schema: SCHEMA.skill, json: s.json, author: { human: null, via: "import" }, message: "v1", version: "v1", number: 1 });
+    }
+    const rowsBefore = await q(`SELECT id::text, label, created, updated FROM play.skills ORDER BY id`);
+    const docsBefore = await Promise.all(seeded.map(async (s) => [await docs.readDoc(db, `skill:${s.id}`), await docs.versionsOf(db, `skill:${s.id}`), await docs.history(db, `skill:${s.id}`)]));
+
+    // ---- the migration, and every one after it
+    const rest = MIGRATIONS.map((m) => m.id).slice(MIGRATIONS.findIndex((m) => m.id === SKILLS_RECORDS));
+    expect(rest[0]).toBe(SKILLS_RECORDS);
+    expect(await migrate(db)).toEqual(rest);
+    expect((await q(`SELECT to_regclass('play.skills') AS t`))[0].t).toBeNull();
+    expect(await q(`SELECT id::text, label, created, updated FROM play.records WHERE kind = 'skill' ORDER BY id`)).toEqual(rowsBefore);
+    // their documents, versions and history as they were
+    for (const [i, s] of seeded.entries())
+      expect([await docs.readDoc(db, `skill:${s.id}`), await docs.versionsOf(db, `skill:${s.id}`), await docs.history(db, `skill:${s.id}`)]).toEqual(docsBefore[i]);
+    // served as before: initialize's instructions, an intent's brief, listed by the doc tools as skills
+    const skills = await import("../src/skills");
+    expect(await skills.instructionsOf(db)).toBe(`${avenmaia().system.trim()}\n\n${intents().system.trim()}`);
+    expect(await skills.briefOf(db, { id: "00000000-0000-4000-8000-000000000000", title: "A test", stage: "build" })).toContain("A test");
+    const { listDocs } = await import("../src/versioned");
+    const listed = await listDocs(db, { id: "x", name: "x", level: "admin", rule: {}, founder_number: null } as any, "skill");
+    expect(listed.map((d: any) => [d.id, d.label, d.group])).toEqual(expect.arrayContaining([[SKILL.avenmaia, "avenMAIA", "agents"], [SKILL.intents, "Intents", "intents"]]));
+    expect(await migrate(db)).toEqual([]);
   }, 60_000);
 });

@@ -1,6 +1,6 @@
 // @ts-nocheck — plain JS
 /**
- * A profile's shape by its kind, the same wherever a profile shows (avenDB's marks, the nav pill, Maia Universe): a
+ * A profile's shape by its kind, the same wherever a profile shows (the marks, the nav pill): a
  * circle for a human, a sun of 12 rays for an aven, a hexagon for a coop, a square for a device. Each is a CSS
  * `clip-path` for a square mark, so the mark's initials and colour stay as they are.
  */
