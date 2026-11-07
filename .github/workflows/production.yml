@@ -1,11 +1,14 @@
 # production: what is released, play and the website. production follows main (Accept ships it, play/SPEC.md §4.12;
 # Samuel 2026-11-06): an admin's Accept on play merges an intent's pull request into main, and once main.yml is green
-# release.yml moves production to that commit (fast-forward) and starts this by workflow_dispatch. The checks run once,
-# on main (main.yml): here 'Main is green' only reads their result for the commit. (A pull request to production, from
-# main of this repository only, 'Only from main', was the way before; it still runs the same gate, and its push deploys.)
+# release.yml moves production to that commit (fast-forward, the only way production moves) and starts this by
+# workflow_dispatch. The checks run once, on main (main.yml): here every job's first step after its checkout reads their
+# result for the commit (.github/actions/main-green), so no job only waits (intent 5ab64b8e): The image, The backup and
+# The website start together, and The server, which needs the image and the backup, changes nothing on the server
+# before play is backed up.
 # The deploy, both:
-#   play to play.maia.city (play/SPEC.md §9): the image to GHCR, the DNS record, the server — play's role and schema in
-#     the same Postgres, play-api beside the running containers (--no-deps), the import, Caddy answering play.maia.city;
+#   play to play.maia.city (play/SPEC.md §9): the backup to the bucket (deploy/backup.sh), the image to GHCR, the DNS
+#     record, the server — play's role and schema in the same Postgres, play-api beside the running containers
+#     (--no-deps), the import, Caddy answering play.maia.city;
 #   the website to maia.city (website/README.md): its build into the server's site/releases/<commit>, site/current
 #     switched to it.
 # GitHub Actions with the DEPLOY_SSH_KEY secret, as legacy's release ran. The repository is play and the website alone
@@ -13,9 +16,6 @@
 name: production
 
 on:
-  pull_request:
-    branches: [production]
-    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [production]
   workflow_dispatch:
@@ -24,8 +24,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-${{ github.event_name == 'pull_request' && github.ref || 'release' }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: production-release
+  cancel-in-progress: false
 
 env:
   APP_DIR: /opt/maia-city
@@ -36,78 +36,22 @@ env:
   S3_REGION: hel1
 
 jobs:
-  from-main:
-    name: Only from main
-    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
-    runs-on: ubuntu-24.04
-    timeout-minutes: 2
-    steps:
-      - name: The pull request comes from main of this repository
-        env:
-          HEAD_REF: ${{ github.head_ref }}
-          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
-          REPO: ${{ github.repository }}
-        run: |
-          if [ "$HEAD_REF" = main ] && [ "${HEAD_REPO,,}" = "${REPO,,}" ]; then echo "The pull request comes from main of $REPO."; exit 0; fi
-          echo "::error::production takes changes from main of $REPO only; this pull request comes from ${HEAD_REPO:-?}:${HEAD_REF:-?}"
-          exit 1
-
-  # play's checks ran on main's commit (main.yml); read their result instead of running them again. Started by
-  # release.yml, that commit is production's head itself (moved there fast-forward); on a pull request, its head; on a
-  # push, main's side of the merge (the merge's second parent).
-  main-green:
-    name: Main is green
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      checks: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-      - name: play's and the website's checks passed on main's commit
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          PR_SHA: ${{ github.event.pull_request.head.sha }}
-          EVENT: ${{ github.event_name }}
-          CHECKS: play / API and site|website / build
-        run: |
-          sha=$PR_SHA
-          if [ -z "$sha" ] && [ "$EVENT" = workflow_dispatch ]; then sha=$(git rev-parse HEAD); fi
-          [ -n "$sha" ] || sha=$(git rev-parse -q --verify HEAD^2 || git rev-parse HEAD)
-          echo "main's commit: $sha"
-          passed() {
-            local check=$1
-            for i in $(seq 1 80); do
-              runs=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-                "https://api.github.com/repos/$REPO/commits/$sha/check-runs?check_name=$(jq -rn --arg c "$check" '$c|@uri')&per_page=100")
-              jq -e '[.check_runs[] | select(.conclusion == "success")] | length > 0' <<< "$runs" > /dev/null && { echo "'$check' passed on $sha"; return 0; }
-              if jq -e '.check_runs | length > 0 and all(.status == "completed")' <<< "$runs" > /dev/null; then
-                echo "::error::'$check' did not pass on $sha: $(jq -r '[.check_runs[].conclusion] | join(", ")' <<< "$runs")"; return 1
-              fi
-              sleep 10
-            done
-            echo "::error::no finished '$check' on $sha after 13 minutes"; return 1
-          }
-          IFS='|' read -ra all <<< "$CHECKS"
-          for check in "${all[@]}"; do passed "$check" || exit 1; done
-
   image:
     name: The image
-    needs: main-green
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
+      checks: read
       packages: write
     outputs:
       image: ${{ steps.tag.outputs.image }}
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/main-green
+        with:
+          token: ${{ github.token }}
+          sha: ${{ github.sha }}
       - id: tag
         run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}-play:$GITHUB_SHA" >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@v3
@@ -120,17 +64,68 @@ jobs:
           docker build -f play/Dockerfile -t "${{ steps.tag.outputs.image }}" .
           docker push "${{ steps.tag.outputs.image }}"
 
-  server:
-    name: The server
-    needs: image
+  # Before anything on the server changes: play's schema and a full copy of its files to the bucket, with the image that
+  # ran with them (deploy/backup.sh, which lists the store and stops if a file is missing). Beside The image, not after
+  # it: it needs no image, and The server waits for both.
+  backup:
+    name: The backup
     environment: production
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
+      checks: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/main-green
+        with:
+          token: ${{ github.token }}
+          sha: ${{ github.sha }}
+      - uses: ./.github/actions/prod-ssh
+        with:
+          host: ${{ env.HOST }}
+          ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      # play's deploy files to the server in one connection (one tar over ssh: no handshake per file), each to where
+      # it was put before ($APP_DIR/play/…, $APP_DIR/deploy/backup.sh and restore.sh)
+      - name: Copy play's files
+        run: |
+          tar -cf - play/docker-compose.play.yml play/deploy/setup.sql play/deploy/after-import.sql play/deploy/Caddyfile.play \
+            deploy/backup.sh deploy/restore.sh | ssh prod "mkdir -p $APP_DIR && tar -xf - --no-same-owner -C $APP_DIR"
+      # Before anything changes: play's schema and a full copy of its files go to the bucket, with the image that ran
+      # with them (deploy/backup.sh); the deploy stops if that fails. Only here, on a deploy: nothing runs on a
+      # schedule, and the old daily dump's cron is taken away (Samuel 2026-11-02). Restore by hand: restore.yml.
+      - name: Back up play
+        env:
+          S3_ACCESS_KEY: ${{ secrets.HETZNER_S3_ACCESS_KEY }}
+          S3_SECRET_KEY: ${{ secrets.HETZNER_S3_SECRET_KEY }}
+        run: |
+          if [ -z "$S3_ACCESS_KEY" ] || [ -z "$S3_SECRET_KEY" ]; then
+            echo "::error::No backup without the bucket's keys: set HETZNER_S3_ACCESS_KEY and HETZNER_S3_SECRET_KEY."; exit 1
+          fi
+          # the keys travel over stdin into a file only deploy can read, never as arguments
+          printf 'BACKUP_BUCKET=%s\nBACKUP_ENDPOINT=%s\nBACKUP_REGION=%s\nAWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s\n' \
+            "$S3_BUCKET" "$S3_ENDPOINT" "$S3_REGION" "$S3_ACCESS_KEY" "$S3_SECRET_KEY" \
+            | ssh prod "umask 077; cat > $APP_DIR/backup.env"
+          ssh prod "sudo rm -f /etc/cron.d/maia-city-backup; timeout 1200 bash $APP_DIR/deploy/backup.sh before-deploy-${GITHUB_SHA::7} $GITHUB_SHA </dev/null"
+
+  # play on the server: only once the image is built and play is backed up
+  server:
+    name: The server
+    needs: [image, backup]
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      checks: read
       packages: read
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/main-green
+        with:
+          token: ${{ github.token }}
+          sha: ${{ github.sha }}
       - name: The server's volume, from the Pulumi state
         id: infra
         run: |
@@ -197,29 +192,6 @@ jobs:
           host: ${{ env.HOST }}
           ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
           known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-      - name: Copy play's files
-        run: |
-          ssh prod "mkdir -p $APP_DIR/play/deploy"
-          scp play/docker-compose.play.yml "prod:$APP_DIR/play/docker-compose.play.yml"
-          scp play/deploy/setup.sql play/deploy/after-import.sql play/deploy/Caddyfile.play "prod:$APP_DIR/play/deploy/"
-          ssh prod "mkdir -p $APP_DIR/deploy"
-          scp deploy/backup.sh deploy/restore.sh "prod:$APP_DIR/deploy/"
-      # Before anything changes: play's schema and a full copy of its files go to the bucket, with the image that ran
-      # with them (deploy/backup.sh); the deploy stops if that fails. Only here, on a deploy: nothing runs on a
-      # schedule, and the old daily dump's cron is taken away (Samuel 2026-11-02). Restore by hand: restore.yml.
-      - name: Back up play
-        env:
-          S3_ACCESS_KEY: ${{ secrets.HETZNER_S3_ACCESS_KEY }}
-          S3_SECRET_KEY: ${{ secrets.HETZNER_S3_SECRET_KEY }}
-        run: |
-          if [ -z "$S3_ACCESS_KEY" ] || [ -z "$S3_SECRET_KEY" ]; then
-            echo "::error::No backup without the bucket's keys: set HETZNER_S3_ACCESS_KEY and HETZNER_S3_SECRET_KEY."; exit 1
-          fi
-          # the keys travel over stdin into a file only deploy can read, never as arguments
-          printf 'BACKUP_BUCKET=%s\nBACKUP_ENDPOINT=%s\nBACKUP_REGION=%s\nAWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s\n' \
-            "$S3_BUCKET" "$S3_ENDPOINT" "$S3_REGION" "$S3_ACCESS_KEY" "$S3_SECRET_KEY" \
-            | ssh prod "umask 077; cat > $APP_DIR/backup.env"
-          ssh prod "sudo rm -f /etc/cron.d/maia-city-backup; timeout 1200 bash $APP_DIR/deploy/backup.sh before-deploy-${GITHUB_SHA::7} $GITHUB_SHA </dev/null"
       - name: Start play-api, import, and answer play.maia.city
         env:
           DATA_MOUNT: ${{ steps.infra.outputs.data_mount }}
@@ -312,13 +284,18 @@ jobs:
   # the last releases (their hashed chunks stay reachable for open pages). Caddy serves site/current; nothing restarts.
   website:
     name: The website
-    needs: main-green
-    if: github.event_name != 'pull_request'
     environment: production
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: read
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/main-green
+        with:
+          token: ${{ github.token }}
+          sha: ${{ github.sha }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4

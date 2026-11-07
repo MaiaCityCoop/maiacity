@@ -476,12 +476,17 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   the intent added so), one it no longer stands by.
 - **Checks run in avenBOX, and again on main** (Samuel 2026-11-06; intent `8888e140-a6e4-4472-b1db-e78692db5c4a`).
   **avenBOX** (one word, `aven` lowercase and `BOX` in capitals) is the cloud environment the agents prototype in
-  (`env_01BqgqGckrzz4FdXd8SD4HHd`), and the box is built the same way wherever a check runs, by `play/avenbox/`:
+  (`env_011Zm65erarH7ffXio13u5pG`), and the box is built the same way wherever a check runs, by `play/avenbox/`:
   `setup.sh` (as root, once per container: PostgreSQL 17, CI's major, its cluster on 127.0.0.1:5432 with the
   `postgres` role's password `play`, every part's dependencies; idempotent, it never fails a session), `up.sh` (in
   every session, from the SessionStart hook in `.claude/settings.json`: Postgres started, `TEST_DATABASE_URL =
   postgres://postgres:play@127.0.0.1:5432/postgres` set, the dependencies brought up to their lockfiles) and `gate.sh`
-  (what CI runs, red when a play/api test is skipped). So every check is a command:
+  (what CI runs, red when a play/api test is skipped). **All work on play starts in an avenBOX session** (Samuel
+  2026-11-06; intent `7cd4c779-9d7a-4ba0-8060-6b2697545886`): an intent at any stage, its code and its checks are done
+  there, the only environment with play's MCP token and the box; a session elsewhere, without play's MCP (no
+  `PLAY_MCP_TOKEN`), starts a session on avenBOX with the work's brief and hands it over, building, pushing and
+  recording nothing itself (`up.sh` says so as it ends); one intent has one builder session. So every check is a
+  command:
   - each test and measure check carries its **`run`**, the exact command that decides it in avenBOX, from the
     repository's root, as written: a test passes when it exits 0, a measure prints its value and exits 0 only in its
     range. play refuses a test or measure check without one, and a `run` that holds a placeholder outside quotes
@@ -500,7 +505,7 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     merged, **`.github/workflows/intents.yml`** (*intents on main*; also by hand, an intent's UUID, on main's head)
     builds the same box on GitHub's runner (`sudo bash play/avenbox/setup.sh`) and runs `intent.ts <intent> --record
     --where main` on the merged commit, with the repository secret `PLAY_MCP_TOKEN` (an admin's access token). It
-    records and never blocks: production's *Main is green* reads only main.yml's checks. main's results are a
+    records and never blocks: production's jobs read only main.yml's checks (`.github/actions/main-green`). main's results are a
     **confirmation**, taken in any stage once the spec is approved: in Prototype or at Proposal they move the intent as
     any result does, in Ship, Accepted or Archived they are kept and move nothing. Intents whose work is play's keep
     their gate (`intentReady`).
@@ -533,8 +538,8 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   - **The ship watcher** (in play-api, every 10 s, `startShipWatcher`; its state is the intent's `ship` in Postgres, so
     it goes on after a restart) reads GitHub's Actions for the merge commit: **main's checks** (main.yml's run for the
     push), the **release** (release.yml's run named `release <sha>`), and the **deploy** (production.yml's run on the
-    commit and its jobs *Main is green*, *The image*, the **backup** (the step *Back up play*) inside *The server*,
-    *The server*, *The website*). Each step is kept on the intent as it changes: queued, running, green, red (skipped
+    commit and its jobs *The image* and the **backup** (*The backup*) side by side, then *The server*, with *The
+    website* beside them). Each step is kept on the intent as it changes: queued, running, green, red (skipped
     where a job did not run), when it started and finished, its link. A step whose run has not begun 15 minutes after
     the one before it is red.
   - **All green: Accepted**, its steps and links kept. **Any red: back to Proposal** with the **ship report**: the
@@ -548,8 +553,13 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     `workflow_dispatch` with a sha (Ship again, or by hand), it moves `production` to that commit, fast-forward only,
     with `GITHUB_TOKEN`, and starts `production.yml` on it (`workflow_dispatch`; a push by `GITHUB_TOKEN` starts no
     workflow). One release at a time (`concurrency: release`). It reports nothing to play: the watcher reads it.
-    *Main is green*, started so, reads main's checks for production's own commit. A pull request to production is no
-    longer how play is released.
+    Every job of production.yml reads main's checks for production's own commit as its first step after the checkout
+    (one shared action, `.github/actions/main-green`), so *The image*, *The backup* and *The website* start together,
+    and *The server* needs the image and the backup: nothing on the server changes before play is backed up (intent
+    `5ab64b8e-f0b6-4688-9621-b38b0e665585`: merge to live in at most 90 s). production moves only by this fast-forward;
+    no pull request into production is taken. On that push, main's checks pass without running again only when the
+    pushed tree is the very tree the merged pull request's run of main.yml tested (`.github/workflows/tested-tree.sh`,
+    from GitHub's API); anything else runs them in full.
   - **GitHub requires it**: one repository ruleset on main, with no bypass: a pull request (0 approvals), the status
     checks `play / API and site`, `website / build` and **`Intent accepted`** (only play posts it, on Accept), no
     force pushes, no deletion. Agents open the pull request and **never merge**, into main or production.

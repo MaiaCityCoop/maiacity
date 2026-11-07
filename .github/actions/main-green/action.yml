@@ -1,0 +1,50 @@
+name: Main is green
+description: >-
+  Reads main's two checks (play / API and site, website / build) on the commit being deployed and stops the job unless
+  both concluded success there. The first step of every job of production.yml (intent 5ab64b8e), so its jobs start
+  together and none goes on with a commit main has not checked.
+
+# production moves only by release.yml's fast-forward to a commit of main once main.yml is green for it, so the commit
+# production.yml runs on is main's own commit: its checks are read here, never run again. A check still running is
+# waited for (up to 13 minutes); one that finished other than success stops the job.
+inputs:
+  token:
+    description: A token that reads the repository's check runs (github.token, with checks read)
+    required: true
+  sha:
+    description: The commit whose checks are read (production's head, github.sha)
+    required: true
+  checks:
+    description: The checks that must have passed, separated by |
+    required: false
+    default: play / API and site|website / build
+
+runs:
+  using: composite
+  steps:
+    - name: play's and the website's checks passed on main's commit
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        REPO: ${{ github.repository }}
+        SHA: ${{ inputs.sha }}
+        CHECKS: ${{ inputs.checks }}
+        API: ${{ github.api_url }}
+      run: |
+        echo "$SHA" | grep -qxE '[0-9a-f]{40}' || { echo "::error::not a commit: '$SHA'"; exit 1; }
+        echo "main's commit: $SHA"
+        passed() {
+          local check=$1
+          for i in $(seq 1 80); do
+            runs=$(curl -fsS --retry 3 -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "$API/repos/$REPO/commits/$SHA/check-runs?check_name=$(jq -rn --arg c "$check" '$c|@uri')&per_page=100")
+            jq -e '[.check_runs[] | select(.conclusion == "success")] | length > 0' <<< "$runs" > /dev/null && { echo "'$check' passed on $SHA"; return 0; }
+            if jq -e '.check_runs | length > 0 and all(.status == "completed")' <<< "$runs" > /dev/null; then
+              echo "::error::'$check' did not pass on $SHA: $(jq -r '[.check_runs[].conclusion] | join(", ")' <<< "$runs")"; return 1
+            fi
+            sleep 10
+          done
+          echo "::error::no finished '$check' on $SHA after 13 minutes"; return 1
+        }
+        IFS='|' read -ra all <<< "$CHECKS"
+        for check in "${all[@]}"; do passed "$check" || exit 1; done

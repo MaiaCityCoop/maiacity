@@ -4,7 +4,7 @@
 # the intent as main's (play/avenbox/intent.ts --record --where main), whatever its stage: a confirmation, as an intent
 # is accepted and shipped on its checks on its pull request's head (play/api/src/ship.ts). Which intents: the
 # `Intent: <uuid>` trailers of the commits the push brought, or, run by hand, the one given (on main's head). It records
-# and never blocks: production.yml's 'Main is green' reads only main.yml's checks. PLAY_MCP_TOKEN is an admin's play
+# and never blocks: production.yml's jobs read only main.yml's checks (.github/actions/main-green). PLAY_MCP_TOKEN is an admin's play
 # access token (play's profile page), a repository secret; only intent.ts holds it, no check's command sees it.
 name: intents on main
 
