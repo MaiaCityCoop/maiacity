@@ -30,7 +30,7 @@ import { SKILL_STAGES } from "./skills";
 import type { Db, Queryable } from "./pg";
 import { NOTE_MOST } from "./notes";
 import { UUID } from "./uuid";
-import { closeWork, putAtProposal, settle, WORK_OF, workOf, WorkError } from "./work";
+import { closeWork, NO_INTENT, putAtProposal, settle, WORK_OF, workOf, WorkError } from "./work";
 import { decideLayout, ensureLayoutDoc, layoutReview, layoutShown, layoutView, layoutWrite, sandboxCheck } from "./sandboxes";
 import { decideIntent, getIntent, gate, IntentError, mustDecide, type IntentVerdict } from "./intents";
 import { acceptAndShip, acceptCode, runningCommit, type GitHub } from "./ship";
@@ -426,7 +426,7 @@ async function openVariant(q: Queryable, docId: string, uuid: string, v: unknown
 /** the intent an edit is made for (no edit without one): one that is being built or waits at Proposal */
 async function editingIntent(q: Queryable, intent: unknown): Promise<string> {
   const s = `${intent ?? ""}`.toLowerCase();
-  if (!s) throw new VersionError("Every edit is an intent's: name the intent it is made for (`intent`, its id: add_intent makes one).");
+  if (!s) throw new VersionError(NO_INTENT);
   if (!UUID.test(s)) throw new VersionError("Name the intent by its id (a UUID: list_intents gives it).", 404);
   const { rows } = await q.query<{ stage: string }>(`SELECT stage FROM play.intents WHERE id = $1 AND coop_id = $2`, [s, COOP]);
   if (!rows[0]) throw new VersionError(`There is no intent ${s}.`, 404);
@@ -497,15 +497,14 @@ export type DocEditBody = { doc?: unknown; kind?: unknown; intent?: unknown; var
  * One edit of an intent variant, as the admin `me`, for intent `intent` (no edit without one: Main is written only by an
  * Accept): on variant `variant`, else on the intent's open variant of the document, else on a new one seeded from Main's
  * newest version; with `kind` and no `doc`, a new document of that kind, its whole first state the variant's first edit.
- * (`unnamed`: an edit a propose makes on its way to a new intent of its own.)
  */
-export async function docEdit(ctx: Ctx, me: Me | null, p: DocEditBody, via: "web" | "mcp" = "mcp", unnamed = false) {
+export async function docEdit(ctx: Ctx, me: Me | null, p: DocEditBody, via: "web" | "mcp" = "mcp") {
   const who = admin(me);
   const message = text(p?.message, "The edit's message (what it does)", 500);
   if ((p.edits === undefined) === (p.whole === undefined)) throw new VersionError("An edit is edits or the whole document, one of them.");
   return asVersionError(() =>
     ctx.db.transaction(async (tx) => {
-      const intent = unnamed && (p.intent === undefined || p.intent === null || p.intent === "") ? null : await editingIntent(tx, p.intent);
+      const intent = await editingIntent(tx, p.intent);
       // a new document and its first edit, one transaction: nothing of it is kept if the edit is refused
       if (p.doc == null && p.kind != null) p = { ...p, doc: await newDocument(tx, who, p.kind, p.whole), variant: null };
       const { kind, uuid, docId } = await docRef(tx, ctx, p.doc);
@@ -531,7 +530,7 @@ async function proposedFor(q: Queryable, docId: string, uuid: string, v: number,
 /**
  * Propose the document's next version, as the admin `me`: an intent variant made edit by edit (its `variant`, perhaps
  * with one more edit), or edits (or the whole) at once. To propose is to put an intent at Proposal with the work: the
- * intent named (beside the other documents it changes), or a new one of its own.
+ * intent named (beside the other documents it changes): no work without an intent.
  */
 export async function proposeDocVersion(ctx: Ctx, me: Me | null, p: ProposeBody, via: "web" | "mcp" = "mcp") {
   const who = admin(me);
@@ -548,7 +547,7 @@ export async function proposeDocVersion(ctx: Ctx, me: Me | null, p: ProposeBody,
     let v = p.variant ?? null;
     if (v != null) await ctx.db.transaction((q) => proposedFor(q, docId, uuid, Number(v), p.intent));
     if (p.edits !== undefined || p.whole !== undefined) {
-      const e = await docEdit(ctx, who, { doc: uuid, intent: p.intent, variant: v, breed: p.breed, newBreed: p.newBreed, edits: p.edits, whole: p.whole, message: note.split("\n")[0].slice(0, 500) }, via, true);
+      const e = await docEdit(ctx, who, { doc: uuid, intent: p.intent, variant: v, breed: p.breed, newBreed: p.newBreed, edits: p.edits, whole: p.whole, message: note.split("\n")[0].slice(0, 500) }, via);
       if (!e.edits) throw new VersionError(`That is the ${kind.label} as it is: nothing changed.`);
       v = e.variant;
     }
@@ -577,7 +576,7 @@ async function proposeIn(tx: Queryable, who: Me, kind: Kind, uuid: string, docId
   if (!changes.length) throw new VersionError(`That is the ${kind.label} as it is: nothing changed.`);
   await docs.propose(tx, docId, v, { note, author });
   // a kind that decides its own way (a schema's version) is its intent's whole work; any other goes in beside
-  const intent = await putAtProposal(tx, who, { intent: p.intent, work: { kind: kind.work, doc_id: docId, doc_variant: v }, note, via: via === "mcp" ? "mcp" : "web", title: `${now.label ?? now.title ?? kind.label}`, whole: !!kind.decide }).catch((e) => {
+  const intent = await putAtProposal(tx, who, { intent: p.intent, work: { kind: kind.work, doc_id: docId, doc_variant: v }, note, via: via === "mcp" ? "mcp" : "web", whole: !!kind.decide }).catch((e) => {
     throw e instanceof WorkError ? new VersionError(e.message, e.status) : e;
   });
   const number = ((await docs.versionsOf(tx, docId)).at(-1)?.number ?? 0) + 1;
@@ -587,7 +586,7 @@ async function proposeIn(tx: Queryable, who: Me, kind: Kind, uuid: string, docId
 /**
  * A new document of kind `kindName` with a table of its own proposed (an artifact kept for the first time): its row
  * holding only its id until an Accept writes it, its Main born empty, its first state an intent variant proposed for
- * the intent named, or a new one of its own. Nothing of it is Main's until it is accepted.
+ * the intent named (no work without an intent). Nothing of it is Main's until it is accepted.
  */
 export async function proposeNewDoc(ctx: Ctx, me: Me | null, kindName: string, o: { whole: Record<string, unknown>; note: string; intent?: string }, via: "web" | "mcp" = "mcp") {
   const who = admin(me);

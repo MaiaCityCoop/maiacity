@@ -718,16 +718,19 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   exception a red ship after its merge, which Accept ships again; Ship's turn reads GitHub again (`startIfReady`, the
   same checks). The board groups each column's cards under the dividers Failed, Waiting, Working and Idle, in that
   order, each with its count, empty ones left out, each card's reason its one status line.
-- **Work proposed without an intent is a new intent of its own**, at Proposal: titled by what it proposes (an asset's
-  or a story's label and the version it would be, a sandbox's changes, a factory's or a config's label), its note and
-  author the work's, with no spec; a new asset or story is its kind *idea* (Make), anything else *improve*.
+- **No work without an intent** (intent 706ed873; Samuel 2026-11-07): every propose path (every `propose_*` tool,
+  `add_artifact`, `update_artifact`, `doc_edit` and `POST /api/intents`) requires `intent`, one in Build or at Proposal,
+  and refuses otherwise: without one (400, naming `add_intent` and `specify_intent`), or one at another stage (409, by
+  the one gate, `mayMove`'s work), nothing is written. `add_intent` is the only way an intent comes in, so every intent
+  with work has an approved spec, and Postgres holds it: an intent in Build, at Proposal or in Ship has a spec (the
+  constraint `intents_specified`, migration `202611070300-706ed873-intents-specified`).
 - **Deciding settles the intent** (`POST /api/intents/:id/{accept,archive}`, `play/api/src/versioned.ts` `decideAny`),
   in one transaction. At Proposal with work of play's, **accepting applies it** as its kind says (§4.3 an asset's head,
   §12 a story's head, §4.6 a sandbox's pins and configs, §4.8 a factory's, §4.9 a config's next version) and the intent
   is Accepted; made on a base that has moved, the kind's own rule decides: merged where the two changes touch different
   fields, else its work is archived, and so is the intent; **archiving archives it**, its work's branch closed. Work
-  archived by itself (its base moved, another's work accepted first) takes an intent whose spec is approved back to
-  Build (its results cleared, to be built again on the new head); one with no spec ends archived. Whoever proposed
+  archived by itself (its base moved, another's work accepted first) takes its intent back to Build (its results
+  cleared, to be built again on the new head). Whoever proposed
   work may archive their own. The answer is the intent, with what its work came to (`decision`: status, number,
   version, merged, the message where it was archived).
 - **Proposals became intents** (migrations `0026-intents`, then `0029-one-record`). 0026 gave every proposal an
@@ -743,8 +746,8 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   Inbox item became an intent at Idea (one done, Accepted), its definition and metric kept in its note, to be
   specified again with checks.
 - **On the board** (admins only), each card is an intent: its title, how far its must checks are in Build and
-  Proposal ("2/3 checks"), its type (what its work is, else its kind), who and when. An intent that is only its work
-  (no spec) opens straight into its work's review; any other opens its dialog: its note, its spec (the goal, the scope
+  Proposal ("2/3 checks"), its type (what its work is, else its kind), who and when. Every intent opens its dialog:
+  its note, its spec (the goal, the scope
   and each check with its mark, ✓ passed, ✗ failed, · no result yet, how and by what it is checked, and its last
   evidence), its work (a click from its review; for code, its pull request), and the **brief** that sends an agent to
   it (at Idea: specify it and stop; in Build: build it and record every check, so that it moves to Proposal by
@@ -811,8 +814,7 @@ Admins only for now, every row the Maia City coop's (`play/api/src/artifacts.ts`
 - **A document like any other** (intent 847c5d38, Samuel 2026-11-06: "an artifact will go the same way as any other
   intent, just that we can promote it directly to proposal"; §4.15): every artifact is `artifact:<uuid>`, each kept
   before its v1. `add_artifact` proposes its first version and `update_artifact` its next, as every propose tool does:
-  named with `intent`, the work of that intent, held to its gate; without, a new intent of its own at Proposal with no
-  spec. Each is decided by the one Accept, one intent at a time, as any other; until then nothing of it is kept (the
+  named with `intent`, the work of that intent, held to its gate (no work without an intent). Each is decided by the one Accept, one intent at a time, as any other; until then nothing of it is kept (the
   Artifacts page and `list_artifacts` show an artifact once accepted, marking a change of it that waits). Its row is
   what its accepted version says, written only by that Accept; it has the History tab every document has. Nothing is
   typed in by hand. Citing (stories, asset versions and intents naming the artifacts they rest on) comes later.

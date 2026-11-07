@@ -119,10 +119,21 @@ suite("artifacts", () => {
     return (await r.json()).result;
   };
   /** a tool called over MCP by `as`'s token: its result as JSON, or its error's text */
-  const tool = async (name: string, args: Record<string, unknown>, as = "Samuel") => {
+  const tool = async (name: string, args: Record<string, unknown>, as = "Samuel"): Promise<any> => {
+    // no work without an intent: an artifact added or corrected with no `intent` key is the work of an intent of its
+    // own, made ready for it (`intent: undefined` sends none)
+    if ((name === "add_artifact" || name === "update_artifact") && !("intent" in args)) args = { ...args, intent: await readyIntent(`Keep ${args.url ?? args.artifact}`, as) };
     const res = await rpc(as, "tools/call", { name, arguments: args });
     const text = res.content[0].text;
     return res.isError ? { error: text as string } : JSON.parse(text);
+  };
+  /** an intent in Build with every must check passed, ready to take work */
+  const readyIntent = async (title: string, as = "Samuel") => {
+    const i = await tool("add_intent", { title }, as);
+    await tool("specify_intent", { intent: i.id, goal: "It is kept.", nothing_to_reduce: "A test fixture: nothing to reduce.", scope: "One link.", checks: [{ check: "It holds", how: "test", by: "true", run: "true" }] }, as);
+    await call("Samuel", "POST", `/api/intents/${i.id}/approve`);
+    await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] }, as);
+    return i.id as string;
   };
   const count = async () => Number((await db.query<{ n: string }>(`SELECT count(*) AS n FROM play.artifacts WHERE title IS NOT NULL`)).rows[0].n);
   /** an artifact's change accepted on the board by Samuel, an admin: its intent's work goes in like any other's */
@@ -504,14 +515,24 @@ suite("artifacts", () => {
 
   // ---- intent 847c5d38's c5: an artifact is a document like any other
 
-  test("as a document: added or corrected without an intent, each a new intent at Proposal with no spec, kept only once that intent is accepted; naming an intent, held to its gate", async () => {
+  test("as a document: no work without an intent; added or corrected for an intent, kept only once that intent is accepted; naming an intent, held to its gate", async () => {
     const before = await count();
     const listed = async () => (await tool("list_artifacts", { q: "doc.example", limit: 200 })).artifacts;
-    // added: a new intent at Proposal of its own, no spec; nothing kept until it is accepted
+    const intents = async () => Number((await db.query<{ n: string }>(`SELECT count(*) AS n FROM play.intents`)).rows[0].n);
+    const variants = async () => Number((await db.query<{ n: string }>(`SELECT count(*) AS n FROM play.doc_variants`)).rows[0].n);
+    const rows = async () => Number((await db.query<{ n: string }>(`SELECT count(*) AS n FROM play.artifacts`)).rows[0].n);
+    // without an intent: refused, naming add_intent, nothing written
+    const was = [await intents(), await variants(), await rows()];
+    const none = await tool("add_artifact", { ...ARTIFACT({ url: "https://doc.example/one", title: "A page as a document" }), intent: undefined });
+    expect(none.error).toMatch(/No work without an intent/);
+    expect(none.error).toMatch(/add_intent/);
+    expect([await intents(), await variants(), await rows()]).toEqual(was);
+    // added for an intent: it is at Proposal with the work and its spec; nothing kept until it is accepted
     const r = await tool("add_artifact", ARTIFACT({ url: "https://doc.example/one", title: "A page as a document" }));
     expect(r).toMatchObject({ kept: false, waiting: true, stage: "proposal" });
     const i = await tool("get_intent", { intent: r.intent });
-    expect(i).toMatchObject({ stage: "proposal", spec: null, title: "A page as a document", work: { kind: "artifact_version", doc: r.id } });
+    expect(i).toMatchObject({ stage: "proposal", work: { kind: "artifact_version", doc: r.id } });
+    expect(i.spec).not.toBeNull();
     expect((await tool("get_artifact", { artifact: r.id })).error).toMatch(/No artifact is kept/);
     expect(await listed()).toEqual([]);
     expect(await count()).toBe(before);
@@ -522,10 +543,14 @@ suite("artifacts", () => {
     expect((await listed()).map((a: any) => [a.id, a.intent])).toEqual([[r.id, null]]);
     expect((await tool("doc_history", { doc: r.id })).versions.map((v: any) => v.number)).toEqual([1]);
 
-    // corrected: its next version waits at Proposal; the artifact as it was, its open intent marked, until it is accepted
+    // corrected without an intent: refused, the artifact as it was
+    const unnamed = await tool("update_artifact", { artifact: r.id, title: "A page, corrected", intent: undefined }, "Bea");
+    expect(unnamed.error).toMatch(/add_intent/);
+    expect((await tool("get_artifact", { artifact: r.id })).intent).toBeNull();
+    // corrected for an intent: its next version waits at Proposal; the artifact as it was, its open intent marked, until it is accepted
     const c = await tool("update_artifact", { artifact: r.id, title: "A page, corrected" }, "Bea");
     expect(c).toMatchObject({ waiting: true, stage: "proposal", number: 2, title: "A page as a document" });
-    expect((await tool("get_intent", { intent: c.intent })).spec).toBeNull();
+    expect((await tool("get_intent", { intent: c.intent })).spec).not.toBeNull();
     expect((await tool("get_artifact", { artifact: r.id })).title).toBe("A page as a document");
     expect((await listed()).map((a: any) => a.intent)).toEqual([c.intent]);
     const review = (await call("Samuel", "GET", `/api/intents/${c.intent}`)).data.review;

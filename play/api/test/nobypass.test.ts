@@ -110,28 +110,31 @@ suite("no write past an Accept", () => {
     await seedDoc(db, "factory", { id: F, json: { schema: "factory/1", label: "A line", line, parts: [] }, note: "v1" });
     await seedDoc(db, "game_config", { id: L, json: { schema: "levels/1", label: "Levels", villager: { euros: 1, hearts: 1 }, minds: { heartsPerMind: 1, step: 1, heartsPerEuro: 1 }, levels: [{ id: "l1", villagers: 1, phase: "tents", investor: 0, unlocks: [] }] }, note: "v1" });
     await seedDoc(db, "skill", { id: K, json: { schema: "skill/1", label: "A skill", group: "tests", system: "Say it." }, note: "v1" });
-    const asset = await tool("propose_asset", { group: "plants", label: "A fern", source: SOURCE("a fern"), note: "v1" });
+    const asset = await tool("propose_asset", { group: "plants", label: "A fern", source: SOURCE("a fern"), note: "v1", intent: await readyIntent("A fern") });
     await call("ada", "POST", `/api/intents/${asset.intent}/accept`);
     const body = { format: "9:16", fps: 30, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line: "One." }] }] };
-    const story = await tool("propose_story", { title: "A film", body, note: "v1" });
+    const story = await tool("propose_story", { title: "A film", body, note: "v1", intent: await readyIntent("A film") });
     await call("ada", "POST", `/api/intents/${story.intent}/accept`);
-    const art = await tool("add_artifact", ARTIFACT("https://nobypass.example/kept"));
+    const art = await tool("add_artifact", { ...ARTIFACT("https://nobypass.example/kept"), intent: await readyIntent("A page kept") });
     await call("ada", "POST", `/api/intents/${art.intent}/accept`);
     const ready = await readyIntent("Every edit an intent's");
-    const own = await tool("propose_doc_version", { doc: K, note: "to be archived", edits: [{ op: "set", path: ["note"], value: "x" }] });
+    const own = await tool("propose_doc_version", { doc: K, note: "to be archived", edits: [{ op: "set", path: ["note"], value: "x" }], intent: await readyIntent("To be archived") });
     const fresh = (await tool("add_intent", { title: "Specified here" })).id;
     const checked = (await tool("add_intent", { title: "Checked here" })).id;
     await tool("specify_intent", { intent: checked, ...SPEC });
     await call("ada", "POST", `/api/intents/${checked}/approve`);
+    // no work without an intent: each call below that brings work names one ready for it
+    const forWork: Record<string, string> = {};
+    for (const k of ["propose_asset", "propose_doc_version", "propose_story", "add_artifact", "update_artifact", "page", "board"]) forWork[k] = await readyIntent(`Work of ${k}`);
     const S0 = await mains();
     expect([...S0.keys()].filter((id) => !id.startsWith("schema:")).length).toBe(6);
 
     // every tool that is not a read, called with work it takes
     const CALLS: Record<string, Record<string, unknown>> = {
-      propose_asset: { group: "plants", label: "A second fern", source: SOURCE("a second fern"), note: "a new asset" },
+      propose_asset: { group: "plants", label: "A second fern", source: SOURCE("a second fern"), note: "a new asset", intent: forWork.propose_asset },
       doc_edit: { doc: F, intent: ready, message: "more demand", edits: [{ op: "set", path: ["line", "demand", "perDay"], value: 12 }] },
-      propose_doc_version: { doc: L, note: "more euros", edits: [{ op: "set", path: ["villager", "euros"], value: 2 }] },
-      propose_story: { title: "A second film", body, note: "a new story" },
+      propose_doc_version: { doc: L, note: "more euros", edits: [{ op: "set", path: ["villager", "euros"], value: 2 }], intent: forWork.propose_doc_version },
+      propose_story: { title: "A second film", body, note: "a new story", intent: forWork.propose_story },
       add_story_frame: { data: PNG, media_type: "image/png", label: "a pixel" },
       add_story_video: { data: Buffer.from("not a video").toString("base64"), media_type: "video/mp4" },
       add_story_audio: { data: Buffer.from("not a recording").toString("base64"), media_type: "audio/mpeg" },
@@ -142,8 +145,8 @@ suite("no write past an Accept", () => {
       archive_intent: { intent: own.intent },
       depend_intent: { intent: fresh, on: checked },
       step_back_intent: { intent: checked, reason: "back to Specify, for a test" },
-      add_artifact: ARTIFACT("https://nobypass.example/new"),
-      update_artifact: { artifact: art.id, title: "A page, corrected" },
+      add_artifact: { ...ARTIFACT("https://nobypass.example/new"), intent: forWork.add_artifact },
+      update_artifact: { artifact: art.id, title: "A page, corrected", intent: forWork.update_artifact },
     };
     const names: string[] = (await rpc("tools/list")).tools.map((t: any) => t.name);
     expect(names.filter((x) => !READS.includes(x)).sort()).toEqual(Object.keys(CALLS).sort());
@@ -171,12 +174,12 @@ suite("no write past an Accept", () => {
       "POST /api/passkey/login/finish": () => call(null, "POST", "/api/passkey/login/finish", {}),
       "POST /api/signout": () => call("cit", "POST", "/api/signout"),
       "POST /api/intents": async () => {
-        const r: any = await call("ada", "POST", "/api/intents", { asset: asset.asset, note: "from the page", source: SOURCE("a fern from the page") });
+        const r: any = await call("ada", "POST", "/api/intents", { asset: asset.asset, note: "from the page", source: SOURCE("a fern from the page"), intent: forWork.page });
         if (r.data?.intent) waiting.push(r.data.intent);
       },
       "POST /api/intents/:id/:verdict": async () => {
         for (const verdict of ["approve", "respecify", "reject", "reopen"]) await call("ada", "POST", `/api/intents/${fresh}/${verdict}`);
-        const no = await tool("propose_doc_version", { doc: K, note: "archived on the board", edits: [{ op: "set", path: ["note"], value: "y" }] });
+        const no = await tool("propose_doc_version", { doc: K, note: "archived on the board", edits: [{ op: "set", path: ["note"], value: "y" }], intent: forWork.board });
         await call("ada", "POST", `/api/intents/${no.intent}/archive`);
         await call("cit", "POST", `/api/intents/${waiting[0]}/accept`);
       },

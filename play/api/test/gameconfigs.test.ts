@@ -136,7 +136,7 @@ suite("the Game editor's configs on Loro", () => {
   });
 
   test("an agent archives its own intent at Proposal; a citizen sees none of them", async () => {
-    const p = await tool("propose_doc_version", { doc: LV, note: "a new label", edits: [{ op: "set", path: ["label"], value: "Village levels" }] });
+    const p = await tool("propose_doc_version", { doc: LV, intent: await readyIntent("A new label"), note: "a new label", edits: [{ op: "set", path: ["label"], value: "Village levels" }] });
     expect((await call("cit", "GET", `/api/intents/${p.intent}`)).status).toBe(403);
     expect(await tool("archive_intent", { intent: p.intent })).toMatchObject({ stage: "archived" });
     expect((await call("ada", "GET", `/api/docs/${LV}/history`)).data.variants.find((v: any) => v.intent?.id === p.intent).status).toBe("archived");

@@ -23,6 +23,8 @@ import { SANDBOX } from "../src/ids";
 /** the repo's papaya story (import/stories/papaya-v2-devlog/story.json names it by this) */
 const PAPAYA_STORY = "7adaf0b3-01a9-8bb9-b250-d2bee7016c4c";
 import { Rate } from "../src/limits";
+import { COOP } from "../src/access";
+import { randomUUID } from "node:crypto";
 
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;
@@ -50,11 +52,11 @@ suite("play API", () => {
     await initSessions(db);
     store = folderStore(mkdtempSync(join(tmpdir(), "play-blobs-")));
     api = app({ db, store, rate: new Rate(0) });
-    for (const n of ["ada", "cit", "cit2", "trav"]) {
+    for (const n of ["ada", "eve", "cit", "cit2", "trav"]) {
       const h = await createHuman(db, n);
       who[n] = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
     }
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
+    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = ANY($1)`, [[who.ada.id, who.eve.id]]);
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = ANY($1)`, [[who.cit.id, who.cit2.id]]);
   });
 
@@ -76,6 +78,23 @@ suite("play API", () => {
     } catch {}
     return { status: r.status, data, headers: r.headers };
   };
+  /**
+   * no work without an intent (play/SPEC.md §4.12): an intent ready for work, in Build with its spec approved and its
+   * one must check passed, by admin `as`; each proposal here is its own intent's
+   */
+  const ready = async (as = "ada", title = "A test's work") => {
+    const id = randomUUID();
+    const spec = { goal: "It changes.", scope: "A test fixture.", nothing_to_reduce: "A test fixture.", checks: [{ id: "c1", check: "It holds", how: "test", by: "true", run: "true", must: true, step: "mvp" }] };
+    const results = { c1: { pass: true, evidence: "exit 0", by: null, at: new Date().toISOString() } };
+    await db.query(
+      `INSERT INTO play.intents (id, coop_id, kind, title, note, stage, author, via, spec, results, specified_by, specified_at, approved_by, approved_at)
+       VALUES ($1, $2, 'improve', $3, '', 'build', $4, 'mcp', ($5::text)::jsonb, ($6::text)::jsonb, $4, now(), $4, now())`,
+      [id, COOP, title, who[as].id, JSON.stringify(spec), JSON.stringify(results)],
+    );
+    return id;
+  };
+  /** an asset's version proposed over HTTP (POST /api/intents) by admin `as`, for an intent of its own made ready for it */
+  const propose = async (as: string, body: Record<string, unknown>) => call(as, "POST", "/api/intents", { intent: await ready(as), ...body });
   /** an intent's work decided by an admin: what the work came to (its status, number, version, merged, message), or the refusal */
   const decided = async (intent: string, verdict: "accept" | "archive") => {
     const r = await call("ada", "POST", `/api/intents/${intent}/${verdict}`);
@@ -111,10 +130,21 @@ suite("play API", () => {
     expect((await call("trav", "GET", "/api/assets")).status).toBe(200);
     const r = await call("trav", "POST", "/api/intents", { new: { group: "plants", slug: "fern", label: "Fern" }, recipe: recipe("fern", 1) });
     expect(r.status).toBe(403);
+    // naming an intent changes nothing: work is an admin's, for an intent
+    expect((await call("trav", "POST", "/api/intents", { intent: await ready(), new: { group: "plants", slug: "fern", label: "Fern" }, recipe: recipe("fern", 1) })).status).toBe(403);
   });
 
-  test("a citizen proposes a new asset, an admin accepts it, everyone reads it", async () => {
-    const p = await call("cit", "POST", "/api/intents", { new: { group: "plants", slug: "fern", label: "Fern" }, note: "first", recipe: recipe("fern", 1), record: { card: { label: "Fern" } } });
+  test("an admin proposes a new asset for an intent, an admin accepts it, everyone reads it; a citizen proposes nothing", async () => {
+    // no work without an intent (play/SPEC.md §4.12): a citizen keeps no intents, so proposes nothing, named or not
+    const fern = { new: { group: "plants", slug: "fern", label: "Fern" }, note: "first", recipe: recipe("fern", 1), record: { card: { label: "Fern" } } };
+    expect((await call("cit", "POST", "/api/intents", fern)).status).toBe(403);
+    expect((await call("cit", "POST", "/api/intents", { ...fern, intent: await ready() })).status).toBe(403);
+    // an admin without an intent: refused, naming add_intent, nothing written
+    const none = await call("ada", "POST", "/api/intents", fern);
+    expect(none.status).toBe(400);
+    expect(none.data.error).toContain("add_intent");
+    expect((await db.query(`SELECT 1 FROM play.assets`)).rows).toEqual([]);
+    const p = await propose("ada", { new: { group: "plants", slug: "fern", label: "Fern" }, note: "first", recipe: recipe("fern", 1), record: { card: { label: "Fern" } } });
     expect(p.status).toBe(201);
     expect(p.data.number).toBe(1);
     expect(p.data.asset).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
@@ -124,7 +154,7 @@ suite("play API", () => {
     const ok = await call("ada", "POST", `/api/intents/${p.data.intent}/accept`);
     expect(ok.data).toMatchObject({ id: p.data.intent, stage: "accepted", decision: { status: "accepted", number: 1 } });
     const a = await call("trav", "GET", `/api/assets/${ids.fern}`);
-    expect(a.data.versions.map((v: any) => [v.number, v.author, v.approvedBy])).toEqual([[1, "cit", "ada"]]);
+    expect(a.data.versions.map((v: any) => [v.number, v.author, v.approvedBy])).toEqual([[1, "ada", "ada"]]);
     const f = await call("trav", "GET", `/api/files/${a.data.versions[0].recipe}`);
     expect(f.status).toBe(200);
     expect(hashText(f.data)).toBe(a.data.versions[0].recipe);
@@ -135,33 +165,34 @@ suite("play API", () => {
   test("a version proposed without a record takes its head's, with its own recipe and number", async () => {
     const head = (await call("trav", "GET", `/api/assets/${ids.fern}/1`)).data;
     expect(head.card.card.label).toBe("Fern");
-    const p = await call("cit", "POST", "/api/intents", { asset: ids.fern, recipe: recipe("fern", 2, null, "/* bare */") });
+    const p = await propose("ada", { asset: ids.fern, recipe: recipe("fern", 2, null, "/* bare */") });
     const v = (await db.query<any>(`SELECT card FROM play.asset_versions WHERE id = $1`, [p.data.version])).rows[0].card;
     expect(v.card).toMatchObject({ label: "Fern", version: 2, id: "fern", group: "plants" });
     expect(v.card.recipe).not.toBe(head.card.card.recipe);
-    await call("cit", "POST", `/api/intents/${p.data.intent}/archive`);
+    await call("ada", "POST", `/api/intents/${p.data.intent}/archive`);
   });
 
   test("a recipe file must name the version it is proposed for", async () => {
-    const r = await call("cit", "POST", "/api/intents", { asset: ids.fern, recipe: recipe("fern", 1, null, "/* again */") });
+    const r = await propose("ada", { asset: ids.fern, recipe: recipe("fern", 1, null, "/* again */") });
     expect(r.status).toBe(400);
     expect(r.data.error).toContain("not fern@2");
   });
 
   test("of two proposals on one head, the second goes stale", async () => {
-    const a = await call("cit", "POST", "/api/intents", { asset: ids.fern, recipe: recipe("fern", 2, null, "/* a */") });
-    const b = await call("cit2", "POST", "/api/intents", { asset: ids.fern, recipe: recipe("fern", 2, null, "/* b */") });
+    const a = await propose("ada", { asset: ids.fern, recipe: recipe("fern", 2, null, "/* a */") });
+    const b = await propose("eve", { asset: ids.fern, recipe: recipe("fern", 2, null, "/* b */") });
     expect([a.status, b.status]).toEqual([201, 201]);
     expect((await call("ada", "POST", `/api/intents/${b.data.intent}/accept`)).data.decision.status).toBe("accepted");
     expect((await call("ada", "POST", `/api/intents/${a.data.intent}/accept`)).status).toBe(409);
     const list = await call("trav", "GET", "/api/intents");
     expect(list.status).toBe(403); // the board is the admins'
-    expect((await call("ada", "GET", "/api/intents")).data.find((i: any) => i.id === a.data.intent).stage).toBe("archived");
+    // its work archived by itself (its base moved), its intent goes back to Build to be built again on the new head
+    expect((await call("ada", "GET", "/api/intents")).data.find((i: any) => i.id === a.data.intent)).toMatchObject({ stage: "build", results: null });
     const chain = (await call("trav", "GET", `/api/assets/${ids.fern}`)).data.versions;
     expect(chain.map((v: any) => v.number)).toEqual([2, 1]);
     expect(chain[0].parents).toEqual([chain[1].id]);
     // a base the proposer saw that is no longer the head is refused at once
-    expect((await call("cit", "POST", "/api/intents", { asset: ids.fern, base: chain[1].id, recipe: recipe("fern", 3) })).status).toBe(409);
+    expect((await propose("ada", { asset: ids.fern, base: chain[1].id, recipe: recipe("fern", 3) })).status).toBe(409);
   });
 
   test("the legacy import runs once: after it, Postgres is the source of truth and a run writes none of it again", async () => {
@@ -195,7 +226,7 @@ suite("play API", () => {
   });
 
   test("a kind of variants: each variant its own hash in the catalog, its default marked", async () => {
-    const p = await call("cit", "POST", "/api/intents", {
+    const p = await propose("ada", {
       new: { group: "actors", slug: "goat", label: "Goat" },
       variants: { "goat-saanen": { recipe: recipe("goat", 1, "goat-saanen"), record: { card: { label: "Goat: Saanen" } } }, "goat-pied": { recipe: recipe("goat", 1, "goat-pied") } },
       defaultVariant: "goat-saanen",
@@ -231,14 +262,14 @@ suite("play API", () => {
   });
 
   test("a new version never shows what was measured on its parent's recipe (its size, triangles)", async () => {
-    const first = await call("cit", "POST", "/api/intents", { new: { group: "plants", slug: "sedge", label: "Sedge" }, recipe: recipe("sedge", 1, null, "/* measured */"), record: { card: { label: "Sedge", size: [1.5, 2.5, 1.25], triangles: 4200 } } });
+    const first = await propose("ada", { new: { group: "plants", slug: "sedge", label: "Sedge" }, recipe: recipe("sedge", 1, null, "/* measured */"), record: { card: { label: "Sedge", size: [1.5, 2.5, 1.25], triangles: 4200 } } });
     expect(first.status).toBe(201);
     const asset = first.data.asset;
     await call("ada", "POST", `/api/intents/${first.data.intent}/accept`);
     const shown = async () => (await call("trav", "GET", `/api/assets/${asset}`)).data.versions;
     expect((await shown())[0]).toMatchObject({ size: [1.5, 2.5, 1.25], triangles: 4200 });
     // the next takes the head's record, but not its measures
-    const next = await call("cit", "POST", "/api/intents", { asset, recipe: recipe("sedge", 2, null, "/* another recipe */") });
+    const next = await propose("ada", { asset, recipe: recipe("sedge", 2, null, "/* another recipe */") });
     expect(next.status).toBe(201);
     const card = (await db.query<any>(`SELECT card FROM play.asset_versions WHERE id = $1`, [next.data.version])).rows[0].card;
     expect(card.card.label).toBe("Sedge");
@@ -251,7 +282,7 @@ suite("play API", () => {
   });
 
   test("a proposal naming another asset by a readable ref is refused", async () => {
-    const r = await call("cit", "POST", "/api/intents", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* r */"), record: { card: { label: "Fern", parts: [{ ref: "actors/goat@1" }] } } });
+    const r = await propose("ada", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* r */"), record: { card: { label: "Fern", parts: [{ ref: "actors/goat@1" }] } } });
     expect(r.status).toBe(400);
     expect(r.data.error).toContain("by their hash");
   });
@@ -292,26 +323,26 @@ suite("play API", () => {
 
   test("an asset is named by its UUID; its group and slug are only a name, which another asset may share", async () => {
     expect((await call("trav", "GET", "/api/assets/plants/fern")).status).toBe(404);
-    const again = await call("cit", "POST", "/api/intents", { new: { group: "plants", slug: "fern", label: "Fern again" }, recipe: recipe("fern", 1, null, "/* twin */") });
+    const again = await propose("ada", { new: { group: "plants", slug: "fern", label: "Fern again" }, recipe: recipe("fern", 1, null, "/* twin */") });
     expect(again.status).toBe(201);
     expect(again.data.asset).toMatch(UUID);
     expect(again.data.asset).not.toBe(ids.fern);
     // a new asset needs no slug: it is made from its label, only to name the recipe's call
-    const named = await call("cit", "POST", "/api/intents", { new: { group: "plants", label: "Fern, the third" }, source: "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n" });
+    const named = await propose("ada", { new: { group: "plants", label: "Fern, the third" }, source: "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n" });
     expect(named.status).toBe(201);
     expect((await call("ada", "GET", `/api/intents/${named.data.intent}`)).data.review.slug).toBe("fern-the-third");
     for (const p of [again, named]) await call("ada", "POST", `/api/intents/${p.data.intent}/archive`);
-    expect((await call("cit", "POST", "/api/intents", { asset: "plants/fern", recipe: recipe("fern", 3) })).status).toBe(400);
+    expect((await propose("ada", { asset: "plants/fern", recipe: recipe("fern", 3) })).status).toBe(400);
   });
 
   test("a proposal ends accepted or archived: archived by its author or by an admin", async () => {
-    const a = await call("cit", "POST", "/api/intents", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* w */") });
-    expect((await call("cit2", "POST", `/api/intents/${a.data.intent}/archive`)).status).toBe(403);
-    expect((await call("cit", "POST", `/api/intents/${a.data.intent}/withdraw`)).status).toBe(404);
-    expect((await call("cit", "POST", `/api/intents/${a.data.intent}/archive`)).data.decision.status).toBe("archived");
-    expect((await call("ada", "GET", `/api/intents/${a.data.intent}`)).data).toMatchObject({ stage: "archived", decided_by: "cit", work: { status: "archived" } });
-    const b = await call("cit", "POST", "/api/intents", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* r */") });
-    expect((await call("ada", "POST", `/api/intents/${b.data.intent}/archive`)).data.decision.status).toBe("archived");
+    const a = await propose("ada", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* w */") });
+    expect((await call("cit", "POST", `/api/intents/${a.data.intent}/archive`)).status).toBe(403);
+    expect((await call("ada", "POST", `/api/intents/${a.data.intent}/withdraw`)).status).toBe(404);
+    expect((await call("ada", "POST", `/api/intents/${a.data.intent}/archive`)).data.decision.status).toBe("archived");
+    expect((await call("ada", "GET", `/api/intents/${a.data.intent}`)).data).toMatchObject({ stage: "archived", decided_by: "ada", work: { status: "archived" } });
+    const b = await propose("ada", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* r */") });
+    expect((await call("eve", "POST", `/api/intents/${b.data.intent}/archive`)).data.decision.status).toBe("archived");
   });
 
   test("sign-up is by invite only: an invite makes a traveler, once", async () => {
@@ -360,15 +391,15 @@ suite("play API", () => {
     expect(listed.data.result.isError).toBeUndefined();
     const proposed = await rpc(made.data.token, "tools/call", {
       name: "propose_asset",
-      arguments: { group: "plants", slug: "mcp-fern", label: "MCP fern", source: "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n", note: "proposed by an agent" },
+      arguments: { intent: await ready(), group: "plants", slug: "mcp-fern", label: "MCP fern", source: "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n", note: "proposed by an agent" },
     });
     expect(proposed.data.result.isError).toBeUndefined();
     const open = (await waiting()).find((p: any) => p.slug === "mcp-fern");
     expect(open).toMatchObject({ via: "mcp", author: "ada", status: "proposal" });
     // it archives its own open proposal, and nothing else: not one made on the page, not anyone else's
     const archive = (intent: string) => rpc(made.data.token, "tools/call", { name: "archive_intent", arguments: { intent } });
-    const byPage = await call("ada", "POST", "/api/intents", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* on the page */") });
-    const theirsOpen = await call("cit", "POST", "/api/intents", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* a citizen's */") });
+    const byPage = await propose("ada", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* on the page */") });
+    const theirsOpen = await propose("eve", { asset: ids.fern, recipe: recipe("fern", 3, null, "/* another admin's */") });
     expect([byPage.status, theirsOpen.status, byPage.data?.error, theirsOpen.data?.error]).toEqual([201, 201, undefined, undefined]);
     for (const id of [byPage.data.intent, theirsOpen.data.intent]) {
       const r = await archive(id);
@@ -387,7 +418,7 @@ suite("play API", () => {
     expect(worlds.data.result.isError).toBeUndefined();
     const world = await rpc(made.data.token, "tools/call", {
       name: "propose_asset",
-      arguments: { group: "worlds", slug: "mcp-test-world", label: "Test world", source: "module.exports.recipe = function (id, v) {\n  return { meta: { group: 'worlds', id, v } };\n};\n", note: "a stand-in world" },
+      arguments: { intent: await ready(), group: "worlds", slug: "mcp-test-world", label: "Test world", source: "module.exports.recipe = function (id, v) {\n  return { meta: { group: 'worlds', id, v } };\n};\n", note: "a stand-in world" },
     });
     expect(world.data.result.isError).toBeUndefined();
     const worldOpen = (await waiting()).find((p: any) => p.slug === "mcp-test-world");
@@ -396,7 +427,7 @@ suite("play API", () => {
     // a new asset with its variants at once (a truck's kinds), each its own recipe
     const kinds = await rpc(made.data.token, "tools/call", {
       name: "propose_asset",
-      arguments: { group: "machines", slug: "mcp-truck", label: "Truck", source: "module.exports.recipe = function (id, v, variant) {\n  return { meta: { id, v, variant } };\n};\n", variants: [{ name: "box" }, { name: "tanker", label: "Truck: Tanker" }], default_variant: "tanker", note: "two kinds" },
+      arguments: { intent: await ready(), group: "machines", slug: "mcp-truck", label: "Truck", source: "module.exports.recipe = function (id, v, variant) {\n  return { meta: { id, v, variant } };\n};\n", variants: [{ name: "box" }, { name: "tanker", label: "Truck: Tanker" }], default_variant: "tanker", note: "two kinds" },
     });
     expect(kinds.data.result.isError).toBeUndefined();
     const kindsOpen = (await waiting()).find((p: any) => p.slug === "mcp-truck");
@@ -405,25 +436,25 @@ suite("play API", () => {
     // a recipe that declares params is refused without them, and records them when given
     const PARAMS = [{ id: "kind", label: "Kind", type: "integer", min: 0, max: 1, value: 0 }];
     const withParams = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v, params: PARAMS } };\n};\nconst PARAMS = [];\n";
-    const noParams = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { group: "things", slug: "mcp-lamp", label: "Lamp", source: withParams, note: "params left out" } });
+    const noParams = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { intent: await ready(), group: "things", slug: "mcp-lamp", label: "Lamp", source: withParams, note: "params left out" } });
     expect(noParams.data.result.isError).toBe(true);
     expect(noParams.data.result.content[0].text).toContain("params");
-    const given = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { group: "things", slug: "mcp-lamp", label: "Lamp", source: withParams, params: PARAMS, note: "params given" } });
+    const given = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { intent: await ready(), group: "things", slug: "mcp-lamp", label: "Lamp", source: withParams, params: PARAMS, note: "params given" } });
     expect(given.data.result.isError).toBeUndefined();
     const lampOpen = (await waiting()).find((p: any) => p.slug === "mcp-lamp");
     const lamp = (await call("ada", "GET", `/api/intents/${lampOpen.id}`)).data.review;
     expect(JSON.stringify(lamp)).toContain('"kind"');
     expect((await archive(lampOpen.id)).data.result.isError).toBeUndefined();
-    const none = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { group: "machines", label: "Nothing", note: "no source" } });
+    const none = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { intent: await ready(), group: "machines", label: "Nothing", note: "no source" } });
     expect(none.data.result.isError).toBe(true);
     for (const id of [byPage.data.intent, theirsOpen.data.intent]) await call("ada", "POST", `/api/intents/${id}/archive`);
     const wrong = await rpc(made.data.token, "tools/call", {
       name: "propose_asset",
-      arguments: { group: "plants", slug: "mcp-moss", label: "Moss", source: `module.exports.recipe=function(){return{a:${"1+".repeat(800)}1}};`, note: "minified" },
+      arguments: { intent: await ready(), group: "plants", slug: "mcp-moss", label: "Moss", source: `module.exports.recipe=function(){return{a:${"1+".repeat(800)}1}};`, note: "minified" },
     });
     expect(wrong.data.result.isError).toBe(true);
     expect(wrong.data.result.content[0].text).toContain("not readable");
-    const bundled = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { group: "plants", slug: "mcp-moss", label: "Moss", recipe: recipe("mcp-moss", 1), note: "no source" } });
+    const bundled = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { intent: await ready(), group: "plants", slug: "mcp-moss", label: "Moss", recipe: recipe("mcp-moss", 1), note: "no source" } });
     expect(bundled.data.result.isError).toBe(true);
     expect((await call("ada", "DELETE", `/api/tokens/${made.data.id}`)).data.revoked).toBe(true);
     expect((await rpc(made.data.token, "tools/list")).status).toBe(401);
@@ -452,7 +483,7 @@ suite("play API", () => {
 
   test("a proposal brings its readable source: play wraps it into the recipe, keeps both, and serves them as text", async () => {
     const source = "// a fern, version 3\nconst THREE = require('three');\nmodule.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
-    const p = await call("cit", "POST", "/api/intents", { asset: ids.fern, source, note: "readable" });
+    const p = await propose("ada", { asset: ids.fern, source, note: "readable" });
     expect(p.status).toBe(201);
     const r = (await call("ada", "GET", `/api/intents/${p.data.intent}`)).data.review;
     expect(r.source).toBe(hashText(source));
@@ -467,7 +498,7 @@ suite("play API", () => {
     expect(file.headers.get("x-content-type-options")).toBe("nosniff");
     expect(file.headers.get("content-security-policy")).toContain("sandbox");
     expect((await call("ada", "GET", `/api/files/${r.source}`)).data).toBe(source);
-    await call("cit", "POST", `/api/intents/${p.data.intent}/archive`);
+    await call("ada", "POST", `/api/intents/${p.data.intent}/archive`);
   });
 
   test("an imported version and its variants are given their readable source once, and nothing else of them changes", async () => {
@@ -523,17 +554,19 @@ suite("play API", () => {
   });
 
   test("minified code, a source that sets no recipe, and an engine that is not frozen are refused", async () => {
-    const min = await call("cit", "POST", "/api/intents", { asset: ids.fern, source: `module.exports.recipe=function(){return ${"[1,2,3],".repeat(200)}0};` });
+    const min = await propose("ada", { asset: ids.fern, source: `module.exports.recipe=function(){return ${"[1,2,3],".repeat(200)}0};` });
     expect(min.status).toBe(400);
     expect(min.data.error).toContain("not readable");
-    expect((await call("cit", "POST", "/api/intents", { asset: ids.fern, source: "// nothing here\n" })).data.error).toContain("module.exports.recipe");
-    const engine = await call("cit", "POST", "/api/intents", { asset: ids.fern, source: "module.exports.recipe = () => ({});\n", record: { engine: { version: 99 } } });
+    expect((await propose("ada", { asset: ids.fern, source: "// nothing here\n" })).data.error).toContain("module.exports.recipe");
+    const engine = await propose("ada", { asset: ids.fern, source: "module.exports.recipe = () => ({});\n", record: { engine: { version: 99 } } });
     expect(engine.data.error).toContain("not one of the frozen engines");
   });
 
   test("admins run the members, and one admin always stays", async () => {
     expect((await call("cit", "GET", "/api/members")).status).toBe(403);
-    expect((await call("ada", "GET", "/api/members")).data.length).toBe(5);
+    expect((await call("ada", "GET", "/api/members")).data.length).toBe(6);
+    // the second admin a citizen again: ada is the one admin left, and stays
+    expect((await call("ada", "POST", `/api/members/${who.eve.id}/level`, { level: "citizen" })).data.level).toBe("citizen");
     expect((await call("ada", "POST", `/api/members/${who.ada.id}/level`, { level: "traveler" })).status).toBe(409);
     expect((await call("ada", "POST", `/api/members/${who.cit2.id}/level`, { level: "traveler" })).data.level).toBe("traveler");
   });
@@ -558,8 +591,8 @@ suite("play API", () => {
     expect((await call("ada", "POST", `/api/members/${who.trav.id}/name`, { name: "  Wanda   Walker " })).data.name).toBe("Wanda Walker");
     expect((await call("ada", "DELETE", `/api/members/${who.ada.id}`)).status).toBe(409);
     expect((await call("cit", "DELETE", `/api/members/${who.trav.id}`)).status).toBe(403);
-    // the citizen made a version above: kept, with their name on it
-    const kept = await call("ada", "DELETE", `/api/members/${who.cit.id}`);
+    // the second admin made a version above: kept, with their name on it
+    const kept = await call("ada", "DELETE", `/api/members/${who.eve.id}`);
     expect(kept.status).toBe(409);
     expect(kept.data.error).toContain("asset version");
     const before = (await call("ada", "GET", "/api/members")).data.length;
@@ -591,6 +624,8 @@ suite("play API", () => {
   let storyToken = "";
   let m = 1000;
   const rawTool = async (name: string, args: Record<string, unknown>, token = storyToken) => {
+    // no work without an intent: every propose names one, made ready for it, unless the test names its own
+    if ((name.startsWith("propose_") || name === "add_artifact" || name === "update_artifact") && args.intent === undefined) args = { ...args, intent: await ready() };
     const r = await api.fetch(new Request("http://play.test/api/mcp", {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
@@ -1083,11 +1118,11 @@ suite("play API", () => {
     await db.query(`INSERT INTO play.story_versions (id, story_id, number, parents, title, body, note, created) VALUES ($1, '${OLD}', 2, $2, 'Old', ($3::text)::jsonb, 'two', '2026-10-02T10:00:00Z')`, [v2, [v1], JSON.stringify(body("second"))]);
     await db.query(`INSERT INTO play.story_versions (id, story_id, parents, title, body, note, author) VALUES ($1, '${OLD}', $2, 'Old', ($3::text)::jsonb, 'three', $4)`, [p3, [v2], JSON.stringify(body("third")), who.ada.id]);
     await db.query(`UPDATE play.stories SET head = $1 WHERE id = '${OLD}'`, [v2]);
-    const pid = crypto.randomUUID();
-    // an intent at Proposal whose work was proposed before the documents: it has no intent variant yet
+    // an intent at Proposal (specified, as every one there is) whose work was proposed before the documents: it has no
+    // intent variant yet
+    const pid = await ready("ada", "Old v3");
     await db.query(
-      `INSERT INTO play.intents (id, coop_id, kind, title, stage, author, via, work, story_id, story_base, story_version, work_note, proposed_by, proposed_via, proposed_at)
-       VALUES ($1, '12f8d4e7-701f-8727-a327-de9b240ea867', 'improve', 'Old v3', 'proposal', $4, 'mcp', 'story_version', '${OLD}', $2, $3, 'three', $4, 'mcp', now())`,
+      `UPDATE play.intents SET stage = 'proposal', work = 'story_version', story_id = '${OLD}', story_base = $2, story_version = $3, work_note = 'three', proposed_by = $4, proposed_via = 'mcp', proposed_at = now() WHERE id = $1`,
       [pid, v2, p3, who.ada.id],
     );
     const h = (await call("ada", "GET", `/api/docs/${OLD}/history`)).data;

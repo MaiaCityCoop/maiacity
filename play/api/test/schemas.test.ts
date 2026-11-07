@@ -110,6 +110,8 @@ suite("schemas as documents", () => {
     }
     if (name === "propose_doc_version" && args.intent === undefined && args.variant != null && variantIntent.has(Number(args.variant)))
       return raw(name, { ...args, intent: variantIntent.get(Number(args.variant)) });
+    // no work without an intent (intent 706ed873): work proposed at once is an intent's of its own, ready for it
+    if (name === "propose_doc_version" && args.intent === undefined && args.variant == null) return raw(name, { ...args, intent: await readyIntent(`A proposal: ${args.note}`) });
     return raw(name, args);
   };
   const accept = (intent: string) => call("ada", "POST", `/api/intents/${intent}/accept`);

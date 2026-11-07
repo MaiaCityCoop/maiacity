@@ -180,10 +180,15 @@ suite("assets as documents", () => {
     expect(ok.status).toBe(200);
   });
 
-  /** an intent in Prototype, its spec approved: what an edit is made for (every edit is an intent's) */
+  /** an intent in Build, its spec approved and its one must check passed: what an edit and work are made for (no work without an intent) */
   const building = async (title: string) => {
     const id = crypto.randomUUID();
-    await db.query(`INSERT INTO play.intents (id, coop_id, kind, title, stage, author, via, approved_at) VALUES ($1, $2, 'improve', $3, 'build', $4, 'mcp', now())`, [id, COOP, title, who.ada.id]);
+    const spec = { goal: "It changes.", scope: "A test fixture.", checks: [{ id: "c1", check: "It holds", how: "test", by: "true", run: "true", must: true, step: "mvp" }] };
+    const results = { c1: { pass: true, evidence: "exit 0", by: null, at: new Date().toISOString() } };
+    await db.query(
+      `INSERT INTO play.intents (id, coop_id, kind, title, stage, author, via, spec, results, approved_by, approved_at) VALUES ($1, $2, 'improve', $3, 'build', $4, 'mcp', ($5::text)::jsonb, ($6::text)::jsonb, $4, now())`,
+      [id, COOP, title, who.ada.id, JSON.stringify(spec), JSON.stringify(results)],
+    );
     return id;
   };
 
@@ -223,17 +228,22 @@ suite("assets as documents", () => {
   test("an intent variant seeded from an older head is refused when proposed; work proposed over the web gets an intent variant, archived by its author it is closed", async () => {
     const ada = (await me("ada"))!, cit = (await me("cit"))!;
     const intent = await building("A brighter lamp");
+    // no work without an intent: a citizen's, or an admin's naming none, is refused and nothing is written
+    const before = (await db.query(`SELECT count(*)::int AS n FROM play.doc_variants`)).rows[0].n;
+    await expect(propose(db, store, cit, { asset: ids.lamp, note: "a dimmer lamp", source: src("one dim lamp") })).rejects.toThrow();
+    await expect(propose(db, store, ada, { asset: ids.lamp, note: "a dimmer lamp", source: src("one dim lamp") })).rejects.toThrow(/add_intent/);
+    expect((await db.query(`SELECT count(*)::int AS n FROM play.doc_variants`)).rows[0].n).toBe(before);
     const old = await docEdit(ctx(), ada, { doc: ids.lamp, intent, message: "brighter", edits: [{ op: "replace", find: "one lamp", replace: "one bright lamp" }] });
-    const web = await propose(db, store, cit, { asset: ids.lamp, note: "a dimmer lamp", source: src("one dim lamp") });
+    const web = await propose(db, store, ada, { asset: ids.lamp, note: "a dimmer lamp", source: src("one dim lamp"), intent: await building("A dimmer lamp") });
     expect(web.variant).toBeGreaterThan(0);
     await decide(db, store, ada, web.intent, "accept");
     await expect(proposeDocVersion(ctx(), ada, { doc: ids.lamp, note: "brighter", variant: old.variant, intent }, "mcp")).rejects.toThrow(/newer version/);
-    const again = await propose(db, store, cit, { asset: ids.lamp, note: "warmer", source: src("one warm lamp") });
-    await decide(db, store, cit, again.intent, "archive");
+    const again = await propose(db, store, ada, { asset: ids.lamp, note: "warmer", source: src("one warm lamp"), intent: await building("A warmer lamp") });
+    await decide(db, store, ada, again.intent, "archive");
     const { rows } = await db.query<any>(`SELECT status FROM play.doc_variants WHERE id = $1`, [again.variant]);
     expect(rows[0].status).toBe("archived");
     // a new asset's first version: its document starts empty, its intent variant fills it
-    const fresh = await propose(db, store, cit, { new: { group: "things", slug: "stool", label: "Stool" }, note: "a stool", source: src("a stool") });
+    const fresh = await propose(db, store, ada, { new: { group: "things", slug: "stool", label: "Stool" }, note: "a stool", source: src("a stool"), intent: await building("A stool") });
     await decide(db, store, ada, fresh.intent, "accept");
     const stool = await docs.readDoc(db, assetDocId(fresh.asset));
     expect(stool.json.source).toBe(src("a stool"));
