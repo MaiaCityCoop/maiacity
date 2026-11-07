@@ -540,7 +540,7 @@ suite("migration 202611070120-7c8085db-breeds", () => {
     const before = await frozen();
 
     // ---- 0033 and 0034, and the import's breeds
-    expect(await migrate(db)).toEqual([BREEDS]);
+    expect(await migrate(db, { until: BREEDS })).toEqual([BREEDS]);
     const { ensureAssetDocs } = await import("../src/assetdocs");
     const docs = await import("../src/docs");
     const report = await ensureAssetDocs(db, store, mkdtempSync(join(tmpdir(), "play-history-")));
