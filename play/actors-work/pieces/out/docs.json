@@ -1,0 +1,42 @@
+{
+ "skeleton": {
+  "doc": "184e52cf-c698-4bf2-8d4e-f8c54501a717",
+  "variant": 1325
+ },
+ "ik": {
+  "doc": "c2c12286-176c-42b3-8211-32c1ddf18e83",
+  "variant": 1329
+ },
+ "person": {
+  "doc": "111e4812-5d90-419c-9628-31f2701a13c4",
+  "variant": 1337
+ },
+ "motion": {
+  "doc": "4bb27bfe-ce7d-4889-ab22-9190ad6b8c5a",
+  "variant": 1339
+ },
+ "head": {
+  "doc": "e80c5c5b-b897-40f2-8fd0-35fd4d0b7b06",
+  "variant": 1341
+ },
+ "clips-man": {
+  "doc": "20edab62-eac7-4db1-995c-e831bfcaeaa7",
+  "variant": 1343
+ },
+ "clips-elder": {
+  "doc": "2ec46fc8-5757-45a0-9d7e-9783fe415ac4",
+  "variant": 1345
+ },
+ "clips-actions": {
+  "doc": "93003c82-e69f-49ea-a9f7-ef4210de9305",
+  "variant": 1347
+ },
+ "asset:8ff16823-d2eb-506c-9705-0feba7cf989e": {
+  "doc": "8ff16823-d2eb-506c-9705-0feba7cf989e",
+  "variant": 1348
+ },
+ "asset:682d0d05-2196-5c4d-9fb5-5acd7ebfb17f": {
+  "doc": "682d0d05-2196-5c4d-9fb5-5acd7ebfb17f",
+  "variant": 1349
+ }
+}

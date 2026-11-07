@@ -15,7 +15,7 @@ const three = require('three');
 const three_addons_utils_BufferGeometryUtils_js = require('three/addons/utils/BufferGeometryUtils.js');
 const three_addons_geometries_RoundedBoxGeometry_js = require('three/addons/geometries/RoundedBoxGeometry.js');
 const SK = require('c6bd60a52004748e86bd99d3a922057c155a76b2ef4ffdb3a41903dd7b60f129');
-const HEAD = require('e07ee7f03695424adbaa9340abe8260376e3cc8f362c3dca192a0c75af9c872b');
+const HEAD = require('7f6d41491559a018391791976005e6b4285fb51b28c89da3dc0c327ee79aff83');
 const PARS = `
 #ifdef USE_SKINNING
 	vec4 dqQuat( mat3 m ) {

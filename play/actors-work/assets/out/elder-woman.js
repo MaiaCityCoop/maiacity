@@ -11,10 +11,10 @@
  * Taku Komura, 100STYLE (CC BY 4.0, doi:10.1145/3522618). CC0: Quaternius; MakeHuman.
  */
 const THREE = require('three');
-const BODY = require('bd01f7ace1a24e16af3195fe7c33fca6c28d416852d0314a73a620c9bc6da2e9');
+const BODY = require('7f8cae20147242dbe6ee2eafe0203c1f59f0cd3925bca7135b70667137888cf2');
 const MOTION = require('51e2cc215edd217474bf8898ae38ce8a5cae8fcb2e00ba0bd5dd3d7efb28f0c3');
-const GAIT = require('37b3be2838d55b19cfc15d46d9660646553a64d5f0aed600cfa5607d8908d6f0');
-const ACTIONS = require('6a252e13b7fa26071650e300d87eac43b29ce5caf4788ddd45a0b9fa84448aa0');
+const GAIT = require('1fbd63db022a1366452d70ab19d24f6b65b58246a83c4a226da3acafd88f3c4a');
+const ACTIONS = require('5ce51f9e5126cb38ef44ddbe205b359e0917da6774d28ac1e7931797365004ce');
 
 /** how she looks (v2's) */
 const LOOK = {

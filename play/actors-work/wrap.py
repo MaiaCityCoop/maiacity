@@ -8,7 +8,7 @@ for line in src:
     m = re.match(r'^(\s*)(.*?)"([A-Za-z0-9+/=]{500,})"(.*)$', line)
     if not m: raise SystemExit('cannot wrap line: ' + line[:120])
     ind, pre, data, post = m.groups()
-    chunks = [data[i:i + 900] for i in range(0, len(data), 900)]
+    chunks = [data[i:i + 100] for i in range(0, len(data), 100)]
     out.append(f'{ind}{pre}[')
     out += [f'{ind}\t"{c}",' for c in chunks]
     out.append(f'{ind}].join(""){post}')

@@ -84,7 +84,7 @@ const q4 = (q) => {
 	return [Math.round(q.x * s * 1e4), Math.round(q.y * s * 1e4), Math.round(q.z * s * 1e4)];
 };
 /** numbers written as rows no longer than `w` characters */
-const rows = (list, indent, w = 900) => {
+const rows = (list, indent, w = 110) => {
 	const out = [];
 	let line = '';
 	for (const x of list) {
