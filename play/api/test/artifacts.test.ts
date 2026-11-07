@@ -556,9 +556,10 @@ suite("artifacts", () => {
     expect((await tool("add_artifact", { ...ARTIFACT({ url: "https://doc.example/two" }), intent: idea.id })).error).toMatch(/idea stage/);
     await tool("specify_intent", { intent: idea.id, goal: "Its sources kept.", nothing_to_reduce: "A test fixture: nothing to reduce.", scope: "Two links.", checks: [{ check: "They are kept", how: "test", by: "true", run: "true" }] });
     await call("Samuel", "POST", `/api/intents/${idea.id}/approve`);
-    expect((await tool("add_artifact", { ...ARTIFACT({ url: "https://doc.example/two" }), intent: idea.id })).error).toMatch(/not ready to propose/);
-    await tool("check_intent", { intent: idea.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] });
+    // in Build, the work waits on it (intent 94061718) and moves to Proposal with it once its last must passes
     const two = await tool("add_artifact", { ...ARTIFACT({ url: "https://doc.example/two" }), intent: idea.id });
+    expect(two).toMatchObject({ intent: idea.id, stage: "build", waiting: true });
+    expect((await tool("check_intent", { intent: idea.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] })).stage).toBe("proposal");
     const three = await tool("add_artifact", { ...ARTIFACT({ url: "https://doc.example/three" }), intent: idea.id });
     expect([two.intent, three.intent]).toEqual([idea.id, idea.id]);
     // one intent, two artifacts: reviewed with both, accepted together

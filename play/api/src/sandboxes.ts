@@ -531,7 +531,7 @@ export async function proposedState(db: Queryable, me: Me | null, sandbox: strin
   if (!intent) throw new NotFound("There is no such intent.");
   const { rows } = await db.query<{ stage: string; doc_variant: string | null }>(`SELECT i.stage, iv.variant_id AS doc_variant FROM play.intents i JOIN play.intent_variants iv ON iv.intent_id = i.id WHERE i.id = $1 AND iv.doc_id = $2`, [intent, layoutDoc(sandbox)]);
   if (!rows[0]) throw new NotFound("There is no such intent's change of this sandbox.");
-  if (rows[0].stage !== "proposal" || rows[0].doc_variant == null) return stateOf(db, sandbox);
+  if ((rows[0].stage !== "proposal" && rows[0].stage !== "build") || rows[0].doc_variant == null) return stateOf(db, sandbox);
   const merged = (await docs.previewMerge(db, layoutDoc(sandbox), Number(rows[0].doc_variant))).json;
   if ((await layoutProblems(db, merged)).length) throw new NotFound("It no longer holds on the layout as it is now.");
   return { pins: merged.pins ?? {}, configs: merged.configs ?? {} };

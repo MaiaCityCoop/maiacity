@@ -30,7 +30,7 @@ import { readableRefs } from "../import/plan";
 import { versionId } from "./versions";
 import { newId, UUID } from "./uuid";
 import { asVersionError, named, versionAt, VersionError, type Ctx, type Verdict } from "./versioned";
-import { closeWork, holdVariant, putAtProposal, settle, WORK_OF, WorkError } from "./work";
+import { closeWork, holdVariant, putAtProposal, settle, stageAfter, WORK_OF, WorkError } from "./work";
 import { SCHEMA } from "./ids";
 
 export const HISTORY = join(import.meta.dir, "../import/history");
@@ -868,7 +868,7 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
     edits = (await docs.history(tx, assetDocId(asset), { variant: v })).length;
     variantId = v;
   });
-  return { intent, stage: "proposal" as const, asset, version: id, number: n, base: head, variant: variantId, edits };
+  return { intent, stage: await stageAfter(db, intent), asset, version: id, number: n, base: head, variant: variantId, edits };
 }
 
 /** an asset's intent variant proposed as it stands (./versioned.ts propose_doc_version): its recipe files made, its frozen version written */
@@ -952,7 +952,7 @@ export async function decideAsset(tx: Queryable, store: BlobStore, me: Me, p: an
     // the other intents' work made on the same head can go in no more: archived, to be built again on the new one
     const { rows: stale } = await tx.query<any>(
       `SELECT ${WORK_OF} FROM play.intents i
-        WHERE i.asset_id = $1 AND i.work = $4 AND i.stage = 'proposal' AND i.id <> $2 AND i.base IS NOT DISTINCT FROM $3 FOR UPDATE`,
+        WHERE i.asset_id = $1 AND i.work = $4 AND i.stage IN ('build', 'proposal') AND i.id <> $2 AND i.base IS NOT DISTINCT FROM $3 FOR UPDATE`,
       [p.asset_id, id, p.base, ASSET_WORK],
     );
     for (const s of stale) {
