@@ -7,12 +7,20 @@
  * the harness, to look at it in a browser.
  *
  *   bun scripts/story-parity.ts src/lib/stories/fixtures/hex-village.json --at 1.0,3.6,7.2 --min-ssim 0.98 [--keep dir] [--serve]
+ *
+ * A live shot (intent f270269e) is drawn by the frozen box engine (static/engines) and the live runtime
+ * (scripts/live-runtime.ts), both by their hashes; its recipe and pieces, and any file the fixture doesn't give, are
+ * play's: fetched from play's read-only routes with PLAY_MCP_TOKEN (sent to play only), each held to its hash. The
+ * renderer's project has the code laid in (compose.ts `laid`), the player's frame has it handed in by the page.
  */
 import { chromium } from 'playwright';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, copyFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { compose, filesOf, VENDOR } from '../src/lib/stories/compose';
+import { codeOf, compose, filesOf, laid, VENDOR } from '../src/lib/stories/compose';
+import { liveRuntime } from './live-runtime';
+import { enginesOf } from '../src/lib/kernel/engines.js';
+import { hashBytes } from '../src/lib/content/game/hash.js';
 
 const args = process.argv.slice(2);
 const opt = (name: string) => {
@@ -27,26 +35,47 @@ const SITE = resolve(import.meta.dir, '..');
 const work = opt('--keep') ? resolve(opt('--keep')!) : mkdtempSync(join(tmpdir(), 'story-parity-'));
 mkdirSync(work, { recursive: true });
 
-const { story, links, compositions, files: given = {} } = JSON.parse(readFileSync(fixture, 'utf8'));
-const html = compose(story, links, compositions);
+const { story, links, compositions, assets, files: given = {} } = JSON.parse(readFileSync(fixture, 'utf8'));
+const html = compose(story, links, compositions, assets);
 const [W, H] = [Number(html.match(/data-width="(\d+)"/)![1]), Number(html.match(/data-height="(\d+)"/)![1])];
 // the project the renderer reads: the composition, and every file it names where play serves it (/api/files/<hash>)
 const project = join(work, 'project');
 mkdirSync(join(project, 'api/files'), { recursive: true });
-writeFileSync(join(project, 'index.html'), html);
 const vendor: Record<string, string> = {
 	[VENDOR.runtime.hash]: join(SITE, 'node_modules/@hyperframes/core/dist/hyperframe.runtime.iife.js'),
 	[VENDOR.gsap.hash]: join(SITE, 'node_modules/gsap/dist/gsap.min.js'),
 	[VENDOR.font.hash]: join(SITE, 'node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2')
 };
-for (const h of filesOf(html)) {
-	const from = vendor[h] ?? (given[h] ? resolve(fixture, '..', given[h]) : null);
-	// a file the fixture does not give: from STORY_FILES (a play to read it from, e.g. a local stand-in), if named
-	if (!from && process.env.STORY_FILES) writeFileSync(join(project, 'api/files', h), new Uint8Array(await (await fetch(`${process.env.STORY_FILES}/api/files/${h}`)).arrayBuffer()));
-	else if (!from) throw new Error(`the fixture does not give file ${h.slice(0, 12)}…`);
-	else copyFileSync(from, join(project, 'api/files', h));
+for (const e of enginesOf('box')) vendor[e.blake3] = join(SITE, `static/engines/engine-v${e.v}.js`);
+if (codeOf(html).length) {
+	const live = join(work, 'live-runtime.js');
+	writeFileSync(live, await liveRuntime());
+	vendor[VENDOR.live.hash] = live;
 }
-const type = (h: string) => (h === VENDOR.font.hash ? 'font/woff2' : vendor[h] ? 'text/plain; charset=utf-8' : 'application/octet-stream');
+/** a file of play's, from its read-only routes with the token, held to its hash */
+async function fromPlay(h: string) {
+	// STORY_FILES: a play to read it from (a local stand-in), else play's own with the token
+	if (process.env.STORY_FILES) return new Uint8Array(await (await fetch(`${process.env.STORY_FILES}/api/files/${h}`)).arrayBuffer());
+	const token = process.env.PLAY_MCP_TOKEN;
+	if (!token) throw new Error(`the fixture does not give file ${h.slice(0, 12)}… (and no PLAY_MCP_TOKEN to read it from play)`);
+	const res = await fetch(`${process.env.PLAY_URL ?? 'https://play.maia.city'}/api/files/${h}`, { headers: { authorization: `Bearer ${token}` } });
+	if (!res.ok) throw new Error(`play's file ${h.slice(0, 12)}…: HTTP ${res.status}`);
+	const bytes = new Uint8Array(await res.arrayBuffer());
+	if (hashBytes(bytes) !== h) throw new Error(`play's file ${h.slice(0, 12)}… does not hash to its name`);
+	return bytes;
+}
+const code: Record<string, string> = {};
+for (const h of [...filesOf(html), ...codeOf(html)]) {
+	const to = join(project, 'api/files', h);
+	const from = vendor[h] ?? (given[h] ? resolve(fixture, '..', given[h]) : null);
+	if (from) copyFileSync(from, to);
+	else writeFileSync(to, await fromPlay(h));
+	const bytes = readFileSync(to);
+	if (hashBytes(new Uint8Array(bytes)) !== h) throw new Error(`file ${h.slice(0, 12)}… does not hash to its name`);
+	if (codeOf(html).includes(h)) code[h] = bytes.toString('utf8');
+}
+writeFileSync(join(project, 'index.html'), laid(html, code));
+const type = (h: string) => (h === VENDOR.font.hash ? 'font/woff2' : vendor[h] || code[h] ? 'text/plain; charset=utf-8' : 'application/octet-stream');
 
 // the harness: HyperFrames' player as the Stories player sets it up, the page answering the frame's asks for files
 const bundle = await Bun.build({ entrypoints: [join(import.meta.dir, 'story-parity-page.ts')], target: 'browser', minify: false });
@@ -89,9 +118,12 @@ try {
 	page.on('console', (m) => m.type() === 'error' && console.error('player:', m.text()));
 	await page.goto(`http://localhost:${server.port}/`);
 	await page.waitForFunction(() => (window as any).ready === true, null, { timeout: 120_000 });
+	// and the composition's own setup (a live shot's builds: HyperFrames' __hf.buildReady), in its frame
+	const inner = page.frames().find((f) => f !== page.mainFrame());
+	await inner?.waitForFunction(() => (window as any).__renderReady === true, null, { timeout: 300_000 });
 	for (const t of at) {
 		await page.evaluate((s) => (window as any).at(s), t);
-		await page.screenshot({ path: join(work, `player-${t}.png`), clip: { x: 0, y: 0, width: W, height: H } });
+		await page.screenshot({ path: join(work, `player-${t}.png`), clip: { x: 0, y: 0, width: W, height: H }, timeout: 300_000 });
 	}
 	await browser.close();
 	// how alike, by SSIM
