@@ -3,7 +3,7 @@
 // From then on play's Postgres is the source of truth: a config changes only by proposal (over MCP), and nothing here
 // writes over it. Run with every deploy, by ./run.ts.
 import type { Db } from "../src/pg";
-import { seedGameConfig } from "../src/gameconfigs";
+import { seedDoc } from "../src/versioned";
 import { GAME_CONFIG } from "../src/ids";
 import { levelling } from "./gameconfigs/levelling";
 
@@ -23,7 +23,7 @@ export async function seedGameConfigs(db: Db): Promise<GameConfigsReport> {
   const out: GameConfigsReport = { seeded: [], present: [], errors: [] };
   for (const c of GAME_CONFIGS) {
     try {
-      if (await seedGameConfig(db, { id: c.id, json: c.json(), note: c.note, at: c.at })) out.seeded.push(c.id);
+      if (await seedDoc(db, "game_config", { id: c.id, json: c.json(), note: c.note, at: c.at })) out.seeded.push(c.id);
       else out.present.push(c.id);
     } catch (e) {
       out.errors.push(`${c.id}: ${String((e as Error)?.message ?? e).slice(0, 300)}`);

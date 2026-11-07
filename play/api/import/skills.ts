@@ -3,7 +3,7 @@
 // then on play's Postgres is the source of truth: a skill changes only by proposal (over MCP), and nothing here writes
 // over it. Run with every deploy, by ./run.ts.
 import type { Db } from "../src/pg";
-import { seedSkill } from "../src/skills";
+import { seedDoc } from "../src/versioned";
 import { SKILL } from "../src/ids";
 import { avenmaia } from "./skills/avenmaia";
 import { intents } from "./skills/intents";
@@ -30,7 +30,7 @@ export async function seedSkills(db: Db): Promise<SkillsReport> {
   const out: SkillsReport = { seeded: [], present: [], errors: [] };
   for (const s of SKILLS) {
     try {
-      if (await seedSkill(db, { id: s.id, json: s.json(), note: s.note, at: s.at })) out.seeded.push(s.id);
+      if (await seedDoc(db, "skill", { id: s.id, json: s.json(), note: s.note, at: s.at })) out.seeded.push(s.id);
       else out.present.push(s.id);
     } catch (e) {
       out.errors.push(`${s.id}: ${String((e as Error)?.message ?? e).slice(0, 300)}`);

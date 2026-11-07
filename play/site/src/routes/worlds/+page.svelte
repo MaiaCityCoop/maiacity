@@ -1,7 +1,8 @@
 <!--
 	WORLDS (Samuel 2026-11-05, play/SPEC.md §4.11): the asset group `worlds`, a world being the other assets composed
 	into one place. On the left Maia City's worlds; in the middle the one picked, big, everything it names drawn where it
-	stands, alive if it moves (its traffic, its signals, its sirens), under its own sky; on the right its versions. Its
+	stands, alive if it moves (its traffic, its signals, its sirens), under its own sky; on the right, in its History tab
+	($lib/app/History.svelte, the one History of every view), its versions and, for admins, every edit it was made in. Its
 	address is `#<asset id>` (its UUID), a version of it `#<asset id>/<recipe hash>`.
 
 	Its film page, `/worlds/?film&asset=<asset id>&recipe=<recipe hash>` (play/SPEC.md §4.11): the world alone, whole
@@ -11,9 +12,10 @@
 	import { onMount } from 'svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
+	import History, { type ChainVersion, type Pick } from '$lib/app/History.svelte';
 	import { api } from '$lib/api';
 	import { catalogReady } from '$lib/recipes';
-	import { INDEX, source } from '$lib/content/assets/catalog.js';
+	import { INDEX, admitProposed, source } from '$lib/content/assets/catalog.js';
 	import WorldStage from '$lib/content/worlds/WorldStage.svelte';
 
 	type Listed = { id: string; grp: string; slug: string; label: string; head: number; versions: number };
@@ -72,6 +74,26 @@
 		hash = h;
 	};
 	const short = (h: string | null) => (h ? `${h.slice(0, 10)}…` : '—');
+
+	// its History: an edit picked there is drawn as the world stood at it, from its recipe file at that edit
+	let editHash = $state<string | null>(null);
+	$effect(() => {
+		void shownHash;
+		editHash = null;
+	});
+	const chainOf = (c: Chain): ChainVersion[] => c.versions.map((v) => ({ number: v.number, note: v.note, at: v.created, by: v.author ?? 'someone', acceptedBy: v.approvedBy, label: v.cardLabel ?? c.label }));
+	async function picked(p: Pick | null) {
+		if (!chain) return;
+		if (!p) return void (editHash = null);
+		if ('version' in p) {
+			const v = chain.versions.find((x) => x.number === p.version);
+			if (v) go(`${chain.id}/${ownOf(v)}`);
+			return;
+		}
+		const b = await api<any>(`/assets/${chain.id}/recipe?edit=${p.edit.seq}`);
+		await admitProposed([b]);
+		editHash = b.hash;
+	}
 </script>
 
 <svelte:head><title>Worlds · maiaCITY play</title></svelte:head>
@@ -87,23 +109,19 @@
 	{/each}
 {/snippet}
 
-{#snippet about()}
+{#snippet head()}
 	{#if chain && shownVersion}
 		<header class="about-head">
 			<small>Worlds · owned by Maia City</small>
 			<h3>{chain.label}</h3>
 			<p class="soft">v{shownVersion.number} · {chain.versions.length} version{chain.versions.length === 1 ? '' : 's'}</p>
 		</header>
-		<ol class="chain">
-			{#each chain.versions as v (v.id)}
-				{@const own = ownOf(v)}
-				<li class:on={v.id === shownVersion.id}>
-					<a href="#{chain.id}/{own}" onclick={(e) => (e.preventDefault(), go(`${chain!.id}/${own}`))}><b>v{v.number}</b> <span>{v.cardLabel ?? chain.label}</span></a>
-					<p class="soft">By {v.author ?? 'someone'}{v.approvedBy ? ` · accepted by ${v.approvedBy}` : ''} · {new Date(v.created).toLocaleDateString('en-GB')}</p>
-					{#if v.note}<p class="note">{v.note}</p>{/if}
-				</li>
-			{/each}
-		</ol>
+	{/if}
+{/snippet}
+
+{#snippet history()}
+	{#if chain && shownVersion}
+		<History doc={chain.id} shown={shownVersion.number} label="the world" versions={chainOf(chain)} onPick={picked} />
 		<dl>
 			<dt>Id</dt><dd class="mono" title={shownVersion.id}>{short(shownVersion.id)}</dd>
 			<dt>Recipe</dt><dd class="mono" title={shownHash ?? ''}>BLAKE3 {short(shownHash)}</dd>
@@ -123,13 +141,13 @@
 	</div>
 {:else}
 <div class="worlds">
-	<Frame nav={ready ? shelf : undefined} aside={chain && shownVersion ? about : undefined} navLabel="Maia City's worlds" asideLabel="The world's versions" navIcon="asset" flush>
+	<Frame nav={ready ? shelf : undefined} asideHead={chain && shownVersion ? head : undefined} history={chain && shownVersion ? history : undefined} navLabel="Maia City's worlds" asideLabel="The world's history" navIcon="asset" flush>
 		{#if failed}
 			<p class="error">{failed}</p>
 		{:else if !ready}
 			<p class="soft">Reading Maia City's worlds…</p>
 		{:else if shownHash}
-			<WorldStage {source} engine={INDEX.engine} hash={shownHash} />
+			{#key editHash ?? shownHash}<WorldStage {source} engine={INDEX.engine} hash={editHash ?? shownHash} />{/key}
 		{:else}
 			<p class="soft">No world is picked.</p>
 		{/if}
@@ -145,26 +163,6 @@
 	}
 	.worlds {
 		height: 100%;
-	}
-	.chain {
-		list-style: none;
-		padding: 0;
-		margin: 12px 0;
-	}
-	.chain li {
-		padding: 8px 0;
-		border-top: 1px solid rgb(0 0 0 / 0.08);
-	}
-	.chain li.on b {
-		color: var(--accent, #2f6b4f);
-	}
-	.chain a {
-		color: inherit;
-		text-decoration: none;
-	}
-	.note {
-		margin: 4px 0 0;
-		font-size: 13px;
 	}
 	dl {
 		display: grid;
