@@ -32,13 +32,22 @@
 		// only for now (Samuel 2026-11-03)
 		{ href: '/factories/', label: 'Factories', note: 'The LifeTrac line, every part from raw stock', icon: 'factory', admins: true },
 	];
+	// the Library (routes/library, Samuel 2026-11-04), written once: it opens the library of whoever you act as (intent
+	// 1b2ebc8d, Samuel 2026-11-07): acting as Maia City, among the city's, every file the coop keeps; acting as yourself,
+	// among your apps, your own personal library. Admins only for now, as the Library is.
+	const LIBRARY = (coop: boolean): Tile => ({
+		href: '/library/',
+		label: 'Library',
+		note: coop ? 'Every image, video and recording Maia City keeps' : 'Your own files, private to you',
+		icon: 'media',
+		admins: true
+	});
 	// the coop's own, for an admin acting as Maia City (Samuel 2026-11-04: the stories moved here; 2026-11-05: the
 	// proposals left for the nav pill's star)
 	const CITY: Tile[] = [
 		// our films as timelines, storyboard beside the script, to feel whether they work (routes/stories)
 		{ href: '/stories/', label: 'Stories', note: 'Our films as timelines: storyboard, voice, notes', icon: 'studio' },
-		// every image, video and recording play keeps, labelled, and where the stories use it (routes/library, Samuel 2026-11-04)
-		{ href: '/library/', label: 'Library', note: 'Every image, video and recording play keeps', icon: 'media' },
+		LIBRARY(true),
 		// every link from the net Maia City keeps, its summaries and its authors, kept by avenMAIA: all of them artifacts
 		// (routes/artifacts, Samuel 2026-11-06)
 		{ href: '/artifacts/', label: 'Artifacts', note: 'Every link we keep, summarized, with its authors', icon: 'link' },
@@ -57,7 +66,7 @@
 	];
 	const city = $derived(asCity());
 	const admin = $derived(session.me?.level === 'admin');
-	const apps = $derived(APPS.filter((t) => !t.admins || admin));
+	const apps = $derived([...APPS, ...(city ? [] : [LIBRARY(false)])].filter((t) => !t.admins || admin));
 </script>
 
 <svelte:head><title>Dashboard · maiaCITY play</title></svelte:head>
