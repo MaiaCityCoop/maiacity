@@ -50,6 +50,23 @@ invites      (code, coop_id, level /*citizen*/, made_by, expires_at, used_by, us
 sessions     -- as today's API (signed cookie)
 ```
 
+### 3.1 Migrations (Samuel 2026-11-07)
+
+Every migration is a file of its own, `play/api/migrations/<id>.sql`, its whole SQL as it ran; there is no list of
+them in code. `play/api/src/migrations.ts` lists the folder and runs every `<id>.sql` not yet in `play.migrations`, in
+name order, each once, in its own transaction under one advisory lock (play-api and the import migrate at once on a
+deploy), then `ensureSchemas`; `until` stops after one (a test builds a database as it stood then). A migration is
+never edited after it has shipped, only followed by another.
+
+- **To add one**, write one new file and touch nothing else: `<UTC time YYYYMMDDHHMM>-<the intent's first 8
+  hex>-<slug>.sql` (lowercase), e.g. `202611071200-e9afc2d5-files.sql`, the time when it is written. It sorts after
+  every shipped one, and two intents can't pick the same name, so intents built in parallel never conflict over their
+  migrations (`play/api/test/migrations-merge.sh`).
+- **The shipped ones** `0001-ownership` … `0034-schemas` keep their numbered ids and their SQL byte for byte,
+  because `play.migrations` names them; their SHA-256 are frozen in `play/api/test/fixtures/migrations.sha256.json`
+  (`migrate.test.ts`, "shipped migrations unchanged"). No numbered id comes after `0034`.
+- The runner refuses to start, naming the file, on a malformed id or a duplicate (two files under one number).
+
 ## 4. Asset version control, from first principles
 
 ### 4.1 What is versioned
