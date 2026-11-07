@@ -13,7 +13,7 @@ import { UUID } from "./uuid";
 import { readableRefs } from "../import/plan";
 import { NotFound } from "./assets";
 import * as docs from "./docs";
-import { SANDBOX, slotsNamed } from "./docs/schema";
+import { SCHEMA } from "./ids";
 import { applyEdits as applyDocEdits, jsonOf, newDoc, seed } from "./docs/core";
 import { closeWork, intentIdOf, settle } from "./work";
 import { resolveEdits, VersionError } from "./versioned";
@@ -64,6 +64,42 @@ export async function stateOf(q: Queryable, sandbox: string): Promise<SandboxSta
     pins: Object.fromEntries(p.map((r) => [r.slot, { version: r.version_id, variant: r.variant, params: r.params ?? null }])),
     configs: Object.fromEntries(c.map((r) => [r.name, r.data])),
   };
+}
+
+/** every slot a config names (`{ slot }` anywhere in it), with where */
+export function slotsNamed(configs: Record<string, unknown>): { slot: string; config: string; path: Key[] }[] {
+  const out: { slot: string; config: string; path: Key[] }[] = [];
+  const walk = (o: unknown, config: string, path: Key[]) => {
+    if (Array.isArray(o)) o.forEach((x, i) => walk(x, config, [...path, i]));
+    else if (o && typeof o === "object") {
+      if (typeof (o as any).slot === "string") out.push({ slot: (o as any).slot, config, path });
+      for (const [k, v] of Object.entries(o)) if (k !== "slot") walk(v, config, [...path, k]);
+    }
+  };
+  for (const [name, data] of Object.entries(configs ?? {})) walk(data, name, []);
+  return out;
+}
+
+/**
+ * What the sandbox layout's schema (sandbox/1, migrations/schemas/sandbox.json) can't say, its hook: a pin's fields,
+ * variant and values; a slot's and a config's names; a config at most 1 MB; every slot a config names pinned.
+ */
+export function sandboxCheck(doc: any): string[] {
+  const out: string[] = [];
+  for (const [slot, p] of Object.entries<any>(doc?.pins ?? {})) {
+    if (!SLOT.test(slot)) out.push(`pins: ${slot} is not a slot's name`);
+    if (p?.variant !== undefined && p.variant !== null && (typeof p.variant !== "string" || !p.variant)) out.push(`pins.${slot}.variant: a variant's name, or null`);
+    if (p?.params !== undefined && p.params !== null) {
+      if (typeof p.params !== "object" || Array.isArray(p.params)) out.push(`pins.${slot}.params: an object of values, or null`);
+      else for (const [k, v] of Object.entries(p.params)) if (typeof v !== "string") out.push(`pins.${slot}.params.${k}: a value is kept as a string`);
+    }
+  }
+  for (const [name, data] of Object.entries(doc?.configs ?? {})) {
+    if (!CONFIG.test(name) || name === "assets") out.push(`configs: ${name} is not a config's name`);
+    if (Buffer.byteLength(JSON.stringify(data)) > MOST_CONFIG) out.push(`configs.${name}: larger than 1 MB`);
+  }
+  for (const s of slotsNamed(doc?.configs ?? {})) if (!doc?.pins?.[s.slot]) out.push(`configs.${s.config}${s.path.map((k) => (typeof k === "number" ? `[${k}]` : `.${k}`)).join("")} names slot ${s.slot}, which the sandbox does not pin`);
+  return out;
 }
 
 type VersionRow = { id: string; asset_id: string; grp: string; slug: string; label: string; number: number; default_variant: string | null; variants: string[]; params: any[] };
@@ -290,7 +326,7 @@ export const layoutDoc = (sandbox: string) => `sandbox:${sandbox}`;
 export async function layoutOf(q: Queryable, sandbox: string) {
   const s = await sandboxRow(q, sandbox);
   const { pins, configs } = await stateOf(q, sandbox);
-  return { schema: SANDBOX.name, title: s.title, pins, configs };
+  return { schema: "sandbox/1", title: s.title, pins, configs };
 }
 
 /** A sandbox's layout document made where it is missing: its v1 the layout its rows hold. Gives back whether it was made. */
@@ -298,7 +334,7 @@ export async function ensureLayoutDoc(q: Queryable, sandbox: string): Promise<bo
   const { rows } = await q.query(`SELECT 1 FROM play.docs WHERE id = $1`, [layoutDoc(sandbox)]);
   if (rows.length) return false;
   const note = "The layout as it stood when it became a document";
-  await docs.createDoc(q, { id: layoutDoc(sandbox), schema: SANDBOX.name, json: await layoutOf(q, sandbox), author: { human: null, via: "system" }, message: `v1: ${note}`, version: note });
+  await docs.createDoc(q, { id: layoutDoc(sandbox), schema: SCHEMA.sandbox, json: await layoutOf(q, sandbox), author: { human: null, via: "system" }, message: `v1: ${note}`, version: note });
   return true;
 }
 
@@ -340,9 +376,10 @@ export async function layoutWrite(q: Queryable, cur: any, input: { edits?: unkno
     } else {
       if (Array.isArray(input.edits) && input.edits.some(isHelper)) throw new VersionError("Give the sandbox's edit helpers (pin, pin_latest, unpin, set and delete of a config) or a document's edits, not both in one edit.");
       // a document's edits, applied to the layout as it stands to check what they make
+      const t = await docs.typeFor(q, SCHEMA.sandbox);
       const d = newDoc();
-      seed(d, SANDBOX, cur);
-      applyDocEdits(d, SANDBOX, resolveEdits(cur, input.edits));
+      seed(d, t, cur);
+      applyDocEdits(d, t, resolveEdits(cur, input.edits));
       target = jsonOf(d);
     }
     const problems = await layoutProblems(q, target);
@@ -505,7 +542,7 @@ export async function proposedState(db: Queryable, me: Me | null, sandbox: strin
 }
 
 /**
- * Migration 0034-sandbox-layouts: every sandbox's layout a document, its v1 its pins and configs as they are, and every
+ * Migration 0035-sandbox-layouts: every sandbox's layout a document, its v1 its pins and configs as they are, and every
  * intent's sandbox change (the columns sandbox_id, sandbox_base, sandbox_change and sandbox_diff) an intent variant of
  * it, each intent keeping its stage. One at Proposal is its edits made again on v1, proposed (kept, to be archived on
  * Accept, where they no longer hold); an accepted or archived one a closed variant that keeps what it changed as its

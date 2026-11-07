@@ -2,6 +2,7 @@
 // code). `until` stops after that migration (a test builds a database as it stood then).
 import type { Db } from "./pg";
 import { MIGRATIONS } from "../migrations";
+import { ensureSchemas } from "./docs/schemas";
 export { MIGRATIONS, type Migration } from "../migrations";
 
 /** Runs every migration not yet run, each in its own transaction. */
@@ -37,5 +38,8 @@ export async function migrate(db: Db, o: { until?: string } = {}): Promise<strin
     });
     if (did) ran.push(m.id);
   }
+  // then the schemas, each a document of the meta-schema, made from the seed where absent (play/SPEC.md "Version
+  // control"); a database built only up to an older migration stands as it stood then
+  if (o.until === undefined) await ensureSchemas(db);
   return ran;
 }

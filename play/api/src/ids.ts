@@ -42,3 +42,19 @@ export const SKILL = {
 /** avenMAIA, the one identity of every agent connected over MCP (play/SPEC.md §4.13, Samuel 2026-11-06): uuidOf("agent:avenmaia"),
  * the row migration 0027-artifacts makes. Its name is only shown. */
 export const AVENMAIA = "86090f35-1937-8d5d-bd28-194b80430f25";
+
+/** the schemas (play/SPEC.md "Version control", Samuel 2026-11-06): each a document `schema:<uuid>` of the meta-schema, in
+ * play's Postgres, its v1 seeded from ../migrations/schemas by ensureSchemas (./docs/schemas.ts); each made with a random
+ * UUID when it became a document. Their labels and old names (story/1 …) are only shown. */
+export const SCHEMA = {
+  /** the meta-schema: what every schema is, itself included */
+  meta: "42094937-2aec-46f0-a813-81f7c4c970ca",
+  story: "35c770ae-adb3-4890-8d0d-e93fb5aa26ec",
+  asset: "7c441fca-1903-45d8-8627-e5cdd54fc3eb",
+  factory: "2ea8a9c7-2c38-44a3-9455-9856d77c95df",
+  /** the game's levelling (a game config) */
+  levels: "856e2039-a608-4e9e-bd9d-ab77ae93db8e",
+  skill: "82d9780a-d18d-4df5-995a-962fe63d2580",
+  /** a sandbox's layout (play/SPEC.md §4.6): its pins and configs */
+  sandbox: "0b202f27-0682-47b5-a819-4ac6bec07ff2",
+} as const;

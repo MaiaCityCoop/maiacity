@@ -9,7 +9,8 @@ import { randomInt } from "node:crypto";
 import type { LoroDoc } from "loro-crdt";
 import type { Db, Queryable } from "../pg";
 import { applyEdits, contentHash, fromBytes, jsonAt, jsonOf, newDoc, patchTo, sameFrontiers, seed, type Edit, type Frontiers } from "./core";
-import { problemsOf, SchemaError, typeOf, type DocType } from "./schema";
+import { typeFor } from "./schemas";
+import { problemsOf, SchemaError, type DocType } from "./validate";
 
 export class DocError extends Error {
   constructor(message: string, public status = 400, public extra: Record<string, unknown> = {}) {
@@ -19,7 +20,7 @@ export class DocError extends Error {
 
 /** who writes: a human (or the agent acting under their name), and through what */
 export type Author = { human: string | null; via: "site" | "mcp" | "import" | "system" };
-type DocRow = { id: string; type: string; schema: string; head: Frontiers; snapshot: Uint8Array | null; snapshot_seq: string; main: string };
+type DocRow = { id: string; type: string; schema: string; schema_id: string | null; head: Frontiers; snapshot: Uint8Array | null; snapshot_seq: string; main: string };
 type VariantRow = { id: string; doc_id: string; type: "main" | "intent"; seed: Frontiers; head: Frontiers; status: string; note: string; created_by: string | null; created: Date; proposed_at: Date | null; decided_by: string | null; decided_at: Date | null; version: number | null; intent_id: string | null };
 /** one edit: its seq, its variant (null: made on Main), its kind, who, why, when, the frontiers after it */
 export type DocEdit = { seq: number; variant: number | null; kind: string; author: string | null; via: string; message: string; frontiers: Frontiers; created: Date; bytes: number };
@@ -34,7 +35,7 @@ const seconds = (d?: Date) => Math.floor((d ?? new Date()).getTime() / 1000);
 /** runs `fn` in its own transaction, or in the caller's when given one (a story decided with its intent: one transaction) */
 const inTx = <R>(db: Db | Queryable, fn: (q: Queryable) => Promise<R>): Promise<R> => ("transaction" in db ? (db as Db).transaction(fn) : fn(db));
 
-const DOC = `SELECT d.id, d.type, d.schema, d.head, d.snapshot, d.snapshot_seq, m.id AS main FROM play.docs d JOIN play.doc_variants m ON m.doc_id = d.id AND m.type = 'main' WHERE d.id = $1`;
+const DOC = `SELECT d.id, d.type, d.schema, d.schema_id, d.head, d.snapshot, d.snapshot_seq, m.id AS main FROM play.docs d JOIN play.doc_variants m ON m.doc_id = d.id AND m.type = 'main' WHERE d.id = $1`;
 async function lock(q: Queryable, id: string): Promise<DocRow> {
   const { rows } = await q.query<DocRow>(`${DOC} FOR UPDATE OF d`, [id]);
   if (!rows[0]) throw new DocError(`no document ${id}`, 404);
@@ -82,9 +83,10 @@ async function peerFor(q: Queryable, docId: string, variant: string | number, a:
 }
 
 /** commits what was applied to `d` as one edit of variant `v` (Main or an intent variant), after checking the whole document */
-async function edit(q: Queryable, t: DocType, d: LoroDoc, before: ReturnType<LoroDoc["version"]>, line: { doc: DocRow; variant: string | number }, kind: "seed" | "edit" | "import" | "merge", message: string, a: Author, at?: Date): Promise<DocEdit | null> {
+async function edit(q: Queryable, t: DocType, d: LoroDoc, before: ReturnType<LoroDoc["version"]>, line: { doc: DocRow; variant: string | number }, kind: "seed" | "edit" | "import" | "merge", message: string, a: Author, at?: Date, empty = false): Promise<DocEdit | null> {
   const json = jsonOf(d);
-  const problems = problemsOf(t, json);
+  // a new document's Main is empty until its first version is accepted: only that birth is not checked
+  const problems = empty ? [] : problemsOf(t, json);
   if (problems.length) throw new SchemaError(problems);
   d.commit({ message, timestamp: seconds(at) });
   const bytes = d.export({ mode: "update", from: before });
@@ -96,6 +98,8 @@ async function edit(q: Queryable, t: DocType, d: LoroDoc, before: ReturnType<Lor
     [line.doc.id, line.variant, kind, bytes, d.peerIdStr, a.human, a.via, message, JSON.stringify(frontiers), at ?? null],
   );
   const main = `${line.variant}` === `${line.doc.main}`;
+  // the version of its schema the document was last written against
+  await q.query(`UPDATE play.docs SET schema_version = $2 WHERE id = $1`, [line.doc.id, t.version]);
   if (main) await q.query(`UPDATE play.docs SET head = ($2::text)::jsonb, updated = now() WHERE id = $1`, [line.doc.id, JSON.stringify(frontiers)]);
   await q.query(`UPDATE play.doc_variants SET head = ($2::text)::jsonb WHERE id = $1`, [line.variant, JSON.stringify(frontiers)]);
   return { seq: Number(rows[0].seq), variant: main ? null : Number(line.variant), kind, author: a.human, via: a.via, message, frontiers, created: rows[0].created, bytes: bytes.length };
@@ -110,21 +114,28 @@ async function compact(q: Queryable, row: DocRow, d: LoroDoc): Promise<void> {
 
 // ---- writing
 
-/** a new document from its first state, as one edit of its Main (and, if `version`, named v1) */
-export async function createDoc(db: Db | Queryable, o: { id: string; schema: string; json: unknown; author: Author; message?: string; at?: Date; version?: string; number?: number }): Promise<{ id: string; edit: DocEdit; version: Version | null }> {
+/**
+ * A new document of schema `schema` (its UUID) from its first state, as one edit of its Main (and, if `version`, named
+ * v1). With `empty`, its Main is born empty (no first state): a document proposed new, whose first version an intent
+ * variant holds until it is accepted.
+ */
+export async function createDoc(db: Db | Queryable, o: { id: string; schema: string; json?: unknown; empty?: boolean; author: Author; message?: string; at?: Date; version?: string; number?: number }): Promise<{ id: string; edit: DocEdit; version: Version | null }> {
   if (!ID.test(o.id)) throw new DocError(`a document's id is its kind and a name, like story:<uuid>: not ${JSON.stringify(o.id)}`);
-  const t = typeOf(o.schema);
-  if (!o.id.startsWith(t.type + ":")) throw new DocError(`a ${t.type} document's id starts with ${t.type}:`);
   return inTx(db, async (q) => {
-    const made = await q.query(`INSERT INTO play.docs (id, type, schema, created_by, created) VALUES ($1, $2, $3, $4, COALESCE($5, now())) ON CONFLICT DO NOTHING`, [o.id, t.type, t.name, o.author.human, o.at ?? null]);
+    const t = await typeFor(q, o.schema);
+    if (!o.id.startsWith(t.type + ":")) throw new DocError(`a ${t.type} document's id starts with ${t.type}:`);
+    const made = await q.query(
+      `INSERT INTO play.docs (id, type, schema, schema_id, schema_version, created_by, created) VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, now())) ON CONFLICT DO NOTHING`,
+      [o.id, t.type, t.name, t.id, t.version, o.author.human, o.at ?? null],
+    );
     if (!made.affectedRows) throw new DocError(`${o.id} is there already`, 409);
     await q.query(`INSERT INTO play.doc_variants (doc_id, type, seed, head, status, note, created_by, created) VALUES ($1, 'main', '[]', '[]', 'open', 'Main', $2, COALESCE($3, now()))`, [o.id, o.author.human, o.at ?? null]);
     const row = await lock(q, o.id);
     const d = newDoc();
     d.setPeerId(await peerFor(q, o.id, row.main, o.author));
     const before = d.version();
-    seed(d, t, o.json);
-    const e = (await edit(q, t, d, before, { doc: row, variant: row.main }, o.author.via === "import" ? "import" : "seed", o.message ?? "created", o.author, o.at))!;
+    if (!o.empty) seed(d, t, o.json);
+    const e = (await edit(q, t, d, before, { doc: row, variant: row.main }, o.author.via === "import" ? "import" : "seed", o.message ?? "created", o.author, o.at, !!o.empty))!;
     const v = o.version !== undefined ? await name(q, row.id, d, o.version, o.author, null, o.at, o.number) : null;
     return { id: o.id, edit: e, version: v };
   });
@@ -157,7 +168,7 @@ export async function commit(db: Db | Queryable, id: string, w: Write & { messag
   if (!w.message?.trim()) throw new DocError("every edit says what it does: its message is empty");
   return inTx(db, async (q) => {
     const row = await lock(q, id);
-    const t = typeOf(row.schema);
+    const t = await typeFor(q, row.schema_id);
     const main = await loadMain(q, row);
     let d = main, line: string | number = row.main;
     if (w.variant !== undefined) {
@@ -217,7 +228,7 @@ export async function previewMerge(db: Queryable, id: string, v: number): Promis
   const { rows } = await db.query<{ bytes: Uint8Array }>(`SELECT bytes FROM play.doc_edits WHERE doc_id = $1 AND variant = $2 ORDER BY seq`, [id, v]);
   if (rows.length) main.importBatch(rows.map((x) => toBytes(x.bytes)));
   const json = jsonOf(main);
-  return { json, contentHash: contentHash(json), concurrent: !sameFrontiers(r.seed, row.head), problems: problemsOf(typeOf(row.schema), json) };
+  return { json, contentHash: contentHash(json), concurrent: !sameFrontiers(r.seed, row.head), problems: problemsOf(await typeFor(db, row.schema_id), json) };
 }
 
 /**
@@ -229,7 +240,7 @@ export async function previewMerge(db: Queryable, id: string, v: number): Promis
 export async function accept(db: Db | Queryable, id: string, v: number, o: { author: Author; note?: string; mergedHash?: string }): Promise<Version> {
   return inTx(db, async (q) => {
     const row = await lock(q, id);
-    const t = typeOf(row.schema);
+    const t = await typeFor(q, row.schema_id);
     const r = await variantRow(q, id, v, true);
     if (r.status !== "proposed") throw new DocError(r.status === "open" ? `variant ${v} is not proposed yet` : `variant ${v} was ${r.status}`, 409);
     const main = await loadMain(q, row);
@@ -251,6 +262,7 @@ export async function accept(db: Db | Queryable, id: string, v: number, o: { aut
     );
     await q.query(`UPDATE play.docs SET head = ($2::text)::jsonb, updated = now() WHERE id = $1`, [id, JSON.stringify(frontiers)]);
     await q.query(`UPDATE play.doc_variants SET head = ($2::text)::jsonb WHERE id = $1`, [row.main, JSON.stringify(frontiers)]);
+    await q.query(`UPDATE play.docs SET schema_version = $2 WHERE id = $1`, [id, t.version]);
     const named = await name(q, id, main, note, o.author, v);
     await q.query(`UPDATE play.doc_variants SET status = 'accepted', decided_by = $2, decided_at = now(), version = $3 WHERE id = $1`, [v, o.author.human, named.number]);
     await compact(q, row, main);
@@ -271,11 +283,11 @@ export async function close(db: Db | Queryable, id: string, v: number, o: { auth
 // ---- reading
 
 /** a document now, as JSON: its Main (or an intent variant), and its versions */
-export async function readDoc(db: Queryable, id: string, o: { variant?: number } = {}): Promise<{ id: string; type: string; schema: string; json: any; head: Frontiers; versions: Version[] }> {
+export async function readDoc(db: Queryable, id: string, o: { variant?: number } = {}): Promise<{ id: string; type: string; schema: string; schemaId: string | null; json: any; head: Frontiers; versions: Version[] }> {
   const row = await rowOf(db, id);
   const main = await loadMain(db, row);
   const d = o.variant !== undefined ? await loadVariant(db, row, await variantRow(db, id, o.variant), main) : main;
-  return { id, type: row.type, schema: row.schema, json: jsonOf(d), head: d.frontiers(), versions: await versionsOf(db, id) };
+  return { id, type: row.type, schema: row.schema, schemaId: row.schema_id, json: jsonOf(d), head: d.frontiers(), versions: await versionsOf(db, id) };
 }
 
 export async function versionsOf(db: Queryable, id: string): Promise<Version[]> {

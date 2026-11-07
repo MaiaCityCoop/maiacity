@@ -22,7 +22,7 @@ import type { BlobStore } from "./blobs";
 import type { Db } from "./pg";
 import type { Me } from "./access";
 import { assetOf, listAssets, NotFound } from "./assets";
-import { archiveOwn, docAt, docEdit, docHistory, kinds, listDocs, proposeDocVersion, reviewOf, VersionError, workKinds } from "./versioned";
+import { archiveOwn, docAt, docEdit, docHistory, kinds, listDocs, proposeDocVersion, reviewOf, syncKinds, VersionError, workKinds } from "./versioned";
 import { WorkError } from "./work";
 import { addIntent, CHECK_HOWS, CHECKS_MOST, getIntent, intentOf, IntentError, intentReady, INTENT_KINDS, INTENT_STAGES, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES } from "./intents";
 import { instructionsOf, promptOf, promptsOf, SkillError } from "./skills";
@@ -226,8 +226,11 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     // ---- one version control (./versioned.ts, play/SPEC.md "Version control"): every versioned kind, by its document's UUID
     {
       name: "list_docs",
-      description: `Every document play versions, of one kind or all: an asset, a story, a factory, a game config (the levelling), a skill, a sandbox's layout. Each with its UUID (what names it everywhere), its kind, its label (only shown), its newest version's number and how many versions; a factory also its stations and parts, a skill its group and the stages it speaks to, a sandbox's layout how many pins and its configs' names.`,
-      inputSchema: { type: "object", properties: { kind: { type: "string", enum: kinds().map((k) => k.name), description: "one kind only" } }, additionalProperties: false },
+      description: `Every document play versions, of one kind or all: an asset, a story, a factory, a game config (the levelling), a skill, a sandbox's layout, a schema (every schema is a document of the meta-schema), and every kind that is a schema alone. Each with its UUID (what names it everywhere), its kind, its label (only shown), its newest version's number and how many versions; a factory also its stations and parts, a skill its group and the stages it speaks to, a sandbox's layout how many pins and its configs' names, a schema the prefix of its documents.`,
+      // the kinds as play holds them when the tools are listed: a schema accepted since is a kind too
+      get inputSchema() {
+        return { type: "object", properties: { kind: { type: "string", enum: kinds().map((k) => k.name), description: "one kind only" } }, additionalProperties: false };
+      },
       run: async ({ kind }, me) => listDocs(db, me, kind),
     },
     {
@@ -265,34 +268,36 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
       inputSchema: {
         type: "object",
         properties: {
-          doc: { type: "string", description: "its UUID" },
+          doc: { type: "string", description: "its UUID; left out with `kind` and `whole`, a new document of that kind" },
+          kind: { type: "string", description: "a new document's kind (list_docs's kinds): a schema, or a kind that is a schema alone; its first state is `whole`" },
           message: { type: "string", description: "what this edit does, as its history will say it" },
           variant: { type: "integer", minimum: 1, description: "the intent variant to add the edit to (doc_edit gives it); a new one seeded from Main's newest version if left out" },
           edits: { type: "array", items: { type: "object" }, description: "edits applied in order" },
           whole: { type: "object", description: "the whole new document (instead of edits)" },
         },
-        required: ["doc", "message"],
+        required: ["message"],
         additionalProperties: false,
       },
-      run: async ({ doc, message, variant, edits, whole }, me) => docEdit({ db, store }, me, { doc, message, edits, whole, ...(variant != null ? { variant: Number(variant) } : {}) }),
+      run: async ({ doc, kind, message, variant, edits, whole }, me) => docEdit({ db, store }, me, { doc, kind, message, edits, whole, ...(variant != null ? { variant: Number(variant) } : {}) }),
     },
     {
       name: "propose_doc_version",
       description:
-        `Propose a document's next version: an intent variant made edit by edit with doc_edit (its \`variant\`; its edits go with it), or edits applied at once to Main's newest version, or the whole document. ${EDITS} It puts an intent at Proposal with it (via MCP), for Maia City's admins, who see what changed field by field on the intents' board (an asset built in the asset box, a story played in the Stories player, a factory opened with its simulation running) and accept or archive it. An asset's version is checked as readable source when it is proposed: ${RECIPE_RULE} If Main gets a newer version first, it still goes in where the two changes touch different fields, and is archived where they touch the same (an asset's, whenever its head moved).`,
+        `Propose a document's next version: an intent variant made edit by edit with doc_edit (its \`variant\`; its edits go with it), or edits applied at once to Main's newest version, or the whole document. ${EDITS} It puts an intent at Proposal with it (via MCP), for Maia City's admins, who see what changed field by field on the intents' board (an asset built in the asset box, a story played in the Stories player, a factory opened with its simulation running) and accept or archive it. An asset's version is checked as readable source when it is proposed: ${RECIPE_RULE} If Main gets a newer version first, it still goes in where the two changes touch different fields, and is archived where they touch the same (an asset's, whenever its head moved). With \`kind\` and \`whole\` and no \`doc\`, a new document: a schema (every schema is a document of the meta-schema: \`label\`, \`type\` its documents' prefix, \`name\`, \`node\` the JSON Schema it holds them to; once accepted, its documents are a kind of their own, listed, read, edited and proposed with these same tools), or a document of a kind that is a schema alone. A schema's new version is accepted only while every document on Main still validates against it: the Accept names those that would not.`,
       inputSchema: {
         type: "object",
         properties: {
-          doc: { type: "string", description: "its UUID" },
+          doc: { type: "string", description: "its UUID; left out with `kind` and `whole`, a new document of that kind, its first version" },
+          kind: { type: "string", description: "a new document's kind (list_docs's kinds): a schema (a new type of document, its documents' prefix its `type`), or a kind that is a schema alone" },
           note: { type: "string", description: "what changes and why, for the admins deciding" },
           variant: { type: "integer", minimum: 1, description: "an intent variant to propose (doc_edit gives it)" },
           edits: { type: "array", items: { type: "object" }, description: "edits applied in order (to the intent variant, if one is named)" },
           whole: { type: "object", description: "the whole new document (instead of edits)" },
         },
-        required: ["doc", "note"],
+        required: ["note"],
         additionalProperties: false,
       },
-      run: async ({ doc, note, variant, edits, whole, intent }, me) => proposeDocVersion({ db, store }, me, { doc, note, edits, whole, intent, ...(variant != null ? { variant: Number(variant) } : {}) }),
+      run: async ({ doc, kind, note, variant, edits, whole, intent }, me) => proposeDocVersion({ db, store }, me, { doc, kind, note, edits, whole, intent, ...(variant != null ? { variant: Number(variant) } : {}) }),
     },
     // ---- sandboxes: what each draws (its pins) and how it lays them out (its configs): its layout, a document (./sandboxes.ts)
     {
@@ -709,6 +714,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
           throw e;
         }
       case "tools/list":
+        await syncKinds(db);
         return reply(msg.id, { tools: tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })) });
       case "tools/call": {
         const tool = tools.find((t) => t.name === msg.params?.name);

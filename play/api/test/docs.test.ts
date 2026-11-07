@@ -14,6 +14,9 @@ import {
   previewMerge, propose, readDoc, SchemaError, stateAt, variant, versionsOf, type Author,
 } from "../src/docs";
 import { EditError } from "../src/docs/core";
+import { SCHEMA } from "../src/ids";
+// the kinds: what each schema cannot say (a story's clips inside its duration, an asset's source is code), by its UUID
+import "../src/versioned";
 
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;
@@ -66,14 +69,14 @@ suite("documents in Loro", () => {
   });
 
   test("a story is created as its first step and named v1 by the hash of its content", async () => {
-    const r = await createDoc(db, { id: DOC, schema: "story/1", json: STORY, author: ada, message: "seeded", version: "the storyboard" });
+    const r = await createDoc(db, { id: DOC, schema: SCHEMA.story, json: STORY, author: ada, message: "seeded", version: "the storyboard" });
     expect(r.version!.number).toBe(1);
     expect(r.version!.contentHash).toBe(contentHash(STORY));
     const d = await readDoc(db, DOC);
     same(d.json, STORY);
     expect(d.versions.map((v) => v.number)).toEqual([1]);
-    await expect(createDoc(db, { id: DOC, schema: "story/1", json: STORY, author: ada })).rejects.toThrow(/there already/);
-    await expect(createDoc(db, { id: "asset:x", schema: "story/1", json: STORY, author: ada })).rejects.toThrow(/starts with story:/);
+    await expect(createDoc(db, { id: DOC, schema: SCHEMA.story, json: STORY, author: ada })).rejects.toThrow(/there already/);
+    await expect(createDoc(db, { id: "asset:x", schema: SCHEMA.story, json: STORY, author: ada })).rejects.toThrow(/starts with story:/);
   });
 
   test("every edit is a step with its author, message and time, and every step reads back exactly", async () => {
@@ -188,7 +191,7 @@ suite("documents in Loro", () => {
 
   test("code (an asset's source) merged with other edits is accepted only once its merged result was previewed", async () => {
     const source = readFileSync(join(import.meta.dir, "../import/legacy/sources/plants/papaya@963cc9dfc684.js"), "utf8");
-    await createDoc(db, { id: PAPAYA, schema: "asset/1", json: { schema: "asset/1", label: "Papaya", source, card: { triangles: 1 } }, author: { human: null, via: "import" }, message: "v1 from legacy", version: "v1" });
+    await createDoc(db, { id: PAPAYA, schema: SCHEMA.asset, json: { schema: "asset/1", label: "Papaya", source, card: { triangles: 1 } }, author: { human: null, via: "import" }, message: "v1 from legacy", version: "v1" });
     const a = await variant(db, PAPAYA, { author: mcp }), b = await variant(db, PAPAYA, { author: cit });
     await commit(db, PAPAYA, { variant: a.id, edits: [{ op: "text", path: ["source"], index: 0, insert: "// a: leaf lobes\n" }], message: "a", author: mcp });
     const tail = source.length;
