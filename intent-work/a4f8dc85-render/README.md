@@ -29,3 +29,9 @@ fitted smile was too faint), and the head and neck are textured down to the shou
   Never the files themselves, and nothing into git.
 
 The same job runs in avenBOX with `RENDERER=cpu UPLOAD=0` (the CPU checker's flat renders) to test it end to end.
+
+**Run 3** (after run 2's review `9ff6d82a…`: eyes, smile, facets and neck right): the texture blend. The photos' part
+now fades in over half an eye distance above the brows (the band across the forehead); a source well darker than the
+sources' weighted mean at a texel counts as a shadow and steps back (the brown smudges under the cheekbones), while the
+beard, dark in every source, stays; and no front-on photo paints a surface facing well downward (the dark line under
+the beard). The fit is as it was.
