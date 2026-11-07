@@ -61,13 +61,13 @@ export type Where = (typeof WHERES)[number];
 export type Result = { pass: boolean; evidence: string; by: string | null; at: string; where?: Where; commit?: string };
 export const TITLE_MOST = 200;
 export const CHECKS_MOST = 12;
-const LINE_MOST = 600;
+export const LINE_MOST = 600;
 const RUN_MOST = 2000;
-export type IntentVerdict = "approve" | "accept" | "reject" | "respecify" | "reopen";
+export type IntentVerdict = "approve" | "accept" | "reject" | "reopen";
 const NO_REDUCE = "Its reduce step comes first: at least one check with step reduce (what it removes, simplifies or compacts), or nothing_to_reduce saying why nothing is.";
 
 /** only Maia City's admins keep the intents, as they decide them */
-function admin(me: Me | null): Me {
+export function admin(me: Me | null): Me {
   if (!me) throw new Denied("Please sign in first.", 401);
   if (me.level !== "admin") throw new Denied("Only Maia City's admins keep the intents.");
   return me;
@@ -155,9 +155,10 @@ export function specOf(body: { goal?: unknown; scope?: unknown; checks?: unknown
 async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
   // a document's label and group, by its kind, from ./versioned.ts's registry
   const kind = workSql();
+  // its steps back (./stepback.ts) by to_jsonb: a database migrated short of 0034 (a migration's test) reads too
   const { rows } = await db.query<any>(
     `SELECT i.id, i.kind, i.title, i.note, i.stage, i.via, i.created, i.spec, i.results, i.specified_at, i.approved_at, i.decided_at, i.came_with,
-            i.pull_request, i.ship,
+            i.pull_request, i.ship, COALESCE(to_jsonb(i)->'steps', '[]') AS steps,
             au.name AS author, sp.name AS specified_by, ap.name AS approved_by, de.name AS decided_by,
             CASE WHEN i.work IS NULL THEN NULL ELSE json_build_object(
               'kind', i.work, 'status', CASE i.stage WHEN 'proposal' THEN 'proposal' WHEN 'accepted' THEN 'accepted' ELSE 'archived' END,
@@ -203,7 +204,7 @@ export async function listIntents(db: Queryable, me: Me | null, stages?: string[
   return intentsWhere(db, `($2::text[] IS NULL OR i.stage = ANY($2::text[])) AND ($3::text IS NULL OR i.work = $3)`, [stages ?? null, work ?? null]);
 }
 
-async function intentRow(db: Queryable, id: string) {
+export async function intentRow(db: Queryable, id: string) {
   const [intent] = await intentsWhere(db, `i.id = $2`, [idOf(id)]);
   if (!intent) throw new IntentError("There is no such intent.", 404);
   return intent;
@@ -238,13 +239,13 @@ export async function addIntent(db: Queryable, me: Me | null, body: { kind?: unk
 /**
  * An intent specified over MCP: its spec (specOf) and, where given, its title, kind or note made sharper. It moves to
  * Specify, where an admin approves it before it is built; specified again, its spec is replaced. One already approved
- * is sent back to Specify by an admin first.
+ * is sent back to Specify first, by its agent (step_back_intent, ./stepback.ts).
  */
 export async function specifyIntent(db: Queryable, me: Me | null, id: string, body: { goal?: unknown; scope?: unknown; checks?: unknown; nothing_to_reduce?: unknown; title?: unknown; kind?: unknown; note?: unknown }) {
   const who = admin(me);
   const intent = await intentRow(db, id);
   if (intent.stage !== "idea" && intent.stage !== "specify")
-    throw new IntentError(`Intent ${intent.id} is at the ${intent.stage} stage: ${intent.stage === "build" ? "its spec is approved; an admin sends it back to Specify before it changes" : "it is specified no more"}.`, 409);
+    throw new IntentError(`Intent ${intent.id} is at the ${intent.stage} stage: it is specified at Idea or Specify (step_back_intent sends it back).`, 409);
   const spec = specOf(body);
   await db.query(
     `UPDATE play.intents SET stage = 'specify', spec = ($2::text)::jsonb, results = NULL, specified_by = $3, specified_at = now(), kind = $4, title = $5, note = $6 WHERE id = $1`,
@@ -259,7 +260,7 @@ export async function specifyIntent(db: Queryable, me: Me | null, id: string, bo
 }
 
 /** whether the intent's work waits for a decision at Proposal: then accepting applies it (./versioned.ts decide) */
-const waiting = (intent: { stage: string; work: unknown }) => intent.stage === "proposal" && !!intent.work;
+export const waiting = (intent: { stage: string; work: unknown }) => intent.stage === "proposal" && !!intent.work;
 
 /** an intent's pull request into main, by its number (check_intent's `pr`), or undefined where none is given */
 const prOf = (v: unknown) => {
@@ -352,8 +353,7 @@ export async function intentReady(db: Queryable, me: Me | null, id: unknown) {
 }
 
 /**
- * An admin's decision on the board: approve a spec (Specify → Build: the agent may build it), send an approved one
- * back to Specify, accept an intent at Proposal that holds no work of play's and names no pull request (every must check
+ * An admin's decision on the board: approve a spec (Specify → Build: the agent may build it), accept an intent at Proposal that holds no work of play's and names no pull request (every must check
  * passed: it moved there by itself; one that names its pull request is shipped instead, ./ship.ts), reject one (it ends
  * archived), or bring a decided one back (to Specify with its spec, else to Idea). Nothing is accepted from Build:
  * Proposal is the one gate after the spec; nothing is decided in Ship, where play follows it to production.
@@ -369,12 +369,6 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
       if (intent.stage !== "specify") refuse(`Only a specified intent's spec is approved; this one is at the ${intent.stage} stage.`);
       if (!reduces(intent.spec)) refuse(`${NO_REDUCE} It is specified again first.`);
       await db.query(`UPDATE play.intents SET stage = 'build', approved_by = $2, approved_at = now(), results = NULL WHERE id = $1`, [intent.id, who.id]);
-      break;
-    case "respecify":
-      if (intent.stage === "proposal" && waiting(intent)) refuse("Its work waits for a decision at Proposal: decide it first.");
-      if (intent.stage !== "build" && !(intent.stage === "proposal" && intent.approved_at))
-        refuse(`Only an intent being built or at Proposal goes back to Specify; this one is at the ${intent.stage} stage.`);
-      await db.query(`UPDATE play.intents SET stage = 'specify', approved_by = NULL, approved_at = NULL, results = NULL WHERE id = $1`, [intent.id]);
       break;
     case "accept": {
       if (intent.stage === "build")
