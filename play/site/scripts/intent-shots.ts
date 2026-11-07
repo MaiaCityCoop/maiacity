@@ -5,16 +5,17 @@
  *   bun run dev &                                  # the dev server, http://localhost:5173
  *   bun scripts/intent-shots.ts [out dir]          # <stage>-<width>.png, and each asset upgrade's review drawn
  *
- * The asset upgrades (fixtures.ts ASSETS) are drawn from play's own files: the catalog and the files are read from
- * play.maia.city with PLAY_MCP_TOKEN (its read-only routes, the header sent to play only).
+ * The asset upgrades (fixtures.ts ASSETS) are drawn from play's own files, and so is the story played in its Changes
+ * tab (fixtures.ts STORIES, intent 668e9ffd): the catalog and the files are read from play.maia.city with
+ * PLAY_MCP_TOKEN (its read-only routes, the header sent to play only).
  */
 import { chromium } from 'playwright';
-import { ASSETS, BRIEF, FIXTURES } from '../src/lib/site/intents/fixtures';
+import { ASSETS, BRIEF, FIXTURES, STORIES } from '../src/lib/site/intents/fixtures';
 
 const BASE = process.env.SITE ?? 'http://localhost:5173';
 const OUT = process.argv[2] ?? '../shots/bb3b0773-detail';
 const ONLY = process.env.ONLY;
-const STAGES = ['idea', 'specify', 'build', 'proposal-code', 'proposal-work', 'ship', 'accepted', ...Object.keys(ASSETS)];
+const STAGES = ['idea', 'specify', 'build', 'proposal-code', 'proposal-work', 'ship', 'accepted', ...Object.keys(ASSETS), ...Object.keys(STORIES)];
 const PLAY = 'https://play.maia.city';
 const TOKEN = process.env.PLAY_MCP_TOKEN;
 const fromPlay = async (path: string) => {
@@ -25,6 +26,9 @@ const catalogRows: any[] = await (await fromPlay('/catalog')).json();
 const rowsOf = (hashes: readonly string[]) => hashes.map((h, n) => ({ ...catalogRows.find((r) => r.hash === h), first: n === 0 }));
 /** an asset upgrade's review as play's /api/intents/<id> gives it: its builds, its source and its base's */
 const reviewOf = (stage: string) => {
+	// a new story's review (play/api/src/stories.ts): its timeline, no base, nothing to diff against
+	const s = (STORIES as any)[stage];
+	if (s) return { id: FIXTURES[stage].id, story: s.story, baseStory: null, diff: { title: null, settings: [], tracks: [] }, edits: [], changes: [] };
 	const a = (ASSETS as any)[stage];
 	if (!a) return null;
 	const w = FIXTURES[stage].work!;
@@ -50,7 +54,8 @@ async function quiet(page: import('playwright').Page, stage: string, width: numb
 	await page.waitForTimeout(2000);
 }
 
-const browser = await chromium.launch();
+// CHANNEL=chrome uses the Chrome installed on the machine where Playwright's own browser isn't downloaded
+const browser = await chromium.launch(process.env.CHANNEL ? { channel: process.env.CHANNEL } : {});
 for (const size of SIZES.filter((x) => !process.env.WIDTH || x.width === +process.env.WIDTH)) {
 	const page = await browser.newPage({ viewport: size, deviceScaleFactor: 2 });
 	await page.addInitScript(() => localStorage.setItem('play:intents:folded', '{}'));
@@ -81,7 +86,18 @@ for (const size of SIZES.filter((x) => !process.env.WIDTH || x.width === +proces
 		await page.waitForTimeout(400);
 		// an asset upgrade opens on its Changes tab, the asset drawn inline: shot once it is drawn
 		if ((ASSETS as any)[stage]) await quiet(page, stage, size.width);
+		// a story opens on its Changes tab, played in the Stories player: shot once its first frame is in
+		if ((STORIES as any)[stage]) {
+			await page.locator('.inline-story .player').waitFor({ timeout: 60000 });
+			await page.waitForTimeout(3000);
+		}
 		await page.screenshot({ path: `${OUT}/${stage}-${size.width}.png` });
+		// on a phone and a tablet the picture fills the tab: the controls and the timeline are below it, scrolled to
+		if ((STORIES as any)[stage] && size.width < 900) {
+			await page.locator('.inline-story + .btn').scrollIntoViewIfNeeded();
+			await page.waitForTimeout(800);
+			await page.screenshot({ path: `${OUT}/${stage}-timeline-${size.width}.png` });
+		}
 		if (!(ASSETS as any)[stage]) continue;
 		// its work opened from the Changes tab: the asset built in the asset box, as the board draws it
 		await page.locator('.linked .open').click();

@@ -7,7 +7,8 @@ import { UUID } from "./uuid";
 import type { Db } from "./pg";
 import { admin, COOP, Denied, meOf, must } from "./access";
 import { SANDBOX } from "./ids";
-import { assetOf, catalogOf, configOf, fileOf, listAssets, NotFound, versionOf } from "./assets";
+import { assetOf, catalogOf, configOf, listAssets, NotFound, versionOf } from "./assets";
+import { fileFor, maskEdges, OwnerError } from "./owners";
 import { mcp } from "./mcp";
 import { adminByToken, listTokens, makeToken, markAvenbox, revokeToken } from "./tokens";
 import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, registerOptions, sessionCookie, tokenFor } from "./auth";
@@ -99,13 +100,13 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
 
   // ---- assets
   on("GET", "/api/assets", async (req) => {
-    must(await me(req), "read", "assets");
-    return json(await listAssets(db, new URL(req.url).searchParams.get("group") ?? undefined));
+    const m = must(await me(req), "read", "assets");
+    return json(await listAssets(db, new URL(req.url).searchParams.get("group") ?? undefined, m));
   });
   on("GET", "/api/assets/:id", async (req, p) => {
-    must(await me(req), "read", "assets");
+    const m = must(await me(req), "read", "assets");
     if (!UUID.test(p.id)) throw new NotFound("An asset is named by its id, a UUID.");
-    return json(await assetOf(db, p.id));
+    return json(await assetOf(db, p.id, m));
   });
   // the recipe file an asset builds at an edit of its history (?edit=<seq>) or at an intent's variant (?intent=<id>),
   // kept among play's files by its hash for the History tab: admins only (before /:id/:v, which it would match)
@@ -115,20 +116,21 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await recipeAt(db, store, await me(req), p.id, q.get("intent") ? { intent: q.get("intent")! } : { edit: Number(q.get("edit")) }));
   });
   on("GET", "/api/assets/:id/:v", async (req, p) => {
-    must(await me(req), "read", "assets");
+    const m = must(await me(req), "read", "assets");
     if (!UUID.test(p.id)) throw new NotFound("An asset is named by its id, a UUID.");
     const n = Number(p.v);
     if (!Number.isInteger(n) || n < 1) throw new NotFound(`${p.v} is not a version.`);
-    return json(await versionOf(db, p.id, n));
+    return json(await versionOf(db, p.id, n, m));
   });
   on("GET", "/api/catalog", async (req) => {
-    must(await me(req), "read", "assets");
-    return json(await catalogOf(db), { headers: { "Cache-Control": "private, max-age=60" } });
+    const m = must(await me(req), "read", "assets");
+    return json(await catalogOf(db, m), { headers: { "Cache-Control": "private, max-age=60" } });
   });
   on("GET", "/api/files/:hash", async (req, p) => {
-    must(await me(req), "read", "assets");
+    const m = must(await me(req), "read", "assets");
     if (!HASH.test(p.hash)) throw new NotFound("That is not a file's hash.");
-    const f = await fileOf(db, p.hash);
+    // (another's private file is as one never kept: ./owners.ts)
+    const f = await fileFor(db, m, p.hash);
     if (!f) throw new NotFound("There is no such file.");
     // served from here whether the store is the folder or the bucket: never a redirect to the bucket, so a file keeps
     // the headers below (code as plain text, nothing sniffed or run as a document) and needs no CORS on the bucket
@@ -177,9 +179,14 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("GET", "/api/intents", async (req) => {
     const q = new URL(req.url).searchParams;
     const s = q.get("stage");
-    return json(await listIntents(db, await me(req), s ? s.split(",") : undefined, q.get("work") ?? undefined));
+    const m = await me(req);
+    // (an edge to an intent another's private work keeps is shown as "a private intent": ./owners.ts)
+    return json(await maskEdges(db, m, await listIntents(db, m, s ? s.split(",") : undefined, q.get("work") ?? undefined)));
   });
-  on("GET", "/api/intents/:id", async (req, p) => json(await intentOf(db, await me(req), p.id, reviewOf)));
+  on("GET", "/api/intents/:id", async (req, p) => {
+    const m = await me(req);
+    return json(await maskEdges(db, m, await intentOf(db, m, p.id, reviewOf)));
+  });
   // to propose is to put an intent at Proposal: the one named, held to its gate (no work without an intent)
   on("POST", "/api/intents", async (req) => {
     const b = await body(req);
@@ -194,7 +201,8 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   });
   on("POST", "/api/intents/:id/:verdict", async (req, p) => {
     if (!["approve", "accept", "archive", "reject", "reopen"].includes(p.verdict)) throw new NotFound("No such decision.");
-    return json(await decideAny({ db, store }, await me(req), p.id, p.verdict as IntentVerdict | "archive", github, commit));
+    const m = await me(req);
+    return json(await maskEdges(db, m, await decideAny({ db, store }, m, p.id, p.verdict as IntentVerdict | "archive", github, commit)));
   });
 
   // one version control (./versioned.ts, play/SPEC.md "Version control"), admins only: every document play versions,
@@ -238,20 +246,25 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
 
   // the admins' window into play's Postgres, read only, secrets hidden (./tables.ts)
   const tablesAdmin = async (req: Request) => admin(await me(req), "Only Maia City's admins may look into the database.");
-  on("GET", "/api/tables", async (req) => (await tablesAdmin(req), json(await listTables(db))));
+  on("GET", "/api/tables", async (req) => json(await listTables(db, await tablesAdmin(req))));
   on("GET", "/api/tables/:name", async (req, p) => {
-    await tablesAdmin(req);
+    const m = await tablesAdmin(req);
     const q = new URL(req.url).searchParams;
-    return json(await readTable(db, p.name, Number(q.get("offset") ?? 0), Number(q.get("limit") ?? 50)));
+    return json(await readTable(db, m, p.name, Number(q.get("offset") ?? 0), Number(q.get("limit") ?? 50)));
   });
 
   // The Library (./library.ts): every image, video and recording play keeps, its label and where stories use it; admins
   // only. A label is only shown, so an admin renames it here; a file is named by its hash.
   on("GET", "/api/library", async (req) => {
     const q = new URL(req.url).searchParams;
-    return json(await listLibrary(db, await me(req), { kind: q.get("kind"), q: q.get("q"), offset: Number(q.get("offset") ?? 0), limit: Number(q.get("limit") ?? 60) }));
+    return json(
+      await listLibrary(db, await me(req), { kind: q.get("kind"), q: q.get("q"), offset: Number(q.get("offset") ?? 0), limit: Number(q.get("limit") ?? 60), library: q.get("library") ?? undefined }),
+    );
   });
-  on("POST", "/api/library/:hash/label", async (req, p) => json(await labelFile(db, await me(req), p.hash, (await body(req))?.label)));
+  on("POST", "/api/library/:hash/label", async (req, p) => {
+    const b = await body(req);
+    return json(await labelFile(db, await me(req), p.hash, b?.label, b?.library));
+  });
 
   // Artifacts (./artifacts.ts, play/SPEC.md §4.13): every link from the net Maia City keeps, its title, description,
   // summary and authors, kept over MCP by avenMAIA (nothing here adds or edits one); admins only, read here
@@ -295,7 +308,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       try {
         return await r.handler(req, params);
       } catch (e) {
-        if (e instanceof Denied || e instanceof NotFound || e instanceof VersionError || e instanceof WorkError || e instanceof IntentError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError || e instanceof SkillError || e instanceof ArtifactError)
+        if (e instanceof Denied || e instanceof NotFound || e instanceof VersionError || e instanceof WorkError || e instanceof IntentError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError || e instanceof SkillError || e instanceof ArtifactError || e instanceof OwnerError)
           return json({ error: e.message }, { status: (e as any).status });
         console.error(e);
         return json({ error: "Something went wrong on our side." }, { status: 500 });
