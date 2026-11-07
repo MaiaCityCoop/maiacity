@@ -107,7 +107,7 @@
 				<h3>{name}</h3>
 				{#if d.json?.note}<p class="about" title={d.json.note}>{d.json.note}</p>{/if}
 				{#if d.intent}
-					<p class="asif">As its intent's work would make it{d.intent.status && d.intent.status !== 'proposal' ? ` (${d.intent.status})` : ''}{d.intent.note || d.intent.title ? `: “${d.intent.note || d.intent.title}”` : ''} · <a href="/intents/#{d.intent.id}">its intent</a> · <button onclick={() => pick({ version: newest! })}>its newest version</button></p>
+					<p class="asif">As its intent's work would make it{d.intent.status === 'accepted' || d.intent.status === 'archived' ? ` (${d.intent.status})` : ''}{d.intent.note || d.intent.title ? `: “${d.intent.note || d.intent.title}”` : ''} · <a href="/intents/#{d.intent.id}">its intent</a> · <button onclick={() => pick({ version: newest! })}>its newest version</button></p>
 				{:else if d.edit}
 					<p class="asif">As it stood at edit {d.edit} of its history: <button onclick={() => pick({ version: newest! })}>its newest version</button></p>
 				{:else if now !== newest && newest}

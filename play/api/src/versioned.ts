@@ -226,15 +226,17 @@ async function versionsNamed(db: Queryable, docId: string) {
 async function intentVariant(db: Queryable, docId: string, intent: unknown) {
   const s = `${intent ?? ""}`.toLowerCase();
   if (!UUID.test(s)) throw new VersionError("Name the intent by its id (a UUID).", 404);
-  const { rows } = await db.query<{ id: string; doc_variant: string | null; stage: string; note: string; title: string }>(
-    `SELECT i.id, COALESCE((SELECT iv.variant_id FROM play.intent_variants iv WHERE iv.intent_id = i.id AND iv.doc_id = $3),
-                           (SELECT max(v.id) FROM play.doc_variants v WHERE v.intent_id = i.id AND v.doc_id = $3)) AS doc_variant,
-            i.stage, COALESCE(i.work_note, '') AS note, i.title FROM play.intents i WHERE i.id = $1 AND i.coop_id = $2`,
+  const { rows } = await db.query<{ id: string; doc_variant: string | null; status: string | null; stage: string; note: string; title: string }>(
+    `SELECT w.id, w.doc_variant, dv.status, w.stage, w.note, w.title
+       FROM (SELECT i.id, COALESCE((SELECT iv.variant_id FROM play.intent_variants iv WHERE iv.intent_id = i.id AND iv.doc_id = $3),
+                                   (SELECT max(v.id) FROM play.doc_variants v WHERE v.intent_id = i.id AND v.doc_id = $3)) AS doc_variant,
+                    i.stage, COALESCE(i.work_note, '') AS note, i.title FROM play.intents i WHERE i.id = $1 AND i.coop_id = $2) w
+       LEFT JOIN play.doc_variants dv ON dv.id = w.doc_variant AND dv.doc_id = $3`,
     [s, COOP, docId],
   );
-  if (!rows[0]?.doc_variant) throw new VersionError(`${docId} has no variant of intent ${s}.`, 404);
-  const status = rows[0].stage === "proposal" ? "proposal" : rows[0].stage === "accepted" ? "accepted" : "archived";
-  return { id: rows[0].id, variant: Number(rows[0].doc_variant), stage: rows[0].stage, status, note: rows[0].note, title: rows[0].title };
+  if (!rows[0]?.doc_variant || !rows[0].status) throw new VersionError(`${docId} has no variant of intent ${s}.`, 404);
+  // the variant's own status (open, proposed, accepted, archived), as doc_history gives it
+  return { id: rows[0].id, variant: Number(rows[0].doc_variant), stage: rows[0].stage, status: rows[0].status, note: rows[0].note, title: rows[0].title };
 }
 
 // ---- reading
