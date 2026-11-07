@@ -1,0 +1,10 @@
+		trunkBorn: 1.6,
+		trunkFlush: 1.2,
+		scaffolds: [3, 5],
+		scaffoldAngle: .6,
+		gens: 6,
+		flush: .16,
+		rest: .08,
+		shoot: (gen) => [
+			0,
+			1.6,

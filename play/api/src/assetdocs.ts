@@ -24,6 +24,7 @@ import { HASH, hashText } from "./hash";
 import type { Db, Queryable } from "./pg";
 import { NOTE_MOST } from "./notes";
 import { labelOf, libraryOf, RECIPE_HEAD, recipeTail } from "./recipes";
+import { libsOf, PieceError, piecesHeld, piecesOf, piecesShown } from "./pieces";
 import { boxEngine, LATEST_BOX } from "./engines";
 import { readableRefs } from "../import/plan";
 import { versionId } from "./versions";
@@ -56,7 +57,6 @@ export const authorOf = (me: Pick<Me, "id"> | null, via: string | null | undefin
   via: via === "mcp" ? "mcp" : via === "import" ? "import" : via === "system" ? "system" : "site",
 });
 const firstLine = (s: string, n = 160) => (s ?? "").split("\n")[0].slice(0, n);
-const libsOf = (code: string) => [...new Set([...code.matchAll(/\brequire\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1]))];
 
 const asAssetError = asVersionError;
 
@@ -507,7 +507,8 @@ export async function recipeAt(db: Db, store: BlobStore, me: Me | null, asset: s
     const bytes = new TextEncoder().encode(text);
     const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, "text/javascript");
     await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, 'text/javascript', $3) ON CONFLICT (hash) DO NOTHING`, [hash, bytes.length, key]);
-    const made = { ...record, manifest: { ...(record.manifest ?? {}), libs: libsOf(source) }, card: { ...(record.card ?? {}), recipe: hash, version: n, v: n, ...(variant ? { variant } : {}) } };
+    const pieces = (await piecesHeld(db, piecesOf(source)).catch(() => ({ all: piecesOf(source) }))).all;
+    const made = { ...record, manifest: { ...(record.manifest ?? {}), libs: libsOf(source), pieces }, card: { ...(record.card ?? {}), recipe: hash, version: n, v: n, ...(variant ? { variant } : {}) } };
     return { ...base, hash, size: bytes.length, record: made, version: null };
   });
 }
@@ -581,14 +582,27 @@ function checkedCode(up: { source?: unknown; recipe?: unknown }, slug: string, n
   const why = unreadable(source);
   if (why) throw new VersionError(`The source is not readable: ${why}.`);
   const recipe = RECIPE_HEAD + source + recipeTail(slug, n, variant);
-  return { source: { text: source, hash: hashText(source) }, recipe: { text: recipe, hash: hashText(recipe) }, libs: libsOf(source) };
+  return { source: { text: source, hash: hashText(source) }, recipe: { text: recipe, hash: hashText(recipe) }, libs: libsOf(source), pieces: piecesOf(source) };
+}
+
+/**
+ * The pieces a source requires by hash (play/SPEC.md §4.5), each an accepted piece version's, with every piece beneath
+ * them: what its manifest's `pieces` names. Refused, saying which, where one is no accepted piece's version or they go
+ * more than four deep.
+ */
+async function piecesFor(db: Queryable, pieces: string[]): Promise<string[]> {
+  try {
+    return (await piecesHeld(db, pieces)).all;
+  } catch (e) {
+    throw e instanceof PieceError ? new VersionError(e.message) : e;
+  }
 }
 
 /**
  * The engine a record names, held to the frozen ones (it chooses which engine the page runs the recipe on): one it
  * names must be frozen under its hash; none named, the latest. And the libraries it may require, the ones its source does.
  */
-function heldRecord(record: any, libs: string[], source: string) {
+function heldRecord(record: any, libs: string[], source: string, pieces: string[] = []) {
   const named = record?.engine?.version ?? record?.card?.engine;
   const e = named === undefined ? LATEST_BOX : boxEngine(Number(named));
   if (!e) throw new VersionError(`Box engine ${named} is not one of the frozen engines.`);
@@ -596,7 +610,7 @@ function heldRecord(record: any, libs: string[], source: string) {
   return {
     ...(record ?? {}),
     engine: { host: "box", version: e.v, hash: e.blake3 },
-    manifest: { ...(record?.manifest ?? {}), libs },
+    manifest: { ...(record?.manifest ?? {}), libs, pieces },
     source,
     card: { ...(record?.card ?? {}), engine: e.v },
   };
@@ -774,7 +788,7 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
   const files: { text: string; hash: string }[] = [];
   let recipe: string | null = null;
   let source: string | null = null;
-  let own: { libs: string[]; source: string } | null = null;
+  let own: { libs: string[]; source: string; pieces: string[] } | null = null;
   let defaultVariant: string | null = null;
   const variants: Record<string, { recipe: string; source: string; card: any }> = {};
   // the readable sources as text, for the version's edit of the asset's document
@@ -785,7 +799,7 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
     files.push(c.source, c.recipe);
     recipe = c.recipe.hash;
     source = c.source.hash;
-    own = { libs: c.libs, source: c.source.hash };
+    own = { libs: c.libs, source: c.source.hash, pieces: await piecesFor(db, c.pieces) };
     ownText = c.source.text;
   } else {
     for (const name of variantNames) {
@@ -795,7 +809,7 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
       variantTexts[name] = c.source.text;
       const from = a[0]?.variants?.[name] ?? a[0]?.card;
       const label = body.variants![name].label === undefined ? {} : { label: `${body.variants![name].label}`.trim().slice(0, 120) };
-      const record = heldRecord(over(inherited(body.variants![name].record, from), { ...set, ...label }), c.libs, c.source.hash);
+      const record = heldRecord(over(inherited(body.variants![name].record, from), { ...set, ...label }), c.libs, c.source.hash, await piecesFor(db, c.pieces));
       variants[name] = { recipe: c.recipe.hash, source: c.source.hash, card: recordOf(record, grp, slug, n, name, c.recipe.hash) };
     }
     defaultVariant = body.defaultVariant ?? variantNames[0];
@@ -818,7 +832,7 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
     refs[k] = h;
   }
   for (const v of Object.values(variants)) v.card = withRefs(v.card, refs);
-  const card = withRefs(recipe ? recordOf(heldRecord(over(inherited(body.record, a[0]?.card), set), own!.libs, own!.source), grp, slug, n, null, recipe) : variants[defaultVariant!].card, refs);
+  const card = withRefs(recipe ? recordOf(heldRecord(over(inherited(body.record, a[0]?.card), set), own!.libs, own!.source, own!.pieces), grp, slug, n, null, recipe) : variants[defaultVariant!].card, refs);
   // every other asset a version names, it names by hash (play/SPEC.md §4)
   const readable = [card, ...Object.values(variants).map((x) => x.card)].flatMap((c) => readableRefs(c, `${grp}/${slug}`));
   if (readable.length) throw new VersionError(`Name other assets by their hash, not ${readable.slice(0, 3).join(", ")}.`);
@@ -900,6 +914,8 @@ export async function assetReview(db: Queryable, p: any) {
     variants: x.map((r) => ({ name: r.name, recipe: r.recipe_hash, source: r.source_hash })),
     baseVersion: b[0] ? { number: b[0].number, source: b[0].source_hash ?? b[0].variant_source ?? null, recipe: b[0].recipe_hash } : null,
     builds,
+    // the pieces it names by hash (play/SPEC.md §4.5), each its label and version
+    pieces: await piecesShown(db, [...new Set([v[0]?.card, ...x.map((r) => r.card)].flatMap((c) => (Array.isArray(c?.manifest?.pieces) ? c.manifest.pieces : [])))]),
   };
 }
 

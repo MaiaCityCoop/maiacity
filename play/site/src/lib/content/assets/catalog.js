@@ -14,6 +14,7 @@ import { buildOf, hashText, parseBuild } from './builds.js';
 import * as cache from './cache.js';
 import { LATEST } from './engines.js';
 import { queryOf } from './params.js';
+import { handedPieces } from './box/pieces.js';
 
 export { buildOf, checked, hashText, parseBuild } from './builds.js';
 
@@ -168,11 +169,14 @@ export const declaredOf = (hash) => {
 };
 
 /**
- * A recipe by its hash: `{ hash, code }`, its file from this device's cache or play's API, held to the hash.
+ * A recipe by its hash: `{ hash, code, pieces }`, its file from this device's cache or play's API, held to the hash.
  * @param {string} hash @returns {Promise<{ hash: string, code: string }>}
  */
 export async function recipeAt(hash) {
-	if (handed.has(hash)) return { hash, code: handed.get(hash) };
+	// the pieces its manifest names go with it: the box reads them from play's files (./box/pieces.js)
+	const pieces = records.get(hash)?.manifest?.pieces ?? [];
+	// a recipe handed in by hand (the benches) takes every piece handed in beside it
+	if (handed.has(hash)) return { hash, code: handed.get(hash), pieces: pieces.length ? pieces : handedPieces() };
 	await loadRecipes();
 	heldAt(hash);
 	if ((sizes.get(hash) ?? 0) > MOST) throw new NotInCatalog(`${nameOf(hash)}: its file is larger than a page reads`);
@@ -184,7 +188,7 @@ export async function recipeAt(hash) {
 		if (!holds(bytes, hash)) throw new NotInCatalog(`${nameOf(hash)}: its file does not hash to its name`);
 		Promise.resolve(cache.keepFile(hash, bytes)).catch(() => {});
 	}
-	return { hash, code: new TextDecoder().decode(bytes) };
+	return { hash, code: new TextDecoder().decode(bytes), pieces };
 }
 
 /** the catalog as the asset viewer reads it (./VaultAsset.svelte, ./sources/viewer.js `vaultBuild`): its index, a

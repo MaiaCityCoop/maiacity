@@ -48,7 +48,12 @@ type Tool = {
 const RECIPE_RULE =
   "Send the version's readable source, as people write it (not bundled or minified: lines under 1000 characters), because " +
   "the admins read it before they decide. It is a CommonJS module that sets `module.exports.recipe = function (id, v, variant) { … return { meta, build } }`, " +
-  "requires only 'three' and three's addons ('three/addons/…'), and names every other asset by its BLAKE3 hash. play wraps it into the " +
+  "requires only 'three', three's addons ('three/addons/…') and shared pieces by hash, and names every other asset by its BLAKE3 hash. " +
+  "A piece is readable source shared by recipes (a car kit, a battery pack), a document of kind 'piece' (list_docs, doc_at; made or changed " +
+  "with propose_doc_version, kind 'piece', whole { schema: 'piece/1', label, note, source }, a CommonJS module): a recipe names an accepted " +
+  "version of one by the BLAKE3 hash of its source, `require('<64 hex>')` (list_docs gives each piece's versions and their hashes), and " +
+  "the box reads it from play's files; a piece may require three.js and other pieces, at most 4 deep. A version keeps the pieces it was " +
+  "accepted with: a newer piece is a new version of the asset. play wraps it into the " +
   "recipe file itself (the asset box's header, then the source, then the line naming this asset and its new version). The code runs only " +
   "in the asset box, the sandboxed frame in the page, never on play's server. Start from the head's source (get_asset gives its hash, " +
   "get_file its text). Every version has one: an imported version's is legacy's own code its recipe file was bundled from (the asset's " +

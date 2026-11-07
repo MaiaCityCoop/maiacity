@@ -9,6 +9,9 @@
 	  load({ code, id, v, variant?, label? })   a readable source (wrapped into its recipe file as play wraps one,
 	                                            ./engines.js `recipeFile`) or a recipe file; shown; gives its hash,
 	                                            card and params
+	  piece({ code })                           a piece's readable source (play/SPEC.md §4.5), handed to the page as
+	                                            play's files would hand it: gives the hash a recipe requires it by; a
+	                                            recipe loaded after it lists every piece handed in its manifest
 	  guest({ code, id, v, variant?, refs? })   a readable source (or a recipe file) handed to the page's catalog, not
 	                                            shown: an asset another one names by its build's hash (a dome's
 	                                            plants, its biome); gives the hash it is held by here. `refs`: the
@@ -23,7 +26,9 @@
 
 	Opened by a person: `/render/?load=<manifest.json>` loads a recipe and the assets it names by itself, for walking it
 	in a browser before it is proposed (a building with its plants, things and floor). The manifest:
-	`{ recipe: { file, id, v }, guests: [{ file, id, v, variant?, as?, refs? }] }`, files beside it, as render.mjs's --guests.
+	`{ recipe: { file, id, v }, guests: [{ file, id, v, variant?, as?, refs? }], pieces?: [{ file, as? }] }`, files
+	beside it, as render.mjs's --guests and --pieces (a piece's `as`, the hash the recipe names, replaced by the one it is
+	held by here).
 -->
 <script>
 	// @ts-nocheck — plain JS
@@ -33,6 +38,7 @@
 	import { LATEST, RECIPE_HEAD, recipeFile } from './engines.js';
 	import { hashText } from './builds.js';
 	import { admitHanded } from './catalog.js';
+	import { handPiece, handedPieces } from './box/pieces.js';
 
 	/** the recipes handed in, as the viewer reads a catalog (./catalog.js `source`) */
 	const index = { engine: LATEST.v, recipes: {} };
@@ -42,7 +48,7 @@
 		index,
 		recipeAt: async (hash) => {
 			if (!files.has(hash)) throw new Error(`no recipe ${hash.slice(0, 12)}… was handed to the bench`);
-			return { hash, code: files.get(hash) };
+			return { hash, code: files.get(hash), pieces: handedPieces() };
 		},
 		nameOf: (hash) => index.recipes[hash]?.label ?? hash.slice(0, 12),
 		hashOf: (name) => String(name).split('?')[0],
@@ -97,7 +103,7 @@
 	async function cardOf(h, file) {
 		const box = new AssetBox({ engine: index.engine });
 		try {
-			return (await box.build({ hash: h, code: file })).card;
+			return (await box.build({ hash: h, code: file, pieces: handedPieces() })).card;
 		} finally {
 			box.stop('the bench read its card');
 		}
@@ -113,6 +119,10 @@
 			const m = await (await fetch(base)).json();
 			const text = async (f) => (await fetch(new URL(f, base))).text();
 			const here = {};
+			for (const p of m.pieces ?? []) {
+				const got = window.__render.piece({ code: await text(p.file) });
+				if (p.as) here[p.as] = got.hash;
+			}
 			let n = 0;
 			for (const g of m.guests ?? []) {
 				opening = `Building what it names: ${++n} of ${m.guests.length} (${g.id})…`;
@@ -131,6 +141,9 @@
 	});
 
 	window.__render = {
+		piece({ code }) {
+			return { hash: handPiece(code) };
+		},
 		async guest({ code, id, v, variant = null, refs = null }) {
 			const file = code.startsWith(RECIPE_HEAD) ? code : recipeFile(code, id, v, variant);
 			const h = hashText(file);
@@ -150,7 +163,7 @@
 			const box = new AssetBox({ engine: index.engine });
 			let built;
 			try {
-				built = await box.build({ hash: h, code: file });
+				built = await box.build({ hash: h, code: file, pieces: handedPieces() });
 			} finally {
 				box.stop('the bench read its card');
 			}

@@ -1,0 +1,26 @@
+		});
+		root(bag, {
+			seed,
+			key: ["tap"],
+			from: at.clone(),
+			dir: v3(.02, -1, .01),
+			length: spec.roots.tap,
+			grown: table(g, [
+				[0, 0],
+				[.3, .004],
+				[1, .03],
+				[2, .07],
+				[3, .2],
+				[4, .45],
+				[5, .75],
+				[6, .9],
+				[8, 1]
+			]),
+			radius: .002 + spec.roots.radius * span(g, 2, 8),
+			down: .03,
+			wander: .1,
+			laterals: 10,
+			lateral: .3,
+			depth: 2,
+			age: span(g, 1.5, 6),
+			young: "#f3e6cc",

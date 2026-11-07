@@ -1,0 +1,9 @@
+	const set = span(phase, .55, .55 + F.setFor);
+	const ripe = span(phase, F.ripeFrom, F.ripeFrom + F.ripeFor);
+	const keep = F.keep[0] + Math.floor(fr() * (F.keep[1] - F.keep[0] + 1));
+	for (let k = 0; k < keep; k++) {
+		const kr = chance(seed, "fruit", ...site.key, k);
+		const size = vigour * about(kr, 1, .1);
+		const L = F.length * size * lerp(.15, 1, set);
+		const W = F.width * size * lerp(.15, 1, set);
+		const swing = v3(Math.cos(k * 2.4 + kr() * 3), 0, Math.sin(k * 2.4 + kr() * 3));

@@ -23,7 +23,7 @@
 
 	type Listed = { id: string; grp: string; slug: string; label: string; head: number; versions: number };
 	type Variant = { name: string; recipe: string; label: string | null };
-	type Version = { id: string; number: number; parents: string[]; recipe: string | null; defaultVariant: string | null; note: string; created: string; author: string | null; approvedBy: string | null; imported: boolean; variants: Variant[]; cardLabel: string | null; triangles: number | null; size: number[] | null; skinned: boolean | null; sheet: string | null; datasheet: string | null; brief: string | null };
+	type Version = { id: string; number: number; parents: string[]; recipe: string | null; defaultVariant: string | null; note: string; created: string; author: string | null; approvedBy: string | null; imported: boolean; variants: Variant[]; cardLabel: string | null; triangles: number | null; size: number[] | null; skinned: boolean | null; sheet: string | null; datasheet: string | null; brief: string | null; pieces?: { hash: string; piece: string; label: string; version: number }[] };
 	type Chain = { id: string; grp: string; slug: string; label: string; versions: Version[]; sound: string | null; sound_gain: number };
 
 	const viewer = import('$lib/content/assets/VaultAsset.svelte');
@@ -191,6 +191,14 @@
 				<dt>Recipe</dt><dd class="mono" title={shownHash ?? ''}>BLAKE3 {short(shownHash)}</dd>
 				{#if v.triangles}<dt>Triangles</dt><dd>{v.triangles.toLocaleString('en-GB')}{v.skinned ? ', skinned' : ''}</dd>{/if}
 				{#if v.size}<dt>Size</dt><dd>{v.size.map((n) => n.toFixed(2)).join(' × ')} m</dd>{/if}
+				{#if v.pieces?.length}
+					<dt>Pieces</dt>
+					<dd class="pieces">
+						{#each v.pieces as p (p.hash)}
+							<a href="/pieces/?piece={p.piece}&v={p.version}" title={p.hash}>{p.label} v{p.version} <span class="mono">{short(p.hash)}</span></a>
+						{/each}
+					</dd>
+				{/if}
 			</dl>
 			<!-- its reference sheet (a plant's plate of every stage and organ), its data sheet and the sheet's brief, kept in the Library -->
 			{#if v.sheet}<a class="sheet" href="/api/files/{v.sheet}" target="_blank" rel="noopener"><img src="/api/files/{v.sheet}" alt="v{v.number}'s reference sheet" loading="lazy" /><span>Reference sheet</span></a>{/if}
@@ -251,6 +259,8 @@
 	/* the middle's notes when nothing is shown, kept off its edges */
 	.assets :global(.middle > p) { margin: 1rem clamp(1rem, 3vw, 2.4rem); }
 	.none { padding: 0.4rem 0.6rem; font-size: 0.84rem; }
+	.pieces { display: grid; gap: 0.15rem; }
+	.pieces a { color: inherit; }
 	.call { margin: 0 0 0.5rem; border: 0; cursor: pointer; font: inherit; font-size: 0.78rem; }
 	.call.on { background: var(--ink); color: var(--paper); }
 	.sheet { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0 0; font-size: 0.78rem; color: inherit; text-decoration: none; }

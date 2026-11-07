@@ -1,0 +1,5 @@
+	}
+//#piece 7fde0474209092dba6aa401aed20d18774755189353184be7f36ad8db1afbe36
+//#region src/lib/plants/wald-perennials.js
+//#piece a82999158b30fb3a0ed82921acc6a52ffefd907f320d529c20896aaa58977963
+//#piece e9c76c20f8b1f20f2fe53a43b813f23126d35e4b3646a06b5572adc6a8816513

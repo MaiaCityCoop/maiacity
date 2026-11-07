@@ -1,0 +1,34 @@
+{
+  "label": "Piece",
+  "type": "piece",
+  "name": "piece/1",
+  "note": "A shared piece (play/SPEC.md §4.5, intent 5a15e468): readable source a recipe names by its BLAKE3 hash, `require('<64 hex>')`, listed in its manifest's `pieces`. A CommonJS module (it sets module.exports), as written (no minified lines), requiring only three.js, three's addons and other pieces by their hashes, at most 4 deep. Each accepted version's source is kept among play's files by its hash (play.piece_versions), so an asset version that names it builds it forever. A new piece's Main is only its schema until it is accepted.",
+  "node": {
+    "type": "object",
+    "required": [
+      "schema"
+    ],
+    "properties": {
+      "schema": {
+        "const": "piece/1"
+      },
+      "label": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 20000,
+        "x-loro": "text"
+      },
+      "source": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4000000,
+        "x-loro": "text"
+      }
+    },
+    "additionalProperties": false
+  }
+}

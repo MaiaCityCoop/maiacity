@@ -1,0 +1,3 @@
+//#piece 497d33a67474703f700a6454cc51374b1f92673ef06e06871d4f085d1a6b2778
+three_addons_utils_BufferGeometryUtils_js = __toESM(three_addons_utils_BufferGeometryUtils_js, 1);
+

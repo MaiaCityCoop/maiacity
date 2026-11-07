@@ -35,7 +35,8 @@ import { decideLayout, ensureLayoutDoc, layoutReview, layoutShown, layoutView, l
 import { autoAfter, byOf, decideIntent, getIntent, gate, IntentError, mustDecide, type IntentVerdict } from "./intents";
 import type { AutoBy } from "./rules";
 import { acceptAndShip, acceptCode, runningCommit, type GitHub } from "./ship";
-import { assetDocFor, assetEdits, assetReview, decideAsset, ensureAssetDoc, proposeAssetVariant } from "./assetdocs";
+import { assetDocFor, assetEdits, assetReview, decideAsset, ensureAssetDoc, proposeAssetVariant, unreadable } from "./assetdocs";
+import { keepPiece, PieceError, pieceProblems, piecesHeld, piecesOf } from "./pieces";
 import { decideStory, proposeStoryVariant, storyEdit, storyReview } from "./stories";
 import { ensureStoryDoc } from "./storydocs";
 import { COOP } from "./access";
@@ -93,6 +94,10 @@ export type Kind = {
   shown?: (q: Queryable, before: any, after: any) => Promise<Record<string, unknown>>;
   /** whether its documents have breeds (an asset's: play/SPEC.md "Breeds") */
   breeds?: boolean;
+  /** what its schema and check can't say without the database, held as its version is proposed (a piece's pieces: each an accepted one); throws why not */
+  ready?: (q: Queryable, json: any) => Promise<void>;
+  /** what an accepted version keeps beside its row, in the Accept's transaction (a piece's source among play's files) */
+  accepted?: (tx: Queryable, ctx: Ctx, docId: string, number: number, json: any) => Promise<void>;
 };
 
 const KINDS: Kind[] = [];
@@ -577,6 +582,7 @@ async function proposeIn(tx: Queryable, who: Me, kind: Kind, uuid: string, docId
   const now = (await docs.readDoc(tx, docId, { variant: v })).json;
   const changes = docs.diff(await docs.seedOf(tx, docId, v), now);
   if (!changes.length) throw new VersionError(`That is the ${kind.label} as it is: nothing changed.`);
+  if (kind.ready) await kind.ready(tx, now);
   await docs.propose(tx, docId, v, { note, author });
   // a kind that decides its own way (a schema's version) is its intent's whole work; any other goes in beside
   const intent = await putAtProposal(tx, who, { intent: p.intent, work: { kind: kind.work, doc_id: docId, doc_variant: v }, note, via: via === "mcp" ? "mcp" : "web", whole: !!kind.decide }).catch((e) => {
@@ -746,6 +752,7 @@ export async function decideWork(tx: Queryable, ctx: Ctx, me: Me, p: any, verdic
     const numbers: number[] = [];
     for (const { h, k, preview } of merges) {
       const v = await docs.accept(tx, h.doc_id, h.doc_variant, { author, note: p.note });
+      if (k.accepted) await k.accepted(tx, ctx, h.doc_id, v.number, preview.json);
       const cols = { [k.labelColumn ?? "label"]: preview.json.label ?? preview.json.title, ...Object.fromEntries(Object.entries(k.row ?? {}).map(([c, f]) => [c, f(preview.json)])) };
       const names = Object.keys(cols).map(qi);
       await tx.query(`UPDATE ${qi(k.table)} SET ${names.map((c, i) => `${c} = $${i + 2}`).join(", ")} WHERE id = $1`, [h.doc_id.split(":")[1], ...Object.values(cols)]);
@@ -1046,6 +1053,31 @@ register({
     tags: (j) => j.tags ?? [], author_ids: (j) => j.authors ?? [], agent_id: field("agent"), operator_id: field("operator"), token_id: field("token"),
   },
   item: (json) => ({ url: json.url ?? null }),
+});
+
+// a piece (./pieces.ts, play/SPEC.md §4.5): readable source a recipe names by its hash; each accepted version's source
+// kept among play's files by its hash. A new piece's Main is only its schema until it is accepted.
+const PIECE_CHECK = (doc: any) => {
+  if (Object.keys(doc ?? {}).length <= 1) return [];
+  const out = ["label", "source"].filter((f) => doc[f] === undefined).map((f) => `$.${f}: a piece has its ${f}`);
+  return out.length ? out : pieceProblems(doc.source, unreadable);
+};
+const asPieceError = async (run: () => Promise<unknown>) => {
+  try {
+    await run();
+  } catch (e) {
+    throw e instanceof PieceError ? new VersionError(e.message) : e;
+  }
+};
+register({
+  name: "piece", prefix: "piece", schema: SCHEMA.piece, check: PIECE_CHECK, work: "piece_version", table: "play.records", where: "r.kind = 'piece'", label: "piece", group: "pieces",
+  row: { kind: () => "piece", updated: () => new Date() },
+  item: (json) => ({ note: json.note ?? "", bytes: Buffer.byteLength(`${json.source ?? ""}`) }),
+  ready: (q, json) => asPieceError(() => piecesHeld(q, piecesOf(`${json?.source ?? ""}`), 3)),
+  accepted: (tx, ctx, docId, number, json) => asPieceError(() => keepPiece(tx, ctx.store, docId, number, json)),
+  more: async (q, uuid) => ({
+    versions: (await q.query<{ number: number; hash: string; requires: string[]; depth: number }>(`SELECT number, hash, requires, depth FROM play.piece_versions WHERE piece_id = $1 ORDER BY number`, [uuid])).rows,
+  }),
 });
 
 export { assetDocFor };

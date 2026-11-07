@@ -33,12 +33,13 @@
 
 	onMount(async () => {
 		if (!dev) return;
-		const [{ default: S }, eng, builds, cat, host] = await Promise.all([
+		const [{ default: S }, eng, builds, cat, host, pieces] = await Promise.all([
 			import('$lib/content/worlds/WorldStage.svelte'),
 			import('$lib/content/assets/engines.js'),
 			import('$lib/content/assets/builds.js'),
 			import('$lib/content/assets/catalog.js'),
-			import('$lib/content/assets/box/host.js')
+			import('$lib/content/assets/box/host.js'),
+			import('$lib/content/assets/box/pieces.js')
 		]);
 		Stage = S;
 		const { LATEST, RECIPE_HEAD, recipeFile } = eng;
@@ -49,7 +50,7 @@
 			const box = new host.AssetBox({ engine: LATEST.v });
 			let card;
 			try {
-				card = (await box.build({ hash, code: file })).card;
+				card = (await box.build({ hash, code: file, pieces: pieces.handedPieces() })).card;
 			} finally {
 				box.stop('the bench read its card');
 			}
@@ -67,6 +68,10 @@
 			await frames(4);
 		};
 		window.__worldBench = {
+			/** a piece's readable source handed in, as play's files would hand it (play/SPEC.md §4.5): its hash */
+			piece({ code }) {
+				return { hash: pieces.handPiece(code) };
+			},
 			/** play's catalog read in (its accepted assets, by hash): a world's guests not handed in come from it */
 			async catalog() {
 				// play's own catalog read now, the guests handed in before kept beside it (never in its place)

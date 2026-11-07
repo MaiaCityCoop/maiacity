@@ -21,8 +21,10 @@ import { engineAt } from './engines.js';
 import { valuesOf } from './params.js';
 import { INDEX, buildOf, cardOf, declaredOf, heldAt, loadRecipes, parseBuild, recipeAt } from './catalog.js';
 
-/** the libraries a recipe's code requires, by name */
-const libsOf = (code) => [...new Set([...code.matchAll(/\brequire\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1]))];
+import { PIECE, piecesOf, requiresOf } from './box/pieces.js';
+
+/** the libraries a recipe's code requires of the engine, by name (a piece, named by its hash, is play's: ./box/pieces.js) */
+const libsOf = (code) => requiresOf(code).filter((n) => !PIECE.test(n));
 import { checkCard } from './schemas/index.js';
 
 const boxes = new Map();
@@ -62,7 +64,8 @@ export const CHECKS = {
 /**
  * A recipe's file held to what its entry declares (`declared`: its manifest and contract), on box engine `engine`: the
  * time its build has (ms), or throws why it is refused. Its manifest's `libs` are the modules it requires: every one
- * its file names (a name it computes reaches only the engine's own modules), and each a module of the engine. Its
+ * its file names (a name it computes reaches only the engine's own modules), and each a module of the engine; its
+ * `pieces` every piece it requires by hash (play/SPEC.md §4.5, ./box/pieces.js). Its
  * contract's `invariants` are checks the page runs on every build anyway (`CHECKS`), never one it doesn't; its
  * `budgets.bytes` bounds its file and `budgets.ms` its build, where less than the box's own 20 s. Its `memory` and
  * `ops` no box can hold: they are not read. An entry that declares nothing is held to the engine alone.
@@ -76,6 +79,10 @@ export function heldTo(code, declared, engine) {
 		const none = libs.filter((l) => !engine.modules.includes(l));
 		if (none.length) throw new Error(`refused: its manifest names ${none.slice(0, 3).join(', ')}, which box engine ${engine.v} doesn't have`);
 	}
+	// the pieces it requires by hash, each in its manifest's `pieces` (the box reads them, and those they require)
+	const pieces = declared?.manifest?.pieces;
+	const unlisted = piecesOf(code).filter((h) => !(Array.isArray(pieces) && pieces.includes(h)));
+	if (unlisted.length) throw new Error(`refused: it requires piece ${unlisted[0].slice(0, 12)}…, which its manifest doesn't name`);
 	const c = declared?.contract ?? {};
 	const unknown = (Array.isArray(c.invariants) ? c.invariants : []).filter((i) => !Object.hasOwn(CHECKS, i));
 	if (unknown.length) throw new Error(`refused: its contract asks for ${unknown.slice(0, 3).join(', ')}, a check the page doesn't run`);

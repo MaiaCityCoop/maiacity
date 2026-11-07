@@ -25,6 +25,10 @@
  *                     bytes and so its hash differ from play's minified file), so it draws the same plant;
  *                     `refs` what its card names by readable refs, each by the `as` of a guest listed before it
  *
+ *   --pieces          a JSON list of the pieces a recipe names by hash (play/SPEC.md §4.5): { "file", "as"? }, each a
+ *                     piece's readable source handed to the page as play's files would hand it; `as` the hash the
+ *                     recipe names, replaced in every --file's code by the hash it is held by here (its own: a piece
+ *                     is named by the hash of its source, so they are the same unless the file differs)
  *   --play            the page's API is play's own (https://play.maia.city), read with the admin token in PLAY_MCP_TOKEN
  *                     (its read-only routes; the token is sent to play and nowhere else): with --world, the guests a world
  *                     names that are not handed in with --guests are play's accepted assets, from its catalog; a
@@ -61,6 +65,7 @@ function args(argv) {
 		else if (k === '--label') (o.recipes.at(-1).label = v), i++;
 		else if (k === '--shots') (o.shots = v), i++;
 		else if (k === '--guests') (o.guests = v), i++;
+		else if (k === '--pieces') (o.pieces = v), i++;
 		else if (k === '--slack') (o.slack = Number(v)), i++;
 		else if (k === '--world') o.world = true;
 		else if (k === '--play') o.play = true;
@@ -143,6 +148,11 @@ try {
 		if (o.world && o.play) {
 			const got = await page.evaluate(() => window.__worldBench.catalog());
 			console.log(`  play's catalog: ${got.count} recipes${got.error ? ` (${got.error})` : ''}`);
+		}
+		for (const p of o.pieces ? JSON.parse(readFileSync(o.pieces, 'utf8')) : []) {
+			const got = await page.evaluate(([b, x]) => window[b].piece(x), [bench, { code: readFileSync(resolve(dirname(o.pieces), p.file), 'utf8') }]);
+			if (p.as && p.as !== got.hash) code = code.replaceAll(p.as, got.hash);
+			console.log(`  piece ${p.file} (${got.hash.slice(0, 12)}…)`);
 		}
 		for (const g of o.guests ? JSON.parse(readFileSync(o.guests, 'utf8')) : []) {
 			// a guest handed in always stands in for the hash it is named by, play's copy or not (an "after" run draws the

@@ -1,0 +1,7 @@
+*/
+//#piece e6a34d37c796ca5ffb84215cf2caaf1c9f46f4980e4ce4f1551adca44ce3ef6d
+//#piece 48383207183e3f1c9ef086f2595cace24a883be4db56d4b7859ac22b19b31d81
+//#piece 1d512c44003c7b913af306d16ad50cee245abb35fc0046988ad83eae2886ed01
+		}
+		left -= seg;
+	}

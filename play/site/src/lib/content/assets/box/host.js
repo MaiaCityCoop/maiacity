@@ -2,6 +2,7 @@
 import { LATEST, engineAt } from '../engines.js';
 import { Shell, TIMEOUT, engineCode as frozenCode } from '$lib/kernel/sandbox/frame.js';
 import { budget, buildTurn } from '$lib/content/render/budget.js';
+import { resolved } from './pieces.js';
 /*
  * THE ASSET BOX — where an asset's builder runs when we cannot trust it: the shell (../../../../aven/kernel/sandbox/frame.js, a worker
  * inside a frame with no origin, the same for every host of code we cannot trust) running the asset engine.
@@ -113,12 +114,14 @@ export class AssetBox extends Shell {
 
 	/**
 	 * A recipe built in the box: `{ data, card, ms }`, its plain data (./serialize.js) and its card, unchecked.
-	 * @param {{ hash: string, code: string }} recipe checked against its hash (../recipes.js)
+	 * @param {{ hash: string, code: string, pieces?: string[] }} recipe checked against its hash (../recipes.js), and the
+	 *   pieces its manifest names, which it is handed with (./pieces.js: read from play's files, each held to its hash)
 	 * @param {Record<string, string>} [given] its parameters' values, as text
 	 */
-	build(recipe, given, o) {
+	async build(recipe, given, o) {
+		const r = await resolved(recipe);
 		// one of the page's few builds at a time (the device's budget), whichever box asks
-		return this.#turned(() => this.ask('build', { recipe, given, engine: this.engine }, { ...o, room: () => this.#roomOf(recipe.code) }));
+		return this.#turned(() => this.ask('build', { recipe: r, given, engine: this.engine }, { ...o, room: () => this.#roomOf(r.code) }));
 	}
 
 	/**
@@ -128,7 +131,8 @@ export class AssetBox extends Shell {
 	 */
 	async live(recipe, given, nodes, o) {
 		let room;
-		const got = await this.#turned(() => this.ask('live', { recipe, given, nodes }, { ...o, room: () => (room = this.#roomOf(recipe.code)) }));
+		const r = await resolved(recipe);
+		const got = await this.#turned(() => this.ask('live', { recipe: r, given, nodes }, { ...o, room: () => (room = this.#roomOf(r.code)) }));
 		const session = ++this.ids;
 		// (a box torn down meanwhile has no room for it: its steps fail, as a torn-down box's do)
 		if (this.rooms.some((r) => r.room === room)) this.sessions.set(session, { room, session: got.session });

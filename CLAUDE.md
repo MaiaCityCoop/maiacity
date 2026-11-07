@@ -85,7 +85,10 @@ in, as a traveler. An admin makes a citizen by hand. Admins are Maia City's owne
 play is an MCP server at `https://play.maia.city/api/mcp` (Streamable HTTP; `play/api/src/mcp.ts`). An admin makes an
 access token on play's profile page (`play_…`, shown once, kept hashed, revocable) and gives it to the agent as
 `Authorization: Bearer`. The agent reads assets, versions, sources and recipe files and proposes new versions or assets as **readable
-source** (play refuses minified code and wraps the source into the recipe file itself); to propose is to put an intent
+source** (play refuses minified code and wraps the source into the recipe file itself); a recipe names a **piece by hash**
+(play/SPEC.md §4.5, `play/api/src/pieces.ts`): shared readable source, a `piece:<uuid>` document proposed with
+`propose_doc_version`'s `kind: "piece"`, required as `require('<the hash of an accepted version's source>')` and listed in
+the manifest's `pieces`, read by the box from play's files and held to its hash, so a frozen version keeps its pieces; to propose is to put an intent
 at Proposal with that work, on the intents' board under the admin's name, marked MCP, where people read the source and see it built in the asset box (the sandboxed
 frame; proposed code never runs on the server or on play's origin) before they decide. **One version control**
 (play/SPEC.md §4.15, `play/api/src/versioned.ts`; Samuel 2026-11-06) versions everything play keeps (assets, stories,

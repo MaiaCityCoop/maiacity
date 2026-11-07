@@ -233,6 +233,23 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   and a label are only shown.
 - **One loader** (play/site's `content/assets/catalog.js`): hash → its record from `/api/catalog` → its file from
   `/api/files/<hash>`, held to the hash → the frozen box engine builds it. Media (covers, sounds) are play's files too.
+- **A recipe names a piece by hash** (intent 5a15e468, Samuel 2026-11-07). A **piece** is readable source two or more
+  recipes share (the car kit, a battery pack, the Power Cube), a document `piece:<uuid>` of its own schema
+  (`schema:<SCHEMA.piece>`, seeded from `play/api/migrations/schemas/piece.json`: `{ schema: 'piece/1', label, note,
+  source }`), made and changed like any document (`propose_doc_version` with `kind: 'piece'`, or an intent variant), its
+  History in its document's History tab (`/pieces/`). It is a CommonJS module as written (no minified lines), requiring
+  only three.js, three's addons and other pieces, at most 4 deep counted from the recipe, with no cycle. Each accepted
+  version's source is kept among play's files by its BLAKE3 hash and listed in `play.piece_versions` (what it requires,
+  how deep; frozen). A recipe requires it by that hash, `require('<64 hex>')`, and its manifest's `pieces` names it and
+  every piece beneath it; `propose_asset` and `propose_doc_version` refuse a hash that is no accepted piece version's.
+  Since the recipe names a hash, a frozen version always builds the piece it was accepted with, and a newer piece
+  version is a new version of the asset. **The box resolves it** (`play/site`'s `content/assets/box/pieces.js`,
+  `load.js`): before the build, from play's files alone (`/api/files/<hash>`, held to its hash, cached as every file
+  is), handed into the worker as one script (the pieces, then the recipe file as it is), never from any other origin;
+  the frozen engines are unchanged. A piece not held, a hash mismatch, a cycle, more than 4 deep, or one not in the
+  manifest is refused, saying which. The asset viewer and the intents' board name a version's pieces (label, version,
+  hash). The imported legacy sources are kept the same way in the repository (`play/api/import/legacy/sources/pieces`,
+  each shared part once, every source rebuilt byte for byte to its hash).
 
 ### 4.6 A sandbox's layout, a document (Samuel 2026-11-04 and 2026-11-06)
 
@@ -944,7 +961,7 @@ intents (…, work 'skill_version', skill_id → skills, doc_branch)            
 ### 4.15 Version control (Samuel 2026-11-06)
 
 **One version control for everything play versions**: assets, stories, factories, the game's configs, skills,
-sandboxes' layouts (§4.6), the auto-accept rules (`rules:<uuid>`, §4.12) and the schemas themselves (and, by its own intent, breeds next), in one vocabulary, by one
+the shared pieces a recipe names by hash (§4.5), sandboxes' layouts (§4.6), the auto-accept rules (`rules:<uuid>`, §4.12) and the schemas themselves (and, by its own intent, breeds next), in one vocabulary, by one
 registry and one module, shown by one History.
 
 | Word | Meaning | Was |

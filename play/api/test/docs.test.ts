@@ -3,10 +3,9 @@
 // accept; versions named with the hash of their content and never changed; code merged with other edits accepted only
 // once its merged result was previewed.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { createHuman } from "../src/auth";
 import { canonical } from "../src/hash";
+import { readSource } from "../import/sources";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
 import {
@@ -190,7 +189,7 @@ suite("documents in Loro", () => {
   });
 
   test("code (an asset's source) merged with other edits is accepted only once its merged result was previewed", async () => {
-    const source = readFileSync(join(import.meta.dir, "../import/legacy/sources/plants/papaya@963cc9dfc684.js"), "utf8");
+    const source = readSource("plants/papaya@963cc9dfc684.js");
     await createDoc(db, { id: PAPAYA, schema: SCHEMA.asset, json: { schema: "asset/1", label: "Papaya", source, card: { triangles: 1 } }, author: { human: null, via: "import" }, message: "v1 from legacy", version: "v1" });
     const a = await variant(db, PAPAYA, { author: mcp }), b = await variant(db, PAPAYA, { author: cit });
     await commit(db, PAPAYA, { variant: a.id, edits: [{ op: "text", path: ["source"], index: 0, insert: "// a: leaf lobes\n" }], message: "a", author: mcp });
