@@ -45,6 +45,16 @@ if ! ready; then
   exit 1
 fi
 
+# room for the API's tests in parallel (intent aa59f248; setup.sh sets it on a new cluster): a box made before has 100
+MAXC=500
+pq() { PGPASSWORD=play psql -h 127.0.0.1 -p "$PORT" -U postgres -tAc "$1" postgres 2> /dev/null; }
+if [ "$(pq 'show max_connections')" -lt "$MAXC" ] 2> /dev/null; then
+  read -r V C <<< "$(ours)"
+  pq "ALTER SYSTEM SET max_connections = $MAXC" > /dev/null && [ -n "${V:-}" ] && as_root pg_ctlcluster "$V" "$C" restart > /dev/null 2>&1
+  for _ in $(seq 1 40); do ready && break; sleep 0.25; done
+  say "max_connections: $(pq 'show max_connections')"
+fi
+
 if [ -n "${CLAUDE_ENV_FILE:-}" ] && ! grep -qs "^export TEST_DATABASE_URL=$URL\$" "$CLAUDE_ENV_FILE"; then
   echo "export TEST_DATABASE_URL=$URL" >> "$CLAUDE_ENV_FILE"
 fi
@@ -59,6 +69,9 @@ done
 if [ -d "$ROOT/play/site/node_modules" ] && [ ! -f "$ROOT/play/site/.svelte-kit/tsconfig.json" ]; then
   (cd "$ROOT/play/site" && bunx svelte-kit sync > /dev/null 2>&1) || say "could not sync play/site's SvelteKit types"
 fi
+
+# the workflows' lint (intent aa59f248), built once if it is missing
+bash "$ROOT/play/avenbox/actionlint.sh" --install > /dev/null 2>&1 || say "could not install actionlint (gate.sh lint tries again)"
 
 version=$(PGPASSWORD=play psql -h 127.0.0.1 -p "$PORT" -U postgres -tAc 'show server_version' postgres 2> /dev/null | cut -d' ' -f1)
 say "PostgreSQL ${version:-?} on 127.0.0.1:$PORT; TEST_DATABASE_URL=$URL"
