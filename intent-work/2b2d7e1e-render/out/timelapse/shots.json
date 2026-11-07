@@ -1,0 +1,1172 @@
+[
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-000",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-000.png",
+		"values": {
+			"stage": 0,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 290,
+		"triangles": 1004,
+		"size": [
+			0.239,
+			0.178,
+			0.176
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-001",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-001.png",
+		"values": {
+			"stage": 0.25,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 242,
+		"triangles": 1004,
+		"size": [
+			0.239,
+			0.178,
+			0.176
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-002",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-002.png",
+		"values": {
+			"stage": 0.5,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 244,
+		"triangles": 1020,
+		"size": [
+			0.244,
+			0.196,
+			0.176
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-003",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-003.png",
+		"values": {
+			"stage": 0.75,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 243,
+		"triangles": 1070,
+		"size": [
+			0.248,
+			0.28,
+			0.176
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-004",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-004.png",
+		"values": {
+			"stage": 1,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 227,
+		"triangles": 1160,
+		"size": [
+			0.258,
+			0.349,
+			0.176
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-005",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-005.png",
+		"values": {
+			"stage": 1.25,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 229,
+		"triangles": 1680,
+		"size": [
+			0.379,
+			0.418,
+			0.176
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-006",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-006.png",
+		"values": {
+			"stage": 1.5,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 238,
+		"triangles": 1784,
+		"size": [
+			0.529,
+			0.466,
+			0.176
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-007",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-007.png",
+		"values": {
+			"stage": 1.75,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 241,
+		"triangles": 2398,
+		"size": [
+			0.531,
+			0.51,
+			0.189
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-008",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-008.png",
+		"values": {
+			"stage": 2,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 238,
+		"triangles": 2528,
+		"size": [
+			0.674,
+			0.539,
+			0.372
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-009",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-009.png",
+		"values": {
+			"stage": 2.25,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 234,
+		"triangles": 2994,
+		"size": [
+			0.798,
+			0.758,
+			0.582
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-010",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-010.png",
+		"values": {
+			"stage": 2.5,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 225,
+		"triangles": 4090,
+		"size": [
+			0.932,
+			1.078,
+			1.053
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-011",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-011.png",
+		"values": {
+			"stage": 2.75,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 242,
+		"triangles": 5748,
+		"size": [
+			1.178,
+			1.307,
+			1.318
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-012",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-012.png",
+		"values": {
+			"stage": 3,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 238,
+		"triangles": 6408,
+		"size": [
+			1.342,
+			1.671,
+			1.349
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-013",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-013.png",
+		"values": {
+			"stage": 3.25,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 233,
+		"triangles": 8222,
+		"size": [
+			1.67,
+			2.18,
+			1.394
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-014",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-014.png",
+		"values": {
+			"stage": 3.5,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 259,
+		"triangles": 11154,
+		"size": [
+			2.036,
+			2.85,
+			1.882
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-015",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-015.png",
+		"values": {
+			"stage": 3.75,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 246,
+		"triangles": 14332,
+		"size": [
+			2.43,
+			3.476,
+			2.175
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-016",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-016.png",
+		"values": {
+			"stage": 4,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 246,
+		"triangles": 18070,
+		"size": [
+			2.537,
+			3.826,
+			2.314
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-017",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-017.png",
+		"values": {
+			"stage": 4.25,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 308,
+		"triangles": 22980,
+		"size": [
+			2.671,
+			4.026,
+			2.645
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-018",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-018.png",
+		"values": {
+			"stage": 4.5,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 302,
+		"triangles": 29580,
+		"size": [
+			2.894,
+			4.861,
+			3.3
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-019",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-019.png",
+		"values": {
+			"stage": 4.75,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 319,
+		"triangles": 39182,
+		"size": [
+			3.732,
+			5.906,
+			3.818
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-020",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-020.png",
+		"values": {
+			"stage": 5,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 275,
+		"triangles": 64216,
+		"size": [
+			3.987,
+			6.38,
+			4.061
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-021",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-021.png",
+		"values": {
+			"stage": 5.25,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 310,
+		"triangles": 86964,
+		"size": [
+			4.206,
+			6.814,
+			4.435
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-022",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-022.png",
+		"values": {
+			"stage": 5.5,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 308,
+		"triangles": 91484,
+		"size": [
+			5.028,
+			7.169,
+			5.328
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-023",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-023.png",
+		"values": {
+			"stage": 5.75,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 376,
+		"triangles": 114368,
+		"size": [
+			5.5,
+			7.741,
+			6.115
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-024",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-024.png",
+		"values": {
+			"stage": 6,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 396,
+		"triangles": 130956,
+		"size": [
+			5.917,
+			8.122,
+			6.319
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-025",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-025.png",
+		"values": {
+			"stage": 6.25,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 368,
+		"triangles": 145510,
+		"size": [
+			6.344,
+			8.245,
+			6.512
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-026",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-026.png",
+		"values": {
+			"stage": 6.5,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 383,
+		"triangles": 165184,
+		"size": [
+			6.933,
+			8.503,
+			7.159
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-027",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-027.png",
+		"values": {
+			"stage": 6.75,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 415,
+		"triangles": 164186,
+		"size": [
+			7.425,
+			8.508,
+			7.896
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-028",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-028.png",
+		"values": {
+			"stage": 7,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 438,
+		"triangles": 178172,
+		"size": [
+			7.663,
+			8.712,
+			8.119
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-029",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-029.png",
+		"values": {
+			"stage": 7.25,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 417,
+		"triangles": 175946,
+		"size": [
+			8.016,
+			8.77,
+			8.393
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-030",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-030.png",
+		"values": {
+			"stage": 7.5,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 435,
+		"triangles": 173630,
+		"size": [
+			8.614,
+			8.87,
+			8.793
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-031",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-031.png",
+		"values": {
+			"stage": 7.75,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 441,
+		"triangles": 177698,
+		"size": [
+			8.847,
+			9.112,
+			9.064
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-032",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-032.png",
+		"values": {
+			"stage": 8,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 452,
+		"triangles": 178088,
+		"size": [
+			8.949,
+			9.243,
+			9.13
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-033",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-033.png",
+		"values": {
+			"stage": 8.25,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 428,
+		"triangles": 179902,
+		"size": [
+			9.098,
+			9.306,
+			9.151
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-034",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-034.png",
+		"values": {
+			"stage": 8.5,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 457,
+		"triangles": 182196,
+		"size": [
+			9.239,
+			9.416,
+			9.381
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-035",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-035.png",
+		"values": {
+			"stage": 8.75,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 445,
+		"triangles": 187746,
+		"size": [
+			9.35,
+			9.846,
+			9.64
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-036",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-036.png",
+		"values": {
+			"stage": 9,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 450,
+		"triangles": 188018,
+		"size": [
+			9.421,
+			9.781,
+			9.713
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-037",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-037.png",
+		"values": {
+			"stage": 9.25,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 448,
+		"triangles": 266168,
+		"size": [
+			9.963,
+			10.01,
+			10.465
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-038",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-038.png",
+		"values": {
+			"stage": 9.5,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 525,
+		"triangles": 368732,
+		"size": [
+			10.112,
+			10.134,
+			10.362
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-039",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-039.png",
+		"values": {
+			"stage": 9.75,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 523,
+		"triangles": 365780,
+		"size": [
+			10.06,
+			10.272,
+			10.175
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-040",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-040.png",
+		"values": {
+			"stage": 10,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 499,
+		"triangles": 382444,
+		"size": [
+			9.646,
+			10.036,
+			10.153
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-041",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-041.png",
+		"values": {
+			"stage": 10.25,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 513,
+		"triangles": 373360,
+		"size": [
+			8.859,
+			10.694,
+			9.117
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-042",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-042.png",
+		"values": {
+			"stage": 10.5,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 536,
+		"triangles": 392656,
+		"size": [
+			8.582,
+			10.956,
+			8.912
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-043",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-043.png",
+		"values": {
+			"stage": 10.75,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 587,
+		"triangles": 383800,
+		"size": [
+			8.061,
+			11.167,
+			8.098
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	},
+	{
+		"recipe": "v3",
+		"label": "King coconut",
+		"shot": "tl-044",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-timelapse/v3-tl-044.png",
+		"values": {
+			"stage": 11,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 251,
+		"triangles": 398040,
+		"size": [
+			7.725,
+			11.694,
+			7.909
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	}
+]

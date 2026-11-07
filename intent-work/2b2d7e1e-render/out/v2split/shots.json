@@ -1,0 +1,28 @@
+[
+	{
+		"recipe": "v2",
+		"label": "King coconut",
+		"shot": "split-wide",
+		"png": "/Users/samuelandert/Documents/Development/s2b2d-film/scratch/2b2d7e1e-coconut-film/mac/out-v2split/v2-split-wide.png",
+		"values": {
+			"stage": 9,
+			"seed": "maia",
+			"detail": 1,
+			"fruit": 0
+		},
+		"ms": 532,
+		"triangles": 184434,
+		"size": [
+			9.477,
+			9.796,
+			9.73
+		],
+		"note": "",
+		"planted": {
+			"planted": 0,
+			"kinds": 0,
+			"missing": 0,
+			"floors": 0
+		}
+	}
+]
