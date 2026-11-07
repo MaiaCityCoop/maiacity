@@ -143,6 +143,7 @@ suite("no write past an Accept", () => {
       add_story_video: { data: Buffer.from("not a video").toString("base64"), media_type: "video/mp4" },
       add_story_audio: { data: Buffer.from("not a recording").toString("base64"), media_type: "audio/mpeg" },
       add_document: { text: "# A data sheet\n\nIts numbers.", label: "a data sheet" },
+      add_story_composition: { html: '<div id="root" data-composition-id="main"></div>\n<script>\n  window.__timelines["main"] = gsap.timeline({ paused: true });\n</script>\n', label: "a composition" },
       add_intent: { title: "Added here" },
       specify_intent: { intent: fresh, ...SPEC },
       check_intent: { intent: checked, results: [{ check: "c1", pass: true, evidence: "exit 0" }] },
