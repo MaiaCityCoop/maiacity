@@ -27,6 +27,10 @@ export type Work = {
 const REFS = ["asset_id", "base", "version", "story_id", "story_base", "story_version"] as const;
 const JSON_REFS = new Set<string>();
 
+/** the SQL of the status of an intent's (`i`) work: proposed while it waits on the intent, at Proposal or in Build holding a proposed variant (intent 94061718; one archived by itself, its intent back in Build, is not), accepted, else archived */
+export const WORK_STATUS = `CASE WHEN i.stage = 'proposal' OR (i.stage = 'build' AND EXISTS (SELECT 1 FROM play.intent_variants wv JOIN play.doc_variants dv ON dv.id = wv.variant_id
+  WHERE wv.intent_id = i.id AND dv.status = 'proposed')) THEN 'proposal' WHEN i.stage = 'accepted' THEN 'accepted' ELSE 'archived' END`;
+
 /** the SQL of an intent's (`i`) first document and its variant: its work's own */
 export const DOC_OF = `(SELECT iv.doc_id FROM play.intent_variants iv WHERE iv.intent_id = i.id ORDER BY iv.position LIMIT 1)`;
 export const VARIANT_OF = `(SELECT iv.variant_id FROM play.intent_variants iv WHERE iv.intent_id = i.id ORDER BY iv.position LIMIT 1)`;
@@ -40,7 +44,7 @@ export const WORK_OF = `i.id, i.coop_id, i.work AS kind, ${DOC_OF} AS doc_id, ${
   COALESCE((SELECT json_agg(json_build_object('doc_id', iv.doc_id, 'doc_variant', iv.variant_id) ORDER BY iv.position) FROM play.intent_variants iv WHERE iv.intent_id = i.id), '[]'::json) AS variants,
   i.asset_id, i.base, i.version, i.story_id, i.story_base, i.story_version,
   COALESCE(i.work_note, '') AS note, i.proposed_by AS author, i.proposed_via AS via, i.proposed_at AS created,
-  i.stage, CASE i.stage WHEN 'proposal' THEN 'proposal' WHEN 'accepted' THEN 'accepted' ELSE 'archived' END AS status,
+  i.stage, ${WORK_STATUS} AS status,
   i.decided_by, i.decided_at, i.spec, i.approved_at, i.title AS intent_title`;
 
 /** no work without an intent (play/SPEC.md §4.12): what a propose without one is told */
@@ -104,8 +108,9 @@ export async function closeWork(q: Queryable, me: Pick<Me, "id"> | null, w: { id
 }
 
 /**
- * Puts an intent at Proposal with its work (in the caller's transaction): intent `intent`, in Build or at Proposal (its
- * gate, ./intents.ts mayMove's work). No work without an intent: none named, nothing is taken. A document's version
+ * Puts work on an intent (in the caller's transaction): intent `intent`, in Build or at Proposal (its gate,
+ * ./intents.ts mayMove's work). At Proposal it stays there; in Build it moves to Proposal with it only where every must
+ * passes already, else the work waits on it in Build and goes to Proposal with it when its last must passes. No work without an intent: none named, nothing is taken. A document's version
  * alone goes in beside the documents the intent holds; anything else replaces its work. Gives back its id.
  */
 export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string | null; work: Work; note: string; via: "web" | "mcp"; whole?: boolean }): Promise<string> {
@@ -133,12 +138,21 @@ export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string 
     await q.query(`DELETE FROM play.intent_variants WHERE intent_id = $1 AND variant_id IS DISTINCT FROM $2::bigint`, [id, keep]);
     await q.query(`UPDATE play.intents SET work = $${n}, ${set} WHERE id = $1`, [id, ...cols, o.work.kind]);
   }
+  // in Build, the work waits on the intent until its last must passes (intent 94061718): it then moves to Proposal with
+  // all of it (./intents.ts recordChecks); one whose musts pass already moves now
+  const moves = !(await gate.mayMove(q, id, "proposal"));
   await q.query(
-    `UPDATE play.intents SET work_note = $2, proposed_by = $3, proposed_via = $4, proposed_at = now(), stage = 'proposal', decided_by = NULL, decided_at = NULL, auto = auto - 'accept' WHERE id = $1`,
-    [id, o.note, who.id, o.via],
+    `UPDATE play.intents SET work_note = $2, proposed_by = $3, proposed_via = $4, proposed_at = now(), stage = CASE WHEN $5 THEN 'proposal' ELSE stage END, decided_by = NULL, decided_at = NULL, auto = auto - 'accept' WHERE id = $1`,
+    [id, o.note, who.id, o.via, moves],
   );
   if (o.work.doc_id && o.work.doc_variant != null) await holdVariant(q, who, id, o.work.doc_id, Number(o.work.doc_variant));
   return id;
+}
+
+/** the stage intent `id` is at after its work is put on it: at Proposal, or still in Build, its work waiting on it */
+export async function stageAfter(q: Queryable, id: string): Promise<"build" | "proposal"> {
+  const { rows } = await q.query<{ stage: string }>(`SELECT stage FROM play.intents WHERE id = $1`, [id]);
+  return rows[0]?.stage === "build" ? "build" : "proposal";
 }
 
 /**

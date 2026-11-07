@@ -10,7 +10,7 @@ import type { GitHub } from "./ship";
 import { NOTE_MOST } from "./notes";
 import { briefOf } from "./skills";
 import { newId, UUID } from "./uuid";
-import { intentIdOf } from "./work";
+import { closeWork, intentIdOf, WORK_STATUS } from "./work";
 import { decideAny, workKinds, workSql } from "./versioned";
 import { decidable, sub, unmetOn } from "./substate";
 
@@ -141,7 +141,7 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
             ${EDGES("d.intent_id = i.id", "d.depends_on")} AS depends_on, ${EDGES("d.depends_on = i.id", "d.intent_id")} AS needed_by,
             au.name AS author, sp.name AS specified_by, ap.name AS approved_by, de.name AS decided_by,
             CASE WHEN i.work IS NULL THEN NULL ELSE json_build_object(
-              'kind', i.work, 'status', CASE i.stage WHEN 'proposal' THEN 'proposal' WHEN 'accepted' THEN 'accepted' ELSE 'archived' END,
+              'kind', i.work, 'status', ${WORK_STATUS},
               'asset_id', i.asset_id, 'base', i.base, 'version', i.version, 'story_id', i.story_id, 'story_base', i.story_base, 'story_version', i.story_version,
               'doc_id', iv0.doc_id, 'doc', split_part(iv0.doc_id, ':', 2), 'doc_variant', iv0.variant_id, 'docs', (SELECT count(*) FROM play.intent_variants x WHERE x.intent_id = i.id),
               'note', COALESCE(i.work_note, ''), 'author', pb.name, 'via', i.proposed_via, 'created', i.proposed_at, 'decided_by', de.name, 'decided_at', i.decided_at,
@@ -472,11 +472,9 @@ async function mayMove(db: Queryable, intent: string | GateRow, to: Move, what?:
     if (to === "merge" && held.every((d) => d.stage === "ship")) return { why: `Waits for ${named(held)} to ship first`, wait: true };
     return no(heldText(i.id, held));
   }
-  const missing = to === "accept_work" || to === "merge" || to === "build" ? [] : unmet(i);
-  if (missing.length)
-    return no(to === "work"
-      ? `Intent ${i.id} is not ready to propose: every must check passes first (record them with check_intent). ${missing.join("; ")}.`
-      : `Every must check passes before an intent is ${to === "proposal" ? "at Proposal" : "accepted"}: ${missing.join("; ")}.`);
+  // work proposed in Build waits on the intent (intent 94061718): the move to Proposal alone waits for every must
+  const missing = to === "accept_work" || to === "merge" || to === "build" || to === "work" ? [] : unmet(i);
+  if (missing.length) return no(`Every must check passes before an intent is ${to === "proposal" ? "at Proposal" : "accepted"}: ${missing.join("; ")}.`);
   return null;
 }
 /** the gate as every path calls it (a test may stand a stub in its place) */
@@ -539,6 +537,8 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
       if (!["idea", "specify", "build", "proposal"].includes(intent.stage)) refuse(`An intent at the ${intent.stage} stage is decided already.`);
       // a reject undoes what a rule decided before it
       await db.query(`UPDATE play.intents SET stage = 'archived', decided_by = $2, decided_at = now(), auto = '{}'::jsonb WHERE id = $1`, [intent.id, who.id]);
+      // work proposed in Build that waited on it is archived with it, kept in the history
+      if (intent.work) await closeWork(db, who, { id: intent.id });
       break;
     case "reopen":
       if (intent.stage !== "accepted" && intent.stage !== "archived") refuse(`This intent is at the ${intent.stage} stage already.`);

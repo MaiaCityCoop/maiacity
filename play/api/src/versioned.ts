@@ -30,7 +30,7 @@ import { SKILL_STAGES } from "./skills";
 import type { Db, Queryable } from "./pg";
 import { NOTE_MOST } from "./notes";
 import { UUID } from "./uuid";
-import { closeWork, NO_INTENT, putAtProposal, settle, WORK_OF, workOf, WorkError } from "./work";
+import { closeWork, NO_INTENT, putAtProposal, settle, stageAfter, WORK_OF, workOf, WorkError } from "./work";
 import { decideLayout, ensureLayoutDoc, layoutReview, layoutShown, layoutView, layoutWrite, sandboxCheck } from "./sandboxes";
 import { autoAfter, byOf, decideIntent, getIntent, gate, IntentError, mustDecide, type IntentVerdict } from "./intents";
 import type { AutoBy } from "./rules";
@@ -557,7 +557,7 @@ export async function proposeDocVersion(ctx: Ctx, me: Me | null, p: ProposeBody,
     }
     const out = await asVersionError(() => kind.propose!(ctx, who, { id: uuid, variant: Number(v), note, intent: p.intent }, via));
     const edits = (await docs.history(ctx.db, docId, { variant: Number(v) })).length;
-    return { ...out, stage: "proposal" as const, doc: uuid, kind: kind.name, variant: Number(v), edits };
+    return { ...out, stage: await stageAfter(ctx.db, (out as any).intent), doc: uuid, kind: kind.name, variant: Number(v), edits };
   }
   return asVersionError(() =>
     ctx.db.transaction(async (tx) => {
@@ -585,7 +585,7 @@ async function proposeIn(tx: Queryable, who: Me, kind: Kind, uuid: string, docId
     throw e instanceof WorkError ? new VersionError(e.message, e.status) : e;
   });
   const number = ((await docs.versionsOf(tx, docId)).at(-1)?.number ?? 0) + 1;
-  return { intent, stage: "proposal" as const, doc: uuid, kind: kind.name, number, variant: v, edits: (await docs.history(tx, docId, { variant: v })).length, changes: changes.length };
+  return { intent, stage: await stageAfter(tx, intent), doc: uuid, kind: kind.name, number, variant: v, edits: (await docs.history(tx, docId, { variant: v })).length, changes: changes.length };
 }
 
 /**
