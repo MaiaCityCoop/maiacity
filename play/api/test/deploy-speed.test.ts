@@ -407,21 +407,37 @@ pg("play-api", () => {
     await initSessions(db);
     const h = await createHuman(db, "sig");
     const cookie = `play_session=${tokenFor(h.id)}`;
-    const port = 20000 + Math.floor(Math.random() * 20000);
+    // port 0: the server takes a free one and names it ("play-api on :<port>"), so no other test or worker holds it.
+    // Its output is read as it comes (a pipe left unread fills and stops the child) and waited on: the test goes on
+    // when the server says it listens, and fails at once with its own error if it exits (intent aa59f248: under
+    // parallel tests it died with "too many clients", and the test only saw it never answer)
     const api = Bun.spawn(["bun", "src/index.ts"], {
       cwd: resolve(import.meta.dir, ".."),
-      env: { PATH: process.env.PATH!, HOME: process.env.HOME ?? "/tmp", DATABASE_URL: t.url, PORT: String(port), PLAY_BLOBS: mkdtempSync(join(tmpdir(), "play-blobs-")) },
+      env: { PATH: process.env.PATH!, HOME: process.env.HOME ?? "/tmp", DATABASE_URL: t.url, PORT: "0", PLAY_BLOBS: mkdtempSync(join(tmpdir(), "play-blobs-")) },
       stdout: "pipe",
       stderr: "pipe",
     });
-    const base = `http://127.0.0.1:${port}`;
-    try {
-      let up = false;
-      for (let i = 0; i < 100 && !up; i++) {
-        up = await fetch(`${base}/api/health`).then((r) => r.ok, () => false);
-        if (!up) await Bun.sleep(100);
+    const out: string[] = [];
+    const err: string[] = [];
+    const drain = async (s: ReadableStream<Uint8Array>, into: string[]) => {
+      const d = new TextDecoder();
+      for await (const c of s) into.push(d.decode(c, { stream: true }));
+    };
+    const outDone = drain(api.stdout, out);
+    void drain(api.stderr, err);
+    // until `ok` holds on what it said, or it exits
+    const said = async <T,>(ok: (text: string) => T | null): Promise<T> => {
+      for (;;) {
+        const hit = ok(out.join(""));
+        if (hit !== null) return hit;
+        if (api.exitCode !== null) throw new Error(`play-api exited (${api.exitCode}): ${err.join("")}${out.join("")}`);
+        await Bun.sleep(20);
       }
-      expect(up).toBe(true);
+    };
+    try {
+      const port = await said((o) => o.match(/play-api on :(\d+)/)?.[1] ?? null);
+      const base = `http://127.0.0.1:${port}`;
+      expect((await fetch(`${base}/api/health`)).ok).toBe(true);
       // a slow request: /api/me waits on play.humans, held locked here
       const admin = new Bun.SQL(t.url, { max: 1 });
       let release!: () => void;
@@ -435,10 +451,18 @@ pg("play-api", () => {
       });
       await isLocked;
       const slow = fetch(`${base}/api/me`, { headers: { cookie } });
-      await Bun.sleep(300);
+      // in flight: its query waits on the lock in Postgres
+      for (;;) {
+        const { rows } = await db.query<{ n: number }>(
+          `SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+        );
+        if (rows[0].n > 0) break;
+        await Bun.sleep(20);
+      }
       const t0 = performance.now();
       api.kill("SIGTERM");
-      await Bun.sleep(300);
+      // stopping: its listener closed as it says so
+      await said((o) => (o.includes("SIGTERM: stopping") ? true : null));
       // no new connection taken
       const late = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(500) }).then((r) => `answered ${r.status}`, () => "refused");
       expect(late).toBe("refused");
@@ -452,9 +476,11 @@ pg("play-api", () => {
       const code = await Promise.race([api.exited, Bun.sleep(2500).then(() => "still running")]);
       expect(code).toBe(0);
       expect(performance.now() - t0).toBeLessThan(2000);
-      expect(await new Response(api.stdout).text()).toContain("SIGTERM: stopping");
+      await outDone;
+      expect(out.join("")).toContain("SIGTERM: stopping");
     } finally {
       api.kill("SIGKILL");
+      await api.exited;
     }
   }, 30_000);
 });
