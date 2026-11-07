@@ -4,6 +4,11 @@
 	search down the left, the files as a wall of tiles in the middle, and down the right the one opened whole: played or
 	shown large, its label (renamed here; only shown, a file is named by its hash), its hash, type, size and date, and
 	where the newest version of every story uses it, and which plants (asset versions) have it as their reference sheet. Maia City's admins alone (the API says so too).
+
+	One Library for every account (intent 732d8a38, Samuel 2026-11-07): it shows the library of whoever you act as (the
+	You menu's "Act as", $lib/acting.svelte.ts): yourself, your personal library, private to you; Maia City, the coop's,
+	as before. Its owner is named on top. Nothing is uploaded here: files come in over MCP (add_story_frame, add_document,
+	with `library: "personal"` for your own).
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
@@ -12,13 +17,15 @@
 	import Icon from '$lib/app/Icon.svelte';
 	import { api } from '$lib/api';
 	import { session } from '$lib/session.svelte';
+	import { acting, asCity } from '$lib/acting.svelte';
 
 	const PAGE = 60;
 	type StoryUse = { story: string; title: string; number: number | null; track: string; clip: string; as: 'frame' | 'video' | 'audio'; at: number };
 	type SheetUse = { asset: string; label: string; group: string; number: number | null; version: string; as: 'sheet' | 'datasheet' | 'brief'; accepted: boolean };
 	type Use = StoryUse | SheetUse;
 	type File = { hash: string; size: number; media_type: string; created: string; label: string | null; used: Use[] };
-	type Page = { total: number; offset: number; limit: number; counts: Record<string, number>; files: File[] };
+	type Owner = { library: 'coop' | 'personal'; id: string; name: string };
+	type Page = { owner: Owner; total: number; offset: number; limit: number; counts: Record<string, number>; files: File[] };
 	const KINDS = [
 		{ id: '', label: 'Everything', icon: 'library' },
 		{ id: 'image', label: 'Images', icon: 'image' },
@@ -39,7 +46,10 @@
 	let label = $state('');
 	let saving = $state(false);
 	let copied = $state(false);
+	let owner = $state<Owner | null>(null);
 	const admin = $derived(session.me?.level === 'admin');
+	/** the library of whoever the person acts as: Maia City's (the coop's) or their own */
+	const library = $derived<'coop' | 'personal'>(asCity() ? 'coop' : 'personal');
 	const url = (h: string) => `/api/files/${h}`;
 	// a document is Markdown (a plant's data sheet, its sheet's brief); the rest by their media type
 	const kindOf = (f: File) => (f.media_type === 'text/markdown' ? 'document' : f.media_type.split('/')[0]);
@@ -54,11 +64,12 @@
 		busy = true;
 		error = '';
 		try {
-			const q = new URLSearchParams({ offset: String(more ? files.length : 0), limit: String(PAGE) });
+			const q = new URLSearchParams({ library, offset: String(more ? files.length : 0), limit: String(PAGE) });
 			if (kind) q.set('kind', kind);
 			if (query.trim()) q.set('q', query.trim());
 			const page = await api<Page>(`/library?${q}`);
 			files = more ? [...files, ...page.files] : page.files;
+			owner = page.owner;
 			total = page.total;
 			counts = page.counts;
 			const at = new URL(location.href);
@@ -76,6 +87,14 @@
 		kind = given.get('kind') ?? '';
 		// a link straight to one file (the asset library's data sheet and brief): the search for its hash
 		query = given.get('q') ?? '';
+	});
+	// acting as someone else (the You menu) opens their library: the first page again, nothing opened
+	let shown = '';
+	$effect(() => {
+		const now = `${library}:${acting.as}`;
+		if (!admin || now === shown) return;
+		shown = now;
+		open = null;
 		void load();
 	});
 	let searching: ReturnType<typeof setTimeout> | undefined;
@@ -98,7 +117,7 @@
 		saving = true;
 		error = '';
 		try {
-			const r = await api<{ hash: string; label: string | null }>(`/library/${open.hash}/label`, { json: { label } });
+			const r = await api<{ hash: string; label: string | null }>(`/library/${open.hash}/label`, { json: { label, library } });
 			const f = files.find((x) => x.hash === r.hash);
 			if (f) f.label = r.label;
 			open = { ...open, label: r.label };
@@ -122,7 +141,7 @@
 
 {#snippet shelf()}
 	<input class="nav-search" type="search" placeholder="Find by label or hash" bind:value={query} oninput={search} aria-label="Find a file by its label or hash" />
-	<h3 class="nav-group">Library · play's files</h3>
+	<h3 class="nav-group">{owner?.library === 'personal' ? 'Your library · private to you' : "Maia City's library"}</h3>
 	{#each KINDS as k (k.id)}
 		<a class="nav-item" class:on={kind === k.id} href="?kind={k.id}" onclick={(e) => (e.preventDefault(), choose(k.id))} aria-current={kind === k.id ? 'page' : undefined}
 			><Icon name={k.icon} size={16} /><span>{k.label}</span><small>{(k.id ? counts[k.id] ?? 0 : all).toLocaleString('en-US')}</small></a
@@ -191,6 +210,15 @@
 				<p class="note soft">Opening the Library…</p>
 			{:else}
 				<div class="sheet">
+					{#if owner}
+						<header class="owner" class:own={owner.library === 'personal'}>
+							<span class="who"><Icon name={owner.library === 'personal' ? 'lock' : 'users'} size={18} /></span>
+							<span class="what">
+								<b>{owner.library === 'personal' ? `${owner.name}'s library` : "Maia City's library"}</b>
+								<small>{owner.library === 'personal' ? 'Private to you: no one else sees or lists these files. Act as Maia City for the coop’s.' : 'The coop’s files, for its admins. Act as yourself for your own library.'}</small>
+							</span>
+						</header>
+					{/if}
 					<div class="bar">
 						<b>{KINDS.find((k) => k.id === kind)?.label}</b>
 						<span class="soft">{total.toLocaleString('en-US')} {total === 1 ? 'file' : 'files'}{query.trim() ? ` matching “${query.trim()}”` : ''} · newest first</span>
@@ -218,7 +246,10 @@
 								<small class="soft">{f.media_type.split('/')[1]} · {size(f.size)}</small>
 							</button>
 						{:else}
-							<p class="note soft">Nothing here{query.trim() ? ' matches that' : ' yet'}.</p>
+							<p class="note soft">
+								Nothing here{query.trim() ? ' matches that' : ' yet'}.{#if !query.trim() && owner?.library === 'personal'}
+									Your files come in over MCP: your agent adds them with <code>add_story_frame</code> or <code>add_document</code> and <code>library: "personal"</code>.{/if}
+							</p>
 						{/each}
 						{#if files.length < total}
 							<div class="more"><button class="chip" disabled={busy} onclick={() => load(true)}>{busy ? 'Loading…' : `Show more (${total - files.length} left)`}</button></div>
@@ -247,6 +278,14 @@
 	.sheet { display: flex; flex-direction: column; height: 100%; }
 	.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.9rem; padding: 0.7rem 1rem; border-bottom: 1px solid var(--line); background: rgb(255 255 255 / 0.94); font-size: 0.85rem; }
 	.bar b { font-size: 1rem; }
+	/* whose library it is, on top */
+	.owner { display: flex; align-items: center; gap: 0.6rem; padding: 0.65rem 1rem; border-bottom: 1px solid var(--line); background: var(--mustard-soft, #f3e3b5); }
+	.owner.own { background: rgb(36 69 47 / 0.1); }
+	.owner .who { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 999px; background: #fff; color: var(--brand-green, #24452f); flex: none; }
+	.owner .what { display: flex; flex-direction: column; min-width: 0; }
+	.owner b { font-size: 0.95rem; }
+	.owner small { font-size: 0.75rem; color: var(--soft); }
+	.note code { font-size: 0.78rem; }
 
 	/* the wall: square tiles, as many across as fit */
 	.wall { flex: 1; min-height: 0; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); gap: 0.9rem; align-content: start; padding: 1rem 1rem var(--nav-room); }
