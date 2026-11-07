@@ -43,9 +43,8 @@
 	import type { Story } from '$lib/stories/timeline';
 
 	const viewer = import('$lib/content/assets/VaultAsset.svelte');
-	// a world is shown as the Worlds page shows it (its own view: sky, lights, its guests at the sizes a world draws them,
-	// one renderer let go of whole when it closes), not on the asset stage, whose studio, shadows and section cuts over
-	// a whole city (most of a million triangles) crashed iPad Safari
+	// a world is shown as the Worlds page shows it (one renderer let go of whole when it closes), not on the asset
+	// stage, whose studio, shadows and section cuts over a whole city crashed iPad Safari
 	const worldViewer = import('$lib/content/worlds/WorldStage.svelte');
 
 	/** how the board is closed (the modal's ×, Escape with nothing open on it) */
@@ -59,12 +58,10 @@
 	type Work = { kind: string; what: string | null; doc: string | null; doc_variant: number | null; docs?: number; asset_id: string | null; label: string; grp: string; slug: string | null; version_label: string | null; number: number | null; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
 	// the work opened for review: the intent's id, with the intent's title, spec and results beside it
 	type P = Work & { id: string; intent_id: string; intent_title: string; intent_spec: Spec | null; intent_results: Results | null };
-	// an intent (play/api/src/intents.ts): its kind, title and note, its stage, its spec once specified (a goal, a scope and
-	// its checks), its checks' latest results while being built, and its work once proposed
+	// an intent (play/api/src/intents.ts): kind, title, note, stage, spec (goal, scope, checks), results and work
 	type Kind = 'idea' | 'fix' | 'improve';
 	type Stage = 'idea' | 'specify' | 'build' | 'proposal' | 'ship' | 'accepted' | 'archived';
-	// its way to production, once an Accept merged its pull request (play/api/src/ship.ts): each step's state, when, its
-	// link; a red one's report
+	// its way to production once merged (play/api/src/ship.ts): each step's state, when, its link; a red one's report
 	type ShipStep = { key: string; name: string; state: 'queued' | 'running' | 'green' | 'red' | 'skipped'; started?: string; finished?: string; link?: string; note?: string };
 	type Ship = { pr: number; head: string; merge: string; by: string; round: number; started: string; steps: ShipStep[]; report?: { step: string; why: string; link?: string; log: string; at: string } | null; ended?: string; outcome?: 'green' | 'red'; again?: 'main' | 'release'; pending?: { kind: 'merge' | 'main' | 'release'; head?: string } | null; accepted?: string; live?: boolean; commit?: string; note?: string };
 	// run: the command that decides a check in avenBOX (test and measure checks since 2026-11-06; play/SPEC.md §4.12)
@@ -75,13 +72,13 @@
 	type Results = Record<string, { pass: boolean; evidence: string; by: string | null; at: string; where?: 'avenBOX' | 'main'; commit?: string }>;
 	/** one step back an agent took over MCP, with its reason (play/api/src/stepback.ts) */
 	type StepBack = { at: string; by: string | null; via: 'mcp'; from: Stage; to: Stage; reason: string };
-	/** a decision a rule made (play/SPEC.md §4.12 "Auto-accept rules"): the rule, the rule set's version (its content hash), its reason */
+	/** a decision a rule made (play/SPEC.md §4.12 "Auto-accept rules"): the rule, the rule set's version, its reason */
 	type AutoEntry = { rule: string; label: string; rules: string; reason: string; at: string };
 	type Intent = { auto?: { approve?: AutoEntry; accept?: AutoEntry }; work_kind?: string[] | null; id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null; spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null; decided_at: string | null; decided_by: string | null; came_with: string | null; work: Work | null; pull_request: number | null; ship: Ship | null; sub: Sub | null; steps?: StepBack[]; depends_on?: Dep[]; held_by?: Dep[]; needed_by?: Dep[] };
-	// an intent it depends on, or one that depends on it (play/api/src/intents.ts heldBy): found by its UUID, its title only shown
+	// an intent it depends on, or one that depends on it (play/api/src/intents.ts heldBy), by its UUID
 	type Dep = { id: string; title: string; stage: Stage };
 	// its sub-state (play/api/src/substate.ts): a person needed (failed, waiting) or not (working, idle), and why
-	type Sub = { state: 'failed' | 'waiting' | 'working' | 'idle'; why: string };
+	type Sub = { state: 'failed' | 'waiting' | 'working' | 'idle'; tag: string; why: string };
 	const SUBS = [['failed', 'Failed'], ['waiting', 'Waiting'], ['working', 'Working'], ['idle', 'Idle']] as const;
 	// an intent's kind, shown as what it asks (the kind 'idea' as Make, the stage Idea being its own; Samuel 2026-11-06)
 	const KINDS: [Kind, string][] = [
@@ -149,12 +146,12 @@
 		// Ship is a queue: the one shipping, then the rest in the order accepted, first in line on top
 		return s === 'ship' ? [...cards].sort((a, b) => Date.parse(a.decided_at ?? a.created) - Date.parse(b.decided_at ?? b.created)) : cards;
 	};
-	/** how far an intent's must checks are: "2/3 checks" */
+	/** how far an intent's must checks are: "2/3 ✓" */
 	const checksDone = (i: { spec: Spec | null; results: Results | null }) => {
 		const musts = i.spec?.checks.filter((c) => c.must) ?? [];
-		return musts.length ? `${musts.filter((c) => i.results?.[c.id]?.pass === true).length}/${musts.length} checks` : '';
+		return musts.length ? `${musts.filter((c) => i.results?.[c.id]?.pass === true).length}/${musts.length} ✓` : '';
 	};
-	/** a column's cards under its dividers, Failed, Waiting, Working, Idle (none for Accepted and Archived), empty ones left out */
+	/** a column's cards under its dividers, Failed, Waiting, Working, Idle, empty ones left out */
 	const grouped = (cards: Intent[]) => [...SUBS.map(([k, name]) => ({ k, name, cards: cards.filter((i) => i.sub?.state === k) })), { k: '', name: '', cards: cards.filter((i) => !i.sub) }].filter((g) => g.cards.length);
 	/** a person may decide it now (the API refuses the rest): waiting, or red after its merge (Accept ships it again) */
 	const decidable = (i: Intent) => i.sub?.state === 'waiting' || shipsAgain(i);
@@ -213,8 +210,7 @@
 	/** every review of a document's version (play/api/src/versioned.ts reviewDoc): its document, what it changes field by
 	 *  field against its seed, the edits that made it, whether Main moved since; an asset's adds its builds, a story's its
 	 *  timelines */
-	// a sandbox's layout also says each pin before and after by its asset (pins), whether it still holds on the layout as
-	// it is now, and the sandbox to open as it would be (play/api/src/sandboxes.ts)
+	// a sandbox's layout: each pin before and after (pins), whether it still holds, the sandbox to open as it would be
 	type DocReview = {
 		doc: { id: string; kind: string; what: string; label: string; group?: string; open: string | null } | null; seedNumber: number | null; moved: boolean; changes: Change[]; edits: Edit[];
 		pins?: PinChange[]; holds?: boolean; why?: string | null; sandbox?: { title: string; route: string; open: string }; docs?: DocReview[];
@@ -237,11 +233,11 @@
 	// a story's (play/api/src/stories.ts): its timeline played in the Stories player, beside what changed clip by clip
 	type StoryReview = DocReview & { story: Story; baseStory: (Story & { number: number }) | null; diff: StoryDiff };
 	let storyReview = $state<StoryReview | null>(null);
-	// any other document's (a factory's, a config's, a skill's, a sandbox's layout, and every kind to come): field by field, opened as it would be
+	// any other document's (a factory's, a config's, a skill's, a layout's): field by field, opened as it would be
 	let docReview = $state<DocReview | null>(null);
-	// an intent may change several documents (play/SPEC.md "Version control"): every one's review, accepted together
+	// an intent may change several documents: every one's review, accepted together
 	let alsoDocs = $state<DocReview[]>([]);
-	/** what a proposal is of, its card's tag (Samuel 2026-11-05: the type, not how it came; that it came over MCP is in its title and its review) */
+	/** what a proposal is of, its card's tag (Samuel 2026-11-05: the type, not how it came) */
 	const GROUP_TYPE: Record<string, string> = { plants: 'Plant', things: 'Thing', machines: 'Machine', buildings: 'Building', actors: 'Actor', biomes: 'Biome', worlds: 'World', sandboxes: 'Sandbox' };
 	const typeOf = (p: { what?: string | null; grp: string | null }) => GROUP_TYPE[p.grp ?? ''] ?? (p.what ? p.what[0].toUpperCase() + p.what.slice(1) : (p.grp ?? ''));
 	/** an intent's tag: what its work is (a plant, a story …) where it has some, else its kind */
@@ -266,7 +262,7 @@
 		showSource = false;
 		noteOpen = false;
 		reviewError = '';
-		// one review for every kind: an asset's build, a story's timelines, or any document's fields (a sandbox's layout's too)
+		// one review for every kind: an asset's build, a story's timelines, or any document's fields
 		let got: any;
 		try {
 			got = (await api<{ review: any }>(`/intents/${p.id}`)).review;
@@ -300,7 +296,7 @@
 	/** what to tell an agent sent to the intent opened: play's (GET /api/intents/<id>'s brief, the Intents skill's part for
 	 * its stage, play/api/src/skills.ts), never written here; null where there is nothing for an agent to do */
 	let brief = $state<{ id: string; stage: Stage; text: string | null } | null>(null);
-	// read again whenever the intent opened is another, or at another stage (an Accept that ships it, the board's refresh)
+	// read again whenever the intent opened is another, or at another stage
 	$effect(() => {
 		const i = intent;
 		if (!i || (brief?.id === i.id && brief.stage === i.stage)) return;
@@ -458,10 +454,11 @@
 		<div class="review item-review" role="dialog" aria-modal="true" aria-label={i.title}>
 			<header class="review-head">
 				<div class="who">
-					<!-- the way back to the board, seen at once on a phone too, where the nav pill's arrow has no word (Samuel 2026-11-06) -->
+					<!-- the way back to the board, seen on a phone too (Samuel 2026-11-06) -->
 					<button class="to-board" onclick={closeIntent} title="Back to the intents (Esc)">‹ Intents</button>
-					<p class="tags"><span class="type" data-kind={i.kind}>{kindName(i.kind)}</span> <span class="pill" class:shipping={i.stage === 'ship'}>{STAGE_NAME[i.stage]}</span>{#if (i.stage === 'build' || i.stage === 'proposal') && musts.length}{' '}<span class="pill">{checksDone(i)}</span>{/if}{#if i.sub}{' '}<span class="pill" data-sub={i.sub.state}>{i.sub.why}</span>{/if}</p>
+					<p class="tags"><span class="type" data-kind={i.kind}>{kindName(i.kind)}</span> <span class="pill" class:shipping={i.stage === 'ship'}>{STAGE_NAME[i.stage]}</span>{#if (i.stage === 'build' || i.stage === 'proposal') && musts.length}{' '}<span class="pill" title="must checks passed">{checksDone(i)}</span>{/if}{#if i.sub}{' '}<span class="pill" data-sub={i.sub.state}>{i.sub.state} · {i.sub.tag}</span>{/if}</p>
 					<h2>{i.title}</h2>
+					{#if i.sub}<p class="why" data-sub={i.sub.state} title={i.sub.why}>{i.sub.why}</p>{/if}
 					<p class="meta">by {i.author ?? 'someone'}{#if i.via === 'mcp'}{' '}<span class="via" title="Added by an agent working for them over MCP">via MCP</span>{/if} · {when(i.created)}{i.specified_by && i.specified_at ? ` · specified by ${i.specified_by}, ${when(i.specified_at)}` : ''}{i.approved_by && i.approved_at ? ` · spec approved by ${i.approved_by}` : ''}{i.decided_by && i.decided_at ? ` · ${i.stage === 'ship' ? 'accepted' : i.stage} by ${i.decided_by}, ${when(i.decided_at)}` : ''}</p>
 					{#if i.work_kind?.length}<p class="meta">Declares its work: {i.work_kind.map(workKindName).join(', ')}</p>{/if}
 					<!-- decided by a rule, not a person: which rule, the rule set's version it was decided by, and its reason -->
@@ -822,7 +819,11 @@
 	.review.item-review { inset: auto; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(48rem, calc(100% - 1rem)); max-height: calc(100% - 1rem); gap: 0.7rem; padding: 1rem 1.1rem 0.8rem; }
 	/* its header and its decision stay; what is between them scrolls */
 	.item-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 0.7rem; }
-	.item-review .tags { margin: 0 0 0.3rem; display: flex; gap: 0.35rem; align-items: center; }
+	.item-review .tags { margin: 0 0 0.3rem; display: flex; gap: 0.35rem; align-items: center; white-space: nowrap; }
+	.tags [data-sub] { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+	.tags [data-sub]::first-letter { text-transform: uppercase; }
+	@media (max-width: 30rem) { .item-review .tags { gap: 0.25rem; } .tags .pill { font-size: 0.7rem; } }
+	.why { margin: 0.15rem 0 0; font-size: 0.76rem; color: var(--sub); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 	.item-review .review-head h2 { font-size: 1.35rem; }
 	/* an intent's note and its spec, as Markdown */
 	.steps-back { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
@@ -879,6 +880,7 @@
 	/* reviewing one: nearly the whole screen, the build as large as it can be */
 	.review { position: absolute; inset: 0.4rem; z-index: 10; background: var(--bg, #fbf8f2); border-radius: 16px; box-shadow: 0 20px 60px rgb(0 0 0 / 0.25); display: flex; flex-direction: column; padding: 0.8rem 1rem 0.6rem; gap: 0.4rem; overflow: hidden; }
 	.review-head { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; align-items: flex-start; }
+	.who { min-width: 0; }
 	/* ‹ Intents: back to the board from what is open on it; a tap's height (44 px), drawn as a quiet link */
 	.to-board { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; margin: -0.65rem 0 -0.35rem -0.45rem; padding: 0 0.6rem 0 0.45rem; border-radius: 10px; font-size: 0.88rem; font-weight: 600; color: var(--ink-soft, #4d5d51); }
 	.to-board:hover { background: color-mix(in srgb, var(--ink, #26382c) 6%, transparent); color: var(--ink, #1f2a22); }
