@@ -102,8 +102,28 @@ const each = [...got].map(([hash, c]) => `${JSON.stringify(hash)}: function (req
 const wrapped = `(function (define) {\nvar pieces = {\n${each}\n};\nvar own = Object.prototype.hasOwnProperty;\nself.defineRecipe = function (recipe) {\n\treturn define(function (require) {\n\t\tvar made = {};\n\t\tfunction need(name) {\n\t\t\tif (!own.call(pieces, name)) return require(name);\n\t\t\tif (!own.call(made, name)) {\n\t\t\t\tvar m = { exports: {} };\n\t\t\t\tmade[name] = m;\n\t\t\t\tpieces[name](need, m, m.exports);\n\t\t\t}\n\t\t\treturn made[name].exports;\n\t\t}\n\t\treturn recipe(need);\n\t});\n};\n})(self.defineRecipe);\n` + code;
 const recipe = { hash: B.hash(code), code: wrapped };
 
-const { chromium } = createRequire(import.meta.url)('playwright');
-const browser = await chromium.launch();
+// play/site's Playwright (its devDependency, installed by avenbox/up.sh), else one installed beside this file; its own
+// Chromium where it is installed, else the machine's Chrome (GitHub's Ubuntu runners carry one)
+const req = createRequire(`${SITE}package.json`);
+const { chromium } = (() => {
+	try {
+		return req('playwright');
+	} catch {
+		return createRequire(import.meta.url)('playwright');
+	}
+})();
+const launched = async () => {
+	try {
+		return await chromium.launch();
+	} catch (e) {
+		for (const o of [{ channel: 'chrome' }, { executablePath: '/opt/pw-browsers/chromium' }, { executablePath: '/usr/bin/chromium' }, { executablePath: '/usr/bin/chromium-browser' }])
+			try {
+				return await chromium.launch({ ...o, args: ['--headless=new', '--no-sandbox'] });
+			} catch {}
+		throw e;
+	}
+};
+const browser = await launched();
 const page = await browser.newPage();
 await page.goto('about:blank');
 const runs = [];
