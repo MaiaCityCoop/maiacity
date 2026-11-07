@@ -5243,7 +5243,8 @@ function doorPanels(hole, win, { x, sx, split, t = [.055, .03], gap = .004 }) {
  * 3½ × 12 in pressed-steel discs (3b5332c8-1083-4e85-bad5-156a90148b09).
  * Engine (e5efff81…, 3b5332c8…, 1b98fcfa-450a-4c35-bceb-ea74624dde5f): type 110F.000, two vertical cylinders in line
  * behind the rear axle, 67.4 × 70 mm, 499.5 cc, compression 7.1:1, pushrod overhead valves, 18 hp (13.2 kW) at
- * 4,600 rpm, 31 N·m at 3,000 rpm; one Weber 26 IMB carburettor (21 mm choke); forced air cooling by a fan, a shroud
+ * 4,600 rpm, 31 N·m at 3,000 rpm, and 4,600 rpm its maximum revs (75584c50-8752-4d4b-abdd-ad613d0ecee6; Samuel 2026-11-07:
+ * "Limit revs at 4,600"); one Weber 26 IMB carburettor (21 mm choke); forced air cooling by a fan, a shroud
  * and a thermostat; a gear pump and a centrifugal oil filter.
  * Drive (3b5332c8…): a single dry plate, 4 speeds (teeth 37/10, 31/15, 26/20, 21/24 = 3.700, 2.067, 1.300, 0.875;
  * II–IV dog-engaged), the crown wheel and pinion 8/41 = 5.125, half-shafts with sliding joints at the differential and
@@ -5266,13 +5267,48 @@ function doorPanels(hole, win, { x, sx, split, t = [.055, .03], gap = .004 }) {
 const TRACE = {
 	z0: -1.42,
 	dz: 0.02,
-	top: [0.4755, 0.626, 0.6828, 0.6887, 0.6911, 0.6933, 0.6971, 0.7067, 0.7254, 0.7477, 0.7719, 0.8032, 0.8307, 0.8428, 0.8505, 0.8632, 0.8815, 0.9051, 0.9328, 0.9616, 0.9863, 1.0083, 1.0307, 1.0536, 1.0776, 1.1018, 1.1249, 1.1478, 1.1716, 1.194, 1.2123, 1.2271, 1.2398, 1.2506, 1.2594, 1.2667, 1.2728, 1.2783, 1.2834, 1.2878, 1.2915, 1.2951, 1.2986, 1.3017, 1.3043, 1.307, 1.3092, 1.3109, 1.3127, 1.3144, 1.3162, 1.318, 1.3197, 1.3213, 1.3228, 1.3239, 1.3228, 1.3206, 1.3193, 1.3184, 1.318, 1.3175, 1.3167, 1.3162, 1.3162, 1.3162, 1.3167, 1.3176, 1.318, 1.3184, 1.3197, 1.3211, 1.3206, 1.3184, 1.3162, 1.3144, 1.3125, 1.3103, 1.3085, 1.3072, 1.3056, 1.3039, 1.3026, 1.3016, 1.3008, 1.3003, 1.2999, 1.2984, 1.2944, 1.2847, 1.2715, 1.2616, 1.2544, 1.2429, 1.2242, 1.2022, 1.1804, 1.1588, 1.1364, 1.113, 1.0899, 1.0666, 1.0431, 1.0199, 0.9986, 0.9854, 0.9768, 0.9607, 0.94, 0.918, 0.8984, 0.8897, 0.887, 0.8844, 0.8817, 0.8791, 0.8764, 0.8738, 0.8707, 0.8676, 0.865, 0.8619, 0.8584, 0.8547, 0.8505, 0.8463, 0.8421, 0.8375, 0.8327, 0.8274, 0.8214, 0.8153, 0.8089, 0.8016, 0.7928, 0.7824, 0.7706, 0.756, 0.7354, 0.7092, 0.6869, 0.6744, 0.6682],
-	bot: [0.4023, 0.3742, 0.3159, 0.28, 0.2692, 0.2624, 0.2597, 0.258, 0.2569, 0.2611, 0.2723, 0.2892, 0.3189, 0.3614, 0.403, 0.4353, 0.4593, 0.4783, 0.4937, 0.5056, 0.5146, 0.5217, 0.5276, 0.5331, 0.5373, 0.5393, 0.5397, 0.5393, 0.5375, 0.534, 0.5289, 0.5223, 0.5139, 0.5038, 0.4915, 0.4765, 0.4583, 0.4351, 0.4056, 0.3651, 0.3121, 0.263, 0.2342, 0.219, 0.2087, 0.2019, 0.1968, 0.1946, 0.1946, 0.1946, 0.1946, 0.1948, 0.1955, 0.1952, 0.1923, 0.1888, 0.1893, 0.1933, 0.1959, 0.1959, 0.1937, 0.1902, 0.188, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1888, 0.1915, 0.1928, 0.1928, 0.1928, 0.1928, 0.1933, 0.1941, 0.1946, 0.1946, 0.1946, 0.1941, 0.1933, 0.1933, 0.1937, 0.1933, 0.1928, 0.1928, 0.1928, 0.1928, 0.1928, 0.1928, 0.1928, 0.1926, 0.1915, 0.19, 0.1917, 0.201, 0.2188, 0.2582, 0.3246, 0.3883, 0.4299, 0.458, 0.4798, 0.4977, 0.5124, 0.5243, 0.5339, 0.5421, 0.5489, 0.5544, 0.5584, 0.5604, 0.5604, 0.5591, 0.5567, 0.5529, 0.5478, 0.541, 0.5326, 0.5227, 0.5104, 0.4952, 0.4761, 0.4523, 0.4224, 0.3808, 0.3317, 0.2927, 0.2729, 0.2685, 0.2767, 0.3154, 0.3731, 0.4006],
-	W: [0.1748, 0.3494, 0.4588, 0.5008, 0.5102, 0.5182, 0.5343, 0.5494, 0.5598, 0.5684, 0.5819, 0.6037, 0.6224, 0.6325, 0.6384, 0.6426, 0.6455, 0.648, 0.6502, 0.6521, 0.6541, 0.6558, 0.6571, 0.658, 0.659, 0.6598, 0.66, 0.66, 0.66, 0.6598, 0.6593, 0.6588, 0.658, 0.6571, 0.6561, 0.6546, 0.6521, 0.6482, 0.6426, 0.6379, 0.6366, 0.6377, 0.6391, 0.6404, 0.6413, 0.6424, 0.6437, 0.6449, 0.6458, 0.6463, 0.6467, 0.6473, 0.6484, 0.6494, 0.6451, 0.6335, 0.6297, 0.6391, 0.6463, 0.649, 0.6508, 0.6514, 0.6535, 0.6556, 0.6563, 0.6568, 0.6573, 0.6578, 0.658, 0.658, 0.658, 0.6581, 0.6583, 0.6581, 0.658, 0.658, 0.658, 0.6578, 0.6571, 0.6563, 0.6561, 0.6559, 0.6551, 0.6543, 0.6539, 0.6532, 0.6526, 0.652, 0.6509, 0.6497, 0.6489, 0.6482, 0.6472, 0.6464, 0.6462, 0.6426, 0.6381, 0.6404, 0.6431, 0.6423, 0.6411, 0.6394, 0.6376, 0.6364, 0.6359, 0.6386, 0.6447, 0.6496, 0.6516, 0.653, 0.6543, 0.6556, 0.6561, 0.6563, 0.6568, 0.6571, 0.6571, 0.6571, 0.6568, 0.6561, 0.6553, 0.6546, 0.6536, 0.6526, 0.6514, 0.6499, 0.6482, 0.6458, 0.6426, 0.6391, 0.6353, 0.6299, 0.6206, 0.6027, 0.5773, 0.5564, 0.5442, 0.5333, 0.5187, 0.4685, 0.3756, 0.2729, 0.1478],
+	top: [
+		0.4755, 0.626, 0.6828, 0.6887, 0.6911, 0.6933, 0.6971, 0.7067, 0.7254, 0.7477, 0.7719, 0.8032, 0.8307, 0.8428, 0.8505, 0.8632, 0.8815, 0.9051, 0.9328, 0.9616,
+		0.9863, 1.0083, 1.0307, 1.0536, 1.0776, 1.1018, 1.1249, 1.1478, 1.1716, 1.194, 1.2123, 1.2271, 1.2398, 1.2506, 1.2594, 1.2667, 1.2728, 1.2783, 1.2834, 1.2878,
+		1.2915, 1.2951, 1.2986, 1.3017, 1.3043, 1.307, 1.3092, 1.3109, 1.3127, 1.3144, 1.3162, 1.318, 1.3197, 1.3213, 1.3228, 1.3239, 1.3228, 1.3206, 1.3193, 1.3184,
+		1.318, 1.3175, 1.3167, 1.3162, 1.3162, 1.3162, 1.3167, 1.3176, 1.318, 1.3184, 1.3197, 1.3211, 1.3206, 1.3184, 1.3162, 1.3144, 1.3125, 1.3103, 1.3085, 1.3072,
+		1.3056, 1.3039, 1.3026, 1.3016, 1.3008, 1.3003, 1.2999, 1.2984, 1.2944, 1.2847, 1.2715, 1.2616, 1.2544, 1.2429, 1.2242, 1.2022, 1.1804, 1.1588, 1.1364, 1.113,
+		1.0899, 1.0666, 1.0431, 1.0199, 0.9986, 0.9854, 0.9768, 0.9607, 0.94, 0.918, 0.8984, 0.8897, 0.887, 0.8844, 0.8817, 0.8791, 0.8764, 0.8738, 0.8707, 0.8676,
+		0.865, 0.8619, 0.8584, 0.8547, 0.8505, 0.8463, 0.8421, 0.8375, 0.8327, 0.8274, 0.8214, 0.8153, 0.8089, 0.8016, 0.7928, 0.7824, 0.7706, 0.756, 0.7354, 0.7092,
+		0.6869, 0.6744, 0.6682
+	],
+	bot: [
+		0.4023, 0.3742, 0.3159, 0.28, 0.2692, 0.2624, 0.2597, 0.258, 0.2569, 0.2611, 0.2723, 0.2892, 0.3189, 0.3614, 0.403, 0.4353, 0.4593, 0.4783, 0.4937, 0.5056,
+		0.5146, 0.5217, 0.5276, 0.5331, 0.5373, 0.5393, 0.5397, 0.5393, 0.5375, 0.534, 0.5289, 0.5223, 0.5139, 0.5038, 0.4915, 0.4765, 0.4583, 0.4351, 0.4056, 0.3651,
+		0.3121, 0.263, 0.2342, 0.219, 0.2087, 0.2019, 0.1968, 0.1946, 0.1946, 0.1946, 0.1946, 0.1948, 0.1955, 0.1952, 0.1923, 0.1888, 0.1893, 0.1933, 0.1959, 0.1959,
+		0.1937, 0.1902, 0.188, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1875, 0.1888, 0.1915, 0.1928,
+		0.1928, 0.1928, 0.1928, 0.1933, 0.1941, 0.1946, 0.1946, 0.1946, 0.1941, 0.1933, 0.1933, 0.1937, 0.1933, 0.1928, 0.1928, 0.1928, 0.1928, 0.1928, 0.1928, 0.1928,
+		0.1926, 0.1915, 0.19, 0.1917, 0.201, 0.2188, 0.2582, 0.3246, 0.3883, 0.4299, 0.458, 0.4798, 0.4977, 0.5124, 0.5243, 0.5339, 0.5421, 0.5489, 0.5544, 0.5584,
+		0.5604, 0.5604, 0.5591, 0.5567, 0.5529, 0.5478, 0.541, 0.5326, 0.5227, 0.5104, 0.4952, 0.4761, 0.4523, 0.4224, 0.3808, 0.3317, 0.2927, 0.2729, 0.2685, 0.2767,
+		0.3154, 0.3731, 0.4006
+	],
+	W: [
+		0.1748, 0.3494, 0.4588, 0.5008, 0.5102, 0.5182, 0.5343, 0.5494, 0.5598, 0.5684, 0.5819, 0.6037, 0.6224, 0.6325, 0.6384, 0.6426, 0.6455, 0.648, 0.6502, 0.6521,
+		0.6541, 0.6558, 0.6571, 0.658, 0.659, 0.6598, 0.66, 0.66, 0.66, 0.6598, 0.6593, 0.6588, 0.658, 0.6571, 0.6561, 0.6546, 0.6521, 0.6482, 0.6426, 0.6379,
+		0.6366, 0.6377, 0.6391, 0.6404, 0.6413, 0.6424, 0.6437, 0.6449, 0.6458, 0.6463, 0.6467, 0.6473, 0.6484, 0.6494, 0.6451, 0.6335, 0.6297, 0.6391, 0.6463, 0.649,
+		0.6508, 0.6514, 0.6535, 0.6556, 0.6563, 0.6568, 0.6573, 0.6578, 0.658, 0.658, 0.658, 0.6581, 0.6583, 0.6581, 0.658, 0.658, 0.658, 0.6578, 0.6571, 0.6563,
+		0.6561, 0.6559, 0.6551, 0.6543, 0.6539, 0.6532, 0.6526, 0.652, 0.6509, 0.6497, 0.6489, 0.6482, 0.6472, 0.6464, 0.6462, 0.6426, 0.6381, 0.6404, 0.6431, 0.6423,
+		0.6411, 0.6394, 0.6376, 0.6364, 0.6359, 0.6386, 0.6447, 0.6496, 0.6516, 0.653, 0.6543, 0.6556, 0.6561, 0.6563, 0.6568, 0.6571, 0.6571, 0.6571, 0.6568, 0.6561,
+		0.6553, 0.6546, 0.6536, 0.6526, 0.6514, 0.6499, 0.6482, 0.6458, 0.6426, 0.6391, 0.6353, 0.6299, 0.6206, 0.6027, 0.5773, 0.5564, 0.5442, 0.5333, 0.5187, 0.4685,
+		0.3756, 0.2729, 0.1478
+	],
 	y0: 0.2,
 	dy: 0.02,
-	front: [0.3033, 0.4308, 0.5167, 0.568, 0.5997, 0.6188, 0.6315, 0.6401, 0.6456, 0.6495, 0.6525, 0.6545, 0.6558, 0.6573, 0.6589, 0.6598, 0.6598, 0.6591, 0.6572, 0.651, 0.6384, 0.6245, 0.6151, 0.6085, 0.6019, 0.5964, 0.5927, 0.5894, 0.5853, 0.5794, 0.5708, 0.5599, 0.5507, 0.5465, 0.545, 0.5504, 0.5542, 0.5423, 0.5306, 0.5268, 0.5231, 0.5193, 0.5158, 0.5123, 0.5092, 0.5064, 0.5031, 0.4996, 0.4961, 0.4928, 0.4893, 0.4801, 0.4578, 0.3861, 0.2349, null],
-	rear: [null, 0.0424, 0.4384, 0.6056, 0.6347, 0.6434, 0.6478, 0.6509, 0.653, 0.6548, 0.6565, 0.6579, 0.6583, 0.6585, 0.6589, 0.6589, 0.6583, 0.6568, 0.6515, 0.6401, 0.6262, 0.6152, 0.608, 0.6015, 0.5941, 0.5873, 0.5828, 0.5799, 0.5775, 0.5734, 0.5668, 0.5585, 0.5476, 0.536, 0.529, 0.5319, 0.5408, 0.5434, 0.5397, 0.536, 0.5321, 0.5277, 0.5234, 0.519, 0.5149, 0.5094, 0.5029, 0.4978, 0.4941, 0.4913, 0.4858, 0.4725, 0.4493, 0.4169, 0.3646, 0.2802]
+	front: [
+		0.3033, 0.4308, 0.5167, 0.568, 0.5997, 0.6188, 0.6315, 0.6401, 0.6456, 0.6495, 0.6525, 0.6545, 0.6558, 0.6573, 0.6589, 0.6598, 0.6598, 0.6591, 0.6572, 0.651,
+		0.6384, 0.6245, 0.6151, 0.6085, 0.6019, 0.5964, 0.5927, 0.5894, 0.5853, 0.5794, 0.5708, 0.5599, 0.5507, 0.5465, 0.545, 0.5504, 0.5542, 0.5423, 0.5306, 0.5268,
+		0.5231, 0.5193, 0.5158, 0.5123, 0.5092, 0.5064, 0.5031, 0.4996, 0.4961, 0.4928, 0.4893, 0.4801, 0.4578, 0.3861, 0.2349, null
+	],
+	rear: [
+		null, 0.0424, 0.4384, 0.6056, 0.6347, 0.6434, 0.6478, 0.6509, 0.653, 0.6548, 0.6565, 0.6579, 0.6583, 0.6585, 0.6589, 0.6589, 0.6583, 0.6568, 0.6515, 0.6401,
+		0.6262, 0.6152, 0.608, 0.6015, 0.5941, 0.5873, 0.5828, 0.5799, 0.5775, 0.5734, 0.5668, 0.5585, 0.5476, 0.536, 0.529, 0.5319, 0.5408, 0.5434, 0.5397, 0.536,
+		0.5321, 0.5277, 0.5234, 0.519, 0.5149, 0.5094, 0.5029, 0.4978, 0.4941, 0.4913, 0.4858, 0.4725, 0.4493, 0.4169, 0.3646, 0.2802
+	]
 };
 /** the Fiat's measures (m): its ends, axles, wheel wells, cabin and openings, read off the sheet at the cited scale */
 const F5 = {
@@ -5314,6 +5350,7 @@ const SOURCES5 = [
 	{ label: "Telling the N, D, F, L and R apart (78b9bf39-5633-4c1c-abc7-81fda933e2a9)", url: "https://www.fiat500enthusiasts.co.uk/model-history/the-evolution-of-a-classic" },
 	{ label: "Photo: a 1966 500 F, front three-quarter (4463df70-077f-42ba-bdf2-86d3da9e4951)", url: "https://commons.wikimedia.org/wiki/File:1966_Fiat_500F.jpg" },
 	{ label: "Photo: a 1966 500 F, rear three-quarter (abce8d6e-3976-4369-8b3f-aa49240d0ac6)", url: "https://commons.wikimedia.org/wiki/File:1966_Fiat_500F_Rear.jpg" },
+	{ label: "500 Giardiniera register: the twin's maximum revs, 4,600 rpm (75584c50-8752-4d4b-abdd-ad613d0ecee6)", url: "https://www.500clubitalia.it/?p=37163" },
 	{ label: "Road load and rolling resistance (Wong, Theory of Ground Vehicles)", url: "https://en.wikipedia.org/wiki/Rolling_resistance" },
 	{ label: "Machine skill kit (AirSup, MIT)", url: "https://github.com/AirsupHQ/machine-skill" }
 ];
@@ -5326,7 +5363,8 @@ const SRC5 = /* @__PURE__ */ (() => ({
 	air: SOURCES5[5].label,
 	paint: SOURCES5[6].label,
 	look: SOURCES5[7].label,
-	road: SOURCES5[11].label
+	revs: SOURCES5[11].label,
+	road: SOURCES5[12].label
 }))();
 const ASSEMBLIES5 = [
 	{ id: "chassis", label: "Suspension and steering", note: "The transverse leaf spring and dampers in front, the worm-and-sector box and its track rods; the swinging arms with their coil springs and dampers behind.", out: [0, -.6, 0] },
@@ -5781,11 +5819,12 @@ const VEHICLE5 = /* @__PURE__ */ (() => ({
 	gears: [37 / 10, 31 / 15, 26 / 20, 21 / 24],
 	final: 41 / 8,
 	engine: {
-		rpm: [800, 1500, 2000, 2500, 3000, 3500, 4000, 4600, 5000, 5300],
-		nm: [17, 24, 27.5, 29.8, 31, 30.7, 29.6, 27.9, 21, 8],
+		// its full-load curve to its maximum revs, 4,600 rpm (500 Club Italia's register, the 499.5 cc twin), no torque past them
+		rpm: [800, 1500, 2000, 2500, 3000, 3500, 4000, 4600, 4650],
+		nm: [17, 24, 27.5, 29.8, 31, 30.7, 29.6, 27.9, 0],
 		idle: 850,
 		stall: 600,
-		max: 5300,
+		max: 4800,
 		up: 4300,
 		down: 1700,
 		launch: 1500,
@@ -6286,7 +6325,7 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 		const { y, r } = ENG;
 		const caseG = [at(box(.25, .19, .3, .03), 0, y - .02, -1.11), latheZ([[0, 0], [.13, 0], [.12, .05], [.09, .07], [0, .07]], 40).translate(0, y, -.96), at(box(.2, .03, .26, .01), 0, y - .125, -1.11)];
 		for (let k = 0; k < 7; k++) caseG.push(at(slab(.004, .02, .24), -.09 + k * .03, y - .145, -1.11));
-		part({ id: "crankcase", label: "Crankcase and sump", assembly: "engine", source: SRC5.mech, what: "The cast light-alloy crankcase carrying the crankshaft on its two main bearings, the camshaft below it driven by a chain, the oil in its finned sump; the gear pump and the centrifugal filter on the crank’s nose clean the oil.", specs: [["Displacement", "499.5 cc (e5efff81-8de1-45b3-9de1-2fd3e521bd53)"], ["Bore × stroke", "67.4 × 70 mm (e5efff81…)"], ["Power", "18 hp (13.2 kW) at 4,600 rpm (e5efff81…)"], ["Torque", "31 N·m at 3,000 rpm (e5efff81…)"], ["Oil", "2.25 L [inferred]"]] }, [m(GEO.merge(caseG), M.alloy)], { xray: "shell", parent: eng }, eng);
+		part({ id: "crankcase", label: "Crankcase and sump", assembly: "engine", source: SRC5.mech, what: "The cast light-alloy crankcase carrying the crankshaft on its two main bearings, the camshaft below it driven by a chain, the oil in its finned sump; the gear pump and the centrifugal filter on the crank’s nose clean the oil.", specs: [["Displacement", "499.5 cc (e5efff81-8de1-45b3-9de1-2fd3e521bd53)"], ["Bore × stroke", "67.4 × 70 mm (e5efff81…)"], ["Power", "18 hp (13.2 kW) at 4,600 rpm (e5efff81…)"], ["Maximum revs", "4,600 rpm (75584c50-8752-4d4b-abdd-ad613d0ecee6)"], ["Torque", "31 N·m at 3,000 rpm (e5efff81…)"], ["Oil", "2.25 L [inferred]"]] }, [m(GEO.merge(caseG), M.alloy)], { xray: "shell", parent: eng }, eng);
 		for (const zc of [ENG.z1, ENG.z2]) {
 			const fins = [GEO.tube(.043, .0337, ENG.top - (y + .06), 40, y + .06)];
 			for (let k = 0; k < 13; k++) fins.push(GEO.tube(.064, .042, .003, 40, y + .075 + k * .0095));
@@ -6515,12 +6554,12 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 			lid: { label: "Engine lid", seconds: 6, note: "the engine lid lifted and shut", at: (u) => ({ lid: Math.sin(u * Math.PI) }) }
 		},
 		how: {
-			text: "A driver holds the speed asked: the road takes a force to roll the tyres, to lift the car up the grade and to push the air aside, and holding the speed takes that force times the speed at the wheels, more through the gearbox’s and the final drive’s losses at the engine. The driver picks the highest of the four gears that gives that push without the engine running too slow, and opens the throttle for it. Flat out on the level, the twin’s full-load curve in fourth meets the road’s load: that is its top speed. Where first gear gives less than a hill takes, the speed falls, the engine lugs and stalls. Shown slowed: the wheels 10 times, the engine 40 times.",
+			text: "A driver holds the speed asked: the road takes a force to roll the tyres, to lift the car up the grade and to push the air aside, and holding the speed takes that force times the speed at the wheels, more through the gearbox’s and the final drive’s losses at the engine. The driver picks the highest of the four gears that gives that push without the engine running too slow, and opens the throttle for it. Flat out on the level it reaches the twin’s maximum revs in fourth, 4,600 rpm: that is its top speed. Where first gear gives less than a hill takes, the speed falls, the engine lugs and stalls. Shown slowed: the wheels 10 times, the engine 40 times.",
 			eqs: [
 				"F = m g Crr cos θ + m g sin θ + ½ ρ Cd A v²      m = 520 kg + load, Crr = 0.015, Cd = 0.38, A = 1.37 m²",
 				"P_wheels = F v        P_engine = P_wheels / η      η = 0.88",
 				"n = (v / r) · i_gear · i_axle      r = 0.249 m, i = 3.700, 2.067, 1.300, 0.875, i_axle = 41/8 = 5.125",
-				"T_engine ≤ T_full(n)      31 N·m at 3,000 rpm, 27.9 N·m (13.2 kW) at 4,600",
+				"T_engine ≤ T_full(n)      31 N·m at 3,000 rpm, 27.9 N·m (13.2 kW) at 4,600, its maximum revs: none past them",
 				"m_eff dv/dt = T i η / r − F      m_eff = m + (4 J_w + J_e i² η) / r²"
 			]
 		},
@@ -6609,7 +6648,7 @@ const LIST = [{
 	],
 	variants: [{
 		id: "fiat500",
-		note: "2,970 × 1,320 × 1,325 mm, wheelbase 1,840, tracks 1,121 and 1,135, 520 kg (e5efff81-8de1-45b3-9de1-2fd3e521bd53); a 499.5 cc air-cooled twin, 67.4 × 70 mm, 18 hp at 4,600 rpm, 31 N·m at 3,000 (e5efff81-8de1-45b3-9de1-2fd3e521bd53); gears 3.700, 2.067, 1.300, 0.875, final drive 8/41 = 5.125 (3b5332c8-1083-4e85-bad5-156a90148b09); 125 SR 12 tyres, 514 mm across (e12362b0-2cf5-4b87-95da-e0f36b801404); top speed 95 km/h (ecc4134c-a8af-4d8d-8094-e8bc9c2d0a68); Cd 0.38 (cfa16bdf-268d-4e7b-b3ba-44e86656edf2); Rosso Corallo, Fiat 102, #b1372f (344cf860-1a7d-4bf7-86e3-ac16638425a4, d317c2f0-cfa5-4faa-b502-157ac3e44b52); its reference sheet fda28639be522b6601a7b84076cf07817ea8678ed022de1eb52ce070b469338a",
+		note: "2,970 × 1,320 × 1,325 mm, wheelbase 1,840, tracks 1,121 and 1,135, 520 kg (e5efff81-8de1-45b3-9de1-2fd3e521bd53); a 499.5 cc air-cooled twin, 67.4 × 70 mm, 18 hp at 4,600 rpm, 31 N·m at 3,000 (e5efff81-8de1-45b3-9de1-2fd3e521bd53), 4,600 rpm its maximum revs (75584c50-8752-4d4b-abdd-ad613d0ecee6); gears 3.700, 2.067, 1.300, 0.875, final drive 8/41 = 5.125 (3b5332c8-1083-4e85-bad5-156a90148b09); 125 SR 12 tyres, 514 mm across (e12362b0-2cf5-4b87-95da-e0f36b801404); top speed 95 km/h (ecc4134c-a8af-4d8d-8094-e8bc9c2d0a68); Cd 0.38 (cfa16bdf-268d-4e7b-b3ba-44e86656edf2); Rosso Corallo, Fiat 102, #b1372f (344cf860-1a7d-4bf7-86e3-ac16638425a4, d317c2f0-cfa5-4faa-b502-157ac3e44b52); its reference sheet fda28639be522b6601a7b84076cf07817ea8678ed022de1eb52ce070b469338a",
 		make: (doors = 0, roof = 0, lid = 0) => castOf(fiat500({ doors, roof, lid }))
 	}]
 }];

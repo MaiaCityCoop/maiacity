@@ -10,7 +10,8 @@
  * 3½ × 12 in pressed-steel discs (3b5332c8-1083-4e85-bad5-156a90148b09).
  * Engine (e5efff81…, 3b5332c8…, 1b98fcfa-450a-4c35-bceb-ea74624dde5f): type 110F.000, two vertical cylinders in line
  * behind the rear axle, 67.4 × 70 mm, 499.5 cc, compression 7.1:1, pushrod overhead valves, 18 hp (13.2 kW) at
- * 4,600 rpm, 31 N·m at 3,000 rpm; one Weber 26 IMB carburettor (21 mm choke); forced air cooling by a fan, a shroud
+ * 4,600 rpm, 31 N·m at 3,000 rpm, and 4,600 rpm its maximum revs (75584c50-8752-4d4b-abdd-ad613d0ecee6; Samuel 2026-11-07:
+ * "Limit revs at 4,600"); one Weber 26 IMB carburettor (21 mm choke); forced air cooling by a fan, a shroud
  * and a thermostat; a gear pump and a centrifugal oil filter.
  * Drive (3b5332c8…): a single dry plate, 4 speeds (teeth 37/10, 31/15, 26/20, 21/24 = 3.700, 2.067, 1.300, 0.875;
  * II–IV dog-engaged), the crown wheel and pinion 8/41 = 5.125, half-shafts with sliding joints at the differential and
@@ -81,6 +82,7 @@ const SOURCES5 = [
 	{ label: "Telling the N, D, F, L and R apart (78b9bf39-5633-4c1c-abc7-81fda933e2a9)", url: "https://www.fiat500enthusiasts.co.uk/model-history/the-evolution-of-a-classic" },
 	{ label: "Photo: a 1966 500 F, front three-quarter (4463df70-077f-42ba-bdf2-86d3da9e4951)", url: "https://commons.wikimedia.org/wiki/File:1966_Fiat_500F.jpg" },
 	{ label: "Photo: a 1966 500 F, rear three-quarter (abce8d6e-3976-4369-8b3f-aa49240d0ac6)", url: "https://commons.wikimedia.org/wiki/File:1966_Fiat_500F_Rear.jpg" },
+	{ label: "500 Giardiniera register: the twin's maximum revs, 4,600 rpm (75584c50-8752-4d4b-abdd-ad613d0ecee6)", url: "https://www.500clubitalia.it/?p=37163" },
 	{ label: "Road load and rolling resistance (Wong, Theory of Ground Vehicles)", url: "https://en.wikipedia.org/wiki/Rolling_resistance" },
 	{ label: "Machine skill kit (AirSup, MIT)", url: "https://github.com/AirsupHQ/machine-skill" }
 ];
@@ -93,7 +95,8 @@ const SRC5 = /* @__PURE__ */ (() => ({
 	air: SOURCES5[5].label,
 	paint: SOURCES5[6].label,
 	look: SOURCES5[7].label,
-	road: SOURCES5[11].label
+	revs: SOURCES5[11].label,
+	road: SOURCES5[12].label
 }))();
 const ASSEMBLIES5 = [
 	{ id: "chassis", label: "Suspension and steering", note: "The transverse leaf spring and dampers in front, the worm-and-sector box and its track rods; the swinging arms with their coil springs and dampers behind.", out: [0, -.6, 0] },
@@ -548,11 +551,12 @@ const VEHICLE5 = /* @__PURE__ */ (() => ({
 	gears: [37 / 10, 31 / 15, 26 / 20, 21 / 24],
 	final: 41 / 8,
 	engine: {
-		rpm: [800, 1500, 2000, 2500, 3000, 3500, 4000, 4600, 5000, 5300],
-		nm: [17, 24, 27.5, 29.8, 31, 30.7, 29.6, 27.9, 21, 8],
+		// its full-load curve to its maximum revs, 4,600 rpm (500 Club Italia's register, the 499.5 cc twin), no torque past them
+		rpm: [800, 1500, 2000, 2500, 3000, 3500, 4000, 4600, 4650],
+		nm: [17, 24, 27.5, 29.8, 31, 30.7, 29.6, 27.9, 0],
 		idle: 850,
 		stall: 600,
-		max: 5300,
+		max: 4800,
 		up: 4300,
 		down: 1700,
 		launch: 1500,
@@ -1053,7 +1057,7 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 		const { y, r } = ENG;
 		const caseG = [at(box(.25, .19, .3, .03), 0, y - .02, -1.11), latheZ([[0, 0], [.13, 0], [.12, .05], [.09, .07], [0, .07]], 40).translate(0, y, -.96), at(box(.2, .03, .26, .01), 0, y - .125, -1.11)];
 		for (let k = 0; k < 7; k++) caseG.push(at(slab(.004, .02, .24), -.09 + k * .03, y - .145, -1.11));
-		part({ id: "crankcase", label: "Crankcase and sump", assembly: "engine", source: SRC5.mech, what: "The cast light-alloy crankcase carrying the crankshaft on its two main bearings, the camshaft below it driven by a chain, the oil in its finned sump; the gear pump and the centrifugal filter on the crank’s nose clean the oil.", specs: [["Displacement", "499.5 cc (e5efff81-8de1-45b3-9de1-2fd3e521bd53)"], ["Bore × stroke", "67.4 × 70 mm (e5efff81…)"], ["Power", "18 hp (13.2 kW) at 4,600 rpm (e5efff81…)"], ["Torque", "31 N·m at 3,000 rpm (e5efff81…)"], ["Oil", "2.25 L [inferred]"]] }, [m(GEO.merge(caseG), M.alloy)], { xray: "shell", parent: eng }, eng);
+		part({ id: "crankcase", label: "Crankcase and sump", assembly: "engine", source: SRC5.mech, what: "The cast light-alloy crankcase carrying the crankshaft on its two main bearings, the camshaft below it driven by a chain, the oil in its finned sump; the gear pump and the centrifugal filter on the crank’s nose clean the oil.", specs: [["Displacement", "499.5 cc (e5efff81-8de1-45b3-9de1-2fd3e521bd53)"], ["Bore × stroke", "67.4 × 70 mm (e5efff81…)"], ["Power", "18 hp (13.2 kW) at 4,600 rpm (e5efff81…)"], ["Maximum revs", "4,600 rpm (75584c50-8752-4d4b-abdd-ad613d0ecee6)"], ["Torque", "31 N·m at 3,000 rpm (e5efff81…)"], ["Oil", "2.25 L [inferred]"]] }, [m(GEO.merge(caseG), M.alloy)], { xray: "shell", parent: eng }, eng);
 		for (const zc of [ENG.z1, ENG.z2]) {
 			const fins = [GEO.tube(.043, .0337, ENG.top - (y + .06), 40, y + .06)];
 			for (let k = 0; k < 13; k++) fins.push(GEO.tube(.064, .042, .003, 40, y + .075 + k * .0095));
@@ -1282,12 +1286,12 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 			lid: { label: "Engine lid", seconds: 6, note: "the engine lid lifted and shut", at: (u) => ({ lid: Math.sin(u * Math.PI) }) }
 		},
 		how: {
-			text: "A driver holds the speed asked: the road takes a force to roll the tyres, to lift the car up the grade and to push the air aside, and holding the speed takes that force times the speed at the wheels, more through the gearbox’s and the final drive’s losses at the engine. The driver picks the highest of the four gears that gives that push without the engine running too slow, and opens the throttle for it. Flat out on the level, the twin’s full-load curve in fourth meets the road’s load: that is its top speed. Where first gear gives less than a hill takes, the speed falls, the engine lugs and stalls. Shown slowed: the wheels 10 times, the engine 40 times.",
+			text: "A driver holds the speed asked: the road takes a force to roll the tyres, to lift the car up the grade and to push the air aside, and holding the speed takes that force times the speed at the wheels, more through the gearbox’s and the final drive’s losses at the engine. The driver picks the highest of the four gears that gives that push without the engine running too slow, and opens the throttle for it. Flat out on the level it reaches the twin’s maximum revs in fourth, 4,600 rpm: that is its top speed. Where first gear gives less than a hill takes, the speed falls, the engine lugs and stalls. Shown slowed: the wheels 10 times, the engine 40 times.",
 			eqs: [
 				"F = m g Crr cos θ + m g sin θ + ½ ρ Cd A v²      m = 520 kg + load, Crr = 0.015, Cd = 0.38, A = 1.37 m²",
 				"P_wheels = F v        P_engine = P_wheels / η      η = 0.88",
 				"n = (v / r) · i_gear · i_axle      r = 0.249 m, i = 3.700, 2.067, 1.300, 0.875, i_axle = 41/8 = 5.125",
-				"T_engine ≤ T_full(n)      31 N·m at 3,000 rpm, 27.9 N·m (13.2 kW) at 4,600",
+				"T_engine ≤ T_full(n)      31 N·m at 3,000 rpm, 27.9 N·m (13.2 kW) at 4,600, its maximum revs: none past them",
 				"m_eff dv/dt = T i η / r − F      m_eff = m + (4 J_w + J_e i² η) / r²"
 			]
 		},

@@ -11,7 +11,10 @@ def cut(s,a,b):
 head=van[:van.index('//#region src/lib/machines/van.js')]
 tail_versions=cut(van,'//#region src/lib/app/versions.js','//#region src/lib/machines/index.js')
 tail_rest=van[van.index('//#region src/lib/assets/refs.js'):]
-def arr(v): return '[' + ', '.join('null' if x is None else (f'{x:.4f}'.rstrip('0').rstrip('.') if x!=0 else '0') for x in v) + ']'
+def arr(v):
+    xs = ['null' if x is None else (f'{x:.4f}'.rstrip('0').rstrip('.') if x != 0 else '0') for x in v]
+    rows = [', '.join(xs[i:i + 20]) for i in range(0, len(xs), 20)]
+    return '[\n\t\t' + ',\n\t\t'.join(rows) + '\n\t]'
 for k in ['top','bot','W','front','rear']:
     region=region.replace(f'/*@{k}@*/[]',arr(data[k]))
 for k in ['z0','dz','y0','dy']:
