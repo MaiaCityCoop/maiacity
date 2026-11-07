@@ -184,3 +184,40 @@ export const ROWS_SEEN: Record<string, (t: string, p: string) => string> = {
   intent_variants: (t, p) => `EXISTS (SELECT 1 FROM play.intents pi WHERE pi.id = ${t}.intent_id AND ${intentSeen("pi", p)})`,
   intent_depends: (t, p) => `EXISTS (SELECT 1 FROM play.intents pi WHERE pi.id = ${t}.intent_id AND ${intentSeen("pi", p)})`,
 };
+
+// ---- the board's edges: an intent another can't see is shown on theirs as "a private intent", no id, no title
+
+/** what an edge to an intent `me` can't see shows */
+export const PRIVATE_INTENT = "a private intent";
+const EDGE_KEYS = ["depends_on", "needed_by", "held_by"] as const;
+
+/**
+ * `out` (an intent, a list of them, or any answer holding them) as `me` may read it: every dependency edge to an
+ * intent whose work is another's private asset shows "a private intent" with no id, its title gone from the sub-state's
+ * reason too. Nothing else changes (how many hold it, their stages).
+ */
+export async function maskEdges<T>(q: Queryable, me: Pick<Me, "id"> | null, out: T): Promise<T> {
+  const ids = new Set<string>();
+  const walk = (x: any) => {
+    if (Array.isArray(x)) return x.forEach(walk);
+    if (!x || typeof x !== "object") return;
+    for (const k of EDGE_KEYS) if (Array.isArray(x[k])) for (const e of x[k]) if (typeof e?.id === "string") ids.add(e.id);
+    Object.values(x).forEach(walk);
+  };
+  walk(out);
+  if (!ids.size) return out;
+  const { rows } = await q.query<{ id: string; title: string }>(`SELECT i.id::text, i.title FROM play.intents i WHERE i.id::text = ANY($1) AND NOT (${intentSeen("i", "$2")})`, [[...ids], who(me)]);
+  if (!rows.length) return out;
+  const hidden = new Map(rows.map((r) => [r.id, r.title]));
+  const titles = [...new Set(rows.map((r) => r.title))].filter(Boolean).sort((a, b) => b.length - a.length);
+  const mask = (x: any): any => {
+    if (Array.isArray(x)) return x.map(mask);
+    if (!x || typeof x !== "object" || x instanceof Date) return x;
+    const o: any = Object.fromEntries(Object.entries(x).map(([k, v]) => [k, mask(v)]));
+    for (const k of EDGE_KEYS)
+      if (Array.isArray(x[k])) o[k] = x[k].map((e: any) => (typeof e?.id === "string" && hidden.has(e.id) ? { id: null, title: PRIVATE_INTENT, stage: e.stage } : mask(e)));
+    if (o.sub && typeof o.sub.why === "string") for (const t of titles) o.sub = { ...o.sub, why: o.sub.why.split(t).join(PRIVATE_INTENT) };
+    return o;
+  };
+  return mask(out);
+}

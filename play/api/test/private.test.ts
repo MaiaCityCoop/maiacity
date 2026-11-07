@@ -329,6 +329,25 @@ suite("private to its owner", () => {
       expect((await call(A, "GET", `/api/assets/${asset}`)).status).toBe(200);
     });
 
+    test("board: an edge to another's private intent shows no title and no id", async () => {
+      const { intent } = await character("Ada's secret look", false);
+      const title = "Ada's secret look";
+      // B's intent depends on A's private one (B learnt its id somehow): B's board shows "a private intent" only
+      const bi = await tool(B, "add_intent", { title: "Bo waits on something" });
+      await db.query(`INSERT INTO play.intent_depends (intent_id, depends_on) VALUES ($1, $2)`, [bi.id, intent]);
+      const leaks = (x: unknown) => JSON.stringify(x).includes(title) || JSON.stringify(x).includes(intent);
+      const mine = await tool(B, "get_intent", { intent: bi.id });
+      expect(mine.depends_on).toEqual([{ id: null, title: "a private intent", stage: "proposal" }]);
+      expect(mine.held_by).toHaveLength(1);
+      expect(leaks(mine)).toBe(false);
+      expect(leaks(await tool(B, "list_intents", { stage: "all" }))).toBe(false);
+      expect(leaks((await call(B, "GET", `/api/intents/${bi.id}`)).data)).toBe(false);
+      expect(leaks((await call(B, "GET", "/api/intents")).data)).toBe(false);
+      // A, its owner, sees it named
+      const as = (await call(A, "GET", `/api/intents/${bi.id}`)).data;
+      expect(as.depends_on).toEqual([expect.objectContaining({ id: intent, title })]);
+    });
+
     test("board: the Library's uses never name another's private character", async () => {
       const sheet = (await tool(A, "add_story_frame", { data: image(), media_type: "image/png", label: "A coop sheet" })).hash as string;
       const intent = await readyIntent(A, "Ada, with a coop sheet");

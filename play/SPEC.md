@@ -83,14 +83,15 @@ which assets a person sees, and which intents.
   listed for them alone (`/api/files/<hash>`, `get_file`, `GET /api/library?library=personal`, `list_library`'s
   `library`), each library with its own label. The same bytes may be in several libraries; a file is everyone's while
   the coop's library holds it (or no library row names it, as every file was).
-- **Private characters.** A new asset in group `characters` may be made private by its proposer (`propose_asset`'s
-  `private: true`): its owner is the token's human, and it, its versions, documents (`asset:<uuid>`) and recipe files
+- **Private characters.** A new asset in group `characters` may be made private by its proposer, made with
+  `propose_asset`'s `private: true` (the one way a new asset is made): its owner is the token's human, and it, its versions, documents (`asset:<uuid>`) and recipe files
   are theirs alone (the catalog, `/api/assets…`, `list_assets`, `get_asset`, `list_docs`, `doc_at`, `doc_history`,
   `doc_edit`, the admins' database window). Only group `characters` may be private for now, and a private asset never
   moves out of it. A sandbox can't pin one: worlds are shared. Its sheet and documents may be its owner's own files; a
   public asset's and a story's files are everyone's.
 - **On the board.** An intent whose work is another's private asset is not listed, not found, refused to any tool
-  naming it, and decided (accepted, archived) by its owner alone.
+  naming it, and decided (accepted, archived) by its owner alone; a dependency edge to it on anyone else's intent shows
+  "a private intent", with no id and no title (its sub-state's reason too).
 - **The Library follows "Act as"** (§8): acting as yourself, your personal library; acting as Maia City, the coop's.
 - **Not yet:** making personal things public, moving them between accounts, personal stories, factories or other kinds:
   8fc46819 widens this to them.

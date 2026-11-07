@@ -34,7 +34,7 @@ import { AssetDocError, assetAt, proposeAsset } from "./assetdocs";
 import { GROUPS, isGroup } from "./groups";
 import { listSandboxes, sandboxOf, SandboxError } from "./sandboxes";
 import { LIBRARY_KINDS, listLibrary } from "./library";
-import { fileHidden, LIBRARIES, libraryOf, seesIntent } from "./owners";
+import { fileHidden, LIBRARIES, libraryOf, maskEdges, seesIntent } from "./owners";
 
 /** the library a file is added to: Maia City's (the default), or the operator's own personal one (./owners.ts) */
 const LIBRARY_ARG = {
@@ -840,7 +840,8 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
           // an intent whose work is another's private asset is as one that never was, whichever tool names it (./owners.ts)
           const named = msg.params?.arguments?.intent;
           if (typeof named === "string" && me && !(await seesIntent(db, me, named))) throw new IntentError("There is no such intent.", 404);
-          const out = await tool.run(msg.params?.arguments ?? {}, me);
+          // (an edge to an intent another's private work keeps is shown as "a private intent": ./owners.ts)
+          const out = await maskEdges(db, me, await tool.run(msg.params?.arguments ?? {}, me));
           return reply(msg.id, { content: [{ type: "text", text: JSON.stringify(out, null, 2) }], structuredContent: Array.isArray(out) ? { items: out } : out });
         } catch (e) {
           // what went wrong, as the tool's own answer the agent reads (a refused recipe, a moved head, no such asset)

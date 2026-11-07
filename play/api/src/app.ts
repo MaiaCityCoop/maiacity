@@ -8,7 +8,7 @@ import type { Db } from "./pg";
 import { admin, COOP, Denied, meOf, must } from "./access";
 import { SANDBOX } from "./ids";
 import { assetOf, catalogOf, configOf, listAssets, NotFound, versionOf } from "./assets";
-import { fileFor, OwnerError } from "./owners";
+import { fileFor, maskEdges, OwnerError } from "./owners";
 import { mcp } from "./mcp";
 import { adminByToken, listTokens, makeToken, markAvenbox, revokeToken } from "./tokens";
 import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, registerOptions, sessionCookie, tokenFor } from "./auth";
@@ -177,9 +177,14 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("GET", "/api/intents", async (req) => {
     const q = new URL(req.url).searchParams;
     const s = q.get("stage");
-    return json(await listIntents(db, await me(req), s ? s.split(",") : undefined, q.get("work") ?? undefined));
+    const m = await me(req);
+    // (an edge to an intent another's private work keeps is shown as "a private intent": ./owners.ts)
+    return json(await maskEdges(db, m, await listIntents(db, m, s ? s.split(",") : undefined, q.get("work") ?? undefined)));
   });
-  on("GET", "/api/intents/:id", async (req, p) => json(await intentOf(db, await me(req), p.id, reviewOf)));
+  on("GET", "/api/intents/:id", async (req, p) => {
+    const m = await me(req);
+    return json(await maskEdges(db, m, await intentOf(db, m, p.id, reviewOf)));
+  });
   // to propose is to put an intent at Proposal: the one named, held to its gate (no work without an intent)
   on("POST", "/api/intents", async (req) => {
     const b = await body(req);
@@ -194,7 +199,8 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   });
   on("POST", "/api/intents/:id/:verdict", async (req, p) => {
     if (!["approve", "accept", "archive", "reject", "reopen"].includes(p.verdict)) throw new NotFound("No such decision.");
-    return json(await decideAny({ db, store }, await me(req), p.id, p.verdict as IntentVerdict | "archive", github, commit));
+    const m = await me(req);
+    return json(await maskEdges(db, m, await decideAny({ db, store }, m, p.id, p.verdict as IntentVerdict | "archive", github, commit)));
   });
 
   // one version control (./versioned.ts, play/SPEC.md "Version control"), admins only: every document play versions,
