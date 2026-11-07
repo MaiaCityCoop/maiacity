@@ -129,6 +129,11 @@ export class El extends EventTarget {
 	remove() {
 		this.parentNode?.removeChild(this);
 	}
+	getRootNode(): unknown {
+		let n: El = this;
+		while (n.parentNode) n = n.parentNode;
+		return n.tagName === 'HTML' ? n.ownerDocument : n;
+	}
 	contains(o: El | null): boolean {
 		return o === this || this.children.some((c) => c.contains(o));
 	}

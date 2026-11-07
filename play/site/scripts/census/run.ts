@@ -21,7 +21,10 @@ export const VIEWS = {
 	mid: { x: 0, z: 235, yaw: 0, pitch: -0.05 },
 	far: { x: 0, z: 370, yaw: 0, pitch: -0.12 }
 } as const;
-export type ViewName = keyof typeof VIEWS;
+export type ViewName = keyof typeof VIEWS | 'open';
+export type World = 'sandbox-1' | 'sandbox-3' | 'worlds';
+/** the views each world is counted from: Sandbox 1's named cameras; the others as they open */
+export const VIEWS_OF: Record<World, ViewName[]> = { 'sandbox-1': ['near', 'mid', 'far'], 'sandbox-3': ['open'], worlds: ['open'] };
 /** the hour every census is taken at: noon, lamps out (the Mac's runs) */
 export const HOUR = 12;
 /** the field of view the worlds draw with (render/world.js), for a copy's size on screen */
@@ -85,14 +88,19 @@ async function run(ms: number, until?: () => boolean) {
 	return false;
 }
 
-/** frames turned until each frame draws the same triangles for `hold` ms on end (at most `ms`) */
-async function steady(ms: number, hold: number) {
+/**
+ * Frames turned until what each frame draws holds still for `hold` ms on end (at most `ms`): the same triangles, or,
+ * in a world that moves (people walking in and out of the view), within `band` of each other
+ */
+async function steady(ms: number, hold: number, band = 0) {
 	const end = performance.now() + ms;
-	let was = -1, since = performance.now();
+	let lo = Infinity, hi = -Infinity, since = performance.now();
 	while (performance.now() < end) {
 		const f = frameTally();
 		const now = performance.now();
-		if (f.tris !== was) (was = f.tris), (since = now);
+		lo = Math.min(lo, f.tris);
+		hi = Math.max(hi, f.tris);
+		if (hi - lo > band * hi) (lo = hi = f.tris), (since = now);
 		else if (now - since >= hold) return true;
 		await paced();
 	}
@@ -101,7 +109,7 @@ async function steady(ms: number, hold: number) {
 
 const building = (of = ['out', 'in', 'library']) => {
 	const s = g.__assets?.stats?.();
-	return s ? of.reduce((a, k) => a + (s[k]?.building ?? 0), 0) : null;
+	return s ? of.reduce((a, k) => a + (s[k]?.building ?? 0), 0) : 0;
 };
 /** the library's copies the same for a second on end: the floor's cover round the eye all put down (a tile a frame) */
 let coverSeen = { n: -1, at: 0 };
@@ -130,6 +138,56 @@ async function mountSandbox1(log: (s: string) => void) {
 	return mounted;
 }
 
+/** builds Sandbox 3, the old city, as its route opens it (play/site/src/routes/sandbox-3/+page.svelte) */
+async function mountSandbox3() {
+	const { catalogReady } = await import(lib('recipes'));
+	const { SANDBOX } = await import(lib('content/assets/sandboxes.js'));
+	await catalogReady(SANDBOX.three);
+	const { createWorld } = await import(lib('content/maiacity-v2/world.js'));
+	const canvas = g.document.createElement('canvas');
+	g.document.body.appendChild(canvas);
+	const world = createWorld(canvas, { onRoam: () => {} });
+	world.set({ at: 'home', cube: 'home', tent: 'up', shelter: 'hidden', battery: 'store', me: 'A', other: null, present: ['A'], rides: false, hour: undefined, cruise: '', spot: null, marked: false, by: '', pick: '', name: '', homed: { A: true, B: true, C: true } });
+	world.touring(false);
+	world.reveal(2);
+	world.trees([]);
+	world.focus('tribe');
+	world.freeWalk(true);
+	await turnUntil(world.ready);
+	return world;
+}
+
+/** the worlds view (play/site/src/routes/worlds/+page.svelte): a world asset, the newest version of the one named
+ *  (`asset`, its UUID), else of the first world play lists, shown as the page shows it */
+async function mountWorlds(asset?: string) {
+	const { catalogReady } = await import(lib('recipes'));
+	await catalogReady();
+	const get = async (route: string) => (await fetch(`/api${route}`)).json();
+	const id = asset ?? (await get('/assets')).filter((a: { grp: string }) => a.grp === 'worlds')[0]?.id;
+	if (!id) throw new Error('census: play lists no world');
+	const chain = await get(`/assets/${id}`);
+	const v = chain.versions[0];
+	const hash = v.recipe ?? v.variants.find((x: { name: string }) => x.name === v.defaultVariant)?.recipe ?? v.variants[0]?.recipe;
+	const { INDEX, source } = await import(lib('content/assets/catalog.js'));
+	const { createWorldView } = await import(lib('content/worlds/view.js'));
+	const el = g.document.createElement('div');
+	g.document.body.appendChild(el);
+	const view = createWorldView(el, { source, engine: INDEX.engine, sound: false });
+	await turnUntil(view.show(hash));
+	return { view, label: chain.label as string, id: id as string, hash: hash as string };
+}
+
+/** frames turned while a promise is open */
+async function turnUntil<T>(p: Promise<T>) {
+	let done = false;
+	const q = p.finally(() => (done = true));
+	while (!done) {
+		frame();
+		await paced();
+	}
+	return q;
+}
+
 /** what the counting renderer drew in one frame */
 function frameTally() {
 	const r = CountingRenderer.made[0];
@@ -139,27 +197,35 @@ function frameTally() {
 	return { tris: t.tris + t.shadowTris + t.targetTris, calls: t.calls + t.shadowCalls + t.targetCalls, t: { ...t } };
 }
 
-export async function censusOf(o: { world: 'sandbox-1'; views: ViewName[]; settleMs?: number; measureFrames?: number; log?: (s: string) => void }): Promise<ViewCensus[]> {
+export async function censusOf(o: { world: World; views?: ViewName[]; asset?: string; settleMs?: number; measureFrames?: number; log?: (s: string) => void }): Promise<ViewCensus[]> {
 	const log = o.log ?? ((s: string) => console.error(s));
+	const views = o.views ?? VIEWS_OF[o.world];
 	const t0 = performance.now();
-	await mountSandbox1(log);
+	let up = true;
+	if (o.world === 'sandbox-1') {
+		await mountSandbox1(log);
+		// where it opens, as the Mac's page: the forest and the library built and the floor's cover streamed in round the eye
+		// (each copy it ever put down stays held by the renderer, put away: `Copy`'s ghosts), but not the domes' insides,
+		// which the Mac's page had not finished there (their kinds, the `in` renderer's, still building)
+		up = await run(o.settleMs ?? 180_000, () => building(['out', 'library']) === 0 && coverStill());
+	} else if (o.world === 'sandbox-3') await mountSandbox3();
+	else {
+		const w = await mountWorlds(o.asset);
+		log(`census: the worlds view shows ${w.label} (${w.id}, ${w.hash.slice(0, 12)}…)`);
+	}
 	if (CountingRenderer.made.length !== 1) throw new Error(`census: ${CountingRenderer.made.length} renderers were made, not one`);
-	// where it opens, as the Mac's page: the forest and the library built and the floor's cover streamed in round the eye
-	// (each copy it ever put down stays held by the renderer, put away: `Copy`'s ghosts), but not the domes'
-	// insides, which the Mac's page had not finished there (their kinds, the `in` renderer's, still building)
-	const up = await run(o.settleMs ?? 180_000, () => building(['out', 'library']) === 0 && coverStill());
-	log(`census: Sandbox 1 built in ${((performance.now() - t0) / 1000).toFixed(1)} s${up ? '' : ' (still building)'} (${fetched.live.size} routes live, ${fetched.pinned.size} pinned, ${fetched.files} files)`);
+	log(`census: ${o.world} built in ${((performance.now() - t0) / 1000).toFixed(1)} s${up ? '' : ' (still building)'} (${fetched.live.size} routes live, ${fetched.pinned.size} pinned, ${fetched.files} files)`);
 	const out: ViewCensus[] = [];
-	for (const name of o.views) {
-		const v = VIEWS[name];
+	for (const name of views) {
+		const v = name === 'open' ? null : VIEWS[name];
 		const ts = performance.now();
-		g.__walker.place(v.x, v.z, v.yaw, v.pitch);
+		if (v) g.__walker.place(v.x, v.z, v.yaw, v.pitch);
 		// as the Mac: a moment, then until nothing builds (at most settleMs), then three seconds more
 		await run(1500);
 		const settled = await run(o.settleMs ?? 180_000, () => building() === 0);
 		// then until what a frame draws holds still: the same triangles for three seconds running (a dome let go, a
 		// tile of the floor's cover built, all done), at most a minute
-		const stable = await steady(60_000, 3000);
+		const stable = await steady(60_000, 3000, v ? 0 : 0.1);
 		const frames: { tris: number; calls: number; shadowTris: number; t: any }[] = [];
 		for (let i = 0; i < (o.measureFrames ?? 90); i++) {
 			const f = frameTally();
@@ -182,9 +248,9 @@ export async function censusOf(o: { world: 'sandbox-1'; views: ViewName[]; settl
 			}
 			for (const [k, n] of [...by].sort((a, b) => b[1] - a[1]).slice(0, 25)) log(`  ${Math.round(n).toLocaleString('en').padStart(10)}  ${k}`);
 		}
-		const s = g.__assets.stats();
+		const s = g.__assets?.stats?.() ?? {};
 		const of = (r: any) => r && { tris: r.tris, calls: r.calls, copies: r.copies, pictures: r.pictures, levels: r.levels, building: r.building };
-		const copies = copiesAt(v);
+		const copies = v ? copiesAt(v) : [];
 		const shapeTris: Record<string, number> = {};
 		for (const c of copies) if (typeof c.level === 'number') shapeTris[c.renderer] = (shapeTris[c.renderer] ?? 0) + (c.tris ?? 0);
 		out.push({ world: o.world, view: name, settled: settled && stable, settleMs: Math.round(performance.now() - ts), frames: frames.map(({ tris, calls, shadowTris }) => ({ tris, calls, shadowTris })), totals, renderers: { out: of(s.out), in: of(s.in), library: of(s.library) }, copies, shapeTris });

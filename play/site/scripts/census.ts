@@ -4,8 +4,11 @@
  * context (intent bba45d6e; ./census/). The world is built by its own code with three.js, its renderer swapped for one
  * that counts every draw three would send (./census/counting.js), and the Mac then measures only the frame time.
  *
- *   bun play/site/scripts/census.ts [--world sandbox-1] [--view near|mid|far|all] [--at <commit>]
- *                                   [--inputs <dir>] [--record] [--json <file>] [--copies]
+ *   bun play/site/scripts/census.ts [--world sandbox-1|sandbox-3|worlds] [--view near|mid|far|open|all] [--at <commit>]
+ *                                   [--asset <uuid>] [--inputs <dir>] [--record] [--json <file>] [--copies]
+ *
+ * --world         Sandbox 1 (the village: near, mid, far), Sandbox 3 (the old city) or the worlds view (a world asset:
+ *                 --asset names it by its UUID, else the first world play lists), the last two as they open (`open`)
  *
  * --at <commit>   that commit's play/site, checked out in a worktree under the census's cache (this checkout's
  *                 node_modules and frozen engines), so an intent's base and head are counted alike
@@ -27,10 +30,9 @@ const arg = (k: string) => {
 	const i = argv.indexOf(k);
 	return i >= 0 ? argv[i + 1] : undefined;
 };
-const world = arg('--world') ?? 'sandbox-1';
-if (world !== 'sandbox-1') throw new Error(`census: no world ${world} (sandbox-1)`);
+const world = (arg('--world') ?? 'sandbox-1') as 'sandbox-1' | 'sandbox-3' | 'worlds';
+if (!['sandbox-1', 'sandbox-3', 'worlds'].includes(world)) throw new Error(`census: no world ${world} (sandbox-1, sandbox-3, worlds)`);
 const view = arg('--view') ?? 'all';
-const views = (view === 'all' ? ['near', 'mid', 'far'] : view.split(',')) as ('near' | 'mid' | 'far')[];
 const at = arg('--at');
 const SITE = resolve(import.meta.dir, '..');
 const REPO = resolve(SITE, '../..');
@@ -57,9 +59,10 @@ function treeAt(commit: string) {
 const tree = at ? treeAt(at) : null;
 const { setup } = await import('./census/setup');
 setup({ root: tree?.root, inputs: arg('--inputs') && resolve(arg('--inputs')!), record: argv.includes('--record'), cache: CACHE });
-const { censusOf } = await import('./census/run');
+const { censusOf, VIEWS_OF } = await import('./census/run');
+const views = view === 'all' ? VIEWS_OF[world] : (view.split(',') as typeof VIEWS_OF[typeof world]);
 const t0 = performance.now();
-const got = await censusOf({ world: 'sandbox-1', views, log: (s) => console.error(s) });
+const got = await censusOf({ world, views, asset: arg('--asset'), log: (s) => console.error(s) });
 const seconds = (performance.now() - t0) / 1000;
 
 const n = (x: number) => Math.round(x).toLocaleString('en');
