@@ -35,7 +35,7 @@ export function liveProblem(live: unknown, duration: number): string | null {
 	if (!live || typeof live !== 'object' || Array.isArray(live)) return 'live must be an object';
 	const l = live as Record<string, unknown>;
 	if (typeof l.asset !== 'string' || !UUID.test(l.asset)) return "live.asset must be the asset's UUID";
-	if (typeof l.version !== 'string' || !(HASH.test(l.version) || UUID.test(l.version))) return "live.version must be the version's id (its hash)";
+	if (typeof l.version !== 'string' || !HASH.test(l.version)) return "live.version must be the version's id (its hash)";
 	if (l.variant !== undefined && (typeof l.variant !== 'string' || !l.variant || l.variant.length > 80)) return "live.variant must be a variant's name";
 	if (l.values !== undefined && !valuesOk(l.values)) return 'live.values must be { parameter: number | text | true/false }';
 	if (l.steps !== undefined && !(Number.isInteger(l.steps) && (l.steps as number) >= 2 && (l.steps as number) <= MOST_STEPS)) return `live.steps must be a whole number 2 … ${MOST_STEPS}`;
