@@ -11,6 +11,8 @@ export type Listed = {
 	moved?: boolean;
 	status?: string | null;
 	summary?: { changes: number; fields: string[] };
+	/** a retire (play/api/src/retire.ts): its reason; accepted, the document leaves every list, its content as it was */
+	retires?: string;
 };
 
 /** the address of one document of an intent's work */

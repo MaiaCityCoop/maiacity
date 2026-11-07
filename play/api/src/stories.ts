@@ -38,6 +38,7 @@ import { NOTE_MOST } from "./notes";
 import * as docs from "./docs";
 import { asDoc, asStory, authorOf, docIdOf, ensureStoryDoc, storyDocAt, versionAtFrontiers } from "./storydocs";
 import { overlap } from "./versioned";
+import { storyListed } from "./listed";
 import { fileTypes, keepFile as keepOwned } from "./owners";
 import { unreadable } from "./assetdocs";
 import { closeWork, dropDoc, putAtProposal, settle, stageAfter, WORK_OF, workOf, WorkError } from "./work";
@@ -543,7 +544,7 @@ export async function linkedBy(q: Queryable, id: string): Promise<{ id: string; 
        CROSS JOIN LATERAL jsonb_array_elements(v.body->'tracks') t
        CROSS JOIN LATERAL jsonb_array_elements(t->'clips') c
        LEFT JOIN play.story_versions lv ON lv.id = c->>'version'
-      WHERE s.folded_into IS NULL AND t->>'kind' = $2 AND c->>'story' = $1
+      WHERE ${storyListed("s")} AND t->>'kind' = $2 AND c->>'story' = $1
       ORDER BY s.title, lv.number`,
     [id, LINK],
   );
@@ -694,7 +695,7 @@ export async function listStories(db: Queryable, me: Me | null): Promise<StoryIt
     `SELECT s.id, s.title, v.body, v.number, s.updated,
             (SELECT count(*) FROM play.story_versions x WHERE x.story_id = s.id AND x.number IS NOT NULL) AS versions
        FROM play.stories s JOIN play.story_versions v ON v.id = s.head
-      WHERE s.folded_into IS NULL
+      WHERE ${storyListed("s")}
       ORDER BY s.updated DESC, s.id`,
   );
   return rows.map((r) => {
