@@ -101,8 +101,11 @@ which assets a person sees, and which intents.
 ### 4.1 What is versioned
 
 **Readable source, the box, the host (Samuel 2026-11-02).** Every proposed version brings its **readable source**: a
-CommonJS module that sets `module.exports.recipe`, as written (play refuses minified code), kept as a file of its own
-(`source_hash`). play makes the recipe file from it (`RECIPE_HEAD + source + recipeTail(slug, v, variant)`), so the
+CommonJS module that sets `module.exports.recipe`, as written (play refuses minified code: a line over 1,000
+characters), kept as a file of its own (`source_hash`). A source that is exactly one its head was accepted with (by
+hash, its own or a variant's) is not judged again (intent 80bbed15): a card-only change of an asset whose accepted
+source carries long lines (the legacy people's embedded meshes) proposes; a changed or new source is still held to the
+rule. play makes the recipe file from it (`RECIPE_HEAD + source + recipeTail(slug, v, variant)`), so the
 file the box runs is exactly the source people read. Proposed code never runs on play's server (it only measures,
 labels and hashes text), and in the page only in the **asset box**: a frame with `sandbox="allow-scripts"` and no
 origin, its own CSP with no connection, the frozen engine (held to its hash) in a worker. A proposal's record may name
