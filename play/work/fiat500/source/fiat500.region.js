@@ -135,7 +135,7 @@ function materials5() {
 		glass: MAT.glass({ color: [.16, .19, .19], transmission: 0, opacity: .28, roughness: .02, envMapIntensity: 1.4 }),
 		lens: MAT.glass({ color: [.8, .82, .84], transmission: 0, opacity: .38, roughness: .04 }),
 		/** the hub caps' pressed steel, chromed and a little dulled */
-		cap: MAT.chrome({ roughness: .2 }),
+		cap: MAT.chrome({ roughness: .3, color: [.72, .73, .74] }),
 		amber: MAT.glass({ color: [1, .38, .02], transmission: 0, opacity: .88, roughness: .12, emissive: [.12, .04, 0] }),
 		red: MAT.glass({ color: [.6, .015, .015], transmission: 0, opacity: .9, roughness: .12, emissive: [.06, 0, 0] }),
 		reflector: MAT.chrome({ roughness: .1, color: [.85, .86, .86] }),
@@ -995,7 +995,7 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 			specs: [["Seats", "2"]]
 		}, [m(rb.fabric.translate(0, .238, -.64), M.vinyl), m(rb.base.translate(0, .238, -.64), R.chassis)]);
 		// the dashboard: a painted shelf under the windscreen, its padded lip, the single instrument in front of the driver
-		const dash = [at(box(1.08, .05, .1, .012), 0, .83, .6), at(box(1.08, .1, .012, .004), 0, .79, .552)];
+		const dash = [at(box(1.08, .05, .1, .012), 0, .83, .6), at(box(1.08, .1, .012, .004), 0, .79, .552), at(box(1.0, .56, .012, .004), 0, .52, .665)];
 		const pad = [at(box(1.06, .022, .03, .01), 0, .748, .552)];
 		const knobs = [];
 		for (const x of [.13, .085, .04, -.005]) knobs.push(cyl([x, .81, .55], [x, .81, .535], .006, 10));
@@ -1007,7 +1007,7 @@ function fiat500({ speed = 60, grade = 0, load = 0, doors = 0, roof = 0, lid = 0
 			label: "Dashboard and instrument",
 			assembly: "cab",
 			source: SRC5.trim,
-			what: "The 500’s dashboard: a painted steel shelf across the car under the windscreen, a padded black lip below it; in front of the driver one round instrument, the speedometer to 120 km/h with the warning lights beside it; the switches in a row; the rear-view mirror on the windscreen’s header.",
+			what: "The 500’s dashboard: a painted steel shelf across the car under the windscreen over the bulkhead to the front compartment, a padded black lip below it; in front of the driver one round instrument, the speedometer to 120 km/h with the warning lights beside it; the switches in a row; the rear-view mirror on the windscreen’s header.",
 			specs: [["Speedometer", "0–120 km/h"]]
 		}, [m(GEO.merge(dash), M.paint), m(GEO.merge(pad), M.vinyl), m(GEO.merge(knobs), M.black), m(GEO.merge(mirror), M.chrome), gauges.group]);
 		ticks.push(() => gauges.set([kmh()]));
