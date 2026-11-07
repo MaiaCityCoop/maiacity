@@ -974,8 +974,8 @@ register({
   item: (json) => ({ note: json.note ?? "", schema: json.schema }),
 });
 register({
-  name: "skill", prefix: "skill", schema: SCHEMA.skill, work: "skill_version", table: "play.skills", label: "skill", group: "skills", open: "/skills/?skill={id}&intent={intent}",
-  row: { grp: (json) => json.group, updated: () => new Date() },
+  name: "skill", prefix: "skill", schema: SCHEMA.skill, work: "skill_version", table: "play.records", where: "r.kind = 'skill'", label: "skill", group: "skills", open: "/skills/?skill={id}&intent={intent}",
+  row: { kind: () => "skill", updated: () => new Date() },
   item: (json) => ({ note: json.note ?? "", group: json.group, stages: SKILL_STAGES.filter((s) => `${json.stages?.[s] ?? ""}`.trim()) }),
 });
 register({

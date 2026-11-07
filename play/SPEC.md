@@ -937,6 +937,7 @@ two briefs were four copies of one thing, each edited by hand (intent c9113886-0
   `specify`, `build`, `proposal`, `ship`, `accepted`, `archived`; empty where an agent has nothing to do), in which
   `{intent}` and `{title}` are the intent's UUID and title, filled where it is served; and its `note`. Its `label` and
   `group` are only shown (*skills / intents*): a skill is named by its UUID (§4.7), `SKILL` in `play/api/src/ids.ts`.
+  Its row is `play.records`' (kind `skill`), as a schema's and a piece's are (intent 1d9995c3, Samuel 2026-11-07).
 - **Two skills** so far: **avenMAIA** (group *agents*: who every MCP agent is, what it does on play, the Artifacts'
   rule, §4.13) and the **Intents** skill (group *intents*: the lifecycle, and each stage's instructions, Ship
   included). Their v1 is the deploy's import (`play/api/import/skills.ts`), only where play holds none of that id:
@@ -944,7 +945,9 @@ two briefs were four copies of one thing, each edited by hand (intent c9113886-0
 - **Changed only by proposal** (§4.15): `doc_edit` makes a change edit by edit (a field's text, a range of it, each
   edit with its message), `propose_doc_version` proposes it (with `intent`, held to its gate), the `skill_version` work
   on the intent, shown on the board field by field, each text sentence by sentence before and after; accepting merges
-  it and names its next version. Never by a migration. `list_docs`, `doc_at` (a version, an edit, an intent's variant)
+  it and names its next version. Never by a migration. **A new skill** is made over MCP as any document of a kind that
+  is a schema alone: `doc_edit` with `kind: "skill"` and its `whole` on an intent variant (Main born empty), then
+  `propose_doc_version` naming the intent; its v1 is an admin's Accept. `list_docs`, `doc_at` (a version, an edit, an intent's variant)
   and `doc_history` read them; `/skills/` shows them, each in its History tab (`GET /api/docs?kind=skill`,
   `/api/docs/<uuid>`). Admins only.
 - **Served from Postgres, on each request**, so an accepted version teaches the next agent with no deploy:
@@ -954,8 +957,9 @@ two briefs were four copies of one thing, each edited by hand (intent c9113886-0
   argument the intent's UUID). A tool's description says only what it takes, gives back and refuses.
 
 ```sql
-skills  (id UUID, coop_id, label /*only shown*/, grp /*only shown*/, created, updated)   -- its document: docs 'skill:<id>'
-intents (…, work 'skill_version', skill_id → skills, doc_branch)                          -- 0031-skills; doc_id, doc_variant since 0032
+records (id UUID, coop_id, kind 'skill', label /*only shown*/, created, updated)  -- its document: docs 'skill:<id>';
+                                                                                  -- play.skills (0031) moved here and gone (202611071300-1d9995c3)
+intents (…, work 'skill_version')                                                 -- its document and variant: intent_variants
 ```
 
 ### 4.15 Version control (Samuel 2026-11-06)
