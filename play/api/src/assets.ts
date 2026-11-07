@@ -1,6 +1,7 @@
 // The asset library, read (play/SPEC.md §4, §7): every asset Maia City owns, each with its versions as a chain, each
 // version's variants, and a ref resolved to the recipe file a sandbox builds.
 import type { Queryable } from "./pg";
+import { piecesShown } from "./pieces";
 
 export class NotFound extends Error {
   status = 404;
@@ -58,9 +59,11 @@ export async function assetOf(db: Queryable, id: string) {
       ORDER BY v.number DESC`,
     [id],
   );
+  const shown = await shownPieces(db, versions.map((v) => v.card));
   return {
     ...a[0],
     versions: versions.map((v) => ({
+      pieces: shown(v.card),
       id: v.id, number: v.number, parents: v.parents, recipe: v.recipe_hash, source: v.source_hash, defaultVariant: v.default_variant,
       engine: v.engine, note: v.note, created: v.created, author: v.author ?? (v.imported ? v.imported.authors?.join(", ") : null),
       approvedBy: v.approved_by, imported: !!v.imported, variants: v.variants, ...summary(v.card, v.parent_card),
@@ -131,10 +134,20 @@ export async function catalogOf(db: Queryable) {
       WHERE v.number IS NOT NULL
       ORDER BY 1, 4, 5 NULLS FIRST`,
   );
+  const shown = await shownPieces(db, rows.map((r) => r.record));
   return rows.map((r) => ({
     hash: r.hash, size: Number(r.size), asset: r.asset_id, group: r.grp, slug: r.slug, v: r.number, variant: r.variant,
     first: !!r.is_default, label: r.record?.card?.label ?? r.record?.title ?? `${r.grp}/${r.slug}`, record: r.record,
+    ...(r.record?.manifest?.pieces?.length ? { pieces: shown(r.record) } : {}),
   }));
+}
+
+/** the pieces records name in their manifests (play/SPEC.md §4.5), each as shown (its label, version and hash): one query for all */
+async function shownPieces(db: Queryable, records: any[]) {
+  const named = (r: any): string[] => (Array.isArray(r?.manifest?.pieces) ? r.manifest.pieces : []);
+  const all = [...new Set(records.flatMap(named))];
+  const by = new Map((await piecesShown(db, all)).map((p) => [p.hash, p]));
+  return (r: any) => named(r).map((h) => by.get(h)!);
 }
 
 /**

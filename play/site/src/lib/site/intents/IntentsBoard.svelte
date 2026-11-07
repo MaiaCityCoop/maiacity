@@ -219,7 +219,7 @@
 		doc: { id: string; kind: string; what: string; label: string; group?: string; open: string | null } | null; seedNumber: number | null; moved: boolean; changes: Change[]; edits: Edit[];
 		pins?: PinChange[]; holds?: boolean; why?: string | null; sandbox?: { title: string; route: string; open: string }; docs?: DocReview[];
 	};
-	type Review = DocReview & { id: string; source: string | null; recipe: string | null; baseVersion: { number: number; source: string | null } | null; builds: Build[] };
+	type Review = DocReview & { id: string; source: string | null; recipe: string | null; baseVersion: { number: number; source: string | null } | null; builds: Build[]; pieces?: { hash: string; piece: string; label: string; version: number }[] };
 	let open = $state<P | null>(null);
 	let review = $state<Review | null>(null);
 	let code = $state('');
@@ -694,6 +694,9 @@
 							</div>
 						{/if}
 						<p class="muted small">Built in the asset box: a sandboxed frame with no origin, running the frozen engine in a worker, with no network, no storage and no access to this page.</p>
+						{#if review.pieces?.length}
+							<p class="muted small">Its pieces, by hash, read from play's files: {#each review.pieces as pc, i (pc.hash)}{i ? ', ' : ''}<a href="/pieces/?piece={pc.piece}&v={pc.version}" title={pc.hash}>{pc.label} v{pc.version}</a> <code>{pc.hash.slice(0, 12)}…</code>{/each}</p>
+						{/if}
 						<!-- what else it changes (its source is beside it, a button away) and the edits it was made in -->
 						<Changes changes={review.changes} edits={review.edits} seed={review.seedNumber} skip={['$.source']} />
 					{/if}

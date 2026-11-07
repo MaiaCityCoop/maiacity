@@ -21,7 +21,7 @@ import type { DocType, Node } from "./validate";
 export type SchemaJson = { label: string; type: string; name: string; note?: string; node: Node };
 
 /** each schema's v1, by its UUID, read from ../../migrations/schemas (the seed) */
-const FILES: Record<string, string> = { [SCHEMA.meta]: "meta", [SCHEMA.story]: "story", [SCHEMA.asset]: "asset", [SCHEMA.factory]: "factory", [SCHEMA.levels]: "levels", [SCHEMA.skill]: "skill", [SCHEMA.sandbox]: "sandbox", [SCHEMA.artifact]: "artifact", [SCHEMA.rules]: "rules" };
+const FILES: Record<string, string> = { [SCHEMA.meta]: "meta", [SCHEMA.story]: "story", [SCHEMA.asset]: "asset", [SCHEMA.factory]: "factory", [SCHEMA.levels]: "levels", [SCHEMA.skill]: "skill", [SCHEMA.sandbox]: "sandbox", [SCHEMA.artifact]: "artifact", [SCHEMA.rules]: "rules", [SCHEMA.piece]: "piece" };
 const DIR = join(import.meta.dir, "..", "..", "migrations", "schemas");
 const seeds = new Map<string, SchemaJson>();
 export function seedOf(id: string): SchemaJson | null {

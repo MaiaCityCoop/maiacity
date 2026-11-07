@@ -24,7 +24,7 @@
 
 	type Listed = { id: string; grp: string; slug: string; label: string; head: number; versions: number };
 	type Variant = { name: string; recipe: string; label: string | null };
-	type Version = { id: string; number: number; parents: string[]; recipe: string | null; defaultVariant: string | null; note: string; created: string; author: string | null; approvedBy: string | null; imported: boolean; variants: Variant[]; cardLabel: string | null; triangles: number | null; size: number[] | null; skinned: boolean | null; sheet: string | null; datasheet: string | null; brief: string | null };
+	type Version = { id: string; number: number; parents: string[]; recipe: string | null; defaultVariant: string | null; note: string; created: string; author: string | null; approvedBy: string | null; imported: boolean; variants: Variant[]; cardLabel: string | null; triangles: number | null; size: number[] | null; skinned: boolean | null; sheet: string | null; datasheet: string | null; brief: string | null; pieces?: { hash: string; piece: string; label: string; version: number }[] };
 	type Chain = { id: string; grp: string; slug: string; label: string; versions: Version[]; sound: string | null; sound_gain: number };
 
 	const viewer = import('$lib/content/assets/VaultAsset.svelte');
@@ -232,6 +232,14 @@
 				<dt>Recipe</dt><dd class="mono" title={shownHash ?? ''}>BLAKE3 {short(shownHash)}</dd>
 				{#if shownVersion.triangles}<dt>Triangles</dt><dd>{shownVersion.triangles.toLocaleString('en-GB')}{shownVersion.skinned ? ', skinned' : ''}</dd>{/if}
 				{#if shownVersion.size}<dt>Size</dt><dd>{shownVersion.size.map((n) => n.toFixed(2)).join(' × ')} m</dd>{/if}
+				{#if shownVersion.pieces?.length}
+					<dt>Pieces</dt>
+					<dd class="pieces">
+						{#each shownVersion.pieces as p (p.hash)}
+							<a href="/pieces/?piece={p.piece}&v={p.version}" title={p.hash}>{p.label} v{p.version} <span class="mono">{short(p.hash)}</span></a>
+						{/each}
+					</dd>
+				{/if}
 			</dl>
 			{#if session.me?.level === 'admin'}
 				<p class="soft propose">Propose v{(chain.versions[0]?.number ?? 0) + 1} over MCP (doc_edit, propose_doc_version); it is decided in <a href="/intents/">Intents</a>.</p>
@@ -298,6 +306,8 @@
 	/* the middle's notes when nothing is shown, kept off its edges */
 	.assets :global(.middle > p) { margin: 1rem clamp(1rem, 3vw, 2.4rem); }
 	.none { padding: 0.4rem 0.6rem; font-size: 0.84rem; }
+	.pieces { display: grid; gap: 0.15rem; }
+	.pieces a { color: inherit; }
 	.about-head { margin: 0 0 0.9rem 0.35rem; }
 	.call { margin-top: 0.5rem; border: 0; cursor: pointer; font: inherit; font-size: 0.78rem; }
 	.call.on { background: var(--ink); color: var(--paper); }

@@ -61,6 +61,8 @@ export const SCHEMA = {
   artifact: "e09c47a2-e3eb-4d9c-89dd-0e95843b7c26",
   /** the auto-accept rules (../rules.ts, play/SPEC.md §4.12 "Auto-accept rules"): which intents pass Approve spec or Accept with no person */
   rules: "d07ab5fe-26e6-486e-b6f3-8a1cc383dfee",
+  /** a piece (../pieces.ts, play/SPEC.md §4.5, intent 5a15e468): readable source a recipe names by its hash */
+  piece: "96890044-5e4b-4fbc-97c8-361d1ad618ea",
 } as const;
 
 /** the one rule set, `rules:<RULES>` (play/SPEC.md §4.12 "Auto-accept rules", intent de24f1c5): its Main is the rules in
