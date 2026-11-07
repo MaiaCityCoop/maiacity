@@ -6,7 +6,7 @@
  * and fails when the lowest is under --min-ssim. Needs Chrome (or playwright's Chromium) and ffmpeg; --serve only serves
  * the harness, to look at it in a browser.
  *
- *   bun scripts/story-parity.ts src/lib/stories/fixtures/hex-village.json --at 1.0,3.6,7.2 --min-ssim 0.98 [--keep dir] [--serve]
+ *   bun scripts/story-parity.ts src/lib/stories/fixtures/hex-village.json --at 1.0,3.6,7.2 --min-ssim 0.98 [--keep dir] [--serve] [--film render.mp4 | frames dir] [--lossless]
  *
  * A live shot (intent f270269e) is drawn by the frozen box engine (static/engines) and the live runtime
  * (scripts/live-runtime.ts), both by their hashes; its recipe and pieces, and any file the fixture doesn't give, are
@@ -27,7 +27,7 @@ const opt = (name: string) => {
 	const i = args.indexOf(name);
 	return i >= 0 ? args[i + 1] : undefined;
 };
-const fixture = args.find((a, i) => !a.startsWith('--') && !['--at', '--min-ssim', '--keep'].includes(args[i - 1]));
+const fixture = args.find((a, i) => !a.startsWith('--') && !['--at', '--min-ssim', '--keep', '--film', '--port'].includes(args[i - 1]));
 if (!fixture) throw new Error('usage: bun scripts/story-parity.ts <fixture.json> --at 1.0,3.6,7.2 --min-ssim 0.98');
 const at = (opt('--at') ?? '1').split(',').map(Number);
 const least = Number(opt('--min-ssim') ?? 0.98);
@@ -106,9 +106,16 @@ const run = (cmd: string[]) => {
 };
 try {
 	// HyperFrames' render of it, and a still from it at each second
-	const film = join(work, 'render.mp4');
-	run(['bunx', 'hyperframes@0.9.20', 'render', project, '-o', film, '--quiet', '--workers', '1', '--quality', 'delivery', '--no-wait', '--no-experimental-fast-capture']);
-	for (const t of at) run(['ffmpeg', '-y', '-loglevel', 'error', '-i', film, '-vf', `select=eq(n\\,${Math.round(t * story.fps)})`, '-frames:v', '1', join(work, `render-${t}.png`)]);
+	// (--film: a render of this same composition made before, kept with --keep: a live shot's takes long without a GPU)
+	// --lossless: its frames as PNGs (HyperFrames' png-sequence), so what is measured is the engine, not the film's
+	// codec: a finely detailed shot (a palm's thousands of leaflets) loses SSIM to H.264 alone (0.96 against itself)
+	const lossless = args.includes('--lossless');
+	const film = opt('--film') ? resolve(opt('--film')!) : join(work, lossless ? 'frames' : 'render.mp4');
+	if (!opt('--film')) run(['bunx', 'hyperframes@0.9.20', 'render', project, '-o', film, '--quiet', '--workers', '1', ...(lossless ? ['--format', 'png-sequence'] : ['--quality', 'delivery']), '--no-wait', '--no-experimental-fast-capture']);
+	const pngs = lossless ? [...new Bun.Glob('*.png').scanSync({ cwd: film })].sort() : [];
+	for (const t of at)
+		if (lossless) run(['ffmpeg', '-y', '-loglevel', 'error', '-i', join(film, pngs[Math.round(t * story.fps)]), '-frames:v', '1', join(work, `render-${t}.png`)]);
+		else run(['ffmpeg', '-y', '-loglevel', 'error', '-i', film, '-vf', `select=eq(n\\,${Math.round(t * story.fps)})`, '-frames:v', '1', join(work, `render-${t}.png`)]);
 	// the player's picture at each second
 	// in Chrome (else the renderer's own headless shell), with the renderer's font and colour flags
 	const flags = { args: ['--font-render-hinting=none', '--force-color-profile=srgb'] };
@@ -120,10 +127,15 @@ try {
 	await page.goto(`http://localhost:${server.port}/`);
 	await page.waitForFunction(() => (window as any).ready === true, null, { timeout: 120_000 });
 	// and the composition's own setup (a live shot's builds: HyperFrames' __hf.buildReady), in its frame
-	const inner = page.frames().find((f) => f !== page.mainFrame());
-	await inner?.waitForFunction(() => (window as any).__renderReady === true, null, { timeout: 300_000 });
+	// (found, or the run fails: a seek before it is ready is not taken, and would measure the poster)
+	let inner = page.frames().find((f) => f !== page.mainFrame());
+	for (let i = 0; !inner && i < 600; i++) await page.waitForTimeout(100), (inner = page.frames().find((f) => f !== page.mainFrame()));
+	if (!inner) throw new Error("the player's frame never came");
+	await inner.waitForFunction(() => (window as any).__renderReady === true, null, { timeout: 300_000, polling: 250 });
 	for (const t of at) {
 		await page.evaluate((s) => (window as any).at(s), t);
+		// and drawn in its frame (its own process, its WebGL slow without a GPU): two of its frames after the seek
+		await inner.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
 		await page.screenshot({ path: join(work, `player-${t}.png`), clip: { x: 0, y: 0, width: W, height: H }, timeout: 300_000 });
 	}
 	await browser.close();
