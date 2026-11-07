@@ -3,8 +3,7 @@
 	Postgres, each skill a Loro document (play/api/src/skills.ts, one kind of play/api/src/versioned.ts). On the left the
 	skills, by their group (only shown: a skill is named by its id); in the middle the one picked, as it is taught: its
 	part of the system prompt every agent connected over MCP gets, and, for the Intents skill, what to do at each of an
-	intent's stages; on the right its History tab ($lib/app/History.svelte, the one History of every view): its
-	versions, every edit it was made in, its open intent variants. A skill changes only by proposal, over MCP (doc_edit,
+	intent's stages; on the right the one aside ($lib/app/Aside.svelte): its Info and its History. A skill changes only by proposal, over MCP (doc_edit,
 	propose_doc_version), decided on the intents' board. `?skill=<id>` picks one, `&v=<n>` one of its versions,
 	`&intent=<id>` the skill as an intent's work at Proposal would make it. Admins only.
 -->
@@ -15,7 +14,7 @@
 	import { session } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
-	import History, { type Pick } from '$lib/app/History.svelte';
+	import Aside, { type Pick } from '$lib/app/Aside.svelte';
 	import { markdown } from '$lib/site/markdown/index.js';
 
 	type Item = { id: string; label: string; group: string; note: string; stages: string[]; number: number; versions: number };
@@ -77,32 +76,13 @@
 	{/each}
 {/snippet}
 
-{#snippet head()}
-	{#if skill}
-		<header class="about-head">
-			<small>Skills / {skill.json.group} · owned by Maia City</small>
-			<h3>{skill.json.label}</h3>
-			{#if skill.intent}
-				<p class="asif">As its intent's work would make it{skill.intent.status === 'proposal' ? '' : ` (${skill.intent.status})`}: “{skill.intent.note}” <a href="/intents/">Back to the intents</a> · <a href="?skill={skill.id}" onclick={(e) => (e.preventDefault(), at(skill!.id))}>its newest version</a></p>
-			{:else if skill.edit}
-				<p class="asif">As it stood at an edit of its history: <a href="?skill={skill.id}" onclick={(e) => (e.preventDefault(), at(skill!.id))}>its newest version</a></p>
-			{:else if skill.version !== skill.number}
-				<p class="asif">Version {skill.version}, not its newest: <a href="?skill={skill.id}" onclick={(e) => (e.preventDefault(), at(skill!.id))}>v{skill.number}</a></p>
-			{/if}
-		</header>
-	{/if}
-{/snippet}
-
-{#snippet history()}
-	{#if skill}
-		<History doc={skill.id} shown={wantV ? Number(wantV) : skill.number} label="the skill" intent={skill.intent?.id ?? null} onPick={picked} />
-		<p class="soft propose">Propose v{skill.number + 1} over MCP (doc_edit, propose_doc_version); it is decided in <a href="/intents/">Intents</a>, and taught from the next request on.</p>
-	{/if}
+{#snippet side()}
+	<Aside doc={skill!} where="Skills / {skill!.json.group}" label={skill!.json.label} shown={wantV ? Number(wantV) : null} propose="Propose v{skill!.number + 1} over MCP (doc_edit, propose_doc_version): taught from the next request on." onPick={picked} />
 {/snippet}
 
 {#if admin}
 	<div class="skills">
-		<Frame nav={list.length ? shelf : undefined} asideHead={skill ? head : undefined} history={skill ? history : undefined} navLabel="What play teaches its agents" asideLabel="The skill's history" navIcon="board">
+		<Frame nav={list.length ? shelf : undefined} aside={skill ? side : undefined} navLabel="What play teaches its agents" asideLabel="The skill's history" navIcon="board">
 			<article class="body">
 				{#if error}<p class="bad">{error}</p>{/if}
 				{#if skill}
@@ -141,9 +121,4 @@
 	.md :global(code) { font-size: 0.85em; }
 	.bad { color: var(--terracotta, #c23a22); }
 	.none { padding: 0.4rem 0.6rem; font-size: 0.84rem; }
-	.about-head { margin: 0 0 0.9rem 0.35rem; }
-	.about-head small { color: var(--accent); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
-	.about-head h3 { margin: 0.15rem 0 0.3rem; font-size: 1.15rem; font-family: var(--font-body); font-weight: 600; }
-	.asif { margin: 0.4rem 0 0.5rem; padding: 0.45rem 0.6rem; border-radius: 8px; background: var(--mustard-soft, rgb(232 178 60 / 0.18)); font-size: 0.78rem; line-height: 1.4; }
-	.propose { margin: 0 0 1.2rem 0.35rem; font-size: 0.76rem; }
 </style>
