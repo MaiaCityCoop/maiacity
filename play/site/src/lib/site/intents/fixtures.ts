@@ -1,0 +1,95 @@
+/**
+ * Intents at every stage, as play's API serves them, for detail.test.ts and the detail's screenshots
+ * (scripts/intent-shots.ts): each with the run commands, hashes, evidence and brief an agent needs, none of which may
+ * be on top of its detail. Their UUIDs are made up; nothing here is play's.
+ */
+import type { Check, Intent, Results } from './detail';
+
+export const RUN = 'cd play/site && bunx vitest run src/lib/site/intents/detail.test.ts';
+export const HEAD = '3f1c9a7be0d24c6a8f15e2b7c9d04a1e6b8f2c35';
+export const MERGE = '9e2b7d41c0a35f86b1d2e4c7a9f03b5d8e6c1a27';
+export const LIVE = '1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d';
+export const EVIDENCE = 'vitest: 14 passed (14) in detail.test.ts, 0 skipped';
+export const BRIEF = 'Build Maia City\'s intent 00000000-… on play in avenBOX. Read it with get_intent, build what its goal and scope say, then run `bun play/avenbox/intent.ts <id>`.';
+
+const CHECKS: Check[] = [
+	{ id: 'c1', check: 'The board and the detail are apart: IntentDetail.svelte exists, and IntentsBoard.svelte is under 68,098 bytes.', how: 'measure', by: 'wc -c', run: 'test -f play/site/src/lib/site/intents/IntentDetail.svelte && [ $(wc -c < play/site/src/lib/site/intents/IntentsBoard.svelte) -lt 68098 ]', must: true, step: 'reduce' },
+	{ id: 'c2', check: 'One place decides each stage\'s detail: detailOf gives the top, the decision and the tabs.', how: 'test', by: 'detail.test.ts', run: RUN, must: true, step: 'reduce' },
+	{ id: 'c3', check: 'Nothing an agent needs is lost: every field is reachable in a tab.', how: 'look', by: 'one intent per stage, tab by tab', must: true, step: 'mvp' },
+	{ id: 'c4', check: 'The decision is clean on top: the stage\'s parts and its button, no run or hash above the tabs.', how: 'look', by: '14 screenshots', must: true, step: 'mvp' },
+	{ id: 'c5', check: 'It is written down in play/SPEC.md §4.12.', how: 'test', by: 'grep', run: "grep -q 'detailOf' play/SPEC.md", must: true, step: 'mvp' },
+	{ id: 'c6', check: 'Deciding at Specify and Proposal takes one look and one tap on a phone.', how: 'look', by: 'Samuel on his phone', must: false, step: 'mvp' }
+];
+const SPEC = {
+	goal: 'Opened at any stage, an intent\'s detail shows on top only what a person needs at that moment: what it is, where it stands and the one decision the stage asks for. Everything else is kept whole in tabs.',
+	scope: 'Code, by pull request into main. Under `play/site/src/lib/site/intents/`.\n\n### Step 1, reduce\n- The detail goes into its own component.\n\n### Step 2, the MVP\n- **The top, by stage**, and the tabs.',
+	checks: CHECKS
+};
+const NOTE = 'Samuel 2026-11-07: "each stage has its own overview … reduced to the actual essence of decision point, while keeping the information that the agents need intact."\n\nAudit of main: one 68,098-byte file holds the board and the detail; the decision sits at the foot under prose, run commands, hashes and evidence.';
+const at = (h: number) => new Date(Date.UTC(2026, 10, 7, h, 12)).toISOString();
+const res = (ids: string[], fail: string[] = []): Results =>
+	Object.fromEntries([...ids.map((id) => [id, { pass: true, evidence: `${EVIDENCE} (${id})`, by: 'avenMAIA', at: at(11), where: 'avenBOX' as const, commit: HEAD }]), ...fail.map((id) => [id, { pass: false, evidence: `${id}: 2 failed, expected 68098 > 70847`, by: 'avenMAIA', at: at(11), where: 'avenBOX' as const, commit: HEAD }])]);
+
+const base = (n: number, over: Partial<Intent>): Intent => ({
+	id: `0000000${n}-b4f4-4128-bcc1-b076674e353${n}`,
+	kind: 'improve',
+	title: 'An intent\'s detail shows the decision its stage asks for, clean on top',
+	note: NOTE,
+	stage: 'idea',
+	via: 'mcp',
+	created: at(9),
+	author: 'Samuel',
+	spec: null,
+	results: null,
+	specified_at: null,
+	specified_by: null,
+	approved_at: null,
+	approved_by: null,
+	decided_at: null,
+	decided_by: null,
+	came_with: null,
+	work: null,
+	pull_request: null,
+	ship: null,
+	sub: null,
+	steps: [],
+	depends_on: [],
+	held_by: [],
+	needed_by: [],
+	...over
+});
+const specified = { spec: SPEC, specified_at: at(10), specified_by: 'Samuel' };
+const approved = { ...specified, approved_at: at(10), approved_by: 'Samuel' };
+const DEP = { id: '11111111-2222-4333-8444-555555555555', title: 'Ship merges main into every open pull request', stage: 'build' as const };
+const STEPS = (red = false) => [
+	{ key: 'merge', name: 'Merged into main', state: 'green' as const, started: at(12), finished: at(12), note: `as ${MERGE.slice(0, 7)}` },
+	{ key: 'main', name: "Main's checks", state: 'green' as const, started: at(12), finished: at(12), link: 'https://github.com/MyAvenCEO/maiacity/actions/runs/1' },
+	{ key: 'release', name: 'Release', state: red ? ('red' as const) : ('green' as const), started: at(12), finished: at(12), link: 'https://github.com/MyAvenCEO/maiacity/actions/runs/2' },
+	{ key: 'backup', name: 'Backup', state: red ? ('skipped' as const) : ('running' as const), started: at(12) },
+	{ key: 'server', name: 'Server', state: 'queued' as const },
+	{ key: 'website', name: 'Website', state: 'queued' as const }
+];
+const WORK = { kind: 'asset_version', what: 'asset', doc: 'asset:44444444-5555-4666-8777-888888888888', doc_variant: 3, docs: 2, asset_id: '44444444-5555-4666-8777-888888888888', label: 'Olive tree', grp: 'plants', slug: null, version_label: null, number: 4, status: 'proposal', note: 'Its bark furrows with age.', author: 'Samuel', decided_by: null, created: at(11), via: 'mcp' as const };
+
+export const FIXTURES: Record<string, Intent> = {
+	idea: base(1, { stage: 'idea', sub: { state: 'idle', tag: 'an idea', why: 'an idea: an agent specifies it next' } }),
+	specify: base(2, { stage: 'specify', ...specified, depends_on: [DEP], sub: { state: 'waiting', tag: 'Approve spec', why: 'waits for Approve spec' } }),
+	build: base(3, { stage: 'build', ...approved, results: res(['c1', 'c2']), pull_request: 2150, pr_seen: { pr: 2150, draft: true, state: 'open' }, sub: { state: 'working', tag: 'being built', why: 'being built: its checks are recorded as they pass' } }),
+	'build-held': base(4, { stage: 'build', ...approved, depends_on: [DEP], held_by: [DEP], sub: { state: 'idle', tag: 'held', why: `held: waits for ${DEP.title}` } }),
+	'build-failed': base(5, { stage: 'build', ...approved, results: res(['c2'], ['c1']), pull_request: 2150, pr_seen: { pr: 2150, draft: false, state: 'open' }, sub: { state: 'failed', tag: 'c1 failed', why: 'c1 failed on its last run' } }),
+	'proposal-code': base(6, { stage: 'proposal', ...approved, results: res(['c1', 'c2', 'c3', 'c4', 'c5']), pull_request: 2150, pr_seen: { pr: 2150, draft: false, state: 'open', mergeable: true }, sub: { state: 'waiting', tag: 'Accept and ship', why: 'waits for Accept and ship' } }),
+	'proposal-work': base(7, { stage: 'proposal', ...approved, title: 'The olive tree\'s bark furrows with age', results: res(['c1', 'c2', 'c3', 'c4', 'c5']), work: WORK, sub: { state: 'waiting', tag: 'Accept', why: 'waits for Accept' } }),
+	'proposal-red': base(8, {
+		stage: 'proposal', ...approved, results: res(['c1', 'c2', 'c3', 'c4', 'c5']), pull_request: 2150, decided_by: 'Samuel', decided_at: at(12),
+		ship: { pr: 2150, head: HEAD, merge: MERGE, by: 'Samuel', round: 1, started: at(12), steps: STEPS(true), report: { step: 'Release', why: 'production did not fast-forward to the merge', link: 'https://github.com/MyAvenCEO/maiacity/actions/runs/2', log: `error: ${MERGE} is not a descendant of production\n##[error]Process completed with exit code 1.`, at: at(12) }, outcome: 'red', again: 'release' },
+		sub: { state: 'failed', tag: 'Ship red', why: 'Ship red at Release: Accept ships it again' }
+	}),
+	ship: base(9, { stage: 'ship', ...approved, results: res(['c1', 'c2', 'c3', 'c4', 'c5']), pull_request: 2150, decided_by: 'Samuel', decided_at: at(12), ship: { pr: 2150, head: HEAD, merge: MERGE, by: 'Samuel', round: 1, started: at(12), steps: STEPS() }, sub: { state: 'working', tag: 'shipping', why: 'shipping: the backup runs' } }),
+	accepted: base(10, {
+		stage: 'accepted', ...approved, results: res(['c1', 'c2', 'c3', 'c4', 'c5']), pull_request: 2150, decided_by: 'Samuel', decided_at: at(12),
+		ship: { pr: 2150, head: HEAD, merge: MERGE, by: 'Samuel', round: 1, started: at(12), steps: STEPS().map((s) => ({ ...s, state: 'green' as const, started: at(12), finished: at(13) })), outcome: 'green', accepted: at(13), live: true, commit: MERGE },
+		steps: [{ at: at(11), by: 'Samuel', via: 'mcp', from: 'build', to: 'specify', reason: 'the spec named the wrong file' }],
+		auto: {}
+	}),
+	archived: base(11, { stage: 'archived', ...specified, decided_by: 'Samuel', decided_at: at(12) })
+};
