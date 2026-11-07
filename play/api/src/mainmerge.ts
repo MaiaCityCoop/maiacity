@@ -43,6 +43,7 @@ export function carrySeen(was: PrSeen | null | undefined, seen: PrSeen): PrSeen 
   }
   if (was.conflicts?.head === seen.head) out.conflicts = was.conflicts;
   if (was.merges) out.merges = was.merges;
+  if (was.main_merges) out.main_merges = was.main_merges;
   return out;
 }
 
@@ -142,7 +143,7 @@ async function update(db: Db, gh: GitHub, state: MainMergeState, id: string, see
       throw e;
     }
     state.done.set(key, main);
-    await keep(tx, id, { ...row.pr_seen!, main_merged: { from: seen.head, main, at: new Date(at).toISOString() } });
+    await keep(tx, id, { ...row.pr_seen!, main_merged: { from: seen.head, main, at: new Date(at).toISOString() }, main_merges: (row.pr_seen!.main_merges ?? 0) + 1 });
     console.log(`ship: main ${short(main)} merged into #${seen.pr} of intent ${id} (from ${short(seen.head)}): its checks run on the new head`);
   });
 }

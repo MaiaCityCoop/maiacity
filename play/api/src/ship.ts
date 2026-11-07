@@ -114,6 +114,8 @@ export type Run = {
   head_sha: string;
   event: string;
   display_title?: string;
+  name?: string;
+  head_branch?: string;
   created_at: string;
   run_started_at?: string;
   updated_at?: string;
@@ -201,6 +203,10 @@ export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.git
       json<{ sha: string; merged: boolean }>("PUT", `/pulls/${n}/merge`, { merge_method: "merge", sha, commit_title, commit_message }),
     runs: async (workflow: string, filter: { head_sha?: string; event?: string; created?: string }) =>
       (await json<{ workflow_runs: Run[] }>("GET", `/actions/workflows/${workflow}/runs?${q({ ...filter, per_page: 30 })}`)).workflow_runs,
+    /** a branch's runs, every workflow, newest first (./delivery.ts) */
+    branchRuns: async (branch: string) => (await json<{ workflow_runs: Run[] }>("GET", `/actions/runs?${q({ branch, per_page: 100 })}`)).workflow_runs,
+    /** one run */
+    run: (id: number) => json<Run>("GET", `/actions/runs/${id}`),
     jobs: async (run: number) => (await json<{ jobs: Job[] }>("GET", `/actions/runs/${run}/jobs?per_page=100`)).jobs,
     dispatch: (workflow: string, ref: string, inputs: Record<string, string>) => json("POST", `/actions/workflows/${workflow}/dispatches`, { ref, inputs }),
     rerunFailed: (run: number) => json("POST", `/actions/runs/${run}/rerun-failed-jobs`, {}),
