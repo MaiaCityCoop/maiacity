@@ -38,6 +38,8 @@ import type { AutoBy } from "./rules";
 import { acceptAndShip, acceptCode, runningCommit, type GitHub } from "./ship";
 import { assetDocFor, assetEdits, assetReview, decideAsset, ensureAssetDoc, proposeAssetVariant, unreadable } from "./assetdocs";
 import { gistOf } from "./gist";
+import { storyListed } from "./listed";
+import { retireAccepted, retiredOf } from "./retire";
 import { intentPieces, keepPiece, PieceError, pieceProblems, piecesHeld, piecesOf } from "./pieces";
 import { decideStory, proposeStoryVariant, storyEdit, storyReview } from "./stories";
 import { ensureStoryDoc } from "./storydocs";
@@ -270,7 +272,7 @@ export async function listDocs(db: Queryable, me: Me | null, kind?: string) {
               (SELECT count(*) FROM play.doc_versions v WHERE v.doc_id = '${k.prefix}:' || r.id::text) AS versions,
               (SELECT max(created) FROM play.doc_versions v WHERE v.doc_id = '${k.prefix}:' || r.id::text) AS updated
          FROM ${qi(k.table)} r LEFT JOIN play.docs d ON d.id = '${k.prefix}:' || r.id::text
-        ${k.listed || k.where || k.owned ? `WHERE ${[k.where, k.listed, seen(k, "$1")].filter(Boolean).join(" AND ")}` : ""} ORDER BY r.created, r.id`,
+        WHERE ${[k.where, k.listed, seen(k, "$1"), "d.retired_at IS NULL"].filter(Boolean).join(" AND ")} ORDER BY r.created, r.id`,
       k.owned ? [who.id] : [],
     );
     for (const r of rows) {
@@ -292,7 +294,8 @@ export async function docAt(ctx: Ctx, me: Me | null, id: unknown, at: DocAt = {}
     const db = ctx.db;
     const versions = await versionsNamed(db, docId);
     const number = versions.at(-1)?.number ?? 0;
-    const base = { id: uuid, kind: kind.name, number, versions };
+    const retired = await retiredOf(db, docId);
+    const base = { id: uuid, kind: kind.name, number, versions, ...(retired ? { retired } : {}) };
     const viewed = async <T extends { json: any }>(r: T) => (kind.view ? { ...r, ...(await kind.view(db, r.json, uuid)) } : r);
     if (at.breed !== undefined && at.breed !== null) {
       const b = (await docs.breedsOf(db, docId)).find((x) => x.id === at.breed);
@@ -334,9 +337,11 @@ export async function docHistory(ctx: Ctx, me: Me | null, id: unknown, o: { vari
     const intents = new Map(
       (await db.query<{ id: string; stage: string; title: string }>(`SELECT id, stage, title FROM play.intents WHERE id = ANY($1::uuid[])`, [vs.map((v) => v.intent_id).filter(Boolean)])).rows.map((r) => [r.id, r]),
     );
+    const retired = await retiredOf(db, docId);
     return {
       id: uuid,
       kind: kind.name,
+      ...(retired ? { retired } : {}),
       edits,
       versions: (await versionsNamed(db, docId)).map((v, i) => ({ ...v, variant: versions[i].variant })),
       variants: vs.map((v) => ({
@@ -677,6 +682,9 @@ const asOne = (p: any, h: { doc_id: string; doc_variant: number | null } & Recor
   return out;
 };
 
+/** what a held retire says on the board (./retire.ts): its reason, the document leaving every list once accepted */
+const retiresOf = (h: Record<string, any>) => (h.retire ? { retires: `${h.retire}` } : {});
+
 /** one document's intent variant as people review it: what changed, field by field, against its seed, the edits that made it, whether Main moved since */
 async function reviewVariant(db: Queryable, p: any, h: { doc_id: string; doc_variant: number | null }) {
   const k = kindOfDoc(h.doc_id) ?? kindOfWork(p.kind)!;
@@ -694,7 +702,7 @@ async function reviewVariant(db: Queryable, p: any, h: { doc_id: string; doc_var
   const open = k.open ? k.open.replace("{id}", encodeURIComponent(uuid)).replace("{intent}", encodeURIComponent(p.id)) : null;
   // the breed it changes, or the one it makes (play/SPEC.md "Breeds")
   const breed = row.breed !== null ? (await docs.variantsOf(db, docId)).find((b) => b.id === row.breed)?.name ?? null : row.makes;
-  return { doc: { id: uuid, kind: k.name, what: k.label, label: next.label ?? next.title ?? k.label, ...(next.group ? { group: next.group } : {}), open, ...(breed ? { breed, newBreed: row.makes !== null } : {}) }, variant: v, seedNumber, moved, changes: docs.diff(seed, next), edits };
+  return { doc: { id: uuid, kind: k.name, what: k.label, label: next.label ?? next.title ?? k.label, ...(next.group ? { group: next.group } : {}), open, ...(breed ? { breed, newBreed: row.makes !== null } : {}) }, variant: v, seedNumber, moved, changes: docs.diff(seed, next), edits, ...retiresOf(h) };
 }
 
 /**
@@ -716,7 +724,7 @@ async function listedVariant(db: Queryable, p: any, h: { doc_id: string; doc_var
   const breed = row.breed !== null ? (await docs.variantsOf(db, h.doc_id)).find((b) => b.id === row.breed)?.name ?? null : row.makes;
   return {
     doc: { id: uuid, kind: k.name, what: k.label, label: g.label ?? k.label, ...(g.group ? { group: g.group } : {}), open, ...(breed ? { breed, newBreed: row.makes !== null } : {}) },
-    variant: v, seedNumber, moved, status: row.status, summary: { changes: g.changes, fields: g.fields },
+    variant: v, seedNumber, moved, status: row.status, summary: { changes: g.changes, fields: g.fields }, ...retiresOf(h),
   };
 }
 
@@ -728,8 +736,9 @@ async function listedVariant(db: Queryable, p: any, h: { doc_id: string; doc_var
  */
 export async function reviewDoc(db: Queryable, p: any) {
   const k = kindOfWork(p.kind)!;
-  const extra = k.review ? await k.review(db, p) : {};
   const held = heldOf(p);
+  // a retire changes nothing of its document: its kind's extras (a story's player of the version proposed) have nothing to show
+  const extra = k.review && !held[0]?.retire ? await k.review(db, p) : {};
   const each: any[] = [];
   for (const h of held) each.push(await listedVariant(db, p, h));
   const first = each[0] ?? { doc: null, variant: null, seedNumber: null, moved: false };
@@ -763,7 +772,7 @@ export async function reviewHeld(db: Queryable, id: string, doc: string, variant
   const whole = r.changes.length === 1 && r.changes[0].path === "$" ? r.changes[0].to : null;
   if (whole && typeof whole === "object" && !Array.isArray(whole)) r.changes = Object.keys(whole).map((k) => ({ path: `$.${k}`, kind: "added", to: whole[k] }));
   const hk = kindOfDoc(h.doc_id);
-  const extra = hk?.review && h.doc_variant != null ? await hk.review(db, asOne(p, h, hk)) : {};
+  const extra = hk?.review && h.doc_variant != null && !h.retire ? await hk.review(db, asOne(p, h, hk)) : {};
   return { intent: p.id as string, status: p.status as string, ...r, ...extra, doc: r.doc, variant: r.variant };
 }
 
@@ -850,8 +859,11 @@ export async function decideWork(tx: Queryable, ctx: Ctx, me: Me, p: any, verdic
   if (me.level !== "admin") throw new Denied(`Only Maia City's admins decide on ${own.group}.`);
   return asVersionError(async () => {
     const author = authorOf(me, "web");
-    const held = heldOf(p).filter((h) => h.doc_variant != null) as ({ doc_id: string; doc_variant: number } & Record<string, any>)[];
-    const several = held.length > 1;
+    const all = heldOf(p).filter((h) => h.doc_variant != null) as ({ doc_id: string; doc_variant: number } & Record<string, any>)[];
+    // its retires (./retire.ts): no merge, no kind's decide; accepted, each document marked retired
+    const retires = all.filter((h) => h.retire);
+    const held = all.filter((h) => !h.retire);
+    const several = all.length > 1;
     const archive = async (message?: string) => {
       await settle(tx, p.id, "archived", verdict === "archive" ? me.id : null);
       await closeWork(tx, me, p);
@@ -871,6 +883,7 @@ export async function decideWork(tx: Queryable, ctx: Ctx, me: Me, p: any, verdic
       await closeWork(tx, me, p);
       return first;
     }
+    for (const h of retires) if (await retiredOf(tx, h.doc_id)) return archive(`The ${kindOf(h).label} ${h.doc_id.split(":")[1]} is retired already${several ? " (nothing of this intent went in)" : ""}.`);
     // every document's merge worked out first: one that would not go in archives them all
     const merges: { h: { doc_id: string; doc_variant: number }; k: Kind; preview: Awaited<ReturnType<typeof docs.previewMerge>> }[] = [];
     for (const h of held.filter((x) => !hooked.includes(x) && !pieces.includes(x))) {
@@ -924,9 +937,10 @@ export async function decideWork(tx: Queryable, ctx: Ctx, me: Me, p: any, verdic
       await tx.query(`UPDATE ${qi(k.table)} SET ${names.map((c, i) => `${c} = $${i + 2}`).join(", ")} WHERE id = $1`, [h.doc_id.split(":")[1], ...Object.values(cols)]);
       numbers.push(v.number);
     }
+    for (const h of retires) await retireAccepted(tx, me, p.id, h.doc_id, h.doc_variant);
     if (first) return { ...first, ...(numbers.length ? { numbers } : {}) };
     await settle(tx, p.id, "accepted", byOf(me));
-    return { id: p.id as string, status: "accepted" as const, number: numbers[0], ...(numbers.length > 1 ? { numbers } : {}), ...(merges[0]?.preview.concurrent ? { merged: true } : {}) };
+    return { id: p.id as string, status: "accepted" as const, number: numbers[0], ...(numbers.length > 1 ? { numbers } : {}), ...(merges[0]?.preview.concurrent ? { merged: true } : {}), ...(retires.length ? { retired: retires.map((h) => h.doc_id.split(":")[1]) } : {}) };
   });
 }
 
@@ -1148,7 +1162,7 @@ register({
   decide: (tx, ctx, me, p, verdict) => decideAsset(tx, ctx.store, me, p, verdict),
 });
 register({
-  name: "story", prefix: "story", schema: SCHEMA.story, check: storyCheck, work: "story_version", table: "play.stories", labelColumn: "title", listed: "r.folded_into IS NULL", label: "story", group: "stories",
+  name: "story", prefix: "story", schema: SCHEMA.story, check: storyCheck, work: "story_version", table: "play.stories", labelColumn: "title", listed: storyListed("r"), label: "story", group: "stories",
   ensure: (q, _ctx, id) => ensureStoryDoc(q, id).then(() => undefined),
   write: (q, id, cur, input) => storyEdit(q, id, cur, input),
   propose: (ctx, me, o, via) => proposeStoryVariant(ctx.db, me, o, via),

@@ -1196,6 +1196,27 @@ registry and one module, shown by one History.
 - **No bypass**: every change waits at Proposal for a person's Accept; the intents' stages, gates and Ship are as they
   were (§4.12).
 
+#### Retire (Samuel 2026-11-07; intent 08566782-321e-4def-a0e9-82fe1cde23f4)
+
+An accepted document leaves play's lists only by being **retired**, as an intent's work decided by an admin's Accept;
+nothing is deleted, by hand or by a migration. The case was the coconut film accepted twice: two identical stories
+on Main, one a stray copy (`play/api/src/retire.ts`).
+
+- **Proposed as work**: `retire_doc` over MCP (`intent`, `doc`, `reason`) or `POST /api/intents/<id>/retire` puts on an
+  intent in Build or at Proposal an intent variant of the document seeded from Main with no edits, its refs saying
+  `retire` (the reason), gated as any work (`work.ts` `putAtProposal`, the intent's declared kinds). The board lists it
+  as "Retires: <reason>". Refused: no reason, a document with no accepted version (`withdraw_doc` takes a document
+  out of an intent before its Accept), one retired already.
+- **Accept retires it**: `decideWork` marks the document retired (`play.docs` `retired_at`, `retired_by`: the intent),
+  its variant accepted, Main's content as it was, no new version; with the intent's other documents in the one
+  transaction. **Archive** closes its variant like any other; the document stays as it was.
+- **It leaves every list**: whether a document is listed is written once (`play/api/src/listed.ts`: not retired, and a
+  story not folded into another), read by `list_docs`, the Stories list (`GET /api/stories`, `list_stories`), the
+  Library's uses and the stories linking a story.
+- **Its history is kept by its UUID**: `doc_history`, `doc_at`, `get_story` and `GET /api/stories/<id>` read it as
+  before, `doc_history` and `doc_at` with `retired: { at, intent }`. **Nothing named by hash changes**: its files, its
+  frozen versions, and a story linking one of them keeps playing that version.
+
 #### Breeds (Samuel 2026-11-06; intent 7c8085db-ccdb-44cf-8d6c-0ff984d71f41)
 
 "Breeds are like variants under the hood but keep tracking their main so they live alongside main." An asset's

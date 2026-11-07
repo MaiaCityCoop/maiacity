@@ -290,7 +290,7 @@
 								<li>
 									<button class="open" onclick={() => onopenwork(d)} title={summaryText(d)}>
 										<span class="type" data-type={type}>{type}</span>
-										<span class="what">{d.doc?.label ?? d.doc?.id} <span class="muted">{docs.findIndex((x) => x.doc?.id === d.doc?.id) < n ? 'its next version here' : d.seedNumber == null ? 'new' : `v${d.seedNumber + 1}`}</span></span>
+										<span class="what">{d.doc?.label ?? d.doc?.id} <span class="muted">{d.retires ? `Retires: ${d.retires}` : docs.findIndex((x) => x.doc?.id === d.doc?.id) < n ? 'its next version here' : d.seedNumber == null ? 'new' : `v${d.seedNumber + 1}`}</span></span>
 										<span class="pill">{w.status === 'proposal' ? 'waiting' : w.status}</span>
 									</button>
 									{#if withdrawable && d.doc}<button class="btn small ghost withdraw" onclick={() => withdraw(d.doc!)}>Withdraw</button>{/if}
@@ -300,7 +300,7 @@
 							<li>
 								<button class="open" onclick={() => onopenwork()}>
 									<span class="type" data-type={typeOf(w)}>{typeOf(w)}</span>
-									<span class="what">{w.label} <span class="muted">{titleOf(w)}</span>{#if (w.docs ?? 1) > 1}<span class="muted">{' '}· and {w.docs! - 1} more {w.docs === 2 ? 'document' : 'documents'}, accepted together</span>{/if}</span>
+									<span class="what">{w.label} <span class="muted">{docs[0]?.retires ? `Retires: ${docs[0].retires}` : titleOf(w)}</span>{#if (w.docs ?? 1) > 1}<span class="muted">{' '}· and {w.docs! - 1} more {w.docs === 2 ? 'document' : 'documents'}, accepted together</span>{/if}</span>
 									<span class="pill">{w.status === 'proposal' ? 'waiting' : w.status}</span>
 									<span class="date muted">{shortWhen(w.created)}</span>
 								</button>
