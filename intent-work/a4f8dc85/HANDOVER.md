@@ -119,3 +119,22 @@ PR #2157 ready. Known looks to improve: faint doubled brows and the photos' smil
      hash and its look. (Recommended: the next character is a new data set, no code.)
   2. The character's own recipe applies the shape and colours to the head the body builds: no shared piece changes, but
      every character carries that code (against c1's "data, not code").
+
+### c1 option 1 (the Orchestrator's choice), 17:30: built on **Person body v1** (`7f8cae20…`)
+
+- **Person head v2** (`29bcc48554ddbec417538187d50d45124f1ee6e15f4e2ae85f56a32333e71ef1`): optional `look.shape` (offsets
+  of the base head's 5034 vertices, Int16 in 1e-5 m, base64) and `look.colours` (the smoothed skin's 17639 colours, sRGB
+  bytes, base64); without them it builds what v1 builds, byte for byte (checked). Doc edit on its intent variant 1458;
+  the diff is `person-head-v2.diff`.
+- **Person body v2** (`7d44562b7b8e110f6641758a9019741bb797c5d71531a6a978e6e943bc6efb95`): v1 with the head's require
+  moved to v2 and two lines of its header; nothing else. Variant 1459. b9e6ad45 (the retarget) may need its own body
+  version for the shoulder weights: the two touch different lines, so they merge.
+- Both variants' sources on play hash as built here (checked by doc_at over MCP).
+- **Samuel's character** (group `characters`, `private: true`): its recipe is the stand-in's shape on body v2, his look
+  (bald, light blue-grey eyes, cream linen colours, 1.69 m) and his face inline (`tools/character/bake.py`: shape and
+  colours, 119 KB of source). It builds in node (`tools/character/build-recipe.mjs`): one skinned mesh, 43,309 vertices,
+  1.694 m, 12 clips. Its source is private and kept only in the builder's scratch until it is proposed with
+  `propose_asset` (`private: true`), which play takes only once every must check has passed: so it goes last.
+- **Left:** c3 garments (cream linen shirt and trousers, sandals) on the body as data, its bench film (a Mac job); c5
+  the actor skill's part; the character's renders on the body (a Mac job; his face can't go into git, so the job will
+  fetch the character's source from play once it is proposed, or bake it on the Mac from his photos as run.sh does).
