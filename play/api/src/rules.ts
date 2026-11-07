@@ -81,6 +81,8 @@ export type Facts = {
   new_only: boolean;
   /** the edits of its intent variants */
   edits: number;
+  /** it holds play's work and a pull request (intent 7c8986c5): no rule decides it, a person does */
+  both?: boolean;
 };
 
 /** An intent's facts as matchRule reads them, from Postgres. */
@@ -107,6 +109,7 @@ export async function factsOf(q: Queryable, id: string): Promise<Facts> {
     docs: held.map((h) => h.doc_id), schemas,
     new_only: held.length > 0 && held.every((h) => Number(h.versions) === 0),
     edits: held.reduce((n, h) => n + Number(h.edits), 0),
+    both: !!i?.work && !!i?.pull_request,
   };
 }
 
@@ -135,9 +138,10 @@ function holds(rule: Rule, f: Facts, gate: Gate): boolean {
 
 /**
  * The rule that decides intent `f` at `gate`: the first, in order, that names the gate and whose every field holds;
- * null where none does, and always null for an intent that touches the rules (they are always a person's).
+ * null where none does, and always null for an intent that touches the rules (they are always a person's) or holds
+ * both code and play's work.
  */
 export function matchRule(f: Facts, gate: Gate, set: Pick<RuleSet, "rules"> | null): Rule | null {
-  if (!set || touchesRules(f)) return null;
+  if (!set || touchesRules(f) || f.both) return null;
   return set.rules.find((r) => r.gates?.includes(gate) && holds(r, f, gate)) ?? null;
 }

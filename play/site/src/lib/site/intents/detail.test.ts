@@ -102,6 +102,13 @@ describe('detailOf: the top and the decision, stage by stage', () => {
 		expect(d.top.find((p) => p.part === 'work')).toMatchObject({ review: true, text: "play's work: Olive tree v4, and 1 more document" });
 		expect(d.decision).toMatchObject({ label: 'Accept', enabled: true });
 	});
+	it("Proposal, code and play's work together (intent 7c8986c5): both in its line, Accept and ship, its work accepted once live", () => {
+		const d = detailOf(FIXTURES['proposal-all']);
+		expect(d.top.find((p) => p.part === 'work')).toMatchObject({ review: true, text: "play's work: Stand-in v2, and 1 more document; pull request #2152, ready" });
+		expect(d.decision).toMatchObject({ verdict: 'accept', label: 'Accept and ship', enabled: true });
+		expect(d.decision!.why).toContain('accepted once its code is live');
+		expect(d.tab).toBe('changes');
+	});
 	it('Proposal, a red ship: its step and reason in a line; Ship again', () => {
 		const d = detailOf(FIXTURES['proposal-red']);
 		expect(d.top.find((p) => p.part === 'reason')).toMatchObject({ tone: 'failed', text: 'Not shipped: red at Release. production did not fast-forward to the merge' });
