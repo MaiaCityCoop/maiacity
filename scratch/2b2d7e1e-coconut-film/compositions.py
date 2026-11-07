@@ -17,7 +17,7 @@ STYLE = """
       #root { position: relative; width: 100%; height: 100%; overflow: hidden; font-family: var(--font-ui); }
       #root video { position: absolute; inset: 0; width: 1080px; height: 1080px; object-fit: cover; }
       /* the 7-hexes HUD pill and chip (ebe34fd3…), as they are there */
-      .pill { position: absolute; display: flex; align-items: center; gap: 14px; padding: 10px 22px;
+      .pill { position: absolute; display: flex; white-space: nowrap; align-items: center; gap: 14px; padding: 10px 22px;
         background: var(--cream); border: 2px solid var(--edge); border-radius: 16px;
         box-shadow: 0 3px 0 var(--under), 0 8px 18px rgb(90 70 40 / 0.12); opacity: 0; }
       .chip { display: flex; align-items: center; gap: 8px; }
@@ -76,7 +76,7 @@ def split(v):
     return page("coconut-split", "Before and now", 3.5, v, body, """
       drop("#a", 0.15); drop("#b", 0.45); drop("#ha", 0.9); drop("#hb", 1.9);""")
 
-# the time-lapse: 45 renders at 9 a second, 4 per stage (quarter steps); each stage's age (days) and height (to the frond tips, m)
+# the time-lapse: 12 renders, one per stage, at 2.4 a second (blended between); each stage's age (days) and height (to the frond tips, m)
 DAYS = [0, 120, 240, 540, 1100, 2000, 2100, 2250, 2380, 2480, 3652, 8036]
 H = [0.05, 0.18, 0.25, 0.73, 1.71, 4.13, 5.87, 6.46, 7.0, 7.53, 7.79, 9.45]
 def timelapse(v):
@@ -84,7 +84,7 @@ def timelapse(v):
       <div id="hgt" class="pill" style="right:40px;top:40px">{RULER}<span class="num" id="n-h">0.0</span><span class="unit">m</span></div>"""
     keys = []
     for i in range(len(DAYS) - 1):
-        t0, t1 = i * 4 / 9, (i + 1) * 4 / 9
+        t0, t1 = i / 2.4, (i + 1) / 2.4
         keys.append(f'count("n-age", {DAYS[i]/365.25:.1f}, {DAYS[i+1]/365.25:.1f}, {t0+0.0:.3f}, {t1-t0:.3f}, 0.1);')
         keys.append(f'count("n-h", {H[i]:.1f}, {H[i+1]:.1f}, {t0:.3f}, {t1-t0:.3f}, 0.1);')
     return page("coconut-timelapse", "Seed nut to grown palm", 5, v, body, '\n      drop("#age", 0); drop("#hgt", 0.1);\n      ' + "\n      ".join(keys))
