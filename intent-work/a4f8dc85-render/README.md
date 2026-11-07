@@ -8,12 +8,19 @@ review image in his personal library again.
 **On the Mac**, in a session on this branch (`intent/a4f8dc85-own-character`), from the repository's root:
 
 ```sh
-cd play/site && bun install && cd ../..            # three.js for the renderer
+cd play/site && bun install && cd ../..            # three.js and Playwright for the renderer
 export PLAY_MCP_TOKEN=…                             # Samuel's own play token (sent to play only)
 bash intent-work/a4f8dc85-render/run.sh ~/a4f8dc85-work
 ```
 
-- Needs: python3, node with Playwright (global) and its Chromium, bun, git. No fal, nothing paid.
+- Needs: python3, bun, git, and play/site's node_modules (`bun install` there: three.js and Playwright, whose Chromium
+  renders headless on Metal). No fal, nothing paid.
+
+**Run 2** (after the first Mac run, `5e513a1`, review `c00653fa…`): the Mac's patch is in (the parse error at
+render-gpu.mjs:25, Playwright from play/site, bun, headless Metal), and what that review showed is fixed: the iris and
+the pupil are caps on the eyeball's surface (they sat inside it: the eyes read white), the normals are smooth across
+the UV seams (the cheeks and scalp were faceted), "smiling" is the house joy (the Person head's `SMILES` v7 units; the
+fitted smile was too faint), and the head and neck are textured down to the shoulders so the cut falls below the frame.
 - It prints the renderer (`renderer: ANGLE (Apple, … Metal …)`): if it is not Metal, stop and say so.
 - **Out:** `~/a4f8dc85-work/c2-review.jpg`: his photos and the sheet's head cells on top, then the renders (front,
   three-quarter, profile), neutral and with his own smile (the expression fitted on his smiling front photo), and the

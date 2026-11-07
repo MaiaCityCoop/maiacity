@@ -22,7 +22,8 @@ for line in open(os.path.join(mhbasis.D, "3dobjs", "base.obj")):
         c = [t.split("/") for t in line.split()[1:]]; v = [int(a[0]) - 1 for a in c]; t = [int(a[1]) - 1 for a in c]
         FV += [[v[0], v[1], v[2]]] + ([[v[0], v[2], v[3]]] if len(v) == 4 else []); FT += [[t[0], t[1], t[2]]] + ([[t[0], t[2], t[3]]] if len(t) == 4 else [])
 vt, FV, FT = np.array(vt), np.array(FV), np.array(FT)
-head = HM[FV].all(1); FV, FT = FV[head], FT[head]; np.savez("uv.npz", vt=vt, fv=FV, ft=FT)
+RM = np.load("rendermask.npy") if os.path.exists("rendermask.npy") else HM  # the head and neck down to the shoulders
+head = RM[FV].all(1); FV, FT = FV[head], FT[head]; np.savez("uv.npz", vt=vt, fv=FV, ft=FT)
 VN = sil.vertex_normals(V, FV)
 def proj(X, c):
     R = Rot.from_rotvec(c[:3]).as_matrix(); Y = X @ R.T; return np.c_[c[3] * Y[:, 0] + c[4], -c[3] * Y[:, 1] + c[5]], Y[:, 2], R

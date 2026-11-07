@@ -17,6 +17,7 @@ if not os.path.exists("basis.npz"):
 V = np.load("basis.npz")["V"]; T = np.load("tris.npy")
 V0 = V + macro_offsets(len(V), o.gender, o.years, o.muscle, o.weight); np.save("V0.npy", V0)
 top = V0[:, 1].max(); np.save("headmask.npy", (V0[:, 1] > top - 2.45) & (np.abs(V0[:, 0]) < 1.3))  # the head: its top 24.5 cm
+np.save("rendermask.npy", (V0[:, 1] > top - 4.2) & (np.abs(V0[:, 0]) < 2.4))  # rendered and textured: down to the shoulders, cut below the frame
 # the eyes' centres: MakeHuman's eye joint helpers
 g, idx = None, {}
 for line in open(os.path.join(mhbasis.D, "3dobjs", "base.obj")):
