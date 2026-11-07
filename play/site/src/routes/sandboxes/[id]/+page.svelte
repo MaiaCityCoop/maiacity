@@ -55,6 +55,8 @@
 		if (!layout) return;
 		if (!p) return void (layout = await api<Layout>(`/docs/${layout.id}${query()}`));
 		if ('version' in p) return void at(layout.id, p.version === layout.number ? undefined : p.version);
+		// an intent variant picked: the layout as its intent's work would make it
+		if (p.variant?.intent) return void (layout = await api<Layout>(`/docs/${layout.id}?intent=${encodeURIComponent(p.variant.intent.id)}`));
 		layout = await api<Layout>(`/docs/${layout.id}?edit=${p.edit.seq}`);
 	}
 	/** the world as the layout shown stands: at its version, its edit, or its intent's work */
@@ -110,7 +112,7 @@
 			<article class="body">
 				{#if error}<p class="bad">{error}</p>{/if}
 				{#if layout}
-					<p class="eyebrow">Sandboxes · layout v{layout.version ?? layout.number}</p>
+					<p class="eyebrow">Sandboxes · {layout.intent ? `its layout as an intent would make it` : layout.edit ? `its layout at edit ${layout.edit}` : `layout v${layout.version ?? layout.number}`}</p>
 					<h1>{layout.json.title}</h1>
 					<p><a class="btn" href={world} target="_blank" rel="noopener">Walk {layout.json.title} as this layout draws it</a></p>
 					<section>

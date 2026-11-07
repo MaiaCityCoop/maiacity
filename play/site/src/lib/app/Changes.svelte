@@ -132,6 +132,7 @@
 	.where { display: inline-block; font-weight: 600; margin: 0 0 0.2rem; overflow-wrap: anywhere; }
 	.vals { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.3rem; }
 	.vals pre, .src { margin: 0; padding: 0.4rem 0.5rem; border-radius: 8px; background: var(--paper, #f6f1e6); font-size: 0.74rem; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 18rem; overflow: auto; }
+	.pins { list-style: none; padding-left: 0; }
 	.pins .where { margin-right: 0.4rem; }
 	.pins .now { font-weight: 600; }
 	.was { color: var(--soft, #777); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--terracotta, #c96f53) 70%, transparent); }
