@@ -899,7 +899,7 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   check a card for a person, Samuel 2026-11-07: *"the audience is always a human, never a tech guy"*: its statement and
   its result in plain words, Passed, Not yet, or Failed with its reason in a line, and when; how it was checked, its how
   and by, its run, the tool's output and where it ran, folded behind *How it was checked*, closed at first; its two steps
-  headed *First, what it removes* and *Then, what it delivers*), **Changes** (its work and its pull request; an asset's upgrade drawn right there in the asset box once the tab is opened, Samuel 2026-11-07, its whole review, versions, source, before and after, a tap away), **Ship**
+  headed *First, what it removes* and *Then, what it delivers*), **Changes** (its work and its pull request; an asset's upgrade drawn right there in the asset box once the tab is opened, Samuel 2026-11-07, its whole review, versions, source, before and after, a tap away; a story's version played right there in the Stories player, intent 668e9ffd, what changed clip by clip a tap away), **Ship**
   (steps, report, log), **Dependencies**, **History** (who and when, steps back, auto decisions, its declared work),
   **Note** (whole), **For an agent** (the brief and Copy). Each stage opens on its own tab first (Idea For an agent,
   Specify Spec, Build Checks, Proposal Changes, Ship Ship, Accepted History).
