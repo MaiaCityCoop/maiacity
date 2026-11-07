@@ -1,7 +1,13 @@
 // The asset library, read (play/SPEC.md §4, §7): every asset Maia City owns, each with its versions as a chain, each
-// version's variants, and a ref resolved to the recipe file a sandbox builds.
+// version's variants, and a ref resolved to the recipe file a sandbox builds. Each read is of what the person asking
+// sees (./owners.ts): the coop's assets and their own; another's private asset is as one that never was.
 import type { Queryable } from "./pg";
+import type { Me } from "./access";
 import { piecesShown } from "./pieces";
+import { assetSeen } from "./owners";
+
+/** who asks: their id, for ./owners.ts's rule (null: no one, who sees the coop's alone) */
+const asker = (me: Pick<Me, "id"> | null | undefined) => me?.id ?? null;
 
 export class NotFound extends Error {
   status = 404;
@@ -28,23 +34,26 @@ export const summary = (record: any, parent?: any) => {
   };
 };
 
-/** every asset with a version, by group and slug, with its newest version's summary */
-export async function listAssets(db: Queryable, grp?: string) {
+/** every asset with a version that `me` sees, by group and slug, with its newest version's summary */
+export async function listAssets(db: Queryable, grp: string | undefined, me: Pick<Me, "id"> | null) {
   const { rows } = await db.query<any>(
     `SELECT a.id, a.grp, a.slug, a.label, v.number AS head, v.card,
             (SELECT p.card FROM play.asset_versions p WHERE p.id = v.parents[1]) AS parent_card,
             (SELECT count(*) FROM play.asset_versions x WHERE x.asset_id = a.id AND x.number IS NOT NULL) AS versions
        FROM play.assets a JOIN play.asset_versions v ON v.id = a.head
-      WHERE ($1::text IS NULL OR a.grp = $1)
+      WHERE ($1::text IS NULL OR a.grp = $1) AND ${assetSeen("a", "$2")}
       ORDER BY a.grp, a.slug`,
-    [grp ?? null],
+    [grp ?? null, asker(me)],
   );
   return rows.map((r) => ({ id: r.id, grp: r.grp, slug: r.slug, label: r.label, head: r.head, versions: Number(r.versions), ...summary(r.card, r.parent_card) }));
 }
 
-/** one asset and its whole chain, newest first */
-export async function assetOf(db: Queryable, id: string) {
-  const { rows: a } = await db.query<any>(`SELECT id, grp, slug, label, head, coop_id, created, sound, sound_gain FROM play.assets WHERE id = $1`, [id]);
+/** one asset `me` sees and its whole chain, newest first */
+export async function assetOf(db: Queryable, id: string, me: Pick<Me, "id"> | null) {
+  const { rows: a } = await db.query<any>(
+    `SELECT a.id, a.grp, a.slug, a.label, a.head, a.coop_id, a.created, a.sound, a.sound_gain, a.owner <> a.coop_id AS private FROM play.assets a WHERE a.id::text = $1 AND ${assetSeen("a", "$2")}`,
+    [id, asker(me)],
+  );
   if (!a[0]) throw new NotFound(`There is no asset ${id}.`);
   const { rows: versions } = await db.query<any>(
     `SELECT v.id, v.number, v.parents, v.recipe_hash, v.source_hash, v.default_variant, v.card, v.engine, v.note, v.created, v.imported,
@@ -71,13 +80,13 @@ export async function assetOf(db: Queryable, id: string) {
   };
 }
 
-/** one version of an asset with its whole record and its variants' records */
-export async function versionOf(db: Queryable, id: string, number: number) {
+/** one version of an asset `me` sees, with its whole record and its variants' records */
+export async function versionOf(db: Queryable, id: string, number: number, me: Pick<Me, "id"> | null) {
   const { rows } = await db.query<any>(
     `SELECT v.*, COALESCE((SELECT json_agg(json_build_object('name', x.name, 'recipe', x.recipe_hash, 'source', x.source_hash, 'card', x.card) ORDER BY x.name)
                             FROM play.asset_variants x WHERE x.version_id = v.id), '[]') AS variants
-       FROM play.asset_versions v WHERE v.asset_id = $1 AND v.number = $2`,
-    [id, number],
+       FROM play.asset_versions v JOIN play.assets a ON a.id = v.asset_id WHERE v.asset_id::text = $1 AND v.number = $2 AND ${assetSeen("a", "$3")}`,
+    [id, number, asker(me)],
   );
   if (!rows[0]) throw new NotFound(`There is no ${id}@${number}.`);
   const v = rows[0];
@@ -111,28 +120,23 @@ export async function pinsOf(db: Queryable, sandbox: string, state?: { pins: Rec
     });
 }
 
-/** whether `hash` is a file play keeps, and its type */
-export async function fileOf(db: Queryable, hash: string) {
-  const { rows } = await db.query<{ hash: string; size: string; media_type: string }>(`SELECT hash, size, media_type FROM play.files WHERE hash = $1`, [hash]);
-  return rows[0] ?? null;
-}
-
 /**
  * The catalog (play/SPEC.md §4): every accepted version and variant by the BLAKE3 hash of its recipe file — the one
  * name a sandbox or another asset knows it by — with what it is (its asset, version, variant and label, for showing)
  * and its record (its card, manifest, contract and engine), which the site builds it by.
  */
-export async function catalogOf(db: Queryable) {
+export async function catalogOf(db: Queryable, me: Pick<Me, "id"> | null) {
   const { rows } = await db.query<any>(
     `SELECT v.asset_id, a.grp, a.slug, v.number, NULL::text AS variant, v.recipe_hash AS hash, v.card AS record, f.size, false AS is_default
        FROM play.asset_versions v JOIN play.assets a ON a.id = v.asset_id JOIN play.files f ON f.hash = v.recipe_hash
-      WHERE v.number IS NOT NULL
+      WHERE v.number IS NOT NULL AND ${assetSeen("a", "$1")}
      UNION ALL
      SELECT v.asset_id, a.grp, a.slug, v.number, x.name, x.recipe_hash, x.card, f.size, x.name = v.default_variant
        FROM play.asset_variants x JOIN play.asset_versions v ON v.id = x.version_id JOIN play.assets a ON a.id = v.asset_id
        JOIN play.files f ON f.hash = x.recipe_hash
-      WHERE v.number IS NOT NULL
+      WHERE v.number IS NOT NULL AND ${assetSeen("a", "$1")}
       ORDER BY 1, 4, 5 NULLS FIRST`,
+    [asker(me)],
   );
   const shown = await shownPieces(db, rows.map((r) => r.record));
   return rows.map((r) => ({

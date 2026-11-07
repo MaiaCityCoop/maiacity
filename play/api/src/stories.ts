@@ -38,6 +38,7 @@ import { NOTE_MOST } from "./notes";
 import * as docs from "./docs";
 import { asDoc, asStory, authorOf, docIdOf, ensureStoryDoc, storyDocAt, versionAtFrontiers } from "./storydocs";
 import { overlap } from "./versioned";
+import { fileTypes, keepFile as keepOwned } from "./owners";
 import { closeWork, dropDoc, putAtProposal, settle, stageAfter, WORK_OF, workOf, WorkError } from "./work";
 
 export class StoryError extends Error {
@@ -308,22 +309,19 @@ export async function checkBody(db: Queryable, given: any, self?: string): Promi
   });
   const sounds = [...new Set(tracks.flatMap((t) => t.clips.map((c) => c.audio)).filter((a): a is string => typeof a === "string"))];
   if (sounds.length) {
-    const { rows } = await db.query<{ hash: string }>(`SELECT hash FROM play.files WHERE hash = ANY($1) AND media_type LIKE 'audio/%'`, [sounds]);
-    const held = new Set(rows.map((r) => r.hash));
+    const held = new Set([...(await fileTypes(db, sounds))].filter(([, t]) => t.startsWith("audio/")).map(([h]) => h));
     const missing = sounds.filter((f) => !held.has(f));
     if (missing.length) throw new StoryError(`No recording is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_audio first.`);
   }
   const frames = [...new Set(tracks.filter((t) => t.kind === "shots").flatMap((t) => t.clips.map((c) => c.frame)).filter((f): f is string => typeof f === "string"))];
   if (frames.length) {
-    const { rows } = await db.query<{ hash: string }>(`SELECT hash FROM play.files WHERE hash = ANY($1) AND media_type LIKE 'image/%'`, [frames]);
-    const held = new Set(rows.map((r) => r.hash));
+    const held = new Set([...(await fileTypes(db, frames))].filter(([, t]) => t.startsWith("image/")).map(([h]) => h));
     const missing = frames.filter((f) => !held.has(f));
     if (missing.length) throw new StoryError(`No image is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_frame first.`);
   }
   const videos = [...new Set(tracks.filter((t) => t.kind === "shots").flatMap((t) => t.clips.map((c) => c.video)).filter((v): v is string => typeof v === "string"))];
   if (videos.length) {
-    const { rows } = await db.query<{ hash: string }>(`SELECT hash FROM play.files WHERE hash = ANY($1) AND media_type LIKE 'video/%'`, [videos]);
-    const held = new Set(rows.map((r) => r.hash));
+    const held = new Set([...(await fileTypes(db, videos))].filter(([, t]) => t.startsWith("video/")).map(([h]) => h));
     const missing = videos.filter((v) => !held.has(v));
     if (missing.length) throw new StoryError(`No video is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_video first.`);
   }
@@ -1048,14 +1046,9 @@ export function fileLabel(v: unknown): string | undefined {
   return t || undefined;
 }
 
-/** Keep a file's row: a new label replaces the old one, none keeps it */
-async function keepFile(db: Queryable, hash: string, size: number, type: string, key: string, label?: string) {
-  await db.query(
-    `INSERT INTO play.files (hash, size, media_type, bucket_key, label) VALUES ($1, $2, $3, $4, $5)
-     ON CONFLICT (hash) DO UPDATE SET label = COALESCE(EXCLUDED.label, play.files.label)`,
-    [hash, size, type, key, label ?? null],
-  );
-}
+/** Keep a file's row, in `owner`'s library (the coop's where none is named; ./owners.ts): a new label replaces the old one, none keeps it */
+const keepFile = (db: Queryable, hash: string, size: number, type: string, key: string, label?: string, owner?: string) =>
+  keepOwned(db, { hash, size, media_type: type, bucket_key: key, label }, { owner, relabel: true });
 
 // ---- documents: a plant's data sheet and its sheet's brief, as Markdown (play/SPEC.md §4.10)
 
@@ -1065,14 +1058,14 @@ export const MOST_DOCUMENT = 2_000_000;
 export const DOCUMENT_TYPE = "text/markdown";
 
 /** Keep one document (Markdown text, at most MOST_DOCUMENT bytes) among play's files; its hash. */
-export async function putDocument(db: Queryable, store: BlobStore, text: unknown, label?: unknown): Promise<{ hash: string; size: number; media_type: string }> {
+export async function putDocument(db: Queryable, store: BlobStore, text: unknown, label?: unknown, owner?: string): Promise<{ hash: string; size: number; media_type: string }> {
   if (typeof text !== "string" || !text.trim()) throw new StoryError("Give the document as Markdown text (text).");
   if (/\u0000/.test(text)) throw new StoryError("A document is text: no NUL characters.");
   const bytes = new TextEncoder().encode(text);
   if (bytes.length > MOST_DOCUMENT) throw new StoryError(`A document is at most ${MOST_DOCUMENT / 1e6} MB.`, 413);
   const hash = hashBytes(bytes);
   const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, DOCUMENT_TYPE);
-  await keepFile(db, hash, bytes.length, DOCUMENT_TYPE, key, fileLabel(label));
+  await keepFile(db, hash, bytes.length, DOCUMENT_TYPE, key, fileLabel(label), owner);
   return { hash, size: bytes.length, media_type: DOCUMENT_TYPE };
 }
 
@@ -1109,7 +1102,7 @@ export async function putVideoBase64(db: Queryable, store: BlobStore, data: unkn
 export const imageType = (bytes: Uint8Array): string | null => IMAGES.find((i) => i.is(bytes))?.type ?? null;
 
 /** Keep one frame (an image, at most MOST_FRAME bytes) among play's files; its hash. */
-export async function putFrame(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string): Promise<{ hash: string; size: number; media_type: string }> {
+export async function putFrame(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string, owner?: string): Promise<{ hash: string; size: number; media_type: string }> {
   if (!bytes.length) throw new StoryError("The frame is empty.");
   if (bytes.length > MOST_FRAME) throw new StoryError(`A frame is at most ${MOST_FRAME / 1e6} MB.`, 413);
   const type = imageType(bytes);
@@ -1117,15 +1110,15 @@ export async function putFrame(db: Queryable, store: BlobStore, bytes: Uint8Arra
   if (said && said !== type) throw new StoryError(`Those bytes are ${type}, not ${said}.`, 415);
   const hash = hashBytes(bytes);
   const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, type);
-  await keepFile(db, hash, bytes.length, type, key, label);
+  await keepFile(db, hash, bytes.length, type, key, label, owner);
   return { hash, size: bytes.length, media_type: type };
 }
 
 /** A frame given as base64 (an agent's), checked and kept */
-export async function putFrameBase64(db: Queryable, store: BlobStore, data: unknown, mediaType: unknown, label?: unknown) {
+export async function putFrameBase64(db: Queryable, store: BlobStore, data: unknown, mediaType: unknown, label?: unknown, owner?: string) {
   if (typeof data !== "string" || !data) throw new StoryError("Give the image as base64 text (data).");
   const clean = data.replace(/^data:[^,]*,/, "").replace(/\s+/g, "");
   if (clean.length > Math.ceil((MOST_FRAME * 4) / 3) + 8) throw new StoryError(`A frame is at most ${MOST_FRAME / 1e6} MB.`, 413);
   if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean)) throw new StoryError("That is not base64.");
-  return putFrame(db, store, new Uint8Array(Buffer.from(clean, "base64")), typeof mediaType === "string" ? mediaType : undefined, fileLabel(label));
+  return putFrame(db, store, new Uint8Array(Buffer.from(clean, "base64")), typeof mediaType === "string" ? mediaType : undefined, fileLabel(label), owner);
 }
