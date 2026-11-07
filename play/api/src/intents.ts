@@ -1,7 +1,7 @@
 // Intents (play/SPEC.md §4.12, Samuel 2026-11-06): everything on the board is an intent, something Maia City wants made,
 // fixed or improved, named by its UUID, its title only shown. One record: an intent and its proposal are the same thing
 // ("not a proposal belongs to an intent: the intent has a state, proposal"), so the work it brings (an asset's or a
-// story's, factory's, config's or skill's version, ./versioned.ts, or a sandbox's change: ./work.ts) is on the intent itself. It goes
+// story's, factory's, config's or skill's version or a sandbox's layout, ./versioned.ts and ./work.ts) is on the intent itself. It goes
 //
 //   Idea → Specify → Prototype → Proposal → (Ship →) Accepted (or Archived)
 //
@@ -149,7 +149,7 @@ export function specOf(body: { goal?: unknown; scope?: unknown; checks?: unknown
 /**
  * The intents with who wrote, specified, approved and decided them, and each one's work (null where it has none): its
  * kind, what it is of (an asset's group, slug and label, a story's or sandbox's title, a document's label), the version
- * it would be, how many changes a sandbox's makes, its note, who proposed it, how and when, and its status (its
+ * it would be, its note, who proposed it, how and when, and its status (its
  * intent's stage: waiting at Proposal, accepted, else archived).
  */
 async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
@@ -162,15 +162,13 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
             CASE WHEN i.work IS NULL THEN NULL ELSE json_build_object(
               'kind', i.work, 'status', CASE i.stage WHEN 'proposal' THEN 'proposal' WHEN 'accepted' THEN 'accepted' ELSE 'archived' END,
               'asset_id', i.asset_id, 'base', i.base, 'version', i.version, 'story_id', i.story_id, 'story_base', i.story_base, 'story_version', i.story_version,
-              'sandbox_id', i.sandbox_id, 'doc_id', i.doc_id, 'doc', split_part(i.doc_id, ':', 2), 'doc_variant', i.doc_variant,
-              'changes', jsonb_array_length(COALESCE(i.sandbox_diff, '[]'::jsonb)),
+              'doc_id', i.doc_id, 'doc', split_part(i.doc_id, ':', 2), 'doc_variant', i.doc_variant,
               'note', COALESCE(i.work_note, ''), 'author', pb.name, 'via', i.proposed_via, 'created', i.proposed_at, 'decided_by', de.name, 'decided_at', i.decided_at,
-              'label', COALESCE(wa.label, sv.title, sx.title, ${kind.label}),
-              'grp', COALESCE(wa.grp, CASE WHEN i.sandbox_id IS NOT NULL THEN 'sandboxes' END, ${kind.group}),
-              'what', CASE WHEN i.sandbox_id IS NOT NULL THEN 'sandbox' ELSE ${kind.what} END,
+              'label', COALESCE(wa.label, sv.title, ${kind.label}),
+              'grp', COALESCE(wa.grp, ${kind.group}),
+              'what', ${kind.what},
               'slug', wa.slug, 'version_label', wv.card->'card'->>'label',
-              'number', CASE WHEN i.sandbox_id IS NOT NULL THEN NULL
-                 WHEN i.asset_id IS NOT NULL THEN COALESCE(wb.number, 0) + 1
+              'number', CASE WHEN i.asset_id IS NOT NULL THEN COALESCE(wb.number, 0) + 1
                  WHEN i.story_id IS NOT NULL THEN COALESCE(sb.number, 0) + 1
                  ELSE COALESCE(dbv.number, (SELECT max(dv.number) FROM play.doc_versions dv WHERE dv.doc_id = i.doc_id) + 1) END
             ) END AS work
@@ -185,7 +183,6 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[]) {
        LEFT JOIN play.asset_versions wb ON wb.id = i.base
        LEFT JOIN play.story_versions sv ON sv.id = i.story_version
        LEFT JOIN play.story_versions sb ON sb.id = i.story_base
-       LEFT JOIN play.sandboxes sx ON sx.id = i.sandbox_id
        LEFT JOIN play.doc_variants dbr ON dbr.id = i.doc_variant
        LEFT JOIN play.doc_versions dbv ON dbv.doc_id = dbr.doc_id AND dbv.number = dbr.version
       WHERE i.coop_id = $1 AND ${where}

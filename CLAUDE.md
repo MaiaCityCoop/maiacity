@@ -93,9 +93,11 @@ range, a card field, each edit with its message), reads it with `doc_history` an
 proposes it with `propose_doc_version`, its edits shown on the intents' board; admins play an asset's making in its
 History tab. A
 **sandbox's layout** (which asset version and variant each slot draws, and any field of its configs: Sandbox 1's garden,
-where a thing stands) changes only by proposal too: `get_sandbox` reads it, `propose_sandbox_change` proposes edits
-(`pin`, `pin_latest`, `unpin`, `set`, `delete`; play/SPEC.md §4.6), shown on the intents' board before and after and
-openable in the sandbox as it would be; never by a migration. A
+where a thing stands) is a document too, `sandbox:<uuid>` (play/SPEC.md §4.6): `get_sandbox` reads it, `doc_edit`
+drafts a change in an intent variant with its helpers (`pin`, `pin_latest`, `unpin`, `set`, `delete`) and
+`propose_doc_version` proposes it, shown on the intents' board pin by pin before and after and openable in the sandbox
+as it would be; accepted, its pins and configs are written for the worlds; its History is at `/sandboxes/<uuid>/`;
+never by a migration. A
 **factory** (a production line on the Factories page: its line and its bill of process) is a Loro document too
 (play/SPEC.md §4.8), changed edit by edit with the doc tools (a station's machines, buffer or breakdowns, a part's
 operation and its seconds, the demand), shown on the intents' board field by field and openable as the factory would

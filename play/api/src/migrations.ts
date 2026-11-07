@@ -31,6 +31,7 @@ export async function migrate(db: Db, o: { until?: string } = {}): Promise<strin
       await tx.query(`SELECT pg_advisory_xact_lock(${MIGRATION_LOCK})`);
       if ((await tx.query("SELECT 1 FROM play.migrations WHERE id = $1", [m.id])).rows.length) return false;
       await tx.query(m.sql);
+      if (m.run) await m.run(tx);
       await tx.query("INSERT INTO play.migrations (id) VALUES ($1)", [m.id]);
       return true;
     });

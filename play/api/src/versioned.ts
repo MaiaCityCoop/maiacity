@@ -19,12 +19,12 @@
 import { Denied, type Me } from "./access";
 import type { BlobStore } from "./blobs";
 import * as docs from "./docs";
-import { ASSET, FACTORY, LEVELS, SKILL, SKILL_STAGES, STORY, TYPES, type DocType } from "./docs/schema";
+import { ASSET, FACTORY, LEVELS, SANDBOX, SKILL, SKILL_STAGES, STORY, TYPES, type DocType } from "./docs/schema";
 import type { Db, Queryable } from "./pg";
 import { NOTE_MOST } from "./notes";
 import { UUID } from "./uuid";
-import { closeWork, putAtProposal, SANDBOX_WORK, settle, WORK_OF, workOf, WorkError } from "./work";
-import { decideSandbox, sandboxReview } from "./sandboxes";
+import { closeWork, putAtProposal, settle, WORK_OF, workOf, WorkError } from "./work";
+import { decideLayout, ensureLayoutDoc, layoutReview, layoutShown, layoutView, layoutWrite } from "./sandboxes";
 import { decideIntent, getIntent, IntentError, type IntentVerdict } from "./intents";
 import { acceptAndShip, type GitHub } from "./ship";
 import { assetDocFor, assetEdits, assetReview, decideAsset, ensureAssetDoc, proposeAssetVariant } from "./assetdocs";
@@ -73,6 +73,10 @@ export type Kind = {
   decide?: (tx: Queryable, ctx: Ctx, me: Me, p: any, verdict: Verdict) => Promise<any>;
   /** its list item's extra fields */
   item?: (json: any) => Record<string, unknown>;
+  /** what a read of one shows beside its `json` (a sandbox's pins by their assets' labels and versions) */
+  view?: (q: Queryable, json: any, id: string) => Promise<Record<string, unknown>>;
+  /** what a change shows beside its field diff, from the state before it and after it (a sandbox's pins before and after) */
+  shown?: (q: Queryable, before: any, after: any) => Promise<Record<string, unknown>>;
 };
 
 const KINDS: Kind[] = [];
@@ -98,7 +102,7 @@ export const kindNamed = (name: string) => KINDS.find((k) => k.name === name) ??
 export const kindOfWork = (work: string | null | undefined) => KINDS.find((k) => k.work === work) ?? null;
 export const kindOfDoc = (docId: string | null | undefined) => KINDS.find((k) => `${docId ?? ""}`.startsWith(k.prefix + ":")) ?? null;
 /** every kind of work an intent may hold */
-export const workKinds = () => [...KINDS.map((k) => k.work), SANDBOX_WORK];
+export const workKinds = () => KINDS.map((k) => k.work);
 
 // ---- written once: who names an edit, the version an edit or a seed is, two changes that touch the same field, errors
 
@@ -226,19 +230,20 @@ export async function docAt(ctx: Ctx, me: Me | null, id: unknown, at: DocAt = {}
     const versions = await versionsNamed(db, docId);
     const number = versions.at(-1)?.number ?? 0;
     const base = { id: uuid, kind: kind.name, number, versions };
+    const viewed = async <T extends { json: any }>(r: T) => (kind.view ? { ...r, ...(await kind.view(db, r.json, uuid)) } : r);
     if (at.intent !== undefined && at.intent !== null) {
       const iv = await intentVariant(db, docId, at.intent);
-      return { ...base, json: (await docs.readDoc(db, docId, { variant: iv.variant })).json, intent: { id: iv.id, stage: iv.stage, status: iv.status, note: iv.note, title: iv.title, variant: iv.variant } };
+      return viewed({ ...base, json: (await docs.readDoc(db, docId, { variant: iv.variant })).json, intent: { id: iv.id, stage: iv.stage, status: iv.status, note: iv.note, title: iv.title, variant: iv.variant } });
     }
     if (at.edit !== undefined && at.edit !== null) {
       if (!Number.isInteger(at.edit) || at.edit < 1) throw new VersionError(`${at.edit} is not an edit.`, 404);
-      return { ...base, json: await docs.stateAt(db, docId, { edit: at.edit }), edit: at.edit };
+      return viewed({ ...base, json: await docs.stateAt(db, docId, { edit: at.edit }), edit: at.edit });
     }
     if (at.version !== undefined && at.version !== null) {
       if (!versions.some((v) => v.number === at.version)) throw new VersionError(`${uuid} has no version ${at.version}.`, 404);
-      return { ...base, json: await docs.stateAt(db, docId, { version: at.version }), version: at.version };
+      return viewed({ ...base, json: await docs.stateAt(db, docId, { version: at.version }), version: at.version });
     }
-    return { ...base, json: (await docs.readDoc(db, docId)).json, version: number };
+    return viewed({ ...base, json: (await docs.readDoc(db, docId)).json, version: number });
   });
 }
 
@@ -295,7 +300,8 @@ export async function docChanges(ctx: Ctx, me: Me | null, id: unknown, o: { edit
       const v = await docs.variantOf(db, docId, o.variant);
       const seed = await docs.seedOf(db, docId, o.variant);
       const now = (await docs.readDoc(db, docId, { variant: o.variant })).json;
-      return { id: uuid, kind: kind.name, variant: v.id, seed: versionAt(versions, v.seed), changes: docs.diff(seed, now), edits: await named(db, await docs.history(db, docId, { variant: o.variant }), versions) };
+      const extra = kind.shown ? await kind.shown(db, seed, now) : {};
+      return { id: uuid, kind: kind.name, variant: v.id, seed: versionAt(versions, v.seed), changes: docs.diff(seed, now), edits: await named(db, await docs.history(db, docId, { variant: o.variant }), versions), ...extra };
     }
     if (o.edit === undefined || o.edit === null || !Number.isInteger(o.edit) || o.edit < 1) throw new VersionError("Name an edit (its seq) or an intent variant.", 404);
     const all = await docs.history(db, docId);
@@ -305,7 +311,8 @@ export async function docChanges(ctx: Ctx, me: Me | null, id: unknown, o: { edit
     const i = line.findIndex((e) => e.seq === o.edit);
     const after = await docs.stateAt(db, docId, { edit: o.edit });
     const before = i > 0 ? await docs.stateAt(db, docId, { edit: line[i - 1].seq }) : line === all ? null : await docs.seedOf(db, docId, Number(rows[0].variant));
-    return { id: uuid, kind: kind.name, edit: o.edit, changes: docs.diff(before, after), edits: await named(db, [line[i]], versions) };
+    const extra = kind.shown ? await kind.shown(db, before, after) : {};
+    return { id: uuid, kind: kind.name, edit: o.edit, changes: docs.diff(before, after), edits: await named(db, [line[i]], versions), ...extra };
   });
 }
 
@@ -503,12 +510,11 @@ export type Verdict = "accept" | "archive";
 /**
  * An intent's work as people review it before they decide (`shown`: the intent's work as ./intents.ts lists it): for
  * a document's version, what it changes and the edits it was made in (./versioned.ts reviewDoc, with its kind's own
- * extras: an asset's builds, a story's player); for a sandbox's change, its edits before and after.
+ * extras: an asset's builds, a story's player, a sandbox's pins before and after).
  */
 export async function reviewOf(db: Queryable, id: string, shown: any) {
   const p = { ...(await workOf(db, id)), ...shown, id };
   if (!p.kind) return null;
-  if (p.kind === SANDBOX_WORK) return { ...p, ...(await sandboxReview(db, p)) };
   if (!kindOfWork(p.kind)) return { ...p };
   return { ...p, ...(await reviewDoc(db, p)) };
 }
@@ -552,7 +558,6 @@ export async function decide(ctx: Ctx, me: Me | null, id: string, verdict: Verdi
     if (p.stage !== "proposal") throw new VersionError(`This intent is at the ${p.stage} stage: only one at Proposal is decided.`, 409);
     let r: any;
     if (verdict === "archive" && p.author === me.id && me.level !== "admin") r = await archiveAsAuthor(tx, me, p);
-    else if (p.kind === SANDBOX_WORK) r = await decideSandbox(tx, me, p, verdict);
     else {
       const k = kindOfWork(p.kind);
       if (!k) throw new VersionError(`play keeps no kind for ${p.kind}.`, 500);
@@ -632,6 +637,16 @@ register({
   name: "skill", prefix: "skill", type: SKILL, work: "skill_version", table: "play.skills", label: "skill", group: "skills", open: "/skills/?skill={id}&intent={intent}",
   row: { grp: (json) => json.group, updated: () => new Date() },
   item: (json) => ({ note: json.note ?? "", group: json.group, stages: SKILL_STAGES.filter((s) => `${json.stages?.[s] ?? ""}`.trim()) }),
+});
+register({
+  name: "sandbox", prefix: "sandbox", type: SANDBOX, work: "sandbox_version", table: "play.sandboxes", labelColumn: "title", label: "layout", group: "sandboxes", open: "/sandboxes/{id}/?intent={intent}",
+  ensure: (q, _ctx, id) => ensureLayoutDoc(q, id).then(() => undefined),
+  write: (q, _id, cur, input) => layoutWrite(q, cur, input),
+  review: (q, p) => layoutReview(q, p),
+  decide: (tx, _ctx, me, p, verdict) => decideLayout(tx, me, p, verdict, decideDoc),
+  item: (json) => ({ pins: Object.keys(json.pins ?? {}).length, configs: Object.keys(json.configs ?? {}) }),
+  view: (q, json, id) => layoutView(q, json, id),
+  shown: (q, before, after) => layoutShown(q, before, after),
 });
 
 export { assetDocFor };

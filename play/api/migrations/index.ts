@@ -1,7 +1,15 @@
 // play's database, in its own schema `play` (play/SPEC.md §3, §4). Each migration runs once, in order, in one
 // transaction; a migration is never edited after it has shipped, only followed by another.
 
-export type Migration = { id: string; sql: string };
+import type { Queryable } from "../src/pg";
+import { migrateLayouts } from "../src/sandboxes";
+
+/**
+ * A migration: its SQL, and where a step needs play's own code (a document written as Loro, which SQL cannot), `run`,
+ * in the same transaction after the SQL. A `run` names code of the time it shipped; once it has run everywhere it is
+ * kept only as history.
+ */
+export type Migration = { id: string; sql: string; run?: (q: Queryable) => Promise<void> };
 
 export const MIGRATIONS: Migration[] = [
   {
@@ -1099,5 +1107,28 @@ export const MIGRATIONS: Migration[] = [
       -- the old proposals' ids: an intent is named by its own
       DROP TABLE play.proposal_ids;
     `,
+  },
+  {
+    // a sandbox's layout is a document (play/SPEC.md §4.6, Samuel 2026-11-06): sandbox:<uuid>, its v1 its pins and
+    // configs as they are; every intent's sandbox change an intent variant of it, each intent keeping its stage
+    // (../src/sandboxes.ts migrateLayouts); the intents' sandbox_* columns gone, an intent's work one rule
+    id: "0033-sandbox-layouts",
+    sql: `
+      ALTER TABLE play.sandboxes ADD COLUMN created TIMESTAMPTZ NOT NULL DEFAULT now();
+      -- what a change made before its document changed, kept as its variant's review (a sandbox's, from 0016)
+      ALTER TABLE play.doc_variants ADD COLUMN review JSONB;
+      ALTER TABLE play.intents DROP CONSTRAINT intents_work_names_what;
+      ALTER TABLE play.intents DROP CONSTRAINT intents_work_check;
+    `,
+    run: async (q) => {
+      await migrateLayouts(q);
+      await q.query(`
+        ALTER TABLE play.intents DROP COLUMN sandbox_id, DROP COLUMN sandbox_base, DROP COLUMN sandbox_change, DROP COLUMN sandbox_diff;
+        ALTER TABLE play.intents ADD CONSTRAINT intents_work_check CHECK (work ~ '^[a-z][a-z_]{0,31}_version$');
+        ALTER TABLE play.intents ADD CONSTRAINT intents_work_names_what CHECK (
+          (work IS NULL AND doc_id IS NULL AND doc_variant IS NULL AND asset_id IS NULL AND version IS NULL AND story_id IS NULL AND story_version IS NULL)
+          OR (work IS NOT NULL AND doc_id IS NOT NULL AND doc_id ~ '^[a-z][a-z_]{0,31}:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'));
+      `);
+    },
   },
 ];

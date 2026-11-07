@@ -13,7 +13,7 @@ import { adminByToken, listTokens, makeToken, revokeToken } from "./tokens";
 import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, registerOptions, sessionCookie, tokenFor } from "./auth";
 import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameMember, renameSelf, setLevel } from "./members";
 import { listTables, readTable, TableError } from "./tables";
-import { proposedState, SandboxError } from "./sandboxes";
+import { layoutAt, proposedState, SandboxError } from "./sandboxes";
 import { decideAny, docAt, docChanges, docHistory, listDocs, reviewOf, VersionError } from "./versioned";
 import type { GitHub } from "./ship";
 import { WorkError } from "./work";
@@ -157,6 +157,9 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     const q = new URL(req.url).searchParams;
     const intent = q.get("intent");
     if (intent) return json(await configOf(db, p.id, await proposedState(db, m, p.id, intent)));
+    // at a version or an edit of its layout's history (admins, its History on /sandboxes/<uuid>/)
+    const v = q.get("v"), edit = q.get("edit");
+    if (v || edit) return json(await configOf(db, p.id, await layoutAt(db, m, p.id, v ? { version: Number(v) } : { edit: Number(edit) })));
     return json(await configOf(db, p.id));
   });
 

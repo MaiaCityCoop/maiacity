@@ -214,20 +214,32 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
 - **One loader** (play/site's `content/assets/catalog.js`): hash → its record from `/api/catalog` → its file from
   `/api/files/<hash>`, held to the hash → the frozen box engine builds it. Media (covers, sounds) are play's files too.
 
-### 4.6 A sandbox's layout (the `sandbox_change` work, Samuel 2026-11-04)
+### 4.6 A sandbox's layout, a document (Samuel 2026-11-04 and 2026-11-06)
 
-`sandbox_pins (sandbox_id, slot, version_id, variant, params)`: which version a sandbox draws; `sandbox_configs
-(sandbox_id, name, data)`: how it lays them out (Sandbox 1's `garden`: its plantings, spacing, drifts and fields; where a
-thing stands), anything in one with a `slot` drawn as that slot's pin. Both change **only by proposal**, never by a
-migration or by hand: an agent reads a sandbox over MCP (`list_sandboxes`, `get_sandbox`: each pin's asset, version, the
-asset's newest, its variant and values, and where a config names it) and proposes edits (`propose_sandbox_change`):
-`pin` (a slot to an accepted version, variant and values; a new slot too), `pin_latest` (every slot of an asset to its
-newest version), `unpin`, and `set`/`delete` of any value at a path of a config ("update Sandbox 1's papayas to v4",
-"move the hens", "weight the apples 5"). Each is checked as a whole: only accepted versions, variants they have, no
-readable refs, every slot a config names pinned. The intents' board shows each change before and after and opens the
-sandbox as it would be (`/sandbox-1/?layout=<sandbox's uuid>/<intent>`, its config read with `?intent=`, admins only); an
-admin accepts the intent there, which applies the edits to the sandbox as it is then, in one transaction (one that no
-longer holds is archived). Admins only for now (`play/api/src/sandboxes.ts`).
+A sandbox's layout is a document, **`sandbox:<uuid>`** (its UUID the sandbox's; type `sandbox/1`,
+`play/api/src/docs/schema.ts`), versioned like every other ("Version control", `play/api/src/versioned.ts`): its `pins`
+(each slot an accepted asset version by its hash, its `variant`, null for the version's default, and its `params`) and
+its `configs` by name (Sandbox 1's `garden`: its plantings, spacing, drifts and fields; where a thing stands), anything in
+a config with a `slot` drawn as that slot's pin; its `title` only shown. It changes **only by proposal**, never by a
+migration or by hand: an agent reads it (`list_sandboxes`, `get_sandbox`: each pin's asset, version, the asset's newest,
+its variant and values, and where a config names it; `doc_at` and `doc_history`, each version and edit with its pins by
+their assets) and changes it by an intent variant, `doc_edit` and `propose_doc_version`, with the sandbox's own edit
+helpers: `pin` (a slot to an accepted version, variant and values; a new slot too), `pin_latest` (every slot of an asset
+to its newest version), `unpin`, and `set`/`delete` of any value at a path of a config ("update Sandbox 1's papayas to
+v4", "move the hens", "weight the apples 5"), or a document's own edits by path. Each edit is checked whole: only
+accepted versions, variants they have, no readable refs, every slot a config names pinned. The intents' board reviews it
+through `Changes.svelte`: each pin before and after by its asset's label and version, the configs field by field, its
+edits, and the sandbox to open as it would be (`/sandbox-1/?layout=<sandbox's uuid>/<intent>`, its config read with
+`?intent=`, admins only). An admin's Accept merges it into Main as the layout's next version (an overlapping change
+since its seed, or a pin play no longer keeps, archives it instead) and writes Main's pins and configs to
+`sandbox_pins (sandbox_id, slot, version_id, variant, params)` and `sandbox_configs (sandbox_id, name, data)`, in one
+transaction: the worlds read those (`/api/sandboxes/<uuid>/config`) as before. A sandbox's page has no Frame, so its
+layout's **History** is at `/sandboxes/<uuid>/` (admins): its pins and configs at any version or edit, and the world
+opened so (`?layout=<uuid>/v<n>` or `/e<seq>`, its config read with `?v=` or `?edit=`). Migration
+`0033-sandbox-layouts` made every layout its v1 (its pins and configs as they were) and every intent's sandbox change
+(`sandbox_id`, `sandbox_base`, `sandbox_change`, `sandbox_diff`, now gone) an intent variant of it, each intent keeping
+its stage, an accepted or archived one keeping what it changed as its variant's `review`. The import writes a
+sandbox's pins and garden only while it has no layout document. Admins only for now (`play/api/src/sandboxes.ts`).
 
 ### 4.7 Every reference a UUID or a hash (Samuel 2026-11-04)
 
@@ -441,10 +453,9 @@ intents (id UUID, coop_id, kind /*idea|fix|improve: shown as Make, Fix, Improve*
          approved_by, approved_at /*the spec approved: Prototype and on need it, unless it came with its work*/,
          results jsonb /*each check's last result in Prototype: { "c1": { pass, evidence, by, at, where: avenBOX|main, commit } }*/, decided_by, decided_at,
          -- its work (0029-one-record): none, or one kind of work and the refs of that kind (intents_work_names_what)
-         work /*asset_version|story_version|sandbox_change|factory_version|game_config_version*/,
+         work /*<kind>_version of a versioned kind: asset, story, factory, game_config, skill, sandbox*/,
          asset_id, base → asset_versions, version → asset_versions,            -- an asset's version
          story_id, story_base → story_versions, story_version → story_versions, -- a story's version
-         sandbox_id, sandbox_base /*BLAKE3 of the layout it was made on*/, sandbox_change jsonb, sandbox_diff jsonb,
          factory_id, game_config_id,                                          -- a factory's, a config's version
          doc_branch → doc_branches /*its branch of the document it changes*/,
          work_note, proposed_by → humans, proposed_via /*web|mcp*/, proposed_at,
@@ -701,8 +712,8 @@ intents (…, work 'skill_version', skill_id → skills, doc_branch)            
 
 ### 4.15 Version control (Samuel 2026-11-06)
 
-**One version control for everything play versions**: assets, stories, factories, the game's configs and skills (and,
-each by its own intent, schemas, breeds and sandbox layouts next), in one vocabulary, by one registry and one module,
+**One version control for everything play versions**: assets, stories, factories, the game's configs, skills and
+sandboxes' layouts (§4.6; and, each by its own intent, schemas and breeds next), in one vocabulary, by one registry and one module,
 shown by one History.
 
 | Word | Meaning | Was |
@@ -717,7 +728,8 @@ shown by one History.
 - **One registry, one module** (`play/api/src/versioned.ts`). Each versioned kind is one entry: its document prefix and
   type (`docs/schema.ts`), its row table, its label and group (only shown), and hooks only where it really differs (an
   asset's `replace` edit and its recipe built on propose; a story's timeline edits and its frozen `story_versions` row;
-  an asset's and a story's own decide; the fields its row keeps of an accepted version; its list item's extra fields).
+  an asset's and a story's own decide; a sandbox's layout's edit helpers and its rows written on accept; the fields its
+  row keeps of an accepted version; its list item's extra fields; what a read or a change shows beside its fields).
   The module does the rest for every entry: list, read (at a version, an edit, an intent's variant), history (edits,
   versions, variants), edit, propose, review (what changed field by field against the seed, its edits, whether Main
   moved) and decide (merge; an overlapping-field clash or an invalid whole archived; archive). A kind registered there
@@ -727,18 +739,19 @@ shown by one History.
 - **The store** (migration `0032-versioned`): `doc_variants` (each document's Main, type `main`, and its intent
   variants, type `intent`, each with its `seed`, the frontiers it grew from, and its intent), `doc_edits` (every edit,
   append only, on its variant), `doc_versions`, `doc_peers`. An intent's work names its document and variant
-  (`doc_id`, `doc_variant`); an asset's frozen `version`/`base` and a story's `story_version`/`story_base` stay, and a
-  sandbox's change until its own intent.
+  (`doc_id`, `doc_variant`); an asset's frozen `version`/`base` and a story's `story_version`/`story_base` stay (a
+  sandbox's change became its layout's intent variant in `0033-sandbox-layouts`, §4.6).
 - **MCP and HTTP, by a document's UUID**: `list_docs` (by kind), `doc_at` (a version, an edit or an intent's variant),
   `doc_history` (with `variant`), `doc_edit` (one edit of an intent variant, a new one seeded from Main's newest version
   if none is named) and `propose_doc_version` (`intent`, a `variant`, edits or the whole). `GET /api/docs`,
   `/api/docs/<uuid>` (`?v=`, `?edit=`, `?intent=`), `/api/docs/<uuid>/history` (`?variant=`) and
   `/api/docs/<uuid>/changes` (`?edit=` or `?variant=`, against what it grew from). Each kind's own reads and creates
   stay where they hold more than the document: `get_asset` (its recipe files; `edit`, `intent`), `get_story` (its
-  links; `edit`, `intent`), `propose_asset`, `propose_story`, and `propose_sandbox_change`.
+  links; `edit`, `intent`), `propose_asset`, `propose_story`, and `get_sandbox` (a layout's pins by their assets).
 - **One History** (`play/site`'s `lib/app/History.svelte`), always on the right, in Frame's aside, in its own **History
   tab**, in every view of a versioned thing: the asset viewer (every group, beside Parts), Worlds, Stories (the top of
-  its player's rail), Factories (beside the bill of process), the Game editor and Skills (`/skills/`). At its top the
+  its player's rail), Factories (beside the bill of process), the Game editor, Skills (`/skills/`) and a sandbox's layout
+  (`/sandboxes/<uuid>/`). At its top the
   scrubber over every edit of Main, versions marked, MCP and merge edits marked; ▶ Play its making, Back to vN and the
   arrow keys; under it Main's versions with their edits folded beneath, and the open intent variants with their
   intents. Picking an edit or an intent variant shows what it changes (`lib/app/Changes.svelte`: the field diff, texts

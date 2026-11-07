@@ -420,7 +420,73 @@ export const SKILL: DocType = {
   },
 };
 
-export const TYPES: Record<string, DocType> = { [STORY.name]: STORY, [ASSET.name]: ASSET, [FACTORY.name]: FACTORY, [LEVELS.name]: LEVELS, [SKILL.name]: SKILL };
+
+/**
+ * A sandbox's layout (../sandboxes.ts, play/SPEC.md §4.6): what it draws, its `pins` (each slot an accepted asset
+ * version, by its hash, with its variant, null for the version's default, and its values), and how it lays them out,
+ * its `configs` by name (Sandbox 1's garden: anything in a config with a `slot` is drawn as that slot's pin). Its title
+ * is only shown. Accepted, its pins and configs are written to play.sandbox_pins and play.sandbox_configs, which the
+ * worlds read.
+ */
+const SANDBOX_SLOT = /^[A-Za-z0-9][A-Za-z0-9_.\/-]{0,199}$/;
+const SANDBOX_CONFIG = /^[a-z][a-z0-9-]*$/;
+/** every slot a config names (`{ slot }` anywhere in it), with where */
+export function slotsNamed(configs: Record<string, unknown>): { slot: string; config: string; path: (string | number)[] }[] {
+  const out: { slot: string; config: string; path: (string | number)[] }[] = [];
+  const walk = (o: unknown, config: string, path: (string | number)[]) => {
+    if (Array.isArray(o)) o.forEach((x, i) => walk(x, config, [...path, i]));
+    else if (o && typeof o === "object") {
+      if (typeof (o as any).slot === "string") out.push({ slot: (o as any).slot, config, path });
+      for (const [k, v] of Object.entries(o)) if (k !== "slot") walk(v, config, [...path, k]);
+    }
+  };
+  for (const [name, data] of Object.entries(configs ?? {})) walk(data, name, []);
+  return out;
+}
+export const SANDBOX: DocType = {
+  name: "sandbox/1",
+  type: "sandbox",
+  schema: {
+    type: "object",
+    required: ["schema", "title", "pins", "configs"],
+    properties: {
+      schema: { const: "sandbox/1" },
+      title: { type: "string", minLength: 1, maxLength: 200 },
+      pins: {
+        type: "object",
+        additionalProperties: {
+          type: "object",
+          required: ["version"],
+          // variant (a name, or null) and params (an object of values, or null) are checked below
+          properties: { version: { type: "string", pattern: "^[0-9a-f]{64}$" }, variant: {}, params: {} },
+          additionalProperties: false,
+        },
+      },
+      configs: { type: "object", additionalProperties: { type: "object" } },
+    },
+    additionalProperties: false,
+  },
+  check(doc) {
+    const out: string[] = [];
+    for (const [slot, p] of Object.entries<any>(doc.pins ?? {})) {
+      if (!SANDBOX_SLOT.test(slot)) out.push(`pins: ${slot} is not a slot's name`);
+      for (const k of Object.keys(p ?? {})) if (!["version", "variant", "params"].includes(k)) out.push(`pins.${slot}: ${k} is not a field of a pin`);
+      if (p?.variant !== undefined && p.variant !== null && (typeof p.variant !== "string" || !p.variant)) out.push(`pins.${slot}.variant: a variant's name, or null`);
+      if (p?.params !== undefined && p.params !== null) {
+        if (typeof p.params !== "object" || Array.isArray(p.params)) out.push(`pins.${slot}.params: an object of values, or null`);
+        else for (const [k, v] of Object.entries(p.params)) if (typeof v !== "string") out.push(`pins.${slot}.params.${k}: a value is kept as a string`);
+      }
+    }
+    for (const [name, data] of Object.entries(doc.configs ?? {})) {
+      if (!SANDBOX_CONFIG.test(name) || name === "assets") out.push(`configs: ${name} is not a config's name`);
+      if (Buffer.byteLength(JSON.stringify(data)) > 1024 * 1024) out.push(`configs.${name}: larger than 1 MB`);
+    }
+    for (const s of slotsNamed(doc.configs ?? {})) if (!doc.pins?.[s.slot]) out.push(`configs.${s.config}${s.path.map((k) => (typeof k === "number" ? `[${k}]` : `.${k}`)).join("")} names slot ${s.slot}, which the sandbox does not pin`);
+    return out;
+  },
+};
+
+export const TYPES: Record<string, DocType> = { [STORY.name]: STORY, [ASSET.name]: ASSET, [FACTORY.name]: FACTORY, [LEVELS.name]: LEVELS, [SKILL.name]: SKILL, [SANDBOX.name]: SANDBOX };
 
 /** the type a schema name names, or a SchemaError */
 export function typeOf(name: string): DocType {

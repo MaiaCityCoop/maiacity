@@ -4,7 +4,7 @@
 // UUID: list_docs, doc_at (a version, an edit, an intent's variant), doc_history (edits, versions, variants), doc_edit
 // (one edit of an intent variant) and propose_doc_version. Each kind's own reads and creates stay where they hold more
 // than the document: get_asset (its recipe files), get_story (its links), propose_asset and propose_story (a new one),
-// and a sandbox's change. To propose is to put an intent at Proposal with that work (one record, the intent:
+// and get_sandbox (a layout's pins by their assets). To propose is to put an intent at Proposal with that work (one record, the intent:
 // ./work.ts, Samuel 2026-11-06), in the admin's name with `via` 'mcp'. Accepting stays a person's, on the intents'
 // board (Samuel 2026-11-02): no tool here accepts. An agent may archive only its own intents at Proposal put there over
 // MCP (archive_intent, Samuel 2026-11-04), one it no longer stands by. Everything on the board is an intent
@@ -29,7 +29,7 @@ import { instructionsOf, promptOf, promptsOf, SkillError } from "./skills";
 import { adminByToken } from "./tokens";
 import { admin, AUDIO_TYPES, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, proposeStory, putAudioBase64, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAt, storyOf, StoryError, VIDEO_TYPES } from "./stories";
 import { AssetDocError, assetAt, proposeAsset } from "./assetdocs";
-import { listSandboxes, proposeSandbox, sandboxOf, SandboxError } from "./sandboxes";
+import { listSandboxes, sandboxOf, SandboxError } from "./sandboxes";
 import { addArtifact, AUTHOR_KINDS, authorOf, DESCRIPTION_MOST, listAuthors, listArtifacts, ORIGINS, ARTIFACT_KINDS, ArtifactError, artifactOf, SUMMARY_WORDS, TITLE_MOST as ARTIFACT_TITLE_MOST, updateArtifact } from "./artifacts";
 
 const PROTOCOL = "2025-06-18";
@@ -87,8 +87,12 @@ const ASSET_FORMAT =
   "An asset is { schema: 'asset/1', label, note, source (its readable source, as text), engine, card (its version's record), defaultVariant?, variants?: [{ name, source? (where it differs from the asset's own), card }] }; " +
   "its reference sheet, data sheet and brief are its card's sheet, datasheet and brief (each a file's hash: add_story_frame, add_document).";
 
+const SANDBOX_FORMAT =
+  "A sandbox's layout is { schema: 'sandbox/1', title (only shown), pins: { <slot>: { version (an accepted asset version's hash), variant (a variant's name, null for the version's default), params ({ stage: '9' }, or null) } }, configs: { <name>: {…} } } " +
+  "(Sandbox 1's `garden`: its layers of plantings, each { id, slot, stages, weight, … }, its spacing, drift and fields): anything in a config with a `slot` is drawn as that slot's pin, and every slot a config names is pinned. Its UUID is the sandbox's (list_sandboxes).";
+
 /** what each kind's document holds, for doc_at */
-const FORMATS = `${ASSET_FORMAT} ${STORY_FORMAT} ${FACTORY_FORMAT} ${LEVELS_FORMAT} ${SKILL_FORMAT}`;
+const FORMATS = `${ASSET_FORMAT} ${STORY_FORMAT} ${FACTORY_FORMAT} ${LEVELS_FORMAT} ${SKILL_FORMAT} ${SANDBOX_FORMAT}`;
 
 /** the edits doc_edit and propose_doc_version take */
 const EDITS =
@@ -97,7 +101,10 @@ const EDITS =
   "An asset also takes { op: 'replace', find, replace, field?: 'source' | 'note', variant? }, replacing the one place `find` stands in its source (give enough of it to be unique). " +
   "A story's edits are its timeline's: { op: 'set_clip', track, clip, fields: {…} } (a field set to null is removed), { op: 'add_clip', track, clip: { id, at, duration, … } }, { op: 'remove_clip', track, clip }, " +
   "{ op: 'add_track', track: { id, kind, clips }, index? }, { op: 'remove_track', track }, { op: 'set_track', track, fields: { id?, kind? } }, { op: 'shift', from, by, tracks? } (every clip starting at or after `from` seconds moved by `by`), " +
-  "{ op: 'set', fields: { format?, fps? } }, { op: 'edit_text', track, clip, field, index, delete?, insert? }; on shots, voice, notes and story tracks clips must not overlap, so retime with shift; a story's whole is { title, …its timeline }.";
+  "{ op: 'set', fields: { format?, fps? } }, { op: 'edit_text', track, clip, field, index, delete?, insert? }; on shots, voice, notes and story tracks clips must not overlap, so retime with shift; a story's whole is { title, …its timeline }. " +
+  "A sandbox's layout takes its own helpers (all of one edit's, not mixed with the edits above): { op: 'pin', slot, asset?, version?, variant?, params? } pins a slot (a new one needs `asset`, a UUID): `version` an accepted version's number, the asset's newest if left out; `variant` a variant's name, null for the version's default, kept where left out (and the new version has it); `params` its values ({ stage: 9 }), null for none, kept where left out; " +
+  "{ op: 'pin_latest', asset, variant? } moves every slot that pins the asset to its newest version; { op: 'unpin', slot } (no config may still name it); " +
+  "{ op: 'set', config, path, value } sets the value at a path of a config (['outside', 'trees', 3, 'weight']; an index one past the end adds an item; path [] sets the whole config, a new one too); { op: 'delete', config, path } removes it (path []: the whole config). A config names an asset only by { slot }, never by a ref.";
 
 export function mcp({ db, store }: { db: Db; store: BlobStore }) {
   const tools: Tool[] = [
@@ -219,7 +226,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
     // ---- one version control (./versioned.ts, play/SPEC.md "Version control"): every versioned kind, by its document's UUID
     {
       name: "list_docs",
-      description: `Every document play versions, of one kind or all: an asset, a story, a factory, a game config (the levelling), a skill. Each with its UUID (what names it everywhere), its kind, its label (only shown), its newest version's number and how many versions; a factory also its stations and parts, a skill its group and the stages it speaks to.`,
+      description: `Every document play versions, of one kind or all: an asset, a story, a factory, a game config (the levelling), a skill, a sandbox's layout. Each with its UUID (what names it everywhere), its kind, its label (only shown), its newest version's number and how many versions; a factory also its stations and parts, a skill its group and the stages it speaks to, a sandbox's layout how many pins and its configs' names.`,
       inputSchema: { type: "object", properties: { kind: { type: "string", enum: kinds().map((k) => k.name), description: "one kind only" } }, additionalProperties: false },
       run: async ({ kind }, me) => listDocs(db, me, kind),
     },
@@ -287,7 +294,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
       },
       run: async ({ doc, note, variant, edits, whole, intent }, me) => proposeDocVersion({ db, store }, me, { doc, note, edits, whole, intent, ...(variant != null ? { variant: Number(variant) } : {}) }),
     },
-    // ---- sandboxes: what each draws (its pins) and how it lays them out (its configs), changed only by proposal (./sandboxes.ts)
+    // ---- sandboxes: what each draws (its pins) and how it lays them out (its configs): its layout, a document (./sandboxes.ts)
     {
       name: "list_sandboxes",
       description: "Maia City's sandboxes (and the Factories, which keep their pins the same way): id, title, route on play, how many pins and the names of their configs.",
@@ -298,28 +305,9 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
       name: "get_sandbox",
       description:
         "One sandbox's layout as it stands. Its pins: each slot it draws, with the asset (id, group, slug, label), the version it pins and the asset's newest (`latest`), its variant (none: the version's default) and the variants it has, its values (params), and where its configs name the slot (`usedBy`). " +
-        "Its configs whole, by name (Sandbox 1's `garden`: its layers of plantings, each { id, slot, stages, weight, … }, its spacing, drift and fields): anything in a config with a `slot` is drawn as that slot's pin. Change any of it with propose_sandbox_change.",
+        "Its configs whole, by name (Sandbox 1's `garden`: its layers of plantings, each { id, slot, stages, weight, … }, its spacing, drift and fields): anything in a config with a `slot` is drawn as that slot's pin. Its layout is a document named by the sandbox's UUID: read its versions and edits with doc_history and doc_at, and change any of it by an intent variant, doc_edit and propose_doc_version, with its pin, pin_latest, unpin, set and delete.",
       inputSchema: { type: "object", properties: { sandbox: { type: "string", description: "its id, a UUID (list_sandboxes)" } }, required: ["sandbox"], additionalProperties: false },
       run: async ({ sandbox }, me) => sandboxOf(db, me, `${sandbox ?? ""}`),
-    },
-    {
-      name: "propose_sandbox_change",
-      description:
-        "Propose a change of a sandbox's layout: which assets it draws, at which version, variant and values, and how it lays them out (any field of any of its configs: a planting's weight or stages, the spacing, a thing's position). It puts an intent at Proposal with it (via MCP), for Maia City's admins, who see each change before and after on the intents' board and can open the sandbox as it would be, then accept or archive it. Accepting applies the edits to the sandbox as it is then; one that no longer holds archives it. Edits, applied in order: " +
-        "{ op: 'pin', slot, asset?, version?, variant?, params? } pins a slot (a new one needs `asset`, a UUID): `version` an accepted version's number, the asset's newest if left out; `variant` a variant's name, null for the version's default, kept where left out (and the new version has it); `params` its values ({ stage: 9 }), null for none, kept where left out. " +
-        "{ op: 'pin_latest', asset, variant? } moves every slot that pins the asset to its newest version. { op: 'unpin', slot } (no config may still name it). " +
-        "{ op: 'set', config, path, value } sets the value at a path of a config (['outside', 'trees', 3, 'weight']; an index one past the end adds an item; path [] sets the whole config, a new one too); { op: 'delete', config, path } removes it (path []: the whole config). A config names an asset only by { slot }, never by a ref.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          sandbox: { type: "string", description: "its id, a UUID (list_sandboxes)" },
-          note: { type: "string", description: "what changes and why, for the admins deciding" },
-          edits: { type: "array", items: { type: "object" }, minItems: 1, description: "the edits, applied in order" },
-        },
-        required: ["sandbox", "note", "edits"],
-        additionalProperties: false,
-      },
-      run: async ({ sandbox, note, edits, intent }, me) => proposeSandbox(db, me, { sandbox, note, edits, intent }, "mcp"),
     },
     // ---- stories: a film as one timeline of tracks and clips (./stories.ts, play/SPEC.md §12)
     {
@@ -419,7 +407,7 @@ export function mcp({ db, store }: { db: Db; store: BlobStore }) {
         type: "object",
         properties: {
           stage: { type: "string", enum: [...INTENT_STAGES, "all"], description: "which intents: one stage, or all; those not yet done (idea, specify, prototype, proposal, ship) if left out" },
-          work: { type: "string", enum: [...workKinds()], description: "only those holding work of this kind (an asset's or story's version, a sandbox's change, a factory's or config's version)" },
+          work: { type: "string", enum: [...workKinds()], description: "only those holding work of this kind (an asset's or story's version, a factory's, config's, skill's or sandbox layout's version)" },
         },
         additionalProperties: false,
       },

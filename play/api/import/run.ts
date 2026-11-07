@@ -108,6 +108,8 @@ async function writeAssets(tx: Queryable, assets: PlannedAsset[], files: Planned
 }
 
 async function writePins(tx: Queryable, sandbox: string, pins: ReturnType<typeof planPins>, idOf: Map<string, string>, w: Report["written"], errors: string[]) {
+  // a sandbox whose layout is a document (../src/sandboxes.ts) is play's own: it changes only by proposal
+  if ((await tx.query(`SELECT 1 FROM play.docs WHERE id = $1`, [`sandbox:${sandbox}`])).rows.length) return;
   for (const p of pins) {
     // a pin names its asset by the name legacy gave it (`<grp>/<slug>`), resolved here, once, to the UUID the import
     // gave the asset it planned under that name (never looked up by its name in play)
@@ -299,7 +301,8 @@ export async function runImport(db: Db, store: BlobStore, opts: { cache: string;
     await writePins(tx, SANDBOX.factories, pinsF, idOf, report.written, report.verified.pinErrors);
     // Sandbox 1's garden, each planting by its slot of the pins; written once, then play's own
     await tx.query(
-      `INSERT INTO play.sandbox_configs (sandbox_id, name, data) VALUES ($2, 'garden', ($1::text)::jsonb) ON CONFLICT DO NOTHING`,
+      `INSERT INTO play.sandbox_configs (sandbox_id, name, data) SELECT $2, 'garden', ($1::text)::jsonb
+        WHERE NOT EXISTS (SELECT 1 FROM play.docs WHERE id = 'sandbox:' || $2::text) ON CONFLICT DO NOTHING`,
       [JSON.stringify(garden), SANDBOX.one],
     );
     if (opts.founders) await writeFounders(tx, opts.admins, report.written);
