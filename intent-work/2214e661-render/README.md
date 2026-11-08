@@ -20,7 +20,10 @@ time the sky's node materials compile on a real GPU**: every console error matte
      (`__walker.place`), each once nothing is being built; the old city (Sandbox 3) as it opens (60 s);
    - per view: the meter's line over 3 s (frame, CPU, GPU ms, calls, triangles, the bound), the probe's split, a
      1440×900 screenshot; every console and page error;
-   - Poly Haven's CC0 `autumn_meadow` (afternoon) and `evening_field` (low sun) thumbnails beside them.
+   - Poly Haven's CC0 `autumn_meadow` (afternoon) and `evening_field` (low sun) thumbnails beside them;
+   - for base and head alike, the render box's determinism (`determinism.mjs`, from `intent-work/main-baseline`
+     c43eab548): `SEEDED_RANDOM` as an init script, each view settled when `QUIET` returns 0.
+   Base may also be read from main's baseline, `intent-work/main-baseline/out/<base commit>/`, where it has this commit.
 3. Commit `intent-work/2214e661-render/out/` (results.json, stdout.txt, the PNGs, the two Poly Haven pictures) with
    `Intent: 2214e661-65d1-48d6-9b2c-a3293a79d9e5`, and push this branch.
 

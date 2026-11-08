@@ -6,6 +6,7 @@
  *            far (`__walker.place`), each once nothing is being built (`__assets.stats()`), the hour pinned with
  *            `window.__interiorHour`;
  *   Sandbox 3 (/sandbox-3/, the old city) as it opens.
+ * Both sites run with the render box's determinism (./determinism.mjs): Math.random seeded, settled by QUIET.
  * Each view: the frame meter's line over SAMPLE s (play/site/src/lib/content/render/meter.js, injected whole: frame,
  * CPU and GPU ms, calls, triangles, the bound), the probe's split (shadow, blend, offscreen, screen) and a screenshot
  * at 1440×900; every console error and page error is kept (a TSL shader that fails to compile shows there).
@@ -22,6 +23,9 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// the Mac render box's determinism (intent-work/main-baseline, c43eab548): a seeded Math.random, and a settle that waits
+// for the far trees' pictures too, so base and head draw the same frame where nothing changed
+import { QUIET, SEEDED_RANDOM } from './determinism.mjs';
 
 const { chromium } = createRequire(resolve(process.cwd(), 'package.json'))('playwright');
 const here = dirname(fileURLToPath(import.meta.url));
@@ -86,6 +90,7 @@ async function open(site, path, errors) {
 	const page = await ctx.newPage();
 	page.on('pageerror', (e) => errors.push(`pageerror: ${String(e).slice(0, 600)}`));
 	page.on('console', (m) => m.type() === 'error' && errors.push(`console: ${m.text().slice(0, 600)}`));
+	await page.addInitScript({ content: SEEDED_RANDOM });
 	await page.addInitScript({ content: meterScript });
 	await page.addInitScript({ content: probeScript });
 	await page.goto(`${site.url}${path}`, { waitUntil: 'domcontentloaded' });
@@ -124,7 +129,7 @@ for (const site of sites) {
 	{
 		const { ctx, page } = await open(site, '/sandbox-1/', errors[site.name]);
 		await page.waitForFunction(() => window.__walker && window.__assets, null, { timeout: 10 * 60e3 });
-		const building = () => page.evaluate(() => { const s = window.__assets?.stats?.(); return s ? ['out', 'in', 'library'].reduce((a, k) => a + (s[k]?.building ?? 0), 0) : null; }).catch(() => null);
+		const building = () => page.evaluate(QUIET).catch(() => null);
 		const settle = async (t) => { for (const end = Date.now() + t; Date.now() < end; await page.waitForTimeout(2000)) if ((await building()) === 0) return true; return false; };
 		await settle(10 * 60e3);
 		for (const [hour, h] of HOURS) {
