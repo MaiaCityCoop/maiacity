@@ -1,12 +1,12 @@
 // Light through leaves (intent 6fd5e63f): a look drawn by the page's own TSL on WebGLRenderer through three's
-// WebGLNodesHandler, on a context that only answers (./fakegl.js): instanced, shadowed, as a world draws a plant's
+// WebGLNodesHandler, on a context that only answers (./nodes/fakegl.js, intent cb16b7a5's): instanced, shadowed, as a world draws a plant's
 // copies. Each shader it hands the graphics card is read: the wind's uniforms and aWind in the vertex stage, the
 // backlight in the fragment stage, nothing of it in a look that has none.
 import { describe, expect, test } from 'vitest';
 import * as THREE from 'three';
 import * as tsl from 'three/tsl';
 import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
-import { fakeGL } from './fakegl.js';
+import { fakeGL } from './nodes/fakegl.js';
 import { foliageOf } from './foliage.js';
 import { windNodes } from './wind.js';
 
