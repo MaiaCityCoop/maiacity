@@ -24,8 +24,8 @@ export type ViewName = keyof typeof VIEWS | 'open';
 export type World = 'sandbox-1' | 'sandbox-3' | 'worlds';
 /** the views each world is counted from: Sandbox 1's named cameras; the others as they open */
 export const VIEWS_OF: Record<World, ViewName[]> = { 'sandbox-1': ['near', 'mid', 'far'], 'sandbox-3': ['open'], worlds: ['open'] };
-/** the hour every census is taken at: noon, lamps out (the Mac's runs) */
-export const HOUR = 12;
+/** the hour every census is taken at: noon, lamps out (the Mac's runs); the world's clock held (s): fish, birds still */
+export const HOUR = 12, MOMENT = 60;
 /** the field of view the worlds draw with (render/world.js), for a copy's size on screen */
 const FOV = 68;
 
@@ -66,8 +66,7 @@ export type ViewCensus = {
 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-/** the frames' pace: a display's 60 a second, as the Mac's runs drew them (work the world slices over its frames, a
- *  dome built in the background, goes at the speed it would on screen); the time left in a frame is the page's */
+/** the frames' pace: a display's 60 a second, as the Mac's runs drew them; the time left in a frame is the page's */
 const FRAME_MS = 1000 / 60;
 let lastFrame = 0;
 async function paced() {
@@ -109,21 +108,21 @@ async function steady(ms: number, hold: number, band = 0) {
 
 /**
  * The world's streaming settled, as the Mac's QUIET (intent 373050d1): nothing built or kept in an asset renderer, no
- * dome's inside building (`__domeStream`), and their copies, pictures and domes the same for a second on end
+ * dome's inside building (`__domeStream`), and their copies, pictures and domes the same for 60 frames on end
  */
-let was = '', since = 0;
+let was = '', still = 0;
 function quiet() {
 	const s = g.__assets?.stats?.() ?? {}, rs = ['out', 'in', 'library'].map((k) => s[k]).filter(Boolean);
 	const domes = (g.__domeStream?.states?.() ?? []).map((e: { state: string }) => e.state);
 	const busy = rs.some((r) => r.building || r.keeping) || domes.includes('building');
-	const key = JSON.stringify([busy, rs.map((r) => [r.copies, r.taken]), domes]), now = performance.now();
-	if (key !== was) (was = key), (since = now);
-	return !busy && now - since >= 1000;
+	const key = JSON.stringify([busy, rs.map((r) => [r.copies, r.taken]), domes]);
+	if (key !== was) (was = key), (still = 0);
+	return !busy && ++still > 60;
 }
 
 /** builds Sandbox 1 (the route's own mount: play/site/src/routes/sandbox-1/+page.svelte) and gives its handle */
 async function mountSandbox1(log: (s: string) => void) {
-	g.__interiorHour = HOUR;
+	(g.__interiorHour = HOUR), (g.__worldTime = MOMENT);
 	const { catalogReady } = await import(lib('recipes'));
 	const { SANDBOX } = await import(lib('content/assets/sandboxes.js'));
 	await catalogReady(SANDBOX.one);
