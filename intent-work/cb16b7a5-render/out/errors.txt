@@ -313193,3 +313193,312 @@ Error
     at renderObjects (http://localhost:5182/node_modules/.vite/deps/three.js?v=92757dcf:10048:44)
     at renderScene (http://localhost:5182/node_modules/.vite/deps/three.js?v=92757dcf:9971:34)
     at WebGLRenderer.render (http://localhost:5182/node_modules/.vite/deps/three.js?v=92757dcf:9897:6)
+CONSOLE error Failed to load resource: the server responded with a status of 401 (Unauthorized)
+PAGEERROR TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+    at el.addEventListener.once (http://localhost:5181/src/lib/content/sandbox-2/interior/ambience.ts:93:63)
+PAGEERROR TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+    at el.addEventListener.once (http://localhost:5181/src/lib/content/sandbox-2/interior/ambience.ts:93:63)
+PAGEERROR TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+    at el.addEventListener.once (http://localhost:5181/src/lib/content/sandbox-2/interior/ambience.ts:93:63)
+t=5s draws in 5 s: 48
+PAGEERROR TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+    at el.addEventListener.once (http://localhost:5181/src/lib/content/sandbox-2/interior/ambience.ts:93:63)
+PAGEERROR TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+    at el.addEventListener.once (http://localhost:5181/src/lib/content/sandbox-2/interior/ambience.ts:93:63)
+CONSOLE warning flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters
+CONSOLE warning flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+CONSOLE warning flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+CONSOLE warning flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+CONSOLE warning flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+CONSOLE warning flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+CONSOLE warning flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+CONSOLE warning flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+CONSOLE warning flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+CONSOLE warning flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
+t=10s draws in 5 s: 268
+  state: lost false · rafs 34 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Sandbox 1 | A dome cell, grown from our plants | a forest garden outside, the tropics inside the domes · stats: undefined
+t=15s draws in 5 s: 264
+t=20s draws in 5 s: 224
+  state: lost false · rafs 34 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Sandbox 1 | A dome cell, grown from our plants | a forest garden outside, the tropics inside the domes · stats: undefined
+t=25s draws in 5 s: 840
+t=30s draws in 5 s: 3108 (__assets up)
+  state: lost false · rafs 44 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Sandbox 1 | A dome cell, grown from our plants | a forest garden outside, the tropics inside the domes · stats: {"out":{"building":0,"keeping":58,"levels":[3,16],"copies":7239,"calls":29},"in":{"building":0,"keeping":0,"levels":[0],"copies":0,"calls":0},"library":{"building":7,"keeping":24,"levels":[0,0,177],"copies":780,"calls":38}}
+CONSOLE warning flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+CONSOLE warning flora: yam@2:6:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: yam@2:4:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: cassava@2:7:sandbox-5 did not grow: plants/cassava takes no parameters
+CONSOLE warning flora: yam@2:7:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters
+CONSOLE warning flora: mango@3:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+CONSOLE warning flora: moringa@2:5:sandbox-5 did not grow: plants/moringa takes no parameters
+CONSOLE warning flora: cassava@2:5:sandbox-5 did not grow: plants/cassava takes no parameters
+CONSOLE warning flora: mango@3:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+CONSOLE warning flora: cassava@2:4:sandbox-5 did not grow: plants/cassava takes no parameters
+CONSOLE warning flora: yam@2:5:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: moringa@2:6:sandbox-5 did not grow: plants/moringa takes no parameters
+CONSOLE warning flora: cassava@2:6:sandbox-5 did not grow: plants/cassava takes no parameters
+CONSOLE warning flora: moringa@2:8:sandbox-5 did not grow: plants/moringa takes no parameters
+t=35s draws in 5 s: 117850 (__assets up)
+(node:21229) TimeoutNegativeWarning: -629.5809999999983 is a negative number.
+Timeout duration was set to 1.
+(Use `bun --trace-warnings ...` to show where the warning was created)
+CONSOLE warning a crowd's pin:ec08b07d-6ec0-8f65-92b2-3efe7d91df5d/goat-saanen at 0.2 was not built: build ran longer than 20000 ms
+CONSOLE warning a crowd's pin:ec08b07d-6ec0-8f65-92b2-3efe7d91df5d/goat-pied at 0.2 was not built: build ran longer than 20000 ms
+CONSOLE warning a crowd's pin:ec08b07d-6ec0-8f65-92b2-3efe7d91df5d/goat-nubian at 0.2 was not built: build ran longer than 20000 ms
+t=40s draws in 5 s: 494148 (__assets up)
+  state: lost false · rafs 1431 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | The master dome ahead is opening its doors… | Back | S · stats: {"out":{"building":0,"keeping":54,"levels":[3,16],"copies":7239,"calls":29},"in":{"building":87,"keeping":0,"levels":[0,0],"copies":0,"calls":0},"library":{"building":5,"keeping":42,"levels":[0,0,177],"copies":2152,"calls":38}}
+t=45s draws in 5 s: 172698 (__assets up)
+t=50s draws in 5 s: 153163 (__assets up)
+  state: lost false · rafs 2223 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | The master dome ahead is opening its doors… | Back | S · stats: {"out":{"building":0,"keeping":53,"levels":[3,16],"copies":7239,"calls":29},"in":{"building":46,"keeping":6,"levels":[0,0],"copies":0,"calls":0},"library":{"building":0,"keeping":50,"levels":[0,0,177],"copies":2152,"calls":38}}
+t=55s draws in 5 s: 166413 (__assets up)
+t=60s draws in 5 s: 157526 (__assets up)
+  state: lost false · rafs 2755 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | The master dome ahead is opening its doors… | Back | S · stats: {"out":{"building":0,"keeping":22,"levels":[3,16],"copies":7239,"calls":29},"in":{"building":28,"keeping":21,"levels":[0,0],"copies":0,"calls":0},"library":{"building":0,"keeping":30,"levels":[0,0,177],"copies":2152,"calls":38}}
+t=65s draws in 5 s: 161533 (__assets up)
+t=70s draws in 5 s: 154481 (__assets up)
+  state: lost false · rafs 3273 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | The master dome ahead is opening its doors… | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,16],"copies":7239,"calls":29},"in":{"building":16,"keeping":30,"levels":[0,0],"copies":0,"calls":0},"library":{"building":0,"keeping":14,"levels":[0,0,177],"copies":2152,"calls":38}}
+t=75s draws in 5 s: 168809 (__assets up)
+t=80s draws in 5 s: 171718 (__assets up)
+  state: lost false · rafs 3832 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | The master dome ahead is opening its doors… | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,16],"copies":7239,"calls":29},"in":{"building":7,"keeping":5,"levels":[0,0],"copies":0,"calls":0},"library":{"building":0,"keeping":0,"levels":[0,0,177],"copies":2152,"calls":38}}
+t=85s draws in 5 s: 138477 (__assets up)
+CONSOLE warning flora: yam@2:5:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: cassava@2:6:sandbox-5 did not grow: plants/cassava takes no parameters
+CONSOLE warning flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+CONSOLE warning flora: yam@2:7:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: yam@2:6:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: yam@2:4:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: cassava@2:7:sandbox-5 did not grow: plants/cassava takes no parameters
+CONSOLE warning flora: cassava@2:5:sandbox-5 did not grow: plants/cassava takes no parameters
+CONSOLE warning flora: mango@3:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+t=90s draws in 5 s: 291903 (__assets up)
+  state: lost false · rafs 4308 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,14],"copies":7124,"calls":26},"in":{"building":0,"keeping":0,"levels":[0,32],"copies":633,"calls":26},"library":{"building":0,"keeping":0,"levels":[0,0,186],"copies":2161,"calls":120}}
+t=95s draws in 5 s: 302841 (__assets up)
+t=100s draws in 5 s: 305739 (__assets up)
+  state: lost false · rafs 4728 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,14],"copies":7124,"calls":26},"in":{"building":0,"keeping":0,"levels":[0,32],"copies":633,"calls":26},"library":{"building":0,"keeping":0,"levels":[0,0,186],"copies":2161,"calls":120}}
+t=105s draws in 5 s: 318780 (__assets up)
+t=110s draws in 5 s: 304290 (__assets up)
+  state: lost false · rafs 5158 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,14],"copies":7124,"calls":26},"in":{"building":0,"keeping":0,"levels":[0,32],"copies":633,"calls":26},"library":{"building":0,"keeping":0,"levels":[0,0,186],"copies":2161,"calls":120}}
+t=115s draws in 5 s: 297045 (__assets up)
+t=120s draws in 5 s: 320229 (__assets up)
+  state: lost false · rafs 5584 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,14],"copies":7124,"calls":26},"in":{"building":0,"keeping":0,"levels":[0,32],"copies":633,"calls":26},"library":{"building":0,"keeping":0,"levels":[0,0,186],"copies":2161,"calls":120}}
+t=125s draws in 5 s: 297045 (__assets up)
+t=130s draws in 5 s: 289800 (__assets up)
+  state: lost false · rafs 5990 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,14],"copies":7124,"calls":26},"in":{"building":0,"keeping":0,"levels":[0,32],"copies":633,"calls":26},"library":{"building":0,"keeping":0,"levels":[0,0,186],"copies":2161,"calls":120}}
+t=135s draws in 5 s: 301392 (__assets up)
+t=140s draws in 5 s: 324576 (__assets up)
+  state: lost false · rafs 6422 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,14],"copies":7124,"calls":26},"in":{"building":0,"keeping":0,"levels":[0,32],"copies":633,"calls":26},"library":{"building":0,"keeping":0,"levels":[0,0,186],"copies":2161,"calls":120}}
+t=145s draws in 5 s: 318780 (__assets up)
+t=150s draws in 5 s: 326025 (__assets up)
+  state: lost false · rafs 6867 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,14],"copies":7124,"calls":26},"in":{"building":0,"keeping":0,"levels":[0,32],"copies":633,"calls":26},"library":{"building":0,"keeping":0,"levels":[0,0,186],"copies":2161,"calls":120}}
+t=155s draws in 5 s: 315882 (__assets up)
+t=160s draws in 5 s: 328923 (__assets up)
+  state: lost false · rafs 7312 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,14],"copies":7124,"calls":26},"in":{"building":0,"keeping":0,"levels":[0,32],"copies":633,"calls":26},"library":{"building":0,"keeping":0,"levels":[0,0,186],"copies":2161,"calls":120}}
+t=165s draws in 5 s: 295596 (__assets up)
+t=170s draws in 5 s: 340515 (__assets up)
+  state: lost false · rafs 7756 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,14],"copies":7124,"calls":26},"in":{"building":0,"keeping":0,"levels":[0,32],"copies":633,"calls":26},"library":{"building":0,"keeping":0,"levels":[0,0,186],"copies":2161,"calls":120}}
+t=175s draws in 5 s: 269514 (__assets up)
+t=180s draws in 5 s: 285453 (__assets up)
+  state: lost false · rafs 8142 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,14],"copies":7124,"calls":26},"in":{"building":0,"keeping":0,"levels":[0,32],"copies":633,"calls":26},"library":{"building":0,"keeping":0,"levels":[0,0,186],"copies":2161,"calls":120}}
