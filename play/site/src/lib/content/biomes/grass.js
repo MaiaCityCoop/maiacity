@@ -326,6 +326,10 @@ export class GrassMask {
 		this.texture.magFilter = this.texture.minFilter = THREE.LinearFilter;
 		this.texture.generateMipmaps = false;
 		this.texture.needsUpdate = true;
+		/** whether everything round the texel it was last asked about is worked out */
+		this.whole = false;
+		this.g0 = NaN;
+		this.h0 = NaN;
 	}
 	/** how far round the eye it holds (m, the half of its width) */
 	get half() {
@@ -338,6 +342,10 @@ export class GrassMask {
 	update(/** @type {number} */ x, /** @type {number} */ z, budget = this.perFrame) {
 		const N = this.size, s = this.texel;
 		const g0 = Math.floor(x / s) - N / 2, h0 = Math.floor(z / s) - N / 2;
+		// all of it worked out round the same texel: nothing to do
+		if (this.whole && g0 === this.g0 && h0 === this.h0) return true;
+		this.g0 = g0;
+		this.h0 = h0;
 		let done = 0, all = true;
 		// rings out from the eye, so the nearest is worked out first
 		const c = N / 2;
@@ -361,6 +369,7 @@ export class GrassMask {
 			}
 		if (done >= budget) all = false;
 		if (done) this.texture.needsUpdate = true;
+		this.whole = all;
 		return all;
 	}
 	/** whether every texel over a square is worked out, and the most grass over it (0 where none) */
