@@ -58251,7 +58251,7 @@ vec3 skyColour(vec3 dir) {
   }
   function hasNodeMaterial(root) {
     let found = false;
-    root.traverse((o) => {
+    root.traverseVisible((o) => {
       if (found)
         return;
       const m = o.material;

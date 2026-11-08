@@ -109,10 +109,10 @@ function nodes(renderer) {
 	};
 }
 
-/** whether anything under `root` is drawn with a node material @param {THREE.Object3D} root */
+/** whether anything drawn under `root` (visible) has a node material @param {THREE.Object3D} root */
 export function hasNodeMaterial(root) {
 	let found = false;
-	root.traverse((o) => {
+	root.traverseVisible((o) => {
 		if (found) return;
 		const m = /** @type {THREE.Mesh} */ (o).material;
 		if (m) for (const x of Array.isArray(m) ? m : [m]) if (/** @type {any} */ (x).isNodeMaterial) found = true;
@@ -197,15 +197,33 @@ export function adaptiveResolution(renderer, { top = topPixelRatio(), floor = 1,
 /**
  * Compile a model's shaders before it is first drawn, off the page's thread where the browser can
  * (KHR_parallel_shader_compile), so the page never stalls on the first frame; a browser that cannot simply compiles
- * them now. Never throws: a model that fails here is still drawn the usual way.
+ * them now. Never throws: a model that fails here is still drawn the usual way. What is drawn with a node material
+ * (TSL) is left out: three's WebGLNodesHandler builds it only as it is drawn (compiled ahead, a world drew nothing on a
+ * Mac), so it is hidden while three gathers what to compile, and compiled on its first frame.
  * @param {THREE.WebGLRenderer} renderer
  * @param {THREE.Object3D} object
  * @param {THREE.Camera} camera
  * @param {THREE.Scene} [scene]
  */
 export async function precompile(renderer, object, camera, scene) {
+	/** @type {THREE.Object3D[]} */
+	const hidden = [];
+	object.traverseVisible((o) => {
+		const m = /** @type {THREE.Mesh} */ (o).material;
+		if (m && (Array.isArray(m) ? m : [m]).some((x) => /** @type {any} */ (x).isNodeMaterial)) hidden.push(o);
+	});
+	for (const o of hidden) o.visible = false;
+	let done;
 	try {
-		await renderer.compileAsync(object, camera, scene);
+		done = renderer.compileAsync(object, camera, scene);
+	} catch {
+		/* drawn as usual */
+	} finally {
+		// three gathers what it compiles at once, as it is called: the rest is only waiting
+		for (const o of hidden) o.visible = true;
+	}
+	try {
+		await done;
 	} catch {
 		/* drawn as usual */
 	}
