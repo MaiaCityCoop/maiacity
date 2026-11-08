@@ -85,9 +85,6 @@ export function floorGrid(meshes, cell = 0.25) {
 	};
 }
 
-/** a copy put away: drawn nowhere until it is wanted again */
-const AWAY = new THREE.Matrix4().makeScale(0, 0, 0);
-
 /**
  * The page's drawing of what the builds it shows plant, in `scene`: `show(root)` draws the root's plantings (and puts
  * away those of the build shown before), `update()` before every frame, `clear()`, `dispose()`. Every guest is drawn
@@ -99,9 +96,8 @@ const AWAY = new THREE.Matrix4().makeScale(0, 0, 0);
 export function createPlantings(o) {
 	/** @type {ReturnType<typeof createAssets> | null} made the first time a build plants something */
 	let assets = null;
-	/** the copies drawn now, and those put away for the next that wants one, by kind */
+	/** the copies drawn now (those put away are the renderer's, for the next that wants one) */
 	let shown = [];
-	const free = new Map();
 	/** each node of a moving build (one kept running in the box) and its copy: followed every frame */
 	/** @type {{ node: THREE.Object3D, copy: any, kind: any, ref: string, at: Float32Array, away: boolean }[]} */
 	let guests = [];
@@ -119,12 +115,7 @@ export function createPlantings(o) {
 		return assets;
 	};
 	const putAway = () => {
-		for (const c of shown) {
-			assets.move(c, AWAY);
-			let list = free.get(c.kind.key);
-			if (!list) free.set(c.kind.key, (list = []));
-			list.push(c);
-		}
+		for (const c of shown) assets.give(c);
 		shown = [];
 		guests = [];
 	};
@@ -133,7 +124,7 @@ export function createPlantings(o) {
 		for (const g of guests) {
 			const away = !shownIn(g.node);
 			if (away) {
-				if (!g.away) (g.away = true), assets.move(g.copy, AWAY);
+				if (!g.away) (g.away = true), assets.move(g.copy, null);
 				continue;
 			}
 			g.node.updateWorldMatrix(true, false);
@@ -149,19 +140,9 @@ export function createPlantings(o) {
 	/** the renderer as a sandbox's cover asks for it (./sandbox-2/interior/drawn.js): kinds used, copies taken and given */
 	const drawn = {
 		use: (ref, shadows, picture) => renderer().use(ref, { shadows, picture }),
-		take(k, at) {
-			const c = free.get(k.key)?.pop();
-			if (!c) return assets.place(k, at);
-			assets.move(c, at);
-			return c;
-		},
+		take: (k, at) => assets.take(k, at),
 		move: (c, at) => assets.move(c, at),
-		give(c) {
-			assets.move(c, AWAY);
-			let list = free.get(c.kind.key);
-			if (!list) free.set(c.kind.key, (list = []));
-			list.push(c);
-		}
+		give: (c) => assets.give(c)
 	};
 	/** each floor of `root` named for a biome: its surfaces painted, its cover streamed over it */
 	const lay = (root) => {
@@ -253,10 +234,8 @@ export function createPlantings(o) {
 					state.missing++;
 					continue;
 				}
-				const c = free.get(k.key)?.pop();
 				const away = !shownIn(node);
-				if (c) a.move(c, away ? AWAY : matrix);
-				const copy = c ?? a.place(k, away ? AWAY : matrix);
+				const copy = a.take(k, away ? null : matrix);
 				shown.push(copy);
 				guests.push({ node, copy, kind: k, ref, at: new Float32Array(matrix.elements), away });
 				state.planted++;
