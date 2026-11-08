@@ -12,23 +12,24 @@ import { blake3 } from '@noble/hashes/blake3.js';
 export const hashOf = (data) => [...blake3(typeof data === 'string' ? new TextEncoder().encode(data) : data)].map((b) => b.toString(16).padStart(2, '0')).join('');
 
 /**
- * A runner of readable sources: `run(code, name)` gives its module's exports.
+ * A runner of readable sources: `run(code, name, more)` gives its module's exports; `more`, pieces beside the runner's
+ * own by their hash (a baseline, a piece read from play's files), each held to its hash too.
  * @param {{ three: object, addons?: Record<string, object>, piece?: (hash: string) => string | undefined }} o three.js,
  *   three's addons by their `three/addons/…` name, and the source of a piece by its hash (none where it has none)
  */
 export function runner({ three, addons = {}, piece = () => undefined }) {
 	const loaded = new Map();
-	function run(code, name = 'source') {
+	function run(code, name = 'source', more = {}) {
 		const module = { exports: {} };
 		const require = (id) => {
 			if (id === 'three') return three;
 			if (addons[id]) return addons[id];
 			if (/^[0-9a-f]{64}$/.test(id)) {
 				if (!loaded.has(id)) {
-					const src = piece(id);
+					const src = piece(id) ?? more[id];
 					if (src === undefined) throw new Error(`${name}: no piece ${id}`);
 					if (hashOf(src) !== id) throw new Error(`${name}: piece ${id.slice(0, 12)}… is not what its hash names`);
-					loaded.set(id, run(src, id));
+					loaded.set(id, run(src, id, more));
 				}
 				return loaded.get(id);
 			}

@@ -20,7 +20,8 @@ for (const dir of ['pieces', 'assets'])
 		files[`${dir}/${f}`] = hash(code);
 		if (dir === 'pieces') byHash.set(hash(code), code);
 	}
-// the one runner of readable sources outside the browser (play/site/src/lib/content/assets/box/headless.js)
+// the one runner of readable sources outside the browser (play/site/src/lib/content/assets/box/headless.js);
+// run(code, name, more): `more`, pieces beside the mirror's, by hash (a baseline, a piece from play's files)
 const { runner } = await import(new URL('../../play/site/src/lib/content/assets/box/headless.js', import.meta.url).href);
 export const run = runner({ three: THREE, addons, piece: (h) => byHash.get(h) });
 /** a mirrored piece's exports, by its file's name */

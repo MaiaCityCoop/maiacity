@@ -1,4 +1,4 @@
-// The mirror's hashes: each asset made to name the clip pieces as they are now, and proposed.json written, the BLAKE3
+// The mirror's hashes: each asset made to name the pieces as they are now, and proposed.json written, the BLAKE3
 // hash of every file here (what this intent proposes to play), for check.ts to hold the files to.
 //   node tools/motion/pieces.mjs
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
@@ -13,5 +13,5 @@ for (const f of readdirSync(`${HERE}assets`)) {
 	writeFileSync(`${HERE}assets/${f}`, text);
 	now[`assets/${f}`] = hash(text);
 }
-writeFileSync(`${HERE}proposed.json`, JSON.stringify({ intent: 'b9e6ad45-3aa1-40d5-b11a-08101e4db9ea', files: now }, null, 1) + '\n');
+writeFileSync(`${HERE}proposed.json`, JSON.stringify({ intent: process.env.INTENT ?? was.intent, files: now }, null, 1) + '\n');
 for (const [k, h] of Object.entries(now)) console.log(k.padEnd(26), h, (was.files?.[k] ?? '') === h ? '' : '(new)');

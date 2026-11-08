@@ -19,6 +19,13 @@ piece "Person skeleton". It also holds the checks that keep the clips true to th
 - `check.ts` decides the intent's checks on the CPU, with no GPU: `bun tools/motion/check.ts
   directions|twist|head|idle|gait|wave|skin|page`.
 - `box.mjs` runs pieces and assets in Node as play's asset box does.
+- `boxtime.mjs` times a person's build in the box's own frozen engine, run as a Worker in headless Chromium on the CPU
+  (intent 67d5e185): `node tools/motion/boxtime.mjs stand-in|elder-woman|samuel --under 3`. With `--clips` it times
+  the box's clip tables for walk and run with the mirror's Person motion against `baseline/motion-v2.js`, the version
+  before it: `--clips stand-in --at-most 0.6`.
+- Person motion v3 (intent 67d5e185) plays the moves on numbers by bone index: the same sums as three's slerp and
+  Euler, without making objects at every step. Each move costs about a third of what it did. Its poses equal v2's, to
+  1e-8 rad: a clip blended in all the way leaves the turns under it unread.
 
 To make the clips again, put the captures under `$MOCAP` (default `/tmp/claude-0/data`):
 - `accad/`: `Female1_bvh.zip` and `Male2_bvh.zip` from accad.osu.edu/research/motion-lab/mocap-system-and-data,

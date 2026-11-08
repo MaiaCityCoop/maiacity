@@ -73,27 +73,47 @@ export async function playFile(hash) {
  */
 export async function piecesFor(code, named = [], { fileAt = playFile, held = holds } = {}) {
 	const listed = new Set(Array.isArray(named) ? named : []);
-	const got = new Map();
+	/** each piece read once, by hash, held to it: all of a level asked for at once, not one after another */
+	const reads = new Map();
+	const read = (hash) => {
+		if (!reads.has(hash))
+			reads.set(
+				hash,
+				(async () => {
+					const bytes = await fileAt(hash);
+					if (!bytes) throw new Error(`refused: piece ${short(hash)} is not held among play's files`);
+					if (!held(bytes, hash)) throw new Error(`refused: piece ${short(hash)} does not hash to its name`);
+					return new TextDecoder().decode(bytes);
+				})()
+			);
+		return reads.get(hash);
+	};
+	/** every path down from `from` held to the manifest, the depth and no cycle, a level's pieces read together (a
+	 *  piece met again on another path is held to them from there too, read only once) */
 	const walk = async (from, path) => {
-		for (const hash of piecesOf(from)) {
+		const next = piecesOf(from);
+		for (const hash of next) {
 			if (path.includes(hash)) throw new Error(`refused: piece ${short(hash)} requires itself (${[...path, hash].map(short).join(' → ')})`);
 			if (path.length + 1 > MOST_DEEP) throw new Error(`refused: its pieces go more than ${MOST_DEEP} deep (${[...path, hash].map(short).join(' → ')})`);
 			if (!listed.has(hash)) throw new Error(`refused: it requires piece ${short(hash)}, which its manifest doesn't name`);
-			if (got.has(hash)) {
-				// met again on another path: still held to the depth and to no cycle from here
-				await walk(got.get(hash).code, [...path, hash]);
-				continue;
-			}
-			const bytes = await fileAt(hash);
-			if (!bytes) throw new Error(`refused: piece ${short(hash)} is not held among play's files`);
-			if (!held(bytes, hash)) throw new Error(`refused: piece ${short(hash)} does not hash to its name`);
-			const piece = { hash, code: new TextDecoder().decode(bytes), depth: path.length + 1 };
-			got.set(hash, piece);
-			await walk(piece.code, [...path, hash]);
 		}
+		const codes = await Promise.all(next.map(read));
+		await Promise.all(next.map((hash, i) => walk(codes[i], [...path, hash])));
 	};
 	await walk(code, []);
-	return [...got.values()];
+	// in the order they are first met, depth first (as they were read one by one before)
+	const out = [], seen = new Set();
+	const list = async (from, depth) => {
+		for (const hash of piecesOf(from)) {
+			if (seen.has(hash)) continue;
+			seen.add(hash);
+			const piece = { hash, code: await reads.get(hash), depth: depth + 1 };
+			out.push(piece);
+			await list(piece.code, depth + 1);
+		}
+	};
+	await list(code, 0);
+	return out;
 }
 
 /**
