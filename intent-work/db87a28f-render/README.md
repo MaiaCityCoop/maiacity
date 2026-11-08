@@ -27,6 +27,11 @@ The ground's KTX2 files are not on play until the pull request is deployed: the 
 `/api/files/<hash>` from the head's `play/media/` where the file is there, and forwards every other GET or HEAD of
 `/api/…` to play.maia.city with the token (sent to play and nowhere else).
 
+**Determinism:** the render box's `determinism.mjs` (from `intent-work/main-baseline-render`): `SEEDED_RANDOM` as an
+init script on every page, base and head alike, and a view counts as settled only when `QUIET` reads 0 (nothing
+building or being kept, no new far-tree picture in 2 s). Main's own baseline for the same views is under
+`intent-work/main-baseline/out/<commit>/`; this job still measures main itself, one after the other with the head.
+
 ## Run it
 
 ```sh

@@ -19,6 +19,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// the Mac render box's determinism (intent-work/main-baseline): a seeded Math.random, and a settle that waits for the far
+// trees' pictures too
+import { QUIET, SEEDED_RANDOM } from './determinism.mjs';
 
 const { chromium } = createRequire(resolve(process.cwd(), 'package.json'))('playwright');
 const here = dirname(fileURLToPath(import.meta.url));
@@ -75,6 +78,7 @@ async function open(url, vw = W, vh = H) {
 	const errors = [];
 	page.on('pageerror', (e) => errors.push(String(e).slice(0, 300)));
 	page.on('console', (m) => m.type() === 'error' && errors.push(m.text().slice(0, 300)));
+	await page.addInitScript({ content: SEEDED_RANDOM });
 	await page.addInitScript({ content: meterScript });
 	await page.addInitScript({ content: probeScript });
 	await page.goto(url, { waitUntil: 'domcontentloaded' });
@@ -88,7 +92,7 @@ const sample = (page) =>
 	}, SAMPLE);
 async function sandbox1(page) {
 	await page.waitForFunction(() => window.__walker && window.__assets, null, { timeout: 10 * 60e3 });
-	const building = () => page.evaluate(() => { const s = window.__assets?.stats?.(); return s ? ['out', 'in', 'library'].reduce((a, k) => a + (s[k]?.building ?? 0), 0) : null; }).catch(() => null);
+	const building = () => page.evaluate(QUIET).catch(() => null);
 	return async (ms) => { for (const end = Date.now() + ms; Date.now() < end; await page.waitForTimeout(2000)) if ((await building()) === 0) return true; return false; };
 }
 const ms = (x) => (x == null ? '–' : x.toFixed(2));
