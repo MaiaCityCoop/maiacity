@@ -161,4 +161,28 @@ describe('the render kit in TSL', () => {
 		expect(pa).toBeTruthy();
 		expect(pa).not.toBe(pb);
 	});
+
+	test('a draw three cannot upload is left out, the frame goes on', () => {
+		const { gl } = fakeGL();
+		const r = new THREE.WebGLRenderer({ canvas: gl.canvas, context: gl } as any);
+		install(r);
+		const { scene, camera } = lit();
+		const m: any = nodeOf(new THREE.MeshStandardMaterial({ map: new THREE.DataTexture(new Uint8Array(4), 1, 1) }));
+		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), m));
+		const was = (gl as any).uniform1i;
+		let thrown = 0;
+		(gl as any).uniform1i = () => {
+			thrown++;
+			throw new TypeError('a sampler given a colour');
+		};
+		const err = console.error;
+		console.error = () => {};
+		try {
+			expect(() => r.render(scene, camera)).not.toThrow();
+		} finally {
+			console.error = err;
+			(gl as any).uniform1i = was;
+		}
+		expect(thrown).toBeGreaterThan(0);
+	});
 });
