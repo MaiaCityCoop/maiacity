@@ -35,8 +35,9 @@ import {
 const handlers = new WeakMap();
 
 /**
- * Lets a renderer draw node materials (three's WebGLNodesHandler, r184+), as we need it: a node material drawn into a
- * target comes out linear and untoned, as three's own do (the handler would tone-map and encode it for the screen).
+ * Lets a renderer draw node materials (three's WebGLNodesHandler, r184+), as we need it: one of the kit's (`isKit`)
+ * drawn into a target comes out linear and untoned, as three's own do (the handler would tone-map and encode it for
+ * the screen). Every other node material (the sky's, and the environment three bakes from it) as the handler draws it.
  * @param {THREE.WebGLRenderer} r
  */
 export function install(r) {
@@ -45,7 +46,7 @@ export function install(r) {
 	r.setNodesHandler(h);
 	const screen = h.getOutputCallback;
 	const onScreen = () => r.getRenderTarget() === null;
-	h.getOutputCallback = (node) => (onScreen() ? screen(node) : node);
+	h.getOutputCallback = (node) => (onScreen() || !h.nodeFrame.material?.isKit ? screen(node) : node);
 	if (h.renderer) h.renderer.getCacheKey = () => (onScreen() ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
 	handlers.set(r, h);
 	return h;
@@ -141,6 +142,7 @@ const glossy = (Model, gloss) =>
 /** ours on top of a node material: per-mesh instancing, the fade, the cut, the caps and the gloss */
 const ours = (Base) =>
 	class extends Base {
+		isKit = true;
 		/** @type {any} */ fade = null;
 		/** @type {any} */ cut = null;
 		/** @type {any} */ cap = null;
@@ -303,6 +305,7 @@ export function ghostMaterial() {
 	m.colorNode = mix(vec3(0.55, 0.75, 1), vec3(0.16, 0.22, 0.3), paper);
 	m.opacityNode = f.mul(0.5).add(0.05).mul(a).mul(mix(float(1), float(0.7), paper));
 	m.ghost = { a, paper };
+	m.isKit = true;
 	return m;
 }
 
@@ -325,6 +328,7 @@ export function blurMaterial(map) {
 	m.fragmentNode = sum;
 	m.depthTest = false;
 	m.blur = { dir, gain };
+	m.isKit = true;
 	return m;
 }
 
@@ -332,6 +336,7 @@ export function blurMaterial(map) {
 export function poolMaterial(map, color, opacity) {
 	const m = new MeshBasicNodeMaterial({ color, transparent: true, opacity, depthWrite: false, toneMapped: false });
 	m.opacityNode = drawn(map).a.mul(materialOpacity);
+	m.isKit = true;
 	return m;
 }
 

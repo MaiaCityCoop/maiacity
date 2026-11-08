@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as THREE from 'three';
 import { fakeGL } from './fakegl.js';
+import { MeshBasicNodeMaterial } from 'three/webgpu';
 import { SunLight } from 'three/addons/lights/SunLight.js';
 import { aFade, blurMaterial, cardMaterials, castsAsNode, cutBy, cutOf, floorMaterial, ghostMaterial, install, nodeOf, poolMaterial } from './index.js';
 
@@ -189,5 +190,16 @@ describe('the render kit in TSL', () => {
 		}
 		expect(warned.join('\n')).not.toMatch(/Light node not found/);
 		valid(shaders);
+	});
+
+	test('only the kit’s node materials come out linear in a target; the sky’s as three’s handler draws it', () => {
+		const { r, shaders } = renderer();
+		const { scene, camera } = lit();
+		const sky = new MeshBasicNodeMaterial();
+		scene.add(new THREE.Mesh(new THREE.SphereGeometry(), sky));
+		r.setRenderTarget(new THREE.WebGLRenderTarget(16, 16));
+		r.render(scene, camera);
+		const toned = /ToneMapping\(|TransferOETF\(|\bfn\d+\(/;
+		expect(shaders.filter((x) => x.includes('Node System')).map((x) => x.match(/fragColor = .*/)?.[0]).join('\n')).toMatch(toned);
 	});
 });
