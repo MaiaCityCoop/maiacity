@@ -2,13 +2,13 @@
 // once a tile as play's builds, grown on the graphics card by the render kit's TSL, nothing of it moved while you walk.
 import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
 import { coverStream } from './stream.js';
 import { coverGrow } from '../render/nodes/index.js';
 
-const SRC = join(__dirname, '../../..');
+const join = (...p: string[]) => p.join('/');
+const SRC = new URL('../../..', import.meta.url).pathname.replace(/\/$/, '');
 const files = (dir: string): string[] =>
-	readdirSync(dir).flatMap((f) => {
+	readdirSync(dir).flatMap((f: string) => {
 		const p = join(dir, f);
 		return statSync(p).isDirectory() ? files(p) : /\.(js|ts|svelte)$/.test(f) && !/\.test\.ts$/.test(f) ? [p] : [];
 	});
