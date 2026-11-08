@@ -34,6 +34,7 @@ import { furnish, terraceSet } from './rooms'
 import { ambience, levelsAt, nearness } from './ambience'
 import { flow, pond as pondShape, shore, stream as streamShape, waterMaterial } from './water'
 import { createWorldRenderer, type StageHandle } from '$lib/content/render/world.js'
+import { precompile } from '$lib/content/render/core.js'
 import { createSky, type SkyHandle } from '$lib/content/sandbox-kit/sky.js'
 import { skyHour } from '$lib/content/sandbox-kit/skyTime.svelte.js'
 import { createWalker } from '$lib/content/sandbox-kit/walker.js'
@@ -42,7 +43,7 @@ import { connectFilm, filmDraws, filmHoldsSize, worldTime } from '$lib/content/s
 import { createForest, type FloraDrawn, type Forest } from './flora.js'
 import { groundMaterial } from '$lib/content/biomes'
 import { biomeOr } from '$lib/content/assets/sources/biome.js'
-import { createCover, type Cover } from './cover.js'
+import { coverStream, type Cover } from '$lib/content/biomes/stream.js'
 import type { Drawn } from './drawn.js'
 import { FLOORS, standThings, workshopsOf } from './things.js'
 import { swapLegacy } from './legacy.js'
@@ -588,7 +589,7 @@ export type InteriorOptions = {
 	/** Sandbox 5: the food forest inside grown from our plants ($content/plants, ./flora.js), from this garden (./sandbox5.js),
 	 *  drawn by the host's renderer of plants (`flora`, ./drawn.js `createFlora`), and its floor's cover by the host's
 	 *  renderer of the library (`drawn`, ./drawn.js `createDrawn`), both of which the host updates every frame */
-	flora?: { garden: Garden; seed: string; flora: FloraDrawn; drawn: Parameters<typeof createCover>[0]['drawn'] }
+	flora?: { garden: Garden; seed: string; flora: FloraDrawn; drawn: Parameters<typeof coverStream>[0]['drawn'] }
 	/** the host's renderer of the library's Things (./drawn.js `createDrawn`), which the host
 	 *  updates every frame: what of the dome is a Thing of the library (the master dome's workshops, ./things.js) is put
 	 *  down in it. Without one (standing alone) the dome draws them with a renderer of its own. */
@@ -1771,7 +1772,7 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 				return !onStone(rr, a, 0.1) && !nearStream(x, z, width / 2 + 0.3) && !inTrunk(x, z)
 			}
 			// in the dome's own ground, which lies where the dome stands (a hair above the host's ground); hidden until it joins
-			if (warmBiome) floorCover = createCover({ drawn: flora.drawn, recipe: warmBiome, open, tile: 8, reach: 24, near: 9, thin: 0.25, density: 3.8, seed: 707 + kind.length, origin: host ? [host.x, host.z] : [0, 0], at: host ? [host.x, 0.03, host.z] : [0, 0, 0], hidden: !!host })
+			if (warmBiome) floorCover = coverStream({ drawn: flora.drawn, recipe: warmBiome, open, tile: 8, reach: 24, near: 9, thin: 0.25, density: 3.8, seed: 707 + kind.length, origin: host ? [host.x, host.z] : [0, 0], at: host ? [host.x, 0.03, host.z] : [0, 0, 0], hidden: !!host })
 			drop.push(() => floorCover?.dispose())
 		}
 		await pause('Planting the forest inside')
@@ -2512,7 +2513,8 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 		const log = (window as unknown as { __buildLog?: string[] }).__buildLog
 		let tt = performance.now()
 		scene.updateMatrixWorld(true)
-		await renderer.compileAsync(scene, camera, host.scene)
+		// through the render kit's warm-up: node materials (the cover's, the renderer's) are compiled by its handler
+		await precompile(renderer, scene, camera, host.scene)
 		log?.push(`compile ${Math.round(performance.now() - tt)}ms`)
 		tt = performance.now()
 		const textures = new Set<THREE.Texture>()

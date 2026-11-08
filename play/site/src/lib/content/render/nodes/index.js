@@ -9,6 +9,8 @@
  * - CAPS: a solid cut open shows its cut face: the back faces seen through the opening drawn flat on the plane, in the
  *   cap's colour with a faint hatch (AirSup's section caps, ../../assets/kit.js).
  * - GLOSS: the lights' own highlights scaled (the asset stage's 0.7).
+ * - GROW: a biome's cover (../../biomes/stream.js) grown up out of the ground or sunk back into it by its rank and its
+ *   distance from the eye (`aCover`, `aReach` per copy; `coverEye`), so it thins out with distance and has no edge.
  * - the far pictures' card, the x-ray ghost, the contact shadow's blur and the stage floor's fade into the horizon.
  *
  * Drawn on WebGLRenderer through three's WebGLNodesHandler (`install`), with what it lacks in r186 made good here:
@@ -82,6 +84,42 @@ const always = (name, type) => nodeObject(new Always(name, type));
 
 /** a copy's fade (../../assets/render/index.js keeps it per instance) */
 export const aFade = always('aFade', 'float');
+
+/** a copy of a biome's cover: its rank + 1 (0 for a copy that is none) and its foot, x, y, z in the world */
+export const aCover = always('aCover', 'vec4');
+/** its stream's near, reach and thin (../../biomes/stream.js `coverStream`) */
+export const aReach = always('aReach', 'vec3');
+/** where the eye is that the cover grows round (the renderer sets it every frame: ../../assets/render/index.js) */
+export const coverEye = uniform(new THREE.Vector3(1e9, 0, 1e9));
+/**
+ * Where the cover is left out besides (the asset viewer's earth seen from below, ../../assets/ground.js): while `on`,
+ * every copy whose foot lies, along `f` from `c`, outside the band from -b to -b - band.
+ */
+export const coverAway = { on: uniform(0), c: uniform(new THREE.Vector2()), f: uniform(new THREE.Vector2(0, 1)), b: uniform(0), band: uniform(0) };
+
+/**
+ * How far a copy of the cover is grown (0…1) at distance d from the eye, by its rank: all of it stands within `near`,
+ * fewer and fewer further off down to `thin` of it at `reach`, each rising out of the ground over 0.08 of rank, and
+ * nothing in the last 4 m. The same sum as `grown`'s on the graphics card, for the renderer to leave out on the
+ * processor what does not grow and to size the rest by it.
+ */
+export function coverGrow(d, rank, near, reach, thin) {
+	const keep = 1 - (1 - thin) * Math.min(1, Math.max(0, (d - near) / Math.max(1e-3, reach - near)));
+	const t = Math.min(1, Math.max(0, (d - reach + 4) / 4));
+	return Math.min(1, Math.max(0, (keep - rank) / 0.08)) * (1 - t * t * (3 - 2 * t));
+}
+
+/** a point of a copy as the cover grows it (`coverGrow`, here per vertex): scaled to its foot, or left as it is */
+function grown(p) {
+	const rank = aCover.x.sub(1), foot = aCover.yzw;
+	const near = aReach.x, reach = aReach.y, thin = aReach.z;
+	const d = length(foot.xz.sub(coverEye.xz));
+	const keep = float(1).sub(float(1).sub(thin).mul(clamp(d.sub(near).div(max(reach.sub(near), 1e-3)), 0, 1)));
+	const along = dot(foot.xz.sub(coverAway.c), coverAway.f);
+	const away = coverAway.on.greaterThan(0.5).and(along.greaterThan(coverAway.b.negate()).or(along.lessThan(coverAway.b.negate().sub(coverAway.band))));
+	const grow = select(away, float(0), clamp(keep.sub(rank).div(0.08), 0, 1).mul(float(1).sub(smoothstep(reach.sub(4), reach, d))));
+	return select(aCover.x.greaterThan(0), foot.add(p.sub(foot).mul(grow)), p);
+}
 
 /** the dither every drawing of ours fades in by: the same everywhere on the screen, so two levels never fight */
 export const dither = fract(sin(dot(floor(screenCoordinate.xy), vec2(12.9898, 78.233))).mul(43758.5453));
@@ -157,7 +195,7 @@ const ours = (Base) =>
 			}
 			const m = always('instanceMatrix', 'mat4');
 			const c0 = m.element(0).xyz, c1 = m.element(1).xyz, c2 = m.element(2).xyz;
-			positionLocal.assign(m.mul(vec4(positionLocal, 1)).xyz);
+			positionLocal.assign(grown(m.mul(vec4(positionLocal, 1)).xyz));
 			normalLocal.assign(mat3(c0, c1, c2).mul(normalLocal.div(vec3(dot(c0, c0), dot(c1, c1), dot(c2, c2)))));
 			if (o.instanceColor) instanceColor.assign(always('instanceColor', 'vec3'));
 			return positionLocal;
