@@ -27,7 +27,7 @@ const SETS = [
 	['litter', 'polyhaven', 'forest_leaves_02'],
 	['humus', 'polyhaven', 'brown_mud_leaves_01'],
 	['needles', 'polyhaven', 'forrest_ground_03'],
-	['moss', 'ambientcg', 'Moss002'],
+	['moss', 'ambientcg', 'Moss001'],
 	['green', 'polyhaven', 'leafy_grass'],
 	['soil', 'polyhaven', 'brown_mud_03'],
 	['tilled', 'polyhaven', 'farm_soil'],
@@ -105,8 +105,15 @@ async function ktx2(png, px, kind) {
 }
 
 mkdirSync(MEDIA, { recursive: true });
+// a set already made from the same scan is kept as it is (its files by their hashes)
+const made = existsSync(OUT) ? (await import(OUT)).SETS : [];
 const sets = [];
 for (const [surface, where, id] of SETS) {
+	const had = made.find((m) => m.surface === surface && m.id === id);
+	if (had && Object.values(had.maps).every((m) => Object.values(m).every((f) => existsSync(join(MEDIA, f))))) {
+		sets.push({ ...had, maps: Object.fromEntries(Object.entries(had.maps).map(([k, m]) => [k, Object.fromEntries(Object.entries(m).map(([px, f]) => [px, { hash: f.replace(/\.ktx2$/, '') }]))])) });
+		continue;
+	}
 	const s = await source(where, id);
 	// the colour with its height in alpha, the height stretched to fill 0…1 (each scan's own range)
 	const col = await sharp(s.colour).resize(2048, 2048).removeAlpha().raw().toBuffer();
