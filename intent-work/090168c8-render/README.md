@@ -47,5 +47,6 @@ bash intent-work/090168c8-render/run.sh
 - No ring, pop or edge where the blades thin out and end, while walking.
 - The grass's GPU ms at most 3.5.
 
-The wind is the grass's own until intent 6 (6fd5e63f) lands; the ground's colour field is shared with intent 4's
-(db87a28f) ground material.
+The branch is stacked on intents 4 (db87a28f, the ground), 5 (11ead007, the cover stream) and 6 (6fd5e63f, one wind):
+the grass stands on the ground's relief, brightens and darkens with it over 5, 20 and 80 m, and sways in the same
+wind as every plant, on the world's clock (pinned here, so the gusts repeat).
