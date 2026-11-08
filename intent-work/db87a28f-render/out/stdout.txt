@@ -1,17 +1,47 @@
 GPU: ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version) · GPU timer offered
-base sandbox-1 settled
-  base near noon: frame 25.60 (p95 33.40) · cpu 16.50 · gpu 17.00 · 1785 calls · 3,271,783 tris · bound gpu · textures 252 MiB
+  base near noon: frame 29.60 (p95 33.40) · cpu 15.40 · gpu 16.90 · 1785 calls · 3,283,783 tris · bound gpu · textures 188 MiB
+    cpu by function (self ms over 3 s):
+      588 (program) :0
+      94 projectObject node_modules/.vite/deps/three.js?v=7aa64ab9:9920
+      93 WebGLRenderer.renderBufferDirect node_modules/.vite/deps/three.js?v=7aa64ab9:9625
+      90 place src/lib/content/render/core.js:324
+      90 renderObjects node_modules/.vite/deps/three.js?v=7aa64ab9:10041
+      78 multiplyMatrices node_modules/.vite/deps/three.core-B54fO3sy.js?v=7aa64ab9:8284
+      73 getParameters node_modules/.vite/deps/three.js?v=7aa64ab9:3921
+      66 getProgram node_modules/.vite/deps/three.js?v=7aa64ab9:10073
+      64 hasValueChanged node_modules/.vite/deps/three.js?v=7aa64ab9:8222
+      61 bindVertexArray :0
+      58 setProgram node_modules/.vite/deps/three.js?v=7aa64ab9:10180
+      53 upload node_modules/.vite/deps/three.js?v=7aa64ab9:3277
+      43 setValueM4 node_modules/.vite/deps/three.js?v=7aa64ab9:2855
+      39 flatten node_modules/.vite/deps/three.js?v=7aa64ab9:2734
+      36 end src/lib/content/assets/render/crowd.js:309
   base near sun10: base-sandbox-1-near-sun10.png
-  base mid noon: frame 16.70 (p95 16.80) · cpu 9.80 · gpu 0.50 · 1755 calls · 5,168,455 tris · bound vsync · textures 253 MiB
+  base mid noon: frame 34.50 (p95 50.00) · cpu 16.60 · gpu 26.90 · 1752 calls · 5,112,563 tris · bound gpu · textures 189 MiB
   base mid sun10: base-sandbox-1-mid-sun10.png
   base errors:
     Failed to load resource: the server responded with a status of 401 (Unauthorized)
-head sandbox-1 settled
-  head near noon: frame 31.40 (p95 49.90) · cpu 26.80 · gpu 19.60 · 1785 calls · 3,394,546 tris · bound cpu · textures 279 MiB
+  head near noon: frame 33.10 (p95 33.40) · cpu 16.20 · gpu 20.00 · 1785 calls · 3,406,546 tris · bound gpu · textures 247 MiB
+    cpu by function (self ms over 3 s):
+      705 (program) :0
+      96 renderObjects node_modules/.vite/deps/three.js?v=f5a543fb:10041
+      90 place src/lib/content/render/core.js:326
+      85 WebGLRenderer.renderBufferDirect node_modules/.vite/deps/three.js?v=f5a543fb:9625
+      84 multiplyMatrices node_modules/.vite/deps/three.core-B54fO3sy.js?v=f5a543fb:8284
+      82 getParameters node_modules/.vite/deps/three.js?v=f5a543fb:3921
+      61 setProgram node_modules/.vite/deps/three.js?v=f5a543fb:10180
+      60 projectObject node_modules/.vite/deps/three.js?v=f5a543fb:9920
+      59 hasValueChanged node_modules/.vite/deps/three.js?v=f5a543fb:8222
+      56 getProgram node_modules/.vite/deps/three.js?v=f5a543fb:10073
+      52 upload node_modules/.vite/deps/three.js?v=f5a543fb:3277
+      50 bindVertexArray :0
+      44 setValueM4 node_modules/.vite/deps/three.js?v=f5a543fb:2855
+      36 flatten node_modules/.vite/deps/three.js?v=f5a543fb:2734
+      33 end src/lib/content/assets/render/crowd.js:309
   head near sun10: head-sandbox-1-near-sun10.png
-  head mid noon: frame 16.70 (p95 16.70) · cpu 12.20 · gpu 0.30 · 1755 calls · 5,291,689 tris · bound vsync · textures 280 MiB
+  head mid noon: frame 37.20 (p95 50.00) · cpu 18.60 · gpu 29.10 · 1751 calls · 5,233,731 tris · bound gpu · textures 248 MiB
   head mid sun10: head-sandbox-1-mid-sun10.png
-  head small near: frame 17.00 (p95 16.80) · cpu 10.40 · gpu 8.40 · 1187 calls · 2,903,139 tris · bound vsync · textures 108 MiB
+  head small near: frame 17.10 (p95 16.80) · cpu 12.90 · gpu 8.20 · 1204 calls · 2,925,061 tris · bound vsync · textures 108 MiB
   head errors:
     Failed to load resource: the server responded with a status of 401 (Unauthorized)
-near at noon: head 31.40 ms vs base 25.60 ms (+5.80; at most +1.5) · textures head 279 MiB (at most 330), base 252 MiB
+near at noon: head 33.10 ms vs base 29.60 ms (+3.50; at most +1.5) · textures head 247 MiB (at most 330), base 188 MiB

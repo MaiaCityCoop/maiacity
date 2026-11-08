@@ -1,45 +1,272 @@
 {
  "intent": "db87a28f-2d3a-41d9-8a2b-40314fdb2d40",
  "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
- "at": "2026-11-08T14:58:07.594Z",
+ "at": "2026-11-08T19:21:40.661Z",
  "commits": {
-  "base": "f93ccba7a4bec2544ab92c859770bde5d96c121d",
-  "head": "bebff0fc4e1023e8ab1ab7b2553d1b2d75f58610"
+  "base": "3a60bb3b19003d772ad53b16b648d6aba23a3d8b",
+  "head": "a0e6aecac99672747955f8cb3f98ad83946aebab"
  },
  "sites": {
   "base": {
    "views": {
     "near-noon": {
-     "settled": true,
-     "frame_ms": 25.6,
+     "settled": false,
+     "at": [
+      null,
+      null,
+      12
+     ],
+     "frame_ms": 29.6,
      "frame_p95": 33.4,
-     "cpu_ms": 16.5,
-     "gpu_ms": 17,
+     "cpu_ms": 15.4,
+     "gpu_ms": 16.9,
      "calls": 1785,
-     "tris": 3271783,
+     "tris": 3283783,
      "bound": "gpu",
-     "texture_mib": 252,
-     "png": "base-sandbox-1-near-noon.png"
+     "texture_mib": 188,
+     "png": "base-sandbox-1-near-noon.png",
+     "profile": {
+      "top": [
+       {
+        "name": "(program)",
+        "where": ":0",
+        "self": 587.7150000000001
+       },
+       {
+        "name": "projectObject",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:9920",
+        "self": 94.23300000000006
+       },
+       {
+        "name": "WebGLRenderer.renderBufferDirect",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:9625",
+        "self": 92.52700000000004
+       },
+       {
+        "name": "place",
+        "where": "src/lib/content/render/core.js:324",
+        "self": 89.68000000000004
+       },
+       {
+        "name": "renderObjects",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:10041",
+        "self": 89.67100000000008
+       },
+       {
+        "name": "multiplyMatrices",
+        "where": "node_modules/.vite/deps/three.core-B54fO3sy.js?v=7aa64ab9:8284",
+        "self": 78.36800000000004
+       },
+       {
+        "name": "getParameters",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:3921",
+        "self": 73.02200000000003
+       },
+       {
+        "name": "getProgram",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:10073",
+        "self": 65.53100000000008
+       },
+       {
+        "name": "hasValueChanged",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:8222",
+        "self": 64.24400000000001
+       },
+       {
+        "name": "bindVertexArray",
+        "where": ":0",
+        "self": 61.24600000000003
+       },
+       {
+        "name": "setProgram",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:10180",
+        "self": 57.94100000000004
+       },
+       {
+        "name": "upload",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:3277",
+        "self": 52.50800000000002
+       },
+       {
+        "name": "setValueM4",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:2855",
+        "self": 43.39200000000002
+       },
+       {
+        "name": "flatten",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:2734",
+        "self": 38.954000000000015
+       },
+       {
+        "name": "end",
+        "where": "src/lib/content/assets/render/crowd.js:309",
+        "self": 36.214
+       },
+       {
+        "name": "arraysEqual",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:2752",
+        "self": 29.516000000000002
+       },
+       {
+        "name": "getNormalMatrix",
+        "where": "node_modules/.vite/deps/three.core-B54fO3sy.js?v=7aa64ab9:5245",
+        "self": 28.891
+       },
+       {
+        "name": "bindVertexArrayObject",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:914",
+        "self": 27.877000000000006
+       },
+       {
+        "name": "hasUniformChanged",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:8210",
+        "self": 26.240000000000013
+       },
+       {
+        "name": "WebGLNodesHandler.onBeforeRenderCallback",
+        "where": "node_modules/.vite/deps/three_addons_tsl_WebGLNodesHandler__js.js?v=7aa64ab9:156",
+        "self": 22.72900000000001
+       },
+       {
+        "name": "updateBufferData",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:8164",
+        "self": 22.411000000000012
+       },
+       {
+        "name": "sort",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:4428",
+        "self": 22.20000000000001
+       },
+       {
+        "name": "(anonymous)",
+        "where": "node_modules/.vite/deps/three_tsl.js?v=7aa64ab9:3230",
+        "self": 21.109000000000012
+       },
+       {
+        "name": "intersectsObject",
+        "where": "node_modules/.vite/deps/three.core-B54fO3sy.js?v=7aa64ab9:18907",
+        "self": 16.788000000000004
+       },
+       {
+        "name": "setValue",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:3220",
+        "self": 14.438
+       },
+       {
+        "name": "update",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:2433",
+        "self": 14.112000000000002
+       },
+       {
+        "name": "setup",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:895",
+        "self": 13.619000000000003
+       },
+       {
+        "name": "renderScene",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:9966",
+        "self": 13.397
+       },
+       {
+        "name": "copyArray",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:2757",
+        "self": 12.916999999999998
+       },
+       {
+        "name": "uniformMatrix4fv",
+        "where": ":0",
+        "self": 11.634
+       },
+       {
+        "name": "equals",
+        "where": "node_modules/.vite/deps/three.core-B54fO3sy.js?v=7aa64ab9:8771",
+        "self": 10.888000000000003
+       },
+       {
+        "name": "refreshMaterialUniforms",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:7871",
+        "self": 10.489
+       },
+       {
+        "name": "painterSortStable",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:4354",
+        "self": 10.294
+       },
+       {
+        "name": "(anonymous)",
+        "where": "node_modules/.vite/deps/three_tsl.js?v=7aa64ab9:12568",
+        "self": 10.029
+       },
+       {
+        "name": "refreshUniformsCommon",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:7906",
+        "self": 8.694999999999999
+       },
+       {
+        "name": "(garbage collector)",
+        "where": ":0",
+        "self": 8.411
+       },
+       {
+        "name": "setValueM3",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:2841",
+        "self": 8.059000000000001
+       },
+       {
+        "name": "setValueV3f",
+        "where": "node_modules/.vite/deps/three.js?v=7aa64ab9:2789",
+        "self": 7.954000000000001
+       },
+       {
+        "name": "proto.<computed>",
+        "where": ":117",
+        "self": 7.674
+       },
+       {
+        "name": "bindBuffer",
+        "where": ":0",
+        "self": 7.538
+       }
+      ]
+     }
     },
     "near-sun10": {
      "settled": true,
-     "png": "base-sandbox-1-near-sun10.png"
+     "at": [
+      null,
+      null,
+      5.7
+     ],
+     "png": "base-sandbox-1-near-sun10.png",
+     "profile": null
     },
     "mid-noon": {
      "settled": true,
-     "frame_ms": 16.7,
-     "frame_p95": 16.8,
-     "cpu_ms": 9.8,
-     "gpu_ms": 0.5,
-     "calls": 1755,
-     "tris": 5168455,
-     "bound": "vsync",
-     "texture_mib": 253,
-     "png": "base-sandbox-1-mid-noon.png"
+     "at": [
+      null,
+      null,
+      12
+     ],
+     "frame_ms": 34.5,
+     "frame_p95": 50,
+     "cpu_ms": 16.6,
+     "gpu_ms": 26.9,
+     "calls": 1752,
+     "tris": 5112563,
+     "bound": "gpu",
+     "texture_mib": 189,
+     "png": "base-sandbox-1-mid-noon.png",
+     "profile": null
     },
     "mid-sun10": {
      "settled": true,
-     "png": "base-sandbox-1-mid-sun10.png"
+     "at": [
+      null,
+      null,
+      5.7
+     ],
+     "png": "base-sandbox-1-mid-sun10.png",
+     "profile": null
     }
    },
    "biomes": {
@@ -55,42 +282,272 @@
    "errors": [
     "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
     "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
     "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
    ]
   },
   "head": {
    "views": {
     "near-noon": {
-     "settled": true,
-     "frame_ms": 31.4,
-     "frame_p95": 49.9,
-     "cpu_ms": 26.8,
-     "gpu_ms": 19.6,
+     "settled": false,
+     "at": [
+      null,
+      null,
+      12
+     ],
+     "frame_ms": 33.1,
+     "frame_p95": 33.4,
+     "cpu_ms": 16.2,
+     "gpu_ms": 20,
      "calls": 1785,
-     "tris": 3394546,
-     "bound": "cpu",
-     "texture_mib": 279,
-     "png": "head-sandbox-1-near-noon.png"
+     "tris": 3406546,
+     "bound": "gpu",
+     "texture_mib": 247,
+     "png": "head-sandbox-1-near-noon.png",
+     "profile": {
+      "top": [
+       {
+        "name": "(program)",
+        "where": ":0",
+        "self": 704.8699999999994
+       },
+       {
+        "name": "renderObjects",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:10041",
+        "self": 96.0320000000001
+       },
+       {
+        "name": "place",
+        "where": "src/lib/content/render/core.js:326",
+        "self": 89.63300000000007
+       },
+       {
+        "name": "WebGLRenderer.renderBufferDirect",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:9625",
+        "self": 84.86400000000006
+       },
+       {
+        "name": "multiplyMatrices",
+        "where": "node_modules/.vite/deps/three.core-B54fO3sy.js?v=f5a543fb:8284",
+        "self": 83.80100000000004
+       },
+       {
+        "name": "getParameters",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:3921",
+        "self": 81.60000000000011
+       },
+       {
+        "name": "setProgram",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:10180",
+        "self": 60.52600000000005
+       },
+       {
+        "name": "projectObject",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:9920",
+        "self": 59.67400000000001
+       },
+       {
+        "name": "hasValueChanged",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:8222",
+        "self": 58.55700000000008
+       },
+       {
+        "name": "getProgram",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:10073",
+        "self": 55.72700000000005
+       },
+       {
+        "name": "upload",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:3277",
+        "self": 51.744000000000014
+       },
+       {
+        "name": "bindVertexArray",
+        "where": ":0",
+        "self": 49.59800000000004
+       },
+       {
+        "name": "setValueM4",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:2855",
+        "self": 43.903000000000034
+       },
+       {
+        "name": "flatten",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:2734",
+        "self": 36.38200000000002
+       },
+       {
+        "name": "end",
+        "where": "src/lib/content/assets/render/crowd.js:309",
+        "self": 32.86
+       },
+       {
+        "name": "update",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:2433",
+        "self": 32.06700000000002
+       },
+       {
+        "name": "hasUniformChanged",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:8210",
+        "self": 31.109999999999996
+       },
+       {
+        "name": "arraysEqual",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:2752",
+        "self": 30.027
+       },
+       {
+        "name": "bindVertexArrayObject",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:914",
+        "self": 24.98700000000001
+       },
+       {
+        "name": "WebGLNodesHandler.onBeforeRenderCallback",
+        "where": "node_modules/.vite/deps/three_addons_tsl_WebGLNodesHandler__js.js?v=f5a543fb:156",
+        "self": 24.925000000000004
+       },
+       {
+        "name": "(anonymous)",
+        "where": "node_modules/.vite/deps/three_tsl.js?v=f5a543fb:3230",
+        "self": 23.947
+       },
+       {
+        "name": "updateBufferData",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:8164",
+        "self": 23.367000000000008
+       },
+       {
+        "name": "sort",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:4428",
+        "self": 23.05800000000001
+       },
+       {
+        "name": "getNormalMatrix",
+        "where": "node_modules/.vite/deps/three.core-B54fO3sy.js?v=f5a543fb:5245",
+        "self": 19.96000000000001
+       },
+       {
+        "name": "renderScene",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:9966",
+        "self": 15.265
+       },
+       {
+        "name": "setValue",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:3220",
+        "self": 13.695
+       },
+       {
+        "name": "applyMatrix4",
+        "where": "node_modules/.vite/deps/three.core-B54fO3sy.js?v=f5a543fb:13716",
+        "self": 13.649999999999999
+       },
+       {
+        "name": "setup",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:895",
+        "self": 13.386000000000005
+       },
+       {
+        "name": "copyArray",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:2757",
+        "self": 13.156999999999998
+       },
+       {
+        "name": "uniformMatrix4fv",
+        "where": ":0",
+        "self": 10.916
+       },
+       {
+        "name": "refreshMaterialUniforms",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:7871",
+        "self": 10.806000000000003
+       },
+       {
+        "name": "equals",
+        "where": "node_modules/.vite/deps/three.core-B54fO3sy.js?v=f5a543fb:8771",
+        "self": 10.49
+       },
+       {
+        "name": "setValueM3",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:2841",
+        "self": 10.148000000000003
+       },
+       {
+        "name": "bindBuffer",
+        "where": ":0",
+        "self": 10.130000000000003
+       },
+       {
+        "name": "(anonymous)",
+        "where": "node_modules/.vite/deps/three_tsl.js?v=f5a543fb:12568",
+        "self": 9.848000000000003
+       },
+       {
+        "name": "bufferSubData",
+        "where": ":0",
+        "self": 9.82
+       },
+       {
+        "name": "intersectsObject",
+        "where": "node_modules/.vite/deps/three.core-B54fO3sy.js?v=f5a543fb:18907",
+        "self": 9.768
+       },
+       {
+        "name": "setValue",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:3269",
+        "self": 9.026
+       },
+       {
+        "name": "update",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:106",
+        "self": 8.901
+       },
+       {
+        "name": "setValueV3f",
+        "where": "node_modules/.vite/deps/three.js?v=f5a543fb:2789",
+        "self": 8.712
+       }
+      ]
+     }
     },
     "near-sun10": {
-     "settled": true,
-     "png": "head-sandbox-1-near-sun10.png"
+     "settled": false,
+     "at": [
+      null,
+      null,
+      5.7
+     ],
+     "png": "head-sandbox-1-near-sun10.png",
+     "profile": null
     },
     "mid-noon": {
      "settled": true,
-     "frame_ms": 16.7,
-     "frame_p95": 16.7,
-     "cpu_ms": 12.2,
-     "gpu_ms": 0.3,
-     "calls": 1755,
-     "tris": 5291689,
-     "bound": "vsync",
-     "texture_mib": 280,
-     "png": "head-sandbox-1-mid-noon.png"
+     "at": [
+      null,
+      null,
+      12
+     ],
+     "frame_ms": 37.2,
+     "frame_p95": 50,
+     "cpu_ms": 18.6,
+     "gpu_ms": 29.1,
+     "calls": 1751,
+     "tris": 5233731,
+     "bound": "gpu",
+     "texture_mib": 248,
+     "png": "head-sandbox-1-mid-noon.png",
+     "profile": null
     },
     "mid-sun10": {
      "settled": true,
-     "png": "head-sandbox-1-mid-sun10.png"
+     "at": [
+      null,
+      null,
+      5.7
+     ],
+     "png": "head-sandbox-1-mid-sun10.png",
+     "profile": null
     }
    },
    "biomes": {
@@ -108,15 +565,17 @@
     "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
     "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
     "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
     "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
    ],
    "small": {
-    "frame_ms": 17,
+    "frame_ms": 17.1,
     "frame_p95": 16.8,
-    "cpu_ms": 10.4,
-    "gpu_ms": 8.4,
-    "calls": 1187,
-    "tris": 2903139,
+    "cpu_ms": 12.9,
+    "gpu_ms": 8.2,
+    "calls": 1204,
+    "tris": 2925061,
     "bound": "vsync",
     "texture_mib": 108,
     "png": "head-sandbox-1-near-small.png"
