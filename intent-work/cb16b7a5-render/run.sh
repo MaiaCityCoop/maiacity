@@ -25,7 +25,7 @@ tree "$HEAD_TREE" "$HEAD"
 echo "base $BASE head $HEAD" | tee "$OUT/commits.txt"
 
 start() { # start <tree> <port> <log>
-  (cd "$1/play/site" && PLAY_API=http://localhost:3911 bunx vite dev --port "$2" --strictPort >"$3" 2>&1) &
+  (cd "$1/play/site" && PLAY_API=http://localhost:3911 bunx vite dev --port "$2" --strictPort >"$3" 2>&1) </dev/null >/dev/null 2>&1 &
   echo $!
 }
 VB=$(start "$BASE_TREE" 5181 "$OUT/vite-base.log")
