@@ -1,7 +1,7 @@
 /*
  * THE BIOMES — the floor a world stands on, as recipes: which surfaces the ground is made of and how much of each
  * (./surfaces.js: leaf litter, humus, needles, moss, the living mat, bare soil), and what grows and lies on it, kind by
- * kind (./cover.js), each kind in colonies of its own size — wood anemones and woodruff carpet whole patches several
+ * kind (each built by play: the Biome cover asset, drawn by ./stream.js), each kind in colonies of its own size — wood anemones and woodruff carpet whole patches several
  * metres across, ferns stand in groups, deadwood and stones lie here and there — and on the surface it belongs on
  * (moss on the litter's edges, clover in the green). Any two biomes mix (`mix`): a forest edge is half the beech
  * wood and half the meadow; a world can run one into the other over a few metres.
@@ -17,17 +17,18 @@
  * domes the warm food forest's (interior.ts).
  */
 import * as THREE from 'three';
-import { COVER } from './cover.js';
 import { SURFACES, inTrack, surfacesAt } from './surfaces.js';
 import { fbm2, rng } from './noise.js';
 import { MASKS, canopyOf, maskAt, reliefAt, tintAt, trunksNear } from './masks.js';
 import { versioned } from '$lib/site/app/versions.js';
 
-export { COVER } from './cover.js';
 export { SURFACE, SURFACES, groundMaterial, inTrack, rowsOf, surfacesAt } from './surfaces.js';
 export { MASKS } from './masks.js';
 
-/** @typedef {import('./cover.js').Cover} Cover */
+/**
+ * @typedef {'grass' | 'tallgrass' | 'sedge' | 'moss' | 'daisy' | 'buttercup' | 'clover' | 'forgetmenot' | 'anemone' | 'cranesbill' | 'woodruff' | 'woodsorrel' | 'ramsons' | 'strawberry' | 'blueberry' | 'fern' | 'litter' | 'deadwood' | 'stones' | 'mushrooms'} Cover
+ *   a kind of cover, by its name: each is built by play (the Biome cover asset, its kind), named on the biome's card by its build
+ */
 /** @typedef {import('./surfaces.js').Surface} Surface */
 /** @typedef {import('./masks.js').Trunk} Trunk */
 /**
@@ -257,9 +258,6 @@ export function colonyAt(recipe, i, x, z) {
  */
 export const coverSeed = (i, kind) => 7100 + i * 13 + kind.length * 31;
 
-/** Every kind of a biome's cover, built once (in its order). @param {Recipe} recipe */
-export const coverOf = (recipe) => recipe.cover.map((c, i) => COVER[c.kind].build(coverSeed(i, c.kind)));
-
 /**
  * @typedef {{ m: Float32Array, rank: Float32Array, tint?: Float32Array }[]} TileKinds each kind's plants in a tile, by
  *   rank, least first: their matrices, their ranks and (a biome with masks) their colours, three a plant
@@ -273,7 +271,8 @@ export const coverOf = (recipe) => recipe.cover.map((c, i) => COVER[c.kind].buil
  *   metres clear of the paths, buildings and water, where a kind keeps clear of them)
  * @property {[number, number]} [origin] where this ground's 0, 0 lies in the world (its colonies' noise)
  * @property {Set<number>} [hidden] the kinds left out
- * @property {number} [rows] the way the floor's rows run (radians from +x towards +z; ./surfaces.js `rowsOf`)
+ * @property {number} [sown] the way a field's lines run, for the kinds sown in rows (radians from +x towards +z;
+ *   ./surfaces.js `rowsOf`)
  * @property {Trunk[]} [trunks] the trees standing on it, for the canopy's masks (none: the canopy is not known)
  * @property {(x: number, z: number) => number} [heightAt] its relief, for the wet and slope masks
  */
@@ -325,7 +324,7 @@ function layScattered(recipe, ix, iz, o) {
 	recipe.cover.forEach((c, k) => {
 		if (!c.rows || hidden.has(k)) return;
 		const rr = rng((ix * 2654435761) ^ (iz * 40503) ^ (seed * 83492791) ^ ((k + 1) * 97531));
-		const a = o.rows ?? 0, dx = Math.cos(a), dz = Math.sin(a);
+		const a = o.sown ?? 0, dx = Math.cos(a), dz = Math.sin(a);
 		const { spacing, along } = c.rows, jitter = c.rows.jitter ?? 0;
 		const xs = [x0 + ox, x0 + tile + ox], zs = [z0 + oz, z0 + tile + oz];
 		let c0 = Infinity, c1 = -Infinity, s0 = Infinity, s1 = -Infinity;
@@ -373,7 +372,7 @@ function layMasked(recipe, ix, iz, o) {
 	const masks = { ...MASKS, ...recipe.masks };
 	const s0 = 1 / Math.sqrt(o.density ?? recipe.density);
 	const x0 = ix * tile, z0 = iz * tile, x1 = x0 + tile, z1 = z0 + tile;
-	const a = o.rows ?? 0, rdx = Math.cos(a), rdz = Math.sin(a);
+	const a = o.sown ?? 0, rdx = Math.cos(a), rdz = Math.sin(a);
 	/** @typedef {{ f: number, key: number, kinds: number[], rows?: { spacing: number, along: number, jitter: number } }} Layer */
 	/** @type {Map<string, Layer>} */
 	const byKey = new Map();

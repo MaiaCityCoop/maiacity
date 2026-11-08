@@ -154,7 +154,7 @@ export function biomeOfCard(card) {
 			return {
 				...own,
 				...(ring ? { ring } : {}),
-				kind: /** @type {import('./cover.js').Cover} */ (kind),
+				kind: /** @type {import('./index.js').Cover} */ (kind),
 				ref: /** @type {string} */ (p.ref),
 				share: /** @type {number} */ (number(p, SHARE, 0, 1000)),
 				colony: /** @type {number} */ (number(p, COLONY, 0.01, 1000)),

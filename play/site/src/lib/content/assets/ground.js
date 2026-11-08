@@ -23,12 +23,13 @@
  *               colour and is not worked out at all, so far faces cost little
  *   the roots   the plant's own, as it grows them, crisp in the earth's clear middle
  *
- * `groundOf(stage)` → { group, biome(recipe, id), fit(root), show(on), update(camera, dt), below, rootsView(camera),
+ * `groundOf(stage, { drawn })` → { group, biome(recipe, id), fit(root), show(on), update(camera, dt), below, rootsView(camera),
  * soil, dispose }.
  */
 import * as THREE from 'three';
 import { groundMaterial } from '$lib/content/biomes/surfaces.js';
 import { coverStream } from '$lib/content/biomes/stream.js';
+import { coverAway } from '$lib/content/render/nodes/index.js';
 import { biomeOfCard } from '$lib/content/biomes/card.js';
 import { MOST, PED, soilOf } from './soils.js';
 
@@ -452,9 +453,10 @@ function floorMaterial(g, bg, fade, sky) {
 /**
  * A plant's ground on the stage.
  * @param {import('./stage.js').Stage} stage
- * @param {{ cover?: boolean }} [o] `cover`: its biome's cover streamed round the plant (not on a phone's budget)
+ * @param {{ cover?: boolean, drawn?: any }} [o] `cover`: its biome's cover streamed round the plant (not on a phone's
+ *   budget); `drawn`: the renderer it is drawn by (./plantings.js `drawn`: play's builds of its kinds), none without
  */
-export function groundOf(stage, { cover = !stage.low } = {}) {
+export function groundOf(stage, { cover = !stage.low, drawn = null } = {}) {
 	const g = groundUniforms();
 	const fade = new THREE.Vector2(8, 30);
 	const group = new THREE.Group();
@@ -496,38 +498,23 @@ export function groundOf(stage, { cover = !stage.low } = {}) {
 
 	/** the cover round the plant: everywhere but the mulch ring, and while the eye is below the ground only beyond the earth's face (its turf on the ground line) */
 	const coverFor = () => {
-		stream?.object.removeFromParent();
-		stream?.rebuild({ ...recipe, cover: [] });
+		stream?.dispose();
 		stream = null;
 		// the cover is drawn to be seen from standing height: round a seedling, seen from a few centimetres, its clover
 		// heads and twigs would stand like trees, so a small plant stands on its floor alone
-		if (!cover || !tall || !recipe?.cover?.length) return;
+		if (!cover || !drawn || !tall || !recipe?.cover?.length) return;
 		const ring = ringAt, cx = g.uC.value.x, cz = g.uC.value.z;
 		// out to where the floor starts fading into the backdrop, never beyond it (no plants standing in the haze)
 		const reach = reachAt;
-		stream = coverStream({
-			recipe,
-			open: (x, z) => Math.hypot(x - cx, z - cz) > ring,
-			tile: Math.max(1.5, Math.min(4, reach / 3)),
-			reach,
-			near: reach * 0.45,
-			thin: 0.2,
-			perFrame: 4,
-			seed: 77,
-			away: {
-				key: 'viewer-under',
-				uniforms: g,
-				head: GROUND_HEAD,
-				body: `if (uHide > 0.5) { float gAlong = dot(vec2(instanceMatrix[3].x, instanceMatrix[3].z) - uC.xz, uF.xz); if (gAlong > -uB || gAlong < -uB - uBand) transformed *= 0.0; }`
-			}
-		});
-		// out of the occlusion pass too: it draws each blade whole, where the stream's own shader has thinned it out or
-		// left it out (over the earth, seen from below), and its ghost would show in the occlusion
-		stream.object.traverse((o) => {
-			o.userData.studio = true;
-			o.userData.noAO = true;
-		});
-		group.add(stream.object);
+		// on a turntable the plant is the middle of what is seen: the cover stands full round it and thins outwards; and
+		// while the eye is below the ground, only beyond the earth's face (`update`, the render kit's `coverAway`)
+		drawn.round(new THREE.Vector3(cx, 0, cz));
+		try {
+			stream = coverStream({ drawn, recipe, open: (x, z) => Math.hypot(x - cx, z - cz) > ring, tile: Math.max(1.5, Math.min(4, reach / 3)), reach, near: reach * 0.45, thin: 0.2, perFrame: 4, seed: 77 });
+		} catch (e) {
+			// a biome whose card names no build for a kind: its floor alone
+			console.warn(`no cover: ${e?.message ?? e}`);
+		}
 	};
 
 	return {
@@ -614,6 +601,8 @@ export function groundOf(stage, { cover = !stage.low } = {}) {
 		/** shown, or not (a fruit on its own stands on the studio's floor) @param {boolean} on */
 		show(on) {
 			group.visible = on;
+			// its cover is the renderer's, not in the group: shown and put away with it
+			stream?.show(on);
 			if (!on) below = under.visible = false;
 		},
 		/**
@@ -648,6 +637,7 @@ export function groundOf(stage, { cover = !stage.low } = {}) {
 			// from below, the floor is not drawn, so it is no surface for the occlusion pass either
 			floor.userData.noAO = below;
 			g.uHide.value = below ? 1 : 0;
+			coverAway.on.value = below ? 1 : 0;
 			if (below) {
 				// the face turns to stay square to the eye, eased (it settles rather than following every twitch)
 				const want = Math.atan2(e.x - at.x, e.z - at.z);
@@ -659,6 +649,10 @@ export function groundOf(stage, { cover = !stage.low } = {}) {
 				under.position.set(at.x, 0, at.z);
 				under.rotation.set(0, az, 0);
 				g.uF.value.set(fx, 0, fz);
+				coverAway.c.value.set(at.x, at.z);
+				coverAway.f.value.set(fx, fz);
+				coverAway.b.value = g.uB.value;
+				coverAway.band.value = g.uBand.value;
 				// the haze counts from the face's nearest point to the eye: right behind the roots it is clear
 				soil.userData.soil.uHazeNear.value = Math.max(0, (e.x - at.x) * fx + (e.z - at.z) * fz + behind);
 			}
@@ -667,7 +661,9 @@ export function groundOf(stage, { cover = !stage.low } = {}) {
 		},
 		dispose() {
 			group.removeFromParent();
-			stream?.rebuild({ ...(recipe ?? {}), cover: [] });
+			stream?.dispose();
+			stream = null;
+			coverAway.on.value = 0;
 			floor.geometry.dispose();
 			floor.material.dispose();
 			face.geometry.dispose();

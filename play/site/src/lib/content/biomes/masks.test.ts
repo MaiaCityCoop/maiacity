@@ -226,7 +226,7 @@ describe('a biome’s masks on its card', () => {
 		const card = { group: 'biomes', id: 'food-forest', version: 1, label: 'x', catalog: biomeCatalog(FOOD, { ref: () => 'a'.repeat(64), label: (k: string) => k }) };
 		const back = biomeOfCard(card);
 		expect(back.masks).toBeUndefined();
-		for (const c of back.cover) for (const key of ['footprint', 'shade', 'edge', 'clear', 'wet', 'steep', 'ring']) expect(c[key]).toBeUndefined();
+		for (const c of back.cover as any[]) for (const key of ['footprint', 'shade', 'edge', 'clear', 'wet', 'steep', 'ring']) expect(c[key]).toBeUndefined();
 	});
 	for (const [part, spec, value] of [
 		['cover-fern', 'Shade', '1.5'],
@@ -242,4 +242,29 @@ describe('a biome’s masks on its card', () => {
 			p.specs.find((s: string[]) => s[0] === spec)[1] = value;
 			expect(() => biomeOfCard({ group: 'biomes', id: 'f', version: 2, label: 'x', catalog })).toThrow(BiomeCardError);
 		});
+});
+
+// @ts-ignore — plain JS
+import { coverStream } from './stream.js';
+describe('a biome with masks, streamed', () => {
+	it('hands the renderer each plant with its colour where it stands, and lays it by the world’s trees and paths', () => {
+		const taken: { at: number[]; tint?: ArrayLike<number> }[] = [];
+		const drawn = { use: (ref: string) => ({ ref }), take: (_k: unknown, at: any, cover: any) => (taken.push({ at: at.elements.slice(), tint: cover.tint && Array.from(cover.tint) }), {}), give: () => {} };
+		const recipe = { ...MASKED, cover: MASKED.cover.map((c: any) => ({ ...c, ref: 'a'.repeat(64) })) };
+		const asked: number[] = [];
+		const open = (x: number, _z: number, margin = 0) => (asked.push(margin), Math.abs(x) > 1 + margin);
+		coverStream({ drawn, recipe, open, trunks: [{ x: 5, z: 5, r: 3 }], tile: 8, reach: 12, near: 6 }).update(0, 0, 999);
+		expect(taken.length).toBeGreaterThan(200);
+		for (const t of taken) {
+			expect(t.tint).toHaveLength(3);
+			expect(Math.abs(t.at[12]!)).toBeGreaterThan(1);
+		}
+		// the kinds that keep clear asked the world for their margin
+		expect(asked.some((m) => m > 0)).toBe(true);
+		// a biome without masks: no colours, as before
+		taken.length = 0;
+		coverStream({ drawn, recipe: { ...recipe, masks: undefined }, tile: 8, reach: 12, near: 6 }).update(0, 0, 999);
+		expect(taken.length).toBeGreaterThan(100);
+		expect(taken.every((t) => t.tint === undefined)).toBe(true);
+	});
 });

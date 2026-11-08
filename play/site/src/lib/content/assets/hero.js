@@ -16,7 +16,8 @@ import * as THREE from 'three';
 import { labelOf, poserOf, walk } from './controls.js';
 import { MOVE_SAMPLES } from './box/view.js';
 import { LIGHT, MAT, putLight, putLook } from './box/bake.js';
-import { LAB_PLANES, capPatch } from './kit.js';
+import { LAB_PLANES, labMaterial } from './kit.js';
+import { drawnAsNode } from '../render/nodes/index.js';
 
 /** the most time (s) the box runs a build kept running on in one step (engines 4 and 5 hold a step to it) */
 export const STEP = 0.25;
@@ -408,26 +409,31 @@ export function runner(box, recipe, given) {
 }
 
 /**
- * A build's materials made ready for the stage's cut: each opened by its two section planes, and a solid our kit gave
- * section caps in the box (engine 3 says which, and in what colour) its cut face drawn by the kit's own shader code,
- * here in the page, as the kit's machines are drawn on the stage.
+ * A build's materials made ready for the stage: each the kit's node material of the same look, opened by its two
+ * section planes, and a solid our kit gave section caps in the box (engine 3 says which, and in what colour) its cut
+ * face drawn, as the kit's machines are drawn on the stage. A skinned or morphed mesh keeps three's own, cut by three's
+ * clipping (a node material is built for the first mesh it draws; a skin or a morph is its own mesh's).
  * @param {THREE.Object3D} root
  */
 export function forStage(root) {
-	const done = new Set();
+	const made = new Map();
 	root.traverse((o) => {
-		for (const m of Array.isArray(o.material) ? o.material : o.material ? [o.material] : []) {
-			if (done.has(m)) continue;
-			done.add(m);
-			const cap = m.userData.cap;
-			if (m.userData.custom && cap && (m.isMeshStandardMaterial || m.isMeshPhysicalMaterial)) capPatch(m, cap.color, cap.rough, cap.metal);
-			else {
-				m.clippingPlanes = LAB_PLANES;
-				m.clipIntersection = true;
-				m.clipShadows = true;
+		if (!o.material) return;
+		const plain = !!(o.isSkinnedMesh || o.morphTargetInfluences?.length);
+		const one = (m) => {
+			const key = plain ? m.uuid : m;
+			if (!made.has(key)) {
+				const cap = m.userData.custom && (m.isMeshStandardMaterial || m.isMeshPhysicalMaterial) ? m.userData.cap : undefined;
+				const n = plain || !drawnAsNode(m) ? m : labMaterial(m, cap);
+				n.clippingPlanes = LAB_PLANES;
+				n.clipIntersection = true;
+				n.clipShadows = true;
+				n.needsUpdate = true;
+				made.set(key, n);
 			}
-			m.needsUpdate = true;
-		}
+			return made.get(key);
+		};
+		o.material = Array.isArray(o.material) ? o.material.map(one) : one(o.material);
 	});
 }
 

@@ -18,6 +18,9 @@
  *   thousand trees of forty kinds is a few hundred draw calls, the pictures a handful.
  * - Every material is the renderer's own (./presets.js), with the shader code only we add: the dither a level fades
  *   in by, and the kit's section caps when the world is cut open (`cut`).
+ * - A copy of a biome's cover (`take(k, at, cover)`, ../../biomes/stream.js) grows up out of the ground and sinks back
+ *   into it on the graphics card by its rank and its distance from the eye (../../render/nodes `aCover`); here the
+ *   same sum only leaves out what does not grow and sizes the rest by it, so nothing of it is moved while you walk.
  * - A copy moved by its controls (a tent half pitched, a pickup's door open, a machine drawn apart: `pose`, from the
  *   numbers the box wrote down, ../controls.js) leaves the instances and is drawn as a tree of its own, its parts where
  *   its controls put them, at any distance (a picture cannot open a door); back at rest, it joins the others again.
@@ -39,6 +42,7 @@ import { createLowering } from './lower.js';
 import { createKept } from './levels.js';
 import { levelValues } from '../lodcard.js';
 import { prepare } from './prepare.js';
+import { coverEye, coverGrow } from '../../render/nodes/index.js';
 import { createPresets } from './presets.js';
 
 /** after how long (ms) a kind that failed only in passing (`Unread`) is asked for again (`settle`) */
@@ -235,6 +239,14 @@ export function createAssets(o) {
 			S: new Float32Array(0),
 			alive: new Uint8Array(0),
 			was: new Int8Array(0),
+			/** each copy as the cover grows it: its rank + 1 (0 for none), its stream's near, reach and thin */
+			C: new Float32Array(0),
+			/** whether any copy of it ever was cover (its drawings then carry where each copy grows) */
+			cover: false,
+			/** each copy's colour, three a copy, multiplying its drawing's own (a biome's colour drift: `tint`) */
+			K: new Float32Array(0),
+			/** whether any copy of it ever was tinted (its drawings then carry a colour per copy) */
+			tinted: false,
 			/** its copies put away (`give`), for the next `takeOut` */
 			free: [],
 			/** the copies moved by their controls, by their number: each its values and its own tree */
@@ -505,7 +517,7 @@ export function createAssets(o) {
 		const mesh = new THREE.InstancedMesh(g, d.material, cap);
 		mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 		g.setAttribute('aFade', new THREE.InstancedBufferAttribute(new Float32Array(cap), 1).setUsage(THREE.DynamicDrawUsage));
-		if (d.colors) mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
+		if (d.colors || k.tinted) mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
 		mesh.count = 0;
 		mesh.visible = false;
 		// which copies are drawn is chosen here, never by three's culling, which would see only the first
@@ -520,6 +532,9 @@ export function createAssets(o) {
 		return { mesh, draw: d, cap, used: 0 };
 	}
 
+	/** what a drawing of a kind of cover carries per copy: where it grows (../../render/nodes `aCover`, `aReach`) */
+	const COVER = [['aCover', 4], ['aReach', 3]];
+
 	/** room in a drawing for `need` instances */
 	function room(m, need) {
 		if (m.cap >= need) return;
@@ -531,6 +546,13 @@ export function createAssets(o) {
 		const f = new THREE.InstancedBufferAttribute(new Float32Array(cap), 1).setUsage(THREE.DynamicDrawUsage);
 		f.array.set(m.mesh.geometry.attributes.aFade.array.subarray(0, m.used));
 		m.mesh.geometry.setAttribute('aFade', f);
+		for (const [name, n] of COVER) {
+			const a = m.mesh.geometry.attributes[name];
+			if (!a) continue;
+			const b = new THREE.InstancedBufferAttribute(new Float32Array(cap * n), n).setUsage(THREE.DynamicDrawUsage);
+			b.array.set(a.array.subarray(0, m.used * n));
+			m.mesh.geometry.setAttribute(name, b);
+		}
 		if (m.mesh.instanceColor) {
 			const c = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
 			c.array.set(m.mesh.instanceColor.array.subarray(0, m.used * 3));
@@ -548,7 +570,7 @@ export function createAssets(o) {
 	 * @param {{ x?: number, y?: number, z?: number, turn?: number, scale?: number } | THREE.Matrix4} at
 	 * @returns {{ kind: any, i: number }}
 	 */
-	function place(k, at = {}) {
+	function place(k, at = {}, cover = null) {
 		if (typeof k === 'string') k = use(k);
 		if (k.n >= k.cap) {
 			const cap = Math.max(16, k.cap * 2);
@@ -561,15 +583,30 @@ export function createAssets(o) {
 			k.T = grow(k.T, 1);
 			k.S = grow(k.S, 1);
 			k.alive = grow(k.alive, 1);
+			k.C = grow(k.C, 4);
+			k.K = grow(k.K, 3);
 			k.was = grow(k.was, 1);
 			k.cap = cap;
 		}
 		const i = k.n++;
 		k.was[i] = -1;
+		grows(k, i, cover);
 		set(k, i, at);
 		dirty = true;
 		if (casts(k)) shadows = true;
 		return { kind: k, i };
+	}
+
+	/**
+	 * copy i of kind k grown as a biome's cover (`{ rank, near, reach, thin, tint? }`), or whole (null); `tint`, its
+	 * colour where it stands (r, g, b, each multiplying its drawing's own: a biome's colour drift, ../../biomes/masks.js)
+	 * @param {any} k @param {number} i @param {{ rank: number, near: number, reach: number, thin: number, tint?: ArrayLike<number> } | null} c
+	 */
+	function grows(k, i, c) {
+		if (c) k.cover = true;
+		k.C.set(c ? [c.rank + 1, c.near, c.reach, c.thin] : [0, 0, 0, 0], i * 4);
+		if (c?.tint) k.tinted = true;
+		k.K.set(c?.tint ?? [1, 1, 1], i * 3);
 	}
 
 	/** copy i of kind k put at `at`, or put away (null): drawn nowhere, its level forgotten, until it is put somewhere */
@@ -607,11 +644,15 @@ export function createAssets(o) {
 		move(copy, null);
 		copy.kind.free.push(copy);
 	};
-	/** a copy of kind k put at `at`: one put away if there is one, else a new one @param {any} k a kind or a ref */
-	const takeOut = (k, at) => {
+	/**
+	 * a copy of kind k put at `at`: one put away if there is one, else a new one; `cover`: grown as a biome's cover
+	 * @param {any} k a kind or a ref @param {any} at @param {{ rank: number, near: number, reach: number, thin: number } | null} [cover]
+	 */
+	const takeOut = (k, at, cover = null) => {
 		if (typeof k === 'string') k = use(k);
 		const c = k.free.pop();
-		if (!c) return place(k, at);
+		if (!c) return place(k, at, cover);
+		grows(k, c.i, cover);
 		move(c, at);
 		return c;
 	};
@@ -698,7 +739,9 @@ export function createAssets(o) {
 		copy.traverse((o) => {
 			if (o.isMesh) {
 				const many = Array.isArray(o.material);
-				o.material = many ? o.material.map((m) => presets.of(m)) : presets.of(o.material);
+				// (a skin or a morph is its own mesh's: three's own material, not a shared node material)
+				const plain = !!(o.isSkinnedMesh || o.morphTargetInfluences?.length);
+				o.material = many ? o.material.map((m) => presets.of(m, plain)) : presets.of(o.material, plain);
 				o.receiveShadow = k.receive;
 				// a part whose shape its controls bend or spread is never culled by a ball that holds it at rest
 				if (o.isInstancedMesh || o.isSkinnedMesh || o.morphTargetInfluences?.length) o.frustumCulled = false;
@@ -748,6 +791,8 @@ export function createAssets(o) {
 	/* ── each frame ── */
 	/** the level every copy is drawn at, whatever its size (a film's, or a check's), or -1: each by its size */
 	let forced = -1, swept = 0, held = false;
+	/** @type {THREE.Vector3 | null} the point the cover grows round, if not the eye */
+	let around = null;
 	const frustum = new THREE.Frustum(), view = new THREE.Matrix4(), ball = new THREE.Sphere(), eye = new THREE.Vector3();
 	const last = { world: new Float32Array(16), proj: new Float32Array(16) };
 	const counted = { levels: [0, 0, 0], pictures: 0, posed: 0, tris: 0, calls: 0, culled: 0 };
@@ -785,15 +830,33 @@ export function createAssets(o) {
 		const R = readyNear(k, L);
 		if (R < 0 || (R !== L && fade < 1)) return -1;
 		const lv = k.levels[as(k, R)];
+		const r = k.C[i * 4];
 		for (const d of lv.meshes) {
 			const n = d.draw.n;
 			room(d, d.used + n);
-			const A = d.mesh.instanceMatrix.array, F = d.mesh.geometry.attributes.aFade.array;
+			const at = d.mesh.geometry.attributes;
+			if (k.cover && !at.aCover) for (const [name, w] of COVER) d.mesh.geometry.setAttribute(name, new THREE.InstancedBufferAttribute(new Float32Array(d.cap * w), w).setUsage(THREE.DynamicDrawUsage));
+			const A = d.mesh.instanceMatrix.array, F = at.aFade.array, G = at.aCover?.array, H = at.aReach?.array;
+			// a kind tinted after its drawing was made (its copies' colours came later): a colour per copy from now on
+			if (k.tinted && !d.mesh.instanceColor) {
+				d.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(d.cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
+				d.mesh.material.needsUpdate = true;
+			}
+			const IC = d.mesh.instanceColor?.array, DC = d.draw.colors, K = k.K;
 			for (let j = 0; j < n; j++) {
 				const s = d.used + j;
 				multiply(k.M, i * 16, d.draw.locals, j * 16, A, s * 16);
 				F[s] = fade >= 1 ? 0 : fade;
-				if (d.draw.colors) d.mesh.instanceColor.array.set(d.draw.colors.subarray(j * 3, j * 3 + 3), s * 3);
+				if (G) {
+					G[s * 4] = r;
+					G[s * 4 + 1] = k.M[i * 16 + 12];
+					G[s * 4 + 2] = k.M[i * 16 + 13];
+					G[s * 4 + 3] = k.M[i * 16 + 14];
+					H[s * 3] = k.C[i * 4 + 1];
+					H[s * 3 + 1] = k.C[i * 4 + 2];
+					H[s * 3 + 2] = k.C[i * 4 + 3];
+				}
+				if (IC) for (let c = 0; c < 3; c++) IC[s * 3 + c] = (DC ? DC[j * 3 + c] : 1) * (k.tinted ? K[i * 3 + c] : 1);
 			}
 			d.used += n;
 		}
@@ -816,6 +879,9 @@ export function createAssets(o) {
 		view.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
 		frustum.setFromProjectionMatrix(view);
 		eye.setFromMatrixPosition(camera.matrixWorld);
+		// what the cover grows round: the eye, or the point it is held to (`round`)
+		const gx = around ? around.x : eye.x, gz = around ? around.z : eye.z;
+		coverEye.value.set(gx, 0, gz);
 		const tanHalf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / (camera.zoom || 1);
 		counted.levels.fill(0);
 		counted.culled = counted.posed = counted.tris = counted.calls = 0;
@@ -828,9 +894,19 @@ export function createAssets(o) {
 			for (let i = 0; i < k.n; i++) {
 				if (!k.alive[i]) continue;
 				const M = k.M, o = i * 16;
+				// a copy of cover: left out where it does not grow, sized as it is grown (the graphics card grows it)
+				let g = 1;
+				if (k.C[i * 4] > 0) {
+					const q = i * 4;
+					g = coverGrow(Math.hypot(M[o + 12] - gx, M[o + 14] - gz), k.C[q] - 1, k.C[q + 1], k.C[q + 2], k.C[q + 3]);
+					if (!(g > 0)) {
+						if (k.was[i] !== -1) (k.was[i] = -1), (shadows ||= cast);
+						continue;
+					}
+				}
 				ball.center.set(M[o] * c.x + M[o + 4] * c.y + M[o + 8] * c.z + M[o + 12], M[o + 1] * c.x + M[o + 5] * c.y + M[o + 9] * c.z + M[o + 13], M[o + 2] * c.x + M[o + 6] * c.y + M[o + 10] * c.z + M[o + 14]);
 				// moved by its controls, it may reach further than it does at rest (a machine drawn apart): twice as far
-				ball.radius = k.radius * k.S[i] * (k.posed.size && k.posed.has(i) ? 2 : 1);
+				ball.radius = k.radius * k.S[i] * g * (k.posed.size && k.posed.has(i) ? 2 : 1);
 				if (!frustum.intersectsSphere(ball)) {
 					counted.culled++;
 					if (k.was[i] !== -1) (k.was[i] = -1), (shadows ||= cast);
@@ -876,6 +952,13 @@ export function createAssets(o) {
 					f.clearUpdateRanges();
 					f.addUpdateRange(0, d.used);
 					f.needsUpdate = true;
+					for (const [name, w] of COVER) {
+						const a = m.geometry.attributes[name];
+						if (!a) continue;
+						a.clearUpdateRanges();
+						a.addUpdateRange(0, d.used * w);
+						a.needsUpdate = true;
+					}
 					if (m.instanceColor) m.instanceColor.needsUpdate = true;
 					tris += d.draw.tris * d.used;
 					calls++;
@@ -995,6 +1078,15 @@ export function createAssets(o) {
 			presets.cut(plane);
 			pictures.cut(plane);
 			dirty = shadows = true;
+		},
+		/**
+		 * The cover grows round `p` (a plant on a turntable: the cover full round it, thinning outwards), or round the
+		 * eye again (null).
+		 * @param {THREE.Vector3 | null} p
+		 */
+		round(p) {
+			around = p ? p.clone() : null;
+			dirty = true;
 		},
 		/** asks again, the next frame, what to draw (after something changed that the renderer cannot see) */
 		touch: () => (dirty = true),

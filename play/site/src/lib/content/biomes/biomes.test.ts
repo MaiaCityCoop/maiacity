@@ -113,7 +113,7 @@ describe('the tired land: surfaces in rows, cover in rows, tramlines', () => {
 			let n = 0;
 			for (let ix = -2; ix <= 1; ix++)
 				for (let iz = -2; iz <= 1; iz++) {
-					const t = coverTile(FIELD, ix, iz, { tile: 8, seed: 707, rows: a })[0];
+					const t = coverTile(FIELD, ix, iz, { tile: 8, seed: 707, sown: a })[0];
 					for (let i = 0; i < t.rank.length; i++) {
 						const x = t.m[i * 16 + 12], z = t.m[i * 16 + 14];
 						// within its tile, give or take its jitter
