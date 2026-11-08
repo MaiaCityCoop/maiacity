@@ -19,9 +19,9 @@
  * - **One clock**: everything is a function of the world's time (`worldTime`, the film's when it sets one), so the
  *   same t draws the same frame, as a film needs.
  *
- * A plant's copies carry, per copy, where they stand, their phase and their height (`aWind`, written by the renderer
- * with `windOfCopy`); a material's numbers are its look's (../assets/look.js). The TSL (`windNodes`) adds the bend and
- * flutter to a node material's position after instancing.
+ * A plant's copies carry, per copy, where their foot stands and their height (`aWind`, written by the renderer with
+ * `windOfCopy`); a material's numbers are its look's (../assets/look.js). The TSL (`windNodes`) adds the bend and
+ * flutter to a node material's position after instancing, in the mesh's own frame.
  */
 import { KINDS } from '../assets/look.js';
 
@@ -141,11 +141,12 @@ export function flutterAt(w, copy, f, flutter, vphase, t, distance) {
 }
 
 /**
- * What a copy carries for the wind (`aWind`): where it stands, its phase and its height in metres.
- * @param {number} x @param {number} z @param {number} height
+ * What a copy carries for the wind (`aWind`, per instance): where its foot stands and its height in metres; its phase
+ * is `phaseOf` its foot, worked out where it is drawn.
+ * @param {number} x @param {number} y @param {number} z @param {number} height
  * @returns {[number, number, number, number]}
  */
-export const windOfCopy = (x, z, height) => [x, z, phaseOf(x, z), Math.max(0, height)];
+export const windOfCopy = (x, y, z, height) => [x, y, z, Math.max(0, height)];
 
 /** a look's numbers for the wind, or none for a look that does not move (stone) */
 export function windLook(look) {
@@ -199,24 +200,33 @@ export function windNodes(tsl, o) {
 	const smoothTri = (x) => sm(tri(x)).mul(2).sub(1);
 
 	/**
-	 * A node material's position bent by the wind, after instancing: `local` the point as it was before instancing (in
-	 * the plant's own frame, its foot at y 0) and `top` that frame's height of the plant, so `local.y / top` is how far
-	 * up the plant the point is; the copy's `aWind` per instance (where it stands, its phase, its height in metres); the
-	 * material's stiffness and flutter as nodes or numbers. Unbound, `aWind` reads 0: no height, no wind.
+	 * A copy's wind as nodes, after instancing, in the mesh's own frame: its foot and height (`aWind`: x, y, z, height in
+	 * metres, per instance; unbound it reads 0: no height, no wind), its phase (the same hash as `phaseOf`), and how far
+	 * up it the point is (`f`, 0 foot … 1 top).
 	 */
-	const positionOf = ({ stiffness = 1, flutter = 0, local, top = 1 }) =>
+	const copyOf = () => {
+		const a = attribute('aWind', 'vec4');
+		const foot = vec3(a.x, a.y, a.z), height = a.w;
+		const phase = frac(sin(a.x.mul(12.9898).add(a.z.mul(78.233))).mul(43758.5453)).mul(TAU);
+		const f = clamp(positionLocal.y.sub(a.y).div(max(height, 1e-4)), 0, 1);
+		return { foot, height, phase, f };
+	};
+
+	/**
+	 * A node material's position bent by the wind, after instancing (assigned to `positionLocal`): the main bend by the
+	 * material's stiffness, its length from the foot kept, and the tips' flutter by its flutter, faded beyond 15 m.
+	 */
+	const positionOf = ({ stiffness = 1, flutter = 0 }) =>
 		Fn(() => {
-			const a = attribute('aWind', 'vec4');
-			const x = a.x, z = a.y, phase = a.z, height = a.w;
-			const s = strength(x, z);
-			const f = clamp(local.y.div(max(float(top), 1e-4)), 0, 1);
+			const { foot, height, phase, f } = copyOf();
+			const s = strength(foot.x, foot.z);
 			const h = f.mul(height);
 			const lean = height.mul(0.15).mul(s).mul(sin(u.time.mul(SWAY).add(phase)).mul(0.25).add(0.75)).div(max(float(stiffness), 0.1));
 			const d = min(lean.mul(f).mul(f), h.mul(0.9));
 			const down = h.sub(sqrt(max(h.mul(h).sub(d.mul(d)), 0)));
 			// flutter, faded by the distance from the eye
 			const near = float(1).sub(smoothstep(FLUTTER_NEAR, FLUTTER_FAR, positionWorld.sub(cameraPosition).length()));
-			const p = u.time.mul(2.2).add(phase).add(local.x.add(local.z).mul(3.1));
+			const p = u.time.mul(2.2).add(phase).add(positionLocal.x.add(positionLocal.z).mul(3.1));
 			const wave = smoothTri(p.mul(FREQ[0])).mul(0.4).add(smoothTri(p.mul(FREQ[1])).mul(0.3)).add(smoothTri(p.mul(FREQ[2])).mul(0.2)).add(smoothTri(p.mul(FREQ[3])).mul(0.1));
 			const up = s.mul(0.03).mul(float(flutter)).mul(f).mul(wave).mul(near);
 			// the bend in world metres along the wind, turned into the mesh's own frame
@@ -230,6 +240,7 @@ export function windNodes(tsl, o) {
 		gust,
 		strength,
 		positionOf,
+		copyOf,
 		/** the field changed (a world's own wind) */
 		set(next) {
 			const n = windOf(next);
