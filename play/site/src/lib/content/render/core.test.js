@@ -30,7 +30,10 @@ vi.mock('three', async () => {
 			this.shadowsAtCompile = [];
 			this.pixelRatio = 1;
 			// as three's own: an instance function, which the core wraps
+			/** the materials three's compile was handed */
+			this.compiled = [];
 			this.compile = function (scene) {
+				scene.traverse((/** @type {any} */ o) => o.material && this.compiled.push(...[o.material].flat()));
 				this.shadowsAtCompile.push(this.handler !== null && this.shadowMap.enabled && (this.shadowMap.autoUpdate || this.shadowMap.needsUpdate));
 				return new Set();
 			};
@@ -95,16 +98,22 @@ describe('the one renderer', () => {
 		expect(parameters.fragmentShader).toMatch(/DiffuseColor = vec4\( mix\(/);
 	});
 
-	test('a compile of classic materials draws no extra shadow pass; one with a node material does', () => {
+	test('a compile draws no extra shadow pass and is never handed a node material, hidden or not', () => {
 		const r = /** @type {any} */ (createRenderer({ pixelRatio: 1, shadows: 'pcf' }));
 		const scene = new THREE.Scene();
-		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial()));
+		const classic = new THREE.MeshStandardMaterial();
+		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), classic));
+		const node = new THREE.Mesh(new THREE.BoxGeometry(), new MeshStandardNodeMaterial());
+		const hidden = new THREE.Mesh(new THREE.BoxGeometry(), [new MeshStandardNodeMaterial()]);
+		hidden.visible = false;
+		scene.add(node, hidden);
 		r.compile(scene, new THREE.PerspectiveCamera());
 		expect(r.shadowsAtCompile).toEqual([false]);
 		expect(r.shadowMap.autoUpdate).toBe(true);
-		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), new MeshStandardNodeMaterial()));
-		r.compile(scene, new THREE.PerspectiveCamera());
-		expect(r.shadowsAtCompile).toEqual([false, true]);
+		expect(r.compiled).toEqual([classic]);
+		// and each is given back its material
+		expect(node.material.isNodeMaterial).toBe(true);
+		expect(hidden.material[0].isNodeMaterial).toBe(true);
 	});
 
 	test('tone mapping and exposure are set through the core', () => {

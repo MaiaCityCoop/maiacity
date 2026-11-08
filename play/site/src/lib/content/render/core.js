@@ -97,7 +97,19 @@ function nodes(renderer) {
 	const compile = r.compile;
 	if (typeof compile !== 'function') return;
 	r.compile = function (scene, camera, target = null) {
-		if (hasNodeMaterial(scene)) return compile.call(this, scene, camera, target);
+		// three's compile gathers every material under `scene`, hidden ones too (it walks `traverse`), and builds a node
+		// material's program without the handler's onUpdateProgram: met again later, the handler pairs that program with
+		// another build's uniforms (cb16b7a5, on the Mac: the sky's PMREM handed to a vec3). Node materials are taken out
+		// while three gathers, and built at their first frame, as every draw is (cb16b7a5's gate, 1c7f2af).
+		/** @type {[THREE.Object3D & { material?: unknown }, unknown][]} */
+		const away = [];
+		scene.traverse((o) => {
+			const m = /** @type {THREE.Mesh} */ (o).material;
+			if (m && (Array.isArray(m) ? m : [m]).some((x) => /** @type {any} */ (x).isNodeMaterial)) {
+				away.push([o, m]);
+				/** @type {any} */ (o).material = null;
+			}
+		});
 		const sm = this.shadowMap, auto = sm.autoUpdate, need = sm.needsUpdate;
 		sm.autoUpdate = sm.needsUpdate = false;
 		try {
@@ -105,19 +117,9 @@ function nodes(renderer) {
 		} finally {
 			sm.autoUpdate = auto;
 			sm.needsUpdate = need;
+			for (const [o, m] of away) /** @type {any} */ (o).material = m;
 		}
 	};
-}
-
-/** whether anything drawn under `root` (visible) has a node material @param {THREE.Object3D} root */
-export function hasNodeMaterial(root) {
-	let found = false;
-	root.traverseVisible((o) => {
-		if (found) return;
-		const m = /** @type {THREE.Mesh} */ (o).material;
-		if (m) for (const x of Array.isArray(m) ? m : [m]) if (/** @type {any} */ (x).isNodeMaterial) found = true;
-	});
-	return found;
 }
 
 /**
@@ -197,9 +199,9 @@ export function adaptiveResolution(renderer, { top = topPixelRatio(), floor = 1,
 /**
  * Compile a model's shaders before it is first drawn, off the page's thread where the browser can
  * (KHR_parallel_shader_compile), so the page never stalls on the first frame; a browser that cannot simply compiles
- * them now. Never throws: a model that fails here is still drawn the usual way. What is drawn with a node material
- * (TSL) is left out: three's WebGLNodesHandler builds it only as it is drawn (compiled ahead, a world drew nothing on a
- * Mac), so it is hidden while three gathers what to compile, and compiled on its first frame.
+ * them now. Never throws: a model that fails here is still drawn the usual way. Node materials (TSL) are left out,
+ * built at their first frame: the renderer's own `compile` (`nodes`, above) never hands one to three, hidden or not,
+ * and they are hidden here as well so a `compileAsync` waits only on the rest.
  * @param {THREE.WebGLRenderer} renderer
  * @param {THREE.Object3D} object
  * @param {THREE.Camera} camera

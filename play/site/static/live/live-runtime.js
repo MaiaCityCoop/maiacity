@@ -59451,8 +59451,14 @@ vec3 skyColour(vec3 dir) {
     if (typeof compile !== "function")
       return;
     r.compile = function(scene, camera, target = null) {
-      if (hasNodeMaterial(scene))
-        return compile.call(this, scene, camera, target);
+      const away = [];
+      scene.traverse((o) => {
+        const m = o.material;
+        if (m && (Array.isArray(m) ? m : [m]).some((x) => x.isNodeMaterial)) {
+          away.push([o, m]);
+          o.material = null;
+        }
+      });
       const sm = this.shadowMap, { autoUpdate: auto, needsUpdate: need } = sm;
       sm.autoUpdate = sm.needsUpdate = false;
       try {
@@ -59460,22 +59466,10 @@ vec3 skyColour(vec3 dir) {
       } finally {
         sm.autoUpdate = auto;
         sm.needsUpdate = need;
+        for (const [o, m] of away)
+          o.material = m;
       }
     };
-  }
-  function hasNodeMaterial(root) {
-    let found = false;
-    root.traverseVisible((o) => {
-      if (found)
-        return;
-      const m = o.material;
-      if (m) {
-        for (const x of Array.isArray(m) ? m : [m])
-          if (x.isNodeMaterial)
-            found = true;
-      }
-    });
-    return found;
   }
   function setTone(renderer, toneMapping, exposure) {
     if (toneMapping)
