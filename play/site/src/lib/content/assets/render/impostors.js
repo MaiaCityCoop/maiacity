@@ -15,6 +15,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { cardMaterials, castsAsNode, cutOf } from '../../render/nodes/index.js';
 import { budget } from '../../render/budget.js';
+import { precompile } from '../../render/core.js';
 
 /** how many sides each kind is photographed from */
 export const FRAMES = 8;
@@ -130,7 +131,7 @@ export function createImpostors(renderer, o = {}) {
 		const thing = thingOf(level);
 		const clip = renderer.localClippingEnabled;
 		renderer.localClippingEnabled = false;
-		const made = renderer.compileAsync(thing, camera, studio);
+		const made = precompile(renderer, thing, camera, studio);
 		renderer.localClippingEnabled = clip;
 		await made;
 		for (const m of thing.children) m.dispose();

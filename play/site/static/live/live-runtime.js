@@ -39381,26 +39381,6 @@ ${each}
   var ALL_MATS = new Set;
   var CAPS = { style: "red", red: new Color(0.56, 0.085, 0.045) };
   var LAB_PLANES = [new Plane(new Vector3(0, 0, -1), 1e5), new Plane(new Vector3(0, 0, -1), 1e5)];
-  function neutral(c) {
-    const s0 = 0.8 - 0.04, d = 0.15;
-    const x = Math.min(c[0], c[1], c[2]), off = x < 0.08 ? x - 6.25 * x * x : 0.04;
-    let r = c.map((v) => v - off);
-    const peak = Math.max(...r);
-    if (peak < s0)
-      return r;
-    const d1 = 1 - s0, np = 1 - d1 * d1 / (peak + d1 - s0);
-    r = r.map((v) => v * (np / peak));
-    const g = 1 - 1 / (d * (peak - np) + 1);
-    return r.map((v) => v * (1 - g) + np * g);
-  }
-  function untonemap(target, exposure = 1) {
-    let x = [target.r, target.g, target.b];
-    for (let it = 0;it < 60; it++) {
-      const y = neutral(x.map((v) => v * exposure));
-      x = x.map((v, i) => Math.max(0, v + (target.toArray()[i] - y[i]) * 0.9));
-    }
-    return new Color(x[0], x[1], x[2]);
-  }
   function studioEnvironment(renderer, theme) {
     const paper = theme === "paper";
     const s = new Scene;
@@ -42109,125 +42089,187 @@ ${each}
     };
   }
 
-  // src/lib/content/assets/sky.js
-  var SUN = { bearing: 218, height: 14 };
-  var sunDirection = () => {
-    const a = MathUtils.degToRad(SUN.bearing), e = MathUtils.degToRad(SUN.height);
-    return new Vector3(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e));
-  };
-  var colours = () => ({
-    uZenith: { value: new Color("#5a8ccc").convertSRGBToLinear() },
-    uHigh: { value: new Color("#9dbfe3").convertSRGBToLinear() },
-    uLow: { value: new Color("#dde7ee").convertSRGBToLinear() },
-    uGold: { value: new Color("#fff3df").convertSRGBToLinear() },
-    uAway: { value: new Color("#d4e0ea").convertSRGBToLinear() },
-    uGround: { value: new Color("#a7a294").convertSRGBToLinear() },
-    uSunC: { value: new Color("#fff1d6").convertSRGBToLinear() },
-    uSun: { value: sunDirection() },
-    uSkyK: { value: 1 }
-  });
-  var SKY_GLSL = `
-uniform vec3 uZenith; uniform vec3 uHigh; uniform vec3 uLow; uniform vec3 uGold; uniform vec3 uAway; uniform vec3 uGround;
-uniform vec3 uSunC; uniform vec3 uSun; uniform float uSkyK;
-float skH(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
-float skN(vec3 p) {
-	vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
-	return mix(mix(mix(skH(i), skH(i + vec3(1, 0, 0)), f.x), mix(skH(i + vec3(0, 1, 0)), skH(i + vec3(1, 1, 0)), f.x), f.y),
-		mix(mix(skH(i + vec3(0, 0, 1)), skH(i + vec3(1, 0, 1)), f.x), mix(skH(i + vec3(0, 1, 1)), skH(i + vec3(1, 1, 1)), f.x), f.y), f.z);
-}
-// how much a way looked faces the sun's bearing, level (1 toward it, -1 away)
-float skToward(vec3 dir) { vec2 a = normalize(dir.xz + 1e-5), b = normalize(uSun.xz + 1e-5); return dot(a, b); }
-// the colour on the horizon under a way looked: a light haze, a little warmer and brighter toward the sun
-vec3 skyHorizon(vec3 dir) {
-	float t = skToward(dir);
-	vec3 c = mix(uAway, uLow, smoothstep(-1.0, 0.2, t));
-	c = mix(c, uGold * 1.05, pow(max(t, 0.0), 4.0) * 0.25);
-	return c * uSkyK;
-}
-vec3 skyColour(vec3 dir) {
-	float y = dir.y;
-	float t = skToward(dir);
-	vec3 h = skyHorizon(dir) / max(uSkyK, 1e-4);
-	// up the sky: the horizon's colour into pale blue, into the zenith's deeper blue (lighter toward the sun)
-	vec3 c = mix(h, uHigh, smoothstep(0.0, 0.3, y));
-	c = mix(c, uZenith, smoothstep(0.2, 0.95, y));
-	// the glow round the sun: wide and gold, then tight and white-hot
-	float cosA = dot(dir, uSun);
-	float glow = pow(max(cosA, 0.0), 16.0) * 0.12 + pow(max(cosA, 0.0), 200.0) * 0.5 + pow(max(cosA, 0.0), 2000.0) * 3.0;
-	c += uGold * glow;
-	// a few faint high clouds in streaks, thinning toward the horizon and the zenith
-	if (y > 0.0) {
-		vec2 q = dir.xz / (y + 0.12);
-		float n = skN(vec3(q * vec2(1.1, 3.4), 1.7)) * 0.62 + skN(vec3(q * vec2(2.6, 7.8), 5.3)) * 0.38;
-		float cloud = smoothstep(0.56, 0.82, n) * smoothstep(0.03, 0.14, y) * (1.0 - smoothstep(0.55, 0.9, y));
-		c = mix(c, vec3(1.0, 1.0, 0.99) * (0.95 + 0.15 * max(t, 0.0)), cloud * 0.3);
-	}
-	// the sun's disc, a little over half a degree across, bright enough to bloom
-	c += uSunC * smoothstep(0.99992, 0.99996, cosA) * 20.0;
-	// under the horizon: the far ground in the haze, darker as it comes nearer
-	if (y < 0.0) c = mix(h, uGround * (0.75 + 0.25 * max(t, 0.0)), smoothstep(0.0, 0.25, -y));
-	return c * uSkyK;
-}
-`;
-  function domeMaterial(u) {
-    return new ShaderMaterial({
-      uniforms: u,
-      vertexShader: `varying vec3 vDir;
-			void main() {
-				vDir = normalize((modelMatrix * vec4(position, 0.0)).xyz);
-				vec4 p = projectionMatrix * viewMatrix * vec4((modelMatrix * vec4(position, 1.0)).xyz, 1.0);
-				gl_Position = p.xyww;
-				gl_Position.z = gl_Position.w * 0.99999;
-			}`,
-      fragmentShader: `${SKY_GLSL}
-			varying vec3 vDir;
-			void main() { gl_FragColor = vec4(skyColour(normalize(vDir)), 1.0); }`,
-      side: BackSide,
-      depthWrite: false,
-      toneMapped: true
-    });
-  }
-  function daySky(renderer) {
-    const uniforms = colours();
-    const dome = new Mesh(new SphereGeometry(1, 48, 24), domeMaterial(uniforms));
-    dome.name = "sky";
-    dome.frustumCulled = false;
-    dome.renderOrder = -10;
-    dome.userData.studio = true;
-    dome.userData.noAO = true;
-    const envU = colours();
-    envU.uSkyK.value = 0.9;
-    const envDome = new Mesh(new SphereGeometry(10, 48, 24), domeMaterial(envU));
-    envDome.material.fragmentShader = envDome.material.fragmentShader.replace("* 20.0", "* 0.0");
-    const s = new Scene;
-    s.add(envDome);
-    const ground = new Mesh(new CircleGeometry(10, 32).rotateX(-Math.PI / 2), new MeshBasicMaterial({ color: new Color("#8f8a7c").convertSRGBToLinear().multiplyScalar(0.6) }));
-    ground.position.y = -0.4;
-    s.add(ground);
-    const pm = new PMREMGenerator(renderer);
-    const environment = pm.fromScene(s, 0.035).texture;
-    pm.dispose();
-    envDome.geometry.dispose();
-    envDome.material.dispose();
-    ground.geometry.dispose();
-    ground.material.dispose();
-    return {
-      dome,
-      sunDir: uniforms.uSun.value.clone(),
-      environment,
-      uniforms,
-      glsl: SKY_GLSL,
-      place(camera) {
-        dome.position.copy(camera.position);
-        dome.scale.setScalar(camera.far * 0.5);
-        dome.updateMatrixWorld();
-      },
-      dispose() {
-        dome.geometry.dispose();
-        dome.material.dispose();
-        environment.dispose();
+  // node_modules/three/examples/jsm/lights/SunLightShadow.js
+  var _lightOrientationMatrix = /* @__PURE__ */ new Matrix4;
+  var _viewToLightMatrix = /* @__PURE__ */ new Matrix4;
+  var _lightDirection = /* @__PURE__ */ new Vector3;
+  var _up2 = /* @__PURE__ */ new Vector3;
+  var _center2 = /* @__PURE__ */ new Vector3;
+  var _nearCorners = [
+    /* @__PURE__ */ new Vector3,
+    /* @__PURE__ */ new Vector3,
+    /* @__PURE__ */ new Vector3,
+    /* @__PURE__ */ new Vector3
+  ];
+  var _farCorners = [
+    /* @__PURE__ */ new Vector3,
+    /* @__PURE__ */ new Vector3,
+    /* @__PURE__ */ new Vector3,
+    /* @__PURE__ */ new Vector3
+  ];
+  var _cascadeCorners = [
+    /* @__PURE__ */ new Vector3,
+    /* @__PURE__ */ new Vector3,
+    /* @__PURE__ */ new Vector3,
+    /* @__PURE__ */ new Vector3,
+    /* @__PURE__ */ new Vector3,
+    /* @__PURE__ */ new Vector3,
+    /* @__PURE__ */ new Vector3,
+    /* @__PURE__ */ new Vector3
+  ];
+  var _cascadeCount = 2;
+  var _cascadeFade = 0.1;
+
+  class SunLightShadow extends LightShadow {
+    constructor() {
+      super(new OrthographicCamera(-5, 5, 5, -5, 0.5, 500));
+      this.isSunLightShadow = true;
+      this.mapSize.set(1024, 1024);
+      this._cameras = [];
+      this._matrices = [];
+      this._frustums = [];
+      this._cascadeSplits = new Array(_cascadeCount + 1).fill(0);
+      this._cascadeData = [];
+      this._viewportCount = _cascadeCount;
+      this._frameExtents.set(2, 1);
+      for (let i = 0;i < _cascadeCount; i++) {
+        this._cameras.push(new OrthographicCamera);
+        this._matrices.push(new Matrix4);
+        this._frustums.push(new Frustum);
+        this._cascadeData.push(new Vector4);
       }
-    };
+      while (this._viewports.length < _cascadeCount)
+        this._viewports.push(new Vector4);
+    }
+    getCamera(cascadeIndex = 0) {
+      return this._cameras[cascadeIndex];
+    }
+    getMatrix(cascadeIndex = 0) {
+      return this._matrices[cascadeIndex];
+    }
+    getFrustum(cascadeIndex = 0) {
+      return this._frustums[cascadeIndex];
+    }
+    updateMatrices(light, viewCamera) {
+      if (viewCamera === undefined)
+        return;
+      const insetX = Math.min(0.25, (Math.ceil(this.radius) + 1) / this.mapSize.x);
+      const insetY = Math.min(0.25, (Math.ceil(this.radius) + 1) / this.mapSize.y);
+      for (let i = 0;i < _cascadeCount; i++) {
+        this._viewports[i].set(i + insetX, insetY, 1 - 2 * insetX, 1 - 2 * insetY);
+      }
+      const resolutionX = this.mapSize.x * (1 - 2 * insetX);
+      const resolutionY = this.mapSize.y * (1 - 2 * insetY);
+      const resolution = Math.min(resolutionX, resolutionY);
+      const camera = this.camera;
+      const cameraNear = viewCamera.near;
+      const cameraFar = Math.max(cameraNear + 0.000001, Math.min(camera.far, viewCamera.far));
+      const splits = this._cascadeSplits;
+      splits[0] = cameraNear;
+      for (let i = 1;i < _cascadeCount; i++) {
+        const amount = i / _cascadeCount;
+        const uniform = cameraNear + (cameraFar - cameraNear) * amount;
+        const logarithmic = cameraNear > 0 ? cameraNear * Math.pow(cameraFar / cameraNear, amount) : uniform;
+        splits[i] = (uniform + logarithmic) * 0.5;
+      }
+      splits[_cascadeCount] = cameraFar;
+      _lightDirection.setFromMatrixPosition(light.matrixWorld).negate().normalize();
+      _up2.set(0, 1, 0);
+      if (Math.abs(_up2.dot(_lightDirection)) > 0.99)
+        _up2.set(0, 0, 1);
+      _lightOrientationMatrix.lookAt(_center2.set(0, 0, 0), _lightDirection, _up2);
+      _viewToLightMatrix.copy(_lightOrientationMatrix).transpose().multiply(viewCamera.matrixWorld);
+      const zNear = viewCamera.reversedDepth ? 1 : viewCamera.coordinateSystem === WebGPUCoordinateSystem ? 0 : -1;
+      const inverseProjectionMatrix = viewCamera.projectionMatrixInverse;
+      let globalMaxZ = -Infinity;
+      for (let i = 0;i < 4; i++) {
+        const x = i === 0 || i === 1 ? 1 : -1;
+        const y = i === 0 || i === 3 ? 1 : -1;
+        const nearCorner = _nearCorners[i].set(x, y, zNear).applyMatrix4(inverseProjectionMatrix);
+        const farCorner = _farCorners[i];
+        if (viewCamera.isPerspectiveCamera === true) {
+          farCorner.copy(nearCorner).multiplyScalar(cameraFar / cameraNear);
+        } else {
+          farCorner.set(nearCorner.x, nearCorner.y, -cameraFar);
+        }
+        nearCorner.applyMatrix4(_viewToLightMatrix);
+        farCorner.applyMatrix4(_viewToLightMatrix);
+        globalMaxZ = Math.max(globalMaxZ, nearCorner.z, farCorner.z);
+      }
+      globalMaxZ += cameraFar;
+      const shadowNear = camera.near;
+      for (let i = 0;i < _cascadeCount; i++) {
+        const cascadeNear = i === 0 ? splits[0] : this._cascadeData[i - 1].z;
+        const cascadeFar = splits[i + 1];
+        const fadeStart = cascadeFar - _cascadeFade * (cascadeFar - splits[i]);
+        this._cascadeData[i].set(i === 0 ? -10000000000 : cascadeNear, cascadeFar, fadeStart, 0);
+        const nearAlpha = (cascadeNear - cameraNear) / (cameraFar - cameraNear);
+        const farAlpha = (cascadeFar - cameraNear) / (cameraFar - cameraNear);
+        _center2.set(0, 0, 0);
+        for (let j = 0;j < 4; j++) {
+          _cascadeCorners[j * 2].lerpVectors(_nearCorners[j], _farCorners[j], nearAlpha);
+          _cascadeCorners[j * 2 + 1].lerpVectors(_nearCorners[j], _farCorners[j], farAlpha);
+          _center2.add(_cascadeCorners[j * 2]).add(_cascadeCorners[j * 2 + 1]);
+        }
+        _center2.multiplyScalar(1 / 8);
+        let radiusSq = 0;
+        let minZ = Infinity;
+        for (let j = 0;j < 8; j++) {
+          radiusSq = Math.max(radiusSq, _cascadeCorners[j].distanceToSquared(_center2));
+          minZ = Math.min(minZ, _cascadeCorners[j].z);
+        }
+        let radius = Math.sqrt(radiusSq);
+        if (resolution > 1) {
+          radius /= 1 - 1 / resolution;
+          const texelSizeX = 2 * radius / resolutionX;
+          const texelSizeY = 2 * radius / resolutionY;
+          _center2.x = Math.round(_center2.x / texelSizeX) * texelSizeX;
+          _center2.y = Math.round(_center2.y / texelSizeY) * texelSizeY;
+        }
+        _center2.z = globalMaxZ + shadowNear;
+        _center2.applyMatrix4(_lightOrientationMatrix);
+        const cascadeCamera = this._cameras[i];
+        cascadeCamera.position.copy(_center2);
+        cascadeCamera.quaternion.setFromRotationMatrix(_lightOrientationMatrix);
+        cascadeCamera.left = -radius;
+        cascadeCamera.right = radius;
+        cascadeCamera.top = radius;
+        cascadeCamera.bottom = -radius;
+        cascadeCamera.near = shadowNear;
+        cascadeCamera.far = globalMaxZ - minZ + 2 * shadowNear;
+        cascadeCamera.coordinateSystem = camera.coordinateSystem;
+        cascadeCamera._reversedDepth = camera.reversedDepth;
+        cascadeCamera.updateProjectionMatrix();
+        cascadeCamera.updateMatrixWorld();
+        this._updateMatrix(cascadeCamera, this._matrices[i], this._frustums[i], this._viewports[i]);
+      }
+    }
+  }
+
+  // node_modules/three/examples/jsm/lights/SunLight.js
+  class SunLight extends Light {
+    constructor(color, intensity) {
+      super(color, intensity);
+      this.isSunLight = true;
+      this.type = "SunLight";
+      this.position.copy(Object3D.DEFAULT_UP);
+      this.updateMatrix();
+      this.shadow = new SunLightShadow;
+    }
+    dispose() {
+      super.dispose();
+      this.shadow.dispose();
+    }
+    copy(source) {
+      super.copy(source);
+      this.shadow = source.shadow.clone();
+      return this;
+    }
+    toJSON(meta) {
+      const data = super.toJSON(meta);
+      data.object.shadow = this.shadow.toJSON();
+      return data;
+    }
   }
 
   // node_modules/three/build/three.tsl.js
@@ -42567,7 +42609,7 @@ ${stackString}`;
   };
   var _nodeId = 0;
 
-  class Node extends EventDispatcher {
+  class Node2 extends EventDispatcher {
     static get type() {
       return "Node";
     }
@@ -42589,7 +42631,7 @@ ${stackString}`;
       this._cacheKeyVersion = 0;
       this.id = _nodeId++;
       this.stackTrace = null;
-      if (Node.captureStackTrace === true) {
+      if (Node2.captureStackTrace === true) {
         this.stackTrace = new StackTrace;
       }
     }
@@ -43080,9 +43122,9 @@ ${stackString}`;
       return data;
     }
   }
-  Node.captureStackTrace = false;
+  Node2.captureStackTrace = false;
 
-  class ArrayElementNode extends Node {
+  class ArrayElementNode extends Node2 {
     static get type() {
       return "ArrayElementNode";
     }
@@ -43112,7 +43154,7 @@ ${stackString}`;
     }
   }
 
-  class ConvertNode extends Node {
+  class ConvertNode extends Node2 {
     static get type() {
       return "ConvertNode";
     }
@@ -43147,7 +43189,7 @@ ${stackString}`;
     }
   }
 
-  class JoinNode extends Node {
+  class JoinNode extends Node2 {
     static get type() {
       return "JoinNode";
     }
@@ -43196,7 +43238,7 @@ ${stackString}`;
   }
   var _stringVectorComponents = vectorComponents.join("");
 
-  class SplitNode extends Node {
+  class SplitNode extends Node2 {
     static get type() {
       return "SplitNode";
     }
@@ -43256,7 +43298,7 @@ ${stackString}`;
     }
   }
 
-  class SetNode extends Node {
+  class SetNode extends Node2 {
     static get type() {
       return "SetNode";
     }
@@ -43291,7 +43333,7 @@ ${stackString}`;
     }
   }
 
-  class FlipNode extends Node {
+  class FlipNode extends Node2 {
     static get type() {
       return "FlipNode";
     }
@@ -43326,7 +43368,7 @@ ${stackString}`;
     }
   }
 
-  class InputNode extends Node {
+  class InputNode extends Node2 {
     static get type() {
       return "InputNode";
     }
@@ -43411,7 +43453,7 @@ ${stackString}`;
     }
   }
 
-  class MemberNode extends Node {
+  class MemberNode extends Node2 {
     static get type() {
       return "MemberNode";
     }
@@ -43471,17 +43513,17 @@ ${stackString}`;
       throw new Error(`THREE.TSL: Node element ${name} is not a function`);
     NodeElements.set(name, nodeElement);
     if (name !== "assign") {
-      Node.prototype[name] = function(...params) {
+      Node2.prototype[name] = function(...params) {
         return this.isStackNode ? this.addToStack(nodeElement(...params)) : nodeElement(this, ...params);
       };
-      Node.prototype[name + "Assign"] = function(...params) {
+      Node2.prototype[name + "Assign"] = function(...params) {
         return this.isStackNode ? this.assign(params[0], nodeElement(...params)) : this.assign(nodeElement(this, ...params));
       };
     }
   }
   var parseSwizzle = (props) => props.replace(/r|s/g, "x").replace(/g|t/g, "y").replace(/b|p/g, "z").replace(/a|q/g, "w");
   var parseSwizzleAndSort = (props) => parseSwizzle(props).split("").sort().join("");
-  Node.prototype.assign = function(...params) {
+  Node2.prototype.assign = function(...params) {
     if (this.isStackNode !== true) {
       if (currentStack !== null) {
         currentStack.assign(this, ...params);
@@ -43494,7 +43536,7 @@ ${stackString}`;
       return this.addToStack(nodeElement(...params));
     }
   };
-  Node.prototype.get = function(value) {
+  Node2.prototype.get = function(value) {
     return new MemberNode(this, value);
   };
   var proto = {};
@@ -43525,11 +43567,11 @@ ${stackString}`;
     const propUpper = property.toUpperCase();
     const altAUpper = altA.toUpperCase();
     const altBUpper = altB.toUpperCase();
-    Node.prototype["set" + propUpper] = Node.prototype["set" + altAUpper] = Node.prototype["set" + altBUpper] = function(value) {
+    Node2.prototype["set" + propUpper] = Node2.prototype["set" + altAUpper] = Node2.prototype["set" + altBUpper] = function(value) {
       const swizzle = parseSwizzleAndSort(property);
       return new SetNode(this, swizzle, nodeObject(value));
     };
-    Node.prototype["flip" + propUpper] = Node.prototype["flip" + altAUpper] = Node.prototype["flip" + altBUpper] = function() {
+    Node2.prototype["flip" + propUpper] = Node2.prototype["flip" + altAUpper] = Node2.prototype["flip" + altBUpper] = function() {
       const swizzle = parseSwizzleAndSort(property);
       return new FlipNode(this, swizzle);
     };
@@ -43577,7 +43619,7 @@ ${stackString}`;
       }
     };
   }
-  Object.defineProperties(Node.prototype, proto);
+  Object.defineProperties(Node2.prototype, proto);
   var ShaderNodeObject = function(obj, altType = null) {
     const type = getValueType(obj);
     if (type === "node") {
@@ -43659,7 +43701,7 @@ ${stackString}`;
     return new NodeClass(...nodeArray(params));
   };
 
-  class ShaderCallNodeInternal extends Node {
+  class ShaderCallNodeInternal extends Node2 {
     constructor(shaderNode, rawInputs) {
       super();
       this.shaderNode = shaderNode;
@@ -43848,7 +43890,7 @@ ${stackString}`;
               } else {
                 value = Reflect.get(objectTarget, property, receiver);
               }
-            } else if (params[0] instanceof Node) {
+            } else if (params[0] instanceof Node2) {
               if (params[property] === undefined) {
                 value = params[index++];
               } else {
@@ -43865,7 +43907,7 @@ ${stackString}`;
     });
   }
 
-  class ShaderNodeInternal extends Node {
+  class ShaderNodeInternal extends Node2 {
     constructor(jsFunc, nodeType) {
       super(nodeType);
       this.jsFunc = jsFunc;
@@ -43983,7 +44025,7 @@ ${stackString}`;
   var nodeProxyAssignable = (NodeClass, scope = null, factor = null, settings = {}) => new ShaderNodeProxy(NodeClass, scope, factor, { ...settings, assignable: true });
   var fnId = 0;
 
-  class FnNode extends Node {
+  class FnNode extends Node2 {
     constructor(jsFunc, layout = null) {
       super();
       let nodeType = null;
@@ -44119,7 +44161,7 @@ ${stackString}`;
   addMethodChaining("element", element);
   addMethodChaining("convert", convert);
 
-  class AssignNode extends Node {
+  class AssignNode extends Node2 {
     static get type() {
       return "AssignNode";
     }
@@ -44196,7 +44238,7 @@ ${stackString}`;
   var assign = /* @__PURE__ */ nodeProxy(AssignNode).setParameterLength(2);
   addMethodChaining("assign", assign);
 
-  class ArrayNode extends Node {
+  class ArrayNode extends Node2 {
     static get type() {
       return "ArrayNode";
     }
@@ -44243,7 +44285,7 @@ ${stackString}`;
   };
   addMethodChaining("toArray", (node, count) => array(Array(count).fill(node)));
 
-  class UniformGroupNode extends Node {
+  class UniformGroupNode extends Node2 {
     static get type() {
       return "UniformGroupNode";
     }
@@ -44374,7 +44416,7 @@ ${stackString}`;
     return new UniformNode(value, nodeType);
   };
 
-  class PropertyNode extends Node {
+  class PropertyNode extends Node2 {
     static get type() {
       return "PropertyNode";
     }
@@ -44428,7 +44470,7 @@ ${stackString}`;
   var gapSize = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "gapSize");
   var ambientOcclusion = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "AmbientOcclusion", false, 1);
 
-  class FunctionCallNode extends Node {
+  class FunctionCallNode extends Node2 {
     static get type() {
       return "FunctionCallNode";
     }
@@ -44508,7 +44550,7 @@ ${stackString}`;
     "%": "mod"
   };
 
-  class OperatorNode extends Node {
+  class OperatorNode extends Node2 {
     static get type() {
       return "OperatorNode";
     }
@@ -44740,7 +44782,7 @@ ${stackString}`;
   addMethodChaining("increment", increment);
   addMethodChaining("decrement", decrement);
 
-  class MathNode extends Node {
+  class MathNode extends Node2 {
     static get type() {
       return "MathNode";
     }
@@ -45123,7 +45165,7 @@ ${stackString}`;
     }
   }
 
-  class ConditionalNode extends Node {
+  class ConditionalNode extends Node2 {
     static get type() {
       return "ConditionalNode";
     }
@@ -45264,7 +45306,7 @@ ${builder.tab}if ( ${nodeSnippet} ) {
   var select = /* @__PURE__ */ nodeProxy(ConditionalNode).setParameterLength(2, 3);
   addMethodChaining("select", select);
 
-  class ContextNode extends Node {
+  class ContextNode extends Node2 {
     static get type() {
       return "ContextNode";
     }
@@ -45372,7 +45414,7 @@ ${builder.tab}if ( ${nodeSnippet} ) {
   addMethodChaining("builtinAOContext", (node, aoValue) => builtinAOContext(aoValue, node));
   addMethodChaining("builtinGIContext", (node, aoValue, giValue) => builtinGIContext(aoValue, giValue, node));
 
-  class VarNode extends Node {
+  class VarNode extends Node2 {
     static get type() {
       return "VarNode";
     }
@@ -45458,7 +45500,7 @@ ${builder.tab}if ( ${nodeSnippet} ) {
   addMethodChaining("toVar", Var);
   addMethodChaining("toConst", Const);
 
-  class SubBuildNode extends Node {
+  class SubBuildNode extends Node2 {
     static get type() {
       return "SubBuild";
     }
@@ -45489,7 +45531,7 @@ ${builder.tab}if ( ${nodeSnippet} ) {
   }
   var subBuild = (node, name, type = null) => new SubBuildNode(nodeObject(node), name, type);
 
-  class VaryingNode extends Node {
+  class VaryingNode extends Node2 {
     static get type() {
       return "VaryingNode";
     }
@@ -45590,7 +45632,7 @@ ${builder.tab}if ( ${nodeSnippet} ) {
   var WORKING_COLOR_SPACE = "WorkingColorSpace";
   var OUTPUT_COLOR_SPACE = "OutputColorSpace";
 
-  class ColorSpaceNode extends Node {
+  class ColorSpaceNode extends Node2 {
     static get type() {
       return "ColorSpaceNode";
     }
@@ -45653,7 +45695,7 @@ ${builder.tab}if ( ${nodeSnippet} ) {
     }
   }
 
-  class ReferenceBaseNode extends Node {
+  class ReferenceBaseNode extends Node2 {
     static get type() {
       return "ReferenceBaseNode";
     }
@@ -45739,7 +45781,7 @@ ${builder.tab}if ( ${nodeSnippet} ) {
   }
   var rendererReference = (name, type, renderer = null) => new RendererReferenceNode(name, type, renderer);
 
-  class ToneMappingNode extends Node {
+  class ToneMappingNode extends Node2 {
     static get type() {
       return "ToneMappingNode";
     }
@@ -45906,7 +45948,7 @@ ${builder.tab}if ( ${nodeSnippet} ) {
   var instancedDynamicBufferAttribute = (array, type = null, stride = 0, offset = 0) => createBufferAttribute(array, type, stride, offset, DynamicDrawUsage, true);
   addMethodChaining("toAttribute", (bufferNode) => bufferAttribute(bufferNode.value, bufferNode.bufferType));
 
-  class IndexNode extends Node {
+  class IndexNode extends Node2 {
     static get type() {
       return "IndexNode";
     }
@@ -45960,7 +46002,7 @@ ${builder.tab}if ( ${nodeSnippet} ) {
   var invocationLocalIndex = /* @__PURE__ */ nodeImmutable(IndexNode, IndexNode.INVOCATION_LOCAL);
   var drawIndex = /* @__PURE__ */ nodeImmutable(IndexNode, IndexNode.DRAW);
 
-  class ComputeNode extends Node {
+  class ComputeNode extends Node2 {
     static get type() {
       return "ComputeNode";
     }
@@ -46059,7 +46101,7 @@ ${builder.flow.code}`;
   addMethodChaining("compute", compute);
   addMethodChaining("computeKernel", computeKernel);
 
-  class IsolateNode extends Node {
+  class IsolateNode extends Node2 {
     static get type() {
       return "IsolateNode";
     }
@@ -46105,7 +46147,7 @@ ${builder.flow.code}`;
   addMethodChaining("cache", cache);
   addMethodChaining("isolate", isolate);
 
-  class BypassNode extends Node {
+  class BypassNode extends Node2 {
     static get type() {
       return "BypassNode";
     }
@@ -46143,7 +46185,7 @@ ${builder.flow.code}`;
   addMethodChaining("remap", remap);
   addMethodChaining("remapClamp", remapClamp);
 
-  class ExpressionNode extends Node {
+  class ExpressionNode extends Node2 {
     static get type() {
       return "ExpressionNode";
     }
@@ -46174,7 +46216,7 @@ ${builder.flow.code}`;
     return color.a.equal(0).select(vec4(0), vec4(color.rgb.div(color.a), color.a));
   }, { color: "vec4", return: "vec4" });
 
-  class RenderOutputNode extends Node {
+  class RenderOutputNode extends Node2 {
     static get type() {
       return "RenderOutputNode";
     }
@@ -46216,7 +46258,7 @@ ${builder.flow.code}`;
   var renderOutput = (color, toneMapping = null, outputColorSpace = null) => new RenderOutputNode(nodeObject(color), toneMapping, outputColorSpace);
   addMethodChaining("renderOutput", renderOutput);
 
-  class DebugNode extends Node {
+  class DebugNode extends Node2 {
     static get type() {
       return "DebugNode";
     }
@@ -46298,7 +46340,7 @@ ${builder.flow.code}`;
     }
   }
 
-  class InspectorNode extends Node {
+  class InspectorNode extends Node2 {
     static get type() {
       return "InspectorNode";
     }
@@ -46330,7 +46372,7 @@ ${builder.flow.code}`;
     return node;
   }
   addMethodChaining("toInspector", inspect);
-  class AttributeNode extends Node {
+  class AttributeNode extends Node2 {
     static get type() {
       return "AttributeNode";
     }
@@ -46479,7 +46521,7 @@ ${builder.flow.code}`;
     return data.forceDeclaration !== true && data.assign !== true;
   };
 
-  class StackNode extends Node {
+  class StackNode extends Node2 {
     static get type() {
       return "StackNode";
     }
@@ -46633,7 +46675,7 @@ ${builder.flow.code}`;
     }
   }
   var stack = /* @__PURE__ */ nodeProxy(StackNode).setParameterLength(0, 1);
-  class LoopNode extends Node {
+  class LoopNode extends Node2 {
     static get type() {
       return "LoopNode";
     }
@@ -46796,7 +46838,7 @@ ${builder.flow.code}`;
   var Loop = (...params) => new LoopNode(nodeArray(params, "int")).toStack();
   var _sphere2 = /* @__PURE__ */ new Sphere;
 
-  class Object3DNode extends Node {
+  class Object3DNode extends Node2 {
     static get type() {
       return "Object3DNode";
     }
@@ -46874,7 +46916,7 @@ ${builder.flow.code}`;
   Object3DNode.VIEW_POSITION = "viewPosition";
   Object3DNode.DIRECTION = "direction";
   Object3DNode.RADIUS = "radius";
-  class BuiltinNode extends Node {
+  class BuiltinNode extends Node2 {
     constructor(name) {
       super("float");
       this.name = name;
@@ -47055,7 +47097,7 @@ ${builder.flow.code}`;
   var _screenSizeVec;
   var _viewportVec;
 
-  class ScreenNode extends Node {
+  class ScreenNode extends Node2 {
     static get type() {
       return "ScreenNode";
     }
@@ -47150,6 +47192,7 @@ ${builder.flow.code}`;
   var _cameraProjectionMatrixInverseBase = null;
   var _cameraViewMatrixBase = null;
   var _cameraWorldMatrixBase = null;
+  var _cameraPositionBase = null;
   var cameraIndex = /* @__PURE__ */ uniform(0, "uint").setName("u_cameraIndex").setGroup(sharedUniformGroup("cameraIndex")).toVarying("v_cameraIndex");
   var cameraNear = /* @__PURE__ */ uniform("float").setName("cameraNear").setGroup(renderGroup).onRenderUpdate(({ camera }) => camera.near);
   var cameraFar = /* @__PURE__ */ uniform("float").setName("cameraFar").setGroup(renderGroup).onRenderUpdate(({ camera }) => camera.far);
@@ -47233,6 +47276,31 @@ ${builder.flow.code}`;
     }
     return cameraWorldMatrix;
   }).once()();
+  var cameraPosition = /* @__PURE__ */ Fn(({ camera, renderer }) => {
+    let cameraPosition;
+    if (camera.isArrayCamera && camera.cameras.length > 0) {
+      const cameraArray = getCameraArray(renderer, camera, "cameraPositions", (camera) => {
+        const positions = [];
+        for (let i = 0, l = camera.cameras.length;i < l; i++) {
+          positions.push(new Vector3);
+        }
+        return uniformArray(positions).setGroup(renderGroup).setName("cameraPositions").onRenderUpdate(({ camera }, self2) => {
+          const subCameras = camera.cameras;
+          const array = self2.array;
+          for (let i = 0, l = subCameras.length;i < l; i++) {
+            array[i].setFromMatrixPosition(subCameras[i].matrixWorld);
+          }
+        });
+      });
+      cameraPosition = cameraArray.element(camera.isMultiViewCamera ? builtin("gl_ViewID_OVR") : cameraIndex);
+    } else {
+      if (_cameraPositionBase === null) {
+        _cameraPositionBase = uniform(new Vector3).setName("cameraPosition").setGroup(renderGroup).onRenderUpdate(({ camera }, self2) => self2.value.setFromMatrixPosition(camera.matrixWorld));
+      }
+      cameraPosition = _cameraPositionBase;
+    }
+    return cameraPosition;
+  }).once()();
   class ModelNode extends Object3DNode {
     static get type() {
       return "ModelNode";
@@ -47304,7 +47372,7 @@ ${builder.flow.code}`;
     const z = cosPhi.mul(theta.sin());
     return vec3(x, y, z);
   });
-  class FrontFacingNode extends Node {
+  class FrontFacingNode extends Node2 {
     static get type() {
       return "FrontFacingNode";
     }
@@ -47407,7 +47475,7 @@ ${builder.flow.code}`;
   }
   var maxMipLevel = /* @__PURE__ */ nodeProxy(MaxMipLevelNode).setParameterLength(1);
   var unpackNormal = (xy) => vec3(xy, sqrt(saturate(float(1).sub(dot(xy, xy)))));
-  class TextureSizeNode extends Node {
+  class TextureSizeNode extends Node2 {
     static get type() {
       return "TextureSizeNode";
     }
@@ -47905,7 +47973,7 @@ ${builder.flow.code}`;
   }
   var viewportDepthTexture = /* @__PURE__ */ nodeProxy(ViewportDepthTextureNode).setParameterLength(0, 3);
 
-  class ViewportDepthNode extends Node {
+  class ViewportDepthNode extends Node2 {
     static get type() {
       return "ViewportDepthNode";
     }
@@ -48072,7 +48140,7 @@ ${builder.flow.code}`;
     }
     return textureNode;
   };
-  class ReferenceNode extends Node {
+  class ReferenceNode extends Node2 {
     static get type() {
       return "ReferenceNode";
     }
@@ -48231,7 +48299,7 @@ ${builder.flow.code}`;
     return node;
   }, "vec3").once(["NORMAL", "VERTEX"])().toVar("bitangentView");
   var TBNViewMatrix = /* @__PURE__ */ mat3(tangentView, bitangentView, normalView).toVar("TBNViewMatrix");
-  class NormalMapNode extends Node {
+  class NormalMapNode extends Node2 {
     static get type() {
       return "NormalMapNode";
     }
@@ -48295,7 +48363,7 @@ ${builder.flow.code}`;
     return fDet.abs().mul(surf_norm).sub(vGrad).normalize();
   });
 
-  class BumpMapNode extends Node {
+  class BumpMapNode extends Node2 {
     static get type() {
       return "BumpMapNode";
     }
@@ -48320,7 +48388,7 @@ ${builder.flow.code}`;
   var bumpMap = /* @__PURE__ */ nodeProxy(BumpMapNode).setParameterLength(1, 3);
   var _propertyCache = new Map;
 
-  class MaterialNode extends Node {
+  class MaterialNode extends Node2 {
     static get type() {
       return "MaterialNode";
     }
@@ -48602,7 +48670,7 @@ ${builder.flow.code}`;
     return builder.context.setupModelViewProjection();
   }, "vec4").once()().toVarying("v_modelViewProjection");
 
-  class EventNode extends Node {
+  class EventNode extends Node2 {
     static get type() {
       return "EventNode";
     }
@@ -48861,7 +48929,7 @@ ${builder.flow.code}`;
     }
   }
 
-  class ReferenceAttributeNode extends Node {
+  class ReferenceAttributeNode extends Node2 {
     static get type() {
       return "ReferenceAttributeNode";
     }
@@ -49403,7 +49471,7 @@ ${builder.flow.code}`;
     });
   }, "void");
 
-  class LightingNode extends Node {
+  class LightingNode extends Node2 {
     static get type() {
       return "LightingNode";
     }
@@ -49483,7 +49551,7 @@ ${builder.flow.code}`;
     }
   }
 
-  class ClippingNode extends Node {
+  class ClippingNode extends Node2 {
     static get type() {
       return "ClippingNode";
     }
@@ -50790,7 +50858,7 @@ ${builder.flow.code}`;
     return mix(color, vec3(newPeak), g);
   }, { color: "vec3", exposure: "float", return: "vec3" });
 
-  class CodeNode extends Node {
+  class CodeNode extends Node2 {
     static get type() {
       return "CodeNode";
     }
@@ -50968,7 +51036,7 @@ ${builder.flow.code}`;
   var _lightsNodeRef = /* @__PURE__ */ new WeakMap;
   var _hashData = [];
 
-  class LightsNode extends Node {
+  class LightsNode extends Node2 {
     static get type() {
       return "LightsNode";
     }
@@ -51209,7 +51277,7 @@ ${builder.flow.code}`;
     return renderObjectFunction;
   };
 
-  class ShadowBaseNode extends Node {
+  class ShadowBaseNode extends Node2 {
     static get type() {
       return "ShadowBaseNode";
     }
@@ -52405,7 +52473,7 @@ ${builder.flow.code}`;
     return rendererCache;
   }
 
-  class PMREMNode extends Node {
+  class PMREMNode extends Node2 {
     static get type() {
       return "PMREMNode";
     }
@@ -57834,6 +57902,11 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
     }
   }
 
+  // src/lib/content/sandbox-kit/random.js
+  function seededMinStd(seed) {
+    return () => ((seed = seed * 16807 % 2147483647) - 1) / 2147483646;
+  }
+
   // node_modules/three/examples/jsm/tsl/WebGLNodesHandler.js
   function getObjectHash(object) {
     return "" + object.receiveShadow;
@@ -58168,7 +58241,29 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
   }
 
   // src/lib/content/render/core.js
-  var TONE = { none: NoToneMapping, aces: ACESFilmicToneMapping, neutral: NeutralToneMapping };
+  var TONE = { none: NoToneMapping, agx: AgXToneMapping };
+  var mul3 = (m, v) => [0, 1, 2].map((i) => m[i] * v[0] + m[i + 3] * v[1] + m[i + 6] * v[2]);
+  var TO2020 = [0.6274, 0.0691, 0.0164, 0.3293, 0.9195, 0.088, 0.0433, 0.0113, 0.8956];
+  var FROM2020 = [1.6605, -0.1246, -0.0182, -0.5876, 1.1329, -0.1006, -0.0728, -0.0083, 1.1187];
+  var INSET = [0.856627153315983, 0.137318972929847, 0.11189821299995, 0.0951212405381588, 0.761241990602591, 0.0767994186031903, 0.0482516061458583, 0.101439036467562, 0.811302368396859];
+  var OUTSET = [1.1271005818144368, -0.1413297634984383, -0.14132976349843826, -0.11060664309660323, 1.157823702216272, -0.11060664309660294, -0.016493938717834573, -0.016493938717834257, 1.2519364065950405];
+  function agx(c, exposure = 1) {
+    const x = mul3(INSET, mul3(TO2020, c.map((v) => v * exposure))).map((v) => {
+      const t = Math.min(1, Math.max(0, (Math.log2(Math.max(v, 0.0000000001)) + 12.47393) / 16.5));
+      const t2 = t * t, t4 = t2 * t2;
+      return 15.5 * t4 * t2 - 40.14 * t4 * t + 31.96 * t4 - 6.868 * t2 * t + 0.4298 * t2 + 0.1191 * t - 0.00232;
+    });
+    return mul3(FROM2020, mul3(OUTSET, x).map((v) => Math.pow(Math.max(0, v), 2.2))).map((v) => Math.min(1, Math.max(0, v)));
+  }
+  function untonemap(target, exposure = 1) {
+    const want = target.toArray();
+    let x = want.map((v) => v / exposure);
+    for (let it = 0;it < 80; it++) {
+      const y = agx(x, exposure);
+      x = x.map((v, i) => Math.max(0, v * Math.pow(Math.max(want[i], 0.000001) / Math.max(y[i], 0.000001), 0.8)));
+    }
+    return new Color(x[0], x[1], x[2]);
+  }
   var SHADOWS = { pcf: PCFShadowMap, basic: BasicShadowMap, vsm: VSMShadowMap };
   function createRenderer(o = {}) {
     const renderer = new WebGLRenderer({ canvas: o.canvas, antialias: o.antialias ?? true, alpha: o.alpha, powerPreference: o.power, preserveDrawingBuffer: o.preserve });
@@ -58246,6 +58341,4189 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
       renderer.toneMapping = was;
     };
   }
+  function precompile(renderer, object, camera, scene) {
+    const off = [];
+    object.traverseVisible((o) => {
+      const m = o.material;
+      if (m && (Array.isArray(m) ? m : [m]).some((x) => x.isNodeMaterial))
+        off.push(o);
+    });
+    for (const o of off)
+      o.visible = false;
+    let made = Promise.resolve();
+    try {
+      made = renderer.compileAsync(object, camera, scene);
+    } catch {} finally {
+      for (const o of off)
+        o.visible = true;
+    }
+    return made.then(() => {}, () => {});
+  }
+
+  // src/lib/content/sandbox-kit/universe.js
+  var LATITUDE = 45;
+  var AIR = { turbidity: 3, rayleigh: 1.2, mie: 0.004, g: 0.8 };
+  var SPACE = new Color("#070e25");
+  var NIGHT_ZENITH = new Color("#070f27");
+  var NIGHT_HORIZON = new Color("#111d3d");
+  var DUSK_GLOW = new Color("#d9773f");
+  var BLUE_HOUR = new Color("#36508c");
+  var smooth = (a, b, x) => {
+    const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  };
+  var twilightOf = (alt) => smooth(-0.32, -0.03, alt) * (1 - smooth(-0.02, 0.1, alt));
+  var starsOf = (alt) => smooth(-0.07, -0.27, alt);
+  var nightOf = (alt) => smooth(0.02, -0.2, alt);
+  var RAYLEIGH = [0.000005804542996261093, 0.000013562911419845635, 0.000030265902468824876];
+  var MIE = [183999185144339.78, 277980239196605.28, 407904795438610.94];
+  function airOf(sunY, a = AIR) {
+    const sunE = 1000 * Math.max(0, 1 - Math.exp(-((1.6110731556870734 - Math.acos(Math.max(-1, Math.min(1, sunY)))) / 1.5)));
+    const fade = Math.min(1, Math.exp(sunY / 450000));
+    return { sunE, betaR: RAYLEIGH.map((v) => v * (a.rayleigh - (1 - fade))), betaM: MIE.map((v) => 0.434 * 0.2 * a.turbidity * 0.00000000000000001 * v * a.mie) };
+  }
+  function skyAt(d, s, air) {
+    const { sunE, betaR, betaM } = air;
+    const zen = Math.acos(Math.max(0, d[1]));
+    const inv = 1 / (Math.cos(zen) + 0.15 * Math.pow(93.885 - zen * 180 / Math.PI, -1.253));
+    const cosT = d[0] * s[0] + d[1] * s[1] + d[2] * s[2];
+    const g = AIR.g, g2 = g * g;
+    const rPhase = 3 / (16 * Math.PI) * (1 + Math.pow(cosT * 0.5 + 0.5, 2));
+    const mPhase = 1 / (4 * Math.PI) * ((1 - g2) / Math.pow(1 - 2 * g * cosT + g2, 1.5));
+    const alt = Math.asin(Math.max(-1, Math.min(1, s[1])));
+    const tw = twilightOf(alt), night = nightOf(alt);
+    const toward = Math.pow(Math.max(0, (d[0] * s[0] + d[2] * s[2]) / (Math.hypot(d[0], d[2]) * Math.hypot(s[0], s[2]) + 0.00001)), 3);
+    const h = Math.max(d[1], 0), low = Math.exp(-h * 5);
+    return [0, 1, 2].map((i) => {
+      const c = "rgb"[i];
+      const fex = Math.exp(-(betaR[i] * 8400 * inv + betaM[i] * 1250 * inv));
+      const ratio = (betaR[i] * rPhase + betaM[i] * mPhase) / (betaR[i] + betaM[i]);
+      let lin = Math.pow(sunE * ratio * (1 - fex), 1.5);
+      lin *= 1 + (Math.pow(sunE * ratio * fex, 0.5) - 1) * Math.min(1, Math.max(0, Math.pow(1 - s[1], 5)));
+      const air = (NIGHT_HORIZON[c] + (NIGHT_ZENITH[c] - NIGHT_HORIZON[c]) * Math.pow(h, 0.45)) * night;
+      const dusk = (BLUE_HOUR[c] * (1 - toward) * (0.55 + 0.45 * low) + DUSK_GLOW[c] * toward * 1.6 * low) * tw * 0.9;
+      return (lin + 0.1 * fex) * 0.04 + [0, 0.0003, 0.00075][i] + air + dusk;
+    });
+  }
+  function horizonRing(sun) {
+    const air = airOf(sun.y), s = sun.toArray(), el = 0.05;
+    return Array.from({ length: 16 }, (_, k) => {
+      const a = k / 16 * Math.PI * 2;
+      return new Color().fromArray(skyAt([Math.cos(el) * Math.cos(a), Math.sin(el), Math.cos(el) * Math.sin(a)], s, air));
+    });
+  }
+  function celestial(hour) {
+    return { turn: (hour - 12.5) / 24 * Math.PI * 2 };
+  }
+  var GALACTIC_POLE = new Vector3(Math.sin(1.1) * Math.cos(2.1), Math.cos(1.1), Math.sin(1.1) * Math.sin(2.1)).normalize();
+  function catalogue() {
+    const r = seededMinStd(19700101);
+    const pos = [], col = [], bright = [];
+    const tints = [
+      [0.7, 0.8, 1, 0.12],
+      [0.95, 0.97, 1, 0.33],
+      [1, 0.96, 0.86, 0.3],
+      [1, 0.85, 0.66, 0.17],
+      [1, 0.72, 0.52, 0.08]
+    ];
+    const add = (d, m) => {
+      pos.push(d.x, d.y, d.z);
+      let u = r(), t = tints[1];
+      for (const x of tints)
+        if ((u -= x[3]) <= 0)
+          t = x, u = 9;
+      col.push(t[0], t[1], t[2]);
+      bright.push(Math.pow(10, -0.4 * (m - 6)));
+    };
+    for (let i = 0;i < 2600; i++) {
+      const y = r() * 2 - 1, a = r() * Math.PI * 2, s = Math.sqrt(1 - y * y);
+      add(new Vector3(Math.cos(a) * s, y, Math.sin(a) * s), Math.max(-1.2, 6.4 + 2.5 * Math.log10(Math.max(0.0001, r()))));
+    }
+    const e1 = new Vector3(1, 0, 0).cross(GALACTIC_POLE).normalize(), e2 = GALACTIC_POLE.clone().cross(e1);
+    for (let i = 0;i < 3400; i++) {
+      const a = r() * Math.PI * 2, spread = (r() + r() + r() - 1.5) * 0.16;
+      add(e1.clone().multiplyScalar(Math.cos(a)).addScaledVector(e2, Math.sin(a)).addScaledVector(GALACTIC_POLE, spread).normalize(), 5.6 + r() * 1.4);
+    }
+    return { pos: new Float32Array(pos), col: new Float32Array(col), bright: new Float32Array(bright) };
+  }
+  function atFarPlane(o, place) {
+    let was = null;
+    o.onBeforeRender = (r, _s, cam) => {
+      place(r, cam);
+      if (r.getRenderTarget())
+        was = [withTone(r, "none"), r.outputColorSpace], r.outputColorSpace = LinearSRGBColorSpace;
+    };
+    o.onAfterRender = (r) => {
+      if (was)
+        was[0](), r.outputColorSpace = was[1];
+      was = null;
+    };
+    o.frustumCulled = false;
+  }
+  function skyMaterial() {
+    const U = {
+      sun: uniform(new Vector3(0, 1, 0)),
+      sunE: uniform(0),
+      betaR: uniform(new Vector3),
+      betaM: uniform(new Vector3),
+      disc: uniform(1),
+      clouds: uniform(0),
+      drift: uniform(0),
+      moon: uniform(new Vector3(0, 1, 0)),
+      moonLight: uniform(0),
+      stars: uniform(0),
+      twilight: uniform(0),
+      night: uniform(0),
+      pole: uniform(GALACTIC_POLE.clone()),
+      zenith: uniform(new Color),
+      haze: uniform(new Color),
+      look: uniform(0),
+      gain: uniform(new Vector3(1, 1, 1))
+    };
+    const m = new NodeMaterial;
+    m.name = "Sky";
+    m.side = BackSide;
+    m.depthWrite = false;
+    m.fog = false;
+    m.vertexNode = Fn(() => {
+      const p = modelViewProjection;
+      p.z.assign(p.w);
+      return p;
+    })();
+    const grad = Fn(([i]) => {
+      const p = fract(i.xyx.mul(vec3(0.1031, 0.103, 0.0973))).toVar();
+      p.addAssign(dot(p, p.yzx.add(33.33)));
+      return fract(p.xx.add(p.yz).mul(p.zy)).mul(2).sub(1);
+    });
+    const noise = Fn(([p]) => {
+      const i = floor(p), f = fract(p);
+      const u = f.mul(f).mul(f).mul(f.mul(f.mul(6).sub(15)).add(10));
+      const n = (x, y) => dot(grad(i.add(vec2(x, y))), f.sub(vec2(x, y)));
+      return mix(mix(n(0, 0), n(1, 0), u.x), mix(n(0, 1), n(1, 1), u.x), u.y).mul(1.6);
+    });
+    m.colorNode = Fn(() => {
+      const d = normalize2(positionWorld.sub(cameraPosition)), h = d.y;
+      const zen = acos(max(0, h));
+      const inv = float(1).div(cos(zen).add(pow(float(93.885).sub(zen.mul(57.2957795)), -1.253).mul(0.15)));
+      const fex = exp(U.betaR.mul(inv.mul(8400)).add(U.betaM.mul(inv.mul(1250))).negate());
+      const cosT = dot(d, U.sun), g = float(AIR.g), g2 = g.mul(g);
+      const rPhase = float(0.0596831).mul(pow(cosT.mul(0.5).add(0.5), 2).add(1));
+      const mPhase = float(0.0795775).mul(sub(1, g2)).div(pow(sub(1, g.mul(2).mul(cosT)).add(g2), 1.5));
+      const ratio = U.betaR.mul(rPhase).add(U.betaM.mul(mPhase)).div(U.betaR.add(U.betaM));
+      const lin = pow(ratio.mul(U.sunE).mul(sub(1, fex)), vec3(1.5)).mul(mix(vec3(1), pow(ratio.mul(U.sunE).mul(fex), vec3(0.5)), clamp3(pow(sub(1, U.sun.y), 5), 0, 1)));
+      const disc = clamp3(cosT.sub(0.9999566769).mul(50000), 0, 1).mul(U.disc);
+      const sky = lin.add(fex.mul(0.1)).mul(0.04).add(min(fex.mul(U.sunE), 80).mul(760 * 0.04).mul(disc)).add(vec3(0, 0.0003, 0.00075)).toVar();
+      If(h.greaterThan(0).and(U.clouds.greaterThan(0)), () => {
+        const q = d.xz.div(h.mul(0.55)).mul(0.0002).add(U.drift).mul(1000).toVar();
+        const n = float(0).toVar(), amp = float(1).toVar();
+        Loop(4, () => {
+          n.addAssign(amp.mul(noise(q)));
+          amp.mulAssign(0.5);
+          q.mulAssign(2).addAssign(U.drift.mul(300));
+        });
+        const dens = n.mul(0.7).add(0.5).clamp(0, 1);
+        const cov = clamp3(U.clouds.add(noise(d.xz.div(h.mul(0.55)).mul(0.06)).mul(0.22)), 0, 1);
+        const depth = max(0, dens.sub(sub(1, cov)));
+        const fade = smoothstep2(0, 0.06, h);
+        const beer = exp(depth.mul(-4));
+        const lit = fex.mul(U.sunE).mul(0.0088).mul(mix(0.45, 1, beer.mul(sub(1, beer.mul(beer))).mul(2.6).clamp(0, 1)));
+        const cloud = lin.mul(0.04).add(lit).mul(smoothstep2(-0.08, 0.3, U.sun.y).max(0.03));
+        sky.assign(mix(sky, mix(sky, cloud, fex), sub(1, exp(depth.mul(-4.8))).mul(fade)));
+      });
+      const gb = dot(d, U.pole);
+      const band = exp(gb.mul(gb).mul(-55)).mul(sin(atan(d.z, d.x).mul(3).add(gb.mul(9))).mul(0.35).add(0.65));
+      const toMoon = sub(1, dot(d, U.moon));
+      const disk = sub(1, smoothstep2(0.000035, 0.000045, toMoon));
+      const moon = vec3(0.95, 0.94, 0.9).mul(disk.mul(sub(1, smoothstep2(0, 0.000045, toMoon)).mul(0.25).add(0.75)).mul(2.2)).add(vec3(0.55, 0.62, 0.8).mul(exp(toMoon.mul(-600)).mul(0.035))).mul(U.moonLight);
+      const space = vec3(SPACE.r, SPACE.g, SPACE.b).add(vec3(0.0066, 0.0072, 0.0096).mul(band));
+      const hp = max(h, 0), low = exp(hp.mul(-5));
+      const toward = pow(max(dot(normalize2(d.xz.add(0.00001)), normalize2(U.sun.xz.add(0.00001))), 0), 3);
+      const air = mix(vec3(NIGHT_HORIZON.r, NIGHT_HORIZON.g, NIGHT_HORIZON.b), vec3(NIGHT_ZENITH.r, NIGHT_ZENITH.g, NIGHT_ZENITH.b), pow(hp, 0.45)).mul(U.night);
+      const dusk = vec3(BLUE_HOUR.r, BLUE_HOUR.g, BLUE_HOUR.b).mul(sub(1, toward)).mul(mix(0.55, 1, low)).add(vec3(DUSK_GLOW.r, DUSK_GLOW.g, DUSK_GLOW.b).mul(toward.mul(1.6).mul(low)));
+      const c = sky.add(air).add(dusk.mul(U.twilight.mul(0.9))).add(space.add(moon).mul(U.stars)).toVar();
+      c.mulAssign(sub(1, smoothstep2(0, 0.08, h.negate()).mul(0.65)));
+      const look = mix(U.haze, U.zenith, pow(clamp3(h, 0, 1), 0.5));
+      return vec4(mix(c, look, U.look).mul(U.gain), 1);
+    })();
+    return { material: m, U };
+  }
+  function createUniverse(o = {}) {
+    const { material, U } = skyMaterial();
+    U.clouds.value = o.clouds ?? 0.4;
+    U.disc.value = o.disc === false ? 0 : 1;
+    const dome = new Mesh(new BoxGeometry(1, 1, 1), material);
+    dome.name = "sky";
+    dome.renderOrder = -2;
+    atFarPlane(dome, (_r, cam) => {
+      dome.position.copy(cam.position);
+      dome.scale.setScalar(cam.far * 0.5);
+      dome.updateMatrixWorld();
+    });
+    const cat = catalogue(), quad = new PlaneGeometry(1, 1);
+    const geo = new InstancedBufferGeometry;
+    geo.index = quad.index;
+    geo.setAttribute("position", quad.attributes.position);
+    geo.setAttribute("uv", quad.attributes.uv);
+    geo.setAttribute("star", new InstancedBufferAttribute(cat.pos, 3));
+    geo.setAttribute("tint", new InstancedBufferAttribute(cat.col, 3));
+    geo.setAttribute("bright", new InstancedBufferAttribute(cat.bright, 1));
+    geo.instanceCount = cat.bright.length;
+    const through = uniform(0), px = uniform(new Vector2(0.001, 0.001)), ratio = uniform(1);
+    const bright = attribute("bright", "float");
+    const dir = normalize2(modelWorldMatrix.mul(vec4(attribute("star", "vec3"), 0)).xyz);
+    const starMat = new NodeMaterial;
+    starMat.name = "Stars";
+    starMat.transparent = true;
+    starMat.depthWrite = false;
+    starMat.blending = AdditiveBlending;
+    starMat.fog = false;
+    starMat.vertexNode = Fn(() => {
+      const c = cameraProjectionMatrix.mul(vec4(cameraViewMatrix.mul(vec4(dir, 0)).xyz, 1)).toVar();
+      const size = clamp3(log22(bright.add(1)).mul(0.55).add(1), 1, 3.6).mul(ratio);
+      return vec4(c.xy.add(positionGeometry.xy.mul(size).mul(px).mul(c.w)), c.w.mul(0.99999), c.w);
+    })();
+    const tint = varying(attribute("tint", "vec3").mul(min(bright.mul(through).mul(smoothstep2(-0.02, 0.35, dir.y)), 1.6)).mul(0.9));
+    starMat.colorNode = vec4(tint.mul(sub(1, smoothstep2(0, 0.5, length(uv$1().sub(0.5))))), 1);
+    const stars = new Mesh(geo, starMat);
+    stars.name = "stars";
+    if (o.mirror)
+      stars.scale.z = -1;
+    stars.renderOrder = -1;
+    const turn = new Quaternion, size = new Vector2;
+    atFarPlane(stars, (r, cam) => {
+      stars.position.copy(cam.position);
+      stars.quaternion.copy(turn);
+      stars.updateMatrixWorld();
+      r.getDrawingBufferSize(size);
+      px.value.set(2 / size.x, 2 / size.y);
+      ratio.value = r.getPixelRatio();
+    });
+    return {
+      dome,
+      stars,
+      material,
+      U,
+      set(v) {
+        const air = airOf(v.sun.y);
+        U.sun.value.copy(v.sun);
+        U.sunE.value = air.sunE;
+        U.betaR.value.fromArray(air.betaR);
+        U.betaM.value.fromArray(air.betaM);
+        U.drift.value = v.drift ?? 0;
+        U.moon.value.copy(v.moon);
+        turn.copy(v.stars);
+        U.pole.value.copy(GALACTIC_POLE);
+        if (o.mirror)
+          U.pole.value.z = -U.pole.value.z;
+        U.pole.value.applyQuaternion(turn);
+        const alt = Math.asin(Math.max(-1, Math.min(1, v.sun.y)));
+        U.twilight.value = twilightOf(alt);
+        U.night.value = U.moonLight.value = nightOf(alt);
+        U.stars.value = through.value = starsOf(alt);
+      },
+      dispose() {
+        dome.geometry.dispose();
+        material.dispose();
+        quad.dispose();
+        geo.dispose();
+        starMat.dispose();
+      }
+    };
+  }
+  function groundStars(hour) {
+    const lat = MathUtils.degToRad(LATITUDE);
+    const tilt = new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), new Vector3(0, Math.sin(lat), Math.cos(lat)));
+    return tilt.multiply(new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), -celestial(hour).turn));
+  }
+
+  // node_modules/svelte/src/constants.js
+  var EACH_INDEX_REACTIVE = 1 << 1;
+  var EACH_IS_CONTROLLED = 1 << 2;
+  var EACH_IS_ANIMATED = 1 << 3;
+  var EACH_ITEM_IMMUTABLE = 1 << 4;
+  var PROPS_IS_RUNES = 1 << 1;
+  var PROPS_IS_UPDATED = 1 << 2;
+  var PROPS_IS_BINDABLE = 1 << 3;
+  var PROPS_IS_LAZY_INITIAL = 1 << 4;
+  var TRANSITION_OUT = 1 << 1;
+  var TRANSITION_GLOBAL = 1 << 2;
+  var TEMPLATE_USE_IMPORT_NODE = 1 << 1;
+  var TEMPLATE_USE_SVG = 1 << 2;
+  var TEMPLATE_USE_MATHML = 1 << 3;
+  var HYDRATION_START = "[";
+  var HYDRATION_START_ELSE = "[!";
+  var HYDRATION_START_FAILED = "[?";
+  var HYDRATION_END = "]";
+  var HYDRATION_ERROR = {};
+  var ELEMENT_PRESERVE_ATTRIBUTE_CASE = 1 << 1;
+  var ELEMENT_IS_INPUT = 1 << 2;
+  var UNINITIALIZED = Symbol("uninitialized");
+  var FILENAME = Symbol("filename");
+  var HMR = Symbol("hmr");
+  var NAMESPACE_HTML = "http://www.w3.org/1999/xhtml";
+
+  // node_modules/esm-env/true.js
+  var true_default = true;
+  // node_modules/svelte/src/internal/shared/utils.js
+  var is_array = Array.isArray;
+  var index_of = Array.prototype.indexOf;
+  var includes = Array.prototype.includes;
+  var array_from = Array.from;
+  var object_keys = Object.keys;
+  var define_property = Object.defineProperty;
+  var get_descriptor = Object.getOwnPropertyDescriptor;
+  var object_prototype = Object.prototype;
+  var array_prototype = Array.prototype;
+  var get_prototype_of = Object.getPrototypeOf;
+  var is_extensible = Object.isExtensible;
+  var noop = () => {};
+  function run_all(arr) {
+    for (var i = 0;i < arr.length; i++) {
+      arr[i]();
+    }
+  }
+  function deferred() {
+    var resolve;
+    var reject;
+    var promise = new Promise((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  // node_modules/svelte/src/internal/client/constants.js
+  var DERIVED = 1 << 1;
+  var EFFECT = 1 << 2;
+  var RENDER_EFFECT = 1 << 3;
+  var MANAGED_EFFECT = 1 << 24;
+  var BLOCK_EFFECT = 1 << 4;
+  var BRANCH_EFFECT = 1 << 5;
+  var ROOT_EFFECT = 1 << 6;
+  var BOUNDARY_EFFECT = 1 << 7;
+  var PAUSED = 1 << 8;
+  var CONNECTED = 1 << 9;
+  var CLEAN = 1 << 10;
+  var DIRTY = 1 << 11;
+  var MAYBE_DIRTY = 1 << 12;
+  var INERT = 1 << 13;
+  var DESTROYED = 1 << 14;
+  var REACTION_RAN = 1 << 15;
+  var DESTROYING = 1 << 25;
+  var EFFECT_TRANSPARENT = 1 << 16;
+  var EAGER_EFFECT = 1 << 17;
+  var HEAD_EFFECT = 1 << 18;
+  var EFFECT_PRESERVED = 1 << 19;
+  var USER_EFFECT = 1 << 20;
+  var EFFECT_OFFSCREEN = 1 << 25;
+  var REACTION_IS_UPDATING = 1 << 21;
+  var ASYNC = 1 << 22;
+  var ERROR_VALUE = 1 << 23;
+  var STATE_SYMBOL = Symbol("$state");
+  var COMPONENT_SYMBOL = Symbol("component");
+  var LEGACY_PROPS = Symbol("legacy props");
+  var LOADING_ATTR_SYMBOL = Symbol("");
+  var PROXY_PATH_SYMBOL = Symbol("proxy path");
+  var ATTRIBUTES_CACHE = Symbol("attributes");
+  var CLASS_CACHE = Symbol("class");
+  var STYLE_CACHE = Symbol("style");
+  var TEXT_CACHE = Symbol("text");
+  var FORM_RESET_HANDLER = Symbol("form reset");
+  var HMR_ANCHOR = Symbol("hmr anchor");
+  var STALE_REACTION = new class StaleReactionError extends Error {
+    name = "StaleReactionError";
+    message = "The reaction that called `getAbortSignal()` was re-run or destroyed";
+  };
+  var IS_XHTML = !!globalThis.document?.contentType && /* @__PURE__ */ globalThis.document.contentType.includes("xml");
+  var COMMENT_NODE = 8;
+
+  // node_modules/svelte/src/internal/client/warnings.js
+  var bold = "font-weight: bold";
+  var normal = "font-weight: normal";
+  function await_reactivity_loss(name) {
+    if (true_default) {
+      console.warn(`%c[svelte] await_reactivity_loss
+%cDetected reactivity loss when reading \`${name}\`. This happens when state is read in an async function after an earlier \`await\`
+https://svelte.dev/e/await_reactivity_loss`, bold, normal);
+    } else {
+      console.warn(`https://svelte.dev/e/await_reactivity_loss`);
+    }
+  }
+  function derived_inert() {
+    if (true_default) {
+      console.warn(`%c[svelte] derived_inert
+%cReading a derived belonging to a now-destroyed effect may result in stale values
+https://svelte.dev/e/derived_inert`, bold, normal);
+    } else {
+      console.warn(`https://svelte.dev/e/derived_inert`);
+    }
+  }
+  function hydration_mismatch(location2) {
+    if (true_default) {
+      console.warn(`%c[svelte] hydration_mismatch
+%c${location2 ? `Hydration failed because the initial UI does not match what was rendered on the server. The error occurred near ${location2}` : "Hydration failed because the initial UI does not match what was rendered on the server"}
+https://svelte.dev/e/hydration_mismatch`, bold, normal);
+    } else {
+      console.warn(`https://svelte.dev/e/hydration_mismatch`);
+    }
+  }
+  function lifecycle_double_unmount() {
+    if (true_default) {
+      console.warn(`%c[svelte] lifecycle_double_unmount
+%cTried to unmount a component that was not mounted
+https://svelte.dev/e/lifecycle_double_unmount`, bold, normal);
+    } else {
+      console.warn(`https://svelte.dev/e/lifecycle_double_unmount`);
+    }
+  }
+  function state_proxy_equality_mismatch(operator) {
+    if (true_default) {
+      console.warn(`%c[svelte] state_proxy_equality_mismatch
+%cReactive \`$state(...)\` proxies and the values they proxy have different identities. Because of this, comparisons with \`${operator}\` will produce unexpected results
+https://svelte.dev/e/state_proxy_equality_mismatch`, bold, normal);
+    } else {
+      console.warn(`https://svelte.dev/e/state_proxy_equality_mismatch`);
+    }
+  }
+  function svelte_boundary_reset_noop() {
+    if (true_default) {
+      console.warn(`%c[svelte] svelte_boundary_reset_noop
+%cA \`<svelte:boundary>\` \`reset\` function only resets the boundary the first time it is called
+https://svelte.dev/e/svelte_boundary_reset_noop`, bold, normal);
+    } else {
+      console.warn(`https://svelte.dev/e/svelte_boundary_reset_noop`);
+    }
+  }
+
+  // node_modules/svelte/src/internal/client/dom/hydration.js
+  var hydrating = false;
+  function set_hydrating(value) {
+    hydrating = value;
+  }
+  var hydrate_node;
+  function set_hydrate_node(node) {
+    if (node === null) {
+      hydration_mismatch();
+      throw HYDRATION_ERROR;
+    }
+    return hydrate_node = node;
+  }
+  function hydrate_next() {
+    return set_hydrate_node(get_next_sibling(hydrate_node));
+  }
+  function next(count = 1) {
+    if (hydrating) {
+      var i = count;
+      var node = hydrate_node;
+      while (i--) {
+        node = get_next_sibling(node);
+      }
+      hydrate_node = node;
+    }
+  }
+  function skip_nodes(remove = true) {
+    var depth = 0;
+    var node = hydrate_node;
+    while (true) {
+      if (node.nodeType === COMMENT_NODE) {
+        var data = node.data;
+        if (data === HYDRATION_END) {
+          if (depth === 0)
+            return node;
+          depth -= 1;
+        } else if (data === HYDRATION_START || data === HYDRATION_START_ELSE || data[0] === "[" && !isNaN(Number(data.slice(1)))) {
+          depth += 1;
+        }
+      }
+      var next = get_next_sibling(node);
+      if (remove)
+        node.remove();
+      node = next;
+    }
+  }
+  function read_hydration_instruction(node) {
+    if (!node || node.nodeType !== COMMENT_NODE) {
+      hydration_mismatch();
+      throw HYDRATION_ERROR;
+    }
+    return node.data;
+  }
+
+  // node_modules/svelte/src/internal/client/reactivity/equality.js
+  function equals2(value) {
+    return value === this.v;
+  }
+  function safe_not_equal(a, b) {
+    return a != a ? b == b : a !== b || a !== null && typeof a === "object" || typeof a === "function";
+  }
+  function safe_equals(value) {
+    return !safe_not_equal(value, this.v);
+  }
+
+  // node_modules/svelte/src/internal/shared/errors.js
+  function invariant_violation(message) {
+    if (true_default) {
+      const error = new Error(`invariant_violation
+An invariant violation occurred, meaning Svelte's internal assumptions were flawed. This is a bug in Svelte, not your app — please open an issue at https://github.com/sveltejs/svelte, citing the following message: "${message}"
+https://svelte.dev/e/invariant_violation`);
+      error.name = "Svelte error";
+      throw error;
+    } else {
+      throw new Error(`https://svelte.dev/e/invariant_violation`);
+    }
+  }
+  // node_modules/svelte/src/internal/client/errors.js
+  function derived_references_self() {
+    if (true_default) {
+      const error = new Error(`derived_references_self
+A derived value cannot reference itself recursively
+https://svelte.dev/e/derived_references_self`);
+      error.name = "Svelte error";
+      throw error;
+    } else {
+      throw new Error(`https://svelte.dev/e/derived_references_self`);
+    }
+  }
+  function effect_update_depth_exceeded() {
+    if (true_default) {
+      const error = new Error(`effect_update_depth_exceeded
+Maximum update depth exceeded. This typically indicates that an effect reads and writes the same piece of state
+https://svelte.dev/e/effect_update_depth_exceeded`);
+      error.name = "Svelte error";
+      throw error;
+    } else {
+      throw new Error(`https://svelte.dev/e/effect_update_depth_exceeded`);
+    }
+  }
+  function hydration_failed() {
+    if (true_default) {
+      const error = new Error(`hydration_failed
+Failed to hydrate the application
+https://svelte.dev/e/hydration_failed`);
+      error.name = "Svelte error";
+      throw error;
+    } else {
+      throw new Error(`https://svelte.dev/e/hydration_failed`);
+    }
+  }
+  function rune_outside_svelte(rune) {
+    if (true_default) {
+      const error = new Error(`rune_outside_svelte
+The \`${rune}\` rune is only available inside \`.svelte\` and \`.svelte.js/ts\` files
+https://svelte.dev/e/rune_outside_svelte`);
+      error.name = "Svelte error";
+      throw error;
+    } else {
+      throw new Error(`https://svelte.dev/e/rune_outside_svelte`);
+    }
+  }
+  function state_descriptors_fixed() {
+    if (true_default) {
+      const error = new Error(`state_descriptors_fixed
+Property descriptors defined on \`$state\` objects must contain \`value\` and always be \`enumerable\`, \`configurable\` and \`writable\`.
+https://svelte.dev/e/state_descriptors_fixed`);
+      error.name = "Svelte error";
+      throw error;
+    } else {
+      throw new Error(`https://svelte.dev/e/state_descriptors_fixed`);
+    }
+  }
+  function state_prototype_fixed() {
+    if (true_default) {
+      const error = new Error(`state_prototype_fixed
+Cannot set prototype of \`$state\` object
+https://svelte.dev/e/state_prototype_fixed`);
+      error.name = "Svelte error";
+      throw error;
+    } else {
+      throw new Error(`https://svelte.dev/e/state_prototype_fixed`);
+    }
+  }
+  function state_unsafe_mutation() {
+    if (true_default) {
+      const error = new Error(`state_unsafe_mutation
+Updating state inside \`$derived(...)\`, \`$inspect(...)\` or a template expression is forbidden. If the value should not be reactive, declare it without \`$state\`
+https://svelte.dev/e/state_unsafe_mutation`);
+      error.name = "Svelte error";
+      throw error;
+    } else {
+      throw new Error(`https://svelte.dev/e/state_unsafe_mutation`);
+    }
+  }
+  function svelte_boundary_reset_onerror() {
+    if (true_default) {
+      const error = new Error(`svelte_boundary_reset_onerror
+A \`<svelte:boundary>\` \`reset\` function cannot be called while an error is still being handled
+https://svelte.dev/e/svelte_boundary_reset_onerror`);
+      error.name = "Svelte error";
+      throw error;
+    } else {
+      throw new Error(`https://svelte.dev/e/svelte_boundary_reset_onerror`);
+    }
+  }
+
+  // node_modules/svelte/src/internal/flags/index.js
+  var async_mode_flag = false;
+  var legacy_mode_flag = false;
+  var tracing_mode_flag = false;
+
+  // node_modules/svelte/src/internal/client/dev/tracing.js
+  var tracing_expressions = null;
+  function tag(source, label) {
+    source.label = label;
+    tag_proxy(source.v, label);
+    return source;
+  }
+  function tag_proxy(value, label) {
+    value?.[PROXY_PATH_SYMBOL]?.(label);
+    return value;
+  }
+
+  // node_modules/svelte/src/internal/shared/dev.js
+  function get_error(label) {
+    const error = new Error;
+    const stack = get_stack();
+    if (stack.length === 0) {
+      return null;
+    }
+    stack.unshift(`
+`);
+    define_property(error, "stack", {
+      value: stack.join(`
+`)
+    });
+    define_property(error, "name", {
+      value: label
+    });
+    return error;
+  }
+  function get_stack() {
+    const limit = Error.stackTraceLimit;
+    Error.stackTraceLimit = Infinity;
+    const stack = new Error().stack;
+    Error.stackTraceLimit = limit;
+    if (!stack)
+      return [];
+    const lines = stack.split(`
+`);
+    const new_lines = [];
+    for (let i = 0;i < lines.length; i++) {
+      const line = lines[i];
+      const posixified = line.replaceAll("\\", "/");
+      if (line.trim() === "Error") {
+        continue;
+      }
+      if (line.includes("validate_each_keys")) {
+        return [];
+      }
+      if (posixified.includes("svelte/src/internal") || posixified.includes("node_modules/.vite")) {
+        continue;
+      }
+      new_lines.push(line);
+    }
+    return new_lines;
+  }
+  function invariant(condition, message) {
+    if (!true_default) {
+      throw new Error("invariant(...) was not guarded by if (DEV)");
+    }
+    if (!condition)
+      invariant_violation(message);
+  }
+
+  // node_modules/svelte/src/internal/client/context.js
+  var component_context = null;
+  function set_component_context(context) {
+    component_context = context;
+  }
+  var dev_stack = null;
+  function set_dev_stack(stack) {
+    dev_stack = stack;
+  }
+  var dev_current_component_function = null;
+  function set_dev_current_component_function(fn) {
+    dev_current_component_function = fn;
+  }
+  function push(props, runes = false, fn) {
+    component_context = {
+      p: component_context,
+      i: false,
+      c: null,
+      e: null,
+      s: props,
+      x: null,
+      r: active_effect,
+      l: legacy_mode_flag && !runes ? { s: null, u: null, $: [] } : null
+    };
+    if (true_default) {
+      component_context.function = fn;
+      dev_current_component_function = fn;
+    }
+  }
+  function pop(component) {
+    var context = component_context;
+    var effects = context.e;
+    if (effects !== null) {
+      context.e = null;
+      for (var fn of effects) {
+        create_user_effect(fn);
+      }
+    }
+    if (component !== undefined) {
+      context.x = component;
+    }
+    context.i = true;
+    component_context = context.p;
+    if (true_default) {
+      dev_current_component_function = component_context?.function ?? null;
+    }
+    return mark_as_component(component);
+  }
+  function mark_as_component(component = {}) {
+    define_property(component, COMPONENT_SYMBOL, { value: true });
+    return component;
+  }
+  function is_runes() {
+    return !legacy_mode_flag || component_context !== null && component_context.l === null;
+  }
+
+  // node_modules/svelte/src/internal/client/dom/task.js
+  var micro_tasks = [];
+  function run_micro_tasks() {
+    var tasks = micro_tasks;
+    micro_tasks = [];
+    run_all(tasks);
+  }
+  function queue_micro_task(fn) {
+    if (micro_tasks.length === 0 && !is_flushing_sync) {
+      var tasks = micro_tasks;
+      queueMicrotask(() => {
+        if (tasks === micro_tasks)
+          run_micro_tasks();
+      });
+    }
+    micro_tasks.push(fn);
+  }
+  function flush_tasks() {
+    while (micro_tasks.length > 0) {
+      run_micro_tasks();
+    }
+  }
+
+  // node_modules/svelte/src/internal/client/reactivity/status.js
+  var STATUS_MASK = ~(DIRTY | MAYBE_DIRTY | CLEAN);
+  function set_signal_status(signal, status) {
+    signal.f = signal.f & STATUS_MASK | status;
+  }
+  function update_derived_status(derived) {
+    if ((derived.f & CONNECTED) !== 0 || derived.deps === null) {
+      set_signal_status(derived, CLEAN);
+    } else {
+      set_signal_status(derived, MAYBE_DIRTY);
+    }
+  }
+
+  // node_modules/svelte/src/internal/client/reactivity/utils.js
+  function defer_effect(effect, dirty_reactions) {
+    if ((effect.f & DIRTY) !== 0) {
+      dirty_reactions.set(effect, DIRTY);
+    } else if ((effect.f & MAYBE_DIRTY) !== 0 && dirty_reactions.get(effect) !== DIRTY) {
+      dirty_reactions.set(effect, MAYBE_DIRTY);
+    }
+    set_signal_status(effect, CLEAN);
+  }
+
+  // node_modules/svelte/src/internal/client/dom/elements/bindings/shared.js
+  function without_reactive_context(fn) {
+    var previous_reaction = active_reaction;
+    var previous_effect = active_effect;
+    set_active_reaction(null);
+    set_active_effect(null);
+    try {
+      return fn();
+    } finally {
+      set_active_reaction(previous_reaction);
+      set_active_effect(previous_effect);
+    }
+  }
+
+  // node_modules/svelte/src/internal/client/reactivity/deriveds.js
+  var reactivity_loss_tracker = null;
+  var recent_async_deriveds = new Set;
+  var OBSOLETE = Symbol("obsolete");
+  function destroy_derived_effects(derived) {
+    var effects = derived.effects;
+    if (effects !== null) {
+      derived.effects = null;
+      for (var i = 0;i < effects.length; i += 1) {
+        destroy_effect(effects[i]);
+      }
+    }
+  }
+  var stack2 = [];
+  function execute_derived(derived) {
+    var value;
+    var prev_active_effect = active_effect;
+    var parent = derived.parent;
+    if (!is_destroying_effect && parent !== null && derived.v !== UNINITIALIZED && (parent.f & (DESTROYED | INERT)) !== 0) {
+      derived_inert();
+      return derived.v;
+    }
+    set_active_effect(parent);
+    if (true_default) {
+      let prev_eager_effects = eager_effects;
+      set_eager_effects(new Set);
+      try {
+        if (includes.call(stack2, derived)) {
+          derived_references_self();
+        }
+        stack2.push(derived);
+        destroy_derived_effects(derived);
+        value = update_reaction(derived);
+      } finally {
+        set_active_effect(prev_active_effect);
+        set_eager_effects(prev_eager_effects);
+        stack2.pop();
+      }
+    } else {
+      try {
+        destroy_derived_effects(derived);
+        value = update_reaction(derived);
+      } finally {
+        set_active_effect(prev_active_effect);
+      }
+    }
+    return value;
+  }
+  function update_derived(derived) {
+    var value = execute_derived(derived);
+    if (!derived.equals(value)) {
+      derived.wv = increment_write_version();
+      if (!current_batch?.is_fork || derived.deps === null) {
+        if (current_batch !== null) {
+          current_batch.capture(derived, value, true);
+          previous_batch?.capture(derived, value, true);
+        } else {
+          derived.v = value;
+        }
+        if (derived.deps === null) {
+          set_signal_status(derived, CLEAN);
+          return;
+        }
+      }
+    }
+    if (is_destroying_effect) {
+      return;
+    }
+    if (batch_values !== null) {
+      if (effect_tracking() || current_batch?.is_fork) {
+        batch_values.set(derived, value);
+      }
+    } else {
+      update_derived_status(derived);
+    }
+  }
+  function freeze_derived_effects(derived) {
+    if (derived.effects === null)
+      return;
+    for (const e of derived.effects) {
+      if (e.teardown || e.ac) {
+        e.teardown?.();
+        if (e.ac !== null) {
+          without_reactive_context(() => {
+            e.ac.abort(STALE_REACTION);
+            e.ac = null;
+          });
+        }
+        if (e.fn !== null)
+          e.teardown = noop;
+        remove_reactions(e, 0);
+        destroy_effect_children(e);
+      }
+    }
+  }
+  function unfreeze_derived_effects(derived) {
+    if (derived.effects === null)
+      return;
+    for (const e of derived.effects) {
+      if (e.teardown && e.fn !== null) {
+        update_effect(e);
+      }
+    }
+  }
+
+  // node_modules/svelte/src/internal/client/reactivity/batch.js
+  var first_batch = null;
+  var last_batch = null;
+  var current_batch = null;
+  var previous_batch = null;
+  var batch_values = null;
+  var last_scheduled_effect = null;
+  var is_flushing_sync = false;
+  var is_processing = false;
+  var collected_effects = null;
+  var legacy_updates = null;
+  var flush_count = 0;
+  var source_stacks = new Set;
+  var uid = 1;
+
+  class Batch {
+    id = uid++;
+    started = false;
+    linked = true;
+    prev = null;
+    next = null;
+    async_deriveds = new Map;
+    current = new Map;
+    previous = new Map;
+    #commit_callbacks = new Set;
+    #discard_callbacks = new Set;
+    #pending = 0;
+    #blocking_pending = new Map;
+    #deferred = null;
+    #scheduled = [];
+    #new_effects = [];
+    #dirty_reactions = new Map;
+    #skipped_branches = new Map;
+    #unskipped_branches = new Set;
+    is_fork = false;
+    #decrement_queued = false;
+    constructor() {
+      if (last_batch === null) {
+        first_batch = last_batch = this;
+      } else {
+        last_batch.next = this;
+        this.prev = last_batch;
+      }
+      last_batch = this;
+    }
+    #is_deferred() {
+      if (this.is_fork)
+        return true;
+      for (const effect of this.#blocking_pending.keys()) {
+        if (!this.#is_skipped(effect)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    #is_skipped(effect) {
+      for (var e = effect;e !== null; e = e.parent) {
+        if (this.#skipped_branches.has(e))
+          return true;
+      }
+      return false;
+    }
+    skip_effect(effect) {
+      if (!this.#skipped_branches.has(effect)) {
+        this.#skipped_branches.set(effect, { d: [], m: [] });
+      }
+      this.#unskipped_branches.delete(effect);
+    }
+    unskip_effect(effect, callback = (e) => this.schedule(e)) {
+      var tracked = this.#skipped_branches.get(effect);
+      if (tracked) {
+        this.#skipped_branches.delete(effect);
+        for (var e of tracked.d) {
+          set_signal_status(e, DIRTY);
+          callback(e);
+        }
+        for (e of tracked.m) {
+          set_signal_status(e, MAYBE_DIRTY);
+          callback(e);
+        }
+      }
+      this.#unskipped_branches.add(effect);
+    }
+    #resolve() {
+      var roots = [];
+      for (const effect of this.#scheduled) {
+        if ((effect.f & DESTROYED) !== 0 || (effect.f & (DIRTY | MAYBE_DIRTY)) === 0)
+          continue;
+        var e = effect;
+        var covered = false;
+        while (e.parent !== null) {
+          e = e.parent;
+          var flags = e.f;
+          if ((flags & (ROOT_EFFECT | BRANCH_EFFECT)) !== 0) {
+            if ((flags & CLEAN) === 0) {
+              covered = true;
+              break;
+            }
+            e.f ^= CLEAN;
+          }
+        }
+        if (!covered) {
+          roots.push(e);
+        }
+      }
+      this.#scheduled = [];
+      return roots;
+    }
+    #process() {
+      this.started = true;
+      if (true_default) {
+        for (const value of this.current.keys()) {
+          source_stacks.add(value);
+        }
+      }
+      for (const [e, status] of this.#dirty_reactions) {
+        set_signal_status(e, status);
+        this.schedule(e);
+      }
+      this.apply();
+      var effects = collected_effects = [];
+      var render_effects = [];
+      var updates = legacy_updates = [];
+      while (this.#scheduled.length > 0) {
+        if (flush_count++ > 1000) {
+          this.#unlink();
+          infinite_loop_guard();
+        }
+        for (const root of this.#resolve()) {
+          try {
+            this.#traverse(root, effects, render_effects);
+          } catch (e) {
+            reset_all(root);
+            if (!this.#is_deferred())
+              this.discard();
+            throw e;
+          }
+        }
+      }
+      current_batch = null;
+      if (updates.length > 0) {
+        var batch = Batch.ensure();
+        for (const e of updates) {
+          batch.schedule(e);
+        }
+      }
+      collected_effects = null;
+      legacy_updates = null;
+      if (this.#is_deferred()) {
+        this.#defer_effects(render_effects);
+        this.#defer_effects(effects);
+        for (const [e, t] of this.#skipped_branches) {
+          reset_branch(e, t);
+        }
+        if (updates.length > 0) {
+          current_batch.#process();
+        }
+        return;
+      }
+      const earlier_batch = this.#find_earlier_batch();
+      if (earlier_batch) {
+        this.#defer_effects(render_effects);
+        this.#defer_effects(effects);
+        earlier_batch.#merge(this);
+        return;
+      }
+      this.#dirty_reactions.clear();
+      for (const fn of this.#commit_callbacks)
+        fn(this);
+      this.#commit_callbacks.clear();
+      previous_batch = this;
+      flush_queued_effects(render_effects);
+      flush_queued_effects(effects);
+      previous_batch = null;
+      this.#deferred?.resolve();
+      var next_batch = current_batch;
+      if (this.#pending === 0 && (this.#scheduled.length === 0 || next_batch !== null)) {
+        this.#unlink();
+        if (async_mode_flag) {
+          this.#commit();
+          current_batch = next_batch;
+        }
+      }
+      if (next_batch !== null) {
+        old_values.clear();
+        next_batch.#process();
+      }
+    }
+    #traverse(root, effects, render_effects) {
+      root.f ^= CLEAN;
+      var effect = root.first;
+      while (effect !== null) {
+        var flags = effect.f;
+        var is_branch = (flags & (BRANCH_EFFECT | ROOT_EFFECT)) !== 0;
+        var is_skippable_branch = is_branch && (flags & CLEAN) !== 0;
+        var skip = is_skippable_branch || (flags & INERT) !== 0 || this.#skipped_branches.has(effect);
+        if (!skip && effect.fn !== null) {
+          if (is_branch) {
+            effect.f ^= CLEAN;
+          } else if ((flags & EFFECT) !== 0) {
+            effects.push(effect);
+          } else if (async_mode_flag && (flags & (RENDER_EFFECT | MANAGED_EFFECT)) !== 0) {
+            render_effects.push(effect);
+          } else if (is_dirty(effect)) {
+            if ((flags & BLOCK_EFFECT) !== 0)
+              this.add_dirty_reaction(effect, MAYBE_DIRTY);
+            update_effect(effect);
+          }
+          var child = effect.first;
+          if (child !== null) {
+            effect = child;
+            continue;
+          }
+        }
+        while (effect !== null) {
+          var next = effect.next;
+          if (next !== null) {
+            effect = next;
+            break;
+          }
+          effect = effect.parent;
+        }
+      }
+    }
+    #find_earlier_batch() {
+      for (var batch = this.prev;batch !== null; batch = batch.prev) {
+        if (!batch.is_fork && this.#intersects(batch))
+          return batch;
+      }
+      return null;
+    }
+    #intersects(batch) {
+      for (const [source, [, is_derived]] of this.current) {
+        if (is_derived)
+          continue;
+        if (batch.current.has(source))
+          return true;
+      }
+      return false;
+    }
+    #merge(batch) {
+      for (const [source, value] of batch.current) {
+        if (!this.previous.has(source) && batch.previous.has(source)) {
+          this.previous.set(source, batch.previous.get(source));
+        }
+        this.current.set(source, value);
+      }
+      for (const [effect, deferred] of batch.async_deriveds) {
+        const d = this.async_deriveds.get(effect);
+        if (d)
+          deferred.promise.then(d.resolve).catch(d.reject);
+      }
+      batch.async_deriveds.clear();
+      this.transfer_reactions(batch.#dirty_reactions);
+      const mark = (value) => {
+        var reactions = value.reactions;
+        if (reactions === null)
+          return;
+        if ((value.f & DERIVED) !== 0 && (value.f & (DIRTY | MAYBE_DIRTY)) === 0) {
+          return;
+        }
+        for (const reaction of reactions) {
+          var flags = reaction.f;
+          if ((flags & DERIVED) !== 0) {
+            mark(reaction);
+          } else {
+            var effect = reaction;
+            if (flags & (ASYNC | BLOCK_EFFECT) && !this.async_deriveds.has(effect)) {
+              this.#dirty_reactions.delete(effect);
+              set_signal_status(effect, DIRTY);
+              this.schedule(effect);
+            }
+          }
+        }
+      };
+      for (const source of this.current.keys()) {
+        mark(source);
+      }
+      this.oncommit(() => batch.discard());
+      batch.#unlink();
+      current_batch = this;
+      this.#process();
+    }
+    #defer_effects(effects) {
+      for (var i = 0;i < effects.length; i += 1) {
+        defer_effect(effects[i], this.#dirty_reactions);
+      }
+    }
+    capture(source, value, is_derived = false) {
+      if (source.v !== UNINITIALIZED && !this.previous.has(source)) {
+        this.previous.set(source, source.v);
+      }
+      if ((source.f & ERROR_VALUE) === 0) {
+        this.current.set(source, [value, is_derived]);
+        batch_values?.set(source, value);
+      }
+      if (!this.is_fork) {
+        source.v = value;
+      }
+    }
+    activate() {
+      current_batch = this;
+    }
+    deactivate() {
+      current_batch = null;
+      batch_values = null;
+    }
+    flush() {
+      try {
+        if (true_default) {
+          source_stacks.clear();
+        }
+        is_processing = true;
+        current_batch = this;
+        this.#process();
+      } finally {
+        flush_count = 0;
+        last_scheduled_effect = null;
+        collected_effects = null;
+        legacy_updates = null;
+        is_processing = false;
+        current_batch = null;
+        batch_values = null;
+        old_values.clear();
+        if (true_default) {
+          for (const source of source_stacks) {
+            source.updated = null;
+          }
+        }
+      }
+    }
+    discard() {
+      for (const fn of this.#discard_callbacks)
+        fn(this);
+      this.#discard_callbacks.clear();
+      for (const deferred of this.async_deriveds.values()) {
+        deferred.reject(OBSOLETE);
+      }
+      this.#unlink();
+      this.#deferred?.resolve();
+    }
+    register_created_effect(effect) {
+      this.#new_effects.push(effect);
+    }
+    #commit() {
+      for (let batch = first_batch;batch !== null; batch = batch.next) {
+        var is_earlier = batch.id < this.id;
+        var sources = [];
+        for (const [source, [value, is_derived]] of this.current) {
+          if (batch.current.has(source)) {
+            var batch_value = batch.current.get(source)[0];
+            if (is_earlier && value !== batch_value) {
+              batch.current.set(source, [value, is_derived]);
+            } else {
+              continue;
+            }
+          }
+          sources.push(source);
+        }
+        if (is_earlier) {
+          for (const [effect, deferred] of this.async_deriveds) {
+            const d = batch.async_deriveds.get(effect);
+            if (d)
+              deferred.promise.then(d.resolve).catch(d.reject);
+          }
+        }
+        var current = [...batch.current.keys()].filter((source) => !batch.current.get(source)[1]);
+        if (!batch.started || current.length === 0)
+          continue;
+        var others = current.filter((source) => !this.current.has(source));
+        if (others.length === 0) {
+          if (is_earlier) {
+            batch.discard();
+          }
+        } else if (sources.length > 0) {
+          if (true_default && !batch.#decrement_queued) {
+            invariant(batch.#scheduled.length === 0, "Batch has scheduled effects");
+          }
+          if (is_earlier) {
+            for (const unskipped of this.#unskipped_branches) {
+              batch.unskip_effect(unskipped, (e) => {
+                if ((e.f & (BLOCK_EFFECT | ASYNC)) !== 0) {
+                  batch.schedule(e);
+                } else {
+                  batch.#defer_effects([e]);
+                }
+              });
+            }
+          }
+          batch.activate();
+          var marked = new Set;
+          var checked = new Map;
+          for (var source of sources) {
+            mark_effects(source, others, marked, checked);
+          }
+          checked = new Map;
+          var current_unequal = [...batch.current].filter(([c, v1]) => {
+            const v2 = this.current.get(c);
+            if (!v2)
+              return true;
+            return v2[0] !== v1[0] || v2[1] !== v1[1];
+          }).map(([c]) => c);
+          if (current_unequal.length > 0) {
+            for (const effect of this.#new_effects) {
+              if ((effect.f & (DESTROYED | INERT | EAGER_EFFECT)) === 0 && depends_on(effect, current_unequal, checked)) {
+                if ((effect.f & (ASYNC | BLOCK_EFFECT)) !== 0) {
+                  set_signal_status(effect, DIRTY);
+                  batch.schedule(effect);
+                } else {
+                  batch.add_dirty_reaction(effect, DIRTY);
+                }
+              }
+            }
+          }
+          if (batch.#scheduled.length > 0 && !batch.#decrement_queued) {
+            batch.apply();
+            for (var root of batch.#resolve()) {
+              batch.#traverse(root, [], []);
+            }
+          }
+          batch.deactivate();
+        }
+      }
+    }
+    increment(blocking, effect) {
+      this.#pending += 1;
+      if (blocking) {
+        let blocking_pending_count = this.#blocking_pending.get(effect) ?? 0;
+        this.#blocking_pending.set(effect, blocking_pending_count + 1);
+      }
+    }
+    decrement(blocking, effect) {
+      this.#pending -= 1;
+      if (blocking) {
+        let blocking_pending_count = this.#blocking_pending.get(effect) ?? 0;
+        if (blocking_pending_count === 1) {
+          this.#blocking_pending.delete(effect);
+        } else {
+          this.#blocking_pending.set(effect, blocking_pending_count - 1);
+        }
+      }
+      if (this.#decrement_queued)
+        return;
+      this.#decrement_queued = true;
+      queue_micro_task(() => {
+        this.#decrement_queued = false;
+        if (this.linked) {
+          this.flush();
+        }
+      });
+    }
+    transfer_reactions(dirty_reactions) {
+      for (const [effect, status] of dirty_reactions) {
+        this.add_dirty_reaction(effect, status);
+      }
+      dirty_reactions.clear();
+    }
+    add_dirty_reaction(effect, status) {
+      if (status === DIRTY || this.#dirty_reactions.get(effect) !== DIRTY) {
+        this.#dirty_reactions.set(effect, status);
+      }
+    }
+    oncommit(fn) {
+      this.#commit_callbacks.add(fn);
+    }
+    ondiscard(fn) {
+      this.#discard_callbacks.add(fn);
+    }
+    settled() {
+      return (this.#deferred ??= deferred()).promise;
+    }
+    static ensure() {
+      if (current_batch === null) {
+        const batch = current_batch = new Batch;
+        if (!is_processing && !is_flushing_sync) {
+          queue_micro_task(() => {
+            if (!batch.started) {
+              batch.flush();
+            }
+          });
+        }
+      }
+      return current_batch;
+    }
+    apply() {
+      if (!async_mode_flag || !this.is_fork && this.prev === null && this.next === null) {
+        batch_values = null;
+        return;
+      }
+      batch_values = new Map;
+      for (const [source, [value]] of this.current) {
+        batch_values.set(source, value);
+      }
+      for (let batch = first_batch;batch !== null; batch = batch.next) {
+        if (batch === this || batch.is_fork)
+          continue;
+        if (batch.id >= this.id || !batch.#intersects(this)) {
+          for (const [source, previous] of batch.previous) {
+            if (!batch_values.has(source)) {
+              batch_values.set(source, previous);
+            }
+          }
+        }
+      }
+    }
+    schedule(effect) {
+      last_scheduled_effect = effect;
+      if (effect.b?.is_pending && (effect.f & (EFFECT | RENDER_EFFECT | MANAGED_EFFECT)) !== 0 && (effect.f & REACTION_RAN) === 0) {
+        effect.b.defer_effect(effect);
+        return;
+      }
+      this.#scheduled.push(effect);
+    }
+    #unlink() {
+      if (!this.linked)
+        return;
+      var prev = this.prev;
+      var next = this.next;
+      if (prev === null) {
+        first_batch = next;
+      } else {
+        prev.next = next;
+      }
+      if (next === null) {
+        last_batch = prev;
+      } else {
+        next.prev = prev;
+      }
+      this.linked = false;
+    }
+  }
+  function flushSync(fn) {
+    var was_flushing_sync = is_flushing_sync;
+    var prev_previous_batch = previous_batch;
+    previous_batch = null;
+    is_flushing_sync = true;
+    try {
+      var result;
+      if (fn) {
+        flushSync();
+        result = fn();
+      }
+      while (true) {
+        flush_tasks();
+        if (current_batch === null) {
+          return result;
+        }
+        current_batch.flush();
+      }
+    } finally {
+      is_flushing_sync = was_flushing_sync;
+      previous_batch = prev_previous_batch;
+    }
+  }
+  function infinite_loop_guard() {
+    if (true_default) {
+      var updates = new Map;
+      for (const source of current_batch.current.keys()) {
+        for (const [stack, update] of source.updated ?? []) {
+          var entry = updates.get(stack);
+          if (!entry) {
+            entry = { error: update.error, count: 0 };
+            updates.set(stack, entry);
+          }
+          entry.count += update.count;
+        }
+      }
+      for (const update of updates.values()) {
+        if (update.error) {
+          console.error(update.error);
+        }
+      }
+    }
+    try {
+      effect_update_depth_exceeded();
+    } catch (error) {
+      if (true_default) {
+        define_property(error, "stack", { value: "" });
+      }
+      invoke_error_boundary(error, last_scheduled_effect);
+    }
+  }
+  var eager_block_effects = null;
+  function flush_queued_effects(effects) {
+    var length = effects.length;
+    if (length === 0)
+      return;
+    var i = 0;
+    while (i < length) {
+      var effect = effects[i++];
+      if ((effect.f & (DESTROYED | INERT)) === 0 && is_dirty(effect)) {
+        eager_block_effects = new Set;
+        update_effect(effect);
+        if (effect.deps === null && effect.first === null && effect.nodes === null && effect.teardown === null && effect.ac === null) {
+          unlink_effect(effect);
+        }
+        if (eager_block_effects?.size > 0) {
+          old_values.clear();
+          for (const e of eager_block_effects) {
+            if ((e.f & (DESTROYED | INERT)) !== 0)
+              continue;
+            const ordered_effects = [e];
+            let ancestor = e.parent;
+            while (ancestor !== null) {
+              if (eager_block_effects.has(ancestor)) {
+                eager_block_effects.delete(ancestor);
+                ordered_effects.push(ancestor);
+              }
+              ancestor = ancestor.parent;
+            }
+            for (let j = ordered_effects.length - 1;j >= 0; j--) {
+              const e = ordered_effects[j];
+              if ((e.f & (DESTROYED | INERT)) !== 0)
+                continue;
+              update_effect(e);
+            }
+          }
+          eager_block_effects.clear();
+        }
+      }
+    }
+    eager_block_effects = null;
+  }
+  function mark_effects(value, sources, marked, checked) {
+    if (marked.has(value))
+      return;
+    marked.add(value);
+    if (value.reactions !== null) {
+      for (const reaction of value.reactions) {
+        const flags = reaction.f;
+        if ((flags & DERIVED) !== 0) {
+          mark_effects(reaction, sources, marked, checked);
+        } else if ((flags & (ASYNC | BLOCK_EFFECT)) !== 0 && (flags & DIRTY) === 0 && depends_on(reaction, sources, checked)) {
+          set_signal_status(reaction, DIRTY);
+          schedule_effect(reaction);
+        }
+      }
+    }
+  }
+  function depends_on(reaction, sources, checked) {
+    const depends = checked.get(reaction);
+    if (depends !== undefined)
+      return depends;
+    if (reaction.deps !== null) {
+      for (const dep of reaction.deps) {
+        if (includes.call(sources, dep)) {
+          return true;
+        }
+        if ((dep.f & DERIVED) !== 0 && depends_on(dep, sources, checked)) {
+          checked.set(dep, true);
+          return true;
+        }
+      }
+    }
+    checked.set(reaction, false);
+    return false;
+  }
+  function schedule_effect(effect) {
+    current_batch.schedule(effect);
+  }
+  var version_map = new Map;
+  function reset_branch(effect, tracked) {
+    if ((effect.f & BRANCH_EFFECT) !== 0 && (effect.f & CLEAN) !== 0) {
+      return;
+    }
+    if ((effect.f & DIRTY) !== 0) {
+      tracked.d.push(effect);
+    } else if ((effect.f & MAYBE_DIRTY) !== 0) {
+      tracked.m.push(effect);
+    }
+    set_signal_status(effect, CLEAN);
+    var e = effect.first;
+    while (e !== null) {
+      reset_branch(e, tracked);
+      e = e.next;
+    }
+  }
+  function reset_all(effect) {
+    set_signal_status(effect, CLEAN);
+    var e = effect.first;
+    while (e !== null) {
+      reset_all(e);
+      e = e.next;
+    }
+  }
+
+  // node_modules/svelte/src/internal/client/reactivity/sources.js
+  var eager_effects = new Set;
+  var old_values = new Map;
+  function set_eager_effects(v) {
+    eager_effects = v;
+  }
+  var eager_effects_deferred = false;
+  function set_eager_effects_deferred() {
+    eager_effects_deferred = true;
+  }
+  function source(v, stack) {
+    var signal = {
+      f: 0,
+      v,
+      reactions: null,
+      equals: equals2,
+      rv: 0,
+      wv: 0
+    };
+    if (true_default && tracing_mode_flag) {
+      signal.created = stack ?? get_error("created at");
+      signal.updated = null;
+      signal.set_during_effect = false;
+      signal.trace = null;
+    }
+    return signal;
+  }
+  function state(v, stack) {
+    const s = source(v, stack);
+    push_reaction_value(s);
+    return s;
+  }
+  function mutable_source(initial_value, immutable = false, trackable = true) {
+    const s = source(initial_value);
+    if (!immutable) {
+      s.equals = safe_equals;
+    }
+    if (legacy_mode_flag && trackable && component_context !== null && component_context.l !== null) {
+      (component_context.l.s ??= []).push(s);
+    }
+    return s;
+  }
+  function set(source, value, should_proxy = false) {
+    if (active_reaction !== null && (!untracking || (active_reaction.f & EAGER_EFFECT) !== 0) && is_runes() && (active_reaction.f & (DERIVED | BLOCK_EFFECT | ASYNC | EAGER_EFFECT)) !== 0 && (current_sources === null || !current_sources.has(source))) {
+      state_unsafe_mutation();
+    }
+    let new_value = should_proxy ? proxy(value) : value;
+    if (true_default) {
+      tag_proxy(new_value, source.label);
+    }
+    return internal_set(source, new_value, legacy_updates);
+  }
+  var seen = null;
+  var count_deps = 0;
+  function internal_set(source, value, updated_during_traversal = null) {
+    if (!source.equals(value)) {
+      if (is_destroying_effect) {
+        old_values.set(source, value);
+      } else if (!old_values.has(source)) {
+        old_values.set(source, source.v);
+      }
+      var batch = Batch.ensure();
+      batch.capture(source, value);
+      if (true_default) {
+        if (tracing_mode_flag || active_effect !== null) {
+          source.updated ??= new Map;
+          const count = (source.updated.get("")?.count ?? 0) + 1;
+          source.updated.set("", { error: null, count });
+          if (tracing_mode_flag || count > 5) {
+            const error = get_error("updated at");
+            if (error !== null) {
+              let entry = source.updated.get(error.stack);
+              if (!entry) {
+                entry = { error, count: 0 };
+                source.updated.set(error.stack, entry);
+              }
+              entry.count++;
+            }
+          }
+        }
+        if (active_effect !== null) {
+          source.set_during_effect = true;
+        }
+      }
+      if ((source.f & DERIVED) !== 0) {
+        const derived = source;
+        if ((source.f & DIRTY) !== 0) {
+          execute_derived(derived);
+        }
+        if (batch_values === null) {
+          update_derived_status(derived);
+        }
+      }
+      source.wv = increment_write_version();
+      seen = null;
+      count_deps = 0;
+      mark_reactions(source, DIRTY, updated_during_traversal);
+      seen = null;
+      if (is_runes() && active_effect !== null && (active_effect.f & CLEAN) !== 0 && (active_effect.f & (BRANCH_EFFECT | ROOT_EFFECT)) === 0) {
+        if (untracked_writes === null) {
+          set_untracked_writes([source]);
+        } else {
+          untracked_writes.push(source);
+        }
+      }
+      if (!batch.is_fork && eager_effects.size > 0 && !eager_effects_deferred) {
+        flush_eager_effects();
+      }
+    }
+    return value;
+  }
+  function flush_eager_effects() {
+    eager_effects_deferred = false;
+    for (const effect of eager_effects) {
+      if ((effect.f & CLEAN) !== 0) {
+        set_signal_status(effect, MAYBE_DIRTY);
+      }
+      let dirty;
+      try {
+        dirty = is_dirty(effect);
+      } catch {
+        dirty = true;
+      }
+      if (dirty) {
+        update_effect(effect);
+      }
+    }
+    eager_effects.clear();
+  }
+  function increment2(source) {
+    set(source, source.v + 1);
+  }
+  function mark_reactions(signal, status, updated_during_traversal) {
+    var reactions = signal.reactions;
+    if (reactions === null)
+      return;
+    var runes = is_runes();
+    var length = reactions.length;
+    count_deps += length;
+    if (count_deps > 1e5 && seen === null)
+      seen = new Set;
+    if (seen !== null) {
+      if (seen.has(signal))
+        return;
+      seen.add(signal);
+    }
+    for (var i = 0;i < length; i++) {
+      var reaction = reactions[i];
+      var flags = reaction.f;
+      if (!runes && reaction === active_effect)
+        continue;
+      var not_dirty = (flags & DIRTY) === 0;
+      if (not_dirty) {
+        set_signal_status(reaction, status);
+      }
+      if ((flags & EAGER_EFFECT) !== 0) {
+        eager_effects.add(reaction);
+      } else if ((flags & DERIVED) !== 0) {
+        var derived = reaction;
+        batch_values?.delete(derived);
+        mark_reactions(derived, MAYBE_DIRTY, updated_during_traversal);
+      } else if (not_dirty) {
+        var effect = reaction;
+        if ((flags & BLOCK_EFFECT) !== 0 && eager_block_effects !== null) {
+          eager_block_effects.add(effect);
+        }
+        if (updated_during_traversal !== null) {
+          updated_during_traversal.push(effect);
+        } else {
+          schedule_effect(effect);
+        }
+      }
+    }
+  }
+
+  // node_modules/svelte/src/internal/client/proxy.js
+  var regex_is_valid_identifier = /^[a-zA-Z_$][a-zA-Z_$0-9]*$/;
+  function proxy(value) {
+    if (typeof value !== "object" || value === null || STATE_SYMBOL in value || COMPONENT_SYMBOL in value) {
+      return value;
+    }
+    const prototype = get_prototype_of(value);
+    if (prototype !== object_prototype && prototype !== array_prototype) {
+      return value;
+    }
+    var sources = new Map;
+    var is_proxied_array = is_array(value);
+    var version = state(0);
+    var stack = true_default && tracing_mode_flag ? get_error("created at") : null;
+    var parent_version = update_version;
+    var with_parent = (fn) => {
+      if (update_version === parent_version) {
+        return fn();
+      }
+      var reaction = active_reaction;
+      var version = update_version;
+      set_active_reaction(null);
+      set_update_version(parent_version);
+      var result = fn();
+      set_active_reaction(reaction);
+      set_update_version(version);
+      return result;
+    };
+    if (is_proxied_array) {
+      sources.set("length", state(value.length, stack));
+      if (true_default) {
+        value = inspectable_array(value);
+      }
+    }
+    var path = "";
+    let updating = false;
+    function update_path(new_path) {
+      if (updating)
+        return;
+      updating = true;
+      path = new_path;
+      tag(version, `${path} version`);
+      for (const [prop, source] of sources) {
+        tag(source, get_label(path, prop));
+      }
+      updating = false;
+    }
+    return new Proxy(value, {
+      defineProperty(_, prop, descriptor) {
+        if (!("value" in descriptor) || descriptor.configurable === false || descriptor.enumerable === false || descriptor.writable === false) {
+          state_descriptors_fixed();
+        }
+        var s = sources.get(prop);
+        if (s === undefined) {
+          with_parent(() => {
+            var s = state(descriptor.value, stack);
+            sources.set(prop, s);
+            if (true_default && typeof prop === "string") {
+              tag(s, get_label(path, prop));
+            }
+            return s;
+          });
+        } else {
+          set(s, descriptor.value, true);
+        }
+        return true;
+      },
+      deleteProperty(target, prop) {
+        var s = sources.get(prop);
+        if (s === undefined) {
+          if (prop in target) {
+            const s = with_parent(() => state(UNINITIALIZED, stack));
+            sources.set(prop, s);
+            increment2(version);
+            if (true_default) {
+              tag(s, get_label(path, prop));
+            }
+          }
+        } else {
+          set(s, UNINITIALIZED);
+          increment2(version);
+        }
+        return true;
+      },
+      get(target, prop, receiver) {
+        if (prop === STATE_SYMBOL) {
+          return value;
+        }
+        if (true_default && prop === PROXY_PATH_SYMBOL) {
+          return update_path;
+        }
+        var s = sources.get(prop);
+        var exists = prop in target;
+        if (s === undefined && (!exists || get_descriptor(target, prop)?.writable)) {
+          s = with_parent(() => {
+            var p = proxy(exists ? target[prop] : UNINITIALIZED);
+            var s = state(p, stack);
+            if (true_default) {
+              tag(s, get_label(path, prop));
+            }
+            return s;
+          });
+          sources.set(prop, s);
+        }
+        if (s !== undefined) {
+          var v = get(s);
+          return v === UNINITIALIZED ? undefined : v;
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+      getOwnPropertyDescriptor(target, prop) {
+        this.has?.(target, prop);
+        var descriptor = Reflect.getOwnPropertyDescriptor(target, prop);
+        var s = sources.get(prop);
+        if (s !== undefined) {
+          var value = get(s);
+          if (value === UNINITIALIZED) {
+            return;
+          }
+          if (descriptor && "value" in descriptor) {
+            descriptor.value = value;
+          } else {
+            return {
+              enumerable: true,
+              configurable: true,
+              value,
+              writable: true
+            };
+          }
+        }
+        return descriptor;
+      },
+      has(target, prop) {
+        if (prop === STATE_SYMBOL) {
+          return true;
+        }
+        var s = sources.get(prop);
+        var has = s !== undefined && s.v !== UNINITIALIZED || Reflect.has(target, prop);
+        if (s !== undefined || (active_effect !== null || active_reaction !== null) && (!has || get_descriptor(target, prop)?.writable)) {
+          if (s === undefined) {
+            s = with_parent(() => {
+              var p = has ? proxy(target[prop]) : UNINITIALIZED;
+              var s = state(p, stack);
+              if (true_default) {
+                tag(s, get_label(path, prop));
+              }
+              return s;
+            });
+            sources.set(prop, s);
+          }
+          var value = get(s);
+          if (value === UNINITIALIZED) {
+            return false;
+          }
+        }
+        return has;
+      },
+      set(target, prop, value, receiver) {
+        var s = sources.get(prop);
+        var has = prop in target;
+        if (is_proxied_array && prop === "length") {
+          for (var i = value;i < s.v; i += 1) {
+            var other_s = sources.get(i + "");
+            if (other_s !== undefined) {
+              set(other_s, UNINITIALIZED);
+            } else if (i in target) {
+              other_s = with_parent(() => state(UNINITIALIZED, stack));
+              sources.set(i + "", other_s);
+              if (true_default) {
+                tag(other_s, get_label(path, i));
+              }
+            }
+          }
+        }
+        if (s === undefined) {
+          if (!has || get_descriptor(target, prop)?.writable) {
+            s = with_parent(() => state(undefined, stack));
+            if (true_default) {
+              tag(s, get_label(path, prop));
+            }
+            set(s, proxy(value));
+            sources.set(prop, s);
+          }
+        } else {
+          has = s.v !== UNINITIALIZED;
+          var p = with_parent(() => proxy(value));
+          set(s, p);
+        }
+        var descriptor = Reflect.getOwnPropertyDescriptor(target, prop);
+        if (descriptor?.set) {
+          descriptor.set.call(receiver, value);
+        }
+        if (!has) {
+          if (is_proxied_array && typeof prop === "string") {
+            var ls = sources.get("length");
+            var n = Number(prop);
+            if (Number.isInteger(n) && n >= ls.v) {
+              set(ls, n + 1);
+            }
+          }
+          increment2(version);
+        }
+        return true;
+      },
+      ownKeys(target) {
+        get(version);
+        var own_keys = Reflect.ownKeys(target).filter((key) => {
+          var source = sources.get(key);
+          return source === undefined || source.v !== UNINITIALIZED;
+        });
+        for (var [key, source] of sources) {
+          if (source.v !== UNINITIALIZED && !(key in target)) {
+            own_keys.push(key);
+          }
+        }
+        return own_keys;
+      },
+      setPrototypeOf() {
+        state_prototype_fixed();
+      }
+    });
+  }
+  function get_label(path, prop) {
+    if (typeof prop === "symbol")
+      return `${path}[Symbol(${prop.description ?? ""})]`;
+    if (regex_is_valid_identifier.test(prop))
+      return `${path}.${prop}`;
+    return /^\d+$/.test(prop) ? `${path}[${prop}]` : `${path}['${prop}']`;
+  }
+  function get_proxied_value(value) {
+    try {
+      if (value !== null && typeof value === "object" && STATE_SYMBOL in value) {
+        return value[STATE_SYMBOL];
+      }
+    } catch {}
+    return value;
+  }
+  var ARRAY_MUTATING_METHODS = new Set([
+    "copyWithin",
+    "fill",
+    "pop",
+    "push",
+    "reverse",
+    "shift",
+    "sort",
+    "splice",
+    "unshift"
+  ]);
+  function inspectable_array(array) {
+    return new Proxy(array, {
+      get(target, prop, receiver) {
+        var value = Reflect.get(target, prop, receiver);
+        if (!ARRAY_MUTATING_METHODS.has(prop)) {
+          return value;
+        }
+        return function(...args) {
+          set_eager_effects_deferred();
+          var result = value.apply(this, args);
+          flush_eager_effects();
+          return result;
+        };
+      }
+    });
+  }
+
+  // node_modules/svelte/src/internal/client/dev/equality.js
+  function init_array_prototype_warnings() {
+    const array_prototype = Array.prototype;
+    const cleanup = Array.__svelte_cleanup;
+    if (cleanup) {
+      cleanup();
+    }
+    const { indexOf, lastIndexOf, includes } = array_prototype;
+    array_prototype.indexOf = function(item, from_index) {
+      const index = indexOf.call(this, item, from_index);
+      if (index === -1) {
+        for (let i = from_index ?? 0;i < this.length; i += 1) {
+          if (get_proxied_value(this[i]) === item) {
+            state_proxy_equality_mismatch("array.indexOf(...)");
+            break;
+          }
+        }
+      }
+      return index;
+    };
+    array_prototype.lastIndexOf = function(item, from_index) {
+      const index = lastIndexOf.call(this, item, from_index ?? this.length - 1);
+      if (index === -1) {
+        for (let i = 0;i <= (from_index ?? this.length - 1); i += 1) {
+          if (get_proxied_value(this[i]) === item) {
+            state_proxy_equality_mismatch("array.lastIndexOf(...)");
+            break;
+          }
+        }
+      }
+      return index;
+    };
+    array_prototype.includes = function(item, from_index) {
+      const has = includes.call(this, item, from_index);
+      if (!has) {
+        for (let i = 0;i < this.length; i += 1) {
+          if (get_proxied_value(this[i]) === item) {
+            state_proxy_equality_mismatch("array.includes(...)");
+            break;
+          }
+        }
+      }
+      return has;
+    };
+    Array.__svelte_cleanup = () => {
+      array_prototype.indexOf = indexOf;
+      array_prototype.lastIndexOf = lastIndexOf;
+      array_prototype.includes = includes;
+    };
+  }
+
+  // node_modules/svelte/src/internal/client/dom/operations.js
+  var $window;
+  var $document;
+  var is_firefox;
+  var first_child_getter;
+  var next_sibling_getter;
+  function init_operations() {
+    if ($window !== undefined) {
+      return;
+    }
+    $window = window;
+    $document = document;
+    is_firefox = /Firefox/.test(navigator.userAgent);
+    var element_prototype = Element.prototype;
+    var node_prototype = Node.prototype;
+    var text_prototype = Text.prototype;
+    first_child_getter = get_descriptor(node_prototype, "firstChild").get;
+    next_sibling_getter = get_descriptor(node_prototype, "nextSibling").get;
+    if (is_extensible(element_prototype)) {
+      element_prototype[CLASS_CACHE] = undefined;
+      element_prototype[ATTRIBUTES_CACHE] = null;
+      element_prototype[STYLE_CACHE] = undefined;
+      element_prototype.__e = undefined;
+    }
+    if (is_extensible(text_prototype)) {
+      text_prototype[TEXT_CACHE] = undefined;
+    }
+    if (true_default) {
+      element_prototype.__svelte_meta = null;
+      init_array_prototype_warnings();
+    }
+  }
+  function create_text(value = "") {
+    return document.createTextNode(value);
+  }
+  function get_first_child(node) {
+    return first_child_getter.call(node);
+  }
+  function get_next_sibling(node) {
+    return next_sibling_getter.call(node);
+  }
+  function clear_text_content(node) {
+    node.textContent = "";
+  }
+  function create_element(tag, namespace, is) {
+    if (namespace == null || namespace === NAMESPACE_HTML) {
+      return is ? document.createElement(tag, { is }) : document.createElement(tag);
+    }
+    return is ? document.createElementNS(namespace, tag, { is }) : document.createElementNS(namespace, tag);
+  }
+
+  // node_modules/svelte/src/internal/client/error-handling.js
+  var adjustments = new WeakMap;
+  function handle_error(error) {
+    var effect = active_effect;
+    if (effect === null) {
+      active_reaction.f |= ERROR_VALUE;
+      return error;
+    }
+    if (true_default && error instanceof Error && !adjustments.has(error)) {
+      adjustments.set(error, get_adjustments(error, effect));
+    }
+    if ((effect.f & REACTION_RAN) === 0 && (effect.f & EFFECT) === 0) {
+      if (true_default && !effect.parent && error instanceof Error) {
+        apply_adjustments(error);
+      }
+      throw error;
+    }
+    invoke_error_boundary(error, effect);
+  }
+  function invoke_error_boundary(error, effect) {
+    if (error === HYDRATION_ERROR) {
+      throw error;
+    }
+    if (effect !== null && (effect.f & DESTROYED) !== 0) {
+      return;
+    }
+    while (effect !== null) {
+      if ((effect.f & BOUNDARY_EFFECT) !== 0 && (effect.f & (DESTROYED | DESTROYING)) === 0) {
+        if ((effect.f & REACTION_RAN) === 0) {
+          throw error;
+        }
+        try {
+          effect.b.error(error);
+          return;
+        } catch (e) {
+          error = e;
+        }
+      }
+      effect = effect.parent;
+    }
+    if (true_default && error instanceof Error) {
+      apply_adjustments(error);
+    }
+    throw error;
+  }
+  function get_adjustments(error, effect) {
+    const message_descriptor = get_descriptor(error, "message");
+    if (message_descriptor && !message_descriptor.configurable)
+      return;
+    var indent = is_firefox ? "  " : "\t";
+    var component_stack = `
+${indent}in ${effect.fn?.name || "<unknown>"}`;
+    var context = effect.ctx;
+    while (context !== null) {
+      component_stack += `
+${indent}in ${context.function?.[FILENAME].split("/").pop()}`;
+      context = context.p;
+    }
+    return {
+      message: error.message + `
+${component_stack}
+`,
+      stack: error.stack?.split(`
+`).filter((line) => !line.includes("svelte/src/internal")).join(`
+`)
+    };
+  }
+  function apply_adjustments(error) {
+    const adjusted = adjustments.get(error);
+    if (adjusted) {
+      define_property(error, "message", {
+        value: adjusted.message
+      });
+      define_property(error, "stack", {
+        value: adjusted.stack
+      });
+    }
+  }
+
+  // node_modules/svelte/src/internal/client/reactivity/effects.js
+  function push_effect(effect, parent_effect) {
+    var parent_last = parent_effect.last;
+    if (parent_last === null) {
+      parent_effect.last = parent_effect.first = effect;
+    } else {
+      parent_last.next = effect;
+      effect.prev = parent_last;
+      parent_effect.last = effect;
+    }
+  }
+  function create_effect(type, fn) {
+    var parent = active_effect;
+    if (true_default) {
+      while (parent !== null && (parent.f & EAGER_EFFECT) !== 0) {
+        parent = parent.parent;
+      }
+    }
+    if (parent !== null && (parent.f & INERT) !== 0) {
+      type |= INERT;
+    }
+    var effect = {
+      ctx: component_context,
+      deps: null,
+      nodes: null,
+      f: type | DIRTY | CONNECTED,
+      first: null,
+      fn,
+      last: null,
+      next: null,
+      parent,
+      b: parent && parent.b,
+      prev: null,
+      teardown: null,
+      wv: 0,
+      ac: null
+    };
+    if (true_default) {
+      effect.component_function = dev_current_component_function;
+    }
+    current_batch?.register_created_effect(effect);
+    var e = effect;
+    if ((type & EFFECT) !== 0) {
+      if (collected_effects !== null) {
+        collected_effects.push(effect);
+      } else {
+        Batch.ensure().schedule(effect);
+      }
+    } else if (fn !== null) {
+      try {
+        update_effect(effect);
+      } catch (e) {
+        destroy_effect(effect);
+        throw e;
+      }
+      if (e.deps === null && e.teardown === null && e.nodes === null && e.first === e.last && (e.f & EFFECT_PRESERVED) === 0) {
+        e = e.first;
+        if ((type & BLOCK_EFFECT) !== 0 && (type & EFFECT_TRANSPARENT) !== 0 && e !== null) {
+          e.f |= EFFECT_TRANSPARENT;
+        }
+      }
+    }
+    if (e !== null) {
+      e.parent = parent;
+      if (parent !== null) {
+        push_effect(e, parent);
+      }
+      if (active_reaction !== null && (active_reaction.f & DERIVED) !== 0 && (type & ROOT_EFFECT) === 0) {
+        var derived = active_reaction;
+        (derived.effects ??= []).push(e);
+      }
+    }
+    return effect;
+  }
+  function effect_tracking() {
+    return active_reaction !== null && !untracking;
+  }
+  function create_user_effect(fn) {
+    return create_effect(EFFECT | USER_EFFECT, fn);
+  }
+  function effect_root(fn) {
+    Batch.ensure();
+    const effect = create_effect(ROOT_EFFECT | EFFECT_PRESERVED, fn);
+    return () => {
+      destroy_effect(effect);
+    };
+  }
+  function component_root(fn) {
+    Batch.ensure();
+    const effect = create_effect(ROOT_EFFECT | EFFECT_PRESERVED, fn);
+    return (options = {}) => {
+      return new Promise((fulfil) => {
+        if (options.outro) {
+          pause_effect(effect, () => {
+            destroy_effect(effect);
+            fulfil(undefined);
+          });
+        } else {
+          destroy_effect(effect);
+          fulfil(undefined);
+        }
+      });
+    };
+  }
+  function render_effect(fn, flags = 0) {
+    return create_effect(RENDER_EFFECT | flags, fn);
+  }
+  function block(fn, flags = 0) {
+    var effect = create_effect(BLOCK_EFFECT | flags, fn);
+    if (true_default) {
+      effect.dev_stack = dev_stack;
+    }
+    return effect;
+  }
+  function branch(fn) {
+    return create_effect(BRANCH_EFFECT | EFFECT_PRESERVED, fn);
+  }
+  function execute_effect_teardown(effect) {
+    var teardown = effect.teardown;
+    if (teardown !== null) {
+      const previously_destroying_effect = is_destroying_effect;
+      const previous_reaction = active_reaction;
+      set_is_destroying_effect(true);
+      set_active_reaction(null);
+      try {
+        teardown.call(null);
+      } catch (error) {
+        invoke_error_boundary(error, effect.parent);
+      } finally {
+        set_is_destroying_effect(previously_destroying_effect);
+        set_active_reaction(previous_reaction);
+      }
+    }
+  }
+  function destroy_effect_children(signal, remove_dom = false) {
+    var effect = signal.first;
+    signal.first = signal.last = null;
+    while (effect !== null) {
+      const controller = effect.ac;
+      if (controller !== null) {
+        without_reactive_context(() => {
+          controller.abort(STALE_REACTION);
+        });
+      }
+      var next = effect.next;
+      if ((effect.f & ROOT_EFFECT) !== 0) {
+        effect.parent = null;
+      } else {
+        destroy_effect(effect, remove_dom);
+      }
+      effect = next;
+    }
+  }
+  function destroy_block_effect_children(signal) {
+    var effect = signal.first;
+    while (effect !== null) {
+      var next = effect.next;
+      if ((effect.f & BRANCH_EFFECT) === 0) {
+        destroy_effect(effect);
+      }
+      effect = next;
+    }
+  }
+  function destroy_effect(effect, remove_dom = true) {
+    var removed = false;
+    if ((remove_dom || (effect.f & HEAD_EFFECT) !== 0) && effect.nodes !== null && effect.nodes.end !== null) {
+      remove_effect_dom(effect.nodes.start, effect.nodes.end);
+      removed = true;
+    }
+    effect.f |= DESTROYING;
+    destroy_effect_children(effect, remove_dom && !removed);
+    remove_reactions(effect, 0);
+    var transitions = effect.nodes && effect.nodes.t;
+    if (transitions !== null) {
+      for (const transition of transitions) {
+        transition.stop();
+      }
+    }
+    execute_effect_teardown(effect);
+    effect.f ^= DESTROYING;
+    effect.f |= DESTROYED;
+    var parent = effect.parent;
+    if (parent !== null && parent.first !== null) {
+      unlink_effect(effect);
+    }
+    if (true_default) {
+      effect.component_function = null;
+    }
+    effect.next = effect.prev = effect.teardown = effect.ctx = effect.deps = effect.fn = effect.nodes = effect.ac = effect.b = null;
+  }
+  function remove_effect_dom(node, end) {
+    while (node !== null) {
+      var next = node === end ? null : get_next_sibling(node);
+      node.remove();
+      node = next;
+    }
+  }
+  function unlink_effect(effect) {
+    var parent = effect.parent;
+    var prev = effect.prev;
+    var next = effect.next;
+    if (prev !== null)
+      prev.next = next;
+    if (next !== null)
+      next.prev = prev;
+    if (parent !== null) {
+      if (parent.first === effect)
+        parent.first = next;
+      if (parent.last === effect)
+        parent.last = prev;
+    }
+  }
+  function pause_effect(effect, callback, destroy = true) {
+    var transitions = [];
+    effect.f |= PAUSED;
+    pause_children(effect, transitions, true);
+    var fn = () => {
+      if (destroy)
+        destroy_effect(effect);
+      if (callback)
+        callback();
+    };
+    var remaining = transitions.length;
+    if (remaining > 0) {
+      var check = () => --remaining || fn();
+      for (var transition of transitions) {
+        transition.out(check);
+      }
+    } else {
+      fn();
+    }
+  }
+  function pause_children(effect, transitions, local) {
+    if ((effect.f & INERT) !== 0)
+      return;
+    effect.f ^= INERT;
+    var t = effect.nodes && effect.nodes.t;
+    if (t !== null) {
+      for (const transition of t) {
+        if (transition.is_global || local) {
+          transitions.push(transition);
+        }
+      }
+    }
+    var child = effect.first;
+    while (child !== null) {
+      var sibling = child.next;
+      if ((child.f & ROOT_EFFECT) === 0) {
+        var transparent = (child.f & EFFECT_TRANSPARENT) !== 0 || (child.f & BRANCH_EFFECT) !== 0 && (effect.f & BLOCK_EFFECT) !== 0;
+        pause_children(child, transitions, transparent ? local : false);
+      }
+      child = sibling;
+    }
+  }
+  function move_effect(effect, fragment) {
+    if (!effect.nodes)
+      return;
+    var node = effect.nodes.start;
+    var end = effect.nodes.end;
+    while (node !== null) {
+      var next = node === end ? null : get_next_sibling(node);
+      fragment.append(node);
+      node = next;
+    }
+  }
+
+  // node_modules/svelte/src/internal/client/legacy.js
+  var captured_signals = null;
+
+  // node_modules/svelte/src/internal/client/runtime.js
+  var is_destroying_effect = false;
+  function set_is_destroying_effect(value) {
+    is_destroying_effect = value;
+  }
+  var active_reaction = null;
+  var untracking = false;
+  function set_active_reaction(reaction) {
+    active_reaction = reaction;
+  }
+  var active_effect = null;
+  function set_active_effect(effect) {
+    active_effect = effect;
+  }
+  var current_sources = null;
+  function push_reaction_value(value) {
+    if (active_reaction !== null && (!async_mode_flag && (active_reaction.f & REACTION_IS_UPDATING) !== 0 || (active_reaction.f & DERIVED) !== 0)) {
+      (current_sources ??= new Set).add(value);
+    }
+  }
+  var new_deps = null;
+  var skipped_deps = 0;
+  var untracked_writes = null;
+  function set_untracked_writes(value) {
+    untracked_writes = value;
+  }
+  var write_version = 1;
+  var read_version = 0;
+  var update_version = read_version;
+  function set_update_version(value) {
+    update_version = value;
+  }
+  function increment_write_version() {
+    return ++write_version;
+  }
+  function is_dirty(reaction) {
+    var flags = reaction.f;
+    if ((flags & DIRTY) !== 0) {
+      return true;
+    }
+    if ((flags & MAYBE_DIRTY) !== 0) {
+      var dependencies = reaction.deps;
+      var length = dependencies.length;
+      for (var i = 0;i < length; i++) {
+        var dependency = dependencies[i];
+        if (is_dirty(dependency)) {
+          update_derived(dependency);
+        }
+        if (dependency.wv > reaction.wv) {
+          return true;
+        }
+      }
+      if ((flags & CONNECTED) !== 0 && batch_values === null) {
+        set_signal_status(reaction, CLEAN);
+      }
+    }
+    return false;
+  }
+  function schedule_possible_effect_self_invalidation(signal, effect, root = true) {
+    var reactions = signal.reactions;
+    if (reactions === null)
+      return;
+    if (!async_mode_flag && current_sources !== null && current_sources.has(signal)) {
+      return;
+    }
+    for (var i = 0;i < reactions.length; i++) {
+      var reaction = reactions[i];
+      if ((reaction.f & DERIVED) !== 0) {
+        schedule_possible_effect_self_invalidation(reaction, effect, false);
+      } else if (effect === reaction) {
+        if (root) {
+          set_signal_status(reaction, DIRTY);
+        } else if ((reaction.f & CLEAN) !== 0) {
+          set_signal_status(reaction, MAYBE_DIRTY);
+        }
+        schedule_effect(reaction);
+      }
+    }
+  }
+  function update_reaction(reaction) {
+    var previous_deps = new_deps;
+    var previous_skipped_deps = skipped_deps;
+    var previous_untracked_writes = untracked_writes;
+    var previous_reaction = active_reaction;
+    var previous_sources = current_sources;
+    var previous_component_context = component_context;
+    var previous_untracking = untracking;
+    var previous_update_version = update_version;
+    var flags = reaction.f;
+    new_deps = null;
+    skipped_deps = 0;
+    untracked_writes = null;
+    active_reaction = (flags & (BRANCH_EFFECT | ROOT_EFFECT)) === 0 ? reaction : null;
+    current_sources = null;
+    set_component_context(reaction.ctx);
+    untracking = false;
+    update_version = ++read_version;
+    if (reaction.ac !== null) {
+      without_reactive_context(() => {
+        reaction.ac.abort(STALE_REACTION);
+      });
+      reaction.ac = null;
+    }
+    try {
+      reaction.f |= REACTION_IS_UPDATING;
+      var fn = reaction.fn;
+      var result = fn();
+      reaction.f |= REACTION_RAN;
+      var deps = update_dependencies(reaction);
+      if (is_runes() && untracked_writes !== null && !untracking && deps !== null && (reaction.f & (DERIVED | MAYBE_DIRTY | DIRTY)) === 0) {
+        for (var i = 0;i < untracked_writes.length; i++) {
+          schedule_possible_effect_self_invalidation(untracked_writes[i], reaction);
+        }
+      }
+      if (previous_reaction !== null && previous_reaction !== reaction) {
+        read_version++;
+        if (previous_reaction.deps !== null) {
+          for (let i = 0;i < previous_skipped_deps; i += 1) {
+            previous_reaction.deps[i].rv = read_version;
+          }
+        }
+        if (previous_deps !== null) {
+          for (const dep of previous_deps) {
+            dep.rv = read_version;
+          }
+        }
+        if (untracked_writes !== null) {
+          if (previous_untracked_writes === null) {
+            previous_untracked_writes = untracked_writes;
+          } else {
+            previous_untracked_writes.push(...untracked_writes);
+          }
+        }
+      }
+      if ((reaction.f & ERROR_VALUE) !== 0) {
+        reaction.f ^= ERROR_VALUE;
+      }
+      return result;
+    } catch (error) {
+      update_dependencies(reaction);
+      return handle_error(error);
+    } finally {
+      reaction.f ^= REACTION_IS_UPDATING;
+      new_deps = previous_deps;
+      skipped_deps = previous_skipped_deps;
+      untracked_writes = previous_untracked_writes;
+      active_reaction = previous_reaction;
+      current_sources = previous_sources;
+      set_component_context(previous_component_context);
+      untracking = previous_untracking;
+      update_version = previous_update_version;
+    }
+  }
+  function update_dependencies(reaction) {
+    var deps = reaction.deps;
+    var is_fork = current_batch?.is_fork;
+    if (new_deps !== null) {
+      var i;
+      if (!is_fork) {
+        remove_reactions(reaction, skipped_deps);
+      }
+      if (deps !== null && skipped_deps > 0) {
+        deps.length = skipped_deps + new_deps.length;
+        for (i = 0;i < new_deps.length; i++) {
+          deps[skipped_deps + i] = new_deps[i];
+        }
+      } else {
+        reaction.deps = deps = new_deps;
+      }
+      if (effect_tracking() && (reaction.f & CONNECTED) !== 0) {
+        for (i = skipped_deps;i < deps.length; i++) {
+          (deps[i].reactions ??= []).push(reaction);
+        }
+      }
+    } else if (!is_fork && deps !== null && skipped_deps < deps.length) {
+      remove_reactions(reaction, skipped_deps);
+      deps.length = skipped_deps;
+    }
+    return deps;
+  }
+  function remove_reaction(signal, dependency) {
+    let reactions = dependency.reactions;
+    if (reactions !== null) {
+      var index = index_of.call(reactions, signal);
+      if (index !== -1) {
+        var new_length = reactions.length - 1;
+        if (new_length === 0) {
+          reactions = dependency.reactions = null;
+        } else {
+          reactions[index] = reactions[new_length];
+          reactions.pop();
+        }
+      }
+    }
+    if (reactions === null && (dependency.f & DERIVED) !== 0 && (new_deps === null || !includes.call(new_deps, dependency))) {
+      var derived = dependency;
+      if ((derived.f & CONNECTED) !== 0) {
+        derived.f ^= CONNECTED;
+      }
+      if (derived.v !== UNINITIALIZED) {
+        update_derived_status(derived);
+      }
+      if (derived.ac !== null) {
+        without_reactive_context(() => {
+          derived.ac.abort(STALE_REACTION);
+          derived.ac = null;
+          set_signal_status(derived, DIRTY);
+        });
+      }
+      freeze_derived_effects(derived);
+      remove_reactions(derived, 0);
+    }
+  }
+  function remove_reactions(signal, start_index) {
+    var dependencies = signal.deps;
+    if (dependencies === null)
+      return;
+    for (var i = start_index;i < dependencies.length; i++) {
+      remove_reaction(signal, dependencies[i]);
+    }
+  }
+  function update_effect(effect) {
+    var flags = effect.f;
+    if ((flags & DESTROYED) !== 0) {
+      return;
+    }
+    set_signal_status(effect, CLEAN);
+    var previous_effect = active_effect;
+    active_effect = effect;
+    if (true_default) {
+      var previous_component_fn = dev_current_component_function;
+      set_dev_current_component_function(effect.component_function);
+      var previous_stack = dev_stack;
+      set_dev_stack(effect.dev_stack ?? dev_stack);
+    }
+    try {
+      if ((flags & (BLOCK_EFFECT | MANAGED_EFFECT)) !== 0) {
+        destroy_block_effect_children(effect);
+      } else {
+        destroy_effect_children(effect);
+      }
+      execute_effect_teardown(effect);
+      var teardown = update_reaction(effect);
+      effect.teardown = typeof teardown === "function" ? teardown : null;
+      effect.wv = write_version;
+      if (true_default && tracing_mode_flag && (effect.f & DIRTY) !== 0 && effect.deps !== null) {
+        for (var dep of effect.deps) {
+          if (dep.set_during_effect) {
+            dep.wv = increment_write_version();
+            dep.set_during_effect = false;
+          }
+        }
+      }
+    } finally {
+      active_effect = previous_effect;
+      if (true_default) {
+        set_dev_current_component_function(previous_component_fn);
+        set_dev_stack(previous_stack);
+      }
+    }
+  }
+  function get(signal) {
+    var flags = signal.f;
+    var is_derived = (flags & DERIVED) !== 0;
+    captured_signals?.add(signal);
+    if (active_reaction !== null && !untracking) {
+      var destroyed = active_effect !== null && (active_effect.f & DESTROYED) !== 0;
+      if (!destroyed && (current_sources === null || !current_sources.has(signal))) {
+        var deps = active_reaction.deps;
+        if ((active_reaction.f & REACTION_IS_UPDATING) !== 0) {
+          if (signal.rv < read_version) {
+            signal.rv = read_version;
+            if (new_deps === null && deps !== null && deps[skipped_deps] === signal) {
+              skipped_deps++;
+            } else if (new_deps === null) {
+              new_deps = [signal];
+            } else {
+              new_deps.push(signal);
+            }
+          }
+        } else {
+          active_reaction.deps ??= [];
+          if (!includes.call(active_reaction.deps, signal)) {
+            active_reaction.deps.push(signal);
+          }
+          var reactions = signal.reactions;
+          if (reactions === null) {
+            signal.reactions = [active_reaction];
+          } else if (!includes.call(reactions, active_reaction)) {
+            reactions.push(active_reaction);
+          }
+        }
+      }
+    }
+    if (true_default) {
+      if (!untracking && reactivity_loss_tracker && current_batch === null && previous_batch === null && !reactivity_loss_tracker.warned && (reactivity_loss_tracker.effect.f & REACTION_IS_UPDATING) === 0 && !reactivity_loss_tracker.effect_deps.has(signal)) {
+        reactivity_loss_tracker.warned = true;
+        await_reactivity_loss(signal.label);
+        var trace = get_error("traced at");
+        if (trace)
+          console.warn(trace);
+      }
+      recent_async_deriveds.delete(signal);
+      if (tracing_mode_flag && !untracking && tracing_expressions !== null && active_reaction !== null && tracing_expressions.reaction === active_reaction) {
+        if (signal.trace) {
+          signal.trace();
+        } else {
+          trace = get_error("traced at");
+          if (trace) {
+            var entry = tracing_expressions.entries.get(signal);
+            if (entry === undefined) {
+              entry = { traces: [] };
+              tracing_expressions.entries.set(signal, entry);
+            }
+            var last = entry.traces[entry.traces.length - 1];
+            if (trace.stack !== last?.stack) {
+              entry.traces.push(trace);
+            }
+          }
+        }
+      }
+    }
+    if (is_destroying_effect && old_values.has(signal)) {
+      return old_values.get(signal);
+    }
+    if (is_derived) {
+      var derived = signal;
+      if (is_destroying_effect) {
+        var value = derived.v;
+        if ((derived.f & CLEAN) === 0 && derived.reactions !== null || depends_on_old_values(derived)) {
+          value = execute_derived(derived);
+        }
+        old_values.set(derived, value);
+        return value;
+      }
+      var should_connect = (derived.f & CONNECTED) === 0 && !untracking && active_reaction !== null && (active_reaction.f & CONNECTED) !== 0;
+      var is_new = (derived.f & REACTION_RAN) === 0;
+      if (is_dirty(derived)) {
+        if (should_connect) {
+          derived.f |= CONNECTED;
+        }
+        update_derived(derived);
+      }
+      if (should_connect && !is_new) {
+        unfreeze_derived_effects(derived);
+        reconnect(derived);
+      }
+    }
+    if (batch_values?.has(signal)) {
+      return batch_values.get(signal);
+    }
+    if ((signal.f & ERROR_VALUE) !== 0) {
+      throw signal.v;
+    }
+    return signal.v;
+  }
+  function reconnect(derived) {
+    derived.f |= CONNECTED;
+    if (derived.deps === null)
+      return;
+    for (const dep of derived.deps) {
+      var reactions = dep.reactions;
+      if (reactions === null) {
+        dep.reactions = [derived];
+      } else if (!includes.call(reactions, derived)) {
+        reactions.push(derived);
+      }
+      if ((dep.f & DERIVED) !== 0 && (dep.f & CONNECTED) === 0) {
+        unfreeze_derived_effects(dep);
+        reconnect(dep);
+      }
+    }
+  }
+  function depends_on_old_values(derived) {
+    if (derived.v === UNINITIALIZED)
+      return true;
+    if (derived.deps === null)
+      return false;
+    for (const dep of derived.deps) {
+      if (old_values.has(dep)) {
+        return true;
+      }
+      if ((dep.f & DERIVED) !== 0 && depends_on_old_values(dep)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  function untrack(fn) {
+    var previous_untracking = untracking;
+    try {
+      untracking = true;
+      return fn();
+    } finally {
+      untracking = previous_untracking;
+    }
+  }
+  // node_modules/svelte/src/internal/client/dom/elements/events.js
+  var event_symbol = Symbol("events");
+  var all_registered_events = new Set;
+  var root_event_handles = new Set;
+  var last_propagated_event = null;
+  var last_propagated_event_clear_scheduled = false;
+  function handle_event_propagation(event) {
+    var handler_element = this;
+    var owner_document = handler_element.ownerDocument;
+    var event_name = event.type;
+    var path = event.composedPath?.() || [];
+    var current_target = path[0] || event.target;
+    last_propagated_event = event;
+    if (!last_propagated_event_clear_scheduled) {
+      last_propagated_event_clear_scheduled = true;
+      setTimeout(() => {
+        last_propagated_event_clear_scheduled = false;
+        last_propagated_event = null;
+      });
+    }
+    var path_idx = 0;
+    var handled_at = last_propagated_event === event && event[event_symbol];
+    if (handled_at) {
+      var at_idx = path.indexOf(handled_at);
+      if (at_idx !== -1 && (handler_element === document || handler_element === window)) {
+        event[event_symbol] = handler_element;
+        return;
+      }
+      var handler_idx = path.indexOf(handler_element);
+      if (handler_idx === -1) {
+        return;
+      }
+      if (at_idx <= handler_idx) {
+        path_idx = at_idx;
+      }
+    }
+    current_target = path[path_idx] || event.target;
+    if (current_target === handler_element)
+      return;
+    define_property(event, "currentTarget", {
+      configurable: true,
+      get() {
+        return current_target || owner_document;
+      }
+    });
+    var previous_reaction = active_reaction;
+    var previous_effect = active_effect;
+    set_active_reaction(null);
+    set_active_effect(null);
+    try {
+      var throw_error;
+      var other_errors = [];
+      while (current_target !== null) {
+        if (current_target === handler_element)
+          break;
+        try {
+          var delegated = current_target[event_symbol]?.[event_name];
+          if (delegated != null && (!current_target.disabled || event.target === current_target)) {
+            delegated.call(current_target, event);
+          }
+        } catch (error) {
+          if (throw_error) {
+            other_errors.push(error);
+          } else {
+            throw_error = error;
+          }
+        }
+        if (event.cancelBubble)
+          break;
+        path_idx++;
+        current_target = path_idx < path.length ? path[path_idx] : null;
+      }
+      if (throw_error) {
+        for (let error of other_errors) {
+          queueMicrotask(() => {
+            throw error;
+          });
+        }
+        throw throw_error;
+      }
+    } finally {
+      event[event_symbol] = handler_element;
+      delete event.currentTarget;
+      set_active_reaction(previous_reaction);
+      set_active_effect(previous_effect);
+    }
+  }
+
+  // node_modules/svelte/src/internal/client/dom/reconciler.js
+  var policy = globalThis?.window?.trustedTypes && /* @__PURE__ */ globalThis.window.trustedTypes.createPolicy("svelte-trusted-html", {
+    createHTML: (html) => {
+      return html;
+    }
+  });
+
+  // node_modules/svelte/src/internal/client/dom/template.js
+  function assign_nodes(start, end) {
+    var effect = active_effect;
+    if (effect.nodes === null) {
+      effect.nodes = { start, end, a: null, t: null };
+    }
+  }
+  function append(anchor, dom) {
+    if (hydrating) {
+      var effect = active_effect;
+      if ((effect.f & REACTION_RAN) === 0 || effect.nodes.end === null) {
+        effect.nodes.end = hydrate_node;
+      }
+      hydrate_next();
+      return;
+    }
+    if (anchor === null) {
+      return;
+    }
+    anchor.before(dom);
+  }
+
+  // node_modules/svelte/src/utils.js
+  var DOM_BOOLEAN_ATTRIBUTES = [
+    "allowfullscreen",
+    "async",
+    "autofocus",
+    "autoplay",
+    "checked",
+    "controls",
+    "default",
+    "disabled",
+    "formnovalidate",
+    "indeterminate",
+    "inert",
+    "ismap",
+    "loop",
+    "multiple",
+    "muted",
+    "nomodule",
+    "novalidate",
+    "open",
+    "playsinline",
+    "readonly",
+    "required",
+    "reversed",
+    "seamless",
+    "selected",
+    "webkitdirectory",
+    "defer",
+    "disablepictureinpicture",
+    "disableremoteplayback"
+  ];
+  var DOM_PROPERTIES = [
+    ...DOM_BOOLEAN_ATTRIBUTES,
+    "formNoValidate",
+    "isMap",
+    "noModule",
+    "playsInline",
+    "readOnly",
+    "value",
+    "volume",
+    "defaultValue",
+    "defaultChecked",
+    "srcObject",
+    "noValidate",
+    "allowFullscreen",
+    "disablePictureInPicture",
+    "disableRemotePlayback"
+  ];
+  var PASSIVE_EVENTS = ["touchstart", "touchmove"];
+  function is_passive_event(name) {
+    return PASSIVE_EVENTS.includes(name);
+  }
+  var STATE_CREATION_RUNES = [
+    "$state",
+    "$state.raw",
+    "$derived",
+    "$derived.by"
+  ];
+  var RUNES = [
+    ...STATE_CREATION_RUNES,
+    "$state.eager",
+    "$state.snapshot",
+    "$props",
+    "$props.id",
+    "$bindable",
+    "$effect",
+    "$effect.pre",
+    "$effect.tracking",
+    "$effect.root",
+    "$effect.pending",
+    "$inspect",
+    "$inspect().with",
+    "$inspect.trace",
+    "$host"
+  ];
+
+  // node_modules/svelte/src/reactivity/create-subscriber.js
+  function createSubscriber(start) {
+    let subscribers = 0;
+    let version = source(0);
+    let stop;
+    if (true_default) {
+      tag(version, "createSubscriber version");
+    }
+    return () => {
+      if (effect_tracking()) {
+        get(version);
+        render_effect(() => {
+          if (subscribers === 0) {
+            stop = untrack(() => start(() => increment2(version)));
+          }
+          subscribers += 1;
+          return () => {
+            queue_micro_task(() => {
+              subscribers -= 1;
+              if (subscribers === 0) {
+                stop?.();
+                stop = undefined;
+                increment2(version);
+              }
+            });
+          };
+        });
+      }
+    };
+  }
+
+  // node_modules/svelte/src/internal/client/dom/blocks/boundary.js
+  var flags = EFFECT_TRANSPARENT | EFFECT_PRESERVED;
+  function boundary(node, props, children, transform_error) {
+    new Boundary(node, props, children, transform_error);
+  }
+
+  class Boundary {
+    parent;
+    is_pending = false;
+    transform_error;
+    #anchor;
+    #hydrate_open = hydrating ? hydrate_node : null;
+    #props;
+    #children;
+    #effect;
+    #main_effect = null;
+    #pending_effect = null;
+    #failed_effect = null;
+    #offscreen_fragment = null;
+    #local_pending_count = 0;
+    #pending_count = 0;
+    #pending_count_update_queued = false;
+    #dirty_reactions = new Map;
+    #effect_pending = null;
+    #effect_pending_subscriber = createSubscriber(() => {
+      this.#effect_pending = source(this.#local_pending_count);
+      if (true_default) {
+        tag(this.#effect_pending, "$effect.pending()");
+      }
+      return () => {
+        this.#effect_pending = null;
+      };
+    });
+    constructor(node, props, children, transform_error) {
+      this.#anchor = node;
+      this.#props = props;
+      this.#children = (anchor) => {
+        var effect = active_effect;
+        effect.b = this;
+        effect.f |= BOUNDARY_EFFECT;
+        children(anchor);
+      };
+      this.parent = active_effect.b;
+      this.transform_error = transform_error ?? this.parent?.transform_error ?? ((e) => e);
+      this.#effect = block(() => {
+        if (hydrating) {
+          const comment_data = read_hydration_instruction(this.#hydrate_open);
+          hydrate_next();
+          const server_rendered_pending = comment_data === HYDRATION_START_ELSE;
+          const server_rendered_failed = comment_data.startsWith(HYDRATION_START_FAILED);
+          if (server_rendered_failed) {
+            const serialized_error = JSON.parse(comment_data.slice(HYDRATION_START_FAILED.length));
+            this.#hydrate_failed_content(serialized_error);
+          } else if (server_rendered_pending) {
+            this.#hydrate_pending_content();
+          } else {
+            this.#hydrate_resolved_content();
+          }
+        } else {
+          this.#render();
+        }
+      }, flags);
+      if (hydrating) {
+        this.#anchor = hydrate_node;
+      }
+    }
+    #hydrate_resolved_content() {
+      try {
+        this.#main_effect = branch(() => this.#children(this.#anchor));
+      } catch (error) {
+        this.error(error);
+      }
+    }
+    #hydrate_failed_content(error) {
+      const failed = this.#props.failed;
+      const { reset, invoke_onerror } = this.#create_reset(error);
+      queue_micro_task(invoke_onerror);
+      if (!failed)
+        return;
+      this.#failed_effect = branch(() => {
+        failed(this.#anchor, () => error, () => reset);
+      });
+    }
+    #create_reset(error) {
+      var did_reset = false;
+      var calling_on_error = false;
+      const reset = () => {
+        if (this.#is_destroyed())
+          return;
+        if (did_reset) {
+          svelte_boundary_reset_noop();
+          return;
+        }
+        did_reset = true;
+        if (calling_on_error) {
+          svelte_boundary_reset_onerror();
+        }
+        if (this.#failed_effect !== null) {
+          pause_effect(this.#failed_effect, () => {
+            this.#failed_effect = null;
+          });
+        }
+        this.#run(() => {
+          this.#render();
+        });
+      };
+      const invoke_onerror = () => {
+        if (this.#is_destroyed())
+          return;
+        try {
+          calling_on_error = true;
+          this.#props.onerror?.(error, reset);
+          calling_on_error = false;
+        } catch (err) {
+          invoke_error_boundary(err, this.#effect && this.#effect.parent);
+        }
+      };
+      return { reset, invoke_onerror };
+    }
+    #is_destroyed() {
+      return (this.#effect.f & (DESTROYED | DESTROYING)) !== 0;
+    }
+    #hydrate_pending_content() {
+      const pending = this.#props.pending;
+      if (!pending)
+        return;
+      this.is_pending = true;
+      this.#pending_effect = branch(() => pending(this.#anchor));
+      queue_micro_task(() => {
+        if (this.#is_destroyed())
+          return;
+        var fragment = this.#offscreen_fragment = document.createDocumentFragment();
+        var anchor = create_text();
+        var handled = false;
+        fragment.append(anchor);
+        this.#main_effect = this.#run(() => {
+          try {
+            return branch(() => this.#children(anchor));
+          } catch (error) {
+            try {
+              this.error(error);
+              handled = true;
+            } catch (error) {
+              invoke_error_boundary(error, this.#effect.parent);
+            }
+            return null;
+          }
+        });
+        if (this.#main_effect === null) {
+          this.#offscreen_fragment = null;
+          if (handled)
+            this.#resolve(current_batch);
+          return;
+        }
+        if (this.#pending_count === 0) {
+          this.#anchor.before(fragment);
+          this.#offscreen_fragment = null;
+          pause_effect(this.#pending_effect, () => {
+            this.#pending_effect = null;
+          });
+          this.#resolve(current_batch);
+        }
+      });
+    }
+    #render() {
+      try {
+        this.is_pending = this.has_pending_snippet();
+        this.#pending_count = 0;
+        this.#local_pending_count = 0;
+        this.#main_effect = branch(() => {
+          this.#children(this.#anchor);
+        });
+        if (this.#pending_count > 0) {
+          var fragment = this.#offscreen_fragment = document.createDocumentFragment();
+          move_effect(this.#main_effect, fragment);
+          const pending = this.#props.pending;
+          this.#pending_effect = branch(() => pending(this.#anchor));
+        } else {
+          this.#resolve(current_batch);
+        }
+      } catch (error) {
+        this.error(error);
+      }
+    }
+    #resolve(batch) {
+      this.is_pending = false;
+      batch.transfer_reactions(this.#dirty_reactions);
+    }
+    defer_effect(effect) {
+      defer_effect(effect, this.#dirty_reactions);
+    }
+    is_rendered() {
+      return !this.is_pending && (!this.parent || this.parent.is_rendered());
+    }
+    has_pending_snippet() {
+      return !!this.#props.pending;
+    }
+    #run(fn) {
+      var previous_effect = active_effect;
+      var previous_reaction = active_reaction;
+      var previous_ctx = component_context;
+      set_active_effect(this.#effect);
+      set_active_reaction(this.#effect);
+      set_component_context(this.#effect.ctx);
+      try {
+        Batch.ensure();
+        return fn();
+      } finally {
+        set_active_effect(previous_effect);
+        set_active_reaction(previous_reaction);
+        set_component_context(previous_ctx);
+      }
+    }
+    #update_pending_count(d, batch) {
+      if (!this.has_pending_snippet()) {
+        if (this.parent) {
+          this.parent.#update_pending_count(d, batch);
+        }
+        return;
+      }
+      this.#pending_count += d;
+      if (this.#pending_count === 0) {
+        this.#resolve(batch);
+        if (this.#pending_effect) {
+          pause_effect(this.#pending_effect, () => {
+            this.#pending_effect = null;
+          });
+        }
+        if (this.#offscreen_fragment) {
+          this.#anchor.before(this.#offscreen_fragment);
+          this.#offscreen_fragment = null;
+        }
+      }
+    }
+    update_pending_count(d, batch) {
+      this.#update_pending_count(d, batch);
+      this.#local_pending_count += d;
+      if (!this.#effect_pending || this.#pending_count_update_queued)
+        return;
+      this.#pending_count_update_queued = true;
+      queue_micro_task(() => {
+        this.#pending_count_update_queued = false;
+        if (this.#effect_pending) {
+          internal_set(this.#effect_pending, this.#local_pending_count);
+        }
+      });
+    }
+    get_effect_pending() {
+      this.#effect_pending_subscriber();
+      return get(this.#effect_pending);
+    }
+    error(error) {
+      if (error === HYDRATION_ERROR) {
+        throw error;
+      }
+      if (!this.#props.onerror && !this.#props.failed) {
+        throw error;
+      }
+      if (current_batch?.is_fork) {
+        if (this.#main_effect)
+          current_batch.skip_effect(this.#main_effect);
+        if (this.#pending_effect)
+          current_batch.skip_effect(this.#pending_effect);
+        if (this.#failed_effect)
+          current_batch.skip_effect(this.#failed_effect);
+        current_batch.oncommit(() => {
+          if (!this.#is_destroyed())
+            this.#handle_error(error);
+        });
+      } else {
+        this.#handle_error(error);
+      }
+    }
+    #handle_error(error) {
+      if (this.#main_effect) {
+        destroy_effect(this.#main_effect);
+        this.#main_effect = null;
+      }
+      if (this.#pending_effect) {
+        destroy_effect(this.#pending_effect);
+        this.#pending_effect = null;
+      }
+      if (this.#failed_effect) {
+        destroy_effect(this.#failed_effect);
+        this.#failed_effect = null;
+      }
+      if (hydrating) {
+        set_hydrate_node(this.#hydrate_open);
+        next();
+        set_hydrate_node(skip_nodes());
+      }
+      let failed = this.#props.failed;
+      const handle_error_result = (transformed_error) => {
+        if (this.#is_destroyed())
+          return;
+        const { reset, invoke_onerror } = this.#create_reset(transformed_error);
+        invoke_onerror();
+        if (failed && !this.#is_destroyed()) {
+          this.#failed_effect = this.#run(() => {
+            try {
+              return branch(() => {
+                var effect = active_effect;
+                effect.b = this;
+                effect.f |= BOUNDARY_EFFECT;
+                failed(this.#anchor, () => transformed_error, () => reset);
+              });
+            } catch (error) {
+              invoke_error_boundary(error, this.#effect.parent);
+              return null;
+            }
+          });
+        }
+      };
+      queue_micro_task(() => {
+        if (this.#is_destroyed())
+          return;
+        var result;
+        try {
+          result = this.transform_error(error);
+        } catch (e) {
+          invoke_error_boundary(e, this.#effect && this.#effect.parent);
+          return;
+        }
+        if (result !== null && typeof result === "object" && typeof result.then === "function") {
+          result.then(handle_error_result, (e) => invoke_error_boundary(e, this.#effect && this.#effect.parent));
+        } else {
+          handle_error_result(result);
+        }
+      });
+    }
+  }
+
+  // node_modules/svelte/src/internal/client/render.js
+  var should_intro = true;
+  function mount(component, options) {
+    return _mount(component, options);
+  }
+  function hydrate(component, options) {
+    init_operations();
+    options.intro = options.intro ?? false;
+    const target = options.target;
+    const was_hydrating = hydrating;
+    const previous_hydrate_node = hydrate_node;
+    try {
+      var anchor = get_first_child(target);
+      while (anchor && (anchor.nodeType !== COMMENT_NODE || anchor.data !== HYDRATION_START)) {
+        anchor = get_next_sibling(anchor);
+      }
+      if (!anchor) {
+        throw HYDRATION_ERROR;
+      }
+      set_hydrating(true);
+      set_hydrate_node(anchor);
+      const instance = _mount(component, { ...options, anchor });
+      set_hydrating(false);
+      return instance;
+    } catch (error) {
+      if (error instanceof Error && error.message.split(`
+`).some((line) => line.startsWith("https://svelte.dev/e/"))) {
+        throw error;
+      }
+      if (error !== HYDRATION_ERROR) {
+        console.warn("Failed to hydrate: ", error);
+      }
+      if (options.recover === false) {
+        hydration_failed();
+      }
+      init_operations();
+      clear_text_content(target);
+      set_hydrating(false);
+      return mount(component, options);
+    } finally {
+      set_hydrating(was_hydrating);
+      set_hydrate_node(previous_hydrate_node);
+    }
+  }
+  var listeners = new Map;
+  function _mount(Component, { target, anchor, props = {}, events, context, intro = true, transformError }) {
+    init_operations();
+    var component = undefined;
+    var unmount = component_root(() => {
+      var anchor_node = anchor ?? target.appendChild(create_text());
+      boundary(anchor_node, {
+        pending: () => {}
+      }, (anchor_node) => {
+        push({});
+        var ctx = component_context;
+        if (context)
+          ctx.c = context;
+        if (events) {
+          props.$$events = events;
+        }
+        if (hydrating) {
+          assign_nodes(anchor_node, null);
+        }
+        should_intro = intro;
+        component = Component(anchor_node, props) || mark_as_component();
+        should_intro = true;
+        if (hydrating) {
+          active_effect.nodes.end = hydrate_node;
+          if (hydrate_node === null || hydrate_node.nodeType !== COMMENT_NODE || hydrate_node.data !== HYDRATION_END) {
+            hydration_mismatch();
+            throw HYDRATION_ERROR;
+          }
+        }
+        pop();
+      }, transformError);
+      var registered_events = new Set;
+      var event_handle = (events) => {
+        for (var i = 0;i < events.length; i++) {
+          var event_name = events[i];
+          if (registered_events.has(event_name))
+            continue;
+          registered_events.add(event_name);
+          var passive = is_passive_event(event_name);
+          for (const node of [target, document]) {
+            var counts = listeners.get(node);
+            if (counts === undefined) {
+              counts = new Map;
+              listeners.set(node, counts);
+            }
+            var count = counts.get(event_name);
+            if (count === undefined) {
+              node.addEventListener(event_name, handle_event_propagation, { passive });
+              counts.set(event_name, 1);
+            } else {
+              counts.set(event_name, count + 1);
+            }
+          }
+        }
+      };
+      event_handle(array_from(all_registered_events));
+      root_event_handles.add(event_handle);
+      return () => {
+        for (var event_name of registered_events) {
+          for (const node of [target, document]) {
+            var counts = listeners.get(node);
+            var count = counts.get(event_name);
+            if (--count == 0) {
+              node.removeEventListener(event_name, handle_event_propagation);
+              counts.delete(event_name);
+              if (counts.size === 0) {
+                listeners.delete(node);
+              }
+            } else {
+              counts.set(event_name, count);
+            }
+          }
+        }
+        root_event_handles.delete(event_handle);
+        if (anchor_node !== anchor) {
+          anchor_node.parentNode?.removeChild(anchor_node);
+        }
+      };
+    });
+    mounted_components.set(component, unmount);
+    return component;
+  }
+  var mounted_components = new WeakMap;
+  function unmount(component, options) {
+    const fn = mounted_components.get(component);
+    if (fn) {
+      mounted_components.delete(component);
+      return fn(options);
+    }
+    if (true_default) {
+      lifecycle_double_unmount();
+    }
+    return Promise.resolve();
+  }
+  // node_modules/svelte/src/index-client.js
+  if (true_default) {
+    let throw_rune_error = function(rune) {
+      if (!(rune in globalThis)) {
+        let value;
+        Object.defineProperty(globalThis, rune, {
+          configurable: true,
+          get: () => {
+            if (value !== undefined) {
+              return value;
+            }
+            rune_outside_svelte(rune);
+          },
+          set: (v) => {
+            value = v;
+          }
+        });
+      }
+    };
+    throw_rune_error("$state");
+    throw_rune_error("$effect");
+    throw_rune_error("$derived");
+    throw_rune_error("$inspect");
+    throw_rune_error("$props");
+    throw_rune_error("$bindable");
+  }
+  // node_modules/svelte/src/internal/client/dev/css.js
+  var all_styles = new Map;
+  // node_modules/svelte/src/internal/client/dom/blocks/key.js
+  var NAN = Symbol("NaN");
+  // node_modules/svelte/src/internal/client/timing.js
+  var now = true_default ? () => performance.now() : () => Date.now();
+  var raf = {
+    tick: (_) => (true_default ? requestAnimationFrame : noop)(_),
+    now: () => now(),
+    tasks: new Set
+  };
+  // node_modules/svelte/src/internal/shared/attributes.js
+  var replacements = {
+    translate: new Map([
+      [true, "yes"],
+      [false, "no"]
+    ])
+  };
+  var whitespace = [...` 	
+\r\f \v\uFEFF`];
+
+  // node_modules/svelte/src/internal/client/dom/elements/attributes.js
+  var CLASS = Symbol("class");
+  var STYLE = Symbol("style");
+  var IS_CUSTOM_ELEMENT = Symbol("is custom element");
+  var IS_HTML = Symbol("is html");
+  var setters_cache = new Map;
+  // node_modules/svelte/src/internal/client/dom/elements/bindings/input.js
+  var pending = new Set;
+  // node_modules/svelte/src/internal/client/dom/elements/bindings/size.js
+  class ResizeObserverSingleton {
+    #listeners = new WeakMap;
+    #observer;
+    #options;
+    static entries = new WeakMap;
+    constructor(options) {
+      this.#options = options;
+    }
+    observe(element, listener) {
+      var listeners = this.#listeners.get(element) || new Set;
+      listeners.add(listener);
+      this.#listeners.set(element, listeners);
+      this.#getObserver().observe(element, this.#options);
+      return () => {
+        var listeners = this.#listeners.get(element);
+        listeners.delete(listener);
+        if (listeners.size === 0) {
+          this.#listeners.delete(element);
+          this.#observer.unobserve(element);
+        }
+      };
+    }
+    #getObserver() {
+      return this.#observer ?? (this.#observer = new ResizeObserver((entries) => {
+        for (var entry of entries) {
+          ResizeObserverSingleton.entries.set(entry.target, entry);
+          for (var listener of this.#listeners.get(entry.target) || []) {
+            listener(entry);
+          }
+        }
+      }));
+    }
+  }
+  // node_modules/svelte/src/internal/client/reactivity/store.js
+  var IS_UNMOUNTED = Symbol("unmounted");
+  // node_modules/svelte/src/legacy/legacy-client.js
+  function createClassComponent(options) {
+    return new Svelte4Component(options);
+  }
+  class Svelte4Component {
+    #events;
+    #instance;
+    constructor(options) {
+      var sources = new Map;
+      var add_source = (key, value) => {
+        var s = mutable_source(value, false, false);
+        sources.set(key, s);
+        return s;
+      };
+      const props = new Proxy({ ...options.props || {}, $$events: {} }, {
+        get(target, prop) {
+          return get(sources.get(prop) ?? add_source(prop, Reflect.get(target, prop)));
+        },
+        has(target, prop) {
+          if (prop === LEGACY_PROPS)
+            return true;
+          get(sources.get(prop) ?? add_source(prop, Reflect.get(target, prop)));
+          return Reflect.has(target, prop);
+        },
+        set(target, prop, value) {
+          set(sources.get(prop) ?? add_source(prop, value), value);
+          return Reflect.set(target, prop, value);
+        }
+      });
+      this.#instance = (options.hydrate ? hydrate : mount)(options.component, {
+        target: options.target,
+        anchor: options.anchor,
+        props,
+        context: options.context,
+        intro: options.intro ?? false,
+        recover: options.recover,
+        transformError: options.transformError
+      });
+      if (!async_mode_flag && (!options?.props?.$$host || options.sync === false)) {
+        flushSync();
+      }
+      this.#events = props.$$events;
+      for (const key of Object.keys(this.#instance)) {
+        if (key === "$set" || key === "$destroy" || key === "$on")
+          continue;
+        define_property(this, key, {
+          get() {
+            return this.#instance[key];
+          },
+          set(value) {
+            this.#instance[key] = value;
+          },
+          enumerable: true
+        });
+      }
+      this.#instance.$set = (next) => {
+        Object.assign(props, next);
+      };
+      this.#instance.$destroy = () => {
+        unmount(this.#instance);
+      };
+    }
+    $set(props) {
+      this.#instance.$set(props);
+    }
+    $on(event, callback) {
+      this.#events[event] = this.#events[event] || [];
+      const cb = (...args) => callback.call(this, ...args);
+      this.#events[event].push(cb);
+      return () => {
+        this.#events[event] = this.#events[event].filter((fn) => fn !== cb);
+      };
+    }
+    $destroy() {
+      this.#instance.$destroy();
+    }
+  }
+
+  // node_modules/svelte/src/internal/client/dom/elements/custom-element.js
+  var SvelteElement;
+  if (typeof HTMLElement === "function") {
+    SvelteElement = class extends HTMLElement {
+      $$ctor;
+      $$s;
+      $$c;
+      $$cn = false;
+      $$d = {};
+      $$r = false;
+      $$p_d = {};
+      $$l = {};
+      $$l_u = new Map;
+      $$me;
+      $$shadowRoot = null;
+      constructor($$componentCtor, $$slots, shadow_root_init) {
+        super();
+        this.$$ctor = $$componentCtor;
+        this.$$s = $$slots;
+        if (shadow_root_init) {
+          this.$$shadowRoot = this.attachShadow(shadow_root_init);
+        }
+      }
+      addEventListener(type, listener, options) {
+        this.$$l[type] = this.$$l[type] || [];
+        this.$$l[type].push(listener);
+        if (this.$$c) {
+          const unsub = this.$$c.$on(type, listener);
+          this.$$l_u.set(listener, unsub);
+        }
+        super.addEventListener(type, listener, options);
+      }
+      removeEventListener(type, listener, options) {
+        super.removeEventListener(type, listener, options);
+        if (this.$$c) {
+          const unsub = this.$$l_u.get(listener);
+          if (unsub) {
+            unsub();
+            this.$$l_u.delete(listener);
+          }
+        }
+      }
+      async connectedCallback() {
+        this.$$cn = true;
+        if (!this.$$c) {
+          let create_slot = function(name) {
+            return (anchor) => {
+              const slot = create_element("slot");
+              if (name !== "default")
+                slot.name = name;
+              append(anchor, slot);
+            };
+          };
+          await Promise.resolve();
+          if (!this.$$cn || this.$$c) {
+            return;
+          }
+          const $$slots = {};
+          const existing_slots = get_custom_elements_slots(this);
+          for (const name of this.$$s) {
+            if (name in existing_slots) {
+              if (name === "default" && !this.$$d.children) {
+                this.$$d.children = create_slot(name);
+                $$slots.default = true;
+              } else {
+                $$slots[name] = create_slot(name);
+              }
+            }
+          }
+          for (const attribute of this.attributes) {
+            const name = this.$$g_p(attribute.name);
+            if (!(name in this.$$d)) {
+              this.$$d[name] = get_custom_element_value(name, attribute.value, this.$$p_d, "toProp");
+            }
+          }
+          for (const key in this.$$p_d) {
+            if (!(key in this.$$d) && this[key] !== undefined) {
+              this.$$d[key] = this[key];
+              delete this[key];
+            }
+          }
+          this.$$c = createClassComponent({
+            component: this.$$ctor,
+            target: this.$$shadowRoot || this,
+            props: {
+              ...this.$$d,
+              $$slots,
+              $$host: this
+            }
+          });
+          this.$$me = effect_root(() => {
+            render_effect(() => {
+              this.$$r = true;
+              for (const key of object_keys(this.$$c)) {
+                if (!this.$$p_d[key]?.reflect)
+                  continue;
+                this.$$d[key] = this.$$c[key];
+                const attribute_value = get_custom_element_value(key, this.$$d[key], this.$$p_d, "toAttribute");
+                if (attribute_value == null) {
+                  this.removeAttribute(this.$$p_d[key].attribute || key);
+                } else {
+                  this.setAttribute(this.$$p_d[key].attribute || key, attribute_value);
+                }
+              }
+              this.$$r = false;
+            });
+          });
+          for (const type in this.$$l) {
+            for (const listener of this.$$l[type]) {
+              const unsub = this.$$c.$on(type, listener);
+              this.$$l_u.set(listener, unsub);
+            }
+          }
+          this.$$l = {};
+        }
+      }
+      attributeChangedCallback(attr, _oldValue, newValue) {
+        if (this.$$r)
+          return;
+        attr = this.$$g_p(attr);
+        this.$$d[attr] = get_custom_element_value(attr, newValue, this.$$p_d, "toProp");
+        this.$$c?.$set({ [attr]: this.$$d[attr] });
+      }
+      disconnectedCallback() {
+        this.$$cn = false;
+        Promise.resolve().then(() => {
+          if (!this.$$cn && this.$$c) {
+            this.$$c.$destroy();
+            this.$$me();
+            this.$$c = undefined;
+          }
+        });
+      }
+      $$g_p(attribute_name) {
+        return object_keys(this.$$p_d).find((key) => this.$$p_d[key].attribute === attribute_name || !this.$$p_d[key].attribute && key.toLowerCase() === attribute_name) || attribute_name;
+      }
+    };
+  }
+  function get_custom_element_value(prop, value, props_definition, transform) {
+    const type = props_definition[prop]?.type;
+    value = type === "Boolean" && typeof value !== "boolean" ? value != null : value;
+    if (!transform || !props_definition[prop]) {
+      return value;
+    } else if (transform === "toAttribute") {
+      switch (type) {
+        case "Object":
+        case "Array":
+          return value == null ? null : JSON.stringify(value);
+        case "Boolean":
+          return value ? "" : null;
+        case "Number":
+          return value == null ? null : value;
+        default:
+          return value;
+      }
+    } else {
+      switch (type) {
+        case "Object":
+        case "Array":
+          return value && JSON.parse(value);
+        case "Boolean":
+          return value;
+        case "Number":
+          return value != null ? +value : value;
+        default:
+          return value;
+      }
+    }
+  }
+  function get_custom_elements_slots(element) {
+    const result = {};
+    element.childNodes.forEach((node) => {
+      result[node.slot || "default"] = true;
+    });
+    return result;
+  }
+  // src/lib/content/game/time.ts
+  var DAY_MS = 86400000;
+  var EPOCH = Date.parse("2026-09-03T00:00:00Z");
+  var SPEED = 30;
+  var GAME_DAY_MS = DAY_MS / SPEED;
+  function gameClock(now = new Date) {
+    const elapsed = Math.max(0, now.getTime() - EPOCH) * SPEED;
+    const date = new Date(EPOCH + elapsed);
+    const pad = (n) => String(n).padStart(2, "0");
+    const label = `${pad(date.getUTCDate())}.${pad(date.getUTCMonth() + 1)}.${pad(date.getUTCFullYear() % 100)} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
+    return { date, label };
+  }
+  function gameHour(now = new Date) {
+    const d = gameClock(now).date;
+    return d.getUTCHours() + d.getUTCMinutes() / 60 + d.getUTCSeconds() / 3600;
+  }
+
+  // src/lib/content/sandbox-kit/skyTime.svelte.js
+  var NOON = 12;
+  var skyTime = proxy({ auto: true, hour: NOON });
+  function skyHour() {
+    return skyTime.auto ? gameHour() : skyTime.hour;
+  }
+
+  // src/lib/content/sandbox-kit/sky.js
+  var SUNRISE = 5;
+  var SUNSET = 20;
+  function onSkyDay(hour, [rise, set]) {
+    const h = ((hour - rise) % 24 + 24) % 24, light = set - rise;
+    const into = h <= light ? h / light * (SUNSET - SUNRISE) : SUNSET - SUNRISE + (h - light) / (24 - light) * (24 - (SUNSET - SUNRISE));
+    return (SUNRISE + into) % 24;
+  }
+  function sunAt(hour) {
+    const e = Math.sin((hour - 5) / 15 * Math.PI);
+    const alt = e * MathUtils.degToRad(68);
+    const az = MathUtils.degToRad(90 + (hour - 5) / 15 * 180);
+    return { dir: new Vector3().setFromSphericalCoords(1, Math.PI / 2 - alt, az), e };
+  }
+  var sunFrom = (elevation, azimuth) => {
+    const a = MathUtils.degToRad(azimuth), e = MathUtils.degToRad(elevation);
+    return new Vector3(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e));
+  };
+  var HORIZON = new Color(16742959);
+  var OVERHEAD = new Color(16773856);
+  var MOON = new Color("#8ea6dc");
+  var lum = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  function skyIrradiance(sun) {
+    const air = airOf(sun.y), s = sun.toArray(), e = [0, 0, 0], n = 8, m = 32;
+    for (let i = 0;i < n; i++) {
+      const th = (i + 0.5) / n * (Math.PI / 2), w = Math.cos(th) * Math.sin(th) * (Math.PI / 2 / n) * (2 * Math.PI / m);
+      for (let j = 0;j < m; j++) {
+        const ph = (j + 0.5) / m * Math.PI * 2;
+        const c = skyAt([Math.sin(th) * Math.cos(ph), Math.cos(th), Math.sin(th) * Math.sin(ph)], s, air);
+        for (let k = 0;k < 3; k++)
+          e[k] += c[k] * w;
+      }
+    }
+    const y = lum(e), gain = e.map((v) => Math.pow(y / Math.max(v, 0.000000001), 0.65));
+    return { e: e.map((v, k) => v * gain[k]), gain };
+  }
+  var NOON_EL = MathUtils.degToRad(68);
+  var T2 = (el) => Math.sqrt(Math.max(0, Math.sin(el)));
+  var NOON_SKY = lum(skyIrradiance(sunFrom(68, 0)).e);
+  var SUN = 5 * NOON_SKY / T2(NOON_EL);
+  var NOON_LIGHT = SUN * T2(NOON_EL) * Math.sin(NOON_EL) + NOON_SKY;
+  var WHITENS = MathUtils.degToRad(17);
+  var whiteness = (el) => (1 - Math.exp(-Math.max(0, el) / WHITENS)) / (1 - Math.exp(-Math.PI / 2 / WHITENS));
+  function sunLight(elevation) {
+    const t = T2(elevation);
+    return { color: HORIZON.clone().lerp(OVERHEAD, whiteness(elevation)), intensity: SUN * t, T: t };
+  }
+  var exposureFor = (light) => 1.2 * Math.PI / NOON_LIGHT * Math.pow(NOON_LIGHT / Math.max(light, 0.0001), 0.75);
+  function lightOf(dir, hour = 12) {
+    const e = dir.y, el = Math.asin(Math.max(-1, Math.min(1, e)));
+    const day = MathUtils.smoothstep(e, -0.05, 0.35);
+    const low = 1 - MathUtils.smoothstep(e, 0, 0.6);
+    const night = 1 - MathUtils.smoothstep(e, -0.02, 0.18);
+    const moon = dir.clone().negate().setY(Math.abs(dir.y) + 0.4).normalize();
+    const up = e > 0;
+    const sun = up ? sunLight(el) : { color: MOON.clone(), intensity: SUN * 0.02 * night };
+    const from = up ? dir.clone() : moon.clone();
+    const sky = skyIrradiance(dir);
+    const exposure = exposureFor(sun.intensity * lum(sun.color.toArray()) * Math.max(0, from.y) + lum(sky.e) + 0.02);
+    return { hour, e, day, low, night, dir: dir.clone(), moon, from, sun: { color: sun.color, intensity: sun.intensity }, sky: new Color().fromArray(sky.e), gain: sky.gain, exposure };
+  }
+  var lightAt = (hour) => lightOf(sunAt(hour).dir, hour);
+  var rebake = (was, now, film = false) => !was || (film ? !was.equals(now) : was.angleTo(now) >= MathUtils.degToRad(0.5));
+  function createSkyClock({ clock = skyHour } = {}) {
+    const dev = window;
+    return { hour: () => dev.__interiorHour ?? clock() };
+  }
+  function createSky(renderer, scene, options = {}) {
+    const { shadowReach = 300, shadowMap = 2048, shadowBias = { bias: -0.0004, normal: 0.04 }, shadowStep = 2, fog = { far: 1400 }, exposure: lens = 1, clouds = 0.4, north = 0, map = false, day: worldDay = null, light: keyed = true, onHour } = options;
+    const turn = north ? new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), map ? -north : north) : null;
+    const dev = window;
+    const clock = createSkyClock(options);
+    const film = () => dev.__worldTime !== undefined;
+    const universe = createUniverse({ clouds, mirror: map });
+    scene.add(universe.dome, universe.stars);
+    const envSky = createUniverse({ clouds: 0, mirror: map, disc: false });
+    const envScene = new Scene().add(envSky.dome);
+    const cube = new WebGLCubeRenderTarget(128, { type: HalfFloatType });
+    const cubeCamera = new CubeCamera(0.1, 100, cube);
+    const pmrem = new PMREMGenerator(renderer);
+    let envTarget = null;
+    const sun = new SunLight(16777215, 1);
+    sun.castShadow = keyed;
+    sun.visible = keyed;
+    const side = Math.min(shadowMap, budget().shadowMap / 2);
+    sun.shadow.mapSize.set(side, side);
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = shadowReach;
+    sun.shadow.bias = shadowBias.bias;
+    sun.shadow.normalBias = shadowBias.normal;
+    scene.add(sun);
+    const haze = fog ? new FogExp2(16777215, 1.6 / fog.far) : null;
+    scene.fog = haze;
+    if (keyed)
+      renderer.shadowMap.autoUpdate = false;
+    const eye = new Vector3(Infinity, 0, 0), look = new Vector3, ahead = new Vector3, at = new Vector3;
+    let ring = [];
+    let moodHaze = { color: [0, 0, 0], k: 0, density: 0 };
+    const before = scene.onBeforeRender;
+    scene.onBeforeRender = function(r, s, cam, target) {
+      before.call(this, r, s, cam, target);
+      if (target || !cam)
+        return;
+      cam.getWorldPosition(at);
+      cam.getWorldDirection(ahead);
+      if (keyed && (film() || at.distanceTo(eye) > shadowStep || ahead.angleTo(look) > 0.035)) {
+        r.shadowMap.needsUpdate = true;
+        eye.copy(at);
+        look.copy(ahead);
+      }
+      if (!haze || !ring.length)
+        return;
+      const f = (Math.atan2(ahead.z, ahead.x) / (Math.PI * 2) + 1) % 1 * 16, k = Math.floor(f) % 16, t = f - Math.floor(f);
+      const c = ring[k].map((v, i) => v + (ring[(k + 1) % 16][i] - v) * t);
+      haze.color.setRGB(...c.map((v, i) => v + (moodHaze.color[i] - v) * moodHaze.k));
+      if (moodHaze.density)
+        haze.density = moodHaze.density * (1 - 0.65 * MathUtils.smoothstep(at.y, 15, 300));
+    };
+    const horizonColours = Array.from({ length: 16 }, () => new Vector3);
+    const horizon = {
+      uniforms: { uSkyRing: { value: horizonColours } },
+      glsl: `uniform vec3 uSkyRing[16];
+vec3 skyHorizon(vec3 dir) {
+	float f = fract(atan(dir.z, dir.x) / 6.2831853 + 1.0) * 16.0; int k = int(f);
+	vec3 a = uSkyRing[0], b = uSkyRing[1];
+	for (int i = 0; i < 16; i++) if (i == k) { a = uSkyRing[i]; b = uSkyRing[(i + 1) - 16 * ((i + 1) / 16)]; }
+	return mix(a, b, fract(f));
+}`
+    };
+    let envAt = null;
+    let mood = null, lid = 0, baked = null;
+    let shown = 1;
+    let light = { hour: 0, e: 0, day: 0, low: 0, night: 0 };
+    const sunDir = new Vector3(0, 1, 0);
+    const bake = (gain) => {
+      envSky.U.gain.value.fromArray(gain);
+      cubeCamera.update(renderer, envScene);
+      envTarget = pmrem.fromCubemap(cube.texture, envTarget);
+      scene.environment = envTarget.texture;
+    };
+    const set = (hour = clock.hour()) => {
+      const sky = worldDay ? onSkyDay(hour, worldDay) : hour;
+      const pinned = mood && !mood.indoor ? sunFrom(Math.max(mood.sun, -18), mood.az) : options.sun ? sunFrom(options.sun.elevation, options.sun.azimuth) : null;
+      const l = pinned ? lightOf(pinned, hour) : lightAt(sky);
+      if (!pinned) {
+        if (map)
+          for (const v of [l.dir, l.moon, l.from])
+            v.z = -v.z;
+        if (turn)
+          for (const v of [l.dir, l.moon, l.from])
+            v.applyQuaternion(turn);
+      }
+      const stars = groundStars(sky);
+      if (map)
+        stars.set(-stars.x, -stars.y, stars.z, stars.w);
+      if (turn)
+        stars.premultiply(turn);
+      const view = { sun: l.dir, moon: l.moon, stars, drift: sky * 60 };
+      universe.set(view);
+      envSky.set(view);
+      sunDir.copy(l.dir);
+      sun.position.copy(l.from);
+      sun.color.copy(l.sun.color);
+      sun.intensity = l.sun.intensity * (1 - 0.8 * lid) * (mood?.indoor ? 0 : 1);
+      shown = l.exposure * lens * (mood ? 0.8 + 0.2 * mood.light : 1) * (dev.__exposure ?? 1);
+      setExposure(renderer, shown);
+      scene.environmentIntensity = 1;
+      if (mood) {
+        for (const [k, u] of [["zenith", universe.U.zenith], ["haze", universe.U.haze]]) {
+          const c = untonemap(new Color(`#${mood[k]}`), shown);
+          u.value.copy(c);
+          (k === "zenith" ? envSky.U.zenith : envSky.U.haze).value.copy(c);
+        }
+        universe.U.look.value = envSky.U.look.value = lid;
+      }
+      const r = horizonRing(l.dir);
+      r.forEach((c, i) => horizonColours[i].set(c.r, c.g, c.b));
+      ring = r.map((c) => new Color().fromArray(agx(c.toArray(), shown)).convertLinearToSRGB().toArray());
+      light = { hour, e: l.e, day: l.day, low: l.low, night: l.night };
+      if (rebake(envAt, l.dir, film()) || baked !== mood) {
+        envAt = l.dir.clone();
+        baked = mood;
+        bake(l.gain);
+        if (keyed)
+          renderer.shadowMap.needsUpdate = true;
+      }
+      onHour?.(light, { sun, renderer, scene });
+    };
+    set();
+    let checked = 0;
+    let control = "";
+    return {
+      hour: clock.hour,
+      set,
+      tick: (now = performance.now()) => {
+        const c = dev.__interiorHour !== undefined ? `film ${dev.__interiorHour}` : skyTime.auto ? "auto" : `hand ${skyTime.hour}`;
+        if (c === control && now - checked < 1000)
+          return;
+        control = c;
+        checked = now;
+        set();
+      },
+      mood(m) {
+        mood = m;
+        lid = m.preset === "smog-dusk" || m.preset === "overcast" ? 0.85 : m.indoor ? 1 : 0.2;
+        universe.dome.visible = universe.stars.visible = !m.indoor;
+        sun.castShadow = keyed && m.shadows && !m.indoor;
+        scene.background = m.indoor ? new Color(`#${m.haze}`) : null;
+        moodHaze = { color: new Color(`#${m.haze}`).convertLinearToSRGB().toArray(), k: lid, density: m.indoor ? 0 : m.fog };
+        if (haze)
+          haze.density = moodHaze.density;
+        set();
+      },
+      light: () => light,
+      exposure: () => shown,
+      sun,
+      dome: universe.dome,
+      stars: universe.stars,
+      sunDir,
+      horizon,
+      dispose() {
+        scene.remove(universe.dome, universe.stars, sun);
+        scene.onBeforeRender = before;
+        if (scene.fog === haze)
+          scene.fog = null;
+        universe.dispose();
+        envSky.dispose();
+        sun.dispose();
+        cube.dispose();
+        if (scene.environment === envTarget?.texture)
+          scene.environment = null;
+        envTarget?.dispose();
+        pmrem.dispose();
+      }
+    };
+  }
 
   // src/lib/content/assets/stage.js
   var GLOSS = 0.7;
@@ -58290,14 +62568,14 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
       this.bg = untonemap(new Color(paper ? 15987438 : 855568).convertSRGBToLinear(), 1);
       this.scene.background = this.bg.clone();
       this.scene.environment = studioEnvironment(renderer, theme);
-      this.scene.environmentIntensity = paper ? 0.82 : 0.9;
-      this.sky = sky ? daySky(renderer) : null;
-      if (this.sky) {
+      this.scene.environmentIntensity = paper ? 0.95 : 1;
+      this.sky = null;
+      if (sky) {
         this.scene.environment.dispose();
-        this.scene.environment = this.sky.environment;
-        this.scene.environmentIntensity = 1.35;
+        this.scene.environment = null;
         this.scene.background = null;
-        this.scene.add(this.sky.dome);
+        this.sky = createSky(renderer, this.scene, { sun: { elevation: 14, azimuth: 218 }, light: false, fog: null, clouds: 0.25 });
+        this.sky.stars.visible = false;
       }
       const key = new DirectionalLight(16774118, paper ? 2.4 : 2.6);
       key.castShadow = true;
@@ -58305,17 +62583,13 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
       key.shadow.radius = low ? 4 : 7;
       key.shadow.blurSamples = low ? 8 : 16;
       const rim = new DirectionalLight(14412031, paper ? 0.9 : 1.8);
-      const fill = new HemisphereLight(16777215, paper ? 14276044 : 2105376, paper ? 0.2 : 0.15);
       if (this.sky) {
-        key.color.set("#fff0dc");
-        key.intensity = 3;
+        key.color.copy(this.sky.sun.color);
+        key.intensity = this.sky.sun.intensity;
         rim.color.set("#ffffff");
-        rim.intensity = 1.8;
-        fill.color.set("#cfe0f5");
-        fill.groundColor.set("#b3a892");
-        fill.intensity = 0.5;
+        rim.intensity = 0.12 * key.intensity;
       }
-      this.scene.add(key, key.target, rim, fill);
+      this.scene.add(key, key.target, rim);
       this.key = key;
       this.rim = rim;
       this.ghosted = new Set;
@@ -58401,9 +62675,9 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
         sh.uniforms.uBg = { value: bg };
         sh.uniforms.uFade = { value: fade };
         if (sky) {
-          Object.assign(sh.uniforms, sky.uniforms);
+          Object.assign(sh.uniforms, sky.horizon.uniforms);
           sh.fragmentShader = sh.fragmentShader.replace("#include <common>", `#include <common>
-${sky.glsl}`);
+${sky.horizon.glsl}`);
         }
         sh.vertexShader = sh.vertexShader.replace("#include <common>", `#include <common>
 varying vec3 vFW;`).replace("#include <project_vertex>", `#include <project_vertex>
@@ -58451,8 +62725,7 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       key.shadow.radius = s > 4 ? Math.max(1, Math.min(3, 0.08 / texel)) : this.low ? 4 : 7;
       this.rim.position.copy(centre).add(this.sky ? new Vector3(3.5, 3, 4.5).multiplyScalar(s) : new Vector3(4, 3, -5).multiplyScalar(s));
       const big = s > 4;
-      this.rim.intensity = (this.sky ? 1.8 : this.theme === "paper" ? 0.9 : 1.8) * (big ? 0.35 : 1);
-      this.scene.children.forEach((c) => c.isHemisphereLight && (c.intensity = (this.sky ? 0.5 : this.theme === "paper" ? 0.2 : 0.15) * (big ? 0.5 : 1)));
+      this.rim.intensity = (this.sky ? 0.12 * this.key.intensity : this.theme === "paper" ? 0.9 : 1.8) * (big ? 0.35 : 1);
       CUT.hatch.value = 0.0015 * this.asset.size;
       this._fitAO();
       this.built = views ? 1 : 0;
@@ -58819,13 +63092,11 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
         this._post();
       this._gloss();
       const r = this.renderer;
-      const was = { tm: withTone(r, "neutral"), clip: r.localClippingEnabled, rt: r.getRenderTarget() };
+      const was = { tm: withTone(r, "agx"), clip: r.localClippingEnabled, rt: r.getRenderTarget() };
       r.localClippingEnabled = true;
       r.setRenderTarget(this.composer.readBuffer);
       let done = Promise.resolve();
-      try {
-        done = r.compileAsync(this.scene, this.camera);
-      } catch {}
+      done = precompile(r, this.scene, this.camera);
       r.setRenderTarget(was.rt);
       was.tm();
       r.localClippingEnabled = was.clip;
@@ -58847,14 +63118,14 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       if ((this._glossed = (this._glossed ?? 0) + 1) % 12 === 1)
         this._gloss();
       const r = this.renderer;
-      const was = { tm: withTone(r, "neutral"), clip: r.localClippingEnabled };
+      const was = { tm: withTone(r, "agx"), clip: r.localClippingEnabled, exposure: r.toneMappingExposure };
+      setExposure(r, this.sky ? this.sky.exposure() : 1);
       r.localClippingEnabled = true;
       this.camera.layers.enable(LAYER_FX);
       this.camera.updateMatrixWorld();
       CUT.proj.value.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
       if (this.contact)
         this.contact.update();
-      this.sky?.place(this.camera);
       this.grade.uniforms.uTime.value = this.time;
       const auto = r.shadowMap.autoUpdate;
       r.shadowMap.autoUpdate = false;
@@ -58866,6 +63137,7 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       this.composer.render();
       r.shadowMap.autoUpdate = auto;
       was.tm();
+      setExposure(r, was.exposure);
       r.localClippingEnabled = was.clip;
       this.camera.layers.disable(LAYER_FX);
     }
@@ -58903,134 +63175,14 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       this.post?.dispose();
       if (this.sky)
         this.sky.dispose();
-      else
-        this.scene.environment?.dispose();
+      this.scene.environment?.dispose();
     }
-  }
-
-  // src/lib/content/worlds/sky.js
-  var lin = (hex) => new Color(`#${hex}`).convertSRGBToLinear();
-  function createSky(scene, renderer) {
-    const uniforms = {
-      uZenith: { value: new Color },
-      uHorizon: { value: new Color },
-      uHaze: { value: new Color },
-      uSunC: { value: new Color },
-      uSun: { value: new Vector3(0, 1, 0) },
-      uSmog: { value: 0.5 }
-    };
-    const dome = new Mesh(new SphereGeometry(1, 48, 24), new ShaderMaterial({
-      uniforms,
-      side: BackSide,
-      depthWrite: false,
-      depthTest: false,
-      fog: false,
-      toneMapped: false,
-      vertexShader: `
-				varying vec3 vDir;
-				void main() {
-					vDir = normalize(position);
-					vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-					gl_Position = p.xyww;
-				}`,
-      fragmentShader: `
-				varying vec3 vDir;
-				uniform vec3 uZenith, uHorizon, uHaze, uSunC, uSun;
-				uniform float uSmog;
-				float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-				float noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
-					return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y); }
-				void main() {
-					vec3 d = normalize(vDir);
-					float h = d.y;
-					// the lid: from the haze low down to the zenith (the horizon's colour only in its band, below)
-					vec3 c = mix(uHaze, uZenith, pow(clamp(h, 0.0, 1.0), 0.5));
-					// the smog's lid: slow, heavy banks of cloud, darker in their bellies
-					vec2 q = d.xz / max(0.08, h + 0.12) * 1.6;
-					float n = noise(q) * 0.6 + noise(q * 2.3) * 0.3 + noise(q * 5.1) * 0.1;
-					c *= mix(1.0, 0.78 + 0.35 * n, uSmog * smoothstep(0.02, 0.35, h));
-					// the sun behind it: a smear of warm light low in the haze, no disc
-					float s = max(0.0, dot(d, normalize(uSun)));
-					c += uSunC * (pow(s, 6.0) * 0.35 + pow(s, 40.0) * 0.5) * (1.0 - 0.6 * uSmog);
-					// the band of haze where the land meets the sky, and the land's colour below it
-					// the cold grey haze over the lower sky, the sick yellow-brown only in a thin band at the horizon
-					c = mix(c, uHaze, smoothstep(0.3, 0.04, h) * 0.75);
-					c = mix(c, uHorizon, smoothstep(0.05, 0.0, abs(h)) * 0.55);
-					if (h < 0.0) c = uHaze;
-					// not tone mapped: three lays fog on after tone mapping, so the land fades into exactly this colour
-					gl_FragColor = vec4(c, 1.0);
-					#include <colorspace_fragment>
-				}`
-    }));
-    dome.name = "sky";
-    dome.frustumCulled = false;
-    dome.renderOrder = -1000;
-    scene.add(dome);
-    const hemi = new HemisphereLight(16777215, 4473924, 1);
-    const sun = new DirectionalLight(16777215, 1);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.bias = -0.0004;
-    sun.shadow.normalBias = 0.03;
-    const s = sun.shadow.camera;
-    s.left = s.bottom = -90;
-    s.right = s.top = 90;
-    s.near = 1;
-    s.far = 700;
-    scene.add(hemi, sun, sun.target);
-    scene.fog = new FogExp2(16777215, 0.003);
-    let mood = null;
-    return {
-      dome,
-      sun,
-      hemi,
-      get mood() {
-        return mood;
-      },
-      apply(m) {
-        mood = m;
-        dome.visible = !m.indoor;
-        scene.background = m.indoor ? lin(m.haze) : null;
-        uniforms.uZenith.value.copy(lin(m.zenith));
-        uniforms.uHorizon.value.copy(lin(m.horizon));
-        uniforms.uHaze.value.copy(lin(m.haze));
-        uniforms.uSunC.value.copy(lin(m.sunColor));
-        const a = MathUtils.degToRad(m.az), e = MathUtils.degToRad(Math.max(m.sun, 2));
-        uniforms.uSun.value.set(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e));
-        uniforms.uSmog.value = m.preset === "smog-dusk" || m.preset === "overcast" ? 1 : 0.15;
-        scene.fog.color.copy(lin(m.haze));
-        scene.fog.density = m.fog;
-        hemi.color.copy(lin(m.zenith)).lerp(new Color(1, 1, 1), 0.6);
-        hemi.groundColor.copy(lin(m.haze)).multiplyScalar(0.7);
-        hemi.intensity = 3.2 * m.light;
-        sun.color.copy(lin(m.sunColor));
-        sun.castShadow = m.shadows;
-        sun.intensity = m.indoor ? 0 : m.sun > 0 ? 3.2 * m.light * Math.min(1, 0.45 + m.sun / 25) : 0.15;
-        setExposure(renderer, 1 + 0.2 * m.light);
-      },
-      place(camera, focus) {
-        if (mood)
-          scene.fog.density = mood.fog * (1 - 0.65 * MathUtils.smoothstep(camera.position.y, 15, 300));
-        dome.position.copy(camera.position);
-        dome.scale.setScalar(camera.far * 0.95);
-        const f = focus ?? camera.position;
-        sun.target.position.copy(f);
-        sun.position.copy(f).addScaledVector(uniforms.uSun.value, 300);
-      },
-      dispose() {
-        dome.geometry.dispose();
-        dome.material.dispose();
-        scene.remove(dome, hemi, sun, sun.target);
-        sun.shadow.map?.dispose();
-        scene.fog = null;
-      }
-    };
   }
 
   // src/lib/stories/live.ts
   var finite2 = (v) => typeof v === "number" && Number.isFinite(v);
   var lerp3 = (a, b, u) => a + (b - a) * u;
-  var smooth = (u) => u * u * (3 - 2 * u);
+  var smooth2 = (u) => u * u * (3 - 2 * u);
   function between(keys, t) {
     if (t <= keys[0].at)
       return [keys[0], keys[0], 0];
@@ -59042,7 +63194,7 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
   }
   function cameraAt(camera, t) {
     const [a, b, u0] = between(camera, t);
-    const u = b.ease === "linear" ? u0 : smooth(u0);
+    const u = b.ease === "linear" ? u0 : smooth2(u0);
     return { eye: a.eye.map((x, i) => lerp3(x, b.eye[i], u)), target: a.target.map((x, i) => lerp3(x, b.target[i], u)), fov: lerp3(a.fov, b.fov, u) };
   }
   function stepAt(times, t) {
@@ -59064,7 +63216,7 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
     return Math.round(lerp3(a.v, b.v, u) * 1e6) / 1e6;
   }
   var frameOf = (t, fps, frames) => Math.min(frames - 1, Math.max(0, Math.round(t * fps)));
-  function sunAt(hour) {
+  function sunAt2(hour) {
     const h = (hour % 24 + 24) % 24;
     const sun = Math.round(50 * Math.sin(Math.PI * (h - 6) / 12) * 1e4) / 1e4;
     const az = Math.round(((90 + (h - 6) * 15) % 360 + 360) % 360 * 1e4) / 1e4;
@@ -59074,7 +63226,7 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
     return {
       frame: frameOf(since + t, fps, frames),
       camera: cameraAt(w.camera, t),
-      sun: w.hour == null ? null : sunAt(curveAt(w.hour, t, 12)),
+      sun: w.hour == null ? null : sunAt2(curveAt(w.hour, t, 12)),
       exposure: curveAt(w.exposure, t, 0),
       lights: { sun: curveAt(w.lights?.sun, t, 1), sky: curveAt(w.lights?.sky, t, 1), lamps: curveAt(w.lights?.lamps, t, 1) }
     };
@@ -59403,7 +63555,7 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       } else if (data.format >= 4 && n.light != null) {
         if (++lights > BUDGET.lights)
           fail2(`more than ${BUDGET.lights} lights`);
-        o = lightOf(n.light, i);
+        o = lightOf2(n.light, i);
       } else
         o = data.format >= 3 && n.bone === true ? new Bone : new Group;
       o.name = String(n.name ?? "").slice(0, 120);
@@ -59443,7 +63595,7 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       root.userData.view = viewOf(data.view, objs, data.controls?.length ? root.userData.controls : []);
     return root;
   }
-  function lightOf(x, i) {
+  function lightOf2(x, i) {
     const kinds = Object.values(LIGHTS);
     if (!x || typeof x !== "object" || !kinds.includes(x.kind))
       fail2(`node ${i}: a light of no kind we know`);
@@ -59499,7 +63651,7 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
     }
   }
   var isText = (x, most) => typeof x === "string" && x.length <= most;
-  var text = (x, most, what) => x === undefined ? undefined : isText(x, most) ? x : fail2(`${what}: not text`);
+  var text2 = (x, most, what) => x === undefined ? undefined : isText(x, most) ? x : fail2(`${what}: not text`);
   var point = (a, what) => Array.isArray(a) && a.length === 3 ? a.map((v) => num(v, what)) : fail2(`${what}: not a point`);
   var keep = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
   var plainData = (x, what, depth = 0, budget = { n: 4000 }) => {
@@ -59548,7 +63700,7 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
     if (v.labels !== undefined) {
       if (!Array.isArray(v.labels) || v.labels.length > 256)
         fail2("view labels");
-      out.labels = v.labels.map((L, i) => keep({ node: node(L?.node, `label ${i}`), at: point(L.at, `view label ${i}`), text: text(L.text, 80, `view label ${i}`) ?? "", side: L.side === "left" || L.side === "right" ? L.side : undefined, live: L.live === true ? true : undefined }));
+      out.labels = v.labels.map((L, i) => keep({ node: node(L?.node, `label ${i}`), at: point(L.at, `view label ${i}`), text: text2(L.text, 80, `view label ${i}`) ?? "", side: L.side === "left" || L.side === "right" ? L.side : undefined, live: L.live === true ? true : undefined }));
     }
     if (v.shells !== undefined) {
       if (!Array.isArray(v.shells) || v.shells.length > 4096)
@@ -59567,7 +63719,7 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
         hero: L.hero === undefined ? undefined : plainData(L.hero, "view lab hero"),
         read: L.read === undefined ? undefined : plainData(L.read, "view lab reading"),
         how: L.how === undefined ? undefined : plainData(L.how, "view lab how"),
-        breakIt: L.breakIt === undefined ? undefined : { label: text(L.breakIt?.label, 80, "view lab break") ?? "Break it" },
+        breakIt: L.breakIt === undefined ? undefined : { label: text2(L.breakIt?.label, 80, "view lab break") ?? "Break it" },
         moves: L.moves === undefined ? undefined : movesOf(L.moves)
       });
     }
@@ -59577,7 +63729,7 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       out.clips = keep({
         clips: names(c.clips ?? [], "clips"),
         poses: names(c.poses ?? [], "poses"),
-        first: text(c.first, 40, "view first clip"),
+        first: text2(c.first, 40, "view first clip"),
         held: c.held === undefined ? undefined : plainData(c.held, "view poses", 0, { n: 20000 }),
         bones: c.bones === undefined ? undefined : Array.isArray(c.bones) && c.bones.length <= 512 ? c.bones.map((k) => isText(k, 40) ? k : fail2("view bones")) : fail2("view bones"),
         motion: c.motion === undefined ? undefined : motionOf2(c.motion, Array.isArray(c.bones) ? c.bones.length : 0)
@@ -59595,7 +63747,7 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       out.walk = { x: num(w.x, "view walk"), z: num(w.z, "view walk"), yaw: w.yaw === undefined ? 0 : num(w.yaw, "view walk"), lamps };
     }
     if (v.note !== undefined)
-      out.note = text(v.note, 200, "view note");
+      out.note = text2(v.note, 200, "view note");
     return out;
   }
   function motionOf2(m, nb) {
@@ -59690,7 +63842,7 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       if (!(table instanceof Float32Array) || table.length !== MOVE_SAMPLES * ids.length)
         fail2(`view move ${id}: its table`);
       finite3(table, `view move ${id}`);
-      out[id] = keep({ label: text(m.label, 80, `view move ${id}`) ?? id, seconds: num(m.seconds, `view move ${id}`) > 0 ? m.seconds : fail2(`view move ${id}: seconds`), note: text(m.note, 200, `view move ${id}`), ids, table });
+      out[id] = keep({ label: text2(m.label, 80, `view move ${id}`) ?? id, seconds: num(m.seconds, `view move ${id}`) > 0 ? m.seconds : fail2(`view move ${id}: seconds`), note: text2(m.note, 200, `view move ${id}`), ids, table });
     }
     return out;
   }
@@ -60503,10 +64655,10 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
           lamps.push({ light: x, k: x.intensity });
       });
       const gl = document.createElement("canvas");
-      renderer = createRenderer({ canvas: gl, pixelRatio: 1, shadows: "pcf", preserve: true });
+      renderer = createRenderer({ canvas: gl, pixelRatio: 1, toneMapping: "agx", shadows: "pcf", preserve: true });
       renderer.setSize(w, h, false);
       camera = new PerspectiveCamera(40, w / h, 0.1, 20000);
-      sky = createSky(scene, renderer);
+      sky = createSky(renderer, scene, { shadowReach: 500, fog: { far: 1400 } });
     })();
     for (const s of spec.shots) {
       let pen = null, drawn = NaN;
@@ -60517,9 +64669,9 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
         const at = worldAt(s, t, spec.fps, spec.frames, s.at - spec.at);
         const m = places[Math.min(at.frame, places.length - 1)];
         copies.forEach((c, i) => c.matrix.fromArray(m, i * 16));
-        sky.apply(at.sun ? { ...mood, sun: at.sun.sun, az: at.sun.az } : mood);
+        sky.mood(at.sun ? { ...mood, sun: at.sun.sun, az: at.sun.az } : mood);
         sky.sun.intensity *= at.lights.sun;
-        sky.hemi.intensity *= at.lights.sky;
+        scene.environmentIntensity *= at.lights.sky;
         for (const l of lamps)
           l.light.intensity = l.k * at.lights.lamps;
         renderer.toneMappingExposure *= 2 ** at.exposure;
@@ -60527,7 +64679,6 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
         camera.fov = at.camera.fov;
         camera.updateProjectionMatrix();
         camera.lookAt(...at.camera.target);
-        sky.place(camera, new Vector3(...at.camera.target));
         renderer.render(scene, camera);
         pen.clearRect(0, 0, w, h);
         pen.drawImage(renderer.domElement, 0, 0, w, h);
