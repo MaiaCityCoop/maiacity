@@ -59,9 +59,7 @@ describe('one program lays the cover (c1)', () => {
 		expect(ground).toContain('coverAway');
 	});
 	it('every warm-up goes through the render kit’s precompile (compileAsync never resolves on node materials)', () => {
-		// held: the render kit's own, intent cb16b7a5's to route (this list goes once it is on main)
-		const HELD = ['assets/render/index.js', 'assets/render/impostors.js', 'assets/stage.js'];
-		const bad = files(SRC).filter((f) => !f.endsWith('render/core.js') && !HELD.some((h) => f.endsWith(h)) && /\bcompileAsync\(/.test(readFileSync(f, 'utf8')));
+		const bad = files(SRC).filter((f) => !f.endsWith('render/core.js') && /\bcompileAsync\(/.test(readFileSync(f, 'utf8')));
 		expect(bad).toEqual([]);
 	});
 });
