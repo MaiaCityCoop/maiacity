@@ -28,11 +28,12 @@ import type { WorkerLike } from '../src/lib/stories/world-build';
 const LIB = resolve(import.meta.dir, '../src/lib') + '/';
 Bun.plugin({ name: 'lib', setup: (b) => void b.onResolve({ filter: /^\$lib\// }, (a) => ({ path: Bun.resolveSync('./' + a.path.slice(5), LIB) })) });
 const { enginesOf } = await import('../src/lib/kernel/engines.js');
-const { hashBytes, hashText } = await import('../src/lib/content/game/hash.js');
+const { hashText } = await import('../src/lib/content/game/hash.js');
 const { piecesOf } = await import('../src/lib/content/assets/box/pieces.js');
 const { plantingsOf } = await import('../src/lib/content/assets/uses.js');
 const { frameOf, framesOf } = await import('../src/lib/stories/live');
-const { buildWorld, built, engineOf, forgetBuilds } = await import('../src/lib/stories/world-build');
+const { buildWorld, built, engineOf } = await import('../src/lib/stories/world-build');
+const { boxWorker } = await import('./box-worker');
 
 const args = process.argv.slice(2);
 const opt = (name: string) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
@@ -75,31 +76,14 @@ async function deep(code: string, seen = new Set<string>()): Promise<string[]> {
 	return [...seen];
 }
 
-/** the frozen box engine `v` as Bun workers: its bytes held to its hash; Bun's worker given what a browser worker has
- *  that the engine uses (importScripts of a blob: URL, an OffscreenCanvas whose 2D drawing is a no-op) */
-const SHIM = `const __B = Blob, __t = new Map();
-self.Blob = class extends __B { constructor(p, o) { super(p, o); this.__t = p.map(String).join(''); } };
-const __c = URL.createObjectURL; URL.createObjectURL = (b) => { const u = __c(b); if (b.__t != null) __t.set(u, b.__t); return u; };
-self.importScripts = (u) => (0, eval)(__t.get(u));
-const __none = () => new Proxy(function () {}, { get: (t, k) => (k === 'data' ? new Uint8ClampedArray(4) : __none()), apply: () => __none(), set: () => true });
-globalThis.OffscreenCanvas ??= class { constructor(w, h) { this.width = w; this.height = h; } getContext() { const c = this; return new Proxy({}, { get: (t, k) => (k === 'canvas' ? c : k === 'getImageData' ? (x, y, w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(4 * w * h) }) : __none()), set: () => true }); } };
-`;
 let alive = 0, most = 0;
-function workerOf(v: number): () => WorkerLike {
-	const e = enginesOf('box').find((x: { v: number }) => x.v === v);
-	if (!e) fail(`no box engine ${v} is frozen`);
-	const bytes = readFileSync(resolve(import.meta.dir, `../static/engines/engine-v${v}.js`));
-	if (hashBytes(bytes) !== e.blake3) fail(`engine ${v} does not hash to its name`);
-	const url = URL.createObjectURL(new Blob([SHIM + new TextDecoder().decode(bytes)], { type: 'text/javascript' }));
-	return () => {
-		const w = new Worker(url) as unknown as WorkerLike;
-		alive++, (most = Math.max(most, alive));
-		const end = w.terminate.bind(w);
-		let ended = false;
-		w.terminate = () => (ended || ((ended = true), alive--), end());
-		return w;
-	};
-}
+const workerOf = (v: number) => {
+	try {
+		return boxWorker(v, (n) => ((alive += n), (most = Math.max(most, alive))));
+	} catch (e: any) {
+		return fail(e.message);
+	}
+};
 
 /** a world version as the Stories player hands it to the frame (StoryPlayer.svelte worldAssets): its recipe, pieces,
  *  engine, and the guests its build plants, each with its pieces */
@@ -177,7 +161,6 @@ async function checkWorld() {
 		const moved = cars.filter((i) => at(got, t1).subarray(i * 16, i * 16 + 16).some((v, k) => Math.abs(v - at(got, t2)[i * 16 + k]) > 1e-3)).length;
 		console.log(`moving ${moved} of ${cars.length} vehicles between ${t1} s and ${t2} s`);
 		if (moved < 10) (bad = true), console.error(`only ${moved} vehicles moved between ${t1} s and ${t2} s: at least 10 must`);
-		forgetBuilds();
 		const again = await buildWorld(spec, { code, worker: workerOf(spec.engine.v) });
 		for (const t of [t1, t2]) {
 			const same = Buffer.from(at(got, t).buffer).equals(Buffer.from(at(again, t).buffer));

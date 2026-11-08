@@ -1,0 +1,315 @@
+{
+	"id": "55b69416-8516-47dc-a235-781a8c08c640",
+	"title": "Old City · the jam at dusk (a world shot)",
+	"version": "a4cbeb39d718b4d7f5328f121613642bfd89e792a9a9700c9a087c37474c8ca6",
+	"number": 3,
+	"note": "v3: every world shot now has its poster. lorries, ambulance and above were empty on the board; each now has the Mac's 1920×1080 still of its own first frame. The stills were rendered on Metal by playing the story through the live runtime from Old City v8's files (intent-work/90de96fb-render@7ac15c6). jam keeps the v5 jam still. Nothing else changes. One flaw: the above still has a thin sky-coloured band along its top edge.",
+	"created": "2026-11-08T11:57:28.537Z",
+	"author": "Samuel",
+	"versions": [
+		{
+			"number": 3,
+			"id": "a4cbeb39d718b4d7f5328f121613642bfd89e792a9a9700c9a087c37474c8ca6",
+			"note": "v3: every world shot now has its poster. lorries, ambulance and above were empty on the board; each now has the Mac's 1920×1080 still of its own first frame. The stills were rendered on Metal by playing the story through the live runtime from Old City v8's files (intent-work/90de96fb-render@7ac15c6). jam keeps the v5 jam still. Nothing else changes. One flaw: the above still has a thin sky-coloured band along its top edge.",
+			"created": "2026-11-08T11:57:28.537Z",
+			"author": "Samuel",
+			"approved_by": "Samuel"
+		},
+		{
+			"number": 2,
+			"id": "132e4b6f14ee064b6ae0284403e0fec1ff38348453bebac4416f398716990856",
+			"note": "v2: four world shots of the Old City (v8), cut together, instead of one 6 s push. Each shot plays the world live in the Stories player, its traffic moving on the world's own clock and the same at the same moment every time. The sun sinks from 17.6 h to 17.9 h across the four.\n1. **THE OLD WAY** (0–4 s): the push up the jam at a driver's height, the lens tightening 40° → 36°; the v5 jam still is its poster.\n2. **THE HAUL** (4–7.5 s): high over the outbound lanes, drifting toward the lorries hauling food in.\n3. **THE RESCUE LANE** (7.5–11 s): low over the median, creeping after the ambulance, the lens tightening 35° → 32°.\n4. **THE CITY** (11–16 s): wide and high over the towers, descending as the sun goes, to black 0.8.\nIt plays once PR #2173 is merged: before that the player's world shots stay stuck at \"Loading\". Shots 2–4 have no poster still (no fal); the caption shows the build's progress until the world is ready.",
+			"created": "2026-11-07T20:42:07.475Z",
+			"author": "Samuel",
+			"approved_by": "Samuel"
+		},
+		{
+			"number": 1,
+			"id": "7e69a83d310d78ed37ef1b4d0386b55984cdc34b864d2df4d39fec0be8edf6d5",
+			"note": "The first world shot (intent 65d04790): the Old City, v8, played live in the Stories player rather than as a still. The camera starts at the world's own highway-jam view and pushes slowly up the jammed highway toward the city over 6 s, while the traffic moves on the world's own clock. The sun sinks from about 5° to 3° above the horizon (hour 17.6 → 17.9), and the lamps are raised a little. The still (the v5 jam) is its poster until the world is ready. Played once the pull request is merged: until then the player shows the still.",
+			"created": "2026-11-07T19:44:21.913Z",
+			"author": "Samuel",
+			"approved_by": "Samuel"
+		}
+	],
+	"fps": 24,
+	"format": "16:9",
+	"schema": "story/1",
+	"tracks": [
+		{
+			"id": "shots",
+			"kind": "shots",
+			"clips": [
+				{
+					"at": 0,
+					"id": "jam",
+					"frame": "eb935b6be44f665bc4c9f5dff2d80ccf5d652e2c40562c1a5742c5ebd4a2579e",
+					"world": {
+						"hour": [
+							[
+								0,
+								17.6
+							],
+							[
+								4,
+								17.68
+							]
+						],
+						"asset": "43420c0b-675b-4e50-98b5-c461b9432fc0",
+						"camera": [
+							{
+								"at": 0,
+								"eye": [
+									-17.5,
+									1.5,
+									-420
+								],
+								"fov": 40,
+								"target": [
+									-5,
+									2.5,
+									-60
+								]
+							},
+							{
+								"at": 4,
+								"eye": [
+									-16.2,
+									1.9,
+									-388
+								],
+								"fov": 36,
+								"target": [
+									-5,
+									2.5,
+									-60
+								]
+							}
+						],
+						"lights": {
+							"lamps": 1.5
+						},
+						"version": "9bb90d4c3f21a900d01a6729ac61d6e103d9f0abeb45668cf711a497729c68a8",
+						"exposure": 0
+					},
+					"duration": 4,
+					"transition": "cut"
+				},
+				{
+					"at": 4,
+					"id": "lorries",
+					"frame": "484a6e7f7d09599805a28f48034eb0781f3f8a87280aa9932842dd05c44d6d2c",
+					"world": {
+						"hour": [
+							[
+								0,
+								17.68
+							],
+							[
+								3.5,
+								17.75
+							]
+						],
+						"asset": "43420c0b-675b-4e50-98b5-c461b9432fc0",
+						"camera": [
+							{
+								"at": 0,
+								"eye": [
+									9,
+									9,
+									-560
+								],
+								"fov": 38,
+								"target": [
+									-9,
+									2,
+									-330
+								]
+							},
+							{
+								"at": 3.5,
+								"eye": [
+									5,
+									8.2,
+									-528
+								],
+								"fov": 38,
+								"target": [
+									-9,
+									2,
+									-315
+								]
+							}
+						],
+						"lights": {
+							"lamps": 1.5
+						},
+						"version": "9bb90d4c3f21a900d01a6729ac61d6e103d9f0abeb45668cf711a497729c68a8",
+						"exposure": 0
+					},
+					"duration": 3.5,
+					"transition": "cut"
+				},
+				{
+					"at": 7.5,
+					"id": "ambulance",
+					"frame": "8a798d3024c5202ff84faaf755a4ac6f389a91c9ad1b88ac2a91642e15e7d5d8",
+					"world": {
+						"hour": [
+							[
+								0,
+								17.75
+							],
+							[
+								3.5,
+								17.82
+							]
+						],
+						"asset": "43420c0b-675b-4e50-98b5-c461b9432fc0",
+						"camera": [
+							{
+								"at": 0,
+								"eye": [
+									1.8,
+									3.2,
+									-330
+								],
+								"fov": 35,
+								"target": [
+									-5,
+									1.5,
+									-160
+								]
+							},
+							{
+								"at": 3.5,
+								"eye": [
+									1.4,
+									2.9,
+									-306
+								],
+								"fov": 32,
+								"target": [
+									-5,
+									1.5,
+									-150
+								]
+							}
+						],
+						"lights": {
+							"lamps": 1.5
+						},
+						"version": "9bb90d4c3f21a900d01a6729ac61d6e103d9f0abeb45668cf711a497729c68a8",
+						"exposure": 0
+					},
+					"duration": 3.5,
+					"transition": "cut"
+				},
+				{
+					"at": 11,
+					"id": "above",
+					"frame": "d55bb9c72d58b44064be6dc0d699f46abce5cb1bdcbd3265683b93aeab6b5b2a",
+					"world": {
+						"hour": [
+							[
+								0,
+								17.82
+							],
+							[
+								5,
+								17.9
+							]
+						],
+						"asset": "43420c0b-675b-4e50-98b5-c461b9432fc0",
+						"camera": [
+							{
+								"at": 0,
+								"eye": [
+									170,
+									175,
+									-230
+								],
+								"fov": 45,
+								"target": [
+									-15,
+									0,
+									190
+								]
+							},
+							{
+								"at": 5,
+								"eye": [
+									150,
+									160,
+									-196
+								],
+								"fov": 40,
+								"target": [
+									-15,
+									0,
+									190
+								]
+							}
+						],
+						"lights": {
+							"lamps": 1.5
+						},
+						"version": "9bb90d4c3f21a900d01a6729ac61d6e103d9f0abeb45668cf711a497729c68a8",
+						"exposure": 0
+					},
+					"duration": 5,
+					"transition": "to black 0.8"
+				}
+			]
+		},
+		{
+			"id": "notes",
+			"kind": "notes",
+			"clips": [
+				{
+					"at": 0,
+					"id": "n1",
+					"mood": "↓",
+					"camera": "slow push up the jam, eye at a driver's height, lens tightening 40° → 36°",
+					"emotion": "weariness",
+					"section": "THE OLD WAY",
+					"duration": 4,
+					"retention": "the traffic moves while the camera creeps: the jam is alive"
+				},
+				{
+					"at": 4,
+					"id": "n2",
+					"mood": "↓",
+					"camera": "high over the outbound lanes, drifting in toward the lorries hauling food into the city",
+					"emotion": "weight",
+					"section": "THE HAUL",
+					"duration": 3.5,
+					"retention": "a cut to height: the jam goes on as far as the eye can see"
+				},
+				{
+					"at": 7.5,
+					"id": "n3",
+					"mood": "↕",
+					"camera": "low over the median, creeping after the ambulance through the rescue lane, lens tightening",
+					"emotion": "tension",
+					"section": "THE RESCUE LANE",
+					"duration": 3.5,
+					"retention": "the one thing moving with urgency in a stuck world"
+				},
+				{
+					"at": 11,
+					"id": "n4",
+					"mood": "↓↓",
+					"camera": "wide and high over the towers, a slow descent toward the grid as the sun goes",
+					"emotion": "weariness",
+					"section": "THE CITY",
+					"duration": 5,
+					"retention": "the whole of it at once: this is the old way"
+				}
+			]
+		}
+	],
+	"duration": 16,
+	"links": {},
+	"linked_by": []
+}

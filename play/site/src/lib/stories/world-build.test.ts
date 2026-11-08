@@ -3,9 +3,9 @@
 // through the real engine in avenBOX.
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { serialize } from '../content/assets/box/serialize.js';
-import { buildWorld, engineOf, forgetBuilds, parseRef, type Progress, type WorkerLike } from './world-build';
+import { buildWorld, engineOf, parseRef, type Progress, type WorkerLike } from './world-build';
 
 const H = (c: string) => c.repeat(64);
 const [WORLD, CAR, HOUSE, ENGINE] = ['a', 'c', 'd', 'e'].map(H);
@@ -55,8 +55,6 @@ const world = (moves = false, guests: Record<string, (m: any) => Promise<any>> =
 const spec = { engine: { v: 5, hash: ENGINE }, recipe: WORLD, pieces: [], guests: { [CAR]: [], [HOUSE]: [] }, fps: 24, frames: 25 };
 const code = (h: string) => `/* ${h} */`;
 
-afterEach(() => forgetBuilds());
-
 describe('a world shot build: failing, it says why', () => {
 	it('failing: a ref without values is asked with no values (an engine refuses values for a recipe that takes none)', () => {
 		expect(parseRef(CAR)).toEqual({ hash: CAR, given: undefined });
@@ -88,7 +86,8 @@ describe('a world shot build: failing, it says why', () => {
 	it('failing: the runtime tells the player, and the player shows it', () => {
 		const runtime = readFileSync(new URL('./live-runtime.ts', import.meta.url), 'utf8');
 		expect(runtime).toMatch(/tell\(\{ op: 'failed', shot: id, error:/);
-		expect(runtime).toContain("made.catch(failed(id, 'a world shot'))");
+		expect(runtime).toContain('done.catch(failed(id, what));');
+		expect(runtime).toContain("draw, 'a world shot');");
 		const player = readFileSync(new URL('./StoryPlayer.svelte', import.meta.url), 'utf8');
 		expect(player).toMatch(/m\.op === 'failed'\)[^\n]*film = 'failed'/);
 		expect(player).toContain('The film could not be played: ${failure}');
@@ -122,7 +121,7 @@ describe('a world shot build: progress', () => {
 	});
 	it('progress: the runtime posts each step to the player, which shows it in its caption', () => {
 		const runtime = readFileSync(new URL('./live-runtime.ts', import.meta.url), 'utf8');
-		expect(runtime).toContain("progress: (p) => tell({ op: 'progress', shot: id, ...p })");
+		expect(runtime).toContain("progress: (p) => tell({ op: 'progress', shot: spec.shots[0]?.id, ...p })");
 		const player = readFileSync(new URL('./StoryPlayer.svelte', import.meta.url), 'utf8');
 		expect(player).toMatch(/m\.op === 'progress'\)/);
 		expect(player).toContain('{loadingText}');

@@ -26,7 +26,8 @@ const world: World = {
 const asset: WorldAsset = { asset: CITY, version: V8, recipe: RECIPE, pieces: [PIECE], engine: 5, guests: { [GUEST]: [GUEST_PIECE], [CAR]: [] } };
 const story = (w: unknown, fps = 30) => ({ schema: 'story/1', format: '16:9', fps, duration: 8, tracks: [{ id: 'shots', kind: 'shots', clips: [{ id: 'still', at: 0, duration: 2, frame: STILL2, transition: 'cut' }, { id: 'city', at: 2, duration: 6, frame: STILL, transition: 'cut', world: w }] }] }) as StoryBody;
 const out = compose(story(world), {}, {}, {}, { [V8]: asset });
-const spec = JSON.parse(out.match(/playLive\.world\(tl, "pl-s1", (\{.*\})\);/)?.[1] ?? 'null');
+const specOf = (o: string) => JSON.parse(o.match(/playLive\.world\(tl, (\{.*\})\);/)?.[1] ?? 'null');
+const spec = specOf(out);
 const engine = engineAt('box', 5) as { blake3: string };
 
 describe('a world shot: compose', () => {
@@ -42,14 +43,14 @@ describe('a world shot: compose', () => {
 	it('compose: the frozen engine, the world, its guests and every piece named by hash and laid in; its spec as given', () => {
 		expect(new Set(codeOf(out))).toEqual(new Set([engine.blake3, PIECE, RECIPE, GUEST_PIECE, GUEST, CAR]));
 		for (const h of codeOf(out)) expect(out).toContain(`<script type="text/x-play-code" data-play-code="${h}"></script>`);
-		expect(spec).toMatchObject({ engine: { v: 5, hash: engine.blake3 }, recipe: RECIPE, pieces: [PIECE], guests: { [GUEST]: [GUEST_PIECE], [CAR]: [] }, camera: world.camera, hour: world.hour, exposure: 0.5, lights: world.lights, fps: 30, frames: 181, size: [1920, 1080], at: 2, duration: 6 });
+		expect(spec).toEqual({ engine: { v: 5, hash: engine.blake3 }, recipe: RECIPE, pieces: [PIECE], guests: { [GUEST]: [GUEST_PIECE], [CAR]: [] }, fps: 30, frames: 181, size: [1920, 1080], at: 2, shots: [{ id: 'pl-s1', at: 2, duration: 6, camera: world.camera, hour: world.hour, exposure: 0.5, lights: world.lights }] });
 		expect(spec.asset).toBeUndefined();
 		// the runtime after GSAP and before the story's script, which hands the shot its spec
 		expect(out).toContain(`<script src="/api/files/${VENDOR.live.hash}" data-vendor="${VENDOR.live.name}"></script>`);
 		expect(out.indexOf(VENDOR.live.hash)).toBeGreaterThan(out.indexOf(VENDOR.gsap.hash));
 		expect(out.indexOf(VENDOR.live.hash)).toBeLessThan(out.indexOf('playLive.world('));
 		// its frames at the story's own rate
-		expect(JSON.parse(compose(story(world, 24), {}, {}, {}, { [V8]: asset }).match(/playLive\.world\(tl, "pl-s1", (\{.*\})\);/)?.[1] ?? 'null').frames).toBe(145);
+		expect(specOf(compose(story(world, 24), {}, {}, {}, { [V8]: asset })).frames).toBe(145);
 	});
 	it('compose: the same bytes every time, reading no clock or chance', () => {
 		const random = vi.spyOn(Math, 'random').mockImplementation(() => { throw new Error('read Math.random'); });

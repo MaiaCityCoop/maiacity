@@ -20,7 +20,7 @@ import { Stage } from '../content/assets/stage.js';
 import { createRenderer } from '../content/render/core.js';
 import { createSky } from '../content/worlds/sky.js';
 import { cameraAt, stepAt, worldAt, type CameraKey, type World } from './live';
-import { buildWorld, built, engineOf, type WorkerLike, type WorldBuildSpec } from './world-build';
+import { blobWorker, buildWorld, built, engineOf, type WorldBuildSpec } from './world-build';
 
 /** what compose.ts hands a live shot: its engine, recipe and pieces by hash, a build's values per step, its camera */
 type Spec = { engine: { v: number; hash: string }; recipe: string; pieces: string[]; builds: Record<string, string>[]; times: number[]; camera: CameraKey[]; size: [number, number]; at: number; duration: number };
@@ -34,14 +34,8 @@ const code = (hash: string): string => {
 	if (hashText(text) !== hash) throw new Error(`refused: live: file ${hash.slice(0, 12)}… does not hash to its name`);
 	return text;
 };
-
-/** the frozen engine `hash` as a worker of this frame (its policy lets workers come only from blob:) */
-const worker = (hash: string) => () => {
-	const url = URL.createObjectURL(new Blob([code(hash)], { type: 'text/javascript' }));
-	const w = new Worker(url);
-	URL.revokeObjectURL(url);
-	return w as unknown as WorkerLike;
-};
+/** the frozen engine `hash` as a worker of this frame (its policy lets workers come only from blob:), its URL kept */
+const worker = (hash: string) => blobWorker(hash, () => code(hash));
 
 /** a word to the player outside the frame (intent 90de96fb): how far a shot's build is, or why it failed */
 const tell = (m: Record<string, unknown>) => {
@@ -50,16 +44,31 @@ const tell = (m: Record<string, unknown>) => {
 /** a shot's build that failed: the player shows why, never waits on "Loading" for ever */
 const failed = (id: string, what: string) => (e: any) => (console.error(id, e), tell({ op: 'failed', shot: id, error: `${what} could not be built: ${e?.message ?? e}` }));
 
+/** a clip `id` drawn on its canvas once `made`: its poster (the shot's still) shown until then, HyperFrames' renderer
+ *  and player held for it, and a failure told to the player; t on the story's timeline from `at` for `duration`, a
+ *  setter a tween drives, so every seek (played, scrubbed or rendered) draws it */
+function clip(tl: any, id: string, at: number, duration: number, made: (canvas: HTMLCanvasElement) => Promise<unknown>, draw: (t: number) => void, what: string) {
+	const el = document.getElementById(id)!;
+	const canvas = el.querySelector('canvas') as HTMLCanvasElement, poster = el.querySelector('img');
+	let t = 0;
+	const done = made(canvas).then(() => {
+		draw(t);
+		canvas.style.visibility = 'visible';
+		if (poster) poster.style.visibility = 'hidden';
+	});
+	done.catch(failed(id, what));
+	((W.__hf ??= {}).buildReady ??= {})[id] = done;
+	const o = { set t(v: number) { draw((t = v)); }, get t() { return t; } };
+	tl.fromTo(o, { t: 0 }, { t: duration, duration, ease: 'none', immediateRender: false }, at);
+}
+
 /** one live shot on the story's timeline `tl`: its element `id` (a poster and a canvas in it) */
 function shot(tl: any, id: string, spec: Spec) {
-	const el = document.getElementById(id)!;
-	const canvas = el.querySelector('canvas') as HTMLCanvasElement;
-	const poster = el.querySelector('img');
 	const [w, h] = spec.size;
-	let shown: Shown[] | null = null, on = -1, t = 0, drawn = NaN;
+	let shown: Shown[] | null = null, on = -1, drawn = NaN;
 	let stage: Stage, camera: THREE.PerspectiveCamera;
 
-	const draw = () => {
+	const draw = (t: number) => {
 		// drawn once a moment: the timeline sets t again on every seek to it
 		if (!shown || t === drawn) return;
 		drawn = t;
@@ -87,7 +96,7 @@ function shot(tl: any, id: string, spec: Spec) {
 	};
 
 	// made once: every step's build, in order, before the composition is ready
-	const made = (async () => {
+	clip(tl, id, spec.at, spec.duration, async (canvas) => {
 		const recipe = { hash: spec.recipe, code: withPieces(code(spec.recipe), spec.pieces.map((hash) => ({ hash, code: code(hash) }))) };
 		const engine = engineOf(recipe, spec.engine.v, worker(spec.engine.hash));
 		try {
@@ -102,87 +111,73 @@ function shot(tl: any, id: string, spec: Spec) {
 			stage = new Stage(renderer, camera, { sky: true });
 			stage.resize(w, h);
 			shown = builds;
-			draw();
-			canvas.style.visibility = 'visible';
-			if (poster) poster.style.visibility = 'hidden';
 		} finally {
 			engine.end();
 		}
-	})();
-	made.catch(failed(id, 'a live shot'));
-	(W.__hf ??= {}).buildReady ??= {};
-	W.__hf.buildReady[id] = made;
-	// t on the story's timeline: a setter a tween drives, so every seek (played, scrubbed or rendered) draws it
-	const at = { set t(v: number) { t = v; draw(); }, get t() { return t; } };
-	tl.fromTo(at, { t: 0 }, { t: spec.duration, duration: spec.duration, ease: 'none', immediateRender: false }, spec.at);
+	}, draw, 'a live shot');
 }
 
-/** what compose.ts hands a world shot: its engine, the world's recipe and pieces, its guests' recipes and pieces by
- *  hash, its camera, hour, exposure and lights (./live.ts World), its frames at the story's fps */
-type WorldSpec = Pick<World, 'camera' | 'hour' | 'exposure' | 'lights'> & WorldBuildSpec & { size: [number, number]; at: number; duration: number };
+/** a world's shot: its element, its moment and length on the story, its camera, hour, exposure and lights */
+type WorldShot = Pick<World, 'camera' | 'hour' | 'exposure' | 'lights'> & { id: string; at: number; duration: number };
+/** what compose.ts hands a world (intent 4f7a2178): its engine, recipe, pieces and guests by hash, its frames at the
+ *  story's fps from `at`, over every one of its shots, and those shots */
+type WorldSpec = WorldBuildSpec & { size: [number, number]; at: number; shots: WorldShot[] };
 
-/** one world shot on the story's timeline `tl`: its element `id` (a poster and a canvas in it), built by ./world-build.ts */
-function world(tl: any, id: string, spec: WorldSpec) {
-	const el = document.getElementById(id)!;
-	const canvas = el.querySelector('canvas') as HTMLCanvasElement;
-	const poster = el.querySelector('img');
+/**
+ * A world on the story's timeline `tl`, played in every shot of it: built once (./world-build.ts), its guests placed
+ * once, one renderer, and its traffic on one clock, the story's, so its cars move on across every cut. Each shot is its
+ * own element (a poster and a canvas): at its own t it draws the world from its camera, at its hour, exposure and
+ * lights, and takes the picture onto its canvas, so two shots dissolving show both.
+ */
+function world(tl: any, spec: WorldSpec) {
 	const [w, h] = spec.size;
-	let ready = false, t = 0, drawn = NaN;
-	let renderer: any, scene: THREE.Scene, camera: THREE.PerspectiveCamera, sky: ReturnType<typeof createSky>;
-	let copies: THREE.Object3D[] = [];
-	let places: Float32Array[] = [];
-	let mood: any;
+	let renderer: any, scene: THREE.Scene, camera: THREE.PerspectiveCamera, sky: ReturnType<typeof createSky>, mood: any;
+	let copies: THREE.Object3D[] = [], places: Float32Array[] = [];
 	const lamps: { light: THREE.Light; k: number }[] = [];
-
-	const draw = () => {
-		if (!ready || t === drawn) return;
-		drawn = t;
-		const at = worldAt(spec, t, spec.fps, spec.frames);
-		const m = places[Math.min(at.frame, places.length - 1)];
-		copies.forEach((c, i) => c.matrix.fromArray(m, i * 16));
-		// the hour's sun over the world's mood, then each light scaled by the shot and the exposure in stops
-		sky.apply(at.sun ? { ...mood, sun: at.sun.sun, az: at.sun.az } : mood);
-		sky.sun.intensity *= at.lights.sun;
-		sky.hemi.intensity *= at.lights.sky;
-		for (const l of lamps) l.light.intensity = l.k * at.lights.lamps;
-		renderer.toneMappingExposure *= 2 ** at.exposure;
-		camera.position.set(...at.camera.eye);
-		camera.fov = at.camera.fov;
-		camera.updateProjectionMatrix();
-		camera.lookAt(...at.camera.target);
-		sky.place(camera, new THREE.Vector3(...at.camera.target));
-		renderer.render(scene, camera);
-	};
-
 	const made = (async () => {
-		const got = await buildWorld(spec, { code, worker: worker(spec.engine.hash), progress: (p) => tell({ op: 'progress', shot: id, ...p }) });
+		const got = await buildWorld(spec, { code, worker: worker(spec.engine.hash), progress: (p) => tell({ op: 'progress', shot: spec.shots[0]?.id, ...p }) });
 		mood = got.info.mood;
 		scene = new THREE.Scene();
 		got.obj.traverse((x: any) => {
 			if (x.isMesh) x.receiveShadow = x.castShadow = true;
 		});
-		scene.add(got.obj);
-		for (const c of got.copies) scene.add(c);
+		scene.add(got.obj, ...got.copies);
 		copies = got.copies;
 		places = got.places;
 		scene.traverse((x: any) => {
 			if (x.isLight && !x.isDirectionalLight && !x.isHemisphereLight) lamps.push({ light: x, k: x.intensity });
 		});
-		renderer = createRenderer({ canvas, pixelRatio: 1, shadows: 'pcf', preserve: true });
+		const gl = document.createElement('canvas');
+		renderer = createRenderer({ canvas: gl, pixelRatio: 1, shadows: 'pcf', preserve: true });
 		renderer.setSize(w, h, false);
 		camera = new THREE.PerspectiveCamera(40, w / h, 0.1, 20000);
 		sky = createSky(scene, renderer);
-		ready = true;
-		draw();
-		canvas.style.visibility = 'visible';
-		if (poster) poster.style.visibility = 'hidden';
 	})();
-	made.catch(failed(id, 'a world shot'));
-	(W.__hf ??= {}).buildReady ??= {};
-	W.__hf.buildReady[id] = made;
-	const at = { set t(v: number) { t = v; draw(); }, get t() { return t; } };
-	tl.fromTo(at, { t: 0 }, { t: spec.duration, duration: spec.duration, ease: 'none', immediateRender: false }, spec.at);
+	for (const s of spec.shots) {
+		let pen: CanvasRenderingContext2D | null = null, drawn = NaN;
+		const draw = (t: number) => {
+			if (!pen || t === drawn) return;
+			drawn = t;
+			const at = worldAt(s, t, spec.fps, spec.frames, s.at - spec.at);
+			const m = places[Math.min(at.frame, places.length - 1)];
+			copies.forEach((c, i) => c.matrix.fromArray(m, i * 16));
+			// the hour's sun over the world's mood, then each light scaled by the shot and the exposure in stops
+			sky.apply(at.sun ? { ...mood, sun: at.sun.sun, az: at.sun.az } : mood);
+			sky.sun.intensity *= at.lights.sun;
+			sky.hemi.intensity *= at.lights.sky;
+			for (const l of lamps) l.light.intensity = l.k * at.lights.lamps;
+			renderer.toneMappingExposure *= 2 ** at.exposure;
+			camera.position.set(...at.camera.eye);
+			camera.fov = at.camera.fov;
+			camera.updateProjectionMatrix();
+			camera.lookAt(...at.camera.target);
+			sky.place(camera, new THREE.Vector3(...at.camera.target));
+			renderer.render(scene, camera);
+			pen.clearRect(0, 0, w, h);
+			pen.drawImage(renderer.domElement, 0, 0, w, h);
+		};
+		clip(tl, s.id, s.at, s.duration, (canvas) => made.then(() => void (pen = canvas.getContext('2d'))), draw, 'a world shot');
+	}
 }
-
 
 W.playLive = { shot, world };
