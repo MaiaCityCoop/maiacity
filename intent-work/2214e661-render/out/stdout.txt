@@ -1,43 +1,43 @@
 GPU: ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)
-base sandbox-1 noon near: frame 26.10 (p95 33.40) · cpu 13.40 · gpu 18.80 · 1785 calls · 3,271,783 tris · bound gpu
-    split: shadow 0/0 · blend 209/62,382 · offscreen 0/0 · screen 1576/3,209,401
-base sandbox-1 noon mid: frame 35.70 (p95 50.00) · cpu 17.00 · gpu 26.40 · 1755 calls · 5,170,560 tris · bound gpu
-    split: shadow 0/0 · blend 220/71,695 · offscreen 0/0 · screen 1535/5,098,865
-base sandbox-1 noon far: frame 16.80 (p95 16.70) · cpu 9.40 · gpu 8.80 · 851 calls · 1,394,557 tris · bound vsync
-    split: shadow 0/0 · blend 110/64,936 · offscreen 0/0 · screen 741/1,329,621
-base sandbox-1 sun8 near: frame 24.90 (p95 33.40) · cpu 12.50 · gpu 18.20 · 1785 calls · 3,276,879 tris · bound gpu
-    split: shadow 0/0 · blend 209/62,382 · offscreen 0/0 · screen 1576/3,214,497
-base sandbox-1 sun8 mid: frame 32.60 (p95 50.00) · cpu 14.90 · gpu 24.80 · 1753 calls · 4,835,880 tris · bound gpu
-    split: shadow 0/0 · blend 220/71,695 · offscreen 0/0 · screen 1533/4,764,185
-base sandbox-1 sun8 far: frame 16.70 (p95 16.70) · cpu 7.40 · gpu 8.70 · 851 calls · 1,394,557 tris · bound vsync
-    split: shadow 0/0 · blend 110/64,936 · offscreen 0/0 · screen 741/1,329,621
-base sandbox-3 own open: frame 16.70 (p95 16.80) · cpu 5.20 · gpu 6.40 · 1109 calls · 690,652 tris · bound vsync
+base sandbox-1 noon near: frame 16.70 (p95 16.80) · cpu 9.40 · gpu 0.20 · 1785 calls · 3,271,783 tris · bound vsync
+    split: shadow 0/0 · blend 209/62,382 · offscreen 1576/3,209,401 · screen 0/0
+base sandbox-1 noon mid: frame 16.70 (p95 16.70) · cpu 11.00 · gpu 0.20 · 1761 calls · 5,174,271 tris · bound vsync
+    split: shadow 0/0 · blend 220/71,695 · offscreen 1541/5,102,437 · screen 0/0
+base sandbox-1 noon far: frame 16.70 (p95 16.70) · cpu 4.90 · gpu 0.20 · 851 calls · 1,394,557 tris · bound vsync
+    split: shadow 0/0 · blend 110/64,936 · offscreen 741/1,329,621 · screen 0/0
+base sandbox-1 sun8 near: frame 16.70 (p95 16.70) · cpu 9.00 · gpu 0.20 · 1785 calls · 3,276,879 tris · bound vsync
+    split: shadow 0/0 · blend 209/62,382 · offscreen 1576/3,214,497 · screen 0/0
+base sandbox-1 sun8 mid: frame 16.70 (p95 16.80) · cpu 9.50 · gpu 0.20 · 1753 calls · 4,835,844 tris · bound vsync
+    split: shadow 0/0 · blend 220/71,695 · offscreen 1533/4,764,149 · screen 0/0
+base sandbox-1 sun8 far: frame 16.70 (p95 16.70) · cpu 5.00 · gpu 0.20 · 851 calls · 1,394,557 tris · bound vsync
+    split: shadow 0/0 · blend 110/64,936 · offscreen 741/1,329,621 · screen 0/0
+base sandbox-3 own open: frame 16.70 (p95 16.80) · cpu 3.60 · gpu 7.10 · 1109 calls · 690,652 tris · bound vsync
     split: shadow 815/244,725 · blend 8/60 · offscreen 0/0 · screen 286/445,867
 base: 2 errors
     console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
     console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-head sandbox-1 noon near: frame 25.00 (p95 33.40) · cpu 12.90 · gpu 18.40 · 1785 calls · 3,283,783 tris · bound gpu
+head sandbox-1 noon near: frame 23.10 (p95 33.40) · cpu 12.30 · gpu 16.50 · 1785 calls · 3,283,783 tris · bound gpu
     split: shadow 0/0 · blend 209/74,382 · offscreen 0/0 · screen 1576/3,209,401
-head sandbox-1 noon mid: frame 32.30 (p95 33.40) · cpu 13.30 · gpu 25.60 · 1755 calls · 5,182,594 tris · bound gpu
-    split: shadow 0/0 · blend 220/83,695 · offscreen 0/0 · screen 1535/5,098,899
-head sandbox-1 noon far: frame 16.70 (p95 16.80) · cpu 7.50 · gpu 9.10 · 851 calls · 1,406,557 tris · bound vsync
+head sandbox-1 noon mid: frame 30.20 (p95 33.40) · cpu 13.20 · gpu 23.00 · 1755 calls · 5,182,692 tris · bound gpu
+    split: shadow 0/0 · blend 220/83,695 · offscreen 0/0 · screen 1535/5,098,997
+head sandbox-1 noon far: frame 16.70 (p95 16.70) · cpu 5.90 · gpu 8.80 · 851 calls · 1,406,557 tris · bound vsync
     split: shadow 0/0 · blend 110/76,936 · offscreen 0/0 · screen 741/1,329,621
-head sandbox-1 sun8 near: frame 25.60 (p95 33.40) · cpu 14.00 · gpu 18.70 · 1785 calls · 3,288,879 tris · bound gpu
+head sandbox-1 sun8 near: frame 25.80 (p95 33.40) · cpu 16.10 · gpu 17.60 · 1785 calls · 3,288,879 tris · bound gpu
     split: shadow 0/0 · blend 209/74,382 · offscreen 0/0 · screen 1576/3,214,497
-head sandbox-1 sun8 mid: frame 31.40 (p95 33.50) · cpu 13.80 · gpu 24.70 · 1753 calls · 4,847,914 tris · bound gpu
-    split: shadow 0/0 · blend 220/83,695 · offscreen 0/0 · screen 1533/4,764,219
-head sandbox-1 sun8 far: frame 16.70 (p95 16.70) · cpu 9.70 · gpu 9.00 · 851 calls · 1,406,557 tris · bound vsync
+head sandbox-1 sun8 mid: frame 30.10 (p95 33.40) · cpu 14.60 · gpu 22.60 · 1753 calls · 4,848,012 tris · bound gpu
+    split: shadow 0/0 · blend 220/83,695 · offscreen 0/0 · screen 1533/4,764,317
+head sandbox-1 sun8 far: frame 16.70 (p95 16.70) · cpu 6.10 · gpu 8.40 · 851 calls · 1,406,557 tris · bound vsync
     split: shadow 0/0 · blend 110/76,936 · offscreen 0/0 · screen 741/1,329,621
-head sandbox-3 own open: frame 16.70 (p95 16.70) · cpu 4.00 · gpu 7.10 · 303 calls · 458,115 tris · bound vsync
-    split: shadow 0/0 · blend 9/12,060 · offscreen 0/0 · screen 294/446,055
+head sandbox-3 own open: frame 16.70 (p95 16.70) · cpu 3.40 · gpu 6.80 · 296 calls · 457,939 tris · bound vsync
+    split: shadow 0/0 · blend 9/12,060 · offscreen 0/0 · screen 287/445,879
 head: 2 errors
     console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
     console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-sandbox-1 noon near: base 26.10 (gpu) → head 25.00 (gpu) · Δ -1.10 ms within +1.0
-sandbox-1 noon mid: base 35.70 (gpu) → head 32.30 (gpu) · Δ -3.40 ms within +1.0
-sandbox-1 noon far: base 16.80 (vsync) → head 16.70 (vsync) · Δ -0.10 ms within +1.0
-sandbox-1 sun8 near: base 24.90 (gpu) → head 25.60 (gpu) · Δ 0.70 ms within +1.0
-sandbox-1 sun8 mid: base 32.60 (gpu) → head 31.40 (gpu) · Δ -1.20 ms within +1.0
+sandbox-1 noon near: base 16.70 (vsync) → head 23.10 (gpu) · Δ 6.40 ms OVER +1.0
+sandbox-1 noon mid: base 16.70 (vsync) → head 30.20 (gpu) · Δ 13.50 ms OVER +1.0
+sandbox-1 noon far: base 16.70 (vsync) → head 16.70 (vsync) · Δ 0.00 ms within +1.0
+sandbox-1 sun8 near: base 16.70 (vsync) → head 25.80 (gpu) · Δ 9.10 ms OVER +1.0
+sandbox-1 sun8 mid: base 16.70 (vsync) → head 30.10 (gpu) · Δ 13.40 ms OVER +1.0
 sandbox-1 sun8 far: base 16.70 (vsync) → head 16.70 (vsync) · Δ 0.00 ms within +1.0
 sandbox-3 own open: base 16.70 (vsync) → head 16.70 (vsync) · Δ 0.00 ms within +1.0
-done in 400 s: /Users/samuelandert/Documents/Development/s2214e661-render/intent-work/2214e661-render/out/results.json
+done in 371 s: /Users/samuelandert/Documents/Development/s2214e661-render/intent-work/2214e661-render/out/results.json
