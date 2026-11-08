@@ -2,8 +2,8 @@
  * THE WORLD RENDERER — the canvas, the scene and the camera every world is drawn with (the sandboxes, Sandbox 1 and 2's
  * islands, MaiaCity V1, the Factories, the tired land): the purpose renderer for worlds on the core (./core.js).
  *
- * Taken out of Sandbox 4 as the sandbox kit's stage: a renderer set up for the sky ($content/sandbox-kit/sky.js) — ACES
- * tone mapping and soft shadows — a perspective camera at a walker's field of view, both kept to the size of their
+ * Taken out of Sandbox 4 as the sandbox kit's stage: a renderer set up for the sky ($content/sandbox-kit/sky.js) — AgX
+ * tone mapping (its lens set by the sky) and shadows — a perspective camera at a walker's field of view, both kept to the size of their
  * container, and a resolution that eases down a little when frames get slow and back up when there is room, so a
  * world stays smooth on a slow phone. A world that sizes its own canvas (an island's) takes only the renderer
  * (`createWorldRenderer`'s `renderer` alone, ./core.js `createRenderer` with the world's settings).
@@ -22,12 +22,12 @@ import { createRenderer, disposeObject, disposeRenderer, fitTo, placeSeenOnly } 
  */
 
 /**
- * A world's renderer alone, on its own canvas, with the world's settings unless told otherwise: antialiased, ACES,
+ * A world's renderer alone, on its own canvas, with the world's settings unless told otherwise: antialiased, AgX,
  * shadows, at most 1.25 pixels per CSS pixel. For a world that sizes and draws its canvas itself.
  * @param {import('./core.js').RendererOptions} [o]
  */
 export function worldRenderer(o = {}) {
-	return createRenderer({ maxPixelRatio: 1.25, toneMapping: 'aces', shadows: 'pcf', ...o });
+	return createRenderer({ maxPixelRatio: 1.25, toneMapping: 'agx', shadows: 'pcf', ...o });
 }
 
 /**
@@ -40,7 +40,7 @@ export function worldRenderer(o = {}) {
 export function createWorldRenderer(container, options = {}) {
 	const { fov = 68, near = 0.1, far = 2400, maxPixelRatio = 1.25 } = options;
 	const top = () => Math.min(maxPixelRatio, window.devicePixelRatio);
-	const renderer = createRenderer({ pixelRatio: top(), toneMapping: 'aces', exposure: 0.42, shadows: 'pcf' });
+	const renderer = createRenderer({ pixelRatio: top(), toneMapping: 'agx', shadows: 'pcf' });
 	renderer.setSize(container.clientWidth, container.clientHeight);
 	container.appendChild(renderer.domElement);
 	const scene = new THREE.Scene();

@@ -82,8 +82,9 @@ import { budget } from '../render/budget.js'
       this.opts = opts
       const r = (this.renderer = new T.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: !!opts.preserve }))
       r.outputColorSpace = T.SRGBColorSpace
-      r.toneMapping = T.ACESFilmicToneMapping
-      r.toneMappingExposure = opts.exposure || 0.98
+      // AgX, as every page (render/core.js); ACES's own lift of 1/0.6 is in the exposure now
+      r.toneMapping = T.AgXToneMapping
+      r.toneMappingExposure = (opts.exposure || 0.98) / 0.6
       r.shadowMap.enabled = true
       r.shadowMap.type = T.PCFShadowMap
       this.pixelRatio = Math.min(opts.pixelRatio || globalThis.devicePixelRatio || 1, opts.maxPixelRatio || 2)

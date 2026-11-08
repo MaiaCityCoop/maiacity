@@ -250,7 +250,7 @@ export function createSky(renderer, scene, options = {}) {
 
 	/* the shadows are drawn again only when the eye has moved or turned enough, or the sun has moved (on film: every
 	   frame); the haze takes the colour of the horizon the eye looks at */
-	renderer.shadowMap.autoUpdate = false;
+	if (keyed) renderer.shadowMap.autoUpdate = false;
 	const eye = new THREE.Vector3(Infinity, 0, 0), look = new THREE.Vector3(), ahead = new THREE.Vector3(), at = new THREE.Vector3();
 	/** @type {number[][]} the horizon all round as the lens shows it, encoded as three lays fog on (after the lens) */
 	let ring = [];
@@ -262,7 +262,7 @@ export function createSky(renderer, scene, options = {}) {
 		if (target || !cam) return;
 		cam.getWorldPosition(at);
 		cam.getWorldDirection(ahead);
-		if (film() || at.distanceTo(eye) > shadowStep || ahead.angleTo(look) > 0.035) {
+		if (keyed && (film() || at.distanceTo(eye) > shadowStep || ahead.angleTo(look) > 0.035)) {
 			r.shadowMap.needsUpdate = true;
 			eye.copy(at);
 			look.copy(ahead);
@@ -346,7 +346,7 @@ vec3 skyHorizon(vec3 dir) {
 			envAt = l.dir.clone();
 			baked = mood;
 			bake(l.gain);
-			renderer.shadowMap.needsUpdate = true;
+			if (keyed) renderer.shadowMap.needsUpdate = true;
 		}
 		onHour?.(light, { sun, renderer, scene });
 	};

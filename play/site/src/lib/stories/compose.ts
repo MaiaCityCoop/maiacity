@@ -22,7 +22,7 @@ import { buildsOf, framesOf, stepTimes, type Live, type LiveAsset, type World, t
 import { clipsOf, cuesOf, linkedOf, setCuesOf, LINK, MOST_LINK_DEPTH, type Clip, type Links, type Shot, type StoryBody, type Voice } from './timeline';
 
 /** the live runtime's hash: what scripts/live-runtime.ts builds, held to it (`bun scripts/live-runtime.ts --check`) */
-const LIVE_HASH = '43ea5015d4b36408d66e996dcda43b352ce0c3afa055ec8a7f1843fdb36fe764';
+const LIVE_HASH = '132ab19ca5d5850761b46f1ee309bd0622fd795027433d7e0d2b78718eda4f24';
 /** HyperFrames' runtime, GSAP and the one font (Inter, where a composition names only a generic family, as HyperFrames'
  *  renderer puts it first), pinned by their BLAKE3 hash: among play's files, never from a CDN */
 export const VENDOR = {

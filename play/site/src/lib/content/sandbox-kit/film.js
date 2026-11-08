@@ -187,7 +187,7 @@ export function connectFilm(o) {
 			 * @param {number} t @param {FilmLight[]} [lights] @param {Record<string, Record<string, number>>} [parts] @param {boolean} [live]
 			 */
 			advance(t, lights = [], parts = {}, live = false) {
-				if (hold.apply()) sky?.follow(camera.position.x, camera.position.z);
+				hold.apply();
 				camera.updateMatrixWorld();
 				o.animate?.(t);
 				o.parts?.(parts);
@@ -195,7 +195,7 @@ export function connectFilm(o) {
 				// world's own moves did to the camera as it came to t
 				const fr = framed, f = fr && o.frames?.[fr.frame]?.();
 				if (fr && f) hold.fly(...poseIn(f, fr.pose));
-				if (hold.apply()) sky?.follow(camera.position.x, camera.position.z);
+				hold.apply();
 				camera.updateMatrixWorld();
 				sky?.set();
 				o.advance?.(t);
@@ -204,10 +204,7 @@ export function connectFilm(o) {
 					if (l.id === 'sun' && sky) {
 						sky.sun.intensity *= k;
 						if (l.color) sky.sun.color.set(l.color);
-					} else if (l.id === 'fill' && sky) {
-						sky.fill.intensity *= k;
-						if (l.color) sky.fill.color.set(l.color);
-					} else if (l.id === 'sky') scene.environmentIntensity *= k;
+					} else if (l.id === 'fill' || l.id === 'sky') scene.environmentIntensity *= k; // the sky is the fill
 					else o.lights?.[l.id]?.(k, l.color);
 				}
 				if (!live) renderer.shadowMap.needsUpdate = true;

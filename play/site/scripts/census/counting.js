@@ -75,6 +75,8 @@ function trianglesOf(object) {
 export class CountingRenderer {
 	constructor(parameters = {}) {
 		this.isWebGLRenderer = true;
+		// as three's: a CubeCamera (the sky's light, baked into a cube) reads it
+		this.coordinateSystem = THREE.WebGLCoordinateSystem;
 		this.parameters = parameters;
 		this.domElement = parameters.canvas ?? globalThis.document.createElement('canvas');
 		this.debug = { checkShaderErrors: false, onShaderError: null };
