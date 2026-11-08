@@ -24,7 +24,7 @@
  */
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { flagstone, grass, groundCover, leaves, limestone, oak, soil, water } from './textures'
+import { flagstone, groundCover, leaves, limestone, oak, soil, water } from './textures'
 import { cafes, coops, coopsAround, henPatches, rabbitPatches, squaresAround, type Kit } from './spaces'
 import { antHills, apiary, fishes, herd, TANK_FISH } from './animals'
 import { settled as actorsSettled, wantNear as actorsNear } from '$lib/content/assets/render/crowd.js'
@@ -164,27 +164,11 @@ function surface<T extends THREE.Material>(key: string, make: () => T): T {
 const k2 = (v: number) => Math.round(v * 20) / 20
 
 /**
- * The lawn: the grass texture laid down in world space, about three metres to a
- * tile, so it never stretches whatever shape the ground is; and a slow drift
- * of lighter and darker patches over tens of metres, so no two stretches of
- * meadow look the same.
+ * The lawn: the biomes' ground (its scanned living mat, a little bare soil), laid in world metres as every floor is
+ * ($content/biomes `groundMaterial`), so the meadow beyond the cell is the same ground as the cell's.
  */
-let meadowCache: THREE.MeshStandardMaterial | null = null
-function meadow(): THREE.MeshStandardMaterial {
-	if (meadowCache) return meadowCache
-	const mat = new THREE.MeshStandardMaterial({ map: grass(), roughness: 1 })
-	mat.onBeforeCompile = (sh) => {
-		sh.vertexShader = sh.vertexShader
-			.replace('#include <common>', '#include <common>\nvarying vec2 vGround;')
-			.replace('#include <uv_vertex>', '#include <uv_vertex>\nvec4 gp = modelMatrix * vec4(position, 1.0);\nvGround = gp.xz;\nvMapUv = gp.xz / 3.2;')
-		sh.fragmentShader = sh.fragmentShader
-			.replace('#include <common>', '#include <common>\nvarying vec2 vGround;')
-			.replace('#include <map_fragment>', '#include <map_fragment>\nfloat drift = texture2D(map, vGround / 61.0).g * 0.6 + texture2D(map, vGround / 23.0 + 0.3).r * 0.4;\ndiffuseColor.rgb *= mix(0.78, 1.18, drift);')
-	}
-	mat.customProgramCacheKey = () => 'meadow'
-	return (meadowCache = mat)
-}
-
+let lawnCache: ReturnType<typeof groundMaterial> | null = null
+const lawn = () => (lawnCache ??= groundMaterial({ green: 10, soil: 0.5, moss: 0.6 }))
 /**
  * The surfaces a dome is made of. The painted ones are painted when first asked for (the flagstone, the solar glass,
  * the meadow): a sofa or a lantern on its own then paints only what it is made of, not the whole dome's, which made
@@ -214,7 +198,7 @@ export const mats = () => {
 		pebble: new THREE.MeshStandardMaterial({ color: '#8d8a83', roughness: 0.9 }),
 		tank: new THREE.MeshStandardMaterial({ color: '#56666b', roughness: 0.5, metalness: 0.3 }),
 		get grass() {
-			return meadow()
+			return lawn()
 		}
 	}
 }

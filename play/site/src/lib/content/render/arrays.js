@@ -18,7 +18,12 @@ const files = new Map();
 /** the renderer the files are transcoded for (the first one made on the page) @param {THREE.WebGLRenderer} renderer */
 export function useRenderer(renderer) {
 	if (loader || typeof window === 'undefined') return;
-	loader = new KTX2Loader().setTranscoderPath('/basis/').setWorkerLimit(2).detectSupport(renderer);
+	try {
+		loader = new KTX2Loader().setTranscoderPath('/basis/').setWorkerLimit(2).detectSupport(renderer);
+	} catch {
+		// (the census's counting renderer has no graphics card to transcode for)
+		loader = null;
+	}
 }
 
 /** @param {string} file `<hash>.ktx2` */

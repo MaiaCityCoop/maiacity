@@ -54,7 +54,7 @@ export const SHADOWS = /** @type {const} */ ({ pcf: THREE.PCFShadowMap, basic: T
 export function createRenderer(o = {}) {
 	const renderer = new THREE.WebGLRenderer({ canvas: o.canvas, antialias: o.antialias ?? true, alpha: o.alpha, powerPreference: o.power, preserveDrawingBuffer: o.preserve });
 	// TSL node materials (the ground's) drawn by WebGLRenderer, until intent b03f9fb4's one renderer: drop it then
-	renderer.setNodesHandler(new WebGLNodesHandler());
+	renderer.setNodesHandler?.(new WebGLNodesHandler());
 	useRenderer(renderer);
 	renderer.setPixelRatio(o.pixelRatio ?? Math.min(o.maxPixelRatio ?? 2, window.devicePixelRatio || 1));
 	if (o.colorSpace) renderer.outputColorSpace = o.colorSpace;

@@ -76,7 +76,7 @@ export function createWorldView(el, o) {
 	// (as ../render/core.js createRenderer: a phone that let go of what it drew is opened anew when its context returns)
 	reopenOnRestore(renderer.domElement);
 	// the ground's TSL (../render/nodes/ground.js) on WebGLRenderer, until intent b03f9fb4's one renderer: drop it then
-	renderer.setNodesHandler(new WebGLNodesHandler());
+	renderer.setNodesHandler?.(new WebGLNodesHandler());
 	useRenderer(renderer);
 	// a phone or a tablet draws at fewer pixels: a world fills the graphics memory such a device has as it is
 	const small = handheld();

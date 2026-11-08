@@ -1,21 +1,9 @@
 /*
- * THE SURFACES — what the ground itself is, seen from standing height and further: a biome's floor is a few of these
- * run into each other in patches, each at its own size (`patch`, m), as a real floor is (./index.js):
- *
- *   litter   fallen leaves, the L horizon: whole leaves of beech, oak and hazel, curled, in warm browns
- *   humus    the H horizon showing through where the litter is thin: dark, crumbly, near black, a few fragments
- *   needles  a conifer's floor: short needles in rust and grey-brown, the odd twig
- *   moss     a moss carpet: deep and bright greens, close-packed cushions
- *   green    the living mat of the light: clover in threes, grass blades, small round leaves, shade between
- *   soil     bare mineral earth: brown, a little gravel
- *   tilled   farmland ploughed and harrowed: grey-brown furrows in rows 0.36 m apart, clods, dust (the tired land)
- *   stubble  a cereal field after harvest: cut stalks in drill rows 12.5 cm apart, chopped straw over pale soil
- *   dust     a verge's dust and road gravel: pale, grey-brown, stones thrown off the road
- *
- * The first six lie every way. `tilled` and `stubble` lie in rows (`rows`, their spacing in m): their texture's rows
- * run along the direction a material is given (`groundMaterial(weights, { rows })`, from the floor's mesh, `rowsOf`),
- * and a field's tramlines (`tramlines`: a pair of wheel tracks every so many metres) are painted across them, so the
- * rows run straight to the horizon and every 24 m two bare tracks run with them, as a sprayed field's do.
+ * THE SURFACES — what the ground itself is: a biome's floor is a few of these run into each other in patches, each at
+ * its own size (`patch`, m), as a real floor is (./index.js): litter (fallen leaves), humus, needles, moss, green (the
+ * living mat: clover, grass, small leaves), soil, tilled (ploughed, rows 0.36 m apart), stubble (drill rows 12.5 cm
+ * apart) and dust (a verge's dust and gravel). `tilled` and `stubble` lie in rows (`rows`, m) along the direction a
+ * material is given (`rowsOf`), a field's tramlines (`tramlines`) pressed across them.
  *
  * Each is a scanned real surface (./sets.js: CC0, its colour and height, normal, AO and roughness, by their hashes).
  * `groundMaterial(weights)` draws them blended (../render/nodes/ground.js): each surface's patches from the shared noise
@@ -34,15 +22,15 @@ export const SURFACES = ['litter', 'humus', 'needles', 'moss', 'green', 'soil', 
  * apart they are (m, a whole number of them to a tile) and the colour of a wheel track pressed into it (sRGB)
  */
 export const SURFACE = {
-	litter: { label: 'Leaf litter', patch: 6, tile: 2.2 },
-	humus: { label: 'Humus', patch: 3, tile: 2.4 },
-	needles: { label: 'Needles', patch: 7, tile: 1.6 },
+	litter: { label: 'Leaf litter', patch: 6, tile: 3 },
+	humus: { label: 'Humus', patch: 3, tile: 1.3 },
+	needles: { label: 'Needles', patch: 7, tile: 2 },
 	moss: { label: 'Moss carpet', patch: 4, tile: 2 },
-	green: { label: 'Living mat', patch: 9, tile: 1.7 },
-	soil: { label: 'Bare soil', patch: 5, tile: 2.6 },
+	green: { label: 'Living mat', patch: 9, tile: 2 },
+	soil: { label: 'Bare soil', patch: 5, tile: 1.3 },
 	tilled: { label: 'Tilled soil', patch: 9, tile: 2.88, rows: 0.36, track: '#9a8c7a' },
 	stubble: { label: 'Stubble', patch: 11, tile: 2.5, rows: 0.125, track: '#a39581' },
-	dust: { label: 'Dust and gravel', patch: 5, tile: 2.2 }
+	dust: { label: 'Dust and gravel', patch: 5, tile: 2.48 }
 };
 
 /**

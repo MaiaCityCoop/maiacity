@@ -1,19 +1,10 @@
+// @ts-nocheck — TSL: three's typings don't follow its nodes
 /*
- * THE GROUND, IN TSL — every biome's floor drawn from scanned real surfaces (../../biomes/sets.js: CC0 scans, their
- * colour with its height, their normal, their AO and roughness, each map one array texture of a layer a surface:
- * ../arrays.js). Per pixel:
- *
- *   which    each surface's patches from the shared noise (../../biomes/noise.js, the same sums as `surfacesAt`), the
- *            top three kept
- *   tiling   near (40 m) variance-preserving hex tiling (Heitz–Neyret, Mikkelsen: three reads, turned and shifted, run
- *            together by their heights), in the middle IQ's two reads, far the scan's mean colour: nothing repeats
- *   blend    the three by height (Mishkinis): leaves and pebbles lie over the soil rather than fading through it
- *   macro    brighter and darker at about 5, 20 and 80 m (±13 %)
- *   detail   its normal fading out by 35 m, its roughness and AO its own
- *   map      a world's ground map (R: shade under the real crowns, G: wet, along paths and in hollows): darker,
- *            smoother where wet, settling first in the low places of the scan
- *
- * `groundNodes(weights, o)` → a MeshStandardNodeMaterial; `../../biomes/surfaces.js` `groundMaterial` is it.
+ * THE GROUND, IN TSL — every biome's floor from scanned real surfaces (../../biomes/sets.js), each map one array texture
+ * of a layer a surface (../arrays.js). Per pixel: the top three surfaces by their patches (the shared noise, as
+ * `surfacesAt`); near (40 m) hex tiling (Heitz–Neyret, Mikkelsen), in the middle IQ's two reads, far the scan's mean;
+ * the three blended by height (Mishkinis); macro variation at 5, 20 and 80 m (±13 %); a detail normal fading by 35 m;
+ * a world's ground map (R shade under its crowns, G wet: darker, smoother, the scan's low places first).
  */
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
@@ -58,6 +49,12 @@ function need(/** @type {number[]} */ list) {
 		});
 }
 
+/** surface s's colour at st (its tiles), one plain read @param {number} s @param {any} st */
+export function surfaceRead(s, st) {
+	need([s]);
+	return tex.albedo.sample(st).depth(int(layer.element(s))).xyz;
+}
+
 /* the biomes' value noise, as ../../biomes/noise.js has it */
 const h21 = Fn(([p]) => {
 	const q = fract(p.mul(vec2(123.34, 456.21))).toVar();
@@ -70,19 +67,19 @@ export const vn = Fn(([p]) => {
 });
 export const fbm = Fn(([p]) => vn(p).mul(0.55).add(vn(p.mul(2.03).add(7.1)).mul(0.3)).add(vn(p.mul(4.1).add(3.3)).mul(0.15)));
 const Out = struct({ col: 'vec3', ar: 'vec2' });
-const hash2 = (/** @type {any} */ v) => fract(sin(vec2(dot(v, vec2(127.1, 311.7)), dot(v, vec2(269.5, 183.3)))).mul(43758.5453));
+const hash2 = (v) => fract(sin(vec2(dot(v, vec2(127.1, 311.7)), dot(v, vec2(269.5, 183.3)))).mul(43758.5453));
 /** turned by c, s (row vector times [[c, −s], [s, c]], as Mikkelsen's) */
-const turn = (/** @type {any} */ v, /** @type {any} */ c, /** @type {any} */ s) => vec2(v.x.mul(c).add(v.y.mul(s)), v.y.mul(c).sub(v.x.mul(s)));
+const turn = (v, c, s) => vec2(v.x.mul(c).add(v.y.mul(s)), v.y.mul(c).sub(v.x.mul(s)));
 
 /**
  * One surface's three maps at st (its own tiles), hex-tiled near, two reads in the middle, its mean far.
  * @returns {{ alb: any, nrm: any, ar: any }} colour and height, the normal (tangent space), AO and roughness
  */
-function surfaceAt(/** @type {any} */ s, /** @type {any} */ st, /** @type {any} */ spin, /** @type {any} */ d) {
+function surfaceAt(s, st, spin, d) {
 	const l = int(layer.element(s));
 	const alb = vec4(mean.element(s), 0.5).toVar(), nrm = vec3(0, 0, 1).toVar(), ar = vec2(1, 0.95).toVar();
 	const gx = dFdx(st), gy = dFdy(st);
-	const read = (/** @type {string} */ k, /** @type {any} */ uv, /** @type {any} */ dx, /** @type {any} */ dy) => tex[k].sample(uv).grad(dx, dy).depth(l);
+	const read = (k, uv, dx, dy) => tex[k].sample(uv).grad(dx, dy).depth(l);
 	If(d.lessThan(40), () => {
 		// the triangle of hexagon centres st lies in, each a read turned and shifted its own way
 		const q = st.mul(2 * Math.sqrt(3)), sk = vec2(q.x.sub(q.y.mul(0.57735027)), q.y.mul(1.15470054));
@@ -100,7 +97,7 @@ function surfaceAt(/** @type {any} */ s, /** @type {any} */ st, /** @type {any} 
 			return { a: read('albedo', uv, dx, dy), n: vec3(n.x.mul(c).sub(n.y.mul(sn)), n.x.mul(sn).add(n.y.mul(c)), n.z), r: read('ar', uv, dx, dy).xy };
 		});
 		// run together by their heights: the higher of them shows
-		const W = taps.map((tp, i) => mix(1, tp.a.w, 0.6).mul(pow(/** @type {any} */ (w[i]), 7)));
+		const W = taps.map((tp, i) => mix(1, tp.a.w, 0.6).mul(pow((w[i]), 7)));
 		const sum = W[0].add(W[1]).add(W[2]);
 		alb.assign(taps[0].a.mul(W[0]).add(taps[1].a.mul(W[1])).add(taps[2].a.mul(W[2])).div(sum));
 		nrm.assign(taps[0].n.mul(W[0]).add(taps[1].n.mul(W[1])).add(taps[2].n.mul(W[2])).div(sum));
@@ -138,7 +135,7 @@ export function groundNodes(weights, o) {
 		o.names.forEach((s, i) => (W.array[i] = w[s] ?? 0));
 		need(has());
 	};
-	m.userData.rows = (/** @type {number} */ a) => dir.value.set(Math.cos(a), Math.sin(a));
+	m.userData.rows = (a) => dir.value.set(Math.cos(a), Math.sin(a));
 	m.userData.rows(o.rows ?? 0);
 	m.userData.map = (/** @type {THREE.Texture} */ tx, /** @type {number[]} */ r) => ((map.value = tx), rect.value.set(r[0] ?? 0, r[1] ?? 0, r[2] ?? 1, r[3] ?? 1));
 
@@ -152,7 +149,7 @@ export function groundNodes(weights, o) {
 		const w1 = float(0).toVar(), w2 = float(0).toVar(), w3 = float(0).toVar(), i1 = int(0).toVar(), i2 = int(0).toVar(), i3 = int(0).toVar();
 		Loop(N, ({ i }) => {
 			If(W.element(i).greaterThan(0), () => {
-				const s = W.element(i).mul(pow(fbm(bw.div(PER.patch.element(i)).add(float(i).mul(17.3))).add(0.35), 6)).toVar();
+				const s = W.element(i).mul(pow(fbm(bw.div(PER.patch.element(i)).add(i.toFloat().mul(17.3))).add(0.35), 6)).toVar();
 				If(s.greaterThan(w1), () => {
 					w3.assign(w2), i3.assign(i2), w2.assign(w1), i2.assign(i1), w1.assign(s), i1.assign(i);
 				}).ElseIf(s.greaterThan(w2), () => {
@@ -181,11 +178,11 @@ export function groundNodes(weights, o) {
 		});
 		// by height (Mishkinis): each surface's height plus its share, the highest within 0.2 shows
 		const all = w1.add(w2).add(w3).max(1e-5);
-		const hb = top.map((p) => p.alb.w.add(/** @type {any} */ (p.w).div(all).mul(1.4)));
+		const hb = top.map((p) => p.alb.w.add((p.w).div(all).mul(1.4)));
 		const ma = max(max(hb[0], hb[1]), hb[2]).sub(0.2);
-		const b = hb.map((h, i) => max(h.sub(ma), 0).mul(step(1e-6, /** @type {any} */ (top[i].w))));
+		const b = hb.map((h, i) => max(h.sub(ma), 0).mul(step(1e-6, (top[i].w))));
 		const bs = b[0].add(b[1]).add(b[2]).max(1e-5);
-		const sum3 = (/** @type {'alb' | 'nrm' | 'ar'} */ k) => top[0][k].mul(b[0]).add(top[1][k].mul(b[1])).add(top[2][k].mul(b[2])).div(bs);
+		const sum3 = (k) => top[0][k].mul(b[0]).add(top[1][k].mul(b[1])).add(top[2][k].mul(b[2])).div(bs);
 		const alb = sum3('alb'), ar = sum3('ar').toVar(), nt = sum3('nrm');
 		// macro: brighter and darker over 5, 20 and 80 m
 		const macro = vn(bw.div(5)).mul(0.3).add(vn(bw.div(20).add(3.1)).mul(0.35)).add(vn(bw.div(80).add(7.7)).mul(0.35)).sub(0.5).mul(0.26).add(1);
