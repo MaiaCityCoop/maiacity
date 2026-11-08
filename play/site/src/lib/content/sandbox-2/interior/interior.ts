@@ -24,7 +24,6 @@
  */
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { precompile } from '$lib/content/render/core.js'
 import { flagstone, grass, groundCover, leaves, limestone, oak, soil, water } from './textures'
 import { cafes, coops, coopsAround, henPatches, rabbitPatches, squaresAround, type Kit } from './spaces'
 import { antHills, apiary, fishes, herd, TANK_FISH } from './animals'

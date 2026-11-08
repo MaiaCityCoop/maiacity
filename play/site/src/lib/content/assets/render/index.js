@@ -41,7 +41,6 @@ import { createKept } from './levels.js';
 import { levelValues } from '../lodcard.js';
 import { prepare } from './prepare.js';
 import { createPresets } from './presets.js';
-import { precompile } from '../../render/core.js';
 import { lookByName } from '../look.js';
 import { windOfCopy } from '../../render/wind.js';
 
