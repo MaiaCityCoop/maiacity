@@ -31,21 +31,16 @@ const MAPS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'b
 export const MATERIALS = ['MeshStandardMaterial', 'MeshPhysicalMaterial', 'MeshBasicMaterial', 'MeshLambertMaterial', 'MeshPhongMaterial', 'MeshToonMaterial', 'LineBasicMaterial', 'LineDashedMaterial', 'PointsMaterial', 'MeshMatcapMaterial', 'ShadowMaterial'];
 
 /**
- * How a material's cut face looks, as the kit's section caps gave it (../kit.js `capPatch`: its colour on
- * `userData.capColor`, its roughness and metalness only in the shader code it adds, so that code is asked for them on a
- * shader of nothing); null for a material without.
+ * How a material's cut face looks, as the kit's section caps gave it, as data: `userData.cap` (its colour, roughness
+ * and metalness) where the kit wrote it so, else its colour on `userData.capColor` (AirSup's kit's `capPatch`, in a
+ * recipe) with the museum red's roughness and metalness; null for a material without. Its shader code is never run here.
  */
 function capOf(m) {
-	const sh = { uniforms: {}, vertexShader: '', fragmentShader: '', defines: {} };
-	try {
-		m.onBeforeCompile(sh, null);
-	} catch {
-		// its code wanted a real shader: its colour alone, if it has one
-	}
-	const color = sh.uniforms.uCapColor?.value?.isColor ? sh.uniforms.uCapColor.value : m.userData?.capColor?.isColor ? m.userData.capColor : null;
-	if (!color) return null;
+	const given = m.userData?.cap, color = given?.color ?? m.userData?.capColor;
+	const hex = color?.isColor ? color.getHex() : Number.isInteger(color) ? color : null;
+	if (hex === null) return null;
 	const unit = (v, or) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : or);
-	return { color: color.getHex(), rough: unit(sh.uniforms.uCapRough?.value, 0.55), metal: unit(sh.uniforms.uCapMetal?.value, 0) };
+	return { color: hex, rough: unit(given?.rough, 0.55), metal: unit(given?.metal, 0) };
 }
 
 /** a light as plain numbers: where a spot or the sun points, in its own frame */

@@ -13,7 +13,7 @@
  */
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { DITHER } from './presets.js';
+import { cardMaterials, castsAsNode, cutOf } from '../../render/nodes/index.js';
 import { budget } from '../../render/budget.js';
 import { precompile } from '../../render/core.js';
 
@@ -48,8 +48,8 @@ export function createImpostors(renderer, o = {}) {
 	group.name = 'asset pictures';
 	/** @type {ReturnType<typeof pageOf>[]} */
 	const pages = [];
-	/** @type {THREE.Plane[] | null} */
-	let planes = null;
+	/** the cut every card is cut by (a picture has no inside: no faces) */
+	const cut = cutOf();
 
 	// where the pictures are taken: a soft light from the front and all round, and a room's reflections for the metals
 	const studio = new THREE.Scene();
@@ -82,21 +82,17 @@ export function createImpostors(renderer, o = {}) {
 		geo.setAttribute('position', quad.attributes.position);
 		geo.setAttribute('normal', quad.attributes.normal);
 		geo.setAttribute('uv', quad.attributes.uv);
-		const uniforms = { uGrid: { value: new THREE.Vector2(cols, rows) } };
-		const material = new THREE.MeshStandardMaterial({ map: target.texture, alphaTest: 0.5, roughness: 0.85, side: THREE.DoubleSide });
-		const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: target.texture, alphaTest: 0.5, side: THREE.DoubleSide });
-		patch(material, uniforms);
-		patch(depth, uniforms);
+		const { material, depth } = cardMaterials(target.texture, new THREE.Vector2(cols, rows), FRAMES, cut);
 		const mesh = new THREE.Mesh(geo, material);
 		mesh.name = `asset pictures ${pages.length + 1}`;
 		mesh.frustumCulled = false;
 		mesh.castShadow = true;
 		mesh.receiveShadow = true;
 		mesh.customDepthMaterial = depth;
+		castsAsNode(mesh, renderer);
 		group.add(mesh);
 		const page = { target, quad, geo, material, depth, mesh, kinds: 0, n: 0, cap: 0, attrs: null, stale: false };
 		grow(page, 64);
-		clip(page);
 		return page;
 	}
 
@@ -115,13 +111,6 @@ export function createImpostors(renderer, o = {}) {
 		page.attrs = { aAt: make('aAt', 3), aSize: make('aSize', 1), aTurn: make('aTurn', 1), aCell: make('aCell', 1), aFade: make('aFade', 1) };
 		page.cap = cap;
 	}
-
-	const clip = (page) => {
-		for (const m of [page.material, page.depth]) {
-			m.clippingPlanes = planes;
-			m.needsUpdate = true;
-		}
-	};
 
 	/** the asset as it stands in the studio: its drawings, each at its places */
 	function thingOf(level) {
@@ -335,8 +324,8 @@ export function createImpostors(renderer, o = {}) {
 		},
 		/** the cards cut away on the negative side of a plane too (no faces: a picture has no inside), or not (null) */
 		cut(/** @type {THREE.Plane | null} */ plane) {
-			planes = plane ? [plane] : null;
-			for (const page of pages) clip(page);
+			if (plane) cut.a.value.set(plane.normal.x, plane.normal.y, plane.normal.z, plane.constant);
+			else cut.a.value.set(0, 0, -1, 1e5);
 		},
 		/** how many cards are drawn, and on how many pages */
 		get drawn() {
@@ -359,56 +348,4 @@ export function createImpostors(renderer, o = {}) {
 			env?.dispose();
 		}
 	};
-}
-
-/** a card's material given the card's shader: turned to the eye, its picture from that side, faded by the dither */
-function patch(mat, uniforms) {
-	mat.onBeforeCompile = (shader) => {
-		Object.assign(shader.uniforms, uniforms);
-		shader.vertexShader = shader.vertexShader
-			.replace(
-				'#include <common>',
-				`#include <common>
-attribute vec3 aAt;
-attribute float aSize;
-attribute float aTurn;
-attribute float aCell;
-attribute float aFade;
-uniform vec2 uGrid;
-varying float vFade;
-varying vec2 vCard;`
-			)
-			// the card turned to the eye (to the light, in the shadow pass) about its upright axis
-			.replace(
-				'#include <beginnormal_vertex>',
-				`vec2 te = cameraPosition.xz - aAt.xz;
-	te = length(te) > 1e-4 ? normalize(te) : vec2(0.0, 1.0);
-	vec3 objectNormal = normalize(vec3(te.x, 0.55, te.y));
-	#ifdef USE_TANGENT
-		vec3 objectTangent = vec3(te.y, 0.0, -te.x);
-	#endif`
-			)
-			.replace(
-				'#include <begin_vertex>',
-				`vec2 tc = cameraPosition.xz - aAt.xz;
-	tc = length(tc) > 1e-4 ? normalize(tc) : vec2(0.0, 1.0);
-	vFade = aFade;
-	vec3 right = vec3(tc.y, 0.0, -tc.x);
-	vec3 transformed = aAt + right * position.x * aSize + vec3(0.0, position.y * aSize, 0.0);
-	// which of its pictures: the side the eye sees it from, in the thing's own turn
-	float side = mod(floor((atan(tc.x, tc.y) - aTurn) / ${((Math.PI * 2) / FRAMES).toFixed(6)} + 0.5), ${FRAMES.toFixed(1)});
-	float cell = aCell + side;
-	vec2 cr = vec2(mod(cell, uGrid.x), floor(cell / uGrid.x));
-	vCard = (cr + clamp(uv, 0.004, 0.996)) / uGrid;`
-			);
-		shader.fragmentShader = shader.fragmentShader
-			.replace('#include <common>', '#include <common>\nvarying float vFade;\nvarying vec2 vCard;')
-			.replace('#include <map_fragment>', 'vec4 sampledDiffuseColor = texture2D( map, vCard );\n\tdiffuseColor *= sampledDiffuseColor;')
-			.replace(
-				'#include <alphatest_fragment>',
-				`#include <alphatest_fragment>
-	if (vFade > 0.0 && vFade < 1.0 && ${DITHER} > vFade) discard;`
-			);
-	};
-	mat.customProgramCacheKey = () => 'asset-picture';
 }

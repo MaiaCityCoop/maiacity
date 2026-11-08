@@ -66,10 +66,8 @@ export function poserOf(root, controls = root.userData.controls ?? [], { own = f
 				const list = Array.isArray(o?.material) ? o.material : o?.material ? [o.material] : [];
 				const m = list[x.slot];
 				if (!m || mine.has(m)) continue;
-				// its own, drawn the same way (a renderer's material keeps the shader code it was given)
+				// its own, drawn the same way (a node material of ours carries its nodes into its clone)
 				const m2 = m.clone();
-				if (Object.hasOwn(m, 'onBeforeCompile')) m2.onBeforeCompile = m.onBeforeCompile;
-				if (Object.hasOwn(m, 'customProgramCacheKey')) m2.customProgramCacheKey = m.customProgramCacheKey;
 				mine.add(m2);
 				if (Array.isArray(o.material)) o.material[x.slot] = m2;
 				else o.material = m2;
