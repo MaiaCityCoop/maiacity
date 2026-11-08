@@ -1,0 +1,46 @@
+base f93ccba7a4bec2544ab92c859770bde5d96c121d head 78a881e74a81b6664c97bc4855234e783f8cc234
+GPU: ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)
+base: Sandbox 1 up and settled after 65 s
+base sandbox-1 near: 25.7 ms/frame (p95 33.4), 3,276,879 tris drawn (max 3,276,879)
+base sandbox-1 mid: 31.3 ms/frame (p95 33.4), 5,168,926 tris drawn (max 5,168,926)
+base sandbox-1 far: 16.7 ms/frame (p95 16.7), 1,392,509 tris drawn (max 1,392,509)
+base sandbox-3 open: 701,188 tris drawn
+head: Sandbox 1 up and settled after 33 s
+head sandbox-1 near: 16.7 ms/frame (p95 16.8), 0 tris drawn (max 0)
+head sandbox-1 mid: 16.7 ms/frame (p95 16.8), 0 tris drawn (max 0)
+head sandbox-1 far: 16.7 ms/frame (p95 16.7), 0 tris drawn (max 0)
+head sandbox-3 open: 674,854 tris drawn
+┌───┬──────┬───────────┬──────┬───────────┬───────────────────┬─────────┬───────────┐
+│   │ site │ world     │ view │ frameMs   │ frameP95          │ tris    │ trisMax   │
+├───┼──────┼───────────┼──────┼───────────┼───────────────────┼─────────┼───────────┤
+│ 0 │ base │ sandbox-1 │ near │ 25.7      │ 33.40000000000873 │ 3276879 │ 3276879   │
+│ 1 │ base │ sandbox-1 │ mid  │ 31.3      │ 33.40000000000873 │ 5168926 │ 5168926   │
+│ 2 │ base │ sandbox-1 │ far  │ 16.7      │ 16.70000000001164 │ 1392509 │ 1392509   │
+│ 3 │ base │ sandbox-3 │ open │ undefined │ undefined         │ 701188  │ undefined │
+│ 4 │ head │ sandbox-1 │ near │ 16.7      │ 16.79999999998836 │ 0       │ 0         │
+│ 5 │ head │ sandbox-1 │ mid  │ 16.7      │ 16.80000000000291 │ 0       │ 0         │
+│ 6 │ head │ sandbox-1 │ far  │ 16.7      │ 16.70000000001164 │ 0       │ 0         │
+│ 7 │ head │ sandbox-3 │ open │ undefined │ undefined         │ 674854  │ undefined │
+└───┴──────┴───────────┴──────┴───────────┴───────────────────┴─────────┴───────────┘
+59599 |   else if (error.error.name === "TargetClosedError")
+59600 |     e = new TargetClosedError2(error.error.message);
+59601 |   else if (error.error.name === "AbortError")
+59602 |     e = new AbortError2(error.error.message);
+59603 |   else
+59604 |     e = Object.assign(new PlaywrightError(error.error.message), { name: error.error.name });
+                                  ^
+error: _wrapApiCall: Executable doesn't exist at /Users/samuelandert/Library/Caches/ms-playwright/chromium-1254/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     npx playwright install                                 ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+  log: [],
+
+      at /Users/samuelandert/.bun/install/cache/playwright-core@1.65.0@@@1/lib/coreBundle.js:59604:27
+
+Bun v1.4.2 (macOS arm64)
+exit 1
