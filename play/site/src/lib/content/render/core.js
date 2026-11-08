@@ -138,7 +138,7 @@ function nodes(renderer) {
 		const away = [];
 		scene.traverse((o) => {
 			const m = /** @type {THREE.Mesh} */ (o).material;
-			if (m && (Array.isArray(m) ? m : [m]).some((x) => /** @type {any} */ (x).isNodeMaterial)) {
+			if (m && (Array.isArray(m) ? m : [m]).some((x) => /** @type {any} */ (x).isNodeMaterial && /** @type {any} */ (x).isKit)) {
 				away.push([o, m]);
 				/** @type {any} */ (o).material = null;
 			}
