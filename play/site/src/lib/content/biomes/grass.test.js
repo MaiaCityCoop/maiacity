@@ -236,3 +236,15 @@ describe('variation', () => {
 		expect(Math.min(...heights) / mean).toBeLessThan(0.7);
 	});
 });
+
+describe('the grass is never warmed by a direct compile', () => {
+	// three's WebGLNodesHandler never resolves a renderer.compileAsync of a node material: a warm-up of the grass goes
+	// through render/core.js's precompile or is the first frame that draws it (the Orchestrator's rule, from cb16b7a5)
+	test('no compile or compileAsync in the grass or where it is laid', async () => {
+		const { readFileSync } = await import('node:fs');
+		const { fileURLToPath } = await import('node:url');
+		const at = (/** @type {string} */ p) => readFileSync(fileURLToPath(new URL(p, import.meta.url)), 'utf8');
+		for (const p of ['./grass.js', '../render/nodes/grass.js', '../sandbox-2/interior/village.ts', '../assets/plantings.js', '../sandbox-2/interior/cover.js'])
+			expect(at(p), p).not.toMatch(/\.compile(Async)?\(/);
+	});
+});
