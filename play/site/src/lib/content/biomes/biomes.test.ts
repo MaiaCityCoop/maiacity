@@ -142,3 +142,29 @@ describe('the tired land: surfaces in rows, cover in rows, tramlines', () => {
 		expect(scattered[0].rank.length).toBeGreaterThan(0);
 	});
 });
+
+// @ts-ignore — plain JS
+import { GRASS } from './grass.js';
+
+describe('grass on a card (intent 090168c8)', () => {
+	const MEADOW: any = { ...BIOMES.find((b: any) => b.id === 'meadow'), cover: (BIOMES.find((b: any) => b.id === 'meadow') as any).cover.map((c: any, i: number) => ({ ...c, ref: 'a'.repeat(64) + `?kind=${i}` })) };
+	const kinds = { ref: (_: string, i: number) => MEADOW.cover[i].ref, label: (k: string) => k };
+	const card = (recipe: any) => ({ group: 'biomes', id: 'meadow', version: 2, label: 'Meadow', catalog: biomeCatalog(recipe, kinds) });
+	it('reads its grass back as it wrote it', () => {
+		const grass = { ...GRASS, height: 0.3, tall: 0.6, base: '#3a5a20' };
+		const back = biomeOfCard(card({ ...MEADOW, grass }));
+		expect(back.grass).toEqual(grass);
+		// its grass is no kind of its cover
+		expect(back.cover.map((c: any) => c.kind)).toEqual(MEADOW.cover.map((c: any) => c.kind));
+	});
+	it('checks every number and colour of it', () => {
+		for (const bad of [{ height: 0 }, { height: 3 }, { tall: 0.1, height: 0.3 }, { heightSpread: 0.9 }, { width: 0.2 }, { clump: 10 }, { lean: 2 }, { dryShare: 1.5 }, { tip: 'green' }, { base: '#12345' }])
+			expect(() => biomeOfCard(card({ ...MEADOW, grass: { ...GRASS, ...bad } }))).toThrow(/is no biome/);
+	});
+	it('an older card, without grass, is laid as before: no grass of its own', () => {
+		const back = biomeOfCard(card(MEADOW));
+		expect(back.grass).toBeUndefined();
+		expect(back.cover).toEqual(MEADOW.cover.map(({ kind, ref, share, colony, spread, on, fill }: any) => ({ kind, ref, share, colony, spread, ...(on ? { on } : {}), ...(fill === undefined ? {} : { fill }) })));
+		expect(card(MEADOW).catalog.parts.some((p: any) => p.assembly === 'grass')).toBe(false);
+	});
+});

@@ -6,7 +6,7 @@
  */
 import * as THREE from 'three'
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js'
-import { bark, frond, grassBlades, leaves } from './textures'
+import { bark, frond, leaves } from './textures'
 
 type Rand = () => number
 
@@ -986,18 +986,4 @@ export function forestFloor(kind: FloorKind, seed: number): THREE.Group {
 export function floorPick(r: Rand): FloorKind {
 	const x = r()
 	return x < 0.24 ? 'moss' : x < 0.38 ? 'earth' : x < 0.5 ? 'mycelium' : x < 0.64 ? 'branches' : x < 0.76 ? 'stones' : x < 0.87 ? 'log' : x < 0.92 ? 'anthill' : 'rock'
-}
-
-/** A tuft of meadow grass: three crossed cards of blades, about knee-high at full size. */
-const tuftMat = shared(() => new THREE.MeshStandardMaterial({ map: grassBlades(), alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.9 }))
-export function grassTuft(size = 0.5): THREE.Group {
-	const g = new THREE.Group()
-	for (let i = 0; i < 3; i++) {
-		const c = new THREE.Mesh(card(), tuftMat())
-		c.scale.set(size * 1.2, size, 1)
-		c.position.y = size / 2
-		c.rotation.y = (i / 3) * Math.PI
-		g.add(c)
-	}
-	return g
 }

@@ -3,7 +3,7 @@
  * a kind costs one draw call however many of it stand on a tile), built once and scattered in its colonies
  * (./index.js):
  *
- *   grasses   a grass clump of real blades (low, and tall with seed heads), a tussock of sedge
+ *   grasses   grass and tall grass, drawn blade by blade by ./grass.js (nothing here); a tussock of sedge
  *   moss      cushions of it, run together, its stalks standing up
  *   flowers   low flowers on their stems over their rosettes: daisy, buttercup, red clover, forget-me-not, wood
  *             anemone, meadow cranesbill; woodruff in its whorls with its white stars; wood sorrel's folded
@@ -87,29 +87,8 @@ function blade(foot, dir, len, w, bend, base, tip) {
 	return g;
 }
 
-/** A clump of grass: 16–24 blades fanning out of one foot, some bent over, a few gone straw at the tip. */
-function grassClump(/** @type {number} */ seed, /** @type {number} */ h) {
-	const r = rng(seed), geos = [];
-	const greens = ['#3d6a2a', '#4a7a30', '#56883a', '#2f5a24'].map(col);
-	const n = 16 + Math.floor(r() * 9);
-	for (let i = 0; i < n; i++) {
-		const a = r() * Math.PI * 2, lean = 0.15 + r() * 0.45;
-		const dir = new THREE.Vector3(Math.cos(a) * lean, 1, Math.sin(a) * lean);
-		const len = h * (0.55 + r() * 0.5);
-		const base = /** @type {THREE.Color} */ (greens[Math.floor(r() * greens.length)]);
-		const tip = r() < 0.18 ? col('#b8a868') : base.clone().offsetHSL(0.01, 0.02, 0.12);
-		geos.push(blade(new THREE.Vector3((r() - 0.5) * 0.05, 0, (r() - 0.5) * 0.05), dir, len, 0.006 + r() * 0.004, 0.15 + r() * 0.45, base.clone().multiplyScalar(0.6), tip));
-	}
-	// a seed head or two on a tall stem
-	for (let i = 0; i < (r() < 0.5 ? 2 : 0); i++) {
-		const a = r() * Math.PI * 2;
-		const foot = new THREE.Vector3(0, 0, 0), dir = new THREE.Vector3(Math.cos(a) * 0.12, 1, Math.sin(a) * 0.12);
-		geos.push(blade(foot, dir, h * 1.35, 0.003, 0.05, col('#4a6a2c'), col('#8a8a4a')));
-		const head = new THREE.ConeGeometry(0.008, 0.05, 5).translate(Math.cos(a) * 0.12 * h * 1.3, h * 1.35, Math.sin(a) * 0.12 * h * 1.3);
-		geos.push(paint(head, col('#a39a5a')));
-	}
-	return one(geos);
-}
+/** Grass: drawn as single blades by ./grass.js (its kinds stand here so the cover is laid as it was): nothing of its own. */
+const blades = () => new THREE.Group();
 
 /** A cushion of moss: a few small lumpy domes run together, low and soft-edged, dark in its hollows and bright where
  *  the light catches it, a scatter of its stalks with their capsules. */
@@ -374,8 +353,8 @@ function deadwood(/** @type {number} */ seed) {
 /** @typedef {'grass' | 'tallgrass' | 'sedge' | 'moss' | Flower | 'woodruff' | 'woodsorrel' | 'ramsons' | 'strawberry' | 'blueberry' | 'fern' | 'litter' | 'deadwood' | 'stones' | 'mushrooms'} Cover */
 /** @type {Record<Cover, { label: string, build: (seed: number) => THREE.Group }>} every kind: its name, and how it is built */
 export const COVER = {
-	grass: { label: 'Grass', build: (s) => grassClump(s, 0.22) },
-	tallgrass: { label: 'Tall grass', build: (s) => grassClump(s, 0.45) },
+	grass: { label: 'Grass', build: blades },
+	tallgrass: { label: 'Tall grass', build: blades },
 	sedge: { label: 'Sedge', build: sedge },
 	moss: { label: 'Moss cushions', build: mossCushion },
 	daisy: { label: 'Daisy', build: (s) => flowerClump('daisy', s) },

@@ -50,6 +50,7 @@ export { SURFACE, SURFACES, groundMaterial, inTrack, rowsOf, surfacesAt } from '
  * @property {Partial<Record<Surface, number>>} surface how much of the floor each surface takes
  * @property {number} density how many plants (or things) of its cover stand on a square metre inside their colonies
  * @property {Colony[]} cover
+ * @property {import('./grass.js').GrassParams} [grass] its grass as blades (./grass.js; its `GRASS` where it says none)
  * @property {import('./surfaces.js').Tramlines} [tramlines] a field's wheel tracks along its rows (none if not said)
  */
 
@@ -194,6 +195,7 @@ export function mix(a, b, t) {
 		from: '',
 		surface,
 		density: a.density * (1 - t) + b.density * t,
+		...((t < 0.5 ? a.grass ?? b.grass : b.grass ?? a.grass) ? { grass: t < 0.5 ? a.grass ?? b.grass : b.grass ?? a.grass } : {}),
 		cover: [...a.cover.map((c) => ({ ...c, share: (c.share / ca) * (1 - t) })), ...b.cover.map((c) => ({ ...c, share: (c.share / cb) * t }))]
 	};
 }

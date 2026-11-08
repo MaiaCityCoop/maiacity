@@ -486,17 +486,17 @@ export function grassField(o) {
 		uniforms: U,
 		mask,
 		/** where the eye is, and the time: the mask worked out round it, the tiles chosen again once it has gone a metre */
-		update(/** @type {THREE.PerspectiveCamera} */ camera, /** @type {number} */ time, /** @type {{ light?: THREE.DirectionalLight, pushers?: [number, number, number, number][] }} */ w = {}) {
+		update(/** @type {THREE.PerspectiveCamera} */ camera, /** @type {number} */ time, /** @type {{ light?: THREE.DirectionalLight, pushers?: [number, number, number, number][], height?: number, budget?: number }} */ w = {}) {
 			const x = camera.position.x, z = camera.position.z;
 			U.time.value = time;
-			U.pxAt1m.value = 900 / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
+			U.pxAt1m.value = (w.height ?? 900) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
 			if (w.light) {
 				sun.copy(w.light.position).sub(w.light.target.position).normalize();
 				U.sunDir.value.copy(sun);
 				U.sunColor.value.copy(w.light.color).multiplyScalar(Math.min(2, w.light.intensity / 3));
 			}
 			for (let p = 0; p < PUSHERS; p++) U.pushers.array[p].set(...(w.pushers?.[p] ?? [0, 0, 0, 0]));
-			const filled = mask.update(x, z);
+			const filled = mask.update(x, z, w.budget);
 			if (!ready || Math.hypot(x - at.x, z - at.z) > 1 || !filled) {
 				ready = filled;
 				at = { x, z };

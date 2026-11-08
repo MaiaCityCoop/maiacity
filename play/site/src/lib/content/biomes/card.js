@@ -8,6 +8,10 @@
  *                (`cover-<kind>`): the asset it is (its `ref`, the cover's kind at its seed), its share, how big its
  *                colonies are, how much of the ground they take, how full they are and the surface they grow on;
  *                a kind a machine sowed, its rows (how far apart, how far along them, how far off its line)
+ *   the grass    its grass as single blades (`grass`, of the assembly `grass`; ./grass.js): how tall, how tall where the
+ *                tall grass grows, how much a blade's height differs, its width, how big its clumps are, how far it
+ *                leans, its colours (foot, tip, dry) and how much of it is dry; a card without it grows ./grass.js's
+ *                `GRASS` where its cover has grass
  *   the field    a field's tramlines (`tramlines`, of the assembly `field`): every how many metres, the gauge and the
  *                tyre's width; a biome may keep other parts there (its rows' depth, its colours), read by nobody here
  *
@@ -18,6 +22,7 @@ import { SURFACE, SURFACES } from './surfaces.js';
 
 /** the specs' names, as the card shows them to people and a world reads them back */
 const WEIGHT = 'Weight', DENSITY = 'Plants a square metre', SHARE = 'Share', COLONY = 'Colony across', SPREAD = 'Ground its colonies take', FILL = 'How full its colonies are', ON = 'Grows on';
+const G_HEIGHT = 'Height', G_TALL = 'Tall grass height', G_SPREAD = 'Height spread', G_WIDTH = 'Blade width', G_CLUMP = 'Clump across', G_LEAN = 'Lean', G_BASE = 'Colour at its foot', G_TIP = 'Colour at its tip', G_DRY = 'Colour dry', G_DRYSHARE = 'Dry share';
 const ROWS = 'Rows apart', ALONG = 'Along the row', JITTER = 'Off its line', EVERY = 'Every', GAUGE = 'Gauge', TYRE = 'Tyre';
 
 /** a number as a spec writes it: as it is, so it reads back the same @param {number} n */
@@ -52,6 +57,19 @@ export function biomeCatalog(recipe, kinds) {
 			...(c.rows ? [[ROWS, `${num(c.rows.spacing)} m`], [ALONG, `${num(c.rows.along)} m`], ...(c.rows.jitter === undefined ? [] : [[JITTER, `${num(c.rows.jitter)} m`]])] : [])
 		]
 	}));
+	const gr = recipe.grass;
+	const grass = gr
+		? [{
+				id: 'grass',
+				label: 'Grass blades',
+				assembly: 'grass',
+				what: 'Its grass as single blades, each shaped, lit and moved by the wind, in clumps, thinning out with distance into the ground.',
+				specs: [
+					[G_HEIGHT, `${num(gr.height)} m`], [G_TALL, `${num(gr.tall)} m`], [G_SPREAD, num(gr.heightSpread)], [G_WIDTH, `${num(gr.width)} m`],
+					[G_CLUMP, `${num(gr.clump)} m`], [G_LEAN, num(gr.lean)], [G_BASE, gr.base], [G_TIP, gr.tip], [G_DRY, gr.dry], [G_DRYSHARE, num(gr.dryShare)]
+				]
+			}]
+		: [];
 	const t = recipe.tramlines;
 	const field = t
 		? [{ id: 'tramlines', label: 'Tramlines', assembly: 'field', what: 'A pair of wheel tracks along the rows, one pair every working width of the sprayer.', specs: [[EVERY, `${num(t.every)} m`], [GAUGE, `${num(t.gauge)} m`], [TYRE, `${num(t.tyre)} m`]] }]
@@ -60,12 +78,14 @@ export function biomeCatalog(recipe, kinds) {
 		assemblies: [
 			{ id: 'ground', label: 'The ground', note: 'The surfaces it is painted with, each in patches of its own size.' },
 			{ id: 'cover', label: 'The cover', note: 'What grows and lies on it, kind by kind, each in its colonies.' },
+			...(grass.length ? [{ id: 'grass', label: 'The grass', note: 'Its grass, blade by blade.' }] : []),
 			...(field.length ? [{ id: 'field', label: 'The field', note: 'Its tramlines, along its rows.' }] : [])
 		],
 		parts: [
 			...ground,
 			{ id: 'density', label: 'How dense the cover stands', assembly: 'cover', what: 'How many plants (or things) of the cover stand on a square metre inside their colonies.', specs: [[DENSITY, num(recipe.density)]] },
 			...cover,
+			...grass,
 			...field
 		]
 	};
@@ -130,5 +150,26 @@ export function biomeOfCard(card) {
 	if (!cover.length) no('no cover');
 	const tp = parts.find((p) => p.assembly === 'field' && p.id === 'tramlines');
 	const tramlines = tp ? { every: /** @type {number} */ (number(tp, EVERY, 1, 1000)), gauge: /** @type {number} */ (number(tp, GAUGE, 0.5, 10)), tyre: /** @type {number} */ (number(tp, TYRE, 0.1, 2)) } : undefined;
-	return { id: card.id, version: card.version, label: card.label, note: card.note ?? '', from: '', surface, density, cover, ...(tramlines ? { tramlines } : {}) };
+	const gp = parts.find((p) => p.assembly === 'grass' && p.id === 'grass');
+	const colour = (/** @type {any} */ p, /** @type {string} */ name) => {
+		const v = spec(p, name);
+		if (typeof v !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(v)) no(`${p.id}'s ${name} is ${v === undefined ? 'missing' : JSON.stringify(v)}, not a colour #rrggbb`);
+		return /** @type {string} */ (v);
+	};
+	const grass = gp
+		? {
+				height: /** @type {number} */ (number(gp, G_HEIGHT, 0.02, 2)),
+				tall: /** @type {number} */ (number(gp, G_TALL, 0.02, 2.5)),
+				heightSpread: /** @type {number} */ (number(gp, G_SPREAD, 0, 0.6)),
+				width: /** @type {number} */ (number(gp, G_WIDTH, 0.001, 0.03)),
+				clump: /** @type {number} */ (number(gp, G_CLUMP, 0.3, 3)),
+				lean: /** @type {number} */ (number(gp, G_LEAN, 0, 1.2)),
+				base: colour(gp, G_BASE),
+				tip: colour(gp, G_TIP),
+				dry: colour(gp, G_DRY),
+				dryShare: /** @type {number} */ (number(gp, G_DRYSHARE, 0, 1))
+			}
+		: undefined;
+	if (grass && grass.tall < grass.height) no(`its tall grass (${grass.tall} m) is shorter than its grass (${grass.height} m)`);
+	return { id: card.id, version: card.version, label: card.label, note: card.note ?? '', from: '', surface, density, cover, ...(grass ? { grass } : {}), ...(tramlines ? { tramlines } : {}) };
 }

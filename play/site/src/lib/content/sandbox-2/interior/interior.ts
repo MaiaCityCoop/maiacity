@@ -47,7 +47,7 @@ import type { Drawn } from './drawn.js'
 import { FLOORS, standThings, workshopsOf } from './things.js'
 import { swapLegacy } from './legacy.js'
 import { pick as pickPlant, type Garden } from './sandbox5.js'
-import { forestFloor, floorPick, grassTuft, appleTree, banana, berryBush, canopyTree, climber, clover, coconutPalm, comfrey, crop, CROPS, type Crop, fruitTree, ginger, grapePergola, herb, papaya, passionVine, potted, seeded, shrub, smallFruitTree, squash, strawberries, tropicalShrub, vineAlong, type Plant } from './plants'
+import { forestFloor, floorPick, appleTree, banana, berryBush, canopyTree, climber, clover, coconutPalm, comfrey, crop, CROPS, type Crop, fruitTree, ginger, grapePergola, herb, papaya, passionVine, potted, seeded, shrub, smallFruitTree, squash, strawberries, tropicalShrub, vineAlong, type Plant } from './plants'
 
 export type DomeKind = 'tent' | 'glamp' | 'home' | 'large' | 'grand' | 'master' | 'factory'
 
@@ -1164,7 +1164,8 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 			if (r() < 0.4) around(1, 1.9, (sd) => climber(sd, 2 + r()).object)
 			// the forest floor: moss, mycelium, earth, fallen wood, stones, an ant hill, a rock
 			around(2, 3.2, (sd) => forestFloor(floorPick(r), sd))
-			around(8, 4, () => grassTuft(0.4 + r() * 0.35))
+			// the meadow grass is blades now ($content/biomes/grass.js): its draws kept, so all after it stands where it did
+			around(8, 4, () => (r(), new THREE.Group()))
 		}
 		scene.add(bake(trees))
 		scene.add(bake(under, false))

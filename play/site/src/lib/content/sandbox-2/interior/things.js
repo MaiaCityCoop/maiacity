@@ -44,8 +44,8 @@ export const THINGS = {
 	repair: villageAsset('repair')
 };
 
-/** the village's two forest floors: the food forest outside, the warm one under the glass */
-export const FLOORS = { outside: villageAsset('food-forest'), warm: villageAsset('warm-food-forest') };
+/** the village's floors: the food forest outside, the warm one under the glass; the meadow its open grass grows as */
+export const FLOORS = { outside: villageAsset('food-forest'), warm: villageAsset('warm-food-forest'), meadow: villageAsset('meadow') };
 
 /**
  * A set the dome builds round its own place and the library brings to its middle, its foot on the ground
