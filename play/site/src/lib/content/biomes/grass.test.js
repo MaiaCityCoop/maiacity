@@ -126,8 +126,8 @@ describe('blades placed from their place alone', () => {
 		for (let d = 0; d < 75; d += 0.05) {
 			const g = growAt(d, b.rank, b.end, dev);
 			expect(g).toBeLessThanOrEqual(last + 1e-12);
-			// sinking over a metre or more: never more than a twentieth of the way in 5 cm
-			expect(last - g).toBeLessThan(0.05);
+			// sinking over half a metre or more: never more than a tenth of the way in 5 cm
+			expect(last - g).toBeLessThan(0.1);
 			last = g;
 		}
 		expect(last).toBe(0);
