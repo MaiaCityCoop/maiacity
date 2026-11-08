@@ -1,0 +1,294 @@
+[
+ {
+  "site": "base",
+  "world": "sandbox-1",
+  "view": "near",
+  "settled": true,
+  "frames": 344,
+  "frameMs": 23.2,
+  "frameP95": 33.400000000001455,
+  "tris": 3283783,
+  "trisMax": 3283783,
+  "assets": {
+   "out": {
+    "tris": 277820,
+    "calls": 68,
+    "levels": [
+     1,
+     102
+    ],
+    "pictures": 2575,
+    "copies": 6995
+   },
+   "in": {
+    "tris": 6318,
+    "calls": 4,
+    "levels": [
+     0,
+     1
+    ],
+    "pictures": 611,
+    "copies": 671
+   },
+   "library": {
+    "tris": 173589,
+    "calls": 118,
+    "levels": [
+     0,
+     0,
+     689
+    ],
+    "pictures": 0,
+    "copies": 1461
+   }
+  },
+  "meter": null,
+  "png": "/Users/samuelandert/Documents/Development/scb16-render/intent-work/cb16b7a5-render/out/shots/base-sandbox-1-near.png"
+ },
+ {
+  "site": "base",
+  "world": "sandbox-1",
+  "view": "mid",
+  "settled": true,
+  "frames": 264,
+  "frameMs": 30.2,
+  "frameP95": 33.40000000000873,
+  "tris": 5182522,
+  "trisMax": 5182522,
+  "assets": {
+   "out": {
+    "tris": 2408963,
+    "calls": 103,
+    "levels": [
+     14,
+     61
+    ],
+    "pictures": 4079,
+    "copies": 7153
+   },
+   "in": {
+    "tris": 90,
+    "calls": 1,
+    "levels": [
+     0,
+     0
+    ],
+    "pictures": 45,
+    "copies": 45
+   },
+   "library": {
+    "tris": 179371,
+    "calls": 37,
+    "levels": [
+     0,
+     1,
+     628
+    ],
+    "pictures": 0,
+    "copies": 2613
+   }
+  },
+  "meter": null,
+  "png": "/Users/samuelandert/Documents/Development/scb16-render/intent-work/cb16b7a5-render/out/shots/base-sandbox-1-mid.png"
+ },
+ {
+  "site": "base",
+  "world": "sandbox-1",
+  "view": "far",
+  "settled": true,
+  "frames": 478,
+  "frameMs": 16.7,
+  "frameP95": 16.70000000001164,
+  "tris": 1406557,
+  "trisMax": 1406557,
+  "assets": {
+   "out": {
+    "tris": 47550,
+    "calls": 4,
+    "levels": [
+     0,
+     4
+    ],
+    "pictures": 6173,
+    "copies": 7028
+   },
+   "in": {
+    "tris": 0,
+    "calls": 0,
+    "levels": [
+     0,
+     0
+    ],
+    "pictures": 0,
+    "copies": 0
+   },
+   "library": {
+    "tris": 41980,
+    "calls": 25,
+    "levels": [
+     0,
+     0,
+     11
+    ],
+    "pictures": 0,
+    "copies": 11
+   }
+  },
+  "meter": null,
+  "png": "/Users/samuelandert/Documents/Development/scb16-render/intent-work/cb16b7a5-render/out/shots/base-sandbox-1-far.png"
+ },
+ {
+  "site": "base",
+  "world": "sandbox-3",
+  "view": "open",
+  "tris": 461067,
+  "meter": null,
+  "png": "/Users/samuelandert/Documents/Development/scb16-render/intent-work/cb16b7a5-render/out/shots/base-sandbox-3-open.png"
+ },
+ {
+  "site": "head",
+  "world": "sandbox-1",
+  "view": "near",
+  "settled": true,
+  "frames": 262,
+  "frameMs": 30.3,
+  "frameP95": 33.40000000000873,
+  "tris": 3283783,
+  "trisMax": 3283783,
+  "assets": {
+   "out": {
+    "tris": 277820,
+    "calls": 68,
+    "levels": [
+     1,
+     102
+    ],
+    "pictures": 2575,
+    "copies": 6995
+   },
+   "in": {
+    "tris": 6318,
+    "calls": 4,
+    "levels": [
+     0,
+     1
+    ],
+    "pictures": 611,
+    "copies": 671
+   },
+   "library": {
+    "tris": 173589,
+    "calls": 118,
+    "levels": [
+     0,
+     0,
+     689
+    ],
+    "pictures": 0,
+    "copies": 1461
+   }
+  },
+  "meter": null,
+  "png": "/Users/samuelandert/Documents/Development/scb16-render/intent-work/cb16b7a5-render/out/shots/head-sandbox-1-near.png"
+ },
+ {
+  "site": "head",
+  "world": "sandbox-1",
+  "view": "mid",
+  "settled": true,
+  "frames": 266,
+  "frameMs": 29.9,
+  "frameP95": 33.40000000000873,
+  "tris": 5180926,
+  "trisMax": 5180926,
+  "assets": {
+   "out": {
+    "tris": 2408963,
+    "calls": 103,
+    "levels": [
+     14,
+     61
+    ],
+    "pictures": 4079,
+    "copies": 7153
+   },
+   "in": {
+    "tris": 90,
+    "calls": 1,
+    "levels": [
+     0,
+     0
+    ],
+    "pictures": 45,
+    "copies": 45
+   },
+   "library": {
+    "tris": 179371,
+    "calls": 37,
+    "levels": [
+     0,
+     1,
+     628
+    ],
+    "pictures": 0,
+    "copies": 2613
+   }
+  },
+  "meter": null,
+  "png": "/Users/samuelandert/Documents/Development/scb16-render/intent-work/cb16b7a5-render/out/shots/head-sandbox-1-mid.png"
+ },
+ {
+  "site": "head",
+  "world": "sandbox-1",
+  "view": "far",
+  "settled": true,
+  "frames": 479,
+  "frameMs": 16.7,
+  "frameP95": 16.79999999998836,
+  "tris": 1404509,
+  "trisMax": 1404509,
+  "assets": {
+   "out": {
+    "tris": 47550,
+    "calls": 4,
+    "levels": [
+     0,
+     4
+    ],
+    "pictures": 6173,
+    "copies": 7028
+   },
+   "in": {
+    "tris": 0,
+    "calls": 0,
+    "levels": [
+     0,
+     0
+    ],
+    "pictures": 0,
+    "copies": 0
+   },
+   "library": {
+    "tris": 41980,
+    "calls": 25,
+    "levels": [
+     0,
+     0,
+     11
+    ],
+    "pictures": 0,
+    "copies": 11
+   }
+  },
+  "meter": null,
+  "png": "/Users/samuelandert/Documents/Development/scb16-render/intent-work/cb16b7a5-render/out/shots/head-sandbox-1-far.png"
+ },
+ {
+  "site": "head",
+  "world": "sandbox-3",
+  "view": "open",
+  "tris": 461179,
+  "meter": null,
+  "png": "/Users/samuelandert/Documents/Development/scb16-render/intent-work/cb16b7a5-render/out/shots/head-sandbox-3-open.png"
+ }
+]
