@@ -98,15 +98,16 @@ describe('the one renderer', () => {
 		expect(parameters.fragmentShader).toMatch(/DiffuseColor = vec4\( mix\(/);
 	});
 
-	test('a compile draws no extra shadow pass and is never handed a node material (cb16b7a5)', () => {
+	test('a compile draws no extra shadow pass and is never handed a kit node material (cb16b7a5)', () => {
 		const r = /** @type {any} */ (createRenderer({ pixelRatio: 1, shadows: 'pcf' }));
 		const scene = new THREE.Scene();
-		const classic = new THREE.MeshStandardMaterial(), node = new MeshStandardNodeMaterial();
+		const classic = new THREE.MeshStandardMaterial(), node = /** @type {any} */ (new MeshStandardNodeMaterial());
+		node.isKit = true;
 		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), classic));
 		r.compile(scene, new THREE.PerspectiveCamera());
 		expect(r.shadowsAtCompile).toEqual([false]);
 		expect(r.shadowMap.autoUpdate).toBe(true);
-		// a node material, hidden or not, is built at its first frame: a program three's compile built for it would be
+		// a kit node material, hidden or not, is built at its first frame: a program three's compile built for it would be
 		// met later with another build's uniforms (the sky's PMREM in a vec3, cb16b7a5)
 		const shown = new THREE.Mesh(new THREE.BoxGeometry(), node), hidden = new THREE.Mesh(new THREE.BoxGeometry(), [classic, node]);
 		hidden.visible = false;
@@ -116,6 +117,14 @@ describe('the one renderer', () => {
 		expect(r.compiled.filter((/** @type {any} */ m) => m.isNodeMaterial)).toEqual([]);
 		expect(shown.material).toBe(node);
 		expect(hidden.material).toEqual([classic, node]);
+		// any other node material (a sky) is warmed up as on main, under the tone of the moment: drawn first into an
+		// environment bake (no tone, linear), it would otherwise keep that program for the frame (cb16b7a5: the viewer's
+		// sky raw and bloomed, a haze over everything)
+		const sky = new MeshStandardNodeMaterial();
+		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), sky));
+		r.compile(scene, new THREE.PerspectiveCamera());
+		expect(r.compiled).toContain(sky);
+		expect(r.compiled).not.toContain(node);
 	});
 
 	test('tone mapping and exposure are set through the core', () => {

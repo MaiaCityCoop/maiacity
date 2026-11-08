@@ -46,8 +46,22 @@ export function install(r) {
 	r.setNodesHandler(h);
 	const screen = h.getOutputCallback;
 	const onScreen = () => r.getRenderTarget() === null;
-	h.getOutputCallback = (node) => (onScreen() || !h.nodeFrame.material?.isKit ? screen(node) : node);
-	if (h.renderer) h.renderer.getCacheKey = () => (onScreen() ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
+	// Only the kit's own materials are drawn linear and untoned into a target (and keyed apart as 'target'); every other
+	// node material (the sky, its environment bake) keeps the handler's key and output, toned and encoded by the
+	// renderer's settings of the moment, as on main: keyed by them, an environment bake (no tone, linear) and the frame
+	// that follows are two programs, never one (cb16b7a5: the viewer's sky drawn raw, a haze over everything).
+	let keying = null;
+	const keyOf = h.customProgramCacheKeyCallback;
+	h.customProgramCacheKeyCallback = function () {
+		keying = this;
+		try {
+			return keyOf.call(this);
+		} finally {
+			keying = null;
+		}
+	};
+	h.getOutputCallback = (node, builder) => (onScreen() || !(builder?.material ?? h.nodeFrame.material)?.isKit ? screen(node, builder) : node);
+	if (h.renderer) h.renderer.getCacheKey = () => (onScreen() || !(keying ?? h.nodeFrame.material)?.isKit ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
 	handlers.set(r, h);
 	return h;
 }
