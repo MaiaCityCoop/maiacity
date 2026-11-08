@@ -37,7 +37,7 @@ import * as THREE from 'three';
 import { ShaderPass, createPost } from '$lib/content/render/post.js';
 import { daySky } from './sky.js';
 import { budget } from '$lib/content/render/budget.js';
-import { withTone } from '$lib/content/render/core.js';
+import { precompile, withTone } from '$lib/content/render/core.js';
 import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment, untonemap } from './kit.js';
 
 /**
@@ -698,12 +698,7 @@ export class Stage {
 		const was = { tm: withTone(r, 'neutral'), clip: r.localClippingEnabled, rt: r.getRenderTarget() };
 		r.localClippingEnabled = true;
 		r.setRenderTarget(this.composer.readBuffer);
-		let done = Promise.resolve();
-		try {
-			done = r.compileAsync(this.scene, this.camera);
-		} catch {
-			/* drawn as usual */
-		}
+		const done = precompile(r, this.scene, this.camera);
 		r.setRenderTarget(was.rt);
 		was.tm();
 		r.localClippingEnabled = was.clip;

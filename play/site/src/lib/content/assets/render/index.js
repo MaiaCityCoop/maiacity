@@ -40,6 +40,7 @@ import { createKept } from './levels.js';
 import { levelValues } from '../lodcard.js';
 import { prepare } from './prepare.js';
 import { createPresets } from './presets.js';
+import { precompile } from '../../render/core.js';
 import { lookByName } from '../look.js';
 import { windOfCopy } from '../../render/wind.js';
 
@@ -494,7 +495,7 @@ export function createAssets(o) {
 		const scene = worldOf();
 		compiling++;
 		try {
-			if (scene) await Promise.all(lv.meshes.map(({ mesh }) => renderer.compileAsync(mesh, camera, scene)));
+			if (scene) await Promise.all(lv.meshes.map(({ mesh }) => precompile(renderer, mesh, camera, scene)));
 			if (studio) await pictures.prepare(lv.level);
 		} finally {
 			compiling--;
@@ -735,7 +736,7 @@ export function createAssets(o) {
 		group.add(tree);
 		const scene = worldOf();
 		compiling++;
-		(scene ? renderer.compileAsync(tree, camera, scene) : Promise.resolve())
+		(scene ? precompile(renderer, tree, camera, scene) : Promise.resolve())
 			.catch(() => {})
 			.finally(() => {
 				compiling--;

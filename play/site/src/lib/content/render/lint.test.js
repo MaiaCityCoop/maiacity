@@ -41,4 +41,9 @@ describe('the render core holds', () => {
 	test('tone mapping and exposure are set only through the core', () => {
 		expect(outside(/\.toneMapping(Exposure)?\s*=[^=]/, [CORE])).toEqual([]);
 	});
+	// three's WebGLNodesHandler never settles compileAsync for a node material on a real GPU: whatever waited on it was
+	// never drawn (intents cb16b7a5, 6fd5e63f). Every warm-up goes through the core's precompile, which skips them.
+	test('every shader warm-up goes through the core’s precompile', () => {
+		expect(outside(/\.compileAsync\(/, [CORE])).toEqual([]);
+	});
 });
