@@ -1,0 +1,31 @@
+{
+	"what": "6295a650's census, run 5, on the Mac (Apple M1, ANGLE Metal), 2026-11-07: Sandbox 1's far view, noon, 1440x900, every draw counted in WebGL; intent-work/6295a650-render out/run5/ (results.json, base-census.json, head-census.json)",
+	"view": "far",
+	"inputs": {
+		"dir": "inputs",
+		"routes": {
+			"/api/catalog": "18a309fb23c576ab2eb0cb09684d49974746338dd560b72b236e6e416c194f84",
+			"/api/sandboxes/ec08b07d-6ec0-8f65-92b2-3efe7d91df5d/config": "721d81cdd895bd6a1ca75721236a74dff3c32e7314c880584a5455d0e5735b7e"
+		}
+	},
+	"sites": {
+		"base": {
+			"at": "6d0d7ac202d8ff5749a24ba8b887e0ecee467158",
+			"hook": "base-census-hook.diff (the census applies it: setup.ts STATS_AND_KINDS)",
+			"tris": 1844669,
+			"shapeTris": 114378,
+			"renderers": { "out": { "tris": 426092, "calls": 100 }, "in": { "tris": 1222, "calls": 1 }, "library": { "tris": 114378, "calls": 109 } },
+			"ghosts": { "out": 335, "in": 611, "library": 2150 },
+			"ghostTris": { "out": 413748, "in": 1222, "library": 61232 }
+		},
+		"head": {
+			"at": "8e9a45210db70dbf3a7ecc343cf665c3fd575cce",
+			"tris": 2635042,
+			"shapeTris": 959932,
+			"renderers": { "out": { "tris": 1259582, "calls": 108 }, "in": { "tris": 1222, "calls": 1 }, "library": { "tris": 69191, "calls": 109 } },
+			"ghosts": { "out": 238, "in": 611, "library": 622 },
+			"ghostTris": { "out": 287328, "in": 1222, "library": 27211 }
+		}
+	},
+	"ghosts": "copies the page put away (drawn.js `give`: AWAY, a matrix of scale 0 at the origin) that the asset renderer still draws, three's decompose giving a scale of 1 for it (render/index.js `set`): counted here from the Mac's census, the copies at exactly 370.0 m from the far eye (the origin), and what they cost (`ghostTris`: each at the level it was drawn at, a picture 2, a kind with no picture its coarsest shape). How many there are is the page's history (what it put down where it opened, and for how long), not the view"
+}
