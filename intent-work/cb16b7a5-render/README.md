@@ -12,9 +12,10 @@ at the branch's tip), serves both on 5181/5182 with play's read-only proxy, and 
 
 1. `scripts/selector-shots.mjs`: Sandbox 1 near, mid, far, 1440×900, noon, base then head: frame time, p95,
    triangles, a screenshot each.
-2. `assets.mjs` (this folder): five assets in the asset library, base then head: the Power Cube and the pickup (kit
-   section caps) whole and cut open (`stage.target.cut = 1`), the walnut (levels), the goat (skinned), the water
-   canister; frame time over 6 s and a screenshot each. Then Sandbox 1 walked 30 m in from z = 160, a frame every
+2. `assets.mjs` (this folder): assets in the asset library, base then head: the walnut (levels), the goat (skinned),
+   the water canister, and two machines with the kit's section caps whole and cut open (`stage.target.cut = 1`): the
+   first two of its list that build through the token's routes and have capped materials, picked on base and the same
+   on head (`assets.txt` says which); frame time over 6 s and a screenshot each. Then Sandbox 1 walked 30 m in from z = 160, a frame every
    0.5 s (`walk-00` … `walk-12`), for the level changes.
 3. SSIM of every picture, base against head (ffmpeg); the walk as one strip per site (`walk-base.png`,
    `walk-head.png`).

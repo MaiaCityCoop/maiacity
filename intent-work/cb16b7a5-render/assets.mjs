@@ -31,12 +31,24 @@ const proxy = createServer(async (req, res) => {
 await new Promise((ok) => proxy.listen(3911, '127.0.0.1', ok));
 
 const ASSETS = [
-	{ name: 'powercube', group: 'machines', id: 'cb35a59a-e789-53af-b285-6ee0837dbb44', cut: true },
 	{ name: 'walnut', group: 'plants', id: '34c5d8e0-48e4-541e-8e1d-3f7bfce8e1fe' },
 	{ name: 'goat', group: 'animals', id: '15a2b380-38e8-5aff-9784-b41f234d7b89' },
-	{ name: 'water-canister', group: 'things', id: '4d07974d-8bbc-5d32-95de-4ac7d78d1962' },
-	{ name: 'pickup', group: 'machines', id: '5bf0a85d-2f01-5a78-acc5-84fd63d05731', cut: true }
+	{ name: 'water-canister', group: 'things', id: '4d07974d-8bbc-5d32-95de-4ac7d78d1962' }
 ];
+/** machines that may carry the kit's section caps: the first two that build here and have capped materials are cut open
+ *  (chosen on the first site, the same two on the next; the Power Cube and the pickup name assets the token cannot read) */
+const CUT_CANDIDATES = [
+	{ name: 'batterypack', group: 'machines', id: 'bf1f3ce7-fdbb-5169-8306-a94cf7b600dd' },
+	{ name: 'batterycube', group: 'machines', id: '05e6be57-cffa-500a-9321-b67aa361b522' },
+	{ name: 'electrocube', group: 'machines', id: 'b432d49a-b3d4-51b6-aa6b-745b15fb3234' },
+	{ name: 'forklift', group: 'machines', id: '08796f3c-17f2-5e10-928a-e3f2f11bedd4' },
+	{ name: 'lifetrac', group: 'machines', id: '4548aeef-53b4-5d1d-abd6-cca7a0231761' },
+	{ name: 'excavator-small', group: 'machines', id: '173058ac-c3ee-53f6-86a8-72bf86962201' },
+	{ name: 'pod', group: 'machines', id: 'ebd58339-8d78-5fc4-bd70-7a3651861ba8' },
+	{ name: 'powercube', group: 'machines', id: 'cb35a59a-e789-53af-b285-6ee0837dbb44' },
+	{ name: 'pickup', group: 'machines', id: '5bf0a85d-2f01-5a78-acc5-84fd63d05731' }
+];
+let cutPicked = null;
 const browser = await chromium.launch(process.platform === 'darwin' ? { channel: 'chromium', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] } : { args: ['--ignore-gpu-blocklist'] });
 const clock = () => { const w = window; w.__dt = []; let last = 0; const t = (now) => { if (last) w.__dt.push(now - last); last = now; requestAnimationFrame(t); }; requestAnimationFrame(t); };
 const timed = async (page, ms) => {
@@ -52,7 +64,21 @@ for (const site of sites) {
 	page.on('pageerror', (e) => console.log(`[${site.name}] pageerror ${String(e).slice(0, 300)}`));
 	await page.addInitScript({ content: SEEDED_RANDOM });
 	await page.addInitScript(clock);
-	for (const a of ASSETS) {
+	// the cut-open machines: picked on the first site (built, with capped materials), the same ones after
+	const capsOf = () => { let n = 0; window.__vaultAsset?.stage?.root?.traverse((o) => { for (const m of [o.material].flat()) if (m?.userData?.cap || m?.cap) n++; }); return n; };
+	if (!cutPicked) {
+		cutPicked = [];
+		for (const c of CUT_CANDIDATES) {
+			if (cutPicked.length === 2) break;
+			await page.goto(`${site.url}/${c.group}/#${c.id}`, { waitUntil: 'domcontentloaded' });
+			const built = await page.waitForFunction(() => { const v = window.__vaultAsset; return v && v.hero && !v.building && !v.error; }, null, { timeout: 3 * 60e3 }).then(() => true, () => false);
+			const caps = built ? await page.evaluate(capsOf) : 0;
+			console.log(`cut candidate ${c.name}: built ${built}, capped materials ${caps}`);
+			if (built && caps > 0) cutPicked.push({ ...c, cut: true });
+		}
+		console.log(`cut open: ${cutPicked.map((c) => c.name).join(', ') || 'none built with caps'}`);
+	}
+	for (const a of [...ASSETS, ...cutPicked]) {
 		await page.goto(`${site.url}/${a.group}/#${a.id}`, { waitUntil: 'domcontentloaded' });
 		const ok = await page.waitForFunction(() => { const v = window.__vaultAsset; return v && v.hero && !v.building && !v.error; }, null, { timeout: 5 * 60e3 }).then(() => true, () => false);
 		await page.waitForTimeout(4000);
