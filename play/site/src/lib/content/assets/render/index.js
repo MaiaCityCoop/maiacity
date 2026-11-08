@@ -45,9 +45,21 @@ import { levelValues } from '../lodcard.js';
 import { prepare } from './prepare.js';
 import { coverEye, coverGrow } from '../../render/nodes/index.js';
 import { createPresets } from './presets.js';
-import { lookByName } from '../look.js';
+import { lookByName, lookOfBuilt } from '../look.js';
 import * as TSL from 'three/tsl';
 import { windNodes, windOfCopy, worldSeconds } from '../../render/wind.js';
+
+/**
+ * A material of a kind's build with the look it is drawn by: its own (box format 5), else the one its build gives it
+ * (../look.js `lookOfBuilt`: its name's, or a plant's or living cover's by the material itself), kept on it.
+ */
+function withLook(m, k) {
+	if (m && !m.userData.look) {
+		const look = lookOfBuilt(m, k);
+		if (look) m.userData.look = look;
+	}
+	return m;
+}
 
 /** whether a material says what it is: its look (box format 5), or one its name gives (an older build's, ../look.js) */
 const looked = (m) => (Array.isArray(m) ? m.some(looked) : !!(m?.userData?.look ?? lookByName(m?.name)));
@@ -225,6 +237,7 @@ export function createAssets(o) {
 		k = {
 			key,
 			label: at.label,
+			group: at.group,
 			names,
 			// each level of its shape: built from its recipe (`name`), or made from the coarsest one built (none); a
 			// recipe that declares fewer levels than the selector has is drawn at as many, the selector's coarsest
@@ -331,7 +344,7 @@ export function createAssets(o) {
 			async (got) => {
 				// the materials it was handed (given back when it is let go of: `evict`)
 				const mats = [];
-				lv.level = prepare(got.obj, { of: (m) => (mats.push(presets.of(m)), mats[mats.length - 1]) });
+				lv.level = prepare(got.obj, { of: (m) => (mats.push(presets.of(withLook(m, k))), mats[mats.length - 1]) });
 				lv.mats = mats;
 				lv.from = got.from;
 				// whether this device's cache holds it, to be read again rather than built again once it was let go of

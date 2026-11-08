@@ -5,7 +5,8 @@
  * `look`, one of KINDS, with three numbers in checked ranges:
  *
  *   translucency   0…1    how much sunlight comes through it from behind (a leaf's glow at golden hour; bark none)
- *   stiffness      0.1…10 how hard it is to bend: the wind's main bend is divided by it (grass 0.6, a leaf 1, bark 6)
+ *   stiffness      0.1…10 how stiff it is (grass 0.6, a leaf 1, bark 6): it damps its own flutter; the main bend is
+ *                         the whole copy's, the same for all its materials, so leaves stay on their branches
  *   flutter        0…1    how much its tips shake in the wind on their own (a leaf, a petal; a fruit none)
  *
  * A recipe sets it on a material's `userData.look` (`{ kind: 'leaf' }`, numbers left out take the kind's), and box
@@ -77,6 +78,27 @@ const NAMES = /** @type {[RegExp, keyof typeof KINDS][]} */ ([
 	[/fruit|berry|pod|drupe|pome|peel|husk|nut|seed|cherry|apple|pear|fig|citrus|orange|lemon|lime|banana|mango|plum|apricot|peach|olive|grape|tomato/, 'fruit'],
 	[/stone|rock|pebble|gravel|boulder/, 'stone']
 ]);
+
+/** the biome cover kinds that lie still on the ground: litter, deadwood, stones, moss, mushrooms */
+const STILL = /deadwood|leaves and twigs|litter|twig|moss|mushroom|stone|rock|pebble/i;
+
+/**
+ * The look a material of an accepted build is drawn with where its recipe said none (made before engine 6): its name's
+ * (`lookByName`), else, on a plant or a biome's living cover (`group` plants or biomes), what the material itself
+ * shows: a two-sided one is a leaf (grass on a grass), a one-sided one bark (it moves only with its copy's lean, its tips
+ * still); nothing on anything else, nor on the cover that lies still (litter, deadwood, stones, moss, mushrooms).
+ * @param {{ name?: string, side?: number, alphaTest?: number }} m @param {{ group?: string, label?: string }} kind
+ */
+export function lookOfBuilt(m, kind) {
+	const named = lookByName(m?.name);
+	if (named) return named;
+	if (kind?.group !== 'plants' && kind?.group !== 'biomes') return null;
+	if (STILL.test(kind.label ?? '')) return null;
+	// three's DoubleSide is 2
+	const thin = m?.side === 2 || (m?.alphaTest ?? 0) > 0;
+	const k = thin ? (/grass|sedge|reed|rush/i.test(kind.label ?? '') ? 'grass' : 'leaf') : 'bark';
+	return { kind: k, ...KINDS[k] };
+}
 
 /**
  * A material's look by its name, as plant-skill names materials (`leaf`, `leafBack`, `bark`, `twig`, `pod` …); null

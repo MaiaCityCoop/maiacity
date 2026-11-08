@@ -81,7 +81,8 @@ export const foliage = (Base) =>
 				normalLocal.assign(select(lit, normalize(mix(normalLocal, vec3(0, 1, 0), 0.6)), normalLocal));
 			}
 			const w = windLook(look);
-			if (w) positionLocal.assign(this.wind.positionOf(w));
+			// the whole copy bends alike (stiffness 1: its leaves stay on their branches); the look's own numbers shake its tips
+			if (w) positionLocal.assign(this.wind.positionOf({ stiffness: 1, flutter: w.flutter }));
 			return out;
 		}
 
