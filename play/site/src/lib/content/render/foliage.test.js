@@ -125,3 +125,20 @@ describe("on the render kit's own materials (intent cb16b7a5)", () => {
 		expect(lookedOf(n, { kind: 'leaf' }, null)).toBe(n);
 	});
 });
+
+describe('one copy bends as one', () => {
+	test('every look of a copy takes the same main bend (stiffness 1): its leaves stay on its branches', () => {
+		const wind = windNodes(tsl);
+		const asked = [];
+		const positionOf = wind.positionOf;
+		wind.positionOf = (o) => (asked.push(o), positionOf(o));
+		for (const kind of ['leaf', 'bark', 'stem', 'fruit']) {
+			const m = new THREE.MeshStandardMaterial();
+			draw(foliageOf(m, { kind }, { wind }));
+		}
+		expect(asked.length).toBe(4);
+		for (const o of asked) expect(o.stiffness).toBe(1);
+		// the tips' own flutter differs by the look
+		expect(asked[0].flutter).toBeGreaterThan(asked[1].flutter);
+	});
+});

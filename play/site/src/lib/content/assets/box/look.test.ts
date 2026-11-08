@@ -4,7 +4,7 @@ import { describe, expect, test } from 'vitest'
 import * as THREE from 'three'
 import { serialize, FORMAT } from './serialize.js'
 import { FORMATS, rebuild } from './rebuild.js'
-import { KINDS, lookByName, lookOf } from '../look.js'
+import { KINDS, lookByName, lookOf, lookOfBuilt } from '../look.js'
 
 ;(globalThis as any).self ??= globalThis
 
@@ -115,5 +115,26 @@ describe("looks from plant-skill's names, for builds that carry none", () => {
 		expect(lookByName('steel')).toBeNull()
 		expect(lookByName('')).toBeNull()
 		expect(lookByName(undefined)).toBeNull()
+	})
+})
+
+describe('the look an accepted build is drawn with, where it carries none', () => {
+	const plant = { group: 'plants', label: 'Plum' }
+	test("a material's name first", () => {
+		expect(lookOfBuilt({ name: 'papaya bark', side: 2 }, plant)?.kind).toBe('bark')
+	})
+	test("an unnamed plant's two-sided material is a leaf, a one-sided one bark", () => {
+		expect(lookOfBuilt({ name: '', side: THREE.DoubleSide }, plant)?.kind).toBe('leaf')
+		expect(lookOfBuilt({ name: '', side: THREE.FrontSide, alphaTest: 0.5 }, plant)?.kind).toBe('leaf')
+		expect(lookOfBuilt({ name: '', side: THREE.FrontSide }, plant)?.kind).toBe('bark')
+	})
+	test("a grass of the biomes' cover is grass; the cover that lies still has none", () => {
+		expect(lookOfBuilt({ name: '', side: THREE.DoubleSide }, { group: 'biomes', label: 'Biome cover: Tall grass' })?.kind).toBe('grass')
+		expect(lookOfBuilt({ name: '', side: THREE.DoubleSide }, { group: 'biomes', label: 'Biome cover: Buttercup' })?.kind).toBe('leaf')
+		for (const label of ['Biome cover: Deadwood', 'Biome cover: Stones', 'Biome cover: Moss cushions', 'Biome cover: Leaves and twigs', 'Biome cover: Mushrooms'])
+			expect(lookOfBuilt({ name: '', side: THREE.DoubleSide }, { group: 'biomes', label })).toBeNull()
+	})
+	test("a thing's material has none", () => {
+		expect(lookOfBuilt({ name: '', side: THREE.DoubleSide }, { group: 'things', label: 'Chicken coop' })).toBeNull()
 	})
 })
