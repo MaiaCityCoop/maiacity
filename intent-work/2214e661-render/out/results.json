@@ -1,0 +1,649 @@
+{
+ "intent": "2214e661-65d1-48d6-9b2c-a3293a79d9e5",
+ "commits": {
+  "base": "57d0c716ceb7f84f0afd40cf00b9b2cf87bead40",
+  "head": "5506111d77d9fce008ba15742c4d9091a424a844"
+ },
+ "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+ "viewport": [
+  1440,
+  900
+ ],
+ "sample_s": 3,
+ "at": "2026-11-08T14:37:40.861Z",
+ "views": [
+  {
+   "site": "base",
+   "world": "sandbox-1",
+   "hour": "noon",
+   "view": "near",
+   "settled": true,
+   "at": [
+    0,
+    95,
+    0,
+    -0.05
+   ],
+   "h": 12,
+   "frames": 116,
+   "frame_ms": 26.1,
+   "frame_p95": 33.4,
+   "cpu_ms": 13.4,
+   "gpu_ms": 18.8,
+   "calls": 1785,
+   "bound": "gpu",
+   "tris": 3271783,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 209,
+     "tris": 62382
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 1576,
+     "tris": 3209401
+    }
+   },
+   "png": "base-sandbox-1-noon-near.png"
+  },
+  {
+   "site": "base",
+   "world": "sandbox-1",
+   "hour": "noon",
+   "view": "mid",
+   "settled": true,
+   "at": [
+    0,
+    235,
+    0,
+    -0.05
+   ],
+   "h": 12,
+   "frames": 86,
+   "frame_ms": 35.7,
+   "frame_p95": 50,
+   "cpu_ms": 17,
+   "gpu_ms": 26.4,
+   "calls": 1755,
+   "bound": "gpu",
+   "tris": 5170560,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 220,
+     "tris": 71695
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 1535,
+     "tris": 5098865
+    }
+   },
+   "png": "base-sandbox-1-noon-mid.png"
+  },
+  {
+   "site": "base",
+   "world": "sandbox-1",
+   "hour": "noon",
+   "view": "far",
+   "settled": true,
+   "at": [
+    0,
+    370,
+    0,
+    -0.12
+   ],
+   "h": 12,
+   "frames": 180,
+   "frame_ms": 16.8,
+   "frame_p95": 16.7,
+   "cpu_ms": 9.4,
+   "gpu_ms": 8.8,
+   "calls": 851,
+   "bound": "vsync",
+   "tris": 1394557,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 110,
+     "tris": 64936
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 741,
+     "tris": 1329621
+    }
+   },
+   "png": "base-sandbox-1-noon-far.png"
+  },
+  {
+   "site": "base",
+   "world": "sandbox-1",
+   "hour": "sun8",
+   "view": "near",
+   "settled": true,
+   "at": [
+    0,
+    95,
+    0,
+    -0.05
+   ],
+   "h": 19.437,
+   "frames": 122,
+   "frame_ms": 24.9,
+   "frame_p95": 33.4,
+   "cpu_ms": 12.5,
+   "gpu_ms": 18.2,
+   "calls": 1785,
+   "bound": "gpu",
+   "tris": 3276879,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 209,
+     "tris": 62382
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 1576,
+     "tris": 3214497
+    }
+   },
+   "png": "base-sandbox-1-sun8-near.png"
+  },
+  {
+   "site": "base",
+   "world": "sandbox-1",
+   "hour": "sun8",
+   "view": "mid",
+   "settled": true,
+   "at": [
+    0,
+    235,
+    0,
+    -0.05
+   ],
+   "h": 19.437,
+   "frames": 93,
+   "frame_ms": 32.6,
+   "frame_p95": 50,
+   "cpu_ms": 14.9,
+   "gpu_ms": 24.8,
+   "calls": 1753,
+   "bound": "gpu",
+   "tris": 4835880,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 220,
+     "tris": 71695
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 1533,
+     "tris": 4764185
+    }
+   },
+   "png": "base-sandbox-1-sun8-mid.png"
+  },
+  {
+   "site": "base",
+   "world": "sandbox-1",
+   "hour": "sun8",
+   "view": "far",
+   "settled": true,
+   "at": [
+    0,
+    370,
+    0,
+    -0.12
+   ],
+   "h": 19.437,
+   "frames": 181,
+   "frame_ms": 16.7,
+   "frame_p95": 16.7,
+   "cpu_ms": 7.4,
+   "gpu_ms": 8.7,
+   "calls": 851,
+   "bound": "vsync",
+   "tris": 1394557,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 110,
+     "tris": 64936
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 741,
+     "tris": 1329621
+    }
+   },
+   "png": "base-sandbox-1-sun8-far.png"
+  },
+  {
+   "site": "base",
+   "world": "sandbox-3",
+   "hour": "own",
+   "view": "open",
+   "frames": 182,
+   "frame_ms": 16.7,
+   "frame_p95": 16.8,
+   "cpu_ms": 5.2,
+   "gpu_ms": 6.4,
+   "calls": 1109,
+   "bound": "vsync",
+   "tris": 690652,
+   "buckets": {
+    "shadow": {
+     "calls": 815,
+     "tris": 244725
+    },
+    "blend": {
+     "calls": 8,
+     "tris": 60
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 286,
+     "tris": 445867
+    }
+   },
+   "png": "base-sandbox-3-own-open.png"
+  },
+  {
+   "site": "head",
+   "world": "sandbox-1",
+   "hour": "noon",
+   "view": "near",
+   "settled": true,
+   "at": [
+    0,
+    95,
+    0,
+    -0.05
+   ],
+   "h": 12,
+   "frames": 121,
+   "frame_ms": 25,
+   "frame_p95": 33.4,
+   "cpu_ms": 12.9,
+   "gpu_ms": 18.4,
+   "calls": 1785,
+   "bound": "gpu",
+   "tris": 3283783,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 209,
+     "tris": 74382
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 1576,
+     "tris": 3209401
+    }
+   },
+   "png": "head-sandbox-1-noon-near.png"
+  },
+  {
+   "site": "head",
+   "world": "sandbox-1",
+   "hour": "noon",
+   "view": "mid",
+   "settled": true,
+   "at": [
+    0,
+    235,
+    0,
+    -0.05
+   ],
+   "h": 12,
+   "frames": 94,
+   "frame_ms": 32.3,
+   "frame_p95": 33.4,
+   "cpu_ms": 13.3,
+   "gpu_ms": 25.6,
+   "calls": 1755,
+   "bound": "gpu",
+   "tris": 5182594,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 220,
+     "tris": 83695
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 1535,
+     "tris": 5098899
+    }
+   },
+   "png": "head-sandbox-1-noon-mid.png"
+  },
+  {
+   "site": "head",
+   "world": "sandbox-1",
+   "hour": "noon",
+   "view": "far",
+   "settled": true,
+   "at": [
+    0,
+    370,
+    0,
+    -0.12
+   ],
+   "h": 12,
+   "frames": 181,
+   "frame_ms": 16.7,
+   "frame_p95": 16.8,
+   "cpu_ms": 7.5,
+   "gpu_ms": 9.1,
+   "calls": 851,
+   "bound": "vsync",
+   "tris": 1406557,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 110,
+     "tris": 76936
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 741,
+     "tris": 1329621
+    }
+   },
+   "png": "head-sandbox-1-noon-far.png"
+  },
+  {
+   "site": "head",
+   "world": "sandbox-1",
+   "hour": "sun8",
+   "view": "near",
+   "settled": true,
+   "at": [
+    0,
+    95,
+    0,
+    -0.05
+   ],
+   "h": 19.437,
+   "frames": 119,
+   "frame_ms": 25.6,
+   "frame_p95": 33.4,
+   "cpu_ms": 14,
+   "gpu_ms": 18.7,
+   "calls": 1785,
+   "bound": "gpu",
+   "tris": 3288879,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 209,
+     "tris": 74382
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 1576,
+     "tris": 3214497
+    }
+   },
+   "png": "head-sandbox-1-sun8-near.png"
+  },
+  {
+   "site": "head",
+   "world": "sandbox-1",
+   "hour": "sun8",
+   "view": "mid",
+   "settled": true,
+   "at": [
+    0,
+    235,
+    0,
+    -0.05
+   ],
+   "h": 19.437,
+   "frames": 97,
+   "frame_ms": 31.4,
+   "frame_p95": 33.5,
+   "cpu_ms": 13.8,
+   "gpu_ms": 24.7,
+   "calls": 1753,
+   "bound": "gpu",
+   "tris": 4847914,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 220,
+     "tris": 83695
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 1533,
+     "tris": 4764219
+    }
+   },
+   "png": "head-sandbox-1-sun8-mid.png"
+  },
+  {
+   "site": "head",
+   "world": "sandbox-1",
+   "hour": "sun8",
+   "view": "far",
+   "settled": true,
+   "at": [
+    0,
+    370,
+    0,
+    -0.12
+   ],
+   "h": 19.437,
+   "frames": 181,
+   "frame_ms": 16.7,
+   "frame_p95": 16.7,
+   "cpu_ms": 9.7,
+   "gpu_ms": 9,
+   "calls": 851,
+   "bound": "vsync",
+   "tris": 1406557,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 110,
+     "tris": 76936
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 741,
+     "tris": 1329621
+    }
+   },
+   "png": "head-sandbox-1-sun8-far.png"
+  },
+  {
+   "site": "head",
+   "world": "sandbox-3",
+   "hour": "own",
+   "view": "open",
+   "frames": 181,
+   "frame_ms": 16.7,
+   "frame_p95": 16.7,
+   "cpu_ms": 4,
+   "gpu_ms": 7.1,
+   "calls": 303,
+   "bound": "vsync",
+   "tris": 458115,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 9,
+     "tris": 12060
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 294,
+     "tris": 446055
+    }
+   },
+   "png": "head-sandbox-3-own-open.png"
+  }
+ ],
+ "delta": [
+  {
+   "view": "sandbox-1 noon near",
+   "base_ms": 26.1,
+   "head_ms": 25,
+   "delta_ms": -1.1000000000000014,
+   "base_bound": "gpu",
+   "head_bound": "gpu",
+   "within": true
+  },
+  {
+   "view": "sandbox-1 noon mid",
+   "base_ms": 35.7,
+   "head_ms": 32.3,
+   "delta_ms": -3.4000000000000057,
+   "base_bound": "gpu",
+   "head_bound": "gpu",
+   "within": true
+  },
+  {
+   "view": "sandbox-1 noon far",
+   "base_ms": 16.8,
+   "head_ms": 16.7,
+   "delta_ms": -0.10000000000000142,
+   "base_bound": "vsync",
+   "head_bound": "vsync",
+   "within": true
+  },
+  {
+   "view": "sandbox-1 sun8 near",
+   "base_ms": 24.9,
+   "head_ms": 25.6,
+   "delta_ms": 0.7000000000000028,
+   "base_bound": "gpu",
+   "head_bound": "gpu",
+   "within": true
+  },
+  {
+   "view": "sandbox-1 sun8 mid",
+   "base_ms": 32.6,
+   "head_ms": 31.4,
+   "delta_ms": -1.2000000000000028,
+   "base_bound": "gpu",
+   "head_bound": "gpu",
+   "within": true
+  },
+  {
+   "view": "sandbox-1 sun8 far",
+   "base_ms": 16.7,
+   "head_ms": 16.7,
+   "delta_ms": 0,
+   "base_bound": "vsync",
+   "head_bound": "vsync",
+   "within": true
+  },
+  {
+   "view": "sandbox-3 own open",
+   "base_ms": 16.7,
+   "head_ms": 16.7,
+   "delta_ms": 0,
+   "base_bound": "vsync",
+   "head_bound": "vsync",
+   "within": true
+  }
+ ],
+ "errors": {
+  "base": [
+   "console: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "console: Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  ],
+  "head": [
+   "console: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "console: Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  ]
+ }
+}
