@@ -171,7 +171,11 @@ export function smooth(a, b, v) {
  * intent db87a28f), so the grass and the ground beyond it brighten and darken together and no edge shows (around 1)
  * @param {number} x @param {number} z
  */
-export const macroAt = (x, z) => (vn(x / 5, z / 5) * 0.3 + vn(x / 20 + 3.1, z / 20 + 3.1) * 0.35 + vn(x / 80 + 7.7, z / 80 + 7.7) * 0.35 - 0.5) * 0.26 + 1;
+export const macroAt = (x, z) => {
+	// the ground reads it at (x, −z) (render/nodes/ground.js `bw`)
+	const w = -z;
+	return (vn(x / 5, w / 5) * 0.3 + vn(x / 20 + 3.1, w / 20 + 3.1) * 0.35 + vn(x / 80 + 7.7, w / 80 + 7.7) * 0.35 - 0.5) * 0.26 + 1;
+};
 export const fieldAt = (x, z) => vn(x * 1.1 + 17.3, z * 1.1 - 4.1) * 0.45 + fbm2(x / 5 + 3.1, z / 5 - 1.7) * 0.3 + vn(x / 20 + 3.1, z / 20) * 0.15 + vn(x / 80 + 7.7, z / 80) * 0.1;
 
 /** a clump's centre in its cell of the clump grid (`size` across) @param {number} gx @param {number} gz @param {number} size */

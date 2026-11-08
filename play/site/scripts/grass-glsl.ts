@@ -31,11 +31,18 @@ const renderer: any = {
 const handler = new WebGLNodesHandler();
 handler.setRenderer(renderer);
 const scene = new THREE.Scene();
-const sun = new THREE.DirectionalLight(0xffffff, 3);
-sun.castShadow = true;
+// the sky's own sun (sandbox-kit/sky.js: a SunLight, its node registered as #2's fix does, so node materials are lit by it)
+const { SunLight } = await import('three/addons/lights/SunLight.js');
+const { SunLightNode } = await import('three/addons/lights/SunLightNode.js');
+SunLight.registerNode(SunLightNode);
+const sky = new SunLight(0xffffff, 3);
+sky.position.set(1, 2, 1);
+// and a DirectionalLight casting a shadow (the stub has no cascades to give a SunLight's), so receiving one is built too
+const sun = new THREE.DirectionalLight(0xffffff, 1);
 sun.shadow.map = new THREE.WebGLRenderTarget(16, 16, { depthTexture: new THREE.DepthTexture(16, 16) });
 (sun.shadow.map.depthTexture as THREE.DepthTexture).compareFunction = THREE.LessEqualCompare;
-scene.add(sun, new THREE.HemisphereLight());
+sun.castShadow = true;
+scene.add(sun, sky, new THREE.HemisphereLight());
 scene.fog = new THREE.Fog(0xcccccc, 10, 200);
 const camera = new THREE.PerspectiveCamera(50, 1.6, 0.1, 1000);
 const U = grassUniforms(new THREE.DataTexture(new Uint16Array(4), 1, 1, THREE.RGBAFormat, THREE.HalfFloatType));
@@ -45,11 +52,12 @@ for (const level of [0, 1, 2] as const) {
 	const mesh = new THREE.Mesh(levelGeometry(level), mat);
 	mesh.receiveShadow = true;
 	handler.renderStart(scene, camera);
-	handler.updateLights?.([sun, ...scene.children.filter((c) => (c as THREE.Light).isHemisphereLight)]);
+	handler.updateLights?.([sun, sky, ...scene.children.filter((c) => (c as THREE.Light).isHemisphereLight)]);
 	const params: any = {};
 	try {
 		handler.build(mat, mesh, params);
 		const v: string = params.vertexShader, f: string = params.fragmentShader;
+		if (!/directionalLight|sunLight|SunLight/i.test(f) && !/NdotL|dotNL/.test(f)) console.warn(`level ${level}: no sun in its fragment shader`);
 		console.log(`level ${level}: vertex ${v.split('\n').length} lines, fragment ${f.split('\n').length} lines`);
 		if (process.argv.includes('--print')) console.log(v, '\n-----\n', f);
 		// held to the GLSL ES 3.00 grammar where glslangValidator is installed (apt glslang-tools)

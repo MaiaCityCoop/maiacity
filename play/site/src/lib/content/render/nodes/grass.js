@@ -74,7 +74,12 @@ const fieldT = (/** @type {any} */ p) => {
 };
 
 /** grass.js `macroAt`: the ground's brightness over 5, 20 and 80 m */
-const macroT = (/** @type {any} */ p) => vnT(p.div(5)).mul(0.3).add(vnT(p.div(20).add(3.1)).mul(0.35)).add(vnT(p.div(80).add(7.7)).mul(0.35)).sub(0.5).mul(0.26).add(1);
+const macroT = (/** @type {any} */ q) => {
+	// the ground reads it at (x, −z) (render/nodes/ground.js `bw`)
+	const p = vec2(q.x, q.y.negate());
+	return macroOf(p);
+};
+const macroOf = (/** @type {any} */ p) => vnT(p.div(5)).mul(0.3).add(vnT(p.div(20).add(3.1)).mul(0.35)).add(vnT(p.div(80).add(7.7)).mul(0.35)).sub(0.5).mul(0.26).add(1);
 
 /** grass.js `clumpCentre`: x, z, height, shade */
 const clumpCentreT = (/** @type {any} */ g, /** @type {any} */ size) => {

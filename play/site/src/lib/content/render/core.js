@@ -24,6 +24,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
 import { reopenOnRestore } from './budget.js';
+import { useRenderer } from './arrays.js';
 
 /** tone mappings by name: AgX forms every page's picture (intent 2214e661; the films keep their own chain, ../film/) */
 export const TONE = /** @type {const} */ ({ none: THREE.NoToneMapping, agx: THREE.AgXToneMapping });
@@ -93,6 +94,7 @@ export const SHADOWS = /** @type {const} */ ({ pcf: THREE.PCFShadowMap, basic: T
  */
 export function createRenderer(o = {}) {
 	const renderer = new THREE.WebGLRenderer({ canvas: o.canvas, antialias: o.antialias ?? true, alpha: o.alpha, powerPreference: o.power, preserveDrawingBuffer: o.preserve });
+	useRenderer(renderer);
 	renderer.setPixelRatio(o.pixelRatio ?? Math.min(o.maxPixelRatio ?? 2, window.devicePixelRatio || 1));
 	if (o.colorSpace) renderer.outputColorSpace = o.colorSpace;
 	setTone(renderer, o.toneMapping, o.exposure);
