@@ -1,0 +1,64 @@
+{
+ "rows": [
+  {
+   "view": "sandbox-1 near",
+   "ssim": 0.989068,
+   "base_ms": 22.7,
+   "head_ms": 22.3,
+   "base_p95": 33.4,
+   "head_p95": 33.4,
+   "base_bound": "gpu",
+   "head_bound": "gpu",
+   "base_gpu": 16,
+   "head_gpu": 15.4,
+   "base_tris": 3271783,
+   "head_tris": 3276879
+  },
+  {
+   "view": "sandbox-1 mid",
+   "ssim": 0.960942,
+   "base_ms": 31.9,
+   "head_ms": 25.9,
+   "base_p95": 49.9,
+   "head_p95": 33.4,
+   "base_bound": "gpu",
+   "head_bound": "gpu",
+   "base_gpu": 24.1,
+   "head_gpu": 19.3,
+   "base_tris": 5181022,
+   "head_tris": 5168916
+  },
+  {
+   "view": "sandbox-1 far",
+   "ssim": 0.786759,
+   "base_ms": 16.7,
+   "head_ms": 16.7,
+   "base_p95": 16.7,
+   "head_p95": 16.7,
+   "base_bound": "vsync",
+   "head_bound": "vsync",
+   "base_gpu": 8.5,
+   "head_gpu": 8.1,
+   "base_tris": 1394557,
+   "head_tris": 1392509
+  },
+  {
+   "view": "sandbox-3 open",
+   "ssim": 0.796661,
+   "base_ms": 16.7,
+   "head_ms": 16.7,
+   "base_p95": 16.7,
+   "head_p95": 16.8,
+   "base_bound": "vsync",
+   "head_bound": "vsync",
+   "base_gpu": 5.9,
+   "head_gpu": 5.9,
+   "base_tris": 690652,
+   "head_tris": 690828
+  }
+ ],
+ "parity_lowest": {
+  "head": 0.96,
+  "base": 0.9604
+ }
+}

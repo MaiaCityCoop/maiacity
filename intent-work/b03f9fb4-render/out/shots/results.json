@@ -1,0 +1,366 @@
+[
+ {
+  "site": "base",
+  "world": "sandbox-1",
+  "view": "near",
+  "settled": true,
+  "frames": 338,
+  "frameMs": 23.7,
+  "frameP95": 33.39999999999418,
+  "tris": 3271783,
+  "trisMax": 3271783,
+  "assets": {
+   "out": {
+    "tris": 277820,
+    "calls": 68,
+    "levels": [
+     1,
+     102
+    ],
+    "pictures": 2575,
+    "copies": 6995
+   },
+   "in": {
+    "tris": 6318,
+    "calls": 4,
+    "levels": [
+     0,
+     1
+    ],
+    "pictures": 611,
+    "copies": 671
+   },
+   "library": {
+    "tris": 173589,
+    "calls": 118,
+    "levels": [
+     0,
+     0,
+     689
+    ],
+    "pictures": 0,
+    "copies": 1461
+   }
+  },
+  "meter": {
+   "frames": 177,
+   "frame_ms": 22.7,
+   "frame_p95": 33.4,
+   "cpu_ms": 10.2,
+   "gpu_ms": 16,
+   "calls": 1785,
+   "triangles": 3271783,
+   "bound": "gpu"
+  },
+  "png": "/Users/samuelandert/Documents/Development/sb03f-render/intent-work/b03f9fb4-render/out/shots/base-sandbox-1-near.png"
+ },
+ {
+  "site": "base",
+  "world": "sandbox-1",
+  "view": "mid",
+  "settled": true,
+  "frames": 257,
+  "frameMs": 31.3,
+  "frameP95": 49.89999999999418,
+  "tris": 5181022,
+  "trisMax": 5181022,
+  "assets": {
+   "out": {
+    "tris": 2408963,
+    "calls": 103,
+    "levels": [
+     14,
+     61
+    ],
+    "pictures": 4079,
+    "copies": 7153
+   },
+   "in": {
+    "tris": 90,
+    "calls": 1,
+    "levels": [
+     0,
+     0
+    ],
+    "pictures": 45,
+    "copies": 45
+   },
+   "library": {
+    "tris": 179371,
+    "calls": 37,
+    "levels": [
+     0,
+     1,
+     628
+    ],
+    "pictures": 0,
+    "copies": 2613
+   }
+  },
+  "meter": {
+   "frames": 127,
+   "frame_ms": 31.9,
+   "frame_p95": 49.9,
+   "cpu_ms": 13.3,
+   "gpu_ms": 24.1,
+   "calls": 1764,
+   "triangles": 5175682,
+   "bound": "gpu"
+  },
+  "png": "/Users/samuelandert/Documents/Development/sb03f-render/intent-work/b03f9fb4-render/out/shots/base-sandbox-1-mid.png"
+ },
+ {
+  "site": "base",
+  "world": "sandbox-1",
+  "view": "far",
+  "settled": true,
+  "frames": 479,
+  "frameMs": 16.7,
+  "frameP95": 16.70000000001164,
+  "tris": 1394557,
+  "trisMax": 1394557,
+  "assets": {
+   "out": {
+    "tris": 47550,
+    "calls": 4,
+    "levels": [
+     0,
+     4
+    ],
+    "pictures": 6173,
+    "copies": 7028
+   },
+   "in": {
+    "tris": 0,
+    "calls": 0,
+    "levels": [
+     0,
+     0
+    ],
+    "pictures": 0,
+    "copies": 0
+   },
+   "library": {
+    "tris": 41980,
+    "calls": 25,
+    "levels": [
+     0,
+     0,
+     11
+    ],
+    "pictures": 0,
+    "copies": 11
+   }
+  },
+  "meter": {
+   "frames": 241,
+   "frame_ms": 16.7,
+   "frame_p95": 16.7,
+   "cpu_ms": 6,
+   "gpu_ms": 8.5,
+   "calls": 851,
+   "triangles": 1394557,
+   "bound": "vsync"
+  },
+  "png": "/Users/samuelandert/Documents/Development/sb03f-render/intent-work/b03f9fb4-render/out/shots/base-sandbox-1-far.png"
+ },
+ {
+  "site": "base",
+  "world": "sandbox-3",
+  "view": "open",
+  "tris": 690652,
+  "meter": {
+   "frames": 241,
+   "frame_ms": 16.7,
+   "frame_p95": 16.7,
+   "cpu_ms": 4.6,
+   "gpu_ms": 5.9,
+   "calls": 1109,
+   "triangles": 690652,
+   "bound": "vsync"
+  },
+  "png": "/Users/samuelandert/Documents/Development/sb03f-render/intent-work/b03f9fb4-render/out/shots/base-sandbox-3-open.png"
+ },
+ {
+  "site": "head",
+  "world": "sandbox-1",
+  "view": "near",
+  "settled": true,
+  "frames": 363,
+  "frameMs": 21.9,
+  "frameP95": 33.39999999999418,
+  "tris": 3276879,
+  "trisMax": 3276879,
+  "assets": {
+   "out": {
+    "tris": 277820,
+    "calls": 68,
+    "levels": [
+     1,
+     102
+    ],
+    "pictures": 2575,
+    "copies": 6995
+   },
+   "in": {
+    "tris": 11414,
+    "calls": 4,
+    "levels": [
+     0,
+     2
+    ],
+    "pictures": 611,
+    "copies": 671
+   },
+   "library": {
+    "tris": 173589,
+    "calls": 118,
+    "levels": [
+     0,
+     0,
+     689
+    ],
+    "pictures": 0,
+    "copies": 1461
+   }
+  },
+  "meter": {
+   "frames": 181,
+   "frame_ms": 22.3,
+   "frame_p95": 33.4,
+   "cpu_ms": 12,
+   "gpu_ms": 15.4,
+   "calls": 1785,
+   "triangles": 3276879,
+   "bound": "gpu"
+  },
+  "png": "/Users/samuelandert/Documents/Development/sb03f-render/intent-work/b03f9fb4-render/out/shots/head-sandbox-1-near.png"
+ },
+ {
+  "site": "head",
+  "world": "sandbox-1",
+  "view": "mid",
+  "settled": true,
+  "frames": 298,
+  "frameMs": 26.7,
+  "frameP95": 33.40000000000873,
+  "tris": 5168916,
+  "trisMax": 5168916,
+  "assets": {
+   "out": {
+    "tris": 2408963,
+    "calls": 103,
+    "levels": [
+     14,
+     61
+    ],
+    "pictures": 4079,
+    "copies": 7153
+   },
+   "in": {
+    "tris": 90,
+    "calls": 1,
+    "levels": [
+     0,
+     0
+    ],
+    "pictures": 45,
+    "copies": 45
+   },
+   "library": {
+    "tris": 179371,
+    "calls": 37,
+    "levels": [
+     0,
+     1,
+     628
+    ],
+    "pictures": 0,
+    "copies": 2613
+   }
+  },
+  "meter": {
+   "frames": 156,
+   "frame_ms": 25.9,
+   "frame_p95": 33.4,
+   "cpu_ms": 10.6,
+   "gpu_ms": 19.3,
+   "calls": 1755,
+   "triangles": 5168916,
+   "bound": "gpu"
+  },
+  "png": "/Users/samuelandert/Documents/Development/sb03f-render/intent-work/b03f9fb4-render/out/shots/head-sandbox-1-mid.png"
+ },
+ {
+  "site": "head",
+  "world": "sandbox-1",
+  "view": "far",
+  "settled": true,
+  "frames": 461,
+  "frameMs": 17.3,
+  "frameP95": 16.70000000001164,
+  "tris": 1392509,
+  "trisMax": 1392509,
+  "assets": {
+   "out": {
+    "tris": 47550,
+    "calls": 4,
+    "levels": [
+     0,
+     4
+    ],
+    "pictures": 6173,
+    "copies": 7028
+   },
+   "in": {
+    "tris": 0,
+    "calls": 0,
+    "levels": [
+     0,
+     0
+    ],
+    "pictures": 0,
+    "copies": 0
+   },
+   "library": {
+    "tris": 41980,
+    "calls": 25,
+    "levels": [
+     0,
+     0,
+     11
+    ],
+    "pictures": 0,
+    "copies": 11
+   }
+  },
+  "meter": {
+   "frames": 241,
+   "frame_ms": 16.7,
+   "frame_p95": 16.7,
+   "cpu_ms": 5.1,
+   "gpu_ms": 8.1,
+   "calls": 851,
+   "triangles": 1392509,
+   "bound": "vsync"
+  },
+  "png": "/Users/samuelandert/Documents/Development/sb03f-render/intent-work/b03f9fb4-render/out/shots/head-sandbox-1-far.png"
+ },
+ {
+  "site": "head",
+  "world": "sandbox-3",
+  "view": "open",
+  "tris": 690828,
+  "meter": {
+   "frames": 241,
+   "frame_ms": 16.7,
+   "frame_p95": 16.8,
+   "cpu_ms": 4.6,
+   "gpu_ms": 5.9,
+   "calls": 1116,
+   "triangles": 690828,
+   "bound": "vsync"
+  },
+  "png": "/Users/samuelandert/Documents/Development/sb03f-render/intent-work/b03f9fb4-render/out/shots/head-sandbox-3-open.png"
+ }
+]

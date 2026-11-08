@@ -1,0 +1,4 @@
+1.00 s: SSIM 0.9617
+3.00 s: SSIM 0.9741
+5.00 s: SSIM 0.9600
+lowest SSIM 0.9600 (at least 0.98); the stills are in /Users/samuelandert/Documents/Development/sb03f-render/intent-work/b03f9fb4-render/out/parity-head

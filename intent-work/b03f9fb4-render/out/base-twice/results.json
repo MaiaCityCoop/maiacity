@@ -1,0 +1,366 @@
+[
+ {
+  "site": "base",
+  "world": "sandbox-1",
+  "view": "near",
+  "settled": true,
+  "frames": 338,
+  "frameMs": 23.6,
+  "frameP95": 33.400000000001455,
+  "tris": 3276879,
+  "trisMax": 3276879,
+  "assets": {
+   "out": {
+    "tris": 277820,
+    "calls": 68,
+    "levels": [
+     1,
+     102
+    ],
+    "pictures": 2575,
+    "copies": 6995
+   },
+   "in": {
+    "tris": 11414,
+    "calls": 4,
+    "levels": [
+     0,
+     2
+    ],
+    "pictures": 611,
+    "copies": 671
+   },
+   "library": {
+    "tris": 173589,
+    "calls": 118,
+    "levels": [
+     0,
+     0,
+     689
+    ],
+    "pictures": 0,
+    "copies": 1461
+   }
+  },
+  "meter": {
+   "frames": 174,
+   "frame_ms": 23.2,
+   "frame_p95": 33.4,
+   "cpu_ms": 11.1,
+   "gpu_ms": 16.5,
+   "calls": 1785,
+   "triangles": 3276879,
+   "bound": "gpu"
+  },
+  "png": "/Users/samuelandert/Documents/Development/sb03f-render/intent-work/b03f9fb4-render/out/base-twice/base-sandbox-1-near.png"
+ },
+ {
+  "site": "base",
+  "world": "sandbox-1",
+  "view": "mid",
+  "settled": true,
+  "frames": 262,
+  "frameMs": 30.5,
+  "frameP95": 33.40000000000873,
+  "tris": 5170208,
+  "trisMax": 5170208,
+  "assets": {
+   "out": {
+    "tris": 2408963,
+    "calls": 103,
+    "levels": [
+     14,
+     61
+    ],
+    "pictures": 4079,
+    "copies": 7153
+   },
+   "in": {
+    "tris": 90,
+    "calls": 1,
+    "levels": [
+     0,
+     0
+    ],
+    "pictures": 45,
+    "copies": 45
+   },
+   "library": {
+    "tris": 179371,
+    "calls": 37,
+    "levels": [
+     0,
+     1,
+     628
+    ],
+    "pictures": 0,
+    "copies": 2613
+   }
+  },
+  "meter": {
+   "frames": 134,
+   "frame_ms": 30.2,
+   "frame_p95": 33.4,
+   "cpu_ms": 11.8,
+   "gpu_ms": 23.1,
+   "calls": 1755,
+   "triangles": 5170208,
+   "bound": "gpu"
+  },
+  "png": "/Users/samuelandert/Documents/Development/sb03f-render/intent-work/b03f9fb4-render/out/base-twice/base-sandbox-1-mid.png"
+ },
+ {
+  "site": "base",
+  "world": "sandbox-1",
+  "view": "far",
+  "settled": true,
+  "frames": 478,
+  "frameMs": 16.7,
+  "frameP95": 16.70000000001164,
+  "tris": 1394557,
+  "trisMax": 1394557,
+  "assets": {
+   "out": {
+    "tris": 47550,
+    "calls": 4,
+    "levels": [
+     0,
+     4
+    ],
+    "pictures": 6173,
+    "copies": 7028
+   },
+   "in": {
+    "tris": 0,
+    "calls": 0,
+    "levels": [
+     0,
+     0
+    ],
+    "pictures": 0,
+    "copies": 0
+   },
+   "library": {
+    "tris": 41980,
+    "calls": 25,
+    "levels": [
+     0,
+     0,
+     11
+    ],
+    "pictures": 0,
+    "copies": 11
+   }
+  },
+  "meter": {
+   "frames": 241,
+   "frame_ms": 16.7,
+   "frame_p95": 16.8,
+   "cpu_ms": 5.8,
+   "gpu_ms": 8.5,
+   "calls": 851,
+   "triangles": 1394557,
+   "bound": "vsync"
+  },
+  "png": "/Users/samuelandert/Documents/Development/sb03f-render/intent-work/b03f9fb4-render/out/base-twice/base-sandbox-1-far.png"
+ },
+ {
+  "site": "base",
+  "world": "sandbox-3",
+  "view": "open",
+  "tris": 696812,
+  "meter": {
+   "frames": 241,
+   "frame_ms": 16.7,
+   "frame_p95": 16.7,
+   "cpu_ms": 3.9,
+   "gpu_ms": 6.1,
+   "calls": 1112,
+   "triangles": 696812,
+   "bound": "vsync"
+  },
+  "png": "/Users/samuelandert/Documents/Development/sb03f-render/intent-work/b03f9fb4-render/out/base-twice/base-sandbox-3-open.png"
+ },
+ {
+  "site": "again",
+  "world": "sandbox-1",
+  "view": "near",
+  "settled": true,
+  "frames": 348,
+  "frameMs": 22.9,
+  "frameP95": 33.400000000001455,
+  "tris": 3271783,
+  "trisMax": 3271783,
+  "assets": {
+   "out": {
+    "tris": 277820,
+    "calls": 68,
+    "levels": [
+     1,
+     102
+    ],
+    "pictures": 2575,
+    "copies": 6995
+   },
+   "in": {
+    "tris": 6318,
+    "calls": 4,
+    "levels": [
+     0,
+     1
+    ],
+    "pictures": 611,
+    "copies": 671
+   },
+   "library": {
+    "tris": 173589,
+    "calls": 118,
+    "levels": [
+     0,
+     0,
+     689
+    ],
+    "pictures": 0,
+    "copies": 1461
+   }
+  },
+  "meter": {
+   "frames": 172,
+   "frame_ms": 23.5,
+   "frame_p95": 33.4,
+   "cpu_ms": 11.4,
+   "gpu_ms": 16.7,
+   "calls": 1785,
+   "triangles": 3271783,
+   "bound": "gpu"
+  },
+  "png": "/Users/samuelandert/Documents/Development/sb03f-render/intent-work/b03f9fb4-render/out/base-twice/again-sandbox-1-near.png"
+ },
+ {
+  "site": "again",
+  "world": "sandbox-1",
+  "view": "mid",
+  "settled": true,
+  "frames": 265,
+  "frameMs": 30.1,
+  "frameP95": 33.40000000000873,
+  "tris": 5170484,
+  "trisMax": 5170484,
+  "assets": {
+   "out": {
+    "tris": 2408963,
+    "calls": 103,
+    "levels": [
+     14,
+     61
+    ],
+    "pictures": 4079,
+    "copies": 7153
+   },
+   "in": {
+    "tris": 90,
+    "calls": 1,
+    "levels": [
+     0,
+     0
+    ],
+    "pictures": 45,
+    "copies": 45
+   },
+   "library": {
+    "tris": 179371,
+    "calls": 37,
+    "levels": [
+     0,
+     1,
+     628
+    ],
+    "pictures": 0,
+    "copies": 2613
+   }
+  },
+  "meter": {
+   "frames": 136,
+   "frame_ms": 29.8,
+   "frame_p95": 33.4,
+   "cpu_ms": 11.1,
+   "gpu_ms": 22.9,
+   "calls": 1755,
+   "triangles": 5170484,
+   "bound": "gpu"
+  },
+  "png": "/Users/samuelandert/Documents/Development/sb03f-render/intent-work/b03f9fb4-render/out/base-twice/again-sandbox-1-mid.png"
+ },
+ {
+  "site": "again",
+  "world": "sandbox-1",
+  "view": "far",
+  "settled": true,
+  "frames": 481,
+  "frameMs": 16.7,
+  "frameP95": 16.79999999998836,
+  "tris": 1394557,
+  "trisMax": 1394557,
+  "assets": {
+   "out": {
+    "tris": 47550,
+    "calls": 4,
+    "levels": [
+     0,
+     4
+    ],
+    "pictures": 6173,
+    "copies": 7028
+   },
+   "in": {
+    "tris": 0,
+    "calls": 0,
+    "levels": [
+     0,
+     0
+    ],
+    "pictures": 0,
+    "copies": 0
+   },
+   "library": {
+    "tris": 41980,
+    "calls": 25,
+    "levels": [
+     0,
+     0,
+     11
+    ],
+    "pictures": 0,
+    "copies": 11
+   }
+  },
+  "meter": {
+   "frames": 241,
+   "frame_ms": 16.7,
+   "frame_p95": 16.8,
+   "cpu_ms": 5.9,
+   "gpu_ms": 9.2,
+   "calls": 851,
+   "triangles": 1394557,
+   "bound": "vsync"
+  },
+  "png": "/Users/samuelandert/Documents/Development/sb03f-render/intent-work/b03f9fb4-render/out/base-twice/again-sandbox-1-far.png"
+ },
+ {
+  "site": "again",
+  "world": "sandbox-3",
+  "view": "open",
+  "tris": 700272,
+  "meter": {
+   "frames": 241,
+   "frame_ms": 16.7,
+   "frame_p95": 16.7,
+   "cpu_ms": 4.2,
+   "gpu_ms": 5.7,
+   "calls": 1120,
+   "triangles": 700272,
+   "bound": "vsync"
+  },
+  "png": "/Users/samuelandert/Documents/Development/sb03f-render/intent-work/b03f9fb4-render/out/base-twice/again-sandbox-3-open.png"
+ }
+]

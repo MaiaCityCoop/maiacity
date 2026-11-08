@@ -1,0 +1,4 @@
+sandbox-1-near 0.989068
+sandbox-1-mid 0.960942
+sandbox-1-far 0.786759
+sandbox-3-open 0.796661

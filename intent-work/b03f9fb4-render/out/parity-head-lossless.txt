@@ -1,0 +1,4 @@
+1.00 s: SSIM 0.9968
+3.00 s: SSIM 0.9972
+5.00 s: SSIM 0.9962
+lowest SSIM 0.9962 (at least 0.98)
