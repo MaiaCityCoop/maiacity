@@ -33,6 +33,7 @@ import { buildTent } from './tent'
 import { furnish, terraceSet } from './rooms'
 import { ambience, levelsAt, nearness } from './ambience'
 import { flow, pond as pondShape, shore, stream as streamShape, waterMaterial } from './water'
+import { precompile } from '$lib/content/render/core.js'
 import { createWorldRenderer, type StageHandle } from '$lib/content/render/world.js'
 import { createSky, type SkyHandle } from '$lib/content/sandbox-kit/sky.js'
 import { skyHour } from '$lib/content/sandbox-kit/skyTime.svelte.js'
@@ -2505,7 +2506,7 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 		const log = (window as unknown as { __buildLog?: string[] }).__buildLog
 		let tt = performance.now()
 		scene.updateMatrixWorld(true)
-		await renderer.compileAsync(scene, camera, host.scene)
+		await precompile(renderer, scene, camera, host.scene)
 		log?.push(`compile ${Math.round(performance.now() - tt)}ms`)
 		tt = performance.now()
 		const textures = new Set<THREE.Texture>()

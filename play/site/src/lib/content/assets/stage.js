@@ -36,7 +36,7 @@
 import * as THREE from 'three';
 import { ShaderPass, createPost } from '$lib/content/render/post.js';
 import { createSky } from '$lib/content/sandbox-kit/sky.js';
-import { setExposure, untonemap, withTone } from '$lib/content/render/core.js';
+import { precompile, setExposure, untonemap, withTone } from '$lib/content/render/core.js';
 import { budget } from '$lib/content/render/budget.js';
 import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment } from './kit.js';
 
@@ -699,17 +699,8 @@ export class Stage {
 		r.localClippingEnabled = true;
 		r.setRenderTarget(this.composer.readBuffer);
 		let done = Promise.resolve();
-		// the sky's dome and stars are node materials (TSL), which three's WebGLNodesHandler cannot compile ahead
-		// (compileAsync); they are built at their first frame instead, hidden while the asset's shaders are gathered
-		const sky = this.sky ? [this.sky.dome, this.sky.stars].filter((o) => o.visible) : [];
-		for (const o of sky) o.visible = false;
-		try {
-			done = r.compileAsync(this.scene, this.camera);
-		} catch {
-			/* drawn as usual */
-		} finally {
-			for (const o of sky) o.visible = true;
-		}
+		// the one warm-up (core.js `precompile`): the sky's dome and stars, node materials, built at their first frame
+		done = precompile(r, this.scene, this.camera);
 		r.setRenderTarget(was.rt);
 		was.tm();
 		r.localClippingEnabled = was.clip;

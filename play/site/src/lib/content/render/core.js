@@ -230,18 +230,38 @@ export function adaptiveResolution(renderer, { top = topPixelRatio(), floor = 1,
 /**
  * Compile a model's shaders before it is first drawn, off the page's thread where the browser can
  * (KHR_parallel_shader_compile), so the page never stalls on the first frame; a browser that cannot simply compiles
- * them now. Never throws: a model that fails here is still drawn the usual way.
+ * them now. Never throws: a model that fails here is still drawn the usual way. The one warm-up of the app: nothing
+ * else calls `compileAsync` (./lint.test.js). Node materials (TSL) are left out: three's WebGLNodesHandler cannot
+ * compile them ahead, and a `compileAsync` that gathers one never settles (cb16b7a5's levels waited on it forever and
+ * drew nothing); they are hidden while the rest is gathered, and built at their first frame.
  * @param {THREE.WebGLRenderer} renderer
  * @param {THREE.Object3D} object
  * @param {THREE.Camera} camera
  * @param {THREE.Scene} [scene]
+ * @returns {Promise<void>}
  */
-export async function precompile(renderer, object, camera, scene) {
+export function precompile(renderer, object, camera, scene) {
+	/** @type {THREE.Object3D[]} */
+	const off = [];
+	object.traverseVisible((o) => {
+		const m = /** @type {THREE.Mesh} */ (o).material;
+		if (m && (Array.isArray(m) ? m : [m]).some((x) => /** @type {any} */ (x).isNodeMaterial)) off.push(o);
+	});
+	for (const o of off) o.visible = false;
+	/** @type {Promise<unknown>} */
+	let made = Promise.resolve();
 	try {
-		await renderer.compileAsync(object, camera, scene);
+		// three gathers the materials at once, as it is called: the node materials may show again straight after
+		made = renderer.compileAsync(object, camera, scene);
 	} catch {
 		/* drawn as usual */
+	} finally {
+		for (const o of off) o.visible = true;
 	}
+	return made.then(
+		() => {},
+		() => {}
+	);
 }
 
 /**

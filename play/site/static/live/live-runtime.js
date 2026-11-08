@@ -58341,6 +58341,24 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
       renderer.toneMapping = was;
     };
   }
+  function precompile(renderer, object, camera, scene) {
+    const off = [];
+    object.traverseVisible((o) => {
+      const m = o.material;
+      if (m && (Array.isArray(m) ? m : [m]).some((x) => x.isNodeMaterial))
+        off.push(o);
+    });
+    for (const o of off)
+      o.visible = false;
+    let made = Promise.resolve();
+    try {
+      made = renderer.compileAsync(object, camera, scene);
+    } catch {} finally {
+      for (const o of off)
+        o.visible = true;
+    }
+    return made.then(() => {}, () => {});
+  }
 
   // src/lib/content/sandbox-kit/universe.js
   var LATITUDE = 45;
@@ -63078,15 +63096,7 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       r.localClippingEnabled = true;
       r.setRenderTarget(this.composer.readBuffer);
       let done = Promise.resolve();
-      const sky = this.sky ? [this.sky.dome, this.sky.stars].filter((o) => o.visible) : [];
-      for (const o of sky)
-        o.visible = false;
-      try {
-        done = r.compileAsync(this.scene, this.camera);
-      } catch {} finally {
-        for (const o of sky)
-          o.visible = true;
-      }
+      done = precompile(r, this.scene, this.camera);
       r.setRenderTarget(was.rt);
       was.tm();
       r.localClippingEnabled = was.clip;
