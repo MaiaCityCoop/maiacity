@@ -120,6 +120,10 @@ describe('the render kit in TSL', () => {
 		scene.add(mesh);
 		r.render(scene, camera);
 		expect(shaders.length).toBeGreaterThanOrEqual(4);
+		// the page is a render target: three turns its v over on WebGL, the card turns it back first (else each far
+		// tree showed another's picture upside down)
+		const card = shaders.filter((x) => x.includes('Node System') && /texture\(/.test(x) && !/gl_Position\s*=/.test(x));
+		expect(card.join('\n')).toMatch(/vec2\( nodeVarying\d+\.x, \( 1\.0 - nodeVarying\d+\.y \) \)/);
 		valid(shaders);
 	});
 

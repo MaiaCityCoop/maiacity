@@ -88,6 +88,13 @@ const always = (name, type) => nodeObject(new Always(name, type));
 /** a copy's fade (../../assets/render/index.js keeps it per instance) */
 export const aFade = always('aFade', 'float');
 
+/**
+ * A picture we drew into (a render target: the far pictures' page, the contact shadow's) read where three's own
+ * materials read it. On WebGL three's TextureNode turns v over (1 - v) for a render target's texture; this turns it back,
+ * so the cell laid at row r is read at row r (else the far trees showed another tree's picture, upside down).
+ */
+const drawn = (map, at = uv()) => texture(map, vec2(at.x, float(1).sub(at.y)));
+
 /** the dither every drawing of ours fades in by: the same everywhere on the screen, so two levels never fight */
 export const dither = fract(sin(dot(floor(screenCoordinate.xy), vec2(12.9898, 78.233))).mul(43758.5453));
 
@@ -271,7 +278,7 @@ export function cardMaterials(map, cells, frames, cut) {
 	const face = mod(floor(atan(te.x, te.y).sub(always('aTurn', 'float')).div(step).add(0.5)), frames);
 	const cell = always('aCell', 'float').add(face);
 	const card = varying(vec2(mod(cell, grid.x), floor(cell.div(grid.x))).add(clamp(uv(), 0.004, 0.996)).div(grid));
-	const look = texture(map, card);
+	const look = drawn(map, card);
 	const make = (K, o) => {
 		const m = new (ours(K))({ alphaTest: 0.5, side: THREE.DoubleSide, ...o });
 		m.positionNode = pos;
@@ -308,7 +315,7 @@ export function ghostMaterial() {
 export function blurMaterial(map) {
 	const dir = uniform(new THREE.Vector2()), gain = uniform(0);
 	const tap = (o) => {
-		const c = texture(map, uv().add(dir.mul(o)));
+		const c = drawn(map, uv().add(dir.mul(o)));
 		return select(gain.greaterThan(0), vec4(0, 0, 0, c.r.mul(gain).min(1).mul(c.a)), c);
 	};
 	const W = [0.1633, 0.1531, 0.12245, 0.0918, 0.051];
@@ -324,7 +331,7 @@ export function blurMaterial(map) {
 /** the contact shadow's pool on the floor: `color`, its darkness the alpha of `map` */
 export function poolMaterial(map, color, opacity) {
 	const m = new MeshBasicNodeMaterial({ color, transparent: true, opacity, depthWrite: false, toneMapped: false });
-	m.opacityNode = texture(map).a.mul(materialOpacity);
+	m.opacityNode = drawn(map).a.mul(materialOpacity);
 	return m;
 }
 
