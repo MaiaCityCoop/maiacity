@@ -37,6 +37,10 @@ await page.addInitScript(() => {
 	window.__draws = 0;
 	for (const C of [WebGL2RenderingContext]) for (const f of ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced']) { const g = C.prototype[f]; C.prototype[f] = function (...a) { window.__draws++; return g.apply(this, a); }; }
 	window.__interiorHour = 12;
+	// a promise that failed and nobody waited for (an async world's mount): it never shows as a page error
+	addEventListener('unhandledrejection', (e) => console.error(`UNHANDLED ${e.reason?.stack ?? e.reason}`));
+	// whether the world's frame loop runs: its rAF callbacks counted by their source
+	{ const raf = window.requestAnimationFrame.bind(window); window.__rafs = 0; window.requestAnimationFrame = (cb) => raf((t) => { window.__rafs++; cb(t); }); }
 	// a vector uniform handed something no browser takes: what it was, and who handed it (then thrown as before)
 	for (const f of ['uniform1fv', 'uniform2fv', 'uniform3fv', 'uniform4fv', 'uniformMatrix3fv', 'uniformMatrix4fv']) {
 		const g = WebGL2RenderingContext.prototype[f];
@@ -60,6 +64,14 @@ for (let t = 0; t < 180; t += 5) {
 	await page.waitForTimeout(5000);
 	const d1 = await page.evaluate(() => window.__draws);
 	log(`t=${t + 5}s draws in 5 s: ${d1 - d0}${await page.evaluate(() => (window.__assets ? ' (__assets up)' : ''))}`);
+	if ((t + 5) % 10 === 0)
+		log(`  state: ${await page.evaluate(() => {
+			const text = [...document.querySelectorAll('body *')].filter((e) => e.children.length === 0 && e.offsetParent !== null && /\S/.test(e.textContent ?? '')).map((e) => e.textContent.trim()).filter((x) => x.length < 120).slice(0, 8).join(' | ');
+			let stats = null;
+			try { stats = window.__assets?.stats?.(); } catch (e) { stats = String(e); }
+			const brief = stats && typeof stats === 'object' ? Object.fromEntries(Object.entries(stats).map(([k, v]) => [k, v && { building: v.building, keeping: v.keeping, compiling: v.compiling, levels: v.levels, copies: v.copies, calls: v.calls }])) : stats;
+			return `rafs ${window.__rafs} · text: ${text} · stats: ${JSON.stringify(brief)}`;
+		})}`);
 }
 writeFileSync(`${out}/errors-${site.name}.txt`, lines.join('\n') + '\n');
 await browser.close();
