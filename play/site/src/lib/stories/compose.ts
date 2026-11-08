@@ -367,7 +367,21 @@ const BRIDGE = `(() => {
 	const urls = {};
 	const post = (m) => parent.postMessage(Object.assign({ play: 1 }, m), '*');
 	const all = (q) => [...new Set([...document.querySelectorAll(q)].map((e) => e.dataset.playFile))];
-	addEventListener('DOMContentLoaded', () => post({ op: 'need', code: [...all('script[data-play-file]'), ...[...new Set([...document.querySelectorAll('script[data-play-code]')].map((e) => e.dataset.playCode))]], media: all('img[data-play-file], video[data-play-file], audio[data-play-file], style[data-play-file]') }));
+	/** when each video or recording plays, in the film's seconds: [from, to] over every element naming it */
+	const when = () => {
+		const out = {};
+		for (const el of document.querySelectorAll('video[data-play-file], audio[data-play-file]')) {
+			let from = 0, to = Infinity;
+			for (let e = el; e; e = e.parentElement) if (e.dataset && e.dataset.start != null) {
+				const at = Number(e.dataset.start) || 0;
+				from += at, to = Math.min(to + at, at + (Number(e.dataset.duration) || Infinity));
+			}
+			const o = out[el.dataset.playFile];
+			out[el.dataset.playFile] = o ? [Math.min(o[0], from), Math.max(o[1], to)] : [from, to];
+		}
+		return out;
+	};
+	addEventListener('DOMContentLoaded', () => post({ op: 'need', code: [...all('script[data-play-file]'), ...[...new Set([...document.querySelectorAll('script[data-play-code]')].map((e) => e.dataset.playCode))]], media: all('img[data-play-file], video[data-play-file], audio[data-play-file], style[data-play-file]'), when: when() }));
 	addEventListener('message', (e) => {
 		const m = e.data;
 		if (e.source !== parent || !m || m.play !== 1 || m.op !== 'files') return;
@@ -400,8 +414,19 @@ const BRIDGE = `(() => {
 })();`;
 
 /** the page's side: what the frame asks for, each file fetched by `get` (play's files, with the page's session), a
- *  script's bytes held to the hash that names it, handed in: code as text, media as blobs */
-export async function feed(frame: Window, need: { code?: string[]; media?: string[] }, get: (hash: string) => Promise<Blob>) {
+ *  script's bytes held to the hash that names it, handed in: code as text, media as blobs. First the code, the font, the
+ *  stills and every video or recording playing at the playhead (`now`, the film's second), handed in at once so the film
+ *  starts; then the other videos and recordings one by one (two fetched at a time), the one nearest the playhead first
+ *  (playing, then next, then behind it), each handed in as it comes, so a phone never waits for a whole film */
+export async function feed(frame: Window, need: { code?: string[]; media?: string[]; when?: Record<string, [number, number]> }, get: (hash: string) => Promise<Blob>, now: () => number = () => 0) {
+	const when = need.when ?? {};
+	const hand = (files: Record<string, Blob | string>) => frame.postMessage({ play: 1, op: 'files', files }, '*');
+	/** how far from the playhead a medium is: 0 while it plays, its wait until it starts, behind it after every one ahead */
+	const far = (h: string, t = now()) => {
+		const [from, to] = when[h];
+		return t >= from && t < to ? 0 : from >= t ? from - t : 1e6 + t - to;
+	};
+	const later = (need.media ?? []).filter((h) => when[h] && far(h) > 0);
 	const files: Record<string, Blob | string> = {};
 	await Promise.all([
 		...(need.code ?? []).map(async (h) => {
@@ -409,9 +434,18 @@ export async function feed(frame: Window, need: { code?: string[]; media?: strin
 			if (hashBytes(bytes) !== h) throw new Error(`refused: a script that does not hash to ${h.slice(0, 12)}…`);
 			files[h] = new TextDecoder().decode(bytes);
 		}),
-		...(need.media ?? []).map(async (h) => void (files[h] = await get(h)))
+		...(need.media ?? []).filter((h) => !later.includes(h)).map(async (h) => void (files[h] = await get(h)))
 	]);
-	frame.postMessage({ play: 1, op: 'files', files }, '*');
+	hand(files);
+	const next = async (): Promise<void> => {
+		if (!later.length) return;
+		const t = now();
+		later.sort((a, b) => far(a, t) - far(b, t));
+		const h = later.shift()!;
+		hand({ [h]: await get(h) });
+		return next();
+	};
+	await Promise.all([next(), next()]);
 }
 
 /** a composition as the sealed frame takes it: its files and scripts held for the bridge */

@@ -15,7 +15,7 @@ if (!open) frame.setAttribute('sandbox', FRAME.sandbox);
 frame.setAttribute('allow', FRAME.allow);
 addEventListener('message', (e) => {
 	if (e.source !== frame.contentWindow || e.data?.play !== 1 || e.data.op !== 'need') return;
-	feed(frame.contentWindow!, e.data, (h) => fetch(`/api/files/${h}`).then((r) => r.blob())).catch((x) => console.error(String(x)));
+	feed(frame.contentWindow!, e.data, (h) => fetch(`/api/files/${h}`).then((r) => r.blob()), () => player.currentTime ?? 0).catch((x) => console.error(String(x)));
 });
 player.addEventListener('ready', () => ((window as any).ready = true));
 player.addEventListener('error', (e: any) => console.error('player error', JSON.stringify(e.detail)));
