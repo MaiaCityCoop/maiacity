@@ -47,10 +47,9 @@ scene.fog = new THREE.Fog(0xcccccc, 10, 200);
 const camera = new THREE.PerspectiveCamera(50, 1.6, 0.1, 1000);
 const U = grassUniforms(new THREE.DataTexture(new Uint16Array(4), 1, 1, THREE.RGBAFormat, THREE.HalfFloatType));
 let ok = true;
-// the world's one wind as render/wind.js's `windNodes` hands it (intent 6fd5e63f): its uniforms and its strength node
-const { uniform, float: f, sin: sn, cos: cs } = await import('three/tsl');
-const windU = { direction: uniform(0.35), time: uniform(0), strength: uniform(0.45) };
-const wind = { uniforms: windU, strength: (x: any, z: any) => windU.strength.mul(sn(x.mul(cs(windU.direction)).add(z.mul(0.2)).sub(windU.time.mul(7)).mul(0.18)).mul(0.55).add(1)).max(f(0)) };
+// the world's one wind, render/wind.js's own `windNodes` (intent 6fd5e63f)
+const { windNodes } = await import('../src/lib/content/render/wind.js');
+const wind = windNodes(await import('three/tsl'));
 for (const [level, withWind] of [[0, false], [1, false], [2, false], [0, true]] as const) {
 	const mat = grassMaterial({ level, uniforms: U, params: GRASS, device: DEVICES.desktop, wind: withWind ? wind : undefined });
 	const mesh = new THREE.Mesh(levelGeometry(level), mat);

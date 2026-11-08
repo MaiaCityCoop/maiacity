@@ -45,6 +45,24 @@ import { levelValues } from '../lodcard.js';
 import { prepare } from './prepare.js';
 import { coverEye, coverGrow } from '../../render/nodes/index.js';
 import { createPresets } from './presets.js';
+import { lookByName, lookOfBuilt } from '../look.js';
+import * as TSL from 'three/tsl';
+import { windNodes, windOfCopy, worldSeconds } from '../../render/wind.js';
+
+/**
+ * A material of a kind's build with the look it is drawn by: its own (box format 5), else the one its build gives it
+ * (../look.js `lookOfBuilt`: its name's, or a plant's or living cover's by the material itself), kept on it.
+ */
+function withLook(m, k) {
+	if (m && !m.userData.look) {
+		const look = lookOfBuilt(m, k);
+		if (look) m.userData.look = look;
+	}
+	return m;
+}
+
+/** whether a material says what it is: its look (box format 5), or one its name gives (an older build's, ../look.js) */
+const looked = (m) => (Array.isArray(m) ? m.some(looked) : !!(m?.userData?.look ?? lookByName(m?.name)));
 
 /** after how long (ms) a kind that failed only in passing (`Unread`) is asked for again (`settle`) */
 const AGAIN_AFTER = 60_000;
@@ -74,8 +92,9 @@ function resolve(ref) {
  * A renderer of assets for one scene.
  * @param {{
  *   renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, boxes?: number,
- *   px?: number, cache?: boolean, onShadows?: () => void
- * }} o `boxes` how many build side by side; `px` each picture's pixels a side. No world chooses a kind's levels: each
+ *   px?: number, cache?: boolean, onShadows?: () => void, wind?: any
+ * }} o `boxes` how many build side by side; `px` each picture's pixels a side; `wind` the world's (../../render/wind.js
+ *   `windNodes`; a calm breeze where not given, none where null), which every material with a look sways in. No world chooses a kind's levels: each
  *   is drawn by its card's levels (../lodcard.js) at the sizes on screen of the one selector (./lod.js LEVELS);
  *   `cache: false` builds everything afresh;
  *   `onShadows` told when what casts a shadow changed, for a world that draws its shadows again only every so often
@@ -86,7 +105,9 @@ export function createAssets(o) {
 	renderer.localClippingEnabled = true;
 	const group = new THREE.Group();
 	group.name = 'assets';
-	const presets = createPresets();
+	// the world's one wind (../../render/wind.js): every material that says it is a plant's sways in it; `wind: null` none
+	const wind = o.wind === null ? null : (o.wind ?? windNodes(TSL));
+	const presets = createPresets({ wind });
 	const pictures = createImpostors(renderer, { px: o.px });
 	const lowering = createLowering();
 	// every level and picture made here kept on this device by its build (./levels.js)
@@ -216,6 +237,7 @@ export function createAssets(o) {
 		k = {
 			key,
 			label: at.label,
+			group: at.group,
 			names,
 			// each level of its shape: built from its recipe (`name`), or made from the coarsest one built (none); a
 			// recipe that declares fewer levels than the selector has is drawn at as many, the selector's coarsest
@@ -225,6 +247,7 @@ export function createAssets(o) {
 			ok: false,
 			error: null,
 			radius: 1,
+			height: 0,
 			center: new THREE.Vector3(),
 			thresholds: thresholdsOf(declared ? names.length : LEVELS.length),
 			/** each level's triangles, as each came (./lod.js `heldTo`) */
@@ -266,6 +289,8 @@ export function createAssets(o) {
 			() => {
 				const L = k.levels[k.base].level;
 				k.radius = L.radius;
+				// how tall it stands from its foot, in its own metres (the wind's height for a copy of scale 1)
+				k.height = Math.max(0, L.height ?? 0);
 				k.center.copy(L.center);
 				retune(k);
 				k.ok = true;
@@ -319,7 +344,7 @@ export function createAssets(o) {
 			async (got) => {
 				// the materials it was handed (given back when it is let go of: `evict`)
 				const mats = [];
-				lv.level = prepare(got.obj, { of: (m) => (mats.push(presets.of(m)), mats[mats.length - 1]) });
+				lv.level = prepare(got.obj, { of: (m) => (mats.push(presets.of(withLook(m, k))), mats[mats.length - 1]) });
 				lv.mats = mats;
 				lv.from = got.from;
 				// whether this device's cache holds it, to be read again rather than built again once it was let go of
@@ -514,6 +539,9 @@ export function createAssets(o) {
 		const mesh = new THREE.InstancedMesh(g, d.material, cap);
 		mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 		g.setAttribute('aFade', new THREE.InstancedBufferAttribute(new Float32Array(cap), 1).setUsage(THREE.DynamicDrawUsage));
+		// a material that says what it is (a leaf, grass, bark …: ../look.js) is bent by the world's wind: each copy its foot
+		// and height (aWind, ../../render/wind.js `windOfCopy`)
+		if (looked(d.material)) g.setAttribute('aWind', new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4).setUsage(THREE.DynamicDrawUsage));
 		if (d.colors) mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
 		mesh.count = 0;
 		mesh.visible = false;
@@ -531,6 +559,8 @@ export function createAssets(o) {
 
 	/** what a drawing of a kind of cover carries per copy: where it grows (../../render/nodes `aCover`, `aReach`) */
 	const COVER = [['aCover', 4], ['aReach', 3]];
+	/** every per-copy attribute a drawing may carry beside its matrix and fade: the cover's and the wind's (aWind) */
+	const PER_COPY = [...COVER, ['aWind', 4]];
 
 	/** room in a drawing for `need` instances */
 	function room(m, need) {
@@ -543,7 +573,7 @@ export function createAssets(o) {
 		const f = new THREE.InstancedBufferAttribute(new Float32Array(cap), 1).setUsage(THREE.DynamicDrawUsage);
 		f.array.set(m.mesh.geometry.attributes.aFade.array.subarray(0, m.used));
 		m.mesh.geometry.setAttribute('aFade', f);
-		for (const [name, n] of COVER) {
+		for (const [name, n] of PER_COPY) {
 			const a = m.mesh.geometry.attributes[name];
 			if (!a) continue;
 			const b = new THREE.InstancedBufferAttribute(new Float32Array(cap * n), n).setUsage(THREE.DynamicDrawUsage);
@@ -829,7 +859,7 @@ export function createAssets(o) {
 			room(d, d.used + n);
 			const at = d.mesh.geometry.attributes;
 			if (k.cover && !at.aCover) for (const [name, w] of COVER) d.mesh.geometry.setAttribute(name, new THREE.InstancedBufferAttribute(new Float32Array(d.cap * w), w).setUsage(THREE.DynamicDrawUsage));
-			const A = d.mesh.instanceMatrix.array, F = at.aFade.array, G = at.aCover?.array, H = at.aReach?.array;
+			const A = d.mesh.instanceMatrix.array, F = at.aFade.array, G = at.aCover?.array, H = at.aReach?.array, W = at.aWind?.array;
 			for (let j = 0; j < n; j++) {
 				const s = d.used + j;
 				multiply(k.M, i * 16, d.draw.locals, j * 16, A, s * 16);
@@ -843,6 +873,8 @@ export function createAssets(o) {
 					H[s * 3 + 1] = k.C[i * 4 + 2];
 					H[s * 3 + 2] = k.C[i * 4 + 3];
 				}
+				// the copy's foot and its height in metres, for the wind (every part of it alike: it sways as one)
+				if (W) W.set(windOfCopy(k.M[i * 16 + 12], k.M[i * 16 + 13], k.M[i * 16 + 14], k.height * k.S[i]), s * 4);
 				if (d.draw.colors) d.mesh.instanceColor.array.set(d.draw.colors.subarray(j * 3, j * 3 + 3), s * 3);
 			}
 			d.used += n;
@@ -855,6 +887,8 @@ export function createAssets(o) {
 	 * Draws what the camera should see: each copy at its level, the pictures turned to it. Cheap when nothing moved.
 	 */
 	function update() {
+		// the wind on the world's clock (the film's when it sets one), whether or not anything else moved
+		wind?.tick(worldSeconds());
 		// the pictures taken since the last frame: their pages' smaller copies made, once for all of them
 		pictures.settle();
 		camera.updateMatrixWorld();
@@ -939,7 +973,7 @@ export function createAssets(o) {
 					f.clearUpdateRanges();
 					f.addUpdateRange(0, d.used);
 					f.needsUpdate = true;
-					for (const [name, w] of COVER) {
+					for (const [name, w] of PER_COPY) {
 						const a = m.geometry.attributes[name];
 						if (!a) continue;
 						a.clearUpdateRanges();

@@ -37,6 +37,8 @@
 import * as THREE from 'three';
 import { fbm2, vn } from './noise.js';
 import { colonyAt } from './index.js';
+import * as TSL from 'three/tsl';
+import { windNodes, worldSeconds } from '../render/wind.js';
 import { grassMaterial, grassUniforms } from '../render/nodes/grass.js';
 
 /* ── the numbers ── */
@@ -469,20 +471,22 @@ export function tilesAround(x, z, dev, n, over) {
  * @param {{
  *   params?: Partial<GrassParams>, at: (x: number, z: number) => { grass: number, tall: number, y?: number },
  *   device?: 'desktop' | 'small', shadows?: boolean,
- *   wind?: { uniforms: { direction: any, time: any }, strength: (x: any, z: any) => any }
+ *   wind?: { uniforms: { direction: any, time: any }, strength: (x: any, z: any) => any, tick?: (t?: number) => void } | null
  * }} o
  *   at: where grass grows and how tall, and the ground's height (`grassOfRecipe`); device: whose budget; wind: the
- *   world's one wind (render/wind.js `windNodes`, intent 6fd5e63f): its gusts bend the blades, on its clock (else the
- *   grass's own gusts, on the time `update` is given)
+ *   world's one wind (render/wind.js `windNodes`, intent 6fd5e63f): its gusts bend the blades, on the world's clock
+ *   (`worldSeconds`, the film's when it sets one). Not given, the same calm breeze every asset renderer sways its
+ *   plants in (assets/render/index.js), so the grass and the plants move in the same gusts; null, the grass's own
  */
 export function grassField(o) {
 	const dev = DEVICES[o.device ?? 'desktop'], P = { ...GRASS, ...(o.params ?? {}) };
+	const wind = o.wind === null ? null : (o.wind ?? windNodes(TSL));
 	const n = perCell(dev.density);
 	const mask = new GrassMask({ at: o.at, size: 256, texel: Math.max(0.6, (dev.bands[2] * 2 + CELL * 8) / 256) });
 	const U = grassUniforms(mask.texture);
 	U.maskWidth.value = mask.size * mask.texel;
 	U.perCell.value = n;
-	const materials = /** @type {const} */ ([0, 1, 2]).map((level) => grassMaterial({ level, uniforms: U, params: P, device: dev, wind: o.wind }));
+	const materials = /** @type {const} */ ([0, 1, 2]).map((level) => grassMaterial({ level, uniforms: U, params: P, device: dev, wind: wind ?? undefined }));
 	// each level's blade, its attributes shared; every tile its own geometry (the nodes handler can't share one)
 	const blades = /** @type {const} */ ([0, 1, 2]).map((level) => levelGeometry(level));
 	const object = new THREE.Group();
@@ -519,6 +523,8 @@ export function grassField(o) {
 		update(/** @type {THREE.PerspectiveCamera} */ camera, /** @type {number} */ time, /** @type {{ sun?: { dir: THREE.Vector3, color: THREE.Color, strength: number }, pushers?: [number, number, number, number][], height?: number, budget?: number }} */ w = {}) {
 			const x = camera.position.x, z = camera.position.z;
 			U.time.value = time;
+			// the wind on the world's clock, as every asset renderer ticks its own
+			wind?.tick?.(worldSeconds());
 			U.pxAt1m.value = (w.height ?? 900) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
 			// the sun: where it stands, its colour, and how strong against its noon (1; the sky's `SUN`)
 			if (w.sun) {

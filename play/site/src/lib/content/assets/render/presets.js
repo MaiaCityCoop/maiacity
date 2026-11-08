@@ -17,6 +17,11 @@
  */
 import * as THREE from 'three';
 import { aFade, cutBy, cutOf, nodeOf } from '../../render/nodes/index.js';
+import { lookedOf } from '../../render/foliage.js';
+import { lookByName } from '../look.js';
+
+/** what a material says it is: its look (box format 5), else the one its name gives (an older build's, ../look.js) */
+export const lookOfMaterial = (m) => m.userData?.look ?? lookByName(m.name);
 
 /** what a material is, for telling two the same: the settings ../box/serialize.js carries over, and its maps' */
 const PLAIN = ['side', 'roughness', 'metalness', 'opacity', 'transparent', 'vertexColors', 'flatShading', 'alphaTest', 'depthWrite', 'depthTest', 'transmission', 'ior', 'thickness', 'clearcoat', 'clearcoatRoughness', 'sheen', 'sheenRoughness', 'envMapIntensity', 'emissiveIntensity', 'bumpScale', 'wireframe', 'shininess', 'specularIntensity', 'iridescence', 'anisotropy', 'dispersion', 'aoMapIntensity', 'lightMapIntensity', 'displacementScale', 'displacementBias', 'toneMapped', 'fog'];
@@ -34,6 +39,9 @@ export function keyOf(m) {
 	for (const k of COLORS) if (m[k]?.isColor) out.push(m[k].getHex());
 	for (const k of MAPS) out.push(m[k]?.isTexture ? textureKey(m[k]) : '');
 	if (m.normalScale?.isVector2) out.push(m.normalScale.x, m.normalScale.y);
+	// a leaf is drawn otherwise than a stone of the same settings (intent 6fd5e63f)
+	const look = lookOfMaterial(m);
+	if (look) out.push(`look:${look.kind}:${look.translucency ?? ''}:${look.stiffness ?? ''}:${look.flutter ?? ''}`);
 	return out.join('|');
 }
 
@@ -47,7 +55,8 @@ const CAP = { color: new THREE.Color(0.56, 0.085, 0.045).getHex(), rough: 0.55, 
  * The renderer's materials: `of(m)` the one kept for a material (the node material of the first of its kind it was
  * handed, given our nodes; `of(m, true)` three's own), `cut(plane)` opens every one along a plane (null closes them).
  */
-export function createPresets() {
+/** @param {{ wind?: any }} [o] the world's wind (../../render/wind.js `windNodes`): materials with a look are drawn by it */
+export function createPresets({ wind = null } = {}) {
 	/** @type {Map<string, THREE.Material>} */
 	const kept = new Map();
 	/** each kept material's key, and how many times `of` handed it out and it was not given back (`release`) */
@@ -71,7 +80,8 @@ export function createPresets() {
 		}
 		// and a see-through part seen from both sides is drawn in one pass, not its back and then its front
 		if (m.transparent && m.side === THREE.DoubleSide) m.forceSinglePass = true;
-		const n = plain ? m : cutBy(nodeOf(m), CUT, capped(m) ? (m.userData.cap ?? CAP) : undefined);
+		// what says it is a leaf, grass, bark … is drawn by its look in the world's wind (../../render/foliage.js)
+		const n = plain ? m : cutBy(lookedOf(nodeOf(m), lookOfMaterial(m), wind), CUT, capped(m) ? (m.userData.cap ?? CAP) : undefined);
 		if (!plain) n.fade = aFade;
 		clip(n);
 		return n;
