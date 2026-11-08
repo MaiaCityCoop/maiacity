@@ -30,6 +30,7 @@ import * as THREE from 'three';
 import { celestial, createUniverse, groundStars, horizonAt } from './universe.js';
 import { skyHour, skyTime } from './skyTime.svelte.js';
 import { budget } from '../render/budget.js';
+import { setExposure } from '../render/core.js';
 
 /**
  * @typedef {{ hour: number, e: number, day: number, low: number, night: number }} SkyLight
@@ -313,7 +314,7 @@ export function createSky(renderer, scene, options = {}) {
 		if (fog && scene.fog instanceof THREE.Fog) scene.fog.color.copy(horizonAt(l.dir));
 		scene.environmentIntensity = l.environment;
 		// the film camera may open the lens for a dark shot: a multiplier, 1 in the game
-		renderer.toneMappingExposure = (exposure.day + (exposure.night - exposure.day) * (1 - l.day)) * (dev.__exposure ?? 1);
+		setExposure(renderer, (exposure.day + (exposure.night - exposure.day) * (1 - l.day)) * (dev.__exposure ?? 1));
 		light = { hour, e: l.e, day: l.day, low: l.low, night: l.night };
 		// the sky's light is made again when the sun has moved — on film at any move at all, so that no frame depends
 		// on the frame drawn before it
@@ -337,7 +338,7 @@ export function createSky(renderer, scene, options = {}) {
 		fill.color.set('#9fb6e8');
 		fill.groundColor.set('#0b1020');
 		fill.intensity = 0.16;
-		renderer.toneMappingExposure = exposure.day * (dev.__exposure ?? 1);
+		setExposure(renderer, exposure.day * (dev.__exposure ?? 1));
 		// the hour on the ground under the camera, for whatever the world lights with it
 		const e = c.sun.dot(viewUp);
 		const day = THREE.MathUtils.smoothstep(e, -0.05, 0.35);

@@ -1,7 +1,7 @@
 // @ts-nocheck — plain JS, run under Bun by the census
 /*
  * THE COUNTING RENDERER — three.js's WebGLRenderer as the census sees it (intent bba45d6e): every frame walked the way
- * three's own `render` walks it (r186: `projectObject`, `WebGLShadowMap.render`, `renderBufferDirect`), and every draw it
+ * three's own `render` walks it (r187: `projectObject`, `WebGLShadowMap.render`, `renderBufferDirect`), and every draw it
  * would send counted as `WebGLInfo.update` counts it, with no graphics context at all. What it does:
  *
  * - The scene's `onBeforeRender`, its matrices (`matrixWorldAutoUpdate`), the camera's, the frustum from the camera.
@@ -77,7 +77,7 @@ export class CountingRenderer {
 		this.isWebGLRenderer = true;
 		this.parameters = parameters;
 		this.domElement = parameters.canvas ?? globalThis.document.createElement('canvas');
-		this.debug = { checkShaderErrors: false, onShaderError: null };
+		this.debug = { checkShaderErrors: false, diagnostics: { keywords: false }, onShaderError: null };
 		this.autoClear = this.autoClearColor = this.autoClearDepth = this.autoClearStencil = true;
 		this.sortObjects = true;
 		this.clippingPlanes = [];
@@ -226,6 +226,11 @@ export class CountingRenderer {
 	resetState() {}
 	dispose() {}
 
+	/** node materials (TSL) built by three's WebGLNodesHandler, which createRenderer installs: nothing to build here */
+	setNodesHandler(handler) {
+		this.nodesHandler = handler;
+	}
+
 	// ── compiling: nothing to compile ──
 	compile(scene) {
 		return new Set();
@@ -258,11 +263,12 @@ export class CountingRenderer {
 		_frustum.setFromProjectionMatrix(_proj, THREE.WebGLCoordinateSystem, camera.reversedDepth);
 		const list = [], lights = [], shadows = [];
 		const toScreen = this._target === null;
+		// r187 counts the frame before the walk (three #35099): a LOD or anything else that reads it sees this frame's
+		this.info.render.frame++;
 		this.#project(scene, camera, list, lights, shadows, toScreen);
 		// the background, as three's WebGLBackground adds it: a box for a cube map or an environment, a plane for a texture
 		const bg = scene.background;
 		const bgTris = bg && (bg.isCubeTexture || bg.mapping === THREE.CubeUVReflectionMapping || bg.mapping === THREE.EquirectangularReflectionMapping || bg.mapping === THREE.EquirectangularRefractionMapping) ? 12 : bg?.isTexture ? 2 : 0;
-		this.info.render.frame++;
 		if (this.info.autoReset === true) this.info.reset();
 		this.#shadows(shadows, scene, camera);
 		if (bgTris) this.#count(bgTris, 1, toScreen, false, null);
