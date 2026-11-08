@@ -1,8 +1,7 @@
 /*
  * THE CENSUS, ONE WORLD — a world built on the CPU (./setup.ts) and counted from named cameras (intent bba45d6e). For
- * each view: the walker placed there (as the Mac's runs place it, selector-shots.mjs), frames turned until the asset
- * renderers build nothing more (as its `settle`), then a measured run of frames, every draw of each counted by the
- * counting renderer (./counting.js). It gives back, per view:
+ * each view: the walker placed there (as the Mac's runs place it, selector-shots.mjs), frames turned until its
+ * streaming settles (`quiet`), then a measured run of frames, every draw counted (./counting.js). Per view:
  *
  * - `frames`: each measured frame's triangles and draws; `tris` the median frame's triangles, as the Mac takes it;
  * - `totals`: the median frame's draws by pass (main, shadow, into targets), meshes and instanced batches, and what
@@ -78,7 +77,7 @@ async function paced() {
 }
 const g = globalThis as any;
 
-/** turns frames for `ms` (a frame every ~16 ms, the page's work between them), or until `until` */
+/** turns frames for `ms` (paced), or until `until` */
 async function run(ms: number, until?: () => boolean) {
 	const end = performance.now() + ms;
 	while (performance.now() < end) {
@@ -108,17 +107,19 @@ async function steady(ms: number, hold: number, band = 0) {
 	return false;
 }
 
-const building = (of = ['out', 'in', 'library']) => {
-	const s = g.__assets?.stats?.();
-	return s ? of.reduce((a, k) => a + (s[k]?.building ?? 0), 0) : 0;
-};
-/** the library's copies the same for a second on end: the floor's cover round the eye all put down (a tile a frame) */
-let coverSeen = { n: -1, at: 0 };
-const coverStill = () => {
-	const n = g.__assets?.stats?.().library?.copies ?? 0, now = performance.now();
-	if (n !== coverSeen.n) coverSeen = { n, at: now };
-	return now - coverSeen.at >= 1000;
-};
+/**
+ * The world's streaming settled, as the Mac's QUIET (intent 373050d1): nothing built or kept in an asset renderer, no
+ * dome's inside building (`__domeStream`), and their copies, pictures and domes the same for a second on end
+ */
+let was = '', since = 0;
+function quiet() {
+	const s = g.__assets?.stats?.() ?? {}, rs = ['out', 'in', 'library'].map((k) => s[k]).filter(Boolean);
+	const domes = (g.__domeStream?.states?.() ?? []).map((e: { state: string }) => e.state);
+	const busy = rs.some((r) => r.building || r.keeping) || domes.includes('building');
+	const key = JSON.stringify([busy, rs.map((r) => [r.copies, r.taken]), domes]), now = performance.now();
+	if (key !== was) (was = key), (since = now);
+	return !busy && now - since >= 1000;
+}
 
 /** builds Sandbox 1 (the route's own mount: play/site/src/routes/sandbox-1/+page.svelte) and gives its handle */
 async function mountSandbox1(log: (s: string) => void) {
@@ -130,13 +131,7 @@ async function mountSandbox1(log: (s: string) => void) {
 	const S5 = await (await import(lib('content/sandbox-2/interior/sandbox5.js'))).sandbox5();
 	const el = g.document.createElement('div');
 	g.document.body.appendChild(el);
-	let up = false;
-	const mounted = mountVillage(el, (l: string) => log(`  ${l}`), S5).finally(() => (up = true));
-	while (!up) {
-		frame();
-		await paced();
-	}
-	return mounted;
+	return turnUntil(mountVillage(el, (l: string) => log(`  ${l}`), S5));
 }
 
 /** builds Sandbox 3, the old city, as its route opens it (play/site/src/routes/sandbox-3/+page.svelte) */
@@ -200,15 +195,16 @@ function frameTally() {
 
 export async function censusOf(o: { world: World; views?: ViewName[]; asset?: string; settleMs?: number; measureFrames?: number; log?: (s: string) => void }): Promise<ViewCensus[]> {
 	const log = o.log ?? ((s: string) => console.error(s));
-	const views = o.views ?? VIEWS_OF[o.world];
+	// walked near to far whatever order they are asked in: what one view leaves is the next one's
+	const views = VIEWS_OF[o.world].filter((v) => !o.views || o.views.includes(v));
+	if (o.views?.some((v) => !views.includes(v))) throw new Error(`census: ${o.world} has the views ${VIEWS_OF[o.world].join(', ')}`);
 	const t0 = performance.now();
 	let up = true;
 	if (o.world === 'sandbox-1') {
 		await mountSandbox1(log);
-		// where it opens, as the Mac's page: the forest and the library built and the floor's cover streamed in round the eye
-		// (each copy it ever put down stays held by the renderer, put away: `Copy`'s ghosts), but not the domes' insides,
-		// which the Mac's page had not finished there (their kinds, the `in` renderer's, still building)
-		up = await run(o.settleMs ?? 180_000, () => building(['out', 'library']) === 0 && coverStill());
+		// where it opens, all streamed in round the eye, the domes' insides built ahead too (each copy it ever put down
+		// stays held by its renderer, put away: `Copy`'s ghosts)
+		up = await run(o.settleMs ?? 180_000, quiet);
 	} else if (o.world === 'sandbox-3') await mountSandbox3();
 	else {
 		const w = await mountWorlds(o.asset);
@@ -221,11 +217,10 @@ export async function censusOf(o: { world: World; views?: ViewName[]; asset?: st
 		const v = name === 'open' ? null : VIEWS[name];
 		const ts = performance.now();
 		if (v) g.__walker.place(v.x, v.z, v.yaw, v.pitch);
-		// as the Mac: a moment, then until nothing builds (at most settleMs), then three seconds more
+		// as the Mac: a moment, then until its streaming has settled (at most settleMs)
 		await run(1500);
-		const settled = await run(o.settleMs ?? 180_000, () => building() === 0);
-		// then until what a frame draws holds still: the same triangles for three seconds running (a dome let go, a
-		// tile of the floor's cover built, all done), at most a minute
+		const settled = await run(o.settleMs ?? 180_000, quiet);
+		// then until each frame draws the same triangles for three seconds running, at most a minute
 		const stable = await steady(60_000, 3000, v ? 0 : 0.1);
 		const frames: { tris: number; calls: number; shadowTris: number; t: any }[] = [];
 		for (let i = 0; i < (o.measureFrames ?? 90); i++) {
