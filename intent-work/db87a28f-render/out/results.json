@@ -1,0 +1,128 @@
+{
+ "intent": "db87a28f-2d3a-41d9-8a2b-40314fdb2d40",
+ "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+ "at": "2026-11-08T14:37:54.954Z",
+ "commits": {
+  "base": "f93ccba7a4bec2544ab92c859770bde5d96c121d",
+  "head": "eaffe9fbc1e89b3c2afcc77b578aaea9e56c5a25"
+ },
+ "sites": {
+  "base": {
+   "views": {
+    "near-noon": {
+     "settled": true,
+     "frame_ms": 24,
+     "frame_p95": 33.4,
+     "cpu_ms": 14.7,
+     "gpu_ms": 15.8,
+     "calls": 1785,
+     "tris": 3271783,
+     "bound": "gpu",
+     "texture_mib": 252,
+     "png": "base-sandbox-1-near-noon.png"
+    },
+    "near-sun10": {
+     "settled": true,
+     "png": "base-sandbox-1-near-sun10.png"
+    },
+    "mid-noon": {
+     "settled": true,
+     "frame_ms": 16.7,
+     "frame_p95": 16.8,
+     "cpu_ms": 10,
+     "gpu_ms": 1.1,
+     "calls": 1755,
+     "tris": 5170208,
+     "bound": "vsync",
+     "texture_mib": 253,
+     "png": "base-sandbox-1-mid-noon.png"
+    },
+    "mid-sun10": {
+     "settled": true,
+     "png": "base-sandbox-1-mid-sun10.png"
+    }
+   },
+   "biomes": {
+    "food-forest": {
+     "png": "base-biome-food-forest.png",
+     "texture_mib": 151
+    },
+    "beech-forest": {
+     "png": "base-biome-beech-forest.png",
+     "texture_mib": 151
+    }
+   },
+   "errors": [
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+   ]
+  },
+  "head": {
+   "views": {
+    "near-noon": {
+     "settled": true,
+     "frame_ms": 0,
+     "frame_p95": 0,
+     "cpu_ms": 0,
+     "gpu_ms": null,
+     "calls": 0,
+     "tris": 0,
+     "bound": null,
+     "texture_mib": 232,
+     "png": "head-sandbox-1-near-noon.png"
+    },
+    "near-sun10": {
+     "settled": true,
+     "png": "head-sandbox-1-near-sun10.png"
+    },
+    "mid-noon": {
+     "settled": true,
+     "frame_ms": 0,
+     "frame_p95": 0,
+     "cpu_ms": 0,
+     "gpu_ms": null,
+     "calls": 0,
+     "tris": 0,
+     "bound": null,
+     "texture_mib": 232,
+     "png": "head-sandbox-1-mid-noon.png"
+    },
+    "mid-sun10": {
+     "settled": true,
+     "png": "head-sandbox-1-mid-sun10.png"
+    }
+   },
+   "biomes": {
+    "food-forest": {
+     "png": "head-biome-food-forest.png",
+     "texture_mib": 157
+    },
+    "beech-forest": {
+     "png": "head-biome-beech-forest.png",
+     "texture_mib": 157
+    }
+   },
+   "errors": [
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "TypeError: Cannot read properties of undefined (reading 'replace')",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "TypeError: Cannot read properties of undefined (reading 'replace')"
+   ],
+   "small": {
+    "frame_ms": 0,
+    "frame_p95": 0,
+    "cpu_ms": 0,
+    "gpu_ms": null,
+    "calls": 0,
+    "tris": 0,
+    "bound": null,
+    "texture_mib": 87,
+    "png": "head-sandbox-1-near-small.png"
+   }
+  }
+ }
+}
