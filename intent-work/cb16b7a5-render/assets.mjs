@@ -71,7 +71,7 @@ for (const site of sites) {
 		for (const c of CUT_CANDIDATES) {
 			if (cutPicked.length === 2) break;
 			await page.goto(`${site.url}/${c.group}/#${c.id}`, { waitUntil: 'domcontentloaded' });
-			const built = await page.waitForFunction(() => { const v = window.__vaultAsset; return v && v.hero && !v.building && !v.error; }, null, { timeout: 3 * 60e3 }).then(() => true, () => false);
+			const built = await page.waitForFunction(() => { const v = window.__vaultAsset; return v && (v.error || (v.hero && !v.building)); }, null, { timeout: 3 * 60e3 }).then(async () => !(await page.evaluate(() => window.__vaultAsset?.error)), () => false);
 			const caps = built ? await page.evaluate(capsOf) : 0;
 			console.log(`cut candidate ${c.name}: built ${built}, capped materials ${caps}`);
 			if (built && caps > 0) cutPicked.push({ ...c, cut: true });
@@ -80,7 +80,7 @@ for (const site of sites) {
 	}
 	for (const a of [...ASSETS, ...cutPicked]) {
 		await page.goto(`${site.url}/${a.group}/#${a.id}`, { waitUntil: 'domcontentloaded' });
-		const ok = await page.waitForFunction(() => { const v = window.__vaultAsset; return v && v.hero && !v.building && !v.error; }, null, { timeout: 5 * 60e3 }).then(() => true, () => false);
+		const ok = await page.waitForFunction(() => { const v = window.__vaultAsset; return v && (v.error || (v.hero && !v.building)); }, null, { timeout: 5 * 60e3 }).then(async () => !(await page.evaluate(() => window.__vaultAsset?.error)), () => false);
 		await page.waitForTimeout(4000);
 		const m = await timed(page, 6000);
 		const png = `${out}/${site.name}-${a.name}.png`;
