@@ -4,7 +4,7 @@
  * camera below the ground line and the frame splits there, as a split-level shot does: plant above, soil and roots below.
  *
  *   the floor   the biome's surfaces as the worlds draw them ($content/biomes `groundMaterial`), fading into the
- *               backdrop or the sky's horizon (./sky.js); a ring of mulch round the stem; its cover streamed round the
+ *               backdrop or the sky's horizon ($content/sandbox-kit/sky.js); a ring of mulch round the stem; its cover streamed round the
  *               plant (`coverStream`). It faces up only: from below, the eye sees on into the garden
  *   the earth   below the ground line: a face just beyond the farthest root, square to the eye (eased), its edges never
  *               seen, the ground line its top; drawn only while the eye is below; between eye and face earth and cover
@@ -20,7 +20,7 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import {
-	Break, Fn, If, Loop, abs, cameraViewMatrix, clamp, color, cos, cross, dFdx, dFdy, distance, dot, exp, faceDirection, float, floor, fract, fwidth, int, length, max, min,
+	Break, Fn, If, Loop, abs, atan, cameraViewMatrix, clamp, color, cos, cross, dFdx, dFdy, distance, dot, exp, faceDirection, float, floor, fract, fwidth, int, length, max, min,
 	mix, normalView, normalize, output, positionView, positionWorld, pow, reference, sign, sin, smoothstep, sqrt, step, struct, uniform, uniformArray, vec2, vec3, vec4
 } from 'three/tsl';
 import { groundMaterial } from '$lib/content/biomes/surfaces.js';
@@ -416,10 +416,10 @@ function floorMaterial(g, bg, fade, sky) {
 	const fv = uniform(fade);
 	let far = uniform(bg);
 	if (sky) {
-		const su = sky.uniforms, sun = ref(su.uSun, 'vec3'), eye = ref(g.uEye, 'vec3');
-		const dir = normalize(vec2(xz.x.sub(eye.x), xz.y.sub(eye.z)).add(vec2(1e-5, 0))), b = normalize(sun.xz.add(1e-5)), t = dot(dir, b);
-		far = mix(ref(su.uAway, 'color'), ref(su.uLow, 'color'), smoothstep(-1, 0.2, t));
-		far = mix(far, ref(su.uGold, 'color').mul(1.05), pow(max(t, 0), 4).mul(0.25)).mul(ref(su.uSkyK, 'float'));
+		// the sky's horizon behind it as the eye sees it: its ring of 16 colours round the compass (sandbox-kit/sky.js)
+		const ring = uniformArray(sky.horizon.uniforms.uSkyRing.value, 'vec3'), eye = ref(g.uEye, 'vec3');
+		const f = fract(atan(xz.y.sub(eye.z), xz.x.sub(eye.x).add(1e-5)).div(6.2831853).add(1)).mul(16), k = int(f);
+		far = mix(ring.element(k), ring.element(k.add(1).mod(16)), fract(f));
 	}
 	m.outputNode = vec4(mix(output.rgb, far, smoothstep(fv.x, fv.y, length(xz.sub(c.xz)))), output.a);
 	return m;

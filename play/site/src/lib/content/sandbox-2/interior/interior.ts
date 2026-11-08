@@ -24,7 +24,6 @@
  */
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { precompile } from '$lib/content/render/core.js'
 import { flagstone, groundCover, leaves, limestone, oak, soil, water } from './textures'
 import { cafes, coops, coopsAround, henPatches, rabbitPatches, squaresAround, type Kit } from './spaces'
 import { antHills, apiary, fishes, herd, TANK_FISH } from './animals'
@@ -34,6 +33,7 @@ import { buildTent } from './tent'
 import { furnish, terraceSet } from './rooms'
 import { ambience, levelsAt, nearness } from './ambience'
 import { flow, pond as pondShape, shore, stream as streamShape, waterMaterial } from './water'
+import { precompile } from '$lib/content/render/core.js'
 import { createWorldRenderer, type StageHandle } from '$lib/content/render/world.js'
 import { createSky, type SkyHandle } from '$lib/content/sandbox-kit/sky.js'
 import { skyHour } from '$lib/content/sandbox-kit/skyTime.svelte.js'
@@ -838,7 +838,6 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 	const clockHour = () => (golden ? 17.8 : skyHour())
 	let sky: SkyHandle | null = null
 	const hourNow = () => (sky ? sky.hour() : (dev.__interiorHour ?? clockHour()))
-	const MOON = new THREE.Color('#8ea6dc')
 
 	/* the night: warm lamps that come on as the light goes, not bright, just enough
 	   to walk by and sit under. Each is a real light, and the hanging ones let a
@@ -925,25 +924,19 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 	if (!host)
 		sky = createSky(renderer, scene, {
 			clock: clockHour,
-			// the dome's own shadows, all round it, from a light close by
-			shadowsAt: [0, 0],
-			shadowReach: R * 1.2,
-			shadowMap: huge ? 2048 : 3072,
-			shadowNear: 1,
-			shadowFar: R * 8 + 60,
+			// the dome's own shadows: they reach across it from wherever one stands, finer for a smaller dome
+			shadowReach: R * 2.4 + 20,
+			shadowMap: huge ? 1024 : 2048,
 			shadowBias: { bias: -0.0004, normal: 0.02 },
-			lightDistance: R * 3 + 20,
-			fog: { near: R * 1.2, far: R * 9 + 60 },
-			onHour: ({ day, night }, { fill }) => {
+			shadowStep: 1,
+			fog: { far: R * 9 + 60 },
+			onHour: ({ day, night }) => {
 				// the shadows are drawn again only when the light has moved (the factory, busy with machines and a lift,
 				// keeps drawing them every frame)
 				renderer.shadowMap.autoUpdate = kind === 'factory'
 				renderer.shadowMap.needsUpdate = true
 				// the factory works through the night under its own lights
-				if (kind === 'factory') {
-					fill.intensity += 1.1 * (1 - day)
-					fill.color.set('#f4f0e6').lerp(MOON, (1 - day) * 0.3)
-				}
+				if (kind === 'factory') scene.environmentIntensity += 6 * (1 - day)
 				lampsFor(night)
 			}
 		})

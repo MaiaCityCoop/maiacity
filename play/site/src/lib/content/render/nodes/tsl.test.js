@@ -62,8 +62,8 @@ describe('the ground in TSL', () => {
 	});
 	for (const sky of [false, true])
 		it(`builds the stage's floor and soil${sky ? ' under the sky' : ''}`, () => {
-			const su = { uAway: { value: new THREE.Color() }, uLow: { value: new THREE.Color() }, uGold: { value: new THREE.Color() }, uSun: { value: new THREE.Vector3(0, 1, 0) }, uSkyK: { value: 1 } };
-			const g = groundOf({ scene: new THREE.Scene(), bg: new THREE.Color(), sky: sky ? { uniforms: su } : null, low: true }, { cover: false });
+			const su = { horizon: { uniforms: { uSkyRing: { value: Array.from({ length: 16 }, () => new THREE.Vector3()) } } } };
+			const g = groundOf({ scene: new THREE.Scene(), bg: new THREE.Color(), sky: sky ? su : null, low: true }, { cover: false });
 			const mats = new Set();
 			g.group.traverse((o) => o.material && mats.add(o.material));
 			expect(mats.size).toBe(2);

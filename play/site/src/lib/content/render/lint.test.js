@@ -38,6 +38,10 @@ describe('the render core holds', () => {
 		expect(outside(/new\s+(?!T\.)(\w+\.)?OrbitControls\b/, [CORE, POST])).toEqual([]);
 		expect(outside(/new\s+(?!T\.)(\w+\.)?EffectComposer\b/, [CORE, POST])).toEqual([]);
 	});
+	// a compileAsync that gathers a node material never settles under WebGLNodesHandler: every warm-up is precompile's
+	test('every warm-up goes through the core’s precompile', () => {
+		expect(outside(/\bcompileAsync\s*\(/, [CORE])).toEqual([]);
+	});
 	test('tone mapping and exposure are set only through the core', () => {
 		expect(outside(/\.toneMapping(Exposure)?\s*=[^=]/, [CORE])).toEqual([]);
 	});
