@@ -212,7 +212,7 @@
 		// a plant's ground: its biome's floor to the horizon, whole, the plant's roots in the earth under it, seen by
 		// tilting the camera below the ground line (./ground.js); never under its fruit on its own, which stands on the
 		// studio's floor. One floor for every plant, not chosen (Samuel 2026-11-04): the library's greenest biome
-		const earth = groundOf(stage);
+		const earth = groundOf(stage, { drawn: plantings.drawn });
 		const green = groundsIn(source)[0];
 		earth.biome(green?.recipe ?? null, green?.id);
 		soilShown = earth.soil;
