@@ -21,8 +21,8 @@
  * its canvas; and a phone drew at twice its pixels with the desktop's shadows, occlusion and multisampling.
  */
 import * as THREE from 'three';
+import { install } from './nodes/index.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
 import { reopenOnRestore } from './budget.js';
 
 /** tone mappings by name */
@@ -88,9 +88,9 @@ export function createRenderer(o = {}) {
  * @param {THREE.WebGLRenderer} renderer
  */
 function nodes(renderer) {
-	const r = /** @type {THREE.WebGLRenderer & { setNodesHandler?: (h: WebGLNodesHandler) => void }} */ (renderer);
+	const r = /** @type {THREE.WebGLRenderer & { setNodesHandler?: (h: unknown) => void }} */ (renderer);
 	if (typeof r.setNodesHandler !== 'function') return;
-	r.setNodesHandler(new WebGLNodesHandler());
+	install(r); // three's handler, with what it lacks for us (./nodes/index.js: targets drawn linear, shadows from the light)
 	const compile = r.compile;
 	if (typeof compile !== 'function') return;
 	r.compile = function (scene, camera, target = null) {

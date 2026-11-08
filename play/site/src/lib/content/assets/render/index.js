@@ -715,7 +715,9 @@ export function createAssets(o) {
 		copy.traverse((o) => {
 			if (o.isMesh) {
 				const many = Array.isArray(o.material);
-				o.material = many ? o.material.map((m) => presets.of(m)) : presets.of(o.material);
+				// (a skin or a morph is its own mesh's: three's own material, not a shared node material)
+				const plain = !!(o.isSkinnedMesh || o.morphTargetInfluences?.length);
+				o.material = many ? o.material.map((m) => presets.of(m, plain)) : presets.of(o.material, plain);
 				o.receiveShadow = k.receive;
 				// a part whose shape its controls bend or spread is never culled by a ball that holds it at rest
 				if (o.isInstancedMesh || o.isSkinnedMesh || o.morphTargetInfluences?.length) o.frustumCulled = false;
