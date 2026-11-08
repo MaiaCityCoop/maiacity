@@ -60,6 +60,7 @@ for (const [level, withWind] of [[0, false], [1, false], [2, false], [0, true]] 
 	try {
 		handler.build(mat, mesh, params);
 		const v: string = params.vertexShader, f: string = params.fragmentShader;
+		if (!(mat as any).isKit) (ok = false), console.error(`level ${level}: not drawn as the kit's (isKit): toned twice in a film's targets`);
 		if (!/directionalLight|sunLight|SunLight/i.test(f) && !/NdotL|dotNL/.test(f)) console.warn(`level ${level}: no sun in its fragment shader`);
 		console.log(`level ${level}${withWind ? ' in the world’s wind' : ''}: vertex ${v.split('\n').length} lines, fragment ${f.split('\n').length} lines`);
 		if (process.argv.includes('--print')) console.log(v, '\n-----\n', f);

@@ -228,6 +228,9 @@ export function grassMaterial(o) {
 
 	const mat = new MeshStandardNodeMaterial({ side: THREE.DoubleSide });
 	mat.name = `grass L${level}`;
+	// drawn as the kit's own (./index.js `install`): linear and untoned into a target (a film's frames, toned once after),
+	// and left out of three's compile, built at its first frame (core.js `nodes`)
+	/** @type {any} */ (mat).isKit = true;
 	mat.positionNode = vertex();
 	mat.normalNode = transformNormalToView(vN).mul(faceDirection);
 
