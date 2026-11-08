@@ -31,7 +31,7 @@ const page = await (await browser.newContext({ viewport: { width: 1440, height: 
 const lines = [];
 const log = (s) => { lines.push(s); console.log(s); };
 page.on('pageerror', (e) => log(`PAGEERROR ${e.stack ?? e}`));
-page.on('console', (m) => ['error', 'warning'].includes(m.type()) && log(`CONSOLE ${m.type()} ${m.text().slice(0, 4000)}`));
+page.on('console', (m) => ['error', 'warning'].includes(m.type()) && log(`CONSOLE ${m.type()} ${m.text().slice(0, 20000)}`));
 await page.addInitScript({ content: SEEDED_RANDOM });
 await page.addInitScript(() => {
 	window.__draws = 0;
