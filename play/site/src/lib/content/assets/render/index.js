@@ -40,6 +40,11 @@ import { createKept } from './levels.js';
 import { levelValues } from '../lodcard.js';
 import { prepare } from './prepare.js';
 import { createPresets } from './presets.js';
+import { lookByName } from '../look.js';
+import { windOfCopy } from '../../render/wind.js';
+
+/** whether a material says what it is: its look (box format 5), or one its name gives (an older build's, ../look.js) */
+const looked = (m) => (Array.isArray(m) ? m.some(looked) : !!(m?.userData?.look ?? lookByName(m?.name)));
 
 /** after how long (ms) a kind that failed only in passing (`Unread`) is asked for again (`settle`) */
 const AGAIN_AFTER = 60_000;
@@ -220,6 +225,7 @@ export function createAssets(o) {
 			ok: false,
 			error: null,
 			radius: 1,
+			height: 0,
 			center: new THREE.Vector3(),
 			thresholds: thresholdsOf(declared ? names.length : LEVELS.length),
 			/** each level's triangles, as each came (./lod.js `heldTo`) */
@@ -257,6 +263,8 @@ export function createAssets(o) {
 			() => {
 				const L = k.levels[k.base].level;
 				k.radius = L.radius;
+				// how tall it stands from its foot, in its own metres (the wind's height for a copy of scale 1)
+				k.height = Math.max(0, L.height ?? 0);
 				k.center.copy(L.center);
 				retune(k);
 				k.ok = true;
@@ -505,6 +513,9 @@ export function createAssets(o) {
 		const mesh = new THREE.InstancedMesh(g, d.material, cap);
 		mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 		g.setAttribute('aFade', new THREE.InstancedBufferAttribute(new Float32Array(cap), 1).setUsage(THREE.DynamicDrawUsage));
+		// a material that says what it is (a leaf, grass, bark …: ../look.js) is bent by the world's wind: each copy its foot
+		// and height (aWind, ../../render/wind.js `windOfCopy`)
+		if (looked(d.material)) g.setAttribute('aWind', new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4).setUsage(THREE.DynamicDrawUsage));
 		if (d.colors) mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
 		mesh.count = 0;
 		mesh.visible = false;
@@ -531,6 +542,12 @@ export function createAssets(o) {
 		const f = new THREE.InstancedBufferAttribute(new Float32Array(cap), 1).setUsage(THREE.DynamicDrawUsage);
 		f.array.set(m.mesh.geometry.attributes.aFade.array.subarray(0, m.used));
 		m.mesh.geometry.setAttribute('aFade', f);
+		const w = m.mesh.geometry.attributes.aWind;
+		if (w) {
+			const a = new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4).setUsage(THREE.DynamicDrawUsage);
+			a.array.set(w.array.subarray(0, m.used * 4));
+			m.mesh.geometry.setAttribute('aWind', a);
+		}
 		if (m.mesh.instanceColor) {
 			const c = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
 			c.array.set(m.mesh.instanceColor.array.subarray(0, m.used * 3));
@@ -788,11 +805,13 @@ export function createAssets(o) {
 		for (const d of lv.meshes) {
 			const n = d.draw.n;
 			room(d, d.used + n);
-			const A = d.mesh.instanceMatrix.array, F = d.mesh.geometry.attributes.aFade.array;
+			const A = d.mesh.instanceMatrix.array, F = d.mesh.geometry.attributes.aFade.array, W = d.mesh.geometry.attributes.aWind?.array;
 			for (let j = 0; j < n; j++) {
 				const s = d.used + j;
 				multiply(k.M, i * 16, d.draw.locals, j * 16, A, s * 16);
 				F[s] = fade >= 1 ? 0 : fade;
+				// the copy's foot and its height in metres, for the wind (every part of it alike: it sways as one)
+				if (W) W.set(windOfCopy(k.M[i * 16 + 12], k.M[i * 16 + 13], k.M[i * 16 + 14], k.height * k.S[i]), s * 4);
 				if (d.draw.colors) d.mesh.instanceColor.array.set(d.draw.colors.subarray(j * 3, j * 3 + 3), s * 3);
 			}
 			d.used += n;
@@ -876,6 +895,12 @@ export function createAssets(o) {
 					f.clearUpdateRanges();
 					f.addUpdateRange(0, d.used);
 					f.needsUpdate = true;
+					const w = m.geometry.attributes.aWind;
+					if (w) {
+						w.clearUpdateRanges();
+						w.addUpdateRange(0, d.used * 4);
+						w.needsUpdate = true;
+					}
 					if (m.instanceColor) m.instanceColor.needsUpdate = true;
 					tris += d.draw.tris * d.used;
 					calls++;
