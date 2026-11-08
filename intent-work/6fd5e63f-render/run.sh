@@ -23,7 +23,7 @@ tree() { # tree <dir> <commit>
 tree "$ROOT/../6fd5-main" "$MAIN"
 tree "$ROOT/../6fd5-kit" "$KIT"
 tree "$ROOT/../6fd5-head" "$HEAD"
-serve() { (cd "$ROOT/../6fd5-$1/play/site" && PLAY_API=http://localhost:3911 bunx vite dev --port "$2" --strictPort >"$OUT/vite-$1.log" 2>&1) & echo $!; }
+serve() { (cd "$ROOT/../6fd5-$1/play/site" && PLAY_API=http://localhost:3911 bunx vite dev --port "$2" --strictPort >"$OUT/vite-$1.log" 2>&1) </dev/null >/dev/null 2>&1 & echo $!; }
 P1=$(serve main 5181); P2=$(serve kit 5182); P3=$(serve head 5183)
 trap 'kill $P1 $P2 $P3 2>/dev/null || true' EXIT
 for p in 5181 5182 5183; do for _ in $(seq 1 120); do curl -sf "http://localhost:$p/" >/dev/null && break; sleep 1; done; done
