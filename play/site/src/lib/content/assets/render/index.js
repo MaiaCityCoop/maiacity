@@ -45,6 +45,11 @@ import { levelValues } from '../lodcard.js';
 import { prepare } from './prepare.js';
 import { coverEye, coverGrow } from '../../render/nodes/index.js';
 import { createPresets } from './presets.js';
+import { lookByName } from '../look.js';
+import { windOfCopy } from '../../render/wind.js';
+
+/** whether a material says what it is: its look (box format 5), or one its name gives (an older build's, ../look.js) */
+const looked = (m) => (Array.isArray(m) ? m.some(looked) : !!(m?.userData?.look ?? lookByName(m?.name)));
 
 /** after how long (ms) a kind that failed only in passing (`Unread`) is asked for again (`settle`) */
 const AGAIN_AFTER = 60_000;
@@ -225,6 +230,7 @@ export function createAssets(o) {
 			ok: false,
 			error: null,
 			radius: 1,
+			height: 0,
 			center: new THREE.Vector3(),
 			thresholds: thresholdsOf(declared ? names.length : LEVELS.length),
 			/** each level's triangles, as each came (./lod.js `heldTo`) */
@@ -266,6 +272,8 @@ export function createAssets(o) {
 			() => {
 				const L = k.levels[k.base].level;
 				k.radius = L.radius;
+				// how tall it stands from its foot, in its own metres (the wind's height for a copy of scale 1)
+				k.height = Math.max(0, L.height ?? 0);
 				k.center.copy(L.center);
 				retune(k);
 				k.ok = true;
@@ -514,6 +522,9 @@ export function createAssets(o) {
 		const mesh = new THREE.InstancedMesh(g, d.material, cap);
 		mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 		g.setAttribute('aFade', new THREE.InstancedBufferAttribute(new Float32Array(cap), 1).setUsage(THREE.DynamicDrawUsage));
+		// a material that says what it is (a leaf, grass, bark …: ../look.js) is bent by the world's wind: each copy its foot
+		// and height (aWind, ../../render/wind.js `windOfCopy`)
+		if (looked(d.material)) g.setAttribute('aWind', new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4).setUsage(THREE.DynamicDrawUsage));
 		if (d.colors) mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
 		mesh.count = 0;
 		mesh.visible = false;
@@ -531,6 +542,8 @@ export function createAssets(o) {
 
 	/** what a drawing of a kind of cover carries per copy: where it grows (../../render/nodes `aCover`, `aReach`) */
 	const COVER = [['aCover', 4], ['aReach', 3]];
+	/** every per-copy attribute a drawing may carry beside its matrix and fade: the cover's and the wind's (aWind) */
+	const PER_COPY = [...COVER, ['aWind', 4]];
 
 	/** room in a drawing for `need` instances */
 	function room(m, need) {
@@ -543,7 +556,7 @@ export function createAssets(o) {
 		const f = new THREE.InstancedBufferAttribute(new Float32Array(cap), 1).setUsage(THREE.DynamicDrawUsage);
 		f.array.set(m.mesh.geometry.attributes.aFade.array.subarray(0, m.used));
 		m.mesh.geometry.setAttribute('aFade', f);
-		for (const [name, n] of COVER) {
+		for (const [name, n] of PER_COPY) {
 			const a = m.mesh.geometry.attributes[name];
 			if (!a) continue;
 			const b = new THREE.InstancedBufferAttribute(new Float32Array(cap * n), n).setUsage(THREE.DynamicDrawUsage);
@@ -829,7 +842,7 @@ export function createAssets(o) {
 			room(d, d.used + n);
 			const at = d.mesh.geometry.attributes;
 			if (k.cover && !at.aCover) for (const [name, w] of COVER) d.mesh.geometry.setAttribute(name, new THREE.InstancedBufferAttribute(new Float32Array(d.cap * w), w).setUsage(THREE.DynamicDrawUsage));
-			const A = d.mesh.instanceMatrix.array, F = at.aFade.array, G = at.aCover?.array, H = at.aReach?.array;
+			const A = d.mesh.instanceMatrix.array, F = at.aFade.array, G = at.aCover?.array, H = at.aReach?.array, W = at.aWind?.array;
 			for (let j = 0; j < n; j++) {
 				const s = d.used + j;
 				multiply(k.M, i * 16, d.draw.locals, j * 16, A, s * 16);
@@ -843,6 +856,8 @@ export function createAssets(o) {
 					H[s * 3 + 1] = k.C[i * 4 + 2];
 					H[s * 3 + 2] = k.C[i * 4 + 3];
 				}
+				// the copy's foot and its height in metres, for the wind (every part of it alike: it sways as one)
+				if (W) W.set(windOfCopy(k.M[i * 16 + 12], k.M[i * 16 + 13], k.M[i * 16 + 14], k.height * k.S[i]), s * 4);
 				if (d.draw.colors) d.mesh.instanceColor.array.set(d.draw.colors.subarray(j * 3, j * 3 + 3), s * 3);
 			}
 			d.used += n;
@@ -939,7 +954,7 @@ export function createAssets(o) {
 					f.clearUpdateRanges();
 					f.addUpdateRange(0, d.used);
 					f.needsUpdate = true;
-					for (const [name, w] of COVER) {
+					for (const [name, w] of PER_COPY) {
 						const a = m.geometry.attributes[name];
 						if (!a) continue;
 						a.clearUpdateRanges();
