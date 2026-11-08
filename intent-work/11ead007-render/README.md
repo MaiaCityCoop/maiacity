@@ -13,7 +13,7 @@ The census (avenBOX) already counts identical triangles and draws for Sandbox 1 
 **Run:** `PLAY_MCP_TOKEN=play_… bash intent-work/11ead007-render/run.sh`. It needs bun, node with Playwright's Chromium, and ffmpeg.
 - It makes two worktrees beside the repository:
   - `../i5-base` at `origin/main`, or `BASE_COMMIT`;
-  - `../i5-head` at the branch's tip, or `HEAD_COMMIT`.
+  - `../i5-head` at e251559358a530c9667bfc06c4bbd42a33811832 (the branch's head when this job was sent), or `HEAD_COMMIT`.
 - It serves both on ports 5181 and 5182 through play's read-only proxy.
 
 Then it runs four steps:
