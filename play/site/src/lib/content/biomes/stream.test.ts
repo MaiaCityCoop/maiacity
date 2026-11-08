@@ -2,13 +2,13 @@
 // once a tile as play's builds, grown on the graphics card by the render kit's TSL, nothing of it moved while you walk.
 import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
 import { coverStream } from './stream.js';
 import { coverGrow } from '../render/nodes/index.js';
 
-const SRC = join(__dirname, '../../..');
+const join = (...p: string[]) => p.join('/');
+const SRC = new URL('../../..', import.meta.url).pathname.replace(/\/$/, '');
 const files = (dir: string): string[] =>
-	readdirSync(dir).flatMap((f) => {
+	readdirSync(dir).flatMap((f: string) => {
 		const p = join(dir, f);
 		return statSync(p).isDirectory() ? files(p) : /\.(js|ts|svelte)$/.test(f) && !/\.test\.ts$/.test(f) ? [p] : [];
 	});
@@ -59,9 +59,7 @@ describe('one program lays the cover (c1)', () => {
 		expect(ground).toContain('coverAway');
 	});
 	it('every warm-up goes through the render kit’s precompile (compileAsync never resolves on node materials)', () => {
-		// held: the render kit's own, intent cb16b7a5's to route (this list goes once it is on main)
-		const HELD = ['assets/render/index.js', 'assets/render/impostors.js', 'assets/stage.js'];
-		const bad = files(SRC).filter((f) => !f.endsWith('render/core.js') && !HELD.some((h) => f.endsWith(h)) && /\bcompileAsync\(/.test(readFileSync(f, 'utf8')));
+		const bad = files(SRC).filter((f) => !f.endsWith('render/core.js') && /\bcompileAsync\(/.test(readFileSync(f, 'utf8')));
 		expect(bad).toEqual([]);
 	});
 });

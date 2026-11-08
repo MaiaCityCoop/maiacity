@@ -6,7 +6,7 @@
  * and below the soil it stands in, its horizons, and its roots in it.
  *
  *   the floor   the biome's surfaces as the worlds paint them ($content/biomes `groundMaterial`, from the vault's card),
- *               out to where it fades into the studio's backdrop (under the sky, ./sky.js, into the horizon behind it); round the stem a ring of mulch, where a seedling
+ *               out to where it fades into the studio's backdrop (under the sky, $content/sandbox-kit/sky.js, into the horizon behind it); round the stem a ring of mulch, where a seedling
  *               stands in a garden; its cover (grasses, clover, leaves) streamed round the plant, thinning with
  *               distance and growing up or sinking back on the graphics card, never popping (`coverStream`). It faces
  *               up only, so from below the ground it is not drawn and the eye sees on into the garden
@@ -419,9 +419,9 @@ function floorMaterial(g, bg, fade, sky) {
 	const inner = m.onBeforeCompile;
 	m.onBeforeCompile = (sh, r) => {
 		inner(sh, r);
-		Object.assign(sh.uniforms, g, { uBg: { value: bg }, uFade: { value: fade } }, sky?.uniforms ?? {});
+		Object.assign(sh.uniforms, g, { uBg: { value: bg }, uFade: { value: fade } }, sky?.horizon.uniforms ?? {});
 		sh.fragmentShader = sh.fragmentShader
-			.replace('#include <common>', `#include <common>\nuniform vec3 uBg; uniform vec2 uFade;\n${GROUND_HEAD}\n${sky?.glsl ?? ''}`)
+			.replace('#include <common>', `#include <common>\nuniform vec3 uBg; uniform vec2 uFade;\n${GROUND_HEAD}\n${sky?.horizon.glsl ?? ''}`)
 			.replace(
 				'#include <color_fragment>',
 				`#include <color_fragment>

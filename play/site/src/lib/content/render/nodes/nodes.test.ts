@@ -126,7 +126,7 @@ describe('the render kit in TSL', () => {
 		const { r, shaders } = renderer();
 		const { scene, camera } = lit();
 		const rt = new THREE.WebGLRenderTarget(64, 64);
-		const sky = { uniforms: Object.fromEntries(['uAway', 'uLow', 'uGold'].map((k) => [k, { value: new THREE.Color(0.5, 0.6, 0.7) }]).concat([['uSun', { value: new THREE.Vector3(0, 1, 0) }], ['uSkyK', { value: 1 }]])) };
+		const sky = { uniforms: { uSkyRing: { value: Array.from({ length: 16 }, (_, i) => new THREE.Vector3(0.5, 0.6, 0.6 + i / 64)) } } };
 		const g = ghostMaterial();
 		g.ghost.a.value = 0.5;
 		scene.add(new THREE.Mesh(new THREE.SphereGeometry(), g));

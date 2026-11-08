@@ -1494,7 +1494,6 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		const now = performance.now()
 		// walk (or, while the film camera holds it, fly); the sun's shadows follow the camera round the cell
 		walker.update(Math.min(0.1, (now - last) / 1000))
-		sky.follow(camera.position.x, camera.position.z)
 		last = now
 		const t = worldTime() ?? (now - clock0) / 1000
 		for (const a of animated) a(t)
@@ -1533,7 +1532,6 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		frame = requestAnimationFrame(tick)
 	}
 	walker.update(0)
-	sky.follow(camera.position.x, camera.position.z)
 	// what the library's assets are built from, there before the first frame
 	await library.ready()
 	// for a look from the console at what the renderers draw and hold: __assets.stats(), and each kind (__assets.kinds())

@@ -22,9 +22,9 @@ import * as THREE from 'three';
 import { AttributeNode, MeshBasicNodeMaterial, MeshLambertNodeMaterial, MeshPhongNodeMaterial, MeshPhysicalNodeMaterial, MeshStandardNodeMaterial, NodeMaterial } from 'three/webgpu';
 import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
 import {
-	If, abs, atan, cameraPosition, cameraViewMatrix, clamp, diffuseColor, dot, float, floor, fract, frontFacing, instanceColor, length, mat3, materialMetalness, materialNormal,
+	If, abs, atan, int, uniformArray, cameraPosition, cameraViewMatrix, clamp, diffuseColor, dot, float, floor, fract, frontFacing, instanceColor, length, mat3, materialMetalness, materialNormal,
 	materialOpacity, materialRoughness, max, mix, mod, nodeObject, normalLocal, normalView, normalize, output, positionLocal, positionView, positionViewDirection, positionWorld, pow,
-	reference, screenCoordinate, select, sin, smoothstep, texture, uniform, uv, varying, vec2, vec3, vec4
+	screenCoordinate, select, sin, smoothstep, texture, uniform, uv, varying, vec2, vec3, vec4
 } from 'three/tsl';
 
 // ---------------------------------------------------------------- the handler
@@ -357,23 +357,21 @@ export function poolMaterial(map, color, opacity) {
 	return m;
 }
 
-/** a sky's colour on the horizon under a way looked (../../assets/sky.js `skyHorizon`, from the same uniforms) */
-const horizonOf = (dir, u) => {
-	const r = (k, t = 'color') => reference('value', t, u[k]);
-	const toward = dot(normalize(dir.xz.add(1e-5)), normalize(r('uSun', 'vec3').xz.add(1e-5)));
-	const c = mix(r('uAway'), r('uLow'), smoothstep(-1, 0.2, toward));
-	return mix(c, r('uGold').mul(1.05), pow(max(toward, 0), 4).mul(0.25)).mul(r('uSkyK', 'float'));
+/** a sky's colour on the horizon behind a way looked: its ring of 16 colours ($content/sandbox-kit/sky.js `horizon`) */
+const horizonOf = (dir, ring) => {
+	const f = fract(atan(dir.z, dir.x).div(Math.PI * 2).add(1)).mul(16), k = int(f);
+	return mix(ring.element(k), ring.element(k.add(1).mod(16)), fract(f));
 };
 
 /**
  * The stage's floor: running out into `bg` (or, under a `sky`, the horizon's own colour behind it as the eye sees it)
  * between `fade.x` and `fade.y` metres from the centre.
- * @param {THREE.MeshStandardMaterialParameters} o @param {THREE.Color} bg @param {THREE.Vector2} fade @param {any} [sky]
+ * @param {THREE.MeshStandardMaterialParameters} o @param {THREE.Color} bg @param {THREE.Vector2} fade @param {any} [sky] the sky's `horizon`
  */
 export function floorMaterial(o, bg, fade, sky) {
 	const m = new (ours(MeshStandardNodeMaterial))(o);
 	const fr = smoothstep(fade.x, fade.y, length(positionWorld.xz));
-	const far = sky ? horizonOf(normalize(vec3(positionWorld.x.sub(cameraPosition.x), 0, positionWorld.z.sub(cameraPosition.z)).add(vec3(1e-5, 0, 0))), sky.uniforms) : uniform(bg);
+	const far = sky ? horizonOf(normalize(vec3(positionWorld.x.sub(cameraPosition.x), 0, positionWorld.z.sub(cameraPosition.z)).add(vec3(1e-5, 0, 0))), uniformArray(sky.uniforms.uSkyRing.value, 'vec3')) : uniform(bg);
 	m.outputNode = vec4(mix(output.rgb, far, fr), output.a);
 	return m;
 }
