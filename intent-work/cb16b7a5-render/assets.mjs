@@ -9,6 +9,7 @@ import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
 import { mkdirSync, writeFileSync } from 'node:fs';
 const { chromium } = createRequire(import.meta.url)('playwright');
+import { QUIET, SEEDED_RANDOM } from './determinism.mjs';
 const argv = process.argv.slice(2), sites = [];
 let out = 'out/assets';
 for (let i = 0; i < argv.length; i++) {
@@ -48,6 +49,7 @@ for (const site of sites) {
 	const page = await ctx.newPage();
 	page.on('console', (m) => m.type() === 'error' && console.log(`[${site.name}] ${m.text().slice(0, 300)}`));
 	page.on('pageerror', (e) => console.log(`[${site.name}] pageerror ${String(e).slice(0, 300)}`));
+	await page.addInitScript({ content: SEEDED_RANDOM });
 	await page.addInitScript(clock);
 	for (const a of ASSETS) {
 		await page.goto(`${site.url}/${a.group}/#${a.id}`, { waitUntil: 'domcontentloaded' });
@@ -71,12 +73,11 @@ for (const site of sites) {
 	await page.addInitScript(() => (window.__interiorHour = 12));
 	await page.evaluate(() => (window.__interiorHour = 12));
 	await page.waitForFunction(() => window.__walker && window.__assets, null, { timeout: 10 * 60e3 });
-	for (let end = Date.now() + 10 * 60e3; Date.now() < end; await page.waitForTimeout(2000)) {
-		const b = await page.evaluate(() => { const s = window.__assets.stats(); return ['out', 'in', 'library'].reduce((a, k) => a + (s[k]?.building ?? 0), 0); });
-		if (b === 0) break;
-	}
+	// settled as the render box settles (./determinism.mjs QUIET: nothing building or kept, no new picture taken)
+	for (let end = Date.now() + 10 * 60e3; Date.now() < end; await page.waitForTimeout(2000)) if ((await page.evaluate(QUIET)) === 0) break;
 	await page.evaluate(() => window.__walker.place(0, 160, 0, -0.05));
-	await page.waitForTimeout(8000);
+	await page.waitForTimeout(2000);
+	for (let end = Date.now() + 3 * 60e3; Date.now() < end; await page.waitForTimeout(2000)) if ((await page.evaluate(QUIET)) === 0) break;
 	for (let i = 0; i <= 12; i++) {
 		await page.evaluate((z) => window.__walker.place(0, z, 0, -0.05), 160 - i * 2.5);
 		await page.waitForTimeout(500);

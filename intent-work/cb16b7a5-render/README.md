@@ -19,6 +19,11 @@ at the branch's tip), serves both on 5181/5182 with play's read-only proxy, and 
 3. SSIM of every picture, base against head (ffmpeg); the walk as one strip per site (`walk-base.png`,
    `walk-head.png`).
 
+**Determinism:** `assets.mjs` uses the render box's `determinism.mjs` (copied from `intent-work/main-baseline/`):
+a seeded `Math.random` in every page and a settle on `QUIET`. `selector-shots.mjs` is main's script: patch it with the
+render box's `patch.py` as usual, for base and head alike, or judge Sandbox 1's far SSIM against the main-vs-main
+control (far 0.913).
+
 **Pass (c7):** SSIM ≥ 0.98 per shot (the walk's frames too: a frame where head pops and base dithers drops there);
 head's mean and p95 frame time no worse than base's (say so if any shot is worse by more than 5 %); the cut shots show
 the red section faces on head as on base; no `pageerror` in `assets.txt`.
