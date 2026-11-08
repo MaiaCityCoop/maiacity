@@ -7,6 +7,7 @@
  * when the world shown changes.
  */
 import * as THREE from 'three';
+import { setExposure } from '../render/core.js';
 
 const lin = (hex) => new THREE.Color(`#${hex}`).convertSRGBToLinear();
 
@@ -113,7 +114,7 @@ export function createSky(scene, renderer) {
 			// no shadow pass at all where the mood casts none (every caster would be drawn a second time)
 			sun.castShadow = m.shadows;
 			sun.intensity = m.indoor ? 0 : m.sun > 0 ? 3.2 * m.light * Math.min(1, 0.45 + m.sun / 25) : 0.15;
-			renderer.toneMappingExposure = 1.0 + 0.2 * m.light;
+			setExposure(renderer, 1.0 + 0.2 * m.light);
 		},
 		/** each frame: the dome round the eye, the sun's shadow over where the camera looks */
 		place(camera, focus) {
