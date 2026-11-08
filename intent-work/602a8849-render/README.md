@@ -13,14 +13,14 @@ WebGLRenderer through three's `WebGLNodesHandler` (main has it since b03f9fb4). 
 The film darkroom is deleted (it had no caller). `render/tsl.js` sets what a node material writes: drawn into a
 target it comes out linear and untoned, and on the screen `toneMapped: false` and `userData.raw` are honoured.
 
-Node materials are never compiled ahead: `render/core.js`'s `compile` takes them off their objects while three gathers
+Our node materials (`isKit`) are never compiled ahead: `render/core.js`'s `compile` takes them off their objects while three gathers
 (cb16b7a5's gate, 1c7f2af), so they are built at their first frame. **Step 0:** run Sandbox 1 for a few minutes first
 and stop if it throws.
 
 Counts were checked in avenBOX with the census at base and head. This job is the part that needs a GPU. **This is the
 first time these node materials compile on a real GPU**, so every console error matters.
 
-**The code:** pull request #2182, branch `intent/602a8849-tsl-shaders`, head `3c73954c1c23e20f678e1f960a7175e2746f530f`.
+**The code:** pull request #2182, branch `intent/602a8849-tsl-shaders`, head `a060a9ccd23f3ab9cece42a2a276f10e661b575d`.
 
 **Determinism:** `determinism.mjs` is copied from `intent-work/main-baseline-render` (c43eab548). `SEEDED_RANDOM`
 is an init script on every page, and `QUIET` is polled to 0 before each shot. No main baseline was published for
@@ -29,7 +29,7 @@ these views yet, so the job renders base (main at the merge base) and head itsel
 ## How
 
 1. `git fetch origin intent-work/602a8849-render && git checkout FETCH_HEAD` (this branch), with `PLAY_MCP_TOKEN` set.
-2. `bash intent-work/602a8849-render/run.sh 3c73954c1c23e20f678e1f960a7175e2746f530f`. It checks out base and head in worktrees beside the repository,
+2. `bash intent-work/602a8849-render/run.sh a060a9ccd23f3ab9cece42a2a276f10e661b575d`. It checks out base and head in worktrees beside the repository,
    then runs three things:
    - **c7:** `story-parity.ts` on head, `src/lib/stories/fixtures/king-coconut-live.json --at 1,3,5 --min-ssim 0.98
      --lossless`, twice. Out: `parity-1.txt`, `parity-2.txt`, and the stills in `parity-1/` and `parity-2/`.
