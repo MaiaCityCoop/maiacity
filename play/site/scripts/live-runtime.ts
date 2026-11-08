@@ -13,6 +13,7 @@
  */
 import { resolve } from 'node:path';
 import { readFileSync, writeFileSync } from 'node:fs';
+import { compileModule } from 'svelte/compiler';
 import { hashText } from '../src/lib/content/game/hash.js';
 
 const SITE = resolve(import.meta.dir, '..');
@@ -33,6 +34,8 @@ export async function liveRuntime(): Promise<string> {
 					b.onResolve({ filter: /^\$lib\// }, (a) => ({ path: Bun.resolveSync('./' + a.path.slice(5), resolve(SITE, 'src/lib') + '/') }));
 					b.onResolve({ filter: /^\$app\/paths$/ }, () => ({ path: 'paths', namespace: 'app' }));
 					b.onLoad({ filter: /.*/, namespace: 'app' }, () => ({ contents: 'export const base = "";', loader: 'js' }));
+					// a module with runes (the sky's time control, under the stage's sky) compiled as the site's build compiles it
+					b.onLoad({ filter: /\.svelte\.js$/ }, (a) => ({ contents: compileModule(readFileSync(a.path, 'utf8'), { filename: a.path, generate: 'client', dev: false }).js.code, loader: 'js' }));
 				}
 			}
 		]

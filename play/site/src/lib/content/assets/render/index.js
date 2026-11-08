@@ -34,6 +34,7 @@ import { canonical, loadAsset } from '../load.js';
 import { INDEX, buildOf, hashOf, heldAt, paramsOf, parseBuild } from '../catalog.js';
 import { createImpostors } from './impostors.js';
 import { budget, dropOnUpload } from '../../render/budget.js';
+import { precompile } from '../../render/core.js';
 import { LEVELS, SMALLEST, budgetOf, choose, errorOf, heldTo, sizeOn, smallestOf, thresholdsOf } from './lod.js';
 import { createLowering } from './lower.js';
 import { createKept } from './levels.js';

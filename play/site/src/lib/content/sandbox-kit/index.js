@@ -4,8 +4,8 @@
  * In the world (three.js):
  *   createStage   the canvas, the scene and the camera, kept to their container's size and smooth on a slow phone:
  *                 the world renderer ($content/render/world.js `createWorldRenderer`), under its kit name
- *   createSky     the one sky of every world, a view of one universe (./universe.js): from the ground, or round a
- *                 planet from space; the sun and moon on the hour, shadows, fog in the horizon's colour, the stars
+ *   createSky     the one sky of every world, the sandboxes and the asset viewer (./universe.js): the sun and moon
+ *                 on the hour, its cascaded shadows, the sky's own light, the haze in the horizon's colour, the stars
  *   createWalker  the first-person camera: WASD and drag to look, a joystick and a finger on a phone
  *   createObstacles  what stands in the walker's way, filed in 8 m cells; never a trap to whoever stands in it
  *   createOrbitRig  the map camera: WASD travels, drag turns and tilts, the wheel zooms to the cursor
@@ -25,8 +25,8 @@
  * How to build a new sandbox with it: ./README.md.
  */
 export { createWorldRenderer as createStage } from '$lib/content/render/world.js';
-export { createSky, createSkyClock, lightAt, sunAt } from './sky.js';
-export { celestial, createUniverse, horizonAt, sunOverGround } from './universe.js';
+export { createSky, createSkyClock, lightAt, lightOf, sunAt, sunLight } from './sky.js';
+export { celestial, createUniverse, horizonRing } from './universe.js';
 export { seededLcg, seededMinStd, seededRandom } from './random.js';
 export { disposeObject } from '$lib/content/render/core.js';
 export { automatic, manual, skyHour, skyTime, NOON } from './skyTime.svelte.js';
