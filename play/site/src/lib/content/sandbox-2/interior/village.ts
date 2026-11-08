@@ -1014,6 +1014,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			})
 		: null
 	if (grass) scene.add(grass.object)
+	// for the checks that measure it (intent-work/090168c8-render): its blades by level, and it shown or not
+	;(window as unknown as { __grass?: typeof grass }).__grass = grass
 	const q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), sv = new THREE.Vector3()
 	const mat = (x: number, y: number, z: number, rot: number, sx: number, sy = sx, sz = sx) => new THREE.Matrix4().compose(p.set(x, y, z), q.setFromEuler(e.set(0, rot, 0)), sv.set(sx, sy, sz))
 	{
