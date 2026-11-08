@@ -20,7 +20,7 @@
 <script lang="ts">
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import { clipAt, clipsOf, clock, cueOf, LINK, linkedOf, moodLevel, sectionsOf, shotEdge, spansOf, type Links, type Notes, type Shot, type StoryBody, type Track, type Voice } from './timeline';
-	import { compose, feed, FRAME, seal, VENDOR } from './compose';
+	import { compose, feed, FRAME, LIVE_BEFORE, seal, VENDOR } from './compose';
 	import { hashText } from '$lib/content/game/hash.js';
 	import { enginesOf, pathOf } from '$lib/kernel/engines.js';
 	import type { Live, LiveAsset, World, WorldAsset } from './live';
@@ -98,7 +98,7 @@
 	};
 	/** a live shot's code the site serves (intent f270269e), held to its hash by feed: the frozen box engines, as every
 	 *  asset viewer loads them, and the live runtime, frozen beside them (scripts/live-runtime.ts --check rebuilds it) */
-	const ENGINES: Record<string, string> = { ...Object.fromEntries(enginesOf('box').map((e: { v: number; blake3: string }) => [e.blake3, pathOf('box', e.v)])), [VENDOR.live.hash]: '/live/live-runtime.js' };
+	const ENGINES: Record<string, string> = { ...Object.fromEntries(enginesOf('box').map((e: { v: number; blake3: string }) => [e.blake3, pathOf('box', e.v)])), [VENDOR.live.hash]: '/live/live-runtime.js', ...Object.fromEntries(LIVE_BEFORE.map((h) => [h, `/live/${h}.js`])) };
 	const fileOf = (h: string): Promise<Blob> =>
 		CODE[h] ? CODE[h]().then((m) => new Blob([m.default])) : fetch(h === VENDOR.font.hash ? fontUrl : ENGINES[h] ?? frameUrl(h), { credentials: 'same-origin' }).then((r) => (r.ok ? r.blob() : Promise.reject(new Error(`file ${h.slice(0, 10)}…: ${r.status}`))));
 	/** what play knows of each asset version a live shot draws (GET /api/assets/<its UUID>): its recipe, pieces and engine */
