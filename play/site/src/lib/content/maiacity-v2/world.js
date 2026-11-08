@@ -716,7 +716,9 @@ export function createWorld(canvas, { onPick = () => {}, onLabels = () => {}, on
 
 	// the one sky ($content/sandbox-kit/sky.js) over the old city, its day from six to six (the story's): its sun the key
 	// light with its cascades of shadows out across the plot, the sky's own light the fill, the haze toward the horizon
-	const sky = createSky(renderer, scene, { clock: () => 12, day: [6, 18], shadowReach: 450, fog: { far: 2200 } });
+	// its lens a little closed (0.7): V1's colours were made for no tone mapping, and under AgX at the sky's own lens its
+	// grass came out pale and flat (the Mac's look, intent 2214e661)
+	const sky = createSky(renderer, scene, { clock: () => 12, day: [6, 18], shadowReach: 450, fog: { far: 2200 }, exposure: 0.7 });
 	const sun = sky.sun;
 	let skyAt = NaN;
 

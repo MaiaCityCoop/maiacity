@@ -148,14 +148,20 @@ export const SUN = (5 * NOON_SKY) / T(NOON_EL);
 /** the light at noon on a surface facing up, sun and sky: what the lens is set for */
 const NOON_LIGHT = SUN * T(NOON_EL) * Math.sin(NOON_EL) + NOON_SKY;
 
+/** how far the sun's colour has come from the horizon's orange to overhead's white: the air it shines through thins
+ *  fast as it climbs, so it is near white by 25° (about (255, 228, 206) at 30°, a real noon sun's; the Mac's look of
+ *  T = √sin(elevation) for colour, still orange at 30°, cast every noon peach) */
+const WHITENS = THREE.MathUtils.degToRad(17);
+const whiteness = (/** @type {number} */ el) => (1 - Math.exp(-Math.max(0, el) / WHITENS)) / (1 - Math.exp(-Math.PI / 2 / WHITENS));
+
 /**
- * The sun's light at a height (radians): its colour from a deep orange at the horizon to a warm white overhead, its
- * strength SUN · T, T = √sin(elevation). Below the horizon none.
+ * The sun's light at a height (radians): its colour from a deep orange at the horizon to a warm white overhead, near
+ * white by 25°; its strength SUN · T, T = √sin(elevation). Below the horizon none.
  * @param {number} elevation
  */
 export function sunLight(elevation) {
 	const t = T(elevation);
-	return { color: HORIZON.clone().lerp(OVERHEAD, t), intensity: SUN * t, T: t };
+	return { color: HORIZON.clone().lerp(OVERHEAD, whiteness(elevation)), intensity: SUN * t, T: t };
 }
 
 /**

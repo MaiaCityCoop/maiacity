@@ -62311,9 +62311,11 @@ ${component_stack}
   var NOON_SKY = lum(skyIrradiance(sunFrom(68, 0)).e);
   var SUN = 5 * NOON_SKY / T2(NOON_EL);
   var NOON_LIGHT = SUN * T2(NOON_EL) * Math.sin(NOON_EL) + NOON_SKY;
+  var WHITENS = MathUtils.degToRad(17);
+  var whiteness = (el) => (1 - Math.exp(-Math.max(0, el) / WHITENS)) / (1 - Math.exp(-Math.PI / 2 / WHITENS));
   function sunLight(elevation) {
     const t = T2(elevation);
-    return { color: HORIZON.clone().lerp(OVERHEAD, t), intensity: SUN * t, T: t };
+    return { color: HORIZON.clone().lerp(OVERHEAD, whiteness(elevation)), intensity: SUN * t, T: t };
   }
   var exposureFor = (light) => 1.2 * Math.PI / NOON_LIGHT * Math.pow(NOON_LIGHT / Math.max(light, 0.0001), 0.75);
   function lightOf(dir, hour = 12) {
