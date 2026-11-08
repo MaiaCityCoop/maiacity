@@ -2,9 +2,12 @@
  * THE RENDER CORE — the plumbing under every three.js canvas of the app, written once (plan C5, section 4.4 of
  * code-architecture/plan.md). The purpose renderers beside it (./world.js, ./stage.js, ./preview.js, ./film.js) add
  * only what their job needs; a page mounts one of them and never makes a WebGLRenderer itself (a lint test,
- * ./lint.test.js, holds every `new WebGLRenderer`, `new OrbitControls` and `new EffectComposer` to this folder).
+ * ./lint.test.js, holds every `new WebGLRenderer`, `new OrbitControls` and `new EffectComposer` to this file and
+ * ./post.js, and every tone mapping and exposure to this file).
  *
- *   createRenderer   the one way to make a renderer: its canvas, pixels, colour space, tone mapping, shadows, clipping
+ *   createRenderer   the one way to make a renderer: its canvas, pixels, colour space, tone mapping, shadows, clipping,
+ *                    and three's WebGLNodesHandler, so TSL node materials draw on it (intent b03f9fb4)
+ *   setTone, setExposure, withTone   the picture's response changed later (a sky's hour, a stage's shot): only here
  *   lowPower, topPixelRatio, adaptiveResolution, precompile   how much a device draws, and keeping it smooth
  *   fitTo            a canvas kept to its element's size (and the camera's aspect)
  *   disposeObject    the one way to let go of what a model holds on the graphics card
@@ -19,12 +22,14 @@
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
 import { reopenOnRestore } from './budget.js';
 import { useRenderer } from './arrays.js';
 
 /** tone mappings by name */
 export const TONE = /** @type {const} */ ({ none: THREE.NoToneMapping, aces: THREE.ACESFilmicToneMapping, neutral: THREE.NeutralToneMapping });
-/** shadow map kinds by name (`true` keeps three's default, PCF; three r186 has no PCF-soft: asked for, it drew PCF) */
+/** shadow map kinds by name (`true` keeps three's default, PCF; three has had no PCF-soft since r186: asked for, it
+ *  drew PCF). VSM is not drawn by node materials (WebGLNodesHandler): a page with them keeps to PCF or basic. */
 export const SHADOWS = /** @type {const} */ ({ pcf: THREE.PCFShadowMap, basic: THREE.BasicShadowMap, vsm: THREE.VSMShadowMap });
 
 /**
@@ -46,7 +51,8 @@ export const SHADOWS = /** @type {const} */ ({ pcf: THREE.PCFShadowMap, basic: T
  */
 
 /**
- * The one way to make a renderer: every `new THREE.WebGLRenderer` of the app is this one.
+ * The one way to make a renderer: every `new THREE.WebGLRenderer` of the app is this one. It draws TSL node materials
+ * (three's WebGLNodesHandler, r184+) beside the classic ones, which it draws exactly as before.
  * @param {RendererOptions} [o]
  * @returns {THREE.WebGLRenderer}
  */
@@ -55,13 +61,13 @@ export function createRenderer(o = {}) {
 	useRenderer(renderer);
 	renderer.setPixelRatio(o.pixelRatio ?? Math.min(o.maxPixelRatio ?? 2, window.devicePixelRatio || 1));
 	if (o.colorSpace) renderer.outputColorSpace = o.colorSpace;
-	if (o.toneMapping) renderer.toneMapping = TONE[o.toneMapping];
-	if (o.exposure !== undefined) renderer.toneMappingExposure = o.exposure;
+	setTone(renderer, o.toneMapping, o.exposure);
 	if (o.shadows) {
 		renderer.shadowMap.enabled = true;
 		if (o.shadows !== true) renderer.shadowMap.type = SHADOWS[o.shadows];
 	}
 	if (o.clipping) renderer.localClippingEnabled = true;
+	nodes(renderer);
 	// a phone that let go of its shapes' and pictures' copies once they were drawn (./budget.js `release`) opens the page
 	// anew when its context comes back, rather than draw without them
 	reopenOnRestore(renderer.domElement);
@@ -74,6 +80,74 @@ export function createRenderer(o = {}) {
 	}
 	o.container?.appendChild(renderer.domElement);
 	return renderer;
+}
+
+/**
+ * three's WebGLNodesHandler installed on a renderer, so a NodeMaterial (TSL) is built into GLSL and drawn by it. With a
+ * handler, three's `compile` draws the shadow maps first (node materials read them as they are built); a compile of
+ * classic materials only (every model's warm-up, `precompile`, the asset library's levels) is held from that extra
+ * shadow pass, so nothing costs more than before until node materials come.
+ * @param {THREE.WebGLRenderer} renderer
+ */
+function nodes(renderer) {
+	const r = /** @type {THREE.WebGLRenderer & { setNodesHandler?: (h: WebGLNodesHandler) => void }} */ (renderer);
+	if (typeof r.setNodesHandler !== 'function') return;
+	r.setNodesHandler(new WebGLNodesHandler());
+	const compile = r.compile;
+	if (typeof compile !== 'function') return;
+	r.compile = function (scene, camera, target = null) {
+		if (hasNodeMaterial(scene)) return compile.call(this, scene, camera, target);
+		const sm = this.shadowMap, auto = sm.autoUpdate, need = sm.needsUpdate;
+		sm.autoUpdate = sm.needsUpdate = false;
+		try {
+			return compile.call(this, scene, camera, target);
+		} finally {
+			sm.autoUpdate = auto;
+			sm.needsUpdate = need;
+		}
+	};
+}
+
+/** whether anything under `root` is drawn with a node material @param {THREE.Object3D} root */
+export function hasNodeMaterial(root) {
+	let found = false;
+	root.traverse((o) => {
+		if (found) return;
+		const m = /** @type {THREE.Mesh} */ (o).material;
+		if (m) for (const x of Array.isArray(m) ? m : [m]) if (/** @type {any} */ (x).isNodeMaterial) found = true;
+	});
+	return found;
+}
+
+/**
+ * The picture's response set: a tone mapping by name (left as it is when not given) and its exposure. The only place
+ * outside createRenderer that sets either.
+ * @param {THREE.WebGLRenderer} renderer
+ * @param {keyof typeof TONE} [toneMapping]
+ * @param {number} [exposure]
+ */
+export function setTone(renderer, toneMapping, exposure) {
+	if (toneMapping) renderer.toneMapping = TONE[toneMapping];
+	if (exposure !== undefined) setExposure(renderer, exposure);
+}
+
+/** the tone mapping's exposure (a sky's hour, a film's lens) @param {THREE.WebGLRenderer} renderer @param {number} exposure */
+export function setExposure(renderer, exposure) {
+	renderer.toneMappingExposure = exposure;
+}
+
+/**
+ * The tone mapping changed for a while (a stage drawing its shots Neutral on a page's renderer): returns the way back.
+ * @param {THREE.WebGLRenderer} renderer
+ * @param {keyof typeof TONE} toneMapping
+ * @returns {() => void}
+ */
+export function withTone(renderer, toneMapping) {
+	const was = renderer.toneMapping;
+	renderer.toneMapping = TONE[toneMapping];
+	return () => {
+		renderer.toneMapping = was;
+	};
 }
 
 /** A phone or a small tablet, or a device with little memory or few cores: draw less. */
