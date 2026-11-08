@@ -37,8 +37,9 @@ import {
 const handlers = new WeakMap();
 
 /**
- * Lets a renderer draw node materials (three's WebGLNodesHandler, r184+), as we need it: a node material drawn into a
- * target comes out linear and untoned, as three's own do (the handler would tone-map and encode it for the screen).
+ * Lets a renderer draw node materials (three's WebGLNodesHandler, r184+), as we need it: one of the kit's (`isKit`)
+ * drawn into a target comes out linear and untoned, as three's own do (the handler would tone-map and encode it for
+ * the screen). Every other node material (the sky's, and the environment three bakes from it) as the handler draws it.
  * @param {THREE.WebGLRenderer} r
  */
 export function install(r) {
@@ -47,8 +48,22 @@ export function install(r) {
 	r.setNodesHandler(h);
 	const screen = h.getOutputCallback;
 	const onScreen = () => r.getRenderTarget() === null;
-	h.getOutputCallback = (node) => (onScreen() ? screen(node) : node);
-	if (h.renderer) h.renderer.getCacheKey = () => (onScreen() ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
+	// Only the kit's own materials are drawn linear and untoned into a target (and keyed apart as 'target'); every other
+	// node material (the sky, its environment bake) keeps the handler's key and output, toned and encoded by the
+	// renderer's settings of the moment, as on main: keyed by them, an environment bake (no tone, linear) and the frame
+	// that follows are two programs, never one (cb16b7a5: the viewer's sky drawn raw, a haze over everything).
+	let keying = null;
+	const keyOf = h.customProgramCacheKeyCallback;
+	h.customProgramCacheKeyCallback = function () {
+		keying = this;
+		try {
+			return keyOf.call(this);
+		} finally {
+			keying = null;
+		}
+	};
+	h.getOutputCallback = (node, builder) => (onScreen() || !(builder?.material ?? h.nodeFrame.material)?.isKit ? screen(node, builder) : node);
+	if (h.renderer) h.renderer.getCacheKey = () => (onScreen() || !(keying ?? h.nodeFrame.material)?.isKit ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
 	handlers.set(r, h);
 	return h;
 }
@@ -126,6 +141,13 @@ function grown(p) {
 	return select(aCover.x.greaterThan(0), foot.add(p.sub(foot).mul(grow)), p);
 }
 
+/**
+ * A picture we drew into (a render target: the far pictures' page, the contact shadow's) read where three's own
+ * materials read it. On WebGL three's TextureNode turns v over (1 - v) for a render target's texture; this turns it back,
+ * so the cell laid at row r is read at row r (else the far trees showed another tree's picture, upside down).
+ */
+const drawn = (map, at = uv()) => texture(map, vec2(at.x, float(1).sub(at.y)));
+
 /** the dither every drawing of ours fades in by: the same everywhere on the screen, so two levels never fight */
 export const dither = fract(sin(dot(floor(screenCoordinate.xy), vec2(12.9898, 78.233))).mul(43758.5453));
 
@@ -172,6 +194,7 @@ const glossy = (Model, gloss) =>
 /** ours on top of a node material: per-mesh instancing, the fade, the cut, the caps and the gloss */
 const ours = (Base) =>
 	class extends Base {
+		isKit = true;
 		/** @type {any} */ fade = null;
 		/** @type {any} */ cut = null;
 		/** @type {any} */ cap = null;
@@ -309,7 +332,7 @@ export function cardMaterials(map, cells, frames, cut) {
 	const face = mod(floor(atan(te.x, te.y).sub(always('aTurn', 'float')).div(step).add(0.5)), frames);
 	const cell = always('aCell', 'float').add(face);
 	const card = varying(vec2(mod(cell, grid.x), floor(cell.div(grid.x))).add(clamp(uv(), 0.004, 0.996)).div(grid));
-	const look = texture(map, card);
+	const look = drawn(map, card);
 	const make = (K, o) => {
 		const m = new (ours(K))({ alphaTest: 0.5, side: THREE.DoubleSide, ...o });
 		m.positionNode = pos;
@@ -334,6 +357,7 @@ export function ghostMaterial() {
 	m.colorNode = mix(vec3(0.55, 0.75, 1), vec3(0.16, 0.22, 0.3), paper);
 	m.opacityNode = f.mul(0.5).add(0.05).mul(a).mul(mix(float(1), float(0.7), paper));
 	m.ghost = { a, paper };
+	m.isKit = true;
 	return m;
 }
 
@@ -346,7 +370,7 @@ export function ghostMaterial() {
 export function blurMaterial(map) {
 	const dir = uniform(new THREE.Vector2()), gain = uniform(0);
 	const tap = (o) => {
-		const c = texture(map, uv().add(dir.mul(o)));
+		const c = drawn(map, uv().add(dir.mul(o)));
 		return select(gain.greaterThan(0), vec4(0, 0, 0, c.r.mul(gain).min(1).mul(c.a)), c);
 	};
 	const W = [0.1633, 0.1531, 0.12245, 0.0918, 0.051];
@@ -356,13 +380,15 @@ export function blurMaterial(map) {
 	m.fragmentNode = sum;
 	m.depthTest = false;
 	m.blur = { dir, gain };
+	m.isKit = true;
 	return m;
 }
 
 /** the contact shadow's pool on the floor: `color`, its darkness the alpha of `map` */
 export function poolMaterial(map, color, opacity) {
 	const m = new MeshBasicNodeMaterial({ color, transparent: true, opacity, depthWrite: false, toneMapped: false });
-	m.opacityNode = texture(map).a.mul(materialOpacity);
+	m.opacityNode = drawn(map).a.mul(materialOpacity);
+	m.isKit = true;
 	return m;
 }
 
