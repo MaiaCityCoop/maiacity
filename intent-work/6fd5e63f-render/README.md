@@ -1,7 +1,5 @@
 # Mac job: intent 6fd5e63f's c7: one wind for everything that grows, and light through leaves
 
-> **ON HOLD (2026-11-08 18:30): don't run.** Its head and kit sit on cb16b7a5's older kit (1c7f2afa8). It's
-> repointed once 11ead007 restacks on cb16b7a5's 90ef0aee9, and a new MAC JOB READY line is sent then.
 
 Intent 6fd5e63f-e195-4123-8604-c4f87c33869c (GPU 6/14), pull request #2180. Every plant material that says what it is
 (a `look`: leaf, grass, petal, bark, stem, fruit, stone; from box format 5, or from its name for older builds) is drawn by
@@ -11,9 +9,9 @@ are two-sided, darker toward the root, and glow with the sun behind them. The ce
 triangles as intent 5's head (the steady census: near 10,400,324/5,665; mid 13,718,176/4,244; far 2,639,411/1,782). This job checks what the census can't:
 frame time, the film, and that a frame repeats.
 
-**The head is the change stacked on intent 5** (`intent/6fd5e63f-on-5b` @ 626622f86; 11ead007's cover stream, itself on
-cb16b7a5's TSL render kit). The looks are drawn on the kit's TSL materials, and neither is on main yet. So three trees are measured: **main** ff391a7 (base),
-**kit** e251559 (intent 5's head, what the change sits on) and **head** 626622f. head − kit is this intent's own cost;
+**The head is the change stacked on intent 5** (`intent/6fd5e63f-on-5b` @ 5e1caf837; 11ead007's cover stream e40488c, itself on
+cb16b7a5's TSL render kit 90ef0ae). The looks are drawn on the kit's TSL materials, and neither is on main yet. So three trees are measured: **main** ff391a7 (base),
+**kit** e40488c (intent 5's head, what the change sits on) and **head** 5e1caf8. head − kit is this intent's own cost;
 head − main is what c7 bounds.
 
 **Run:** `PLAY_MCP_TOKEN=play_… bash intent-work/6fd5e63f-render/run.sh` (bun, node with Playwright's Chromium, ffmpeg).

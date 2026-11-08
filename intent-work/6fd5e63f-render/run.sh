@@ -6,14 +6,13 @@
 # Needs bun, node with Playwright's Chromium, ffmpeg, and PLAY_MCP_TOKEN (the admin token, sent to play only).
 # Writes intent-work/6fd5e63f-render/out/.
 set -euo pipefail
-echo "ON HOLD: this job waits for intent 11ead007 to restack on cb16b7a5 90ef0aee9 (README.md)"; exit 1
 : "${PLAY_MCP_TOKEN:?PLAY_MCP_TOKEN: the admin token the read-only proxy reads play with}"
 ROOT=$(git rev-parse --show-toplevel)
 JOB="$ROOT/intent-work/6fd5e63f-render"
 OUT="$JOB/out"
 MAIN=ff391a76da77e55da665add496c4ce75eb230b59   # main (one renderer r187, one sky, the steady census)
-KIT=e251559358a530c9667bfc06c4bbd42a33811832    # intent 11ead007's head (one cover stream, on cb16b7a5's render kit in TSL)
-HEAD=626622f861baaa8086376a9627b2a1eb5babbeb9   # intent/6fd5e63f-on-5b: this intent's change on intent 5
+KIT=e40488ce8a5ca1ff0909c42368ac39a72c9cdab0    # intent 11ead007's head (one cover stream, on cb16b7a5's render kit in TSL)
+HEAD=5e1caf837991f11283ccc8c86997f5d138b5990c   # intent/6fd5e63f-on-5b: this intent's change on intent 5
 git -C "$ROOT" fetch -q origin main intent/11ead007-cover-stream intent/6fd5e63f-on-5b intent-work/main-baseline-render
 mkdir -p "$OUT"
 git -C "$ROOT" show origin/intent-work/main-baseline-render:intent-work/main-baseline/determinism.mjs > "$JOB/determinism.mjs"
