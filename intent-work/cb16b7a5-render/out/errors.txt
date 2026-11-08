@@ -1,0 +1,40 @@
+    at WebGLRenderer.renderBufferDirect (http://localhost:5182/node_modules/.vite/deps/three.js?v=ac86627a:9628:20)
+    at renderObject (http://localhost:5182/node_modules/.vite/deps/three.js?v=ac86627a:10065:17)
+    at renderObjects (http://localhost:5182/node_modules/.vite/deps/three.js?v=ac86627a:10048:44)
+    at renderScene (http://localhost:5182/node_modules/.vite/deps/three.js?v=ac86627a:9971:34)
+    at WebGLRenderer.render (http://localhost:5182/node_modules/.vite/deps/three.js?v=ac86627a:9897:6)
+    at tick (http://localhost:5182/src/lib/content/sandbox-2/interior/village.ts:1758:30)
+CONSOLE warning flora: yam@2:5:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: cassava@2:6:sandbox-5 did not grow: plants/cassava takes no parameters
+CONSOLE warning flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+CONSOLE warning flora: yam@2:7:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: yam@2:6:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: yam@2:4:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: cassava@2:7:sandbox-5 did not grow: plants/cassava takes no parameters
+CONSOLE warning flora: cassava@2:5:sandbox-5 did not grow: plants/cassava takes no parameters
+CONSOLE warning flora: mango@3:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+t=60s draws in 5 s: 59252 (__assets up)
+t=65s draws in 5 s: 0 (__assets up)
+t=70s draws in 5 s: 0 (__assets up)
+t=75s draws in 5 s: 0 (__assets up)
+t=80s draws in 5 s: 0 (__assets up)
+t=85s draws in 5 s: 0 (__assets up)
+t=90s draws in 5 s: 0 (__assets up)
+t=95s draws in 5 s: 0 (__assets up)
+t=100s draws in 5 s: 0 (__assets up)
+t=105s draws in 5 s: 0 (__assets up)
+t=110s draws in 5 s: 0 (__assets up)
+t=115s draws in 5 s: 0 (__assets up)
+t=120s draws in 5 s: 0 (__assets up)
+t=125s draws in 5 s: 0 (__assets up)
+t=130s draws in 5 s: 0 (__assets up)
+t=135s draws in 5 s: 0 (__assets up)
+t=140s draws in 5 s: 0 (__assets up)
+t=145s draws in 5 s: 0 (__assets up)
+t=150s draws in 5 s: 0 (__assets up)
+t=155s draws in 5 s: 0 (__assets up)
+t=160s draws in 5 s: 0 (__assets up)
+t=165s draws in 5 s: 0 (__assets up)
+t=170s draws in 5 s: 0 (__assets up)
+t=175s draws in 5 s: 0 (__assets up)
+t=180s draws in 5 s: 0 (__assets up)
