@@ -31,7 +31,7 @@ import { cardOf } from './catalog.js';
 import { groundMaterial, rowsOf } from '$lib/content/biomes/surfaces.js';
 import { biomeOfCard } from '$lib/content/biomes/card.js';
 import { createCover } from '$lib/content/sandbox-2/interior/cover.js';
-import { grassField, grassOfRecipe, growsGrass, useNodes } from '$lib/content/biomes/grass.js';
+import { grassField, grassOfRecipe, growsGrass } from '$lib/content/biomes/grass.js';
 import { smallDevice } from '$lib/content/render/budget.js';
 
 /** a mesh's name that lays a biome's floor on it: `biome:` and the biome's recipe hash */
@@ -207,7 +207,6 @@ export function createPlantings(o) {
 		);
 		// its grass, blade by blade ($content/biomes/grass.js): where its grass kinds' colonies are on the floor
 		if (growsGrass(recipe)) {
-			useNodes(o.renderer);
 			const of = grassOfRecipe(recipe, (x, z) => !Number.isNaN(grid.at(x, z)));
 			const field = grassField({ params: recipe.grass, device: smallDevice() ? 'small' : 'desktop', at: (x, z) => ({ ...of(x, z), y: grid.at(x, z) || 0 }) });
 			o.scene.add(field.object);

@@ -19,7 +19,7 @@ import { cafes, coops, coopsAround, henPatches, rabbitPatches, squaresAround, ty
 import { water } from './textures'
 import { groundMaterial } from '$lib/content/biomes'
 import { biomeOr } from '$lib/content/assets/sources/biome.js'
-import { grassField, grassOfRecipe, growsGrass, useNodes } from '$lib/content/biomes/grass.js'
+import { grassField, grassOfRecipe, growsGrass } from '$lib/content/biomes/grass.js'
 import { smallDevice } from '$lib/content/render/budget.js'
 import { songbirds } from './birds.js'
 import { appleTree, banana, berryBush, canopyTree, climber, clover, coconutPalm, comfrey, fruitTree, ginger, herb, papaya, passionVine, seeded, smallFruitTree, squash, strawberries, tropicalShrub, forestFloor, FLOOR_KINDS, floorPick, type Plant } from './plants'
@@ -1005,14 +1005,13 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	const grassOf = grassBiome && growsGrass(grassBiome) ? grassOfRecipe(grassBiome) : flora ? null : () => ({ grass: 0.9, tall: 0.3 })
 	let grassOpen = false
 	const grass = grassOf
-		? (useNodes(renderer),
-			grassField({
+		? grassField({
 				params: grassBiome?.grass,
 				device: smallDevice() ? 'small' : 'desktop',
 				at: flora
 					? (x, z) => (grassOpen && floorOpen(x, z) ? grassOf(x, z) : { grass: 0, tall: 0 })
 					: (x, z) => (!grassOpen || !inHex(x, z) || inDome(x, z, 1) || inSquare(x, z) || nearPath(x, z, 1.6) || nearWater(x, z, W / 2 + 0.4) ? { grass: 0, tall: 0 } : grassOf(x, z))
-			}))
+			})
 		: null
 	if (grass) scene.add(grass.object)
 	const q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), sv = new THREE.Vector3()

@@ -9,6 +9,10 @@
  *   node scripts/selector-shots.mjs --site base=http://localhost:5181 --site head=http://localhost:5182 [--out shots]
  *        [--census far]
  *
+ * --meter <file>: the frame meter ($content/render/meter.js) injected into every page (its `export ` taken out, then
+ * `window.__meter = installMeter(window)`), each view's 4 s sampled by it too: its frame time, p95, CPU and GPU time and
+ * what bounds the frame (`meter` in results.json; intent b03f9fb4's c9).
+ *
  * --census <view>: that view alone, and with it the census of every copy the renderers hold there (`__assets.kinds()`:
  * Sandbox 1's outdoor forest `out`, the domes' `in`, the library): each copy's distance from the eye, its size on screen,
  * the level the selector chose for it (a shape's index, or `picture`) and that level's triangles, in
@@ -22,7 +26,7 @@
  * a table on stdout.
  */
 import { createServer } from 'node:http';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
 const { chromium } = createRequire(import.meta.url)('playwright');
@@ -32,12 +36,15 @@ const sites = [];
 let out = 'shots';
 /** the view whose copies are counted, alone (`--census`) */
 let census = null;
+/** the frame meter's source, injected whole (`--meter`) */
+let meterFile = null;
 for (let i = 0; i < argv.length; i++) {
 	if (argv[i] === '--site') {
 		const [name, url] = argv[++i].split('=');
 		sites.push({ name, url: url.replace(/\/$/, '') });
 	} else if (argv[i] === '--out') out = argv[++i];
 	else if (argv[i] === '--census') census = argv[++i];
+	else if (argv[i] === '--meter') meterFile = argv[++i];
 }
 if (!sites.length) throw new Error('give at least one --site name=url');
 const TOKEN = process.env.PLAY_MCP_TOKEN;
@@ -96,6 +103,11 @@ function countTriangles(hour) {
 	raf(tick);
 }
 
+/** the meter as an init script, or none */
+const meterScript = meterFile ? readFileSync(meterFile, 'utf8').replace(/^export /gm, '') + '\nwindow.__meter = installMeter(window);\n' : null;
+/** the meter's sample of the next `s` seconds, or null without it */
+const metered = (page, s = 4) => (meterScript ? page.evaluate((s) => window.__meter.sample(s), s) : Promise.resolve(null));
+
 // a Mac's Metal, as the render box ran it (intent-work/6295a650-render/out/NOTES.md); the GPU named first
 const browser = await chromium.launch(process.platform === 'darwin' ? { channel: 'chromium', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] } : { args: ['--ignore-gpu-blocklist'] });
 {
@@ -153,6 +165,7 @@ for (const site of sites) {
 	const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 	const page = await ctx.newPage();
 	await page.addInitScript(countTriangles, HOUR);
+	if (meterScript) await page.addInitScript(meterScript);
 	const t0 = Date.now();
 	await page.goto(`${site.url}/sandbox-1/`, { waitUntil: 'domcontentloaded' });
 	await page.waitForFunction(() => window.__walker && window.__assets, null, { timeout: 10 * 60e3 });
@@ -171,9 +184,10 @@ for (const site of sites) {
 			const s = window.__assets.stats(), of = (r) => r && { tris: r.tris, calls: r.calls, levels: r.levels, pictures: r.pictures, copies: r.copies };
 			return { frames: d.length, frameMs: d.length ? +(d.reduce((a, b) => a + b, 0) / d.length).toFixed(1) : null, frameP95: d[Math.floor(d.length * 0.95)] ?? null, tris: Math.round(tris[tris.length >> 1] ?? 0), trisMax: Math.round(tris[tris.length - 1] ?? 0), assets: { out: of(s.out), in: of(s.in), library: of(s.library) } };
 		});
+		const meter = await metered(page);
 		const png = `${out}/${site.name}-sandbox-1-${v.name}.png`;
 		await page.screenshot({ path: png });
-		results.push({ site: site.name, world: 'sandbox-1', view: v.name, settled: ok, ...m, png });
+		results.push({ site: site.name, world: 'sandbox-1', view: v.name, settled: ok, ...m, meter, png });
 		if (census) await takeCensus(page, site, v);
 		console.log(`${site.name} sandbox-1 ${v.name}: ${m.frameMs} ms/frame (p95 ${m.frameP95?.toFixed?.(1)}), ${m.tris.toLocaleString('en')} tris drawn (max ${m.trisMax.toLocaleString('en')})${ok ? '' : ', still building'}`);
 	}
@@ -183,12 +197,14 @@ for (const site of sites) {
 	const ctx3 = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 	const p3 = await ctx3.newPage();
 	await p3.addInitScript(countTriangles, HOUR);
+	if (meterScript) await p3.addInitScript(meterScript);
 	await p3.goto(`${site.url}/sandbox-3/`, { waitUntil: 'domcontentloaded' });
 	await p3.waitForTimeout(60e3);
+	const meter3 = await metered(p3);
 	const png3 = `${out}/${site.name}-sandbox-3-open.png`;
 	await p3.screenshot({ path: png3 });
 	const t3 = await p3.evaluate(() => { const t = window.__tri.frames.map((x) => x[1]).filter((x) => x > 0).sort((a, b) => a - b); return Math.round(t[t.length >> 1] ?? 0); });
-	results.push({ site: site.name, world: 'sandbox-3', view: 'open', tris: t3, png: png3 });
+	results.push({ site: site.name, world: 'sandbox-3', view: 'open', tris: t3, meter: meter3, png: png3 });
 	console.log(`${site.name} sandbox-3 open: ${t3.toLocaleString('en')} tris drawn`);
 	await ctx3.close();
 }

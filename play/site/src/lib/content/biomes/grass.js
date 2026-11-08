@@ -31,14 +31,13 @@
  *             what is open), a blade standing where the mask says, a tile with no grass in it never drawn
  *
  * `grassField({ params, mask, device })` → `{ object, update(camera, time) }`: add `object` to the scene, call `update`
- * every frame. The node material needs the renderer's nodes handler (`useNodes`) until WebGPU is the renderer
- * (intent 1).
+ * every frame. Its node material is drawn by every renderer the core makes (render/core.js `createRenderer`, which
+ * installs three's nodes handler: intent b03f9fb4).
  */
 import * as THREE from 'three';
 import { fbm2, vn } from './noise.js';
 import { colonyAt } from './index.js';
 import { grassMaterial, grassUniforms } from '../render/nodes/grass.js';
-import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
 
 /* ── the numbers ── */
 
@@ -542,13 +541,4 @@ export function grassField(o) {
 			mask.texture.dispose();
 		}
 	};
-}
-
-/**
- * The renderer's nodes handler, so a WebGLRenderer draws node materials (the grass's): once a renderer, until WebGPU
- * is the renderer (intent 1). @param {THREE.WebGLRenderer} renderer
- */
-export function useNodes(renderer) {
-	const r = /** @type {any} */ (renderer);
-	if (!r.__nodes) r.setNodesHandler?.((r.__nodes = new WebGLNodesHandler()));
 }
