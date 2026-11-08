@@ -2,7 +2,7 @@
 /*
  * A WORLD SHOWN (play/SPEC.md §4.11) — the Worlds page's stage, and the dev harness's (scripts/render.mjs --world): a
  * world's build (built in the asset box like any asset, ../assets/sources/viewer.js `vaultBuild`, checked) put in a
- * scene of its own under the sky its mood asks for (./sky.js), everything it names drawn where it stands by the
+ * scene of its own under the one sky with its mood laid over it (../sandbox-kit/sky.js), everything it names drawn where it stands by the
  * universal renderer at the level of detail its size on screen calls for (../assets/plantings.js), and, for a world
  * that moves, kept running in the box (../assets/hero.js): every frame its step is asked of the box, its `use:` nodes
  * followed, its guests' lights lit (./lights.js) and its sounds played round the camera (./sound.js).
@@ -31,7 +31,7 @@ import { AssetBox } from '../assets/box/host.js';
 import { createWalker } from '../sandbox-kit/walker.js';
 import { worldOf } from './contract.js';
 import { createLights } from './lights.js';
-import { createSky } from './sky.js';
+import { createSky } from '../sandbox-kit/sky.js';
 import { createSound } from './sound.js';
 
 /** the eye and the paces (m/s) of the street cameras */
@@ -70,12 +70,13 @@ export function viewsOf(root) {
 export function createWorldView(el, o) {
 	// a phone or a tablet draws at fewer pixels: a world fills the graphics memory such a device has as it is
 	const small = handheld();
-	const renderer = createRenderer({ antialias: true, power: 'high-performance', pixelRatio: topPixelRatio(small), colorSpace: THREE.SRGBColorSpace, toneMapping: 'aces', shadows: 'pcf', container: el });
+	const renderer = createRenderer({ antialias: true, power: 'high-performance', pixelRatio: topPixelRatio(small), colorSpace: THREE.SRGBColorSpace, toneMapping: 'agx', shadows: 'pcf', container: el });
 	Object.assign(renderer.domElement.style, { display: 'block', width: '100%', height: '100%', touchAction: 'none' });
 	const scene = new THREE.Scene();
 	const camera = new THREE.PerspectiveCamera(55, 1, 0.2, 4000);
 	camera.position.set(80, 60, 80);
-	const sky = createSky(scene, renderer);
+	// the one sky, its sun pinned where the world's mood has it; its shadows from the eye out, a city's width
+	const sky = createSky(renderer, scene, { shadowReach: 500, fog: { far: 1400 } });
 	const controls = createControls(camera, renderer.domElement, { maxPolarAngle: Math.PI * 0.495, screenSpacePanning: false });
 	const plantings = createPlantings({ renderer, camera, scene });
 	const lights = createLights({ scene, camera, renderer, assets: () => plantings.assets });
@@ -208,7 +209,7 @@ export function createWorldView(el, o) {
 					floor = land.length ? floorGrid(land, 1) : null;
 				} catch {}
 				world = { root, hero, info, floor, got };
-				sky.apply(info.mood);
+				sky.mood(info.mood);
 				sound?.set(info.sounds);
 				plantings.show(root);
 				state.label = got.label;
@@ -367,7 +368,6 @@ export function createWorldView(el, o) {
 			const guests = plantings.guests();
 			if (world) lights.update(guests, world.info.mood, state.t);
 			sound?.update(camera, guests);
-			sky.place(camera, walker ? camera.position : controls.target);
 			renderer.render(scene, camera);
 			state.guests = guests.length;
 			state.kinds = plantings.state.kinds;

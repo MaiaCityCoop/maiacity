@@ -132,6 +132,25 @@ describe('the counting renderer counts as three draws', () => {
 	});
 });
 
+describe('the census is the same every run (intent 373050d1)', () => {
+	test('its page draws Math.random from the Mac\'s one seed (mulberry32, 0x2545f491), the same sequence every run', () => {
+		// the Mac's SEEDED_RANDOM (intent-work/main-baseline/determinism.mjs), written out here as the reference
+		let s = 0x2545f491;
+		const mulberry32 = () => {
+			s |= 0;
+			s = (s + 0x6d2b79f5) | 0;
+			let t = Math.imul(s ^ (s >>> 15), 1 | s);
+			t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+			return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+		};
+		const want = Array.from({ length: 5 }, mulberry32);
+		// in a process of its own: setup() makes the page round it
+		const p = Bun.spawnSync(['bun', '-e', `const { setup } = await import(${JSON.stringify(join(HERE, 'setup.ts'))}); setup(); console.log(JSON.stringify(Array.from({ length: 5 }, Math.random)));`], { stdout: 'pipe', stderr: 'pipe' });
+		expect(p.exitCode).toBe(0);
+		expect(JSON.parse(p.stdout.toString().trim().split('\n').pop()!)).toEqual(want);
+	});
+});
+
 /** a census in its own process (each sets up its own page), its JSON */
 function census(args: string[]) {
 	const json = join(OUT, `${args.join('-').replace(/[^a-z0-9-]/gi, '')}.json`);

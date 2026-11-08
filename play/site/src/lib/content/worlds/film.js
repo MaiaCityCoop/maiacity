@@ -44,10 +44,9 @@ export function connectWorldFilm(view, o) {
 			// the lights as the mood has them, then each scaled by the shot (connectFilm's `lights` after this)
 			if (base.sun !== null) {
 				view.sky.sun.intensity = base.sun;
-				view.sky.hemi.intensity = base.hemi;
+				scene.environmentIntensity = base.hemi;
 			}
 			lit.k = 1;
-			view.sky.place(camera, camera.position);
 			// what it plants where its nodes stand now, drawn for the camera where the shot has put it (a cut far away
 			// draws what stands there in this frame, not in the next the page happens to run)
 			view.drawn();
@@ -57,7 +56,6 @@ export function connectWorldFilm(view, o) {
 				view.sky.sun.intensity *= k;
 				if (color) view.sky.sun.color.set(color);
 			},
-			sky: (k) => (view.sky.hemi.intensity *= k),
 			lamps: (k) => {
 				lit.k *= k;
 				view.lights.group.visible = lit.k > 0.01;
@@ -70,7 +68,7 @@ export function connectWorldFilm(view, o) {
 			await o.shown;
 			// the lights as the world's mood set them: what a shot scales from
 			base.sun = view.sky.sun.intensity;
-			base.hemi = view.sky.hemi.intensity;
+			base.hemi = scene.environmentIntensity;
 			await view.settle();
 		},
 		holds: () => view.state.phase === 'shown',

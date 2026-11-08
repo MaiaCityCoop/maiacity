@@ -21,13 +21,49 @@
  * its canvas; and a phone drew at twice its pixels with the desktop's shadows, occlusion and multisampling.
  */
 import * as THREE from 'three';
+import { install } from './nodes/index.js';
+import { screenOutputs } from './tsl.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
 import { reopenOnRestore } from './budget.js';
-import { outputs } from './tsl.js';
 
-/** tone mappings by name */
-export const TONE = /** @type {const} */ ({ none: THREE.NoToneMapping, aces: THREE.ACESFilmicToneMapping, neutral: THREE.NeutralToneMapping });
+/** tone mappings by name: AgX forms every page's picture (intent 2214e661; the films keep their own chain, ../film/) */
+export const TONE = /** @type {const} */ ({ none: THREE.NoToneMapping, agx: THREE.AgXToneMapping });
+
+/* AgX as three draws it (its tonemapping_pars_fragment), in JavaScript: a colour's picture without a GPU */
+const mul3 = (/** @type {number[]} */ m, /** @type {number[]} */ v) => [0, 1, 2].map((i) => m[i] * v[0] + m[i + 3] * v[1] + m[i + 6] * v[2]);
+// three's matrices, column by column
+const TO2020 = [0.6274, 0.0691, 0.0164, 0.3293, 0.9195, 0.088, 0.0433, 0.0113, 0.8956];
+const FROM2020 = [1.6605, -0.1246, -0.0182, -0.5876, 1.1329, -0.1006, -0.0728, -0.0083, 1.1187];
+const INSET = [0.856627153315983, 0.137318972929847, 0.11189821299995, 0.0951212405381588, 0.761241990602591, 0.0767994186031903, 0.0482516061458583, 0.101439036467562, 0.811302368396859];
+const OUTSET = [1.1271005818144368, -0.1413297634984383, -0.14132976349843826, -0.11060664309660323, 1.157823702216272, -0.11060664309660294, -0.016493938717834573, -0.016493938717834257, 1.2519364065950405];
+
+/**
+ * A linear colour as AgX shows it (linear, before the screen's encoding), at an exposure.
+ * @param {number[]} c @param {number} [exposure]
+ */
+export function agx(c, exposure = 1) {
+	const x = mul3(INSET, mul3(TO2020, c.map((v) => v * exposure))).map((v) => {
+		const t = Math.min(1, Math.max(0, (Math.log2(Math.max(v, 1e-10)) + 12.47393) / 16.5));
+		const t2 = t * t, t4 = t2 * t2;
+		return 15.5 * t4 * t2 - 40.14 * t4 * t + 31.96 * t4 - 6.868 * t2 * t + 0.4298 * t2 + 0.1191 * t - 0.00232;
+	});
+	return mul3(FROM2020, mul3(OUTSET, x).map((v) => Math.pow(Math.max(0, v), 2.2))).map((v) => Math.min(1, Math.max(0, v)));
+}
+
+/**
+ * The linear colour AgX turns into `target` at an exposure (a backdrop that must come out as its CSS colour, a mood's
+ * look): found by iterating, as AgX has no closed inverse.
+ * @param {THREE.Color} target @param {number} [exposure]
+ */
+export function untonemap(target, exposure = 1) {
+	const want = target.toArray();
+	let x = want.map((v) => v / exposure);
+	for (let it = 0; it < 80; it++) {
+		const y = agx(x, exposure);
+		x = x.map((v, i) => Math.max(0, v * Math.pow(Math.max(want[i], 1e-6) / Math.max(y[i], 1e-6), 0.8)));
+	}
+	return new THREE.Color(x[0], x[1], x[2]);
+}
 /** shadow map kinds by name (`true` keeps three's default, PCF; three has had no PCF-soft since r186: asked for, it
  *  drew PCF). VSM is not drawn by node materials (WebGLNodesHandler): a page with them keeps to PCF or basic. */
 export const SHADOWS = /** @type {const} */ ({ pcf: THREE.PCFShadowMap, basic: THREE.BasicShadowMap, vsm: THREE.VSMShadowMap });
@@ -43,7 +79,7 @@ export const SHADOWS = /** @type {const} */ ({ pcf: THREE.PCFShadowMap, basic: T
  * @property {number} [pixelRatio] pixels per CSS pixel, as given
  * @property {number} [maxPixelRatio] else the device's, at most this (default 2)
  * @property {THREE.ColorSpace} [colorSpace] the output's (three's default: sRGB)
- * @property {keyof typeof TONE} [toneMapping] none (default), aces or neutral
+ * @property {keyof typeof TONE} [toneMapping] none (default) or agx
  * @property {number} [exposure] the tone mapping's exposure (default 1)
  * @property {boolean | keyof typeof SHADOWS} [shadows] shadow maps on (true: three's default kind) and of which kind
  * @property {boolean} [clipping] clipping planes per material
@@ -89,19 +125,18 @@ export function createRenderer(o = {}) {
  * @param {THREE.WebGLRenderer} renderer
  */
 function nodes(renderer) {
-	const r = /** @type {THREE.WebGLRenderer & { setNodesHandler?: (h: WebGLNodesHandler) => void }} */ (renderer);
+	const r = /** @type {THREE.WebGLRenderer & { setNodesHandler?: (h: unknown) => void }} */ (renderer);
 	if (typeof r.setNodesHandler !== 'function') return;
-	const h = new WebGLNodesHandler();
-	r.setNodesHandler(h);
-	outputs(r, h);
+	// three's handler, with what it lacks for us (./nodes/index.js: targets drawn linear, shadows from the light; ./tsl.js:
+	// on the screen, `toneMapped: false` and `raw` honoured)
+	screenOutputs(r, install(r));
 	const compile = r.compile;
 	if (typeof compile !== 'function') return;
 	r.compile = function (scene, camera, target = null) {
-		// three's compile gathers every material under `scene`, hidden ones too (it walks `traverse`), and builds a node
-		// material's program without the handler's onUpdateProgram: met again later, the handler pairs that program with
-		// another build's uniforms (cb16b7a5, on the Mac: the sky's PMREM handed to a vec3). Our node materials (`isKit`:
-		// the kit's, ./tsl.js `Own*`) are taken out while three gathers, and built at their first frame; every other
-		// (the sky) warms up as on main (cb16b7a5's gate, 1c7f2af and 90ef0ae).
+		// three's compile gathers every material under `scene`, hidden ones too (it walks `traverse`), and builds a
+		// node material's program without the handler's onUpdateProgram: met again later, the handler pairs that
+		// program with another build's uniforms (cb16b7a5: the sky's PMREM handed to a vec3 on the levels `precompile`
+		// warmed). Node materials are taken out while three gathers, and built at their first frame, as every draw is.
 		/** @type {[THREE.Object3D & { material?: unknown }, unknown][]} */
 		const away = [];
 		scene.traverse((o) => {
@@ -200,36 +235,38 @@ export function adaptiveResolution(renderer, { top = topPixelRatio(), floor = 1,
 /**
  * Compile a model's shaders before it is first drawn, off the page's thread where the browser can
  * (KHR_parallel_shader_compile), so the page never stalls on the first frame; a browser that cannot simply compiles
- * them now. Never throws: a model that fails here is still drawn the usual way. Our node materials (`isKit`) are left
- * out, built at their first frame: the renderer's own `compile` (`nodes`, above) never hands one to three, hidden or
- * not, and they are hidden here as well so a `compileAsync` waits only on the rest.
+ * them now. Never throws: a model that fails here is still drawn the usual way. The one warm-up of the app: nothing
+ * else calls `compileAsync` (./lint.test.js). Node materials (TSL) are left out, built at their first frame: the
+ * renderer's own `compile` (`nodes`, above) never hands one to three, hidden or not, and they are hidden here as well
+ * so a `compileAsync` waits only on the rest.
  * @param {THREE.WebGLRenderer} renderer
  * @param {THREE.Object3D} object
  * @param {THREE.Camera} camera
  * @param {THREE.Scene} [scene]
+ * @returns {Promise<void>}
  */
-export async function precompile(renderer, object, camera, scene) {
+export function precompile(renderer, object, camera, scene) {
 	/** @type {THREE.Object3D[]} */
-	const hidden = [];
+	const off = [];
 	object.traverseVisible((o) => {
 		const m = /** @type {THREE.Mesh} */ (o).material;
-		if (m && (Array.isArray(m) ? m : [m]).some((x) => /** @type {any} */ (x).isNodeMaterial && /** @type {any} */ (x).isKit)) hidden.push(o);
+		if (m && (Array.isArray(m) ? m : [m]).some((x) => /** @type {any} */ (x).isNodeMaterial)) off.push(o);
 	});
-	for (const o of hidden) o.visible = false;
-	let done;
+	for (const o of off) o.visible = false;
+	/** @type {Promise<unknown>} */
+	let made = Promise.resolve();
 	try {
-		done = renderer.compileAsync(object, camera, scene);
+		// three gathers the materials at once, as it is called: the node materials may show again straight after
+		made = renderer.compileAsync(object, camera, scene);
 	} catch {
 		/* drawn as usual */
 	} finally {
-		// three gathers what it compiles at once, as it is called: the rest is only waiting
-		for (const o of hidden) o.visible = true;
+		for (const o of off) o.visible = true;
 	}
-	try {
-		await done;
-	} catch {
-		/* drawn as usual */
-	}
+	return made.then(
+		() => {},
+		() => {}
+	);
 }
 
 /**

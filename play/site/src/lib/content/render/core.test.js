@@ -1,4 +1,4 @@
-// The one renderer (intent b03f9fb4, c5): createRenderer installs three's WebGLNodesHandler, so a TSL node material is
+// The one renderer (intent b03f9fb4, c5; precompile's node materials, intent 2214e661): createRenderer installs three's WebGLNodesHandler, so a TSL node material is
 // built into GLSL by it; a compile of classic materials draws no shadow pass the handler would add; tone mapping and
 // exposure set through the core alone. Three's WebGLRenderer is swapped (vi.mock, so vitest only) for a stand-in with a stubbed WebGL2 context (as
 // ./meter.test.js stubs one): no graphics card needed.
@@ -33,8 +33,8 @@ vi.mock('three', async () => {
 			/** the materials three's compile was handed */
 			this.compiled = [];
 			this.compile = function (scene) {
-				scene.traverse((/** @type {any} */ o) => o.material && this.compiled.push(...[o.material].flat()));
 				this.shadowsAtCompile.push(this.handler !== null && this.shadowMap.enabled && (this.shadowMap.autoUpdate || this.shadowMap.needsUpdate));
+				scene.traverse((o) => o.material && this.compiled.push(...[o.material].flat()));
 				return new Set();
 			};
 		}
@@ -64,9 +64,8 @@ vi.mock('three', async () => {
 const THREE = await import('three');
 const { WebGLNodesHandler } = await import('three/addons/tsl/WebGLNodesHandler.js');
 const { MeshStandardNodeMaterial } = await import('three/webgpu');
-const { OwnBasic, OwnStandard } = await import('./tsl.js');
 const { color, uniform, mix, positionLocal } = await import('three/tsl');
-const { createRenderer, setExposure, setTone, withTone, TONE } = await import('./core.js');
+const { createRenderer, precompile, setExposure, setTone, withTone, TONE } = await import('./core.js');
 
 describe('the one renderer', () => {
 	test('it installs three’s WebGLNodesHandler', () => {
@@ -75,7 +74,7 @@ describe('the one renderer', () => {
 	});
 
 	test('a MeshStandardNodeMaterial with a TSL colour node is built into GLSL through it', () => {
-		const r = /** @type {any} */ (createRenderer({ pixelRatio: 1, toneMapping: 'aces' }));
+		const r = /** @type {any} */ (createRenderer({ pixelRatio: 1, toneMapping: 'agx' }));
 		const scene = new THREE.Scene();
 		const camera = new THREE.PerspectiveCamera();
 		const tint = uniform(new THREE.Color('#3a7d2c'));
@@ -90,45 +89,75 @@ describe('the one renderer', () => {
 		const parameters = {};
 		h.build(material, mesh, parameters);
 		h.renderEnd();
-		expect(parameters.isRawShaderMaterial).toBe(true);
+		// handed to three as a raw GLSL3 program
+		expect(parameters.glslVersion).toBe(THREE.GLSL3);
 		expect(parameters.vertexShader).toMatch(/void main\s*\(/);
 		expect(parameters.fragmentShader).toMatch(/void main\s*\(/);
 		// the colour node's uniform is in the program, and the renderer's tone mapping is applied in it
 		expect(Object.values(parameters.uniforms).some((u) => u === tint || u?.value === tint.value)).toBe(true);
-		expect(parameters.fragmentShader).toContain('mat3( 0.59719, 0.076, 0.0284'); // ACES's input matrix
+		expect(parameters.fragmentShader).toContain('vec3( 0.856627153315983, 0.137318972929847, 0.11189821299995 )'); // AgX's inset matrix
 		expect(parameters.fragmentShader).toMatch(/DiffuseColor = vec4\( mix\(/);
 	});
 
-	test('a compile draws no extra shadow pass and is never handed one of our node materials, hidden or not', () => {
+	test('a compile draws no extra shadow pass and is never handed a kit node material (cb16b7a5)', () => {
 		const r = /** @type {any} */ (createRenderer({ pixelRatio: 1, shadows: 'pcf' }));
 		const scene = new THREE.Scene();
-		const classic = new THREE.MeshStandardMaterial(), sky = new MeshStandardNodeMaterial();
-		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), classic), new THREE.Mesh(new THREE.BoxGeometry(), sky));
-		const node = new THREE.Mesh(new THREE.BoxGeometry(), new OwnStandard());
-		const hidden = new THREE.Mesh(new THREE.BoxGeometry(), [new OwnBasic()]);
-		hidden.visible = false;
-		scene.add(node, hidden);
+		const classic = new THREE.MeshStandardMaterial(), node = /** @type {any} */ (new MeshStandardNodeMaterial());
+		node.isKit = true;
+		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), classic));
 		r.compile(scene, new THREE.PerspectiveCamera());
 		expect(r.shadowsAtCompile).toEqual([false]);
 		expect(r.shadowMap.autoUpdate).toBe(true);
-		// three's own, and a node material not ours (a sky), warm up as on main
-		expect(r.compiled).toEqual([classic, sky]);
-		// and each is given back its material
-		expect(node.material.isNodeMaterial).toBe(true);
-		expect(hidden.material[0].isNodeMaterial).toBe(true);
+		// a kit node material, hidden or not, is built at its first frame: a program three's compile built for it would be
+		// met later with another build's uniforms (the sky's PMREM in a vec3, cb16b7a5)
+		const shown = new THREE.Mesh(new THREE.BoxGeometry(), node), hidden = new THREE.Mesh(new THREE.BoxGeometry(), [classic, node]);
+		hidden.visible = false;
+		scene.add(shown, hidden);
+		r.compile(scene, new THREE.PerspectiveCamera());
+		expect(r.shadowsAtCompile).toEqual([false, false]);
+		expect(r.compiled.filter((/** @type {any} */ m) => m.isNodeMaterial)).toEqual([]);
+		expect(shown.material).toBe(node);
+		expect(hidden.material).toEqual([classic, node]);
+		// any other node material (a sky) is warmed up as on main, under the tone of the moment: drawn first into an
+		// environment bake (no tone, linear), it would otherwise keep that program for the frame (cb16b7a5: the viewer's
+		// sky raw and bloomed, a haze over everything)
+		const sky = new MeshStandardNodeMaterial();
+		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), sky));
+		r.compile(scene, new THREE.PerspectiveCamera());
+		expect(r.compiled).toContain(sky);
+		expect(r.compiled).not.toContain(node);
 	});
 
 	test('tone mapping and exposure are set through the core', () => {
-		const r = /** @type {any} */ (createRenderer({ pixelRatio: 1, toneMapping: 'aces', exposure: 0.42 }));
-		expect(r.toneMapping).toBe(THREE.ACESFilmicToneMapping);
+		const r = /** @type {any} */ (createRenderer({ pixelRatio: 1, toneMapping: 'agx', exposure: 0.42 }));
+		expect(r.toneMapping).toBe(THREE.AgXToneMapping);
 		expect(r.toneMappingExposure).toBe(0.42);
 		setExposure(r, 0.88);
 		expect(r.toneMappingExposure).toBe(0.88);
-		const back = withTone(r, 'neutral');
-		expect(r.toneMapping).toBe(TONE.neutral);
+		const back = withTone(r, 'none');
+		expect(r.toneMapping).toBe(TONE.none);
 		back();
-		expect(r.toneMapping).toBe(THREE.ACESFilmicToneMapping);
+		expect(r.toneMapping).toBe(THREE.AgXToneMapping);
 		setTone(r, 'none', 1);
 		expect([r.toneMapping, r.toneMappingExposure]).toEqual([THREE.NoToneMapping, 1]);
+	});
+
+	test('precompile leaves node materials out (compileAsync never settles for them) and settles itself', async () => {
+		const r = /** @type {any} */ (createRenderer({ pixelRatio: 1 }));
+		/** @type {string[][]} */
+		const gathered = [];
+		r.compileAsync = (/** @type {THREE.Object3D} */ root) => {
+			const seen = [];
+			root.traverseVisible((o) => /** @type {any} */ (o).isMesh && seen.push(o.name));
+			gathered.push(seen);
+			// as three's under WebGLNodesHandler: one that gathered a node material never settles
+			return seen.includes('sky') ? new Promise(() => {}) : Promise.resolve();
+		};
+		const scene = new THREE.Scene();
+		const sky = Object.assign(new THREE.Mesh(new THREE.BoxGeometry(), new MeshStandardNodeMaterial()), { name: 'sky' });
+		scene.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial()), { name: 'asset' }), sky);
+		await precompile(r, scene, new THREE.PerspectiveCamera());
+		expect(gathered).toEqual([['asset']]);
+		expect(sky.visible).toBe(true);
 	});
 });

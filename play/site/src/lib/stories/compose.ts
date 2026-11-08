@@ -22,7 +22,7 @@ import { buildsOf, framesOf, stepTimes, type Live, type LiveAsset, type World, t
 import { clipsOf, cuesOf, linkedOf, setCuesOf, LINK, MOST_LINK_DEPTH, type Clip, type Links, type Shot, type StoryBody, type Voice } from './timeline';
 
 /** the live runtime's hash: what scripts/live-runtime.ts builds, held to it (`bun scripts/live-runtime.ts --check`) */
-const LIVE_HASH = 'ce33cda84e72a20e4729b54990556fc73aeb31d676f44d929ac9265a0aec6b58';
+const LIVE_HASH = '28090faa2377622b7cbd33fddab42d5a043e7fde361f0ddd0be7ccbda7eed5f9';
 /** HyperFrames' runtime, GSAP and the one font (Inter, where a composition names only a generic family, as HyperFrames'
  *  renderer puts it first), pinned by their BLAKE3 hash: among play's files, never from a CDN */
 export const VENDOR = {
@@ -34,9 +34,8 @@ export const VENDOR = {
 	live: { hash: LIVE_HASH, name: 'live-runtime.js play/site src/lib/stories/live-runtime.ts' }
 };
 /** the live runtimes compositions made before were pinned to, each kept beside it as static/live/<hash>.js, so a
- *  composition keeps the bundle it was made with (43ea5015: three r186, before intent b03f9fb4; dc8d5ff1: r187, before
- *  intent 602a8849's node outputs) */
-export const LIVE_BEFORE = ['43ea5015d4b36408d66e996dcda43b352ce0c3afa055ec8a7f1843fdb36fe764', 'dc8d5ff1e988f24ab1e3c35300fd39ddb3a8da2b7b55842c78ff5030f54e1729'];
+ *  composition keeps the bundle it was made with (43ea5015: three r186, before intent b03f9fb4; 719f7ada: before intent 602a8849) */
+export const LIVE_BEFORE = ['43ea5015d4b36408d66e996dcda43b352ce0c3afa055ec8a7f1843fdb36fe764', 'dc8d5ff1e988f24ab1e3c35300fd39ddb3a8da2b7b55842c78ff5030f54e1729', '719f7adaefbbd53d26a05341ccf895196c0835bdfe884b74ad3478cfa0f742b9'];
 const FONT = '"PlayInter"';
 const GENERIC = /^\s*(sans-serif|serif|monospace|cursive|fantasy|system-ui|ui-sans-serif|ui-serif|ui-monospace|-apple-system|blinkmacsystemfont)\s*(,|$)/i;
 /** a font-family (or a custom property) whose first family is a generic one gets play's font first, as the renderer does */

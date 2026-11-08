@@ -17,13 +17,11 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { FullScreenQuad, Pass } from 'three/addons/postprocessing/Pass.js';
 import { OwnNode } from './tsl.js';
 import { abs, all, select, texture, uv, vec3, vec4 } from 'three/tsl';
-// the asset stage's grade (../assets/stage.js) until it is a NodePass too (intent 602a8849, after cb16b7a5 lands)
-export { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
 /**
  * A full-screen pass whose picture is a TSL node (a grade, a tilt shift, `FINITE`): `make(at, p)` gets `at(q)`,
  * the picture before it read at `q`, and `p`, where this pixel is (both in the GL way, (0, 0) bottom left), and gives
- * back its colour; `uniforms` are its own, set as a ShaderPass's were. Its colour is written as it is
+ * back its colour; `uniforms` are its own, each with its `value`. Its colour is written as it is
  * ($content/render/tsl.js `raw`): after the output pass nothing tones or encodes it again. three's GLSL node builder
  * reads a target flipped (WebGPU's way), so `at` flips `q` for it.
  */

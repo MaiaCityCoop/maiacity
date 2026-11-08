@@ -34,6 +34,7 @@ import { canonical, loadAsset } from '../load.js';
 import { INDEX, buildOf, hashOf, heldAt, paramsOf, parseBuild } from '../catalog.js';
 import { createImpostors } from './impostors.js';
 import { budget, dropOnUpload } from '../../render/budget.js';
+import { precompile } from '../../render/core.js';
 import { LEVELS, SMALLEST, budgetOf, choose, errorOf, heldTo, sizeOn, smallestOf, thresholdsOf } from './lod.js';
 import { createLowering } from './lower.js';
 import { createKept } from './levels.js';
@@ -486,7 +487,7 @@ export function createAssets(o) {
 		const scene = worldOf();
 		compiling++;
 		try {
-			if (scene) await Promise.all(lv.meshes.map(({ mesh }) => renderer.compileAsync(mesh, camera, scene)));
+			if (scene) await Promise.all(lv.meshes.map(({ mesh }) => precompile(renderer, mesh, camera, scene)));
 			if (studio) await pictures.prepare(lv.level);
 		} finally {
 			compiling--;
@@ -698,7 +699,9 @@ export function createAssets(o) {
 		copy.traverse((o) => {
 			if (o.isMesh) {
 				const many = Array.isArray(o.material);
-				o.material = many ? o.material.map((m) => presets.of(m)) : presets.of(o.material);
+				// (a skin or a morph is its own mesh's: three's own material, not a shared node material)
+				const plain = !!(o.isSkinnedMesh || o.morphTargetInfluences?.length);
+				o.material = many ? o.material.map((m) => presets.of(m, plain)) : presets.of(o.material, plain);
 				o.receiveShadow = k.receive;
 				// a part whose shape its controls bend or spread is never culled by a ball that holds it at rest
 				if (o.isInstancedMesh || o.isSkinnedMesh || o.morphTargetInfluences?.length) o.frustumCulled = false;
@@ -718,7 +721,7 @@ export function createAssets(o) {
 		group.add(tree);
 		const scene = worldOf();
 		compiling++;
-		(scene ? renderer.compileAsync(tree, camera, scene) : Promise.resolve())
+		(scene ? precompile(renderer, tree, camera, scene) : Promise.resolve())
 			.catch(() => {})
 			.finally(() => {
 				compiling--;

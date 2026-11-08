@@ -2,7 +2,7 @@
 /*
  * THE STAGE — how any asset built in its parts (./parts.js) is shown the way AirSup's lab shows a machine: a paper
  * studio (a softbox environment, a soft key shadow, a contact shadow, a seamless floor that fades into the backdrop),
- * ambient occlusion, a little bloom, neutral tone mapping and a light grade; and its modes, eased in and out:
+ * ambient occlusion, a little bloom, AgX tone mapping and a light grade; and its modes, eased in and out:
  *
  * its views, how it is looked at (any of them on at once):
  *
@@ -25,7 +25,7 @@
  * it at its real size and scale the studio to it instead (the floor, the contact shadow, the occlusion radius, the
  * section hatch). The page around it (the turntable's canvas, its camera and controls) is the caller's.
  *
- * Under the sky (`sky: true`, every asset viewer's, ./viewer.js): no paper studio but a clear afternoon (./sky.js), the
+ * Under the sky (`sky: true`, every asset viewer's, ./viewer.js): no paper studio but a clear afternoon (the one sky, $content/sandbox-kit/sky.js), the
  * sun in the back behind the asset, the sky lighting its front, the floor running out to a horizon.
  *
  * It shows any build of the box's as well, through ./hero.js, which is a sealed asset made of the build's checked data
@@ -34,31 +34,21 @@
  * `ground`, a plant's soil at 0 rather than under its roots).
  */
 import * as THREE from 'three';
-import { ShaderPass, createPost } from '$lib/content/render/post.js';
-import { daySky } from './sky.js';
+import { NodePass, createPost } from '$lib/content/render/post.js';
+import { dot, float, fract, length, mix, sin, smoothstep, uniform, vec2, vec3, vec4 } from 'three/tsl';
+import { createSky } from '$lib/content/sandbox-kit/sky.js';
+import { precompile, setExposure, untonemap, withTone } from '$lib/content/render/core.js';
 import { budget } from '$lib/content/render/budget.js';
-import { withTone } from '$lib/content/render/core.js';
-import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment, untonemap } from './kit.js';
+import { floorMaterial } from '../render/nodes/index.js';
+import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment } from './kit.js';
 
 /**
  * How strong the lights' own highlights are on the stage (Samuel 2026-11-05: the sun's glare on every asset 30% down):
  * the direct specular of the sun, the fill and any lamp (and a clearcoat's and a sheen's) scaled by it; their diffuse
- * light and the sky's reflections as they were. Only what this stage draws: each of its materials is given the define
- * the chunk below reads (`_gloss`), and nothing else in the app has it.
+ * light and the sky's reflections as they were. Only what this stage draws: each of its node materials is given it
+ * (`_gloss`, the render kit's `gloss`), and nothing else in the app has it.
  */
 export const GLOSS = 0.7;
-if (!THREE.ShaderChunk.lights_fragment_end.includes('VIEWER_GLOSS'))
-	THREE.ShaderChunk.lights_fragment_end += `
-#ifdef VIEWER_GLOSS
-	reflectedLight.directSpecular *= VIEWER_GLOSS;
-	#ifdef USE_CLEARCOAT
-		clearcoatSpecularDirect *= VIEWER_GLOSS;
-	#endif
-	#ifdef USE_SHEEN
-		sheenSpecularDirect *= VIEWER_GLOSS;
-	#endif
-#endif
-`;
 
 export const MODES = /** @type {const} */ (['explode', 'cut', 'xray', 'labels', 'slow']);
 
@@ -74,7 +64,7 @@ export class Stage {
 	 * @param {THREE.PerspectiveCamera} camera
 	 * @param {{ theme?: 'paper' | 'night', low?: boolean, sky?: boolean }} [o] `low`: a phone's budget (no occlusion pass, 2× multisampling,
 	 *   a smaller, softer-sampled shadow), so it draws smoothly and fits in a phone's memory ($content/render/core.js);
-	 *   `sky`: shown under the afternoon sky (./sky.js) instead of in the paper studio
+	 *   `sky`: shown under the afternoon sky ($content/sandbox-kit/sky.js) instead of in the paper studio
 	 */
 	constructor(renderer, camera, { theme = 'paper', low = false, sky = false } = {}) {
 		this.renderer = renderer;
@@ -107,15 +97,21 @@ export class Stage {
 		this.bg = untonemap(new THREE.Color(paper ? 0xf3f2ee : 0x0d0e10).convertSRGBToLinear(), 1);
 		this.scene.background = this.bg.clone();
 		this.scene.environment = studioEnvironment(renderer, theme);
-		this.scene.environmentIntensity = paper ? 0.82 : 0.9;
-		/** the afternoon sky, when shown under it: its dome drawn behind everything, its light the environment's */
-		this.sky = sky ? daySky(renderer) : null;
-		if (this.sky) {
+		// the studio's light is its environment's (no hemisphere: the soft boxes fill as it did)
+		this.scene.environmentIntensity = paper ? 0.95 : 1;
+		/**
+		 * the one sky, when shown under it ($content/sandbox-kit/sky.js): a clear afternoon, the sun pinned low in the back
+		 * (its bearing behind the asset as the viewer first frames it, ./viewer.js `camerawork`), so it lights its edges
+		 * and throws its shadow toward the eye; its dome behind everything, its light the environment's; the key below is
+		 * its sun, framed to the asset
+		 */
+		this.sky = null;
+		if (sky) {
 			this.scene.environment.dispose();
-			this.scene.environment = this.sky.environment;
-			this.scene.environmentIntensity = 1.35;
+			this.scene.environment = null;
 			this.scene.background = null;
-			this.scene.add(this.sky.dome);
+			this.sky = createSky(renderer, this.scene, { sun: { elevation: 14, azimuth: 218 }, light: false, fog: null, clouds: 0.25 });
+			this.sky.stars.visible = false;
 		}
 		// lights: a soft key with its shadow, a cool rim, a gentle fill (the environment does most of the work)
 		const key = new THREE.DirectionalLight(0xfff3e6, paper ? 2.4 : 2.6);
@@ -124,19 +120,14 @@ export class Stage {
 		key.shadow.radius = low ? 4 : 7;
 		key.shadow.blurSamples = low ? 8 : 16;
 		const rim = new THREE.DirectionalLight(0xdbe8ff, paper ? 0.9 : 1.8);
-		const fill = new THREE.HemisphereLight(0xffffff, paper ? 0xd9d5cc : 0x202020, paper ? 0.2 : 0.15);
 		if (this.sky) {
-			// the sun behind the asset, a little warm; the 'rim' a soft fill from the eye's side, so its front reads; the
-			// hemisphere the blue sky over it and the ground under it
-			key.color.set('#fff0dc');
-			key.intensity = 3.0;
+			// the sun as the sky has it at that height; the 'rim' a soft fill from the eye's side, so its front reads
+			key.color.copy(this.sky.sun.color);
+			key.intensity = this.sky.sun.intensity;
 			rim.color.set('#ffffff');
-			rim.intensity = 1.8;
-			fill.color.set('#cfe0f5');
-			fill.groundColor.set('#b3a892');
-			fill.intensity = 0.5;
+			rim.intensity = 0.12 * key.intensity;
 		}
-		this.scene.add(key, key.target, rim, fill);
+		this.scene.add(key, key.target, rim);
 		this.key = key;
 		this.rim = rim;
 		this.ghosted = new Set();
@@ -152,16 +143,15 @@ export class Stage {
 		// at the canvas's own pixels (a composer given its target counts them 1:1 until told the ratio)
 		const css = r.getSize(new THREE.Vector2());
 		const paper = this.theme === 'paper';
-		const grade = new ShaderPass({
-			uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uVig: { value: paper ? 0.1 : 0.32 }, uGrain: { value: paper ? 0.012 : 0.02 }, uSat: { value: 1.06 }, uRes: { value: new THREE.Vector2(size.x, size.y) } },
-			vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-			fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uVig, uGrain, uSat; uniform vec2 uRes; varying vec2 vUv;
-				float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-				void main(){ vec3 c = texture2D(tDiffuse, vUv).rgb;
-					float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(l), c, uSat);
-					vec2 q = vUv - 0.5; q.x *= uRes.x / uRes.y; c *= 1.0 - uVig * smoothstep(0.35, 1.25, length(q));
-					c += (h(vUv * uRes + fract(uTime) * 91.7) - 0.5) * uGrain;
-					gl_FragColor = vec4(c, 1.0); }`
+		// the grade (AirSup's, in TSL: ../render/post.js NodePass): saturation, a vignette and a fine grain
+		const u = { uTime: uniform(0), uVig: uniform(paper ? 0.1 : 0.32), uGrain: uniform(paper ? 0.012 : 0.02), uSat: uniform(1.06), uRes: uniform(new THREE.Vector2(size.x, size.y)) };
+		const grade = new NodePass(u, (at, p) => {
+			let c = at(p).rgb;
+			c = mix(vec3(dot(c, vec3(0.2126, 0.7152, 0.0722))), c, u.uSat);
+			const q = p.sub(0.5).mul(vec2(u.uRes.x.div(u.uRes.y), 1));
+			c = c.mul(float(1).sub(u.uVig.mul(smoothstep(0.35, 1.25, length(q)))));
+			const h = fract(sin(dot(p.mul(u.uRes).add(fract(u.uTime).mul(91.7)), vec2(12.9898, 78.233))).mul(43758.5453));
+			return vec4(c.add(h.sub(0.5).mul(u.uGrain)), 1);
 		});
 		const post = createPost(r, this.scene, this.camera, {
 			target: [size.x, size.y],
@@ -243,23 +233,9 @@ export class Stage {
 		this.groundY = ground ?? box.min.y;
 		// the seamless floor: the backdrop's colour far away; shadows and the contact shadow near the asset
 		// under the sky a light, warm-grey ground; in the studio its paper or its night
-		const fm = new THREE.MeshStandardMaterial({ color: this.sky ? new THREE.Color('#c8bfae') : paper ? 0xf0efea : 0x121315, roughness: paper ? 0.92 : 0.55, metalness: 0, envMapIntensity: paper ? 0.25 : 0.6 });
 		const bg = this.bg, fade = this.sky ? new THREE.Vector2(5 * s, 30 * s) : new THREE.Vector2(4.5 * s, 16 * s);
-		const sky = this.sky;
-		fm.onBeforeCompile = (sh) => {
-			sh.uniforms.uBg = { value: bg };
-			sh.uniforms.uFade = { value: fade };
-			if (sky) {
-				// under the sky the floor runs out into the horizon's own colour, the one behind it as seen from the eye
-				Object.assign(sh.uniforms, sky.uniforms);
-				sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\n${sky.glsl}`);
-			}
-			sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vFW;').replace('#include <project_vertex>', '#include <project_vertex>\nvFW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-			sh.fragmentShader = sh.fragmentShader
-				.replace('#include <common>', '#include <common>\nuniform vec3 uBg; uniform vec2 uFade; varying vec3 vFW;')
-				.replace('#include <dithering_fragment>', `#include <dithering_fragment>\nfloat fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(gl_FragColor.rgb, ${sky ? 'skyHorizon(normalize(vec3(vFW.x - cameraPosition.x, 0.0, vFW.z - cameraPosition.z) + vec3(1e-5, 0.0, 0.0)))' : 'uBg'}, fr);`);
-		};
-		fm.customProgramCacheKey = () => (sky ? 'stage-floor-sky' : 'stage-floor');
+		// under the sky the floor runs out into the horizon's own colour, the one behind it as seen from the eye
+		const fm = floorMaterial({ color: this.sky ? new THREE.Color('#c8bfae') : paper ? 0xf0efea : 0x121315, roughness: paper ? 0.92 : 0.55, metalness: 0, envMapIntensity: paper ? 0.25 : 0.6 }, bg, fade, this.sky?.horizon);
 		const floor = new THREE.Mesh(new THREE.CircleGeometry(40 * s, 96), fm);
 		floor.visible = studio;
 		floor.rotation.x = -Math.PI / 2;
@@ -312,8 +288,7 @@ export class Stage {
 		// and its doors, and the sky's; the fill from the eye's side and the hemisphere cast no shadow, so they lit its
 		// rooms as if they had no roof. Turned down for it, and back for the next asset
 		const big = s > 4;
-		this.rim.intensity = (this.sky ? 1.8 : this.theme === 'paper' ? 0.9 : 1.8) * (big ? 0.35 : 1);
-		this.scene.children.forEach((c) => c.isHemisphereLight && (c.intensity = (this.sky ? 0.5 : this.theme === 'paper' ? 0.2 : 0.15) * (big ? 0.5 : 1)));
+		this.rim.intensity = (this.sky ? 0.12 * this.key.intensity : this.theme === 'paper' ? 0.9 : 1.8) * (big ? 0.35 : 1);
 		CUT.hatch.value = 0.0015 * this.asset.size;
 		this._fitAO();
 		this.built = views ? 1 : 0;
@@ -492,8 +467,8 @@ export class Stage {
 		}
 		const g = m.userData.ghost, paper = this.theme === 'paper';
 		g.visible = g.userData.edges.visible = x > 0.002;
-		g.material.uniforms.uA.value = x;
-		g.material.uniforms.uPaper.value = paper ? 1 : 0;
+		g.material.ghost.a.value = x;
+		g.material.ghost.paper.value = paper ? 1 : 0;
 		g.userData.edges.material.opacity = x * (paper ? 0.35 : 0.3);
 		// a ghost's material is its own while it fades (materials are shared between parts)
 		const want = x > 0.002;
@@ -501,8 +476,6 @@ export class Stage {
 			m.userData.ownMats = m.userData.solidMats.map((sm) => {
 				const c = sm.clone();
 				c.clippingPlanes = sm.clippingPlanes; // the live section planes, not copies of them
-				c.onBeforeCompile = sm.onBeforeCompile;
-				c.customProgramCacheKey = sm.customProgramCacheKey;
 				c.userData = { ...sm.userData };
 				return c;
 			});
@@ -695,15 +668,12 @@ export class Stage {
 		if (!this.composer) this._post();
 		this._gloss();
 		const r = this.renderer;
-		const was = { tm: withTone(r, 'neutral'), clip: r.localClippingEnabled, rt: r.getRenderTarget() };
+		const was = { tm: withTone(r, 'agx'), clip: r.localClippingEnabled, rt: r.getRenderTarget() };
 		r.localClippingEnabled = true;
 		r.setRenderTarget(this.composer.readBuffer);
 		let done = Promise.resolve();
-		try {
-			done = r.compileAsync(this.scene, this.camera);
-		} catch {
-			/* drawn as usual */
-		}
+		// the one warm-up (core.js `precompile`): the sky's dome and stars, node materials, built at their first frame
+		done = precompile(r, this.scene, this.camera);
 		r.setRenderTarget(was.rt);
 		was.tm();
 		r.localClippingEnabled = was.clip;
@@ -715,8 +685,8 @@ export class Stage {
 	_gloss() {
 		this.scene.traverse((o) => {
 			for (const m of Array.isArray(o.material) ? o.material : o.material ? [o.material] : []) {
-				if (m.isShaderMaterial || m.defines?.VIEWER_GLOSS !== undefined) continue;
-				m.defines = { ...(m.defines ?? {}), VIEWER_GLOSS: GLOSS.toFixed(2) };
+				if (!m.isNodeMaterial || !('gloss' in m) || m.gloss === GLOSS) continue;
+				m.gloss = GLOSS;
 				m.needsUpdate = true;
 			}
 		});
@@ -726,13 +696,13 @@ export class Stage {
 		if (!this.composer) this._post();
 		if ((this._glossed = (this._glossed ?? 0) + 1) % 12 === 1) this._gloss();
 		const r = this.renderer;
-		const was = { tm: withTone(r, 'neutral'), clip: r.localClippingEnabled };
+		const was = { tm: withTone(r, 'agx'), clip: r.localClippingEnabled, exposure: r.toneMappingExposure };
+		// AgX, as every page; the lens the sky's, or the studio's own
+		setExposure(r, this.sky ? this.sky.exposure() : 1);
 		r.localClippingEnabled = true;
 		this.camera.layers.enable(LAYER_FX);
 		this.camera.updateMatrixWorld();
-		CUT.proj.value.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
 		if (this.contact) this.contact.update();
-		this.sky?.place(this.camera);
 		this.grade.uniforms.uTime.value = this.time;
 		// the key's shadow map drawn again only when what casts into it changed (a still dome of 800k triangles and
 		// thousands of plants drew all of it into the map every frame, for the same picture)
@@ -746,6 +716,7 @@ export class Stage {
 		this.composer.render();
 		r.shadowMap.autoUpdate = auto;
 		was.tm();
+		setExposure(r, was.exposure);
 		r.localClippingEnabled = was.clip;
 		this.camera.layers.disable(LAYER_FX);
 	}
@@ -787,6 +758,6 @@ export class Stage {
 		this.clear();
 		this.post?.dispose();
 		if (this.sky) this.sky.dispose();
-		else this.scene.environment?.dispose();
+		this.scene.environment?.dispose();
 	}
 }

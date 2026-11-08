@@ -18,7 +18,7 @@ import { withPieces } from '../content/assets/box/pieces.js';
 import { heroOf } from '../content/assets/hero.js';
 import { Stage } from '../content/assets/stage.js';
 import { createRenderer } from '../content/render/core.js';
-import { createSky } from '../content/worlds/sky.js';
+import { createSky } from '../content/sandbox-kit/sky.js';
 import { cameraAt, stepAt, worldAt, type CameraKey, type World } from './live';
 import { blobWorker, buildWorld, built, engineOf, type WorldBuildSpec } from './world-build';
 
@@ -148,10 +148,10 @@ function world(tl: any, spec: WorldSpec) {
 			if (x.isLight && !x.isDirectionalLight && !x.isHemisphereLight) lamps.push({ light: x, k: x.intensity });
 		});
 		const gl = document.createElement('canvas');
-		renderer = createRenderer({ canvas: gl, pixelRatio: 1, shadows: 'pcf', preserve: true });
+		renderer = createRenderer({ canvas: gl, pixelRatio: 1, toneMapping: 'agx', shadows: 'pcf', preserve: true });
 		renderer.setSize(w, h, false);
 		camera = new THREE.PerspectiveCamera(40, w / h, 0.1, 20000);
-		sky = createSky(scene, renderer);
+		sky = createSky(renderer, scene, { shadowReach: 500, fog: { far: 1400 } });
 	})();
 	for (const s of spec.shots) {
 		let pen: CanvasRenderingContext2D | null = null, drawn = NaN;
@@ -162,16 +162,15 @@ function world(tl: any, spec: WorldSpec) {
 			const m = places[Math.min(at.frame, places.length - 1)];
 			copies.forEach((c, i) => c.matrix.fromArray(m, i * 16));
 			// the hour's sun over the world's mood, then each light scaled by the shot and the exposure in stops
-			sky.apply(at.sun ? { ...mood, sun: at.sun.sun, az: at.sun.az } : mood);
+			sky.mood(at.sun ? { ...mood, sun: at.sun.sun, az: at.sun.az } : mood);
 			sky.sun.intensity *= at.lights.sun;
-			sky.hemi.intensity *= at.lights.sky;
+			scene.environmentIntensity *= at.lights.sky;
 			for (const l of lamps) l.light.intensity = l.k * at.lights.lamps;
 			renderer.toneMappingExposure *= 2 ** at.exposure;
 			camera.position.set(...at.camera.eye);
 			camera.fov = at.camera.fov;
 			camera.updateProjectionMatrix();
 			camera.lookAt(...at.camera.target);
-			sky.place(camera, new THREE.Vector3(...at.camera.target));
 			renderer.render(scene, camera);
 			pen.clearRect(0, 0, w, h);
 			pen.drawImage(renderer.domElement, 0, 0, w, h);
