@@ -19,7 +19,7 @@ Node materials are not compiled ahead: `render/core.js` `precompile` hides them 
 Counts were checked in avenBOX with the census at base and head. This job is the part that needs a GPU. **This is the
 first time these node materials compile on a real GPU**, so every console error matters.
 
-**The code:** pull request #2182, branch `intent/602a8849-tsl-shaders`, head `08e49418d678f9b75cb1556b6f72828bb53bd7e7`.
+**The code:** pull request #2182, branch `intent/602a8849-tsl-shaders`, head `034d2f1bd751f0eefab8d7234495784f494bf2e6`.
 
 **Determinism:** `determinism.mjs` is copied from `intent-work/main-baseline-render` (c43eab548). `SEEDED_RANDOM`
 is an init script on every page, and `QUIET` is polled to 0 before each shot. No main baseline was published for
@@ -28,7 +28,7 @@ these views yet, so the job renders base (main at the merge base) and head itsel
 ## How
 
 1. `git fetch origin intent-work/602a8849-render && git checkout FETCH_HEAD` (this branch), with `PLAY_MCP_TOKEN` set.
-2. `bash intent-work/602a8849-render/run.sh 08e49418d678f9b75cb1556b6f72828bb53bd7e7`. It checks out base and head in worktrees beside the repository,
+2. `bash intent-work/602a8849-render/run.sh 034d2f1bd751f0eefab8d7234495784f494bf2e6`. It checks out base and head in worktrees beside the repository,
    then runs three things:
    - **c7:** `story-parity.ts` on head, `src/lib/stories/fixtures/king-coconut-live.json --at 1,3,5 --min-ssim 0.98
      --lossless`, twice. Out: `parity-1.txt`, `parity-2.txt`, and the stills in `parity-1/` and `parity-2/`.
