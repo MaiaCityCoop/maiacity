@@ -1,4 +1,4 @@
-// The one renderer (intent b03f9fb4, c5): createRenderer installs three's WebGLNodesHandler, so a TSL node material is
+// The one renderer (intent b03f9fb4, c5; precompile's node materials, intent 2214e661): createRenderer installs three's WebGLNodesHandler, so a TSL node material is
 // built into GLSL by it; a compile of classic materials draws no shadow pass the handler would add; tone mapping and
 // exposure set through the core alone. Three's WebGLRenderer is swapped (vi.mock, so vitest only) for a stand-in with a stubbed WebGL2 context (as
 // ./meter.test.js stubs one): no graphics card needed.
@@ -62,7 +62,7 @@ const THREE = await import('three');
 const { WebGLNodesHandler } = await import('three/addons/tsl/WebGLNodesHandler.js');
 const { MeshStandardNodeMaterial } = await import('three/webgpu');
 const { color, uniform, mix, positionLocal } = await import('three/tsl');
-const { createRenderer, setExposure, setTone, withTone, TONE } = await import('./core.js');
+const { createRenderer, precompile, setExposure, setTone, withTone, TONE } = await import('./core.js');
 
 describe('the one renderer', () => {
 	test('it installs three’s WebGLNodesHandler', () => {
@@ -71,7 +71,7 @@ describe('the one renderer', () => {
 	});
 
 	test('a MeshStandardNodeMaterial with a TSL colour node is built into GLSL through it', () => {
-		const r = /** @type {any} */ (createRenderer({ pixelRatio: 1, toneMapping: 'aces' }));
+		const r = /** @type {any} */ (createRenderer({ pixelRatio: 1, toneMapping: 'agx' }));
 		const scene = new THREE.Scene();
 		const camera = new THREE.PerspectiveCamera();
 		const tint = uniform(new THREE.Color('#3a7d2c'));
@@ -91,7 +91,7 @@ describe('the one renderer', () => {
 		expect(parameters.fragmentShader).toMatch(/void main\s*\(/);
 		// the colour node's uniform is in the program, and the renderer's tone mapping is applied in it
 		expect(Object.values(parameters.uniforms).some((u) => u === tint || u?.value === tint.value)).toBe(true);
-		expect(parameters.fragmentShader).toContain('mat3( 0.59719, 0.076, 0.0284'); // ACES's input matrix
+		expect(parameters.fragmentShader).toContain('vec3( 0.856627153315983, 0.137318972929847, 0.11189821299995 )'); // AgX's inset matrix
 		expect(parameters.fragmentShader).toMatch(/DiffuseColor = vec4\( mix\(/);
 	});
 
@@ -108,16 +108,35 @@ describe('the one renderer', () => {
 	});
 
 	test('tone mapping and exposure are set through the core', () => {
-		const r = /** @type {any} */ (createRenderer({ pixelRatio: 1, toneMapping: 'aces', exposure: 0.42 }));
-		expect(r.toneMapping).toBe(THREE.ACESFilmicToneMapping);
+		const r = /** @type {any} */ (createRenderer({ pixelRatio: 1, toneMapping: 'agx', exposure: 0.42 }));
+		expect(r.toneMapping).toBe(THREE.AgXToneMapping);
 		expect(r.toneMappingExposure).toBe(0.42);
 		setExposure(r, 0.88);
 		expect(r.toneMappingExposure).toBe(0.88);
-		const back = withTone(r, 'neutral');
-		expect(r.toneMapping).toBe(TONE.neutral);
+		const back = withTone(r, 'none');
+		expect(r.toneMapping).toBe(TONE.none);
 		back();
-		expect(r.toneMapping).toBe(THREE.ACESFilmicToneMapping);
+		expect(r.toneMapping).toBe(THREE.AgXToneMapping);
 		setTone(r, 'none', 1);
 		expect([r.toneMapping, r.toneMappingExposure]).toEqual([THREE.NoToneMapping, 1]);
+	});
+
+	test('precompile leaves node materials out (compileAsync never settles for them) and settles itself', async () => {
+		const r = /** @type {any} */ (createRenderer({ pixelRatio: 1 }));
+		/** @type {string[][]} */
+		const gathered = [];
+		r.compileAsync = (/** @type {THREE.Object3D} */ root) => {
+			const seen = [];
+			root.traverseVisible((o) => /** @type {any} */ (o).isMesh && seen.push(o.name));
+			gathered.push(seen);
+			// as three's under WebGLNodesHandler: one that gathered a node material never settles
+			return seen.includes('sky') ? new Promise(() => {}) : Promise.resolve();
+		};
+		const scene = new THREE.Scene();
+		const sky = Object.assign(new THREE.Mesh(new THREE.BoxGeometry(), new MeshStandardNodeMaterial()), { name: 'sky' });
+		scene.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial()), { name: 'asset' }), sky);
+		await precompile(r, scene, new THREE.PerspectiveCamera());
+		expect(gathered).toEqual([['asset']]);
+		expect(sky.visible).toBe(true);
 	});
 });
