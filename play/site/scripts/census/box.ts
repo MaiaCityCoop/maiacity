@@ -8,6 +8,13 @@
 import type { El } from './dom';
 
 /**
+ * Math.random as one fixed sequence (mulberry32 from one seed), as the Mac's runs seed every page and frame
+ * (intent-work/main-baseline/determinism.mjs SEEDED_RANDOM; intent 373050d1): run in the page by the census's setup
+ * and in every worker of the box before its engine, so whatever a world picks at random it picks alike every run.
+ */
+export const SEEDED_RANDOM = `(() => { let s = 0x2545f491; Math.random = () => { s |= 0; s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; })();`;
+
+/**
  * What a Bun worker lacks of a browser's that the engine uses, put in before it: `importScripts` of the blob a recipe
  * is handed in (the text the blob was made of, run in the worker's global scope, as a browser runs it), and an
  * OffscreenCanvas whose 2D context draws nothing (textures a recipe paints are colours, never counts).
@@ -58,7 +65,7 @@ export function frameWindow(frame: El) {
 		// the frame's script listens to its parent only: what the shell posts, a turn later, as a browser delivers it
 		setTimeout(() => {
 			if (m && m.op === 'boot' && !url) {
-				url = URL.createObjectURL(new Blob([PRELUDE, m.code], { type: 'text/javascript' }));
+				url = URL.createObjectURL(new Blob([SEEDED_RANDOM, PRELUDE, m.code], { type: 'text/javascript' }));
 				warm = m.spare === true;
 				spare = fresh();
 				// the engine's first word (`ready`) comes from the worker itself

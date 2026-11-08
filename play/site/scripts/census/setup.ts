@@ -24,7 +24,7 @@ import { hashOf } from '../../src/lib/content/assets/box/headless.js';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { El, VIEWPORT, makeDocument } from './dom';
-import { frameWindow } from './box';
+import { SEEDED_RANDOM, frameWindow } from './box';
 import { opfs } from './opfs';
 
 const HERE = dirname(new URL(import.meta.url).pathname);
@@ -80,6 +80,9 @@ export function setup(o: Setup = {}) {
 	};
 	const STATS_ONLY = '__assets = { stats: () => ({ out: plantsOut?.assets.stats(), in: plantsIn?.assets.stats(), library: library.assets.stats() }) }';
 	const STATS_AND_KINDS = '__assets = { stats: () => ({ out: plantsOut?.assets.stats(), in: plantsIn?.assets.stats(), library: library.assets.stats() }), kinds: () => ({ out: plantsOut?.assets.kinds(), in: plantsIn?.assets.kinds(), library: library.assets.kinds() }) }';
+	// and its look at the world's dome stream (`states()`: which domes' insides are built or building), so the census
+	// waits for them as for the asset renderers (./run.ts `quiet`; intent 373050d1)
+	const DOME_STREAM = /const domeStream = createStream\(\{[\s\S]*?\n\t\}\)/;
 	const SPEC = /((?:\bfrom|\bimport)\s*\(?\s*)(['"])([^'"\n]+)\2/g;
 	plugin({
 		name: 'census',
@@ -95,7 +98,7 @@ export function setup(o: Setup = {}) {
 				}
 				// the census's one look into the page, where a tree lacks it: each kind the asset renderers hold, as 6295a650's
 				// census hook adds it (intent-work/6295a650-render out/run5/base-census-hook.diff)
-				if (a.path.endsWith('/sandbox-2/interior/village.ts')) text = text.replace(STATS_ONLY, STATS_AND_KINDS);
+				if (a.path.endsWith('/sandbox-2/interior/village.ts')) text = text.replace(STATS_ONLY, STATS_AND_KINDS).replace(DOME_STREAM, '$&;(window as any).__domeStream = domeStream');
 				text = text.replace(SPEC, (all, pre, q, s) => {
 					const to = spec(s, a.path);
 					return to === s ? all : `${pre}${q}${to}${q}`;
@@ -108,6 +111,7 @@ export function setup(o: Setup = {}) {
 
 	// ── the page ──
 	const g = globalThis as any;
+	(0, eval)(SEEDED_RANDOM);
 	const document = makeDocument();
 	const make = document.createElement;
 	document.createElement = (t: string) => {
