@@ -819,6 +819,9 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			const s = 0.9 + r() * 0.25
 			forest!.add(kind, 'tree', x, 0, z, r() * 6.28, s)
 			plantedTrees.push({ kind, x, z, s })
+			// its crown over the floor, for where the floor's cover gathers (under it, at its edge, round its trunk): as wide
+			// as its layer's spacing lets crowns meet (the canopy a trunk every five metres or so, crowns overlapping)
+			floorTrunks.push({ x, z, r: 0.62 * Math.sqrt(S[layer]) * s })
 			const k = trunkKey(Math.floor(x / 4), Math.floor(z / 4))
 			const list = trunks.get(k) ?? []
 			list.push({ x, z, r: keep })
@@ -961,10 +964,13 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		}
 		// and the floor itself under all of it, the biome's cover, may stand wherever the ground is open: not on a path,
 		// in the water, a dome (or Sandbox 5's building's own ground), a field or a trunk
-		floorOpen = (x, z) => (open(x, z, 0.1) || inBand(x, z, 0.1, 0.1)) && clearOf(x, z, 0.15)
+		// (a kind of it that keeps clear of the paths and the water by `margin` metres, that much further off them)
+		floorOpen = (x, z, margin = 0) => (open(x, z, 0.1 + margin) || inBand(x, z, 0.1 + margin, 0.1 + margin)) && clearOf(x, z, 0.15)
 	}
-	/** where the floor's cover may stand (set once the garden is planted) */
-	let floorOpen = (_x: number, _z: number) => true
+	/** where the floor's cover may stand (set once the garden is planted), `margin` metres clear of paths and water */
+	let floorOpen = (_x: number, _z: number, _margin = 0) => true
+	/** the trees of the forest garden, each its crown's radius (set as the garden is planted): the floor's canopy */
+	const floorTrunks: { x: number; z: number; r: number }[] = []
 	const floorIndex = (r: () => number) => FLOOR_KINDS.indexOf(floorPick(r))
 	// and tufts of meadow grass standing up out of the lawn, drawn with the floor, near you
 	FLOOR.push(species(grassTuft(0.55), false))
