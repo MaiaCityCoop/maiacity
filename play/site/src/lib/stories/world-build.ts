@@ -1,6 +1,6 @@
 // A WORLD SHOT'S BUILD (intent 90de96fb; ./live-runtime.ts draws it, scripts/world-shot.ts checks it on the CPU): the
-// world, its guests and every frame's places, made once before the shot is ready, by the frozen box engine started as
-// workers. No DOM, no WebGL: the same code runs in the composition's frame and in Bun in avenBOX, only the worker it is
+// world, its guests and every frame's places, made once for all of a world's shots before they are ready (intent
+// 4f7a2178), by the frozen box engine started as workers. No DOM, no WebGL: the same code runs in the composition's frame and in Bun in avenBOX, only the worker it is
 // handed differs. Drawn by time, never by a clock: no step here reads a clock, chance or the environment.
 //
 // - A build asks its engine with no `given` where its ref holds no values (an engine refuses values for a recipe that
@@ -21,6 +21,13 @@ import { BUDGETS } from '../kernel/sandbox/policy.js';
 
 /** a worker as the build uses it: the browser's, or Bun's */
 export type WorkerLike = { postMessage(m: unknown): void; terminate(): void; onmessage: ((e: { data: any }) => void) | null; onerror: ((e: { message?: string; preventDefault?: () => void }) => void) | null };
+/** a worker of the code named `hash`, its blob: URL made once and kept: WebKit fails a worker's importScripts(blob:),
+ *  how the engine runs each recipe, once the worker's own URL is revoked ("Load failed", intent 4f7a2178) */
+const urls = new Map<string, string>();
+export const blobWorker = (hash: string, code: () => string) => (): WorkerLike => {
+	if (!urls.has(hash)) urls.set(hash, URL.createObjectURL(new Blob([code()], { type: 'text/javascript' })));
+	return new Worker(urls.get(hash)!) as unknown as WorkerLike;
+};
 /** how many recipes' workers build guests at once */
 export const FEW = 4;
 /** a step of the build, for the player: what it is doing, and how far along */
@@ -100,27 +107,25 @@ export type WorldBuildSpec = { engine: { v: number; hash: string }; recipe: stri
 /** where its code and its workers come from: a file by hash (held to it by the caller), a worker of the engine */
 export type Host = { code: (hash: string) => string; worker: () => WorkerLike; progress?: (p: Progress) => void; timeout?: number; few?: number };
 
-/** the builds a world's shots share: the world as built, and each guest build by its ref (one making for every shot
- *  of the same world in one composition) */
-const shared = new Map<string, Promise<{ world: any; guests: Map<string, { obj: THREE.Object3D; group: string }> }>>();
-/** the shared builds let go (a check that builds a world twice, to hold it frame-exact) */
-export const forgetBuilds = () => shared.clear();
-
-async function made(spec: WorldBuildSpec, host: Host) {
+/**
+ * A world made whole, once for every shot of it in a composition: its world (its own copy, run in its own worker where
+ * it moves), its guests' copies where each stands, and every frame's places for them (16 numbers each, a scale of 0
+ * where one is not shown), the world brought to each frame's moment in turn by its own seeded steps. Throws why it can't.
+ */
+export async function buildWorld(spec: WorldBuildSpec, host: Host) {
 	const say = host.progress ?? (() => {});
 	const recipeOf = (hash: string, pieces: string[]) => ({ hash, code: withPieces(host.code(hash), pieces.map((p) => ({ hash: p, code: host.code(p) }))) });
 	const world = recipeOf(spec.recipe, spec.pieces);
 	say({ step: 'world', done: 0, of: 1, text: 'Building the world' });
-	const engine = engineOf(world, spec.engine.v, host.worker, host.timeout);
-	let m: any;
+	const once = engineOf(world, spec.engine.v, host.worker, host.timeout);
+	let got: ReturnType<typeof built>;
 	try {
-		m = await engine.build(undefined);
+		got = built(await once.build(undefined), spec.recipe);
 	} finally {
-		engine.end();
+		once.end();
 	}
-	const first = built(m, spec.recipe);
 	// its guests: each build it names made once, each recipe in its own worker, FEW recipes at a time
-	const refs = [...new Set(plantingsOf(first.obj).map((u: { ref: string }) => u.ref).filter((r: string) => Object.hasOwn(spec.guests, r.slice(0, 64))))].sort() as string[];
+	const refs = [...new Set(plantingsOf(got.obj).map((u: { ref: string }) => u.ref).filter((r: string) => Object.hasOwn(spec.guests, r.slice(0, 64))))].sort() as string[];
 	const byRecipe = new Map<string, string[]>();
 	for (const r of refs) byRecipe.set(r.slice(0, 64), [...(byRecipe.get(r.slice(0, 64)) ?? []), r]);
 	const queue = [...byRecipe.entries()];
@@ -136,8 +141,7 @@ async function made(spec: WorldBuildSpec, host: Host) {
 					for (const ref of mine) {
 						const g = built(await e.build(parseRef(ref).given), hash);
 						guests.set(ref, { obj: g.obj, group: g.card.group });
-						done++;
-						say({ step: 'guests', done, of: refs.length, text: `Building its guests: ${done} of ${refs.length}` });
+						say({ step: 'guests', done: ++done, of: refs.length, text: `Building its guests: ${done} of ${refs.length}` });
 					}
 				} finally {
 					e.end();
@@ -145,24 +149,6 @@ async function made(spec: WorldBuildSpec, host: Host) {
 			}
 		})
 	);
-	return { world: m, guests };
-}
-
-/**
- * A world shot made whole: its world (its own copy, run in its own worker where it moves), its guests' copies where
- * each stands, and every frame's places for them (16 numbers each, a scale of 0 where one is not shown), the world
- * brought to each frame's moment in turn by its own seeded steps. Throws why it can't.
- */
-export async function buildWorld(spec: WorldBuildSpec, host: Host) {
-	const say = host.progress ?? (() => {});
-	const key = JSON.stringify([spec.engine, spec.recipe, spec.pieces, spec.guests]);
-	if (!shared.has(key)) {
-		const p = made(spec, host);
-		shared.set(key, p);
-		p.catch(() => shared.delete(key));
-	}
-	const { world: m, guests } = await shared.get(key)!;
-	const got = built(m, spec.recipe);
 	const info = worldInfo(got.obj);
 	const uses = plantingsOf(got.obj).filter((u: { ref: string }) => guests.has(u.ref));
 	const copies = uses.map((u: { ref: string }) => {
@@ -172,7 +158,6 @@ export async function buildWorld(spec: WorldBuildSpec, host: Host) {
 	});
 
 	// where it moves, its run kept in a worker of its own; a run that won't start, or whose steps fail, fails the shot
-	const world = { hash: spec.recipe, code: withPieces(host.code(spec.recipe), spec.pieces.map((p) => ({ hash: p, code: host.code(p) }))) };
 	let engine: Engine | null = null, broke: Error | null = null;
 	const keep = (e: any) => ((broke ??= e instanceof Error ? e : new Error(String(e))), Promise.reject(e));
 	const hero = info.moves

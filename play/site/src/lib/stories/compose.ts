@@ -22,7 +22,7 @@ import { buildsOf, framesOf, stepTimes, type Live, type LiveAsset, type World, t
 import { clipsOf, cuesOf, linkedOf, setCuesOf, LINK, MOST_LINK_DEPTH, type Clip, type Links, type Shot, type StoryBody, type Voice } from './timeline';
 
 /** the live runtime's hash: what scripts/live-runtime.ts builds, held to it (`bun scripts/live-runtime.ts --check`) */
-const LIVE_HASH = 'b0639f61fd3b573eed38c76265dc98411e0c9c711e94c284451847664554eba5';
+const LIVE_HASH = '43ea5015d4b36408d66e996dcda43b352ce0c3afa055ec8a7f1843fdb36fe764';
 /** HyperFrames' runtime, GSAP and the one font (Inter, where a composition names only a generic family, as HyperFrames'
  *  renderer puts it first), pinned by their BLAKE3 hash: among play's files, never from a CDN */
 export const VENDOR = {
@@ -214,6 +214,7 @@ function lay(body: StoryBody, id: string, ctx: Ctx, out: Out, sound: { db: numbe
 		return dissolve(prev && Math.abs(prev.at + prev.duration - s.at) < 0.05 ? prev : null, s);
 	});
 	const steps: string[] = [];
+	const worlds = new Map<string, Omit<NonNullable<ReturnType<typeof worldOf>>, 'asset' | 'version' | 'camera' | 'hour' | 'exposure' | 'lights'> & { shots: Record<string, unknown>[] }>();
 	shots.forEach((s, i) => {
 		const next = shots[i + 1], sid = `${id}-s${i}`;
 		const end = Math.max(s.at + s.duration, next ? next.at + fades[i + 1] : D);
@@ -226,9 +227,12 @@ function lay(body: StoryBody, id: string, ctx: Ctx, out: Out, sound: { db: numbe
 			// the world played: its poster (the shot's still) until every frame of it is ready, then its canvas
 			const [lw, lh] = ctx.size;
 			for (const h of [world.engine.hash, ...world.pieces, world.recipe, ...Object.entries(world.guests).flatMap(([g, p]) => [...p, g])]) ctx.code.add(h);
-			const { asset: _a, version: _v, ...spec } = world;
+			const { asset: _a, version: _v, camera, hour, exposure, lights, ...built } = world;
 			out.html.push(`<div id="${sid}" class="clip shot live world" ${time} data-asset="${esc(world.asset)}" data-version="${esc(world.version)}">${s.frame ? `<img class="poster" src="${fileUrl(s.frame)}" alt="">` : ''}<canvas width="${lw}" height="${lh}"></canvas></div>`);
-			out.script.push(`playLive.world(tl, ${JSON.stringify(sid)}, ${JSON.stringify({ ...spec, fps: ctx.fps, frames: framesOf(dur, ctx.fps), size: ctx.size, at: s.at, duration: dur })});`);
+			// every shot of one world (its engine, recipe, pieces and guests) played by one world (intent 4f7a2178)
+			const key = JSON.stringify(built);
+			if (!worlds.has(key)) worlds.set(key, { ...built, shots: [] });
+			worlds.get(key)!.shots.push({ id: sid, at: s.at, duration: dur, camera, ...(hour != null ? { hour } : {}), ...(exposure != null ? { exposure } : {}), ...(lights ? { lights } : {}) });
 		} else if (live) {
 			// the asset drawn: its poster (the shot's still) until it is built, then its canvas
 			const [lw, lh] = ctx.size;
@@ -245,6 +249,11 @@ function lay(body: StoryBody, id: string, ctx: Ctx, out: Out, sound: { db: numbe
 		const fin = Math.max(own.fromBlack, before), fout = Math.max(own.toBlack, own.dip);
 		steps.push(`[${JSON.stringify(sid)}, ${n(s.at)}, ${n(s.at + s.duration)}, ${n(fin)}, ${n(fout)}, ${n(fades[i])}]`);
 	});
+	// each world over the span of its shots, its frames at the story's own rate from its first shot
+	for (const { shots: ws, ...built } of worlds.values()) {
+		const at = Math.min(...ws.map((x) => x.at as number)), end = Math.max(...ws.map((x) => (x.at as number) + (x.duration as number)));
+		out.script.push(`playLive.world(tl, ${JSON.stringify({ ...built, fps: ctx.fps, frames: framesOf(end - at, ctx.fps), size: ctx.size, at, shots: ws })});`);
+	}
 	// the black a shot fades from or to, over every shot
 	const veil = `${id}-black`;
 	out.html.push(`<div id="${veil}" class="clip veil" data-start="0" data-duration="${n(D)}" data-track-index="${track++}" style="z-index:${shots.length + 1}"></div>`);

@@ -42955,9 +42955,9 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
     const az = Math.round(((90 + (h - 6) * 15) % 360 + 360) % 360 * 1e4) / 1e4;
     return { sun, az };
   }
-  function worldAt(w, t, fps, frames) {
+  function worldAt(w, t, fps, frames, since = 0) {
     return {
-      frame: frameOf(t, fps, frames),
+      frame: frameOf(since + t, fps, frames),
       camera: cameraAt(w.camera, t),
       sun: w.hour == null ? null : sunAt(curveAt(w.hour, t, 12)),
       exposure: curveAt(w.exposure, t, 0),
@@ -44119,6 +44119,12 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
   var BUDGETS = { job: 20000, logicJob: 1e4, mathJob: 6000, message: 4000 };
 
   // src/lib/stories/world-build.ts
+  var urls = new Map;
+  var blobWorker = (hash, code) => () => {
+    if (!urls.has(hash))
+      urls.set(hash, URL.createObjectURL(new Blob([code()], { type: "text/javascript" })));
+    return new Worker(urls.get(hash));
+  };
   var FEW = 4;
   function engineOf(recipe, engine, make, timeout = BUDGETS.job) {
     const worker = make();
@@ -44187,21 +44193,19 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
     const pairs = q.split("&").filter(Boolean).map((kv) => kv.split("=").map(decodeURIComponent));
     return { hash, given: pairs.length ? Object.fromEntries(pairs) : undefined };
   };
-  var shared = new Map;
-  async function made(spec, host) {
+  async function buildWorld(spec, host) {
     const say = host.progress ?? (() => {});
     const recipeOf = (hash, pieces) => ({ hash, code: withPieces(host.code(hash), pieces.map((p) => ({ hash: p, code: host.code(p) }))) });
     const world = recipeOf(spec.recipe, spec.pieces);
     say({ step: "world", done: 0, of: 1, text: "Building the world" });
-    const engine = engineOf(world, spec.engine.v, host.worker, host.timeout);
-    let m;
+    const once = engineOf(world, spec.engine.v, host.worker, host.timeout);
+    let got;
     try {
-      m = await engine.build(undefined);
+      got = built(await once.build(undefined), spec.recipe);
     } finally {
-      engine.end();
+      once.end();
     }
-    const first = built(m, spec.recipe);
-    const refs = [...new Set(plantingsOf(first.obj).map((u) => u.ref).filter((r) => Object.hasOwn(spec.guests, r.slice(0, 64))))].sort();
+    const refs = [...new Set(plantingsOf(got.obj).map((u) => u.ref).filter((r) => Object.hasOwn(spec.guests, r.slice(0, 64))))].sort();
     const byRecipe = new Map;
     for (const r of refs)
       byRecipe.set(r.slice(0, 64), [...byRecipe.get(r.slice(0, 64)) ?? [], r]);
@@ -44217,26 +44221,13 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
           for (const ref of mine) {
             const g = built(await e.build(parseRef(ref).given), hash);
             guests.set(ref, { obj: g.obj, group: g.card.group });
-            done++;
-            say({ step: "guests", done, of: refs.length, text: `Building its guests: ${done} of ${refs.length}` });
+            say({ step: "guests", done: ++done, of: refs.length, text: `Building its guests: ${done} of ${refs.length}` });
           }
         } finally {
           e.end();
         }
       }
     }));
-    return { world: m, guests };
-  }
-  async function buildWorld(spec, host) {
-    const say = host.progress ?? (() => {});
-    const key = JSON.stringify([spec.engine, spec.recipe, spec.pieces, spec.guests]);
-    if (!shared.has(key)) {
-      const p = made(spec, host);
-      shared.set(key, p);
-      p.catch(() => shared.delete(key));
-    }
-    const { world: m, guests } = await shared.get(key);
-    const got = built(m, spec.recipe);
     const info = worldOf(got.obj);
     const uses = plantingsOf(got.obj).filter((u) => guests.has(u.ref));
     const copies = uses.map((u) => {
@@ -44244,7 +44235,6 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       c.matrixAutoUpdate = false;
       return c;
     });
-    const world = { hash: spec.recipe, code: withPieces(host.code(spec.recipe), spec.pieces.map((p) => ({ hash: p, code: host.code(p) }))) };
     let engine = null, broke = null;
     const keep = (e) => (broke ??= e instanceof Error ? e : new Error(String(e)), Promise.reject(e));
     const hero = info.moves ? heroOf(got, {
@@ -44305,25 +44295,36 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       throw new Error(`refused: live: file ${hash.slice(0, 12)}… does not hash to its name`);
     return text;
   };
-  var worker = (hash) => () => {
-    const url = URL.createObjectURL(new Blob([code(hash)], { type: "text/javascript" }));
-    const w = new Worker(url);
-    URL.revokeObjectURL(url);
-    return w;
-  };
+  var worker = (hash) => blobWorker(hash, () => code(hash));
   var tell = (m) => {
     if (W.parent && W.parent !== W)
       W.parent.postMessage({ play: 1, ...m }, "*");
   };
   var failed = (id, what) => (e) => (console.error(id, e), tell({ op: "failed", shot: id, error: `${what} could not be built: ${e?.message ?? e}` }));
-  function shot(tl, id, spec) {
+  function clip(tl, id, at, duration, made, draw, what) {
     const el = document.getElementById(id);
-    const canvas = el.querySelector("canvas");
-    const poster = el.querySelector("img");
+    const canvas = el.querySelector("canvas"), poster = el.querySelector("img");
+    let t = 0;
+    const done = made(canvas).then(() => {
+      draw(t);
+      canvas.style.visibility = "visible";
+      if (poster)
+        poster.style.visibility = "hidden";
+    });
+    done.catch(failed(id, what));
+    ((W.__hf ??= {}).buildReady ??= {})[id] = done;
+    const o = { set t(v) {
+      draw(t = v);
+    }, get t() {
+      return t;
+    } };
+    tl.fromTo(o, { t: 0 }, { t: duration, duration, ease: "none", immediateRender: false }, at);
+  }
+  function shot(tl, id, spec) {
     const [w, h] = spec.size;
-    let shown = null, on = -1, t = 0, drawn = NaN;
+    let shown = null, on = -1, drawn = NaN;
     let stage, camera;
-    const draw = () => {
+    const draw = (t) => {
       if (!shown || t === drawn)
         return;
       drawn = t;
@@ -44346,7 +44347,7 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       stage.time = t;
       stage.render();
     };
-    const made = (async () => {
+    clip(tl, id, spec.at, spec.duration, async (canvas) => {
       const recipe = { hash: spec.recipe, code: withPieces(code(spec.recipe), spec.pieces.map((hash) => ({ hash, code: code(hash) }))) };
       const engine = engineOf(recipe, spec.engine.v, worker(spec.engine.hash));
       try {
@@ -44361,93 +44362,63 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
         stage = new Stage(renderer, camera, { sky: true });
         stage.resize(w, h);
         shown = builds;
-        draw();
-        canvas.style.visibility = "visible";
-        if (poster)
-          poster.style.visibility = "hidden";
       } finally {
         engine.end();
       }
-    })();
-    made.catch(failed(id, "a live shot"));
-    (W.__hf ??= {}).buildReady ??= {};
-    W.__hf.buildReady[id] = made;
-    const at = { set t(v) {
-      t = v;
-      draw();
-    }, get t() {
-      return t;
-    } };
-    tl.fromTo(at, { t: 0 }, { t: spec.duration, duration: spec.duration, ease: "none", immediateRender: false }, spec.at);
+    }, draw, "a live shot");
   }
-  function world(tl, id, spec) {
-    const el = document.getElementById(id);
-    const canvas = el.querySelector("canvas");
-    const poster = el.querySelector("img");
+  function world(tl, spec) {
     const [w, h] = spec.size;
-    let ready = false, t = 0, drawn = NaN;
-    let renderer, scene, camera, sky;
-    let copies = [];
-    let places = [];
-    let mood;
+    let renderer, scene, camera, sky, mood;
+    let copies = [], places = [];
     const lamps = [];
-    const draw = () => {
-      if (!ready || t === drawn)
-        return;
-      drawn = t;
-      const at = worldAt(spec, t, spec.fps, spec.frames);
-      const m = places[Math.min(at.frame, places.length - 1)];
-      copies.forEach((c, i) => c.matrix.fromArray(m, i * 16));
-      sky.apply(at.sun ? { ...mood, sun: at.sun.sun, az: at.sun.az } : mood);
-      sky.sun.intensity *= at.lights.sun;
-      sky.hemi.intensity *= at.lights.sky;
-      for (const l of lamps)
-        l.light.intensity = l.k * at.lights.lamps;
-      renderer.toneMappingExposure *= 2 ** at.exposure;
-      camera.position.set(...at.camera.eye);
-      camera.fov = at.camera.fov;
-      camera.updateProjectionMatrix();
-      camera.lookAt(...at.camera.target);
-      sky.place(camera, new Vector3(...at.camera.target));
-      renderer.render(scene, camera);
-    };
     const made = (async () => {
-      const got = await buildWorld(spec, { code, worker: worker(spec.engine.hash), progress: (p) => tell({ op: "progress", shot: id, ...p }) });
+      const got = await buildWorld(spec, { code, worker: worker(spec.engine.hash), progress: (p) => tell({ op: "progress", shot: spec.shots[0]?.id, ...p }) });
       mood = got.info.mood;
       scene = new Scene;
       got.obj.traverse((x) => {
         if (x.isMesh)
           x.receiveShadow = x.castShadow = true;
       });
-      scene.add(got.obj);
-      for (const c of got.copies)
-        scene.add(c);
+      scene.add(got.obj, ...got.copies);
       copies = got.copies;
       places = got.places;
       scene.traverse((x) => {
         if (x.isLight && !x.isDirectionalLight && !x.isHemisphereLight)
           lamps.push({ light: x, k: x.intensity });
       });
-      renderer = createRenderer({ canvas, pixelRatio: 1, shadows: "pcf", preserve: true });
+      const gl = document.createElement("canvas");
+      renderer = createRenderer({ canvas: gl, pixelRatio: 1, shadows: "pcf", preserve: true });
       renderer.setSize(w, h, false);
       camera = new PerspectiveCamera(40, w / h, 0.1, 20000);
       sky = createSky(scene, renderer);
-      ready = true;
-      draw();
-      canvas.style.visibility = "visible";
-      if (poster)
-        poster.style.visibility = "hidden";
     })();
-    made.catch(failed(id, "a world shot"));
-    (W.__hf ??= {}).buildReady ??= {};
-    W.__hf.buildReady[id] = made;
-    const at = { set t(v) {
-      t = v;
-      draw();
-    }, get t() {
-      return t;
-    } };
-    tl.fromTo(at, { t: 0 }, { t: spec.duration, duration: spec.duration, ease: "none", immediateRender: false }, spec.at);
+    for (const s of spec.shots) {
+      let pen = null, drawn = NaN;
+      const draw = (t) => {
+        if (!pen || t === drawn)
+          return;
+        drawn = t;
+        const at = worldAt(s, t, spec.fps, spec.frames, s.at - spec.at);
+        const m = places[Math.min(at.frame, places.length - 1)];
+        copies.forEach((c, i) => c.matrix.fromArray(m, i * 16));
+        sky.apply(at.sun ? { ...mood, sun: at.sun.sun, az: at.sun.az } : mood);
+        sky.sun.intensity *= at.lights.sun;
+        sky.hemi.intensity *= at.lights.sky;
+        for (const l of lamps)
+          l.light.intensity = l.k * at.lights.lamps;
+        renderer.toneMappingExposure *= 2 ** at.exposure;
+        camera.position.set(...at.camera.eye);
+        camera.fov = at.camera.fov;
+        camera.updateProjectionMatrix();
+        camera.lookAt(...at.camera.target);
+        sky.place(camera, new Vector3(...at.camera.target));
+        renderer.render(scene, camera);
+        pen.clearRect(0, 0, w, h);
+        pen.drawImage(renderer.domElement, 0, 0, w, h);
+      };
+      clip(tl, s.id, s.at, s.duration, (canvas) => made.then(() => void (pen = canvas.getContext("2d"))), draw, "a world shot");
+    }
   }
   W.playLive = { shot, world };
 })();
