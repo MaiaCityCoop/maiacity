@@ -1,5 +1,8 @@
 # Mac job: intent 6fd5e63f's c7: one wind for everything that grows, and light through leaves
 
+> **ON HOLD (2026-11-08 18:30): don't run.** Its head and kit sit on cb16b7a5's older kit (1c7f2afa8). It's
+> repointed once 11ead007 restacks on cb16b7a5's 90ef0aee9, and a new MAC JOB READY line is sent then.
+
 Intent 6fd5e63f-e195-4123-8604-c4f87c33869c (GPU 6/14), pull request #2180. Every plant material that says what it is
 (a `look`: leaf, grass, petal, bark, stem, fruit, stone; from box format 5, or from its name for older builds) is drawn by
 the page's own TSL (`render/foliage.js`, `render/wind.js`). One wind per world, with gust fronts that travel, each plant

@@ -6,6 +6,7 @@
 # Needs bun, node with Playwright's Chromium, ffmpeg, and PLAY_MCP_TOKEN (the admin token, sent to play only).
 # Writes intent-work/6fd5e63f-render/out/.
 set -euo pipefail
+echo "ON HOLD: this job waits for intent 11ead007 to restack on cb16b7a5 90ef0aee9 (README.md)"; exit 1
 : "${PLAY_MCP_TOKEN:?PLAY_MCP_TOKEN: the admin token the read-only proxy reads play with}"
 ROOT=$(git rev-parse --show-toplevel)
 JOB="$ROOT/intent-work/6fd5e63f-render"
