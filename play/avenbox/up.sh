@@ -65,6 +65,10 @@ for d in play/api play/site website; do
     (cd "$dir" && bun install --frozen-lockfile > /dev/null 2>&1 && touch node_modules) && say "$d's dependencies installed" || say "could not install $d's dependencies"
   fi
 done
+# the site's $lib for `bun test` on its files (intent 67d5e185): SvelteKit's tsconfig, which a build writes too
+if [ -d "$ROOT/play/site/node_modules" ] && [ ! -f "$ROOT/play/site/.svelte-kit/tsconfig.json" ]; then
+  (cd "$ROOT/play/site" && bunx svelte-kit sync > /dev/null 2>&1) || say "could not sync play/site's SvelteKit types"
+fi
 
 # the workflows' lint (intent aa59f248), built once if it is missing
 bash "$ROOT/play/avenbox/actionlint.sh" --install > /dev/null 2>&1 || say "could not install actionlint (gate.sh lint tries again)"
