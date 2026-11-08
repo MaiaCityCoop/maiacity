@@ -1,0 +1,130 @@
+
+  VITE v8.3.5  ready in 693 ms
+
+  ➜  Local:   http://localhost:5181/
+  ➜  Network: use --host to expose
+6:42:46 PM [vite-plugin-svelte] src/lib/site/app/NavPill.svelte:167:1 Unused CSS selector ".avatar img"
+https://svelte.dev/e/css_unused_selector
+6:42:46 PM [vite-plugin-svelte] src/lib/content/assets/VaultAsset.svelte:565:18 Empty block
+https://svelte.dev/e/block_empty
+6:42:48 PM [vite] (client) [console.error] Error: BatteryPack: BatteryPack: the box could not build it (no asset machines/batterypack@12:batterypack)
+    at vaultBuild (http://localhost:5181/src/lib/content/assets/sources/viewer.js:85:9)
+    at async Module.track_reactivity_loss (http://localhost:5181/node_modules/.vite/deps/runtime-Do_u7Ssq.js?v=5f5f95ac:1434:14)
+    at async show (http://localhost:5181/src/lib/content/assets/VaultAsset.svelte:821:18)
+6:42:48 PM [vite] (client) [Unhandled error] ReferenceError: free is not defined
+
+	in <unknown>
+	in Frame.svelte
+	in AssetLibrary.svelte
+	in +page.svelte
+	in +layout.svelte
+	in root.svelte
+	in undefined
+
+ > Object.dispose src/lib/content/assets/plantings.js:274:4
+    272 |  			shown = [];
+    273 |  			guests = [];
+    274 |  			free.clear();
+        |      ^
+    275 |  		}
+    276 |  	};
+ > dispose src/lib/content/assets/VaultAsset.svelte:434:13
+ > src/lib/content/assets/VaultAsset.svelte:447:9
+ > untrack node_modules/svelte/src/internal/client/runtime.js:785:9
+ > node_modules/svelte/src/index-client.js:120:21
+ > execute_effect_teardown node_modules/svelte/src/internal/client/reactivity/effects.js:453:12
+ > destroy_effect node_modules/svelte/src/internal/client/reactivity/effects.js:542:1
+ > destroy_effect_children node_modules/svelte/src/internal/client/reactivity/effects.js:490:3
+ > destroy_effect node_modules/svelte/src/internal/client/reactivity/effects.js:531:1
+ > destroy_effect_children node_modules/svelte/src/internal/client/reactivity/effects.js:490:3
+
+6:42:49 PM [vite] (client) [console.warn] THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
+6:43:27 PM [vite] (client) [Unhandled error] TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+ > el.addEventListener.once src/lib/content/sandbox-2/interior/ambience.ts:84:51
+    82 |  			ctx.createMediaElementSource(el).connect(gain).connect(name === 'inside' || name === 'factory' || name === 'machin...
+    83 |  			// every loop starts somewhere else, so two visits never sound the same
+    84 |  			el.addEventListener('loadedmetadata', () => (el.currentTime = Math.random() * Math.max(0, el.duration - 1)), { onc...
+       |                                                     ^
+    85 |  			tracks.set(name, { el, gain })
+    86 |  		}
+
+6:43:27 PM [vite] (client) [Unhandled error] TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+ > el.addEventListener.once src/lib/content/sandbox-2/interior/ambience.ts:84:51
+    82 |  			ctx.createMediaElementSource(el).connect(gain).connect(name === 'inside' || name === 'factory' || name === 'machin...
+    83 |  			// every loop starts somewhere else, so two visits never sound the same
+    84 |  			el.addEventListener('loadedmetadata', () => (el.currentTime = Math.random() * Math.max(0, el.duration - 1)), { onc...
+       |                                                     ^
+    85 |  			tracks.set(name, { el, gain })
+    86 |  		}
+
+6:43:27 PM [vite] (client) [Unhandled error] TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+ > el.addEventListener.once src/lib/content/sandbox-2/interior/ambience.ts:84:51
+    82 |  			ctx.createMediaElementSource(el).connect(gain).connect(name === 'inside' || name === 'factory' || name === 'machin...
+    83 |  			// every loop starts somewhere else, so two visits never sound the same
+    84 |  			el.addEventListener('loadedmetadata', () => (el.currentTime = Math.random() * Math.max(0, el.duration - 1)), { onc...
+       |                                                     ^
+    85 |  			tracks.set(name, { el, gain })
+    86 |  		}
+
+6:43:28 PM [vite] (client) [Unhandled error] TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+ > el.addEventListener.once src/lib/content/sandbox-2/interior/ambience.ts:84:51
+    82 |  			ctx.createMediaElementSource(el).connect(gain).connect(name === 'inside' || name === 'factory' || name === 'machin...
+    83 |  			// every loop starts somewhere else, so two visits never sound the same
+    84 |  			el.addEventListener('loadedmetadata', () => (el.currentTime = Math.random() * Math.max(0, el.duration - 1)), { onc...
+       |                                                     ^
+    85 |  			tracks.set(name, { el, gain })
+    86 |  		}
+
+6:43:29 PM [vite] (client) [console.warn] flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters
+6:43:29 PM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+6:43:29 PM [vite] (client) [console.warn] flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+6:43:29 PM [vite] (client) [console.warn] flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+6:43:29 PM [vite] (client) [console.warn] flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+6:43:29 PM [vite] (client) [console.warn] flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+6:43:29 PM [vite] (client) [console.warn] flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+6:43:29 PM [vite] (client) [console.warn] flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+6:43:29 PM [vite] (client) [console.warn] flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+6:43:29 PM [vite] (client) [console.warn] flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+6:43:29 PM [vite] (client) [Unhandled error] TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+ > el.addEventListener.once src/lib/content/sandbox-2/interior/ambience.ts:84:51
+    82 |  			ctx.createMediaElementSource(el).connect(gain).connect(name === 'inside' || name === 'factory' || name === 'machin...
+    83 |  			// every loop starts somewhere else, so two visits never sound the same
+    84 |  			el.addEventListener('loadedmetadata', () => (el.currentTime = Math.random() * Math.max(0, el.duration - 1)), { onc...
+       |                                                     ^
+    85 |  			tracks.set(name, { el, gain })
+    86 |  		}
+
+6:43:30 PM [vite] (client) [console.warn] THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
+6:43:45 PM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+6:43:45 PM [vite] (client) [console.warn] flora: yam@2:6:sandbox-5 did not grow: plants/yam takes no parameters
+6:43:45 PM [vite] (client) [console.warn] flora: yam@2:4:sandbox-5 did not grow: plants/yam takes no parameters
+6:43:45 PM [vite] (client) [console.warn] flora: cassava@2:7:sandbox-5 did not grow: plants/cassava takes no parameters
+6:43:45 PM [vite] (client) [console.warn] flora: yam@2:7:sandbox-5 did not grow: plants/yam takes no parameters
+6:43:45 PM [vite] (client) [console.warn] flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters
+6:43:45 PM [vite] (client) [console.warn] flora: mango@3:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+6:43:45 PM [vite] (client) [console.warn] flora: moringa@2:5:sandbox-5 did not grow: plants/moringa takes no parameters
+6:43:45 PM [vite] (client) [console.warn] flora: cassava@2:5:sandbox-5 did not grow: plants/cassava takes no parameters
+6:43:45 PM [vite] (client) [console.warn] flora: mango@3:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+6:43:45 PM [vite] (client) [console.warn] flora: cassava@2:4:sandbox-5 did not grow: plants/cassava takes no parameters
+6:43:45 PM [vite] (client) [console.warn] flora: yam@2:5:sandbox-5 did not grow: plants/yam takes no parameters
+6:43:45 PM [vite] (client) [console.warn] flora: moringa@2:6:sandbox-5 did not grow: plants/moringa takes no parameters
+6:43:45 PM [vite] (client) [console.warn] flora: cassava@2:6:sandbox-5 did not grow: plants/cassava takes no parameters
+6:43:45 PM [vite] (client) [console.warn] flora: moringa@2:8:sandbox-5 did not grow: plants/moringa takes no parameters
+6:44:08 PM [vite] (client) [console.warn] flora: yam@2:5:sandbox-5 did not grow: plants/yam takes no parameters
+6:44:08 PM [vite] (client) [console.warn] flora: cassava@2:6:sandbox-5 did not grow: plants/cassava takes no parameters
+6:44:08 PM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+6:44:08 PM [vite] (client) [console.warn] flora: yam@2:7:sandbox-5 did not grow: plants/yam takes no parameters
+6:44:08 PM [vite] (client) [console.warn] flora: yam@2:6:sandbox-5 did not grow: plants/yam takes no parameters
+6:44:08 PM [vite] (client) [console.warn] flora: yam@2:4:sandbox-5 did not grow: plants/yam takes no parameters
+6:44:08 PM [vite] (client) [console.warn] flora: cassava@2:7:sandbox-5 did not grow: plants/cassava takes no parameters
+6:44:08 PM [vite] (client) [console.warn] flora: cassava@2:5:sandbox-5 did not grow: plants/cassava takes no parameters
+6:44:09 PM [vite] (client) [console.warn] flora: mango@3:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+6:44:14 PM [vite] (client) [console.warn] flora: yam@2:5:sandbox-5 did not grow: plants/yam takes no parameters
+6:44:14 PM [vite] (client) [console.warn] flora: cassava@2:6:sandbox-5 did not grow: plants/cassava takes no parameters
+6:44:14 PM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+6:44:14 PM [vite] (client) [console.warn] flora: yam@2:7:sandbox-5 did not grow: plants/yam takes no parameters
+6:44:14 PM [vite] (client) [console.warn] flora: yam@2:6:sandbox-5 did not grow: plants/yam takes no parameters
+6:44:14 PM [vite] (client) [console.warn] flora: yam@2:4:sandbox-5 did not grow: plants/yam takes no parameters
+6:44:14 PM [vite] (client) [console.warn] flora: cassava@2:7:sandbox-5 did not grow: plants/cassava takes no parameters
+6:44:14 PM [vite] (client) [console.warn] flora: cassava@2:5:sandbox-5 did not grow: plants/cassava takes no parameters
+6:44:14 PM [vite] (client) [console.warn] flora: mango@3:11:sandbox-5 did not grow: stage: 11 is out of 0–10

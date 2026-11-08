@@ -1,21 +1,52 @@
-59599 |   else if (error.error.name === "TargetClosedError")
-59600 |     e = new TargetClosedError2(error.error.message);
-59601 |   else if (error.error.name === "AbortError")
-59602 |     e = new AbortError2(error.error.message);
-59603 |   else
-59604 |     e = Object.assign(new PlaywrightError(error.error.message), { name: error.error.name });
-                                  ^
-error: _wrapApiCall: Executable doesn't exist at /Users/samuelandert/Library/Caches/ms-playwright/chromium-1254/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
-╔════════════════════════════════════════════════════════════╗
-║ Looks like Playwright was just installed or updated.       ║
-║ Please run the following command to download new browsers: ║
-║                                                            ║
-║     npx playwright install                                 ║
-║                                                            ║
-║ <3 Playwright Team                                         ║
-╚════════════════════════════════════════════════════════════╝
-  log: [],
+[base] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[base] Error: BatteryPack: BatteryPack: the box could not build it (no asset machines/batterypack@12:batterypack)
+    at vaultBuild (http://localhost:5181/src/lib/content/assets/sources/viewer.js:85:9)
+    at async Module.track_reactivity_loss (http://localhost:5181/node_modules/.vite/deps/runtime-Do_u7Ssq
+cut candidate batterypack: built false, capped materials 0
+[base] pageerror ReferenceError: free is not defined
 
-      at /Users/samuelandert/.bun/install/cache/playwright-core@1.65.0@@@1/lib/coreBundle.js:59604:27
+	in <unknown>
+	in Frame.svelte
+	in AssetLibrary.svelte
+	in +page.svelte
+	in +layout.svelte
+	in root.svelte
+	in undefined
 
-Bun v1.4.2 (macOS arm64)
+cut candidate batterycube: built false, capped materials 0
+cut candidate electrocube: built false, capped materials 0
+cut candidate forklift: built false, capped materials 0
+cut candidate lifetrac: built false, capped materials 0
+cut candidate excavator-small: built false, capped materials 0
+cut candidate pod: built false, capped materials 0
+cut candidate powercube: built false, capped materials 0
+cut candidate pickup: built false, capped materials 0
+cut open: none built with caps
+[base] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[base] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[base] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[base] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[head] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[head] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[head] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[head] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+┌───┬──────┬────────────────┬──────┬─────────┬────────────────────┐
+│   │ site │ shot           │ ok   │ frameMs │ frameP95           │
+├───┼──────┼────────────────┼──────┼─────────┼────────────────────┤
+│ 0 │ base │ walnut         │ true │ 20.59   │ 33.399999999999636 │
+│ 1 │ base │ goat           │ true │ 16.67   │ 16.700000000000728 │
+│ 2 │ base │ water-canister │ true │ 16.67   │ 16.700000000000728 │
+│ 3 │ head │ walnut         │ true │ 23.37   │ 33.400000000001455 │
+│ 4 │ head │ goat           │ true │ 16.67   │ 16.700000000000728 │
+│ 5 │ head │ water-canister │ true │ 16.67   │ 16.700000000000728 │
+└───┴──────┴────────────────┴──────┴─────────┴────────────────────┘

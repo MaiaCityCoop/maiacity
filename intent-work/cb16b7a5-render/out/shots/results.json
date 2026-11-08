@@ -4,11 +4,11 @@
   "world": "sandbox-1",
   "view": "near",
   "settled": true,
-  "frames": 311,
-  "frameMs": 25.7,
-  "frameP95": 33.40000000000873,
-  "tris": 3276879,
-  "trisMax": 3276879,
+  "frames": 316,
+  "frameMs": 25.4,
+  "frameP95": 33.400000000001455,
+  "tris": 3283783,
+  "trisMax": 3283783,
   "assets": {
    "out": {
     "tris": 277820,
@@ -21,11 +21,11 @@
     "copies": 6995
    },
    "in": {
-    "tris": 11414,
+    "tris": 6318,
     "calls": 4,
     "levels": [
      0,
-     2
+     1
     ],
     "pictures": 611,
     "copies": 671
@@ -50,11 +50,11 @@
   "world": "sandbox-1",
   "view": "mid",
   "settled": true,
-  "frames": 258,
-  "frameMs": 31.3,
+  "frames": 272,
+  "frameMs": 30.4,
   "frameP95": 33.40000000000873,
-  "tris": 5168926,
-  "trisMax": 5168926,
+  "tris": 5180916,
+  "trisMax": 5180916,
   "assets": {
    "out": {
     "tris": 2408963,
@@ -96,11 +96,11 @@
   "world": "sandbox-1",
   "view": "far",
   "settled": true,
-  "frames": 480,
+  "frames": 481,
   "frameMs": 16.7,
   "frameP95": 16.70000000001164,
-  "tris": 1392509,
-  "trisMax": 1392509,
+  "tris": 1404509,
+  "trisMax": 1404509,
   "assets": {
    "out": {
     "tris": 47550,
@@ -141,7 +141,7 @@
   "site": "base",
   "world": "sandbox-3",
   "view": "open",
-  "tris": 701188,
+  "tris": 461503,
   "meter": null,
   "png": "/Users/samuelandert/Documents/Development/scb16-render/intent-work/cb16b7a5-render/out/shots/base-sandbox-3-open.png"
  },
@@ -150,31 +150,31 @@
   "world": "sandbox-1",
   "view": "near",
   "settled": true,
-  "frames": 478,
-  "frameMs": 16.7,
-  "frameP95": 16.79999999998836,
-  "tris": 0,
-  "trisMax": 0,
+  "frames": 215,
+  "frameMs": 37.1,
+  "frameP95": 50,
+  "tris": 3283783,
+  "trisMax": 3283783,
   "assets": {
    "out": {
-    "tris": 278050,
+    "tris": 277820,
     "calls": 68,
     "levels": [
      1,
      102
     ],
-    "pictures": 2690,
+    "pictures": 2575,
     "copies": 6995
    },
    "in": {
-    "tris": 11414,
+    "tris": 6318,
     "calls": 4,
     "levels": [
      0,
-     2
+     1
     ],
     "pictures": 611,
-    "copies": 656
+    "copies": 671
    },
    "library": {
     "tris": 173589,
@@ -196,42 +196,42 @@
   "world": "sandbox-1",
   "view": "mid",
   "settled": true,
-  "frames": 479,
-  "frameMs": 16.7,
-  "frameP95": 16.80000000000291,
-  "tris": 0,
-  "trisMax": 0,
+  "frames": 249,
+  "frameMs": 32,
+  "frameP95": 33.40000000000873,
+  "tris": 5182198,
+  "trisMax": 5182198,
   "assets": {
    "out": {
-    "tris": 278050,
-    "calls": 68,
+    "tris": 2408963,
+    "calls": 103,
     "levels": [
-     1,
-     102
+     14,
+     61
     ],
-    "pictures": 2690,
-    "copies": 6995
+    "pictures": 4079,
+    "copies": 7153
    },
    "in": {
-    "tris": 11414,
-    "calls": 4,
+    "tris": 90,
+    "calls": 1,
     "levels": [
      0,
-     2
+     0
     ],
-    "pictures": 611,
-    "copies": 656
+    "pictures": 45,
+    "copies": 45
    },
    "library": {
-    "tris": 173589,
-    "calls": 118,
+    "tris": 179371,
+    "calls": 37,
     "levels": [
      0,
-     0,
-     689
+     1,
+     628
     ],
     "pictures": 0,
-    "copies": 1461
+    "copies": 2613
    }
   },
   "meter": null,
@@ -242,42 +242,42 @@
   "world": "sandbox-1",
   "view": "far",
   "settled": true,
-  "frames": 480,
+  "frames": 478,
   "frameMs": 16.7,
   "frameP95": 16.70000000001164,
-  "tris": 0,
-  "trisMax": 0,
+  "tris": 1406557,
+  "trisMax": 1406557,
   "assets": {
    "out": {
-    "tris": 278050,
-    "calls": 68,
-    "levels": [
-     1,
-     102
-    ],
-    "pictures": 2690,
-    "copies": 6995
-   },
-   "in": {
-    "tris": 11414,
+    "tris": 47550,
     "calls": 4,
     "levels": [
      0,
-     2
+     4
     ],
-    "pictures": 611,
-    "copies": 656
+    "pictures": 6173,
+    "copies": 7028
+   },
+   "in": {
+    "tris": 0,
+    "calls": 0,
+    "levels": [
+     0,
+     0
+    ],
+    "pictures": 0,
+    "copies": 0
    },
    "library": {
-    "tris": 173589,
-    "calls": 118,
+    "tris": 41980,
+    "calls": 25,
     "levels": [
      0,
      0,
-     689
+     11
     ],
     "pictures": 0,
-    "copies": 1461
+    "copies": 11
    }
   },
   "meter": null,
@@ -287,7 +287,7 @@
   "site": "head",
   "world": "sandbox-3",
   "view": "open",
-  "tris": 674854,
+  "tris": 461211,
   "meter": null,
   "png": "/Users/samuelandert/Documents/Development/scb16-render/intent-work/cb16b7a5-render/out/shots/head-sandbox-3-open.png"
  }

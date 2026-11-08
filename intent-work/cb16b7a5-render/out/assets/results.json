@@ -1,0 +1,56 @@
+[
+ {
+  "site": "base",
+  "shot": "walnut",
+  "ok": true,
+  "frames": 289,
+  "frameMs": 20.59,
+  "frameP95": 33.399999999999636,
+  "png": "/Users/samuelandert/Documents/Development/scb16-render/intent-work/cb16b7a5-render/out/assets/base-walnut.png"
+ },
+ {
+  "site": "base",
+  "shot": "goat",
+  "ok": true,
+  "frames": 358,
+  "frameMs": 16.67,
+  "frameP95": 16.700000000000728,
+  "png": "/Users/samuelandert/Documents/Development/scb16-render/intent-work/cb16b7a5-render/out/assets/base-goat.png"
+ },
+ {
+  "site": "base",
+  "shot": "water-canister",
+  "ok": true,
+  "frames": 359,
+  "frameMs": 16.67,
+  "frameP95": 16.700000000000728,
+  "png": "/Users/samuelandert/Documents/Development/scb16-render/intent-work/cb16b7a5-render/out/assets/base-water-canister.png"
+ },
+ {
+  "site": "head",
+  "shot": "walnut",
+  "ok": true,
+  "frames": 256,
+  "frameMs": 23.37,
+  "frameP95": 33.400000000001455,
+  "png": "/Users/samuelandert/Documents/Development/scb16-render/intent-work/cb16b7a5-render/out/assets/head-walnut.png"
+ },
+ {
+  "site": "head",
+  "shot": "goat",
+  "ok": true,
+  "frames": 358,
+  "frameMs": 16.67,
+  "frameP95": 16.700000000000728,
+  "png": "/Users/samuelandert/Documents/Development/scb16-render/intent-work/cb16b7a5-render/out/assets/head-goat.png"
+ },
+ {
+  "site": "head",
+  "shot": "water-canister",
+  "ok": true,
+  "frames": 358,
+  "frameMs": 16.67,
+  "frameP95": 16.700000000000728,
+  "png": "/Users/samuelandert/Documents/Development/scb16-render/intent-work/cb16b7a5-render/out/assets/head-water-canister.png"
+ }
+]
