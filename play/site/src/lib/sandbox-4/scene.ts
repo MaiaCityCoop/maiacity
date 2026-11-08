@@ -238,7 +238,7 @@ export type Joint = {
 /** Mounts the scene into `el` (its canvas and its labels), playing from the start unless motion is to be reduced. */
 export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void, onInfo: (i: JointInfo) => void = () => {}): Joint {
 	const low = lowPower();
-	const renderer = createRenderer({ container: el, alpha: true, toneMapping: 'aces', exposure: 0.88, shadows: 'pcf', clipping: true, maxPixelRatio: low ? 1.5 : 2 });
+	const renderer = createRenderer({ container: el, alpha: true, toneMapping: 'agx', exposure: 1.45, shadows: 'pcf', clipping: true, maxPixelRatio: low ? 1.5 : 2 });
 	renderer.setClearColor(0x000000, 0);
 	renderer.domElement.classList.add('cj-canvas');
 	const labels = new CSS2DRenderer();

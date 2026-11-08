@@ -2,7 +2,7 @@
 /*
  * THE STAGE — how any asset built in its parts (./parts.js) is shown the way AirSup's lab shows a machine: a paper
  * studio (a softbox environment, a soft key shadow, a contact shadow, a seamless floor that fades into the backdrop),
- * ambient occlusion, a little bloom, neutral tone mapping and a light grade; and its modes, eased in and out:
+ * ambient occlusion, a little bloom, AgX tone mapping and a light grade; and its modes, eased in and out:
  *
  * its views, how it is looked at (any of them on at once):
  *
@@ -25,7 +25,7 @@
  * it at its real size and scale the studio to it instead (the floor, the contact shadow, the occlusion radius, the
  * section hatch). The page around it (the turntable's canvas, its camera and controls) is the caller's.
  *
- * Under the sky (`sky: true`, every asset viewer's, ./viewer.js): no paper studio but a clear afternoon (./sky.js), the
+ * Under the sky (`sky: true`, every asset viewer's, ./viewer.js): no paper studio but a clear afternoon (the one sky, $content/sandbox-kit/sky.js), the
  * sun in the back behind the asset, the sky lighting its front, the floor running out to a horizon.
  *
  * It shows any build of the box's as well, through ./hero.js, which is a sealed asset made of the build's checked data
@@ -35,10 +35,10 @@
  */
 import * as THREE from 'three';
 import { ShaderPass, createPost } from '$lib/content/render/post.js';
-import { daySky } from './sky.js';
+import { createSky } from '$lib/content/sandbox-kit/sky.js';
+import { precompile, setExposure, untonemap, withTone } from '$lib/content/render/core.js';
 import { budget } from '$lib/content/render/budget.js';
-import { withTone } from '$lib/content/render/core.js';
-import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment, untonemap } from './kit.js';
+import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment } from './kit.js';
 
 /**
  * How strong the lights' own highlights are on the stage (Samuel 2026-11-05: the sun's glare on every asset 30% down):
@@ -74,7 +74,7 @@ export class Stage {
 	 * @param {THREE.PerspectiveCamera} camera
 	 * @param {{ theme?: 'paper' | 'night', low?: boolean, sky?: boolean }} [o] `low`: a phone's budget (no occlusion pass, 2× multisampling,
 	 *   a smaller, softer-sampled shadow), so it draws smoothly and fits in a phone's memory ($content/render/core.js);
-	 *   `sky`: shown under the afternoon sky (./sky.js) instead of in the paper studio
+	 *   `sky`: shown under the afternoon sky ($content/sandbox-kit/sky.js) instead of in the paper studio
 	 */
 	constructor(renderer, camera, { theme = 'paper', low = false, sky = false } = {}) {
 		this.renderer = renderer;
@@ -107,15 +107,21 @@ export class Stage {
 		this.bg = untonemap(new THREE.Color(paper ? 0xf3f2ee : 0x0d0e10).convertSRGBToLinear(), 1);
 		this.scene.background = this.bg.clone();
 		this.scene.environment = studioEnvironment(renderer, theme);
-		this.scene.environmentIntensity = paper ? 0.82 : 0.9;
-		/** the afternoon sky, when shown under it: its dome drawn behind everything, its light the environment's */
-		this.sky = sky ? daySky(renderer) : null;
-		if (this.sky) {
+		// the studio's light is its environment's (no hemisphere: the soft boxes fill as it did)
+		this.scene.environmentIntensity = paper ? 0.95 : 1;
+		/**
+		 * the one sky, when shown under it ($content/sandbox-kit/sky.js): a clear afternoon, the sun pinned low in the back
+		 * (its bearing behind the asset as the viewer first frames it, ./viewer.js `camerawork`), so it lights its edges
+		 * and throws its shadow toward the eye; its dome behind everything, its light the environment's; the key below is
+		 * its sun, framed to the asset
+		 */
+		this.sky = null;
+		if (sky) {
 			this.scene.environment.dispose();
-			this.scene.environment = this.sky.environment;
-			this.scene.environmentIntensity = 1.35;
+			this.scene.environment = null;
 			this.scene.background = null;
-			this.scene.add(this.sky.dome);
+			this.sky = createSky(renderer, this.scene, { sun: { elevation: 14, azimuth: 218 }, light: false, fog: null, clouds: 0.25 });
+			this.sky.stars.visible = false;
 		}
 		// lights: a soft key with its shadow, a cool rim, a gentle fill (the environment does most of the work)
 		const key = new THREE.DirectionalLight(0xfff3e6, paper ? 2.4 : 2.6);
@@ -124,19 +130,14 @@ export class Stage {
 		key.shadow.radius = low ? 4 : 7;
 		key.shadow.blurSamples = low ? 8 : 16;
 		const rim = new THREE.DirectionalLight(0xdbe8ff, paper ? 0.9 : 1.8);
-		const fill = new THREE.HemisphereLight(0xffffff, paper ? 0xd9d5cc : 0x202020, paper ? 0.2 : 0.15);
 		if (this.sky) {
-			// the sun behind the asset, a little warm; the 'rim' a soft fill from the eye's side, so its front reads; the
-			// hemisphere the blue sky over it and the ground under it
-			key.color.set('#fff0dc');
-			key.intensity = 3.0;
+			// the sun as the sky has it at that height; the 'rim' a soft fill from the eye's side, so its front reads
+			key.color.copy(this.sky.sun.color);
+			key.intensity = this.sky.sun.intensity;
 			rim.color.set('#ffffff');
-			rim.intensity = 1.8;
-			fill.color.set('#cfe0f5');
-			fill.groundColor.set('#b3a892');
-			fill.intensity = 0.5;
+			rim.intensity = 0.12 * key.intensity;
 		}
-		this.scene.add(key, key.target, rim, fill);
+		this.scene.add(key, key.target, rim);
 		this.key = key;
 		this.rim = rim;
 		this.ghosted = new Set();
@@ -251,8 +252,8 @@ export class Stage {
 			sh.uniforms.uFade = { value: fade };
 			if (sky) {
 				// under the sky the floor runs out into the horizon's own colour, the one behind it as seen from the eye
-				Object.assign(sh.uniforms, sky.uniforms);
-				sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\n${sky.glsl}`);
+				Object.assign(sh.uniforms, sky.horizon.uniforms);
+				sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\n${sky.horizon.glsl}`);
 			}
 			sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vFW;').replace('#include <project_vertex>', '#include <project_vertex>\nvFW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
 			sh.fragmentShader = sh.fragmentShader
@@ -312,8 +313,7 @@ export class Stage {
 		// and its doors, and the sky's; the fill from the eye's side and the hemisphere cast no shadow, so they lit its
 		// rooms as if they had no roof. Turned down for it, and back for the next asset
 		const big = s > 4;
-		this.rim.intensity = (this.sky ? 1.8 : this.theme === 'paper' ? 0.9 : 1.8) * (big ? 0.35 : 1);
-		this.scene.children.forEach((c) => c.isHemisphereLight && (c.intensity = (this.sky ? 0.5 : this.theme === 'paper' ? 0.2 : 0.15) * (big ? 0.5 : 1)));
+		this.rim.intensity = (this.sky ? 0.12 * this.key.intensity : this.theme === 'paper' ? 0.9 : 1.8) * (big ? 0.35 : 1);
 		CUT.hatch.value = 0.0015 * this.asset.size;
 		this._fitAO();
 		this.built = views ? 1 : 0;
@@ -695,15 +695,12 @@ export class Stage {
 		if (!this.composer) this._post();
 		this._gloss();
 		const r = this.renderer;
-		const was = { tm: withTone(r, 'neutral'), clip: r.localClippingEnabled, rt: r.getRenderTarget() };
+		const was = { tm: withTone(r, 'agx'), clip: r.localClippingEnabled, rt: r.getRenderTarget() };
 		r.localClippingEnabled = true;
 		r.setRenderTarget(this.composer.readBuffer);
 		let done = Promise.resolve();
-		try {
-			done = r.compileAsync(this.scene, this.camera);
-		} catch {
-			/* drawn as usual */
-		}
+		// the one warm-up (core.js `precompile`): the sky's dome and stars, node materials, built at their first frame
+		done = precompile(r, this.scene, this.camera);
 		r.setRenderTarget(was.rt);
 		was.tm();
 		r.localClippingEnabled = was.clip;
@@ -726,13 +723,14 @@ export class Stage {
 		if (!this.composer) this._post();
 		if ((this._glossed = (this._glossed ?? 0) + 1) % 12 === 1) this._gloss();
 		const r = this.renderer;
-		const was = { tm: withTone(r, 'neutral'), clip: r.localClippingEnabled };
+		const was = { tm: withTone(r, 'agx'), clip: r.localClippingEnabled, exposure: r.toneMappingExposure };
+		// AgX, as every page; the lens the sky's, or the studio's own
+		setExposure(r, this.sky ? this.sky.exposure() : 1);
 		r.localClippingEnabled = true;
 		this.camera.layers.enable(LAYER_FX);
 		this.camera.updateMatrixWorld();
 		CUT.proj.value.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
 		if (this.contact) this.contact.update();
-		this.sky?.place(this.camera);
 		this.grade.uniforms.uTime.value = this.time;
 		// the key's shadow map drawn again only when what casts into it changed (a still dome of 800k triangles and
 		// thousands of plants drew all of it into the map every frame, for the same picture)
@@ -746,6 +744,7 @@ export class Stage {
 		this.composer.render();
 		r.shadowMap.autoUpdate = auto;
 		was.tm();
+		setExposure(r, was.exposure);
 		r.localClippingEnabled = was.clip;
 		this.camera.layers.disable(LAYER_FX);
 	}
@@ -787,6 +786,6 @@ export class Stage {
 		this.clear();
 		this.post?.dispose();
 		if (this.sky) this.sky.dispose();
-		else this.scene.environment?.dispose();
+		this.scene.environment?.dispose();
 	}
 }

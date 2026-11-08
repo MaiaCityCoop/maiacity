@@ -483,25 +483,6 @@ export const GEO = {
 
 // ---------------------------------------------------------------- studio
 
-/** Khronos PBR Neutral tone mapping (what three's NeutralToneMapping does), and its inverse per channel */
-function neutral(c) {
-  const s0 = 0.8 - 0.04, d = 0.15
-  const x = Math.min(c[0], c[1], c[2]), off = x < 0.08 ? x - 6.25 * x * x : 0.04
-  let r = c.map((v) => v - off)
-  const peak = Math.max(...r)
-  if (peak < s0) return r
-  const d1 = 1 - s0, np = 1 - (d1 * d1) / (peak + d1 - s0)
-  r = r.map((v) => v * (np / peak))
-  const g = 1 - 1 / (d * (peak - np) + 1)
-  return r.map((v) => v * (1 - g) + np * g)
-}
-export function untonemap(target, exposure = 1) {
-  // find the linear colour that comes out of the tone mapper as the target (so canvas paper == CSS paper)
-  let x = [target.r, target.g, target.b]
-  for (let it = 0; it < 60; it++) { const y = neutral(x.map((v) => v * exposure)); x = x.map((v, i) => Math.max(0, v + (target.toArray()[i] - y[i]) * 0.9)) }
-  return new THREE.Color(x[0], x[1], x[2])
-}
-
 export function studioEnvironment(renderer, theme) {
   // a softbox studio: big top light, a key strip, two rim strips, and black flags so metals keep contrast
   const paper = theme === 'paper'

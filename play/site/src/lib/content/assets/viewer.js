@@ -6,7 +6,7 @@
  * which keep their own lights. Their bar, panel and readout are drawn by ./ViewerParts.svelte.
  *
  *   openStage   the stage renderer ($content/render/stage.js) in the viewer's box, and the stage on it (./stage.js) under
- *               the afternoon sky (./sky.js), its resolution following the frame rate
+ *               the afternoon sky ($content/sandbox-kit/sky.js), its resolution following the frame rate
  *   camerawork  the camera on what is shown: framed as built, gliding to a new framing, following a plant as it grows,
  *               turning to a part, backing off while it is drawn apart
  *   onTap       a tap on the canvas, not a drag round it
