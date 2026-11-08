@@ -92,7 +92,8 @@ const clumpCentreT = (/** @type {any} */ g, /** @type {any} */ size) => {
  *   level: 0 | 1 | 2,
  *   uniforms: ReturnType<typeof grassUniforms>,
  *   params: import('../../biomes/grass.js').GrassParams,
- *   device: { bands: number[], near: number, minPx: number, falloff?: number }
+ *   device: { bands: number[], near: number, minPx: number, falloff?: number },
+ *   wind?: { uniforms: { direction: any, time: any }, strength: (x: any, z: any) => any }
  * }} o
  */
 export function grassMaterial(o) {
@@ -159,12 +160,18 @@ export function grassMaterial(o) {
 		const thin = float(1).div(sqrt(max(keepD, 0.12)));
 		const width = max(float(P.width).mul(ownW).mul(thin), dd.mul(D.minPx).div(U.pxAt1m));
 
-		/* the wind (intent 6's one wind will replace it): gusts rolling along its way, each blade's own flutter */
-		const along = dot(foot, U.windDir);
-		const gustT = vnT(vec2(along.mul(0.12).sub(U.time.mul(0.9)), dot(foot, vec2(U.windDir.y.negate(), U.windDir.x)).mul(0.08)));
-		const gustNow = gustT.mul(U.gust).add(float(1).sub(U.gust).mul(0.5));
-		const flutter = sin(U.time.mul(3.1).add(drawU(seed, 11).mul(6.283)).add(along.mul(0.7))).mul(0.15);
-		const windBend = U.windDir.mul(gustNow.add(flutter).mul(U.windStrength).mul(height.div(0.3)));
+		/* the wind: the world's one wind where it has one (intent 6fd5e63f, render/wind.js `windNodes`: its strength at the
+		   blade's foot, gusts travelling along its way, on the world's clock), else the grass's own gusts; each blade its
+		   own flutter on top */
+		const W = o.wind;
+		const way = W ? vec2(cos(W.uniforms.direction), sin(W.uniforms.direction)) : U.windDir;
+		const clock = W ? W.uniforms.time : U.time;
+		const along = dot(foot, way);
+		const gustOwn = vnT(vec2(along.mul(0.12).sub(clock.mul(0.9)), dot(foot, vec2(way.y.negate(), way.x)).mul(0.08)));
+		// how hard it blows here now: the world's strength (0 still … 1 a strong breeze, more in a gust) or the own gust's
+		const gustNow = W ? W.strength(foot.x, foot.y).div(0.45).mul(0.5) : gustOwn.mul(U.gust).add(float(1).sub(U.gust).mul(0.5));
+		const flutter = sin(clock.mul(3.1).add(drawU(seed, 11).mul(6.283)).add(along.mul(0.7))).mul(0.15);
+		const windBend = way.mul(gustNow.add(flutter).mul(U.windStrength).mul(height.div(0.3)));
 
 		/* the pushers: tips pushed away and down */
 		const push = vec3(0, 0, 0).toVar();

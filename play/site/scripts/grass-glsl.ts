@@ -47,8 +47,12 @@ scene.fog = new THREE.Fog(0xcccccc, 10, 200);
 const camera = new THREE.PerspectiveCamera(50, 1.6, 0.1, 1000);
 const U = grassUniforms(new THREE.DataTexture(new Uint16Array(4), 1, 1, THREE.RGBAFormat, THREE.HalfFloatType));
 let ok = true;
-for (const level of [0, 1, 2] as const) {
-	const mat = grassMaterial({ level, uniforms: U, params: GRASS, device: DEVICES.desktop });
+// the world's one wind as render/wind.js's `windNodes` hands it (intent 6fd5e63f): its uniforms and its strength node
+const { uniform, float: f, sin: sn, cos: cs } = await import('three/tsl');
+const windU = { direction: uniform(0.35), time: uniform(0), strength: uniform(0.45) };
+const wind = { uniforms: windU, strength: (x: any, z: any) => windU.strength.mul(sn(x.mul(cs(windU.direction)).add(z.mul(0.2)).sub(windU.time.mul(7)).mul(0.18)).mul(0.55).add(1)).max(f(0)) };
+for (const [level, withWind] of [[0, false], [1, false], [2, false], [0, true]] as const) {
+	const mat = grassMaterial({ level, uniforms: U, params: GRASS, device: DEVICES.desktop, wind: withWind ? wind : undefined });
 	const mesh = new THREE.Mesh(levelGeometry(level), mat);
 	mesh.receiveShadow = true;
 	handler.renderStart(scene, camera);
@@ -58,12 +62,12 @@ for (const level of [0, 1, 2] as const) {
 		handler.build(mat, mesh, params);
 		const v: string = params.vertexShader, f: string = params.fragmentShader;
 		if (!/directionalLight|sunLight|SunLight/i.test(f) && !/NdotL|dotNL/.test(f)) console.warn(`level ${level}: no sun in its fragment shader`);
-		console.log(`level ${level}: vertex ${v.split('\n').length} lines, fragment ${f.split('\n').length} lines`);
+		console.log(`level ${level}${withWind ? ' in the world’s wind' : ''}: vertex ${v.split('\n').length} lines, fragment ${f.split('\n').length} lines`);
 		if (process.argv.includes('--print')) console.log(v, '\n-----\n', f);
 		// held to the GLSL ES 3.00 grammar where glslangValidator is installed (apt glslang-tools)
 		const head = '#version 300 es\nprecision highp float;\nprecision highp int;\nprecision highp sampler2D;\n';
 		for (const [stage, src] of [['vert', v], ['frag', f]] as const) {
-			const file = `${process.env.TMPDIR ?? '/tmp'}/grass-L${level}.${stage}`;
+			const file = `${process.env.TMPDIR ?? '/tmp'}/grass-L${level}${withWind ? 'w' : ''}.${stage}`;
 			await Bun.write(file, head + src);
 			const r = Bun.spawnSync(['glslangValidator', '-S', stage, file], { stdout: 'pipe', stderr: 'pipe' });
 			if (r.exitCode === null && !r.success && String(r.stderr).includes('ENOENT')) continue;

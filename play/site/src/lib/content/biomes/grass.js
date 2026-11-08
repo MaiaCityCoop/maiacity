@@ -468,9 +468,12 @@ export function tilesAround(x, z, dev, n, over) {
  * A biome's grass, drawn round the eye.
  * @param {{
  *   params?: Partial<GrassParams>, at: (x: number, z: number) => { grass: number, tall: number, y?: number },
- *   device?: 'desktop' | 'small', shadows?: boolean
+ *   device?: 'desktop' | 'small', shadows?: boolean,
+ *   wind?: { uniforms: { direction: any, time: any }, strength: (x: any, z: any) => any }
  * }} o
- *   at: where grass grows and how tall, and the ground's height (`grassOfRecipe`); device: whose budget
+ *   at: where grass grows and how tall, and the ground's height (`grassOfRecipe`); device: whose budget; wind: the
+ *   world's one wind (render/wind.js `windNodes`, intent 6fd5e63f): its gusts bend the blades, on its clock (else the
+ *   grass's own gusts, on the time `update` is given)
  */
 export function grassField(o) {
 	const dev = DEVICES[o.device ?? 'desktop'], P = { ...GRASS, ...(o.params ?? {}) };
@@ -479,7 +482,7 @@ export function grassField(o) {
 	const U = grassUniforms(mask.texture);
 	U.maskWidth.value = mask.size * mask.texel;
 	U.perCell.value = n;
-	const materials = /** @type {const} */ ([0, 1, 2]).map((level) => grassMaterial({ level, uniforms: U, params: P, device: dev }));
+	const materials = /** @type {const} */ ([0, 1, 2]).map((level) => grassMaterial({ level, uniforms: U, params: P, device: dev, wind: o.wind }));
 	// each level's blade, its attributes shared; every tile its own geometry (the nodes handler can't share one)
 	const blades = /** @type {const} */ ([0, 1, 2]).map((level) => levelGeometry(level));
 	const object = new THREE.Group();
