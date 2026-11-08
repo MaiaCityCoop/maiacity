@@ -43,6 +43,23 @@ export function install(r) {
 	h.getOutputCallback = (node) => (onScreen() ? screen(node) : node);
 	if (h.renderer) h.renderer.getCacheKey = () => (onScreen() ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
 	handlers.set(r, h);
+	// one draw whose uniforms three cannot upload (a value of the wrong kind) is left out, once said what it was, so
+	// the frame and the world's loop go on (three would throw out of render and stop the page's frames for good)
+	if (typeof r.renderBufferDirect !== 'function') return h;
+	const draw = r.renderBufferDirect.bind(r), said = new WeakSet();
+	r.renderBufferDirect = (camera, scene, geometry, material, object, group) => {
+		try {
+			return draw(camera, scene, geometry, material, object, group);
+		} catch (e) {
+			if (!material?.isNodeMaterial) throw e;
+			if (!said.has(material)) {
+				said.add(material);
+				const p = r.properties.get(material), list = p?.uniformsList ?? [];
+				const kind = (v) => v?.isTexture ? `${v.constructor.name}(${v.name})` : v?.constructor?.name ?? typeof v;
+				console.error(`render/nodes: a draw left out, ${e.message}`, { material: `${material.type} ${material.name} ${material.uuid}`, object: `${object?.type} ${object?.name}`, program: p?.currentProgram?.id, uniforms: list.map((u) => `${u.id}: ${kind(p.uniforms?.[u.id]?.value)}`).join(', ') });
+			}
+		}
+	};
 	return h;
 }
 
