@@ -12,7 +12,7 @@ JOB="$ROOT/intent-work/6fd5e63f-render"
 OUT="$JOB/out"
 MAIN=f93ccba7a4bec2544ab92c859770bde5d96c121d   # main with intent b03f9fb4 (r187, one renderer)
 KIT=78a881e74a81b6664c97bc4855234e783f8cc234    # intent cb16b7a5's head: the render kit in TSL
-HEAD=6cc697ea97343b6cd33661fafe69604af4eacc28   # intent-work/6fd5e63f-on-cb16b7a5: this intent's change on the kit
+HEAD=a09d62c6b3323be54b20af22129ebe4510755a82   # intent-work/6fd5e63f-on-cb16b7a5: this intent's change on the kit
 git -C "$ROOT" fetch -q origin main intent/cb16b7a5-render-tsl intent-work/6fd5e63f-on-cb16b7a5 intent-work/main-baseline-render
 mkdir -p "$OUT"
 git -C "$ROOT" show origin/intent-work/main-baseline-render:intent-work/main-baseline/determinism.mjs > "$JOB/determinism.mjs"

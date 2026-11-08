@@ -5,12 +5,12 @@ Intent 6fd5e63f-e195-4123-8604-c4f87c33869c (GPU 6/14), pull request #2180. Ever
 the page's own TSL (`render/foliage.js`, `render/wind.js`). One wind per world, with gust fronts that travel, each plant
 on its own phase, trunks still, crowns bending with their length kept, and tips fluttering near the eye. Leaves and grass
 are two-sided, darker toward the root, and glow with the sun behind them. The census (avenBOX) counts the same draws and
-triangles as main (near 3,270,183/1,807; mid 5,164,156/1,778; far 1,391,927/877). This job checks what the census can't:
+triangles as main (near 3,259,587/1,789; mid 5,164,156/1,778; far 1,391,927/877). This job checks what the census can't:
 frame time, the film, and that a frame repeats.
 
-**The head is the change on intent cb16b7a5's render kit** (`intent-work/6fd5e63f-on-cb16b7a5` @ 6cc697ea9). The looks are
+**The head is the change on intent cb16b7a5's render kit** (`intent-work/6fd5e63f-on-cb16b7a5` @ a09d62c6b). The looks are
 drawn on the kit's TSL materials, and cb16b7a5 isn't on main yet. So three trees are measured: **main** f93ccba (base),
-**kit** 78a881e (cb16b7a5's head, what the change sits on) and **head** 6cc697e. head − kit is this intent's own cost;
+**kit** 78a881e (cb16b7a5's head, what the change sits on) and **head** a09d62c. head − kit is this intent's own cost;
 head − main is what c7 bounds.
 
 **Run:** `PLAY_MCP_TOKEN=play_… bash intent-work/6fd5e63f-render/run.sh` (bun, node with Playwright's Chromium, ffmpeg).
@@ -41,6 +41,6 @@ Note: only head draws a wind. If `same t` differs, the PNG pair shows where. If 
 "none found"), say so: the pose falls back to (0, 70).
 
 **The kit's 0 draws (the render box, on 78a881e):** three's WebGLNodesHandler never settled `compileAsync` for node
-materials on Metal, so the kit's levels were never shown. Head carries its own guard: `render/index.js` `warm` skips the
-warm-up for what a node material draws and waits at most 4 s for the rest. So expect the **kit** site to draw nothing
+materials on Metal, so the kit's levels were never shown. Head warms every shader through the core's `precompile` (`render/core.js`), which skips the
+warm-up for what a node material draws and waits at most 4 s for the rest (a lint holds every compileAsync to core.js). So expect the **kit** site to draw nothing
 in Sandbox 1 (record it as such), and **head** to draw. If head draws nothing too, the trap is elsewhere: say where.
