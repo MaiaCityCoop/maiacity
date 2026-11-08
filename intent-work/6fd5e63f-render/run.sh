@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Intent 6fd5e63f's c7 on a Mac's Metal (README.md): one wind for everything that grows, and light through leaves.
-# Three trees served one after the other: main (base), intent cb16b7a5's head (the render kit in TSL this change sits
-# on) and this change on it (head). Frame time at Sandbox 1 near/mid/far with the meter's bound; on head a 20 s film of
+# Three trees served one after the other: main (base), intent 11ead007's head (one cover stream on cb16b7a5's render
+# kit in TSL, what this change sits on: `kit`) and this change on it (head). Frame time at Sandbox 1 near/mid/far with the meter's bound; on head a 20 s film of
 # a stand of plants with an 8° evening sun behind it, the clock pinned per frame, and the same t drawn twice.
 # Needs bun, node with Playwright's Chromium, ffmpeg, and PLAY_MCP_TOKEN (the admin token, sent to play only).
 # Writes intent-work/6fd5e63f-render/out/.
@@ -10,10 +10,10 @@ set -euo pipefail
 ROOT=$(git rev-parse --show-toplevel)
 JOB="$ROOT/intent-work/6fd5e63f-render"
 OUT="$JOB/out"
-MAIN=5ae38079443e86ad4de550020c97db11de7e27c2   # main with intents b03f9fb4 (r187) and 2214e661 (one sky)
-KIT=512bdd88194bcef7fc8c5918f2c8f4820c67b20b    # intent cb16b7a5's head: the render kit in TSL
-HEAD=c0bdd0893fae42f7fa77eb52eec9d8606ac44e0f   # intent-work/6fd5e63f-on-kit: this intent's change on the kit
-git -C "$ROOT" fetch -q origin main intent/cb16b7a5-render-tsl intent-work/6fd5e63f-on-kit intent-work/main-baseline-render
+MAIN=ff391a76da77e55da665add496c4ce75eb230b59   # main (one renderer r187, one sky, the steady census)
+KIT=e251559358a530c9667bfc06c4bbd42a33811832    # intent 11ead007's head (one cover stream, on cb16b7a5's render kit in TSL)
+HEAD=626622f861baaa8086376a9627b2a1eb5babbeb9   # intent/6fd5e63f-on-5b: this intent's change on intent 5
+git -C "$ROOT" fetch -q origin main intent/11ead007-cover-stream intent/6fd5e63f-on-5b intent-work/main-baseline-render
 mkdir -p "$OUT"
 git -C "$ROOT" show origin/intent-work/main-baseline-render:intent-work/main-baseline/determinism.mjs > "$JOB/determinism.mjs"
 tree() { # tree <dir> <commit>

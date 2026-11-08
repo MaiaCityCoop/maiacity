@@ -5,12 +5,12 @@ Intent 6fd5e63f-e195-4123-8604-c4f87c33869c (GPU 6/14), pull request #2180. Ever
 the page's own TSL (`render/foliage.js`, `render/wind.js`). One wind per world, with gust fronts that travel, each plant
 on its own phase, trunks still, crowns bending with their length kept, and tips fluttering near the eye. Leaves and grass
 are two-sided, darker toward the root, and glow with the sun behind them. The census (avenBOX) counts the same draws and
-triangles as main (near 3,282,183/1,807; mid 5,176,156/1,778; far 1,403,927/877). This job checks what the census can't:
+triangles as intent 5's head (the steady census: near 10,400,324/5,665; mid 13,718,176/4,244; far 2,639,411/1,782). This job checks what the census can't:
 frame time, the film, and that a frame repeats.
 
-**The head is the change on intent cb16b7a5's render kit** (`intent-work/6fd5e63f-on-kit` @ c0bdd0893). The looks are
-drawn on the kit's TSL materials, and cb16b7a5 isn't on main yet. So three trees are measured: **main** 5ae3807 (base, with intents b03f9fb4 and 2214e661),
-**kit** 512bdd8 (cb16b7a5's head, what the change sits on) and **head** c0bdd08. head − kit is this intent's own cost;
+**The head is the change stacked on intent 5** (`intent/6fd5e63f-on-5b` @ 626622f86; 11ead007's cover stream, itself on
+cb16b7a5's TSL render kit). The looks are drawn on the kit's TSL materials, and neither is on main yet. So three trees are measured: **main** ff391a7 (base),
+**kit** e251559 (intent 5's head, what the change sits on) and **head** 626622f. head − kit is this intent's own cost;
 head − main is what c7 bounds.
 
 **Run:** `PLAY_MCP_TOKEN=play_… bash intent-work/6fd5e63f-render/run.sh` (bun, node with Playwright's Chromium, ffmpeg).
@@ -39,6 +39,10 @@ the branch `intent-work/6fd5e63f-render`.
 
 Note: only head draws a wind. If `same t` differs, the PNG pair shows where. If the pose found no stand (`stand.label`
 "none found"), say so: the pose falls back to (0, 70).
+
+**Accepted plants' looks:** few materials are named, so a plant's or living cover's unnamed material is read by itself
+(`assets/look.js` `lookOfBuilt`: two-sided a leaf, grass on a grass; one-sided bark, moving only with its copy). The
+whole copy bends as one, leaves never off their branches: say if any part of a plant parts from another in the film.
 
 **The 0 draws seen on cb16b7a5's 78a881e:** three's WebGLNodesHandler never settled `compileAsync` for node materials on
 Metal. Main (intent 2214e661) now warms every shader through `render/core.js` `precompile`, which leaves node materials
