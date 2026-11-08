@@ -30,8 +30,11 @@ vi.mock('three', async () => {
 			this.shadowsAtCompile = [];
 			this.pixelRatio = 1;
 			// as three's own: an instance function, which the core wraps
+			/** the materials three's compile was handed */
+			this.compiled = [];
 			this.compile = function (scene) {
 				this.shadowsAtCompile.push(this.handler !== null && this.shadowMap.enabled && (this.shadowMap.autoUpdate || this.shadowMap.needsUpdate));
+				scene.traverse((o) => o.material && this.compiled.push(...[o.material].flat()));
 				return new Set();
 			};
 		}
@@ -95,16 +98,24 @@ describe('the one renderer', () => {
 		expect(parameters.fragmentShader).toMatch(/DiffuseColor = vec4\( mix\(/);
 	});
 
-	test('a compile of classic materials draws no extra shadow pass; one with a node material does', () => {
+	test('a compile draws no extra shadow pass and is never handed a node material (cb16b7a5)', () => {
 		const r = /** @type {any} */ (createRenderer({ pixelRatio: 1, shadows: 'pcf' }));
 		const scene = new THREE.Scene();
-		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial()));
+		const classic = new THREE.MeshStandardMaterial(), node = new MeshStandardNodeMaterial();
+		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), classic));
 		r.compile(scene, new THREE.PerspectiveCamera());
 		expect(r.shadowsAtCompile).toEqual([false]);
 		expect(r.shadowMap.autoUpdate).toBe(true);
-		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), new MeshStandardNodeMaterial()));
+		// a node material, hidden or not, is built at its first frame: a program three's compile built for it would be
+		// met later with another build's uniforms (the sky's PMREM in a vec3, cb16b7a5)
+		const shown = new THREE.Mesh(new THREE.BoxGeometry(), node), hidden = new THREE.Mesh(new THREE.BoxGeometry(), [classic, node]);
+		hidden.visible = false;
+		scene.add(shown, hidden);
 		r.compile(scene, new THREE.PerspectiveCamera());
-		expect(r.shadowsAtCompile).toEqual([false, true]);
+		expect(r.shadowsAtCompile).toEqual([false, false]);
+		expect(r.compiled.filter((/** @type {any} */ m) => m.isNodeMaterial)).toEqual([]);
+		expect(shown.material).toBe(node);
+		expect(hidden.material).toEqual([classic, node]);
 	});
 
 	test('tone mapping and exposure are set through the core', () => {
