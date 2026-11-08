@@ -77,6 +77,12 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
+      # main's recent history beside the head (shallow, no tags): a check may name the base commit it compares with
+      # (`git diff <main's commit> -- …`), which a checkout of the head alone does not hold (intent b03f9fb4's c4)
+      - name: main's last commits
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+        run: git fetch --no-tags --depth=50 origin "$BASE"
       - uses: actions/download-artifact@v4
         with:
           name: box-spec
