@@ -225,8 +225,10 @@ export function createSky(renderer, scene, options = {}) {
 	/** @type {THREE.WebGLRenderTarget | null} */
 	let envTarget = null;
 	if (pmrem) {
-		const p = /** @type {any} */ (pmrem), allocate = p._allocateTargets.bind(pmrem), was = new THREE.Color();
-		p._allocateTargets = () => {
+		// three r187 makes its one target in `_allocateTarget` (a cube render target; r186: `_allocateTargets`, CubeUV)
+		const p = /** @type {any} */ (pmrem), at = typeof p._allocateTarget === 'function' ? '_allocateTarget' : '_allocateTargets';
+		const allocate = p[at].bind(pmrem), was = new THREE.Color();
+		p[at] = () => {
 			if (!envTarget) return (envTarget = allocate());
 			// as new: nothing of the light before left in it
 			const alpha = renderer.getClearAlpha();
