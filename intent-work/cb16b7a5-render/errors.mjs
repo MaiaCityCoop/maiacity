@@ -39,6 +39,8 @@ await page.addInitScript(() => {
 	window.__interiorHour = 12;
 	// a promise that failed and nobody waited for (an async world's mount): it never shows as a page error
 	addEventListener('unhandledrejection', (e) => console.error(`UNHANDLED ${e.reason?.stack ?? e.reason}`));
+	// the graphics card taking the context back (a shader that hangs it): three then draws nothing, and throws nothing
+	{ const gc = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (kind, ...a) { if (/webgl/.test(kind) && !this.__watched) { this.__watched = true; this.addEventListener('webglcontextlost', (e) => console.error(`CONTEXTLOST at ${(performance.now() / 1000).toFixed(1)} s ${e.statusMessage ?? ''}`)); this.addEventListener('webglcontextrestored', () => console.error('CONTEXTRESTORED')); } return gc.call(this, kind, ...a); }; }
 	// whether the world's frame loop runs: its rAF callbacks counted by their source
 	{ const raf = window.requestAnimationFrame.bind(window); window.__rafs = 0; window.requestAnimationFrame = (cb) => raf((t) => { window.__rafs++; cb(t); }); }
 	// a vector uniform handed something no browser takes: what it was, and who handed it (then thrown as before)
@@ -70,7 +72,7 @@ for (let t = 0; t < 180; t += 5) {
 			let stats = null;
 			try { stats = window.__assets?.stats?.(); } catch (e) { stats = String(e); }
 			const brief = stats && typeof stats === 'object' ? Object.fromEntries(Object.entries(stats).map(([k, v]) => [k, v && { building: v.building, keeping: v.keeping, compiling: v.compiling, levels: v.levels, copies: v.copies, calls: v.calls }])) : stats;
-			return `rafs ${window.__rafs} · text: ${text} · stats: ${JSON.stringify(brief)}`;
+			const g = document.querySelector('canvas')?.getContext('webgl2'); return `lost ${g ? g.isContextLost() : '?'} · rafs ${window.__rafs} · text: ${text} · stats: ${JSON.stringify(brief)}`;
 		})}`);
 }
 writeFileSync(`${out}/errors-${site.name}.txt`, lines.join('\n') + '\n');
