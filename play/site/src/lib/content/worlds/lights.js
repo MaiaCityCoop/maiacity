@@ -4,7 +4,7 @@
  * modelled with (./contract.js): a car's head, tail, brake and indicator lights, an emergency vehicle's beacons, a
  * street lamp, a signal's lamps. A guest is one copy among hundreds, all instances of one drawing (../assets/render),
  * so its own materials are never touched: for each kind, each of its lights is one instanced drawing of that light's
- * own shape, bright and unlit by the scene, and a glow round it (one cloud of points for the whole world), and every
+ * own shape, bright and unlit by the scene, and a glow round it (one instanced drawing of sprites for the whole world), and every
  * frame each copy whose state says that light is on is one more instance of it, where its node stands.
  *
  * The light's shape is read off the kind's finest build (loaded through the renderer, so from this device's cache or
@@ -12,6 +12,8 @@
  * street lamps: lit by the mood (lamps=1) unless the guest says otherwise; the rest only by their states.
  */
 import * as THREE from 'three';
+import { MeshBasicNodeMaterial } from 'three/webgpu';
+import { attribute, cameraProjectionMatrix, clamp, float, length, max, modelViewMatrix, positionLocal, pow, uniform, uv, vec4 } from 'three/tsl';
 import { WINDOW_SETS, lightOf, litNow, statesOf } from './contract.js';
 
 /** each light's lit colour (sRGB) and the glow's size round it (m) */
@@ -39,31 +41,24 @@ const GLOWS = 16384;
  *  the world); a building's windows are faces at any distance (a lit tower is its windows) */
 export const FACES_NEAR = 150;
 
-const glowMaterial = () =>
-	new THREE.ShaderMaterial({
-		uniforms: { uScale: { value: 500 } },
-		vertexShader: /* glsl */ `
-			attribute float size;
-			attribute vec3 tint;
-			varying vec3 vTint;
-			uniform float uScale;
-			void main() {
-				vTint = tint;
-				vec4 mv = modelViewMatrix * vec4(position, 1.0);
-				gl_Position = projectionMatrix * mv;
-				gl_PointSize = clamp(size * uScale / max(0.1, -mv.z), 1.5, 256.0);
-			}`,
-		fragmentShader: /* glsl */ `
-			varying vec3 vTint;
-			void main() {
-				float r = length(gl_PointCoord - 0.5) * 2.0;
-				float a = pow(max(0.0, 1.0 - r), 2.2);
-				gl_FragColor = vec4(vTint * a, a);
-			}`,
-		transparent: true,
-		depthWrite: false,
-		blending: THREE.AdditiveBlending
-	});
+/**
+ * The glows, in TSL: each an instanced sprite (a quad turned to the eye) at `glowAt`, `size` metres across seen as so
+ * many pixels at its distance (1.5 to 256), its tint fading from its middle to its rim; added onto the picture, written
+ * as it is (../render/tsl.js `raw`), as the cloud of points it was drew it. `pxScale`: the screen's pixels per metre
+ * at a metre's distance.
+ */
+const glowMaterial = (pxScale) => {
+	const m = new MeshBasicNodeMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+	m.userData.raw = true;
+	const mv = modelViewMatrix.mul(vec4(attribute('glowAt', 'vec3'), 1));
+	const far = max(0.1, mv.z.negate());
+	const px = clamp(attribute('size', 'float').mul(pxScale).div(far), 1.5, 256);
+	m.vertexNode = cameraProjectionMatrix.mul(vec4(mv.xy.add(positionLocal.xy.mul(px).mul(far).div(pxScale)), mv.z, 1));
+	const a = pow(max(0, float(1).sub(length(uv().sub(0.5)).mul(2))), 2.2);
+	m.colorNode = attribute('tint', 'vec3').mul(a);
+	m.opacityNode = a;
+	return m;
+};
 
 /**
  * The lights of a world's guests, in `scene`. `update(guests, mood, t)` each frame (guests as ../assets/plantings.js
@@ -77,13 +72,15 @@ export function createLights(o) {
 	/** each kind's lights once read: { parts: [{ light|lamp, head, mesh, centre, glow }] } (null while it loads) */
 	const kinds = new Map();
 	const states = { on: new Map(), heads: new Map() };
-	const glowGeo = new THREE.BufferGeometry();
+	const glowGeo = new THREE.InstancedBufferGeometry().copy(new THREE.PlaneGeometry(1, 1));
 	const gPos = new Float32Array(GLOWS * 3), gTint = new Float32Array(GLOWS * 3), gSize = new Float32Array(GLOWS);
-	glowGeo.setAttribute('position', new THREE.BufferAttribute(gPos, 3).setUsage(THREE.DynamicDrawUsage));
-	glowGeo.setAttribute('tint', new THREE.BufferAttribute(gTint, 3).setUsage(THREE.DynamicDrawUsage));
-	glowGeo.setAttribute('size', new THREE.BufferAttribute(gSize, 1).setUsage(THREE.DynamicDrawUsage));
-	const glowMat = glowMaterial();
-	const glows = new THREE.Points(glowGeo, glowMat);
+	glowGeo.setAttribute('glowAt', new THREE.InstancedBufferAttribute(gPos, 3).setUsage(THREE.DynamicDrawUsage));
+	glowGeo.setAttribute('tint', new THREE.InstancedBufferAttribute(gTint, 3).setUsage(THREE.DynamicDrawUsage));
+	glowGeo.setAttribute('size', new THREE.InstancedBufferAttribute(gSize, 1).setUsage(THREE.DynamicDrawUsage));
+	glowGeo.instanceCount = 0;
+	const pxScale = uniform(500);
+	const glowMat = glowMaterial(pxScale);
+	const glows = new THREE.Mesh(glowGeo, glowMat);
 	glows.frustumCulled = false;
 	glows.renderOrder = 10;
 	group.add(glows);
@@ -156,7 +153,7 @@ export function createLights(o) {
 		stats,
 		/** every lit light where its guest stands now */
 		update(guests, mood, t) {
-			glowMat.uniforms.uScale.value = (o.renderer.domElement.height || 600) / (2 * Math.tan(THREE.MathUtils.degToRad(o.camera.fov / 2)));
+			pxScale.value = (o.renderer.domElement.height || 600) / (2 * Math.tan(THREE.MathUtils.degToRad(o.camera.fov / 2)));
 			const counts = new Map();
 			let ng = 0, lit = 0;
 			const cam = o.camera.position;
@@ -204,8 +201,14 @@ export function createLights(o) {
 					p.mesh.visible = p.mesh.count > 0;
 					if (p.mesh.visible) p.mesh.instanceMatrix.needsUpdate = true;
 				}
-			glowGeo.setDrawRange(0, ng);
-			for (const a of Object.values(glowGeo.attributes)) a.needsUpdate = true;
+			glowGeo.instanceCount = ng;
+			glows.visible = ng > 0;
+			for (const k of ['glowAt', 'tint', 'size']) {
+				const a = glowGeo.attributes[k];
+				a.clearUpdateRanges();
+				a.addUpdateRange(0, ng * a.itemSize);
+				a.needsUpdate = true;
+			}
 			stats.lit = lit;
 			stats.glows = ng;
 			stats.faces = [...counts.keys()].length;

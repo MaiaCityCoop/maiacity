@@ -1,13 +1,14 @@
 /*
  * Ported from AirSup's factory-skill (https://github.com/AirsupHQ/factory-skill, commit 9fde755, MIT licence:
  * Copyright (c) 2026 Air Supply Technologies Inc., .claude/skills/factory-skill/LICENSE) into maiaCITY as an ES module
- * (2026-10-15). Only this head and the foot changed: the browser globals (FactorySkill, THREE) became imports and
+ * (2026-10-15). Only this head, the two passes (TSL, intent 602a8849) and the foot changed: the browser globals (FactorySkill, THREE) became imports and
  * exports; the body is theirs, line for line, under `@ts-nocheck` so it stays theirs. Our additions, where there are
  * any, sit at the end under "maiaCITY additions".
  */
 // @ts-nocheck
 import { T } from './three.js'
 import { budget } from '../render/budget.js'
+import { Fn, If, Loop, abs, clamp, dot, exp, float, fract, int, length, max, mix, pow, sin, smoothstep, uniform, vec2, vec3, vec4 } from 'three/tsl'
 /*
  * Factory Skill: the miniature look.
  *
@@ -18,63 +19,49 @@ import { budget } from '../render/budget.js'
  * extra saturation, contrast, vignette and fine grain.
  */
 
-  const VERT = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`
+  // (maiaCITY: AirSup's two GLSL passes written in TSL, the same sums; T.NodePass in ./three.js draws them)
 
   // Separable blur whose radius follows the distance from a tilted band of focus.
   // Depth also feeds in, so a tall object in the band stays sharp while the
   // table behind it softens, which is what a tilted lens plane does.
-  const TILT = {
-    uniforms: {
-      tDiffuse: { value: null }, tDepth: { value: null }, dir: { value: new T.Vector2(1, 0) }, res: { value: new T.Vector2(1, 1) },
-      focusY: { value: 0.46 }, band: { value: 0.07 }, amount: { value: 20 }, tilt: { value: 0.0 }, power: { value: 1.25 },
-    },
-    vertexShader: VERT,
-    fragmentShader: `
-      uniform sampler2D tDiffuse; uniform vec2 dir, res; uniform float focusY, band, amount, tilt, power;
-      varying vec2 vUv;
-      float coc(vec2 uv){
-        float y = uv.y + (uv.x - 0.5) * tilt;
-        float d = abs(y - focusY);
-        float k = clamp((d - band) / max(0.05, 0.62 - band), 0.0, 1.0);
-        return pow(k, power) * amount;
-      }
-      void main(){
-        float c = coc(vUv);
-        if (c < 0.35) { gl_FragColor = texture2D(tDiffuse, vUv); return; }
-        vec4 sum = vec4(0.0); float ws = 0.0;
-        for (int i = -14; i <= 14; i++) {
-          float x = float(i) / 14.0;
-          vec2 uv = vUv + dir * x * c / res;
+  const TILT = () => {
+    const u = { dir: uniform(new T.Vector2(1, 0)), res: uniform(new T.Vector2(1, 1)), focusY: uniform(0.46), band: uniform(0.07), amount: uniform(20), tilt: uniform(0.0), power: uniform(1.25) }
+    const coc = (q) => {
+      const y = q.y.add(q.x.sub(0.5).mul(u.tilt))
+      const k = clamp(abs(y.sub(u.focusY)).sub(u.band).div(max(0.05, float(0.62).sub(u.band))), 0, 1)
+      return pow(k, u.power).mul(u.amount)
+    }
+    return new T.NodePass(u, (at, p) => Fn(() => {
+      const c = coc(p).toVar()
+      const out = at(p).toVar()
+      If(c.greaterThanEqual(0.35), () => {
+        const sum = vec4(0).toVar(), ws = float(0).toVar()
+        Loop({ start: int(-14), end: int(14), condition: '<=' }, ({ i }) => {
+          const x = float(i).div(14)
+          const q = p.add(u.dir.mul(x).mul(c).div(u.res))
           // gather only from samples at least as blurred, so sharp edges do not bleed outward
-          float w = exp(-x * x * 2.2) * clamp(coc(uv) / max(c, 1e-3) * 1.5, 0.15, 1.0);
-          sum += texture2D(tDiffuse, uv) * w; ws += w;
-        }
-        gl_FragColor = sum / ws;
-      }`,
+          const w = exp(x.mul(x).mul(-2.2)).mul(clamp(coc(q).div(max(c, 1e-3)).mul(1.5), 0.15, 1.0))
+          sum.addAssign(at(q).mul(w)); ws.addAssign(w)
+        })
+        out.assign(sum.div(ws))
+      })
+      return out
+    })())
   }
 
-  const GRADE = {
-    uniforms: {
-      tDiffuse: { value: null }, res: { value: new T.Vector2(1, 1) }, time: { value: 0 },
-      sat: { value: 1.32 }, contrast: { value: 1.14 }, warm: { value: new T.Vector3(1.02, 1.0, 0.965) },
-      lift: { value: 0.0 }, vig: { value: 0.38 }, grain: { value: 0.018 },
-    },
-    vertexShader: VERT,
-    fragmentShader: `
-      uniform sampler2D tDiffuse; uniform vec2 res; uniform float time, sat, contrast, lift, vig, grain; uniform vec3 warm;
-      varying vec2 vUv;
-      float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-      void main(){
-        vec3 c = texture2D(tDiffuse, vUv).rgb;
-        c = c * warm;
-        float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
-        c = mix(vec3(l), c, sat);
-        c = (c - 0.5) * contrast + 0.5 + lift * (1.0 - c);
-        vec2 q = (vUv - 0.5) * vec2(res.x / res.y, 1.0);
-        c *= 1.0 - vig * smoothstep(0.35, 1.05, length(q));
-        c += (h(vUv * res + fract(time) * 91.7) - 0.5) * grain;
-        gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
-      }`,
+  const GRADE = () => {
+    const u = { res: uniform(new T.Vector2(1, 1)), time: uniform(0), sat: uniform(1.32), contrast: uniform(1.14), warm: uniform(new T.Vector3(1.02, 1.0, 0.965)), lift: uniform(0.0), vig: uniform(0.38), grain: uniform(0.018) }
+    const h = (q) => fract(sin(dot(q, vec2(12.9898, 78.233))).mul(43758.5453))
+    return new T.NodePass(u, (at, p) => {
+      let c = at(p).rgb.mul(u.warm)
+      const l = dot(c, vec3(0.2126, 0.7152, 0.0722))
+      c = mix(vec3(l), c, u.sat)
+      c = c.sub(0.5).mul(u.contrast).add(0.5).add(u.lift.mul(float(1).sub(c)))
+      const q = p.sub(0.5).mul(vec2(u.res.x.div(u.res.y), 1.0))
+      c = c.mul(float(1).sub(u.vig.mul(smoothstep(0.35, 1.05, length(q)))))
+      c = c.add(h(p.mul(u.res).add(fract(u.time).mul(91.7))).sub(0.5).mul(u.grain))
+      return vec4(clamp(c, 0.0, 1.0), 1.0)
+    })
   }
 
   export class Look {
@@ -129,11 +116,11 @@ import { budget } from '../render/budget.js'
       this.bloom = new T.UnrealBloomPass(size, 0.3, 0.45, 2.6)
       if (opts.bloom !== false) comp.addPass(this.bloom)
       comp.addPass(new T.OutputPass())
-      this.tiltH = new T.ShaderPass(TILT)
-      this.tiltV = new T.ShaderPass(TILT)
+      this.tiltH = TILT()
+      this.tiltV = TILT()
       this.tiltV.uniforms.dir.value.set(0, 1)
       if (opts.tilt !== false) { comp.addPass(this.tiltH); comp.addPass(this.tiltV) }
-      this.grade = new T.ShaderPass(GRADE)
+      this.grade = GRADE()
       if (opts.grade !== false) comp.addPass(this.grade)
       this.time = 0
     }

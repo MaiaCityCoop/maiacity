@@ -24,6 +24,8 @@
  */
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import { MeshPhysicalNodeMaterial, MeshStandardNodeMaterial } from 'three/webgpu'
+import { abs, cameraViewMatrix, dot, float, max, mix, normalView, normalize, positionViewDirection, positionWorld, texture, uniform, vec4 } from 'three/tsl'
 import { flagstone, grass, groundCover, leaves, limestone, oak, soil, water } from './textures'
 import { cafes, coops, coopsAround, henPatches, rabbitPatches, squaresAround, type Kit } from './spaces'
 import { antHills, apiary, fishes, herd, TANK_FISH } from './animals'
@@ -90,27 +92,18 @@ function tiled(tex: THREE.Texture, repeatX: number, repeatY = repeatX): THREE.Te
  * dome's glass, near or far.
  */
 export const glassSheen = {
-	uGlassSheen: { value: 0 },
-	uGlassSheenColor: { value: new THREE.Color('#ffb070') },
-	uGlassSun: { value: new THREE.Vector3(0, 1, 0) }
+	uGlassSheen: uniform(0),
+	uGlassSheenColor: uniform(new THREE.Color('#ffb070')),
+	uGlassSun: uniform(new THREE.Vector3(0, 1, 0))
 }
-function withSheen<M extends THREE.MeshPhysicalMaterial>(m: M): M {
-	m.onBeforeCompile = (sh) => {
-		Object.assign(sh.uniforms, glassSheen)
-		sh.fragmentShader = sh.fragmentShader
-			.replace('#include <common>', '#include <common>\nuniform float uGlassSheen;\nuniform vec3 uGlassSheenColor;\nuniform vec3 uGlassSun;')
-			.replace(
-				'#include <emissivemap_fragment>',
-				`#include <emissivemap_fragment>
-				if ( uGlassSheen > 0.0 ) {
-					vec3 sunV = normalize( ( viewMatrix * vec4( uGlassSun, 0.0 ) ).xyz );
-					float facing = max( dot( normal, sunV ), 0.0 );
-					float grazing = pow( 1.0 - abs( dot( normal, normalize( vViewPosition ) ) ), 2.0 );
-					totalEmissiveRadiance += uGlassSheenColor * uGlassSheen * facing * ( 0.35 + 0.65 * grazing );
-				}`
-			)
-	}
-	m.customProgramCacheKey = () => 'glass-sheen'
+/** the dome's clear glass, in TSL: its sheen (`glassSheen`) its emissive light */
+function sheenGlass(o: THREE.MeshPhysicalMaterialParameters): MeshPhysicalNodeMaterial {
+	const m = new MeshPhysicalNodeMaterial(o)
+	const { uGlassSheen, uGlassSheenColor, uGlassSun } = glassSheen
+	const sunV = normalize(cameraViewMatrix.mul(vec4(uGlassSun, 0)).xyz)
+	const facing = max(dot(normalView, sunV), 0)
+	const grazing = float(1).sub(abs(dot(normalView, positionViewDirection))).pow(2)
+	m.emissiveNode = uGlassSheenColor.mul(uGlassSheen).mul(facing).mul(grazing.mul(0.65).add(0.35))
 	return m
 }
 
@@ -119,8 +112,8 @@ function withSheen<M extends THREE.MeshPhysicalMaterial>(m: M): M {
  * lightly tinted, with gaps between the cells so the light still falls through
  * to the forest inside. One triangle of it, drawn once, on every panel.
  */
-let solarCache: THREE.MeshPhysicalMaterial | null = null
-function solarGlass(): THREE.MeshPhysicalMaterial {
+let solarCache: MeshPhysicalNodeMaterial | null = null
+function solarGlass(): MeshPhysicalNodeMaterial {
 	if (solarCache) return solarCache
 	const s = 256
 	const c = document.createElement('canvas')
@@ -146,7 +139,7 @@ function solarGlass(): THREE.MeshPhysicalMaterial {
 	const tex = new THREE.CanvasTexture(c)
 	tex.colorSpace = THREE.SRGBColorSpace
 	tex.anisotropy = 8
-	solarCache = withSheen(new THREE.MeshPhysicalMaterial({ map: tex, color: '#ffffff', roughness: 0.06, metalness: 0.1, transparent: true, envMapIntensity: 1.4, side: THREE.DoubleSide, depthWrite: false }))
+	solarCache = sheenGlass({ map: tex, color: '#ffffff', roughness: 0.06, metalness: 0.1, transparent: true, side: THREE.DoubleSide, depthWrite: false })
 	return solarCache
 }
 
@@ -169,19 +162,13 @@ const k2 = (v: number) => Math.round(v * 20) / 20
  * of lighter and darker patches over tens of metres, so no two stretches of
  * meadow look the same.
  */
-let meadowCache: THREE.MeshStandardMaterial | null = null
-function meadow(): THREE.MeshStandardMaterial {
+let meadowCache: MeshStandardNodeMaterial | null = null
+function meadow(): MeshStandardNodeMaterial {
 	if (meadowCache) return meadowCache
-	const mat = new THREE.MeshStandardMaterial({ map: grass(), roughness: 1 })
-	mat.onBeforeCompile = (sh) => {
-		sh.vertexShader = sh.vertexShader
-			.replace('#include <common>', '#include <common>\nvarying vec2 vGround;')
-			.replace('#include <uv_vertex>', '#include <uv_vertex>\nvec4 gp = modelMatrix * vec4(position, 1.0);\nvGround = gp.xz;\nvMapUv = gp.xz / 3.2;')
-		sh.fragmentShader = sh.fragmentShader
-			.replace('#include <common>', '#include <common>\nvarying vec2 vGround;')
-			.replace('#include <map_fragment>', '#include <map_fragment>\nfloat drift = texture2D(map, vGround / 61.0).g * 0.6 + texture2D(map, vGround / 23.0 + 0.3).r * 0.4;\ndiffuseColor.rgb *= mix(0.78, 1.18, drift);')
-	}
-	mat.customProgramCacheKey = () => 'meadow'
+	const mat = new MeshStandardNodeMaterial({ roughness: 1 })
+	const map = grass(), ground = positionWorld.xz
+	const drift = texture(map, ground.div(61)).g.mul(0.6).add(texture(map, ground.div(23).add(0.3)).r.mul(0.4))
+	mat.colorNode = texture(map, ground.div(3.2)).rgb.mul(mix(0.78, 1.18, drift))
 	return (meadowCache = mat)
 }
 
@@ -202,7 +189,7 @@ export const mats = () => {
 		get solar() {
 			return solarGlass()
 		},
-		glass: withSheen(new THREE.MeshPhysicalMaterial({ color: '#eef6f4', roughness: 0.04, metalness: 0, transparent: true, opacity: 0.1, envMapIntensity: 1.5, side: THREE.DoubleSide, depthWrite: false })),
+		glass: sheenGlass({ color: '#eef6f4', roughness: 0.04, metalness: 0, transparent: true, opacity: 0.1, side: THREE.DoubleSide, depthWrite: false }),
 		canvas: new THREE.MeshStandardMaterial({ color: '#efe8da', roughness: 0.95, side: THREE.DoubleSide }),
 		linen: new THREE.MeshStandardMaterial({ color: '#f1ece2', roughness: 0.95 }),
 		cushion: new THREE.MeshStandardMaterial({ color: '#c47a4a', roughness: 0.9 }),
