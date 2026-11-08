@@ -21,8 +21,8 @@
  * its canvas; and a phone drew at twice its pixels with the desktop's shadows, occlusion and multisampling.
  */
 import * as THREE from 'three';
+import { install } from './nodes/index.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
 import { reopenOnRestore } from './budget.js';
 import { useRenderer } from './arrays.js';
 
@@ -126,13 +126,25 @@ export function createRenderer(o = {}) {
  * @param {THREE.WebGLRenderer} renderer
  */
 function nodes(renderer) {
-	const r = /** @type {THREE.WebGLRenderer & { setNodesHandler?: (h: WebGLNodesHandler) => void }} */ (renderer);
+	const r = /** @type {THREE.WebGLRenderer & { setNodesHandler?: (h: unknown) => void }} */ (renderer);
 	if (typeof r.setNodesHandler !== 'function') return;
-	r.setNodesHandler(new WebGLNodesHandler());
+	install(r); // three's handler, with what it lacks for us (./nodes/index.js: targets drawn linear, shadows from the light)
 	const compile = r.compile;
 	if (typeof compile !== 'function') return;
 	r.compile = function (scene, camera, target = null) {
-		if (hasNodeMaterial(scene)) return compile.call(this, scene, camera, target);
+		// three's compile gathers every material under `scene`, hidden ones too (it walks `traverse`), and builds a
+		// node material's program without the handler's onUpdateProgram: met again later, the handler pairs that
+		// program with another build's uniforms (cb16b7a5: the sky's PMREM handed to a vec3 on the levels `precompile`
+		// warmed). Node materials are taken out while three gathers, and built at their first frame, as every draw is.
+		/** @type {[THREE.Object3D & { material?: unknown }, unknown][]} */
+		const away = [];
+		scene.traverse((o) => {
+			const m = /** @type {THREE.Mesh} */ (o).material;
+			if (m && (Array.isArray(m) ? m : [m]).some((x) => /** @type {any} */ (x).isNodeMaterial)) {
+				away.push([o, m]);
+				/** @type {any} */ (o).material = null;
+			}
+		});
 		const sm = this.shadowMap, auto = sm.autoUpdate, need = sm.needsUpdate;
 		sm.autoUpdate = sm.needsUpdate = false;
 		try {
@@ -140,19 +152,9 @@ function nodes(renderer) {
 		} finally {
 			sm.autoUpdate = auto;
 			sm.needsUpdate = need;
+			for (const [o, m] of away) /** @type {any} */ (o).material = m;
 		}
 	};
-}
-
-/** whether anything under `root` is drawn with a node material @param {THREE.Object3D} root */
-export function hasNodeMaterial(root) {
-	let found = false;
-	root.traverse((o) => {
-		if (found) return;
-		const m = /** @type {THREE.Mesh} */ (o).material;
-		if (m) for (const x of Array.isArray(m) ? m : [m]) if (/** @type {any} */ (x).isNodeMaterial) found = true;
-	});
-	return found;
 }
 
 /**
@@ -233,9 +235,9 @@ export function adaptiveResolution(renderer, { top = topPixelRatio(), floor = 1,
  * Compile a model's shaders before it is first drawn, off the page's thread where the browser can
  * (KHR_parallel_shader_compile), so the page never stalls on the first frame; a browser that cannot simply compiles
  * them now. Never throws: a model that fails here is still drawn the usual way. The one warm-up of the app: nothing
- * else calls `compileAsync` (./lint.test.js). Node materials (TSL) are left out: three's WebGLNodesHandler cannot
- * compile them ahead, and a `compileAsync` that gathers one never settles (cb16b7a5's levels waited on it forever and
- * drew nothing); they are hidden while the rest is gathered, and built at their first frame.
+ * else calls `compileAsync` (./lint.test.js). Node materials (TSL) are left out, built at their first frame: the
+ * renderer's own `compile` (`nodes`, above) never hands one to three, hidden or not, and they are hidden here as well
+ * so a `compileAsync` waits only on the rest.
  * @param {THREE.WebGLRenderer} renderer
  * @param {THREE.Object3D} object
  * @param {THREE.Camera} camera

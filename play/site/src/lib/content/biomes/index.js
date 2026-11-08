@@ -1,7 +1,7 @@
 /*
  * THE BIOMES — the floor a world stands on, as recipes: which surfaces the ground is made of and how much of each
  * (./surfaces.js: leaf litter, humus, needles, moss, the living mat, bare soil), and what grows and lies on it, kind by
- * kind (./cover.js), each kind in colonies of its own size — wood anemones and woodruff carpet whole patches several
+ * kind (each built by play: the Biome cover asset, drawn by ./stream.js), each kind in colonies of its own size — wood anemones and woodruff carpet whole patches several
  * metres across, ferns stand in groups, deadwood and stones lie here and there — and on the surface it belongs on
  * (moss on the litter's edges, clover in the green). Any two biomes mix (`mix`): a forest edge is half the beech
  * wood and half the meadow; a world can run one into the other over a few metres.
@@ -16,15 +16,16 @@
  * another; Sandbox 5's floor is the food forest's (maia/content/sandbox-2/interior/village.ts), and under the glass of its
  * domes the warm food forest's (interior.ts).
  */
-import { COVER } from './cover.js';
 import { SURFACES, surfacesAt } from './surfaces.js';
 import { fbm2 } from './noise.js';
 import { versioned } from '$lib/site/app/versions.js';
 
-export { COVER } from './cover.js';
 export { SURFACE, SURFACES, groundMaterial, inTrack, rowsOf, surfacesAt } from './surfaces.js';
 
-/** @typedef {import('./cover.js').Cover} Cover */
+/**
+ * @typedef {'grass' | 'tallgrass' | 'sedge' | 'moss' | 'daisy' | 'buttercup' | 'clover' | 'forgetmenot' | 'anemone' | 'cranesbill' | 'woodruff' | 'woodsorrel' | 'ramsons' | 'strawberry' | 'blueberry' | 'fern' | 'litter' | 'deadwood' | 'stones' | 'mushrooms'} Cover
+ *   a kind of cover, by its name: each is built by play (the Biome cover asset, its kind), named on the biome's card by its build
+ */
 /** @typedef {import('./surfaces.js').Surface} Surface */
 /**
  * @typedef {object} Colony one kind of cover in a biome
@@ -250,5 +251,3 @@ export function colonyAt(recipe, i, x, z) {
  */
 export const coverSeed = (i, kind) => 7100 + i * 13 + kind.length * 31;
 
-/** Every kind of a biome's cover, built once (in its order). @param {Recipe} recipe */
-export const coverOf = (recipe) => recipe.cover.map((c, i) => COVER[c.kind].build(coverSeed(i, c.kind)));

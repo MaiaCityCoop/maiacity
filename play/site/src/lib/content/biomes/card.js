@@ -137,7 +137,7 @@ export function biomeOfCard(card) {
 			const spacing = number(p, ROWS, 0.02, 10, true);
 			const rows = spacing === undefined ? undefined : { spacing, along: /** @type {number} */ (number(p, ALONG, 0.02, 10)), ...(spec(p, JITTER) === undefined ? {} : { jitter: number(p, JITTER, 0, 1) }) };
 			return {
-				kind: /** @type {import('./cover.js').Cover} */ (kind),
+				kind: /** @type {import('./index.js').Cover} */ (kind),
 				ref: /** @type {string} */ (p.ref),
 				share: /** @type {number} */ (number(p, SHARE, 0, 1000)),
 				colony: /** @type {number} */ (number(p, COLONY, 0.01, 1000)),

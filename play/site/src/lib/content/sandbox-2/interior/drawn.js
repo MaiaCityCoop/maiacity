@@ -35,10 +35,12 @@ export function createDrawn(o) {
 		 */
 		use: (ref, shadows, picture) => assets.use(ref, { shadows, picture }),
 		/**
-		 * a copy of kind k standing at `at` (a place or a whole matrix): one put away if there is one
+		 * a copy of kind k standing at `at` (a place or a whole matrix): one put away if there is one; `cover`: grown as
+		 * a biome's cover ($content/biomes/stream.js)
 		 * @param {any} k @param {{ x: number, y: number, z: number, turn: number, scale: number } | THREE.Matrix4} at
+		 * @param {{ rank: number, near: number, reach: number, thin: number } | null} [cover]
 		 */
-		take: (k, at) => assets.take(k, at),
+		take: (k, at, cover) => assets.take(k, at, cover),
 		/** a copy moved @param {{ kind: any, i: number }} c @param {{ x: number, y: number, z: number, turn: number, scale: number } | THREE.Matrix4} at */
 		move: (c, at) => assets.move(c, at),
 		/** a copy put away: drawn nowhere until it is taken again @param {{ kind: any, i: number }} c */

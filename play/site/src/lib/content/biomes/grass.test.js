@@ -244,7 +244,7 @@ describe('the grass is never warmed by a direct compile', () => {
 		const { readFileSync } = await import('node:fs');
 		const { fileURLToPath } = await import('node:url');
 		const at = (/** @type {string} */ p) => readFileSync(fileURLToPath(new URL(p, import.meta.url)), 'utf8');
-		for (const p of ['./grass.js', '../render/nodes/grass.js', '../sandbox-2/interior/village.ts', '../assets/plantings.js', '../sandbox-2/interior/cover.js'])
+		for (const p of ['./grass.js', '../render/nodes/grass.js', '../sandbox-2/interior/village.ts', '../assets/plantings.js', './stream.js'])
 			expect(at(p), p).not.toMatch(/\.compile(Async)?\(/);
 	});
 });
