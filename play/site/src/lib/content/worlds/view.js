@@ -21,6 +21,7 @@
  * its settle, built it afresh each time, and a long jump forward drew an empty road).
  */
 import * as THREE from 'three';
+import { install } from '../render/nodes/index.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createPlantings, floorGrid } from '../assets/plantings.js';
 import { heroOf, runner } from '../assets/hero.js';
@@ -71,6 +72,7 @@ export function viewsOf(root) {
  */
 export function createWorldView(el, o) {
 	const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+	install(renderer); // until intent b03f9fb4 makes this renderer createRenderer's (cb16b7a5: drop at its merge)
 	// (as ../render/core.js createRenderer: a phone that let go of what it drew is opened anew when its context returns)
 	reopenOnRestore(renderer.domElement);
 	// a phone or a tablet draws at fewer pixels: a world fills the graphics memory such a device has as it is

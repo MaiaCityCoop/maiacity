@@ -18,6 +18,7 @@
  * its canvas; and a phone drew at twice its pixels with the desktop's shadows, occlusion and multisampling.
  */
 import * as THREE from 'three';
+import { install } from './nodes/index.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { reopenOnRestore } from './budget.js';
 
@@ -60,6 +61,7 @@ export function createRenderer(o = {}) {
 		if (o.shadows !== true) renderer.shadowMap.type = SHADOWS[o.shadows];
 	}
 	if (o.clipping) renderer.localClippingEnabled = true;
+	install(renderer); // until intent b03f9fb4 installs three's WebGLNodesHandler here (cb16b7a5: drop at its merge)
 	// a phone that let go of its shapes' and pictures' copies once they were drawn (./budget.js `release`) opens the page
 	// anew when its context comes back, rather than draw without them
 	reopenOnRestore(renderer.domElement);

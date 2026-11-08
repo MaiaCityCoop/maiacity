@@ -291,14 +291,15 @@ export function ghostMaterial() {
 
 /**
  * The contact shadow's blur (three's 9-tap Gaussian along `dir`) of `map`; with `gain` above 0 it first turns the
- * depth picture (white near the floor) into the shadow's darkness (black, its alpha that white times `gain`).
+ * depth picture (white near the floor, clear where nothing is) into the shadow's darkness (black, its alpha that white
+ * times `gain`).
  * @param {THREE.Texture} map
  */
 export function blurMaterial(map) {
 	const dir = uniform(new THREE.Vector2()), gain = uniform(0);
 	const tap = (o) => {
 		const c = texture(map, uv().add(dir.mul(o)));
-		return select(gain.greaterThan(0), vec4(0, 0, 0, c.r.mul(gain).min(1)), c);
+		return select(gain.greaterThan(0), vec4(0, 0, 0, c.r.mul(gain).min(1).mul(c.a)), c);
 	};
 	const W = [0.1633, 0.1531, 0.12245, 0.0918, 0.051];
 	let sum = tap(0).mul(W[0]);

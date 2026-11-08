@@ -37,27 +37,16 @@ import * as THREE from 'three';
 import { ShaderPass, createPost } from '$lib/content/render/post.js';
 import { daySky } from './sky.js';
 import { budget } from '$lib/content/render/budget.js';
+import { floorMaterial } from '../render/nodes/index.js';
 import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment, untonemap } from './kit.js';
 
 /**
  * How strong the lights' own highlights are on the stage (Samuel 2026-11-05: the sun's glare on every asset 30% down):
  * the direct specular of the sun, the fill and any lamp (and a clearcoat's and a sheen's) scaled by it; their diffuse
- * light and the sky's reflections as they were. Only what this stage draws: each of its materials is given the define
- * the chunk below reads (`_gloss`), and nothing else in the app has it.
+ * light and the sky's reflections as they were. Only what this stage draws: each of its node materials is given it
+ * (`_gloss`, the render kit's `gloss`), and nothing else in the app has it.
  */
 export const GLOSS = 0.7;
-if (!THREE.ShaderChunk.lights_fragment_end.includes('VIEWER_GLOSS'))
-	THREE.ShaderChunk.lights_fragment_end += `
-#ifdef VIEWER_GLOSS
-	reflectedLight.directSpecular *= VIEWER_GLOSS;
-	#ifdef USE_CLEARCOAT
-		clearcoatSpecularDirect *= VIEWER_GLOSS;
-	#endif
-	#ifdef USE_SHEEN
-		sheenSpecularDirect *= VIEWER_GLOSS;
-	#endif
-#endif
-`;
 
 export const MODES = /** @type {const} */ (['explode', 'cut', 'xray', 'labels', 'slow']);
 
@@ -242,23 +231,9 @@ export class Stage {
 		this.groundY = ground ?? box.min.y;
 		// the seamless floor: the backdrop's colour far away; shadows and the contact shadow near the asset
 		// under the sky a light, warm-grey ground; in the studio its paper or its night
-		const fm = new THREE.MeshStandardMaterial({ color: this.sky ? new THREE.Color('#c8bfae') : paper ? 0xf0efea : 0x121315, roughness: paper ? 0.92 : 0.55, metalness: 0, envMapIntensity: paper ? 0.25 : 0.6 });
 		const bg = this.bg, fade = this.sky ? new THREE.Vector2(5 * s, 30 * s) : new THREE.Vector2(4.5 * s, 16 * s);
-		const sky = this.sky;
-		fm.onBeforeCompile = (sh) => {
-			sh.uniforms.uBg = { value: bg };
-			sh.uniforms.uFade = { value: fade };
-			if (sky) {
-				// under the sky the floor runs out into the horizon's own colour, the one behind it as seen from the eye
-				Object.assign(sh.uniforms, sky.uniforms);
-				sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\n${sky.glsl}`);
-			}
-			sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vFW;').replace('#include <project_vertex>', '#include <project_vertex>\nvFW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-			sh.fragmentShader = sh.fragmentShader
-				.replace('#include <common>', '#include <common>\nuniform vec3 uBg; uniform vec2 uFade; varying vec3 vFW;')
-				.replace('#include <dithering_fragment>', `#include <dithering_fragment>\nfloat fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(gl_FragColor.rgb, ${sky ? 'skyHorizon(normalize(vec3(vFW.x - cameraPosition.x, 0.0, vFW.z - cameraPosition.z) + vec3(1e-5, 0.0, 0.0)))' : 'uBg'}, fr);`);
-		};
-		fm.customProgramCacheKey = () => (sky ? 'stage-floor-sky' : 'stage-floor');
+		// under the sky the floor runs out into the horizon's own colour, the one behind it as seen from the eye
+		const fm = floorMaterial({ color: this.sky ? new THREE.Color('#c8bfae') : paper ? 0xf0efea : 0x121315, roughness: paper ? 0.92 : 0.55, metalness: 0, envMapIntensity: paper ? 0.25 : 0.6 }, bg, fade, this.sky);
 		const floor = new THREE.Mesh(new THREE.CircleGeometry(40 * s, 96), fm);
 		floor.visible = studio;
 		floor.rotation.x = -Math.PI / 2;
@@ -491,8 +466,8 @@ export class Stage {
 		}
 		const g = m.userData.ghost, paper = this.theme === 'paper';
 		g.visible = g.userData.edges.visible = x > 0.002;
-		g.material.uniforms.uA.value = x;
-		g.material.uniforms.uPaper.value = paper ? 1 : 0;
+		g.material.ghost.a.value = x;
+		g.material.ghost.paper.value = paper ? 1 : 0;
 		g.userData.edges.material.opacity = x * (paper ? 0.35 : 0.3);
 		// a ghost's material is its own while it fades (materials are shared between parts)
 		const want = x > 0.002;
@@ -500,8 +475,6 @@ export class Stage {
 			m.userData.ownMats = m.userData.solidMats.map((sm) => {
 				const c = sm.clone();
 				c.clippingPlanes = sm.clippingPlanes; // the live section planes, not copies of them
-				c.onBeforeCompile = sm.onBeforeCompile;
-				c.customProgramCacheKey = sm.customProgramCacheKey;
 				c.userData = { ...sm.userData };
 				return c;
 			});
@@ -715,8 +688,8 @@ export class Stage {
 	_gloss() {
 		this.scene.traverse((o) => {
 			for (const m of Array.isArray(o.material) ? o.material : o.material ? [o.material] : []) {
-				if (m.isShaderMaterial || m.defines?.VIEWER_GLOSS !== undefined) continue;
-				m.defines = { ...(m.defines ?? {}), VIEWER_GLOSS: GLOSS.toFixed(2) };
+				if (!m.isNodeMaterial || !('gloss' in m) || m.gloss === GLOSS) continue;
+				m.gloss = GLOSS;
 				m.needsUpdate = true;
 			}
 		});
@@ -731,7 +704,6 @@ export class Stage {
 		r.localClippingEnabled = true;
 		this.camera.layers.enable(LAYER_FX);
 		this.camera.updateMatrixWorld();
-		CUT.proj.value.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
 		if (this.contact) this.contact.update();
 		this.sky?.place(this.camera);
 		this.grade.uniforms.uTime.value = this.time;
