@@ -217,8 +217,12 @@ const ours = (Base) =>
 			const G = glossy(model.constructor, float(this.gloss));
 			return Object.assign(new G(), model);
 		}
+		// each material its own program: three's key hashes only a node material's nodes, and two of ours whose shaders
+		// differ by what is beside them (their pictures, the sky's environment) would share one program, each uploading
+		// its own uniforms by name into the other's layout (a sky's cube map into a vec3: the frame throws, the loop dies).
+		// The same source compiles once in the browser's shader cache.
 		customProgramCacheKey() {
-			return super.customProgramCacheKey() + (this.gloss === 1 ? '' : `g${this.gloss}`);
+			return `${super.customProgramCacheKey()}#${this.id}${this.gloss === 1 ? "" : `g${this.gloss}`}`;
 		}
 		copy(source) {
 			super.copy(source);
