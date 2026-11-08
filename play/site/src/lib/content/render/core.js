@@ -99,13 +99,14 @@ function nodes(renderer) {
 	r.compile = function (scene, camera, target = null) {
 		// three's compile gathers every material under `scene`, hidden ones too (it walks `traverse`), and builds a node
 		// material's program without the handler's onUpdateProgram: met again later, the handler pairs that program with
-		// another build's uniforms (cb16b7a5, on the Mac: the sky's PMREM handed to a vec3). Node materials are taken out
-		// while three gathers, and built at their first frame, as every draw is (cb16b7a5's gate, 1c7f2af).
+		// another build's uniforms (cb16b7a5, on the Mac: the sky's PMREM handed to a vec3). Our node materials (`isKit`:
+		// the kit's, ./tsl.js `Own*`) are taken out while three gathers, and built at their first frame; every other
+		// (the sky) warms up as on main (cb16b7a5's gate, 1c7f2af and 90ef0ae).
 		/** @type {[THREE.Object3D & { material?: unknown }, unknown][]} */
 		const away = [];
 		scene.traverse((o) => {
 			const m = /** @type {THREE.Mesh} */ (o).material;
-			if (m && (Array.isArray(m) ? m : [m]).some((x) => /** @type {any} */ (x).isNodeMaterial)) {
+			if (m && (Array.isArray(m) ? m : [m]).some((x) => /** @type {any} */ (x).isNodeMaterial && /** @type {any} */ (x).isKit)) {
 				away.push([o, m]);
 				/** @type {any} */ (o).material = null;
 			}
@@ -199,9 +200,9 @@ export function adaptiveResolution(renderer, { top = topPixelRatio(), floor = 1,
 /**
  * Compile a model's shaders before it is first drawn, off the page's thread where the browser can
  * (KHR_parallel_shader_compile), so the page never stalls on the first frame; a browser that cannot simply compiles
- * them now. Never throws: a model that fails here is still drawn the usual way. Node materials (TSL) are left out,
- * built at their first frame: the renderer's own `compile` (`nodes`, above) never hands one to three, hidden or not,
- * and they are hidden here as well so a `compileAsync` waits only on the rest.
+ * them now. Never throws: a model that fails here is still drawn the usual way. Our node materials (`isKit`) are left
+ * out, built at their first frame: the renderer's own `compile` (`nodes`, above) never hands one to three, hidden or
+ * not, and they are hidden here as well so a `compileAsync` waits only on the rest.
  * @param {THREE.WebGLRenderer} renderer
  * @param {THREE.Object3D} object
  * @param {THREE.Camera} camera
@@ -212,7 +213,7 @@ export async function precompile(renderer, object, camera, scene) {
 	const hidden = [];
 	object.traverseVisible((o) => {
 		const m = /** @type {THREE.Mesh} */ (o).material;
-		if (m && (Array.isArray(m) ? m : [m]).some((x) => /** @type {any} */ (x).isNodeMaterial)) hidden.push(o);
+		if (m && (Array.isArray(m) ? m : [m]).some((x) => /** @type {any} */ (x).isNodeMaterial && /** @type {any} */ (x).isKit)) hidden.push(o);
 	});
 	for (const o of hidden) o.visible = false;
 	let done;

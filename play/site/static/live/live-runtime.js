@@ -58870,18 +58870,31 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
   function outputs(r, h) {
     if (!h.renderer)
       return h;
+    let keying = null;
+    const keyOf = h.customProgramCacheKeyCallback;
+    h.customProgramCacheKeyCallback = function() {
+      keying = this;
+      try {
+        return keyOf.call(this);
+      } finally {
+        keying = null;
+      }
+    };
     const screen = h.getOutputCallback;
     const onScreen = () => r.getRenderTarget() === null;
     h.getOutputCallback = (node, b) => {
-      const m = b?.material;
-      if (!onScreen() || m?.userData.raw)
+      const m = b?.material ?? h.nodeFrame.material;
+      if (!onScreen())
+        return m?.isKit ? node : screen(node, b);
+      if (m?.userData?.raw)
         return node;
-      return m?.toneMapped === false ? workingToColorSpace(node, r.outputColorSpace) : screen(node);
+      return m?.toneMapped === false ? workingToColorSpace(node, r.outputColorSpace) : screen(node, b);
     };
-    h.renderer.getCacheKey = () => onScreen() ? `${r.toneMapping}${r.outputColorSpace}` : "target";
+    h.renderer.getCacheKey = () => onScreen() || !(keying ?? h.nodeFrame.material)?.isKit ? `${r.toneMapping}${r.outputColorSpace}` : "target";
     return h;
   }
   var own = (Base) => class extends Base {
+    isKit = true;
     customProgramCacheKey() {
       return `${super.customProgramCacheKey()}#${this.id}`;
     }
@@ -59454,7 +59467,7 @@ vec3 skyColour(vec3 dir) {
       const away = [];
       scene.traverse((o) => {
         const m = o.material;
-        if (m && (Array.isArray(m) ? m : [m]).some((x) => x.isNodeMaterial)) {
+        if (m && (Array.isArray(m) ? m : [m]).some((x) => x.isNodeMaterial && x.isKit)) {
           away.push([o, m]);
           o.material = null;
         }

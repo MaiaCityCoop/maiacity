@@ -9,6 +9,8 @@ describe('our node materials', () => {
 			const a = new Own(), b = new Own();
 			expect(a.customProgramCacheKey()).not.toBe(b.customProgramCacheKey());
 			expect(a.customProgramCacheKey()).toBe(a.customProgramCacheKey());
+			// ours: out of three's compile, linear into a target (./core.js, cb16b7a5's isKit)
+			expect(a.isKit).toBe(true);
 		}
 		expect(new MeshStandardNodeMaterial().customProgramCacheKey()).toBe(new MeshStandardNodeMaterial().customProgramCacheKey());
 	});

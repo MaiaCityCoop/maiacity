@@ -64,6 +64,7 @@ vi.mock('three', async () => {
 const THREE = await import('three');
 const { WebGLNodesHandler } = await import('three/addons/tsl/WebGLNodesHandler.js');
 const { MeshStandardNodeMaterial } = await import('three/webgpu');
+const { OwnBasic, OwnStandard } = await import('./tsl.js');
 const { color, uniform, mix, positionLocal } = await import('three/tsl');
 const { createRenderer, setExposure, setTone, withTone, TONE } = await import('./core.js');
 
@@ -98,19 +99,20 @@ describe('the one renderer', () => {
 		expect(parameters.fragmentShader).toMatch(/DiffuseColor = vec4\( mix\(/);
 	});
 
-	test('a compile draws no extra shadow pass and is never handed a node material, hidden or not', () => {
+	test('a compile draws no extra shadow pass and is never handed one of our node materials, hidden or not', () => {
 		const r = /** @type {any} */ (createRenderer({ pixelRatio: 1, shadows: 'pcf' }));
 		const scene = new THREE.Scene();
-		const classic = new THREE.MeshStandardMaterial();
-		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), classic));
-		const node = new THREE.Mesh(new THREE.BoxGeometry(), new MeshStandardNodeMaterial());
-		const hidden = new THREE.Mesh(new THREE.BoxGeometry(), [new MeshStandardNodeMaterial()]);
+		const classic = new THREE.MeshStandardMaterial(), sky = new MeshStandardNodeMaterial();
+		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), classic), new THREE.Mesh(new THREE.BoxGeometry(), sky));
+		const node = new THREE.Mesh(new THREE.BoxGeometry(), new OwnStandard());
+		const hidden = new THREE.Mesh(new THREE.BoxGeometry(), [new OwnBasic()]);
 		hidden.visible = false;
 		scene.add(node, hidden);
 		r.compile(scene, new THREE.PerspectiveCamera());
 		expect(r.shadowsAtCompile).toEqual([false]);
 		expect(r.shadowMap.autoUpdate).toBe(true);
-		expect(r.compiled).toEqual([classic]);
+		// three's own, and a node material not ours (a sky), warm up as on main
+		expect(r.compiled).toEqual([classic, sky]);
 		// and each is given back its material
 		expect(node.material.isNodeMaterial).toBe(true);
 		expect(hidden.material[0].isNodeMaterial).toBe(true);
