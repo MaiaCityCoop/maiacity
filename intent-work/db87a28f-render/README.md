@@ -13,6 +13,10 @@ other, never side by side.
   - each at 12:00 and with the sun 10° up (`__interiorHour` 5.7: low from the east, across the relief);
   - at 12:00 the frame meter (`render/meter.js`) over 3 s: mean and p95 frame, CPU and GPU ms, calls, triangles,
     the bound; and the probe's `texture_mib`.
+  Each view is its own fresh page (the hour pinned before it loads, built, settled, placed, settled, measured), so
+  nothing of one view carries into the next.
+- **Where the CPU goes:** at near at noon, Chrome's own CPU profile over the same 3 s (`<site>-near-noon.cpuprofile`,
+  and the top functions by self time in `results.json` and on stdout), base and head.
 - **A biome patch in the viewer** (`/biomes/#<asset>`): the food forest floor and the beech forest, after 45 s.
 - **Head on a small device:** Sandbox 1 near at 390×844 with `?budget=small` (the 1024 px sets): screenshot, frame,
   texture memory.

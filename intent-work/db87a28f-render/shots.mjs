@@ -72,7 +72,7 @@ let gpu = 'unknown';
 	await p.close();
 }
 
-async function open(url, vw = W, vh = H) {
+async function open(url, vw = W, vh = H, hour = 12) {
 	const ctx = await browser.newContext({ viewport: { width: vw, height: vh } });
 	const page = await ctx.newPage();
 	const errors = [];
@@ -80,6 +80,7 @@ async function open(url, vw = W, vh = H) {
 	page.on('console', (m) => m.type() === 'error' && errors.push(m.text().slice(0, 300)));
 	await page.addInitScript({ content: SEEDED_RANDOM });
 	await page.addInitScript({ content: meterScript });
+	await page.addInitScript({ content: `window.__interiorHour = ${hour};` });
 	await page.addInitScript({ content: probeScript });
 	await page.goto(url, { waitUntil: 'domcontentloaded' });
 	return { ctx, page, errors };
@@ -95,31 +96,54 @@ async function sandbox1(page) {
 	const building = () => page.evaluate(QUIET).catch(() => null);
 	return async (ms) => { for (const end = Date.now() + ms; Date.now() < end; await page.waitForTimeout(2000)) if ((await building()) === 0) return true; return false; };
 }
+/** Chrome's CPU profile over 3 s: self time by function, the top 40, and the whole profile in <out>/<name>.cpuprofile */
+async function cpuProfile(page, name) {
+	const cdp = await page.context().newCDPSession(page);
+	await cdp.send('Profiler.enable');
+	await cdp.send('Profiler.setSamplingInterval', { interval: 200 });
+	await cdp.send('Profiler.start');
+	await page.waitForTimeout(3000);
+	const { profile } = await cdp.send('Profiler.stop');
+	writeFileSync(resolve(OUT, `${name}.cpuprofile`), JSON.stringify(profile));
+	const dt = new Map();
+	for (let i = 0; i < profile.samples.length; i++) dt.set(profile.samples[i], (dt.get(profile.samples[i]) ?? 0) + (profile.timeDeltas[i] ?? 0) / 1000);
+	const by = new Map();
+	for (const n of profile.nodes) {
+		const f = n.callFrame, key = `${f.functionName || '(anonymous)'}|${f.url.replace(/^.*\/(src|node_modules)\//, '$1/')}:${f.lineNumber + 1}`;
+		by.set(key, (by.get(key) ?? 0) + (dt.get(n.id) ?? 0));
+	}
+	const top = [...by].map(([k, self]) => ({ name: k.split('|')[0], where: k.split('|')[1], self })).filter((f) => f.name !== '(idle)').sort((a, b) => b.self - a.self).slice(0, 40);
+	return { top };
+}
 const ms = (x) => (x == null ? '–' : x.toFixed(2));
 const line = (s) => `frame ${ms(s.frame_ms)} (p95 ${ms(s.frame_p95)}) · cpu ${ms(s.cpu_ms)} · gpu ${ms(s.gpu_ms)} · ${s.calls} calls · ${s.tris?.toLocaleString('en')} tris · bound ${s.bound} · textures ${s.texture_mib} MiB`;
 
 const results = { intent: 'db87a28f-2d3a-41d9-8a2b-40314fdb2d40', gpu, at: new Date().toISOString(), commits: { base: process.env.BASE_COMMIT, head: process.env.HEAD_COMMIT }, sites: {} };
 for (const site of sites) {
 	const r = (results.sites[site.name] = { views: {}, biomes: {}, errors: [] });
-	{
-		const { ctx, page, errors } = await open(`${site.url}/sandbox-1/`);
-		const settle = await sandbox1(page);
-		console.log(`${site.name} sandbox-1 ${(await settle(10 * 60e3)) ? 'settled' : 'still building'}`);
-		for (const v of VIEWS)
-			for (const [when, hour] of HOURS) {
-				await page.evaluate(([v, hour]) => ((window.__interiorHour = hour), window.__walker.place(v.x, v.z, v.yaw, v.pitch)), [v, hour]);
-				await page.waitForTimeout(1500);
-				const settled = await settle(3 * 60e3);
-				await page.waitForTimeout(3000);
-				const s = when === 'noon' ? await sample(page) : null;
-				const png = `${site.name}-sandbox-1-${v.view}-${when}.png`;
-				await page.screenshot({ path: resolve(OUT, png) });
-				r.views[`${v.view}-${when}`] = { settled, ...s, png };
-				console.log(`  ${site.name} ${v.view} ${when}: ${s ? line(s) : png}`);
-			}
-		r.errors.push(...errors);
-		await ctx.close();
-	}
+	// each view on a fresh page: built, settled, placed, settled, measured (the hour pinned before the page loads), so
+	// nothing of one view carries into the next
+	for (const v of VIEWS)
+		for (const [when, hour] of HOURS) {
+			const { ctx, page, errors } = await open(`${site.url}/sandbox-1/`, W, H, hour);
+			const settle = await sandbox1(page);
+			const up = await settle(10 * 60e3);
+			await page.evaluate((v) => window.__walker.place(v.x, v.z, v.yaw, v.pitch), v);
+			await page.waitForTimeout(1500);
+			const settled = up && (await settle(3 * 60e3));
+			await page.waitForTimeout(3000);
+			const s = when === 'noon' ? await sample(page) : null;
+			const at = await page.evaluate(() => [window.__walker?.x ?? null, window.__walker?.z ?? null, window.__interiorHour]).catch(() => null);
+			const png = `${site.name}-sandbox-1-${v.view}-${when}.png`;
+			await page.screenshot({ path: resolve(OUT, png) });
+			// near at noon: where the frame's CPU goes, by Chrome's own profiler over the same 3 s
+			const profile = v.view === 'near' && when === 'noon' ? await cpuProfile(page, `${site.name}-near-noon`) : null;
+			r.views[`${v.view}-${when}`] = { settled, at, ...s, png, profile };
+			console.log(`  ${site.name} ${v.view} ${when}: ${s ? line(s) : png}`);
+			if (profile) console.log(`    cpu by function (self ms over 3 s):\n      ${profile.top.slice(0, 15).map((f) => `${f.self.toFixed(0)} ${f.name} ${f.where}`).join('\n      ')}`);
+			r.errors.push(...errors);
+			await ctx.close();
+		}
 	for (const [name, id] of BIOMES) {
 		const { ctx, page, errors } = await open(`${site.url}/biomes/#${id}`);
 		await page.waitForTimeout(45000);
