@@ -40,6 +40,10 @@ import { createKept } from './levels.js';
 import { levelValues } from '../lodcard.js';
 import { prepare } from './prepare.js';
 import { createPresets } from './presets.js';
+import { hasNodeMaterial } from '../../render/core.js';
+
+/** the longest a level waits for its shaders to be made ahead before it is drawn anyway (ms) */
+const WARM_MOST = 4000;
 import { lookByName } from '../look.js';
 import * as TSL from 'three/tsl';
 import { windNodes, windOfCopy, worldSeconds } from '../../render/wind.js';
@@ -494,11 +498,23 @@ export function createAssets(o) {
 	 * while the world loads): each new shader takes the GPU a while to make, and a frame that waits for it stalls the
 	 * view. The coarsest level's for the picture studio too, which lights it otherwise.
 	 */
+	/**
+	 * `object`'s shaders made ahead (three's compileAsync), but never for what a node material draws: three's
+	 * WebGLNodesHandler doesn't make node materials' programs through compile/compileAsync, and on a real GPU (Metal,
+	 * with parallel shader compiling) the promise never settled, so a level waiting on it was never drawn. Those are made
+	 * at their first draw. And never waited on for more than WARM_MOST ms: a level is drawn then, made or not.
+	 * @param {THREE.Object3D} object @param {THREE.Scene} scene
+	 */
+	function warm(object, scene) {
+		if (hasNodeMaterial(object)) return Promise.resolve();
+		return Promise.race([renderer.compileAsync(object, camera, scene).catch(() => {}), new Promise((ok) => setTimeout(ok, WARM_MOST))]);
+	}
+
 	async function compiled(lv, studio) {
 		const scene = worldOf();
 		compiling++;
 		try {
-			if (scene) await Promise.all(lv.meshes.map(({ mesh }) => renderer.compileAsync(mesh, camera, scene)));
+			if (scene) await Promise.all(lv.meshes.map(({ mesh }) => warm(mesh, scene)));
 			if (studio) await pictures.prepare(lv.level);
 		} finally {
 			compiling--;
@@ -741,7 +757,7 @@ export function createAssets(o) {
 		group.add(tree);
 		const scene = worldOf();
 		compiling++;
-		(scene ? renderer.compileAsync(tree, camera, scene) : Promise.resolve())
+		(scene ? warm(tree, scene) : Promise.resolve())
 			.catch(() => {})
 			.finally(() => {
 				compiling--;
