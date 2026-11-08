@@ -32,4 +32,4 @@ for r in meadow_2 autumn_meadow; do
   done
 done
 du -sh "$OUT"/*
-echo "Commit $OUT and push it on this branch: git add intent-work/090168c8-render/out && git commit -m '090168c8 c7 c8: the Mac render' && git push"
+echo "Push $OUT to the branch intent-work/090168c8-render (as every job's results), never onto intent/090168c8-real-grass: no frame reaches main"

@@ -21,7 +21,8 @@ bash intent-work/090168c8-render/run.sh
 - **Where it shoots:** the meadow. That is the most grassy 12 m round Sandbox 1's near view (0, 95), found from the
   grass's own mask; its place is printed and kept in `results.json`.
 
-**Out**, in `intent-work/090168c8-render/out/` (commit and push it on this branch; the full frames stay in
+**Out**, in `intent-work/090168c8-render/out/` (pushed by the Mac to the branch `intent-work/090168c8-render`, as every
+job's is, never onto the pull request's branch, so no frame reaches main; the full frames stay in
 `~/090168c8-work`):
 
 - `noon-walk.jpg`, `noon-up2.jpg`, `sun8-walk.jpg`, `sun8-up2.jpg`: the meadow at 1440 × 900.
