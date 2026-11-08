@@ -24,6 +24,7 @@
  */
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import { precompile } from '$lib/content/render/core.js'
 import { flagstone, groundCover, leaves, limestone, oak, soil, water } from './textures'
 import { cafes, coops, coopsAround, henPatches, rabbitPatches, squaresAround, type Kit } from './spaces'
 import { antHills, apiary, fishes, herd, TANK_FISH } from './animals'
@@ -2496,7 +2497,7 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 		const log = (window as unknown as { __buildLog?: string[] }).__buildLog
 		let tt = performance.now()
 		scene.updateMatrixWorld(true)
-		await renderer.compileAsync(scene, camera, host.scene)
+		await precompile(renderer, scene, camera, host.scene)
 		log?.push(`compile ${Math.round(performance.now() - tt)}ms`)
 		tt = performance.now()
 		const textures = new Set<THREE.Texture>()

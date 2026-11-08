@@ -203,8 +203,25 @@ export function adaptiveResolution(renderer, { top = topPixelRatio(), floor = 1,
  * @param {THREE.Scene} [scene]
  */
 export async function precompile(renderer, object, camera, scene) {
+	// node materials (TSL) are left out: three's compileAsync can wait on them forever under WebGLNodesHandler; they
+	// compile as they are first drawn. Hidden only while compile walks the scene (it runs before the first await)
+	/** @type {THREE.Object3D[]} */
+	const hidden = [];
+	object.traverseVisible((o) => {
+		const m = /** @type {THREE.Mesh} */ (o).material;
+		if (m && (Array.isArray(m) ? m : [m]).some((x) => /** @type {any} */ (x).isNodeMaterial)) hidden.push(o);
+	});
+	for (const o of hidden) o.visible = false;
+	let done;
 	try {
-		await renderer.compileAsync(object, camera, scene);
+		done = renderer.compileAsync(object, camera, scene);
+	} catch {
+		/* drawn as usual */
+	} finally {
+		for (const o of hidden) o.visible = true;
+	}
+	try {
+		await done;
 	} catch {
 		/* drawn as usual */
 	}
