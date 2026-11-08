@@ -1,0 +1,34 @@
+[head] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[head] Error: BatteryPack: BatteryPack: the box could not build it (no asset machines/batterypack@12:batterypack)
+    at vaultBuild (http://localhost:5182/src/lib/content/assets/sources/viewer.js:85:9)
+    at async Module.track_reactivity_loss (http://localhost:5182/node_modules/.vite/deps/runtime-Do_u7Ssq
+cut candidate batterypack: built false, capped materials 0
+[head] pageerror ReferenceError: free is not defined
+
+	in <unknown>
+	in Frame.svelte
+	in AssetLibrary.svelte
+	in +page.svelte
+	in +layout.svelte
+	in root.svelte
+	in undefined
+
+cut candidate batterycube: built false, capped materials 0
+cut candidate electrocube: built false, capped materials 0
+cut candidate forklift: built false, capped materials 0
+cut candidate lifetrac: built false, capped materials 0
+cut candidate excavator-small: built false, capped materials 0
+cut candidate pod: built false, capped materials 0
+cut candidate powercube: built false, capped materials 0
+cut candidate pickup: built false, capped materials 0
+cut open: none built with caps
+[head] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[head] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[head] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+┌───┬──────┬────────────────┬──────┬─────────┬────────────────────┐
+│   │ site │ shot           │ ok   │ frameMs │ frameP95           │
+├───┼──────┼────────────────┼──────┼─────────┼────────────────────┤
+│ 0 │ head │ walnut         │ true │ 20.7    │ 33.399999999999636 │
+│ 1 │ head │ goat           │ true │ 16.67   │ 16.799999999999272 │
+│ 2 │ head │ water-canister │ true │ 16.67   │ 16.799999999999272 │
+└───┴──────┴────────────────┴──────┴─────────┴────────────────────┘

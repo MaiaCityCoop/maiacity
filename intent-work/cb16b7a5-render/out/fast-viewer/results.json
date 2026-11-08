@@ -1,0 +1,29 @@
+[
+ {
+  "site": "head",
+  "shot": "walnut",
+  "ok": true,
+  "frames": 289,
+  "frameMs": 20.7,
+  "frameP95": 33.399999999999636,
+  "png": "/Users/samuelandert/Documents/Development/scb16-render/intent-work/cb16b7a5-render/out/fast-viewer/head-walnut.png"
+ },
+ {
+  "site": "head",
+  "shot": "goat",
+  "ok": true,
+  "frames": 359,
+  "frameMs": 16.67,
+  "frameP95": 16.799999999999272,
+  "png": "/Users/samuelandert/Documents/Development/scb16-render/intent-work/cb16b7a5-render/out/fast-viewer/head-goat.png"
+ },
+ {
+  "site": "head",
+  "shot": "water-canister",
+  "ok": true,
+  "frames": 358,
+  "frameMs": 16.67,
+  "frameP95": 16.799999999999272,
+  "png": "/Users/samuelandert/Documents/Development/scb16-render/intent-work/cb16b7a5-render/out/fast-viewer/head-water-canister.png"
+ }
+]
