@@ -42,6 +42,12 @@ export function fakeGL() {
 		checkFramebufferStatus: () => 0x8cd5,
 		isContextLost: () => false
 	};
+	// as a browser: a vector or matrix uniform takes a sequence of numbers, else it throws
+	for (const f of ['uniform1fv', 'uniform2fv', 'uniform3fv', 'uniform4fv', 'uniform1iv', 'uniform2iv', 'uniform3iv', 'uniform4iv', 'uniform1uiv', 'uniformMatrix2fv', 'uniformMatrix3fv', 'uniformMatrix4fv'])
+		target[f] = (loc, ...a) => {
+			const v = f.startsWith('uniformMatrix') ? a[1] : a[0];
+			if (v === null || typeof v !== 'object' || typeof v.length !== 'number') throw new TypeError(`Failed to execute '${f}' on 'WebGL2RenderingContext': The provided value cannot be converted to a sequence (${loc?.name}).`);
+		};
 	const gl = new Proxy(target, {
 		get(t, k) {
 			if (k in t) return t[k];
