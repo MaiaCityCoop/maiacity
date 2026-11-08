@@ -15,6 +15,7 @@
 import * as THREE from 'three';
 import { dualQuaternionSkinning } from '$lib/content/actors/dqs.ts';
 import { FORMAT, LIGHTS, MATERIALS } from './serialize.js';
+import { lookOf } from '../look.js';
 import { LIGHT, MAT } from './bake.js';
 import { MOVE_SAMPLES } from './view.js';
 import { budget, released } from '$lib/content/render/budget.js';
@@ -26,8 +27,8 @@ import { budget, released } from '$lib/content/render/budget.js';
  */
 export const BUDGET = { nodes: 20000, geometries: 20000, materials: 2000, textures: 2000, images: 64, texturePixels: 4096, tris: 2_000_000, vertices: 4_000_000, instances: 100_000, controls: 32, controlNumbers: 8_000_000, bones: 1024, lights: 64, clipNumbers: 8_000_000 };
 
-/** the formats it reads: engine 1's, engine 2's, engine 3's, engine 4's and the one ./serialize.js writes now */
-export const FORMATS = [0, 1, 2, 3, FORMAT];
+/** the formats it reads: engine 1's, engine 2's, engine 3's, engine 4's, engine 5's and the one ./serialize.js writes now */
+export const FORMATS = [0, 1, 2, 3, 4, FORMAT];
 
 const ARRAYS = [Float32Array, Uint8Array, Uint16Array, Uint32Array, Int8Array, Int16Array, Int32Array];
 const fail = (why) => {
@@ -177,7 +178,7 @@ function letPicturesGo(images, tex) {
 	}
 }
 
-function material(x, i, textures) {
+function material(x, i, textures, format) {
 	if (!MATERIALS.includes(x.type)) fail(`material ${i}: no kind ${String(x.type).slice(0, 40)}`);
 	const m = new THREE[x.type]();
 	for (const [k, v] of Object.entries(x.params ?? {})) {
@@ -188,6 +189,15 @@ function material(x, i, textures) {
 		else if (typeof m[k] === typeof v && (typeof v === 'number' ? Number.isFinite(v) : typeof v === 'boolean')) m[k] = v;
 	}
 	m.name = String(x.name ?? '').slice(0, 80);
+	// what it is (format 5, ../look.js): checked, an unknown kind or a number out of its range refused; older formats
+	// carry none and are built exactly as before
+	if (format >= 5 && x.look != null) {
+		try {
+			m.userData.look = lookOf(x.look, `material ${i}`);
+		} catch (e) {
+			fail(e.message);
+		}
+	}
 	// it had a shader of its own in the box, which never crosses (the kit's section caps): our renderer gives it ours,
 	// with the cut face it said it has (format 2)
 	if (x.custom === true) m.userData.custom = true;
@@ -213,7 +223,7 @@ export function rebuild(data) {
 	const images = listed.map((x, i) => (data.format === 0 && x === null ? null : image(x, i)));
 	const tex = textures.map((t, i) => texture(data.format === 0 ? { ...t, image: images[i] ? i : null } : t, i, images));
 	letPicturesGo(images, tex);
-	const mats = materials.map((x, i) => material(x, i, tex));
+	const mats = materials.map((x, i) => material(x, i, tex, data.format));
 	const geos = geometries.map(geometry);
 	let vertices = 0;
 	for (const g of geos) vertices += g.attributes.position.count;
