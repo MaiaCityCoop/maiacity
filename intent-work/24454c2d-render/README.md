@@ -1,8 +1,8 @@
 # Mac job: intent 24454c2d's c6, plants placed the way nature places them
 
 This job is for intent 24454c2d-cb35-4ab2-9f7d-82b7b9b0cb3f (GPU 13/14), pull request #2181, branch
-`intent/24454c2d-natural-placement`, at its tip (`ab61d08` when this job was last updated, stacked on intent 5's
-`intent/11ead007-cover-stream` at `e40488c`, which carries intent 2's render kit at 90ef0aee9 and main's census fix). Run it after
+`intent/24454c2d-natural-placement`, at its tip (`419c733` when this job was last updated, stacked on intent 5's
+`intent/11ead007-cover-stream` at `c490ba0`, with main at 3a60bb3: intent 2's render kit and main's census fix). Run it after
 intent 5's job: it measures this intent's masks on top of 5's stream.
 
 **What changed:** a biome with masks places its cover the way nature does, in one pass (`biomes/index.js` `layTile`,
