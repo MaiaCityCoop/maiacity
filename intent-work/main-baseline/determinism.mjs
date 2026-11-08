@@ -18,7 +18,7 @@ export const QUIET = `(() => {
 	const parts = ['out', 'in', 'library'].map((k) => s[k]).filter(Boolean);
 	const all = parts.length ? parts : [s];
 	const busy = all.reduce((a, p) => a + (p.building ?? 0) + (p.keeping ?? 0), 0);
-	const taken = all.reduce((a, p) => a + (p.taken ?? 0) + (p.pictures ?? 0) * 0, 0);
+	const taken = all.reduce((a, p) => a + (p.taken ?? 0), 0);
 	const changed = window.__quietTaken !== taken;
 	window.__quietTaken = taken;
 	return busy + (changed ? 1 : 0);
