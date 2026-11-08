@@ -1,18 +1,17 @@
 GPU: ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version) · GPU timer offered
 base sandbox-1 settled
-  base near noon: frame 24.00 (p95 33.40) · cpu 14.70 · gpu 15.80 · 1785 calls · 3,271,783 tris · bound gpu · textures 252 MiB
+  base near noon: frame 25.60 (p95 33.40) · cpu 16.50 · gpu 17.00 · 1785 calls · 3,271,783 tris · bound gpu · textures 252 MiB
   base near sun10: base-sandbox-1-near-sun10.png
-  base mid noon: frame 16.70 (p95 16.80) · cpu 10.00 · gpu 1.10 · 1755 calls · 5,170,208 tris · bound vsync · textures 253 MiB
+  base mid noon: frame 16.70 (p95 16.80) · cpu 9.80 · gpu 0.50 · 1755 calls · 5,168,455 tris · bound vsync · textures 253 MiB
   base mid sun10: base-sandbox-1-mid-sun10.png
   base errors:
     Failed to load resource: the server responded with a status of 401 (Unauthorized)
 head sandbox-1 settled
-  head near noon: frame 0.00 (p95 0.00) · cpu 0.00 · gpu – · 0 calls · 0 tris · bound null · textures 232 MiB
+  head near noon: frame 31.40 (p95 49.90) · cpu 26.80 · gpu 19.60 · 1785 calls · 3,394,546 tris · bound cpu · textures 279 MiB
   head near sun10: head-sandbox-1-near-sun10.png
-  head mid noon: frame 0.00 (p95 0.00) · cpu 0.00 · gpu – · 0 calls · 0 tris · bound null · textures 232 MiB
+  head mid noon: frame 16.70 (p95 16.70) · cpu 12.20 · gpu 0.30 · 1755 calls · 5,291,689 tris · bound vsync · textures 280 MiB
   head mid sun10: head-sandbox-1-mid-sun10.png
-  head small near: frame 0.00 (p95 0.00) · cpu 0.00 · gpu – · 0 calls · 0 tris · bound null · textures 87 MiB
+  head small near: frame 17.00 (p95 16.80) · cpu 10.40 · gpu 8.40 · 1187 calls · 2,903,139 tris · bound vsync · textures 108 MiB
   head errors:
     Failed to load resource: the server responded with a status of 401 (Unauthorized)
-    TypeError: Cannot read properties of undefined (reading 'replace')
-near at noon: head 0.00 ms vs base 24.00 ms (+-24.00; at most +1.5) · textures head 232 MiB (at most 330), base 252 MiB
+near at noon: head 31.40 ms vs base 25.60 ms (+5.80; at most +1.5) · textures head 279 MiB (at most 330), base 252 MiB

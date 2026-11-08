@@ -1,20 +1,20 @@
 {
  "intent": "db87a28f-2d3a-41d9-8a2b-40314fdb2d40",
  "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
- "at": "2026-11-08T14:37:54.954Z",
+ "at": "2026-11-08T14:58:07.594Z",
  "commits": {
   "base": "f93ccba7a4bec2544ab92c859770bde5d96c121d",
-  "head": "eaffe9fbc1e89b3c2afcc77b578aaea9e56c5a25"
+  "head": "bebff0fc4e1023e8ab1ab7b2553d1b2d75f58610"
  },
  "sites": {
   "base": {
    "views": {
     "near-noon": {
      "settled": true,
-     "frame_ms": 24,
+     "frame_ms": 25.6,
      "frame_p95": 33.4,
-     "cpu_ms": 14.7,
-     "gpu_ms": 15.8,
+     "cpu_ms": 16.5,
+     "gpu_ms": 17,
      "calls": 1785,
      "tris": 3271783,
      "bound": "gpu",
@@ -29,10 +29,10 @@
      "settled": true,
      "frame_ms": 16.7,
      "frame_p95": 16.8,
-     "cpu_ms": 10,
-     "gpu_ms": 1.1,
+     "cpu_ms": 9.8,
+     "gpu_ms": 0.5,
      "calls": 1755,
-     "tris": 5170208,
+     "tris": 5168455,
      "bound": "vsync",
      "texture_mib": 253,
      "png": "base-sandbox-1-mid-noon.png"
@@ -62,14 +62,14 @@
    "views": {
     "near-noon": {
      "settled": true,
-     "frame_ms": 0,
-     "frame_p95": 0,
-     "cpu_ms": 0,
-     "gpu_ms": null,
-     "calls": 0,
-     "tris": 0,
-     "bound": null,
-     "texture_mib": 232,
+     "frame_ms": 31.4,
+     "frame_p95": 49.9,
+     "cpu_ms": 26.8,
+     "gpu_ms": 19.6,
+     "calls": 1785,
+     "tris": 3394546,
+     "bound": "cpu",
+     "texture_mib": 279,
      "png": "head-sandbox-1-near-noon.png"
     },
     "near-sun10": {
@@ -78,14 +78,14 @@
     },
     "mid-noon": {
      "settled": true,
-     "frame_ms": 0,
-     "frame_p95": 0,
-     "cpu_ms": 0,
-     "gpu_ms": null,
-     "calls": 0,
-     "tris": 0,
-     "bound": null,
-     "texture_mib": 232,
+     "frame_ms": 16.7,
+     "frame_p95": 16.7,
+     "cpu_ms": 12.2,
+     "gpu_ms": 0.3,
+     "calls": 1755,
+     "tris": 5291689,
+     "bound": "vsync",
+     "texture_mib": 280,
      "png": "head-sandbox-1-mid-noon.png"
     },
     "mid-sun10": {
@@ -96,31 +96,29 @@
    "biomes": {
     "food-forest": {
      "png": "head-biome-food-forest.png",
-     "texture_mib": 157
+     "texture_mib": 151
     },
     "beech-forest": {
      "png": "head-biome-beech-forest.png",
-     "texture_mib": 157
+     "texture_mib": 151
     }
    },
    "errors": [
     "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
     "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
-    "TypeError: Cannot read properties of undefined (reading 'replace')",
     "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
     "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
-    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
-    "TypeError: Cannot read properties of undefined (reading 'replace')"
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
    ],
    "small": {
-    "frame_ms": 0,
-    "frame_p95": 0,
-    "cpu_ms": 0,
-    "gpu_ms": null,
-    "calls": 0,
-    "tris": 0,
-    "bound": null,
-    "texture_mib": 87,
+    "frame_ms": 17,
+    "frame_p95": 16.8,
+    "cpu_ms": 10.4,
+    "gpu_ms": 8.4,
+    "calls": 1187,
+    "tris": 2903139,
+    "bound": "vsync",
+    "texture_mib": 108,
     "png": "head-sandbox-1-near-small.png"
    }
   }
