@@ -41,4 +41,12 @@ describe('the render core holds', () => {
 	test('tone mapping and exposure are set only through the core', () => {
 		expect(outside(/\.toneMapping(Exposure)?\s*=[^=]/, [CORE])).toEqual([]);
 	});
+	// three's WebGLNodesHandler builds a node material only as it is drawn: a compileAsync over one never resolves and the
+	// world draws nothing, so every warm-up goes through the core's precompile, which leaves node materials to their
+	// first frame (intent 602a8849). The render kit's three (assets/stage.js, render/impostors.js, render/index.js)
+	// compile only three's own materials until intent cb16b7a5 routes them through it.
+	test('every warm-up is the core’s precompile', () => {
+		const KIT = ['lib/content/assets/stage.js', 'lib/content/assets/render/impostors.js', 'lib/content/assets/render/index.js'];
+		expect(outside(/compileAsync\(/, [CORE, ...KIT])).toEqual([]);
+	});
 });
