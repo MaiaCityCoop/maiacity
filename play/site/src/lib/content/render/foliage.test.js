@@ -47,12 +47,11 @@ const leafMaterial = () => {
 
 describe('a leaf drawn by its look', () => {
 	test('is two-sided and cut out, never blended, its colour kept', () => {
-		const m = foliageOf(leafMaterial(), { kind: 'leaf' }, { top: 2 });
+		const m = foliageOf(leafMaterial(), { kind: 'leaf' }, {});
 		expect(m.side).toBe(THREE.DoubleSide);
 		expect(m.transparent).toBe(false);
 		expect(m.alphaTest).toBe(0.5);
 		expect(m.color.getHex()).toBe(0x3f7a2a);
-		expect(m.top.value).toBe(2);
 		expect(m.look).toMatchObject({ kind: 'leaf', translucency: 0.6 });
 	});
 
@@ -62,7 +61,7 @@ describe('a leaf drawn by its look', () => {
 
 	test('compiles: the wind bends it in the vertex stage, the backlight lights it in the fragment stage', () => {
 		const wind = windNodes(tsl, { strength: 0.7 });
-		const { vertex, fragment } = draw(foliageOf(leafMaterial(), { kind: 'leaf' }, { top: 1, wind }));
+		const { vertex, fragment } = draw(foliageOf(leafMaterial(), { kind: 'leaf' }, { wind }));
 		expect(vertex).toMatch(/aWind/);
 		expect(vertex).toMatch(/vFoliageHeight/);
 		expect(fragment).toMatch(/vFoliageHeight/);
@@ -72,7 +71,7 @@ describe('a leaf drawn by its look', () => {
 	test('a look the wind does not move (stone) and a material with no look compile without it', () => {
 		const wind = windNodes(tsl);
 		const stone = new THREE.MeshStandardMaterial({ color: 0x888888 });
-		const { vertex } = draw(foliageOf(stone, { kind: 'stone' }, { top: 1, wind }));
+		const { vertex } = draw(foliageOf(stone, { kind: 'stone' }, { wind }));
 		expect(vertex).not.toMatch(/aWind/);
 		const plain = foliageOf(stone, null);
 		expect(plain.look).toBeNull();
@@ -81,9 +80,9 @@ describe('a leaf drawn by its look', () => {
 	});
 
 	test('two looks are two programs, the same look one', () => {
-		const a = foliageOf(leafMaterial(), { kind: 'leaf' }), b = foliageOf(leafMaterial(), { kind: 'leaf' }), c = foliageOf(leafMaterial(), { kind: 'grass' });
-		const look = (m) => m.customProgramCacheKey().split('|look:')[1];
-		expect(look(a)).toBe(look(b));
-		expect(look(a)).not.toBe(look(c));
+		const wind = windNodes(tsl);
+		const a = foliageOf(leafMaterial(), { kind: 'leaf' }, { wind }), b = foliageOf(leafMaterial(), { kind: 'leaf' }, { wind }), c = foliageOf(leafMaterial(), { kind: 'grass' }, { wind });
+		expect(a.customProgramCacheKey()).toBe(b.customProgramCacheKey());
+		expect(a.customProgramCacheKey()).not.toBe(c.customProgramCacheKey());
 	});
 });

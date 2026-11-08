@@ -90,8 +90,8 @@ describe('each plant its own phase', () => {
 
 	test('two plants side by side sway apart', () => {
 		const w = windOf({ gust: 0 });
-		const a = windOfCopy(1, 1, 3), b = windOfCopy(1.5, 1, 3);
-		const ca = { x: a[0], z: a[1], phase: a[2], height: a[3] }, cb = { x: b[0], z: b[1], phase: b[2], height: b[3] };
+		const of = ([x, , z, height]) => ({ x, z, phase: phaseOf(x, z), height });
+		const ca = of(windOfCopy(1, 0, 1, 3)), cb = of(windOfCopy(1.5, 0, 1, 3));
 		expect(leanAt(w, ca, 1, 1)).not.toBeCloseTo(leanAt(w, cb, 1, 1), 4);
 	});
 });
@@ -185,7 +185,7 @@ describe('in TSL', () => {
 		expect(n.uniforms.strength.value).toBe(0.2);
 		n.tick(12);
 		expect(n.uniforms.time.value).toBe(12);
-		const node = n.positionOf({ stiffness: 1, flutter: 0.6, local: tsl.positionLocal, top: 2 });
+		const node = n.positionOf({ stiffness: 1, flutter: 0.6 });
 		expect(node?.isNode).toBe(true);
 	});
 });

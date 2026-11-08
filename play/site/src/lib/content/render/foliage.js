@@ -4,11 +4,11 @@
  * (its `look`, ../assets/look.js) is drawn with, in TSL, on top of any node material (`foliage(Base)`), so it carries to
  * WebGPU unchanged and sits on the render kit's own (./nodes, intent cb16b7a5) as on three's:
  *
- * - **Wind** (./wind.js): the point as it was before instancing (the plant's own frame, its foot at y 0) is bent by the
- *   world's one wind after instancing, by the look's stiffness and flutter; a stone never moves.
+ * - **Wind** (./wind.js): each copy's points bent by the world's one wind after instancing, by its foot and height
+ *   (`aWind`, per copy) and the look's stiffness and flutter; a stone never moves.
  * - **Crowns bent outward**: a leaf's or petal's normal turned toward the outside of its crown (about 0.6 of its height
- *   up), a blade of grass's toward the sky, before instancing, so a crown is lit as one round mass and not leaf by
- *   leaf (the trick every game's trees use).
+ *   up), a blade of grass's toward the sky, so a crown is lit as one round mass and not leaf by leaf (the trick every
+ *   game's trees use).
  * - **Root to tip**: darker toward the foot (the light a crown or a sward keeps from its own inside).
  * - **Wrap diffuse and a backlight lobe** (Frostbite's translucency, Barré-Brisebois and Bouchard 2011): light wrapped a
  *   little past the terminator, and, with the sun behind it, light through it toward the eye, stronger at the tips,
@@ -19,7 +19,7 @@
  */
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { abs, clamp, diffuseColor, dot, float, max, mix, normalLocal, normalView, normalize, positionLocal, positionViewDirection, pow, uniform, varying, vec3 } from 'three/tsl';
+import { abs, clamp, diffuseColor, dot, float, mix, normalLocal, normalView, normalize, positionLocal, positionViewDirection, pow, select, varying, vec3 } from 'three/tsl';
 import { THIN, lookOf } from '../assets/look.js';
 import { windLook } from './wind.js';
 
@@ -53,34 +53,35 @@ const translucent = (Model, translucency, height) =>
 	};
 
 /**
- * A node material class with a look on top: `look` (checked, ../assets/look.js), `top` (the plant's height in its own
- * frame) and `wind` (./wind.js `windNodes`, the world's) set on it before it is first drawn.
+ * A node material class with a look on top: `look` (checked, ../assets/look.js) and `wind` (./wind.js `windNodes`, the
+ * world's) set on it before it is first drawn; its copies carry `aWind` (their foot and height). Without a wind, or on
+ * a mesh whose copies carry none, it is drawn as its base.
  * @template {new (...a: any[]) => any} B @param {B} Base
  */
 export const foliage = (Base) =>
 	class extends Base {
 		/** @type {ReturnType<typeof lookOf>} */ look = null;
 		/** @type {any} */ wind = null;
-		top = uniform(1);
 		/** the height on the plant, 0 foot … 1 tip, from the vertex to the fragment */
 		#height = null;
 
 		setupPosition(builder) {
-			const look = this.look;
-			if (!look) return super.setupPosition(builder);
-			const top = this.top;
-			const local = vec3(positionLocal).toVar('foliageLocal');
-			const f = clamp(local.y.div(max(top, 1e-4)), 0, 1);
-			this.#height = varying(f, 'vFoliageHeight');
-			if (look.kind === 'leaf' || look.kind === 'petal') {
-				const out = normalize(local.sub(vec3(0, top.mul(CROWN), 0)).add(vec3(0, 1e-4, 0)));
-				normalLocal.assign(normalize(mix(normalLocal, out, ROUND)));
-			} else if (look.kind === 'grass') {
-				normalLocal.assign(normalize(mix(normalLocal, vec3(0, 1, 0), 0.6)));
-			}
 			const out = super.setupPosition(builder);
+			const look = this.look;
+			// a stone is drawn as it is: no wind, no crown, no glow
+			if (!look || !this.wind || look.kind === 'stone') return out;
+			// after instancing, in the mesh's own frame: the copy's foot and height (./wind.js `copyOf`)
+			const { foot, height, f } = this.wind.copyOf();
+			this.#height = varying(f, 'vFoliageHeight');
+			const lit = height.greaterThan(0);
+			if (look.kind === 'leaf' || look.kind === 'petal') {
+				const outward = normalize(positionLocal.sub(foot.add(vec3(0, height.mul(CROWN), 0))).add(vec3(0, 1e-4, 0)));
+				normalLocal.assign(select(lit, normalize(mix(normalLocal, outward, ROUND)), normalLocal));
+			} else if (look.kind === 'grass') {
+				normalLocal.assign(select(lit, normalize(mix(normalLocal, vec3(0, 1, 0), 0.6)), normalLocal));
+			}
 			const w = windLook(look);
-			if (w && this.wind) positionLocal.assign(this.wind.positionOf({ stiffness: w.stiffness, flutter: w.flutter, local, top }));
+			if (w) positionLocal.assign(this.wind.positionOf(w));
 			return out;
 		}
 
@@ -98,13 +99,13 @@ export const foliage = (Base) =>
 
 		customProgramCacheKey() {
 			const l = this.look;
+			// (the wind's uniforms are the world's, shared: one program a look)
 			return super.customProgramCacheKey() + (l ? `|look:${l.kind}:${l.translucency}:${l.stiffness}:${l.flutter}:${this.wind ? 'w' : ''}` : '');
 		}
 
 		copy(source) {
 			super.copy(source);
 			for (const k of ['look', 'wind']) if (k in source) this[k] = source[k];
-			if (source.top?.isNode) this.top.value = source.top.value;
 			return this;
 		}
 	};
@@ -114,11 +115,11 @@ export const FoliageMaterial = foliage(MeshStandardNodeMaterial);
 
 /**
  * A material the page has, drawn with a look: its settings carried over onto a FoliageMaterial; thin looks two-sided
- * and cut out (alphaTest, never blended). `look` checked (an unknown kind throws), `top` the plant's height in its own
- * frame, `wind` the world's (./wind.js `windNodes`), or none for a still one.
- * @param {THREE.MeshStandardMaterial} material @param {unknown} look @param {{ top?: number, wind?: any }} [o]
+ * and cut out (alphaTest, never blended). `look` checked (an unknown kind throws), `wind` the world's (./wind.js
+ * `windNodes`), or none for a still one.
+ * @param {THREE.MeshStandardMaterial} material @param {unknown} look @param {{ wind?: any }} [o]
  */
-export function foliageOf(material, look, { top = 1, wind = null } = {}) {
+export function foliageOf(material, look, { wind = null } = {}) {
 	const l = lookOf(look, material.name || 'material');
 	const m = new FoliageMaterial();
 	for (const k of ['color', 'emissive']) if (material[k]?.isColor) m[k].copy(material[k]);
@@ -130,7 +131,6 @@ export function foliageOf(material, look, { top = 1, wind = null } = {}) {
 	m.side = material.side;
 	m.transparent = material.transparent;
 	m.look = l;
-	m.top.value = Math.max(1e-4, top);
 	m.wind = wind;
 	if (l && THIN.includes(l.kind)) {
 		m.side = THREE.DoubleSide;
