@@ -20,30 +20,25 @@ const N = SETS.length;
 /** each surface's patch size, its scan's tile (m), rows and track, set by ../../biomes/surfaces.js (its `SURFACE`) */
 export const PER = { patch: uniformArray(new Array(N).fill(5), 'float'), size: uniformArray(SETS.map((s) => s.size), 'float'), rows: uniformArray(new Array(N).fill(0), 'float'), track: uniformArray(Array.from({ length: N }, () => new THREE.Color(0.5, 0.5, 0.5)), 'color') };
 const mean = uniformArray(SETS.map((s) => new THREE.Color(...s.mean)), 'color');
-/** which layer of the arrays each surface is (a surface is put in once a material needs it) */
-const layer = uniformArray(new Array(N).fill(0), 'float');
 const maps = /** @type {const} */ (['albedo', 'normal', 'ar']);
 const tex = Object.fromEntries(maps.map((k) => [k, texture(arrayOf([], { srgb: k === 'albedo' }))]));
-/** @type {number[]} the surfaces in the arrays, in layer order */
-const inArrays = [];
 /** @type {Set<THREE.Material>} */
 const drawn = new Set();
 
-/** the arrays hold these surfaces too (by index), read again with them once they are new */
-function need(/** @type {number[]} */ list) {
-	const fresh = list.filter((i) => !inArrays.includes(i));
-	if (!fresh.length) return;
-	inArrays.push(...fresh);
+/** every surface's maps read once, a layer each in SURFACES' order, when the first ground is made: never read again,
+ * so no ground is rebuilt as worlds and domes come and go */
+let loading = false;
+function need() {
+	if (loading) return;
+	loading = true;
 	const px = budget().small ? 1024 : 2048;
-	const order = [...inArrays];
 	let left = maps.length;
 	for (const k of maps)
-		arrayOf(order.map((i) => SETS[i].maps[k][k === 'albedo' ? px : 1024]), {
+		arrayOf(SETS.map((s) => s.maps[k][k === 'albedo' ? px : 1024]), {
 			srgb: k === 'albedo',
 			onReady: (t) => {
 				tex[k].value = t;
 				if (--left) return;
-				order.forEach((s, l) => (layer.array[s] = l));
 				for (const m of drawn) m.needsUpdate = true;
 			}
 		});
@@ -51,8 +46,8 @@ function need(/** @type {number[]} */ list) {
 
 /** surface s's colour at st (its tiles), one plain read @param {number} s @param {any} st */
 export function surfaceRead(s, st) {
-	need([s]);
-	return tex.albedo.sample(st).depth(int(layer.element(s))).xyz;
+	need();
+	return tex.albedo.sample(st).depth(s).xyz;
 }
 
 /* the biomes' value noise, as ../../biomes/noise.js has it */
@@ -76,7 +71,7 @@ const turn = (v, c, s) => vec2(v.x.mul(c).add(v.y.mul(s)), v.y.mul(c).sub(v.x.mu
  * @returns {{ alb: any, nrm: any, ar: any }} colour and height, the normal (tangent space), AO and roughness
  */
 function surfaceAt(s, st, spin, d) {
-	const l = int(layer.element(s));
+	const l = int(s);
 	const alb = vec4(mean.element(s), 0.5).toVar(), nrm = vec3(0, 0, 1).toVar(), ar = vec2(1, 0.95).toVar();
 	const gx = dFdx(st), gy = dFdy(st);
 	const read = (k, uv, dx, dy) => tex[k].sample(uv).grad(dx, dy).depth(l);
@@ -127,13 +122,11 @@ export function groundNodes(weights, o) {
 	/** the world's ground map (R shade, G wet) and the rectangle of the world it covers (x, z, width, depth) */
 	const map = texture(new THREE.DataTexture(new Uint8Array(4), 1, 1)), rect = uniform(new THREE.Vector4(0, 0, 1, 1));
 	const m = new MeshStandardNodeMaterial({ metalness: 0 });
-	const has = () => o.names.map((s, i) => ((W.array[i] ?? 0) > 0 ? i : -1)).filter((i) => i >= 0);
-	need(has());
+	need();
 	drawn.add(m);
 	m.addEventListener('dispose', () => drawn.delete(m));
 	m.userData.weigh = (/** @type {Record<string, number>} */ w) => {
 		o.names.forEach((s, i) => (W.array[i] = w[s] ?? 0));
-		need(has());
 	};
 	m.userData.rows = (a) => dir.value.set(Math.cos(a), Math.sin(a));
 	m.userData.rows(o.rows ?? 0);
