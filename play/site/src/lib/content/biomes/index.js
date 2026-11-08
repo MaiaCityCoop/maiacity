@@ -20,7 +20,7 @@ import * as THREE from 'three';
 import { COVER } from './cover.js';
 import { SURFACES, inTrack, surfacesAt } from './surfaces.js';
 import { fbm2, rng } from './noise.js';
-import { MASKS, canopyAt, maskAt, reliefAt, tintAt, trunksNear } from './masks.js';
+import { MASKS, canopyOf, maskAt, reliefAt, tintAt, trunksNear } from './masks.js';
 import { versioned } from '$lib/site/app/versions.js';
 
 export { COVER } from './cover.js';
@@ -393,17 +393,19 @@ function layMasked(recipe, ix, iz, o) {
 	/** @type {number[]} */
 	const pads = layers.map(() => 0);
 	for (let i = layers.length - 2; i >= 0; i--) pads[i] = /** @type {number} */ (pads[i + 1]) + /** @type {Layer} */ (layers[i]).f;
-	const reach = (pads[0] ?? 0) + Math.max(...recipe.cover.map((c) => (c.ring?.[1] ?? 0)), 0) + masks.band * 2;
-	const trunks = o.trunks ? trunksNear(o.trunks, x0 - reach, z0 - reach, x1 + reach, z1 + reach, masks.band * 2) : undefined;
+	const ringOut = Math.max(...recipe.cover.map((c) => c.ring?.[1] ?? 0), 0), reach = (pads[0] ?? 0) + ringOut + masks.band * 2;
+	const canopy = o.trunks ? canopyOf(trunksNear(o.trunks, x0 - reach, z0 - reach, x1 + reach, z1 + reach, masks.band * 2), masks.band, ringOut) : null;
 	/** the places taken so far, by the layers before (larger), on a grid of 2 m for looking them up */
-	/** @type {Map<string, number[]>} */
+	/** @type {Map<number, number[]>} */
 	const taken = new Map();
-	const cellOf = (/** @type {number} */ x, /** @type {number} */ z) => `${Math.floor(x / 2)},${Math.floor(z / 2)}`;
+	const key2 = (/** @type {number} */ i, /** @type {number} */ j) => (i + 32768) * 65536 + j + 32768;
+	const cellOf = (/** @type {number} */ x, /** @type {number} */ z) => key2(Math.floor(x / 2), Math.floor(z / 2));
 	const clearOfTaken = (/** @type {number} */ x, /** @type {number} */ z, /** @type {number} */ f) => {
+		if (!taken.size) return true;
 		const gx = Math.floor(x / 2), gz = Math.floor(z / 2);
 		for (let i = gx - 2; i <= gx + 2; i++)
 			for (let j = gz - 2; j <= gz + 2; j++) {
-				const list = taken.get(`${i},${j}`);
+				const list = taken.get(key2(i, j));
 				if (!list) continue;
 				for (let n = 0; n < list.length; n += 3) {
 					const d = 0.3 * (f + /** @type {number} */ (list[n + 2]));
@@ -428,7 +430,7 @@ function layMasked(recipe, ix, iz, o) {
 		/** @type {{ rank: number, m: THREE.Matrix4, tint: number[] }[]} */ (at[k]).push({ rank, m, tint: tintAt(masks, x + ox, z + oz) });
 	};
 	/** each kind's weight at a point (its colonies times its masks), from the canopy and relief there */
-	const here = (/** @type {number} */ x, /** @type {number} */ z) => ({ canopy: canopyAt(trunks, x, z, masks.band), relief: reliefAt(o.heightAt, x, z), surfaces: surfacesAt(recipe.surface, x + ox, z + oz) });
+	const here = (/** @type {number} */ x, /** @type {number} */ z) => ({ canopy: canopy ? canopy(x, z) : null, relief: reliefAt(o.heightAt, x, z), surfaces: surfacesAt(recipe.surface, x + ox, z + oz) });
 	const weight = (/** @type {number} */ k, /** @type {ReturnType<typeof here>} */ h, /** @type {number} */ x, /** @type {number} */ z) => {
 		const c = /** @type {Colony} */ (recipe.cover[k]);
 		const f = fbm2((x + ox) / c.colony + k * 9.7 + 3.1, (z + oz) / c.colony - k * 5.3);

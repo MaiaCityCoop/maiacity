@@ -63,15 +63,43 @@ export function trunksNear(trunks, x0, z0, x1, z1, pad) {
  * @param {Trunk[] | undefined} trunks @param {number} x @param {number} z @param {number} band
  */
 export function canopyAt(trunks, x, z, band) {
-	if (!trunks) return null;
-	let edge = -Infinity, trunk = Infinity;
+	return trunks ? canopyOf(trunks, band, 0)(x, z) : null;
+}
+
+/**
+ * The canopy's sums as a lookup over many points (`canopyAt`'s): the trunks kept on a grid, each point looking only
+ * at those whose crown, edge band or ring (out to `ring` metres) could reach it; further off it lies in the open sun.
+ * @param {Trunk[]} trunks @param {number} band @param {number} ring
+ * @returns {(x: number, z: number) => { edge: number, trunk: number, shade: number, band: number }}
+ */
+export function canopyOf(trunks, band, ring) {
+	const crown = trunks.reduce((m, t) => Math.max(m, t.r), 0);
+	const look = Math.max(crown + band * 2, ring), cell = Math.max(2, look);
+	let gx0 = Infinity, gz0 = Infinity, gx1 = -Infinity, gz1 = -Infinity;
 	for (const t of trunks) {
-		const d = Math.hypot(x - t.x, z - t.z);
-		if (t.r - d > edge) edge = t.r - d;
-		if (d < trunk) trunk = d;
+		gx0 = Math.min(gx0, Math.floor(t.x / cell)), gz0 = Math.min(gz0, Math.floor(t.z / cell));
+		gx1 = Math.max(gx1, Math.floor(t.x / cell)), gz1 = Math.max(gz1, Math.floor(t.z / cell));
 	}
-	if (edge === -Infinity) edge = -1e9;
-	return { edge, trunk, shade: smooth(-band * 0.5, band, edge), band: Math.exp(-((edge / band) ** 2)) };
+	const nx = trunks.length ? gx1 - gx0 + 1 : 0, nz = trunks.length ? gz1 - gz0 + 1 : 0;
+	/** @type {Trunk[][]} the trunks on a grid of `cell` metres over theirs */
+	const grid = Array.from({ length: nx * nz }, () => []);
+	for (const t of trunks) /** @type {Trunk[]} */ (grid[(Math.floor(t.x / cell) - gx0) * nz + Math.floor(t.z / cell) - gz0]).push(t);
+	return (x, z) => {
+		let edge = -Infinity, trunk = Infinity;
+		const gx = Math.floor(x / cell) - gx0, gz = Math.floor(z / cell) - gz0;
+		for (let i = Math.max(0, gx - 1); i <= Math.min(nx - 1, gx + 1); i++)
+			for (let j = Math.max(0, gz - 1); j <= Math.min(nz - 1, gz + 1); j++) {
+				for (const t of /** @type {Trunk[]} */ (grid[i * nz + j])) {
+					const dx = x - t.x, dz = z - t.z, d = Math.sqrt(dx * dx + dz * dz);
+					if (d > look + t.r) continue;
+					if (t.r - d > edge) edge = t.r - d;
+					if (d < trunk) trunk = d;
+				}
+			}
+		// in the open: as far out as the lookup reaches, no shade, no band, no ring
+		if (edge === -Infinity) edge = -look;
+		return { edge, trunk, shade: smooth(-band * 0.5, band, edge), band: Math.exp(-((edge / band) ** 2)) };
+	};
 }
 
 /**
