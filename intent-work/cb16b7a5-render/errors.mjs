@@ -37,6 +37,22 @@ await page.addInitScript(() => {
 	window.__draws = 0;
 	for (const C of [WebGL2RenderingContext]) for (const f of ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced']) { const g = C.prototype[f]; C.prototype[f] = function (...a) { window.__draws++; return g.apply(this, a); }; }
 	window.__interiorHour = 12;
+	// a vector uniform handed something no browser takes: what it was, and who handed it (then thrown as before)
+	for (const f of ['uniform1fv', 'uniform2fv', 'uniform3fv', 'uniform4fv', 'uniformMatrix3fv', 'uniformMatrix4fv']) {
+		const g = WebGL2RenderingContext.prototype[f];
+		WebGL2RenderingContext.prototype[f] = function (loc, ...a) {
+			const v = f.startsWith('uniformMatrix') ? a[1] : a[0];
+			if (v === null || typeof v !== 'object' || typeof v.length !== 'number') {
+				let desc;
+				try { desc = `${typeof v} ${v?.constructor?.name ?? ''} ${JSON.stringify(v, (k, x) => (typeof x === 'object' && x && k ? '[obj]' : x))?.slice(0, 400)} keys ${v && typeof v === 'object' ? Object.keys(v).slice(0, 20).join(',') : ''}`; } catch (e) { desc = String(e); }
+				const prog = this.getParameter(this.CURRENT_PROGRAM), names = [];
+				if (prog) for (let i = 0; i < this.getProgramParameter(prog, this.ACTIVE_UNIFORMS); i++) { const u = this.getActiveUniform(prog, i); if (u && this.getUniformLocation(prog, u.name) && /vec2|FLOAT_VEC2/.test(String(u.type)) === false && u.type === this.FLOAT_VEC2) names.push(u.name); }
+				const sh = prog ? this.getAttachedShaders(prog).map((s) => this.getShaderSource(s)) : [];
+				console.error(`BADUNIFORM ${f}: ${desc}\n vec2 uniforms in program: ${names.join(', ')}\n program head: ${(sh[1] ?? '').slice(0, 300).replace(/\n/g, ' | ')}\n${new Error().stack}`);
+			}
+			return g.call(this, loc, ...a);
+		};
+	}
 });
 await page.goto(`${site.url}/sandbox-1/`, { waitUntil: 'domcontentloaded' });
 for (let t = 0; t < 180; t += 5) {
