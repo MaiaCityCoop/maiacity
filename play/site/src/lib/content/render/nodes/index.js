@@ -55,7 +55,8 @@ export function castsAsNode(mesh, r) {
 	let was = null;
 	mesh.onBeforeShadow = (_r, o, _c, light, g, depth) => {
 		const h = handlers.get(r);
-		if (!h || !depth.isNodeMaterial) return;
+		// (only a real renderer: the census's counting one keeps no programs)
+		if (!h || !depth.isNodeMaterial || typeof r.properties?.has !== 'function') return;
 		was = h.nodeFrame.camera;
 		h.nodeFrame.camera = light;
 		h.setObject(o, depth);
