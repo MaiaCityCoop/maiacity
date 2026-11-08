@@ -235,6 +235,8 @@ export function createAssets(o) {
 			S: new Float32Array(0),
 			alive: new Uint8Array(0),
 			was: new Int8Array(0),
+			/** its copies put away (`give`), for the next `takeOut` */
+			free: [],
 			/** the copies moved by their controls, by their number: each its values and its own tree */
 			posed: new Map(),
 			/** how much its builds are wanted (`use`) */
@@ -563,21 +565,26 @@ export function createAssets(o) {
 			k.cap = cap;
 		}
 		const i = k.n++;
-		set(k, i, at);
-		k.alive[i] = 1;
 		k.was[i] = -1;
+		set(k, i, at);
 		dirty = true;
 		if (casts(k)) shadows = true;
 		return { kind: k, i };
 	}
 
+	/** copy i of kind k put at `at`, or put away (null): drawn nowhere, its level forgotten, until it is put somewhere */
 	function set(k, i, at) {
-		if (at?.isMatrix4) {
+		k.alive[i] = at ? 1 : 0;
+		if (!at) {
+			k.was[i] = -1;
+			return unpose(k, i);
+		}
+		if (at.isMatrix4) {
+			const e = at.elements, len = (j) => e[j] * e[j] + e[j + 1] * e[j + 1] + e[j + 2] * e[j + 2];
 			at.toArray(k.M, i * 16);
-			at.decompose(_p, _q, _s);
-			// as an upright card sees it: its turn about the upright, its size
-			k.T[i] = Math.atan2(at.elements[8], at.elements[0]);
-			k.S[i] = Math.max(_s.x, _s.y, _s.z);
+			// as an upright card sees it: its turn about the upright, its size its longest axis (0 for a matrix of scale 0)
+			k.T[i] = Math.atan2(e[8], e[0]);
+			k.S[i] = Math.sqrt(Math.max(len(0), len(4), len(8)));
 			return;
 		}
 		const turn = at.turn ?? 0, scale = at.scale ?? 1;
@@ -587,18 +594,26 @@ export function createAssets(o) {
 		k.S[i] = scale;
 	}
 
-	/** a copy moved */
+	/** a copy moved, or put away where it stands (null): drawn nowhere until it is moved somewhere */
 	const move = (copy, at) => {
 		set(copy.kind, copy.i, at);
 		dirty = true;
 		if (casts(copy.kind)) shadows = true;
 	};
-	/** a copy taken away */
-	const remove = (copy) => {
-		copy.kind.alive[copy.i] = 0;
-		unpose(copy.kind, copy.i);
-		dirty = true;
-		if (casts(copy.kind)) shadows = true;
+	/** a copy taken away, for good */
+	const remove = (copy) => move(copy, null);
+	/** a copy put away, kept for the next `take` of its kind */
+	const putAway = (copy) => {
+		move(copy, null);
+		copy.kind.free.push(copy);
+	};
+	/** a copy of kind k put at `at`: one put away if there is one, else a new one @param {any} k a kind or a ref */
+	const takeOut = (k, at) => {
+		if (typeof k === 'string') k = use(k);
+		const c = k.free.pop();
+		if (!c) return place(k, at);
+		move(c, at);
+		return c;
 	};
 
 	/* ── the copies moved by their controls ── */
@@ -961,6 +976,8 @@ export function createAssets(o) {
 		place,
 		move,
 		remove,
+		give: putAway,
+		take: takeOut,
 		update,
 		ready,
 		stats,

@@ -33,8 +33,9 @@ const FOV = 68;
 /**
  * A copy as its renderer drew it last: its level (a shape level, its `picture`, or `unseen`: culled or too small) and
  * the triangles that cost. A picture costs 2, but a kind that takes no picture (`standIn`) draws its coarsest shape in
- * its place. A `ghost` is a copy the page put away (drawn.js AWAY: a matrix of scale 0 at the origin) that the renderer
- * still draws there, three's decompose giving a scale of 1 for it: the page's history, not the view.
+ * its place. A `ghost` is a copy the page put away that the renderer still drew in the last frame: put away by the
+ * renderer's own record (`give`, its kind's `free`; intent 0229ed3e), or at a matrix of scale 0 at the origin (as
+ * drawn.js's AWAY once was, three's decompose giving it a scale of 1): the page's history, not the view.
  */
 export type Copy = { renderer: string; kind: string; d: number; size: number; level: number | 'picture' | 'unseen'; tris: number | null; standIn?: true; ghost?: true };
 export type Totals = {
@@ -270,12 +271,14 @@ function copiesAt(v: { x: number; z: number }): Copy[] {
 		if (!list) continue;
 		for (const k of list) {
 			if (!k.ok) continue;
+			const away = new Set((k.free ?? []).map((c: any) => c.i));
 			for (let i = 0; i < k.n; i++) {
-				if (!k.alive[i]) continue;
+				// put away and still drawn (its selector's level kept): a ghost the renderer's record shows
+				if (!k.alive[i] && !(away.has(i) && k.was[i] >= 0)) continue;
 				const x = k.M[i * 16 + 12], z = k.M[i * 16 + 14], d = Math.hypot(x - v.x, z - v.z), L = k.was[i];
 				const standIn = L >= k.levels.length && !k.slot;
 				const tris = L < 0 ? 0 : standIn ? (k.levels[k.levels.length - 1].level?.tris ?? null) : L >= k.levels.length ? 2 : (k.levels[L].level?.tris ?? null);
-				const o = i * 16, ghost = [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14].every((j) => k.M[o + j] === 0);
+				const o = i * 16, ghost = !k.alive[i] || [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14].every((j) => k.M[o + j] === 0);
 				copies.push({ renderer, kind: k.label ?? k.key, d: +d.toFixed(1), size: +((k.radius * k.S[i]) / (Math.max(d, 1e-3) * tan)).toFixed(4), level: L < 0 ? 'unseen' : L >= k.levels.length ? 'picture' : L, tris, ...(standIn ? { standIn: true as const } : {}), ...(ghost ? { ghost: true as const } : {}) });
 			}
 		}

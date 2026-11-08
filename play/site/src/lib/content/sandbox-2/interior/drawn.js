@@ -16,9 +16,6 @@ import * as THREE from 'three';
 import { createAssets } from '$lib/content/assets/render/index.js';
 import { STREAMS } from './flora.js';
 
-/** a copy put away: drawn nowhere until it is wanted again */
-export const AWAY = new THREE.Matrix4().makeScale(0, 0, 0);
-
 /**
  * A renderer of assets in `scene`, its copies kept for the next that wants one.
  * @param {{
@@ -29,8 +26,6 @@ export const AWAY = new THREE.Matrix4().makeScale(0, 0, 0);
 export function createDrawn(o) {
 	const assets = createAssets({ renderer: o.renderer, camera: o.camera, boxes: o.boxes, onShadows: o.shadows });
 	o.scene.add(assets.group);
-	/** @type {Map<string, any[]>} the copies put away, by kind */
-	const free = new Map();
 	return {
 		assets,
 		/**
@@ -43,21 +38,11 @@ export function createDrawn(o) {
 		 * a copy of kind k standing at `at` (a place or a whole matrix): one put away if there is one
 		 * @param {any} k @param {{ x: number, y: number, z: number, turn: number, scale: number } | THREE.Matrix4} at
 		 */
-		take(k, at) {
-			const c = free.get(k.key)?.pop();
-			if (!c) return assets.place(k, at);
-			assets.move(c, at);
-			return c;
-		},
+		take: (k, at) => assets.take(k, at),
 		/** a copy moved @param {{ kind: any, i: number }} c @param {{ x: number, y: number, z: number, turn: number, scale: number } | THREE.Matrix4} at */
 		move: (c, at) => assets.move(c, at),
-		/** a copy put away @param {{ kind: any, i: number }} c */
-		give(c) {
-			assets.move(c, AWAY);
-			let list = free.get(c.kind.key);
-			if (!list) free.set(c.kind.key, (list = []));
-			list.push(c);
-		},
+		/** a copy put away: drawn nowhere until it is taken again @param {{ kind: any, i: number }} c */
+		give: (c) => assets.give(c),
 		/** draws what the camera sees: before every frame */
 		update: () => assets.update(),
 		/** waits for every kind asked for so far to be ready to draw (or to have failed) */
