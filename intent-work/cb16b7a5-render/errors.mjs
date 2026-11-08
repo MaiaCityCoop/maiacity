@@ -48,7 +48,7 @@ await page.addInitScript(() => {
 		const g = WebGL2RenderingContext.prototype[f];
 		WebGL2RenderingContext.prototype[f] = function (loc, ...a) {
 			const v = f.startsWith('uniformMatrix') ? a[1] : a[0];
-			if (v === null || typeof v !== 'object' || typeof v.length !== 'number') {
+			if ((v === null || typeof v !== 'object' || typeof v.length !== 'number') && (window.__badUniforms = (window.__badUniforms ?? 0) + 1) <= 3) {
 				let desc;
 				try { desc = `${typeof v} ${v?.constructor?.name ?? ''} ${JSON.stringify(v, (k, x) => (typeof x === 'object' && x && k ? '[obj]' : x))?.slice(0, 400)} keys ${v && typeof v === 'object' ? Object.keys(v).slice(0, 20).join(',') : ''}`; } catch (e) { desc = String(e); }
 				const prog = this.getParameter(this.CURRENT_PROGRAM), names = [];
