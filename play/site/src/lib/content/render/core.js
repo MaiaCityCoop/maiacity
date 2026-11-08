@@ -200,13 +200,24 @@ export function adaptiveResolution(renderer, { top = topPixelRatio(), floor = 1,
  * @param {THREE.Camera} camera
  * @param {THREE.Scene} [scene]
  */
-export async function precompile(renderer, object, camera, scene) {
+export function precompile(renderer, object, camera, scene) {
+	// three's WebGLNodesHandler makes no node material's program through compile/compileAsync: on a real GPU (Metal, with
+	// parallel shader compiling) its promise never settled, and whatever waited on it was never drawn (intents cb16b7a5
+	// and 6fd5e63f). A node material's shaders are made at its first draw instead.
+	if (hasNodeMaterial(object) || (scene && hasNodeMaterial(scene))) return Promise.resolve();
+	let made;
 	try {
-		await renderer.compileAsync(object, camera, scene);
+		// started now, as the renderer stands (a caller may set its target or clipping around this call)
+		made = Promise.resolve(renderer.compileAsync(object, camera, scene)).catch(() => {});
 	} catch {
-		/* drawn as usual */
+		return Promise.resolve();
 	}
+	// and never waited on for more than PRECOMPILE_MOST ms: what waits is drawn then, made or not
+	return Promise.race([made, new Promise((ok) => setTimeout(ok, PRECOMPILE_MOST))]);
 }
+
+/** the longest a warm-up is waited on before what it warms is drawn anyway (ms) */
+export const PRECOMPILE_MOST = 4000;
 
 /**
  * A renderer's canvas kept to an element's size: at once, whenever the element changes size (and the window, for a
