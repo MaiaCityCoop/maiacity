@@ -6,7 +6,7 @@
  *   cells     the ground is cut into cells of CELL metres; a cell holds `density × CELL²` blades, blade j of cell
  *             (cx, cz) the same blade every time (`bladeOf`: an integer hash of the three, the PCG hash the shader runs);
  *             its rank is (j + a jitter) / n, so the first so many of a cell are the ones kept furthest out
- *   tiles     the cells are drawn in tiles of 1, 2 or 4 cells across (a quadtree from tiles of 4: the nearer, the
+ *   tiles     the cells are drawn in tiles of 1 or 2 cells across (`TILE_CELLS`, a quadtree: the nearer, the
  *             smaller), one instanced draw a tile; instance i of a tile of k cells across is blade ⌊i / k²⌋ of its
  *             cell i mod k², so taking the first m × k² instances takes the first m blades of every cell: a far tile
  *             draws a subset of what its cells drew near (nested subsets), and a tile split or joined draws the same
@@ -44,7 +44,8 @@ import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
 
 /** a cell's size (m): the unit a blade is named in */
 export const CELL = 4;
-/** a tile's cells across, by level: the nearer, the smaller */
+/** a tile's cells across, by level: the nearer, the smaller (a tile draws as many of each of its cells' blades as its
+ *  nearest point keeps, so a big tile far off draws many it sinks into the ground: 4, 4 and 8 m keep that few) */
 export const TILE_CELLS = [1, 2, 4];
 /** the vertices of a blade, by level */
 export const VERTS = [15, 7, 4];
@@ -53,12 +54,12 @@ export const PUSHERS = 8;
 
 /**
  * Each device's grass: blades a square metre near, where each level ends (m), where every blade still stands, and the
- * narrowest a blade is drawn (px).
- * @type {Record<'desktop' | 'small', { density: number, bands: [number, number, number], near: number, minPx: number }>}
+ * narrowest a blade is drawn (px), and how fast they thin out past `near` (`keep`: (near / d) to its power).
+ * @type {Record<'desktop' | 'small', { density: number, bands: [number, number, number], near: number, minPx: number, falloff: number }>}
  */
 export const DEVICES = {
-	desktop: { density: 140, bands: [8, 25, 70], near: 6, minPx: 1.5 },
-	small: { density: 70, bands: [5, 15, 35], near: 4, minPx: 1.5 }
+	desktop: { density: 120, bands: [8, 25, 70], near: 6, minPx: 1.5, falloff: 1.8 },
+	small: { density: 70, bands: [5, 15, 35], near: 4, minPx: 1.5, falloff: 1.5 }
 };
 
 /**
@@ -133,19 +134,26 @@ export function tileBlade(tx, tz, k, i) {
 /**
  * How much of the grass stands at distance d: all of it out to `near`, then falling as the blades on screen do,
  * ending at the last band's end; a blade stands where its rank is under it.
- * @param {number} d @param {{ bands: number[], near: number }} dev
+ * @param {number} d @param {{ bands: number[], near: number, falloff?: number }} dev
  */
 export function keep(d, dev) {
 	if (d <= dev.near) return 1;
 	const end = /** @type {number} */ (dev.bands[2]);
 	if (d >= end) return 0;
-	return Math.pow(dev.near / d, 1.25);
+	return Math.pow(dev.near / d, dev.falloff ?? 1.5);
 }
-/** how far it grows (0…1) where it stands, with its rank and its end @param {number} d @param {number} rank @param {number} end 0.9…1 @param {{ bands: number[], near: number }} dev */
-export function growAt(d, rank, end, dev) {
+/** how far over what is kept a blade still shows, sinking (in rank: a share of what is kept, so as few far as near) */
+export const FADE = 0.15;
+/**
+ * How far it grows (0…1) where it stands, with its rank and its end, where the mask grows `grass` (0…1): the mask thins
+ * it by rank as distance does, so where half the ground is grass half the blades stand, the same half further out.
+ * @param {number} d @param {number} rank @param {number} end 0.9…1 @param {{ bands: number[], near: number, falloff?: number }} dev
+ */
+export function growAt(d, rank, end, dev, grass = 1) {
 	const reach = /** @type {number} */ (dev.bands[2]) * end;
 	const edge = 1 - smooth(reach - 6, reach, d);
-	return Math.min(1, Math.max(0, (keep(d, dev) - rank) / 0.08 + 1)) * edge;
+	const k = keep(d, dev) * grass;
+	return Math.min(1, Math.max(0, (k * (1 + FADE) - rank) / (k * FADE + 1e-4))) * edge;
 }
 /** the circle the field ends in, for a blade (its end, 0.9…1 of the reach) @param {number} end @param {{ bands: number[] }} dev */
 export const endOf = (end, dev) => /** @type {number} */ (dev.bands[2]) * end;
@@ -391,7 +399,7 @@ export function grassOfRecipe(recipe, open) {
 			if (kinds[i] === 2) (grass += v), (tall += v);
 		});
 		if (total <= 0) return { grass: 0, tall: 0 };
-		return { grass: Math.min(1, (1 - empty) * (grass / total) * 1.6), tall: grass > 0 ? tall / grass : 0 };
+		return { grass: Math.min(1, (1 - empty) * (grass / total)), tall: grass > 0 ? tall / grass : 0 };
 	};
 }
 /** whether a biome grows grass @param {import('./index.js').Recipe} recipe */
@@ -420,14 +428,16 @@ export function tilesAround(x, z, dev, n, over) {
 		const k = /** @type {number} */ (TILE_CELLS[level]), w = k * CELL, d = nearest(tx, tz, w);
 		if (d >= end) return;
 		if (level > 0 && d < /** @type {number} */ (dev.bands[level - 1])) {
-			const h = k / 2;
-			for (const [a, b] of [[0, 0], [h, 0], [0, h], [h, h]]) visit(tx + /** @type {number} */ (a), tz + /** @type {number} */ (b), /** @type {0 | 1} */ (level - 1));
+			const kk = /** @type {number} */ (TILE_CELLS[level - 1]), finer = /** @type {0 | 1} */ (level - 1);
+			// the next level nearer: the same tile where its tiles are as big, else split into them
+			if (kk === k) return visit(tx, tz, finer);
+			for (let a = 0; a < k; a += kk) for (let b = 0; b < k; b += kk) visit(tx + a, tz + b, finer);
 			return;
 		}
 		const m = over ? over(tx * CELL, tz * CELL, w) : { ready: true, most: 1 };
 		if (!m.ready || m.most <= 0) return;
-		// every blade with a rank under what is kept at its nearest point, and the fade's width over it
-		const count = Math.min(n, Math.ceil(n * Math.min(1, keep(d, dev) + 0.08)));
+		// every blade with a rank under what is kept at its nearest point where the mask grows the most, and the fade over it
+		const count = Math.min(n, Math.ceil(n * Math.min(1, keep(d, dev) * m.most * (1 + FADE)) + 1));
 		if (count > 0) out.push({ tx, tz, level, count });
 	};
 	const r = Math.ceil(end / W);

@@ -80,7 +80,7 @@ describe('blades placed from their place alone', () => {
 		}
 		expect(seedOf(-1, 0, 0)).not.toBe(seedOf(0, -1, 0));
 	});
-	test('a tile of 1, 2 or 4 cells draws the same blades: split or joined, nothing moves', () => {
+	test('a tile of 1, 2 or 4 cells (any size a tile is) draws the same blades: split or joined, nothing moves', () => {
 		const n = 20, m = 7;
 		/** @param {number} tx @param {number} tz @param {number} k */
 		const drawn = (tx, tz, k) => {
@@ -126,7 +126,8 @@ describe('blades placed from their place alone', () => {
 		for (let d = 0; d < 75; d += 0.05) {
 			const g = growAt(d, b.rank, b.end, dev);
 			expect(g).toBeLessThanOrEqual(last + 1e-12);
-			expect(last - g).toBeLessThan(0.02);
+			// sinking over a metre or more: never more than a twentieth of the way in 5 cm
+			expect(last - g).toBeLessThan(0.05);
 			last = g;
 		}
 		expect(last).toBe(0);
@@ -172,7 +173,7 @@ describe('blades placed from their place alone', () => {
 			if (t.level > 0) expect(d).toBeGreaterThanOrEqual(/** @type {number} */ (dev.bands[t.level - 1]));
 			// as fine as it is because its parent was nearer than this level's band
 			if (t.level < 2) {
-				const K = k * 2, px = Math.floor(t.tx / K) * K * CELL, pz = Math.floor(t.tz / K) * K * CELL, W = K * CELL;
+				const K = /** @type {number} */ (TILE_CELLS[t.level + 1]), px = Math.floor(t.tx / K) * K * CELL, pz = Math.floor(t.tz / K) * K * CELL, W = K * CELL;
 				const pd = Math.hypot(Math.max(px - 3.3, 0, 3.3 - (px + W)), Math.max(pz + 2.1, 0, -2.1 - (pz + W)));
 				expect(pd).toBeLessThan(/** @type {number} */ (dev.bands[t.level]));
 			}

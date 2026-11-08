@@ -19,7 +19,7 @@ import {
 	normalize, cross, dot, length, distance, fract, floor, texture, cameraPosition, modelWorldMatrix, positionGeometry, transformNormalToView,
 	faceDirection, select, sqrt, varyingProperty
 } from 'three/tsl';
-import { CELL, PUSHERS, TILE_CELLS } from '../../biomes/grass.js';
+import { CELL, FADE, PUSHERS, TILE_CELLS } from '../../biomes/grass.js';
 
 /** the uniforms a field's tiles share */
 export function grassUniforms(/** @type {THREE.Texture} */ mask) {
@@ -84,7 +84,7 @@ const clumpCentreT = (/** @type {any} */ g, /** @type {any} */ size) => {
  *   level: 0 | 1 | 2,
  *   uniforms: ReturnType<typeof grassUniforms>,
  *   params: import('../../biomes/grass.js').GrassParams,
- *   device: { bands: number[], near: number, minPx: number }
+ *   device: { bands: number[], near: number, minPx: number, falloff?: number }
  * }} o
  */
 export function grassMaterial(o) {
@@ -110,19 +110,19 @@ export function grassMaterial(o) {
 		const rank = float(j).add(drawU(seed, 2)).div(U.perCell);
 		const ownH = drawU(seed, 3).mul(2).sub(1), ownLean = drawU(seed, 4), facing = drawU(seed, 5).mul(Math.PI * 2);
 		const ownW = drawU(seed, 6).mul(0.6).add(0.7), shade = drawU(seed, 7), dry = drawU(seed, 8), end = drawU(seed, 9).mul(0.1).add(0.9);
-		const here = drawU(seed, 10);
 
 		/* the mask: how much grass, how much of it tall, the ground's height */
 		const m = texture(U.mask, fract(foot.div(U.maskWidth))).level(0);
-		const grows = here.lessThan(m.x).select(float(1), float(0));
 		const groundY = m.z;
 
 		/* the distance, and how far it grows there: grass.js `keep`, `growAt` */
 		const d = distance(vec3(foot.x, groundY, foot.y), cameraPosition);
 		const dd = d.toVar();
-		const keepD = select(dd.lessThanEqual(D.near), float(1), select(dd.greaterThanEqual(b2), float(0), pow(float(D.near).div(dd), 1.25)));
+		const keepD = select(dd.lessThanEqual(D.near), float(1), select(dd.greaterThanEqual(b2), float(0), pow(float(D.near).div(dd), D.falloff ?? 1.5)));
 		const reach = end.mul(b2);
-		const grow = clamp(keepD.sub(rank).div(0.08).add(1), 0, 1).mul(float(1).sub(smoothstep(reach.sub(6), reach, dd))).mul(grows);
+		// the mask thins it by rank as distance does (grass.js `growAt`)
+		const kept = keepD.mul(m.x);
+		const grow = clamp(kept.mul(1 + FADE).sub(rank).div(kept.mul(FADE).add(1e-4)), 0, 1).mul(float(1).sub(smoothstep(reach.sub(6), reach, dd)));
 
 		/* clumps: grass.js `clumpAt`, the two nearest of four */
 		const size = float(P.clump);

@@ -26,12 +26,14 @@ const STEP = 0.5;
  *   open?: (x: number, z: number) => boolean,
  *   tile?: number, reach?: number, near?: number, thin?: number, perFrame?: number, seed?: number, density?: number,
  *   origin?: [number, number], at?: [number, number, number], hidden?: boolean, heightAt?: (x: number, z: number) => number,
- *   rows?: number
+ *   rows?: number, blades?: boolean
  * }} o
  *   the stream's options (`coverStream`), and: drawn, the renderer it is drawn by; at, where the floor's own ground lies
  *   in the world it draws (a dome's floor, off the village's middle); hidden, none of it drawn until it is shown;
  *   heightAt, the floor's height at x, z of its own ground where it is not flat (a building's forest floor); rows, the way
- *   the floor's rows run, for the kinds of its cover sown in rows ($content/biomes/surfaces.js `rowsOf`)
+ *   the floor's rows run, for the kinds of its cover sown in rows ($content/biomes/surfaces.js `rowsOf`); blades, its
+ *   grass drawn blade by blade by a grass field beside it ($content/biomes/grass.js), so its grass kinds (not sown in
+ *   rows) are laid as before but none of their copies drawn here
  */
 export function createCover(o) {
 	const tile = o.tile ?? 12, reach = o.reach ?? 30, perFrame = o.perFrame ?? 1, seed = o.seed ?? 1;
@@ -47,6 +49,7 @@ export function createCover(o) {
 	};
 	/** each kind of the cover, in its order: drawn finely however small, so never as a picture */
 	const kinds = recipe.cover.map((c) => {
+		if (o.blades && !c.rows && (c.kind === 'grass' || c.kind === 'tallgrass')) return null;
 		// each kind by the build its biome's card names (a hash): nothing is named by a readable ref
 		if (!c.ref) throw new Error(`the biome names no asset for its cover kind ${c.kind}`);
 		return drawn.use(c.ref, false, false);
@@ -71,6 +74,7 @@ export function createCover(o) {
 				const kk = td > reach ? 0 : keep(Math.max(0, td));
 				if (kk <= 0) continue;
 				t.kinds.forEach(({ m: M, rank }, k) => {
+					if (!kinds[k]) return;
 					const list = /** @type {any[]} */ (copies[k]);
 					for (let i = 0; i < rank.length && /** @type {number} */ (rank[i]) < kk + 0.02; i++) {
 						// …each grown as far as the stream's shader grows it where it stands

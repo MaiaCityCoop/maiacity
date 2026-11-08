@@ -964,6 +964,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		// and the floor itself under all of it, the biome's cover, may stand wherever the ground is open: not on a path,
 		// in the water, a dome (or Sandbox 5's building's own ground), a field or a trunk
 		floorOpen = (x, z) => (open(x, z, 0.1) || inBand(x, z, 0.1, 0.1)) && clearOf(x, z, 0.15)
+		// the grass only now: where it grows is worked out once and kept
+		grassOpen = true
 	}
 	/** where the floor's cover may stand (set once the garden is planted) */
 	let floorOpen = (_x: number, _z: number) => true
@@ -972,7 +974,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	// each in its colonies, laid out in tiles round you as you go ($content/biomes/stream.js) — too dense for the whole cell;
 	// all of it near you, thinning out further off, each plant growing out of the ground as you come (so it has no edge)
 	// ($content/biomes/stream.js lays it; each kind built in the box and drawn by the renderer, ./cover.js)
-	const floorCover = flora && FLOOR_BIOME ? createCover({ drawn: library, recipe: FLOOR_BIOME, open: (x, z) => floorOpen(x, z), tile: 10, reach: 28, near: 7, thin: 0.2, density: 3.4, seed: 505 }) : null
+	const floorCover = flora && FLOOR_BIOME ? createCover({ drawn: library, recipe: FLOOR_BIOME, open: (x, z) => floorOpen(x, z), tile: 10, reach: 28, near: 7, thin: 0.2, density: 3.4, seed: 505, blades: growsGrass(FLOOR_BIOME) }) : null
 	const TILE = 70
 	type Tile = { cx: number; cz: number; main: THREE.Matrix4[][]; under: THREE.Matrix4[][]; floor: THREE.Matrix4[][]; far: THREE.Matrix4[]; farCrowns: THREE.Matrix4[]; farColors: THREE.Color[]; dense: THREE.Matrix4[]; denseCrowns: THREE.Matrix4[]; denseColors: THREE.Color[]; near?: THREE.Group; farMesh?: THREE.Group; ground?: THREE.Group }
 	const tiles = new Map<string, Tile>()
@@ -994,20 +996,24 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	 *  cell's paths, water and squares as open() keeps that plant */
 	const inBand = (x: number, z: number, off: number, margin: number) =>
 		!!soloGround && inDome(x, z, margin + 1) && Math.hypot(x - soloFoot.x, z - soloFoot.z) > soloFoot.R && soloGround.clear(x, z, off) && openGround(x, z, margin)
-	// the open grass, blade by blade ($content/biomes/grass.js), where the tufts stood: everywhere in the cell off the
-	// domes, the squares, the paths and the water (Sandbox 5's floor is its food forest's, above). Its grass the meadow's,
-	// as Sandbox 1's layout pins it; where it pins none, grass.js's own
+	// the grass, blade by blade ($content/biomes/grass.js). Sandbox 1 (and 5): its floor's, the food forest's grass kinds
+	// where their colonies are and the floor is open (the cover draws its other kinds, above). Without a floor: where the
+	// tufts stood, everywhere in the cell off the domes, the squares, the paths and the water, its grass the meadow's as
+	// the layout pins it (grass.js's own where it pins none)
 	const meadowBiome = flora ? null : biomeOr(FLOORS.meadow)
-	const meadowGrass = meadowBiome && growsGrass(meadowBiome) ? grassOfRecipe(meadowBiome) : () => ({ grass: 0.9, tall: 0.3 })
+	const grassBiome = flora ? FLOOR_BIOME : meadowBiome
+	const grassOf = grassBiome && growsGrass(grassBiome) ? grassOfRecipe(grassBiome) : flora ? null : () => ({ grass: 0.9, tall: 0.3 })
 	let grassOpen = false
-	const grass = flora
-		? null
-		: (useNodes(renderer),
+	const grass = grassOf
+		? (useNodes(renderer),
 			grassField({
-				params: meadowBiome?.grass,
+				params: grassBiome?.grass,
 				device: smallDevice() ? 'small' : 'desktop',
-				at: (x, z) => (!grassOpen || !inHex(x, z) || inDome(x, z, 1) || inSquare(x, z) || nearPath(x, z, 1.6) || nearWater(x, z, W / 2 + 0.4) ? { grass: 0, tall: 0 } : meadowGrass(x, z))
+				at: flora
+					? (x, z) => (grassOpen && floorOpen(x, z) ? grassOf(x, z) : { grass: 0, tall: 0 })
+					: (x, z) => (!grassOpen || !inHex(x, z) || inDome(x, z, 1) || inSquare(x, z) || nearPath(x, z, 1.6) || nearWater(x, z, W / 2 + 0.4) ? { grass: 0, tall: 0 } : grassOf(x, z))
 			}))
+		: null
 	if (grass) scene.add(grass.object)
 	const q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), sv = new THREE.Vector3()
 	const mat = (x: number, y: number, z: number, rot: number, sx: number, sy = sx, sz = sx) => new THREE.Matrix4().compose(p.set(x, y, z), q.setFromEuler(e.set(0, rot, 0)), sv.set(sx, sy, sz))
@@ -1097,7 +1103,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 				if (++n % 500 === 0) await pause('Planting the edges')
 			}
 	}
-	grassOpen = true
+	if (!flora) grassOpen = true
 	await pause('Planting the edges')
 	if (forest) {
 		await plantGarden()
