@@ -1,0 +1,33 @@
+diff --git a/play/site/src/lib/content/render/core.js b/play/site/src/lib/content/render/core.js
+index a59517a52..29f6f3009 100644
+--- a/play/site/src/lib/content/render/core.js
++++ b/play/site/src/lib/content/render/core.js
+@@ -130,7 +130,19 @@ function nodes(renderer) {
+ 	const compile = r.compile;
+ 	if (typeof compile !== 'function') return;
+ 	r.compile = function (scene, camera, target = null) {
+-		if (hasNodeMaterial(scene)) return compile.call(this, scene, camera, target);
++		// three's compile gathers every material under `scene`, hidden ones too (it walks `traverse`), and builds a
++		// node material's program without the handler's onUpdateProgram: met again later, the handler pairs that
++		// program with another build's uniforms (cb16b7a5: the sky's PMREM handed to a vec3 on the levels `precompile`
++		// warmed). Node materials are taken out while three gathers, and built at their first frame, as every draw is.
++		/** @type {[THREE.Object3D & { material?: unknown }, unknown][]} */
++		const away = [];
++		scene.traverse((o) => {
++			const m = /** @type {THREE.Mesh} */ (o).material;
++			if (m && (Array.isArray(m) ? m : [m]).some((x) => /** @type {any} */ (x).isNodeMaterial)) {
++				away.push([o, m]);
++				/** @type {any} */ (o).material = null;
++			}
++		});
+ 		const sm = this.shadowMap, auto = sm.autoUpdate, need = sm.needsUpdate;
+ 		sm.autoUpdate = sm.needsUpdate = false;
+ 		try {
+@@ -138,6 +150,7 @@ function nodes(renderer) {
+ 		} finally {
+ 			sm.autoUpdate = auto;
+ 			sm.needsUpdate = need;
++			for (const [o, m] of away) /** @type {any} */ (o).material = m;
+ 		}
+ 	};
+ }

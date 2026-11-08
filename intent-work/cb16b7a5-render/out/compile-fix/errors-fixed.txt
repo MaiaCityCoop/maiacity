@@ -1,0 +1,108 @@
+CONSOLE error Failed to load resource: the server responded with a status of 401 (Unauthorized)
+PAGEERROR TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+    at el.addEventListener.once (http://localhost:5182/src/lib/content/sandbox-2/interior/ambience.ts:93:63)
+PAGEERROR TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+    at el.addEventListener.once (http://localhost:5182/src/lib/content/sandbox-2/interior/ambience.ts:93:63)
+PAGEERROR TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+    at el.addEventListener.once (http://localhost:5182/src/lib/content/sandbox-2/interior/ambience.ts:93:63)
+t=5s draws in 5 s: 48
+PAGEERROR TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+    at el.addEventListener.once (http://localhost:5182/src/lib/content/sandbox-2/interior/ambience.ts:93:63)
+CONSOLE warning flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters
+CONSOLE warning flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+CONSOLE warning flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+CONSOLE warning flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+CONSOLE warning flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+CONSOLE warning flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+CONSOLE warning flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+CONSOLE warning flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+CONSOLE warning flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+CONSOLE warning flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+PAGEERROR TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+    at el.addEventListener.once (http://localhost:5182/src/lib/content/sandbox-2/interior/ambience.ts:93:63)
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.
+CONSOLE warning THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
+t=10s draws in 5 s: 436
+  state: lost false · rafs 34 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Sandbox 1 | A dome cell, grown from our plants | a forest garden outside, the tropics inside the domes · stats: undefined
+t=15s draws in 5 s: 296
+t=20s draws in 5 s: 880
+  state: lost false · rafs 34 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Sandbox 1 | A dome cell, grown from our plants | a forest garden outside, the tropics inside the domes · stats: undefined
+CONSOLE warning THREE.LightsNode.setupNodeLights: Light node not found for SunLight
+CONSOLE warning THREE.LightsNode.setupNodeLights: Light node not found for SunLight
+CONSOLE warning THREE.LightsNode.setupNodeLights: Light node not found for SunLight
+t=25s draws in 5 s: 2940 (__assets up)
+CONSOLE warning flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+CONSOLE warning flora: yam@2:6:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: yam@2:4:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: cassava@2:7:sandbox-5 did not grow: plants/cassava takes no parameters
+CONSOLE warning flora: yam@2:7:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters
+CONSOLE warning flora: mango@3:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+CONSOLE warning flora: moringa@2:5:sandbox-5 did not grow: plants/moringa takes no parameters
+CONSOLE warning flora: cassava@2:5:sandbox-5 did not grow: plants/cassava takes no parameters
+CONSOLE warning flora: mango@3:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+CONSOLE warning flora: cassava@2:4:sandbox-5 did not grow: plants/cassava takes no parameters
+CONSOLE warning flora: yam@2:5:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: moringa@2:6:sandbox-5 did not grow: plants/moringa takes no parameters
+CONSOLE warning flora: cassava@2:6:sandbox-5 did not grow: plants/cassava takes no parameters
+CONSOLE warning flora: moringa@2:8:sandbox-5 did not grow: plants/moringa takes no parameters
+t=30s draws in 5 s: 119484 (__assets up)
+  state: lost false · rafs 330 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | The master dome ahead is opening its doors… | Back | S · stats: {"out":{"building":0,"keeping":64,"levels":[3,16],"copies":7239,"calls":29},"in":{"building":113,"keeping":0,"levels":[0,0],"copies":0,"calls":0},"library":{"building":9,"keeping":46,"levels":[0,0,177],"copies":2152,"calls":38}}
+t=35s draws in 5 s: 161636 (__assets up)
+t=40s draws in 5 s: 198061 (__assets up)
+  state: lost false · rafs 1051 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | The master dome ahead is opening its doors… | Back | S · stats: {"out":{"building":0,"keeping":62,"levels":[3,16],"copies":7239,"calls":29},"in":{"building":70,"keeping":1,"levels":[0,0],"copies":0,"calls":0},"library":{"building":0,"keeping":66,"levels":[0,0,177],"copies":2152,"calls":38}}
+t=45s draws in 5 s: 187481 (__assets up)
+t=50s draws in 5 s: 197219 (__assets up)
+  state: lost false · rafs 1730 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | The master dome ahead is opening its doors… | Back | S · stats: {"out":{"building":0,"keeping":60,"levels":[3,16],"copies":7239,"calls":29},"in":{"building":44,"keeping":14,"levels":[0,0],"copies":0,"calls":0},"library":{"building":0,"keeping":66,"levels":[0,0,177],"copies":2152,"calls":38}}
+t=55s draws in 5 s: 171816 (__assets up)
+t=60s draws in 5 s: 172802 (__assets up)
+  state: lost false · rafs 2302 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | The master dome ahead is opening its doors… | Back | S · stats: {"out":{"building":0,"keeping":50,"levels":[3,16],"copies":7239,"calls":29},"in":{"building":26,"keeping":26,"levels":[0,0],"copies":0,"calls":0},"library":{"building":0,"keeping":50,"levels":[0,0,177],"copies":2152,"calls":38}}
+t=65s draws in 5 s: 169112 (__assets up)
+t=70s draws in 5 s: 170858 (__assets up)
+  state: lost false · rafs 2870 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | The master dome ahead is opening its doors… | Back | S · stats: {"out":{"building":0,"keeping":41,"levels":[3,16],"copies":7239,"calls":29},"in":{"building":17,"keeping":32,"levels":[0,0],"copies":0,"calls":0},"library":{"building":0,"keeping":38,"levels":[0,0,177],"copies":2152,"calls":38}}
+t=75s draws in 5 s: 185850 (__assets up)
+t=80s draws in 5 s: 146142 (__assets up)
+  state: lost false · rafs 3423 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | The master dome ahead is opening its doors… | Back | S · stats: {"out":{"building":0,"keeping":10,"levels":[3,16],"copies":7239,"calls":29},"in":{"building":7,"keeping":38,"levels":[0,0],"copies":0,"calls":0},"library":{"building":0,"keeping":30,"levels":[0,0,177],"copies":2152,"calls":38}}
+t=85s draws in 5 s: 161694 (__assets up)
+t=90s draws in 5 s: 16427 (__assets up)
+  state: lost false · rafs 3733 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | The master dome ahead is opening its doors… | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,16],"copies":7239,"calls":29},"in":{"building":0,"keeping":40,"levels":[0,10],"copies":611,"calls":15},"library":{"building":0,"keeping":30,"levels":[0,0,186],"copies":2161,"calls":120}}
+CONSOLE warning flora: yam@2:5:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: cassava@2:6:sandbox-5 did not grow: plants/cassava takes no parameters
+CONSOLE warning flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+CONSOLE warning flora: yam@2:7:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: yam@2:6:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: yam@2:4:sandbox-5 did not grow: plants/yam takes no parameters
+CONSOLE warning flora: cassava@2:7:sandbox-5 did not grow: plants/cassava takes no parameters
+CONSOLE warning flora: cassava@2:5:sandbox-5 did not grow: plants/cassava takes no parameters
+CONSOLE warning flora: mango@3:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+t=95s draws in 5 s: 123265 (__assets up)
+t=100s draws in 5 s: 185856 (__assets up)
+  state: lost false · rafs 4005 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,14],"copies":7124,"calls":26},"in":{"building":0,"keeping":5,"levels":[0,32],"copies":633,"calls":26},"library":{"building":0,"keeping":0,"levels":[0,0,186],"copies":2161,"calls":120}}
+t=105s draws in 5 s: 180048 (__assets up)
+t=110s draws in 5 s: 223608 (__assets up)
+  state: lost false · rafs 4294 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,14],"copies":7124,"calls":26},"in":{"building":0,"keeping":0,"levels":[0,32],"copies":633,"calls":26},"library":{"building":0,"keeping":0,"levels":[0,0,186],"copies":2161,"calls":120}}
+t=115s draws in 5 s: 182952 (__assets up)
+t=120s draws in 5 s: 180048 (__assets up)
+  state: lost false · rafs 4555 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,14],"copies":7124,"calls":26},"in":{"building":0,"keeping":0,"levels":[0,32],"copies":633,"calls":26},"library":{"building":0,"keeping":0,"levels":[0,0,186],"copies":2161,"calls":120}}
+t=125s draws in 5 s: 172788 (__assets up)
+t=130s draws in 5 s: 225060 (__assets up)
+  state: lost false · rafs 4833 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,14],"copies":7124,"calls":26},"in":{"building":0,"keeping":0,"levels":[0,32],"copies":633,"calls":26},"library":{"building":0,"keeping":0,"levels":[0,0,186],"copies":2161,"calls":120}}
+t=135s draws in 5 s: 206184 (__assets up)
+t=140s draws in 5 s: 175692 (__assets up)
+  state: lost false · rafs 5096 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,14],"copies":7124,"calls":26},"in":{"building":0,"keeping":0,"levels":[0,32],"copies":633,"calls":26},"library":{"building":0,"keeping":0,"levels":[0,0,186],"copies":2161,"calls":120}}
+t=145s draws in 5 s: 184404 (__assets up)
+t=150s draws in 5 s: 254100 (__assets up)
+  state: lost false · rafs 5399 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,14],"copies":7124,"calls":26},"in":{"building":0,"keeping":0,"levels":[0,32],"copies":633,"calls":26},"library":{"building":0,"keeping":0,"levels":[0,0,186],"copies":2161,"calls":120}}
+t=155s draws in 5 s: 227964 (__assets up)
+t=160s draws in 5 s: 249744 (__assets up)
+  state: lost false · rafs 5728 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,14],"copies":7124,"calls":26},"in":{"building":0,"keeping":0,"levels":[0,32],"copies":633,"calls":26},"library":{"building":0,"keeping":0,"levels":[0,0,186],"copies":2161,"calls":120}}
+t=165s draws in 5 s: 251196 (__assets up)
+t=170s draws in 5 s: 272976 (__assets up)
+  state: lost false · rafs 6089 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,14],"copies":7124,"calls":26},"in":{"building":0,"keeping":0,"levels":[0,32],"copies":633,"calls":26},"library":{"building":0,"keeping":0,"levels":[0,0,186],"copies":2161,"calls":120}}
+t=175s draws in 5 s: 259908 (__assets up)
+t=180s draws in 5 s: 271524 (__assets up)
+  state: lost false · rafs 6456 · text: Sandbox 1 | A dome cell · grown from our plants | Auto | Manual | 24.02.32 | Back | S · stats: {"out":{"building":0,"keeping":0,"levels":[3,14],"copies":7124,"calls":26},"in":{"building":0,"keeping":0,"levels":[0,32],"copies":633,"calls":26},"library":{"building":0,"keeping":0,"levels":[0,0,186],"copies":2161,"calls":120}}
+
+— repeated warnings (kept 3 of each): 203× CONSOLE warning THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed; 85× CONSOLE warning THREE.LightsNode.setupNodeLights: Light node not found for SunLight

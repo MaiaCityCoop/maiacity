@@ -1,0 +1,6 @@
+BADUNIFORM 0 · left out 0 · UBO too small 0 · SunLight 85 · pageerrors 5
+t=60s draws in 5 s: 172802 (__assets up)
+t=90s draws in 5 s: 16427 (__assets up)
+t=120s draws in 5 s: 180048 (__assets up)
+t=150s draws in 5 s: 254100 (__assets up)
+t=180s draws in 5 s: 271524 (__assets up)
