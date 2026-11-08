@@ -11,6 +11,8 @@ import { workingToColorSpace } from 'three/tsl';
 
 /** @param {import('three').WebGLRenderer} r @param {import('three/addons/tsl/WebGLNodesHandler.js').WebGLNodesHandler} h */
 export function outputs(r, h) {
+	// a renderer that only counts (scripts/census) takes the handler without giving it itself: nothing is written there
+	if (!h.renderer) return h;
 	const screen = h.getOutputCallback;
 	const onScreen = () => r.getRenderTarget() === null;
 	h.getOutputCallback = (node, b) => {

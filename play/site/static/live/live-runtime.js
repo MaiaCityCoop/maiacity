@@ -58184,6 +58184,8 @@ vec3 skyColour(vec3 dir) {
 
   // src/lib/content/render/tsl.js
   function outputs(r, h) {
+    if (!h.renderer)
+      return h;
     const screen = h.getOutputCallback;
     const onScreen = () => r.getRenderTarget() === null;
     h.getOutputCallback = (node, b) => {
