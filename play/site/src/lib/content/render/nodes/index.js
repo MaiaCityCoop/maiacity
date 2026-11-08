@@ -41,7 +41,7 @@ export function install(r) {
 	const screen = h.getOutputCallback;
 	const onScreen = () => r.getRenderTarget() === null;
 	h.getOutputCallback = (node) => (onScreen() ? screen(node) : node);
-	h.renderer.getCacheKey = () => (onScreen() ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
+	if (h.renderer) h.renderer.getCacheKey = () => (onScreen() ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
 	handlers.set(r, h);
 	return h;
 }

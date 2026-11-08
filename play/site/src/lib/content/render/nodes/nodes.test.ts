@@ -141,8 +141,11 @@ describe('the render kit in TSL', () => {
 		const quad = new THREE.Mesh(new THREE.PlaneGeometry(), blurMaterial(rt.texture));
 		r.render(quad, camera);
 		// in a target three's own come out linear and untoned: so do ours; on the screen, toned
-		expect(shaders.slice(0, intoTarget).join('\n')).not.toMatch(/ToneMapping\(/);
-		expect(shaders.slice(intoTarget).join('\n')).toMatch(/ToneMapping\(/);
+		const outs = (list: string[]) => list.filter((x) => x.includes('Node System')).map((x) => x.match(/fragColor = .*/)?.[0]).filter(Boolean).join('\n');
+		// three r186 names its tone mapping and sRGB functions, r187 numbers them (fn2)
+		const toned = /ToneMapping\(|TransferOETF\(|\bfn\d+\(/;
+		expect(outs(shaders.slice(0, intoTarget))).not.toMatch(toned);
+		expect(outs(shaders.slice(intoTarget))).toMatch(toned);
 		valid(shaders);
 	});
 });
