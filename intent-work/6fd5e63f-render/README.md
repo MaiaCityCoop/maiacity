@@ -8,9 +8,9 @@ are two-sided, darker toward the root, and glow with the sun behind them. The ce
 triangles as main (near 3,270,183/1,807; mid 5,164,156/1,778; far 1,391,927/877). This job checks what the census can't:
 frame time, the film, and that a frame repeats.
 
-**The head is the change on intent cb16b7a5's render kit** (`intent-work/6fd5e63f-on-cb16b7a5` @ c27aa8a15). The looks are
+**The head is the change on intent cb16b7a5's render kit** (`intent-work/6fd5e63f-on-cb16b7a5` @ 6cc697ea9). The looks are
 drawn on the kit's TSL materials, and cb16b7a5 isn't on main yet. So three trees are measured: **main** f93ccba (base),
-**kit** 78a881e (cb16b7a5's head, what the change sits on) and **head** c27aa8a. head − kit is this intent's own cost;
+**kit** 78a881e (cb16b7a5's head, what the change sits on) and **head** 6cc697e. head − kit is this intent's own cost;
 head − main is what c7 bounds.
 
 **Run:** `PLAY_MCP_TOKEN=play_… bash intent-work/6fd5e63f-render/run.sh` (bun, node with Playwright's Chromium, ffmpeg).
@@ -39,3 +39,8 @@ the branch `intent-work/6fd5e63f-render`.
 
 Note: only head draws a wind. If `same t` differs, the PNG pair shows where. If the pose found no stand (`stand.label`
 "none found"), say so: the pose falls back to (0, 70).
+
+**The kit's 0 draws (the render box, on 78a881e):** three's WebGLNodesHandler never settled `compileAsync` for node
+materials on Metal, so the kit's levels were never shown. Head carries its own guard: `render/index.js` `warm` skips the
+warm-up for what a node material draws and waits at most 4 s for the rest. So expect the **kit** site to draw nothing
+in Sandbox 1 (record it as such), and **head** to draw. If head draws nothing too, the trap is elsewhere: say where.
