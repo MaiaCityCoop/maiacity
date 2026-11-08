@@ -86,3 +86,42 @@ describe('a leaf drawn by its look', () => {
 		expect(a.customProgramCacheKey()).not.toBe(c.customProgramCacheKey());
 	});
 });
+
+describe("on the render kit's own materials (intent cb16b7a5)", () => {
+	test("a level's leaf material: the kit's node material with its fade and cut, the look on top, compiled whole", async () => {
+		const { nodeOf, cutBy, cutOf, aFade, install } = await import('./nodes/index.js');
+		const { lookedOf } = await import('./foliage.js');
+		const { fakeGL: kitGL } = await import('./nodes/fakegl.js');
+		const wind = windNodes(tsl);
+		const leaf = leafMaterial();
+		leaf.userData.look = { kind: 'leaf' };
+		const n = cutBy(lookedOf(nodeOf(leaf), leaf.userData.look, wind), cutOf());
+		n.fade = aFade;
+		expect(n.look?.kind).toBe('leaf');
+		expect(n.cut).toBeTruthy();
+		const { gl, shaders } = kitGL();
+		const r = new THREE.WebGLRenderer({ canvas: gl.canvas, context: gl });
+		install(r);
+		const scene = new THREE.Scene();
+		scene.add(new THREE.DirectionalLight('#fff', 2));
+		const g = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0);
+		g.setAttribute('aFade', new THREE.InstancedBufferAttribute(new Float32Array(2), 1));
+		g.setAttribute('aWind', new THREE.InstancedBufferAttribute(new Float32Array(8), 4));
+		scene.add(new THREE.InstancedMesh(g, n, 2));
+		r.render(scene, new THREE.PerspectiveCamera());
+		const vertex = shaders.filter((s) => /gl_Position/.test(s)).join('\n');
+		expect(vertex).toMatch(/aWind/);
+		expect(vertex).toMatch(/aFade/);
+		expect(vertex).toMatch(/instanceMatrix/);
+		// the wind after the kit's own instancing
+		expect(vertex.indexOf('instanceMatrix')).toBeLessThan(vertex.lastIndexOf('aWind'));
+	});
+
+	test('a material with no look is the kit\'s own, untouched', async () => {
+		const { nodeOf } = await import('./nodes/index.js');
+		const { lookedOf } = await import('./foliage.js');
+		const n = nodeOf(new THREE.MeshStandardMaterial());
+		expect(lookedOf(n, null, windNodes(tsl))).toBe(n);
+		expect(lookedOf(n, { kind: 'leaf' }, null)).toBe(n);
+	});
+});

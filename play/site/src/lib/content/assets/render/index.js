@@ -42,7 +42,8 @@ import { levelValues } from '../lodcard.js';
 import { prepare } from './prepare.js';
 import { createPresets } from './presets.js';
 import { lookByName } from '../look.js';
-import { windOfCopy } from '../../render/wind.js';
+import * as TSL from 'three/tsl';
+import { windNodes, windOfCopy, worldSeconds } from '../../render/wind.js';
 
 /** whether a material says what it is: its look (box format 5), or one its name gives (an older build's, ../look.js) */
 const looked = (m) => (Array.isArray(m) ? m.some(looked) : !!(m?.userData?.look ?? lookByName(m?.name)));
@@ -75,8 +76,9 @@ function resolve(ref) {
  * A renderer of assets for one scene.
  * @param {{
  *   renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, boxes?: number,
- *   px?: number, cache?: boolean, onShadows?: () => void
- * }} o `boxes` how many build side by side; `px` each picture's pixels a side. No world chooses a kind's levels: each
+ *   px?: number, cache?: boolean, onShadows?: () => void, wind?: any
+ * }} o `boxes` how many build side by side; `px` each picture's pixels a side; `wind` the world's (../../render/wind.js
+ *   `windNodes`; a calm breeze where not given, none where null), which every material with a look sways in. No world chooses a kind's levels: each
  *   is drawn by its card's levels (../lodcard.js) at the sizes on screen of the one selector (./lod.js LEVELS);
  *   `cache: false` builds everything afresh;
  *   `onShadows` told when what casts a shadow changed, for a world that draws its shadows again only every so often
@@ -87,7 +89,9 @@ export function createAssets(o) {
 	renderer.localClippingEnabled = true;
 	const group = new THREE.Group();
 	group.name = 'assets';
-	const presets = createPresets();
+	// the world's one wind (../../render/wind.js): every material that says it is a plant's sways in it; `wind: null` none
+	const wind = o.wind === null ? null : (o.wind ?? windNodes(TSL));
+	const presets = createPresets({ wind });
 	const pictures = createImpostors(renderer, { px: o.px });
 	const lowering = createLowering();
 	// every level and picture made here kept on this device by its build (./levels.js)
@@ -827,6 +831,8 @@ export function createAssets(o) {
 	 * Draws what the camera should see: each copy at its level, the pictures turned to it. Cheap when nothing moved.
 	 */
 	function update() {
+		// the wind on the world's clock (the film's when it sets one), whether or not anything else moved
+		wind?.tick(worldSeconds());
 		// the pictures taken since the last frame: their pages' smaller copies made, once for all of them
 		pictures.settle();
 		camera.updateMatrixWorld();
