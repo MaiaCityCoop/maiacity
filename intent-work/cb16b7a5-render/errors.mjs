@@ -72,7 +72,18 @@ for (let t = 0; t < 180; t += 5) {
 			let stats = null;
 			try { stats = window.__assets?.stats?.(); } catch (e) { stats = String(e); }
 			const brief = stats && typeof stats === 'object' ? Object.fromEntries(Object.entries(stats).map(([k, v]) => [k, v && { building: v.building, keeping: v.keeping, compiling: v.compiling, levels: v.levels, copies: v.copies, calls: v.calls }])) : stats;
-			const g = document.querySelector('canvas')?.getContext('webgl2'); return `lost ${g ? g.isContextLost() : '?'} · rafs ${window.__rafs} · text: ${text} · stats: ${JSON.stringify(brief)}`;
+			// pictures taken, and the kinds each renderer holds: new ones named (what keeps being photographed)
+			let kinds = '';
+			try {
+				const all = window.__assets?.kinds?.() ?? {};
+				window.__kindsSeen ??= {};
+				kinds = Object.entries(all).map(([r, list]) => {
+					const seen = (window.__kindsSeen[r] ??= new Set()), fresh = [];
+					for (const k of list ?? []) { const id = `${k.label}#${k.key}`; if (!seen.has(id)) { seen.add(id); fresh.push(k.label); } }
+					return `${r}: ${list?.length ?? 0} kinds, taken ${stats?.[r]?.taken}${fresh.length ? `, new: ${fresh.slice(0, 12).join(' | ')}` : ''}`;
+				}).join(' ; ');
+			} catch (e) { kinds = String(e); }
+			const g = document.querySelector('canvas')?.getContext('webgl2'); return `kinds ${kinds} · lost ${g ? g.isContextLost() : '?'} · rafs ${window.__rafs} · text: ${text} · stats: ${JSON.stringify(brief)}`;
 		})}`);
 }
 writeFileSync(`${out}/errors-${site.name}.txt`, lines.join('\n') + '\n');
