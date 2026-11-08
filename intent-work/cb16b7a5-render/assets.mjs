@@ -8,7 +8,8 @@
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
 import { mkdirSync, writeFileSync } from 'node:fs';
-const { chromium } = createRequire(import.meta.url)('playwright');
+// Playwright as the site has it (run from play/site, as run.sh does)
+const { chromium } = createRequire(`${process.cwd()}/package.json`)('playwright');
 import { QUIET, SEEDED_RANDOM } from './determinism.mjs';
 const argv = process.argv.slice(2), sites = [];
 let out = 'out/assets';

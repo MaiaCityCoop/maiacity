@@ -33,6 +33,9 @@ VH=$(start "$HEAD_TREE" 5182 "$OUT/vite-head.log")
 trap 'kill $VB $VH 2>/dev/null || true' EXIT
 for p in 5181 5182; do for _ in $(seq 1 120); do curl -sf "http://localhost:$p/" >/dev/null && break; sleep 1; done; done
 
+# 0. what head's Sandbox 1 throws, if anything (every page error and console error, and whether it keeps drawing)
+(cd "$HEAD_TREE/play/site" && node "$JOB/errors.mjs" --site head=http://localhost:5182 --out "$OUT") 2>&1 | tail -40 | tee "$OUT/errors.txt"
+
 # 1. Sandbox 1 near, mid, far: base then head, frame time and screenshots (each script starts its own proxy on :3911)
 (cd "$HEAD_TREE/play/site" && node scripts/selector-shots.mjs --site base=http://localhost:5181 --site head=http://localhost:5182 --out "$OUT/shots") 2>&1 | tee "$OUT/shots.txt"
 # 2. the assets in the viewer, two cut open, and the walk
