@@ -33,6 +33,10 @@ describe('the render core holds', () => {
 		expect(outside(/WebGLRenderer\(/, [CORE])).toEqual([]);
 		expect(outside(/new\s+(\w+\.)?WebGLRenderer\b/, [CORE])).toEqual([]);
 	});
+	// the switch (intent c1bee1f8): a WebGPURenderer too is made by createRenderer alone, behind its `backend`
+	test('every WebGPURenderer is made by createRenderer', () => {
+		expect(outside(/new\s+(\w+\.)?WebGPURenderer\b/, [CORE])).toEqual([]);
+	});
 	// the factories' `T.OrbitControls` and `T.EffectComposer` are the core's, under three's names (../factories/three.js)
 	test('every OrbitControls and EffectComposer is the core’s', () => {
 		expect(outside(/new\s+(?!T\.)(\w+\.)?OrbitControls\b/, [CORE, POST])).toEqual([]);
