@@ -38,6 +38,7 @@ import { ShaderPass, createPost } from '$lib/content/render/post.js';
 import { daySky } from './sky.js';
 import { budget } from '$lib/content/render/budget.js';
 import { floorMaterial } from '../render/nodes/index.js';
+import { withTone } from '$lib/content/render/core.js';
 import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment, untonemap } from './kit.js';
 
 /**
@@ -667,8 +668,7 @@ export class Stage {
 		if (!this.composer) this._post();
 		this._gloss();
 		const r = this.renderer;
-		const was = { tm: r.toneMapping, clip: r.localClippingEnabled, rt: r.getRenderTarget() };
-		r.toneMapping = THREE.NeutralToneMapping;
+		const was = { tm: withTone(r, 'neutral'), clip: r.localClippingEnabled, rt: r.getRenderTarget() };
 		r.localClippingEnabled = true;
 		r.setRenderTarget(this.composer.readBuffer);
 		let done = Promise.resolve();
@@ -678,7 +678,7 @@ export class Stage {
 			/* drawn as usual */
 		}
 		r.setRenderTarget(was.rt);
-		r.toneMapping = was.tm;
+		was.tm();
 		r.localClippingEnabled = was.clip;
 		return done.then(() => {}, () => {});
 	}
@@ -699,8 +699,7 @@ export class Stage {
 		if (!this.composer) this._post();
 		if ((this._glossed = (this._glossed ?? 0) + 1) % 12 === 1) this._gloss();
 		const r = this.renderer;
-		const was = { tm: r.toneMapping, clip: r.localClippingEnabled };
-		r.toneMapping = THREE.NeutralToneMapping;
+		const was = { tm: withTone(r, 'neutral'), clip: r.localClippingEnabled };
 		r.localClippingEnabled = true;
 		this.camera.layers.enable(LAYER_FX);
 		this.camera.updateMatrixWorld();
@@ -718,7 +717,7 @@ export class Stage {
 		}
 		this.composer.render();
 		r.shadowMap.autoUpdate = auto;
-		r.toneMapping = was.tm;
+		was.tm();
 		r.localClippingEnabled = was.clip;
 		this.camera.layers.disable(LAYER_FX);
 	}
