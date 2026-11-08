@@ -8,6 +8,7 @@
 // @ts-nocheck
 import { T } from './three.js'
 import { budget } from '../render/budget.js'
+import { createRenderer } from '../render/core.js'
 import { Fn, If, Loop, abs, clamp, dot, exp, float, fract, int, length, max, mix, pow, sin, smoothstep, uniform, vec2, vec3, vec4 } from 'three/tsl'
 /*
  * Factory Skill: the miniature look.
@@ -67,14 +68,9 @@ import { Fn, If, Loop, abs, clamp, dot, exp, float, fract, int, length, max, mix
   export class Look {
     constructor(canvas, opts = {}) {
       this.opts = opts
-      const r = (this.renderer = new T.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: !!opts.preserve }))
-      r.outputColorSpace = T.SRGBColorSpace
-      r.toneMapping = T.ACESFilmicToneMapping
-      r.toneMappingExposure = opts.exposure || 0.98
-      r.shadowMap.enabled = true
-      r.shadowMap.type = T.PCFShadowMap
       this.pixelRatio = Math.min(opts.pixelRatio || globalThis.devicePixelRatio || 1, opts.maxPixelRatio || 2)
-      r.setPixelRatio(this.pixelRatio)
+      // the render core's renderer ($content/render/core.js), set as AirSup set its own
+      const r = (this.renderer = createRenderer({ canvas, antialias: false, power: 'high-performance', preserve: !!opts.preserve, pixelRatio: this.pixelRatio, colorSpace: T.SRGBColorSpace, toneMapping: 'aces', exposure: opts.exposure || 0.98, shadows: 'pcf' }))
 
       const scene = (this.scene = new T.Scene())
       this.bg = new T.Color(opts.background || '#e8e1d4')

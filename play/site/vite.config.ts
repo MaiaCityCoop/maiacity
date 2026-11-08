@@ -7,5 +7,5 @@ export default defineConfig({
 	tsconfig: './tsconfig.json',
 	plugins: [sveltekit()],
 	server: { proxy: { '/api': process.env.PLAY_API || 'http://localhost:3911' } },
-	test: { include: ['src/**/*.test.ts'], environment: 'node' }
+	test: { include: ['src/**/*.test.{ts,js}'], environment: 'node' }
 });

@@ -4,8 +4,8 @@
  * `globalThis.THREE`) gave them. The ported runtime (des.js, kit.js, world.js, look.js, app.js) reads `T.…` exactly as
  * AirSup wrote it, so a newer AirSup version can be diffed against ours line by line.
  *
- * Its renderer, its orbit controls and its composer are the render core's ($content/render, plan C5): `new
- * T.WebGLRenderer(params)`, `new T.OrbitControls(camera, dom)` and `new T.EffectComposer(renderer, target)` give back
+ * Its renderer, its orbit controls and its composer are the render core's ($content/render, plan C5): T's WebGLRenderer
+ * (`new` with three's params), `new T.OrbitControls(camera, dom)` and `new T.EffectComposer(renderer, target)` give back
  * what createRenderer, createControls and createComposer make, set the way three.js's own constructors leave them (one
  * pixel per CSS pixel, no damping), so the runtime sets the rest itself, as it always did.
  */
@@ -26,7 +26,7 @@ import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js'
  * three.js's WebGLRenderer, as the core makes it
  * @param {THREE.WebGLRendererParameters} [p]
  */
-function WebGLRenderer(p = {}) {
+function Renderer(p = {}) {
 	return createRenderer({ canvas: /** @type {HTMLCanvasElement | undefined} */ (p.canvas), antialias: p.antialias ?? false, alpha: p.alpha, power: p.powerPreference, preserve: p.preserveDrawingBuffer, pixelRatio: 1 });
 }
 /**
@@ -49,7 +49,7 @@ function Composer(renderer, target) {
 /** three.js and the addons the factory runtime uses, under one name */
 export const T = /** @type {typeof THREE & { EffectComposer: typeof EffectComposer, RenderPass: typeof RenderPass, NodePass: typeof NodePass, UnrealBloomPass: typeof UnrealBloomPass, GTAOPass: typeof GTAOPass, OutputPass: typeof OutputPass, RoomEnvironment: typeof RoomEnvironment, OrbitControls: typeof OrbitControls, RoundedBoxGeometry: typeof RoundedBoxGeometry, BufferGeometryUtils: typeof BufferGeometryUtils }} */ ({
 	...THREE,
-	WebGLRenderer: /** @type {typeof THREE.WebGLRenderer} */ (/** @type {unknown} */ (WebGLRenderer)),
+	WebGLRenderer: /** @type {typeof THREE.WebGLRenderer} */ (/** @type {unknown} */ (Renderer)),
 	EffectComposer: /** @type {typeof EffectComposer} */ (/** @type {unknown} */ (Composer)),
 	RenderPass,
 	NodePass,
