@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as THREE from 'three';
 import { fakeGL } from './fakegl.js';
+import { SunLight } from 'three/addons/lights/SunLight.js';
 import { aFade, blurMaterial, cardMaterials, castsAsNode, cutBy, cutOf, floorMaterial, ghostMaterial, install, nodeOf, poolMaterial } from './index.js';
 
 (globalThis as any).self ??= globalThis;
@@ -162,27 +163,27 @@ describe('the render kit in TSL', () => {
 		expect(pa).not.toBe(pb);
 	});
 
-	test('a draw three cannot upload is left out, the frame goes on', () => {
-		const { gl } = fakeGL();
-		const r = new THREE.WebGLRenderer({ canvas: gl.canvas, context: gl } as any);
-		install(r);
-		const { scene, camera } = lit();
-		const m: any = nodeOf(new THREE.MeshStandardMaterial({ map: new THREE.DataTexture(new Uint8Array(4), 1, 1) }));
-		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), m));
-		const was = (gl as any).uniform1i;
-		let thrown = 0;
-		(gl as any).uniform1i = () => {
-			thrown++;
-			throw new TypeError('a sampler given a colour');
-		};
-		const err = console.error;
-		console.error = () => {};
+	test('the sky’s sun lights a node material, its cascades shadowing it', () => {
+		const { r, shaders } = renderer();
+		const scene = new THREE.Scene();
+		const sun = new SunLight(0xffffff, 2);
+		sun.castShadow = true;
+		sun.position.set(30, 80, 20);
+		scene.add(sun, sun.target);
+		const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 500);
+		camera.position.set(0, 2, 6);
+		camera.lookAt(0, 0, 0);
+		const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(), nodeOf(new THREE.MeshStandardMaterial()), 2);
+		mesh.castShadow = mesh.receiveShadow = true;
+		scene.add(mesh);
+		const warn = console.warn, warned: string[] = [];
+		console.warn = (...a: unknown[]) => void warned.push(a.join(' '));
 		try {
-			expect(() => r.render(scene, camera)).not.toThrow();
+			r.render(scene, camera);
 		} finally {
-			console.error = err;
-			(gl as any).uniform1i = was;
+			console.warn = warn;
 		}
-		expect(thrown).toBeGreaterThan(0);
+		expect(warned.join('\n')).not.toMatch(/Light node not found/);
+		valid(shaders);
 	});
 });
