@@ -5,7 +5,7 @@
  * sprites in TSL, since WebGPU draws a point one pixel wide (intent 602a8849).
  */
 import * as THREE from 'three';
-import { MeshBasicNodeMaterial } from 'three/webgpu';
+import { OwnBasic } from './tsl.js';
 import { attribute, cameraProjectionMatrix, modelViewMatrix, positionLocal, uniform, vec4 } from 'three/tsl';
 
 /**
@@ -14,7 +14,7 @@ import { attribute, cameraProjectionMatrix, modelViewMatrix, positionLocal, unif
  */
 export function dots(o) {
 	const screen = uniform(new THREE.Vector2(1, 1));
-	const m = new MeshBasicNodeMaterial({ color: o.color, depthTest: o.depthTest ?? true });
+	const m = new OwnBasic({ color: o.color, depthTest: o.depthTest ?? true });
 	const clip = cameraProjectionMatrix.mul(modelViewMatrix.mul(vec4(attribute('at', 'vec3'), 1)));
 	m.vertexNode = vec4(clip.xy.add(positionLocal.xy.mul(o.px * 2).div(screen).mul(clip.w)), clip.zw);
 	const geo = new THREE.InstancedBufferGeometry().copy(new THREE.PlaneGeometry(1, 1));

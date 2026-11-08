@@ -9,7 +9,7 @@
  * the deepest part, and the material colours and clears it by that.
  */
 import * as THREE from 'three'
-import { MeshStandardNodeMaterial } from 'three/webgpu'
+import { OwnStandard } from '$lib/content/render/tsl.js'
 import { abs, attribute, dot, float, mix, normalView, positionViewDirection, select, smoothstep, texture, uniform, uv, vec3 } from 'three/tsl'
 import { seeded } from './plants'
 
@@ -50,7 +50,7 @@ const drift = uniform(new THREE.Vector2())
  * where it is seen at a grazing angle, so the far water is the sky's and the near is clear. Call `flow(t)` each frame.
  */
 export const waterMaterial = shared(() => {
-	const mat = new MeshStandardNodeMaterial({ roughness: 0.06, metalness: 0, transparent: true, side: THREE.DoubleSide, depthWrite: false })
+	const mat = new OwnStandard({ roughness: 0.06, metalness: 0, transparent: true, side: THREE.DoubleSide, depthWrite: false })
 	const d = smoothstep(0, 1, attribute<'float'>('depth', 'float'))
 	const shallow = vec3(0.52, 0.66, 0.46), mid = vec3(0.12, 0.38, 0.4), deep = vec3(0.03, 0.15, 0.19)
 	const body = select(d.lessThan(0.5), mix(shallow, mid, d.mul(2)), mix(mid, deep, d.mul(2).sub(1)))

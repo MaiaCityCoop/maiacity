@@ -40,9 +40,9 @@
 			key.position.set(1.2, 2.2, 0.9);
 			scene.add(key);
 			// a patch of soil under it, fading out at its rim (its colour written as it is: ../../render/tsl.js `raw`)
-			const { MeshBasicNodeMaterial } = await import('three/webgpu');
+			const { OwnBasic } = await import('$lib/content/render/tsl.js');
 			const { length, positionLocal, smoothstep, vec3 } = await import('three/tsl');
-			const soilLook = new MeshBasicNodeMaterial({ transparent: true, depthWrite: false });
+			const soilLook = new OwnBasic({ transparent: true, depthWrite: false });
 			soilLook.userData.raw = true;
 			soilLook.colorNode = vec3(0.48, 0.38, 0.27);
 			soilLook.opacityNode = smoothstep(0.35, 1, length(positionLocal.xz)).oneMinus().mul(0.55);

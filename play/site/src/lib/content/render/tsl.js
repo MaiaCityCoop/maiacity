@@ -7,6 +7,7 @@
  * colour (a pass after the output pass, a flat overlay). Intent cb16b7a5 brings the target half as ./nodes `install`;
  * once it is on main this joins it.
  */
+import { MeshBasicNodeMaterial, MeshPhysicalNodeMaterial, MeshStandardNodeMaterial, NodeMaterial } from 'three/webgpu';
 import { workingToColorSpace } from 'three/tsl';
 
 /** @param {import('three').WebGLRenderer} r @param {import('three/addons/tsl/WebGLNodesHandler.js').WebGLNodesHandler} h */
@@ -23,3 +24,21 @@ export function outputs(r, h) {
 	h.renderer.getCacheKey = () => (onScreen() ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
 	return h;
 }
+
+/**
+ * A node material class whose every material gets its own program. three keys a node material's program by its nodes
+ * alone, and two whose shaders differ by what is beside them (an environment map) would share one, each uploading its
+ * uniforms by name into the other's layout (cb16b7a5, on the Mac: a cube map into a vec3). The handler reads the key
+ * off the class (its prototype's `customProgramCacheKey`), so it is a class, not a property.
+ * @template {new (...a: any[]) => any} B @param {B} Base @returns {B}
+ */
+const own = (Base) =>
+	class extends Base {
+		customProgramCacheKey() {
+			return `${super.customProgramCacheKey()}#${this.id}`;
+		}
+	};
+export const OwnStandard = own(MeshStandardNodeMaterial);
+export const OwnPhysical = own(MeshPhysicalNodeMaterial);
+export const OwnBasic = own(MeshBasicNodeMaterial);
+export const OwnNode = own(NodeMaterial);

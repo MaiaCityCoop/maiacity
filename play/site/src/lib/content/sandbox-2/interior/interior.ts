@@ -24,7 +24,8 @@
  */
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { MeshPhysicalNodeMaterial, MeshStandardNodeMaterial } from 'three/webgpu'
+import type { MeshPhysicalNodeMaterial, MeshStandardNodeMaterial } from 'three/webgpu'
+import { OwnPhysical, OwnStandard } from '$lib/content/render/tsl.js'
 import { abs, cameraViewMatrix, dot, float, max, mix, normalView, normalize, positionViewDirection, positionWorld, texture, uniform, vec4 } from 'three/tsl'
 import { flagstone, grass, groundCover, leaves, limestone, oak, soil, water } from './textures'
 import { cafes, coops, coopsAround, henPatches, rabbitPatches, squaresAround, type Kit } from './spaces'
@@ -99,7 +100,7 @@ export const glassSheen = {
 }
 /** the dome's clear glass, in TSL: its sheen (`glassSheen`) its emissive light */
 function sheenGlass(o: THREE.MeshPhysicalMaterialParameters): MeshPhysicalNodeMaterial {
-	const m = new MeshPhysicalNodeMaterial(o)
+	const m = new OwnPhysical(o)
 	const { uGlassSheen, uGlassSheenColor, uGlassSun } = glassSheen
 	const sunV = normalize(cameraViewMatrix.mul(vec4(uGlassSun, 0)).xyz)
 	const facing = max(dot(normalView, sunV), 0)
@@ -166,7 +167,7 @@ const k2 = (v: number) => Math.round(v * 20) / 20
 let meadowCache: MeshStandardNodeMaterial | null = null
 function meadow(): MeshStandardNodeMaterial {
 	if (meadowCache) return meadowCache
-	const mat = new MeshStandardNodeMaterial({ roughness: 1 })
+	const mat = new OwnStandard({ roughness: 1 })
 	const map = grass(), ground = positionWorld.xz
 	const drift = texture(map, ground.div(61)).g.mul(0.6).add(texture(map, ground.div(23).add(0.3)).r.mul(0.4))
 	mat.colorNode = texture(map, ground.div(3.2)).rgb.mul(mix(0.78, 1.18, drift))

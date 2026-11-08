@@ -44249,10 +44249,35 @@ ${stackString}`;
   var property = (type, name, placeholderNode = null) => new PropertyNode(type, name, false, placeholderNode);
   var varyingProperty = (type, name, placeholderNode = null) => new PropertyNode(type, name, true, placeholderNode);
   var diffuseColor = /* @__PURE__ */ nodeImmutable(PropertyNode, "vec4", "DiffuseColor");
+  var diffuseContribution = /* @__PURE__ */ nodeImmutable(PropertyNode, "vec3", "DiffuseContribution");
+  var diffuseRoughness = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "DiffuseRoughness");
   var emissive = /* @__PURE__ */ nodeImmutable(PropertyNode, "vec3", "EmissiveColor");
+  var roughness = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "Roughness");
+  var metalness = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "Metalness");
+  var clearcoat = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "Clearcoat");
+  var clearcoatRoughness = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "ClearcoatRoughness");
+  var sheen = /* @__PURE__ */ nodeImmutable(PropertyNode, "vec3", "Sheen");
+  var sheenRoughness = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "SheenRoughness");
+  var iridescence = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "Iridescence");
+  var iridescenceIOR = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "IridescenceIOR");
+  var iridescenceThickness = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "IridescenceThickness");
+  var alphaT = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "AlphaT");
+  var anisotropy = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "Anisotropy");
+  var anisotropyT = /* @__PURE__ */ nodeImmutable(PropertyNode, "vec3", "AnisotropyT");
+  var anisotropyB = /* @__PURE__ */ nodeImmutable(PropertyNode, "vec3", "AnisotropyB");
+  var specularColor = /* @__PURE__ */ nodeImmutable(PropertyNode, "color", "SpecularColor");
+  var specularColorBlended = /* @__PURE__ */ nodeImmutable(PropertyNode, "color", "SpecularColorBlended");
+  var specularF90 = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "SpecularF90");
   var output = /* @__PURE__ */ nodeImmutable(PropertyNode, "output", "Output");
   var dashSize = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "dashSize");
   var gapSize = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "gapSize");
+  var ior = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "IOR");
+  var transmission = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "Transmission");
+  var thickness = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "Thickness");
+  var attenuationDistance = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "AttenuationDistance");
+  var attenuationColor = /* @__PURE__ */ nodeImmutable(PropertyNode, "color", "AttenuationColor");
+  var dispersion = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "Dispersion");
+  var retroreflectivity = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "Retroreflectivity");
   var ambientOcclusion = /* @__PURE__ */ nodeImmutable(PropertyNode, "float", "AmbientOcclusion", false, 1);
 
   class FunctionCallNode extends Node {
@@ -46977,6 +47002,8 @@ ${builder.flow.code}`;
   var _cameraProjectionMatrixInverseBase = null;
   var _cameraViewMatrixBase = null;
   var _cameraWorldMatrixBase = null;
+  var _cameraPositionBase = null;
+  var _cameraViewportBase = null;
   var cameraIndex = /* @__PURE__ */ uniform(0, "uint").setName("u_cameraIndex").setGroup(sharedUniformGroup("cameraIndex")).toVarying("v_cameraIndex");
   var cameraNear = /* @__PURE__ */ uniform("float").setName("cameraNear").setGroup(renderGroup).onRenderUpdate(({ camera }) => camera.near);
   var cameraFar = /* @__PURE__ */ uniform("float").setName("cameraFar").setGroup(renderGroup).onRenderUpdate(({ camera }) => camera.far);
@@ -47059,6 +47086,51 @@ ${builder.flow.code}`;
       cameraWorldMatrix = _cameraWorldMatrixBase;
     }
     return cameraWorldMatrix;
+  }).once()();
+  var cameraPosition = /* @__PURE__ */ Fn(({ camera, renderer }) => {
+    let cameraPosition;
+    if (camera.isArrayCamera && camera.cameras.length > 0) {
+      const cameraArray = getCameraArray(renderer, camera, "cameraPositions", (camera) => {
+        const positions = [];
+        for (let i = 0, l = camera.cameras.length;i < l; i++) {
+          positions.push(new Vector3);
+        }
+        return uniformArray(positions).setGroup(renderGroup).setName("cameraPositions").onRenderUpdate(({ camera }, self2) => {
+          const subCameras = camera.cameras;
+          const array = self2.array;
+          for (let i = 0, l = subCameras.length;i < l; i++) {
+            array[i].setFromMatrixPosition(subCameras[i].matrixWorld);
+          }
+        });
+      });
+      cameraPosition = cameraArray.element(camera.isMultiViewCamera ? builtin("gl_ViewID_OVR") : cameraIndex);
+    } else {
+      if (_cameraPositionBase === null) {
+        _cameraPositionBase = uniform(new Vector3).setName("cameraPosition").setGroup(renderGroup).onRenderUpdate(({ camera }, self2) => self2.value.setFromMatrixPosition(camera.matrixWorld));
+      }
+      cameraPosition = _cameraPositionBase;
+    }
+    return cameraPosition;
+  }).once()();
+  var cameraViewport = /* @__PURE__ */ Fn(({ camera, renderer }) => {
+    let cameraViewport;
+    if (camera.isArrayCamera && camera.cameras.length > 0) {
+      const cameraArray = getCameraArray(renderer, camera, "cameraViewports", (camera) => {
+        const values = camera.cameras.map((subCamera) => subCamera.viewport);
+        return uniformArray(values, "vec4").setGroup(renderGroup).setName("cameraViewports").onRenderUpdate(({ camera }, self2) => {
+          for (let i = 0;i < camera.cameras.length; i++) {
+            self2.array[i] = camera.cameras[i].viewport;
+          }
+        });
+      });
+      cameraViewport = cameraArray.element(cameraIndex);
+    } else {
+      if (_cameraViewportBase === null) {
+        _cameraViewportBase = vec4(0, 0, screenSize.x, screenSize.y).toConst("cameraViewport");
+      }
+      cameraViewport = _cameraViewportBase;
+    }
+    return cameraViewport;
   }).once()();
   class ModelNode extends Object3DNode {
     static get type() {
@@ -47194,6 +47266,15 @@ ${builder.flow.code}`;
     return node;
   }, "vec3").once(["NORMAL", "VERTEX"])().toVar("normalView");
   var normalWorld = /* @__PURE__ */ normalView.transformNormalByInverseViewMatrix(cameraViewMatrix).toVar("normalWorld");
+  var clearcoatNormalView = /* @__PURE__ */ Fn(({ subBuildFn, context }) => {
+    let node;
+    if (subBuildFn === "NORMAL" || subBuildFn === "VERTEX") {
+      node = normalView;
+    } else {
+      node = context.setupClearcoatNormal().context({ getUV: null, getTextureLevel: null });
+    }
+    return node;
+  }, "vec3").once(["NORMAL", "VERTEX"])().toVar("clearcoatNormalView");
   var transformNormal = /* @__PURE__ */ Fn(([normal, matrix = modelWorldMatrix]) => {
     const normalMatrix = mat3(matrix).inverse().transpose();
     return normalMatrix.mul(normal).normalize();
@@ -47714,6 +47795,9 @@ ${builder.flow.code}`;
       return viewportTextureNode;
     }
   }
+  var viewportMipTexture = /* @__PURE__ */ nodeProxy(ViewportTextureNode, null, null, { generateMipmaps: true }).setParameterLength(0, 3);
+  var _singletonOpaqueViewportTextureNode = /* @__PURE__ */ viewportMipTexture();
+  var viewportOpaqueMipTexture = (uv = screenUV, level = null) => _singletonOpaqueViewportTextureNode.sample(uv, level);
   var _sharedDepthbuffer = null;
 
   class ViewportDepthTextureNode extends ViewportTextureNode {
@@ -47827,6 +47911,9 @@ ${builder.flow.code}`;
   _defaultRT.depthTexture = new DepthTexture(1, 1);
   var _m1$13 = /* @__PURE__ */ new Matrix4;
   var materialRefractionRatio = /* @__PURE__ */ uniform(0).onReference(({ material }) => material).onObjectUpdate(({ material }) => material.refractionRatio);
+  var materialEnvIntensity = /* @__PURE__ */ uniform(1).onReference(({ material }) => material).onObjectUpdate(function({ material, scene }) {
+    return material.envMap ? material.envMapIntensity : scene.environmentIntensity;
+  });
   var materialEnvRotation = /* @__PURE__ */ uniform(new Matrix4).onReference(function(frame) {
     return frame.material;
   }).onObjectUpdate(function({ material, scene }) {
@@ -48058,6 +48145,13 @@ ${builder.flow.code}`;
     return node;
   }, "vec3").once(["NORMAL", "VERTEX"])().toVar("bitangentView");
   var TBNViewMatrix = /* @__PURE__ */ mat3(tangentView, bitangentView, normalView).toVar("TBNViewMatrix");
+  var bentNormalView = /* @__PURE__ */ Fn(() => {
+    let bentNormal = anisotropyB.cross(positionViewDirection);
+    bentNormal = bentNormal.cross(anisotropyB).normalize();
+    bentNormal = mix(bentNormal, normalView, anisotropy.mul(roughness.oneMinus()).oneMinus().pow2().pow2()).normalize();
+    return bentNormal;
+  }).once()();
+
   class NormalMapNode extends Node {
     static get type() {
       return "NormalMapNode";
@@ -50542,6 +50636,43 @@ ${builder.flow.code}`;
     return vec2(cos(theta), sin(theta)).mul(r);
   }, { sampleIndex: "int", samplesCount: "int", phi: "float", return: "vec2" });
   var bC = 1 / 6;
+  var w0 = (a) => mul(bC, mul(a, mul(a, a.negate().add(3)).sub(3)).add(1));
+  var w1 = (a) => mul(bC, mul(a, mul(a, mul(3, a).sub(6))).add(4));
+  var w2 = (a) => mul(bC, mul(a, mul(a, mul(-3, a).add(3)).add(3)).add(1));
+  var w3 = (a) => mul(bC, pow(a, 3));
+  var bicubicWeights = (a) => {
+    const w0a = w0(a);
+    const w1a = w1(a);
+    const w2a = w2(a);
+    const w3a = w3(a);
+    const g0a = w0a.add(w1a);
+    const g1a = w2a.add(w3a);
+    const h0a = add(-1, w1a.div(g0a));
+    const h1a = add(1, w3a.div(g1a));
+    return { g0: g0a, g1: g1a, h0: h0a, h1: h1a };
+  };
+  var bicubic = (textureNode, p0, p3, g0, g1, lod) => {
+    const p1 = vec2(p3.x, p0.y);
+    const p2 = vec2(p0.x, p3.y);
+    const a = g0.y.mul(add(g0.x.mul(textureNode.sample(p0).level(lod)), g1.x.mul(textureNode.sample(p1).level(lod))));
+    const b = g1.y.mul(add(g0.x.mul(textureNode.sample(p2).level(lod)), g1.x.mul(textureNode.sample(p3).level(lod))));
+    return a.add(b);
+  };
+  var textureBicubicLevel = /* @__PURE__ */ Fn(([textureNode, lodNode]) => {
+    const fLodSize = vec2(textureNode.size(int(lodNode)));
+    const cLodSize = vec2(textureNode.size(int(lodNode.add(1))));
+    const lodSize = vec4(fLodSize, cLodSize);
+    const lodSizeInv = div(1, lodSize);
+    const uvScaled = textureNode.uvNode.xyxy.mul(lodSize).add(0.5);
+    const iuv = floor(uvScaled);
+    const fuv = fract(uvScaled);
+    const { g0, g1, h0, h1 } = bicubicWeights(fuv);
+    const p0 = iuv.add(h0).sub(0.5).mul(lodSizeInv);
+    const p3 = iuv.add(h1).sub(0.5).mul(lodSizeInv);
+    const fSample = bicubic(textureNode, p0.xy, p3.xy, g0.xy, g1.xy, floor(lodNode));
+    const cSample = bicubic(textureNode, p0.zw, p3.zw, g0.zw, g1.zw, ceil(lodNode));
+    return fract(lodNode).mix(fSample, cSample);
+  });
   var _objectData = new WeakMap;
   var linearToneMapping = /* @__PURE__ */ Fn(([color, exposure]) => {
     return color.mul(exposure).clamp();
@@ -52316,9 +52447,135 @@ ${builder.flow.code}`;
       return false;
     return image.height > 0;
   }
+  var pmremTexture = /* @__PURE__ */ nodeProxy(PMREMNode).setParameterLength(1, 3);
+  var EON_EPSILON = 0.0000001;
   var FON_A_COEFFICIENT = 0.5 - 2 / (3 * Math.PI);
   var FON_AVERAGE_ALBEDO_COEFFICIENT = 2 / 3 - 28 / (15 * Math.PI);
+  var FON_DirectionalAlbedo = /* @__PURE__ */ Fn(({ mu, roughness, A }) => {
+    const muComp = mu.oneMinus();
+    const gOverPi = muComp.mul(muComp.mul(muComp.mul(muComp.mul(0.0714429953).sub(0.332181442)).add(0.491881867)).add(0.0571085289));
+    return A.mul(roughness.mul(gOverPi).add(1));
+  }, { mu: "float", roughness: "float", A: "float", return: "float" });
+  var BRDF_EON = /* @__PURE__ */ Fn(({ lightDirection, diffuseColor, roughness, normalView: normalView$1 = normalView, viewDirection = positionViewDirection }) => {
+    const rho = diffuseColor.clamp();
+    const dotNL = normalView$1.dot(lightDirection).clamp();
+    const dotNV = normalView$1.dot(viewDirection).clamp();
+    const s = lightDirection.dot(viewDirection).sub(dotNL.mul(dotNV));
+    const sOverT = s.greaterThan(0).select(s.div(dotNL.max(dotNV).max(EON_EPSILON)), s);
+    const A = roughness.mul(FON_A_COEFFICIENT).add(1).reciprocal();
+    const singleScatter = rho.mul(1 / Math.PI, A, roughness.mul(sOverT).add(1));
+    const averageAlbedo = A.mul(roughness.mul(FON_AVERAGE_ALBEDO_COEFFICIENT).add(1));
+    const albedoV = FON_DirectionalAlbedo({ mu: dotNV, roughness, A });
+    const albedoL = FON_DirectionalAlbedo({ mu: dotNL, roughness, A });
+    const rhoMultiScatter = rho.mul(rho, averageAlbedo).div(rho.mul(averageAlbedo.oneMinus()).oneMinus().max(EON_EPSILON));
+    const multiScatter = rhoMultiScatter.mul(1 / Math.PI, albedoV.oneMinus().max(EON_EPSILON), albedoL.oneMinus().max(EON_EPSILON)).div(averageAlbedo.oneMinus().max(EON_EPSILON));
+    const eon = singleScatter.add(multiScatter);
+    return roughness.lessThanEqual(EON_EPSILON).select(rho.mul(1 / Math.PI), eon);
+  });
+  var EON_DirectionalAlbedo = /* @__PURE__ */ Fn(({ diffuseColor, roughness, dotNV }) => {
+    const rho = diffuseColor.clamp();
+    const A = roughness.mul(FON_A_COEFFICIENT).add(1).reciprocal();
+    const directionalAlbedo = FON_DirectionalAlbedo({ mu: dotNV.clamp(), roughness, A });
+    const averageAlbedo = A.mul(roughness.mul(FON_AVERAGE_ALBEDO_COEFFICIENT).add(1));
+    const rhoMultiScatter = rho.mul(rho, averageAlbedo).div(rho.mul(averageAlbedo.oneMinus()).oneMinus().max(EON_EPSILON));
+    const eonAlbedo = rho.mul(directionalAlbedo).add(rhoMultiScatter.mul(directionalAlbedo.oneMinus()));
+    return roughness.lessThanEqual(EON_EPSILON).select(rho, eonAlbedo);
+  }, { diffuseColor: "vec3", roughness: "float", dotNV: "float", return: "vec3" });
+  var F_Schlick = /* @__PURE__ */ Fn(({ f0, f90, dotVH }) => {
+    const fresnel = dotVH.mul(-5.55473).sub(6.98316).mul(dotVH).exp2();
+    return f0.mul(fresnel.oneMinus()).add(f90.mul(fresnel));
+  });
+  var V_GGX_SmithCorrelated = /* @__PURE__ */ Fn(({ alpha, dotNL, dotNV }) => {
+    const a2 = alpha.pow2();
+    const gv = dotNL.mul(a2.add(a2.oneMinus().mul(dotNV.pow2())).sqrt());
+    const gl = dotNV.mul(a2.add(a2.oneMinus().mul(dotNL.pow2())).sqrt());
+    return div(0.5, gv.add(gl).max(EPSILON));
+  }, { alpha: "float", dotNL: "float", dotNV: "float", return: "float" });
+  var V_GGX_SmithCorrelated_Anisotropic = /* @__PURE__ */ Fn(({ alphaT, alphaB, dotTV, dotBV, dotTL, dotBL, dotNV, dotNL }) => {
+    const gv = dotNL.mul(vec3(alphaT.mul(dotTV), alphaB.mul(dotBV), dotNV).length());
+    const gl = dotNV.mul(vec3(alphaT.mul(dotTL), alphaB.mul(dotBL), dotNL).length());
+    return div(0.5, gv.add(gl).max(EPSILON));
+  }, {
+    alphaT: "float",
+    alphaB: "float",
+    dotTV: "float",
+    dotBV: "float",
+    dotTL: "float",
+    dotBL: "float",
+    dotNV: "float",
+    dotNL: "float",
+    return: "float"
+  });
+  var D_GGX = /* @__PURE__ */ Fn(({ alpha, dotNH }) => {
+    const a2 = alpha.pow2();
+    const denom = dotNH.pow2().mul(a2.oneMinus()).oneMinus();
+    return a2.div(denom.pow2()).mul(1 / Math.PI);
+  }, { alpha: "float", dotNH: "float", return: "float" });
   var RECIPROCAL_PI = /* @__PURE__ */ float(1 / Math.PI);
+  var D_GGX_Anisotropic = /* @__PURE__ */ Fn(({ alphaT, alphaB, dotNH, dotTH, dotBH }) => {
+    const a2 = alphaT.mul(alphaB);
+    const v = vec3(alphaB.mul(dotTH), alphaT.mul(dotBH), a2.mul(dotNH));
+    const v2 = v.dot(v);
+    const w2 = a2.div(v2);
+    return RECIPROCAL_PI.mul(a2.mul(w2.pow2()));
+  }, {
+    alphaT: "float",
+    alphaB: "float",
+    dotNH: "float",
+    dotTH: "float",
+    dotBH: "float",
+    return: "float"
+  });
+  var BRDF_GGX = /* @__PURE__ */ Fn(({ lightDirection, f0, f90, roughness, f, normalView: normalView$1 = normalView, viewDirection = positionViewDirection, USE_IRIDESCENCE, USE_ANISOTROPY }) => {
+    const alpha = roughness.max(0.045).pow2();
+    const halfDir = lightDirection.add(viewDirection).normalize();
+    const dotNL = normalView$1.dot(lightDirection).clamp();
+    const dotNV = normalView$1.dot(viewDirection).clamp();
+    const dotNH = normalView$1.dot(halfDir).clamp();
+    const dotVH = viewDirection.dot(halfDir).clamp();
+    let F = F_Schlick({ f0, f90, dotVH });
+    let V, D;
+    if (defined(USE_IRIDESCENCE)) {
+      F = iridescence.mix(F, f);
+    }
+    if (defined(USE_ANISOTROPY)) {
+      const dotTL = anisotropyT.dot(lightDirection);
+      const dotTV = anisotropyT.dot(viewDirection);
+      const dotTH = anisotropyT.dot(halfDir);
+      const dotBL = anisotropyB.dot(lightDirection);
+      const dotBV = anisotropyB.dot(viewDirection);
+      const dotBH = anisotropyB.dot(halfDir);
+      const clampedAlphaT = alphaT.max(alpha);
+      V = V_GGX_SmithCorrelated_Anisotropic({ alphaT: clampedAlphaT, alphaB: alpha, dotTV, dotBV, dotTL, dotBL, dotNV, dotNL });
+      D = D_GGX_Anisotropic({ alphaT: clampedAlphaT, alphaB: alpha, dotNH, dotTH, dotBH });
+    } else {
+      V = V_GGX_SmithCorrelated({ alpha, dotNL, dotNV });
+      D = D_GGX({ alpha, dotNH });
+    }
+    return F.mul(V).mul(D);
+  });
+  var BRDF_Lambert = /* @__PURE__ */ Fn((inputs) => {
+    return inputs.diffuseColor.mul(1 / Math.PI);
+  });
+  var D_Charlie = /* @__PURE__ */ Fn(({ roughness, dotNH }) => {
+    const alpha = roughness.pow2();
+    const invAlpha = float(1).div(alpha);
+    const cos2h = dotNH.pow2();
+    const sin2h = cos2h.oneMinus().max(0.0078125);
+    return float(2).add(invAlpha).mul(sin2h.pow(invAlpha.mul(0.5))).div(2 * Math.PI);
+  }, { roughness: "float", dotNH: "float", return: "float" });
+  var V_Neubelt = /* @__PURE__ */ Fn(({ dotNV, dotNL }) => {
+    return float(1).div(float(4).mul(dotNL.add(dotNV).sub(dotNL.mul(dotNV)))).clamp();
+  }, { dotNV: "float", dotNL: "float", return: "float" });
+  var BRDF_Sheen = /* @__PURE__ */ Fn(({ lightDirection }) => {
+    const halfDir = lightDirection.add(positionViewDirection).normalize();
+    const dotNL = normalView.dot(lightDirection).clamp();
+    const dotNV = normalView.dot(positionViewDirection).clamp();
+    const dotNH = normalView.dot(halfDir).clamp();
+    const D = D_Charlie({ roughness: sheenRoughness, dotNH });
+    const V = V_Neubelt({ dotNV, dotNL });
+    return sheen.mul(D).mul(V);
+  });
   var DATA2 = new Uint16Array([
     12469,
     15057,
@@ -52833,6 +53090,102 @@ ${builder.flow.code}`;
     13702,
     1183
   ]);
+  var lut2 = null;
+  var DFGLUT = /* @__PURE__ */ Fn(({ roughness, dotNV }) => {
+    if (lut2 === null) {
+      lut2 = new DataTexture(DATA2, 16, 16, RGFormat, HalfFloatType);
+      lut2.name = "DFG_LUT";
+      lut2.minFilter = LinearFilter;
+      lut2.magFilter = LinearFilter;
+      lut2.wrapS = ClampToEdgeWrapping;
+      lut2.wrapT = ClampToEdgeWrapping;
+      lut2.generateMipmaps = false;
+      lut2.needsUpdate = true;
+    }
+    const uv = vec2(roughness, dotNV);
+    return texture(lut2, uv).rg;
+  });
+  var EnvironmentBRDF = /* @__PURE__ */ Fn((inputs) => {
+    const { dotNV, specularColor, specularF90, roughness } = inputs;
+    const fab = DFGLUT({ dotNV, roughness });
+    return specularColor.mul(fab.x).add(specularF90.mul(fab.y));
+  });
+  var Schlick_to_F0 = /* @__PURE__ */ Fn(({ f, f90, dotVH }) => {
+    const x = dotVH.oneMinus().saturate();
+    const x2 = x.mul(x);
+    const x5 = x.mul(x2, x2).clamp(0, 0.9999);
+    return f.sub(vec3(f90).mul(x5)).div(x5.oneMinus());
+  }, { f: "vec3", f90: "float", dotVH: "float", return: "vec3" });
+  var LTC_Uv = /* @__PURE__ */ Fn(({ N, V, roughness }) => {
+    const LUT_SIZE = 64;
+    const LUT_SCALE = (LUT_SIZE - 1) / LUT_SIZE;
+    const LUT_BIAS = 0.5 / LUT_SIZE;
+    const dotNV = N.dot(V).saturate();
+    const uv = vec2(roughness, dotNV.oneMinus().sqrt());
+    uv.assign(uv.mul(LUT_SCALE).add(LUT_BIAS));
+    return uv;
+  }, { N: "vec3", V: "vec3", roughness: "float", return: "vec2" });
+  var LTC_ClippedSphereFormFactor = /* @__PURE__ */ Fn(({ f }) => {
+    const l = f.length();
+    return max(l.mul(l).add(f.z).div(l.add(1)), 0);
+  }, { f: "vec3", return: "float" });
+  var LTC_EdgeVectorFormFactor = /* @__PURE__ */ Fn(({ v1, v2 }) => {
+    const x = v1.dot(v2);
+    const y = x.abs().toVar();
+    const a = y.mul(0.0145206).add(0.4965155).mul(y).add(0.8543985).toVar();
+    const b = y.add(4.1616724).mul(y).add(3.417594).toVar();
+    const v = a.div(b);
+    const theta_sintheta = x.greaterThan(0).select(v, max(x.mul(x).oneMinus(), 0.0000001).inverseSqrt().mul(0.5).sub(v));
+    return v1.cross(v2).mul(theta_sintheta);
+  }, { v1: "vec3", v2: "vec3", return: "vec3" });
+  var LTC_Evaluate = /* @__PURE__ */ Fn(({ N, V, P, mInv, p0, p1, p2, p3 }) => {
+    const v1 = p1.sub(p0).toVar();
+    const v2 = p3.sub(p0).toVar();
+    const lightNormal = v1.cross(v2);
+    const result = vec3().toVar();
+    If(lightNormal.dot(P.sub(p0)).greaterThanEqual(0), () => {
+      const T1 = V.sub(N.mul(V.dot(N))).normalize();
+      const T2 = N.cross(T1).negate();
+      const mat = mInv.mul(mat3(T1, T2, N).transpose()).toVar();
+      const coords0 = mat.mul(p0.sub(P)).normalize().toVar();
+      const coords1 = mat.mul(p1.sub(P)).normalize().toVar();
+      const coords2 = mat.mul(p2.sub(P)).normalize().toVar();
+      const coords3 = mat.mul(p3.sub(P)).normalize().toVar();
+      const vectorFormFactor = vec3(0).toVar();
+      vectorFormFactor.addAssign(LTC_EdgeVectorFormFactor({ v1: coords0, v2: coords1 }));
+      vectorFormFactor.addAssign(LTC_EdgeVectorFormFactor({ v1: coords1, v2: coords2 }));
+      vectorFormFactor.addAssign(LTC_EdgeVectorFormFactor({ v1: coords2, v2: coords3 }));
+      vectorFormFactor.addAssign(LTC_EdgeVectorFormFactor({ v1: coords3, v2: coords0 }));
+      result.assign(vec3(LTC_ClippedSphereFormFactor({ f: vectorFormFactor })));
+    });
+    return result;
+  }, {
+    N: "vec3",
+    V: "vec3",
+    P: "vec3",
+    mInv: "mat3",
+    p0: "vec3",
+    p1: "vec3",
+    p2: "vec3",
+    p3: "vec3",
+    return: "vec3"
+  });
+  var getGeometryRoughness = /* @__PURE__ */ Fn((builder) => {
+    if (builder.geometry.hasAttribute("normal") === false) {
+      return float(0);
+    }
+    const dxy = normalViewGeometry.dFdx().abs().max(normalViewGeometry.dFdy().abs());
+    const geometryRoughness = dxy.x.max(dxy.y).max(dxy.z);
+    return geometryRoughness;
+  });
+  var getRoughness = /* @__PURE__ */ Fn((inputs) => {
+    const { roughness } = inputs;
+    const geometryRoughness = getGeometryRoughness();
+    let roughnessFactor = roughness.max(0.045);
+    roughnessFactor = roughnessFactor.add(geometryRoughness);
+    roughnessFactor = roughnessFactor.min(1);
+    return roughnessFactor;
+  });
   var getShIrradianceAt = /* @__PURE__ */ Fn(([normal, shCoefficients]) => {
     const { x, y, z } = normal;
     let result = shCoefficients.element(0).mul(0.886227);
@@ -53019,9 +53372,861 @@ ${builder.flow.code}`;
     return alpha;
   })();
   var _cache3 = new WeakMap;
+
+  class CubeMapNode extends Node {
+    static get type() {
+      return "CubeMapNode";
+    }
+    constructor(envNode) {
+      super("vec3");
+      this.envNode = envNode;
+      this._cubeTexture = null;
+      this._cubeTextureNode = cubeTexture(null);
+      const defaultTexture = new CubeTexture;
+      defaultTexture.isRenderTargetTexture = true;
+      this._defaultTexture = defaultTexture;
+      this.updateBeforeType = NodeUpdateType.RENDER;
+    }
+    updateBefore(frame) {
+      const { renderer, material } = frame;
+      const envNode = this.envNode;
+      if (envNode.isTextureNode || envNode.isMaterialReferenceNode) {
+        const texture = envNode.isTextureNode ? envNode.value : material[envNode.property];
+        if (texture && texture.isTexture) {
+          const mapping = texture.mapping;
+          if (mapping === EquirectangularReflectionMapping || mapping === EquirectangularRefractionMapping) {
+            if (_cache3.has(texture)) {
+              const cubeMap = _cache3.get(texture);
+              mapTextureMapping(cubeMap, texture.mapping);
+              this._cubeTexture = cubeMap;
+            } else {
+              const image = texture.image;
+              if (isEquirectangularMapReady2(image)) {
+                const renderTarget = new CubeRenderTarget(image.height);
+                renderTarget.fromEquirectangularTexture(renderer, texture);
+                mapTextureMapping(renderTarget.texture, texture.mapping);
+                this._cubeTexture = renderTarget.texture;
+                _cache3.set(texture, renderTarget.texture);
+                texture.addEventListener("dispose", onTextureDispose);
+              } else {
+                this._cubeTexture = this._defaultTexture;
+              }
+            }
+            this._cubeTextureNode.value = this._cubeTexture;
+          } else {
+            this._cubeTextureNode = this.envNode;
+          }
+        }
+      }
+    }
+    setup(builder) {
+      this.updateBefore(builder);
+      return this._cubeTextureNode;
+    }
+  }
+  function isEquirectangularMapReady2(image) {
+    if (image === null || image === undefined)
+      return false;
+    return image.height > 0;
+  }
+  function onTextureDispose(event) {
+    const texture = event.target;
+    texture.removeEventListener("dispose", onTextureDispose);
+    const renderTarget = _cache3.get(texture);
+    if (renderTarget !== undefined) {
+      _cache3.delete(texture);
+      renderTarget.dispose();
+    }
+  }
+  function mapTextureMapping(texture, mapping) {
+    if (mapping === EquirectangularReflectionMapping) {
+      texture.mapping = CubeReflectionMapping;
+    } else if (mapping === EquirectangularRefractionMapping) {
+      texture.mapping = CubeRefractionMapping;
+    }
+  }
+  var cubeMapNode = /* @__PURE__ */ nodeProxy(CubeMapNode).setParameterLength(1);
+
+  class BasicEnvironmentNode extends LightingNode {
+    static get type() {
+      return "BasicEnvironmentNode";
+    }
+    constructor(envNode = null) {
+      super();
+      this.envNode = envNode;
+    }
+    setup(builder) {
+      builder.context.environment = cubeMapNode(this.envNode).context({
+        getUV: (textureNode) => materialEnvRotation.mul(textureNode.uvNode || textureNode.getDefaultUV()),
+        forceUVContext: true
+      });
+    }
+  }
+
+  class BasicLightMapNode extends LightingNode {
+    static get type() {
+      return "BasicLightMapNode";
+    }
+    constructor(lightMapNode = null) {
+      super();
+      this.lightMapNode = lightMapNode;
+    }
+    setup(builder) {
+      const RECIPROCAL_PI = float(1 / Math.PI);
+      builder.context.irradianceLightMap = this.lightMapNode.mul(RECIPROCAL_PI);
+    }
+  }
+
+  class LightingModel {
+    start(builder) {
+      builder.lightsNode.setupLights(builder, builder.lightsNode.getLightNodes(builder));
+      this.indirect(builder);
+    }
+    finish() {}
+    direct() {}
+    directRectArea() {}
+    indirect() {}
+    ambientOcclusion() {}
+  }
+
+  class BasicLightingModel extends LightingModel {
+    constructor() {
+      super();
+    }
+    indirect({ context }) {
+      const ambientOcclusion = context.ambientOcclusion;
+      const reflectedLight = context.reflectedLight;
+      const irradianceLightMap = context.irradianceLightMap;
+      reflectedLight.indirectDiffuse.assign(vec4(0));
+      if (irradianceLightMap) {
+        reflectedLight.indirectDiffuse.addAssign(irradianceLightMap);
+      } else {
+        reflectedLight.indirectDiffuse.addAssign(vec4(1, 1, 1, 0));
+      }
+      reflectedLight.indirectDiffuse.mulAssign(ambientOcclusion);
+      reflectedLight.indirectDiffuse.mulAssign(diffuseColor.rgb);
+    }
+    finish(builder) {
+      const { material, context } = builder;
+      const outgoingLight = context.outgoingLight;
+      const envNode = builder.context.environment;
+      if (envNode) {
+        switch (material.combine) {
+          case MultiplyOperation:
+            outgoingLight.rgb.assign(mix(outgoingLight.rgb, outgoingLight.rgb.mul(envNode.rgb), materialSpecularStrength.mul(materialReflectivity)));
+            break;
+          case MixOperation:
+            outgoingLight.rgb.assign(mix(outgoingLight.rgb, envNode.rgb, materialSpecularStrength.mul(materialReflectivity)));
+            break;
+          case AddOperation:
+            outgoingLight.rgb.addAssign(envNode.rgb.mul(materialSpecularStrength.mul(materialReflectivity)));
+            break;
+          default:
+            warn("BasicLightingModel: Unsupported .combine value:", material.combine);
+            break;
+        }
+      }
+    }
+  }
+  var _defaultValues$9 = /* @__PURE__ */ new MeshBasicMaterial;
+
+  class MeshBasicNodeMaterial extends NodeMaterial {
+    static get type() {
+      return "MeshBasicNodeMaterial";
+    }
+    constructor(parameters) {
+      super();
+      this.isMeshBasicNodeMaterial = true;
+      this.lights = true;
+      this.setDefaultValues(_defaultValues$9);
+      this.setValues(parameters);
+    }
+    setupNormal() {
+      return negateOnBackSide(normalViewGeometry);
+    }
+    setupEnvironment(builder) {
+      const envNode = super.setupEnvironment(builder);
+      return envNode ? new BasicEnvironmentNode(envNode) : null;
+    }
+    setupLightMap(builder) {
+      let node = null;
+      if (builder.material.lightMap) {
+        node = new BasicLightMapNode(materialLightMap);
+      }
+      return node;
+    }
+    setupOutgoingLight() {
+      return diffuseColor.rgb;
+    }
+    setupLightingModel() {
+      return new BasicLightingModel;
+    }
+  }
+  var getVolumeTransmissionRay = /* @__PURE__ */ Fn(([n, v, thickness2, ior2, modelMatrix]) => {
+    const refractionVector = vec3(refract(v.negate(), normalize2(n), div(1, ior2)));
+    const modelScale = vec3(length(modelMatrix[0].xyz), length(modelMatrix[1].xyz), length(modelMatrix[2].xyz));
+    return normalize2(refractionVector).mul(thickness2.mul(modelScale));
+  }, {
+    n: "vec3",
+    v: "vec3",
+    thickness: "float",
+    ior: "float",
+    modelMatrix: "mat4",
+    return: "vec3"
+  });
+  var applyIorToRoughness = /* @__PURE__ */ Fn(([roughness2, ior2]) => {
+    return roughness2.mul(clamp3(ior2.mul(2).sub(2), 0, 1));
+  }, { roughness: "float", ior: "float", return: "float" });
+  var viewportBackSideTexture = /* @__PURE__ */ viewportMipTexture();
+  var viewportFrontSideTexture = /* @__PURE__ */ viewportOpaqueMipTexture();
+  var getTransmissionSample = /* @__PURE__ */ Fn(([fragCoord, roughness2, ior2], { material }) => {
+    const vTexture = material.side === BackSide ? viewportBackSideTexture : viewportFrontSideTexture;
+    const transmissionSample = vTexture.sample(fragCoord.mul(cameraViewport.zw).add(cameraViewport.xy).div(screenSize));
+    const lod = log22(cameraViewport.z).mul(applyIorToRoughness(roughness2, ior2));
+    return textureBicubicLevel(transmissionSample, lod);
+  });
+  var volumeAttenuation = /* @__PURE__ */ Fn(([transmissionDistance, attenuationColor2, attenuationDistance2]) => {
+    If(attenuationDistance2.notEqual(0), () => {
+      const attenuationCoefficient = log2(attenuationColor2).negate().div(attenuationDistance2);
+      const transmittance = exp(attenuationCoefficient.negate().mul(transmissionDistance));
+      return transmittance;
+    });
+    return vec3(1);
+  }, { transmissionDistance: "float", attenuationColor: "vec3", attenuationDistance: "float", return: "vec3" });
+  var getIBLVolumeRefraction = /* @__PURE__ */ Fn(([n, v, roughness2, diffuseColor2, specularColor2, specularF902, position, modelMatrix, viewMatrix, projMatrix, ior2, thickness2, attenuationColor2, attenuationDistance2, dispersion2]) => {
+    let transmittedLight, transmittance;
+    if (dispersion2) {
+      transmittedLight = vec4().toVar();
+      transmittance = vec3().toVar();
+      const halfSpread = ior2.sub(1).mul(dispersion2.mul(0.025));
+      const iors = vec3(ior2.sub(halfSpread), ior2, ior2.add(halfSpread));
+      Loop({ start: 0, end: 3 }, ({ i }) => {
+        const ior2 = iors.element(i);
+        const transmissionRay = getVolumeTransmissionRay(n, v, thickness2, ior2, modelMatrix);
+        const refractedRayExit = position.add(transmissionRay);
+        const ndcPos = projMatrix.mul(viewMatrix.mul(vec4(refractedRayExit, 1)));
+        const refractionCoords = vec2(ndcPos.xy.div(ndcPos.w)).toVar();
+        refractionCoords.addAssign(1);
+        refractionCoords.divAssign(2);
+        refractionCoords.assign(vec2(refractionCoords.x, refractionCoords.y.oneMinus()));
+        const transmissionSample = getTransmissionSample(refractionCoords, roughness2, ior2);
+        transmittedLight.element(i).assign(transmissionSample.element(i));
+        transmittedLight.a.addAssign(transmissionSample.a);
+        transmittance.element(i).assign(diffuseColor2.element(i).mul(volumeAttenuation(length(transmissionRay), attenuationColor2, attenuationDistance2).element(i)));
+      });
+      transmittedLight.a.divAssign(3);
+    } else {
+      const transmissionRay = getVolumeTransmissionRay(n, v, thickness2, ior2, modelMatrix);
+      const refractedRayExit = position.add(transmissionRay);
+      const ndcPos = projMatrix.mul(viewMatrix.mul(vec4(refractedRayExit, 1)));
+      const refractionCoords = vec2(ndcPos.xy.div(ndcPos.w)).toVar();
+      refractionCoords.addAssign(1);
+      refractionCoords.divAssign(2);
+      refractionCoords.assign(vec2(refractionCoords.x, refractionCoords.y.oneMinus()));
+      transmittedLight = getTransmissionSample(refractionCoords, roughness2, ior2);
+      transmittance = diffuseColor2.mul(volumeAttenuation(length(transmissionRay), attenuationColor2, attenuationDistance2));
+    }
+    const attenuatedColor = transmittance.rgb.mul(transmittedLight.rgb);
+    const dotNV = n.dot(v).clamp();
+    const F = vec3(EnvironmentBRDF({
+      dotNV,
+      specularColor: specularColor2,
+      specularF90: specularF902,
+      roughness: roughness2
+    }));
+    const transmittanceFactor = transmittance.r.add(transmittance.g, transmittance.b).div(3);
+    return vec4(F.oneMinus().mul(attenuatedColor), transmittedLight.a.oneMinus().mul(transmittanceFactor).oneMinus());
+  });
+  var XYZ_TO_REC709 = /* @__PURE__ */ mat3(3.2404542, -1.5371385, -0.4985314, -0.969266, 1.8760108, 0.041556, 0.0556434, -0.2040259, 1.0572252);
+  var Fresnel0ToIor = (fresnel0) => {
+    const sqrtF0 = fresnel0.sqrt();
+    return vec3(1).add(sqrtF0).div(vec3(1).sub(sqrtF0));
+  };
+  var IorToFresnel0 = (transmittedIor, incidentIor) => {
+    return transmittedIor.sub(incidentIor).div(transmittedIor.add(incidentIor)).pow2();
+  };
+  var evalSensitivity = (OPD, shift) => {
+    const phase = OPD.mul(2 * Math.PI * 0.000000001);
+    const val = vec3(0.00000000000054856, 0.00000000000044201, 0.00000000000052481);
+    const pos = vec3(1681000, 1795300, 2208400);
+    const VAR = vec3(4327800000, 9304600000, 6612100000);
+    const x = float(0.00000000000009747 * Math.sqrt(2 * Math.PI * 4528200000)).mul(phase.mul(2239900).add(shift.x).cos()).mul(phase.pow2().mul(-4528200000).exp());
+    let xyz = val.mul(VAR.mul(2 * Math.PI).sqrt()).mul(pos.mul(phase).add(shift).cos()).mul(phase.pow2().negate().mul(VAR).exp());
+    xyz = vec3(xyz.x.add(x), xyz.y, xyz.z).div(0.00000010685);
+    const rgb = XYZ_TO_REC709.mul(xyz);
+    return rgb;
+  };
+  var evalIridescence = /* @__PURE__ */ Fn(({ outsideIOR, eta2, cosTheta1, thinFilmThickness, baseF0 }) => {
+    const iridescenceIOR2 = mix(outsideIOR, eta2, smoothstep2(0, 0.03, thinFilmThickness));
+    const sinTheta2Sq = outsideIOR.div(iridescenceIOR2).pow2().mul(cosTheta1.pow2().oneMinus());
+    const cosTheta2Sq = sinTheta2Sq.oneMinus();
+    If(cosTheta2Sq.lessThan(0), () => {
+      return vec3(1);
+    });
+    const cosTheta2 = cosTheta2Sq.sqrt();
+    const R0 = IorToFresnel0(iridescenceIOR2, outsideIOR);
+    const R12 = F_Schlick({ f0: R0, f90: 1, dotVH: cosTheta1 });
+    const T121 = R12.oneMinus();
+    const phi12 = iridescenceIOR2.lessThan(outsideIOR).select(Math.PI, 0);
+    const phi21 = float(Math.PI).sub(phi12);
+    const baseIOR = Fresnel0ToIor(baseF0.clamp(0, 0.9999));
+    const R1 = IorToFresnel0(baseIOR, iridescenceIOR2.toVec3());
+    const R23 = F_Schlick({ f0: R1, f90: 1, dotVH: cosTheta2 });
+    const phi23 = vec3(baseIOR.x.lessThan(iridescenceIOR2).select(Math.PI, 0), baseIOR.y.lessThan(iridescenceIOR2).select(Math.PI, 0), baseIOR.z.lessThan(iridescenceIOR2).select(Math.PI, 0));
+    const OPD = iridescenceIOR2.mul(thinFilmThickness, cosTheta2, 2);
+    const phi = vec3(phi21).add(phi23);
+    const R123 = R12.mul(R23).clamp(0.00001, 0.9999);
+    const r123 = R123.sqrt();
+    const Rs = T121.pow2().mul(R23).div(vec3(1).sub(R123));
+    const C0 = R12.add(Rs);
+    const I = C0.toVar();
+    const Cm = Rs.sub(T121).toVar();
+    Loop({ start: 1, end: 2, condition: "<=", name: "m" }, ({ m }) => {
+      Cm.mulAssign(r123);
+      const Sm = evalSensitivity(float(m).mul(OPD), float(m).mul(phi)).mul(2);
+      I.addAssign(Cm.mul(Sm));
+    });
+    return I.max(vec3(0));
+  }, {
+    outsideIOR: "float",
+    eta2: "float",
+    cosTheta1: "float",
+    thinFilmThickness: "float",
+    baseF0: "vec3",
+    return: "vec3"
+  });
+  var IBLSheenBRDF = /* @__PURE__ */ Fn(({ normal, viewDir, roughness: roughness2 }) => {
+    const dotNV = normal.dot(viewDir).saturate();
+    const r2 = roughness2.mul(roughness2);
+    const rInv = roughness2.add(0.1).reciprocal();
+    const a = float(-1.9362).add(roughness2.mul(1.0678)).add(r2.mul(0.4573)).sub(rInv.mul(0.8469));
+    const b = float(-0.6014).add(roughness2.mul(0.5538)).sub(r2.mul(0.467)).sub(rInv.mul(0.1255));
+    const DG = a.mul(dotNV).add(b).exp();
+    return DG.saturate();
+  }, { normal: "vec3", viewDir: "vec3", roughness: "float", return: "float" });
   var clearcoatF0 = vec3(0.04);
   var clearcoatF90 = float(1);
+
+  class PhysicalLightingModel extends LightingModel {
+    constructor(clearcoat2 = false, sheen2 = false, iridescence2 = false, anisotropy2 = false, transmission2 = false, dispersion2 = false, retroreflection = false, diffuseRoughness2 = false) {
+      super();
+      this.clearcoat = clearcoat2;
+      this.sheen = sheen2;
+      this.iridescence = iridescence2;
+      this.anisotropy = anisotropy2;
+      this.transmission = transmission2;
+      this.dispersion = dispersion2;
+      this.retroreflection = retroreflection;
+      this.diffuseRoughness = diffuseRoughness2;
+      this.clearcoatRadiance = null;
+      this.clearcoatSpecularDirect = null;
+      this.clearcoatSpecularIndirect = null;
+      this.sheenSpecularDirect = null;
+      this.sheenSpecularIndirect = null;
+      this.iridescenceFresnel = null;
+      this.iridescenceF0Dielectric = null;
+      this.iridescenceF0Metallic = null;
+      this.dfg = null;
+      this.eonDirectionalAlbedo = null;
+      this.multiScatteringCompensation = null;
+      this.singleScatteringDielectric = null;
+      this.multiScatteringDielectric = null;
+    }
+    start(builder) {
+      if (this.clearcoat === true) {
+        this.clearcoatRadiance = vec3().toVar("clearcoatRadiance");
+        this.clearcoatSpecularDirect = vec3().toVar("clearcoatSpecularDirect");
+        this.clearcoatSpecularIndirect = vec3().toVar("clearcoatSpecularIndirect");
+      }
+      if (this.sheen === true) {
+        this.sheenSpecularDirect = vec3().toVar("sheenSpecularDirect");
+        this.sheenSpecularIndirect = vec3().toVar("sheenSpecularIndirect");
+      }
+      if (this.iridescence === true) {
+        const dotNVi = normalView.dot(positionViewDirection).clamp();
+        const iridescenceFresnelDielectric = evalIridescence({
+          outsideIOR: float(1),
+          eta2: iridescenceIOR,
+          cosTheta1: dotNVi,
+          thinFilmThickness: iridescenceThickness,
+          baseF0: specularColor
+        });
+        const iridescenceFresnelMetallic = evalIridescence({
+          outsideIOR: float(1),
+          eta2: iridescenceIOR,
+          cosTheta1: dotNVi,
+          thinFilmThickness: iridescenceThickness,
+          baseF0: diffuseColor.rgb
+        });
+        this.iridescenceFresnel = mix(iridescenceFresnelDielectric, iridescenceFresnelMetallic, metalness);
+        this.iridescenceF0Dielectric = Schlick_to_F0({ f: iridescenceFresnelDielectric, f90: 1, dotVH: dotNVi });
+        this.iridescenceF0Metallic = Schlick_to_F0({ f: iridescenceFresnelMetallic, f90: 1, dotVH: dotNVi });
+      }
+      if (this.transmission === true) {
+        const position = positionWorld;
+        const v = cameraPosition.sub(positionWorld).normalize();
+        const n = normalWorld;
+        const context = builder.context;
+        context.backdrop = getIBLVolumeRefraction(n, v, roughness, diffuseContribution, specularColorBlended, specularF90, position, modelWorldMatrix, cameraViewMatrix, cameraProjectionMatrix, ior, thickness, attenuationColor, attenuationDistance, this.dispersion ? dispersion : null);
+        context.backdropAlpha = transmission;
+        diffuseColor.a.mulAssign(mix(1, context.backdrop.a, transmission));
+      }
+      const dotNV = normalView.dot(positionViewDirection).clamp();
+      this.dfg = DFGLUT({ roughness, dotNV }).toConst("dfg");
+      const Ess = this.dfg.x.add(this.dfg.y);
+      this.multiScatteringCompensation = specularColorBlended.mul(Ess.reciprocal().sub(1)).add(1).toConst("multiScatteringCompensation");
+      this.singleScatteringDielectric = vec3().toVar("singleScatteringDielectric");
+      this.multiScatteringDielectric = vec3().toVar("multiScatteringDielectric");
+      this.computeMultiscattering(this.singleScatteringDielectric, this.multiScatteringDielectric, specularF90, specularColor, this.iridescenceF0Dielectric);
+      if (this.diffuseRoughness === true) {
+        this.eonDirectionalAlbedo = EON_DirectionalAlbedo({ diffuseColor: diffuseColor.rgb, roughness: diffuseRoughness, dotNV });
+      }
+      super.start(builder);
+    }
+    computeMultiscattering(singleScatter, multiScatter, specularF902, f0, iridescenceF0 = null) {
+      const fab = this.dfg;
+      const Fr = iridescenceF0 ? iridescence.mix(f0, iridescenceF0) : f0;
+      const FssEss = Fr.mul(fab.x).add(specularF902.mul(fab.y));
+      const Ess = fab.x.add(fab.y);
+      const Ems = Ess.oneMinus();
+      const Favg = Fr.add(Fr.oneMinus().mul(0.047619));
+      const Fms = FssEss.mul(Favg).div(Ems.mul(Favg).oneMinus());
+      singleScatter.addAssign(FssEss);
+      multiScatter.addAssign(Fms.mul(Ems));
+    }
+    direct({ lightDirection, lightColor, reflectedLight }) {
+      const dotNL = normalView.dot(lightDirection).clamp();
+      const irradiance = dotNL.mul(lightColor).toVar();
+      if (this.sheen === true) {
+        this.sheenSpecularDirect.addAssign(irradiance.mul(BRDF_Sheen({ lightDirection })));
+        const sheenAlbedoV = IBLSheenBRDF({ normal: normalView, viewDir: positionViewDirection, roughness: sheenRoughness });
+        const sheenAlbedoL = IBLSheenBRDF({ normal: normalView, viewDir: lightDirection, roughness: sheenRoughness });
+        const sheenEnergyComp = sheen.r.max(sheen.g).max(sheen.b).mul(sheenAlbedoV.max(sheenAlbedoL)).oneMinus();
+        irradiance.mulAssign(sheenEnergyComp);
+      }
+      if (this.clearcoat === true) {
+        const dotNLcc = clearcoatNormalView.dot(lightDirection).clamp();
+        const ccIrradiance = dotNLcc.mul(lightColor);
+        this.clearcoatSpecularDirect.addAssign(ccIrradiance.mul(BRDF_GGX({ lightDirection, f0: clearcoatF0, f90: clearcoatF90, roughness: clearcoatRoughness, normalView: clearcoatNormalView })));
+      }
+      const halfDir = lightDirection.add(positionViewDirection).normalize();
+      const dotVH = positionViewDirection.dot(halfDir).clamp();
+      let F = F_Schlick({ f0: specularColor, f90: specularF90, dotVH });
+      let specularBRDF = BRDF_GGX({ lightDirection, f0: specularColorBlended, f90: specularF90, roughness, f: this.iridescenceFresnel, USE_IRIDESCENCE: this.iridescence, USE_ANISOTROPY: this.anisotropy });
+      if (this.retroreflection === true) {
+        const retroViewDirection = positionViewDirection.negate().reflect(normalView);
+        const retroHalfDir = lightDirection.add(retroViewDirection).normalize();
+        const dotRetroVH = retroViewDirection.dot(retroHalfDir).clamp();
+        const retroF = F_Schlick({ f0: specularColor, f90: specularF90, dotVH: dotRetroVH });
+        const retroSpecularBRDF = BRDF_GGX({ lightDirection, viewDirection: retroViewDirection, f0: specularColorBlended, f90: specularF90, roughness, f: this.iridescenceFresnel, USE_IRIDESCENCE: this.iridescence, USE_ANISOTROPY: this.anisotropy });
+        F = mix(F, retroF, retroreflectivity.clamp());
+        specularBRDF = mix(specularBRDF, retroSpecularBRDF, retroreflectivity.clamp());
+      }
+      const diffuseBRDF = this.diffuseRoughness ? BRDF_EON({ lightDirection, diffuseColor: diffuseColor.rgb, roughness: diffuseRoughness }).mul(metalness.oneMinus()) : BRDF_Lambert({ diffuseColor: diffuseContribution });
+      reflectedLight.directDiffuse.addAssign(irradiance.mul(diffuseBRDF).mul(F.oneMinus()));
+      reflectedLight.directSpecular.addAssign(irradiance.mul(specularBRDF).mul(this.multiScatteringCompensation));
+    }
+    directRectArea({ lightColor, lightPosition, halfWidth, halfHeight, reflectedLight, ltc_1, ltc_2 }) {
+      const p0 = lightPosition.add(halfWidth).sub(halfHeight);
+      const p1 = lightPosition.sub(halfWidth).sub(halfHeight);
+      const p2 = lightPosition.sub(halfWidth).add(halfHeight);
+      const p3 = lightPosition.add(halfWidth).add(halfHeight);
+      const N = normalView;
+      const V = positionViewDirection;
+      const P = positionView.toVar();
+      const uv = LTC_Uv({ N, V, roughness });
+      const t1 = ltc_1.sample(uv).toVar();
+      const t2 = ltc_2.sample(uv).toVar();
+      const mInv = mat3(vec3(t1.x, 0, t1.y), vec3(0, 1, 0), vec3(t1.z, 0, t1.w)).toVar();
+      const fresnel = specularColorBlended.mul(t2.x).add(specularF90.sub(specularColorBlended).mul(t2.y)).toVar();
+      reflectedLight.directSpecular.addAssign(lightColor.mul(fresnel).mul(LTC_Evaluate({ N, V, P, mInv, p0, p1, p2, p3 })));
+      reflectedLight.directDiffuse.addAssign(lightColor.mul(diffuseContribution).mul(LTC_Evaluate({ N, V, P, mInv: mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), p0, p1, p2, p3 })));
+      if (this.clearcoat === true) {
+        const Ncc = clearcoatNormalView;
+        const uvClearcoat = LTC_Uv({ N: Ncc, V, roughness: clearcoatRoughness });
+        const t1Clearcoat = ltc_1.sample(uvClearcoat);
+        const t2Clearcoat = ltc_2.sample(uvClearcoat);
+        const mInvClearcoat = mat3(vec3(t1Clearcoat.x, 0, t1Clearcoat.y), vec3(0, 1, 0), vec3(t1Clearcoat.z, 0, t1Clearcoat.w));
+        const fresnelClearcoat = clearcoatF0.mul(t2Clearcoat.x).add(clearcoatF90.sub(clearcoatF0).mul(t2Clearcoat.y));
+        this.clearcoatSpecularDirect.addAssign(lightColor.mul(fresnelClearcoat).mul(LTC_Evaluate({ N: Ncc, V, P, mInv: mInvClearcoat, p0, p1, p2, p3 })));
+      }
+    }
+    indirect(builder) {
+      this.indirectDiffuse(builder);
+      this.indirectSpecular(builder);
+      this.ambientOcclusion(builder);
+    }
+    indirectDiffuse(builder) {
+      const { irradiance, reflectedLight } = builder.context;
+      const singleScattering = this.singleScatteringDielectric;
+      const multiScattering = this.multiScatteringDielectric;
+      const diffuseBRDF = this.diffuseRoughness ? this.eonDirectionalAlbedo.mul(metalness.oneMinus(), 1 / Math.PI) : BRDF_Lambert({ diffuseColor: diffuseContribution });
+      const diffuse = irradiance.mul(diffuseBRDF).mul(singleScattering.add(multiScattering).oneMinus()).toVar();
+      if (this.sheen === true) {
+        const sheenAlbedo = IBLSheenBRDF({ normal: normalView, viewDir: positionViewDirection, roughness: sheenRoughness });
+        this.sheenSpecularIndirect.addAssign(irradiance.mul(sheen, sheenAlbedo, 1 / Math.PI));
+        const sheenEnergyComp = sheen.r.max(sheen.g).max(sheen.b).mul(sheenAlbedo).oneMinus();
+        diffuse.mulAssign(sheenEnergyComp);
+      }
+      reflectedLight.indirectDiffuse.addAssign(diffuse);
+    }
+    indirectSpecular(builder) {
+      const { radiance, iblIrradiance, reflectedLight } = builder.context;
+      if (this.sheen === true) {
+        this.sheenSpecularIndirect.addAssign(iblIrradiance.mul(sheen, IBLSheenBRDF({
+          normal: normalView,
+          viewDir: positionViewDirection,
+          roughness: sheenRoughness
+        }), 1 / Math.PI));
+      }
+      if (this.clearcoat === true) {
+        const dotNVcc = clearcoatNormalView.dot(positionViewDirection).clamp();
+        const clearcoatEnv = EnvironmentBRDF({
+          dotNV: dotNVcc,
+          specularColor: clearcoatF0,
+          specularF90: clearcoatF90,
+          roughness: clearcoatRoughness
+        });
+        this.clearcoatSpecularIndirect.addAssign(this.clearcoatRadiance.mul(clearcoatEnv));
+      }
+      const singleScatteringDielectric = this.singleScatteringDielectric;
+      const multiScatteringDielectric = this.multiScatteringDielectric;
+      const singleScatteringMetallic = vec3().toVar("singleScatteringMetallic");
+      const multiScatteringMetallic = vec3().toVar("multiScatteringMetallic");
+      this.computeMultiscattering(singleScatteringMetallic, multiScatteringMetallic, specularF90, diffuseColor.rgb, this.iridescenceF0Metallic);
+      const singleScattering = mix(singleScatteringDielectric, singleScatteringMetallic, metalness);
+      const multiScattering = mix(multiScatteringDielectric, multiScatteringMetallic, metalness);
+      const totalScatteringDielectric = singleScatteringDielectric.add(multiScatteringDielectric);
+      const diffuseAlbedo = this.diffuseRoughness ? this.eonDirectionalAlbedo.mul(metalness.oneMinus()) : diffuseContribution;
+      const diffuse = diffuseAlbedo.mul(totalScatteringDielectric.oneMinus());
+      const cosineWeightedIrradiance = iblIrradiance.mul(1 / Math.PI);
+      const indirectSpecular = radiance.mul(singleScattering).add(multiScattering.mul(cosineWeightedIrradiance)).toVar();
+      const indirectDiffuse = diffuse.mul(cosineWeightedIrradiance).toVar();
+      if (this.sheen === true) {
+        const sheenAlbedo = IBLSheenBRDF({ normal: normalView, viewDir: positionViewDirection, roughness: sheenRoughness });
+        const sheenEnergyComp = sheen.r.max(sheen.g).max(sheen.b).mul(sheenAlbedo).oneMinus();
+        indirectSpecular.mulAssign(sheenEnergyComp);
+        indirectDiffuse.mulAssign(sheenEnergyComp);
+      }
+      reflectedLight.indirectSpecular.addAssign(indirectSpecular);
+      reflectedLight.indirectDiffuse.addAssign(indirectDiffuse);
+    }
+    ambientOcclusion(builder) {
+      const { ambientOcclusion, reflectedLight } = builder.context;
+      const dotNV = normalView.dot(positionViewDirection).clamp();
+      const aoNV = dotNV.add(ambientOcclusion);
+      const aoExp = roughness.mul(-16).oneMinus().negate().exp2();
+      const aoNode = ambientOcclusion.sub(aoNV.pow(aoExp).oneMinus()).clamp();
+      if (this.clearcoat === true) {
+        this.clearcoatSpecularIndirect.mulAssign(ambientOcclusion);
+      }
+      if (this.sheen === true) {
+        this.sheenSpecularIndirect.mulAssign(ambientOcclusion);
+      }
+      reflectedLight.indirectDiffuse.mulAssign(ambientOcclusion);
+      reflectedLight.indirectSpecular.mulAssign(aoNode);
+    }
+    finish({ context }) {
+      const { outgoingLight } = context;
+      if (this.clearcoat === true) {
+        const dotNVcc = clearcoatNormalView.dot(positionViewDirection).clamp();
+        const Fcc = F_Schlick({
+          dotVH: dotNVcc,
+          f0: clearcoatF0,
+          f90: clearcoatF90
+        });
+        const clearcoatLight = outgoingLight.mul(clearcoat.mul(Fcc).oneMinus()).add(this.clearcoatSpecularDirect.add(this.clearcoatSpecularIndirect).mul(clearcoat));
+        outgoingLight.assign(clearcoatLight);
+      }
+      if (this.sheen === true) {
+        const sheenLight = outgoingLight.add(this.sheenSpecularDirect, this.sheenSpecularIndirect);
+        outgoingLight.assign(sheenLight);
+      }
+    }
+  }
   var _rendererCache = new WeakMap;
+
+  class EnvironmentNode extends LightingNode {
+    static get type() {
+      return "EnvironmentNode";
+    }
+    constructor(envNode = null) {
+      super();
+      this.envNode = envNode;
+      this._pmremNode = null;
+    }
+    setup(builder) {
+      const { material } = builder;
+      let envNode = this.envNode;
+      if (envNode.isTextureNode || envNode.isMaterialReferenceNode) {
+        const cache = this._getPMREMNodeCache(builder.renderer);
+        let pmremNode = cache.get(envNode);
+        if (pmremNode === undefined) {
+          pmremNode = pmremTexture(this._getEnvTexture(builder));
+          cache.set(envNode, pmremNode);
+        }
+        this._pmremNode = pmremNode;
+        this.updateBeforeType = envNode.isMaterialReferenceNode ? NodeUpdateType.OBJECT : NodeUpdateType.RENDER;
+        envNode = pmremNode;
+      }
+      const useAnisotropy = material.useAnisotropy === true || material.anisotropy > 0;
+      const radianceNormalView = useAnisotropy ? bentNormalView : normalView;
+      let radiance = isolate(envNode.context(createRadianceContext(roughness, radianceNormalView)).mul(materialEnvIntensity));
+      if (material.useRetroreflection === true || material.retroreflectivity > 0) {
+        const retroRadiance = isolate(envNode.context(createRetroRadianceContext(roughness, radianceNormalView)).mul(materialEnvIntensity));
+        radiance = retroreflectivity.clamp().mix(radiance, retroRadiance);
+      }
+      const irradiance = envNode.context(createIrradianceContext(normalWorld)).mul(Math.PI).mul(materialEnvIntensity);
+      const isolateIrradiance = isolate(irradiance);
+      builder.context.radiance.addAssign(radiance);
+      builder.context.iblIrradiance.addAssign(isolateIrradiance);
+      const clearcoatRadiance = builder.context.lightingModel.clearcoatRadiance;
+      if (clearcoatRadiance) {
+        const clearcoatRadianceContext = envNode.context(createRadianceContext(clearcoatRoughness, clearcoatNormalView)).mul(materialEnvIntensity);
+        const isolateClearcoatRadiance = isolate(clearcoatRadianceContext);
+        clearcoatRadiance.addAssign(isolateClearcoatRadiance);
+      }
+    }
+    updateBefore(frame) {
+      const texture = this._getEnvTexture(frame);
+      if (texture && this._pmremNode.value !== texture) {
+        this._pmremNode.value = texture;
+        this._pmremNode.updateBefore(frame);
+      }
+    }
+    _getEnvTexture(state) {
+      const envNode = this.envNode;
+      if (envNode.isMaterialReferenceNode) {
+        envNode.updateReference(state);
+        return envNode.getValueFromReference();
+      }
+      return envNode.value;
+    }
+    _getPMREMNodeCache(renderer) {
+      let pmremCache = _rendererCache.get(renderer);
+      if (pmremCache === undefined) {
+        pmremCache = new WeakMap;
+        _rendererCache.set(renderer, pmremCache);
+      }
+      return pmremCache;
+    }
+  }
+  var createRadianceContext = (roughnessNode, normalViewNode) => {
+    let reflectVec = null;
+    return {
+      getUV: () => {
+        if (reflectVec === null) {
+          reflectVec = positionViewDirection.negate().reflect(normalViewNode);
+          reflectVec = pow4(roughnessNode).mix(reflectVec, normalViewNode).normalize();
+          reflectVec = reflectVec.transformDirection(cameraWorldMatrix);
+        }
+        return reflectVec;
+      },
+      getTextureLevel: () => {
+        return roughnessNode;
+      }
+    };
+  };
+  var createRetroRadianceContext = (roughnessNode, normalViewNode) => {
+    let retroVec = null;
+    return {
+      getUV: () => {
+        if (retroVec === null) {
+          retroVec = pow4(roughnessNode).mix(positionViewDirection, normalViewNode).normalize();
+          retroVec = retroVec.transformDirection(cameraWorldMatrix);
+        }
+        return retroVec;
+      },
+      getTextureLevel: () => {
+        return roughnessNode;
+      }
+    };
+  };
+  var createIrradianceContext = (normalWorldNode) => {
+    return {
+      getUV: () => {
+        return normalWorldNode;
+      },
+      getTextureLevel: () => {
+        return float(1);
+      }
+    };
+  };
+  var _defaultValues$6 = /* @__PURE__ */ new MeshStandardMaterial;
+
+  class MeshStandardNodeMaterial extends NodeMaterial {
+    static get type() {
+      return "MeshStandardNodeMaterial";
+    }
+    constructor(parameters) {
+      super();
+      this.isMeshStandardNodeMaterial = true;
+      this.lights = true;
+      this.emissiveNode = null;
+      this.metalnessNode = null;
+      this.roughnessNode = null;
+      this.setDefaultValues(_defaultValues$6);
+      this.setValues(parameters);
+    }
+    setupEnvironment(builder) {
+      let envNode = super.setupEnvironment(builder);
+      if (envNode === null && builder.environmentNode) {
+        envNode = builder.environmentNode;
+      }
+      return envNode ? new EnvironmentNode(envNode) : null;
+    }
+    setupLightingModel() {
+      return new PhysicalLightingModel;
+    }
+    setupSpecular() {
+      const specularColorNode = mix(vec3(0.04), diffuseColor.rgb, metalness);
+      specularColor.assign(vec3(0.04));
+      specularColorBlended.assign(specularColorNode);
+      specularF90.assign(1);
+    }
+    setupVariants() {
+      const metalnessNode = this.metalnessNode ? float(this.metalnessNode) : materialMetalness;
+      metalness.assign(metalnessNode);
+      let roughnessNode = this.roughnessNode ? float(this.roughnessNode) : materialRoughness;
+      roughnessNode = getRoughness({ roughness: roughnessNode });
+      roughness.assign(roughnessNode);
+      this.setupSpecular();
+      diffuseContribution.assign(diffuseColor.rgb.mul(metalnessNode.oneMinus()));
+    }
+  }
+  var _defaultValues$5 = /* @__PURE__ */ new MeshPhysicalMaterial;
+
+  class MeshPhysicalNodeMaterial extends MeshStandardNodeMaterial {
+    static get type() {
+      return "MeshPhysicalNodeMaterial";
+    }
+    constructor(parameters) {
+      super();
+      this.isMeshPhysicalNodeMaterial = true;
+      this.clearcoatNode = null;
+      this.clearcoatRoughnessNode = null;
+      this.diffuseRoughnessNode = null;
+      this.clearcoatNormalNode = null;
+      this.sheenNode = null;
+      this.sheenRoughnessNode = null;
+      this.iridescenceNode = null;
+      this.iridescenceIORNode = null;
+      this.iridescenceThicknessNode = null;
+      this.specularIntensityNode = null;
+      this.specularColorNode = null;
+      this.iorNode = null;
+      this.transmissionNode = null;
+      this.thicknessNode = null;
+      this.attenuationDistanceNode = null;
+      this.attenuationColorNode = null;
+      this.dispersionNode = null;
+      this.retroreflectivityNode = null;
+      this.anisotropyNode = null;
+      this.setDefaultValues(_defaultValues$5);
+      this.setValues(parameters);
+    }
+    get useClearcoat() {
+      return this.clearcoat > 0 || this.clearcoatNode !== null;
+    }
+    get useDiffuseRoughness() {
+      return this.diffuseRoughness > 0 || this.diffuseRoughnessNode !== null;
+    }
+    get useIridescence() {
+      return this.iridescence > 0 || this.iridescenceNode !== null;
+    }
+    get useSheen() {
+      return this.sheen > 0 || this.sheenNode !== null;
+    }
+    get useAnisotropy() {
+      return this.anisotropy > 0 || this.anisotropyNode !== null;
+    }
+    get useTransmission() {
+      return this.transmission > 0 || this.transmissionNode !== null;
+    }
+    get useDispersion() {
+      return this.dispersion > 0 || this.dispersionNode !== null;
+    }
+    get useRetroreflection() {
+      return this.retroreflectivity > 0 || this.retroreflectivityNode !== null;
+    }
+    setupSpecular() {
+      const iorNode = this.iorNode ? float(this.iorNode) : materialIOR;
+      const specularColorNode = this.specularColorNode ? vec3(this.specularColorNode) : materialSpecularColor;
+      const specularIntensityNode = this.specularIntensityNode ? float(this.specularIntensityNode) : materialSpecularIntensity;
+      ior.assign(iorNode);
+      specularColor.assign(min(pow2(ior.sub(1).div(ior.add(1))).mul(specularColorNode), vec3(1)).mul(specularIntensityNode));
+      specularColorBlended.assign(mix(specularColor, diffuseColor.rgb, metalness));
+      specularF90.assign(mix(specularIntensityNode, 1, metalness));
+    }
+    setupLightingModel() {
+      return new PhysicalLightingModel(this.useClearcoat, this.useSheen, this.useIridescence, this.useAnisotropy, this.useTransmission, this.useDispersion, this.useRetroreflection, this.useDiffuseRoughness);
+    }
+    setupVariants(builder) {
+      super.setupVariants(builder);
+      if (this.useDiffuseRoughness) {
+        const diffuseRoughnessNode = this.diffuseRoughnessNode ? float(this.diffuseRoughnessNode) : materialDiffuseRoughness;
+        diffuseRoughness.assign(diffuseRoughnessNode.clamp());
+      }
+      if (this.useClearcoat) {
+        const clearcoatNode = this.clearcoatNode ? float(this.clearcoatNode) : materialClearcoat;
+        const clearcoatRoughnessNode = this.clearcoatRoughnessNode ? float(this.clearcoatRoughnessNode) : materialClearcoatRoughness;
+        clearcoat.assign(clearcoatNode);
+        clearcoatRoughness.assign(getRoughness({ roughness: clearcoatRoughnessNode }));
+      }
+      if (this.useSheen) {
+        const sheenNode = this.sheenNode ? vec3(this.sheenNode) : materialSheen;
+        const sheenRoughnessNode = this.sheenRoughnessNode ? float(this.sheenRoughnessNode) : materialSheenRoughness;
+        sheen.assign(sheenNode);
+        sheenRoughness.assign(sheenRoughnessNode);
+      }
+      if (this.useRetroreflection) {
+        const retroreflectivityNode = this.retroreflectivityNode ? float(this.retroreflectivityNode) : materialRetroreflectivity;
+        retroreflectivity.assign(retroreflectivityNode);
+      }
+      if (this.useIridescence) {
+        const iridescenceNode = this.iridescenceNode ? float(this.iridescenceNode) : materialIridescence;
+        const iridescenceIORNode = this.iridescenceIORNode ? float(this.iridescenceIORNode) : materialIridescenceIOR;
+        const iridescenceThicknessNode = this.iridescenceThicknessNode ? float(this.iridescenceThicknessNode) : materialIridescenceThickness;
+        iridescence.assign(iridescenceNode);
+        iridescenceIOR.assign(iridescenceIORNode);
+        iridescenceThickness.assign(iridescenceThicknessNode);
+      }
+      if (this.useAnisotropy) {
+        const anisotropyV = (this.anisotropyNode ? vec2(this.anisotropyNode) : materialAnisotropy).toVar();
+        anisotropy.assign(anisotropyV.length());
+        If(anisotropy.equal(0), () => {
+          anisotropyV.assign(vec2(1, 0));
+        }).Else(() => {
+          anisotropyV.divAssign(vec2(anisotropy));
+          anisotropy.assign(anisotropy.saturate());
+        });
+        alphaT.assign(anisotropy.pow2().mix(roughness.pow2(), 1));
+        anisotropyT.assign(TBNViewMatrix[0].mul(anisotropyV.x).add(TBNViewMatrix[1].mul(anisotropyV.y)));
+        anisotropyB.assign(TBNViewMatrix[1].mul(anisotropyV.x).sub(TBNViewMatrix[0].mul(anisotropyV.y)));
+      }
+      if (this.useTransmission) {
+        const transmissionNode = this.transmissionNode ? float(this.transmissionNode) : materialTransmission;
+        const thicknessNode = this.thicknessNode ? float(this.thicknessNode) : materialThickness;
+        const attenuationDistanceNode = this.attenuationDistanceNode ? float(this.attenuationDistanceNode) : materialAttenuationDistance;
+        const attenuationColorNode = this.attenuationColorNode ? vec3(this.attenuationColorNode) : materialAttenuationColor;
+        transmission.assign(transmissionNode);
+        thickness.assign(thicknessNode);
+        attenuationDistance.assign(attenuationDistanceNode);
+        attenuationColor.assign(attenuationColorNode);
+        if (this.useDispersion) {
+          const dispersionNode = this.dispersionNode ? float(this.dispersionNode) : materialDispersion;
+          dispersion.assign(dispersionNode);
+        }
+      }
+    }
+    setupClearcoatNormal() {
+      return this.clearcoatNormalNode ? vec3(this.clearcoatNormalNode) : materialClearcoatNormal;
+    }
+    setup(builder) {
+      builder.context.setupClearcoatNormal = () => subBuild(this.setupClearcoatNormal(builder), "NORMAL", "vec3");
+      super.setup(builder);
+    }
+  }
   var scatteringDensity = property("vec3");
   var linearDepthRay = property("float");
   var outgoingRayLight = property("vec3");
@@ -57661,13 +58866,38 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
     }
   }
 
+  // src/lib/content/render/tsl.js
+  function outputs(r, h) {
+    if (!h.renderer)
+      return h;
+    const screen = h.getOutputCallback;
+    const onScreen = () => r.getRenderTarget() === null;
+    h.getOutputCallback = (node, b) => {
+      const m = b?.material;
+      if (!onScreen() || m?.userData.raw)
+        return node;
+      return m?.toneMapped === false ? workingToColorSpace(node, r.outputColorSpace) : screen(node);
+    };
+    h.renderer.getCacheKey = () => onScreen() ? `${r.toneMapping}${r.outputColorSpace}` : "target";
+    return h;
+  }
+  var own = (Base) => class extends Base {
+    customProgramCacheKey() {
+      return `${super.customProgramCacheKey()}#${this.id}`;
+    }
+  };
+  var OwnStandard = own(MeshStandardNodeMaterial);
+  var OwnPhysical = own(MeshPhysicalNodeMaterial);
+  var OwnBasic = own(MeshBasicNodeMaterial);
+  var OwnNode = own(NodeMaterial);
+
   // src/lib/content/render/post.js
   class NodePass extends Pass {
     constructor(uniforms, make) {
       super();
       this.input = texture(new Texture);
       this.uniforms = { tDiffuse: this.input, ...uniforms };
-      const m = new NodeMaterial;
+      const m = new OwnNode;
       m.userData.raw = true;
       m.depthTest = m.depthWrite = false;
       m.fragmentNode = make((q) => this.input.sample(q.flipY()), uv$1());
@@ -58180,22 +59410,6 @@ vec3 skyColour(vec3 dir) {
         nodeFrame.updateNode(node);
       }
     }
-  }
-
-  // src/lib/content/render/tsl.js
-  function outputs(r, h) {
-    if (!h.renderer)
-      return h;
-    const screen = h.getOutputCallback;
-    const onScreen = () => r.getRenderTarget() === null;
-    h.getOutputCallback = (node, b) => {
-      const m = b?.material;
-      if (!onScreen() || m?.userData.raw)
-        return node;
-      return m?.toneMapped === false ? workingToColorSpace(node, r.outputColorSpace) : screen(node);
-    };
-    h.renderer.getCacheKey = () => onScreen() ? `${r.toneMapping}${r.outputColorSpace}` : "target";
-    return h;
   }
 
   // src/lib/content/render/core.js

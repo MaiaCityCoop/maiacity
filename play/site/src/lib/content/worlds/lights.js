@@ -12,7 +12,7 @@
  * street lamps: lit by the mood (lamps=1) unless the guest says otherwise; the rest only by their states.
  */
 import * as THREE from 'three';
-import { MeshBasicNodeMaterial } from 'three/webgpu';
+import { OwnBasic } from '../render/tsl.js';
 import { attribute, cameraProjectionMatrix, clamp, float, length, max, modelViewMatrix, positionLocal, pow, uniform, uv, vec4 } from 'three/tsl';
 import { WINDOW_SETS, lightOf, litNow, statesOf } from './contract.js';
 
@@ -48,7 +48,7 @@ export const FACES_NEAR = 150;
  * at a metre's distance.
  */
 const glowMaterial = (pxScale) => {
-	const m = new MeshBasicNodeMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+	const m = new OwnBasic({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
 	m.userData.raw = true;
 	const mv = modelViewMatrix.mul(vec4(attribute('glowAt', 'vec3'), 1));
 	const far = max(0.1, mv.z.negate());

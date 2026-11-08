@@ -15,7 +15,7 @@ import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { FullScreenQuad, Pass } from 'three/addons/postprocessing/Pass.js';
-import { NodeMaterial } from 'three/webgpu';
+import { OwnNode } from './tsl.js';
 import { abs, all, select, texture, uv, vec3, vec4 } from 'three/tsl';
 // the asset stage's grade (../assets/stage.js) until it is a NodePass too (intent 602a8849, after cb16b7a5 lands)
 export { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
@@ -33,7 +33,7 @@ export class NodePass extends Pass {
 		super();
 		this.input = texture(new THREE.Texture());
 		this.uniforms = { tDiffuse: this.input, ...uniforms };
-		const m = new NodeMaterial();
+		const m = new OwnNode();
 		m.userData.raw = true;
 		m.depthTest = m.depthWrite = false;
 		m.fragmentNode = make((q) => this.input.sample(q.flipY()), uv());
