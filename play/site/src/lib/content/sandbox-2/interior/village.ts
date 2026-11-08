@@ -27,7 +27,7 @@ import { antHills, apiary, fishes, herd } from './animals'
 import { nearReady as actorsReady, wantNear as actorsNear } from '$lib/content/assets/render/crowd.js'
 import { flow, pond, shore, stream } from './water'
 import { createWorldRenderer } from '$lib/content/render/world.js'
-import { createSky } from '$lib/content/sandbox-kit/sky.js'
+import { createSky, SUN } from '$lib/content/sandbox-kit/sky.js'
 import { createWalker } from '$lib/content/sandbox-kit/walker.js'
 import { createObstacles } from '$lib/content/sandbox-kit/obstacles.js'
 import { connectFilm, filmDraws, filmHoldsSize, filmPlays, worldTime } from '$lib/content/sandbox-kit/film.js'
@@ -1528,7 +1528,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		forestTick()
 		// the floor's cover follows the eye every frame (a tile at most built a frame; it fades in as it nears)
 		floorCover?.update(camera.position.x, camera.position.z, filmDraws() ? 999 : 1)
-		grass?.update(camera, t, { light: sky.sun, height: renderer.domElement.height, pushers: [[pos.x, pos.z, 0.6, walker.flying() ? 0 : 1]], budget: filmDraws() ? Infinity : undefined })
+		grass?.update(camera, t, { sun: { dir: sky.sunDir, color: sky.sun.color, strength: sky.sun.intensity / SUN }, height: renderer.domElement.height, pushers: [[pos.x, pos.z, 0.6, walker.flying() ? 0 : 1]], budget: filmDraws() ? Infinity : undefined })
 		library.update()
 		soloBuild?.plantings.update()
 		// the film camera draws the canvas itself while it holds it (maia/content/film)
@@ -1584,7 +1584,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			for (const i of shown) built.get(i)!.update(t)
 			// what the renderers draw of the domes' insides too, now their plants round the camera are put down
 			forestTick()
-			grass?.update(camera, t, { light: sky.sun, height: renderer.domElement.height, budget: Infinity })
+			grass?.update(camera, t, { sun: { dir: sky.sunDir, color: sky.sun.color, strength: sky.sun.intensity / SUN }, height: renderer.domElement.height, budget: Infinity })
 			library.update()
 			glowMat.emissive.set(GLOW)
 			for (const p of pool) p.color.set(LAMP)

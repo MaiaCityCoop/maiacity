@@ -142,7 +142,7 @@ export function keep(d, dev) {
 	return Math.pow(dev.near / d, dev.falloff ?? 1.5);
 }
 /** how far over what is kept a blade still shows, sinking (in rank: a share of what is kept, so as few far as near) */
-export const FADE = 0.15;
+export const FADE = 0.12;
 /**
  * How far it grows (0…1) where it stands, with its rank and its end, where the mask grows `grass` (0…1): the mask thins
  * it by rank as distance does, so where half the ground is grass half the blades stand, the same half further out.
@@ -504,20 +504,19 @@ export function grassField(o) {
 		return mesh;
 	};
 	let at = { x: Infinity, z: Infinity }, ready = false;
-	const sun = new THREE.Vector3();
 	return {
 		object,
 		uniforms: U,
 		mask,
 		/** where the eye is, and the time: the mask worked out round it, the tiles chosen again once it has gone a metre */
-		update(/** @type {THREE.PerspectiveCamera} */ camera, /** @type {number} */ time, /** @type {{ light?: THREE.DirectionalLight, pushers?: [number, number, number, number][], height?: number, budget?: number }} */ w = {}) {
+		update(/** @type {THREE.PerspectiveCamera} */ camera, /** @type {number} */ time, /** @type {{ sun?: { dir: THREE.Vector3, color: THREE.Color, strength: number }, pushers?: [number, number, number, number][], height?: number, budget?: number }} */ w = {}) {
 			const x = camera.position.x, z = camera.position.z;
 			U.time.value = time;
 			U.pxAt1m.value = (w.height ?? 900) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
-			if (w.light) {
-				sun.copy(w.light.position).sub(w.light.target.position).normalize();
-				U.sunDir.value.copy(sun);
-				U.sunColor.value.copy(w.light.color).multiplyScalar(Math.min(2, w.light.intensity / 3));
+			// the sun: where it stands, its colour, and how strong against its noon (1; the sky's `SUN`)
+			if (w.sun) {
+				U.sunDir.value.copy(w.sun.dir).normalize();
+				U.sunColor.value.copy(w.sun.color).multiplyScalar(Math.min(2, w.sun.strength));
 			}
 			for (let p = 0; p < PUSHERS; p++) U.pushers.array[p].set(...(w.pushers?.[p] ?? [0, 0, 0, 0]));
 			const filled = mask.update(x, z, w.budget);
