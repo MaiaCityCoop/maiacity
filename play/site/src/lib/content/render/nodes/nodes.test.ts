@@ -148,4 +148,17 @@ describe('the render kit in TSL', () => {
 		expect(outs(shaders.slice(intoTarget))).toMatch(toned);
 		valid(shaders);
 	});
+
+	test('two of ours never share a program: each uploads only into its own layout', () => {
+		const { r } = renderer();
+		const { scene, camera } = lit();
+		const a: any = nodeOf(new THREE.MeshStandardMaterial({ color: 0x808080 }));
+		const b: any = nodeOf(new THREE.MeshStandardMaterial({ color: 0x808080, envMap: new THREE.CubeTexture() }));
+		a.fade = b.fade = aFade;
+		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), a), new THREE.Mesh(new THREE.BoxGeometry(), b));
+		r.render(scene, camera);
+		const pa = (r.properties.get(a) as any).currentProgram, pb = (r.properties.get(b) as any).currentProgram;
+		expect(pa).toBeTruthy();
+		expect(pa).not.toBe(pb);
+	});
 });
