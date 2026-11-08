@@ -63078,9 +63078,15 @@ float fr = smoothstep(uFade.x, uFade.y, length(vFW.xz)); gl_FragColor.rgb = mix(
       r.localClippingEnabled = true;
       r.setRenderTarget(this.composer.readBuffer);
       let done = Promise.resolve();
+      const sky = this.sky ? [this.sky.dome, this.sky.stars].filter((o) => o.visible) : [];
+      for (const o of sky)
+        o.visible = false;
       try {
         done = r.compileAsync(this.scene, this.camera);
-      } catch {}
+      } catch {} finally {
+        for (const o of sky)
+          o.visible = true;
+      }
       r.setRenderTarget(was.rt);
       was.tm();
       r.localClippingEnabled = was.clip;

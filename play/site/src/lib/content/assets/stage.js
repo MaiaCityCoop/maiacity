@@ -699,10 +699,16 @@ export class Stage {
 		r.localClippingEnabled = true;
 		r.setRenderTarget(this.composer.readBuffer);
 		let done = Promise.resolve();
+		// the sky's dome and stars are node materials (TSL), which three's WebGLNodesHandler cannot compile ahead
+		// (compileAsync); they are built at their first frame instead, hidden while the asset's shaders are gathered
+		const sky = this.sky ? [this.sky.dome, this.sky.stars].filter((o) => o.visible) : [];
+		for (const o of sky) o.visible = false;
 		try {
 			done = r.compileAsync(this.scene, this.camera);
 		} catch {
 			/* drawn as usual */
+		} finally {
+			for (const o of sky) o.visible = true;
 		}
 		r.setRenderTarget(was.rt);
 		was.tm();
