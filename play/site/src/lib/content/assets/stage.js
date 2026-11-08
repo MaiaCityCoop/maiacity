@@ -2,7 +2,7 @@
 /*
  * THE STAGE — how any asset built in its parts (./parts.js) is shown the way AirSup's lab shows a machine: a paper
  * studio (a softbox environment, a soft key shadow, a contact shadow, a seamless floor that fades into the backdrop),
- * ambient occlusion, a little bloom, neutral tone mapping and a light grade; and its modes, eased in and out:
+ * ambient occlusion, a little bloom, AgX tone mapping and a light grade; and its modes, eased in and out:
  *
  * its views, how it is looked at (any of them on at once):
  *
@@ -36,7 +36,7 @@
 import * as THREE from 'three';
 import { ShaderPass, createPost } from '$lib/content/render/post.js';
 import { createSky } from '$lib/content/sandbox-kit/sky.js';
-import { untonemap } from '$lib/content/render/core.js';
+import { setExposure, untonemap, withTone } from '$lib/content/render/core.js';
 import { budget } from '$lib/content/render/budget.js';
 import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment } from './kit.js';
 
@@ -695,8 +695,7 @@ export class Stage {
 		if (!this.composer) this._post();
 		this._gloss();
 		const r = this.renderer;
-		const was = { tm: r.toneMapping, clip: r.localClippingEnabled, rt: r.getRenderTarget() };
-		r.toneMapping = THREE.AgXToneMapping;
+		const was = { tm: withTone(r, 'agx'), clip: r.localClippingEnabled, rt: r.getRenderTarget() };
 		r.localClippingEnabled = true;
 		r.setRenderTarget(this.composer.readBuffer);
 		let done = Promise.resolve();
@@ -706,7 +705,7 @@ export class Stage {
 			/* drawn as usual */
 		}
 		r.setRenderTarget(was.rt);
-		r.toneMapping = was.tm;
+		was.tm();
 		r.localClippingEnabled = was.clip;
 		return done.then(() => {}, () => {});
 	}
@@ -727,10 +726,9 @@ export class Stage {
 		if (!this.composer) this._post();
 		if ((this._glossed = (this._glossed ?? 0) + 1) % 12 === 1) this._gloss();
 		const r = this.renderer;
-		const was = { tm: r.toneMapping, clip: r.localClippingEnabled, exposure: r.toneMappingExposure };
+		const was = { tm: withTone(r, 'agx'), clip: r.localClippingEnabled, exposure: r.toneMappingExposure };
 		// AgX, as every page; the lens the sky's, or the studio's own
-		r.toneMapping = THREE.AgXToneMapping;
-		r.toneMappingExposure = this.sky ? this.sky.exposure() : 1;
+		setExposure(r, this.sky ? this.sky.exposure() : 1);
 		r.localClippingEnabled = true;
 		this.camera.layers.enable(LAYER_FX);
 		this.camera.updateMatrixWorld();
@@ -748,8 +746,8 @@ export class Stage {
 		}
 		this.composer.render();
 		r.shadowMap.autoUpdate = auto;
-		r.toneMapping = was.tm;
-		r.toneMappingExposure = was.exposure;
+		was.tm();
+		setExposure(r, was.exposure);
 		r.localClippingEnabled = was.clip;
 		this.camera.layers.disable(LAYER_FX);
 	}

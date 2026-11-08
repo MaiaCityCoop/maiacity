@@ -8,6 +8,7 @@
 // @ts-nocheck
 import { T } from './three.js'
 import { budget } from '../render/budget.js'
+import { createRenderer } from '../render/core.js'
 /*
  * Factory Skill: the miniature look.
  *
@@ -80,15 +81,10 @@ import { budget } from '../render/budget.js'
   export class Look {
     constructor(canvas, opts = {}) {
       this.opts = opts
-      const r = (this.renderer = new T.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: !!opts.preserve }))
-      r.outputColorSpace = T.SRGBColorSpace
-      // AgX, as every page (render/core.js); ACES's own lift of 1/0.6 is in the exposure now
-      r.toneMapping = T.AgXToneMapping
-      r.toneMappingExposure = (opts.exposure || 0.98) / 0.6
-      r.shadowMap.enabled = true
-      r.shadowMap.type = T.PCFShadowMap
       this.pixelRatio = Math.min(opts.pixelRatio || globalThis.devicePixelRatio || 1, opts.maxPixelRatio || 2)
-      r.setPixelRatio(this.pixelRatio)
+      // the render core's renderer ($content/render/core.js), set as AirSup set its own; AgX as every page, ACES's own
+      // lift of 1/0.6 carried in the exposure
+      const r = (this.renderer = createRenderer({ canvas, antialias: false, power: 'high-performance', preserve: !!opts.preserve, pixelRatio: this.pixelRatio, colorSpace: T.SRGBColorSpace, toneMapping: 'agx', exposure: (opts.exposure || 0.98) / 0.6, shadows: 'pcf' }))
 
       const scene = (this.scene = new T.Scene())
       this.bg = new T.Color(opts.background || '#e8e1d4')

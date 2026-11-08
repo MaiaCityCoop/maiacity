@@ -23,11 +23,10 @@
  */
 import * as THREE from 'three';
 import { SunLight } from 'three/addons/lights/SunLight.js';
-import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
 import { airOf, createUniverse, groundStars, horizonRing, skyAt } from './universe.js';
 import { skyHour, skyTime } from './skyTime.svelte.js';
 import { budget } from '../render/budget.js';
-import { agx, untonemap } from '../render/core.js';
+import { agx, setExposure, untonemap } from '../render/core.js';
 
 /**
  * @typedef {{ hour: number, e: number, day: number, low: number, night: number }} SkyLight
@@ -204,9 +203,6 @@ export function createSkyClock({ clock = skyHour } = {}) {
 	return { hour: () => dev.__interiorHour ?? clock() };
 }
 
-/** renderers that draw TSL (three's WebGLNodesHandler; one renderer for every page does it once intent b03f9fb4 lands) */
-const tsl = new WeakSet();
-
 /**
  * Put the sky over a world.
  * @param {THREE.WebGLRenderer} renderer
@@ -216,7 +212,6 @@ const tsl = new WeakSet();
  */
 export function createSky(renderer, scene, options = {}) {
 	const { shadowReach = 300, shadowMap = 2048, shadowBias = { bias: -0.0004, normal: 0.04 }, shadowStep = 2, fog = { far: 1400 }, exposure: lens = 1, clouds = 0.4, north = 0, map = false, day: worldDay = null, light: keyed = true, onHour } = options;
-	if (renderer.setNodesHandler && !tsl.has(renderer)) renderer.setNodesHandler(new WebGLNodesHandler()), tsl.add(renderer);
 	const turn = north ? new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), map ? -north : north) : null;
 	const dev = /** @type {{ __exposure?: number, __worldTime?: number, __interiorHour?: number }} */ (/** @type {unknown} */ (window));
 	const clock = createSkyClock(options);
@@ -326,7 +321,7 @@ vec3 skyHorizon(vec3 dir) {
 		sun.intensity = l.sun.intensity * (1 - 0.8 * lid) * (mood?.indoor ? 0 : 1);
 		// the lens: the light's own, the world's, and the film's (a multiplier, 1 in the game)
 		shown = l.exposure * lens * (mood ? 0.8 + 0.2 * mood.light : 1) * (dev.__exposure ?? 1);
-		renderer.toneMappingExposure = shown;
+		setExposure(renderer, shown);
 		scene.environmentIntensity = 1;
 		// a mood's lid as it should look, whatever the lens: its colours found back through AgX
 		if (mood) {

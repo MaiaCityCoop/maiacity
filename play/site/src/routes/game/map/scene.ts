@@ -7,6 +7,7 @@
 
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
+import { createRenderer } from '$lib/content/render/core.js';
 import { FILL, RIM, terrain, type Biome, type Feature, type FeatureKind, type P, type Plot, type WorldMap } from './map';
 import { buildCity, type City, type Dome } from './city';
 
@@ -32,11 +33,8 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 	const ground = terrain(map.seed, map.river, map.massif);
 
 	// a film reads each frame back off the canvas (and adds frames up for its shutter), so the drawing is kept
-	const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: film });
 	// a film draws at its page's full pixel ratio (scripts/flyover sets it for the size it renders and oversamples)
-	renderer.setPixelRatio(film ? devicePixelRatio : Math.min(devicePixelRatio, 2));
-	renderer.shadowMap.enabled = true;
-	renderer.shadowMap.type = THREE.PCFShadowMap;
+	const renderer = createRenderer({ canvas, antialias: true, preserve: film, pixelRatio: film ? devicePixelRatio : Math.min(devicePixelRatio, 2), shadows: 'pcf' });
 
 	const scene = new THREE.Scene();
 	scene.background = new THREE.Color(SKY);

@@ -21,20 +21,18 @@
  * its settle, built it afresh each time, and a long jump forward drew an empty road).
  */
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createPlantings, floorGrid } from '../assets/plantings.js';
 import { heroOf, runner } from '../assets/hero.js';
 import { vaultBuild } from '../assets/sources/viewer.js';
 import { rebuild } from '../assets/box/rebuild.js';
 import { filmDraws, worldTime } from '../render/film.js';
-import { disposeObject, disposeRenderer, lowPower, topPixelRatio } from '../render/core.js';
+import { createControls, createRenderer, disposeObject, disposeRenderer, lowPower, topPixelRatio } from '../render/core.js';
 import { AssetBox } from '../assets/box/host.js';
 import { createWalker } from '../sandbox-kit/walker.js';
 import { worldOf } from './contract.js';
 import { createLights } from './lights.js';
 import { createSky } from '../sandbox-kit/sky.js';
 import { createSound } from './sound.js';
-import { reopenOnRestore } from '../render/budget.js';
 
 /** the eye and the paces (m/s) of the street cameras */
 export const MODES = {
@@ -70,27 +68,16 @@ export function viewsOf(root) {
  * @param {{ source: any, engine: number, sound?: boolean }} o `source` the recipes (play's catalog, or a bench's)
  */
 export function createWorldView(el, o) {
-	const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-	// (as ../render/core.js createRenderer: a phone that let go of what it drew is opened anew when its context returns)
-	reopenOnRestore(renderer.domElement);
 	// a phone or a tablet draws at fewer pixels: a world fills the graphics memory such a device has as it is
 	const small = handheld();
-	renderer.setPixelRatio(topPixelRatio(small));
-	renderer.toneMapping = THREE.AgXToneMapping;
-	renderer.outputColorSpace = THREE.SRGBColorSpace;
-	renderer.shadowMap.enabled = true;
-	renderer.shadowMap.type = THREE.PCFShadowMap;
-	el.appendChild(renderer.domElement);
+	const renderer = createRenderer({ antialias: true, power: 'high-performance', pixelRatio: topPixelRatio(small), colorSpace: THREE.SRGBColorSpace, toneMapping: 'agx', shadows: 'pcf', container: el });
 	Object.assign(renderer.domElement.style, { display: 'block', width: '100%', height: '100%', touchAction: 'none' });
 	const scene = new THREE.Scene();
 	const camera = new THREE.PerspectiveCamera(55, 1, 0.2, 4000);
 	camera.position.set(80, 60, 80);
 	// the one sky, its sun pinned where the world's mood has it; its shadows from the eye out, a city's width
 	const sky = createSky(renderer, scene, { shadowReach: 500, fog: { far: 1400 } });
-	const controls = new OrbitControls(camera, renderer.domElement);
-	controls.enableDamping = true;
-	controls.maxPolarAngle = Math.PI * 0.495;
-	controls.screenSpacePanning = false;
+	const controls = createControls(camera, renderer.domElement, { maxPolarAngle: Math.PI * 0.495, screenSpacePanning: false });
 	const plantings = createPlantings({ renderer, camera, scene });
 	const lights = createLights({ scene, camera, renderer, assets: () => plantings.assets });
 	const sound = o.sound === false ? null : createSound();
