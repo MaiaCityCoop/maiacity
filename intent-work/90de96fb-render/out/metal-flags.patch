@@ -1,0 +1,13 @@
+diff --git a/play/site/scripts/story-parity.ts b/play/site/scripts/story-parity.ts
+index 280e26aae..00f17173d 100644
+--- a/play/site/scripts/story-parity.ts
++++ b/play/site/scripts/story-parity.ts
+@@ -120,7 +120,7 @@ try {
+ 		else run(['ffmpeg', '-y', '-loglevel', 'error', '-i', film, '-vf', `select=eq(n\\,${Math.round(t * story.fps)})`, '-frames:v', '1', join(work, `render-${t}.png`)]);
+ 	// the player's picture at each second
+ 	// in Chrome (else the renderer's own headless shell), with the renderer's font and colour flags
+-	const flags = { args: ['--font-render-hinting=none', '--force-color-profile=srgb'] };
++	const flags = { args: ['--font-render-hinting=none', '--force-color-profile=srgb', '--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] };
+ 	const cache = join(homedir(), '.cache/puppeteer');
+ 	const shell = existsSync(cache) ? [...new Bun.Glob('chrome-headless-shell/*/*/chrome-headless-shell').scanSync({ cwd: cache, absolute: true })].sort().pop() : undefined;
+ 	const browser = await chromium.launch({ ...flags, channel: 'chrome' }).catch(() => chromium.launch({ ...flags, executablePath: shell }));
