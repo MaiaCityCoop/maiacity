@@ -6,7 +6,7 @@
  * the box (`root.userData.tick`), whose steps move its own `use:` nodes. Besides those, it says:
  *
  *   mood:<preset>?k=v          its sky and light: a preset (MOODS) and its keys over it: sun (the sun's height, °),
- *                              (fog is the density at street level; the page thins it with the eye's height, ./sky.js)
+ *                              (fog is the density at street level; the page thins it with the eye's height, ../sandbox-kit/sky.js)
  *                              az (its bearing, ° from +z toward +x), fog (density a metre), haze (the fog's colour,
  *                              hex), lamps (1: street lamps and vehicles' head and tail lights lit), shadows (1: the
  *                              sun casts them; off under smog and overcast by default)

@@ -82,8 +82,9 @@ import { createRenderer } from '../render/core.js'
     constructor(canvas, opts = {}) {
       this.opts = opts
       this.pixelRatio = Math.min(opts.pixelRatio || globalThis.devicePixelRatio || 1, opts.maxPixelRatio || 2)
-      // the render core's renderer ($content/render/core.js), set as AirSup set its own
-      const r = (this.renderer = createRenderer({ canvas, antialias: false, power: 'high-performance', preserve: !!opts.preserve, pixelRatio: this.pixelRatio, colorSpace: T.SRGBColorSpace, toneMapping: 'aces', exposure: opts.exposure || 0.98, shadows: 'pcf' }))
+      // the render core's renderer ($content/render/core.js), set as AirSup set its own; AgX as every page, ACES's own
+      // lift of 1/0.6 carried in the exposure
+      const r = (this.renderer = createRenderer({ canvas, antialias: false, power: 'high-performance', preserve: !!opts.preserve, pixelRatio: this.pixelRatio, colorSpace: T.SRGBColorSpace, toneMapping: 'agx', exposure: (opts.exposure || 0.98) / 0.6, shadows: 'pcf' }))
 
       const scene = (this.scene = new T.Scene())
       this.bg = new T.Color(opts.background || '#e8e1d4')
