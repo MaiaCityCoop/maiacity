@@ -13,7 +13,7 @@ HEAD_TREE="$ROOT/../i5-head"
 BRANCH=intent/11ead007-cover-stream
 
 git -C "$ROOT" fetch -q origin "$BRANCH" main
-HEAD=${HEAD_COMMIT:-$(git -C "$ROOT" rev-parse "origin/$BRANCH")}
+HEAD=${HEAD_COMMIT:-e251559358a530c9667bfc06c4bbd42a33811832}
 BASE=${BASE_COMMIT:-$(git -C "$ROOT" rev-parse origin/main)}
 mkdir -p "$OUT"
 tree() { # tree <dir> <commit>
