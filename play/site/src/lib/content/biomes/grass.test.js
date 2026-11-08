@@ -2,7 +2,7 @@
 // never repeating (c3, the `variation` cases). The sums are grass.js's, the shader's twins.
 import { describe, expect, test } from 'vitest';
 import {
-	CELL, DEVICES, VERTS, bladeLevel, bladeOf, clumpAt, clumpCentre, endOf, fieldAt, growAt, keep, levelGeometry, morphAt, morphed,
+	CELL, DEVICES, VERTS, bladeLevel, bladeOf, clumpAt, clumpCentre, endOf, fieldAt, macroAt, growAt, keep, levelGeometry, morphAt, morphed,
 	pcg, perCell, seedOf, shapeAt, tileBlade, tilesAround, bladeHeight, GRASS, TILE_CELLS
 } from './grass.js';
 
@@ -199,6 +199,13 @@ describe('variation', () => {
 		expect(Math.max(...vals) - Math.min(...vals)).toBeGreaterThan(0.2);
 		expect(fieldAt(1, 1)).not.toBe(fieldAt(1 + CELL, 1));
 		expect(fieldAt(1, 1)).toBe(fieldAt(1, 1));
+	});
+	test('the ground’s brightness over 5, 20 and 80 m: within ±13 %, the same as the ground’s sum', () => {
+		const v = [];
+		for (let i = 0; i < 400; i++) v.push(macroAt(i * 1.7 - 300, i * 0.9 + 40));
+		expect(Math.min(...v)).toBeGreaterThanOrEqual(0.87);
+		expect(Math.max(...v)).toBeLessThanOrEqual(1.13);
+		expect(Math.max(...v) - Math.min(...v)).toBeGreaterThan(0.08);
 	});
 	test('clump centres differ from cell to cell, and a blade is blended between the two nearest', () => {
 		const a = clumpCentre(0, 0, 1.2), b = clumpCentre(1, 0, 1.2), c = clumpCentre(0, 1, 1.2);

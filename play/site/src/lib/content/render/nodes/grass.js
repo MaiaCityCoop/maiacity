@@ -73,6 +73,9 @@ const fieldT = (/** @type {any} */ p) => {
 		.add(vnT(p.div(80).add(vec2(7.7, 0))).mul(0.1));
 };
 
+/** grass.js `macroAt`: the ground's brightness over 5, 20 and 80 m */
+const macroT = (/** @type {any} */ p) => vnT(p.div(5)).mul(0.3).add(vnT(p.div(20).add(3.1)).mul(0.35)).add(vnT(p.div(80).add(7.7)).mul(0.35)).sub(0.5).mul(0.26).add(1);
+
 /** grass.js `clumpCentre`: x, z, height, shade */
 const clumpCentreT = (/** @type {any} */ g, /** @type {any} */ size) => {
 	const s = pcgU(pcgU(int(g.x).toUint()).bitXor(int(g.y).toUint().mul(uint(0x27d4eb2d))));
@@ -95,7 +98,7 @@ export function grassMaterial(o) {
 
 	/* what the vertex stage hands the fragments */
 	const vN = varyingProperty('vec3', 'vGrassN'), vV = varyingProperty('vec3', 'vGrassV');
-	const vT = varyingProperty('float', 'vGrassT'), vField = varyingProperty('float', 'vGrassField'), vTone = varyingProperty('float', 'vGrassShade');
+	const vT = varyingProperty('float', 'vGrassT'), vField = varyingProperty('float', 'vGrassField'), vMacro = varyingProperty('float', 'vGrassMacro'), vTone = varyingProperty('float', 'vGrassShade');
 	const vDry = varyingProperty('float', 'vGrassDry'), vDense = varyingProperty('float', 'vGrassDense'), vD = varyingProperty('float', 'vGrassD');
 
 	const vertex = Fn(() => {
@@ -203,6 +206,7 @@ export function grassMaterial(o) {
 		vV.assign(normalize(cameraPosition.sub(world)));
 		vT.assign(t);
 		vField.assign(fieldT(foot));
+		vMacro.assign(macroT(foot));
 		vTone.assign(cShade.mul(0.5).add(shade.mul(0.5)));
 		vDry.assign(dry.lessThan(P.dryShare).select(float(1), float(0)));
 		vDense.assign(m.x);
@@ -220,6 +224,7 @@ export function grassMaterial(o) {
 	const green = mix(base, tipC, pow(vT, 1.2));
 	const col = mix(green, mix(green, dryC, smoothstep(0.2, 0.9, vT)), vDry)
 		.mul(vField.sub(0.5).mul(0.5).add(1))
+		.mul(vMacro)
 		.mul(vTone.sub(0.5).mul(0.3).add(1))
 		.mul(mix(float(1).sub(vDense.mul(0.55)), float(1), smoothstep(0, 0.6, vT)));
 	mat.colorNode = vec4(col, 1);
