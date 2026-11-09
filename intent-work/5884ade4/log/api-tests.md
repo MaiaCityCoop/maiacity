@@ -43,3 +43,15 @@ behaviour is pinned, and for every test removed why it could not fail or only re
      called; the test already asserts what it does (the variant archived, the work list, the stage, the reason).
    - schemas.test keeps its wrapper that names an intent for a `doc_edit`/`propose_doc_version` without one (now a
      function over the kit's `tool`): the `variantIntent` part of F4 is left (*Next untangles*).
+3. **Behaviour, not src's text (F6, first half).** `app()` hands out its route table (`routes()`: every
+   "<METHOD> <path>" it answers; src/app.ts, nothing else changes), and nobypass.test's sweep of every writing route
+   reads it instead of regexing app.ts' text: a route added another way than a literal `on(…)` is now in the sweep too.
+   Removes api-tests#19. Removed, each with why:
+   - board.test "no LIMIT 500 is left in intents.ts" (1 test, 355 → 354): intent 2cb70fb8's c1 grep kept as a test;
+     a text search of a file can't tell a slow board from a fast one, and the board's paging is pinned by the tests
+     beside it (pages walked whole in order, bad pages refused).
+   - ship.test "one place makes a code intent Accepted", its first part: regexes over ship.ts, intents.ts and
+     decide.ts counting `SET … stage = 'accepted'` and matching the literal call `acceptAndShip(db, gh, me, w.id)) ??
+     (await acceptCode(`. They restated the implementation (renaming a variable broke them, a second writer by
+     another spelling passed them). The test's behaviour half stays: a green ship stays in Ship until the reconcile
+     sees its merge live, flagged while play runs an older commit, Accepted once.

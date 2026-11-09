@@ -35,7 +35,7 @@ import { statusOf } from "./fault";
 import "./allkinds";
 
 type Handler = (req: Request, params: Record<string, string>) => Promise<Response> | Response;
-type Route = { method: string; pattern: RegExp; keys: string[]; handler: Handler };
+type Route = { method: string; path: string; pattern: RegExp; keys: string[]; handler: Handler };
 
 const json = (body: unknown, init: ResponseInit = {}) => Response.json(body, init);
 
@@ -62,7 +62,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   const on = (method: string, path: string, handler: Handler) => {
     const keys: string[] = [];
     const pattern = new RegExp(`^${path.replace(/:([a-z]+)/g, (_, k) => (keys.push(k), "([^/]+)"))}$`);
-    routes.push({ method, pattern, keys, handler });
+    routes.push({ method, path, pattern, keys, handler });
   };
   // who a request is: its session; or, on the world's read-only routes, an admin's MCP token (Samuel 2026-11-03: an
   // agent walks and films a sandbox in its own browser, as its admin, reading only what a traveler may read)
@@ -355,7 +355,9 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     if (allowed.length) return json({ error: "Method not allowed." }, { status: 405, headers: { Allow: allowed.join(", ") } });
     return json({ error: "Not found." }, { status: 404 });
   }
-  return { fetch };
+  /** every route the app answers, "<METHOD> <path>" */
+  const table = () => routes.map((r) => `${r.method} ${r.path}`);
+  return { fetch, routes: table };
 }
 
 /** the one byte range a Range header asks of a file of `size` bytes (inclusive), null for the whole file (no header, or

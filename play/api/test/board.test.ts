@@ -2,8 +2,6 @@
 // (TEST_DATABASE_URL): the open stages always come back whole, no cap across the board; the closed stages (Accepted,
 // Archived) come a page at a time, newest first, by `limit` and the cursor `before`; every stage's count beside them.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { createHuman } from "../src/auth";
 import { type Db } from "../src/kit/pg";
 import { OPEN, seedBoard } from "./fixtures/board";
@@ -83,9 +81,5 @@ suite("board loads", () => {
     expect((await get("/api/intents?stage=accepted&limit=201")).status).toBe(400);
     expect((await get("/api/intents?stage=accepted&limit=5&before=yesterday")).status).toBe(400);
     expect((await get(`/api/intents?stage=${OPEN.join(",")}&counts=1`, citizen)).status).toBe(403);
-  });
-
-  test("no LIMIT 500 is left in intents.ts", () => {
-    expect(readFileSync(join(import.meta.dir, "../src/intents.ts"), "utf8")).not.toContain("LIMIT 500");
   });
 });

@@ -7,11 +7,9 @@
 // that intent holds. doc_edit without an intent is refused. A tool or a route added later fails this test until it is
 // called here too.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { join } from "node:path";
 import { app } from "../src/app";
 import { createHuman } from "../src/auth";
 import * as docs from "../src/docs";
-import { readFileSync } from "node:fs";
 import { type Db } from "../src/kit/pg";
 import { seedDoc } from "../src/versioned";
 import { RULE, SCHEMA } from "../src/kit/ids";
@@ -189,7 +187,7 @@ suite("no write past an Accept", () => {
         await call("ada", "POST", `/api/library/${f.hash}/label`, { label: "relabelled" });
       },
     };
-    const routes = [...readFileSync(join(import.meta.dir, "../src/app.ts"), "utf8").matchAll(/on\("(POST|PUT|PATCH|DELETE)", "([^"]+)"/g)].map((m) => `${m[1]} ${m[2]}`);
+    const routes = api.routes().filter((r) => !r.startsWith("GET "));
     expect(routes.sort()).toEqual(Object.keys(ROUTES).sort());
     for (const [route, run] of Object.entries(ROUTES)) {
       await run();

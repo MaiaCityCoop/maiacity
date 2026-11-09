@@ -12,7 +12,6 @@ import { app } from "../src/app";
 import { createHuman } from "../src/auth";
 import { folderStore } from "../src/blobs";
 import { type Db } from "../src/kit/pg";
-import { readFileSync } from "node:fs";
 import { reconcile, runningCommit, tailOf } from "../src/ship";
 import { startShipWatcher, watchShips } from "../src/watcher";
 import { ACCEPTED_CONTEXT, gitHub, shipGitHub, type Pull } from "../src/github";
@@ -508,20 +507,6 @@ suite("accept ships it", () => {
   };
 
   test("one place makes a code intent Accepted: the reconcile, after Ship's watcher and for an Accept on code by its trailer", async () => {
-    // in the code: the only write of stage 'accepted' in ship.ts is the reconcile's; intents.ts keeps one, decideIntent's
-    // accept, which is reached for a code intent no more (a pull request named is shipped, a trailer on main reconciled)
-    const shipTs = readFileSync(join(import.meta.dir, "../src/ship.ts"), "utf8");
-    const writes = (src: string) => [...src.matchAll(/SET (?:[^`]*?, )?stage\s*=\s*'accepted'/g)].map((m) => m.index!);
-    const body = shipTs.slice(shipTs.indexOf("export async function reconcile("), shipTs.indexOf("export async function acceptCode("));
-    expect(writes(shipTs).length).toBe(1);
-    expect(writes(body).length).toBe(1);
-    expect(shipTs).not.toMatch(/saveShip\([^)]*"accepted"/);
-    const intentsTs = readFileSync(join(import.meta.dir, "../src/intents.ts"), "utf8");
-    expect(writes(intentsTs).length).toBe(1);
-    expect(intentsTs.slice(intentsTs.indexOf("export async function decideIntent("))).toMatch(/stage\s*=\s*'accepted'/);
-    const decide = readFileSync(join(import.meta.dir, "../src/decide.ts"), "utf8");
-    expect(decide).toMatch(/acceptAndShip\(db, gh, me, w\.id\)\) \?\? \(await acceptCode\(/);
-
     // Ship's watcher, all green: ended in Ship, Accepted only by the reconcile, once play runs its merge
     const before = gh.main.head;
     const c = await shipped("Green, then reconciled", () => null, 9000);
