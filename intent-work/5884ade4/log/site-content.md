@@ -82,3 +82,7 @@ Builder of area `site-content` (branch `intent/5884ade4-u-site-content`). Proble
    otherwise; `worlds.test.ts` pins the film page of a Worlds shot. Sandbox slugs in site code: 26 → 1 (`sandbox5.js`
    names its film world `'sandbox-5'` because `village.ts`, held, types it so). The census's Sandbox 3 noise again
    (three runs at HEAD: 303, 299, 299 draws).
+10. **The lab's geometry ↔ simulation cycle goes** (site-worlds#23; site-worlds F7 part). `V3` and `Quaternion` are
+    declared in `lib/sandbox-2/geometry.ts`; `simulation.ts` imports and re-exports them (a type-only move). The 24 lab
+    tests pass (five of them time out only when the whole folder runs beside other builders' processes; each passes
+    alone).
