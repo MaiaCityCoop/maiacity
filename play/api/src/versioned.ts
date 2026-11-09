@@ -344,7 +344,7 @@ async function proposeIn(tx: Queryable, who: Me, kind: Kind, uuid: string, docId
   if (kind.ready) await kind.ready(tx, now, p.intent ?? null);
   await docs.propose(tx, docId, v, { note, author });
   // every document goes in beside the others the intent holds (intent 7c8986c5)
-  const intent = await putAtProposal(tx, who, { intent: p.intent, work: { kind: kind.work, doc_id: docId, doc_variant: v }, note, via: via === "mcp" ? "mcp" : "web" });
+  const intent = await putAtProposal(tx, who, { intent: p.intent, work: { kind: kind.work, doc_id: docId, doc_variant: v }, note, via });
   const number = ((await docs.versionsOf(tx, docId)).at(-1)?.number ?? 0) + 1;
   return { intent, stage: await stageAfter(tx, intent), doc: uuid, kind: kind.name, number, variant: v, edits: (await docs.history(tx, docId, { variant: v })).length, changes: changes.length };
 }

@@ -11,8 +11,8 @@ import { storyVersionId } from "./versions";
 import { UUID } from "./kit/uuid";
 import { NOTE_MOST } from "./notes";
 import * as docs from "./docs";
-import { asDoc, asStory, authorOf, docIdOf, ensureStoryDoc, STORY_SCHEMA, storyDocAt, versionAtFrontiers, type Clip, type StoryBody, type Track } from "./storydocs";
-import { overlap } from "./kinds";
+import { asDoc, asStory, docIdOf, ensureStoryDoc, STORY_SCHEMA, storyDocAt, versionAtFrontiers, type Clip, type StoryBody, type Track } from "./storydocs";
+import { authorOf, overlap } from "./kinds";
 import { storyListed } from "./listed";
 import { fileTypes, keepFile as keepOwned } from "./owners";
 import { unreadable } from "./assetdocs";
@@ -839,7 +839,7 @@ export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fres
   if (drafted && fresh) throw new HttpError("A new story is proposed whole (its body); an intent variant is of a story that has a version.");
   if (!drafted && (p.body === undefined) === (p.edits === undefined)) throw new HttpError("Give the new timeline (body) or edits to the head's, not both and not neither.");
   if (drafted && (p.body !== undefined || p.edits !== undefined)) throw new HttpError("An intent variant is proposed as it stands: make its last edit with doc_edit.");
-  const author = authorOf(who, via === "mcp" ? "mcp" : "site");
+  const author = authorOf(who, via);
   return db.transaction(async (tx) => {
     const { rows: s } = await tx.query<{ head: string | null; title: string; number: number | null; body: StoryBody | null; folded_into: string | null }>(
       `SELECT s.head, s.title, v.number, v.body, s.folded_into FROM play.stories s LEFT JOIN play.story_versions v ON v.id = s.head WHERE s.id = $1 FOR UPDATE OF s`, [id],

@@ -26,7 +26,7 @@ export async function retireDoc(ctx: Ctx, me: Me | null, id: string, doc: unknow
     const { kind, uuid, docId } = await docRef(tx, ctx, `${doc ?? ""}`.trim().split(":").at(-1), who);
     if (!(await docs.versionsOf(tx, docId)).length) throw new HttpError(`The ${kind.label} ${uuid} has no accepted version: there is nothing on Main to retire (withdraw_doc takes a document out of an intent before its Accept).`, 409);
     if (await retiredOf(tx, docId)) throw new HttpError(`The ${kind.label} ${uuid} is retired already.`, 409);
-    const author = authorOf(who, via === "mcp" ? "mcp" : "site");
+    const author = authorOf(who, via);
     const note = `Retires ${kind.label} ${uuid}: ${why}`;
     const v = await docs.variant(tx, docId, { author, note });
     // proposed as it is: a retire changes nothing of its content, so it has no edits

@@ -344,7 +344,7 @@ export async function listAuthors(db: Queryable, me: Me | null, o: { q?: string 
 }
 
 /** One author, with every artifact that names them, newest first. */
-export async function authorOf(db: Queryable, me: Me | null, id: unknown) {
+export async function getAuthor(db: Queryable, me: Me | null, id: unknown) {
   admin(me, ARTIFACT_ADMINS);
   const aid = idOf(id, "author");
   const { rows } = await db.query(

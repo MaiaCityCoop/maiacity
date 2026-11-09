@@ -29,7 +29,7 @@ import { clientOf, perMinute, Rate, costly } from "./limits";
 import { listStories, storyAt, storyOf } from "./stories";
 import { labelFile, listLibrary } from "./library";
 import { proposeAsset, recipeAt } from "./assetdocs";
-import { authorOf, listAuthors, listArtifacts, artifactOf } from "./artifacts";
+import { getAuthor, listAuthors, listArtifacts, artifactOf } from "./artifacts";
 import { HttpError } from "./kit/errors";
 import { statusOf } from "./fault";
 import "./allkinds";
@@ -315,7 +315,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   });
   on("GET", "/api/artifacts/:id", async (req, p) => json(await artifactOf(db, await me(req), p.id)));
   on("GET", "/api/authors", async (req) => json(await listAuthors(db, await me(req), { q: new URL(req.url).searchParams.get("q") })));
-  on("GET", "/api/authors/:id", async (req, p) => json(await authorOf(db, await me(req), p.id)));
+  on("GET", "/api/authors/:id", async (req, p) => json(await getAuthor(db, await me(req), p.id)));
 
   // Stories, the admins' timeline player (./stories.ts): read here with what they link, at their head, an accepted
   // version (?v=2), an edit (?edit=7) or an intent's variant (?intent=<id>); their history is /api/docs/<id>/history.

@@ -14,3 +14,13 @@ left for Samuel.
   before the fix. Every intent watchPulls reads names a pull request, so decideOne takes it to acceptAndShip (no store),
   and matchRule refuses any intent holding code and play's work (`f.both`, rules.ts, not a rule a person can change).
   The fix stands as a type made true: the next path that would reach the store from there is caught by tsc.
+
+## 2. One `authorOf` (re-api#3)
+
+- storydocs.ts' byte-for-byte copy deleted; storydocs.ts and stories.ts import kinds.ts' `authorOf`. The re-maps before
+  it (retire.ts, stories.ts proposeStory, versioned.ts' `via` to putAtProposal) are gone: each `via` there is typed
+  `"web" | "mcp"`, so the re-map was the identity. stories.ts' `v.via === "web" ? "site" : "mcp"` (a stored version's
+  via, null meaning MCP) stays: it maps differently.
+- artifacts.ts' `authorOf` (an author row, a different thing) is `getAuthor`.
+- assetdocs.ts keeps its own copy: held (Next untangles: import it from ./kinds).
+- Pinned by the suite as it is (no behaviour moved).
