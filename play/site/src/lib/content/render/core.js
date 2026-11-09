@@ -23,7 +23,7 @@
  * its canvas; and a phone drew at twice its pixels with the desktop's shadows, occlusion and multisampling.
  */
 import * as THREE from 'three';
-import { ShadowNode, WebGPURenderer } from 'three/webgpu';
+import { PMREMGenerator as NodePMREMGenerator, ShadowNode, WebGPURenderer } from 'three/webgpu';
 import { install } from './nodes/index.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { reopenOnRestore } from './budget.js';
@@ -254,6 +254,30 @@ function tellUploads(renderer) {
 		const after = attributes.has(a) ? attributes.get(a).version : undefined;
 		if (after !== undefined && after !== before) a.onUploadCallback?.();
 	};
+}
+
+/**
+ * The PMREM generator a renderer takes (intent c1bee1f8): three's classic one on WebGL, three/webgpu's on a
+ * WebGPURenderer (which bakes only once it is initialised: `environmentFrom` waits for it).
+ * @param {any} renderer
+ */
+export const pmremFor = (renderer) => (isWebGPU(renderer) ? new NodePMREMGenerator(renderer) : new THREE.PMREMGenerator(renderer));
+
+/**
+ * A scene's light baked into an environment (PMREM, blurred by `sigma`) and handed to `set`: a moment later on WebGL,
+ * once the renderer may draw on WebGPU (a page that bakes as it is made). The generator let go of after.
+ * @param {any} renderer @param {THREE.Scene} source @param {number} sigma @param {(texture: THREE.Texture) => void} set
+ * @returns {Promise<void>} settled once it is set
+ */
+export function environmentFrom(renderer, source, sigma, set) {
+	const bake = () => {
+		const pm = pmremFor(renderer);
+		const rt = /** @type {any} */ (pm).fromScene(source, sigma);
+		pm.dispose();
+		set(rt.texture);
+	};
+	// never during the call (a page made in one go hands `set` what it declares after): a microtask on, or once ready
+	return (isWebGPU(renderer) ? ready(renderer) : Promise.resolve()).then(bake);
 }
 
 /**

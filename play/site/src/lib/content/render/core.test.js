@@ -285,6 +285,22 @@ describe('the switch to WebGPU', async () => {
 		expect(() => r.render(scene, camera)).not.toThrow();
 	});
 
+	test('an environment baked as a page is made waits for WebGPU’s init, with three/webgpu’s PMREM generator', async () => {
+		const { environmentFrom, pmremFor } = await import('./core.js');
+		const { PMREMGenerator } = await import('three/webgpu');
+		const r = /** @type {any} */ (make({ backend: 'webgl2', pixelRatio: 1, canvas: canvas().c }));
+		expect(pmremFor(r)).toBeInstanceOf(PMREMGenerator);
+		const room = new THREE.Scene().add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial()));
+		/** @type {any} */
+		let got = null;
+		const done = environmentFrom(r, room, 0.04, (t) => (got = t));
+		expect(got).toBeNull();
+		expect(r.initialized).toBe(false);
+		await done;
+		expect(r.initialized).toBe(true);
+		expect(got?.isTexture).toBe(true);
+	});
+
 	test('the largest picture a renderer takes, on either', async () => {
 		const { maxTextureSize } = await import('./core.js');
 		const r = /** @type {any} */ (make({ backend: 'webgl2', pixelRatio: 1, canvas: canvas().c }));

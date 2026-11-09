@@ -15,7 +15,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { cardMaterials, castsAsNode, cutOf } from '../../render/nodes/index.js';
 import { budget } from '../../render/budget.js';
-import { isWebGPU, maxTextureSize, precompile } from '../../render/core.js';
+import { isWebGPU, maxTextureSize, pmremFor, precompile } from '../../render/core.js';
 
 /** how many sides each kind is photographed from */
 export const FRAMES = 8;
@@ -61,7 +61,7 @@ export function createImpostors(renderer, o = {}) {
 	let env = null;
 	const lit = () => {
 		if (env) return;
-		const pmrem = new THREE.PMREMGenerator(renderer);
+		const pmrem = pmremFor(renderer); // (made at the first picture: the renderer draws by then)
 		env = pmrem.fromScene(new RoomEnvironment(), 0.04);
 		pmrem.dispose();
 		studio.environment = env.texture;
