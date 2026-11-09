@@ -13,10 +13,8 @@
  *   distance from the eye (`aCover`, `aReach` per copy; `coverEye`), so it thins out with distance and has no edge.
  * - the far pictures' card, the x-ray ghost, the contact shadow's blur and the stage floor's fade into the horizon.
  *
- * Drawn on WebGLRenderer through three's WebGLNodesHandler (`install`), with what it lacks in r186 made good here:
- * a node material shared by many instanced meshes takes each one's own matrices (three's node instancing would keep
- * the first mesh's), clipping is ours (the handler draws no clipping planes), a target is drawn into linear and
- * untoned as three's own materials are, and a node material drawing a shadow is drawn from the light.
+ * Drawn on WebGLRenderer through three's WebGLNodesHandler (`install`), what it lacks in r186 made good here: each
+ * instanced mesh's own matrices, our clipping, a target drawn linear and untoned, a node material's shadow.
  */
 import * as THREE from 'three';
 import { AttributeNode, MeshBasicNodeMaterial, MeshLambertNodeMaterial, MeshPhongNodeMaterial, MeshPhysicalNodeMaterial, MeshStandardNodeMaterial, NodeMaterial } from 'three/webgpu';
@@ -48,8 +46,7 @@ export function install(r) {
 	const screen = h.getOutputCallback;
 	const onScreen = () => r.getRenderTarget() === null;
 	// only the kit's own are drawn linear and untoned into a target (keyed apart as 'target'); every other node material
-	// (the sky, its environment bake) keeps the handler's key and output, so a bake and the frame after are two programs
-	// (cb16b7a5: the viewer's sky drawn raw, a haze over everything)
+	// (the sky, its environment bake) keeps the handler's key and output: a bake and the next frame two programs (cb16b7a5)
 	let keying = null;
 	const keyOf = h.customProgramCacheKeyCallback;
 	h.customProgramCacheKeyCallback = function () {
@@ -60,6 +57,15 @@ export function install(r) {
 		} finally {
 			keying = drawing = null;
 		}
+	};
+	// a kit material meeting a program built from other source uploads nothing into it, then keys by its id (660ad67f)
+	const src = new WeakMap(), meet = h.onUpdateProgram.bind(h);
+	h.onUpdateProgram = (m, p, props) => {
+		const b = m._latestBuilder, s = b && b.vertexShader + b.fragmentShader, first = !h.programCache.get(m)?.has(p);
+		meet(m, p, props);
+		if (!m.isKit || !first || !s) return;
+		if (!src.has(p)) return void src.set(p, s);
+		if (src.get(p) !== s) (m.own = true), (m.needsUpdate = true), (props.uniformsList = []), (m.uniformsGroups = []);
 	};
 	h.getOutputCallback = (node, builder) => (onScreen() || !(builder?.material ?? h.nodeFrame.material)?.isKit ? screen(node, builder) : node);
 	if (h.renderer) h.renderer.getCacheKey = () => (onScreen() || !(keying ?? h.nodeFrame.material)?.isKit ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
@@ -244,10 +250,9 @@ const ours = (Base) =>
 			const G = glossy(model.constructor, float(this.gloss));
 			return Object.assign(new G(), model);
 		}
-		// a program for each shape, not each material (by id, Safari linked 88 in 8 frames walking Sandbox 5: bd087014);
-		// never one for two shaders that differ, each uploading its uniforms into the other's layout (660ad67f)
+		// a program for each shape, not each material (by id, Safari linked 88 in 8 frames in Sandbox 5: bd087014)
 		customProgramCacheKey() {
-			return `${super.customProgramCacheKey()}#${shapeOf(this, drawing)}`;
+			return `${super.customProgramCacheKey()}#${this.own ? this.id : shapeOf(this, drawing)}`;
 		}
 		copy(source) {
 			super.copy(source);
@@ -257,13 +262,10 @@ const ours = (Base) =>
 	};
 
 const I3 = new THREE.Matrix3();
-/** the object being keyed (install's key callback) */
+/** the object being keyed (install) */
 let drawing = null;
-/**
- * What makes two of our shaders differ beside three's node hash: the kit's settings, how each texture slot is read,
- * and the drawn geometry's attributes and morphs (a map reads `uv`, vertex colours `color`: three's key holds neither,
- * 660ad67f). The same shape is the same program. @param {any} m @param {any} o
- */
+/** What makes two of our shaders differ beside three's node hash: the kit's settings, each texture slot's kind and
+ * the drawn geometry (a map reads `uv`, vertex colours `color`: 660ad67f). @param {any} m @param {any} o */
 function shapeOf(m, o) {
 	let s = `${m.fade ? 'f' : ''}${m.cut ? 'c' : ''}${m.cap ? 'p' : ''}${m.gloss === 1 ? '' : `g${m.gloss}`}|${o?.type}${o?.instanceColor ? 'ic' : ''}`;
 	const g = o?.geometry;

@@ -208,6 +208,32 @@ describe('the render kit in TSL', () => {
 		}
 	});
 
+	test('a clash the key misses: the one whose source differs uploads nothing into the program, then takes its own', () => {
+		const { r } = renderer();
+		const { scene, camera } = lit();
+		const [a, b, c] = [0, 1, 2].map(() => Object.assign(nodeOf(new THREE.MeshStandardMaterial({ map: new THREE.Texture() })) as any, { fade: aFade }));
+		// every key of this kind the same, whatever the shader: a clash forced
+		const P = Object.getPrototypeOf(a), key = P.customProgramCacheKey;
+		P.customProgramCacheKey = function (this: any) {
+			return this.own ? `own${this.id}` : 'same';
+		};
+		try {
+			const g = new THREE.BoxGeometry();
+			g.deleteAttribute('uv');
+			scene.add(new THREE.Mesh(new THREE.BoxGeometry(), a), new THREE.Mesh(g, b), new THREE.Mesh(new THREE.BoxGeometry(), c));
+			r.render(scene, camera);
+			r.render(scene, camera);
+		} finally {
+			P.customProgramCacheKey = key;
+		}
+		const p = (m: any) => (r.properties.get(m) as any).currentProgram;
+		expect(b.own).toBe(true);
+		expect(p(b)).not.toBe(p(a));
+		// the same source still shares
+		expect(c.own).toBeUndefined();
+		expect(p(c)).toBe(p(a));
+	});
+
 	test('twenty copies of one shape on meshes alike link one program', () => {
 		const { r } = renderer();
 		const { scene, camera } = lit();
