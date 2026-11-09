@@ -1,6 +1,7 @@
 /*
  * A Mac job's browser keeps a page's files between jobs (intent 7af6e162, c4): a file written to OPFS through
- * ./mac-page.mjs's profile is there when that profile is opened again, and not in another site's. Chromium, no WebGL.
+ * ./mac-page.mjs's profile is there when that profile is opened again, and not in another site's; a site is served as
+ * its production build (`serveBuilt`), not the dev server. Chromium, no WebGL.
  *
  *   cd play/site && bun test scripts/mac-page.test.ts
  */
@@ -8,7 +9,7 @@ import { afterAll, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { openSite, profileOf } from './mac-page.mjs';
+import { openSite, profileOf, serveBuilt } from './mac-page.mjs';
 
 const root = mkdtempSync(join(tmpdir(), 'mac-page-'));
 const server = Bun.serve({ port: 0, hostname: '127.0.0.1', fetch: () => new Response('<!doctype html><title>page</title>', { headers: { 'content-type': 'text/html' } }) });
@@ -55,3 +56,14 @@ test("a site's profile is its own folder, named by a plain word", () => {
 	expect(profileOf('base', '/r')).toBe('/r/base');
 	expect(() => profileOf('../x', '/r')).toThrow();
 });
+
+test("a site is served as its production build: Sandbox 1's page and its built scripts, no dev server's modules", async () => {
+	const site = await serveBuilt(join(import.meta.dir, '..'), { port: 5399, api: 'http://127.0.0.1:9', log: join(root, 'serve.log') });
+	try {
+		const html = await (await fetch(`${site.url}/sandbox-1/`)).text();
+		expect(html).toContain('/_app/immutable/');
+		expect(html).not.toContain('/@vite/client');
+	} finally {
+		site.stop();
+	}
+}, 300_000);
