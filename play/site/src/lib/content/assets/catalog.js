@@ -8,7 +8,7 @@
  * `pin:<sandbox>/<slot>?values`, which the sandbox's config (play's database, ../game/code/index.js) maps to a build.
  * Nothing is looked up by a readable name: a version's number, an asset's id and a label are only shown.
  */
-import { holds } from '../game/hash.js';
+import { holds } from '../../kernel/hash.js';
 import { configAt } from '../game/code/index.js';
 import { buildOf, hashText, parseBuild } from './builds.js';
 import * as cache from './cache.js';

@@ -11,7 +11,7 @@
  * hash moves only when the asset's own code changes, or code it shares: never with another asset's. The versions of
  * one asset share its library, so a change to one moves the hashes of all.
  */
-import { engineAt as frozenAt, enginesOf, pathOf } from '$lib/kernel/sandbox/engines.js';
+import { engineAt as frozenAt, enginesOf, pathOf } from '$lib/kernel/engines.js';
 
 /**
  * @typedef {{ v: number, date: string, blake3: string, bytes: number, three: string, modules: string[], note: string }} Engine

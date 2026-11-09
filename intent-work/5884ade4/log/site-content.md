@@ -11,3 +11,9 @@ Builder of area `site-content` (branch `intent/5884ade4-u-site-content`). Proble
    of an asset (`catalog.test.ts`: `resolve` of builds and slots, and the refs the worlds write: the pallet, Sandbox 3's
    things and plants, the garden's `refOf`), and the Sandbox 1 and 5 pages as served (`routes/sandbox-5/page.test.ts`,
    an SSR snapshot of each: head, cover, bar).
+2. **The one hash is the kernel's** (site-assets#5, #20, #28 pass-through; site-assets F3). `content/game/hash.js` →
+   `kernel/hash.js`, which also holds the one hash pattern (`HEX`, `HASH`, `isHash`); `game/hash.js` is a one-line
+   re-export for the stories (`compose.ts`, `live-runtime.ts`, held) and the scripts. `kernel/sandbox/engines.js` (a
+   pass-through and the dead floor/worker mechanism) is gone: `frame.js` and `content/assets/engines.js` read
+   `kernel/engines.js`; its dead `isFrozen` is gone. The kernel no longer imports content. Pinned by `box/pieces.test.ts`,
+   `cache.test.ts` and the census (same ×3).

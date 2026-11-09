@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 // @ts-ignore — plain JS
 import * as cache from './cache.js'
 // @ts-ignore — plain JS
-import { hashBytes } from '../game/hash.js'
+import { hashBytes } from '../../kernel/hash.js'
 
 const H = 'a'.repeat(64), R = 'b'.repeat(64)
 

@@ -1,7 +1,7 @@
 // @ts-nocheck — plain JS
 import { base } from '$app/paths';
-import { hashBytes } from '$lib/content/game/hash.js';
-import { enginesOf, latestOf, pathOf } from './engines.js';
+import { hashBytes } from '../hash.js';
+import { enginesOf, latestOf, pathOf } from '../engines.js';
 import { BUDGETS, DENY, SANDBOX, SHELL_SCRIPT, frameCsp } from './policy.js';
 /*
  * THE SHELL — where code we cannot trust runs in a page: a worker inside a frame with no origin. One shell for every

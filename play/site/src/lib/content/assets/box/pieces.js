@@ -14,7 +14,7 @@
  * Refused, saying which: a piece not in the manifest, one play's files don't hold, one whose bytes are not its hash,
  * a piece requiring itself (a cycle), and a chain of pieces more than MOST_DEEP deep.
  */
-import { hashBytes, holds } from '../../game/hash.js';
+import { hashBytes, holds } from '../../../kernel/hash.js';
 import * as cache from '../cache.js';
 
 /** a piece's name: its BLAKE3 hash */

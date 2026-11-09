@@ -4,10 +4,10 @@
  * bytes (./recipe.js, ./engines.js), and the values it is built with, `<hash>?seed=maia&stage=9`. Nothing here reads an
  * index: play's catalog (./catalog.js) names its builds the same way, so the same bytes are the same build anywhere.
  */
-import { hashText } from '../game/hash.js';
+import { hashText } from '../../kernel/hash.js';
 import { paramsIn, queryOf } from './params.js';
 
-/** the BLAKE3 hash of a text, in hex (maia/content/game/hash.js, the one hash) */
+/** the BLAKE3 hash of a text, in hex (the one hash, ../../kernel/hash.js) */
 export { hashText };
 
 /**
