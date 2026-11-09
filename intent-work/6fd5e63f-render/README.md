@@ -1,7 +1,6 @@
 # Mac job: intent 6fd5e63f's c7: one wind for everything that grows, and light through leaves
 
-**MAC JOB READY** (2026-11-09 14:30 UTC): head a7007834c (PR #2180) against main 12837b6; the dry run printed DRY RUN PASSED
-in avenBOX for this branch's commit (`bun play/site/scripts/macjob/dry.ts intent-work/6fd5e63f-render --at <commit>`).
+**Dropped, not to be run** (2026-11-09 14:47 UTC): Samuel's decision, the Mac no longer gates GPU work; c7 is nice, watched by the Mac's smoke run on main after the deploy. The job is kept for its record (its runs' out/).
 
 
 
