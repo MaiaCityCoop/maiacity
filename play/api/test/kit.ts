@@ -9,7 +9,7 @@ import { app } from "../src/app";
 import { COOKIE, createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore, type BlobStore } from "../src/blobs";
 import { migrate } from "../src/migrations";
-import { prepare } from "../src/seed";
+import { seed } from "../src/seed";
 import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
 import type { GitHub } from "../src/github";
@@ -39,11 +39,9 @@ export async function freshDb(o: { prefix?: string; migrate?: boolean; until?: s
   const sql = new Bun.SQL(u.toString());
   const db = fromBunSql(sql);
   if (o.migrate !== false) {
-    if (o.until) await migrate(db, { until: o.until });
-    else {
-      await prepare(db);
-      await initSessions(db);
-    }
+    await migrate(db, o.until ? { until: o.until } : {});
+    if (!o.until) await seed(db);
+    if (!o.until) await initSessions(db);
   }
   const drop = async () => {
     await sql.close();

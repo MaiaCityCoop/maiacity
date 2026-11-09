@@ -151,3 +151,9 @@ left for Samuel.
   stray indent the re-audit saw was not there any more). import/factories, gameconfigs, skills: done in move 10.
 - Left: build.test's `inPrototype` is right as it is: it puts intents at 'prototype' on a database migrated below
   0033-build, to test that migration.
+
+## 14. test/kit.ts back as the branch found it (coordination)
+
+- The orchestrator rewrote freshDb on intent/5884ade4-untangle (72571973: one migrated, seeded template database per
+  code). Move 9's freshDb change (prepare) is undone here so the merge keeps their body untouched. For them: their
+  template's `migrate(db, {}); seed(db)` is `prepare(db)` (src/seed.ts) once merged.
