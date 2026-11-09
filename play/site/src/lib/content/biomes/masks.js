@@ -149,15 +149,6 @@ export function ringAt(k, canopy) {
 }
 
 /**
- * The most its masks can raise a kind (its edge band's and its ring's gains together): a kind whose colonies are
- * already as full as they stand is spread thinner by this much everywhere, so its masks gather it rather than being
- * cut off at full (./index.js). @param {KindMasks} k
- */
-export function gainOf(k) {
-	return (1 + Math.max(0, k.edge ?? 0)) * (1 + Math.max(0, k.ring?.[2] ?? 0));
-}
-
-/**
  * A plant's colour where it stands: each channel a little off, by regions `across` metres big, the same for every
  * kind there (a drier patch yellower, a damper one bluer-green). @param {Masks} masks @param {number} x @param {number} z
  * @returns {[number, number, number]}

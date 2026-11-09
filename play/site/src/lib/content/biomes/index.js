@@ -19,7 +19,7 @@
 import * as THREE from 'three';
 import { SURFACES, inTrack, surfacesAt } from './surfaces.js';
 import { fbm2, rng } from './noise.js';
-import { MASKS, canopyOf, gainOf, maskAt, reliefAt, ringAt, tintAt, trunksNear } from './masks.js';
+import { MASKS, canopyOf, maskAt, reliefAt, ringAt, tintAt, trunksNear } from './masks.js';
 import { versioned } from '$lib/site/app/versions.js';
 
 export { SURFACE, SURFACES, groundMaterial, inTrack, rowsOf, surfacesAt } from './surfaces.js';
@@ -478,13 +478,16 @@ function layMasked(recipe, ix, iz, o) {
 			}
 			return;
 		}
-		// the layer's dither: a place a cell, the cells fixed in the world
-		// a kind as full as its masks could ever raise it: spread thinner everywhere by that much, so where its masks raise
-		// it (an edge band, a ring round a trunk) it gathers instead of being cut off at full
-		const fill = (/** @type {number} */ k) => {
-			const c = /** @type {Colony} */ (recipe.cover[k]), full = Math.min(1, (c.fill ?? 0.85) * (f / s0) ** 2);
-			return full / Math.max(1, full * gainOf(c));
-		};
+		// the layer's dither: a place a cell, the cells fixed in the world. How likely a cell holds a plant is the sum of
+		// its kinds' densities there, each its share times how full it stands times its colonies and masks there, against
+		// what they come to on average (each kind's colonies taking the ground they take): so the floor is thick where
+		// colonies overlap or a mask raises them (an edge band, a ring round a trunk) and open where none grows, about as
+		// full as before on the whole, and each kind as dense as its share times its masks
+		const full = layer.kinds.map((k) => {
+			const c = /** @type {Colony} */ (recipe.cover[k]);
+			return c.share * Math.min(1, (c.fill ?? 0.85) * (f / s0) ** 2);
+		});
+		const mean = layer.kinds.reduce((a, k, i) => a + /** @type {number} */ (full[i]) * Math.min(1, Math.max(0.05, /** @type {Colony} */ (recipe.cover[k]).spread ?? 0.5)), 0);
 		for (let gx = Math.floor((x0 - pad + ox) / f); gx * f < x1 + pad + ox; gx++)
 			for (let gz = Math.floor((z0 - pad + oz) / f); gz * f < z1 + pad + oz; gz++) {
 				const r = cellRng(gx, gz, layer.key, seed);
@@ -492,15 +495,13 @@ function layMasked(recipe, ix, iz, o) {
 				const pick = r(), choose = r();
 				if (x < x0 - pad || x >= x1 + pad || z < z0 - pad || z >= z1 + pad) continue;
 				const h = here(x, z);
-				let empty = 1, total = 0;
-				const w = layer.kinds.map((k) => {
-					const m = Math.min(1, fill(k) * weight(k, h, x, z));
-					empty *= 1 - m;
-					const v = /** @type {Colony} */ (recipe.cover[k]).share * m;
+				let total = 0;
+				const w = layer.kinds.map((k, i) => {
+					const v = /** @type {number} */ (full[i]) * weight(k, h, x, z);
 					total += v;
 					return v;
 				});
-				if (total <= 0 || pick < empty) continue;
+				if (total <= 0 || pick >= Math.min(1, total / mean)) continue;
 				if ((o.open && !o.open(x, z)) || !clearOfTaken(x, z, f)) continue;
 				let t = choose * total, i = 0;
 				while (i < w.length - 1 && (t -= /** @type {number} */ (w[i])) >= 0) i++;

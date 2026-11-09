@@ -126,6 +126,10 @@ describe('a biome with masks', () => {
 		const litter = kindOf(MASKED, 'litter'), straw = kindOf(MASKED, 'strawberry');
 		expect(density(litter, 0, 1.1)).toBeGreaterThan(2 * density(litter, 3, 4.4));
 		expect(density(straw, 1.4, 2.4)).toBeGreaterThan(6 * density(straw, 3, 4.4));
+		// the floor itself thicker there, all its kinds together: its masks gather it, not only change which kind stands
+		const all = MASKED.cover.map((_: any, k: number) => k).filter((k: number) => !MASKED.cover[k].footprint);
+		const sum = (lo: number, hi: number) => all.reduce((a: number, k: number) => a + density(k, lo, hi), 0);
+		expect(sum(1.4, 2.4)).toBeGreaterThan(1.15 * sum(3, 4.4));
 		// round every trunk, its colonies or not
 		for (const t of trunks) expect(got[straw]!.some(([x, z]) => Math.abs(Math.hypot(x! - t.x, z! - t.z) - 1.9) < 0.7)).toBe(true);
 	});
