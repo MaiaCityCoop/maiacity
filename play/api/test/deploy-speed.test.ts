@@ -1,8 +1,4 @@
-// Merge to live in at most 90 s (intent 5ab64b8e-f0b6-4688-9621-b38b0e665585), every gate kept, each as a test: the
-// import's no-op run asks the store nothing (real Postgres, a counting store); release.yml fetches no file contents;
-// production.yml's jobs start together, none only waiting, the server waiting for image and backup; main's checks on a
-// push pass at once only on the tree a pull request's run tested (tested-tree.sh against a stand-in GitHub); every
-// earlier gate kept; Ship follows the jobs as they are; play-api stops on SIGTERM.
+// Merge to live in at most 90 s (intent 5ab64b8e-f0b6-4688-9621-b38b0e665585), every gate kept, each as a test.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { COOP } from "../src/kit/ids";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";

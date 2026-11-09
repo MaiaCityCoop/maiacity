@@ -1,7 +1,5 @@
 // Auto-accept rules (play/SPEC.md §4.12 "Auto-accept rules"; intent de24f1c5, Samuel 2026-11-07) against a real Postgres
-// (as ./api.test.ts): the rule set rules:<RULES>, changed only by a person's Accept; matchRule says which rule meets an
-// intent at Approve spec or Accept, autoMove takes a person's move through the one decision path (../src/intents.ts
-// decided), the rule written as who decided. Each test is one check of the intent's spec (c1–c9), named as its run names it.
+// (as ./api.test.ts). Each test is one check of the intent's spec (c1–c9), named as its run names it.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { BlobStore } from "../src/blobs";
 import * as docs from "../src/docs";

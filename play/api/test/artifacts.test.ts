@@ -1,6 +1,4 @@
-// Artifacts (src/artifacts.ts, play/SPEC.md §4.13) against a real Postgres (as ./api.test.ts): every link Maia City keeps,
-// over MCP by avenMAIA for the token's admin, marked by origin (pasted, or found in research), with a compact title, a
-// two-sentence description, a 500–1,500-word summary in its sections, and its authors (n:m). One link, one artifact. Admins only.
+// Artifacts (src/artifacts.ts, play/SPEC.md §4.13) against a real Postgres (as ./api.test.ts).
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { createHuman } from "../src/auth";
 import { type BlobStore } from "../src/blobs";

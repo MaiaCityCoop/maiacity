@@ -1,6 +1,5 @@
 // The skills (src/skills.ts, play/SPEC.md §4.14; intent c9113886-0803-4ab9-bc3c-8e73b6667484, checks c1–c6) against a
-// real Postgres (as ./api.test.ts): avenMAIA's and the Intents skill seeded as v1, nothing lost from the texts they were
-// moved from (./fixtures/instructions-before/), read by admins only by id, changed only by proposal, served from Postgres.
+// real Postgres (as ./api.test.ts).
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

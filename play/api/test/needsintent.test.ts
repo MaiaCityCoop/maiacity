@@ -1,7 +1,4 @@
-// No work without an intent (intent 706ed873, play/SPEC.md §4.12) against a real Postgres (as ./api.test.ts). Every tool
-// that proposes or edits work (propose_*, add_artifact, update_artifact, doc_edit) and POST /api/intents: without
-// `intent` refused naming add_intent; an intent not in Build or Proposal refused; one in Build with every must passed
-// taken, then at Proposal with that work. Postgres holds it too: an intent in Build, Proposal or Ship has a spec.
+// No work without an intent (intent 706ed873, play/SPEC.md §4.12) against a real Postgres (as ./api.test.ts).
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { COOP } from "../src/kit/ids";
 import { createHuman } from "../src/auth";

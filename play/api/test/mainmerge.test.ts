@@ -1,8 +1,5 @@
 // Main merged into open intent pull requests by play (src/mainmerge.ts, play/SPEC.md §4.12; intent
-// f28822d9-6ef1-49d9-aa2c-e52f1897ee89) against a real Postgres and a fake GitHub (./fixtures/github.ts): each mergeable
-// one behind main updated (update-branch, expected_head_sha the head read) once per head and main head, never one in
-// Ship or done, never a merge; a builder's push wins (422); the new head working until its checks are recorded, then
-// waiting; a conflict failed with its files and 'Merges with main' failure on its head, success once it merges again.
+// f28822d9-6ef1-49d9-aa2c-e52f1897ee89) against a real Postgres and a fake GitHub (./fixtures/github.ts).
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import type { BlobStore } from "../src/blobs";
 import { seedSkills } from "../import/skills";

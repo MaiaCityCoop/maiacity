@@ -1,10 +1,4 @@
 // One version control (src/versioned.ts, play/SPEC.md "Version control") against a real Postgres (as ./api.test.ts).
-// c1: a kind is one entry: a gadget registered here alone gets everything every kind gets (listed, read at a version,
-// an edit or a variant, history, edited, proposed, reviewed, accepted or archived) over MCP, HTTP (/api/docs/<uuid>,
-// /history, /changes) and the board, with no other file changed.
-// c2: every kind round-trips the one module: an asset, story, factory, levels config and skill each edited twice in an
-// intent variant, proposed, reviewed, accepted as Main's next version (frozen rows written), archived, a clash on a moved
-// seed archived; get_asset and get_story read an intent's variant too.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { createDoc } from "../src/docs";
 import { COOP, SCHEMA } from "../src/kit/ids";

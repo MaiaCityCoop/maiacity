@@ -1,7 +1,5 @@
-// No write past an Accept (intent 847c5d38, play/SPEC.md "Version control") against a real Postgres (as ./api.test.ts):
-// every MCP tool that is not a read and every HTTP route that writes (both enumerated) is called with work it takes,
-// every Main unchanged after; then each intent they put at Proposal is accepted, moving Main of its own documents only.
-// doc_edit without an intent is refused. A tool or route added later fails here until it is called here too.
+// No write past an Accept (intent 847c5d38, play/SPEC.md "Version control") against a real Postgres (as ./api.test.ts).
+// A tool or route added later fails here until it is called here too.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { app } from "../src/app";
 import * as docs from "../src/docs";
