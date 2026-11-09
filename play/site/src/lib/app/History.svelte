@@ -19,6 +19,7 @@
 -->
 <script lang="ts" module>
 	import type { Edit } from './Changes.svelte';
+	import type { DocVersion } from '$wire';
 	export type { Edit };
 	export type Variant = {
 		id: number;
@@ -77,7 +78,7 @@
 		onPick: (p: Pick | null) => void | Promise<void>;
 	} = $props();
 
-	type Version = { number: number; note: string; at: string; acceptedBy?: string | null };
+	type Version = DocVersion;
 	const admin = $derived(isAdmin());
 	const edits = $derived(h?.edits ?? []);
 	const mainVersions = $derived(h?.versions ?? []);

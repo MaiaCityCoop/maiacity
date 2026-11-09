@@ -18,6 +18,7 @@
 <script lang="ts">
 	import { day as dayOf } from '$lib/format';
 	import type { Snippet } from 'svelte';
+	import type { DocVersion } from '$wire';
 	import { api } from '$lib/api';
 	import { isAdmin } from '$lib/session.svelte';
 	import Frame from './Frame.svelte';
@@ -76,7 +77,7 @@
 	const pick = (p: Pick | null) => (onPick ?? open)(p);
 
 	// its history, an admin's: fed to History, and Info's versions where the view gives none
-	let h = $state<{ edits: Edit[]; versions: { number: number; note: string; at: string; acceptedBy?: string | null }[]; variants: Variant[] } | null>(null);
+	let h = $state<{ edits: Edit[]; versions: DocVersion[]; variants: Variant[] } | null>(null);
 	let failed = $state('');
 	$effect(() => {
 		const id = d?.id;

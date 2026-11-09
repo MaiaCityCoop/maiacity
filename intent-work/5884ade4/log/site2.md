@@ -57,3 +57,10 @@ Before (`measure.ts all`): folder cycles a held file does not close 2 (≤ 1), l
    Sandbox 3 and the Worlds page; gate site; the map's, biomes' and models' tests. Left: `sandbox-2/interior/textures.ts`
    `rng` and `maiacity-v2/world.js` `rng` (held), `factory.ts`'s two inline LCGs, `box/clips.js` (the box's), the test
    world's own (a recipe, self-contained) and AirSup's `des.js` (theirs).
+7. **A document's version, the API's type** (re-audit: a type drifted between api and site). `GET /api/docs/<uuid>`
+   lists its versions as `versioned.ts` `versionsNamed` makes them; the site wrote that shape out four times (Aside's
+   history, History's `Version`, the Game editor's and the Factories' `Version`), two with `acceptedBy` optional, none
+   with `contentHash`. `versionsNamed` now returns `DocVersion[]`, exported through `$wire` (play/api/src/wire.ts), and
+   the four take it. Types only: gate api (354 pass) and site; svelte-check's errors unchanged (9, all in held files).
+   Left: AssetLibrary's and the Worlds page's own `Listed`/`Version` of `/api/assets` (the API has no named type for
+   that answer yet), and the Rules page's narrower read of a version (number and hash), which needs no more.
