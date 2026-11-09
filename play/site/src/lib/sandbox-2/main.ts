@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createControls, createRenderer } from '$lib/content/render/core.js';
+import { dots as screenDots } from '$lib/content/render/sprites.js';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { scenarios, polyhedraOf, piecesOf, verticesOf, type Box, type Scenario } from './simulation';
 import { shedScenario } from './shed';
@@ -145,9 +146,8 @@ export async function mountLab(root: HTMLElement): Promise<() => void> {
   const objects = new THREE.Group(), markers = new THREE.Group(), ghosts = new THREE.Group(); scene.add(objects, markers, ghosts);
   const meshes = new Map<string, THREE.Mesh>();
   const dots = new Map<string, THREE.Mesh>();
-  const contactGeometry = new THREE.BufferGeometry();
-  const contactPoints = new THREE.Points(contactGeometry, new THREE.PointsMaterial({ color: 0xc8744f, size: 7, sizeAttenuation: false, depthTest: false }));
-  contactPoints.renderOrder = 5; scene.add(contactPoints);
+  const contactDots = screenDots({ color: 0xc8744f, px: 7, depthTest: false });
+  contactDots.mesh.renderOrder = 5; scene.add(contactDots.mesh);
   let config: Scenario, sim: SimulationView, build: BuildView | undefined, selected = 'board';
   const playback = {running:false,speed:1};
   let wind = {settings:{enabled:false,speed:10,from:'front'} as WindSettings, total:{x:0,y:0,z:0}, loads:new Map<string,WindLoad>()};
@@ -394,7 +394,7 @@ export async function mountLab(root: HTMLElement): Promise<() => void> {
     const allContacts = sim.contacts();
     const contacts = build ? allContacts.filter(c => c.a === selected || c.b === selected) : allContacts;
     el('contact-heading').textContent = build ? 'Contacts on selected part' : 'Contact network';
-    contactGeometry.setAttribute('position', new THREE.Float32BufferAttribute(contacts.flatMap(c => [c.point.x, c.point.y, c.point.z]), 3)); contactGeometry.computeBoundingSphere();
+    contactDots.set(contacts.flatMap(c => [c.point.x, c.point.y, c.point.z]));
     const pairs = new Map<string, number>();
     contacts.forEach(c => { const key = `${c.a} ↔ ${c.b}`; pairs.set(key, (pairs.get(key) ?? 0) + c.force); });
     el('pair-count').textContent = String(new Set(allContacts.map(c => `${c.a}/${c.b}`)).size);
