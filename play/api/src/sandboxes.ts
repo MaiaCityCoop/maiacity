@@ -1,7 +1,7 @@
 // A sandbox's layout (play/SPEC.md §4.6, Samuel 2026-11-04 and 2026-11-06): what it draws (its pins: each slot an
 // asset's accepted version, its variant and its values) and how it lays them out (its configs by name: Sandbox 1's
 // garden, its plantings, spacing, drifts and fields; where a thing stands) is a document, `sandbox:<uuid>` (type
-// sandbox/1, ./docs/schema.ts), versioned like every other through ./versioned.ts: changed by an intent variant
+// sandbox/1, ./docs/schemas.ts), versioned like every other through ./versioned.ts: changed by an intent variant
 // (doc_edit, propose_doc_version), its pin, pin_latest, unpin, set and delete the sandbox's own edit helpers; shown on
 // the intents' board with each pin before and after, by its asset's label and version, and openable in the sandbox as
 // it would be; accepted by an admin there. Accepting merges it into Main and writes Main's pins and configs to
