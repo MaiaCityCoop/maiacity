@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // c5 of intent ed6694c3 (660ad67f's look, the walk its must) on the Mac (Metal): Sandbox 5's dome plants in Chromium and WebKit, and Sandbox 1's film stepped.
-//   node intent-work/660ad67f-render/look.mjs --site http://localhost:5190 [--out <dir>] [--browser chromium|webkit]
+//   node intent-work/ed6694c3-render/look.mjs --site http://localhost:5190 [--out <dir>] [--browser chromium|webkit]
 // (run.sh runs it once per browser)
 // Per browser: Sandbox 5 opened, left to build (until its renderers build nothing, at most 120 s), walked forward 12 s
 // (W held), its programs linked counted (linkProgram) and every console error and page error kept; a screenshot after.
