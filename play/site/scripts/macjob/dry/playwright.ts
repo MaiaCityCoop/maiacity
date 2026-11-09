@@ -3,15 +3,6 @@
  * the same calls, played against the census's world (../../census), built on the CPU in this process with no graphics
  * context, so a step that throws, a global the world lacks or a call that never settles shows here, in minutes, and not
  * after the Mac's queue. Nothing here draws: pictures and times are the Mac's.
- *
- * - `goto(url)` builds the route's world (`/sandbox-1/`, `/sandbox-3/`, `/worlds/`) from the tree serving that port (the
- *   dry run's `bunx vite dev` stub notes which: DRY_STATE/ports/<port>), once a process: a later goto keeps the world
- *   built (said so); any other route is an empty page. Frames are turned in the background from then on.
- * - `evaluate` and `waitForFunction` run in that world's `window`, a function made again from its source in the global
- *   scope (as Playwright sends it: it closes over nothing of the job's) and its argument and result cloned. A throw is
- *   reported with the world's stack and the job's line; one that never settles in DRY_EVAL_S (120 s) is a hang.
- * - `waitForTimeout` waits at most 50 ms and moves `Date.now` on by the rest, so a job's own `Date.now()` caps end at once.
- * - `screenshot` writes a 1×1 PNG at its path; `recordVideo` an empty file per page; mouse, keyboard and events are no-ops.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -28,11 +19,9 @@ const SITE = resolve(import.meta.dir, '../../..');
 
 const say = (s: string) => console.error(`dry: ${s}`);
 
-/** the one world of this process: its route, its tree, and whether it is up, building or failed */
 const world: { route: string | null; root: string | null; state: 'none' | 'building' | 'up' | 'failed'; pump: Timer | null } = (g.__dryWorld ??= { route: null, root: null, state: 'none', pump: null });
 const listeners: Set<(e: Error) => void> = (g.__dryListeners ??= new Set());
 
-/** frames turned in the background, a display's 60 a second at most, each frame's throw a page error */
 function pump() {
 	if (world.pump) return;
 	const tick = () => {
@@ -53,7 +42,6 @@ function pageError(e: Error) {
 	for (const l of listeners) l(e);
 }
 
-/** a blank page's window and document, as about:blank has them, until a world's page replaces them */
 function blank() {
 	g.window ??= g;
 	g.document ??= makeDocument();
@@ -62,7 +50,6 @@ function blank() {
 	g.WebGL2RenderingContext ??= class WebGL2RenderingContext {};
 }
 
-/** the tree serving a dev server's port (the vite stub's note), else this checkout's */
 function treeOf(url: URL) {
 	const note = process.env.DRY_STATE && join(process.env.DRY_STATE, 'ports', url.port);
 	return note && existsSync(note) ? readFileSync(note, 'utf8').trim() : SITE;
@@ -70,10 +57,8 @@ function treeOf(url: URL) {
 
 const ROUTES: Record<string, 'sandbox-1' | 'sandbox-3' | 'worlds'> = { '/sandbox-1/': 'sandbox-1', '/sandbox-3/': 'sandbox-3', '/worlds/': 'worlds' };
 
-/** the reason a call is a dry run's failure: a throw in the page, or a call that never settled */
 class DryHang extends Error {}
 
-/** a call that settles within `s` seconds, else a hang told with the job's line it was called from */
 function bounded<T>(p: Promise<T>, s: number, what: string, at: string): Promise<T> {
 	let timer: Timer;
 	const hang = new Promise<never>((_, no) => {
@@ -81,10 +66,8 @@ function bounded<T>(p: Promise<T>, s: number, what: string, at: string): Promise
 	});
 	return Promise.race([p, hang]).finally(() => clearTimeout(timer));
 }
-/** the job's own line that made the call (the first frame outside this file) */
 const caller = () => (new Error().stack ?? '').split('\n').slice(1).find((l) => !l.includes('/macjob/dry/')) ?? '(unknown)';
 
-/** Playwright's serialisation of what crosses into and out of the page */
 const clone = (v: unknown) => {
 	if (v === undefined) return undefined;
 	try {
@@ -97,7 +80,6 @@ const clone = (v: unknown) => {
 		}
 	}
 };
-/** a page function as Playwright sends it: its source run in the page's global scope, closing over nothing */
 const remake = (fn: Function | string) => (typeof fn === 'string' ? null : (0, eval)(`(${fn.toString()})`));
 const shown = (fn: Function | string) => String(fn).replace(/\s+/g, ' ').slice(0, 240);
 
@@ -122,7 +104,6 @@ async function inPage(fn: Function | string, arg: unknown, at: string) {
 
 class Page {
 	inits: string[] = [];
-	/** the world this page shows: none until a goto of a route the census builds */
 	route: string | null = null;
 	film: string | null;
 	mouse = { click: async () => {}, move: async () => {}, down: async () => {}, up: async () => {}, wheel: async () => {} };
@@ -143,7 +124,6 @@ class Page {
 		const text = typeof s === 'function' ? `(${s.toString()})(${JSON.stringify(arg)})` : typeof s === 'string' ? s : s.content ?? readFileSync(s.path!, 'utf8');
 		this.inits.push(text);
 	}
-	/** the init scripts, as a page runs them on load: a throw a page error, the page going on */
 	init() {
 		for (const t of this.inits) {
 			try {
@@ -167,7 +147,6 @@ class Page {
 			say(`goto ${url.pathname} (${root}): the world built before (${world.route}, ${world.root}) is kept: one world a process`);
 			return null;
 		}
-		// the census reads play with the real token only, never the job's stand-in (../dry.ts)
 		if (process.env.DRY_PLAY_TOKEN !== undefined) process.env.DRY_PLAY_TOKEN ? (process.env.PLAY_MCP_TOKEN = process.env.DRY_PLAY_TOKEN) : delete process.env.PLAY_MCP_TOKEN;
 		setup({ root, inputs: join(SITE, 'scripts/census/inputs'), cache: process.env.CENSUS_CACHE });
 		Object.assign(world, { route, root, state: 'building' });
@@ -200,7 +179,6 @@ class Page {
 	}
 	async waitForFunction(fn: Function | string, arg?: unknown, o: { timeout?: number; polling?: number } = {}) {
 		const at = caller();
-		// a page with no world never gets one: a short wait, then Playwright's timeout
 		const s = this.route ? Math.min((o.timeout ?? 30_000) / 1000, WAIT_S) : 5;
 		const f = remake(fn);
 		const end = performance.now() + s * 1000;
@@ -231,7 +209,6 @@ class Page {
 		return this.route ? `http://dry.local/${this.route}/` : 'about:blank';
 	}
 }
-// `video()` as Playwright has it: the recording, its path once the page is closed
 (Page.prototype as any).video = function (this: Page) {
 	const p = this.film;
 	return p && { path: async () => p, saveAs: async (to: string) => writeFileSync(to, ''), delete: async () => {} };
@@ -249,7 +226,6 @@ class Context {
 	}
 }
 
-/** the process's end once the browser closed (the world's box workers would keep it up), called off by a browser opened again */
 let ending: ReturnType<typeof setTimeout> | undefined;
 const browser = {
 	async newContext(o?: any) {
@@ -267,7 +243,6 @@ const browser = {
 	version: () => 'dry'
 };
 
-/** a persistent profile's browser (../../mac-page.mjs `openSite`): a context whose close is the browser's; the world one a process, its profile kept by no one */
 class PersistentContext extends Context {
 	async close() {
 		await browser.close();
