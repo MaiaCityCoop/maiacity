@@ -155,7 +155,24 @@ describe('the render kit in TSL', () => {
 		valid(shaders);
 	});
 
-	test('two of ours never share a program: each uploads only into its own layout', () => {
+	test('two of ours of one shape share a program; two whose shaders differ do not (bd087014)', () => {
+		const { r } = renderer();
+		const { scene, camera } = lit();
+		const a: any = nodeOf(new THREE.MeshStandardMaterial({ color: 0x808080 }));
+		const b: any = nodeOf(new THREE.MeshStandardMaterial({ color: 0x406080 }));
+		const c: any = nodeOf(new THREE.MeshStandardMaterial({ color: 0x808080 }));
+		a.fade = b.fade = aFade;
+		const t = new THREE.WebGLRenderTarget(4, 4);
+		c.map = t.texture;
+		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), a), new THREE.Mesh(new THREE.BoxGeometry(), b), new THREE.Mesh(new THREE.BoxGeometry(), c));
+		r.render(scene, camera);
+		const p = (m: any) => (r.properties.get(m) as any).currentProgram;
+		expect(p(a)).toBeTruthy();
+		expect(p(a)).toBe(p(b));
+		expect(p(c)).not.toBe(p(a));
+	});
+
+	test('two of ours never share a program when their shaders differ: each uploads only into its own layout', () => {
 		const { r } = renderer();
 		const { scene, camera } = lit();
 		const a: any = nodeOf(new THREE.MeshStandardMaterial({ color: 0x808080 }));
