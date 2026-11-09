@@ -1,7 +1,7 @@
 <!-- The app's icons: plain line drawings, drawn in the text colour. -->
 <script lang="ts">
 	/** every icon this set draws */
-	type IconName = 'back' | 'home' | 'play' | 'board' | 'calendar' | 'media' | 'studio' | 'journal' | 'spark' | 'user' | 'key' | 'ledger' | 'coops' | 'proposals' | 'leaf' | 'database' | 'universe' | 'gear' | 'chat' | 'factory' | 'paw' | 'box' | 'building' | 'mountain' | 'star' | 'link';
+	type IconName = 'back' | 'home' | 'play' | 'board' | 'calendar' | 'media' | 'studio' | 'journal' | 'spark' | 'user' | 'key' | 'ledger' | 'coops' | 'proposals' | 'leaf' | 'database' | 'universe' | 'gear' | 'chat' | 'factory' | 'paw' | 'box' | 'building' | 'mountain' | 'star' | 'link' | 'check';
 
 	let { name, size = 24 }: { name: IconName; size?: number } = $props();
 </script>
@@ -61,5 +61,7 @@
 		<path d="M10 14a4.2 4.2 0 0 0 6 0l3.2-3.2a4.2 4.2 0 0 0-6-6L11.6 6.4" /><path d="M14 10a4.2 4.2 0 0 0-6 0l-3.2 3.2a4.2 4.2 0 0 0 6 6l1.6-1.6" />
 	{:else if name === 'mountain'}
 		<path d="m2.5 19.5 6.5-11 4 6.5 2.5-3.5 6 8Z" /><path d="m7 12 2 1.5 2-1" /><circle cx="17" cy="6" r="1.8" />
+	{:else if name === 'check'}
+		<rect x="3.5" y="3.5" width="17" height="17" rx="3" /><path d="m8 12.5 3 3 5.5-6.5" />
 	{/if}
 </svg>

@@ -19,7 +19,7 @@
 
 	type Item = { id: string; label: string; group: string; note: string; stages: string[]; number: number; versions: number };
 	type Skill = { id: string; json: { label: string; group: string; note?: string; system: string; stages?: Record<string, string> }; number: number; version?: number; edit?: number; intent?: { id: string; status: string; note: string } };
-	const STAGES = ['idea', 'specify', 'prototype', 'proposal', 'ship', 'accepted', 'archived'];
+	const STAGES = ['idea', 'specify', 'build', 'proposal', 'ship', 'accepted', 'archived'];
 
 	const admin = $derived(session.me?.level === 'admin');
 	let list = $state<Item[]>([]);
