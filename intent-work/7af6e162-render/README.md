@@ -15,19 +15,16 @@ git fetch origin intent-work/7af6e162-render && git checkout origin/intent-work/
 PLAY_MCP_TOKEN=play_… bash intent-work/7af6e162-render/run.sh      # about 10–15 minutes: the cold loads are most of it
 ```
 
-It uses the pull request's head (`intent/7af6e162-settle-fast`) only, served as its production build on port 5197
-(`node scripts/mac-page.mjs serve`: `bun run build`, then the build served by play-api's own handler, `scripts/serve-built.ts`;
-not the dev server, and not `vite preview`, under which the asset box never built), with its profiles in a fresh
-folder under `out/` that is deleted at the end. It runs selector-shots twice:
+It uses the pull request's head (`intent/7af6e162-settle-fast`) only, served on port 5197 by the **dev server** (the
+path the asset box is known to build on), with its profiles in a fresh folder under `out/` deleted at the end.
+`SERVE=built bash run.sh` serves the head's production build instead, as play-api serves it (`node scripts/mac-page.mjs
+serve`); the render box found the asset box never built under `vite preview`, and this path is not yet seen on the
+Mac. Run it so once if there is time, and say whether Sandbox 1's first load reached quiet.
+It runs selector-shots twice:
 
 1. `--cold`: the first load in a fresh profile is measured (near, mid, far, then the old city).
 2. Another fresh profile is opened once (a cold load again, its settle time printed as "first load") and measured on
    its next load (the "measured load").
-
-**First, check that the asset box builds on the build.** Sandbox 1's first load should print "first load up and quiet"
-with pictures taken, not "still building" at 600 s. If it is still building, rerun with the dev server
-(`SERVE=dev bash run.sh`) and say so: the build path then needs its own fix. The cloud checked what it can without WebGL:
-the page and the five box engines are served from the build, each engine's bytes matching its hash.
 
 **Dry run** (intent cb52fbd9's rule): `bun play/site/scripts/macjob/dry.ts intent-work/7af6e162-render --at <this job's commit>`.
 
