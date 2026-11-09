@@ -327,19 +327,39 @@ export const makeRenderer = (o) => ready(createRenderer(o));
 export function nodes(renderer) {
 	const r = /** @type {any} */ (renderer);
 	if (typeof r.setNodesHandler !== 'function') return;
-	install(r); // three's handler, with what it lacks for us (./nodes/index.js: targets drawn linear, shadows from the light)
+	const h = install(r); // three's handler, with what it lacks for us (./nodes/index.js: targets drawn linear, shadows from the light)
 	const compile = r.compile;
 	if (typeof compile !== 'function') return;
 	r.compile = function (scene, camera, target = null) {
 		const sm = this.shadowMap, auto = sm.autoUpdate, need = sm.needsUpdate;
 		sm.autoUpdate = sm.needsUpdate = false;
+		/** @type {Set<any> | undefined} */
+		let made;
 		try {
-			return compile.call(this, scene, camera, target);
+			return (made = compile.call(this, scene, camera, target));
 		} finally {
 			sm.autoUpdate = auto;
 			sm.needsUpdate = need;
+			unpaired(this, h, made);
 		}
 	};
+}
+
+/**
+ * A node material three's compile moved to a program the handler has not paired with a build: its next draw made to
+ * meet onUpdateProgram, where install()'s rule pairs it. A material drawn before the compile (the viewers' sky, drawn
+ * first in its environment bake) keeps its `__version`, so three would draw the compile's program without telling the
+ * handler, whose updates it then skips for good: the sky drawn with whatever camera another node material last set,
+ * the contact shadow's from under the floor, black over a goat or a forklift (544485e2).
+ * @param {any} r @param {any} h the renderer's node handler @param {Set<any> | undefined} materials what the compile built
+ */
+function unpaired(r, h, materials) {
+	if (!h?.programCache || typeof r.properties?.get !== 'function') return;
+	for (const m of materials ?? []) {
+		if (!m?.isNodeMaterial) continue;
+		const q = r.properties.get(m);
+		if (q?.currentProgram && !h.programCache.get(m)?.has(q.currentProgram)) q.__version = undefined;
+	}
 }
 
 /**
