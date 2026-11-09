@@ -35,3 +35,10 @@ Problems cited as `site-app#n` (audit/site-app.md). Each move: what, the problem
    holds the clock); StoryPlayer keeps the frame, playback, full screen, speech and the rail (655 → 418 lines). Removes
    site-app#24. Pinned by a server render of the player before and after on both fixture stories (identical markup,
    scoped class hashes aside; a throwaway test, not kept), the stories tests, the build and svelte-check.
+8. **Turntable keeps only the layout its one caller uses.** The held `VaultAsset.svelte` always passes `inline`; the
+   full-screen layouts (the list, `full`, the notch, the phone and tablet media queries, `immersive.svelte.ts`'s
+   enter) were dead with `PickList.svelte` (355 lines, imported only by Turntable): both files deleted, Turntable
+   660 → 408 lines. It still accepts `inline` (and every prop VaultAsset passes) so the held file is untouched; the
+   base rules the inline layout overrode stay, so what is drawn is the same. Removes site-app#30 and Turntable's part of
+   #34. Pinned by the build and svelte-check (VaultAsset compiles unchanged). Next untangle: once VaultAsset is free, drop
+   `inline` and fold the base rules into the inline ones.
