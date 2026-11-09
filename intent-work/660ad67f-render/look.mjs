@@ -115,7 +115,8 @@ for (const [name, type, opts] of [
 	const r = { browser: name, gpu, vehicles, sandbox5: { builtSeconds: built, walk, programsLinkedWhileWalking: walked, programsLinkedTotal: await ev(() => window.__links ?? 0, 0), clashes: s5.clashes, errors: s5.said }, sandbox1: { film, errors: said.splice(0) } };
 	const bad = [...r.sandbox5.errors, ...r.sandbox1.errors].filter((t) => BAD.test(t));
 	// the Safari walk's bound (c6, as the render box judges it): 1.5 × main's 20.8 ms before the programme
-	const slow = name === 'webkit' && !!walk && walk.mean > 31.2;
+	// (not walked counts as over it where a real GPU answers: only the dry run's empty page has no walker)
+	const slow = name === 'webkit' && (walk ? walk.mean > 31.2 : gpu !== 'unknown');
 	if (bad.length || film.startsWith('threw') || slow) failed = true;
 	r.walkOverBound = slow;
 	r.bad = bad;
