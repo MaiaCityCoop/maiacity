@@ -289,9 +289,7 @@ export async function smokeOf(o: { world: World; views?: ViewName[]; asset?: str
 		const views = VIEWS_OF[o.world].filter((v) => !o.views || o.views.includes(v));
 		const t0 = performance.now();
 		try {
-			if (o.world === 'sandbox-1') await mountSandbox1(log);
-			else if (o.world === 'sandbox-3') await mountSandbox3();
-			else await mountWorlds(o.asset);
+			await mount(o.world, { asset: o.asset, log });
 		} catch (e) {
 			keep(e);
 		}
