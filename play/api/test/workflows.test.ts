@@ -2,8 +2,9 @@
 // to a commit of main once main.yml is green for a push (or by hand, or Accept again, with a sha) with GITHUB_TOKEN and
 // starts production.yml, which writes SHIP_TOKEN into play's environment; the compose file hands it to play-api.
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dir, "../../..");
 const text = (path: string) => readFileSync(resolve(ROOT, path), "utf8");
@@ -417,9 +418,10 @@ describe("the site's tests on every pull request and on main", () => {
     expect(site["test:physics"]).toBe("vitest run src/lib/sandbox-2/tests");
     expect(text("play/site/vite.config.ts")).toContain("'src/**/*.bun.test.ts'");
   });
-  test("the site's tests: the API's tests, the site and the physics each a job of their own; the required check needs the API and the site", () => {
-    const { tested, api, site: web, physics, checks } = p.jobs;
-    for (const j of [tested, api, web, physics, checks]) expect(j["runs-on"]).toBe("ubuntu-24.04");
+  test("the site's tests: the API's tests and the site each a job of their own; the required check needs the API and the site", () => {
+    const { tested, api, site: web, checks } = p.jobs;
+    expect(Object.keys(p.jobs).sort()).toEqual(["api", "checks", "site", "tested"]);
+    for (const j of [tested, api, web, checks]) expect(j["runs-on"]).toBe("ubuntu-24.04");
     // the API's tests run alone on their runner: nothing of the site's there
     expect(api.name).toBe("API");
     expect(api.steps.map((s: any) => s.name ?? s.uses)).toEqual(["actions/checkout@v4", "Postgres", "oven-sh/setup-bun@v2", "The API"]);
@@ -458,19 +460,38 @@ describe("the site's tests on every pull request and on main", () => {
     expect(run("failure", "", "skipped", "skipped")).toBe(false);
     expect(run("success", "true", "success", "failure")).toBe(false);
   });
-  test("the site's tests: Sandbox 2's physics are their own job, on a pull request that changes them and on every push to main", () => {
-    const j = p.jobs.physics;
+  // intent 14dc8d5f: in main's run the physics held release.yml (it starts once main's whole run is done) for ten minutes
+  test("main's run holds no physics: Sandbox 2's physics run in physics.yml, on every push to main and on a pull request that changes them", () => {
+    // main's run: the called workflows hold no job of the physics, and nothing of them is named there
+    const main = yaml(".github/workflows/main.yml");
+    expect(Object.keys(main.jobs).sort()).toEqual(["play", "website"]);
+    for (const f of [".github/workflows/main.yml", ".github/workflows/play-checks.yml", ".github/workflows/website-checks.yml"]) {
+      expect([f, text(f).includes("test:physics")]).toEqual([f, false]);
+      for (const j of Object.values(yaml(f).jobs) as any[]) expect(j.name).not.toBe("Sandbox 2's physics");
+    }
+    // release.yml waits only for main's run
+    expect(yaml(".github/workflows/release.yml").on.workflow_run.workflows).toEqual(["main"]);
+    // physics.yml: a workflow of its own, not main
+    const ph = yaml(".github/workflows/physics.yml");
+    expect(ph.name).toBe("physics");
+    expect(ph.on.push).toEqual({ branches: ["main"] });
+    expect(ph.on.pull_request.branches).toEqual(["main"]);
+    expect(ph.on.pull_request.paths).toEqual(["play/site/src/lib/sandbox-2/**"]);
+    expect(ph.on.pull_request.types).toEqual(main.on.pull_request.types);
+    expect(Object.keys(ph.on).sort()).toEqual(["pull_request", "push"]);
+    expect(ph.permissions).toEqual({ contents: "read" });
+    const j = ph.jobs.physics;
+    expect(Object.keys(ph.jobs)).toEqual(["physics"]);
     expect(j.name).toBe("Sandbox 2's physics");
-    const decide = j.steps[0];
-    expect(decide.id).toBe("touched");
-    expect(decide.run).toContain('if [ "$EVENT" = push ]; then echo "run=true"');
-    expect(decide.run).toContain("repos/$REPO/pulls/$PR/files");
-    expect(decide.run).toContain("grep -q '^play/site/src/lib/sandbox-2/'");
+    expect(j["runs-on"]).toBe("ubuntu-24.04");
+    // a draft runs nothing, as in main's run
+    expect(j.if).toBe("github.event_name == 'push' || !github.event.pull_request.draft");
     const run = j.steps.find((s: any) => s.name === "The physics");
-    expect(run.if).toBe("steps.touched.outputs.run == 'true'");
+    expect(run["working-directory"]).toBe("play/site");
     expect(lines(run)).toEqual(["bun install --frozen-lockfile", "bun run test:physics"]);
     // not one of the checks main must pass for a deploy
     expect(text(".github/actions/main-green/action.yml")).not.toContain("physics");
+    expect(text(".github/workflows/physics.yml")).not.toContain("secrets.");
   });
   test("the site's tests: gate.sh site runs the fast suite after the build, and the physics only for a change to them (select.ts)", () => {
     const gate = text("play/avenbox/gate.sh");
@@ -491,5 +512,27 @@ describe("the site's tests on every pull request and on main", () => {
     expect(plan("all", "play/site/src/lib/sandbox-2/wind.ts")).toContain("step site-physics");
     expect(plan("all", "play/site/src/lib/stories/live.ts")).not.toContain("step site-physics");
     expect(plan("physics", "").trim().split("\n").slice(1)).toEqual(["  step site-physics"]);
+  });
+});
+
+// intent 14dc8d5f: ghcr.io refused one push of e5ddf0b2's image (permission_denied, nothing changed) and the deploy died
+describe("the image's push", () => {
+  const step = () => yaml(".github/workflows/production.yml").jobs.image.steps.find((s: any) => s.name === "Build and push");
+  /** the step's script run by bash -e (as GitHub runs it), with a docker that fails its first `fails` pushes */
+  function run(fails: number) {
+    const dir = mkdtempSync(join(tmpdir(), "push-"));
+    const log = join(dir, "log");
+    writeFileSync(join(dir, "docker"), `#!/usr/bin/env bash\necho "$*" >> "${log}"\nif [ "$1" = push ]; then n=$(grep -c '^push' "${log}"); [ "$n" -gt ${fails} ] || exit 1; fi\n`, { mode: 0o755 });
+    writeFileSync(join(dir, "sleep"), "#!/usr/bin/env bash\n", { mode: 0o755 });
+    const r = Bun.spawnSync(["bash", "-e", "-c", step().run], { env: { PATH: `${dir}:${process.env.PATH}`, IMAGE: "ghcr.io/x/y-play:abc", GITHUB_SHA: "abc" } });
+    const calls = readFileSync(log, "utf8").trim().split("\n").map((l) => l.split(" ")[0]);
+    return { code: r.exitCode, calls };
+  }
+  test("the image push is tried again: up to three times, the build once", () => {
+    expect(step().env).toEqual({ IMAGE: "${{ steps.tag.outputs.image }}" });
+    expect(run(0)).toEqual({ code: 0, calls: ["build", "push"] });
+    expect(run(1)).toEqual({ code: 0, calls: ["build", "push", "push"] });
+    expect(run(2)).toEqual({ code: 0, calls: ["build", "push", "push", "push"] });
+    expect(run(3)).toEqual({ code: 1, calls: ["build", "push", "push", "push"] });
   });
 });

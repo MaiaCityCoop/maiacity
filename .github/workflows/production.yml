@@ -1,10 +1,6 @@
-# production: play and the website released (Accept ships it, play/SPEC.md §4.12; Samuel 2026-11-06). release.yml moves
-# production fast-forward to a commit of main once main.yml is green for it, and starts this by workflow_dispatch. The
-# checks run once, on main: every job's first step after its checkout reads them for the commit (.github/actions/
-# main-green), so no job only waits (intent 5ab64b8e). The image, The backup and The website start together; The server
-# needs the image and the backup, so nothing on the server changes before play is backed up. play goes to
-# play.maia.city (play/SPEC.md §9: deploy/backup.sh, the image, deploy/dns.sh, deploy/server-up.sh), the website to
-# maia.city (website/README.md). The server and its constants: deploy/lib.sh, reached by .github/actions/prod-ssh.
+# production: play and the website released, started by release.yml (play/SPEC.md §4.12 and §9; Samuel 2026-11-06).
+# Main's checks are read, not run again (.github/actions/main-green; intent 5ab64b8e); The server needs the image and
+# the backup, so nothing on the server changes before play is backed up. Its constants: deploy/lib.sh.
 name: production
 
 on:
@@ -44,9 +40,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push
+        env:
+          IMAGE: ${{ steps.tag.outputs.image }}
         run: |
-          docker build -f play/Dockerfile --build-arg BUN_VERSION="$(cat .bun-version)" --build-arg PLAY_COMMIT="$GITHUB_SHA" -t "${{ steps.tag.outputs.image }}" .
-          docker push "${{ steps.tag.outputs.image }}"
+          docker build -f play/Dockerfile --build-arg BUN_VERSION="$(cat .bun-version)" --build-arg PLAY_COMMIT="$GITHUB_SHA" -t "$IMAGE" .
+          # ghcr.io now and then refuses one push (e5ddf0b2): tried up to three times (intent 14dc8d5f), the build once
+          for try in 1 2 3; do
+            if docker push "$IMAGE"; then break; fi
+            [ "$try" -lt 3 ] || { echo "the image: the push failed three times"; exit 1; }
+            echo "the image: the push failed (try $try of 3); again …"; sleep $((10 * try))
+          done
 
   # play's schema and its files to the bucket, with the image that ran with them (deploy/backup.sh stops on a file missing)
   backup:
@@ -72,8 +75,7 @@ jobs:
         run: |
           tar -cf - play/docker-compose.play.yml play/deploy/setup.sql play/deploy/after-import.sql play/deploy/Caddyfile.play \
             deploy/lib.sh deploy/backup.sh deploy/restore.sh | ssh prod "mkdir -p $APP_DIR && tar -xf - --no-same-owner -C $APP_DIR"
-      # Only here, on a deploy: nothing runs on a schedule, and the old daily dump's cron is taken away (Samuel
-      # 2026-11-02). Restore by hand: restore.yml.
+      # only here, on a deploy, never on a schedule (Samuel 2026-11-02); restore by hand: restore.yml
       - name: Back up play
         env:
           S3_ACCESS_KEY: ${{ secrets.HETZNER_S3_ACCESS_KEY }}
@@ -82,7 +84,6 @@ jobs:
           bash deploy/bucket-keys.sh
           ssh prod "sudo rm -f /etc/cron.d/maia-city-backup; timeout 1200 bash $APP_DIR/deploy/backup.sh before-deploy-${GITHUB_SHA::7} $GITHUB_SHA </dev/null"
 
-  # play on the server: only once the image is built and play is backed up
   server:
     name: The server
     needs: [image, backup]
@@ -157,8 +158,7 @@ jobs:
           EOS
           exit 1
 
-  # its prerendered build into the server's site/releases/<commit>; deploy/publish-site.py switches site/current to it
-  # atomically and keeps the last releases (their hashed chunks stay reachable for open pages). Nothing restarts.
+  # its build into site/releases/<commit>, site/current switched to it atomically (deploy/publish-site.py); no restart
   website:
     name: The website
     environment: production
