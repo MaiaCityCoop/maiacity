@@ -36,6 +36,16 @@ describe('bounds', () => {
 		expect(vm.compare({ a: 100 }, { a: 96 }, { kind: 'down', pct: 5 })[0].ok).toBe(false);
 		expect(vm.compare({ a: 100 }, { a: 95 }, { kind: 'down', pct: 5 })[0].ok).toBe(true);
 	});
+	test('a tolerance per value, by the start of its key, the longest that fits', () => {
+		const b = vm.parseBound('within', 'near:7%,mid:5%,far:11%,far draws:2%');
+		expect(vm.pctOf(b, 'near tris')).toBe(7);
+		expect(vm.pctOf(b, 'far tris')).toBe(11);
+		expect(vm.pctOf(b, 'far draws')).toBe(2);
+		expect(() => vm.pctOf(b, 'open tris')).toThrow();
+		const rows = vm.compare({ 'near tris': 100, 'mid tris': 100 }, { 'near tris': 107, 'mid tris': 106 }, b);
+		expect(rows.map((r) => r.ok)).toEqual([true, false]);
+		expect(vm.parse(['census', '--down', 'near:1%,far:2%']).bound?.by).toEqual({ near: 1, far: 2 });
+	});
 	test('a value main has not counts against 0', () => {
 		const [r] = vm.compare({}, { 'near tris': 5 }, { kind: 'within', pct: 3 });
 		expect(r).toMatchObject({ main: 0, head: 5, ok: false });

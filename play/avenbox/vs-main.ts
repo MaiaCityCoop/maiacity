@@ -11,6 +11,8 @@
  *   bun play/avenbox/vs-main.ts count '<command printing a number>' (--within N% | --down N%)
  *
  *   --within N%    every value at most main's + N %          --down N%   every value at most main's − N % (a reduction)
+ *                  either as near:7%,mid:5%,far:11%: a tolerance per value, by the start of its key
+ *   --of           census values: tris, draws (every pass, the default), mainTris, mainDraws (the main pass)
  *   --main <sha>   main is this commit                       --main-only measure main (or read its cache) and stop
  *   bun play/avenbox/vs-main.ts --main-of <spec.json>       main's measures of every vs-main call in an intent's spec
  *                                                           (intents-pr.yml's job "main's measures", main's code only)
@@ -28,7 +30,8 @@ import { join, resolve } from 'node:path';
 import { REPO, treeAt } from '../site/scripts/census/tree';
 
 export type Values = Record<string, number>;
-export type Bound = { kind: 'within' | 'down'; pct: number };
+/** a tolerance for every value (`pct`), or per value by the start of its key (`by`: near, far tris …) */
+export type Bound = { kind: 'within' | 'down'; pct: number; by?: Record<string, number> };
 export type Measure = { what: 'census' | 'bytes' | 'lines' | 'count'; args: string[] };
 
 const git = (repo: string, ...a: string[]) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 1 << 28 }).trim();
@@ -48,14 +51,34 @@ export function parsePct(s: string | undefined): number {
 	return Number(m[1]);
 }
 
+/** `3%`, or a tolerance per value, `near:7%,mid:5%,far:11%` (each a value key's start; the longest that fits wins) */
+export function parseBound(kind: Bound['kind'], s: string): Bound {
+	if (!s.includes(':')) return { kind, pct: parsePct(s) };
+	const by: Record<string, number> = {};
+	for (const part of s.split(',')) {
+		const [k, v] = part.split(':');
+		if (!k || v === undefined) throw new Error(`a tolerance per value is key:N%, not ${part}`);
+		by[k.trim()] = parsePct(v.trim());
+	}
+	return { kind, pct: NaN, by };
+}
+
+/** the tolerance of the value `key` */
+export function pctOf(b: Bound, key: string) {
+	if (!b.by) return b.pct;
+	const k = Object.keys(b.by).filter((p) => key.startsWith(p)).sort((x, y) => y.length - x.length)[0];
+	if (k === undefined) throw new Error(`no tolerance given for ${key} (${Object.keys(b.by).join(', ')})`);
+	return b.by[k];
+}
+
 /** the highest value the head may have: main's + N % (within), main's − N % (down) */
-export const limit = (main: number, b: Bound) => main * (1 + (b.kind === 'within' ? b.pct : -b.pct) / 100);
+export const limit = (main: number, b: Bound, key = '') => main * (1 + (b.kind === 'within' ? pctOf(b, key) : -pctOf(b, key)) / 100);
 
 /** each value's main, head, limit and whether it holds; a value main hasn't counts against 0 */
 export function compare(main: Values, head: Values, b: Bound) {
 	const keys = [...new Set([...Object.keys(main), ...Object.keys(head)])];
 	return keys.map((k) => {
-		const m = main[k] ?? 0, h = head[k] ?? 0, max = limit(m, b);
+		const m = main[k] ?? 0, h = head[k] ?? 0, max = limit(m, b, k);
 		return { key: k, main: m, head: h, max, ok: h <= max + 1e-9 };
 	});
 }
@@ -108,7 +131,7 @@ export function parse(argv: string[]) {
 	const VALUED = ['--within', '--down', '--main', '--main-of', '--world', '--view', '--of'];
 	const within = opt('--within'), down = opt('--down');
 	if (within !== undefined && down !== undefined) throw new Error('one bound: --within or --down');
-	const bound: Bound | null = within !== undefined ? { kind: 'within', pct: parsePct(within) } : down !== undefined ? { kind: 'down', pct: parsePct(down) } : null;
+	const bound: Bound | null = within !== undefined ? parseBound('within', within) : down !== undefined ? parseBound('down', down) : null;
 	const rest = argv.filter((a, i) => !a.startsWith('--') && !VALUED.includes(argv[i - 1] ?? ''));
 	const what = rest[0] as Measure['what'];
 	let args: string[] = [];
@@ -178,6 +201,8 @@ export function measure(m: Measure, sha: string | null, repo = REPO): Values {
 		if (!v.settled) throw new Error(`census ${sha ? `at ${sha.slice(0, 9)}` : 'of the head'}: ${v.view} did not settle`);
 		if (want.includes('tris')) out[`${v.view} tris`] = v.totals.tris;
 		if (want.includes('draws')) out[`${v.view} draws`] = v.totals.calls;
+		if (want.includes('mainTris')) out[`${v.view} mainTris`] = v.totals.mainTris;
+		if (want.includes('mainDraws')) out[`${v.view} mainDraws`] = v.totals.mainCalls;
 	}
 	return out;
 }
@@ -197,6 +222,7 @@ export function mainValues(m: Measure, sha: string, repo = REPO, log = (s: strin
 	return values;
 }
 
+const boundText = (b: Bound) => (b.by ? Object.entries(b.by).map(([k, p]) => `${k} ${p}%`).join(', ') : `${b.pct}%`);
 const n = (x: number) => (Number.isInteger(x) ? x.toLocaleString('en') : x.toFixed(2));
 
 if (import.meta.main) {
@@ -219,7 +245,7 @@ if (import.meta.main) {
 		const t0 = performance.now();
 		const head = measure(o.measure, null);
 		const rows = compare(main, head, o.bound);
-		console.log(`head ${o.measure.what}: measured in ${((performance.now() - t0) / 1000).toFixed(1)} s; bound ${o.bound.kind === 'within' ? `main + ${o.bound.pct}%` : `main − ${o.bound.pct}%`}`);
+		console.log(`head ${o.measure.what}: measured in ${((performance.now() - t0) / 1000).toFixed(1)} s; bound ${o.bound.kind === 'within' ? 'main +' : 'main −'} ${boundText(o.bound)}`);
 		for (const r of rows) console.log(`  ${r.ok ? 'ok ' : 'OFF'}  ${r.key.padEnd(12)} main ${n(r.main)} → head ${n(r.head)} (${r.main ? `${r.head >= r.main ? '+' : ''}${(((r.head - r.main) / r.main) * 100).toFixed(2)}%` : 'new'}), at most ${n(Number.isInteger(r.main) ? Math.floor(r.max + 1e-9) : r.max)}`);
 		const ok = rows.every((r) => r.ok);
 		console.log(ok ? `vs-main: within the bound of main ${sha.slice(0, 9)}` : `vs-main: out of the bound of main ${sha.slice(0, 9)}`);
