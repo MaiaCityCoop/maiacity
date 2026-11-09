@@ -65,7 +65,7 @@ suite("private to its owner", () => {
     for (let offset = 0; ; offset += 200) {
       const r = await call(who, "GET", `/api/tables/${table}?limit=200&offset=${offset}`);
       expect(r.status).toBe(200);
-      const page = (r.data?.rows ?? []) as any[];
+      const page: unknown[] = r.data?.rows ?? [];
       out.push(...page);
       if (!page.length || out.length >= Number(r.data?.total ?? 0)) return out;
     }

@@ -86,7 +86,7 @@ suite("retire a document by an intent", () => {
     const one = await call("GET", `/api/intents/${id}/docs/${a.story}`);
     expect(one.status).toBe(200);
     expect([one.data.retires, one.data.changes]).toEqual(["an identical stray copy", []]);
-    // to Proposal with its work, as any
+    // to Proposal with its work, like any other
     expect(await pass(id)).toBe("proposal");
 
     // refused: no reason; a document no intent ever accepted; an intent at Idea

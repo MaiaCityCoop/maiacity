@@ -5,7 +5,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { createHuman } from "../src/auth";
 import { type Db } from "../src/kit/pg";
 import { OPEN, seedBoard } from "./fixtures/board";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, suite } from "./kit";
+import { type Api, appOn, cookieFor, type Fresh, freshDb, request, suite } from "./kit";
 
 suite("board loads", () => {
   let f: Fresh, db: Db;
@@ -31,10 +31,7 @@ suite("board loads", () => {
     await f?.drop();
   });
 
-  const get = async (path: string, as = cookie) => {
-    const r = await api.fetch(new Request(`http://play.test${path}`, { headers: { cookie: as } }));
-    return { status: r.status, data: (await r.json().catch(() => null)) as any };
-  };
+  const get = (path: string, as = cookie) => request(api, { cookie: as }, "GET", path);
 
   test("the open stages come back whole, with every stage's count", async () => {
     const r = await get(`/api/intents?stage=${OPEN.join(",")}&counts=1`);

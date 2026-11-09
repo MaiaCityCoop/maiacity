@@ -73,3 +73,11 @@ behaviour is pinned, and for every test removed why it could not fail or only re
    dead-export list's `hostSource`). tsconfig no longer includes the gone folder. import/plan.ts stays: it is alive
    (src/sandboxes.ts and the held src/assetdocs.ts import `readableRefs`; plan.test pins it). Removes api-tests#26,
    #27. Pinned: detailfast.test (the heavy intent's detail and Accept), board.test.
+6. **Type escapes and swallowed errors out of the tests (`special`).** The last hand-made requests (board's `get`,
+   api.test's Library `by`) are the kit's `request`, so no `r.json().catch(() => null)` is left in play/api/test (the
+   kit keeps a body that isn't JSON as its text). `as any` in play/api/test: 40 → 6 (4 in workflows.test.ts, left as
+   main changes it; 2 in substate.test's table of rows): each cast is the type it is (`Me`, `Pull`, `Rule`, `Edit`,
+   `typeof fetch`, delivery's `Timeline["ci"]`, the MCP request a fake server reads), or none where the value was
+   already typed (tool results, `console[k]`, the gate ids); deploy-speed's YAML is data of any shape, said once in
+   `yaml`'s return type. Five comments that said "as any" in prose say "like any other". No test changed what it
+   asserts. Pinned: the whole suite, unchanged.

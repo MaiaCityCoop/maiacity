@@ -8,6 +8,7 @@ import { createHuman } from "../src/auth";
 import * as docs from "../src/docs";
 import { RULE, RULES, SCHEMA } from "../src/kit/ids";
 import { decisions } from "../src/intents";
+import type { Pull } from "../src/github";
 import { autoMove } from "../src/decide";
 import { migrate } from "../src/migrations";
 import { type Db } from "../src/kit/pg";
@@ -64,7 +65,7 @@ suite("auto-accept rules", () => {
   const openPull = (title: string, more: Record<string, unknown> = {}, checks = [green("play / API and site"), green("website / build")]) => {
     const pr = ++prs;
     const head = sha(++commits);
-    gh.pulls.set(pr, { number: pr, state: "open", merged: false, merge_commit_sha: null, mergeable: true, base: { ref: "main" }, head: { sha: head, ref: `claude/${pr}` }, html_url: `https://github.test/${REPO}/pull/${pr}`, title, ...more } as any);
+    gh.pulls.set(pr, { number: pr, state: "open", merged: false, merge_commit_sha: null, mergeable: true, base: { ref: "main" }, head: { sha: head, ref: `claude/${pr}` }, html_url: `https://github.test/${REPO}/pull/${pr}`, title, ...more } as Pull);
     gh.checks.set(head, checks);
     gh.merges.set(pr, sha(++commits));
     return { pr, head };
@@ -392,7 +393,7 @@ suite("auto-accept rules", () => {
 
   // ---- c9
 
-  test("an admin still decides after a rule: stepped back or rejected as any, its auto.approve cleared; accepted work applied", async () => {
+  test("an admin still decides after a rule: stepped back or rejected like any other, its auto.approve cleared; accepted work applied", async () => {
     const declare = async (title: string) => {
       const i = (await tool("add_intent", { title, work_kind: [SCHEMA.artifact] })).id;
       await tool("specify_intent", { intent: i, ...SPEC });

@@ -196,7 +196,7 @@ suite("sub-states on the board", () => {
         expect({ id, status: r.status }).toEqual({ id, status: 409 });
         expect(r.data.error).toContain(STUB.why);
       }
-      const listed = (await call("GET", "/api/intents")).data as any[];
+      const listed: { id: string; sub: unknown }[] = (await call("GET", "/api/intents")).data;
       expect(listed.length).toBeGreaterThan(3);
       for (const i of listed) expect(i.sub).toEqual(STUB);
     } finally {

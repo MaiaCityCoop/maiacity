@@ -141,7 +141,7 @@ suite("intents depend on intents", () => {
     const dep = await add("A dependency");
     const g = await everyGate(dep.id);
     for (const at of ["proposal", "work", "accept", "ship"] as const)
-      expect(g[at]).toBe(heldText((g.ids as any)[at], [{ id: dep.id, title: dep.title, stage: "idea" }]));
+      expect(g[at]).toBe(heldText(g.ids[at], [{ id: dep.id, title: dep.title, stage: "idea" }]));
     expect(g.approve).toBeNull();
     // nothing moved: each held where it was, its results kept
     expect((await intent(g.ids.approve)).stage).toBe("build");
@@ -226,7 +226,7 @@ suite("intents depend on intents", () => {
       await setStage(dep.id, stage);
       const g = await everyGate(dep.id);
       const deps = [{ id: dep.id, title: dep.title, stage }];
-      for (const at of ["proposal", "work", "accept"] as const) expect(g[at]).toBe(heldText((g.ids as any)[at], deps));
+      for (const at of ["proposal", "work", "accept"] as const) expect(g[at]).toBe(heldText(g.ids[at], deps));
       expect(g.approve).toBeNull();
       // Accept and ship: a dependency in Ship is waited for there, so only one not in Ship refuses
       if (stage === "ship") expect(g.ship).toBeNull();
@@ -345,9 +345,9 @@ suite("intents depend on intents", () => {
     expect((await tool("specify_intent", { intent: a.id, ...SPEC })).depends_on).toHaveLength(1);
     expect((await tool("specify_intent", { intent: a.id, ...SPEC, depends_on: [a.id] })).error).toContain("itself");
     // the tools' schemas say it
-    const tools = (await kitRpc(api, tokens.ada, "tools/list")).json.result.tools as any[];
-    for (const t of ["add_intent", "specify_intent"]) expect(tools.find((x) => x.name === t).inputSchema.properties.depends_on.type).toBe("array");
-    expect(tools.find((x) => x.name === "depend_intent").inputSchema.required).toEqual(["intent", "on"]);
+    const tools: { name: string; inputSchema: { properties: { depends_on: { type: string } }; required: string[] } }[] = (await kitRpc(api, tokens.ada, "tools/list")).json.result.tools;
+    for (const t of ["add_intent", "specify_intent"]) expect(tools.find((x) => x.name === t)!.inputSchema.properties.depends_on.type).toBe("array");
+    expect(tools.find((x) => x.name === "depend_intent")!.inputSchema.required).toEqual(["intent", "on"]);
     // an admin's agent's only: a token whose owner is no admin opens nothing; no route adds one by hand
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.bea.id]);
     expect((await tool("depend_intent", { intent: a.id, on: b.id }, "bea")).error).toBe("401");

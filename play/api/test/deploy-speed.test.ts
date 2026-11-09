@@ -20,7 +20,8 @@ import { cookieFor, freshDb, suite, until, within } from "./kit";
 
 const ROOT = resolve(import.meta.dir, "../../..");
 const text = (path: string) => readFileSync(resolve(ROOT, path), "utf8");
-const yaml = (path: string) => Bun.YAML.parse(text(path)) as any;
+/** a workflow or action file as data: YAML of any shape */
+const yaml = (path: string): any => Bun.YAML.parse(text(path));
 /** a store that counts every call made of it, and what it was asked about */
 function counting(inner: BlobStore) {
   const calls: string[] = [];
@@ -144,17 +145,17 @@ suite("a media file play's files lack", () => {
 });
 
 describe("the workflows", () => {
-  const prod = () => yaml(".github/workflows/production.yml");
+  const prod = (): { jobs: Record<string, any>; [k: string]: any } => yaml(".github/workflows/production.yml");
   const GATE = "./.github/actions/main-green";
 
   test("release checks out no blobs, and moves production as before", () => {
-    const steps = yaml(".github/workflows/release.yml").jobs.release.steps as any[];
+    const steps: { uses?: string; name?: string; run?: string; with?: any }[] = yaml(".github/workflows/release.yml").jobs.release.steps;
     expect(steps[0].uses).toBe("actions/checkout@v4");
     expect(steps[0].with.filter).toBe("blob:none");
     // the work tree only the workflow itself: no other file's contents fetched
     expect(steps[0].with["sparse-checkout"]).toBe(".github/workflows/release.yml");
     expect(steps[0].with["sparse-checkout-cone-mode"]).toBe(false);
-    const move = steps.find((s) => s.name === "production moves to the commit, fast-forward only");
+    const move = steps.find((s) => s.name === "production moves to the commit, fast-forward only")!;
     for (const line of [
       `git fetch -q origin main production`,
       `git merge-base --is-ancestor "$SHA" origin/main`,
@@ -249,7 +250,7 @@ describe("the workflows", () => {
     expect(run).toContain(`mapfile -t all < <(jq -r '.[]' "$REQUIRED")`);
     expect(run).toContain(`select(.conclusion == "success")`);
     expect(run).toContain(`for check in "\${all[@]}"; do passed "$check" || exit 1; done`);
-    for (const job of Object.values(prod().jobs) as any[]) expect(job.steps[1].with).toEqual({ token: "${{ github.token }}", sha: "${{ github.sha }}" });
+    for (const job of Object.values(prod().jobs)) expect(job.steps[1].with).toEqual({ token: "${{ github.token }}", sha: "${{ github.sha }}" });
     // release.yml: fast-forward only, with GITHUB_TOKEN, no secret
     const release = text(".github/workflows/release.yml");
     expect(release).not.toContain("secrets.");
@@ -272,7 +273,7 @@ describe("the workflows", () => {
   });
 
   test("Ship follows the jobs: its steps name only jobs and steps production.yml has, in order, the backup its own job", () => {
-    const jobs = Object.values(prod().jobs) as any[];
+    const jobs = Object.values(prod().jobs);
     const deploy = STEPS.filter((s) => s.job);
     expect(deploy.map((s) => s.job)).toEqual(jobs.map((j) => j.name));
     for (const s of deploy) {

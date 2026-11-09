@@ -86,6 +86,6 @@ suite("every MCP tool's inputSchema", () => {
     }
     expect(bad).toEqual([]);
     const spec = tools.find((t) => t.name === "specify_intent")!;
-    expect((spec.inputSchema as any).properties.depends_on.items).toEqual({ type: "string" });
+    expect((spec.inputSchema as { properties: Record<string, { items?: unknown }> }).properties.depends_on.items).toEqual({ type: "string" });
   });
 });

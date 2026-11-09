@@ -57,7 +57,7 @@ suite("no work without an intent", () => {
     return out;
   };
   /** each work path, with work it takes, for intent `intent` (left out where undefined) */
-  const PATHS: Record<string, (intent?: string) => Promise<{ error?: string; status?: number; intent?: string }>> = {
+  const PATHS: Record<string, (intent?: string) => Promise<{ error?: string; status?: number; intent?: string; variant?: number }>> = {
     propose_asset: (intent) => tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: `A fern ${++n}`, source: SOURCE(`a fern ${n}`), note: "a new asset", ...(intent ? { intent } : {}) }),
     propose_story: (intent) => tool("propose_story", { title: `A film ${++n}`, body: BODY, note: "a new story", ...(intent ? { intent } : {}) }),
     propose_doc_version: (intent) => tool("propose_doc_version", { doc: K, note: `more ${++n}`, edits: [{ op: "set", path: ["system"], value: `Say it ${n}.` }], ...(intent ? { intent } : {}) }),
@@ -159,8 +159,8 @@ suite("no work without an intent", () => {
       const r = await run(ready);
       expect([path, r.error]).toEqual([path, undefined]);
       if (path === "doc_edit") {
-        expect((r as any).intent).toBe(ready);
-        const v = (r as any).variant;
+        expect(r.intent).toBe(ready);
+        const v = r.variant;
         expect((await tool("propose_doc_version", { doc: K, variant: v, note: "the edit, proposed", intent: ready })).error).toBeUndefined();
       } else expect(r.intent).toBe(ready);
       const i = await tool("get_intent", { intent: ready });

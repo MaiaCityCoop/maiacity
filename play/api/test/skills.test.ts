@@ -50,7 +50,7 @@ suite("skills: what play teaches its agents, kept once", () => {
     return out.error ? { error: out.error } : out.result;
   };
   const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
-  const initialize = async () => (await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } })) as any;
+  const initialize = async () => (await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } }));
 
   /** an intent made over MCP and taken to `stage`: specified, approved, its must checks passed (to Proposal by itself) */
   const SPEC = {
@@ -234,7 +234,7 @@ suite("skills: what play teaches its agents, kept once", () => {
     expect((await rpc("prompts/get", { name: "intent_prototype", arguments: { intent: i.id } })).error.message).toContain("no prompt");
   });
 
-  // ---- a new skill (intent 1d9995c3): its row play.records', made over MCP as any schema-alone document
+  // ---- a new skill (intent 1d9995c3): its row play.records', made over MCP like every schema-alone document
 
   test("a new skill is made like any document: doc_edit with kind skill and its whole, proposed, accepted as v1", async () => {
     // the skill schema as the seed holds it (v1; production's later versions add description, body and references)

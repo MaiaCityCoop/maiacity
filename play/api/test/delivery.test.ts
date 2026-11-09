@@ -4,9 +4,9 @@
 // numbers, CI minutes and each run's slowest steps, play's main merges counted, the budgets, and who may read it.
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { seedSkills } from "../import/skills";
-import { COOP } from "../src/access";
+import { COOP, type Me } from "../src/access";
 import { createHuman } from "../src/auth";
-import { BUDGETS, daysOf, delivery, NO_GITHUB } from "../src/delivery";
+import { BUDGETS, daysOf, delivery, NO_GITHUB, type Timeline } from "../src/delivery";
 import { carrySeen, mainMergeState } from "../src/mainmerge";
 import { type Db } from "../src/kit/pg";
 import { watchTick } from "../src/watcher";
@@ -73,7 +73,7 @@ suite("delivery", () => {
     );
     return id;
   }
-  const me = { id: "", level: "admin" } as any;
+  const me = { id: "", level: "admin" } as Me;
   const read = (o: { days?: unknown; ci?: unknown } = {}, g: any = gh.gh) => delivery(db, { ...me, id: ada }, g, { ...o, now: NOW });
   const of = (d: Awaited<ReturnType<typeof read>>, id: string) => d.intents.find((t) => t.id === id)!;
 
@@ -167,12 +167,12 @@ suite("delivery", () => {
     const s = (name: string, a: string, b: string) => ({ name, status: "completed", conclusion: "success", started_at: at(a), completed_at: at(b) });
     gh.jobs.set(21, [job(1, "play / API and site", "completed", "success", [s("checkout", "11:00", "11:01"), s("The API", "11:01", "11:09"), s("The site", "11:09", "11:12")]), job(2, "website / build", "completed", "success", [s("build", "11:00", "11:02"), s("check", "11:02", "11:02")])]);
     const d = await read({ ci: true });
-    const ci = of(d, id).ci as any;
+    const ci = of(d, id).ci as Exclude<Timeline["ci"], { error: string } | undefined>;
     expect(ci.runs).toBe(4);
     expect(ci.minutes).toBe(19);
     expect(ci.cancelled).toBe(1);
     expect(ci.cancelled_share).toBe(0.25);
-    const r21 = ci.list.find((r: any) => r.id === 21);
+    const r21 = ci.list.find((r) => r.id === 21)!;
     expect(r21.ms).toBe(12 * MIN);
     expect(r21.over).toBe(true);
     expect(r21.slowest).toEqual([{ job: "play / API and site", step: "The API", ms: 8 * MIN }, { job: "play / API and site", step: "The site", ms: 3 * MIN }, { job: "website / build", step: "build", ms: 2 * MIN }]);

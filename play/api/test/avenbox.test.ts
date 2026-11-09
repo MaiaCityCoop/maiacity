@@ -142,7 +142,7 @@ describe("avenBOX's runner: its modes", () => {
     port: 0,
     hostname: "127.0.0.1",
     async fetch(req) {
-      const { params } = (await req.json()) as any;
+      const { params } = (await req.json()) as { params: { name: string; arguments: Record<string, unknown> } };
       calls.push({ name: params.name, args: params.arguments, auth: req.headers.get("authorization") ?? "" });
       const out = params.name === "get_intent" ? { id: ID, stage: "build", title: "The box", spec: SPEC } : { id: ID, stage: "build" };
       return Response.json({ jsonrpc: "2.0", id: 1, result: { content: [{ type: "text", text: JSON.stringify(out) }] } });
@@ -289,7 +289,7 @@ describe("the skills mirror", () => {
         if (req.headers.get("authorization") !== "Bearer play_test") return new Response("no", { status: 401 });
         if (u.pathname === `/api/files/${PNG}`) return new Response(served);
         if (u.pathname !== "/api/mcp") return new Response("none", { status: 404 });
-        const m = (await req.json()) as any;
+        const m = (await req.json()) as { id: number; params: { name: string; arguments: Record<string, string> } };
         const { name, arguments: a } = m.params;
         const result =
           name === "list_docs" ? Object.entries(skills).map(([id, s]) => ({ id, kind: "skill", label: s.label }))

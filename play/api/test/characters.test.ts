@@ -39,7 +39,7 @@ suite("characters", () => {
     return i.id as string;
   };
   const accept = async (intent: string) => (await call("POST", `/api/intents/${intent}/accept`)).data;
-  const ids = async (group: string) => ((await tool("list_assets", { group })) as any[]).map((a) => a.id);
+  const ids = async (group: string) => (await tool("list_assets", { group })).map((a: { id: string }) => a.id);
   /** an asset's group as the asset library has it (play.assets) and as its head version's card names it */
   const groupOf = async (asset: string) =>
     (await db.query<any>(`SELECT a.grp, v.card->'card'->>'group' AS card FROM play.assets a JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1`, [asset])).rows[0];

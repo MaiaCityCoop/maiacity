@@ -31,7 +31,7 @@ suite("accept ships it", () => {
   const keep = { log: console.log, warn: console.warn, error: console.error };
 
   beforeAll(async () => {
-    for (const k of ["log", "warn", "error"] as const) (console as any)[k] = (...a: unknown[]) => (said.push(a.map((x) => (x instanceof Error ? `${x.message}\n${x.stack}` : typeof x === "string" ? x : JSON.stringify(x))).join(" ")), (keep as any)[k](...a));
+    for (const k of ["log", "warn", "error"] as const) console[k] = (...a: unknown[]) => (said.push(a.map((x) => (x instanceof Error ? `${x.message}\n${x.stack}` : typeof x === "string" ? x : JSON.stringify(x))).join(" ")), keep[k](...a));
     f = await freshDb();
     db = f.db;
     gh = fakeGitHub();
@@ -632,12 +632,12 @@ suite("accept ships it", () => {
     expect(shipGitHub({ SHIP_TOKEN: "x" })!.repo).toBe("MyAvenCEO/maiacity");
     // a stand-in GitHub only where SHIP_API names one: the token goes to api.github.com otherwise
     const asked: string[] = [];
-    const seen = (async (u: string) => (asked.push(`${u}`), new Response(JSON.stringify({ number: 1 }), { status: 200 }))) as any;
+    const seen = (async (u: string) => (asked.push(`${u}`), new Response(JSON.stringify({ number: 1 }), { status: 200 }))) as unknown as typeof fetch;
     await gitHub({ token: "x", repo: REPO, fetch: seen }).pull(1);
     expect(asked[0]).toBe(`https://api.github.com/repos/${REPO}/pulls/1`);
     expect(() => gitHub({ token: "x", repo: "not a repo" })).toThrow();
     // GitHub's errors name the request, never a header
-    const broken = gitHub({ token: TOKEN, repo: REPO, api: "https://api.github.test", fetch: (async () => new Response(JSON.stringify({ message: "Bad credentials" }), { status: 401 })) as any });
+    const broken = gitHub({ token: TOKEN, repo: REPO, api: "https://api.github.test", fetch: (async () => new Response(JSON.stringify({ message: "Bad credentials" }), { status: 401 })) as unknown as typeof fetch });
     const e = (await broken.pull(1).catch((x) => x)) as Error;
     expect(e.message).toBe("GitHub answered 401 to GET /pulls/1: Bad credentials");
     // every answer the tests read was searched for it (call), and everything play logged

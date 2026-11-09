@@ -143,7 +143,7 @@ suite("schemas as documents", () => {
     expect(yes.status).toBe(200);
     expect(yes.data.decision).toMatchObject({ status: "accepted", number: 2 });
     const t = await typeFor(db, SCHEMA.skill);
-    expect([t.version, (t.schema.properties as any).system.maxLength]).toEqual([2, 20]);
+    expect([t.version, (t.schema.properties as Record<string, { maxLength?: number }>).system.maxLength]).toEqual([2, 20]);
     // from then on every commit is checked against v2, and records it
     const long = await tool("doc_edit", { doc: S, message: "longer again", edits: [{ op: "set", path: ["system"], value: "This is far longer than twenty." }] });
     expect(long.error).toContain("must be at most 20 characters");

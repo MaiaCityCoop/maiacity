@@ -300,7 +300,7 @@ suite("artifacts", () => {
     expect(fixed.operator.id).toBe(who.Samuel.id);
     expect(fixed.origin).toBe("human");
     expect(fixed.by).toBe("Added by Samuel");
-    expect((await correct({ artifact: s.id, origin: "agent" } as any)).error).toMatch(/additional|origin/i);
+    expect((await correct({ artifact: s.id, origin: "agent" })).error).toMatch(/additional|origin/i);
     const row = (await db.query(`SELECT origin, operator_id, agent_id FROM play.artifacts WHERE id = $1`, [s.id])).rows[0];
     expect(row).toEqual({ origin: "human", operator_id: who.Samuel.id, agent_id: AVENMAIA });
   });
@@ -485,7 +485,7 @@ suite("artifacts", () => {
     expect(await count()).toBe(before);
     // the same link again answers with the intent that waits with it
     expect(await tool("add_artifact", ARTIFACT({ url: "https://doc.example/one/" }))).toMatchObject({ kept: false, waiting: true, intent: r.intent });
-    // decided by the one Accept, as any other intent: then kept, its v1 in its history
+    // decided by the one Accept, like every other intent: then kept, its v1 in its history
     expect((await call("Samuel", "POST", `/api/intents/${r.intent}/accept`)).data).toMatchObject({ stage: "accepted", decision: { status: "accepted", number: 1 } });
     expect((await listed()).map((a: any) => [a.id, a.intent])).toEqual([[r.id, null]]);
     expect((await tool("doc_history", { doc: r.id })).versions.map((v: any) => v.number)).toEqual([1]);

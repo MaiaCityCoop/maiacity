@@ -17,7 +17,8 @@ import { hashText } from "../src/kit/hash";
 import { RECIPE_HEAD, recipeTail } from "../src/recipes";
 import { storyVersionId } from "../src/versions";
 import { oldAccept, oldBranch, oldCommit, oldCreate, oldPropose } from "./fixtures/olddocs";
-import { problemsOf, readDoc, typeFor } from "../src/docs";
+import { problemsOf, readDoc, typeFor, type Edit } from "../src/docs";
+import type { Me } from "../src/access";
 import { COOP, SCHEMA } from "../src/kit/ids";
 import "../src/allkinds";
 import { appOn, cookieFor, type Fresh, freshDb, suite } from "./kit";
@@ -99,12 +100,12 @@ suite("migration 0032-versioned", () => {
       await db.query(`INSERT INTO ${k.table} (id, coop_id, label${k.prefix === "skill" ? ", grp" : ""}) VALUES ($1, $2, $3${k.prefix === "skill" ? ", 'tests'" : ""})`, [id, COOP, k.json.label]);
       await oldCreate(db, { id: doc, schema: k.schema, json: k.json, author, message: "v1", version: "its first" });
       const won = await oldBranch(db, doc, { author, note: "accepted" });
-      await oldCommit(db, doc, { branch: won, edits: [{ op: "set", ...k.a } as any], message: "the accepted edit", author });
+      await oldCommit(db, doc, { branch: won, edits: [{ op: "set", ...k.a } as Edit], message: "the accepted edit", author });
       await oldPropose(db, won, "accepted");
       await oldAccept(db, doc, won, author, "accepted");
       made.push({ id: await intent("accepted", k.kind, { [k.col]: id, doc_branch: won }), kind: k.kind, stage: "accepted", doc, branch: won });
       const waits = await oldBranch(db, doc, { author, note: "waiting" });
-      await oldCommit(db, doc, { branch: waits, edits: [{ op: "set", ...k.b } as any], message: "the waiting edit", author });
+      await oldCommit(db, doc, { branch: waits, edits: [{ op: "set", ...k.b } as Edit], message: "the waiting edit", author });
       await oldPropose(db, waits, "waiting");
       made.push({ id: await intent("proposal", k.kind, { [k.col]: id, doc_branch: waits }), kind: k.kind, stage: "proposal", doc, branch: waits });
     }
@@ -538,7 +539,7 @@ suite("migration 202611070120-7c8085db-breeds", () => {
 });
 
 // Migration 202611070945-1d9995c3-skills-records (intent 1d9995c3): a skill's row is play.records' (kind 'skill'), as
-// a schema's and a piece's are, so a new skill is made over MCP as any schema-alone document. Every play.skills row
+// a schema's and a piece's are, so a new skill is made over MCP like every schema-alone document. Every play.skills row
 // moves with its id, label and times; the table goes; avenMAIA and the Intents skill keep their documents, versions
 // and history, and are served as before.
 const SKILLS_RECORDS = "202611070945-1d9995c3-skills-records";
@@ -587,7 +588,7 @@ suite(`migration ${SKILLS_RECORDS}`, () => {
     expect(await skills.instructionsOf(db)).toBe(`${avenmaia().system.trim()}\n\n${intents().system.trim()}`);
     expect(await skills.briefOf(db, { id: "00000000-0000-4000-8000-000000000000", title: "A test", stage: "build" })).toContain("A test");
     const { listDocs } = await import("../src/versioned");
-    const listed = await listDocs(db, { id: "x", name: "x", level: "admin", rule: {}, founder_number: null } as any, "skill");
+    const listed = await listDocs(db, { id: "x", name: "x", level: "admin", rule: {}, founder_number: null } as Me, "skill");
     expect(listed.map((d: any) => [d.id, d.label, d.group])).toEqual(expect.arrayContaining([[SKILL.avenmaia, "avenMAIA", "agents"], [SKILL.intents, "Intents", "intents"]]));
     expect(await migrate(db)).toEqual([]);
   }, 60_000);

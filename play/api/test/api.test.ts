@@ -996,10 +996,7 @@ suite("play API", () => {
 
   test("an admin's token reads the Library, and writes nothing there", async () => {
     const { token, hash, label, story, car } = await libraryFixture();
-    const by = async (method: string, path: string, t = token, body?: unknown) => {
-      const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers: { authorization: `Bearer ${t}`, "content-type": "application/json" }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }));
-      return { status: r.status, data: await r.json().catch(() => null) };
-    };
+    const by = (method: string, path: string, t = token, body?: unknown) => request(api, { bearer: t }, method, path, body);
     // it reads the Library as its admin does: the file, its label and where it is used
     const read = await by("GET", `/api/library?q=${hash.slice(0, 12)}`);
     expect(read.status).toBe(200);
