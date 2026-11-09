@@ -5,11 +5,22 @@
  *
  *   cd play/site && bun test scripts/mac-page.test.ts
  */
-import { afterAll, expect, test } from 'bun:test';
+import { afterAll, beforeAll, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openSite, profileOf, serveBuilt } from './mac-page.mjs';
+
+// a fresh runner has Playwright's package but not its browser: fetched once, with what it needs (as intents-reach.ts)
+beforeAll(async () => {
+	const { chromium } = await import('playwright');
+	const b = await chromium.launch().catch(() => {
+		const got = Bun.spawnSync(['bunx', 'playwright', 'install', '--with-deps', 'chromium-headless-shell'], { cwd: join(import.meta.dir, '..'), stdout: 'inherit', stderr: 'inherit' });
+		if (!got.success) throw new Error('Playwright could not install its browser');
+		return chromium.launch();
+	});
+	await b.close();
+}, 300_000);
 
 const root = mkdtempSync(join(tmpdir(), 'mac-page-'));
 const server = Bun.serve({ port: 0, hostname: '127.0.0.1', fetch: () => new Response('<!doctype html><title>page</title>', { headers: { 'content-type': 'text/html' } }) });
