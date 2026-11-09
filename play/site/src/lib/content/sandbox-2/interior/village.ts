@@ -39,6 +39,7 @@ import { swapLegacy } from './legacy.js'
 import { assetOf, pick, planting, stageOf, type Flora } from './sandbox5.js'
 import { groundOf } from './solo.js'
 import { dropOnUpload } from '$lib/content/render/budget.js'
+import { groundMap, reliefGround } from './relief'
 
 export type VillageDome = { kind: DomeKind; x: number; z: number; R: number; ext: number }
 export type VillageHandle = {
@@ -255,8 +256,16 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	// Sandbox 5's building floors its own inside: the cell's ground stops at its glass, and lies a little under its
 	// own ground outside (its arcade's walk, the paths from its gates)
 	if (solo) hexShape.holes.push(new THREE.Path().absarc(soloFoot.x, -soloFoot.z, Math.max(1, soloFoot.R - 0.5), 0, Math.PI * 2, false))
-	const hex = new THREE.Mesh(new THREE.ShapeGeometry(hexShape, 48), opts.flora ? groundMaterial(FLOOR_BIOME?.surface ?? { soil: 1 }) : m.grass)
-	hex.rotation.x = -Math.PI / 2
+	// the cell's ground in relief (./relief.ts), laid flat where anything is built once the paths and the water are laid;
+	// Sandbox 5's building's own ground is flat, round a hole for it
+	const ground = solo ? null : reliefGround(WORLD, 2.5, (x, z) => Math.abs(z) <= WORLD * 0.866 + 2.5 && Math.abs(z) * 0.577 + Math.abs(x) <= WORLD + 2.5)
+	const hex = new THREE.Mesh(ground?.geometry ?? new THREE.ShapeGeometry(hexShape, 48).rotateX(-Math.PI / 2), opts.flora ? groundMaterial(FLOOR_BIOME?.surface ?? { soil: 1 }) : m.grass)
+	const groundY = (x: number, z: number) => ground?.at(x, z) ?? 0
+	if (forest) {
+		// every plant of the forest stands on the ground's relief
+		const add = forest.add.bind(forest)
+		forest.add = ((kind: any, reach: any, x: number, y: number, z: number, turn: number, scale: number) => add(kind, reach, x, y + groundY(x, z), z, turn, scale)) as typeof forest.add
+	}
 	if (solo) hex.position.y = -0.03
 	hex.receiveShadow = true
 	scene.add(hex)
@@ -973,7 +982,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	// each in its colonies, laid out in tiles round you as you go ($content/biomes/stream.js) — too dense for the whole cell;
 	// all of it near you, thinning out further off, each plant growing out of the ground as you come (so it has no edge)
 	// ($content/biomes/stream.js lays it; each kind built in the box and drawn by the renderer, ./cover.js)
-	const floorCover = flora && FLOOR_BIOME ? createCover({ drawn: library, recipe: FLOOR_BIOME, open: (x, z) => floorOpen(x, z), tile: 10, reach: 28, near: 7, thin: 0.2, density: 3.4, seed: 505 }) : null
+	const floorCover = flora && FLOOR_BIOME ? createCover({ drawn: library, recipe: FLOOR_BIOME, open: (x, z) => floorOpen(x, z), heightAt: groundY, tile: 10, reach: 28, near: 7, thin: 0.2, density: 3.4, seed: 505 }) : null
 	const TILE = 70
 	type Tile = { cx: number; cz: number; main: THREE.Matrix4[][]; under: THREE.Matrix4[][]; floor: THREE.Matrix4[][]; far: THREE.Matrix4[]; farCrowns: THREE.Matrix4[]; farColors: THREE.Color[]; dense: THREE.Matrix4[]; denseCrowns: THREE.Matrix4[]; denseColors: THREE.Color[]; near?: THREE.Group; farMesh?: THREE.Group; ground?: THREE.Group }
 	const tiles = new Map<string, Tile>()
@@ -995,8 +1004,10 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	 *  cell's paths, water and squares as open() keeps that plant */
 	const inBand = (x: number, z: number, off: number, margin: number) =>
 		!!soloGround && inDome(x, z, margin + 1) && Math.hypot(x - soloFoot.x, z - soloFoot.z) > soloFoot.R && soloGround.clear(x, z, off) && openGround(x, z, margin)
+	// the relief where the ground is open, flat under the domes, the squares, the paths and the water
+	ground?.shape((x, z) => openGround(x, z, 0.6) && !inDome(x, z, 1.5))
 	const q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), sv = new THREE.Vector3()
-	const mat = (x: number, y: number, z: number, rot: number, sx: number, sy = sx, sz = sx) => new THREE.Matrix4().compose(p.set(x, y, z), q.setFromEuler(e.set(0, rot, 0)), sv.set(sx, sy, sz))
+	const mat = (x: number, y: number, z: number, rot: number, sx: number, sy = sx, sz = sx) => new THREE.Matrix4().compose(p.set(x, y + groundY(x, z), z), q.setFromEuler(e.set(0, rot, 0)), sv.set(sx, sy, sz))
 	{
 		const r = seeded(99)
 		const INNER = 238
@@ -1114,6 +1125,16 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		// for a look at its weight from the console: __forest.weight()
 		;(window as unknown as { __forest?: Forest }).__forest = forest
 		await pause('Growing the forest')
+	}
+	if (ground && flora) {
+		// the ground's map: shade under the crowns that really stand (the garden's and the forest beyond), wet beside the
+		// paths and the water and in the hollows
+		const crowns = plantedTrees.map((t) => ({ x: t.x, z: t.z, r: Math.max(1, (forest?.shape(t.kind)?.reach ?? 2) * t.s) }))
+		for (const t of tiles.values()) for (const c of t.farCrowns) crowns.push({ x: c.elements[12]!, z: c.elements[14]!, r: Math.hypot(c.elements[0]!, c.elements[1]!, c.elements[2]!) * 0.5 })
+		const wet = (x: number, z: number) =>
+			Math.min(1, (nearPath(x, z, 1.4) ? 0.55 : 0) + (nearWater(x, z, W / 2 + 2.5) ? 0.8 : 0) + Math.max(0, (-groundY(x, z) - 0.04) / 0.06) * 0.7)
+		const map = groundMap(WORLD, 2, crowns, wet)
+		hex.material.userData.map(map.texture, map.rect)
 	}
 	{
 		const trunkMat = new THREE.MeshStandardMaterial({ color: '#6d5238', roughness: 0.9 })

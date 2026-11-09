@@ -1,6 +1,6 @@
 /*
- * THE BIOMES' NOISE — one value noise, written twice: in JavaScript (where the cover is scattered) and in GLSL (where
- * the ground is painted), the same sums in both, so a colony of wood anemones stands on the patch of litter the shader
+ * THE BIOMES' NOISE — one value noise, written twice: in JavaScript (where the cover is scattered) and in TSL (where
+ * the ground is drawn, ../render/nodes/ground.js), the same sums in both, so a colony of wood anemones stands on the patch of litter the shader
  * drew for it. In metres over the ground.
  */
 
@@ -22,14 +22,6 @@ export function vn(x, y) {
 }
 /** three octaves of it, 0…1 @param {number} x @param {number} y */
 export const fbm2 = (x, y) => vn(x, y) * 0.55 + vn(x * 2.03 + 7.1, y * 2.03 + 7.1) * 0.3 + vn(x * 4.1 + 3.3, y * 4.1 + 3.3) * 0.15;
-
-/** the same, in GLSL */
-export const GLSL = `
-float bh21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
-float bvn(vec2 p) { vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
-	return mix(mix(bh21(i), bh21(i + vec2(1.0, 0.0)), u.x), mix(bh21(i + vec2(0.0, 1.0)), bh21(i + vec2(1.0, 1.0)), u.x), u.y); }
-float bfbm(vec2 p) { return bvn(p) * 0.55 + bvn(p * 2.03 + 7.1) * 0.3 + bvn(p * 4.1 + 3.3) * 0.15; }
-`;
 
 /** a seeded random number, the same every time @param {number} seed */
 export function rng(seed) {

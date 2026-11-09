@@ -24,10 +24,10 @@
  */
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import type { MeshPhysicalNodeMaterial, MeshStandardNodeMaterial } from 'three/webgpu'
-import { OwnPhysical, OwnStandard } from '$lib/content/render/tsl.js'
-import { abs, cameraViewMatrix, dot, float, max, mix, normalView, normalize, positionViewDirection, positionWorld, texture, uniform, vec4 } from 'three/tsl'
-import { flagstone, grass, groundCover, leaves, limestone, oak, soil, water } from './textures'
+import type { MeshPhysicalNodeMaterial } from 'three/webgpu'
+import { OwnPhysical } from '$lib/content/render/tsl.js'
+import { abs, cameraViewMatrix, dot, float, max, normalView, normalize, positionViewDirection, uniform, vec4 } from 'three/tsl'
+import { flagstone, groundCover, leaves, limestone, oak, soil, water } from './textures'
 import { cafes, coops, coopsAround, henPatches, rabbitPatches, squaresAround, type Kit } from './spaces'
 import { antHills, apiary, fishes, herd, TANK_FISH } from './animals'
 import { settled as actorsSettled, wantNear as actorsNear } from '$lib/content/assets/render/crowd.js'
@@ -159,21 +159,11 @@ function surface<T extends THREE.Material>(key: string, make: () => T): T {
 const k2 = (v: number) => Math.round(v * 20) / 20
 
 /**
- * The lawn: the grass texture laid down in world space, about three metres to a
- * tile, so it never stretches whatever shape the ground is; and a slow drift
- * of lighter and darker patches over tens of metres, so no two stretches of
- * meadow look the same.
+ * The lawn: the biomes' ground (its scanned living mat, a little bare soil), laid in world metres as every floor is
+ * ($content/biomes `groundMaterial`), so the meadow beyond the cell is the same ground as the cell's.
  */
-let meadowCache: MeshStandardNodeMaterial | null = null
-function meadow(): MeshStandardNodeMaterial {
-	if (meadowCache) return meadowCache
-	const mat = new OwnStandard({ roughness: 1 })
-	const map = grass(), ground = positionWorld.xz
-	const drift = texture(map, ground.div(61)).g.mul(0.6).add(texture(map, ground.div(23).add(0.3)).r.mul(0.4))
-	mat.colorNode = texture(map, ground.div(3.2)).rgb.mul(mix(0.78, 1.18, drift))
-	return (meadowCache = mat)
-}
-
+let lawnCache: ReturnType<typeof groundMaterial> | null = null
+const lawn = () => (lawnCache ??= groundMaterial({ green: 10, soil: 0.5, moss: 0.6 }))
 /**
  * The surfaces a dome is made of. The painted ones are painted when first asked for (the flagstone, the solar glass,
  * the meadow): a sofa or a lantern on its own then paints only what it is made of, not the whole dome's, which made
@@ -203,7 +193,7 @@ export const mats = () => {
 		pebble: new THREE.MeshStandardMaterial({ color: '#8d8a83', roughness: 0.9 }),
 		tank: new THREE.MeshStandardMaterial({ color: '#56666b', roughness: 0.5, metalness: 0.3 }),
 		get grass() {
-			return meadow()
+			return lawn()
 		}
 	}
 }
