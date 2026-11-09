@@ -23,7 +23,6 @@ play/site/scripts/engine.test.ts
 play/site/scripts/freeze-engine.ts
 play/site/scripts/grass-glsl.ts
 play/site/scripts/grass-wgsl.ts
-play/site/scripts/intents-reach.ts
 play/site/scripts/selector-shots.mjs
 play/site/src/lib/content/actors/dqs.test.ts
 play/site/src/lib/content/actors/dqs.ts
@@ -135,8 +134,6 @@ play/site/src/lib/kernel/sandbox/engines.json
 play/site/src/lib/kernel/sandbox/lockdown.js
 play/site/src/lib/sandbox-2/main.ts
 play/site/src/lib/sandbox-4/scene.ts
-play/site/src/lib/site/intents/Decision.svelte
-play/site/src/lib/site/intents/IntentDetail.svelte
 play/site/src/lib/stories/compose.ts
 play/site/src/lib/stories/live-runtime.ts
 play/site/src/lib/stories/old-city.test.ts
