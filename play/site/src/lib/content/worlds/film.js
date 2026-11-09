@@ -1,23 +1,11 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * A WORLD UNDER THE FILM CAMERA (play/SPEC.md §4.11) — the Worlds page's world handed to the film camera the way every
- * sandbox is (../sandbox-kit/film.js `connectFilm`, `window.__world`): a shot names it by the world asset's UUID and its
- * version's recipe hash (../game/film/shot.js `world.asset`, `world.recipe`; its film page `/worlds/?film&asset=…&recipe=…`,
- * ../game/film/worlds.js `filmPath`), and every frame of the shot is the world at the shot's moment:
- *
- *   clock        the world's clock is the shot's from the moment it is connected (./view.js `clock`): only advance
- *                moves it, never the page's own frames nor `window.__worldTime`, so whoever calls advance(t) gets the
- *                same world at the same t, whatever else ran between
- *   animate(t)   the world brought to t (./view.js `seek`: its build's own tick, exactly that much time, seeded; back
- *                in time, built afresh and stepped from 0), so a shot renders the same every time; its guests followed
- *                and drawn for the camera where the shot puts it
- *   settle()     on `window.__world`: resolves once the box has answered every step that moment owes (its run is in the
- *                asset box, one step behind the page; a long jump owes many), its guests then followed for the camera;
- *                a plate renderer awaits it before it draws. `settle(ms)` gives up after ms with no step answered
- *   frames       the world's nodes `frame:<name>` (a seat in a vehicle): a shot's camera rides in one (camera `frame`)
- *   lights       `sun`, `sky` (its light from the lid above) and `lamps` (every light the page lights on the guests:
- *                their lit faces and glows), each scaled by the shot over what the mood gives it
- *   stage(w)     the world built and settled at the shot's clock
+ * A WORLD UNDER THE FILM CAMERA (play/SPEC.md §4.11) — the Worlds page's world handed to the film camera as every
+ * sandbox is (../sandbox-kit/film.js): a shot names it by the world asset's UUID and its recipe hash
+ * (../game/film/worlds.js `filmPath`). Its clock is the shot's from connection on (./view.js `clock`: only advance moves
+ * it), `animate(t)` seeks the build's own tick to t (back in time: rebuilt from 0), and `settle()` resolves once the box
+ * has answered every step t owes (a plate renderer awaits it; `settle(ms)` gives up). `frame:<name>` nodes are seats a
+ * camera rides in; lights `sun`, `sky`, `lamps` are scaled over the mood's.
  */
 import { connectFilm, createCameraHold } from '../sandbox-kit/film.js';
 
