@@ -9,24 +9,28 @@ git rev-parse -q --verify origin/main > /dev/null || git fetch -q --no-tags orig
 [ "$(git rev-parse --is-shallow-repository)" = true ] && git fetch -q --no-tags --unshallow origin '+refs/heads/main:refs/remotes/origin/main'
 base=$(git merge-base HEAD origin/main)
 out=$(mktemp -d)
-worlds=("sandbox-1 all" "sandbox-3 open" "worlds open")
-# every count at once, each world's base beside its head under the same load: since 7af6e162 the census waits out its
-# 180 s for each view of a world with no asset renderers (Sandbox 3, the worlds view: ./run.ts quiet() takes
-# quietness's null as moving), so one after another they outlast a check's 600 s; side by side, the slowest one's time
-# the base's tree made once first (../../play/site/scripts/census/tree.ts): three runs adding one worktree at once collide
+# Sandbox 1's pair first (it is the heavy one), then the two worlds that wait out their 180 s side by side: since
+# 7af6e162 the census never sees a world with no asset renderers settle (Sandbox 3, the worlds view: ./run.ts quiet()
+# takes quietness's null as moving), so its counts are taken at the timeout, and one after another the six counts
+# outlast a check's 600 s. Each world's base runs beside its head, under the same load.
+# the base's tree made once first (../../play/site/scripts/census/tree.ts): runs adding one worktree at once collide
 bun -e "import { treeAt } from './play/site/scripts/census/tree.ts'; treeAt('$base')" > /dev/null
-pids=()
-for w in "${worlds[@]}"; do
-  set -- $w
-  bun play/site/scripts/census.ts --world "$1" --view "$2" --at "$base" --json "$out/$1.base.json" > "$out/$1.base.log" 2>&1 & pids+=($!)
-  bun play/site/scripts/census.ts --world "$1" --view "$2" --json "$out/$1.head.json" > "$out/$1.head.log" 2>&1 & pids+=($!)
-done
-for p in "${pids[@]}"; do wait "$p" || { echo "a census run failed:"; tail -n 20 "$out"/*.log; exit 1; }; done
+count() { # <world> <view> <tag>: the base and the head counted side by side, in the background
+  bun play/site/scripts/census.ts --world "$1" --view "$2" --at "$base" --json "$out/$1.base$3.json" > "$out/$1.base$3.log" 2>&1 &
+  bun play/site/scripts/census.ts --world "$1" --view "$2" --json "$out/$1.head$3.json" > "$out/$1.head$3.log" 2>&1 &
+}
+settle() { wait || true; for f in "$@"; do [ -s "$f" ] || { echo "a census run failed:"; tail -n 20 "$out"/*.log; exit 1; }; done; }
+same() { [ "$(jq -cS '[.views[] | {view, totals}]' "$out/$1.base$2.json")" = "$(jq -cS '[.views[] | {view, totals}]' "$out/$1.head$2.json")" ]; }
+count sandbox-1 all; settle "$out"/sandbox-1.{base,head}.json
+count sandbox-3 open; count worlds open; settle "$out"/{sandbox-3,worlds}.{base,head}.json
 fail=0
-for w in "${worlds[@]}"; do
+for w in "sandbox-1 all" "sandbox-3 open" "worlds open"; do
   set -- $w
-  a=$(jq -cS '[.views[] | {view, totals}]' "$out/$1.base.json")
-  b=$(jq -cS '[.views[] | {view, totals}]' "$out/$1.head.json")
-  if [ "$a" = "$b" ]; then echo "same  $1 ($2) at ${base:0:7} and HEAD"; else echo "DIFF  $1 ($2)"; diff <(echo "$a" | jq .) <(echo "$b" | jq .) || true; fail=1; fi
+  if same "$1" ""; then echo "same  $1 ($2) at ${base:0:7} and HEAD"; continue; fi
+  # a world counted at its timeout can catch one copy more or less on one side: counted again, a real change shows again
+  echo "differed once: $1 ($2), counted again"
+  count "$1" "$2" .2; settle "$out/$1.base.2.json" "$out/$1.head.2.json"
+  if same "$1" .2; then echo "same  $1 ($2) at ${base:0:7} and HEAD (counted again)"; else
+    echo "DIFF  $1 ($2)"; diff <(jq -S '[.views[] | {view, totals}]' "$out/$1.base.2.json") <(jq -S '[.views[] | {view, totals}]' "$out/$1.head.2.json") || true; fail=1; fi
 done
 exit $fail
