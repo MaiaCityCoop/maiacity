@@ -62,7 +62,7 @@ export function createImpostors(renderer, o = {}) {
 	const most = Math.min(o.page ?? B.page, maxTextureSize(renderer));
 	const N = o.views ?? B.views ?? 8;
 	const px = Math.min(o.px ?? B.px, Math.floor(most / N));
-	const cols = Math.floor(most / px), per = Math.floor(cols / N), side = N * px;
+	const cols = Math.floor(most / px), per = Math.floor(cols / N);
 	const group = new THREE.Group();
 	group.name = 'asset pictures';
 	/** @type {any[]} */
@@ -73,12 +73,11 @@ export function createImpostors(renderer, o = {}) {
 	/** colours; normals and depth */
 	const pair = (n, o) =>
 		[THREE.SRGBColorSpace, THREE.NoColorSpace].map((space) => {
-			const t = new THREE.WebGLRenderTarget(n, n, o);
+			const t = new THREE.RenderTarget(n, n, o);
 			t.texture.colorSpace = space;
 			t.texture.anisotropy = 4;
 			return t;
 		});
-	const shots = pair(px, { samples: 4, generateMipmaps: false });
 	const card = hull();
 	/** `fn` drawn, the renderer's target, clear colour, clearing and clipping kept */
 	function kept(fn) {
@@ -175,8 +174,10 @@ export function createImpostors(renderer, o = {}) {
 		camera.updateProjectionMatrix();
 		bake.mid.value = mid;
 		bake.size.value = size;
-		const to = new THREE.Vector2(), { x, y } = at(slot);
+		const { x, y } = at(slot);
+		// each view drawn straight into its cell (WebGPURenderer copies no texture into another on its WebGL 2 backend)
 		kept(() => onto(page, () => {
+			for (const t of page.targets) t.scissorTest = true;
 			for (let j = 0; j < N; j++)
 				for (let i = 0; i < N; i++) {
 					const d = viewOf(i, j, N);
@@ -186,15 +187,14 @@ export function createImpostors(renderer, o = {}) {
 					camera.lookAt(0, mid, 0);
 					for (let k = 0; k < 2; k++) {
 						for (const m of thing.children) m.material = bakeOf(m.userData.made)[k ? 'normal' : 'albedo'];
-						renderer.setRenderTarget(shots[k]);
-						// cleared see-through to its own colour (or facing the eye): edges average into it afar
-						if (k) renderer.setClearColor(new THREE.Color().setRGB(d[0] * 0.5 + 0.5, d[1] * 0.5 + 0.5, d[2] * 0.5 + 0.5, THREE.NoColorSpace), 0);
-						else renderer.setClearColor(level.colour, 0);
-						renderer.clear();
+						const t = page.targets[k];
+						t.viewport.set(x + i * px, y + j * px, px, px);
+						t.scissor.copy(t.viewport);
+						renderer.setRenderTarget(t);
 						renderer.render(studio, camera);
-						renderer.copyTextureToTexture(shots[k].texture, page.targets[k].texture, null, to.set(x + i * px, y + j * px));
 					}
 				}
+			for (const t of page.targets) (t.scissorTest = false), t.viewport.set(0, 0, t.width, t.height);
 		}));
 		studio.remove(thing);
 		for (const m of thing.children) m.dispose();
@@ -211,31 +211,6 @@ export function createImpostors(renderer, o = {}) {
 		/** each view's pixels and views a side (a kept picture's key) */
 		px,
 		views: N,
-		/** a kind's block of each page, RGBA, read back asynchronously; null on WebGPU */
-		async read(slot) {
-			const page = pages[slot.page];
-			if (!page || isWebGPU(renderer) || !renderer.capabilities?.isWebGL2) return null;
-			const { x, y } = at(slot), out = page.targets.map(() => new Uint8Array(side * side * 4));
-			await Promise.all(page.targets.map((t, k) => renderer.readRenderTargetPixelsAsync(t, x, y, side, side, out[k])));
-			return out;
-		},
-		/** a picture laid from what `read` gave (./levels.js), nothing baked */
-		put(level, frames) {
-			if (!Array.isArray(frames) || frames.length !== FRAMES || frames.some((f) => !(f instanceof Uint8Array) || f.length !== side * side * 4)) throw new Error('refused: pictures of another size');
-			const slot = slotFor(level);
-			const page = pages[slot.page];
-			const { x, y } = at(slot);
-			onto(page, () =>
-				frames.forEach((data, k) => {
-					const t = new THREE.DataTexture(data, side, side, THREE.RGBAFormat, THREE.UnsignedByteType);
-					t.colorSpace = page.targets[k].texture.colorSpace;
-					t.generateMipmaps = false;
-					renderer.copyTextureToTexture(t, page.targets[k].texture, null, new THREE.Vector2(x, y));
-					t.dispose();
-				})
-			);
-			return slot;
-		},
 		/** each page's smaller copies made again where new, before a frame's cards */
 		settle() {
 			const stale = pages.filter((p) => p.stale);
@@ -292,7 +267,6 @@ export function createImpostors(renderer, o = {}) {
 			}
 			pages.length = 0;
 			card.dispose();
-			for (const t of shots) t.dispose();
 		}
 	};
 }

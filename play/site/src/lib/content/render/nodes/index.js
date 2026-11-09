@@ -403,8 +403,10 @@ export function cardMaterials(map, normals, cells, views, cut) {
 		// the eye's ray through this corner met on the view's plane
 		const rd = V.sub(c);
 		const H = c.add(rd.mul(dot(c, d).negate().div(dot(rd, d))));
-		const q = varying(base.add(gk)).add(clamp(varying(vec2(dot(H, r), dot(H, u)).div(size).add(0.5)), 0.004, 0.996)).div(cells);
-		return { col: drawn(map, q), nd: drawn(normals, q), wk: w[['x', 'y', 'z'][k]] };
+		// (WebGPURenderer's rows run from the top, the view's up from its foot: v turned over in the cell)
+		const l = clamp(varying(vec2(dot(H, r), dot(H, u)).div(size).add(0.5)), 0.004, 0.996);
+		const q = varying(base.add(gk)).add(vec2(l.x, float(1).sub(l.y))).div(cells);
+		return { col: texture(map, q), nd: texture(normals, q), wk: w[['x', 'y', 'z'][k]] };
 	});
 	// each view's colour weighed by its own cover too: a see-through pixel's colour (the clear) never tints the blend
 	const cover = taken.reduce((a, t) => a.add(t.wk.mul(t.col.a)), float(1e-4));
