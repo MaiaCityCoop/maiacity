@@ -1,5 +1,15 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 15:12 Berlin — #6 run 3 (head dbccfa97f) not recorded: measured under Spotlight indexing
+- The Mac's load was 13–18 (Spotlight's mdworkers and FSEvents at 30–50 % each, indexing the jobs' new worktrees and
+  node_modules): main's own frames doubled (near 34.6 ms against 25.3 in run 2), and head's "same t twice" came out
+  different (identical in run 2). Its timing and same-t can't be judged from this run; it re-runs once the load is under 5.
+- The look did change for the better: in the 8° backlit still head's low leaves are lighter, yellow-green against the
+  sun, where main's are dark green (golden SSIM 0.78).
+- 7af6e162 is running now (also under that load: settle times may read slow).
+- To keep Spotlight off the jobs' trees, Samuel could add ~/Documents/Development to Spotlight's Privacy list (System
+  Settings → Siri & Spotlight → Spotlight Privacy); I won't change system settings.
+
 ## 15:06 Berlin
 Loop order now: #6 (running) → 7af6e162 → **#8 run 3** (render 54630c308; run.sh gets the PR head when it starts —
 it is 32be9ea42 now, newer than the 2653aee98 relayed) → 544485e2's contact-shadow test → 0b4c007b's looks on main
