@@ -19,13 +19,15 @@ import { cafes, coops, coopsAround, henPatches, rabbitPatches, squaresAround, ty
 import { water } from './textures'
 import { groundMaterial } from '$lib/content/biomes'
 import { biomeOr } from '$lib/content/assets/sources/biome.js'
+import { grassField, grassOfRecipe, growsGrass } from '$lib/content/biomes/grass.js'
+import { smallDevice } from '$lib/content/render/budget.js'
 import { songbirds } from './birds.js'
-import { appleTree, banana, berryBush, canopyTree, climber, clover, coconutPalm, comfrey, fruitTree, ginger, herb, papaya, passionVine, seeded, smallFruitTree, squash, strawberries, tropicalShrub, forestFloor, FLOOR_KINDS, floorPick, grassTuft, type Plant } from './plants'
+import { appleTree, banana, berryBush, canopyTree, climber, clover, coconutPalm, comfrey, fruitTree, ginger, herb, papaya, passionVine, seeded, smallFruitTree, squash, strawberries, tropicalShrub, forestFloor, FLOOR_KINDS, floorPick, type Plant } from './plants'
 import { antHills, apiary, fishes, herd } from './animals'
 import { nearReady as actorsReady, wantNear as actorsNear } from '$lib/content/assets/render/crowd.js'
 import { flow, pond, shore, stream } from './water'
 import { createWorldRenderer } from '$lib/content/render/world.js'
-import { createSky } from '$lib/content/sandbox-kit/sky.js'
+import { createSky, SUN } from '$lib/content/sandbox-kit/sky.js'
 import { createWalker } from '$lib/content/sandbox-kit/walker.js'
 import { createObstacles } from '$lib/content/sandbox-kit/obstacles.js'
 import { connectFilm, filmDraws, filmHoldsSize, filmPlays, worldTime } from '$lib/content/sandbox-kit/film.js'
@@ -977,20 +979,19 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		// in the water, a dome (or Sandbox 5's building's own ground), a field or a trunk
 		// (a kind of it that keeps clear of the paths and the water by `margin` metres, that much further off them)
 		floorOpen = (x, z, margin = 0) => (open(x, z, 0.1 + margin) || inBand(x, z, 0.1 + margin, 0.1 + margin)) && clearOf(x, z, 0.15)
+		// the grass only now: where it grows is worked out once and kept
+		grassOpen = true
 	}
 	/** where the floor's cover may stand (set once the garden is planted), `margin` metres clear of paths and water */
 	let floorOpen = (_x: number, _z: number, _margin = 0) => true
 	/** the trees of the forest garden, each its crown's radius (set as the garden is planted): the floor's canopy */
 	const floorTrunks: { x: number; z: number; r: number }[] = []
 	const floorIndex = (r: () => number) => FLOOR_KINDS.indexOf(floorPick(r))
-	// and tufts of meadow grass standing up out of the lawn, drawn with the floor, near you
-	FLOOR.push(species(grassTuft(0.55), false))
-	const TUFT = FLOOR.length - 1
 	// Sandbox 5's floor cover: the food forest biome's grasses, moss, flowers, strawberries, ferns, leaves and deadwood,
 	// each in its colonies, laid out in tiles round you as you go ($content/biomes/stream.js) — too dense for the whole cell;
 	// all of it near you, thinning out further off, each plant growing out of the ground as you come (so it has no edge)
 	// ($content/biomes/stream.js lays it; each kind built in the box and drawn by the renderer, grown on the graphics card)
-	const floorCover = flora && FLOOR_BIOME ? coverStream({ drawn: library, recipe: FLOOR_BIOME, open: (x, z, margin) => floorOpen(x, z, margin), trunks: floorTrunks, heightAt: groundY, tile: 10, reach: 28, near: 7, thin: 0.2, density: FLOOR_BIOME.density, seed: 505 }) : null
+	const floorCover = flora && FLOOR_BIOME ? coverStream({ drawn: library, recipe: FLOOR_BIOME, open: (x, z, margin) => floorOpen(x, z, margin), trunks: floorTrunks, heightAt: groundY, tile: 10, reach: 28, near: 7, thin: 0.2, density: FLOOR_BIOME.density, seed: 505, blades: growsGrass(FLOOR_BIOME) }) : null
 	const TILE = 70
 	type Tile = { cx: number; cz: number; main: THREE.Matrix4[][]; under: THREE.Matrix4[][]; floor: THREE.Matrix4[][]; far: THREE.Matrix4[]; farCrowns: THREE.Matrix4[]; farColors: THREE.Color[]; dense: THREE.Matrix4[]; denseCrowns: THREE.Matrix4[]; denseColors: THREE.Color[]; near?: THREE.Group; farMesh?: THREE.Group; ground?: THREE.Group }
 	const tiles = new Map<string, Tile>()
@@ -1014,6 +1015,28 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		!!soloGround && inDome(x, z, margin + 1) && Math.hypot(x - soloFoot.x, z - soloFoot.z) > soloFoot.R && soloGround.clear(x, z, off) && openGround(x, z, margin)
 	// the relief where the ground is open, flat under the domes, the squares, the paths and the water
 	ground?.shape((x, z) => openGround(x, z, 0.6) && !inDome(x, z, 1.5))
+	// the grass, blade by blade ($content/biomes/grass.js). Sandbox 1 (and 5): its floor's, the food forest's grass kinds
+	// where their colonies are and the floor is open (the cover draws its other kinds, above). Without a floor: where the
+	// tufts stood, everywhere in the cell off the domes, the squares, the paths and the water, its grass the meadow's as
+	// the layout pins it (grass.js's own where it pins none)
+	const meadowBiome = flora ? null : biomeOr(FLOORS.meadow)
+	const grassBiome = flora ? FLOOR_BIOME : meadowBiome
+	const grassOf = grassBiome && growsGrass(grassBiome) ? grassOfRecipe(grassBiome, (x, z, margin) => floorOpen(x, z, margin), { trunks: floorTrunks, heightAt: groundY }) : flora ? null : () => ({ grass: 0.9, tall: 0.3 })
+	let grassOpen = false
+	const grass = grassOf
+		? grassField({
+				params: grassBiome?.grass,
+				device: smallDevice() ? 'small' : 'desktop',
+				// on the ground's relief (groundY), as every plant and the cover stand; off the paths' stones (their points
+				// 1.5 m apart down the middle of a ribbon 2.4 m wide, so 1.5 m from them is off the stones)
+				at: flora
+					? (x, z) => (grassOpen && floorOpen(x, z) && !nearPath(x, z, 1.5) ? { ...grassOf(x, z), y: groundY(x, z) } : { grass: 0, tall: 0 })
+					: (x, z) => (!grassOpen || !inHex(x, z) || inDome(x, z, 1) || inSquare(x, z) || nearPath(x, z, 1.6) || nearWater(x, z, W / 2 + 0.4) ? { grass: 0, tall: 0 } : { ...grassOf(x, z), y: groundY(x, z) })
+			})
+		: null
+	if (grass) scene.add(grass.object)
+	// for the checks that look at it (c7's screenshots): its blades by level, its mask, and it shown or not
+	;(window as unknown as { __grass?: typeof grass }).__grass = grass
 	const q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), sv = new THREE.Vector3()
 	const mat = (x: number, y: number, z: number, rot: number, sx: number, sy = sx, sz = sx) => new THREE.Matrix4().compose(p.set(x, y + groundY(x, z), z), q.setFromEuler(e.set(0, rot, 0)), sv.set(sx, sy, sz))
 	{
@@ -1102,15 +1125,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 				if (++n % 500 === 0) await pause('Planting the edges')
 			}
 	}
-	// the tufts: everywhere there is open grass (Sandbox 5 has its own floor cover instead)
-	if (!flora) {
-		const r = seeded(123)
-		for (let i = 0; i < 26000; i++) {
-			const x = (r() - 0.5) * WORLD * 2, z = (r() - 0.5) * WORLD * 2
-			if (!inHex(x, z) || inDome(x, z, 1) || inSquare(x, z) || nearPath(x, z, 1.6) || nearWater(x, z, W / 2 + 0.4)) continue
-			tileAt(x, z).floor[TUFT]!.push(mat(x, 0, z, r() * 6.28, 0.6 + r() * 0.8))
-		}
-	}
+	if (!flora) grassOpen = true
 	await pause('Planting the edges')
 	if (forest) {
 		await plantGarden()
@@ -1546,6 +1561,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		forestTick()
 		// the floor's cover follows the eye every frame (a tile at most built a frame; it fades in as it nears)
 		floorCover?.update(camera.position.x, camera.position.z, filmDraws() ? 999 : 1)
+		grass?.update(camera, t, { sun: { dir: sky.sunDir, color: sky.sun.color, strength: sky.sun.intensity / SUN }, height: renderer.domElement.height, pushers: [[pos.x, pos.z, 0.6, walker.flying() ? 0 : 1]], budget: filmDraws() ? Infinity : undefined })
 		library.update()
 		soloBuild?.plantings.update()
 		// the film camera draws the canvas itself while it holds it (maia/content/film)
@@ -1601,6 +1617,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			for (const i of shown) built.get(i)!.update(t)
 			// what the renderers draw of the domes' insides too, now their plants round the camera are put down
 			forestTick()
+			grass?.update(camera, t, { sun: { dir: sky.sunDir, color: sky.sun.color, strength: sky.sun.intensity / SUN }, height: renderer.domElement.height, budget: Infinity })
 			library.update()
 			glowMat.emissive.set(GLOW)
 			for (const p of pool) p.color.set(LAMP)
@@ -1773,6 +1790,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			marker.visible = false
 		},
 		dispose() {
+			grass?.dispose()
 			running = false
 			cancelAnimationFrame(frame)
 			domeStream.dispose()
