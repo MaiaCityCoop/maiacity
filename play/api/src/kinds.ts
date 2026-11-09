@@ -1,7 +1,5 @@
 // One version control (play/SPEC.md "Version control", Samuel 2026-11-06): every versioned kind is one entry of the
-// registry below (each entry in ./allkinds.ts); ./versioned.ts does the rest. A schema with no hooks needs no code
-// (Samuel 2026-11-06): an accepted schema no entry holds is a kind of its own (syncKinds, its rows in play.records). A
-// schema's new version is accepted only while every document on Main still validates against it.
+// registry below (./allkinds.ts); a schema with no hooks needs no code (syncKinds).
 import { COOP } from "./kit/ids";
 import type { Me } from "./access";
 import type { BlobStore } from "./blobs";
@@ -142,9 +140,7 @@ export const qi = (s: string) => s.replace(/[^a-z0-9_.]/g, "");
 /** the SQL of a kind's rows `r` that `p` sees: a document that may be a person's own is theirs or the coop's (./owners.ts) */
 export const seen = (k: Kind, p: string) => (k.owned ? `(r.${qi(k.owned)} = '${COOP}' OR r.${qi(k.owned)} = ${p}::uuid)` : "");
 
-/**
- * A document named by its UUID, as `me` sees it (another's private one is as one that never was): its kind and id, its
- */
+/** A document named by its UUID as `me` sees it (another's private one as one that never was). */
 export async function docRef(q: Queryable, ctx: Ctx | null, id: unknown, me: Pick<Me, "id"> | null): Promise<{ kind: Kind; uuid: string; docId: string }> {
   const uuid = `${id ?? ""}`.toLowerCase();
   if (!UUID.test(uuid)) throw new HttpError("Name the document by its UUID (list_docs).", 404);

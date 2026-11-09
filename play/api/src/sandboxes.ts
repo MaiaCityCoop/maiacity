@@ -1,7 +1,5 @@
-// A sandbox's layout (play/SPEC.md §4.6, Samuel 2026-11-04 and 2026-11-06): its pins (each slot an asset's accepted
-// version, variant and values) and its configs by name is a document, `sandbox:<uuid>` (./docs/schemas.ts), versioned
-// through ./versioned.ts with its own edit helpers (pin, pin_latest, unpin, set, delete). Accepting writes Main's pins
-// and configs to play.sandbox_pins and play.sandbox_configs, which the worlds read (/api/sandboxes/<uuid>/config).
+// A sandbox's layout (play/SPEC.md §4.6, Samuel 2026-11-04 and 2026-11-06): its pins and configs, a document
+// `sandbox:<uuid>` with its own edit helpers; accepting writes Main to the rows the worlds read.
 import type { Db, Queryable } from "./kit/pg";
 import { admin, must, type Me } from "./access";
 import { canonical } from "./kit/hash";
@@ -499,11 +497,8 @@ export async function proposedState(db: Queryable, me: Me | null, sandbox: strin
 }
 
 /**
- * play's seed (./seed.ts), after ensureSchemas (migration 202611070115-d2f50bf1-sandbox-layouts kept what SQL can't
- * write): each sandbox with pins, configs or a kept change gets its layout document (v1 as they are), each kept change
- * (play.sandbox_changes_kept) an intent variant keeping its intent's stage: at Proposal its edits made again on v1 and
- * proposed; accepted or archived a closed variant keeping its review. Each moved once, in its own transaction under one
- * advisory lock (play-api and the import migrate at once on a deploy).
+ * play's seed (./seed.ts), after ensureSchemas: each sandbox's layout document made from its rows (migration
+ * 202611070115-d2f50bf1-sandbox-layouts), its kept changes intent variants, under one advisory lock.
  */
 export async function ensureLayouts(db: Db): Promise<number> {
   const { rows: has } = await db.query(`SELECT to_regclass('play.sandbox_changes_kept') AS t`);

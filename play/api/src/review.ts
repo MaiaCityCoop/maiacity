@@ -58,10 +58,7 @@ async function listedVariant(db: Queryable, p: any, h: { doc_id: string; doc_var
   };
 }
 
-/**
- * An intent's work as its detail shows it (intent 2df30a21: opened in about a second, whatever it holds): its first
- * document's kind's extras and edits, every document in `docs` (listedVariant, in brief), and its pieces.
- */
+/** An intent's work as its detail shows it (intent 2df30a21: opened in about a second), its documents listed in brief. */
 export async function reviewDoc(db: Queryable, p: any) {
   const k = kindOfWork(p.kind)!;
   const held = heldOf(p);

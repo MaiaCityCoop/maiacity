@@ -172,9 +172,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await configOf(db, p.id));
   });
 
-  // ---- intents (./intents.ts, its work ./held.ts): the one record on the board (play/SPEC.md §4.12), added, specified
-  // and built by agents over MCP, its work proposed by putting it at Proposal, decided by its admins here (a spec
-  // approved or sent back, work accepted or archived, code accepted and shipped by ./ship.ts, or brought back)
+  // ---- intents (./intents.ts, its work ./held.ts; play/SPEC.md §4.12): decided by its admins here
   on("GET", "/api/intents", async (req) => {
     const q = new URL(req.url).searchParams;
     const s = q.get("stage");
@@ -233,9 +231,8 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await maskEdges(db, m, await decideAny({ db, store }, m, p.id, p.verdict as IntentVerdict | "archive", github, commit)));
   });
 
-  // one version control (./versioned.ts), admins only: a document by its UUID at Main's newest version, ?v=, ?edit= or
-  // ?intent=; its history (?variant=<n> for one variant's edits); and what an edit or variant changes (/changes).
-  // Changed only by proposal.
+  // one version control (./versioned.ts), admins only: a document by its UUID at Main, ?v=, ?edit= or ?intent=; its
+  // history and changes. Changed only by proposal.
   on("GET", "/api/docs", async (req) => json(await listDocs(db, await me(req), new URL(req.url).searchParams.get("kind") ?? undefined)));
   on("GET", "/api/docs/:id", async (req, p) => {
     const q = new URL(req.url).searchParams;

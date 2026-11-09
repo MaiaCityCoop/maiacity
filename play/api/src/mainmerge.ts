@@ -1,17 +1,7 @@
 // Main merged into open intent pull requests by play (play/SPEC.md §4.12 "Accept ships it"; intent f28822d9, Samuel
-// 2026-11-07: "This merging main conflicts steps should be also automated right?"), each tick of Ship's watcher after
-// watchPulls (./watcher.ts) read them:
-// - a pull request of an intent in Build or at Proposal, open into main, mergeable and behind main is updated with
-//   GitHub's update-branch (`expected_head_sha` the head read), once per head and main head, pushed with SHIP_TOKEN so
-//   the required checks and the box's run (intents-pr.yml) run on the new head. Play's merges are kept in a row
-//   (pr_seen.merged_in): the results on the head it merged from count on the new one once its required checks are green
-//   (./substate.ts countsOn; intent b17a4980), so an intent at Proposal stays waiting. A builder's push in between makes
-//   GitHub refuse it (422): the next tick reads the new head first.
-// - one in conflict is failed, "conflicts with main: <files>" (both sides' changes since their merge base), and play
-//   posts the status 'Merges with main' (failure) on its head, waking its builder session; success once it merges.
-//   Not a required check.
-// Never an intent in Ship, Accepted or Archived, a pull request into another branch or naming no intent, nor a merge
-// into main or production.
+// 2026-11-07: "This merging main conflicts steps should be also automated right?"), each tick of Ship's watcher: one
+// behind main updated with GitHub's update-branch (its results carried over: ./substate.ts countsOn, intent b17a4980);
+// one in conflict failed, the status 'Merges with main' posted on its head. Never an intent in Ship or done, nor a merge.
 import type { Db } from "./kit/pg";
 import { GitHubError, intentLink, keepSeen, MERGES_CONTEXT, openPulls, type GitHub } from "./github";
 import { conflictWhy, short, type PlayMerge, type PrSeen } from "./substate";
@@ -64,11 +54,7 @@ async function conflictFiles(gh: GitHub, seen: PrSeen, main: string) {
   return [...new Set((await gh.pullFiles(seen.pr)).filter((f) => onMain.has(f)))].sort();
 }
 
-/**
- * One look: main's head read, then each intent in Build or at Proposal with an open pull request into main: in conflict,
- * failed and 'Merges with main' failure; mergeable again, success; behind main, update-branch under the intent's row,
- * so an Accept pressed meanwhile waits and finds it moved.
- */
+/** One look: main's head read, then each open intent pull request into main updated, or its conflict shown, under the intent's row. */
 export async function mergeMain(db: Db, gh: GitHub, state: MainMergeState, at = Date.now()) {
   const main = await gh.branchHead("main");
   if (state.main !== main) {

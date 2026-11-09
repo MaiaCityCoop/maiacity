@@ -1,8 +1,5 @@
-// Artifacts (play/SPEC.md §4.13): every link from the net Maia City keeps, over MCP by avenMAIA for its token's admin,
-// pasted (origin 'human', "Added by") or found in research ('agent', "Sourced by avenMAIA"), its three texts held to
-// their form here (title ≤ 70 characters, description ≤ 280, summary 500–1,500 words in sections) and its authors
-// (play.authors, by UUID, in order). One link, one artifact (urlOf). A document (artifact:<uuid>, ./versioned.ts): every
-// change waits at Proposal as an intent's work, its row what its accepted version says. Admins only.
+// Artifacts (play/SPEC.md §4.13): every link from the net Maia City keeps, kept over MCP by avenMAIA, its three texts
+// held to their form here. One link, one artifact (urlOf); a document like any other (artifact:<uuid>). Admins only.
 import { keepFile } from "./owners";
 import { admin, COOP, type Me } from "./access";
 import { AVENMAIA, SCHEMA } from "./kit/ids";
@@ -410,9 +407,8 @@ type Own = { kind: "idea" | "improve"; title: string; goal: string; evidence: st
 const OWN_CHECK = { check: "The artifact holds to the artifacts' form (three texts, authors, one link)", how: "look", by: "the form checks add_artifact and update_artifact make: its link, title, description, summary and authors", must: true };
 
 /**
- * An intent of the artifact's own (author the admin, via mcp, the artifact schema), specified with play's spec and asked
- * of the rules (Approve spec); in Build its check recorded and its work proposed, asked of the rules again (Accept).
- * Where no rule decides it waits for a person, at Specify or at Proposal. Gives back its id, stage and what `propose` gave.
+ * An intent of the artifact's own, specified with play's spec and asked of the rules at Approve spec and at Accept;
+ * where no rule decides it waits for a person. Gives back its id, stage and what `propose` gave.
  */
 async function ownIntent<R>(db: Db, store: BlobStore, who: Me, o: Own, propose: (intent: string) => Promise<R>): Promise<{ intent: string; stage: string; auto: unknown; proposed: R | null }> {
   const i = await addIntent(db, who, { kind: o.kind, title: o.title, note: "Made by play for the artifact's change, with no intent named (play/SPEC.md §4.12, Auto-accept rules).", work_kind: [SCHEMA.artifact] });

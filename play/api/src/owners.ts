@@ -1,11 +1,5 @@
-// Owners (play/SPEC.md "Owners"; intent 732d8a38, the first slice of Ownership 8fc46819; Samuel 2026-11-07): every asset
-// and file belongs to an account, a person's (their human's UUID) or the coop's (./kit/ids.ts COOP). What a person owns
-// is private: to anyone else, another admin included, it answers exactly as what never was (404, the same words, in no
-// list). This is the one place that says so (the only module reading play.files for people).
-//
-// A file is named by its hash, so the same bytes may be in several libraries, each a row of play.file_owners with its
-// own label (the coop's stays play.files.label). A file is everyone's while the coop's library holds it or no library
-// names it; one only in personal libraries is theirs alone. An asset has one owner (play.assets.owner); only group
+// Owners (play/SPEC.md "Owners"; intent 732d8a38; Samuel 2026-11-07): what a person owns answers to anyone else exactly
+// as what never was. This is the one place that says so (the only module reading play.files for people); only group
 // `characters` may be a person's for now.
 import { COOP } from "./kit/ids";
 import type { Me } from "./access";
