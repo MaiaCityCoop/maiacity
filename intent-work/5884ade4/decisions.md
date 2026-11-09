@@ -158,3 +158,11 @@ play/site's 56 test files, run by nothing today, run and green.
 
 Pinning tests first (8's pinning part), then 1 (the API core, the largest lever), 2, 3, 6, 4, 5, then 7, and 8's
 clean-up last. One move per commit, the gate green after each; the held set rechecked (`held.sh`) before each commit.
+
+## Build (approved by Samuel 2026-11-09 08:29Z; draft PR #2198)
+
+Four area builders in parallel, each on its own branch from this one, merged in here as they finish:
+`intent/5884ade4-u-api` (fix 1), `-u-site-app` (fix 2), `-u-site-content` (fix 3), `-u-infra` (fix 6). Each keeps its
+moves' log in `log/<area>.md`. After them: the tests builder (fix 8: the test kit, last), then sweeps for 4, 5 and 7
+across what is left, then the re-audit. The held set is refreshed from every other intent in Build, Proposal or Ship
+(`held-intents.txt`), 143 files at 08:33Z.
