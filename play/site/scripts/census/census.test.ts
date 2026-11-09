@@ -9,7 +9,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as THREE from 'three';
-import { CountingRenderer, drawOf } from './counting.js';
+import { BACKGROUND_SPHERE_TRIS, CountingRenderer, CountingWebGPURenderer, drawOf } from './counting.js';
 
 const HERE = import.meta.dir;
 const OUT = mkdtempSync(join(tmpdir(), 'census-test-'));
@@ -132,6 +132,133 @@ describe('the counting renderer counts as three draws', () => {
 	});
 });
 
+// WebGPURenderer as the census counts it (intent c1bee1f8, c4): its walk the WebGL one's, its background, output pass
+// and shadow passes its own
+describe('the counting WebGPU renderer counts as WebGPU draws', () => {
+	const gpu = () => {
+		const scene = new THREE.Scene();
+		const camera = new THREE.PerspectiveCamera(68, 1440 / 900, 0.1, 1000);
+		const r = new CountingWebGPURenderer({ canvas: { width: 1440, height: 900, style: {}, addEventListener() {} } });
+		return { scene, camera, r };
+	};
+	const lit = () => new THREE.MeshStandardMaterial();
+	/** a sun casting shadows over a box that casts and a floor that receives */
+	const sunlit = () => {
+		const s = gpu();
+		s.r.shadowMap.enabled = true;
+		const sun = new THREE.DirectionalLight('#fff', 1);
+		sun.castShadow = true;
+		sun.position.set(0, 10, -5);
+		sun.target.position.set(0, 0, -5);
+		const caster = new THREE.Mesh(box(), lit());
+		caster.position.set(0, 0, -5);
+		caster.castShadow = true;
+		const floor = new THREE.Mesh(new THREE.PlaneGeometry(10, 10).rotateX(-Math.PI / 2), lit());
+		floor.position.set(0, -1, -5);
+		floor.receiveShadow = true;
+		s.scene.add(sun, sun.target, caster, floor);
+		return { ...s, caster, floor };
+	};
+
+	test('it is a WebGPURenderer, initialised by init, its cameras in its coordinate system', async () => {
+		const { scene, camera, r } = gpu();
+		expect(r.isWebGPURenderer).toBe(true);
+		expect(r.initialized).toBe(false);
+		await r.init();
+		expect(r.initialized).toBe(true);
+		const m = new THREE.Mesh(box(), mat());
+		m.position.set(0, 0, -5);
+		scene.add(m);
+		r.outputColorSpace = THREE.LinearSRGBColorSpace;
+		const t = drawn(r, scene, camera);
+		expect(camera.coordinateSystem).toBe(THREE.WebGPUCoordinateSystem);
+		expect(t.calls).toBe(1);
+		expect(t.tris).toBe(12);
+		expect(CountingRenderer.made).toContain(r);
+	});
+
+	test('a texture background is drawn on a sphere; a colour only clears', () => {
+		const { scene, camera, r } = gpu();
+		// no output pass (linear out, no tone mapping): the background alone
+		r.outputColorSpace = THREE.LinearSRGBColorSpace;
+		scene.background = new THREE.Texture();
+		scene.background.mapping = THREE.EquirectangularReflectionMapping;
+		expect(drawn(r, scene, camera)).toMatchObject({ calls: 1, tris: BACKGROUND_SPHERE_TRIS });
+		// WebGL draws the same background on a box
+		const gl = stage();
+		expect(drawn(gl.r, scene, gl.camera)).toMatchObject({ calls: 1, tris: 12 });
+		scene.background = new THREE.Color('#fff');
+		expect(drawn(r, scene, camera)).toMatchObject({ calls: 0, tris: 0 });
+		expect(BACKGROUND_SPHERE_TRIS).toBe(new THREE.SphereGeometry(1, 32, 32).index!.count / 3);
+	});
+
+	test('tone mapping to the screen adds the output pass, one triangle; into a target it does not', () => {
+		const { scene, camera, r } = gpu();
+		r.outputColorSpace = THREE.LinearSRGBColorSpace;
+		expect(drawn(r, scene, camera).calls).toBe(0);
+		r.toneMapping = THREE.AgXToneMapping;
+		expect(drawn(r, scene, camera)).toMatchObject({ calls: 1, tris: 1 });
+		r.setRenderTarget(new THREE.RenderTarget(64, 64));
+		expect(drawn(r, scene, camera)).toMatchObject({ calls: 0, targetCalls: 0 });
+		r.setRenderTarget(null);
+		// sRGB out of the linear working space is a colour transform too
+		r.toneMapping = THREE.NoToneMapping;
+		r.outputColorSpace = THREE.SRGBColorSpace;
+		expect(drawn(r, scene, camera).calls).toBe(1);
+	});
+
+	test('a shadow map is drawn only where something lit by it receives shadows', () => {
+		const { scene, camera, r, floor } = sunlit();
+		r.outputColorSpace = THREE.LinearSRGBColorSpace;
+		expect(drawn(r, scene, camera)).toMatchObject({ shadowPasses: 1, shadowCalls: 1, shadowTris: 12 });
+		floor.receiveShadow = false;
+		expect(drawn(r, scene, camera)).toMatchObject({ shadowPasses: 0, shadowCalls: 0 });
+		// WebGL draws it whatever receives it
+		const gl = stage();
+		gl.r.shadowMap.enabled = true;
+		expect(drawn(gl.r, scene, gl.camera).shadowCalls).toBe(1);
+	});
+
+	test('the renderer’s shadow switch holds, as the core keeps it on WebGPU', () => {
+		const { scene, camera, r } = sunlit();
+		r.shadowMap.autoUpdate = false;
+		expect(drawn(r, scene, camera).shadowCalls).toBe(0);
+		r.shadowMap.needsUpdate = true;
+		expect(drawn(r, scene, camera).shadowCalls).toBe(1);
+		expect(r.shadowMap.needsUpdate).toBe(false);
+		expect(drawn(r, scene, camera).shadowCalls).toBe(0);
+	});
+
+	test('a cascaded sun (three\'s SunLight) is drawn once a cascade, as WebGL draws its viewports', async () => {
+		const { SunLight } = await import('three/addons/lights/SunLight.js');
+		const s = sunlit();
+		const sun = new SunLight(0xffffff, 1);
+		sun.castShadow = true;
+		sun.position.set(0, 10, -5);
+		s.scene.children.filter((o: any) => o.isDirectionalLight).forEach((o) => s.scene.remove(o));
+		s.scene.add(sun, sun.target);
+		const cascades = (sun as any).shadow.getViewportCount();
+		expect(cascades).toBeGreaterThan(1);
+		const t = drawn(s.r, s.scene, s.camera);
+		expect(t.shadowPasses).toBe(cascades);
+		const gl = stage();
+		gl.r.shadowMap.enabled = true;
+		const w = drawn(gl.r, s.scene, gl.camera);
+		expect(w.shadowPasses).toBe(cascades);
+		expect(t.shadowCalls).toBe(w.shadowCalls);
+	});
+
+	test('a see-through double-sided caster is drawn twice into the shadow map', () => {
+		const { scene, camera, r, caster } = sunlit();
+		caster.material = new THREE.MeshStandardMaterial({ transparent: true, side: THREE.DoubleSide });
+		expect(drawn(r, scene, camera)).toMatchObject({ shadowCalls: 2, shadowTris: 24 });
+		// and twice in the main pass, back then front, as on WebGL
+		expect(drawn(r, scene, camera).calls).toBe(2 + 1 + 1);
+		caster.material.side = THREE.FrontSide;
+		expect(drawn(r, scene, camera).shadowCalls).toBe(1);
+	});
+});
+
 describe('the census is the same every run (intent 373050d1)', () => {
 	test('its page draws Math.random from the Mac\'s one seed (mulberry32, 0x2545f491), the same sequence every run', () => {
 		// the Mac's SEEDED_RANDOM (intent-work/main-baseline/determinism.mjs), written out here as the reference
@@ -192,6 +319,20 @@ describe('sandbox-1 on the CPU', () => {
 			expect(v.frames.some((f: any) => f.tris === v.totals.tris)).toBe(true);
 		}
 	});
+});
+
+// the switch (intent c1bee1f8, c4): the same world counted on WebGPURenderer when the page is asked for it
+describe('sandbox-1 on WebGPURenderer', () => {
+	test('is counted as WebGPU draws it, every view', () => {
+		const got = census(['--world', 'sandbox-1', '--view', 'all', '--renderer', 'webgpu']);
+		expect(got.renderer).toBe('WebGPURenderer');
+		expect(got.views.map((v: any) => v.view)).toEqual(['near', 'mid', 'far']);
+		for (const v of got.views) {
+			expect(v.totals.meshes + v.totals.instanced).toBeGreaterThan(0);
+			expect(v.totals.mainTris).toBeGreaterThan(0);
+			expect(v.totals.tris).toBe(v.totals.mainTris + v.totals.shadowTris + v.totals.targetTris);
+		}
+	}, 300_000);
 });
 
 describe('the other worlds on the CPU', () => {

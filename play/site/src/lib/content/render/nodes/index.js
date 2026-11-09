@@ -228,6 +228,21 @@ export const ours = (Base) =>
 			if (o.instanceColor) instanceColor.assign(always('instanceColor', 'vec3'));
 			return positionLocal;
 		}
+		/**
+		 * What the shadow pass keeps (WebGPU, intent c1bee1f8): its own shadow material draws every caster, never this
+		 * one's diffuse step, so the cut and the fade are handed to it as the mask three reads there; null without them.
+		 * Made once for the cut and fade it has (three's constructor sets it; what it sets is not kept).
+		 */
+		get maskShadowNode() {
+			if (!this.cut && !this.fade) return null;
+			if (this._mask?.cut !== this.cut || this._mask?.fade !== this.fade) {
+				let gone = this.cut ? cuts(this.cut) : null;
+				if (this.fade) gone = gone ? gone.or(faded(this.fade)) : faded(this.fade);
+				this._mask = { cut: this.cut, fade: this.fade, node: gone.not() };
+			}
+			return this._mask.node;
+		}
+		set maskShadowNode(_v) {}
 		setupDiffuseColor(builder) {
 			if (this.cut) cuts(this.cut).discard();
 			if (this.fade) faded(this.fade).discard();

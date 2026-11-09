@@ -7,9 +7,9 @@ import * as THREE from 'three';
 import { MeshBasicNodeMaterial, MeshStandardNodeMaterial } from 'three/webgpu';
 import {
 	abs, cameraFar, cameraNear, cameraPosition, cameraProjectionMatrix, cameraViewMatrix, cameraWorldMatrix, clamp, cos, cross, diffuseColor, dot, float, floor, frontFacing, max, mod,
-	normalWorld, normalize, positionLocal, positionView, positionWorld, select, sin, uniform, varying, vec2, vec3, vec4, viewZToOrthographicDepth
+	normalWorld, normalize, positionLocal, positionView, positionWorld, select, sin, uniform, varying, vec2, vec3, vec4, viewZToOrthographicDepth, viewZToPerspectiveDepth
 } from 'three/tsl';
-import { always, drawn, nodeOf, ours } from './index.js';
+import { always, drawn, faded, nodeOf, ours } from './index.js';
 
 /** the view baked: its direction, the thing's middle height, its ball's diameter */
 export const bake = { dir: uniform(new THREE.Vector3(0, 0, 1)), mid: uniform(0), size: uniform(1) };
@@ -40,10 +40,8 @@ const frameOf = (d) => {
 };
 
 /**
- * A page's card: at its ball's middle `aAt`, `aCard` (its size, turn, block's first cell and fade), faced to the eye (the
- * light, for `depth`, its shadow at its baked depth), its three views nearest the eye in its own frame blended from
- * the pages `map` and `normals`, `cells` a side, lit by its normals.
- * @param {THREE.Texture} map @param {THREE.Texture} normals @param {number} cells @param {number} views @param {any} cut
+ * A page's card at `aAt` (its ball's middle), `aCard` (size, turn, block's first cell, fade), faced to the eye, its
+ * three nearest views blended from `map` and `normals` (`cells` a side), lit by its normals.
  */
 export function cardMaterials(map, normals, cells, views, cut) {
 	const at = always('aAt', 'vec3'), A = always('aCard', 'vec4'), size = A.x, turn = A.y, corner = A.z;
@@ -71,24 +69,26 @@ export function cardMaterials(map, normals, cells, views, cut) {
 		// the eye's ray through this corner met on the view's plane
 		const rd = V.sub(c);
 		const H = c.add(rd.mul(dot(c, d).negate().div(dot(rd, d))));
-		// (off its view, the view's empty edge)
 		const q = varying(base.add(gk)).add(clamp(varying(vec2(dot(H, r), dot(H, u)).div(size).add(0.5)), 0.004, 0.996)).div(cells);
 		return { col: drawn(map, q), nd: drawn(normals, q), wk: w[['x', 'y', 'z'][k]] };
 	});
 	const look = taken.reduce((a, t) => a.add(t.col.mul(t.wk)), vec4(0));
 	const cover = taken.reduce((a, t) => a.add(t.wk.mul(t.col.a)), float(1e-4));
 	const nd = taken.reduce((a, t) => a.add(t.nd.mul(t.wk.mul(t.col.a))), vec4(0)).div(cover);
+	// each pixel at its baked depth; its shadow cut as it is (on WebGPU by the material's own nodes, on WebGL `depth`)
+	const z = positionView.z.add(nd.w.sub(0.5).mul(size));
+	const dz = select(ortho, viewZToOrthographicDepth(z, cameraNear, cameraFar), viewZToPerspectiveDepth(z, cameraNear, cameraFar));
 	const make = (K, o) => {
 		const m = new (ours(K))({ alphaTest: 0.5, side: THREE.DoubleSide, ...o });
 		m.positionNode = at.add(turnY(V, turn));
 		m.colorNode = look;
 		m.fade = A.w;
 		m.cut = cut;
+		m.depthNode = dz;
 		return m;
 	};
 	const material = make(MeshStandardNodeMaterial, { roughness: 0.85 });
 	material.normalNode = normalize(cameraViewMatrix.mul(vec4(turnY(normalize(nd.xyz.mul(2).sub(1)), turn), 0)).xyz);
-	const depth = make(MeshBasicNodeMaterial, {});
-	depth.depthNode = viewZToOrthographicDepth(positionView.z.add(nd.w.sub(0.5).mul(size)), cameraNear, cameraFar);
-	return { material, depth };
+	Object.defineProperty(material, 'maskShadowNode', { value: look.a.greaterThan(0.5).and(faded(A.w).not()) });
+	return { material, depth: make(MeshBasicNodeMaterial, {}) };
 }

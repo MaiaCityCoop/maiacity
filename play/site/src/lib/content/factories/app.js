@@ -13,6 +13,7 @@
  */
 // @ts-nocheck
 import { T } from './three.js'
+import { ready } from '$lib/content/render/core.js'
 import { plan as makePlan, Sim, forecast, fmt as fmt_ } from './des.js'
 import { K } from './kit.js'
 import { Look } from './look.js'
@@ -349,21 +350,26 @@ export function boot(spec, host, opts = {}) {
   resize()
   if (app.sel) setTimeout(() => app.select(app.sel), 50)
   let raf = 0, gone = false
-  if (film) {
-    globalThis.__film = { ready: true, step(dt, draw = true) { frameStep(dt) }, app }
-  } else {
-    let last = 0
-    const loop = (now) => {
-      if (gone) return
-      // maiaCITY: the first frame's stamp is the frame's start, which can lie before a long build (a software renderer
-      // takes seconds to its first frame), so the clock never steps back; and never more than 50 ms a frame
-      const dt = last ? Math.min(0.05, Math.max(0, (now - last) / 1000)) : 0
-      last = now
-      if (!document.hidden) frameStep(dt)
+  // maiaCITY: the clocks start once the renderer may draw (WebGPU's device asked for, intent c1bee1f8; on WebGL
+  // at once), and a film is told it is ready only then
+  void ready(look.renderer).then(() => {
+    if (gone) return
+    if (film) {
+      globalThis.__film = { ready: true, step(dt, draw = true) { frameStep(dt) }, app }
+    } else {
+      let last = 0
+      const loop = (now) => {
+        if (gone) return
+        // maiaCITY: the first frame's stamp is the frame's start, which can lie before a long build (a software renderer
+        // takes seconds to its first frame), so the clock never steps back; and never more than 50 ms a frame
+        const dt = last ? Math.min(0.05, Math.max(0, (now - last) / 1000)) : 0
+        last = now
+        if (!document.hidden) frameStep(dt)
+        raf = requestAnimationFrame(loop)
+      }
       raf = requestAnimationFrame(loop)
     }
-    raf = requestAnimationFrame(loop)
-  }
+  })
   // fade the HUD in after the factory has assembled
   for (const c of host.querySelectorAll('.fs-card.fs-fade')) c.classList.add('fs-hidden')
   app.hudAuto = true

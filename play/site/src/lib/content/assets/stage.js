@@ -34,9 +34,11 @@
  * `ground`, a plant's soil at 0 rather than under its roots).
  */
 import * as THREE from 'three';
+import { ClippingGroup } from 'three/webgpu';
 import { ShaderPass, createPost } from '$lib/content/render/post.js';
 import { createSky } from '$lib/content/sandbox-kit/sky.js';
-import { precompile, setExposure, untonemap, withTone } from '$lib/content/render/core.js';
+import { isWebGPU, precompile, setExposure, untonemap, withTone } from '$lib/content/render/core.js';
+import { Fn, dot, float, fract, mix, screenUV, sin, smoothstep, uniform, vec2, vec3, vec4 } from 'three/tsl';
 import { budget } from '$lib/content/render/budget.js';
 import { floorMaterial } from '../render/nodes/index.js';
 import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment } from './kit.js';
@@ -71,6 +73,17 @@ export class Stage {
 		this.theme = theme;
 		this.low = low;
 		this.scene = new THREE.Scene();
+		/** what the asset stands in: the scene, or on WebGPU (intent c1bee1f8), whose materials take no clipping planes
+		 *  of their own, a ClippingGroup cut by the section planes, its shadows too (a rigged actor's plain materials) */
+		this.holder = this.scene;
+		if (isWebGPU(renderer)) {
+			const cut = new ClippingGroup();
+			cut.clippingPlanes = LAB_PLANES;
+			cut.clipIntersection = true;
+			cut.clipShadows = true;
+			this.scene.add(cut);
+			this.holder = cut;
+		}
 		this.state = { explode: 0, cut: 0, xray: 0, labels: 0, slow: 0 };
 		this.target = { explode: 0, cut: 0, xray: 0, labels: 0, slow: 0 };
 		this.paused = false;
@@ -142,7 +155,8 @@ export class Stage {
 		// at the canvas's own pixels (a composer given its target counts them 1:1 until told the ratio)
 		const css = r.getSize(new THREE.Vector2());
 		const paper = this.theme === 'paper';
-		const grade = new ShaderPass({
+		// on WebGPU (the switch, intent c1bee1f8) the grade is the same pass in TSL, its uniforms named alike
+		const grade = isWebGPU(r) ? gradeNode({ vig: paper ? 0.1 : 0.32, grain: paper ? 0.012 : 0.02, sat: 1.06, res: size }) : new ShaderPass({
 			uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uVig: { value: paper ? 0.1 : 0.32 }, uGrain: { value: paper ? 0.012 : 0.02 }, uSat: { value: 1.06 }, uRes: { value: new THREE.Vector2(size.x, size.y) } },
 			vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
 			fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uVig, uGrain, uSat; uniform vec2 uRes; varying vec2 vUv;
@@ -160,7 +174,7 @@ export class Stage {
 			// ambient occlusion on a desktop only: not on a phone (low) nor a big tablet, whose GPU draws it in streaks
 			ao: !this.low && !touchFirst() && ((ao) => this._ao(ao)),
 			bloom: { strength: paper ? 0.22 : 0.42, radius: 0.55, threshold: paper ? 1.6 : 1.0 },
-			after: [grade]
+			after: [grade.node ?? grade]
 		});
 		this.post = post;
 		this.composer = post.composer;
@@ -175,6 +189,8 @@ export class Stage {
 	_ao(ao) {
 		ao.blendIntensity = this.theme === 'paper' ? 0.85 : 1;
 		ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
+		// WebGPU: what the WebGL pass hides from its normal pass is kept out by the post's mask, each frame (_render)
+		if (ao.exclude) return void (this._aoOut = ao.exclude);
 		// effects and see-through parts are not solid: keep them out of the normal and depth pass; so are parts cut out
 		// by a picture (a leaf on a bigger sheet), which that pass would draw whole (./kit.js cutOut)
 		const aoRender = ao.render.bind(ao);
@@ -224,7 +240,7 @@ export class Stage {
 		this.clear();
 		this.root = root;
 		this.asset = asset ?? root.userData.asset;
-		this.scene.add(root);
+		this.holder.add(root);
 		root.updateMatrixWorld(true);
 		const box = new THREE.Box3().setFromObject(root);
 		this.box = box;
@@ -312,7 +328,7 @@ export class Stage {
 			this.resetBreak();
 			this.asset?.pose(0, 1);
 			this._cutTo(0);
-			this.scene.remove(this.root);
+			this.holder.remove(this.root);
 		}
 		if (this.floor) {
 			this.scene.remove(this.floor);
@@ -665,12 +681,13 @@ export class Stage {
 	 * @returns {Promise<void>}
 	 */
 	compile() {
-		if (!this.composer) this._post();
+		if (!this.post) this._post();
 		this._gloss();
 		const r = this.renderer;
 		const was = { tm: withTone(r, 'agx'), clip: r.localClippingEnabled, rt: r.getRenderTarget() };
 		r.localClippingEnabled = true;
-		r.setRenderTarget(this.composer.readBuffer);
+		// into the post's target, as it draws (WebGPU's pipeline has its own, and builds what it draws as it draws it)
+		if (this.composer) r.setRenderTarget(this.composer.readBuffer);
 		let done = Promise.resolve();
 		// the one warm-up (core.js `precompile`): the sky's dome and stars, node materials, built at their first frame
 		done = precompile(r, this.scene, this.camera);
@@ -693,7 +710,7 @@ export class Stage {
 	}
 
 	render() {
-		if (!this.composer) this._post();
+		if (!this.post) this._post();
 		if ((this._glossed = (this._glossed ?? 0) + 1) % 12 === 1) this._gloss();
 		const r = this.renderer;
 		const was = { tm: withTone(r, 'agx'), clip: r.localClippingEnabled, exposure: r.toneMappingExposure };
@@ -713,7 +730,14 @@ export class Stage {
 			r.shadowMap.needsUpdate = true;
 			this._shadowWas = sig;
 		}
-		this.composer.render();
+		if (this._aoOut) {
+			// effects, the parts marked noAO and those cut out by a picture keep out of the occlusion (post.js's mask)
+			this.scene.traverse((m) => {
+				if (!m.isMesh || !m.visible || !(m.userData.noAO || cutOut(m) || m.layers.isEnabled(LAYER_FX))) return;
+				for (const x of Array.isArray(m.material) ? m.material : [m.material]) this._aoOut(x);
+			});
+		}
+		this.post.render();
 		r.shadowMap.autoUpdate = auto;
 		was.tm();
 		setExposure(r, was.exposure);
@@ -748,7 +772,7 @@ export class Stage {
 
 	/** the canvas changed size @param {number} w @param {number} h */
 	resize(w, h) {
-		if (!this.composer) return;
+		if (!this.post) return;
 		this.post.setSize(w, h, this.renderer.getPixelRatio()); // the page may lower its pixel ratio while frames are slow
 		const s = this.renderer.getDrawingBufferSize(new THREE.Vector2());
 		this.grade.uniforms.uRes.value.set(s.x, s.y);
@@ -760,4 +784,28 @@ export class Stage {
 		if (this.sky) this.sky.dispose();
 		this.scene.environment?.dispose();
 	}
+}
+
+/**
+ * The stage's grade in TSL (WebGPU, intent c1bee1f8): the GLSL pass's saturation, vignette and grain, line for line,
+ * after the output; its uniforms under the GLSL pass's names, so the stage sets them alike.
+ * @param {{ vig: number, grain: number, sat: number, res: THREE.Vector2 }} o
+ */
+export function gradeNode(o) {
+	const uniforms = { uTime: uniform(0), uVig: uniform(o.vig), uGrain: uniform(o.grain), uSat: uniform(o.sat), uRes: uniform(new THREE.Vector2(o.res.x, o.res.y)) };
+	const h = Fn(([p]) => fract(sin(dot(p, vec2(12.9898, 78.233))).mul(43758.5453)));
+	/** @param {any} input the picture after the output */
+	const node = (input) =>
+		Fn(() => {
+			const { uTime, uVig, uGrain, uSat, uRes } = uniforms;
+			let c = vec3(input.rgb);
+			const l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+			c = mix(vec3(l), c, uSat);
+			const q = screenUV.sub(0.5).toVar();
+			q.x.mulAssign(uRes.x.div(uRes.y));
+			c = c.mul(float(1).sub(uVig.mul(smoothstep(0.35, 1.25, q.length()))));
+			c = c.add(h(screenUV.mul(uRes).add(fract(uTime).mul(91.7))).sub(0.5).mul(uGrain));
+			return vec4(c, 1);
+		})();
+	return { uniforms, node };
 }

@@ -33,10 +33,26 @@ describe('the render core holds', () => {
 		expect(outside(/WebGLRenderer\(/, [CORE])).toEqual([]);
 		expect(outside(/new\s+(\w+\.)?WebGLRenderer\b/, [CORE])).toEqual([]);
 	});
+	// the switch (intent c1bee1f8): a WebGPURenderer too is made by createRenderer alone, behind its `backend`
+	test('every WebGPURenderer is made by createRenderer', () => {
+		expect(outside(/new\s+(\w+\.)?WebGPURenderer\b/, [CORE])).toEqual([]);
+	});
 	// the factories' `T.OrbitControls` and `T.EffectComposer` are the core's, under three's names (../factories/three.js)
 	test('every OrbitControls and EffectComposer is the core’s', () => {
 		expect(outside(/new\s+(?!T\.)(\w+\.)?OrbitControls\b/, [CORE, POST])).toEqual([]);
 		expect(outside(/new\s+(?!T\.)(\w+\.)?EffectComposer\b/, [CORE, POST])).toEqual([]);
+	});
+	// the switch (intent c1bee1f8): a WebGPURenderer draws nothing before `init()`, so every page that makes a renderer
+	// waits for it before its first frame: `ready(renderer)` or `makeRenderer`, or a stage's `.ready`. The factories'
+	// Look is waited for by its app (../factories/app.js), and T.WebGLRenderer (../factories/three.js) is three's name kept
+	test('every page that makes a renderer waits for it to be ready', () => {
+		const makes = files.filter((f) => /\b(createRenderer|worldRenderer)\s*\(/.test(f.text) && !/\bfunction\s+(createRenderer|worldRenderer)\b/.test(f.text));
+		const waits = (/** @type {{ text: string }} */ f) => /\bready\s*\(|\bmakeRenderer\s*\(/.test(f.text);
+		expect(makes.filter((f) => !waits(f) && ![CORE, 'lib/content/render/stage.js', 'lib/content/render/world.js', 'lib/content/factories/three.js', 'lib/content/factories/look.js'].includes(f.path)).map((f) => f.path)).toEqual([]);
+		const stages = files.filter((f) => /\b(createStageRenderer|createWorldRenderer)\s*\(/.test(f.text) && !/\bfunction\s+(createStageRenderer|createWorldRenderer)\b/.test(f.text));
+		expect(stages.length).toBeGreaterThan(0);
+		expect(stages.filter((f) => !/\.ready\b/.test(f.text)).map((f) => f.path)).toEqual([]);
+		expect(files.find((f) => f.path === 'lib/content/factories/app.js')?.text).toMatch(/ready\(look\.renderer\)/);
 	});
 	// a compileAsync that gathers a node material never settles under WebGLNodesHandler: every warm-up is precompile's
 	test('every warm-up goes through the core’s precompile', () => {

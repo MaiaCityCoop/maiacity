@@ -22,7 +22,7 @@ export function fakeGL() {
 		canvas: { width: 300, height: 150, addEventListener() {}, removeEventListener() {}, style: {} },
 		drawingBufferWidth: 300, drawingBufferHeight: 150,
 		getContextAttributes: () => ({ alpha: true, antialias: false, depth: true, stencil: false, premultipliedAlpha: true }),
-		getExtension: (name) => (name === 'WEBGL_lose_context' ? { loseContext() {}, restoreContext() {} } : {}),
+		getExtension: (name) => (name === 'WEBGL_lose_context' ? { loseContext() {}, restoreContext() {} } : name === 'OES_draw_buffers_indexed' ? { enableiOES() {}, disableiOES() {}, blendEquationSeparateiOES() {}, blendFuncSeparateiOES() {}, colorMaskiOES() {} } : {}),
 		getSupportedExtensions: () => [],
 		getParameter: (p) => (p === C.VERSION ? 'WebGL 2.0' : p === C.SHADING_LANGUAGE_VERSION ? 'WebGL GLSL ES 3.00' : p === 0x0ba2 || p === 0x0c10 ? new Int32Array([0, 0, 300, 150]) : 4096),
 		getShaderPrecisionFormat: () => ({ precision: 23, rangeMin: 127, rangeMax: 127 }),

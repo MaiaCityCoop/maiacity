@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { createControls, createRenderer } from '$lib/content/render/core.js';
+import { createControls, makeRenderer } from '$lib/content/render/core.js';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { scenarios, polyhedraOf, piecesOf, verticesOf, type Box, type Scenario } from './simulation';
 import { shedScenario } from './shed';
@@ -114,7 +114,8 @@ export async function mountLab(root: HTMLElement): Promise<() => void> {
   const scene = new THREE.Scene(); scene.background = new THREE.Color(0xe9e5d8); // the brand's cream, a touch deeper
   scene.fog = new THREE.Fog(0xe9e5d8, 18, 42);
   const camera = new THREE.PerspectiveCamera(42, 1, .05, 100);
-  const renderer = createRenderer({ antialias: true, maxPixelRatio: 2, shadows: 'pcf', colorSpace: THREE.SRGBColorSpace });
+  // nothing drawn before the renderer may draw (WebGPU's device asked for, intent c1bee1f8; on WebGL at once)
+  const renderer = await makeRenderer({ antialias: true, maxPixelRatio: 2, shadows: 'pcf', colorSpace: THREE.SRGBColorSpace });
   viewport.prepend(renderer.domElement);
   const controls = createControls(camera, renderer.domElement, { maxDistance: 30, minDistance: .5 });
   scene.add(new THREE.HemisphereLight(0xfaf8f2, 0xa8b88a, 2.2));

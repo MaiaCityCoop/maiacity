@@ -73,11 +73,11 @@ describe('the Old City film', () => {
 		expect(asked.filter((a) => a === `build ${manifest.recipe}`).length).toBe(1);
 		expect(asked.filter((a) => a === `live ${manifest.recipe}`).length).toBe(1);
 		expect(got.copies.length).toBe(1898);
-		// the runtime makes one renderer for a world, whatever its shots
+		// the runtime makes one renderer for a world, whatever its shots (made ready, makeRenderer, since the switch: intent c1bee1f8)
 		const runtime = readFileSync(new URL('./live-runtime.ts', import.meta.url), 'utf8');
 		const world = runtime.slice(runtime.indexOf('function world('));
-		expect(world.match(/createRenderer\(/g)?.length).toBe(1);
-		expect(world.indexOf('createRenderer(')).toBeLessThan(world.indexOf('for (const s of spec.shots)'));
+		expect(world.match(/\b(createRenderer|makeRenderer)\(/g)?.length).toBe(1);
+		expect(world.search(/\b(createRenderer|makeRenderer)\(/)).toBeLessThan(world.indexOf('for (const s of spec.shots)'));
 	}, 120_000);
 
 	it('files: the frame asks nothing of the network; every code file is laid in, true to its hash', async () => {

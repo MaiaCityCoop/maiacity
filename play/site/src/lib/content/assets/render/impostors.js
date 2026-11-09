@@ -1,20 +1,19 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * PICTURES OF THINGS FAR AWAY — an asset that looks small (./lod.js) as a hemi-octahedral impostor (Brucks; agargaro's
- * forest): its coarsest shape baked once from `views` × `views` directions over its upper half, colours (unlit),
- * normals and depth, into a block on two pages many kinds share; a copy one five-cornered card faced to the eye, its
- * three nearest views blended and lit as the scene is (../../render/nodes/impostor.js), so a far forest takes the low
- * sun as a near one; its shadow cast at its baked depth.
+ * PICTURES OF THINGS FAR AWAY — an asset that looks small (./lod.js) as a hemi-octahedral impostor (Brucks): baked once
+ * from `views` × `views` directions over its upper half (colours unlit, normals, depth) into a block on two pages; a
+ * copy one card, its three nearest views blended and lit as the scene is (../../render/nodes/impostor.js).
  */
 import * as THREE from 'three';
 import { castsAsNode, cutOf } from '../../render/nodes/index.js';
 import { bake, bakeOf, cardMaterials } from '../../render/nodes/impostor.js';
 import { budget } from '../../render/budget.js';
+import { isWebGPU } from '../../render/core.js';
 
 /** a kind's picture is kept as two images: its views' colours; their normals and depth */
 export const FRAMES = 2;
 
-/** this baker's version, in every kept picture's key (./levels.js): raised whenever a picture it takes changes */
+/** in every kept picture's key (./levels.js): raised whenever a picture changes */
 export const VERSION = 3;
 
 /** a direction (y up; below the horizon as on it) as its place u, v (−1…1) on the hemi-octahedral square */
@@ -61,7 +60,7 @@ function hull() {
  */
 export function createImpostors(renderer, o = {}) {
 	const B = budget().picture;
-	const most = Math.min(o.page ?? B.page, renderer.capabilities.maxTextureSize);
+	const most = Math.min(o.page ?? B.page, renderer.capabilities?.maxTextureSize ?? 8192);
 	const N = o.views ?? B.views ?? 8;
 	const px = Math.min(o.px ?? B.px, Math.floor(most / N));
 	const cols = Math.floor(most / px), per = Math.floor(cols / N), side = N * px;
@@ -195,14 +194,16 @@ export function createImpostors(renderer, o = {}) {
 
 	return {
 		group,
+		/** its pictures' version as kept (./levels.js): WebGPU's apart */
+		deriver: isWebGPU(renderer) ? `${VERSION}:webgpu` : VERSION,
 		add,
 		/** each view's pixels and views a side (a kept picture's key) */
 		px,
 		views: N,
-		/** a kind's block of each page, RGBA, read back without holding a frame; null where it can't be */
+		/** a kind's block of each page, RGBA, read back asynchronously; null where it can't be (WebGPU: not yet) */
 		async read(slot) {
 			const page = pages[slot.page];
-			if (!page || typeof renderer.readRenderTargetPixelsAsync !== 'function' || !renderer.capabilities.isWebGL2) return null;
+			if (!page || isWebGPU(renderer) || !renderer.capabilities?.isWebGL2) return null;
 			const { x, y } = at(slot), out = page.targets.map(() => new Uint8Array(side * side * 4));
 			await Promise.all(page.targets.map((t, k) => renderer.readRenderTargetPixelsAsync(t, x, y, side, side, out[k])));
 			return out;
@@ -239,7 +240,7 @@ export function createImpostors(renderer, o = {}) {
 		begin() {
 			for (const page of pages) page.n = 0;
 		},
-		/** a copy of the kind in `slot` at x, y, z (its foot), turned by `turn`, at `scale`, `fade` of it shown (0 or 1 whole) */
+		/** a copy at x, y, z (its foot), turned `turn`, at `scale`, `fade` of it shown (0 or 1 whole) */
 		push(slot, x, y, z, turn, scale, fade) {
 			const page = pages[slot.page];
 			if (page.n >= page.cap) grow(page, page.n + 1);
