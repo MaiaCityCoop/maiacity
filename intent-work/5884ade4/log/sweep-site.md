@@ -72,3 +72,9 @@ Before, play/site's non-held files: layers 16 (all of the repo; at most 10), swa
     not be read or decoded (`worlds/sound.js`) and a Sandbox 3 build whose recipe could not be read
     (`maiacity-v2/drawn.js`: it stays drawn but doesn't run) were dropped silently; each now goes on as before and
     says so with `console.warn`. Pinned: census-same, same for all three worlds; gate site.
+13. **The pages' `as any` typed** (special: `as any`, src 20 → 14). The Stories player's full screen (×4) names
+    WebKit's prefixed API (Safari on iPhone has only that) as a type of its own; the map's film hook is
+    `window.__mapFilm` typed as there; Sandbox 3 hands `createWorld` its options as `Parameters<typeof createWorld>[1]`
+    (world.js, held, types them by their defaults, whose `onRoam` takes no argument). Types only: svelte-check's
+    errors unchanged; gate site. Left: 13 in tests (stand-in globals and partial fixtures) and one comment's
+    "as any other" (`render/simplify.js`).

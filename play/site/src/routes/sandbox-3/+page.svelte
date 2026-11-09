@@ -45,7 +45,8 @@
 					roaming = r.on;
 					roam = { on: r.on, near: !!r.near, driving: !!r.driving };
 				};
-				world = createWorld(canvas, { onRoam } as any);
+				// world.js types its options by their defaults (`onRoam = () => {}`), which take no argument
+				world = createWorld(canvas, { onRoam } as Parameters<typeof createWorld>[1]);
 				world.set(STAGE);
 				world.touring(false);
 				world.reveal(2);
