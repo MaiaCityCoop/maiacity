@@ -9,8 +9,9 @@ set -euo pipefail
 : "${PLAY_MCP_TOKEN:?PLAY_MCP_TOKEN is needed: the worlds read play through the read-only proxy}"
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"; J="$REPO/intent-work/1f0c6f79-render"; OUT="$J/out"; W="${WORK:-$HOME/1f0c6f79-work}"
 rm -rf "$W" && mkdir -p "$W/shots" "$OUT"
-git -C "$REPO" fetch -q origin intent-work/main-baseline-render intent/c1bee1f8-webgpu-switch main
-git -C "$REPO" show origin/intent-work/main-baseline-render:intent-work/main-baseline/determinism.mjs > "$W/determinism.mjs"
+git -C "$REPO" fetch -q origin intent/c1bee1f8-webgpu-switch main
+# the render box's determinism, from the tree the job runs (play/site/scripts/macjob/determinism.js, intent cb52fbd9)
+cp "$REPO/play/site/scripts/macjob/determinism.js" "$W/determinism.mjs"
 if [ -z "${BASE:-}" ]; then
   # intent 9's head while it is a branch; main's once it is merged
   if git -C "$REPO" merge-base --is-ancestor origin/intent/c1bee1f8-webgpu-switch origin/main; then BASE=origin/main; else BASE=origin/intent/c1bee1f8-webgpu-switch; fi
