@@ -106,9 +106,11 @@ export function worldFinish(renderer, scene, camera, o = {}) {
 	if (!isWebGPU(renderer)) return plain;
 	// `?finish=off` or `?finish=-bloom,-ao`: passes left out by the address, to see what each does
 	const asked = typeof window !== 'undefined' ? new URLSearchParams(window.location?.search ?? '').get('finish') : null;
-	const plan = withDrops(finishing({ device: o.device ?? thisDevice(), film: o.film, ghosts: o.ghosts }), asked);
+	// `?finish=desktop` or `?finish=small` draws as that device whatever this one is (a review's screenshots)
+	const forced = /** @type {import('./finish.js').Device | undefined} */ (asked?.split(',').find((w) => w === 'desktop' || w === 'small'));
+	const plan = withDrops(finishing({ device: forced ?? o.device ?? thisDevice(), film: o.film, ghosts: o.ghosts }), asked);
 	if (!plan) return plain;
-	const atmosphere = o.sky && plan.fog.reach > 0 ? createAtmosphere(scene, o.sky) : null;
+	const atmosphere = o.sky && plan.fog.reach > 0 ? createAtmosphere(scene, o.sky, { exposure: () => renderer.toneMappingExposure ?? 1 }) : null;
 	const finish = createFinish(renderer, scene, camera, plan, { sun: o.sky?.sun });
 	// what the page draws by, for the Mac job's record (selector-shots.mjs `finish`)
 	if (typeof window !== 'undefined') /** @type {any} */ (window).__finish = { plan, backend: renderer.backend?.isWebGPUBackend ? 'webgpu' : 'webgl2' };

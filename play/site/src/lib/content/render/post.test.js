@@ -191,26 +191,30 @@ describe('the grade', () => {
 });
 
 describe('the atmosphere', () => {
-	const a = atmo.groundDensity(1.6 / 1400);
-	test('the haze deepens with distance, thins with height, pools low', () => {
-		const near = atmo.transmittance(a, atmo.FALLOFF, 2, 50, 0);
-		const far = atmo.transmittance(a, atmo.FALLOFF, 2, 1000, 0);
-		expect(near).toBeGreaterThan(far);
-		// from 400 m up, the same distance level with the eye is clearer
-		expect(atmo.transmittance(a, atmo.FALLOFF, 400, 1000, 0)).toBeGreaterThan(far);
-		// looking up through it is clearer than looking down into it
-		expect(atmo.transmittance(a, atmo.FALLOFF, 100, 800, 300)).toBeGreaterThan(atmo.transmittance(a, atmo.FALLOFF, 100, 800, -90));
-		// the sky's FogExp2 at its far: hidden as much level with the ground
-		expect(atmo.transmittance(a, atmo.FALLOFF, 0, 1400, 0)).toBeCloseTo(Math.exp(-2.56), 5);
+	const rho = 1.6 / 1400;
+	test('at eye level it is the sky’s haze as it was; it deepens with distance and thins with the eye’s height', () => {
+		// the sky's FogExp2 level with the ground: 1 − e^(−(ρd)²), so a world's fog option looks as it did
+		for (const d of [50, 400, 1400]) expect(atmo.transmittance(rho, atmo.FALLOFF, 0, d, 0)).toBeCloseTo(Math.exp(-((rho * d) ** 2)), 9);
+		expect(atmo.transmittance(rho, atmo.FALLOFF, 2, 50, 0)).toBeGreaterThan(atmo.transmittance(rho, atmo.FALLOFF, 2, 1000, 0));
+		expect(atmo.transmittance(rho, atmo.FALLOFF, 400, 1000, 0)).toBeGreaterThan(atmo.transmittance(rho, atmo.FALLOFF, 2, 1000, 0));
 	});
-	test('its colour is the horizon looked toward, warmer toward the sun', () => {
-		const ring = Array.from({ length: 16 }, (_, k) => [0.5 + k / 100, 0.6, 0.8]);
+	test('it pools low: looking down into it is thicker than looking up, within bounds that never white a city out', () => {
+		expect(atmo.transmittance(rho, atmo.FALLOFF, 100, 800, 300)).toBeGreaterThan(atmo.transmittance(rho, atmo.FALLOFF, 100, 800, -90));
+		// a smog mood (0.0026) seen from 300 m up, 1 km off and 300 m down: thicker than level, never more than SLOPE.max times
+		const smog = 0.0026 * 0.35, level = atmo.opticalDepth(smog, atmo.FALLOFF, 300, 1000, 0), down = atmo.opticalDepth(smog, atmo.FALLOFF, 300, 1000, -300);
+		expect(down).toBeGreaterThan(level);
+		expect(down).toBeLessThanOrEqual(level * atmo.SLOPE.max ** 2 + 1e-12);
+		expect(atmo.transmittance(smog, atmo.FALLOFF, 300, 1000, -300)).toBeGreaterThan(0.1);
+		expect(atmo.slopeOf(-50)).toBe(atmo.SLOPE.max);
+		expect(atmo.slopeOf(50)).toBe(atmo.SLOPE.min);
+	});
+	test('its colour is the sky’s haze, warmer toward the sun', () => {
+		const base = [0.5, 0.6, 0.8];
 		const sun = [1, 0.1, 0].map((v, _, s) => v / Math.hypot(...s));
 		const tint = [1, 0.6, 0.3];
-		const toward = atmo.hazeColor(ring, sun, sun, tint), away = atmo.hazeColor(ring, [-1, 0, 0], sun, tint);
+		const toward = atmo.hazeColor(base, sun, sun, tint), away = atmo.hazeColor(base, [-1, 0, 0], sun, tint);
 		expect(toward[0] / toward[2]).toBeGreaterThan(away[0] / away[2]);
-		// at a bearing, the ring's colour there (no sun behind)
-		expect(atmo.hazeColor(ring, [0, 0, 1], [0, 1, 0], tint)[0]).toBeCloseTo(ring[4][0], 6);
+		expect(away).toEqual(base);
 	});
 	test('aerial perspective: far things lose their colour into the haze', () => {
 		const red = [0.8, 0.1, 0.1], haze = [0.5, 0.5, 0.5];
@@ -220,9 +224,9 @@ describe('the atmosphere', () => {
 		expect(atmo.aerial(red, haze, 0)).toEqual(haze);
 	});
 	test('the far plane follows the haze', () => {
-		const f = atmo.farFor(a, atmo.FALLOFF, 0);
-		expect(atmo.transmittance(a, atmo.FALLOFF, 0, f, 0)).toBeCloseTo(atmo.HIDDEN, 6);
-		expect(atmo.farFor(a * 2)).toBeLessThan(f);
+		const f = atmo.farFor(rho, atmo.FALLOFF, 0);
+		expect(atmo.transmittance(rho, atmo.FALLOFF, 0, f, 0)).toBeCloseTo(atmo.HIDDEN, 6);
+		expect(atmo.farFor(rho * 2)).toBeLessThan(f);
 		expect(atmo.farFor(0)).toBe(20_000);
 	});
 });
@@ -241,7 +245,7 @@ describe('the world’s finishing on WebGPU', () => {
 		const air = atmo.createAtmosphere(scene, sky());
 		air.update();
 		expect(/** @type {any} */ (scene).fogNode).toBe(air.node);
-		expect(air.uniforms.a.value).toBeCloseTo(atmo.groundDensity(1.6 / 1400), 9);
+		expect(air.uniforms.a.value).toBeCloseTo(1.6 / 1400, 9);
 		const f = createFinish(r, scene, camera, finishing({ device: 'desktop' }), { sun });
 		expect(f.nodes.ao).toBeTruthy();
 		expect(f.nodes.prepass).toBeTruthy();
@@ -294,7 +298,7 @@ describe('a world finished', async () => {
 		const w = worldFinish(r, scene, /** @type {any} */ (camera), { sky: s, device: 'desktop' });
 		expect(w.plan?.device).toBe('desktop');
 		w.render(0);
-		const hazeFar = atmo.farFor(atmo.groundDensity(1.6 / 1400), atmo.FALLOFF, camera.position.y);
+		const hazeFar = atmo.farFor(1.6 / 1400, atmo.FALLOFF, camera.position.y);
 		expect(camera.far).toBeCloseTo(Math.min(3000, hazeFar), 3);
 		// the world sets its own far again (a bigger world shown): the haze follows up to it
 		camera.far = 900;
@@ -310,7 +314,7 @@ describe('a world finished', async () => {
 		const s = { horizon: { uniforms: { uSkyRing: { value: Array.from({ length: 16 }, () => new THREE.Vector3(0.6, 0.7, 0.9)) } } }, sunDir: new THREE.Vector3(0, 1, 0) };
 		const w = worldFinish(r, scene, /** @type {any} */ (camera), { sky: s, device: 'small' });
 		w.render(0);
-		expect(w.atmosphere?.uniforms.a.value).toBeCloseTo(atmo.groundDensity(1.6 / 1400) / 0.7, 9);
+		expect(w.atmosphere?.uniforms.a.value).toBeCloseTo(1.6 / 1400 / 0.7, 9);
 		w.dispose();
 	});
 });
