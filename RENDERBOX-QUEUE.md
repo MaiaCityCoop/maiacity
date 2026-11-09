@@ -1,5 +1,14 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 12:12 Berlin — 660ad67f run 4 (PR head ebaa4498c; out/ 8648d1597)
+- 0 uniform/GL errors and no plant failing in both engines; the film advances 0…5 s. Walks (in the job now): Chromium 487
+  frames, 24.7 ms mean, 6 over 100 ms; **WebKit 384 frames, 31.4 ms mean** (p95 66, 12 over 100 ms, max 908): the old
+  31.2 ms bound missed by 0.2 ms, which is ed6694c3's now.
+- 660ad67f is at Specify (Approve spec, results cleared). The moment Samuel approves and it's in Build, I record the new c6
+  as a pass from this run on ebaa4498c (the PR head); the box's run re-records c1–c5 on the same head.
+- Next on the GPU: the viewer dome test (544485e2), then #13 / #6 when relayed, then 0b4c007b's looks (after 660ad67f is
+  on main, for Sandbox 5).
+
 ## 12:05 Berlin — #8 run 2 recorded (head af3b1e0db; out/ db986e460)
 - **c7 FAIL, close:** parity runs now (lowest SSIM 0.9979 ≥ 0.98, pass), but the **two seeks to the same t are not
   pixel-identical** (MD5 differ at t = 1, 3, 5; SSIM 0.998): something in the player's frame isn't pinned to t.
