@@ -309,3 +309,25 @@ describe("the whole suite on every pull request and on main", () => {
     expect(plan).not.toMatch(/^ {4}test\//m);
   });
 });
+
+// intent 417af727: the site's own tests (play/site's `vitest run`) gate every merge as play/api's do; 8823eb7c reached
+// main with one of them red because CI only built the site.
+describe("the site's tests on every pull request and on main", () => {
+  test("the site's tests: CI's step \"The site\" and gate.sh site run them after its build", () => {
+    const site = yaml(".github/workflows/play-checks.yml").jobs.checks.steps.find((s: any) => s.name === "The site");
+    expect(site["working-directory"]).toBe("play/site");
+    expect(site.if).toBe("steps.tested.outputs.skip != 'true'");
+    const lines = String(site.run).split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+    expect(lines).toEqual(["bun install --frozen-lockfile", "bun run build", "bun run test"]);
+    expect(JSON.parse(text("play/site/package.json")).scripts.test).toBe("vitest run");
+    const gate = text("play/avenbox/gate.sh");
+    const build = gate.indexOf('has site-build && step "play/site build" play/site bun run build');
+    const tests = gate.indexOf('has site-tests && step "play/site tests" play/site bun run test');
+    expect(build).toBeGreaterThan(-1);
+    expect(tests).toBeGreaterThan(build);
+    const plan = Bun.spawnSync(["bash", resolve(ROOT, "play/avenbox/gate.sh"), "site", "--plan"], { cwd: ROOT, stdout: "pipe" }).stdout.toString();
+    expect(plan).toContain("step site-build");
+    expect(plan).toContain("step site-tests");
+    expect(plan).not.toMatch(/step (api|website)-/);
+  });
+});

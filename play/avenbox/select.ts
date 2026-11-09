@@ -18,12 +18,12 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 export type Plan = {
-  steps: string[]; // in the gate's order: api-types, api-tests, site-build, website-check, website-build, lint
+  steps: string[]; // in the gate's order: api-types, api-tests, site-build, site-tests, website-check, website-build, lint
   tests: string[] | "all"; // play/api's test files (relative to play/api), or every one
   why: string[];
 };
 
-const STEPS = ["api-types", "api-tests", "site-build", "website-check", "website-build", "lint"] as const;
+const STEPS = ["api-types", "api-tests", "site-build", "site-tests", "website-check", "website-build", "lint"] as const;
 const CODE = /\.(ts|js|mjs|cjs|tsx|jsx|json)$/;
 const IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|\bimport\s+)["']([^"']+)["']/g;
 
@@ -79,7 +79,8 @@ export function plan(root: string, changed: string[] | null): Plan {
   for (const f of files) {
     if (f.startsWith("website/")) steps.add("website-check").add("website-build");
     if (f.startsWith(".github/workflows/")) steps.add("lint");
-    if (f.startsWith("play/site/") || f.startsWith("play/api/")) steps.add("site-build");
+    // the site's build and its whole test suite (vitest), wherever its build is (intent 417af727)
+    if (f.startsWith("play/site/") || f.startsWith("play/api/")) steps.add("site-build").add("site-tests");
     if (f.startsWith("play/api/")) steps.add("api-types");
     if (everything(f)) {
       all = true;

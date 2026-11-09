@@ -62,7 +62,7 @@ if [ $PLAN = 1 ]; then
 fi
 
 has() { echo "$STEPS" | grep -qx "$1"; }
-if has api-types || has api-tests || has site-build || has website-check; then
+if has api-types || has api-tests || has site-build || has site-tests || has website-check; then
   bash "$ROOT/play/avenbox/up.sh" || exit 1
 fi
 export TEST_DATABASE_URL="${TEST_DATABASE_URL:-postgres://postgres:play@127.0.0.1:5432/postgres}"
@@ -104,6 +104,8 @@ if has api-tests; then
   fi
 fi
 has site-build && step "play/site build" play/site bun run build
+# the site's whole test suite, its `vitest run`, after its build, as CI runs it (intent 417af727)
+has site-tests && step "play/site tests" play/site bun run test
 has website-check && step "website check" website bun run check
 has website-build && step "website build" website bun run build
 has lint && step "workflows' lint (actionlint)" . bash play/avenbox/actionlint.sh "${FILES[@]}"
