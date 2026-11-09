@@ -6,16 +6,11 @@
  */
 import type { Db, Queryable } from "./kit/pg";
 import { ROWS_SEEN } from "./owners";
+import { HttpError } from "./kit/errors";
 
 /** the rows of table `name` that the admin `me` may see (another's private things left out, ./owners.ts): a WHERE, with `me` as $1 */
 const seenWhere = (name: string) => (ROWS_SEEN[name] ? `WHERE ${ROWS_SEEN[name]("t", "$1")}` : "");
 const seenArgs = (name: string, me: string) => (ROWS_SEEN[name] ? [me] : []);
-
-export class TableError extends Error {
-  constructor(message: string, public status = 400) {
-    super(message);
-  }
-}
 
 export type Column = { name: string; type: string; hidden: boolean };
 export type Table = { name: string; rows: number; columns: Column[] };
@@ -95,7 +90,7 @@ export function readTable(db: Db, me: { id: string }, name: string, offset = 0, 
   const take = Math.min(MAX_PAGE, Math.max(1, Math.floor(Number(limit) || PAGE)));
   return readOnly(db, async (tx) => {
     const columns = (await columnsOf(tx)).get(name);
-    if (!columns) throw new TableError(`There is no table ${name}.`, 404);
+    if (!columns) throw new HttpError(`There is no table ${name}.`, 404);
     const { rows: keys } = await tx.query<{ column_name: string }>(
       `SELECT k.column_name
          FROM information_schema.table_constraints c

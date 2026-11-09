@@ -9,12 +9,7 @@
 import type { Queryable } from "./kit/pg";
 import * as docs from "./docs";
 import { SKILL } from "./kit/ids";
-
-export class SkillError extends Error {
-  constructor(message: string, public status = 400) {
-    super(message);
-  }
-}
+import { HttpError } from "./kit/errors";
 
 /** an intent's stages, each a part of the Intents skill (./intents.ts INTENT_STAGES, the same list; the skill schema names them) */
 export const SKILL_STAGES = ["idea", "specify", "build", "proposal", "ship", "accepted", "archived"] as const;
@@ -90,13 +85,13 @@ export async function promptOf(db: Queryable, name: unknown, args: any, intentRo
   const k = SKILL_PROMPT.exec(`${name ?? ""}`);
   if (k) {
     const s = await accepted(db, k[1]);
-    if (!s) throw new SkillError(`There is no prompt ${name} (prompts/list).`, 404);
+    if (!s) throw new HttpError(`There is no prompt ${name} (prompts/list).`, 404);
     return { description: `The skill ${s.label} (${k[1]})`, messages: [{ role: "user", content: { type: "text", text: skillText(k[1], s) } }] };
   }
   const m = STAGE_PROMPT.exec(`${name ?? ""}`);
-  if (!m || !SKILL_STAGES.includes(m[1] as SkillStage)) throw new SkillError(`There is no prompt ${name} (prompts/list).`, 404);
+  if (!m || !SKILL_STAGES.includes(m[1] as SkillStage)) throw new HttpError(`There is no prompt ${name} (prompts/list).`, 404);
   const i = await intentRow(db, `${args?.intent ?? ""}`);
   const brief = await briefOf(db, i, m[1]);
-  if (!brief) throw new SkillError(`The Intents skill says nothing for the ${m[1]} stage.`, 404);
+  if (!brief) throw new HttpError(`The Intents skill says nothing for the ${m[1]} stage.`, 404);
   return { description: `Intent ${i.id} ("${i.title}"), at the ${m[1]} stage`, messages: [{ role: "user", content: { type: "text", text: brief } }] };
 }

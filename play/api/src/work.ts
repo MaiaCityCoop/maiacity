@@ -15,9 +15,10 @@ import { COOP } from "./access";
 import * as docs from "./docs";
 import type { Queryable } from "./kit/pg";
 import { UUID } from "./kit/uuid";
-import { decisions, gate, IntentError, type By } from "./intents";
+import { decisions, gate, type By } from "./intents";
 import { SCHEMA } from "./kit/ids";
 import { gistOf } from "./gist";
+import { HttpError } from "./kit/errors";
 
 /** what a piece of work names: its kind ("<kind>_version" of a versioned kind, ./versioned.ts) and its refs (play.intents' work columns, and its document's variant: play.intent_variants) */
 export type Work = {
@@ -53,12 +54,6 @@ export const WORK_OF = `i.id, i.coop_id, i.work AS kind, ${DOC_OF} AS doc_id, ${
 /** no work without an intent (play/SPEC.md §4.12): what a propose without one is told */
 export const NO_INTENT =
   "No work without an intent: name the intent this is the work of (`intent`, its id), one in Build or at Proposal. add_intent adds one and specify_intent specifies it; once its spec is approved it is in Build.";
-
-export class WorkError extends Error {
-  constructor(message: string, public status = 400) {
-    super(message);
-  }
-}
 
 /** intent `id`'s work (null: no such intent), locked for its decision where `lock` */
 export async function workOf(q: Queryable, id: string, lock = false): Promise<any | null> {
@@ -141,16 +136,16 @@ export async function closeWork(q: Queryable, me: Pick<Me, "id"> | null, w: { id
  * document again replaces only that document's variant. The intent's own columns name its first document's. Gives back its id.
  */
 export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string | null; work: Work; note: string; via: "web" | "mcp" }): Promise<string> {
-  if (!o.intent) throw new WorkError(NO_INTENT, 400);
+  if (!o.intent) throw new HttpError(NO_INTENT, 400);
   const was = await workOf(q, o.intent, true);
-  if (!was) throw new WorkError("There is no such intent.", 404);
+  if (!was) throw new HttpError("There is no such intent.", 404);
   // the kind of work it is (an intent that declares its kinds takes only those): its document's schema
   const schema = o.work.doc_id
     ? (await q.query<{ schema_id: string | null }>(`SELECT schema_id FROM play.docs WHERE id = $1`, [o.work.doc_id])).rows[0]?.schema_id ?? null
     : o.work.story_id ? SCHEMA.story : o.work.asset_id ? SCHEMA.asset : null;
-  const no = await gate.mayMove(q, was.id, "work", { schema }).catch((e) => (e instanceof IntentError ? { why: e.message } : Promise.reject(e)));
-  if (no) throw new WorkError(no.why, 409);
-  if (!o.work.doc_id || o.work.doc_variant == null) throw new WorkError("Work of play's is a document's version: name its document and its intent variant.", 500);
+  const no = await gate.mayMove(q, was.id, "work", { schema }).catch((e) => (e instanceof HttpError ? { why: e.message } : Promise.reject(e)));
+  if (no) throw new HttpError(no.why, 409);
+  if (!o.work.doc_id || o.work.doc_variant == null) throw new HttpError("Work of play's is a document's version: name its document and its intent variant.", 500);
   const id: string = was.id;
   // variants of work decided before (archived, the intent back in Build) are no longer its work
   await unhold(q, id, null);
@@ -222,7 +217,7 @@ export async function settle(q: Queryable, id: string, outcome: "accepted" | "ar
     await decisions.decided(q, id, "accept_work", by ?? "");
     return "accepted";
   }
-  if (by !== null && typeof by !== "string") throw new WorkError("A rule only accepts: archiving is a person's, or the work's own.", 500);
+  if (by !== null && typeof by !== "string") throw new HttpError("A rule only accepts: archiving is a person's, or the work's own.", 500);
   const { rows } = await q.query<{ stage: string }>(
     `UPDATE play.intents SET
         stage = CASE WHEN $2 = 'accepted' THEN 'accepted' WHEN $3::text IS NULL THEN 'build' ELSE 'archived' END,
@@ -235,3 +230,6 @@ export async function settle(q: Queryable, id: string, outcome: "accepted" | "ar
   );
   return rows[0]?.stage ?? outcome;
 }
+
+// kept for ./assetdocs.ts (held by other intents: intent-work/5884ade4/held.txt), which names play's one error so
+export { HttpError as WorkError };

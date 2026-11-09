@@ -15,6 +15,7 @@ import { hashText } from "./kit/hash";
 import type { Queryable } from "./kit/pg";
 import { readDoc } from "./docs";
 import { UUID } from "./kit/uuid";
+import { HttpError } from "./kit/errors";
 
 /** a piece's name in a require: its BLAKE3 hash */
 export const PIECE = /^[0-9a-f]{64}$/;
@@ -30,7 +31,7 @@ export const piecesOf = (code: string): string[] => requiresOf(code).filter((n) 
 /** the modules of the engine a code requires (all but its pieces) */
 export const libsOf = (code: string): string[] => requiresOf(code).filter((n) => !PIECE.test(n));
 
-export class PieceError extends Error {}
+export class PieceError extends HttpError {}
 
 const short = (h: string) => `${h.slice(0, 12)}…`;
 

@@ -11,19 +11,15 @@ import { admin, must, type Me } from "./access";
 import { canonical } from "./kit/hash";
 import { UUID } from "./kit/uuid";
 import { readableRefs } from "../import/plan";
-import { NotFound } from "./assets";
 import { assetSeen } from "./owners";
 import * as docs from "./docs";
 import { SCHEMA } from "./kit/ids";
 import { applyEdits as applyDocEdits, jsonOf, newDoc, seed } from "./docs/core";
 import { closeWork, holdVariant, intentIdOf, settle } from "./work";
-import { resolveEdits, VersionError } from "./versioned";
+import { resolveEdits } from "./versioned";
+import { HttpError } from "./kit/errors";
 
-export class SandboxError extends Error {
-  constructor(message: string, public status = 400) {
-    super(message);
-  }
-}
+export class SandboxError extends HttpError {}
 
 const SLOT = /^[A-Za-z0-9][A-Za-z0-9_.\/-]{0,199}$/;
 const CONFIG = /^[a-z][a-z0-9-]*$/;
@@ -366,13 +362,13 @@ export async function layoutWrite(q: Queryable, cur: any, input: { edits?: unkno
   try {
     let target: any;
     if (input.whole !== undefined) {
-      if (!input.whole || typeof input.whole !== "object" || Array.isArray(input.whole)) throw new VersionError("A whole layout is an object (doc_at's `json`).");
+      if (!input.whole || typeof input.whole !== "object" || Array.isArray(input.whole)) throw new HttpError("A whole layout is an object (doc_at's `json`).");
       target = { ...(input.whole as object), schema: cur.schema };
     } else if (Array.isArray(input.edits) && input.edits.length && input.edits.every(isHelper)) {
       const { state } = await applyEdits(q, { pins: cur.pins ?? {}, configs: cur.configs ?? {} }, input.edits);
       target = { ...cur, pins: state.pins, configs: state.configs };
     } else {
-      if (Array.isArray(input.edits) && input.edits.some(isHelper)) throw new VersionError("Give the sandbox's edit helpers (pin, pin_latest, unpin, set and delete of a config) or a document's edits, not both in one edit.");
+      if (Array.isArray(input.edits) && input.edits.some(isHelper)) throw new HttpError("Give the sandbox's edit helpers (pin, pin_latest, unpin, set and delete of a config) or a document's edits, not both in one edit.");
       // a document's edits, applied to the layout as it stands to check what they make
       const t = await docs.typeFor(q, SCHEMA.sandbox);
       const d = newDoc();
@@ -381,10 +377,10 @@ export async function layoutWrite(q: Queryable, cur: any, input: { edits?: unkno
       target = jsonOf(d);
     }
     const problems = await layoutProblems(q, target);
-    if (problems.length) throw new VersionError(problems[0]);
+    if (problems.length) throw new HttpError(problems[0]);
     return { target };
   } catch (e) {
-    throw e instanceof SandboxError ? new VersionError(e.message, e.status) : e;
+    throw e instanceof SandboxError ? new HttpError(e.message, e.status) : e;
   }
 }
 
@@ -515,10 +511,10 @@ export async function decideLayout(tx: Queryable, me: Me, p: any, verdict: "acce
 export async function layoutAt(db: Queryable, me: Me | null, sandbox: string, at: { version: number } | { edit: number }): Promise<SandboxState> {
   admin(me, SANDBOX_ADMINS);
   const n = "version" in at ? at.version : at.edit;
-  if (!Number.isInteger(n) || n < 1) throw new NotFound("A version or an edit is named by its number.");
+  if (!Number.isInteger(n) || n < 1) throw new HttpError("A version or an edit is named by its number.", 404);
   await ensureLayoutDoc(db, sandbox);
   const json = await docs.stateAt(db, layoutDoc(sandbox), at).catch((e) => {
-    throw e instanceof docs.DocError ? new NotFound(e.message) : e;
+    throw e instanceof docs.DocError ? new HttpError(e.message, 404) : e;
   });
   return { pins: json.pins ?? {}, configs: json.configs ?? {} };
 }
@@ -530,12 +526,12 @@ export async function layoutAt(db: Queryable, me: Me | null, sandbox: string, at
 export async function proposedState(db: Queryable, me: Me | null, sandbox: string, id: string): Promise<SandboxState> {
   admin(me, SANDBOX_ADMINS);
   const intent = await intentIdOf(db, id);
-  if (!intent) throw new NotFound("There is no such intent.");
+  if (!intent) throw new HttpError("There is no such intent.", 404);
   const { rows } = await db.query<{ stage: string; doc_variant: string | null }>(`SELECT i.stage, iv.variant_id AS doc_variant FROM play.intents i JOIN play.intent_variants iv ON iv.intent_id = i.id WHERE i.id = $1 AND iv.doc_id = $2`, [intent, layoutDoc(sandbox)]);
-  if (!rows[0]) throw new NotFound("There is no such intent's change of this sandbox.");
+  if (!rows[0]) throw new HttpError("There is no such intent's change of this sandbox.", 404);
   if ((rows[0].stage !== "proposal" && rows[0].stage !== "build") || rows[0].doc_variant == null) return stateOf(db, sandbox);
   const merged = (await docs.previewMerge(db, layoutDoc(sandbox), Number(rows[0].doc_variant))).json;
-  if ((await layoutProblems(db, merged)).length) throw new NotFound("It no longer holds on the layout as it is now.");
+  if ((await layoutProblems(db, merged)).length) throw new HttpError("It no longer holds on the layout as it is now.", 404);
   return { pins: merged.pins ?? {}, configs: merged.configs ?? {} };
 }
 

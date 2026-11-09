@@ -8,6 +8,7 @@
 //
 // No schema is written here: every schema is a document of the meta-schema in play's Postgres (./schemas.ts), and
 // this is only how a node is read and a value checked against it.
+import { HttpError } from "../kit/errors";
 
 export type Node = {
   type?: "object" | "array" | "string" | "number" | "integer" | "boolean" | "null";
@@ -44,7 +45,7 @@ export type DocType = {
   build?: boolean;
 };
 
-export class SchemaError extends Error {
+export class SchemaError extends HttpError {
   constructor(public problems: string[]) {
     super(problems.slice(0, 6).join("; ") + (problems.length > 6 ? ` (and ${problems.length - 6} more)` : ""));
   }

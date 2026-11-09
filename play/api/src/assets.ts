@@ -6,13 +6,10 @@ import type { Me } from "./access";
 import { piecesShown } from "./pieces";
 import { lodOf } from "./lod";
 import { assetSeen } from "./owners";
+import { HttpError } from "./kit/errors";
 
 /** who asks: their id, for ./owners.ts's rule (null: no one, who sees the coop's alone) */
 const asker = (me: Pick<Me, "id"> | null | undefined) => me?.id ?? null;
-
-export class NotFound extends Error {
-  status = 404;
-}
 
 /**
  * What a version's card says of it. Its measures (size, triangles, skinned) only where they were measured on its own
@@ -57,7 +54,7 @@ export async function assetOf(db: Queryable, id: string, me: Pick<Me, "id"> | nu
     `SELECT a.id, a.grp, a.slug, a.label, a.head, a.coop_id, a.created, a.sound, a.sound_gain, a.owner <> a.coop_id AS private FROM play.assets a WHERE a.id::text = $1 AND ${assetSeen("a", "$2")}`,
     [id, asker(me)],
   );
-  if (!a[0]) throw new NotFound(`There is no asset ${id}.`);
+  if (!a[0]) throw new HttpError(`There is no asset ${id}.`, 404);
   const { rows: versions } = await db.query<any>(
     `SELECT v.id, v.number, v.parents, v.recipe_hash, v.source_hash, v.default_variant, v.card, v.engine, v.note, v.created, v.imported,
             (SELECT p.card FROM play.asset_versions p WHERE p.id = v.parents[1]) AS parent_card,
@@ -91,7 +88,7 @@ export async function versionOf(db: Queryable, id: string, number: number, me: P
        FROM play.asset_versions v JOIN play.assets a ON a.id = v.asset_id WHERE v.asset_id::text = $1 AND v.number = $2 AND ${assetSeen("a", "$3")}`,
     [id, number, asker(me)],
   );
-  if (!rows[0]) throw new NotFound(`There is no ${id}@${number}.`);
+  if (!rows[0]) throw new HttpError(`There is no ${id}@${number}.`, 404);
   const v = rows[0];
   return { id: v.id, asset: id, number: v.number, parents: v.parents, recipe: v.recipe_hash, source: v.source_hash, defaultVariant: v.default_variant, card: v.card, engine: v.engine, note: v.note, variants: v.variants, imported: v.imported };
 }
@@ -100,7 +97,7 @@ export async function versionOf(db: Queryable, id: string, number: number, me: P
  * pins as a proposal would make them (./sandboxes.ts) instead of as they are */
 export async function pinsOf(db: Queryable, sandbox: string, state?: { pins: Record<string, { version: string; variant: string | null; params: Record<string, string> | null }> }) {
   const { rows: s } = await db.query(`SELECT 1 FROM play.sandboxes WHERE id = $1`, [sandbox]);
-  if (!s[0]) throw new NotFound(`There is no ${sandbox}.`);
+  if (!s[0]) throw new HttpError(`There is no ${sandbox}.`, 404);
   const pins = state
     ? Object.entries(state.pins).map(([slot, p]) => ({ slot, version_id: p.version, variant: p.variant, params: p.params }))
     : (await db.query<any>(`SELECT slot, version_id, variant, params FROM play.sandbox_pins WHERE sandbox_id = $1`, [sandbox])).rows;
@@ -173,7 +170,7 @@ export async function configOf(db: Queryable, sandbox: string, state?: { pins: R
     if (o && typeof o === "object") {
       const out = Object.fromEntries(Object.entries(o).map(([k, v]) => [k, withBuilds(v)]));
       if (typeof o.slot === "string") {
-        if (!assets[o.slot]) throw new NotFound(`${sandbox}'s config names slot ${o.slot}, which it doesn't pin`);
+        if (!assets[o.slot]) throw new HttpError(`${sandbox}'s config names slot ${o.slot}, which it doesn't pin`, 404);
         out.asset = assets[o.slot];
         // a planting's version, as its pin now names it
         if ("v" in o) out.v = numbers[o.slot];

@@ -14,17 +14,18 @@
 import { admin, type Me } from "./access";
 import type { Db } from "./kit/pg";
 import { UUID } from "./kit/uuid";
-import { INTENT_ADMINS, IntentError, intentRow, LINE_MOST } from "./intents";
+import { INTENT_ADMINS, intentRow, LINE_MOST } from "./intents";
 import { seesIntent } from "./owners";
 import { closeVariant, dropDoc, variantsOf, workOf } from "./work";
+import { HttpError } from "./kit/errors";
 
 /** a withdrawal, as it is kept on the intent beside its steps back */
 export type Withdrawal = { at: string; by: string | null; human: string; via: "mcp" | "site"; from: string; to: string; reason: string; doc: string };
 
 const reasonOf = (v: unknown) => {
   const r = `${v ?? ""}`.replace(/\s+/g, " ").trim();
-  if (!r) throw new IntentError("A withdrawal needs its reason: why the document goes, in a line.");
-  if (r.length > LINE_MOST) throw new IntentError(`A withdrawal's reason is one line, at most ${LINE_MOST} characters.`);
+  if (!r) throw new HttpError("A withdrawal needs its reason: why the document goes, in a line.");
+  if (r.length > LINE_MOST) throw new HttpError(`A withdrawal's reason is one line, at most ${LINE_MOST} characters.`);
   return r;
 };
 
@@ -33,12 +34,12 @@ export async function withdrawDoc(db: Db, me: Me | null, id: string, doc: unknow
   const who = admin(me, INTENT_ADMINS);
   const why = reasonOf(reason);
   const intent = await intentRow(db, id);
-  if (!(await seesIntent(db, who, intent.id))) throw new IntentError("There is no such intent.", 404);
+  if (!(await seesIntent(db, who, intent.id))) throw new HttpError("There is no such intent.", 404);
   const named = `${doc ?? ""}`.trim().toLowerCase();
   await db.transaction(async (tx) => {
     const w = await workOf(tx, intent.id, true);
     if (w.stage !== "build" && w.stage !== "proposal")
-      throw new IntentError(`Intent ${intent.id} is at the ${w.stage} stage: a document is withdrawn only while it is in Build or at Proposal.`, 409);
+      throw new HttpError(`Intent ${intent.id} is at the ${w.stage} stage: a document is withdrawn only while it is in Build or at Proposal.`, 409);
     const held = await variantsOf(tx, intent.id);
     const it = held.find((h) => h.doc_id.toLowerCase() === named || (UUID.test(named) && h.doc_id.split(":")[1]?.toLowerCase() === named));
     // its drafts of that document: open variants of the intent's, never proposed
@@ -47,7 +48,7 @@ export async function withdrawDoc(db: Db, me: Me | null, id: string, doc: unknow
       [intent.id, named, UUID.test(named)],
     );
     if (!it && !drafts.length)
-      throw new IntentError(`Document ${named || "(none named)"} has no open or proposed variant on intent ${intent.id}${held.length ? `: its work holds ${held.map((h) => h.doc_id).join(", ")}` : ""}.`, 409);
+      throw new HttpError(`Document ${named || "(none named)"} has no open or proposed variant on intent ${intent.id}${held.length ? `: its work holds ${held.map((h) => h.doc_id).join(", ")}` : ""}.`, 409);
     const docId = it?.doc_id ?? drafts[0].doc_id;
     if (it) await dropDoc(tx, who, intent.id, it.doc_id);
     for (const d of drafts) await closeVariant(tx, who, d.doc_id, Number(d.id));

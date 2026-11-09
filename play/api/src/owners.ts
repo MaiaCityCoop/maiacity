@@ -13,6 +13,7 @@
 import { COOP } from "./kit/ids";
 import type { Me } from "./access";
 import type { Queryable } from "./kit/pg";
+import { HttpError } from "./kit/errors";
 
 /** the libraries a person reads: the coop's (Maia City's, its admins'), or their own personal one */
 export const LIBRARIES = ["coop", "personal"] as const;
@@ -20,11 +21,7 @@ export type Library = (typeof LIBRARIES)[number];
 /** the only group whose assets may be private, for now (Samuel 2026-11-07: your own character) */
 export const PRIVATE_GROUPS = ["characters"] as const;
 
-export class OwnerError extends Error {
-  constructor(message: string, public status = 400) {
-    super(message);
-  }
-}
+export class OwnerError extends HttpError {}
 
 /** the account library `library` is for `me`: the coop's, or their own; undefined or "" is the coop's */
 export function libraryOf(me: Pick<Me, "id">, library: unknown): { library: Library; owner: string } {

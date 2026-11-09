@@ -5,6 +5,7 @@
 import { LoroDoc, LoroList, LoroMap, LoroMovableList, LoroText } from "loro-crdt";
 import { canonical, hashText } from "../kit/hash";
 import { nodeAt, problemsOf, SchemaError, type DocType, type Node } from "./validate";
+import { HttpError } from "../kit/errors";
 
 /** the one root container every document lives under */
 export const ROOT = "doc";
@@ -146,11 +147,11 @@ export type Edit =
   | { op: "move"; path: Path; to: number } // a list's item, the path ending with its index, to index `to`
   | { op: "text"; path: Path; index: number; delete?: number; insert?: string }; // a range of a text
 
-export class EditError extends Error {}
+export class EditError extends HttpError {}
 
-export class DocError extends Error {
-  constructor(message: string, public status = 400, public extra: Record<string, unknown> = {}) {
-    super(message);
+export class DocError extends HttpError {
+  constructor(message: string, status = 400, public extra: Record<string, unknown> = {}) {
+    super(message, status);
   }
 }
 

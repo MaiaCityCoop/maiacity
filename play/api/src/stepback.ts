@@ -12,15 +12,16 @@
 // its reason, and the spec it dropped; the board shows them under the intent's note.
 import { admin, type Me } from "./access";
 import type { Queryable } from "./kit/pg";
-import { INTENT_ADMINS, IntentError, intentRow, LINE_MOST, waiting } from "./intents";
+import { INTENT_ADMINS, intentRow, LINE_MOST, waiting } from "./intents";
+import { HttpError } from "./kit/errors";
 
 /** one step back, as it is kept on the intent */
 export type Step = { at: string; by: string | null; human: string; via: "mcp"; from: string; to: string; reason: string; spec?: unknown };
 
 const reasonOf = (v: unknown) => {
   const r = `${v ?? ""}`.replace(/\s+/g, " ").trim();
-  if (!r) throw new IntentError("A step back needs its reason: why the intent goes back, in a line.");
-  if (r.length > LINE_MOST) throw new IntentError(`A step back's reason is one line, at most ${LINE_MOST} characters.`);
+  if (!r) throw new HttpError("A step back needs its reason: why the intent goes back, in a line.");
+  if (r.length > LINE_MOST) throw new HttpError(`A step back's reason is one line, at most ${LINE_MOST} characters.`);
   return r;
 };
 
@@ -30,7 +31,7 @@ export async function stepBack(db: Queryable, me: Me | null, id: string, reason:
   const why = reasonOf(reason);
   const intent = await intentRow(db, id);
   const refuse = (because: string): never => {
-    throw new IntentError(`Intent ${intent.id} is at the ${intent.stage} stage: ${because}.`, 409);
+    throw new HttpError(`Intent ${intent.id} is at the ${intent.stage} stage: ${because}.`, 409);
   };
   let to: "specify" | "idea";
   if (intent.stage === "build" || intent.stage === "proposal") {

@@ -22,17 +22,17 @@ import type { BlobStore } from "./blobs";
 import type { Db } from "./kit/pg";
 import { admin, type Me } from "./access";
 import type { GitHub } from "./ship";
-import { assetOf, listAssets, NotFound } from "./assets";
-import { archiveOwn, docAt, docEdit, docHistory, kinds, listDocs, proposeDocVersion, reviewOf, syncKinds, VersionError, workKinds } from "./versioned";
-import { NO_INTENT, WorkError } from "./work";
-import { addIntent, autoMove, CHECK_HOWS, CHECKS_MOST, dependIntent, getIntent, intentOf, IntentError, intentReady, INTENT_KINDS, INTENT_STAGES, LINE_MOST, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES } from "./intents";
+import { assetOf, listAssets } from "./assets";
+import { archiveOwn, docAt, docEdit, docHistory, kinds, listDocs, proposeDocVersion, reviewOf, syncKinds, workKinds } from "./versioned";
+import { NO_INTENT } from "./work";
+import { addIntent, autoMove, CHECK_HOWS, CHECKS_MOST, dependIntent, getIntent, intentOf, intentReady, INTENT_KINDS, INTENT_STAGES, LINE_MOST, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES } from "./intents";
 import { stepBack } from "./stepback";
 import { withdrawDoc } from "./withdraw";
 import { retireDoc } from "./retire";
-import { instructionsOf, promptOf, promptsOf, SkillError } from "./skills";
+import { instructionsOf, promptOf, promptsOf } from "./skills";
 import { adminByToken } from "./tokens";
-import { STORY_ADMINS, AUDIO_TYPES, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, MOST_COMPOSITION, proposeStory, putAudioBase64, putComposition, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAt, storyOf, StoryError, VIDEO_TYPES } from "./stories";
-import { AssetDocError, assetAt, proposeAsset } from "./assetdocs";
+import { STORY_ADMINS, AUDIO_TYPES, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, MOST_COMPOSITION, proposeStory, putAudioBase64, putComposition, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAt, storyOf, VIDEO_TYPES } from "./stories";
+import { assetAt, proposeAsset } from "./assetdocs";
 import { GROUPS, isGroup } from "./groups";
 import { listSandboxes, sandboxOf, SandboxError } from "./sandboxes";
 import { LIBRARY_KINDS, listLibrary } from "./library";
@@ -45,7 +45,9 @@ const LIBRARY_ARG = {
   enum: [...LIBRARIES],
   description: "optional: the library it goes into: 'coop' (Maia City's, seen by every member; the default) or 'personal' (your operator's own, private to them: to anyone else it is as a file never kept), for their own character's photos and sheet",
 };
-import { addArtifact, AUTHOR_KINDS, authorOf, DESCRIPTION_MOST, listAuthors, listArtifacts, ORIGINS, ARTIFACT_KINDS, ArtifactError, artifactOf, SUMMARY_WORDS, TITLE_MOST as ARTIFACT_TITLE_MOST, updateArtifact } from "./artifacts";
+import { addArtifact, AUTHOR_KINDS, authorOf, DESCRIPTION_MOST, listAuthors, listArtifacts, ORIGINS, ARTIFACT_KINDS, artifactOf, SUMMARY_WORDS, TITLE_MOST as ARTIFACT_TITLE_MOST, updateArtifact } from "./artifacts";
+import { HttpError } from "./kit/errors";
+import { statusOf } from "./fault";
 
 const PROTOCOL = "2025-06-18";
 const HASH = /^[0-9a-f]{64}$/;
@@ -152,7 +154,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         additionalProperties: false,
       },
       run: async ({ group, query }, me) => {
-        if (group !== undefined && !isGroup(group)) throw new VersionError(`${group} is not an asset group (${GROUPS.join(", ")}).`);
+        if (group !== undefined && !isGroup(group)) throw new HttpError(`${group} is not an asset group (${GROUPS.join(", ")}).`);
         const all = await listAssets(db, group, me);
         const q = `${query ?? ""}`.trim().toLowerCase();
         return all
@@ -183,11 +185,11 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
       description: "A file's text by its BLAKE3 hash: a version's readable source or its recipe file (their hashes from get_asset).",
       inputSchema: { type: "object", properties: { hash: { type: "string", description: "64 hex characters" } }, required: ["hash"], additionalProperties: false },
       run: async ({ hash }, me) => {
-        if (!HASH.test(`${hash}`)) throw new NotFound("That is not a file's hash.");
+        if (!HASH.test(`${hash}`)) throw new HttpError("That is not a file's hash.", 404);
         // another's private file is as one never kept (./owners.ts)
-        if (await fileHidden(db, me, `${hash}`)) throw new NotFound("There is no such file.");
+        if (await fileHidden(db, me, `${hash}`)) throw new HttpError("There is no such file.", 404);
         const bytes = await store.get(`${hash}`);
-        if (!bytes) throw new NotFound("There is no such file.");
+        if (!bytes) throw new HttpError("There is no such file.", 404);
         return { hash, text: new TextDecoder().decode(bytes) };
       },
     },
@@ -275,12 +277,12 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
       },
       run: async ({ group, slug, label, source, note, variants, default_variant, params, sheet, datasheet, brief, intent, private: own, lod }, me) => {
         const kinds = Array.isArray(variants) && variants.length ? variants : null;
-        if (!source && !kinds) throw new VersionError("Give its source, or its variants.");
+        if (!source && !kinds) throw new HttpError("Give its source, or its variants.");
         // play runs no code: a recipe's declared params reach its record only from here (a build with values is refused without them)
         const texts = [source, ...(kinds ?? []).map((x: any) => x?.source)].filter((x) => typeof x === "string");
         if (params === undefined && texts.some((x) => /\bparams\s*:\s*(\[|[A-Za-z_$])/.test(x) && !/\bparams\s*:\s*\[\s*\]/.test(x)))
-          throw new VersionError("Its recipe declares parameters (meta.params): give them as `params`, in the order its build takes them, or its builds with values are refused.");
-        if (kinds && kinds.some((x: any) => !x?.source) && !source) throw new VersionError("Give the version's source, or each variant's own.");
+          throw new HttpError("Its recipe declares parameters (meta.params): give them as `params`, in the order its build takes them, or its builds with values are refused.");
+        if (kinds && kinds.some((x: any) => !x?.source) && !source) throw new HttpError("Give the version's source, or each variant's own.");
         return proposeAsset(
           db,
           store,
@@ -857,7 +859,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     t.run = async ({ intent, ...args }, me) => {
       if (intent === undefined || intent === null || intent === "") {
         if (own) return run(args, me);
-        throw new WorkError(NO_INTENT, 400);
+        throw new HttpError(NO_INTENT, 400);
       }
       const ready = await intentReady(db, me, intent);
       // its work proposed, the intent at Proposal: asked of the rules
@@ -903,7 +905,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         try {
           return reply(msg.id, await promptOf(db, msg.params?.name, msg.params?.arguments, (q, id) => getIntent(q, id)));
         } catch (e) {
-          if (e instanceof SkillError || e instanceof IntentError) return fail(msg.id, -32602, (e as Error).message);
+          if (statusOf(e) !== null) return fail(msg.id, -32602, (e as Error).message);
           throw e;
         }
       case "tools/list":
@@ -915,13 +917,13 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         try {
           // an intent whose work is another's private asset is as one that never was, whichever tool names it (./owners.ts)
           const named = msg.params?.arguments?.intent;
-          if (typeof named === "string" && me && !(await seesIntent(db, me, named))) throw new IntentError("There is no such intent.", 404);
+          if (typeof named === "string" && me && !(await seesIntent(db, me, named))) throw new HttpError("There is no such intent.", 404);
           // (an edge to an intent another's private work keeps is shown as "a private intent": ./owners.ts)
           const out = await maskEdges(db, me, await tool.run(msg.params?.arguments ?? {}, me));
           return reply(msg.id, { content: [{ type: "text", text: JSON.stringify(out, null, 2) }], structuredContent: Array.isArray(out) ? { items: out } : out });
         } catch (e) {
           // what went wrong, as the tool's own answer the agent reads (a refused recipe, a moved head, no such asset)
-          if (e instanceof VersionError || e instanceof WorkError || e instanceof IntentError || e instanceof NotFound || e instanceof StoryError || e instanceof SandboxError || e instanceof SkillError || e instanceof AssetDocError || e instanceof ArtifactError || (e as Error)?.name === "Denied" || (e as any)?.status)
+          if (statusOf(e) !== null)
             return reply(msg.id, { content: [{ type: "text", text: (e as Error).message }], isError: true });
           console.error(e);
           return reply(msg.id, { content: [{ type: "text", text: "Something went wrong on play's side." }], isError: true });

@@ -3,7 +3,8 @@
 // nothing once its owner is no longer an admin, or once it is revoked.
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { Queryable } from "./kit/pg";
-import { admin, Denied, meOf, type Me } from "./access";
+import { admin, meOf, type Me } from "./access";
+import { HttpError } from "./kit/errors";
 
 const PREFIX = "play_";
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
@@ -14,7 +15,7 @@ const TOKEN_ADMINS = "Only Maia City's admins may make access tokens, for now.";
 export async function makeToken(db: Queryable, me: Me | null, name: unknown) {
   const who = admin(me, TOKEN_ADMINS);
   const clean = `${name ?? ""}`.trim().replace(/\s+/g, " ").slice(0, 60);
-  if (!clean) throw new Denied("Name the token (where it is used, say), so you know it again.", 400);
+  if (!clean) throw new HttpError("Name the token (where it is used, say), so you know it again.", 400);
   const token = PREFIX + randomBytes(32).toString("base64url");
   const id = randomUUID();
   await db.query(`INSERT INTO play.api_tokens (id, human_id, name, token_hash) VALUES ($1, $2, $3, $4)`, [id, who.id, clean, sha256(token)]);
@@ -33,12 +34,12 @@ export async function listTokens(db: Queryable, me: Me | null) {
 
 /** one of `me`'s tokens revoked: it opens nothing from now on */
 export async function revokeToken(db: Queryable, me: Me | null, id: string) {
-  if (!me) throw new Denied("Please sign in first.", 401);
+  if (!me) throw new HttpError("Please sign in first.", 401);
   const { rows } = await db.query(
     `UPDATE play.api_tokens SET revoked_at = now() WHERE id::text = $1 AND human_id = $2 AND revoked_at IS NULL RETURNING id`,
     [id, me.id],
   );
-  if (!rows[0]) throw new Denied("You have no such token, or it is revoked already.", 404);
+  if (!rows[0]) throw new HttpError("You have no such token, or it is revoked already.", 404);
   return { id, revoked: true };
 }
 
@@ -49,12 +50,12 @@ export async function revokeToken(db: Queryable, me: Me | null, id: string) {
  */
 export async function markAvenbox(db: Queryable, me: Me | null, id: string, avenbox: unknown) {
   const who = admin(me, TOKEN_ADMINS);
-  if (typeof avenbox !== "boolean") throw new Denied("avenbox is true or false.", 400);
+  if (typeof avenbox !== "boolean") throw new HttpError("avenbox is true or false.", 400);
   const { rows } = await db.query(
     `UPDATE play.api_tokens SET avenbox = $3 WHERE id::text = $1 AND human_id = $2 AND revoked_at IS NULL RETURNING id, name, avenbox`,
     [id, who.id, avenbox],
   );
-  if (!rows[0]) throw new Denied("You have no such token, or it is revoked.", 404);
+  if (!rows[0]) throw new HttpError("You have no such token, or it is revoked.", 404);
   return rows[0];
 }
 

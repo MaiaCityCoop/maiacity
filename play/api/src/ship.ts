@@ -15,13 +15,14 @@
 // play only calls GitHub's API with SHIP_TOKEN, which never leaves this server.
 import { admin, COOP, type Me } from "./access";
 import type { Db, Queryable } from "./kit/pg";
-import { INTENT_ADMINS, autoMove, byOf, decisions, gate, getIntent, IntentError, mustMove } from "./intents";
+import { INTENT_ADMINS, autoMove, byOf, decisions, gate, getIntent, mustMove } from "./intents";
 import { carrySeen, mainMergeState, mergeMain, type MainMergeState } from "./mainmerge";
 import { checksSeen, decidable, prBlock, sub, type PrSeen } from "./substate";
 import type { BlobStore } from "./blobs";
 import { meOf } from "./access";
 import { decideWork } from "./versioned";
 import { closeWork, workOf } from "./work";
+import { HttpError } from "./kit/errors";
 
 /** the store play's work is accepted with when the reconcile sees its code live (set by ./app.ts) */
 export const shipWork: { store?: BlobStore } = {};
@@ -236,7 +237,7 @@ export function shipGitHub(env: Record<string, string | undefined> = process.env
 // ---- Accept and ship: Accept puts it in Ship at once; it starts when its turn comes and GitHub is ready
 
 function refuse(why: string): never {
-  throw new IntentError(why, 409);
+  throw new HttpError(why, 409);
 }
 const now = () => new Date().toISOString();
 /** the intent on play's board, where the status 'Intent accepted' links to */

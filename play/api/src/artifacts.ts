@@ -14,12 +14,7 @@ import type { Db, Queryable } from "./kit/pg";
 import { newId, UUID } from "./kit/uuid";
 import * as docs from "./docs";
 import { docAt, proposeDocVersion, proposeNewDoc } from "./versioned";
-
-export class ArtifactError extends Error {
-  constructor(message: string, public status = 400) {
-    super(message);
-  }
-}
+import { HttpError } from "./kit/errors";
 
 export const ARTIFACT_KINDS = ["page", "article", "paper", "video", "post", "book", "podcast", "code", "other"] as const;
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
@@ -60,10 +55,10 @@ export function urlOf(raw: unknown): string {
   try {
     u = new URL(s);
   } catch {
-    throw new ArtifactError("An artifact's url is a whole link: http(s)://…");
+    throw new HttpError("An artifact's url is a whole link: http(s)://…");
   }
-  if (u.protocol !== "http:" && u.protocol !== "https:") throw new ArtifactError("An artifact's url is an http(s) link.");
-  if (u.username || u.password) throw new ArtifactError("A link with a user or a password in it is not kept: send it without them.");
+  if (u.protocol !== "http:" && u.protocol !== "https:") throw new HttpError("An artifact's url is an http(s) link.");
+  if (u.username || u.password) throw new HttpError("A link with a user or a password in it is not kept: send it without them.");
   const host = u.host.toLowerCase();
   const video = (id: string | null | undefined) => (id && /^[A-Za-z0-9_-]{6,20}$/.test(id) ? `https://www.youtube.com/watch?v=${id}` : null);
   if (host === "youtu.be" || host === "www.youtu.be") {
@@ -87,7 +82,7 @@ export function urlOf(raw: unknown): string {
     })
     .join("&");
   const out = `${u.protocol}//${host}${u.pathname.replace(/\/+$/, "")}${query ? `?${query}` : ""}`;
-  if (out.length > URL_MOST) throw new ArtifactError(`An artifact's url is at most ${URL_MOST} characters.`);
+  if (out.length > URL_MOST) throw new HttpError(`An artifact's url is at most ${URL_MOST} characters.`);
   return out;
 }
 
@@ -106,10 +101,10 @@ export function wordsOf(md: string): number {
 }
 
 const oneLine = (v: unknown, what: string, most: number) => {
-  if (typeof v !== "string" || !v.trim()) throw new ArtifactError(`An artifact needs its ${what}.`);
+  if (typeof v !== "string" || !v.trim()) throw new HttpError(`An artifact needs its ${what}.`);
   const t = v.trim();
-  if (/[\r\n]/.test(t)) throw new ArtifactError(`An artifact's ${what} is one line.`);
-  if (chars(t) > most) throw new ArtifactError(`An artifact's ${what} is at most ${most} characters (this one is ${chars(t)}).`);
+  if (/[\r\n]/.test(t)) throw new HttpError(`An artifact's ${what} is one line.`);
+  if (chars(t) > most) throw new HttpError(`An artifact's ${what} is at most ${most} characters (this one is ${chars(t)}).`);
   return t;
 };
 
@@ -118,20 +113,20 @@ export const titleOf = (v: unknown) => oneLine(v, "title (very compact: what it 
 export function descriptionOf(v: unknown) {
   const d = oneLine(v, "description (the mini summary: one or two sentences)", DESCRIPTION_MOST);
   if (/\*\*|__|`|\[[^\]]*\]\([^)]*\)|^#{1,6}\s|^[-*+>]\s|(^|\s)\*[^*\s][^*]*\*(?=$|[\s.,;:!?])/.test(d))
-    throw new ArtifactError("An artifact's description is plain text: no Markdown (no **, _, `, links, headings or bullets).");
+    throw new HttpError("An artifact's description is plain text: no Markdown (no **, _, `, links, headings or bullets).");
   return d;
 }
 
 /** A summary held to its form: Markdown, 500–1,500 words, in its sections in their order, its key points as bullets. */
 export function summaryOf(v: unknown) {
-  if (typeof v !== "string" || !v.trim()) throw new ArtifactError("An artifact needs its summary: a small report on the overall topic.");
+  if (typeof v !== "string" || !v.trim()) throw new HttpError("An artifact needs its summary: a small report on the overall topic.");
   const s = v.trim();
-  if (chars(s) > SUMMARY_CHARS_MOST) throw new ArtifactError(`An artifact's summary is at most ${SUMMARY_CHARS_MOST} characters.`);
+  if (chars(s) > SUMMARY_CHARS_MOST) throw new HttpError(`An artifact's summary is at most ${SUMMARY_CHARS_MOST} characters.`);
   const words = wordsOf(s);
   if (words < SUMMARY_WORDS.least || words > SUMMARY_WORDS.most)
-    throw new ArtifactError(`An artifact's summary is ${SUMMARY_WORDS.least}–${SUMMARY_WORDS.most} words (this one is ${words}): a small report on the overall topic.`);
+    throw new HttpError(`An artifact's summary is ${SUMMARY_WORDS.least}–${SUMMARY_WORDS.most} words (this one is ${words}): a small report on the overall topic.`);
   const lines = s.split(/\r?\n/);
-  if (lines.some((l) => /^#\s/.test(l))) throw new ArtifactError("A summary's sections are level-2 headings (##); use ### inside one, never #.");
+  if (lines.some((l) => /^#\s/.test(l))) throw new HttpError("A summary's sections are level-2 headings (##); use ### inside one, never #.");
   const heads: { name: string; at: number }[] = [];
   lines.forEach((l, at) => {
     const m = /^##\s+(.+?)\s*#*\s*$/.exec(l);
@@ -142,38 +137,38 @@ export function summaryOf(v: unknown) {
   const fits =
     (names.length === 3 || (names.length === 4 && names[3] === OPTIONAL_SECTION.toLowerCase())) && want.every((w, i) => names[i] === w.toLowerCase());
   const form = `## ${SECTIONS.join(", ## ")} in that order, and if you like ## ${OPTIONAL_SECTION} last`;
-  if (!fits) throw new ArtifactError(`A summary's sections are ${form}${heads.length ? ` (this one has ${heads.map((h) => `## ${h.name}`).join(", ")})` : ""}.`);
-  if (lines.slice(0, heads[0].at).some((l) => l.trim())) throw new ArtifactError(`A summary starts with ## ${SECTIONS[0]}.`);
+  if (!fits) throw new HttpError(`A summary's sections are ${form}${heads.length ? ` (this one has ${heads.map((h) => `## ${h.name}`).join(", ")})` : ""}.`);
+  if (lines.slice(0, heads[0].at).some((l) => l.trim())) throw new HttpError(`A summary starts with ## ${SECTIONS[0]}.`);
   heads.forEach((h, i) => {
     const body = lines.slice(h.at + 1, heads[i + 1]?.at ?? lines.length);
-    if (!wordsOf(body.join("\n"))) throw new ArtifactError(`A summary's ## ${h.name} has something in it.`);
-    if (i === 1 && !body.some((l) => /^\s*([-*+]|\d+[.)])\s+\S/.test(l))) throw new ArtifactError(`A summary's ## ${SECTIONS[1]} are bullets (- …), each a claim, finding or number as the artifact puts it.`);
+    if (!wordsOf(body.join("\n"))) throw new HttpError(`A summary's ## ${h.name} has something in it.`);
+    if (i === 1 && !body.some((l) => /^\s*([-*+]|\d+[.)])\s+\S/.test(l))) throw new HttpError(`A summary's ## ${SECTIONS[1]} are bullets (- …), each a claim, finding or number as the artifact puts it.`);
   });
   return s;
 }
 
 const kindOf = (v: unknown): ArtifactKind => {
-  if (!ARTIFACT_KINDS.includes(v as ArtifactKind)) throw new ArtifactError(`An artifact's kind is one of ${ARTIFACT_KINDS.join(", ")}.`);
+  if (!ARTIFACT_KINDS.includes(v as ArtifactKind)) throw new HttpError(`An artifact's kind is one of ${ARTIFACT_KINDS.join(", ")}.`);
   return v as ArtifactKind;
 };
 
 const originOf = (v: unknown): Origin => {
   if (!ORIGINS.includes(v as Origin))
-    throw new ArtifactError("An artifact's origin is 'human' (your operator pasted it) or 'agent' (you found it in your own research).");
+    throw new HttpError("An artifact's origin is 'human' (your operator pasted it) or 'agent' (you found it in your own research).");
   return v as Origin;
 };
 
 function tagsOf(v: unknown): string[] {
   if (v === undefined || v === null) return [];
-  if (!Array.isArray(v)) throw new ArtifactError("An artifact's tags are a list of words.");
+  if (!Array.isArray(v)) throw new HttpError("An artifact's tags are a list of words.");
   const out: string[] = [];
   for (const t of v) {
     const n = `${t ?? ""}`.trim().toLowerCase().replace(/\s+/g, " ");
     if (!n) continue;
-    if (chars(n) > 40) throw new ArtifactError("A tag is at most 40 characters.");
+    if (chars(n) > 40) throw new HttpError("A tag is at most 40 characters.");
     if (!out.includes(n)) out.push(n);
   }
-  if (out.length > TAGS_MOST) throw new ArtifactError(`An artifact has at most ${TAGS_MOST} tags.`);
+  if (out.length > TAGS_MOST) throw new HttpError(`An artifact has at most ${TAGS_MOST} tags.`);
   return out;
 }
 
@@ -182,7 +177,7 @@ function publishedOf(v: unknown): string | null {
   const s = `${v}`.trim();
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
   const d = m ? new Date(`${s}T00:00:00Z`) : null;
-  if (!m || !d || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s) throw new ArtifactError("An artifact's published date is YYYY-MM-DD.");
+  if (!m || !d || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s) throw new HttpError("An artifact's published date is YYYY-MM-DD.");
   return s;
 }
 
@@ -190,31 +185,31 @@ type AuthorGiven = { id: string } | { name: string; kind: string; url: string | 
 
 function authorsGiven(v: unknown): AuthorGiven[] {
   if (!Array.isArray(v) || !v.length)
-    throw new ArtifactError("An artifact has at least one author: each an author's id (list_authors), or a new one { name, kind: person | organization }; where no person is named, its publisher as an organization.");
-  if (v.length > AUTHORS_MOST) throw new ArtifactError(`An artifact has at most ${AUTHORS_MOST} authors.`);
+    throw new HttpError("An artifact has at least one author: each an author's id (list_authors), or a new one { name, kind: person | organization }; where no person is named, its publisher as an organization.");
+  if (v.length > AUTHORS_MOST) throw new HttpError(`An artifact has at most ${AUTHORS_MOST} authors.`);
   const ids = new Set<string>();
   return v.map((a: any, i): AuthorGiven => {
     if (a && typeof a === "object" && a.id !== undefined) {
       const id = `${a.id}`;
-      if (!UUID.test(id)) throw new ArtifactError(`Author ${i + 1} is named by an author's id, a UUID (list_authors gives it).`);
-      if (ids.has(id)) throw new ArtifactError(`Author ${i + 1} is named twice.`);
+      if (!UUID.test(id)) throw new HttpError(`Author ${i + 1} is named by an author's id, a UUID (list_authors gives it).`);
+      if (ids.has(id)) throw new HttpError(`Author ${i + 1} is named twice.`);
       ids.add(id);
       return { id };
     }
     const name = `${a?.name ?? ""}`.trim().replace(/\s+/g, " ");
-    if (!name) throw new ArtifactError(`Author ${i + 1} is an author's id or a new one with a name.`);
-    if (chars(name) > 200) throw new ArtifactError(`Author ${i + 1}'s name is at most 200 characters.`);
-    if (!AUTHOR_KINDS.includes(a?.kind)) throw new ArtifactError(`Author ${i + 1}'s kind is person or organization.`);
+    if (!name) throw new HttpError(`Author ${i + 1} is an author's id or a new one with a name.`);
+    if (chars(name) > 200) throw new HttpError(`Author ${i + 1}'s name is at most 200 characters.`);
+    if (!AUTHOR_KINDS.includes(a?.kind)) throw new HttpError(`Author ${i + 1}'s kind is person or organization.`);
     let url: string | null = null;
     if (a?.url !== undefined && a?.url !== null && a?.url !== "") {
       try {
         url = urlOf(a.url);
       } catch {
-        throw new ArtifactError(`Author ${i + 1}'s url is an http(s) link.`);
+        throw new HttpError(`Author ${i + 1}'s url is an http(s) link.`);
       }
     }
     const note = a?.note ? `${a.note}`.trim() : null;
-    if (note && chars(note) > 600) throw new ArtifactError(`Author ${i + 1}'s note is at most 600 characters.`);
+    if (note && chars(note) > 600) throw new HttpError(`Author ${i + 1}'s note is at most 600 characters.`);
     return { name, kind: a.kind, url, note: note || null };
   });
 }
@@ -225,10 +220,10 @@ const TEXT_TYPE = "text/plain";
 
 async function keepText(db: Queryable, store: BlobStore, text: unknown, title: string): Promise<string | null> {
   if (text === undefined || text === null || text === "") return null;
-  if (typeof text !== "string") throw new ArtifactError("An artifact's text is the page's readable text, as a string.");
-  if (/\u0000/.test(text)) throw new ArtifactError("An artifact's text is text: no NUL characters.");
+  if (typeof text !== "string") throw new HttpError("An artifact's text is the page's readable text, as a string.");
+  if (/\u0000/.test(text)) throw new HttpError("An artifact's text is text: no NUL characters.");
   const bytes = new TextEncoder().encode(text);
-  if (bytes.length > TEXT_MOST) throw new ArtifactError(`An artifact's text is at most ${TEXT_MOST / 1e6} MB.`, 413);
+  if (bytes.length > TEXT_MOST) throw new HttpError(`An artifact's text is at most ${TEXT_MOST / 1e6} MB.`, 413);
   const hash = hashBytes(bytes);
   const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, TEXT_TYPE);
   await keepFile(db, { hash, size: bytes.length, media_type: TEXT_TYPE, bucket_key: key, label: `Text of ${title}`.slice(0, 120) });
@@ -272,13 +267,13 @@ const shape = (r: any, whole = false) => ({
 
 const idOf = (v: unknown, what: string) => {
   const id = `${v ?? ""}`;
-  if (!UUID.test(id)) throw new ArtifactError(`${what === "artifact" ? "An" : "A"} ${what} is named by its id, a UUID (list_${what}s gives it).`, 404);
+  if (!UUID.test(id)) throw new HttpError(`${what === "artifact" ? "An" : "A"} ${what} is named by its id, a UUID (list_${what}s gives it).`, 404);
   return id;
 };
 
 async function artifactRow(db: Queryable, id: string) {
   const { rows } = await db.query(`SELECT ${ARTIFACT_COLUMNS}, s.summary FROM ${ARTIFACT_FROM} WHERE s.coop_id = $1 AND s.id = $2 AND s.title IS NOT NULL`, [COOP, id]);
-  if (!rows[0]) throw new ArtifactError("No artifact is kept by that id.", 404);
+  if (!rows[0]) throw new HttpError("No artifact is kept by that id.", 404);
   return shape(rows[0], true);
 }
 
@@ -351,7 +346,7 @@ export async function authorOf(db: Queryable, me: Me | null, id: unknown) {
     [COOP, aid],
   );
   const a: any = rows[0];
-  if (!a) throw new ArtifactError("No author is kept by that id.", 404);
+  if (!a) throw new HttpError("No author is kept by that id.", 404);
   const { rows: artifacts } = await db.query(
     `SELECT ${ARTIFACT_COLUMNS} FROM ${ARTIFACT_FROM} WHERE s.coop_id = $1 AND s.title IS NOT NULL AND EXISTS (SELECT 1 FROM play.artifact_authors sa WHERE sa.artifact_id = s.id AND sa.author_id = $2)
       ORDER BY s.created DESC, s.id`,
@@ -368,7 +363,7 @@ async function authorIds(tx: Queryable, me: Me, given: AuthorGiven[]): Promise<s
   for (const [i, a] of given.entries()) {
     if ("id" in a) {
       const { rows } = await tx.query(`SELECT id FROM play.authors WHERE coop_id = $1 AND id = $2`, [COOP, a.id]);
-      if (!rows[0]) throw new ArtifactError(`Author ${i + 1} (${a.id}) is not kept: list_authors gives the ids, or give a new one { name, kind }.`, 404);
+      if (!rows[0]) throw new HttpError(`Author ${i + 1} (${a.id}) is not kept: list_authors gives the ids, or give a new one { name, kind }.`, 404);
       out.push(a.id);
     } else {
       const id = newId();
@@ -482,13 +477,13 @@ async function updateIn(db: Db, store: BlobStore, me: Me | null, artifact: unkno
   const id = idOf(artifact, "artifact");
   const now = await artifactRow(db, id);
   if (b && "origin" in b && b.origin !== undefined && b.origin !== now.origin)
-    throw new ArtifactError("An artifact's origin is kept as it came: who brought it never changes.");
+    throw new HttpError("An artifact's origin is kept as it came: who brought it never changes.");
   const cur = (await docAt({ db, store }, who, id)).json;
   const next: any = { ...cur };
   if (b?.url !== undefined) {
     next.url = urlOf(b.url);
     const held = next.url === now.url ? {} : await linkHeld(db, next.url);
-    if (held.kept || held.waiting) throw new ArtifactError(`That link is kept already, as ${held.kept ? `artifact ${held.kept}` : `intent ${held.waiting}'s work`}.`, 409);
+    if (held.kept || held.waiting) throw new HttpError(`That link is kept already, as ${held.kept ? `artifact ${held.kept}` : `intent ${held.waiting}'s work`}.`, 409);
   }
   if (b?.title !== undefined) next.title = titleOf(b.title);
   if (b?.description !== undefined) next.description = descriptionOf(b.description);
@@ -501,7 +496,7 @@ async function updateIn(db: Db, store: BlobStore, me: Me | null, artifact: unkno
     const given = authorsGiven(b.authors);
     next.authors = await db.transaction((tx) => authorIds(tx, who, given));
   }
-  if (!Object.keys(b ?? {}).some((k) => k !== "origin" && (b as any)[k] !== undefined)) throw new ArtifactError("Nothing to change: give the fields to correct.");
+  if (!Object.keys(b ?? {}).some((k) => k !== "origin" && (b as any)[k] !== undefined)) throw new HttpError("Nothing to change: give the fields to correct.");
   const fields = Object.keys(b).filter((k) => k !== "origin").join(", ");
   const note = `Correct the artifact ${next.title}: ${fields}`;
   if (!intent) {

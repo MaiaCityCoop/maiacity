@@ -14,16 +14,17 @@
 import { admin, type Me } from "./access";
 import * as docs from "./docs";
 import type { Db, Queryable } from "./kit/pg";
-import { INTENT_ADMINS, IntentError, intentRow, LINE_MOST } from "./intents";
+import { INTENT_ADMINS, intentRow, LINE_MOST } from "./intents";
 import { seesIntent } from "./owners";
 import { authorOf } from "./storydocs";
-import { docRef, VersionError, type Ctx } from "./versioned";
-import { putAtProposal, WorkError } from "./work";
+import { docRef, type Ctx } from "./versioned";
+import { putAtProposal } from "./work";
+import { HttpError } from "./kit/errors";
 
 const reasonOf = (v: unknown) => {
   const r = `${v ?? ""}`.replace(/\s+/g, " ").trim();
-  if (!r) throw new IntentError("A retire needs its reason: why the document goes, in a line.");
-  if (r.length > LINE_MOST) throw new IntentError(`A retire's reason is one line, at most ${LINE_MOST} characters.`);
+  if (!r) throw new HttpError("A retire needs its reason: why the document goes, in a line.");
+  if (r.length > LINE_MOST) throw new HttpError(`A retire's reason is one line, at most ${LINE_MOST} characters.`);
   return r;
 };
 
@@ -42,18 +43,18 @@ export async function retireDoc(ctx: Ctx, me: Me | null, id: string, doc: unknow
   const who = admin(me, INTENT_ADMINS);
   const why = reasonOf(reason);
   const intent = await intentRow(ctx.db, id);
-  if (!(await seesIntent(ctx.db, who, intent.id))) throw new IntentError("There is no such intent.", 404);
+  if (!(await seesIntent(ctx.db, who, intent.id))) throw new HttpError("There is no such intent.", 404);
   await (ctx.db as Db).transaction(async (tx) => {
     const { kind, uuid, docId } = await docRef(tx, ctx, `${doc ?? ""}`.trim().split(":").at(-1), who);
-    if (!(await docs.versionsOf(tx, docId)).length) throw new VersionError(`The ${kind.label} ${uuid} has no accepted version: there is nothing on Main to retire (withdraw_doc takes a document out of an intent before its Accept).`, 409);
-    if (await retiredOf(tx, docId)) throw new VersionError(`The ${kind.label} ${uuid} is retired already.`, 409);
+    if (!(await docs.versionsOf(tx, docId)).length) throw new HttpError(`The ${kind.label} ${uuid} has no accepted version: there is nothing on Main to retire (withdraw_doc takes a document out of an intent before its Accept).`, 409);
+    if (await retiredOf(tx, docId)) throw new HttpError(`The ${kind.label} ${uuid} is retired already.`, 409);
     const author = authorOf(who, via === "mcp" ? "mcp" : "site");
     const note = `Retires ${kind.label} ${uuid}: ${why}`;
     const v = await docs.variant(tx, docId, { author, note });
     // proposed as it is: a retire changes nothing of its content, so it has no edits
     await tx.query(`UPDATE play.doc_variants SET status = 'proposed', proposed_at = now() WHERE id = $1`, [v.id]);
     await putAtProposal(tx, who, { intent: intent.id, work: { kind: kind.work, doc_id: docId, doc_variant: v.id, retire: why }, note, via });
-  }).catch((e) => Promise.reject(e instanceof WorkError ? new IntentError(e.message, e.status) : e));
+  });
   return intentRow(ctx.db, intent.id);
 }
 

@@ -3,7 +3,7 @@
 // Agents add, specify and build it over MCP; an admin approves its spec and decides it at Proposal, where work of play's
 // is applied (./versioned.ts decide) and code is shipped (./ship.ts). Every move forward is one gate, mayMove.
 import { intentSeen, seesIntent } from "./owners";
-import { admin, Denied, COOP, meOf, type Me } from "./access";
+import { admin, COOP, meOf, type Me } from "./access";
 import type { BlobStore } from "./blobs";
 import type { Db, Queryable } from "./kit/pg";
 import { factsOf, matchRule, ruleSetOf, type AutoBy } from "./rules";
@@ -14,14 +14,9 @@ import { newId, UUID } from "./kit/uuid";
 import { closeWork, intentIdOf, WORK_STATUS } from "./work";
 import { decideAny, workKinds, workSql } from "./versioned";
 import { decidable, sub, unmetOn } from "./substate";
+import { HttpError } from "./kit/errors";
 
 export { unmetOn };
-
-export class IntentError extends Error {
-  constructor(message: string, public status = 400) {
-    super(message);
-  }
-}
 
 export const INTENT_KINDS = ["idea", "fix", "improve"] as const;
 export type IntentKind = (typeof INTENT_KINDS)[number];
@@ -59,24 +54,24 @@ export const INTENT_ADMINS = "Only Maia City's admins keep the intents.";
 
 const kindOf = (v: unknown): IntentKind => {
   if (v === undefined || v === null || v === "") return "idea";
-  if (!INTENT_KINDS.includes(v as IntentKind)) throw new IntentError(`An intent's kind is ${INTENT_KINDS.join(", ")}.`);
+  if (!INTENT_KINDS.includes(v as IntentKind)) throw new HttpError(`An intent's kind is ${INTENT_KINDS.join(", ")}.`);
   return v as IntentKind;
 };
 const titleOf = (v: unknown) => {
   const t = `${v ?? ""}`.replace(/\s+/g, " ").trim();
-  if (!t) throw new IntentError("An intent needs a title: what is to be made, fixed or improved, in a line.");
-  if (t.length > TITLE_MOST) throw new IntentError(`An intent's title is at most ${TITLE_MOST} characters: say the rest in its note.`);
+  if (!t) throw new HttpError("An intent needs a title: what is to be made, fixed or improved, in a line.");
+  if (t.length > TITLE_MOST) throw new HttpError(`An intent's title is at most ${TITLE_MOST} characters: say the rest in its note.`);
   return t;
 };
 const textOf = (v: unknown, what: string, most: number, need = false) => {
   const n = `${v ?? ""}`.trim();
-  if (need && !n) throw new IntentError(`An intent's spec needs its ${what}.`);
-  if (n.length > most) throw new IntentError(`An intent's ${what} is at most ${most} characters.`);
+  if (need && !n) throw new HttpError(`An intent's spec needs its ${what}.`);
+  if (n.length > most) throw new HttpError(`An intent's ${what} is at most ${most} characters.`);
   return n;
 };
 const idOf = (v: unknown) => {
   const id = `${v ?? ""}`;
-  if (!UUID.test(id)) throw new IntentError("An intent is named by its id, a UUID (list_intents gives it).", 404);
+  if (!UUID.test(id)) throw new HttpError("An intent is named by its id, a UUID (list_intents gives it).", 404);
   return id;
 };
 
@@ -108,25 +103,25 @@ export function specOf(body: { goal?: unknown; scope?: unknown; checks?: unknown
   const scope = textOf(body?.scope, "scope (what changes, named by its ids or paths, and what stays as it is)", NOTE_MOST, true);
   const given = body?.checks;
   if (!Array.isArray(given) || given.length < 1 || given.length > CHECKS_MOST)
-    throw new IntentError(`An intent's spec has 1 to ${CHECKS_MOST} checks: each one statement that passes or fails, and how it is checked.`);
+    throw new HttpError(`An intent's spec has 1 to ${CHECKS_MOST} checks: each one statement that passes or fails, and how it is checked.`);
   const checks: Check[] = given.map((c: any, i) => {
     const check = textOf(c?.check, `check ${i + 1}'s statement`, LINE_MOST, true);
-    if (!CHECK_HOWS.includes(c?.how)) throw new IntentError(`Check ${i + 1} is checked by test (a command that passes), measure (a value and its range) or look (by eye against a named reference).`);
+    if (!CHECK_HOWS.includes(c?.how)) throw new HttpError(`Check ${i + 1} is checked by test (a command that passes), measure (a value and its range) or look (by eye against a named reference).`);
     const by = textOf(c?.by, `check ${i + 1}'s how (${c.how === "test" ? "the command or test that passes" : c.how === "measure" ? "the tool that measures it and the range it must fall in" : "the reference it is judged against"})`, LINE_MOST, true);
     const run = textOf(c?.run, `check ${i + 1}'s run`, RUN_MOST);
     if (!run && c.how !== "look")
-      throw new IntentError(`Check c${i + 1} (a ${c.how}) needs its run: the command that decides it in avenBOX, from the repository's root, as written (${c.how === "test" ? "it passes when it exits 0" : "it prints the value it measures and exits 0 only when that is in its range"}).`);
+      throw new HttpError(`Check c${i + 1} (a ${c.how}) needs its run: the command that decides it in avenBOX, from the repository's root, as written (${c.how === "test" ? "it passes when it exits 0" : "it prints the value it measures and exits 0 only when that is in its range"}).`);
     const hole = run && placeholderIn(run);
-    if (hole) throw new IntentError(`Check c${i + 1}'s run holds a placeholder (${hole}): a run is a command that runs as written in avenBOX, nothing in it left to fill in.`);
+    if (hole) throw new HttpError(`Check c${i + 1}'s run holds a placeholder (${hole}): a run is a command that runs as written in avenBOX, nothing in it left to fill in.`);
     const step = c?.step ?? "mvp";
-    if (!STEPS.includes(step)) throw new IntentError(`Check c${i + 1}'s step is reduce (what it takes away) or mvp.`);
-    if (step === "reduce" && c?.must === false) throw new IntentError(`Check c${i + 1} is a reduction: every reduction is a must.`);
+    if (!STEPS.includes(step)) throw new HttpError(`Check c${i + 1}'s step is reduce (what it takes away) or mvp.`);
+    if (step === "reduce" && c?.must === false) throw new HttpError(`Check c${i + 1} is a reduction: every reduction is a must.`);
     return { id: `c${i + 1}`, check, how: c.how, by, ...(run ? { run } : {}), must: c?.must !== false, step };
   });
-  if (!checks.some((c) => c.must)) throw new IntentError("At least one of an intent's checks is a must: what must hold before it is accepted.");
+  if (!checks.some((c) => c.must)) throw new HttpError("At least one of an intent's checks is a must: what must hold before it is accepted.");
   const none = textOf(body?.nothing_to_reduce, "nothing_to_reduce", LINE_MOST);
   const spec: Spec = { goal, scope, checks, ...(none ? { nothing_to_reduce: none } : {}) };
-  if (!reduces(spec)) throw new IntentError(NO_REDUCE);
+  if (!reduces(spec)) throw new HttpError(NO_REDUCE);
   return spec;
 }
 
@@ -207,10 +202,10 @@ async function addEdges(q: Queryable, who: Me, id: string, on: string[], drop = 
   await q.query(`SELECT pg_advisory_xact_lock(4711031)`); // one at a time: two edges added at once could close a cycle
   for (const o of on) {
     if (drop) await q.query(`DELETE FROM play.intent_depends WHERE intent_id = $1 AND depends_on = $2`, [id, o]);
-    else if (o === id) throw new IntentError(`Intent ${id} cannot depend on itself.`);
-    else if (!(await intentIdOf(q, o))) throw new IntentError(`There is no intent ${o} to depend on.`, 404);
+    else if (o === id) throw new HttpError(`Intent ${id} cannot depend on itself.`);
+    else if (!(await intentIdOf(q, o))) throw new HttpError(`There is no intent ${o} to depend on.`, 404);
     else if ((await q.query(`WITH RECURSIVE up(x) AS (SELECT $2::uuid UNION SELECT d.depends_on FROM play.intent_depends d JOIN up ON d.intent_id = up.x) SELECT 1 FROM up WHERE x = $1::uuid`, [id, o])).rows.length)
-      throw new IntentError(`Intent ${id} cannot depend on ${o}: ${o} depends on ${id} already, and nothing waits on itself.`, 409);
+      throw new HttpError(`Intent ${id} cannot depend on ${o}: ${o} depends on ${id} already, and nothing waits on itself.`, 409);
     else await q.query(`INSERT INTO play.intent_depends (intent_id, depends_on, by) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, [id, o, who.id]);
   }
 }
@@ -233,13 +228,13 @@ export const CODE = "code";
 async function workKindOf(q: Queryable, v: unknown): Promise<string[] | null | undefined> {
   if (v === undefined) return undefined;
   if (v === null) return null;
-  if (!Array.isArray(v)) throw new IntentError("work_kind is a list: the kinds of work the intent will bring, each a schema's UUID (list_docs gives them) or code.");
+  if (!Array.isArray(v)) throw new HttpError("work_kind is a list: the kinds of work the intent will bring, each a schema's UUID (list_docs gives them) or code.");
   const out: string[] = [];
   for (const k of v) {
     const s = `${k ?? ""}`.toLowerCase();
-    if (s !== CODE && !UUID.test(s)) throw new IntentError(`work_kind ${k}: each kind of work is a schema's UUID or code.`);
+    if (s !== CODE && !UUID.test(s)) throw new HttpError(`work_kind ${k}: each kind of work is a schema's UUID or code.`);
     if (s !== CODE && !(await q.query(`SELECT 1 FROM play.docs WHERE id = $1 AND EXISTS (SELECT 1 FROM play.doc_versions v WHERE v.doc_id = play.docs.id)`, [`schema:${s}`])).rows.length)
-      throw new IntentError(`work_kind ${s}: play keeps no accepted schema of that UUID (list_docs kind schema).`, 404);
+      throw new HttpError(`work_kind ${s}: play keeps no accepted schema of that UUID (list_docs kind schema).`, 404);
     if (!out.includes(s)) out.push(s);
   }
   return out.length ? out : null;
@@ -250,7 +245,7 @@ export const declaredText = (kinds: string[]) => kinds.join(", ");
 /** depends_on as given: UUIDs, or undefined (left as it is) */
 const depsOf = (v: unknown) => {
   if (v == null) return undefined;
-  if (!Array.isArray(v)) throw new IntentError("depends_on is a list of intents' ids (UUIDs).");
+  if (!Array.isArray(v)) throw new HttpError("depends_on is a list of intents' ids (UUIDs).");
   return v.map(idOf);
 };
 
@@ -271,12 +266,12 @@ const pageOf = (p: IntentPage | undefined) => {
   let limit: number | undefined;
   if (p?.limit !== undefined && p.limit !== null && p.limit !== "") {
     limit = Number(p.limit);
-    if (!Number.isInteger(limit) || limit < 1 || limit > PAGE_MOST) throw new IntentError(`A page of intents holds 1 to ${PAGE_MOST} (limit).`);
+    if (!Number.isInteger(limit) || limit < 1 || limit > PAGE_MOST) throw new HttpError(`A page of intents holds 1 to ${PAGE_MOST} (limit).`);
   }
   let before: [string, string] | null = null;
   if (p?.before !== undefined && p.before !== null && p.before !== "") {
     const m = /^(\d{1,19})_([0-9a-f-]{36})$/i.exec(`${p.before}`);
-    if (!m || !UUID.test(m[2])) throw new IntentError("before is a page's cursor: the `next` of the page before.");
+    if (!m || !UUID.test(m[2])) throw new HttpError("before is a page's cursor: the `next` of the page before.");
     before = [m[1], m[2].toLowerCase()];
   }
   return { limit, before };
@@ -289,8 +284,8 @@ const pageOf = (p: IntentPage | undefined) => {
  */
 export async function pageIntents(db: Queryable, me: Me | null, stages?: string[], work?: string, page?: IntentPage) {
   admin(me, INTENT_ADMINS);
-  for (const s of stages ?? []) if (!INTENT_STAGES.includes(s as IntentStage)) throw new IntentError(`An intent's stage is ${INTENT_STAGES.join(", ")}.`);
-  if (work !== undefined && !workKinds().includes(work)) throw new IntentError(`An intent's work is ${workKinds().join(", ")}.`);
+  for (const s of stages ?? []) if (!INTENT_STAGES.includes(s as IntentStage)) throw new HttpError(`An intent's stage is ${INTENT_STAGES.join(", ")}.`);
+  if (work !== undefined && !workKinds().includes(work)) throw new HttpError(`An intent's work is ${workKinds().join(", ")}.`);
   const { limit, before } = pageOf(page);
   // (an intent whose work is another's private asset is left out: ./owners.ts)
   const rows = await intentsWhere(
@@ -319,7 +314,7 @@ export async function intentCounts(db: Queryable, me: Me | null): Promise<Record
 
 export async function intentRow(db: Queryable, id: string) {
   const [intent] = await intentsWhere(db, `i.id = $2`, [idOf(id)]);
-  if (!intent) throw new IntentError("There is no such intent.", 404);
+  if (!intent) throw new HttpError("There is no such intent.", 404);
   return intent;
 }
 
@@ -337,7 +332,7 @@ export async function intentOf(db: Queryable, me: Me | null, id: string, reviewO
   const who = admin(me, INTENT_ADMINS);
   const intent = await getIntent(db, id);
   // one whose work is another's private asset is as one that never was (./owners.ts)
-  if (!(await seesIntent(db, who, intent.id))) throw new IntentError("There is no such intent.", 404);
+  if (!(await seesIntent(db, who, intent.id))) throw new HttpError("There is no such intent.", 404);
   // held (approved, its dependencies not shipped): nothing to do yet, its sub-state says why
   const held = intent.held_by.length > 0 && (intent.stage === "build" || intent.stage === "proposal");
   return { ...intent, brief: held ? null : await briefOf(db, intent), review: intent.work ? await reviewOf(db, intent.id, intent.work) : null };
@@ -350,9 +345,9 @@ export async function intentOf(db: Queryable, me: Me | null, id: string, reviewO
 export async function intentDocOf(db: Queryable, me: Me | null, id: string, doc: string, variant: number | null, reviewHeld: (db: Queryable, id: string, doc: string, variant?: number | null) => Promise<unknown>) {
   const who = admin(me, INTENT_ADMINS);
   const intent = await getIntent(db, id);
-  if (!(await seesIntent(db, who, intent.id))) throw new IntentError("There is no such intent.", 404);
+  if (!(await seesIntent(db, who, intent.id))) throw new HttpError("There is no such intent.", 404);
   const r = await reviewHeld(db, intent.id, doc, variant);
-  if (!r) throw new IntentError("This intent changes no such document.", 404);
+  if (!r) throw new HttpError("This intent changes no such document.", 404);
   return r;
 }
 
@@ -380,13 +375,13 @@ export async function specifyIntent(db: Db, me: Me | null, id: string, body: { g
   const who = admin(me, INTENT_ADMINS);
   const intent = await intentRow(db, id);
   if (intent.stage !== "idea" && intent.stage !== "specify")
-    throw new IntentError(`Intent ${intent.id} is at the ${intent.stage} stage: it is specified at Idea or Specify (step_back_intent sends it back).`, 409);
+    throw new HttpError(`Intent ${intent.id} is at the ${intent.stage} stage: it is specified at Idea or Specify (step_back_intent sends it back).`, 409);
   const spec = specOf(body);
   const deps = depsOf(body?.depends_on);
   // its declared work changes only while it holds none
   const declared = await workKindOf(db, body?.work_kind);
   if (declared !== undefined && JSON.stringify(declared) !== JSON.stringify(intent.work_kind ?? null) && (intent.work || (await db.query(`SELECT 1 FROM play.intent_variants WHERE intent_id = $1`, [intent.id])).rows.length))
-    throw new IntentError(`Intent ${intent.id} holds work already: its declared kinds of work (work_kind) change only while it holds none.`, 409);
+    throw new HttpError(`Intent ${intent.id} holds work already: its declared kinds of work (work_kind) change only while it holds none.`, 409);
   await db.transaction(async (tx) => {
     // depends_on given: the intents it depends on, replacing those before (specifying is never held)
     if (deps) {
@@ -415,7 +410,7 @@ export const waiting = (intent: { stage: string; work: unknown }) => intent.stag
 const prOf = (v: unknown) => {
   if (v === undefined || v === null || v === "") return undefined;
   const n = Number(v);
-  if (!Number.isInteger(n) || n < 1) throw new IntentError("pr is the number of the intent's pull request into main (#2096 is 2096).");
+  if (!Number.isInteger(n) || n < 1) throw new HttpError("pr is the number of the intent's pull request into main (#2096 is 2096).");
   return n;
 };
 
@@ -430,46 +425,46 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
   const intent = await intentRow(db, id);
   const named = prOf(pr);
   const list = given === undefined || given === null ? [] : given;
-  if (!Array.isArray(list) || (!list.length && named === undefined)) throw new IntentError("Give each check's result: { check: 'c1', pass: true | false, evidence }.");
+  if (!Array.isArray(list) || (!list.length && named === undefined)) throw new HttpError("Give each check's result: { check: 'c1', pass: true | false, evidence }.");
   // (code beside play's work, intent 7c8986c5: its run records its checks at Proposal too, its work waiting with it)
   const moves = intent.stage === "build" || (intent.stage === "proposal" && intent.approved_at && (!waiting(intent) || !!intent.pull_request));
   const confirms = list.length > 0 && named === undefined && !!intent.approved_at && list.every((r: any) => r?.where === "main");
   if (!moves && !confirms)
-    throw new IntentError(
+    throw new HttpError(
       `Intent ${intent.id} is at the ${intent.stage} stage: checks are recorded while it is being built (its spec approved)${intent.stage === "proposal" ? ", or at Proposal while no work of it waits there" : ""}; main's results (where main) in any stage once its spec is approved.`,
       409,
     );
   // held: nothing is recorded until every intent it depends on is shipped (main's confirmations are still taken)
-  if (moves && !confirms && intent.held_by.length) throw new IntentError(heldText(intent.id, intent.held_by), 409);
+  if (moves && !confirms && intent.held_by.length) throw new HttpError(heldText(intent.id, intent.held_by), 409);
   // work of another kind than declared is refused: a pull request is code
   const undeclared = named !== undefined ? notDeclared(intent, { code: true }) : "";
-  if (undeclared) throw new IntentError(undeclared, 409);
+  if (undeclared) throw new HttpError(undeclared, 409);
   // only the box's run is evidence (play/SPEC.md §4.12, Samuel 2026-11-06): what can decide a code intent (its pull
   // request named, a test or measure result on a commit or on main, or any once its pull request is named) is taken
   // from avenBOX's token alone; a look is still judged and recorded by hand
   const checkOf = new Map<string, Check>((intent.spec?.checks ?? []).map((c: Check) => [c.id, c]));
   if (!who.box) {
-    if (named !== undefined) throw new IntentError(`Intent ${intent.id}: its pull request is named by its run, not by hand: ${BOX_ONLY}.`, 403);
+    if (named !== undefined) throw new HttpError(`Intent ${intent.id}: its pull request is named by its run, not by hand: ${BOX_ONLY}.`, 403);
     for (const r of list as any[]) {
       const c = checkOf.get(r?.check);
       if (!c || c.how === "look") continue;
       const code = !!intent.pull_request || (r?.commit !== undefined && r?.commit !== null && r?.commit !== "") || r?.where === "main";
-      if (code) throw new IntentError(`${c.id} (${c.how}) of intent ${intent.id}: ${BOX_ONLY}.`, 403);
+      if (code) throw new HttpError(`${c.id} (${c.how}) of intent ${intent.id}: ${BOX_ONLY}.`, 403);
     }
   }
   const ids = new Set(checkOf.keys());
   const results: Record<string, Result> = { ...(intent.results ?? {}) };
   const at = new Date().toISOString();
   for (const r of list as any[]) {
-    if (!ids.has(r?.check)) throw new IntentError(`${r?.check} is not one of this intent's checks (${[...ids].join(", ")}).`);
-    if (typeof r?.pass !== "boolean") throw new IntentError(`${r.check}: pass is true or false.`);
+    if (!ids.has(r?.check)) throw new HttpError(`${r?.check} is not one of this intent's checks (${[...ids].join(", ")}).`);
+    if (typeof r?.pass !== "boolean") throw new HttpError(`${r.check}: pass is true or false.`);
     const evidence = textOf(r?.evidence, `${r.check}'s evidence (the command and what it printed, the value measured, what was compared)`, 4000, true);
     const where = r?.where === undefined || r?.where === null || r?.where === "" ? "avenBOX" : r.where;
-    if (!WHERES.includes(where)) throw new IntentError(`${r.check}: where is ${WHERES.join(" or ")} (where the check was run).`);
+    if (!WHERES.includes(where)) throw new HttpError(`${r.check}: where is ${WHERES.join(" or ")} (where the check was run).`);
     const commit = r?.commit === undefined || r?.commit === null || r?.commit === "" ? undefined : `${r.commit}`;
-    if (commit !== undefined && !/^[0-9a-f]{40}$/.test(commit)) throw new IntentError(`${r.check}: commit is the 40-character git hash it ran on.`);
+    if (commit !== undefined && !/^[0-9a-f]{40}$/.test(commit)) throw new HttpError(`${r.check}: commit is the 40-character git hash it ran on.`);
     const link = r?.link === undefined || r?.link === null || r?.link === "" ? undefined : `${r.link}`;
-    if (link !== undefined && !/^https:\/\/[^\s]{1,300}$/.test(link)) throw new IntentError(`${r.check}: link is the https link of the run it was recorded by.`);
+    if (link !== undefined && !/^https:\/\/[^\s]{1,300}$/.test(link)) throw new HttpError(`${r.check}: link is the https link of the run it was recorded by.`);
     results[r.check] = { pass: r.pass, evidence, by: who.name, at, where, ...(commit ? { commit } : {}), ...(who.box ? { box: true as const } : {}), ...(link ? { link } : {}) };
   }
   // to Proposal past the gate, else in Build, its results kept, saying why; main's results after the merge only kept
@@ -563,14 +558,14 @@ export const gate = { mayMove };
 /** the move's refusal thrown, if any */
 export async function mustMove(db: Queryable, intent: string | GateRow, to: Move, what?: WorkWhat) {
   const r = await gate.mayMove(db, intent, to, what);
-  if (r) throw new IntentError(r.why, 409);
+  if (r) throw new HttpError(r.why, 409);
 }
 
 /** The intent work is about to be proposed for, held to the gate (mayMove's work). Otherwise nothing is proposed and the agent is told why. */
 export async function intentReady(db: Queryable, me: Me | null, id: unknown) {
   const who = admin(me, INTENT_ADMINS);
   const intent = await intentRow(db, `${id ?? ""}`);
-  if (!(await seesIntent(db, who, intent.id))) throw new IntentError("There is no such intent.", 404);
+  if (!(await seesIntent(db, who, intent.id))) throw new HttpError("There is no such intent.", 404);
   await mustMove(db, intent, "work");
   return intent;
 }
@@ -589,7 +584,7 @@ export type Decision = "approve" | "accept" | "accept_work" | "ship";
 /** a person decides only a waiting intent (./substate.ts): refused with its sub-state's reason otherwise */
 export function mustDecide(intent: any) {
   const s = sub.of(intent);
-  if (!decidable(intent, s)) throw new IntentError(s ? `${s.why}.` : `Intent ${intent.id} is at the ${intent.stage} stage.`, 409);
+  if (!decidable(intent, s)) throw new HttpError(s ? `${s.why}.` : `Intent ${intent.id} is at the ${intent.stage} stage.`, 409);
 }
 
 /**
@@ -601,7 +596,7 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
   const who = admin(me, INTENT_ADMINS);
   const intent = await intentRow(db, id);
   const refuse = (why: string) => {
-    throw new IntentError(why, 409);
+    throw new HttpError(why, 409);
   };
   switch (verdict) {
     case "approve":
@@ -633,7 +628,7 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
       );
       break;
     default:
-      throw new IntentError("No such decision.", 404);
+      throw new HttpError("No such decision.", 404);
   }
   return intentRow(db, intent.id);
 }
@@ -689,7 +684,7 @@ export async function autoMove(ctx: { db: Db; store?: BlobStore }, id: string, o
   try {
     await decideAny({ db, store: ctx.store as BlobStore }, actor, intent.id, at, o.gh ?? null, o.commit === undefined ? undefined : o.commit, by);
   } catch (e) {
-    if (e instanceof Denied || (e as any)?.status) return { gate: at, rule: rule.id, refused: (e as Error).message };
+    if ((e as any)?.status) return { gate: at, rule: rule.id, refused: (e as Error).message };
     throw e;
   }
   if ((await intentRow(db, intent.id)).stage === "accepted") await autoAfter(ctx, intent.id, o);
