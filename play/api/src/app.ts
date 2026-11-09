@@ -345,7 +345,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       try {
         return await r.handler(req, params);
       } catch (e) {
-                const status = statusOf(e);
+        const status = statusOf(e);
         if (status !== null) return json({ error: (e as Error).message }, { status });
         console.error(e);
         return json({ error: "Something went wrong on our side." }, { status: 500 });

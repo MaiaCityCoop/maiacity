@@ -2,7 +2,7 @@
 // waiting, working or idle, with its reason, said by one pure function from what play keeps and what Ship's watcher
 // last read from GitHub (`pr_seen`). failed and waiting need a person; working and idle don't. The board groups each
 // column by it, and Approve spec and Accept take only a waiting intent (one red after its merge is shipped again too).
-// It imports nothing of play's at run time, so every path (./intents.ts, ./ship.ts, ./versioned.ts) asks it.
+// It imports nothing of play's at run time (only .github/required-checks.json, read as it loads), so every path (./intents.ts, ./ship.ts, ./versioned.ts) asks it.
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 

@@ -46,7 +46,6 @@ export function loadMigrations(dir = MIGRATIONS_DIR): Migration[] {
 /** play's migrations, as the folder holds them */
 export const MIGRATIONS: Migration[] = loadMigrations();
 
-
 /** Runs every migration not yet run, each in its own transaction. */
 export async function migrate(db: Db, o: { until?: string; migrations?: Migration[] } = {}): Promise<string[]> {
   const all = o.migrations ?? MIGRATIONS;
