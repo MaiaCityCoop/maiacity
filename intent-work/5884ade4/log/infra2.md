@@ -54,3 +54,13 @@ scratchpad, `infra2/`).
   comment loses the exception.
 - Pinned: avenbox.test.ts, a new case: `--from` with no TEST_DATABASE_URL and a root whose box.env names another port
   and password: the check sees that URL. The suite's other cases, with TEST_DATABASE_URL set, unchanged and green.
+
+## 6. server-care.sh imports the image's kit, not the shims (re-infra#6)
+
+- Its two programs in play's image import `/app/api/src/kit/pg.ts` and `/app/api/src/kit/hash.ts` (the Dockerfile
+  copies src/ whole); blobs.ts stays where it is. Main's image has no kit/ yet: the server care, by hand only, takes
+  these paths once this intent's deploy has run (its first image carries kit/).
+- `src/pg.ts` and `src/hash.ts` stay, as the one-line re-exports for the held assetdocs.ts and its test only (their
+  comments now say so); `grep -rn "src/pg\|src/hash"` finds nothing else. They go with those files' next untangle.
+- Pinned: the same imports, run from play/api, load `connect`, `blobStore` and a `hashBytes` equal to the shim's;
+  `bash -n`; the stand-in server-care runs (§2) log the new paths, the rest the same.

@@ -29,7 +29,7 @@ broken() {
   # whole: missing, or its bytes not hashing to its name (a write cut short by a full disk); asked of play's own code,
   # in a one-off container of its image on the compose network, so it works while play itself is down
   compose run --rm -T --no-deps -e PLAY_BUCKET="${PLAY_BUCKET:-}" play-api bun -e '
-    import { connect } from "/app/api/src/pg.ts";
+    import { connect } from "/app/api/src/kit/pg.ts";
     import { blobStore } from "/app/api/src/blobs.ts";
     const db = connect(), store = blobStore();
     const { rows } = await db.query("SELECT hash FROM play.files ORDER BY hash");
@@ -77,7 +77,7 @@ aws() { S3_TIMEOUT=0 S3_READ_TIMEOUT=300 s3 backup -- "$@"; }
 
 # whether a file's bytes hash to its name (by play's own hash, in a container of its image)
 whole_file() {
-  [ -s "$1" ] && [ "$(docker run --rm -i -v "$1:/f:ro" --entrypoint bun "${PLAY_IMAGE}" -e 'import { hashBytes } from "/app/api/src/hash.ts"; console.log(hashBytes(new Uint8Array(await Bun.file("/f").arrayBuffer())))' </dev/null)" = "$2" ]
+  [ -s "$1" ] && [ "$(docker run --rm -i -v "$1:/f:ro" --entrypoint bun "${PLAY_IMAGE}" -e 'import { hashBytes } from "/app/api/src/kit/hash.ts"; console.log(hashBytes(new Uint8Array(await Bun.file("/f").arrayBuffer())))' </dev/null)" = "$2" ]
 }
 
 # a file's good bytes put back into play's store (the bucket or the folder)
