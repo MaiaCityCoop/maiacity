@@ -150,12 +150,15 @@ describe('against main in a git repository', () => {
 				return { code: e.status as number, out: String(e.stdout) };
 			}
 		};
-		// the CLI measures its own checkout, main named by --main: a file this intent leaves as it is
+		// the CLI measures its own checkout, main named by --main: a file the checked-out branch leaves as main has it
 		const here = execFileSync('git', ['rev-parse', 'origin/main'], { encoding: 'utf8' }).trim();
-		const ok = cli('lines', 'play/avenbox/gate.sh', '--within', '0%', '--main', here);
+		const same = ['play/avenbox/gate.sh', 'play/avenbox/up.sh', 'play/README.md', 'README.md'].find(
+			(f) => execFileSync('git', ['diff', '--name-only', here, '--', f], { encoding: 'utf8' }).trim() === '',
+		)!;
+		const ok = cli('lines', same, '--within', '0%', '--main', here);
 		expect(ok.code).toBe(0);
 		expect(ok.out).toMatch(/within the bound of main/);
-		const off = cli('bytes', 'play/avenbox/gate.sh', '--down', '1%', '--main', here);
+		const off = cli('bytes', same, '--down', '1%', '--main', here);
 		expect(off.code).toBe(1);
 		expect(off.out).toMatch(/OFF/);
 	});
