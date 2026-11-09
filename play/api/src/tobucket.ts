@@ -18,7 +18,7 @@ await Promise.all(Array.from({ length: 8 }, async () => {
   for (let i = next++; i < rows.length; i = next++) {
     const { hash, media_type } = rows[i];
     if (await bucket.has(hash)) { there++; continue; }
-    const b = await folder.get(hash).catch(() => undefined);
+    const b = await folder.get(hash).catch((e) => (console.warn(`tobucket: ${hash} not read from the folder (${(e as Error).message})`), undefined));
     if (!b) { broken.push(hash); continue; }
     await bucket.put(hash, b, media_type);
     copied++;

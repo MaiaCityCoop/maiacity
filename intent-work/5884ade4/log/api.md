@@ -108,3 +108,9 @@ behaviour is pinned. Measured with `bun intent-work/5884ade4/measure.ts api|cycl
     migrated short: onerecord.test read the board through the API before migration 706ed873. Its API checks now run
     after it migrates to today (the story's intent, spec-less, archived there, as the test's next lines already
     said); what it asserts of the SQL at 0029–0032 is unchanged. `to_jsonb(` fallbacks 11 → 0.
+13. **No swallowed error left in play/api/src** (api-flow #36, api-docs#43): an artifact URL's malformed query key is
+    read as written only for a URIError (`decodedKey`); the mirror's failed type read and the primary's failed size
+    are logged as every other mirror fault is (blobs.ts mirroredStore, pinned by blobs.test); GitHub's unreadable
+    error body was caught twice (the second catch goes); a failed "not merged" status after a failed merge is logged;
+    tobucket.ts logs a file the folder can't hand back. Only logging is added. (tobucket.ts itself is dead after its
+    one run, api-flow #28, but its step is production.yml's: infra's, left.)

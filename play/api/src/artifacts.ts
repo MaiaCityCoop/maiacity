@@ -75,16 +75,23 @@ export function urlOf(raw: unknown): string {
     .split("&")
     .filter((pair) => {
       if (!pair) return false;
-      let k = pair.split("=")[0];
-      try {
-        k = decodeURIComponent(k.replace(/\+/g, " "));
-      } catch {}
-      return !TRACKING(k);
+      const k = pair.split("=")[0];
+      return !TRACKING(decodedKey(k));
     })
     .join("&");
   const out = `${u.protocol}//${host}${u.pathname.replace(/\/+$/, "")}${query ? `?${query}` : ""}`;
   if (out.length > URL_MOST) throw new HttpError(`An artifact's url is at most ${URL_MOST} characters.`);
   return out;
+}
+
+/** a query key as a browser reads it; one with a malformed escape (`%zz`) is read as it is written */
+function decodedKey(k: string): string {
+  try {
+    return decodeURIComponent(k.replace(/\+/g, " "));
+  } catch (e) {
+    if (e instanceof URIError) return k;
+    throw e;
+  }
 }
 
 // ---- the three texts

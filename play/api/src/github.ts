@@ -83,7 +83,7 @@ export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.git
     });
     if (redirect === "manual" && r.status >= 300 && r.status < 400) return r;
     if (!r.ok) {
-      const said = await r.json().then((j: any) => j?.message, () => null).catch(() => null);
+      const said = await r.json().then((j: any) => j?.message, () => null);
       throw new GitHubError(`GitHub answered ${r.status} to ${method} ${path.split("?")[0]}${said ? `: ${said}` : ""}`, r.status);
     }
     return r;

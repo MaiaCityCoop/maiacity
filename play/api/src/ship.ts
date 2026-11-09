@@ -274,7 +274,7 @@ export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now
     try {
       merged = await gh.merge(pr.number, pending.head, `${pr.title} (#${pr.number})`, `Accepted by ${by} on play: ${intentLink(id)}\n\nIntent: ${id}`);
     } catch (e) {
-      await gh.status(pending.head, { state: "failure", description: "Accepted, but not merged: accept it again", target_url: intentLink(id) }).catch(() => {});
+      await gh.status(pending.head, { state: "failure", description: "Accepted, but not merged: accept it again", target_url: intentLink(id) }).catch((e) => console.warn(`ship: intent ${id}: not merged, and its head not marked so: ${(e as Error).message}`));
       return red(`GitHub did not merge #${pr.number}: ${(e as Error).message}`, pr.html_url);
     }
     Object.assign(ready, { state: "green", finished: iso, note: `#${pr.number} ready, its checks green` });

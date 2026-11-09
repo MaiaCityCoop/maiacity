@@ -168,7 +168,7 @@ export function mirroredStore(primary: BlobStore, mirror: BlobStore, log: (s: st
   async function healed(h: string, why: string): Promise<Uint8Array | null> {
     const bytes = await mirror.get(h).catch((e) => (log(`blobs: ${h} not readable from the mirror either (${(e as Error).message})`), null));
     if (!bytes) return null;
-    const type = (await mirror.typeOf?.(h).catch(() => null)) || "application/octet-stream";
+    const type = (await mirror.typeOf?.(h).catch((e) => (log(`blobs: ${h}'s type not read from the mirror (${(e as Error).message})`), null))) || "application/octet-stream";
     await primary.put(h, bytes, type).then(
       () => log(`blobs: ${h} ${why}: put back from the mirror`),
       (e) => log(`blobs: ${h} ${why}: read from the mirror, not put back (${(e as Error).message})`),
@@ -178,7 +178,7 @@ export function mirroredStore(primary: BlobStore, mirror: BlobStore, log: (s: st
   return {
     has: async (h) => (await primary.has(h).catch(() => false)) || (await mirror.has(h)),
     async size(h) {
-      const n = await primary.size(h).catch(() => null);
+      const n = await primary.size(h).catch((e) => (log(`blobs: ${h} not sized by the primary (${(e as Error).message})`), null));
       if (n !== null) return n;
       // not in the primary: the mirror's copy, put back now, so the primary holds every file again
       const bytes = await healed(h, "missing");
