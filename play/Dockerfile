@@ -8,8 +8,8 @@ COPY play/site/package.json play/site/bun.lock ./
 # an optional extra CA (a build behind a TLS-inspecting proxy: --secret id=ca,src=<bundle>); none elsewhere
 RUN --mount=type=secret,id=ca,required=false NODE_EXTRA_CA_CERTS=/run/secrets/ca bun install --frozen-lockfile
 COPY play/site ./
-# the one file of the API's the site builds with: the sandboxes' UUIDs, written once (src/lib/content/assets/sandboxes.js
-# re-exports SANDBOX from ../../../../../api/src/ids.ts), at the repo's place beside the site
+# the site's own code imports play's id table from the API (src/lib/content/assets/sandboxes.js: a sandbox's UUID is
+# written only there), at its place in the repository; play/api/test/image.test.ts holds this stage to every such import
 COPY play/api/src/ids.ts /src/play/api/src/ids.ts
 RUN bun run build
 
