@@ -41,7 +41,7 @@ export function keyOf(m) {
 	if (m.normalScale?.isVector2) out.push(m.normalScale.x, m.normalScale.y);
 	// a leaf is drawn otherwise than a stone of the same settings (intent 6fd5e63f)
 	const look = lookOfMaterial(m);
-	if (look) out.push(`look:${look.kind}:${look.translucency ?? ''}:${look.stiffness ?? ''}:${look.flutter ?? ''}`);
+	if (look) out.push(`look:${look.kind}:${look.translucency ?? ''}:${look.stiffness ?? ''}:${look.flutter ?? ''}:L${Math.min(m.userData.lookLevel ?? 0, 2)}`);
 	return out.join('|');
 }
 
@@ -81,7 +81,7 @@ export function createPresets({ wind = null } = {}) {
 		// and a see-through part seen from both sides is drawn in one pass, not its back and then its front
 		if (m.transparent && m.side === THREE.DoubleSide) m.forceSinglePass = true;
 		// what says it is a leaf, grass, bark … is drawn by its look in the world's wind (../../render/foliage.js)
-		const n = plain ? m : cutBy(lookedOf(nodeOf(m), lookOfMaterial(m), wind), CUT, capped(m) ? (m.userData.cap ?? CAP) : undefined);
+		const n = plain ? m : cutBy(lookedOf(nodeOf(m), lookOfMaterial(m), wind, m.userData.lookLevel ?? 0), CUT, capped(m) ? (m.userData.cap ?? CAP) : undefined);
 		if (!plain) n.fade = aFade;
 		clip(n);
 		return n;

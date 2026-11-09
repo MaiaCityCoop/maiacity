@@ -33,6 +33,15 @@ export const FOOT = 0.55;
 export const WRAP = 0.35;
 /** the backlight lobe: how the light's way is bent by the normal, how tight the lobe is, how bright */
 export const BACK = Object.freeze({ distortion: 0.3, power: 4, scale: 1.6 });
+/**
+ * What a coarser level of a kind (../assets/render/lod.js: 0 its finest, drawn near) leaves out, what no eye reads that
+ * far, so the many copies drawn at mid range cost little more than without a look: from level 1 the tips' flutter
+ * (gone beyond 15 m anyway, where level 0 ends), from level 2 the light through it (wrap and the backlight lobe). The
+ * bend, the crown's normals and the darker foot stay at every level, so nothing pops as a copy changes level.
+ */
+export const LEVELS = Object.freeze({ flutter: 1, glow: 2 });
+/** the levels drawn alike: 0, 1, and 2 or coarser */
+const tier = (level) => Math.min(Math.max(0, level | 0), LEVELS.glow);
 
 /** the lighting a look adds: wrap and the backlight lobe, scaled by its translucency and the height on the plant */
 const translucent = (Model, translucency, height) =>
@@ -62,6 +71,8 @@ export const foliage = (Base) =>
 	class extends Base {
 		/** @type {ReturnType<typeof lookOf>} */ look = null;
 		/** @type {any} */ wind = null;
+		/** the level of its kind it draws (`LEVELS`), 0 the finest */
+		level = 0;
 		/** the height on the plant, 0 foot … 1 tip, from the vertex to the fragment */
 		#height = null;
 
@@ -82,7 +93,7 @@ export const foliage = (Base) =>
 			}
 			const w = windLook(look);
 			// the whole copy bends alike (stiffness 1: its leaves stay on their branches); the look's own numbers shake its tips
-			if (w) positionLocal.assign(this.wind.positionOf({ stiffness: 1, flutter: w.flutter }));
+			if (w) positionLocal.assign(this.wind.positionOf({ stiffness: 1, flutter: this.level >= LEVELS.flutter ? 0 : w.flutter }));
 			return out;
 		}
 
@@ -93,7 +104,7 @@ export const foliage = (Base) =>
 
 		setupLightingModel(builder) {
 			const model = super.setupLightingModel(builder);
-			if (!model || !this.look || !(this.look.translucency > 0) || !this.#height) return model;
+			if (!model || !this.look || !(this.look.translucency > 0) || !this.#height || this.level >= LEVELS.glow) return model;
 			const T = translucent(model.constructor, float(this.look.translucency), this.#height);
 			return Object.assign(new T(), model);
 		}
@@ -101,12 +112,12 @@ export const foliage = (Base) =>
 		customProgramCacheKey() {
 			const l = this.look;
 			// (the wind's uniforms are the world's, shared: one program a look)
-			return super.customProgramCacheKey() + (l ? `|look:${l.kind}:${l.translucency}:${l.stiffness}:${l.flutter}:${this.wind ? 'w' : ''}` : '');
+			return super.customProgramCacheKey() + (l ? `|look:${l.kind}:${l.translucency}:${l.stiffness}:${l.flutter}:${this.wind ? 'w' : ''}:L${tier(this.level)}` : '');
 		}
 
 		copy(source) {
 			super.copy(source);
-			for (const k of ['look', 'wind']) if (k in source) this[k] = source[k];
+			for (const k of ['look', 'wind', 'level']) if (k in source) this[k] = source[k];
 			return this;
 		}
 	};
@@ -120,9 +131,10 @@ const classes = new WeakMap();
 /**
  * A node material of the page's (the render kit's, ./nodes `nodeOf`) with a look on top: the same kind and settings,
  * drawn as its look says (`foliage`), thin looks two-sided and cut out; itself where there is no look or no wind.
- * @param {any} n a node material, before its cut and fade are given @param {unknown} look @param {any} wind
+ * `level`: the level of its kind it draws, which leaves out what is not read that far (`LEVELS`).
+ * @param {any} n a node material, before its cut and fade are given @param {unknown} look @param {any} wind @param {number} [level]
  */
-export function lookedOf(n, look, wind) {
+export function lookedOf(n, look, wind, level = 0) {
 	const l = lookOf(look, n.name || 'material');
 	if (!l || !wind || !n?.isNodeMaterial) return n;
 	let F = classes.get(n.constructor);
@@ -132,6 +144,7 @@ export function lookedOf(n, look, wind) {
 	m.userData = { ...n.userData };
 	m.look = l;
 	m.wind = wind;
+	m.level = tier(level);
 	thin(m, l);
 	return m;
 }
