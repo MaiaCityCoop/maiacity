@@ -191,3 +191,19 @@ rest are the content builder's (pieces.js, catalog.js, biomes/sets.js, render/ar
 `fileUrl` from `lib/api.ts`. `play/api/src/wire.ts` holds the API's answer types, imported as `$wire`. IntentDetail.svelte
 left as the merge base has it (96206162 held it then); its untangle is in the log's Next untangles, with DocPage for
 the seven document pages, the layout's route regexes and one icon set (no bound).
+
+### Merged: api (fix 1), 10:00Z
+
+19 moves (`log/api.md`), gate green on the merge (all, 110 s; two conflicts resolved: substate.ts keeps infra's
+required-checks.json, skills.ts takes kit/hash and play.ts; wire.ts's six types exported again). `measure.ts api`
+passes all nine: versioned.ts 1,295 → 603 lines, mcp.ts 84.7 → 47.3 KB, error classes 19 → 3 (one `HttpError`,
+statuses mapped once in fault.ts for HTTP and MCP), `to_jsonb` 11 → 0, lock numbers outside kit/locks.ts 4 → 0,
+schema names in mcp/stories 10 → 0, piece special cases 10 → 0, story_versions writers 5 → 1, the intent guard 13 → 2.
+play/api/src: no file or folder cycle (the 16-file cycle and docs/schemas ↔ store gone). One deviation from the plan:
+intents.ts sits below the kind modules, since the held assetdocs.ts imports `putAtProposal` and `byOf` from it.
+allkinds.ts registers every kind (in the old order) so versioned.ts imports none. Held files compile through one-line
+re-exports (`src/{pg,ids,hash,uuid}.ts`, work.ts, versioned.ts's VersionError/asVersionError and review functions).
+Kinds' format texts for agents moved into their seed schemas' `description`, read from the accepted schema first:
+tool descriptions byte-identical. No migration. Left: the mirrored work columns on play.intents (site reads them, the
+held assetdocs writes them), play.story_versions as a second store (one writer only), the `shipWork` global and the
+seed steps out of migrations.ts (the tests builder's), tobucket.ts/migrate.ts.
