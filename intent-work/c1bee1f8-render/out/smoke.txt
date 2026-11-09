@@ -1,135 +1,135 @@
 chrome: WebGPU adapter apple metal-3
-chrome sandbox-1: webgpu, 16.67 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome sandbox-2: webgpu, 16.67 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome sandbox-3: webgpu, 16.65 ms, 88 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome sandbox-4: webgpu, 16.67 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome sandbox-5: webgpu, 23.85 ms, 243 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome sandbox-6: webgpu, – ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome sandbox-7: webgpu, 16.67 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome worlds: webgpu, 16.67 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+chrome sandbox-1: webgpu, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/ec08b07d-6ec0-8f65-92b2-3efe7d91df5d
+chrome sandbox-2: webgpu, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/7a7894a9-f37a-8181-9164-920389ee7675
+chrome sandbox-3: webgpu, 70.52 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/a2af9568-53c6-8917-a816-da88d3ff66ff
+chrome sandbox-4: webgpu, 16.95 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/4d72a048-ccc1-476b-b60f-c5eb0914fa47
+chrome sandbox-5: webgpu, 49.44 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/ac154784-c938-47ee-ac74-d61fc91583b3
+chrome sandbox-6: webgpu, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/80f37471-b59c-4a23-8278-2ad062b37939
+chrome sandbox-7: webgpu, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/27c1e07e-ad8f-4996-9d1a-c5c12b9aaaff
+chrome worlds: webgpu, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/c88b84db-3d48-4a85-8d21-a29f0c38610a/history
 chrome game-map: webgpu, 16.67 ms, 0 errors
 chrome game: webgpu, 16.67 ms, 0 errors
-chrome factories: none, 16.67 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome stories: none, 16.67 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome animals-goat: webgpu, 16.67 ms, 6 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome machines-batterypack: webgpu, 17.05 ms, 6 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome plants: webgpu, 81.08 ms, 21 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome buildings: webgpu, 16.67 ms, 6 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome things: webgpu, 16.67 ms, 6 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome characters: webgpu, 17.18 ms, 6 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome biomes: webgpu, 16.67 ms, 20 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome assets: webgpu, 39.33 ms, 6 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome pieces: none, 16.67 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+chrome factories: none, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs?kind=factory
+chrome stories: none, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/stories
+chrome animals-goat: webgpu, 17.05 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/15a2b380-38e8-5aff-9784-b41f234d7b89/history
+chrome machines-batterypack: webgpu, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/bf1f3ce7-fdbb-5169-8306-a94cf7b600dd/history
+chrome plants: webgpu, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/65d10973-53bf-5485-8116-15ed2d85d38a/history
+chrome buildings: webgpu, 17.15 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/12238392-18d3-4611-bb3a-16e99914f5d0/history
+chrome things: webgpu, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/2eb0865d-7777-4f91-96a0-8420022301f5/history
+chrome characters: webgpu, 17.15 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/682d0d05-2196-5c4d-9fb5-5acd7ebfb17f/history
+chrome biomes: webgpu, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/34095282-709a-5a59-ac03-697ac77b8047/history
+chrome assets: webgpu, 39.11 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/358c7b8a-a1c5-5c7a-aa13-a9a98fb488dc/history
+chrome pieces: none, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs?kind=piece
 chrome library: none, 16.67 ms, 0 errors
-chrome sandboxes: none, 16.67 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome game-editor: none, 16.67 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome intents: none, 16.67 ms, 2 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome artifacts: none, 16.67 ms, 2 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome skills: none, 16.67 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome schemas: none, 16.67 ms, 2 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome rules: none, 16.67 ms, 3 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome delivery: none, 16.67 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome profile: none, 16.67 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-chrome admin: none, 16.67 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+chrome sandboxes: none, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs?kind=sandbox
+chrome game-editor: none, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs?kind=game_config
+chrome intents: none, 16.67 ms, 0 errors (2 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs?kind=schema, 401 GET /api/intents?stage=idea,specify,build,proposal,ship&counts=1
+chrome artifacts: none, 16.67 ms, 0 errors (2 the job's: no session, the box frame's CSP); failed: 401 GET /api/artifacts?offset=0&limit=50, 401 GET /api/authors
+chrome skills: none, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs?kind=skill
+chrome schemas: none, 16.67 ms, 0 errors (2 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs?kind=schema, 401 GET /api/docs
+chrome rules: none, 16.67 ms, 0 errors (3 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs?kind=schema, 401 GET /api/docs?kind=rules, 401 GET /api/members
+chrome delivery: none, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/delivery?days=7
+chrome profile: none, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/tokens
+chrome admin: none, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/members
 safari: WebGPU adapter apple apple
-safari sandbox-1: webgpu, 22.95 ms, 2 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari sandbox-2: webgpu, 16.66 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari sandbox-3: webgpu, 45.72 ms, 48 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari sandbox-4: webgpu, 16.66 ms, 2 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari sandbox-5: webgpu, 28.76 ms, 88 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari sandbox-6: webgpu, 16.55 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari sandbox-7: webgpu, 16.67 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari worlds: webgpu, 16.66 ms, 3 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari game-map: webgpu, 16.67 ms, 0 errors
-safari game: webgpu, 16.67 ms, 0 errors
-safari factories: none, 16.66 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari stories: none, 16.67 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari animals-goat: webgpu, 26.52 ms, 8 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari machines-batterypack: webgpu, 27.4 ms, 8 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari plants: webgpu, 35.91 ms, 21 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari buildings: webgpu, 18.46 ms, 7 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari things: webgpu, 16.66 ms, 7 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari characters: webgpu, 29.38 ms, 8 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari biomes: webgpu, 16.67 ms, 13 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari assets: webgpu, 51.82 ms, 8 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari pieces: none, 16.65 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+safari sandbox-1: webgpu, 27.49 ms, 0 errors (2 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/ec08b07d-6ec0-8f65-92b2-3efe7d91df5d
+safari sandbox-2: webgpu, 16.66 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/7a7894a9-f37a-8181-9164-920389ee7675
+safari sandbox-3: webgpu, 16.94 ms, 0 errors (3 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/a2af9568-53c6-8917-a816-da88d3ff66ff
+safari sandbox-4: webgpu, 16.66 ms, 0 errors (2 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/4d72a048-ccc1-476b-b60f-c5eb0914fa47
+safari sandbox-5: webgpu, 29.77 ms, 0 errors (2 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/ac154784-c938-47ee-ac74-d61fc91583b3
+safari sandbox-6: webgpu, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/80f37471-b59c-4a23-8278-2ad062b37939
+safari sandbox-7: webgpu, 16.66 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/27c1e07e-ad8f-4996-9d1a-c5c12b9aaaff
+safari worlds: webgpu, 16.66 ms, 0 errors (3 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/c88b84db-3d48-4a85-8d21-a29f0c38610a/history
+safari game-map: webgpu, 16.66 ms, 0 errors
+safari game: webgpu, 16.66 ms, 0 errors
+safari factories: none, 16.68 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs?kind=factory
+safari stories: none, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/stories
+safari animals-goat: webgpu, 16.68 ms, 0 errors (3 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/15a2b380-38e8-5aff-9784-b41f234d7b89/history
+safari machines-batterypack: webgpu, 16.66 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/bf1f3ce7-fdbb-5169-8306-a94cf7b600dd/history
+safari plants: webgpu, 25.22 ms, 0 errors (3 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/65d10973-53bf-5485-8116-15ed2d85d38a/history
+safari buildings: webgpu, 16.67 ms, 0 errors (2 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/12238392-18d3-4611-bb3a-16e99914f5d0/history
+safari things: webgpu, 17.05 ms, 0 errors (2 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/2eb0865d-7777-4f91-96a0-8420022301f5/history
+safari characters: webgpu, 17.34 ms, 0 errors (3 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/682d0d05-2196-5c4d-9fb5-5acd7ebfb17f/history
+safari biomes: webgpu, 21.79 ms, 0 errors (2 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/34095282-709a-5a59-ac03-697ac77b8047/history
+safari assets: webgpu, 54.75 ms, 0 errors (3 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs/358c7b8a-a1c5-5c7a-aa13-a9a98fb488dc/history
+safari pieces: none, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs?kind=piece
 safari library: none, 16.66 ms, 0 errors
-safari sandboxes: none, 16.67 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari game-editor: none, 16.67 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari intents: none, 16.67 ms, 2 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari artifacts: none, 16.67 ms, 2 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari skills: none, 16.66 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari schemas: none, 16.66 ms, 2 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari rules: none, 16.65 ms, 3 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari delivery: none, 16.66 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari profile: none, 16.66 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-safari admin: none, 16.66 ms, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-┌────┬─────────┬──────────────────────┬───────┬─────────┬─────────┬────────────────────┬────────┐
-│    │ browser │ page                 │ ok    │ backend │ frameMs │ frameP95           │ errors │
-├────┼─────────┼──────────────────────┼───────┼─────────┼─────────┼────────────────────┼────────┤
-│  0 │ chrome  │ sandbox-1            │ false │ webgpu  │ 16.67   │ 16.800000000000182 │ 1      │
-│  1 │ chrome  │ sandbox-2            │ false │ webgpu  │ 16.67   │ 16.700000000000728 │ 1      │
-│  2 │ chrome  │ sandbox-3            │ false │ webgpu  │ 16.65   │ 16.700000000000728 │ 88     │
-│  3 │ chrome  │ sandbox-4            │ false │ webgpu  │ 16.67   │ 16.700000000000728 │ 1      │
-│  4 │ chrome  │ sandbox-5            │ false │ webgpu  │ 23.85   │ 100                │ 243    │
-│  5 │ chrome  │ sandbox-6            │ false │ webgpu  │ null    │ null               │ 1      │
-│  6 │ chrome  │ sandbox-7            │ false │ webgpu  │ 16.67   │ 16.800000000000182 │ 1      │
-│  7 │ chrome  │ worlds               │ false │ webgpu  │ 16.67   │ 16.800000000000182 │ 1      │
-│  8 │ chrome  │ game-map             │ true  │ webgpu  │ 16.67   │ 16.799999999999272 │ 0      │
-│  9 │ chrome  │ game                 │ true  │ webgpu  │ 16.67   │ 16.800000000000182 │ 0      │
-│ 10 │ chrome  │ factories            │ false │ none    │ 16.67   │ 16.799999999999272 │ 1      │
-│ 11 │ chrome  │ stories              │ false │ none    │ 16.67   │ 16.700000000000728 │ 1      │
-│ 12 │ chrome  │ animals-goat         │ false │ webgpu  │ 16.67   │ 16.700000000000728 │ 6      │
-│ 13 │ chrome  │ machines-batterypack │ false │ webgpu  │ 17.05   │ 16.700000000000728 │ 6      │
-│ 14 │ chrome  │ plants               │ false │ webgpu  │ 81.08   │ 733.3000000000002  │ 21     │
-│ 15 │ chrome  │ buildings            │ false │ webgpu  │ 16.67   │ 16.700000000000728 │ 6      │
-│ 16 │ chrome  │ things               │ false │ webgpu  │ 16.67   │ 16.700000000000728 │ 6      │
-│ 17 │ chrome  │ characters           │ false │ webgpu  │ 17.18   │ 16.800000000000182 │ 6      │
-│ 18 │ chrome  │ biomes               │ false │ webgpu  │ 16.67   │ 16.700000000000728 │ 20     │
-│ 19 │ chrome  │ assets               │ false │ webgpu  │ 39.33   │ 50.100000000000364 │ 6      │
-│ 20 │ chrome  │ pieces               │ false │ none    │ 16.67   │ 16.799999999999272 │ 1      │
-│ 21 │ chrome  │ library              │ true  │ none    │ 16.67   │ 16.799999999999272 │ 0      │
-│ 22 │ chrome  │ sandboxes            │ false │ none    │ 16.67   │ 16.700000000000728 │ 1      │
-│ 23 │ chrome  │ game-editor          │ false │ none    │ 16.67   │ 16.700000000000728 │ 1      │
-│ 24 │ chrome  │ intents              │ false │ none    │ 16.67   │ 16.799999999999272 │ 2      │
-│ 25 │ chrome  │ artifacts            │ false │ none    │ 16.67   │ 16.799999999999272 │ 2      │
-│ 26 │ chrome  │ skills               │ false │ none    │ 16.67   │ 16.700000000000728 │ 1      │
-│ 27 │ chrome  │ schemas              │ false │ none    │ 16.67   │ 16.700000000000728 │ 2      │
-│ 28 │ chrome  │ rules                │ false │ none    │ 16.67   │ 16.700000000000728 │ 3      │
-│ 29 │ chrome  │ delivery             │ false │ none    │ 16.67   │ 16.700000000000728 │ 1      │
-│ 30 │ chrome  │ profile              │ false │ none    │ 16.67   │ 16.700000000000728 │ 1      │
-│ 31 │ chrome  │ admin                │ false │ none    │ 16.67   │ 16.700000000000728 │ 1      │
-│ 32 │ safari  │ sandbox-1            │ false │ webgpu  │ 22.95   │ 62                 │ 2      │
-│ 33 │ safari  │ sandbox-2            │ false │ webgpu  │ 16.66   │ 18                 │ 1      │
-│ 34 │ safari  │ sandbox-3            │ false │ webgpu  │ 45.72   │ 18                 │ 48     │
-│ 35 │ safari  │ sandbox-4            │ false │ webgpu  │ 16.66   │ 18                 │ 2      │
-│ 36 │ safari  │ sandbox-5            │ false │ webgpu  │ 28.76   │ 119                │ 88     │
-│ 37 │ safari  │ sandbox-6            │ false │ webgpu  │ 16.55   │ 18                 │ 1      │
-│ 38 │ safari  │ sandbox-7            │ false │ webgpu  │ 16.67   │ 18                 │ 1      │
-│ 39 │ safari  │ worlds               │ false │ webgpu  │ 16.66   │ 18                 │ 3      │
-│ 40 │ safari  │ game-map             │ true  │ webgpu  │ 16.67   │ 18                 │ 0      │
-│ 41 │ safari  │ game                 │ true  │ webgpu  │ 16.67   │ 18                 │ 0      │
-│ 42 │ safari  │ factories            │ false │ none    │ 16.66   │ 18                 │ 1      │
-│ 43 │ safari  │ stories              │ false │ none    │ 16.67   │ 18                 │ 1      │
-│ 44 │ safari  │ animals-goat         │ false │ webgpu  │ 26.52   │ 19                 │ 8      │
-│ 45 │ safari  │ machines-batterypack │ false │ webgpu  │ 27.4    │ 30                 │ 8      │
-│ 46 │ safari  │ plants               │ false │ webgpu  │ 35.91   │ 55                 │ 21     │
-│ 47 │ safari  │ buildings            │ false │ webgpu  │ 18.46   │ 19                 │ 7      │
-│ 48 │ safari  │ things               │ false │ webgpu  │ 16.66   │ 18                 │ 7      │
-│ 49 │ safari  │ characters           │ false │ webgpu  │ 29.38   │ 19                 │ 8      │
-│ 50 │ safari  │ biomes               │ false │ webgpu  │ 16.67   │ 18                 │ 13     │
-│ 51 │ safari  │ assets               │ false │ webgpu  │ 51.82   │ 56                 │ 8      │
-│ 52 │ safari  │ pieces               │ false │ none    │ 16.65   │ 18                 │ 1      │
-│ 53 │ safari  │ library              │ true  │ none    │ 16.66   │ 18                 │ 0      │
-│ 54 │ safari  │ sandboxes            │ false │ none    │ 16.67   │ 18                 │ 1      │
-│ 55 │ safari  │ game-editor          │ false │ none    │ 16.67   │ 18                 │ 1      │
-│ 56 │ safari  │ intents              │ false │ none    │ 16.67   │ 18                 │ 2      │
-│ 57 │ safari  │ artifacts            │ false │ none    │ 16.67   │ 18                 │ 2      │
-│ 58 │ safari  │ skills               │ false │ none    │ 16.66   │ 18                 │ 1      │
-│ 59 │ safari  │ schemas              │ false │ none    │ 16.66   │ 18                 │ 2      │
-│ 60 │ safari  │ rules                │ false │ none    │ 16.65   │ 18                 │ 3      │
-│ 61 │ safari  │ delivery             │ false │ none    │ 16.66   │ 18                 │ 1      │
-│ 62 │ safari  │ profile              │ false │ none    │ 16.66   │ 18                 │ 1      │
-│ 63 │ safari  │ admin                │ false │ none    │ 16.66   │ 18                 │ 1      │
-└────┴─────────┴──────────────────────┴───────┴─────────┴─────────┴────────────────────┴────────┘
-c8: FAIL, 58 page(s) with errors: chrome/sandbox-1, chrome/sandbox-2, chrome/sandbox-3, chrome/sandbox-4, chrome/sandbox-5, chrome/sandbox-6, chrome/sandbox-7, chrome/worlds, chrome/factories, chrome/stories, chrome/animals-goat, chrome/machines-batterypack, chrome/plants, chrome/buildings, chrome/things, chrome/characters, chrome/biomes, chrome/assets, chrome/pieces, chrome/sandboxes, chrome/game-editor, chrome/intents, chrome/artifacts, chrome/skills, chrome/schemas, chrome/rules, chrome/delivery, chrome/profile, chrome/admin, safari/sandbox-1, safari/sandbox-2, safari/sandbox-3, safari/sandbox-4, safari/sandbox-5, safari/sandbox-6, safari/sandbox-7, safari/worlds, safari/factories, safari/stories, safari/animals-goat, safari/machines-batterypack, safari/plants, safari/buildings, safari/things, safari/characters, safari/biomes, safari/assets, safari/pieces, safari/sandboxes, safari/game-editor, safari/intents, safari/artifacts, safari/skills, safari/schemas, safari/rules, safari/delivery, safari/profile, safari/admin; backends: chrome webgpu, chrome none, safari webgpu, safari none
+safari sandboxes: none, 16.66 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs?kind=sandbox
+safari game-editor: none, 16.67 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs?kind=game_config
+safari intents: none, 16.66 ms, 0 errors (2 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs?kind=schema, 401 GET /api/intents?stage=idea,specify,build,proposal,ship&counts=1
+safari artifacts: none, 16.66 ms, 0 errors (2 the job's: no session, the box frame's CSP); failed: 401 GET /api/artifacts?offset=0&limit=50, 401 GET /api/authors
+safari skills: none, 16.66 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs?kind=skill
+safari schemas: none, 16.67 ms, 0 errors (2 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs, 401 GET /api/docs?kind=schema
+safari rules: none, 16.66 ms, 0 errors (3 the job's: no session, the box frame's CSP); failed: 401 GET /api/docs?kind=rules, 401 GET /api/members, 401 GET /api/docs?kind=schema
+safari delivery: none, 16.66 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/delivery?days=7
+safari profile: none, 16.66 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/tokens
+safari admin: none, 16.66 ms, 0 errors (1 the job's: no session, the box frame's CSP); failed: 401 GET /api/members
+┌────┬─────────┬──────────────────────┬──────┬─────────┬─────────┬────────────────────┬────────┬───────┐
+│    │ browser │ page                 │ ok   │ backend │ frameMs │ frameP95           │ errors │ aside │
+├────┼─────────┼──────────────────────┼──────┼─────────┼─────────┼────────────────────┼────────┼───────┤
+│  0 │ chrome  │ sandbox-1            │ true │ webgpu  │ 16.67   │ 16.800000000000182 │ 0      │ 1     │
+│  1 │ chrome  │ sandbox-2            │ true │ webgpu  │ 16.67   │ 16.799999999999272 │ 0      │ 1     │
+│  2 │ chrome  │ sandbox-3            │ true │ webgpu  │ 70.52   │ 600                │ 0      │ 1     │
+│  3 │ chrome  │ sandbox-4            │ true │ webgpu  │ 16.95   │ 16.700000000000728 │ 0      │ 1     │
+│  4 │ chrome  │ sandbox-5            │ true │ webgpu  │ 49.44   │ 150                │ 0      │ 1     │
+│  5 │ chrome  │ sandbox-6            │ true │ webgpu  │ 16.67   │ 16.799999999999272 │ 0      │ 1     │
+│  6 │ chrome  │ sandbox-7            │ true │ webgpu  │ 16.67   │ 16.700000000000728 │ 0      │ 1     │
+│  7 │ chrome  │ worlds               │ true │ webgpu  │ 16.67   │ 16.799999999999272 │ 0      │ 1     │
+│  8 │ chrome  │ game-map             │ true │ webgpu  │ 16.67   │ 16.799999999999272 │ 0      │ 0     │
+│  9 │ chrome  │ game                 │ true │ webgpu  │ 16.67   │ 16.799999999999272 │ 0      │ 0     │
+│ 10 │ chrome  │ factories            │ true │ none    │ 16.67   │ 16.799999999999272 │ 0      │ 1     │
+│ 11 │ chrome  │ stories              │ true │ none    │ 16.67   │ 16.700000000000728 │ 0      │ 1     │
+│ 12 │ chrome  │ animals-goat         │ true │ webgpu  │ 17.05   │ 16.800000000000182 │ 0      │ 1     │
+│ 13 │ chrome  │ machines-batterypack │ true │ webgpu  │ 16.67   │ 16.700000000000728 │ 0      │ 1     │
+│ 14 │ chrome  │ plants               │ true │ webgpu  │ 16.67   │ 16.799999999999272 │ 0      │ 1     │
+│ 15 │ chrome  │ buildings            │ true │ webgpu  │ 17.15   │ 16.800000000000182 │ 0      │ 1     │
+│ 16 │ chrome  │ things               │ true │ webgpu  │ 16.67   │ 16.700000000000728 │ 0      │ 1     │
+│ 17 │ chrome  │ characters           │ true │ webgpu  │ 17.15   │ 16.800000000000182 │ 0      │ 1     │
+│ 18 │ chrome  │ biomes               │ true │ webgpu  │ 16.67   │ 16.799999999999272 │ 0      │ 1     │
+│ 19 │ chrome  │ assets               │ true │ webgpu  │ 39.11   │ 50.100000000000364 │ 0      │ 1     │
+│ 20 │ chrome  │ pieces               │ true │ none    │ 16.67   │ 16.799999999999272 │ 0      │ 1     │
+│ 21 │ chrome  │ library              │ true │ none    │ 16.67   │ 16.700000000000728 │ 0      │ 0     │
+│ 22 │ chrome  │ sandboxes            │ true │ none    │ 16.67   │ 16.700000000000728 │ 0      │ 1     │
+│ 23 │ chrome  │ game-editor          │ true │ none    │ 16.67   │ 16.700000000000728 │ 0      │ 1     │
+│ 24 │ chrome  │ intents              │ true │ none    │ 16.67   │ 16.700000000000728 │ 0      │ 2     │
+│ 25 │ chrome  │ artifacts            │ true │ none    │ 16.67   │ 16.799999999999272 │ 0      │ 2     │
+│ 26 │ chrome  │ skills               │ true │ none    │ 16.67   │ 16.799999999999272 │ 0      │ 1     │
+│ 27 │ chrome  │ schemas              │ true │ none    │ 16.67   │ 16.799999999999272 │ 0      │ 2     │
+│ 28 │ chrome  │ rules                │ true │ none    │ 16.67   │ 16.799999999999272 │ 0      │ 3     │
+│ 29 │ chrome  │ delivery             │ true │ none    │ 16.67   │ 16.700000000000728 │ 0      │ 1     │
+│ 30 │ chrome  │ profile              │ true │ none    │ 16.67   │ 16.799999999999272 │ 0      │ 1     │
+│ 31 │ chrome  │ admin                │ true │ none    │ 16.67   │ 16.700000000000728 │ 0      │ 1     │
+│ 32 │ safari  │ sandbox-1            │ true │ webgpu  │ 27.49   │ 119                │ 0      │ 2     │
+│ 33 │ safari  │ sandbox-2            │ true │ webgpu  │ 16.66   │ 19                 │ 0      │ 1     │
+│ 34 │ safari  │ sandbox-3            │ true │ webgpu  │ 16.94   │ 18                 │ 0      │ 3     │
+│ 35 │ safari  │ sandbox-4            │ true │ webgpu  │ 16.66   │ 18                 │ 0      │ 2     │
+│ 36 │ safari  │ sandbox-5            │ true │ webgpu  │ 29.77   │ 123                │ 0      │ 2     │
+│ 37 │ safari  │ sandbox-6            │ true │ webgpu  │ 16.67   │ 18                 │ 0      │ 1     │
+│ 38 │ safari  │ sandbox-7            │ true │ webgpu  │ 16.66   │ 18                 │ 0      │ 1     │
+│ 39 │ safari  │ worlds               │ true │ webgpu  │ 16.66   │ 18                 │ 0      │ 3     │
+│ 40 │ safari  │ game-map             │ true │ webgpu  │ 16.66   │ 19                 │ 0      │ 0     │
+│ 41 │ safari  │ game                 │ true │ webgpu  │ 16.66   │ 18                 │ 0      │ 0     │
+│ 42 │ safari  │ factories            │ true │ none    │ 16.68   │ 19                 │ 0      │ 1     │
+│ 43 │ safari  │ stories              │ true │ none    │ 16.67   │ 18                 │ 0      │ 1     │
+│ 44 │ safari  │ animals-goat         │ true │ webgpu  │ 16.68   │ 19                 │ 0      │ 3     │
+│ 45 │ safari  │ machines-batterypack │ true │ webgpu  │ 16.66   │ 19                 │ 0      │ 1     │
+│ 46 │ safari  │ plants               │ true │ webgpu  │ 25.22   │ 24                 │ 0      │ 3     │
+│ 47 │ safari  │ buildings            │ true │ webgpu  │ 16.67   │ 18                 │ 0      │ 2     │
+│ 48 │ safari  │ things               │ true │ webgpu  │ 17.05   │ 19                 │ 0      │ 2     │
+│ 49 │ safari  │ characters           │ true │ webgpu  │ 17.34   │ 19                 │ 0      │ 3     │
+│ 50 │ safari  │ biomes               │ true │ webgpu  │ 21.79   │ 25                 │ 0      │ 2     │
+│ 51 │ safari  │ assets               │ true │ webgpu  │ 54.75   │ 57                 │ 0      │ 3     │
+│ 52 │ safari  │ pieces               │ true │ none    │ 16.67   │ 18                 │ 0      │ 1     │
+│ 53 │ safari  │ library              │ true │ none    │ 16.66   │ 18                 │ 0      │ 0     │
+│ 54 │ safari  │ sandboxes            │ true │ none    │ 16.66   │ 19                 │ 0      │ 1     │
+│ 55 │ safari  │ game-editor          │ true │ none    │ 16.67   │ 18                 │ 0      │ 1     │
+│ 56 │ safari  │ intents              │ true │ none    │ 16.66   │ 18                 │ 0      │ 2     │
+│ 57 │ safari  │ artifacts            │ true │ none    │ 16.66   │ 18                 │ 0      │ 2     │
+│ 58 │ safari  │ skills               │ true │ none    │ 16.66   │ 18                 │ 0      │ 1     │
+│ 59 │ safari  │ schemas              │ true │ none    │ 16.67   │ 18                 │ 0      │ 2     │
+│ 60 │ safari  │ rules                │ true │ none    │ 16.66   │ 18                 │ 0      │ 3     │
+│ 61 │ safari  │ delivery             │ true │ none    │ 16.66   │ 18                 │ 0      │ 1     │
+│ 62 │ safari  │ profile              │ true │ none    │ 16.66   │ 18                 │ 0      │ 1     │
+│ 63 │ safari  │ admin                │ true │ none    │ 16.66   │ 18                 │ 0      │ 1     │
+└────┴─────────┴──────────────────────┴──────┴─────────┴─────────┴────────────────────┴────────┴───────┘
+c8: PASS, every page opened with no console error; backends: chrome webgpu, chrome none, safari webgpu, safari none
