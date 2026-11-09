@@ -1,13 +1,7 @@
 /**
- * The film camera's hold on a world, what makes any sandbox a set the studio can shoot: one contract for every world,
- * `window.__world`, made by `connectFilm`. A shot is rendered frame by frame, each frame set from the shot alone (the
- * camera, the hour, the world's clock, the lights), so the same shot renders the same pixels every time. While a film
- * holds it, a world on the kit
- *   · draws nothing itself while `filmDraws()` (the film draws the canvas, only when asked);
- *   · runs its animations on `worldTime()` when the film sets it (the shot's clock), else on its own;
- *   · keeps its resolution while `filmHoldsSize()` (`stage.adapt(now, filmHoldsSize())`).
- * A shot names its world (../game/film/worlds.js); its camera may ride in one of the world's own frames (the van),
- * put there once the world's moving parts (`parts`) have come to the shot's moment.
+ * The film camera's hold on a world: one contract for every world, `window.__world`, made by `connectFilm`. Each frame
+ * is set from the shot alone, so the same shot renders the same pixels every time. While a film holds it, a world
+ * draws nothing itself (`filmDraws()`), runs on `worldTime()` and keeps its resolution (`filmHoldsSize()`).
  */
 import * as THREE from 'three';
 
@@ -117,17 +111,10 @@ export function createCameraHold(camera) {
  *   progress?: () => { label: string, done?: number, total?: number } | null,
  *   extra?: Record<string, unknown>
  * }} o
- *   sandbox, area: which world this is (a shot of another is refused); hold: the camera controller's hold (the walker
- *   and the orbit rig are holds); place: stand the world's walker here (where a shot is staged: what is near is
- *   built); animate: every animation to world time t; advance: anything else a frame needs once the hour is set
- *   (levels of detail, the nearest lamps); lights: the world's own lights a shot may scale and colour; frames: the
- *   world's own frames a shot's camera may ride in (camera `frame`), each where it stands once animate has run; parts: the world's moving parts put where the shot has them
- *   (../game/film/worlds.js `parts`; each part by its channels' values, called every frame, with {} for none); stage: build
- *   what a shot needs and resolve when it is ready (default: stand at world.stand); holds: whether the world is still
- *   staged for that (default: yes); keep: keep built what these shots need; streams: holds is exact for any shot
- *   wherever it stands, so a cut to a held shot only moves (maia/content/sandbox-kit/stream.js); move: stand there at once;
- *   progress: what its stage is doing now, and how far (`done` of `total`) when it knows (the studio's loading screen
- *   shows it while Play readies the world; default: nothing said); extra: more on window.__world (debugging, sets)
+ *   a shot of another `sandbox`/`area` is refused; `advance` runs once the hour is set (levels of detail, lamps);
+ *   `frames` are where a shot's camera may ride (camera `frame`), placed after `animate`; `parts` is called every frame
+ *   (../game/film/worlds.js); `streams`: `holds` is exact anywhere, so a cut to a held shot only moves (./stream.js);
+ *   `progress` feeds the studio's loading screen; `extra` goes on window.__world
  */
 export function connectFilm(o) {
 	const { renderer, scene, camera, hold, sky = null } = o;
@@ -158,15 +145,10 @@ export function connectFilm(o) {
 		...o.extra,
 		film: {
 			/**
-			 * Bring the world to world time t (seconds), the camera where `fly` put it: animations, the sun and sky for the
-			 * hour, whatever else the world advances, and the shadows drawn again. The world stays at t until the next
-			 * advance: a world whose clock the film holds (the Worlds page's, ../worlds/film.js) never runs on between two,
-			 * so the same t is the same world however the frames before it came. `lights` scales the lights over what the
-			 * hour gives them (1 = as the hour has them) and may recolour them.
-			 * `parts`: the world's moving parts the shot moves, by their channels' values at t (../game/film/shot.js `evaluate`).
-			 * `live`: a frame of the studio's live viewer, not a plate: the shadows are drawn again only when the world's own
-			 * rules say so (the sky's: when the sun or where they follow moves; every frame for a world that keeps
-			 * `shadowMap.autoUpdate`), as the game draws them.
+			 * Bring the world to world time t (s), the camera where `fly` put it; it stays at t until the next advance,
+			 * so the same t is the same world however the frames before came. `lights` scale over the hour's (1 = as is);
+			 * `parts` by ../game/film/shot.js `evaluate`; `live` (the studio's viewer, not a plate) leaves the shadows to
+			 * the world's own rules.
 			 * @param {number} t @param {FilmLight[]} [lights] @param {Record<string, Record<string, number>>} [parts] @param {boolean} [live]
 			 */
 			advance(t, lights = [], parts = {}, live = false) {

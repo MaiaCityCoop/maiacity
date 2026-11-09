@@ -1,18 +1,8 @@
 /**
- * THE ORBIT RIG — the map camera of a sandbox seen from above (Sandbox 1's island).
- *
- * One scheme, the city-builder one, after Age of Empires, Anno and Cities: Skylines:
- *   · WASD / arrow keys travel the map, and so does a phone's joystick ($lib/touch/TouchStick: `move`)
- *   · the wheel zooms toward whatever the cursor is over
- *   · drag turns and tilts, right-drag slides, Q/E turn from the keyboard
- *   · a click stays a click, so it can still select
- *
- * The two gestures stay strictly separate: dragging sets the ANGLE and the wheel sets the DISTANCE. Coupling them
- * (zooming in also tilting toward eye level, the way Cities: Skylines does) reads as the camera fighting you once you
- * have chosen an angle you want to keep. With `freeMove: false` it is a turntable: orbit one fixed point, never leave.
- *
- * It is a camera hold (./film.js): the film camera flies it to a pose (`fly`) and lets go (`release`), and the map
- * takes over from wherever the camera was left, looking where it looked.
+ * THE ORBIT RIG — a sandbox's map camera, the city-builder scheme (Age of Empires, Anno): WASD or a phone's joystick
+ * travel, the wheel zooms toward the cursor, drag turns and tilts, right-drag slides, Q/E turn, a click stays a click.
+ * Drag sets the ANGLE and the wheel the DISTANCE, never coupled (zoom-tilts, as Cities: Skylines does, fight a chosen
+ * angle). `freeMove: false` makes it a turntable. A camera hold for the film (./film.js).
  */
 import * as THREE from 'three';
 import { createControls } from '$lib/content/render/core.js';
