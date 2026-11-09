@@ -371,3 +371,27 @@ keeps meeting them as written meanwhile.
 - 15:50Z: ed6694c3 landed (play merged it in; 120 files held now). The files it released bring dead exports 14,
   comment lines 10,182, gone-file pointers 15, less-stable imports 13 into the counts. Ten open intents still hold
   files (the GPU programme); each landing does this again. The site3 pass merges this head and takes them.
+- 16:05Z: b17a4980 landed (results kept across play's main merges); its conflicts in mainmerge.ts, ship.ts,
+  substate.ts and their tests resolved onto this branch's github.ts / watcher.ts layout (gh.commit, `carried`).
+- 16:30Z: the site3 pass (log/site3.md): folder cycles 2 → 1, layers 13 → 8, dead 14 → 0, gone-file pointers 15 → 0.
+  The box's four imports of content/assets are all made by box/engine.js, rebuild.js and serialize.js, which a5faafad
+  holds: measure.ts now counts that rule without held files, as every other count already did.
+- 17:00Z: a comment pass on every non-held folder (comment-only, Bun.Transpiler output identical for all 94 files the
+  merge changed): comment lines 9,907 → 9,112. Main itself, counted the same way, has 11,488.
+
+### The box's 600 s a check (c11, c12)
+
+The run in avenBOX on GitHub on 11ddbf4 killed c11 and c12 at intent.ts's 600 s a check (main's, not this intent's).
+- **c12:** since 7af6e162 the census on main never sees Sandbox 3 or the worlds view settle: run.ts `quiet()` takes
+  `quietness()`'s null (no asset renderers, as those worlds have) as moving, so each such view waits out its 180 s
+  and is counted "still building" (its counts the same each run: everything is in by then). Shown: main's harness
+  189 s for Sandbox 3, 9edf8c54's harness 10 s, same tree. run.ts is held (1f0c6f79, 3a8b135a, e85a5860,
+  c1bee1f8 change it), and quietness's null is what the Mac jobs wait on, so neither is changed here:
+  census-same.sh runs its six counts side by side instead (3 m 28 s from a cold cache, all the same).
+  **Next untangles / for whoever holds run.ts:** `quiet()` should read a world with no asset renderers as quiet,
+  as before 7af6e162.
+- **c11:** play/site's vitest is ~1,350 s of CPU, almost all Sandbox 2's structural tests (three staged-construction
+  tests of telescopic-shoring.test.ts take 88 s each). Run through intent-work/5884ade4/vitest.config.mts (every
+  core, the slowest files first): 391 s for site-checks.sh from a cold cache here, ~340 s its floor on four cores.
+  With the gate (69 s on the box) it should fit in 600 s on a four-core runner, narrowly. **For Samuel** if it does
+  not: c11 split in two (the gate; site-checks.sh), or the per-check timeout raised for this run.
