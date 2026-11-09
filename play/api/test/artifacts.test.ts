@@ -1,8 +1,6 @@
-// Artifacts (src/artifacts.ts, play/SPEC.md §4.13) against a real Postgres: set TEST_DATABASE_URL, as for ./api.test.ts.
-// Every link Maia City keeps is an artifact, kept over MCP by avenMAIA (the one identity of every agent connected there)
-// for the admin whose token was used, marked by where it came from (the operator pasted it, or avenMAIA found it in its
-// own research), with a compact title, a two-sentence description, a summary of 500–1,500 words in its sections, and
-// its authors (rows of their own, n:m with the artifacts). One link is one artifact. Admins only.
+// Artifacts (src/artifacts.ts, play/SPEC.md §4.13) against a real Postgres (as ./api.test.ts): every link Maia City keeps,
+// over MCP by avenMAIA for the token's admin, marked by origin (pasted, or found in research), with a compact title, a
+// two-sentence description, a 500–1,500-word summary in its sections, and its authors (n:m). One link, one artifact. Admins only.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { createHuman } from "../src/auth";
 import { type BlobStore } from "../src/blobs";
@@ -82,11 +80,7 @@ suite("artifacts", () => {
 
   const call = (as: string | null, method: string, path: string, body?: unknown) => request(api, { cookie: as ? who[as].cookie : null }, method, path, body);
   const rpc = async (as: string, method: string, params?: unknown) => (await kitRpc(api, tokens[as], method, params)).json.result;
-  /**
-   * A tool called over MCP by `as`'s token: its result as JSON, or its error's text. No work without an intent: an
-   * artifact added or corrected with no `intent` key is the work of an intent of its own, made ready for it
-   * (`intent: undefined` sends none).
-   */
+  /** A tool over MCP by `as`'s token: its JSON result or error's text; add/update with no `intent` key gets one made ready (`intent: undefined` sends none). */
   const tool = (name: string, args: Record<string, unknown>, as = "Samuel"): Promise<any> =>
     (name === "add_artifact" || name === "update_artifact") && !("intent" in args)
       ? readyIntent(`Keep ${args.url ?? args.artifact}`, as).then((intent) => mcpTool(api, tokens[as], name, { ...args, intent }))

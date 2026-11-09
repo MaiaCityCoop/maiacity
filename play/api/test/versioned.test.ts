@@ -1,16 +1,10 @@
-// One version control (src/versioned.ts, play/SPEC.md "Version control") against a real Postgres: set TEST_DATABASE_URL,
-// as for ./api.test.ts.
-//
-// c1: a kind is one entry. A kind registered here alone (a gadget, its type and its row table made in this file) gets
-// everything every kind gets: listed, read at a version, an edit and an intent's variant, its history with its
-// variants, edited, proposed with an intent, reviewed and accepted or archived, over MCP (list_docs, doc_at,
-// doc_history, doc_edit, propose_doc_version), over HTTP (/api/docs/<uuid>, /history, /changes) and in the board's
-// review, with no other file changed.
-//
-// c2: every kind play keeps round-trips through the one module: an asset, a story, a factory, a levels config and a
-// skill each edited twice in an intent variant, proposed, reviewed field by field, accepted as Main's next version (an
-// asset's and a story's frozen rows written), archived, and a clash on a moved seed archived; get_asset and get_story
-// read an intent's variant too.
+// One version control (src/versioned.ts, play/SPEC.md "Version control") against a real Postgres (as ./api.test.ts).
+// c1: a kind is one entry: a gadget registered here alone gets everything every kind gets (listed, read at a version,
+// an edit or a variant, history, edited, proposed, reviewed, accepted or archived) over MCP, HTTP (/api/docs/<uuid>,
+// /history, /changes) and the board, with no other file changed.
+// c2: every kind round-trips the one module: an asset, story, factory, levels config and skill each edited twice in an
+// intent variant, proposed, reviewed, accepted as Main's next version (frozen rows written), archived, a clash on a moved
+// seed archived; get_asset and get_story read an intent's variant too.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { createDoc } from "../src/docs";
 import { COOP, SCHEMA } from "../src/kit/ids";
@@ -313,8 +307,7 @@ suite("one version control", () => {
       const b = await tool("propose_doc_version", { doc: id, note: `${k.kind}: B`, edits: k.clash("B"), intent: await readyIntent(`${k.kind}: B`) });
       expect((await call("ada", "POST", `/api/intents/${a.intent}/accept`)).data.decision).toMatchObject({ status: "accepted", number: was + 2 });
       if (k.kind === "asset") {
-        // an asset's work goes in only on the head it was made on: the other work on that head is archived at once, its
-        // intent (specified, as every intent with work is) back in Build
+        // an asset's work goes in only on its own head: other work on it archived at once, its intent back in Build
         expect((await call("ada", "GET", `/api/intents/${b.intent}`)).data).toMatchObject({ stage: "build", review: { status: "archived" } });
       } else {
         expect((await call("ada", "GET", `/api/intents/${b.intent}`)).data.review.moved).toBe(true);

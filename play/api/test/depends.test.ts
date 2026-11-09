@@ -1,8 +1,7 @@
-// Intents depend on intents (src/intents.ts mayMove and heldBy, play/SPEC.md §4.12; intent
-// 420ee348-132f-4b04-a67d-082ae8b72efc) against a real Postgres (TEST_DATABASE_URL) and a fake GitHub (./fixtures/github.ts).
-// An intent may name the intents it depends on, each by its UUID; while any of them is not shipped (Accepted) it is held
-// at every forward gate: approve, Proposal on its checks, work proposed for it, accept, Accept and ship, Ship's turn.
-// Every forward gate is one function, mayMove: a stub of it refusing everything makes every forward path refuse.
+// Intents depend on intents (src/intents.ts mayMove and heldBy, play/SPEC.md §4.12; intent 420ee348-132f-4b04-a67d-082ae8b72efc)
+// against a real Postgres and a fake GitHub (./fixtures/github.ts): while any intent it names is not Accepted, it is held
+// at every forward gate (approve, Proposal, work proposed, accept, Accept and ship, Ship's turn), all one function,
+// mayMove: a stub refusing everything makes every forward path refuse.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { BlobStore } from "../src/blobs";
 import { gate } from "../src/intents";

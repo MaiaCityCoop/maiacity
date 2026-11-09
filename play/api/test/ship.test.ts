@@ -1,9 +1,7 @@
-// Accept ships it (src/ship.ts, play/SPEC.md §4.12) against a real Postgres (TEST_DATABASE_URL, as for ./api.test.ts) and
-// a fake GitHub: GitHub's REST API answered here, behind the real client, so every request play makes (its path, its
-// body, its Bearer) is seen. An admin's Accept on a code intent at Proposal posts 'Intent accepted' on its pull
-// request's head and merges it at once, the intent in Ship; the ship watcher follows main's checks, the release and the
-// deploy's jobs, each a step on the intent; all green, Accepted; a red one, back to Proposal with the report, from
-// where Accept ships it again. SHIP_TOKEN is sent to GitHub only.
+// Accept ships it (src/ship.ts, play/SPEC.md §4.12) against a real Postgres (as ./api.test.ts) and a fake GitHub behind
+// the real client, so every request play makes (path, body, Bearer) is seen: Accept posts 'Intent accepted' on the
+// head and merges at once, the intent in Ship; the watcher follows main's checks, the release and the deploy's jobs; all
+// green, Accepted; a red one, back to Proposal with the report. SHIP_TOKEN is sent to GitHub only.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { BlobStore } from "../src/blobs";
 import { type Db } from "../src/kit/pg";
@@ -299,8 +297,7 @@ suite("accept ships it", () => {
   });
 
   test("while it waits, a red check, a moved head, a conflict, GitHub refusing the merge or 30 minutes waiting takes it back to Proposal with the report, nothing merged", async () => {
-    // accepted while waiting (only a waiting intent is, intent 2bf8af96), behind another in Ship; that one gone, its
-    // turn comes with a check still to run
+    // accepted while waiting (intent 2bf8af96) behind another in Ship; that one gone, its turn comes with a check to run
     const waiting = async (title: string) => {
       await clearShips();
       const ahead = await codeAtProposal(`Ahead of ${title}`);

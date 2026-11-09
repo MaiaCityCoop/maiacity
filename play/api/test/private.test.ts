@@ -1,9 +1,6 @@
-// Personal accounts own things (intent 732d8a38-d929-41a6-b096-8b72accb964d; play/SPEC.md "Owners"): the first slice of
-// Ownership (8fc46819). Against a real Postgres: set TEST_DATABASE_URL, as for ./api.test.ts.
-//
-// Two admins, A and B, and a traveler T. What is private to its owner answers to anyone else exactly as what never was:
-// 404 with the same words as a hash or a UUID play never kept, and left out of every list.
-//
+// Personal accounts own things (intent 732d8a38-d929-41a6-b096-8b72accb964d; play/SPEC.md "Owners"; the first slice of
+// Ownership 8fc46819) against a real Postgres (as ./api.test.ts). Admins A and B, traveler T: what is private answers
+// to anyone else exactly as what never was (404, the same words as an unknown hash or UUID, in no list).
 // -t library   c2: a file added to A's personal library (add_story_frame, library "personal") is served and listed for A
 //              alone: /api/files/<hash>, get_file, /api/library, list_library; the coop's library as before
 // -t character c3: an asset in group characters proposed private by A is A's alone on every path that hands an asset
