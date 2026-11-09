@@ -17,8 +17,7 @@ import { app } from '../../api/src/app';
 import { createHuman, initSessions, tokenFor } from '../../api/src/auth';
 import { folderStore } from '../../api/src/blobs';
 import { Rate } from '../../api/src/limits';
-import { migrate } from '../../api/src/migrations';
-import { seed } from '../../api/src/seed';
+import { prepare } from '../../api/src/seed';
 import { fromBunSql } from '../../api/src/kit/pg';
 
 const BASE = process.env.SITE ?? 'http://localhost:5173';
@@ -42,8 +41,7 @@ const sql = new Bun.SQL(u.toString());
 const db = fromBunSql(sql);
 const server = { stop: () => {} };
 try {
-	await migrate(db);
-	await seed(db);
+	await prepare(db);
 	await initSessions(db);
 	const api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), 'play-blobs-'))), rate: new Rate(0) });
 	const samuel = await createHuman(db, 'Samuel');

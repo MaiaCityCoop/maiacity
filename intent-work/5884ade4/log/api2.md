@@ -90,3 +90,13 @@ left for Samuel.
   untangles: move it there as `ASSET_EDITS`).
 - Pinned: the composed text is byte-for-byte the old literal and the told kinds are the old seven in the old order
   (scratch edits-eq.ts: "same"); the suite's tools/list tests.
+
+## 9. One boot: prepare(db) (re-api#11)
+
+- `prepare(db)` in src/seed.ts: migrate, then seed; gives back the migrations that ran. play-api (index.ts),
+  src/migrate.ts, import/run.ts, test/kit.ts freshDb (a database migrated `until` a migration still gets migrate alone)
+  and play/site's library-shots.ts and dashboard-library-shots.ts call it. migrations.ts stays feature-free;
+  migrate.test keeps migrate and seed apart (it tests the steps between).
+- initSessions and syncKinds stay where each entry point needs them (play-api, the tests, the shot scripts): not every
+  entry point wants them (migrate.ts, the import).
+- Pinned by the suite (every test database is made by prepare now); the shot scripts bundle.

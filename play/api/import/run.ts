@@ -12,8 +12,7 @@ import { join } from "node:path";
 import { blobStore, keyOf, type BlobStore } from "../src/blobs";
 import { hashBytes } from "../src/kit/hash";
 import { connect, type Db, type Queryable } from "../src/kit/pg";
-import { migrate } from "../src/migrations";
-import { seed } from "../src/seed";
+import { prepare } from "../src/seed";
 import { importSources, type SourcesReport } from "./sources";
 import { seedStories, type StoriesReport } from "./stories";
 import { ensureAssetDocs, type AssetDocsReport } from "../src/assetdocs";
@@ -50,8 +49,7 @@ export type Report = {
 
 export async function runImport(db: Db, store: BlobStore, opts: { media?: boolean; sources?: string; log?: (s: string) => void } = {}): Promise<Report> {
   const log = opts.log ?? ((s: string) => console.error(s));
-  await migrate(db);
-  await seed(db);
+  await prepare(db);
   const report: Report = {
     at: new Date().toISOString(),
     written: { media: 0 },
