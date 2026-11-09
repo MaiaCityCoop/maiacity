@@ -6,7 +6,7 @@
 import type { BlobStore } from "./blobs";
 import type { Db } from "./kit/pg";
 import { canonical } from "./kit/hash";
-import { carrySeen, mainMergeState, mergeMain, type MainMergeState } from "./mainmerge";
+import { carried, mainMergeState, mergeMain, type MainMergeState } from "./mainmerge";
 import { keepSeen, openPulls, readPull, type GitHub } from "./github";
 import { advance, reconcile, runningCommit, saveShip, startIfReady, type Ship } from "./ship";
 import { autoMove } from "./decide";
@@ -48,7 +48,7 @@ export async function watchShips(db: Db, gh: GitHub, store: BlobStore, at = Date
 export async function watchPulls(db: Db, gh: GitHub, store: BlobStore, at = Date.now()) {
   for (const { id, pull_request, pr_seen } of await openPulls(db)) {
     try {
-      await keepSeen(db, id, carrySeen(pr_seen, (await readPull(gh, pull_request, at)).seen));
+      await keepSeen(db, id, await carried(gh, pr_seen, (await readPull(gh, pull_request, at)).seen));
     } catch (e) {
       console.warn(`ship: #${pull_request} of intent ${id} not read: ${(e as Error).message}`);
       continue;

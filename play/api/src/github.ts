@@ -104,6 +104,8 @@ export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.git
     /** a commit status on `sha`, 'Intent accepted' unless `context` names another ('Merges with main', ./mainmerge.ts) */
     status: (sha: string, { context = ACCEPTED_CONTEXT, ...s }: { state: "success" | "failure" | "error" | "pending"; description: string; target_url?: string; context?: string }) =>
       json("POST", `/statuses/${sha}`, { ...s, context }),
+    /** one commit, its parents */
+    commit: (sha: string) => json<Commit>("GET", `/commits/${sha}`),
     /** a branch's head commit */
     branchHead: async (branch: string) => (await json<{ object: { sha: string } }>("GET", `/git/ref/heads/${branch}`)).object.sha,
     /** `head` against `base` (three dots): how far each is past their merge base, and the files `head` changed since it */
