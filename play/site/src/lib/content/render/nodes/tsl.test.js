@@ -72,10 +72,10 @@ describe('the ground in TSL', () => {
 		});
 });
 
-// every warm-up goes through render/core.js's precompile, which builds node materials too, each paired with its program
-// (660ad67f): nothing calls three's compileAsync, which never pairs a node material's build
+// three's compileAsync can wait forever on a node material under WebGLNodesHandler: every warm-up goes through
+// render/core.js's precompile, which leaves node materials to compile as they are first drawn
 describe('warm-ups', () => {
-	it('call compileAsync nowhere', () => {
+	it('call compileAsync only in render/core.js', () => {
 		const src = join(import.meta.dirname, '../../..'), found = [];
 		const walk = (d) => {
 			for (const f of readdirSync(d)) {
@@ -85,7 +85,7 @@ describe('warm-ups', () => {
 			}
 		};
 		walk(src);
-		expect(found).toEqual([]);
+		expect(found).toEqual(['content/render/core.js']);
 	});
 });
 

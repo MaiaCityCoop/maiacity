@@ -38,7 +38,7 @@ describe('the render core holds', () => {
 		expect(outside(/new\s+(?!T\.)(\w+\.)?OrbitControls\b/, [CORE, POST])).toEqual([]);
 		expect(outside(/new\s+(?!T\.)(\w+\.)?EffectComposer\b/, [CORE, POST])).toEqual([]);
 	});
-	// every warm-up is precompile's, which pairs each node material's build with its program (./core.js `nodes`)
+	// a compileAsync that gathers a node material never settles under WebGLNodesHandler: every warm-up is precompile's
 	test('every warm-up goes through the core’s precompile', () => {
 		expect(outside(/\bcompileAsync\s*\(/, [CORE])).toEqual([]);
 	});

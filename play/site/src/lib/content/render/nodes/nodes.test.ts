@@ -10,7 +10,6 @@ import * as THREE from 'three';
 import { fakeGL } from './fakegl.js';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
 import { SunLight } from 'three/addons/lights/SunLight.js';
-import { nodes, precompile } from '../core.js';
 import { aFade, blurMaterial, cardMaterials, castsAsNode, cutBy, cutOf, floorMaterial, ghostMaterial, install, nodeOf, poolMaterial } from './index.js';
 
 (globalThis as any).self ??= globalThis;
@@ -257,35 +256,6 @@ describe('the render kit in TSL', () => {
 		scene.traverse((o: any) => o.material && programs.add((r.properties.get(o.material) as any).currentProgram));
 		expect(programs.size).toBe(1);
 		expect([...programs][0]).toBeTruthy();
-	});
-
-	// 660ad67f: Safari linked 47 kit programs mid-walk in Sandbox 5, each built at its first frame. Warmed by precompile,
-	// every build is paired with its own program as three acquires it (../core.js `nodes`): one material on two meshes
-	// (two programs) keeps each program's own uniforms, never the last build's (cb16b7a5)
-	test('precompile builds the kit’s node materials, each program paired with its own build: the first frame builds none', async () => {
-		const { gl } = fakeGL();
-		const r: any = new THREE.WebGLRenderer({ canvas: gl.canvas, context: gl } as any);
-		r.shadowMap.enabled = true;
-		nodes(r);
-		const h: any = install(r);
-		const { scene, camera } = lit();
-		const m: any = Object.assign(nodeOf(new THREE.MeshStandardMaterial({ map: new THREE.Texture() })), { fade: aFade });
-		const n: any = Object.assign(nodeOf(new THREE.MeshStandardMaterial({ color: 0x406080 })), { fade: aFade });
-		const bare = new THREE.BoxGeometry();
-		bare.deleteAttribute('uv');
-		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), m), new THREE.Mesh(bare, m), new THREE.Mesh(new THREE.BoxGeometry(), n));
-		await precompile(r, scene, camera);
-		const programs = (x: any) => r.properties.get(x).programs?.size ?? 0;
-		expect([programs(m), programs(n)]).toEqual([2, 1]);
-		r.render(scene, camera);
-		r.render(scene, camera);
-		expect([programs(m), programs(n)]).toEqual([2, 1]);
-		// every node uniform each program declares is in the uniforms the handler keeps for it
-		for (const x of [m, n])
-			for (const [p, e] of h.programCache.get(x)) {
-				const declared = p.getUniforms().seq.map((u: any) => u.id).filter((id: string) => id.startsWith('nodeUniform'));
-				expect(declared.filter((id: string) => !(id in e.uniforms))).toEqual([]);
-			}
 	});
 
 	test('the sky’s sun lights a node material, its cascades shadowing it', () => {
