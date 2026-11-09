@@ -4,7 +4,7 @@
  * one object (./groups.js). Both go through here, so a ref means the same thing everywhere. The parameters are the
  * ones its recipe declares (./params.js): `plants/apple@2?seed=maia&stage=9`.
  */
-import { argsOf, paramsIn, queryOf, valuesOf } from '../../params.js';
+import { argsOf, paramsIn, queryOf, valuesOf } from './params.js';
 
 /** @typedef {import('./groups.js').Group} Group */
 /** @typedef {import('./groups.js').Item} Item */

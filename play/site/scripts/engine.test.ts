@@ -1,8 +1,8 @@
 /**
- * Box engine 6 (intent a5faafad), frozen and run as the page runs it, on the CPU in Bun (./box-worker.ts): its source as
+ * Box engine 7 (intent a5faafad), frozen and run as the page runs it, on the CPU in Bun (./box-worker.ts): its source as
  * it is now is the latest frozen engine byte for byte; every recipe the kept Old City world builds (its own and its
- * guests', their pieces joined in, src/lib/stories/fixtures/worlds/) builds on it as on engine 5, the same nodes,
- * geometry and materials, format 5 aside; a recipe's own look leaves it as a checked graph the page keeps; and a
+ * guests', their pieces joined in, src/lib/stories/fixtures/worlds/) builds on it as on engine 6, the same nodes,
+ * geometry, materials and looks, format 6 aside; a recipe's own look leaves it as a checked graph the page keeps; and a
  * shader of its own given any other way refuses the build, naming the material.
  *   bun test scripts/engine.test.ts
  */
@@ -43,26 +43,26 @@ module.exports.recipe = function () {
 };
 `;
 
-describe('box engine 6', () => {
-	test('is the engine as its source is now, byte for byte (bun scripts/freeze-engine.ts --check)', async () => {
-		expect(latest.v).toBe(6);
+describe('box engine 7', () => {
+	test('is the engine as its source is now, byte for byte (bun scripts/freeze-engine.ts --hash)', async () => {
+		expect(latest.v).toBe(7);
 		expect(hashText(await bundleEngine())).toBe(latest.blake3);
 	}, 120_000);
 
-	test(`builds every recipe of the kept world as engine 5 does (${recipes.length} recipes), format 5 aside`, async () => {
+	test(`builds every recipe of the kept world as engine 6 does (${recipes.length} recipes), format 6 aside`, async () => {
 		expect(recipes.length).toBeGreaterThan(5);
 		let same = 0;
 		for (const h of recipes) {
 			const r = withItsPieces(h);
-			const [a, b] = [on(5, r), on(6, r)];
+			const [a, b] = [on(6, r), on(7, r)];
 			try {
 				const [x, y] = await Promise.all([a.build(undefined), b.build(undefined)]);
-				expect(x.data.format).toBe(4);
-				expect(y.data.format).toBe(5);
+				expect(x.data.format).toBe(5);
+				expect(y.data.format).toBe(6);
 				expect(y.data.nodes.length).toBe(x.data.nodes.length);
 				expect(y.data.geometries.length).toBe(x.data.geometries.length);
 				expect(y.data.stats.tris).toBe(x.data.stats.tris);
-				expect(y.data.materials.map((m: any) => [m.type, m.params])).toEqual(x.data.materials.map((m: any) => [m.type, m.params]));
+				expect(y.data.materials.map((m: any) => [m.type, m.params, m.look])).toEqual(x.data.materials.map((m: any) => [m.type, m.params, m.look]));
 				// the cut faces it said it has, now as their look
 				expect(y.data.materials.filter((m: any) => m.cap).length).toBe(x.data.materials.filter((m: any) => m.custom && m.cap).length);
 				expect(y.data.materials.some((m: any) => 'custom' in m)).toBe(false);
@@ -77,7 +77,7 @@ describe('box engine 6', () => {
 	}, 600_000);
 
 	test('a recipe’s own look leaves as a checked graph, which the page keeps', async () => {
-		const e = on(6, own(recipeWith(`const m = new THREE.MeshStandardMaterial({ color: 0x335533 }); m.userData.graph = module.exports.graphs.glow;`)));
+		const e = on(7, own(recipeWith(`const m = new THREE.MeshStandardMaterial({ color: 0x335533 }); m.userData.graph = module.exports.graphs.glow;`)));
 		try {
 			const m = await e.build(undefined);
 			expect(m.data.materials[0].graph.out).toEqual(GLOW.out);
@@ -96,7 +96,7 @@ describe('box engine 6', () => {
 			'its graph is refused: .*may not read the screen': `const m = new THREE.MeshStandardMaterial(); m.userData.graph = { format: 1, nodes: [{ op: 'screenUV' }], out: { color: 0 } };`
 		};
 		for (const [why, material] of Object.entries(tries)) {
-			const e = on(6, own(recipeWith(material)));
+			const e = on(7, own(recipeWith(material)));
 			try {
 				await expect(e.build(undefined)).rejects.toThrow(new RegExp(why));
 			} finally {
@@ -109,7 +109,7 @@ describe('box engine 6', () => {
 		const source = readFileSync(new URL('../src/lib/content/assets/box/fixtures/glow-mushroom.js', import.meta.url), 'utf8');
 		const c = RECIPE_HEAD + source + recipeTail('glow-mushroom', 1, null);
 		const r = { hash: hashText(c), code: c };
-		const e = on(6, r);
+		const e = on(7, r);
 		try {
 			const m = await e.build(undefined);
 			const { obj } = built(m, r.hash);

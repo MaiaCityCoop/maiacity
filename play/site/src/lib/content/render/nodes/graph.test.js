@@ -11,6 +11,8 @@ import { MeshStandardNodeMaterial, WebGPURenderer } from 'three/webgpu';
 import { fakeGL } from './fakegl.js';
 import { applyGraph, BUILD_OPS } from './graph.js';
 import { nodeOf } from './index.js';
+import * as TSL from 'three/tsl';
+import { windNodes } from '../wind.js';
 import { createPresets } from '../../assets/render/presets.js';
 import { GLOW } from '../../assets/box/graph.examples.js';
 import { OPS, OUTPUTS } from '../../assets/box/graph.js';
@@ -182,5 +184,13 @@ describe('a graph built', () => {
 		const c = new THREE.Color(0x2bd4a8);
 		const f = (await glslOf(built({ format: 1, nodes: [{ op: 'color', value: 0x2bd4a8 }], out: { color: 0 } }))).fragmentShader;
 		expect(f).toContain(`vec3( ${c.r}, ${c.g}, ${c.b} )`);
+	});
+	it('in a world, its wind and time are the world’s own (../wind.js): the same graph builds with them', async () => {
+		const wind = windNodes(TSL);
+		const m = applyGraph(new MeshStandardNodeMaterial(), GLOW, { wind });
+		const p = await glslOf(m);
+		valid('glow-world', p);
+		// the world's wind uniforms are read (its direction and strength), not a calm constant
+		expect(p.vertexShader.length).toBeGreaterThan((await glslOf(built(GLOW))).vertexShader.length);
 	});
 });

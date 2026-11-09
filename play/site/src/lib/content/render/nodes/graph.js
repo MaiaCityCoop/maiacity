@@ -8,7 +8,9 @@
  *
  * `applyGraph(n, graph)` gives a node material of ours (./index.js `nodeOf`) the graph's outputs: its colour, glow,
  * opacity, roughness, metalness and its vertices' place. Everything else it draws as before (its lights, its shadow,
- * our cut, caps and fade). WIND and SUN are the uniforms every world shares, which a world sets (the sky, the walker).
+ * our cut, caps and fade). Its `wind` and `time` are the world's own (../wind.js, the one wind everything that grows
+ * sways in, and its clock) where a world draws it, a calm breeze and the page's clock in the viewer; its `sun` is SUN,
+ * which the sky sets.
  */
 import * as THREE from 'three';
 import {
@@ -17,9 +19,12 @@ import {
 	saturate, sign, sin, smoothstep, sqrt, step, texture, time, uniform, uv, vec2, vec3, vec4
 } from 'three/tsl';
 import { checkGraph, OPS, OUTPUTS } from '../../assets/box/graph.js';
+import { CALM } from '../wind.js';
 
-/** the wind every world shares: its direction times its strength (m/s), in the world's frame */
-export const WIND = uniform(new THREE.Vector3(1.5, 0, 0.5));
+/** the wind where no world gives one (the viewer): ../wind.js's calm breeze, its direction times its strength */
+const CALM_WIND = vec3(Math.cos(CALM.direction) * CALM.strength, 0, Math.sin(CALM.direction) * CALM.strength);
+/** what the graph being built reads of the world: its wind (../wind.js `windNodes`) where a world draws it */
+let world = null;
 /** the sun's direction every world shares (toward the sun) */
 export const SUN = uniform(new THREE.Vector3(0.4, 0.8, 0.45).normalize());
 
@@ -43,10 +48,12 @@ const BUILD = {
 	positionWorld: () => positionWorld,
 	normalLocal: () => normalLocal,
 	normalWorld: () => normalWorld,
-	time: () => time,
+	// the world's clock where a world draws it (a film's frame the same every time), else the page's
+	time: () => world?.uniforms?.time ?? time,
 	instanceIndex: () => float(instanceIndex),
 	instanceColor: () => instanceColor,
-	wind: () => WIND,
+	// the world's one wind (../wind.js): its direction times its strength where the point stands, gusts and all
+	wind: () => (world ? vec3(cos(world.uniforms.direction), 0, sin(world.uniforms.direction)).mul(world.strength(positionWorld.x, positionWorld.z)) : CALM_WIND),
 	sun: () => SUN,
 	abs: (_, [a]) => abs(a), sin: (_, [a]) => sin(a), cos: (_, [a]) => cos(a), fract: (_, [a]) => fract(a), floor: (_, [a]) => floor(a),
 	ceil: (_, [a]) => ceil(a), sign: (_, [a]) => sign(a), sqrt: (_, [a]) => sqrt(a), exp: (_, [a]) => exp(a), oneMinus: (_, [a]) => oneMinus(a),
@@ -114,12 +121,19 @@ function typeOf(x, ts) {
  * against the pictures the material carries; throws a GraphError where it is refused.
  * @param {any} n a node material (./index.js nodeOf)
  * @param {unknown} graph
+ * @param {{ wind?: any }} [o] the world's wind (../wind.js `windNodes`), which its `wind` and `time` read; none in the viewer
  */
-export function applyGraph(n, graph) {
+export function applyGraph(n, graph, { wind = null } = {}) {
 	const slots = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'emissiveMap', 'aoMap', 'bumpMap'].filter((k) => n[k]?.isTexture);
 	const g = checkGraph(graph, { slots });
 	// built once: the outputs share its nodes (one stage's outputs work each value out once between them)
-	const { values, types } = built(g.nodes, n, undefined);
+	world = wind;
+	let values, types;
+	try {
+		({ values, types } = built(g.nodes, n, undefined));
+	} finally {
+		world = null;
+	}
 	const output = (name) => as(values[g.out[name]], types[g.out[name]], OUTPUTS[name]);
 	if (g.out.color !== undefined) n.colorNode = output('color');
 	if (g.out.emissive !== undefined) n.emissiveNode = output('emissive');

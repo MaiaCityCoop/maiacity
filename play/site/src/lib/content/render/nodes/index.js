@@ -59,20 +59,25 @@ export function install(r) {
 			keying = drawing = null;
 		}
 	};
-	// a kit material meeting a program built from other source draws this frame with the owner's uniforms (none into a
-	// layout not its own), then keys by its id; each clash kept in __clashes (660ad67f)
-	const src = new WeakMap(), meet = h.onUpdateProgram.bind(h);
-	h.onUpdateProgram = (m, p, props) => {
-		const b = m._latestBuilder, s = b && b.vertexShader + b.fragmentShader, first = !h.programCache.get(m)?.has(p);
-		meet(m, p, props);
-		const o = src.get(p);
-		if (!m.isKit || !first || !s || o?.s === s) return;
-		if (!o) return void src.set(p, { s, m });
-		let i = 0;
-		while (s[i] === o.s[i]) i++;
-		(globalThis.__clashes ??= []).push({ a: o.m.name, b: m.name, at: s.slice(i - 60, i + 60), was: o.s.slice(i - 60, i + 60) });
-		const e = h.programCache.get(o.m)?.get(p);
-		(m.own = m.needsUpdate = true), (props.uniforms = e?.uniforms ?? {}), (props.uniformsList = e?.uniformsList ?? []), (m.uniformsGroups = e?.uniformsGroups ?? []);
+	// three builds a node material once per program key (a mesh's shadows, a target) but keeps only the last build:
+	// a program met first takes the build that made it (8823eb7c: a car's paint drew its body with its ends' build)
+	const made = new WeakMap(), build = h.build.bind(h), meet = h.onUpdateProgram.bind(h);
+	/** a material's builds by program (its last: three's newest) */
+	const settle = (m, q) => {
+		const k = made.get(m);
+		if (k?.last && q?.programs) k.by.set([...q.programs.values()].at(-1), k.last), (k.last = null);
+		return k;
+	};
+	h.build = (m, o, q) => {
+		settle(m, r.properties.get(m));
+		build(m, o, q);
+		if (!made.has(m)) made.set(m, { by: new WeakMap() });
+		made.get(m).last = { uniforms: q.uniforms, builder: m._latestBuilder };
+	};
+	h.onUpdateProgram = (m, p, q) => {
+		const own = !h.programCache.get(m)?.has(p) && settle(m, q)?.by.get(p);
+		if (own) (q.uniforms = own.uniforms), (m._latestBuilder = own.builder);
+		meet(m, p, q);
 	};
 	h.getOutputCallback = (node, builder) => (onScreen() || !(builder?.material ?? h.nodeFrame.material)?.isKit ? screen(node, builder) : node);
 	if (h.renderer) h.renderer.getCacheKey = () => (onScreen() || !(keying ?? h.nodeFrame.material)?.isKit ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
@@ -254,7 +259,7 @@ const ours = (Base) =>
 		}
 		// a program for each shape, not each material (by id, Safari linked 88 in 8 frames in Sandbox 5: bd087014)
 		customProgramCacheKey() {
-			return `${super.customProgramCacheKey()}#${this.own ? this.id : shapeOf(this, drawing)}`;
+			return `${super.customProgramCacheKey()}#${shapeOf(this, drawing)}`;
 		}
 		copy(source) {
 			super.copy(source);
@@ -298,9 +303,9 @@ export const drawnAsNode = (m) => !!m?.isNodeMaterial || !!KINDS[m?.type];
 /**
  * A three.js material as the same node material of ours (its kind, every setting, the same pictures), or itself if it
  * is one already or has none.
- * @param {THREE.Material} m
+ * @param {THREE.Material} m @param {{ wind?: any }} [o] the world's wind, for a graph's own look (./graph.js)
  */
-export function nodeOf(m) {
+export function nodeOf(m, o = {}) {
 	if (m.isNodeMaterial) return m;
 	const K = KINDS[m.type];
 	if (!K) return m;
@@ -314,7 +319,7 @@ export function nodeOf(m) {
 	n.userData = { ...m.userData };
 	// its own look, a node graph the box handed over and the page checked (../../assets/box/rebuild.js): built here, so
 	// every way a material is drawn (the worlds' renderer, the viewer's stage) draws it
-	if (m.userData.graph) applyGraph(n, m.userData.graph);
+	if (m.userData.graph) applyGraph(n, m.userData.graph, o);
 	return n;
 }
 

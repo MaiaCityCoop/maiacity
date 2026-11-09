@@ -17,7 +17,7 @@
  * - compile stalls and driver bugs: types checked node by node (float, vec2, vec3, vec4), at most LIMITS.nodes nodes,
  *   LIMITS.depth deep, LIMITS.bytes as JSON, every number finite and within ±LIMITS.value.
  *
- * Format 1 (box engine 6, box data format 5):
+ * Format 1 (box engine 7, box data format 6):
  *   { format: 1, nodes: [ { op, in?: [i, …], value?, mask?, slot?, octaves?, count?, body? }, … ],
  *     out: { color?, emissive?, opacity?, roughness?, metalness?, position? }, textures?: ['map', …] }
  * `out` names the node each of the material's inputs is drawn from (color and emissive vec3, position vec3: the vertex

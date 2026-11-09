@@ -17,14 +17,18 @@
  * Format 4 (engine 5): a light as a light (`light`: its kind, colour, brightness, reach, fall-off, a spot's cone and
  * where it points), not a bare node; its controls with what else they change (./bake.js: each mesh reshaped, each
  * material's look, each light); and an actor's clips written down as tables (`view.clips.motion`, ./clips.js).
- * Format 5 (engine 6, intent a5faafad): a material with a shader of its own brings it as data, a node graph checked
+ * Format 5 (engine 6, intent 6fd5e63f): a material says what it is (`look`, ../look.js: leaf, grass, petal, bark, stem,
+ * fruit or stone, with its translucency, stiffness and flutter), as its recipe set it on `userData.look`, so the page's
+ * own shaders draw it (the wind, light through leaves); the page checks it.
+ * Format 6 (engine 7, intent a5faafad): a material with a shader of its own brings it as data, a node graph checked
  * against the one allowlist (`graph`, ./graph.js), or the kit's section caps (`cap`); one with any other shader of its
- * own is refused, saying which, and no longer goes out silently as a plain one.
+ * own is refused, saying which, and no longer goes out silently as a plain one (no `custom` flag).
  */
 import { ShaderChunk, Vector3 } from 'three';
+import { plainLook } from '../look.js';
 import { checkGraph, GRAPHS_MOST } from './graph.js';
 
-export const FORMAT = 5;
+export const FORMAT = 6;
 /** the kinds a graph may be given: those the page draws as node materials (../../render/nodes/index.js `nodeOf`) */
 export const GRAPHED = ['MeshStandardMaterial', 'MeshPhysicalMaterial', 'MeshBasicMaterial', 'MeshLambertMaterial', 'MeshPhongMaterial'];
 /** the lights that go out as lights */
@@ -158,8 +162,9 @@ export async function serialize(root, { controls = [], view } = {}) {
 			if (graphs.size > GRAPHS_MOST) throw new Error(`more than ${GRAPHS_MOST} different graphs in one build: share them between the materials that look alike`);
 		}
 		const cap = own ? capOf(m) : null;
+		const look = plainLook(m.userData?.look);
 		if (own && !graph && !cap) throw new Error(`${what}: a shader of its own (${m.type}${patched ? ', onBeforeCompile' : ''}) never leaves the box: give its look as a node graph (material.userData.graph, ./graph.js)`);
-		materials.push({ type, params, name: m.name, ...(cap && { cap }), ...(graph && { graph }) });
+		materials.push({ type, params, name: m.name, ...(cap && { cap }), ...(look && { look }), ...(graph && { graph }) });
 		matAt.set(m, materials.length - 1);
 		return materials.length - 1;
 	};

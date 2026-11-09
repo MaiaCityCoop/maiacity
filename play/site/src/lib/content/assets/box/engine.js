@@ -1,11 +1,10 @@
 // @ts-nocheck — plain JS, the box's own code
 /*
- * THE ENGINE — what runs in the asset box (../host.js): three.js and the addons below, the box's second lock, and the
- * one way a recipe is built and handed back. No recipe is in it. It is frozen by version: play/site's
- * `scripts/freeze-engine.ts` bundles this file into static/engines/engine-v<n>.js and writes its BLAKE3 hash into
- * src/lib/kernel/sandbox/engines.json, and a frozen engine never changes (./engine.test.ts), so a recipe made for
- * engine 1 builds on engine 1 the same for good. A new capability is a new engine, beside the old ones. Its source
- * came back from the snapshot (maia/content/assets/box/) as play's own with engine 6.
+ * THE ENGINE — what runs in the asset box (./host.js): three.js and the addons below, the box's second lock, and the
+ * one way a recipe is built and handed back. No recipe is in it. It is frozen by version: `aven/kernel/freeze-engine.mjs`
+ * bundles this file into maia/site/static/engines/engine-v<n>.js and writes its BLAKE3 hash into ../engines.json, and a frozen
+ * engine never changes (../engines.test.js), so a recipe made for engine 1 builds on engine 1 the same for good. A
+ * new capability is a new engine, beside the old ones.
  *
  * What an engine promises a recipe (version 1):
  * - a recipe is a script, handed in as its code and named by the BLAKE3 hash of its bytes (../recipe.js). It calls
@@ -31,10 +30,10 @@
  * the looks of materials (colour, glow, opacity, roughness, metalness) and lights (colour, brightness, reach,
  * fall-off), in a control's samples (./bake.js) and in each step's answer (./live.js: `shapes`, `looks`, `lights`).
  *
- * Version 6 adds (format 5, intent a5faafad): a material's own look as data, a node graph checked against the one
- * allowlist (../graph.js) on its `userData.graph`, built by the page into TSL; the kit's section caps as their look;
- * and a shader of its own given any other way refuses the build, naming the material, where engines 1–5 sent it out
- * silently as a plain material. three.js r187.
+ * Version 7 adds (format 6, intent a5faafad): a material's own look as data, a node graph checked against the one
+ * allowlist (./graph.js) on its `userData.graph`, built by the page into TSL; the kit's section caps as their look; and
+ * a shader of its own given any other way refuses the build, naming the material, where engines 1–6 sent it out
+ * silently as a plain material.
  *
  * Messages: { id, op: 'build', recipe: { hash, code }, given?, args?, engine } is answered with
  * { id, ok: true, data, card, ms } or { id, ok: false, error }; { id, op: 'live', recipe, given?, nodes } with
@@ -45,13 +44,13 @@
 import { load } from './loader.js';
 import './lockdown.js';
 import './shim.js';
-import { cardOf } from './card.js';
-import { buildWith, refOf } from './refs.js';
-import { bake } from '../bake.js';
+import { cardOf } from '../card.js';
+import { buildWith, refOf } from '../refs.js';
+import { bake } from './bake.js';
 import * as live from './live.js';
 import { MODULES } from './modules.js';
-import { serialize } from '../serialize.js';
-import { catalogOf, viewOf } from '../view.js';
+import { serialize } from './serialize.js';
+import { catalogOf, viewOf } from './view.js';
 
 const require = (id) => {
 	if (!Object.hasOwn(MODULES, id)) throw new Error(`this engine has no module ${String(id).slice(0, 80)}`);

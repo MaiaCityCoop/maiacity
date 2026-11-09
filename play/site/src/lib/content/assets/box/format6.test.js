@@ -1,6 +1,6 @@
-// Box data format 5 (intent a5faafad, c1): a material's own shader is never silently dropped any more. It leaves the
+// Box data format 6 (engine 7, intent a5faafad, c1): a material's own shader is never silently dropped any more. It leaves the
 // box as a node graph checked against the one allowlist, or as the kit's section caps, or the build is refused saying
-// which material; the page checks the graph again and keeps it for its renderer. Formats 2–4's flag still reads.
+// which material; the page checks the graph again and keeps it for its renderer. Formats 2–5's flag still reads.
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { serialize, FORMAT } from './serialize.js';
@@ -16,10 +16,10 @@ const materialOf = (root) => {
 	return m;
 };
 
-describe('format 5: a look of its own as data', () => {
-	it('writes format 5', async () => {
-		expect(FORMAT).toBe(5);
-		expect((await serialize(mesh(new THREE.MeshStandardMaterial()))).data.format).toBe(5);
+describe('format 6: a look of its own as data', () => {
+	it('writes format 6', async () => {
+		expect(FORMAT).toBe(6);
+		expect((await serialize(mesh(new THREE.MeshStandardMaterial()))).data.format).toBe(6);
 	});
 	it('a graph leaves the box checked and is kept by the page', async () => {
 		const m = new THREE.MeshStandardMaterial({ color: 0x336633 });
@@ -30,7 +30,7 @@ describe('format 5: a look of its own as data', () => {
 		const got = materialOf(rebuild(data));
 		expect(got.userData.graph.out).toEqual(GLOW.out);
 	});
-	// (patched code and shader materials are refused the same way: scripts/engine.test.ts builds them in engine 6)
+	// (patched code and shader materials are refused the same way: scripts/engine.test.ts builds them in engine 7)
 	it('a material of a kind of its own without a graph is refused, naming the material', async () => {
 		class Own extends THREE.MeshStandardMaterial {
 			type = 'OwnMaterial';
@@ -65,9 +65,9 @@ describe('format 5: a look of its own as data', () => {
 		data.materials[0].type = 'MeshToonMaterial';
 		expect(() => rebuild(data)).toThrow(/a graph is given to/);
 	});
-	it('formats 2 to 4 still read: the flag gives the cut face it said, or the museum red on a two-sided physical one', async () => {
+	it('formats 2 to 5 still read: the flag gives the cut face it said, or the museum red on a two-sided physical one', async () => {
 		const { data } = await serialize(mesh(new THREE.MeshPhysicalMaterial({ side: THREE.DoubleSide })));
-		data.format = 4;
+		data.format = 5;
 		data.materials[0].custom = true;
 		expect(materialOf(rebuild(data)).userData.cap).toEqual(MUSEUM_RED);
 		data.materials[0].cap = { color: 7, rough: 0.1, metal: 0.9 };

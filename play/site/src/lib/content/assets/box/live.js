@@ -13,7 +13,7 @@
  * A session is one build; a box keeps a few (the last ones ticked), and a torn-down box has none (the page then shows
  * its copy standing still).
  */
-import { LIGHT, MAT, SLOTS, lightOf, lookOf, materialsOf, offered, reshaped, shapeOf, trsOf } from '../bake.js';
+import { LIGHT, MAT, SLOTS, lightOf, lookOf, materialsOf, offered, reshaped, shapeOf, trsOf } from './bake.js';
 
 /** sessions a box keeps at once: the last ones ticked */
 const KEEP = 4;

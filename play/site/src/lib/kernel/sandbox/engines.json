@@ -82,9 +82,24 @@
 		},
 		{
 			"v": 6,
+			"date": "2026-11-08",
+			"blake3": "0d6fcfb0af014c796487001fb46bfb2a7d5cbf1f696d179a76e0029c34b31929",
+			"bytes": 807512,
+			"three": "0.186.1",
+			"modules": [
+				"three",
+				"three/addons/geometries/RoundedBoxGeometry.js",
+				"three/addons/objects/Reflector.js",
+				"three/addons/utils/BufferGeometryUtils.js",
+				"three/addons/utils/SkeletonUtils.js"
+			],
+			"note": "Engine 6 (format 5, intent 6fd5e63f): a material says what it is, its look (leaf, grass, petal, bark, stem, fruit or stone, with its translucency, stiffness and flutter, ../look.js), carried out as plain data so the page's own shaders draw it (one wind for everything that grows, light through leaves); built from play's own source of the engine (src/lib/content/assets/box/engine.js, scripts/freeze-engine.ts), three.js 0.186.1"
+		},
+		{
+			"v": 7,
 			"date": "2026-11-09",
-			"blake3": "7ce6168213c2de1d02634fc7da74aaa50c9c3009381e8df4dbdbaa47ce8a9c0f",
-			"bytes": 822595,
+			"blake3": "2f35daed2e9637035e4a790a3a6d9006169d3e4a6760dbb3fee5afb55b0e68ef",
+			"bytes": 823383,
 			"three": "0.187.0",
 			"modules": [
 				"three",
@@ -93,7 +108,7 @@
 				"three/addons/utils/BufferGeometryUtils.js",
 				"three/addons/utils/SkeletonUtils.js"
 			],
-			"note": "Engine 6 (format 5, intent a5faafad): a material's own look leaves the box as data, a TSL node graph checked against the one allowlist (box/graph.js) and built by the page; the kit's section caps as their look; a shader of its own given any other way (onBeforeCompile, a ShaderMaterial) refuses the build, naming the material, where engines 1-5 sent it out as a plain material; three.js r187"
+			"note": "Engine 7 (format 6, intent a5faafad): a material's own look leaves the box as data, a TSL node graph checked against the one allowlist (box/graph.js) and built by the page, at most 32 different graphs a build; the kit's section caps as their look; a shader of its own given any other way (onBeforeCompile, a ShaderMaterial) refuses the build, naming the material, where engines 1-6 sent it out as a plain material"
 		}
 	],
 	"logic": [
