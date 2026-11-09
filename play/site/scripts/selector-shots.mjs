@@ -23,7 +23,8 @@
  * on 127.0.0.1:3911 (PLAY_API=http://localhost:3911 bunx vite dev --port …): GET and HEAD of /api/… only, sent to
  * play.maia.city with the admin token in PLAY_MCP_TOKEN (the header goes to play and nowhere else). The sites are
  * measured one after the other, never side by side, each in its own profile kept between jobs (./mac-page.mjs): Sandbox 1
- * is opened once to warm the page's asset cache, and measured on the next load, each load quiet by ./quiet.js. Out: <out>/<site>-<world>-<view>.png and <out>/results.json, and
+ * is opened once to warm the page's asset cache, and measured on the next load (`--cold`: the first), each quiet by
+ * ./quiet.js. Out: <out>/<site>-<world>-<view>.png and <out>/results.json, and
  * a table on stdout.
  */
 import { createServer } from 'node:http';
@@ -37,6 +38,8 @@ let out = 'shots';
 let census = null;
 /** the frame meter's source, injected whole (`--meter`) */
 let meterFile = null;
+/** measure Sandbox 1's first load, not the next (`--cold`): what a fresh profile draws */
+let cold = false;
 for (let i = 0; i < argv.length; i++) {
 	if (argv[i] === '--site') {
 		const [name, url] = argv[++i].split('=');
@@ -44,6 +47,7 @@ for (let i = 0; i < argv.length; i++) {
 	} else if (argv[i] === '--out') out = argv[++i];
 	else if (argv[i] === '--census') census = argv[++i];
 	else if (argv[i] === '--meter') meterFile = argv[++i];
+	else if (argv[i] === '--cold') cold = true;
 }
 if (!sites.length) throw new Error('give at least one --site name=url');
 const TOKEN = process.env.PLAY_MCP_TOKEN;
@@ -155,7 +159,7 @@ for (const site of sites) {
 	if (meterScript) await page.addInitScript(meterScript);
 	console.log(`${site.name}: GPU ${await gpuOf(page)}`);
 	// opened once to warm the page's asset cache (a profile's first load builds and photographs every kind), then measured
-	for (const load of ['first', 'measured']) {
+	for (const load of cold ? ['first'] : ['first', 'measured']) {
 		const t0 = Date.now();
 		await page.goto(`${site.url}/sandbox-1/`, { waitUntil: 'domcontentloaded' });
 		await page.waitForFunction(() => window.__walker && window.__assets, null, { timeout: 10 * 60e3 });
