@@ -1,8 +1,6 @@
-// An intent's detail opens fast and its Accept always answers (intent 2df30a21, Samuel 2026-11-07), against a real
-// Postgres (TEST_DATABASE_URL, as for api.test.ts). 99b612ec's shape, 8 pieces in dependency order, several in two
-// versions, with motion data, and 2 assets requiring them, all on one intent: its detail lists every document in brief
-// and opens each one alone; its Accept through POST /api/intents/:id/accept answers in good time, every document kept;
-// a refused Accept says why.
+// An intent's detail opens fast and its Accept always answers (intent 2df30a21, Samuel 2026-11-07) against a real Postgres:
+// 99b612ec's shape (8 pieces in dependency order, some in two versions, motion data, 2 assets requiring them) on one
+// intent; its detail lists each in brief and opens each alone; Accept answers in good time keeping all; a refusal says why.
 //
 // c2 runs `-t "accept answers"`: every test of that check is named so, under its own describe.
 import { afterAll, beforeAll, expect, test } from "bun:test";

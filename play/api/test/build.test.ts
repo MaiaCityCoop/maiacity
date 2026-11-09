@@ -1,9 +1,7 @@
-// Migration 0033-build (intent 60f4f75c-666a-4eca-9bb2-4a29311afa6c, Samuel 2026-11-06): the intents' third stage,
-// Prototype, is Build. A database as production has it (migrated below 0033-build, intents at 'prototype' in each kind
-// of state, the Intents skill's v1 still speaking to `stages.prototype`) is migrated and read back: every intent that
-// was at Prototype is at Build with nothing else changed, the stage 'prototype' is refused, and the skill's text moves
-// to `stages.build` by proposal (doc_edit, propose_doc_version, accepted), after which an intent at Build has it
-// as its brief. Checks c2 and c4.
+// Migration 0033-build (intent 60f4f75c-666a-4eca-9bb2-4a29311afa6c, Samuel 2026-11-06): the third stage, Prototype, is
+// Build. A database below it (intents at 'prototype' in each state, the Intents skill's v1 at `stages.prototype`) is
+// migrated: each such intent at Build with nothing else changed, 'prototype' refused, and the skill's text moved to
+// `stages.build` by proposal, then an intent's brief at Build. Checks c2 and c4.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { initSessions } from "../src/auth";
 import { MIGRATIONS, migrate } from "../src/migrations";

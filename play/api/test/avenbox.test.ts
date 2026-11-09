@@ -1,8 +1,7 @@
-// avenBOX's runner (play/avenbox/intent.ts, play/SPEC.md §4.12 "Checks run in avenBOX, and again on main") against a
-// real Postgres: set TEST_DATABASE_URL, as for ./api.test.ts. It reads an intent over the API's MCP (served here over
-// HTTP, as play.maia.city serves it), runs each check's run from the repository's root, prints each one's result,
-// exits 1 while a must check fails, and with --record records the test and measure checks it ran, where they ran and
-// on which commit; a look it leaves to be judged, and no run sees the token.
+// avenBOX's runner (play/avenbox/intent.ts, play/SPEC.md §4.12) against a real Postgres (as ./api.test.ts): it reads an
+// intent over the API's MCP (served here over HTTP), runs each check from the repository's root, prints each result, exits
+// 1 while a must fails, and with --record records its test and measure checks (where, which commit); a look it leaves to
+// be judged, and no run sees the token.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { hashBytes } from "../src/kit/hash";
@@ -120,11 +119,9 @@ suite("avenBOX's runner", () => {
   });
 });
 
-// intent.ts's modes (play/SPEC.md §4.12, "Only the box's run is evidence"; Samuel 2026-11-06), against a fake MCP
-// server: no Postgres of play's needed. --spec-out writes the spec (intents-pr.yml's spec job), --from runs it with no
-// token and writes the results (its run job, on the head), --record-from records them (its record job); without
-// --record it runs, prints and records nothing; --record outside the GitHub run refuses. A per-user file never marks a
-// run dirty; a dirty run names its files.
+// intent.ts's modes (play/SPEC.md §4.12, "Only the box's run is evidence"; Samuel 2026-11-06) against a fake MCP: --spec-out
+// writes the spec, --from runs it tokenless and writes results, --record-from records them; without --record nothing is
+// recorded; --record outside the GitHub run refuses. A per-user file never marks a run dirty; a dirty run names its files.
 describe("avenBOX's runner: its modes", () => {
   const ID = "4ea6b2ed-f96a-4bf6-83fd-4d165a793194";
   const calls: { name: string; args: any; auth: string }[] = [];

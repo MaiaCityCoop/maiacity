@@ -1,8 +1,7 @@
-// Sub-states (src/substate.ts, play/SPEC.md §4.12 "Sub-states"; intent 2bf8af96-5708-42d2-8556-da35f3f805ba) against a
-// real Postgres (TEST_DATABASE_URL) and a fake GitHub (./fixtures/github.ts). Every open intent is failed, waiting,
-// working or idle, with its reason, said by one function, subStateOf; the board groups by it and only a waiting intent
-// is approved or accepted. Ship's watcher reads the open intents' pull requests (pr_seen); the board asks GitHub nothing.
-// Approve spec is never held: a held intent waits in Build, idle, its checks and proposals refused, its brief null.
+// Sub-states (src/substate.ts, play/SPEC.md §4.12; intent 2bf8af96-5708-42d2-8556-da35f3f805ba) against a real Postgres
+// and a fake GitHub (./fixtures/github.ts): every open intent failed, waiting, working or idle with its reason, by one
+// function, subStateOf; the board groups by it, only a waiting intent is approved or accepted, and it asks GitHub nothing
+// (pr_seen). Approve spec is never held: a held intent waits in Build, idle, checks and proposals refused, brief null.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { BlobStore } from "../src/blobs";
 import { seedSkills } from "../import/skills";

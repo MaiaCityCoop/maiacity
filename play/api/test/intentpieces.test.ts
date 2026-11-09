@@ -1,10 +1,7 @@
-// Pieces proposed together (play/SPEC.md §4.5; intent 02e3a85f) against a real Postgres: set TEST_DATABASE_URL, as for
-// api.test.ts. A recipe or piece may require a piece version proposed in the same intent; one intent may carry several
-// versions of one piece; Accept keeps the pieces first, in the order they require each other, then what requires them,
-// in one transaction, or none of it.
-//
-// Its three parts are run on their own (intent 02e3a85f's checks: `-t same`, `-t versions`, `-t order`): each describe
-// makes its own database, and every test's name matches exactly one of those words, its describe's.
+// Pieces proposed together (play/SPEC.md §4.5; intent 02e3a85f) against a real Postgres (as api.test.ts): a recipe or
+// piece may require a piece version proposed in the same intent, which may carry several versions of one piece; Accept
+// keeps the pieces first, in dependency order, then what requires them, in one transaction, or none. Its three parts run
+// alone (`-t same`, `-t versions`, `-t order`): each describe its own database, each test's name matching its describe's word.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { meOf } from "../src/access";
 import { COOP } from "../src/kit/ids";

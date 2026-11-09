@@ -1,10 +1,8 @@
-// Main merged into open intent pull requests by play (src/mainmerge.ts, play/SPEC.md §4.12 "Accept ships it"; intent
-// f28822d9-6ef1-49d9-aa2c-e52f1897ee89) against a real Postgres (TEST_DATABASE_URL) and a fake GitHub
-// (./fixtures/github.ts). Ship's watcher merges main into every open intent pull request that is mergeable and behind
-// (GitHub's update-branch, expected_head_sha the head it read), once per head and main's head, never one in Ship or
-// done, never a merge; a builder's push wins (422); the new head is working until its checks are recorded on it, then
-// waiting; a conflict is failed with its files, the status 'Merges with main' failure on its head, success once it
-// merges again.
+// Main merged into open intent pull requests by play (src/mainmerge.ts, play/SPEC.md §4.12; intent
+// f28822d9-6ef1-49d9-aa2c-e52f1897ee89) against a real Postgres and a fake GitHub (./fixtures/github.ts): each mergeable
+// one behind main updated (update-branch, expected_head_sha the head read) once per head and main head, never one in
+// Ship or done, never a merge; a builder's push wins (422); the new head working until its checks are recorded, then
+// waiting; a conflict failed with its files and 'Merges with main' failure on its head, success once it merges again.
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import type { BlobStore } from "../src/blobs";
 import { seedSkills } from "../import/skills";

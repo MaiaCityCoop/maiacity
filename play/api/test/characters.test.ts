@@ -1,10 +1,7 @@
-// Characters (intent 89f3ad37-af8e-4bae-9612-f796e09bd04b; play/SPEC.md "Asset library") against a real Postgres: set
-// TEST_DATABASE_URL, as for ./api.test.ts.
-//
-// c2: `characters` is a group of its own: list_assets and propose_asset take it; an asset moved from `actors` to
-// `characters` by its own document (an intent variant's edit of its card's group, proposed naming the intent and
-// accepted with it) lists under characters and no longer under actors, never by a migration; an unknown group is
-// still refused, by list_assets, by propose_asset and by a move.
+// Characters (intent 89f3ad37-af8e-4bae-9612-f796e09bd04b; play/SPEC.md "Asset library") against a real Postgres.
+// c2: `characters` is a group of its own (list_assets, propose_asset); an asset moved from `actors` by its own
+// document (an intent variant's edit of its card's group, accepted) lists there and no longer under actors, never by
+// a migration; an unknown group is still refused by list_assets, propose_asset and a move.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { GROUPS } from "../src/groups";
 import { type Db } from "../src/kit/pg";

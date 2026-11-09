@@ -1,12 +1,8 @@
-// Breeds (play/SPEC.md "Breeds"; intent 7c8085db-ccdb-44cf-8d6c-0ff984d71f41) against a real Postgres: set
-// TEST_DATABASE_URL, as for ./api.test.ts.
-//
-// c1: a breed tracks Main. An edit accepted on Main appears in every breed, except on a field the breed overrides,
-// where the breed keeps its value; a field both changed (a clash) keeps the breed's.
-//
-// c2: a breed changes by its own intent variant, seeded from it (propose_doc_version's `breed`), and a new breed is made
-// by one too (`new_breed`); either Accept makes the asset's next frozen version, every breed's recipe built and its
-// asset_variants row written.
+// Breeds (play/SPEC.md "Breeds"; intent 7c8085db-ccdb-44cf-8d6c-0ff984d71f41) against a real Postgres (as ./api.test.ts).
+// c1: a breed tracks Main: an edit accepted on Main appears in every breed except on a field it overrides (a clash keeps
+// the breed's).
+// c2: a breed changes by its own intent variant (propose_doc_version's `breed`), a new one is made by one (`new_breed`);
+// either Accept makes the asset's next frozen version, every breed's recipe built and its asset_variants row written.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { hashText } from "../src/kit/hash";
 import { type Db } from "../src/kit/pg";

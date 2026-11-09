@@ -1,8 +1,7 @@
-// Migration 0029-one-record (Samuel 2026-11-06: "proposal and intent are the same!! not different, merge, DRY"): a
-// database as production had it before, its work in play.proposals beside the intents, becomes one record, the intent,
-// and nothing is lost. Seeded in the old shape (the proposals of before 0015 in their old statuses, then the shapes
-// 0026 and its trigger left: an intent-less proposal turned 1:1, an intent with two proposals, a story proposal with
-// its doc branch, one at each status), migrated, and read back.
+// Migration 0029-one-record (Samuel 2026-11-06: "proposal and intent are the same!! not different, merge, DRY"): an old
+// database, its work in play.proposals beside the intents, becomes one record, the intent, losing nothing. Seeded in the
+// old shapes (pre-0015 statuses; 0026's: an intent-less proposal 1:1, an intent with two, a story's with its doc branch,
+// one at each status), migrated, and read back.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { MIGRATIONS, migrate } from "../src/migrations";
 import { type Db } from "../src/kit/pg";
