@@ -1,42 +1,42 @@
-head 8f0f6a5ae3247e78d894b7473cf2baad11670258 (served: dev)
+head 088efc1f5804b47159de6cbf804d712fcdb457b7 (served: dev)
 cold: GPU ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)
 cold: Sandbox 1's first load up and quiet after 97 s (106 pictures taken)
-cold sandbox-1 near: 27.3 ms/frame (p95 33.4), 3,406,546 tris drawn (max 3,406,546)
-cold sandbox-1 mid: 37.8 ms/frame (p95 50.0), 5,315,465 tris drawn (max 5,351,797)
-cold sandbox-1 far: 18.1 ms/frame (p95 33.3), 1,529,320 tris drawn (max 1,529,320)
+cold sandbox-1 near: 27.7 ms/frame (p95 33.4), 3,539,146 tris drawn (max 3,539,146)
+cold sandbox-1 mid: 37.1 ms/frame (p95 50.0), 5,441,212 tris drawn (max 5,441,212)
+cold sandbox-1 far: 17.8 ms/frame (p95 33.3), 1,529,320 tris drawn (max 1,529,320)
 cold sandbox-3 open: 457,939 tris drawn
 ┌───┬──────┬───────────┬──────┬───────────┬───────────────────┬─────────┬───────────┐
 │   │ site │ world     │ view │ frameMs   │ frameP95          │ tris    │ trisMax   │
 ├───┼──────┼───────────┼──────┼───────────┼───────────────────┼─────────┼───────────┤
-│ 0 │ cold │ sandbox-1 │ near │ 27.3      │ 33.40000000000873 │ 3406546 │ 3406546   │
-│ 1 │ cold │ sandbox-1 │ mid  │ 37.8      │ 50                │ 5315465 │ 5351797   │
-│ 2 │ cold │ sandbox-1 │ far  │ 18.1      │ 33.30000000001746 │ 1529320 │ 1529320   │
+│ 0 │ cold │ sandbox-1 │ near │ 27.7      │ 33.40000000000873 │ 3539146 │ 3539146   │
+│ 1 │ cold │ sandbox-1 │ mid  │ 37.1      │ 50                │ 5441212 │ 5441212   │
+│ 2 │ cold │ sandbox-1 │ far  │ 17.8      │ 33.29999999998836 │ 1529320 │ 1529320   │
 │ 3 │ cold │ sandbox-3 │ open │ undefined │ undefined         │ 457939  │ undefined │
 └───┴──────┴───────────┴──────┴───────────┴───────────────────┴─────────┴───────────┘
 warm: GPU ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)
-warm: Sandbox 1's first load up and quiet after 92 s (108 pictures taken)
-warm: Sandbox 1's measured load up and quiet after 34 s (0 pictures taken)
-warm sandbox-1 near: 29.5 ms/frame (p95 33.4), 3,406,546 tris drawn (max 3,406,546)
-warm sandbox-1 mid: 34.3 ms/frame (p95 50.0), 5,305,525 tris drawn (max 5,305,525)
-warm sandbox-1 far: 18 ms/frame (p95 33.3), 1,529,320 tris drawn (max 1,529,320)
-warm sandbox-3 open: 458,075 tris drawn
+warm: Sandbox 1's first load up and quiet after 78 s (107 pictures taken)
+warm: Sandbox 1's measured load up and quiet after 21 s (0 pictures taken)
+warm sandbox-1 near: 28.4 ms/frame (p95 33.4), 3,539,146 tris drawn (max 3,539,146)
+warm sandbox-1 mid: 33.9 ms/frame (p95 50.0), 5,430,890 tris drawn (max 5,430,890)
+warm sandbox-1 far: 16.7 ms/frame (p95 16.7), 1,529,320 tris drawn (max 1,529,320)
+warm sandbox-3 open: 458,115 tris drawn
 ┌───┬──────┬───────────┬──────┬───────────┬────────────────────┬─────────┬───────────┐
 │   │ site │ world     │ view │ frameMs   │ frameP95           │ tris    │ trisMax   │
 ├───┼──────┼───────────┼──────┼───────────┼────────────────────┼─────────┼───────────┤
-│ 0 │ warm │ sandbox-1 │ near │ 29.5      │ 33.400000000001455 │ 3406546 │ 3406546   │
-│ 1 │ warm │ sandbox-1 │ mid  │ 34.3      │ 50                 │ 5305525 │ 5305525   │
-│ 2 │ warm │ sandbox-1 │ far  │ 18        │ 33.30000000000291  │ 1529320 │ 1529320   │
-│ 3 │ warm │ sandbox-3 │ open │ undefined │ undefined          │ 458075  │ undefined │
+│ 0 │ warm │ sandbox-1 │ near │ 28.4      │ 33.400000000001455 │ 3539146 │ 3539146   │
+│ 1 │ warm │ sandbox-1 │ mid  │ 33.9      │ 50                 │ 5430890 │ 5430890   │
+│ 2 │ warm │ sandbox-1 │ far  │ 16.7      │ 16.70000000001164  │ 1529320 │ 1529320   │
+│ 3 │ warm │ sandbox-3 │ open │ undefined │ undefined          │ 458115  │ undefined │
 └───┴──────┴───────────┴──────┴───────────┴────────────────────┴─────────┴───────────┘
 == settle (quiet by play/site/scripts/quiet.js)
 cold: Sandbox 1's first load up and quiet after 97 s (106 pictures taken)
-warm: Sandbox 1's first load up and quiet after 92 s (108 pictures taken)
-warm: Sandbox 1's measured load up and quiet after 34 s (0 pictures taken)
+warm: Sandbox 1's first load up and quiet after 78 s (107 pictures taken)
+warm: Sandbox 1's measured load up and quiet after 21 s (0 pictures taken)
 == frames
-cold sandbox-1 near: 27.3 ms/frame (p95 33.4), 3,406,546 tris drawn (max 3,406,546)
-cold sandbox-1 mid: 37.8 ms/frame (p95 50.0), 5,315,465 tris drawn (max 5,351,797)
-cold sandbox-1 far: 18.1 ms/frame (p95 33.3), 1,529,320 tris drawn (max 1,529,320)
-warm sandbox-1 near: 29.5 ms/frame (p95 33.4), 3,406,546 tris drawn (max 3,406,546)
-warm sandbox-1 mid: 34.3 ms/frame (p95 50.0), 5,305,525 tris drawn (max 5,305,525)
-warm sandbox-1 far: 18 ms/frame (p95 33.3), 1,529,320 tris drawn (max 1,529,320)
+cold sandbox-1 near: 27.7 ms/frame (p95 33.4), 3,539,146 tris drawn (max 3,539,146)
+cold sandbox-1 mid: 37.1 ms/frame (p95 50.0), 5,441,212 tris drawn (max 5,441,212)
+cold sandbox-1 far: 17.8 ms/frame (p95 33.3), 1,529,320 tris drawn (max 1,529,320)
+warm sandbox-1 near: 28.4 ms/frame (p95 33.4), 3,539,146 tris drawn (max 3,539,146)
+warm sandbox-1 mid: 33.9 ms/frame (p95 50.0), 5,430,890 tris drawn (max 5,430,890)
+warm sandbox-1 far: 16.7 ms/frame (p95 16.7), 1,529,320 tris drawn (max 1,529,320)
 out: /Users/samuelandert/Documents/Development/s7af6e162-render/intent-work/7af6e162-render/out (commit out/ and push the branch intent-work/7af6e162-render)

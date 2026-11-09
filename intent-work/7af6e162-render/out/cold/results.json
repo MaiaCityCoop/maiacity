@@ -4,11 +4,11 @@
   "world": "sandbox-1",
   "view": "near",
   "settled": true,
-  "frames": 291,
-  "frameMs": 27.3,
+  "frames": 289,
+  "frameMs": 27.7,
   "frameP95": 33.40000000000873,
-  "tris": 3406546,
-  "trisMax": 3406546,
+  "tris": 3539146,
+  "trisMax": 3539146,
   "assets": {
    "out": {
     "tris": 277820,
@@ -31,15 +31,15 @@
     "copies": 671
    },
    "library": {
-    "tris": 173589,
-    "calls": 118,
+    "tris": 306189,
+    "calls": 119,
     "levels": [
      0,
      0,
-     689
+     1342
     ],
     "pictures": 0,
-    "copies": 5168
+    "copies": 10335
    }
   },
   "meter": null,
@@ -50,11 +50,11 @@
   "world": "sandbox-1",
   "view": "mid",
   "settled": true,
-  "frames": 211,
-  "frameMs": 37.8,
+  "frames": 214,
+  "frameMs": 37.1,
   "frameP95": 50,
-  "tris": 5315465,
-  "trisMax": 5351797,
+  "tris": 5441212,
+  "trisMax": 5441212,
   "assets": {
    "out": {
     "tris": 2408963,
@@ -77,15 +77,15 @@
     "copies": 45
    },
    "library": {
-    "tris": 179371,
+    "tris": 304736,
     "calls": 37,
     "levels": [
      0,
-     1,
-     628
+     0,
+     1218
     ],
     "pictures": 0,
-    "copies": 11078
+    "copies": 22233
    }
   },
   "meter": null,
@@ -96,9 +96,9 @@
   "world": "sandbox-1",
   "view": "far",
   "settled": true,
-  "frames": 441,
-  "frameMs": 18.1,
-  "frameP95": 33.30000000001746,
+  "frames": 453,
+  "frameMs": 17.8,
+  "frameP95": 33.29999999998836,
   "tris": 1529320,
   "trisMax": 1529320,
   "assets": {

@@ -1,14 +1,14 @@
 cold: GPU ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)
 cold: Sandbox 1's first load up and quiet after 97 s (106 pictures taken)
-cold sandbox-1 near: 27.3 ms/frame (p95 33.4), 3,406,546 tris drawn (max 3,406,546)
-cold sandbox-1 mid: 37.8 ms/frame (p95 50.0), 5,315,465 tris drawn (max 5,351,797)
-cold sandbox-1 far: 18.1 ms/frame (p95 33.3), 1,529,320 tris drawn (max 1,529,320)
+cold sandbox-1 near: 27.7 ms/frame (p95 33.4), 3,539,146 tris drawn (max 3,539,146)
+cold sandbox-1 mid: 37.1 ms/frame (p95 50.0), 5,441,212 tris drawn (max 5,441,212)
+cold sandbox-1 far: 17.8 ms/frame (p95 33.3), 1,529,320 tris drawn (max 1,529,320)
 cold sandbox-3 open: 457,939 tris drawn
 ┌───┬──────┬───────────┬──────┬───────────┬───────────────────┬─────────┬───────────┐
 │   │ site │ world     │ view │ frameMs   │ frameP95          │ tris    │ trisMax   │
 ├───┼──────┼───────────┼──────┼───────────┼───────────────────┼─────────┼───────────┤
-│ 0 │ cold │ sandbox-1 │ near │ 27.3      │ 33.40000000000873 │ 3406546 │ 3406546   │
-│ 1 │ cold │ sandbox-1 │ mid  │ 37.8      │ 50                │ 5315465 │ 5351797   │
-│ 2 │ cold │ sandbox-1 │ far  │ 18.1      │ 33.30000000001746 │ 1529320 │ 1529320   │
+│ 0 │ cold │ sandbox-1 │ near │ 27.7      │ 33.40000000000873 │ 3539146 │ 3539146   │
+│ 1 │ cold │ sandbox-1 │ mid  │ 37.1      │ 50                │ 5441212 │ 5441212   │
+│ 2 │ cold │ sandbox-1 │ far  │ 17.8      │ 33.29999999998836 │ 1529320 │ 1529320   │
 │ 3 │ cold │ sandbox-3 │ open │ undefined │ undefined         │ 457939  │ undefined │
 └───┴──────┴───────────┴──────┴───────────┴───────────────────┴─────────┴───────────┘
