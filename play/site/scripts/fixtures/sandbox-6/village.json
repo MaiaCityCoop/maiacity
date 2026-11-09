@@ -1,0 +1,682 @@
+{
+	"note": "Sandbox 6's village (play/SPEC.md §4.6; intent 67f0404a): Samuel's plan of 2026-10-08/09 (layout B for the living hexes, his second sketch for the tower hex), the centre hex without homes (Samuel 2026-11-09). Metres, x east, z south, each hex round its own middle.",
+	"hex": {
+		"flats": 665.6,
+		"source": "Samuel 2026-10-08: the settlers game hex at real size, 13 steps of 1.6 units of 32 m across its flats, pointy north and south"
+	},
+	"cell": 2,
+	"kinds": {
+		"dome40": {
+			"D": 40,
+			"freq": 7,
+			"home": {
+				"front": 0,
+				"depth": 10,
+				"storey": 3,
+				"clear": 0.6,
+				"balcony": 1.5
+			}
+		},
+		"dome80": {
+			"D": 80,
+			"freq": 11,
+			"home": {
+				"front": 12,
+				"depth": 9,
+				"storey": 3.2,
+				"clear": 0.8,
+				"balcony": 1.5
+			}
+		},
+		"dome120": {
+			"D": 120,
+			"freq": 14,
+			"pond": {
+				"in": 6,
+				"band": 18.4,
+				"half": 0.585
+			}
+		},
+		"tower180": {
+			"D": 180,
+			"H": 198,
+			"top": 16.875,
+			"storey": 4,
+			"core": 9,
+			"facade": 2
+		}
+	},
+	"plans": {
+		"living": {
+			"label": "Living hex",
+			"ring": {
+				"x": 0,
+				"z": -120,
+				"r": 64,
+				"w": 8
+			},
+			"sites": [
+				{
+					"id": "util",
+					"kind": "dome120",
+					"x": 0,
+					"z": -252,
+					"use": "utilities",
+					"name": "Utilities and workshops",
+					"door": 180
+				},
+				{
+					"id": "food-w",
+					"kind": "dome120",
+					"x": -114.3,
+					"z": -186,
+					"use": "food",
+					"name": "Food forest west",
+					"door": 120
+				},
+				{
+					"id": "food-e",
+					"kind": "dome120",
+					"x": 114.3,
+					"z": -186,
+					"use": "food",
+					"name": "Food forest east",
+					"door": 240
+				},
+				{
+					"id": "h80-1",
+					"kind": "dome80",
+					"x": -97,
+					"z": -64,
+					"use": "home",
+					"name": "Homes 1",
+					"door": 60
+				},
+				{
+					"id": "h80-2",
+					"kind": "dome80",
+					"x": 0,
+					"z": -8,
+					"use": "home",
+					"name": "Homes 2",
+					"door": 0
+				},
+				{
+					"id": "h80-3",
+					"kind": "dome80",
+					"x": 97,
+					"z": -64,
+					"use": "home",
+					"name": "Homes 3",
+					"door": 300
+				},
+				{
+					"id": "h80-4",
+					"kind": "dome80",
+					"x": -205,
+					"z": -60,
+					"use": "home",
+					"name": "Homes 4",
+					"door": 74
+				},
+				{
+					"id": "h80-5",
+					"kind": "dome80",
+					"x": 205,
+					"z": -60,
+					"use": "home",
+					"name": "Homes 5",
+					"door": 286
+				},
+				{
+					"id": "h40-1",
+					"kind": "dome40",
+					"x": -268,
+					"z": 47,
+					"use": "home",
+					"name": "Homes 6",
+					"door": 180
+				},
+				{
+					"id": "h40-2",
+					"kind": "dome40",
+					"x": -150,
+					"z": 80,
+					"use": "home",
+					"name": "Homes 7",
+					"door": 180
+				},
+				{
+					"id": "h40-3",
+					"kind": "dome40",
+					"x": 135,
+					"z": 62,
+					"use": "home",
+					"name": "Homes 8",
+					"door": 180
+				},
+				{
+					"id": "h40-4",
+					"kind": "dome40",
+					"x": 236,
+					"z": 66,
+					"use": "home",
+					"name": "Homes 9",
+					"door": 180
+				},
+				{
+					"id": "h40-5",
+					"kind": "dome40",
+					"x": -30,
+					"z": 128,
+					"use": "home",
+					"name": "Homes 10",
+					"door": 180
+				},
+				{
+					"id": "h40-6",
+					"kind": "dome40",
+					"x": -175,
+					"z": 175,
+					"use": "home",
+					"name": "Homes 11",
+					"door": 180
+				},
+				{
+					"id": "h40-7",
+					"kind": "dome40",
+					"x": 86,
+					"z": 176,
+					"use": "home",
+					"name": "Homes 12",
+					"door": 180
+				},
+				{
+					"id": "h40-8",
+					"kind": "dome40",
+					"x": 190,
+					"z": 150,
+					"use": "home",
+					"name": "Homes 13",
+					"door": 180
+				},
+				{
+					"id": "h40-9",
+					"kind": "dome40",
+					"x": 24,
+					"z": 252,
+					"use": "home",
+					"name": "Homes 14",
+					"door": 180
+				}
+			],
+			"roads": [
+				{
+					"pts": [
+						[
+							32,
+							-175.4
+						],
+						[
+							75,
+							-249.9
+						],
+						[
+							166.4,
+							-288.2
+						]
+					],
+					"w": 6
+				},
+				{
+					"pts": [
+						[
+							64,
+							-120
+						],
+						[
+							260,
+							-120
+						],
+						[
+							332.8,
+							0
+						]
+					],
+					"w": 6
+				},
+				{
+					"pts": [
+						[
+							32,
+							-64.6
+						],
+						[
+							60,
+							-16.1
+						],
+						[
+							166.4,
+							288.2
+						]
+					],
+					"w": 6
+				},
+				{
+					"pts": [
+						[
+							-32,
+							-64.6
+						],
+						[
+							-60,
+							-16.1
+						],
+						[
+							-166.4,
+							288.2
+						]
+					],
+					"w": 6
+				},
+				{
+					"pts": [
+						[
+							-64,
+							-120
+						],
+						[
+							-260,
+							-120
+						],
+						[
+							-332.8,
+							0
+						]
+					],
+					"w": 6
+				},
+				{
+					"pts": [
+						[
+							-32,
+							-175.4
+						],
+						[
+							-75,
+							-249.9
+						],
+						[
+							-166.4,
+							-288.2
+						]
+					],
+					"w": 6
+				}
+			],
+			"land": {
+				"hedge": 18,
+				"garden": 38,
+				"inRing": "nature",
+				"rest": "foodForest"
+			}
+		},
+		"tower": {
+			"label": "Tower hex",
+			"ring": {
+				"x": 0,
+				"z": 0,
+				"r": 102,
+				"w": 8
+			},
+			"sites": [
+				{
+					"id": "tower",
+					"kind": "tower180",
+					"x": 0,
+					"z": 0,
+					"use": "tower",
+					"name": "Tower180",
+					"door": 180
+				},
+				{
+					"id": "works-timber",
+					"kind": "dome120",
+					"x": 68.1,
+					"z": -164.5,
+					"use": "works",
+					"name": "Timber works",
+					"door": 203
+				},
+				{
+					"id": "works-bamboo",
+					"kind": "dome120",
+					"x": 164.5,
+					"z": -68.1,
+					"use": "works",
+					"name": "Bamboo works",
+					"door": 248
+				},
+				{
+					"id": "works-hemp",
+					"kind": "dome120",
+					"x": 164.5,
+					"z": 68.1,
+					"use": "works",
+					"name": "Hemp works",
+					"door": 293
+				},
+				{
+					"id": "works-recycling",
+					"kind": "dome120",
+					"x": 68.1,
+					"z": 164.5,
+					"use": "works",
+					"name": "Recycling works",
+					"door": 338
+				},
+				{
+					"id": "works-glass",
+					"kind": "dome120",
+					"x": -68.1,
+					"z": 164.5,
+					"use": "works",
+					"name": "Glass and solar works · the dome factory",
+					"door": 23
+				},
+				{
+					"id": "works-clay",
+					"kind": "dome120",
+					"x": -164.5,
+					"z": 68.1,
+					"use": "works",
+					"name": "Clay works",
+					"door": 68
+				},
+				{
+					"id": "works-lime",
+					"kind": "dome120",
+					"x": -164.5,
+					"z": -68.1,
+					"use": "works",
+					"name": "Lime works",
+					"door": 113
+				},
+				{
+					"id": "works-steel",
+					"kind": "dome120",
+					"x": -68.1,
+					"z": -164.5,
+					"use": "works",
+					"name": "Steel works",
+					"door": 158
+				},
+				{
+					"id": "school",
+					"kind": "dome80",
+					"x": 49.5,
+					"z": 280.7,
+					"use": "civic",
+					"name": "School",
+					"door": 350
+				},
+				{
+					"id": "theatre",
+					"kind": "dome80",
+					"x": -49.5,
+					"z": 280.7,
+					"use": "civic",
+					"name": "Theatre and hall",
+					"door": 10
+				},
+				{
+					"id": "town-hall",
+					"kind": "dome40",
+					"x": 0,
+					"z": 345,
+					"use": "civic",
+					"name": "Town hall",
+					"door": 0
+				},
+				{
+					"id": "clinic",
+					"kind": "dome40",
+					"x": 126.8,
+					"z": 271.9,
+					"use": "civic",
+					"name": "Clinic",
+					"door": 335
+				},
+				{
+					"id": "library",
+					"kind": "dome40",
+					"x": -126.8,
+					"z": 271.9,
+					"use": "civic",
+					"name": "Library",
+					"door": 25
+				}
+			],
+			"roads": [
+				{
+					"pts": [
+						[
+							72.1,
+							-72.1
+						],
+						[
+							175.4,
+							-175.4
+						],
+						[
+							166.4,
+							-288.2
+						]
+					],
+					"w": 8
+				},
+				{
+					"pts": [
+						[
+							102,
+							0
+						],
+						[
+							332.8,
+							0
+						]
+					],
+					"w": 8
+				},
+				{
+					"pts": [
+						[
+							72.1,
+							72.1
+						],
+						[
+							175.4,
+							175.4
+						],
+						[
+							166.4,
+							288.2
+						]
+					],
+					"w": 8
+				},
+				{
+					"pts": [
+						[
+							-72.1,
+							72.1
+						],
+						[
+							-175.4,
+							175.4
+						],
+						[
+							-166.4,
+							288.2
+						]
+					],
+					"w": 8
+				},
+				{
+					"pts": [
+						[
+							-102,
+							0
+						],
+						[
+							-332.8,
+							0
+						]
+					],
+					"w": 8
+				},
+				{
+					"pts": [
+						[
+							-72.1,
+							-72.1
+						],
+						[
+							-175.4,
+							-175.4
+						],
+						[
+							-166.4,
+							-288.2
+						]
+					],
+					"w": 8
+				},
+				{
+					"pts": [
+						[
+							0,
+							102
+						],
+						[
+							0,
+							300
+						]
+					],
+					"w": 6
+				}
+			],
+			"land": {
+				"hedge": 16,
+				"yard": 10,
+				"yardRound": 16,
+				"nature": 130,
+				"sectors": [
+					{
+						"to": 40,
+						"use": "woodland"
+					},
+					{
+						"to": 100,
+						"use": "bamboo"
+					},
+					{
+						"to": 250,
+						"use": "hemp"
+					},
+					{
+						"to": 315,
+						"use": "mine"
+					},
+					{
+						"to": 360,
+						"use": "woodland"
+					}
+				]
+			},
+			"floors": [
+				{
+					"from": 0,
+					"to": 3,
+					"use": "factory",
+					"name": "The dome factory’s assembly floors, loading and stores"
+				},
+				{
+					"from": 3,
+					"to": 6,
+					"use": "commercial",
+					"name": "Market hall, shops and cafés"
+				},
+				{
+					"from": 6,
+					"to": 16,
+					"use": "commercial",
+					"name": "Offices and studios to rent"
+				},
+				{
+					"from": 16,
+					"to": 40,
+					"use": "tourist",
+					"name": "Hotel rooms and short stays"
+				},
+				{
+					"from": 40,
+					"to": 47,
+					"use": "tourist",
+					"name": "Restaurant and the viewing deck"
+				}
+			]
+		}
+	},
+	"hexes": [
+		{
+			"key": "centre",
+			"plan": "tower",
+			"label": "Centre hex",
+			"x": 0,
+			"z": 0
+		},
+		{
+			"key": "ne",
+			"plan": "living",
+			"label": "North-east hex",
+			"x": 332.8,
+			"z": -576.4
+		},
+		{
+			"key": "e",
+			"plan": "living",
+			"label": "East hex",
+			"x": 665.6,
+			"z": 0
+		},
+		{
+			"key": "se",
+			"plan": "living",
+			"label": "South-east hex",
+			"x": 332.8,
+			"z": 576.4
+		},
+		{
+			"key": "sw",
+			"plan": "living",
+			"label": "South-west hex",
+			"x": -332.8,
+			"z": 576.4
+		},
+		{
+			"key": "w",
+			"plan": "living",
+			"label": "West hex",
+			"x": -665.6,
+			"z": 0
+		},
+		{
+			"key": "nw",
+			"plan": "living",
+			"label": "North-west hex",
+			"x": -332.8,
+			"z": -576.4
+		}
+	]
+}
