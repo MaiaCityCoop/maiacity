@@ -1,0 +1,61 @@
+base 37bd0d1bb9f95a2e89e861f55cd80c6fe0657758 head de691fdc424ec7558aa8756e331395249680baf5
+GPU: ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)
+base: Sandbox 1 up and settled after 53 s
+base sandbox-1 near: 25.8 ms/frame (p95 33.4), 3,406,546 tris drawn (max 3,406,546)
+base sandbox-1 mid: 32.3 ms/frame (p95 33.4), 5,315,925 tris drawn (max 5,315,925)
+base sandbox-1 far: 16.7 ms/frame (p95 16.7), 1,529,320 tris drawn (max 1,529,320)
+base sandbox-3 open: 463,239 tris drawn
+head: Sandbox 1 up and settled after 41 s
+head sandbox-1 near: 25.8 ms/frame (p95 33.4), 3,406,546 tris drawn (max 3,406,546)
+head sandbox-1 mid: 32.4 ms/frame (p95 33.4), 5,305,189 tris drawn (max 5,315,785)
+head sandbox-1 far: 16.7 ms/frame (p95 16.7), 1,529,320 tris drawn (max 1,529,320)
+head sandbox-3 open: 461,035 tris drawn
+┌───┬──────┬───────────┬──────┬───────────┬────────────────────┬─────────┬───────────┐
+│   │ site │ world     │ view │ frameMs   │ frameP95           │ tris    │ trisMax   │
+├───┼──────┼───────────┼──────┼───────────┼────────────────────┼─────────┼───────────┤
+│ 0 │ base │ sandbox-1 │ near │ 25.8      │ 33.400000000001455 │ 3406546 │ 3406546   │
+│ 1 │ base │ sandbox-1 │ mid  │ 32.3      │ 33.40000000000873  │ 5315925 │ 5315925   │
+│ 2 │ base │ sandbox-1 │ far  │ 16.7      │ 16.70000000001164  │ 1529320 │ 1529320   │
+│ 3 │ base │ sandbox-3 │ open │ undefined │ undefined          │ 463239  │ undefined │
+│ 4 │ head │ sandbox-1 │ near │ 25.8      │ 33.400000000001455 │ 3406546 │ 3406546   │
+│ 5 │ head │ sandbox-1 │ mid  │ 32.4      │ 33.40000000000873  │ 5305189 │ 5315785   │
+│ 6 │ head │ sandbox-1 │ far  │ 16.7      │ 16.70000000001164  │ 1529320 │ 1529320   │
+│ 7 │ head │ sandbox-3 │ open │ undefined │ undefined          │ 461035  │ undefined │
+└───┴──────┴───────────┴──────┴───────────┴────────────────────┴─────────┴───────────┘
+[base] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+base sandbox-1 walk: {"frames":413,"frame_ms":27.9,"frame_p95":33.4,"cpu_ms":18,"gpu_ms":20.3,"calls":1560,"triangles":3500683,"bound":"gpu"} (still building)
+[base] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+base sandbox-3 walk: {"frames":571,"frame_ms":16.7,"frame_p95":16.7,"cpu_ms":2.9,"gpu_ms":5.9,"calls":309,"triangles":474744,"bound":"vsync"}
+[base] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+base viewer walnut: {"frames":191,"frame_ms":21.1,"frame_p95":33.4,"cpu_ms":2.1,"gpu_ms":25.6,"calls":40,"triangles":3301536,"bound":"gpu"}
+[head] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+head sandbox-1 walk: {"frames":416,"frame_ms":27.8,"frame_p95":33.4,"cpu_ms":18,"gpu_ms":20.2,"calls":1569,"triangles":3487165,"bound":"gpu"}
+[head] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+head sandbox-3 walk: {"frames":571,"frame_ms":16.7,"frame_p95":16.7,"cpu_ms":3.1,"gpu_ms":5.9,"calls":314,"triangles":474783,"bound":"vsync"}
+[head] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+head viewer walnut: {"frames":204,"frame_ms":19.8,"frame_p95":33.3,"cpu_ms":2.2,"gpu_ms":23.7,"calls":44,"triangles":2814292,"bound":"gpu"}
+[AVFilterGraph @ 0x823014000] No such filter: 'drawtext'
+Error : Filter not found
+[AVFilterGraph @ 0xafd014000] No such filter: 'drawtext'
+Error : Filter not found
+┌───┬────────────────┬─────────┬─────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬───────┐
+│   │ shot           │ base_ms │ head_ms │ base_p95 │ head_p95 │ base_cpu │ head_cpu │ base_gpu │ head_gpu │ worse │
+├───┼────────────────┼─────────┼─────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼───────┤
+│ 0 │ sandbox-1 near │ 25.5    │ 25.3    │ 33.4     │ 33.4     │ 15.6     │ 15.5     │ 18.5     │ 18.4     │ false │
+│ 1 │ sandbox-1 mid  │ 32.7    │ 32      │ 33.4     │ 33.4     │ 16.5     │ 15.3     │ 25.1     │ 24.7     │ false │
+│ 2 │ sandbox-1 far  │ 16.7    │ 16.7    │ 16.8     │ 16.8     │ 7.4      │ 7.1      │ 11.7     │ 12.5     │ false │
+│ 3 │ sandbox-1 walk │ 27.9    │ 27.8    │ 33.4     │ 33.4     │ 18       │ 18       │ 20.3     │ 20.2     │ false │
+│ 4 │ sandbox-3 walk │ 16.7    │ 16.7    │ 16.7     │ 16.7     │ 2.9      │ 3.1      │ 5.9      │ 5.9      │ true  │
+│ 5 │ viewer walnut  │ 21.1    │ 19.8    │ 33.4     │ 33.3     │ 2.1      │ 2.2      │ 25.6     │ 23.7     │ false │
+└───┴────────────────┴─────────┴─────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴───────┘
+base 37bd0d1bb9f95a2e89e861f55cd80c6fe0657758 · head de691fdc424ec7558aa8756e331395249680baf5 · out: /Users/samuelandert/Documents/Development/s11ead007-render/intent-work/11ead007-render/out (commit out/ and push the branch intent-work/11ead007-render)

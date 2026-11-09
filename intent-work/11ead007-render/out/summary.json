@@ -1,0 +1,76 @@
+{
+ "rows": [
+  {
+   "shot": "sandbox-1 near",
+   "base_ms": 25.5,
+   "head_ms": 25.3,
+   "base_p95": 33.4,
+   "head_p95": 33.4,
+   "base_cpu": 15.6,
+   "head_cpu": 15.5,
+   "base_gpu": 18.5,
+   "head_gpu": 18.4,
+   "worse": false
+  },
+  {
+   "shot": "sandbox-1 mid",
+   "base_ms": 32.7,
+   "head_ms": 32,
+   "base_p95": 33.4,
+   "head_p95": 33.4,
+   "base_cpu": 16.5,
+   "head_cpu": 15.3,
+   "base_gpu": 25.1,
+   "head_gpu": 24.7,
+   "worse": false
+  },
+  {
+   "shot": "sandbox-1 far",
+   "base_ms": 16.7,
+   "head_ms": 16.7,
+   "base_p95": 16.8,
+   "head_p95": 16.8,
+   "base_cpu": 7.4,
+   "head_cpu": 7.1,
+   "base_gpu": 11.7,
+   "head_gpu": 12.5,
+   "worse": false
+  },
+  {
+   "shot": "sandbox-1 walk",
+   "base_ms": 27.9,
+   "head_ms": 27.8,
+   "base_p95": 33.4,
+   "head_p95": 33.4,
+   "base_cpu": 18,
+   "head_cpu": 18,
+   "base_gpu": 20.3,
+   "head_gpu": 20.2,
+   "worse": false
+  },
+  {
+   "shot": "sandbox-3 walk",
+   "base_ms": 16.7,
+   "head_ms": 16.7,
+   "base_p95": 16.7,
+   "head_p95": 16.7,
+   "base_cpu": 2.9,
+   "head_cpu": 3.1,
+   "base_gpu": 5.9,
+   "head_gpu": 5.9,
+   "worse": true
+  },
+  {
+   "shot": "viewer walnut",
+   "base_ms": 21.1,
+   "head_ms": 19.8,
+   "base_p95": 33.4,
+   "head_p95": 33.3,
+   "base_cpu": 2.1,
+   "head_cpu": 2.2,
+   "base_gpu": 25.6,
+   "head_gpu": 23.7,
+   "worse": false
+  }
+ ]
+}

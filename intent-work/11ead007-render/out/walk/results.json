@@ -1,0 +1,90 @@
+[
+ {
+  "site": "base",
+  "shot": "sandbox-1 walk",
+  "settled": false,
+  "meter": {
+   "frames": 413,
+   "frame_ms": 27.9,
+   "frame_p95": 33.4,
+   "cpu_ms": 18,
+   "gpu_ms": 20.3,
+   "calls": 1560,
+   "triangles": 3500683,
+   "bound": "gpu"
+  }
+ },
+ {
+  "site": "base",
+  "shot": "sandbox-3 walk",
+  "meter": {
+   "frames": 571,
+   "frame_ms": 16.7,
+   "frame_p95": 16.7,
+   "cpu_ms": 2.9,
+   "gpu_ms": 5.9,
+   "calls": 309,
+   "triangles": 474744,
+   "bound": "vsync"
+  }
+ },
+ {
+  "site": "base",
+  "shot": "viewer walnut",
+  "ok": true,
+  "meter": {
+   "frames": 191,
+   "frame_ms": 21.1,
+   "frame_p95": 33.4,
+   "cpu_ms": 2.1,
+   "gpu_ms": 25.6,
+   "calls": 40,
+   "triangles": 3301536,
+   "bound": "gpu"
+  }
+ },
+ {
+  "site": "head",
+  "shot": "sandbox-1 walk",
+  "settled": true,
+  "meter": {
+   "frames": 416,
+   "frame_ms": 27.8,
+   "frame_p95": 33.4,
+   "cpu_ms": 18,
+   "gpu_ms": 20.2,
+   "calls": 1569,
+   "triangles": 3487165,
+   "bound": "gpu"
+  }
+ },
+ {
+  "site": "head",
+  "shot": "sandbox-3 walk",
+  "meter": {
+   "frames": 571,
+   "frame_ms": 16.7,
+   "frame_p95": 16.7,
+   "cpu_ms": 3.1,
+   "gpu_ms": 5.9,
+   "calls": 314,
+   "triangles": 474783,
+   "bound": "vsync"
+  }
+ },
+ {
+  "site": "head",
+  "shot": "viewer walnut",
+  "ok": true,
+  "meter": {
+   "frames": 204,
+   "frame_ms": 19.8,
+   "frame_p95": 33.3,
+   "cpu_ms": 2.2,
+   "gpu_ms": 23.7,
+   "calls": 44,
+   "triangles": 2814292,
+   "bound": "gpu"
+  }
+ }
+]
