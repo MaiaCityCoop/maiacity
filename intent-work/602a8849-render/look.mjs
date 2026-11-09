@@ -82,6 +82,9 @@ async function open(site, path, errors) {
 	page.on('pageerror', (e) => errors.push(`${path} pageerror: ${String(e).slice(0, 600)}`));
 	page.on('console', (m) => m.type() === 'error' && errors.push(`${path} console: ${m.text().slice(0, 600)}`));
 	await page.addInitScript({ content: SEEDED_RANDOM });
+	// every sky held at noon from its first frame (the in-game clock runs thirty times the wall clock: a view shot twenty
+	// minutes later was another hour; run 2's Old City on head was in a dawn haze)
+	await page.addInitScript({ content: 'window.__interiorHour = 12;' });
 	await page.addInitScript({ content: meterScript });
 	await page.addInitScript({ content: probeScript });
 	await page.goto(`${site.url}${path}`, { waitUntil: 'domcontentloaded' });
