@@ -4,6 +4,7 @@
 // An input play cannot give is left out with a warning naming it: its shot then shows its still (./compose.ts).
 import { api, fileBlob, fileText, siteBlob } from '$lib/api';
 import { enginesOf, pathOf } from '$lib/kernel/engines.js';
+import { HASH } from '$lib/kernel/hash.js';
 import { LIVE_BEFORE, VENDOR } from './compose';
 import { clipsOf, type Links, type Shot, type StoryBody } from './timeline';
 import type { Live, LiveAsset, World, WorldAsset } from './live';
@@ -32,7 +33,7 @@ const bodiesOf = (s: StoryBody, links: Links) => [s, ...Object.values(links).map
 
 /** the compositions the story's shots (and its links') name, by hash, each held to it */
 export async function compositions(s: StoryBody, links: Links): Promise<Record<string, string>> {
-	const want = [...new Set(bodiesOf(s, links).flatMap((b) => clipsOf<Shot>(b, 'shots')).map((x) => x.composition).filter((h): h is string => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h)))];
+	const want = [...new Set(bodiesOf(s, links).flatMap((b) => clipsOf<Shot>(b, 'shots')).map((x) => x.composition).filter((h): h is string => typeof h === 'string' && HASH.test(h)))];
 	const got = await Promise.all(want.map((h) => fileText(h).then((text) => [[h, text]], (e) => (warn(`composition ${h.slice(0, 10)}…`, e), []))));
 	return Object.fromEntries(got.flat());
 }

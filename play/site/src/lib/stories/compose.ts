@@ -16,7 +16,7 @@
 //   runtime, its recipe, its guests' recipes and their pieces laid in by hash; a moving world stepped through every frame
 //   of the shot before it is ready, each moment drawn from its frame, its camera, the hour's sun, its exposure and lights
 import { frameCsp, SANDBOX, DENY } from '../kernel/sandbox/policy.js';
-import { hashBytes } from '../content/game/hash.js';
+import { hashBytes, HEX } from '../kernel/hash.js';
 import { engineAt } from '../kernel/engines.js';
 import { buildsOf, framesOf, stepTimes, type Live, type LiveAsset, type World, type WorldAsset } from './live';
 import { clipsOf, cuesOf, linkedOf, setCuesOf, LINK, MOST_LINK_DEPTH, type Clip, type Links, type Shot, type StoryBody, type Voice } from './timeline';
@@ -42,10 +42,10 @@ const GENERIC = /^\s*(sans-serif|serif|monospace|cursive|fantasy|system-ui|ui-sa
 const fonts = (css: string) => css.replace(/((?:^|[;{\s])(?:font-family|--[\w-]+)\s*:\s*)([^;}]+)/g, (m, k, v) => (GENERIC.test(v) ? `${k}${FONT}, ${v.trim()}` : m));
 /** play's files, by hash: the only place a composition loads anything from */
 export const fileUrl = (hash: string) => `/api/files/${hash}`;
-const FILE = /\/api\/files\/([0-9a-f]{64})/g;
+const FILE = new RegExp(`/api/files/(${HEX})`, 'g');
 /** every file a composition names, once each, in order */
 export const filesOf = (html: string) => [...new Set([...html.matchAll(FILE)].map((m) => m[1]))];
-const CODE = /<script type="text\/x-play-code" data-play-code="([0-9a-f]{64})"><\/script>/g;
+const CODE = new RegExp(`<script type="text/x-play-code" data-play-code="(${HEX})"></script>`, 'g');
 /** every code file a composition's live shots run (the frozen box engine, recipes, pieces), laid in as text, not loaded */
 export const codeOf = (html: string) => [...new Set([...html.matchAll(CODE)].map((m) => m[1]))];
 /** a composition with its code files laid in (the renderer's way: the page's is the sealed frame's bridge), each a
@@ -59,7 +59,7 @@ export const CSP = frameCsp({ script: "'self' 'unsafe-inline' blob:", open: { 'i
 export const FRAME = { sandbox: SANDBOX, allow: `autoplay; ${DENY}` };
 
 /** a film's frame in pixels: its short side 1080 */
-export function sizeOf(format: string | undefined): [number, number] {
+function sizeOf(format: string | undefined): [number, number] {
 	const [a, b] = String(format ?? '9:16').split(':').map(Number);
 	if (!(a > 0 && b > 0)) return [1080, 1920];
 	return a >= b ? [Math.round((1080 * a) / b), 1080] : [1080, Math.round((1080 * b) / a)];
@@ -426,12 +426,15 @@ export async function feed(frame: Window, need: { code?: string[]; media?: strin
 	frame.postMessage({ play: 1, op: 'files', files }, '*');
 }
 
+const HELD_SCRIPT = new RegExp(`<script\\b([^>]*?)\\ssrc="/api/files/(${HEX})"([^>]*)></script>`, 'g');
+const HELD_SRC = new RegExp(`\\ssrc="/api/files/(${HEX})"`, 'g');
+const HELD_FONT = new RegExp(`<style data-play-font="true">([^<]*?/api/files/(${HEX}))`, 'g');
 /** a composition as the sealed frame takes it: its files and scripts held for the bridge */
 export function seal(html: string): string {
 	return html
-		.replace(/<script\b([^>]*?)\ssrc="\/api\/files\/([0-9a-f]{64})"([^>]*)><\/script>/g, '<script type="text/x-play-held" data-play-file="$2"$1$3></script>')
+		.replace(HELD_SCRIPT, '<script type="text/x-play-held" data-play-file="$2"$1$3></script>')
 		.replace(/<script>/g, '<script type="text/x-play-held">')
-		.replace(/\ssrc="\/api\/files\/([0-9a-f]{64})"/g, ' data-play-file="$1"')
-		.replace(/<style data-play-font="true">([^<]*?\/api\/files\/([0-9a-f]{64}))/g, '<style data-play-file="$2" media="not all">$1')
+		.replace(HELD_SRC, ' data-play-file="$1"')
+		.replace(HELD_FONT, '<style data-play-file="$2" media="not all">$1')
 		.replace(/(<meta http-equiv="Content-Security-Policy"[^>]*>)/, `$1\n<script>${BRIDGE}</script>`);
 }

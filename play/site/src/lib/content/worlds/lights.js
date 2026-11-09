@@ -39,7 +39,7 @@ export const LOOK = {
 const GLOWS = 16384;
 /** how near (m) a guest's light is drawn as its lit face too (beyond it, its glow alone: one drawing for every light of
  *  the world); a building's windows are faces at any distance (a lit tower is its windows) */
-export const FACES_NEAR = 150;
+const FACES_NEAR = 150;
 
 /**
  * The glows, in TSL: each an instanced sprite (a quad turned to the eye) at `glowAt`, `size` metres across seen as so
