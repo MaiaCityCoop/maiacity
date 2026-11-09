@@ -8,13 +8,13 @@
  *
  * The bones are what three.js hands the shader anyway (its bone texture, one matrix a bone); each matrix is read back
  * as a rotation, a translation and a size (a bone may be scaled: a frog's throat), the rotations and translations
- * blended as dual quaternions, the sizes as numbers. Every skinned mesh in the app is an actor, so the shader chunks
- * are replaced once, for all of them — their shadows included.
+ * blended as dual quaternions, the sizes as numbers. Every skinned mesh in the app is an actor, so its skinning is
+ * replaced once, for all of them — their shadows included.
  *
- * Node materials (TSL: every material on WebGPU, intent c1bee1f8) skin in NodeMaterial's `setupPosition`, which
- * three's GLSL chunks never reach: there the same blend is made in TSL (`dqSkin`, line for line the GLSL's), after
- * three's own `skinning` (which keeps the skeleton updated each frame and the previous frame's pose for motion), its
- * position, normal and tangent taken from the pose as morphs leave it and set by dual quaternions instead.
+ * Every material is a node material on the WebGPURenderer (intent c1bee1f8) and skins in NodeMaterial's
+ * `setupPosition`: there the blend is made in TSL (`dqSkin`), after three's own `skinning` (which keeps the skeleton
+ * updated each frame and the previous frame's pose for motion), its position, normal and tangent taken from the pose as
+ * morphs leave it and set by dual quaternions instead.
  */
 import * as THREE from 'three';
 import { NodeMaterial } from 'three/webgpu';
@@ -23,86 +23,7 @@ import {
 	referenceBuffer, select, skinning, sqrt, subBuild, tangentLocal, texture, textureSize, vec3, vec4
 } from 'three/tsl';
 
-const PARS = /* glsl */ `
-#ifdef USE_SKINNING
-	vec4 dqQuat( mat3 m ) {
-		float tr = m[0][0] + m[1][1] + m[2][2];
-		if ( tr > 0.0 ) {
-			float s = sqrt( tr + 1.0 ) * 2.0;
-			return vec4( ( m[1][2] - m[2][1] ) / s, ( m[2][0] - m[0][2] ) / s, ( m[0][1] - m[1][0] ) / s, 0.25 * s );
-		} else if ( m[0][0] > m[1][1] && m[0][0] > m[2][2] ) {
-			float s = sqrt( 1.0 + m[0][0] - m[1][1] - m[2][2] ) * 2.0;
-			return vec4( 0.25 * s, ( m[1][0] + m[0][1] ) / s, ( m[2][0] + m[0][2] ) / s, ( m[1][2] - m[2][1] ) / s );
-		} else if ( m[1][1] > m[2][2] ) {
-			float s = sqrt( 1.0 + m[1][1] - m[0][0] - m[2][2] ) * 2.0;
-			return vec4( ( m[1][0] + m[0][1] ) / s, 0.25 * s, ( m[2][1] + m[1][2] ) / s, ( m[2][0] - m[0][2] ) / s );
-		}
-		float s = sqrt( 1.0 + m[2][2] - m[0][0] - m[1][1] ) * 2.0;
-		return vec4( ( m[2][0] + m[0][2] ) / s, ( m[2][1] + m[1][2] ) / s, 0.25 * s, ( m[0][1] - m[1][0] ) / s );
-	}
-	// a bone's matrix into the blend: its rotation (real part), its translation (dual part), its size
-	void dqAdd( mat4 b, float w, vec4 first, inout vec4 real, inout vec4 dual, inout float size ) {
-		if ( w <= 0.0 ) return;
-		float s = length( b[0].xyz );
-		vec4 q = dqQuat( mat3( b[0].xyz / s, b[1].xyz / s, b[2].xyz / s ) );
-		vec3 t = b[3].xyz;
-		vec4 d = 0.5 * vec4( t * q.w + cross( t, q.xyz ), - dot( t, q.xyz ) );
-		float k = dot( q, first ) < 0.0 ? - w : w;
-		real += k * q;
-		dual += k * d;
-		size += w * s;
-	}
-	vec3 dqTurn( vec4 q, vec3 v ) { return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v ); }
-#endif
-`;
-
-const BASE = /* glsl */ `
-#ifdef USE_SKINNING
-	mat4 boneMatX = getBoneMatrix( skinIndex.x );
-	mat4 boneMatY = getBoneMatrix( skinIndex.y );
-	mat4 boneMatZ = getBoneMatrix( skinIndex.z );
-	mat4 boneMatW = getBoneMatrix( skinIndex.w );
-	vec4 dqReal = vec4( 0.0 ), dqDual = vec4( 0.0 );
-	float dqSize = 0.0;
-	{
-		mat4 bx = boneMatX;
-		float s0 = length( bx[0].xyz );
-		vec4 first = dqQuat( mat3( bx[0].xyz / s0, bx[1].xyz / s0, bx[2].xyz / s0 ) );
-		dqAdd( boneMatX, skinWeight.x, first, dqReal, dqDual, dqSize );
-		dqAdd( boneMatY, skinWeight.y, first, dqReal, dqDual, dqSize );
-		dqAdd( boneMatZ, skinWeight.z, first, dqReal, dqDual, dqSize );
-		dqAdd( boneMatW, skinWeight.w, first, dqReal, dqDual, dqSize );
-		float total = max( skinWeight.x + skinWeight.y + skinWeight.z + skinWeight.w, 1e-5 );
-		dqSize /= total;
-		float len = max( length( dqReal ), 1e-6 );
-		dqReal /= len;
-		dqDual /= len;
-	}
-	vec3 dqMove = 2.0 * ( dqReal.w * dqDual.xyz - dqDual.w * dqReal.xyz + cross( dqReal.xyz, dqDual.xyz ) );
-#endif
-`;
-
-const NORMAL = /* glsl */ `
-#ifdef USE_SKINNING
-	objectNormal = ( bindMatrixInverse * vec4( dqTurn( dqReal, ( bindMatrix * vec4( objectNormal, 0.0 ) ).xyz ), 0.0 ) ).xyz;
-	#ifdef USE_TANGENT
-		objectTangent = ( bindMatrixInverse * vec4( dqTurn( dqReal, ( bindMatrix * vec4( objectTangent, 0.0 ) ).xyz ), 0.0 ) ).xyz;
-	#endif
-#endif
-`;
-
-const VERTEX = /* glsl */ `
-#ifdef USE_SKINNING
-	vec3 skinVertex = ( bindMatrix * vec4( transformed, 1.0 ) ).xyz;
-	transformed = ( bindMatrixInverse * vec4( dqTurn( dqReal, skinVertex * dqSize ) + dqMove, 1.0 ) ).xyz;
-#endif
-`;
-
-// ── the same in TSL ──
-/* eslint-disable @typescript-eslint/no-explicit-any */
-type N = any;
-
-/** a rotation matrix's quaternion, from its columns (the GLSL's dqQuat; every branch made, the right one chosen) */
+/** a rotation matrix's quaternion, from its columns (every branch made, the right one chosen) */
 const quatOf = (c0: N, c1: N, c2: N): N => {
 	const tr = c0.x.add(c1.y).add(c2.z);
 	const sA = sqrt(max(tr.add(1), 1e-12)).mul(2);
@@ -115,7 +36,7 @@ const quatOf = (c0: N, c1: N, c2: N): N => {
 	const qD = vec4(c2.x.add(c0.z).div(sD), c2.y.add(c1.z).div(sD), sD.mul(0.25), c0.y.sub(c1.x).div(sD));
 	return select(tr.greaterThan(0), qA, select(c0.x.greaterThan(c1.y).and(c0.x.greaterThan(c2.z)), qB, select(c1.y.greaterThan(c2.z), qC, qD)));
 };
-/** a bone's rotation, translation and size (the GLSL's dqAdd, before the blend) */
+/** a bone's rotation, translation and size (before the blend) */
 const boneOf = (b: N) => {
 	const c0 = b.element(0).xyz, c1 = b.element(1).xyz, c2 = b.element(2).xyz;
 	const s = c0.length();
@@ -128,7 +49,7 @@ const boneOf = (b: N) => {
 export const dqTurn = (q: N, v: N): N => v.add(cross(q.xyz, cross(q.xyz, v).add(v.mul(q.w))).mul(2));
 
 /**
- * The four bones' dual-quaternion blend: the rotation (`real`), the move it makes, the size (the GLSL's skinbase).
+ * The four bones' dual-quaternion blend: the rotation (`real`), the move it makes, the size.
  * @param bones the bone matrices (an `element(i)` per bone) @param index the skin's indices @param weight its weights
  */
 export function dqBlend(bones: N, index: N, weight: N) {
@@ -216,14 +137,9 @@ function setupPosition(this: N, builder: N) {
 export const threeSetupPosition = (NodeMaterial.prototype as N).setupPosition as (builder: N) => N;
 
 let installed = false;
-/** Every skinned mesh from here on skins by dual quaternions: classic materials by their GLSL chunks, node materials (WebGPU's) by TSL. */
+/** Every skinned mesh from here on skins by dual quaternions, in TSL. */
 export function dualQuaternionSkinning() {
 	if (installed) return;
 	installed = true;
-	const chunks = THREE.ShaderChunk as unknown as Record<string, string>;
-	chunks.skinning_pars_vertex = chunks.skinning_pars_vertex! + PARS;
-	chunks.skinbase_vertex = BASE;
-	chunks.skinnormal_vertex = NORMAL;
-	chunks.skinning_vertex = VERTEX;
 	(NodeMaterial.prototype as N).setupPosition = setupPosition;
 }

@@ -578,7 +578,7 @@ export type InteriorOptions = {
  * camera and renderer, and where the dome stands. The dome then brings no sky,
  * sun or land of its own, does not walk, and hands back its floors instead.
  */
-export type DomeHost = { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; x: number; z: number }
+export type DomeHost = { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: import('three/webgpu').WebGPURenderer; x: number; z: number }
 /** A dome built into a host world, in its own coordinates (centre at 0, 0). */
 export type EmbeddedDome = {
 	root: THREE.Object3D

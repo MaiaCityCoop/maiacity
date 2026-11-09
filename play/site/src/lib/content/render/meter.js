@@ -5,7 +5,7 @@
  * time of the frame's commands, frame by frame, and says which of them bounds the frame. On WebGPU (intent c1bee1f8)
  * the draws are the render passes' (`draw`, `drawIndexed`, their indirect kinds counted without triangles) and the GPU
  * time the passes' own, by timestamp queries (where the device has `timestamp-query`, which three asks for wherever
- * the adapter offers it); on WebGL2 (WebGPURenderer's fallback, and WebGLRenderer) the draws are its draw calls and the
+ * the adapter offers it); on WebGL2 (WebGPURenderer's fallback) the draws are its draw calls and the
  * GPU time EXT_disjoint_timer_query_webgl2's. Where neither timer is offered, the GPU time is null.
  *
  *   const m = installMeter(window);   // the bench, at its start (routes/worlds/bench)

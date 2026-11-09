@@ -74,7 +74,7 @@ import { CubeRenderTarget } from 'three/webgpu';
  *   north?: number,
  *   map?: boolean,
  *   day?: [number, number],
- *   onHour?: (light: SkyLight, parts: { sun: SunLight, renderer: THREE.WebGLRenderer, scene: THREE.Scene }) => void
+ *   onHour?: (light: SkyLight, parts: { sun: SunLight, renderer: import('three/webgpu').WebGPURenderer, scene: THREE.Scene }) => void
  * }} SkyOptions
  *   clock: the hour, 0…24 (the time control's); sun: the sun pinned (degrees: its height, its bearing from +z toward
  *   +x), whatever the hour; light: false for no sun light (a stage with its own key); shadowReach: how far from the eye
@@ -213,7 +213,7 @@ export function createSkyClock({ clock = skyHour } = {}) {
 
 /**
  * Put the sky over a world.
- * @param {THREE.WebGLRenderer} renderer
+ * @param {import('three/webgpu').WebGPURenderer} renderer
  * @param {THREE.Scene} scene
  * @param {SkyOptions} [options]
  * @returns {SkyHandle}

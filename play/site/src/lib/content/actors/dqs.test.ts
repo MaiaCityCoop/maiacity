@@ -1,6 +1,5 @@
 // Dual-quaternion skinning on node materials (intent c1bee1f8): WebGPU draws every material as a node material, which
-// skins in NodeMaterial's position step, never in the GLSL chunks; ./dqs.ts makes that step skin by dual quaternions
-// as the chunks do. Checked on WebGPURenderer's WebGL 2 backend over a context that only answers (no graphics card).
+// skins in NodeMaterial's position step; ./dqs.ts makes that step skin by dual quaternions. Checked on WebGPURenderer's WebGL 2 backend over a context that only answers (no graphics card).
 import { describe, expect, test } from 'vitest';
 
 const g = globalThis as any;
