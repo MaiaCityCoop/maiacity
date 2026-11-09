@@ -10,11 +10,14 @@
  * from engine 4 on, and what a viewer needs of it (`viewOf`, kept on the root's `userData.view`), a skinned actor
  * bound to its own bones, and each blend shape by its name; 4 from engine 5 on, and its lights as lights, its
  * controls with the meshes they reshape and the looks and lights they change, and an actor's clips as tables
- * (`userData.view.clips.motion`, for ../clips.js to play).
+ * (`userData.view.clips.motion`, for ../clips.js to play); 5 from engine 6 on, and a material's own look as a node graph
+ * checked against the one allowlist (./graph.js, kept on its `userData.graph`, built by ../../render/nodes/graph.js),
+ * the kit's section caps as their look (`userData.cap`), and no flag for a shader that stayed behind: there is none.
  */
 import * as THREE from 'three';
 import { dualQuaternionSkinning } from '$lib/content/actors/dqs.ts';
-import { FORMAT, LIGHTS, MATERIALS } from './serialize.js';
+import { FORMAT, GRAPHED, LIGHTS, MATERIALS } from './serialize.js';
+import { checkGraph } from './graph.js';
 import { LIGHT, MAT } from './bake.js';
 import { MOVE_SAMPLES } from './view.js';
 import { budget, released } from '$lib/content/render/budget.js';
@@ -26,8 +29,8 @@ import { budget, released } from '$lib/content/render/budget.js';
  */
 export const BUDGET = { nodes: 20000, geometries: 20000, materials: 2000, textures: 2000, images: 64, texturePixels: 4096, tris: 2_000_000, vertices: 4_000_000, instances: 100_000, controls: 32, controlNumbers: 8_000_000, bones: 1024, lights: 64, clipNumbers: 8_000_000 };
 
-/** the formats it reads: engine 1's, engine 2's, engine 3's, engine 4's and the one ./serialize.js writes now */
-export const FORMATS = [0, 1, 2, 3, FORMAT];
+/** the formats it reads: engine 1's to engine 5's and the one ./serialize.js writes now */
+export const FORMATS = [0, 1, 2, 3, 4, FORMAT];
 
 const ARRAYS = [Float32Array, Uint8Array, Uint16Array, Uint32Array, Int8Array, Int16Array, Int32Array];
 const fail = (why) => {
@@ -177,7 +180,7 @@ function letPicturesGo(images, tex) {
 	}
 }
 
-function material(x, i, textures) {
+function material(x, i, textures, format) {
 	if (!MATERIALS.includes(x.type)) fail(`material ${i}: no kind ${String(x.type).slice(0, 40)}`);
 	const m = new THREE[x.type]();
 	for (const [k, v] of Object.entries(x.params ?? {})) {
@@ -188,13 +191,32 @@ function material(x, i, textures) {
 		else if (typeof m[k] === typeof v && (typeof v === 'number' ? Number.isFinite(v) : typeof v === 'boolean')) m[k] = v;
 	}
 	m.name = String(x.name ?? '').slice(0, 80);
-	// it had a shader of its own in the box, which never crosses (the kit's section caps): our renderer gives it ours,
-	// with the cut face it said it has (format 2)
-	if (x.custom === true) m.userData.custom = true;
-	if (x.custom === true && x.cap && typeof x.cap === 'object')
-		m.userData.cap = { color: int(x.cap.color, 0x1000000, `material ${i} cap`), rough: Math.min(1, Math.max(0, num(x.cap.rough, 'cap'))), metal: Math.min(1, Math.max(0, num(x.cap.metal, 'cap'))) };
+	const unit = (v) => Math.min(1, Math.max(0, num(v, 'cap')));
+	const capOf = (c) => ({ color: int(c.color, 0x1000000, `material ${i} cap`), rough: unit(c.rough), metal: unit(c.metal) });
+	if (format >= 5) {
+		// the kit's section caps, as their look (format 5 names no shader that stayed behind: none does)
+		if (x.cap && typeof x.cap === 'object') m.userData.cap = capOf(x.cap);
+		if (x.graph !== undefined) {
+			if (!GRAPHED.includes(x.type)) fail(`material ${i}: a graph is given to ${GRAPHED.join(', ')}`);
+			try {
+				m.userData.graph = checkGraph(x.graph, { slots: SLOTS_OF(m) });
+			} catch (e) {
+				fail(`material ${i}: its graph: ${e?.message ?? e}`);
+			}
+		}
+	} else if (x.custom === true) {
+		// formats 2 to 4: a shader of its own stayed in the box; the kit's caps gave it a cut face, said (format 2 on) or
+		// the museum red, which our renderer draws on a two-sided physical one (as it did by that flag)
+		const given = x.cap && typeof x.cap === 'object' ? capOf(x.cap) : null;
+		if (given || (m.isMeshPhysicalMaterial && m.side === THREE.DoubleSide)) m.userData.cap = given ?? { ...MUSEUM_RED };
+	}
 	return m;
 }
+
+/** the cut face's colour where the kit said none: the museum red (../render/presets.js drew it so) */
+export const MUSEUM_RED = { color: new THREE.Color(0.56, 0.085, 0.045).getHex(), rough: 0.55, metal: 0 };
+/** the pictures a material carries, by slot */
+const SLOTS_OF = (m) => ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'emissiveMap', 'aoMap', 'bumpMap'].filter((k) => m[k]?.isTexture);
 
 /**
  * The data a box handed back, checked and built.
@@ -213,7 +235,7 @@ export function rebuild(data) {
 	const images = listed.map((x, i) => (data.format === 0 && x === null ? null : image(x, i)));
 	const tex = textures.map((t, i) => texture(data.format === 0 ? { ...t, image: images[i] ? i : null } : t, i, images));
 	letPicturesGo(images, tex);
-	const mats = materials.map((x, i) => material(x, i, tex));
+	const mats = materials.map((x, i) => material(x, i, tex, data.format));
 	const geos = geometries.map(geometry);
 	let vertices = 0;
 	for (const g of geos) vertices += g.attributes.position.count;

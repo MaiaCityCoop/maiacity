@@ -29,7 +29,7 @@ const textureKey = (t) => `${t.source?.uuid ?? t.uuid}:${t.wrapS},${t.wrapT}:${t
 /** @param {THREE.Material} m */
 export function keyOf(m) {
 	const cap = m.userData.cap;
-	const out = [m.type, m.userData.custom ? 'custom' : '', cap ? `${cap.color}/${cap.rough}/${cap.metal}` : ''];
+	const out = [m.type, cap ? `${cap.color}/${cap.rough}/${cap.metal}` : '', m.userData.graph ? JSON.stringify(m.userData.graph) : ''];
 	for (const k of PLAIN) if (k in m) out.push(m[k]);
 	for (const k of COLORS) if (m[k]?.isColor) out.push(m[k].getHex());
 	for (const k of MAPS) out.push(m[k]?.isTexture ? textureKey(m[k]) : '');
@@ -37,11 +37,8 @@ export function keyOf(m) {
 	return out.join('|');
 }
 
-/** a solid the kit gave section caps in the box: one of its materials (MeshPhysical, both sides drawn, a shader of its own) */
-export const capped = (m) => !!m.userData.custom && m.isMeshPhysicalMaterial && m.side === THREE.DoubleSide;
-
-/** the colour of a cut face: the kit's museum red */
-const CAP = { color: new THREE.Color(0.56, 0.085, 0.045).getHex(), rough: 0.55, metal: 0 };
+/** a solid the kit gave section caps in the box: one of its materials (MeshPhysical, both sides drawn, its cut face's look) */
+export const capped = (m) => !!m.userData.cap && m.isMeshPhysicalMaterial && m.side === THREE.DoubleSide;
 
 /**
  * The renderer's materials: `of(m)` the one kept for a material (the node material of the first of its kind it was
@@ -71,7 +68,7 @@ export function createPresets() {
 		}
 		// and a see-through part seen from both sides is drawn in one pass, not its back and then its front
 		if (m.transparent && m.side === THREE.DoubleSide) m.forceSinglePass = true;
-		const n = plain ? m : cutBy(nodeOf(m), CUT, capped(m) ? (m.userData.cap ?? CAP) : undefined);
+		const n = plain ? m : cutBy(nodeOf(m), CUT, capped(m) ? m.userData.cap : undefined);
 		if (!plain) n.fade = aFade;
 		clip(n);
 		return n;
@@ -90,9 +87,11 @@ export function createPresets() {
 		of(/** @type {THREE.Material} */ m, plain = false) {
 			// one of ours already (a copy of a level, moved by its controls, wears what the level wears)
 			if (ours.has(m)) return m;
-			const key = (plain ? 'plain|' : '') + keyOf(m);
+			// a look of its own (a graph) is a node material even on a skinned or morphed mesh, that material's own
+			const own = plain && !!m.userData.graph;
+			const key = (own ? `own|${m.uuid}|` : plain ? 'plain|' : '') + keyOf(m);
 			let p = kept.get(key);
-			if (!p) kept.set(key, (p = patch(m, plain))), keys.set(p, key);
+			if (!p) kept.set(key, (p = patch(m, plain && !own))), keys.set(p, key);
 			ours.add(p);
 			uses.set(p, (uses.get(p) ?? 0) + 1);
 			return p;

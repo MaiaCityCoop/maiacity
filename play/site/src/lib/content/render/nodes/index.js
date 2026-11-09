@@ -21,6 +21,7 @@ import { AttributeNode, MeshBasicNodeMaterial, MeshLambertNodeMaterial, MeshPhon
 import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
 import { SunLight } from 'three/addons/lights/SunLight.js';
 import { SunLightNode } from 'three/addons/lights/SunLightNode.js';
+import { applyGraph } from './graph.js';
 
 // the sky's sun (three's SunLight, its cascaded shadows) lights node materials as it lights three's own
 SunLight.registerNode(SunLightNode);
@@ -270,6 +271,9 @@ export function nodeOf(m) {
 		else n[k] = v;
 	}
 	n.userData = { ...m.userData };
+	// its own look, a node graph the box handed over and the page checked (../../assets/box/rebuild.js): built here, so
+	// every way a material is drawn (the worlds' renderer, the viewer's stage) draws it
+	if (m.userData.graph) applyGraph(n, m.userData.graph);
 	return n;
 }
 

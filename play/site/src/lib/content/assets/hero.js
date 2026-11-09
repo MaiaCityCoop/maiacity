@@ -419,11 +419,13 @@ export function forStage(root) {
 	const made = new Map();
 	root.traverse((o) => {
 		if (!o.material) return;
-		const plain = !!(o.isSkinnedMesh || o.morphTargetInfluences?.length);
+		const bends = !!(o.isSkinnedMesh || o.morphTargetInfluences?.length);
 		const one = (m) => {
-			const key = plain ? m.uuid : m;
+			// a look of its own (a graph) is a node material even on a skinned or morphed mesh
+			const plain = bends && !m.userData.graph;
+			const key = bends ? m.uuid : m;
 			if (!made.has(key)) {
-				const cap = m.userData.custom && (m.isMeshStandardMaterial || m.isMeshPhysicalMaterial) ? m.userData.cap : undefined;
+				const cap = m.isMeshStandardMaterial || m.isMeshPhysicalMaterial ? m.userData.cap : undefined;
 				const n = plain || !drawnAsNode(m) ? m : labMaterial(m, cap);
 				n.clippingPlanes = LAB_PLANES;
 				n.clipIntersection = true;
