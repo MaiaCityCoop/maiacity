@@ -110,6 +110,7 @@ renderer.render(scene, cam);
 window.done = { w, h, data: renderer.domElement.toDataURL('image/png') };
 </script></body></html>`;
 
+// play/site's Playwright, else one installed here or globally: a place without it is passed over
 let playwright;
 for (const from of [SITE, process.cwd(), '/usr/lib/node_modules/', '/usr/local/lib/node_modules/'])
 	try {
