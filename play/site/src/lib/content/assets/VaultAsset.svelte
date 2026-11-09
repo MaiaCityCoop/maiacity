@@ -30,6 +30,8 @@
 	import TouchStick from '$lib/site/touch/TouchStick.svelte';
 	import { valuesOf } from './params.js';
 	import { groundOf, groundsIn } from './ground.js';
+	import { biomeOfCard } from '$lib/content/biomes/card.js';
+	import { keepAbove, maxPolar } from './camerafloor.js';
 	import { createPlantings } from './plantings.js';
 	import { buildName, vaultBuild } from './sources/viewer.js';
 	import { plantOf } from './catalog.js';
@@ -216,6 +218,19 @@
 		const green = groundsIn(source)[0];
 		earth.biome(green?.recipe ?? null, green?.id);
 		soilShown = earth.soil;
+		/** the camera's floor (./camerafloor.js): the shown asset's group, whether it stands in its soil, and its ground's height */
+		const floorCam = { group: '', soiled: false, y: 0, margin: 0.005 };
+		/** the biome the earth is the floor of now: the greenest under a plant, a biome's own under it (null: the greenest) */
+		let floorOf = null;
+		/** a biome shown on its own (intent 119a02d1): its recipe as its card says it, or null where it is no floor */
+		const biomeShown = (card) => {
+			if (card?.group !== 'biomes' || card.id === 'cover') return null;
+			try {
+				return biomeOfCard(card);
+			} catch {
+				return null;
+			}
+		};
 
 		const letGo = letGoOf(stage);
 		const asks = asker();
@@ -251,12 +266,34 @@
 				const bounds = new THREE.Box3().setFromObject(got.obj);
 				// a plant stands in its soil; its fruit, shown on its own, on the floor
 				const soiled = got.card?.group === 'plants' && !(got.values?.fruit >= 1);
-				const { centre, size: s } = stage.show(got.obj, { asset: h, ground: soiled ? 0 : undefined, keep: shownHash === h0, studio: !soiled });
-				if (soiled) earth.fit(got.obj);
-				earth.show(soiled);
+				// a biome stands on its own floor run out to the horizon, not on its patch alone (intent 119a02d1; Samuel
+				// 2026-11-09: "full ground floor, not just the circle"): the earth draws its surfaces everywhere, so the
+				// patch's own flat ground is put away and its cover stands where it lies, the earth's cover beyond it
+				const biome = biomeShown(got.card);
+				const own = biome ? got.card.id : null;
+				if (own !== floorOf) {
+					floorOf = own;
+					earth.biome(biome ?? green?.recipe ?? null, own ?? green?.id);
+				}
+				const grounded = soiled || !!biome;
+				let patch = 0;
+				if (biome)
+					got.obj.traverse((o) => {
+						if (o.isMesh && o.name === 'ground' && !o.isInstancedMesh) {
+							o.visible = false;
+							o.geometry.computeBoundingBox();
+							const b = o.geometry.boundingBox;
+							patch = Math.max(patch, (b.max.x - b.min.x) / 2, (b.max.z - b.min.z) / 2);
+						}
+					});
+				const { centre, size: s } = stage.show(got.obj, { asset: h, ground: grounded ? 0 : undefined, keep: shownHash === h0, studio: !grounded });
+				if (grounded) earth.fit(got.obj, biome ? { open: patch || Math.max(s.x, s.z) / 2 } : undefined);
+				earth.show(grounded);
 				plantings.show(got.obj);
-				// round a plant on its ground the camera may go down below the ground line, to 60° under it, but no further
-				controls.maxPolarAngle = soiled ? Math.PI * (5 / 6) : Math.PI;
+				// round a plant on its ground the camera may go down below the ground line, to 60° under it, but no further;
+				// in every other group's viewer it is held above the ground (./camerafloor.js, each frame in the loop)
+				Object.assign(floorCam, { group: got.card?.group ?? '', soiled, y: stage.groundY, margin: Math.max(0.002, Math.max(s.x, s.y, s.z) * 0.002) });
+				controls.maxPolarAngle = maxPolar(floorCam.group, { soiled, targetY: controls.target.y, groundY: floorCam.y, distance: camera.position.distanceTo(controls.target), margin: floorCam.margin });
 				buildPhase = 'prepare';
 				await stage.compile();
 				if (!asks.is(ask)) {
@@ -401,7 +438,11 @@
 			if (walker) walker.update(dt);
 			else {
 				cam.step(wall, growing);
+				// the orbit's lowest angle for where the eye is now: a drag, a scroll or a pinch stops at the floor
+				controls.maxPolarAngle = maxPolar(floorCam.group, { soiled: floorCam.soiled, targetY: controls.target.y, groundY: floorCam.y, distance: camera.position.distanceTo(controls.target), margin: floorCam.margin });
 				controls.update();
+				// and what a pan, a key or a glide took under it, lifted back over it
+				if (keepAbove(floorCam.group, camera.position, controls.target, floorCam.y, floorCam.margin)) camera.lookAt(controls.target);
 			}
 			// growing on: built where it has grown to, each time its last build is shown
 			if (growing && grower && hero) {

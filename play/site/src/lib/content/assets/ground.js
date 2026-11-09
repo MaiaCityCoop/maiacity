@@ -14,7 +14,10 @@
  *               mottles, lime, charcoal and fungal threads; what is under two pixels fades to its colour, not worked out
  *   the roots   the plant's own, crisp in the earth's clear middle
  *
- * `groundOf(stage, { drawn })` → { group, biome(recipe, id), fit(root), show(on), update(camera, dt), below, rootsView(camera),
+ * A biome shown on its own stands on the same floor, its own (intent 119a02d1): its patch's cover where the patch lies,
+ * its floor and cover on out to the horizon round it, no mulch ring (`fit(root, { open })`).
+ *
+ * `groundOf(stage, { drawn })` → { group, biome(recipe, id), fit(root, { open }), show(on), update(camera, dt), below, rootsView(camera),
  * soil, dispose }.
  */
 import * as THREE from 'three';
@@ -512,10 +515,13 @@ export function groundOf(stage, { cover = !stage.low, drawn = null } = {}) {
 		},
 		/**
 		 * sized to a plant: the earth as deep as its deepest root and a little more, wide round its roots; the floor out
-		 * to the horizon, its mulch ring as wide as its crown is near the ground. The ground's surface at 0.
+		 * to the horizon, its mulch ring as wide as its crown is near the ground. The ground's surface at 0. With `open`
+		 * (a biome's patch, its radius in metres): no mulch ring, and the cover streamed only beyond that radius, the
+		 * patch's own cover within it.
 		 * @param {THREE.Object3D} root
+		 * @param {{ open?: number }} [o]
 		 */
-		fit(root) {
+		fit(root, o = {}) {
 			root.updateMatrixWorld(true);
 			root.getWorldPosition(at);
 			const box = new THREE.Box3().setFromObject(root);
@@ -561,9 +567,10 @@ export function groundOf(stage, { cover = !stage.low, drawn = null } = {}) {
 			if (stage.sky) fade.set(Math.max(reach * 2.5, 5), Math.max(reach * 22, 30));
 			else fade.set(Math.max(reach * 2.2, 3), Math.max(reach * 9, 14));
 			// a ring of mulch round the stem, as wide as its crown is near the ground, so a seedling is not lost in grass
-			const ring = Math.min(1.6, Math.max(0.2, Math.max(bs.x, bs.z) * 0.55));
-			g.uRing.value = ring;
-			const coverReach = Math.max(4, Math.min(14, fade.x * 1.15));
+			const ring = o.open ?? Math.min(1.6, Math.max(0.2, Math.max(bs.x, bs.z) * 0.55));
+			// a biome's patch: no mulch (a ring of a ten-thousandth of a millimetre), its cover where the patch is
+			g.uRing.value = o.open != null ? 1e-4 : ring;
+			const coverReach = Math.max(4, (o.open ?? 0) + 8, Math.min(14, fade.x * 1.15));
 			const big = Math.max(bs.x, bs.y, bs.z) > 0.35;
 			if (Math.abs(ring - ringAt) > ringAt * 0.25 || Math.abs(coverReach - reachAt) > reachAt * 0.25 || big !== tall || (!stream && big)) {
 				ringAt = ring;
