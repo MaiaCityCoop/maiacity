@@ -11,8 +11,8 @@
  * --world         Sandbox 1 (the village: near, mid, far), Sandbox 3 (the old city) or the worlds view (a world asset:
  *                 --asset names it by its UUID, else the first world play lists), the last two as they open (`open`)
  *
- * --at <commit>   that commit's play/site, checked out in a worktree under the census's cache (this checkout's
- *                 node_modules and frozen engines), so an intent's base and head are counted alike
+ * --at <commit>   that commit's play/site (./census/tree.ts, with this checkout's node_modules and frozen engines),
+ *                 so an intent's base and head are counted alike
  * --inputs <dir>  the world's inputs as pinned there: play's routes and files by hash (default ./census/inputs/, as
  *                 6295a650's run 5 read them: Sandbox 1's layout and the catalog, and the files the worlds read).
  *                 What is not pinned is read live with PLAY_MCP_TOKEN; --record pins what is read live into it.
@@ -30,9 +30,9 @@
  * each asset renderer's triangles, draws, copies, pictures and ghosts (copies put away yet still drawn: ./census/run.ts
  * `Copy`), and each kind's copies when asked.
  */
-import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { CACHE, treeAt } from './census/tree';
 
 const argv = process.argv.slice(2);
 const arg = (k: string) => {
@@ -44,38 +44,6 @@ if (!['sandbox-1', 'sandbox-3', 'worlds'].includes(world)) throw new Error(`cens
 const view = arg('--view') ?? 'all';
 const at = arg('--at');
 const SITE = resolve(import.meta.dir, '..');
-const REPO = resolve(SITE, '../..');
-const CACHE = resolve(process.env.CENSUS_CACHE ?? join(process.env.HOME ?? '/tmp', '.cache/maiacity-census'));
-
-/** a commit's tree, checked out once under the cache (detached), with this checkout's node_modules */
-function treeAt(commit: string) {
-	const git = (...a: string[]) => execFileSync('git', ['-C', REPO, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-	// a commit not in this clone (a shallow one, as CI's) is fetched by its whole hash, the one way a server hands it out
-	const has = (c: string) => {
-		try {
-			return git('rev-parse', '--verify', '--quiet', `${c}^{commit}`);
-		} catch {
-			return '';
-		}
-	};
-	// a short hash of a commit the census keeps a reference for (./census/run5.json) is that commit
-	const pinned = Object.values(JSON.parse(readFileSync(join(SITE, 'scripts/census/run5.json'), 'utf8')).sites as Record<string, { at: string }>).map((s) => s.at);
-	if (/^[0-9a-f]{7,39}$/.test(commit)) commit = pinned.find((p) => p.startsWith(commit)) ?? commit;
-	let sha = has(commit);
-	if (!sha && /^[0-9a-f]{40}$/.test(commit)) {
-		git('fetch', '--quiet', '--depth=1', 'origin', commit);
-		sha = has(commit);
-	}
-	if (!sha) throw new Error(`census: no commit ${commit} here (a shallow clone fetches a commit only by its whole 40-character hash)`);
-	const dir = join(CACHE, 'trees', sha);
-	if (!existsSync(join(dir, 'play/site/src'))) {
-		mkdirSync(join(CACHE, 'trees'), { recursive: true });
-		execFileSync('git', ['-C', REPO, 'worktree', 'add', '--force', '--detach', dir, sha], { stdio: 'ignore' });
-	}
-	const nm = join(dir, 'play/site/node_modules');
-	if (!existsSync(nm)) symlinkSync(join(SITE, 'node_modules'), nm);
-	return { sha, root: join(dir, 'play/site') };
-}
 
 const tree = at ? treeAt(at) : null;
 const { setup } = await import('./census/setup');
@@ -83,7 +51,7 @@ const { setup } = await import('./census/setup');
 // same world today as when it was pinned
 const live = argv.includes('--live');
 const smoke = argv.includes('--smoke');
-setup({ real: smoke, renderer: arg('--renderer'), root: tree?.root, inputs: live ? undefined : resolve(arg('--inputs') ?? join(SITE, 'scripts/census/inputs')), record: argv.includes('--record'), cache: CACHE });
+setup({ real: smoke, renderer: arg('--renderer'), root: tree ? join(tree.dir, 'play/site') : undefined, inputs: live ? undefined : resolve(arg('--inputs') ?? join(SITE, 'scripts/census/inputs')), record: argv.includes('--record'), cache: CACHE });
 const { censusOf, smokeOf, VIEWS_OF } = await import('./census/run');
 const views = view === 'all' ? VIEWS_OF[world] : (view.split(',') as typeof VIEWS_OF[typeof world]);
 if (smoke) {
