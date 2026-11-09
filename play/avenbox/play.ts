@@ -1,8 +1,10 @@
 // play's MCP as the box's scripts call it (intent.ts, pr-intent.ts, skills.ts, live-audit.ts): one JSON-RPC client.
 // intents-pr.yml hands intent.ts to the box's run with this file beside it.
 
-/** play's MCP endpoint: PLAY_MCP_URL, else play.maia.city's */
-export const PLAY_MCP = process.env.PLAY_MCP_URL || "https://play.maia.city/api/mcp";
+/** play itself: PLAY_URL, else play.maia.city */
+export const PLAY_SITE = (process.env.PLAY_URL || "https://play.maia.city").replace(/\/$/, "");
+/** play's MCP endpoint: PLAY_MCP_URL, else PLAY_SITE's */
+export const PLAY_MCP = process.env.PLAY_MCP_URL || `${PLAY_SITE}/api/mcp`;
 
 type Where = { endpoint?: string; token?: string };
 let rpcId = 0;

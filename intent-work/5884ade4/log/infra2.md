@@ -131,3 +131,11 @@ scratchpad, `infra2/`).
   (the same `::error::` line, exit 1, before anything runs or is written; the backup job's bucket-keys.sh is the
   guard before it). Shown: the stand-in server-up.sh run with keys identical (§3's `fake/up.sh`); without a key it
   prints the error and exits 1 having written nothing (`infra2/nokeys.sh`); actionlint clean.
+
+## 14c. play's address said once in play.ts (re-infra#14)
+
+- play.ts: `PLAY_SITE` (PLAY_URL, else https://play.maia.city) and `PLAY_MCP` (PLAY_MCP_URL, else PLAY_SITE's
+  /api/mcp). live-audit.ts takes both from it instead of its own default and derivation. With neither variable set,
+  every box script reaches the same URLs as before (checked: `https://play.maia.city`, `…/api/mcp`); PLAY_URL set now
+  moves the MCP endpoint of every box script with it, as it did live-audit's alone.
+- Pinned: tsc (play/api's covers play/avenbox); live-audit without a token stops as before (exit 2).
