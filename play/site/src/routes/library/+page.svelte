@@ -15,7 +15,7 @@
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import type { LibraryFile } from '$wire';
-	import { libraryAddress, storyHref } from '$lib/app/address';
+	import { libraryAddress, storyHref } from '$lib/address';
 	import { api, fileText, fileUrl as url } from '$lib/api';
 	import { adminsOnly } from '$lib/admins.svelte';
 	import { isAdmin } from '$lib/session.svelte';

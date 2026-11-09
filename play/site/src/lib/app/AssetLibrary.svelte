@@ -29,7 +29,7 @@
 	const viewer = import('$lib/content/assets/VaultAsset.svelte');
 	const partsList = import('$lib/content/assets/Parts.svelte');
 	import { GROUPS } from './groups';
-	import { libraryHref, pieceHref } from './address';
+	import { libraryHref, pieceHref } from '$lib/address';
 
 	/** the one group this view shows (its key in play's database), or every group */
 	let { group }: { group?: string } = $props();

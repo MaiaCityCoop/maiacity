@@ -9,7 +9,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { pieceAddress } from '$lib/app/address';
+	import { pieceAddress } from '$lib/address';
 	import { adminsOnly } from '$lib/admins.svelte';
 	import { isAdmin } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';

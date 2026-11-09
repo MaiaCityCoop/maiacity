@@ -30,3 +30,7 @@ Before, play/site's non-held files: layers 16 (all of the repo; at most 10), swa
    said how long something took, for the intent detail and the delivery page: a way of writing a number, beside
    `format.ts`'s dates. The delivery route no longer leans on the board's folder. Pinned: the same functions, moved;
    gate site, `src/lib/site` tests; svelte-check's errors unchanged (13, all in held files, `pieces` and vite.config).
+6. **Pages' addresses to `lib/address.ts`** (layers: `site/intents → stories`, with move 5). `app/address.ts` imports
+   nothing and is read by stories, the board, the library and three routes: it is the site's kit, not the app shell's.
+   `stories` stops leaning on `lib/app` (Ce 13 → 12, I 0.81 → 0.80) and `site/intents` (I 0.80 after move 5) no
+   longer imports a less stable folder. Pinned: the same module, moved; gate site, `site` and `stories/timeline` tests.

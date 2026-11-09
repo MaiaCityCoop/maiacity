@@ -22,7 +22,7 @@
 	import StoryChanges, { type StoryDiff } from '$lib/stories/StoryChanges.svelte';
 	import type { Story } from '$lib/stories/timeline';
 	import { when } from '$lib/format';
-	import { pieceHref } from '$lib/app/address';
+	import { pieceHref } from '$lib/address';
 	import BuildView from './BuildView.svelte';
 	import Decision from './Decision.svelte';
 	import type { Verdict } from './decide';

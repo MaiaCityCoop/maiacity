@@ -3,7 +3,7 @@
 // timeline (./compose.ts), never here.
 
 import type * as W from '$wire';
-import { storyHref } from '../app/address';
+import { storyHref } from '../address';
 
 export type Clip = W.Clip;
 /** a track as the site reads it: the API's, and the names and ducking its tracks carry (not in its type yet) */
