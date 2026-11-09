@@ -67,7 +67,6 @@ for (const size of SIZES) {
 	for (const [who, me] of [['admin', ADMIN], ['traveler', TRAVELER]] as const) {
 		const page = await browser.newPage({ viewport: size, deviceScaleFactor: 2 });
 		await answered(page, me);
-		// the dashboard, at its apps
 		await page.goto(`${BASE}/`, { waitUntil: 'networkidle' });
 		await page.getByText('Your apps').scrollIntoViewIfNeeded();
 		await page.evaluate(() => [...document.querySelectorAll('p')].find((x) => x.textContent?.trim() === 'Your apps')?.scrollIntoView({ block: 'start' }));

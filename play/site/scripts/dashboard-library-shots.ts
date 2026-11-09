@@ -101,7 +101,6 @@ try {
 			await p.screenshot({ path: `${OUT}/${w}-dashboard-${file}.png` });
 			const tiles = p.locator('a.tile[href="/library/"]');
 			console.log(`${w} acting as ${as}: ${await tiles.count()} Library tile: ${(await tiles.first().textContent())?.trim()}`);
-			// the page it opens
 			await tiles.first().click();
 			await p.locator('.owner b', { hasText: as === 'me' ? "Samuel's library" : "Maia City's library" }).waitFor({ timeout: 30000 });
 			await p.waitForTimeout(1500);

@@ -70,7 +70,6 @@ async function file(hash: string) {
 	files.set(hash, text);
 	return text;
 }
-/** every piece a code requires, to any depth, read */
 async function deep(code: string, seen = new Set<string>()): Promise<string[]> {
 	for (const h of piecesOf(code) as string[]) if (!seen.has(h)) seen.add(h), await deep(await file(h), seen);
 	return [...seen];
@@ -171,7 +170,6 @@ async function checkWorld() {
 	process.exit(bad ? 1 : 0);
 }
 
-/** a play MCP tool's result as JSON */
 async function tool(name: string, a: Record<string, unknown>) {
 	const r = await fetch(`${PLAY}/api/mcp`, { method: 'POST', headers: { ...auth, 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: a } }) });
 	const text = await r.text();
