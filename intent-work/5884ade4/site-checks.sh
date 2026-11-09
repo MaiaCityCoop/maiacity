@@ -8,7 +8,7 @@ out=$(mktemp -d)
 cd play/site
 bunx svelte-kit sync > /dev/null
 bunx svelte-check --tsconfig ./tsconfig.json --output machine > "$out/check.txt" 2>&1
-bunx vitest run --reporter=json --outputFile="$out/vitest.json" > "$out/vitest.log" 2>&1
+bunx vitest run --config ../../intent-work/5884ade4/vitest.config.mts --root . --reporter=json --outputFile="$out/vitest.json" > "$out/vitest.log" 2>&1
 cd ../..
 errs=$(grep ' ERROR ' "$out/check.txt" | awk '{gsub(/"/,"",$3); print "play/site/"$3}' | grep -vxFf "$held" || true)
 fails=$(jq -r '.testResults[] | select(.status != "passed") | .name' "$out/vitest.json" 2>/dev/null | sed "s#^$(pwd)/##" | grep -vxFf "$held" || true)
