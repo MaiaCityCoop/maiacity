@@ -22,3 +22,11 @@ scratchpad, `infra2/`).
 - Pinned: workflows.test.ts's suite test now reads the workflows' gate lines and `gate.sh api --no-up --plan` (types,
   every file) instead of a `bun test --parallel` copy; deploy-speed.test.ts's step check names the gate. actionlint
   clean; `gate.sh website --no-up` green with GITHUB_ACTIONS set.
+
+## 2. server-care.sh on lib.sh's APP_DIR (re-infra#2)
+
+- Its seven `/opt/maia-city/…` (the disk report, the kept folders, its temporary files, the leftovers' cleaning) are
+  `"$APP_DIR"/…`, the constant of the lib.sh it sources; backup.sh's usage line no longer spells the folder.
+- Same commands (stand-ins as infra.md's, `infra2/fake/`, old = the branch before the move): server-care.sh report and
+  clean, with the bucket and with the folder; backup.sh and restore.sh (check, rollback both ways) as a guard: every
+  call identical (mktemp's random suffix normalised). `bash -n`; shellcheck finds only the warning it had (SC2024).

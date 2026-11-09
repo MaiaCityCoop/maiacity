@@ -51,7 +51,7 @@ report() {
   echo "## Disks"; df -h / "${DATA:-/}" | sed 's/^/    /'
   echo "## Docker"; docker system df | sed 's/^/    /'
   echo "## Largest under the app, the volume and Docker"
-  sudo du -xsh /opt/maia-city/* /var/lib/docker /var/log 2>/dev/null | sort -h | tail -12 | sed 's/^/    /'
+  sudo du -xsh "$APP_DIR"/* /var/lib/docker /var/log 2>/dev/null | sort -h | tail -12 | sed 's/^/    /'
   if [ -n "$DATA" ]; then
     sudo du -xsh "$(dirname "$DATA")"/* 2>/dev/null | sort -h | tail -12 | sed 's/^/    /'
     echo "## The largest folders on the data volume"
@@ -99,9 +99,9 @@ mend() {
   local left=""
   for h in $want; do
     local found=""
-    for k in $(ls -d /opt/maia-city/play-folder-blobs-* 2>/dev/null | sort -r); do
+    for k in $(ls -d "$APP_DIR"/play-folder-blobs-* 2>/dev/null | sort -r); do
       if sudo test -s "$k/blobs/${h:0:2}/$h"; then
-        local t; t=$(mktemp /opt/maia-city/backups-tmp/kept-XXXX); sudo cat "$k/blobs/${h:0:2}/$h" > "$t"
+        local t; t=$(mktemp "$APP_DIR/backups-tmp/kept-XXXX"); sudo cat "$k/blobs/${h:0:2}/$h" > "$t"
         if whole_file "$t" "$h"; then put_back "$h" "$t"; echo "mend: $h put back from $k"; found=1; fi
         rm -f "$t"; [ -n "$found" ] && break
       fi
@@ -111,7 +111,7 @@ mend() {
   want=$(echo $left)
   [ -n "$want" ] || return 0
   echo "mend: looking for $(echo $want | wc -w) in the backups …"
-  local tmp; tmp=$(mktemp -d /opt/maia-city/backups-tmp/mend-XXXX)
+  local tmp; tmp=$(mktemp -d "$APP_DIR/backups-tmp/mend-XXXX")
   # first the store every snapshot shares (BACKUPS/play-files/blobs/<xx>/<hash>, deploy/backup.sh)
   left=""
   for h in $want; do
@@ -147,7 +147,7 @@ mend() {
 forget_lost() {
   local lost; lost=$(broken || true)
   [ -n "$lost" ] || { echo "forget-lost: every file is whole"; return 0; }
-  local dump; dump=$(mktemp /opt/maia-city/backups-tmp/play-data-XXXX.sql)
+  local dump; dump=$(mktemp "$APP_DIR/backups-tmp/play-data-XXXX.sql")
   docker exec "$DB_CONTAINER" pg_dump -U maiacity -d maiacity -n play --data-only --inserts </dev/null > "$dump"
   for h in $lost; do
     local n; n=$(grep -o "$h" "$dump" | wc -l)
@@ -172,8 +172,8 @@ clean() {
   sudo journalctl --vacuum-size=200M 2>&1 | tail -1 || true
   sudo apt-get clean || true
   echo "clean: the leftovers of backups and restores"
-  sudo find /opt/maia-city/backups-tmp -mindepth 1 -maxdepth 1 -mmin +60 -exec rm -rf {} + 2>/dev/null || true
-  mkdir -p /opt/maia-city/backups-tmp
+  sudo find "$APP_DIR/backups-tmp" -mindepth 1 -maxdepth 1 -mmin +60 -exec rm -rf {} + 2>/dev/null || true
+  mkdir -p "$APP_DIR/backups-tmp"
   mend
   forget_lost
 }

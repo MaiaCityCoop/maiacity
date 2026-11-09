@@ -9,7 +9,7 @@
 # The backup fails unless the store holds every file the dump names, each at its size, and the snapshot's three
 # objects are in the bucket whole. Older snapshots (before 2026-11-05) carry their own full copy (blobs.tar or blobs/).
 # It runs before every deploy (the production workflow's server job, which stops if it fails), and by hand:
-#   bash /opt/maia-city/deploy/backup.sh <label> [commit]
+#   bash deploy/backup.sh <label> [commit]   (from the app's folder, deploy/lib.sh's APP_DIR)
 # Restoring, as a check or as a rollback, is .github/workflows/restore.yml, run by hand. Nothing runs on a schedule
 # (Samuel 2026-11-02; snapshots, Samuel 2026-11-05).
 # Access comes from ../backup.env (the deploy writes it, readable by deploy only):
