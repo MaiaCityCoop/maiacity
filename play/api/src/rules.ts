@@ -1,14 +1,9 @@
 // Auto-accept rules (play/SPEC.md §4.12 "Auto-accept rules"; intent de24f1c5, Samuel 2026-11-07: "Rules that we set on
 // allowed for specify specs intent types or proposal accept state intents, that can get auto accepted and need no HITL
-// … only changeable via HITLs and also version controlled"). The rules are one document, `rules:<RULES>` of its own
-// schema (`schema:<SCHEMA.rules>`, ../migrations/schemas/rules.json), kept in Postgres like every other: its Main is the
-// rules in force, its v1 (made at migrate's end where absent) holds the first rule, and every later version is a
-// person's Accept of an intent variant. Nothing here decides: matchRule only says which rule, if any, an intent meets
-// at a gate, and ./decide.ts autoMove (beside the gate, mayMove) takes the move a person would, with that rule as who
-// decided it.
-//
-// The rules are always a person's: matchRule gives null, whatever the rules say, for an intent whose work changes the
-// rule set or its schema (or that declares it will), so no rule can open them.
+// … only changeable via HITLs and also version controlled"): one document `rules:<RULES>` (its schema
+// ../migrations/schemas/rules.json), Main the rules in force, v1 the first rule, every later version a person's Accept.
+// matchRule only says which rule an intent meets at a gate; ./decide.ts autoMove takes the move with it as who decided.
+// The rules are always a person's: matchRule gives null for an intent that changes (or declares it will change) them.
 import type { Db, Queryable } from "./kit/pg";
 import * as docs from "./docs";
 import { COOP, RULE, RULES, SCHEMA } from "./kit/ids";
@@ -135,11 +130,7 @@ function holds(rule: Rule, f: Facts, gate: Gate): boolean {
   return true;
 }
 
-/**
- * The rule that decides intent `f` at `gate`: the first, in order, that names the gate and whose every field holds;
- * null where none does, and always null for an intent that touches the rules (they are always a person's) or holds
- * both code and play's work.
- */
+/** The first rule naming `gate` whose every field holds for `f`; null if none, and always for an intent touching the rules or holding code and play's work. */
 export function matchRule(f: Facts, gate: Gate, set: Pick<RuleSet, "rules"> | null): Rule | null {
   if (!set || touchesRules(f) || f.both) return null;
   return set.rules.find((r) => r.gates?.includes(gate) && holds(r, f, gate)) ?? null;
