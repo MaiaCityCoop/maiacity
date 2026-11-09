@@ -33,7 +33,11 @@ const BUILD = {
 	vec2: (x) => vec2(...x.value),
 	vec3: (x) => vec3(...x.value),
 	vec4: (x) => vec4(...x.value),
-	color: (x) => vec3(new THREE.Color(x.value)),
+	// 0xRRGGBB, as three's colours are given (sRGB), in the linear components the shader works in
+	color: (x) => {
+		const c = new THREE.Color(x.value);
+		return vec3(c.r, c.g, c.b);
+	},
 	uv: () => uv(),
 	positionLocal: () => positionLocal,
 	positionWorld: () => positionWorld,

@@ -171,4 +171,9 @@ describe('a graph built', () => {
 		expect(p.fragmentShader.length).toBeLessThan(60_000);
 		expect(p.vertexShader.length).toBeLessThan(60_000);
 	});
+	it('a colour is the colour given, in linear components (not black)', () => {
+		const c = new THREE.Color(0x2bd4a8);
+		const f = glslOf(built({ format: 1, nodes: [{ op: 'color', value: 0x2bd4a8 }], out: { color: 0 } })).fragmentShader;
+		expect(f).toContain(`vec3( ${c.r}, ${c.g}, ${c.b} )`);
+	});
 });
