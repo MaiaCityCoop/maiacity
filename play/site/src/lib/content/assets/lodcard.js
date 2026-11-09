@@ -1,20 +1,17 @@
 // @ts-nocheck — plain JS
 /*
  * WHAT A CARD SAYS OF ITS LEVELS — the one level-of-detail contract every asset is drawn by (play/SPEC.md §4.5, intent
- * a2935147): L0 its build; L1 and L2 its recipe's own where it declares them (`module.exports.levels = [{ values }, …]`,
- * the same recipe built with those values, which play reads off its source onto its card as `lod.values`, since nothing
- * runs a recipe outside the box), else derived from its build by simplifying it (./render/simplify.js); L3 its picture
- * (./render/impostors.js). The renderer (./render/index.js) asks this module which builds a kind's levels are, and knows
- * no parameter of any recipe by name.
+ * a2935147): L0 its build; L1 and L2 its recipe's own where declared (`module.exports.levels = [{ values }, …]`, read off
+ * its source onto its card as `lod.values`, since nothing runs a recipe outside the box), else simplified from its build
+ * (./render/simplify.js); L3 its picture (./render/impostors.js). The renderer (./render/index.js) asks this module which
+ * builds a kind's levels are, and knows no recipe's parameter by name.
  *
- * A version from before the contract names no `lod` and is read as derived (play/api src/lod.ts `lodOf`), and is drawn
- * as it was: one that takes a `detail` (every plant until now) was drawn at the details Sandbox 4 drew its forest at,
- * and is read here as declaring them (`OLD_DETAILS`), so its look, its cost and its builds' cache keys stay as they were.
- * No world chooses them (intent 6295a650): every world draws every asset by its card's levels and the one selector.
- * Those are the forest's two (the dome cell's forest, near and further off), never the whole plant at detail 1,
- * which no forest drew (half a million triangles a tree; the Mac's Metal run of intent 6295a650 measured five such trees
- * near the eye costing Sandbox 1's mid view 48 % more triangles): a version built at two levels is drawn at the
- * selector's two coarsest thresholds, then its picture (./render/lod.js `thresholdsOf`).
+ * A version from before the contract names no `lod` and is read as derived (play/api src/lod.ts `lodOf`), drawn as it
+ * was: one that takes a `detail` (every plant until now) is read as declaring the details Sandbox 4's forest drew it at
+ * (`OLD_DETAILS`), so its look, cost and cache keys stay. No world chooses them (intent 6295a650): those are the forest's
+ * two, never the whole plant at detail 1 (half a million triangles a tree; intent 6295a650's Metal run measured five
+ * near the eye costing Sandbox 1's mid view 48 % more triangles): drawn at the selector's two coarsest thresholds, then
+ * its picture (./render/lod.js `thresholdsOf`).
  */
 
 /** the details a version from before the contract that takes a `detail` is built at for its levels, L0 first */
@@ -23,8 +20,7 @@ const OLD_DETAILS = [0.25, 0.1];
 const OLD = 'detail';
 
 /**
- * A card's levels: its own `lod` as play wrote it, or, a version from before the contract, derived (or, one that takes
- * a `detail`, declared at OLD_DETAILS, `old: true`).
+ * A card's levels: its own `lod`, or for a version before the contract derived (one taking a `detail`: OLD_DETAILS, `old`).
  * @param {any} card a record's card (`record.card`) @returns {{ levels: 'declared' | 'derived', values?: Record<string, string | number>[], budgets?: number[], old?: boolean }}
  */
 export function lodOf(card) {
@@ -36,10 +32,8 @@ export function lodOf(card) {
 }
 
 /**
- * The values each of a kind's built levels is built with, over the values it is asked with, L0 first: one entry (its
- * build) where its L1 and L2 are derived, or one for each level its recipe declares.
- * @param {ReturnType<typeof lodOf> | undefined} lod
- * @returns {Record<string, string>[]}
+ * The values each built level of a kind is built with over those asked, L0 first: one (its build) where L1 and L2 are
+ * derived, else one per declared level. @param {ReturnType<typeof lodOf> | undefined} lod @returns {Record<string, string>[]}
  */
 export function levelValues(lod) {
 	if (lod?.levels !== 'declared') return [{}];
