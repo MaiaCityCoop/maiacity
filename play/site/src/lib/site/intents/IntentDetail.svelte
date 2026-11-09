@@ -402,7 +402,7 @@
 	   between them scrolls, the tabs sticky at its top */
 	.scrim { all: unset; position: absolute; inset: 0; z-index: 9; border-radius: inherit; background: rgb(38 56 44 / 0.28); }
 	.review { position: absolute; z-index: 10; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(48rem, calc(100% - 1rem)); height: min(46rem, calc(100% - 1rem)); box-sizing: border-box; background: var(--bg, #fbf8f2); border-radius: 16px; box-shadow: 0 20px 60px rgb(0 0 0 / 0.25); display: flex; flex-direction: column; gap: 0.5rem; padding: 1rem 1.1rem 0.8rem; overflow: hidden; }
-	@media (max-width: 520px) { .review { padding: 0.8rem 0.8rem 0.7rem; height: calc(100% - 1rem); } }
+	@media (max-width: 520px) { .review { padding: 0.8rem 0.8rem 0.7rem; } }
 	.review-head { flex: 0 0 auto; min-width: 0; }
 	.review-head h2 { margin: 0; font-size: 1.3rem; line-height: 1.25; }
 	/* ‹ Intents: back to the board; a tap's height (44 px), drawn as a quiet link */
@@ -412,12 +412,10 @@
 	.tags { margin: 0 0 0.3rem; display: flex; gap: 0.35rem; align-items: center; white-space: nowrap; min-width: 0; }
 	.tags [data-sub] { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 	.tags [data-sub]::first-letter { text-transform: uppercase; }
-	/* between the header and the foot: the top stays, the tab's content scrolls, and the tabs are docked at the bottom
-	   right above the decision, always in sight (Samuel 2026-11-07: "bottom align above the action button areas the
-	   tab section, so it's always like fixed to the bottom area") */
-	.item-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
-	.item-body > .top { flex: 0 0 auto; max-height: 62%; overflow-y: auto; overscroll-behavior: contain; }
-	.panel { flex: 1 1 0; min-height: 6rem; overflow-y: auto; overscroll-behavior: contain; border-top: 1px solid var(--line, #dcd5c4); }
+	/* the one sizing rule (intent 96206162): between the header and the decision's foot one scroller, never under the
+	   foot, whatever the screen's height; the tabs stick at its bottom, always in sight (Samuel 2026-11-07) */
+	.item-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain; }
+	.panel { flex: 1 0 auto; border-top: 1px solid var(--line, #dcd5c4); }
 
 	/* the top: the stage's parts, short lines, nothing an agent alone needs */
 	.top { display: flex; flex-direction: column; gap: 0.55rem; padding: 0.15rem 0 0.8rem; font-size: 0.95rem; line-height: 1.45; }
@@ -444,9 +442,8 @@
 	.steps-compact li { display: inline-flex; align-items: center; gap: 0.3rem; }
 	.steps-compact li[data-state='queued'] { color: var(--muted, #777); }
 
-	/* the tabs' band, sticky at the top of what scrolls, in the aside's style (play/SPEC.md §4.15 One aside); on a
-	   narrow screen it scrolls sideways */
-	.band { flex: 0 0 auto; margin: 0 -0.2rem; padding: 0.45rem 0.2rem 0.1rem; background: var(--bg, #fbf8f2); overflow-x: auto; scrollbar-width: none; text-align: center; }
+	/* the tabs' band in the aside's style (play/SPEC.md §4.15 One aside); narrow, it scrolls sideways */
+	.band { position: sticky; bottom: 0; flex: 0 0 auto; margin: 0 -0.2rem; padding: 0.45rem 0.2rem 0.1rem; background: var(--bg, #fbf8f2); overflow-x: auto; scrollbar-width: none; text-align: center; }
 	.band::-webkit-scrollbar { display: none; }
 	.tabs { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: rgb(0 0 0 / 0.06); white-space: nowrap; }
 	.tabs button { font: inherit; color: inherit; border: 0; cursor: pointer; flex: 0 0 auto; padding: 0.32rem 0.9rem; border-radius: 999px; background: none; font-size: 0.8rem; font-weight: 600; }
@@ -561,7 +558,7 @@
 	   every versioned thing on play reads (play/SPEC.md §4.15 One aside): on the left and large the open tab's content
 	   (the asset drawn, the work, the spec …); on the right an aside with the header, the top, the tabs and the decision
 	   docked at its foot */
-	@media (min-width: 900px) {
+	@media (min-width: 900px) and (min-height: 501px) {
 		.review {
 			width: min(76rem, calc(100% - 2rem));
 			/* as tall as what it holds, up to the screen: no empty band (a drawn asset makes it tall) */
@@ -576,10 +573,10 @@
 			padding: 1.1rem 1.2rem 0.9rem;
 		}
 		.item-body { display: contents; }
-		.panel { grid-column: 1; grid-row: 1 / -1; min-height: 0; border-top: 0; padding: 0.2rem 0.4rem 0.6rem 0; }
+		.panel { grid-column: 1; grid-row: 1 / -1; min-height: 0; overflow-y: auto; border-top: 0; padding: 0.2rem 0.4rem 0.6rem 0; }
 		.review-head { grid-column: 2; grid-row: 1; }
 		.item-body > .top { grid-column: 2; grid-row: 2; max-height: none; padding-bottom: 0.4rem; }
-		.band { grid-column: 2; grid-row: 3; text-align: left; overflow: visible; margin: 0; padding: 0.4rem 0 0; border-top: 1px solid var(--line, #dcd5c4); }
+		.band { position: static; grid-column: 2; grid-row: 3; text-align: left; overflow: visible; margin: 0; padding: 0.4rem 0 0; border-top: 1px solid var(--line, #dcd5c4); }
 		.tabs { flex-wrap: wrap; white-space: normal; border-radius: 16px; }
 		.refused { grid-column: 2; grid-row: 4; }
 		.review > :global(.decide) { grid-column: 2; grid-row: 5; }
