@@ -1,7 +1,9 @@
 # deploy
 
 What the server needs beside the compose files: Caddy's config (`Caddyfile`), the website's publish
-(`publish-site.py`), and play's backups.
+(`publish-site.py`), and play's backups. `lib.sh` holds production's constants (its folder, its host, the bucket) and
+what the scripts on the server share (the AWS CLI's call, compose, the health probe); `dns.sh` sets and removes a
+name's records, `server-up.sh` brings play up on the server, `bucket-keys.sh` writes the bucket's keys there.
 
 ## Releases: Accept ships it (Samuel 2026-11-06)
 
@@ -21,13 +23,13 @@ Accept there ships it again.
 - **main's ruleset** (Settings → Rules → Rulesets → New branch ruleset; made once `Intent accepted` has been posted
   once, so GitHub offers it): target the default branch `main`, enforcement Active, **no bypass list**; rules:
   *Restrict deletions*; *Require a pull request before merging* (0 approvals); *Require status checks to pass*:
-  `play / API and site`, `website / build` and `Intent accepted` (any source; *Require branches to be up to date*
+  the two named in `.github/required-checks.json` and `Intent accepted` (any source; *Require branches to be up to date*
   left off, or every merge waits on the pull request being brought up to main first); *Block force pushes*. Then a
   pull request whose
   intent is not accepted cannot be merged: GitHub shows `Intent accepted` as expected.
 - **production's ruleset**: production moves only by release.yml's fast-forward push (GitHub Actions), never by a pull
   request: enforcement Active; rules *Restrict deletions*, *Block force pushes* (so it only ever moves forward) and
-  *Require status checks to pass*: `play / API and site` and `website / build` (main's own checks on the commit, so
+  *Require status checks to pass*: the two named in `.github/required-checks.json` (main's own checks on the commit, so
   only a commit main has checked goes out). No *Require a pull request*, no *Only from main*: those were the old way
   (a pull request main → production), and they refuse release.yml's push (GH013).
 - It stops every change landing without an Accept by mistake; it does not stop someone acting as the token's owner on
@@ -74,9 +76,10 @@ GitHub → Actions → **server** → Run workflow (`server-care.sh`), never bes
   leftovers of backups, play's files, and which of them are broken (their bytes not hashing to their name).
 - **clean** frees what nothing uses (Docker's unused images older than a day, stopped containers, its build cache,
   the journal past 200 MB, apt's cache, leftovers of backups older than an hour; no volume is removed), then mends
-  play's broken files: their good bytes from the backups' shared store, then from the older backups' own copies,
-  checked against their hash; one no
-  backup holds is moved aside to `broken-<when>/` beside the files, so play writes it anew when it is made again.
+  play's broken files: their good bytes from the folders kept when play's files moved into the bucket, then the
+  backups' shared store, then the older backups' own copies, checked against their hash. A file whose bytes are lost
+  everywhere and that nothing in play's data names but its own row is forgotten (its row in `play.files` removed);
+  one that anything names is kept and reported.
 
 A full disk is what breaks files: play now writes a file whole beside its name and only then moves it there, and takes
 a file whose bytes do not hash to its name for missing (`play/api/src/blobs.ts`). The backup uploads the files

@@ -121,9 +121,9 @@ async function server(url) {
 	const at = `http://localhost:${port}`;
 	for (let i = 0; i < 240; i++) {
 		await new Promise((r) => setTimeout(r, 500));
-		try {
-			if ((await fetch(`${at}/render/`)).ok) return { url: at, stop: () => dev.kill() };
-		} catch {}
+		// refused (a TypeError) until the server listens
+		const up = await fetch(`${at}/render/`).then((r) => r.ok, (e) => (e instanceof TypeError ? false : Promise.reject(e)));
+		if (up) return { url: at, stop: () => dev.kill() };
 		if (dev.exitCode !== null) break;
 	}
 	dev.kill();

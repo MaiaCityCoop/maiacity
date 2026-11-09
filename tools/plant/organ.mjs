@@ -19,7 +19,7 @@ import { createRequire } from 'node:module';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const SITE = resolve(process.env.PLAY_SITE ?? '/home/user/maiacity/play/site');
+import { SITE } from '../site.cjs';
 const arg = (k, d) => {
 	const i = process.argv.indexOf(`--${k}`);
 	return i > 0 ? process.argv[i + 1] : d;

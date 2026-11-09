@@ -37,13 +37,6 @@ concurrency:
   group: production-release
   cancel-in-progress: false
 
-env:
-  APP_DIR: /opt/maia-city
-  HOST: api.maia.city
-  S3_BUCKET: maiacity
-  S3_ENDPOINT: https://hel1.your-objectstorage.com
-  S3_REGION: hel1
-
 jobs:
   restore:
     name: ${{ inputs.mode }} ${{ inputs.backup }}
@@ -57,7 +50,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/prod-ssh
         with:
-          host: ${{ env.HOST }}
           ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
           known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
       - name: Copy the scripts and the bucket's access
@@ -65,14 +57,9 @@ jobs:
           S3_ACCESS_KEY: ${{ secrets.HETZNER_S3_ACCESS_KEY }}
           S3_SECRET_KEY: ${{ secrets.HETZNER_S3_SECRET_KEY }}
         run: |
-          if [ -z "$S3_ACCESS_KEY" ] || [ -z "$S3_SECRET_KEY" ]; then
-            echo "::error::Set HETZNER_S3_ACCESS_KEY and HETZNER_S3_SECRET_KEY."; exit 1
-          fi
           ssh prod "mkdir -p $APP_DIR/deploy"
-          scp deploy/backup.sh deploy/restore.sh "prod:$APP_DIR/deploy/"
-          printf 'BACKUP_BUCKET=%s\nBACKUP_ENDPOINT=%s\nBACKUP_REGION=%s\nAWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s\n' \
-            "$S3_BUCKET" "$S3_ENDPOINT" "$S3_REGION" "$S3_ACCESS_KEY" "$S3_SECRET_KEY" \
-            | ssh prod "umask 077; cat > $APP_DIR/backup.env"
+          bash deploy/bucket-keys.sh
+          scp deploy/lib.sh deploy/backup.sh deploy/restore.sh "prod:$APP_DIR/deploy/"
       - name: ${{ inputs.mode }}
         env:
           MODE: ${{ inputs.mode }}

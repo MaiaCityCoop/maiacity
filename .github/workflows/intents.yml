@@ -52,7 +52,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         if: steps.which.outputs.ids != ''
         with:
-          bun-version: 1.4.4
+          bun-version-file: .bun-version
       - name: avenBOX (play/avenbox/setup.sh)
         if: steps.which.outputs.ids != ''
         run: sudo env "PATH=$PATH" bash play/avenbox/setup.sh

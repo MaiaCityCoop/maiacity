@@ -18,7 +18,7 @@ const path = require('path');
 const fs = require('fs');
 const cp = require('child_process');
 
-const SITE = path.resolve(process.env.PLAY_SITE ?? path.join(__dirname, '../../../../play/site'));
+const { SITE } = require('../site.cjs');
 const arg = (k, d) => {
 	const i = process.argv.indexOf(`--${k}`);
 	return i > 0 ? process.argv[i + 1] : d;

@@ -14,8 +14,9 @@
 # container's processes don't outlive its setup, up.sh starts it.
 set -u
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-PG=17
-PORT=5432
+. "$ROOT/play/avenbox/box.env"
+PG=$PG_VERSION
+PORT=$PG_PORT
 export PATH="$HOME/.bun/bin:/usr/lib/postgresql/$PG/bin:$PATH"
 say() { echo "avenBOX setup: $*"; }
 [ "$(id -u)" = 0 ] || { say "run me as root (the environment's setup script does); nothing done"; exit 0; }
@@ -60,16 +61,14 @@ if command -v pg_lsclusters > /dev/null; then
       sed -i "s/^port = .*/port = $PORT/" "/etc/postgresql/$V/main/postgresql.conf"
     fi
     if [ -f "/etc/postgresql/$V/main/postgresql.conf" ]; then
-      # room for the API's tests in parallel (intent aa59f248): each test file's pool and each play-api it starts take up
-      # to 20 connections, and 100 (the default) left a play-api started by a test without one ("too many clients")
       conf="/etc/postgresql/$V/main/postgresql.conf"
-      sed -i 's/^#\?max_connections = [0-9]*/max_connections = 500/' "$conf"
-      grep -q '^max_connections = 500' "$conf" || echo "max_connections = 500" >> "$conf"
+      sed -i "s/^#\?max_connections = [0-9]*/max_connections = $PG_MAX_CONNECTIONS/" "$conf"
+      grep -q "^max_connections = $PG_MAX_CONNECTIONS" "$conf" || echo "max_connections = $PG_MAX_CONNECTIONS" >> "$conf"
       running=0
       pg_isready -q -h 127.0.0.1 -p "$PORT" && running=1
       [ $running = 1 ] || pg_ctlcluster "$V" main start > /dev/null 2>&1
       for _ in $(seq 1 30); do pg_isready -q -h 127.0.0.1 -p "$PORT" && break; sleep 0.5; done
-      if su postgres -c "psql -q -p $PORT -c \"ALTER ROLE postgres PASSWORD 'play'\"" > /dev/null 2>&1; then
+      if su postgres -c "psql -q -p $PORT -c \"ALTER ROLE postgres PASSWORD '$PG_PASSWORD'\"" > /dev/null 2>&1; then
         say "PostgreSQL $V on 127.0.0.1:$PORT, postgres's password set"
       else
         say "could not set postgres's password on cluster $V/main"

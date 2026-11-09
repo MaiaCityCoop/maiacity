@@ -9,7 +9,8 @@ import { gunzipSync } from 'node:zlib';
 import { plugin } from 'bun';
 
 const HERE = new URL('.', import.meta.url).pathname;
-const SITE = new URL('../../play/site/src/lib/', import.meta.url).pathname;
+import { SITE as PLAY_SITE } from '../site.cjs';
+const SITE = `${PLAY_SITE}/src/lib/`;
 // the page's own modules name $lib
 plugin({ name: 'lib', setup: (b) => void b.onResolve({ filter: /^\$lib\// }, (a) => ({ path: SITE + a.path.slice(5) })) });
 const { THREE, files, piece, asset, run } = await import('./box.mjs');
