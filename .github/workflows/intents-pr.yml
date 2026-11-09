@@ -58,7 +58,7 @@ jobs:
           echo "intent=$intent" >> "$GITHUB_OUTPUT"
           mkdir -p "$RUNNER_TEMP/box"
           bun play/avenbox/intent.ts "$intent" --spec-out "$RUNNER_TEMP/box/spec.json"
-          cp play/avenbox/intent.ts "$RUNNER_TEMP/box/intent.ts"
+          cp play/avenbox/intent.ts play/avenbox/play.ts "$RUNNER_TEMP/box/"
       - uses: actions/upload-artifact@v4
         with:
           name: box-spec

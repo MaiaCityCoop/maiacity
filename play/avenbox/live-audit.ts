@@ -13,6 +13,7 @@
 // merged its pull request on main, else its commits on main. It is live when each is an ancestor of the running commit.
 // It prints every mismatch (live and not Accepted, Accepted and not live), and exits 0 only with none.
 import { resolve } from "node:path";
+import { tool as playTool } from "./play";
 
 const ROOT = resolve(import.meta.dir, "../..");
 const site = (process.env.PLAY_URL || "https://play.maia.city").replace(/\/$/, "");
@@ -28,17 +29,7 @@ const git = (...args: string[]) => {
   return { code: p.exitCode ?? 1, out: `${p.stdout}`.trim() };
 };
 
-async function tool(name: string, args: Record<string, unknown>) {
-  const r = await fetch(endpoint, {
-    method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${token}` },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }),
-  });
-  if (!r.ok) throw new Error(`${name}: play answered ${r.status}`);
-  const body = (await r.json()) as any;
-  if (body.error || body.result?.isError) throw new Error(`${name}: ${body.error?.message ?? body.result.content?.[0]?.text}`);
-  return JSON.parse(body.result.content[0].text);
-}
+const tool = (name: string, args: Record<string, unknown>) => playTool(name, args, { endpoint, token });
 
 const given = Bun.argv.indexOf("--commit");
 const commit = given > 0 ? Bun.argv[given + 1] : ((await (await fetch(`${site}/api/version`)).json().catch(() => ({}))) as { commit?: string | null }).commit;

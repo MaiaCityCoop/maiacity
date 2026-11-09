@@ -24,6 +24,7 @@
 // must test or measure check fails. No check's command sees PLAY_MCP_TOKEN, nor GitHub's tokens.
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { tool } from "./play";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const SHA = /^[0-9a-f]{40}$/;
@@ -88,25 +89,8 @@ if (record && process.env.GITHUB_ACTIONS !== "true") {
   console.error(RUN_RECORDS);
   process.exit(2);
 }
-const endpoint = process.env.PLAY_MCP_URL || "https://play.maia.city/api/mcp";
 const token = process.env.PLAY_MCP_TOKEN;
 if (from === undefined && !token) usage("PLAY_MCP_TOKEN is not set: an admin's play access token (play's profile page).");
-
-let rpcId = 0;
-/** a play MCP tool: its result as JSON, or it throws with the tool's own words */
-async function tool(name: string, args: Record<string, unknown>) {
-  const r = await fetch(endpoint, {
-    method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${token}` },
-    body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method: "tools/call", params: { name, arguments: args } }),
-  });
-  if (!r.ok) throw new Error(`${name}: play answered ${r.status} ${await r.text()}`);
-  const body = (await r.json()) as any;
-  if (body.error) throw new Error(`${name}: ${body.error.message}`);
-  const text = body.result?.content?.[0]?.text ?? "";
-  if (body.result?.isError) throw new Error(`${name}: ${text}`);
-  return JSON.parse(text);
-}
 
 const sh = (cmd: string[], env?: Record<string, string | undefined>) => {
   const p = Bun.spawnSync(cmd, { cwd: ROOT, env: env ?? process.env, stdout: "pipe", stderr: "pipe" });

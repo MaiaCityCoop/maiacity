@@ -151,3 +151,18 @@ committed before and as now, every call they make logged and diffed):
 - Left: tools/character (held at the audit; its files name `../../play/site` too), the committed mirror of play's
   documents in tools/motion (pieces/, assets/, proposed.json: needs intent b9e6ad45 accepted first), and a check of
   the committed paths skills name (infra#28).
+
+## 11. One play MCP client for the box's scripts (infra F2, part; infra#12 (avenbox), 30)
+
+- `play/avenbox/play.ts`: `PLAY_MCP` (PLAY_MCP_URL, else play.maia.city's), `call()` (one JSON-RPC tools/call: throws
+  when play does not answer, returns the tool's text and whether it is an error) and `tool()` (its JSON, or throws
+  with the tool's words). intent.ts, skills.ts, live-audit.ts (its own endpoint, from PLAY_URL) and pr-intent.ts take
+  it instead of four copies and four defaults.
+- intents-pr.yml's spec job hands play.ts beside intent.ts to the box's run (`cp play/avenbox/intent.ts
+  play/avenbox/play.ts "$RUNNER_TEMP/box/"`); the sparse checkouts of play/avenbox hold it (infra#30: play.ts imports
+  nothing outside play/avenbox).
+- Pinned: workflows.test.ts's Intent named suite (judge() against a stand-in play, and the CLI) green; against play
+  itself: `intent.ts <uuid> --spec-out` writes the spec, `skills.ts` writes the 44 skills, `live-audit.ts` lists the
+  74 code intents; intent.ts copied alone with play.ts into a folder runs from there.
+- Left: the play/site scripts' and tools/sheet's own clients (not in the box's sparse checkout; a play/site kit is the
+  next step), ship.ts's and live-audit's trailer rules (play/api is the api builder's).
