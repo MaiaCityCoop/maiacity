@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import { castsAsNode, cutOf } from '../../render/nodes/index.js';
 import { bake, bakeOf, cardMaterials } from '../../render/nodes/impostor.js';
 import { budget } from '../../render/budget.js';
-import { isWebGPU } from '../../render/core.js';
+import { isWebGPU, maxTextureSize } from '../../render/core.js';
 
 /** a kind's picture is kept as two images: its views' colours; their normals and depth */
 export const FRAMES = 2;
@@ -60,7 +60,7 @@ function hull() {
  */
 export function createImpostors(renderer, o = {}) {
 	const B = budget().picture;
-	const most = Math.min(o.page ?? B.page, renderer.capabilities?.maxTextureSize ?? 8192);
+	const most = Math.min(o.page ?? B.page, maxTextureSize(renderer));
 	const N = o.views ?? B.views ?? 8;
 	const px = Math.min(o.px ?? B.px, Math.floor(most / N));
 	const cols = Math.floor(most / px), per = Math.floor(cols / N), side = N * px;

@@ -23,7 +23,7 @@ import { gunzipSync, gzipSync } from 'node:zlib';
 import { hashOf } from '../../src/lib/content/assets/box/headless.js';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { El, VIEWPORT, makeDocument } from './dom';
+import { El, VIEWPORT, contexts, makeDocument } from './dom';
 import { SEEDED_RANDOM, frameWindow } from './box';
 import { opfs } from './opfs';
 
@@ -48,6 +48,9 @@ export type Setup = {
 	/** the switch's backend the page is asked for (`?renderer=`, intent c1bee1f8): webgl, webgpu or webgl2; none: the
 	 *  page's default. A tree without the switch draws with WebGLRenderer whatever is asked */
 	renderer?: string;
+	/** the smoke (intent c1bee1f8): three's own WebGPURenderer, on its WebGL 2 backend over a context that only answers,
+	 *  instead of the counting one, so a world runs WebGPU's own code (../census.ts --smoke) */
+	real?: boolean;
 };
 
 let done: Required<Pick<Setup, 'root' | 'cache'>> & Setup;
@@ -62,6 +65,9 @@ export function frame(now = performance.now()) {
 	rafs = new Map();
 	for (const cb of due.values()) cb(now);
 }
+
+/** the smoke's WebGL 2 contexts (setup's `real`): each one's shaders, and every draw sent to any */
+export const smoked = { shaders: [] as string[][], draws: 0 };
 
 /** what was fetched, for the census's report: each route once */
 export const fetched = { live: new Set<string>(), pinned: new Set<string>(), files: 0 };
@@ -78,7 +84,7 @@ export function setup(o: Setup = {}) {
 	const spec = (s: string, from: string) => {
 		if (s === 'three') return /\/census\/(counting|three)\.js$/.test(from) ? THREE_REAL : join(HERE, 'three.js');
 		// three's WebGPU build, its renderer the counting one (intent c1bee1f8); ./webgpu.js itself reads the real one
-		if (s === 'three/webgpu') return /\/census\/webgpu\.js$/.test(from) ? THREE_WEBGPU_REAL : join(HERE, 'webgpu.js');
+		if (s === 'three/webgpu') return o.real || /\/census\/webgpu\.js$/.test(from) ? THREE_WEBGPU_REAL : join(HERE, 'webgpu.js');
 		if (s.startsWith('$lib/') || s === '$lib') return resolveFile(join(root, 'src/lib', s.slice(5)));
 		if (s.startsWith('$app/')) return stub(`app-${s.slice(5)}.js`);
 		if (s.endsWith('.svelte')) return stub('svelte.js');
@@ -140,6 +146,22 @@ export function setup(o: Setup = {}) {
 	g.screen = { width: VIEWPORT.width, height: VIEWPORT.height, availWidth: VIEWPORT.width, availHeight: VIEWPORT.height, orientation: { type: 'landscape-primary', angle: 0, addEventListener() {} } };
 	g.location = new URL('http://census.local/sandbox-1/');
 	if (o.renderer) g.location.searchParams.set('renderer', o.renderer);
+	if (o.real) {
+		g.location.searchParams.set('renderer', 'webgl2');
+		const fake = join(SITE, 'src/lib/content/render/nodes/fakegl.js');
+		// each context counted: the shaders it compiled and the draws it was sent (the smoke's proof that it drew)
+		contexts.webgl2 = () => {
+			const { gl, shaders } = require(fake).fakeGL();
+			smoked.shaders.push(shaders);
+			return new Proxy(gl, {
+				get(t, k) {
+					const v = t[k];
+					if (typeof k === 'string' && k.startsWith('draw') && typeof v === 'function') return (...a: unknown[]) => (smoked.draws++, v(...a));
+					return v;
+				}
+			});
+		};
+	}
 	g.history = { pushState() {}, replaceState() {}, back() {}, state: null };
 	g.matchMedia = (q: string) => ({ matches: /prefers-color-scheme: light|pointer: fine|hover: hover/.test(q), media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} });
 	g.requestAnimationFrame = (cb: FrameRequestCallback) => (rafs.set(++rafId, cb), rafId);

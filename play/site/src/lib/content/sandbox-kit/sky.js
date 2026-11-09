@@ -26,7 +26,8 @@ import { SunLight } from 'three/addons/lights/SunLight.js';
 import { airOf, createUniverse, groundStars, horizonRing, skyAt } from './universe.js';
 import { skyHour, skyTime } from './skyTime.svelte.js';
 import { budget } from '../render/budget.js';
-import { agx, setExposure, untonemap } from '../render/core.js';
+import { agx, isWebGPU, ready, setExposure, untonemap } from '../render/core.js';
+import { CubeRenderTarget } from 'three/webgpu';
 
 /**
  * @typedef {{ hour: number, e: number, day: number, low: number, night: number }} SkyLight
@@ -229,9 +230,14 @@ export function createSky(renderer, scene, options = {}) {
 	// into the same targets, so every material keeps the one environment it was compiled with
 	const envSky = createUniverse({ clouds: 0, mirror: map, disc: false });
 	const envScene = new THREE.Scene().add(envSky.dome);
-	const cube = new THREE.WebGLCubeRenderTarget(128, { type: THREE.HalfFloatType });
+	// on WebGPU (intent c1bee1f8) the cube is three/webgpu's and is the environment itself: its node system filters it
+	// each time the cube camera draws it (PMREMNode), so no PMREMGenerator; and nothing is drawn before it is initialised
+	const gpu = isWebGPU(renderer);
+	const cube = gpu ? new CubeRenderTarget(128, { type: THREE.HalfFloatType }) : new THREE.WebGLCubeRenderTarget(128, { type: THREE.HalfFloatType });
 	const cubeCamera = new THREE.CubeCamera(0.1, 100, cube);
-	const pmrem = new THREE.PMREMGenerator(renderer);
+	const pmrem = gpu ? null : new THREE.PMREMGenerator(renderer);
+	/** a bake asked for before a WebGPURenderer may draw, made once it may (unless the sky is gone) */
+	let waiting = false, gone = false;
 	/** @type {THREE.WebGLRenderTarget | null} */
 	let envTarget = null;
 
@@ -300,6 +306,21 @@ vec3 skyHorizon(vec3 dir) {
 
 	const bake = (/** @type {number[]} */ gain) => {
 		envSky.U.gain.value.fromArray(gain);
+		if (!pmrem) {
+			if (!(/** @type {any} */ (renderer).initialized)) {
+				if (!waiting) {
+					waiting = true;
+					void ready(renderer).then(() => {
+						waiting = false;
+						if (!gone) bake(envSky.U.gain.value.toArray());
+					});
+				}
+				return;
+			}
+			cubeCamera.update(renderer, envScene);
+			scene.environment = cube.texture;
+			return;
+		}
 		cubeCamera.update(renderer, envScene);
 		envTarget = pmrem.fromCubemap(cube.texture, envTarget);
 		scene.environment = envTarget.texture;
@@ -390,10 +411,11 @@ vec3 skyHorizon(vec3 dir) {
 			universe.dispose();
 			envSky.dispose();
 			sun.dispose();
+			gone = true;
+			if (scene.environment === envTarget?.texture || scene.environment === cube.texture) scene.environment = null;
 			cube.dispose();
-			if (scene.environment === envTarget?.texture) scene.environment = null;
 			envTarget?.dispose();
-			pmrem.dispose();
+			pmrem?.dispose();
 		}
 	};
 }
