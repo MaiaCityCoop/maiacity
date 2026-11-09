@@ -1,5 +1,11 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 15:03 Berlin
+- **#13 run 4 recorded: c6 PASS** (head 6a4c572ee; out/ 2daee0508). SSIM vs base 0.87–0.99 now: strawberries and flowers
+  gather in the crowns' shade, bare ground between, a margin at the path, deadwood by the trunks. **24454c2d is at
+  Proposal** (play reading #2193; its PR head has since moved to 4ca47cf40 — c1–c5 on bdcbb6196, c6 on 6a4c572ee).
+- **#6 running** (head dbccfa97f vs main 11e518c7e, since 15:00), then 7af6e162, then the viewer contact-shadow test.
+
 ## 14:45 Berlin — resumed after the weekly limit
 - Loop (chain19, nohup): **#13 run 4** (render 1249b53dc, head 6a4c572ee, started 14:43) → **#6** (b539d56b2) →
   **7af6e162** (98c9211d0) → 544485e2's next viewer test → 0b4c007b's looks once 660ad67f is on main.
