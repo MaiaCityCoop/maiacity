@@ -29,8 +29,8 @@ bash intent-work/e85a5860-render/run.sh
 
 - **Needs:** bun, node, Playwright with its Chromium (WebGPU on Metal), ffmpeg, curl, and `PLAY_MCP_TOKEN`. The
   token is read by the read-only proxy. No fal, nothing paid.
-- **Shaders first:** `bun scripts/grass-wgsl.ts` builds every pass and level to WGSL before anything is drawn. In
-  avenBOX naga held all nine to the WGSL grammar.
+- **Shaders:** checked in avenBOX before the job, not here. `bun play/site/scripts/grass-wgsl.ts` builds every pass
+  and level to WGSL, and naga held all nine to the WGSL grammar.
 - **Determinism:** the render box's `determinism.mjs`, from `intent-work/main-baseline-render`, the shared main
   baseline.
   - `SEEDED_RANDOM` is an init script.
@@ -61,7 +61,7 @@ never onto the pull request's branch:
   - `verdict`: c4's and c2's verdicts.
 - `results-small.json` and `small-*.jpg`: the compute at 390 × 844 on the small budget (`?budget=small`). Holds the
   visible blades and the frame time. `verdict.c5`.
-- `run-log.txt`, `run-log-small.txt`, `wgsl.txt`.
+- `run-log.txt`, `run-log-small.txt`.
 
 **What decides it:**
 

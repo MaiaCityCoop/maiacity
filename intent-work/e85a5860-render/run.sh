@@ -9,8 +9,6 @@ rm -rf "$W" && mkdir -p "$W" "$OUT"
 git -C "$REPO" fetch -q origin intent-work/main-baseline-render
 git -C "$REPO" show origin/intent-work/main-baseline-render:intent-work/main-baseline/determinism.mjs > "$W/determinism.mjs"
 cd "$REPO/play/site" && bun install >/dev/null
-# the shaders build before anything is drawn (WGSL, no GPU needed)
-bun scripts/grass-wgsl.ts | tee "$W/wgsl.txt"
 PORT=5183
 PLAY_API=http://localhost:3911 bunx vite dev --port $PORT --strictPort >"$W/vite.log" 2>&1 &
 VITE=$!; trap 'kill $VITE 2>/dev/null || true' EXIT
@@ -18,7 +16,7 @@ until curl -sf "http://localhost:$PORT/" >/dev/null; do sleep 1; done
 cd "$REPO"
 DETERMINISM="$W/determinism.mjs" node "$J/grass.mjs" --site head=http://localhost:$PORT --out "$W" 2>&1 | tee "$OUT/run-log.txt"
 DETERMINISM="$W/determinism.mjs" node "$J/grass.mjs" --site head=http://localhost:$PORT --out "$W" --small 2>&1 | tee "$OUT/run-log-small.txt"
-cp "$W"/results*.json "$W/wgsl.txt" "$OUT/"
+cp "$W"/results*.json "$OUT/"
 for p in "$W"/*.png; do ffmpeg -loglevel error -y -i "$p" -vf "scale=1440:-2" -q:v 3 "$OUT/$(basename "${p%.png}").jpg"; done
 # intent 7's tiles beside the compute's blades, each view
 for l in noon sun8; do for h in walk up2; do
