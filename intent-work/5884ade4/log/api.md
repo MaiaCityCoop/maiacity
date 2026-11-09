@@ -149,3 +149,43 @@ behaviour is pinned. Measured with `bun intent-work/5884ade4/measure.ts api|cycl
     `play/api/import/stories.ts`, which measure.ts' corpus skips (`STORY_ID`, `FoldReport`, `seedStory`, `putFrame`,
     `ensureStoryDocs`): the import runs them on every deploy. Dead in play/api/src: 102 → those 5. Pinned: tsc, the
     whole suite.
+
+## Where play/api/src stands
+
+Layers, lowest first (no file cycle, no folder cycle, no `src → src/docs` line in `graph.ts unstable`): `kit/` (pg,
+ids, hash, uuid, locks, errors) ← `docs/` ← `access`, `owners`, `pieces`, `gist`, `substate` ← `kinds.ts` ← `held.ts`
+← `github.ts`, `intents.ts` (the gate, `decided`, `moveBack`, putAtProposal, settle, the guard) ← each kind's module
+(stories, storydocs, sandboxes, skills, rules, retire, withdraw, stepback; the held assetdocs.ts) ← `versioned.ts`
+(documents and accept) ← `review.ts`, `ship.ts`, `mainmerge.ts` ← `decide.ts` ← `watcher.ts`, `artifacts.ts` ←
+`allkinds.ts` (every kind registered, in order) ← `intenttools.ts`, `artifacttools.ts`, `mcp.ts`, `app.ts`. One
+difference from decision 1's sketch, forced by the held assetdocs.ts (it imports `putAtProposal`, `settle` and `byOf`):
+intents.ts sits below the kind modules, not above versioned.ts.
+
+`bun intent-work/5884ade4/measure.ts api`: every bound ok (before: all nine failed). `cycles`: play/api/src has none
+(the one file cycle left without a held file is play/site's geometry ↔ simulation). `layers`, `special`, `dead`: what
+fails is outside play/api/src (play/site, tests' sleeps, dead files of other areas), except the five exports only
+play/api/import uses (move 18).
+
+## Next untangles (play/api)
+
+- **Held assetdocs.ts / lod.ts** (6fd5e63f, a5faafad…): `AssetDocError` and `LodError` to HttpError (fault.ts maps
+  AssetDocError until then), its `openVariantOf`/`authorOf`/`asVersionError` copies, its imports of the compat names
+  (versioned.ts' VersionError/asVersionError/named/versionAt/Ctx/Verdict and reviewHeld/reviewOf for its test, work.ts'
+  barrel, src/{pg,ids,hash,uuid}.ts re-exports, access.ts' `COOP` re-export, `../import/plan` readableRefs), its
+  `"asset/1"` literals and `ensureAssetDoc`, its refs on the intent row. Each re-export can go once it imports from
+  the new places.
+- **The mirrored work columns on play.intents** (api-flow D, api-docs F3): `asset_id, base, version, story_id,
+  story_base, story_version` still written by ownColumns and read by the board's joins (label, number); the site reads
+  `work.asset_id`/`story_*` (IntentsBoard, IntentDetail). Dropping them needs the board's label and number from the
+  registry for assets and stories, and the held assetdocs.ts to stop writing them: left, no migration.
+- **play.story_versions as a second store** (api-docs F7): one writer now; retiring it is a data-model change (ids
+  that pins and links read), HIGH risk by the audit.
+- **migrations.ts runs feature seeds** (ensureLayouts, ensureRules; api-flow #21, api-docs#23): moving them to a
+  `seed()` at the composition root means every test that calls `migrate()` calls it too: tests' builder (decision 8).
+- **`shipWork`** (api-flow #6): the store passed to reconcile/watchShips instead; their test callers change: decision 8.
+- **Ship's queue tie by order, not time** (decision 5's sleeps): ship.test sleeps so `decided_at` differs; a sequence
+  would let it drop them: decision 8 with ship.test.
+- **Legacy ensure paths and Kind.ensure** (api-docs F8), the Factories' access rule in the router (api-flow #34),
+  invite/name/last-admin helpers in auth/members (api-flow #11), `intentLink`'s fixed origin (#39), tobucket.ts and
+  migrate.ts (#28, #29: their steps are infra's), import/plan.ts (tests' builder).
+- **F9** (required fields and "taken twice" into the schemas): a schema document's intent, as decided.
