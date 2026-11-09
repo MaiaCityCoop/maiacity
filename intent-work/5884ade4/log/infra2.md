@@ -123,3 +123,11 @@ scratchpad, `infra2/`).
   runs it. CI's parts (api, site, website) are unchanged: it runs where the gate runs, as F6 asked.
 - Pinned: gate.test.ts (the plan picks it for those two files and not for another deploy file; `--all`'s steps);
   `gate.sh deploy` green (6 tests, 1 skipped without CADDY, as before).
+
+## 14b. Small leftovers (re-infra#14)
+
+- play/Dockerfile's comment names deploy/server-up.sh (where the import runs), not the gone play/deploy/README.md.
+- production.yml's server step no longer guards the bucket's keys itself: server-up.sh checks its own inputs first
+  (the same `::error::` line, exit 1, before anything runs or is written; the backup job's bucket-keys.sh is the
+  guard before it). Shown: the stand-in server-up.sh run with keys identical (§3's `fake/up.sh`); without a key it
+  prints the error and exits 1 having written nothing (`infra2/nokeys.sh`); actionlint clean.
