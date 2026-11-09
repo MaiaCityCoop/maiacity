@@ -7,12 +7,11 @@
  */
 import type { El } from './dom';
 
-/**
- * Math.random as one fixed sequence (mulberry32 from one seed), as the Mac's runs seed every page and frame
- * (intent-work/main-baseline/determinism.mjs SEEDED_RANDOM; intent 373050d1): run in the page by the census's setup
- * and in every worker of the box before its engine, so whatever a world picks at random it picks alike every run.
- */
-export const SEEDED_RANDOM = `(() => { let s = 0x2545f491; Math.random = () => { s |= 0; s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; })();`;
+// Math.random as one fixed sequence, as the Mac's runs seed every page and frame (../macjob/determinism.js): run in
+// the page by the census's setup and in every worker of the box before its engine, so whatever a world picks at random
+// it picks alike every run.
+import { SEEDED_RANDOM } from '../macjob/determinism.js';
+export { SEEDED_RANDOM };
 
 /**
  * What a Bun worker lacks of a browser's that the engine uses, put in before it: `importScripts` of the blob a recipe
