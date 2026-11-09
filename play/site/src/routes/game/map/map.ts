@@ -1,8 +1,6 @@
-// The game's world map, grown from a seed: a river, a few lakes, five biomes, and the plots (Grundstücke) people will
-// build on, in a valley ringed by hills and mountains. One seed, one map (SEED); nothing here touches the DOM or three.js
-// (./scene.ts draws it). Map units: x east, y south, 6720 × 4470; its real size follows from its people (PEOPLE ×
-// M2_PER_PERSON m² buildable, one unit `scale` m, about 11). Exactly PLOTS plots (villages, ~1500 people and 2.25 km²
-// each), all buildable (shore, forest, grassland, sand); mountains are wild land raised into hills, water no land at all.
+// The game's world map from one seed (SEED): a river, lakes, five biomes and the plots (Grundstücke) people will build on,
+// in a valley ringed by hills; ./scene.ts draws it. Map units: x east, y south, 6720 × 4470, one `scale` m (about 11);
+// exactly PLOTS plots of ~1500 people and 2.25 km², mountains wild land, water no land at all.
 
 import { seededRandom } from '$lib/kernel/random.js';
 

@@ -29,9 +29,8 @@ const TURN_SPEED = 1.4;
  * @param {THREE.PerspectiveCamera} camera
  * @param {HTMLElement} dom
  * @param {{ minDistance?: number, maxDistance?: number, moveSpeed?: number, target?: THREE.Vector3, floorY?: number, freeMove?: boolean, keys?: boolean }} [options]
- *   minDistance, maxDistance: how near and far from what it looks at; moveSpeed: world units a second by keyboard;
- *   target: where it first looks; floorY: never below this height; freeMove: false orbits one fixed point (a turntable);
- *   keys: false leaves the keyboard to the world (MaiaCity V1's WASD), mouse, wheel and fingers still moving the map
+ *   moveSpeed: world units a second by keyboard; floorY: never below it; freeMove: false a turntable; keys: false leaves
+ *   the keyboard to the world (MaiaCity V1's WASD)
  * @returns {OrbitRig}
  */
 export function createOrbitRig(camera, dom, options = {}) {

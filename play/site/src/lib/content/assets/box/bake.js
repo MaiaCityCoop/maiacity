@@ -229,8 +229,7 @@ const intact = (root, nodes) => {
 
 /**
  * Plays an object's controls and writes them down. @param {import('three').Object3D} root as its builder made it
- * @returns {{ controls: object[], intact: boolean }} its controls as data, and whether the object is still the one
- *   built (false: a control changed its tree or reshaped a mesh; build it again before it leaves)
+ * @returns {{ controls: object[], intact: boolean }} `intact` false: rebuild it before it leaves
  */
 export function bake(root) {
 	const list = offered(root.userData ?? {});
@@ -344,8 +343,7 @@ export function bake(root) {
 		} catch {
 			ok = false;
 		}
-		// its rest: the sample nearest the object as built (of several, an end: whole before a build's last step, a door
-		// shut at 0), set again so a reshaped mesh (a canvas unrolled) is shaped as built
+		// its rest: the sample nearest the object as built, set again so a reshaped mesh is shaped as built
 		const least = Math.min(...off);
 		const ties = [...off.keys()].filter((s) => off[s] === least);
 		const best = ties.includes(S - 1) ? S - 1 : ties[0];

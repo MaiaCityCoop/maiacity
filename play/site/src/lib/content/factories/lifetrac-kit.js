@@ -1,9 +1,7 @@
 // @ts-nocheck — plain JS, in the kit's own style (./kit.js)
 /*
- * The LifeTrac line's machines and what it carries: our additions to the factory kit (./kit.js) at real size (m), for
- * the line building the LifeTrac (play/api/import/factories/lifetrac-line/line.js). AirSup's machines are 2–3 m stand-ins;
- * a tractor line's are bigger and fully automated, robots where theirs have people. `lifetrac` is our simpler model of
- * the tractor growing down the line from the same CAD numbers (OSE's v25), drawn before the last stage and as fallback.
+ * The LifeTrac line's machines (play/api/import/factories/lifetrac-line/line.js), our additions to ./kit.js at real size:
+ * bigger than AirSup's 2–3 m stand-ins and fully automated; `lifetrac` our simpler tractor from OSE's v25 CAD numbers.
  */
 import { T } from './three.js'
 import { K } from './kit.js'

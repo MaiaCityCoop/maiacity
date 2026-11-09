@@ -34,8 +34,7 @@ export const THINGS = {
 	domeGlamp: slot('domeGlamp')
 };
 
-/** the MaiaCity centre (the library's maia-centre without its van and its road): the bus stop and the gas station
- *  where it stands them, in its own ground (x, z, and the turn about the upright) */
+/** the MaiaCity centre's bus stop and gas station in its own ground (x, z, turn) */
 export const CENTRE_AT = {
 	busStop: { x: -14, z: -6.5, turn: 0 },
 	gasStation: { x: 10, z: 0, turn: -Math.PI / 2 }
@@ -62,8 +61,7 @@ export const BELL_TENT = {
 	fire: { x: 1.2, z: 4.2 }
 };
 
-/** what of the bell tent pitched stands in a walker's way (its wall's radius at the ground, the door's half width, the
- *  headroom at the wall's foot, and the pole and the things inside as circles), and of its fire place */
+/** what of the pitched bell tent and its fire place stands in a walker's way, as circles */
 export const TENT_WALK = {
 	r: 2.1,
 	door: 0.55,
@@ -142,8 +140,7 @@ export const STAKE_FLAG = { path: [14] };
 export const PACK_PACKETS = ['apple', 'pear', 'cherry', 'plum', 'apricot', 'quince', 'mulberry', 'walnut', 'chestnut', 'hazel'];
 export const BOTTLE_MOUTH = 0.268;
 
-/** the people: the rigged stand-in (actors/stand-in@11), built with how tall they are and their look (./van.js PEOPLE,
- *  the players in their seat's colours), its moves played from the tables the box wrote down ($content/assets/clips.js) */
+/** the people: the rigged stand-in (actors/stand-in@11) at their height and look (./van.js PEOPLE), moves from the box's tables */
 const STAND_IN = slot('stand-in');
 /** the elder woman of seat C */
 export const ELDER_WOMAN = slot('elder-woman');
