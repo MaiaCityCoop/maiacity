@@ -1,5 +1,10 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 12:15 Berlin — for ed6694c3 (Safari smoothness)
+On ebaa4498c the render box's own walk (wk5: 20 s after up, 24 m from the spawn through the dome over 12 s, as the
+pre-programme was measured) gives **286 frames, mean 42.1 ms, p95 120, 21 over 100 ms, max 1.3 s**, against the job's own
+walk's 31.4 ms. The walks differ (when they start after load, their path), so ed6694c3's check should name one walk.
+
 ## 12:12 Berlin — 660ad67f run 4 (PR head ebaa4498c; out/ 8648d1597)
 - 0 uniform/GL errors and no plant failing in both engines; the film advances 0…5 s. Walks (in the job now): Chromium 487
   frames, 24.7 ms mean, 6 over 100 ms; **WebKit 384 frames, 31.4 ms mean** (p95 66, 12 over 100 ms, max 908): the old
