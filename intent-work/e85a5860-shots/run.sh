@@ -10,6 +10,10 @@ git -C "$REPO" fetch -q origin main
 rm -rf "$MAIN"; git -C "$REPO" worktree prune
 git -C "$REPO" worktree add -q --detach "$MAIN" origin/main
 ln -s "$REPO/play/site/node_modules" "$MAIN/play/site/node_modules"
+# main waits for Sandbox 5's first plants by a count of ticks, 20 minutes and more in software: its wait bounded by the
+# clock in main's checkout here, as this branch does (village.ts), so main's world comes up; what it draws is main's
+sed -i 's|for (let waited = 0; waited < 120000 \&\& |for (const until = performance.now() + 120000; performance.now() < until \&\& |; s|library.settled()); waited += 100) {|library.settled()); ) {|' "$MAIN/play/site/src/lib/content/sandbox-2/interior/village.ts"
+grep -q 'performance.now() < until' "$MAIN/play/site/src/lib/content/sandbox-2/interior/village.ts"
 (cd "$MAIN/play/site" && PLAY_API=http://localhost:3911 bunx vite dev --port 5191 --strictPort >"$MAIN.vite.log" 2>&1) &
 M=$!
 (cd "$REPO/play/site" && PLAY_API=http://localhost:3911 bunx vite dev --port 5192 --strictPort >"$MAIN.head-vite.log" 2>&1) &
