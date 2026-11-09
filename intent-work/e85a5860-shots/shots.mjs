@@ -44,8 +44,9 @@ if (!MAIN || !HEAD) throw new Error('give --main <main’s dev server> --head <t
 mkdirSync(OUT, { recursive: true });
 const proxy = await playProxy(3911);
 
-// software: WebGL by SwiftShader through ANGLE, WebGPU on Dawn's SwiftShader adapter
-const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--enable-unsafe-webgpu', '--use-webgpu-adapter=swiftshader', '--ignore-gpu-blocklist'] });
+// software: WebGL by SwiftShader through ANGLE, WebGPU on Dawn's SwiftShader adapter; no GPU watchdog (a frame of a
+// million blades' choice on the CPU takes longer than the 10 s it allows a GPU process before it drops it)
+const browser = await chromium.launch({ args: ['--disable-gpu-watchdog', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--enable-unsafe-webgpu', '--use-webgpu-adapter=swiftshader', '--ignore-gpu-blocklist'] });
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
 const page = await ctx.newPage();
 page.setDefaultTimeout(20 * 60e3);
