@@ -1,15 +1,7 @@
 $ svelte-kit sync && vite build
 vite v8.3.5 building ssr environment for production...
 transforming...
-12:03:13 AM [vite-plugin-svelte] src/lib/content/worlds/WorldStage.svelte:57:1 Non-interactive element `<div>` should not be assigned mouse or keyboard event listeners
-https://svelte.dev/e/a11y_no_noninteractive_element_interactions
-55: <div class="world">
-56:   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-57:   <div class="canvas" bind:this={box} tabindex="0" role="application" aria-label="The world: drag to look, WASD or the arrows to move in Walk and Drive" onpointerdown={touched} onkeydown={touched}></div>
-                                                                                                                                                                                                               ^
-58:   {#if !bare}
-59:   <div class="bar">
-12:03:13 AM [vite-plugin-svelte] src/lib/site/app/NavPill.svelte:167:1 Unused CSS selector ".avatar img"
+12:21:25 AM [vite-plugin-svelte] src/lib/site/app/NavPill.svelte:167:1 Unused CSS selector ".avatar img"
 https://svelte.dev/e/css_unused_selector
 165: 
 166: <style>
@@ -17,7 +9,15 @@ https://svelte.dev/e/css_unused_selector
                   ^
 168:   /* centred, as wide as its items, never wider than the screen (clear of its edges and the notch), at --nav-foot */
 169:   .pill {
-12:03:13 AM [vite-plugin-svelte] src/lib/content/assets/VaultAsset.svelte:606:18 Empty block
+12:21:25 AM [vite-plugin-svelte] src/lib/content/worlds/WorldStage.svelte:57:1 Non-interactive element `<div>` should not be assigned mouse or keyboard event listeners
+https://svelte.dev/e/a11y_no_noninteractive_element_interactions
+55: <div class="world">
+56:   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+57:   <div class="canvas" bind:this={box} tabindex="0" role="application" aria-label="The world: drag to look, WASD or the arrows to move in Walk and Drive" onpointerdown={touched} onkeydown={touched}></div>
+                                                                                                                                                                                                               ^
+58:   {#if !bare}
+59:   <div class="bar">
+12:21:26 AM [vite-plugin-svelte] src/lib/content/assets/VaultAsset.svelte:606:18 Empty block
 https://svelte.dev/e/block_empty
 604:     {#if error}
 605:       <span class="missing">Not shown.</span>
@@ -29,7 +29,7 @@ https://svelte.dev/e/block_empty
 rendering chunks...
 vite v8.3.5 building client environment for production...
 transforming...
-12:03:14 AM [vite-plugin-svelte] src/lib/site/app/NavPill.svelte:167:1 Unused CSS selector ".avatar img"
+12:21:26 AM [vite-plugin-svelte] src/lib/site/app/NavPill.svelte:167:1 Unused CSS selector ".avatar img"
 https://svelte.dev/e/css_unused_selector
 165: 
 166: <style>
@@ -37,7 +37,7 @@ https://svelte.dev/e/css_unused_selector
                   ^
 168:   /* centred, as wide as its items, never wider than the screen (clear of its edges and the notch), at --nav-foot */
 169:   .pill {
-12:03:14 AM [vite-plugin-svelte] src/lib/content/worlds/WorldStage.svelte:57:1 Non-interactive element `<div>` should not be assigned mouse or keyboard event listeners
+12:21:27 AM [vite-plugin-svelte] src/lib/content/worlds/WorldStage.svelte:57:1 Non-interactive element `<div>` should not be assigned mouse or keyboard event listeners
 https://svelte.dev/e/a11y_no_noninteractive_element_interactions
 55: <div class="world">
 56:   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -45,7 +45,7 @@ https://svelte.dev/e/a11y_no_noninteractive_element_interactions
                                                                                                                                                                                                                ^
 58:   {#if !bare}
 59:   <div class="bar">
-12:03:14 AM [vite-plugin-svelte] src/lib/content/assets/VaultAsset.svelte:606:18 Empty block
+12:21:27 AM [vite-plugin-svelte] src/lib/content/assets/VaultAsset.svelte:606:18 Empty block
 https://svelte.dev/e/block_empty
 604:     {#if error}
 605:       <span class="missing">Not shown.</span>
@@ -61,7 +61,7 @@ computing gzip size...
 .svelte-kit/output/client/_app/immutable/assets/fraunces-vietnamese-opsz-normal.Czevyj-6.woff2     19.70 kB
 .svelte-kit/output/client/_app/immutable/assets/dm-sans-latin-ext-opsz-normal.oos9povj.woff2       31.29 kB
 .svelte-kit/output/client/_app/immutable/assets/inter-latin-wght-normal.Dx4kXJAl.woff2             48.25 kB
-.svelte-kit/output/client/.vite/manifest.json                                                      51.05 kB │ gzip:   6.15 kB
+.svelte-kit/output/client/.vite/manifest.json                                                      51.05 kB │ gzip:   6.16 kB
 .svelte-kit/output/client/_app/immutable/assets/basis_transcoder.o4Hde_L7.js                       57.52 kB
 .svelte-kit/output/client/_app/immutable/assets/fraunces-latin-ext-opsz-normal.CJcjJNj7.woff2      59.38 kB
 .svelte-kit/output/client/_app/immutable/assets/dm-sans-latin-opsz-normal.Bf69Tn_J.woff2           62.72 kB
@@ -111,48 +111,48 @@ computing gzip size...
 .svelte-kit/output/client/_app/immutable/assets/StoryPlayer.DwlV-xe8.css                           12.54 kB │ gzip:   3.08 kB
 .svelte-kit/output/client/_app/immutable/assets/VaultAsset.GgDQDh4_.css                            19.53 kB │ gzip:   3.66 kB
 .svelte-kit/output/client/_app/immutable/assets/IntentsBoard.B27Tcicf.css                          31.09 kB │ gzip:   5.65 kB
-.svelte-kit/output/client/_app/immutable/chunks/BKueDMIk.js                                         0.02 kB │ gzip:   0.04 kB
+.svelte-kit/output/client/_app/immutable/chunks/Dd0aSs4J.js                                         0.02 kB │ gzip:   0.04 kB
 .svelte-kit/output/client/_app/immutable/chunks/bUtlAT1Y.js                                         0.03 kB │ gzip:   0.05 kB
 .svelte-kit/output/client/_app/immutable/chunks/Diz1ROZ2.js                                         0.04 kB │ gzip:   0.06 kB
-.svelte-kit/output/client/_app/immutable/chunks/DNVO1QIp.js                                         0.04 kB │ gzip:   0.06 kB
+.svelte-kit/output/client/_app/immutable/chunks/BWr1LWpC.js                                         0.04 kB │ gzip:   0.06 kB
 .svelte-kit/output/client/_app/immutable/nodes/39.-FpDOXv-.js                                       0.05 kB │ gzip:   0.07 kB
-.svelte-kit/output/client/_app/immutable/entry/start.LtHRBaM9.js                                    0.06 kB │ gzip:   0.07 kB
+.svelte-kit/output/client/_app/immutable/entry/start.CeZZ1Vnl.js                                    0.06 kB │ gzip:   0.07 kB
 .svelte-kit/output/client/_app/immutable/chunks/xihTtKlq.js                                         0.06 kB │ gzip:   0.08 kB
 .svelte-kit/output/client/_app/immutable/chunks/DgeDzoIh.js                                         0.08 kB │ gzip:   0.10 kB
 .svelte-kit/output/client/_app/immutable/chunks/BMfx7KLi.js                                         0.12 kB │ gzip:   0.13 kB
 .svelte-kit/output/client/_app/immutable/chunks/DK3Fl9T5.js                                         0.15 kB │ gzip:   0.15 kB
 .svelte-kit/output/client/_app/immutable/chunks/BGDNWw2H.js                                         0.16 kB │ gzip:   0.12 kB
-.svelte-kit/output/client/_app/immutable/nodes/36.BrQTuF6f.js                                       0.17 kB │ gzip:   0.13 kB
-.svelte-kit/output/client/_app/immutable/nodes/28.D-Hl8gCg.js                                       0.19 kB │ gzip:   0.14 kB
-.svelte-kit/output/client/_app/immutable/nodes/33.C7jeBdDc.js                                       0.19 kB │ gzip:   0.14 kB
-.svelte-kit/output/client/_app/immutable/nodes/7.BnKu4r4x.js                                        0.19 kB │ gzip:   0.14 kB
-.svelte-kit/output/client/_app/immutable/nodes/8.Ce0e1a0u.js                                        0.19 kB │ gzip:   0.14 kB
-.svelte-kit/output/client/_app/immutable/nodes/27.DxP65WJA.js                                       0.19 kB │ gzip:   0.14 kB
-.svelte-kit/output/client/_app/immutable/nodes/3.UVVjkB6e.js                                        0.19 kB │ gzip:   0.15 kB
+.svelte-kit/output/client/_app/immutable/nodes/36.DuVqctLu.js                                       0.17 kB │ gzip:   0.13 kB
+.svelte-kit/output/client/_app/immutable/nodes/28.C14-0W9F.js                                       0.19 kB │ gzip:   0.14 kB
+.svelte-kit/output/client/_app/immutable/nodes/33.CKIjw7l0.js                                       0.19 kB │ gzip:   0.14 kB
+.svelte-kit/output/client/_app/immutable/nodes/7.BnVzR0Gs.js                                        0.19 kB │ gzip:   0.14 kB
+.svelte-kit/output/client/_app/immutable/nodes/8.NJOtiykR.js                                        0.19 kB │ gzip:   0.14 kB
+.svelte-kit/output/client/_app/immutable/nodes/27.DY1iMNMV.js                                       0.19 kB │ gzip:   0.15 kB
+.svelte-kit/output/client/_app/immutable/nodes/3.DEEEnp69.js                                        0.19 kB │ gzip:   0.15 kB
 .svelte-kit/output/client/_app/immutable/chunks/DjQYawwo.js                                         0.26 kB │ gzip:   0.19 kB
-.svelte-kit/output/client/_app/immutable/nodes/19.SVHkCiwT.js                                       0.30 kB │ gzip:   0.23 kB
+.svelte-kit/output/client/_app/immutable/nodes/19.CGx5Z2y9.js                                       0.30 kB │ gzip:   0.23 kB
 .svelte-kit/output/client/_app/immutable/chunks/Dx7FtAbz.js                                         0.31 kB │ gzip:   0.24 kB
 .svelte-kit/output/client/_app/immutable/chunks/Cik7mj0g.js                                         0.32 kB │ gzip:   0.22 kB
 .svelte-kit/output/client/_app/immutable/chunks/CijcJJ1L.js                                         0.32 kB │ gzip:   0.21 kB
 .svelte-kit/output/client/_app/immutable/chunks/OT40FgZg.js                                         0.34 kB │ gzip:   0.25 kB
-.svelte-kit/output/client/_app/immutable/nodes/1.hj-FyHKK.js                                        0.35 kB │ gzip:   0.25 kB
-.svelte-kit/output/client/_app/immutable/nodes/17.BR3Ed97t.js                                       0.36 kB │ gzip:   0.24 kB
-.svelte-kit/output/client/_app/immutable/nodes/34.C_UjrGxt.js                                       0.36 kB │ gzip:   0.24 kB
-.svelte-kit/output/client/_app/immutable/chunks/CT3Qsiff.js                                         0.39 kB │ gzip:   0.22 kB
+.svelte-kit/output/client/_app/immutable/nodes/1.DKCeK_4E.js                                        0.35 kB │ gzip:   0.25 kB
+.svelte-kit/output/client/_app/immutable/nodes/17.OlGXaCoM.js                                       0.36 kB │ gzip:   0.24 kB
+.svelte-kit/output/client/_app/immutable/nodes/34.CoaEVLaO.js                                       0.36 kB │ gzip:   0.24 kB
+.svelte-kit/output/client/_app/immutable/chunks/DPzR4BqW.js                                         0.39 kB │ gzip:   0.21 kB
 .svelte-kit/output/client/_app/immutable/chunks/B7AaeBtt.js                                         0.39 kB │ gzip:   0.31 kB
 .svelte-kit/output/client/_app/immutable/chunks/CkFiHxTe.js                                         0.41 kB │ gzip:   0.25 kB
 .svelte-kit/output/client/_app/immutable/chunks/NGYIe1Ia.js                                         0.44 kB │ gzip:   0.34 kB
-.svelte-kit/output/client/_app/immutable/chunks/9gSMeU9C.js                                         0.44 kB │ gzip:   0.29 kB
-.svelte-kit/output/client/_app/immutable/nodes/35.B-0cj2zW.js                                       0.49 kB │ gzip:   0.31 kB
+.svelte-kit/output/client/_app/immutable/chunks/C43_nPIl.js                                         0.44 kB │ gzip:   0.29 kB
+.svelte-kit/output/client/_app/immutable/nodes/35.CovFPaUf.js                                       0.49 kB │ gzip:   0.31 kB
 .svelte-kit/output/client/_app/immutable/nodes/10.BFUZae3A.js                                       0.54 kB │ gzip:   0.37 kB
 .svelte-kit/output/client/_app/immutable/chunks/DnyvVDda.js                                         0.55 kB │ gzip:   0.37 kB
-.svelte-kit/output/client/_app/immutable/nodes/18.DFTVuLTJ.js                                       0.56 kB │ gzip:   0.36 kB
+.svelte-kit/output/client/_app/immutable/nodes/18.BKZhrKV1.js                                       0.56 kB │ gzip:   0.36 kB
 .svelte-kit/output/client/_app/immutable/chunks/B_CGX4aS.js                                         0.58 kB │ gzip:   0.24 kB
 .svelte-kit/output/client/_app/immutable/chunks/B0NFA9Xn.js                                         0.61 kB │ gzip:   0.37 kB
 .svelte-kit/output/client/_app/immutable/chunks/BZlhIJaX.js                                         0.62 kB │ gzip:   0.38 kB
 .svelte-kit/output/client/_app/immutable/chunks/BxRs5zo5.js                                         0.62 kB │ gzip:   0.41 kB
 .svelte-kit/output/client/_app/immutable/nodes/12.Ddq9aPQA.js                                       0.65 kB │ gzip:   0.43 kB
-.svelte-kit/output/client/_app/immutable/nodes/5.dMmIfFFQ.js                                        0.75 kB │ gzip:   0.48 kB
+.svelte-kit/output/client/_app/immutable/nodes/5.C2MWotV7.js                                        0.75 kB │ gzip:   0.48 kB
 .svelte-kit/output/client/_app/immutable/chunks/CFbdqz_t.js                                         0.87 kB │ gzip:   0.42 kB
 .svelte-kit/output/client/_app/immutable/chunks/CJ_3dsx9.js                                         0.87 kB │ gzip:   0.56 kB
 .svelte-kit/output/client/_app/immutable/chunks/MQ9PFonR.js                                         0.89 kB │ gzip:   0.54 kB
@@ -163,13 +163,13 @@ computing gzip size...
 .svelte-kit/output/client/_app/immutable/chunks/B50Ne1ll.js                                         1.33 kB │ gzip:   0.75 kB
 .svelte-kit/output/client/_app/immutable/chunks/Bjy-W4x2.js                                         1.36 kB │ gzip:   0.65 kB
 .svelte-kit/output/client/_app/immutable/chunks/DlHkbIg2.js                                         1.42 kB │ gzip:   0.77 kB
-.svelte-kit/output/client/_app/immutable/nodes/16.DMNpow2H.js                                       1.49 kB │ gzip:   0.76 kB
+.svelte-kit/output/client/_app/immutable/nodes/16.BfA6cFaT.js                                       1.49 kB │ gzip:   0.76 kB
 .svelte-kit/output/client/_app/immutable/chunks/lcSWd0bi.js                                         1.53 kB │ gzip:   0.80 kB
 .svelte-kit/output/client/_app/immutable/chunks/C45qx1sl.js                                         1.68 kB │ gzip:   0.89 kB
-.svelte-kit/output/client/_app/immutable/chunks/cjOmQWnj.js                                         1.68 kB │ gzip:   0.87 kB
+.svelte-kit/output/client/_app/immutable/chunks/CR2pKOMe.js                                         1.68 kB │ gzip:   0.87 kB
 .svelte-kit/output/client/_app/immutable/chunks/CnF37XLd.js                                         1.69 kB │ gzip:   0.79 kB
 .svelte-kit/output/client/_app/immutable/chunks/DJP9G1Du.js                                         1.90 kB │ gzip:   0.98 kB
-.svelte-kit/output/client/_app/immutable/chunks/CQJRwRiS.js                                         1.97 kB │ gzip:   1.00 kB
+.svelte-kit/output/client/_app/immutable/chunks/SK32zJEq.js                                         1.97 kB │ gzip:   1.00 kB
 .svelte-kit/output/client/_app/immutable/chunks/DbojywhV.js                                         2.03 kB │ gzip:   0.88 kB
 .svelte-kit/output/client/_app/immutable/chunks/DoGB_XFh.js                                         2.35 kB │ gzip:   1.14 kB
 .svelte-kit/output/client/_app/immutable/chunks/FXimp9o2.js                                         2.77 kB │ gzip:   1.35 kB
@@ -179,79 +179,79 @@ computing gzip size...
 .svelte-kit/output/client/_app/immutable/chunks/CmIJOtsm.js                                         3.78 kB │ gzip:   1.68 kB
 .svelte-kit/output/client/_app/immutable/chunks/auLWP487.js                                         4.06 kB │ gzip:   2.01 kB
 .svelte-kit/output/client/_app/immutable/nodes/9.DljQVkAb.js                                        4.22 kB │ gzip:   1.88 kB
-.svelte-kit/output/client/_app/immutable/nodes/32.BF_VZ-wh.js                                       4.51 kB │ gzip:   2.09 kB
-.svelte-kit/output/client/_app/immutable/chunks/CdFnb59m.js                                         4.57 kB │ gzip:   2.21 kB
+.svelte-kit/output/client/_app/immutable/nodes/32.B19fhjlH.js                                       4.51 kB │ gzip:   2.10 kB
+.svelte-kit/output/client/_app/immutable/chunks/D7GOV2w8.js                                         4.57 kB │ gzip:   2.21 kB
 .svelte-kit/output/client/_app/immutable/chunks/BiiCz52H.js                                         4.85 kB │ gzip:   2.32 kB
-.svelte-kit/output/client/_app/immutable/nodes/14.CuC9WNmU.js                                       4.90 kB │ gzip:   2.33 kB
-.svelte-kit/output/client/_app/immutable/chunks/DX6CzG-_.js                                         4.95 kB │ gzip:   2.46 kB
-.svelte-kit/output/client/_app/immutable/nodes/24.BVO6Gzzo.js                                       5.03 kB │ gzip:   2.24 kB
+.svelte-kit/output/client/_app/immutable/nodes/14.ApryHmbm.js                                       4.90 kB │ gzip:   2.33 kB
+.svelte-kit/output/client/_app/immutable/chunks/ByVfRbJ6.js                                         4.95 kB │ gzip:   2.46 kB
+.svelte-kit/output/client/_app/immutable/nodes/24.Bv2aDv1y.js                                       5.03 kB │ gzip:   2.24 kB
 .svelte-kit/output/client/_app/immutable/chunks/BidtdGo8.js                                         5.07 kB │ gzip:   2.30 kB
 .svelte-kit/output/client/_app/immutable/chunks/BaEI_uOR.js                                         5.10 kB │ gzip:   2.36 kB
 .svelte-kit/output/client/_app/immutable/chunks/Caq3KF9V.js                                         5.11 kB │ gzip:   2.66 kB
-.svelte-kit/output/client/_app/immutable/nodes/11.B0ICgoJG.js                                       5.27 kB │ gzip:   2.46 kB
+.svelte-kit/output/client/_app/immutable/nodes/11.BN6QVNZJ.js                                       5.27 kB │ gzip:   2.46 kB
 .svelte-kit/output/client/_app/immutable/chunks/Br9olcwg.js                                         5.34 kB │ gzip:   2.43 kB
-.svelte-kit/output/client/_app/immutable/nodes/30.C8u1kg0D.js                                       5.38 kB │ gzip:   2.47 kB
-.svelte-kit/output/client/_app/immutable/chunks/Cj5wXME8.js                                         5.39 kB │ gzip:   2.62 kB
-.svelte-kit/output/client/_app/immutable/nodes/6.4-DLHJrt.js                                        5.51 kB │ gzip:   2.44 kB
+.svelte-kit/output/client/_app/immutable/nodes/30.BTtkkvfV.js                                       5.38 kB │ gzip:   2.47 kB
+.svelte-kit/output/client/_app/immutable/chunks/93zOLE-N.js                                         5.39 kB │ gzip:   2.62 kB
+.svelte-kit/output/client/_app/immutable/nodes/6.a6gn1Ou5.js                                        5.51 kB │ gzip:   2.45 kB
 .svelte-kit/output/client/_app/immutable/chunks/Bf5sLlOz.js                                         5.59 kB │ gzip:   2.66 kB
 .svelte-kit/output/client/_app/immutable/chunks/TE5EO5jH.js                                         5.76 kB │ gzip:   1.98 kB
-.svelte-kit/output/client/_app/immutable/nodes/13.Blo8u3vW.js                                       5.80 kB │ gzip:   2.38 kB
+.svelte-kit/output/client/_app/immutable/nodes/13.DcX5-HYv.js                                       5.80 kB │ gzip:   2.38 kB
 .svelte-kit/output/client/_app/immutable/nodes/2.DxKLnBrB.js                                        5.95 kB │ gzip:   2.65 kB
 .svelte-kit/output/client/_app/immutable/nodes/26.CGSVWNYe.js                                       6.02 kB │ gzip:   2.66 kB
 .svelte-kit/output/client/_app/immutable/chunks/4BqDi-c1.js                                         6.17 kB │ gzip:   2.79 kB
 .svelte-kit/output/client/_app/immutable/chunks/B_n6DfG8.js                                         6.20 kB │ gzip:   3.01 kB
-.svelte-kit/output/client/_app/immutable/chunks/D2fhszEP.js                                         6.55 kB │ gzip:   2.70 kB
-.svelte-kit/output/client/_app/immutable/nodes/20.CQdatTY3.js                                       6.78 kB │ gzip:   2.97 kB
-.svelte-kit/output/client/_app/immutable/nodes/38.JbFkn-UI.js                                       6.82 kB │ gzip:   2.96 kB
+.svelte-kit/output/client/_app/immutable/chunks/CgvBJHF4.js                                         6.55 kB │ gzip:   2.70 kB
+.svelte-kit/output/client/_app/immutable/nodes/20.D-V0wG17.js                                       6.78 kB │ gzip:   2.97 kB
+.svelte-kit/output/client/_app/immutable/nodes/38.BtPJCuHj.js                                       6.82 kB │ gzip:   2.96 kB
 .svelte-kit/output/client/_app/immutable/chunks/DSwsH27G.js                                         7.18 kB │ gzip:   2.75 kB
 .svelte-kit/output/client/_app/immutable/chunks/DR5w7pHU.js                                         7.41 kB │ gzip:   2.88 kB
-.svelte-kit/output/client/_app/immutable/nodes/25.Dr1dEtgb.js                                       7.66 kB │ gzip:   3.03 kB
-.svelte-kit/output/client/_app/immutable/nodes/22.DQ5nX30_.js                                       8.12 kB │ gzip:   3.44 kB
+.svelte-kit/output/client/_app/immutable/nodes/25.DrRBJUft.js                                       7.66 kB │ gzip:   3.03 kB
+.svelte-kit/output/client/_app/immutable/nodes/22.W5vJjBQu.js                                       8.12 kB │ gzip:   3.44 kB
 .svelte-kit/output/client/_app/immutable/nodes/37.CGWJR5Bs.js                                       8.22 kB │ gzip:   3.53 kB
-.svelte-kit/output/client/_app/immutable/nodes/31.DsGfnFVW.js                                       8.23 kB │ gzip:   3.29 kB
+.svelte-kit/output/client/_app/immutable/nodes/31.BmiEqT5I.js                                       8.23 kB │ gzip:   3.30 kB
 .svelte-kit/output/client/_app/immutable/chunks/BQ7cs9qg.js                                         9.21 kB │ gzip:   3.74 kB
 .svelte-kit/output/client/_app/immutable/chunks/DhtzBlA5.js                                         9.86 kB │ gzip:   3.38 kB
 .svelte-kit/output/client/_app/immutable/chunks/Bvyw6ihv.js                                        10.30 kB │ gzip:   4.04 kB
 .svelte-kit/output/client/_app/immutable/chunks/BOW5HSvR.js                                        10.35 kB │ gzip:   4.71 kB
 .svelte-kit/output/client/_app/immutable/chunks/CSoRgtUP.js                                        10.37 kB │ gzip:   3.96 kB
-.svelte-kit/output/client/_app/immutable/chunks/CQD7Hk-D.js                                        10.74 kB │ gzip:   4.68 kB
+.svelte-kit/output/client/_app/immutable/chunks/CMa3Sb8f.js                                        10.74 kB │ gzip:   4.68 kB
 .svelte-kit/output/client/_app/immutable/chunks/DSzWpX9_.js                                        10.94 kB │ gzip:   4.08 kB
-.svelte-kit/output/client/_app/immutable/nodes/29.DSEiQcwF.js                                      11.37 kB │ gzip:   4.85 kB
-.svelte-kit/output/client/_app/immutable/nodes/15.6nvqCMHX.js                                      11.93 kB │ gzip:   4.75 kB
-.svelte-kit/output/client/_app/immutable/entry/app.BQxrf5AR.js                                     12.09 kB │ gzip:   3.70 kB
-.svelte-kit/output/client/_app/immutable/chunks/DrbbneGg.js                                        12.18 kB │ gzip:   5.32 kB
+.svelte-kit/output/client/_app/immutable/nodes/29.DxLr9dsN.js                                      11.37 kB │ gzip:   4.85 kB
+.svelte-kit/output/client/_app/immutable/nodes/15.Df0XRsoL.js                                      11.93 kB │ gzip:   4.75 kB
+.svelte-kit/output/client/_app/immutable/entry/app.DK03cXei.js                                     12.09 kB │ gzip:   3.70 kB
+.svelte-kit/output/client/_app/immutable/chunks/CaRumR5r.js                                        12.18 kB │ gzip:   5.32 kB
 .svelte-kit/output/client/_app/immutable/chunks/CffNTDnm.js                                        13.51 kB │ gzip:   5.58 kB
-.svelte-kit/output/client/_app/immutable/chunks/pyDxiMW_.js                                        13.65 kB │ gzip:   4.84 kB
+.svelte-kit/output/client/_app/immutable/chunks/DIEeMJ41.js                                        13.65 kB │ gzip:   4.84 kB
 .svelte-kit/output/client/_app/immutable/chunks/KZa-8AvO.js                                        13.78 kB │ gzip:   4.49 kB
 .svelte-kit/output/client/_app/immutable/chunks/BT6IESlK.js                                        14.28 kB │ gzip:   6.65 kB
 .svelte-kit/output/client/_app/immutable/chunks/BIdjqbep.js                                        14.69 kB │ gzip:   5.74 kB
-.svelte-kit/output/client/_app/immutable/nodes/4.BWr5MkmT.js                                       15.83 kB │ gzip:   5.79 kB
+.svelte-kit/output/client/_app/immutable/nodes/4.BPne8iIH.js                                       15.83 kB │ gzip:   5.79 kB
 .svelte-kit/output/client/_app/immutable/chunks/vzAs5-82.js                                        15.97 kB │ gzip:   6.35 kB
-.svelte-kit/output/client/_app/immutable/nodes/23.CvHGLrpC.js                                      16.33 kB │ gzip:   5.95 kB
-.svelte-kit/output/client/_app/immutable/nodes/0.Brp9Qemd.js                                       16.37 kB │ gzip:   6.36 kB
+.svelte-kit/output/client/_app/immutable/nodes/23.ClmR3zWy.js                                      16.33 kB │ gzip:   5.95 kB
+.svelte-kit/output/client/_app/immutable/nodes/0.DHQgz51j.js                                       16.37 kB │ gzip:   6.36 kB
 .svelte-kit/output/client/_app/immutable/chunks/ghgZdED4.js                                        18.18 kB │ gzip:   7.60 kB
 .svelte-kit/output/client/_app/immutable/chunks/T-KuG8Vf.js                                        18.39 kB │ gzip:   7.06 kB
 .svelte-kit/output/client/_app/immutable/chunks/D4s3ncwL.js                                        20.35 kB │ gzip:   7.53 kB
 .svelte-kit/output/client/_app/immutable/chunks/4-tn7gc9.js                                        20.96 kB │ gzip:   7.28 kB
-.svelte-kit/output/client/_app/immutable/chunks/D7kR1IZ7.js                                        21.31 kB │ gzip:   9.35 kB
+.svelte-kit/output/client/_app/immutable/chunks/BP94N3yh.js                                        21.31 kB │ gzip:   9.36 kB
 .svelte-kit/output/client/_app/immutable/chunks/CXFuPX0L.js                                        25.26 kB │ gzip:   9.45 kB
-.svelte-kit/output/client/_app/immutable/chunks/BWl1aQzU.js                                        27.37 kB │ gzip:  10.59 kB
-.svelte-kit/output/client/_app/immutable/chunks/BjRngwmQ.js                                        28.55 kB │ gzip:  12.29 kB
-.svelte-kit/output/client/_app/immutable/chunks/Dl2S8Sko.js                                        31.61 kB │ gzip:  13.26 kB
-.svelte-kit/output/client/_app/immutable/chunks/DTPtVpz3.js                                        42.12 kB │ gzip:  18.17 kB
-.svelte-kit/output/client/_app/immutable/chunks/Bq1htnU4.js                                        47.29 kB │ gzip:  17.97 kB
-.svelte-kit/output/client/_app/immutable/chunks/DZ7lGZ3o.js                                        51.50 kB │ gzip:  20.00 kB
+.svelte-kit/output/client/_app/immutable/chunks/I9_KxQFa.js                                        27.37 kB │ gzip:  10.59 kB
+.svelte-kit/output/client/_app/immutable/chunks/DpImT2o6.js                                        28.55 kB │ gzip:  12.29 kB
+.svelte-kit/output/client/_app/immutable/chunks/DjU4LA-e.js                                        31.61 kB │ gzip:  13.26 kB
+.svelte-kit/output/client/_app/immutable/chunks/DC86Bqnj.js                                        42.12 kB │ gzip:  18.17 kB
+.svelte-kit/output/client/_app/immutable/chunks/BNedAkfE.js                                        47.29 kB │ gzip:  17.98 kB
+.svelte-kit/output/client/_app/immutable/chunks/CuzsUF7a.js                                        51.50 kB │ gzip:  20.00 kB
 .svelte-kit/output/client/_app/immutable/chunks/ybcZwtzu.js                                        52.62 kB │ gzip:  16.22 kB
 .svelte-kit/output/client/_app/immutable/chunks/D4BQyRVi.js                                        58.50 kB │ gzip:  22.02 kB
 .svelte-kit/output/client/_app/immutable/chunks/DEBIcA7F.js                                        60.67 kB │ gzip:  23.19 kB
 .svelte-kit/output/client/_app/immutable/chunks/DCqODr6d.js                                        62.50 kB │ gzip:  22.34 kB
-.svelte-kit/output/client/_app/immutable/chunks/RKUdPgYy.js                                        66.15 kB │ gzip:  21.27 kB
+.svelte-kit/output/client/_app/immutable/chunks/BlbfCpcN.js                                        66.15 kB │ gzip:  21.27 kB
 .svelte-kit/output/client/_app/immutable/chunks/00w-1P7i.js                                        67.35 kB │ gzip:  24.28 kB
 .svelte-kit/output/client/_app/immutable/chunks/B35mCsPn.js                                        73.00 kB │ gzip:  28.71 kB
-.svelte-kit/output/client/_app/immutable/chunks/DL_Rz2c1.js                                       110.89 kB │ gzip:  41.02 kB
+.svelte-kit/output/client/_app/immutable/chunks/Do0Is3AD.js                                       110.89 kB │ gzip:  41.02 kB
 .svelte-kit/output/client/_app/immutable/chunks/BQyj2MM5.js                                       115.17 kB │ gzip:  32.82 kB
-.svelte-kit/output/client/_app/immutable/chunks/C7ugS78U.js                                       119.18 kB │ gzip:  45.07 kB
-.svelte-kit/output/client/_app/immutable/chunks/D-sV9uWd.js                                       217.83 kB │ gzip:  80.83 kB
+.svelte-kit/output/client/_app/immutable/chunks/38GZk0Sx.js                                       119.18 kB │ gzip:  45.07 kB
+.svelte-kit/output/client/_app/immutable/chunks/DIVb60mw.js                                       217.83 kB │ gzip:  80.83 kB
 .svelte-kit/output/client/_app/immutable/chunks/Dy-RdJCZ.js                                       502.54 kB │ gzip: 145.01 kB
 .svelte-kit/output/client/_app/immutable/chunks/WjldPFTI.js                                       634.41 kB │ gzip: 206.35 kB
 .svelte-kit/output/client/_app/immutable/chunks/NrxpPpQC.js                                     1,058.75 kB │ gzip: 280.81 kB
@@ -265,7 +265,7 @@ computing gzip size...
 
 [33m[INEFFECTIVE_DYNAMIC_IMPORT] [0msrc/lib/content/sandbox-2/interior/drawn.js is dynamically imported by src/lib/content/sandbox-2/interior/interior.ts but also statically imported by src/lib/content/sandbox-2/interior/village.ts, dynamic import will not move module into another chunk.
 
-✓ built in 993ms
+✓ built in 1.17s
 computing gzip size...
 .svelte-kit/output/server/_app/immutable/assets/fraunces-vietnamese-opsz-normal.Czevyj-6.woff2   19.70 kB
 .svelte-kit/output/server/_app/immutable/assets/dm-sans-latin-ext-opsz-normal.oos9povj.woff2     31.29 kB
@@ -462,7 +462,7 @@ computing gzip size...
 .svelte-kit/output/server/chunks/render.js                                                      159.62 kB │ gzip:  50.46 kB
 .svelte-kit/output/server/chunks/village.js                                                     446.84 kB │ gzip: 131.58 kB
 
-✓ built in 2.25s
+✓ built in 2.65s
 
 Run npm run preview to preview your production build locally.
 
