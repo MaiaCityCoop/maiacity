@@ -153,7 +153,7 @@ jobs:
           bun-version: 1.4.4
       - name: avenBOX (play/avenbox/setup.sh)
         run: sudo env "PATH=$PATH" bash play/avenbox/setup.sh
-      - name: The intent's checks on the head (no token; main's measures read from the main job's)
+      - name: The intent's checks on the head (no token)
         env:
           VS_MAIN_CACHE: ${{ runner.temp }}/vs-main
           VS_MAIN: ${{ needs.main.outputs.base }}
