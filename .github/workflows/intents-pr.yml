@@ -8,8 +8,11 @@
 # main-merge) cancels the older head's run, which records nothing (play/api/src/ship.ts).
 #
 # Only the box's run is evidence: on pull_request_target this file is main's, and so is the intent.ts that holds a
-# token. Three jobs:
+# token. Four jobs:
 #   spec    main's pr-intent.ts and intent.ts, with avenBOX's token (PLAY_MCP_TOKEN): which intent, and its spec
+#   main    main's measures (intent f63774a3): main's code only, never the head's. Main is the merge base of main and
+#           the head; play/avenbox/vs-main.ts measures it for every vs-main call in the spec, kept in GitHub's cache
+#           by that commit (so main is measured once per main commit) and handed to the run job, which only reads it
 #   run     the pull request's head, checked out without credentials, no secret, a read-only GITHUB_TOKEN: main's
 #           intent.ts (handed over by spec) runs the spec's checks there and writes their results
 #   record  main's intent.ts, with avenBOX's token: records the results (only if they ran on the head), skipped if cancelled
@@ -65,9 +68,68 @@ jobs:
           path: ${{ runner.temp }}/box
           retention-days: 7
 
+  main:
+    name: main's measures
+    needs: spec
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      base: ${{ steps.base.outputs.base }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: box-spec
+          path: ${{ runner.temp }}/box
+      - name: Main, the merge base of main and the head (the head's commits fetched, never checked out)
+        id: base
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git fetch --quiet origin "$HEAD_SHA"
+          base=$(git merge-base HEAD "$HEAD_SHA")
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          if grep -q 'vs-main\.ts' "$RUNNER_TEMP/box/spec.json"; then echo "measures=yes" >> "$GITHUB_OUTPUT"; fi
+          echo "calls=$(grep -o 'vs-main\.ts[^"]*' "$RUNNER_TEMP/box/spec.json" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        if: steps.base.outputs.measures
+        with:
+          path: ${{ runner.temp }}/vs-main
+          key: vs-main-${{ steps.base.outputs.base }}-${{ steps.base.outputs.calls }}
+          restore-keys: vs-main-${{ steps.base.outputs.base }}-
+      - uses: oven-sh/setup-bun@v2
+        if: steps.base.outputs.measures
+        with:
+          bun-version: 1.4.4
+      - name: Main measured, or read from the cache (main's vs-main.ts)
+        if: steps.base.outputs.measures
+        env:
+          VS_MAIN_CACHE: ${{ runner.temp }}/vs-main
+          BASE: ${{ steps.base.outputs.base }}
+        run: |
+          (cd play/site && bun install --frozen-lockfile > /dev/null)
+          bun play/avenbox/vs-main.ts --main-of "$RUNNER_TEMP/box/spec.json" --main "$BASE"
+      - name: Nothing to measure
+        if: "!steps.base.outputs.measures"
+        run: mkdir -p "$RUNNER_TEMP/vs-main" && touch "$RUNNER_TEMP/vs-main/.none"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vs-main
+          path: ${{ runner.temp }}/vs-main
+          include-hidden-files: true
+          retention-days: 7
+
   run:
     name: the checks in avenBOX
-    needs: spec
+    needs: [spec, main]
+    # main's measures failing leaves the head's vs-main to measure main itself
+    if: "!cancelled() && needs.spec.result == 'success'"
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
@@ -81,12 +143,20 @@ jobs:
         with:
           name: box-spec
           path: ${{ runner.temp }}/box
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: vs-main
+          path: ${{ runner.temp }}/vs-main
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
       - name: avenBOX (play/avenbox/setup.sh)
         run: sudo env "PATH=$PATH" bash play/avenbox/setup.sh
       - name: The intent's checks on the head (no token)
+        env:
+          VS_MAIN_CACHE: ${{ runner.temp }}/vs-main
+          VS_MAIN: ${{ needs.main.outputs.base }}
         run: |
           mkdir -p "$RUNNER_TEMP/results"
           bun "$RUNNER_TEMP/box/intent.ts" --from "$RUNNER_TEMP/box/spec.json" --results-out "$RUNNER_TEMP/results/results.json" --root "$GITHUB_WORKSPACE" || echo "a must check failed: recorded as it ran"
