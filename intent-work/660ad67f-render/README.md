@@ -1,7 +1,7 @@
 # 660ad67f · the Mac look (c6)
 
 Sandbox 5 is blank in production. Two regressions on main are fixed in PR #2203 (`intent/660ad67f-regressions`):
-- **Sandbox 5:** kit materials of one shape on meshes built differently shared one program (`uniform3fv … @@iterator`). The drawn geometry now joins the program key.
+- **Sandbox 5:** kit materials of one shape on meshes built differently shared one program (`uniform3fv … @@iterator`). The drawn geometry now joins the program key. A kit material whose built source differs from its program's uploads nothing into it and takes its own program, whatever the clash.
 - **Sandbox 1's film:** it threw on `sky.sun.target`. It now reads the SunLight's own direction.
 
 Both are proven on the CPU in avenBOX; this job is the one look on a real GPU.
@@ -13,7 +13,7 @@ export PLAY_MCP_TOKEN=…        # the admin token, sent to play only (read-only
 bash intent-work/660ad67f-render/run.sh      # optional: a commit of the fix; default the PR's head
 ```
 
-- It checks the fix's commit out beside the repository (`../660ad67f-head`), builds it for production (`bun run build`) and serves it with `vite preview` on :5190.
+- It checks the fix's commit out beside the repository (`../660ad67f-head`) and serves it with vite's dev server on :5190, as the other jobs do. The asset box doesn't build under `vite preview`.
 - **Per browser** (Chromium on Metal, Playwright's WebKit), one load of each page:
   - Sandbox 5 builds (up to 120 s) and is walked forward 12 s; the programs linked while walking are counted and every console error kept.
   - Sandbox 1's film is advanced over 5 s (`__world.film.advance`).
