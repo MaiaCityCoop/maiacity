@@ -45,7 +45,7 @@
 
 <style>
 	/* Reject and the one decision side by side at the right, the quiet extras at the left; on a phone both share the width */
-	.decide { flex: 0 0 auto; padding: 0.5rem 0 0.1rem; }
+	.decide { flex: 0 0 auto; padding: 0.5rem 0 0.1rem; background: var(--bg, #fbf8f2); }
 	.buttons { display: flex; justify-content: flex-end; align-items: center; gap: 0.5rem; }
 	.extra { margin-right: auto; display: inline-flex; gap: 0.4rem; }
 	.decide .btn { min-height: 44px; justify-content: center; }
