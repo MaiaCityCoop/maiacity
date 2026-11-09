@@ -20,7 +20,7 @@
 	import { INDEX, admitProposed, source as catalogSource } from '$lib/content/assets/catalog.js';
 	import { markdown } from '$lib/site/markdown/index.js';
 	import { detailOf, isCode, notLive, shipsAgain, STAGE_NAME, TABS, type Check, type Intent, type Kind, type Results, type ShipStep, type Stage, type TabId, type Work } from './detail';
-	import { took } from './took';
+	import { took } from '$lib/format';
 
 	let {
 		intent: i,

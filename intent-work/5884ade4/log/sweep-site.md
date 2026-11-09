@@ -26,3 +26,7 @@ Before, play/site's non-held files: layers 16 (all of the repo; at most 10), swa
    `scripts/flyover/flyover.mjs` tried each place Playwright may be installed with an empty `catch`: a broken install
    was taken for none. Now only `MODULE_NOT_FOUND` (Node's and Bun's code for it, checked) moves to the next place;
    anything else is thrown. Pinned: `node --check`; both are run by hand (`bench-smoke.sh`, the flyover's lists).
+5. **`span` and `took` into `lib/format.ts`** (layers, with move 6: `site/intents → stories`). `site/intents/took.ts`
+   said how long something took, for the intent detail and the delivery page: a way of writing a number, beside
+   `format.ts`'s dates. The delivery route no longer leans on the board's folder. Pinned: the same functions, moved;
+   gate site, `src/lib/site` tests; svelte-check's errors unchanged (13, all in held files, `pieces` and vite.config).
