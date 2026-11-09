@@ -45,7 +45,9 @@ function checkout() {
 	try {
 		sha = git(REPO, 'rev-parse', '--verify', '--quiet', `${at}^{commit}`);
 	} catch {
-		git(REPO, 'fetch', '--quiet', 'origin', at);
+		// a commit this clone lacks (a shallow one, as CI's): by its whole hash, else on the Mac jobs' branches
+		if (/^[0-9a-f]{40}$/.test(at)) git(REPO, 'fetch', '--quiet', 'origin', at);
+		else git(REPO, 'fetch', '--quiet', 'origin', '+refs/heads/intent-work/*:refs/remotes/origin/intent-work/*');
 		sha = git(REPO, 'rev-parse', '--verify', `${at}^{commit}`);
 	}
 	const dir = join(CACHE, 'dry', sha.slice(0, 12));
@@ -61,7 +63,10 @@ const runSh = join(root, job, 'run.sh');
 if (!existsSync(runSh)) throw new Error(`dry: no run.sh in ${job}${at ? ` at ${at}` : ''}`);
 const state = mkdtempSync(join(tmpdir(), 'dry-'));
 const realPath = (process.env.PATH ?? '').split(':').filter((p) => resolve(p) !== join(HOME, 'bin')).join(':');
-const env = { ...process.env, PATH: `${join(HOME, 'bin')}:${realPath}`, DRY_REAL_PATH: realPath, DRY_BUN: process.execPath, DRY_HOME: HOME, DRY_SITE: SITE, DRY_STATE: state, CENSUS_CACHE: CACHE, BASH_ENV: join(HOME, 'trace.sh') };
+// the job's run.sh asks for play's token for its proxy, which no browser reaches here: a stand-in where there is none;
+// the census reads play with the real one only (DRY_PLAY_TOKEN, ./dry/playwright.ts)
+const token = process.env.PLAY_MCP_TOKEN ?? '';
+const env = { ...process.env, PLAY_MCP_TOKEN: token || 'play_dry_run_stand_in', DRY_PLAY_TOKEN: token, PATH: `${join(HOME, 'bin')}:${realPath}`, DRY_REAL_PATH: realPath, DRY_BUN: process.execPath, DRY_HOME: HOME, DRY_SITE: SITE, DRY_STATE: state, CENSUS_CACHE: CACHE, BASH_ENV: join(HOME, 'trace.sh') };
 const trace = join(state, 'trace');
 
 console.error(`dry: ${job}${at ? ` at ${at}` : ''}: bash ${runSh} on the CPU (stubs: ${join(HOME, 'bin')}), at most ${TIMEOUT} s`);

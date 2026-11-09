@@ -167,6 +167,8 @@ class Page {
 			say(`goto ${url.pathname} (${root}): the world built before (${world.route}, ${world.root}) is kept: one world a process`);
 			return null;
 		}
+		// the census reads play with the real token only, never the job's stand-in (../dry.ts)
+		if (process.env.DRY_PLAY_TOKEN !== undefined) process.env.DRY_PLAY_TOKEN ? (process.env.PLAY_MCP_TOKEN = process.env.DRY_PLAY_TOKEN) : delete process.env.PLAY_MCP_TOKEN;
 		setup({ root, inputs: join(SITE, 'scripts/census/inputs'), cache: process.env.CENSUS_CACHE });
 		Object.assign(world, { route, root, state: 'building' });
 		blank();
