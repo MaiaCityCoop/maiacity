@@ -10,7 +10,6 @@
 import { HASH, hashBytes, holds } from '../../../kernel/hash.js';
 import { playFile } from '../cache/files.js';
 
-/** a piece's name: its BLAKE3 hash */
 export const PIECE = HASH;
 /** the longest chain of pieces a recipe may require: the recipe's own, and three more beneath it */
 export const MOST_DEEP = 4;
@@ -31,7 +30,6 @@ export function handPiece(code) {
 	handed.set(hash, bytes);
 	return hash;
 }
-/** every piece handed to the page, by hash */
 export const handedPieces = () => [...handed.keys()];
 
 /**

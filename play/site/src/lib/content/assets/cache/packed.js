@@ -15,7 +15,6 @@
  */
 import { utf8ToBytes } from '@noble/hashes/utils.js';
 
-/** the key of a mark */
 const MARK = '\u0000';
 /** an entry's file's first bytes, and the bytes of its header */
 const MAGIC = [0x6d, 0x63, 0x61, 1], HEAD = 16;

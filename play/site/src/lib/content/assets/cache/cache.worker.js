@@ -10,7 +10,6 @@
 /** a file's name in the cache's folder */
 const NAME = /^[a-z0-9.-]+$/;
 
-/** the cache's folder, opened when it is first written to */
 let folder;
 const folderOf = (dir) => (folder ??= navigator.storage.getDirectory().then((root) => root.getDirectoryHandle(dir, { create: true })));
 
