@@ -5,9 +5,9 @@
  * maths mirrored here on the CPU line for line so it is tested without a graphics card (./wind.test.js). Gust fronts
  * travel along the wind; each plant sways on its own phase (a hash of its foot) and leans as a whole, by the square of
  * the height, its length kept; tips flutter (gone past FLUTTER_FAR); all on the world's time, so a film's t is one frame.
- * Copies carry `aWind` (foot and height, `windOfCopy`); a material's numbers are its look's (../assets/look.js).
+ * Copies carry `aWind` (foot and height, `windOfCopy`); a material's numbers are its look's (../../kernel/look.js).
  */
-import { KINDS } from '../assets/look.js';
+import { KINDS } from '../../kernel/look.js';
 
 const TAU = Math.PI * 2;
 

@@ -1,6 +1,6 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * LIGHT THROUGH LEAVES (intent 6fd5e63f) — a material whose `look` (../assets/look.js) is a leaf, grass, a petal, a
+ * LIGHT THROUGH LEAVES (intent 6fd5e63f) — a material whose `look` (../../kernel/look.js) is a leaf, grass, a petal, a
  * stem or bark drawn in TSL on any node material (`foliage(Base)`): bent by the one wind (./wind.js); a crown's normals
  * turned outward (grass's to the sky) so it is lit as one mass, the trick every game's trees use; darker toward the
  * foot; wrap diffuse and a backlight lobe (Frostbite's translucency, Barré-Brisebois and Bouchard 2011), so a leaf glows
@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { abs, clamp, diffuseColor, dot, float, mix, normalLocal, normalView, normalize, positionLocal, positionViewDirection, pow, select, sqrt, varying, vec3 } from 'three/tsl';
-import { THIN, lookOf } from '../assets/look.js';
+import { THIN, lookOf } from '../../kernel/look.js';
 import { windLook } from './wind.js';
 
 /** where a crown's middle is, as a share of the plant's height */
@@ -61,7 +61,7 @@ const translucent = (Model, translucency, height) =>
 	};
 
 /**
- * A node material class with a look on top: `look` (checked, ../assets/look.js) and `wind` (./wind.js `windNodes`, the
+ * A node material class with a look on top: `look` (checked, ../../kernel/look.js) and `wind` (./wind.js `windNodes`, the
  * world's) set on it before it is first drawn; its copies carry `aWind` (their foot and height). Without a wind, or on
  * a mesh whose copies carry none, it is drawn as its base.
  * @template {new (...a: any[]) => any} B @param {B} Base
