@@ -14,16 +14,14 @@
 	import { onMount } from 'svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
+	import type { LibraryFile } from '$wire';
 	import { api, fileText, fileUrl as url } from '$lib/api';
 	import { adminsOnly } from '$lib/admins.svelte';
 	import { isAdmin } from '$lib/session.svelte';
 	import { acting, asCity } from '$lib/acting.svelte';
 
 	const PAGE = 60;
-	type StoryUse = { story: string; title: string; number: number | null; track: string; clip: string; as: 'frame' | 'video' | 'audio'; at: number };
-	type SheetUse = { asset: string; label: string; group: string; number: number | null; version: string; as: 'sheet' | 'datasheet' | 'brief'; accepted: boolean };
-	type Use = StoryUse | SheetUse;
-	type File = { hash: string; size: number; media_type: string; created: string; label: string | null; used: Use[] };
+	type File = LibraryFile;
 	type Owner = { library: 'coop' | 'personal'; id: string; name: string };
 	type Page = { owner: Owner; total: number; offset: number; limit: number; counts: Record<string, number>; files: File[] };
 	const KINDS = [

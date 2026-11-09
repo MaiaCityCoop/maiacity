@@ -8,6 +8,7 @@
 	`&intent=<id>` the skill as an intent's work at Proposal would make it. Admins only.
 -->
 <script lang="ts">
+	import type { IntentStage } from '$wire';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
@@ -20,7 +21,7 @@
 
 	type Item = { id: string; label: string; group: string; note: string; stages: string[]; number: number; versions: number };
 	type Skill = { id: string; json: { label: string; group: string; note?: string; system: string; stages?: Record<string, string> }; number: number; version?: number; edit?: number; intent?: { id: string; status: string; note: string } };
-	const STAGES = ['idea', 'specify', 'build', 'proposal', 'ship', 'accepted', 'archived'];
+	const STAGES: IntentStage[] = ['idea', 'specify', 'build', 'proposal', 'ship', 'accepted', 'archived'];
 
 	adminsOnly();
 	const admin = $derived(isAdmin());

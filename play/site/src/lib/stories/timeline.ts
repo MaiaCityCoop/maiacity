@@ -2,16 +2,22 @@
 // lane, its subtitles, its sections and mood, its links. What is seen and heard is made by HyperFrames from the same
 // timeline (./compose.ts), never here.
 
-export type Clip = { id: string; at: number; duration: number; [field: string]: unknown };
-export type Track = { id: string; kind: string; clips: Clip[]; gain?: number; mute?: boolean; duck?: boolean; name?: string };
-export type StoryBody = { schema: 'story/1'; format: string; fps: number; duration: number; tracks: Track[] };
+import type * as W from '$wire';
+
+export type Clip = W.Clip;
+/** a track as the site reads it: the API's, and the names and ducking its tracks carry (not in its type yet) */
+export interface Track extends W.Track {
+	duck?: boolean;
+	name?: string;
+}
+export type StoryBody = Omit<W.StoryBody, 'tracks'> & { tracks: Track[] };
 /** a linked version as play reads it (play/api/src/stories.ts `linksOf`): its story's UUID, title, number and id, its
  *  length and timeline, and its story's newest accepted number (only shown: a link plays its own version) */
-export type Linked = { id: string; title: string; number: number; version: string; duration: number; newest?: number | null; body: StoryBody };
+export type Linked = Omit<W.Linked, 'newest' | 'body'> & { newest?: number | null; body: StoryBody };
 /** every version a timeline links, to any depth, by the version's id */
 export type Links = Record<string, Linked>;
 /** a story whose newest version links this one, and the number of this one's version it plays (GET /api/stories/:id) */
-export type LinkedBy = { id: string; title: string; number: number; version: string; plays: number | null };
+export type LinkedBy = W.LinkedBy;
 export type Story = StoryBody & { id: string; title: string; number?: number | null; version?: string; note?: string; links?: Links; linked_by?: LinkedBy[]; versions?: { number: number; id: string; note: string; created: string; author: string | null; approved_by?: string | null }[] };
 
 /** a shot: its still (frame), how it goes into the next (transition), and its moving picture if it has one: a video

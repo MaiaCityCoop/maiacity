@@ -9,6 +9,7 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import type { StoryItem } from '$wire';
 	import { api, fileUrl } from '$lib/api';
 	import { adminsOnly } from '$lib/admins.svelte';
 	import { isAdmin } from '$lib/session.svelte';
@@ -17,7 +18,7 @@
 	import Aside, { type ChainVersion, type Pick } from '$lib/app/Aside.svelte';
 	import { clock, type Story } from '$lib/stories/timeline';
 
-	type Item = { id: string; title: string; number: number; versions: number; duration: number; shots: number; tracks: number; updated: string; cover: string | null };
+	type Item = StoryItem;
 
 	adminsOnly();
 	const admin = $derived(isAdmin());

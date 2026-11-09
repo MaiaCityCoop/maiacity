@@ -4,16 +4,11 @@
 	from what it was to what it would be. Read only.
 -->
 <script lang="ts" module>
-	export type Change = { field: string; from: unknown; to: unknown };
-	export type DiffClip = { id: string; at: number; duration: number; [k: string]: unknown };
-	export type StoryDiff = {
-		title: { from: string; to: string } | null;
-		settings: Change[];
-		tracks: { id: string; kind: string; state: 'added' | 'removed' | 'same' | 'changed'; added: DiffClip[]; removed: DiffClip[]; changed: { id: string; changes: Change[] }[] }[];
-	};
+	export type { StoryDiff } from '$wire';
 </script>
 
 <script lang="ts">
+	import type { Clip as DiffClip, StoryChange as Change, StoryDiff } from '$wire';
 	import { linkedOf, type Links } from './timeline';
 
 	/** `links`: the versions both sides link (the proposal's and its base's), to name them by their story and number */

@@ -61,3 +61,14 @@ Problems cited as `site-app#n` (audit/site-app.md). Each move: what, the problem
     them. Pages that only hid things (profile, game editor, dashboard, Aside, History, the board) read `isAdmin()`.
     Removes site-app#21, #33. Behaviour unchanged: the same pages redirect, on the same condition. Pinned by the build
     and svelte-check.
+11. **One wire: the API's answer types, imported by the site.** `play/api/src/wire.ts` (types only, no logic)
+    re-exports from six API modules (intents, ship, substate, stories, docs/core, library); play/site imports it as
+    `$wire` (an alias in svelte.config.js, `import type` only, so nothing of the API is bundled). The intent's `Ship`,
+    `ShipStep`, `Check`, `Spec`, `Sub`, `Dep`, `Kind`, `Stage` and results (detail.ts), the story's `Clip`, `StoryBody`,
+    `Linked`, `LinkedBy` (timeline.ts; its `Track` extends the API's with the `duck` and `name` the site reads, which
+    the API's type lacks: the drift now shows), `StoryDiff` (StoryChanges), a document change (Changes), the Library's
+    file, the Stories list's item and the Skills page's stages (typed by the API's `IntentStage`, so a stale
+    `'prototype'` no longer compiles) are the API's own. Removes site-app#1, #2, #3 and #4 in part, #8. Note: the API's
+    modules bring Bun's types into the site's type check, so svelte-check's count outside held files falls (29 → 12;
+    `import.meta.dir` in old-city's worker now type-checks, though vitest still lacks it). Pinned by svelte-check (a
+    stage or a ship's pending kind outside the API's is an error), the build, the intents' and stories' tests.

@@ -9,7 +9,8 @@
 	and after by its asset's label and version (`pins`), instead of the version's hash.
 -->
 <script lang="ts" module>
-	export type Change = { path: string; kind: 'added' | 'removed' | 'changed'; from?: unknown; to?: unknown };
+	import type { DocChange } from '$wire';
+	export type Change = DocChange;
 	export type Edit = { seq: number; variant: number | null; kind: string; author: string | null; via: string; message: string; at: string; version: number | null };
 	/** a pin of a sandbox's layout as people read it: its asset's label and version, its variant and values */
 	export type PinShown = { label: string | null; number: number | null; variant: string | null; usedVariant: string | null; params: Record<string, string> | null } | null;
