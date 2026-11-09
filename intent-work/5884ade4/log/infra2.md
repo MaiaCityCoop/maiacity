@@ -88,3 +88,14 @@ scratchpad, `infra2/`).
 - Same: the step, old and new, with a temp HOME and GITHUB_ENV and a stand-in getent (`infra2/ssh-same.sh`):
   ~/.ssh (config, known_hosts, the key) identical; GITHUB_ENV keeps `APP_DIR=/opt/maia-city` and loses the four lines.
   actionlint clean; deploy-speed.test.ts and workflows.test.ts green.
+
+## 9. restore.sh's throwaway Postgres: production's image, a TCP wait, a login that says it failed (re-infra#9)
+
+- The check's throwaway Postgres runs production's database image, `docker inspect -f '{{.Config.Image}}'` of lib.sh's
+  DB_CONTAINER (today `postgres:17-alpine`, docker-compose.yml's), instead of its own copy of the version: pg_restore
+  must be the dump's major. It is waited for with `pg_isready -h 127.0.0.1` (over TCP, as play-checks.yml waits: the
+  first start answers on its socket before it is ready), so the `sleep 2` after the wait goes. A failed `docker login`
+  now says so (the pull that needs it then fails on its own), instead of `|| true`.
+- Shown: restore.sh check (with and without GHCR_TOKEN) against the stand-ins: the calls differ exactly by the
+  added `docker inspect` and the wait's `-h 127.0.0.1`, the run's image the same `postgres:17-alpine`; rollback (bucket,
+  folder) identical. `bash -n`, shellcheck clean.
