@@ -305,7 +305,8 @@ async function newDocument(q: Queryable, who: Me, kindName: unknown, whole: unkn
   if (k.table !== "play.records") throw new HttpError(`A new ${k.label} is made its own way (propose_asset, propose_story), not by propose_doc_version.`);
   if (!whole || typeof whole !== "object" || Array.isArray(whole)) throw new HttpError(`A new ${k.label} is its whole first state (\`whole\`).`);
   const uuid = randomUUID();
-  const label = `${(whole as any).label ?? (whole as any).title ?? k.label}`.slice(0, 200) || k.label;
+  const first = whole as Record<string, unknown>;
+  const label = `${first.label ?? first.title ?? k.label}`.slice(0, 200) || k.label;
   await q.query(`INSERT INTO play.records (id, coop_id, kind, label) VALUES ($1, $2, $3, $4)`, [uuid, COOP, k.name, label]);
   await docs.createDoc(q, { id: `${k.prefix}:${uuid}`, schema: k.schema, empty: true, author: authorOf(who, "mcp"), message: `a new ${k.label}, not yet accepted` });
   return uuid;
@@ -371,7 +372,7 @@ export async function proposeDocVersion(ctx: Ctx, me: Me | null, p: ProposeBody,
     }
     const out = await kind.propose!(ctx, who, { id: uuid, variant: Number(v), note, intent: p.intent }, via);
     const edits = (await docs.history(ctx.db, docId, { variant: Number(v) })).length;
-    return { ...out, stage: await stageAfter(ctx.db, (out as any).intent), doc: uuid, kind: kind.name, variant: Number(v), edits };
+    return { ...out, stage: await stageAfter(ctx.db, out.intent), doc: uuid, kind: kind.name, variant: Number(v), edits };
   }
   return ctx.db.transaction(async (tx) => {
     const { kind, uuid, docId } = ref ?? (await docRef(tx, ctx, await newDocument(tx, who, p.kind, p.whole), who));
