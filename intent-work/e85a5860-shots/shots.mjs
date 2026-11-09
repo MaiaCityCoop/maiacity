@@ -1,29 +1,24 @@
 #!/usr/bin/env node
 /*
- * INTENT e85a5860'S LOOK (c4), IN avenBOX — the meadow of Sandbox 1 on main and on this branch, and a path walked
- * through it springing back, shot by avenBOX's own Chromium in software (SwiftShader: WebGL, and WebGPU on its
- * SwiftShader adapter), no Mac (Samuel 2026-11-09: looks are judged on avenBOX screenshots; speed is the Mac's smoke
- * run after the deploy, never these frames).
+ * INTENT e85a5860'S LOOK (c4), IN avenBOX — the grass on this branch, chosen on the graphics card (WebGPU) against
+ * intent 7's tiles (its WebGL 2 fallback), and a path walked through it springing back; main's meadow as it is today
+ * beside them. Shot by avenBOX's own Chromium in software (SwiftShader), no Mac (Samuel 2026-11-09: looks are judged
+ * on avenBOX screenshots; speed is the Mac's smoke run after the deploy, never these frames).
  *
  *   node intent-work/e85a5860-shots/shots.mjs --main http://localhost:5191 --head http://localhost:5192 --out <dir>
  *
- * Two dev servers (run.sh): main's tree and this branch's, each with PLAY_API at the read-only proxy this script starts
- * on 127.0.0.1:3911 (play/site/scripts/macjob/proxy.mjs; PLAY_MCP_TOKEN reads play). Every page gets the tree's
- * determinism (play/site/scripts/macjob/determinism.js: SEEDED_RANDOM, QUIET), the hour pinned at noon and the world's
- * clock pinned (`__worldTime`), stepped by hand, so the grass's wind, its trample map's decay and every frame follow the
- * steps, not how slowly software draws.
- *
- * The meadow: the most grassy 12 m round Sandbox 1's near view, from this branch's grass mask (intent 7's job's
- * search), the same place and view on every page:
- *   - main.png: main's grass (the cover's clumps), `?renderer` its own;
- *   - tiles.png: this branch on WebGL 2 (`?renderer=webgl2`): intent 7's blades in tiles, the fallback;
- *   - compute.png: this branch on WebGPU (`?renderer=webgpu`): the blades chosen on the card, three indirect draws.
- * The trample, on WebGPU: the walker crosses 12 m of the meadow (stamping the trample map as it goes), the camera then
- * flown 5 m to its side at 2.2 m, looking across the path; stills at 0, 3, 6 and 10 s of the world's clock after the
- * walk (trample-<s>s.png), and the map read back along the path each time (`readTrodden`): how trodden it is.
- * Out: <out>/*.png and <out>/shots.json (each page's backend and grass mode, the blades drawn, the trample's numbers).
+ * Why not Sandbox 1 itself on WebGPU: in avenBOX's headless Chromium a WebGPU canvas never presents (its device is
+ * destroyed at the first frame shown, on SwiftShader, old and new headless alike; a raw WebGPU clear read back works),
+ * so a world page on WebGPU can't be shot. The grass is shot alone instead (play/site/scripts/grass-shots/harness.js:
+ * a ground, a sky's colour, a sun and the site's own grass, `grassFieldOn`, drawn into a target and read back), on
+ * both backends alike, from this branch's dev server:
+ *   - tiles.png: `webgl2`, intent 7's blades in tiles; compute.png: `webgpu`, the blades chosen on the card;
+ *   - trample-<s>s.png: on WebGPU, a walker (a pusher) crossing 12 m of it at 1.3 m/s, then seen from its side at 0, 3,
+ *     6 and 10 s of the world's clock after (`frame(t)`, half a second a frame), the trample map read back each time;
+ *   - main.png: main's Sandbox 1 at the meadow (14, 81) on WebGL, its own grass, as a page (WebGL canvases present).
+ * Out: <out>/*.png and <out>/shots.json (blades by level, the trample's numbers, the verdict).
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,6 +28,7 @@ const REPO = join(HERE, '../..');
 const { chromium } = createRequire(join(REPO, 'play/site/package.json'))('playwright');
 const { SEEDED_RANDOM, QUIET } = await import(join(REPO, 'play/site/scripts/macjob/determinism.js'));
 const { playProxy } = await import(join(REPO, 'play/site/scripts/macjob/proxy.mjs'));
+const HARNESS = readFileSync(join(REPO, 'play/site/scripts/grass-shots/harness.js'), 'utf8');
 
 const argv = process.argv.slice(2);
 const arg = (k) => {
@@ -43,135 +39,124 @@ const MAIN = arg('--main'), HEAD = arg('--head'), OUT = arg('--out') ?? join(HER
 if (!MAIN || !HEAD) throw new Error('give --main <main’s dev server> --head <this branch’s dev server>');
 mkdirSync(OUT, { recursive: true });
 const proxy = await playProxy(3911);
+const log = (s) => console.log(`[${new Date().toISOString().slice(11, 19)}] ${s}`);
 
 // software: WebGL by SwiftShader through ANGLE, WebGPU on Dawn's SwiftShader adapter; no GPU watchdog (a frame of a
-// million blades' choice on the CPU takes longer than the 10 s it allows a GPU process before it drops it)
+// million blades' choice on the CPU may outlast the 10 s it allows a GPU process)
 const browser = await chromium.launch({ args: ['--disable-gpu-watchdog', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--enable-unsafe-webgpu', '--use-webgpu-adapter=swiftshader', '--ignore-gpu-blocklist'] });
-const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
-const page = await ctx.newPage();
-page.setDefaultTimeout(20 * 60e3);
-await page.addInitScript({ content: SEEDED_RANDOM });
-await page.addInitScript(() => {
-	window.__interiorHour = 12;
-	window.__worldTime = 100;
-});
-const log = (s) => console.log(`[${new Date().toISOString().slice(11, 19)}] ${s}`);
-const quiet = async (ms) => {
-	for (const end = Date.now() + ms; Date.now() < end; await page.waitForTimeout(3000)) if ((await page.evaluate(QUIET).catch(() => null)) === 0) return true;
-	return false;
-};
-/** n frames drawn (requestAnimationFrame twice each), the world's clock stepped `dt` a frame */
-const frames = async (n, dt = 0) => {
-	for (let i = 0; i < n; i++)
-		await page.evaluate((dt) => new Promise((ok) => {
-			window.__worldTime += dt;
-			requestAnimationFrame(() => requestAnimationFrame(ok));
-		}), dt);
-};
-/** a dev server's first load can fail while vite optimises its dependencies ("Failed to fetch dynamically imported
- *  module"): such a page is loaded again, up to three times */
-let broken = false;
-page.on('pageerror', (e) => /Failed to fetch dynamically imported module|Importing a module script failed/.test(String(e)) && (broken = true));
-page.on('console', (m) => m.type() === 'error' && /Failed to fetch dynamically imported module/.test(m.text()) && (broken = true));
-const open = async (url) => {
-	for (let attempt = 1; ; attempt++) {
-		broken = false;
-		log(`open ${url} (attempt ${attempt})`);
-		await page.goto(url, { waitUntil: 'domcontentloaded' });
-		// the world is up once its cover is gone (sandbox-kit/WorldPage.svelte: its bar shown while it loads)
-		let up = false;
-		// up, or a module that failed to load (loaded again at once), or 25 minutes
-		for (const end = Date.now() + 25 * 60e3; !up && !broken && Date.now() < end; await page.waitForTimeout(3000))
-			up = await page.evaluate(() => !!(window.__walker && window.__assets && !document.querySelector('.progress'))).catch(() => false);
-		if (up && !broken) break;
-		const step = await page.evaluate(() => document.querySelector('.step')?.textContent ?? null).catch(() => null);
-		log(`not up (${broken ? 'a module failed to load' : 'timed out'}; at "${step}")`);
-		if (attempt >= 3) throw new Error(`${url} never came up: ${step}`);
+const results = { harness: {}, trample: [], main: null };
+const png = (name, url) => writeFileSync(join(OUT, `${name}.png`), Buffer.from(url.split(',')[1], 'base64'));
+
+/** the grass alone on a backend: its page, up */
+async function harness(backend) {
+	const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+	page.setDefaultTimeout(10 * 60e3);
+	page.on('pageerror', (e) => log(`page error: ${String(e).slice(0, 200)}`));
+	// any page of the dev server's origin, emptied, with the harness inlined (the dev server serves modules from src/)
+	await page.goto(`${HEAD}/robots.txt`);
+	await page.setContent('<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>');
+	await page.evaluate((b) => history.replaceState(null, '', `/?backend=${b}`), backend);
+	await page.addScriptTag({ type: 'module', content: HARNESS });
+	await page.waitForFunction(() => window.__h);
+	await page.evaluate(() => window.__h.ready);
+	const mode = await page.evaluate(() => ({ backend: window.__rendererBackend, grass: window.__h.field.mode ?? 'tiles' }));
+	log(`${backend}: ${JSON.stringify(mode)}`);
+	return { page, mode };
+}
+const blades = (page) => page.evaluate(async () => (window.__h.field.readBack ? window.__h.field.readBack() : window.__h.field.count()));
+
+/* the meadow, the same view on both: eye 1.65 m, looking a little down */
+for (const backend of ['webgl2', 'webgpu']) {
+	const { page, mode } = await harness(backend);
+	await page.evaluate(async () => {
+		window.__h.look(0, 1.65, 0, 0, -0.12);
+		for (let i = 0; i < 6; i++) await window.__h.frame(100 + i / 24);
+	});
+	const name = backend === 'webgpu' ? 'compute' : 'tiles';
+	png(name, await page.evaluate(() => window.__h.snap()));
+	results.harness[name] = { ...mode, blades: await blades(page) };
+	log(`${name}: blades by level ${JSON.stringify(results.harness[name].blades)}`);
+	if (backend !== 'webgpu') {
+		await page.close();
+		continue;
 	}
-	return page.evaluate(() => ({ backend: window.__rendererBackend ?? null, grass: window.__grass ? (window.__grass.mode ?? 'tiles') : 'none' }));
-};
-/** the walker at the meadow, the view settled, its picture */
-const meadow = async (name, spot) => {
-	await page.evaluate(({ x, z }) => window.__walker.place(x, z, 0, -0.12), spot);
-	await frames(12, 1 / 24);
-	const settled = await quiet(4 * 60e3);
-	await frames(4, 1 / 24);
-	await page.screenshot({ path: join(OUT, `${name}.png`) });
-	const blades = await page.evaluate(async () => (window.__grass?.readBack ? window.__grass.readBack() : window.__grass?.count?.() ?? null));
-	log(`${name}: settled ${settled}; blades by level ${JSON.stringify(blades)}`);
-	return { settled, blades };
-};
 
-const results = { pages: {}, trample: [] };
-const t0 = Date.now();
-
-/* this branch on WebGPU first: it finds the meadow from its own mask */
-results.pages.compute = await open(`${HEAD}/sandbox-1/?renderer=webgpu`);
-log(`head on WebGPU: ${JSON.stringify(results.pages.compute)} after ${Math.round((Date.now() - t0) / 1000)} s`);
-if (results.pages.compute.grass !== 'indirect') throw new Error(`?renderer=webgpu drew the grass as ${results.pages.compute.grass}, not on the card`);
-await page.evaluate(() => window.__walker.place(0, 95, 0, -0.05));
-await frames(20, 1 / 24);
-await quiet(4 * 60e3);
-const spot = await page.evaluate(() => {
-	const m = window.__grass.mask, N = m.size, s = m.texel, best = { x: 0, z: 95, g: -1 };
-	for (let x = -50; x <= 50; x += 4)
-		for (let z = 45; z <= 145; z += 4) {
-			let sum = 0, n = 0;
-			for (let dx = -6; dx <= 6; dx += 1.5)
-				for (let dz = -6; dz <= 6; dz += 1.5) {
-					const gx = Math.floor((x + dx) / s), gz = Math.floor((z + dz) / s), i = (((gz % N) + N) % N) * N + (((gx % N) + N) % N);
-					if (m.col[i] === gx && m.row[i] === gz) (sum += m.grass[i]), n++;
-				}
-			if (n && sum / n > best.g) Object.assign(best, { x, z, g: sum / n });
-		}
-	return best;
-});
-results.spot = spot;
-log(`the meadow at ${spot.x}, ${spot.z} (grass ${spot.g.toFixed(2)})`);
-Object.assign(results.pages.compute, await meadow('compute', spot));
-
-/* the trample: 12 m walked through the meadow at 1.3 m/s (the clock stepped with it), then seen from its side */
-const z0 = spot.z + 6, z1 = spot.z - 6;
-for (let z = z0; z >= z1; z -= 0.4) {
-	await page.evaluate(({ x, z }) => window.__walker.place(x, z, 0, -0.1), { x: spot.x, z });
-	await frames(1, 0.4 / 1.3);
-}
-await page.evaluate(({ x, z }) => window.__walker.fly(x + 5, 2.2, z, Math.PI / 2, -0.32), { x: spot.x, z: spot.z });
-for (const s of [0, 3, 6, 10]) {
-	// the clock stepped to s seconds after the walk, half a second a frame
-	const at = results.trample.length ? results.trample[results.trample.length - 1].s : 0;
-	await frames(Math.round((s - at) / 0.5), 0.5);
-	await frames(2, 0);
-	await page.screenshot({ path: join(OUT, `trample-${s}s.png`) });
-	const along = await page.evaluate(async ({ x, z0, z1 }) => {
-		const t = await window.__grass.readTrodden(), N = t.size;
-		let most = 0, sum = 0, n = 0;
-		for (let z = z1; z <= z0; z += t.texel) {
-			const gx = Math.floor(x / t.texel), gz = Math.floor(z / t.texel), v = t.data[(((gz % N) + N) % N) * N + (((gx % N) + N) % N)];
-			(most = Math.max(most, v)), (sum += v), n++;
-		}
-		return { most: +most.toFixed(3), mean: +(sum / n).toFixed(3) };
-	}, { x: spot.x, z0: z0 - 1, z1: z1 + 1 });
-	results.trample.push({ s, ...along });
-	log(`trample ${s} s after the walk: the path at most ${along.most}, on average ${along.mean}`);
+	/* the trample: 12 m walked along x = 0 from z = −4 to −16 at 1.3 m/s, seen from 5 m to its side at 2.2 m */
+	const side = () => page.evaluate(() => window.__h.look(5, 2.2, -10, Math.PI / 2, -0.32));
+	await side();
+	await page.evaluate(async () => {
+		for (let i = 0; i < 6; i++) await window.__h.frame(110 + i / 24);
+	});
+	png('trample-before', await page.evaluate(() => window.__h.snap()));
+	let t = 111;
+	for (let z = -4; z >= -16; z -= 0.4) {
+		await page.evaluate(async ({ z, t }) => {
+			window.__h.look(0, 1.65, z, 0, -0.1);
+			await window.__h.frame(t, [[0, z, 0.6, 1]]);
+		}, { z, t });
+		t += 0.4 / 1.3;
+	}
+	await side();
+	let at = 0;
+	for (const s of [0, 3, 6, 10]) {
+		// the world's clock on to s seconds after the walk, half a second a frame
+		for (; at < s; at += 0.5) await page.evaluate((t) => window.__h.frame(t), t + at + 0.5);
+		await page.evaluate((t) => window.__h.frame(t), t + s);
+		png(`trample-${s}s`, await page.evaluate(() => window.__h.snap()));
+		const along = await page.evaluate(async () => {
+			const m = await window.__h.field.readTrodden(), N = m.size;
+			let most = 0, sum = 0, n = 0;
+			for (let z = -15; z <= -5; z += m.texel) {
+				const gx = Math.floor(0 / m.texel), gz = Math.floor(z / m.texel), v = m.data[(((gz % N) + N) % N) * N + (((gx % N) + N) % N)];
+				(most = Math.max(most, v)), (sum += v), n++;
+			}
+			return { most: +most.toFixed(3), mean: +(sum / n).toFixed(3) };
+		});
+		results.trample.push({ s, ...along });
+		log(`trample ${s} s after the walk: the path at most ${along.most}, on average ${along.mean}`);
+	}
+	await page.close();
 }
 
-/* this branch on WebGL 2: intent 7's tiles, the fallback */
-results.pages.tiles = await open(`${HEAD}/sandbox-1/?renderer=webgl2`);
-log(`head on WebGL 2: ${JSON.stringify(results.pages.tiles)}`);
-Object.assign(results.pages.tiles, await meadow('tiles', spot));
+/* main's meadow, as a page on WebGL (its own grass; a WebGL canvas presents) */
+try {
+	const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+	page.setDefaultTimeout(25 * 60e3);
+	await page.addInitScript({ content: SEEDED_RANDOM });
+	await page.addInitScript(() => {
+		window.__interiorHour = 12;
+		window.__worldTime = 100;
+	});
+	let broken = false;
+	page.on('pageerror', (e) => /Failed to fetch dynamically imported module/.test(String(e)) && (broken = true));
+	for (let attempt = 1; attempt <= 3; attempt++) {
+		broken = false;
+		log(`main: open (attempt ${attempt})`);
+		await page.goto(`${MAIN}/sandbox-1/`, { waitUntil: 'domcontentloaded' });
+		let up = false;
+		for (const end = Date.now() + 25 * 60e3; !up && !broken && Date.now() < end; await page.waitForTimeout(3000))
+			up = await page.evaluate(() => !!(window.__walker && !document.querySelector('.progress'))).catch(() => false);
+		if (up) break;
+		if (attempt === 3) throw new Error('main never came up');
+	}
+	await page.evaluate(() => window.__walker.place(14, 81, 0, -0.12));
+	for (const end = Date.now() + 4 * 60e3; Date.now() < end; await page.waitForTimeout(3000)) if ((await page.evaluate(QUIET).catch(() => null)) === 0) break;
+	await page.screenshot({ path: join(OUT, 'main.png') });
+	results.main = { backend: await page.evaluate(() => window.__rendererBackend ?? 'webgl') };
+	log(`main: shot (${results.main.backend})`);
+} catch (e) {
+	results.main = { error: String(e).slice(0, 300) };
+	log(`main: not shot (${results.main.error})`);
+}
 
-/* main, as it draws today */
-results.pages.main = await open(`${MAIN}/sandbox-1/`);
-log(`main: ${JSON.stringify(results.pages.main)}`);
-Object.assign(results.pages.main, await meadow('main', spot));
-
+const sum = (b) => (Array.isArray(b) ? b.reduce((a, x) => a + x, 0) : 0);
 results.verdict = {
-	denser: (results.pages.compute.blades ?? []).reduce((a, b) => a + b, 0) > (results.pages.tiles.blades ?? []).reduce?.((a, b) => a + b, 0),
+	computeOnCard: results.harness.compute?.grass === 'indirect' && results.harness.compute?.backend === 'webgpu',
 	trodden: (results.trample[0]?.most ?? 0) >= 0.5,
-	springsBack: (results.trample.find((t) => t.s === 10)?.most ?? 1) <= 0.06
+	springsBack: (results.trample.find((x) => x.s === 10)?.most ?? 1) <= 0.06,
+	bladesComputeVsTiles: [sum(results.harness.compute?.blades), sum(results.harness.tiles?.blades)]
 };
-log(`verdict ${JSON.stringify(results.verdict)} in ${Math.round((Date.now() - t0) / 1000)} s`);
+log(`verdict ${JSON.stringify(results.verdict)}`);
 writeFileSync(join(OUT, 'shots.json'), JSON.stringify(results, null, 1));
 await browser.close();
 proxy.close();
