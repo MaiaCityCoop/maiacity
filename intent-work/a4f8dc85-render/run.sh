@@ -9,7 +9,7 @@ REPO="$(cd "$(dirname "$0")/../.." && pwd)"; T="$REPO/tools/character"; W="${1:-
 : "${PLAY_MCP_TOKEN:?PLAY_MCP_TOKEN is needed: the photos are fetched from play by hash}"
 bash "$T/setup.sh" "$W"; cd "$W"; PY=./venv/bin/python
 get() { [ -s "$2" ] || curl -sSf -H "Authorization: Bearer $PLAY_MCP_TOKEN" -o "$2" "https://play.maia.city/api/files/$1"; }
-# Samuel's personal library, by hash (HANDOVER.md): his two face photos and his current sheet
+# Samuel's personal library, by hash: his two face photos and his current sheet
 get 6aa9786804f987949b864f1dcd540ad83d1737e5a814d530576c805bbd57178e photo-front.jpg   # front, smiling
 get bf7e4a5f32d7b249b8b793cefa44dc127106bad1fc9964b152a87a8f254835c3 photo-34.jpg      # three-quarter, smiling, cap
 get 0263b59cc6f44a0ee2cd8334d4b42b5df5ade40f13ca83629760876368887a90 sheet.jpg         # the sheet (5504 × 3072)

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # c3's bench film of Samuel's character (intent a4f8dc85), on Samuel's Mac: after run.sh (the fit and the texture, in the
-# same work folder), the Person head v2 and body v3 made from v1 and this intent's diffs (their hashes checked), his
+# same work folder), the Person head v2 and body v3 fetched from play by hash (each checked against it), his
 # face baked into them, his recipe made from samuel.template.js, and the film rendered on Metal (bench-gpu.mjs):
 # walk, a quarter turn, sit down, sitting, stand up, wave; friendly throughout, joy where it smiles.
 #   bash intent-work/a4f8dc85-render/bench.sh [work folder]      (from the repository's root, on the Mac)
@@ -8,22 +8,17 @@
 # library; the film itself is kept on the Mac (bench.mp4), since play keeps a video only in Maia City's Library.
 # RENDERER=cpu stops before the film (avenBOX: everything but the GPU).
 set -euo pipefail
-REPO="$(cd "$(dirname "$0")/../.." && pwd)"; T="$REPO/tools/character"; I="$REPO/intent-work/a4f8dc85"; W="${1:-$HOME/a4f8dc85-work}"
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"; T="$REPO/tools/character"; W="${1:-$HOME/a4f8dc85-work}"
 : "${PLAY_MCP_TOKEN:?PLAY_MCP_TOKEN is needed: the pieces are fetched from play by hash}"
 cd "$W"; PY=./venv/bin/python; $PY -c "import blake3" 2>/dev/null || ./venv/bin/pip install -q blake3
 mkdir -p pieces
 get() { [ -s "pieces/$1.js" ] || curl -sSf -H "Authorization: Bearer $PLAY_MCP_TOKEN" -o "pieces/$1.js" "https://play.maia.city/api/files/$1"; }
-HEAD1=7f6d41491559a018391791976005e6b4285fb51b28c89da3dc0c327ee79aff83; BODY1=7f8cae20147242dbe6ee2eafe0203c1f59f0cd3925bca7135b70667137888cf2
-HEAD2=04ff652935a0b510c224beb4f369c65a8407b4ce53f73bf3eea63ffb08e884b9; BODY2=2f0ecb1327aef23afafcd12fcb04685e2dcdff979259390f22bdb4a54605eed1
-BODY3=b5aec61b1bfc9e91e251b9194d74cd15ada3a8705792973ec31a8074c78cc8bd
-for h in $HEAD1 $BODY1 c6bd60a52004748e86bd99d3a922057c155a76b2ef4ffdb3a41903dd7b60f129 16dadf0099be9638315e10bf913916253a824c32f215ef6bfa7c5e3252fd2d3f \
-  87f6540d15a24f7164ff7080290b56bd1067a8e5e1a0357848f06b5314b41bdd e1c0a220afd1949475d88210214ad813e17e6a054406f0a96a798964292e4831 5ce51f9e5126cb38ef44ddbe205b359e0917da6774d28ac1e7931797365004ce; do get $h; done
-# this intent's versions: v1 and the diffs, each checked against its hash
-patch -s -o pieces/$HEAD2.js pieces/$HEAD1.js "$I/person-head-v2.diff"
-patch -s -o pieces/$BODY2.js pieces/$BODY1.js "$I/person-body-v2.diff"
-patch -s -o pieces/$BODY3.js pieces/$BODY2.js "$I/person-body-v3.diff"
-for h in $HEAD2 $BODY2 $BODY3; do $PY -c "import blake3,sys; h=blake3.blake3(open('pieces/$h.js','rb').read()).hexdigest(); sys.exit(0 if h=='$h' else print('hash differs: $h', h) or 1)"; done
-echo "pieces: head v2, body v2 and v3 made and checked"
+HEAD2=04ff652935a0b510c224beb4f369c65a8407b4ce53f73bf3eea63ffb08e884b9; BODY3=b5aec61b1bfc9e91e251b9194d74cd15ada3a8705792973ec31a8074c78cc8bd
+# the accepted Person head v2 and body v3, and the pieces they and his recipe name, each checked against its hash
+for h in $HEAD2 $BODY3 c6bd60a52004748e86bd99d3a922057c155a76b2ef4ffdb3a41903dd7b60f129 16dadf0099be9638315e10bf913916253a824c32f215ef6bfa7c5e3252fd2d3f \
+  87f6540d15a24f7164ff7080290b56bd1067a8e5e1a0357848f06b5314b41bdd e1c0a220afd1949475d88210214ad813e17e6a054406f0a96a798964292e4831 5ce51f9e5126cb38ef44ddbe205b359e0917da6774d28ac1e7931797365004ce; do
+  get $h; $PY -c "import blake3,sys; h=blake3.blake3(open('pieces/$h.js','rb').read()).hexdigest(); sys.exit(0 if h=='$h' else print('hash differs: $h', h) or 1)"; done
+echo "pieces: head v2 and body v3 fetched and checked"
 $PY "$T/bake.py" fit pieces/$HEAD2.js
 $PY "$T/make-recipe.py" "$REPO/intent-work/a4f8dc85-render/samuel.template.js" look-fit.json samuel.js
 node "$T/build-recipe.mjs" samuel.js pieces 2>/dev/null | tail -1 || bun "$T/build-recipe.mjs" samuel.js pieces | tail -1

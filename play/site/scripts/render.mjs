@@ -229,13 +229,13 @@ try {
 				await page.screenshot({ path: resolve(dir, `${String(i).padStart(5, '0')}.png`), clip: box ?? undefined, timeout: 120_000 });
 				if (i % 50 === 0) console.log(`  frame ${i} of ${frames}`);
 			}
-			try {
-				const { execFileSync } = await import('node:child_process');
-				execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(plan.fps ?? 30), '-i', resolve(dir, '%05d.png'), '-pix_fmt', 'yuv420p', '-c:v', 'libx264', '-crf', '20', resolve(o.out, `${name}-film.mp4`)]);
-				console.log(`  ${resolve(o.out, `${name}-film.mp4`)}`);
-			} catch {
-				console.log(`  ${frames} frames in ${dir} (no ffmpeg here to join them)`);
-			}
+			// yuv420p wants even sides: the canvas's box may be odd, so the film is cropped to the even size below
+			const { spawnSync } = await import('node:child_process');
+			const mp4 = resolve(o.out, `${name}-film.mp4`);
+			const ff = spawnSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(plan.fps ?? 30), '-i', resolve(dir, '%05d.png'), '-vf', 'crop=trunc(iw/2)*2:trunc(ih/2)*2', '-pix_fmt', 'yuv420p', '-c:v', 'libx264', '-crf', '20', mp4], { stdio: 'inherit' });
+			if (ff.error) console.log(`  ${frames} frames in ${dir} (no ffmpeg here to join them)`);
+			else if (ff.status !== 0) throw new Error(`ffmpeg could not join the frames in ${dir} (exit ${ff.status})`);
+			else console.log(`  ${mp4}`);
 			await page.close();
 			continue;
 		}

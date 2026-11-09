@@ -43,8 +43,8 @@ bash intent-work/a4f8dc85-render/run.sh ~/a4f8dc85-work      # the fit and the t
 bash intent-work/a4f8dc85-render/bench.sh ~/a4f8dc85-work
 ```
 
-- It makes the Person head v2 and body v2 and v3 from v1 (fetched from play by hash) and this intent's diffs
-  (`intent-work/a4f8dc85/person-*.diff`), checks each against its hash, bakes Samuel's face into the head's own-face
+- It fetches the accepted Person head v2 and body v3 and the pieces they name from play by hash, checks each against
+  its hash, bakes Samuel's face into the head's own-face
   inputs (`tools/character/bake.py`), makes his recipe from `samuel.template.js` (his look and clothes; no face in git),
   and renders 20 s at 24 fps on Metal (`tools/character/bench-gpu.mjs`): idle, walk, a quarter turn, sit down on a
   chair, sitting (smiling), stand up, wave (smiling), idle.
