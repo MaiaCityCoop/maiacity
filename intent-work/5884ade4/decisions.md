@@ -368,3 +368,6 @@ wait.
 checks would want; as written they can turn red each time a GPU intent lands, also after this one reaches Proposal
 (play merges main in and the box records again). Re-specifying them is a step back and his Approve spec; this intent
 keeps meeting them as written meanwhile.
+- 15:50Z: ed6694c3 landed (play merged it in; 120 files held now). The files it released bring dead exports 14,
+  comment lines 10,182, gone-file pointers 15, less-stable imports 13 into the counts. Ten open intents still hold
+  files (the GPU programme); each landing does this again. The site3 pass merges this head and takes them.
