@@ -249,6 +249,10 @@ describe("Intent named", async () => {
     // the head is the pull request's own; a dry run asks GitHub for it, and hands over the branch's intent.ts unrun
     const which = spec.steps.find((s: any) => s.id === "which");
     expect(which.env.HEAD_SHA).toBe("${{ github.event.pull_request.head.sha }}");
+    // a dry run may time another intent's spec on that head; on pull_request_target the intent is always the PR's own
+    expect(which.env.OTHER).toBe("${{ inputs.intent }}");
+    expect(which.run).toContain('if [ "$DRY" = true ] && [ -n "$OTHER" ]; then');
+    expect(record.if.startsWith("github.event_name == 'pull_request_target'")).toBe(true);
     expect(which.run).toContain('[ "$DRY" != true ] || HEAD_SHA=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq .head.sha)');
     expect(which.run).toContain('git show "$GITHUB_SHA:play/avenbox/intent.ts" > "$RUNNER_TEMP/box/intent.ts"');
     expect(which.run).not.toMatch(/bun [^\n]*(\$GITHUB_SHA|\$RUNNER_TEMP\/box\/intent\.ts)/);

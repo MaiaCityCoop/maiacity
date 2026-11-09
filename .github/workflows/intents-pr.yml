@@ -22,7 +22,8 @@
 #   record   main's intent.ts, with avenBOX's token: records the results (only if they ran on the head), skipped if cancelled
 # Heads in this repository only: a fork's pull request runs nothing here.
 # workflow_dispatch (a pull request's number) is a dry run of this file and the branch's own vs-main.ts and intent.ts
-# as dispatched, to time it before it is main's: it records nothing, and the token stays in spec with main's code.
+# as dispatched, to time it before it is main's (`intent`: another intent's spec on that head, e.g. one with a census):
+# it records nothing, and the token stays in spec with main's code.
 name: intents on pull requests
 
 on:
@@ -35,6 +36,10 @@ on:
         description: the pull request's number (a dry run, recording nothing)
         required: true
         type: number
+      intent:
+        description: another intent's UUID whose spec runs on that head instead of its own (to time a spec it hasn't)
+        required: false
+        type: string
 
 permissions: {}
 
@@ -71,9 +76,15 @@ jobs:
           PR: ${{ github.event.pull_request.number || inputs.pr }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           DRY: ${{ github.event_name == 'workflow_dispatch' }}
+          OTHER: ${{ inputs.intent }}
         run: |
           [ -n "$PLAY_MCP_TOKEN" ] || { echo "::error::The repository secret PLAY_MCP_TOKEN (avenBOX's token) is not set"; exit 1; }
-          intent=$(bun play/avenbox/pr-intent.ts "$PR" --id)
+          if [ "$DRY" = true ] && [ -n "$OTHER" ]; then
+            [[ "$OTHER" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { echo "::error::intent is a UUID"; exit 1; }
+            intent=$OTHER
+          else
+            intent=$(bun play/avenbox/pr-intent.ts "$PR" --id)
+          fi
           echo "intent=$intent" >> "$GITHUB_OUTPUT"
           [ "$DRY" != true ] || HEAD_SHA=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq .head.sha)
           [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::no head for pull request $PR"; exit 1; }
