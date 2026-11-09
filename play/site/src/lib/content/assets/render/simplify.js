@@ -871,19 +871,15 @@ async function outlinesOf(draws, rs, sets, smallest, pause) {
 /**
  * A level's drawings lowered to each plan: for each, every drawing kept, left out or lighter, and what it came to.
  * @param {{ attributes: Record<string, any>, index: ArrayLike<number>, tris: number, n: number, size: number, scale?: number, locals?: Float32Array, side?: number, see?: boolean, painted?: boolean }[]} draws
- *   each drawing of the level: its shape, its triangles, how often one copy draws it, the diameter of its ball at the
- *   biggest it is drawn (m) and how much bigger that is than it is made; where it is drawn (its `locals`, as
- *   ./prepare.js has them), on which side (a material's `side`), whether it is seen through and whether a picture is
- *   painted on it (a colour map)
+ *   each drawing: its shape, triangles, how often one copy draws it, its ball's diameter at its biggest (m) and how much
+ *   bigger than made; where (`locals`, as ./prepare.js has them), which `side`, whether seen through, whether painted
  * @param {{ budget: number, most?: number, error: number, smallest: number, every?: boolean }[]} plans each lower level:
- *   the triangles it is made to (./lod.js `budgetOf`), those it may never have more of (its ceiling, `budgetOf` of a
- *   shape without end), how far it may stray (m, `errorOf`) and the smallest part it draws (m, `smallestOf`); `every`
- *   keeps every piece, however small (a plant's leaves: a crown thinned shows)
+ *   the triangles it is made to (./lod.js `budgetOf`), its ceiling (`budgetOf` of a shape without end), how far it may
+ *   stray (m, `errorOf`), its smallest part (m, `smallestOf`); `every` keeps every piece (a crown thinned shows)
  * @param {() => Promise<void>} [pause] waited for between two steps (in the page, a frame's room)
  * @returns {Promise<{ draws: ('same' | null | { attributes?: Record<string, any>, index?: Uint16Array | Uint32Array, tris: number, copies?: Uint32Array })[], tris: number, error: number, passes: number[] }[]>}
- *   'same' a drawing kept as it is, null one left out, and otherwise its shape made lighter, or its copies that are
- *   ever seen (`copies`, their numbers among its places), or both; `passes` how many drawings came from each pass (0
- *   none taken away, 1 to 3 the passes above, 4 one allowed further for its level's ceiling)
+ *   'same' kept as it is, null left out, else its shape lighter, its ever-seen `copies` (numbers among its places), or
+ *   both; `passes` how many drawings came from each pass (0 none, 1–3 the passes above, 4 one further for its ceiling)
  */
 export async function lowerDraws(draws, plans, pause) {
 	await ready;

@@ -1,13 +1,9 @@
 /*
  * THE SONGBIRDS OF THE FOOD FOREST (Sandbox 5) — robins, blackbirds, great tits, house sparrows and chaffinches, each
- * living round a few trees of its own: it sits up in a crown and sings, or settles there a while; drops down to the
- * floor beside the tree and forages there — hops, pecks, looks round; and flies up again to that tree or the next,
- * in a songbird's bounding flight. Every one is a rigged actor (the Actors' songbirds, built in the asset box), drawn
- * as the other animals are ($content/assets/render/crowd.js): near you every bone moving, further off a coarser build of
- * the bird at rest, a hundred a draw call.
- *
- * Where a bird is and what it does is worked out from the world's time alone — each bird's round is laid out once
- * from the seed and repeats — so a film shot draws the same birds every time.
+ * round a few trees of its own: singing or settled up in a crown, down beside the tree to forage (hops, pecks, a look
+ * round), and up again in a songbird's bounding flight. Each a rigged actor (the Actors' songbirds) drawn as the other
+ * animals ($content/assets/render/crowd.js). Each bird's round is laid out once from the seed and repeats, worked out
+ * from the world's time alone, so a film shot draws the same birds every time.
  */
 import * as THREE from 'three';
 import { crowd } from '$lib/content/assets/render/crowd.js';
@@ -25,11 +21,9 @@ const SONGBIRDS = /** @type {const} */ (['robin', 'blackbird', 'greattit', 'spar
 const OFTEN = { robin: 3, blackbird: 3, greattit: 3, sparrow: 4, chaffinch: 3 };
 
 /**
- * The birds round `trees`, `count` of them, never coming down where `open(x, z)` says the ground is not (a path, the
- * water, a dome).
+ * The birds round `trees`, `count` of them, never coming down where `open(x, z)` says no (a path, the water, a dome).
  * @param {Tree[]} trees @param {number} count @param {number} seed
- * @param {(x: number, z: number) => boolean} open
- * @param {() => { x: number, z: number }} [eye]
+ * @param {(x: number, z: number) => boolean} open @param {() => { x: number, z: number }} [eye]
  */
 export function songbirds(trees, count, seed, open, eye) {
 	const r = seeded(seed);

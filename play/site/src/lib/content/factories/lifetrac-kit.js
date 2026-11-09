@@ -1,10 +1,9 @@
 // @ts-nocheck — plain JS, in the kit's own style (./kit.js)
 /*
- * The LifeTrac line's machines and what it carries: our additions to the factory kit (./kit.js), at their real size in
- * metres, for the line that builds the LifeTrac (play/api/import/factories/lifetrac-line/line.js). AirSup's kit
- * machines are readable stand-ins of two to three metres; a tractor line's are bigger, and fully automated, so these
- * have robots where theirs have people. `lifetrac` is our own simpler model of the tractor as it grows down the line,
- * from the same CAD numbers (OSE's v25, the asset's lifetrac.js), drawn before the last stage and as its fallback.
+ * The LifeTrac line's machines and what it carries: our additions to the factory kit (./kit.js) at real size (m), for
+ * the line building the LifeTrac (play/api/import/factories/lifetrac-line/line.js). AirSup's machines are 2–3 m stand-ins;
+ * a tractor line's are bigger and fully automated, robots where theirs have people. `lifetrac` is our simpler model of
+ * the tractor growing down the line from the same CAD numbers (OSE's v25), drawn before the last stage and as fallback.
  */
 import { T } from './three.js'
 import { K } from './kit.js'
@@ -513,10 +512,7 @@ K.shapes.controller = (add, def, { B, C }) => {
 
 /** the LifeTrac's steps, in the order the line adds them (the asset's STEPS) */
 const UPTO = ['frame', 'wheels', 'cube', 'hydraulics', 'arms', 'cylinders', 'platform', 'electronics']
-/**
- * The LifeTrac as it grows down the line, at its real size, facing +x (forward along the line), from OSE's v25 CAD
- * numbers as the asset draws them: x = (Y − 760) mm, y = Z mm, z = X mm (lifetrac.js `P`, turned to face +x).
- */
+/** The LifeTrac growing down the line, real size, facing +x, from OSE's v25 CAD as the asset draws it: x = (Y − 760) mm, y = Z mm, z = X mm. */
 K.shapes.lifetrac = (add, def, { B, C }) => {
   const n = UPTO.indexOf(def.upto || 'electronics') + 1
   const has = (s) => UPTO.indexOf(s) < n

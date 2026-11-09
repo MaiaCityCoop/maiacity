@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 /*
- * PROPOSE A READABLE SOURCE TO PLAY — a new asset, or a new version of one, sent from a file to play's MCP server as an
- * agent would (play/SPEC.md §4.1: readable source, never minified; play wraps it into the recipe file itself), after the
- * checks play would make and one it can't: that every build the source names by hash (a dome's plants, `hash: '…'` or
- * `use:<hash>`) is a recipe play's catalog holds. A source of 80 kB and more is best sent this way than pasted into a
- * tool call.
+ * PROPOSE A READABLE SOURCE TO PLAY — a new asset or version sent from a file to play's MCP as an agent would (play/SPEC.md
+ * §4.1: readable source, never minified; play wraps it into the recipe file), after play's checks and one it can't make:
+ * every build the source names by hash (`hash: '…'`, `use:<hash>`) is in play's catalog. Best for sources of 80 kB and more.
  *
  *   PLAY_MCP_TOKEN=play_… node scripts/propose.mjs --file <source.js> --group <group> --label "<label>" --note <note.md>
  *        [--slug <slug>] [--sheet <image hash>]                           a new asset (propose_asset)
