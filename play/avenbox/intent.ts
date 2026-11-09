@@ -33,7 +33,7 @@ const DATABASE = "postgres://postgres:play@127.0.0.1:5432/postgres";
 /** what no check's command may see: play's token and GitHub's */
 const SECRETS = ["PLAY_MCP_TOKEN", "GITHUB_TOKEN", "GH_TOKEN", "ACTIONS_RUNTIME_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_URL"];
 /** what the box says to a --record outside the GitHub run */
-export const RUN_RECORDS =
+const RUN_RECORDS =
   "--record runs only in the GitHub run: the pull request's run records them (.github/workflows/intents-pr.yml, as it is marked ready, and on each push to it). Here, run without --record: it runs and prints the checks, recording nothing.";
 
 type Check = { id: string; check: string; how: "test" | "measure" | "look"; by: string; run?: string; must: boolean };

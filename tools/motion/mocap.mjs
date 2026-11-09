@@ -159,11 +159,6 @@ export function fk(src, frame, out) {
 	return out;
 }
 
-/** the rest pose (every channel zero: a BVH's T-pose; a glTF's bind) as a frame */
-export function restFrame(src) {
-	if (src.gltf) return { root: src.joints[0].offset.clone(), q: src.joints.map((j) => j.rest.clone()), tr: src.joints.map((j) => j.offset.clone()) };
-	return { root: src.joints[0].offset.clone(), q: src.joints.map(() => new Quaternion()) };
-}
 export const jointIndex = (src, name) => {
 	const k = src.joints.findIndex((j) => j.name === name);
 	if (k < 0) throw new Error(`${src.name}: no joint ${name}`);

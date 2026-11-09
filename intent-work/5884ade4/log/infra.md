@@ -73,3 +73,13 @@ committed before and as now, every call they make logged and diffed):
   over the repository (but intent-work's audit) finds no reader, no workflow, script or skill file runs them.
 - `deploy/deploy-time.ts` stays: it is the `run` of check c12 of intent 5ab64b8e (accepted; `bun deploy/deploy-time.ts
   --most 90`, recorded by hand by Samuel 2026-11-07), the one measure of merge → live. Not dead.
+
+## 4. Exports nothing uses, comments naming gone files (measure `dead`, `comments`, in this area)
+
+- Unexported (used only in their file): `RUN_RECORDS` (intent.ts), `intentsIn` (pr-intent.ts), `Plan`, `allTests`
+  (select.ts), `falKey` (tools/sheet/fal.ts), the legal types (website/src/lib/legal/types.ts). Gone (used nowhere):
+  `UUID_IN` (pr-intent.ts, infra#40), `restFrame` (tools/motion/mocap.mjs).
+- Comments: select.ts's `./x.js` example (read as a file) said in words; website/src/params/legal.js no longer names
+  the `./moved.js` that went.
+- Pinned: tsc (play/api's gate includes play/avenbox through its tests), workflows.test.ts runs pr-intent.ts;
+  website check and build.

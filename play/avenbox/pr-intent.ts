@@ -13,12 +13,11 @@
 // and play (get_intent over its MCP: PLAY_MCP_URL, PLAY_MCP_TOKEN). It runs from main, in
 // .github/workflows/intent-named.yml and intents-pr.yml: it reads the pull request, never checks it out.
 
-export const UUID_IN = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const LINE = /^\s*Intent:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s*$/gim;
 const LIVE = ["build", "proposal", "ship"];
 
 /** the intents a text names on its `Intent: <uuid>` lines, lower case */
-export const intentsIn = (text: string | null | undefined) => [...`${text ?? ""}`.matchAll(LINE)].map((m) => m[1].toLowerCase());
+const intentsIn = (text: string | null | undefined) => [...`${text ?? ""}`.matchAll(LINE)].map((m) => m[1].toLowerCase());
 
 export type Verdict = { ok: boolean; intent?: string; why: string; notes: string[] };
 type Env = { github: string; repo: string; ghToken?: string; play: string; playToken?: string };
