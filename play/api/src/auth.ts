@@ -172,7 +172,7 @@ export async function loginFinish(db: Db, body: any): Promise<Result<Human>> {
 
 // ------------------------------------------------------------------ sessions
 
-const COOKIE = "play_session";
+export const COOKIE = "play_session";
 const LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 let SECRET = "";
 
