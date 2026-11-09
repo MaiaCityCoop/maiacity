@@ -101,7 +101,7 @@ describe('card schema v2', () => {
 	it('takes a world, and a catalog part named by its build hash as well as by a readable ref', () => {
 		expect(CARD.properties.group.enum).toContain('worlds');
 		const ref = CARD.properties.catalog.properties.parts.items.properties.ref;
-		const ok = (x: string) => ref.anyOf.some((d: any) => new RegExp(CARD.$defs[d.$ref.split('/').at(-1)].pattern).test(x));
+		const ok = (x: string) => ref.anyOf.some((d: any) => new RegExp((CARD.$defs as Record<string, { pattern?: string }>)[d.$ref.split('/').at(-1)].pattern!).test(x));
 		expect(ok(`${HASH}?seed=7101`)).toBe(true);
 		expect(ok('plants/fern@2:male?stage=3')).toBe(true);
 		expect(ok('https://example.com/x')).toBe(false);

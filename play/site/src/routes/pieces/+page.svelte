@@ -89,7 +89,7 @@
 
 {#if admin}
 	<div class="pieces">
-		<Frame nav={nav} navLabel="Maia City's pieces" navIcon="asset" asideHead={piece ? head : undefined} history={piece ? history : undefined} asideLabel="The piece's history">
+		<Frame nav={nav} navLabel="Maia City's pieces" navIcon="asset" asideLabel="The piece's history">
 			<article class="body">
 				{#if error}<p class="bad">{error}</p>{/if}
 				{#if piece}
