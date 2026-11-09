@@ -91,6 +91,8 @@ export async function legacyRan(db: Queryable): Promise<string | null> {
 }
 
 const MEDIA_TYPES: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", mp4: "video/mp4", mp3: "audio/mpeg", ktx2: "image/ktx2" };
+/** a media file named by its hash and ending (`<hash>.<ending>`), its endings the ones MEDIA_TYPES knows */
+const NAMED_MEDIA = new RegExp(`\\b([0-9a-f]{64})\\.(${Object.keys(MEDIA_TYPES).join("|")})\\b`, "g");
 
 /** every media file play's site names by its hash (`<hash>.<ending>` in play/site/src: the sandboxes' covers, their sounds,
  * the ground's scanned surfaces) */
@@ -106,7 +108,7 @@ export function mediaNamed(): { hash: string; ending: string }[] {
     for (const f of readdirSync(d)) {
       const p = join(d, f);
       if (statSync(p).isDirectory()) walk(p);
-      else if (/\.(js|ts|svelte)$/.test(f)) for (const m of readFileSync(p, "utf8").matchAll(/\b([0-9a-f]{64})\.(jpg|jpeg|png|webp|mp4|mp3|ktx2)\b/g)) out.set(m[1], m[2]);
+      else if (/\.(js|ts|svelte)$/.test(f)) for (const m of readFileSync(p, "utf8").matchAll(NAMED_MEDIA)) out.set(m[1], m[2]);
     }
   };
   walk(dir);
