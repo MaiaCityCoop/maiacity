@@ -10,6 +10,7 @@ import { RULE, RULES, SCHEMA } from "../src/kit/ids";
 import { decisions } from "../src/intents";
 import type { Pull } from "../src/github";
 import { autoMove } from "../src/decide";
+import { watchPulls } from "../src/watcher";
 import { migrate } from "../src/migrations";
 import { type Db } from "../src/kit/pg";
 import { FIRST_RULE, RULES_DOC, RULES_V1, matchRule, type Rule } from "../src/rules";
@@ -388,6 +389,23 @@ suite("auto-accept rules", () => {
       expect([what, await intent(c.id)]).toEqual([what, expect.objectContaining({ stage: "proposal", decided_by: null, auto: {} })]);
     }
     expect(gh.calls.filter((c) => c.method !== "GET" && cases.some(([, p]) => c.path.includes(`${p.pr}`) || c.path.includes(p.head))).length).toBe(0);
+    await setRules([FIRST_RULE]);
+  });
+
+  test("code only goes to Ship: the watcher's look takes one a rule matches into Ship once GitHub finds it ready", async () => {
+    await clearShips();
+    await setRules([rule("Code passes", ["accept"], { code: true, work_kind: ["code"] })]);
+    const pull = openPull("Ready later", { draft: true });
+    const c = await codeIntent("Ready later", pull);
+    expect([c.r.stage, c.r.auto_refused]).toEqual(["proposal", expect.stringMatching(/draft/)]);
+    // still a draft: the watcher's look leaves it
+    await watchPulls(db, gh.gh);
+    expect(await intent(c.id)).toMatchObject({ stage: "proposal", auto: {} });
+    // ready for review: the next look's rule takes it into Ship
+    gh.pulls.set(pull.pr, { ...gh.pulls.get(pull.pr)!, draft: false } as Pull);
+    await watchPulls(db, gh.gh);
+    expect(await intent(c.id)).toMatchObject({ stage: "ship", decided_by: null, auto: { accept: { label: "Code passes" } }, ship: { pr: pull.pr, by: "rule Code passes" } });
+    await clearShips();
     await setRules([FIRST_RULE]);
   });
 
