@@ -1,18 +1,9 @@
 // @ts-nocheck — plain JS, runs in the box and in the page
 /*
- * WHAT A MATERIAL IS, AS DATA (intent 6fd5e63f) — a recipe can't send a shader out of the box (content/assets/box/serialize.js), so a
- * material says what it *is* instead, and the page's own TSL draws it (content/render/wind.js, foliage.js): its
- * `look`, one of KINDS, with three numbers in checked ranges:
- *
- *   translucency   0…1    how much sunlight comes through it from behind (a leaf's glow at golden hour; bark none)
- *   stiffness      0.1…10 how stiff it is (grass 0.6, a leaf 1, bark 6): it damps its own flutter; the main bend is
- *                         the whole copy's, the same for all its materials, so leaves stay on their branches
- *   flutter        0…1    how much its tips shake in the wind on their own (a leaf, a petal; a fruit none)
- *
- * A recipe sets it on a material's `userData.look` (`{ kind: 'leaf' }`, numbers left out take the kind's), and box
- * format 5 (engine 6) carries it out; the page checks it (`lookOf`: an unknown kind or a number out of its range is
- * refused) and draws it. A build of an older engine carries none: its materials take a look from their names, as
- * plant-skill names them (`lookByName`: `leaf`, `bark`, `twig` …), or none, and are drawn as before.
+ * WHAT A MATERIAL IS, AS DATA (intent 6fd5e63f) — a recipe can't send a shader out of the box, so a material says what
+ * it *is* (`userData.look`: one of KINDS, its numbers in RANGES, left out ones the kind's) and the page's TSL draws it
+ * (content/render/wind.js, foliage.js). Box format 5 (engine 6) carries it out; the page checks it (`lookOf`). An older
+ * build carries none: its materials take a look from plant-skill's names (`lookByName`), or none, drawn as before.
  */
 
 /** the kinds of look, each with its numbers where a recipe gives none */
