@@ -7,6 +7,8 @@
 #   bash play/avenbox/gate.sh --plan                # what it would run, and why; runs nothing
 #   bash play/avenbox/gate.sh api|site|website|lint # one part, whole (as before: other intents' checks run these)
 #   bash play/avenbox/gate.sh lint <file>…          # the lint on these workflow files
+#   bash play/avenbox/gate.sh site-tests            # play/site's own tests (vitest), only when asked: neither CI nor
+#                                                   # the gate's default runs them (a speed decision left to Samuel)
 #
 # What a change touched: since the merge base with origin/main, plus the working tree (GATE_CHANGED="<paths>" names
 # them instead). play/api's tests are the ones that import a changed file or name it; all of them when a change is
@@ -23,9 +25,9 @@ for a in "$@"; do
   case "$a" in
     --all) ALL=1 ;;
     --plan) PLAN=1 ;;
-    all | api | site | website | lint) PART=$a ;;
-    -*) echo "gate.sh [all|api|site|website|lint] [--all] [--plan]"; exit 2 ;;
-    *) [ "$PART" = lint ] && FILES+=("$a") || { echo "gate.sh [all|api|site|website|lint] [--all] [--plan]"; exit 2; } ;;
+    all | api | site | website | lint | site-tests) PART=$a ;;
+    -*) echo "gate.sh [all|api|site|website|lint|site-tests] [--all] [--plan]"; exit 2 ;;
+    *) [ "$PART" = lint ] && FILES+=("$a") || { echo "gate.sh [all|api|site|website|lint|site-tests] [--all] [--plan]"; exit 2; } ;;
   esac
 done
 export PATH="$HOME/.bun/bin:$PATH"
@@ -33,6 +35,8 @@ export PATH="$HOME/.bun/bin:$PATH"
 # the plan: every step with --all, else select.ts's for what changed; one part keeps only its own steps
 if [ ${#FILES[@]} -gt 0 ]; then
   PLANNED="step lint"
+elif [ "$PART" = site-tests ]; then
+  PLANNED="step site-tests"
 elif [ $ALL = 1 ] || [ "$PART" != all ]; then
   PLANNED=$(bun "$ROOT/play/avenbox/select.ts" --all)
 else
@@ -43,6 +47,7 @@ case "$PART" in
   site) KEEP='^step site-' ;;
   website) KEEP='^step website-' ;;
   lint) KEEP='^step lint' ;;
+  site-tests) KEEP='^step site-tests' ;;
   *) KEEP='^step |^test ' ;;
 esac
 STEPS=$(echo "$PLANNED" | grep -E "$KEEP" | grep '^step ' | cut -c6-)
@@ -62,7 +67,7 @@ if [ $PLAN = 1 ]; then
 fi
 
 has() { echo "$STEPS" | grep -qx "$1"; }
-if has api-types || has api-tests || has site-build || has website-check; then
+if has api-types || has api-tests || has site-build || has website-check || has site-tests; then
   bash "$ROOT/play/avenbox/up.sh" || exit 1
 fi
 . "$ROOT/play/avenbox/box.env"
@@ -105,6 +110,7 @@ if has api-tests; then
   fi
 fi
 has site-build && step "play/site build" play/site bun run build
+has site-tests && step "play/site tests (vitest)" play/site bunx vitest run
 has website-check && step "website check" website bun run check
 has website-build && step "website build" website bun run build
 has lint && step "workflows' lint (actionlint)" . bash play/avenbox/actionlint.sh "${FILES[@]}"

@@ -166,3 +166,12 @@ committed before and as now, every call they make logged and diffed):
   74 code intents; intent.ts copied alone with play.ts into a folder runs from there.
 - Left: the play/site scripts' and tools/sheet's own clients (not in the box's sparse checkout; a play/site kit is the
   next step), ship.ts's and live-audit's trailer rules (play/api is the api builder's).
+
+## 12. `gate.sh site-tests`: play/site's own tests on demand (infra F1, part; infra#48, 52)
+
+- `bash play/avenbox/gate.sh site-tests` runs `bunx vitest run` in play/site (the box up first, as for every part
+  that needs its dependencies). Not in `--all`, select.ts's plan or CI: whether they join the default gate is a speed
+  decision left to Samuel.
+- Pinned: `gate.sh --all --plan` unchanged (workflows.test.ts's gate test green), `gate.sh site-tests --plan` names
+  the one step. A full vitest run did not finish here within 25 minutes while other builders' vitest runs shared the
+  machine; the known 5 failures (old-city.test.ts, decisions.md) showed in the first minute. Fixing those is fix 8's.
