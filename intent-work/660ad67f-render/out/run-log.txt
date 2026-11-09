@@ -1,8 +1,8 @@
-serving 7e7c0aa5d805026358e9a78d4d2622bae645ccee (vite dev: the asset box does not build under vite preview)
+serving ebaa4498c15e1b813d364be1b30b351c33dff74b (vite dev: the asset box does not build under vite preview)
 look: chromium: launch
 look: chromium: Sandbox 5
 look: chromium: Sandbox 1
-chromium (ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)): Sandbox 5 built in 28 s, 47 programs linked walking, 0 uniform/load errors, 32 clashes caught; Sandbox 1's film advanced 0…5 s
+chromium (ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)): Sandbox 5 built in 27 s, walk 487 frames, mean 24.7 ms, p95 33.4, 6 over 100 ms, max 533.2, 25 programs linked walking, 0 uniform/load errors, 32 clashes caught; Sandbox 1's film advanced 0…5 s
   viewer pickup: 0 uniform errors, 2 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
   viewer city-bus: 0 uniform errors, 1 errors: pageerror: free is not defined
 
@@ -93,7 +93,7 @@ OK: no uniform error, no plant failed to load, the film advanced
 look: webkit: launch
 look: webkit: Sandbox 5
 look: webkit: Sandbox 1
-webkit (Apple GPU): Sandbox 5 built in 39 s, 47 programs linked walking, 0 uniform/load errors, 32 clashes caught; Sandbox 1's film advanced 0…5 s
+webkit (Apple GPU): Sandbox 5 built in 40 s, walk 384 frames, mean 31.4 ms, p95 66, 12 over 100 ms, max 908, 25 programs linked walking, 0 uniform/load errors, 32 clashes caught; Sandbox 1's film advanced 0…5 s
   viewer pickup: 0 uniform errors, 3 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
   viewer city-bus: 0 uniform errors, 2 errors: pageerror: Can't find variable: free
 
@@ -180,5 +180,5 @@ layout( s…
 	float nodeUniform34;
 	float nodeUniform35;
 	uint nodeUn…
-OK: no uniform error, no plant failed to load, the film advanced
+OK: no uniform error, no plant failed to load, the film advanced (the walk over 31.2 ms: ed6694c3's)
 out: /Users/samuelandert/Documents/Development/s660ad67f-render/intent-work/660ad67f-render/out (commit out/ and push the branch intent-work/660ad67f-render)

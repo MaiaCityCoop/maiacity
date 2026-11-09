@@ -44,8 +44,15 @@
       }
     ],
     "sandbox5": {
-      "builtSeconds": 39.242,
-      "programsLinkedWhileWalking": 47,
+      "builtSeconds": 39.937,
+      "walk": {
+        "frames": 384,
+        "mean": 31.4,
+        "p95": 66,
+        "over100": 12,
+        "max": 908
+      },
+      "programsLinkedWhileWalking": 25,
       "programsLinkedTotal": 54,
       "clashes": [
         {
@@ -87,8 +94,38 @@
         {
           "a": "",
           "b": "",
+          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
+          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
           "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
           "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
+          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
+          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
+          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
+          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
         },
         {
           "a": "",
@@ -119,60 +156,6 @@
           "b": "",
           "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
           "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
-          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
-          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
-          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
-          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
-          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
-          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
-          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
-          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
-          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
         },
         {
           "a": "",
@@ -209,6 +192,30 @@
           "b": "",
           "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
           "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
+          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
+          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
+          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
+          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
         },
         {
           "a": "",
@@ -244,9 +251,6 @@
       "errors": [
         "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
         "THREE.Source: \"Source\" has been renamed to \"TextureSource\". Please update your code to use \"THREE.TextureSource\" instead.",
-        "THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.",
-        "THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.",
-        "THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.",
         "flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10",
         "flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9",
         "flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10",
@@ -255,6 +259,9 @@
         "flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9",
         "flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9",
         "flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9",
+        "THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.",
+        "THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.",
+        "THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.",
         "THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.",
         "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
         "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
@@ -277,6 +284,7 @@
       "film": "advanced 0…5 s",
       "errors": []
     },
+    "walkOverBound": true,
     "bad": []
   }
 ]

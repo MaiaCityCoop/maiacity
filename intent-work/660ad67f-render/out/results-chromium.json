@@ -9,7 +9,7 @@
         "uniformErrors": 0,
         "errors": [
           "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
-          "Error: Pickup: Pickup: the box could not build it (no asset machines/pickup@2:pickup)\n    at vaultBuild (http://localhost:5190/src/lib/content/assets/sources/viewer.js:85:9)\n    at async Module.track_reactivity_loss (http://localhost:5190/node_modules/.vite/deps/runtime-Do_u7Ssq.js?v=707a0f24:1434:1"
+          "Error: Pickup: Pickup: the box could not build it (no asset machines/pickup@2:pickup)\n    at vaultBuild (http://localhost:5190/src/lib/content/assets/sources/viewer.js:85:9)\n    at async Module.track_reactivity_loss (http://localhost:5190/node_modules/.vite/deps/runtime-Do_u7Ssq.js?v=8350fba9:1434:1"
         ]
       },
       {
@@ -34,13 +34,20 @@
         "uniformErrors": 0,
         "errors": [
           "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
-          "Error: machines/fiat500: the box could not build it (no asset machines/fiat500@2)\n    at vaultBuild (http://localhost:5190/src/lib/content/assets/sources/viewer.js:85:9)\n    at async Module.track_reactivity_loss (http://localhost:5190/node_modules/.vite/deps/runtime-Do_u7Ssq.js?v=707a0f24:1434:14)\n "
+          "Error: machines/fiat500: the box could not build it (no asset machines/fiat500@2)\n    at vaultBuild (http://localhost:5190/src/lib/content/assets/sources/viewer.js:85:9)\n    at async Module.track_reactivity_loss (http://localhost:5190/node_modules/.vite/deps/runtime-Do_u7Ssq.js?v=8350fba9:1434:14)\n "
         ]
       }
     ],
     "sandbox5": {
-      "builtSeconds": 27.5,
-      "programsLinkedWhileWalking": 47,
+      "builtSeconds": 26.759,
+      "walk": {
+        "frames": 487,
+        "mean": 24.7,
+        "p95": 33.4,
+        "over100": 6,
+        "max": 533.2
+      },
+      "programsLinkedWhileWalking": 25,
       "programsLinkedTotal": 54,
       "clashes": [
         {
@@ -82,96 +89,6 @@
         {
           "a": "",
           "b": "",
-          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
-          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
-          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
-          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
-          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
-          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
-          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
-          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
-          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
-          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
-          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
-          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
-          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
-          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
-          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
-          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
-        },
-        {
-          "a": "",
-          "b": "",
           "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
           "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
         },
@@ -196,8 +113,98 @@
         {
           "a": "",
           "b": "",
+          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
+          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
+        },
+        {
+          "a": "",
+          "b": "",
           "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
           "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
+          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
+          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
+          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
+          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
+          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
+          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
+          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
+          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
+          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
+          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
+          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
+          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
+          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
+          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
         },
         {
           "a": "",
@@ -456,6 +463,7 @@
       "film": "advanced 0…5 s",
       "errors": []
     },
+    "walkOverBound": false,
     "bad": []
   }
 ]

@@ -1,59 +1,58 @@
 
-  VITE v8.3.5  ready in 552 ms
+  VITE v8.3.5  ready in 692 ms
 
   ➜  Local:   http://localhost:5190/
   ➜  Network: use --host to expose
-11:12:05 AM [vite-plugin-svelte] src/lib/site/app/NavPill.svelte:167:1 Unused CSS selector ".avatar img"
+12:01:34 PM [vite-plugin-svelte] src/lib/site/app/NavPill.svelte:167:1 Unused CSS selector ".avatar img"
 https://svelte.dev/e/css_unused_selector
-11:12:08 AM [vite] (client) [console.warn] THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
-11:12:12 AM [vite] (client) [console.warn] flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10
-11:12:12 AM [vite] (client) [console.warn] flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9
-11:12:12 AM [vite] (client) [console.warn] flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10
-11:12:12 AM [vite] (client) [console.warn] flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9
-11:12:12 AM [vite] (client) [console.warn] flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9
-11:12:12 AM [vite] (client) [console.warn] flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9
-11:12:12 AM [vite] (client) [console.warn] flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9
-11:12:12 AM [vite] (client) [console.warn] flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9
-11:12:53 AM [vite] (client) [console.warn] flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters
-11:12:53 AM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
-11:12:53 AM [vite] (client) [console.warn] flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9
-11:12:53 AM [vite] (client) [console.warn] flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9
-11:12:53 AM [vite] (client) [console.warn] flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10
-11:12:53 AM [vite] (client) [console.warn] flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9
-11:12:53 AM [vite] (client) [console.warn] flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10
-11:12:53 AM [vite] (client) [console.warn] flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9
-11:12:53 AM [vite] (client) [console.warn] flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9
-11:12:53 AM [vite] (client) [console.warn] flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9
-11:12:53 AM [vite] (client) [console.warn] THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
-11:13:04 AM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
-11:13:04 AM [vite] (client) [console.warn] flora: yam@2:6:sandbox-5 did not grow: plants/yam takes no parameters
-11:13:04 AM [vite] (client) [console.warn] flora: yam@2:4:sandbox-5 did not grow: plants/yam takes no parameters
-11:13:04 AM [vite] (client) [console.warn] flora: cassava@2:7:sandbox-5 did not grow: plants/cassava takes no parameters
-11:13:04 AM [vite] (client) [console.warn] flora: yam@2:7:sandbox-5 did not grow: plants/yam takes no parameters
-11:13:04 AM [vite] (client) [console.warn] flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters
-11:13:04 AM [vite] (client) [console.warn] flora: mango@3:12:sandbox-5 did not grow: stage: 12 is out of 0–10
-11:13:04 AM [vite] (client) [console.warn] flora: moringa@2:5:sandbox-5 did not grow: plants/moringa takes no parameters
-11:13:04 AM [vite] (client) [console.warn] flora: cassava@2:5:sandbox-5 did not grow: plants/cassava takes no parameters
-11:13:04 AM [vite] (client) [console.warn] flora: mango@3:11:sandbox-5 did not grow: stage: 11 is out of 0–10
-11:13:04 AM [vite] (client) [console.warn] flora: cassava@2:4:sandbox-5 did not grow: plants/cassava takes no parameters
-11:13:04 AM [vite] (client) [console.warn] flora: yam@2:5:sandbox-5 did not grow: plants/yam takes no parameters
-11:13:04 AM [vite] (client) [console.warn] flora: moringa@2:6:sandbox-5 did not grow: plants/moringa takes no parameters
-11:13:04 AM [vite] (client) [console.warn] flora: cassava@2:6:sandbox-5 did not grow: plants/cassava takes no parameters
-11:13:04 AM [vite] (client) [console.warn] flora: moringa@2:8:sandbox-5 did not grow: plants/moringa takes no parameters
-11:13:05 AM [vite] (client) [console.warn] a crowd's pin:ec08b07d-6ec0-8f65-92b2-3efe7d91df5d/fish-nile at 0.2 was not built: Failed to fetch
-11:13:05 AM [vite] (client) [console.warn] a crowd's pin:ec08b07d-6ec0-8f65-92b2-3efe7d91df5d/fish-redtilapia at 0.2 was not built: Failed to fetch
-11:13:05 AM [vite] (client) [console.warn] assets: Eggplant did not load: Failed to fetch
-11:13:05 AM [vite] (client) [console.warn] assets: Eggplant did not load: Failed to fetch
-11:13:05 AM [vite] (client) [console.warn] flora: eggplant@1:7:sandbox-5 did not grow: Failed to fetch
-11:13:05 AM [vite] (client) [console.warn] flora: eggplant@1:9:sandbox-5 did not grow: Failed to fetch
-11:13:06 AM [vite-plugin-svelte] src/lib/content/assets/VaultAsset.svelte:565:18 Empty block
+12:01:37 PM [vite] (client) [console.warn] THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
+12:01:41 PM [vite] (client) [console.warn] flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+12:01:41 PM [vite] (client) [console.warn] flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+12:01:41 PM [vite] (client) [console.warn] flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+12:01:41 PM [vite] (client) [console.warn] flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+12:01:41 PM [vite] (client) [console.warn] flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+12:01:41 PM [vite] (client) [console.warn] flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+12:01:41 PM [vite] (client) [console.warn] flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+12:01:41 PM [vite] (client) [console.warn] flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+12:02:38 PM [vite] (client) [console.warn] flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters
+12:02:38 PM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+12:02:38 PM [vite] (client) [console.warn] flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+12:02:38 PM [vite] (client) [console.warn] flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+12:02:38 PM [vite] (client) [console.warn] flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+12:02:38 PM [vite] (client) [console.warn] flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+12:02:38 PM [vite] (client) [console.warn] flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+12:02:38 PM [vite] (client) [console.warn] flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+12:02:38 PM [vite] (client) [console.warn] flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+12:02:38 PM [vite] (client) [console.warn] flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+12:02:38 PM [vite] (client) [console.warn] THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
+12:02:46 PM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+12:02:46 PM [vite] (client) [console.warn] flora: yam@2:6:sandbox-5 did not grow: plants/yam takes no parameters
+12:02:46 PM [vite] (client) [console.warn] flora: yam@2:4:sandbox-5 did not grow: plants/yam takes no parameters
+12:02:46 PM [vite] (client) [console.warn] flora: cassava@2:7:sandbox-5 did not grow: plants/cassava takes no parameters
+12:02:46 PM [vite] (client) [console.warn] flora: yam@2:7:sandbox-5 did not grow: plants/yam takes no parameters
+12:02:46 PM [vite] (client) [console.warn] flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters
+12:02:46 PM [vite] (client) [console.warn] flora: mango@3:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+12:02:46 PM [vite] (client) [console.warn] flora: moringa@2:5:sandbox-5 did not grow: plants/moringa takes no parameters
+12:02:46 PM [vite] (client) [console.warn] flora: cassava@2:5:sandbox-5 did not grow: plants/cassava takes no parameters
+12:02:46 PM [vite] (client) [console.warn] flora: mango@3:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+12:02:46 PM [vite] (client) [console.warn] flora: cassava@2:4:sandbox-5 did not grow: plants/cassava takes no parameters
+12:02:46 PM [vite] (client) [console.warn] flora: yam@2:5:sandbox-5 did not grow: plants/yam takes no parameters
+12:02:46 PM [vite] (client) [console.warn] flora: moringa@2:6:sandbox-5 did not grow: plants/moringa takes no parameters
+12:02:46 PM [vite] (client) [console.warn] flora: cassava@2:6:sandbox-5 did not grow: plants/cassava takes no parameters
+12:02:46 PM [vite] (client) [console.warn] flora: moringa@2:8:sandbox-5 did not grow: plants/moringa takes no parameters
+12:02:47 PM [vite] (client) [console.warn] a crowd's pin:ec08b07d-6ec0-8f65-92b2-3efe7d91df5d/fish-redtilapia at 0.2 was not built: Failed to fetch
+12:02:47 PM [vite] (client) [console.warn] a crowd's pin:ec08b07d-6ec0-8f65-92b2-3efe7d91df5d/fish-nile at 0.2 was not built: Failed to fetch
+12:02:47 PM [vite] (client) [console.warn] assets: Eggplant did not load: Failed to fetch
+12:02:47 PM [vite] (client) [console.warn] assets: Eggplant did not load: Failed to fetch
+12:02:47 PM [vite] (client) [console.warn] flora: eggplant@1:9:sandbox-5 did not grow: Failed to fetch
+12:02:47 PM [vite] (client) [console.warn] flora: eggplant@1:7:sandbox-5 did not grow: Failed to fetch
+12:02:47 PM [vite-plugin-svelte] src/lib/content/assets/VaultAsset.svelte:565:18 Empty block
 https://svelte.dev/e/block_empty
-11:13:07 AM [vite] (client) dependencies optimized: marked, three/addons/postprocessing/EffectComposer.js, three/addons/postprocessing/GTAOPass.js, three/addons/postprocessing/OutputPass.js, three/addons/postprocessing/RenderPass.js, three/addons/postprocessing/ShaderPass.js, three/addons/postprocessing/UnrealBloomPass.js
-11:13:09 AM [vite] (client) [console.error] Error: Pickup: Pickup: the box could not build it (no asset machines/pickup@2:pickup)
+12:02:49 PM [vite] (client) [console.error] Error: Pickup: Pickup: the box could not build it (no asset machines/pickup@2:pickup)
     at vaultBuild (http://localhost:5190/src/lib/content/assets/sources/viewer.js:85:9)
-    at async Module.track_reactivity_loss (http://localhost:5190/node_modules/.vite/deps/runtime-Do_u7Ssq.js?v=707a0f24:1434:14)
+    at async Module.track_reactivity_loss (http://localhost:5190/node_modules/.vite/deps/runtime-Do_u7Ssq.js?v=8350fba9:1434:14)
     at async show (http://localhost:5190/src/lib/content/assets/VaultAsset.svelte:821:18)
-11:13:45 AM [vite] (client) [Unhandled error] ReferenceError: free is not defined
+12:03:27 PM [vite] (client) [Unhandled error] ReferenceError: free is not defined
 
 	in <unknown>
 	in Frame.svelte
@@ -80,34 +79,34 @@ https://svelte.dev/e/block_empty
  > destroy_effect node_modules/svelte/src/internal/client/reactivity/effects.js:531:1
  > destroy_effect_children node_modules/svelte/src/internal/client/reactivity/effects.js:490:3
 
-11:15:06 AM [vite] (client) [console.error] Error: machines/fiat500: the box could not build it (no asset machines/fiat500@2)
+12:04:48 PM [vite] (client) [console.error] Error: machines/fiat500: the box could not build it (no asset machines/fiat500@2)
     at vaultBuild (http://localhost:5190/src/lib/content/assets/sources/viewer.js:85:9)
-    at async Module.track_reactivity_loss (http://localhost:5190/node_modules/.vite/deps/runtime-Do_u7Ssq.js?v=707a0f24:1434:14)
+    at async Module.track_reactivity_loss (http://localhost:5190/node_modules/.vite/deps/runtime-Do_u7Ssq.js?v=8350fba9:1434:14)
     at async show (http://localhost:5190/src/lib/content/assets/VaultAsset.svelte:821:18)
-11:15:51 AM [vite] (client) [console.warn] THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
-11:15:56 AM [vite] (client) [console.warn] flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10
-11:15:56 AM [vite] (client) [console.warn] flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9
-11:15:56 AM [vite] (client) [console.warn] flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10
-11:15:56 AM [vite] (client) [console.warn] flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9
-11:15:56 AM [vite] (client) [console.warn] flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9
-11:15:56 AM [vite] (client) [console.warn] flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9
-11:15:56 AM [vite] (client) [console.warn] flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9
-11:15:56 AM [vite] (client) [console.warn] flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9
-11:16:47 AM [vite] (client) [console.warn] flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters
-11:16:47 AM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
-11:16:47 AM [vite] (client) [console.warn] flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9
-11:16:47 AM [vite] (client) [console.warn] flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9
-11:16:47 AM [vite] (client) [console.warn] flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10
-11:16:47 AM [vite] (client) [console.warn] flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9
-11:16:47 AM [vite] (client) [console.warn] flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10
-11:16:47 AM [vite] (client) [console.warn] flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9
-11:16:47 AM [vite] (client) [console.warn] flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9
-11:16:47 AM [vite] (client) [console.warn] flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9
-11:16:49 AM [vite] (client) [console.warn] THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
-11:17:14 AM [vite] (client) [console.error] vaultBuild@http://localhost:5190/src/lib/content/assets/sources/viewer.js:85:18
+12:05:33 PM [vite] (client) [console.warn] THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
+12:05:39 PM [vite] (client) [console.warn] flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+12:05:39 PM [vite] (client) [console.warn] flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+12:05:39 PM [vite] (client) [console.warn] flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+12:05:39 PM [vite] (client) [console.warn] flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+12:05:39 PM [vite] (client) [console.warn] flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+12:05:39 PM [vite] (client) [console.warn] flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+12:05:39 PM [vite] (client) [console.warn] flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+12:05:39 PM [vite] (client) [console.warn] flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+12:06:48 PM [vite] (client) [console.warn] flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters
+12:06:48 PM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+12:06:48 PM [vite] (client) [console.warn] flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+12:06:48 PM [vite] (client) [console.warn] flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+12:06:48 PM [vite] (client) [console.warn] flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+12:06:48 PM [vite] (client) [console.warn] flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+12:06:48 PM [vite] (client) [console.warn] flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+12:06:48 PM [vite] (client) [console.warn] flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+12:06:48 PM [vite] (client) [console.warn] flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+12:06:48 PM [vite] (client) [console.warn] flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+12:06:51 PM [vite] (client) [console.warn] THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
+12:07:16 PM [vite] (client) [console.error] vaultBuild@http://localhost:5190/src/lib/content/assets/sources/viewer.js:85:18
 async track_reactivity_loss@http://localhost:5190/node_modules/.vite/deps/runtime-Do_u7Ssq.js:1434:27
 @http://localhost:5190/src/lib/content/assets/VaultAsset.svelte:821:47
-11:17:52 AM [vite] (client) [Unhandled error] ReferenceError: Can't find variable: free
+12:07:53 PM [vite] (client) [Unhandled error] ReferenceError: Can't find variable: free
 
 	in <unknown>
 	in Frame.svelte
@@ -170,6 +169,6 @@ async track_reactivity_loss@http://localhost:5190/node_modules/.vite/deps/runtim
  > run_micro_tasks node_modules/svelte/src/internal/client/dom/task.js:10:9
  > node_modules/svelte/src/internal/client/dom/task.js:28:46
 
-11:19:12 AM [vite] (client) [console.error] vaultBuild@http://localhost:5190/src/lib/content/assets/sources/viewer.js:85:18
+12:09:14 PM [vite] (client) [console.error] vaultBuild@http://localhost:5190/src/lib/content/assets/sources/viewer.js:85:18
 async track_reactivity_loss@http://localhost:5190/node_modules/.vite/deps/runtime-Do_u7Ssq.js:1434:27
 @http://localhost:5190/src/lib/content/assets/VaultAsset.svelte:821:47
