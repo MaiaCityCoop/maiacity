@@ -23,7 +23,7 @@
  * its canvas; and a phone drew at twice its pixels with the desktop's shadows, occlusion and multisampling.
  */
 import * as THREE from 'three';
-import { ShadowNode, WebGPURenderer } from 'three/webgpu';
+import { PMREMGenerator as NodePMREMGenerator, ShadowNode, WebGPURenderer } from 'three/webgpu';
 import { install } from './nodes/index.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { reopenOnRestore } from './budget.js';
@@ -128,7 +128,8 @@ export const isWebGPU = (r) => !!(/** @type {any} */ (r)?.isWebGPURenderer);
  * @property {keyof typeof TONE} [toneMapping] none (default) or agx
  * @property {number} [exposure] the tone mapping's exposure (default 1)
  * @property {boolean | keyof typeof SHADOWS} [shadows] shadow maps on (true: three's default kind) and of which kind
- * @property {boolean} [clipping] clipping planes per material (WebGL only: WebGPU clips by ClippingGroup)
+ * @property {boolean} [clipping] clipping planes per material on WebGL, and the kit's cuts on either (WebGPU clips
+ *   plain materials only by ClippingGroup)
  * @property {() => void} [onLost] the graphics card took the canvas back (the default reaction prevented)
  * @property {Backend} [backend] the switch's choice for this page (see BACKENDS); else `backend()`'s
  */
@@ -216,13 +217,81 @@ function createWebGPU(o, forceWebGL) {
 		renderer.shadowMap.enabled = true;
 		if (o.shadows !== true) renderer.shadowMap.type = SHADOWS[o.shadows];
 	}
+	// WebGPU has no clipping switch of its own: the kit's cut reads this one, as on WebGL (./nodes/index.js `clipping`)
+	/** @type {any} */ (renderer).localClippingEnabled = !!o.clipping;
 	// the device taken back: the page's reaction, else three's own (it logs); a page is opened anew as on WebGL
 	renderer.onDeviceLost = (info) => {
 		if (o.onLost) o.onLost();
 		else console.error('play: the graphics device was lost', info?.message ?? '');
 	};
+	// its uploads tell the attribute, as WebGL's do (the phone's memory release: ./budget.js `dropOnUpload`)
+	const init = renderer.init.bind(renderer);
+	renderer.init = async () => {
+		await init();
+		tellUploads(renderer);
+		return renderer;
+	};
 	o.container?.appendChild(renderer.domElement);
 	return renderer;
+}
+
+/** the WebGPURenderers whose uploads are told (`tellUploads`) */
+const told = new WeakSet();
+/**
+ * A WebGPURenderer's attribute uploads call the attribute's `onUploadCallback`, as WebGLRenderer's do (WebGPU never
+ * does): once its data reaches the graphics card, first or again, so what lets go of its array then
+ * (./budget.js `dropOnUpload`, a dome's baked shapes) does so on WebGPU too. Its internal Attributes (r187) wrapped once.
+ * @param {any} renderer
+ */
+function tellUploads(renderer) {
+	const attributes = renderer._attributes;
+	if (told.has(renderer) || typeof attributes?.update !== 'function') return;
+	told.add(renderer);
+	const update = attributes.update.bind(attributes);
+	attributes.update = (/** @type {any} */ a, /** @type {any} */ type) => {
+		const before = attributes.has(a) ? attributes.get(a).version : undefined;
+		update(a, type);
+		const after = attributes.has(a) ? attributes.get(a).version : undefined;
+		if (after !== undefined && after !== before) a.onUploadCallback?.();
+	};
+}
+
+/** each WebGPURenderer's warm-ups, one after the other (`precompile`) */
+const compiling = new WeakMap();
+
+/**
+ * The PMREM generator a renderer takes (intent c1bee1f8): three's classic one on WebGL, three/webgpu's on a
+ * WebGPURenderer (which bakes only once it is initialised: `environmentFrom` waits for it).
+ * @param {any} renderer
+ */
+export const pmremFor = (renderer) => (isWebGPU(renderer) ? new NodePMREMGenerator(renderer) : new THREE.PMREMGenerator(renderer));
+
+/**
+ * A scene's light baked into an environment (PMREM, blurred by `sigma`) and handed to `set`: a moment later on WebGL,
+ * once the renderer may draw on WebGPU (a page that bakes as it is made). The generator let go of after.
+ * @param {any} renderer @param {THREE.Scene} source @param {number} sigma @param {(texture: THREE.Texture) => void} set
+ * @returns {Promise<void>} settled once it is set
+ */
+export function environmentFrom(renderer, source, sigma, set) {
+	const bake = () => {
+		const pm = pmremFor(renderer);
+		const rt = /** @type {any} */ (pm).fromScene(source, sigma);
+		pm.dispose();
+		set(rt.texture);
+	};
+	// never during the call (a page made in one go hands `set` what it declares after): a microtask on, or once ready
+	return (isWebGPU(renderer) ? ready(renderer) : Promise.resolve()).then(bake);
+}
+
+/**
+ * The largest picture a renderer takes, pixels a side: WebGL's `capabilities`, WebGPU's device limit (8192, WebGPU's
+ * least, before it is initialised), or its WebGL 2 backend's own.
+ * @param {any} renderer
+ */
+export function maxTextureSize(renderer) {
+	if (!isWebGPU(renderer)) return renderer.capabilities.maxTextureSize;
+	const b = renderer.backend;
+	return b?.device?.limits?.maxTextureDimension2D ?? b?.gl?.getParameter?.(b.gl.MAX_TEXTURE_SIZE) ?? 8192;
 }
 
 /**
@@ -372,8 +441,14 @@ export function adaptiveResolution(renderer, { top = topPixelRatio(), floor = 1,
  * @returns {Promise<void>}
  */
 export function precompile(renderer, object, camera, scene) {
-	// WebGPU builds node materials itself, and its compileAsync settles for them: nothing is left out
-	if (isWebGPU(renderer)) return Promise.resolve(/** @type {any} */ (renderer).compileAsync(object, camera, scene)).then(() => {}, () => {});
+	// WebGPU builds node materials itself, and its compileAsync settles for them: nothing is left out. But it keeps its
+	// state on the renderer while it yields to the page, so two at once on one renderer clash (three r187: the second's
+	// state gone under the first, "Cannot destructure property 'useFrameBufferTarget'"): one at a time, in order
+	if (isWebGPU(renderer)) {
+		const turn = (compiling.get(renderer) ?? Promise.resolve()).then(() => /** @type {any} */ (renderer).compileAsync(object, camera, scene)).then(() => {}, () => {});
+		compiling.set(renderer, turn);
+		return turn;
+	}
 	/** @type {THREE.Object3D[]} */
 	const off = [];
 	object.traverseVisible((o) => {

@@ -11,6 +11,9 @@ export const VIEWPORT = { width: 1440, height: 900 };
 
 /** every WebGL context asked for (the test fails on any): the counting renderer asks for none */
 export const refusedContexts: string[] = [];
+/** the smoke's WebGL 2 (intent c1bee1f8, ../census.ts --smoke): a context that only answers, for WebGPURenderer's WebGL 2
+ *  backend to run its own code on (no pixel drawn); null: refused, as every census */
+export const contexts: { webgl2: null | (() => any) } = { webgl2: null };
 
 type Listener = EventListenerOrEventListenerObject;
 
@@ -60,6 +63,7 @@ export class El extends EventTarget {
 	classList = { add() {}, remove() {}, toggle() {}, contains: () => false };
 	ownerDocument: unknown;
 	#ctx: unknown;
+	#gl: any;
 	/** an iframe's window (./box.ts makes it a headless box frame) */
 	contentWindow: unknown = null;
 	srcdoc = '';
@@ -87,6 +91,7 @@ export class El extends EventTarget {
 		return { x: 0, y: 0, left: 0, top: 0, right: VIEWPORT.width, bottom: VIEWPORT.height, width: VIEWPORT.width, height: VIEWPORT.height, toJSON() {} };
 	}
 	getContext(kind: string) {
+		if (kind === 'webgl2' && contexts.webgl2) return (this.#gl ??= contexts.webgl2());
 		if (/webgl|experimental-webgl|webgpu|bitmaprenderer/.test(kind)) {
 			refusedContexts.push(kind);
 			throw new Error(`census: a ${kind} context was asked for; the census draws nothing (no WebGL in the cloud)`);

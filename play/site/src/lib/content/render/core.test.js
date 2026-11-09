@@ -253,6 +253,84 @@ describe('the switch to WebGPU', async () => {
 		expect(shaders.some((s) => /discard/.test(s ?? ''))).toBe(true);
 	});
 
+	// the phone's memory release (./budget.js dropOnUpload) needs the upload told, which WebGPU never does by itself
+	test('an attribute’s upload is told on WebGPU, as on WebGL: first, and again after a change, not each frame', async () => {
+		const r = /** @type {any} */ (await makeRenderer({ backend: 'webgl2', pixelRatio: 1, canvas: canvas().c }));
+		r.setSize(16, 16, false);
+		const scene = new THREE.Scene();
+		const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+		camera.position.z = 4;
+		const geo = new THREE.BoxGeometry();
+		const uploads = { position: 0, index: 0 };
+		geo.attributes.position.onUpload(() => uploads.position++);
+		/** @type {any} */ (geo.index).onUpload(() => uploads.index++);
+		scene.add(new THREE.Mesh(geo, new MeshStandardNodeMaterial()));
+		r.render(scene, camera);
+		r.render(scene, camera);
+		expect(uploads).toEqual({ position: 1, index: 1 });
+		geo.attributes.position.needsUpdate = true;
+		r.render(scene, camera);
+		expect(uploads.position).toBe(2);
+		// an array let go of once it is uploaded: drawn on without it
+		geo.attributes.normal.onUpload(function () {
+			this.array = new Float32Array(0);
+		});
+		const mesh2 = new THREE.Mesh(geo.clone(), new MeshStandardNodeMaterial());
+		mesh2.geometry.attributes.normal.onUpload(function () {
+			this.array = new Float32Array(0);
+		});
+		scene.add(mesh2);
+		r.render(scene, camera);
+		expect(mesh2.geometry.attributes.normal.array.length).toBe(0);
+		expect(() => r.render(scene, camera)).not.toThrow();
+	});
+
+	test('an environment baked as a page is made waits for WebGPU’s init, with three/webgpu’s PMREM generator', async () => {
+		const { environmentFrom, pmremFor } = await import('./core.js');
+		const { PMREMGenerator } = await import('three/webgpu');
+		const r = /** @type {any} */ (make({ backend: 'webgl2', pixelRatio: 1, canvas: canvas().c }));
+		expect(pmremFor(r)).toBeInstanceOf(PMREMGenerator);
+		const room = new THREE.Scene().add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial()));
+		/** @type {any} */
+		let got = null;
+		const done = environmentFrom(r, room, 0.04, (t) => (got = t));
+		expect(got).toBeNull();
+		expect(r.initialized).toBe(false);
+		await done;
+		expect(r.initialized).toBe(true);
+		expect(got?.isTexture).toBe(true);
+	});
+
+	test('WebGPU’s warm-ups on one renderer run one at a time, in order (three’s compileAsync is not reentrant)', async () => {
+		const { precompile } = await import('./core.js');
+		let running = 0, most = 0;
+		const order = [];
+		const r = {
+			isWebGPURenderer: true,
+			compileAsync: async (/** @type {any} */ o) => {
+				most = Math.max(most, ++running);
+				await new Promise((ok) => setTimeout(ok, 5));
+				order.push(o.name);
+				running--;
+				if (o.name === 'b') throw new Error('a material that fails to build');
+			}
+		};
+		const obj = (/** @type {string} */ name) => Object.assign(new THREE.Object3D(), { name });
+		await Promise.all(['a', 'b', 'c'].map((n) => precompile(/** @type {any} */ (r), obj(n), new THREE.PerspectiveCamera(), new THREE.Scene())));
+		expect(most).toBe(1);
+		// a warm-up that fails lets the next one run
+		expect(order).toEqual(['a', 'b', 'c']);
+	});
+
+	test('the largest picture a renderer takes, on either', async () => {
+		const { maxTextureSize } = await import('./core.js');
+		const r = /** @type {any} */ (make({ backend: 'webgl2', pixelRatio: 1, canvas: canvas().c }));
+		expect(maxTextureSize(r)).toBe(8192); // before init: WebGPU's least
+		await ready(r);
+		expect(typeof maxTextureSize(r)).toBe('number');
+		expect(maxTextureSize({ capabilities: { maxTextureSize: 4096 } })).toBe(4096);
+	});
+
 	// WebGLRenderer's own shadow switch (`shadowMap.autoUpdate`, `needsUpdate`) kept on WebGPU: the sky keys its
 	// shadows by it, and WebGPU's ShadowNode reads only each light's
 	test('the renderer’s shadow switch holds on WebGPU: off draws none, needsUpdate draws one frame', async () => {

@@ -3,7 +3,7 @@
 // build makes no level again, each read from the device's cache by its key (./levels.js, ../cache.js `levelKeyOf`).
 import { describe, expect, it } from 'vitest'
 import * as THREE from 'three'
-import { createKept, levelKey, pictureKey, unpackFrames } from './levels.js'
+import { DERIVER, createKept, levelKey, pictureKey, unpackFrames } from './levels.js'
 import { createLowering } from './lower.js'
 import { prepare } from './prepare.js'
 import { LEVELS, budgetOf, errorOf, smallestOf } from './lod.js'
@@ -104,6 +104,22 @@ describe('every asset has its levels', () => {
 		expect(old).toMatchObject({ levels: 'declared', old: true })
 		// at the forest's two details, never the whole plant (intent 6295a650)
 		expect(levelValues(old)).toEqual([{ detail: '0.25' }, { detail: '0.1' }])
+	})
+
+	// the switch (intent c1bee1f8): a WebGPU page's pictures are kept apart from a WebGL page's (rows in another order)
+	it('a picture a WebGL page kept is never laid on a WebGPU page: its renderer\'s version is in its key', async () => {
+		const store = memoryStore()
+		const name = `${HASH}?size=1`
+		const source = built()
+		const gl = createKept({ lowering: counting().lowering, store })
+		await gl.picture(name, source, fakePictures() as any)
+		for (let i = 0; i < 100 && store.kept.size < 1; i++) await new Promise((ok) => setTimeout(ok, 10))
+		expect(store.kept.size).toBe(1)
+		const gpu = { ...fakePictures(), deriver: `${DERIVER.picture}:webgpu`, read: async () => null }
+		const on = createKept({ lowering: counting().lowering, store })
+		expect((await on.picture(name, source, gpu as any)).taken).toBe(true)
+		expect(gpu.done).toEqual({ taken: 1, laid: 0 })
+		expect(pictureKey(name, 8, gpu.deriver)).not.toBe(pictureKey(name, 8))
 	})
 
 	it('a second load of the same build makes no level again: each comes from the device cache by its key', async () => {

@@ -21,7 +21,7 @@
 import * as THREE from 'three';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { createControls, createRenderer, disposeObject, disposeRenderer, fitTo, lowPower, ready } from '$lib/content/render/core.js';
+import { createControls, createRenderer, disposeObject, disposeRenderer, fitTo, lowPower, ready, environmentFrom } from '$lib/content/render/core.js';
 import { INDEX, buildOf, loadRecipes, parseBuild, recipeInfo } from '$lib/content/assets/catalog.js';
 import { loadAsset } from '$lib/content/assets/load.js';
 import { poserOf } from '$lib/content/assets/controls.js';
@@ -247,9 +247,9 @@ export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void, onI
 
 	const scene = new THREE.Scene();
 	scene.fog = new THREE.Fog(COL.fog, 140, 700);
-	const pmrem = new THREE.PMREMGenerator(renderer);
-	const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-	scene.environment = envTex;
+	// the room's light, baked once the renderer may draw (at once on WebGL; WebGPU's after init: intent c1bee1f8)
+	let envTex: THREE.Texture | null = null;
+	void environmentFrom(renderer, new RoomEnvironment(), 0.04, (t) => (disposed ? t.dispose() : (scene.environment = envTex = t)));
 
 	const camera = new THREE.PerspectiveCamera(42, 1, 0.05, 2500);
 	const controls = createControls(camera, renderer.domElement, { dampingFactor: 0.09, minDistance: 1.5, maxDistance: 420, maxPolarAngle: Math.PI / 2 - 0.03 });
@@ -642,7 +642,7 @@ export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void, onI
 			controls.dispose();
 			fitter.dispose();
 			disposeObject(scene);
-			envTex.dispose(); pmrem.dispose();
+			envTex?.dispose();
 			labels.domElement.remove();
 			disposeRenderer(renderer);
 		}
