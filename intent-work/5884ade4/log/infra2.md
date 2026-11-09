@@ -99,3 +99,12 @@ scratchpad, `infra2/`).
 - Shown: restore.sh check (with and without GHCR_TOKEN) against the stand-ins: the calls differ exactly by the
   added `docker inspect` and the wait's `-h 127.0.0.1`, the run's image the same `postgres:17-alpine`; rollback (bucket,
   folder) identical. `bash -n`, shellcheck clean.
+
+## 10. production.yml's HTTPS diagnostics through lib.sh (re-infra#10)
+
+- lib.sh names the third container, `CADDY_CONTAINER=maia-city-caddy`; the "play.maia.city answers over HTTPS" step's
+  diagnostics run as the Check step's do (`ssh prod "cd $APP_DIR && bash -s"`, a heredoc sourcing deploy/lib.sh) and
+  use it instead of spelling `maia-city-caddy` three times in a quoted one-liner.
+- Same: the step, old and new, its wait failing (stand-in curl), with a stand-in ssh running the command in a fake app
+  folder and a stand-in docker (`infra2/caddy-same.sh`): the same three docker calls, the same output, exit 1.
+  actionlint clean.

@@ -17,6 +17,7 @@ STORE_PREFIX=BACKUPS/play-files/blobs
 # the containers the compose files name
 DB_CONTAINER=maia-city-db
 PLAY_CONTAINER=maia-city-play
+CADDY_CONTAINER=maia-city-caddy
 
 # docker compose on play's three files, from the app's folder
 compose() {
