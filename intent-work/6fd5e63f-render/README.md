@@ -1,5 +1,9 @@
 # Mac job: intent 6fd5e63f's c7: one wind for everything that grows, and light through leaves
 
+**MAC JOB READY** (2026-11-09 14:30 UTC): head a7007834c (PR #2180) against main 12837b6; the dry run printed DRY RUN PASSED
+in avenBOX for this branch's commit (`bun play/site/scripts/macjob/dry.ts intent-work/6fd5e63f-render --at <commit>`).
+
+
 
 Intent 6fd5e63f-e195-4123-8604-c4f87c33869c (GPU 6/14), pull request #2180. Every plant material that says what it is
 (a `look`: leaf, grass, petal, bark, stem, fruit, stone; from box format 5, or from its name for older builds) is drawn by
