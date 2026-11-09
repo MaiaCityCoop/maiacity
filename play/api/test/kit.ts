@@ -2,9 +2,10 @@
 // tokens made through the routes, and one way to call it over HTTP and over MCP. A suite that needs Postgres fails
 // when TEST_DATABASE_URL is not set: none is skipped (avenBOX's box sets it; play/SPEC.md §4.12).
 import { describe, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdtempSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { app } from "../src/app";
 import { COOKIE, createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore, type BlobStore } from "../src/blobs";
@@ -26,23 +27,68 @@ export function suite(name: string, fn: () => void) {
 
 export type Fresh = { db: Db; sql: Bun.SQL; url: string; name: string; drop: () => Promise<void> };
 
+/** what a migrated and seeded database is made from: play/api's migrations and source, as one hash */
+function codeHash(): string {
+  const h = createHash("sha256");
+  const walk = (dir: string) => {
+    for (const e of readdirSync(dir).sort()) {
+      const f = join(dir, e);
+      if (statSync(f).isDirectory()) walk(f);
+      else h.update(f).update(readFileSync(f));
+    }
+  };
+  for (const d of ["../migrations", "../src"]) walk(resolve(import.meta.dir, d));
+  return h.digest("hex").slice(0, 16);
+}
+
+let template: Promise<string> | null = null;
 /**
- * A database of its own on TEST_DATABASE_URL's server, migrated and seeded as play-api starts (`migrate: false` leaves it empty,
- * `until` stops at that migration, as an older play's database), sessions signed; `drop()` closes and drops it.
+ * The database every suite copies: migrated and seeded once per code, kept as `play_tmpl_<hash>`. Test files run in
+ * parallel (intent aa59f248), and migrating and seeding a database each took past a hook's 5 s on a busy runner; a copy
+ * is a file copy. Made under a name of its own and renamed into place: a rename can't win twice, so a file that loses
+ * the race drops its own and copies the winner's.
+ */
+function templateDb(admin: Bun.SQL): Promise<string> {
+  return (template ??= (async () => {
+    const name = `play_tmpl_${codeHash()}`;
+    const have = await admin`SELECT 1 FROM pg_database WHERE datname = ${name}`;
+    if (have.length) return name;
+    const making = `${name}_${process.pid}_${Math.floor(Math.random() * 1e6)}`;
+    await admin.unsafe(`CREATE DATABASE ${making}`);
+    const u = new URL(DB_URL);
+    u.pathname = `/${making}`;
+    const sql = new Bun.SQL(u.toString());
+    const db = fromBunSql(sql);
+    await migrate(db, {});
+    await seed(db);
+    await sql.close();
+    try {
+      await admin.unsafe(`ALTER DATABASE ${making} RENAME TO ${name}`);
+    } catch (e) {
+      // 42P04: another file named its template first
+      if ((e as { errno?: string }).errno !== "42P04") throw e;
+      await admin.unsafe(`DROP DATABASE ${making} WITH (FORCE)`);
+    }
+    return name;
+  })());
+}
+
+/**
+ * A database of its own on TEST_DATABASE_URL's server, migrated and seeded as play-api starts (a copy of the code's
+ * template; `migrate: false` leaves it empty, `until` stops at that migration, as an older play's database), sessions
+ * signed; `drop()` closes and drops it.
  */
 export async function freshDb(o: { prefix?: string; migrate?: boolean; until?: string } = {}): Promise<Fresh> {
   const name = `${o.prefix ?? "play_test"}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
   const admin = new Bun.SQL(DB_URL);
-  await admin.unsafe(`CREATE DATABASE ${name}`);
+  const copy = o.migrate !== false && !o.until;
+  await admin.unsafe(copy ? `CREATE DATABASE ${name} TEMPLATE ${await templateDb(admin)}` : `CREATE DATABASE ${name}`);
   const u = new URL(DB_URL);
   u.pathname = `/${name}`;
   const sql = new Bun.SQL(u.toString());
   const db = fromBunSql(sql);
-  if (o.migrate !== false) {
-    await migrate(db, o.until ? { until: o.until } : {});
-    if (!o.until) await seed(db);
-    if (!o.until) await initSessions(db);
-  }
+  if (copy) await initSessions(db);
+  else if (o.migrate !== false) await migrate(db, { until: o.until });
   const drop = async () => {
     await sql.close();
     await admin.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
