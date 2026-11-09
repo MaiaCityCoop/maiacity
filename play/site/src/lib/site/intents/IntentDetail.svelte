@@ -14,20 +14,16 @@
 	import { api } from '$lib/api';
 	import Decision from './Decision.svelte';
 	import type { Verdict } from './decide';
-	import { createOpened, summaryText, type Listed } from './opened';
+	import { summaryText, type Listed } from './opened';
 	import StoryPlayer from '$lib/stories/StoryPlayer.svelte';
 	import type { ComponentProps } from 'svelte';
-	import { admitProposed } from '$lib/content/assets/catalog.js';
-	import BuildView from './BuildView.svelte';
-	import { docTypeOf, KIND_NAME, titleOf, typeOf } from './names';
-	import { shortWhen, when } from '$lib/format';
+	import { INDEX, admitProposed, source as catalogSource } from '$lib/content/assets/catalog.js';
 	import { markdown } from '$lib/site/markdown/index.js';
-	import { detailOf, isCode, notLive, shipsAgain, STAGE_NAME, TABS, type Check, type Intent, type Results, type ShipStep, type Stage, type TabId } from './detail';
+	import { detailOf, isCode, notLive, shipsAgain, STAGE_NAME, TABS, type Check, type Intent, type Kind, type Results, type ShipStep, type Stage, type TabId, type Work } from './detail';
 	import { took } from './took';
 
 	let {
 		intent: i,
-		opened = createOpened((path) => api<any>(path)),
 		cameWith = null,
 		schemaNames = new Map(),
 		now = Date.now(),
@@ -39,8 +35,6 @@
 		onopenintent
 	}: {
 		intent: Intent;
-		/** the board's reader of intents and their documents, each read once (./opened.ts) */
-		opened?: ReturnType<typeof createOpened<any>>;
 		/** the title of the intent it was proposed for, if any */
 		cameWith?: string | null;
 		/** the schemas' labels by their UUIDs, to name its declared work (only shown) */
@@ -58,10 +52,16 @@
 	} = $props();
 
 	const REPO_URL = 'https://github.com/MyAvenCEO/maiacity';
+	const KIND_NAME: Record<Kind, string> = { idea: 'Make', fix: 'Fix', improve: 'Improve' };
 	const TAB_NAME = Object.fromEntries(TABS) as Record<TabId, string>;
+	const when = (s: string) => new Date(s).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+	const shortWhen = (s: string) => new Date(s).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 	const md = (s: string | null | undefined) => markdown(s ?? '');
 	const workKindName = (k: string) => (k === 'code' ? 'code' : (schemaNames.get(k) ?? k));
 	const whereOf = (r: Results[string]) => (r.where === 'main' ? `main${r.commit ? ` @ ${r.commit.slice(0, 7)}` : ''}` : 'avenBOX');
+	const titleOf = (w: Work) => (w.number == null ? 'a change' : `v${w.number}`);
+	const GROUP_TYPE: Record<string, string> = { plants: 'Plant', things: 'Thing', machines: 'Machine', buildings: 'Building', actors: 'Actor', characters: 'Character', biomes: 'Biome', worlds: 'World', sandboxes: 'Sandbox' };
+	const typeOf = (w: Work) => GROUP_TYPE[w.grp ?? ''] ?? (w.what ? w.what[0].toUpperCase() + w.what.slice(1) : (w.grp ?? ''));
 	const STEP_MARK: Record<ShipStep['state'], string> = { queued: '·', running: '●', green: '✓', red: '✗', skipped: '–' };
 	const STEP_WORD: Record<ShipStep['state'], string> = { queued: 'waiting', running: 'running', green: 'done', red: 'red', skipped: 'skipped' };
 	/** a log shown from its end, where it went red */
@@ -80,6 +80,10 @@
 	/** the documents its work changes, as the detail lists them, once read for this intent */
 	const docs = $derived(review?.id === i.id ? review.docs : []);
 	let drawn = $state<{ id: string; hash: string } | null>(null);
+	let viewer: Promise<any> | null = null;
+	let worldViewer: Promise<any> | null = null;
+	const viewerOf = () => (viewer ??= import('$lib/content/assets/VaultAsset.svelte'));
+	const worldViewerOf = () => (worldViewer ??= import('$lib/content/worlds/WorldStage.svelte'));
 	$effect(() => {
 		const r = review;
 		if (current !== 'changes' || !r?.builds?.length || r.id !== i.id || drawn?.id === i.id) return;
@@ -101,7 +105,6 @@
 		withdrawError = '';
 		try {
 			await api(`/intents/${i.id}/withdraw`, { json: { doc: doc.id, reason } });
-			opened.forget();
 			brief = null;
 		} catch (e) {
 			withdrawError = (e as Error).message;
@@ -112,9 +115,8 @@
 	$effect(() => {
 		const { id, stage } = i;
 		if (brief?.id === id && brief.stage === stage) return;
-		opened
-			.intent(id, stage)
-			.then((r: { brief: string | null; review?: any }) => {
+		api<{ brief: string | null; review?: any }>(`/intents/${id}`)
+			.then((r) => {
 				if (i.id !== id) return;
 				brief = { id, stage, text: r.brief };
 				review = { id, builds: r.review?.builds ?? null, story: r.review?.story ?? null, docs: r.review?.docs ?? [] };
@@ -258,7 +260,11 @@
 								{#if builds.length > 1}<div class="variants">{#each builds as b (b.hash)}<button class="btn small" class:ghost={drawn.hash !== b.hash} onclick={() => (drawn = { id: i.id, hash: b.hash })}>{b.variant ?? b.label}</button>{/each}</div>{/if}
 								<div class="stage">
 									{#key drawn.hash}
-										<BuildView grp={w.grp} hash={drawn.hash} title="{w.label} {titleOf(w)} (proposed)" />
+										{#if w.grp === 'worlds'}
+											{#await worldViewerOf() then { default: WorldStage }}<WorldStage source={catalogSource} engine={INDEX.engine} hash={drawn.hash} />{/await}
+										{:else}
+											{#await viewerOf() then { default: VaultAsset }}<VaultAsset source={catalogSource} hash={drawn.hash} title="{w.label} {titleOf(w)} (proposed)" fill />{/await}
+										{/if}
 									{/key}
 								</div>
 							{:else}<p class="muted small">Drawing it…</p>{/if}
@@ -274,7 +280,7 @@
 						{#if docs.length > 1}
 							<!-- every document it changes, side by side, accepted together (intent 7c8986c5) -->
 							{#each docs as d, n (`${d.doc?.id ?? n}:${d.variant ?? n}`)}
-								{@const type = d.doc ? docTypeOf(d.doc) : ''}
+								{@const type = d.doc ? (GROUP_TYPE[d.doc.group ?? ''] ?? (d.doc.what ? d.doc.what[0].toUpperCase() + d.doc.what.slice(1) : d.doc.kind)) : ''}
 								<li>
 									<button class="open" onclick={() => onopenwork(d)} title={summaryText(d)}>
 										<span class="type" data-type={type}>{type}</span>

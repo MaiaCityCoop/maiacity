@@ -84,3 +84,13 @@ Problems cited as `site-app#n` (audit/site-app.md). Each move: what, the problem
     decide's `noAnswer`/`REREAD`/`Decided`, detail's `StepBack`/`AutoEntry`/`Chip`/`firstSentence`, markdown's
     `TAGS`/`safeHref`, inputs' `piecesDeep`, timeline's `SetCue`, world-build's `FEW`, a fixture's `EVIDENCE`); live.ts's
     `MOST_STEPS`, used nowhere, goes. Removes site-app#31, the shell part of #34. Pinned by the build and svelte-check.
+14. **IntentDetail.svelte back as it was** (intent 96206162 now holds it, Decision.svelte and scripts/intents-reach.ts).
+    Move 9's changes to it (BuildView, names.ts, lib/format, reading the intent through `opened.intent`) are reverted;
+    the board no longer hands it `opened`. Pinned by the intents' tests, build and svelte-check.
+
+## Next untangles (held)
+- `lib/site/intents/IntentDetail.svelte` (held by 96206162): draw its build with `BuildView.svelte` (its
+  `grp === 'worlds'` and its two lazy viewers go), take `KIND_NAME`, `typeOf`, `docTypeOf` (for its `GROUP_TYPE`) and
+  `titleOf` from `names.ts` and `when`/`shortWhen` from `lib/format.ts`, and read the intent through the board's
+  `opened.intent(id, stage)` (a prop; `opened.forget()` after a withdraw), so the review is read once for board and
+  detail (site-app#18's rest); `REPO_URL` from the API (F8, site-app#29).

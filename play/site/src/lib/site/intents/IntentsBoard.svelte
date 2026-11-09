@@ -321,7 +321,7 @@
 
 	{#if intent}
 		<!-- an intent opened: on top what its stage asks of a person, the rest in tabs (./IntentDetail.svelte, ./detail.ts) -->
-		<IntentDetail intent={intent} {opened} cameWith={intent.came_with ? (intents.find((x) => x.id === intent!.came_with)?.title ?? null) : null} {schemaNames} {now} error={intentError} busy={busyOn(intent.id)} onclose={closeIntent} ondecide={(v) => decideIntent(intent!.id, v)} onopenwork={(d) => openCard(cardOf(intent!), d)} onopenintent={openIntentOf} />
+		<IntentDetail intent={intent} cameWith={intent.came_with ? (intents.find((x) => x.id === intent!.came_with)?.title ?? null) : null} {schemaNames} {now} error={intentError} busy={busyOn(intent.id)} onclose={closeIntent} ondecide={(v) => decideIntent(intent!.id, v)} onopenwork={(d) => openCard(cardOf(intent!), d)} onopenintent={openIntentOf} />
 	{/if}
 
 	{#if open}
