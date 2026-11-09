@@ -10,7 +10,7 @@
  */
 import * as THREE from 'three';
 import { createRenderer, disposeObject, disposeRenderer, fitTo, isWebGPU, placeSeenOnly, ready } from './core.js';
-import { finishing, thisDevice, withDrops } from './finish.js';
+import { finishing, onFallback, thisDevice, withDrops } from './finish.js';
 import { createAtmosphere } from './atmosphere.js';
 import { createFinish } from './post.js';
 
@@ -110,16 +110,24 @@ export function worldFinish(renderer, scene, camera, o = {}) {
 	const forced = /** @type {import('./finish.js').Device | undefined} */ (asked?.split(',').find((w) => w === 'desktop' || w === 'small'));
 	const plan = withDrops(finishing({ device: forced ?? o.device ?? thisDevice(), film: o.film, ghosts: o.ghosts }), asked);
 	if (!plan) return plain;
+	// WebGPU's own WebGL 2 fallback keeps the sun's shadows only with the scene drawn to its colour alone (./finish.js)
+	if (renderer.backend && !renderer.backend.isWebGPUBackend && !asked?.includes('mrt')) Object.assign(plan, onFallback(plan));
 	const atmosphere = o.sky && plan.fog.reach > 0 ? createAtmosphere(scene, o.sky, { exposure: () => renderer.toneMappingExposure ?? 1 }) : null;
 	const finish = createFinish(renderer, scene, camera, plan, { sun: o.sky?.sun });
 	// what the page draws by, for the Mac job's record (selector-shots.mjs `finish`)
 	if (typeof window !== 'undefined') /** @type {any} */ (window).__finish = { plan, backend: renderer.backend?.isWebGPUBackend ? 'webgpu' : 'webgl2' };
+	/** the pipeline's first frames, which draw the sun's shadows in every pass whatever was asked */
+	let first = 3;
 	/** the world's own far plane, and the one the haze last set */
 	let own = camera.far, set = NaN;
 	return {
 		plan,
 		atmosphere,
 		render(t) {
+			// the scene's own hooks (the sky's: its shadows asked for as the eye moves, its haze toward the horizon looked
+			// at; what is seen placed) run as for a frame on screen: the pipeline draws the scene only into its targets,
+			// where those hooks stand aside (../sandbox-kit/sky.js), so the sun's shadows were never asked for again
+			scene.onBeforeRender(renderer, scene, camera, null, null, null);
 			if (atmosphere) {
 				atmosphere.update();
 				// a small device's haze closer: its reach of the world's, the air that much denser
@@ -128,7 +136,19 @@ export function worldFinish(renderer, scene, camera, o = {}) {
 				atmosphere.far(camera, own);
 				set = camera.far;
 			}
-			finish.render(t);
+			// a frame that asked for the sun's shadows (`shadowMap.needsUpdate`, the sky's as the eye moves) draws them in
+			// every pass of the frame: the renderer's keyed switch (./core.js) lets them through in one render only, and
+			// the pipeline draws the scene more than once (the prepass, the scene), each pass its own shadow nodes
+			// (and its first frames do, as the sky asked for its shadows before the pipeline was made)
+			const sm = renderer.shadowMap;
+			const keyed = sm && sm.autoUpdate === false && (sm.needsUpdate === true || first > 0);
+			if (first > 0) first--;
+			if (keyed) sm.autoUpdate = true;
+			try {
+				finish.render(t);
+			} finally {
+				if (keyed) (sm.autoUpdate = false), (sm.needsUpdate = false);
+			}
 		},
 		dispose() {
 			finish.dispose();

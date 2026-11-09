@@ -153,6 +153,19 @@ describe('the finishing plan', () => {
 		expect(s.ms).toBeLessThan(d.ms);
 		expect(s.passes.ssao).toBeUndefined();
 	});
+	test('on the WebGL 2 fallback: nothing drawn with more than its colour (no AO, MSAA), the rest kept', async () => {
+		const { onFallback } = await import('./finish.js');
+		const p = onFallback(finishing({ device: 'desktop' }));
+		expect(p.ao).toBeNull();
+		expect(p.aa).toBe('msaa');
+		expect(p.jitter).toBe(false);
+		expect(p.bloom).not.toBeNull();
+		expect(p.contact).not.toBeNull();
+		expect(p.grade).toEqual(WORLD);
+		const s = onFallback(finishing({ device: 'small' }));
+		expect(s.scale).toBe(1);
+		expect(s.upscale).toBeNull();
+	});
 	test('which device a screen is', () => {
 		expect(deviceOf({ width: 1440, height: 900 })).toBe('desktop');
 		expect(deviceOf({ width: 390, height: 844, coarse: true })).toBe('small');
@@ -306,6 +319,18 @@ describe('a world finished', async () => {
 		expect(camera.far).toBeCloseTo(Math.min(900, hazeFar), 3);
 		w.dispose();
 		expect(/** @type {any} */ (scene).fogNode ?? null).toBeNull();
+	});
+	test('the scene’s hooks run once a frame as on screen (the sky asks for its shadows there)', async () => {
+		const { r } = await renderer();
+		const { scene, camera } = world();
+		/** @type {any[]} */
+		const seen = [];
+		scene.onBeforeRender = (_r, _s, _c, target) => seen.push(target ?? null);
+		const w = worldFinish(r, scene, /** @type {any} */ (camera), { device: 'desktop' });
+		w.render(0);
+		// at least once with no target: the screen's frame, whatever the passes drew into their own
+		expect(seen.filter((t) => t === null).length).toBeGreaterThanOrEqual(1);
+		w.dispose();
 	});
 	test('a small device’s haze closer', async () => {
 		const { r } = await renderer();

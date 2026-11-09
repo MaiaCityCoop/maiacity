@@ -133,3 +133,14 @@ export function withDrops(p, spec) {
 	return q;
 }
 
+/**
+ * The plan on WebGPURenderer's WebGL 2 fallback (no WebGPU in the browser): no pass that draws the scene with more than
+ * its colour (the AO's normals, TRAA's velocity), as the sun's cascaded shadows are lost from a scene drawn so there
+ * (avenBOX's screenshots of the old city, 2026-11-09); MSAA for its edges, the rest as planned.
+ * @param {Plan} p @returns {Plan}
+ */
+export function onFallback(p) {
+	if (p.film) return { ...p, ao: null };
+	return { ...p, ao: null, aa: 'msaa', samples: 4, jitter: false, scale: 1, upscale: null };
+}
+
