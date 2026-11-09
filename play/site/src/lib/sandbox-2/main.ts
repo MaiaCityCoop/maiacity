@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createControls, makeRenderer } from '$lib/content/render/core.js';
+import { worldFinish } from '$lib/content/render/world.js';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { scenarios, polyhedraOf, piecesOf, verticesOf, type Box, type Scenario } from './simulation';
 import { shedScenario } from './shed';
@@ -117,6 +118,8 @@ export async function mountLab(root: HTMLElement): Promise<() => void> {
   // nothing drawn before the renderer may draw (WebGPU's device asked for, intent c1bee1f8; on WebGL at once)
   const renderer = await makeRenderer({ antialias: true, maxPixelRatio: 2, shadows: 'pcf', colorSpace: THREE.SRGBColorSpace });
   viewport.prepend(renderer.domElement);
+  // the picture finished as every world's (intent 1f0c6f79): no sky, so no haze (its own range fog stays); AO, smooth edges, the grade
+  const finish = worldFinish(renderer, scene, camera);
   const controls = createControls(camera, renderer.domElement, { maxDistance: 30, minDistance: .5 });
   scene.add(new THREE.HemisphereLight(0xfaf8f2, 0xa8b88a, 2.2));
   const light = new THREE.DirectionalLight(0xffe4b2, 3); light.position.set(-3, 8, 5); light.castShadow = true;
@@ -437,11 +440,11 @@ export async function mountLab(root: HTMLElement): Promise<() => void> {
     // Render transforms every frame; expensive text measurements at 10 Hz.
     syncTransforms();
     if (now - lastDisplay > 100) { update(); lastDisplay = now; }
-    if(galleryActive)gallery.render(renderer);else {controls.update(); renderer.render(scene, camera);}
+    if(galleryActive)gallery.render(renderer);else {controls.update(); finish.render();}
   });
   return () => {
     titleSlot.destroy(); controlSlot.destroy();
-    renderer.setAnimationLoop(null); resizing.disconnect(); document.removeEventListener('visibilitychange', resume);
+    renderer.setAnimationLoop(null); finish.dispose(); resizing.disconnect(); document.removeEventListener('visibilitychange', resume);
     client.dispose(); controls.dispose(); gallery.controls.dispose();
     scene.traverse(object => { const mesh = object as THREE.Mesh; mesh.geometry?.dispose(); for (const m of [mesh.material].flat()) (m as THREE.Material | undefined)?.dispose(); });
     renderer.dispose(); root.innerHTML = ''; root.classList.remove('physical-lab');
