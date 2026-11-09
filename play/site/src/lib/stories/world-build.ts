@@ -19,7 +19,6 @@ import { worldOf as worldInfo } from '../content/worlds/contract.js';
 import { plantingsOf, shownIn } from '../content/assets/uses.js';
 import { BUDGETS } from '../kernel/sandbox/policy.js';
 
-/** a worker as the build uses it: the browser's, or Bun's */
 export type WorkerLike = { postMessage(m: unknown): void; terminate(): void; onmessage: ((e: { data: any }) => void) | null; onerror: ((e: { message?: string; preventDefault?: () => void }) => void) | null };
 /** a worker of the code named `hash`, its blob: URL made once and kept: WebKit fails a worker's importScripts(blob:),
  *  how the engine runs each recipe, once the worker's own URL is revoked ("Load failed", intent 4f7a2178) */
@@ -28,7 +27,6 @@ export const blobWorker = (hash: string, code: () => string) => (): WorkerLike =
 	if (!urls.has(hash)) urls.set(hash, URL.createObjectURL(new Blob([code()], { type: 'text/javascript' })));
 	return new Worker(urls.get(hash)!) as unknown as WorkerLike;
 };
-/** how many recipes' workers build guests at once */
 const FEW = 4;
 /** a step of the build, for the player: what it is doing, and how far along */
 export type Progress = { step: 'world' | 'guests' | 'frames' | 'ready'; done: number; of: number; text: string };
@@ -205,5 +203,4 @@ export async function buildWorld(spec: WorldBuildSpec, host: Host) {
 	}
 }
 
-/** where a guest not shown is put: nowhere */
 const AWAY = new THREE.Matrix4().makeScale(0, 0, 0);

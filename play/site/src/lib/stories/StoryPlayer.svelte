@@ -50,7 +50,6 @@
 	const voice = $derived(clipAt<Voice>(story, 'voice', t));
 	const note = $derived(clipAt<Notes>(story, 'notes', t));
 	const slots = $derived(slotsOf(story));
-	/** the link playing at t, if any */
 	const inLink = $derived(slots.find((s) => t >= s.at - 1e-6 && t < s.at + s.duration));
 	/** the tracks that sound besides the voice (music, sfx, ambience, a mix), each its own lane: their recordings, and the
 	 *  cues still to be made, written as notes (a preview's music, effects and beds, read before anything is recorded) */

@@ -111,7 +111,6 @@ export function curveAt(c: Curve | undefined, t: number, or: number): number {
 
 /** how many frames a shot of `duration` s holds at `fps`: its first and its last both drawn */
 export const framesOf = (duration: number, fps: number) => Math.max(1, Math.round(duration * fps) + 1);
-/** the frame a moment shows: t's nearest, within the shot */
 export const frameOf = (t: number, fps: number, frames: number) => Math.min(frames - 1, Math.max(0, Math.round(t * fps)));
 
 /** the sun at an hour (0 … 24) on a day's arc: up at 6 in the east (az 90°), highest at noon (50° in the south, 180°),
