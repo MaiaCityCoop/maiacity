@@ -20,13 +20,13 @@ and stop if it throws.
 Counts were checked in avenBOX with the census at base and head. This job is the part that needs a GPU. **This is the
 first time these node materials compile on a real GPU**, so every console error matters.
 
-**The code:** pull request #2182, branch `intent/602a8849-tsl-shaders`, head `0838d2327ec625cef952cc3f3e1fda7ddc078feb`.
+**The code:** pull request #2182, branch `intent/602a8849-tsl-shaders`, head `af3b1e0db34c7ceced441e6e504f1f4cc51dad35`.
 
 **Determinism:** `determinism.mjs` is copied from `intent-work/main-baseline-render` (c43eab548). `SEEDED_RANDOM`
 is an init script on every page, and `QUIET` is polled to 0 before each shot. No main baseline was published for
 these views yet, so the job renders base (main at the merge base) and head itself.
 
-## This run (head 0838d2327): c7 and c8 again, head first
+## This run (head af3b1e0db): c7 and c8 again, head first
 
 **c7.** The last run's parity threw in the composition script (`Cannot use 'import.meta' outside a module`, then
 `playLive is not defined`). Three's KTX2Loader, brought into the live runtime by the ground (intent 4), built its
@@ -48,7 +48,7 @@ cause shows only on a GPU. This run:
 - **frame time as the spec has it**: near at most base + 8 ms and never above 33.4 ms, every other view at most
   base + 5 %.
 
-    bash intent-work/602a8849-render/run.sh 0838d2327ec625cef952cc3f3e1fda7ddc078feb
+    bash intent-work/602a8849-render/run.sh af3b1e0db34c7ceced441e6e504f1f4cc51dad35
 
 `ONLY=c7` runs c7 alone (no dev servers). The dev servers stay `vite dev`: the asset box doesn't build under `vite
 preview`. Commit `out/` with `Intent: 602a8849-50e4-4885-99b9-38353f951c9f` and push this branch.
@@ -58,7 +58,7 @@ preview`. Commit `out/` with `Intent: 602a8849-50e4-4885-99b9-38353f951c9f` and 
 ## How
 
 1. `git fetch origin intent-work/602a8849-render && git checkout FETCH_HEAD` (this branch), with `PLAY_MCP_TOKEN` set.
-2. `bash intent-work/602a8849-render/run.sh 0838d2327ec625cef952cc3f3e1fda7ddc078feb`. It checks out base and head in worktrees beside the repository,
+2. `bash intent-work/602a8849-render/run.sh af3b1e0db34c7ceced441e6e504f1f4cc51dad35`. It checks out base and head in worktrees beside the repository,
    then runs three things (c8: head first unless `ORDER=base-first`):
    - **c7:** `story-parity.ts` on head, `src/lib/stories/fixtures/king-coconut-live.json --at 1,3,5 --min-ssim 0.98
      --lossless`, twice. Out: `parity-1.txt`, `parity-2.txt`, and the stills in `parity-1/` and `parity-2/`.
