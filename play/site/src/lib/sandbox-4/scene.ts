@@ -21,7 +21,7 @@
 import * as THREE from 'three';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { createControls, createRenderer, disposeObject, disposeRenderer, fitTo, lowPower } from '$lib/content/render/core.js';
+import { PICTURE, createControls, createRenderer, disposeObject, disposeRenderer, fitTo, lowPower } from '$lib/content/render/core.js';
 import { INDEX, buildOf, loadRecipes, parseBuild, recipeInfo } from '$lib/content/assets/catalog.js';
 import { loadAsset } from '$lib/content/assets/load.js';
 import { poserOf } from '$lib/content/assets/controls.js';
@@ -238,7 +238,7 @@ export type Joint = {
 /** Mounts the scene into `el` (its canvas and its labels), playing from the start unless motion is to be reduced. */
 export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void, onInfo: (i: JointInfo) => void = () => {}): Joint {
 	const low = lowPower();
-	const renderer = createRenderer({ container: el, alpha: true, toneMapping: 'agx', exposure: 1.45, shadows: 'pcf', clipping: true, maxPixelRatio: low ? 1.5 : 2 });
+	const renderer = createRenderer({ container: el, alpha: true, toneMapping: PICTURE, exposure: 1.45, shadows: 'pcf', clipping: true, maxPixelRatio: low ? 1.5 : 2 });
 	renderer.setClearColor(0x000000, 0);
 	renderer.domElement.classList.add('cj-canvas');
 	const labels = new CSS2DRenderer();
