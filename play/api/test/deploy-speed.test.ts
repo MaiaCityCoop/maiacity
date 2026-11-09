@@ -498,3 +498,37 @@ pg("play-api", () => {
     }
   }, 30_000);
 });
+
+// intent 14dc8d5f: fb220a9c's and e5ddf0b2's deploys died at "Back up play" on one PutObject error of the snapshot's
+// upload, which had no retry; the blob sync's own loop is now backup.sh's one `retry`, and the upload goes through it.
+describe("the backup rides out a flaky bucket", () => {
+  const sh = text("deploy/backup.sh");
+  const retry = sh.slice(sh.indexOf("retry() {"), sh.indexOf("\n}\n", sh.indexOf("retry() {")) + 3);
+  /** backup.sh's retry, run with set -euo pipefail as the script runs, on a command that fails its first `fails` calls */
+  function run(fails: number) {
+    const dir = mkdtempSync(join(tmpdir(), "retry-"));
+    const count = join(dir, "n");
+    writeFileSync(count, "0");
+    const script = `set -euo pipefail\n${retry}\nupload() { n=$(( $(cat "${count}") + 1 )); echo $n > "${count}"; [ "$n" -gt ${fails} ]; }\nretry "uploading the snapshot" upload || exit 1\necho done`;
+    const r = Bun.spawnSync(["bash", "-c", script], { env: { PATH: process.env.PATH!, RETRY_WAIT: "0" } });
+    return { code: r.exitCode, calls: Number(readFileSync(count, "utf8")), out: r.stdout.toString() };
+  }
+  test("the snapshot upload is tried again: once refused it is uploaded, three times refused the backup fails", () => {
+    // one retry, used by the blob sync and by the snapshot's upload, then the size check of all three as before
+    expect(retry).toStartWith("retry() {");
+    expect(sh).not.toContain("for try in 1 2 3; do\n  if copy");
+    expect(sh).toContain(`retry "adding play's files to the store" copy || exit 1`);
+    const upload = `retry "uploading the snapshot" backup_cli s3 cp /work "s3://$BACKUP_BUCKET/$PREFIX/" --recursive --only-show-errors || exit 1`;
+    expect(sh).toContain(upload);
+    expect(sh.indexOf(upload)).toBeLessThan(sh.indexOf("for f in play.dump files.txt manifest.json; do"));
+    expect(sh.match(/backup_cli s3 cp /g)).toHaveLength(1);
+    expect(run(0)).toEqual({ code: 0, calls: 1, out: "done\n" });
+    const once = run(1);
+    expect([once.code, once.calls, once.out]).toEqual([0, 2, "backup: uploading the snapshot stopped short (try 1 of 3); again …\ndone\n"]);
+    expect([run(2).code, run(2).calls]).toEqual([0, 3]);
+    const thrice = run(3);
+    expect([thrice.code, thrice.calls]).toEqual([1, 3]);
+    expect(thrice.out).toContain("backup: uploading the snapshot failed three times");
+    expect(thrice.out).not.toContain("done");
+  });
+});
