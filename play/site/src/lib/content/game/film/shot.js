@@ -66,9 +66,9 @@ export const SHAPES = /** @type {Record<Shape, number>} */ ({ '1:1': 1, '16:9': 
 /** The lights a shot can set, over what the hour gives them. */
 export const LIGHTS = /** @type {LightId[]} */ (['sun', 'fill', 'glow', 'lamps', 'sky', 'glass', 'cb60']);
 /** The looks a shot may suggest (vault-render `grade::PRESETS`). */
-export const LOOKS = ['neutral', 'cold', 'dip', 'bright', 'night', 'warm'];
+const LOOKS = ['neutral', 'cold', 'dip', 'bright', 'night', 'warm'];
 
-export class ShotError extends Error {}
+class ShotError extends Error {}
 
 const finite = (/** @type {unknown} */ v) => typeof v === 'number' && Number.isFinite(v);
 const lerp = (/** @type {number} */ a, /** @type {number} */ b, /** @type {number} */ t) => a + (b - a) * t;
@@ -219,7 +219,7 @@ export function normalize(s) {
 }
 
 /** A curve's value at shot time t. */
-export const valueAt = (/** @type {Curve} */ c, /** @type {number} */ t) => {
+const valueAt = (/** @type {Curve} */ c, /** @type {number} */ t) => {
 	if (!Array.isArray(c)) return c;
 	if (t <= c[0][0]) return c[0][1];
 	for (let i = 1; i < c.length; i++) if (t < c[i][0]) return lerp(c[i - 1][1], c[i][1], (t - c[i - 1][0]) / (c[i][0] - c[i - 1][0]));
@@ -232,7 +232,7 @@ export const valueAt = (/** @type {Curve} */ c, /** @type {number} */ t) => {
  * more above and below) — never a centre crop. A shape's own `framing.fov` overrides the rule.
  * @param {number} fov  the composed vertical fov, degrees @param {Shape} from @param {Shape} to
  */
-export function fovFor(fov, from, to) {
+function fovFor(fov, from, to) {
 	const a = SHAPES[from], b = SHAPES[to];
 	if (b >= a) return fov;
 	return (2 * Math.atan(Math.tan((fov * Math.PI) / 360) * (a / b)) * 180) / Math.PI;

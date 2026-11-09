@@ -68,7 +68,7 @@ export type FastenerProfile = { name: string; stiffness: number; damping: number
 export const WOOD_FASTENER: FastenerProfile = { name:'Wood grip', stiffness:5e5, damping:1000, withdrawalN:1500, shearN:2500 };
 export const FELT_BOND: FastenerProfile = { name:'Felt adhesive', stiffness:1e5, damping:500, withdrawalN:300, shearN:600 };
 export type FastenerReading = { withdrawalN: number; shearN: number; utilization: number; separationM: number; mode: 'withdrawal'|'shear' };
-export type FastenerPoint = { anchorA: V3; anchorB: V3; joint: RAPIER.ImpulseJoint; failed: boolean; reading: FastenerReading };
+type FastenerPoint = { anchorA: V3; anchorB: V3; joint: RAPIER.ImpulseJoint; failed: boolean; reading: FastenerReading };
 export class FastenerGroup {
   readonly points: FastenerPoint[];
   readonly normalA: V3;

@@ -7,15 +7,15 @@ import {v,add,sub,mul,cross,length,unit,hull,frameRotation} from './geometry';
 // screw group; none of these are design resistances from a standard.
 // Stiffness is matched to the mass of the parts joined: stiffer springs on light
 // purlins or bars only made the iterative solver chatter.
-export const HOLDING_DOWN_BOLTS:FastenerProfile={name:'Holding-down bolt group',stiffness:1e7,damping:1e5,withdrawalN:60000,shearN:50000};
-export const END_PLATE_BOLTS:FastenerProfile={name:'Bolted end-plate connection',stiffness:1e7,damping:1e5,withdrawalN:80000,shearN:90000};
-export const BRACING_BOLTS:FastenerProfile={name:'Bracing bolt',stiffness:5e6,damping:2e4,withdrawalN:20000,shearN:30000};
-export const POST_BOLTS:FastenerProfile={name:'Gable post / header bolt',stiffness:5e6,damping:2e4,withdrawalN:20000,shearN:30000};
-export const PURLIN_BOLTS:FastenerProfile={name:'Purlin cleat bolt',stiffness:2e6,damping:2000,withdrawalN:8000,shearN:10000};
-export const PANEL_FASTENER:FastenerProfile={name:'Sandwich panel fastener',stiffness:2e6,damping:2000,withdrawalN:1500,shearN:2500};
+const HOLDING_DOWN_BOLTS:FastenerProfile={name:'Holding-down bolt group',stiffness:1e7,damping:1e5,withdrawalN:60000,shearN:50000};
+const END_PLATE_BOLTS:FastenerProfile={name:'Bolted end-plate connection',stiffness:1e7,damping:1e5,withdrawalN:80000,shearN:90000};
+const BRACING_BOLTS:FastenerProfile={name:'Bracing bolt',stiffness:5e6,damping:2e4,withdrawalN:20000,shearN:30000};
+const POST_BOLTS:FastenerProfile={name:'Gable post / header bolt',stiffness:5e6,damping:2e4,withdrawalN:20000,shearN:30000};
+const PURLIN_BOLTS:FastenerProfile={name:'Purlin cleat bolt',stiffness:2e6,damping:2000,withdrawalN:8000,shearN:10000};
+const PANEL_FASTENER:FastenerProfile={name:'Sandwich panel fastener',stiffness:2e6,damping:2000,withdrawalN:1500,shearN:2500};
 // Thin flashings are rigid bodies here, so their fixings are compliant: real sheet would flex.
-export const TRIM_FIXING:FastenerProfile={name:'Flashing / gutter rivet',stiffness:2e5,damping:300,withdrawalN:600,shearN:1000};
-export const DOOR_HARDWARE:FastenerProfile={name:'Sectional door roller / hinge',stiffness:2e6,damping:2000,withdrawalN:1500,shearN:2500};
+const TRIM_FIXING:FastenerProfile={name:'Flashing / gutter rivet',stiffness:2e5,damping:300,withdrawalN:600,shearN:1000};
+const DOOR_HARDWARE:FastenerProfile={name:'Sectional door roller / hinge',stiffness:2e6,damping:2000,withdrawalN:1500,shearN:2500};
 
 /** Main dimensions in metres. Frames span X, the hall runs along Z, the door faces +Z. */
 export const HALL={span:12,length:20,bay:5,eavesM:5.7,pitchDeg:10,slabTopM:.25} as const;

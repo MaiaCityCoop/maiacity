@@ -3,7 +3,7 @@
 // the build it pins (`<hash>?values`), and each other config it keeps (Sandbox 1's garden as `configs/<id>/garden`,
 // every planting with the build of its slot as `asset`). Loaded once before the sandbox's world starts (`loadConfig`).
 
-export class CodeError extends Error {}
+class CodeError extends Error {}
 
 const CONFIGS = new Map();
 const loading = new Map();

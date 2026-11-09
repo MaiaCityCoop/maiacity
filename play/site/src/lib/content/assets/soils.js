@@ -28,7 +28,7 @@ export const PED = { crumb: 0, blocky: 1, platy: 2, prismatic: 3, massive: 4, gr
 /** @typedef {{ id: string, label: string, kind: string, note: string, stone: string, horizons: Horizon[] }} Soil */
 
 /** @type {Record<string, Soil>} */
-export const SOILS = {
+const SOILS = {
 	'garden-humus': {
 		id: 'garden-humus',
 		label: 'Garden humus',
@@ -117,7 +117,7 @@ export const SOILS = {
 };
 
 /** the soil under each biome of the library, by its id; a biome not named here lies on a brown earth */
-export const SOIL_OF = {
+const SOIL_OF = {
 	'food-forest': 'garden-humus',
 	'warm-food-forest': 'tropical-red',
 	'beech-forest': 'brown-earth',

@@ -46,10 +46,7 @@ export const landing = (/** @type {number} */ t) => 1 - (1 - t) * (1 - t);
 export const drift = (/** @type {number} */ t) => t * t * (3 - 2 * t);
 
 /** @type {Record<CurveName, (t: number) => number>} */
-export const CURVES = { glide, ease, landing, drift };
-
-/** The name of a curve function, if it is one of CURVES. */
-export const curveName = (/** @type {Function} */ fn) => /** @type {CurveName | undefined} */ (Object.keys(CURVES).find((k) => CURVES[/** @type {CurveName} */ (k)] === fn));
+const CURVES = { glide, ease, landing, drift };
 
 const curveOf = (/** @type {string | undefined} */ name) => {
 	if (name === undefined) return glide;
@@ -221,38 +218,4 @@ function checkKind(cam, where, bad) {
 		default:
 			return bad(`unknown kind "${cam.kind}"`);
 	}
-}
-
-/**
- * Thin a recorded flight into keyframes: poses sampled at `t` (seconds), smoothed with a small moving average, and
- * thinned so a key is kept only where the path turns or speeds up — within `tolerance` metres / radians.
- * @param {{ t: number, pose: Pose, fov?: number }[]} samples
- * @param {{ smooth?: number, tolerance?: number }} [opts]
- * @returns {Key[]}
- */
-export function keysFromFlight(samples, { smooth = 2, tolerance = 0.05 } = {}) {
-	if (!samples.length) return [];
-	const s = samples.map((x) => ({ ...x, pose: /** @type {Pose} */ ([...x.pose]) }));
-	for (let i = 1; i < s.length; i++) {
-		while (s[i].pose[3] - s[i - 1].pose[3] > Math.PI) s[i].pose[3] -= 2 * Math.PI;
-		while (s[i].pose[3] - s[i - 1].pose[3] < -Math.PI) s[i].pose[3] += 2 * Math.PI;
-	}
-	const sm = s.map((x, i) => {
-		// a window centred on the sample, narrowed at the ends so the first and last poses stay where they were
-		const r = Math.min(smooth, i, s.length - 1 - i), lo = i - r, hi = i + r, n = hi - lo + 1;
-		const pose = /** @type {Pose} */ ([0, 1, 2, 3, 4].map((k) => s.slice(lo, hi + 1).reduce((a, y) => a + y.pose[k], 0) / n));
-		return { t: x.t, pose, fov: x.fov };
-	});
-	const keep = [0];
-	for (let i = 1; i < sm.length - 1; i++) {
-		const a = sm[keep.at(-1) ?? 0], b = sm[i + 1], u = (sm[i].t - a.t) / Math.max(1e-9, b.t - a.t);
-		const off = sm[i].pose.reduce((m, v, k) => Math.max(m, Math.abs(v - lerp(a.pose[k], b.pose[k], u))), 0);
-		if (off > tolerance) keep.push(i);
-	}
-	if (sm.length > 1) keep.push(sm.length - 1);
-	const r = (/** @type {number} */ v) => Math.round(v * 1e4) / 1e4;
-	return keep.map((i) => {
-		const x = sm[i];
-		return { t: r(x.t), position: /** @type {Vec3} */ ([r(x.pose[0]), r(x.pose[1]), r(x.pose[2])]), yaw: r(x.pose[3]), pitch: r(x.pose[4]), ...(x.fov !== undefined ? { fov: r(x.fov) } : {}) };
-	});
 }

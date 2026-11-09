@@ -148,7 +148,7 @@ export function wearFace(face, { joy = 0, sleeper = false, ease = 1 } = {}) {
 const TALK = { spine: [0.06, 0.1, 0], chest: [0.04, 0.16, 0], neck: [0.02, 0.26, 0], head: [0.04, 0.42, 0.02] };
 
 /** the minibus's lower body (wayside.js travelVan): 1.9 × 0.9 × 4.9 m, its middle 0.85 m up */
-export const LOWER_BODY = { y: 0.85, size: [1.9, 0.9, 4.9] };
+const LOWER_BODY = { y: 0.85, size: [1.9, 0.9, 4.9] };
 const _size = new THREE.Vector3();
 
 /**

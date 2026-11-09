@@ -13,7 +13,7 @@ import { packed, unpacked } from './packed.js';
 import { LEVEL, LIMIT, added, folder, inLine, keeps, lost, quiet, read, removed, touch, write } from './store.js';
 
 /** the context a level's key is derived in: another than a build's, so no level's key is ever a build's */
-export const LEVELS_CONTEXT = 'maiaCITY 2026-11-07 asset levels';
+const LEVELS_CONTEXT = 'maiaCITY 2026-11-07 asset levels';
 
 /**
  * The cache key of what is made from a build on this device (play/SPEC.md §4.5, ../lodcard.js): a level derived from it

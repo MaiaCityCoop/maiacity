@@ -14,7 +14,7 @@ import { cardOf, hashOf } from '../catalog.js';
  * missing asset is, ../vault.js `recipes.missed`), or BiomeCardError where its card is no floor's.
  * @param {string | { entry: string, at: string[] }} ref
  */
-export function biomeAt(ref) {
+function biomeAt(ref) {
 	const hash = hashOf(ref);
 	return biomeOfCard(cardOf(hash) ?? { ref: typeof ref === 'string' ? ref : JSON.stringify(ref) });
 }

@@ -23,7 +23,7 @@ import { queryOf } from '../../../kernel/builds.js';
 import { packed, unpacked } from './packed.js';
 import { BUILD, LIMIT, added, ask, folder, inLine, keeps, lost, quiet, read, recount, removed, touch, workerOf, write } from './store.js';
 
-export const CONTEXT = 'maiaCITY 2026-10-15 asset cache';
+const CONTEXT = 'maiaCITY 2026-10-15 asset cache';
 
 /**
  * The cache key of a build. @param {{ engine: string, recipe: string, params?: Record<string, unknown> }} build

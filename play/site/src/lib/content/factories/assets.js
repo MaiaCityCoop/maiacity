@@ -40,7 +40,7 @@ async function built(ref) {
  * @param {string} ref
  * @returns {Promise<Token>}
  */
-export async function tokenOf(ref, { face } = {}) {
+async function tokenOf(ref, { face } = {}) {
 	const object = await built(ref);
 	/** @type {THREE.BufferGeometry[]} */
 	const geos = [];

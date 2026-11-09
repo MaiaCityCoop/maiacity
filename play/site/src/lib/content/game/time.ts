@@ -3,11 +3,9 @@ const MONTHS_A_YEAR = 12
 const EPOCH = Date.parse('2026-09-03T00:00:00Z')
 /** Game time runs this many times faster than real time: a real day is a game month of thirty days. */
 export const SPEED = 30
-/** A game day, in real milliseconds: 48 minutes. */
-export const GAME_DAY_MS = DAY_MS / SPEED
 
 /** Real days since the founding, fractional. */
-export function daysSinceEpoch(now = new Date()): number {
+function daysSinceEpoch(now = new Date()): number {
 	return (now.getTime() - EPOCH) / DAY_MS
 }
 
@@ -39,25 +37,4 @@ export function gameClock(now = new Date()): { date: Date; label: string } {
 export function gameHour(now = new Date()): number {
 	const d = gameClock(now).date
 	return d.getUTCHours() + d.getUTCMinutes() / 60 + d.getUTCSeconds() / 3600
-}
-
-/**
- * How long ago, in GAME time: a real second is thirty game seconds, so what
- * happened two real minutes ago happened an in-game hour ago.
- */
-export function gameAgo(from: Date, now = new Date()): string {
-	const s = Math.max(0, (now.getTime() - from.getTime()) / 1000) * SPEED
-	const min = s / 60, h = min / 60, d = h / 24, w = d / 7, mo = d / 30, y = mo / MONTHS_A_YEAR
-	if (min < 1) return 'just now'
-	if (h < 1) return `${Math.floor(min)} min ago`
-	if (d < 1) return `${Math.floor(h)} h ago`
-	if (w < 1) return `${Math.floor(d)} d ago`
-	if (mo < 1) return `${Math.floor(w)} w ago`
-	if (y < 1) return `${Math.floor(mo)} mo ago`
-	return `${Math.floor(y)} y ago`
-}
-
-export function calendarLabel(now = new Date()): string {
-	const c = calendar(now)
-	return `Y${c.year} · M${c.month}`
 }

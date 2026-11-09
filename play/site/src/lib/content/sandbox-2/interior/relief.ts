@@ -9,7 +9,7 @@ import * as THREE from 'three'
 import { fbm2, vn } from '$lib/content/biomes/noise.js'
 
 /** the relief's own height at x, z (m), before it is laid flat anywhere: 5 cm of it in some places, 30 in others */
-export const reliefOf = (x: number, z: number) => {
+const reliefOf = (x: number, z: number) => {
 	const amp = 0.025 + 0.125 * vn(x / 45 + 3.7, z / 45 + 1.3)
 	return amp * (fbm2(x / 6.5 + 11.1, z / 6.5 + 4.2) * 2 - 1.1 + (vn(x / 2.4 + 5, z / 2.4 + 9) - 0.5) * 0.5)
 }

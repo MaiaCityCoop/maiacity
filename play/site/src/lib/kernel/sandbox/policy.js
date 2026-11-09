@@ -32,7 +32,7 @@ export const SANDBOX = 'allow-scripts';
 export const BUDGETS = { job: 20000, logicJob: 10000, mathJob: 6000, message: 4000 };
 
 /** What a frame's own policy shuts, every one of them, unless the frame's kind opens one to what it names. */
-export const SHUT = ['connect-src', 'img-src', 'style-src', 'font-src', 'media-src', 'frame-src', 'object-src', 'manifest-src', 'form-action', 'base-uri'];
+const SHUT = ['connect-src', 'img-src', 'style-src', 'font-src', 'media-src', 'frame-src', 'object-src', 'manifest-src', 'form-action', 'base-uri'];
 
 /** What no frame of ours may ever open, whatever its kind: no connection, no frame inside it, no plug-in, no form, no base. */
 export const NEVER = ['connect-src', 'frame-src', 'object-src', 'manifest-src', 'form-action', 'base-uri'];

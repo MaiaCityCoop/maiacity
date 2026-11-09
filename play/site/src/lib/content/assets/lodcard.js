@@ -18,7 +18,7 @@
  */
 
 /** the details a version from before the contract that takes a `detail` is built at for its levels, L0 first */
-export const OLD_DETAILS = [0.25, 0.1];
+const OLD_DETAILS = [0.25, 0.1];
 /** the parameter such a version took them by (only here: the renderer never names it) */
 const OLD = 'detail';
 

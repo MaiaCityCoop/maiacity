@@ -1,7 +1,7 @@
 import {shedPlan,shedScenario,ROOF_PITCH,roofUndersideY,type BuildDefinition,type BuildPart} from './shed';
 import {fasteningPatch,type FastenerProfile} from './fasteners';
 import {transform,type Scenario} from './simulation';
-export const SHEET_FIXING:FastenerProfile={name:'Sheet fixing',stiffness:1e6,damping:700,withdrawalN:400,shearN:800};
+const SHEET_FIXING:FastenerProfile={name:'Sheet fixing',stiffness:1e6,damping:700,withdrawalN:400,shearN:800};
 export function metalShedScenario():Scenario{return {...shedScenario(),id:'metal-shed',title:'12 / Build a sheet-metal shed',question:'Timber frame → steel wall sheets → pitched steel roof → seam cover strips.'};}
 export function metalShedDefinition():BuildDefinition{
  const plan=shedPlan().filter(p=>p.stage<6);

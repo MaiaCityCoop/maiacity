@@ -100,3 +100,12 @@ Builder of area `site-content` (branch `intent/5884ade4-u-site-content`). Proble
     the kernel only `kernel/files.js` spells `/api/files/`; with site-app's `lib/api.ts` that is the bound's two. Content
     does not import `lib/api.ts` (that would close a folder cycle through `lib/recipes.ts`); `catalog.js` and the box
     read through `cache/files.js` `playFile`, the one reader. Census: Sandbox 1 and Worlds same, Sandbox 3 its noise.
+13. **Dead out of content, the kernel and the lab** (site-assets#27, #28; site-worlds#28, #30, #32, #35, #36; fix 4
+    within these files). Gone: `sandbox-kit/orbit.js`, `timeline.js` and the barrel `index.js` (nothing imported them);
+    `maiacity-v2/plants.js`'s plant table (only `plantRef` is used); `sandbox5.js`'s `kindsOf` and two of its three
+    detail tiers, its header naming the legacy vault; `film/color.js`'s camera-profile detection (only `REC709_TO_AP1`
+    and the ACEScct curve stay), `film/camera.js`'s `curveName` and `keysFromFlight`, `reel.js`'s `reelOf`, `time.ts`'s
+    `GAME_DAY_MS`, `gameAgo`, `calendarLabel`, `models/units.js`'s `CM`, `KM` and `REAL_SIZES` (its size test is gone).
+    85 exports used only in their own file lose `export` (content, the kernel, the lab's buildings, the dome cell's
+    non-held files); the box's engine sources (`box/bake.js`, `box/clips.js`) and `schemas/` are left as they are (the
+    engine is frozen from them; the schema list waits on a decision). Exports nothing else uses, repo-wide: 263 → 146.

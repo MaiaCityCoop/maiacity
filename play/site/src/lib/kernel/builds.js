@@ -31,7 +31,7 @@ export function queryOf(values) {
  * @param {string | undefined} query
  * @returns {Record<string, string> | undefined}
  */
-export function paramsIn(query) {
+function paramsIn(query) {
 	if (!query) return undefined;
 	/** @type {Record<string, string>} */
 	const out = {};

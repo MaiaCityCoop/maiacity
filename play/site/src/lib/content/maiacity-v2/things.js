@@ -107,7 +107,7 @@ export const FIRE_CATCHES = [0.86, 1];
  *  pole's foot, a wall pole or peg going in, a guy's peg, the door, a thing being put down. Its builder's `work`, read
  *  off its places: the pegs and guys each at its turn round the ring (the n-th of `of` round, the door's left out) */
 const round = (of, r, from, to) => Array.from({ length: to - from + 1 }, (_, j) => (((from + j + 0.5) / of) * Math.PI * 2)).map((a) => ({ a, x: Math.sin(a) * r, z: Math.cos(a) * r }));
-export const TENT_WORK = {
+const TENT_WORK = {
 	sheetPegs: round(14, BELL_TENT.R + 0.03, 1, 12),
 	wallPegs: round(22, BELL_TENT.R + 0.04, 1, 20),
 	guys: round(12, 1, 1, 10).map((p) => p.a),
@@ -152,7 +152,7 @@ export const BOTTLE_MOUTH = 0.268;
 
 /** the people: the rigged stand-in (actors/stand-in@11), built with how tall they are and their look (./van.js PEOPLE,
  *  the players in their seat's colours), its moves played from the tables the box wrote down ($content/assets/clips.js) */
-export const STAND_IN = slot('stand-in');
+const STAND_IN = slot('stand-in');
 /** the elder woman of seat C */
 export const ELDER_WOMAN = slot('elder-woman');
 /** a person's ref: their height (m) and what of their look is not the stand-in's, by name, in a steady order */

@@ -21,9 +21,9 @@ import { seededMinStd } from './random.js';
 import { withTone } from '../render/core.js';
 
 /** Where the worlds stand on their planet: the celestial pole stands this high in the north (+z on the ground). */
-export const LATITUDE = 45;
+const LATITUDE = 45;
 /** The air: clear, a little haze. */
-export const AIR = { turbidity: 3, rayleigh: 1.2, mie: 0.004, g: 0.8 };
+const AIR = { turbidity: 3, rayleigh: 1.2, mie: 0.004, g: 0.8 };
 
 const SPACE = new THREE.Color('#070e25'), NIGHT_ZENITH = new THREE.Color('#070f27'), NIGHT_HORIZON = new THREE.Color('#111d3d');
 const DUSK_GLOW = new THREE.Color('#d9773f'), BLUE_HOUR = new THREE.Color('#36508c');
@@ -95,7 +95,7 @@ export function horizonRing(sun) {
 }
 
 /** how far the stars have turned at an hour (noon at half past twelve) @param {number} hour */
-export function celestial(hour) {
+function celestial(hour) {
 	return { turn: ((hour - 12.5) / 24) * Math.PI * 2 };
 }
 

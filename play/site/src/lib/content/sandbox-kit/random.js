@@ -16,7 +16,7 @@
  * @param {number} seed
  * @returns {() => number}
  */
-export function seededRandom(seed) {
+function seededRandom(seed) {
 	let a = seed >>> 0;
 	return () => {
 		a = (a + 0x6d2b79f5) >>> 0;
@@ -32,7 +32,7 @@ export function seededRandom(seed) {
  * @param {number} seed
  * @returns {() => number}
  */
-export function seededLcg(seed) {
+function seededLcg(seed) {
 	let s = seed >>> 0;
 	return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
 }

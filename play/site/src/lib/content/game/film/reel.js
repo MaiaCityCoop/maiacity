@@ -4,26 +4,11 @@
 // ./shot.js `evaluate`, so a shot plays the same wherever it plays: a game playing a tuned cut's shots plays exactly
 // what the studio showed. Nothing in a reel is code: it is the shots' data alone, checked by ./shot.js.
 // Plain JavaScript, shared by the browser, the API and the scripts.
-import { evaluate, normalize } from './shot.js';
+import { evaluate } from './shot.js';
 
 /** @typedef {import('./shot.js').Spec} Spec @typedef {import('./shot.js').Shape} Shape */
 /** @typedef {{ spec: Spec, start: number, end: number }} Placed */
 /** @typedef {{ shots: Placed[], seconds: number }} Reel */
-
-/**
- * Shots one after another, from 0 (each checked: a reel holds no shot ./shot.js would refuse).
- * @param {unknown[]} specs @returns {Reel}
- */
-export function reelOf(specs) {
-	let t = 0;
-	const shots = specs.map((raw) => {
-		const spec = normalize(raw);
-		const placed = { spec, start: t, end: t + spec.seconds };
-		t = placed.end;
-		return placed;
-	});
-	return { shots, seconds: t };
-}
 
 /**
  * The shot on screen at reel time t (seconds), and t in it: before the first, its first frame; after the last, its
