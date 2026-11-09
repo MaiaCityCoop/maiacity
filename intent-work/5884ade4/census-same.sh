@@ -16,8 +16,8 @@ out=$(mktemp -d)
 # the base's tree made once first (../../play/site/scripts/census/tree.ts): runs adding one worktree at once collide
 bun -e "import { treeAt } from './play/site/scripts/census/tree.ts'; treeAt('$base')" > /dev/null
 count() { # <world> <view> <tag>: the base and the head counted side by side, in the background
-  bun play/site/scripts/census.ts --world "$1" --view "$2" --at "$base" --json "$out/$1.base$3.json" > "$out/$1.base$3.log" 2>&1 &
-  bun play/site/scripts/census.ts --world "$1" --view "$2" --json "$out/$1.head$3.json" > "$out/$1.head$3.log" 2>&1 &
+  bun play/site/scripts/census.ts --world "$1" --view "$2" --at "$base" --json "$out/$1.base${3:-}.json" > "$out/$1.base${3:-}.log" 2>&1 &
+  bun play/site/scripts/census.ts --world "$1" --view "$2" --json "$out/$1.head${3:-}.json" > "$out/$1.head${3:-}.log" 2>&1 &
 }
 settle() { wait || true; for f in "$@"; do [ -s "$f" ] || { echo "a census run failed:"; tail -n 20 "$out"/*.log; exit 1; }; done; }
 same() { [ "$(jq -cS '[.views[] | {view, totals}]' "$out/$1.base$2.json")" = "$(jq -cS '[.views[] | {view, totals}]' "$out/$1.head$2.json")" ]; }
