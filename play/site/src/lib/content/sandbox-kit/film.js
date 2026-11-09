@@ -15,16 +15,11 @@ import * as THREE from 'three';
  * @property {() => void} release let go: the world's own controls have the camera again
  */
 
-/**
- * @typedef {{ id: string, intensity: number, color?: string }} FilmLight
- *   a light of the shot over what the hour gives it: 'sun', 'fill' and 'sky' in every world (the sky's), and a world's
- *   own ('glow', 'lamps' in the domes)
- */
+/** @typedef {{ id: string, intensity: number, color?: string }} FilmLight a shot's multiplier over the hour's light ('sun', 'fill', 'sky'; a world's own) */
 
 /**
  * @typedef {{ sandbox: string, area?: string, stand: [number, number], dome?: number, props?: string, seed: number, views?: import('./stream.js').View[] }} FilmWorldSpec
- *   views: what the shot's camera sees along its path (maia/content/film `viewsOf`), when the film knows it: a world that
- *   streams by view (./stream.js) builds for exactly these
+ *   views: what the shot's camera sees along its path, for a world that streams by view (./stream.js)
  */
 
 // the three rules of a world under the film camera are the film renderer's
@@ -98,10 +93,8 @@ export function createCameraHold(camera) {
  *   progress?: () => { label: string, done?: number, total?: number } | null,
  *   extra?: Record<string, unknown>
  * }} o
- *   a shot of another `sandbox`/`area` is refused; `advance` runs once the hour is set (levels of detail, lamps);
- *   `frames` are where a shot's camera may ride (camera `frame`), placed after `animate`; `parts` is called every frame
- *   (../game/film/worlds.js); `streams`: `holds` is exact anywhere, so a cut to a held shot only moves (./stream.js);
- *   `progress` feeds the studio's loading screen; `extra` goes on window.__world
+ *   a shot of another `sandbox`/`area` is refused; `frames` are where a camera may ride (camera `frame`), placed after
+ *   `animate`; `streams`: `holds` is exact anywhere, so a cut to a held shot only moves (./stream.js)
  */
 export function connectFilm(o) {
 	const { renderer, scene, camera, hold, sky = null } = o;
@@ -132,10 +125,8 @@ export function connectFilm(o) {
 		...o.extra,
 		film: {
 			/**
-			 * Bring the world to world time t (s), the camera where `fly` put it; it stays at t until the next advance,
-			 * so the same t is the same world however the frames before came. `lights` scale over the hour's (1 = as is);
-			 * `parts` by ../game/film/shot.js `evaluate`; `live` (the studio's viewer, not a plate) leaves the shadows to
-			 * the world's own rules.
+			 * Bring the world to world time t (s), the camera where `fly` put it: the same t is the same world. `lights`
+			 * scale over the hour's; `live` (the studio's viewer, not a plate) leaves the shadows to the world's rules.
 			 * @param {number} t @param {FilmLight[]} [lights] @param {Record<string, Record<string, number>>} [parts] @param {boolean} [live]
 			 */
 			advance(t, lights = [], parts = {}, live = false) {

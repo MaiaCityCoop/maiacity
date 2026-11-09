@@ -40,12 +40,9 @@
 	 * @type {{ source: typeof import('./catalog.js').source, hash: string, title?: string,
 	 *   note?: string, about?: import('svelte').Snippet, catalog?: any, picked?: string | null, solo?: boolean,
 	 *   compact?: boolean, fill?: boolean, named?: boolean, details?: HTMLElement | null, onStir?: (read: () => void) => (() => void) }}
-	 *   `source` the vault's recipes (the page's `vaultSource`), `hash` the recipe shown, `title`, `note` its entry's
-	 *   name and words, `about` the page's words at the panel's foot; `catalog` its parts as built (null if none),
-	 *   `picked` the part picked, `solo` shown on its own; `compact`, name, moves, views and a short canvas alone (an
-	 *   intent's review); `onStir` the page's watch of the device's sync, so a file still arriving is read again;
-	 *   `fill`, the canvas as tall as the column; `named` false where the page names it already; `details`, the page's
-	 *   element (its aside) the readout and panel go into instead of round the canvas
+	 *   `source` the vault's recipes, `hash` the recipe shown; `compact` a short card (an intent's review); `onStir` the
+	 *   page's watch of the device's sync (a file still arriving read again); `named` false where the page names it;
+	 *   `details`, the page's aside the readout and panel go into
 	 */
 	let { source, hash, title = '', note = '', about, catalog = $bindable(null), picked = $bindable(null), solo = true, compact = false, fill = false, named = true, details = null, onStir } = $props();
 
@@ -196,8 +193,7 @@
 		}
 		// for a test in a browser to read what is shown, as AssetViewer's `__viewer`
 		window.__vaultAsset = { stage, camera, controls, plantings, get hero() { return hero; }, get picked() { return picked; }, get building() { return building; }, get phase() { return buildPhase; }, get error() { return error; }, get values() { return values; }, get wanted() { return wanted; }, set: (id, v) => setParam(id, v) };
-		// a plant's ground (./ground.js): its biome's floor to the horizon, its roots in the earth below the ground line;
-		// never under its fruit alone. One floor for every plant (Samuel 2026-11-04): the library's greenest biome
+		// a plant's ground (./ground.js), never under its fruit alone; one floor for every plant (Samuel 2026-11-04)
 		const earth = groundOf(stage, { drawn: plantings.drawn });
 		const green = groundsIn(source)[0];
 		earth.biome(green?.recipe ?? null, green?.id);
@@ -265,8 +261,7 @@
 				if (shownHash !== h0) more = false;
 				readValues();
 				readModes();
-				// a new recipe is framed as built; the same rebuilt keeps the camera unless it grew or shrank by much;
-				// a growing plant is followed
+				// a new recipe is framed as built; rebuilt, the camera stays unless it grew or shrank by much
 				cam.reframe(centre, s, { fresh: shownHash !== h0, growing, ground: soiled ? 0 : undefined });
 				shownHash = h0;
 				// Roots asked while its fruit was shown: down to them now the plant stands in its soil again

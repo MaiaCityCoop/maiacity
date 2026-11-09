@@ -17,8 +17,7 @@ type Motion = { dist: number; speed: number; turn?: number }
 type Pose = Record<string, number[]>
 type Clip = (t: number, m?: Motion) => Pose
 
-/** an actor of the Actors by its cast's name (`goat-saanen`, `bird-robin`): the version of it the village's config pins
- * under that name (maia/content/code/configs/sandbox-4/assets, ./things.js `villageAsset`) */
+/** an actor by its cast's name (`goat-saanen`): the version the village's config pins (./things.js `villageAsset`) */
 const actorRef = (id: string) => villageAsset(id)
 
 type Part = { geo: THREE.BufferGeometry; color: string; at: [number, number, number]; rot?: [number, number, number]; scale?: [number, number, number] }
@@ -256,10 +255,7 @@ export function apiary(spots: { x: number; z: number; rot: number }[], seed: num
 const POND_FISH = ['fish-koi', 'fish-kohaku', 'fish-ogon', 'fish-carp']
 export const TANK_FISH = ['fish-nile', 'fish-redtilapia']
 
-/**
- * Fish: koi and carp in the ponds, tilapia in the tanks, circling just under the surface, a few up and down a stream;
- * rigged near the eye, their bodies waving them on, a tail beat for every length swum.
- */
+/** Fish: koi and carp in the ponds, tilapia in the tanks, a few up and down a stream; a tail beat for every length swum. */
 export function fishes(pools: { x: number; z: number; r: number; y: number; n: number }[], streams: { line: { x: number; z: number }[]; y: number; n: number }[], seed: number, eye?: Eye, kinds = POND_FISH): { object: THREE.Group; update: (t: number) => void } {
 	const r = seeded(seed)
 	const COATS = kinds.length
@@ -317,9 +313,8 @@ export function fishes(pools: { x: number; z: number; r: number; y: number; n: n
 }
 
 /**
- * Ant hills, wood ants busy on them: from afar a still mound, near the eye the rigged hill (built when first near, posed
- * only while near). From each run three to five ant roads (Ameisenstraßen), winding four to ten metres to where the
- * colony forages: a worn track, and near the eye a stream of ants out and home. `blocked` keeps roads off paths and water.
+ * Ant hills: a still mound from afar, the rigged hill near the eye (built when first near); from each three to five ant
+ * roads (Ameisenstraßen) four to ten metres long, ants streaming out and home. `blocked` keeps roads off paths and water.
  */
 export function antHills(
 	spots: { x: number; z: number; rot: number; size: number }[],
@@ -406,8 +401,7 @@ export function antHills(
 		track.renderOrder = 1
 		object.add(track)
 	}
-	// the ants on the roads near the eye: a red wood ant each, drawn 1.4 cm (a little over the largest workers, to be seen
-	// standing), twenty to a metre of road, half going out, half coming home
+	// the ants on the roads near the eye: red wood ants drawn 1.4 cm (a little over the largest workers), twenty a metre
 	const antGeo = model([
 		{ geo: new THREE.SphereGeometry(1, 6, 4), color: '#7a2e14', at: [0, 0.0018, 0.0034], scale: [0.0012, 0.0011, 0.0013] },
 		{ geo: new THREE.SphereGeometry(1, 6, 4), color: '#8a3a18', at: [0, 0.002, 0.0012], scale: [0.0009, 0.0009, 0.0017] },
