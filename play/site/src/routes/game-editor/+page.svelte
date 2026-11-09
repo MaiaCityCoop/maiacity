@@ -61,7 +61,7 @@
 	const rows = $derived(levelling ? ledger(levelling) : []);
 	const last = $derived(rows.at(-1));
 	/** the villagers' lowest share of the minds after any level, and the first level short of beds */
-	const lowest = $derived(rows.reduce((m, r) => Math.min(m, r.treasury.villagers), 1));
+	const lowest = $derived(Math.min(1, ...rows.map((r) => r.treasury.villagers)));
 	const short_ = $derived(rows.find((r) => !r.housed || !r.ready));
 	const times = (x: number) => (Number.isFinite(x) ? `${(Math.round(x * 100) / 100).toString()}×` : '—');
 	/** the phases in order, each with its rows */
