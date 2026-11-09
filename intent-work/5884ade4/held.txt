@@ -106,7 +106,6 @@ play/site/scripts/census/viewer.ts
 play/site/scripts/census/webgpu.js
 play/site/scripts/engine.test.ts
 play/site/scripts/flyover/flyover.mjs
-play/site/scripts/grass-glsl.ts
 play/site/scripts/grass-shots/harness.js
 play/site/scripts/grass-wgsl.ts
 play/site/scripts/mac-page.mjs
@@ -138,13 +137,9 @@ play/site/src/lib/content/assets/render/lod.js
 play/site/src/lib/content/assets/render/presets.js
 play/site/src/lib/content/assets/stage.js
 play/site/src/lib/content/assets/viewer.js
-play/site/src/lib/content/biomes/biomes.test.ts
-play/site/src/lib/content/biomes/card.js
 play/site/src/lib/content/biomes/grass-gpu.js
 play/site/src/lib/content/biomes/grass.js
 play/site/src/lib/content/biomes/grass.test.js
-play/site/src/lib/content/biomes/index.js
-play/site/src/lib/content/biomes/stream.js
 play/site/src/lib/content/factories/app.js
 play/site/src/lib/content/maiacity-v2/world.js
 play/site/src/lib/content/render/atmosphere.js
@@ -174,9 +169,6 @@ play/site/src/lib/content/render/stage.js
 play/site/src/lib/content/render/world.js
 play/site/src/lib/content/sandbox-2/interior/PlantLook.svelte
 play/site/src/lib/content/sandbox-2/interior/interior.ts
-play/site/src/lib/content/sandbox-2/interior/plants.ts
-play/site/src/lib/content/sandbox-2/interior/textures.ts
-play/site/src/lib/content/sandbox-2/interior/things.js
 play/site/src/lib/content/sandbox-2/interior/village.ts
 play/site/src/lib/content/sandbox-6/audit.test.ts
 play/site/src/lib/content/sandbox-6/layout.test.ts
