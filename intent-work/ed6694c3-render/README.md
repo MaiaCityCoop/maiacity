@@ -27,3 +27,5 @@ bash intent-work/ed6694c3-render/run.sh      # optional: a commit of the fix; de
 - **Out:** `out/` (screenshots, `results-<browser>.json`, `stdout-<browser>.txt`). Commit it to this branch and push.
 
 **Dry run** (cb52fbd9): `bun play/site/scripts/macjob/dry.ts intent-work/ed6694c3-render --at <this branch's commit>`. It passed in avenBOX before this was reported ready. Sandbox 5 is an empty page there (not walked); the walk runs on the Mac only.
+
+MAC JOB READY: intent-work/ed6694c3-render@c90d1c1 intent-work/ed6694c3-render/README.md (dry run passed in avenBOX, 2026-11-09 14:27 UTC, serving PR #2208's head a2088e9; this line's commit changes the README only)
