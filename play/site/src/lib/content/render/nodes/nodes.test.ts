@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { fakeGL } from './fakegl.js';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
 import { SunLight } from 'three/addons/lights/SunLight.js';
+import { nodes, precompile } from '../core.js';
 import { aFade, blurMaterial, cardMaterials, castsAsNode, cutBy, cutOf, floorMaterial, ghostMaterial, install, nodeOf, poolMaterial } from './index.js';
 
 (globalThis as any).self ??= globalThis;
@@ -253,6 +254,57 @@ describe('the render kit in TSL', () => {
 		expect([...programs][0]).toBeTruthy();
 	});
 
+	// 660ad67f: Safari linked 47 kit programs mid-walk in Sandbox 5, each built at its first frame. Warmed by precompile,
+	// every build is paired with its own program as three acquires it (../core.js `nodes`): one material on two meshes
+	// (two programs) keeps each program's own uniforms, never the last build's (cb16b7a5)
+	test('precompile builds the kit’s node materials, each program paired with its own build: the first frame builds none', async () => {
+		const { gl } = fakeGL();
+		const r: any = new THREE.WebGLRenderer({ canvas: gl.canvas, context: gl } as any);
+		r.shadowMap.enabled = true;
+		nodes(r);
+		const h: any = install(r);
+		const { scene, camera } = lit();
+		const m: any = Object.assign(nodeOf(new THREE.MeshStandardMaterial({ map: new THREE.Texture() })), { fade: aFade });
+		const n: any = Object.assign(nodeOf(new THREE.MeshStandardMaterial({ color: 0x406080 })), { fade: aFade });
+		const bare = new THREE.BoxGeometry();
+		bare.deleteAttribute('uv');
+		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), m), new THREE.Mesh(bare, m), new THREE.Mesh(new THREE.BoxGeometry(), n));
+		await precompile(r, scene, camera);
+		const programs = (x: any) => r.properties.get(x).programs?.size ?? 0;
+		expect([programs(m), programs(n)]).toEqual([2, 1]);
+		r.render(scene, camera);
+		r.render(scene, camera);
+		expect([programs(m), programs(n)]).toEqual([2, 1]);
+		// every node uniform each program declares is in the uniforms the handler keeps for it
+		for (const x of [m, n])
+			for (const [p, e] of h.programCache.get(x)) {
+				const declared = p.getUniforms().seq.map((u: any) => u.id).filter((id: string) => id.startsWith('nodeUniform'));
+				expect(declared.filter((id: string) => !(id in e.uniforms))).toEqual([]);
+			}
+	});
+
+	// 544485e2: the viewers' sky, drawn first in its environment bake (a target, its colour space linear), then compiled
+	// by the stage's warm-up under the page's sRGB: three moved it to the compile's program without onUpdateProgram, so
+	// the handler never updated it and it drew with the camera another node material last set (the contact shadow's)
+	test('a node material drawn before a compile meets its compiled program through the handler at its next draw', () => {
+		const { gl } = fakeGL();
+		const r: any = new THREE.WebGLRenderer({ canvas: gl.canvas, context: gl } as any);
+		nodes(r);
+		const h: any = install(r);
+		const { scene, camera } = lit();
+		const sky = new MeshBasicNodeMaterial();
+		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), sky));
+		const target = new THREE.WebGLRenderTarget(16, 16);
+		r.setRenderTarget(target);
+		r.outputColorSpace = THREE.LinearSRGBColorSpace;
+		r.render(scene, camera);
+		r.outputColorSpace = THREE.SRGBColorSpace;
+		r.compile(scene, camera);
+		expect(r.properties.get(sky).programs.size).toBe(2);
+		r.render(scene, camera);
+		expect(h.programCache.get(sky).has(r.properties.get(sky).currentProgram)).toBe(true);
+	});
+
 	test('the sky’s sun lights a node material, its cascades shadowing it', () => {
 		const { r, shaders } = renderer();
 		const scene = new THREE.Scene();
@@ -277,7 +329,7 @@ describe('the render kit in TSL', () => {
 		valid(shaders);
 	});
 
-	test('only the kit’s node materials come out linear in a target; the sky’s as three’s handler draws it', () => {
+	test('every node material comes out linear in a target, as three’s own do: the sky is tone mapped once, at the output (544485e2)', () => {
 		const { r, shaders } = renderer();
 		const { scene, camera } = lit();
 		const sky = new MeshBasicNodeMaterial();
@@ -285,6 +337,6 @@ describe('the render kit in TSL', () => {
 		r.setRenderTarget(new THREE.WebGLRenderTarget(16, 16));
 		r.render(scene, camera);
 		const toned = /ToneMapping\(|TransferOETF\(|\bfn\d+\(/;
-		expect(shaders.filter((x) => x.includes('Node System')).map((x) => x.match(/fragColor = .*/)?.[0]).join('\n')).toMatch(toned);
+		expect(shaders.filter((x) => x.includes('Node System')).map((x) => x.match(/fragColor = .*/)?.[0]).join('\n')).not.toMatch(toned);
 	});
 });
