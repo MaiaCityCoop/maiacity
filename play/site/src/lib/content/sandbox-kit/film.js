@@ -13,7 +13,7 @@
  *   · run its animations on `worldTime()` when the film sets it (the shot's clock), else on its own;
  *   · keep its resolution while `filmHoldsSize()` (`stage.adapt(now, filmHoldsSize())`).
  *
- * A shot names its world (maia/content/game/film/worlds.js): `world.sandbox`, and `world.area` where a sandbox has more than one.
+ * A shot names its world (../game/film/worlds.js): `world.sandbox`, and `world.area` where a sandbox has more than one.
  * Each sandbox's film page (/games/<sandbox>/?film) mounts the world for the area and calls `connectFilm`.
  *
  * A shot's camera may ride in one of the world's own frames (maia/content/game/film/camera.js `frame`: the van, the pickup): the
@@ -22,7 +22,7 @@
  * (its coded moves) have it. A game playing a film of its own (MaiaCity V1's intro) aims its camera with the same
  * `aim` and `poseIn`, so a shot looks the same in the game, the studio and the plates.
  *
- * A shot may move the world's moving parts (maia/content/game/film/worlds.js `parts`: the van along its road, the tent pitched):
+ * A shot may move the world's moving parts (../game/film/worlds.js `parts`: the van along its road, the tent pitched):
  * their values at the shot's moment go to the world through one hook (`parts`), once the world has come to it and
  * before the camera is put in a frame, so a camera riding in the van rides where the shot put the van.
  */
@@ -139,7 +139,7 @@ export function createCameraHold(camera) {
  *   built); animate: every animation to world time t; advance: anything else a frame needs once the hour is set
  *   (levels of detail, the nearest lamps); lights: the world's own lights a shot may scale and colour; frames: the
  *   world's own frames a shot's camera may ride in (camera `frame`), each where it stands once animate has run; parts: the world's moving parts put where the shot has them
- *   (maia/content/game/film/worlds.js `parts`; each part by its channels' values, called every frame, with {} for none); stage: build
+ *   (../game/film/worlds.js `parts`; each part by its channels' values, called every frame, with {} for none); stage: build
  *   what a shot needs and resolve when it is ready (default: stand at world.stand); holds: whether the world is still
  *   staged for that (default: yes); keep: keep built what these shots need; streams: holds is exact for any shot
  *   wherever it stands, so a cut to a held shot only moves (maia/content/sandbox-kit/stream.js); move: stand there at once;
@@ -180,7 +180,7 @@ export function connectFilm(o) {
 			 * advance: a world whose clock the film holds (the Worlds page's, ../worlds/film.js) never runs on between two,
 			 * so the same t is the same world however the frames before it came. `lights` scales the lights over what the
 			 * hour gives them (1 = as the hour has them) and may recolour them.
-			 * `parts`: the world's moving parts the shot moves, by their channels' values at t (maia/content/game/film/shot.js `evaluate`).
+			 * `parts`: the world's moving parts the shot moves, by their channels' values at t (../game/film/shot.js `evaluate`).
 			 * `live`: a frame of the studio's live viewer, not a plate: the shadows are drawn again only when the world's own
 			 * rules say so (the sky's: when the sun or where they follow moves; every frame for a world that keeps
 			 * `shadowMap.autoUpdate`), as the game draws them.

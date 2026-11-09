@@ -73,3 +73,12 @@ Builder of area `site-content` (branch `intent/5884ade4-u-site-content`). Proble
    hydration marker, which names the component that owns the head). The kit's barrel is no longer used for `WorldPage`.
    Census: Sandbox 1 and Worlds same, Sandbox 3 its noise. Held, left: the census's `mountSandbox1` copy of the mount
    (`scripts/census/run.ts`), Sandbox 5's `FOREST_DOME` and gates as layout configs (§5, `village.ts`).
+9. **The film registry by UUID; the legacy places gone** (site-assets#29, #35 film part; site-worlds#9 slug part;
+   site-assets F6). `game/places.js` (465 lines: navigation, history and routes of the legacy app, worlds with no page)
+   goes; `game/film/worlds.js` keeps the film worlds that have a page, keyed by the sandbox's UUID (Sandbox 1, 3, 5) and
+   `worlds`, each with its real route (`filmPath`, `worldOfPath`); a shot naming no world is in Sandbox 1. `shot.js`'s
+   legacy shot-list readers (`fromLegacy`, `legacyStops`, `legacyLook`), `shutterTimes`, `sameSpec` and `SETS` had no
+   caller and go. Nothing plays a reel today (`maiacity-v2/world.js`'s story, held, is unreachable), so no world draws
+   otherwise; `worlds.test.ts` pins the film page of a Worlds shot. Sandbox slugs in site code: 26 → 1 (`sandbox5.js`
+   names its film world `'sandbox-5'` because `village.ts`, held, types it so). The census's Sandbox 3 noise again
+   (three runs at HEAD: 303, 299, 299 draws).
