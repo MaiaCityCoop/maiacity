@@ -12,32 +12,32 @@ export const REPO = resolve(import.meta.dir, '../../../..');
 /** the census's cache (trees, pinned files): CENSUS_CACHE, else ~/.cache/maiacity-census */
 export const CACHE = resolve(process.env.CENSUS_CACHE ?? join(process.env.HOME ?? '/tmp', '.cache/maiacity-census'));
 
-const git = (...a: string[]) => execFileSync('git', ['-C', REPO, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+const git = (repo: string, ...a: string[]) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 
 /** the commit's whole hash, or '' if this clone hasn't it */
-function has(c: string) {
+function has(repo: string, c: string) {
 	try {
-		return git('rev-parse', '--verify', '--quiet', `${c}^{commit}`);
+		return git(repo, 'rev-parse', '--verify', '--quiet', `${c}^{commit}`);
 	} catch {
 		return '';
 	}
 }
 
 /** a commit's tree (the repository's root in it), checked out once under the cache; `sha` its whole hash */
-export function treeAt(commit: string) {
-	let sha = has(commit);
+export function treeAt(commit: string, repo = REPO) {
+	let sha = has(repo, commit);
 	// a commit not in this clone (a shallow one, as CI's) is fetched by its whole hash, the one way a server hands it out
 	if (!sha && /^[0-9a-f]{40}$/.test(commit)) {
-		git('fetch', '--quiet', '--depth=1', 'origin', commit);
-		sha = has(commit);
+		git(repo, 'fetch', '--quiet', '--depth=1', 'origin', commit);
+		sha = has(repo, commit);
 	}
 	if (!sha) throw new Error(`no commit ${commit} here (a shallow clone fetches a commit only by its whole 40-character hash)`);
 	const dir = join(CACHE, 'trees', sha);
-	if (!existsSync(join(dir, 'play'))) {
+	if (!existsSync(join(dir, '.git'))) {
 		mkdirSync(join(CACHE, 'trees'), { recursive: true });
-		execFileSync('git', ['-C', REPO, 'worktree', 'add', '--force', '--detach', dir, sha], { stdio: 'ignore' });
+		execFileSync('git', ['-C', repo, 'worktree', 'add', '--force', '--detach', dir, sha], { stdio: 'ignore' });
 	}
 	const nm = join(dir, 'play/site/node_modules');
-	if (!existsSync(nm)) symlinkSync(join(REPO, 'play/site/node_modules'), nm);
+	if (existsSync(join(dir, 'play/site')) && !existsSync(nm)) symlinkSync(join(repo, 'play/site/node_modules'), nm);
 	return { sha, dir };
 }
