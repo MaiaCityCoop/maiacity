@@ -20,7 +20,6 @@ export type Live = { asset: string; version: string; variant?: string; values?: 
  *  and its variants' recipes */
 export type LiveAsset = { asset: string; version: string; recipe: string; pieces?: string[]; engine: number; params?: { id: string | number; name?: string }[]; variants?: Record<string, { recipe: string; pieces?: string[] }> };
 
-export const MOST_STEPS = 24;
 export const STEPS = 8;
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
