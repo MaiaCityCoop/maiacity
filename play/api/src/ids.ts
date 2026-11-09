@@ -16,6 +16,8 @@ export const SANDBOX = {
   four: "4d72a048-ccc1-476b-b60f-c5eb0914fa47",
   /** Sandbox 5, the forest dome alone in its own food forest: a random UUID, the one migration 0022-sandbox-5 gives it */
   five: "ac154784-c938-47ee-ac74-d61fc91583b3",
+  /** Sandbox 6, one village at its real size (intent 67f0404a): a random UUID, the one migration <time>-67f0404a-sandbox-6 gives it */
+  six: "80f37471-b59c-4a23-8278-2ad062b37939",
 } as const;
 
 /** the factories' first versions, made by the deploy's import (../import/factories.ts): each uuidOf("factory:<its first name>") */
