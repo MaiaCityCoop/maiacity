@@ -1,9 +1,10 @@
 // The character's renders, on a real GPU only (Samuel's Mac, Metal through Chrome): never in the cloud on SwiftShader.
 //   node render-gpu.mjs <scene.json>… -> <scene>.png beside each scene (from scene.textured_scene: textured, eyes)
-import { createRequire } from "node:module"; import { execSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs"; import { dirname, resolve } from "node:path";
-const { chromium } = createRequire(new URL("../../play/site/package.json", import.meta.url).pathname)("playwright");
-const THREE = new URL("../../play/site/node_modules/three/build/", import.meta.url).pathname;
+import { execSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs"; import { dirname, join, resolve } from "node:path";
+import { SITE, siteRequire } from "../site.cjs";
+const { chromium } = siteRequire("playwright");
+const THREE = join(SITE, "node_modules/three/build/");
 if (process.platform !== "darwin" && !process.env.RENDER_ANYWHERE) { console.error("GPU renders run on the Mac (Metal), not here."); process.exit(1); }
 const browser = await chromium.launch({ channel: "chromium", headless: true, args: ["--use-angle=metal", "--enable-gpu", "--ignore-gpu-blocklist", "--window-size=1100,1100"] });
 const page = await browser.newPage();

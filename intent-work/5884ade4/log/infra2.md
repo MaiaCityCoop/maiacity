@@ -64,3 +64,17 @@ scratchpad, `infra2/`).
   comments now say so); `grep -rn "src/pg\|src/hash"` finds nothing else. They go with those files' next untangle.
 - Pinned: the same imports, run from play/api, load `connect`, `blobStore` and a `hashBytes` equal to the shim's;
   `bash -n`; the stand-in server-care runs (§2) log the new paths, the rest the same.
+
+## 7. tools/sheet and tools/character on the shared helpers (re-infra#7; no longer held)
+
+- tools/sheet/fal.ts's `upload` calls `add_story_frame` through play/avenbox/play.ts's `tool` (its token passed as
+  before, still refused unset) instead of its own JSON-RPC client and hard-coded endpoint (PLAY_MCP_URL now reaches it,
+  as every other client). tools/character's render-gpu.mjs, bench-gpu.mjs and build-recipe.mjs find play/site by
+  tools/site.cjs (`SITE`, `siteRequire`) as motion and plant do.
+- Same behaviour: `upload` old and new against a stand-in fetch (`infra2/upload.ts`): the same request (URL, bearer,
+  tools/call add_story_frame with the same arguments), the same result; a tool error still throws, now with the
+  tool's words instead of the raw JSON. fal itself never called: sheet.test.ts (its fal and play stubbed) 13 pass.
+  The three character paths (three's build/, three/, Playwright's entry) resolve to the same files from site.cjs as
+  from their own relative URLs (`infra2/paths.mjs`, PLAY_SITE unset); `node --check` on each.
+- Next untangles: play/site/scripts' own MCP clients (propose.mjs runs on node, world-shot.ts reads an SSE answer and
+  stops by its own `fail`, flyover/play.mjs reads `structuredContent`'s `items`): each needs its own pinning, play/site's.

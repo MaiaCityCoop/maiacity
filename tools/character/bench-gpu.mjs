@@ -2,11 +2,11 @@
 // from a local folder), then walk, a turn, sit down, sitting, stand up and wave played with its motion pieces, its
 // face friendly throughout, joyful where the schedule says and blinking every few seconds, each frame written as a PNG (frames/0000.png …).
 //   bun bench-gpu.mjs <recipe.js> <pieces-folder> <out-folder> [seconds=20] [fps=24]
-import { createRequire } from "node:module";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-const { chromium } = createRequire(new URL("../../play/site/package.json", import.meta.url).pathname)("playwright");
-const THREE = new URL("../../play/site/node_modules/three/", import.meta.url).pathname;
+import { SITE, siteRequire } from "../site.cjs";
+const { chromium } = siteRequire("playwright");
+const THREE = join(SITE, "node_modules/three/");
 if (process.platform !== "darwin" && !process.env.RENDER_ANYWHERE) { console.error("GPU renders run on the Mac (Metal), not here."); process.exit(1); }
 const [recipe, folder, out, seconds = "20", fps = "24"] = process.argv.slice(2);
 mkdirSync(join(out, "frames"), { recursive: true });
