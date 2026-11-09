@@ -54,7 +54,7 @@ import { STRETCH } from './lod.js';
 export const ready = MeshoptSimplifier.ready;
 
 /**
- * This simplifier's version: part of the key every level it made is kept by on this device (../cache.js
+ * This simplifier's version: part of the key every level it made is kept by on this device (../cache/levels.js
  * `levelKeyOf`). Raised whenever what it makes of a build changes (its weights, its passes, its error), so no level made
  * the old way is drawn again.
  */

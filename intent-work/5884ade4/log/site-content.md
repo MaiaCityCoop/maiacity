@@ -22,3 +22,16 @@ Builder of area `site-content` (branch `intent/5884ade4-u-site-content`). Proble
    box's host and tests; none held); its dead `enginePath` and `RECIPE_END` go. The census's Sandbox 3 count flips
    between two totals on its own (296/303 draws, the merge base's run too): a DIFF there is rerun, and this one came
    back `same`.
+4. **The device cache split by what it keeps; one reader of play's files** (site-assets#4, #15 pieces → cache, #25,
+   #27 cache part, #34 cache part; site-assets F2, F9). `cache.js` (732 lines) → `cache/store.js` (the OPFS folder, its
+   writer and worker, use notes, the LRU trim, and `lost`: the one place the cache's failures are let go, since it is
+   never the truth), `cache/packed.js` (the entry file format), `cache/builds.js` (keys, get, put, drop, pictures),
+   `cache/levels.js` (levels' keys and entries), `cache/files.js` (play's files by hash and `playFile`, the one reader:
+   this device's copy, else `kernel/files.js` `fileUrl`, held to its hash, kept). `catalog.recipeAt` and the box's
+   pieces read through `playFile`, so `box/pieces.js` no longer imports content/assets. `cache.js` stays as a re-export
+   of the level functions for `render/levels.js` (held). Dead: `bytesOf`, `pixelsOf`, `fingerprint`, `putRaw`, `usage`,
+   `clear`; `storable` and `revive` are no longer exported. Keys and the file format are unchanged (`cache/cache.test.ts`'s
+   golden values). `fileUrl` is in the kernel, not in `lib/api.ts` (site-app's), because content importing `lib/`
+   would close a folder cycle (`lib/recipes.ts` → `content/assets`); `lib/api.ts` may re-export it.
+   Found, kept as it was: `putLevel` counts a level's bytes after handing them to the worker (0 there), so levels don't
+   count toward the trim until the next recount.

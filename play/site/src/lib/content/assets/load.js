@@ -1,7 +1,7 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
  * LOADING AN ASSET — the one way a page gets a build, by its name, `<recipe hash>?its=values` (./builds.js), as
- * anyone's would be got: from this device's cache (./cache.js) when it was built here before, else from the asset box
+ * anyone's would be got: from this device's cache (./cache/builds.js) when it was built here before, else from the asset box
  * (./box/host.js), which runs the recipe on the frozen engine it was made for. Either way it is checked (its card
  * against the card's schema, its data by ./box/rebuild.js) and built into three.js objects by our own code. The recipe
  * is the only truth, and it is the Maia City vault's (./vault.js): its index names the hash, Maia City's own signed edits
@@ -16,7 +16,7 @@
  */
 import { AssetBox, TIMEOUT } from './box/host.js';
 import { rebuild } from './box/rebuild.js';
-import * as cache from './cache.js';
+import * as cache from './cache/builds.js';
 import { engineAt } from './box/engines.js';
 import { valuesOf } from './params.js';
 import { INDEX, buildOf, cardOf, declaredOf, heldAt, loadRecipes, parseBuild, recipeAt } from './catalog.js';

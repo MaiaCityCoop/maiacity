@@ -5,7 +5,7 @@
  * `require('<64 hex>')`, and lists it in its manifest's `pieces` with every piece those require, so a frozen version
  * always builds the pieces it was accepted with.
  *
- * Before a build the page resolves them here, from play's files alone (`/api/files/<hash>`, held to the hash, kept on
+ * Before a build the page resolves them here, from play's files alone (../cache/files.js: held to the hash, kept on
  * this device as every file is), and hands the worker one script: the pieces, each a CommonJS module, then the
  * recipe's own file as it is. The frozen engine is not changed: its `defineRecipe` takes the recipe's function, and the
  * pieces' part hands it on with a `require` that gives a piece by its hash and anything else (three.js and its addons)
@@ -15,7 +15,7 @@
  * a piece requiring itself (a cycle), and a chain of pieces more than MOST_DEEP deep.
  */
 import { hashBytes, holds } from '../../../kernel/hash.js';
-import * as cache from '../cache.js';
+import { playFile } from '../cache/files.js';
 
 /** a piece's name: its BLAKE3 hash */
 export const PIECE = /^[0-9a-f]{64}$/;
@@ -42,26 +42,12 @@ export function handPiece(code) {
 export const handedPieces = () => [...handed.keys()];
 
 /**
- * A file of play's by its hash, held to it: one handed to the page (the bench), this device's copy, else
- * `/api/files/<hash>` on play's own origin (never another). Null when play doesn't hold it.
+ * A piece's bytes by its hash: one handed to the page (the bench), else play's file (../cache/files.js). Null when
+ * play doesn't hold it.
  * @param {string} hash @returns {Promise<Uint8Array | null>}
  */
-export async function playFile(hash) {
-	if (handed.has(hash)) return handed.get(hash);
-	let bytes;
-	try {
-		bytes = await cache.fileAt(hash);
-	} catch {
-		// (no cache on this device)
-	}
-	if (holds(bytes, hash)) return bytes;
-	const res = await fetch(`/api/files/${hash}`, { credentials: 'same-origin' });
-	if (res.status === 404) return null;
-	if (!res.ok) throw new Error(`refused: piece ${short(hash)} could not be read from play's files (HTTP ${res.status})`);
-	bytes = new Uint8Array(await res.arrayBuffer());
-	if (holds(bytes, hash)) Promise.resolve().then(() => cache.keepFile(hash, bytes)).catch(() => {});
-	return bytes;
-}
+const pieceFile = (hash) =>
+	handed.has(hash) ? Promise.resolve(handed.get(hash)) : playFile(hash, (status) => new Error(`refused: piece ${short(hash)} could not be read from play's files (HTTP ${status})`));
 
 /**
  * The pieces a recipe's code requires, and the pieces they require, each read and held to its hash: `{ hash, code,
@@ -71,7 +57,7 @@ export async function playFile(hash) {
  * @param {{ fileAt?: (hash: string) => Promise<Uint8Array | null>, held?: (bytes: Uint8Array, hash: string) => boolean }} [o]
  *   where a piece's bytes come from (play's files) and how they are held to its hash (a test's stand-ins)
  */
-export async function piecesFor(code, named = [], { fileAt = playFile, held = holds } = {}) {
+export async function piecesFor(code, named = [], { fileAt = pieceFile, held = holds } = {}) {
 	const listed = new Set(Array.isArray(named) ? named : []);
 	/** each piece read once, by hash, held to it: all of a level asked for at once, not one after another */
 	const reads = new Map();

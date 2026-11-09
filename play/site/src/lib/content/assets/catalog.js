@@ -1,8 +1,8 @@
 // @ts-nocheck — plain JS, runs in the page
 /*
  * THE CATALOG — play's one source of assets (play/SPEC.md §4). Every accepted version and variant of Maia City's
- * assets, by the BLAKE3 hash of its recipe file, from play's API (/api/catalog); each file read from /api/files/<hash>,
- * held to that hash and kept on this device by it (./cache.js).
+ * assets, by the BLAKE3 hash of its recipe file, from play's API (/api/catalog); each file read from play's files,
+ * held to that hash and kept on this device by it (./cache/files.js).
  *
  * An asset is named only by a hash: a build, `<hash>?values` (./builds.js), or a slot of its sandbox's pins,
  * `pin:<sandbox>/<slot>?values`, which the sandbox's config (play's database, ../game/code/index.js) maps to a build.
@@ -11,7 +11,7 @@
 import { holds } from '../../kernel/hash.js';
 import { configAt } from '../game/code/index.js';
 import { buildOf, hashText, parseBuild } from './builds.js';
-import * as cache from './cache.js';
+import { playFile } from './cache/files.js';
 import { LATEST } from './box/engines.js';
 import { queryOf } from './params.js';
 import { handedPieces } from './box/pieces.js';
@@ -183,14 +183,10 @@ export async function recipeAt(hash) {
 	await loadRecipes();
 	heldAt(hash);
 	if ((sizes.get(hash) ?? 0) > MOST) throw new NotInCatalog(`${nameOf(hash)}: its file is larger than a page reads`);
-	let bytes = await Promise.resolve(cache.fileAt(hash)).catch(() => undefined);
-	if (!bytes || !holds(bytes, hash)) {
-		const res = await fetch(`/api/files/${hash}`, { credentials: 'same-origin' });
-		if (!res.ok) throw new NotInCatalog(`${nameOf(hash)}: its file could not be read (HTTP ${res.status})`);
-		bytes = new Uint8Array(await res.arrayBuffer());
-		if (!holds(bytes, hash)) throw new NotInCatalog(`${nameOf(hash)}: its file does not hash to its name`);
-		Promise.resolve(cache.keepFile(hash, bytes)).catch(() => {});
-	}
+	const unread = (status) => new NotInCatalog(`${nameOf(hash)}: its file could not be read (HTTP ${status})`);
+	const bytes = await playFile(hash, unread);
+	if (!bytes) throw unread(404);
+	if (!holds(bytes, hash)) throw new NotInCatalog(`${nameOf(hash)}: its file does not hash to its name`);
 	return { hash, code: new TextDecoder().decode(bytes), pieces };
 }
 

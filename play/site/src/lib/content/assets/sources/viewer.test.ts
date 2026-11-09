@@ -8,7 +8,7 @@ vi.mock('../schemas/index.js', () => ({ checkCard: (card: any) => (card?.fits ? 
 // @ts-ignore — plain JS
 const { vaultBuild } = await import('./viewer.js')
 // @ts-ignore — plain JS
-const cache = await import('../cache.js')
+const cache = await import('../cache/builds.js')
 // @ts-ignore — plain JS
 const { LATEST } = await import('../box/engines.js')
 

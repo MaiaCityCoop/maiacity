@@ -8,7 +8,7 @@
  * the renderer are the kernel, as they are for every page.
  */
 import { rebuild } from '../box/rebuild.js';
-import * as cache from '../cache.js';
+import * as cache from '../cache/builds.js';
 import { engineAt } from '../box/engines.js';
 import { queryOf, valuesOf } from '../params.js';
 import { checkCard } from '../schemas/index.js';

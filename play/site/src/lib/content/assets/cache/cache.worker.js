@@ -1,4 +1,4 @@
-// @ts-nocheck — plain JS, trusted: the device cache's own worker (./cache.js)
+// @ts-nocheck — plain JS, trusted: the device cache's own worker (./store.js)
 /*
  * THE CACHE'S WORKER — what the device cache writes, done beside the page. Its jobs, each asked by a message `{id, op}`
  * and answered `{id, ...}` or `{id, error}`:

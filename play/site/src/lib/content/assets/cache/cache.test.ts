@@ -2,9 +2,17 @@
 // format that moved would leave every device's entries unread (or, worse, read as another build).
 import { describe, expect, it } from 'vitest'
 // @ts-ignore — plain JS
-import * as cache from './cache.js'
+import * as builds from './builds.js'
 // @ts-ignore — plain JS
-import { hashBytes } from '../../kernel/hash.js'
+import * as levels from './levels.js'
+// @ts-ignore — plain JS
+import * as files from './files.js'
+// @ts-ignore — plain JS
+import { packed, unpacked } from './packed.js'
+// @ts-ignore — plain JS
+import { hashBytes } from '../../../kernel/hash.js'
+
+const cache = { ...builds, ...levels, ...files, packed, unpacked }
 
 const H = 'a'.repeat(64), R = 'b'.repeat(64)
 
