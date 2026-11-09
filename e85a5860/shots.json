@@ -1,0 +1,56 @@
+{
+ "harness": {
+  "tiles": {
+   "backend": "webgl2",
+   "grass": "tiles",
+   "blades": [
+    27093,
+    74896,
+    47680
+   ]
+  },
+  "compute": {
+   "backend": "webgpu",
+   "grass": "indirect",
+   "blades": [
+    7748,
+    8742,
+    8883
+   ]
+  }
+ },
+ "trample": [
+  {
+   "s": 0,
+   "most": 0.912,
+   "mean": 0.64
+  },
+  {
+   "s": 3,
+   "most": 0.371,
+   "mean": 0.26
+  },
+  {
+   "s": 6,
+   "most": 0.151,
+   "mean": 0.106
+  },
+  {
+   "s": 10,
+   "most": 0.046,
+   "mean": 0.032
+  }
+ ],
+ "main": {
+  "skipped": true
+ },
+ "verdict": {
+  "computeOnCard": true,
+  "trodden": true,
+  "springsBack": true,
+  "bladesComputeVsTiles": [
+   25373,
+   149669
+  ]
+ }
+}
