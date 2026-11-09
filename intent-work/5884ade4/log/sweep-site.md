@@ -68,3 +68,7 @@ Before, play/site's non-held files: layers 16 (all of the repo; at most 10), swa
     (`import type`, erased). Pinned: `tsc --strict` over the three scripts shows no error on any line changed (the
     scripts have no checked tsconfig of their own; the errors it shows are Bun's and Node's globals, as before).
     The one left, `census/away.test.ts`'s `globalThis as any`, stands in for browser globals in a test.
+12. **Two content failures said, not swallowed** (special: swallowed, 2). A world's sound loop whose recording could
+    not be read or decoded (`worlds/sound.js`) and a Sandbox 3 build whose recipe could not be read
+    (`maiacity-v2/drawn.js`: it stays drawn but doesn't run) were dropped silently; each now goes on as before and
+    says so with `console.warn`. Pinned: census-same, same for all three worlds; gate site.

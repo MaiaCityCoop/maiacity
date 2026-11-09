@@ -236,7 +236,7 @@ export function createDrawn({ renderer, camera, scene }) {
 				const m = await up;
 				const c = m.canonical(m.buildAt(ref));
 				const values = c.values && Object.fromEntries(Object.entries(c.values).map(([k, v]) => [k, String(v)]));
-				const code = await m.recipeAt(c.hash).catch(() => null);
+				const code = await m.recipeAt(c.hash).catch((e) => (console.warn(`${ref}: its recipe was not read, so it stands as built: ${e?.message ?? e}`), null));
 				// its nodes walked here, each the box's of the same place in its tree: before anything is added to it
 				const start = code && !gone ? (nodes) => seen(anchor).then((yes) => (yes && !gone ? m.runner(m.liveBoxOf(), code, values)(nodes) : null)) : undefined;
 				const hero = m.heroOf(got, { start });
