@@ -447,12 +447,16 @@ export class CountingWebGPURenderer extends CountingRenderer {
 	get _initialized() {
 		return this.initialized;
 	}
-	/** a compute pass (its dispatch counted, nothing run) */
-	compute() {
+	/** a compute pass (its dispatch counted, nothing run), refused as three's Renderer.compute refuses it */
+	compute(nodes, dispatchSize = null) {
+		const list = Array.isArray(nodes) ? nodes : [nodes];
+		if (list.length === 0 || list.some((n) => n?.isComputeNode !== true)) throw new Error('THREE.Renderer: ".compute()" expects a "ComputeNode".');
+		if (dispatchSize !== null && list.some((n) => n.count !== null || n.dispatchSize !== null))
+			throw new Error('THREE.Renderer: A dispatch size cannot be passed to "renderer.compute()" for nodes created with "compute( count )". Use "computeKernel()" instead.');
 		this.tally.computes += 1;
 	}
-	computeAsync() {
-		return Promise.resolve(this.compute());
+	computeAsync(nodes, dispatchSize = null) {
+		return Promise.resolve(this.compute(nodes, dispatchSize));
 	}
 	/** a buffer read back: nothing was computed, so its contents as the CPU last wrote them */
 	getArrayBufferAsync(attribute) {

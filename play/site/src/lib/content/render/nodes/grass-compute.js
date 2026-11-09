@@ -165,7 +165,8 @@ export function grassCompute(renderer, o) {
 					});
 				});
 		});
-	})().compute(most * n);
+	// a kernel, its dispatch given each frame (the cells the view sees): three refuses a size for a node of `compute(count)`
+	})().computeKernel([64]);
 
 	/* the trodden ground at a foot: the map's texel, 0 outside its window */
 	const troddenAtFoot = (/** @type {any} */ foot) => {
