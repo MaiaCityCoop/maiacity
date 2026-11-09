@@ -17,7 +17,7 @@ import { hashText } from '../content/game/hash.js';
 import { withPieces } from '../content/assets/box/pieces.js';
 import { heroOf } from '../content/assets/hero.js';
 import { Stage } from '../content/assets/stage.js';
-import { makeRenderer } from '../content/render/core.js';
+import { PICTURE, makeRenderer } from '../content/render/core.js';
 import { createSky } from '../content/sandbox-kit/sky.js';
 
 import { cameraAt, stepAt, worldAt, type CameraKey, type World } from './live';
@@ -154,7 +154,7 @@ function world(tl: any, spec: WorldSpec) {
 			if (x.isLight && !x.isDirectionalLight && !x.isHemisphereLight) lamps.push({ light: x, k: x.intensity });
 		});
 		const gl = document.createElement('canvas');
-		renderer = await makeRenderer({ canvas: gl, pixelRatio: 1, toneMapping: 'agx', shadows: 'pcf', preserve: true });
+		renderer = await makeRenderer({ canvas: gl, pixelRatio: 1, toneMapping: PICTURE, shadows: 'pcf', preserve: true });
 		renderer.setSize(w, h, false);
 		camera = new THREE.PerspectiveCamera(40, w / h, 0.1, 20000);
 		// the sky's hour the shot's (its clouds' drift and its light), never the in-game clock's, which follows the wall clock
