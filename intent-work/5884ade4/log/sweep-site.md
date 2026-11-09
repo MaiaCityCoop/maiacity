@@ -115,3 +115,7 @@ name and body, `// the next thing` lines.
     48 %) are about what is outside the code, kept.
 21. **`content/maiacity-v2`** (27): `drawn.js`'s header retold its three ways of drawing step by step; `van.js`'s
     listed every seat, curtain and gauge the code below builds (Samuel's 2026-10-13 words and the van's frame kept).
+22. **`content/sandbox-2/interior`** (34, non-held files only): the headers of `flora.js`, `ambience.ts` (streamed, not
+    decoded, and Range kept) and `sandbox5.js` (Samuel's 2026-10-20 pin kept), and three docs of `factory.ts` naming
+    their constant again. `factory.ts`'s solar-line recipe, `rooms.ts`'s Waldorf rooms and `solo.js`'s measured
+    chamfer error are about the world outside the code, kept.

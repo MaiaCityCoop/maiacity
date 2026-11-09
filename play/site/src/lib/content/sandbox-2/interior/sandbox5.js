@@ -1,15 +1,8 @@
 /*
- * THE DOME CELL'S GARDEN — play's Sandbox 1 (./village.ts), its food forest grown from our own plants through
- * ./flora.js: each plant at a stage of its life, from the young tree to the ripe fruit, so the forest is never all one
- * age. Outside, under the open sky, the plants of a middle-European forest garden; inside the domes, under the glass,
- * the ones that need the warmth — the mango, the banana, the coconut palm, the coffee and the cacao.
- *
- * Its garden is a config of Sandbox 1's layout in play's database (`GARDEN`): `sandbox5()` reads it there.
- *
- * Every plant is anchored to the version it was planted with: its pin, the plant's legacy entry and the heads of that
- * version (`pin`; Samuel 2026-10-20), or, in a garden not pinned yet, the
- * version its card numbers (`v`). A plant changed later is a new version of its entry, and Sandbox 5 keeps growing the
- * one written here until it is planted again on purpose.
+ * The dome cell's garden, play's Sandbox 1 (./village.ts): its food forest of our own plants (./flora.js), each at a
+ * stage of its life; outside a middle-European forest garden, inside the domes the plants that need the warmth. The
+ * garden is a config of Sandbox 1's layout in play's database (`GARDEN`). Every plant is anchored to the version it was
+ * planted with (its pin; Samuel 2026-10-20), so a plant changed later is grown here only once planted again on purpose.
  */
 import { SANDBOX } from '$lib/kernel/sandboxes.js';
 

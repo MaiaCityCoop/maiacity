@@ -52,7 +52,6 @@ type FactoryWalk = {
 	sounds: (x: number, z: number, feet: number) => { machine: number; lift: number }
 }
 
-/** The five floors, ground up. */
 export const LEVELS = [0, 7, 14, 21, 28]
 export const NAMES = ['Frames, test & dome kits', 'Modules', 'Glass from sand', 'Copper, cords & electronics', 'Silicon & cells']
 const CORE = 6.5
@@ -567,7 +566,6 @@ export function buildFactory(ctx: FactoryCtx): FactoryWalk {
 	const blink: THREE.Mesh[] = []
 	const slabOuter = (y: number) => Math.sqrt(R * R - (y + 2.5) ** 2) - 1.2
 	const stationAngles: { a: number; r: number }[][] = []
-	/** every machine, for the sound of the one nearest you */
 	const machines: { x: number; z: number; y: number }[] = []
 
 	/* the belt runs flat all the way round; where the paths from the doors meet it,
@@ -1468,7 +1466,6 @@ export function buildFactory(ctx: FactoryCtx): FactoryWalk {
 			return true
 		},
 		floor: () => (inCabin(px, pz) ? nearestLevel(cabY) : -1),
-		// what the factory sounds like where you stand: the nearest machine, and the lift while it runs
 		sounds: (x, z, feet) => {
 			let near = Infinity
 			for (const mc of machines) if (Math.abs(mc.y - feet) < 3) near = Math.min(near, Math.hypot(mc.x - x, mc.z - z))

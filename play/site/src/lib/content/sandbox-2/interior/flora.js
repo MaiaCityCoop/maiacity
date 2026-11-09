@@ -1,25 +1,9 @@
 /*
- * FLORA — a world's forest of our own plants ($content/plants), as many thousands of them as a dome cell holds, drawn by the
- * universal renderer ($content/assets/render, through ./drawn.js `createFlora`): every kind of plant (a plant at its
- * version, stage and seed: an apple tree in flower, a ripe pumpkin) built in the asset box,
- * `plants/<id>@<v>?stage=<s>&seed=<seed>`, at the levels its card names, and far off as a picture of itself; every
- * plant of a kind one more copy of it, all of them drawn in a handful of draw calls. Nothing of a plant runs here: what the box made is
- * data, checked, and the renderer draws it.
- *
- * What the world decides, here: where every plant stands, and that a tree is drawn however far off (as its picture)
- * while a small plant is put down only as far off as the forest streams it (`STREAMS`, as stream.js streams the biomes'
- * cover: how many copies stand, not how finely each is drawn) and never past where the selector would draw its picture
- * (`FloraDrawn.far`), the ones within it put down as copies as the eye walks. What the renderer decides, by its one selector (assets/render/lod.js):
- * the level each copy is drawn at, frame by frame, the coarser fading in under the finer, and that nothing behind the
- * eye is drawn.
- *
- * A forest is a list of plants put somewhere (`add`); `grown` waits for their kinds (each its coarsest shape first) and
- * puts the trees down; `update` keeps the small plants round the eye; the renderer's own update (`Flora.update`, the
- * world's, before every frame) draws them. Its plants are measured off their builds (how tall, how far they reach, how
- * thick at the foot: for the walker, the birds and the picked plant's ring) and found by a ray (`pick`) against their
- * own shapes.
- *
- * Nothing here loads the renderer: a dome's inside (./interior.ts) is handed the flora it plants in by whoever builds it.
+ * A world's forest of our own plants, thousands of them, drawn by the universal renderer ($content/assets/render,
+ * through ./drawn.js `createFlora`): every kind (a plant at its version, stage and seed) built once in the asset box,
+ * every plant of a kind one more copy of it. Nothing of a plant runs here. The world decides where each stands, and
+ * that a tree is drawn however far off (as its picture) while a small plant is put down only as far as the forest
+ * streams it (`STREAMS`); the renderer's one selector (assets/render/lod.js) decides the level each copy is drawn at.
  */
 import * as THREE from 'three';
 import { NotInCatalog, withQuery } from '../../assets/catalog.js';

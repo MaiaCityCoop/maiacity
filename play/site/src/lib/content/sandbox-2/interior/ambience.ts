@@ -1,16 +1,8 @@
 /**
- * The sounds of the land: the forest always, the stream as you come near
- * it, the hens, the geese and the goats as you walk up to them. Each is a
- * looping recording (/sounds/ in the media library, from the CDN), streamed rather than decoded, so the
- * five-minute forest costs next to nothing in memory; Web Audio sets its
- * volume, easing it up and down as the distances change. Under the glass of
- * a dome everything outside is muffled.
- *
- * The recordings start loading the moment the world is made, while it is
- * still loading, and play as soon as it opens: a page you came to by a click
- * (the dashboard's) may make sound at once. Where the browser still holds it
- * back, it starts with your first touch, click or key. play serves each
- * recording in parts (Range), so a loop begun anywhere in it plays at once.
+ * The sounds of the land: the forest, the stream, the hens, geese and goats, each nearer as you walk up to it, muffled
+ * under a dome's glass. Each is a looping recording streamed (not decoded: the five-minute forest costs next to nothing
+ * in memory) from the media library, play serving it in parts (Range) so a loop begun anywhere plays at once; Web Audio
+ * eases its volume. Where the browser holds sound back, it starts with the first touch, click or key.
  */
 import { asset } from '$lib/site/media/url'
 import { playIfAllowed, resumeIfAllowed } from '$lib/kernel/media.js'
