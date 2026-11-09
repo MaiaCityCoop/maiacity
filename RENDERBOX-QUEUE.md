@@ -1,4 +1,17 @@
-# Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
+# Mac render box: queue and handover
+
+## THE QUEUE I HOLD (15:28 Berlin)
+1. **#8 602a8849 run 3** — running (render 54630c308, head 32be9ea42; step 0 clean at 15:24, its job now).
+2. 544485e2's viewer test (contact shadow off) — 2 min, no timing.
+3. **#6 6fd5e63f** — its newest job (render 749edcc8a: head 56db61b on main a98ceb8), after a load wait (< 5).
+4. **7af6e162** — re-run of its job (render 98c9211d0, head 8f0f6a5ae; run 1 was under indexing load), load wait.
+5. From then on **the runner picks jobs itself** (`runner.sh` + `pick.py`, nohup): every 2 min it fetches
+   `refs/heads/intent-work/*`, takes each `<id>-render` whose tip is newer than the one last run, isn't the box's own out/
+   push, and whose README.md has a line starting `MAC JOB READY`; intents at Proposal or one look from it first, then by
+   GPU number; each after a load wait. Builders: add that line, nothing else is needed.
+- Seen without the line (not picked until it's added): 3a8b135a (#12, ddef089af), c1bee1f8 (#9, a606ae6e3), ed6694c3
+  (Safari walk, 35b45a0c2).
+- 0b4c007b's looks wait for play's merge of main (a98ceb8, with 660ad67f) into its branch; then I run them myself.
 
 ## 15:20 Berlin — 7af6e162 (head 8f0f6a5ae; out/ 88e2ac4c3) not recorded yet: also under the indexing load
 - Warm measured load quiet after **34 s with 0 pictures taken** (bound: under 30 s); cold 97 s with 106 taken. Warm vs
