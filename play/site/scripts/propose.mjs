@@ -49,7 +49,6 @@ if (Buffer.byteLength(source) > 16 * 1024 * 1024) fail('refused: over 16 MB');
 const libs = [...new Set([...source.matchAll(/\brequire\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1]))];
 console.log(`${file}: ${(source.length / 1024).toFixed(0)} kB, ${lines.length} lines (longest ${longest}), requires ${libs.join(', ')}`);
 
-/* ---- every build it names, held by play's catalog ---- */
 const named = [...new Set([...source.matchAll(new RegExp(`(?:hash:\\s*'|use:)(${HEX})`, 'g'))].map((m) => m[1]))];
 if (named.length) {
 	const res = await fetch(`${url}/api/catalog`, { headers });
@@ -82,7 +81,6 @@ if (named.length) {
 }
 if (flag('check')) process.exit(0);
 
-/* ---- proposed over MCP ---- */
 const noteFile = arg('note');
 if (!noteFile) fail('Give --note <note.md>: what it is, what changed, how it was checked.');
 const note = readFileSync(noteFile, 'utf8').trim();
