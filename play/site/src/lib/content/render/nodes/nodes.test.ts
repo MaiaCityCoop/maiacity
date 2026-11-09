@@ -186,6 +186,79 @@ describe('the render kit in TSL', () => {
 		expect(pa).not.toBe(pb);
 	});
 
+	// 660ad67f: three's node builder reads the drawn geometry's attributes (a map's `uv`, vertex colours' `color`) into
+	// the shader, which three's key never held; keyed by shape alone, Sandbox 5's plants joined each other's programs
+	test('two of ours on meshes whose attributes differ never share a program', () => {
+		const pairs: [Partial<THREE.MeshStandardMaterialParameters>, (g: THREE.BufferGeometry) => void][] = [
+			[{ map: new THREE.Texture() }, (g) => g.deleteAttribute('uv')],
+			[{ vertexColors: true }, (g) => g.setAttribute('color', g.attributes.position.clone())],
+			[{}, (g) => g.deleteAttribute('normal')]
+		];
+		for (const [params, change] of pairs) {
+			const { r } = renderer();
+			const { scene, camera } = lit();
+			const [a, b] = [0, 1].map(() => Object.assign(nodeOf(new THREE.MeshStandardMaterial(params)) as any, { fade: aFade }));
+			const g = new THREE.BoxGeometry();
+			change(g);
+			scene.add(new THREE.Mesh(new THREE.BoxGeometry(), a), new THREE.Mesh(g, b));
+			r.render(scene, camera);
+			const p = (m: any) => (r.properties.get(m) as any).currentProgram;
+			expect(a._latestBuilder.fragmentShader + a._latestBuilder.vertexShader).not.toBe(b._latestBuilder.fragmentShader + b._latestBuilder.vertexShader);
+			expect(p(a)).toBeTruthy();
+			expect(p(a)).not.toBe(p(b));
+		}
+	});
+
+	test('a clash the key misses: the one whose source differs draws one frame with the owner’s uniforms, then takes its own', () => {
+		const { r } = renderer();
+		const { scene, camera } = lit();
+		const [a, b, c] = [0, 1, 2].map(() => Object.assign(nodeOf(new THREE.MeshStandardMaterial({ map: new THREE.Texture() })) as any, { fade: aFade }));
+		// every key of this kind the same, whatever the shader: a clash forced
+		const P = Object.getPrototypeOf(a), key = P.customProgramCacheKey;
+		P.customProgramCacheKey = function (this: any) {
+			return this.own ? `own${this.id}` : 'same';
+		};
+		try {
+			const g = new THREE.BoxGeometry();
+			g.deleteAttribute('uv');
+			scene.add(new THREE.Mesh(new THREE.BoxGeometry(), a), new THREE.Mesh(g, b), new THREE.Mesh(new THREE.BoxGeometry(), c));
+			(globalThis as any).__clashes = [];
+			r.render(scene, camera);
+			// the clash's frame: b in a's program with a's own uniforms and buffers, none of its own into a's layout
+			const q = (m: any) => r.properties.get(m) as any;
+			expect(q(b).currentProgram).toBe(q(a).currentProgram);
+			expect(q(b).uniformsList).toBe(q(a).uniformsList);
+			expect(b.uniformsGroups).toBe(a.uniformsGroups);
+			expect((globalThis as any).__clashes).toHaveLength(1);
+			expect((globalThis as any).__clashes[0].at).not.toBe((globalThis as any).__clashes[0].was);
+			r.render(scene, camera);
+		} finally {
+			P.customProgramCacheKey = key;
+		}
+		const p = (m: any) => (r.properties.get(m) as any).currentProgram;
+		expect(b.own).toBe(true);
+		expect(p(b)).not.toBe(p(a));
+		// the same source still shares
+		expect(c.own).toBeUndefined();
+		expect(p(c)).toBe(p(a));
+	});
+
+	test('twenty copies of one shape on meshes alike link one program', () => {
+		const { r } = renderer();
+		const { scene, camera } = lit();
+		const leaf = new THREE.Texture();
+		for (let i = 0; i < 20; i++) {
+			const m: any = nodeOf(new THREE.MeshStandardMaterial({ color: i * 0x0a0a0a, map: leaf, alphaTest: 0.5 }));
+			m.fade = aFade;
+			scene.add(new THREE.InstancedMesh(new THREE.PlaneGeometry(), m, 4));
+		}
+		r.render(scene, camera);
+		const programs = new Set<any>();
+		scene.traverse((o: any) => o.material && programs.add((r.properties.get(o.material) as any).currentProgram));
+		expect(programs.size).toBe(1);
+		expect([...programs][0]).toBeTruthy();
+	});
+
 	test('the sky’s sun lights a node material, its cascades shadowing it', () => {
 		const { r, shaders } = renderer();
 		const scene = new THREE.Scene();
