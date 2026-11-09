@@ -1,13 +1,12 @@
 /**
- * The film camera's hold on a world, what makes any sandbox a set the studio can shoot: one contract for every world,
- * `window.__world`, made by `connectFilm`. A shot is rendered frame by frame, each frame set from the shot alone (the
- * camera, the hour, the world's clock, the lights), so the same shot renders the same pixels every time. While a film
- * holds it, a world on the kit
+ * The film camera's hold on a world, one contract for every world (`window.__world`, made by `connectFilm`). Each frame
+ * is set from the shot alone (camera, hour, the world's clock, lights), so a shot renders the same pixels every time.
+ * While a film holds it, a world on the kit
  *   · draws nothing itself while `filmDraws()` (the film draws the canvas, only when asked);
  *   · runs its animations on `worldTime()` when the film sets it (the shot's clock), else on its own;
  *   · keeps its resolution while `filmHoldsSize()` (`stage.adapt(now, filmHoldsSize())`).
- * A shot names its world (../game/film/worlds.js); its camera may ride in one of the world's own frames (the van),
- * put there once the world's moving parts (`parts`) have come to the shot's moment.
+ * A shot names its world (../game/film/worlds.js); its camera may ride in one of the world's frames (the van), put there
+ * once the world's moving parts (`parts`) have come to the shot's moment.
  */
 import * as THREE from 'three';
 
@@ -36,10 +35,7 @@ import * as THREE from 'three';
 // the three rules of a world under the film camera are the film renderer's
 export { filmDraws, filmHoldsSize, filmPlays, worldTime } from '$lib/content/render/film.js';
 
-/**
- * A pose in a frame (an object of the world: its place and its turn now) as a pose in the world.
- * @param {THREE.Object3D} frame @param {Pose | number[]} p @returns {Pose}
- */
+/** A pose in a frame (its place and turn now) as a pose in the world. @param {THREE.Object3D} frame @param {Pose | number[]} p @returns {Pose} */
 export function poseIn(frame, p) {
 	frame.updateMatrixWorld(true);
 	const at = frame.localToWorld(new THREE.Vector3(p[0], p[1], p[2]));
@@ -48,19 +44,13 @@ export function poseIn(frame, p) {
 	return [at.x, at.y, at.z, Math.atan2(-d.x, -d.z), Math.asin(Math.max(-1, Math.min(1, d.y)))];
 }
 
-/**
- * A camera put at a pose, as the film flies it (yaw about y, then pitch).
- * @param {THREE.Camera} camera @param {Pose | number[]} p
- */
+/** A camera put at a pose (yaw about y, then pitch). @param {THREE.Camera} camera @param {Pose | number[]} p */
 export function aim(camera, p) {
 	camera.position.set(p[0], p[1], p[2]);
 	camera.rotation.set(p[4], p[3], 0, 'YXZ');
 }
 
-/**
- * The pose of a camera as the film flies it, in the world or (frame) in one of its frames.
- * @param {THREE.Camera} camera @param {THREE.Object3D} [frame] @returns {Pose}
- */
+/** A camera's pose, in the world or in `frame`. @param {THREE.Camera} camera @param {THREE.Object3D} [frame] @returns {Pose} */
 export function poseOf(camera, frame) {
 	camera.updateMatrixWorld(true);
 	const at = camera.getWorldPosition(new THREE.Vector3());
@@ -73,11 +63,7 @@ export function poseOf(camera, frame) {
 	return [at.x, at.y, at.z, Math.atan2(-d.x, -d.z), Math.asin(Math.max(-1, Math.min(1, d.y)))];
 }
 
-/**
- * A bare hold on a camera, for a world whose camera controls are its own (the planet's).
- * @param {THREE.Camera} camera
- * @returns {CameraHold}
- */
+/** A bare hold on a camera, for a world whose controls are its own (the planet's). @param {THREE.Camera} camera @returns {CameraHold} */
 export function createCameraHold(camera) {
 	/** @type {Pose | null} */
 	let pose = null;
@@ -117,17 +103,15 @@ export function createCameraHold(camera) {
  *   progress?: () => { label: string, done?: number, total?: number } | null,
  *   extra?: Record<string, unknown>
  * }} o
- *   sandbox, area: which world this is (a shot of another is refused); hold: the camera controller's hold (the walker
- *   and the orbit rig are holds); place: stand the world's walker here (where a shot is staged: what is near is
- *   built); animate: every animation to world time t; advance: anything else a frame needs once the hour is set
- *   (levels of detail, the nearest lamps); lights: the world's own lights a shot may scale and colour; frames: the
- *   world's own frames a shot's camera may ride in (camera `frame`), each where it stands once animate has run; parts: the world's moving parts put where the shot has them
- *   (../game/film/worlds.js `parts`; each part by its channels' values, called every frame, with {} for none); stage: build
- *   what a shot needs and resolve when it is ready (default: stand at world.stand); holds: whether the world is still
- *   staged for that (default: yes); keep: keep built what these shots need; streams: holds is exact for any shot
- *   wherever it stands, so a cut to a held shot only moves (maia/content/sandbox-kit/stream.js); move: stand there at once;
- *   progress: what its stage is doing now, and how far (`done` of `total`) when it knows (the studio's loading screen
- *   shows it while Play readies the world; default: nothing said); extra: more on window.__world (debugging, sets)
+ *   sandbox, area: which world this is (a shot of another is refused); hold: the camera controller's hold (walker, orbit
+ *   rig); place: stand the walker here (what is near is built); animate: every animation to world time t; advance:
+ *   anything else a frame needs once the hour is set (levels of detail, lamps); lights: the world's own lights a shot may
+ *   scale and colour; frames: frames a shot's camera may ride in (camera `frame`), placed once animate has run; parts:
+ *   the moving parts by their channels' values (../game/film/worlds.js `parts`; every frame, {} for none); stage: build
+ *   what a shot needs, resolving when ready (default: stand at world.stand); holds: still staged for it (default: yes);
+ *   keep: keep built what these shots need; streams: holds is exact anywhere, so a cut to a held shot only moves
+ *   (./stream.js); move: stand there at once; progress: what its stage is doing (`done` of `total`), for the studio's
+ *   loading screen (default: nothing); extra: more on window.__world (debugging, sets)
  */
 export function connectFilm(o) {
 	const { renderer, scene, camera, hold, sky = null } = o;
@@ -158,15 +142,12 @@ export function connectFilm(o) {
 		...o.extra,
 		film: {
 			/**
-			 * Bring the world to world time t (seconds), the camera where `fly` put it: animations, the sun and sky for the
-			 * hour, whatever else the world advances, and the shadows drawn again. The world stays at t until the next
-			 * advance: a world whose clock the film holds (the Worlds page's, ../worlds/film.js) never runs on between two,
-			 * so the same t is the same world however the frames before it came. `lights` scales the lights over what the
-			 * hour gives them (1 = as the hour has them) and may recolour them.
-			 * `parts`: the world's moving parts the shot moves, by their channels' values at t (../game/film/shot.js `evaluate`).
-			 * `live`: a frame of the studio's live viewer, not a plate: the shadows are drawn again only when the world's own
-			 * rules say so (the sky's: when the sun or where they follow moves; every frame for a world that keeps
-			 * `shadowMap.autoUpdate`), as the game draws them.
+			 * Bring the world to world time t (s), the camera where `fly` put it: animations, sun and sky, whatever else
+			 * it advances, shadows drawn again. It stays at t until the next advance: a world whose clock the film holds
+			 * (../worlds/film.js) never runs on between two, so the same t is the same world. `lights` scales the lights
+			 * over the hour's (1 = as it has them) and may recolour them; `parts`: the moving parts by their channels'
+			 * values at t (../game/film/shot.js `evaluate`); `live`: a frame of the studio's live viewer, its shadows drawn
+			 * again only when the world's own rules say (the sky's, or `shadowMap.autoUpdate`), as the game draws them.
 			 * @param {number} t @param {FilmLight[]} [lights] @param {Record<string, Record<string, number>>} [parts] @param {boolean} [live]
 			 */
 			advance(t, lights = [], parts = {}, live = false) {
@@ -174,8 +155,7 @@ export function connectFilm(o) {
 				camera.updateMatrixWorld();
 				o.animate?.(t);
 				o.parts?.(parts);
-				// a pose in one of the world's frames, put where that frame stands now; and held again over whatever the
-				// world's own moves did to the camera as it came to t
+				// a pose in one of the world's frames, put where it stands now, held over what the world's moves did to it
 				const fr = framed, f = fr && o.frames?.[fr.frame]?.();
 				if (fr && f) hold.fly(...poseIn(f, fr.pose));
 				hold.apply();
@@ -198,8 +178,7 @@ export function connectFilm(o) {
 			holds: o.holds ?? (() => true),
 			/** @param {FilmWorldSpec[]} ws */
 			keep: o.keep ?? (() => {}),
-			/** whether `holds` is exact for any shot, wherever it stands (a world that streams by view): a cut to a shot it
-			 *  holds is then only a move of the camera, never a staging */
+			/** whether `holds` is exact for any shot wherever it stands: a cut to a held shot is only a camera move */
 			streams: o.streams ?? false,
 			/** stand where shot `w` is, at once, what it sees already built (`streams`) @param {FilmWorldSpec} w */
 			move: o.move ?? ((w) => place(w.stand[0], w.stand[1], 0, 0)),
