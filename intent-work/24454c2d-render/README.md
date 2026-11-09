@@ -1,5 +1,21 @@
 # Mac job: intent 24454c2d's c6, plants placed the way nature places them
 
+## Run 3, on `7a8c52a` (please run again)
+
+Run 2 is in `out-run2/`, on `ff3cc57`. Its look failed c6 as well: head's floor was still an even carpet. Every kind
+of a footprint shared one dither, and a cell stayed empty only if every kind said no, so nearly every cell held a
+plant. The masks only changed which kind it was.
+
+`7a8c52a` fixes that. A cell now holds a plant by the sum of its kinds' densities there, so the floor is thick where
+colonies overlap or a mask raises them, and open where none grows, with 88 % as many plants.
+`run3-points-topdown.png` shows the points of a 48 m square laid by the CPU, with trees and a path:
+- left, the old scattered floor, an even carpet;
+- right, the food forest v2's masks, with clover and strawberry rings round every trunk, ferns under the crowns, gaps
+  between colonies and a clear margin at the path.
+
+Run it the same way. `run.sh` takes the branch's tip, `7a8c52a` or later, and writes `out/`. Then commit `out/` and
+push this branch.
+
 ## Run 2, on `bf417ab` (please run again)
 
 Run 1 is in `out-run1/`, on `78f941f`. Its look failed c6. Head and base differed in only 0.1–1.7 % of pixels. The paths
