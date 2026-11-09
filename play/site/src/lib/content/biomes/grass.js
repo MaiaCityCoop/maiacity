@@ -45,24 +45,31 @@ import { grassMaterial, grassUniforms } from '../render/nodes/grass.js';
 
 /* ── the numbers ── */
 
-/** a cell's size (m): the unit a blade is named in */
-export const CELL = 4;
+/** a cell's size (m): the unit a blade is named in (2 m: near the eye, where the grass thins fast, a cell draws as
+ *  many blades as its nearest point keeps, so the smaller, the fewer drawn only to sink into the ground) */
+export const CELL = 2;
 /** a tile's cells across, by level: the nearer, the smaller (a tile draws as many of each of its cells' blades as its
- *  nearest point keeps, so a big tile far off draws many it sinks into the ground: 4, 4 and 8 m keep that few) */
-export const TILE_CELLS = [1, 2, 4];
+ *  nearest point keeps, so a big tile far off draws many it sinks into the ground: 2, 8 and 16 m keep that few) */
+export const TILE_CELLS = [1, 4, 8];
 /** the vertices of a blade, by level */
 export const VERTS = [15, 7, 4];
 /** how many pushers (the walker, animals) bend the grass at once */
 export const PUSHERS = 8;
 
 /**
- * Each device's grass: blades a square metre near, where each level ends (m), where every blade still stands, and the
- * narrowest a blade is drawn (px), and how fast they thin out past `near` (`keep`: (near / d) to its power).
- * @type {Record<'desktop' | 'small', { density: number, bands: [number, number, number], near: number, minPx: number, falloff: number }>}
+ * Each device's grass: blades a square metre at the eye, where each level ends (m), how far every blade still stands,
+ * the narrowest a blade is drawn (px), and how fast they thin out past `near` (`keep`: (near / d) to its power).
+ * As thick as real grass round the walker's feet (Samuel 2026-11-09: tufts of ten a square metre read as a sprinkle; a
+ * meadow holds hundreds to thousands of shoots), thinning as the square of the distance past `near`, so a world draws
+ * about as many triangles as at 150 out to 6 m: 700 within 2.5 m, about 70 at 8 m, 7 at 25 m on a desktop; each kept
+ * blade drawn wider as fewer stand, so the ground stays covered. Real density all the way out is intent e85a5860's
+ * (blades chosen on the graphics card). `viewer`: one biome's 12 m patch in the asset viewer, all of it near.
+ * @type {Record<'desktop' | 'small' | 'viewer', { density: number, bands: [number, number, number], near: number, minPx: number, falloff: number }>}
  */
 export const DEVICES = {
-	desktop: { density: 150, bands: [8, 25, 70], near: 6, minPx: 1.5, falloff: 1.8 },
-	small: { density: 70, bands: [5, 15, 35], near: 4, minPx: 1.5, falloff: 1.5 }
+	desktop: { density: 700, bands: [8, 25, 70], near: 2.5, minPx: 1.5, falloff: 2 },
+	small: { density: 260, bands: [5, 15, 35], near: 1.9, minPx: 1.5, falloff: 2 },
+	viewer: { density: 700, bands: [16, 30, 60], near: 14, minPx: 1.5, falloff: 2 }
 };
 
 /**
@@ -145,8 +152,9 @@ export function keep(d, dev) {
 	if (d >= end) return 0;
 	return Math.pow(dev.near / d, dev.falloff ?? 1.5);
 }
-/** how far over what is kept a blade still shows, sinking (in rank: a share of what is kept, so as few far as near) */
+/** how far a blade sinks as the eye goes (m): SINK, and FADE of how far out it is kept, so it never pops */
 export const FADE = 0.12;
+export const SINK = 0.6;
 /**
  * How much of the ground its grass stands on where the mask grows `grass` (0…1): a colony stands dense with bare ground
  * between, as grass grows, never thin all over; the mask's shares from PATCH[0] (none) to PATCH[1] (all of it).
@@ -155,10 +163,10 @@ export const PATCH = /** @type {const} */ ([0.04, 0.4]);
 /** @param {number} grass */
 export const standing = (grass) => smooth(PATCH[0], PATCH[1], grass);
 /**
- * How many real blades a drawn one stands for across: a desktop draws about 150 a square metre near where a meadow holds
- * thousands, so each is drawn as wide as the few it stands for and the ground is covered as a meadow's is.
+ * How many real blades a drawn one stands for across: a desktop draws 700 a square metre at the eye where a meadow
+ * holds a few thousand, so each is drawn as wide as the few it stands for and the ground is covered as a meadow's is.
  */
-export const STANDS = 2.5;
+export const STANDS = 1.5;
 /** how far a blade's middle bows the way it leans (of how far its tip reaches out), so it arches */
 export const BOW = 0.35;
 /**
@@ -169,8 +177,17 @@ export const BOW = 0.35;
 export function growAt(d, rank, end, dev, grass = 1) {
 	const reach = /** @type {number} */ (dev.bands[2]) * end;
 	const edge = 1 - smooth(reach - 6, reach, d);
-	const k = keep(d, dev) * standing(grass);
-	return Math.min(1, Math.max(0, (k * (1 + FADE) - rank) / (k * FADE + 1e-4))) * edge;
+	const out = keptTo(rank, dev, grass);
+	return Math.min(1, Math.max(0, (out - d) / (SINK + FADE * out))) * edge;
+}
+/**
+ * How far out a blade of `rank` is kept where the mask grows `grass`: where what is kept there (`keep` × `standing`)
+ * falls to its rank; 0 where it never stands. It grows in over the SINK + FADE of that before it.
+ * @param {number} rank @param {{ near: number, falloff?: number }} dev @param {number} [grass]
+ */
+export function keptTo(rank, dev, grass = 1) {
+	const s = standing(grass);
+	return rank >= s ? 0 : dev.near * Math.pow(Math.max(rank, 1e-6) / s, -1 / (dev.falloff ?? 1.5));
 }
 /** the circle the field ends in, for a blade (its end, 0.9…1 of the reach) @param {number} end @param {{ bands: number[] }} dev */
 export const endOf = (end, dev) => /** @type {number} */ (dev.bands[2]) * end;
@@ -494,7 +511,7 @@ export function tilesAround(x, z, dev, n, over) {
 		const m = over ? over(tx * CELL, tz * CELL, w) : { ready: true, most: 1 };
 		if (!m.ready || m.most <= 0) return;
 		// every blade with a rank under what is kept at its nearest point where the mask grows the most, and the fade over it
-		const count = Math.min(n, Math.ceil(n * Math.min(1, keep(d, dev) * standing(m.most) * (1 + FADE)) + 1));
+		const count = Math.min(n, Math.ceil(n * Math.min(1, keep(d, dev) * standing(m.most)) + 1));
 		if (count > 0) out.push({ tx, tz, level, count });
 	};
 	const r = Math.ceil(end / W);
@@ -513,7 +530,7 @@ export const fieldMask = (dev, at) => new GrassMask({ at, size: 256, texel: Math
  * A biome's grass, drawn round the eye.
  * @param {{
  *   params?: Partial<GrassParams>, at: (x: number, z: number) => { grass: number, tall: number, y?: number },
- *   device?: 'desktop' | 'small', shadows?: boolean,
+ *   device?: 'desktop' | 'small' | 'viewer', shadows?: boolean,
  *   wind?: { uniforms: { direction: any, time: any }, strength: (x: any, z: any) => any, tick?: (t?: number) => void } | null
  * }} o
  *   at: where grass grows and how tall, and the ground's height (`grassOfRecipe`); device: whose budget; wind: the

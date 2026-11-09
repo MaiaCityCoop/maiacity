@@ -218,6 +218,37 @@ export function createPlantings(o) {
 		}
 		state.floors++;
 	};
+	/**
+	 * A biome's own patch (its build, a round floor of it with its `ground` and a group `cover-<kind>` a kind, its card's
+	 * catalog on the root): its grass grown blade by blade on the patch as a world grows it ($content/biomes/grass.js),
+	 * as thick as real grass all over it (the viewer's budget: one floor near, not a world), in place of its grass kinds'
+	 * copies; a biome without grass shown as built.
+	 */
+	const patch = (root) => {
+		const catalog = root.userData?.catalog;
+		const ground = catalog && root.getObjectByName('ground');
+		if (!ground?.isMesh) return;
+		let recipe;
+		try {
+			recipe = biomeOfCard({ group: 'biomes', id: root.name || 'biome', version: 1, label: root.name || 'biome', catalog });
+		} catch {
+			return;
+		}
+		if (!growsGrass(recipe)) return;
+		ground.geometry.computeBoundingSphere();
+		const r = (ground.geometry.parameters?.radius ?? ground.geometry.boundingSphere?.radius ?? 6) - 0.1;
+		recipe.cover.forEach((c) => {
+			if (!c.rows && (c.kind === 'grass' || c.kind === 'tallgrass')) {
+				const kind = root.getObjectByName(`cover-${c.kind}`);
+				if (kind) kind.visible = false;
+			}
+		});
+		const y = ground.position.y;
+		const of = grassOfRecipe(recipe, (x, z) => Math.hypot(x, z) < r);
+		const field = grassField({ params: recipe.grass, device: smallDevice() ? 'small' : 'viewer', at: (x, z) => ({ ...of(x, z), y }) });
+		root.add(field.object);
+		covers.push({ update: () => field.update(o.camera, performance.now() / 1000), dispose: () => (field.object.removeFromParent(), field.dispose()) });
+	};
 	return {
 		state,
 		/** the plantings of `root` drawn, those shown before put away; how many it plants and how many of them are missing */
@@ -230,6 +261,7 @@ export function createPlantings(o) {
 			// a build kept running in the box moves what it plants: each node followed (play/SPEC.md §4.11)
 			moving = root.userData?.view?.ticks === true;
 			lay(root);
+			patch(root);
 			if (!list.length) return state;
 			const a = renderer();
 			const kinds = new Map();
