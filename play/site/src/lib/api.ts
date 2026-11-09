@@ -1,5 +1,6 @@
 // play's API, same origin (/api behind Caddy; the dev server proxies it)
 import { hashText } from '$lib/kernel/hash.js';
+import { fileUrl } from './kernel/files.js';
 
 export class ApiError extends Error {
 	constructor(message: string, public status: number) {
@@ -39,8 +40,7 @@ export type Level = 'admin' | 'citizen' | 'traveler';
 export type Me = { id: string; name: string; level: Level; may: Record<string, string[]>; founder: number | null };
 export const may = (me: Me | null, action: string, what: string) => !!me?.may?.[action]?.some((x) => x === '*' || x === what);
 
-/** play's file named by its BLAKE3 hash (play/SPEC.md §4.5) */
-export const fileUrl = (hash: string) => `/api/files/${hash}`;
+export { fileUrl };
 
 async function file(hash: string, init?: RequestInit) {
 	const r = await fetch(fileUrl(hash), { credentials: 'same-origin', ...init });

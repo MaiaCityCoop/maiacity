@@ -11,7 +11,8 @@
 	// an answer that is no count, or none at all (offline, play down), leaves the number as it is
 	const founderCount = (): Promise<{ count?: unknown } | null> =>
 		fetch(new URL('api/founders', PLAY)).then(
-			(r) => (r.ok ? r.json() : null),
+			// a body that is no JSON (an error page in front of play) is no count either
+			(r) => (r.ok ? r.json().catch(() => null) : null),
 			() => null
 		);
 
